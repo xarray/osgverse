@@ -11,6 +11,7 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <iostream>
 #include <sstream>
+#include <readerwriter/LoadSceneGLTF.h>
 #include <pipeline/ShadowModule.h>
 
 #define SHADER_DIR "../shaders/"
@@ -69,9 +70,9 @@ static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Gro
 
 int main(int argc, char** argv)
 {
-    osg::ref_ptr<osg::Node> scene =
-        (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFile(argv[1]);
-    if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
+    osg::ref_ptr<osg::Node> scene = osgVerse::loadGltf(
+        "../models/DamagedHelmet/DamagedHelmet.gltf", false);
+    if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -83,12 +84,12 @@ int main(int argc, char** argv)
     otherSceneRoot->setNodeMask(DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->addChild(otherSceneRoot.get());
+    //root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
-    setupPipeline(pipeline.get(), &viewer, root.get(), 1920, 1080);
+    //setupPipeline(pipeline.get(), &viewer, root.get(), 1920, 1080);
 
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

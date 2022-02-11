@@ -90,17 +90,19 @@ FIND_PATH(OSG_LIB_DIR libosg.so osg.lib
     /usr/local/lib
 )
 
-MACRO(LINK_OSG_LIBRARY)
+MACRO(LINK_OSG_LIBRARY PROJECT_NAME)
     FOREACH(OSG_LIB_NAME ${ARGN})  
-        TARGET_LINK_LIBRARIES(${EXE_NAME} debug ${OSG_LIB_NAME}d
-                                      optimized ${OSG_LIB_NAME})  
+        TARGET_LINK_LIBRARIES(${PROJECT_NAME} debug ${OSG_LIB_NAME}d
+                                           optimized ${OSG_LIB_NAME})  
     ENDFOREACH()
 ENDMACRO(LINK_OSG_LIBRARY)
 
 FIND_PACKAGE(OpenGL)
-INCLUDE_DIRECTORIES(${OPENGL_INCLUDE_DIR} ${OSG_INCLUDE_DIR} .)
+INCLUDE_DIRECTORIES(${OPENGL_INCLUDE_DIR} ${OSG_INCLUDE_DIR} . 3rdparty)
 LINK_DIRECTORIES(${OSG_LIB_DIR} .)
 #########################################
 
+ADD_SUBDIRECTORY(3rdparty)
+ADD_SUBDIRECTORY(readerwriter)
 ADD_SUBDIRECTORY(pipeline)
 ADD_SUBDIRECTORY(viewer)
