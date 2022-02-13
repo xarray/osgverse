@@ -16,11 +16,13 @@ namespace osgVerse
         image->setInternalTextureFormat(GL_RGBA);
 
         osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
-        *ptr = osg::Vec4ub(color[0] * 255, color[1] * 255, color[2] * 255, 255);
+        *ptr = osg::Vec4ub(color[0] * 255, color[1] * 255, color[2] * 255, color[3] * 255);
 
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
         tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
         tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
+        tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
+        tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
         tex2D->setImage(image.get());
         return tex2D.release();
     }

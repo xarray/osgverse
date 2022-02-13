@@ -15,6 +15,7 @@ namespace osgVerse
     :   _drawBuffer(GL_NONE), _readBuffer(GL_NONE), _cullFrameNumber(0),
         _inPipeline(inPipeline), _drawBufferApplyMask(false), _readBufferApplyMask(false)
     {
+        _nearFarUniform = new osg::Uniform("NearFarPlanes", osg::Vec2());
         _calculatedNearFar.set(-1.0, -1.0);
         _clearMask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
         _clearColor.set(0.0f, 0.0f, 0.0f, 0.0f);
@@ -58,6 +59,8 @@ namespace osgVerse
             double ratio = 0.0, fovy = 0.0;
             proj.getPerspective(fovy, ratio, znear, zfar);
         }
+
+        _nearFarUniform->set(osg::Vec2(znear, zfar));
         _calculatedNearFar.set(znear, zfar);
         return _calculatedNearFar;
     }
@@ -130,13 +133,14 @@ namespace osgVerse
             }
         }
 
+        osg::Camera* forwardCam = renderInfo.getCurrentCamera();
         if (!_depthBlitList.empty())
         {
             typedef std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> CamFboMap;
             ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0); // write to default framebuffer
 
             int sWidth = 1920, tWidth = 1920, sHeight = 1080, tHeight = 1080;
-            osg::Viewport* viewport = renderInfo.getCurrentCamera()->getViewport();
+            osg::Viewport* viewport = forwardCam->getViewport();
             if (viewport != NULL) { tWidth = viewport->width(); tHeight = viewport->height(); }
 
             // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
@@ -145,14 +149,17 @@ namespace osgVerse
             {
                 osg::Camera* cam = itr->get();
                 CamFboMap::const_iterator fboItr = _depthFboMap.find(cam);
-                if (!cam || fboItr == _depthFboMap.end()) continue;
+                if (!cam || fboItr == _depthFboMap.end()) continue; else viewport = cam->getViewport();
+                if (viewport != NULL) { sWidth = viewport->width(); sHeight = viewport->height(); }
 
                 osg::FrameBufferObject* fbo = fboItr->second.get();
-                viewport = cam->getViewport();
-                if (viewport != NULL) { sWidth = viewport->width(); sHeight = viewport->height(); }
                 fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
                 ext->glBlitFramebuffer(0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
-                    GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+                                       GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+#if 0
+                OSG_NOTICE << "Blitting " << cam->getName() << ": " << sWidth << "x" << sHeight << " => "
+                           << forwardCam->getName() << ": " << tWidth << "x" << tHeight << std::endl;
+#endif
             }
             ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
         }

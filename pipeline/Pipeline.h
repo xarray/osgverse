@@ -20,9 +20,13 @@ namespace osgVerse
     public:
         enum BufferType
         {
-            RGB_INT8 = 0, RGBA_INT8, RGB_FLOAT16, RGBA_FLOAT16,
-            RGB_FLOAT32, RGBA_FLOAT32, R_FLOAT16, R_FLOAT32,
-            DEPTH16, DEPTH32
+            RGB_INT8 = 0/*24bit*/, RGB_INT5/*16bit*/, RGB_INT10/*32bit*/,
+            RGB_FLOAT16/*48bit*/, RGB_FLOAT32/*96bit*/, SRGB_INT8/*24bit*/,
+            RGBA_INT8/*32bit*/, RGBA_INT5_1/*16bit*/, RGBA_INT10_2/*32bit*/,
+            RGBA_FLOAT16/*64bit*/, RGBA_FLOAT32/*128bit*/, SRGBA_INT8/*24bit*/,
+            R_INT8/*8bit*/, R_FLOAT16/*16bit*/, R_FLOAT32/*32bit*/,
+            RG_INT8/*16bit*/, RG_FLOAT16/*32bit*/, RG_FLOAT32/*64bit*/,
+            DEPTH16/*16bit*/, DEPTH24_STENCIL8/*32bit*/, DEPTH32/*32bit*/
         };
         
         struct Stage : public osg::Referenced
@@ -89,6 +93,7 @@ namespace osgVerse
 
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
+        void applyDefaultInputStateSet(osg::StateSet* ss);
         
         std::vector<osg::ref_ptr<Stage>> _stages;
         osg::ref_ptr<osgVerse::DeferredRenderCallback> _deferredCallback;

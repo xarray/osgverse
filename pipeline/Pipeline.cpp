@@ -26,9 +26,9 @@ struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatr
             else
             {   // Persepective matrix
                 double tNear = (-nearFar[0] * proj(2, 2) + proj(3, 2))
-                    / (-nearFar[0] * proj(2, 3) + proj(3, 3));
+                             / (-nearFar[0] * proj(2, 3) + proj(3, 3));
                 double tFar = (-nearFar[1] * proj(2, 2) + proj(3, 2))
-                    / (-nearFar[1] * proj(2, 3) + proj(3, 3));
+                            / (-nearFar[1] * proj(2, 3) + proj(3, 3));
                 double ratio = fabs(2.0 / (tNear - tFar)), center = -(tNear + tFar) / 2.0;
                 proj.postMult(osg::Matrix(1.0f, 0.0f, 0.0f, 0.0f,
                                           0.0f, 1.0f, 0.0f, 0.0f,
@@ -68,14 +68,19 @@ public:
                                     ? getRenderStage()->getFrameBufferObject() : NULL;
         if (fbo && _callback.valid())
         {
+            // TODO: also blit for PACKED_DEPTH_STENCIL_BUFFER?
             if (fbo->hasAttachment(osg::Camera::DEPTH_BUFFER))
                 _callback->registerDepthFBO(getCamera(), fbo);
         }
 
-        //double ratio = 0.0, fovy = 0.0, znear = 0.0, zfar = 0.0;
-        //getProjectionMatrix().getPerspective(fovy, ratio, znear, zfar);
-        //printf("%s[%d] %s: %lg, %lg\n", getName().c_str(), getFrameStamp()->getFrameNumber(),
-        //       getCamera()->getName().c_str(), znear, zfar);
+        // FIXME: resizing window will cause input-stage's ratio different from the forward one
+#if 0
+        double ratio = 0.0, fovy = 0.0, znear = 0.0, zfar = 0.0;
+        getProjectionMatrix().getPerspective(fovy, ratio, znear, zfar);
+        OSG_NOTICE << getName() << ", FrameNo = " << getFrameStamp()->getFrameNumber()
+                   << ", Camera = " << getCamera()->getName() << ": Ratio = " << ratio
+                   << ", NearFar = " << znear << "/" << zfar << std::endl;
+#endif
     }
 
 protected:
@@ -220,6 +225,7 @@ namespace osgVerse
         forwardCam->setPreDrawCallback(_deferredCallback.get());
         forwardCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
         forwardCam->setGraphicsContext(_stageContext.get());
+        forwardCam->getOrCreateStateSet()->addUniform(_deferredCallback->getNearFarUniform());
 
         if (!_stages.empty()) forwardCam->setClearMask(0);
         view->addSlave(forwardCam.get(), osg::Matrix(), osg::Matrix(), true);
@@ -245,7 +251,8 @@ namespace osgVerse
             BufferType type = (BufferType)va_arg(params, int);
             osg::Camera::BufferComponent comp = (buffers == 1) ? osg::Camera::COLOR_BUFFER
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
-            if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
+            if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
+            else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             osg::ref_ptr<osg::Texture2D> tex = createTexture(type, _stageSize[0], _stageSize[1]);
             if (i > 0) s->camera->attach(comp, tex.get());
@@ -255,6 +262,7 @@ namespace osgVerse
         va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
+        applyDefaultInputStateSet(s->camera->getOrCreateStateSet());
         s->camera->setCullMask(cullMask);
         s->camera->setUserValue("NeedNearFarCalculation", true);
         s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
@@ -274,7 +282,8 @@ namespace osgVerse
             BufferType type = (BufferType)va_arg(params, int);
             osg::Camera::BufferComponent comp = (buffers == 1) ? osg::Camera::COLOR_BUFFER
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
-            if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
+            if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
+            else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             osg::ref_ptr<osg::Texture2D> tex = createTexture(type, _stageSize[0], _stageSize[1]);
             if (i > 0) s->camera->attach(comp, tex.get());
@@ -303,7 +312,8 @@ namespace osgVerse
             BufferType type = (BufferType)va_arg(params, int);
             osg::Camera::BufferComponent comp = (buffers == 1) ? osg::Camera::COLOR_BUFFER
                 : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
-            if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
+            if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
+            else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             osg::ref_ptr<osg::Texture2D> tex = createTexture(type, _stageSize[0], _stageSize[1]);
             s->runner->attach(comp, tex.get());
@@ -339,8 +349,40 @@ namespace osgVerse
             osg::StateSet* ss = s.deferred ?
                 s.runner->geometry->getOrCreateStateSet() : s.camera->getOrCreateStateSet();
             ss->setAttributeAndModes(prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+            ss->addUniform(_deferredCallback->getNearFarUniform());
         }
-        s.name = name; s.camera->setName(name);
+        s.name = name; if (!s.deferred) s.camera->setName(name);
+    }
+
+    void Pipeline::applyDefaultInputStateSet(osg::StateSet* ss)
+    {
+        static std::string uniformNames[] = {
+            /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
+            /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
+        };
+        static osg::ref_ptr<osg::Texture2D> tex0 = createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        static osg::ref_ptr<osg::Texture2D> tex1 = createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+        ss->setTextureAttributeAndModes(0, tex1.get());
+        ss->setTextureAttributeAndModes(1, tex0.get());
+        ss->setTextureAttributeAndModes(2, tex0.get());
+        ss->setTextureAttributeAndModes(3, tex0.get());
+        ss->setTextureAttributeAndModes(4, tex0.get());
+        ss->setTextureAttributeAndModes(5, tex1.get());
+        ss->setTextureAttributeAndModes(6, tex0.get());
+        for (int i = 0; i < 7; ++i) ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
+
+        osg::Program* prog = static_cast<osg::Program*>(ss->getAttribute(osg::StateAttribute::PROGRAM));
+        if (prog != NULL)
+        {
+            static std::string attributeNames[] = {
+                /*0*/"osg_Vertex", /*1*/"osg_Weights", /*2*/"osg_Normal", /*3*/"osg_Color",
+                /*4*/"osg_SecondaryColor", /*5*/"osg_FogCoord", /*6*/"osg_Tangent", /*7*/"osg_Binormal",
+                /*8*/"osg_TexCoord0", /*9*/"osg_TexCoord1", /*10*/"osg_TexCoord2", /*11*/"osg_TexCoord3",
+                /*12*/"osg_TexCoord4", /*13*/"osg_TexCoord5", /*14*/"osg_TexCoord6", /*15*/"osg_TexCoord7"
+            };
+            prog->addBindAttribLocation(attributeNames[6], 6);
+        }
     }
 
     osg::Texture2D* Pipeline::createTexture(BufferType type, int w, int h)
@@ -356,45 +398,100 @@ namespace osgVerse
             tex->setSourceFormat(GL_RGB);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
-        case RGBA_INT8:
-            tex->setInternalFormat(GL_RGBA);
+        case RGB_INT5:
+            tex->setInternalFormat(GL_RGB5);
             tex->setSourceFormat(GL_RGBA);
-            tex->setSourceType(GL_UNSIGNED_BYTE);
+            tex->setSourceType(GL_UNSIGNED_SHORT_5_5_5_1);
+            break;
+        case RGB_INT10:
+            tex->setInternalFormat(GL_RGB10);
+            tex->setSourceFormat(GL_RGB);
+            tex->setSourceType(GL_UNSIGNED_INT_10_10_10_2);
             break;
         case RGB_FLOAT16:
             tex->setInternalFormat(GL_RGB16F_ARB);
             tex->setSourceFormat(GL_RGB);
-            tex->setSourceType(GL_FLOAT);
-            break;
-        case RGBA_FLOAT16:
-            tex->setInternalFormat(GL_RGBA16F_ARB);
-            tex->setSourceFormat(GL_RGBA);
-            tex->setSourceType(GL_FLOAT);
+            tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RGB_FLOAT32:
             tex->setInternalFormat(GL_RGB32F_ARB);
             tex->setSourceFormat(GL_RGB);
             tex->setSourceType(GL_FLOAT);
             break;
+        case SRGB_INT8:
+            tex->setInternalFormat(GL_SRGB8);
+            tex->setSourceFormat(GL_RGB);
+            tex->setSourceType(GL_UNSIGNED_BYTE);
+            break;
+        case RGBA_INT8:
+            tex->setInternalFormat(GL_RGBA);
+            tex->setSourceFormat(GL_RGBA);
+            tex->setSourceType(GL_UNSIGNED_BYTE);
+            break;
+        case RGBA_INT5_1:
+            tex->setInternalFormat(GL_RGB5_A1);
+            tex->setSourceFormat(GL_RGBA);
+            tex->setSourceType(GL_UNSIGNED_SHORT_5_5_5_1);
+            break;
+        case RGBA_INT10_2:
+            tex->setInternalFormat(GL_RGB10_A2);
+            tex->setSourceFormat(GL_RGBA);
+            tex->setSourceType(GL_UNSIGNED_INT_10_10_10_2);
+            break;
+        case RGBA_FLOAT16:
+            tex->setInternalFormat(GL_RGBA16F_ARB);
+            tex->setSourceFormat(GL_RGBA);
+            tex->setSourceType(GL_HALF_FLOAT);
+            break;
         case RGBA_FLOAT32:
             tex->setInternalFormat(GL_RGBA32F_ARB);
             tex->setSourceFormat(GL_RGBA);
             tex->setSourceType(GL_FLOAT);
             break;
+        case SRGBA_INT8:
+            tex->setInternalFormat(GL_SRGB8_ALPHA8);
+            tex->setSourceFormat(GL_RGBA);
+            tex->setSourceType(GL_UNSIGNED_BYTE);
+            break;
+        case R_INT8:
+            tex->setInternalFormat(GL_LUMINANCE);
+            tex->setSourceFormat(GL_LUMINANCE);
+            tex->setSourceType(GL_UNSIGNED_BYTE);
+            break;
         case R_FLOAT16:
             tex->setInternalFormat(GL_LUMINANCE16F_ARB);
             tex->setSourceFormat(GL_LUMINANCE);
-            tex->setSourceType(GL_FLOAT);
+            tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
             tex->setInternalFormat(GL_LUMINANCE32F_ARB);
             tex->setSourceFormat(GL_LUMINANCE);
             tex->setSourceType(GL_FLOAT);
             break;
+        case RG_INT8:
+            tex->setInternalFormat(GL_RG8);
+            tex->setSourceFormat(GL_RG);
+            tex->setSourceType(GL_UNSIGNED_BYTE);
+            break;
+        case RG_FLOAT16:
+            tex->setInternalFormat(GL_RG16F);
+            tex->setSourceFormat(GL_RG);
+            tex->setSourceType(GL_HALF_FLOAT);
+            break;
+        case RG_FLOAT32:
+            tex->setInternalFormat(GL_RG32F);
+            tex->setSourceFormat(GL_RG);
+            tex->setSourceType(GL_FLOAT);
+            break;
         case DEPTH16:
             tex->setInternalFormat(GL_DEPTH_COMPONENT16);
             tex->setSourceFormat(GL_DEPTH_COMPONENT);
             tex->setSourceType(GL_FLOAT);
+            break;
+        case DEPTH24_STENCIL8:
+            tex->setInternalFormat(GL_DEPTH24_STENCIL8_EXT);
+            tex->setSourceFormat(GL_DEPTH_STENCIL_EXT);
+            tex->setSourceType(GL_UNSIGNED_INT_24_8_EXT);
             break;
         case DEPTH32:
             tex->setInternalFormat(GL_DEPTH_COMPONENT32);

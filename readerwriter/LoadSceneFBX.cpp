@@ -309,7 +309,10 @@ namespace osgVerse
                 }
                 tex2D->setImage(image.get());
                 tex2D->setName(originalName);
+
                 _textureMap[tData] = tex2D;
+                OSG_NOTICE << "[LoaderGLTF] " << originalName << " loaded for "
+                           << uniformNames[i] << std::endl;
             }
 
             ss->setTextureAttributeAndModes(i, tex2D);

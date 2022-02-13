@@ -31,6 +31,7 @@ namespace osgVerse
 
         osg::Vec2d cullWithNearFarCalculation(osgUtil::SceneView* sv);
         osg::Vec2d getCalculatedNearFar() const { return _calculatedNearFar; }
+        osg::Uniform* getNearFarUniform() { return _nearFarUniform.get(); }
 
         void setDrawBuffer(GLenum buf, bool applyMask)
         { _drawBuffer = buf; _drawBufferApplyMask = applyMask; }
@@ -81,6 +82,7 @@ namespace osgVerse
         std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> _depthFboMap;
         std::set<osg::observer_ptr<osg::Camera>> _depthBlitList;
         std::vector<osg::ref_ptr<RttRunner>> _runners;
+        osg::ref_ptr<osg::Uniform> _nearFarUniform;
         GLenum _drawBuffer, _readBuffer, _clearMask;
         osg::Vec4 _clearColor, _clearAccum;
         osg::Vec2d _calculatedNearFar;

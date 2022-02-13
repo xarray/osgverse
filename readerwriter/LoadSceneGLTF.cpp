@@ -83,22 +83,28 @@ namespace osgVerse
                 if (attrib.first.compare("POSITION") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* va = new osg::Vec3Array(size);
-                    va->setNormalize(attrAccessor.normalized);
                     memcpy(&(*va)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
-                    geom->setVertexArray(va);
+                    va->setNormalize(attrAccessor.normalized); geom->setVertexArray(va);
                 }
                 else if (attrib.first.compare("NORMAL") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* na = new osg::Vec3Array(size);
-                    na->setNormalize(attrAccessor.normalized);
                     memcpy(&(*na)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
-                    geom->setNormalArray(na); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+                    na->setNormalize(attrAccessor.normalized); geom->setNormalArray(na);
+                    geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+                }
+                else if (attrib.first.compare("TANGENT") == 0 && compSize == 4 && compNum == 4)
+                {
+                    osg::Vec4Array* ta = new osg::Vec4Array(size);
+                    memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
+                    ta->setNormalize(attrAccessor.normalized); geom->setVertexAttribArray(6, ta);
+                    geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
                 }
                 else if (attrib.first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
                 {
                     osg::Vec2Array* ta = new osg::Vec2Array(size);
-                    ta->setNormalize(attrAccessor.normalized);
                     memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
+                    ta->setNormalize(attrAccessor.normalized);
                     geom->setTexCoordArray(atoi(attrib.first.substr(9).c_str()), ta);
                 }
                 else
@@ -186,10 +192,12 @@ namespace osgVerse
         if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _scene.textures[occlusionID]);
         if (emissiveID >= 0) createTexture(ss, 5, uniformNames[5], _scene.textures[emissiveID]);
 
+#if 0
         if (material.alphaMode.compare("OPAQUE") == 0)  // FIXME: handle transparent
             ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
         else
             ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+#endif
     }
 
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,
@@ -217,7 +225,9 @@ namespace osgVerse
             tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
             tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
             tex2D->setImage(image.get()); tex2D->setName(imageSrc.uri);
+
             _textureMap[tex.source] = tex2D;
+            OSG_NOTICE << "[LoaderGLTF] " << imageSrc.uri << " loaded for " << name << std::endl;
         }
         ss->setTextureAttributeAndModes(u, tex2D);
         ss->addUniform(new osg::Uniform(name.c_str(), u));
