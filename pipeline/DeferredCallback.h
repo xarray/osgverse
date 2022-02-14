@@ -80,8 +80,9 @@ namespace osgVerse
         const std::vector<osg::ref_ptr<RttRunner>>& getRunners() const { return _runners; }
 
     protected:
+        typedef std::tuple<std::string, osg::Matrixf, osg::Vec3> MatrixAndPositionTuple;
+        std::map<osg::Camera*, MatrixAndPositionTuple> _cameraMatrixMap;
         std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> _depthFboMap;
-        std::map<osg::Camera*, std::pair<std::string, osg::Matrixf>> _cameraMatrixMap;
         std::set<osg::observer_ptr<osg::Camera>> _depthBlitList;
         std::vector<osg::ref_ptr<RttRunner>> _runners;
         osg::ref_ptr<osg::Uniform> _nearFarUniform;

@@ -33,25 +33,29 @@ namespace osgVerse
         if (_cameraMatrixMap.find(cam) != _cameraMatrixMap.end())
         { if (!addToList) _cameraMatrixMap.erase(cam); }
         else if (addToList && cam) _cameraMatrixMap[cam] =
-            std::pair<std::string, osg::Matrixf>(cam->getName() + "ProjectionToWorld", osg::Matrixf());
+            MatrixAndPositionTuple(cam->getName(), osg::Matrixf(), osg::Vec3());
     }
 
     void DeferredRenderCallback::applyAndUpdateCameraUniforms(osgUtil::SceneView* sv)
     {
         osg::Camera* cam = sv->getCamera();
-        for (std::map<osg::Camera*, std::pair<std::string, osg::Matrixf>>::iterator
+        for (std::map<osg::Camera*, MatrixAndPositionTuple>::iterator
              itr = _cameraMatrixMap.begin(); itr != _cameraMatrixMap.end(); ++itr)
         {
-            std::string uName = itr->second.first;
+            std::string uName = std::get<0>(itr->second);
             if (itr->first == cam)
             {
                 osg::Matrixf viewProj = (sv->getViewMatrix() * sv->getProjectionMatrix());
-                itr->second.second = osg::Matrixf::inverse(viewProj);
+                std::get<1>(itr->second) = osg::Matrixf::inverse(viewProj);
+                std::get<2>(itr->second) = osg::Vec3() * cam->getInverseViewMatrix();
             }
             
-            osg::Uniform* u = cam->getOrCreateStateSet()->getOrCreateUniform(
-                uName.c_str(), osg::Uniform::FLOAT_MAT4);
-            if (u) u->set(itr->second.second);
+            osg::Uniform* u1 = sv->getLocalStateSet()->getOrCreateUniform(
+                (uName + "ProjectionToWorld").c_str(), osg::Uniform::FLOAT_MAT4);
+            osg::Uniform* u2 = sv->getLocalStateSet()->getOrCreateUniform(
+                (uName + "CameraPosition").c_str(), osg::Uniform::FLOAT_VEC3);
+            if (u1) u1->set(std::get<1>(itr->second));
+            if (u2) u2->set(std::get<2>(itr->second));
         }
     }
 

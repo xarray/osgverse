@@ -6,7 +6,10 @@ uniform sampler2D brdfLUT;
 
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
 uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
+uniform sampler2DArray ShadowMapArray;
+uniform mat4 LightMatrices[4];
 uniform mat4 GBufferProjectionToWorld;
+uniform vec3 GBufferCameraPosition;
 uniform vec2 NearFarPlanes;
 in vec4 texCoord0;
 
@@ -79,8 +82,7 @@ vec3 computeDirectionalLight(vec3 lightDirection, vec3 lightColor, vec3 normal, 
     vec3 specularR = numerator / max(denominator, 0.0001) + specular;
     
     vec3 radiance = (kD * (albedo / M_PI) + specularR) * radianceIn * nDotL;
-    radiance *= (1.0 - shadow);
-    return radiance;
+    return radiance * shadow;
 }
 
 vec3 computePointLight(vec3 lightPosition, vec3 lightColor, float range, vec3 normal, vec3 fragPos,
@@ -113,8 +115,7 @@ vec3 computePointLight(vec3 lightPosition, vec3 lightColor, float range, vec3 no
     vec3 specularR = numerator / max(denominator, 0.0001) + specular;
 
     vec3 radiance = (kD * (albedo / M_PI) + specularR) * radianceIn * nDotL;
-    //radiance *= (1.0 - shadow);  // FIXME: point shadow
-    return radiance;
+    return radiance;//radiance * (1.0 - shadow);  // FIXME: point shadow
 }
 
 /// Main entry
@@ -132,23 +133,34 @@ void main()
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
     vec4 worldVertex = GBufferProjectionToWorld * vecInProj;
-    vec3 eyeNormal = normalAlpha.rgb;
+    vec3 eyeNormal = normalAlpha.rgb, worldPos = worldVertex.xyz / worldVertex.w;
+    
+    vec3 dLightDir = vec3(1.0, 0.0, -1.0), dLightColor = vec3(10.0, 10.0, 10.0);  // TODO!!!!!!!!!!!!!
     
     // Components common to all light types
-    vec3 viewDir = vec3(0.0, 0.0, 1.0);//normalize(cameraPos - worldPos);  // TODO!!!!!!!!!!!!!
+    vec3 viewDir = normalize(GBufferCameraPosition - worldPos);
     vec3 R = reflect(-viewDir, eyeNormal);
     vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
     float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;
-    float nDotV = max(dot(eyeNormal, viewDir), 0.0), shadow = 1.0;  // TODO!!!!!!!!!!!!! shadow, ao
+    float nDotV = max(dot(eyeNormal, viewDir), 0.0), shadow = 1.0;  // TODO!!!!!!!!!!!!! ao
     
-    // Compute direcional and point lights
-    vec3 lightDir = vec3(0.0, 0.0, 1.0), lightColor = vec3(1, 1, 1);  // TODO!!!!!!!!!!!!!
+    // Compute direcional light and shadow
+    float shadowLayer = 0.0;  // TODO!!!!!!!!!!!!! shadowLayer
+    vec4 lightProjVec = LightMatrices[int(shadowLayer)] * worldVertex;
+    vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
+    {
+        vec4 lightProjVec0 = texture(ShadowMapArray, vec3(lightProjUV.xy, shadowLayer));
+        float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
+        shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.5 : 1.0;
+    }
+    
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
-    vec3 radianceOut = computeDirectionalLight(lightDir, lightColor, eyeNormal, viewDir,
+    vec3 radianceOut = computeDirectionalLight(dLightDir, dLightColor, eyeNormal, viewDir,
                                                albedo, specular, roughness, metallic, shadow, F0);
     
     // Treat ambient light as IBL or not
     vec3 ambient = vec3(0.025) * albedo;
+    if (false)
     {
         vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);
         vec3 kD = (1.0 - kS) * (1.0 - metallic);
@@ -163,6 +175,6 @@ void main()
     }
     
     radianceOut += ambient + emission;
-	//gl_FragColor = vec4(radianceOut, 1.0);
-    gl_FragColor = vec4(worldVertex.xyz / worldVertex.w, 1.0);  // TODO!!!!!!!!!!!!!
+	gl_FragColor = vec4(radianceOut, 1.0);
+    //gl_FragColor = vec4(worldVertex.xyz / worldVertex.w, 1.0);  // FIXNE: test only
 }

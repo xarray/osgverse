@@ -12,7 +12,8 @@ namespace osgVerse
     /** Effect pipeline using a list of slave cameras, without invading main scene graph
         - InputStage: add scene graph for shading and rendering-to-texture
         - WorkStage: add textures and use an internal screen-sized buffer for shading
-        - DeferredStage: same with WorkStage, but use DeferredRenderCallback::Runner instead a camera
+        - DeferredStage: similar to WorkStage, but use DeferredRenderCallback::Runner instead a camera
+                         It doesn't support <name>ProjectionToWorld for rebuilding world vertex
         - DisplayStage: display shading results on a screen-sized quad
         
         Some uniforms will be set automatically for internal stages:
@@ -24,6 +25,7 @@ namespace osgVerse
         - sampler2d EmissiveMap: emissive RGB texture of input scene
         - sampler2d ReflectionMap: reflection RGB texture of input scene
         - mat4 <StageName>ProjectionToWorld: projection-to-world matrix of specified input stage
+        - vec3 <StageName>CameraPosition: camera position of specified input stage
         - vec2 NearFarPlanes: calculated near/far values of entire scene
     */
     class Pipeline : public osg::Referenced

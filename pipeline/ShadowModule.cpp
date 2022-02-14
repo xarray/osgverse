@@ -11,7 +11,7 @@ namespace osgVerse
     {
         _shadowMaps = new osg::Texture2DArray;
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
-        _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "lightMatrices", 4);
+        _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "LightMatrices", 4);
     }
 
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0, float maxDistance)

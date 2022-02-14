@@ -1,8 +1,6 @@
 #version 130
 uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;
 uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
-uniform sampler2DArray ShadowMap;
-uniform mat4 lightMatrices[4];
 in vec4 worldVertex, texCoord0, texCoord1;
 in vec3 eyeNormal, eyeTangent, eyeBinormal;
 
@@ -25,17 +23,6 @@ void main()
         vec3 tsNormal = normalize(2.0 * normalValue.rgb - vec3(1.0));
         eyeNormal2 = normalize(mat3(eyeTangent, eyeBinormal, eyeNormal) * tsNormal);
     }
-    
-    // Shadow computation
-    float shadowTerm = 1.0, shadowLayer = 0.0;  // TODO
-    vec4 lightProjVec = lightMatrices[int(shadowLayer)] * worldVertex;
-    vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
-    {
-        vec4 lightProjVec0 = texture(ShadowMap, vec3(lightProjUV.xy, shadowLayer));
-        float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
-        shadowTerm = (lightProjVec0.x > 0.1 && depth > depth0) ? 0.5 : 1.0;
-    }
-    // TODO: where to store shadowTerm?
     
     // MRT output
 	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, color.a);

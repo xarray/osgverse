@@ -53,8 +53,6 @@ static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Gro
         "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
         "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
         "DepthBuffer", osgVerse::Pipeline::DEPTH32);
-    gbuffer->applyTexture(shadow->getTextureArray(), "ShadowMap", 7);  // 0-6 already applied
-    gbuffer->applyUniform("lightMatrices", shadow->getLightMatrices());
 
     osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting",
         osgDB::readShaderFile(SHADER_DIR "std_pbr_lighting.vert"),
@@ -65,6 +63,8 @@ static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Gro
     lighting->applyBuffer(*gbuffer, "SpecularRoughnessBuffer", 2);
     lighting->applyBuffer(*gbuffer, "EmissionOcclusionBuffer", 3);
     lighting->applyBuffer(*gbuffer, "DepthBuffer", 4);
+    lighting->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 5);
+    lighting->applyUniform("LightMatrices", shadow->getLightMatrices());
 
     osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
         osgDB::readShaderFile(SHADER_DIR "std_display.vert"),
