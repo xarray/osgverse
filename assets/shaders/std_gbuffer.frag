@@ -6,6 +6,8 @@ uniform mat4 lightMatrices[4];
 in vec4 worldVertex, texCoord0, texCoord1;
 in vec3 eyeNormal, eyeTangent, eyeBinormal;
 
+uniform mat4 GBufferProjectionToWorld;
+
 void main()
 {
     vec2 uv0 = texCoord0.xy, uv1 = texCoord1.xy;
@@ -36,7 +38,7 @@ void main()
     // TODO: where to store shadowTerm?
     
     // MRT output
-	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, 1.0);
+	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, color.a);
 	gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(color.rgb, metalRough.r);
     gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.g);
     gl_FragData[3]/*EmissionOcclusionBuffer*/ = vec4(emission, occlusion);

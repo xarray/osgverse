@@ -29,6 +29,7 @@ namespace osgVerse
         void registerDepthFBO(osg::Camera* cam, osg::FrameBufferObject* fbo) { _depthFboMap[cam] = fbo; }
         void requireDepthBlit(osg::Camera* cam, bool addToList);
 
+        void applyAndUpdateCameraUniforms(osgUtil::SceneView* sv);
         osg::Vec2d cullWithNearFarCalculation(osgUtil::SceneView* sv);
         osg::Vec2d getCalculatedNearFar() const { return _calculatedNearFar; }
         osg::Uniform* getNearFarUniform() { return _nearFarUniform.get(); }
@@ -80,6 +81,7 @@ namespace osgVerse
 
     protected:
         std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> _depthFboMap;
+        std::map<osg::Camera*, std::pair<std::string, osg::Matrixf>> _cameraMatrixMap;
         std::set<osg::observer_ptr<osg::Camera>> _depthBlitList;
         std::vector<osg::ref_ptr<RttRunner>> _runners;
         osg::ref_ptr<osg::Uniform> _nearFarUniform;

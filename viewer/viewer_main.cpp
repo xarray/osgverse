@@ -56,15 +56,15 @@ static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Gro
     gbuffer->applyTexture(shadow->getTextureArray(), "ShadowMap", 7);  // 0-6 already applied
     gbuffer->applyUniform("lightMatrices", shadow->getLightMatrices());
 
-    osgVerse::Pipeline::Stage* lighting = p->addDeferredStage("Lighting",
+    osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting",
         osgDB::readShaderFile(SHADER_DIR "std_pbr_lighting.vert"),
         osgDB::readShaderFile(SHADER_DIR "std_pbr_lighting.frag"), 1,
         "ColorBuffer", osgVerse::Pipeline::RGB_FLOAT16);
     lighting->applyBuffer(*gbuffer, "NormalBuffer", 0);
     lighting->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 1);
     lighting->applyBuffer(*gbuffer, "SpecularRoughnessBuffer", 2);
-    lighting->applyBuffer(*gbuffer, "EmissionOcclusionBuffer", 4);
-    lighting->applyBuffer(*gbuffer, "DepthBuffer", 5);
+    lighting->applyBuffer(*gbuffer, "EmissionOcclusionBuffer", 3);
+    lighting->applyBuffer(*gbuffer, "DepthBuffer", 4);
 
     osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
         osgDB::readShaderFile(SHADER_DIR "std_display.vert"),
@@ -91,8 +91,7 @@ int main(int argc, char** argv)
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.15,15,1.scale.0,0,-300.trans");
-    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile(
-    //    "skydome.osgt.(0.005,0.005,0.01).scale.-100,-150,0.trans");
+    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.0,0,-250.trans");
     otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

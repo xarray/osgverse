@@ -60,10 +60,17 @@ public:
 
     virtual void cull()
     {
+        // Cameras that need calculate near/far globally should do the calculation here
+        // Note that cullWithNearFarCalculation() will only compute whole near/far once per frame
         bool calcNearFar = false; getCamera()->getUserValue("NeedNearFarCalculation", calcNearFar);
         if (calcNearFar && _callback.valid()) _callback->cullWithNearFarCalculation(this);
-        osgUtil::SceneView::cull();
 
+        // Do regular culling and apply every input camera's inverse(ViewProj) uniform to all sceneViews
+        // This uniform is helpful for deferred passes to rebuild world vertex and normals
+        osgUtil::SceneView::cull();
+        if (_callback.valid()) _callback->applyAndUpdateCameraUniforms(this);
+
+        // Register RTT camera with depth buffer for later blitting with forward pass
         osg::FrameBufferObject* fbo = (getRenderStage() != NULL)
                                     ? getRenderStage()->getFrameBufferObject() : NULL;
         if (fbo && _callback.valid())
@@ -368,7 +375,7 @@ namespace osgVerse
         ss->setTextureAttributeAndModes(2, tex0.get());
         ss->setTextureAttributeAndModes(3, tex0.get());
         ss->setTextureAttributeAndModes(4, tex0.get());
-        ss->setTextureAttributeAndModes(5, tex1.get());
+        ss->setTextureAttributeAndModes(5, tex0.get());
         ss->setTextureAttributeAndModes(6, tex0.get());
         for (int i = 0; i < 7; ++i) ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
 

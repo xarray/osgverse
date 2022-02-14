@@ -1,3 +1,4 @@
+#include <osg/io_utils>
 #include <osg/FrameBufferObject>
 #include <osg/RenderInfo>
 #include <osg/GLExtensions>
@@ -28,6 +29,30 @@ namespace osgVerse
         if (_depthBlitList.find(cam) != _depthBlitList.end())
         { if (!addToList) _depthBlitList.erase(cam); }
         else if (addToList) _depthBlitList.insert(cam);
+
+        if (_cameraMatrixMap.find(cam) != _cameraMatrixMap.end())
+        { if (!addToList) _cameraMatrixMap.erase(cam); }
+        else if (addToList && cam) _cameraMatrixMap[cam] =
+            std::pair<std::string, osg::Matrixf>(cam->getName() + "ProjectionToWorld", osg::Matrixf());
+    }
+
+    void DeferredRenderCallback::applyAndUpdateCameraUniforms(osgUtil::SceneView* sv)
+    {
+        osg::Camera* cam = sv->getCamera();
+        for (std::map<osg::Camera*, std::pair<std::string, osg::Matrixf>>::iterator
+             itr = _cameraMatrixMap.begin(); itr != _cameraMatrixMap.end(); ++itr)
+        {
+            std::string uName = itr->second.first;
+            if (itr->first == cam)
+            {
+                osg::Matrixf viewProj = (sv->getViewMatrix() * sv->getProjectionMatrix());
+                itr->second.second = osg::Matrixf::inverse(viewProj);
+            }
+            
+            osg::Uniform* u = cam->getOrCreateStateSet()->getOrCreateUniform(
+                uName.c_str(), osg::Uniform::FLOAT_MAT4);
+            if (u) u->set(itr->second.second);
+        }
     }
 
     osg::Vec2d DeferredRenderCallback::cullWithNearFarCalculation(osgUtil::SceneView* sv)
