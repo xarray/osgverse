@@ -13,6 +13,7 @@
 #include <sstream>
 #include <readerwriter/LoadSceneGLTF.h>
 #include <pipeline/ShadowModule.h>
+#include <pipeline/Utilities.h>
 
 #define SHADER_DIR "../shaders/"
 #define FORWARD_SCENE_MASK  0x0000ff00
@@ -83,6 +84,9 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> scene = osgVerse::loadGltf("../models/Sponza/Sponza.gltf", false);
     //osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile("cessna.osg");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
+
+    osgVerse::TangentSpaceVisitor tsv;
+    scene->accept(tsv);
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

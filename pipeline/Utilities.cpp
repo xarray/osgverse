@@ -2,10 +2,83 @@
 #include <osg/RenderInfo>
 #include <osg/GLExtensions>
 #include <osg/ContextData>
+#include <osg/TriangleIndexFunctor>
+#include <osg/Geometry>
 #include <osg/PolygonMode>
 #include <osg/Geode>
 #include <iostream>
+#include <mikktspace.h>
 #include "Utilities.h"
+
+/// MikkTSpace visitor utilities
+struct MikkTSpaceHelper
+{
+    std::vector<osg::Vec3ui> _faceList;
+    osg::Vec3Array *tangents, *binormals;
+    osg::Geometry* _geometry;
+
+    void initialize(SMikkTSpaceContext* sc, osg::Geometry* g)
+    {
+        sc->m_pInterface->m_getNumFaces = MikkTSpaceHelper::mikk_getNumFaces;
+        sc->m_pInterface->m_getNumVerticesOfFace = MikkTSpaceHelper::mikk_getNumVerticesOfFace;
+        sc->m_pInterface->m_getPosition = MikkTSpaceHelper::mikk_getPosition;
+        sc->m_pInterface->m_getNormal = MikkTSpaceHelper::mikk_getNormal;
+        sc->m_pInterface->m_getTexCoord = MikkTSpaceHelper::mikk_getTexCoord;
+        sc->m_pInterface->m_setTSpaceBasic = MikkTSpaceHelper::mikk_setTSpaceBasic;
+        sc->m_pInterface->m_setTSpace = NULL; sc->m_pUserData = this; _geometry = g;
+
+        osg::Vec3Array* vertices = vArray();
+        tangents = new osg::Vec3Array(vertices->size()); binormals = new osg::Vec3Array(vertices->size());
+        g->setVertexAttribArray(6, tangents); g->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
+        g->setVertexAttribArray(7, binormals); g->setVertexAttribBinding(7, osg::Geometry::BIND_PER_VERTEX);
+    }
+
+    osg::Vec3Array* vArray() { return static_cast<osg::Vec3Array*>(_geometry->getVertexArray()); }
+    osg::Vec3Array* nArray() { return static_cast<osg::Vec3Array*>(_geometry->getNormalArray()); }
+    osg::Vec2Array* tArray() { return static_cast<osg::Vec2Array*>(_geometry->getTexCoordArray(0)); }
+
+    void operator()(unsigned int i0, unsigned int i1, unsigned int i2)
+    { _faceList.push_back(osg::Vec3ui(i0, i1, i2)); }
+
+    static MikkTSpaceHelper* me(const SMikkTSpaceContext* pContext)
+    { return static_cast<MikkTSpaceHelper*>(pContext->m_pUserData); }
+
+    static int mikk_getNumFaces(const SMikkTSpaceContext* pContext) { return (int)me(pContext)->_faceList.size(); }
+    static int mikk_getNumVerticesOfFace(const SMikkTSpaceContext* pContext, const int iFace) { return 3; }
+
+    static void mikk_getPosition(const SMikkTSpaceContext* pContext, float fvPosOut[],
+                                 const int iFace, const int iVert)
+    {
+        osg::Vec3Array* vArray = me(pContext)->vArray();
+        const osg::Vec3& v = vArray->at(me(pContext)->_faceList[iFace][iVert]);
+        for (int i = 0; i < 3; ++i) fvPosOut[i] = v[i];
+    }
+
+    static void mikk_getNormal(const SMikkTSpaceContext* pContext, float fvNormOut[],
+                               const int iFace, const int iVert)
+    {
+        osg::Vec3Array* nArray = me(pContext)->nArray();
+        const osg::Vec3& v = nArray->at(me(pContext)->_faceList[iFace][iVert]);
+        for (int i = 0; i < 3; ++i) fvNormOut[i] = v[i];
+    }
+
+    static void mikk_getTexCoord(const SMikkTSpaceContext* pContext, float fvTexcOut[],
+                                 const int iFace, const int iVert)
+    {
+        osg::Vec2Array* tArray = me(pContext)->tArray();
+        const osg::Vec2& v = tArray->at(me(pContext)->_faceList[iFace][iVert]);
+        for (int i = 0; i < 2; ++i) fvTexcOut[i] = v[i];
+    }
+
+    static void mikk_setTSpaceBasic(const SMikkTSpaceContext* pContext, const float fvTangent[],
+                                    const float fSign, const int iFace, const int iVert)
+    {
+        MikkTSpaceHelper* self = me(pContext); unsigned int vIndex = self->_faceList[iFace][iVert];
+        osg::Vec3 T(fvTangent[0], fvTangent[1], fvTangent[2]);
+        osg::Vec3 N = self->nArray()->at(vIndex);  osg::Vec3 B = (N ^ T) * fSign;
+        (*self->tangents)[vIndex] = T; (*self->binormals)[vIndex] = B;
+    }
+};
 
 namespace osgVerse
 {
@@ -91,6 +164,39 @@ namespace osgVerse
             camera->addChild(createScreenQuad(quadPt, quadW, quadH, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f)));
         }
         return camera.release();
+    }
+
+    TangentSpaceVisitor::TangentSpaceVisitor(const float threshold)
+    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _angularThreshold(threshold)
+    {
+        _mikkiTSpace = new SMikkTSpaceContext;
+        _mikkiTSpace->m_pInterface = new SMikkTSpaceInterface;
+        _mikkiTSpace->m_pUserData = NULL;
+    }
+
+    TangentSpaceVisitor::~TangentSpaceVisitor()
+    {
+        if (_mikkiTSpace != NULL)
+        {
+            if (_mikkiTSpace->m_pInterface) delete _mikkiTSpace->m_pInterface;
+            delete _mikkiTSpace; _mikkiTSpace = NULL;
+        }
+    }
+
+    void TangentSpaceVisitor::apply(osg::Geode& node)
+    {
+        for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+        {
+            osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+            if (!geom || (geom && geom->getNormalArray() == NULL)) continue;
+            if (geom->getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) continue;
+            
+            osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
+            geom->accept(functor);
+            functor.initialize(_mikkiTSpace, geom);
+            genTangSpace(_mikkiTSpace, _angularThreshold);
+        }
+        traverse(node);
     }
 
     void Frustum::create(const osg::Matrix& modelview, const osg::Matrix& originProj,

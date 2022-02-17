@@ -5,6 +5,7 @@
 #include <osgDB/ConvertUTF>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -94,11 +95,13 @@ namespace osgVerse
                     geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
                 }
                 else if (attrib.first.compare("TANGENT") == 0 && compSize == 4 && compNum == 4)
-                {
+                {   // Do nothing as we calculate tangent/binormal by ourselves
+#if 0
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
                     memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
                     ta->setNormalize(attrAccessor.normalized); geom->setVertexAttribArray(6, ta);
                     geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
+#endif
                 }
                 else if (attrib.first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
                 {
@@ -203,8 +206,9 @@ namespace osgVerse
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,
                                    const std::string& name, tinygltf::Texture& tex)
     {
-        if (tex.source < 0) return;
         tinygltf::Image& imageSrc = _scene.images[tex.source];
+        if (imageSrc.image.empty()) return;
+
         GLenum format = GL_RGBA, type = GL_UNSIGNED_BYTE;
         if (imageSrc.bits == 16) type = GL_UNSIGNED_SHORT;
         if (imageSrc.component == 1) format = GL_RED;
@@ -212,7 +216,7 @@ namespace osgVerse
         else if (imageSrc.component == 3) format = GL_RGB;
 
         osg::Texture2D* tex2D = _textureMap[tex.source].get();
-        if (!tex2D)
+        if (!tex2D || u == 1)  // FIXME: dont know why but normal-maps can't be shared?
         {
             osg::ref_ptr<osg::Image> image = new osg::Image;
             image->allocateImage(imageSrc.width, imageSrc.height, 1, format, type);

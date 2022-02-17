@@ -135,7 +135,7 @@ void main()
     vec4 worldVertex = GBufferProjectionToWorld * vecInProj;
     vec3 eyeNormal = normalAlpha.rgb, worldPos = worldVertex.xyz / worldVertex.w;
     
-    vec3 dLightDir = vec3(1.0, 0.0, -1.0), dLightColor = vec3(10.0, 10.0, 10.0);  // TODO!!!!!!!!!!!!!
+    vec3 dLightDir = vec3(0.0, 0.0, -1.0), dLightColor = vec3(5.0, 5.0, 5.0);  // TODO!!!!!!!!!!!!!
     
     // Components common to all light types
     vec3 viewDir = normalize(GBufferCameraPosition - worldPos);
@@ -145,7 +145,7 @@ void main()
     float nDotV = max(dot(eyeNormal, viewDir), 0.0), shadow = 1.0;  // TODO!!!!!!!!!!!!! ao
     
     // Compute direcional light and shadow
-    float shadowLayer = 0.0;  // TODO!!!!!!!!!!!!! shadowLayer
+    /*float shadowLayer = 0.0;  // TODO!!!!!!!!!!!!! shadowLayer
     vec4 lightProjVec = LightMatrices[int(shadowLayer)] * worldVertex;
     vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
     {
@@ -153,7 +153,7 @@ void main()
         float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
         shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.5 : 1.0;
     }
-    
+    */
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 radianceOut = computeDirectionalLight(dLightDir, dLightColor, eyeNormal, viewDir,
                                                albedo, specular, roughness, metallic, shadow, F0);
@@ -176,5 +176,5 @@ void main()
     
     radianceOut += ambient + emission;
 	gl_FragColor = vec4(radianceOut, 1.0);
-    //gl_FragColor = vec4(worldVertex.xyz / worldVertex.w, 1.0);  // FIXNE: test only
+    if (gl_FragCoord.x < 960) gl_FragColor = vec4(albedo, 1.0);  // FIXNE: test only
 }

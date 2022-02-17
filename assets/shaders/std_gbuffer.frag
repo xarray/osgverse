@@ -4,8 +4,6 @@ uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
 in vec4 worldVertex, texCoord0, texCoord1;
 in vec3 eyeNormal, eyeTangent, eyeBinormal;
 
-uniform mat4 GBufferProjectionToWorld;
-
 void main()
 {
     vec2 uv0 = texCoord0.xy, uv1 = texCoord1.xy;

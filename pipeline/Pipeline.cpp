@@ -389,6 +389,7 @@ namespace osgVerse
                 /*12*/"osg_TexCoord4", /*13*/"osg_TexCoord5", /*14*/"osg_TexCoord6", /*15*/"osg_TexCoord7"
             };
             prog->addBindAttribLocation(attributeNames[6], 6);
+            prog->addBindAttribLocation(attributeNames[7], 7);
         }
     }
 

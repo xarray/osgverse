@@ -5,6 +5,7 @@
 #include <osg/Geometry>
 #include <osg/Texture2D>
 #include <osg/Camera>
+struct SMikkTSpaceContext;
 
 namespace osgVerse
 {
@@ -23,6 +24,20 @@ namespace osgVerse
     extern osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
                                         float quadW, float quadH, bool screenSpaced);
 
+    /** The tangent/binormal computing visitor */
+    class TangentSpaceVisitor : public osg::NodeVisitor
+    {
+    public:
+        TangentSpaceVisitor(const float angularThreshold = 180.0f);
+        virtual ~TangentSpaceVisitor();
+        virtual void apply(osg::Geode& node);
+
+    protected:
+        SMikkTSpaceContext* _mikkiTSpace;
+        float _angularThreshold;
+    };
+
+    /** The frustum geometry which is used by shadow computation */
     struct Frustum
     {
         osg::Vec3d corners[8];
