@@ -13,6 +13,7 @@ void main()
     vec3 emission = texture(EmissiveMap, uv1).rgb;
     vec2 metalRough = texture(ShininessMap, uv0).rg;
     float occlusion = texture(AmbientMap, uv0).r;
+    if (color.a < 0.1) discard;
     
     // Compute eye-space normal
     vec3 eyeNormal2 = eyeNormal;

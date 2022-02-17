@@ -162,18 +162,18 @@ namespace osgVerse
         _deferredCallback = new osgVerse::DeferredRenderCallback(true);
     }
 
-    void Pipeline::Stage::applyUniform(const std::string& name, osg::Uniform* u)
+    void Pipeline::Stage::applyUniform(osg::Uniform* u)
     {
         osg::StateSet* ss = deferred ?
             runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
-        if (ss->getUniform(name) == NULL) ss->addUniform(u);
+        if (ss->getUniform(u->getName()) == NULL) ss->addUniform(u);
     }
 
     void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, int unit)
     {
         if (src.outputs.find(buffer) != src.outputs.end())
         {
-            osg::Texture2D* tex = src.outputs[buffer].get();
+            osg::Texture* tex = src.outputs[buffer].get();
             osg::StateSet* ss = deferred ?
                 runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
             ss->setTextureAttributeAndModes(unit, tex);
@@ -261,7 +261,7 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture2D> tex = createTexture(type, _stageSize[0], _stageSize[1]);
+            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1]);
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), false);
             s->outputs[bufName] = tex.get();
@@ -292,7 +292,7 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture2D> tex = createTexture(type, _stageSize[0], _stageSize[1]);
+            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1]);
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), true);
             s->outputs[bufName] = tex.get();
@@ -304,12 +304,12 @@ namespace osgVerse
         return s;
     }
 
-    Pipeline::Stage* Pipeline::addDeferredStage(const std::string& name,
+    Pipeline::Stage* Pipeline::addDeferredStage(const std::string& name, bool runOnce,
                                                 osg::Shader* vs, osg::Shader* fs, int buffers, ...)
     {
         Stage* s = new Stage; s->deferred = true;
         s->runner = new osgVerse::DeferredRenderCallback::RttGeometryRunner(name);
-        s->runner->setUseScreenQuad(0, NULL);  // create a quad at the beginning
+        s->runner->runOnce = runOnce; s->runner->setUseScreenQuad(0, NULL);  // quad at the beginning
         _deferredCallback->addRunner(s->runner.get());
 
         va_list params; va_start(params, buffers);
@@ -322,7 +322,7 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture2D> tex = createTexture(type, _stageSize[0], _stageSize[1]);
+            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1]);
             s->runner->attach(comp, tex.get());
             s->outputs[bufName] = tex.get();
         }
@@ -343,6 +343,9 @@ namespace osgVerse
         s->inputStage = false; _stages.push_back(s);
         return s;
     }
+
+    void Pipeline::ActivateDeferredStage(const std::string& n, bool b)
+    { Stage* s = getStage(n); if (s->runner.valid()) s->runner->active = b; }
 
     void Pipeline::applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs)
     {
@@ -393,12 +396,9 @@ namespace osgVerse
         }
     }
 
-    osg::Texture2D* Pipeline::createTexture(BufferType type, int w, int h)
+    osg::Texture* Pipeline::createTexture(BufferType type, int w, int h)
     {
         osg::ref_ptr<osg::Texture2D> tex = new osg::Texture2D;
-        tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-        tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        tex->setTextureSize(w, h);
         switch (type)
         {
         case RGB_INT8:
@@ -507,6 +507,10 @@ namespace osgVerse
             tex->setSourceType(GL_FLOAT);
             break;
         }
+
+        tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+        tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        tex->setTextureSize(w, h);
         return tex.release();
     }
 }

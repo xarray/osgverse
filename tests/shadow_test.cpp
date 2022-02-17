@@ -52,7 +52,7 @@ static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Gro
         "DepthBuffer", osgVerse::Pipeline::DEPTH32);
     gbuffer->applyDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f), "BaseMap", 0);
     gbuffer->applyTexture(shadow->getTextureArray(), "ShadowMap", 1);
-    gbuffer->applyUniform("LightMatrices", shadow->getLightMatrices());
+    gbuffer->applyUniform(shadow->getLightMatrices());
 
     osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
         osgDB::readShaderFile(SHADER_DIR "shadow_display.vert"),

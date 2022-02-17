@@ -2,13 +2,13 @@
 #define M_PI 3.1415926535897932384626433832795
 uniform samplerCube irradianceMap;
 uniform samplerCube prefilterMap;
-uniform sampler2D brdfLUT;
+uniform sampler2D BrdfLutBuffer;
 
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
 uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
-uniform sampler2DArray ShadowMapArray;
-uniform mat4 LightMatrices[4];
-uniform mat4 GBufferProjectionToWorld;
+//uniform sampler2DArray ShadowMapArray;
+//uniform mat4 LightMatrices[4];
+uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec3 GBufferCameraPosition;
 uniform vec2 NearFarPlanes;
 in vec4 texCoord0;
@@ -118,7 +118,6 @@ vec3 computePointLight(vec3 lightPosition, vec3 lightColor, float range, vec3 no
     return radiance;//radiance * (1.0 - shadow);  // FIXME: point shadow
 }
 
-/// Main entry
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
@@ -127,12 +126,11 @@ void main()
 	vec4 emissionOcclusion = texture(EmissionOcclusionBuffer, uv0);
     vec4 normalAlpha = texture(NormalBuffer, uv0);
     float depthValue = texture(DepthBuffer, uv0).r * 2.0 - 1.0;
-    float linearDepth = linearDepth(depthValue), alpha = normalAlpha.a;
-    if (alpha < 0.1) discard;
+    float linearDepth = linearDepth(depthValue);
     
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
-    vec4 worldVertex = GBufferProjectionToWorld * vecInProj;
+    vec4 worldVertex = GBufferMatrices[1] * GBufferMatrices[3] * vecInProj;
     vec3 eyeNormal = normalAlpha.rgb, worldPos = worldVertex.xyz / worldVertex.w;
     
     vec3 dLightDir = vec3(0.0, 0.0, -1.0), dLightColor = vec3(5.0, 5.0, 5.0);  // TODO!!!!!!!!!!!!!
@@ -152,8 +150,8 @@ void main()
         vec4 lightProjVec0 = texture(ShadowMapArray, vec3(lightProjUV.xy, shadowLayer));
         float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
         shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.5 : 1.0;
-    }
-    */
+    }*/
+    
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 radianceOut = computeDirectionalLight(dLightDir, dLightColor, eyeNormal, viewDir,
                                                albedo, specular, roughness, metallic, shadow, F0);
@@ -169,12 +167,12 @@ void main()
 
         const float MAX_REFLECTION_LOD = 4.0;
         vec3 prefilteredColor = textureLod(prefilterMap, R, roughness * MAX_REFLECTION_LOD).rgb;
-        vec2 envBRDF = texture(brdfLUT, vec2(nDotV, roughness)).rg;
+        vec2 envBRDF = texture(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
         vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
         ambient = kD * diffuse + envSpecular;
     }
     
     radianceOut += ambient + emission;
 	gl_FragColor = vec4(radianceOut, 1.0);
-    if (gl_FragCoord.x < 960) gl_FragColor = vec4(albedo, 1.0);  // FIXNE: test only
+    //if (gl_FragCoord.x < 960) gl_FragColor = vec4(texture(BrdfLutBuffer, vec2(nDotV, roughness)).rg, 0.0, 1.0);  // FIXNE: test only
 }

@@ -33,7 +33,7 @@ namespace osgVerse
         if (_cameraMatrixMap.find(cam) != _cameraMatrixMap.end())
         { if (!addToList) _cameraMatrixMap.erase(cam); }
         else if (addToList && cam) _cameraMatrixMap[cam] =
-            MatrixAndPositionTuple(cam->getName(), osg::Matrixf(), osg::Vec3());
+            MatrixAndPositionTuple(cam->getName(), std::vector<osg::Matrixf>(), osg::Vec3());
     }
 
     void DeferredRenderCallback::applyAndUpdateCameraUniforms(osgUtil::SceneView* sv)
@@ -45,17 +45,23 @@ namespace osgVerse
             std::string uName = std::get<0>(itr->second);
             if (itr->first == cam)
             {
-                osg::Matrixf viewProj = (sv->getViewMatrix() * sv->getProjectionMatrix());
-                std::get<1>(itr->second) = osg::Matrixf::inverse(viewProj);
+                std::vector<osg::Matrixf> matrices;
+                matrices.push_back(sv->getViewMatrix());
+                matrices.push_back(osg::Matrix::inverse(matrices.back()));
+                matrices.push_back(sv->getProjectionMatrix());
+                matrices.push_back(osg::Matrix::inverse(matrices.back()));
+                std::get<1>(itr->second) = matrices;
                 std::get<2>(itr->second) = osg::Vec3() * cam->getInverseViewMatrix();
             }
             
             osg::Uniform* u1 = sv->getLocalStateSet()->getOrCreateUniform(
-                (uName + "ProjectionToWorld").c_str(), osg::Uniform::FLOAT_MAT4);
+                (uName + "Matrices").c_str(), osg::Uniform::FLOAT_MAT4, 4);
+            const std::vector<osg::Matrixf>& matrices = std::get<1>(itr->second);
+            for (size_t i = 0; i < matrices.size(); ++i) u1->setElement(i, matrices[i]);
+
             osg::Uniform* u2 = sv->getLocalStateSet()->getOrCreateUniform(
                 (uName + "CameraPosition").c_str(), osg::Uniform::FLOAT_VEC3);
-            if (u1) u1->set(std::get<1>(itr->second));
-            if (u2) u2->set(std::get<2>(itr->second));
+            u2->set(std::get<2>(itr->second));
         }
     }
 
@@ -111,15 +117,14 @@ namespace osgVerse
             if (r->attachments.empty() || !r->active) continue;
 
             // Initialize runner and internal FBO objects
-            if (!r->initialized)
+            if (!r->created)
             {
-                r->initialized = r->setup(cb, renderInfo);
-                if (!r->initialized)
-                    OSG_WARN << "[RttRunner] Unable to setup FBO of " << r->name << std::endl;
+                r->created = r->setup(cb, renderInfo);
+                if (!r->created) OSG_WARN << "[RttRunner] Unable to setup FBO of " << r->name << std::endl;
             }
 
             // Apply FBO buffer for drawing and clear the viewport
-            if (r->initialized)
+            if (r->created)
             {
                 r->start(cb, renderInfo);
                 if (r->viewport.valid())
@@ -311,6 +316,7 @@ namespace osgVerse
                 ext->glGenerateMipmap(itr->second._texture->getTextureTarget());
             }
         }
+        if (runOnce) active = false;  // In runOnce mode, inactivate runner now
     }
 
     bool DeferredRenderCallback::RttRunner::draw(DeferredRenderCallback* cb, osg::RenderInfo& renderInfo)

@@ -49,7 +49,7 @@ namespace osgVerse
             virtual void drawInner(DeferredRenderCallback* cb, osg::RenderInfo& renderInfo) const = 0;
 
             void attach(osg::Camera::BufferComponent buffer, osg::Texture* texture,
-                int face = 0, bool mipmap = false)
+                        int face = 0, bool mipmap = false)
             {
                 attachments[buffer]._texture = texture;
                 attachments[buffer]._level = 0;
@@ -57,14 +57,14 @@ namespace osgVerse
                 attachments[buffer]._mipMapGeneration = mipmap;
             }
 
-            RttRunner(const std::string& n = "") : name(n), initialized(false), active(true) {}
+            RttRunner(const std::string& n = "") : name(n), created(false), active(true), runOnce(false) {}
             void detach(osg::Camera::BufferComponent buffer) { attachments.erase(buffer); }
 
             osg::Camera::BufferAttachmentMap attachments;
             osg::ref_ptr<osg::FrameBufferObject> fbo;
             osg::ref_ptr<osg::Viewport> viewport;
             osg::Matrix modelView, projection;
-            std::string name; bool initialized, active;
+            std::string name; bool created, active, runOnce;
         };
 
         struct RttGeometryRunner : public RttRunner
@@ -80,7 +80,7 @@ namespace osgVerse
         const std::vector<osg::ref_ptr<RttRunner>>& getRunners() const { return _runners; }
 
     protected:
-        typedef std::tuple<std::string, osg::Matrixf, osg::Vec3> MatrixAndPositionTuple;
+        typedef std::tuple<std::string, std::vector<osg::Matrixf>, osg::Vec3> MatrixAndPositionTuple;
         std::map<osg::Camera*, MatrixAndPositionTuple> _cameraMatrixMap;
         std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> _depthFboMap;
         std::set<osg::observer_ptr<osg::Camera>> _depthBlitList;

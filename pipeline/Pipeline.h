@@ -10,12 +10,6 @@
 namespace osgVerse
 {
     /** Effect pipeline using a list of slave cameras, without invading main scene graph
-        - InputStage: add scene graph for shading and rendering-to-texture
-        - WorkStage: add textures and use an internal screen-sized buffer for shading
-        - DeferredStage: similar to WorkStage, but use DeferredRenderCallback::Runner instead a camera
-                         It doesn't support <name>ProjectionToWorld for rebuilding world vertex
-        - DisplayStage: display shading results on a screen-sized quad
-        
         Some uniforms will be set automatically for internal stages:
         - sampler2d DiffuseMap: diffuse/albedo RGB texture of input scene
         - sampler2d NormalMap: tangent-space normal texture of input scene
@@ -24,7 +18,8 @@ namespace osgVerse
         - sampler2d AmbientMap: ambient occlusion R texture of input scene
         - sampler2d EmissiveMap: emissive RGB texture of input scene
         - sampler2d ReflectionMap: reflection RGB texture of input scene
-        - mat4 <StageName>ProjectionToWorld: projection-to-world matrix of specified input stage
+        - mat4 <StageName>Matrices: matrices of specified input stage for rebuilding vertex attributes
+                                    Including: world-to-view, view-to-world, view-to-proj, proj-to-view
         - vec3 <StageName>CameraPosition: camera position of specified input stage
         - vec2 NearFarPlanes: calculated near/far values of entire scene
     */
@@ -44,18 +39,18 @@ namespace osgVerse
         
         struct Stage : public osg::Referenced
         {
-            std::map<std::string, osg::observer_ptr<osg::Texture2D>> outputs;
+            std::map<std::string, osg::observer_ptr<osg::Texture>> outputs;
             std::map<std::string, osg::observer_ptr<osg::Uniform>> uniforms;
             osg::ref_ptr<osgVerse::DeferredRenderCallback::RttGeometryRunner> runner;
             osg::ref_ptr<osg::Camera> camera; std::string name;
             bool inputStage, deferred;
 
-            void applyUniform(const std::string& name, osg::Uniform* u);
+            void applyUniform(osg::Uniform* u);
             void applyBuffer(Stage& s, const std::string& buffer, int unit);
             void applyTexture(osg::Texture* tex, const std::string& buffer, int u);
             void applyDefaultTexture(const osg::Vec4& color, const std::string& buffer, int u);
 
-            osg::Texture2D* getBufferTexture(const std::string& name)
+            osg::Texture* getBufferTexture(const std::string& name)
             { return (outputs.find(name) != outputs.end()) ? outputs[name].get() : NULL; }
 
             Stage() : name("Undefined"), inputStage(false), deferred(false) {}
@@ -65,7 +60,7 @@ namespace osgVerse
         };
 
         Pipeline();
-        static osg::Texture2D* createTexture(BufferType type, int w, int h);
+        static osg::Texture* createTexture(BufferType type, int w, int h);
 
         void addStage(Stage* s) { _stages.push_back(s); }
         void removeStage(unsigned int index) { _stages.erase(_stages.begin() + index); }
@@ -89,12 +84,24 @@ namespace osgVerse
         /** Use it in a cusom osgViewer::View class! */
         osg::GraphicsOperation* createRenderer(osg::Camera* camera);
 
+        /** Add input stage which uses main scene graph for initial shading and rendering-to-texture */
         Stage* addInputStage(const std::string& n, unsigned int cullMask,
                              osg::Shader* vs, osg::Shader* fs, int buffers, ...);
+
+        /** Add textures and use an internal screen-sized buffer for shading */
         Stage* addWorkStage(const std::string& n, osg::Shader* vs, osg::Shader* fs, int buffers, ...);
-        Stage* addDeferredStage(const std::string& n, osg::Shader* vs, osg::Shader* fs, int buffers, ...);
+
+        /** Similar to WorkStage, but will use DeferredRenderCallback::Runner instead of a camera
+            Note: it doesn't support <name>ProjectionToWorld which helps rebuild world vertex */
+        Stage* addDeferredStage(const std::string& n, bool runOnce,
+                                osg::Shader* vs, osg::Shader* fs, int buffers, ...);
+
+        /** Display shading results on a screen-sized quad */
         Stage* addDisplayStage(const std::string& n, osg::Shader* vs, osg::Shader* fs,
                                const osg::Vec4& screenGeom);
+
+        /** Make deferred stage active/inactive (one-time stage will re-run only once) */
+        void ActivateDeferredStage(const std::string& n, bool active);
 
         osgVerse::DeferredRenderCallback* getDeferredCallback() { return _deferredCallback.get(); }
         const osgVerse::DeferredRenderCallback* getDeferredCallback() const { return _deferredCallback.get(); }
