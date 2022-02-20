@@ -82,9 +82,12 @@ int main(int argc, char** argv)
         ss->setMode(GL_BLEND, osg::StateAttribute::ON);
     }
 
-    osg::Vec4 lightDir(1.0f, 1.0f, -1.0f, 0.0f);
-    osg::Vec4 lightColor(3.0f, 3.0f, 2.8f, 1.0f);
-    lightDir.normalize();
+    osg::Vec4 lightDir(1.0f, 1.0f, -1.0f, 0.0f), lightDir2(-1.0f, 1.0f, -0.5f, 0.0f);
+    osg::Vec4 lightColor(4.0f, 4.0f, 3.8f, 1.0f), lightColor2(1.0f, 1.0f, 1.3f, 1.0f);
+    lightDir.normalize(); lightDir2.normalize();
+
+    ss->getOrCreateUniform("dLightColor", osg::Uniform::FLOAT_VEC4)->set(lightColor);
+    ss->getOrCreateUniform("dLightColor2", osg::Uniform::FLOAT_VEC4)->set(lightColor2);
 
     // Scene viewer
     osgViewer::Viewer viewer;
@@ -96,7 +99,7 @@ int main(int argc, char** argv)
     {
         osg::Matrixf viewMatrix = viewer.getCamera()->getViewMatrix();
         ss->getOrCreateUniform("dLightDirection", osg::Uniform::FLOAT_VEC4)->set(lightDir * viewMatrix);
-        ss->getOrCreateUniform("dLightColor", osg::Uniform::FLOAT_VEC4)->set(lightColor);
+        ss->getOrCreateUniform("dLightDirection2", osg::Uniform::FLOAT_VEC4)->set(lightDir2 * viewMatrix);
 
         ss->getOrCreateUniform("ProjectionToWorld", osg::Uniform::FLOAT_MAT4)->set(
             osg::Matrixf::inverse(viewer.getCamera()->getProjectionMatrix()));

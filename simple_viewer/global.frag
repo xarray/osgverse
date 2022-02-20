@@ -3,6 +3,7 @@ uniform sampler2D DiffuseMap, LightMap, NormalMap;
 uniform sampler2D SpecularMap, ReflectionMap;
 uniform mat4 ProjectionToWorld, osg_ViewMatrix;
 uniform vec4 dLightDirection, dLightColor;
+uniform vec4 dLightDirection2, dLightColor2;
 uniform vec3 metallicRoughness;
 in vec4 eyeVertex, texCoord0, texCoord1;
 in vec3 eyeNormal, eyeTangent, eyeBinormal;
@@ -109,14 +110,15 @@ void main()
     
     // Components common to all light types
     vec3 viewDir = -normalize(osg_ViewMatrix * worldVertex).xyz;
-    vec3 R = reflect(-viewDir, eyeNormal2), lightDir = dLightDirection.xyz;
-    vec3 albedo = color.rgb, specular = specColor.rgb;
+    vec3 R = reflect(-viewDir, eyeNormal2), albedo = color.rgb, specular = specColor.rgb;
+    vec3 lightDir = dLightDirection.xyz, lightDir2 = dLightDirection2.xyz;
     float nDotV = max(dot(eyeNormal2, viewDir), 0.0);
     
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 radianceOut = computeDirectionalLight(lightDir, dLightColor.xyz, eyeNormal2, viewDir,
                                                albedo, specular, roughness, metallic, 1.0, F0);
-    
+    radianceOut += computeDirectionalLight(lightDir2, dLightColor2.xyz, eyeNormal2, viewDir,
+                                           albedo, specular, roughness, metallic, 1.0, F0);
     
     // Treat ambient light as IBL or not
     vec3 ambient = vec3(0.025) * albedo;
