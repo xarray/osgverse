@@ -8,6 +8,8 @@
 #include <osg/Geode>
 #include <iostream>
 #include <mikktspace.h>
+#include <normalmap/normalmapgenerator.h>
+#include <normalmap/specularmapgenerator.h>
 #include "Utilities.h"
 
 /// MikkTSpace visitor utilities
@@ -17,7 +19,7 @@ struct MikkTSpaceHelper
     osg::Vec3Array *tangents, *binormals;
     osg::Geometry* _geometry;
 
-    void initialize(SMikkTSpaceContext* sc, osg::Geometry* g)
+    bool initialize(SMikkTSpaceContext* sc, osg::Geometry* g)
     {
         sc->m_pInterface->m_getNumFaces = MikkTSpaceHelper::mikk_getNumFaces;
         sc->m_pInterface->m_getNumVerticesOfFace = MikkTSpaceHelper::mikk_getNumVerticesOfFace;
@@ -27,10 +29,15 @@ struct MikkTSpaceHelper
         sc->m_pInterface->m_setTSpaceBasic = MikkTSpaceHelper::mikk_setTSpaceBasic;
         sc->m_pInterface->m_setTSpace = NULL; sc->m_pUserData = this; _geometry = g;
 
-        osg::Vec3Array* vertices = vArray();
-        tangents = new osg::Vec3Array(vertices->size()); binormals = new osg::Vec3Array(vertices->size());
+        osg::Vec3Array* va = vArray(); osg::Vec3Array* na = nArray();
+        osg::Vec2Array* ta = tArray();
+        if (!va || !na || !ta) return false;
+        if (va->size() != na->size() || va->size() != ta->size()) return false;
+
+        tangents = new osg::Vec3Array(va->size()); binormals = new osg::Vec3Array(va->size());
         g->setVertexAttribArray(6, tangents); g->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
         g->setVertexAttribArray(7, binormals); g->setVertexAttribBinding(7, osg::Geometry::BIND_PER_VERTEX);
+        return true;
     }
 
     osg::Vec3Array* vArray() { return static_cast<osg::Vec3Array*>(_geometry->getVertexArray()); }
@@ -96,8 +103,18 @@ namespace osgVerse
         tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
         tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
         tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
-        tex2D->setImage(image.get());
-        return tex2D.release();
+        tex2D->setImage(image.get()); return tex2D.release();
+    }
+
+    osg::Texture2D* createTexture2D(osg::Image* image)
+    {
+        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+        tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+        tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
+        tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
+        tex2D->setResizeNonPowerOfTwoHint(false);
+        tex2D->setImage(image); return tex2D.release();
     }
 
     osg::Geode* createScreenQuad(const osg::Vec3& corner, float width, float height, const osg::Vec4& uvRange)
@@ -193,10 +210,69 @@ namespace osgVerse
             
             osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
             geom->accept(functor);
-            functor.initialize(_mikkiTSpace, geom);
-            genTangSpace(_mikkiTSpace, _angularThreshold);
+            if (functor.initialize(_mikkiTSpace, geom))
+                genTangSpace(_mikkiTSpace, _angularThreshold);
         }
         traverse(node);
+    }
+
+    NormalMapGenerator::NormalMapGenerator(double nStrength, double spScale, double spContrast, bool nInvert)
+    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _nStrength(nStrength), _spScale(spScale), _spContrast(spContrast),
+        _normalMapUnit(1), _specMapUnit(2), _nInvert(nInvert) {}
+
+    void NormalMapGenerator::apply(osg::Node& node)
+    {
+        if (node.getStateSet()) apply(*node.getStateSet());
+        traverse(node);
+    }
+
+    void NormalMapGenerator::apply(osg::Geode& node)
+    {
+        for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+        {
+            osg::Drawable* drawable = node.getDrawable(i);
+            if (drawable && drawable->getStateSet())
+                apply(*drawable->getStateSet());
+        }
+
+        if (node.getStateSet()) apply(*node.getStateSet());
+        traverse(node);
+    }
+
+    void NormalMapGenerator::apply(osg::StateSet& ss)
+    {
+        osg::Texture2D* tex2D = dynamic_cast<osg::Texture2D*>(
+            ss.getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+        if (!tex2D) return;
+
+        osg::Image* image = tex2D->getImage();
+        if (!image || (image && !image->valid())) return;
+        if ((image->getPixelFormat() != GL_RGBA && image->getPixelFormat() != GL_RGB) ||
+            image->getDataType() != GL_UNSIGNED_BYTE)
+        {
+            OSG_NOTICE << "[NormalMapGenerator] Only support Vec3ub/Vec4ub pixels, mismatched with "
+                       << image->getFileName() << std::endl; return;
+        }
+
+        double invPixel = 1.0 / 255.0;
+        if (_normalMapUnit > 0)
+        {
+            NormalmapGenerator ng(IntensityMap::AVERAGE, invPixel, invPixel, invPixel, invPixel);
+            osg::ref_ptr<osg::Image> nMap = ng.calculateNormalmap(
+                image, NormalmapGenerator::PREWITT, _nStrength, _nInvert);
+            if (nMap.valid() && nMap->valid())
+                ss.setTextureAttributeAndModes(_normalMapUnit, createTexture2D(nMap.get()));
+        }
+
+        if (_specMapUnit > 0)
+        {
+            SpecularmapGenerator spg(IntensityMap::AVERAGE, invPixel, invPixel, invPixel, invPixel);
+            osg::ref_ptr<osg::Image> spMap = spg.calculateSpecmap(image, _spScale, _spContrast);
+            if (spMap.valid() && spMap->valid())
+                ss.setTextureAttributeAndModes(_specMapUnit, createTexture2D(spMap.get()));
+        }
+        OSG_NOTICE << "Normal-map generation for " << image->getFileName() << " finished" << std::endl;
     }
 
     void Frustum::create(const osg::Matrix& modelview, const osg::Matrix& originProj,

@@ -20,7 +20,6 @@ namespace osgVerse
         - sampler2d ReflectionMap: reflection RGB texture of input scene
         - mat4 <StageName>Matrices: matrices of specified input stage for rebuilding vertex attributes
                                     Including: world-to-view, view-to-world, view-to-proj, proj-to-view
-        - vec3 <StageName>CameraPosition: camera position of specified input stage
         - vec2 NearFarPlanes: calculated near/far values of entire scene
     */
     class Pipeline : public osg::Referenced

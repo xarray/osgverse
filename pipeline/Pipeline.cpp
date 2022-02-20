@@ -375,7 +375,7 @@ namespace osgVerse
 
         ss->setTextureAttributeAndModes(0, tex1.get());
         ss->setTextureAttributeAndModes(1, tex0.get());
-        ss->setTextureAttributeAndModes(2, tex0.get());
+        ss->setTextureAttributeAndModes(2, tex1.get());
         ss->setTextureAttributeAndModes(3, tex0.get());
         ss->setTextureAttributeAndModes(4, tex0.get());
         ss->setTextureAttributeAndModes(5, tex0.get());

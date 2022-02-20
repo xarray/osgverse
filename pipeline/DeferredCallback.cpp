@@ -33,13 +33,13 @@ namespace osgVerse
         if (_cameraMatrixMap.find(cam) != _cameraMatrixMap.end())
         { if (!addToList) _cameraMatrixMap.erase(cam); }
         else if (addToList && cam) _cameraMatrixMap[cam] =
-            MatrixAndPositionTuple(cam->getName(), std::vector<osg::Matrixf>(), osg::Vec3());
+            MatrixListPair(cam->getName(), std::vector<osg::Matrixf>());
     }
 
     void DeferredRenderCallback::applyAndUpdateCameraUniforms(osgUtil::SceneView* sv)
     {
         osg::Camera* cam = sv->getCamera();
-        for (std::map<osg::Camera*, MatrixAndPositionTuple>::iterator
+        for (std::map<osg::Camera*, MatrixListPair>::iterator
              itr = _cameraMatrixMap.begin(); itr != _cameraMatrixMap.end(); ++itr)
         {
             std::string uName = std::get<0>(itr->second);
@@ -51,17 +51,12 @@ namespace osgVerse
                 matrices.push_back(sv->getProjectionMatrix());
                 matrices.push_back(osg::Matrix::inverse(matrices.back()));
                 std::get<1>(itr->second) = matrices;
-                std::get<2>(itr->second) = osg::Vec3() * cam->getInverseViewMatrix();
             }
             
             osg::Uniform* u1 = sv->getLocalStateSet()->getOrCreateUniform(
                 (uName + "Matrices").c_str(), osg::Uniform::FLOAT_MAT4, 4);
             const std::vector<osg::Matrixf>& matrices = std::get<1>(itr->second);
             for (size_t i = 0; i < matrices.size(); ++i) u1->setElement(i, matrices[i]);
-
-            osg::Uniform* u2 = sv->getLocalStateSet()->getOrCreateUniform(
-                (uName + "CameraPosition").c_str(), osg::Uniform::FLOAT_VEC3);
-            u2->set(std::get<2>(itr->second));
         }
     }
 

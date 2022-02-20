@@ -12,6 +12,9 @@ namespace osgVerse
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);
 
+    /** Create 2D texture from an input image */
+    extern osg::Texture2D* createTexture2D(osg::Image* image);
+
     /** Create a XOY quad, often for screen-rendering use */
     extern osg::Geode* createScreenQuad(const osg::Vec3& corner, float width, float height,
                                         const osg::Vec4& uvRange);
@@ -35,6 +38,24 @@ namespace osgVerse
     protected:
         SMikkTSpaceContext* _mikkiTSpace;
         float _angularThreshold;
+    };
+
+    /** The normal-map & specular-map generator */
+    class NormalMapGenerator : public osg::NodeVisitor
+    {
+    public:
+        NormalMapGenerator(double nStrength = 2.0, double spScale = 0.2,
+                           double spContrast = 1.0, bool nInvert = false);
+        void setTextureUnits(int n, int sp) { _normalMapUnit = n; _specMapUnit = sp; }
+
+        virtual void apply(osg::Node& node);
+        virtual void apply(osg::Geode& node);
+        void apply(osg::StateSet& ss);
+
+    protected:
+        double _nStrength, _spScale, _spContrast;
+        int _normalMapUnit, _specMapUnit;
+        bool _nInvert;
     };
 
     /** The frustum geometry which is used by shadow computation */
