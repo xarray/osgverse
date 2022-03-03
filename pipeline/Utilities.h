@@ -13,7 +13,7 @@ namespace osgVerse
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);
 
     /** Create 2D texture from an input image */
-    extern osg::Texture2D* createTexture2D(osg::Image* image);
+    extern osg::Texture2D* createTexture2D(osg::Image* img, osg::Texture::WrapMode m = osg::Texture::REPEAT);
 
     /** Create a XOY quad, often for screen-rendering use */
     extern osg::Geode* createScreenQuad(const osg::Vec3& corner, float width, float height,

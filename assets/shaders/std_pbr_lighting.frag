@@ -1,17 +1,20 @@
 #version 130
 #define M_PI 3.1415926535897932384626433832795
-uniform samplerCube irradianceMap;
-uniform samplerCube prefilterMap;
-uniform sampler2D BrdfLutBuffer;
-
+uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
 uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
 //uniform sampler2DArray ShadowMapArray;
 //uniform mat4 LightMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
-uniform vec3 GBufferCameraPosition;
 uniform vec2 NearFarPlanes;
 in vec4 texCoord0;
+
+const vec2 invAtan = vec2(0.1591, 0.3183);
+vec2 sphericalUV(vec3 v)
+{
+    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
+    uv *= invAtan; uv += 0.5; return uv;
+}
 
 /// PBR functions
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
@@ -79,7 +82,7 @@ vec3 computeDirectionalLight(vec3 lightDirection, vec3 lightColor, vec3 normal, 
     vec3 kD = (vec3(1.0) - F) * (1.0 - metal);
     vec3 numerator = NDF * G * F;
     float denominator = 4.0 * nDotV * nDotL;
-    vec3 specularR = numerator / max(denominator, 0.0001) + specular;
+    vec3 specularR = specular * numerator / max(denominator, 0.0001);
     
     vec3 radiance = (kD * (albedo / M_PI) + specularR) * radianceIn * nDotL;
     return radiance * shadow;
@@ -112,7 +115,7 @@ vec3 computePointLight(vec3 lightPosition, vec3 lightColor, float range, vec3 no
     vec3 kD = (vec3(1.0) - F) * (1.0 - metal);
     vec3 numerator = NDF * G * F;
     float denominator = 4.0 * nDotV * nDotL;
-    vec3 specularR = numerator / max(denominator, 0.0001) + specular;
+    vec3 specularR = specular * numerator / max(denominator, 0.0001);
 
     vec3 radiance = (kD * (albedo / M_PI) + specularR) * radianceIn * nDotL;
     return radiance;//radiance * (1.0 - shadow);  // FIXME: point shadow
@@ -130,13 +133,13 @@ void main()
     
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
-    vec4 worldVertex = GBufferMatrices[1] * GBufferMatrices[3] * vecInProj;
-    vec3 eyeNormal = normalAlpha.rgb, worldPos = worldVertex.xyz / worldVertex.w;
+    vec4 eyeVertex = GBufferMatrices[3] * vecInProj;
+    vec3 eyeNormal = normalAlpha.rgb;
     
-    vec3 dLightDir = vec3(0.0, 0.0, -1.0), dLightColor = vec3(5.0, 5.0, 5.0);  // TODO!!!!!!!!!!!!!
+    vec3 dLightDir = vec3(0.0, 0.0, -1.0), dLightColor = vec3(2.0, 2.0, 2.0);  // TODO!!!!!!!!!!!!!
     
     // Components common to all light types
-    vec3 viewDir = normalize(GBufferCameraPosition - worldPos);
+    vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);
     vec3 R = reflect(-viewDir, eyeNormal);
     vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
     float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;
@@ -158,15 +161,15 @@ void main()
     
     // Treat ambient light as IBL or not
     vec3 ambient = vec3(0.025) * albedo;
-    if (false)
+    if (true && depthValue < 1.0)
     {
         vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);
         vec3 kD = (1.0 - kS) * (1.0 - metallic);
-        vec3 irradiance = texture(irradianceMap, eyeNormal).rgb;
+        vec3 irradiance = texture(IrradianceBuffer, sphericalUV(eyeNormal)).rgb;
         vec3 diffuse = irradiance * albedo;
 
         const float MAX_REFLECTION_LOD = 4.0;
-        vec3 prefilteredColor = textureLod(prefilterMap, R, roughness * MAX_REFLECTION_LOD).rgb;
+        vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;
         vec2 envBRDF = texture(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
         vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
         ambient = kD * diffuse + envSpecular;
@@ -174,5 +177,4 @@ void main()
     
     radianceOut += ambient + emission;
 	gl_FragColor = vec4(radianceOut, 1.0);
-    //if (gl_FragCoord.x < 960) gl_FragColor = vec4(texture(BrdfLutBuffer, vec2(nDotV, roughness)).rg, 0.0, 1.0);  // FIXNE: test only
 }

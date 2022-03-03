@@ -76,6 +76,8 @@ static osg::Uniform* generateSsaoNoises(int numberOfNoise)
 static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Group* root,
                           unsigned int originW, unsigned int originH)
 {
+    osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(
+        osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"), osg::Texture::MIRROR);
     p->startStages(originW, originH);
 
     osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule(p, true);
@@ -98,6 +100,19 @@ static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Gro
         osgDB::readShaderFile(SHADER_DIR "std_common_quad.vert"),
         osgDB::readShaderFile(SHADER_DIR "std_brdf_lut.frag"), 1,
         "BrdfLutBuffer", osgVerse::Pipeline::RG_FLOAT16);
+
+    osgVerse::Pipeline::Stage* prefiltering = p->addDeferredStage("Prefilter", true,
+        osgDB::readShaderFile(SHADER_DIR "std_common_quad.vert"),
+        osgDB::readShaderFile(SHADER_DIR "std_environment_prefiltering.frag"), 1,
+        "PrefilterBuffer", osgVerse::Pipeline::RGB_INT8);
+    prefiltering->applyTexture(hdrMap.get(), "EnvironmentMap", 0);
+    prefiltering->applyUniform(new osg::Uniform("roughness", 4.0f));
+    
+    osgVerse::Pipeline::Stage* convolution = p->addDeferredStage("IrrConvolution", true,
+        osgDB::readShaderFile(SHADER_DIR "std_common_quad.vert"),
+        osgDB::readShaderFile(SHADER_DIR "std_irradiance_convolution.frag"), 1,
+        "IrradianceBuffer", osgVerse::Pipeline::RGB_INT8);
+    convolution->applyTexture(hdrMap.get(), "EnvironmentMap", 0);
 
     osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao",
         osgDB::readShaderFile(SHADER_DIR "std_common_quad.vert"),
@@ -124,6 +139,8 @@ static void setupPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Gro
     lighting->applyBuffer(*gbuffer, "EmissionOcclusionBuffer", 3);
     lighting->applyBuffer(*gbuffer, "DepthBuffer", 4);
     lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5);
+    lighting->applyBuffer(*prefiltering, "PrefilterBuffer", 6);
+    lighting->applyBuffer(*convolution, "IrradianceBuffer", 7);
     //lighting->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 5);
     //lighting->applyUniform(shadow->getLightMatrices());
 

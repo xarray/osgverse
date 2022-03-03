@@ -106,13 +106,13 @@ namespace osgVerse
         tex2D->setImage(image.get()); return tex2D.release();
     }
 
-    osg::Texture2D* createTexture2D(osg::Image* image)
+    osg::Texture2D* createTexture2D(osg::Image* image, osg::Texture::WrapMode mode)
     {
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
         tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
         tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
-        tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
-        tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
+        tex2D->setWrap(osg::Texture2D::WRAP_S, mode);
+        tex2D->setWrap(osg::Texture2D::WRAP_T, mode);
         tex2D->setResizeNonPowerOfTwoHint(false);
         tex2D->setImage(image); return tex2D.release();
     }
