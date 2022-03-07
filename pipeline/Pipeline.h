@@ -5,7 +5,12 @@
 #include <osg/Texture2D>
 #include <osg/Group>
 #include <osgViewer/View>
+#include <string>
 #include "DeferredCallback.h"
+
+#define FORWARD_SCENE_MASK  0x0000ff00
+#define DEFERRED_SCENE_MASK 0x00ff0000
+#define SHADOW_CASTER_MASK  0x01000000
 
 namespace osgVerse
 {
@@ -120,6 +125,10 @@ namespace osgVerse
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2i _stageSize;
     };
+
+    /** Standard pipeline */
+    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, osg::Group* root,
+                                      const std::string& shaderDir, unsigned int originW, unsigned int originH);
 }
 
 #endif

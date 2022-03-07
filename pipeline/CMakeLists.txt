@@ -1,6 +1,6 @@
 SET(LIB_NAME osgVersePipeline)
 SET(LIBRARY_FILES
-    Pipeline.cpp Pipeline.h
+    Pipeline.cpp Pipeline.h PipelineStandard.cpp
 	DeferredCallback.cpp DeferredCallback.h
 	ShadowModule.cpp ShadowModule.h
 	Utilities.cpp Utilities.h
