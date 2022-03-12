@@ -1,4 +1,4 @@
-SET(EXE_NAME osgVerse_ExeSimpleViewer)
+SET(EXE_NAME osgVerse_SimpleViewer)
 SET(EXECUTABLE_FILES
     simple_viewer_main.cpp
 )

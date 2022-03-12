@@ -80,7 +80,6 @@ public:
                 _callback->registerDepthFBO(getCamera(), fbo);
         }
 
-        // FIXME: resizing window will cause input-stage's ratio different from the forward one
 #if 0
         double ratio = 0.0, fovy = 0.0, znear = 0.0, zfar = 0.0;
         getProjectionMatrix().getPerspective(fovy, ratio, znear, zfar);
@@ -146,6 +145,116 @@ protected:
     }
 };
 
+struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
+{
+    virtual void resizedImplementation(osg::GraphicsContext* gc, int x, int y, int w, int h)
+    {
+        std::set<osg::Viewport*> processedViewports;
+        const osg::GraphicsContext::Traits* traits = gc->getTraits();
+        if (!traits) return;
+
+        double widthChangeRatio = double(w) / double(traits->width);
+        double heightChangeRatio = double(h) / double(traits->height);
+        double aspectRatioChange = widthChangeRatio / heightChangeRatio;
+        osg::GraphicsContext::Cameras cameras = gc->getCameras();
+        for (osg::GraphicsContext::Cameras::iterator itr = cameras.begin(); itr != cameras.end(); ++itr)
+        {
+            osg::Camera* camera = (*itr);
+            osg::View* view = camera->getView();
+            osg::View::Slave* slave = view ? view->findSlaveForCamera(camera) : 0;
+            bool rtt = (camera->getRenderTargetImplementation() == osg::Camera::FRAME_BUFFER_OBJECT);
+            bool inputCam = (slave ? slave->_useMastersSceneData : false);
+
+            osg::Viewport* viewport = camera->getViewport();
+            if (viewport && (!rtt || inputCam))
+            {   // avoid processing a shared viewport twice
+                if (processedViewports.count(viewport) == 0)
+                {
+                    processedViewports.insert(viewport);
+                    if (viewport->x() == 0 && viewport->y() == 0 &&
+                        viewport->width() >= traits->width && viewport->height() >= traits->height)
+                    { viewport->setViewport(0, 0, w, h); }
+                    else
+                    {
+                        viewport->x() = double(viewport->x() * widthChangeRatio);
+                        viewport->y() = double(viewport->y() * heightChangeRatio);
+                        viewport->width() = double(viewport->width() * widthChangeRatio);
+                        viewport->height() = double(viewport->height() * heightChangeRatio);
+                    }
+                }
+            }
+
+            // if aspect ratio adjusted change the project matrix to suit.
+            if (aspectRatioChange == 1.0) continue;
+            if (slave)
+            {
+                if (camera->getReferenceFrame() == osg::Transform::RELATIVE_RF)
+                {
+                    if (rtt) camera->resizeAttachments(w, h);
+                    switch (view->getCamera()->getProjectionResizePolicy())
+                    {
+                    case (osg::Camera::HORIZONTAL):
+                        slave->_projectionOffset *= osg::Matrix::scale(1.0 / aspectRatioChange, 1.0, 1.0); break;
+                    case (osg::Camera::VERTICAL):
+                        slave->_projectionOffset *= osg::Matrix::scale(1.0, aspectRatioChange, 1.0); break;
+                    default: break;
+                    }
+                }
+                else
+                {
+                    continue;  // FIXME: ignore all absolute slaves such as RTT & display quads
+                    /*switch (camera->getProjectionResizePolicy())
+                    {
+                    case (osg::Camera::HORIZONTAL):
+                        camera->getProjectionMatrix() *= osg::Matrix::scale(1.0 / aspectRatioChange, 1.0, 1.0); break;
+                    case (osg::Camera::VERTICAL):
+                        camera->getProjectionMatrix() *= osg::Matrix::scale(1.0, aspectRatioChange, 1.0); break;
+                    default: break;
+                    }*/
+                }
+            }
+            else
+            {
+                if (rtt) continue;
+                osg::Camera::ProjectionResizePolicy policy = view
+                    ? view->getCamera()->getProjectionResizePolicy() : camera->getProjectionResizePolicy();
+                switch (policy)
+                {
+                case (osg::Camera::HORIZONTAL):
+                    camera->getProjectionMatrix() *= osg::Matrix::scale(1.0 / aspectRatioChange, 1.0, 1.0); break;
+                case (osg::Camera::VERTICAL):
+                    camera->getProjectionMatrix() *= osg::Matrix::scale(1.0, aspectRatioChange, 1.0); break;
+                default: break;
+                }
+
+                osg::Camera* master = view ? view->getCamera() : 0;
+                if (view && camera != master) continue;
+                for (unsigned int i = 0; i < view->getNumSlaves(); ++i)
+                {
+                    osg::View::Slave& child = view->getSlave(i);
+                    if (child._camera.valid() && child._camera->getReferenceFrame() == osg::Transform::RELATIVE_RF)
+                    {
+                        // scale the slaves by the inverse of the change that has been applied to master, to avoid them
+                        // be scaled twice (such as when both master and slave are on the same GraphicsContexts)
+                        // or by the wrong scale when master and slave are on different GraphicsContexts.
+                        switch (policy)
+                        {
+                        case (osg::Camera::HORIZONTAL):
+                            child._projectionOffset *= osg::Matrix::scale(aspectRatioChange, 1.0, 1.0); break;
+                        case (osg::Camera::VERTICAL):
+                            child._projectionOffset *= osg::Matrix::scale(1.0, 1.0 / aspectRatioChange, 1.0); break;
+                        default: break;
+                        }
+                    }
+                }
+            }
+        }
+
+        osg::GraphicsContext::Traits* ncTraits = const_cast<osg::GraphicsContext::Traits*>(traits);
+        ncTraits->x = x; ncTraits->y = y; ncTraits->width = w; ncTraits->height = h;
+    }
+};
+
 namespace osgVerse
 {
     static osg::GraphicsContext* createGraphicsContext(int w, int h, osg::GraphicsContext* shared = NULL)
@@ -207,10 +316,11 @@ namespace osgVerse
         return NULL;
     }
 
-    void Pipeline::startStages(int w, int h)
+    void Pipeline::startStages(int w, int h, osg::GraphicsContext* gc)
     {
         _stageSize = osg::Vec2i(w, h);
-        _stageContext = createGraphicsContext(w, h);
+        _stageContext = createGraphicsContext(w, h, gc);
+        _stageContext->setResizedCallback(new MyResizedCallback);
     }
 
     void Pipeline::applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
@@ -340,6 +450,7 @@ namespace osgVerse
         s->camera = createHUDCamera(_stageContext.get(), _stageSize[0], _stageSize[1],
                                     osg::Vec3(geom[0], geom[1], 0.0f), geom[2], geom[3], true);
         applyDefaultStageData(*s, name, vs, fs);
+        s->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
         s->inputStage = false; _stages.push_back(s);
         return s;
     }

@@ -49,7 +49,7 @@ namespace osgVerse
     {
         osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(
             osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"), osg::Texture::MIRROR);
-        p->startStages(originW, originH);
+        p->startStages(originW, originH, NULL);
 
         osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule(p, true);
         shadow->setLightState(osg::Vec3(), osg::Vec3(1.0f, 0.0f, -1.0f), 1500.0f);

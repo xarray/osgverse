@@ -133,7 +133,7 @@ namespace osgVerse
     }
 
     osg::Camera* createRTTCamera(osg::Camera::BufferComponent buffer, osg::Texture* tex,
-        osg::GraphicsContext* gc, bool screenSpaced)
+                                 osg::GraphicsContext* gc, bool screenSpaced)
     {
         osg::ref_ptr<osg::Camera> camera = new osg::Camera;
         camera->setDrawBuffer(GL_FRONT);
@@ -162,7 +162,7 @@ namespace osgVerse
     }
 
     osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
-        float quadW, float quadH, bool screenSpaced)
+                                 float quadW, float quadH, bool screenSpaced)
     {
         osg::ref_ptr<osg::Camera> camera = new osg::Camera;
         camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));

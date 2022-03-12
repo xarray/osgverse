@@ -75,7 +75,7 @@ namespace osgVerse
         Stage* getStage(const std::string& name);
 
         /** Start adding pipeline stages after this function */
-        void startStages(int w, int h);
+        void startStages(int w, int h, osg::GraphicsContext* gc = NULL);
 
         /** Finish all pipeline stages in this function. It will automatically add
             a forward pass for normal scene object rendering */

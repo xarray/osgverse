@@ -182,7 +182,7 @@ namespace osgVerse
                 if (viewport != NULL) { sWidth = viewport->width(); sHeight = viewport->height(); }
 
                 osg::FrameBufferObject* fbo = fboItr->second.get();
-                fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+                if (fbo) fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
                 ext->glBlitFramebuffer(0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
                                        GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 #if 0
