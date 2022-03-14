@@ -101,7 +101,7 @@ int main(int argc, char** argv)
         ss->getOrCreateUniform("dLightDirection", osg::Uniform::FLOAT_VEC4)->set(lightDir * viewMatrix);
         ss->getOrCreateUniform("dLightDirection2", osg::Uniform::FLOAT_VEC4)->set(lightDir2 * viewMatrix);
 
-        ss->getOrCreateUniform("ProjectionToWorld", osg::Uniform::FLOAT_MAT4)->set(
+        ss->getOrCreateUniform("ProjectionToView", osg::Uniform::FLOAT_MAT4)->set(
             osg::Matrixf::inverse(viewer.getCamera()->getProjectionMatrix()));
         viewer.frame();
     }
