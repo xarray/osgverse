@@ -6,7 +6,6 @@ uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
 //uniform sampler2DArray ShadowMapArray;
 //uniform mat4 LightMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
-uniform vec2 NearFarPlanes;
 in vec4 texCoord0;
 
 const vec2 invAtan = vec2(0.1591, 0.3183);
@@ -58,12 +57,6 @@ float geometrySmith(float nDotV, float nDotL, float rough)
 }
 
 /// Lighting functions
-float linearDepth(float depthRange/*[-1, 1]*/)
-{
-    return (2.0 * NearFarPlanes.x * NearFarPlanes.y) /
-           ((NearFarPlanes.y + NearFarPlanes.x) - depthRange * (NearFarPlanes.y - NearFarPlanes.x));
-}
-
 vec3 computeDirectionalLight(vec3 lightDirection, vec3 lightColor, vec3 normal, vec3 viewDir,
                              vec3 albedo, vec3 specular, float rough, float metal, float shadow, vec3 F0)
 {
@@ -129,7 +122,6 @@ void main()
 	vec4 emissionOcclusion = texture(EmissionOcclusionBuffer, uv0);
     vec4 normalAlpha = texture(NormalBuffer, uv0);
     float depthValue = texture(DepthBuffer, uv0).r * 2.0 - 1.0;
-    float linearDepth = linearDepth(depthValue);
     
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);

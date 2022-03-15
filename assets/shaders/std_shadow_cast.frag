@@ -1,8 +1,8 @@
 #version 130
-in vec4 gl_TexCoord[gl_MaxTextureCoords];
-in vec4 lightProjVec;
+in vec4 texCoord0, lightProjVec;
+out vec4 fragData;
 
 void main()
 {
-	gl_FragData[0] = vec4(1.0, (lightProjVec.yz / lightProjVec.w), 1.0);
+	fragData = vec4(1.0, (lightProjVec.yz / lightProjVec.w), 1.0);
 }

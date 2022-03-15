@@ -1,6 +1,7 @@
 #version 130
 #define M_PI 3.1415926535897932384626433832795
 in vec4 texCoord0;
+out vec4 fragData;
 
 // ----------------------------------------------------------------------------
 // http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
@@ -100,5 +101,5 @@ vec2 IntegrateBRDF(float NdotV, float roughness)
 void main()
 {
 	vec2 integratedBRDF = IntegrateBRDF(texCoord0.x, texCoord0.y);
-	gl_FragColor = vec4(integratedBRDF, 0.0, 1.0);
+	fragData = vec4(integratedBRDF, 0.0, 1.0);
 }

@@ -70,7 +70,7 @@ namespace osgVerse
         osg::ref_ptr<osg::CullSettings::ClampProjectionMatrixCallback> clamper =
             sv->getClampProjectionMatrixCallback();
         unsigned int cullMask = sv->getCullMask();
-        sv->setClampProjectionMatrixCallback(NULL);
+        sv->setClampProjectionMatrixCallback(_userClamperCallback.get());
         sv->setCullMask(0xffffffff);
         sv->osgUtil::SceneView::cull();
         sv->setCullMask(cullMask);

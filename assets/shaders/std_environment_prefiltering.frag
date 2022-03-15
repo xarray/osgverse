@@ -3,6 +3,7 @@
 uniform sampler2D EnvironmentMap;
 uniform float roughness;
 in vec4 texCoord0;
+out vec4 fragData;
 
 const vec2 invAtan = vec2(0.1591, 0.3183);
 vec2 sphericalUV(vec3 v)
@@ -78,5 +79,5 @@ void main()
             totalWeight += nDotL;
         }
     }
-    gl_FragColor = vec4(prefilteredColor / totalWeight, 1.0);
+    fragData = vec4(prefilteredColor / totalWeight, 1.0);
 }

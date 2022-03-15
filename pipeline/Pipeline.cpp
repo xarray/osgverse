@@ -156,6 +156,7 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
         double widthChangeRatio = double(w) / double(traits->width);
         double heightChangeRatio = double(h) / double(traits->height);
         double aspectRatioChange = widthChangeRatio / heightChangeRatio;
+
         osg::GraphicsContext::Cameras cameras = gc->getCameras();
         for (osg::GraphicsContext::Cameras::iterator itr = cameras.begin(); itr != cameras.end(); ++itr)
         {
@@ -325,6 +326,8 @@ namespace osgVerse
 
     void Pipeline::applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
     {
+        if (view->getCamera() && view->getCamera()->getClampProjectionMatrixCallback())
+            _deferredCallback->setClampCallback(view->getCamera()->getClampProjectionMatrixCallback());
         for (unsigned int i = 0; i < _stages.size(); ++i)
         {
             bool useMainScene = _stages[i]->inputStage;
@@ -346,6 +349,9 @@ namespace osgVerse
 
         if (!_stages.empty()) forwardCam->setClearMask(0);
         view->addSlave(forwardCam.get(), osg::Matrix(), osg::Matrix(), true);
+        view->getCamera()->setViewport(0, 0, _stageSize.x(), _stageSize.y());
+        view->getCamera()->setProjectionMatrixAsPerspective(
+            30.0f, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), 1.0f, 10000.0f);
         _forwardCamera = forwardCam;
     }
 

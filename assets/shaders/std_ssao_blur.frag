@@ -3,6 +3,7 @@
 #define MAX_KERNEL_SIZE ((MAX_SIZE * 2 + 1) * (MAX_SIZE * 2 + 1))
 uniform sampler2D SsaoBuffer;
 in vec4 texCoord0;
+out vec4 fragData;
 
 float blurParameter = 1.0;
 vec3 valueRatios = vec3(0.3, 0.59, 0.11);
@@ -43,5 +44,5 @@ void main()
     findMean(0, size, 0, size);  // Upper Right
     findMean(-size, 0, 0, size);  // Upper Left
     findMean(0, size, -size, 0);  // Lower Right
-	gl_FragColor = vec4(mean.rgb, 1.0);
+	fragData = vec4(mean.rgb, 1.0);
 }

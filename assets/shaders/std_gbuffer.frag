@@ -1,13 +1,13 @@
 #version 130
 uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;
 uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
-in vec4 worldVertex, texCoord0, texCoord1;
+in vec4 worldVertex, texCoord0, texCoord1, color;
 in vec3 eyeNormal, eyeTangent, eyeBinormal;
 
 void main()
 {
     vec2 uv0 = texCoord0.xy, uv1 = texCoord1.xy;
-    vec4 color = texture(DiffuseMap, uv0) * gl_Color;
+    vec4 color = texture(DiffuseMap, uv0) * color;
     vec4 normalValue = texture(NormalMap, uv0);
     vec3 specular = texture(SpecularMap, uv0).rgb;
     vec3 emission = texture(EmissiveMap, uv1).rgb;

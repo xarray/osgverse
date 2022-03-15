@@ -21,6 +21,38 @@
 #include <pipeline/Utilities.h>
 #define SHADER_DIR "../shaders/"
 
+class InteractiveHandler : public osgGA::GUIEventHandler
+{
+public:
+    InteractiveHandler(osgEarth::EarthManipulator* em) : _manipulator(em), _viewpointSet(false) {}
+    void addViewpoint(const osgEarth::Viewpoint& vp) { _viewPoints.push_back(vp); }
+    
+    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN ||
+            ea.getEventType() == osgGA::GUIEventAdapter::PUSH)
+        {
+            if (_viewpointSet)
+            { _manipulator->clearViewpoint(); _viewpointSet = false; }
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        {
+            if (ea.getKey() >= '1' && ea.getKey() <= '9')
+            {
+                int index = ea.getKey() - '1';
+                if (index < _viewPoints.size())
+                { _manipulator->setViewpoint(_viewPoints[index], 2.0); _viewpointSet = true; }
+            }
+        }
+        return false;
+    }
+
+protected:
+    osg::observer_ptr<osgEarth::EarthManipulator> _manipulator;
+    std::vector<osgEarth::Viewpoint> _viewPoints;
+    bool _viewpointSet;
+};
+
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -57,9 +89,13 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(sceneRoot.get());
 
+#if false
+    osgViewer::Viewer viewer;
+#else
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
     setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);
+#endif
 
     // Create a placer on earth for sceneRoot to copy
     osg::ref_ptr<osg::MatrixTransform> placer = new osg::MatrixTransform;
@@ -79,11 +115,14 @@ int main(int argc, char** argv)
         osg::ref_ptr<osgEarth::MapNode> mapNode = osgEarth::MapNode::get(earthRoot.get());
         if (!mapNode->open()) { OSG_WARN << "Failed to open earth map"; return 1; }
 
-        // default uniform values:
+#if false
+        osgEarth::GLUtils::setGlobalDefaults(viewer.getCamera()->getOrCreateStateSet());
+        viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
+#else
+        // default uniform values and disable small feature culling
         osgEarth::GLUtils::setGlobalDefaults(pipeline->getForwardCamera()->getOrCreateStateSet());
-
-        // disable small feature culling (otherwise Text annotations won't render)
         pipeline->getForwardCamera()->setSmallFeatureCullingPixelSize(-1.0f);
+#endif
 
         // thread-safe initialization of the OSG wrapper manager. Calling this here
         // prevents the "unsupported wrapper" messages from OSG
@@ -109,7 +148,10 @@ int main(int argc, char** argv)
         vp.heading()->set(-45.0, osgEarth::Units::DEGREES);
         vp.pitch()->set(-20.0, osgEarth::Units::DEGREES);
         vp.range()->set(sceneRoot->getBound().radius() * 10.0, osgEarth::Units::METERS);
-        earthMani->setViewpoint(vp);
+
+        osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
+        interacter->addViewpoint(vp);
+        viewer.addEventHandler(interacter.get());
     }
 
     viewer.addEventHandler(new osgViewer::StatsHandler);

@@ -2,6 +2,7 @@
 #define M_PI 3.1415926535897932384626433832795
 uniform sampler2D EnvironmentMap;
 in vec4 texCoord0;
+out vec4 fragData;
 
 const vec2 invAtan = vec2(0.1591, 0.3183);
 vec2 sphericalUV(vec3 v)
@@ -38,5 +39,5 @@ void main()
     }
     
     irradiance = M_PI * irradiance * (1.0 / float(nrSamples));
-    gl_FragColor = vec4(irradiance, 1.0);
+    fragData = vec4(irradiance, 1.0);
 }
