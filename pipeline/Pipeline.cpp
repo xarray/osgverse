@@ -456,7 +456,7 @@ namespace osgVerse
         s->camera = createHUDCamera(_stageContext.get(), _stageSize[0], _stageSize[1],
                                     osg::Vec3(geom[0], geom[1], 0.0f), geom[2], geom[3], true);
         applyDefaultStageData(*s, name, vs, fs);
-        s->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        //s->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
         s->inputStage = false; _stages.push_back(s);
         return s;
     }

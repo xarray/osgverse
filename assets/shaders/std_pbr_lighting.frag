@@ -7,6 +7,7 @@ uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
 //uniform mat4 LightMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 in vec4 texCoord0;
+out vec4 fragData;
 
 const vec2 invAtan = vec2(0.1591, 0.3183);
 vec2 sphericalUV(vec3 v)
@@ -168,5 +169,5 @@ void main()
     }
     
     radianceOut += ambient + emission;
-	gl_FragColor = vec4(radianceOut, 1.0);
+	fragData = vec4(radianceOut, 1.0);
 }

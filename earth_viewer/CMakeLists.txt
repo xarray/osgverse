@@ -12,6 +12,14 @@ FIND_PATH(OSGEARTH_INCLUDE_DIR osgEarth/EarthManipulator
     /usr/local/include
 )
 
+FIND_PATH(OSGEARTH_BUILD_INCLUDE_DIR osgEarth/BuildConfig
+    PATHS
+    $ENV{OSG_ROOT}/include
+    $ENV{OSG_DIR}/include
+    /usr/include
+    /usr/local/include
+)
+
 FIND_PATH(OSGEARTH_LIB_DIR libosgEarth.so osgEarth.lib
     PATHS
     $ENV{OSG_ROOT}/lib
@@ -20,7 +28,7 @@ FIND_PATH(OSGEARTH_LIB_DIR libosgEarth.so osgEarth.lib
     /usr/local/lib
 )
 
-INCLUDE_DIRECTORIES(${OSGEARTH_INCLUDE_DIR})
+INCLUDE_DIRECTORIES(${OSGEARTH_INCLUDE_DIR} ${OSGEARTH_BUILD_INCLUDE_DIR})
 LINK_DIRECTORIES(${OSGEARTH_LIB_DIR})
 #########################################
 

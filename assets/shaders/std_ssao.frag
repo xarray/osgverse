@@ -4,6 +4,7 @@
 uniform sampler2D NormalBuffer, DepthBuffer, RandomTexture;
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 in vec4 texCoord0;
+out vec4 fragData;
 
 const float NUM_STEPS = 4;
 const float NUM_DIRECTIONS = 8;
@@ -86,5 +87,5 @@ void main()
     
     // Get jitter vector for the current full-res pixel
     float AO = computeCoarseAO(uv0, radiusToScreen, getJitter(), eyePosition, eyeNormal);
-    gl_FragColor = vec4(pow(AO, powExponent));
+    fragData = vec4(pow(AO, powExponent));
 }
