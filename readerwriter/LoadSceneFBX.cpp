@@ -307,11 +307,13 @@ namespace osgVerse
                     fileName = osgDB::getSimpleFileName(originalName);
                     image = osgDB::readImageFile(_workingDir + fileName);
                 }
+
+                if (!image) continue;
                 tex2D->setImage(image.get());
                 tex2D->setName(originalName);
 
                 _textureMap[tData] = tex2D;
-                OSG_NOTICE << "[LoaderGLTF] " << originalName << " loaded for "
+                OSG_NOTICE << "[LoaderFBX] " << originalName << " loaded for "
                            << uniformNames[i] << std::endl;
             }
 

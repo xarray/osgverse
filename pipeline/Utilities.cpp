@@ -136,8 +136,6 @@ namespace osgVerse
                                  osg::GraphicsContext* gc, bool screenSpaced)
     {
         osg::ref_ptr<osg::Camera> camera = new osg::Camera;
-        camera->setDrawBuffer(GL_FRONT);
-        camera->setReadBuffer(GL_FRONT);
         camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
