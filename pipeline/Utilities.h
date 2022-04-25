@@ -1,5 +1,5 @@
-#ifndef MANA_UTILITIES_HPP
-#define MANA_UTILITIES_HPP
+#ifndef MANA_PP_UTILITIES_HPP
+#define MANA_PP_UTILITIES_HPP
 
 #include <osg/Polytope>
 #include <osg/Geometry>
@@ -33,6 +33,8 @@ namespace osgVerse
     public:
         TangentSpaceVisitor(const float angularThreshold = 180.0f);
         virtual ~TangentSpaceVisitor();
+        virtual void apply(osg::Drawable& node) {}  // do nothing
+        virtual void apply(osg::Geometry& geometry) {}  // do nothing
         virtual void apply(osg::Geode& node);
 
     protected:
@@ -48,6 +50,8 @@ namespace osgVerse
                            double spContrast = 1.0, bool nInvert = false);
         void setTextureUnits(int n, int sp) { _normalMapUnit = n; _specMapUnit = sp; }
 
+        virtual void apply(osg::Drawable& node) {}  // do nothing
+        virtual void apply(osg::Geometry& geometry) {}  // do nothing
         virtual void apply(osg::Node& node);
         virtual void apply(osg::Geode& node);
         void apply(osg::StateSet& ss);

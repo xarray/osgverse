@@ -1,5 +1,5 @@
-#ifndef MANA_PLAYERANIMATION_HPP
-#define MANA_PLAYERANIMATION_HPP
+#ifndef MANA_ANIM_PLAYERANIMATION_HPP
+#define MANA_ANIM_PLAYERANIMATION_HPP
 
 #include <osg/Version>
 #include <osg/Texture2D>

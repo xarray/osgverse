@@ -1,5 +1,5 @@
-#ifndef MANA_PIPELINE_HPP
-#define MANA_PIPELINE_HPP
+#ifndef MANA_PP_PIPELINE_HPP
+#define MANA_PP_PIPELINE_HPP
 
 #include <osg/Program>
 #include <osg/Texture2D>

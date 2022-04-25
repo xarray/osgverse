@@ -1,6 +1,7 @@
 SET(LIB_NAME osgVerseModeling)
 SET(LIBRARY_FILES
     MeshDeformer.cpp MeshDeformer.hpp
+    Utilities.cpp Utilities.h
 )
 
 NEW_LIBRARY(${LIB_NAME} STATIC)

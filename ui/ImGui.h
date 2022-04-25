@@ -1,5 +1,5 @@
-#ifndef MANA_IMGUI_HPP
-#define MANA_IMGUI_HPP
+#ifndef MANA_UI_IMGUI_HPP
+#define MANA_UI_IMGUI_HPP
 
 #include <osg/Texture2D>
 #include <osgGA/GUIEventHandler>

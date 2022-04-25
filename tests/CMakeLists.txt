@@ -12,3 +12,4 @@ ENDMACRO(NEW_TEST_EXECUTABLE)
 
 INCLUDE_DIRECTORIES(.)
 NEW_TEST_EXECUTABLE(osgVerse_Test_FastRtt fast_rtt_test.cpp)
+NEW_TEST_EXECUTABLE(osgVerse_Test_Obb_KDop obb_kdop_test.cpp)

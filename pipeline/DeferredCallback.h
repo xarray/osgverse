@@ -1,5 +1,5 @@
-#ifndef MANA_DEFERRED_CALLBACK_HPP
-#define MANA_DEFERRED_CALLBACK_HPP
+#ifndef MANA_PP_DEFERRED_CALLBACK_HPP
+#define MANA_PP_DEFERRED_CALLBACK_HPP
 
 #include <osg/Geometry>
 #include <osg/Texture2D>

@@ -1,6 +1,7 @@
 SET(ApproxMVBB_VERSION_MAJOR 3)
 SET(ApproxMVBB_VERSION_MINOR 1)
 SET(ApproxMVBB_VERSION_PATCH 2)
+SET(ApproxMVBB_FORCE_MSGLOG_LEVEL 0)
 CONFIGURE_FILE(ApproxMVBB/GeometryPredicates/Config.hpp.in.cmake "${CMAKE_BINARY_DIR}/3rdparty/ApproxMVBB/GeometryPredicates/Config.hpp")
 CONFIGURE_FILE(ApproxMVBB/Config/Config.hpp.in.cmake "${CMAKE_BINARY_DIR}/3rdparty/ApproxMVBB/Config/Config.hpp")
 SET(APPROXMVBB_SOURCE_FILES

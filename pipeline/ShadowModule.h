@@ -1,5 +1,5 @@
-#ifndef MANA_SHADOW_MODULE_HPP
-#define MANA_SHADOW_MODULE_HPP
+#ifndef MANA_PP_SHADOW_MODULE_HPP
+#define MANA_PP_SHADOW_MODULE_HPP
 
 #include <osg/Texture2DArray>
 #include <osg/Geometry>

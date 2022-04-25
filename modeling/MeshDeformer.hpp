@@ -1,5 +1,5 @@
-#ifndef MANA_MESH_DEFORMER_HPP
-#define MANA_MESH_DEFORMER_HPP
+#ifndef MANA_MODELING_MESH_DEFORMER_HPP
+#define MANA_MODELING_MESH_DEFORMER_HPP
 
 #include <map>
 #include <vector>
