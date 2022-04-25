@@ -8,13 +8,11 @@
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+#include <pipeline/Pipeline.h>
 #include <iostream>
 #include <sstream>
-#include "Pipeline.h"
 
 #define SHADER_DIR "../shaders/"
-#define DEFERRED_SCENE_MASK 0x00010000
-
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -54,9 +52,9 @@ int main(int argc, char** argv)
     //setupPipeline(pipeline.get(), &viewer, 1920, 1080);
     osgViewer::Viewer viewer;
 
-    osg::ref_ptr<osg::Texture2D> tex2D_0 =
+    osg::ref_ptr<osg::Texture> tex2D_0 =
         osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGB_INT8, 1024, 1024);
-    osg::ref_ptr<osg::Texture2D> tex2D_1 =
+    osg::ref_ptr<osg::Texture> tex2D_1 =
         osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGB_INT8, 1024, 1024);
     otherSceneRoot->getOrCreateStateSet()->setTextureAttributeAndModes(
         0, tex2D_1.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
