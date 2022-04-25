@@ -46,9 +46,50 @@ SET(VHACD_SOURCE_FILES
     VHACD/vhacdVolume.cpp VHACD/vhacdVolume.h
 )
 
+SET(LASZIP_SOURCE_FILES
+    laszip/arithmeticdecoder.cpp laszip/arithmeticencoder.cpp
+    laszip/arithmeticmodel.cpp laszip/integercompressor.cpp
+    laszip/lasindex.cpp laszip/lasinterval.cpp laszip/lasquadtree.cpp
+    laszip/lasreaditemcompressed_v1.cpp laszip/lasreaditemcompressed_v2.cpp
+    laszip/lasreaditemcompressed_v3.cpp laszip/lasreaditemcompressed_v4.cpp
+    laszip/laswriteitemcompressed_v1.cpp laszip/laswriteitemcompressed_v2.cpp
+    laszip/laswriteitemcompressed_v3.cpp laszip/laswriteitemcompressed_v4.cpp
+    laszip/lasreadpoint.cpp laszip/laswritepoint.cpp
+    laszip/laszip.cpp laszip/laszip_dll.cpp laszip/mydefs.cpp
+)
+
+SET(OZZ_SOURCE_FILES
+    ozz/base/memory/allocator.cc ozz/base/platform.cc ozz/base/log.cc
+    ozz/base/containers/string_archive.cc ozz/base/io/archive.cc ozz/base/io/stream.cc
+    ozz/base/maths/box.cc ozz/base/maths/simd_math.cc ozz/base/maths/math_archive.cc
+    ozz/base/maths/soa_math_archive.cc ozz/base/maths/simd_math_archive.cc
+    ozz/animation/runtime/animation.cc ozz/animation/runtime/animation_keyframe.h
+    ozz/animation/runtime/animation_utils.cc ozz/animation/runtime/blending_job.cc
+    ozz/animation/runtime/ik_aim_job.cc ozz/animation/runtime/ik_two_bone_job.cc
+    ozz/animation/runtime/local_to_model_job.cc ozz/animation/runtime/sampling_job.cc
+    ozz/animation/runtime/skeleton.cc ozz/animation/runtime/skeleton_utils.cc
+    ozz/animation/runtime/track.cc ozz/animation/runtime/track_sampling_job.cc
+    ozz/animation/runtime/track_triggering_job.cc ozz/geometry/runtime/skinning_job.cc
+    ozz/options/options.cc ozz/mesh.cc
+)
+
+SET(IMGUI_SOURCE_FILES
+    imgui/GraphEditor.cpp imgui/GraphEditor.h
+    imgui/ImCurveEdit.cpp imgui/ImCurveEdit.h
+    imgui/ImGradient.cpp imgui/ImGradient.h
+    imgui/ImSequencer.cpp imgui/ImSequencer.h
+    imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h
+    imgui/imgui.cpp imgui/imgui.h imgui/imconfig.h
+    imgui/imgui_demo.cpp imgui/imgui_draw.cpp
+    imgui/imgui_tables.cpp imgui/imgui_widgets.cpp
+)
+
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
 SOURCE_GROUP("VHACD Files" FILES ${VHACD_SOURCE_FILES})
+SOURCE_GROUP("LasZIP Files" FILES ${LASZIP_SOURCE_FILES})
+SOURCE_GROUP("OzzAnimation Files" FILES ${OZZ_SOURCE_FILES})
+SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
@@ -57,9 +98,10 @@ SET(LIBRARY_FILES
     miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h
     laplacian_deformation.cpp laplacian_deformation.hpp
     ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${VHACD_SOURCE_FILES}
+    ${LASZIP_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
 )
 
-ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY)
-INCLUDE_DIRECTORIES("${CMAKE_BINARY_DIR}/3rdparty")
+ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DLASZIPDLL_EXPORTS -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+INCLUDE_DIRECTORIES("${CMAKE_BINARY_DIR}/3rdparty" ozz)
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
