@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_opengl3.h>
+#include <imgui/ImGuizmo.h>
 #include <osg/Camera>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
@@ -69,10 +70,13 @@ public:
         io.KeyMap[ImGuiKey_PageDown] = ImGuiKey_PageDown;
         io.KeyMap[ImGuiKey_Home] = ImGuiKey_Home;
         io.KeyMap[ImGuiKey_End] = ImGuiKey_End;
+        io.KeyMap[ImGuiKey_Insert] = ImGuiKey_Insert;
         io.KeyMap[ImGuiKey_Delete] = ImGuiKey_Delete;
         io.KeyMap[ImGuiKey_Backspace] = ImGuiKey_Backspace;
+        io.KeyMap[ImGuiKey_Space] = ImGuiKey_Space;
         io.KeyMap[ImGuiKey_Enter] = ImGuiKey_Enter;
         io.KeyMap[ImGuiKey_Escape] = ImGuiKey_Escape;
+        io.KeyMap[ImGuiKey_KeyPadEnter] = ImGuiKey_KeyPadEnter;
         io.KeyMap[ImGuiKey_A] = osgGA::GUIEventAdapter::KEY_A;
         io.KeyMap[ImGuiKey_C] = osgGA::GUIEventAdapter::KEY_C;
         io.KeyMap[ImGuiKey_V] = osgGA::GUIEventAdapter::KeySymbol::KEY_V;
@@ -84,8 +88,9 @@ public:
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
         ImGuiIO& io = ImGui::GetIO();
-        const bool wantCaptureMouse = io.WantCaptureMouse;
-        const bool wantCaptureKeyboard = io.WantCaptureKeyboard;
+        bool wantCaptureMouse = io.WantCaptureMouse;
+        bool wantCaptureKeyboard = io.WantCaptureKeyboard;
+        wantCaptureMouse |= ImGuizmo::IsUsing();
 
         switch (ea.getEventType())
         {
@@ -147,9 +152,12 @@ protected:
         case osgGA::GUIEventAdapter::KEY_Home: return ImGuiKey_Home;
         case osgGA::GUIEventAdapter::KEY_End: return ImGuiKey_End;
         case osgGA::GUIEventAdapter::KEY_Delete: return ImGuiKey_Delete;
+        case osgGA::GUIEventAdapter::KEY_Insert: return ImGuiKey_Insert;
         case osgGA::GUIEventAdapter::KEY_BackSpace: return ImGuiKey_Backspace;
+        case osgGA::GUIEventAdapter::KEY_Space: return ImGuiKey_Space;
         case osgGA::GUIEventAdapter::KEY_Return: return ImGuiKey_Enter;
         case osgGA::GUIEventAdapter::KEY_Escape: return ImGuiKey_Escape;
+        case osgGA::GUIEventAdapter::KEY_KP_Enter: return ImGuiKey_KeyPadEnter;
         default: return -1;
         }
     }
@@ -190,6 +198,9 @@ struct ImGuiNewFrameCallback : public osg::Camera::DrawCallback
             }
         }
         ImGui::NewFrame();
+
+        ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+        ImGuizmo::BeginFrame();
     }
 };
 

@@ -9,14 +9,27 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <imgui/imgui.h>
+#include <imgui/ImGuizmo.h>
 #include <ui/ImGui.h>
 #include <iostream>
 #include <sstream>
 
 struct MyContentHandler : public osgVerse::ImGuiContentHandler
 {
-    MyContentHandler() : _selectID(-1), _rotateValue(0.0f), _rotateDir(0.0f) {}
-    int _selectID; float _rotateValue, _rotateDir;
+    MyContentHandler(osg::Camera* camera, osg::MatrixTransform* mt)
+    :   _camera(camera), _transform(mt), _rotateValue(0.0f), _rotateDir(1.0f),
+        _selectID(-1), _useGizmoSnap(false)
+    {
+        _gizmoOperation = ImGuizmo::ROTATE;
+        _gizmoMode = ImGuizmo::WORLD;
+    }
+
+    osg::observer_ptr<osg::Camera> _camera;
+    osg::observer_ptr<osg::MatrixTransform> _transform;
+    float _rotateValue, _rotateDir;
+    int _selectID; bool _useGizmoSnap;
+    ImGuizmo::OPERATION _gizmoOperation;
+    ImGuizmo::MODE _gizmoMode;
 
     virtual void runInternal(osgVerse::ImGuiManager* mgr)
     {
@@ -38,6 +51,16 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
 
             imageRotated(icon, ImVec2(280, 140), ImVec2(180, 180), _rotateValue);
             _rotateValue += _rotateDir * 0.002f;
+        }
+        ImGui::End(); yPos += 250;
+
+        setupWindow(ImVec2(view->WorkPos.x + xPos, view->WorkPos.y + yPos), ImVec2(400, 250));
+        if (ImGui::Begin(u8"物体变换", NULL, flags))
+        {
+            osg::Matrixf matrix = _transform->getMatrix();
+            ImGui::SetWindowFontScale(1.2f);
+            if (editTransform(matrix, osg::Vec3(1.0f, 1.0f, 1.0f), _useGizmoSnap))
+                _transform->setMatrix(matrix);
         }
         ImGui::End(); yPos += 250;
 
@@ -78,6 +101,50 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
         ImGui::PopFont();
     }
 
+    bool editTransform(osg::Matrixf& matrix, const osg::Vec3& snapVec, bool useSnap)
+    {
+        if (ImGui::RadioButton(u8"位移", _gizmoOperation == ImGuizmo::TRANSLATE))
+            _gizmoOperation = ImGuizmo::TRANSLATE;
+        ImGui::SameLine();
+        if (ImGui::RadioButton(u8"旋转", _gizmoOperation == ImGuizmo::ROTATE))
+            _gizmoOperation = ImGuizmo::ROTATE;
+        ImGui::SameLine();
+        if (ImGui::RadioButton(u8"缩放", _gizmoOperation == ImGuizmo::SCALE))
+            _gizmoOperation = ImGuizmo::SCALE;
+
+        float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+        ImGuizmo::DecomposeMatrixToComponents(matrix.ptr(), matrixTranslation, matrixRotation, matrixScale);
+        ImGui::InputFloat3(u8"米/m", matrixTranslation);
+        ImGui::InputFloat3(u8"度/deg", matrixRotation);
+        ImGui::InputFloat3(u8"比例", matrixScale);
+        ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, matrix.ptr());
+
+        if (_gizmoOperation != ImGuizmo::SCALE)
+        {
+            if (ImGui::RadioButton(u8"局部坐标系", _gizmoMode == ImGuizmo::LOCAL))
+                _gizmoMode = ImGuizmo::LOCAL;
+            ImGui::SameLine();
+            if (ImGui::RadioButton(u8"世界坐标系", _gizmoMode == ImGuizmo::WORLD))
+                _gizmoMode = ImGuizmo::WORLD;
+        }
+
+        ImGui::Checkbox("", &useSnap); ImGui::SameLine();
+        switch (_gizmoOperation)
+        {
+        case ImGuizmo::TRANSLATE:
+            ImGui::InputFloat3(u8"位移捕捉", (float*)snapVec.ptr()); break;
+        case ImGuizmo::ROTATE:
+            ImGui::InputFloat(u8"角度捕捉", (float*)snapVec.ptr()); break;
+        case ImGuizmo::SCALE:
+            ImGui::InputFloat(u8"缩放捕捉", (float*)snapVec.ptr()); break;
+        }
+
+        osg::Matrixf view(_camera->getViewMatrix()), proj(_camera->getProjectionMatrix());
+        ImGuiIO& io = ImGui::GetIO(); ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+        return ImGuizmo::Manipulate(view.ptr(), proj.ptr(), _gizmoOperation, _gizmoMode, matrix.ptr(),
+                                    NULL, (useSnap ? snapVec.ptr() : NULL));
+    }
+
     static ImVec2 imAdd(const ImVec2& lhs, const ImVec2& rhs)
     { return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y); }
 
@@ -99,7 +166,7 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
         dList->AddImageQuad(tex_id, pos[0], pos[1], pos[2], pos[3], uvs[0], uvs[1], uvs[2], uvs[3], IM_COL32_WHITE);
     }
 
-    void setupWindow(const ImVec2& pos, const ImVec2& size, float alpha = 0.6f)
+    static void setupWindow(const ImVec2& pos, const ImVec2& size, float alpha = 0.6f)
     {
         ImGui::SetNextWindowPos(pos); ImGui::SetNextWindowSize(size);
         ImGui::SetNextWindowBgAlpha(alpha);
@@ -122,7 +189,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont("../misc/LXGWWenKaiLite-Regular.ttf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
-    imgui->initialize(new MyContentHandler);
+    imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()));
     imgui->addToView(&viewer);
     
     viewer.addEventHandler(new osgViewer::StatsHandler);
