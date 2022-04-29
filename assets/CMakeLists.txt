@@ -1,0 +1,21 @@
+MACRO(COPY_DIRECTORY target in_dir out_dir)
+    SET(COPY_AVAILABLE FALSE)
+	FILE(GLOB_RECURSE in_file_list "${in_dir}/*")
+	FOREACH(in_file ${in_file_list})
+    	STRING(REGEX REPLACE "${in_dir}" "${out_dir}" out_file "${in_file}")
+		IF("${in_file}" IS_NEWER_THAN "${out_file}")
+			SET(COPY_AVAILABLE TRUE)
+		ENDIF("${in_file}" IS_NEWER_THAN "${out_file}")
+	ENDFOREACH(in_file)
+
+	IF(COPY_AVAILABLE)
+		ADD_CUSTOM_COMMAND(OUTPUT ${target} COMMAND ${CMAKE_COMMAND}
+    						-E copy_directory "${in_dir}" "${out_dir}")
+	ENDIF(COPY_AVAILABLE)
+ENDMACRO(COPY_DIRECTORY)
+
+COPY_DIRECTORY(MiscFiles "${CMAKE_CURRENT_SOURCE_DIR}/misc" "${CMAKE_INSTALL_PREFIX}/misc")
+COPY_DIRECTORY(ModelFiles "${CMAKE_CURRENT_SOURCE_DIR}/models" "${CMAKE_INSTALL_PREFIX}/models")
+COPY_DIRECTORY(ShaderFiles "${CMAKE_CURRENT_SOURCE_DIR}/shaders" "${CMAKE_INSTALL_PREFIX}/shaders")
+COPY_DIRECTORY(SkyboxFiles "${CMAKE_CURRENT_SOURCE_DIR}/skyboxes" "${CMAKE_INSTALL_PREFIX}/skyboxes")
+ADD_CUSTOM_TARGET(CopyTask ALL DEPENDS MiscFiles ModelFiles ShaderFiles SkyboxFiles)

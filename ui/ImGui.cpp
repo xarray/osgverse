@@ -30,7 +30,7 @@ public:
     void start(ImGuiManager* manager)
     {
         ImGui::CreateContext();
-        int style = 13;  // FIXME
+        int style = 1;  // FIXME
         switch (style)
         {
         case 1: ImGui::StyleColorsDark(); break;
@@ -249,26 +249,22 @@ void ImGuiManager::initialize(ImGuiContentHandler* cb)
     static_cast<ImGuiHandler*>(_imguiHandler.get())->start(this);
 }
 
-void ImGuiManager::addToView(osgViewer::View* view)
+void ImGuiManager::addToView(osgViewer::View* view, osg::Camera* specCam)
 {
-    osg::Camera* cam = view->getCamera();
+    osg::Camera* cam = (specCam != NULL) ? specCam : view->getCamera();
     cam->setPreDrawCallback(new ImGuiNewFrameCallback(_imguiHandler.get()));
     cam->setPostDrawCallback(new ImGuiRenderCallback(this, _imguiHandler.get()));
     view->addEventHandler(_imguiHandler.get());
 }
 
-void ImGuiManager::removeFromView(osgViewer::View* view)
+void ImGuiManager::removeFromView(osgViewer::View* view, osg::Camera* specCam)
 {
-    if (view->getCamera())
-    {
-        osg::Camera* cam = view->getCamera();
-        cam->setPreDrawCallback(NULL);
-        cam->setPostDrawCallback(NULL);
-        view->removeEventHandler(_imguiHandler.get());
-    }
+    osg::Camera* cam = (specCam != NULL) ? specCam : view->getCamera();
+    cam->setPreDrawCallback(NULL); cam->setPostDrawCallback(NULL);
+    view->removeEventHandler(_imguiHandler.get());
 }
 
-void ImGuiManager::updateGuiTexture(const std::string& name, const std::string& file)
+void ImGuiManager::setGuiTexture(const std::string& name, const std::string& file)
 {
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile(file);
     osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D(image.get());
