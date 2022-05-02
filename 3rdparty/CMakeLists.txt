@@ -96,9 +96,9 @@ SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 
 SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
-	tinyexr.cc tinyexr.h tiny_obj_loader.cc tiny_obj_loader.h tiny_gltf.h json.hpp
-    miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h
-    laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h
+	tinyexr.cc tinyexr.h tiny_obj_loader.cc tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h
+    miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h nanoflann.hpp exprtk.hpp
+    wykobi/wykobi.hpp laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h
     ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${VHACD_SOURCE_FILES}
     ${LASZIP_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
 )

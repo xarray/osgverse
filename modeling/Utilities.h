@@ -42,6 +42,41 @@ namespace osgVerse
         std::vector<unsigned int> _indices;
     };
 
+    /** Create a geometry with specified arrays */
+    extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, osg::Vec2Array* ta,
+                                         osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = false);
+
+    extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, const osg::Vec4& color,
+                                         osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = false);
+
+    /** Create a polar sphere (r1 = r2 = r3) or ellipsoid */
+    extern osg::Geometry* createEllipsoid(const osg::Vec3& center, float radius1, float radius2,
+                                          float radius3, int samples = 32);
+
+    /** Create a superellipsoid (see http://paulbourke.net/geometry/spherical/) */
+    extern osg::Geometry* createSuperEllipsoid(const osg::Vec3& center, float radius, float power1,
+                                               float power2, int samples = 32);
+
+    /** Create a prism (n > 3) or cylinder (n is large enough) */
+    extern osg::Geometry* createPrism(const osg::Vec3& centerBottom, float radiusBottom, float radiusTop,
+                                      float height, int n = 4, bool capped = true);
+
+    /** Create a pyramid (n > 3) or cone (n is large enough) */
+    extern osg::Geometry* createPyramid(const osg::Vec3& centerBottom, float radius, float height,
+                                        int n = 4, bool capped = false);
+
+    /** Create a view frustum geometry corresponding to given matrices */
+    extern osg::Geometry* createViewFrustumGeometry(const osg::Matrix& view, const osg::Matrix& proj);
+
+    /** Create a geodesic sphere which has well-distributed facets */
+    extern osg::Geometry* createGeodesicSphere(const osg::Vec3& center, float radius, int iterations = 4);
+
+    /** Create a soccer-like geometry named truncated icosahedron */
+    extern osg::Geometry* createSoccer(const osg::Vec3& center, float radius);
+
+    /** Create a textured icosahedron for panorama use */
+    extern osg::Geometry* createPanoramaSphere(int subdivs = 2);
+
 }
 
 #endif
