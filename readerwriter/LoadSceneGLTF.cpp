@@ -79,18 +79,19 @@ namespace osgVerse
                 const tinygltf::Buffer& buffer = _scene.buffers[attrView.buffer];
                 int compNum = (attrAccessor.type != TINYGLTF_TYPE_SCALAR) ? attrAccessor.type : 1;
                 int compSize = tinygltf::GetComponentSizeInBytes(attrAccessor.componentType);
-                int size = attrView.byteLength / (compSize * compNum); if (!size) continue;
+                int size = attrAccessor.count; if (!size) continue;
 
+                int copySize = size * (compSize * compNum);
                 if (attrib.first.compare("POSITION") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* va = new osg::Vec3Array(size);
-                    memcpy(&(*va)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
+                    memcpy(&(*va)[0], &buffer.data[attrView.byteOffset], copySize);
                     va->setNormalize(attrAccessor.normalized); geom->setVertexArray(va);
                 }
                 else if (attrib.first.compare("NORMAL") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* na = new osg::Vec3Array(size);
-                    memcpy(&(*na)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
+                    memcpy(&(*na)[0], &buffer.data[attrView.byteOffset], copySize);
                     na->setNormalize(attrAccessor.normalized); geom->setNormalArray(na);
                     geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
                 }
@@ -98,7 +99,7 @@ namespace osgVerse
                 {   // Do nothing as we calculate tangent/binormal by ourselves
 #if 0
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
-                    memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
+                    memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], copySize);
                     ta->setNormalize(attrAccessor.normalized); geom->setVertexAttribArray(6, ta);
                     geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
 #endif
@@ -106,7 +107,7 @@ namespace osgVerse
                 else if (attrib.first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
                 {
                     osg::Vec2Array* ta = new osg::Vec2Array(size);
-                    memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], attrView.byteLength);
+                    memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], copySize);
                     ta->setNormalize(attrAccessor.normalized);
                     geom->setTexCoordArray(atoi(attrib.first.substr(9).c_str()), ta);
                 }
@@ -127,26 +128,26 @@ namespace osgVerse
             {
                 const tinygltf::Buffer& indexBuffer = _scene.buffers[indexView.buffer];
                 int compSize = tinygltf::GetComponentSizeInBytes(indexAccessor.componentType);
-                int size = indexView.byteLength / compSize; if (!size) continue;
+                int size = indexAccessor.count; if (!size) continue;
 
                 switch (compSize)
                 {
                 case 1:
                     {
                         osg::DrawElementsUByte* de = new osg::DrawElementsUByte(GL_POINTS, size); p = de;
-                        memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], indexView.byteLength);
+                        memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], size * compSize);
                     }
                     break;
                 case 2:
                     {
                         osg::DrawElementsUShort* de = new osg::DrawElementsUShort(GL_POINTS, size); p = de;
-                        memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], indexView.byteLength);
+                        memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], size * compSize);
                     }
                     break;
                 case 4:
                     {
                         osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_POINTS, size); p = de;
-                        memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], indexView.byteLength);
+                        memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], size * compSize);
                     }
                     break;
                 default: continue;
