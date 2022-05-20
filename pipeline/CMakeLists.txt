@@ -1,11 +1,17 @@
 SET(LIB_NAME osgVersePipeline)
-SET(LIBRARY_FILES
-    Pipeline.cpp Pipeline.h PipelineStandard.cpp
-	DeferredCallback.cpp DeferredCallback.h
-	ShadowModule.cpp ShadowModule.h
-	Utilities.cpp Utilities.h
+SET(LIBRARY_INCLUDE_FILES
+    Pipeline.h DeferredCallback.h ShadowModule.h Utilities.h)
+SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
+    Pipeline.cpp PipelineStandard.cpp
+	DeferredCallback.cpp ShadowModule.cpp Utilities.cpp 
 )
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} ${OPENGL_LIBRARIES} osgVerseDependency)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+
+INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
+        RUNTIME DESTINATION ${INSTALL_BINDIR} COMPONENT libosgverse
+        LIBRARY DESTINATION ${INSTALL_LIBDIR} COMPONENT libosgverse
+        ARCHIVE DESTINATION ${INSTALL_ARCHIVEDIR} COMPONENT libosgverse-dev)
+INSTALL(FILES ${LIBRARY_INCLUDE_FILES} DESTINATION ${INSTALL_INCDIR}/${LIB_NAME} COMPONENT libosgverse-dev)
