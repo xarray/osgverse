@@ -29,4 +29,6 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 5. osgVerse_Test_ImGui: a quick test for demostrating the use of IMGUI in osg scene.
 6. osg-style Plugins:
     6.1 osgdb_ept: a plugin for massive point cloud paging and rendering based on Entwine.
-    6.2 TBD...
+    6.2 osgdb_fbx: a plugin with full-featured FBX format support.
+    6.3 osgdb_gltf: a plugin with full-featured GLTF & GLB format support.
+    6.4 TBD...

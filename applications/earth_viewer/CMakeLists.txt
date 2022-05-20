@@ -27,6 +27,7 @@ FIND_PATH(OSGEARTH_LIB_DIR libosgEarth.so osgEarth.lib
     /usr/lib
     /usr/local/lib
 )
+#########################################
 
 IF(OSGEARTH_INCLUDE_DIR AND OSGEARTH_LIB_DIR)
 
@@ -35,7 +36,6 @@ IF(OSGEARTH_INCLUDE_DIR AND OSGEARTH_LIB_DIR)
     ENDIF(OSGEARTH_BUILD_INCLUDE_DIR)
     INCLUDE_DIRECTORIES(${OSGEARTH_INCLUDE_DIR})
     LINK_DIRECTORIES(${OSGEARTH_LIB_DIR})
-    #########################################
 
     NEW_EXECUTABLE(${EXE_NAME} SHARED)
     TARGET_LINK_LIBRARIES(${EXE_NAME} ${OPENGL_LIBRARIES} osgEarth

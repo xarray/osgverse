@@ -35,7 +35,6 @@ namespace osgVerse
 
         void initialize(ImGuiContentHandler* cb);
         void addToView(osgViewer::View* view, osg::Camera* specCam = NULL);
-        void removeFromView(osgViewer::View* view, osg::Camera* specCam = NULL);
 
         void setGuiTexture(const std::string& name, const std::string& file);
         void removeGuiTexture(const std::string& name);

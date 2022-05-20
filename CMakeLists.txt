@@ -88,6 +88,20 @@ ELSE()
 ENDIF()
 
 #########################################
+FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
+    PATHS
+    $ENV{BULLET_ROOT}/include
+    /usr/include
+    /usr/local/include
+)
+
+FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
+    PATHS
+    $ENV{BULLET_ROOT}/lib
+    /usr/lib
+    /usr/local/lib
+)
+
 FIND_PATH(OSG_INCLUDE_DIR osg/Referenced
     PATHS
     $ENV{OSG_ROOT}/include
@@ -125,6 +139,17 @@ IF(OPENMP_FOUND)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 ENDIF()
+
+IF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
+
+    INCLUDE_DIRECTORIES(${BULLET_INCLUDE_DIR})
+    LINK_DIRECTORIES(${BULLET_LIB_DIR})
+	
+ELSE(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
+
+	MESSAGE("[osgVerse] Dependency Bullet not found. Some modules will be ignored.")
+
+ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 
 IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
 

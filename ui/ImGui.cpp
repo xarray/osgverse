@@ -269,16 +269,14 @@ void ImGuiManager::initialize(ImGuiContentHandler* cb)
 void ImGuiManager::addToView(osgViewer::View* view, osg::Camera* specCam)
 {
     osg::Camera* cam = (specCam != NULL) ? specCam : view->getCamera();
+#if OSG_VERSION_GREATER_THAN(3, 5, 9)
+    cam->addPreDrawCallback(new ImGuiNewFrameCallback(_imguiHandler.get()));
+    cam->addPostDrawCallback(new ImGuiRenderCallback(this, _imguiHandler.get()));
+#else
     cam->setPreDrawCallback(new ImGuiNewFrameCallback(_imguiHandler.get()));
     cam->setPostDrawCallback(new ImGuiRenderCallback(this, _imguiHandler.get()));
+#endif
     view->addEventHandler(_imguiHandler.get());
-}
-
-void ImGuiManager::removeFromView(osgViewer::View* view, osg::Camera* specCam)
-{
-    osg::Camera* cam = (specCam != NULL) ? specCam : view->getCamera();
-    cam->setPreDrawCallback(NULL); cam->setPostDrawCallback(NULL);
-    view->removeEventHandler(_imguiHandler.get());
 }
 
 void ImGuiManager::setGuiTexture(const std::string& name, const std::string& file)
