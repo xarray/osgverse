@@ -1,5 +1,6 @@
 #include "PlayerAnimation.h"
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/Notify>
 #include <osg/Geometry>
 #include <osg/Geode>
@@ -116,7 +117,15 @@ public:
         else if (va->size() != vCount) va->resize(vCount); else dirtyVA--;
 
         osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom.getNormalArray());
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
         if (!na) { na = new osg::Vec3Array(vCount); geom.setNormalArray(na, osg::Array::BIND_PER_VERTEX); }
+#else
+        if (!na)
+        {
+            na = new osg::Vec3Array(vCount); geom.setNormalArray(na);
+            geom.setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        }
+#endif
         else if (na->size() != vCount) na->resize(vCount); else dirtyVA--;
 
         osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom.getTexCoordArray(0));
@@ -124,7 +133,15 @@ public:
         else if (ta->size() != vCount) ta->resize(vCount); else dirtyVA--;
 
         osg::Vec4ubArray* ca = static_cast<osg::Vec4ubArray*>(geom.getColorArray());
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
         if (!ca) { ca = new osg::Vec4ubArray(vCount); geom.setColorArray(ca, osg::Array::BIND_PER_VERTEX); }
+#else
+        if (!ca)
+        {
+            ca = new osg::Vec4ubArray(vCount); geom.setColorArray(ca);
+            geom.setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        }
+#endif
         else if (ca->size() != vCount) ca->resize(vCount); else dirtyVA--;
 
         osg::DrawElementsUShort* de = (geom.getNumPrimitiveSets() == 0) ? NULL
@@ -170,7 +187,15 @@ public:
         else if (va->size() != vCount) va->resize(vCount);
 
         osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom.getNormalArray());
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
         if (!na) { na = new osg::Vec3Array(vCount); geom.setNormalArray(na, osg::Array::BIND_PER_VERTEX); }
+#else
+        if (!na)
+        {
+            na = new osg::Vec3Array(vCount); geom.setNormalArray(na);
+            geom.setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        }
+#endif
         else if (na->size() != vCount) na->resize(vCount);
 
         osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom.getTexCoordArray(0));
@@ -178,7 +203,15 @@ public:
         else if (ta->size() != vCount) ta->resize(vCount); else dirtyVA--;
 
         osg::Vec4ubArray* ca = static_cast<osg::Vec4ubArray*>(geom.getColorArray());
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
         if (!ca) { ca = new osg::Vec4ubArray(vCount); geom.setColorArray(ca, osg::Array::BIND_PER_VERTEX); }
+#else
+        if (!ca)
+        {
+            ca = new osg::Vec4ubArray(vCount); geom.setColorArray(ca);
+            geom.setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        }
+#endif
         else if (ca->size() != vCount) ca->resize(vCount); else dirtyVA--;
 
         osg::DrawElementsUShort* de = (geom.getNumPrimitiveSets() == 0) ? NULL
@@ -524,7 +557,7 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
     if (meshDataRoot.getNumDrawables() != ozz->_meshes.size())
     {
         std::map<std::string, osg::ref_ptr<osg::Texture2D>> textures;
-        meshDataRoot.removeChildren(0, meshDataRoot.getNumDrawables());
+        meshDataRoot.removeDrawables(0, meshDataRoot.getNumDrawables());
         for (unsigned int i = 0; i < ozz->_meshes.size(); ++i)
         {
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;

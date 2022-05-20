@@ -1,16 +1,15 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <osg/MatrixTransform>
+#include <osgDB/fstream>
 #include <laszip/laszip_api.h>
 #include <iostream>
-#include <fstream>
-
-#define OPTIMIZED_ARRAYS 0
 
 osg::Node* readNodeFromUnityPoint(const std::string& file, float invR = 1.0f)
 {
-    std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
+    osgDB::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
     if (!in) return NULL;
     
     double bounds[6] = { 0.0 }; in.read((char*)bounds, sizeof(double) * 6);
@@ -28,35 +27,19 @@ osg::Node* readNodeFromUnityPoint(const std::string& file, float invR = 1.0f)
     
     osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numPoints, (osg::Vec3f*)&(vertices[0]));
     osg::ref_ptr<osg::Vec4Array> ca = (mode & 0x1) ? new osg::Vec4Array(numPoints, (osg::Vec4f*)&(colors[0])) : NULL;
-#if OPTIMIZED_ARRAYS
-    osg::ref_ptr<osg::Vec4ubArray> cba = ca.valid() ? new osg::Vec4ubArray(numPoints) : NULL;
-#else
     osg::ref_ptr<osg::Vec3Array> na = (mode & 0x2) ? new osg::Vec3Array(numPoints, (osg::Vec3f*)&(normals[0])) : NULL;
-    osg::ref_ptr<osg::Vec4Array> ca2 = (mode & 0x1) ? new osg::Vec4Array(numPoints) : NULL;
-    osg::ref_ptr<osg::Vec2iArray> ids = new osg::Vec2iArray(numPoints);
-#endif
-    for (int i = 0; i < numPoints; ++i)
-    {
-        if (ca) (*ca)[i] = (*ca)[i] * invR;
-#if OPTIMIZED_ARRAYS
-        if (ca) (*cba)[i] = osg::Vec4ub((unsigned char)((*ca)[i][0] * 255.0f), (unsigned char)((*ca)[i][1] * 255.0f),
-                                        (unsigned char)((*ca)[i][2] * 255.0f), (unsigned char)((*ca)[i][3] * 255.0f));
-#else
-        (*ids)[i] = osg::Vec2i(idList[i] % 65535, idList[i] / 65535);
-#endif
-    }
+    for (int i = 0; i < numPoints; ++i) if (ca) (*ca)[i] = (*ca)[i] * invR;
     in.close();
     
     osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
     geom->setName(file);
     geom->setVertexArray(va.get());
-#if OPTIMIZED_ARRAYS
-    if (cba.get()) geom->setColorArray(cba.get(), osg::Array::BIND_PER_VERTEX);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+    if (ca.get()) { geom->setColorArray(ca.get(), osg::Array::BIND_PER_VERTEX); }
+    if (na.get()) { geom->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX); }
 #else
-    if (ca.get()) geom->setColorArray(ca.get(), osg::Array::BIND_PER_VERTEX);
-    if (na.get()) geom->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
-    if (ca2.get()) geom->setSecondaryColorArray(ca2.get(), osg::Array::BIND_PER_VERTEX);
-    geom->setVertexAttribArray(6, ids.get(), osg::Array::BIND_PER_VERTEX);
+    if (ca.get()) { geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
+    if (na.get()) { geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
 #endif
     geom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, numPoints));
     
@@ -97,22 +80,18 @@ osg::Node* readNodeFromLaz(const std::string& file, float invR = 1.0 / 255.0f)
     osg::Vec3d scale(header->x_scale_factor, header->y_scale_factor, header->z_scale_factor);
     osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numPoints);
     osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(numPoints);
-#if !OPTIMIZED_ARRAYS
     osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numPoints);
-    osg::ref_ptr<osg::Vec4Array> ca2 = new osg::Vec4Array(numPoints);
-    osg::ref_ptr<osg::Vec2iArray> ids = new osg::Vec2iArray(numPoints);
-#endif
     
     laszip_point* point = NULL;
     for (int i = 0; i < numPoints; ++i)
     {
         laszip_read_point(laszipReader);
         laszip_get_point_pointer(laszipReader, &point);
-        (*va)[i] = osg::Vec3(point->X * scale[0] + offset[0], point->Y * scale[1] + offset[1], point->Z * scale[2] + offset[2]);
+        (*va)[i] = osg::Vec3(point->X * scale[0] + offset[0], point->Y * scale[1] + offset[1],
+                             point->Z * scale[2] + offset[2]);
         //(*va)[i] = osg::Vec3((float)point->X, (float)point->Y, (float)point->Z);
-        (*ca)[i] = osg::Vec4((float)point->rgb[0] * invR, (float)point->rgb[1] * invR, (float)point->rgb[2] * invR, 1.0f);
-#if !OPTIMIZED_ARRAYS
-        (*ids)[i] = osg::Vec2i(point->point_source_ID, (point->user_data + 255 * point->classification));
+        (*ca)[i] = osg::Vec4((float)point->rgb[0] * invR, (float)point->rgb[1] * invR,
+                             (float)point->rgb[2] * invR, 1.0f);
         if (na.valid())
         {
             if (point->extra_bytes != NULL && point->num_extra_bytes >= 12)
@@ -122,7 +101,6 @@ osg::Node* readNodeFromLaz(const std::string& file, float invR = 1.0 / 255.0f)
             }
             else na = NULL;
         }
-#endif
     }
     laszip_close_reader(laszipReader);
     
@@ -131,11 +109,12 @@ osg::Node* readNodeFromLaz(const std::string& file, float invR = 1.0 / 255.0f)
     geom->setUseDisplayList(false);
     geom->setUseVertexBufferObjects(true);
     geom->setVertexArray(va.get());
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
     if (ca.get()) geom->setColorArray(ca.get(), osg::Array::BIND_PER_VERTEX);
-#if !OPTIMIZED_ARRAYS
     if (na.get()) geom->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
-    if (ca2.get()) geom->setSecondaryColorArray(ca2.get(), osg::Array::BIND_PER_VERTEX);
-    geom->setVertexAttribArray(6, ids.get(), osg::Array::BIND_PER_VERTEX);
+#else
+    if (ca.get()) { geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
+    if (na.get()) { geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
 #endif
     geom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, numPoints));
     

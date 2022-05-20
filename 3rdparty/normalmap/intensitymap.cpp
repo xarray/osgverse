@@ -20,7 +20,7 @@
  ********************************************************************************/
 
 #include "intensitymap.h"
-#include <osg/Vec3ub>
+#include <osg/Vec3b>
 #include <osg/Vec4ub>
 #include <iostream>
 
@@ -35,7 +35,7 @@ IntensityMap::IntensityMap(int width, int height) {
 IntensityMap::IntensityMap(osg::Image* rgbImage, Mode mode, double redMultiplier, double greenMultiplier,
                            double blueMultiplier, double alphaMultiplier)
 {
-    osg::Vec3ub* ptr3 = (osg::Vec3ub*)rgbImage->data();
+    osg::Vec3b* ptr3 = (osg::Vec3b*)rgbImage->data();
     osg::Vec4ub* ptr4 = (osg::Vec4ub*)rgbImage->data();
     int srcW = rgbImage->s(), srcH = rgbImage->t(), use3 = (rgbImage->getPixelFormat() == GL_RGB);
     map = std::vector< std::vector<double> >(srcH, std::vector<double>(srcW, 0.0));
@@ -48,18 +48,18 @@ IntensityMap::IntensityMap(osg::Image* rgbImage, Mode mode, double redMultiplier
             double intensity = 0.0, r, g, b, a = 1.0;
             if (use3)
             {
-                osg::Vec3ub color = *(ptr3 + srcW * y + x);
-                r = color.x() * redMultiplier;
-                g = color.y() * greenMultiplier;
-                b = color.z() * blueMultiplier;
+                osg::Vec3b color = *(ptr3 + srcW * y + x);
+                r = (unsigned char)color.x() * redMultiplier;
+                g = (unsigned char)color.y() * greenMultiplier;
+                b = (unsigned char)color.z() * blueMultiplier;
             }
             else
             {
                 osg::Vec4ub color = *(ptr4 + srcW * y + x);
-                r = color.x() * redMultiplier;
-                g = color.y() * greenMultiplier;
-                b = color.z() * blueMultiplier;
-                a = color.a() * alphaMultiplier;
+                r = color[0] * redMultiplier;
+                g = color[1] * greenMultiplier;
+                b = color[2] * blueMultiplier;
+                a = color[3] * alphaMultiplier;
             }
 
             if(mode == AVERAGE) {

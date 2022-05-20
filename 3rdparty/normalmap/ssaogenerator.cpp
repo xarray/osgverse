@@ -44,7 +44,7 @@ osg::Image* SsaoGenerator::calculateSsaomap(osg::Image* normalmap, osg::Image* d
             osg::Vec3d origin(x, y, 1.0);
             osg::Vec4ub color = *(ptrN + y * normalmap->s() + x);
 
-            float r = color.x(), g = color.y(), b = color.z();
+            float r = color[0], g = color[1], b = color[2];
             osg::Vec3d normal(r, g, b);
 
             //reorient the kernel along the normal
@@ -66,7 +66,7 @@ osg::Image* SsaoGenerator::calculateSsaomap(osg::Image* normalmap, osg::Image* d
 
                 //get sample depth
                 osg::Vec4ub depth = *(ptrD + y * depthmap->s() + x);
-                float sampleDepth = depth.x();
+                float sampleDepth = depth[0];
 
                 //range check and accumulate
                 float rangeCheck = fabs(origin.z() - sampleDepth) < radius ? 1.0 : 0.0;

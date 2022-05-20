@@ -1,6 +1,7 @@
 #ifndef MANA_PP_PIPELINE_HPP
 #define MANA_PP_PIPELINE_HPP
 
+#include <osg/Vec2s>
 #include <osg/Program>
 #include <osg/Texture2D>
 #include <osg/Group>
@@ -113,7 +114,7 @@ namespace osgVerse
         const osg::GraphicsContext* getContext() const { return _stageContext.get(); }
         osg::Camera* getForwardCamera() { return _forwardCamera.get(); }
         const osg::Camera* getForwardCamera() const { return _forwardCamera.get(); }
-        osg::Vec2i getStageSize() const { return _stageSize; }
+        osg::Vec2s getStageSize() const { return _stageSize; }
 
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
@@ -123,7 +124,7 @@ namespace osgVerse
         osg::ref_ptr<osgVerse::DeferredRenderCallback> _deferredCallback;
         osg::ref_ptr<osg::GraphicsContext> _stageContext;
         osg::observer_ptr<osg::Camera> _forwardCamera;
-        osg::Vec2i _stageSize;
+        osg::Vec2s _stageSize;
     };
 
     /** Standard pipeline */

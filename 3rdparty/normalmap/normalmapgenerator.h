@@ -22,6 +22,7 @@
 #ifndef SOBEL_H
 #define SOBEL_H
 
+#include <osg/Vec3d>
 #include <osg/Image>
 #include "intensitymap.h"
 

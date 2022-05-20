@@ -20,7 +20,7 @@
  ********************************************************************************/
 
 #include "specularmapgenerator.h"
-#include <osg/Vec3ub>
+#include <osg/Vec3b>
 #include <osg/Vec4ub>
 
 SpecularmapGenerator::SpecularmapGenerator(IntensityMap::Mode mode, double redMultiplier,
@@ -54,7 +54,7 @@ osg::Image* SpecularmapGenerator::calculateSpecmap(osg::Image* input, double sca
     }
     
     // This is outside of the loop because the multipliers are the same for every pixel
-    osg::Vec3ub* ptr3 = (osg::Vec3ub*)input->data();
+    osg::Vec3b* ptr3 = (osg::Vec3b*)input->data();
     osg::Vec4ub* ptr4 = (osg::Vec4ub*)input->data();
     osg::Vec4ub* ptrR = (osg::Vec4ub*)result->data();
     int use3 = (input->getPixelFormat() == GL_RGB);
@@ -70,18 +70,18 @@ osg::Image* SpecularmapGenerator::calculateSpecmap(osg::Image* input, double sca
             double intensity = 0.0, r, g, b, a = 1.0;
             if (use3)
             {
-                osg::Vec3ub pxColor = *(ptr3 + result->s() * y + x);
-                r = pxColor.x() * redMultiplier;
-                g = pxColor.y() * greenMultiplier;
-                b = pxColor.z() * blueMultiplier;
+                osg::Vec3b pxColor = *(ptr3 + result->s() * y + x);
+                r = (unsigned char)pxColor.x() * redMultiplier;
+                g = (unsigned char)pxColor.y() * greenMultiplier;
+                b = (unsigned char)pxColor.z() * blueMultiplier;
             }
             else
             {
                 osg::Vec4ub pxColor = *(ptr4 + result->s() * y + x);
-                r = pxColor.x() * redMultiplier;
-                g = pxColor.y() * greenMultiplier;
-                b = pxColor.z() * blueMultiplier;
-                a = pxColor.a() * alphaMultiplier;
+                r = pxColor[0] * redMultiplier;
+                g = pxColor[1] * greenMultiplier;
+                b = pxColor[2] * blueMultiplier;
+                a = pxColor[3] * alphaMultiplier;
             }
 
             if(mode == IntensityMap::AVERAGE) {

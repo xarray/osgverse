@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/ValueObject>
 #include <osgDB/ReadFile>
 #include <osgUtil/RenderStage>
@@ -8,6 +9,22 @@
 #include <stdarg.h>
 #include "Pipeline.h"
 #include "Utilities.h"
+
+#ifndef GL_HALF_FLOAT
+    #define GL_HALF_FLOAT                            0x140B
+#endif
+
+#ifndef GL_ARB_texture_rg
+    #define GL_RG                             0x8227
+    #define GL_R8                             0x8229
+    #define GL_R16                            0x822A
+    #define GL_RG8                            0x822B
+    #define GL_RG16                           0x822C
+    #define GL_R16F                           0x822D
+    #define GL_R32F                           0x822E
+    #define GL_RG16F                          0x822F
+    #define GL_RG32F                          0x8230
+#endif
 
 struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatrixCallback
 {
@@ -126,7 +143,7 @@ protected:
                                            osgVerse::DeferredRenderCallback* cb)
     {
         osg::ref_ptr<osgUtil::SceneView> newSceneView = new MySceneView(cb);
-        newSceneView->setFrameStamp(_sceneView[i]->getFrameStamp());
+        newSceneView->setFrameStamp(const_cast<osg::FrameStamp*>(_sceneView[i]->getFrameStamp()));
         newSceneView->setAutomaticFlush(_sceneView[i]->getAutomaticFlush());
         newSceneView->setGlobalStateSet(_sceneView[i]->getGlobalStateSet());
         newSceneView->setSecondaryStateSet(_sceneView[i]->getSecondaryStateSet());
@@ -134,8 +151,10 @@ protected:
         newSceneView->setDefaults(flags);
         if (_sceneView[i]->getDisplaySettings())
             newSceneView->setDisplaySettings(_sceneView[i]->getDisplaySettings());
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
         else
             newSceneView->setResetColorMaskToAllOn(false);
+#endif
         newSceneView->setCamera(_camera.get(), false);
 
         newSceneView->setCullVisitor(_sceneView[i]->getCullVisitor());
@@ -191,7 +210,9 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
             {
                 if (camera->getReferenceFrame() == osg::Transform::RELATIVE_RF)
                 {
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
                     if (rtt) camera->resizeAttachments(w, h);
+#endif
                     switch (view->getCamera()->getProjectionResizePolicy())
                     {
                     case (osg::Camera::HORIZONTAL):
@@ -319,7 +340,7 @@ namespace osgVerse
 
     void Pipeline::startStages(int w, int h, osg::GraphicsContext* gc)
     {
-        _stageSize = osg::Vec2i(w, h);
+        _stageSize = osg::Vec2s(w, h);
         _stageContext = createGraphicsContext(w, h, gc);
         _stageContext->setResizedCallback(new MyResizedCallback);
     }

@@ -1,8 +1,8 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/FrameBufferObject>
 #include <osg/RenderInfo>
 #include <osg/GLExtensions>
-#include <osg/ContextData>
 #include <osg/PolygonMode>
 #include <osg/Geode>
 #include <osgUtil/SceneView>
@@ -98,8 +98,13 @@ namespace osgVerse
     void DeferredRenderCallback::operator()(osg::RenderInfo& renderInfo) const
     {
         osg::State* state = renderInfo.getState();
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
         if (!ext->isFrameBufferObjectSupported)
+#else
+        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+        if (!ext->isSupported())
+#endif
         {
             OSG_WARN << "[DeferredRenderCallback] No FBO support" << std::endl;
             return;
@@ -202,7 +207,11 @@ namespace osgVerse
     bool DeferredRenderCallback::RttRunner::setup(DeferredRenderCallback* cb, osg::RenderInfo& renderInfo)
     {
         osg::State* state = renderInfo.getState();
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
+#else
+        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+#endif
         int width = 1, height = 1, usage = 0/*color: 1, depth: 2, stencil: 4*/;
         if (viewport.valid())
         {
@@ -255,8 +264,13 @@ namespace osgVerse
         if (!(usage & 1))
         {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
+    #if OSG_VERSION_GREATER_THAN(3, 3, 2)
             cb->setDrawBuffer(GL_NONE, true); state->glDrawBuffer(GL_NONE);
             cb->setReadBuffer(GL_NONE, true); state->glReadBuffer(GL_NONE);
+    #else
+            cb->setDrawBuffer(GL_NONE, true); glDrawBuffer(GL_NONE);
+            cb->setReadBuffer(GL_NONE, true); glReadBuffer(GL_NONE);
+    #endif
 #endif
         }
 
@@ -266,8 +280,10 @@ namespace osgVerse
             GLuint fboId = state->getGraphicsContext()
                 ? state->getGraphicsContext()->getDefaultFboId() : 0;
             ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
             osg::get<osg::GLRenderBufferManager>(state->getContextID())->flushAllDeletedGLObjects();
             osg::get<osg::GLFrameBufferObjectManager>(state->getContextID())->flushAllDeletedGLObjects();
+#endif
 
             OSG_WARN << "[Runner] FBO setup failed: 0x" << std::hex << status
                 << std::dec << ", name: " << name << std::endl;
@@ -286,8 +302,13 @@ namespace osgVerse
         if (!useMRT)
         {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
+    #if OSG_VERSION_GREATER_THAN(3, 3, 2)
             if (cb->_drawBufferApplyMask) state->glDrawBuffer(cb->_drawBuffer);
             if (cb->_readBufferApplyMask) state->glReadBuffer(cb->_readBuffer);
+    #else
+            if (cb->_drawBufferApplyMask) glDrawBuffer(cb->_drawBuffer);
+            if (cb->_readBufferApplyMask) glReadBuffer(cb->_readBuffer);
+    #endif
 #endif
         }
         fbo->apply(*state);
@@ -296,7 +317,11 @@ namespace osgVerse
     void DeferredRenderCallback::RttRunner::finish(DeferredRenderCallback* cb, osg::RenderInfo& renderInfo)
     {
         osg::State* state = renderInfo.getState();
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
+#else
+        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+#endif
         GLuint fboId = state->getGraphicsContext()
             ? state->getGraphicsContext()->getDefaultFboId() : 0;
         ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
@@ -317,7 +342,11 @@ namespace osgVerse
     bool DeferredRenderCallback::RttRunner::draw(DeferredRenderCallback* cb, osg::RenderInfo& renderInfo)
     {
         osg::State* state = renderInfo.getState();
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
+#else
+        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+#endif
 
 #ifdef OSG_GL_MATRICES_AVAILABLE
         glMatrixMode(GL_MODELVIEW);

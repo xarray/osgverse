@@ -1,21 +1,22 @@
 #include <osg/FrameBufferObject>
 #include <osg/RenderInfo>
 #include <osg/GLExtensions>
-#include <osg/ContextData>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geometry>
 #include <osg/PolygonMode>
 #include <osg/Geode>
 #include <iostream>
+#include <array>
 #include <mikktspace.h>
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
 #include "Utilities.h"
+typedef std::array<unsigned int, 3> Vec3ui;
 
 /// MikkTSpace visitor utilities
 struct MikkTSpaceHelper
 {
-    std::vector<osg::Vec3ui> _faceList;
+    std::vector<Vec3ui> _faceList;
     osg::Vec3Array *tangents, *binormals;
     osg::Geometry* _geometry;
 
@@ -45,13 +46,16 @@ struct MikkTSpaceHelper
     osg::Vec2Array* tArray() { return static_cast<osg::Vec2Array*>(_geometry->getTexCoordArray(0)); }
 
     void operator()(unsigned int i0, unsigned int i1, unsigned int i2)
-    { _faceList.push_back(osg::Vec3ui(i0, i1, i2)); }
+    { _faceList.push_back(Vec3ui{i0, i1, i2}); }
 
     static MikkTSpaceHelper* me(const SMikkTSpaceContext* pContext)
     { return static_cast<MikkTSpaceHelper*>(pContext->m_pUserData); }
 
-    static int mikk_getNumFaces(const SMikkTSpaceContext* pContext) { return (int)me(pContext)->_faceList.size(); }
-    static int mikk_getNumVerticesOfFace(const SMikkTSpaceContext* pContext, const int iFace) { return 3; }
+    static int mikk_getNumFaces(const SMikkTSpaceContext* pContext)
+    { return (int)me(pContext)->_faceList.size(); }
+
+    static int mikk_getNumVerticesOfFace(const SMikkTSpaceContext* pContext, const int iFace)
+    { return 3; }
 
     static void mikk_getPosition(const SMikkTSpaceContext* pContext, float fvPosOut[],
                                  const int iFace, const int iVert)

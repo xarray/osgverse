@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/AnimationPath>
 #include <osg/Texture2D>
 #include <osg/Geometry>
@@ -11,6 +12,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "LoadSceneGLTF.h"
+
+#ifndef GL_ARB_texture_rg
+    #define GL_RG                             0x8227
+#endif
 
 namespace osgVerse
 {
@@ -86,21 +91,32 @@ namespace osgVerse
                 {
                     osg::Vec3Array* va = new osg::Vec3Array(size);
                     memcpy(&(*va)[0], &buffer.data[attrView.byteOffset], copySize);
-                    va->setNormalize(attrAccessor.normalized); geom->setVertexArray(va);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                    va->setNormalize(attrAccessor.normalized);
+#endif
+                    geom->setVertexArray(va);
                 }
                 else if (attrib.first.compare("NORMAL") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* na = new osg::Vec3Array(size);
                     memcpy(&(*na)[0], &buffer.data[attrView.byteOffset], copySize);
-                    na->setNormalize(attrAccessor.normalized); geom->setNormalArray(na);
-                    geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                    na->setNormalize(attrAccessor.normalized);
+                    geom->setNormalArray(na, osg::Array::BIND_PER_VERTEX);
+#else
+                    geom->setNormalArray(na); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+#endif
                 }
                 else if (attrib.first.compare("TANGENT") == 0 && compSize == 4 && compNum == 4)
                 {   // Do nothing as we calculate tangent/binormal by ourselves
 #if 0
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
                     memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], copySize);
-                    ta->setNormalize(attrAccessor.normalized); geom->setVertexAttribArray(6, ta);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                    ta->setNormalize(attrAccessor.normalized);
+                    geom->setVertexAttribArray(6, ta, osg::Array::BIND_PER_VERTEX);
+#endif
+                    geom->setVertexAttribArray(6, ta);
                     geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
 #endif
                 }
@@ -108,7 +124,9 @@ namespace osgVerse
                 {
                     osg::Vec2Array* ta = new osg::Vec2Array(size);
                     memcpy(&(*ta)[0], &buffer.data[attrView.byteOffset], copySize);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
                     ta->setNormalize(attrAccessor.normalized);
+#endif
                     geom->setTexCoordArray(atoi(attrib.first.substr(9).c_str()), ta);
                 }
                 else

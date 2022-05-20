@@ -2,6 +2,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_opengl3.h>
 #include <imgui/ImGuizmo.h>
+#include <osg/Version>
 #include <osg/Camera>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
@@ -225,7 +226,12 @@ struct ImGuiRenderCallback : public osg::Camera::DrawCallback
                     itr != tList.end(); ++itr)
                 {
                     osg::Texture2D* tex2D = itr->second.get();
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
                     if (tex2D->isDirty(renderInfo.getContextID())) tex2D->apply(*renderInfo.getState());
+#else
+                    if (tex2D->getTextureParameterDirty(renderInfo.getContextID()) > 0)
+                        tex2D->apply(*renderInfo.getState());
+#endif
                     
                     osg::Texture::TextureObject* tObj = tex2D->getTextureObject(renderInfo.getContextID());
                     if (tObj) _textureIdList[itr->first] = reinterpret_cast<ImTextureID>(tObj->id());
