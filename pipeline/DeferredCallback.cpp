@@ -5,6 +5,9 @@
 #include <osg/GLExtensions>
 #include <osg/PolygonMode>
 #include <osg/Geode>
+#if OSG_VERSION_GREATER_THAN(3, 5, 1)
+    #include <osg/ContextData>
+#endif
 #include <osgUtil/SceneView>
 #include <iostream>
 #include "DeferredCallback.h"
@@ -280,7 +283,7 @@ namespace osgVerse
             GLuint fboId = state->getGraphicsContext()
                 ? state->getGraphicsContext()->getDefaultFboId() : 0;
             ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
-#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+#if OSG_VERSION_GREATER_THAN(3, 5, 1)
             osg::get<osg::GLRenderBufferManager>(state->getContextID())->flushAllDeletedGLObjects();
             osg::get<osg::GLFrameBufferObjectManager>(state->getContextID())->flushAllDeletedGLObjects();
 #endif
