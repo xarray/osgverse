@@ -504,10 +504,6 @@ namespace osgVerse
 
     void Pipeline::applyDefaultInputStateSet(osg::StateSet* ss)
     {
-        static std::string uniformNames[] = {
-            /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
-            /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
-        };
         static osg::ref_ptr<osg::Texture2D> tex0 = createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         static osg::ref_ptr<osg::Texture2D> tex1 = createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
@@ -523,12 +519,6 @@ namespace osgVerse
         osg::Program* prog = static_cast<osg::Program*>(ss->getAttribute(osg::StateAttribute::PROGRAM));
         if (prog != NULL)
         {
-            static std::string attributeNames[] = {
-                /*0*/"osg_Vertex", /*1*/"osg_Weights", /*2*/"osg_Normal", /*3*/"osg_Color",
-                /*4*/"osg_SecondaryColor", /*5*/"osg_FogCoord", /*6*/"osg_Tangent", /*7*/"osg_Binormal",
-                /*8*/"osg_TexCoord0", /*9*/"osg_TexCoord1", /*10*/"osg_TexCoord2", /*11*/"osg_TexCoord3",
-                /*12*/"osg_TexCoord4", /*13*/"osg_TexCoord5", /*14*/"osg_TexCoord6", /*15*/"osg_TexCoord7"
-            };
             prog->addBindAttribLocation(attributeNames[6], 6);
             prog->addBindAttribLocation(attributeNames[7], 7);
         }

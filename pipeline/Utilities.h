@@ -9,6 +9,22 @@ struct SMikkTSpaceContext;
 
 namespace osgVerse
 {
+    /** Global-defined vertex attribute names, for full-featured pipeline use */
+    static std::string attributeNames[] =
+    {
+        /*0*/"osg_Vertex", /*1*/"osg_Weights", /*2*/"osg_Normal", /*3*/"osg_Color",
+        /*4*/"osg_SecondaryColor", /*5*/"osg_FogCoord", /*6*/"osg_Tangent", /*7*/"osg_Binormal",
+        /*8*/"osg_TexCoord0", /*9*/"osg_TexCoord1", /*10*/"osg_TexCoord2", /*11*/"osg_TexCoord3",
+        /*12*/"osg_TexCoord4", /*13*/"osg_TexCoord5", /*14*/"osg_TexCoord6", /*15*/"osg_TexCoord7"
+    };
+
+    /** Global-defined texture-map uniform names, for full-featured pipeline use */
+    static std::string uniformNames[] =
+    {
+        /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
+        /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
+    };
+
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);
 

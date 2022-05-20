@@ -1,3 +1,4 @@
+#include <osg/Texture2D>
 #include <osg/Geode>
 #include <osg/MatrixTransform>
 #include <iterator>

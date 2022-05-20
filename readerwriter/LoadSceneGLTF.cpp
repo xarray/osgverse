@@ -7,6 +7,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+#include "pipeline/Utilities.h"
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -197,11 +198,7 @@ namespace osgVerse
 
     void LoaderGLTF::createMaterial(osg::StateSet* ss, tinygltf::Material material)
     {
-        // Shininess = inv(Roughness), Ambient = Occlusion...
-        static std::string uniformNames[] = {
-            /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
-            /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
-        };
+        // FIXME: Shininess = inv(Roughness), Ambient = Occlusion...
         int baseID = material.pbrMetallicRoughness.baseColorTexture.index;
         int roughnessID = material.pbrMetallicRoughness.metallicRoughnessTexture.index;
         int normalID = material.normalTexture.index;

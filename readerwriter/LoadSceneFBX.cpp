@@ -6,6 +6,7 @@
 #include <osgDB/ConvertUTF>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
+#include "pipeline/Utilities.h"
 #include "LoadSceneFBX.h"
 
 namespace osgVerse
@@ -267,10 +268,6 @@ namespace osgVerse
 
     void LoaderFBX::createMaterial(const ofbx::Material* mtlData, osg::StateSet* ss)
     {
-        static std::string uniformNames[] = {
-            /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
-            /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
-        };
         for (int i = 0; i < ofbx::Texture::COUNT; ++i)
         {
             const ofbx::Texture* tData = mtlData->getTexture((ofbx::Texture::TextureType)i);

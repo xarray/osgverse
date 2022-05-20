@@ -1,1 +1,3 @@
 ADD_SUBDIRECTORY(osgdb_ept)
+ADD_SUBDIRECTORY(osgdb_fbx)
+ADD_SUBDIRECTORY(osgdb_gltf)
