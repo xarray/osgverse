@@ -25,6 +25,9 @@ namespace osgVerse
         /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
     };
 
+    /** Suggest run this function once to initialize some plugins & environments */
+    extern void globalInitialize();
+
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);
 

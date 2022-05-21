@@ -1,4 +1,4 @@
-SET(LIB_NAME osgdb_gltf)
+SET(LIB_NAME osgdb_verse_gltf)
 SET(LIBRARY_FILES
     ReaderWriterGLTF.cpp
 )

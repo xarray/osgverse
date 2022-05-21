@@ -1,4 +1,4 @@
-SET(LIB_NAME osgdb_fbx)
+SET(LIB_NAME osgdb_verse_fbx)
 SET(LIBRARY_FILES
     ReaderWriterFBX.cpp
 )

@@ -1,4 +1,4 @@
-SET(LIB_NAME osgdb_ept)
+SET(LIB_NAME osgdb_verse_ept)
 SET(LIBRARY_FILES
     ReaderWriterEPT.cpp
     PointCloudFileReader.cpp

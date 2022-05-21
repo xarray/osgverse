@@ -5,6 +5,7 @@
 #include <osg/Geometry>
 #include <osg/PolygonMode>
 #include <osg/Geode>
+#include <osgDB/Registry>
 #include <iostream>
 #include <array>
 #include <mikktspace.h>
@@ -93,6 +94,14 @@ struct MikkTSpaceHelper
 
 namespace osgVerse
 {
+    void globalInitialize()
+    {
+        osgDB::Registry::instance()->addFileExtensionAlias("ept", "verse_ept");
+        osgDB::Registry::instance()->addFileExtensionAlias("fbx", "verse_fbx");
+        osgDB::Registry::instance()->addFileExtensionAlias("gltf", "verse_gltf");
+        osgDB::Registry::instance()->addFileExtensionAlias("glb", "verse_gltf");
+    }
+
     osg::Texture2D* createDefaultTexture(const osg::Vec4& color)
     {
         osg::ref_ptr<osg::Image> image = new osg::Image;

@@ -20,13 +20,14 @@ public:
 
     virtual const char* className() const
     {
-        return "GLTF scene Reader";
+        return "[osgVerse] GLTF scene Reader";
     }
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
     {
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
+
         if (ext == "glb") return osgVerse::loadGltf(path, true);
         else return osgVerse::loadGltf(path, false);
     }
@@ -41,9 +42,9 @@ public:
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
             if (mode == "binary") isBinary = true;
         }
-        osg::ref_ptr<osg::Node> scene = osgVerse::loadGltf2(fin, dir, isBinary);
+        return osgVerse::loadGltf2(fin, dir, isBinary);
     }
 };
 
 // Now register with Registry to instantiate the above reader/writer.
-REGISTER_OSGPLUGIN(gltf, ReaderWriterGLTF)
+REGISTER_OSGPLUGIN(verse_gltf, ReaderWriterGLTF)

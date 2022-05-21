@@ -12,13 +12,14 @@ class ReaderWriterFBX : public osgDB::ReaderWriter
 public:
     ReaderWriterFBX()
     {
+        supportsExtension("verse", "osgVerse pseudo-loader");
         supportsExtension("fbx", "FBX scene file");
         supportsOption("Directory", "Setting the working directory");
     }
 
     virtual const char* className() const
     {
-        return "FBX scene Reader";
+        return "[osgVerse] FBX scene Reader";
     }
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
@@ -30,10 +31,11 @@ public:
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
-        std::string dir = "."; if (options) dir = options->getPluginStringData("Directory");
-        osg::ref_ptr<osg::Node> scene = osgVerse::loadFbx2(fin, dir);
+        std::string dir = ".";
+        if (options) dir = options->getPluginStringData("Directory");
+        return osgVerse::loadFbx2(fin, dir);
     }
 };
 
 // Now register with Registry to instantiate the above reader/writer.
-REGISTER_OSGPLUGIN(fbx, ReaderWriterFBX)
+REGISTER_OSGPLUGIN(verse_fbx, ReaderWriterFBX)

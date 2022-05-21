@@ -195,7 +195,7 @@ public:
 
     virtual const char* className() const
     {
-        return "EPT Point Cloud Reader";
+        return "[osgVerse] EPT Point Cloud Reader";
     }
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
@@ -316,4 +316,4 @@ protected:
 };
 
 // Now register with Registry to instantiate the above reader/writer.
-REGISTER_OSGPLUGIN(ept, ReaderWriterEPT)
+REGISTER_OSGPLUGIN(verse_ept, ReaderWriterEPT)
