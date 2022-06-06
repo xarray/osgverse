@@ -4,7 +4,6 @@
 #include <cstdio>
 
 #include <exprtk.hpp>
-#include <nanoflann.hpp>
 #include <wykobi/wykobi.hpp>
 #include <wykobi/wykobi_algorithm.hpp>
 #include "Math.h"
@@ -269,113 +268,6 @@ double MathExpression::evaluate(bool* ok)
         }
     }
     return _private->expression.value();
-}
-
-/* PointCloudQuery */
-
-struct PointCloudData
-{
-    std::vector<PointCloudQuery::PointData> points;
-
-    // Must return the number of data points
-    inline size_t kdtree_get_point_count() const { return points.size(); }
-
-    // Returns the distance between the vector "p1[0:size-1]" and
-    // the data point with index "idx_p2" stored in the class
-    inline float kdtree_distance(const float* p1, const size_t idx_p2, size_t size) const
-    {
-        const osg::Vec3& p = points[idx_p2].first;
-        const float d0 = p1[0] - p[0];
-        const float d1 = p1[1] - p[1];
-        const float d2 = p1[2] - p[2];
-        return d0 * d0 + d1 * d1 + d2 * d2;
-    }
-
-    // Returns the dim'th component of the idx'th point in the class
-    inline float kdtree_get_pt(const size_t idx, int dim) const
-    {
-        if (dim == 0) return points[idx].first.x();
-        else if (dim == 1) return points[idx].first.y();
-        else return points[idx].first.z();
-    }
-
-    // Optional bounding-box computation: return false to default to a standard bbox computation loop
-    template <class BBOX> bool kdtree_get_bbox(BBOX& bb) const { return false; }
-};
-
-typedef nanoflann::L2_Simple_Adaptor<float, PointCloudData> AdaptorType;
-typedef nanoflann::KDTreeSingleIndexAdaptor<AdaptorType, PointCloudData, 3> KdTreeType;
-
-PointCloudQuery::PointCloudQuery()
-{
-    _queryData = new PointCloudData;
-    _index = NULL;
-}
-
-PointCloudQuery::~PointCloudQuery()
-{
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    pcd->points.clear();
-    delete _queryData;
-    _queryData = NULL;
-
-    delete _index;
-    _index = NULL;
-}
-
-void PointCloudQuery::addPoint(const osg::Vec3& pt, osg::Referenced* userData)
-{
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    pcd->points.push_back(PointData(pt, userData));
-}
-
-void PointCloudQuery::setPoints(const std::vector<PointData>& data)
-{
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    pcd->points = data;
-}
-
-unsigned int PointCloudQuery::getNumPoints() const
-{
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    return pcd->points.size();
-}
-
-const std::vector<PointCloudQuery::PointData>& PointCloudQuery::getPoints() const
-{
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    return pcd->points;
-}
-
-void PointCloudQuery::buildIndex(int maxLeafSize)
-{
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    if (_index != NULL) delete _index;
-    KdTreeType* kdtree = new KdTreeType(3, *pcd, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeafSize));
-    kdtree->buildIndex();
-    _index = kdtree;
-}
-
-void PointCloudQuery::findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
-    unsigned int maxResults)
-{
-    KdTreeType* kdtree = (KdTreeType*)_index;
-    std::vector<float> resultDistance2(maxResults);
-    resultIndices.resize(maxResults);
-
-    float queryPt[3] = { pt[0], pt[1], pt[2] };
-    kdtree->knnSearch(&queryPt[0], maxResults, &(resultIndices[0]), &(resultDistance2[0]));
-}
-
-int PointCloudQuery::findInRadius(const osg::Vec3& pt, float radius,
-    std::vector<IndexAndDistancePair>& resultIndices)
-{
-    KdTreeType* kdtree = (KdTreeType*)_index;
-    nanoflann::SearchParams params;
-    params.sorted = false;
-
-    float queryPt[3] = { pt[0], pt[1], pt[2] };
-    return kdtree->radiusSearch(&queryPt[0], radius, resultIndices, params);
 }
 
 /* Spline */

@@ -37,6 +37,7 @@ namespace osgVerse
         void addToView(osgViewer::View* view, osg::Camera* specCam = NULL);
 
         void setGuiTexture(const std::string& name, const std::string& file);
+        void setGuiTexture(const std::string& name, osg::Texture2D* tex);
         void removeGuiTexture(const std::string& name);
 
     protected:

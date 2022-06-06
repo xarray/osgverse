@@ -116,7 +116,7 @@ void main()
     
     // Treat ambient light as IBL or not
     vec3 ambient = vec3(0.025) * albedo;
-    if (metallicRoughness.z > 0.1)
+    if (metallicRoughness.z > 0.01)
     {
         float etaRatio = 0.6;
         float fresnel = 0.1 + 1.2 * pow(min(0.0, 1.0 - nDotV), 2.0);
@@ -139,12 +139,12 @@ void main()
     vec4 final = (shadowLength > 0.1) ? (color * shadow) : color;
     final = mix(fogColor, final, fogFactor);
     
+    float T1 = 1.2, T2 = 1.0;
     vec3 avg = vec3(0.5,0.5,0.5), luncoeff = vec3 (0.2125, 0.7154, 0.0721);
-    float T1 = 1.4, T2 = 1.0;
-    
     vec3 brtColor = pow(final.rgb, vec3(INV_GAMMA)) * T2;
     float intensity = dot(brtColor, luncoeff);
     vec3 satColor = vec3(mix(vec3(intensity), brtColor, 1.0));
+
     final.rgb = vec3(mix(avg, satColor, T1));
     gl_FragColor = vec4(final.rgb, color.a);
 }

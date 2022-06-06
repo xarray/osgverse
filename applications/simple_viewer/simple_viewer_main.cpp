@@ -33,10 +33,10 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->addChild(scene.get());
-    sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+    //sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
     // Global shading variables
-    osg::Vec3 metallicRoughnessAmbient(0.5f, 0.8f, 0.2f);
+    osg::Vec3 metallicRoughnessAmbient(0.2f, 0.2f, 0.1f);
     osg::Vec4 lightDir(1.0f, 1.0f, -1.0f, 0.0f), lightDir2(-1.0f, 1.0f, -0.5f, 0.0f);
     osg::Vec4 lightColor(4.0f, 4.0f, 3.8f, 1.0f), lightColor2(1.0f, 1.0f, 1.3f, 1.0f);
     lightDir.normalize(); lightDir2.normalize();
@@ -68,11 +68,11 @@ int main(int argc, char** argv)
         ss->getOrCreateUniform("metallicRoughness", osg::Uniform::FLOAT_VEC3)->set(metallicRoughnessAmbient);
     }
 
-    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.15,15,1.scale.0,0,-300.trans");
+    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.0,0,-250.trans");
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->addChild(otherSceneRoot.get());
+    //root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
     osgViewer::Viewer viewer;

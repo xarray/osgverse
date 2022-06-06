@@ -234,7 +234,7 @@ struct ImGuiRenderCallback : public osg::Camera::DrawCallback
 #endif
                     
                     osg::Texture::TextureObject* tObj = tex2D->getTextureObject(renderInfo.getContextID());
-                    if (tObj) _textureIdList[itr->first] = reinterpret_cast<ImTextureID>(tObj->id());
+                    if (tObj) _textureIdList[itr->first] = reinterpret_cast<ImTextureID>((long long)tObj->id());
                 }
 
                 ImGuiHandler* handler = static_cast<ImGuiHandler*>(_handler.get());
@@ -282,9 +282,11 @@ void ImGuiManager::addToView(osgViewer::View* view, osg::Camera* specCam)
 void ImGuiManager::setGuiTexture(const std::string& name, const std::string& file)
 {
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile(file);
-    osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D(image.get());
-    _textures[name] = tex2D.get();
+    setGuiTexture(name, new osg::Texture2D(image.get()));
 }
+
+void ImGuiManager::setGuiTexture(const std::string& name, osg::Texture2D* tex2D)
+{ _textures[name] = tex2D; }
 
 void ImGuiManager::removeGuiTexture(const std::string& name)
 {
