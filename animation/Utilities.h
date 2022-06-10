@@ -21,10 +21,10 @@ namespace osgVerse
         std::string _bodyName;
     };
 
-    extern btCollisionShape* createBox(const osg::Vec3& halfSize);
-    extern btCollisionShape* createCylinder(const osg::Vec3& halfSize);
-    extern btCollisionShape* createCone(float radius, float height);
-    extern btCollisionShape* createSphere(float radius);
+    extern btCollisionShape* createPhysicsBox(const osg::Vec3& halfSize);
+    extern btCollisionShape* createPhysicsCylinder(const osg::Vec3& halfSize);
+    extern btCollisionShape* createPhysicsCone(float radius, float height);
+    extern btCollisionShape* createPhysicsSphere(float radius);
 
 }
 

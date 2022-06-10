@@ -21,9 +21,9 @@ namespace osgVerse
     public:
         PhysicsEngine();
 
-        btRigidBody* addShape(const std::string& name, btCollisionShape* s, float mass = 0.0f,
-                              const osg::Matrix& m = osg::Matrix(), bool kinematic = false);
-        void removeShape(const std::string& name);
+        btRigidBody* addRigidBody(const std::string& name, btCollisionShape* s, float mass = 0.0f,
+                                  const osg::Matrix& m = osg::Matrix(), bool kinematic = false);
+        void removeBody(const std::string& name);
 
         void setTransform(const std::string& name, const osg::Matrix& matrix);
         osg::Matrix getTransform(const std::string& name, bool& valid);
@@ -35,7 +35,7 @@ namespace osgVerse
         btRigidBody* getRigidBody(const std::string& name);
 
         void setGravity(const osg::Vec3& gravity);
-        void advance(float timeStamp, int maxSubSteps = 1);
+        void advance(float timeStep, int maxSubSteps = 1);
 
     protected:
         virtual ~PhysicsEngine();

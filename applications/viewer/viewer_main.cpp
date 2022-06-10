@@ -64,6 +64,7 @@ int main(int argc, char** argv)
     viewer.setSceneData(root.get());
     while (!viewer.done())
     {
+        //std::cout << sceneRoot->getBound().center() << "; " << sceneRoot->getBound().radius() << "\n";
         viewer.frame();
     }
     return 0;

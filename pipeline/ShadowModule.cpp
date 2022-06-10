@@ -4,6 +4,13 @@
 #include "ShadowModule.h"
 #include "Utilities.h"
 
+class DisableBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
+{
+public:
+    virtual osg::BoundingBox computeBound(const osg::Drawable&) const
+    { return osg::BoundingBox(); }
+};
+
 namespace osgVerse
 {
     ShadowModule::ShadowModule(Pipeline* pipeline, bool withDebugGeom)
@@ -11,7 +18,7 @@ namespace osgVerse
     {
         _shadowMaps = new osg::Texture2DArray;
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
-        _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "LightMatrices", 4);
+        _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", 4);
     }
 
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0, float maxDistance)
@@ -71,6 +78,9 @@ namespace osgVerse
             Frustum frustum;
             frustum.create(_cameraMV->getViewMatrix(), _cameraProj->getProjectionMatrix(),
                            -1.0f, _shadowMaxDistance);
+            osg::Matrix viewInv = _cameraMV->getInverseViewMatrix();
+
+            std::cout << "F " << frustum.centerNearPlane << ", " << frustum.centerFarPlane << "\n";
 
             osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightInvMatrix);
             float halfX = (shadowBB.xMax() - shadowBB.xMin()) * 0.5;
@@ -87,9 +97,11 @@ namespace osgVerse
                 shadowCam->setViewMatrix(_lightMatrix);
                 shadowCam->setProjectionMatrixAsOrtho(
                     -halfX, halfX, -halfY, halfY, shadowBB.zMin(), shadowBB.zMax());
-                _lightMatrices->setElement(i, osg::Matrixf(
+                _lightMatrices->setElement(i, osg::Matrixf(viewInv *
                     shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
                 updateFrustumGeometry(i, shadowCam);
+
+                std::cout << i << ": " << shadowBB.zMin() << ", " << shadowBB.zMax() << "\n";
             }
             _lightMatrices->dirty();
         }
@@ -127,6 +139,8 @@ namespace osgVerse
     {
         osg::Geometry* geom = NULL;
         if (!_shadowFrustum) return;
+        else _shadowFrustum->setCullingActive(false);
+
         if (id < (int)_shadowFrustum->getNumDrawables())
             geom = _shadowFrustum->getDrawable(id)->asGeometry();
         else
@@ -148,6 +162,7 @@ namespace osgVerse
             geom->setUseVertexBufferObjects(true);
             geom->setVertexArray(new osg::Vec3Array(8));
             geom->addPrimitiveSet(de); geom->addPrimitiveSet(de2);
+            geom->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
             _shadowFrustum->addDrawable(geom);
         }
         

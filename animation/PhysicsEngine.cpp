@@ -44,13 +44,13 @@ PhysicsEngine::~PhysicsEngine()
     delete _collisionCfg;
 }
 
-btRigidBody* PhysicsEngine::addShape(const std::string& name, btCollisionShape* shape, float mass,
-                                     const osg::Matrix& matrix, bool kinematic)
+btRigidBody* PhysicsEngine::addRigidBody(const std::string& name, btCollisionShape* shape, float mass,
+                                         const osg::Matrix& matrix, bool kinematic)
 {
     bool isDynamic = (mass > 0.0f);
     osg::Quat q = matrix.getRotate();
     osg::Vec3 p = matrix.getTrans();
-    if (_shapes.find(name) != _shapes.end()) removeShape(name);  // remove existing shape
+    if (_shapes.find(name) != _shapes.end()) removeBody(name);  // remove existing shape
 
     btTransform transform; transform.setIdentity();
     transform.setOrigin(btVector3(p.x(), p.y(), p.z()));
@@ -67,11 +67,13 @@ btRigidBody* PhysicsEngine::addShape(const std::string& name, btCollisionShape* 
         body->setCollisionFlags(body->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
         body->setActivationState(DISABLE_DEACTIVATION);
     }
+
+    _world->addRigidBody(body);
     _shapes[name] = shape; _bodies[name] = body;
     return body;
 }
 
-void PhysicsEngine::removeShape(const std::string& name)
+void PhysicsEngine::removeBody(const std::string& name)
 {
     std::map<std::string, btRigidBody*>::iterator itr = _bodies.find(name);
     if (itr != _bodies.end())
@@ -165,5 +167,5 @@ btRigidBody* PhysicsEngine::getRigidBody(const std::string& name)
 void PhysicsEngine::setGravity(const osg::Vec3& gravity)
 { _world->setGravity(btVector3(gravity[0], gravity[1], gravity[2])); }
 
-void PhysicsEngine::advance(float timeStamp, int maxSubSteps)
-{ _world->stepSimulation(timeStamp, maxSubSteps); }
+void PhysicsEngine::advance(float timeStep, int maxSubSteps)
+{ _world->stepSimulation(timeStep, maxSubSteps); }

@@ -43,16 +43,16 @@ void PhysicsUpdateCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
 namespace osgVerse
 {
 
-    btCollisionShape* createBox(const osg::Vec3& halfSize)
+    btCollisionShape* createPhysicsBox(const osg::Vec3& halfSize)
     { return new btBoxShape(btVector3(halfSize[0], halfSize[1], halfSize[2])); }
     
-    btCollisionShape* createCylinder(const osg::Vec3& halfSize)
+    btCollisionShape* createPhysicsCylinder(const osg::Vec3& halfSize)
     { return new btCylinderShape(btVector3(halfSize[0], halfSize[1], halfSize[2])); }
 
-    btCollisionShape* createCone(float radius, float height)
+    btCollisionShape* createPhysicsCone(float radius, float height)
     { return new btConeShape(radius, height); }
 
-    btCollisionShape* createSphere(float radius)
+    btCollisionShape* createPhysicsSphere(float radius)
     { return new btSphereShape(radius); }
     
 }

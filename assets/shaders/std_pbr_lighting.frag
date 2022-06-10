@@ -3,8 +3,8 @@
 uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
 uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
-//uniform sampler2DArray ShadowMapArray;
-//uniform mat4 LightMatrices[4];
+uniform sampler2DArray ShadowMapArray;
+uniform mat4 ShadowSpaceMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 in vec4 texCoord0;
 out vec4 fragData;
@@ -139,14 +139,14 @@ void main()
     float nDotV = max(dot(eyeNormal, viewDir), 0.0), shadow = 1.0;  // TODO!!!!!!!!!!!!! ao
     
     // Compute direcional light and shadow
-    /*float shadowLayer = 0.0;  // TODO!!!!!!!!!!!!! shadowLayer
-    vec4 lightProjVec = LightMatrices[int(shadowLayer)] * worldVertex;
+    float shadowLayer = 0.0;  // TODO!!!!!!!!!!!!! shadowLayer
+    vec4 lightProjVec = ShadowSpaceMatrices[int(shadowLayer)] * eyeVertex;
     vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
     {
         vec4 lightProjVec0 = texture(ShadowMapArray, vec3(lightProjUV.xy, shadowLayer));
         float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
         shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.5 : 1.0;
-    }*/
+    }
     
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 radianceOut = computeDirectionalLight(dLightDir, dLightColor, eyeNormal, viewDir,

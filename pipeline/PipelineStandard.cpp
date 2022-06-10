@@ -4,6 +4,7 @@
 #include <osgDB/ReadFile>
 #include <random>
 
+#define DEBUG_SHADOW_MODULE 1
 static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 static std::default_random_engine generator;
 
@@ -52,7 +53,7 @@ namespace osgVerse
         p->startStages(originW, originH, NULL);
 
         osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule(p, true);
-        shadow->setLightState(osg::Vec3(), osg::Vec3(1.0f, 0.0f, -1.0f), 1500.0f);
+        shadow->setLightState(osg::Vec3(), osg::Vec3(1.0f, 1.0f, -1.0f), 1500.0f);
         shadow->createStages(2048, 1,
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.vert"),
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.frag"), SHADOW_CASTER_MASK);
@@ -112,8 +113,8 @@ namespace osgVerse
         lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5);
         lighting->applyBuffer(*prefiltering, "PrefilterBuffer", 6);
         lighting->applyBuffer(*convolution, "IrradianceBuffer", 7);
-        //lighting->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 5);
-        //lighting->applyUniform(shadow->getLightMatrices());
+        lighting->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 5);
+        lighting->applyUniform(shadow->getLightMatrices());
 
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
             osgDB::readShaderFile(shaderDir + "std_common_quad.vert"),
@@ -124,7 +125,9 @@ namespace osgVerse
         p->applyStagesToView(view, FORWARD_SCENE_MASK);
         p->requireDepthBlit(gbuffer, true);
 
-        //shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
-        //root->addChild(shadow->getFrustumGeode());
+#if DEBUG_SHADOW_MODULE
+        shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+        root->addChild(shadow->getFrustumGeode());
+#endif
     }
 }
