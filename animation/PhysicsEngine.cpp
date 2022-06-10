@@ -7,12 +7,14 @@
 #include <osgUtil/SmoothingVisitor>
 
 #include <btBulletDynamicsCommon.h>
+#include <btBulletCollisionCommon.h>
+//#include <BulletCollision/NarrowPhaseCollision/btRaycastCallback.h>
 #include "PhysicsEngine.h"
 using namespace osgVerse;
 
 PhysicsEngine::PhysicsEngine()
 {
-    // FIXME: use a parallel processing dispatcher?
+    // FIXME: use a parallel processing dispatcher? (Extras/BulletMultiThreaded)
     _collisionCfg = new btDefaultCollisionConfiguration;
     _collisionDispatcher = new btCollisionDispatcher(_collisionCfg);
 
@@ -166,6 +168,64 @@ btRigidBody* PhysicsEngine::getRigidBody(const std::string& name)
 
 void PhysicsEngine::setGravity(const osg::Vec3& gravity)
 { _world->setGravity(btVector3(gravity[0], gravity[1], gravity[2])); }
+
+bool PhysicsEngine::raycast(const osg::Vec3& s, const osg::Vec3& e,
+                            RaycastHit& result, bool getNameFromBody)
+{
+    btVector3 from(s.x(), s.y(), s.z()), to(e.x(), e.y(), e.z());
+    btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+    //rayCallback.m_flags |= btTriangleRaycastCallback::kF_UseGjkConvexCastRaytest;
+
+    _world->rayTest(from, to, rayCallback);
+    if (rayCallback.hasHit())
+    {
+        btVector3 pos = rayCallback.m_hitPointWorld, norm = rayCallback.m_hitNormalWorld;
+        result.position = osg::Vec3(pos.x(), pos.y(), pos.z());
+        result.normal = osg::Vec3(norm.x(), norm.y(), norm.z());
+        result.rigidBody = (btRigidBody*)btRigidBody::upcast(rayCallback.m_collisionObject);
+
+        if (getNameFromBody)
+        {
+            for (std::map<std::string, btRigidBody*>::iterator itr = _bodies.begin();
+                 itr != _bodies.end(); ++itr)
+            { if (itr->second == result.rigidBody) {result.name = itr->first; break;} }
+        }
+        return true;
+    }
+    return false;
+}
+
+std::vector<PhysicsEngine::RaycastHit> PhysicsEngine::raycastAll(const osg::Vec3& s, const osg::Vec3& e,
+                                                                 bool getNameFromBody)
+{
+    btVector3 from(s.x(), s.y(), s.z()), to(e.x(), e.y(), e.z());
+    btCollisionWorld::AllHitsRayResultCallback rayCallback(from, to);
+    //rayCallback.m_flags |= btTriangleRaycastCallback::kF_UseGjkConvexCastRaytest;
+
+    std::vector<PhysicsEngine::RaycastHit> hitList;
+    _world->rayTest(from, to, rayCallback);
+    if (rayCallback.hasHit())
+    {
+        for (int i = 0; i < rayCallback.m_collisionObjects.size(); ++i)
+        {
+            btVector3 pos = rayCallback.m_hitPointWorld[i],
+                      norm = rayCallback.m_hitNormalWorld[i];
+            PhysicsEngine::RaycastHit result;
+            result.position = osg::Vec3(pos.x(), pos.y(), pos.z());
+            result.normal = osg::Vec3(norm.x(), norm.y(), norm.z());
+            result.rigidBody = (btRigidBody*)btRigidBody::upcast(rayCallback.m_collisionObjects[i]);
+
+            if (getNameFromBody)
+            {
+                for (std::map<std::string, btRigidBody*>::iterator itr = _bodies.begin();
+                     itr != _bodies.end(); ++itr)
+                { if (itr->second == result.rigidBody) {result.name = itr->first; break;} }
+            }
+            hitList.push_back(result);
+        }
+    }
+    return hitList;
+}
 
 void PhysicsEngine::advance(float timeStep, int maxSubSteps)
 { _world->stepSimulation(timeStep, maxSubSteps); }

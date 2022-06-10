@@ -29,6 +29,9 @@ namespace osgVerse
         virtual void apply(osg::Drawable& node) {}  // do nothing
         virtual void apply(osg::Geometry& geometry) {}  // do nothing
 
+        const std::vector<osg::Vec3>& getVertices() const { return _vertices; }
+        const std::vector<unsigned int>& getTriangles() const { return _indices; }
+
         /** Returned value is in OBB coordinates, using rotation to convert it */
         osg::BoundingBox computeOBB(osg::Quat& rotation, float relativeExtent = 0.1f, int numSamples = 500);
 

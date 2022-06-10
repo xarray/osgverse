@@ -66,13 +66,26 @@ int main(int argc, char** argv)
     const float groundSize = 40.0f, groundThickness = 0.1f;
     const float boxHalfSize = 0.49f, boxMass = 2.0f;
 
-    // Create ground geometry
+    // Create a ground geometry
     osg::ref_ptr<osg::MatrixTransform> groundMT = new osg::MatrixTransform;
     {
         osg::ref_ptr<osg::Geode> ground = new osg::Geode;
         ground->addDrawable(new osg::ShapeDrawable(
             new osg::Box(osg::Vec3(), groundSize, groundSize, groundThickness)));
         groundMT->addChild(ground.get());
+    }
+
+    // Create a model from file
+    osg::ref_ptr<osg::MatrixTransform> cessnaMT = new osg::MatrixTransform;
+    cessnaMT->setMatrix(osg::Matrix::rotate(osg::PI_4, osg::X_AXIS) *
+                        osg::Matrix::translate(0.0f, -5.0f, 10.0f));
+    {
+        // Scale can't be handled with rotation & position in the same matrix
+        osg::ref_ptr<osg::MatrixTransform> cessna = new osg::MatrixTransform;
+        cessna->setMatrix(osg::Matrix::scale(0.1f, 0.1f, 0.1f));
+        cessna->addChild(osgDB::readNodeFile("cessna.osg"));
+        cessna->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
+        cessnaMT->addChild(cessna.get());
     }
 
     // Create 50 boxes in scene
@@ -91,19 +104,23 @@ int main(int argc, char** argv)
 
     // Add all to scene graph
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->addChild(groundMT.get());
+    root->addChild(groundMT.get()); root->addChild(cessnaMT.get());
     for (int i = 0; i < 50; ++i) root->addChild(boxMT[i].get());
 
     // Create the physics world and add the rigid body of every scene object
     osg::ref_ptr<osgVerse::PhysicsEngine> physics = new osgVerse::PhysicsEngine;
     physics->addRigidBody("ground", osgVerse::createPhysicsBox(
         osg::Vec3(groundSize * 0.5f, groundSize * 0.5f, groundThickness * 0.5f)), 0.0f);
+    physics->addRigidBody("cessna", osgVerse::createPhysicsHull(
+        cessnaMT->getChild(0)), 15.0f, cessnaMT->getMatrix());
+
     for (int i = 0; i < 50; ++i)
         physics->addRigidBody("box" + std::to_string(i), osgVerse::createPhysicsBox(
             osg::Vec3(boxHalfSize, boxHalfSize, boxHalfSize)), boxMass, boxMT[i]->getMatrix());
 
     // Setup callbacks for scene object to update its pose
     groundMT->setUpdateCallback(new osgVerse::PhysicsUpdateCallback(physics.get(), "ground"));
+    cessnaMT->setUpdateCallback(new osgVerse::PhysicsUpdateCallback(physics.get(), "cessna"));
     for (int i = 0; i < 50; ++i)
         boxMT[i]->setUpdateCallback(
             new osgVerse::PhysicsUpdateCallback(physics.get(), "box" + std::to_string(i)));
