@@ -30,6 +30,12 @@ PhysicsEngine::PhysicsEngine()
 
 PhysicsEngine::~PhysicsEngine()
 {
+    for (std::map<std::string, ConstraintAndState>::iterator itr = _constraints.begin();
+         itr != _constraints.end(); ++itr)
+    {
+        _world->removeConstraint(itr->second.first);
+        delete itr->second.first;
+    }
     for (std::map<std::string, btRigidBody*>::iterator itr = _bodies.begin();
          itr != _bodies.end(); ++itr)
     {
@@ -69,6 +75,8 @@ btRigidBody* PhysicsEngine::addRigidBody(const std::string& name, btCollisionSha
         body->setCollisionFlags(body->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
         body->setActivationState(DISABLE_DEACTIVATION);
     }
+    else if (mass <= 0.0f)
+        body->setCollisionFlags(body->getCollisionFlags() | btCollisionObject::CF_STATIC_OBJECT);
 
     _world->addRigidBody(body);
     _shapes[name] = shape; _bodies[name] = body;
@@ -89,6 +97,18 @@ void PhysicsEngine::removeBody(const std::string& name)
     if (itr2 != _shapes.end()) { delete itr2->second; _shapes.erase(itr2); }
 }
 
+bool PhysicsEngine::isDynamicBody(const std::string& name, bool& isKinematic)
+{
+    std::map<std::string, btRigidBody*>::iterator itr = _bodies.find(name);
+    if (itr != _bodies.end())
+    {
+        int flags = itr->second->getCollisionFlags();
+        if (flags & btCollisionObject::CF_KINEMATIC_OBJECT) isKinematic = true;
+        return (flags & btCollisionObject::CF_STATIC_OBJECT) == 0;
+    }
+    return false;
+}
+
 void PhysicsEngine::setTransform(const std::string& name, const osg::Matrix& matrix)
 {
     std::map<std::string, btRigidBody*>::iterator itr = _bodies.find(name);
@@ -104,8 +124,7 @@ void PhysicsEngine::setTransform(const std::string& name, const osg::Matrix& mat
         btRigidBody* body = itr->second;
         if (body->getMotionState())
             body->getMotionState()->setWorldTransform(transform);
-        else
-            body->setWorldTransform(transform);
+        body->setWorldTransform(transform);
     }
 }
 
@@ -154,6 +173,44 @@ osg::Vec3 PhysicsEngine::getVelocity(const std::string& name, bool linearOrAngul
     return osg::Vec3();
 }
 
+void PhysicsEngine::addConstraint(const std::string& name, btTypedConstraint* constraint,
+                                  bool noCollisionsBetweenLinked)
+{
+    const btRigidBody& bodyA = constraint->getRigidBodyA();
+    const btRigidBody& bodyB = constraint->getRigidBodyB();
+    int flagsA = bodyA.getCollisionFlags(), constraintedState = bodyA.getActivationState();
+    if ((flagsA & btCollisionObject::CF_KINEMATIC_OBJECT) ||
+        (flagsA & btCollisionObject::CF_STATIC_OBJECT))
+    {
+        bodyB.setActivationState(DISABLE_DEACTIVATION);
+        constraintedState = bodyB.getActivationState();
+    }
+    else
+        bodyA.setActivationState(DISABLE_DEACTIVATION);
+
+    _world->addConstraint(constraint, noCollisionsBetweenLinked);
+    _constraints[name] = ConstraintAndState(constraint, constraintedState);
+}
+
+void PhysicsEngine::removeConstraint(const std::string& name)
+{
+    std::map<std::string, ConstraintAndState>::iterator itr = _constraints.find(name);
+    if (itr != _constraints.end())
+    {
+        btTypedConstraint* constraint = itr->second.first;
+        const btRigidBody& bodyA = constraint->getRigidBodyA();
+        const btRigidBody& bodyB = constraint->getRigidBodyB();
+        int flagsA = bodyA.getCollisionFlags(), constraintedState = bodyA.getActivationState();
+        if ((flagsA & btCollisionObject::CF_KINEMATIC_OBJECT) ||
+            (flagsA & btCollisionObject::CF_STATIC_OBJECT))
+        { bodyB.forceActivationState(itr->second.second); bodyB.activate(); }
+        else { bodyA.forceActivationState(itr->second.second); bodyA.activate(); }
+
+        _world->removeConstraint(constraint);
+        delete constraint; _constraints.erase(itr);
+    }
+}
+
 btCollisionShape* PhysicsEngine::getShape(const std::string& name)
 {
     if (_shapes.find(name) == _shapes.end()) return NULL;
@@ -164,6 +221,12 @@ btRigidBody* PhysicsEngine::getRigidBody(const std::string& name)
 {
     if (_bodies.find(name) == _bodies.end()) return NULL;
     return _bodies[name];
+}
+
+btTypedConstraint* PhysicsEngine::getConstraint(const std::string& name)
+{
+    if (_constraints.find(name) == _constraints.end()) return NULL;
+    return _constraints[name].first;
 }
 
 void PhysicsEngine::setGravity(const osg::Vec3& gravity)

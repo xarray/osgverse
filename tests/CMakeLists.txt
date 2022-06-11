@@ -16,4 +16,5 @@ NEW_TEST_EXECUTABLE(osgVerse_Test_FastRtt fast_rtt_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Obb_KDop obb_kdop_test.cpp)
 IF(BULLET_FOUND)
 	NEW_TEST_EXECUTABLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)
+	# TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test
 ENDIF(BULLET_FOUND)

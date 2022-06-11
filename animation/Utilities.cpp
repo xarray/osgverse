@@ -45,25 +45,20 @@ void PhysicsUpdateCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
 namespace osgVerse
 {
 
+    btCollisionShape* createPhysicsPoint()
+    { return new btEmptyShape(); }
+
     btCollisionShape* createPhysicsBox(const osg::Vec3& halfSize)
-    {
-        return new btBoxShape(btVector3(halfSize[0], halfSize[1], halfSize[2]));
-    }
+    { return new btBoxShape(btVector3(halfSize[0], halfSize[1], halfSize[2])); }
 
     btCollisionShape* createPhysicsCylinder(const osg::Vec3& halfSize)
-    {
-        return new btCylinderShape(btVector3(halfSize[0], halfSize[1], halfSize[2]));
-    }
+    { return new btCylinderShape(btVector3(halfSize[0], halfSize[1], halfSize[2])); }
 
     btCollisionShape* createPhysicsCone(float radius, float height)
-    {
-        return new btConeShape(radius, height);
-    }
+    { return new btConeShape(radius, height); }
 
     btCollisionShape* createPhysicsSphere(float radius)
-    {
-        return new btSphereShape(radius);
-    }
+    { return new btSphereShape(radius); }
 
     btCollisionShape* createPhysicsHull(osg::Node* node, bool optimized)
     {
@@ -106,5 +101,27 @@ namespace osgVerse
             minHeight, maxHeight, 2, filpQuad);
         shape->setLocalScaling(btVector3(hf->getXInterval(), hf->getYInterval(), 1.0f));
         shape->setUseDiamondSubdivision(true); return shape;
+    }
+
+    btTypedConstraint* createConstraintP2P(btRigidBody* bodyA, const osg::Vec3& pA,
+                                           btRigidBody* bodyB, const osg::Vec3& pB,
+                                           const ConstraintSetting* setting)
+    {
+        btVector3 pivotA(pA[0], pA[1], pA[2]), pivotB(pB[0], pB[1], pB[2]);
+        if (!bodyA || !bodyB) return NULL;
+        if (setting && setting->useWorldPivots)
+        {
+            pivotA = bodyA->getCenterOfMassTransform().inverse() * pivotA;
+            pivotB = bodyB->getCenterOfMassTransform().inverse() * pivotB;
+        }
+
+        btPoint2PointConstraint* p2p = new btPoint2PointConstraint(*bodyA, *bodyB, pivotA, pivotB);
+        if (setting)
+        {
+            p2p->m_setting.m_tau = setting->tau;
+            p2p->m_setting.m_damping = setting->damping;
+            p2p->m_setting.m_impulseClamp = setting->impulseClamp;
+        }
+        return p2p;
     }
 }

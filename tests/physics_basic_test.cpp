@@ -15,24 +15,94 @@ class ShootSphereHandler : public osgGA::GUIEventHandler
 {
 public:
     ShootSphereHandler(osgVerse::PhysicsEngine* pe, osg::Group* s)
-    : _physics(pe), _scene(s), _sphereCount(0) {}
+    : _physics(pe), _scene(s), _pickingDistance(0.0f), _sphereCount(0)
+    {
+        // Create a point/empty kinematic body for dragging use
+        _physics->addRigidBody("dragger", osgVerse::createPhysicsPoint(), 0.0f, osg::Matrix(), true);
+    }
 
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
-        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+        if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH)
+        {
+            if (ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
+                dragObject(view, ea.getXnormalized(), ea.getYnormalized());
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE)
+        {
+            if (!_pickedRigidName.empty()) releaseDraggingObject();
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG)
+        {
+            if (!_pickedRigidName.empty())
+            {
+                if (dragObject(view, ea.getXnormalized(), ea.getYnormalized()))
+                    return true;  // diable camera manipulator if dragging
+            }
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
         {
             if (ea.getKey() == osgGA::GUIEventAdapter::KEY_Return)
-                shoot(static_cast<osgViewer::View*>(&aa));
+                shoot(view, 0.4f, 2.0f, 50.0f);
         }
         return false;
     }
 
-    void shoot(osgViewer::View* view)
+    void releaseDraggingObject()
     {
-        const float sphereRadius = 0.4f, sphereMass = 2.0f, speed = 50.0f;
-        osg::Vec3 eye, target, up, forward;
+        // Remove p2p constraint
+        _physics->removeConstraint("dragP2P");
+        _pickedRigidName = "";
+    }
 
+    bool dragObject(osgViewer::View* view, float nx, float ny)
+    {
+        osg::Matrix invMVP = osg::Matrix::inverse(
+            view->getCamera()->getViewMatrix() * view->getCamera()->getProjectionMatrix());
+        osg::Vec3 start = osg::Vec3(nx, ny, -1.0f) * invMVP;
+        osg::Vec3 end = osg::Vec3(nx, ny, 1.0f) * invMVP;
+
+        if (_pickedRigidName.empty())
+        {
+            // Try to pick a rigid object
+            osgVerse::PhysicsEngine::RaycastHit result;
+            if (_physics->raycast(start, end, result, true))
+            {
+                bool isKinematic = false;
+                if (_physics->isDynamicBody(result.name, isKinematic))
+                {
+                    osgVerse::ConstraintSetting setting;
+                    setting.useWorldPivots = true;
+                    setting.impulseClamp = 30.0f;
+                    setting.tau = 0.001f;  // very weak constraint for picking
+
+                    // Create p2p constraint between the empty kinematic body and the picked one
+                    _physics->setTransform("dragger", osg::Matrix::translate(result.position));
+                    _physics->addConstraint("dragP2P", osgVerse::createConstraintP2P(
+                            _physics->getRigidBody("dragger"), result.position,
+                            result.rigidBody, result.position, &setting));
+                    _pickingDistance = (result.position - start).length();
+                    _pickedRigidName = result.name;
+                    return true;
+                }
+            }
+            return false;
+        }
+        else
+        {
+            // Drag the picked object by moving the empty kinematic body
+            osg::Vec3 dir = end - start;
+            dir.normalize(); dir *= _pickingDistance;
+            _physics->setTransform("dragger", osg::Matrix::translate(start + dir));
+            return true;
+        }
+    }
+
+    void shoot(osgViewer::View* view, float sphereRadius, float sphereMass, float speed)
+    {
         // Compute player position and forward
+        osg::Vec3 eye, target, up, forward;
         view->getCamera()->getViewMatrixAsLookAt(eye, target, up);
         forward = target - eye; forward.normalize();
 
@@ -58,6 +128,8 @@ public:
 protected:
     osg::observer_ptr<osgVerse::PhysicsEngine> _physics;
     osg::observer_ptr<osg::Group> _scene;
+    std::string _pickedRigidName;
+    float _pickingDistance;
     int _sphereCount;
 };
 
