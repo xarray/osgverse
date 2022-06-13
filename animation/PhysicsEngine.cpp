@@ -200,6 +200,7 @@ void PhysicsEngine::removeConstraint(const std::string& name)
         btTypedConstraint* constraint = itr->second.first;
         const btRigidBody& bodyA = constraint->getRigidBodyA();
         const btRigidBody& bodyB = constraint->getRigidBodyB();
+
         int flagsA = bodyA.getCollisionFlags(), constraintedState = bodyA.getActivationState();
         if ((flagsA & btCollisionObject::CF_KINEMATIC_OBJECT) ||
             (flagsA & btCollisionObject::CF_STATIC_OBJECT))

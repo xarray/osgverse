@@ -6,6 +6,8 @@
 #include <osg/PolygonMode>
 #include <osg/Geode>
 #include <osgDB/Registry>
+#include <osgDB/FileUtils>
+#include <osgDB/FileNameUtils>
 #include <iostream>
 #include <array>
 #include <mikktspace.h>
@@ -94,8 +96,14 @@ struct MikkTSpaceHelper
 
 namespace osgVerse
 {
-    void globalInitialize()
+    void globalInitialize(int argc, char** argv)
     {
+        if (argv && argc > 0)
+        {
+            std::string path = osgDB::getFilePath(argv[0]);
+            osgDB::setCurrentWorkingDirectory(path);
+        }
+
         osgDB::Registry::instance()->addFileExtensionAlias("ept", "verse_ept");
         osgDB::Registry::instance()->addFileExtensionAlias("fbx", "verse_fbx");
         osgDB::Registry::instance()->addFileExtensionAlias("gltf", "verse_gltf");

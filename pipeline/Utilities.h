@@ -26,7 +26,7 @@ namespace osgVerse
     };
 
     /** Suggest run this function once to initialize some plugins & environments */
-    extern void globalInitialize();
+    extern void globalInitialize(int argc, char** argv);
 
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);

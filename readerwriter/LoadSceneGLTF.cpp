@@ -25,26 +25,26 @@ namespace osgVerse
         std::string err, warn; bool loaded = false;
         std::istreambuf_iterator<char> eos;
         std::vector<char> data(std::istreambuf_iterator<char>(in), eos);
-        if (data.empty()) { OSG_WARN << "[LoaderFBX] Unable to read from stream\n"; return; }
+        if (data.empty()) { OSG_WARN << "[LoaderGLTF] Unable to read from stream\n"; return; }
 
         tinygltf::TinyGLTF loader;
         if (isBinary)
         {
             loaded = loader.LoadBinaryFromMemory(
-                &_scene, &err, &warn, (unsigned char*)&data[0], data.size(), d);
+                &_modelDef, &err, &warn, (unsigned char*)&data[0], data.size(), d);
         }
         else
-            loaded = loader.LoadASCIIFromString(&_scene, &err, &warn, &data[0], data.size(), d);
+            loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);
         
-        if (!err.empty()) OSG_WARN << "[LoaderFBX] Errors found: " << err << "\n";
-        if (!warn.empty()) OSG_WARN << "[LoaderFBX] Warnings found: " << warn << "\n";
-        if (!loaded) { OSG_WARN << "[LoaderFBX] Unable to load GLTF scene\n"; return; }
+        if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << "\n";
+        if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << "\n";
+        if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene\n"; return; }
         _root = new osg::Group;
 
-        const tinygltf::Scene& defScene = _scene.scenes[_scene.defaultScene];
+        const tinygltf::Scene& defScene = _modelDef.scenes[_modelDef.defaultScene];
         for (size_t i = 0; i < defScene.nodes.size(); ++i)
         {
-            osg::ref_ptr<osg::Node> child = createNode(_scene.nodes[defScene.nodes[i]]);
+            osg::ref_ptr<osg::Node> child = createNode(_modelDef.nodes[defScene.nodes[i]]);
             if (child.valid()) _root->addChild(child.get());
         }
     }
@@ -52,13 +52,13 @@ namespace osgVerse
     osg::Node* LoaderGLTF::createNode(tinygltf::Node& node)
     {
         osg::ref_ptr<osg::Geode> geode = (node.mesh >= 0) ? new osg::Geode : NULL;
-        if (geode.valid()) createMesh(geode.get(), _scene.meshes[node.mesh]);  // TODO: skin
+        if (geode.valid()) createMesh(geode.get(), _modelDef.meshes[node.mesh]);  // TODO: skin
         if (node.matrix.empty() && node.children.empty()) return geode.release();
 
         osg::ref_ptr<osg::MatrixTransform> group = new osg::MatrixTransform;
         for (size_t i = 0; i < node.children.size(); ++i)
         {
-            osg::ref_ptr<osg::Node> child = createNode(_scene.nodes[node.children[i]]);
+            osg::ref_ptr<osg::Node> child = createNode(_modelDef.nodes[node.children[i]]);
             if (child.valid()) group->addChild(child.get());
         }
 
@@ -78,11 +78,11 @@ namespace osgVerse
             tinygltf::Primitive primitive = mesh.primitives[i];
             for (auto& attrib : primitive.attributes)
             {
-                tinygltf::Accessor attrAccessor = _scene.accessors[attrib.second];
-                const tinygltf::BufferView& attrView = _scene.bufferViews[attrAccessor.bufferView];
+                tinygltf::Accessor attrAccessor = _modelDef.accessors[attrib.second];
+                const tinygltf::BufferView& attrView = _modelDef.bufferViews[attrAccessor.bufferView];
                 if (attrView.buffer < 0) continue;
 
-                const tinygltf::Buffer& buffer = _scene.buffers[attrView.buffer];
+                const tinygltf::Buffer& buffer = _modelDef.buffers[attrView.buffer];
                 int compNum = (attrAccessor.type != TINYGLTF_TYPE_SCALAR) ? attrAccessor.type : 1;
                 int compSize = tinygltf::GetComponentSizeInBytes(attrAccessor.componentType);
                 int size = attrAccessor.count; if (!size) continue;
@@ -135,8 +135,8 @@ namespace osgVerse
                              << compNum << "-components and dataSize=" << compSize << std::endl;
             }
 
-            tinygltf::Accessor indexAccessor = _scene.accessors[primitive.indices];
-            const tinygltf::BufferView& indexView = _scene.bufferViews[indexAccessor.bufferView];
+            tinygltf::Accessor indexAccessor = _modelDef.accessors[primitive.indices];
+            const tinygltf::BufferView& indexView = _modelDef.bufferViews[indexAccessor.bufferView];
             osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
             if (!va || (va && va->empty())) continue;
 
@@ -145,7 +145,7 @@ namespace osgVerse
                 p = new osg::DrawArrays(GL_POINTS, 0, va->size());
             else
             {
-                const tinygltf::Buffer& indexBuffer = _scene.buffers[indexView.buffer];
+                const tinygltf::Buffer& indexBuffer = _modelDef.buffers[indexView.buffer];
                 int compSize = tinygltf::GetComponentSizeInBytes(indexAccessor.componentType);
                 int size = indexAccessor.count; if (!size) continue;
 
@@ -188,7 +188,7 @@ namespace osgVerse
 
             if (primitive.material >= 0)
             {
-                tinygltf::Material& material = _scene.materials[primitive.material];
+                tinygltf::Material& material = _modelDef.materials[primitive.material];
                 createMaterial(geom->getOrCreateStateSet(), material);
             }
             geode->addDrawable(geom.get());
@@ -205,11 +205,11 @@ namespace osgVerse
         int emissiveID = material.emissiveTexture.index;
         int occlusionID = material.occlusionTexture.index;
 
-        if (baseID >= 0) createTexture(ss, 0, uniformNames[0], _scene.textures[baseID]);
-        if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _scene.textures[normalID]);
-        if (roughnessID >= 0) createTexture(ss, 3, uniformNames[3], _scene.textures[roughnessID]);
-        if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _scene.textures[occlusionID]);
-        if (emissiveID >= 0) createTexture(ss, 5, uniformNames[5], _scene.textures[emissiveID]);
+        if (baseID >= 0) createTexture(ss, 0, uniformNames[0], _modelDef.textures[baseID]);
+        if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
+        if (roughnessID >= 0) createTexture(ss, 3, uniformNames[3], _modelDef.textures[roughnessID]);
+        if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);
+        if (emissiveID >= 0) createTexture(ss, 5, uniformNames[5], _modelDef.textures[emissiveID]);
 
 #if 0
         if (material.alphaMode.compare("OPAQUE") == 0)  // FIXME: handle transparent
@@ -222,7 +222,7 @@ namespace osgVerse
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,
                                    const std::string& name, tinygltf::Texture& tex)
     {
-        tinygltf::Image& imageSrc = _scene.images[tex.source];
+        tinygltf::Image& imageSrc = _modelDef.images[tex.source];
         if (imageSrc.image.empty()) return;
 
         GLenum format = GL_RGBA, type = GL_UNSIGNED_BYTE;

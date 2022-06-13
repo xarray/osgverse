@@ -14,7 +14,7 @@ namespace osgVerse
         LoaderGLTF(std::istream& in, const std::string& d, bool isBinary);
 
         osg::Group* getRoot() { return _root.get(); }
-        tinygltf::Model& getScene() { return _scene; }
+        tinygltf::Model& getModelData() { return _modelDef; }
 
     protected:
         virtual ~LoaderGLTF() {}
@@ -25,7 +25,7 @@ namespace osgVerse
 
         std::map<int, osg::observer_ptr<osg::Texture2D>> _textureMap;
         osg::ref_ptr<osg::Group> _root;
-        tinygltf::Model _scene;
+        tinygltf::Model _modelDef;
         std::string _workingDir;
     };
 
