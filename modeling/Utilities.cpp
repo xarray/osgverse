@@ -8,7 +8,6 @@
 #include "Utilities.h"
 using namespace osgVerse;
 
-
 static osg::Vec3 computeMidpointOnSphere(const osg::Vec3& a, const osg::Vec3& b,
                                          const osg::Vec3& center, float radius)
 {
@@ -91,16 +90,16 @@ struct CollectVertexOperator
     osg::Matrix matrix; unsigned int baseIndex;
 };
 
-BoundingVolumeVisitor::BoundingVolumeVisitor()
+MeshCollector::MeshCollector()
 : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN) {}
 
-void BoundingVolumeVisitor::reset()
+void MeshCollector::reset()
 {
     _matrixStack.clear();
     _vertices.clear(); _indices.clear();
 }
 
-void BoundingVolumeVisitor::apply(osg::Transform& node)
+void MeshCollector::apply(osg::Transform& node)
 {
     osg::Matrix matrix;
     if (!_matrixStack.empty()) matrix = _matrixStack.back();
@@ -111,7 +110,7 @@ void BoundingVolumeVisitor::apply(osg::Transform& node)
     popMatrix();
 }
 
-void BoundingVolumeVisitor::apply(osg::Geode& node)
+void MeshCollector::apply(osg::Geode& node)
 {
     osg::Matrix matrix;
     if (_matrixStack.size() > 0) matrix = _matrixStack.back();

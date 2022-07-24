@@ -13,11 +13,11 @@ namespace osgVerse
         std::vector<osg::Vec3> points;
         std::vector<unsigned int> triangles;
     };
-
-    class BoundingVolumeVisitor : public osg::NodeVisitor
+    
+    class MeshCollector : public osg::NodeVisitor
     {
     public:
-        BoundingVolumeVisitor();
+        MeshCollector();
         inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
         inline void popMatrix() { _matrixStack.pop_back(); }
 
@@ -28,15 +28,9 @@ namespace osgVerse
         virtual void apply(osg::Node& node) { traverse(node); }
         virtual void apply(osg::Drawable& node) {}  // do nothing
         virtual void apply(osg::Geometry& geometry) {}  // do nothing
-
+    
         const std::vector<osg::Vec3>& getVertices() const { return _vertices; }
         const std::vector<unsigned int>& getTriangles() const { return _indices; }
-
-        /** Returned value is in OBB coordinates, using rotation to convert it */
-        osg::BoundingBox computeOBB(osg::Quat& rotation, float relativeExtent = 0.1f, int numSamples = 500);
-
-        /** Get a list of convex hulls to contain this node */
-        bool computeKDop(std::vector<ConvexHull>& hulls, int maxConvexHulls = 24);
 
     protected:
         typedef std::vector<osg::Matrix> MatrixStack;
@@ -45,6 +39,18 @@ namespace osgVerse
         std::vector<unsigned int> _indices;
     };
 
+    class BoundingVolumeVisitor : public MeshCollector
+    {
+    public:
+        BoundingVolumeVisitor() : MeshCollector() {}
+        
+        /** Returned value is in OBB coordinates, using rotation to convert it */
+        osg::BoundingBox computeOBB(osg::Quat& rotation, float relativeExtent = 0.1f, int numSamples = 500);
+
+        /** Get a list of convex hulls to contain this node */
+        bool computeKDop(std::vector<ConvexHull>& hulls, int maxConvexHulls = 24);
+    };
+    
     /** Create a geometry with specified arrays */
     extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, osg::Vec2Array* ta,
                                          osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = false);

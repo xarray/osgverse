@@ -62,7 +62,7 @@ namespace osgVerse
 
     btCollisionShape* createPhysicsHull(osg::Node* node, bool optimized)
     {
-        osgVerse::BoundingVolumeVisitor bvv; if (node != NULL) node->accept(bvv);
+        osgVerse::MeshCollector bvv; if (node != NULL) node->accept(bvv);
         const std::vector<osg::Vec3>& vertices = bvv.getVertices();
         if (vertices.empty()) return NULL;
 
@@ -74,7 +74,7 @@ namespace osgVerse
 
     btCollisionShape* createPhysicsTriangleMesh(osg::Node* node, bool compressed)
     {
-        osgVerse::BoundingVolumeVisitor bvv; if (node != NULL) node->accept(bvv);
+        osgVerse::MeshCollector bvv; if (node != NULL) node->accept(bvv);
         const std::vector<osg::Vec3>& vertices = bvv.getVertices();
         const std::vector<unsigned int>& triangles = bvv.getTriangles();
         if (vertices.empty() || triangles.empty()) return NULL;
