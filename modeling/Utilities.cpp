@@ -3,6 +3,9 @@
 #include <osg/Geode>
 #include <osgUtil/SmoothingVisitor>
 #include <iostream>
+
+#define TINYMESHUTILS_HALF_EDGE_IMPLEMENTATION
+#include <half-edge.hh>
 #include <ApproxMVBB/ComputeApproxMVBB.hpp>
 #include <VHACD/VHACD.h>
 #include "Utilities.h"

@@ -75,11 +75,16 @@ SET(OZZ_SOURCE_FILES
 )
 
 SET(IMGUI_SOURCE_FILES
+    imgui/imgui-knobs.cpp imgui/imgui-knobs.h
+    imgui/implot_items.cpp imgui/implot.cpp imgui/implot.h
     imgui/GraphEditor.cpp imgui/GraphEditor.h
     imgui/ImCurveEdit.cpp imgui/ImCurveEdit.h
     imgui/ImGradient.cpp imgui/ImGradient.h
     imgui/ImSequencer.cpp imgui/ImSequencer.h
     imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h
+    imgui/ImGuiFileDialog.cpp imgui/ImGuiFileDialog.h
+    imgui/ImGuiFileDialogConfig.h
+    
     imgui/imgui.cpp imgui/imgui.h imgui/imconfig.h
     imgui/imgui_demo.cpp imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp imgui/imgui_widgets.cpp

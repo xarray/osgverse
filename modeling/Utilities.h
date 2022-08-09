@@ -51,6 +51,15 @@ namespace osgVerse
         bool computeKDop(std::vector<ConvexHull>& hulls, int maxConvexHulls = 24);
     };
     
+    class MeshTopologyVisitor : public MeshCollector
+    {
+    public:
+        MeshTopologyVisitor() : MeshCollector() {}
+        
+    protected:
+        void* _topology;
+    };
+
     /** Create a geometry with specified arrays */
     extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, osg::Vec2Array* ta,
                                          osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = false);
