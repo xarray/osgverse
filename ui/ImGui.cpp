@@ -113,6 +113,7 @@ public:
                 io.AddInputCharacter((unsigned short)c);
             return wantCaptureKeyboard;
         }
+        case osgGA::GUIEventAdapter::DOUBLECLICK:
         case osgGA::GUIEventAdapter::RELEASE:
         case osgGA::GUIEventAdapter::PUSH:
             io.MousePos = ImVec2(ea.getX(), io.DisplaySize.y - ea.getY());

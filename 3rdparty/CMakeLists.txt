@@ -84,6 +84,12 @@ SET(IMGUI_SOURCE_FILES
     imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h
     imgui/ImGuiFileDialog.cpp imgui/ImGuiFileDialog.h
     imgui/ImGuiFileDialogConfig.h
+	
+	imgui/node-editor/imgui_bezier_math.h imgui/node-editor/imgui_extra_math.h
+	imgui/node-editor/crude_json.cpp imgui/node-editor/crude_json.h
+	imgui/node-editor/imgui_canvas.cpp imgui/node-editor/imgui_canvas.h
+	imgui/node-editor/imgui_node_editor.cpp imgui/node-editor/imgui_node_editor.h
+	imgui/node-editor/imgui_node_editor_api.cpp
     
     imgui/imgui.cpp imgui/imgui.h imgui/imconfig.h
     imgui/imgui_demo.cpp imgui/imgui_draw.cpp

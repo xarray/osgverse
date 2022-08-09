@@ -11,6 +11,7 @@
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
 #include <ui/ImGui.h>
+#include <ui/ImGuiComponents.h>
 #include <iostream>
 #include <sstream>
 
@@ -36,11 +37,11 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
         ImTextureID icon = ImGuiTextures["icon"];
         const ImGuiViewport* view = ImGui::GetMainViewport();
         ImGui::PushFont(ImGuiFonts["LXGWWenKaiLite-Regular"]);
-
         int xPos = 0, yPos = 0;
         int flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                   | ImGuiWindowFlags_NoCollapse;
 
+#if 0
         setupWindow(ImVec2(view->WorkPos.x + xPos, view->WorkPos.y + yPos), ImVec2(400, 250));
         if (ImGui::Begin(u8"Í¼±ê×´Ì¬", NULL, flags))
         {
@@ -97,7 +98,33 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
             }
         }
         ImGui::End();
+#else
+        static osg::ref_ptr<osgVerse::Slider> uc = new osgVerse::Slider("INPUT");
+        static bool firstRun = true;
+        flags |= ImGuiWindowFlags_MenuBar;
+        if (firstRun)
+        {
+            uc->shape = osgVerse::Slider::Knob;
+            uc->callback = [](osgVerse::ImGuiManager*, ImGuiContentHandler*,
+                              osgVerse::ImGuiComponentBase* b)
+            {
+                printf("%lg\n", ((osgVerse::Slider*)uc)->value);
+                if (((osgVerse::Slider*)uc)->value > 99.0)
+                    osgVerse::ImGuiComponentBase::openFileDialog("Dlg", "OPENING");
+            };
+            firstRun = false;
+        }
 
+        setupWindow(ImVec2(view->WorkPos.x, view->WorkPos.y), ImVec2(800, 250));
+        if (ImGui::Begin(u8"Í¼±ê×´Ì¬", NULL, flags))
+        {
+            uc->show(mgr, this);
+
+            std::string fileName;
+            osgVerse::ImGuiComponentBase::showFileDialog("Dlg", fileName);
+            ImGui::End();
+        }
+#endif
         ImGui::PopFont();
     }
 
