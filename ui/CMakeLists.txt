@@ -1,8 +1,8 @@
-SET(CMAKE_CXX_STANDARD 17)
 SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_FILES
 	ImGui.cpp ImGui.h ImGui.Styles.h
 	ImGuiComponents.cpp ImGuiComponents.h
+	CommandHandler.cpp CommandHandler.h
 )
 
 NEW_LIBRARY(${LIB_NAME} STATIC)

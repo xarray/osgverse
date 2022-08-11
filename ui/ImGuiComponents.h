@@ -27,16 +27,19 @@ namespace osgVerse
         - MenuBar
         - ListView
         - TreeView
+        - Timeline
         - CollapsingHeader: ImGui::CollapsingHeader()
         - Tab: ImGui::BeginTabBar(), ImGui::BeginTabItem(), ImGui::EndTabItem(), ImGui::EndTabBar()
         - Popup: ImGui::BeginPopup(), ImGui::EndPopup(); ImGui::OpenPopup()
         - Table: ImGui::BeginTable(), ImGui::TableNextRow(), ImGui::TableNextColumn(), ImGui::EndTable()
 
         TODO
-        // ImSequencer
+        // ImSequencer: make it usable
         // Code editor
         // Node editor
         // ImGuiFileDialog utf8 problem...
+        // Input component need IME
+        // Multi-language support
      */
 
     struct ImGuiComponentBase : public osg::Referenced
@@ -47,6 +50,8 @@ namespace osgVerse
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual void showEnd() { /* nothing to do by default */ }
         virtual void showTooltip(const std::string& desc, float wrapPos = 10.0f);
+        std::string TR(const std::string& s);  // multi-language support
+        osg::ref_ptr<osg::Referenced> userData;
 
         static void setWidth(float width, bool fromLeft = true);
         static void adjustLine(bool newLine, bool sep = false, float indentX = 0.0f, float indentY = 0.0f);
@@ -65,7 +70,7 @@ namespace osgVerse
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         virtual void showEnd() { ImGui::End(); }
         Window(const std::string& n)
-        :   name(n), alpha(1.0f), isOpen(false),
+        :   name(n), alpha(1.0f), isOpen(true),
             collapsed(false), useMenuBar(false), flags(0) {}
     };
 
@@ -203,15 +208,16 @@ namespace osgVerse
             bool enabled, selected, checkable;
             std::string name, shortcut, tooltip;
             ActionCallback callback;
-            MenuItemData() : enabled(true), selected(false),
-                             checkable(false), callback(NULL) {}
+            MenuItemData(const std::string& n)
+            :   name(n), enabled(true), selected(false),
+                checkable(false), callback(NULL) {}
         };
 
         struct MenuData
         {
             bool enabled; std::string name;
             std::vector<MenuItemData> items;
-            MenuData() : enabled(true) {}
+            MenuData(const std::string& n) : name(n), enabled(true) {}
         };
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
@@ -220,7 +226,12 @@ namespace osgVerse
 
     struct ListView : public ImGuiComponentBase
     {
-        std::vector<std::string> items;
+        struct ListData
+        {
+            std::string name;
+            osg::ref_ptr<osg::Referenced> userData;
+        };
+        std::vector<ListData> items;
         std::string name, tooltip;
         int index, rows;
         ActionCallback callback;
@@ -236,6 +247,7 @@ namespace osgVerse
             ImGuiTreeNodeFlags flags;
             std::string id, name, tooltip;
             std::vector<TreeData> children;
+            osg::ref_ptr<osg::Referenced> userData;
             TreeData() : flags(ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf) {}
         };
         std::vector<TreeData> treeDataList;
@@ -252,8 +264,16 @@ namespace osgVerse
         struct SequenceItem
         {
             osg::Vec2i range;
+            int type; bool expanded;
+            std::string name;
+            osg::ref_ptr<osg::Referenced> userData;
+
+            SequenceItem() : type(0), expanded(false) {}
+            SequenceItem(const std::string& n, int t, int s, int e)
+                : range(s, e), type(t), expanded(false), name(n) {}
         };
         std::vector<SequenceItem> items;
+
         osg::Vec2i frameRange;
         int firstFrame, currentFrame, selectedIndex, flags;
         bool expanded; void* seqInterface;
