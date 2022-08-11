@@ -10,9 +10,10 @@ SceneLogic::SceneLogic(osg::Camera* cam, osg::MatrixTransform* mt)
     _logicWindow = new osgVerse::Window(TR("Scene Logic##ed03"));
     _logicWindow->pos = osg::Vec2(0, 780);
     _logicWindow->sizeMin = osg::Vec2(1920, 300);
+    _logicWindow->sizeMax = osg::Vec2(1920, 800);
     _logicWindow->alpha = 0.8f;
     _logicWindow->useMenuBar = false;
-    _logicWindow->flags = ImGuiWindowFlags_NoCollapse;
+    _logicWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _logicWindow->userData = this;
 }
 

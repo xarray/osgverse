@@ -36,9 +36,9 @@ public:
         handleCommands();
 
         // TODO: auto layout
-        _hierarchy->show(mgr, this);
-        _properties->show(mgr, this);
-        _sceneLogic->show(mgr, this);
+        if (_hierarchy.valid()) _hierarchy->show(mgr, this);
+        if (_properties.valid()) _properties->show(mgr, this);
+        if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
 
         ImGui::PopFont();
     }

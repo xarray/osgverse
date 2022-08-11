@@ -358,7 +358,7 @@ bool MenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 bool ListView::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     std::vector<const char*> itemValues(items.size());
-    for (size_t i = 0; i < items.size(); ++i) itemValues[i] = items[i].name.c_str();
+    for (size_t i = 0; i < items.size(); ++i) itemValues[i] = items[i]->name.c_str();
 
     bool done = false;
     if (itemValues.empty())
@@ -371,11 +371,47 @@ bool ListView::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     return done;
 }
 
+/// TreeView related
+
+static void findTreeDataRecursively(TreeView::TreeData& td, std::vector<TreeView::TreeData*>& output,
+                                    const std::string& id, const std::string& name, osg::Referenced* ud)
+{
+    if (!id.empty()) { if (id == td.id) { output.push_back(&td); return; } }
+    else if (!name.empty()) { if (name == td.name) output.push_back(&td); }
+    else if (ud) { if (ud == td.userData) output.push_back(&td); }
+    for (size_t i = 0; i < td.children.size(); ++i)
+        findTreeDataRecursively(*td.children[i], output, id, name, ud);
+}
+
+std::vector<TreeView::TreeData*> TreeView::findByName(const std::string& name) const
+{
+    std::vector<TreeView::TreeData*> output;
+    for (size_t i = 0; i < treeDataList.size(); ++i)
+        findTreeDataRecursively(*treeDataList[i], output, "", name, NULL);
+    return output;
+}
+
+std::vector<TreeView::TreeData*> TreeView::findByUserData(osg::Referenced* ud) const
+{
+    std::vector<TreeView::TreeData*> output;
+    for (size_t i = 0; i < treeDataList.size(); ++i)
+        findTreeDataRecursively(*treeDataList[i], output, "", "", ud);
+    return output;
+}
+
+TreeView::TreeData* TreeView::findByID(const std::string& id) const
+{
+    std::vector<TreeView::TreeData*> output;
+    for (size_t i = 0; i < treeDataList.size(); ++i)
+        findTreeDataRecursively(*treeDataList[i], output, id, "", NULL);
+    return output.empty() ? NULL : output[0];
+}
+
 bool TreeView::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     for (size_t i = 0; i < treeDataList.size(); ++i)
     {
-        TreeData& td = treeDataList[i];
+        TreeData& td = *treeDataList[i];
         showRecursively(td, mgr, content);
     }
     return !selectedItemID.empty();
@@ -397,7 +433,7 @@ void TreeView::showRecursively(TreeData& td, ImGuiManager* mgr, ImGuiContentHand
 
         if (!td.tooltip.empty()) showTooltip(td.tooltip);
         for (size_t i = 0; i < td.children.size(); ++i)
-            showRecursively(td.children[i], mgr, content);
+            showRecursively(*td.children[i], mgr, content);
         ImGui::TreePop();
     }
 }
@@ -492,15 +528,15 @@ struct InternalSequence : public ImSequencer::SequenceInterface
 
     virtual int GetItemTypeCount() const { return 1; }
     virtual const char* GetItemTypeName(int typeIndex) const { return "Normal"; }
-    virtual const char* GetItemLabel(int index) { return timeline->items[index].name.c_str(); }
-    virtual size_t GetCustomHeight(int i) { return timeline->items[i].expanded ? 300 : 0; }
+    virtual const char* GetItemLabel(int index) { return timeline->items[index]->name.c_str(); }
+    virtual size_t GetCustomHeight(int i) { return timeline->items[i]->expanded ? 300 : 0; }
 
     virtual void BeginEdit(int index) {}
     virtual void EndEdit() {}
 
     virtual void Get(int index, int** start, int** end, int* type, unsigned int* color)
     {
-        Timeline::SequenceItem& item = timeline->items[index];
+        Timeline::SequenceItem& item = *(timeline->items[index]);
         if (color) *color = 0xFFAA8080; // same color for everyone?
         if (start) *start = &item.range[0];
         if (end) *end = &item.range[1];
@@ -509,7 +545,7 @@ struct InternalSequence : public ImSequencer::SequenceInterface
 
     virtual void Add(int type)
     {
-        timeline->items.push_back(Timeline::SequenceItem(
+        timeline->items.push_back(new Timeline::SequenceItem(
             "Seq" + std::to_string(timeline->items.size()), type, 0, 10));
     }
 
@@ -520,13 +556,13 @@ struct InternalSequence : public ImSequencer::SequenceInterface
 
     virtual void DoubleClick(int index)
     {
-        if (!timeline->items[index].expanded)
+        if (!timeline->items[index]->expanded)
         {
-            for (auto& item : timeline->items) item.expanded = false;
-            timeline->items[index].expanded = !timeline->items[index].expanded;
+            for (auto& item : timeline->items) item->expanded = false;
+            timeline->items[index]->expanded = !timeline->items[index]->expanded;
         }
         else
-            timeline->items[index].expanded = false;
+            timeline->items[index]->expanded = false;
     }
 
     virtual void CustomDraw(int index, ImDrawList* draw_list, const ImRect& rc,
@@ -565,8 +601,8 @@ struct InternalSequence : public ImSequencer::SequenceInterface
             for (int j = 0; j < rampEdit._pointCount[i]; j++)
             {
                 float p = rampEdit._points[i][j].x;
-                if (p < timeline->items[index].range[0] ||
-                    p > timeline->items[index].range[1]) continue;
+                if (p < timeline->items[index]->range[0] ||
+                    p > timeline->items[index]->range[1]) continue;
 
                 float r = (p - (float)timeline->frameRange[0])
                         / float(timeline->frameRange[1] - timeline->frameRange[0]);

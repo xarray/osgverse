@@ -226,12 +226,12 @@ namespace osgVerse
 
     struct ListView : public ImGuiComponentBase
     {
-        struct ListData
+        struct ListData : public osg::Referenced
         {
             std::string name;
             osg::ref_ptr<osg::Referenced> userData;
         };
-        std::vector<ListData> items;
+        std::vector<osg::ref_ptr<ListData>> items;
         std::string name, tooltip;
         int index, rows;
         ActionCallback callback;
@@ -242,17 +242,21 @@ namespace osgVerse
 
     struct TreeView : public ImGuiComponentBase
     {
-        struct TreeData
+        struct TreeData : public osg::Referenced
         {
             ImGuiTreeNodeFlags flags;
             std::string id, name, tooltip;
-            std::vector<TreeData> children;
+            std::vector<osg::ref_ptr<TreeData>> children;
             osg::ref_ptr<osg::Referenced> userData;
             TreeData() : flags(ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf) {}
         };
-        std::vector<TreeData> treeDataList;
+        std::vector<osg::ref_ptr<TreeData>> treeDataList;
         std::string selectedItemID;
         ActionCallback2 callback;
+
+        std::vector<TreeData*> findByName(const std::string& name) const;
+        std::vector<TreeData*> findByUserData(osg::Referenced* ud) const;
+        TreeData* findByID(const std::string& id) const;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         void showRecursively(TreeData& td, ImGuiManager*, ImGuiContentHandler*);
@@ -261,7 +265,7 @@ namespace osgVerse
 
     struct Timeline : public ImGuiComponentBase
     {
-        struct SequenceItem
+        struct SequenceItem : public osg::Referenced
         {
             osg::Vec2i range;
             int type; bool expanded;
@@ -272,7 +276,7 @@ namespace osgVerse
             SequenceItem(const std::string& n, int t, int s, int e)
                 : range(s, e), type(t), expanded(false), name(n) {}
         };
-        std::vector<SequenceItem> items;
+        std::vector<osg::ref_ptr<SequenceItem>> items;
 
         osg::Vec2i frameRange;
         int firstFrame, currentFrame, selectedIndex, flags;

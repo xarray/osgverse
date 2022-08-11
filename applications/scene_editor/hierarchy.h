@@ -23,7 +23,7 @@ protected:
     osg::ref_ptr<osgVerse::Window> _treeWindow;
     osg::ref_ptr<osgVerse::MenuBar> _treeMenuBar;
     osg::ref_ptr<osgVerse::TreeView> _treeView;
-    osgVerse::TreeView::TreeData _camTreeData, _sceneTreeData;
+    osg::ref_ptr<osgVerse::TreeView::TreeData> _camTreeData, _sceneTreeData;
 };
 
 #endif
