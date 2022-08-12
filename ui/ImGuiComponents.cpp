@@ -422,13 +422,21 @@ void TreeView::showRecursively(TreeData& td, ImGuiManager* mgr, ImGuiContentHand
     if (td.id.empty()) td.id = td.name;
     if (!selectedItemID.empty() && selectedItemID != td.id)
         td.flags &= ~ImGuiTreeNodeFlags_Selected;
+    if (td.children.empty()) td.flags |= ImGuiTreeNodeFlags_Leaf;
+    else td.flags &= ~ImGuiTreeNodeFlags_Leaf;
 
     if (ImGui::TreeNodeEx(td.name.c_str(), td.flags))
     {
-        if (ImGui::IsItemClicked())
+        if (ImGui::IsItemClicked(0))
         {
             td.flags |= ImGuiTreeNodeFlags_Selected; selectedItemID = td.id;
             if (callback) (*callback)(mgr, content, this, td.id);
+        }
+        else if (ImGui::IsItemClicked(1))
+        {
+            td.flags |= ImGuiTreeNodeFlags_Selected; selectedItemID = td.id;
+            if (callback) (*callback)(mgr, content, this, td.id);
+            if (callbackR) (*callbackR)(mgr, content, this, td.id);
         }
 
         if (!td.tooltip.empty()) showTooltip(td.tooltip);

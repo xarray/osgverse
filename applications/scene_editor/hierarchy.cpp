@@ -92,6 +92,22 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
         _sceneTreeData->userData = _sceneRoot.get();
         _treeView->treeDataList.push_back(_sceneTreeData);
     }
+
+    // Selected events:
+    // 1. LMB selects item = show bbox in scene + show data in properties
+    // 2. RMB selects item/empty = show popup window
+    // 3. LMB double clicks item = expanded or not
+    _treeView->callback = [](ImGuiManager*, ImGuiContentHandler*,
+                             ImGuiComponentBase* me, const std::string& id)
+    {
+        std::cout << "LMB: " << id << "\n";
+    };
+
+    _treeView->callbackR = [](ImGuiManager*, ImGuiContentHandler*,
+                              ImGuiComponentBase* me, const std::string& id)
+    {
+        std::cout << "RMB: " << id << "\n";
+    };
 }
 
 bool Hierarchy::handleCommand(CommandData* cmd)

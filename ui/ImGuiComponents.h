@@ -248,11 +248,12 @@ namespace osgVerse
             std::string id, name, tooltip;
             std::vector<osg::ref_ptr<TreeData>> children;
             osg::ref_ptr<osg::Referenced> userData;
-            TreeData() : flags(ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Leaf) {}
+            TreeData() : flags(ImGuiTreeNodeFlags_DefaultOpen |
+                               ImGuiTreeNodeFlags_OpenOnDoubleClick) {}
         };
         std::vector<osg::ref_ptr<TreeData>> treeDataList;
         std::string selectedItemID;
-        ActionCallback2 callback;
+        ActionCallback2 callback, callbackR;
 
         std::vector<TreeData*> findByName(const std::string& name) const;
         std::vector<TreeData*> findByUserData(osg::Referenced* ud) const;
