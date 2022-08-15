@@ -81,32 +81,6 @@ namespace osgVerse
         bool _compiled;
     };
 
-    /** Spline helpers struct */
-    struct Spline
-    {
-        /** Create 2D quadratic Bezier */
-        static PointList2D createQuadraticBezier(const PointList2D& controls, unsigned int samples = 32);
-
-        /** Create 3D quadratic Bezier */
-        static PointList3D createQuadraticBezier(const PointList3D& controls, unsigned int samples = 32);
-
-        /** Create 2D cubic Bezier */
-        static PointList2D createCubicBezier(const PointList2D& controls, unsigned int samples = 32);
-
-        /** Create 3D cubic Bezier */
-        static PointList3D createCubicBezier(const PointList3D& controls, unsigned int samples = 32);
-    };
-
-    /** Intersection computations */
-    struct Intersection
-    {
-        /** 2D line & 2D line */
-        static bool lineWithLine2D(const LineType2D& line1, const LineType2D& line2, osg::Vec2& result);
-
-        /** 3D line & 3D plane */
-        static bool lineWithPlane3D(const LineType3D& line, const osg::Plane& plane, osg::Vec3& result);
-    };
-
     /** Computational geometry helpers struct */
     struct GeometryAlgorithm
     {
@@ -116,41 +90,8 @@ namespace osgVerse
         /** Decompose a concave polygon into multiple convex polygons and return splitting edges */
         static std::vector<LineType2D> decomposePolygon2D(const PointList2D& polygon);
 
-        /** Closest point computations */
-        static osg::Vec2 closestPointOnLine2D(const osg::Vec2& p, const LineType2D& line);
-        static osg::Vec3 closestPointOnLine3D(const osg::Vec3& p, const LineType3D& line);
-        static osg::Vec3 closestPointOnBoxAABB(const osg::Vec3& p, const osg::Vec3& boxMin,
-                                               const osg::Vec3& boxMax);
-
-        /** Mirror polygon along specified axis */
-        static void mirror2D(const PointList2D& points, PointList2D& output,
-                             const LineType2D& axis, float ratio = 1.0f);
-        static void mirror3D(const PointList3D& points, PointList3D& output,
-                             const osg::Plane& plane, float ratio = 1.0f);
-
-        enum ConvexHullMethod
-        {
-            GRAHAM_SCAN /* O(nlogn) */, JARVIS_MARCH /* O(nh) */, MELKMAN /* O(n), needs ordered points */
-        };
-
-        /** Compute 2D convex hull (indices) of a list of points */
-        static bool convexHull2D(const PointList2D& points, std::vector<int>& result,
-                                 ConvexHullMethod method = JARVIS_MARCH);
-
-        /** Compute 3D convex hull (indices of all triangles) of a list of points */
-        //TODO: static bool convexHull3D( const PointList3D& points, std::vector<int>& result );
-
-        /** Compute 2D intersections of a list of segments (start/end points) */
-        static bool segmentIntersection2D(const PointList2D& points, PointList2D& result);
-
-        /** Compute 3D intersections of a list of segments (start/end points) */
-        static bool segmentIntersection3D(const PointList3D& points, PointList3D& result);
-
         /** Check for clockwise/counter-clockwise */
         static bool clockwise2D(const PointList2D& points);
-
-        /** Reset points as an ordered polygon */
-        static bool reorderPolygon2D(PointList2D& points);
     };
 
 }

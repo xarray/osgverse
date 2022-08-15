@@ -1,7 +1,8 @@
 SET(LIB_NAME osgVerseModeling)
-SET(LIBRARY_INCLUDE_FILES MeshDeformer.h Math.h Utilities.h)
+SET(LIBRARY_INCLUDE_FILES MeshDeformer.h CsgBoolean.h
+                          Math.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    MeshDeformer.cpp Math.cpp Utilities.cpp 
+    MeshDeformer.cpp CsgBoolean.cpp Math.cpp Utilities.cpp 
 )
 
 NEW_LIBRARY(${LIB_NAME} STATIC)

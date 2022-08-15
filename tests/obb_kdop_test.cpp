@@ -43,7 +43,7 @@ osg::Geometry* createOBB(osg::Node* node)
     return geom.release();
 }
 
-osg::Geometry* createKDop(osg::Node* node)
+/*osg::Geometry* createKDop(osg::Node* node)
 {
     osgVerse::BoundingVolumeVisitor bvv;
     node->accept(bvv);
@@ -67,7 +67,7 @@ osg::Geometry* createKDop(osg::Node* node)
     geom->setVertexArray(va.get());
     geom->addPrimitiveSet(de.get());
     return geom.release();
-}
+}*/
 
 int main(int argc, char** argv)
 {
@@ -84,7 +84,7 @@ int main(int argc, char** argv)
     geode->getOrCreateStateSet()->setAttributeAndModes(
         new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE));
     geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-    geode->addDrawable(createKDop(scene.get()));
+    //geode->addDrawable(createKDop(scene.get()));
     geode->addDrawable(createOBB(cloned.get()));
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

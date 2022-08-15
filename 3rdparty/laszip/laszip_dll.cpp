@@ -48,7 +48,6 @@
 #define LASZIP_DYN_LINK
 #define LASZIP_SOURCE
 
-#include <laszip/laszip_api.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -66,6 +65,7 @@
 #include "lasreadpoint.hpp"
 #include "lasquadtree.hpp"
 #include "lasindex.hpp"
+#include <laszip/laszip_api.h>
 
 class laszip_dll_inventory
 {

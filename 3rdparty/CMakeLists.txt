@@ -35,18 +35,6 @@ SET(NORMALMAP_SOURCE_FILES
     normalmap/ssaogenerator.cpp normalmap/ssaogenerator.h
 )
 
-SET(VHACD_SOURCE_FILES
-    VHACD/btAlignedAllocator.cpp VHACD/btAlignedAllocator.h VHACD/btAlignedObjectArray.h
-    VHACD/btConvexHullComputer.cpp VHACD/btConvexHullComputer.h VHACD/btMinMax.h
-    VHACD/btScalar.h VHACD/btVector3.h VHACD/FloatMath.cpp VHACD/FloatMath.h
-    VHACD/FloatMath.inl VHACD/VHACD-ASYNC.cpp VHACD/VHACD.cpp VHACD/VHACD.h
-    VHACD/vhacdCircularList.h VHACD/vhacdCircularList.inl VHACD/vhacdICHull.cpp VHACD/vhacdICHull.h
-    VHACD/vhacdManifoldMesh.cpp VHACD/vhacdManifoldMesh.h VHACD/vhacdMesh.cpp VHACD/vhacdMesh.h
-    VHACD/vhacdMutex.h VHACD/vhacdRaycastMesh.cpp VHACD/vhacdRaycastMesh.h VHACD/vhacdSArray.h
-    VHACD/vhacdTimer.h VHACD/vhacdVector.h VHACD/vhacdVector.inl VHACD/vhacdVHACD.h
-    VHACD/vhacdVolume.cpp VHACD/vhacdVolume.h
-)
-
 SET(LASZIP_SOURCE_FILES
     laszip/arithmeticdecoder.cpp laszip/arithmeticencoder.cpp
     laszip/arithmeticmodel.cpp laszip/integercompressor.cpp
@@ -55,8 +43,8 @@ SET(LASZIP_SOURCE_FILES
     laszip/lasreaditemcompressed_v3.cpp laszip/lasreaditemcompressed_v4.cpp
     laszip/laswriteitemcompressed_v1.cpp laszip/laswriteitemcompressed_v2.cpp
     laszip/laswriteitemcompressed_v3.cpp laszip/laswriteitemcompressed_v4.cpp
-    laszip/lasreadpoint.cpp laszip/laswritepoint.cpp
-    laszip/laszip.cpp laszip/laszip_dll.cpp laszip/mydefs.cpp
+    laszip/lasreadpoint.cpp laszip/laswritepoint.cpp laszip/mydefs.cpp
+    laszip/laszip.cpp laszip/laszip_dll.cpp
 )
 
 SET(OZZ_SOURCE_FILES
@@ -72,6 +60,33 @@ SET(OZZ_SOURCE_FILES
     ozz/animation/runtime/track.cc ozz/animation/runtime/track_sampling_job.cc
     ozz/animation/runtime/track_triggering_job.cc ozz/geometry/runtime/skinning_job.cc
     ozz/options/options.cc ozz/mesh.cc
+)
+
+SET(PMP_MCUT_SOURCE_FILES
+    pmp/BoundingBox.h pmp/Exceptions.h pmp/MatVec.h
+    pmp/MemoryUsage.h pmp/Properties.h pmp/Timer.h pmp/Types.h
+    pmp/SurfaceMesh.cpp pmp/SurfaceMesh.h #pmp/SurfaceMeshIO.cpp pmp/SurfaceMeshIO.h
+    pmp/algorithms/Heap.h pmp/algorithms/NormalCone.h pmp/algorithms/Quadric.h
+    pmp/algorithms/BarycentricCoordinates.h
+    pmp/algorithms/DifferentialGeometry.cpp pmp/algorithms/DifferentialGeometry.h
+    pmp/algorithms/DistancePointTriangle.cpp pmp/algorithms/DistancePointTriangle.h
+    pmp/algorithms/SurfaceCurvature.cpp pmp/algorithms/SurfaceCurvature.h
+    pmp/algorithms/SurfaceFactory.cpp pmp/algorithms/SurfaceFactory.h
+    pmp/algorithms/SurfaceFairing.cpp pmp/algorithms/SurfaceFairing.h
+    pmp/algorithms/SurfaceFeatures.cpp pmp/algorithms/SurfaceFeatures.h
+    pmp/algorithms/SurfaceGeodesic.cpp pmp/algorithms/SurfaceGeodesic.h
+    pmp/algorithms/SurfaceHoleFilling.cpp pmp/algorithms/SurfaceHoleFilling.h
+    pmp/algorithms/SurfaceNormals.cpp pmp/algorithms/SurfaceNormals.h
+    pmp/algorithms/SurfaceParameterization.cpp pmp/algorithms/SurfaceParameterization.h
+    pmp/algorithms/SurfaceRemeshing.cpp pmp/algorithms/SurfaceRemeshing.h
+    pmp/algorithms/SurfaceSimplification.cpp pmp/algorithms/SurfaceSimplification.h
+    pmp/algorithms/SurfaceSmoothing.cpp pmp/algorithms/SurfaceSmoothing.h
+    pmp/algorithms/SurfaceSubdivision.cpp pmp/algorithms/SurfaceSubdivision.h
+    pmp/algorithms/SurfaceTriangulation.cpp pmp/algorithms/SurfaceTriangulation.h
+    pmp/algorithms/TriangleKdTree.cpp pmp/algorithms/TriangleKdTree.h
+    mcut/bvh.cpp mcut/frontend.cpp mcut/hmesh.cpp
+    mcut/kernel.cpp mcut/math.cpp mcut/mcut.cpp mcut/mcut.h
+    mcut/preproc.cpp mcut/platform.h mcut/shewchuk.c
 )
 
 SET(IMGUI_SOURCE_FILES
@@ -102,6 +117,7 @@ SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
 SOURCE_GROUP("VHACD Files" FILES ${VHACD_SOURCE_FILES})
 SOURCE_GROUP("LasZIP Files" FILES ${LASZIP_SOURCE_FILES})
 SOURCE_GROUP("OzzAnimation Files" FILES ${OZZ_SOURCE_FILES})
+SOURCE_GROUP("PMP & MCut Files" FILES ${PMP_MCUT_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 #######################
 
@@ -109,10 +125,10 @@ SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
 	tinyexr.cc tinyexr.h tiny_obj_loader.cc tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h
     miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h nanoflann.hpp exprtk.hpp
-    wykobi/wykobi.hpp laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h
+    laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
-    ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${VHACD_SOURCE_FILES}
-    ${LASZIP_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
+    ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
+    ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC

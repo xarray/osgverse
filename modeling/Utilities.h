@@ -46,9 +46,6 @@ namespace osgVerse
         
         /** Returned value is in OBB coordinates, using rotation to convert it */
         osg::BoundingBox computeOBB(osg::Quat& rotation, float relativeExtent = 0.1f, int numSamples = 500);
-
-        /** Get a list of convex hulls to contain this node */
-        bool computeKDop(std::vector<ConvexHull>& hulls, int maxConvexHulls = 24);
     };
     
     class MeshTopologyVisitor : public MeshCollector

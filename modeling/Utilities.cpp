@@ -4,10 +4,7 @@
 #include <osgUtil/SmoothingVisitor>
 #include <iostream>
 
-#define TINYMESHUTILS_HALF_EDGE_IMPLEMENTATION
-#include <half-edge.hh>
 #include <ApproxMVBB/ComputeApproxMVBB.hpp>
-#include <VHACD/VHACD.h>
 #include "Utilities.h"
 using namespace osgVerse;
 
@@ -146,41 +143,6 @@ osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float re
     rotation.set(oobb.m_q_KI.x(), oobb.m_q_KI.y(), oobb.m_q_KI.z(), oobb.m_q_KI.w());
     return osg::BoundingBox(osg::Vec3(oobb.m_minPoint.x(), oobb.m_minPoint.y(), oobb.m_minPoint.z()),
                             osg::Vec3(oobb.m_maxPoint.x(), oobb.m_maxPoint.y(), oobb.m_maxPoint.z()));
-}
-
-bool BoundingVolumeVisitor::computeKDop(std::vector<ConvexHull>& hulls, int maxConvexHulls)
-{
-    VHACD::IVHACD::Parameters param;
-    param.m_maxConvexHulls = maxConvexHulls;
-    if (_vertices.empty() || _indices.empty()) return false;
-
-    VHACD::IVHACD* iface = VHACD::CreateVHACD();
-    if (!iface->Compute((float*)&_vertices[0], _vertices.size(),
-                        &_indices[0], _indices.size() / 3, param))
-    { return false; }
-
-    uint32_t numHulls = iface->GetNConvexHulls();
-    hulls.resize(numHulls);
-    for (uint32_t i = 0; i < numHulls; ++i)
-    {
-        VHACD::IVHACD::ConvexHull ch;
-        iface->GetConvexHull(i, ch);
-        for (uint32_t p = 0; p < ch.m_nPoints; ++p)
-        {
-            osg::Vec3 pt(ch.m_points[3 * p], ch.m_points[3 * p + 1],
-                         ch.m_points[3 * p + 2]);
-            hulls[i].points.push_back(pt);
-        }
-
-        for (uint32_t t = 0; t < ch.m_nTriangles; ++t)
-        {
-            hulls[i].triangles.push_back(ch.m_triangles[3 * t]);
-            hulls[i].triangles.push_back(ch.m_triangles[3 * t + 1]);
-            hulls[i].triangles.push_back(ch.m_triangles[3 * t + 2]);
-        }
-    }
-    iface->Release();
-    return true;
 }
 
 namespace osgVerse

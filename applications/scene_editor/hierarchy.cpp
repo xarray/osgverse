@@ -70,9 +70,10 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
             importItem.callback = [](ImGuiManager*, ImGuiContentHandler*,
                                      ImGuiComponentBase* me)
             {
+                // TODO: file dialog
                 Hierarchy* h = static_cast<Hierarchy*>(me->userData.get());
                 CommandBuffer::instance()->add(LoadModelCommand,
-                    h->_sceneRoot.get(), std::string("spaceship.osgt"));  // TODO: test only
+                    h->_sceneRoot.get(), std::string("spaceship.osgt"));
             };
             assetMenu.items.push_back(importItem);
         }
@@ -101,12 +102,14 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
                              ImGuiComponentBase* me, const std::string& id)
     {
         std::cout << "LMB: " << id << "\n";
+        // TODO
     };
 
     _treeView->callbackR = [](ImGuiManager*, ImGuiContentHandler*,
                               ImGuiComponentBase* me, const std::string& id)
     {
         std::cout << "RMB: " << id << "\n";
+        // TODO
     };
 }
 
