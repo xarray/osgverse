@@ -5,9 +5,10 @@
 #include <osg/Geometry>
 #include <osg/Camera>
 
+namespace pmp { class SurfaceMesh; }
+
 namespace osgVerse
 {
-    
     struct ConvexHull
     {
         std::vector<osg::Vec3> points;
@@ -28,13 +29,16 @@ namespace osgVerse
         virtual void apply(osg::Node& node) { traverse(node); }
         virtual void apply(osg::Drawable& node) {}  // do nothing
         virtual void apply(osg::Geometry& geometry) {}  // do nothing
-    
+        
+        enum VertexAttribute { WeightAttr, NormalAttr, ColorAttr, UvAttr };
+        std::vector<osg::Vec4>& getAttributes(VertexAttribute a) { return _attributes[a]; }
         const std::vector<osg::Vec3>& getVertices() const { return _vertices; }
         const std::vector<unsigned int>& getTriangles() const { return _indices; }
 
     protected:
         typedef std::vector<osg::Matrix> MatrixStack;
         MatrixStack _matrixStack;
+        std::map<VertexAttribute, std::vector<osg::Vec4>> _attributes;
         std::vector<osg::Vec3> _vertices;
         std::vector<unsigned int> _indices;
     };
@@ -51,10 +55,14 @@ namespace osgVerse
     class MeshTopologyVisitor : public MeshCollector
     {
     public:
-        MeshTopologyVisitor() : MeshCollector() {}
+        MeshTopologyVisitor() : MeshCollector(), _mesh(NULL) {}
+
+        /** Generate mesh structure */
+        pmp::SurfaceMesh* generate();
         
     protected:
-        void* _topology;
+        virtual ~MeshTopologyVisitor();
+        pmp::SurfaceMesh* _mesh;
     };
 
     /** Create a geometry with specified arrays */
@@ -91,7 +99,6 @@ namespace osgVerse
 
     /** Create a textured icosahedron for panorama use */
     extern osg::Geometry* createPanoramaSphere(int subdivs = 2);
-
 }
 
 #endif

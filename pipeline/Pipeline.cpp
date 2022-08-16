@@ -367,11 +367,8 @@ namespace osgVerse
         forwardCam->setCullMask(forwardMask);
         forwardCam->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
         forwardCam->setComputeNearFarMode(osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
-#if OSG_VERSION_GREATER_THAN(3, 5, 9)
-        forwardCam->addPreDrawCallback(_deferredCallback.get());
-#else
-        forwardCam->setPreDrawCallback(_deferredCallback.get());
-#endif
+        _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
+
         forwardCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
         forwardCam->setGraphicsContext(_stageContext.get());
         forwardCam->getOrCreateStateSet()->addUniform(_deferredCallback->getNearFarUniform());

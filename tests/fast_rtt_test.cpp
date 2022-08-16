@@ -97,7 +97,7 @@ int main(int argc, char** argv)
         }
         drcb->addRunner(gr1.get());
     }
-    viewer.getCamera()->setPreDrawCallback(drcb.get());
+    drcb->setup(viewer.getCamera(), PRE_DRAW);
 
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

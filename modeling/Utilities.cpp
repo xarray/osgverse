@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <ApproxMVBB/ComputeApproxMVBB.hpp>
+#include <pmp/SurfaceMesh.h>
 #include "Utilities.h"
 using namespace osgVerse;
 
@@ -71,9 +72,33 @@ struct CollectVertexOperator
     {
         if (vertices)
         {
-            vertices->push_back((*inputData)[i1] * matrix);
-            vertices->push_back((*inputData)[i2] * matrix);
-            vertices->push_back((*inputData)[i3] * matrix);
+            vertices->push_back((*inputV)[i1] * matrix);
+            vertices->push_back((*inputV)[i2] * matrix);
+            vertices->push_back((*inputV)[i3] * matrix);
+        }
+
+        if (attributes)
+        {
+            if (inputN)
+            {
+                std::vector<osg::Vec4>& va = (*attributes)[MeshCollector::NormalAttr];
+                va.push_back(osg::Vec4((*inputN)[i1], 0.0));
+                va.push_back(osg::Vec4((*inputN)[i2], 0.0));
+                va.push_back(osg::Vec4((*inputN)[i3], 0.0));
+            }
+            if (inputC)
+            {
+                std::vector<osg::Vec4>& va = (*attributes)[MeshCollector::ColorAttr];
+                va.push_back((*inputC)[i1]); va.push_back((*inputC)[i2]);
+                va.push_back((*inputC)[i3]);
+            }
+            if (inputT)
+            {
+                std::vector<osg::Vec4>& va = (*attributes)[MeshCollector::UvAttr];
+                va.push_back(osg::Vec4((*inputT)[i1].x(), (*inputT)[i1].y(), 0.0f, 1.0));
+                va.push_back(osg::Vec4((*inputT)[i2].x(), (*inputT)[i2].y(), 0.0f, 1.0));
+                va.push_back(osg::Vec4((*inputT)[i3].x(), (*inputT)[i3].y(), 0.0f, 1.0));
+            }
         }
 
         if (indices)
@@ -83,10 +108,14 @@ struct CollectVertexOperator
         }
     }
 
-    CollectVertexOperator() : inputData(NULL), vertices(NULL), indices(NULL) {}
-    osg::Vec3Array* inputData;
-    std::vector<osg::Vec3>* vertices;
-    std::vector<unsigned int>* indices;
+    CollectVertexOperator()
+    :   inputV(NULL), inputN(NULL), inputT(NULL), inputC(NULL),
+        vertices(NULL), indices(NULL), attributes(NULL) {}
+    osg::Vec3Array *inputV, *inputN;
+    osg::Vec2Array *inputT; osg::Vec4Array *inputC;
+
+    std::vector<osg::Vec3>* vertices; std::vector<unsigned int>* indices;
+    std::map<MeshCollector::VertexAttribute, std::vector<osg::Vec4>>* attributes;
     osg::Matrix matrix; unsigned int baseIndex;
 };
 
@@ -121,9 +150,15 @@ void MeshCollector::apply(osg::Geode& node)
         if (!geom) continue;
 
         osg::TriangleIndexFunctor<CollectVertexOperator> functor;
-        functor.inputData = static_cast<osg::Vec3Array*>(geom->getVertexArray());
-        functor.vertices = &_vertices; functor.indices = &_indices;
-        functor.matrix = matrix; functor.baseIndex = _vertices.size();
+        functor.inputV = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+        if (geom->getNormalBinding() == osg::Geometry::BIND_PER_VERTEX)
+            functor.inputN = static_cast<osg::Vec3Array*>(geom->getNormalArray());
+        if (geom->getColorBinding() == osg::Geometry::BIND_PER_VERTEX)
+            functor.inputC = static_cast<osg::Vec4Array*>(geom->getColorArray());
+        functor.inputT = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
+        functor.vertices = &_vertices; functor.attributes = &_attributes;
+        functor.indices = &_indices; functor.matrix = matrix;
+        functor.baseIndex = _vertices.size();
         geom->accept(functor);
     }
     traverse(node);
@@ -143,6 +178,46 @@ osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float re
     rotation.set(oobb.m_q_KI.x(), oobb.m_q_KI.y(), oobb.m_q_KI.z(), oobb.m_q_KI.w());
     return osg::BoundingBox(osg::Vec3(oobb.m_minPoint.x(), oobb.m_minPoint.y(), oobb.m_minPoint.z()),
                             osg::Vec3(oobb.m_maxPoint.x(), oobb.m_maxPoint.y(), oobb.m_maxPoint.z()));
+}
+
+MeshTopologyVisitor::~MeshTopologyVisitor()
+{
+    if (_mesh != NULL) delete _mesh;
+}
+
+pmp::SurfaceMesh* MeshTopologyVisitor::generate()
+{
+    if (_mesh != NULL) delete _mesh;
+    _mesh = new pmp::SurfaceMesh;
+    pmp::VertexProperty<pmp::Normal> normals = _mesh->vertex_property<pmp::Normal>("v:normal");
+    pmp::VertexProperty<pmp::Color> colors = _mesh->vertex_property<pmp::Color>("v:color");
+    pmp::VertexProperty<pmp::TexCoord> texcoords = _mesh->vertex_property<pmp::TexCoord>("v:tex");
+
+    std::vector<osg::Vec4>& na = _attributes[NormalAttr];
+    std::vector<osg::Vec4>& ca = _attributes[ColorAttr];
+    std::vector<osg::Vec4>& ta = _attributes[UvAttr];
+    if (na.empty()) _mesh->remove_vertex_property(normals);
+    if (ca.empty()) _mesh->remove_vertex_property(colors);
+    if (ta.empty()) _mesh->remove_vertex_property(texcoords);
+
+    for (size_t i = 0; i < _vertices.size(); ++i)
+    {
+        const osg::Vec3& v = _vertices[i];
+        pmp::Vertex vec = _mesh->add_vertex(pmp::Point(v[0], v[1], v[2]));
+        if (!na.empty()) normals[vec] = pmp::Normal(na[i][0], na[i][1], na[i][2]);
+        if (!ca.empty()) colors[vec] = pmp::Color(ca[i][0], ca[i][1], ca[i][2]);
+        if (!ta.empty()) texcoords[vec] = pmp::TexCoord(ta[i][0], ta[i][1]);
+    }
+
+    for (size_t i = 0; i < _indices.size(); i += 3)
+    {
+        std::vector<pmp::Vertex> face;
+        face.push_back(pmp::Vertex(_indices[i + 0]));
+        face.push_back(pmp::Vertex(_indices[i + 1]));
+        face.push_back(pmp::Vertex(_indices[i + 2]));
+        _mesh->add_face(face);
+    }
+    return _mesh;
 }
 
 namespace osgVerse

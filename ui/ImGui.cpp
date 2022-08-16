@@ -8,6 +8,7 @@
 #include <osgDB/ReadFile>
 #include "ImGui.h"
 #include "ImGui.Styles.h"
+#include "pipeline//Utilities.h"
 using namespace osgVerse;
 
 extern void StyleColorsVisualStudio(ImGuiStyle* dst = (ImGuiStyle*)0);
@@ -165,7 +166,7 @@ protected:
     }
 };
 
-struct ImGuiNewFrameCallback : public osg::Camera::DrawCallback
+struct ImGuiNewFrameCallback : public CameraDrawCallback
 {
     ImGuiNewFrameCallback(osgGA::GUIEventHandler* h) : _handler(h), _time(-1.0f) {}
     osg::observer_ptr<osgGA::GUIEventHandler> _handler;
@@ -206,7 +207,7 @@ struct ImGuiNewFrameCallback : public osg::Camera::DrawCallback
     }
 };
 
-struct ImGuiRenderCallback : public osg::Camera::DrawCallback
+struct ImGuiRenderCallback : public CameraDrawCallback
 {
     ImGuiRenderCallback(ImGuiManager* m, osgGA::GUIEventHandler* h) : _manager(m), _handler(h) {}
     mutable std::map<std::string, ImTextureID> _textureIdList;
@@ -270,13 +271,9 @@ void ImGuiManager::initialize(ImGuiContentHandler* cb)
 void ImGuiManager::addToView(osgViewer::View* view, osg::Camera* specCam)
 {
     osg::Camera* cam = (specCam != NULL) ? specCam : view->getCamera();
-#if OSG_VERSION_GREATER_THAN(3, 5, 9)
-    cam->addPreDrawCallback(new ImGuiNewFrameCallback(_imguiHandler.get()));
-    cam->addPostDrawCallback(new ImGuiRenderCallback(this, _imguiHandler.get()));
-#else
-    cam->setPreDrawCallback(new ImGuiNewFrameCallback(_imguiHandler.get()));
-    cam->setPostDrawCallback(new ImGuiRenderCallback(this, _imguiHandler.get()));
-#endif
+    osg::ref_ptr<ImGuiNewFrameCallback> nfcb = new ImGuiNewFrameCallback(_imguiHandler.get());
+    osg::ref_ptr<ImGuiRenderCallback> rcb = new ImGuiRenderCallback(this, _imguiHandler.get());
+    nfcb->setup(cam, PRE_DRAW); rcb->setup(cam, POST_DRAW);
     view->addEventHandler(_imguiHandler.get());
 }
 

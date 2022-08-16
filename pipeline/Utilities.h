@@ -5,6 +5,11 @@
 #include <osg/Geometry>
 #include <osg/Texture2D>
 #include <osg/Camera>
+
+#define INITIAL_DRAW 0
+#define PRE_DRAW 1
+#define POST_DRAW 2
+#define FINAL_DRAW 3
 struct SMikkTSpaceContext;
 
 namespace osgVerse
@@ -23,6 +28,83 @@ namespace osgVerse
     {
         /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
         /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
+    };
+
+    /** Camera draw callback for compatiblity */
+    class CameraDrawCallback : public osg::Camera::DrawCallback
+    {
+    public:
+        CameraDrawCallback() {}
+        CameraDrawCallback(const CameraDrawCallback& org, const osg::CopyOp& copyop)
+            : osg::Camera::DrawCallback(org, copyop), _subCallback(org._subCallback) {}
+        META_Object(osgVerse, CameraDrawCallback);
+
+        void setup(osg::Camera* cam, int lv)
+        {
+            osg::Camera::DrawCallback* cb = NULL;
+            switch (lv)
+            {
+            case 0:
+                cb = cam->getInitialDrawCallback();
+                if (!cb) cam->setInitialDrawCallback(this); break;
+            case 1:
+                cb = cam->getPreDrawCallback();
+                if (!cb) cam->setPreDrawCallback(this); break;
+            case 2:
+                cb = cam->getPostDrawCallback();
+                if (!cb) cam->setPostDrawCallback(this); break;
+            default:
+                cb = cam->getFinalDrawCallback();
+                if (!cb) cam->setFinalDrawCallback(this); break;
+            }
+
+            CameraDrawCallback* dcb = static_cast<CameraDrawCallback*>(cb);
+            if (dcb && dcb != this) dcb->setSubCallback(this);
+        }
+
+        inline void run(osg::RenderInfo& renderInfo) const
+        {
+            operator()(renderInfo);
+            if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
+        }
+
+        void setSubCallback(CameraDrawCallback* cb) { _subCallback = cb; }
+        CameraDrawCallback* getSubCallback() { return _subCallback.get(); }
+        const CameraDrawCallback* getSubCallback() const { return _subCallback.get(); }
+
+        inline void addSubCallback(CameraDrawCallback* nc)
+        {
+            if (nc)
+            {
+                if (!_subCallback) _subCallback = nc; 
+                else _subCallback->addSubCallback(nc);
+            }
+        }
+
+        inline void removeSubCallback(CameraDrawCallback* nc)
+        {
+            if (!nc) return;
+            if (_subCallback == nc)
+            {
+                osg::ref_ptr<CameraDrawCallback> new_cb = _subCallback->getSubCallback();
+                _subCallback->setSubCallback(NULL); _subCallback = new_cb;
+            }
+            else if (_subCallback.valid())
+                _subCallback->removeSubCallback(nc);
+        }
+
+        virtual void operator()(const osg::Camera& /*camera*/) const {}
+        virtual void operator()(osg::RenderInfo& renderInfo) const
+        {
+            if (renderInfo.getCurrentCamera())
+                operator()(*(renderInfo.getCurrentCamera()));
+            else
+                OSG_WARN << "Error: Camera::DrawCallback called without valid camera." << std::endl;
+        }
+
+    protected:
+        virtual ~CameraDrawCallback() {}
+        osg::ref_ptr<CameraDrawCallback> _subCallback;
     };
 
     /** Suggest run this function once to initialize some plugins & environments */
@@ -97,7 +179,6 @@ namespace osgVerse
         osg::BoundingBox createShadowBound(const std::vector<osg::Vec3>& refPoints,
                                            const osg::Matrix& worldToLocal);
     };
-
 }
 
 #endif

@@ -1,10 +1,8 @@
 #ifndef MANA_PP_DEFERRED_CALLBACK_HPP
 #define MANA_PP_DEFERRED_CALLBACK_HPP
 
-#include <osg/Geometry>
-#include <osg/Texture2D>
 #include <osg/TextureCubeMap>
-#include <osg/Camera>
+#include "Utilities.h"
 
 namespace osgVerse
 {
@@ -12,7 +10,7 @@ namespace osgVerse
         - Support only Texture2D & TextureCubeMap, no multisample
         - Can render a single geometry/state-set for use
         For full FBO support, use osg::Camera instead */
-    class DeferredRenderCallback : public osg::Camera::DrawCallback
+    class DeferredRenderCallback : public CameraDrawCallback
     {
         friend class RttRunner;
 
