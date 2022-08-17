@@ -5,7 +5,7 @@
 #include <iostream>
 
 #include <ApproxMVBB/ComputeApproxMVBB.hpp>
-#include <pmp/SurfaceMesh.h>
+#include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;
 
@@ -70,49 +70,64 @@ struct CollectVertexOperator
 {
     void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
     {
-        if (vertices)
+        if (vertices && vertices->size() <= baseIndex)
         {
-            vertices->push_back((*inputV)[i1] * matrix);
-            vertices->push_back((*inputV)[i2] * matrix);
-            vertices->push_back((*inputV)[i3] * matrix);
-        }
+            std::vector<bool> vertexAddingList;
+            for (size_t i = 0; i < inputV->size(); ++i)
+            {
+                osg::Vec3 v = (*inputV)[i] * matrix;
+                if (vertexMap)
+                {
+                    if (vertexMap->find(v) == vertexMap->end())
+                    {
+                        (*vertexMap)[v] = vertices->size();
+                        vertexAddingList.push_back(true);
+                        vertices->push_back(v);
+                    }
+                    else
+                        vertexAddingList.push_back(false);
+                    indexMap[baseIndex + i] = (*vertexMap)[v] - baseIndex;
+                }
+                else vertices->push_back(v);
+            }
 
-        if (attributes)
-        {
-            if (inputN)
+            if (attributes)
             {
-                std::vector<osg::Vec4>& va = (*attributes)[MeshCollector::NormalAttr];
-                va.push_back(osg::Vec4((*inputN)[i1], 0.0));
-                va.push_back(osg::Vec4((*inputN)[i2], 0.0));
-                va.push_back(osg::Vec4((*inputN)[i3], 0.0));
-            }
-            if (inputC)
-            {
-                std::vector<osg::Vec4>& va = (*attributes)[MeshCollector::ColorAttr];
-                va.push_back((*inputC)[i1]); va.push_back((*inputC)[i2]);
-                va.push_back((*inputC)[i3]);
-            }
-            if (inputT)
-            {
-                std::vector<osg::Vec4>& va = (*attributes)[MeshCollector::UvAttr];
-                va.push_back(osg::Vec4((*inputT)[i1].x(), (*inputT)[i1].y(), 0.0f, 1.0));
-                va.push_back(osg::Vec4((*inputT)[i2].x(), (*inputT)[i2].y(), 0.0f, 1.0));
-                va.push_back(osg::Vec4((*inputT)[i3].x(), (*inputT)[i3].y(), 0.0f, 1.0));
+                std::vector<osg::Vec4>& na = (*attributes)[MeshCollector::NormalAttr];
+                std::vector<osg::Vec4>& ca = (*attributes)[MeshCollector::ColorAttr];
+                std::vector<osg::Vec4>& ta = (*attributes)[MeshCollector::UvAttr];
+                for (size_t i = 0; i < inputV->size(); ++i)
+                {
+                    if (vertexMap && !vertexAddingList[i]) continue;
+                    if (inputN) na.push_back(osg::Vec4((*inputN)[i], 0.0));
+                    if (inputC) ca.push_back((*inputC)[i]);
+                    if (inputT) ta.push_back(osg::Vec4((*inputT)[i].x(),
+                                                       (*inputT)[i].y(), 0.0f, 1.0));
+                }
             }
         }
 
         if (indices)
         {
+            if (vertexMap)
+            {
+                i1 = indexMap[baseIndex + i1]; i2 = indexMap[baseIndex + i2];
+                i3 = indexMap[baseIndex + i3];
+            }
+
+            if (i1 == i2 || i2 == i3 || i1 == i3) return;
             indices->push_back(baseIndex + i1); indices->push_back(baseIndex + i2);
             indices->push_back(baseIndex + i3);
         }
     }
 
     CollectVertexOperator()
-    :   inputV(NULL), inputN(NULL), inputT(NULL), inputC(NULL),
-        vertices(NULL), indices(NULL), attributes(NULL) {}
+    :   inputV(NULL), inputN(NULL), inputT(NULL), inputC(NULL), vertexMap(NULL),
+        vertices(NULL), indices(NULL), attributes(NULL), baseIndex(0) {}
     osg::Vec3Array *inputV, *inputN;
     osg::Vec2Array *inputT; osg::Vec4Array *inputC;
+    std::map<osg::Vec3, unsigned int>* vertexMap;
+    std::map<unsigned int, unsigned int> indexMap;
 
     std::vector<osg::Vec3>* vertices; std::vector<unsigned int>* indices;
     std::map<MeshCollector::VertexAttribute, std::vector<osg::Vec4>>* attributes;
@@ -120,12 +135,20 @@ struct CollectVertexOperator
 };
 
 MeshCollector::MeshCollector()
-: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN) {}
+:   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN),
+    _weldVertices(false), _globalVertices(false) {}
 
 void MeshCollector::reset()
 {
     _matrixStack.clear();
+    _vertexMap.clear(); _attributes.clear();
     _vertices.clear(); _indices.clear();
+}
+
+void MeshCollector::apply(osg::Node& node)
+{
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+    traverse(node);
 }
 
 void MeshCollector::apply(osg::Transform& node)
@@ -133,6 +156,7 @@ void MeshCollector::apply(osg::Transform& node)
     osg::Matrix matrix;
     if (!_matrixStack.empty()) matrix = _matrixStack.back();
     node.computeLocalToWorldMatrix(matrix, this);
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
 
     pushMatrix(matrix);
     traverse(node);
@@ -143,25 +167,50 @@ void MeshCollector::apply(osg::Geode& node)
 {
     osg::Matrix matrix;
     if (_matrixStack.size() > 0) matrix = _matrixStack.back();
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
 
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
     {
         osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+        osg::StateSet* ss = node.getDrawable(i)->getStateSet();
+        if (ss) apply(&node, node.getDrawable(i), *ss);
         if (!geom) continue;
 
         osg::TriangleIndexFunctor<CollectVertexOperator> functor;
         functor.inputV = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+        functor.inputT = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
         if (geom->getNormalBinding() == osg::Geometry::BIND_PER_VERTEX)
             functor.inputN = static_cast<osg::Vec3Array*>(geom->getNormalArray());
         if (geom->getColorBinding() == osg::Geometry::BIND_PER_VERTEX)
             functor.inputC = static_cast<osg::Vec4Array*>(geom->getColorArray());
-        functor.inputT = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
+
         functor.vertices = &_vertices; functor.attributes = &_attributes;
         functor.indices = &_indices; functor.matrix = matrix;
         functor.baseIndex = _vertices.size();
+        if (_weldVertices)
+        {
+            if (!_globalVertices) _vertexMap.clear();
+            functor.vertexMap = &_vertexMap;
+        }
         geom->accept(functor);
     }
     traverse(node);
+}
+
+void MeshCollector::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
+{
+    osg::StateSet::TextureAttributeList& texAttrList = ss.getTextureAttributeList();
+    for (size_t i = 0; i < texAttrList.size(); ++i)
+    {
+        osg::StateSet::AttributeList& attr = texAttrList[0];
+        for (osg::StateSet::AttributeList::iterator itr = attr.begin();
+             itr != attr.end(); ++itr)
+        {
+            osg::StateAttribute::Type t = itr->first.first;
+            if (t == osg::StateAttribute::TEXTURE)
+                apply(n ,d, static_cast<osg::Texture*>(itr->second.first.get()), i);
+        }
+    }
 }
 
 osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float relativeExtent, int numSamples)
@@ -180,44 +229,18 @@ osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float re
                             osg::Vec3(oobb.m_maxPoint.x(), oobb.m_maxPoint.y(), oobb.m_maxPoint.z()));
 }
 
-MeshTopologyVisitor::~MeshTopologyVisitor()
+void MeshTopologyVisitor::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
 {
-    if (_mesh != NULL) delete _mesh;
+    if (!_stateset) _stateset = new osg::StateSet;
+    if (_stateset->getName().empty()) _stateset->setName(ss.getName());
+    else _stateset->setName(_stateset->getName() + "+" + ss.getName());
+    _stateset->merge(ss);
 }
 
-pmp::SurfaceMesh* MeshTopologyVisitor::generate()
+MeshTopology* MeshTopologyVisitor::generate()
 {
-    if (_mesh != NULL) delete _mesh;
-    _mesh = new pmp::SurfaceMesh;
-    pmp::VertexProperty<pmp::Normal> normals = _mesh->vertex_property<pmp::Normal>("v:normal");
-    pmp::VertexProperty<pmp::Color> colors = _mesh->vertex_property<pmp::Color>("v:color");
-    pmp::VertexProperty<pmp::TexCoord> texcoords = _mesh->vertex_property<pmp::TexCoord>("v:tex");
-
-    std::vector<osg::Vec4>& na = _attributes[NormalAttr];
-    std::vector<osg::Vec4>& ca = _attributes[ColorAttr];
-    std::vector<osg::Vec4>& ta = _attributes[UvAttr];
-    if (na.empty()) _mesh->remove_vertex_property(normals);
-    if (ca.empty()) _mesh->remove_vertex_property(colors);
-    if (ta.empty()) _mesh->remove_vertex_property(texcoords);
-
-    for (size_t i = 0; i < _vertices.size(); ++i)
-    {
-        const osg::Vec3& v = _vertices[i];
-        pmp::Vertex vec = _mesh->add_vertex(pmp::Point(v[0], v[1], v[2]));
-        if (!na.empty()) normals[vec] = pmp::Normal(na[i][0], na[i][1], na[i][2]);
-        if (!ca.empty()) colors[vec] = pmp::Color(ca[i][0], ca[i][1], ca[i][2]);
-        if (!ta.empty()) texcoords[vec] = pmp::TexCoord(ta[i][0], ta[i][1]);
-    }
-
-    for (size_t i = 0; i < _indices.size(); i += 3)
-    {
-        std::vector<pmp::Vertex> face;
-        face.push_back(pmp::Vertex(_indices[i + 0]));
-        face.push_back(pmp::Vertex(_indices[i + 1]));
-        face.push_back(pmp::Vertex(_indices[i + 2]));
-        _mesh->add_face(face);
-    }
-    return _mesh;
+    osg::ref_ptr<MeshTopology> mesh = new MeshTopology;
+    mesh->generate(this); return mesh.release();
 }
 
 namespace osgVerse

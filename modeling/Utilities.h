@@ -5,10 +5,10 @@
 #include <osg/Geometry>
 #include <osg/Camera>
 
-namespace pmp { class SurfaceMesh; }
-
 namespace osgVerse
 {
+    class MeshTopology;
+
     struct ConvexHull
     {
         std::vector<osg::Vec3> points;
@@ -19,6 +19,8 @@ namespace osgVerse
     {
     public:
         MeshCollector();
+        void setWeldingVertices(bool b) { _weldVertices = b; }
+        void setUseGlobalVertices(bool b) { _globalVertices = b; }
         inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
         inline void popMatrix() { _matrixStack.pop_back(); }
 
@@ -26,9 +28,12 @@ namespace osgVerse
         virtual void apply(osg::Transform& transform);
         virtual void apply(osg::Geode& node);
 
-        virtual void apply(osg::Node& node) { traverse(node); }
+        virtual void apply(osg::Node& node);
         virtual void apply(osg::Drawable& node) {}  // do nothing
         virtual void apply(osg::Geometry& geometry) {}  // do nothing
+
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss);
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::Texture* ss, int u) {}
         
         enum VertexAttribute { WeightAttr, NormalAttr, ColorAttr, UvAttr };
         std::vector<osg::Vec4>& getAttributes(VertexAttribute a) { return _attributes[a]; }
@@ -38,9 +43,12 @@ namespace osgVerse
     protected:
         typedef std::vector<osg::Matrix> MatrixStack;
         MatrixStack _matrixStack;
+
+        std::map<osg::Vec3, unsigned int> _vertexMap;
         std::map<VertexAttribute, std::vector<osg::Vec4>> _attributes;
         std::vector<osg::Vec3> _vertices;
         std::vector<unsigned int> _indices;
+        bool _weldVertices, _globalVertices;
     };
 
     class BoundingVolumeVisitor : public MeshCollector
@@ -55,14 +63,15 @@ namespace osgVerse
     class MeshTopologyVisitor : public MeshCollector
     {
     public:
-        MeshTopologyVisitor() : MeshCollector(), _mesh(NULL) {}
+        MeshTopologyVisitor() : MeshCollector() {}
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss);
 
-        /** Generate mesh structure */
-        pmp::SurfaceMesh* generate();
-        
+        /** Get topology object */
+        MeshTopology* generate();
+        osg::StateSet* getMergedStateSet() { return _stateset.get(); }
+
     protected:
-        virtual ~MeshTopologyVisitor();
-        pmp::SurfaceMesh* _mesh;
+        osg::ref_ptr<osg::StateSet> _stateset;
     };
 
     /** Create a geometry with specified arrays */
