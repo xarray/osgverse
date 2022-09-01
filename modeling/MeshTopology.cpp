@@ -1,9 +1,9 @@
 #include <osg/Texture2D>
 #include <pmp/SurfaceMesh.h>
-#include <pmp/algorithms/SurfaceFeatures.h>
 #include <pmp/algorithms/SurfaceFairing.h>
 #include <pmp/algorithms/SurfaceRemeshing.h>
 #include <pmp/algorithms/SurfaceSimplification.h>
+#include <pmp/algorithms/SurfaceHoleFilling.h>
 #include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;
@@ -108,6 +108,9 @@ osg::Geometry* MeshTopology::output()
     return geom.release();
 }
 
+void MeshTopology::prune()
+{ _mesh->garbage_collection(); }
+
 size_t MeshTopology::getNumTopologyData(TopologyType t) const
 {
     switch (t)
@@ -137,8 +140,7 @@ std::vector<uint32_t> MeshTopology::getTopologyData(TopologyType t) const
     return data;
 }
 
-std::vector<uint32_t> MeshTopology::getConnectiveData(
-        TopologyType t, uint32_t idx, QueryType q) const
+std::vector<uint32_t> MeshTopology::getConnectiveData(TopologyType t, uint32_t idx, QueryType q) const
 {
     std::vector<uint32_t> data;
     switch (t)
@@ -146,46 +148,57 @@ std::vector<uint32_t> MeshTopology::getConnectiveData(
     case MVertex:
         switch (q)
         {
-        case CHalfEdges:
+        case QHalfEdges:
             for (auto h : _mesh->halfedges(pmp::Vertex(idx))) data.push_back(h.idx()); break;
-        case CFaces:
+        case QFaces:
             for (auto f : _mesh->faces(pmp::Vertex(idx))) data.push_back(f.idx()); break;
         }
         break;
     case MHalfEdge:
         switch (q)
         {
-        case CVertices:
+        case QVertices:
             data.push_back(_mesh->from_vertex(pmp::Halfedge(idx)).idx());
             data.push_back(_mesh->to_vertex(pmp::Halfedge(idx)).idx()); break;
-        case CHalfEdges:
-            data.push_back(_mesh->opposite_halfedge(pmp::Halfedge(idx)).idx()); break;
-        case CEdges:
+        case QHalfEdges:
+            {
+                pmp::Halfedge e0 = _mesh->opposite_halfedge(pmp::Halfedge(idx));
+                if (e0.is_valid()) data.push_back(e0.idx()); break;
+            }
+        case QEdges:
             data.push_back(_mesh->edge(pmp::Halfedge(idx)).idx()); break;
-        case CFaces:
+        case QFaces:
             data.push_back(_mesh->face(pmp::Halfedge(idx)).idx()); break;
         }
         break;
     case MEdge:
         switch (q)
         {
-        case CVertices:
+        case QVertices:
             data.push_back(_mesh->vertex(pmp::Edge(idx), 0).idx());
             data.push_back(_mesh->vertex(pmp::Edge(idx), 1).idx()); break;
-        case CHalfEdges:
-            data.push_back(_mesh->halfedge(pmp::Edge(idx), 0).idx());
-            data.push_back(_mesh->halfedge(pmp::Edge(idx), 1).idx()); break;
-        case CFaces:
-            data.push_back(_mesh->face(pmp::Edge(idx), 0).idx());
-            data.push_back(_mesh->face(pmp::Edge(idx), 1).idx()); break;
+        case QHalfEdges:
+            {
+                pmp::Halfedge e0 = _mesh->halfedge(pmp::Edge(idx), 0);
+                pmp::Halfedge e1 = _mesh->halfedge(pmp::Edge(idx), 1);
+                if (e0.is_valid()) data.push_back(e0.idx());
+                if (e1.is_valid()) data.push_back(e1.idx()); break;
+            }
+        case QFaces:
+            {
+                pmp::Face f0 = _mesh->face(pmp::Edge(idx), 0);
+                pmp::Face f1 = _mesh->face(pmp::Edge(idx), 1);
+                if (f0.is_valid()) data.push_back(f0.idx());
+                if (f1.is_valid()) data.push_back(f1.idx()); break;
+            }
         }
         break;
     case MFace:
         switch (q)
         {
-        case CVertices:
+        case QVertices:
             for (auto v : _mesh->vertices(pmp::Face(idx))) data.push_back(v.idx()); break;
-        case CHalfEdges:
+        case QHalfEdges:
             for (auto h : _mesh->halfedges(pmp::Face(idx))) data.push_back(h.idx()); break;
         }
         break;
@@ -193,11 +206,44 @@ std::vector<uint32_t> MeshTopology::getConnectiveData(
     return data;
 }
 
-uint32_t MeshTopology::findEdge(uint32_t v0, uint32_t v1)
+bool MeshTopology::isValid(TopologyType t, uint32_t idx) const
+{
+    switch (t)
+    {
+    case MVertex: return pmp::Vertex(idx).is_valid();
+    case MHalfEdge: return pmp::Halfedge(idx).is_valid();
+    case MEdge: return pmp::Edge(idx).is_valid();
+    case MFace: return pmp::Face(idx).is_valid();
+    }
+    return false;
+}
+
+bool MeshTopology::isBoundary(TopologyType t, uint32_t idx) const
+{
+    switch (t)
+    {
+    case MVertex: return _mesh->is_boundary(pmp::Vertex(idx));
+    case MHalfEdge: return _mesh->is_boundary(pmp::Halfedge(idx));
+    case MEdge: return _mesh->is_boundary(pmp::Edge(idx));
+    case MFace: return _mesh->is_boundary(pmp::Face(idx));
+    }
+    return false;
+}
+
+bool MeshTopology::isManifoldVertex(uint32_t idx) const
+{ return _mesh->is_manifold(pmp::Vertex(idx)); }
+
+uint32_t MeshTopology::findEdge(uint32_t v0, uint32_t v1) const
 { return _mesh->find_edge(pmp::Vertex(v0), pmp::Vertex(v1)).idx(); }
 
-uint32_t MeshTopology::findHalfEdge(uint32_t v0, uint32_t v1)
+uint32_t MeshTopology::findHalfEdge(uint32_t v0, uint32_t v1) const
 { return _mesh->find_halfedge(pmp::Vertex(v0), pmp::Vertex(v1)).idx(); }
+
+uint32_t MeshTopology::findPreviousHalfEdge(uint32_t idx) const
+{ return _mesh->prev_halfedge(pmp::Halfedge(idx)).idx(); }
+
+uint32_t MeshTopology::findNextHalfEdge(uint32_t idx) const
+{ return _mesh->next_halfedge(pmp::Halfedge(idx)).idx(); }
 
 void MeshTopology::splitEdge(uint32_t idx, const osg::Vec3& pt)
 { _mesh->split(pmp::Edge(idx), pmp::Point(pt[0], pt[1], pt[2])); }
@@ -210,6 +256,63 @@ void MeshTopology::flipEdge(uint32_t idx)
 
 void MeshTopology::collapseHalfEdge(uint32_t idx)
 { _mesh->collapse(pmp::Halfedge(idx)); }
+
+void MeshTopology::deleteFace(uint32_t idx)
+{ _mesh->delete_face(pmp::Face(idx)); }
+
+std::vector<std::vector<uint32_t>> MeshTopology::getHalfEdgeBoundaries() const
+{
+    std::vector<uint32_t> hEdges = getTopologyData(osgVerse::MeshTopology::MHalfEdge);
+    std::vector<uint32_t> boundaries;
+    for (size_t i = 0; i < hEdges.size(); ++i)
+    {
+        uint32_t he = hEdges[i];
+        if (isBoundary(osgVerse::MeshTopology::MHalfEdge, he))
+            boundaries.push_back(he);
+    }
+
+    std::set<uint32_t> usedEdges;
+    std::vector<std::vector<uint32_t>> edgeChunkList;
+    for (size_t i = 0; i < boundaries.size(); ++i)
+    {
+        uint32_t he = boundaries[i];
+        if (usedEdges.find(he) != usedEdges.end()) continue;
+
+        std::vector<uint32_t> subEdges;
+        if (findConnectedEdges(he, subEdges, usedEdges))
+            edgeChunkList.push_back(subEdges);
+    }
+    return edgeChunkList;
+}
+
+std::vector<std::vector<uint32_t>> MeshTopology::getEntityFaces() const
+{
+    std::vector<uint32_t> faces = getTopologyData(osgVerse::MeshTopology::MFace);
+    std::map<uint32_t, std::set<uint32_t>> faceSetMap;
+    for (size_t i = 0; i < faces.size(); ++i)
+    {
+        uint32_t f = faces[i]; bool alreadyAdded = false;
+        for (std::map<uint32_t, std::set<uint32_t>>::iterator itr = faceSetMap.begin();
+            itr != faceSetMap.end(); ++itr)
+        {
+            if (itr->second.find(f) != itr->second.end())
+            { alreadyAdded = true; break; }
+        }
+
+        if (alreadyAdded) continue; else faceSetMap[f].insert(f);
+        addNeighborFaces(faceSetMap[f], f);
+    }
+
+    std::vector<std::vector<uint32_t>> entityList;
+    for (std::map<uint32_t, std::set<uint32_t>>::iterator itr = faceSetMap.begin();
+         itr != faceSetMap.end(); ++itr)
+    {
+        std::vector<uint32_t> faces;
+        faces.assign(itr->second.begin(), itr->second.end());
+        entityList.push_back(faces);
+    }
+    return entityList;
+}
 
 bool MeshTopology::simplify(float percentage, int aspectRatio, int normalDeviation)
 {
@@ -258,4 +361,46 @@ bool MeshTopology::remesh(float uniformValue, bool adaptive)
         { OSG_WARN << "[MeshTopology] " << e.what() << std::endl; }
     }
     return false;
+}
+
+bool MeshTopology::findConnectedEdges(
+    uint32_t he, std::vector<uint32_t>& subEdges, std::set<uint32_t>& usedEdges) const
+{
+    std::vector<uint32_t> ptOfHe = getConnectiveData(
+        osgVerse::MeshTopology::MHalfEdge, he, osgVerse::MeshTopology::QVertices);
+    usedEdges.insert(he); if (ptOfHe.size() < 2) return false;
+
+    //if (topology->isManifoldVertex(ptOfHe[1])) {}  // TODO: check invalid vertex
+    subEdges.push_back(he);
+
+    bool hasFollowingEdges = false;
+    std::vector<uint32_t> heOnPt = getConnectiveData(
+        osgVerse::MeshTopology::MVertex, ptOfHe[1], osgVerse::MeshTopology::QHalfEdges);
+    for (size_t j = 0; j < heOnPt.size(); ++j)
+    {
+        uint32_t he1 = heOnPt[j];
+        //if (he1 == subEdges.front()) {}  // TODO: indicate good boundary
+        if (usedEdges.find(he1) != usedEdges.end()) continue;
+        if (!isBoundary(osgVerse::MeshTopology::MHalfEdge, he1)) continue;
+
+        findConnectedEdges(he1, subEdges, usedEdges);
+        hasFollowingEdges = true;
+    }
+    return hasFollowingEdges;
+}
+
+void MeshTopology::addNeighborFaces(std::set<uint32_t>& faceSet, uint32_t f) const
+{
+    std::vector<uint32_t> ptOfFace = getConnectiveData(
+        osgVerse::MeshTopology::MFace, f, osgVerse::MeshTopology::QVertices);
+    for (size_t j = 0; j < ptOfFace.size(); ++j)
+    {
+        std::vector<uint32_t> faceOfPt = getConnectiveData(
+            osgVerse::MeshTopology::MVertex, ptOfFace[j], osgVerse::MeshTopology::QFaces);
+        for (auto f1 : faceOfPt)
+        {
+            if (faceSet.find(f1) != faceSet.end()) continue;
+            faceSet.insert(f1); addNeighborFaces(faceSet, f1);
+        }
+    }
 }

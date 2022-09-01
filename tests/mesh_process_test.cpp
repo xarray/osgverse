@@ -23,7 +23,19 @@ int main(int argc, char** argv)
     scene->accept(mtv);
 
     osg::ref_ptr<osgVerse::MeshTopology> topology = mtv.generate();
-    //topology->simplify(0.1f);
+    //topology->simplify(0.8f);
+
+    // Remove all small frac
+    std::vector<std::vector<uint32_t>> entities = topology->getEntityFaces();
+    for (size_t i = 0; i < entities.size(); ++i)
+    {
+        std::vector<uint32_t>& faces = entities[i];
+        if (faces.size() > 40) continue;
+
+        for (size_t j = 0; j < faces.size(); ++j)
+            topology->deleteFace(faces[j]);
+    }
+    topology->prune();
 
     osg::ref_ptr<osg::MatrixTransform> topoMT = new osg::MatrixTransform;
     {
@@ -31,7 +43,7 @@ int main(int argc, char** argv)
         topoGeode->addDrawable(topology->output());
         topoGeode->setStateSet(mtv.getMergedStateSet());
         topoMT->addChild(topoGeode.get());
-        topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 100.0f));
+        topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 50.0f));
     }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
