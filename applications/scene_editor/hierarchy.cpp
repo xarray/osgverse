@@ -16,6 +16,8 @@ public:
     HierarchyVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
     std::stack<osg::ref_ptr<TreeView::TreeData>> _itemStack;
 
+    // TODO: display shared nodes (like prefab in Unity)
+    //       display locked/hidden
     virtual void apply(osg::Node& node)
     {
         TreeView::TreeData* treeItem = new TreeView::TreeData;
@@ -70,7 +72,7 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
             importItem.callback = [](ImGuiManager*, ImGuiContentHandler*,
                                      ImGuiComponentBase* me)
             {
-                // TODO: file dialog
+                // TODO: file dialog, parent node of model
                 Hierarchy* h = static_cast<Hierarchy*>(me->userData.get());
                 CommandBuffer::instance()->add(LoadModelCommand,
                     h->_sceneRoot.get(), std::string("spaceship.osgt"));

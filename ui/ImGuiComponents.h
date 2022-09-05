@@ -49,7 +49,7 @@ namespace osgVerse
                                         ImGuiComponentBase*, const std::string&);
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual void showEnd() { /* nothing to do by default */ }
-        virtual void showTooltip(const std::string& desc, float wrapPos = 10.0f);
+        virtual void showTooltip(const std::string& desc, const std::string& t = "(?)", float wrapPos = 10.0f);
         std::string TR(const std::string& s);  // multi-language support
         osg::ref_ptr<osg::Referenced> userData;
 

@@ -67,6 +67,9 @@ namespace osgVerse
         /** Get all entities, each as a face index list */
         std::vector<std::vector<uint32_t>> getEntityFaces() const;
 
+        /** Get vertex data of the given index list */
+        std::vector<osg::Vec3> getVertexData(TopologyType t, const std::vector<uint32_t>& v);
+
         /** Topological operations */
         void splitEdge(uint32_t idx, const osg::Vec3& pt);
         void splitFace(uint32_t idx, const osg::Vec3& pt);

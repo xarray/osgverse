@@ -314,6 +314,34 @@ std::vector<std::vector<uint32_t>> MeshTopology::getEntityFaces() const
     return entityList;
 }
 
+std::vector<osg::Vec3> MeshTopology::getVertexData(TopologyType t, const std::vector<uint32_t>& v)
+{
+    pmp::VertexProperty<pmp::Point> points = _mesh->get_vertex_property<pmp::Point>("v:point");
+    std::vector<pmp::Point>& pts = points.vector(); std::set<osg::Vec3> vertices;
+    switch (t)
+    {
+    case MVertex:
+        for (size_t i = 0; i < v.size(); ++i)
+        {
+            const pmp::Point& pt = pts[v[i]];
+            vertices.insert(osg::Vec3(pt[0], pt[1], pt[2]));
+        }
+        break;
+    case MHalfEdge: case MEdge: case MFace:
+        for (size_t i = 0; i < v.size(); ++i)
+        {
+            std::vector<uint32_t> connData = getConnectiveData(t, v[i], QVertices);
+            for (size_t j = 0; j < connData.size(); ++j)
+            {
+                const pmp::Point& pt = pts[connData[j]];
+                vertices.insert(osg::Vec3(pt[0], pt[1], pt[2]));
+            }
+        }
+        break;
+    }
+    return std::vector<osg::Vec3>(vertices.begin(), vertices.end());
+}
+
 bool MeshTopology::simplify(float percentage, int aspectRatio, int normalDeviation)
 {
     try
@@ -400,7 +428,20 @@ void MeshTopology::addNeighborFaces(std::set<uint32_t>& faceSet, uint32_t f) con
         for (auto f1 : faceOfPt)
         {
             if (faceSet.find(f1) != faceSet.end()) continue;
-            faceSet.insert(f1); addNeighborFaces(faceSet, f1);
-        }
+            faceSet.insert(f1); //addNeighborFaces(faceSet, f1);  // expand one more to avoid overflow
+
+            std::vector<uint32_t> ptOfFace2 = getConnectiveData(
+                osgVerse::MeshTopology::MFace, f1, osgVerse::MeshTopology::QVertices);
+            for (size_t k = 0; k < ptOfFace2.size(); ++k)
+            {
+                std::vector<uint32_t> faceOfPt2 = getConnectiveData(
+                    osgVerse::MeshTopology::MVertex, ptOfFace2[j], osgVerse::MeshTopology::QFaces);
+                for (auto f2 : faceOfPt)
+                {
+                    if (faceSet.find(f2) != faceSet.end()) continue;
+                    faceSet.insert(f2); addNeighborFaces(faceSet, f2);
+                }
+            }
+        }  // for (auto f1 : faceOfPt)
     }
 }

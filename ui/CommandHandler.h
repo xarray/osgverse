@@ -12,20 +12,24 @@ namespace osgVerse
     enum CommandType
     {
         CommandToScene = 0,
-        LoadModelCommand,
+        SelectItemCommand,       // TODO: node/item, string/select-behaviour
+        MoveItemCommand,         // TODO: node/parent, node/item-added, bool/to-delete
+        TransformCommand,        // TODO: node/item, matrix/transformation
+        LoadModelCommand,        // node/parent, string/file-name
 
         CommandToUI = 100,
-        RefreshHierarchy,
+        RefreshHierarchy,        // node/parent, node/item-added, bool/to-delete (TODO)
+        RefreshProperties,       // TODO: node/item, string/component-name
     };
 
     struct CommandData
     {
         osg::observer_ptr<osg::Object> object;
-        std::any value; CommandType type;
+        std::any value, valueEx; CommandType type;
 
-        template<typename T> bool get(T& v)
+        template<typename T> bool get(T& v, int i = 0)
         {
-            try { v = std::any_cast<T>(value); return true; }
+            try { v = std::any_cast<T>(i == 0 ? value : valueEx); return true; }
             catch (std::bad_any_cast&) {} return false;
         }
     };
@@ -35,6 +39,7 @@ namespace osgVerse
     public:
         static CommandBuffer* instance();
         void add(CommandType t, osg::Object* n, const std::any& value);
+        void add(CommandType t, osg::Object* n, const std::any& v0, const std::any& v1);
         bool take(CommandData& c, bool fromSceneHandler);
 
     protected:

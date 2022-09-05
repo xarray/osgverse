@@ -32,7 +32,7 @@ public:
 
     virtual void runInternal(osgVerse::ImGuiManager* mgr)
     {
-        ImGui::PushFont(ImGuiFonts["LXGWWenKaiLite-Regular"]);
+        ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
         handleCommands();
 
         // TODO: auto layout
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
     root->addChild(sceneRoot.get());
 
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont("../misc/LXGWWenKaiLite-Regular.ttf");
+    imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
     imgui->initialize(new EditorContentHandler(viewer.getCamera(), sceneRoot.get()));
     imgui->addToView(&viewer);
 

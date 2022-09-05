@@ -35,9 +35,9 @@ void ImGuiComponentBase::adjustLine(bool newLine, bool sep, float indentX, float
     if (sep) ImGui::Separator();
 }
 
-void ImGuiComponentBase::showTooltip(const std::string& desc, float wrapPos)
+void ImGuiComponentBase::showTooltip(const std::string& desc, const std::string& t, float wrapPos)
 {
-    ImGui::SameLine(); ImGui::TextDisabled(TR("(?)").c_str());
+    ImGui::SameLine(); ImGui::TextDisabled(TR(t).c_str());
     if (ImGui::IsItemHovered())
     {
         ImGui::BeginTooltip();

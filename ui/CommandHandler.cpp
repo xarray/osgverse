@@ -16,8 +16,16 @@ CommandBuffer* CommandBuffer::instance()
 void CommandBuffer::add(CommandType t, osg::Object* n, const std::any& value)
 {
     _mutex.lock();
-    if (t < CommandToUI) _bufferToScene.push_back(CommandData{ n, value, t });
-    else _bufferToUI.push_back(CommandData{ n, value, t });
+    if (t < CommandToUI) _bufferToScene.push_back(CommandData{ n, value, (int)0, t });
+    else _bufferToUI.push_back(CommandData{ n, value, (int)0, t });
+    _mutex.unlock();
+}
+
+void CommandBuffer::add(CommandType t, osg::Object* n, const std::any& v0, const std::any& v1)
+{
+    _mutex.lock();
+    if (t < CommandToUI) _bufferToScene.push_back(CommandData{ n, v0, v1, t });
+    else _bufferToUI.push_back(CommandData{ n, v0, v1, t });
     _mutex.unlock();
 }
 
