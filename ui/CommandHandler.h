@@ -12,14 +12,15 @@ namespace osgVerse
     enum CommandType
     {
         CommandToScene = 0,
-        SelectItemCommand,       // TODO: node/item, string/select-behaviour
-        MoveItemCommand,         // TODO: node/parent, node/item-added, bool/to-delete
-        TransformCommand,        // TODO: node/item, matrix/transformation
-        LoadModelCommand,        // node/parent, string/file-name
+        SelectItemCommand,       // TODO: [node]item, [string]select-behaviour
+        ChangeItemCommand,       // TODO: [node]parent, [node]item-added, [bool]to-delete
+        TransformCommand,        // TODO: [node]item, [matrix]transformation
+        HighlightModelCommand,   // TODO: [node]item, [string]component-name
+        LoadModelCommand,        // [node]parent, [string]file-name
 
         CommandToUI = 100,
-        RefreshHierarchy,        // node/parent, node/item-added, bool/to-delete (TODO)
-        RefreshProperties,       // TODO: node/item, string/component-name
+        RefreshHierarchy,        // [node]parent, [node]item-added, [bool]to-delete (TODO)
+        RefreshProperties,       // TODO: [node]item, [string]component-name
     };
 
     struct CommandData

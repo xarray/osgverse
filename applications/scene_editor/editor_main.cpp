@@ -54,6 +54,10 @@ public:
                 if (!_hierarchy->handleCommand(&cmd))
                     OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy" << std::endl;
                 break;
+            case osgVerse::RefreshProperties:
+                if (!_properties->handleCommand(&cmd))
+                    OSG_WARN << "[EditorContentHandler] Failed to refresh properties" << std::endl;
+                break;
             }
         }
     }

@@ -18,7 +18,7 @@ SET(APPROXMVBB_SOURCE_FILES
     ApproxMVBB/Common/CPUTimer.hpp ApproxMVBB/Common/CygwinPatch.hpp
     ApproxMVBB/Common/Exception.hpp ApproxMVBB/Common/FloatingPointComparision.hpp
     ApproxMVBB/Common/LogDefines.hpp ApproxMVBB/Common/MyContainerTypeDefs.hpp
-    ApproxMVBB/Common/MyMatrixTypeDefs.cpp ApproxMVBB/Common/MyMatrixTypeDefs.hpp
+    ApproxMVBB/Common/MyMatrixTypeDefs.cpp ApproxMVBB/Common/MyMatrixTypeDebfs.hpp
     ApproxMVBB/Common/Platform.hpp ApproxMVBB/Common/SfinaeMacros.hpp
     ApproxMVBB/Common/StaticAssert.hpp ApproxMVBB/Common/TypeDefs.hpp
     ApproxMVBB/Common/TypeDefsPoints.hpp ApproxMVBB/Diameter/alloc.cpp
@@ -123,8 +123,8 @@ SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 
 SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
-	tinyexr.cc tinyexr.h tiny_obj_loader.cc tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h
-    miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h nanoflann.hpp exprtk.hpp
+	tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h nanoflann.hpp exprtk.hpp
+    tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h
     laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${LASZIP_SOURCE_FILES}

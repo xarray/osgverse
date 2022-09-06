@@ -6,10 +6,14 @@
 #include <ui/ImGui.h>
 #include <ui/ImGuiComponents.h>
 
+namespace osgVerse
+{ struct CommandData; }
+
 class Properties : public osgVerse::ImGuiComponentBase
 {
 public:
     Properties(osg::Camera* camera, osg::MatrixTransform* mt);
+    bool handleCommand(osgVerse::CommandData* cmd);
     virtual bool show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler* content);
 
 protected:

@@ -97,14 +97,16 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
     }
 
     // Selected events:
-    // 1. LMB selects item = show bbox in scene + show data in properties
+    // 1. LMB selects item = show highlighter in scene + show data in properties
     // 2. RMB selects item/empty = show popup window
     // 3. LMB double clicks item = expanded or not
     _treeView->callback = [](ImGuiManager*, ImGuiContentHandler*,
                              ImGuiComponentBase* me, const std::string& id)
     {
-        std::cout << "LMB: " << id << "\n";
-        // TODO
+        TreeView* treeView = static_cast<TreeView*>(me);
+        TreeView::TreeData* item = treeView->findByID(id);
+        CommandBuffer::instance()->add(RefreshProperties,
+            static_cast<osg::Object*>(item->userData.get()), "");
     };
 
     _treeView->callbackR = [](ImGuiManager*, ImGuiContentHandler*,
@@ -117,11 +119,12 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
 
 bool Hierarchy::handleCommand(CommandData* cmd)
 {
-    // Refresh hierarchy:
-    // - cmd->object (parent) must be found in hierarchy
-    // - If cmd->value (node) not found, it is a new subgraph
-    // - If cmd->value (node) found, it is updated
-    // TODO: how to decide DELETE
+    /* Refresh hierarchy:
+       - cmd->object (parent) must be found in hierarchy
+       - If cmd->value (node) not found, it is a new subgraph
+       - If cmd->value (node) found, it is updated
+       - cmd->valueEx (bool): 'node' should be deleted from 'parent' (TODO)
+    */
     osg::Node* node = NULL;
     osg::Group* parent = static_cast<osg::Group*>(cmd->object.get());
     if (!cmd->get(node) || !parent) return false;
