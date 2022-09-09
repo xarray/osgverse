@@ -7,7 +7,10 @@
 #include <ui/ImGuiComponents.h>
 
 namespace osgVerse
-{ struct CommandData; }
+{
+    struct CommandData;
+    class PropertyItem;
+}
 
 class Properties : public osgVerse::ImGuiComponentBase
 {
@@ -21,6 +24,7 @@ protected:
     osg::observer_ptr<osg::MatrixTransform> _sceneRoot;
 
     osg::ref_ptr<osgVerse::Window> _propWindow;
+    std::vector<osg::ref_ptr<osgVerse::PropertyItem>> _properties;
 };
 
 #endif

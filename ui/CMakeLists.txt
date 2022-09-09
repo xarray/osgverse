@@ -3,6 +3,7 @@ SET(LIBRARY_FILES
 	ImGui.cpp ImGui.h ImGui.Styles.h
 	ImGuiComponents.cpp ImGuiComponents.h
 	CommandHandler.cpp CommandHandler.h
+	PropertyInterface.h PropertyInterface.cpp
 )
 
 NEW_LIBRARY(${LIB_NAME} STATIC)

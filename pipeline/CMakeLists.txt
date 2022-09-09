@@ -1,6 +1,6 @@
 SET(LIB_NAME osgVersePipeline)
 SET(LIBRARY_INCLUDE_FILES
-    Pipeline.h DeferredCallback.h ShadowModule.h Utilities.h)
+    Pipeline.h DeferredCallback.h ShadowModule.h Utilities.h Global.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp
 	DeferredCallback.cpp ShadowModule.cpp Utilities.cpp 
