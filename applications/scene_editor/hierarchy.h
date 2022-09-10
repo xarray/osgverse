@@ -14,6 +14,7 @@ class Hierarchy : public osgVerse::ImGuiComponentBase
 public:
     Hierarchy(osg::Camera* camera, osg::MatrixTransform* mt);
     bool handleCommand(osgVerse::CommandData* cmd);
+    bool handleItemCommand(osgVerse::CommandData* cmd);
     virtual bool show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler* content);
 
 protected:

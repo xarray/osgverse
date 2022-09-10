@@ -44,15 +44,15 @@ namespace osgVerse
 
     struct ImGuiComponentBase : public osg::Referenced
     {
-        typedef void (*ActionCallback)(ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*);
-        typedef void (*ActionCallback2)(ImGuiManager*, ImGuiContentHandler*,
-                                        ImGuiComponentBase*, const std::string&);
+        using ActionCallback = std::function<void(ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)>;
+        using ActionCallback2 = std::function<void(ImGuiManager*, ImGuiContentHandler*,
+                                                   ImGuiComponentBase*, const std::string&)>;
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual void showEnd() { /* nothing to do by default */ }
         virtual void showTooltip(const std::string& desc, const std::string& t = "(?)", float wrapPos = 10.0f);
-        std::string TR(const std::string& s);  // multi-language support
         osg::ref_ptr<osg::Referenced> userData;
 
+        static std::string TR(const std::string& s);  // multi-language support
         static void setWidth(float width, bool fromLeft = true);
         static void adjustLine(bool newLine, bool sep = false, float indentX = 0.0f, float indentY = 0.0f);
         static void openFileDialog(const std::string& name, const std::string& title,
@@ -151,7 +151,7 @@ namespace osgVerse
 
     struct InputValueField : public ImGuiComponentBase
     {
-        enum Type { IntValue, FloatValue, DoubleValue } type;
+        enum Type { IntValue, UIntValue, FloatValue, DoubleValue } type;
         std::string name, format, tooltip;
         double value, minValue, maxValue, step;
         ImGuiInputTextFlags flags;

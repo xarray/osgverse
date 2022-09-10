@@ -9,6 +9,8 @@
 
 namespace osgVerse
 {
+    struct ImGuiComponentBase;
+
     class PropertyItem : public osg::Referenced
     {
     public:
@@ -17,11 +19,16 @@ namespace osgVerse
             UnknownType, NodeType, DrawableType, GeometryType,
             MatrixType, PoseType, StateSetType, ComponentType
         };
-        void setTarget(osg::Object* o, TargetType t) { _target = o; _type = t; }
+        void setTarget(osg::Object* o, TargetType t) { _target = o; _type = t; updateTarget(); }
+        osg::Object* getTarget() { return _target.get(); }
+
+        virtual std::string componentName() const
+        { return std::string(!_target ? "?" : _target->className()) + "_PropertyItem"; }
         
-        virtual const char* componentName() const = 0;
-        virtual const char* title() const = 0;
-        virtual bool updateGui(ImGuiManager* mgr, ImGuiContentHandler* content) { return false; }
+        virtual bool needRefreshUI() const { return false; }
+        virtual std::string title() const = 0;
+        virtual void updateTarget(ImGuiComponentBase* c = NULL) = 0;
+        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) { return false; }
 
     protected:
         osg::observer_ptr<osg::Object> _target;

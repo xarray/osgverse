@@ -20,7 +20,8 @@ namespace osgVerse
 
         CommandToUI = 100,
         RefreshHierarchy,        // [node]parent, [node]item-added, [bool]to-delete (TODO)
-        RefreshProperties,       // TODO: [node]item, [string]component-name
+        RefreshHierarchyItem,    // [node]item, [string]value-type
+        RefreshProperties,       // [node]item, [string]component-name
     };
 
     struct CommandData

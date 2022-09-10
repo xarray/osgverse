@@ -52,12 +52,12 @@ bool Properties::handleCommand(CommandData* cmd)
     }
 
     osg::Node* targetN = dynamic_cast<osg::Node*>(cmd->object.get());
-    if (targetN)
+    if (!targetD && targetN)
     {
         PropertyItem* p0 = propManager->getStandardItem(PropertyItemManager::BasicNodeItem);
         if (p0) { p0->setTarget(targetN, PropertyItem::NodeType); _properties.push_back(p0); }
         
-        osg::Transform* targetT = targetD->asTransform();
+        osg::Transform* targetT = targetN->asTransform();
         if (targetT)
         {
             osg::MatrixTransform* targetMT = targetT->asMatrixTransform();
@@ -76,7 +76,7 @@ bool Properties::handleCommand(CommandData* cmd)
         }
 
         stateSet = targetN->getStateSet();
-        callback = dynamic_cast<ComponentCallback*>(targetD->getUpdateCallback());
+        callback = dynamic_cast<ComponentCallback*>(targetN->getUpdateCallback());
     }
 
     if (stateSet != NULL)
@@ -117,13 +117,15 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         for (size_t i = 0; i < _properties.size(); ++i)
         {
-            std::string postfix = "##prop" + std::to_string(i + 1);
             osgVerse::PropertyItem* item = _properties[i];
-            if (ImGui::CollapsingHeader((TR(item->title()) + postfix).c_str()))
+            std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
+            if (ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (!item->updateGui(mgr, content))
-                    OSG_WARN << "[Properties] Failed to update property item "
-                             << item->componentName() << std::endl;
+                if (item->show(mgr, content))
+                {
+                    if (item->needRefreshUI())
+                        CommandBuffer::instance()->add(RefreshHierarchyItem, item->getTarget(), "");
+                }
             }
         }
     }

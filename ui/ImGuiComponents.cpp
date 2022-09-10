@@ -124,7 +124,7 @@ bool Button::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     
     if (repeatable) ImGui::PopButtonRepeat();
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -139,7 +139,7 @@ bool ImageButton::show(ImGuiManager* mgr, ImGuiContentHandler* content)
                                   ImVec2(uv0[0], uv0[1]), ImVec2(uv1[0], uv1[1]));
 
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -147,7 +147,7 @@ bool CheckBox::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = ImGui::CheckboxFlags(name.c_str(), &value, 0xffffffff);
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -163,7 +163,7 @@ bool ComboBox::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         done = ImGui::Combo(name.c_str(), &index, &itemValues[0], (int)items.size());
     
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -178,7 +178,7 @@ bool RadioButtonGroup::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         if (!td.tooltip.empty()) showTooltip(td.tooltip);
     }
 
-    if (lastValue != value) (*callback)(mgr, content, this);
+    if (lastValue != value) callback(mgr, content, this);
     return lastValue != value;
 }
 
@@ -193,7 +193,7 @@ bool InputField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
                                         value.data(), size, flags);
 
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -202,10 +202,11 @@ bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     bool done = false;
     switch (type)
     {
-    case IntValue:
+    case IntValue: case UIntValue:
         {
-            int valueI = (int)value;
+            int valueI = (type == UIntValue) ? (unsigned int)value : (int)value;
             done = ImGui::InputInt(name.c_str(), &valueI, (int)step, (int)step * 5, flags);
+            if (done) value = (double)valueI;
             if (minValue < maxValue) value = osg::clampBetween((double)valueI, minValue, maxValue);
         }
         break;
@@ -215,6 +216,7 @@ bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
             if (format.empty()) format = "%.5f";
             done = ImGui::InputFloat(name.c_str(), &valueF, (float)step, (float)step * 5,
                                      format.c_str(), flags);
+            if (done) value = (double)valueF;
             if (minValue < maxValue) value = osg::clampBetween((double)valueF, minValue, maxValue);
         }
         break;
@@ -226,7 +228,7 @@ bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     }
 
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -241,7 +243,7 @@ bool InputVectorField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         vecValue.set((double)valueF[0], (double)valueF[1], (double)valueF[2], (double)valueF[3]);
 
         if (!tooltip.empty()) showTooltip(tooltip);
-        if (done && callback) (*callback)(mgr, content, this);
+        if (done && callback) callback(mgr, content, this);
         return done;
     }
 
@@ -274,7 +276,7 @@ bool InputVectorField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     }
 
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -318,7 +320,7 @@ bool Slider::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     }
 
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -343,7 +345,7 @@ bool MenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
                     if (selected != mid.selected)
                     {
-                        if (mid.callback) (*mid.callback)(mgr, content, this);
+                        if (mid.callback) (mid.callback)(mgr, content, this);
                         if (!mid.checkable) mid.selected = false;
                     }
                 }
@@ -367,7 +369,7 @@ bool ListView::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         done = ImGui::ListBox(name.c_str(), &index, &itemValues[0], (int)items.size(), rows);
 
     if (!tooltip.empty()) showTooltip(tooltip);
-    if (done && callback) (*callback)(mgr, content, this);
+    if (done && callback) callback(mgr, content, this);
     return done;
 }
 
@@ -430,13 +432,13 @@ void TreeView::showRecursively(TreeData& td, ImGuiManager* mgr, ImGuiContentHand
         if (ImGui::IsItemClicked(0))
         {
             td.flags |= ImGuiTreeNodeFlags_Selected; selectedItemID = td.id;
-            if (callback) (*callback)(mgr, content, this, td.id);
+            if (callback) callback(mgr, content, this, td.id);
         }
         else if (ImGui::IsItemClicked(1))
         {
             td.flags |= ImGuiTreeNodeFlags_Selected; selectedItemID = td.id;
-            if (callback) (*callback)(mgr, content, this, td.id);
-            if (callbackR) (*callbackR)(mgr, content, this, td.id);
+            if (callback) callback(mgr, content, this, td.id);
+            if (callbackR) callbackR(mgr, content, this, td.id);
         }
 
         if (!td.tooltip.empty()) showTooltip(td.tooltip);
@@ -631,6 +633,6 @@ bool Timeline::show(ImGuiManager* mgr, ImGuiContentHandler* content)
               | ImSequencer::SEQUENCER_COPYPASTE | ImSequencer::SEQUENCER_CHANGE_FRAME;
     
     bool done = ImSequencer::Sequencer(seq, &currentFrame, &expanded, &selectedIndex, &firstFrame, flags);
-    if (selectedIndex != -1 && callback) (*callback)(mgr, content, this);
+    if (selectedIndex != -1 && callback) callback(mgr, content, this);
     return done;
 }

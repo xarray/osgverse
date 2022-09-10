@@ -122,7 +122,7 @@ bool Hierarchy::handleCommand(CommandData* cmd)
     /* Refresh hierarchy:
        - cmd->object (parent) must be found in hierarchy
        - If cmd->value (node) not found, it is a new subgraph
-       - If cmd->value (node) found, it is updated
+       - If cmd->value (node) found, it is shared from somewhere else (TODO)
        - cmd->valueEx (bool): 'node' should be deleted from 'parent' (TODO)
     */
     osg::Node* node = NULL;
@@ -135,8 +135,30 @@ bool Hierarchy::handleCommand(CommandData* cmd)
     if (pItems.empty()) return false;
 
     HierarchyVisitor hv;
-    hv._itemStack.push(nItems.empty() ? pItems[0] : nItems[0]);
+    hv._itemStack.push(pItems[0]);
     parent->accept(hv); return true;
+}
+
+bool Hierarchy::handleItemCommand(osgVerse::CommandData* cmd)
+{
+    /* Refresh hierarchy item:
+       - cmd->object (item) must be found in hierarchy
+    */
+    std::string name = cmd->object->getName();
+    osg::Node* node = cmd->object->asNode();
+
+    std::vector<TreeView::TreeData*> nItems = _treeView->findByUserData(cmd->object.get());
+    for (size_t i = 0; i < nItems.size(); ++i)
+    {
+        TreeView::TreeData* td = nItems[i];
+        td->name = (name.empty() ? cmd->object->className() : name) + td->id;
+        if (node)
+        {
+            unsigned int mask = node->getNodeMask();
+            // TODO: show visible state on item
+        }
+    }
+    return true;
 }
 
 bool Hierarchy::show(ImGuiManager* mgr, ImGuiContentHandler* content)
