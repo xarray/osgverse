@@ -75,7 +75,7 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
                 // TODO: file dialog, parent node of model
                 Hierarchy* h = static_cast<Hierarchy*>(me->userData.get());
                 CommandBuffer::instance()->add(LoadModelCommand,
-                    h->_sceneRoot.get(), std::string("spaceship.osgt"));
+                    h->_sceneRoot.get(), std::string("UH-60A/UH-60A.osgb"));
             };
             assetMenu.items.push_back(importItem);
         }

@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
@@ -55,8 +56,54 @@ public:
         }
     }
 
+    osg::BoundingBox getBoundingBox()
+    {
+        osg::BoundingBox bb, bbW; osg::ref_ptr<osg::RefMatrix> l2w;
+        if (_type == NodeType)
+        {
+            osg::Node* n = static_cast<osg::Node*>(_target.get());
+            osg::ComputeBoundsVisitor cbv; n->accept(cbv);
+            if (n->getNumParents() > 0)
+                l2w = new osg::RefMatrix(n->getParent(0)->getWorldMatrices()[0]);
+            bb = cbv.getBoundingBox();
+        }
+        else if (_type == DrawableType)
+        {
+            osg::Drawable* d = static_cast<osg::Drawable*>(_target.get());
+            if (d->getNumParents() > 0)
+                l2w = new osg::RefMatrix(d->getParent(0)->getWorldMatrices()[0]);
+            bb = d->getBoundingBox();
+        }
+
+        if (!l2w) return bb;
+        bbW.expandBy(bb.corner(0) * (*l2w)); bbW.expandBy(bb.corner(1) * (*l2w));
+        bbW.expandBy(bb.corner(2) * (*l2w)); bbW.expandBy(bb.corner(3) * (*l2w));
+        bbW.expandBy(bb.corner(4) * (*l2w)); bbW.expandBy(bb.corner(5) * (*l2w));
+        bbW.expandBy(bb.corner(6) * (*l2w)); bbW.expandBy(bb.corner(7) * (*l2w)); return bbW;
+    }
+
     virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
+        if (_camera.valid() && _target.valid())
+        {
+            ImGuiIO& io = ImGui::GetIO(); ImDrawList* drawer = ImGui::GetBackgroundDrawList();
+            osg::Matrixf vpw = _camera->getViewMatrix() * _camera->getProjectionMatrix()
+                             * osg::Matrix::translate(1.0f, 1.0f, 1.0f)
+                             * osg::Matrix::scale(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f, 0.5f)
+                             * osg::Matrix::translate(0.0f, 0.0f, 0.0f);
+            osg::BoundingBox bb = getBoundingBox();
+
+            osg::Vec2 vMin(9999.0f, 9999.0f), vMax(-9999.0f, -9999.0f);
+            for (int i = 0; i < 8; ++i)
+            {
+                osg::Vec3 v = bb.corner(i) * vpw; v[1] = io.DisplaySize.y - v[1];
+                if (v[0] < vMin[0]) vMin[0] = v[0]; if (v[0] > vMax[0]) vMax[0] = v[0];
+                if (v[1] < vMin[1]) vMin[1] = v[1]; if (v[1] > vMax[1]) vMax[1] = v[1];
+            }
+            drawer->AddRect(ImVec2(vMin[0], vMin[1]), ImVec2(vMax[0], vMax[1]), IM_COL32(0, 255, 0, 100));
+            //ImGuizmo::DrawGrid(view.ptr(), proj.ptr(), _initMatrix.ptr(), 10.0f);
+        }
+
         bool updated = _name->show(mgr, content);
         if (_type == NodeType) updated |= _mask->show(mgr, content);
         return updated;
@@ -65,6 +112,7 @@ public:
 protected:
     osg::ref_ptr<InputField> _name;
     osg::ref_ptr<InputValueField> _mask;
+    osg::Matrixf _initMatrix;
 };
 
 class TransformPropertyItem : public PropertyItem
@@ -167,6 +215,8 @@ public:
         {
             osg::Matrixf view(_camera->getViewMatrix()), proj(_camera->getProjectionMatrix());
             ImGuiIO& io = ImGui::GetIO(); ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+            ImGuizmo::AllowAxisFlip(false);
+
             update3 = ImGuizmo::Manipulate(view.ptr(), proj.ptr(), _gizmoOperation, _gizmoMode,
                                            _matrix.ptr(), NULL, NULL/*(useSnap ? snapVec.ptr() : NULL)*/);
             if (update3) updateTarget(_methods);
@@ -177,6 +227,7 @@ public:
 protected:
     osg::ref_ptr<RadioButtonGroup> _methods, _coordinates;
     osg::ref_ptr<InputVectorField> _translation, _euler, _scale;
+    osg::ref_ptr<CheckBox> _showBox;
     osg::Matrixf _matrix;
     ImGuizmo::OPERATION _gizmoOperation;
     ImGuizmo::MODE _gizmoMode;

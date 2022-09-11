@@ -38,7 +38,11 @@ bool Properties::handleCommand(CommandData* cmd)
     if (targetD)
     {
         PropertyItem* p0 = propManager->getStandardItem(PropertyItemManager::BasicDrawableItem);
-        if (p0) { p0->setTarget(targetD, PropertyItem::DrawableType); _properties.push_back(p0); }
+        if (p0)
+        {
+            p0->setTarget(targetD, PropertyItem::DrawableType);
+            p0->setCamera(_camera.get()); _properties.push_back(p0);
+        }
 
         osg::Geometry* targetG = targetD->asGeometry();
         if (targetG)
@@ -55,7 +59,11 @@ bool Properties::handleCommand(CommandData* cmd)
     if (!targetD && targetN)
     {
         PropertyItem* p0 = propManager->getStandardItem(PropertyItemManager::BasicNodeItem);
-        if (p0) { p0->setTarget(targetN, PropertyItem::NodeType); _properties.push_back(p0); }
+        if (p0)
+        {
+            p0->setTarget(targetN, PropertyItem::NodeType);
+            p0->setCamera(_camera.get()); _properties.push_back(p0);
+        }
         
         osg::Transform* targetT = targetN->asTransform();
         if (targetT)
