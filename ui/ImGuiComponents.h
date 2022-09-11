@@ -169,7 +169,7 @@ namespace osgVerse
         int vecNumber; bool asColor;
         // flags = ImGuiColorEditFlags
 
-        template<typename T> void setVector(const T& vec) const
+        template<typename T> void setVector(const T& vec)
         {
             int num = std::min<int>(vec.num_components, vecNumber);
             for (int i = 0; i < num; ++i) vecValue[i] = (double)vec[i];

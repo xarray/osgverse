@@ -64,15 +64,30 @@ bool Properties::handleCommand(CommandData* cmd)
             if (targetMT)
             {
                 PropertyItem* p1 = propManager->getStandardItem(PropertyItemManager::TransformItem);
-                if (p1) { p1->setTarget(targetMT, PropertyItem::MatrixType); _properties.push_back(p1); }
+                if (p1)
+                {
+                    p1->setTarget(targetMT, PropertyItem::MatrixType);
+                    p1->setCamera(_camera.get()); _properties.push_back(p1);
+                }
             }
 
             osg::PositionAttitudeTransform* targetPT = targetT->asPositionAttitudeTransform();
             if (targetPT)
             {
                 PropertyItem* p1 = propManager->getStandardItem(PropertyItemManager::TransformItem);
-                if (p1) { p1->setTarget(targetPT, PropertyItem::PoseType); _properties.push_back(p1); }
+                if (p1)
+                {
+                    p1->setTarget(targetPT, PropertyItem::PoseType);
+                    p1->setCamera(_camera.get()); _properties.push_back(p1);
+                }
             }
+        }
+
+        osg::Camera* targetCam = targetN->asCamera();
+        if (targetCam)
+        {
+            PropertyItem* p1 = propManager->getStandardItem(PropertyItemManager::CameraItem);
+            if (p1) { p1->setTarget(targetCam, PropertyItem::CameraType); _properties.push_back(p1); }
         }
 
         stateSet = targetN->getStateSet();

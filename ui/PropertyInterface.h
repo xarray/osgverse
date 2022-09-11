@@ -16,11 +16,14 @@ namespace osgVerse
     public:
         enum TargetType
         {
-            UnknownType, NodeType, DrawableType, GeometryType,
+            UnknownType, NodeType, DrawableType, CameraType, GeometryType,
             MatrixType, PoseType, StateSetType, ComponentType
         };
         void setTarget(osg::Object* o, TargetType t) { _target = o; _type = t; updateTarget(); }
         osg::Object* getTarget() { return _target.get(); }
+
+        void setCamera(osg::Camera* c) { _camera = c; }
+        osg::Camera* getCamera() { return _camera.get(); }
 
         virtual std::string componentName() const
         { return std::string(!_target ? "?" : _target->className()) + "_PropertyItem"; }
@@ -32,6 +35,7 @@ namespace osgVerse
 
     protected:
         osg::observer_ptr<osg::Object> _target;
+        osg::observer_ptr<osg::Camera> _camera;
         TargetType _type;
     };
 
@@ -42,7 +46,7 @@ namespace osgVerse
 
         enum StandardItemType
         {
-            BasicNodeItem, BasicDrawableItem, TransformItem, GeometryItem,
+            BasicNodeItem, BasicDrawableItem, CameraItem, TransformItem, GeometryItem,
             TextureItem, ShaderItem, UniformItem, AttributeItem
         };
         PropertyItem* getStandardItem(StandardItemType t);

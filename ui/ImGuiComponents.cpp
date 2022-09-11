@@ -178,7 +178,7 @@ bool RadioButtonGroup::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         if (!td.tooltip.empty()) showTooltip(td.tooltip);
     }
 
-    if (lastValue != value) callback(mgr, content, this);
+    if (lastValue != value && callback) callback(mgr, content, this);
     return lastValue != value;
 }
 

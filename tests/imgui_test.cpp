@@ -36,7 +36,7 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
     {
         ImTextureID icon = ImGuiTextures["icon"];
         const ImGuiViewport* view = ImGui::GetMainViewport();
-        ImGui::PushFont(ImGuiFonts["LXGWWenKaiLite-Regular"]);
+        ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
         int xPos = 0, yPos = 0;
         int flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                   | ImGuiWindowFlags_NoCollapse;
@@ -186,7 +186,7 @@ int main(int argc, char** argv)
 
     // The ImGui setup
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont("../misc/LXGWWenKaiLite-Regular.ttf");
+    imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
     imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()));
     imgui->addToView(&viewer);
