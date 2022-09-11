@@ -1,4 +1,4 @@
-﻿# define IMGUI_DEFINE_MATH_OPERATORS
+# define IMGUI_DEFINE_MATH_OPERATORS
 # include "imgui_canvas.h"
 # include <type_traits>
 
@@ -101,8 +101,13 @@ bool ImGuiEx::Canvas::Begin(ImGuiID id, const ImVec2& size)
 
     UpdateViewTransformPosition();
 
+# if IMGUI_VERSION_NUM > 18415
+    if (ImGui::IsClippedEx(m_WidgetRect, id))
+        return false;
+# else
     if (ImGui::IsClippedEx(m_WidgetRect, id, false))
         return false;
+# endif
 
     // Save current channel, so we can assert when user
     // call canvas API with different one.
@@ -110,7 +115,7 @@ bool ImGuiEx::Canvas::Begin(ImGuiID id, const ImVec2& size)
 
     // #debug: Canvas content.
     //m_DrawList->AddRectFilled(m_StartPos, m_StartPos + m_CurrentSize, IM_COL32(0, 0, 0, 64));
-    m_DrawList->AddRect(m_WidgetRect.Min, m_WidgetRect.Max, IM_COL32(255, 0, 255, 64));
+    //m_DrawList->AddRect(m_WidgetRect.Min, m_WidgetRect.Max, IM_COL32(255, 0, 255, 64));
 
     ImGui::SetCursorScreenPos(ImVec2(0.0f, 0.0f));
 
@@ -120,6 +125,9 @@ bool ImGuiEx::Canvas::Begin(ImGuiID id, const ImVec2& size)
 
     SaveInputState();
     SaveViewportState();
+
+    // Record cursor max to prevent scrollbars from appearing.
+    m_WindowCursorMaxBackup = ImGui::GetCurrentWindow()->DC.CursorMaxPos;
 
     EnterLocalSpace();
 
@@ -151,6 +159,10 @@ void ImGuiEx::Canvas::End()
     IM_ASSERT(m_SuspendCounter == 0);
 
     LeaveLocalSpace();
+
+    ImGui::GetCurrentWindow()->DC.CursorMaxPos = m_WindowCursorMaxBackup;
+
+    ImGui::SetItemAllowOverlap();
 
     // Emit dummy widget matching bounds of the canvas.
     ImGui::SetCursorScreenPos(m_WidgetPosition);
@@ -330,9 +342,6 @@ void ImGuiEx::Canvas::SaveInputState()
     m_MousePosPrevBackup = io.MousePosPrev;
     for (auto i = 0; i < IM_ARRAYSIZE(m_MouseClickedPosBackup); ++i)
         m_MouseClickedPosBackup[i] = io.MouseClickedPos[i];
-
-    // Record cursor max to prevent scrollbars from appearing.
-    m_WindowCursorMaxBackup = ImGui::GetCurrentWindow()->DC.CursorMaxPos;
 }
 
 void ImGuiEx::Canvas::RestoreInputState()
@@ -342,26 +351,43 @@ void ImGuiEx::Canvas::RestoreInputState()
     io.MousePosPrev = m_MousePosPrevBackup;
     for (auto i = 0; i < IM_ARRAYSIZE(m_MouseClickedPosBackup); ++i)
         io.MouseClickedPos[i] = m_MouseClickedPosBackup[i];
-    ImGui::GetCurrentWindow()->DC.CursorMaxPos = m_WindowCursorMaxBackup;
 }
 
 void ImGuiEx::Canvas::SaveViewportState()
 {
 # if defined(IMGUI_HAS_VIEWPORT)
+    auto window = ImGui::GetCurrentWindow();
     auto viewport = ImGui::GetWindowViewport();
 
+    m_WindowPosBackup = window->Pos;
     m_ViewportPosBackup = viewport->Pos;
     m_ViewportSizeBackup = viewport->Size;
+# if IMGUI_VERSION_NUM > 18002
+    m_ViewportWorkPosBackup = viewport->WorkPos;
+    m_ViewportWorkSizeBackup = viewport->WorkSize;
+# else
+    m_ViewportWorkOffsetMinBackup = viewport->WorkOffsetMin;
+    m_ViewportWorkOffsetMaxBackup = viewport->WorkOffsetMax;
+# endif
 # endif
 }
 
 void ImGuiEx::Canvas::RestoreViewportState()
 {
 # if defined(IMGUI_HAS_VIEWPORT)
+    auto window = ImGui::GetCurrentWindow();
     auto viewport = ImGui::GetWindowViewport();
 
+    window->Pos = m_WindowPosBackup;
     viewport->Pos = m_ViewportPosBackup;
     viewport->Size = m_ViewportSizeBackup;
+# if IMGUI_VERSION_NUM > 18002
+    viewport->WorkPos = m_ViewportWorkPosBackup;
+    viewport->WorkSize = m_ViewportWorkSizeBackup;
+# else
+    viewport->WorkOffsetMin = m_ViewportWorkOffsetMinBackup;
+    viewport->WorkOffsetMax = m_ViewportWorkOffsetMaxBackup;
+# endif
 # endif
 }
 
@@ -407,6 +433,9 @@ void ImGuiEx::Canvas::EnterLocalSpace()
     m_DrawListStartVertexIndex       = m_DrawList->_VtxCurrentIdx + ImVtxOffsetRef(m_DrawList);
 
 # if defined(IMGUI_HAS_VIEWPORT)
+    auto window = ImGui::GetCurrentWindow();
+    window->Pos = ImVec2(0.0f, 0.0f);
+
     auto viewport_min = m_ViewportPosBackup;
     auto viewport_max = m_ViewportPosBackup + m_ViewportSizeBackup;
 
@@ -418,6 +447,14 @@ void ImGuiEx::Canvas::EnterLocalSpace()
     auto viewport = ImGui::GetWindowViewport();
     viewport->Pos  = viewport_min;
     viewport->Size = viewport_max - viewport_min;
+
+# if IMGUI_VERSION_NUM > 18002
+    viewport->WorkPos  = m_ViewportWorkPosBackup  * m_View.InvScale;
+    viewport->WorkSize = m_ViewportWorkSizeBackup * m_View.InvScale;
+# else
+    viewport->WorkOffsetMin = m_ViewportWorkOffsetMinBackup * m_View.InvScale;
+    viewport->WorkOffsetMax = m_ViewportWorkOffsetMaxBackup * m_View.InvScale;
+# endif
 # endif
 
     // Clip rectangle in parent canvas space and move it to local space.

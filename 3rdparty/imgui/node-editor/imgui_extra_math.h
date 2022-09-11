@@ -1,4 +1,6 @@
 //------------------------------------------------------------------------------
+// VERSION 0.9.1
+//
 // LICENSE
 //   This software is dual-licensed to the public domain and under the following
 //   license: you are granted a perpetual, irrevocable license to copy, modify,
@@ -13,11 +15,11 @@
 
 
 //------------------------------------------------------------------------------
-# include <imgui/imgui.h>
+# include <imgui.h>
 # ifndef IMGUI_DEFINE_MATH_OPERATORS
 #     define IMGUI_DEFINE_MATH_OPERATORS
 # endif
-# include <imgui/imgui_internal.h>
+# include <imgui_internal.h>
 
 
 //------------------------------------------------------------------------------

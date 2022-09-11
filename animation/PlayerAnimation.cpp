@@ -311,7 +311,7 @@ public:
         AnimationSampler() : weight(0.0f), playbackSpeed(1.0f), timeRatio(-1.0f),
                              startTime(0.0f), resetTimeRatio(true), looping(false) {}
         ozz::animation::Animation animation;
-        ozz::animation::SamplingCache cache;
+        //ozz::animation::SamplingCache cache;
         ozz::vector<ozz::math::SoaTransform> locals;
         ozz::vector<ozz::math::SimdFloat4> jointWeights;
         float weight, playbackSpeed, timeRatio, startTime;
@@ -385,7 +385,7 @@ bool PlayerAnimation::loadAnimation(const std::string& key, const std::string& a
         return false;
     }
 
-    sampler.cache.Resize(num_joints);
+    //sampler.cache.Resize(num_joints);
     sampler.locals.resize(ozz->_skeleton.num_soa_joints());
     if (ozz->_animations.size() > 1) sampler.weight = 0.0f;
     else sampler.weight = 1.0f;  // by default only the first animation is full weighted
@@ -442,7 +442,7 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
         // Sample animation data to its local space
         ozz::animation::SamplingJob samplingJob;
         samplingJob.animation = &(sampler.animation);
-        samplingJob.cache = &(sampler.cache);
+        //samplingJob.cache = &(sampler.cache);
         samplingJob.ratio = osg::clampBetween(sampler.timeRatio, 0.0f, 1.0f);
         samplingJob.output = ozz::make_span(sampler.locals);
         if (!samplingJob.Run()) return false;
@@ -452,7 +452,7 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
     ozz::animation::BlendingJob blendJob;
     blendJob.threshold = _blendingThreshold;
     blendJob.layers = ozz::make_span(layers);
-    blendJob.bind_pose = ozz->_skeleton.joint_bind_poses();
+    blendJob.rest_pose = ozz->_skeleton.joint_rest_poses();
     blendJob.output = ozz::make_span(ozz->_blended_locals);
     if (!blendJob.Run()) return false;
 
@@ -658,7 +658,7 @@ osg::BoundingBox PlayerAnimation::computeSkeletonBounds() const
 
     // Compute model space bind pose.
     ozz::animation::LocalToModelJob job;
-    job.input = ozz->_skeleton.joint_bind_poses();
+    job.input = ozz->_skeleton.joint_rest_poses();
     job.output = ozz::make_span(models);
     job.skeleton = &(ozz->_skeleton);
     if (job.Run())

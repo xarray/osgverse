@@ -82,16 +82,13 @@ bool Properties::handleCommand(CommandData* cmd)
     if (stateSet != NULL)
     {
         PropertyItem* p2 = propManager->getStandardItem(PropertyItemManager::TextureItem);
-        if (p2 && stateSet->getNumTextureAttributeLists() > 0)
-        { p2->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p2); }
+        if (p2) { p2->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p2); }
 
         PropertyItem* p3 = propManager->getStandardItem(PropertyItemManager::ShaderItem);
-        if (p3 && stateSet->getAttribute(osg::StateAttribute::PROGRAM) != NULL)
-        { p3->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p3); }
+        if (p3) { p3->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p3); }
 
         PropertyItem* p4 = propManager->getStandardItem(PropertyItemManager::UniformItem);
-        if (p4 && !stateSet->getUniformList().empty())
-        { p4->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p4); }
+        if (p4) { p4->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p4); }
 
         PropertyItem* p5 = propManager->getStandardItem(PropertyItemManager::AttributeItem);
         if (p5) { p5->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p5); }
