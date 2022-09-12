@@ -12,11 +12,10 @@ namespace osgVerse
     enum CommandType
     {
         CommandToScene = 0,
-        SelectItemCommand,       // TODO: [node]item, [string]select-behaviour
-        ChangeItemCommand,       // TODO: [node]parent, [node]item-added, [bool]to-delete
+        SetNodeCommand,          // TODO: [node]parent, [node]item-added, [bool]to-delete
+        SetValueCommand,         // TODO: [node]item, [string]key, [any]value
         TransformCommand,        // TODO: [node]item, [matrix]transformation
-        HighlightModelCommand,   // TODO: [node]item, [string]component-name
-        LoadModelCommand,        // [node]parent, [string]file-name
+        LoadModelCommand,        // [node]parent, [string]url
 
         CommandToUI = 100,
         RefreshHierarchy,        // [node]parent, [node]item-added, [bool]to-delete (TODO)
@@ -40,8 +39,11 @@ namespace osgVerse
     {
     public:
         static CommandBuffer* instance();
-        void add(CommandType t, osg::Object* n, const std::any& value);
-        void add(CommandType t, osg::Object* n, const std::any& v0, const std::any& v1);
+        bool canMerge(const std::list<CommandData>& cList, CommandType t, osg::Object* n) const;
+        void mergeCommand(std::list<CommandData>& cList, CommandType t, osg::Object* n,
+                          const std::any& v0, const std::any& v1);
+
+        void add(CommandType t, osg::Object* n, const std::any& v0, const std::any& v1 = (int)0);
         bool take(CommandData& c, bool fromSceneHandler);
 
     protected:

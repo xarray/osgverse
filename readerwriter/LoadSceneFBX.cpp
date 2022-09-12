@@ -311,9 +311,11 @@ namespace osgVerse
                 {
                     fileName = osgDB::getSimpleFileName(originalName);
                     image = osgDB::readImageFile(_workingDir + fileName);
+                    originalName = _workingDir + fileName;
                 }
 
                 if (!image) continue;
+                if (ext == "dds" || ext == "DDS") image->flipVertical();  // FIXME: optional?
                 tex2D->setImage(image.get());
                 tex2D->setName(originalName);
 

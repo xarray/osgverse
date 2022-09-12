@@ -51,7 +51,7 @@ public:
                                           osgVerse::ImGuiComponentBase* me)
                 {
                     // TODO: file dialog
-                    _hierarchy->addModelFromUrl("UH-60A/UH-60A.osgb");
+                    _hierarchy->addModelFromUrl("UH-60A/UH-60A.fbx");
                 };
                 assetMenu.items.push_back(importItem);
             }

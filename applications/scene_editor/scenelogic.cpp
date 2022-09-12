@@ -11,7 +11,7 @@ SceneLogic::SceneLogic(osg::Camera* cam, osg::MatrixTransform* mt)
     _logicWindow->pos = osg::Vec2(0, 780);
     _logicWindow->sizeMin = osg::Vec2(1920, 300);
     _logicWindow->sizeMax = osg::Vec2(1920, 800);
-    _logicWindow->alpha = 0.8f;
+    _logicWindow->alpha = 0.9f;
     _logicWindow->useMenuBar = false;
     _logicWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar
                         | ImGuiWindowFlags_NoTitleBar;

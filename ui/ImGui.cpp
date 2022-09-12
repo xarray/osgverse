@@ -197,7 +197,7 @@ struct ImGuiNewFrameCallback : public CameraDrawCallback
                 io.MouseDown[0] = handler->_mousePressed[0];
                 io.MouseDown[1] = handler->_mousePressed[1];
                 io.MouseDown[2] = handler->_mousePressed[2];
-                io.MouseWheel = handler->_mouseWheel;
+                io.MouseWheel = handler->_mouseWheel; handler->_mouseWheel = 0.0f;
             }
         }
         ImGui::NewFrame();

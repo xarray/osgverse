@@ -42,7 +42,7 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
     _treeWindow->pos = osg::Vec2(0, 0);
     _treeWindow->sizeMin = osg::Vec2(200, 780);
     _treeWindow->sizeMax = osg::Vec2(600, 780);
-    _treeWindow->alpha = 0.8f;
+    _treeWindow->alpha = 0.9f;
     _treeWindow->useMenuBar = false;
     _treeWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _treeWindow->userData = this;

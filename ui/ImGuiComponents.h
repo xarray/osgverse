@@ -19,6 +19,7 @@ namespace osgVerse
         - Button
         - ImageButton
         - CheckBox
+        - ComboBox
         - RadioButtonGroup
         - InputField
         - InputValueField
@@ -112,11 +113,11 @@ namespace osgVerse
 
     struct CheckBox : public ImGuiComponentBase
     {
-        std::string name, tooltip; uint32_t value;
+        std::string name, tooltip; bool value;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        CheckBox(const std::string& n, uint32_t v) : name(n), value(v), callback(NULL) {}
+        CheckBox(const std::string& n, bool v) : name(n), value(v), callback(NULL) {}
     };
 
     struct ComboBox : public ImGuiComponentBase

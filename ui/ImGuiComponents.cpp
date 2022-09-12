@@ -145,7 +145,7 @@ bool ImageButton::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
 bool CheckBox::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    bool done = ImGui::CheckboxFlags(name.c_str(), &value, 0xffffffff);
+    bool done = ImGui::Checkbox(name.c_str(), &value);
     if (!tooltip.empty()) showTooltip(tooltip);
     if (done && callback) callback(mgr, content, this);
     return done;

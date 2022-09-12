@@ -43,7 +43,7 @@ public:
             }
             else
             {
-                if (c == _name) n->setName(((InputField*)c)->value);
+                if (c == _name) n->setName(((InputField*)c)->value);  // TODO: set basic-info command
                 else if (c == _mask) n->setNodeMask(((InputValueField*)c)->value);
             }
         }
@@ -51,7 +51,7 @@ public:
         {
             osg::Drawable* d = static_cast<osg::Drawable*>(_target.get());
             if (!c) _name->value = d->getName();
-            else if (c == _name) d->setName(((InputField*)c)->value);
+            else if (c == _name) d->setName(((InputField*)c)->value);  // TODO: set basic-info command
         }
     }
 

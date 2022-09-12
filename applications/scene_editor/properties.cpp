@@ -18,7 +18,7 @@ Properties::Properties(osg::Camera* cam, osg::MatrixTransform* mt)
     _propWindow->pos = osg::Vec2(1600, 0);
     _propWindow->sizeMin = osg::Vec2(320, 780);
     _propWindow->sizeMax = osg::Vec2(640, 780);
-    _propWindow->alpha = 0.8f;
+    _propWindow->alpha = 0.9f;
     _propWindow->useMenuBar = false;
     _propWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _propWindow->userData = this;

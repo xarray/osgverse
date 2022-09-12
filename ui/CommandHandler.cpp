@@ -13,19 +13,40 @@ CommandBuffer* CommandBuffer::instance()
     return s_instance.get();
 }
 
-void CommandBuffer::add(CommandType t, osg::Object* n, const std::any& value)
+bool CommandBuffer::canMerge(const std::list<CommandData>& cList, CommandType t, osg::Object* n) const
 {
-    _mutex.lock();
-    if (t < CommandToUI) _bufferToScene.push_back(CommandData{ n, value, (int)0, t });
-    else _bufferToUI.push_back(CommandData{ n, value, (int)0, t });
-    _mutex.unlock();
+    if (cList.empty()) return false;
+    switch (t)
+    {
+    case TransformCommand: break;  // Transformation value (matrix) can be placed by later one
+    default: return false;
+    }
+
+    const CommandData& last = cList.back();
+    return (last.type == t && last.object == n);
+}
+
+void CommandBuffer::mergeCommand(std::list<CommandData>& cList, CommandType t, osg::Object* n,
+                                 const std::any& v0, const std::any& v1)
+{
+    // TODO: merging should happen when this command been executed and taken from command buffer,
+    //       so that 'undo' will work on an integrated operation instead of many small fractures
+    cList.back() = CommandData{ n, v0, v1, t };  // FIXME: consider complex merging?
 }
 
 void CommandBuffer::add(CommandType t, osg::Object* n, const std::any& v0, const std::any& v1)
 {
     _mutex.lock();
-    if (t < CommandToUI) _bufferToScene.push_back(CommandData{ n, v0, v1, t });
-    else _bufferToUI.push_back(CommandData{ n, v0, v1, t });
+    if (t < CommandToUI)
+    {
+        if (canMerge(_bufferToScene, t, n)) mergeCommand(_bufferToScene, t, n, v0, v1);
+        else _bufferToScene.push_back(CommandData{ n, v0, v1, t });
+    }
+    else
+    {
+        if (canMerge(_bufferToUI, t, n)) mergeCommand(_bufferToUI, t, n, v0, v1);
+        else _bufferToUI.push_back(CommandData{ n, v0, v1, t });
+    }
     _mutex.unlock();
 }
 
