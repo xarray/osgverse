@@ -223,7 +223,6 @@ struct ImGuiRenderCallback : public CameraDrawCallback
             if (v)
             {
                 std::map<std::string, osg::ref_ptr<osg::Texture2D>>& tList = _manager->getTextures();
-                _textureIdList.clear();
                 for (std::map<std::string, osg::ref_ptr<osg::Texture2D>>::iterator itr = tList.begin();
                     itr != tList.end(); ++itr)
                 {

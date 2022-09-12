@@ -25,6 +25,51 @@ class EditorContentHandler : public osgVerse::ImGuiContentHandler
 public:
     EditorContentHandler(osg::Camera* camera, osg::MatrixTransform* mt)
     {
+        _mainMenu = new osgVerse::MainMenuBar;
+        _mainMenu->userData = this;
+        {
+            osgVerse::MenuBar::MenuData projMenu(osgVerse::MenuBar::TR("Project##menu01"));
+            {
+                osgVerse::MenuBar::MenuItemData newItem(osgVerse::MenuBar::TR("New##menu0101"));
+                projMenu.items.push_back(newItem);
+
+                osgVerse::MenuBar::MenuItemData openItem(osgVerse::MenuBar::TR("Open##menu0102"));
+                projMenu.items.push_back(openItem);
+
+                osgVerse::MenuBar::MenuItemData saveItem(osgVerse::MenuBar::TR("Save##menu0103"));
+                projMenu.items.push_back(saveItem);
+
+                osgVerse::MenuBar::MenuItemData settingItem(osgVerse::MenuBar::TR("Settings##menu0104"));
+                projMenu.items.push_back(settingItem);
+            }
+            _mainMenu->menuDataList.push_back(projMenu);
+
+            osgVerse::MenuBar::MenuData assetMenu(osgVerse::MenuBar::TR("Assets##menu02"));
+            {
+                osgVerse::MenuBar::MenuItemData importItem(osgVerse::MenuBar::TR("Import Model##menu0201"));
+                importItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                          osgVerse::ImGuiComponentBase* me)
+                {
+                    // TODO: file dialog
+                    _hierarchy->addModelFromUrl("UH-60A/UH-60A.osgb");
+                };
+                assetMenu.items.push_back(importItem);
+            }
+            _mainMenu->menuDataList.push_back(assetMenu);
+
+            osgVerse::MenuBar::MenuData compMenu(osgVerse::MenuBar::TR("Components##menu03"));
+            {
+                osgVerse::MenuBar::MenuItemData newItem(osgVerse::MenuBar::TR("New##menu0301"));
+                compMenu.items.push_back(newItem);
+            }
+            _mainMenu->menuDataList.push_back(compMenu);
+
+            osgVerse::MenuBar::MenuData editMenu(osgVerse::MenuBar::TR("Utility##menu04"));
+            {
+            }
+            _mainMenu->menuDataList.push_back(editMenu);
+        }
+
         _hierarchy = new Hierarchy(camera, mt);
         _properties = new Properties(camera, mt);
         _sceneLogic = new SceneLogic(camera, mt);
@@ -34,6 +79,9 @@ public:
     {
         ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
         handleCommands();
+
+        _mainMenu->show(mgr, this);
+        ImGui::Separator();
 
         // TODO: auto layout
         if (_hierarchy.valid()) _hierarchy->show(mgr, this);
@@ -67,6 +115,7 @@ public:
     }
 
 protected:
+    osg::ref_ptr<osgVerse::MainMenuBar> _mainMenu;
     osg::ref_ptr<Hierarchy> _hierarchy;
     osg::ref_ptr<Properties> _properties;
     osg::ref_ptr<SceneLogic> _sceneLogic;

@@ -19,7 +19,7 @@ Properties::Properties(osg::Camera* cam, osg::MatrixTransform* mt)
     _propWindow->sizeMin = osg::Vec2(320, 780);
     _propWindow->sizeMax = osg::Vec2(640, 780);
     _propWindow->alpha = 0.8f;
-    _propWindow->useMenuBar = true;
+    _propWindow->useMenuBar = false;
     _propWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _propWindow->userData = this;
 }
@@ -51,7 +51,7 @@ bool Properties::handleCommand(CommandData* cmd)
             if (p1) { p1->setTarget(targetG, PropertyItem::GeometryType); _properties.push_back(p1); }
         }
 
-        stateSet = targetD->getStateSet();
+        stateSet = targetD->getOrCreateStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetD->getUpdateCallback());
     }
 
@@ -98,7 +98,7 @@ bool Properties::handleCommand(CommandData* cmd)
             if (p1) { p1->setTarget(targetCam, PropertyItem::CameraType); _properties.push_back(p1); }
         }
 
-        stateSet = targetN->getStateSet();
+        stateSet = targetN->getOrCreateStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetN->getUpdateCallback());
     }
 
@@ -110,11 +110,8 @@ bool Properties::handleCommand(CommandData* cmd)
         PropertyItem* p3 = propManager->getStandardItem(PropertyItemManager::ShaderItem);
         if (p3) { p3->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p3); }
 
-        PropertyItem* p4 = propManager->getStandardItem(PropertyItemManager::UniformItem);
+        PropertyItem* p4 = propManager->getStandardItem(PropertyItemManager::AttributeItem);
         if (p4) { p4->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p4); }
-
-        PropertyItem* p5 = propManager->getStandardItem(PropertyItemManager::AttributeItem);
-        if (p5) { p5->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p5); }
     }
 
     if (callback != NULL)

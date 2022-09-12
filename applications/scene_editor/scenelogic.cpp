@@ -13,7 +13,8 @@ SceneLogic::SceneLogic(osg::Camera* cam, osg::MatrixTransform* mt)
     _logicWindow->sizeMax = osg::Vec2(1920, 800);
     _logicWindow->alpha = 0.8f;
     _logicWindow->useMenuBar = false;
-    _logicWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
+    _logicWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar
+                        | ImGuiWindowFlags_NoTitleBar;
     _logicWindow->userData = this;
 }
 
@@ -21,6 +22,29 @@ bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler
 {
     bool done = _logicWindow->show(mgr, content);
     {
+        if (ImGui::BeginTabBar("##ed0301"))
+        {
+            if (ImGui::BeginTabItem(TR("Resources##ed030101").c_str()))
+            {
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem(TR("Timeline##ed030102").c_str()))
+            {
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem(TR("SpiderWeb##ed030103").c_str()))
+            {
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem(TR("Console##ed030103").c_str()))
+            {
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
     }
     _logicWindow->showEnd();
     return done;

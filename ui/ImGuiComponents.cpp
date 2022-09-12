@@ -324,37 +324,43 @@ bool Slider::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     return done;
 }
 
+void MenuBarBase::showMenu(ImGuiManager* mgr, ImGuiContentHandler* content)
+{
+    for (size_t i = 0; i < menuDataList.size(); ++i)
+    {
+        MenuData& md = menuDataList[i];
+        if (ImGui::BeginMenu(md.name.c_str(), md.enabled))
+        {
+            for (size_t j = 0; j < md.items.size(); ++j)
+            {
+                MenuItemData& mid = md.items[j];
+                bool selected = mid.selected;
+                ImGui::MenuItem(
+                    mid.name.c_str(), (mid.shortcut.empty() ? NULL : mid.shortcut.c_str()),
+                    &mid.selected, mid.enabled);
+                if (!mid.tooltip.empty()) showTooltip(mid.tooltip);
+
+                if (selected != mid.selected)
+                {
+                    if (mid.callback) (mid.callback)(mgr, content, this);
+                    if (!mid.checkable) mid.selected = false;
+                }
+            }
+            ImGui::EndMenu();
+        }
+    }
+}
+
 bool MenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    bool began = ImGui::BeginMenuBar();
-    if (began)  // parent window must have ImGuiWindowFlags_MenuBar flag
-    {
-        for (size_t i = 0; i < menuDataList.size(); ++i)
-        {
-            MenuData& md = menuDataList[i];
-            if (ImGui::BeginMenu(md.name.c_str(), md.enabled))
-            {
-                for (size_t j = 0; j < md.items.size(); ++j)
-                {
-                    MenuItemData& mid = md.items[j];
-                    bool selected = mid.selected;
-                    ImGui::MenuItem(
-                        mid.name.c_str(), (mid.shortcut.empty() ? NULL : mid.shortcut.c_str()),
-                        &mid.selected, mid.enabled);
-                    if (!mid.tooltip.empty()) showTooltip(mid.tooltip);
+    bool began = ImGui::BeginMenuBar();  // parent window must have ImGuiWindowFlags_MenuBar flag
+    if (began) { showMenu(mgr, content); ImGui::EndMenuBar(); } return began;
+}
 
-                    if (selected != mid.selected)
-                    {
-                        if (mid.callback) (mid.callback)(mgr, content, this);
-                        if (!mid.checkable) mid.selected = false;
-                    }
-                }
-                ImGui::EndMenu();
-            }
-        }
-        ImGui::EndMenuBar();
-    }
-    return began;
+bool MainMenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
+{
+    bool began = ImGui::BeginMainMenuBar();
+    if (began) { showMenu(mgr, content); ImGui::EndMainMenuBar(); } return began;
 }
 
 bool ListView::show(ImGuiManager* mgr, ImGuiContentHandler* content)

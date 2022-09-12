@@ -32,6 +32,7 @@ namespace osgVerse
         - Tab: ImGui::BeginTabBar(), ImGui::BeginTabItem(), ImGui::EndTabItem(), ImGui::EndTabBar()
         - Popup: ImGui::BeginPopup(), ImGui::EndPopup(); ImGui::OpenPopup()
         - Table: ImGui::BeginTable(), ImGui::TableNextRow(), ImGui::TableNextColumn(), ImGui::EndTable()
+        - MainMenu: ImGui::BeginMainMenuBar(), ImGui::EndMainMenuBar()
 
         TODO
         // ImSequencer: make it usable
@@ -201,7 +202,7 @@ namespace osgVerse
             size(24, 120), flags(0), callback(NULL) {}
     };
 
-    struct MenuBar : public ImGuiComponentBase
+    struct MenuBarBase : public ImGuiComponentBase
     {
         struct MenuItemData
         {
@@ -220,9 +221,14 @@ namespace osgVerse
             MenuData(const std::string& n) : name(n), enabled(true) {}
         };
 
-        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
+        void showMenu(ImGuiManager* mgr, ImGuiContentHandler* content);
         std::vector<MenuData> menuDataList;
     };
+
+    struct MenuBar : public MenuBarBase
+    { virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content); };
+    struct MainMenuBar : public MenuBarBase
+    { virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content); };
 
     struct ListView : public ImGuiComponentBase
     {

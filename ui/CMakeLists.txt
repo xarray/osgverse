@@ -4,6 +4,10 @@ SET(LIBRARY_FILES
 	ImGuiComponents.cpp ImGuiComponents.h
 	CommandHandler.cpp CommandHandler.h
 	PropertyInterface.h PropertyInterface.cpp
+	std_properties/BasicPropertyItem.cpp
+	std_properties/TransformPropertyItem.cpp
+	std_properties/GeometryPropertyItem.cpp
+	std_properties/TexturePropertyItem.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/imgui)

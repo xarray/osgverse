@@ -47,7 +47,7 @@ namespace osgVerse
         enum StandardItemType
         {
             BasicNodeItem, BasicDrawableItem, CameraItem, TransformItem, GeometryItem,
-            LightItem, LodItem, TextureItem, ShaderItem, UniformItem, AttributeItem
+            LightItem, LodItem, TextureItem, ShaderItem, AttributeItem
         };
         PropertyItem* getStandardItem(StandardItemType t);
         PropertyItem* getExtendedItem(const std::string& t);

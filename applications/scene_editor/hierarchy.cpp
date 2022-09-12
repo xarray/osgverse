@@ -43,44 +43,9 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
     _treeWindow->sizeMin = osg::Vec2(200, 780);
     _treeWindow->sizeMax = osg::Vec2(600, 780);
     _treeWindow->alpha = 0.8f;
-    _treeWindow->useMenuBar = true;
+    _treeWindow->useMenuBar = false;
     _treeWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _treeWindow->userData = this;
-
-    _treeMenuBar = new MenuBar;
-    _treeMenuBar->userData = this;
-    {
-        MenuBar::MenuData projMenu(TR("Project##menu01"));
-        {
-            MenuBar::MenuItemData newItem(TR("New##menu0101"));
-            projMenu.items.push_back(newItem);
-
-            MenuBar::MenuItemData openItem(TR("Open##menu0102"));
-            projMenu.items.push_back(openItem);
-
-            MenuBar::MenuItemData saveItem(TR("Save##menu0103"));
-            projMenu.items.push_back(saveItem);
-
-            MenuBar::MenuItemData settingItem(TR("Settings##menu0104"));
-            projMenu.items.push_back(settingItem);
-        }
-        _treeMenuBar->menuDataList.push_back(projMenu);
-
-        MenuBar::MenuData assetMenu(TR("Assets##menu02"));
-        {
-            MenuBar::MenuItemData importItem(TR("Import Model##menu0201"));
-            importItem.callback = [](ImGuiManager*, ImGuiContentHandler*,
-                                     ImGuiComponentBase* me)
-            {
-                // TODO: file dialog, parent node of model
-                Hierarchy* h = static_cast<Hierarchy*>(me->userData.get());
-                CommandBuffer::instance()->add(LoadModelCommand,
-                    h->_sceneRoot.get(), std::string("UH-60A/UH-60A.osgb"));
-            };
-            assetMenu.items.push_back(importItem);
-        }
-        _treeMenuBar->menuDataList.push_back(assetMenu);
-    }
 
     _treeView = new TreeView;
     _treeView->userData = this;
@@ -165,10 +130,15 @@ bool Hierarchy::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = _treeWindow->show(mgr, content);
     {
-        _treeMenuBar->show(mgr, content);
-        ImGui::Separator();
         _treeView->show(mgr, content);
     }
     _treeWindow->showEnd();
     return done;
+}
+
+void Hierarchy::addModelFromUrl(const std::string& url)
+{
+    // TODO: find parent node
+    osgVerse::CommandBuffer::instance()->add(
+        osgVerse::LoadModelCommand, _sceneRoot.get(), url);
 }
