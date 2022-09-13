@@ -31,6 +31,7 @@ PropertyItemManager::PropertyItemManager()
     _standardItemMap[TransformItem] = createTransformPropertyItem();
     _standardItemMap[GeometryItem] = createGeometryPropertyItem();
     _standardItemMap[TextureItem] = createTexturePropertyItem();
+    // TODO: light/lod/camera/shader+uniform/attributes...
 }
 
 PropertyItem* PropertyItemManager::getStandardItem(StandardItemType t)

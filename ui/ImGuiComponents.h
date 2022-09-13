@@ -271,6 +271,42 @@ namespace osgVerse
         TreeView() : callback(NULL) {}
     };
 
+    struct SpiderEditor : public ImGuiComponentBase
+    {
+        struct PinItem : public osg::Referenced
+        { int nodeId; std::string name, type; };
+
+        struct NodeItem : public osg::Referenced
+        {
+            int id; std::string name;
+            std::map<int, osg::ref_ptr<PinItem>> inPins, outPins;
+            int findPin(const std::string& n, bool isOut) const;
+        };
+
+        struct LinkItem : public osg::Referenced
+        {
+            osg::observer_ptr<NodeItem> inNode, outNode;
+            int inPin, outPin, flow; osg::Vec4 color;
+            LinkItem() : flow(0), color(1.0f, 1.0f, 1.0f, 1.0f) {}
+        };
+
+        std::map<int, osg::ref_ptr<NodeItem>> nodes;
+        std::map<int, osg::ref_ptr<LinkItem>> links;
+        std::string name, config; osg::Vec2 size;
+        void* editorContext;
+
+        NodeItem* createNode(const std::string& n);
+        PinItem* createPin(NodeItem* it, const std::string& n, bool isOut);
+        LinkItem* createLink(NodeItem* src, const std::string& srcPin,
+                             NodeItem* dst, const std::string& dstPin);
+        void createEditor(const std::string& cfg);
+        void destroyEditor();
+
+        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
+        void showPin(ImGuiManager* mgr, ImGuiContentHandler* content, PinItem* pin);
+        SpiderEditor(const std::string& n) : name(n), editorContext(NULL) {}
+    };
+
     struct Timeline : public ImGuiComponentBase
     {
         struct SequenceItem : public osg::Referenced

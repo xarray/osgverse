@@ -4,6 +4,8 @@ SET(LIBRARY_FILES
 	ImGuiComponents.cpp ImGuiComponents.h
 	CommandHandler.cpp CommandHandler.h
 	PropertyInterface.h PropertyInterface.cpp
+	ui_compontents/SpiderEditor.cpp
+	ui_compontents/Timeline.cpp
 	std_properties/BasicPropertyItem.cpp
 	std_properties/TransformPropertyItem.cpp
 	std_properties/GeometryPropertyItem.cpp
