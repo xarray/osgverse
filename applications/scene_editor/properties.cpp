@@ -136,6 +136,8 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         {
             osgVerse::PropertyItem* item = _properties[i];
             std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
+
+            //if (i == 0) ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
             if (ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (item->show(mgr, content))
@@ -144,6 +146,7 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
                         CommandBuffer::instance()->add(RefreshHierarchyItem, item->getTarget(), "");
                 }
             }
+            //if (i == 0) ImGui::PopStyleColor();
         }
     }
     _propWindow->showEnd();

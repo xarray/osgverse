@@ -22,14 +22,19 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 6. TBD...
 
 #### Examples
-1. osgVerse_Viewer: a scene viewer with modern rendering pipeline support.
-2. osgVerse_SimpleViewer: a scene viewer with single-pass rendering support, suitable for integrated graphics cases.
-3. osgVerse_EarthViewer: an example demostrate how to integrate osgVerse with osgEarth.
-4. osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
-5. osgVerse_Test_Obb_KDop: a quick test for creating a model's obb/kdop bounding volume.
-6. osgVerse_Test_ImGui: a quick test for demostrating the use of IMGUI in osg scene.
-7. osg-style Plugins:
-    6.1 osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
-    6.2 osgdb_verse_fbx: a plugin with full-featured FBX format support.
-    6.3 osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
-    6.4 TBD...
+1. osgVerse_SceneEditor: a forward-looking scene editor for osgVerse scene & components.
+2. osgVerse_Viewer: a scene viewer with modern rendering pipeline support.
+3. osgVerse_SimpleViewer: a scene viewer with single-pass rendering support, suitable for integrated graphics cases.
+4. osgVerse_EarthViewer: an example demostrate how to integrate osgVerse with osgEarth.
+5. test applications:
+- 5.1 osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
+- 5.2 osgVerse_Test_Obb_KDop: a quick test for creating a model's obb/kdop bounding volume.
+- 5.3 osgVerse_Test_ImGui: a quick test for demostrating the use of IMGUI in osg scene.
+- 5.4 osgVerse_Test_Mesh_Process: a mesh process and topology builder example
+- 5.5 osgVerse_Test_Physics_Basic: a physics world example supporting rigid bodies & kinematics, requiring Bullet3
+- 5.6 TBD...
+6. osg-style Plugins:
+- 6.1 osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
+- 6.2 osgdb_verse_fbx: a plugin with full-featured FBX format support.
+- 6.3 osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
+- 6.4 TBD...
