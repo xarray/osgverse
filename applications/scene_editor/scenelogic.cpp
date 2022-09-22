@@ -34,7 +34,7 @@ bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem(TR("SpiderWeb##ed030103").c_str()))
+            if (ImGui::BeginTabItem(TR("Spider##ed030103").c_str()))
             {
                 ImGui::EndTabItem();
             }
