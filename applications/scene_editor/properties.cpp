@@ -132,13 +132,22 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = _propWindow->show(mgr, content);
     {
+        int headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Bullet
+                        | ImGuiTreeNodeFlags_OpenOnDoubleClick;
         for (size_t i = 0; i < _properties.size(); ++i)
         {
             osgVerse::PropertyItem* item = _properties[i];
             std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
 
+            if (ImGui::ArrowButton((title + "A").c_str(), ImGuiDir_Down))
+            {
+                // TODO: popup menu: active, select, ...
+            }
+            ImGui::SameLine();
+
             //if (i == 0) ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-            if (ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+            bool toOpen = ImGui::CollapsingHeader(title.c_str(), headerFlags);
+            if (toOpen)
             {
                 if (item->show(mgr, content))
                 {

@@ -11,6 +11,7 @@
 #include <ui/ImGui.h>
 #include <ui/ImGuiComponents.h>
 #include <ui/CommandHandler.h>
+#include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/Utilities.h>
 
@@ -132,8 +133,16 @@ int main(int argc, char** argv)
         ss->setTextureAttributeAndModes(0, osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
     }
 
+    osg::ref_ptr<osg::Group> auxRoot = new osg::Group;
+    {
+        osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+        skybox->setEnvironmentMap("../skyboxes/classic/snow_");
+        auxRoot->addChild(skybox.get());
+    }
+
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
+    root->addChild(auxRoot.get());
 
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");

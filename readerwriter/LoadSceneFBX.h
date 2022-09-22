@@ -6,6 +6,16 @@
 #include <iostream>
 #include <ofbx.h>
 
+#if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__) || defined( __BCPLUSPLUS__)  || defined( __MWERKS__)
+#  if defined(OSGVERSE_RW_LIBRARY)
+#    define OSGVERSE_RW_EXPORT   __declspec(dllexport)
+#  else
+#    define OSGVERSE_RW_EXPORT   __declspec(dllimport)
+#  endif
+#else
+#  define OSGVERSE_RW_EXPORT extern
+#endif
+
 namespace osgVerse
 {
     class LoaderFBX : public osg::Referenced
@@ -29,6 +39,6 @@ namespace osgVerse
         std::string _workingDir;
     };
 
-    extern osg::ref_ptr<osg::Group> loadFbx(const std::string& file);
-    extern osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir);
+    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx(const std::string& file);
+    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir);
 }

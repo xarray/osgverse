@@ -51,12 +51,12 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
     _treeView->userData = this;
     {
         _camTreeData = new TreeView::TreeData;
-        _camTreeData->name = TR("Main Camera"); _camTreeData->id = "main_camera";
+        _camTreeData->name = TR("Main Camera"); _camTreeData->id = "main_camera##ed02";
         _camTreeData->userData = _camera.get();
         _treeView->treeDataList.push_back(_camTreeData);
 
         _sceneTreeData = new TreeView::TreeData;
-        _sceneTreeData->name = TR("Scene Root"); _sceneTreeData->id = "scene_root";
+        _sceneTreeData->name = TR("Scene Root"); _sceneTreeData->id = "scene_root##ed03";
         _sceneTreeData->userData = _sceneRoot.get();
         _treeView->treeDataList.push_back(_sceneTreeData);
     }
@@ -101,7 +101,7 @@ bool Hierarchy::handleCommand(CommandData* cmd)
 
     HierarchyVisitor hv;
     hv._itemStack.push(pItems[0]);
-    parent->accept(hv); return true;
+    node->accept(hv); return true;
 }
 
 bool Hierarchy::handleItemCommand(osgVerse::CommandData* cmd)
