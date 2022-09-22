@@ -44,7 +44,7 @@ SET(LASZIP_SOURCE_FILES
     laszip/laswriteitemcompressed_v1.cpp laszip/laswriteitemcompressed_v2.cpp
     laszip/laswriteitemcompressed_v3.cpp laszip/laswriteitemcompressed_v4.cpp
     laszip/lasreadpoint.cpp laszip/laswritepoint.cpp laszip/mydefs.cpp
-    laszip/laszip.cpp laszip/laszip_dll.cpp
+    laszip/laszip.cpp #laszip/laszip_dll.cpp
 )
 
 SET(OZZ_SOURCE_FILES
@@ -131,7 +131,7 @@ SET(LIBRARY_FILES
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
 )
 
-ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DUSE_BOOKMARK
+ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DUSE_BOOKMARK
 				-DLASZIPDLL_EXPORTS -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 INCLUDE_DIRECTORIES(ozz imgui)
 NEW_LIBRARY(${LIB_NAME} STATIC)

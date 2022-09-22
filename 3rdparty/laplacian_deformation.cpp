@@ -217,7 +217,7 @@ std::vector<Triplet> calcEnergyMatrixCoeffs(
 	return result;
 }
 
-double hypot(double x, double y, double z) {
+static double my_hypot(double x, double y, double z) {
 	return sqrt(
 		x * x +
 		y * y +
@@ -284,7 +284,7 @@ std::vector<Triplet> calcCotangentLaplacianCoeffs(
 		double cay = c.y - a.y;
 		double caz = c.z - a.z;
 
-		double area = 0.5 * hypot(
+		double area = 0.5 * my_hypot(
 			aby * caz - abz * cay,
 			abz * cax - abx * caz,
 			abx * cay - aby * cax);

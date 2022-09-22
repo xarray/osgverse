@@ -180,7 +180,8 @@ namespace osgVerse
         template<typename T> void getVector(T& vec) const
         {
             int num = std::min<int>(vec.num_components, vecNumber);
-            for (int i = 0; i < num; ++i) vec[i] = (T::value_type)vecValue[i];
+            for (int i = 0; i < num; ++i) 
+                vec[i] = static_cast<typename T::value_type>(vecValue[i]);
         }
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);

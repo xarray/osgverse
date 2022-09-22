@@ -2,6 +2,7 @@
 #include <functional>
 #include <iostream>
 #include <cstdio>
+#include <climits>
 
 #include <exprtk.hpp>
 #include "Math.h"

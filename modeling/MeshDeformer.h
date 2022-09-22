@@ -1,6 +1,7 @@
 #ifndef MANA_MODELING_MESH_DEFORMER_HPP
 #define MANA_MODELING_MESH_DEFORMER_HPP
 
+#include <math.h>
 #include <map>
 #include <vector>
 #include <iostream>

@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.20)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
 PROJECT(osgVerse)
 
 SET(CMAKE_DEBUG_POSTFIX "d")
@@ -67,7 +67,6 @@ ENDMACRO(USE_STATIC_RUNTIME)
 IF(NOT WIN32)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -frtti -std=c++14")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-register")
 ENDIF(NOT WIN32)
 
 IF(MSVC)
@@ -87,15 +86,19 @@ ELSE()
     SET(INSTALL_ARCHIVEDIR ${CMAKE_INSTALL_LIBDIR})
 ENDIF()
 
+IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    SET(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/sdk" CACHE PATH "..." FORCE)
+ENDIF()
+
 #########################################
 FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
     PATHS
-    $ENV{BULLET_ROOT}/include
-    /usr/include
-    /usr/local/include
+    $ENV{BULLET_ROOT}/include/bullet
+    /usr/include/bullet
+    /usr/local/include/bullet
 )
 
-FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
+FIND_PATH(BULLET_LIB_DIR libBullet3Dynamics.a BulletDynamics.lib
     PATHS
     $ENV{BULLET_ROOT}/lib
     /usr/lib

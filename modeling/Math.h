@@ -26,6 +26,7 @@ namespace osgVerse
     typedef std::vector<osg::Vec2> PointList2D;
     typedef std::vector<osg::Vec3> PointList3D;
     typedef std::vector<osg::Plane> PlaneList;
+    struct MathExpressionPrivate;
 
     template <class T>
     inline T interpolate(const T& start, const T& end, float percent)
