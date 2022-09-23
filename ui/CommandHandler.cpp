@@ -27,14 +27,14 @@ bool CommandBuffer::canMerge(const std::list<CommandData>& cList, CommandType t,
 }
 
 void CommandBuffer::mergeCommand(std::list<CommandData>& cList, CommandType t, osg::Object* n,
-                                 const std::any& v0, const std::any& v1)
+                                 const linb::any& v0, const linb::any& v1)
 {
     // TODO: merging should happen when this command been executed and taken from command buffer,
     //       so that 'undo' will work on an integrated operation instead of many small fractures
     cList.back() = CommandData{ n, v0, v1, t };  // FIXME: consider complex merging?
 }
 
-void CommandBuffer::add(CommandType t, osg::Object* n, const std::any& v0, const std::any& v1)
+void CommandBuffer::add(CommandType t, osg::Object* n, const linb::any& v0, const linb::any& v1)
 {
     _mutex.lock();
     if (t < CommandToUI)
