@@ -98,6 +98,7 @@ namespace osgVerse
 {
     void globalInitialize(int argc, char** argv)
     {
+        setlocale(LC_ALL, ".UTF8");
         if (argv && argc > 0)
         {
             std::string path = osgDB::getFilePath(argv[0]);

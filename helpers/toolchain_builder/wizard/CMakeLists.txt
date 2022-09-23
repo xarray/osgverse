@@ -1,0 +1,6 @@
+SET(EXE_NAME osgVerse_BuildWizard)
+SET(EXE_SOURCES builder_main.cpp nuklear.h)
+INCLUDE_DIRECTORIES(../glfw/include)
+
+ADD_EXECUTABLE(${EXE_NAME} ${EXE_SOURCES})
+TARGET_LINK_LIBRARIES(${EXE_NAME} opengl32 glfw ${GLFW_LIBRARIES})

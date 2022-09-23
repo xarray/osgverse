@@ -125,13 +125,13 @@ SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h nanoflann.hpp exprtk.hpp
     tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h
-    laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h
+    laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h any.hpp
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
 )
 
-ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DUSE_BOOKMARK
+ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU
 				-DLASZIPDLL_EXPORTS -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 INCLUDE_DIRECTORIES(ozz imgui)
 NEW_LIBRARY(${LIB_NAME} STATIC)

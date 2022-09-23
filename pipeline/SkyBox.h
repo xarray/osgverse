@@ -16,7 +16,7 @@ public:
     SkyBox();
     SkyBox(const SkyBox& copy, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
-    void setEnvironmentMap(const std::string& path, const std::string& ext = "jpg");
+    void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
     void setEnvironmentMap(osg::Image* image);
     osg::TextureCubeMap* getCurrentSkyTexture() const { return _skymap.get(); }
     

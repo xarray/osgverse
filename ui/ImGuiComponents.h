@@ -57,8 +57,8 @@ namespace osgVerse
         static std::string TR(const std::string& s);  // multi-language support
         static void setWidth(float width, bool fromLeft = true);
         static void adjustLine(bool newLine, bool sep = false, float indentX = 0.0f, float indentY = 0.0f);
-        static void openFileDialog(const std::string& name, const std::string& title,
-                                   const std::string& dir = ".", const std::string& filters=".*");
+        static void registerFileDialog(const std::string& name, const std::string& title, bool modal,
+                                       const std::string& dir = ".", const std::string& filters=".*");
         static bool showFileDialog(const std::string& name, std::string& result);
     };
 

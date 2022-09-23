@@ -45,10 +45,13 @@ void ImGuiComponentBase::showTooltip(const std::string& desc, const std::string&
     }
 }
 
-void ImGuiComponentBase::openFileDialog(const std::string& name, const std::string& title,
-                                        const std::string& dir, const std::string& filters)
+void ImGuiComponentBase::registerFileDialog(const std::string& name, const std::string& title, bool modal,
+                                            const std::string& dir, const std::string& filters)
 {
-    ImGuiFileDialog::Instance()->OpenDialog(name, title, filters.c_str(), dir);
+    ImGuiFileDialogFlags flags = (modal ? ImGuiFileDialogFlags_Modal : 0);
+    ImGuiFileDialog::Instance()->OpenDialog(  // FIXME: more options
+        name, title, filters.c_str(), dir, 1, NULL,
+        flags | ImGuiFileDialogFlags_DisableCreateDirectoryButton);
 }
 
 bool ImGuiComponentBase::showFileDialog(const std::string& name, std::string& result)

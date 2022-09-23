@@ -52,7 +52,7 @@ SkyBox::SkyBox(const SkyBox& copy, const osg::CopyOp& copyop)
 {
 }
 
-void SkyBox::setEnvironmentMap(const std::string& path, const std::string& ext)
+void SkyBox::setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded)
 {
     std::string fileName = "";
     osg::ref_ptr<osg::TextureCubeMap> cubemap = new osg::TextureCubeMap;
@@ -67,9 +67,9 @@ void SkyBox::setEnvironmentMap(const std::string& path, const std::string& ext)
     fileName = path + "negz." + ext;  // BACK
     osg::ref_ptr<osg::Image> imageNegZ = osgDB::readImageFile(fileName);
 
-    fileName = path + "posy." + ext;  // DOWN
+    fileName = path + (rightHanded ? "posy." : "negy.") + ext;  // DOWN
     osg::ref_ptr<osg::Image> imagePosY = osgDB::readImageFile(fileName);
-    fileName = path + "negy." + ext;  // UP
+    fileName = path + (rightHanded ? "negy." : "posy.") + ext;  // UP
     osg::ref_ptr<osg::Image> imageNegY = osgDB::readImageFile(fileName);
 
     if (imagePosX.get() && imageNegX.get() && imagePosY.get() && imageNegY.get() &&

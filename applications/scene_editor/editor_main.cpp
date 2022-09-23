@@ -51,8 +51,10 @@ public:
                 importItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                           osgVerse::ImGuiComponentBase* me)
                 {
-                    // TODO: file dialog
-                    _hierarchy->addModelFromUrl("UH-60A/UH-60A.fbx");
+                    _currentDialogName = "OpenModelFile##ed00";
+                    osgVerse::ImGuiComponentBase::registerFileDialog(
+                        _currentDialogName, osgVerse::ImGuiComponentBase::TR("Select 3D model file"),
+                        true, ".", ".*,.osgb,.fbx,.gltf");
                 };
                 assetMenu.items.push_back(importItem);
             }
@@ -89,6 +91,15 @@ public:
         if (_properties.valid()) _properties->show(mgr, this);
         if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
 
+        if (!_currentDialogName.empty())
+        {
+            std::string result;
+            if (osgVerse::ImGuiComponentBase::showFileDialog(_currentDialogName, result))
+            {
+                _hierarchy->addModelFromUrl(result);  // FIXME: open other files?
+                _currentDialogName = "";
+            }
+        }
         ImGui::PopFont();
     }
 
@@ -120,6 +131,7 @@ protected:
     osg::ref_ptr<Hierarchy> _hierarchy;
     osg::ref_ptr<Properties> _properties;
     osg::ref_ptr<SceneLogic> _sceneLogic;
+    std::string _currentDialogName;
 };
 
 int main(int argc, char** argv)
@@ -136,7 +148,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Group> auxRoot = new osg::Group;
     {
         osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
-        skybox->setEnvironmentMap("../skyboxes/classic/snow_");
+        skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
         auxRoot->addChild(skybox.get());
     }
 
