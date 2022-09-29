@@ -4,8 +4,7 @@
 #include "scenelogic.h"
 #include <imgui/ImGuizmo.h>
 
-SceneLogic::SceneLogic(osg::Camera* cam, osg::MatrixTransform* mt)
-    : _camera(cam), _sceneRoot(mt)
+SceneLogic::SceneLogic()
 {
     _logicWindow = new osgVerse::Window(TR("Scene Logic##ed03"));
     _logicWindow->pos = osg::Vec2(0, 780);

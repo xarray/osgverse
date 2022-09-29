@@ -12,9 +12,11 @@ namespace osgVerse
     enum CommandType
     {
         CommandToScene = 0,
+        SelectCommand,           // [node]item, [object]node-selector,
+                                 // [int]0-single mode, 1-add sel, 2-remove sel, 3-clear all
         SetNodeCommand,          // TODO: [node]parent, [node]item-added, [bool]to-delete
-        SetValueCommand,         // TODO: [node]item, [string]key, [any]value
-        TransformCommand,        // TODO: [node]item, [matrix]transformation
+        SetValueCommand,         // [node/drawable]item, [string]key, [any]value
+        TransformCommand,        // [node]item, [matrix]transformation, [int]0-mt node;1-pat node
         LoadModelCommand,        // [node]parent, [string]url
 
         CommandToUI = 100,

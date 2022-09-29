@@ -6,6 +6,7 @@
 
 #include "CommandHandler.h"
 using namespace osgVerse;
+extern void loadDefaultExecutors(CommandHandler* handler);
 
 CommandBuffer* CommandBuffer::instance()
 {
@@ -66,31 +67,9 @@ bool CommandBuffer::take(CommandData& c, bool fromSceneHandler)
     _mutex.unlock(); return hasData;
 }
 
-/// Executors
-struct LoadModelExecutor : public CommandHandler::CommandExecutor
-{
-    virtual bool redo(CommandData& cmd)
-    {
-        std::string fileName;
-        osg::Group* group = static_cast<osg::Group*>(cmd.object.get());
-        if (!cmd.get<std::string>(fileName)) return false;
-
-        osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(fileName);
-        if (!loadedModel || !group) return false;
-
-        group->addChild(loadedModel.get()); loadedModel->setName(fileName);
-        CommandBuffer::instance()->add(RefreshHierarchy, group, loadedModel.get());
-        return true;
-    }
-
-    virtual bool undo(CommandData& cmd)
-    { return false; }  // TODO
-};
-///
-
 CommandHandler::CommandHandler()
 {
-    addExecutor(LoadModelCommand, new LoadModelExecutor);
+    loadDefaultExecutors(this);
 }
 
 bool CommandHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)

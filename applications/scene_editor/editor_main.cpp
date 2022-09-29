@@ -1,30 +1,19 @@
-#include <osg/io_utils>
-#include <osg/MatrixTransform>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#include <imgui/imgui.h>
-#include <imgui/ImGuizmo.h>
-#include <ui/ImGui.h>
-#include <ui/ImGuiComponents.h>
-#include <ui/CommandHandler.h>
-#include <pipeline/SkyBox.h>
-#include <pipeline/Pipeline.h>
-#include <pipeline/Utilities.h>
-
 #include "hierarchy.h"
 #include "properties.h"
 #include "scenelogic.h"
-#include <iostream>
-#include <sstream>
+#include "defines.h"
+GlobalData g_data;
 
 class EditorContentHandler : public osgVerse::ImGuiContentHandler
 {
 public:
-    EditorContentHandler(osg::Camera* camera, osg::MatrixTransform* mt)
+    EditorContentHandler()
     {
         _mainMenu = new osgVerse::MainMenuBar;
         _mainMenu->userData = this;
@@ -73,9 +62,9 @@ public:
             _mainMenu->menuDataList.push_back(editMenu);
         }
 
-        _hierarchy = new Hierarchy(camera, mt);
-        _properties = new Properties(camera, mt);
-        _sceneLogic = new SceneLogic(camera, mt);
+        _hierarchy = new Hierarchy;
+        _properties = new Properties;
+        _sceneLogic = new SceneLogic;
     }
 
     virtual void runInternal(osgVerse::ImGuiManager* mgr)
@@ -152,16 +141,28 @@ int main(int argc, char** argv)
         auxRoot->addChild(skybox.get());
     }
 
+    osg::ref_ptr<osgVerse::NodeSelector> selector = new osgVerse::NodeSelector;
+    {
+        selector->setMainCamera(viewer.getCamera());
+        auxRoot->addChild(selector->getAuxiliaryRoot());
+        // TODO: add to hud root?
+    }
+
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
     root->addChild(auxRoot.get());
 
+    g_data.mainCamera = viewer.getCamera();
+    g_data.sceneRoot = sceneRoot.get();
+    g_data.auxiliaryRoot = auxRoot.get();
+    g_data.selector = selector.get();
+
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
-    imgui->initialize(new EditorContentHandler(viewer.getCamera(), sceneRoot.get()));
+    imgui->initialize(new EditorContentHandler);
     imgui->addToView(&viewer);
 
-    viewer.addEventHandler(new osgVerse::CommandHandler());
+    viewer.addEventHandler(new osgVerse::CommandHandler);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));

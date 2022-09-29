@@ -22,7 +22,7 @@ namespace osgVerse
         if (!_scene) { OSG_WARN << "[LoaderFBX] Unable to parse FBX scene\n"; return; }
 
         //const ofbx::Object* const* objects = _scene->getAllObjects();
-        _root = new osg::Group;
+        _root = new osg::MatrixTransform;
 
         int meshCount = _scene->getMeshCount();
         for (int i = 0; i < meshCount; ++i)

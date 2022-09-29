@@ -333,6 +333,31 @@ namespace osgVerse
         :   frameRange(0, 100), firstFrame(0), currentFrame(0), selectedIndex(-1),
             flags(0), expanded(true), seqInterface(NULL), callback(NULL) {}
     };
+
+    struct VirtualKeyboard : public ImGuiComponentBase
+    {
+        struct KeyData
+        {
+            osg::ref_ptr<ImGuiComponentBase> button;
+            std::string name; int key, modKey, extraCode;
+            KeyData(const std::string& n) : name(n), key(0), modKey(0), extraCode(0) {}
+        };
+
+        struct KeyRowData
+        {
+            std::vector<KeyData> keys;
+            float indentX;
+        };
+        std::vector<KeyRowData> keyList;
+        void* imeInterface;
+
+        int getCandidatePages(const std::string& input);
+        bool getCandidates(int pageId, std::vector<std::string>& results);
+
+        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
+        void create(const std::string& sysCikuPath, const std::string& learnCikuPath);
+        void destroy(); VirtualKeyboard() : imeInterface(NULL) {}
+    };
 }
 
 #endif

@@ -6,6 +6,7 @@
 #include <osgDB/WriteFile>
 
 #include "../PropertyInterface.h"
+#include "../CommandHandler.h"
 #include "../ImGuiComponents.h"
 #include <imgui/ImGuizmo.h>
 using namespace osgVerse;
@@ -16,8 +17,7 @@ public:
     BasicPropertyItem()
     {
         _name = new InputField(ImGuiComponentBase::TR("Name##prop0001"));
-        _name->placeholder = ImGuiComponentBase::TR(
-            (_type == NodeType) ? "Node name" : "Drawable name");
+        _name->placeholder = ImGuiComponentBase::TR("Object name");
         _name->callback = [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
         { updateTarget(me); };
 
@@ -43,15 +43,27 @@ public:
             }
             else
             {
-                if (c == _name) n->setName(((InputField*)c)->value);  // TODO: set basic-info command
-                else if (c == _mask) n->setNodeMask(((InputValueField*)c)->value);
+                if (c == _name)
+                {
+                    std::string objName = ((InputField*)c)->value;
+                    CommandBuffer::instance()->add(SetValueCommand, n, std::string("n_name"), objName);
+                }
+                else if (c == _mask)
+                {
+                    unsigned int mask = ((InputValueField*)c)->value;
+                    CommandBuffer::instance()->add(SetValueCommand, n, std::string("n_mask"), mask);
+                }
             }
         }
         else if (_type == DrawableType)
         {
             osg::Drawable* d = static_cast<osg::Drawable*>(_target.get());
             if (!c) _name->value = d->getName();
-            else if (c == _name) d->setName(((InputField*)c)->value);  // TODO: set basic-info command
+            else if (c == _name)
+            {
+                std::string objName = ((InputField*)c)->value;
+                CommandBuffer::instance()->add(SetValueCommand, d, std::string("d_name"), objName);
+            }
         }
     }
 
@@ -83,7 +95,7 @@ public:
 
     virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        if (_camera.valid() && _target.valid())
+        /*if (_camera.valid() && _target.valid())
         {
             ImGuiIO& io = ImGui::GetIO(); ImDrawList* drawer = ImGui::GetBackgroundDrawList();
             osg::Matrixf vpw = _camera->getViewMatrix() * _camera->getProjectionMatrix()
@@ -101,7 +113,7 @@ public:
             }
             drawer->AddRect(ImVec2(vMin[0], vMin[1]), ImVec2(vMax[0], vMax[1]), IM_COL32(0, 255, 0, 100));
             //ImGuizmo::DrawGrid(view.ptr(), proj.ptr(), _initMatrix.ptr(), 10.0f);
-        }
+        }*/
 
         bool updated = _name->show(mgr, content);
         if (_type == NodeType) updated |= _mask->show(mgr, content);

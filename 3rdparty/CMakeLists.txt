@@ -112,6 +112,21 @@ SET(IMGUI_SOURCE_FILES
 	imgui/imgui_impl_opengl3.cpp imgui/imgui_impl_opengl3.h
 )
 
+SET(PINYIN_SOURCE_FILES
+    pinyin/Cache.cpp pinyin/CandidateStubs.cpp
+    pinyin/Ciku.cpp pinyin/CikuManager.cpp
+    pinyin/Pinyin.cpp pinyin/PinyinBase.cpp
+    pinyin/PinyinDivider.cpp pinyin/PinyinHanzi.cpp
+    pinyin/Pinyin_Internal.cpp pinyin/Query.cpp
+    pinyin/StringFunction.cpp pinyin/Pinyin.h
+)
+
+SET(TINYSPLINE_SOURCE_FILES
+    tinyspline/parson.c tinyspline/parson.h
+    tinyspline/tinyspline.c tinyspline/tinyspline.h
+    tinyspline/tinysplinecxx.cxx tinyspline/tinysplinecxx.h
+)
+
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
 SOURCE_GROUP("VHACD Files" FILES ${VHACD_SOURCE_FILES})
@@ -119,16 +134,20 @@ SOURCE_GROUP("LasZIP Files" FILES ${LASZIP_SOURCE_FILES})
 SOURCE_GROUP("OzzAnimation Files" FILES ${OZZ_SOURCE_FILES})
 SOURCE_GROUP("PMP & MCut Files" FILES ${PMP_MCUT_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
+SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
+SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h nanoflann.hpp exprtk.hpp
+    sqlite3.c sqlite3.h strtk.hpp tinydir.h mio.hpp rapidxml/rapidxml.hpp
     tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h
     laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h any.hpp
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
+    ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU

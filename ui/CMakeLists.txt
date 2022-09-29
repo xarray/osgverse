@@ -4,14 +4,15 @@ SET(LIBRARY_INCLUDE_FILES
     ImGuiComponents.h CommandHandler.h PropertyInterface.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
 	ImGui.cpp ImGuiComponents.cpp 
-	CommandHandler.cpp 
-	PropertyInterface.cpp
+	CommandHandler.cpp PropertyInterface.cpp
 	ui_compontents/SpiderEditor.cpp
 	ui_compontents/Timeline.cpp
+	ui_compontents/VirtualKeyboard.cpp
 	std_properties/BasicPropertyItem.cpp
 	std_properties/TransformPropertyItem.cpp
 	std_properties/GeometryPropertyItem.cpp
 	std_properties/TexturePropertyItem.cpp
+	executors/DefaultExecutors.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/imgui)

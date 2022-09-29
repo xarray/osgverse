@@ -35,8 +35,7 @@ public:
     }
 };
 
-Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
-    : _camera(cam), _sceneRoot(mt)
+Hierarchy::Hierarchy()
 {
     _treeWindow = new Window(TR("Hierarchy##ed01"));
     _treeWindow->pos = osg::Vec2(0, 0);
@@ -52,12 +51,12 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
     {
         _camTreeData = new TreeView::TreeData;
         _camTreeData->name = TR("Main Camera"); _camTreeData->id = "main_camera##ed02";
-        _camTreeData->userData = _camera.get();
+        _camTreeData->userData = g_data.mainCamera.get();
         _treeView->treeDataList.push_back(_camTreeData);
 
         _sceneTreeData = new TreeView::TreeData;
         _sceneTreeData->name = TR("Scene Root"); _sceneTreeData->id = "scene_root##ed03";
-        _sceneTreeData->userData = _sceneRoot.get();
+        _sceneTreeData->userData = g_data.sceneRoot.get();
         _treeView->treeDataList.push_back(_sceneTreeData);
     }
 
@@ -70,6 +69,8 @@ Hierarchy::Hierarchy(osg::Camera* cam, osg::MatrixTransform* mt)
     {
         TreeView* treeView = static_cast<TreeView*>(me);
         TreeView::TreeData* item = treeView->findByID(id);
+        CommandBuffer::instance()->add(SelectCommand,
+            static_cast<osg::Object*>(item->userData.get()), g_data.selector.get(), 0);
         CommandBuffer::instance()->add(RefreshProperties,
             static_cast<osg::Object*>(item->userData.get()), "");
     };
@@ -140,5 +141,5 @@ void Hierarchy::addModelFromUrl(const std::string& url)
 {
     // TODO: find parent node
     osgVerse::CommandBuffer::instance()->add(
-        osgVerse::LoadModelCommand, _sceneRoot.get(), url);
+        osgVerse::LoadModelCommand, g_data.sceneRoot.get(), url);
 }

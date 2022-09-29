@@ -11,8 +11,7 @@
 #include <pipeline/Global.h>
 using namespace osgVerse;
 
-Properties::Properties(osg::Camera* cam, osg::MatrixTransform* mt)
-    : _camera(cam), _sceneRoot(mt)
+Properties::Properties()
 {
     _propWindow = new Window(TR("Properties##ed02"));
     _propWindow->pos = osg::Vec2(1600, 0);
@@ -41,7 +40,7 @@ bool Properties::handleCommand(CommandData* cmd)
         if (p0)
         {
             p0->setTarget(targetD, PropertyItem::DrawableType);
-            p0->setCamera(_camera.get()); _properties.push_back(p0);
+            p0->setCamera(g_data.mainCamera.get()); _properties.push_back(p0);
         }
 
         osg::Geometry* targetG = targetD->asGeometry();
@@ -62,7 +61,7 @@ bool Properties::handleCommand(CommandData* cmd)
         if (p0)
         {
             p0->setTarget(targetN, PropertyItem::NodeType);
-            p0->setCamera(_camera.get()); _properties.push_back(p0);
+            p0->setCamera(g_data.mainCamera.get()); _properties.push_back(p0);
         }
         
         osg::Transform* targetT = targetN->asTransform();
@@ -75,7 +74,7 @@ bool Properties::handleCommand(CommandData* cmd)
                 if (p1)
                 {
                     p1->setTarget(targetMT, PropertyItem::MatrixType);
-                    p1->setCamera(_camera.get()); _properties.push_back(p1);
+                    p1->setCamera(g_data.mainCamera.get()); _properties.push_back(p1);
                 }
             }
 
@@ -86,7 +85,7 @@ bool Properties::handleCommand(CommandData* cmd)
                 if (p1)
                 {
                     p1->setTarget(targetPT, PropertyItem::PoseType);
-                    p1->setCamera(_camera.get()); _properties.push_back(p1);
+                    p1->setCamera(g_data.mainCamera.get()); _properties.push_back(p1);
                 }
             }
         }
