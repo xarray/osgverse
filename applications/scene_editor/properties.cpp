@@ -50,7 +50,7 @@ bool Properties::handleCommand(CommandData* cmd)
             if (p1) { p1->setTarget(targetG, PropertyItem::GeometryType); _properties.push_back(p1); }
         }
 
-        stateSet = targetD->getOrCreateStateSet();
+        stateSet = targetD->getStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetD->getUpdateCallback());
     }
 
@@ -97,7 +97,7 @@ bool Properties::handleCommand(CommandData* cmd)
             if (p1) { p1->setTarget(targetCam, PropertyItem::CameraType); _properties.push_back(p1); }
         }
 
-        stateSet = targetN->getOrCreateStateSet();
+        stateSet = targetN->getStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetN->getUpdateCallback());
     }
 

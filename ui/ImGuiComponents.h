@@ -211,6 +211,9 @@ namespace osgVerse
             bool enabled, selected, checkable;
             std::string name, shortcut, tooltip;
             ActionCallback callback;
+            std::vector<MenuItemData> subItems;
+
+            static MenuItemData separator;
             MenuItemData(const std::string& n)
             :   name(n), enabled(true), selected(false),
                 checkable(false), callback(NULL) {}
@@ -223,6 +226,7 @@ namespace osgVerse
             MenuData(const std::string& n) : name(n), enabled(true) {}
         };
 
+        void showMenuItem(MenuItemData& mid, ImGuiManager* mgr, ImGuiContentHandler* content);
         void showMenu(ImGuiManager* mgr, ImGuiContentHandler* content);
         std::vector<MenuData> menuDataList;
     };

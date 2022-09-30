@@ -16,6 +16,29 @@
 #include <iostream>
 #include <sstream>
 
+class Hierarchy;
+class Properties;
+class SceneLogic;
+
+class EditorContentHandler : public osgVerse::ImGuiContentHandler
+{
+public:
+    EditorContentHandler();
+    void handleCommands();
+    virtual void runInternal(osgVerse::ImGuiManager* mgr);
+
+protected:
+    void createEditorMenu1();
+    void createEditorMenu2();
+    void createEditorMenu3();
+
+    osg::ref_ptr<osgVerse::MainMenuBar> _mainMenu;
+    osg::ref_ptr<Hierarchy> _hierarchy;
+    osg::ref_ptr<Properties> _properties;
+    osg::ref_ptr<SceneLogic> _sceneLogic;
+    std::string _currentDialogName;
+};
+
 struct GlobalData
 {
     osg::observer_ptr<osg::Camera> mainCamera;

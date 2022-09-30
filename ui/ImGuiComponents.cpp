@@ -324,6 +324,34 @@ bool Slider::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     return done;
 }
 
+void MenuBarBase::showMenuItem(MenuItemData& mid, ImGuiManager* mgr, ImGuiContentHandler* content)
+{
+    if (mid.name.empty()) ImGui::Separator();
+    else if (mid.subItems.empty())
+    {
+        bool selected = mid.selected;
+        ImGui::MenuItem(
+            mid.name.c_str(), (mid.shortcut.empty() ? NULL : mid.shortcut.c_str()),
+            &mid.selected, mid.enabled);
+        if (!mid.tooltip.empty()) showTooltip(mid.tooltip);
+
+        if (selected != mid.selected)
+        {
+            if (mid.callback) (mid.callback)(mgr, content, this);
+            if (!mid.checkable) mid.selected = false;
+        }
+    }
+    else if (ImGui::BeginMenu(mid.name.c_str(), mid.enabled))
+    {
+        for (size_t j = 0; j < mid.subItems.size(); ++j)
+        {
+            MenuItemData& subMid = mid.subItems[j];
+            showMenuItem(subMid, mgr, content);
+        }
+        ImGui::EndMenu();
+    }
+}
+
 void MenuBarBase::showMenu(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     for (size_t i = 0; i < menuDataList.size(); ++i)
@@ -334,17 +362,7 @@ void MenuBarBase::showMenu(ImGuiManager* mgr, ImGuiContentHandler* content)
             for (size_t j = 0; j < md.items.size(); ++j)
             {
                 MenuItemData& mid = md.items[j];
-                bool selected = mid.selected;
-                ImGui::MenuItem(
-                    mid.name.c_str(), (mid.shortcut.empty() ? NULL : mid.shortcut.c_str()),
-                    &mid.selected, mid.enabled);
-                if (!mid.tooltip.empty()) showTooltip(mid.tooltip);
-
-                if (selected != mid.selected)
-                {
-                    if (mid.callback) (mid.callback)(mgr, content, this);
-                    if (!mid.checkable) mid.selected = false;
-                }
+                showMenuItem(mid, mgr, content);
             }
             ImGui::EndMenu();
         }
@@ -356,6 +374,8 @@ bool MenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     bool began = ImGui::BeginMenuBar();  // parent window must have ImGuiWindowFlags_MenuBar flag
     if (began) { showMenu(mgr, content); ImGui::EndMenuBar(); } return began;
 }
+
+MenuBar::MenuItemData MenuBar::MenuItemData::separator("");
 
 bool MainMenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {

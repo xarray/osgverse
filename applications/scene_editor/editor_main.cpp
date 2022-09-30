@@ -10,118 +10,66 @@
 #include "defines.h"
 GlobalData g_data;
 
-class EditorContentHandler : public osgVerse::ImGuiContentHandler
+EditorContentHandler::EditorContentHandler()
 {
-public:
-    EditorContentHandler()
+    _hierarchy = new Hierarchy;
+    _properties = new Properties;
+    _sceneLogic = new SceneLogic;
+    _mainMenu = new osgVerse::MainMenuBar;
+    _mainMenu->userData = this;
+
+    createEditorMenu1();
+    createEditorMenu2();
+    createEditorMenu3();
+}
+
+void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
+{
+    ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
+    handleCommands();
+
+    _mainMenu->show(mgr, this);
+    ImGui::Separator();
+
+    // TODO: auto layout
+    if (_hierarchy.valid()) _hierarchy->show(mgr, this);
+    if (_properties.valid()) _properties->show(mgr, this);
+    if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
+
+    if (!_currentDialogName.empty())
     {
-        _mainMenu = new osgVerse::MainMenuBar;
-        _mainMenu->userData = this;
+        std::string result;
+        if (osgVerse::ImGuiComponentBase::showFileDialog(_currentDialogName, result))
         {
-            osgVerse::MenuBar::MenuData projMenu(osgVerse::MenuBar::TR("Project##menu01"));
-            {
-                osgVerse::MenuBar::MenuItemData newItem(osgVerse::MenuBar::TR("New##menu0101"));
-                projMenu.items.push_back(newItem);
-
-                osgVerse::MenuBar::MenuItemData openItem(osgVerse::MenuBar::TR("Open##menu0102"));
-                projMenu.items.push_back(openItem);
-
-                osgVerse::MenuBar::MenuItemData saveItem(osgVerse::MenuBar::TR("Save##menu0103"));
-                projMenu.items.push_back(saveItem);
-
-                osgVerse::MenuBar::MenuItemData settingItem(osgVerse::MenuBar::TR("Settings##menu0104"));
-                projMenu.items.push_back(settingItem);
-            }
-            _mainMenu->menuDataList.push_back(projMenu);
-
-            osgVerse::MenuBar::MenuData assetMenu(osgVerse::MenuBar::TR("Assets##menu02"));
-            {
-                osgVerse::MenuBar::MenuItemData importItem(osgVerse::MenuBar::TR("Import Model##menu0201"));
-                importItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
-                                          osgVerse::ImGuiComponentBase* me)
-                {
-                    _currentDialogName = "OpenModelFile##ed00";
-                    osgVerse::ImGuiComponentBase::registerFileDialog(
-                        _currentDialogName, osgVerse::ImGuiComponentBase::TR("Select 3D model file"),
-                        true, ".", ".*,.osgb,.fbx,.gltf");
-                };
-                assetMenu.items.push_back(importItem);
-            }
-            _mainMenu->menuDataList.push_back(assetMenu);
-
-            osgVerse::MenuBar::MenuData compMenu(osgVerse::MenuBar::TR("Components##menu03"));
-            {
-                osgVerse::MenuBar::MenuItemData newItem(osgVerse::MenuBar::TR("New##menu0301"));
-                compMenu.items.push_back(newItem);
-            }
-            _mainMenu->menuDataList.push_back(compMenu);
-
-            osgVerse::MenuBar::MenuData editMenu(osgVerse::MenuBar::TR("Utility##menu04"));
-            {
-            }
-            _mainMenu->menuDataList.push_back(editMenu);
-        }
-
-        _hierarchy = new Hierarchy;
-        _properties = new Properties;
-        _sceneLogic = new SceneLogic;
-    }
-
-    virtual void runInternal(osgVerse::ImGuiManager* mgr)
-    {
-        ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
-        handleCommands();
-
-        _mainMenu->show(mgr, this);
-        ImGui::Separator();
-
-        // TODO: auto layout
-        if (_hierarchy.valid()) _hierarchy->show(mgr, this);
-        if (_properties.valid()) _properties->show(mgr, this);
-        if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
-
-        if (!_currentDialogName.empty())
-        {
-            std::string result;
-            if (osgVerse::ImGuiComponentBase::showFileDialog(_currentDialogName, result))
-            {
-                _hierarchy->addModelFromUrl(result);  // FIXME: open other files?
-                _currentDialogName = "";
-            }
-        }
-        ImGui::PopFont();
-    }
-
-    void handleCommands()
-    {
-        osgVerse::CommandData cmd;
-        if (osgVerse::CommandBuffer::instance()->take(cmd, false))
-        {
-            switch (cmd.type)
-            {
-            case osgVerse::RefreshHierarchy:
-                if (!_hierarchy->handleCommand(&cmd))
-                    OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy" << std::endl;
-                break;
-            case osgVerse::RefreshHierarchyItem:
-                if (!_hierarchy->handleItemCommand(&cmd))
-                    OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy item" << std::endl;
-                break;
-            case osgVerse::RefreshProperties:
-                if (!_properties->handleCommand(&cmd))
-                    OSG_WARN << "[EditorContentHandler] Failed to refresh properties" << std::endl;
-                break;
-            }
+            _hierarchy->addModelFromUrl(result);  // FIXME: open other files?
+            _currentDialogName = "";
         }
     }
+    ImGui::PopFont();
+}
 
-protected:
-    osg::ref_ptr<osgVerse::MainMenuBar> _mainMenu;
-    osg::ref_ptr<Hierarchy> _hierarchy;
-    osg::ref_ptr<Properties> _properties;
-    osg::ref_ptr<SceneLogic> _sceneLogic;
-    std::string _currentDialogName;
-};
+void EditorContentHandler::handleCommands()
+{
+    osgVerse::CommandData cmd;
+    if (osgVerse::CommandBuffer::instance()->take(cmd, false))
+    {
+        switch (cmd.type)
+        {
+        case osgVerse::RefreshHierarchy:
+            if (!_hierarchy->handleCommand(&cmd))
+                OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy" << std::endl;
+            break;
+        case osgVerse::RefreshHierarchyItem:
+            if (!_hierarchy->handleItemCommand(&cmd))
+                OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy item" << std::endl;
+            break;
+        case osgVerse::RefreshProperties:
+            if (!_properties->handleCommand(&cmd))
+                OSG_WARN << "[EditorContentHandler] Failed to refresh properties" << std::endl;
+            break;
+        }
+    }
+}
 
 int main(int argc, char** argv)
 {
