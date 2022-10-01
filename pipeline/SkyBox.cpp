@@ -4,13 +4,51 @@
 #include <osg/Matrix>
 #include <osg/ShapeDrawable>
 #include <osg/StateSet>
+#include <osg/TexMat>
 #include <osg/TexEnv>
 #include <osg/TexGen>
-#include <osg/Texture2D>
 #include <osgDB/ReadFile>
 #include <osgUtil/CullVisitor>
 using namespace osgVerse;
 
+static const char* skyboxVS = {
+    "#version 130\n"
+    "uniform mat4 osg_ViewMatrixInverse;\n"
+    "uniform mat4 SkyTextureMatrix;\n"
+    "out vec3 TexCoord;\n"
+    "void main() {\n"
+    "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
+    "    vec3 N = normalize(gl_NormalMatrix * gl_Normal);\n"
+    "    vec3 eyeDir = normalize(gl_ModelViewMatrix * gl_Vertex).xyz;\n"
+    "    vec4 uvData = (osg_ViewMatrixInverse * vec4(reflect(-eyeDir, N), 0.0));\n"
+    "    TexCoord = (SkyTextureMatrix * uvData).xyz;\n"
+    "}\n"
+};
+
+static const char* skyboxFS1 = {
+    "#version 130\n"
+    "uniform samplerCube SkyTexture;\n"
+    "in vec3 TexCoord;\n"
+    "void main() {\n"
+    "    gl_FragColor = texture(SkyTexture, TexCoord);\n"
+    "}\n"
+};
+
+static const char* skyboxFS2 = {
+    "#version 130\n"
+    "uniform sampler2D SkyTexture;\n"
+    "in vec3 TexCoord;\n"
+    "const vec2 invAtan = vec2(0.1591, 0.3183);\n"
+    "vec2 sphericalUV(vec3 v) {\n"
+    "    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));\n"
+    "    uv *= invAtan; uv += vec2(0.5); return uv;\n"
+    "}\n"
+    "void main() {\n"
+    "    gl_FragColor = texture(SkyTexture, sphericalUV(TexCoord));\n"
+    "}\n"
+};
+
+#if 0
 struct TexMatCallback : public osg::NodeCallback
 {
 public:
@@ -39,6 +77,7 @@ public:
     TexMatCallback(osg::TexMat& tm) : _texMat(tm), _startTime(0.0f) {}
     osg::TexMat& _texMat; float _startTime;
 };
+#endif
 
 /* SkyBox */
 
@@ -95,39 +134,37 @@ void SkyBox::setEnvironmentMap(const std::string& path, const std::string& ext, 
     cubemap->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
     cubemap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
     cubemap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-    _skymap = cubemap.get(); initialize();
+    _skymap = cubemap.get(); initialize(true, osg::Matrixf::rotate(osg::PI_2, osg::X_AXIS));
 }
 
 void SkyBox::setEnvironmentMap(osg::Image* image)
-{    // TODO: 2D texture with shader
-    /*if (image)
+{
+    if (image)
     {
-        osg::ref_ptr<osg::TextureCubeMap> cubemap = new osg::TextureCubeMap;
-        loadVerticalCrossCubeMap(cubemap.get(), image);
-
-        cubemap->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-        cubemap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-        cubemap->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
-        cubemap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
-        cubemap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        cubemap->setInternalFormat(GL_RGBA16F_ARB);
-
-        _skymap = cubemap.get();
-        initialize();
-    }*/
+        osg::ref_ptr<osg::Texture2D> skymap = new osg::Texture2D;
+        skymap->setImage(image); skymap->setResizeNonPowerOfTwoHint(false);
+        skymap->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP);
+        skymap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP);
+        skymap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+        skymap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        _skymap = skymap.get();
+        initialize(false, osg::Matrixf::rotate(-osg::PI_2, osg::X_AXIS));
+    }
 }
 
-void SkyBox::initialize()
+void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
 {
-    osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet();
+    osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
     unsigned int values = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE;
-
+#if 0
     osg::ref_ptr<osg::TexGen> tg = new osg::TexGen;
-    tg->setMode(osg::TexGen::REFLECTION_MAP);  // FIXME: use shader
+    tg->setMode(osg::TexGen::REFLECTION_MAP);
     stateset->setTextureAttributeAndModes(0, tg.get(), values);
 
     osg::TexMat* tm = new osg::TexMat;
     stateset->setTextureAttribute(0, tm);
+    setCullCallback(new TexMatCallback(*tm));
+#endif
 
     stateset->setTextureAttributeAndModes(0, _skymap.get(), values);
     stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
@@ -139,6 +176,15 @@ void SkyBox::initialize()
     stateset->setAttributeAndModes(depth, values);
     stateset->setRenderBinDetails(-1, "RenderBin");
 
+    osg::Program* program = new osg::Program;
+    program->setName("SkyBoxShader");
+    program->addShader(new osg::Shader(osg::Shader::VERTEX, skyboxVS));
+    if (asCube) program->addShader(new osg::Shader(osg::Shader::FRAGMENT, skyboxFS1));
+    else program->addShader(new osg::Shader(osg::Shader::FRAGMENT, skyboxFS2));
+    stateset->setAttributeAndModes(program);
+    stateset->addUniform(new osg::Uniform("SkyTexture", (int)0));
+    stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));
+
     osg::ref_ptr<osg::Drawable> drawable = new osg::ShapeDrawable(
         new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 10.0f));
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
@@ -146,8 +192,6 @@ void SkyBox::initialize()
     geode->setStateSet(stateset.get());
     geode->addDrawable(drawable.get());
     geode->setName("SkyBoxGeode");
-
-    setCullCallback(new TexMatCallback(*tm));
     addChild(geode.get());
 }
 

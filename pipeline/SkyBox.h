@@ -2,7 +2,7 @@
 #define MANA_PP_SKYBOX_HPP
 
 #include <osg/Geometry>
-#include <osg/TexMat>
+#include <osg/Texture2D>
 #include <osg/TextureCubeMap>
 #include <osg/Transform>
 
@@ -18,16 +18,16 @@ public:
 
     void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
     void setEnvironmentMap(osg::Image* image);
-    osg::TextureCubeMap* getCurrentSkyTexture() const { return _skymap.get(); }
+    osg::Texture* getCurrentSkyTexture() const { return _skymap.get(); }
     
     virtual bool computeLocalToWorldMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
     virtual bool computeWorldToLocalMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
     
 protected:
     virtual ~SkyBox() {}
-    void initialize();
+    void initialize(bool asCube, const osg::Matrixf& texMat);
     
-    osg::observer_ptr<osg::TextureCubeMap> _skymap;
+    osg::observer_ptr<osg::Texture> _skymap;
 };
 
 }

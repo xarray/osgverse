@@ -1,3 +1,4 @@
+#include <osgDB/ReadFile>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
@@ -85,7 +86,8 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Group> auxRoot = new osg::Group;
     {
         osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
-        skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
+        //skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
+        skybox->setEnvironmentMap(osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"));
         auxRoot->addChild(skybox.get());
     }
 

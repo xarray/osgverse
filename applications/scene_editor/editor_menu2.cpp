@@ -61,15 +61,48 @@ void EditorContentHandler::createEditorMenu2()
 
         assetMenu.items.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
-        osgVerse::MenuBar::MenuItemData renameItem(osgVerse::MenuBar::TR("Rename##menu0305"));
-        assetMenu.items.push_back(renameItem);
+        osgVerse::MenuBar::MenuItemData enNodeItem(osgVerse::MenuBar::TR("Enable Node##menu0305"));
+        assetMenu.items.push_back(enNodeItem);
 
-        osgVerse::MenuBar::MenuItemData deleteItem(osgVerse::MenuBar::TR("Delete##menu0306"));
-        assetMenu.items.push_back(deleteItem);
+        osgVerse::MenuBar::MenuItemData renNodeItem(osgVerse::MenuBar::TR("Rename Node##menu0306"));
+        assetMenu.items.push_back(renNodeItem);
+
+        osgVerse::MenuBar::MenuItemData delNodeItem(osgVerse::MenuBar::TR("Delete Node##menu0307"));
+        assetMenu.items.push_back(delNodeItem);
 
         assetMenu.items.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
-        osgVerse::MenuBar::MenuItemData exportItem(osgVerse::MenuBar::TR("Export Scene##menu0307"));
+        osgVerse::MenuBar::MenuItemData addResItem(osgVerse::MenuBar::TR("Add Resource##menu0308"));
+        {
+            osgVerse::MenuBar::MenuItemData resModelItem(osgVerse::MenuBar::TR("3D Models##menu030801"));
+            addResItem.subItems.push_back(resModelItem);
+
+            osgVerse::MenuBar::MenuItemData resTexItem(osgVerse::MenuBar::TR("Textures##menu030802"));
+            addResItem.subItems.push_back(resTexItem);
+
+            osgVerse::MenuBar::MenuItemData resMediaItem(osgVerse::MenuBar::TR("Multimedia##menu030803"));
+            addResItem.subItems.push_back(resMediaItem);
+
+            osgVerse::MenuBar::MenuItemData resUiItem(osgVerse::MenuBar::TR("UI Page##menu030804"));
+            addResItem.subItems.push_back(resUiItem);
+        }
+        assetMenu.items.push_back(addResItem);
+
+        osgVerse::MenuBar::MenuItemData delResItem(osgVerse::MenuBar::TR("Delete Resource##menu0309"));
+        assetMenu.items.push_back(delResItem);
+
+        osgVerse::MenuBar::MenuItemData renResItem(osgVerse::MenuBar::TR("Rename Resource##menu03010"));
+        assetMenu.items.push_back(renResItem);
+
+        osgVerse::MenuBar::MenuItemData updateResItem(osgVerse::MenuBar::TR("Update Resource##menu0311"));
+        assetMenu.items.push_back(updateResItem);
+
+        osgVerse::MenuBar::MenuItemData findResItem(osgVerse::MenuBar::TR("Find Resource##menu0312"));
+        assetMenu.items.push_back(findResItem);
+
+        assetMenu.items.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData exportItem(osgVerse::MenuBar::TR("Export Scene##menu03010"));
         assetMenu.items.push_back(exportItem);
     }
     _mainMenu->menuDataList.push_back(assetMenu);
@@ -100,16 +133,16 @@ void EditorContentHandler::createEditorMenu2()
 
         compMenu.items.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
-        osgVerse::MenuBar::MenuItemData enableItem(osgVerse::MenuBar::TR("Enable##menu0405"));
+        osgVerse::MenuBar::MenuItemData enableItem(osgVerse::MenuBar::TR("Enable Component##menu0405"));
         compMenu.items.push_back(enableItem);
 
-        osgVerse::MenuBar::MenuItemData copyItem(osgVerse::MenuBar::TR("Copy##menu0406"));
+        osgVerse::MenuBar::MenuItemData copyItem(osgVerse::MenuBar::TR("Copy Component##menu0406"));
         compMenu.items.push_back(copyItem);
 
-        osgVerse::MenuBar::MenuItemData pasteItem(osgVerse::MenuBar::TR("Paste##menu0407"));
+        osgVerse::MenuBar::MenuItemData pasteItem(osgVerse::MenuBar::TR("Paste Component##menu0407"));
         compMenu.items.push_back(pasteItem);
 
-        osgVerse::MenuBar::MenuItemData deleteItem(osgVerse::MenuBar::TR("Delete##menu0408"));
+        osgVerse::MenuBar::MenuItemData deleteItem(osgVerse::MenuBar::TR("Delete Component##menu0408"));
         compMenu.items.push_back(deleteItem);
 
         compMenu.items.push_back(osgVerse::MenuBar::MenuItemData::separator);
