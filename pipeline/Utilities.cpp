@@ -302,19 +302,20 @@ namespace osgVerse
         osg::Matrixd proj = originProj;
         if (preferredNear < preferredFar)
         {
+            double zdiff = preferredFar - preferredNear;
             if (fabs(proj(0, 3)) < epsilon  && fabs(proj(1, 3)) < epsilon  && fabs(proj(2, 3)) < epsilon)
             {
                 double left = 0.0, right = 0.0, bottom = 0.0, top = 0.0;
                 proj.getOrtho(left, right, bottom, top, znear, zfar);
-                proj = osg::Matrix::ortho(
-                    left, right, bottom, top, (preferredNear >= 0.0f) ? preferredNear : znear, preferredFar);
+                if (preferredNear >= 0.0f) znear = preferredNear;
+                proj = osg::Matrix::ortho(left, right, bottom, top, znear, znear + zdiff);
             }
             else
             {
                 double ratio = 0.0, fovy = 0.0;
                 proj.getPerspective(fovy, ratio, znear, zfar);
-                proj = osg::Matrix::perspective(
-                    fovy, ratio, (preferredNear > 0.0f) ? preferredNear : znear, preferredFar);
+                if (preferredNear >= 0.0f) znear = preferredNear;
+                proj = osg::Matrix::perspective(fovy, ratio, znear, znear + zdiff);
             }
         }
 

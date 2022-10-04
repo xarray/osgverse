@@ -2,7 +2,9 @@
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include "scenelogic.h"
+
 #include <imgui/ImGuizmo.h>
+#include <ctime>
 
 class ConsoleHandler : public osg::NotifyHandler
 {
@@ -18,9 +20,25 @@ public:
             else if (msg.back() == '\n') msg.back() = '\0';
 
             SceneLogic::NotifyData nd((int)severity, msg);
+            nd.dateTime = getDateTimeTick();
             _logic->addNotify(nd);
         }
         std::cout << "Lv-" << severity << ": " << message;
+    }
+
+    std::string getDateTimeTick()
+    {
+        auto tick = std::chrono::system_clock::now();
+        std::time_t posix = std::chrono::system_clock::to_time_t(tick);
+        uint64_t millseconds =
+            std::chrono::duration_cast<std::chrono::milliseconds>(tick.time_since_epoch()).count() -
+            std::chrono::duration_cast<std::chrono::seconds>(tick.time_since_epoch()).count() * 1000;
+
+        char buf[20], buf2[5];
+        std::tm tp = *std::localtime(&posix);
+        std::string dateTime{ buf, std::strftime(buf, sizeof(buf), "%F %T", &tp) };
+        snprintf(buf2, 5, ".%03d", (int)millseconds);
+        return dateTime + std::string(buf2);
     }
 
 protected:
@@ -79,7 +97,7 @@ bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler
                     else if (nd.level == osg::WARN) { color = ImVec4(0.8f, 0.8f, 0.2f, 1.0f); hasColor = true; }
 
                     if (hasColor) ImGui::PushStyleColor(ImGuiCol_Text, color);
-                    ImGui::Selectable(nd.text.c_str());
+                    ImGui::Selectable((nd.dateTime + ": " + nd.text).c_str());
                     if (hasColor) ImGui::PopStyleColor();
                 }
 

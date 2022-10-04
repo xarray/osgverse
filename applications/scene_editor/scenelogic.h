@@ -12,7 +12,7 @@ public:
 
     struct NotifyData
     {
-        int level; std::string text;
+        int level; std::string dateTime, text;
         NotifyData(int l, const std::string& t) : level(l), text(t) {}
     };
     void addNotify(const NotifyData& nd) { _notifyData.push_back(nd); }

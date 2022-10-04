@@ -80,28 +80,18 @@ namespace osgVerse
                            -1.0f, _shadowMaxDistance);
             osg::Matrix viewInv = _cameraMV->getInverseViewMatrix();
 
-            std::cout << "F " << frustum.centerNearPlane << ", " << frustum.centerFarPlane << "\n";
-
-            osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightInvMatrix);
-            float halfX = (shadowBB.xMax() - shadowBB.xMin()) * 0.5;
-            float halfY = (shadowBB.yMax() - shadowBB.yMin()) * 0.5;
-            //std::cout << halfX << ", " << halfY << std::endl;
+            osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
             for (size_t i = 0; i < _shadowCameras.size(); ++i)
             {
                 // TODO: split...
                 osg::Camera* shadowCam = _shadowCameras[i].get();
-                //shadowCam->setViewMatrixAsLookAt(
-                //    osg::Vec3(-100.0f, 0.0f, 100.0f), osg::Vec3(), osg::Vec3(0.707f, 0.f, 0.707f));
-                //shadowCam->setProjectionMatrixAsOrtho(
-                //    -100.0f, 100.0f, -100.0f, 100.0f, 0.0f, 300.0f);
                 shadowCam->setViewMatrix(_lightMatrix);
                 shadowCam->setProjectionMatrixAsOrtho(
-                    -halfX, halfX, -halfY, halfY, shadowBB.zMin(), shadowBB.zMax());
+                    shadowBB.xMin(), shadowBB.xMax(), shadowBB.yMin(), shadowBB.yMax(),
+                    0.0, osg::maximum(fabs(shadowBB.zMax()), fabs(shadowBB.zMin())));
                 _lightMatrices->setElement(i, osg::Matrixf(viewInv *
                     shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
                 updateFrustumGeometry(i, shadowCam);
-
-                std::cout << i << ": " << shadowBB.zMin() << ", " << shadowBB.zMax() << "\n";
             }
             _lightMatrices->dirty();
         }
@@ -163,6 +153,7 @@ namespace osgVerse
             geom->setVertexArray(new osg::Vec3Array(8));
             geom->addPrimitiveSet(de); geom->addPrimitiveSet(de2);
             geom->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
+            geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
             _shadowFrustum->addDrawable(geom);
         }
         

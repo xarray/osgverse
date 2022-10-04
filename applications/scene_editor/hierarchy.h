@@ -25,6 +25,7 @@ protected:
     osg::ref_ptr<osgVerse::Window> _treeWindow;
     osg::ref_ptr<osgVerse::TreeView> _treeView;
     osg::ref_ptr<osgVerse::TreeView::TreeData> _camTreeData, _sceneTreeData;
+    std::vector<osgVerse::MenuBarBase::MenuItemData> _popupMenus;
     osg::observer_ptr<osgVerse::TreeView::TreeData> _selectedItem;
     bool _selectedItemPopupTriggered;
 };

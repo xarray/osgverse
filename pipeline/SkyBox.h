@@ -8,28 +8,26 @@
 
 namespace osgVerse
 {
+    /** The skybox node. */
+    class SkyBox : public osg::Transform
+    {
+    public:
+        SkyBox();
+        SkyBox(const SkyBox& copy, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
-/** The skybox node. */
-class SkyBox : public osg::Transform
-{
-public:
-    SkyBox();
-    SkyBox(const SkyBox& copy, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
-
-    void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
-    void setEnvironmentMap(osg::Image* image);
-    osg::Texture* getCurrentSkyTexture() const { return _skymap.get(); }
+        void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
+        void setEnvironmentMap(osg::Image* image);
+        osg::Texture* getCurrentSkyTexture() const { return _skymap.get(); }
     
-    virtual bool computeLocalToWorldMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
-    virtual bool computeWorldToLocalMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
+        virtual bool computeLocalToWorldMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
+        virtual bool computeWorldToLocalMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
     
-protected:
-    virtual ~SkyBox() {}
-    void initialize(bool asCube, const osg::Matrixf& texMat);
+    protected:
+        virtual ~SkyBox() {}
+        void initialize(bool asCube, const osg::Matrixf& texMat);
     
-    osg::observer_ptr<osg::Texture> _skymap;
-};
-
+        osg::observer_ptr<osg::Texture> _skymap;
+    };
 }
 
 #endif

@@ -21,6 +21,34 @@ Properties::Properties()
     _propWindow->useMenuBar = false;
     _propWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _propWindow->userData = this;
+
+    // Popup menu: enable, up, down | copy, paste, delete | edit
+    {
+        osgVerse::MenuBar::MenuItemData enableItem(osgVerse::MenuBar::TR("Enable##ed02m01"));
+        _popupMenus.push_back(enableItem);
+
+        osgVerse::MenuBar::MenuItemData upItem(osgVerse::MenuBar::TR("Move Up##ed02m02"));
+        _popupMenus.push_back(upItem);
+
+        osgVerse::MenuBar::MenuItemData downItem(osgVerse::MenuBar::TR("Move Down##ed02m03"));
+        _popupMenus.push_back(downItem);
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData copyItem(osgVerse::MenuBar::TR("Copy##ed02m04"));
+        _popupMenus.push_back(copyItem);
+
+        osgVerse::MenuBar::MenuItemData pasteItem(osgVerse::MenuBar::TR("Paste##ed02m05"));
+        _popupMenus.push_back(pasteItem);
+
+        osgVerse::MenuBar::MenuItemData deleteItem(osgVerse::MenuBar::TR("Delete##ed02m06"));
+        _popupMenus.push_back(deleteItem);
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData editItem(osgVerse::MenuBar::TR("Edit##ed02m07"));
+        _popupMenus.push_back(editItem);
+    }
 }
 
 bool Properties::handleCommand(CommandData* cmd)
@@ -176,6 +204,8 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 void Properties::showPopupMenu(osgVerse::PropertyItem* item, osgVerse::ImGuiManager* mgr,
                                osgVerse::ImGuiContentHandler* content)
 {
-    // Popup menu: enable, up (custom), down (custom) | copy, paste, delete | edit (custom)
-    // TODO
+    // Popup menu: enable (check), up (check), down (check) | copy, paste, delete | edit (check)
+    static osg::ref_ptr<osgVerse::MenuBar> s_popup = new osgVerse::MenuBar;
+    for (size_t i = 0; i < _popupMenus.size(); ++i)
+        s_popup->showMenuItem(_popupMenus[i], mgr, content);
 }

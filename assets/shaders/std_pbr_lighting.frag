@@ -145,7 +145,7 @@ void main()
     {
         vec4 lightProjVec0 = texture(ShadowMapArray, vec3(lightProjUV.xy, shadowLayer));
         float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
-        shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.5 : 1.0;
+        shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.1 : 1.0;
     }
     
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
@@ -165,7 +165,7 @@ void main()
         vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;
         vec2 envBRDF = texture(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
         vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
-        ambient = kD * diffuse + envSpecular;
+        ambient = kD * diffuse + envSpecular * 0.2;
     }
     
     radianceOut += ambient + emission;

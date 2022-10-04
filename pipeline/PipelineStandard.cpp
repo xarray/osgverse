@@ -4,7 +4,7 @@
 #include <osgDB/ReadFile>
 #include <random>
 
-#define DEBUG_SHADOW_MODULE 1
+#define DEBUG_SHADOW_MODULE 0
 static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 static std::default_random_engine generator;
 
@@ -53,7 +53,7 @@ namespace osgVerse
         p->startStages(originW, originH, NULL);
 
         osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule(p, true);
-        shadow->setLightState(osg::Vec3(), osg::Vec3(1.0f, 1.0f, -1.0f), 1500.0f);
+        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.0f, 0.1f, -1.0f), 5000.0f);
         shadow->createStages(2048, 1,
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.vert"),
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.frag"), SHADOW_CASTER_MASK);

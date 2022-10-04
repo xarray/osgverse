@@ -50,12 +50,12 @@ Hierarchy::Hierarchy()
     _treeView->userData = this;
     {
         _camTreeData = new TreeView::TreeData;
-        _camTreeData->name = TR("Main Camera"); _camTreeData->id = "main_camera##ed02";
+        _camTreeData->name = TR("Main Camera"); _camTreeData->id = "main_camera##ed01";
         _camTreeData->userData = g_data.mainCamera.get();
         _treeView->treeDataList.push_back(_camTreeData);
 
         _sceneTreeData = new TreeView::TreeData;
-        _sceneTreeData->name = TR("Scene Root"); _sceneTreeData->id = "scene_root##ed03";
+        _sceneTreeData->name = TR("Scene Root"); _sceneTreeData->id = "scene_root##ed01";
         _sceneTreeData->userData = g_data.sceneRoot.get();
         _treeView->treeDataList.push_back(_sceneTreeData);
     }
@@ -84,6 +84,74 @@ Hierarchy::Hierarchy()
         _selectedItem = treeView->findByID(id);
         if (_selectedItem.valid()) _selectedItemPopupTriggered = true;
     };
+
+    // Popup menu: active, center | new {} | cut, copy, paste, delete | share, unshare
+    {
+        osgVerse::MenuBar::MenuItemData activeItem(osgVerse::MenuBar::TR("Activate##ed01m01"));
+        _popupMenus.push_back(activeItem);
+
+        osgVerse::MenuBar::MenuItemData centerItem(osgVerse::MenuBar::TR("Make Central##ed01m02"));
+        _popupMenus.push_back(centerItem);
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData transNodeItem(osgVerse::MenuBar::TR("New Node##ed01m03"));
+        _popupMenus.push_back(transNodeItem);
+
+        osgVerse::MenuBar::MenuItemData new3dItem(osgVerse::MenuBar::TR("New Drawable##ed01m04"));
+        {
+            osgVerse::MenuBar::MenuItemData boxItem(osgVerse::MenuBar::TR("Box##ed01m0401"));
+            new3dItem.subItems.push_back(boxItem);
+
+            osgVerse::MenuBar::MenuItemData sphereItem(osgVerse::MenuBar::TR("Sphere##ed01m0402"));
+            new3dItem.subItems.push_back(sphereItem);
+
+            osgVerse::MenuBar::MenuItemData cylinderItem(osgVerse::MenuBar::TR("Cylinder##ed01m0403"));
+            new3dItem.subItems.push_back(cylinderItem);
+
+            osgVerse::MenuBar::MenuItemData coneItem(osgVerse::MenuBar::TR("Cone##ed01m0404"));
+            new3dItem.subItems.push_back(coneItem);
+
+            osgVerse::MenuBar::MenuItemData capsuleItem(osgVerse::MenuBar::TR("Capsule##ed01m0405"));
+            new3dItem.subItems.push_back(capsuleItem);
+
+            osgVerse::MenuBar::MenuItemData quadItem(osgVerse::MenuBar::TR("Quad##ed01m0406"));
+            new3dItem.subItems.push_back(quadItem);
+        }
+        _popupMenus.push_back(new3dItem);
+
+        osgVerse::MenuBar::MenuItemData newFxItem(osgVerse::MenuBar::TR("New Object##ed01m05"));
+        {
+            osgVerse::MenuBar::MenuItemData camItem(osgVerse::MenuBar::TR("Camera##ed01m0501"));
+            newFxItem.subItems.push_back(camItem);
+
+            osgVerse::MenuBar::MenuItemData lightItem(osgVerse::MenuBar::TR("Light##ed01m0502"));
+            newFxItem.subItems.push_back(lightItem);
+        }
+        _popupMenus.push_back(newFxItem);
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData cutItem(osgVerse::MenuBar::TR("Cut##ed01m06"));
+        _popupMenus.push_back(cutItem);
+
+        osgVerse::MenuBar::MenuItemData copyItem(osgVerse::MenuBar::TR("Copy##ed01m07"));
+        _popupMenus.push_back(copyItem);
+
+        osgVerse::MenuBar::MenuItemData shareItem(osgVerse::MenuBar::TR("Copy As Share##ed01m08"));
+        _popupMenus.push_back(shareItem);
+
+        osgVerse::MenuBar::MenuItemData pasteItem(osgVerse::MenuBar::TR("Paste##ed01m09"));
+        _popupMenus.push_back(pasteItem);
+
+        osgVerse::MenuBar::MenuItemData unshareItem(osgVerse::MenuBar::TR("Unshare##ed01m10"));
+        _popupMenus.push_back(unshareItem);
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData deleteItem(osgVerse::MenuBar::TR("Delete##ed01m11"));
+        _popupMenus.push_back(deleteItem);
+    }
 }
 
 bool Hierarchy::handleCommand(CommandData* cmd)
@@ -158,8 +226,10 @@ bool Hierarchy::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 void Hierarchy::showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGuiManager* mgr,
                               osgVerse::ImGuiContentHandler* content)
 {
-    // Popup menu: active, center, new {} | cut, copy, paste, delete | share, unshare
-    // TODO
+    // Popup menu: active (check), center | new {} | cut, copy, paste, delete | share (check), unshare (check)
+    static osg::ref_ptr<osgVerse::MenuBar> s_popup = new osgVerse::MenuBar;
+    for (size_t i = 0; i < _popupMenus.size(); ++i)
+        s_popup->showMenuItem(_popupMenus[i], mgr, content);
 }
 
 void Hierarchy::addModelFromUrl(const std::string& url)

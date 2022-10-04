@@ -228,7 +228,11 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 }
                 else
                 {
-                    continue;  // FIXME: ignore all absolute slaves such as RTT & display quads
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+                    if (rtt && camera->getName().find("ShadowCaster0") != std::string::npos)
+                        camera->resizeAttachments(w, h);  // FIXME: bad way to find shadow cameras
+#endif
+                    continue;  // FIXME: ignore all absolute slaves such as RTT & display quads?
                     /*switch (camera->getProjectionResizePolicy())
                     {
                     case (osg::Camera::HORIZONTAL):
