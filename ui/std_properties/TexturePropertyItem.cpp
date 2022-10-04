@@ -5,6 +5,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
+#include "../pipeline/Global.h"
 #include "../PropertyInterface.h"
 #include "../ImGuiComponents.h"
 using namespace osgVerse;
@@ -82,7 +83,7 @@ public:
         {
             std::string title = ImGuiComponentBase::TR("Texture Unit ")
                               + std::to_string(itr->first) + "##prop0300";
-            if (ImGui::TreeNode(title.c_str()))
+            if (ImGui::TreeNode((uniformNames[itr->first] + " / " + title).c_str()))
             {
                 TextureData& td = itr->second;
                 td._image->show(mgr, content);

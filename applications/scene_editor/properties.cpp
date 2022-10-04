@@ -139,7 +139,7 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
             osgVerse::PropertyItem* item = _properties[i];
             std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
 
-            if (ImGui::ArrowButton((title + "Arrow").c_str(), ImGuiDir_Down))
+            if (ImGui::ArrowButton((title + "Arrow").c_str(), ImGuiDir_Down))  // TODO: disabled = ImGuiDir_None
             {
                 // Select the item and also open popup menu
                 ImGui::OpenPopup((title + "Popup").c_str());

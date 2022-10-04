@@ -45,26 +45,83 @@ void ImGuiComponentBase::showTooltip(const std::string& desc, const std::string&
     }
 }
 
-void ImGuiComponentBase::registerFileDialog(const std::string& name, const std::string& title, bool modal,
-                                            const std::string& dir, const std::string& filters)
+void ImGuiComponentBase::registerFileDialog(
+    FileDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+    const std::string& dir, const std::string& filters)
 {
     ImGuiFileDialogFlags flags = (modal ? ImGuiFileDialogFlags_Modal : 0);
     ImGuiFileDialog::Instance()->OpenDialog(  // FIXME: more options
         name, title, filters.c_str(), dir, 1, NULL,
         flags | ImGuiFileDialogFlags_DisableCreateDirectoryButton);
+    s_fileDialogRunner.name = name; s_fileDialogRunner.callback = cb;
 }
 
-bool ImGuiComponentBase::showFileDialog(const std::string& name, std::string& result)
+bool ImGuiComponentBase::showFileDialog(std::string& result)
 {
-    if (ImGuiFileDialog::Instance()->Display(name))
+    if (s_fileDialogRunner.name.empty()) return false;
+    if (ImGuiFileDialog::Instance()->Display(s_fileDialogRunner.name))
     {
         if (ImGuiFileDialog::Instance()->IsOk())
             result = ImGuiFileDialog::Instance()->GetFilePathName();
         ImGuiFileDialog::Instance()->Close();
-        return !result.empty();
+        if (!result.empty() && s_fileDialogRunner.callback)
+            s_fileDialogRunner.callback(result);
+        s_fileDialogRunner.name = ""; return true;
     }
     return false;
 }
+
+void ImGuiComponentBase::registerConfirmDialog(
+    ConfirmDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+    const std::string& btn0, const std::string& btn1)
+{
+    s_confirmDialogRunner.name = name; s_confirmDialogRunner.title = title;
+    s_confirmDialogRunner.btn0 = btn0; s_confirmDialogRunner.btn1 = btn1;
+    s_confirmDialogRunner.modal = modal; s_confirmDialogRunner.init = true;
+    s_confirmDialogRunner.callback = cb;
+}
+
+bool ImGuiComponentBase::showConfirmDialog(bool& result)
+{
+    bool displayed = false, closed = false;
+    if (s_confirmDialogRunner.name.empty()) return false;
+    else if (s_confirmDialogRunner.init)
+    {
+        ImGui::OpenPopup(s_confirmDialogRunner.name.c_str());
+        s_confirmDialogRunner.init = false;
+    }
+
+    if (s_confirmDialogRunner.modal)
+        displayed = ImGui::BeginPopupModal(s_confirmDialogRunner.name.c_str(),
+                                           NULL, ImGuiWindowFlags_AlwaysAutoResize);
+    else
+        displayed = ImGui::BeginPopup(s_confirmDialogRunner.name.c_str(), ImGuiWindowFlags_AlwaysAutoResize);
+
+    if (displayed)
+    {
+        ImGui::Text(s_confirmDialogRunner.title.c_str()); ImGui::Separator();
+        if (ImGui::Button(s_confirmDialogRunner.btn0.c_str(), ImVec2(120, 0)))
+        { ImGui::CloseCurrentPopup(); result = true; closed = true; }
+        
+        if (!s_confirmDialogRunner.btn0.empty())
+        {
+            ImGui::SetItemDefaultFocus(); ImGui::SameLine();
+            if (ImGui::Button(s_confirmDialogRunner.btn1.c_str(), ImVec2(120, 0)))
+            { ImGui::CloseCurrentPopup(); result = false; closed = true; }
+        }
+
+        if (closed)
+        {
+            if (s_confirmDialogRunner.callback) s_confirmDialogRunner.callback(result);
+            s_confirmDialogRunner.name = "";
+        }
+        ImGui::EndPopup();
+    }
+    return closed;
+}
+
+ImGuiComponentBase::FileDialogData ImGuiComponentBase::s_fileDialogRunner;
+ImGuiComponentBase::ConfirmDialogData ImGuiComponentBase::s_confirmDialogRunner;
 
 void Window::resize(const osg::Vec2& p, const osg::Vec2& s)
 { pos = p; size = s; sizeApplied = false; }

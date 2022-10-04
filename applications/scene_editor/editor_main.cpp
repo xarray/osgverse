@@ -11,6 +11,33 @@
 #include "defines.h"
 GlobalData g_data;
 
+class SceneManipulator : public osgGA::TrackballManipulator
+{
+public:
+    SceneManipulator() : osgGA::TrackballManipulator() {}
+    virtual bool performMovement()
+    {
+        if (_ga_t0.get() == NULL || _ga_t1.get() == NULL) return false;
+        double eventTimeDelta = _ga_t0->getTime() - _ga_t1->getTime();
+        if (eventTimeDelta < 0.0) eventTimeDelta = 0.0;
+
+        float dx = _ga_t0->getXnormalized() - _ga_t1->getXnormalized();
+        float dy = _ga_t0->getYnormalized() - _ga_t1->getYnormalized();
+        if (dx == 0.0 && dy == 0.0) return false;
+
+        unsigned int bm = _ga_t1->getButtonMask(), mk = _ga_t1->getModKeyMask();
+        bool modKeyDown = (mk & osgGA::GUIEventAdapter::MODKEY_ALT);
+        if (bm == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON && modKeyDown)
+        { return performMovementRightMouseButton(eventTimeDelta, dx, dy); }
+        else if ((bm == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON && modKeyDown) ||
+                 bm == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON)
+        { return performMovementLeftMouseButton(eventTimeDelta, dx, dy); }
+        else if (bm == osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON)
+        { return performMovementMiddleMouseButton(eventTimeDelta, dx, dy); }
+        return false;
+    }
+};
+
 EditorContentHandler::EditorContentHandler()
     : _uiFrameNumber(0)
 {
@@ -48,15 +75,10 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
         osg::Vec4 lSize = _sceneLogic->getWindow()->getCurrentRectangle();
     }
 
-    if (!_currentDialogName.empty())
-    {
-        std::string result;
-        if (osgVerse::ImGuiComponentBase::showFileDialog(_currentDialogName, result))
-        {
-            _hierarchy->addModelFromUrl(result);  // FIXME: open other files?
-            _currentDialogName = "";
-        }
-    }
+    // Dialog management
+    { std::string r; osgVerse::ImGuiComponentBase::showFileDialog(r); }
+    { bool r = false; osgVerse::ImGuiComponentBase::showConfirmDialog(r); }
+
     ImGui::PopFont();
     _uiFrameNumber++;
 }
@@ -123,6 +145,7 @@ int main(int argc, char** argv)
     g_data.sceneRoot = sceneRoot.get();
     g_data.auxiliaryRoot = auxRoot.get();
     g_data.selector = selector.get();
+    g_data.view = &viewer;
 
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
@@ -132,8 +155,9 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgVerse::CommandHandler);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+    //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    viewer.setCameraManipulator(new SceneManipulator);
     viewer.setSceneData(root.get());
+    //viewer.setKeyEventSetsDone(0);
     return viewer.run();
 }

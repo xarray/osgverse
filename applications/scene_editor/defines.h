@@ -36,7 +36,6 @@ protected:
     osg::ref_ptr<Hierarchy> _hierarchy;
     osg::ref_ptr<Properties> _properties;
     osg::ref_ptr<SceneLogic> _sceneLogic;
-    std::string _currentDialogName;
     unsigned int _uiFrameNumber;
 };
 
@@ -45,6 +44,7 @@ struct GlobalData
     osg::observer_ptr<osg::Camera> mainCamera;
     osg::observer_ptr<osg::Group> sceneRoot, auxiliaryRoot;
     osg::observer_ptr<osgVerse::NodeSelector> selector;
+    osg::observer_ptr<osgViewer::View> view;
 };
 extern GlobalData g_data;
 

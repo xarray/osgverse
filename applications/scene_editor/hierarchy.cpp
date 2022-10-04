@@ -158,7 +158,7 @@ bool Hierarchy::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 void Hierarchy::showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGuiManager* mgr,
                               osgVerse::ImGuiContentHandler* content)
 {
-    // Popup menu: active, new {} | cut, copy, paste, delete | share, unshare
+    // Popup menu: active, center, new {} | cut, copy, paste, delete | share, unshare
     // TODO
 }
 
@@ -166,7 +166,19 @@ void Hierarchy::addModelFromUrl(const std::string& url)
 {
     if (_selectedItem.valid())
     {
-        osg::Group* parent = static_cast<osg::Group*>(_selectedItem->userData.get());
+        osg::Group* parent = dynamic_cast<osg::Group*>(_selectedItem->userData.get());
+        if (parent == NULL)
+        {
+            osg::Geode* parentG = dynamic_cast<osg::Geode*>(_selectedItem->userData.get());
+            if (parentG != NULL && parentG->getNumParents() > 0) parent = parentG->getParent(0);
+
+            if (parentG == NULL)
+            {
+                osg::Drawable* parentD = dynamic_cast<osg::Drawable*>(_selectedItem->userData.get());
+                if (parentD != NULL && parentD->getNumParents() > 0) parent = parentD->getParent(0);  // FIXME
+            }
+        }
+
         if (parent != NULL)
         {
             osgVerse::CommandBuffer::instance()->add(osgVerse::LoadModelCommand, parent, url);

@@ -50,12 +50,12 @@ void EditorContentHandler::createEditorMenu2()
 
         osgVerse::MenuBar::MenuItemData importItem(osgVerse::MenuBar::TR("Import Scene##menu0304"));
         importItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
-            osgVerse::ImGuiComponentBase* me)
+                                  osgVerse::ImGuiComponentBase* me)
         {
-            _currentDialogName = "OpenModelFile##ed00";
             osgVerse::ImGuiComponentBase::registerFileDialog(
-                _currentDialogName, osgVerse::ImGuiComponentBase::TR("Select 3D model file"),
-                true, ".", ".*,.osgb,.fbx,.gltf");
+                [&](const std::string& result) { _hierarchy->addModelFromUrl(result); },
+                "OpenModelFile##ed00", osgVerse::ImGuiComponentBase::TR("Select 3D model file"),
+                true, ".", ".*,.osgb,.fbx,.gltf");  // FIXME: open other formats?
         };
         assetMenu.items.push_back(importItem);
 

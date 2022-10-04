@@ -26,7 +26,7 @@ namespace osgVerse
     static std::string uniformNames[] =
     {
         /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
-        /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
+        /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap", /*7*/"CustomMap"
     };
 
     class ComponentCallback;

@@ -46,9 +46,12 @@ namespace osgVerse
 
     struct ImGuiComponentBase : public osg::Referenced
     {
-        using ActionCallback = std::function<void(ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)>;
-        using ActionCallback2 = std::function<void(ImGuiManager*, ImGuiContentHandler*,
-                                                   ImGuiComponentBase*, const std::string&)>;
+        using ActionCallback = std::function<void (ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)>;
+        using ActionCallback2 = std::function<void (ImGuiManager*, ImGuiContentHandler*,
+                                                    ImGuiComponentBase*, const std::string&)>;
+        using FileDialogCallback = std::function<void (const std::string&)>;
+        using ConfirmDialogCallback = std::function<void(bool)>;
+        
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual void showEnd() { /* nothing to do by default */ }
         virtual void showTooltip(const std::string& desc, const std::string& t = "(?)", float wrapPos = 10.0f);
@@ -57,9 +60,26 @@ namespace osgVerse
         static std::string TR(const std::string& s);  // multi-language support
         static void setWidth(float width, bool fromLeft = true);
         static void adjustLine(bool newLine, bool sep = false, float indentX = 0.0f, float indentY = 0.0f);
-        static void registerFileDialog(const std::string& name, const std::string& title, bool modal,
-                                       const std::string& dir = ".", const std::string& filters=".*");
-        static bool showFileDialog(const std::string& name, std::string& result);
+
+        static void registerFileDialog(
+            FileDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+            const std::string& dir = ".", const std::string& filters=".*");
+        static bool showFileDialog(std::string& result);
+        static struct FileDialogData
+        {
+            std::string name;
+            FileDialogCallback callback;
+        } s_fileDialogRunner;
+
+        static void registerConfirmDialog(
+            ConfirmDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+            const std::string& btn0 = "OK", const std::string& btn1 = "");
+        static bool showConfirmDialog(bool& result);
+        static struct ConfirmDialogData
+        {
+            std::string name, title, btn0, btn1; bool modal, init;
+            ConfirmDialogCallback callback;
+        } s_confirmDialogRunner;
     };
 
     struct Window : public ImGuiComponentBase

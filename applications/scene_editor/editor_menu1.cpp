@@ -46,6 +46,14 @@ void EditorContentHandler::createEditorMenu1()
         projMenu.items.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
         osgVerse::MenuBar::MenuItemData quitItem(osgVerse::MenuBar::TR("Exit##menu0109"));
+        quitItem.callback = [&](osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler*,
+                                osgVerse::ImGuiComponentBase* me)
+        {
+            osgVerse::ImGuiComponentBase::registerConfirmDialog(
+                [&](bool result) { if (result) g_data.view->getEventQueue()->quitApplication(); },
+                "OpenConfirmFile##ed00", osgVerse::ImGuiComponentBase::TR("Quit the application now?"),
+                true, osgVerse::ImGuiComponentBase::TR("Yes"), osgVerse::ImGuiComponentBase::TR("No"));
+        };
         projMenu.items.push_back(quitItem);
     }
     _mainMenu->menuDataList.push_back(projMenu);
