@@ -20,6 +20,7 @@ namespace osgVerse
         LoadModelCommand,        // [node]parent, [string]url
 
         CommandToUI = 100,
+        ResizeEditor,            // [null], [vec2]size
         RefreshHierarchy,        // [node]parent, [node]item-added, [bool]to-delete (TODO)
         RefreshHierarchyItem,    // [node]item, [string]value-type
         RefreshProperties,       // [node]item, [string]component-name

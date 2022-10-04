@@ -12,6 +12,7 @@
 GlobalData g_data;
 
 EditorContentHandler::EditorContentHandler()
+    : _uiFrameNumber(0)
 {
     _hierarchy = new Hierarchy;
     _properties = new Properties;
@@ -31,11 +32,21 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 
     _mainMenu->show(mgr, this);
     ImGui::Separator();
+    if (_uiFrameNumber > 0)
+    {
+        // Wait for the first frame to initialize ImGui work-size
+        if (_hierarchy.valid()) _hierarchy->show(mgr, this);
+        if (_properties.valid()) _properties->show(mgr, this);
+        if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
+    }
 
-    // TODO: auto layout
-    if (_hierarchy.valid()) _hierarchy->show(mgr, this);
-    if (_properties.valid()) _properties->show(mgr, this);
-    if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+    {
+        // TODO: auto layout
+        osg::Vec4 hSize = _hierarchy->getWindow()->getCurrentRectangle();
+        osg::Vec4 pSize = _properties->getWindow()->getCurrentRectangle();
+        osg::Vec4 lSize = _sceneLogic->getWindow()->getCurrentRectangle();
+    }
 
     if (!_currentDialogName.empty())
     {
@@ -47,6 +58,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
         }
     }
     ImGui::PopFont();
+    _uiFrameNumber++;
 }
 
 void EditorContentHandler::handleCommands()
@@ -56,6 +68,11 @@ void EditorContentHandler::handleCommands()
     {
         switch (cmd.type)
         {
+        case osgVerse::ResizeEditor:
+            if (_hierarchy.valid()) _hierarchy->getWindow()->sizeApplied = false;
+            if (_properties.valid()) _properties->getWindow()->sizeApplied = false;
+            if (_sceneLogic.valid()) _sceneLogic->getWindow()->sizeApplied = false;
+            break;
         case osgVerse::RefreshHierarchy:
             if (!_hierarchy->handleCommand(&cmd))
                 OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy" << std::endl;

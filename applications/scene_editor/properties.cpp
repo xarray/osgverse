@@ -12,11 +12,11 @@
 using namespace osgVerse;
 
 Properties::Properties()
+    : _selectedProperty(-1)
 {
     _propWindow = new Window(TR("Properties##ed02"));
-    _propWindow->pos = osg::Vec2(1600, 0);
-    _propWindow->sizeMin = osg::Vec2(320, 780);
-    _propWindow->sizeMax = osg::Vec2(640, 780);
+    _propWindow->pos = osg::Vec2(0.8f, 0.0f);
+    _propWindow->size = osg::Vec2(0.2f, 0.75f);
     _propWindow->alpha = 0.9f;
     _propWindow->useMenuBar = false;
     _propWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
@@ -31,7 +31,7 @@ bool Properties::handleCommand(CommandData* cmd)
     */
     PropertyItemManager* propManager = PropertyItemManager::instance();
     osg::StateSet* stateSet = NULL; ComponentCallback* callback = NULL;
-    _properties.clear();
+    _properties.clear(); _selectedProperty = -1;
 
     osg::Drawable* targetD = dynamic_cast<osg::Drawable*>(cmd->object.get());
     if (targetD)
@@ -130,6 +130,7 @@ bool Properties::handleCommand(CommandData* cmd)
 bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = _propWindow->show(mgr, content);
+    if (done)
     {
         int headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Bullet
                         | ImGuiTreeNodeFlags_OpenOnDoubleClick;
@@ -138,14 +139,26 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
             osgVerse::PropertyItem* item = _properties[i];
             std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
 
-            if (ImGui::ArrowButton((title + "A").c_str(), ImGuiDir_Down))
+            if (ImGui::ArrowButton((title + "Arrow").c_str(), ImGuiDir_Down))
             {
-                // TODO: popup menu: active, select, ...
+                // Select the item and also open popup menu
+                ImGui::OpenPopup((title + "Popup").c_str());
+                _selectedProperty = (int)i;
             }
             ImGui::SameLine();
 
-            //if (i == 0) ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+            // Show property item (selected or not)
+            if (i == _selectedProperty)
+                ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.4f, 0.4f, 0.0f, 1.0f));
             bool toOpen = ImGui::CollapsingHeader(title.c_str(), headerFlags);
+            if (i == _selectedProperty) ImGui::PopStyleColor();
+
+            if (ImGui::BeginPopup((title + "Popup").c_str()))
+            {
+                showPopupMenu(item, mgr, content);
+                ImGui::EndPopup();
+            }
+
             if (toOpen)
             {
                 if (item->show(mgr, content))
@@ -154,9 +167,15 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
                         CommandBuffer::instance()->add(RefreshHierarchyItem, item->getTarget(), "");
                 }
             }
-            //if (i == 0) ImGui::PopStyleColor();
         }
+        _propWindow->showEnd();
     }
-    _propWindow->showEnd();
     return done;
+}
+
+void Properties::showPopupMenu(osgVerse::PropertyItem* item, osgVerse::ImGuiManager* mgr,
+                               osgVerse::ImGuiContentHandler* content)
+{
+    // Popup menu: enable, up (custom), down (custom) | copy, paste, delete | edit (custom)
+    // TODO
 }

@@ -32,9 +32,8 @@ SceneLogic::SceneLogic()
     osg::setNotifyHandler(new ConsoleHandler(this));
 
     _logicWindow = new osgVerse::Window(TR("Scene Logic##ed03"));
-    _logicWindow->pos = osg::Vec2(0, 780);
-    _logicWindow->sizeMin = osg::Vec2(1920, 300);
-    _logicWindow->sizeMax = osg::Vec2(1920, 800);
+    _logicWindow->pos = osg::Vec2(0.0f, 0.75f);
+    _logicWindow->size = osg::Vec2(1.0f, 0.25f);
     _logicWindow->alpha = 0.9f;
     _logicWindow->useMenuBar = false;
     _logicWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar
@@ -45,6 +44,7 @@ SceneLogic::SceneLogic()
 bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler* content)
 {
     bool done = _logicWindow->show(mgr, content);
+    if (done)
     {
         if (ImGui::BeginTabBar("##ed0301"))
         {
@@ -89,7 +89,7 @@ bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler
             }
             ImGui::EndTabBar();
         }
+        _logicWindow->showEnd();
     }
-    _logicWindow->showEnd();
     return done;
 }

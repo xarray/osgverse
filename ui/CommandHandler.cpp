@@ -91,5 +91,10 @@ bool CommandHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAd
                 OSG_WARN << "[CommandHandler] Failed to execute " << cmd.type << std::endl;
         }
     }
+    else if (ea.getEventType() == osgGA::GUIEventAdapter::RESIZE)
+    {
+        CommandBuffer::instance()->add(
+            ResizeEditor, NULL, osg::Vec2(ea.getWindowWidth(), ea.getWindowHeight()));
+    }
     return false;
 }

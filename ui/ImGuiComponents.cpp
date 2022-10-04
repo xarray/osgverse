@@ -66,20 +66,35 @@ bool ImGuiComponentBase::showFileDialog(const std::string& name, std::string& re
     return false;
 }
 
+void Window::resize(const osg::Vec2& p, const osg::Vec2& s)
+{ pos = p; size = s; sizeApplied = false; }
+
 bool Window::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    const ImGuiViewport* view = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(view->WorkPos.x + pos[0], view->WorkPos.y + pos[1]),
-                            0, ImVec2(pivot[0], pivot[1]));
-    if (sizeMin.length2() > 0.0f && sizeMax.length2() > 0.0f)
-        ImGui::SetNextWindowSizeConstraints(ImVec2(sizeMin[0], sizeMin[1]), ImVec2(sizeMax[0], sizeMax[1]));
-    else if (sizeMin.length2() > 0.0f)
-        ImGui::SetNextWindowSize(ImVec2(sizeMin[0], sizeMin[1]));
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    if (!isOpen) return false;
+    if (!sizeApplied)
+    {
+        ImGui::SetNextWindowPos(
+            ImVec2(vp->WorkPos[0] + pos[0] * vp->WorkSize[0],
+                vp->WorkPos[1] + pos[1] * vp->WorkSize[1]), 0, ImVec2(pivot[0], pivot[1]));
+        if (size.length2() > 0.0f)
+            ImGui::SetNextWindowSize(ImVec2(size[0] * vp->WorkSize[0], size[1] * vp->WorkSize[1]));
+        sizeApplied = true;
+    }
 
     ImGui::SetNextWindowBgAlpha(alpha);
     ImGui::SetNextWindowCollapsed(collapsed);
     if (useMenuBar) flags |= ImGuiWindowFlags_MenuBar;
-    return ImGui::Begin(name.c_str(), &isOpen, flags);
+    
+    bool done = ImGui::Begin(name.c_str(), &isOpen, flags);
+    if (done)
+    {
+        ImVec2 p = ImGui::GetWindowPos(), s = ImGui::GetWindowSize();
+        rectRT.set((p[0] - vp->WorkPos[0]) / vp->WorkSize[0], (p[1] - vp->WorkPos[1]) / vp->WorkSize[1],
+                   s[0] / vp->WorkSize[0], s[1] / vp->WorkSize[1]);
+    }
+    return done;
 }
 
 bool Label::show(ImGuiManager* mgr, ImGuiContentHandler* content)

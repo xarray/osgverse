@@ -13,12 +13,17 @@ class Properties : public osgVerse::ImGuiComponentBase
 {
 public:
     Properties();
+    osgVerse::Window* getWindow() { return _propWindow.get(); }
+
     bool handleCommand(osgVerse::CommandData* cmd);
     virtual bool show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler* content);
+    void showPopupMenu(osgVerse::PropertyItem* item, osgVerse::ImGuiManager* mgr,
+                       osgVerse::ImGuiContentHandler* content);
 
 protected:
     osg::ref_ptr<osgVerse::Window> _propWindow;
     std::vector<osg::ref_ptr<osgVerse::PropertyItem>> _properties;
+    int _selectedProperty;
 };
 
 #endif

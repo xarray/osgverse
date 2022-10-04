@@ -65,15 +65,17 @@ namespace osgVerse
     struct Window : public ImGuiComponentBase
     {
         std::string name; float alpha;
-        osg::Vec2 pos, pivot, sizeMin, sizeMax;
-        bool isOpen, collapsed, useMenuBar;
+        osg::Vec2 pos, pivot, size; osg::Vec4 rectRT;  // [0, 1]
+        bool isOpen, collapsed, useMenuBar, sizeApplied;
         ImGuiWindowFlags flags;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         virtual void showEnd() { ImGui::End(); }
+        void resize(const osg::Vec2& p, const osg::Vec2& s);
+        osg::Vec4 getCurrentRectangle() const { return rectRT; }
         Window(const std::string& n)
-        :   name(n), alpha(1.0f), isOpen(true),
-            collapsed(false), useMenuBar(false), flags(0) {}
+        :   name(n), alpha(1.0f), isOpen(true), collapsed(false),
+            useMenuBar(false), sizeApplied(false), flags(0) {}
     };
 
     struct Label : public ImGuiComponentBase

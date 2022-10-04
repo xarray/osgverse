@@ -37,6 +37,7 @@ protected:
     osg::ref_ptr<Properties> _properties;
     osg::ref_ptr<SceneLogic> _sceneLogic;
     std::string _currentDialogName;
+    unsigned int _uiFrameNumber;
 };
 
 struct GlobalData

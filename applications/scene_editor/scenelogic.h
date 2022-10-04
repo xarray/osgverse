@@ -7,6 +7,7 @@ class SceneLogic : public osgVerse::ImGuiComponentBase
 {
 public:
     SceneLogic();
+    osgVerse::Window* getWindow() { return _logicWindow.get(); }
     virtual bool show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler* content);
 
     struct NotifyData

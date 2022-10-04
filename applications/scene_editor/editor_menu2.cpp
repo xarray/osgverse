@@ -16,7 +16,7 @@ void EditorContentHandler::createEditorMenu2()
         osgVerse::MenuBar::MenuItemData transNodeItem(osgVerse::MenuBar::TR("New Node##menu0301"));
         assetMenu.items.push_back(transNodeItem);
 
-        osgVerse::MenuBar::MenuItemData new3dItem(osgVerse::MenuBar::TR("New Object##menu0302"));
+        osgVerse::MenuBar::MenuItemData new3dItem(osgVerse::MenuBar::TR("New Drawable##menu0302"));
         {
             osgVerse::MenuBar::MenuItemData boxItem(osgVerse::MenuBar::TR("Box##menu030201"));
             new3dItem.subItems.push_back(boxItem);
@@ -38,13 +38,13 @@ void EditorContentHandler::createEditorMenu2()
         }
         assetMenu.items.push_back(new3dItem);
 
-        osgVerse::MenuBar::MenuItemData newFxItem(osgVerse::MenuBar::TR("New Effect##menu0303"));
+        osgVerse::MenuBar::MenuItemData newFxItem(osgVerse::MenuBar::TR("New Object##menu0303"));
         {
             osgVerse::MenuBar::MenuItemData camItem(osgVerse::MenuBar::TR("Camera##menu030301"));
             newFxItem.subItems.push_back(camItem);
 
-            osgVerse::MenuBar::MenuItemData lightSrcItem(osgVerse::MenuBar::TR("Light Source##menu030302"));
-            newFxItem.subItems.push_back(lightSrcItem);
+            osgVerse::MenuBar::MenuItemData lightItem(osgVerse::MenuBar::TR("Light##menu030302"));
+            newFxItem.subItems.push_back(lightItem);
         }
         assetMenu.items.push_back(newFxItem);
 
