@@ -15,5 +15,5 @@ void main()
 	texCoord0 = gl_MultiTexCoord0;
 	texCoord1 = gl_MultiTexCoord1;
     color = gl_Color;
-	gl_Position = ftransform();
+	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
 }

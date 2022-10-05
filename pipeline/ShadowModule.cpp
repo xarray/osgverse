@@ -13,12 +13,13 @@ public:
 
 namespace osgVerse
 {
-    ShadowModule::ShadowModule(Pipeline* pipeline, bool withDebugGeom)
+    ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
         : _pipeline(pipeline), _shadowMaxDistance(-1.0f)
     {
         _shadowMaps = new osg::Texture2DArray;
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
         _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", 4);
+        if (pipeline) pipeline->addModule(name, this);
     }
 
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0, float maxDistance)
@@ -47,9 +48,8 @@ namespace osgVerse
         _shadowMaps->setSourceType(GL_FLOAT);
         _shadowMaps->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         _shadowMaps->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        _shadowMaps->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
-        _shadowMaps->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
-        _shadowMaps->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        _shadowMaps->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        _shadowMaps->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
 
         if (_pipeline.valid())
         {
@@ -62,8 +62,17 @@ namespace osgVerse
         }
     }
 
-    void ShadowModule::addReferencePoints(const std::vector<osg::Vec3>& pt)
-    { _referencePoints.insert(_referencePoints.end(), pt.begin(), pt.end()); }
+    void ShadowModule::addReferencePoints(const std::vector<osg::Vec3>& pt, bool toReset)
+    {
+        if (toReset) _referencePoints.clear();
+        _referencePoints.insert(_referencePoints.end(), pt.begin(), pt.end());
+    }
+
+    void ShadowModule::addReferenceBound(const osg::BoundingBox& bb, bool toReset)
+    {
+        if (toReset) _referencePoints.clear();
+        for (int i = 0; i < 8; ++i) _referencePoints.push_back(bb.corner(i));
+    }
 
     void ShadowModule::updateInDraw(osg::RenderInfo& renderInfo)
     {
@@ -83,14 +92,24 @@ namespace osgVerse
 #endif
 
         osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
-        for (size_t i = 0; i < _shadowCameras.size(); ++i)
+        float xMinTotal = shadowBB.xMin(), xMaxTotal = shadowBB.xMax();
+        float yMinTotal = shadowBB.yMin(), yMaxTotal = shadowBB.yMax();
+        size_t numCameras = _shadowCameras.size();
+
+        static const float ratios[] = { 0.0f, 0.05f, 0.2f, 0.5f, 1.0f };
+        float xStep = (xMaxTotal - xMinTotal) / ratios[numCameras];
+        for (size_t i = 0; i < numCameras; ++i)
         {
-            // TODO: split...
+            // Split the shadow bounds
+            float xMin = xMinTotal + xStep * ratios[i],
+                  xMax = xMinTotal + xStep * ratios[i + 1];
+            float yMin = yMinTotal, yMax = yMaxTotal;
+
+            // Apply the shadow camera & uniform
             osg::Camera* shadowCam = _shadowCameras[i].get();
             shadowCam->setViewMatrix(_lightMatrix);
-            shadowCam->setProjectionMatrixAsOrtho(
-                shadowBB.xMin(), shadowBB.xMax(), shadowBB.yMin(), shadowBB.yMax(),
-                0.0, osg::maximum(fabs(shadowBB.zMax()), fabs(shadowBB.zMin())));
+            shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax,
+                0.0, osg::maximum(osg::absolute(shadowBB.zMax()), osg::absolute(shadowBB.zMin())));
             _lightMatrices->setElement(i, osg::Matrixf(viewInv *
                 shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
         }
@@ -120,9 +139,10 @@ namespace osgVerse
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         camera->setRenderOrder(osg::Camera::PRE_RENDER);
-        camera->setGraphicsContext(_pipeline->getContext());
+
+        if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps->getTextureWidth(), _shadowMaps->getTextureHeight());
-        camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps.get(), id);
+        camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps.get(), 0, id);
         camera->getOrCreateStateSet()->setAttributeAndModes(
             prog, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         _shadowCameras.push_back(camera.get());

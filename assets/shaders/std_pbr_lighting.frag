@@ -7,8 +7,8 @@ uniform sampler2DArray ShadowMapArray;
 uniform mat4 ShadowSpaceMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 in vec4 texCoord0;
-out vec4 fragData;
 
+/// PBR functions
 const vec2 invAtan = vec2(0.1591, 0.3183);
 vec2 sphericalUV(vec3 v)
 {
@@ -16,17 +16,16 @@ vec2 sphericalUV(vec3 v)
     uv *= invAtan; uv += 0.5; return uv;
 }
 
-/// PBR functions
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
-{
-    float val = 1.0 - cosTheta;
-    return F0 + (1.0 - F0) * (val*val*val*val*val); //Faster than pow
-}
-
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
     float val = 1.0 - cosTheta;
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * (val*val*val*val*val); //Faster than pow
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
+{
+    float val = 1.0 - cosTheta;
+    return F0 + (1.0 - F0) * (val*val*val*val*val); //Faster than pow
 }
 
 float distributionGGX(vec3 N, vec3 H, float rough)
@@ -59,7 +58,7 @@ float geometrySmith(float nDotV, float nDotL, float rough)
 
 /// Lighting functions
 vec3 computeDirectionalLight(vec3 lightDirection, vec3 lightColor, vec3 normal, vec3 viewDir,
-                             vec3 albedo, vec3 specular, float rough, float metal, float shadow, vec3 F0)
+                             vec3 albedo, vec3 specular, float rough, float metal, vec3 F0)
 {
     // Variables common to BRDFs
     vec3 radianceIn = lightColor, lightDir = normalize(-lightDirection);
@@ -79,7 +78,7 @@ vec3 computeDirectionalLight(vec3 lightDirection, vec3 lightColor, vec3 normal, 
     vec3 specularR = specular * numerator / max(denominator, 0.0001);
     
     vec3 radiance = (kD * (albedo / M_PI) + specularR) * radianceIn * nDotL;
-    return radiance * shadow;
+    return radiance;
 }
 
 vec3 computePointLight(vec3 lightPosition, vec3 lightColor, float range, vec3 normal, vec3 fragPos,
@@ -129,28 +128,22 @@ void main()
     vec4 eyeVertex = GBufferMatrices[3] * vecInProj;
     vec3 eyeNormal = normalAlpha.rgb;
     
-    vec3 dLightDir = vec3(0.0, 0.0, -1.0), dLightColor = vec3(2.0, 2.0, 2.0);  // TODO!!!!!!!!!!!!!
+    vec3 dLightDir = vec3(0.02, 0.1, -1.0), dLightColor = vec3(2.0, 2.0, 2.0);  // TODO!!!!!!!!!!!!!
+    dLightDir = normalize(dLightDir);
     
     // Components common to all light types
     vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);
     vec3 R = reflect(-viewDir, eyeNormal);
     vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
     float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;
-    float nDotV = max(dot(eyeNormal, viewDir), 0.0), shadow = 1.0;  // TODO!!!!!!!!!!!!! ao
+    float nDotV = max(dot(eyeNormal, viewDir), 0.0);
     
-    // Compute direcional light and shadow
-    float shadowLayer = 0.0;  // TODO!!!!!!!!!!!!! shadowLayer
-    vec4 lightProjVec = ShadowSpaceMatrices[int(shadowLayer)] * eyeVertex;
-    vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
-    {
-        vec4 lightProjVec0 = texture(ShadowMapArray, vec3(lightProjUV.xy, shadowLayer));
-        float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
-        shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.1 : 1.0;
-    }
+    // FIXME: metallic has problem when displaying sponza model??
     
+    // Compute direcional lights
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 radianceOut = computeDirectionalLight(dLightDir, dLightColor, eyeNormal, viewDir,
-                                               albedo, specular, roughness, metallic, shadow, F0);
+                                               albedo, specular, roughness, metallic, F0);
     
     // Treat ambient light as IBL or not
     vec3 ambient = vec3(0.025) * albedo;
@@ -168,6 +161,6 @@ void main()
         ambient = kD * diffuse + envSpecular;
     }
     
-    radianceOut += ambient + emission;
-	fragData = vec4(radianceOut, 1.0);
+	gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut, 1.0);
+	gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
 }

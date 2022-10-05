@@ -545,13 +545,13 @@ namespace osgVerse
         static osg::ref_ptr<osg::Texture2D> tex0 = createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         static osg::ref_ptr<osg::Texture2D> tex1 = createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
-        ss->setTextureAttributeAndModes(0, tex1.get());
-        ss->setTextureAttributeAndModes(1, tex0.get());
-        ss->setTextureAttributeAndModes(2, tex1.get());
-        ss->setTextureAttributeAndModes(3, tex0.get());
-        ss->setTextureAttributeAndModes(4, tex0.get());
-        ss->setTextureAttributeAndModes(5, tex0.get());
-        ss->setTextureAttributeAndModes(6, tex0.get());
+        ss->setTextureAttributeAndModes(0, tex1.get());  // DiffuseMap
+        ss->setTextureAttributeAndModes(1, tex0.get());  // NormalMap
+        ss->setTextureAttributeAndModes(2, tex1.get());  // SpecularMap
+        ss->setTextureAttributeAndModes(3, tex0.get());  // ShininessMap
+        ss->setTextureAttributeAndModes(4, tex0.get());  // AmbientMap
+        ss->setTextureAttributeAndModes(5, tex0.get());  // EmissiveMap
+        ss->setTextureAttributeAndModes(6, tex0.get());  // ReflectionMap
         for (int i = 0; i < 7; ++i) ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
 
         osg::Program* prog = static_cast<osg::Program*>(ss->getAttribute(osg::StateAttribute::PROGRAM));

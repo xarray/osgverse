@@ -1,5 +1,5 @@
 #include <osg/io_utils>
-#include <osg/LightSource>
+#include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sstream>
 #include <pipeline/Pipeline.h>
+#include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
 #define SHADER_DIR "../shaders/"
 
@@ -49,13 +50,20 @@ int main(int argc, char** argv)
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.0,0,-250.trans");
     otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
 
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
     setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);
+
+    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    if (shadow)
+    {
+        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
+        shadow->addReferenceBound(cbv.getBoundingBox(), true);
+    }
 
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

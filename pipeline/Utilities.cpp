@@ -345,8 +345,10 @@ namespace osgVerse
             lightSpaceBB1.expandBy(refPoints[i] * worldToLocal);
         if (lightSpaceBB1._min[0] > lightSpaceBB0._min[0]) lightSpaceBB0._min[0] = lightSpaceBB1._min[0];
         if (lightSpaceBB1._min[1] > lightSpaceBB0._min[1]) lightSpaceBB0._min[1] = lightSpaceBB1._min[1];
+        if (lightSpaceBB1._min[2] > lightSpaceBB0._min[2]) lightSpaceBB0._min[2] = lightSpaceBB1._min[2];
         if (lightSpaceBB1._max[0] < lightSpaceBB0._max[0]) lightSpaceBB0._max[0] = lightSpaceBB1._max[0];
         if (lightSpaceBB1._max[1] < lightSpaceBB0._max[1]) lightSpaceBB0._max[1] = lightSpaceBB1._max[1];
+        if (lightSpaceBB1._max[2] < lightSpaceBB0._max[2]) lightSpaceBB0._max[2] = lightSpaceBB1._max[2];
         return lightSpaceBB0;
     }
 }

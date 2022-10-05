@@ -10,12 +10,13 @@ namespace osgVerse
     class ShadowModule : public osg::NodeCallback
     {
     public:
-        ShadowModule(Pipeline* pipeline, bool withDebugGeom);
+        ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom);
         void createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
                           unsigned int casterMask);
 
         void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, float maxDistance);
-        void addReferencePoints(const std::vector<osg::Vec3>& pt);
+        void addReferenceBound(const osg::BoundingBox& bb, bool toReset);
+        void addReferencePoints(const std::vector<osg::Vec3>& pt, bool toReset);
         void clearReferencePoints() { _referencePoints.clear(); }
 
         osg::Texture2DArray* getTextureArray() { return _shadowMaps.get(); }
@@ -33,11 +34,11 @@ namespace osgVerse
         Pipeline::Stage* createShadowCaster(int id, osg::Program* prog, unsigned int casterMask);
         void updateFrustumGeometry(int id, osg::Camera* shadowCam);
         
-        osg::ref_ptr<Pipeline> _pipeline;
+        osg::observer_ptr<Pipeline> _pipeline;
+        osg::observer_ptr<osg::Camera> _updatedCamera;
         osg::ref_ptr<osg::Geode> _shadowFrustum;
         osg::ref_ptr<osg::Texture2DArray> _shadowMaps;
         osg::ref_ptr<osg::Uniform> _lightMatrices;
-        osg::observer_ptr<osg::Camera> _updatedCamera;
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix, _lightInvMatrix;

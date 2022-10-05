@@ -63,12 +63,13 @@ namespace osgVerse
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
             "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 
-        osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule(p, true);
-        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.0f, 0.1f, -1.0f), 5000.0f);
-        shadow->createStages(2048, 1,
+        osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule("Shadow", p, true);
+        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);
+        shadow->createStages(2048, 2,
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.vert"),
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.frag"), SHADOW_CASTER_MASK);
 
+        // Update shadow matrices at the end of g-buffer (when near/far planes are sync-ed
         osg::ref_ptr<osgVerse::ShadowDrawCallback> shadowCallback =
                 new osgVerse::ShadowDrawCallback(shadow.get());
         shadowCallback->setup(gbuffer->camera.get(), FINAL_DRAW);
@@ -109,8 +110,9 @@ namespace osgVerse
 
         osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting",
             osgDB::readShaderFile(shaderDir + "std_common_quad.vert"),
-            osgDB::readShaderFile(shaderDir + "std_pbr_lighting.frag"), 1,
-            "ColorBuffer", osgVerse::Pipeline::RGB_FLOAT16);
+            osgDB::readShaderFile(shaderDir + "std_pbr_lighting.frag"), 2,
+            "ColorBuffer", osgVerse::Pipeline::RGB_FLOAT16,
+            "IblAmbientBuffer", osgVerse::Pipeline::RGB_INT8);
         lighting->applyBuffer(*gbuffer, "NormalBuffer", 0);
         lighting->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 1);
         lighting->applyBuffer(*gbuffer, "SpecularRoughnessBuffer", 2);
@@ -119,13 +121,22 @@ namespace osgVerse
         lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5);
         lighting->applyBuffer(*prefiltering, "PrefilterBuffer", 6);
         lighting->applyBuffer(*convolution, "IrradianceBuffer", 7);
-        lighting->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 8); // FIXME: shadow on deferred stage?
-        lighting->applyUniform(shadow->getLightMatrices());
+
+        osgVerse::Pipeline::Stage* shadowing = p->addWorkStage("Shadowing",
+            osgDB::readShaderFile(shaderDir + "std_common_quad.vert"),
+            osgDB::readShaderFile(shaderDir + "std_shadow_combine.frag"), 1,
+            "CombinedBuffer", osgVerse::Pipeline::RGB_FLOAT16);
+        shadowing->applyBuffer(*lighting, "ColorBuffer", 0);
+        shadowing->applyBuffer(*lighting, "IblAmbientBuffer", 1);
+        shadowing->applyBuffer(*gbuffer, "NormalBuffer", 2);
+        shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
+        shadowing->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 4);
+        shadowing->applyUniform(shadow->getLightMatrices());
 
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
             osgDB::readShaderFile(shaderDir + "std_common_quad.vert"),
             osgDB::readShaderFile(shaderDir + "std_display.frag"), osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        output->applyBuffer(*lighting, "ColorBuffer", 0);
+        output->applyBuffer(*shadowing, "CombinedBuffer", 0);
         output->applyBuffer(*ssaoBlur, "SsaoBlurredBuffer", 1);
 
         p->applyStagesToView(view, FORWARD_SCENE_MASK);

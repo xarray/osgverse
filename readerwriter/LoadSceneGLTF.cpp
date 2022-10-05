@@ -240,6 +240,7 @@ namespace osgVerse
             memcpy(image->data(), &imageSrc.image[0], image->getTotalSizeInBytes());
 
             tex2D = new osg::Texture2D;
+            tex2D->setResizeNonPowerOfTwoHint(false);
             tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
             tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
             tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
@@ -250,7 +251,7 @@ namespace osgVerse
             OSG_NOTICE << "[LoaderGLTF] " << imageSrc.uri << " loaded for " << name << std::endl;
         }
         ss->setTextureAttributeAndModes(u, tex2D);
-        ss->addUniform(new osg::Uniform(name.c_str(), u));
+        //ss->addUniform(new osg::Uniform(name.c_str(), u));
     }
 
     osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary)
