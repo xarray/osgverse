@@ -15,7 +15,6 @@ namespace osgVerse
                           unsigned int casterMask);
 
         void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, float maxDistance);
-        void setMainCameras(osg::Camera* mvCam, osg::Camera* projCam);
         void addReferencePoints(const std::vector<osg::Vec3>& pt);
         void clearReferencePoints() { _referencePoints.clear(); }
 
@@ -26,6 +25,8 @@ namespace osgVerse
 
         osg::Geode* getFrustumGeode() { return _shadowFrustum.get(); }
         const osg::Geode* getFrustumGeode() const { return _shadowFrustum.get(); }
+
+        void updateInDraw(osg::RenderInfo& renderInfo);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
     protected:
@@ -36,12 +37,26 @@ namespace osgVerse
         osg::ref_ptr<osg::Geode> _shadowFrustum;
         osg::ref_ptr<osg::Texture2DArray> _shadowMaps;
         osg::ref_ptr<osg::Uniform> _lightMatrices;
-        osg::observer_ptr<osg::Camera> _cameraMV, _cameraProj;
+        osg::observer_ptr<osg::Camera> _updatedCamera;
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix, _lightInvMatrix;
         std::vector<osg::Vec3> _referencePoints;
         float _shadowMaxDistance;
+    };
+
+    class ShadowDrawCallback : public CameraDrawCallback
+    {
+    public:
+        ShadowDrawCallback(ShadowModule* m) : _module(m) {}
+        virtual void operator()(osg::RenderInfo& renderInfo) const
+        {
+            if (_module.valid()) _module->updateInDraw(renderInfo);
+            if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
+        }
+
+    protected:
+        osg::observer_ptr<ShadowModule> _module;
     };
 }
 

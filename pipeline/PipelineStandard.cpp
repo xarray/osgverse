@@ -52,13 +52,8 @@ namespace osgVerse
             osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"), osg::Texture::MIRROR);
         p->startStages(originW, originH, NULL);
 
-        osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule(p, true);
-        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.0f, 0.1f, -1.0f), 5000.0f);
-        shadow->createStages(2048, 1,
-            osgDB::readShaderFile(shaderDir + "std_shadow_cast.vert"),
-            osgDB::readShaderFile(shaderDir + "std_shadow_cast.frag"), SHADOW_CASTER_MASK);
-        view->getCamera()->addUpdateCallback(shadow.get());
-
+        // GBuffer should always be first because it also computes the scene near/far planes
+        // for following stages to use
         osgVerse::Pipeline::Stage* gbuffer = p->addInputStage("GBuffer", DEFERRED_SCENE_MASK,
             osgDB::readShaderFile(shaderDir + "std_gbuffer.vert"),
             osgDB::readShaderFile(shaderDir + "std_gbuffer.frag"), 5,
@@ -67,6 +62,17 @@ namespace osgVerse
             "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
             "DepthBuffer", osgVerse::Pipeline::DEPTH32);
+
+        osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule(p, true);
+        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.0f, 0.1f, -1.0f), 5000.0f);
+        shadow->createStages(2048, 1,
+            osgDB::readShaderFile(shaderDir + "std_shadow_cast.vert"),
+            osgDB::readShaderFile(shaderDir + "std_shadow_cast.frag"), SHADOW_CASTER_MASK);
+
+        osg::ref_ptr<osgVerse::ShadowDrawCallback> shadowCallback =
+                new osgVerse::ShadowDrawCallback(shadow.get());
+        shadowCallback->setup(gbuffer->camera.get(), FINAL_DRAW);
+        view->getCamera()->addUpdateCallback(shadow.get());
 
         osgVerse::Pipeline::Stage* brdfLut = p->addDeferredStage("BrdfLut", true,
             osgDB::readShaderFile(shaderDir + "std_common_quad.vert"),
@@ -113,7 +119,7 @@ namespace osgVerse
         lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5);
         lighting->applyBuffer(*prefiltering, "PrefilterBuffer", 6);
         lighting->applyBuffer(*convolution, "IrradianceBuffer", 7);
-        lighting->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 5);
+        lighting->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 8); // FIXME: shadow on deferred stage?
         lighting->applyUniform(shadow->getLightMatrices());
 
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",

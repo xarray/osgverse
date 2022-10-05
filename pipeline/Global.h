@@ -114,12 +114,6 @@ namespace osgVerse
             if (dcb && dcb != this) dcb->setSubCallback(this);
         }
 
-        inline void run(osg::RenderInfo& renderInfo) const
-        {
-            operator()(renderInfo);
-            if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
-        }
-
         void setSubCallback(CameraDrawCallback* cb) { _subCallback = cb; }
         CameraDrawCallback* getSubCallback() { return _subCallback.get(); }
         const CameraDrawCallback* getSubCallback() const { return _subCallback.get(); }
@@ -149,7 +143,10 @@ namespace osgVerse
         virtual void operator()(osg::RenderInfo& renderInfo) const
         {
             if (renderInfo.getCurrentCamera())
+            {
                 operator()(*(renderInfo.getCurrentCamera()));
+                if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
+            }
             else
                 OSG_WARN << "Error: Camera::DrawCallback called without valid camera." << std::endl;
         }

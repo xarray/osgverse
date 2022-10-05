@@ -62,38 +62,49 @@ namespace osgVerse
         }
     }
 
-    void ShadowModule::setMainCameras(osg::Camera* mvCam, osg::Camera* projCam)
-    { _cameraMV = mvCam; _cameraProj = projCam; }
-
     void ShadowModule::addReferencePoints(const std::vector<osg::Vec3>& pt)
     { _referencePoints.insert(_referencePoints.end(), pt.begin(), pt.end()); }
 
+    void ShadowModule::updateInDraw(osg::RenderInfo& renderInfo)
+    {
+        osg::Camera* cam = _updatedCamera.get();
+        osg::State* state = renderInfo.getState();
+        if (!cam || !state) return;
+
+        Frustum frustum;
+        frustum.create(cam->getViewMatrix(), state->getProjectionMatrix(),
+                       -1.0f, _shadowMaxDistance);
+        osg::Matrix viewInv = cam->getInverseViewMatrix();
+
+#if false
+        double fov, ratio, zn, zf;
+        state->getProjectionMatrix().getPerspective(fov, ratio, zn, zf);
+        std::cout << "SHADOW: " << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
+#endif
+
+        osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+        for (size_t i = 0; i < _shadowCameras.size(); ++i)
+        {
+            // TODO: split...
+            osg::Camera* shadowCam = _shadowCameras[i].get();
+            shadowCam->setViewMatrix(_lightMatrix);
+            shadowCam->setProjectionMatrixAsOrtho(
+                shadowBB.xMin(), shadowBB.xMax(), shadowBB.yMin(), shadowBB.yMax(),
+                0.0, osg::maximum(fabs(shadowBB.zMax()), fabs(shadowBB.zMin())));
+            _lightMatrices->setElement(i, osg::Matrixf(viewInv *
+                shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
+        }
+        _lightMatrices->dirty();
+    }
+
     void ShadowModule::operator()(osg::Node* node, osg::NodeVisitor* nv)
     {
-        if (!_cameraMV) _cameraMV = dynamic_cast<osg::Camera*>(node);
-        if (!_cameraProj) _cameraProj = _pipeline->getForwardCamera();
-
-        if (_cameraMV.valid() && _cameraProj.valid())
+        osg::Camera* cameraMV = static_cast<osg::Camera*>(node);
+        _updatedCamera = cameraMV;
+        for (size_t i = 0; i < _shadowCameras.size(); ++i)
         {
-            Frustum frustum;
-            frustum.create(_cameraMV->getViewMatrix(), _cameraProj->getProjectionMatrix(),
-                           -1.0f, _shadowMaxDistance);
-            osg::Matrix viewInv = _cameraMV->getInverseViewMatrix();
-
-            osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
-            for (size_t i = 0; i < _shadowCameras.size(); ++i)
-            {
-                // TODO: split...
-                osg::Camera* shadowCam = _shadowCameras[i].get();
-                shadowCam->setViewMatrix(_lightMatrix);
-                shadowCam->setProjectionMatrixAsOrtho(
-                    shadowBB.xMin(), shadowBB.xMax(), shadowBB.yMin(), shadowBB.yMax(),
-                    0.0, osg::maximum(fabs(shadowBB.zMax()), fabs(shadowBB.zMin())));
-                _lightMatrices->setElement(i, osg::Matrixf(viewInv *
-                    shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
-                updateFrustumGeometry(i, shadowCam);
-            }
-            _lightMatrices->dirty();
+            osg::Camera* shadowCam = _shadowCameras[i].get();
+            updateFrustumGeometry(i, shadowCam);
         }
         traverse(node, nv);
     }

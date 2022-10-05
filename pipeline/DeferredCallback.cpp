@@ -110,7 +110,7 @@ namespace osgVerse
 #endif
         {
             OSG_WARN << "[DeferredRenderCallback] No FBO support" << std::endl;
-            return;
+            if (_subCallback.valid()) _subCallback.get()->run(renderInfo); return;
         }
 
         DeferredRenderCallback* cb = const_cast<DeferredRenderCallback*>(this);
@@ -205,6 +205,7 @@ namespace osgVerse
             OSG_NOTICE << "[DeferredRenderCallback] No previous depth buffer is going to blit with "
                        << "current camera. Should not happen in deferred rendering mode" << std::endl;
         }
+        if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
     }
 
     bool DeferredRenderCallback::RttRunner::setup(DeferredRenderCallback* cb, osg::RenderInfo& renderInfo)

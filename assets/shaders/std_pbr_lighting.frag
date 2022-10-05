@@ -165,7 +165,7 @@ void main()
         vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;
         vec2 envBRDF = texture(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
         vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
-        ambient = kD * diffuse + envSpecular * 0.2;
+        ambient = kD * diffuse + envSpecular;
     }
     
     radianceOut += ambient + emission;

@@ -62,6 +62,12 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+
+    // FIXME: how to avoid shadow problem...
+    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
+    // Shadow will go jigger because the output texture is not sync-ed before lighting...
+    // For SingleThreaded & CullDrawThreadPerContext it seems OK
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     while (!viewer.done())
     {
         //std::cout << sceneRoot->getBound().center() << "; " << sceneRoot->getBound().radius() << "\n";
