@@ -48,6 +48,7 @@ protected:
 SceneLogic::SceneLogic()
 {
     osg::setNotifyHandler(new ConsoleHandler(this));
+    osg::setNotifyLevel(osg::NOTICE);
 
     _logicWindow = new osgVerse::Window(TR("Scene Logic##ed03"));
     _logicWindow->pos = osg::Vec2(0.0f, 0.75f);
@@ -68,6 +69,10 @@ bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler
         {
             if (ImGui::BeginTabItem(TR("Resources##ed030101").c_str()))
             {
+                /*static osg::ref_ptr<osgVerse::VirtualKeyboard> vk = new osgVerse::VirtualKeyboard;
+                if (vk->keyList.empty()) vk->create("../misc/system-py.db", "../misc/learn-py.db");
+                vk->show(mgr, content);*/  // test only
+
                 ImGui::EndTabItem();
             }
 
@@ -95,6 +100,7 @@ bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler
 
                     if (nd.level < osg::WARN) { color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); hasColor = true; }
                     else if (nd.level == osg::WARN) { color = ImVec4(0.8f, 0.8f, 0.2f, 1.0f); hasColor = true; }
+                    else if (nd.level > osg::NOTICE) { color = ImVec4(0.4f, 0.4f, 0.4f, 1.0f); hasColor = true; }
 
                     if (hasColor) ImGui::PushStyleColor(ImGuiCol_Text, color);
                     ImGui::Selectable((nd.dateTime + ": " + nd.text).c_str());

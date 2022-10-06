@@ -63,9 +63,12 @@ namespace osgVerse
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
             "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 
+#if DEBUG_SHADOW_MODULE
         osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule("Shadow", p, true);
-        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);
-        shadow->createStages(2048, 2,
+#else
+        osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule("Shadow", p, false);
+#endif
+        shadow->createStages(2048, 3,
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.vert"),
             osgDB::readShaderFile(shaderDir + "std_shadow_cast.frag"), SHADOW_CASTER_MASK);
 

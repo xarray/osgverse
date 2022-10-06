@@ -256,13 +256,14 @@ bool RadioButtonGroup::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
 bool InputField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    bool done = false; size_t size = value.size() + 10;
-    if (size > 128) size = 128; value.resize(size);
+    bool done = false; size_t length = value.size() + 10;
+    if (length > 128) length = 128; value.resize(length);
     if (placeholder.empty())
-        done = ImGui::InputText(name.c_str(), &value[0], size, flags);
+        done = ImGui::InputTextEx(name.c_str(), NULL, &value[0], length,
+                                  ImVec2(size[0], size[1]), flags, NULL, NULL);
     else
-        done = ImGui::InputTextWithHint(name.c_str(), placeholder.c_str(),
-                                        &value[0], size, flags);
+        done = ImGui::InputTextEx(name.c_str(), placeholder.c_str(), &value[0], length,
+                                  ImVec2(size[0], size[1]), flags, NULL, NULL);
 
     if (!tooltip.empty()) showTooltip(tooltip);
     if (done && callback) callback(mgr, content, this);

@@ -166,7 +166,7 @@ namespace osgVerse
     struct InputField : public ImGuiComponentBase
     {
         std::string name, value, tooltip, placeholder;
-        ImGuiInputTextFlags flags;
+        ImGuiInputTextFlags flags; osg::Vec2 size;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
@@ -366,23 +366,37 @@ namespace osgVerse
         {
             osg::ref_ptr<ImGuiComponentBase> button;
             std::string name; int key, modKey, extraCode;
-            KeyData(const std::string& n) : name(n), key(0), modKey(0), extraCode(0) {}
+            KeyData(const std::string& n = "") : name(n), key(0), modKey(0), extraCode(0) {}
         };
 
         struct KeyRowData
         {
-            std::vector<KeyData> keys;
-            float indentX;
+            Button* addKey(const std::string& n, int key, int modkey, const osg::Vec2& size);
+            Button* addKeyEx(const std::string& n, int key, int modkey, const osg::Vec2& size,
+                             const ImColor& style, ActionCallback cb);
+            std::vector<KeyData> keys; float indentX;
         };
         std::vector<KeyRowData> keyList;
+        bool capslock, shifted, ctrled, alted, chsMode;
+        std::string lastInput, totalInput, result;
+        int imeCandicatePages, currentPage;
+        std::vector<std::string> imeCandicates;
         void* imeInterface;
+
+        using KeyCallback = std::function<void(ImGuiManager*, ImGuiContentHandler*, const KeyData&)>;
+        using MessageCallback = std::function<void(const std::string&)>;
+        KeyCallback keyCallback; MessageCallback msgCallback;
 
         int getCandidatePages(const std::string& input);
         bool getCandidates(int pageId, std::vector<std::string>& results);
+        void resetCandidates(); void destroy();
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         void create(const std::string& sysCikuPath, const std::string& learnCikuPath);
-        void destroy(); VirtualKeyboard() : imeInterface(NULL) {}
+        virtual ~VirtualKeyboard() { destroy(); }
+        VirtualKeyboard() : capslock(false), shifted(false), ctrled(false), alted(false), chsMode(false),
+                            imeCandicatePages(0), currentPage(0), imeInterface(NULL),
+                            keyCallback(NULL), msgCallback(NULL) { resetCandidates(); }
     };
 }
 

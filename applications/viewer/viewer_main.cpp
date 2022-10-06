@@ -63,6 +63,7 @@ int main(int argc, char** argv)
     {
         osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
         shadow->addReferenceBound(cbv.getBoundingBox(), true);
+        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);
     }
 
     viewer.addEventHandler(new osgViewer::StatsHandler);

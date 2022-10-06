@@ -1,9 +1,8 @@
 SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_INCLUDE_FILES
-    ImGui.h ImGui.Styles.h
-    ImGuiComponents.h CommandHandler.h PropertyInterface.h)
+    ImGui.h ImGuiComponents.h CommandHandler.h PropertyInterface.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-	ImGui.cpp ImGuiComponents.cpp 
+	ImGui.cpp ImGuiComponents.cpp ImGui.Styles.h
 	CommandHandler.cpp PropertyInterface.cpp
 	ui_compontents/SpiderEditor.cpp
 	ui_compontents/Timeline.cpp

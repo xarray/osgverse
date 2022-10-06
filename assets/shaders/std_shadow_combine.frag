@@ -28,7 +28,7 @@ void main()
         
         vec4 lightProjVec0 = texture(ShadowMapArray, vec3(lightProjUV.xy, shadowLayerStep * float(i)));
         float depth = lightProjVec.z / lightProjVec.w, depth0 = lightProjVec0.z + 0.005;
-        shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.1 : 1.0;
+        shadow *= (lightProjVec0.x > 0.1 && depth > depth0) ? 0.1 : 1.0;  // FIXME: multi-shadows failed if window resized
     }
     
     colorData.rgb *= shadow;
