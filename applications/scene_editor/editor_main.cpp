@@ -5,11 +5,29 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#define LAY_IMPLEMENTATION
+#define LAY_FLOAT 1
+#include <layout.h>
 #include "hierarchy.h"
 #include "properties.h"
 #include "scenelogic.h"
 #include "defines.h"
+#define SHADER_DIR "../shaders/"
 GlobalData g_data;
+
+class MyViewer : public osgViewer::Viewer
+{
+public:
+    MyViewer(osgVerse::Pipeline* p) : osgViewer::Viewer(), _pipeline(p) {}
+    osg::ref_ptr<osgVerse::Pipeline> _pipeline;
+
+protected:
+    virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
+    {
+        if (_pipeline.valid()) return _pipeline->createRenderer(camera);
+        else return osgViewer::Viewer::createRenderer(camera);
+    }
+};
 
 class SceneManipulator : public osgGA::TrackballManipulator
 {
@@ -46,7 +64,6 @@ EditorContentHandler::EditorContentHandler()
     _sceneLogic = new SceneLogic;
     _mainMenu = new osgVerse::MainMenuBar;
     _mainMenu->userData = this;
-
     createEditorMenu1();
     createEditorMenu2();
     createEditorMenu3();
@@ -114,32 +131,53 @@ void EditorContentHandler::handleCommands()
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osgViewer::Viewer viewer;
 
+    // Core scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
-    {
-        osg::StateSet* ss = sceneRoot->getOrCreateStateSet();
-        ss->setTextureAttributeAndModes(0, osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
-    }
+    sceneRoot->setName("SceneRoot");
+    sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Group> auxRoot = new osg::Group;
-    {
-        osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
-        //skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
-        skybox->setEnvironmentMap(osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"));
-        auxRoot->addChild(skybox.get());
-    }
-
-    osg::ref_ptr<osgVerse::NodeSelector> selector = new osgVerse::NodeSelector;
-    {
-        selector->setMainCamera(viewer.getCamera());
-        auxRoot->addChild(selector->getAuxiliaryRoot());
-        // TODO: add to hud root?
-    }
+    auxRoot->setName("AuxRoot");
+    auxRoot->setNodeMask(~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
     root->addChild(auxRoot.get());
+
+    // Pipeline initialization
+    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+    MyViewer viewer(pipeline.get());
+    setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);
+
+    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    if (shadow)
+    {
+        //osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
+        //shadow->addReferenceBound(cbv.getBoundingBox(), true);  // TODO: update when scene changes
+        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
+    }
+
+    // Post-HUD display and utilities
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(0);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    root->addChild(postCamera.get());
+
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    {
+        //skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
+        skybox->setEnvironmentMap(osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"));
+        postCamera->addChild(skybox.get());
+    }
+
+    osg::ref_ptr<osgVerse::NodeSelector> selector = new osgVerse::NodeSelector;
+    {
+        selector->setMainCamera(pipeline->getForwardCamera());
+        auxRoot->addChild(selector->getAuxiliaryRoot());
+        // TODO: also add to hud camera?
+    }
 
     g_data.mainCamera = viewer.getCamera();
     g_data.sceneRoot = sceneRoot.get();
@@ -147,11 +185,13 @@ int main(int argc, char** argv)
     g_data.selector = selector.get();
     g_data.view = &viewer;
 
+    // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
     imgui->initialize(new EditorContentHandler);
-    imgui->addToView(&viewer);
+    imgui->addToView(&viewer, postCamera.get());
 
+    // Viewer settings
     viewer.addEventHandler(new osgVerse::CommandHandler);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
@@ -159,5 +199,11 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new SceneManipulator);
     viewer.setSceneData(root.get());
     //viewer.setKeyEventSetsDone(0);
+
+    // FIXME: how to avoid shadow problem...
+    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
+    // Shadow will go jigger because the output texture is not sync-ed before lighting...
+    // For SingleThreaded & CullDrawThreadPerContext it seems OK
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     return viewer.run();
 }

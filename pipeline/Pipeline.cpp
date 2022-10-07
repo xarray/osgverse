@@ -520,7 +520,7 @@ namespace osgVerse
         return s;
     }
 
-    void Pipeline::ActivateDeferredStage(const std::string& n, bool b)
+    void Pipeline::activateDeferredStage(const std::string& n, bool b)
     { Stage* s = getStage(n); if (s->runner.valid()) s->runner->active = b; }
 
     void Pipeline::applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs)

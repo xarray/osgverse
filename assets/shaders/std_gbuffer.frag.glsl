@@ -7,13 +7,13 @@ in vec3 eyeNormal, eyeTangent, eyeBinormal;
 void main()
 {
     vec2 uv0 = texCoord0.xy, uv1 = texCoord1.xy;
-    vec4 color = texture(DiffuseMap, uv0) * color;
+    vec4 diffuse = texture(DiffuseMap, uv0) * color;
     vec4 normalValue = texture(NormalMap, uv0);
     vec3 specular = texture(SpecularMap, uv0).rgb;
     vec3 emission = texture(EmissiveMap, uv1).rgb;
     vec2 metalRough = texture(ShininessMap, uv0).rg;
     float occlusion = texture(AmbientMap, uv0).r;
-    if (color.a < 0.1) discard;
+    if (diffuse.a < 0.1) discard;
     
     // Compute eye-space normal
     vec3 eyeNormal2 = eyeNormal;
@@ -24,8 +24,8 @@ void main()
     }
     
     // MRT output
-	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, color.a);
-	gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(color.rgb, metalRough.r);
+	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, diffuse.a);
+	gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.r);
     gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.g);
     gl_FragData[3]/*EmissionOcclusionBuffer*/ = vec4(emission, occlusion);
 }

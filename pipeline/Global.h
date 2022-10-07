@@ -1,6 +1,7 @@
 #ifndef MANA_PP_GLOBAL_HPP
 #define MANA_PP_GLOBAL_HPP
 
+#include <algorithm>
 #include <osg/Polytope>
 #include <osg/Geometry>
 #include <osg/Texture2D>

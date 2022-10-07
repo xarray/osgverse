@@ -1,4 +1,5 @@
 #include "SkyBox.h"
+#include "Utilities.h"
 #include <osg/Depth>
 #include <osg/Drawable>
 #include <osg/Matrix>
@@ -128,12 +129,6 @@ void SkyBox::setEnvironmentMap(const std::string& path, const std::string& ext, 
         cubemap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
         cubemap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     }
-
-    cubemap->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-    cubemap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-    cubemap->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
-    cubemap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
-    cubemap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     _skymap = cubemap.get(); initialize(true, osg::Matrixf::rotate(osg::PI_2, osg::X_AXIS));
 }
 
@@ -143,8 +138,8 @@ void SkyBox::setEnvironmentMap(osg::Image* image)
     {
         osg::ref_ptr<osg::Texture2D> skymap = new osg::Texture2D;
         skymap->setImage(image); skymap->setResizeNonPowerOfTwoHint(false);
-        skymap->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP);
-        skymap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP);
+        skymap->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        skymap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
         skymap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
         skymap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         _skymap = skymap.get();
@@ -171,10 +166,10 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     stateset->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 
     osg::ref_ptr<osg::Depth> depth = new osg::Depth;
-    depth->setFunction(osg::Depth::ALWAYS);
+    depth->setFunction(osg::Depth::LEQUAL);
     depth->setRange(1.0, 1.0);
     stateset->setAttributeAndModes(depth, values);
-    stateset->setRenderBinDetails(-1, "RenderBin");
+    stateset->setRenderBinDetails(-9999, "RenderBin");
 
     osg::Program* program = new osg::Program;
     program->setName("SkyBoxShader");
@@ -186,7 +181,10 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));
 
     osg::ref_ptr<osg::Drawable> drawable = new osg::ShapeDrawable(
-        new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 10.0f));
+        new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 1000.0f));
+    drawable->setCullingActive(false);
+    drawable->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
+
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     geode->setCullingActive(false);
     geode->setStateSet(stateset.get());

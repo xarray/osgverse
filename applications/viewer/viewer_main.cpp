@@ -11,6 +11,7 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <iostream>
 #include <sstream>
+#include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
@@ -54,6 +55,22 @@ int main(int argc, char** argv)
     root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
+    // Post-HUD display
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(0);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    root->addChild(postCamera.get());
+
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    {
+        //skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
+        skybox->setEnvironmentMap(osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"));
+        skybox->setNodeMask(~DEFERRED_SCENE_MASK);
+        postCamera->addChild(skybox.get());
+    }
+
+    // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
     setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);

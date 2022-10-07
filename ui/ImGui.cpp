@@ -185,6 +185,8 @@ struct ImGuiNewFrameCallback : public CameraDrawCallback
         ImGuiIO& io = ImGui::GetIO();
         {
             osg::Viewport* viewport = renderInfo.getCurrentCamera()->getViewport();
+            if (!viewport) viewport = renderInfo.getView()->getCamera()->getViewport();
+            if (!viewport) { OSG_FATAL << "Empty viewport!\n"; return; }
             io.DisplaySize = ImVec2(viewport->width(), viewport->height());
 
             double currentTime = renderInfo.getView()->getFrameStamp()->getSimulationTime();

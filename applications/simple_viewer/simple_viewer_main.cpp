@@ -45,8 +45,8 @@ int main(int argc, char** argv)
     osg::StateSet* ss = sceneRoot->getOrCreateStateSet();
     {
         osg::ref_ptr<osg::Program> program = new osg::Program;
-        program->addShader(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "single_pass.vert"));
-        program->addShader(osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "single_pass.frag"));
+        program->addShader(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "single_pass.vert.glsl"));
+        program->addShader(osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "single_pass.frag.glsl"));
         program->addBindAttribLocation(osgVerse::attributeNames[6], 6);
         program->addBindAttribLocation(osgVerse::attributeNames[7], 7);
 

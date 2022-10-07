@@ -6,6 +6,7 @@
 #include <osgDB/WriteFile>
 
 #include "pipeline//NodeSelector.h"
+#include "pipeline/Utilities.h"
 #include "../CommandHandler.h"
 using namespace osgVerse;
 
@@ -110,6 +111,9 @@ struct LoadModelExecutor : public CommandHandler::CommandExecutor
 
         osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(fileName);
         if (!loadedModel || !group) return false;
+
+        osgVerse::TangentSpaceVisitor tsv;
+        loadedModel->accept(tsv);  // Add tangent/bi-normal arrays for normal mapping
 
         osg::ref_ptr<osg::MatrixTransform> modelRoot = new osg::MatrixTransform;
         modelRoot->setName(fileName); modelRoot->addChild(loadedModel.get());

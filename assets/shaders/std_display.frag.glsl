@@ -8,5 +8,5 @@ void main()
 	vec2 uv0 = texCoord0.xy;
 	vec4 color = texture(ColorBuffer, uv0);
 	float ao = texture(SsaoBlurredBuffer, uv0).r;
-	fragData = vec4(color.rgb, 1.0);
+	fragData = vec4(color.rgb * vec3(ao), 1.0);
 }

@@ -4,13 +4,6 @@
 #include "ShadowModule.h"
 #include "Utilities.h"
 
-class DisableBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
-{
-public:
-    virtual osg::BoundingBox computeBound(const osg::Drawable&) const
-    { return osg::BoundingBox(); }
-};
-
 namespace osgVerse
 {
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)

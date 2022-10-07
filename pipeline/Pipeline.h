@@ -106,7 +106,7 @@ namespace osgVerse
                                const osg::Vec4& screenGeom);
 
         /** Make deferred stage active/inactive (one-time stage will re-run only once) */
-        void ActivateDeferredStage(const std::string& n, bool active);
+        void activateDeferredStage(const std::string& n, bool active);
 
         osgVerse::DeferredRenderCallback* getDeferredCallback() { return _deferredCallback.get(); }
         const osgVerse::DeferredRenderCallback* getDeferredCallback() const { return _deferredCallback.get(); }
