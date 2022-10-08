@@ -70,7 +70,7 @@ bool SceneLogic::show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler
             if (ImGui::BeginTabItem(TR("Resources##ed030101").c_str()))
             {
                 /*static osg::ref_ptr<osgVerse::VirtualKeyboard> vk = new osgVerse::VirtualKeyboard;
-                if (vk->keyList.empty()) vk->create("../misc/system-py.db", "../misc/learn-py.db");
+                if (vk->keyList.empty()) vk->create(BASE_DIR "/misc/system-py.db", BASE_DIR "/misc/learn-py.db");
                 vk->show(mgr, content);*/  // test only
 
                 ImGui::EndTabItem();

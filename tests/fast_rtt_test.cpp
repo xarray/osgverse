@@ -12,7 +12,6 @@
 #include <iostream>
 #include <sstream>
 
-#define SHADER_DIR "../shaders/"
 class MyViewer : public osgViewer::Viewer
 {
 public:

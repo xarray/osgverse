@@ -12,7 +12,6 @@
 #include "properties.h"
 #include "scenelogic.h"
 #include "defines.h"
-#define SHADER_DIR "../shaders/"
 GlobalData g_data;
 
 class MyViewer : public osgViewer::Viewer
@@ -167,8 +166,8 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
-        //skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
-        skybox->setEnvironmentMap(osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"));
+        //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
+        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"));
         postCamera->addChild(skybox.get());
     }
 
@@ -187,7 +186,7 @@ int main(int argc, char** argv)
 
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
+    imgui->setChineseSimplifiedFont(BASE_DIR "/misc/SourceHanSansHWSC-Regular.otf");
     imgui->initialize(new EditorContentHandler);
     imgui->addToView(&viewer, postCamera.get());
 

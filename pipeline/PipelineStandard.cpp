@@ -21,7 +21,7 @@ static osg::Texture* generateSsaoNoises(int numRows)
 
     osg::ref_ptr<osg::Image> image = new osg::Image;
     image->setImage(numRows, numRows, 1, GL_RGB32F_ARB, GL_RGB, GL_FLOAT,
-                    (unsigned char*)&noises[0], osg::Image::USE_NEW_DELETE);
+                    (unsigned char*)&noises[0], osg::Image::NO_DELETE);
 
     osg::ref_ptr<osg::Texture2D> noiseTex = new osg::Texture2D;
     noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
@@ -38,7 +38,7 @@ namespace osgVerse
                                const std::string& shaderDir, unsigned int originW, unsigned int originH)
     {
         osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(
-            osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"), osg::Texture::MIRROR);  // FIXME
+            osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"), osg::Texture::MIRROR);  // FIXME
         osg::ref_ptr<osg::Shader> commonVert =
             osgDB::readShaderFile(osg::Shader::VERTEX, shaderDir + "std_common_quad.vert.glsl");
         p->startStages(originW, originH, NULL);

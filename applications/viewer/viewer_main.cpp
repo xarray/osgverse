@@ -15,7 +15,6 @@
 #include <pipeline/Pipeline.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
-#define SHADER_DIR "../shaders/"
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -34,7 +33,8 @@ protected:
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(argc > 1 ? argv[1] : "../models/Sponza/Sponza.gltf");
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
+        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -64,8 +64,8 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
-        //skybox->setEnvironmentMap("../skyboxes/default/", "jpg");
-        skybox->setEnvironmentMap(osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr"));
+        //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
+        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"));
         skybox->setNodeMask(~DEFERRED_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }

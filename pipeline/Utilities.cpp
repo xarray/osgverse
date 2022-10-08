@@ -8,11 +8,15 @@
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+#include <codecvt>
 #include <iostream>
 #include <array>
 #include <mikktspace.h>
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
+#if WIN32
+    #include <windows.h>
+#endif
 #include "Utilities.h"
 typedef std::array<unsigned int, 3> Vec3ui;
 
@@ -98,6 +102,10 @@ namespace osgVerse
 {
     void globalInitialize(int argc, char** argv)
     {
+#ifdef INSTALL_PATH_PREFIX
+        std::string workingPath = INSTALL_PATH_PREFIX + std::string("/bin/");
+        osgDB::getDataFilePathList().push_back(workingPath);
+#endif
         setlocale(LC_ALL, ".UTF8");
         if (argv && argc > 0)
         {

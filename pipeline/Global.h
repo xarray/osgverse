@@ -12,6 +12,13 @@
 #define POST_DRAW 2
 #define FINAL_DRAW 3
 
+#ifdef INSTALL_PATH_PREFIX
+    #define BASE_DIR INSTALL_PATH_PREFIX
+#else
+    #define BASE_DIR ".."
+#endif
+#define SHADER_DIR BASE_DIR "/shaders/"
+
 namespace osgVerse
 {
     /** Global-defined vertex attribute names, for full-featured pipeline use */

@@ -257,7 +257,6 @@ struct ImGuiRenderCallback : public CameraDrawCallback
 
 ImGuiManager::ImGuiManager()
 {
-    _imguiHandler = new ImGuiHandler;
 }
 
 ImGuiManager::~ImGuiManager()
@@ -266,6 +265,7 @@ ImGuiManager::~ImGuiManager()
 void ImGuiManager::initialize(ImGuiContentHandler* cb)
 {
     _contentHandler = cb;
+    _imguiHandler = new ImGuiHandler;
     static_cast<ImGuiHandler*>(_imguiHandler.get())->start(this);
 }
 

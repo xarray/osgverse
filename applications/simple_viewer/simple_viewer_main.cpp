@@ -13,12 +13,12 @@
 #include <sstream>
 #include <pipeline/Pipeline.h>
 #include <pipeline/Utilities.h>
-#define SHADER_DIR "../shaders/"
 
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(argc > 1 ? argv[1] : "../models/Sponza/Sponza.gltf");
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
+        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -56,7 +56,7 @@ int main(int argc, char** argv)
         ss->setTextureAttributeAndModes(2, osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
         ss->setTextureAttributeAndModes(5, osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
         ss->setTextureAttributeAndModes(6, osgVerse::createTexture2D(
-            osgDB::readImageFile("../skyboxes/barcelona/barcelona.hdr")));
+            osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr")));
         ss->addUniform(new osg::Uniform("DiffuseMap", (int)0));
         ss->addUniform(new osg::Uniform("NormalMap", (int)1));
         ss->addUniform(new osg::Uniform("SpecularMap", (int)2));

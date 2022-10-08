@@ -12,6 +12,7 @@
 #include <imgui/ImGuizmo.h>
 #include <ui/ImGui.h>
 #include <ui/ImGuiComponents.h>
+#include <pipeline/Global.h>
 #include <iostream>
 #include <sstream>
 
@@ -186,7 +187,7 @@ int main(int argc, char** argv)
 
     // The ImGui setup
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
+    imgui->setChineseSimplifiedFont(BASE_DIR "/misc/SourceHanSansHWSC-Regular.otf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
     imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()));
     imgui->addToView(&viewer);
