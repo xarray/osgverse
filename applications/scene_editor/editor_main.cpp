@@ -102,7 +102,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 void EditorContentHandler::handleCommands()
 {
     osgVerse::CommandData cmd;
-    if (osgVerse::CommandBuffer::instance()->take(cmd, false))
+    while (osgVerse::CommandBuffer::instance()->take(cmd, false))
     {
         switch (cmd.type)
         {

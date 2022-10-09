@@ -33,8 +33,12 @@ namespace osgVerse
         void setChineseSimplifiedFont(const std::string& path) { _fontData = path; }
         const std::string& getChineseSimplifiedFont() { return _fontData; }
 
-        void initialize(ImGuiContentHandler* cb);
+        void initialize(ImGuiContentHandler* cb, bool eventsFrom3D = false);
         void addToView(osgViewer::View* view, osg::Camera* specCam = NULL);
+        osg::Texture* addToTexture(osg::Group* parentOfRtt, int w, int h);
+
+        /** Simulate mouse input in 3D mode: position in [0, 1] */
+        void setMouseInput(const osg::Vec2& pos, int button = 0, float wheel = 0.0f);
 
         void setGuiTexture(const std::string& name, const std::string& file);
         void setGuiTexture(const std::string& name, osg::Texture2D* tex);
@@ -42,6 +46,8 @@ namespace osgVerse
 
     protected:
         virtual ~ImGuiManager();
+        void initializeEventHandler2D();
+        void initializeEventHandler3D();
 
         osg::ref_ptr<ImGuiContentHandler> _contentHandler;
         osg::ref_ptr<osgGA::GUIEventHandler> _imguiHandler;

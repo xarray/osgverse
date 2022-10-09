@@ -170,7 +170,7 @@ namespace osgVerse
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         camera->setRenderOrder(osg::Camera::PRE_RENDER);
-        camera->setGraphicsContext(gc);
+        if (gc) camera->setGraphicsContext(gc);
         if (tex)
         {
             tex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);

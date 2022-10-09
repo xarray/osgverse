@@ -50,12 +50,12 @@ Hierarchy::Hierarchy()
     _treeView->userData = this;
     {
         _camTreeData = new TreeView::TreeData;
-        _camTreeData->name = TR("Main Camera"); _camTreeData->id = "main_camera##ed01";
+        _camTreeData->name = TR("Main Camera"); _camTreeData->id = "##ed01main_camera";
         _camTreeData->userData = g_data.mainCamera.get();
         _treeView->treeDataList.push_back(_camTreeData);
 
         _sceneTreeData = new TreeView::TreeData;
-        _sceneTreeData->name = TR("Scene Root"); _sceneTreeData->id = "scene_root##ed01";
+        _sceneTreeData->name = TR("Scene Root"); _sceneTreeData->id = "##ed01scene_root";
         _sceneTreeData->userData = g_data.sceneRoot.get();
         _treeView->treeDataList.push_back(_sceneTreeData);
     }

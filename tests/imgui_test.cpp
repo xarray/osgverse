@@ -13,6 +13,7 @@
 #include <ui/ImGui.h>
 #include <ui/ImGuiComponents.h>
 #include <pipeline/Global.h>
+#include <pipeline/IntersectionManager.h>
 #include <iostream>
 #include <sstream>
 
@@ -38,6 +39,7 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
         ImTextureID icon = ImGuiTextures["icon"];
         const ImGuiViewport* view = ImGui::GetMainViewport();
         ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
+#if 1
         int xPos = 0, yPos = 0;
         int flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
                   | ImGuiWindowFlags_NoCollapse;
@@ -98,6 +100,9 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
             }
         }
         ImGui::End();
+#else
+        ImGui::ShowDemoWindow();
+#endif
         ImGui::PopFont();
     }
 
@@ -173,8 +178,48 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
     }
 };
 
+class InteractiveHandler : public osgGA::GUIEventHandler
+{
+public:
+    InteractiveHandler(osgVerse::ImGuiManager* imgui, osg::Drawable* d)
+    : _imgui(imgui), _drawable(d) {}
+
+    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+        osgVerse::IntersectionResult result = osgVerse::findNearestIntersection(
+            view->getCamera(), ea.getXnormalized(), ea.getYnormalized());
+        if (result.drawable != _drawable.get()) return false;
+        if (result.intersectTextureData.empty()) return false;
+
+        const osgVerse::IntersectionResult::IntersectTextureData& td = result.intersectTextureData[0];
+        osg::Vec2 uv = osg::Vec2(td.second[0], 1.0f - td.second[1]);
+        switch (ea.getEventType())
+        {
+        case osgGA::GUIEventAdapter::DOUBLECLICK:
+        case osgGA::GUIEventAdapter::PUSH:
+            _imgui->setMouseInput(uv, ea.getButton(), 0.0f); break;
+        case osgGA::GUIEventAdapter::RELEASE:
+        case osgGA::GUIEventAdapter::DRAG:
+            _imgui->setMouseInput(uv, ea.getButtonMask(), 0.0f); break;
+        case osgGA::GUIEventAdapter::MOVE:
+            _imgui->setMouseInput(uv, 0, 0.0f); break;
+        case osgGA::GUIEventAdapter::SCROLL:
+            _imgui->setMouseInput(uv, ea.getButtonMask(),
+                (ea.getScrollingMotion() == osgGA::GUIEventAdapter::SCROLL_UP ? 1.0f : -1.0f));
+            break;
+        }
+        return false;
+    }
+
+protected:
+    osg::observer_ptr<osgVerse::ImGuiManager> _imgui;
+    osg::observer_ptr<osg::Drawable> _drawable;
+};
+
 int main(int argc, char** argv)
 {
+    bool guiAsTexture = true;
     osgViewer::Viewer viewer;
 
     osg::ref_ptr<osg::Node> scene =
@@ -189,8 +234,23 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont(BASE_DIR "/misc/SourceHanSansHWSC-Regular.otf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
-    imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()));
-    imgui->addToView(&viewer);
+    imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()), guiAsTexture);
+    if (guiAsTexture)
+    {
+        osg::Texture* guiTex = imgui->addToTexture(root.get(), 1920, 1080);
+        osg::Geometry* quad = osg::createTexturedQuadGeometry(
+            osg::Vec3(), osg::X_AXIS * 16.0f, osg::Z_AXIS * 9.0f);
+        quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, guiTex);
+        quad->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+        quad->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        viewer.addEventHandler(imgui->getHandler());
+        viewer.addEventHandler(new InteractiveHandler(imgui.get(), quad));
+
+        osg::Geode* geode = new osg::Geode;
+        geode->addDrawable(quad); root->addChild(geode);
+    }
+    else
+        imgui->addToView(&viewer);
     
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

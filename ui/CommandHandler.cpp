@@ -59,8 +59,8 @@ bool CommandBuffer::take(CommandData& c, bool fromSceneHandler)
         c = _bufferToScene.front(); hasData = true;
         _bufferToScene.pop_front();
     }
-    else if (!fromSceneHandler && !_bufferToUI.empty())
-    {
+    else if (!fromSceneHandler && !_bufferToUI.empty() && _bufferToScene.empty())
+    {   // UI events must be taken after all scene events handled...
         c = _bufferToUI.front(); hasData = true;
         _bufferToUI.pop_front();
     }
@@ -77,13 +77,13 @@ bool CommandHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAd
     if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
     {
         CommandData cmd;
-        if (CommandBuffer::instance()->take(cmd, true))
+        while (CommandBuffer::instance()->take(cmd, true))
         {
-            if (cmd.type == CommandToScene) return false;
+            if (cmd.type == CommandToScene) continue;
             if (_executors.find(cmd.type) == _executors.end())
             {
                 OSG_WARN << "[CommandHandler] Unknown command " << cmd.type << std::endl;
-                return false;
+                continue;  // no executors for command...
             }
             
             CommandExecutor* executor = getExecutor(cmd.type);
