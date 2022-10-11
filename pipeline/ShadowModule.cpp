@@ -84,7 +84,7 @@ namespace osgVerse
         std::cout << "SHADOW: " << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
 #endif
 
-        osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+        osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
         float xMinTotal = shadowBB.xMin(), xMaxTotal = shadowBB.xMax();
         float yMinTotal = shadowBB.yMin(), yMaxTotal = shadowBB.yMax();
         size_t numCameras = _shadowCameras.size();

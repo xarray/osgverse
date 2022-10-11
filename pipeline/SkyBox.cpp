@@ -182,7 +182,6 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
 
     osg::ref_ptr<osg::Drawable> drawable = new osg::ShapeDrawable(
         new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 1000.0f));
-    drawable->setCullingActive(false);
     drawable->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
 
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;

@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include "hierarchy.h"
@@ -182,7 +183,11 @@ bool Hierarchy::handleItemCommand(osgVerse::CommandData* cmd)
        - cmd->object (item) must be found in hierarchy
     */
     std::string name = cmd->object->getName();
+#if OSG_VERSION_GREATER_THAN(3, 3, 9)
     osg::Node* node = cmd->object->asNode();
+#else
+    osg::Node* node = dynamic_cast<osg::Node*>(cmd->object.get());
+#endif
 
     std::vector<TreeView::TreeData*> nItems = _treeView->findByUserData(cmd->object.get());
     for (size_t i = 0; i < nItems.size(); ++i)
@@ -245,7 +250,15 @@ void Hierarchy::addModelFromUrl(const std::string& url)
             if (parentG == NULL)
             {
                 osg::Drawable* parentD = dynamic_cast<osg::Drawable*>(_selectedItem->userData.get());
-                if (parentD != NULL && parentD->getNumParents() > 0) parent = parentD->getParent(0);  // FIXME
+#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+                if (parentD != NULL && parentD->getNumParents() > 0) parent = parentD->getParent(0);
+#else
+                if (parentD != NULL && parentD->getNumParents() > 0)
+                {
+                    osg::Node* geode = parentD->getParent(0);
+                    if (geode->getNumParents() > 0) parent = geode->getParent(0);
+                }
+#endif
             }
         }
 

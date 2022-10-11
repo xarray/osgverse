@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
@@ -83,7 +84,11 @@ public:
             osg::Drawable* d = static_cast<osg::Drawable*>(_target.get());
             if (d->getNumParents() > 0)
                 l2w = new osg::RefMatrix(d->getParent(0)->getWorldMatrices()[0]);
+#if OSG_VERSION_GREATER_THAN(3, 2, 2)
             bb = d->getBoundingBox();
+#else
+            bb = d->getBound();
+#endif
         }
 
         if (!l2w) return bb;

@@ -10,6 +10,11 @@
 #include "../ImGuiComponents.h"
 using namespace osgVerse;
 
+#ifndef GL_ARB_texture_rg
+#define GL_R8                             0x8229
+#define GL_RG8                            0x822B
+#endif
+
 class TexturePropertyItem : public PropertyItem
 {
 public:
