@@ -9,7 +9,7 @@
 #include <ui/ImGui.h>
 #include <ui/ImGuiComponents.h>
 #include <ui/CommandHandler.h>
-#include <pipeline/Skybox.h>
+#include <pipeline/SkyBox.h>
 #include <pipeline/NodeSelector.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/ShadowModule.h>
