@@ -1,6 +1,8 @@
 #ifndef MANA_PP_GLOBAL_HPP
 #define MANA_PP_GLOBAL_HPP
 
+#include <algorithm>
+#include <osg/Version>
 #include <osg/Polytope>
 #include <osg/Geometry>
 #include <osg/Texture2D>
@@ -10,6 +12,13 @@
 #define PRE_DRAW 1
 #define POST_DRAW 2
 #define FINAL_DRAW 3
+
+#ifdef INSTALL_PATH_PREFIX
+    #define BASE_DIR INSTALL_PATH_PREFIX
+#else
+    #define BASE_DIR ".."
+#endif
+#define SHADER_DIR BASE_DIR "/shaders/"
 
 namespace osgVerse
 {
@@ -26,7 +35,7 @@ namespace osgVerse
     static std::string uniformNames[] =
     {
         /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
-        /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap"
+        /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap", /*7*/"CustomMap"
     };
 
     class ComponentCallback;
@@ -35,34 +44,30 @@ namespace osgVerse
         Component() : _parent(NULL), _executionOrder(0), _active(true) {}
         Component(const Component& c, const osg::CopyOp& op)
         : osg::Object(c, op), _parent(NULL), _executionOrder(0), _active(true) {}
-        META_Object(osgVerse, Component);
 
-        virtual void run(osg::Object* object, osg::Object* data) {}
+        virtual void run(osg::Object* object, osg::Referenced* nv) = 0;
         ComponentCallback* _parent; int _executionOrder; bool _active;
     };
 
     /** Node/drawable callback for compatiblity */
+#if OSG_VERSION_GREATER_THAN(3, 2, 1)
     class ComponentCallback : public osg::Callback
+#else
+    class ComponentCallback
+#endif
     {
     public:
+#if OSG_VERSION_GREATER_THAN(3, 2, 1)
         virtual bool run(osg::Object* object, osg::Object* data)
         {
             size_t index = 0;
-            for (; index < _components.size(); ++index)
-            {
-                Component* c = _components[index].get();
-                if (c->_active && c->_executionOrder <= 0) c->run(object, data);
-                else if (c->_executionOrder > 0) break;
-            }
-            
+            runNestedComponents(object, data, index, true);
+
             bool ok = traverse(object, data);
-            for (; index < _components.size(); ++index)
-            {
-                Component* c = _components[index].get();
-                if (c->_active) c->run(object, data);
-            }
+            runNestedComponents(object, data, index, false);
             return ok;
         }
+#endif
 
         void resortComponents()
         {
@@ -71,7 +76,7 @@ namespace osgVerse
                       { return a->_executionOrder < b->_executionOrder; });
         }
 
-        void addComponent(Component* c) { c->_parent = this; _components.push_back(c); }
+        void addComponent(Component* c) { c->_parent = this; _components.push_back(c); _dirty = true; }
         void clear() { for (auto c : _components) c->_parent = NULL; _components.clear(); }
         unsigned int getNumComponents() const { return _components.size(); }
 
@@ -79,8 +84,57 @@ namespace osgVerse
         const Component* getComponent(int i) const { return _components[i].get(); }
 
     protected:
+        void runNestedComponents(osg::Object* object, osg::Referenced* data,
+                                 size_t& index, bool beforeTraverse)
+        {
+            if (beforeTraverse)
+            {
+                if (_dirty) { resortComponents(); _dirty = false; }
+                for (; index < _components.size(); ++index)
+                {
+                    Component* c = _components[index].get();
+                    if (c->_active && c->_executionOrder <= 0) c->run(object, data);
+                    else if (c->_executionOrder > 0) break;
+                }
+            }
+            else
+            {
+                for (; index < _components.size(); ++index)
+                {
+                    Component* c = _components[index].get();
+                    if (c->_active) c->run(object, data);
+                }
+            }
+        }
+
         std::vector<osg::ref_ptr<Component>> _components;
+        bool _dirty;
     };
+
+#if OSG_VERSION_GREATER_THAN(3, 2, 1)
+    typedef ComponentCallback NodeComponentCallback;
+    typedef ComponentCallback DrawableComponentCallback;
+#else
+    class NodeComponentCallback : public osg::NodeCallback, public ComponentCallback
+    {
+    public:
+        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        {
+            size_t index = 0; runNestedComponents(node, nv, index, true);
+            traverse(node, nv); runNestedComponents(node, nv, index, false);
+        }
+    };
+
+    class DrawableComponentCallback : public osg::Drawable::UpdateCallback, public ComponentCallback
+    {
+    public:
+        virtual void update(osg::NodeVisitor* nv, osg::Drawable* drawable)
+        {
+            size_t index = 0; runNestedComponents(drawable, nv, index, true);
+            runNestedComponents(drawable, nv, index, false);
+        }
+    };
+#endif
 
     /** Camera draw callback for compatiblity */
     class CameraDrawCallback : public osg::Camera::DrawCallback
@@ -114,12 +168,6 @@ namespace osgVerse
             if (dcb && dcb != this) dcb->setSubCallback(this);
         }
 
-        inline void run(osg::RenderInfo& renderInfo) const
-        {
-            operator()(renderInfo);
-            if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
-        }
-
         void setSubCallback(CameraDrawCallback* cb) { _subCallback = cb; }
         CameraDrawCallback* getSubCallback() { return _subCallback.get(); }
         const CameraDrawCallback* getSubCallback() const { return _subCallback.get(); }
@@ -145,11 +193,16 @@ namespace osgVerse
                 _subCallback->removeSubCallback(nc);
         }
 
+        void run(osg::RenderInfo& renderInfo) const { operator()(renderInfo); }
         virtual void operator()(const osg::Camera& /*camera*/) const {}
+
         virtual void operator()(osg::RenderInfo& renderInfo) const
         {
             if (renderInfo.getCurrentCamera())
+            {
                 operator()(*(renderInfo.getCurrentCamera()));
+                if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
+            }
             else
                 OSG_WARN << "Error: Camera::DrawCallback called without valid camera." << std::endl;
         }

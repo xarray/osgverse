@@ -22,7 +22,6 @@
 #include <readerwriter/LoadSceneGLTF.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/Utilities.h>
-#define SHADER_DIR "../shaders/"
 
 class InteractiveHandler : public osgGA::GUIEventHandler
 {

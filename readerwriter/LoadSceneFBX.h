@@ -23,7 +23,7 @@ namespace osgVerse
     public:
         LoaderFBX(std::istream& in, const std::string& d);
 
-        osg::Group* getRoot() { return _root.get(); }
+        osg::MatrixTransform* getRoot() { return _root.get(); }
         ofbx::IScene* getFbxScene() { return _scene; }
 
     protected:
@@ -34,7 +34,7 @@ namespace osgVerse
 
         std::map<const ofbx::Material*, std::vector<osg::Geometry*>> _geometriesByMtl;
         std::map<const ofbx::Texture*, osg::ref_ptr<osg::Texture2D>> _textureMap;
-        osg::ref_ptr<osg::Group> _root;
+        osg::ref_ptr<osg::MatrixTransform> _root;
         ofbx::IScene* _scene;
         std::string _workingDir;
     };

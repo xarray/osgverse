@@ -1,6 +1,7 @@
 SET(EXE_NAME osgVerse_SceneEditor)
 SET(EXECUTABLE_FILES
-    editor_main.cpp
+    editor_main.cpp defines.h app.rc
+	editor_menu1.cpp editor_menu2.cpp editor_menu3.cpp
 	hierarchy.cpp hierarchy.h
 	properties.cpp properties.h
 	scenelogic.cpp scenelogic.h

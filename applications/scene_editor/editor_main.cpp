@@ -1,159 +1,208 @@
-#include <osg/io_utils>
-#include <osg/MatrixTransform>
+#include <osgDB/ReadFile>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#include <imgui/imgui.h>
-#include <imgui/ImGuizmo.h>
-#include <ui/ImGui.h>
-#include <ui/ImGuiComponents.h>
-#include <ui/CommandHandler.h>
-#include <pipeline/SkyBox.h>
-#include <pipeline/Pipeline.h>
-#include <pipeline/Utilities.h>
-
+#define LAY_IMPLEMENTATION
+#define LAY_FLOAT 1
+#include <layout.h>
 #include "hierarchy.h"
 #include "properties.h"
 #include "scenelogic.h"
-#include <iostream>
-#include <sstream>
+#include "defines.h"
+GlobalData g_data;
 
-class EditorContentHandler : public osgVerse::ImGuiContentHandler
+class MyViewer : public osgViewer::Viewer
 {
 public:
-    EditorContentHandler(osg::Camera* camera, osg::MatrixTransform* mt)
+    MyViewer(osgVerse::Pipeline* p) : osgViewer::Viewer(), _pipeline(p) {}
+    osg::ref_ptr<osgVerse::Pipeline> _pipeline;
+
+protected:
+    virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
     {
-        _mainMenu = new osgVerse::MainMenuBar;
-        _mainMenu->userData = this;
-        {
-            osgVerse::MenuBar::MenuData projMenu(osgVerse::MenuBar::TR("Project##menu01"));
-            {
-                osgVerse::MenuBar::MenuItemData newItem(osgVerse::MenuBar::TR("New##menu0101"));
-                projMenu.items.push_back(newItem);
-
-                osgVerse::MenuBar::MenuItemData openItem(osgVerse::MenuBar::TR("Open##menu0102"));
-                projMenu.items.push_back(openItem);
-
-                osgVerse::MenuBar::MenuItemData saveItem(osgVerse::MenuBar::TR("Save##menu0103"));
-                projMenu.items.push_back(saveItem);
-
-                osgVerse::MenuBar::MenuItemData settingItem(osgVerse::MenuBar::TR("Settings##menu0104"));
-                projMenu.items.push_back(settingItem);
-            }
-            _mainMenu->menuDataList.push_back(projMenu);
-
-            osgVerse::MenuBar::MenuData assetMenu(osgVerse::MenuBar::TR("Assets##menu02"));
-            {
-                osgVerse::MenuBar::MenuItemData importItem(osgVerse::MenuBar::TR("Import Model##menu0201"));
-                importItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
-                                          osgVerse::ImGuiComponentBase* me)
-                {
-                    // TODO: file dialog
-                    _hierarchy->addModelFromUrl("UH-60A/UH-60A.fbx");
-                };
-                assetMenu.items.push_back(importItem);
-            }
-            _mainMenu->menuDataList.push_back(assetMenu);
-
-            osgVerse::MenuBar::MenuData compMenu(osgVerse::MenuBar::TR("Components##menu03"));
-            {
-                osgVerse::MenuBar::MenuItemData newItem(osgVerse::MenuBar::TR("New##menu0301"));
-                compMenu.items.push_back(newItem);
-            }
-            _mainMenu->menuDataList.push_back(compMenu);
-
-            osgVerse::MenuBar::MenuData editMenu(osgVerse::MenuBar::TR("Utility##menu04"));
-            {
-            }
-            _mainMenu->menuDataList.push_back(editMenu);
-        }
-
-        _hierarchy = new Hierarchy(camera, mt);
-        _properties = new Properties(camera, mt);
-        _sceneLogic = new SceneLogic(camera, mt);
+        if (_pipeline.valid()) return _pipeline->createRenderer(camera);
+        else return osgViewer::Viewer::createRenderer(camera);
     }
+};
 
-    virtual void runInternal(osgVerse::ImGuiManager* mgr)
+class SceneManipulator : public osgGA::TrackballManipulator
+{
+public:
+    SceneManipulator() : osgGA::TrackballManipulator() {}
+    virtual bool performMovement()
     {
-        ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
-        handleCommands();
+        if (_ga_t0.get() == NULL || _ga_t1.get() == NULL) return false;
+        double eventTimeDelta = _ga_t0->getTime() - _ga_t1->getTime();
+        if (eventTimeDelta < 0.0) eventTimeDelta = 0.0;
 
-        _mainMenu->show(mgr, this);
-        ImGui::Separator();
+        float dx = _ga_t0->getXnormalized() - _ga_t1->getXnormalized();
+        float dy = _ga_t0->getYnormalized() - _ga_t1->getYnormalized();
+        if (dx == 0.0 && dy == 0.0) return false;
 
-        // TODO: auto layout
+        unsigned int bm = _ga_t1->getButtonMask(), mk = _ga_t1->getModKeyMask();
+        bool modKeyDown = (mk & osgGA::GUIEventAdapter::MODKEY_ALT);
+        if (bm == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON && modKeyDown)
+        { return performMovementRightMouseButton(eventTimeDelta, dx, dy); }
+        else if ((bm == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON && modKeyDown) ||
+                 bm == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON)
+        { return performMovementLeftMouseButton(eventTimeDelta, dx, dy); }
+        else if (bm == osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON)
+        { return performMovementMiddleMouseButton(eventTimeDelta, dx, dy); }
+        return false;
+    }
+};
+
+EditorContentHandler::EditorContentHandler()
+    : _uiFrameNumber(0)
+{
+    _hierarchy = new Hierarchy;
+    _properties = new Properties;
+    _sceneLogic = new SceneLogic;
+    _mainMenu = new osgVerse::MainMenuBar;
+    _mainMenu->userData = this;
+    createEditorMenu1();
+    createEditorMenu2();
+    createEditorMenu3();
+}
+
+void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
+{
+    ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
+    handleCommands();
+
+    _mainMenu->show(mgr, this);
+    ImGui::Separator();
+    if (_uiFrameNumber > 0)
+    {
+        // Wait for the first frame to initialize ImGui work-size
         if (_hierarchy.valid()) _hierarchy->show(mgr, this);
         if (_properties.valid()) _properties->show(mgr, this);
         if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
-
-        ImGui::PopFont();
     }
 
-    void handleCommands()
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
     {
-        osgVerse::CommandData cmd;
-        if (osgVerse::CommandBuffer::instance()->take(cmd, false))
+        // TODO: auto layout
+        osg::Vec4 hSize = _hierarchy->getWindow()->getCurrentRectangle();
+        osg::Vec4 pSize = _properties->getWindow()->getCurrentRectangle();
+        osg::Vec4 lSize = _sceneLogic->getWindow()->getCurrentRectangle();
+    }
+
+    // Dialog management
+    { std::string r; osgVerse::ImGuiComponentBase::showFileDialog(r); }
+    { bool r = false; osgVerse::ImGuiComponentBase::showConfirmDialog(r); }
+
+    ImGui::PopFont();
+    _uiFrameNumber++;
+}
+
+void EditorContentHandler::handleCommands()
+{
+    osgVerse::CommandData cmd;
+    while (osgVerse::CommandBuffer::instance()->take(cmd, false))
+    {
+        switch (cmd.type)
         {
-            switch (cmd.type)
-            {
-            case osgVerse::RefreshHierarchy:
-                if (!_hierarchy->handleCommand(&cmd))
-                    OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy" << std::endl;
-                break;
-            case osgVerse::RefreshHierarchyItem:
-                if (!_hierarchy->handleItemCommand(&cmd))
-                    OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy item" << std::endl;
-                break;
-            case osgVerse::RefreshProperties:
-                if (!_properties->handleCommand(&cmd))
-                    OSG_WARN << "[EditorContentHandler] Failed to refresh properties" << std::endl;
-                break;
-            }
+        case osgVerse::ResizeEditor:
+            if (_hierarchy.valid()) _hierarchy->getWindow()->sizeApplied = false;
+            if (_properties.valid()) _properties->getWindow()->sizeApplied = false;
+            if (_sceneLogic.valid()) _sceneLogic->getWindow()->sizeApplied = false;
+            break;
+        case osgVerse::RefreshHierarchy:
+            if (!_hierarchy->handleCommand(&cmd))
+                OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy" << std::endl;
+            break;
+        case osgVerse::RefreshHierarchyItem:
+            if (!_hierarchy->handleItemCommand(&cmd))
+                OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy item" << std::endl;
+            break;
+        case osgVerse::RefreshProperties:
+            if (!_properties->handleCommand(&cmd))
+                OSG_WARN << "[EditorContentHandler] Failed to refresh properties" << std::endl;
+            break;
         }
     }
-
-protected:
-    osg::ref_ptr<osgVerse::MainMenuBar> _mainMenu;
-    osg::ref_ptr<Hierarchy> _hierarchy;
-    osg::ref_ptr<Properties> _properties;
-    osg::ref_ptr<SceneLogic> _sceneLogic;
-};
+}
 
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osgViewer::Viewer viewer;
 
+    // Core scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
-    {
-        osg::StateSet* ss = sceneRoot->getOrCreateStateSet();
-        ss->setTextureAttributeAndModes(0, osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
-    }
+    sceneRoot->setName("SceneRoot");
+    sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Group> auxRoot = new osg::Group;
-    {
-        osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
-        skybox->setEnvironmentMap("../skyboxes/classic/snow_");
-        auxRoot->addChild(skybox.get());
-    }
+    auxRoot->setName("AuxRoot");
+    auxRoot->setNodeMask(~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
     root->addChild(auxRoot.get());
 
-    osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont("../misc/SourceHanSansHWSC-Regular.otf");
-    imgui->initialize(new EditorContentHandler(viewer.getCamera(), sceneRoot.get()));
-    imgui->addToView(&viewer);
+    // Pipeline initialization
+    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+    MyViewer viewer(pipeline.get());
+    setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);
 
-    viewer.addEventHandler(new osgVerse::CommandHandler());
+    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    if (shadow)
+    {
+        //osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
+        //shadow->addReferenceBound(cbv.getBoundingBox(), true);  // TODO: update when scene changes
+        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
+    }
+
+    // Post-HUD display and utilities
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(0);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    root->addChild(postCamera.get());
+
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    {
+        //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
+        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"));
+        postCamera->addChild(skybox.get());
+    }
+
+    osg::ref_ptr<osgVerse::NodeSelector> selector = new osgVerse::NodeSelector;
+    {
+        selector->setMainCamera(pipeline->getForwardCamera());
+        auxRoot->addChild(selector->getAuxiliaryRoot());
+        // TODO: also add to hud camera?
+    }
+
+    g_data.mainCamera = viewer.getCamera();
+    g_data.sceneRoot = sceneRoot.get();
+    g_data.auxiliaryRoot = auxRoot.get();
+    g_data.selector = selector.get();
+    g_data.view = &viewer;
+
+    // UI settings
+    osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
+    imgui->setChineseSimplifiedFont(BASE_DIR "/misc/SourceHanSansHWSC-Regular.otf");
+    imgui->initialize(new EditorContentHandler);
+    imgui->addToView(&viewer, postCamera.get());
+
+    // Viewer settings
+    viewer.addEventHandler(new osgVerse::CommandHandler);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+    //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    viewer.setCameraManipulator(new SceneManipulator);
     viewer.setSceneData(root.get());
+    //viewer.setKeyEventSetsDone(0);
+
+    // FIXME: how to avoid shadow problem...
+    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
+    // Shadow will go jigger because the output texture is not sync-ed before lighting...
+    // For SingleThreaded & CullDrawThreadPerContext it seems OK
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     return viewer.run();
 }

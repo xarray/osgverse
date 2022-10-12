@@ -106,7 +106,7 @@ namespace osgVerse
                                const osg::Vec4& screenGeom);
 
         /** Make deferred stage active/inactive (one-time stage will re-run only once) */
-        void ActivateDeferredStage(const std::string& n, bool active);
+        void activateDeferredStage(const std::string& n, bool active);
 
         osgVerse::DeferredRenderCallback* getDeferredCallback() { return _deferredCallback.get(); }
         const osgVerse::DeferredRenderCallback* getDeferredCallback() const { return _deferredCallback.get(); }
@@ -116,11 +116,16 @@ namespace osgVerse
         const osg::Camera* getForwardCamera() const { return _forwardCamera.get(); }
         osg::Vec2s getStageSize() const { return _stageSize; }
 
+        void addModule(const std::string& n, osg::NodeCallback* cb) { _modules[n] = cb; }
+        osg::NodeCallback* getModule(const std::string& n) { return _modules[n].get(); }
+        const std::map<std::string, osg::ref_ptr<osg::NodeCallback>>& getModules() const { return _modules; }
+
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
         void applyDefaultInputStateSet(osg::StateSet* ss);
         
         std::vector<osg::ref_ptr<Stage>> _stages;
+        std::map<std::string, osg::ref_ptr<osg::NodeCallback>> _modules;
         osg::ref_ptr<osgVerse::DeferredRenderCallback> _deferredCallback;
         osg::ref_ptr<osg::GraphicsContext> _stageContext;
         osg::observer_ptr<osg::Camera> _forwardCamera;
@@ -128,7 +133,7 @@ namespace osgVerse
     };
 
     /** Standard pipeline */
-    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, osg::Group* root,
+    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, osg::Group* auxRoot,
                                       const std::string& shaderDir, unsigned int originW, unsigned int originH);
 }
 

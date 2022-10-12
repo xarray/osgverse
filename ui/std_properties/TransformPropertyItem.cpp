@@ -7,6 +7,7 @@
 #include <osgDB/WriteFile>
 
 #include "../PropertyInterface.h"
+#include "../CommandHandler.h"
 #include "../ImGuiComponents.h"
 #include <imgui/ImGuizmo.h>
 using namespace osgVerse;
@@ -56,8 +57,13 @@ public:
         if (_type == MatrixType)
         {
             osg::MatrixTransform* n = static_cast<osg::MatrixTransform*>(_target.get());
-            if (toSet) n->setMatrix(_matrix * getInvParentMatrix());  // TODO: set transform command
-            else _matrix = n->getWorldMatrices()[0];
+            if (toSet)
+            {
+                osg::Matrix m = _matrix * getInvParentMatrix();
+                CommandBuffer::instance()->add(TransformCommand, n, m, 0);
+            }
+            else
+                _matrix = n->getWorldMatrices()[0];
         }
         else if (_type == PoseType)
         {
@@ -65,9 +71,8 @@ public:
                 static_cast<osg::PositionAttitudeTransform*>(_target.get());
             if (toSet)
             {
-                osg::Vec3 t, s; osg::Quat r, so;
-                osg::Matrix(_matrix * getInvParentMatrix()).decompose(t, r, s, so);
-                n->setPosition(t); n->setScale(s); n->setAttitude(r);  // TODO: set transform command
+                osg::Matrix m = _matrix * getInvParentMatrix();
+                CommandBuffer::instance()->add(TransformCommand, n, m, 1);
             }
             else
                 _matrix = n->getWorldMatrices()[0];

@@ -1,17 +1,18 @@
 SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_INCLUDE_FILES
-    ImGui.h ImGui.Styles.h
-    ImGuiComponents.h CommandHandler.h PropertyInterface.h)
+    ImGui.h ImGuiComponents.h
+	CommandHandler.h PropertyInterface.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-	ImGui.cpp ImGuiComponents.cpp 
-	CommandHandler.cpp 
-	PropertyInterface.cpp
+	ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Styles.h
+	CommandHandler.cpp PropertyInterface.cpp
 	ui_compontents/SpiderEditor.cpp
 	ui_compontents/Timeline.cpp
+	ui_compontents/VirtualKeyboard.cpp
 	std_properties/BasicPropertyItem.cpp
 	std_properties/TransformPropertyItem.cpp
 	std_properties/GeometryPropertyItem.cpp
 	std_properties/TexturePropertyItem.cpp
+	executors/DefaultExecutors.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/imgui)

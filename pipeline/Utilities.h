@@ -79,6 +79,27 @@ namespace osgVerse
         osg::BoundingBox createShadowBound(const std::vector<osg::Vec3>& refPoints,
                                            const osg::Matrix& worldToLocal);
     };
+
+    class DisableBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
+    {
+    public:
+        virtual osg::BoundingBox computeBound(const osg::Drawable&) const
+        { return osg::BoundingBox(); }
+    };
+
+    class DisableDrawableCallback : public osg::Drawable::CullCallback
+    {
+    public:
+        virtual bool cull(osg::NodeVisitor*, osg::Drawable* drawable, osg::State*) const
+        { return true; }
+    };
+
+    class DisableNodeCallback : public osg::NodeCallback
+    {
+    public:
+        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        { /*traverse(node, nv);*/ }
+    };
 }
 
 #endif

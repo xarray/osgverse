@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/Geometry>
 #include <osgDB/ReadFile>
@@ -107,11 +108,11 @@ public:
         std::stringstream ss;
         if (de != NULL)
         {
-            switch (de->getDataType())
+            switch (de->getType())
             {
-            case GL_UNSIGNED_BYTE: type = "UByte"; break;
-            case GL_UNSIGNED_SHORT: type = "UShort"; break;
-            case GL_UNSIGNED_INT: type = "UInt"; break;
+            case osg::PrimitiveSet::DrawElementsUBytePrimitiveType: type = "UByte"; break;
+            case osg::PrimitiveSet::DrawElementsUShortPrimitiveType: type = "UShort"; break;
+            case osg::PrimitiveSet::DrawElementsUIntPrimitiveType: type = "UInt"; break;
             }
             ss << mode << ": " << type << " x " << de->getNumIndices();
         }

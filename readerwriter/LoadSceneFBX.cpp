@@ -22,7 +22,7 @@ namespace osgVerse
         if (!_scene) { OSG_WARN << "[LoaderFBX] Unable to parse FBX scene\n"; return; }
 
         //const ofbx::Object* const* objects = _scene->getAllObjects();
-        _root = new osg::Group;
+        _root = new osg::MatrixTransform;
 
         int meshCount = _scene->getMeshCount();
         for (int i = 0; i < meshCount; ++i)
@@ -288,6 +288,8 @@ namespace osgVerse
                 tex2D->setResizeNonPowerOfTwoHint(false);
                 tex2D->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
                 tex2D->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
+                tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+                tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
 
                 osg::ref_ptr<osg::Image> image;
                 if (content.begin != NULL && content.begin != content.end)
@@ -325,7 +327,7 @@ namespace osgVerse
             }
 
             ss->setTextureAttributeAndModes(i, tex2D);
-            ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
+            //ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
         }
     }
 

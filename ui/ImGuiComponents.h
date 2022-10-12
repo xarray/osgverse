@@ -1,7 +1,8 @@
 #ifndef MANA_UI_IMGUICOMPONENTS_HPP
 #define MANA_UI_IMGUICOMPONENTS_HPP
 
-# define IMGUI_DEFINE_MATH_OPERATORS
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <imgui/imgui.h>
@@ -9,6 +10,36 @@
 #include "ImGui.h"
 #include <string>
 #include <map>
+
+namespace osg
+{
+#if OSG_VERSION_LESS_THAN(3, 1, 9)
+    class Vec2i
+    {
+    public:
+        typedef int value_type;
+        enum { num_components = 2 };
+        value_type _v[2];
+
+        Vec2i() { _v[0] = 0; _v[1] = 0; }
+        Vec2i(value_type x, value_type y) { _v[0] = x; _v[1] = y; }
+
+        inline bool operator == (const Vec2i& v) const { return _v[0] == v._v[0] && _v[1] == v._v[1]; }
+        inline bool operator != (const Vec2i& v) const { return _v[0] != v._v[0] || _v[1] != v._v[1]; }
+        inline bool operator <  (const Vec2i& v) const
+        {
+            if (_v[0] < v._v[0]) return true;
+            else if (_v[0] > v._v[0]) return false;
+            else return (_v[1] < v._v[1]);
+        }
+
+        inline void set(value_type x, value_type y) { _v[0] = x; _v[1] = y; }
+        inline void set(const Vec2i& rhs) { _v[0] = rhs._v[0]; _v[1] = rhs._v[1]; }
+        inline value_type& operator [] (int i) { return _v[i]; }
+        inline value_type operator [] (int i) const { return _v[i]; }
+    };
+#endif
+}
 
 namespace osgVerse
 {
@@ -46,9 +77,12 @@ namespace osgVerse
 
     struct ImGuiComponentBase : public osg::Referenced
     {
-        using ActionCallback = std::function<void(ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)>;
-        using ActionCallback2 = std::function<void(ImGuiManager*, ImGuiContentHandler*,
-                                                   ImGuiComponentBase*, const std::string&)>;
+        using ActionCallback = std::function<void (ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)>;
+        using ActionCallback2 = std::function<void (ImGuiManager*, ImGuiContentHandler*,
+                                                    ImGuiComponentBase*, const std::string&)>;
+        using FileDialogCallback = std::function<void (const std::string&)>;
+        using ConfirmDialogCallback = std::function<void(bool)>;
+        
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual void showEnd() { /* nothing to do by default */ }
         virtual void showTooltip(const std::string& desc, const std::string& t = "(?)", float wrapPos = 10.0f);
@@ -57,23 +91,42 @@ namespace osgVerse
         static std::string TR(const std::string& s);  // multi-language support
         static void setWidth(float width, bool fromLeft = true);
         static void adjustLine(bool newLine, bool sep = false, float indentX = 0.0f, float indentY = 0.0f);
-        static void openFileDialog(const std::string& name, const std::string& title,
-                                   const std::string& dir = ".", const std::string& filters=".*");
-        static bool showFileDialog(const std::string& name, std::string& result);
+
+        static void registerFileDialog(
+            FileDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+            const std::string& dir = ".", const std::string& filters=".*");
+        static bool showFileDialog(std::string& result);
+        static struct FileDialogData
+        {
+            std::string name;
+            FileDialogCallback callback;
+        } s_fileDialogRunner;
+
+        static void registerConfirmDialog(
+            ConfirmDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+            const std::string& btn0 = "OK", const std::string& btn1 = "");
+        static bool showConfirmDialog(bool& result);
+        static struct ConfirmDialogData
+        {
+            std::string name, title, btn0, btn1; bool modal, init;
+            ConfirmDialogCallback callback;
+        } s_confirmDialogRunner;
     };
 
     struct Window : public ImGuiComponentBase
     {
         std::string name; float alpha;
-        osg::Vec2 pos, pivot, sizeMin, sizeMax;
-        bool isOpen, collapsed, useMenuBar;
+        osg::Vec2 pos, pivot, size; osg::Vec4 rectRT;  // [0, 1]
+        bool isOpen, collapsed, useMenuBar, sizeApplied;
         ImGuiWindowFlags flags;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         virtual void showEnd() { ImGui::End(); }
+        void resize(const osg::Vec2& p, const osg::Vec2& s);
+        osg::Vec4 getCurrentRectangle() const { return rectRT; }
         Window(const std::string& n)
-        :   name(n), alpha(1.0f), isOpen(true),
-            collapsed(false), useMenuBar(false), flags(0) {}
+        :   name(n), alpha(1.0f), isOpen(true), collapsed(false),
+            useMenuBar(false), sizeApplied(false), flags(0) {}
     };
 
     struct Label : public ImGuiComponentBase
@@ -144,7 +197,7 @@ namespace osgVerse
     struct InputField : public ImGuiComponentBase
     {
         std::string name, value, tooltip, placeholder;
-        ImGuiInputTextFlags flags;
+        ImGuiInputTextFlags flags; osg::Vec2 size;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
@@ -211,6 +264,9 @@ namespace osgVerse
             bool enabled, selected, checkable;
             std::string name, shortcut, tooltip;
             ActionCallback callback;
+            std::vector<MenuItemData> subItems;
+
+            static MenuItemData separator;
             MenuItemData(const std::string& n)
             :   name(n), enabled(true), selected(false),
                 checkable(false), callback(NULL) {}
@@ -223,6 +279,7 @@ namespace osgVerse
             MenuData(const std::string& n) : name(n), enabled(true) {}
         };
 
+        void showMenuItem(MenuItemData& mid, ImGuiManager* mgr, ImGuiContentHandler* content);
         void showMenu(ImGuiManager* mgr, ImGuiContentHandler* content);
         std::vector<MenuData> menuDataList;
     };
@@ -332,6 +389,45 @@ namespace osgVerse
         Timeline()
         :   frameRange(0, 100), firstFrame(0), currentFrame(0), selectedIndex(-1),
             flags(0), expanded(true), seqInterface(NULL), callback(NULL) {}
+    };
+
+    struct VirtualKeyboard : public ImGuiComponentBase
+    {
+        struct KeyData
+        {
+            osg::ref_ptr<ImGuiComponentBase> button;
+            std::string name; int key, modKey, extraCode;
+            KeyData(const std::string& n = "") : name(n), key(0), modKey(0), extraCode(0) {}
+        };
+
+        struct KeyRowData
+        {
+            Button* addKey(const std::string& n, int key, int modkey, const osg::Vec2& size);
+            Button* addKeyEx(const std::string& n, int key, int modkey, const osg::Vec2& size,
+                             const ImColor& style, ActionCallback cb);
+            std::vector<KeyData> keys; float indentX;
+        };
+        std::vector<KeyRowData> keyList;
+        bool capslock, shifted, ctrled, alted, chsMode;
+        std::string lastInput, totalInput, result;
+        int imeCandicatePages, currentPage;
+        std::vector<std::string> imeCandicates;
+        void* imeInterface;
+
+        using KeyCallback = std::function<void(ImGuiManager*, ImGuiContentHandler*, const KeyData&)>;
+        using MessageCallback = std::function<void(const std::string&)>;
+        KeyCallback keyCallback; MessageCallback msgCallback;
+
+        int getCandidatePages(const std::string& input);
+        bool getCandidates(int pageId, std::vector<std::string>& results);
+        void resetCandidates(); void destroy();
+
+        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
+        void create(const std::string& sysCikuPath, const std::string& learnCikuPath);
+        virtual ~VirtualKeyboard() { destroy(); }
+        VirtualKeyboard() : capslock(false), shifted(false), ctrled(false), alted(false), chsMode(false),
+                            imeCandicatePages(0), currentPage(0), imeInterface(NULL),
+                            keyCallback(NULL), msgCallback(NULL) { resetCandidates(); }
     };
 }
 

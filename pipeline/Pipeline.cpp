@@ -30,6 +30,25 @@
     #define GL_RG32F                          0x8230
 #endif
 
+static osg::Camera::ComputeNearFarMode g_nearFarMode =
+        osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES;
+
+class DebugDrawCallback : public osg::Camera::DrawCallback
+{
+public:
+    virtual void operator()(osg::RenderInfo& renderInfo) const
+    {
+        double fov, ratio, zn, zf;
+        osg::Camera* cam = renderInfo.getCurrentCamera();
+        renderInfo.getState()->getProjectionMatrix().getPerspective(fov, ratio, zn, zf);
+        //std::cout << _name << ": " << cam->getName() << " = "
+        //          << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
+    }
+
+    DebugDrawCallback(const std::string& n) : _name(n) {}
+    std::string _name;
+};
+
 struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatrixCallback
 {
     template<class MatrixType>
@@ -101,7 +120,7 @@ public:
                 _callback->registerDepthFBO(getCamera(), fbo);
         }
 
-#if 0
+#if false
         double ratio = 0.0, fovy = 0.0, znear = 0.0, zfar = 0.0;
         getProjectionMatrix().getPerspective(fovy, ratio, znear, zfar);
         OSG_NOTICE << getName() << ", FrameNo = " << getFrameStamp()->getFrameNumber()
@@ -118,7 +137,7 @@ class MyRenderer : public osgViewer::Renderer
 {
 public:
     MyRenderer(osg::Camera* c) : osgViewer::Renderer(c) {}
-    
+
     void useCustomSceneViews(osgVerse::DeferredRenderCallback* cb)
     {
         unsigned int opt = osgUtil::SceneView::HEADLIGHT;
@@ -228,7 +247,11 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 }
                 else
                 {
-                    continue;  // FIXME: ignore all absolute slaves such as RTT & display quads
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+                    if (rtt && camera->getName().find("ShadowCaster0") != std::string::npos)
+                        camera->resizeAttachments(w, h);  // FIXME: bad way to find and apply shadow cameras
+#endif
+                    continue;  // FIXME: ignore all absolute slaves such as RTT & display quads?
                     /*switch (camera->getProjectionResizePolicy())
                     {
                     case (osg::Camera::HORIZONTAL):
@@ -358,6 +381,11 @@ namespace osgVerse
             bool useMainScene = _stages[i]->inputStage;
             if (_stages[i]->deferred || !_stages[i]->camera) continue;
             view->addSlave(_stages[i]->camera.get(), osg::Matrix(), osg::Matrix(), useMainScene);
+
+#if false  // TEST ONLY
+            _stages[i]->camera->setPreDrawCallback(new DebugDrawCallback("PRE"));
+            _stages[i]->camera->setPostDrawCallback(new DebugDrawCallback("POST"));
+#endif
         }
 
         osg::ref_ptr<osg::Camera> forwardCam = (view->getCamera() != NULL)
@@ -366,7 +394,7 @@ namespace osgVerse
         forwardCam->setUserValue("NeedNearFarCalculation", true);
         forwardCam->setCullMask(forwardMask);
         forwardCam->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
-        forwardCam->setComputeNearFarMode(osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
+        forwardCam->setComputeNearFarMode(g_nearFarMode);
         _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
 
         forwardCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
@@ -420,7 +448,7 @@ namespace osgVerse
         s->camera->setCullMask(cullMask);
         s->camera->setUserValue("NeedNearFarCalculation", true);
         s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
-        s->camera->setComputeNearFarMode(osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
+        s->camera->setComputeNearFarMode(g_nearFarMode);
         s->inputStage = true; _stages.push_back(s);
         return s;
     }
@@ -492,7 +520,7 @@ namespace osgVerse
         return s;
     }
 
-    void Pipeline::ActivateDeferredStage(const std::string& n, bool b)
+    void Pipeline::activateDeferredStage(const std::string& n, bool b)
     { Stage* s = getStage(n); if (s->runner.valid()) s->runner->active = b; }
 
     void Pipeline::applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs)
@@ -517,13 +545,13 @@ namespace osgVerse
         static osg::ref_ptr<osg::Texture2D> tex0 = createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         static osg::ref_ptr<osg::Texture2D> tex1 = createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
-        ss->setTextureAttributeAndModes(0, tex1.get());
-        ss->setTextureAttributeAndModes(1, tex0.get());
-        ss->setTextureAttributeAndModes(2, tex1.get());
-        ss->setTextureAttributeAndModes(3, tex0.get());
-        ss->setTextureAttributeAndModes(4, tex0.get());
-        ss->setTextureAttributeAndModes(5, tex0.get());
-        ss->setTextureAttributeAndModes(6, tex0.get());
+        ss->setTextureAttributeAndModes(0, tex1.get());  // DiffuseMap
+        ss->setTextureAttributeAndModes(1, tex0.get());  // NormalMap
+        ss->setTextureAttributeAndModes(2, tex1.get());  // SpecularMap
+        ss->setTextureAttributeAndModes(3, tex0.get());  // ShininessMap
+        ss->setTextureAttributeAndModes(4, tex0.get());  // AmbientMap
+        ss->setTextureAttributeAndModes(5, tex0.get());  // EmissiveMap
+        ss->setTextureAttributeAndModes(6, tex0.get());  // ReflectionMap
         for (int i = 0; i < 7; ++i) ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
 
         osg::Program* prog = static_cast<osg::Program*>(ss->getAttribute(osg::StateAttribute::PROGRAM));

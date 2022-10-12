@@ -11,17 +11,44 @@
 #include <pipeline/Global.h>
 using namespace osgVerse;
 
-Properties::Properties(osg::Camera* cam, osg::MatrixTransform* mt)
-    : _camera(cam), _sceneRoot(mt)
+Properties::Properties()
+    : _selectedProperty(-1)
 {
     _propWindow = new Window(TR("Properties##ed02"));
-    _propWindow->pos = osg::Vec2(1600, 0);
-    _propWindow->sizeMin = osg::Vec2(320, 780);
-    _propWindow->sizeMax = osg::Vec2(640, 780);
+    _propWindow->pos = osg::Vec2(0.8f, 0.0f);
+    _propWindow->size = osg::Vec2(0.2f, 0.75f);
     _propWindow->alpha = 0.9f;
     _propWindow->useMenuBar = false;
     _propWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _propWindow->userData = this;
+
+    // Popup menu: enable, up, down | copy, paste, delete | edit
+    {
+        osgVerse::MenuBar::MenuItemData enableItem(osgVerse::MenuBar::TR("Enable##ed02m01"));
+        _popupMenus.push_back(enableItem);
+
+        osgVerse::MenuBar::MenuItemData upItem(osgVerse::MenuBar::TR("Move Up##ed02m02"));
+        _popupMenus.push_back(upItem);
+
+        osgVerse::MenuBar::MenuItemData downItem(osgVerse::MenuBar::TR("Move Down##ed02m03"));
+        _popupMenus.push_back(downItem);
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData copyItem(osgVerse::MenuBar::TR("Copy##ed02m04"));
+        _popupMenus.push_back(copyItem);
+
+        osgVerse::MenuBar::MenuItemData pasteItem(osgVerse::MenuBar::TR("Paste##ed02m05"));
+        _popupMenus.push_back(pasteItem);
+
+        osgVerse::MenuBar::MenuItemData deleteItem(osgVerse::MenuBar::TR("Delete##ed02m06"));
+        _popupMenus.push_back(deleteItem);
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        osgVerse::MenuBar::MenuItemData editItem(osgVerse::MenuBar::TR("Edit##ed02m07"));
+        _popupMenus.push_back(editItem);
+    }
 }
 
 bool Properties::handleCommand(CommandData* cmd)
@@ -32,7 +59,7 @@ bool Properties::handleCommand(CommandData* cmd)
     */
     PropertyItemManager* propManager = PropertyItemManager::instance();
     osg::StateSet* stateSet = NULL; ComponentCallback* callback = NULL;
-    _properties.clear();
+    _properties.clear(); _selectedProperty = -1;
 
     osg::Drawable* targetD = dynamic_cast<osg::Drawable*>(cmd->object.get());
     if (targetD)
@@ -41,7 +68,7 @@ bool Properties::handleCommand(CommandData* cmd)
         if (p0)
         {
             p0->setTarget(targetD, PropertyItem::DrawableType);
-            p0->setCamera(_camera.get()); _properties.push_back(p0);
+            p0->setCamera(g_data.mainCamera.get()); _properties.push_back(p0);
         }
 
         osg::Geometry* targetG = targetD->asGeometry();
@@ -51,7 +78,7 @@ bool Properties::handleCommand(CommandData* cmd)
             if (p1) { p1->setTarget(targetG, PropertyItem::GeometryType); _properties.push_back(p1); }
         }
 
-        stateSet = targetD->getOrCreateStateSet();
+        stateSet = targetD->getStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetD->getUpdateCallback());
     }
 
@@ -62,7 +89,7 @@ bool Properties::handleCommand(CommandData* cmd)
         if (p0)
         {
             p0->setTarget(targetN, PropertyItem::NodeType);
-            p0->setCamera(_camera.get()); _properties.push_back(p0);
+            p0->setCamera(g_data.mainCamera.get()); _properties.push_back(p0);
         }
         
         osg::Transform* targetT = targetN->asTransform();
@@ -75,7 +102,7 @@ bool Properties::handleCommand(CommandData* cmd)
                 if (p1)
                 {
                     p1->setTarget(targetMT, PropertyItem::MatrixType);
-                    p1->setCamera(_camera.get()); _properties.push_back(p1);
+                    p1->setCamera(g_data.mainCamera.get()); _properties.push_back(p1);
                 }
             }
 
@@ -86,7 +113,7 @@ bool Properties::handleCommand(CommandData* cmd)
                 if (p1)
                 {
                     p1->setTarget(targetPT, PropertyItem::PoseType);
-                    p1->setCamera(_camera.get()); _properties.push_back(p1);
+                    p1->setCamera(g_data.mainCamera.get()); _properties.push_back(p1);
                 }
             }
         }
@@ -98,7 +125,7 @@ bool Properties::handleCommand(CommandData* cmd)
             if (p1) { p1->setTarget(targetCam, PropertyItem::CameraType); _properties.push_back(p1); }
         }
 
-        stateSet = targetN->getOrCreateStateSet();
+        stateSet = targetN->getStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetN->getUpdateCallback());
     }
 
@@ -131,6 +158,7 @@ bool Properties::handleCommand(CommandData* cmd)
 bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = _propWindow->show(mgr, content);
+    if (done)
     {
         int headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Bullet
                         | ImGuiTreeNodeFlags_OpenOnDoubleClick;
@@ -139,14 +167,26 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
             osgVerse::PropertyItem* item = _properties[i];
             std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
 
-            if (ImGui::ArrowButton((title + "A").c_str(), ImGuiDir_Down))
+            if (ImGui::ArrowButton((title + "Arrow").c_str(), ImGuiDir_Down))  // TODO: disabled = ImGuiDir_None
             {
-                // TODO: popup menu: active, select, ...
+                // Select the item and also open popup menu
+                ImGui::OpenPopup((title + "Popup").c_str());
+                _selectedProperty = (int)i;
             }
             ImGui::SameLine();
 
-            //if (i == 0) ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+            // Show property item (selected or not)
+            if (i == _selectedProperty)
+                ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.4f, 0.4f, 0.0f, 1.0f));
             bool toOpen = ImGui::CollapsingHeader(title.c_str(), headerFlags);
+            if (i == _selectedProperty) ImGui::PopStyleColor();
+
+            if (ImGui::BeginPopup((title + "Popup").c_str()))
+            {
+                showPopupMenu(item, mgr, content);
+                ImGui::EndPopup();
+            }
+
             if (toOpen)
             {
                 if (item->show(mgr, content))
@@ -155,9 +195,17 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
                         CommandBuffer::instance()->add(RefreshHierarchyItem, item->getTarget(), "");
                 }
             }
-            //if (i == 0) ImGui::PopStyleColor();
         }
+        _propWindow->showEnd();
     }
-    _propWindow->showEnd();
     return done;
+}
+
+void Properties::showPopupMenu(osgVerse::PropertyItem* item, osgVerse::ImGuiManager* mgr,
+                               osgVerse::ImGuiContentHandler* content)
+{
+    // Popup menu: enable (check), up (check), down (check) | copy, paste, delete | edit (check)
+    static osg::ref_ptr<osgVerse::MenuBar> s_popup = new osgVerse::MenuBar;
+    for (size_t i = 0; i < _popupMenus.size(); ++i)
+        s_popup->showMenuItem(_popupMenus[i], mgr, content);
 }

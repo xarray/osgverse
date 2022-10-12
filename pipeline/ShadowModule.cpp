@@ -4,21 +4,15 @@
 #include "ShadowModule.h"
 #include "Utilities.h"
 
-class DisableBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
-{
-public:
-    virtual osg::BoundingBox computeBound(const osg::Drawable&) const
-    { return osg::BoundingBox(); }
-};
-
 namespace osgVerse
 {
-    ShadowModule::ShadowModule(Pipeline* pipeline, bool withDebugGeom)
+    ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
         : _pipeline(pipeline), _shadowMaxDistance(-1.0f)
     {
         _shadowMaps = new osg::Texture2DArray;
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
         _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", 4);
+        if (pipeline) pipeline->addModule(name, this);
     }
 
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0, float maxDistance)
@@ -47,9 +41,8 @@ namespace osgVerse
         _shadowMaps->setSourceType(GL_FLOAT);
         _shadowMaps->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         _shadowMaps->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        _shadowMaps->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
-        _shadowMaps->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
-        _shadowMaps->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        _shadowMaps->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        _shadowMaps->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
 
         if (_pipeline.valid())
         {
@@ -62,48 +55,68 @@ namespace osgVerse
         }
     }
 
-    void ShadowModule::setMainCameras(osg::Camera* mvCam, osg::Camera* projCam)
-    { _cameraMV = mvCam; _cameraProj = projCam; }
+    void ShadowModule::addReferencePoints(const std::vector<osg::Vec3>& pt, bool toReset)
+    {
+        if (toReset) _referencePoints.clear();
+        _referencePoints.insert(_referencePoints.end(), pt.begin(), pt.end());
+    }
 
-    void ShadowModule::addReferencePoints(const std::vector<osg::Vec3>& pt)
-    { _referencePoints.insert(_referencePoints.end(), pt.begin(), pt.end()); }
+    void ShadowModule::addReferenceBound(const osg::BoundingBox& bb, bool toReset)
+    {
+        if (toReset) _referencePoints.clear();
+        for (int i = 0; i < 8; ++i) _referencePoints.push_back(bb.corner(i));
+    }
+
+    void ShadowModule::updateInDraw(osg::RenderInfo& renderInfo)
+    {
+        osg::Camera* cam = _updatedCamera.get();
+        osg::State* state = renderInfo.getState();
+        if (!cam || !state) return;
+
+        Frustum frustum;
+        frustum.create(cam->getViewMatrix(), state->getProjectionMatrix(),
+                       -1.0f, _shadowMaxDistance);
+        osg::Matrix viewInv = cam->getInverseViewMatrix();
+
+#if false
+        double fov, ratio, zn, zf;
+        state->getProjectionMatrix().getPerspective(fov, ratio, zn, zf);
+        std::cout << "SHADOW: " << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
+#endif
+
+        osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+        float xMinTotal = shadowBB.xMin(), xMaxTotal = shadowBB.xMax();
+        float yMinTotal = shadowBB.yMin(), yMaxTotal = shadowBB.yMax();
+        size_t numCameras = _shadowCameras.size();
+
+        static const float ratios[] = { 0.0f, 0.05f, 0.2f, 0.5f, 1.0f };
+        float xStep = (xMaxTotal - xMinTotal) / ratios[numCameras];
+        for (size_t i = 0; i < numCameras; ++i)
+        {
+            // Split the shadow bounds
+            float xMin = xMinTotal + xStep * ratios[i],
+                  xMax = xMinTotal + xStep * ratios[i + 1];
+            float yMin = yMinTotal, yMax = yMaxTotal;
+
+            // Apply the shadow camera & uniform
+            osg::Camera* shadowCam = _shadowCameras[i].get();
+            shadowCam->setViewMatrix(_lightMatrix);
+            shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax,
+                0.0, osg::maximum(osg::absolute(shadowBB.zMax()), osg::absolute(shadowBB.zMin())));
+            _lightMatrices->setElement(i, osg::Matrixf(viewInv *
+                shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
+        }
+        _lightMatrices->dirty();
+    }
 
     void ShadowModule::operator()(osg::Node* node, osg::NodeVisitor* nv)
     {
-        if (!_cameraMV) _cameraMV = dynamic_cast<osg::Camera*>(node);
-        if (!_cameraProj) _cameraProj = _pipeline->getForwardCamera();
-
-        if (_cameraMV.valid() && _cameraProj.valid())
+        osg::Camera* cameraMV = static_cast<osg::Camera*>(node);
+        _updatedCamera = cameraMV;
+        for (size_t i = 0; i < _shadowCameras.size(); ++i)
         {
-            Frustum frustum;
-            frustum.create(_cameraMV->getViewMatrix(), _cameraProj->getProjectionMatrix(),
-                           -1.0f, _shadowMaxDistance);
-            osg::Matrix viewInv = _cameraMV->getInverseViewMatrix();
-
-            std::cout << "F " << frustum.centerNearPlane << ", " << frustum.centerFarPlane << "\n";
-
-            osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightInvMatrix);
-            float halfX = (shadowBB.xMax() - shadowBB.xMin()) * 0.5;
-            float halfY = (shadowBB.yMax() - shadowBB.yMin()) * 0.5;
-            //std::cout << halfX << ", " << halfY << std::endl;
-            for (size_t i = 0; i < _shadowCameras.size(); ++i)
-            {
-                // TODO: split...
-                osg::Camera* shadowCam = _shadowCameras[i].get();
-                //shadowCam->setViewMatrixAsLookAt(
-                //    osg::Vec3(-100.0f, 0.0f, 100.0f), osg::Vec3(), osg::Vec3(0.707f, 0.f, 0.707f));
-                //shadowCam->setProjectionMatrixAsOrtho(
-                //    -100.0f, 100.0f, -100.0f, 100.0f, 0.0f, 300.0f);
-                shadowCam->setViewMatrix(_lightMatrix);
-                shadowCam->setProjectionMatrixAsOrtho(
-                    -halfX, halfX, -halfY, halfY, shadowBB.zMin(), shadowBB.zMax());
-                _lightMatrices->setElement(i, osg::Matrixf(viewInv *
-                    shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
-                updateFrustumGeometry(i, shadowCam);
-
-                std::cout << i << ": " << shadowBB.zMin() << ", " << shadowBB.zMax() << "\n";
-            }
-            _lightMatrices->dirty();
+            osg::Camera* shadowCam = _shadowCameras[i].get();
+            updateFrustumGeometry(i, shadowCam);
         }
         traverse(node, nv);
     }
@@ -119,9 +132,10 @@ namespace osgVerse
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         camera->setRenderOrder(osg::Camera::PRE_RENDER);
-        camera->setGraphicsContext(_pipeline->getContext());
+
+        if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps->getTextureWidth(), _shadowMaps->getTextureHeight());
-        camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps.get(), id);
+        camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps.get(), 0, id);
         camera->getOrCreateStateSet()->setAttributeAndModes(
             prog, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         _shadowCameras.push_back(camera.get());
@@ -163,6 +177,7 @@ namespace osgVerse
             geom->setVertexArray(new osg::Vec3Array(8));
             geom->addPrimitiveSet(de); geom->addPrimitiveSet(de2);
             geom->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
+            geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
             _shadowFrustum->addDrawable(geom);
         }
         

@@ -8,11 +8,15 @@
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+#include <codecvt>
 #include <iostream>
 #include <array>
 #include <mikktspace.h>
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
+#if WIN32
+    #include <windows.h>
+#endif
 #include "Utilities.h"
 typedef std::array<unsigned int, 3> Vec3ui;
 
@@ -98,6 +102,11 @@ namespace osgVerse
 {
     void globalInitialize(int argc, char** argv)
     {
+#ifdef INSTALL_PATH_PREFIX
+        std::string workingPath = INSTALL_PATH_PREFIX + std::string("/bin/");
+        osgDB::getDataFilePathList().push_back(workingPath);
+#endif
+        setlocale(LC_ALL, ".UTF8");
         if (argv && argc > 0)
         {
             std::string path = osgDB::getFilePath(argv[0]);
@@ -161,7 +170,7 @@ namespace osgVerse
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         camera->setRenderOrder(osg::Camera::PRE_RENDER);
-        camera->setGraphicsContext(gc);
+        if (gc) camera->setGraphicsContext(gc);
         if (tex)
         {
             tex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
@@ -301,19 +310,20 @@ namespace osgVerse
         osg::Matrixd proj = originProj;
         if (preferredNear < preferredFar)
         {
+            double zdiff = preferredFar - preferredNear;
             if (fabs(proj(0, 3)) < epsilon  && fabs(proj(1, 3)) < epsilon  && fabs(proj(2, 3)) < epsilon)
             {
                 double left = 0.0, right = 0.0, bottom = 0.0, top = 0.0;
                 proj.getOrtho(left, right, bottom, top, znear, zfar);
-                proj = osg::Matrix::ortho(
-                    left, right, bottom, top, (preferredNear >= 0.0f) ? preferredNear : znear, preferredFar);
+                if (preferredNear >= 0.0f) znear = preferredNear;
+                proj = osg::Matrix::ortho(left, right, bottom, top, znear, znear + zdiff);
             }
             else
             {
                 double ratio = 0.0, fovy = 0.0;
                 proj.getPerspective(fovy, ratio, znear, zfar);
-                proj = osg::Matrix::perspective(
-                    fovy, ratio, (preferredNear > 0.0f) ? preferredNear : znear, preferredFar);
+                if (preferredNear >= 0.0f) znear = preferredNear;
+                proj = osg::Matrix::perspective(fovy, ratio, znear, znear + zdiff);
             }
         }
 
@@ -343,8 +353,10 @@ namespace osgVerse
             lightSpaceBB1.expandBy(refPoints[i] * worldToLocal);
         if (lightSpaceBB1._min[0] > lightSpaceBB0._min[0]) lightSpaceBB0._min[0] = lightSpaceBB1._min[0];
         if (lightSpaceBB1._min[1] > lightSpaceBB0._min[1]) lightSpaceBB0._min[1] = lightSpaceBB1._min[1];
+        if (lightSpaceBB1._min[2] > lightSpaceBB0._min[2]) lightSpaceBB0._min[2] = lightSpaceBB1._min[2];
         if (lightSpaceBB1._max[0] < lightSpaceBB0._max[0]) lightSpaceBB0._max[0] = lightSpaceBB1._max[0];
         if (lightSpaceBB1._max[1] < lightSpaceBB0._max[1]) lightSpaceBB0._max[1] = lightSpaceBB1._max[1];
+        if (lightSpaceBB1._max[2] < lightSpaceBB0._max[2]) lightSpaceBB0._max[2] = lightSpaceBB1._max[2];
         return lightSpaceBB0;
     }
 }

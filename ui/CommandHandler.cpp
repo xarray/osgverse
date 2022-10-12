@@ -6,6 +6,7 @@
 
 #include "CommandHandler.h"
 using namespace osgVerse;
+extern void loadDefaultExecutors(CommandHandler* handler);
 
 CommandBuffer* CommandBuffer::instance()
 {
@@ -27,14 +28,14 @@ bool CommandBuffer::canMerge(const std::list<CommandData>& cList, CommandType t,
 }
 
 void CommandBuffer::mergeCommand(std::list<CommandData>& cList, CommandType t, osg::Object* n,
-                                 const std::any& v0, const std::any& v1)
+                                 const linb::any& v0, const linb::any& v1)
 {
     // TODO: merging should happen when this command been executed and taken from command buffer,
     //       so that 'undo' will work on an integrated operation instead of many small fractures
     cList.back() = CommandData{ n, v0, v1, t };  // FIXME: consider complex merging?
 }
 
-void CommandBuffer::add(CommandType t, osg::Object* n, const std::any& v0, const std::any& v1)
+void CommandBuffer::add(CommandType t, osg::Object* n, const linb::any& v0, const linb::any& v1)
 {
     _mutex.lock();
     if (t < CommandToUI)
@@ -58,39 +59,17 @@ bool CommandBuffer::take(CommandData& c, bool fromSceneHandler)
         c = _bufferToScene.front(); hasData = true;
         _bufferToScene.pop_front();
     }
-    else if (!fromSceneHandler && !_bufferToUI.empty())
-    {
+    else if (!fromSceneHandler && !_bufferToUI.empty() && _bufferToScene.empty())
+    {   // UI events must be taken after all scene events handled...
         c = _bufferToUI.front(); hasData = true;
         _bufferToUI.pop_front();
     }
     _mutex.unlock(); return hasData;
 }
 
-/// Executors
-struct LoadModelExecutor : public CommandHandler::CommandExecutor
-{
-    virtual bool redo(CommandData& cmd)
-    {
-        std::string fileName;
-        osg::Group* group = static_cast<osg::Group*>(cmd.object.get());
-        if (!cmd.get<std::string>(fileName)) return false;
-
-        osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(fileName);
-        if (!loadedModel || !group) return false;
-
-        group->addChild(loadedModel.get()); loadedModel->setName(fileName);
-        CommandBuffer::instance()->add(RefreshHierarchy, group, loadedModel.get());
-        return true;
-    }
-
-    virtual bool undo(CommandData& cmd)
-    { return false; }  // TODO
-};
-///
-
 CommandHandler::CommandHandler()
 {
-    addExecutor(LoadModelCommand, new LoadModelExecutor);
+    loadDefaultExecutors(this);
 }
 
 bool CommandHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -98,19 +77,24 @@ bool CommandHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAd
     if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
     {
         CommandData cmd;
-        if (CommandBuffer::instance()->take(cmd, true))
+        while (CommandBuffer::instance()->take(cmd, true))
         {
-            if (cmd.type == CommandToScene) return false;
+            if (cmd.type == CommandToScene) continue;
             if (_executors.find(cmd.type) == _executors.end())
             {
                 OSG_WARN << "[CommandHandler] Unknown command " << cmd.type << std::endl;
-                return false;
+                continue;  // no executors for command...
             }
             
             CommandExecutor* executor = getExecutor(cmd.type);
             if (executor && !executor->redo(cmd))
                 OSG_WARN << "[CommandHandler] Failed to execute " << cmd.type << std::endl;
         }
+    }
+    else if (ea.getEventType() == osgGA::GUIEventAdapter::RESIZE)
+    {
+        CommandBuffer::instance()->add(
+            ResizeEditor, NULL, osg::Vec2(ea.getWindowWidth(), ea.getWindowHeight()));
     }
     return false;
 }

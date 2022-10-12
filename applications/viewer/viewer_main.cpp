@@ -1,5 +1,5 @@
 #include <osg/io_utils>
-#include <osg/LightSource>
+#include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -11,9 +11,10 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <iostream>
 #include <sstream>
+#include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
+#include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
-#define SHADER_DIR "../shaders/"
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -32,7 +33,8 @@ protected:
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(argc > 1 ? argv[1] : "../models/Sponza/Sponza.gltf");
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
+        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -49,19 +51,49 @@ int main(int argc, char** argv)
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.0,0,-250.trans");
     otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
 
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
+    // Post-HUD display
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(0);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    root->addChild(postCamera.get());
+
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    {
+        //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
+        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"));
+        skybox->setNodeMask(~DEFERRED_SCENE_MASK);
+        postCamera->addChild(skybox.get());
+    }
+
+    // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
     setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);
+
+    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    if (shadow)
+    {
+        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
+        shadow->addReferenceBound(cbv.getBoundingBox(), true);
+        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);
+    }
 
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+
+    // FIXME: how to avoid shadow problem...
+    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
+    // Shadow will go jigger because the output texture is not sync-ed before lighting...
+    // For SingleThreaded & CullDrawThreadPerContext it seems OK
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     while (!viewer.done())
     {
         //std::cout << sceneRoot->getBound().center() << "; " << sceneRoot->getBound().radius() << "\n";

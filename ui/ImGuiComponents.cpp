@@ -45,38 +45,113 @@ void ImGuiComponentBase::showTooltip(const std::string& desc, const std::string&
     }
 }
 
-void ImGuiComponentBase::openFileDialog(const std::string& name, const std::string& title,
-                                        const std::string& dir, const std::string& filters)
+void ImGuiComponentBase::registerFileDialog(
+    FileDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+    const std::string& dir, const std::string& filters)
 {
-    ImGuiFileDialog::Instance()->OpenDialog(name, title, filters.c_str(), dir);
+    ImGuiFileDialogFlags flags = (modal ? ImGuiFileDialogFlags_Modal : 0);
+    ImGuiFileDialog::Instance()->OpenDialog(  // FIXME: more options
+        name, title, filters.c_str(), dir, 1, NULL,
+        flags | ImGuiFileDialogFlags_DisableCreateDirectoryButton);
+    s_fileDialogRunner.name = name; s_fileDialogRunner.callback = cb;
 }
 
-bool ImGuiComponentBase::showFileDialog(const std::string& name, std::string& result)
+bool ImGuiComponentBase::showFileDialog(std::string& result)
 {
-    if (ImGuiFileDialog::Instance()->Display(name))
+    if (s_fileDialogRunner.name.empty()) return false;
+    if (ImGuiFileDialog::Instance()->Display(s_fileDialogRunner.name))
     {
         if (ImGuiFileDialog::Instance()->IsOk())
             result = ImGuiFileDialog::Instance()->GetFilePathName();
         ImGuiFileDialog::Instance()->Close();
-        return !result.empty();
+        if (!result.empty() && s_fileDialogRunner.callback)
+            s_fileDialogRunner.callback(result);
+        s_fileDialogRunner.name = ""; return true;
     }
     return false;
 }
 
+void ImGuiComponentBase::registerConfirmDialog(
+    ConfirmDialogCallback cb, const std::string& name, const std::string& title, bool modal,
+    const std::string& btn0, const std::string& btn1)
+{
+    s_confirmDialogRunner.name = name; s_confirmDialogRunner.title = title;
+    s_confirmDialogRunner.btn0 = btn0; s_confirmDialogRunner.btn1 = btn1;
+    s_confirmDialogRunner.modal = modal; s_confirmDialogRunner.init = true;
+    s_confirmDialogRunner.callback = cb;
+}
+
+bool ImGuiComponentBase::showConfirmDialog(bool& result)
+{
+    bool displayed = false, closed = false;
+    if (s_confirmDialogRunner.name.empty()) return false;
+    else if (s_confirmDialogRunner.init)
+    {
+        ImGui::OpenPopup(s_confirmDialogRunner.name.c_str());
+        s_confirmDialogRunner.init = false;
+    }
+
+    if (s_confirmDialogRunner.modal)
+        displayed = ImGui::BeginPopupModal(s_confirmDialogRunner.name.c_str(),
+                                           NULL, ImGuiWindowFlags_AlwaysAutoResize);
+    else
+        displayed = ImGui::BeginPopup(s_confirmDialogRunner.name.c_str(), ImGuiWindowFlags_AlwaysAutoResize);
+
+    if (displayed)
+    {
+        ImGui::Text(s_confirmDialogRunner.title.c_str()); ImGui::Separator();
+        if (ImGui::Button(s_confirmDialogRunner.btn0.c_str(), ImVec2(120, 0)))
+        { ImGui::CloseCurrentPopup(); result = true; closed = true; }
+        
+        if (!s_confirmDialogRunner.btn0.empty())
+        {
+            ImGui::SetItemDefaultFocus(); ImGui::SameLine();
+            if (ImGui::Button(s_confirmDialogRunner.btn1.c_str(), ImVec2(120, 0)))
+            { ImGui::CloseCurrentPopup(); result = false; closed = true; }
+        }
+
+        if (closed)
+        {
+            if (s_confirmDialogRunner.callback) s_confirmDialogRunner.callback(result);
+            s_confirmDialogRunner.name = "";
+        }
+        ImGui::EndPopup();
+    }
+    return closed;
+}
+
+ImGuiComponentBase::FileDialogData ImGuiComponentBase::s_fileDialogRunner;
+ImGuiComponentBase::ConfirmDialogData ImGuiComponentBase::s_confirmDialogRunner;
+
+void Window::resize(const osg::Vec2& p, const osg::Vec2& s)
+{ pos = p; size = s; sizeApplied = false; }
+
 bool Window::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    const ImGuiViewport* view = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(view->WorkPos.x + pos[0], view->WorkPos.y + pos[1]),
-                            0, ImVec2(pivot[0], pivot[1]));
-    if (sizeMin.length2() > 0.0f && sizeMax.length2() > 0.0f)
-        ImGui::SetNextWindowSizeConstraints(ImVec2(sizeMin[0], sizeMin[1]), ImVec2(sizeMax[0], sizeMax[1]));
-    else if (sizeMin.length2() > 0.0f)
-        ImGui::SetNextWindowSize(ImVec2(sizeMin[0], sizeMin[1]));
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    if (!isOpen) return false;
+    if (!sizeApplied)
+    {
+        ImGui::SetNextWindowPos(
+            ImVec2(vp->WorkPos[0] + pos[0] * vp->WorkSize[0],
+                vp->WorkPos[1] + pos[1] * vp->WorkSize[1]), 0, ImVec2(pivot[0], pivot[1]));
+        if (size.length2() > 0.0f)
+            ImGui::SetNextWindowSize(ImVec2(size[0] * vp->WorkSize[0], size[1] * vp->WorkSize[1]));
+        sizeApplied = true;
+    }
 
     ImGui::SetNextWindowBgAlpha(alpha);
     ImGui::SetNextWindowCollapsed(collapsed);
     if (useMenuBar) flags |= ImGuiWindowFlags_MenuBar;
-    return ImGui::Begin(name.c_str(), &isOpen, flags);
+    
+    bool done = ImGui::Begin(name.c_str(), &isOpen, flags);
+    if (done)
+    {
+        ImVec2 p = ImGui::GetWindowPos(), s = ImGui::GetWindowSize();
+        rectRT.set((p[0] - vp->WorkPos[0]) / vp->WorkSize[0], (p[1] - vp->WorkPos[1]) / vp->WorkSize[1],
+                   s[0] / vp->WorkSize[0], s[1] / vp->WorkSize[1]);
+    }
+    return done;
 }
 
 bool Label::show(ImGuiManager* mgr, ImGuiContentHandler* content)
@@ -181,13 +256,14 @@ bool RadioButtonGroup::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
 bool InputField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    bool done = false; size_t size = value.size() + 10;
-    if (size < 128) size = 128; value.resize(size);
+    bool done = false; size_t length = value.size() + 10;
+    if (length > 128) length = 128; value.resize(length);
     if (placeholder.empty())
-        done = ImGui::InputText(name.c_str(), value.data(), size, flags);
+        done = ImGui::InputTextEx(name.c_str(), NULL, &value[0], length,
+                                  ImVec2(size[0], size[1]), flags, NULL, NULL);
     else
-        done = ImGui::InputTextWithHint(name.c_str(), placeholder.c_str(),
-                                        value.data(), size, flags);
+        done = ImGui::InputTextEx(name.c_str(), placeholder.c_str(), &value[0], length,
+                                  ImVec2(size[0], size[1]), flags, NULL, NULL);
 
     if (!tooltip.empty()) showTooltip(tooltip);
     if (done && callback) callback(mgr, content, this);
@@ -321,6 +397,34 @@ bool Slider::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     return done;
 }
 
+void MenuBarBase::showMenuItem(MenuItemData& mid, ImGuiManager* mgr, ImGuiContentHandler* content)
+{
+    if (mid.name.empty()) ImGui::Separator();
+    else if (mid.subItems.empty())
+    {
+        bool selected = mid.selected;
+        ImGui::MenuItem(
+            mid.name.c_str(), (mid.shortcut.empty() ? NULL : mid.shortcut.c_str()),
+            &mid.selected, mid.enabled);
+        if (!mid.tooltip.empty()) showTooltip(mid.tooltip);
+
+        if (selected != mid.selected)
+        {
+            if (mid.callback) (mid.callback)(mgr, content, this);
+            if (!mid.checkable) mid.selected = false;
+        }
+    }
+    else if (ImGui::BeginMenu(mid.name.c_str(), mid.enabled))
+    {
+        for (size_t j = 0; j < mid.subItems.size(); ++j)
+        {
+            MenuItemData& subMid = mid.subItems[j];
+            showMenuItem(subMid, mgr, content);
+        }
+        ImGui::EndMenu();
+    }
+}
+
 void MenuBarBase::showMenu(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     for (size_t i = 0; i < menuDataList.size(); ++i)
@@ -331,17 +435,7 @@ void MenuBarBase::showMenu(ImGuiManager* mgr, ImGuiContentHandler* content)
             for (size_t j = 0; j < md.items.size(); ++j)
             {
                 MenuItemData& mid = md.items[j];
-                bool selected = mid.selected;
-                ImGui::MenuItem(
-                    mid.name.c_str(), (mid.shortcut.empty() ? NULL : mid.shortcut.c_str()),
-                    &mid.selected, mid.enabled);
-                if (!mid.tooltip.empty()) showTooltip(mid.tooltip);
-
-                if (selected != mid.selected)
-                {
-                    if (mid.callback) (mid.callback)(mgr, content, this);
-                    if (!mid.checkable) mid.selected = false;
-                }
+                showMenuItem(mid, mgr, content);
             }
             ImGui::EndMenu();
         }
@@ -353,6 +447,8 @@ bool MenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     bool began = ImGui::BeginMenuBar();  // parent window must have ImGuiWindowFlags_MenuBar flag
     if (began) { showMenu(mgr, content); ImGui::EndMenuBar(); } return began;
 }
+
+MenuBar::MenuItemData MenuBar::MenuItemData::separator("");
 
 bool MainMenuBar::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
