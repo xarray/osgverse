@@ -199,8 +199,6 @@ bool Hierarchy::handleCommand(CommandData* cmd)
     // See if node is newly created or existed, and update
     std::vector<TreeView::TreeData*> pItems = _treeView->findByUserData(parent);
     if (pItems.empty()) return false;
-    osgVerse::CommandBuffer::instance()->add(
-        osgVerse::RefreshSceneCommand, g_data.view.get(), g_data.pipeline.get());
 
     HierarchyVisitor hv;
     if (cmd->get(node, 0, false))
@@ -284,6 +282,8 @@ void Hierarchy::addCreatedNode(osg::Node* node)
         osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, node, false);
     else
         osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, g_data.sceneRoot.get(), node, false);
+    osgVerse::CommandBuffer::instance()->add(
+        osgVerse::RefreshSceneCommand, g_data.view.get(), g_data.pipeline.get(), false);
 }
 
 void Hierarchy::addCreatedDrawable(osg::Drawable* drawable)
@@ -291,6 +291,8 @@ void Hierarchy::addCreatedDrawable(osg::Drawable* drawable)
     osg::Geode* parent = getOrCreateSelectedGeode()->asGeode();
     if (parent != NULL)
         osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, drawable, false);
+    osgVerse::CommandBuffer::instance()->add(
+        osgVerse::RefreshSceneCommand, g_data.view.get(), g_data.pipeline.get(), false);
 }
 
 void Hierarchy::addModelFromUrl(const std::string& url)
@@ -307,6 +309,8 @@ void Hierarchy::addModelFromUrl(const std::string& url)
         osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, n, false);
     else
         osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, g_data.sceneRoot.get(), n, false);
+    osgVerse::CommandBuffer::instance()->add(
+        osgVerse::RefreshSceneCommand, g_data.view.get(), g_data.pipeline.get(), true);
 }
 
 osg::Group* Hierarchy::getSelectedGroup()

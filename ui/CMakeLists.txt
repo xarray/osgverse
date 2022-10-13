@@ -1,10 +1,10 @@
 SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_INCLUDE_FILES
-    ImGui.h ImGuiComponents.h
+    ImGui.h ImGuiComponents.h UserComponent.h
 	CommandHandler.h PropertyInterface.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
 	ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Styles.h
-	CommandHandler.cpp PropertyInterface.cpp
+	UserComponent.cpp CommandHandler.cpp PropertyInterface.cpp
 	ui_compontents/SpiderEditor.cpp
 	ui_compontents/Timeline.cpp
 	ui_compontents/VirtualKeyboard.cpp

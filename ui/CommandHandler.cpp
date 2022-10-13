@@ -19,7 +19,8 @@ bool CommandBuffer::canMerge(const std::list<CommandData>& cList, CommandType t,
     if (cList.empty()) return false;
     switch (t)
     {
-    case TransformCommand: break;  // Transformation value (matrix) can be placed by later one
+    case TransformCommand: break;  // Transformation value (matrix) can be replaced by later one
+    case RefreshSceneCommand: break;  // Scene refresh only happen once
     default: return false;
     }
 

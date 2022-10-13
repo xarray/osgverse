@@ -77,11 +77,11 @@ namespace osgVerse
 
     struct ImGuiComponentBase : public osg::Referenced
     {
-        using ActionCallback = std::function<void (ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)>;
-        using ActionCallback2 = std::function<void (ImGuiManager*, ImGuiContentHandler*,
-                                                    ImGuiComponentBase*, const std::string&)>;
-        using FileDialogCallback = std::function<void (const std::string&)>;
-        using ConfirmDialogCallback = std::function<void(bool)>;
+        typedef std::function<void (ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)> ActionCallback;
+        typedef std::function<void (ImGuiManager*, ImGuiContentHandler*,
+                                    ImGuiComponentBase*, const std::string&)> ActionCallback2;
+        typedef std::function<void (const std::string&)> FileDialogCallback;
+        typedef std::function<void(bool)> ConfirmDialogCallback;
         
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual void showEnd() { /* nothing to do by default */ }
@@ -418,8 +418,8 @@ namespace osgVerse
         std::vector<std::string> imeCandicates;
         void* imeInterface;
 
-        using KeyCallback = std::function<void(ImGuiManager*, ImGuiContentHandler*, const KeyData&)>;
-        using MessageCallback = std::function<void(const std::string&)>;
+        typedef std::function<void(ImGuiManager*, ImGuiContentHandler*, const KeyData&)> KeyCallback;
+        typedef std::function<void(const std::string&)> MessageCallback;
         KeyCallback keyCallback; MessageCallback msgCallback;
 
         int getCandidatePages(const std::string& input);

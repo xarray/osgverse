@@ -149,7 +149,7 @@ struct TransformExecutor : public CommandHandler::CommandExecutor
         }
 
         osgVerse::CommandBuffer::instance()->add(
-            osgVerse::RefreshSceneCommand, (osgViewer::View*)NULL, (osgVerse::Pipeline*)NULL);
+            osgVerse::RefreshSceneCommand, (osgViewer::View*)NULL, (osgVerse::Pipeline*)NULL, false);
         return true;
     }
 
@@ -159,19 +159,20 @@ struct TransformExecutor : public CommandHandler::CommandExecutor
     }  // TODO
 };
 
-// RefreshSceneCommand: [view]viewer, [pipeline]pipeline
+// RefreshSceneCommand: [view]viewer, [pipeline]pipeline, [bool]to-go-home
 struct RefreshSceneExecutor : public CommandHandler::CommandExecutor
 {
     virtual bool redo(CommandData& cmd)
     {
         osgViewer::View* view = dynamic_cast<osgViewer::View*>(cmd.object.get());
         osgVerse::Pipeline* pipeline = NULL; cmd.get(pipeline);
+        bool goHome = false; cmd.get(goHome, 1);
         if (!view) view = defPiew.get(); else defPiew = view;
         if (!view) return false;
 
         osg::Node* sceneRoot = view->getSceneData();
         osgGA::CameraManipulator* mani = view->getCameraManipulator();
-        if (mani != NULL) mani->home(view->getFrameStamp()->getSimulationTime());
+        if (mani != NULL && goHome) mani->home(view->getFrameStamp()->getSimulationTime());
 
         if (!pipeline) pipeline = defPipeline.get(); else defPipeline = pipeline;
         if (pipeline != NULL)
