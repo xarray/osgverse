@@ -4,6 +4,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#include <modeling/Utilities.h>
 #include "hierarchy.h"
 #include "properties.h"
 #include "scenelogic.h"
@@ -14,20 +15,51 @@ void EditorContentHandler::createEditorMenu2()
     osgVerse::MenuBar::MenuData assetMenu(osgVerse::MenuBar::TR("Assets##menu03"));
     {
         osgVerse::MenuBar::MenuItemData transNodeItem(osgVerse::MenuBar::TR("New Node##menu0301"));
+        transNodeItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                     osgVerse::ImGuiComponentBase* me)
+        {
+            osg::MatrixTransform* node = new osg::MatrixTransform;
+            _hierarchy->addCreatedNode(node);
+        };
         assetMenu.items.push_back(transNodeItem);
 
         osgVerse::MenuBar::MenuItemData new3dItem(osgVerse::MenuBar::TR("New Drawable##menu0302"));
         {
             osgVerse::MenuBar::MenuItemData boxItem(osgVerse::MenuBar::TR("Box##menu030201"));
+            boxItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                   osgVerse::ImGuiComponentBase* me)
+            {
+                const float r = sqrt(2.0f) * 0.5f;
+                osg::Geometry* box = osgVerse::createPrism(osg::Vec3(), r, r, 1.0f);
+                box->setName("Box"); _hierarchy->addCreatedDrawable(box);
+            };
             new3dItem.subItems.push_back(boxItem);
 
             osgVerse::MenuBar::MenuItemData sphereItem(osgVerse::MenuBar::TR("Sphere##menu030202"));
+            sphereItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                      osgVerse::ImGuiComponentBase* me)
+            {
+                osg::Geometry* sphere = osgVerse::createEllipsoid(osg::Vec3(), 0.5f, 0.5f, 0.5f);
+                sphere->setName("Sphere"); _hierarchy->addCreatedDrawable(sphere);
+            };
             new3dItem.subItems.push_back(sphereItem);
 
             osgVerse::MenuBar::MenuItemData cylinderItem(osgVerse::MenuBar::TR("Cylinder##menu030203"));
+            cylinderItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                        osgVerse::ImGuiComponentBase* me)
+            {
+                osg::Geometry* cylinder = osgVerse::createPrism(osg::Vec3(), 0.5f, 0.5f, 1.0f, 32);
+                cylinder->setName("Cylinder"); _hierarchy->addCreatedDrawable(cylinder);
+            };
             new3dItem.subItems.push_back(cylinderItem);
 
             osgVerse::MenuBar::MenuItemData coneItem(osgVerse::MenuBar::TR("Cone##menu030204"));
+            coneItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                    osgVerse::ImGuiComponentBase* me)
+            {
+                osg::Geometry* cone = osgVerse::createPyramid(osg::Vec3(), 0.5f, 1.0f, 32);
+                cone->setName("Cone"); _hierarchy->addCreatedDrawable(cone);
+            };
             new3dItem.subItems.push_back(coneItem);
 
             osgVerse::MenuBar::MenuItemData capsuleItem(osgVerse::MenuBar::TR("Capsule##menu030205"));

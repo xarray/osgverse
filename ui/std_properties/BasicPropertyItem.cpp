@@ -10,6 +10,7 @@
 #include "../CommandHandler.h"
 #include "../ImGuiComponents.h"
 #include <imgui/ImGuizmo.h>
+#include <pipeline/Utilities.h>
 using namespace osgVerse;
 
 class BasicPropertyItem : public PropertyItem
@@ -17,12 +18,16 @@ class BasicPropertyItem : public PropertyItem
 public:
     BasicPropertyItem()
     {
-        _name = new InputField(ImGuiComponentBase::TR("Name##prop0001"));
+        _visibility = new CheckBox(ImGuiComponentBase::TR("##prop0001Visibility"), true);
+        _visibility->callback = [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { updateTarget(me); };
+
+        _name = new InputField(ImGuiComponentBase::TR("Name##prop0002"));
         _name->placeholder = ImGuiComponentBase::TR("Object name");
         _name->callback = [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
         { updateTarget(me); };
 
-        _mask = new InputValueField(ImGuiComponentBase::TR("Mask##prop0002"));
+        _mask = new InputValueField(ImGuiComponentBase::TR("Mask##prop0003"));
         _mask->type = InputValueField::UIntValue;
         _mask->flags = ImGuiInputTextFlags_CharsHexadecimal;
         _mask->callback = [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
@@ -37,14 +42,21 @@ public:
         if (_type == NodeType)
         {
             osg::Node* n = static_cast<osg::Node*>(_target.get());
+            DisableNodeCallback* disCB = dynamic_cast<DisableNodeCallback*>(n->getCullCallback());
             if (!c)
             {
+                _visibility->value = (disCB == NULL);
                 _name->value = n->getName();
                 _mask->value = n->getNodeMask();
             }
             else
             {
-                if (c == _name)
+                if (c == _visibility)
+                {
+                    bool result = ((CheckBox*)c)->value;
+                    CommandBuffer::instance()->add(SetValueCommand, n, std::string("n_visibility"), result);
+                }
+                else if (c == _name)
                 {
                     std::string objName = ((InputField*)c)->value;
                     CommandBuffer::instance()->add(SetValueCommand, n, std::string("n_name"), objName);
@@ -59,7 +71,17 @@ public:
         else if (_type == DrawableType)
         {
             osg::Drawable* d = static_cast<osg::Drawable*>(_target.get());
-            if (!c) _name->value = d->getName();
+            DisableDrawableCallback* disCB = dynamic_cast<DisableDrawableCallback*>(d->getCullCallback());
+            if (!c)
+            {
+                _visibility->value = (disCB == NULL);
+                _name->value = d->getName();
+            }
+            else if (c == _visibility)
+            {
+                bool result = ((CheckBox*)c)->value;
+                CommandBuffer::instance()->add(SetValueCommand, d, std::string("d_visibility"), result);
+            }
             else if (c == _name)
             {
                 std::string objName = ((InputField*)c)->value;
@@ -120,12 +142,14 @@ public:
             //ImGuizmo::DrawGrid(view.ptr(), proj.ptr(), _initMatrix.ptr(), 10.0f);
         }*/
 
-        bool updated = _name->show(mgr, content);
+        bool updated = _visibility->show(mgr, content);
+        ImGuiComponentBase::adjustLine(false); updated |= _name->show(mgr, content);
         if (_type == NodeType) updated |= _mask->show(mgr, content);
         return updated;
     }
 
 protected:
+    osg::ref_ptr<CheckBox> _visibility;
     osg::ref_ptr<InputField> _name;
     osg::ref_ptr<InputValueField> _mask;
     osg::Matrixf _initMatrix;

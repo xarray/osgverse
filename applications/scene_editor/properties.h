@@ -12,7 +12,7 @@ namespace osgVerse
 class Properties : public osgVerse::ImGuiComponentBase
 {
 public:
-    Properties();
+    Properties(EditorContentHandler* ech);
     osgVerse::Window* getWindow() { return _propWindow.get(); }
 
     bool handleCommand(osgVerse::CommandData* cmd);

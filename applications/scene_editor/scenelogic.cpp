@@ -45,7 +45,7 @@ protected:
     osg::observer_ptr<SceneLogic> _logic;
 };
 
-SceneLogic::SceneLogic()
+SceneLogic::SceneLogic(EditorContentHandler* ech)
 {
     osg::setNotifyHandler(new ConsoleHandler(this));
     osg::setNotifyLevel(osg::NOTICE);

@@ -4,6 +4,8 @@
 #include <osg/io_utils>
 #include <osg/MatrixTransform>
 #include <osg/NodeVisitor>
+#include <osgDB/ConvertUTF>
+
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
 #include <ui/ImGui.h>
@@ -17,6 +19,10 @@
 #include <iostream>
 #include <sstream>
 
+#define A2U(s) osgDB::convertStringFromCurrentCodePageToUTF8(s)
+#define U2A(s) osgDB::convertStringFromUTF8toCurrentCodePage(s)
+#define W2U(s) osgDB::convertUTF16toUTF8(s)
+#define U2W(s) osgDB::convertUTF8toUTF16(s)
 class Hierarchy;
 class Properties;
 class SceneLogic;
@@ -25,6 +31,11 @@ class EditorContentHandler : public osgVerse::ImGuiContentHandler
 {
 public:
     EditorContentHandler();
+    Hierarchy* getHierarchy() { return _hierarchy.get(); }
+    Properties* getProperties() { return _properties.get(); }
+    SceneLogic* getSceneLogic() { return _sceneLogic.get(); }
+    osgVerse::MainMenuBar* getMainMenu() { return _mainMenu.get(); }
+
     void handleCommands();
     virtual void runInternal(osgVerse::ImGuiManager* mgr);
 
@@ -45,6 +56,8 @@ struct GlobalData
     osg::observer_ptr<osg::Camera> mainCamera;
     osg::observer_ptr<osg::Group> sceneRoot, auxiliaryRoot;
     osg::observer_ptr<osgVerse::NodeSelector> selector;
+    osg::observer_ptr<osgVerse::Pipeline> pipeline;
+    osg::observer_ptr<osgVerse::ShadowModule> shadow;
     osg::observer_ptr<osgViewer::View> view;
 };
 extern GlobalData g_data;

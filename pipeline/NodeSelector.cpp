@@ -1,5 +1,7 @@
 #include "NodeSelector.h"
 #include <osg/io_utils>
+#include <osg/Depth>
+#include <osg/LineWidth>
 #include <osg/AnimationPath>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Geode>
@@ -115,13 +117,15 @@ void NodeSelector::BoundUpdater::operator()(osg::Node* node, osg::NodeVisitor* n
 /* NodeSelector */
 
 NodeSelector::NodeSelector()
-    : _selectorColor(1.0f, 1.0f, 1.0f, 1.0f), _boundColor(1.0f, 1.0f, 1.0f, 1.0f),
+    : _selectorColor(1.0f, 1.0f, 1.0f, 1.0f), _boundColor(1.0f, 1.0f, 0.0f, 1.0f),
     _boundDeltaLength(0.2f), _computationMethod(USE_NODE_BBOX),
     _selectorType(SINGLE_SELECTOR), _boundType(BOUND_BOX)
 {
     _hudRoot = new osg::Group;
     _auxiliaryRoot = new osg::Group;
     _auxiliaryRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    _auxiliaryRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::LineWidth(2.0f));
+    //_auxiliaryRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::ALWAYS));
     rebuildSelectorGeometry();
     rebuildBoundGeometry();
 }

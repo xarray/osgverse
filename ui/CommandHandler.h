@@ -14,14 +14,14 @@ namespace osgVerse
         CommandToScene = 0,
         SelectCommand,           // [node]item, [object]node-selector,
                                  // [int]0-single mode, 1-add sel, 2-remove sel, 3-clear all
-        SetNodeCommand,          // TODO: [node]parent, [node]item-added, [bool]to-delete
+        SetNodeCommand,          // [node]parent, [node]item-added, [bool]to-delete
         SetValueCommand,         // [node/drawable]item, [string]key, [any]value
         TransformCommand,        // [node]item, [matrix]transformation, [int]0-mt node;1-pat node
-        LoadModelCommand,        // [node]parent, [string]url
+        RefreshSceneCommand,     // [view]viewer, [pipeline]pipeline
 
         CommandToUI = 100,
         ResizeEditor,            // [null], [vec2]size
-        RefreshHierarchy,        // [node]parent, [node]item-added, [bool]to-delete (TODO)
+        RefreshHierarchy,        // [node]parent, [node/drawable]child-item, [int]action (TODO)
         RefreshHierarchyItem,    // [node]item, [string]value-type
         RefreshProperties,       // [node]item, [string]component-name
     };
@@ -31,10 +31,17 @@ namespace osgVerse
         osg::observer_ptr<osg::Object> object;
         linb::any value, valueEx; CommandType type;
 
-        template<typename T> bool get(T& v, int i = 0)
+        template<typename T> bool get(T& v, int i = 0, bool toWarn = true)
         {
             try { v = linb::any_cast<T>(i == 0 ? value : valueEx); return true; }
-            catch (linb::bad_any_cast&) {} return false;
+            catch (linb::bad_any_cast&)
+            {
+                if (!toWarn) return false;
+                const char* t = linb::any(v).type().name();
+                const char *t0 = value.type().name(), *t1 = valueEx.type().name();
+                if (i == 0) { OSG_WARN << "[CommandData] Bad cast0 from " << t0 << " to " << t << "\n"; }
+                else { OSG_WARN << "[CommandData] Bad cast1 from " << t1 << " to " << t << "\n"; }
+            } return false;
         }
     };
 

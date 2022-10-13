@@ -11,7 +11,7 @@
 #include <pipeline/Global.h>
 using namespace osgVerse;
 
-Properties::Properties()
+Properties::Properties(EditorContentHandler* ech)
     : _selectedProperty(-1)
 {
     _propWindow = new Window(TR("Properties##ed02"));
@@ -146,10 +146,10 @@ bool Properties::handleCommand(CommandData* cmd)
         for (size_t i = 0; i < callback->getNumComponents(); ++i)
         {
             Component* c = callback->getComponent(i);
-            std::string fullName = std::string(c->libraryName())
-                                 + std::string("::") + c->className();
+            std::string fullName = std::string(c->libraryName()) + std::string("::") + c->className();
             PropertyItem* pC = propManager->getExtendedItem(fullName);
             if (pC) { pC->setTarget(c, PropertyItem::ComponentType); _properties.push_back(pC); }
+            else { OSG_WARN << "[Properties] Unknown component " << fullName << "\n"; }
         }
     }
     return true;

@@ -9,7 +9,7 @@ namespace osgVerse
 class Hierarchy : public osgVerse::ImGuiComponentBase
 {
 public:
-    Hierarchy();
+    Hierarchy(EditorContentHandler* ech);
     osgVerse::Window* getWindow() { return _treeWindow.get(); }
 
     bool handleCommand(osgVerse::CommandData* cmd);
@@ -19,9 +19,14 @@ public:
     void showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGuiManager* mgr,
                        osgVerse::ImGuiContentHandler* content);
 
+    void addCreatedNode(osg::Node* node);
+    void addCreatedDrawable(osg::Drawable* drawable);
     void addModelFromUrl(const std::string& url);
 
 protected:
+    osg::Group* getSelectedGroup();
+    osg::Node* getOrCreateSelectedGeode();
+    
     osg::ref_ptr<osgVerse::Window> _treeWindow;
     osg::ref_ptr<osgVerse::TreeView> _treeView;
     osg::ref_ptr<osgVerse::TreeView::TreeData> _camTreeData, _sceneTreeData;

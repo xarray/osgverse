@@ -4,7 +4,7 @@
 #include <osgDB/ReadFile>
 #include <random>
 
-#define DEBUG_SHADOW_MODULE 0
+#define DEBUG_SHADOW_MODULE 1
 static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 static std::default_random_engine generator;
 

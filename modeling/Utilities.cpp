@@ -399,11 +399,8 @@ namespace osgVerse
         float samplesF = (float)n;
         for (int i = 0; i <= n; ++i)
         {
-            float theta = 2.0f * (float)i * osg::PI / samplesF;
-            osg::Vec3 r;
-            r.x() = radiusTop * cosf(theta);
-            r.y() = radiusTop * sinf(theta);
-            r.z() = height;
+            float theta = 2.0f * (float)i * osg::PI / samplesF + osg::PI_4;
+            osg::Vec3 r(radiusTop * cosf(theta), radiusTop * sinf(theta), height);
             va->push_back(centerBottom + r);
             ta->push_back(osg::Vec2((float)i / samplesF, 1.0f));
 

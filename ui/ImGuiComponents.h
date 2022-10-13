@@ -279,6 +279,10 @@ namespace osgVerse
             MenuData(const std::string& n) : name(n), enabled(true) {}
         };
 
+        bool findItemByName(const std::string& name, const MenuItemData& parent, MenuItemData& item);
+        bool findItemByName(const std::string& name, MenuData& parent, MenuItemData& item);
+        ActionCallback getItemCallback(const std::string& name);
+
         void showMenuItem(MenuItemData& mid, ImGuiManager* mgr, ImGuiContentHandler* content);
         void showMenu(ImGuiManager* mgr, ImGuiContentHandler* content);
         std::vector<MenuData> menuDataList;

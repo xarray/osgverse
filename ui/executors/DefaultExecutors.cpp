@@ -1,12 +1,16 @@
 #include <osg/io_utils>
+#include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+#include <osgViewer/View>
 
-#include "pipeline//NodeSelector.h"
-#include "pipeline/Utilities.h"
+#include <pipeline/Pipeline.h>
+#include <pipeline/ShadowModule.h>
+#include <pipeline/NodeSelector.h>
+#include <pipeline/Utilities.h>
 #include "../CommandHandler.h"
 using namespace osgVerse;
 
@@ -39,17 +43,61 @@ struct SelectExecutor : public CommandHandler::CommandExecutor
     }  // TODO
 };
 
+// SetNodeCommand: [node]parent, [node]child, [bool]true-to-delete
+struct SetNodeExecutor : public CommandHandler::CommandExecutor
+{
+    virtual bool redo(CommandData& cmd)
+    {
+        osg::Node* parent = NULL, *child = NULL; cmd.get(child, 0, false);
+        bool toDel = false; cmd.get(toDel, 1);
+        if (child != NULL)
+        {
+            osg::Group* n = static_cast<osg::Group*>(cmd.object.get()); parent = n;
+            if (!n) return false; if (toDel) n->removeChild(child); else n->addChild(child);
+            CommandBuffer::instance()->add(RefreshHierarchy, parent, child, toDel);
+        }
+        else
+        {
+            osg::Drawable* childD = NULL; cmd.get(childD, 0, false);
+            if (childD != NULL)
+            {
+                osg::Geode* n = static_cast<osg::Geode*>(cmd.object.get()); parent = n;
+                if (!n) return false; if (toDel) n->removeDrawable(childD); else n->addDrawable(childD);
+                CommandBuffer::instance()->add(RefreshHierarchy, parent, childD, toDel);
+            }
+        }
+        
+        osgVerse::TangentSpaceVisitor tsv;
+        if (!toDel) parent->accept(tsv);  // Add tangent/bi-normal arrays for normal mapping
+        return true;
+    }
+
+    virtual bool undo(CommandData& cmd)
+    {
+        return false;
+    }  // TODO
+};
+
 // SetValueCommand: [node/drawable]item, [string]key, [any]value
 struct SetValueExecutor : public CommandHandler::CommandExecutor
 {
     virtual bool redo(CommandData& cmd)
     {
         std::string key; if (!cmd.get(key)) return false;
-        if (key == "d_name")
+        if (key == "d_visibility")
         {
             osg::Drawable* d = static_cast<osg::Drawable*>(cmd.object.get());
-            osg::Node* n = static_cast<osg::Node*>(cmd.object.get());
+            bool v; cmd.get(v, 1); if (d) d->setCullCallback(v ? NULL : _drawableHider.get());
+        }
+        else if (key == "d_name")
+        {
+            osg::Drawable* d = static_cast<osg::Drawable*>(cmd.object.get());
             std::string v; cmd.get(v, 1); if (d) d->setName(v);
+        }
+        else if (key == "n_visibility")
+        {
+            osg::Node* n = static_cast<osg::Node*>(cmd.object.get());
+            bool v; cmd.get(v, 1); if (n) n->setCullCallback(v ? NULL : _nodeHider.get());
         }
         else if (key == "n_name")
         {
@@ -68,6 +116,14 @@ struct SetValueExecutor : public CommandHandler::CommandExecutor
     {
         return false;
     }  // TODO
+
+    SetValueExecutor()
+    {
+        _nodeHider = new DisableNodeCallback;
+        _drawableHider = new DisableDrawableCallback;
+    }
+    osg::ref_ptr<DisableNodeCallback> _nodeHider;
+    osg::ref_ptr<DisableDrawableCallback> _drawableHider;
 };
 
 // TransformCommand: [node]item, [matrix]transformation, [int]0-mt node, 1-pat node
@@ -91,6 +147,9 @@ struct TransformExecutor : public CommandHandler::CommandExecutor
             osg::MatrixTransform* mt = static_cast<osg::MatrixTransform*>(n);
             mt->setMatrix(m);
         }
+
+        osgVerse::CommandBuffer::instance()->add(
+            osgVerse::RefreshSceneCommand, (osgViewer::View*)NULL, (osgVerse::Pipeline*)NULL);
         return true;
     }
 
@@ -100,26 +159,30 @@ struct TransformExecutor : public CommandHandler::CommandExecutor
     }  // TODO
 };
 
-// LoadModelCommand: [node]parent, [string]url
-struct LoadModelExecutor : public CommandHandler::CommandExecutor
+// RefreshSceneCommand: [view]viewer, [pipeline]pipeline
+struct RefreshSceneExecutor : public CommandHandler::CommandExecutor
 {
     virtual bool redo(CommandData& cmd)
     {
-        std::string fileName;
-        osg::Group* group = static_cast<osg::Group*>(cmd.object.get());
-        if (!cmd.get<std::string>(fileName)) return false;
+        osgViewer::View* view = dynamic_cast<osgViewer::View*>(cmd.object.get());
+        osgVerse::Pipeline* pipeline = NULL; cmd.get(pipeline);
+        if (!view) view = defPiew.get(); else defPiew = view;
+        if (!view) return false;
 
-        osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(fileName);
-        if (!loadedModel || !group) return false;
+        osg::Node* sceneRoot = view->getSceneData();
+        osgGA::CameraManipulator* mani = view->getCameraManipulator();
+        if (mani != NULL) mani->home(view->getFrameStamp()->getSimulationTime());
 
-        osgVerse::TangentSpaceVisitor tsv;
-        loadedModel->accept(tsv);  // Add tangent/bi-normal arrays for normal mapping
-
-        osg::ref_ptr<osg::MatrixTransform> modelRoot = new osg::MatrixTransform;
-        modelRoot->setName(fileName); modelRoot->addChild(loadedModel.get());
-        group->addChild(modelRoot.get());
-        CommandBuffer::instance()->add(
-            RefreshHierarchy, group, (osg::Node*)modelRoot.get());
+        if (!pipeline) pipeline = defPipeline.get(); else defPipeline = pipeline;
+        if (pipeline != NULL)
+        {
+            osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+            if (shadow && sceneRoot)
+            {
+                osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
+                shadow->addReferenceBound(cbv.getBoundingBox(), true);
+            }
+        }
         return true;
     }
 
@@ -127,12 +190,16 @@ struct LoadModelExecutor : public CommandHandler::CommandExecutor
     {
         return false;
     }  // TODO
+
+    osg::observer_ptr<osgVerse::Pipeline> defPipeline;
+    osg::observer_ptr<osgViewer::View> defPiew;
 };
 
 void loadDefaultExecutors(CommandHandler* handler)
 {
     handler->addExecutor(SelectCommand, new SelectExecutor);
+    handler->addExecutor(SetNodeCommand, new SetNodeExecutor);
     handler->addExecutor(SetValueCommand, new SetValueExecutor);
     handler->addExecutor(TransformCommand, new TransformExecutor);
-    handler->addExecutor(LoadModelCommand, new LoadModelExecutor);
+    handler->addExecutor(RefreshSceneCommand, new RefreshSceneExecutor);
 }

@@ -397,6 +397,37 @@ bool Slider::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     return done;
 }
 
+bool MenuBarBase::findItemByName(const std::string& name, const MenuItemData& parent, MenuItemData& item)
+{
+    for (size_t j = 0; j < parent.subItems.size(); ++j)
+    { if (findItemByName(name, parent.subItems[j], item)) return true; }
+
+    size_t indexSharp = parent.name.find_first_of("##");
+    if (parent.name == name) { item = parent; return true; }
+    else if (parent.name.substr(0, indexSharp) == name) { item = parent; return true; }
+    else return false;
+}
+
+bool MenuBarBase::findItemByName(const std::string& name, MenuData& parent, MenuItemData& item)
+{
+    for (size_t i = 0; i < menuDataList.size(); ++i)
+    {
+        MenuData& md = menuDataList[i];
+        for (size_t j = 0; j < md.items.size(); ++j)
+        {
+            if (findItemByName(name, md.items[j], item))
+            { parent = md; return true; }
+        }
+    }
+    return false;
+}
+
+ImGuiComponentBase::ActionCallback MenuBarBase::getItemCallback(const std::string& name)
+{
+    MenuData md(""); MenuItemData mid("");
+    if (findItemByName(name, md, mid)) return mid.callback; else return NULL;
+}
+
 void MenuBarBase::showMenuItem(MenuItemData& mid, ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     if (mid.name.empty()) ImGui::Separator();

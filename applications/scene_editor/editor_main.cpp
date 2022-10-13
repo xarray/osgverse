@@ -58,14 +58,16 @@ public:
 EditorContentHandler::EditorContentHandler()
     : _uiFrameNumber(0)
 {
-    _hierarchy = new Hierarchy;
-    _properties = new Properties;
-    _sceneLogic = new SceneLogic;
     _mainMenu = new osgVerse::MainMenuBar;
     _mainMenu->userData = this;
     createEditorMenu1();
     createEditorMenu2();
     createEditorMenu3();
+
+    // Initialize components after menu items to reuse their callbacks
+    _hierarchy = new Hierarchy(this);
+    _properties = new Properties(this);
+    _sceneLogic = new SceneLogic(this);
 }
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
@@ -151,11 +153,7 @@ int main(int argc, char** argv)
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
-    {
-        //osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
-        //shadow->addReferenceBound(cbv.getBoundingBox(), true);  // TODO: update when scene changes
         shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
-    }
 
     // Post-HUD display and utilities
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
@@ -183,6 +181,8 @@ int main(int argc, char** argv)
     g_data.auxiliaryRoot = auxRoot.get();
     g_data.selector = selector.get();
     g_data.view = &viewer;
+    g_data.pipeline = pipeline.get();
+    g_data.shadow = shadow;
 
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;

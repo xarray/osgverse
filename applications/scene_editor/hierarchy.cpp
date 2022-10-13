@@ -2,6 +2,8 @@
 #include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
+#include <osgDB/ReadFile>
+#include <osgDB/FileNameUtils>
 #include "hierarchy.h"
 #include <iostream>
 #include <stack>
@@ -19,24 +21,47 @@ public:
 
     // TODO: display shared nodes (like prefab in Unity)
     //       display locked/hidden
-    virtual void apply(osg::Node& node)
+    static TreeView::TreeData* applyItem(TreeView::TreeData* parent, osg::Object* obj)
     {
         TreeView::TreeData* treeItem = new TreeView::TreeData;
-        treeItem->name = node.getName().empty() ? node.className() : node.getName();
+        treeItem->name = obj->getName().empty() ? obj->className() : A2U(obj->getName());
         treeItem->id = "##node_" + nanoid::generate(8);
         treeItem->name += treeItem->id;
+        treeItem->tooltip = obj->libraryName() + std::string("::") + obj->className();
+        treeItem->userData = obj;
+        parent->children.push_back(treeItem);
+        return treeItem;
+    }
 
-        treeItem->tooltip = node.libraryName() + std::string("::") + node.className();
-        treeItem->userData = &node;
-        
-        _itemStack.top()->children.push_back(treeItem);
-        _itemStack.push(treeItem);
-        traverse(node);
-        _itemStack.pop();
+    virtual void apply(osg::Drawable& node) {}
+    virtual void apply(osg::Geometry& node) {}
+
+    virtual void apply(osg::Node& node)
+    {
+        osg::Referenced* topNode = _itemStack.top()->userData.get();
+        if (topNode != &node)
+        {
+            TreeView::TreeData* treeItem = applyItem(_itemStack.top(), &node);
+            _itemStack.push(treeItem); traverse(node); _itemStack.pop();
+        }
+        else traverse(node);
+    }
+
+    virtual void apply(osg::Geode& node)
+    {
+        osg::Referenced* topNode = _itemStack.top()->userData.get();
+        if (topNode != &node)
+        {
+            TreeView::TreeData* treeItem = applyItem(_itemStack.top(), &node);
+            for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+                applyItem(treeItem, node.getDrawable(i));
+            traverse(node);
+        }
+        else traverse(node);
     }
 };
 
-Hierarchy::Hierarchy()
+Hierarchy::Hierarchy(EditorContentHandler* ech)
     : _selectedItemPopupTriggered(false)
 {
     _treeWindow = new Window(TR("Hierarchy##ed01"));
@@ -97,20 +122,25 @@ Hierarchy::Hierarchy()
         _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
         osgVerse::MenuBar::MenuItemData transNodeItem(osgVerse::MenuBar::TR("New Node##ed01m03"));
+        transNodeItem.callback = ech->getMainMenu()->getItemCallback("New Node");
         _popupMenus.push_back(transNodeItem);
 
         osgVerse::MenuBar::MenuItemData new3dItem(osgVerse::MenuBar::TR("New Drawable##ed01m04"));
         {
             osgVerse::MenuBar::MenuItemData boxItem(osgVerse::MenuBar::TR("Box##ed01m0401"));
+            boxItem.callback = ech->getMainMenu()->getItemCallback("Box");
             new3dItem.subItems.push_back(boxItem);
 
             osgVerse::MenuBar::MenuItemData sphereItem(osgVerse::MenuBar::TR("Sphere##ed01m0402"));
+            sphereItem.callback = ech->getMainMenu()->getItemCallback("Sphere");
             new3dItem.subItems.push_back(sphereItem);
 
             osgVerse::MenuBar::MenuItemData cylinderItem(osgVerse::MenuBar::TR("Cylinder##ed01m0403"));
+            cylinderItem.callback = ech->getMainMenu()->getItemCallback("Cylinder");
             new3dItem.subItems.push_back(cylinderItem);
 
             osgVerse::MenuBar::MenuItemData coneItem(osgVerse::MenuBar::TR("Cone##ed01m0404"));
+            coneItem.callback = ech->getMainMenu()->getItemCallback("Cone");
             new3dItem.subItems.push_back(coneItem);
 
             osgVerse::MenuBar::MenuItemData capsuleItem(osgVerse::MenuBar::TR("Capsule##ed01m0405"));
@@ -159,22 +189,32 @@ bool Hierarchy::handleCommand(CommandData* cmd)
 {
     /* Refresh hierarchy:
        - cmd->object (parent) must be found in hierarchy
-       - If cmd->value (node) not found, it is a new subgraph
-       - If cmd->value (node) found, it is shared from somewhere else (TODO)
-       - cmd->valueEx (bool): 'node' should be deleted from 'parent' (TODO)
+       - If cmd->value (node) found, it may be a new subgraph, or already recorded
+       - cmd->valueEx (int): delete/share/... action (TODO)
     */
-    osg::Node* node = NULL;
+    osg::Node* node = NULL; osg::Drawable* drawable = NULL;
     osg::Group* parent = static_cast<osg::Group*>(cmd->object.get());
-    if (!cmd->get(node) || !parent) return false;
+    if (!parent) return false;
 
     // See if node is newly created or existed, and update
-    std::vector<TreeView::TreeData*> nItems = _treeView->findByUserData(node);
     std::vector<TreeView::TreeData*> pItems = _treeView->findByUserData(parent);
     if (pItems.empty()) return false;
+    osgVerse::CommandBuffer::instance()->add(
+        osgVerse::RefreshSceneCommand, g_data.view.get(), g_data.pipeline.get());
 
     HierarchyVisitor hv;
-    hv._itemStack.push(pItems[0]);
-    node->accept(hv); return true;
+    if (cmd->get(node, 0, false))
+    {
+        std::vector<TreeView::TreeData*> nItems = _treeView->findByUserData(node);
+        if (!nItems.empty()) return true;  // already recorded in hierarchy
+        hv._itemStack.push(pItems[0]); node->accept(hv);
+    }
+    else if (cmd->get(drawable, 0, false))
+    {
+        std::vector<TreeView::TreeData*> dItems = _treeView->findByUserData(drawable);
+        if (dItems.empty()) hv.applyItem(pItems[0], drawable);
+    }
+    return true;
 }
 
 bool Hierarchy::handleItemCommand(osgVerse::CommandData* cmd)
@@ -182,7 +222,7 @@ bool Hierarchy::handleItemCommand(osgVerse::CommandData* cmd)
     /* Refresh hierarchy item:
        - cmd->object (item) must be found in hierarchy
     */
-    std::string name = cmd->object->getName();
+    std::string name = A2U(cmd->object->getName());
 #if OSG_VERSION_GREATER_THAN(3, 3, 9)
     osg::Node* node = cmd->object->asNode();
 #else
@@ -237,16 +277,47 @@ void Hierarchy::showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGu
         s_popup->showMenuItem(_popupMenus[i], mgr, content);
 }
 
+void Hierarchy::addCreatedNode(osg::Node* node)
+{
+    osg::Group* parent = getSelectedGroup();
+    if (parent != NULL)
+        osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, node, false);
+    else
+        osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, g_data.sceneRoot.get(), node, false);
+}
+
+void Hierarchy::addCreatedDrawable(osg::Drawable* drawable)
+{
+    osg::Geode* parent = getOrCreateSelectedGeode()->asGeode();
+    if (parent != NULL)
+        osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, drawable, false);
+}
+
 void Hierarchy::addModelFromUrl(const std::string& url)
+{
+    osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(url);
+    std::string simpleName = U2A(osgDB::getSimpleFileName(url));
+    if (!loadedModel) return;
+
+    osg::MatrixTransform* modelRoot = new osg::MatrixTransform;
+    modelRoot->setName(simpleName); modelRoot->addChild(loadedModel.get());
+
+    osg::Node* n = modelRoot; osg::Group* parent = getSelectedGroup();
+    if (parent != NULL)
+        osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, n, false);
+    else
+        osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, g_data.sceneRoot.get(), n, false);
+}
+
+osg::Group* Hierarchy::getSelectedGroup()
 {
     if (_selectedItem.valid())
     {
         osg::Group* parent = dynamic_cast<osg::Group*>(_selectedItem->userData.get());
-        if (parent == NULL)
+        osg::Geode* parentG = dynamic_cast<osg::Geode*>(_selectedItem->userData.get());
+        if (parent == NULL || parentG != NULL)
         {
-            osg::Geode* parentG = dynamic_cast<osg::Geode*>(_selectedItem->userData.get());
             if (parentG != NULL && parentG->getNumParents() > 0) parent = parentG->getParent(0);
-
             if (parentG == NULL)
             {
                 osg::Drawable* parentD = dynamic_cast<osg::Drawable*>(_selectedItem->userData.get());
@@ -261,13 +332,32 @@ void Hierarchy::addModelFromUrl(const std::string& url)
 #endif
             }
         }
+        return parent;
+    }
+    return NULL;
+}
 
+osg::Node* Hierarchy::getOrCreateSelectedGeode()
+{
+    osg::Group* parentGroup = NULL;
+    if (_selectedItem.valid())
+    {
+        osg::Node* parent = dynamic_cast<osg::Node*>(_selectedItem->userData.get());
         if (parent != NULL)
         {
-            osgVerse::CommandBuffer::instance()->add(osgVerse::LoadModelCommand, parent, url);
-            return;  // Finish loading to selected item; otherwise load this model to scene root
+            osg::Geode* parentG = parent->asGeode();
+            if (parentG != NULL) return parentG; else parentGroup = parent->asGroup();
+        }
+        else
+        {
+            osg::Drawable* parentD = dynamic_cast<osg::Drawable*>(_selectedItem->userData.get());
+            if (parentD != NULL && parentD->getNumParents() > 0) return parentD->getParent(0);
         }
     }
-    osgVerse::CommandBuffer::instance()->add(
-        osgVerse::LoadModelCommand, g_data.sceneRoot.get(), url);
+
+    // Create a new geode for geometry to use
+    osg::Node* geode = new osg::Geode;
+    if (parentGroup == NULL) parentGroup = g_data.sceneRoot.get();
+    osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parentGroup, geode, false);
+    return geode;
 }

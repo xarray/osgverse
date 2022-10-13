@@ -6,7 +6,7 @@
 class SceneLogic : public osgVerse::ImGuiComponentBase
 {
 public:
-    SceneLogic();
+    SceneLogic(EditorContentHandler* ech);
     osgVerse::Window* getWindow() { return _logicWindow.get(); }
     virtual bool show(osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler* content);
 

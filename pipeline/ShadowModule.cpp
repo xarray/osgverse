@@ -168,13 +168,16 @@ namespace osgVerse
             de->push_back(7); de->push_back(6);
             de->push_back(3); de->push_back(0); de->push_back(0); de->push_back(4);
             de->push_back(4); de->push_back(7);
+
             osg::DrawElementsUByte* de2 = new osg::DrawElementsUByte(GL_QUADS);
             de2->push_back(4); de2->push_back(5); de2->push_back(6); de2->push_back(7);
+            osg::Vec4Array* ca = new osg::Vec4Array; ca->push_back(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
             geom = new osg::Geometry;
             geom->setUseDisplayList(false);
             geom->setUseVertexBufferObjects(true);
             geom->setVertexArray(new osg::Vec3Array(8));
+            geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_OVERALL);
             geom->addPrimitiveSet(de); geom->addPrimitiveSet(de2);
             geom->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
             geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
