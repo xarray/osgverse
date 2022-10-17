@@ -17,6 +17,7 @@ namespace osgVerse
         SetNodeCommand,          // [node]parent, [node]item-added, [bool]to-delete
         SetValueCommand,         // [node/drawable]item, [string]key, [any]value
         TransformCommand,        // [node]item, [matrix]transformation, [int]0-mt node;1-pat node
+        GoHomeCommand,           // [view]viewer, [node]item-or-null, [matrix]home-pos
         RefreshSceneCommand,     // [view]viewer, [pipeline]pipeline, [bool]to-go-home
 
         CommandToUI = 100,

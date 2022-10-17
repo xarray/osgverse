@@ -73,36 +73,29 @@ namespace osgVerse
         osg::State* state = renderInfo.getState();
         if (!cam || !state) return;
 
-        Frustum frustum;
-        frustum.create(cam->getViewMatrix(), state->getProjectionMatrix(),
-                       -1.0f, _shadowMaxDistance);
-        osg::Matrix viewInv = cam->getInverseViewMatrix();
-
-#if false
-        double fov, ratio, zn, zf;
-        state->getProjectionMatrix().getPerspective(fov, ratio, zn, zf);
-        std::cout << "SHADOW: " << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
-#endif
-
-        osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
-        float xMinTotal = shadowBB.xMin(), xMaxTotal = shadowBB.xMax();
-        float yMinTotal = shadowBB.yMin(), yMaxTotal = shadowBB.yMax();
-        size_t numCameras = _shadowCameras.size();
+        osg::Matrix viewInv = cam->getInverseViewMatrix(), proj = state->getProjectionMatrix();
+        double fov, ratio, zn, zf; proj.getPerspective(fov, ratio, zn, zf);
+        if ((zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
 
         static const float ratios[] = { 0.0f, 0.05f, 0.2f, 0.5f, 1.0f };
-        float xStep = (xMaxTotal - xMinTotal) / ratios[numCameras];
+        size_t numCameras = _shadowCameras.size();
+        float zStep = (zf - zn) / ratios[numCameras];
         for (size_t i = 0; i < numCameras; ++i)
         {
-            // Split the shadow bounds
-            float xMin = xMinTotal + xStep * ratios[i],
-                  xMax = xMinTotal + xStep * ratios[i + 1];
-            float yMin = yMinTotal, yMax = yMaxTotal;
+            // Split the main frustum
+            float zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
+            Frustum frustum; frustum.create(cam->getViewMatrix(), proj, zMin, zMax);
+
+            osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+            float xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
+            float yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
+            zMin = shadowBB.zMin(); zMax = shadowBB.zMax();
 
             // Apply the shadow camera & uniform
             osg::Camera* shadowCam = _shadowCameras[i].get();
             shadowCam->setViewMatrix(_lightMatrix);
             shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax,
-                0.0, osg::maximum(osg::absolute(shadowBB.zMax()), osg::absolute(shadowBB.zMin())));
+                0.0, osg::maximum(osg::absolute(zMax), osg::absolute(zMin)));
             _lightMatrices->setElement(i, osg::Matrixf(viewInv *
                 shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
         }

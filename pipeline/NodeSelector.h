@@ -123,6 +123,7 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Geode> _selectorGeode, _boundGeode;
         osg::ref_ptr<osg::Geometry> _selectorGeometry, _boundGeometry;
+        osg::ref_ptr<osg::Drawable> _boundMaskBox;
         osg::Vec4 _selectorColor, _boundColor;
         float _boundDeltaLength;
         ComputationMethod _computationMethod;

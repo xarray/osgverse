@@ -152,24 +152,30 @@ int main(int argc, char** argv)
     if (shadow)
         shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
 
-    // Post-HUD display and utilities
+    // Post-HUD displays and utilities
+    osg::ref_ptr<osg::Camera> skyCamera = new osg::Camera;
+    skyCamera->setClearMask(0);
+    skyCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    skyCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    auxRoot->addChild(skyCamera.get());
+
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
-    postCamera->setClearMask(0);
+    postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
     postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
     postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-    root->addChild(postCamera.get());
+    auxRoot->addChild(postCamera.get());
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
         //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
         skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/sunset.hdr"));
-        postCamera->addChild(skybox.get());
+        skyCamera->addChild(skybox.get());
     }
 
     osg::ref_ptr<osgVerse::NodeSelector> selector = new osgVerse::NodeSelector;
     {
         selector->setMainCamera(pipeline->getForwardCamera());
-        auxRoot->addChild(selector->getAuxiliaryRoot());
+        postCamera->addChild(selector->getAuxiliaryRoot());
         // TODO: also add to hud camera?
     }
 

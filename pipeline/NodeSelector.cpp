@@ -2,6 +2,8 @@
 #include <osg/io_utils>
 #include <osg/Depth>
 #include <osg/LineWidth>
+#include <osg/ColorMask>
+#include <osg/ShapeDrawable>
 #include <osg/AnimationPath>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Geode>
@@ -502,7 +504,12 @@ void NodeSelector::rebuildBoundGeometry(bool onlyColors)
         _boundGeometry->setColorBinding(osg::Geometry::BIND_OVERALL);
         _boundGeometry->addPrimitiveSet(new osg::DrawElementsUByte(GL_LINES, 1));
 
+        _boundMaskBox = new osg::ShapeDrawable(new osg::Box(osg::Vec3(), 1.0f, 1.0f, 1.0f));
+        _boundMaskBox->getOrCreateStateSet()->setAttributeAndModes(
+            new osg::ColorMask(false, false, false, false));
+
         _boundGeode = new osg::Geode;
+        _boundGeode->addDrawable(_boundMaskBox.get());
         _boundGeode->addDrawable(_boundGeometry.get());
     }
 

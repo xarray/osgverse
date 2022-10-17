@@ -318,7 +318,7 @@ namespace osgVerse
             std::vector<osg::ref_ptr<TreeData>> children;
             osg::ref_ptr<osg::Referenced> userData;
             TreeData() : flags(ImGuiTreeNodeFlags_DefaultOpen |
-                               ImGuiTreeNodeFlags_OpenOnDoubleClick) {}
+                               ImGuiTreeNodeFlags_OpenOnArrow) {}
         };
         std::vector<osg::ref_ptr<TreeData>> treeDataList;
         std::string selectedItemID;

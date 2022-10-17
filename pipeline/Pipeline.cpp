@@ -414,11 +414,21 @@ namespace osgVerse
 #endif
     }
 
+    Pipeline::Stage* Pipeline::getStage(osg::Camera* camera)
+    {
+        for (size_t i = 0; i < _stages.size(); ++i)
+        { if (_stages[i]->camera == camera) return _stages[i].get(); }
+        return NULL;
+    }
+
     osg::GraphicsOperation* Pipeline::createRenderer(osg::Camera* camera)
     {
         MyRenderer* render = new MyRenderer(camera);
         render->useCustomSceneViews(_deferredCallback.get());
-        camera->setStats(new osg::Stats("Camera"));
+        
+        Pipeline::Stage* stage = getStage(camera);
+        if (!stage || (stage && stage->inputStage))
+            camera->setStats(new osg::Stats("Camera"));
         return render;
     }
     

@@ -89,7 +89,7 @@ Hierarchy::Hierarchy(EditorContentHandler* ech)
     // Selected events:
     // 1. LMB selects item = show highlighter in scene + show data in properties
     // 2. RMB selects item/empty = show popup window
-    // 3. LMB double clicks item = expanded or not
+    // 3. LMB double clicks item = focus on this item
     _treeView->callback = [&](ImGuiManager*, ImGuiContentHandler*,
                               ImGuiComponentBase* me, const std::string& id)
     {
@@ -97,10 +97,16 @@ Hierarchy::Hierarchy(EditorContentHandler* ech)
         _selectedItem = treeView->findByID(id); _selectedItemPopupTriggered = false;
         if (!_selectedItem) return;
 
-        CommandBuffer::instance()->add(SelectCommand,
-            static_cast<osg::Object*>(_selectedItem->userData.get()), g_data.selector.get(), 0);
-        CommandBuffer::instance()->add(RefreshProperties,
-            static_cast<osg::Object*>(_selectedItem->userData.get()), "");
+        if (!ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        {
+            CommandBuffer::instance()->add(SelectCommand,
+                static_cast<osg::Object*>(_selectedItem->userData.get()), g_data.selector.get(), 0);
+            CommandBuffer::instance()->add(RefreshProperties,
+                static_cast<osg::Object*>(_selectedItem->userData.get()), "");
+        }
+        else
+            CommandBuffer::instance()->add(GoHomeCommand,
+                g_data.view.get(), static_cast<osg::Object*>(_selectedItem->userData.get()), 0);
     };
 
     _treeView->callbackR = [&](ImGuiManager*, ImGuiContentHandler*,
@@ -117,6 +123,13 @@ Hierarchy::Hierarchy(EditorContentHandler* ech)
         _popupMenus.push_back(activeItem);
 
         osgVerse::MenuBar::MenuItemData centerItem(osgVerse::MenuBar::TR("Make Central##ed01m02"));
+        centerItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                  osgVerse::ImGuiComponentBase* me)
+        {
+            if (!_selectedItem) return;
+            CommandBuffer::instance()->add(GoHomeCommand,
+                g_data.view.get(), static_cast<osg::Object*>(_selectedItem->userData.get()), 0);
+        };
         _popupMenus.push_back(centerItem);
 
         _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);

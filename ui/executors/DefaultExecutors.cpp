@@ -159,6 +159,52 @@ struct TransformExecutor : public CommandHandler::CommandExecutor
     }  // TODO
 };
 
+// GoHomeCommand: [view]viewer, [node]item-or-null, [matrix]home-pos
+struct GoHomeExecutor : public CommandHandler::CommandExecutor
+{
+    virtual bool redo(CommandData& cmd)
+    {
+        osgViewer::View* view = dynamic_cast<osgViewer::View*>(cmd.object.get());
+        osg::Object* obj = NULL; osg::Matrix m; if (!view) return false;
+        cmd.get(obj, 0, false); cmd.get(m, 1, false);
+
+        osgGA::CameraManipulator* mani = view->getCameraManipulator();
+        if (mani != NULL)
+        {
+            // TODO: use home position matrix
+            if (!obj)
+                mani->home(view->getFrameStamp()->getSimulationTime());
+            else
+            {
+                osg::Node* node = dynamic_cast<osg::Node*>(obj);
+                if (!node)
+                {
+                    osg::Drawable* drawable = dynamic_cast<osg::Drawable*>(obj);
+                    if (drawable && drawable->getNumParents() > 0) node = drawable->getParent(0);
+                    else return false;  // no valid item selected for going home
+                }
+
+                if (node->getNumParents() > 0)
+                {
+                    osg::ComputeBoundsVisitor cbv; cbv.pushMatrix(node->getParent(0)->getWorldMatrices()[0]);
+                    node->accept(cbv); osg::BoundingBoxd bb = cbv.getBoundingBox();
+
+                    osg::Vec3d eye, center, up, dir;
+                    mani->getInverseMatrix().getLookAt(eye, center, up);
+                    dir = (center - eye) * bb.radius() * 5.0f; center = bb.center();
+                    mani->setByInverseMatrix(osg::Matrix::lookAt(center - dir, center, up));
+                }
+            }
+        }
+        return true;
+    }
+
+    virtual bool undo(CommandData& cmd)
+    {
+        return false;
+    }  // TODO
+};
+
 // RefreshSceneCommand: [view]viewer, [pipeline]pipeline, [bool]to-go-home
 struct RefreshSceneExecutor : public CommandHandler::CommandExecutor
 {
@@ -202,5 +248,6 @@ void loadDefaultExecutors(CommandHandler* handler)
     handler->addExecutor(SetNodeCommand, new SetNodeExecutor);
     handler->addExecutor(SetValueCommand, new SetValueExecutor);
     handler->addExecutor(TransformCommand, new TransformExecutor);
+    handler->addExecutor(GoHomeCommand, new GoHomeExecutor);
     handler->addExecutor(RefreshSceneCommand, new RefreshSceneExecutor);
 }

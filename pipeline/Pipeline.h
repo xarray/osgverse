@@ -74,6 +74,7 @@ namespace osgVerse
         unsigned int getNumStages() const { return _stages.size(); }
         Stage* getStage(unsigned int index) { return _stages[index].get(); }
         Stage* getStage(const std::string& name);
+        Stage* getStage(osg::Camera* camera);
 
         /** Start adding pipeline stages after this function */
         void startStages(int w, int h, osg::GraphicsContext* gc = NULL);
