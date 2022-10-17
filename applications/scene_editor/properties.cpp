@@ -7,7 +7,7 @@
 
 #include <imgui/ImGuizmo.h>
 #include <ui/CommandHandler.h>
-#include <ui/PropertyInterface.h>
+#include <ui/UserComponent.h>
 #include <pipeline/Global.h>
 using namespace osgVerse;
 
@@ -57,26 +57,18 @@ bool Properties::handleCommand(CommandData* cmd)
        - cmd->object (parent) is the node/drawable whose properties are updated
        - cmd->value (string): to-be-updated component's name, or empty to update all
     */
-    PropertyItemManager* propManager = PropertyItemManager::instance();
+    osg::Camera* mainCam = g_data.mainCamera.get();
     osg::StateSet* stateSet = NULL; ComponentCallback* callback = NULL;
     _properties.clear(); _selectedProperty = -1;
 
     osg::Drawable* targetD = dynamic_cast<osg::Drawable*>(cmd->object.get());
     if (targetD)
     {
-        PropertyItem* p0 = propManager->getStandardItem(PropertyItemManager::BasicDrawableItem);
-        if (p0)
-        {
-            p0->setTarget(targetD, PropertyItem::DrawableType);
-            p0->setCamera(g_data.mainCamera.get()); _properties.push_back(p0);
-        }
-
         osg::Geometry* targetG = targetD->asGeometry();
-        if (targetG)
-        {
-            PropertyItem* p1 = propManager->getStandardItem(PropertyItemManager::GeometryItem);
-            if (p1) { p1->setTarget(targetG, PropertyItem::GeometryType); _properties.push_back(p1); }
-        }
+        _properties.push_back(new StandardComponent(
+            PropertyItemManager::BasicDrawableItem, PropertyItem::DrawableType, targetD, mainCam));
+        if (targetG) _properties.push_back(new StandardComponent(
+            PropertyItemManager::GeometryItem, PropertyItem::GeometryType, targetG, mainCam));
 
         stateSet = targetD->getStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetD->getUpdateCallback());
@@ -85,45 +77,24 @@ bool Properties::handleCommand(CommandData* cmd)
     osg::Node* targetN = dynamic_cast<osg::Node*>(cmd->object.get());
     if (!targetD && targetN)
     {
-        PropertyItem* p0 = propManager->getStandardItem(PropertyItemManager::BasicNodeItem);
-        if (p0)
-        {
-            p0->setTarget(targetN, PropertyItem::NodeType);
-            p0->setCamera(g_data.mainCamera.get()); _properties.push_back(p0);
-        }
-        
         osg::Transform* targetT = targetN->asTransform();
+        _properties.push_back(new StandardComponent(
+            PropertyItemManager::BasicNodeItem, PropertyItem::NodeType, targetN, mainCam));
+        
         if (targetT)
         {
             osg::MatrixTransform* targetMT = targetT->asMatrixTransform();
-            if (targetMT)
-            {
-                PropertyItem* p1 = propManager->getStandardItem(PropertyItemManager::TransformItem);
-                if (p1)
-                {
-                    p1->setTarget(targetMT, PropertyItem::MatrixType);
-                    p1->setCamera(g_data.mainCamera.get()); _properties.push_back(p1);
-                }
-            }
+            if (targetMT) _properties.push_back(new StandardComponent(
+                PropertyItemManager::TransformItem, PropertyItem::MatrixType, targetMT, mainCam));
 
             osg::PositionAttitudeTransform* targetPT = targetT->asPositionAttitudeTransform();
-            if (targetPT)
-            {
-                PropertyItem* p1 = propManager->getStandardItem(PropertyItemManager::TransformItem);
-                if (p1)
-                {
-                    p1->setTarget(targetPT, PropertyItem::PoseType);
-                    p1->setCamera(g_data.mainCamera.get()); _properties.push_back(p1);
-                }
-            }
+            if (targetPT) _properties.push_back(new StandardComponent(
+                PropertyItemManager::TransformItem, PropertyItem::PoseType, targetPT, mainCam));
         }
 
         osg::Camera* targetCam = targetN->asCamera();
-        if (targetCam)
-        {
-            PropertyItem* p1 = propManager->getStandardItem(PropertyItemManager::CameraItem);
-            if (p1) { p1->setTarget(targetCam, PropertyItem::CameraType); _properties.push_back(p1); }
-        }
+        if (targetCam) _properties.push_back(new StandardComponent(
+            PropertyItemManager::CameraItem, PropertyItem::CameraType, targetCam, mainCam));
 
         stateSet = targetN->getStateSet();
         callback = dynamic_cast<ComponentCallback*>(targetN->getUpdateCallback());
@@ -131,14 +102,12 @@ bool Properties::handleCommand(CommandData* cmd)
 
     if (stateSet != NULL)
     {
-        PropertyItem* p2 = propManager->getStandardItem(PropertyItemManager::TextureItem);
-        if (p2) { p2->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p2); }
-
-        PropertyItem* p3 = propManager->getStandardItem(PropertyItemManager::ShaderItem);
-        if (p3) { p3->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p3); }
-
-        PropertyItem* p4 = propManager->getStandardItem(PropertyItemManager::AttributeItem);
-        if (p4) { p4->setTarget(stateSet, PropertyItem::StateSetType); _properties.push_back(p4); }
+        _properties.push_back(new StandardComponent(
+            PropertyItemManager::TextureItem, PropertyItem::StateSetType, stateSet, mainCam));
+        _properties.push_back(new StandardComponent(
+            PropertyItemManager::ShaderItem, PropertyItem::StateSetType, stateSet, mainCam));
+        _properties.push_back(new StandardComponent(
+            PropertyItemManager::AttributeItem, PropertyItem::StateSetType, stateSet, mainCam));
     }
 
     if (callback != NULL)
@@ -147,9 +116,11 @@ bool Properties::handleCommand(CommandData* cmd)
         {
             Component* c = callback->getComponent(i);
             std::string fullName = std::string(c->libraryName()) + std::string("::") + c->className();
+            
+            /* TODO
             PropertyItem* pC = propManager->getExtendedItem(fullName);
             if (pC) { pC->setTarget(c, PropertyItem::ComponentType); _properties.push_back(pC); }
-            else { OSG_WARN << "[Properties] Unknown component " << fullName << "\n"; }
+            else { OSG_WARN << "[Properties] Unknown component " << fullName << "\n"; }*/
         }
     }
     return true;
@@ -164,9 +135,11 @@ bool Properties::show(ImGuiManager* mgr, ImGuiContentHandler* content)
                         | ImGuiTreeNodeFlags_OpenOnDoubleClick;
         for (size_t i = 0; i < _properties.size(); ++i)
         {
-            osgVerse::PropertyItem* item = _properties[i];
-            std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
+            osgVerse::UserComponent* component = _properties[i];
+            osgVerse::PropertyItem* item = component->getPropertyUI();
+            if (!item) continue;
 
+            std::string title = TR(item->title()) + "##prop" + std::to_string(i + 1);
             if (ImGui::ArrowButton((title + "Arrow").c_str(), ImGuiDir_Down))  // TODO: disabled = ImGuiDir_None
             {
                 // Select the item and also open popup menu

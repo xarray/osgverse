@@ -14,6 +14,12 @@ namespace osgVerse
     class UserComponent : public Component
     {
     public:
+        UserComponent() : Component() {}
+        UserComponent(const UserComponent& c, const osg::CopyOp& op)
+        :   Component(c, op), _variables(c._variables), _setters(c._setters),
+            _getters(c._getters), _propertyUI(c._propertyUI) {}
+        META_Object(osgVerse, UserComponent);
+        
         enum ValueType
         {
             AnyValue = 0, StringValue, BoolValue, IntValue, UIntValue,
@@ -64,13 +70,23 @@ namespace osgVerse
         PropertyItem* getPropertyUI() { return _propertyUI.get(); }
 
         /** Actual update work in node's callback */
-        virtual void run(osg::Object* object, osg::Referenced* nv);
+        virtual void run(osg::Object* object, osg::Referenced* nv) {}
 
     protected:
         std::map<std::string, VariableData> _variables;
         std::map<std::string, SetterData> _setters;
         std::map<std::string, GetterData> _getters;
         osg::ref_ptr<PropertyItem> _propertyUI;
+    };
+
+    class StandardComponent : public UserComponent
+    {
+    public:
+        StandardComponent(PropertyItemManager::StandardItemType st = PropertyItemManager::BasicNodeItem,
+                          PropertyItem::TargetType t = PropertyItem::UnknownType,
+                          osg::Object* target = NULL, osg::Camera* cam = NULL);
+        StandardComponent(const StandardComponent& c, const osg::CopyOp& op) : UserComponent(c, op) {}
+        META_Object(osgVerse, StandardComponent);
     };
 }
 

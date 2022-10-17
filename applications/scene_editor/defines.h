@@ -15,6 +15,7 @@
 #include <pipeline/NodeSelector.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/ShadowModule.h>
+#include <pipeline/IntersectionManager.h>
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>

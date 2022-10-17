@@ -5,9 +5,6 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#define LAY_IMPLEMENTATION
-#define LAY_FLOAT 1
-#include <layout.h>
 #include "hierarchy.h"
 #include "properties.h"
 #include "scenelogic.h"
@@ -165,7 +162,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
         //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
-        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"));
+        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/sunset.hdr"));
         postCamera->addChild(skybox.get());
     }
 

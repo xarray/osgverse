@@ -7,6 +7,7 @@ namespace osgVerse
 {
     struct CommandData;
     class PropertyItem;
+    class UserComponent;
 }
 
 class Properties : public osgVerse::ImGuiComponentBase
@@ -22,7 +23,7 @@ public:
 
 protected:
     osg::ref_ptr<osgVerse::Window> _propWindow;
-    std::vector<osg::ref_ptr<osgVerse::PropertyItem>> _properties;
+    std::vector<osg::ref_ptr<osgVerse::UserComponent>> _properties;
     std::vector<osgVerse::MenuBarBase::MenuItemData> _popupMenus;
     int _selectedProperty;
 };

@@ -31,7 +31,8 @@ static const char* skyboxFS1 = {
     "uniform samplerCube SkyTexture;\n"
     "in vec3 TexCoord;\n"
     "void main() {\n"
-    "    gl_FragColor = texture(SkyTexture, TexCoord);\n"
+    "    vec4 skyColor = texture(SkyTexture, TexCoord);\n"
+    "    gl_FragColor = pow(skyColor, vec4(1.0 / 2.2));\n"
     "}\n"
 };
 
@@ -42,10 +43,12 @@ static const char* skyboxFS2 = {
     "const vec2 invAtan = vec2(0.1591, 0.3183);\n"
     "vec2 sphericalUV(vec3 v) {\n"
     "    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));\n"
-    "    uv *= invAtan; uv += vec2(0.5); return uv;\n"
+    "    uv *= invAtan; uv += vec2(0.5);\n"
+    "    return clamp(uv, vec2(0.0), vec2(1.0));\n"
     "}\n"
     "void main() {\n"
-    "    gl_FragColor = texture(SkyTexture, sphericalUV(TexCoord));\n"
+    "    vec4 skyColor = texture(SkyTexture, sphericalUV(TexCoord));\n"
+    "    gl_FragColor = pow(skyColor, vec4(1.0 / 2.2));\n"
     "}\n"
 };
 
@@ -140,7 +143,7 @@ void SkyBox::setEnvironmentMap(osg::Image* image)
         skymap->setImage(image); skymap->setResizeNonPowerOfTwoHint(false);
         skymap->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
         skymap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-        skymap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+        skymap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         skymap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         _skymap = skymap.get();
         initialize(false, osg::Matrixf::rotate(-osg::PI_2, osg::X_AXIS));

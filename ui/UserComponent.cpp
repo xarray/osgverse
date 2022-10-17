@@ -1,7 +1,9 @@
 #include "UserComponent.h"
 using namespace osgVerse;
 
-void UserComponent::run(osg::Object* object, osg::Referenced* nv)
+StandardComponent::StandardComponent(PropertyItemManager::StandardItemType st,
+                                     PropertyItem::TargetType t, osg::Object* target, osg::Camera* cam)
 {
-    // TODO?
+    PropertyItem* p = PropertyItemManager::instance()->getStandardItem(st);
+    if (p) { p->setTarget(target, t); p->setCamera(cam); setPropertyUI(p); }
 }
