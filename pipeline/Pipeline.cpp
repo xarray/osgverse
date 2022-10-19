@@ -115,8 +115,9 @@ public:
                                     ? getRenderStage()->getFrameBufferObject() : NULL;
         if (fbo && _callback.valid())
         {
-            // TODO: also blit for PACKED_DEPTH_STENCIL_BUFFER?
-            if (fbo->hasAttachment(osg::Camera::DEPTH_BUFFER))
+            // Blit for DEPTH_BUFFER & PACKED_DEPTH_STENCIL_BUFFER
+            if (fbo->hasAttachment(osg::Camera::DEPTH_BUFFER) ||
+                fbo->hasAttachment(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER))
                 _callback->registerDepthFBO(getCamera(), fbo);
         }
 
@@ -254,8 +255,10 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 {
                     if (rtt && camera->getName().find("ShadowCaster") != std::string::npos)
                     {
-                        std::cout << "Resize shadow cam " << camera->getName() << "\n";
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+                        //std::cout << "Resize shadow cam " << camera->getName() << "\n";
                         camera->resize(w, h);  // FIXME: bad way to find and apply shadow cameras
+#endif
                     }
                     continue;  // FIXME: ignore all absolute slaves such as RTT & display quads?
                     /*switch (camera->getProjectionResizePolicy())

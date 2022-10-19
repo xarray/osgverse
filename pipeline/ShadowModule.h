@@ -19,8 +19,8 @@ namespace osgVerse
         void addReferencePoints(const std::vector<osg::Vec3>& pt, bool toReset);
         void clearReferencePoints() { _referencePoints.clear(); }
 
-        osg::Texture2DArray* getTextureArray() { return _shadowMaps.get(); }
-        const osg::Texture2DArray* getTextureArray() const { return _shadowMaps.get(); }
+        osg::Texture2D* getTexture(int i) { return _shadowMaps[i].get(); }
+        const osg::Texture2D* getTexture(int i) const { return _shadowMaps[i].get(); }
         osg::Uniform* getLightMatrices() { return _lightMatrices.get(); }
         const osg::Uniform* getLightMatrices() const { return _lightMatrices.get(); }
 
@@ -37,7 +37,7 @@ namespace osgVerse
         osg::observer_ptr<Pipeline> _pipeline;
         osg::observer_ptr<osg::Camera> _updatedCamera;
         osg::ref_ptr<osg::Geode> _shadowFrustum;
-        osg::ref_ptr<osg::Texture2DArray> _shadowMaps;
+        osg::ref_ptr<osg::Texture2D> _shadowMaps[4];
         osg::ref_ptr<osg::Uniform> _lightMatrices;
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 

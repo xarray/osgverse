@@ -187,7 +187,7 @@ struct GoHomeExecutor : public CommandHandler::CommandExecutor
                 if (node->getNumParents() > 0)
                 {
                     osg::ComputeBoundsVisitor cbv; cbv.pushMatrix(node->getParent(0)->getWorldMatrices()[0]);
-                    node->accept(cbv); osg::BoundingBoxd bb = cbv.getBoundingBox();
+                    node->accept(cbv); osg::BoundingBox bb = cbv.getBoundingBox();
 
                     osg::Vec3d eye, center, up, dir;
                     mani->getInverseMatrix().getLookAt(eye, center, up);

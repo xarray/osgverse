@@ -129,7 +129,9 @@ namespace osgVerse
         shadowing->applyBuffer(*lighting, "IblAmbientBuffer", 1);
         shadowing->applyBuffer(*gbuffer, "NormalBuffer", 2);
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
-        shadowing->applyTexture(shadow->getTextureArray(), "ShadowMapArray", 4);
+        shadowing->applyTexture(shadow->getTexture(0), "ShadowMap0", 4);
+        shadowing->applyTexture(shadow->getTexture(1), "ShadowMap1", 5);
+        shadowing->applyTexture(shadow->getTexture(2), "ShadowMap2", 6);
         shadowing->applyUniform(shadow->getLightMatrices());
 
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final", commonVert,
