@@ -10,17 +10,17 @@ static std::default_random_engine generator;
 
 static osg::Texture* generateSsaoNoises(int numRows)
 {
-    std::vector<osg::Vec3f> noises;
+    static std::vector<osg::Vec3f> noises;
     for (int i = 0; i < numRows; ++i)
         for (int j = 0; j < numRows; ++j)
         {
-            osg::Vec3 noise(randomFloats(generator) * 2.0f - 1.0f,
-                            randomFloats(generator) * 2.0f - 1.0f, 0.0f);
+            float angle = 2.0f * osg::PI * randomFloats(generator) / 8.0f;
+            osg::Vec3 noise(cosf(angle), sinf(angle), randomFloats(generator));
             noises.push_back(noise);
         }
 
     osg::ref_ptr<osg::Image> image = new osg::Image;
-    image->setImage(numRows, numRows, 1, GL_RGB32F_ARB, GL_RGB, GL_FLOAT,
+    image->setImage(numRows, numRows, 1, GL_RGB16F_ARB, GL_RGB, GL_FLOAT,
                     (unsigned char*)&noises[0], osg::Image::NO_DELETE);
 
     osg::ref_ptr<osg::Texture2D> noiseTex = new osg::Texture2D;
@@ -90,12 +90,24 @@ namespace osgVerse
             1, "SsaoBuffer", osgVerse::Pipeline::R_INT8);
         ssao->applyBuffer(*gbuffer, "NormalBuffer", 0);
         ssao->applyBuffer(*gbuffer, "DepthBuffer", 1);
-        ssao->applyTexture(generateSsaoNoises(8), "RandomTexture", 2);
+        ssao->applyTexture(generateSsaoNoises(4), "RandomTexture", 2);
+        ssao->applyUniform(new osg::Uniform("AORadius", 4.0f));
+        ssao->applyUniform(new osg::Uniform("AOBias", 0.1f));
+        ssao->applyUniform(new osg::Uniform("AOPowExponent", 1.5f));
 
-        osgVerse::Pipeline::Stage* ssaoBlur = p->addWorkStage("SsaoBlur", commonVert,
+        osgVerse::Pipeline::Stage* ssaoBlur1 = p->addWorkStage("SsaoBlur1", commonVert,
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_ssao_blur.frag.glsl"),
+            1, "SsaoBlurredBuffer0", osgVerse::Pipeline::R_INT8);
+        ssaoBlur1->applyBuffer(*ssao, "SsaoBuffer", 0);
+        ssaoBlur1->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(1.0f, 0.0f)));
+        ssaoBlur1->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
+
+        osgVerse::Pipeline::Stage* ssaoBlur2 = p->addWorkStage("SsaoBlur2", commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_ssao_blur.frag.glsl"),
             1, "SsaoBlurredBuffer", osgVerse::Pipeline::R_INT8);
-        ssaoBlur->applyBuffer(*ssao, "SsaoBuffer", 0);
+        ssaoBlur2->applyBuffer(*ssaoBlur1, "SsaoBlurredBuffer0", "SsaoBuffer", 0);
+        ssaoBlur2->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(0.0f, 1.0f)));
+        ssaoBlur2->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
 
         osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting", commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_pbr_lighting.frag.glsl"), 2,
@@ -124,7 +136,7 @@ namespace osgVerse
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_display.frag.glsl"),
             osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
         output->applyBuffer(*shadowing, "CombinedBuffer", 0);
-        output->applyBuffer(*ssaoBlur, "SsaoBlurredBuffer", 1);
+        output->applyBuffer(*ssaoBlur2, "SsaoBlurredBuffer", 1);
 
         p->applyStagesToView(view, FORWARD_SCENE_MASK);
         p->requireDepthBlit(gbuffer, true);

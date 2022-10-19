@@ -402,7 +402,7 @@ bool MenuBarBase::findItemByName(const std::string& name, const MenuItemData& pa
     for (size_t j = 0; j < parent.subItems.size(); ++j)
     { if (findItemByName(name, parent.subItems[j], item)) return true; }
 
-    size_t indexSharp = parent.name.find_first_of("##");
+    size_t indexSharp = parent.name.find("##");
     if (parent.name == name) { item = parent; return true; }
     else if (parent.name.substr(0, indexSharp) == name) { item = parent; return true; }
     else return false;

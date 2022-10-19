@@ -27,6 +27,7 @@ namespace osgVerse
         - mat4 <StageName>Matrices: matrices of specified input stage for rebuilding vertex attributes
                                     Including: world-to-view, view-to-world, view-to-proj, proj-to-view
         - vec2 NearFarPlanes: calculated near/far values of entire scene
+        - vec2 InvScreenResolution: (1.0 / view-width, 1.0 / view-height)
     */
     class Pipeline : public osg::Referenced
     {
@@ -52,6 +53,7 @@ namespace osgVerse
 
             void applyUniform(osg::Uniform* u);
             void applyBuffer(Stage& s, const std::string& buffer, int unit);
+            void applyBuffer(Stage& s, const std::string& buffer, const std::string& name, int unit);
             void applyTexture(osg::Texture* tex, const std::string& buffer, int u);
             void applyDefaultTexture(const osg::Vec4& color, const std::string& buffer, int u);
 
@@ -111,10 +113,14 @@ namespace osgVerse
 
         osgVerse::DeferredRenderCallback* getDeferredCallback() { return _deferredCallback.get(); }
         const osgVerse::DeferredRenderCallback* getDeferredCallback() const { return _deferredCallback.get(); }
+
         osg::GraphicsContext* getContext() { return _stageContext.get(); }
         const osg::GraphicsContext* getContext() const { return _stageContext.get(); }
+
         osg::Camera* getForwardCamera() { return _forwardCamera.get(); }
         const osg::Camera* getForwardCamera() const { return _forwardCamera.get(); }
+
+        osg::Uniform* getInvScreenResolution() { return _invScreenResolution.get(); }
         osg::Vec2s getStageSize() const { return _stageSize; }
 
         void addModule(const std::string& n, osg::NodeCallback* cb) { _modules[n] = cb; }
@@ -129,6 +135,7 @@ namespace osgVerse
         std::map<std::string, osg::ref_ptr<osg::NodeCallback>> _modules;
         osg::ref_ptr<osgVerse::DeferredRenderCallback> _deferredCallback;
         osg::ref_ptr<osg::GraphicsContext> _stageContext;
+        osg::ref_ptr<osg::Uniform> _invScreenResolution;
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;
     };

@@ -77,25 +77,31 @@ namespace osgVerse
         double fov, ratio, zn, zf; proj.getPerspective(fov, ratio, zn, zf);
         if ((zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
 
-        static const float ratios[] = { 0.0f, 0.05f, 0.2f, 0.5f, 1.0f };
+        static const float ratios[] = { 0.0f, 0.15f, 0.35f, 0.55f, 1.0f };
         size_t numCameras = _shadowCameras.size();
-        float zStep = (zf - zn) / ratios[numCameras];
+        float zStep = (zf - zn) / ratios[numCameras], zMaxTotal = 0.0f;
+        std::vector<osg::BoundingBox> shadowBBs(numCameras);
         for (size_t i = 0; i < numCameras; ++i)
         {
             // Split the main frustum
             float zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
             Frustum frustum; frustum.create(cam->getViewMatrix(), proj, zMin, zMax);
-
+            
             osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+            float zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
+            shadowBBs[i] = shadowBB; if (zMaxTotal < zNew) zMaxTotal = zNew;
+        }
+
+        for (size_t i = 0; i < numCameras; ++i)
+        {
+            const osg::BoundingBox& shadowBB = shadowBBs[i];
             float xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
             float yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
-            zMin = shadowBB.zMin(); zMax = shadowBB.zMax();
 
             // Apply the shadow camera & uniform
             osg::Camera* shadowCam = _shadowCameras[i].get();
             shadowCam->setViewMatrix(_lightMatrix);
-            shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax,
-                0.0, osg::maximum(osg::absolute(zMax), osg::absolute(zMin)));
+            shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax, 0.0, zMaxTotal);
             _lightMatrices->setElement(i, osg::Matrixf(viewInv *
                 shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
         }

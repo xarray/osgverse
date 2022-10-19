@@ -189,6 +189,9 @@ protected:
 
 struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
 {
+    MyResizedCallback(osgVerse::Pipeline* p) : _pipeline(p) {}
+    osg::observer_ptr<osgVerse::Pipeline> _pipeline;
+
     virtual void resizedImplementation(osg::GraphicsContext* gc, int x, int y, int w, int h)
     {
         std::set<osg::Viewport*> processedViewports;
@@ -198,6 +201,8 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
         double widthChangeRatio = double(w) / double(traits->width);
         double heightChangeRatio = double(h) / double(traits->height);
         double aspectRatioChange = widthChangeRatio / heightChangeRatio;
+        if (_pipeline.valid())
+            _pipeline->getInvScreenResolution()->set(osg::Vec2(1.0f / (float)w, 1.0f / (float)h));
 
         osg::GraphicsContext::Cameras cameras = gc->getCameras();
         for (osg::GraphicsContext::Cameras::iterator itr = cameras.begin(); itr != cameras.end(); ++itr)
@@ -247,10 +252,11 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 }
                 else
                 {
-#if OSG_VERSION_GREATER_THAN(3, 3, 2)
-                    if (rtt && camera->getName().find("ShadowCaster0") != std::string::npos)
-                        camera->resizeAttachments(w, h);  // FIXME: bad way to find and apply shadow cameras
-#endif
+                    if (rtt && camera->getName().find("ShadowCaster") != std::string::npos)
+                    {
+                        std::cout << "Resize shadow cam " << camera->getName() << "\n";
+                        camera->resize(w, h);  // FIXME: bad way to find and apply shadow cameras
+                    }
                     continue;  // FIXME: ignore all absolute slaves such as RTT & display quads?
                     /*switch (camera->getProjectionResizePolicy())
                     {
@@ -265,8 +271,8 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
             else
             {
                 if (rtt) continue;
-                osg::Camera::ProjectionResizePolicy policy = view
-                    ? view->getCamera()->getProjectionResizePolicy() : camera->getProjectionResizePolicy();
+                osg::Camera::ProjectionResizePolicy policy = view ?
+                    view->getCamera()->getProjectionResizePolicy() : camera->getProjectionResizePolicy();
                 switch (policy)
                 {
                 case (osg::Camera::HORIZONTAL):
@@ -318,6 +324,8 @@ namespace osgVerse
     Pipeline::Pipeline()
     {
         _deferredCallback = new osgVerse::DeferredRenderCallback(true);
+        _invScreenResolution = new osg::Uniform(
+            "InvScreenResolution", osg::Vec2(1.0f / 1920.0f, 1.0f / 1080.0f));
     }
 
     void Pipeline::Stage::applyUniform(osg::Uniform* u)
@@ -328,6 +336,9 @@ namespace osgVerse
     }
 
     void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, int unit)
+    { applyBuffer(src, buffer, buffer, unit); }
+
+    void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, const std::string& n, int unit)
     {
         if (src.outputs.find(buffer) != src.outputs.end())
         {
@@ -335,11 +346,11 @@ namespace osgVerse
             osg::StateSet* ss = deferred ?
                 runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
             ss->setTextureAttributeAndModes(unit, tex);
-            ss->addUniform(new osg::Uniform(buffer.data(), unit));
+            ss->addUniform(new osg::Uniform(n.data(), unit));
         }
         else
             std::cout << buffer << " is undefined at stage " << name
-                      << ", which sources from stage " << src.name << "\n";
+            << ", which sources from stage " << src.name << "\n";
     }
 
     void Pipeline::Stage::applyTexture(osg::Texture* tex, const std::string& buffer, int u)
@@ -369,7 +380,7 @@ namespace osgVerse
     {
         _stageSize = osg::Vec2s(w, h);
         _stageContext = createGraphicsContext(w, h, gc);
-        _stageContext->setResizedCallback(new MyResizedCallback);
+        _stageContext->setResizedCallback(new MyResizedCallback(this));
     }
 
     void Pipeline::applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
@@ -400,6 +411,7 @@ namespace osgVerse
         forwardCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
         forwardCam->setGraphicsContext(_stageContext.get());
         forwardCam->getOrCreateStateSet()->addUniform(_deferredCallback->getNearFarUniform());
+        forwardCam->getOrCreateStateSet()->addUniform(_invScreenResolution.get());
 
         if (!_stages.empty()) forwardCam->setClearMask(0);
         view->addSlave(forwardCam.get(), osg::Matrix(), osg::Matrix(), true);
@@ -546,6 +558,7 @@ namespace osgVerse
                 s.runner->geometry->getOrCreateStateSet() : s.camera->getOrCreateStateSet();
             ss->setAttributeAndModes(prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
             ss->addUniform(_deferredCallback->getNearFarUniform());
+            ss->addUniform(_invScreenResolution.get());
         }
         s.name = name; if (!s.deferred) s.camera->setName(name);
     }
