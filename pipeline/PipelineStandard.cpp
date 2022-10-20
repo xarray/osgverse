@@ -1,6 +1,8 @@
 #include "Pipeline.h"
 #include "ShadowModule.h"
 #include "Utilities.h"
+#include <PoissonGenerator.h>
+#include <osg/Texture1D>
 #include <osgDB/ReadFile>
 #include <random>
 
@@ -24,6 +26,30 @@ static osg::Texture* generateSsaoNoises(int numRows)
                     (unsigned char*)&noises[0], osg::Image::NO_DELETE);
 
     osg::ref_ptr<osg::Texture2D> noiseTex = new osg::Texture2D;
+    noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+    noiseTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+    noiseTex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
+    noiseTex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
+    noiseTex->setImage(image.get());
+    return noiseTex.release();
+}
+
+static osg::Texture* generatePoissonDiscDistribution(int numSamples)
+{
+    size_t attempts = 0;
+    auto points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, PoissonGenerator::DefaultPRNG());
+    while (points.size() < numSamples && ++attempts < 100)
+        points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, PoissonGenerator::DefaultPRNG());
+
+    static std::vector<osg::Vec3f> distribution;
+    for (int i = 0; i < numSamples; ++i)
+        distribution.push_back(osg::Vec3(points[i].x, points[i].y, 0.0f));
+
+    osg::ref_ptr<osg::Image> image = new osg::Image;
+    image->setImage(numSamples, 1, 1, GL_RGB16F_ARB, GL_RGB, GL_FLOAT,
+        (unsigned char*)&distribution[0], osg::Image::NO_DELETE);
+
+    osg::ref_ptr<osg::Texture1D> noiseTex = new osg::Texture1D;
     noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
     noiseTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
     noiseTex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
@@ -132,6 +158,8 @@ namespace osgVerse
         shadowing->applyTexture(shadow->getTexture(0), "ShadowMap0", 4);
         shadowing->applyTexture(shadow->getTexture(1), "ShadowMap1", 5);
         shadowing->applyTexture(shadow->getTexture(2), "ShadowMap2", 6);
+        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture0", 7);
+        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture1", 8);
         shadowing->applyUniform(shadow->getLightMatrices());
 
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final", commonVert,

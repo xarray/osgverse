@@ -2,6 +2,7 @@
 #define DEBUG_SHADOW_COLOR 0
 uniform sampler2D ColorBuffer, IblAmbientBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
+uniform sampler1D RandomTexture0, RandomTexture1;
 uniform mat4 ShadowSpaceMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 in vec4 texCoord0;
@@ -16,8 +17,20 @@ sampler2D getShadowMap(int id)
 float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
 {
     vec4 lightProjVec0 = texture(shadowMap, lightProjUV.xy);
-    float depth0 = lightProjVec0.z + 0.001;
-    return (lightProjVec0.x > 0.1 && depth > depth0) ? 0.0 : 1.0;
+    float depth0 = lightProjVec0.z + 0.005;
+    //return (lightProjVec0.x > 0.1 && depth > depth0) ? 0.0 : 1.0;
+    return (depth > depth0) ? 0.0 : 1.0;
+}
+
+float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float uvRadius)
+{
+	float sum = 0;
+	for (int i = 0; i < 16; i++)
+	{
+        vec2 dir = texture(RandomTexture1, float(i) / 16.0).xy * 2.0 - vec2(1.0);
+		sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);
+	}
+	return sum / 16.0;
 }
 
 void main()
@@ -45,8 +58,8 @@ void main()
         vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
         if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0)))) continue;
         
-        float depth = lightProjVec.z / lightProjVec.w;
-        float shadowValue = getShadowValue(getShadowMap(i), lightProjUV.xy, depth);
+        float depth = lightProjVec.z / lightProjVec.w;  // real depth in light space
+        float shadowValue = getShadowPCF_DirectionalLight(getShadowMap(i), lightProjUV.xy, depth, 0.0012);
         shadow *= shadowValue;
 #if DEBUG_SHADOW_COLOR
         if (shadowValue < 0.5) debugShadowColor = shadowColors[i];

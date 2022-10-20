@@ -128,17 +128,18 @@ void main()
     vec4 eyeVertex = GBufferMatrices[3] * vecInProj;
     vec3 eyeNormal = normalAlpha.rgb;
     
-    vec3 dLightDir = vec3(0.02, 0.1, -1.0), dLightColor = vec3(2.0, 2.0, 2.0);  // TODO!!!!!!!!!!!!!
+    vec3 dLightDir = vec3(0.02, 0.1, -1.0), dLightColor = vec3(5.0, 5.0, 4.8);  // TODO!!!!!!!!!!!!!
     dLightDir = normalize(dLightDir);
     
     // Components common to all light types
     vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);
     vec3 R = reflect(-viewDir, eyeNormal);
     vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
-    float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;
+    float metallic = diffuseMetallic.a, roughness = 1.0 - specularRoughness.a, ao = emissionOcclusion.a;
     float nDotV = max(dot(eyeNormal, viewDir), 0.0);
     
     // FIXME: metallic has problem when displaying sponza model??
+    metallic = 0.0;
     
     // Compute direcional lights
     vec3 F0 = mix(vec3(0.04), albedo, metallic);

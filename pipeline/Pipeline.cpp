@@ -571,6 +571,7 @@ namespace osgVerse
         static osg::ref_ptr<osg::Texture2D> tex0 = createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         static osg::ref_ptr<osg::Texture2D> tex1 = createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
+        ss->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
         ss->setTextureAttributeAndModes(0, tex1.get());  // DiffuseMap
         ss->setTextureAttributeAndModes(1, tex0.get());  // NormalMap
         ss->setTextureAttributeAndModes(2, tex1.get());  // SpecularMap

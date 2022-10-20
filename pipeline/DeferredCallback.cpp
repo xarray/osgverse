@@ -268,7 +268,7 @@ namespace osgVerse
         if (!(usage & 1))
         {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
-    #if OSG_VERSION_GREATER_THAN(3, 3, 2)
+    #if OSG_VERSION_GREATER_THAN(3, 4, 0)
             cb->setDrawBuffer(GL_NONE, true); state->glDrawBuffer(GL_NONE);
             cb->setReadBuffer(GL_NONE, true); state->glReadBuffer(GL_NONE);
     #else
@@ -306,7 +306,7 @@ namespace osgVerse
         if (!useMRT)
         {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
-    #if OSG_VERSION_GREATER_THAN(3, 3, 2)
+    #if OSG_VERSION_GREATER_THAN(3, 4, 0)
             if (cb->_drawBufferApplyMask) state->glDrawBuffer(cb->_drawBuffer);
             if (cb->_readBufferApplyMask) state->glReadBuffer(cb->_readBuffer);
     #else

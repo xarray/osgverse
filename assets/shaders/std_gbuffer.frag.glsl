@@ -25,7 +25,7 @@ void main()
     
     // MRT output
 	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, diffuse.a);
-	gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.r);
-    gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.g);
+	gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.g);
+    gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.r);
     gl_FragData[3]/*EmissionOcclusionBuffer*/ = vec4(emission, occlusion);
 }

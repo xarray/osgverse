@@ -653,7 +653,7 @@ osg::BoundingBox PlayerAnimation::computeSkeletonBounds() const
     const int numJoints = ozz->_skeleton.num_joints();
     if (numJoints <= 0) return osg::BoundingBox();
 
-    osg::BoundingBox bound;
+    osg::BoundingBoxf bound;
     ozz::vector<ozz::math::Float4x4> models(numJoints);
 
     // Compute model space bind pose.
