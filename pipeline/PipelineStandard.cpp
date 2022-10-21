@@ -64,7 +64,7 @@ namespace osgVerse
                                const std::string& shaderDir, unsigned int originW, unsigned int originH)
     {
         osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(
-            osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"), osg::Texture::MIRROR);  // FIXME
+            osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona.hdr"), osg::Texture::MIRROR);  // FIXME
         osg::ref_ptr<osg::Shader> commonVert =
             osgDB::readShaderFile(osg::Shader::VERTEX, shaderDir + "std_common_quad.vert.glsl");
         p->startStages(originW, originH, NULL);
@@ -78,7 +78,7 @@ namespace osgVerse
             "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
             "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
-            "DepthBuffer", osgVerse::Pipeline::DEPTH32);
+            "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 
 #if DEBUG_SHADOW_MODULE
         osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule("Shadow", p, true);

@@ -1,6 +1,7 @@
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/ValueObject>
+#include <osg/Depth>
 #include <osgDB/ReadFile>
 #include <osgUtil/RenderStage>
 #include <osgViewer/Renderer>
@@ -500,6 +501,7 @@ namespace osgVerse
         va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
+        s->camera->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
         s->inputStage = false; _stages.push_back(s);
         return s;
     }
@@ -541,6 +543,7 @@ namespace osgVerse
                                     osg::Vec3(geom[0], geom[1], 0.0f), geom[2], geom[3], true);
         applyDefaultStageData(*s, name, vs, fs);
         //s->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        s->camera->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
         s->inputStage = false; _stages.push_back(s);
         return s;
     }

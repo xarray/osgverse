@@ -65,7 +65,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
         //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
-        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr"));
+        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona.hdr"));
         skybox->setNodeMask(~DEFERRED_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }

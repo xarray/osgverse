@@ -192,8 +192,8 @@ namespace osgVerse
                 osg::FrameBufferObject* fbo = fboItr->second.get();
                 if (fbo) fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
                 ext->glBlitFramebuffer(0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
-                                       GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-#if 0
+                                       GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+#if false
                 OSG_NOTICE << "Blitting " << cam->getName() << ": " << sWidth << "x" << sHeight << " => "
                            << forwardCam->getName() << ": " << tWidth << "x" << tHeight << std::endl;
 #endif
