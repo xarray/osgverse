@@ -8,12 +8,6 @@ uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 in vec4 texCoord0;
 out vec4 fragData;
 
-sampler2D getShadowMap(int id)
-{
-    return (id < 2) ? ((id == 0) ? ShadowMap0 : ShadowMap1)
-                    : ((id == 2) ? ShadowMap2 : ShadowMap3);
-}
-
 float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
 {
     vec4 lightProjVec0 = texture(shadowMap, lightProjUV.xy);
@@ -59,7 +53,12 @@ void main()
         if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0)))) continue;
         
         float depth = lightProjVec.z / lightProjVec.w;  // real depth in light space
-        float shadowValue = getShadowPCF_DirectionalLight(getShadowMap(i), lightProjUV.xy, depth, 0.0012);
+        float shadowValue = 1.0, pcfRadius = 0.0012;
+        
+        if (i == 0) shadowValue = getShadowPCF_DirectionalLight(ShadowMap0, lightProjUV.xy, depth, pcfRadius);
+        else if (i == 1) shadowValue = getShadowPCF_DirectionalLight(ShadowMap1, lightProjUV.xy, depth, pcfRadius);
+        else if (i == 2) shadowValue = getShadowPCF_DirectionalLight(ShadowMap2, lightProjUV.xy, depth, pcfRadius);
+        else if (i == 3) shadowValue = getShadowPCF_DirectionalLight(ShadowMap3, lightProjUV.xy, depth, pcfRadius);
         shadow *= shadowValue;
 #if DEBUG_SHADOW_COLOR
         if (shadowValue < 0.5) debugShadowColor = shadowColors[i];

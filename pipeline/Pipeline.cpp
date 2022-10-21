@@ -595,7 +595,7 @@ namespace osgVerse
         switch (type)
         {
         case RGB_INT8:
-            tex->setInternalFormat(GL_RGB);
+            tex->setInternalFormat(GL_RGB8);
             tex->setSourceFormat(GL_RGB);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
@@ -625,7 +625,7 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case RGBA_INT8:
-            tex->setInternalFormat(GL_RGBA);
+            tex->setInternalFormat(GL_RGBA8);
             tex->setSourceFormat(GL_RGBA);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
@@ -655,18 +655,18 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_INT8:
-            tex->setInternalFormat(GL_LUMINANCE);
-            tex->setSourceFormat(GL_LUMINANCE);
+            tex->setInternalFormat(GL_R8);
+            tex->setSourceFormat(GL_R);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_FLOAT16:
-            tex->setInternalFormat(GL_LUMINANCE16F_ARB);
-            tex->setSourceFormat(GL_LUMINANCE);
+            tex->setInternalFormat(GL_R16F);
+            tex->setSourceFormat(GL_R);
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
-            tex->setInternalFormat(GL_LUMINANCE32F_ARB);
-            tex->setSourceFormat(GL_LUMINANCE);
+            tex->setInternalFormat(GL_R32F);
+            tex->setSourceFormat(GL_R);
             tex->setSourceType(GL_FLOAT);
             break;
         case RG_INT8:

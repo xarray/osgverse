@@ -32,6 +32,7 @@
 
 #include <vector>
 #include <random>
+#include <iostream>
 #include <stdint.h>
 #include <time.h>
 
@@ -170,20 +171,22 @@ namespace PoissonGenerator
     };
 
     template <typename PRNG>
-    sPoint PopRandom(std::vector<sPoint>& Points, PRNG& Generator)
+    sPoint PopRandom(std::vector<sPoint>& Points, const PRNG& Generator)
     {
-        const int Idx = Generator.RandomInt(Points.size() - 1);
+        PRNG& GeneratorN = const_cast<PRNG&>(Generator);
+        const int Idx = GeneratorN.RandomInt(Points.size() - 1);
         const sPoint P = Points[Idx];
         Points.erase(Points.begin() + Idx);
         return P;
     }
 
     template <typename PRNG>
-    sPoint GenerateRandomPointAround(const sPoint& P, float MinDist, PRNG& Generator)
+    sPoint GenerateRandomPointAround(const sPoint& P, float MinDist, const PRNG& Generator)
     {
         // start with non-uniform distribution
-        float R1 = Generator.RandomFloat();
-        float R2 = Generator.RandomFloat();
+        PRNG& GeneratorN = const_cast<PRNG&>(Generator);
+        float R1 = GeneratorN.RandomFloat();
+        float R2 = GeneratorN.RandomFloat();
 
         // radius should be between MinDist and 2 * MinDist
         float Radius = MinDist * (R1 + 1.0f);
@@ -208,7 +211,7 @@ namespace PoissonGenerator
     template <typename PRNG = DefaultPRNG>
     std::vector<sPoint> GeneratePoissonPoints(
         size_t NumPoints,
-        PRNG& Generator,
+        const PRNG& Generator,
         int NewPointsCount = 30,
         bool Circle = true,
         float MinDist = -1.0f
@@ -228,11 +231,12 @@ namespace PoissonGenerator
         int GridW = (int)ceil(1.0f / CellSize);
         int GridH = (int)ceil(1.0f / CellSize);
 
+        PRNG& GeneratorN = const_cast<PRNG&>(Generator);
         sGrid Grid(GridW, GridH, CellSize);
 
         sPoint FirstPoint;
         do {
-            FirstPoint = sPoint(Generator.RandomFloat(), Generator.RandomFloat());
+            FirstPoint = sPoint(GeneratorN.RandomFloat(), GeneratorN.RandomFloat());
         } while (!(Circle ? FirstPoint.IsInCircle() : FirstPoint.IsInRectangle()));
 
         // update containers
