@@ -15,22 +15,6 @@
 #include "Pipeline.h"
 #include "Utilities.h"
 
-#ifndef GL_HALF_FLOAT
-    #define GL_HALF_FLOAT                     0x140B
-#endif
-
-#ifndef GL_ARB_texture_rg
-    #define GL_RG                             0x8227
-    #define GL_R8                             0x8229
-    #define GL_R16                            0x822A
-    #define GL_RG8                            0x822B
-    #define GL_RG16                           0x822C
-    #define GL_R16F                           0x822D
-    #define GL_R32F                           0x822E
-    #define GL_RG16F                          0x822F
-    #define GL_RG32F                          0x8230
-#endif
-
 static osg::Camera::ComputeNearFarMode g_nearFarMode =
         osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES;
 
@@ -328,6 +312,7 @@ namespace osgVerse
     Pipeline::Pipeline()
     {
         _deferredCallback = new osgVerse::DeferredRenderCallback(true);
+        _deferredDepth = new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false);
         _invScreenResolution = new osg::Uniform(
             "InvScreenResolution", osg::Vec2(1.0f / 1920.0f, 1.0f / 1080.0f));
     }
@@ -371,6 +356,31 @@ namespace osgVerse
             runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
         ss->setTextureAttributeAndModes(u, createDefaultTexture(color));
         ss->addUniform(new osg::Uniform(buffer.data(), u));
+    }
+
+    osg::StateSet::UniformList Pipeline::Stage::getUniforms() const
+    {
+        osg::StateSet* ss = deferred ?
+            runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
+        return ss->getUniformList();
+    }
+
+    osg::Uniform* Pipeline::Stage::getUniform(const std::string& name) const
+    {
+        osg::StateSet* ss = deferred ?
+            runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
+        return ss->getUniform(name);
+    }
+
+    osg::Texture* Pipeline::Stage::getTexture(const std::string& name) const
+    {
+        osg::StateSet* ss = deferred ?
+            runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
+        osg::Uniform* samplerU = ss->getUniform(name); if (!samplerU) return NULL;
+
+        int u = -1; if (!samplerU->get(u)) return NULL;
+        return static_cast<osg::Texture*>(
+            ss->getTextureAttribute(u, osg::StateAttribute::TEXTURE));
     }
 
     Pipeline::Stage* Pipeline::getStage(const std::string& name)
@@ -501,7 +511,7 @@ namespace osgVerse
         va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
-        s->camera->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
+        s->camera->getOrCreateStateSet()->setAttributeAndModes(_deferredDepth.get());
         s->inputStage = false; _stages.push_back(s);
         return s;
     }
@@ -543,7 +553,7 @@ namespace osgVerse
                                     osg::Vec3(geom[0], geom[1], 0.0f), geom[2], geom[3], true);
         applyDefaultStageData(*s, name, vs, fs);
         //s->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
-        s->camera->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
+        s->camera->getOrCreateStateSet()->setAttributeAndModes(_deferredDepth.get());
         s->inputStage = false; _stages.push_back(s);
         return s;
     }
@@ -658,18 +668,33 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_INT8:
+#if WIN32
+            tex->setInternalFormat(GL_LUMINANCE8);
+            tex->setSourceFormat(GL_LUMINANCE);
+#else
             tex->setInternalFormat(GL_R8);
             tex->setSourceFormat(GL_R);
+#endif
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_FLOAT16:
+#if WIN32
+            tex->setInternalFormat(GL_LUMINANCE16F_ARB);
+            tex->setSourceFormat(GL_LUMINANCE);
+#else
             tex->setInternalFormat(GL_R16F);
             tex->setSourceFormat(GL_R);
+#endif
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
+#if WIN32
+            tex->setInternalFormat(GL_LUMINANCE32F_ARB);
+            tex->setSourceFormat(GL_LUMINANCE);
+#else
             tex->setInternalFormat(GL_R32F);
             tex->setSourceFormat(GL_R);
+#endif
             tex->setSourceType(GL_FLOAT);
             break;
         case RG_INT8:
@@ -690,7 +715,7 @@ namespace osgVerse
         case DEPTH16:
             tex->setInternalFormat(GL_DEPTH_COMPONENT16);
             tex->setSourceFormat(GL_DEPTH_COMPONENT);
-            tex->setSourceType(GL_FLOAT);
+            tex->setSourceType(GL_HALF_FLOAT);
             break;
         case DEPTH24_STENCIL8:
             tex->setInternalFormat(GL_DEPTH24_STENCIL8_EXT);

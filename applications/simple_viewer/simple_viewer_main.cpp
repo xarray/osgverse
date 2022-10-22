@@ -56,7 +56,7 @@ int main(int argc, char** argv)
         ss->setTextureAttributeAndModes(2, osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
         ss->setTextureAttributeAndModes(5, osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
         ss->setTextureAttributeAndModes(6, osgVerse::createTexture2D(
-            osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona/barcelona.hdr")));
+            osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona.hdr")));
         ss->addUniform(new osg::Uniform("DiffuseMap", (int)0));
         ss->addUniform(new osg::Uniform("NormalMap", (int)1));
         ss->addUniform(new osg::Uniform("SpecularMap", (int)2));

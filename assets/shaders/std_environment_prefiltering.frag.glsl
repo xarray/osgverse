@@ -1,7 +1,7 @@
 #version 130
 #define M_PI 3.1415926535897932384626433832795
 uniform sampler2D EnvironmentMap;
-uniform float roughness;
+uniform float GlobalRoughness;
 in vec4 texCoord0;
 out vec4 fragData;
 
@@ -70,7 +70,7 @@ void main()
     {
         // generates a sample vector that's biased towards the preferred alignment direction (importance sampling).
         vec2 Xi = hammersley(i, SAMPLE_COUNT);
-        vec3 H = importanceSampleGGX(Xi, N, roughness);
+        vec3 H = importanceSampleGGX(Xi, N, GlobalRoughness);
         vec3 L = normalize(2.0 * dot(V, H) * H - V);
         float nDotL = max(dot(N, L), 0.0);
         if (nDotL > 0.0)

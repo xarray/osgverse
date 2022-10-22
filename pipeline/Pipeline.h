@@ -2,6 +2,7 @@
 #define MANA_PP_PIPELINE_HPP
 
 #include <osg/Vec2s>
+#include <osg/Depth>
 #include <osg/Program>
 #include <osg/Texture2D>
 #include <osg/Group>
@@ -12,6 +13,22 @@
 #define FORWARD_SCENE_MASK  0x0000ff00
 #define DEFERRED_SCENE_MASK 0x00ff0000
 #define SHADOW_CASTER_MASK  0x01000000
+
+#ifndef GL_HALF_FLOAT
+    #define GL_HALF_FLOAT                     0x140B
+#endif
+
+#ifndef GL_ARB_texture_rg
+    #define GL_RG                             0x8227
+    #define GL_R8                             0x8229
+    #define GL_R16                            0x822A
+    #define GL_RG8                            0x822B
+    #define GL_RG16                           0x822C
+    #define GL_R16F                           0x822D
+    #define GL_R32F                           0x822E
+    #define GL_RG16F                          0x822F
+    #define GL_RG32F                          0x8230
+#endif
 
 namespace osgVerse
 {
@@ -56,6 +73,10 @@ namespace osgVerse
             void applyBuffer(Stage& s, const std::string& buffer, const std::string& name, int unit);
             void applyTexture(osg::Texture* tex, const std::string& buffer, int u);
             void applyDefaultTexture(const osg::Vec4& color, const std::string& buffer, int u);
+
+            osg::StateSet::UniformList getUniforms() const;
+            osg::Uniform* getUniform(const std::string& name) const;
+            osg::Texture* getTexture(const std::string& name) const;
 
             osg::Texture* getBufferTexture(const std::string& name)
             { return (outputs.find(name) != outputs.end()) ? outputs[name].get() : NULL; }
@@ -135,6 +156,7 @@ namespace osgVerse
         std::map<std::string, osg::ref_ptr<osg::NodeCallback>> _modules;
         osg::ref_ptr<osgVerse::DeferredRenderCallback> _deferredCallback;
         osg::ref_ptr<osg::GraphicsContext> _stageContext;
+        osg::ref_ptr<osg::Depth> _deferredDepth;
         osg::ref_ptr<osg::Uniform> _invScreenResolution;
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;

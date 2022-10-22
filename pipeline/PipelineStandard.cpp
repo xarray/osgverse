@@ -7,6 +7,7 @@
 #include <random>
 
 #define DEBUG_SHADOW_MODULE 0
+#define GENERATE_IBL_TEXTURES 0
 static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 static std::default_random_engine generator;
 
@@ -65,6 +66,9 @@ namespace osgVerse
     {
         osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(
             osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona.hdr"), osg::Texture::MIRROR);  // FIXME
+        osg::ref_ptr<osg::StateSet> iblData = dynamic_cast<osg::StateSet*>(
+            osgDB::readObjectFile(BASE_DIR "/skyboxes/barcelona.ibl.osgb"));  // FIXME
+
         osg::ref_ptr<osg::Shader> commonVert =
             osgDB::readShaderFile(osg::Shader::VERTEX, shaderDir + "std_common_quad.vert.glsl");
         p->startStages(originW, originH, NULL);
@@ -96,6 +100,7 @@ namespace osgVerse
         shadowCallback->setup(gbuffer->camera.get(), FINAL_DRAW);
         view->getCamera()->addUpdateCallback(shadow.get());
 
+#if GENERATE_IBL_TEXTURES
         osgVerse::Pipeline::Stage* brdfLut = p->addDeferredStage("BrdfLut", true, commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_brdf_lut.frag.glsl"),
             1, "BrdfLutBuffer", osgVerse::Pipeline::RG_FLOAT16);
@@ -104,12 +109,24 @@ namespace osgVerse
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_environment_prefiltering.frag.glsl"),
             1, "PrefilterBuffer", osgVerse::Pipeline::RGB_INT8);
         prefiltering->applyTexture(hdrMap.get(), "EnvironmentMap", 0);
-        prefiltering->applyUniform(new osg::Uniform("roughness", 4.0f));
+        prefiltering->applyUniform(new osg::Uniform("GlobalRoughness", 4.0f));
 
         osgVerse::Pipeline::Stage* convolution = p->addDeferredStage("IrrConvolution", true, commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_irradiance_convolution.frag.glsl"),
             1, "IrradianceBuffer", osgVerse::Pipeline::RGB_INT8);
         convolution->applyTexture(hdrMap.get(), "EnvironmentMap", 0);
+#else
+        osg::Texture *brdfLutTex = NULL, *prefilteringTex = NULL, *convolutionTex = NULL;
+        if (iblData.valid())
+        {
+            brdfLutTex = static_cast<osg::Texture*>(
+                iblData->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+            prefilteringTex = static_cast<osg::Texture*>(
+                iblData->getTextureAttribute(1, osg::StateAttribute::TEXTURE));
+            convolutionTex = static_cast<osg::Texture*>(
+                iblData->getTextureAttribute(2, osg::StateAttribute::TEXTURE));
+        }
+#endif
 
         osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao", commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_ssao.frag.glsl"),
@@ -144,9 +161,15 @@ namespace osgVerse
         lighting->applyBuffer(*gbuffer, "SpecularRoughnessBuffer", 2);
         lighting->applyBuffer(*gbuffer, "EmissionOcclusionBuffer", 3);
         lighting->applyBuffer(*gbuffer, "DepthBuffer", 4);
+#if GENERATE_IBL_TEXTURES
         lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5);
         lighting->applyBuffer(*prefiltering, "PrefilterBuffer", 6);
         lighting->applyBuffer(*convolution, "IrradianceBuffer", 7);
+#else
+        lighting->applyTexture(brdfLutTex, "BrdfLutBuffer", 5);
+        lighting->applyTexture(prefilteringTex, "PrefilterBuffer", 6);
+        lighting->applyTexture(convolutionTex, "IrradianceBuffer", 7);
+#endif
 
         osgVerse::Pipeline::Stage* shadowing = p->addWorkStage("Shadowing", commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_shadow_combine.frag.glsl"),
