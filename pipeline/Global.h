@@ -19,6 +19,8 @@
     #define BASE_DIR ".."
 #endif
 #define SHADER_DIR BASE_DIR "/shaders/"
+#define SKYBOX_DIR BASE_DIR "/skyboxes/"
+#define MISC_DIR BASE_DIR "/misc/"
 
 namespace osgVerse
 {

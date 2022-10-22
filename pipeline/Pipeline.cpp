@@ -458,7 +458,7 @@ namespace osgVerse
         return render;
     }
     
-    Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask,
+    Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
                                              osg::Shader* vs, osg::Shader* fs, int buffers, ...)
     {
         Stage* s = new Stage; s->deferred = false;
@@ -466,14 +466,15 @@ namespace osgVerse
         for (int i = 0; i < buffers; i ++)
         {
             std::string bufName = std::string(va_arg(params, const char*));
-            BufferType type = (BufferType)va_arg(params, int);
+            BufferType type = (BufferType)va_arg(params, int); int ms = 0;
             osg::Camera::BufferComponent comp = (buffers == 1) ? osg::Camera::COLOR_BUFFER
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
+            else ms = samples;
 
             osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1]);
-            if (i > 0) s->camera->attach(comp, tex.get());
+            if (i > 0) s->camera->attach(comp, tex.get(), 0, 0, false, ms);
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), false);
             s->outputs[bufName] = tex.get();
         }

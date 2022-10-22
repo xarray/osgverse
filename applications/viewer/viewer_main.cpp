@@ -64,8 +64,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
-        //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
-        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona.hdr"));
+        skybox->setEnvironmentMap(osgDB::readImageFile(SKYBOX_DIR "barcelona.hdr"));
         skybox->setNodeMask(~DEFERRED_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }
@@ -73,14 +72,19 @@ int main(int argc, char** argv)
     // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
-    setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);
+    setupStandardPipeline(pipeline.get(), &viewer, SHADER_DIR, SKYBOX_DIR "barcelona.hdr", 1920, 1080);
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
         osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
         shadow->addReferenceBound(cbv.getBoundingBox(), true);
-        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);
+        shadow->setLightState(osg::Vec3(), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
+        if (shadow->getFrustumGeode())
+        {
+            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
     }
 
     viewer.addEventHandler(new osgViewer::StatsHandler);

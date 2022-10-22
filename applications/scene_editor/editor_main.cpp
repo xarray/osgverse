@@ -146,11 +146,18 @@ int main(int argc, char** argv)
     // Pipeline initialization
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
-    setupStandardPipeline(pipeline.get(), &viewer, root.get(), SHADER_DIR, 1920, 1080);
+    setupStandardPipeline(pipeline.get(), &viewer, SHADER_DIR, SKYBOX_DIR "sunset.hdr", 1920, 1080);
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
-        shadow->setLightState(osg::Vec3(0.0f, 0.0f, 2500.0f), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
+    {
+        shadow->setLightState(osg::Vec3(), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
+        if (shadow->getFrustumGeode())
+        {
+            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
+    }
 
     // Post-HUD displays and utilities
     osg::ref_ptr<osg::Camera> skyCamera = new osg::Camera;
@@ -167,8 +174,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
-        //skybox->setEnvironmentMap(BASE_DIR "/skyboxes/default/", "jpg");
-        skybox->setEnvironmentMap(osgDB::readImageFile(BASE_DIR "/skyboxes/sunset.hdr"));
+        skybox->setEnvironmentMap(osgDB::readImageFile(SKYBOX_DIR "sunset.hdr"));
         skyCamera->addChild(skybox.get());
     }
 
@@ -189,7 +195,7 @@ int main(int argc, char** argv)
 
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont(BASE_DIR "/misc/SourceHanSansHWSC-Regular.otf");
+    imgui->setChineseSimplifiedFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
     imgui->initialize(new EditorContentHandler);
     imgui->addToView(&viewer, postCamera.get());
 

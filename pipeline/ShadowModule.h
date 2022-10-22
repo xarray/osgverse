@@ -14,13 +14,20 @@ namespace osgVerse
         void createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
                           unsigned int casterMask);
 
-        void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, float maxDistance);
-        void addReferenceBound(const osg::BoundingBox& bb, bool toReset);
-        void addReferencePoints(const std::vector<osg::Vec3>& pt, bool toReset);
+        void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, float maxDistance,
+                           bool retainLightPos = false);
+        void addReferenceBound(const osg::BoundingBoxd& bb, bool toReset);
+        void addReferenceBound(const osg::BoundingBoxf& bb, bool toReset);
+        void addReferencePoints(const std::vector<osg::Vec3d>& pt, bool toReset);
         void clearReferencePoints() { _referencePoints.clear(); }
 
+#if false
         osg::Texture2D* getTexture(int i) { return _shadowMaps[i].get(); }
         const osg::Texture2D* getTexture(int i) const { return _shadowMaps[i].get(); }
+#else
+        int applyTextureAndUniforms(Pipeline::Stage* stage, const std::string& prefix, int startU);
+#endif
+
         osg::Uniform* getLightMatrices() { return _lightMatrices.get(); }
         const osg::Uniform* getLightMatrices() const { return _lightMatrices.get(); }
 
@@ -41,9 +48,10 @@ namespace osgVerse
         osg::ref_ptr<osg::Uniform> _lightMatrices;
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
-        osg::Matrix _lightMatrix, _lightInvMatrix;
-        std::vector<osg::Vec3> _referencePoints;
+        osg::Matrix _lightMatrix;
+        std::vector<osg::Vec3d> _referencePoints;
         float _shadowMaxDistance;
+        bool _retainLightPos, _dirtyReference;
     };
 
     class ShadowDrawCallback : public CameraDrawCallback

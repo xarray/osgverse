@@ -40,7 +40,7 @@ osg::Camera* createRTTCameraForImage(osg::Camera::BufferComponent buffer, osg::I
 
 int main(int argc, char** argv)
 {
-    std::string skyFile = BASE_DIR "/skyboxes/barcelona.hdr";
+    std::string skyFile = SKYBOX_DIR "barcelona.hdr";
     if (argc > 1) skyFile = argv[1];
     osg::Image* skyBox = osgDB::readImageFile(skyFile);
     int w = 1920, h = 1080;

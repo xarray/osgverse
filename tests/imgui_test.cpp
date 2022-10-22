@@ -232,7 +232,7 @@ int main(int argc, char** argv)
 
     // The ImGui setup
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont(BASE_DIR "/misc/SourceHanSansHWSC-Regular.otf");
+    imgui->setChineseSimplifiedFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
     imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()), guiAsTexture);
     if (guiAsTexture)

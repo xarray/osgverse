@@ -114,7 +114,7 @@ namespace osgVerse
         osg::GraphicsOperation* createRenderer(osg::Camera* camera);
 
         /** Add input stage which uses main scene graph for initial shading and rendering-to-texture */
-        Stage* addInputStage(const std::string& n, unsigned int cullMask,
+        Stage* addInputStage(const std::string& n, unsigned int cullMask, int samples,
                              osg::Shader* vs, osg::Shader* fs, int buffers, ...);
 
         /** Add textures and use an internal screen-sized buffer for shading */
@@ -163,8 +163,8 @@ namespace osgVerse
     };
 
     /** Standard pipeline */
-    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, osg::Group* auxRoot,
-                                      const std::string& shaderDir, unsigned int originW, unsigned int originH);
+    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, const std::string& shaderDir,
+                                      const std::string& skyboxFile, unsigned int originW, unsigned int originH);
 }
 
 #endif

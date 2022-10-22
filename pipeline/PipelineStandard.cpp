@@ -1,81 +1,30 @@
 #include "Pipeline.h"
 #include "ShadowModule.h"
 #include "Utilities.h"
-#include <PoissonGenerator.h>
-#include <osg/Texture1D>
 #include <osgDB/ReadFile>
-#include <random>
+#include <osgDB/FileNameUtils>
 
 #define DEBUG_SHADOW_MODULE 0
 #define GENERATE_IBL_TEXTURES 0
-static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
-static std::default_random_engine generator;
-
-static osg::Texture* generateSsaoNoises(int numRows)
-{
-    static std::vector<osg::Vec3f> noises;
-    for (int i = 0; i < numRows; ++i)
-        for (int j = 0; j < numRows; ++j)
-        {
-            float angle = 2.0f * osg::PI * randomFloats(generator) / 8.0f;
-            osg::Vec3 noise(cosf(angle), sinf(angle), randomFloats(generator));
-            noises.push_back(noise);
-        }
-
-    osg::ref_ptr<osg::Image> image = new osg::Image;
-    image->setImage(numRows, numRows, 1, GL_RGB16F_ARB, GL_RGB, GL_FLOAT,
-                    (unsigned char*)&noises[0], osg::Image::NO_DELETE);
-
-    osg::ref_ptr<osg::Texture2D> noiseTex = new osg::Texture2D;
-    noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-    noiseTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
-    noiseTex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
-    noiseTex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
-    noiseTex->setImage(image.get());
-    return noiseTex.release();
-}
-
-static osg::Texture* generatePoissonDiscDistribution(int numSamples)
-{
-    size_t attempts = 0;
-    auto points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, PoissonGenerator::DefaultPRNG());
-    while (points.size() < numSamples && ++attempts < 100)
-        points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, PoissonGenerator::DefaultPRNG());
-
-    static std::vector<osg::Vec3f> distribution;
-    for (int i = 0; i < numSamples; ++i)
-        distribution.push_back(osg::Vec3(points[i].x, points[i].y, 0.0f));
-
-    osg::ref_ptr<osg::Image> image = new osg::Image;
-    image->setImage(numSamples, 1, 1, GL_RGB16F_ARB, GL_RGB, GL_FLOAT,
-        (unsigned char*)&distribution[0], osg::Image::NO_DELETE);
-
-    osg::ref_ptr<osg::Texture1D> noiseTex = new osg::Texture1D;
-    noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-    noiseTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
-    noiseTex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
-    noiseTex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
-    noiseTex->setImage(image.get());
-    return noiseTex.release();
-}
 
 namespace osgVerse
 {
-    void setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view, osg::Group* root,
-                               const std::string& shaderDir, unsigned int originW, unsigned int originH)
+    void setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view, const std::string& shaderDir,
+                               const std::string& skyboxFile, unsigned int w, unsigned int h)
     {
+        std::string iblFile = osgDB::getNameLessExtension(skyboxFile) + ".ibl.osgb";
         osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(
-            osgDB::readImageFile(BASE_DIR "/skyboxes/barcelona.hdr"), osg::Texture::MIRROR);  // FIXME
-        osg::ref_ptr<osg::StateSet> iblData = dynamic_cast<osg::StateSet*>(
-            osgDB::readObjectFile(BASE_DIR "/skyboxes/barcelona.ibl.osgb"));  // FIXME
+                osgDB::readImageFile(skyboxFile), osg::Texture::MIRROR);
+        osg::ref_ptr<osg::StateSet> iblData = dynamic_cast<osg::StateSet*>(osgDB::readObjectFile(iblFile));
+        int msaa = 0;  // FIXME: seems to cause some more flickers
 
         osg::ref_ptr<osg::Shader> commonVert =
             osgDB::readShaderFile(osg::Shader::VERTEX, shaderDir + "std_common_quad.vert.glsl");
-        p->startStages(originW, originH, NULL);
+        p->startStages(w, h, NULL);
 
         // GBuffer should always be first because it also computes the scene near/far planes
         // for following stages to use
-        osgVerse::Pipeline::Stage* gbuffer = p->addInputStage("GBuffer", DEFERRED_SCENE_MASK,
+        osgVerse::Pipeline::Stage* gbuffer = p->addInputStage("GBuffer", DEFERRED_SCENE_MASK, msaa,
             osgDB::readShaderFile(osg::Shader::VERTEX, shaderDir + "std_gbuffer.vert.glsl"),
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_gbuffer.frag.glsl"), 5,
             "NormalBuffer", osgVerse::Pipeline::RGBA_INT10_2,
@@ -133,7 +82,7 @@ namespace osgVerse
             1, "SsaoBuffer", osgVerse::Pipeline::R_INT8);
         ssao->applyBuffer(*gbuffer, "NormalBuffer", 0);
         ssao->applyBuffer(*gbuffer, "DepthBuffer", 1);
-        ssao->applyTexture(generateSsaoNoises(4), "RandomTexture", 2);
+        ssao->applyTexture(generateNoises2D(4, 4), "RandomTexture", 2);
         ssao->applyUniform(new osg::Uniform("AORadius", 4.0f));
         ssao->applyUniform(new osg::Uniform("AOBias", 0.1f));
         ssao->applyUniform(new osg::Uniform("AOPowExponent", 1.5f));
@@ -178,12 +127,9 @@ namespace osgVerse
         shadowing->applyBuffer(*lighting, "IblAmbientBuffer", 1);
         shadowing->applyBuffer(*gbuffer, "NormalBuffer", 2);
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
-        shadowing->applyTexture(shadow->getTexture(0), "ShadowMap0", 4);
-        shadowing->applyTexture(shadow->getTexture(1), "ShadowMap1", 5);
-        shadowing->applyTexture(shadow->getTexture(2), "ShadowMap2", 6);
-        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture0", 7);
-        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture1", 8);
-        shadowing->applyUniform(shadow->getLightMatrices());
+        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture0", 4);
+        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture1", 5);
+        shadow->applyTextureAndUniforms(shadowing, "ShadowMap", 6);
 
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final", commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_display.frag.glsl"),
@@ -193,10 +139,5 @@ namespace osgVerse
 
         p->applyStagesToView(view, FORWARD_SCENE_MASK);
         p->requireDepthBlit(gbuffer, true);
-
-#if DEBUG_SHADOW_MODULE
-        shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
-        root->addChild(shadow->getFrustumGeode());
-#endif
     }
 }

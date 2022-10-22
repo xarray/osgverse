@@ -3,6 +3,7 @@
 
 #include <osg/Polytope>
 #include <osg/Geometry>
+#include <osg/Texture1D>
 #include <osg/Texture2D>
 #include <osg/Camera>
 #include "Global.h"
@@ -10,6 +11,12 @@ struct SMikkTSpaceContext;
 
 namespace osgVerse
 {
+    /** Create 2D noises. e.g. for SSAO use */
+    extern osg::Texture* generateNoises2D(int numRows, int numCols);
+
+    /** Create poisson noises. e.g. for PCF shadow use */
+    extern osg::Texture* generatePoissonDiscDistribution(int numSamples);
+
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);
 
@@ -72,12 +79,12 @@ namespace osgVerse
 
         /** Create frustum polytope from given MVP matrices, may change near/far if needed */
         void create(const osg::Matrix& modelview, const osg::Matrix& proj,
-                    float preferredNear = -1.0f, float preferredFar = -1.0f);
+                    double preferredNear = -1.0, double preferredFar = -1.0);
 
         /** Compute minimum light-space bounding box from given frustum and some reference points.
             Result in light-space can be used for setting shadow camera pojection matrix */
-        osg::BoundingBox createShadowBound(const std::vector<osg::Vec3>& refPoints,
-                                           const osg::Matrix& worldToLocal);
+        osg::BoundingBoxd createShadowBound(const std::vector<osg::Vec3d>& refPoints,
+                                            const osg::Matrix& worldToLocal);
     };
 
     class DisableBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback

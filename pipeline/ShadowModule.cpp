@@ -7,7 +7,7 @@
 namespace osgVerse
 {
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
-        : _pipeline(pipeline), _shadowMaxDistance(-1.0f)
+        : _pipeline(pipeline), _shadowMaxDistance(-1.0f), _retainLightPos(false), _dirtyReference(false)
     {
         for (int i = 0; i < 4; ++i) _shadowMaps[i] = new osg::Texture2D;
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
@@ -15,10 +15,10 @@ namespace osgVerse
         if (pipeline) pipeline->addModule(name, this);
     }
 
-    void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0, float maxDistance)
+    void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0,
+                                     float maxDistance, bool retainLightPos)
     {
-        osg::Vec3 up = osg::Z_AXIS, dir = dir0;
-        dir.normalize();
+        osg::Vec3 up = osg::Z_AXIS, dir = dir0; dir.normalize();
         if (dir.length2() == 1.0f)
         {
             if (dir.z() == 1.0f || dir.z() == -1.0f)
@@ -27,8 +27,7 @@ namespace osgVerse
 
         osg::Vec3 side = up ^ dir; up = dir ^ side;
         _lightMatrix = osg::Matrix::lookAt(pos, pos + dir * maxDistance, up);
-        _lightInvMatrix = osg::Matrix::inverse(_lightMatrix);
-        _shadowMaxDistance = maxDistance;
+        _shadowMaxDistance = maxDistance; _retainLightPos = retainLightPos;
     }
 
     void ShadowModule::createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
@@ -58,16 +57,34 @@ namespace osgVerse
         }
     }
 
-    void ShadowModule::addReferencePoints(const std::vector<osg::Vec3>& pt, bool toReset)
+    void ShadowModule::addReferencePoints(const std::vector<osg::Vec3d>& pt, bool toReset)
     {
-        if (toReset) _referencePoints.clear();
+        if (toReset) _referencePoints.clear(); _dirtyReference = true;
         _referencePoints.insert(_referencePoints.end(), pt.begin(), pt.end());
     }
-
-    void ShadowModule::addReferenceBound(const osg::BoundingBox& bb, bool toReset)
+    
+    void ShadowModule::addReferenceBound(const osg::BoundingBoxd& bb, bool toReset)
     {
-        if (toReset) _referencePoints.clear();
+        if (toReset) _referencePoints.clear(); _dirtyReference = true;
         for (int i = 0; i < 8; ++i) _referencePoints.push_back(bb.corner(i));
+    }
+
+    void ShadowModule::addReferenceBound(const osg::BoundingBoxf& bb, bool toReset)
+    {
+        if (toReset) _referencePoints.clear(); _dirtyReference = true;
+        for (int i = 0; i < 8; ++i) _referencePoints.push_back(bb.corner(i));
+    }
+
+    int ShadowModule::applyTextureAndUniforms(Pipeline::Stage* stage, const std::string& prefix, int startU)
+    {
+        int unit = startU;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::string name = prefix + std::to_string(i);
+            stage->applyTexture(_shadowMaps[i].get(), name, unit++);
+        }
+        stage->applyUniform(getLightMatrices());
+        return unit;
     }
 
     void ShadowModule::updateInDraw(osg::RenderInfo& renderInfo)
@@ -80,16 +97,29 @@ namespace osgVerse
         double fov, ratio, zn, zf; proj.getPerspective(fov, ratio, zn, zf);
         if ((zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
 
+        if (_dirtyReference && !_retainLightPos)
+        {
+            // Recalculate light-space matrix
+            osg::Vec3d eye, center, up, dir; osg::BoundingSphered bs;
+            _lightMatrix.getLookAt(eye, center, up, _shadowMaxDistance);
+            dir = center - eye; dir.normalize();
+
+            for (size_t i = 0; i < _referencePoints.size(); ++i) bs.expandBy(_referencePoints[i]);
+            center = bs.center(); eye = center - dir * _shadowMaxDistance;
+            _lightMatrix = osg::Matrix::lookAt(eye, center, up); _dirtyReference = false;
+        }
+
+        // Split the main frustum
         static const float ratios[] = { 0.0f, 0.15f, 0.35f, 0.55f, 1.0f };
         size_t numCameras = _shadowCameras.size();
         float zStep = (zf - zn) / ratios[numCameras], zMaxTotal = 0.0f;
         std::vector<osg::BoundingBox> shadowBBs(numCameras);
         for (size_t i = 0; i < numCameras; ++i)
         {
-            // Split the main frustum
             float zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
             Frustum frustum; frustum.create(cam->getViewMatrix(), proj, zMin, zMax);
             
+            // Get light-space bounding box of the splitted frustum
             osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
             float zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
             shadowBBs[i] = shadowBB; if (zMaxTotal < zNew) zMaxTotal = zNew;

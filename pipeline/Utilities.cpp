@@ -12,13 +12,18 @@
 #include <iostream>
 #include <array>
 #include <mikktspace.h>
+#include <PoissonGenerator.h>
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
+#include <random>
 #if WIN32
     #include <windows.h>
 #endif
+
 #include "Utilities.h"
 typedef std::array<unsigned int, 3> Vec3ui;
+static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
+static std::default_random_engine generator;
 
 /// MikkTSpace visitor utilities
 struct MikkTSpaceHelper
@@ -117,6 +122,56 @@ namespace osgVerse
         osgDB::Registry::instance()->addFileExtensionAlias("fbx", "verse_fbx");
         osgDB::Registry::instance()->addFileExtensionAlias("gltf", "verse_gltf");
         osgDB::Registry::instance()->addFileExtensionAlias("glb", "verse_gltf");
+    }
+
+    osg::Texture* generateNoises2D(int numRows, int numCols)
+    {
+        std::vector<osg::Vec3f> noises;
+        for (int i = 0; i < numCols; ++i)
+            for (int j = 0; j < numRows; ++j)
+            {
+                float angle = 2.0f * osg::PI * randomFloats(generator) / 8.0f;
+                osg::Vec3 noise(cosf(angle), sinf(angle), randomFloats(generator));
+                noises.push_back(noise);
+            }
+
+        osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(numRows, numCols, 1, GL_RGB, GL_FLOAT);
+        image->setInternalTextureFormat(GL_RGB16F_ARB);
+        memcpy(image->data(), (unsigned char*)&noises[0], image->getTotalSizeInBytes());
+
+        osg::ref_ptr<osg::Texture2D> noiseTex = new osg::Texture2D;
+        noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+        noiseTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+        noiseTex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
+        noiseTex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
+        noiseTex->setImage(image.get());
+        return noiseTex.release();
+    }
+
+    osg::Texture* generatePoissonDiscDistribution(int numSamples)
+    {
+        size_t attempts = 0; PoissonGenerator::DefaultPRNG prng;
+        auto points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, prng);
+        while (points.size() < numSamples && ++attempts < 100)
+            points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, prng);
+
+        std::vector<osg::Vec3f> distribution;
+        for (int i = 0; i < numSamples; ++i)
+            distribution.push_back(osg::Vec3(points[i].x, points[i].y, 0.0f));
+
+        osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(numSamples, 1, 1, GL_RGB, GL_FLOAT);
+        image->setInternalTextureFormat(GL_RGB16F_ARB);
+        memcpy(image->data(), (unsigned char*)&distribution[0], image->getTotalSizeInBytes());
+
+        osg::ref_ptr<osg::Texture1D> noiseTex = new osg::Texture1D;
+        noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+        noiseTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+        noiseTex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
+        noiseTex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
+        noiseTex->setImage(image.get());
+        return noiseTex.release();
     }
 
     osg::Texture2D* createDefaultTexture(const osg::Vec4& color)
@@ -304,7 +359,7 @@ namespace osgVerse
     }
 
     void Frustum::create(const osg::Matrix& modelview, const osg::Matrix& originProj,
-                         float preferredNear, float preferredFar)
+                         double preferredNear, double preferredFar)
     {
         double znear = 0.0, zfar = 0.0, epsilon = 1e-6;
         osg::Matrixd proj = originProj;
@@ -342,10 +397,10 @@ namespace osgVerse
         frustumDir.normalize();
     }
 
-    osg::BoundingBox Frustum::createShadowBound(const std::vector<osg::Vec3>& refPoints,
-                                                const osg::Matrix& worldToLocal)
+    osg::BoundingBoxd Frustum::createShadowBound(const std::vector<osg::Vec3d>& refPoints,
+                                                 const osg::Matrix& worldToLocal)
     {
-        osg::BoundingBox lightSpaceBB0, lightSpaceBB1;
+        osg::BoundingBoxd lightSpaceBB0, lightSpaceBB1;
         for (int i = 0; i < 8; ++i) lightSpaceBB0.expandBy(corners[i] * worldToLocal);
         if (refPoints.empty()) return lightSpaceBB0;
 
