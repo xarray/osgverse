@@ -669,33 +669,18 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_INT8:
-#if WIN32
-            tex->setInternalFormat(GL_LUMINANCE8);
-            tex->setSourceFormat(GL_LUMINANCE);
-#else
             tex->setInternalFormat(GL_R8);
-            tex->setSourceFormat(GL_R);
-#endif
+            tex->setSourceFormat(GL_RED);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_FLOAT16:
-#if WIN32
-            tex->setInternalFormat(GL_LUMINANCE16F_ARB);
-            tex->setSourceFormat(GL_LUMINANCE);
-#else
             tex->setInternalFormat(GL_R16F);
-            tex->setSourceFormat(GL_R);
-#endif
+            tex->setSourceFormat(GL_RED);
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
-#if WIN32
-            tex->setInternalFormat(GL_LUMINANCE32F_ARB);
-            tex->setSourceFormat(GL_LUMINANCE);
-#else
             tex->setInternalFormat(GL_R32F);
-            tex->setSourceFormat(GL_R);
-#endif
+            tex->setSourceFormat(GL_RED);
             tex->setSourceType(GL_FLOAT);
             break;
         case RG_INT8:
