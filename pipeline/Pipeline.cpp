@@ -271,7 +271,7 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 }
 
                 osg::Camera* master = view ? view->getCamera() : 0;
-                if (view && camera != master) continue;
+                if (!view || (view && camera != master)) continue;
                 for (unsigned int i = 0; i < view->getNumSlaves(); ++i)
                 {
                     osg::View::Slave& child = view->getSlave(i);

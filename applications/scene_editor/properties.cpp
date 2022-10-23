@@ -55,7 +55,7 @@ bool Properties::handleCommand(CommandData* cmd)
 {
     /* Refresh properties:
        - cmd->object (parent) is the node/drawable whose properties are updated
-       - cmd->value (string): to-be-updated component's name, or empty to update all
+       - cmd->value (string): to-be-updated component's name, or empty to update all (TODO)
     */
     osg::Camera* mainCam = g_data.mainCamera.get();
     osg::StateSet* stateSet = NULL; ComponentCallback* callback = NULL;
@@ -110,17 +110,21 @@ bool Properties::handleCommand(CommandData* cmd)
             PropertyItemManager::AttributeItem, PropertyItem::StateSetType, stateSet, mainCam));
     }
 
+    std::string clsName = std::string(cmd->object->libraryName())
+                        + std::string("::") + cmd->object->className();
+    // TODO: for any extented (but not registered) class fullname, add an indicating component here
+
     if (callback != NULL)
     {
         for (size_t i = 0; i < callback->getNumComponents(); ++i)
         {
             Component* c = callback->getComponent(i);
-            std::string fullName = std::string(c->libraryName()) + std::string("::") + c->className();
+            std::string compName = std::string(c->libraryName()) + std::string("::") + c->className();
             
             /* TODO
-            PropertyItem* pC = propManager->getExtendedItem(fullName);
+            PropertyItem* pC = propManager->getExtendedItem(compName);
             if (pC) { pC->setTarget(c, PropertyItem::ComponentType); _properties.push_back(pC); }
-            else { OSG_WARN << "[Properties] Unknown component " << fullName << "\n"; }*/
+            else { OSG_WARN << "[Properties] Unknown component " << compName << "\n"; }*/
         }
     }
     return true;

@@ -1,6 +1,7 @@
 #ifndef MANA_PP_SHADOW_MODULE_HPP
 #define MANA_PP_SHADOW_MODULE_HPP
 
+#include <osg/CullFace>
 #include <osg/Texture2DArray>
 #include <osg/Geometry>
 #include "Pipeline.h"
@@ -14,19 +15,19 @@ namespace osgVerse
         void createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
                           unsigned int casterMask);
 
-        void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, float maxDistance,
+        void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, double maxDistance = -1.0,
                            bool retainLightPos = false);
         void addReferenceBound(const osg::BoundingBoxd& bb, bool toReset);
         void addReferenceBound(const osg::BoundingBoxf& bb, bool toReset);
         void addReferencePoints(const std::vector<osg::Vec3d>& pt, bool toReset);
         void clearReferencePoints() { _referencePoints.clear(); }
 
-#if false
+        int applyTextureAndUniforms(Pipeline::Stage* stage, const std::string& prefix, int startU);
+        double getShadowMaxDistance() const { return _shadowMaxDistance; }
+        int getShadowNumber() const { return _shadowNumber; }
+
         osg::Texture2D* getTexture(int i) { return _shadowMaps[i].get(); }
         const osg::Texture2D* getTexture(int i) const { return _shadowMaps[i].get(); }
-#else
-        int applyTextureAndUniforms(Pipeline::Stage* stage, const std::string& prefix, int startU);
-#endif
 
         osg::Uniform* getLightMatrices() { return _lightMatrices.get(); }
         const osg::Uniform* getLightMatrices() const { return _lightMatrices.get(); }
@@ -44,13 +45,14 @@ namespace osgVerse
         osg::observer_ptr<Pipeline> _pipeline;
         osg::observer_ptr<osg::Camera> _updatedCamera;
         osg::ref_ptr<osg::Geode> _shadowFrustum;
+        osg::ref_ptr<osg::CullFace> _cullFace;
         osg::ref_ptr<osg::Texture2D> _shadowMaps[4];
         osg::ref_ptr<osg::Uniform> _lightMatrices;
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix;
         std::vector<osg::Vec3d> _referencePoints;
-        float _shadowMaxDistance;
+        double _shadowMaxDistance; int _shadowNumber;
         bool _retainLightPos, _dirtyReference;
     };
 

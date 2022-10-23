@@ -2,6 +2,7 @@
 #include <osg/ComputeBoundsVisitor>
 #include <osg/LightSource>
 #include <osg/Texture2D>
+#include <osg/ShapeDrawable>
 #include <osg/MatrixTransform>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
@@ -48,8 +49,19 @@ int main(int argc, char** argv)
     sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
+    // Post-HUD display
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+    postCamera->setNodeMask(FORWARD_SCENE_MASK);
+    postCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+    postCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
+    postCamera->setViewMatrix(osg::Matrix::identity());
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
+    root->addChild(postCamera.get());
 
     // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
@@ -61,11 +73,22 @@ int main(int argc, char** argv)
     {
         osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
         shadow->addReferenceBound(cbv.getBoundingBox(), true);
-        shadow->setLightState(osg::Vec3(), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
+
+        //shadow->setLightState(osg::Vec3(), osg::Vec3(0.02f, 0.1f, -1.0f));  // FIXME
+        shadow->setLightState(osg::Vec3(), osg::Vec3(0.0f, 0.0f, -1.0f));
         if (shadow->getFrustumGeode())
         {
             shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
             root->addChild(shadow->getFrustumGeode());
+        }
+
+        float quadY = 0.0f;
+        for (int i = 0; i < shadow->getShadowNumber(); ++i)
+        {
+            osg::Node* quad = osgVerse::createScreenQuad(
+                osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+            quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
+            postCamera->addChild(quad); quadY += 0.21f;
         }
     }
 

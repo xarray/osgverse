@@ -36,7 +36,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define POISSON_PROGRESS_INDICATOR 1
+#define POISSON_PROGRESS_INDICATOR 0
 
 namespace PoissonGenerator
 {

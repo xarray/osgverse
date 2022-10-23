@@ -11,7 +11,7 @@ MACRO(COPY_DIRECTORY target in_dir out_dir)
 
 	IF(COPY_AVAILABLE)
 		ADD_CUSTOM_COMMAND(OUTPUT ${target} COMMAND ${CMAKE_COMMAND}
-    						-E copy_directory "${in_dir}" "${out_dir}")
+		                   -E copy_directory "${in_dir}" "${out_dir}")
 		SET(COPYTASK_DEPS ${COPYTASK_DEPS} ${target})
 	ENDIF(COPY_AVAILABLE)
 ENDMACRO(COPY_DIRECTORY)

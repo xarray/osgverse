@@ -7,16 +7,19 @@
 namespace osgVerse
 {
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
-        : _pipeline(pipeline), _shadowMaxDistance(-1.0f), _retainLightPos(false), _dirtyReference(false)
+    :   _pipeline(pipeline), _shadowMaxDistance(-1.0), _shadowNumber(0),
+        _retainLightPos(false), _dirtyReference(false)
     {
         for (int i = 0; i < 4; ++i) _shadowMaps[i] = new osg::Texture2D;
+        _cullFace = new osg::CullFace(osg::CullFace::FRONT);
+
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
         _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", 4);
         if (pipeline) pipeline->addModule(name, this);
     }
 
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0,
-                                     float maxDistance, bool retainLightPos)
+                                     double maxDistance, bool retainLightPos)
     {
         osg::Vec3 up = osg::Z_AXIS, dir = dir0; dir.normalize();
         if (dir.length2() == 1.0f)
@@ -26,15 +29,17 @@ namespace osgVerse
         }
 
         osg::Vec3 side = up ^ dir; up = dir ^ side;
-        _lightMatrix = osg::Matrix::lookAt(pos, pos + dir * maxDistance, up);
+        _lightMatrix = osg::Matrix::lookAt(
+            pos, pos + dir * (maxDistance > 0.0 ? maxDistance : 100.0), up);
         _shadowMaxDistance = maxDistance; _retainLightPos = retainLightPos;
     }
 
     void ShadowModule::createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
                                     unsigned int casterMask)
     {
-        shadowNum = osg::minimum(shadowNum, 4);
-        for (int i = 0; i < shadowNum; ++i)
+        _shadowCameras.clear();
+        _shadowNumber = osg::minimum(shadowNum, 4);
+        for (int i = 0; i < _shadowNumber; ++i)
         {
             _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
             _shadowMaps[i]->setInternalFormat(GL_RGB16F_ARB);
@@ -53,7 +58,7 @@ namespace osgVerse
             prog->setName("ShadowCaster_PROGRAM");
             if (vs) { vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs); }
             if (fs) { fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs); }
-            for (int i = 0; i < shadowNum; ++i)
+            for (int i = 0; i < _shadowNumber; ++i)
                 _pipeline->addStage(createShadowCaster(i, prog.get(), casterMask));
         }
     }
@@ -79,7 +84,7 @@ namespace osgVerse
     int ShadowModule::applyTextureAndUniforms(Pipeline::Stage* stage, const std::string& prefix, int startU)
     {
         int unit = startU;
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < _shadowNumber; ++i)
         {
             std::string name = prefix + std::to_string(i);
             stage->applyTexture(_shadowMaps[i].get(), name, unit++);
@@ -96,41 +101,42 @@ namespace osgVerse
 
         osg::Matrix viewInv = cam->getInverseViewMatrix(), proj = state->getProjectionMatrix();
         double fov, ratio, zn, zf; proj.getPerspective(fov, ratio, zn, zf);
-        if ((zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
-
+        if (_shadowMaxDistance > 0.0 && (zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
+        
+        double shadowDistance = zf - zn;
         if (_dirtyReference && !_retainLightPos)
         {
             // Recalculate light-space matrix
             osg::Vec3d eye, center, up, dir; osg::BoundingSphered bs;
-            _lightMatrix.getLookAt(eye, center, up, _shadowMaxDistance);
+            _lightMatrix.getLookAt(eye, center, up, shadowDistance);
             dir = center - eye; dir.normalize();
 
             for (size_t i = 0; i < _referencePoints.size(); ++i) bs.expandBy(_referencePoints[i]);
-            center = bs.center(); eye = center - dir * _shadowMaxDistance;
+            center = bs.center(); eye = center - dir * shadowDistance;
             _lightMatrix = osg::Matrix::lookAt(eye, center, up); _dirtyReference = false;
         }
 
         // Split the main frustum
         static const float ratios[] = { 0.0f, 0.15f, 0.35f, 0.55f, 1.0f };
         size_t numCameras = _shadowCameras.size();
-        float zStep = (zf - zn) / ratios[numCameras], zMaxTotal = 0.0f;
+        double zStep = shadowDistance / ratios[numCameras], zMaxTotal = 0.0f;
         std::vector<osg::BoundingBoxd> shadowBBs(numCameras);
         for (size_t i = 0; i < numCameras; ++i)
         {
-            float zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
+            double zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
             Frustum frustum; frustum.create(cam->getViewMatrix(), proj, zMin, zMax);
             
             // Get light-space bounding box of the splitted frustum
             osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
-            float zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
+            double zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
             shadowBBs[i] = shadowBB; if (zMaxTotal < zNew) zMaxTotal = zNew;
         }
 
         for (size_t i = 0; i < numCameras; ++i)
         {
             const osg::BoundingBoxd& shadowBB = shadowBBs[i];
-            float xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
-            float yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
+            double xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
+            double yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
 
             // Apply the shadow camera & uniform
             osg::Camera* shadowCam = _shadowCameras[i].get();
@@ -171,6 +177,8 @@ namespace osgVerse
         camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps[id].get());
         camera->getOrCreateStateSet()->setAttributeAndModes(
             prog, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+        camera->getOrCreateStateSet()->setAttributeAndModes(
+            _cullFace.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         _shadowCameras.push_back(camera.get());
 
         Pipeline::Stage* stage = new Pipeline::Stage;
