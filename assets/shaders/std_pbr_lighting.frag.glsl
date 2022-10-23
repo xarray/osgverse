@@ -3,8 +3,6 @@
 uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
 uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
-uniform sampler2DArray ShadowMapArray;
-uniform mat4 ShadowSpaceMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 in vec4 texCoord0;
 

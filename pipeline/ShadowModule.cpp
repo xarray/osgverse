@@ -42,8 +42,9 @@ namespace osgVerse
             _shadowMaps[i]->setSourceType(GL_FLOAT);
             _shadowMaps[i]->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
             _shadowMaps[i]->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-            _shadowMaps[i]->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-            _shadowMaps[i]->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+            _shadowMaps[i]->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
+            _shadowMaps[i]->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
+            _shadowMaps[i]->setBorderColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
         }
 
         if (_pipeline.valid())
@@ -113,21 +114,21 @@ namespace osgVerse
         static const float ratios[] = { 0.0f, 0.15f, 0.35f, 0.55f, 1.0f };
         size_t numCameras = _shadowCameras.size();
         float zStep = (zf - zn) / ratios[numCameras], zMaxTotal = 0.0f;
-        std::vector<osg::BoundingBox> shadowBBs(numCameras);
+        std::vector<osg::BoundingBoxd> shadowBBs(numCameras);
         for (size_t i = 0; i < numCameras; ++i)
         {
             float zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
             Frustum frustum; frustum.create(cam->getViewMatrix(), proj, zMin, zMax);
             
             // Get light-space bounding box of the splitted frustum
-            osg::BoundingBox shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+            osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
             float zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
             shadowBBs[i] = shadowBB; if (zMaxTotal < zNew) zMaxTotal = zNew;
         }
 
         for (size_t i = 0; i < numCameras; ++i)
         {
-            const osg::BoundingBox& shadowBB = shadowBBs[i];
+            const osg::BoundingBoxd& shadowBB = shadowBBs[i];
             float xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
             float yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
 
@@ -160,7 +161,7 @@ namespace osgVerse
         camera->setReadBuffer(GL_FRONT);
         camera->setAllowEventFocus(false);
         camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-        camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        camera->setClearColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         camera->setRenderOrder(osg::Camera::PRE_RENDER);

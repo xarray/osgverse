@@ -324,14 +324,21 @@ namespace osgVerse
         if (ss->getUniform(u->getName()) == NULL) ss->addUniform(u);
     }
 
-    void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, int unit)
-    { applyBuffer(src, buffer, buffer, unit); }
+    void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, int unit, osg::Texture::WrapMode wp)
+    { applyBuffer(src, buffer, buffer, unit, wp); }
 
-    void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, const std::string& n, int unit)
+    void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, const std::string& n,
+                                      int unit, osg::Texture::WrapMode wp)
     {
         if (src.outputs.find(buffer) != src.outputs.end())
         {
             osg::Texture* tex = src.outputs[buffer].get();
+            if (wp != 0)
+            {
+                tex->setWrap(osg::Texture::WRAP_S, wp);
+                tex->setWrap(osg::Texture::WRAP_T, wp);
+            }
+
             osg::StateSet* ss = deferred ?
                 runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
             ss->setTextureAttributeAndModes(unit, tex);

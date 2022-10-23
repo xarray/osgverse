@@ -121,9 +121,9 @@ int main(int argc, char** argv)
         }*/
 
     std::string outFile = osgDB::getNameLessExtension(skyFile);
-    osg::ref_ptr<osg::Texture2D> tex0 = osgVerse::createTexture2D(img0.get());
-    osg::ref_ptr<osg::Texture2D> tex1 = osgVerse::createTexture2D(img1.get());
-    osg::ref_ptr<osg::Texture2D> tex2 = osgVerse::createTexture2D(img2.get());
+    osg::ref_ptr<osg::Texture2D> tex0 = osgVerse::createTexture2D(img0.get(), osg::Texture::MIRROR);
+    osg::ref_ptr<osg::Texture2D> tex1 = osgVerse::createTexture2D(img1.get(), osg::Texture::MIRROR);
+    osg::ref_ptr<osg::Texture2D> tex2 = osgVerse::createTexture2D(img2.get(), osg::Texture::MIRROR);
 
     osg::ref_ptr<osg::StateSet> savedSS = new osg::StateSet;
     savedSS->setTextureAttribute(0, tex0.get());

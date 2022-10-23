@@ -3,7 +3,7 @@
 
 #include <osg/Camera>
 #include <osg/MatrixTransform>
-#include <pipeline/Global.h>
+#include "../pipeline/Global.h"
 #include "ImGui.h"
 #include "PropertyInterface.h"
 #include <map>

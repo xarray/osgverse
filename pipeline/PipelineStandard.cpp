@@ -111,9 +111,9 @@ namespace osgVerse
         lighting->applyBuffer(*gbuffer, "EmissionOcclusionBuffer", 3);
         lighting->applyBuffer(*gbuffer, "DepthBuffer", 4);
 #if GENERATE_IBL_TEXTURES
-        lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5);
-        lighting->applyBuffer(*prefiltering, "PrefilterBuffer", 6);
-        lighting->applyBuffer(*convolution, "IrradianceBuffer", 7);
+        lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5, osg::Texture::MIRROR);
+        lighting->applyBuffer(*prefiltering, "PrefilterBuffer", 6, osg::Texture::MIRROR);
+        lighting->applyBuffer(*convolution, "IrradianceBuffer", 7, osg::Texture::MIRROR);
 #else
         lighting->applyTexture(brdfLutTex, "BrdfLutBuffer", 5);
         lighting->applyTexture(prefilteringTex, "PrefilterBuffer", 6);
