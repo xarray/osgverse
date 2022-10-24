@@ -10,6 +10,7 @@
 #include <osgGA/TrackballManipulator>
 #include <osgGA/StateSetManipulator>
 #include <osgUtil/CullVisitor>
+
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Pipeline.h>

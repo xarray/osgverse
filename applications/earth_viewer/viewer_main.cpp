@@ -1,5 +1,5 @@
 #include <osg/io_utils>
-#include <osg/LightSource>
+#include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -16,12 +16,29 @@
 #include <osgEarth/Sky>
 #include <osgEarth/GLUtils>
 #include <osgEarth/AutoClipPlaneHandler>
+
+#include <osgViewer/Viewer>
+#include <osgViewer/ViewerEventHandlers>
+#include <pipeline/Pipeline.h>
+#include <pipeline/ShadowModule.h>
+#include <pipeline/LightModule.h>
+#include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
-#include <readerwriter/LoadSceneFBX.h>
-#include <readerwriter/LoadSceneGLTF.h>
-#include <pipeline/Pipeline.h>
-#include <pipeline/Utilities.h>
+
+class MyViewer : public osgViewer::Viewer
+{
+public:
+    MyViewer(osgVerse::Pipeline* p) : osgViewer::Viewer(), _pipeline(p) {}
+    osg::ref_ptr<osgVerse::Pipeline> _pipeline;
+
+protected:
+    virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
+    {
+        if (_pipeline.valid()) return _pipeline->createRenderer(camera);
+        else return osgViewer::Viewer::createRenderer(camera);
+    }
+};
 
 class InteractiveHandler : public osgGA::GUIEventHandler
 {
@@ -55,20 +72,6 @@ protected:
     bool _viewpointSet;
 };
 
-class MyViewer : public osgViewer::Viewer
-{
-public:
-    MyViewer(osgVerse::Pipeline* p) : osgViewer::Viewer(), _pipeline(p) {}
-    osg::ref_ptr<osgVerse::Pipeline> _pipeline;
-
-protected:
-    virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
-    {
-        if (_pipeline.valid()) return _pipeline->createRenderer(camera);
-        else return osgViewer::Viewer::createRenderer(camera);
-    }
-};
-
 osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode* mapNode, const std::string& file,
                                        const osg::Matrix& baseT, double lng, double lat, double h, float heading)
 {
@@ -93,8 +96,8 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
 
     osg::ref_ptr<osg::MatrixTransform> baseScene = new osg::MatrixTransform;
     {
-        osg::ref_ptr<osg::Node> fbxScene = osgVerse::loadFbx(file);
-        if (fbxScene.valid()) baseScene->addChild(fbxScene.get());
+        osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(file);
+        if (loadedModel.valid()) baseScene->addChild(loadedModel.get());
         baseScene->setMatrix(baseT); scene->addChild(baseScene.get());
     }
 
@@ -116,7 +119,7 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
     osgEarth::Viewpoint vp;
     vp.setNode(geo.get());
     vp.heading()->set(heading, osgEarth::Units::DEGREES);
-    vp.pitch()->set(-20.0, osgEarth::Units::DEGREES);
+    vp.pitch()->set(-50.0, osgEarth::Units::DEGREES);
     vp.range()->set(scene->getBound().radius() * 10.0, osgEarth::Units::METERS);
     return vp;
 }
@@ -133,13 +136,35 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(sceneRoot.get());
 
-#if true
-    osgViewer::Viewer viewer;
-#else
+    // Main light
+    osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
+    light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
+    light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
+    light0->setDirectional(true);
+
+    osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
+    lightGeode->addDrawable(light0.get());
+    root->addChild(lightGeode.get());
+
+    // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
     setupStandardPipeline(pipeline.get(), &viewer, SHADER_DIR, SKYBOX_DIR "barcelona.hdr", 1920, 1080);
-#endif
+
+    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    if (shadow)
+    {
+        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
+        shadow->addReferenceBound(cbv.getBoundingBox(), true);
+        if (shadow->getFrustumGeode())
+        {
+            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
+    }
+
+    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+    light->setMainLight(light0.get(), "Shadow");
 
     // osgEarth configuration
     osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("F:/DataSet/osgEarthData/t2.earth");
@@ -156,16 +181,11 @@ int main(int argc, char** argv)
         osg::ref_ptr<osgEarth::MapNode> mapNode = osgEarth::MapNode::get(earthRoot.get());
         if (!mapNode->open()) { OSG_WARN << "Failed to open earth map"; return 1; }
 
-#if true
-        osgEarth::GLUtils::setGlobalDefaults(viewer.getCamera()->getOrCreateStateSet());
-        viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
-        viewer.getCamera()->addCullCallback(new osgEarth::AutoClipPlaneCullCallback(mapNode.get()));
-#else
         // default uniform values and disable small feature culling
+        osgVerse::Pipeline::Stage* gbufferStage = pipeline->getStage("GBuffer");
         osgEarth::GLUtils::setGlobalDefaults(pipeline->getForwardCamera()->getOrCreateStateSet());
-        pipeline->getForwardCamera()->setSmallFeatureCullingPixelSize(-1.0f);
-        pipeline->getForwardCamera()->addCullCallback(new osgEarth::AutoClipPlaneCullCallback(mapNode.get()));
-#endif
+        gbufferStage->camera->setSmallFeatureCullingPixelSize(-1.0f);
+        gbufferStage->camera->addCullCallback(new osgEarth::AutoClipPlaneCullCallback(mapNode.get()));
 
         // thread-safe initialization of the OSG wrapper manager. Calling this here
         // prevents the "unsupported wrapper" messages from OSG
@@ -176,7 +196,7 @@ int main(int argc, char** argv)
         osg::ref_ptr<osgEarth::Util::SkyNode> skyNode = osgEarth::Util::SkyNode::create();
         skyNode->setName("SkyNode");
         skyNode->setEphemeris(ephemeris);
-        skyNode->setDateTime(osgEarth::DateTime(2021, 7, 1, 10));
+        skyNode->setDateTime(osgEarth::DateTime(2022, 7, 1, 10));
         skyNode->attach(&viewer, 0);
         skyNode->setLighting(true);
         skyNode->addChild(mapNode.get());
@@ -190,21 +210,12 @@ int main(int argc, char** argv)
 
         // Create places
         osgEarth::Viewpoint vp0 = createPlaceOnEarth(
-            sceneRoot.get(), mapNode.get(), "../Escher/·ïÇì²èÉ½/SM_ChaShan.fbx",
-            osg::Matrix::scale(0.05, 0.05, 0.05) * osg::Matrix::rotate(0.1, osg::Z_AXIS),
-            118.804f, 26.484f, -10.0f, 90.0f);
-        osgEarth::Viewpoint vp1 = createPlaceOnEarth(
-            sceneRoot.get(), mapNode.get(), "../Escher/ÓñÏª¸Ö³§/SM_YuXiGangChang.FBX",
-            osg::Matrix::scale(0.01, 0.01, 0.01) * osg::Matrix::rotate(0.0, osg::Z_AXIS),
-            119.008f, 25.9f, 0.0f, -45.0f);
-        osgEarth::Viewpoint vp2 = createPlaceOnEarth(
-            sceneRoot.get(), mapNode.get(), "../Escher/RanQiHeZuoShe/SM_RanQiHeZuoShe_L.fbx",
-            osg::Matrix::rotate(0.0, osg::Z_AXIS), 119.018f, 25.465f, 0.0f, -45.0f);
+            sceneRoot.get(), mapNode.get(), "../models/Sponza/Sponza.gltf",
+            osg::Matrix::scale(5.0, 5.0, 5.0) * osg::Matrix::rotate(0.4, osg::Z_AXIS),
+            115.7f, 39.484f, 20.0f, 80.0f);
 
         osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
         interacter->addViewpoint(vp0);
-        interacter->addViewpoint(vp1);
-        interacter->addViewpoint(vp2);
         viewer.addEventHandler(interacter.get());
     }
 
@@ -212,6 +223,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setSceneData(root.get());
+    viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
     while (!viewer.done())
     {
         viewer.frame();

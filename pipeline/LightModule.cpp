@@ -38,6 +38,7 @@ namespace osgVerse
         if (!uv) { traverse(node, nv); return; }
 
         // Update shadow module if main-light exists
+        const float dirLength = 1000.0f;
         if (_pipeline.valid() && _mainLight.valid())
         {
             ShadowModule* shadow = static_cast<ShadowModule*>(_pipeline->getModule(_shadowModuleName));
@@ -45,8 +46,9 @@ namespace osgVerse
             {
                 // FIXME: what if main-light is not directional?
                 osg::Matrix worldM = _mainLight->getWorldMatrices()[0];
-                osg::Vec3 pos0 = _mainLight->getPosition() * worldM;
-                osg::Vec3 pos1 = (_mainLight->getPosition() + _mainLight->getDirection()) * worldM;
+                osg::Vec3d pos0 = _mainLight->getPosition() * worldM;
+                osg::Vec3d pos1 = (_mainLight->getPosition() +
+                                   _mainLight->getDirection() * dirLength) * worldM;
                 shadow->setLightState(pos0, pos1 - pos0);
             }
         }
@@ -69,11 +71,10 @@ namespace osgVerse
             LightDrawable::Type t = ld.light->getType(unlimited);
             const osg::Vec3& color = ld.light->getColor();
             osg::Vec3 pos0 = ld.light->getPosition() * ld.matrix;
-            osg::Vec3 pos1 = (ld.light->getPosition() + ld.light->getDirection()) * ld.matrix;
+            osg::Vec3 pos1 = (ld.light->getPosition() +
+                              ld.light->getDirection() * dirLength) * ld.matrix;
             osg::Vec3 dir = pos1 - pos0; dir.normalize();
             osg::Vec2 range = ld.light->getRange();
-
-            std::cout << dir << "\n";
 
             *(paramPtr + 1024 * 0 + i)/*light color, type*/ =
                 osg::Vec4(color[0], color[1], color[2], (float)t);
