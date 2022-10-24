@@ -10,9 +10,9 @@
 #include <string>
 #include "DeferredCallback.h"
 
-#define FORWARD_SCENE_MASK  0x0000ff00
-#define DEFERRED_SCENE_MASK 0x00ff0000
-#define SHADOW_CASTER_MASK  0x01000000
+#define FORWARD_SCENE_MASK  0x00ffffff
+#define DEFERRED_SCENE_MASK 0xff000000
+#define SHADOW_CASTER_MASK  0x10000000
 
 #ifndef GL_HALF_FLOAT
     #define GL_HALF_FLOAT                     0x140B

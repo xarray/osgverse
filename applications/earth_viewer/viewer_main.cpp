@@ -60,7 +60,7 @@ public:
             {
                 int index = ea.getKey() - '1';
                 if (index < _viewPoints.size())
-                { _manipulator->setViewpoint(_viewPoints[index], 2.0); _viewpointSet = true; }
+                { _manipulator->setViewpoint(_viewPoints[index], 12.0); _viewpointSet = true; }
             }
         }
         return false;
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
     light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
-    light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
+    light0->setDirection(osg::Vec3(0.0f, -1.0f, -0.8f));
     light0->setDirectional(true);
 
     osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
@@ -154,8 +154,6 @@ int main(int argc, char** argv)
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
-        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
-        shadow->addReferenceBound(cbv.getBoundingBox(), true);
         if (shadow->getFrustumGeode())
         {
             shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
@@ -224,8 +222,11 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
+
     while (!viewer.done())
     {
+        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
+        shadow->addReferenceBound(cbv.getBoundingBox(), true);
         viewer.frame();
     }
     return 0;

@@ -135,7 +135,7 @@ namespace osgVerse
         {
             double zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
             Frustum frustum; frustum.create(cam->getViewMatrix(), proj, zMin, zMax);
-            
+
             // Get light-space bounding box of the splitted frustum
             osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
             double zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
@@ -147,6 +147,8 @@ namespace osgVerse
             const osg::BoundingBoxd& shadowBB = shadowBBs[i];
             double xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
             double yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
+            //std::cout << i << ": X = (" << xMin << ", " << xMax << "), Y = ("
+            //          << yMin << ", " << yMax << "); Z = " << zMaxTotal << "\n";
 
             // Apply the shadow camera & uniform
             osg::Camera* shadowCam = _shadowCameras[i].get();
