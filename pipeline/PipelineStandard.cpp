@@ -1,5 +1,6 @@
 #include "Pipeline.h"
 #include "ShadowModule.h"
+#include "LightModule.h"
 #include "Utilities.h"
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
@@ -34,20 +35,24 @@ namespace osgVerse
             "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 
 #if DEBUG_SHADOW_MODULE
-        osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule("Shadow", p, true);
+        osg::ref_ptr<osgVerse::ShadowModule> shadowModule = new osgVerse::ShadowModule("Shadow", p, true);
 #else
-        osg::ref_ptr<osgVerse::ShadowModule> shadow = new osgVerse::ShadowModule("Shadow", p, false);
+        osg::ref_ptr<osgVerse::ShadowModule> shadowModule = new osgVerse::ShadowModule("Shadow", p, false);
 #endif
-        shadow->createStages(2048, 3,
+        shadowModule->createStages(2048, 3,
             osgDB::readShaderFile(osg::Shader::VERTEX, shaderDir + "std_shadow_cast.vert.glsl"),
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_shadow_cast.frag.glsl"),
             SHADOW_CASTER_MASK);
 
-        // Update shadow matrices at the end of g-buffer (when near/far planes are sync-ed
+        // Update shadow matrices at the end of g-buffer (when near/far planes are sync-ed)
         osg::ref_ptr<osgVerse::ShadowDrawCallback> shadowCallback =
-                new osgVerse::ShadowDrawCallback(shadow.get());
+                new osgVerse::ShadowDrawCallback(shadowModule.get());
         shadowCallback->setup(gbuffer->camera.get(), FINAL_DRAW);
-        view->getCamera()->addUpdateCallback(shadow.get());
+        view->getCamera()->addUpdateCallback(shadowModule.get());
+
+        // Light module only needs to be added to main camera
+        osg::ref_ptr<osgVerse::LightModule> lightModule = new osgVerse::LightModule("Light", p);
+        view->getCamera()->addUpdateCallback(lightModule.get());
 
 #if GENERATE_IBL_TEXTURES
         osgVerse::Pipeline::Stage* brdfLut = p->addDeferredStage("BrdfLut", true, commonVert,
@@ -119,6 +124,7 @@ namespace osgVerse
         lighting->applyTexture(prefilteringTex, "PrefilterBuffer", 6);
         lighting->applyTexture(convolutionTex, "IrradianceBuffer", 7);
 #endif
+        lightModule->applyTextureAndUniforms(lighting, "LightParameterMap", 8);
 
         osgVerse::Pipeline::Stage* shadowing = p->addWorkStage("Shadowing", commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_shadow_combine.frag.glsl"),
@@ -129,7 +135,7 @@ namespace osgVerse
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
         shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture0", 4);
         shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture1", 5);
-        shadow->applyTextureAndUniforms(shadowing, "ShadowMap", 6);
+        shadowModule->applyTextureAndUniforms(shadowing, "ShadowMap", 6);
 
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final", commonVert,
             osgDB::readShaderFile(osg::Shader::FRAGMENT, shaderDir + "std_display.frag.glsl"),

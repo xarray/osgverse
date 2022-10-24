@@ -1,13 +1,13 @@
 SET(LIB_NAME osgVersePipeline)
 SET(LIBRARY_INCLUDE_FILES
     Pipeline.h DeferredCallback.h ShadowModule.h
-	IntersectionManager.h LightDrawable.h NodeSelector.h
-	SkyBox.h Utilities.h Global.h
+	LightModule.h LightDrawable.h SkyBox.h NodeSelector.h
+	IntersectionManager.h Utilities.h Global.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    Pipeline.cpp PipelineStandard.cpp DeferredCallback.cpp ShadowModule.cpp
-	IntersectionManager.cpp LightDrawable.cpp NodeSelector.cpp
-	SkyBox.cpp Utilities.cpp 
+    Pipeline.cpp PipelineStandard.cpp DeferredCallback.cpp
+	ShadowModule.cpp LightModule.cpp LightDrawable.cpp SkyBox.cpp
+	NodeSelector.cpp IntersectionManager.cpp Utilities.cpp 
 )
 
 NEW_LIBRARY(${LIB_NAME} STATIC)

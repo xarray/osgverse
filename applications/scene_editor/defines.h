@@ -14,6 +14,7 @@
 #include <pipeline/SkyBox.h>
 #include <pipeline/NodeSelector.h>
 #include <pipeline/Pipeline.h>
+#include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/IntersectionManager.h>
 #include <pipeline/Utilities.h>

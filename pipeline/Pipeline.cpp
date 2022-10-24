@@ -566,6 +566,13 @@ namespace osgVerse
         return s;
     }
 
+    void Pipeline::removeModule(osg::NodeCallback* cb)
+    {
+        for (std::map<std::string, osg::ref_ptr<osg::NodeCallback>>::iterator itr = _modules.begin();
+             itr != _modules.end(); ++itr)
+        { if (itr->second == cb) { _modules.erase(itr); return; } }
+    }
+
     void Pipeline::activateDeferredStage(const std::string& n, bool b)
     { Stage* s = getStage(n); if (s->runner.valid()) s->runner->active = b; }
 

@@ -11,7 +11,7 @@ out vec4 fragData;
 float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
 {
     vec4 lightProjVec0 = texture(shadowMap, lightProjUV.xy);
-    float depth0 = lightProjVec0.z + 0.005;  // FIXME: use slope-scale bias: 0.005 * tan(acos(dot(normal, -lightDir)));
+    float depth0 = lightProjVec0.z;  // use polygon-offset instead of +0.005
     return (depth > depth0) ? 0.0 : 1.0;
 }
 

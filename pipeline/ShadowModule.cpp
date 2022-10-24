@@ -12,10 +12,16 @@ namespace osgVerse
     {
         for (int i = 0; i < 4; ++i) _shadowMaps[i] = new osg::Texture2D;
         _cullFace = new osg::CullFace(osg::CullFace::FRONT);
+        _polygonOffset = new osg::PolygonOffset(1.1f, 4.0f);
 
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
         _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", 4);
         if (pipeline) pipeline->addModule(name, this);
+    }
+
+    ShadowModule::~ShadowModule()
+    {
+        if (_pipeline.valid()) _pipeline->removeModule(this);
     }
 
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0,
@@ -29,9 +35,13 @@ namespace osgVerse
         }
 
         osg::Vec3 side = up ^ dir; up = dir ^ side;
-        _lightMatrix = osg::Matrix::lookAt(
+        osg::Matrix m = osg::Matrix::lookAt(
             pos, pos + dir * (maxDistance > 0.0 ? maxDistance : 100.0), up);
-        _shadowMaxDistance = maxDistance; _retainLightPos = retainLightPos;
+        if (m.compare(_lightInputMatrix) != 0)
+        {
+            _lightInputMatrix = m; _lightMatrix = m; _dirtyReference = true;
+            _shadowMaxDistance = maxDistance; _retainLightPos = retainLightPos;
+        }
     }
 
     void ShadowModule::createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
@@ -175,10 +185,12 @@ namespace osgVerse
         if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps[id]->getTextureWidth(), _shadowMaps[id]->getTextureHeight());
         camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps[id].get());
-        camera->getOrCreateStateSet()->setAttributeAndModes(
-            prog, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-        camera->getOrCreateStateSet()->setAttributeAndModes(
-            _cullFace.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+        int value = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE;
+        camera->getOrCreateStateSet()->setAttributeAndModes(prog, value);
+        camera->getOrCreateStateSet()->setAttributeAndModes(_cullFace.get(), value);
+        camera->getOrCreateStateSet()->setAttributeAndModes(_polygonOffset.get(), value);
+        camera->getOrCreateStateSet()->setMode(GL_POLYGON_OFFSET_FILL, value);
         _shadowCameras.push_back(camera.get());
 
         Pipeline::Stage* stage = new Pipeline::Stage;

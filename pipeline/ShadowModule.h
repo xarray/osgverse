@@ -2,6 +2,7 @@
 #define MANA_PP_SHADOW_MODULE_HPP
 
 #include <osg/CullFace>
+#include <osg/PolygonOffset>
 #include <osg/Texture2DArray>
 #include <osg/Geometry>
 #include "Pipeline.h"
@@ -39,6 +40,7 @@ namespace osgVerse
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
     protected:
+        virtual ~ShadowModule();
         Pipeline::Stage* createShadowCaster(int id, osg::Program* prog, unsigned int casterMask);
         void updateFrustumGeometry(int id, osg::Camera* shadowCam);
         
@@ -46,11 +48,12 @@ namespace osgVerse
         osg::observer_ptr<osg::Camera> _updatedCamera;
         osg::ref_ptr<osg::Geode> _shadowFrustum;
         osg::ref_ptr<osg::CullFace> _cullFace;
+        osg::ref_ptr<osg::PolygonOffset> _polygonOffset;
         osg::ref_ptr<osg::Texture2D> _shadowMaps[4];
-        osg::ref_ptr<osg::Uniform> _lightMatrices;
+        osg::ref_ptr<osg::Uniform> _lightMatrices;  // matrixf[]
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
-        osg::Matrix _lightMatrix;
+        osg::Matrix _lightMatrix, _lightInputMatrix;
         std::vector<osg::Vec3d> _referencePoints;
         double _shadowMaxDistance; int _shadowNumber;
         bool _retainLightPos, _dirtyReference;

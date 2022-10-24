@@ -1,50 +1,70 @@
+#include <osg/io_utils>
 #include <osg/PolygonMode>
 #include <osgUtil/CullVisitor>
 #include "LightDrawable.h"
+#include "LightModule.h"
+#include <iostream>
 using namespace osgVerse;
 
-bool LightCullCallback::cull(osg::NodeVisitor*, osg::Drawable* drawable, osg::State* state) const
+bool LightCullCallback::cull(osg::NodeVisitor* nv, osg::Drawable* drawable, osg::State* state) const
 {
+    osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
     LightDrawable* ld = static_cast<LightDrawable*>(drawable);
-    if (ld != NULL)
+    if (ld != NULL && cv != NULL)
     {
-        // TODO
-        // cull this drawable first
-        // if not culled, add parameters to global light manager
-        // sort lights by distance to eye
-        // save all lights to a parameter texture
-        // use the texture in deferred shader
+        // Cull this drawable first
+        bool unlimited = false; LightDrawable::Type t = ld->getType(unlimited);
+#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+        if (!unlimited && cv->isCulled(ld->getBoundingBox())) return true;
+#else
+        if (!unlimited && cv->isCulled(ld->getBound())) return true;
+#endif
+
+        // If not culled, add parameters to global light manager
+        LightGlobalManager::LightData lData;
+        lData.light = ld; lData.frameNo = cv->getFrameStamp()->getFrameNumber();
+        lData.matrix = ld->getEyeSpace() ? osg::Matrix() : (*cv->getModelViewMatrix());
+        LightGlobalManager::instance()->add(lData);
     }
     return !ld->getDebugShow();
 }
 
 LightDrawable::LightDrawable()
-:   osg::ShapeDrawable(), _debugShow(false)
+:   osg::ShapeDrawable(), _eyeSpace(false), _debugShow(false)
 {
-    _lightColor.set(1.0f, 1.0f, 1.0f, 1.0f);
-    _position.set(0.0f, 0.0f, 1.0f, 0.0f);
-    _direction.set(0.0f, 0.0f, -1.0f);
+    _lightColor.set(1.0f, 1.0f, 1.0f);
+    _position.set(0.0f, 0.0f, 1.0f);
+    _direction.set(1.0f, 0.0f, 0.0f);
     _attenuationRange.set(0.0f, 0.0f);
     _spotExponent = 0.0f; _spotCutoff = 180.0f;
-    _callback = new LightCullCallback;
-    setCullCallback(_callback.get());
-    recreate();
+    setCullCallback(LightGlobalManager::instance()->getCallback());
+    _directional = false; recreate();
 }
 
 LightDrawable::LightDrawable(const LightDrawable& copy, const osg::CopyOp& copyop)
-:   osg::ShapeDrawable(copy, copyop), _callback(copy._callback), _lightColor(copy._lightColor),
+:   osg::ShapeDrawable(copy, copyop), _lightColor(copy._lightColor),
     _position(copy._position), _direction(copy._direction), _attenuationRange(copy._attenuationRange),
-    _spotExponent(copy._spotExponent), _spotCutoff(copy._spotCutoff), _debugShow(copy._debugShow) {}
+    _spotExponent(copy._spotExponent), _spotCutoff(copy._spotCutoff), _eyeSpace(copy._eyeSpace),
+    _directional(copy._directional), _debugShow(copy._debugShow) {}
+
+LightDrawable::~LightDrawable()
+{
+    LightGlobalManager* instance = LightGlobalManager::instance();
+    if (instance != NULL) instance->remove(this);
+}
 
 LightDrawable::Type LightDrawable::getType(bool& unlimited) const
 {
-    unlimited = true;
-    if (_position.w() > 0.0f)
+    if (!_directional)
     {
         if (_spotExponent > 0.0f) { unlimited = false; return SpotLight; }
-        else { unlimited = _attenuationRange[0] < _attenuationRange[1]; return PointLight; }
+        else { unlimited = !(_attenuationRange[0] < _attenuationRange[1]); return PointLight; }
     }
-    return Directional;
+    else
+    {
+        unlimited = !(_attenuationRange[0] < _attenuationRange[1]);
+        return Directional;
+    }
 }
 
 void LightDrawable::recreate()
@@ -53,11 +73,11 @@ void LightDrawable::recreate()
     osg::ref_ptr<osg::Shape> shape;
     switch (getType(unlimited))
     {
-    case Directional:
+    case Directional:  // TODO
         break;
-    case PointLight:
+    case PointLight:  // TODO
         break;
-    case SpotLight:
+    case SpotLight:  // TODO
         break;
     }
     setShape(shape.get());

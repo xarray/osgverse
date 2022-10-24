@@ -14,6 +14,7 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Pipeline.h>
 #include <pipeline/ShadowModule.h>
+#include <pipeline/LightModule.h>
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
@@ -63,6 +64,16 @@ int main(int argc, char** argv)
     root->addChild(sceneRoot.get());
     root->addChild(postCamera.get());
 
+    // Main light
+    osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
+    light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
+    light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
+    light0->setDirectional(true);
+
+    osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
+    lightGeode->addDrawable(light0.get());
+    root->addChild(lightGeode.get());
+
     // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
@@ -73,9 +84,6 @@ int main(int argc, char** argv)
     {
         osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
         shadow->addReferenceBound(cbv.getBoundingBox(), true);
-
-        //shadow->setLightState(osg::Vec3(), osg::Vec3(0.02f, 0.1f, -1.0f));  // FIXME
-        shadow->setLightState(osg::Vec3(), osg::Vec3(0.0f, 0.0f, -1.0f));
         if (shadow->getFrustumGeode())
         {
             shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
@@ -92,6 +100,10 @@ int main(int argc, char** argv)
         }
     }
 
+    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+    light->setMainLight(light0.get(), "Shadow");
+
+    // Start the viewer
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
@@ -103,9 +115,13 @@ int main(int argc, char** argv)
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+
+    float lightX = 0.02f; bool lightD = true;
     while (!viewer.done())
     {
-        //std::cout << sceneRoot->getBound().center() << "; " << sceneRoot->getBound().radius() << "\n";
+        if (lightD) { if (lightX > 0.8f) lightD = false; else lightX += 0.001f; }
+        else { if (lightX < -0.8f) lightD = true; else lightX -= 0.001f; }
+        light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
         viewer.frame();
     }
     return 0;

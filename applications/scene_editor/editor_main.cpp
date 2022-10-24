@@ -143,6 +143,16 @@ int main(int argc, char** argv)
     root->addChild(sceneRoot.get());
     root->addChild(auxRoot.get());
 
+    // Main light
+    osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
+    light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
+    light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
+    light0->setDirectional(true);
+
+    osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
+    lightGeode->addDrawable(light0.get());
+    root->addChild(lightGeode.get());
+
     // Pipeline initialization
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
@@ -151,13 +161,15 @@ int main(int argc, char** argv)
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
-        shadow->setLightState(osg::Vec3(), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
         if (shadow->getFrustumGeode())
         {
             shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
             root->addChild(shadow->getFrustumGeode());
         }
     }
+
+    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+    light->setMainLight(light0.get(), "Shadow");
 
     // Post-HUD displays and utilities
     osg::ref_ptr<osg::Camera> skyCamera = new osg::Camera;
@@ -199,7 +211,7 @@ int main(int argc, char** argv)
     imgui->initialize(new EditorContentHandler);
     imgui->addToView(&viewer, postCamera.get());
 
-    // Viewer settings
+    // Start the viewer
     viewer.addEventHandler(new osgVerse::CommandHandler);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

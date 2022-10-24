@@ -147,6 +147,7 @@ namespace osgVerse
         osg::Vec2s getStageSize() const { return _stageSize; }
 
         void addModule(const std::string& n, osg::NodeCallback* cb) { _modules[n] = cb; }
+        void removeModule(osg::NodeCallback* cb);
         osg::NodeCallback* getModule(const std::string& n) { return _modules[n].get(); }
         const std::map<std::string, osg::ref_ptr<osg::NodeCallback>>& getModules() const { return _modules; }
 

@@ -3,7 +3,9 @@
 uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
 uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
+uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+att1, r2: dir+att0, r3: spotProp)
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
+uniform vec2 LightNumber;  // (num, max_num)
 in vec4 texCoord0;
 
 /// PBR functions
@@ -112,6 +114,18 @@ vec3 computePointLight(vec3 lightPosition, vec3 lightColor, float range, vec3 no
     return radiance;//radiance * (1.0 - shadow);  // FIXME: point shadow
 }
 
+int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,
+                       out vec2 range, out vec2 spotExponentAndCutoff)
+{
+    const vec2 halfP = vec2(0.5 / 1024.0, 0.5 / 4.0), step = vec2(1.0 / 1024.0, 1.0 / 4.0);
+    vec4 attr0 = texture(LightParameterMap, halfP + vec2(id * step.x, 0.0 * step.y)); // color, type
+    vec4 attr1 = texture(LightParameterMap, halfP + vec2(id * step.x, 1.0 * step.y)); // pos
+    vec4 attr2 = texture(LightParameterMap, halfP + vec2(id * step.x, 2.0 * step.y)); // dir
+    vec4 attr3 = texture(LightParameterMap, halfP + vec2(id * step.x, 3.0 * step.y)); // spot..
+    color = attr0.xyz; pos = attr1.xyz; dir = attr2.xyz; range = vec2(attr2.w, attr1.w);
+    spotExponentAndCutoff = vec2(attr3.x, attr3.y); return int(attr0.w);
+}
+
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
@@ -140,9 +154,17 @@ void main()
     metallic = 0.0;
     
     // Compute direcional lights
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-    vec3 radianceOut = computeDirectionalLight(dLightDir, dLightColor, eyeNormal, viewDir,
-                                               albedo, specular, roughness, metallic, F0);
+    vec3 F0 = mix(vec3(0.04), albedo, metallic), radianceOut = vec3(0.0);
+    vec3 lightColor, lightPos, lightDir; vec2 lightRange, lightSpot;
+    int numLights = int(min(LightNumber.x, LightNumber.y));
+    for (int i = 0; i < numLights; ++i)
+    {
+        int type = getLightAttributes(float(i), lightColor, lightPos, lightDir, lightRange, lightSpot);
+        if (type == 1)
+            radianceOut += computeDirectionalLight(lightDir, lightColor, eyeNormal, viewDir,
+                                                   albedo, specular, roughness, metallic, F0);
+        else {}  // TODO: point light, spot light...
+    }
     
     // Treat ambient light as IBL or not
     vec3 ambient = vec3(0.025) * albedo;

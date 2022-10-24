@@ -9,12 +9,14 @@
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-#include <iostream>
-#include <sstream>
+
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
+#include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
+#include <iostream>
+#include <sstream>
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -55,6 +57,16 @@ int main(int argc, char** argv)
     root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
+    // Main light
+    osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
+    light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
+    light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
+    light0->setDirectional(true);
+
+    osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
+    lightGeode->addDrawable(light0.get());
+    root->addChild(lightGeode.get());
+
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
     postCamera->setClearMask(0);
@@ -79,7 +91,6 @@ int main(int argc, char** argv)
     {
         osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
         shadow->addReferenceBound(cbv.getBoundingBox(), true);
-        shadow->setLightState(osg::Vec3(), osg::Vec3(0.02f, 0.1f, -1.0f), 5000.0f);  // FIXME
         if (shadow->getFrustumGeode())
         {
             shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
@@ -87,6 +98,10 @@ int main(int argc, char** argv)
         }
     }
 
+    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+    light->setMainLight(light0.get(), "Shadow");
+
+    // Start the viewer
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
