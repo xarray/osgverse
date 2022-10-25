@@ -139,7 +139,7 @@ int main(int argc, char** argv)
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
     light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
-    light0->setDirection(osg::Vec3(0.0f, -1.0f, -0.8f));
+    light0->setDirection(osg::Vec3(0.0f, -1.0f, -0.5f));
     light0->setDirectional(true);
 
     osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
@@ -209,8 +209,8 @@ int main(int argc, char** argv)
         // Create places
         osgEarth::Viewpoint vp0 = createPlaceOnEarth(
             sceneRoot.get(), mapNode.get(), "../models/Sponza/Sponza.gltf",
-            osg::Matrix::scale(5.0, 5.0, 5.0) * osg::Matrix::rotate(0.4, osg::Z_AXIS),
-            115.7f, 39.484f, 20.0f, 80.0f);
+            osg::Matrix::scale(1.0, 1.0, 1.0) * osg::Matrix::rotate(0.1, osg::Z_AXIS),
+            119.008f, 25.9f, 2.0f, -40.0f);
 
         osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
         interacter->addViewpoint(vp0);
@@ -223,10 +223,15 @@ int main(int argc, char** argv)
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
 
+    float lightZ = -1.0f; bool lightD = true;
     while (!viewer.done())
     {
         osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
         shadow->addReferenceBound(cbv.getBoundingBox(), true);
+
+        if (lightD) { if (lightZ > -0.9f) lightD = false; else lightZ += 0.001f; }
+        else { if (lightZ < -4.0f) lightD = true; else lightZ -= 0.001f; }
+        light0->setDirection(osg::Vec3(0.0f, lightZ, -0.8f));
         viewer.frame();
     }
     return 0;

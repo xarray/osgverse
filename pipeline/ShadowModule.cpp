@@ -28,11 +28,9 @@ namespace osgVerse
                                      double maxDistance, bool retainLightPos)
     {
         osg::Vec3 up = osg::Z_AXIS, dir = dir0; dir.normalize();
-        if (dir.length2() == 1.0f)
-        {
-            if (dir.z() == 1.0f || dir.z() == -1.0f)
-                up = osg::Y_AXIS;
-        }
+        float cosine = (dir * osg::Z_AXIS);
+        if (cosine < -0.9f || cosine > 0.9f) up = osg::Y_AXIS;
+        else if (dir.length2() < 0.01) return;  // invalid direction
 
         osg::Vec3 side = up ^ dir; up = dir ^ side;
         osg::Matrix m = osg::Matrix::lookAt(
@@ -114,6 +112,7 @@ namespace osgVerse
         if (_shadowMaxDistance > 0.0 && (zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
         
         double shadowDistance = zf - zn;
+        if (shadowDistance <= 0.01) return;  // state not prepared? we have to quit then
         if (_dirtyReference && !_retainLightPos)
         {
             // Recalculate light-space matrix

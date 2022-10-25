@@ -71,13 +71,18 @@ void LightDrawable::recreate()
 {
     bool unlimited = false;
     osg::ref_ptr<osg::Shape> shape;
+    setCullingActive(!unlimited);
+
     switch (getType(unlimited))
     {
     case Directional:  // TODO
+        shape = new osg::Cylinder(osg::Vec3(), 1.0f, 2.0f);
         break;
     case PointLight:  // TODO
+        shape = new osg::Sphere(osg::Vec3(), 1.0f);
         break;
     case SpotLight:  // TODO
+        shape = new osg::Cone(osg::Vec3(), 1.0f, 2.0f);
         break;
     }
     setShape(shape.get());
