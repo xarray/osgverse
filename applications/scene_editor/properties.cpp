@@ -57,6 +57,7 @@ bool Properties::handleCommand(CommandData* cmd)
        - cmd->object (parent) is the node/drawable whose properties are updated
        - cmd->value (string): to-be-updated component's name, or empty to update all (TODO)
     */
+    UserComponentManager* ucm = UserComponentManager::instance();
     osg::Camera* mainCam = g_data.mainCamera.get();
     osg::StateSet* stateSet = NULL; ComponentCallback* callback = NULL;
     _properties.clear(); _selectedProperty = -1;
@@ -65,9 +66,9 @@ bool Properties::handleCommand(CommandData* cmd)
     if (targetD)
     {
         osg::Geometry* targetG = targetD->asGeometry();
-        _properties.push_back(new StandardComponent(
+        _properties.push_back(ucm->createStandard(
             PropertyItemManager::BasicDrawableItem, PropertyItem::DrawableType, targetD, mainCam));
-        if (targetG) _properties.push_back(new StandardComponent(
+        if (targetG) _properties.push_back(ucm->createStandard(
             PropertyItemManager::GeometryItem, PropertyItem::GeometryType, targetG, mainCam));
 
         stateSet = targetD->getStateSet();
@@ -78,22 +79,22 @@ bool Properties::handleCommand(CommandData* cmd)
     if (!targetD && targetN)
     {
         osg::Transform* targetT = targetN->asTransform();
-        _properties.push_back(new StandardComponent(
+        _properties.push_back(ucm->createStandard(
             PropertyItemManager::BasicNodeItem, PropertyItem::NodeType, targetN, mainCam));
         
         if (targetT)
         {
             osg::MatrixTransform* targetMT = targetT->asMatrixTransform();
-            if (targetMT) _properties.push_back(new StandardComponent(
+            if (targetMT) _properties.push_back(ucm->createStandard(
                 PropertyItemManager::TransformItem, PropertyItem::MatrixType, targetMT, mainCam));
 
             osg::PositionAttitudeTransform* targetPT = targetT->asPositionAttitudeTransform();
-            if (targetPT) _properties.push_back(new StandardComponent(
+            if (targetPT) _properties.push_back(ucm->createStandard(
                 PropertyItemManager::TransformItem, PropertyItem::PoseType, targetPT, mainCam));
         }
 
         osg::Camera* targetCam = targetN->asCamera();
-        if (targetCam) _properties.push_back(new StandardComponent(
+        if (targetCam) _properties.push_back(ucm->createStandard(
             PropertyItemManager::CameraItem, PropertyItem::CameraType, targetCam, mainCam));
 
         stateSet = targetN->getStateSet();
@@ -102,17 +103,20 @@ bool Properties::handleCommand(CommandData* cmd)
 
     if (stateSet != NULL)
     {
-        _properties.push_back(new StandardComponent(
+        _properties.push_back(ucm->createStandard(
             PropertyItemManager::TextureItem, PropertyItem::StateSetType, stateSet, mainCam));
-        _properties.push_back(new StandardComponent(
+        _properties.push_back(ucm->createStandard(
             PropertyItemManager::ShaderItem, PropertyItem::StateSetType, stateSet, mainCam));
-        _properties.push_back(new StandardComponent(
+        _properties.push_back(ucm->createStandard(
             PropertyItemManager::AttributeItem, PropertyItem::StateSetType, stateSet, mainCam));
     }
 
+    // For extended class, find their component from the fullname
+    // For any other (not registered) class, add an indicating component here
     std::string clsName = std::string(cmd->object->libraryName())
                         + std::string("::") + cmd->object->className();
-    // TODO: for any extented (but not registered) class fullname, add an indicating component here
+    UserComponent* userNodeData = ucm->createExtended(clsName, cmd->object.get(), mainCam);
+    if (userNodeData) _properties.push_back(userNodeData);
 
     if (callback != NULL)
     {
@@ -120,11 +124,8 @@ bool Properties::handleCommand(CommandData* cmd)
         {
             Component* c = callback->getComponent(i);
             std::string compName = std::string(c->libraryName()) + std::string("::") + c->className();
-            
-            /* TODO
-            PropertyItem* pC = propManager->getExtendedItem(compName);
-            if (pC) { pC->setTarget(c, PropertyItem::ComponentType); _properties.push_back(pC); }
-            else { OSG_WARN << "[Properties] Unknown component " << compName << "\n"; }*/
+            UserComponent* userCallbackData = ucm->createExtended(compName, c, mainCam);
+            if (userCallbackData) _properties.push_back(userCallbackData);
         }
     }
     return true;

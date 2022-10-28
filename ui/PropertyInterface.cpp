@@ -16,6 +16,22 @@ extern PropertyItem* createTransformPropertyItem();
 extern PropertyItem* createGeometryPropertyItem();
 extern PropertyItem* createTexturePropertyItem();
 
+class EmptyPropertyItem : public PropertyItem
+{
+public:
+    virtual void updateTarget(ImGuiComponentBase* c = NULL) {}
+    virtual std::string title() const
+    { return (_target.valid()) ? _target->libraryName() + std::string("::") + _target->className() : "???"; }
+
+    virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content)
+    {
+        std::string msg; msg = "Unregistered component type. It is harmless but means\nthis target is created"
+                               "by OpenSceneGraph or user,\nand unmanagable in osgVerse at present.";
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), ImGuiComponentBase::TR(msg).c_str());
+        return false;
+    }
+};
+
 ///////////////////////////
 
 PropertyItemManager* PropertyItemManager::instance()
@@ -42,6 +58,10 @@ PropertyItem* PropertyItemManager::getStandardItem(StandardItemType t)
 
 PropertyItem* PropertyItemManager::getExtendedItem(const std::string& t)
 {
-    if (_extendedItemMap.find(t) == _extendedItemMap.end()) return NULL;
-    else return _extendedItemMap[t];
+    if (_extendedItemMap.find(t) == _extendedItemMap.end())
+    {
+        OSG_NOTICE << "[PropertyItemManager] Create empty property item for " << t << "\n";
+        _extendedItemMap[t] = new EmptyPropertyItem;
+    }
+    return _extendedItemMap[t];
 }

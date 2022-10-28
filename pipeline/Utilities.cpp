@@ -107,10 +107,9 @@ namespace osgVerse
 {
     void globalInitialize(int argc, char** argv)
     {
-#ifdef INSTALL_PATH_PREFIX
-        std::string workingPath = INSTALL_PATH_PREFIX + std::string("/bin/");
+        std::string workingPath = BASE_DIR + std::string("/bin/");
         osgDB::getDataFilePathList().push_back(workingPath);
-#endif
+
         setlocale(LC_ALL, ".UTF8");
         if (argv && argc > 0)
         {

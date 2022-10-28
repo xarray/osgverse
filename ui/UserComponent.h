@@ -4,8 +4,8 @@
 #include <osg/Camera>
 #include <osg/MatrixTransform>
 #include "../pipeline/Global.h"
-#include "ImGui.h"
 #include "PropertyInterface.h"
+#include "ImGui.h"
 #include <map>
 #include <any.hpp>
 
@@ -79,6 +79,14 @@ namespace osgVerse
         osg::ref_ptr<PropertyItem> _propertyUI;
     };
 
+    class DefaultComponent : public UserComponent
+    {
+    public:
+        DefaultComponent(const std::string& clsName = "", osg::Object* target = NULL, osg::Camera* cam = NULL);
+        DefaultComponent(const DefaultComponent& c, const osg::CopyOp& op) : UserComponent(c, op) {}
+        META_Object(osgVerse, DefaultComponent);
+    };
+
     class StandardComponent : public UserComponent
     {
     public:
@@ -87,6 +95,25 @@ namespace osgVerse
                           osg::Object* target = NULL, osg::Camera* cam = NULL);
         StandardComponent(const StandardComponent& c, const osg::CopyOp& op) : UserComponent(c, op) {}
         META_Object(osgVerse, StandardComponent);
+    };
+
+    class UserComponentManager : public osg::Referenced
+    {
+    public:
+        static UserComponentManager* instance();
+
+        UserComponent* createStandard(PropertyItemManager::StandardItemType st, PropertyItem::TargetType t,
+                                      osg::Object* target, osg::Camera* cam);
+        UserComponent* createExtended(const std::string& className, osg::Object* target, osg::Camera* cam);
+        
+        void registerComponent(const std::string& className, UserComponent* uc);
+        void remove(const std::string& className);
+        void remove(osg::Object* target, PropertyItemManager::StandardItemType st);
+
+    protected:
+        typedef std::pair<osg::Object*, PropertyItemManager::StandardItemType> ComponentTarget;
+        std::map<ComponentTarget, osg::ref_ptr<UserComponent>> _stdComponents;
+        std::map<std::string, osg::ref_ptr<UserComponent>> _extComponents;
     };
 }
 
