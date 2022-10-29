@@ -165,9 +165,31 @@ namespace osgVerse
         osg::Vec2s _stageSize;
     };
 
+    /** Standard pipeline parameters */
+    struct StandardPipelineParameters
+    {
+        struct ShaderParameters
+        {
+            osg::ref_ptr<osg::Shader> gbufferVS, shadowCastVS, quadVS;
+            osg::ref_ptr<osg::Shader> gbufferFS, shadowCastFS, ssaoFS, ssaoBlurFS;
+            osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, displayFS;
+            osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
+        };
+
+        ShaderParameters shaders;
+        osg::ref_ptr<osg::StateSet> skyboxIBL;
+        osg::ref_ptr<osg::Texture2D> skyboxMap;
+        unsigned int originWidth, originHeight;
+        unsigned int deferredMask, forwardMask, shadowCastMask;
+        unsigned int shadowNumber, shadowResolution;
+        bool debugShadowModule;
+
+        StandardPipelineParameters();
+        StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);
+    };
+
     /** Standard pipeline */
-    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, const std::string& shaderDir,
-                                      const std::string& skyboxFile, unsigned int originW, unsigned int originH);
+    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, const StandardPipelineParameters& spp);
 }
 
 #endif

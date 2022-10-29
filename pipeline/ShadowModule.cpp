@@ -144,8 +144,13 @@ namespace osgVerse
         for (size_t i = 0; i < numCameras; ++i)
         {
             const osg::BoundingBoxd& shadowBB = shadowBBs[i];
-            double xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
-            double yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
+            const osg::Vec3 center = shadowBB.center();
+            double radius = osg::maximum(shadowBB.xMax() - shadowBB.xMin(),
+                shadowBB.yMax() - shadowBB.yMin()) * 0.5;
+            double xMin = center[0] - radius, xMax = center[0] + radius;
+            double yMin = center[1] - radius, yMax = center[1] + radius;
+            //xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
+            //yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
             //std::cout << i << ": X = (" << xMin << ", " << xMax << "), Y = ("
             //          << yMin << ", " << yMax << "); Z = " << zMaxTotal << "\n";
 

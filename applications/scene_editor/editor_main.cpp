@@ -156,7 +156,8 @@ int main(int argc, char** argv)
     // Pipeline initialization
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
-    setupStandardPipeline(pipeline.get(), &viewer, SHADER_DIR, SKYBOX_DIR "sunset.hdr", 1920, 1080);
+    setupStandardPipeline(pipeline.get(), &viewer,
+                          osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "barcelona.hdr"));
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
