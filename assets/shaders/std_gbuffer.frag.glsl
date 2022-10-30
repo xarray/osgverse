@@ -1,7 +1,7 @@
 #version 130
 uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;
 uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
-in vec4 worldVertex, texCoord0, texCoord1, color;
+in vec4 texCoord0, texCoord1, color;
 in vec3 eyeNormal, eyeTangent, eyeBinormal;
 
 void main()

@@ -107,10 +107,18 @@ namespace osgVerse
         {
             brdfLutTex = static_cast<osg::Texture*>(
                 spp.skyboxIBL->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+            brdfLutTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+            brdfLutTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
             prefilteringTex = static_cast<osg::Texture*>(
                 spp.skyboxIBL->getTextureAttribute(1, osg::StateAttribute::TEXTURE));
+            prefilteringTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+            prefilteringTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
             convolutionTex = static_cast<osg::Texture*>(
                 spp.skyboxIBL->getTextureAttribute(2, osg::StateAttribute::TEXTURE));
+            convolutionTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+            convolutionTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         }
 
         osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao",
