@@ -67,20 +67,6 @@ int main(int argc, char** argv)
     lightGeode->addDrawable(light0.get());
     root->addChild(lightGeode.get());
 
-    // Post-HUD display
-    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
-    postCamera->setClearMask(0);
-    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
-    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-    root->addChild(postCamera.get());
-
-    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
-    {
-        skybox->setEnvironmentMap(osgDB::readImageFile(SKYBOX_DIR "barcelona.hdr"));
-        skybox->setNodeMask(~DEFERRED_SCENE_MASK);
-        postCamera->addChild(skybox.get());
-    }
-
     // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
@@ -101,6 +87,20 @@ int main(int argc, char** argv)
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     light->setMainLight(light0.get(), "Shadow");
+
+    // Post-HUD display
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(0);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    root->addChild(postCamera.get());
+
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    {
+        skybox->setEnvironmentMap(params.skyboxMap.get(), false);
+        skybox->setNodeMask(~DEFERRED_SCENE_MASK);
+        postCamera->addChild(skybox.get());
+    }
 
     // Start the viewer
     viewer.addEventHandler(new osgViewer::StatsHandler);

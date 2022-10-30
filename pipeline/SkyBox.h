@@ -17,6 +17,7 @@ namespace osgVerse
 
         void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
         void setEnvironmentMap(osg::Image* image);
+        void setEnvironmentMap(osg::Texture* tex, bool asCubemap);
         osg::Texture* getCurrentSkyTexture() const { return _skymap.get(); }
     
         virtual bool computeLocalToWorldMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;

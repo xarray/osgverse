@@ -8,14 +8,30 @@
 #define VERT osg::Shader::VERTEX
 #define FRAG osg::Shader::FRAGMENT
 
+#if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
+#include <windows.h>
+static void obtainScreenResolution(unsigned int& w, unsigned int& h)
+{
+    HWND hd = ::GetDesktopWindow(); RECT rect; ::GetWindowRect(hd, &rect);
+    w = (rect.right - rect.left); h = (rect.bottom - rect.top);
+    OSG_NOTICE << "[obtainScreenResolution] Get screen size " << w << " x " << h << "\n";
+}
+#else
+static void obtainScreenResolution(unsigned int& w, unsigned int& h)
+{
+    w = osg::DisplaySettings::instance()->getScreenWidth();
+    h = osg::DisplaySettings::instance()->getScreenHeight();
+    OSG_NOTICE << "[obtainScreenResolution] Get screen size " << w << " x " << h << "\n";
+}
+#endif
+
 namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
         shadowNumber(0), shadowResolution(2048), debugShadowModule(false)
     {
-        originWidth = osg::DisplaySettings::instance()->getScreenWidth();
-        originHeight = osg::DisplaySettings::instance()->getScreenHeight();
+        obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
     }
 
@@ -23,8 +39,7 @@ namespace osgVerse
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
         shadowNumber(3), shadowResolution(2048), debugShadowModule(false)
     {
-        originWidth = osg::DisplaySettings::instance()->getScreenWidth();
-        originHeight = osg::DisplaySettings::instance()->getScreenHeight();
+        obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
 
         shaders.gbufferVS = osgDB::readShaderFile(VERT, dir + "std_gbuffer.vert.glsl");
@@ -49,6 +64,11 @@ namespace osgVerse
         {
             OSG_NOTICE << "[StandardPipelineParameters] Skybox " << sky
                        << " or its IBL data is invalid. Will try generating IBL data at runtime.";
+        }
+        else if (skyboxMap.valid())
+        {
+            skyboxMap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+            skyboxMap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         }
     }
 

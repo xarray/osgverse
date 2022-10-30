@@ -74,17 +74,18 @@ void LightDrawable::recreate()
     switch (getType(unlimited))
     {
     case Directional:  // TODO
-        shape = new osg::Cylinder(osg::Vec3(), 1.0f, 2.0f);
+        shape = new osg::Cylinder(_position, 1.0f, 2.0f);
         break;
     case PointLight:  // TODO
-        shape = new osg::Sphere(osg::Vec3(), 1.0f);
+        shape = new osg::Sphere(_position, 1.0f);
         break;
     case SpotLight:  // TODO
-        shape = new osg::Cone(osg::Vec3(), 1.0f, 2.0f);
+        shape = new osg::Cone(_position, 1.0f, 2.0f);
         break;
     }
 
     setShape(shape.get());
-    setCullingActive(!unlimited);
+    setComputeBoundingBoxCallback(
+        unlimited ? new osgVerse::DisableBoundingBoxCallback : NULL);
     dirtyBound(); dirtyDisplayList();
 }

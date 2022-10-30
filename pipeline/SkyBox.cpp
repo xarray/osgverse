@@ -132,7 +132,7 @@ void SkyBox::setEnvironmentMap(const std::string& path, const std::string& ext, 
         cubemap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
         cubemap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     }
-    _skymap = cubemap.get(); initialize(true, osg::Matrixf::rotate(osg::PI_2, osg::X_AXIS));
+    setEnvironmentMap(cubemap.get(), true);
 }
 
 void SkyBox::setEnvironmentMap(osg::Image* image)
@@ -145,9 +145,14 @@ void SkyBox::setEnvironmentMap(osg::Image* image)
         skymap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
         skymap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         skymap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        _skymap = skymap.get();
-        initialize(false, osg::Matrixf::rotate(-osg::PI_2, osg::X_AXIS));
+        setEnvironmentMap(skymap.get(), false);
     }
+}
+
+void SkyBox::setEnvironmentMap(osg::Texture* tex, bool asCubemap)
+{
+    _skymap = tex;
+    initialize(asCubemap, osg::Matrixf::rotate(-osg::PI_2, osg::X_AXIS));
 }
 
 void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
