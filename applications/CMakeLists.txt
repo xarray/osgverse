@@ -1,4 +1,5 @@
 ADD_SUBDIRECTORY(viewer)
 ADD_SUBDIRECTORY(simple_viewer)
 ADD_SUBDIRECTORY(earth_viewer)
+ADD_SUBDIRECTORY(qt_viewer)
 ADD_SUBDIRECTORY(scene_editor)

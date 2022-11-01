@@ -399,8 +399,15 @@ namespace osgVerse
 
     void Pipeline::startStages(int w, int h, osg::GraphicsContext* gc)
     {
+        if (gc)
+        {
+            osgViewer::GraphicsWindow* gw = dynamic_cast<osgViewer::GraphicsWindow*>(gc);
+            int x, y; if (gw) gw->getWindowRectangle(x, y, w, h);
+            _stageContext = gc;  // FIXME: share or replace GC?
+        }
+        else
+            _stageContext = createGraphicsContext(w, h, NULL);
         _stageSize = osg::Vec2s(w, h);
-        _stageContext = createGraphicsContext(w, h, gc);
         _stageContext->setResizedCallback(new MyResizedCallback(this));
     }
 
