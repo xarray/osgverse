@@ -189,7 +189,7 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));
 
     osg::ref_ptr<osg::Drawable> drawable = new osg::ShapeDrawable(
-        new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 1000.0f));
+        new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 1.0f));
     drawable->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
 
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
@@ -205,7 +205,10 @@ bool SkyBox::computeLocalToWorldMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv
     if (nv && nv->getVisitorType() == osg::NodeVisitor::CULL_VISITOR)
     {
         osgUtil::CullVisitor* cv = dynamic_cast<osgUtil::CullVisitor*>(nv);
-        matrix.preMult(osg::Matrix::translate(cv->getEyeLocal()));
+        osg::RefMatrix* proj = cv->getProjectionMatrix();
+        double far = (*proj)(3, 2) / (1.0 + (*proj)(2, 2));
+        matrix.preMult(osg::Matrix::scale(far, far, far) *
+                       osg::Matrix::translate(cv->getEyeLocal()));
         return true;
     }
     else
@@ -217,7 +220,10 @@ bool SkyBox::computeWorldToLocalMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv
     if (nv && nv->getVisitorType() == osg::NodeVisitor::CULL_VISITOR)
     {
         osgUtil::CullVisitor* cv = dynamic_cast<osgUtil::CullVisitor*>(nv);
-        matrix.postMult(osg::Matrix::translate(-cv->getEyeLocal()));
+        osg::RefMatrix* proj = cv->getProjectionMatrix();
+        double invFar = (1.0 + (*proj)(2, 2)) / (*proj)(3, 2);
+        matrix.postMult(osg::Matrix::translate(-cv->getEyeLocal()) *
+                        osg::Matrix::scale(invFar, invFar, invFar));
         return true;
     }
     else

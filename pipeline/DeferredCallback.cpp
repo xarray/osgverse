@@ -173,14 +173,16 @@ namespace osgVerse
         osg::Camera* forwardCam = renderInfo.getCurrentCamera();
         if (!_depthBlitList.empty())
         {
-            typedef std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> CamFboMap;
-            ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0); // write to default framebuffer
+            GLuint fboId = state->getGraphicsContext()
+                ? state->getGraphicsContext()->getDefaultFboId() : 0;
+            ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, fboId); // write to default framebuffer
 
             int sWidth = 1920, tWidth = 1920, sHeight = 1080, tHeight = 1080;
             osg::Viewport* viewport = forwardCam->getViewport();
             if (viewport != NULL) { tWidth = viewport->width(); tHeight = viewport->height(); }
 
             // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
+            typedef std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> CamFboMap;
             for (std::set<osg::observer_ptr<osg::Camera>>::iterator itr = _depthBlitList.begin();
                 itr != _depthBlitList.end(); ++itr)
             {
@@ -198,7 +200,7 @@ namespace osgVerse
                            << forwardCam->getName() << ": " << tWidth << "x" << tHeight << std::endl;
 #endif
             }
-            ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+            ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
         }
         else if (_inPipeline)
         {

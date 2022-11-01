@@ -9,7 +9,6 @@ OsgSceneWidget::OsgSceneWidget(QWidget* parent)
     QSurfaceFormat format;
     format.setRenderableType(QSurfaceFormat::OpenGL);
     format.setProfile(QSurfaceFormat::CompatibilityProfile);
-    format.setDepthBufferSize(24); format.setStencilBufferSize(8);
     format.setSamples(4); setFormat(format);
     _graphicsWindow = new osgViewer::GraphicsWindowEmbedded(
         this->x(), this->y(), this->width(), this->height());
@@ -34,7 +33,7 @@ void OsgSceneWidget::paintGL()
         if (_firstFrame)
         {
             GLuint defaultFboId = this->defaultFramebufferObject();
-            _graphicsWindow->setDefaultFboId(defaultFboId);
+            _graphicsWindow->setDefaultFboId(defaultFboId);  // must set for internal FBO
             _firstFrame = false;
         }
         _viewer->frame();

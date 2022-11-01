@@ -109,6 +109,7 @@ public:
 #if false
         double ratio = 0.0, fovy = 0.0, znear = 0.0, zfar = 0.0;
         getProjectionMatrix().getPerspective(fovy, ratio, znear, zfar);
+        if (ratio < 0.01 || znear >= zfar) return;  // invalid perspective matrix
         OSG_NOTICE << getName() << ", FrameNo = " << getFrameStamp()->getFrameNumber()
                    << ", Camera = " << getCamera()->getName() << ": Ratio = " << ratio
                    << ", NearFar = " << znear << "/" << zfar << std::endl;
