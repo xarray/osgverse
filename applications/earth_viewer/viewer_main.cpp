@@ -9,13 +9,21 @@
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+
+#include <osgEarth/Version>
 #include <osgEarth/Notify>
-#include <osgEarth/EarthManipulator>
 #include <osgEarth/GeoTransform>
 #include <osgEarth/MapNode>
-#include <osgEarth/Sky>
 #include <osgEarth/GLUtils>
-#include <osgEarth/AutoClipPlaneHandler>
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
+#   include <osgEarth/EarthManipulator>
+#   include <osgEarth/AutoClipPlaneHandler>
+#   include <osgEarth/Sky>
+#else
+#   include <osgEarthUtil/EarthManipulator>
+#   include <osgEarthUtil/AutoClipPlaneHandler>
+#   include <osgEarthUtil/Sky>
+#endif
 
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
@@ -25,6 +33,14 @@
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
+
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
+#   define EarthManipulator osgEarth::EarthManipulator
+#   define AutoClipPlaneCullCallback osgEarth::AutoClipPlaneCullCallback
+#else
+#   define EarthManipulator osgEarth::Util::EarthManipulator
+#   define AutoClipPlaneCullCallback osgEarth::Util::AutoClipPlaneCullCallback
+#endif
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -43,7 +59,7 @@ protected:
 class InteractiveHandler : public osgGA::GUIEventHandler
 {
 public:
-    InteractiveHandler(osgEarth::EarthManipulator* em) : _manipulator(em), _viewpointSet(false) {}
+    InteractiveHandler(EarthManipulator* em) : _manipulator(em), _viewpointSet(false) {}
     void addViewpoint(const osgEarth::Viewpoint& vp) { _viewPoints.push_back(vp); }
     
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -67,7 +83,7 @@ public:
     }
 
 protected:
-    osg::observer_ptr<osgEarth::EarthManipulator> _manipulator;
+    osg::observer_ptr<EarthManipulator> _manipulator;
     std::vector<osgEarth::Viewpoint> _viewPoints;
     bool _viewpointSet;
 };
@@ -81,7 +97,7 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
         {
             osg::Matrix w = static_cast<osg::MatrixTransform*>(node)->getWorldMatrices()[0];
-            if (_rotated) w = osg::Matrix::rotate(osg::PI_2, osg::Z_AXIS) * w;
+            if (_rotated) w = osg::Matrix::rotate(osg::PI_2, osg::X_AXIS) * w;
             if (_scene.valid()) _scene->setMatrix(w); traverse(node, nv);
         }
 
@@ -92,7 +108,11 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
     // Create a scene and a placer on earth for sceneRoot to copy
     osg::ref_ptr<osg::MatrixTransform> scene = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> placer = new osg::MatrixTransform;
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
     placer->setUpdateCallback(new UpdatePlacerCallback(scene.get(), false));
+#else
+    placer->setUpdateCallback(new UpdatePlacerCallback(scene.get(), true));
+#endif
 
     osg::ref_ptr<osg::MatrixTransform> baseScene = new osg::MatrixTransform;
     {
@@ -126,7 +146,10 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
 
 int main(int argc, char** argv)
 {
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
     osgEarth::initialize();
+#endif
+    osgVerse::globalInitialize(argc, argv);
     osg::ArgumentParser arguments(&argc, argv);
 
     // The scene graph
@@ -173,18 +196,22 @@ int main(int argc, char** argv)
         viewer.getDatabasePager()->setUnrefImageDataAfterApplyPolicy(true, false);
 
         // install our default manipulator (do this before calling load)
-        osg::ref_ptr<osgEarth::EarthManipulator> earthMani = new osgEarth::EarthManipulator(arguments);
+        osg::ref_ptr<EarthManipulator> earthMani = new EarthManipulator(arguments);
         viewer.setCameraManipulator(earthMani.get());
 
         // read in the Earth file and open the map node
         osg::ref_ptr<osgEarth::MapNode> mapNode = osgEarth::MapNode::get(earthRoot.get());
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
         if (!mapNode->open()) { OSG_WARN << "Failed to open earth map"; return 1; }
+#else
+        if (!mapNode.valid()) { OSG_WARN << "Failed to open earth map"; return 1; }
+#endif
 
         // default uniform values and disable small feature culling
         osgVerse::Pipeline::Stage* gbufferStage = pipeline->getStage("GBuffer");
         osgEarth::GLUtils::setGlobalDefaults(pipeline->getForwardCamera()->getOrCreateStateSet());
         gbufferStage->camera->setSmallFeatureCullingPixelSize(-1.0f);
-        gbufferStage->camera->addCullCallback(new osgEarth::AutoClipPlaneCullCallback(mapNode.get()));
+        gbufferStage->camera->addCullCallback(new AutoClipPlaneCullCallback(mapNode.get()));
 
         // thread-safe initialization of the OSG wrapper manager. Calling this here
         // prevents the "unsupported wrapper" messages from OSG
@@ -211,7 +238,7 @@ int main(int argc, char** argv)
         osgEarth::Viewpoint vp0 = createPlaceOnEarth(
             sceneRoot.get(), mapNode.get(), "../models/Sponza/Sponza.gltf",
             osg::Matrix::scale(1.0, 1.0, 1.0) * osg::Matrix::rotate(0.1, osg::Z_AXIS),
-            119.008f, 25.9f, 2.0f, -40.0f);
+            119.008f, 25.9f, 15.0f, -40.0f);
 
         osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
         interacter->addViewpoint(vp0);

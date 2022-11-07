@@ -306,7 +306,7 @@ namespace osgVerse
         osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
         traits->x = 0; traits->y = 0; traits->width = w; traits->height = h;
         traits->windowDecoration = false; traits->doubleBuffer = true;
-        traits->sharedContext = shared; traits->vsync = false;
+        traits->sharedContext = shared; traits->vsync = true;
         return osg::GraphicsContext::createGraphicsContext(traits.get());
     }
 
