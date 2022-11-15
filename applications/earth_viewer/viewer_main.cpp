@@ -108,11 +108,7 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
     // Create a scene and a placer on earth for sceneRoot to copy
     osg::ref_ptr<osg::MatrixTransform> scene = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> placer = new osg::MatrixTransform;
-#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
-    placer->setUpdateCallback(new UpdatePlacerCallback(scene.get(), false));
-#else
     placer->setUpdateCallback(new UpdatePlacerCallback(scene.get(), true));
-#endif
 
     osg::ref_ptr<osg::MatrixTransform> baseScene = new osg::MatrixTransform;
     {
@@ -173,7 +169,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
     setupStandardPipeline(pipeline.get(), &viewer,
-                          osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "barcelona.hdr"));
+                          osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)

@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ComputeBoundsVisitor>
 #include <osgDB/ReadFile>
 #include <iostream>
 #include "ShadowModule.h"
@@ -167,11 +168,21 @@ namespace osgVerse
     void ShadowModule::operator()(osg::Node* node, osg::NodeVisitor* nv)
     {
         osg::Camera* cameraMV = static_cast<osg::Camera*>(node);
-        _updatedCamera = cameraMV;
+        if (cameraMV) _updatedCamera = cameraMV;
         for (size_t i = 0; i < _shadowCameras.size(); ++i)
         {
             osg::Camera* shadowCam = _shadowCameras[i].get();
             updateFrustumGeometry(i, shadowCam);
+        }
+
+        if (node->asGroup())
+        {
+            osg::Group* group = node->asGroup();
+            for (size_t i = 0; i < group->getNumChildren(); ++i)
+            {
+                osg::ComputeBoundsVisitor cbv; group->getChild(i)->accept(cbv);
+                addReferenceBound(cbv.getBoundingBox(), i == 0);
+            }
         }
         traverse(node, nv);
     }

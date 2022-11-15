@@ -57,7 +57,7 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     _viewer->getCamera()->setViewport(0, 0, this->width(), this->height());
     _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());
 
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
     setupStandardPipeline(pipeline.get(), _viewer.get(), params);
 
     // Setup shadow & light module

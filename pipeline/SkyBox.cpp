@@ -155,6 +155,16 @@ void SkyBox::setEnvironmentMap(osg::Texture* tex, bool asCubemap)
     initialize(asCubemap, osg::Matrixf::rotate(-osg::PI_2, osg::X_AXIS));
 }
 
+void SkyBox::setSkyColor(const osg::Vec4ub& color)
+{
+    osg::ref_ptr<osg::Image> image = new osg::Image;
+    image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    image->setInternalTextureFormat(GL_RGBA8);
+    
+    osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
+    (*ptr) = color; setEnvironmentMap(image.get());
+}
+
 void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
 {
     osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;

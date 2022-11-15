@@ -221,15 +221,6 @@ struct RefreshSceneExecutor : public CommandHandler::CommandExecutor
         if (mani != NULL && goHome) mani->home(view->getFrameStamp()->getSimulationTime());
 
         if (!pipeline) pipeline = defPipeline.get(); else defPipeline = pipeline;
-        if (pipeline != NULL)
-        {
-            osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-            if (shadow && sceneRoot)
-            {
-                osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
-                shadow->addReferenceBound(cbv.getBoundingBox(), true);
-            }
-        }
         return true;
     }
 
