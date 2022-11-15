@@ -161,6 +161,9 @@ namespace osgVerse
             shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax, 0.0, zMaxTotal);
             _lightMatrices->setElement(i, osg::Matrixf(viewInv *
                 shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
+
+            ShadowData* sData = static_cast<ShadowData*>(shadowCam->getUserData());
+            if (sData != NULL) sData->bound = shadowBB;
         }
         _lightMatrices->dirty();
     }
@@ -198,6 +201,9 @@ namespace osgVerse
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         camera->setRenderOrder(osg::Camera::PRE_RENDER);
+
+        osg::ref_ptr<ShadowData> sData = new ShadowData; sData->index = id;
+        camera->setUserData(sData.get());
 
         if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps[id]->getTextureWidth(), _shadowMaps[id]->getTextureHeight());

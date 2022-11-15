@@ -13,6 +13,7 @@
 #include <sstream>
 #include <stdarg.h>
 #include "Pipeline.h"
+#include "ShadowModule.h"
 #include "Utilities.h"
 
 static osg::Camera::ComputeNearFarMode g_nearFarMode =
@@ -200,8 +201,13 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
             bool rtt = (camera->getRenderTargetImplementation() == osg::Camera::FRAME_BUFFER_OBJECT);
             bool inputCam = (slave ? slave->_useMastersSceneData : false);
 
+            // Check if camera is for shadowing
+            osgVerse::ShadowModule::ShadowData* sData =
+                static_cast<osgVerse::ShadowModule::ShadowData*>(camera->getUserData());
+            bool isShadowCam = (sData != NULL);
+
             osg::Viewport* viewport = camera->getViewport();
-            if (viewport && (!rtt || inputCam))
+            if (viewport && (!rtt || inputCam) && !isShadowCam)
             {   // avoid processing a shared viewport twice
                 if (processedViewports.count(viewport) == 0)
                 {
@@ -239,13 +245,6 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 }
                 else
                 {
-                    if (rtt && camera->getName().find("ShadowCaster") != std::string::npos)
-                    {
-#if OSG_VERSION_GREATER_THAN(3, 3, 2)
-                        //std::cout << "Resize shadow cam " << camera->getName() << "\n";
-                        camera->resize(w, h);  // FIXME: bad way to find and apply shadow cameras
-#endif
-                    }
                     continue;  // FIXME: ignore all absolute slaves such as RTT & display quads?
                     /*switch (camera->getProjectionResizePolicy())
                     {
@@ -519,7 +518,8 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1]);
+            osg::ref_ptr<osg::Texture> tex = createTexture(  // deferred quad not too low
+                type, osg::maximum((int)_stageSize[0], 1920), osg::maximum((int)_stageSize[1], 1080));
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), true);
             s->outputs[bufName] = tex.get();
@@ -550,7 +550,8 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1]);
+            osg::ref_ptr<osg::Texture> tex = createTexture(  // deferred quad not too low
+                type, osg::maximum((int)_stageSize[0], 1920), osg::maximum((int)_stageSize[1], 1080));
             s->runner->attach(comp, tex.get());
             s->outputs[bufName] = tex.get();
         }
