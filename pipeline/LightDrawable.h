@@ -59,10 +59,10 @@ namespace osgVerse
         /** Get the spot exponent of the light. */
         inline float getSpotExponent() const { return _spotExponent; }
 
-        /** Set the spot cutoff of the light. */
+        /** Set the spot cutoff (in radians) of the light. */
         inline void setSpotCutoff(float sc) { _spotCutoff = sc; recreate(); }
 
-        /** Get the spot cutoff of the light. */
+        /** Get the spot cutoff (in radians) of the light. */
         inline float getSpotCutoff() const { return _spotCutoff; }
 
         /** Set if light should be treated as in eye-space, which can follow the viewer */

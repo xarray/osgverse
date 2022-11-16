@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
-    light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
+    light0->setColor(osg::Vec3(3.0f, 3.0f, 2.8f));
     light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
     light0->setDirectional(true);
 
@@ -70,7 +70,7 @@ int main(int argc, char** argv)
     // Start the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
+    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));

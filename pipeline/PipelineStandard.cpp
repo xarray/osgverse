@@ -52,10 +52,16 @@ namespace osgVerse
         shaders.ssaoBlurFS = osgDB::readShaderFile(FRAG, dir + "std_ssao_blur.frag.glsl");
         shaders.pbrLightingFS = osgDB::readShaderFile(FRAG, dir + "std_pbr_lighting.frag.glsl");
         shaders.shadowCombineFS = osgDB::readShaderFile(FRAG, dir + "std_shadow_combine.frag.glsl");
-        shaders.displayFS = osgDB::readShaderFile(FRAG, dir + "std_display.frag.glsl");
+        shaders.downsampleFS = osgDB::readShaderFile(FRAG, dir + "std_luminance_downsample.frag.glsl");
+        shaders.brightnessFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_extraction.frag.glsl");
+        shaders.brightnessCombineFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_combine.frag.glsl");
+        shaders.bloomFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_bloom.frag.glsl");
+        shaders.tonemappingFS = osgDB::readShaderFile(FRAG, dir + "std_tonemapping.frag.glsl");
         shaders.brdfLutFS = osgDB::readShaderFile(FRAG, dir + "std_brdf_lut.frag.glsl");
         shaders.envPrefilterFS = osgDB::readShaderFile(FRAG, dir + "std_environment_prefiltering.frag.glsl");
         shaders.irrConvolutionFS = osgDB::readShaderFile(FRAG, dir + "std_irradiance_convolution.frag.glsl");
+        shaders.quadFS = osgDB::readShaderFile(FRAG, dir + "std_common_quad.frag.glsl");
+        shaders.displayFS = osgDB::readShaderFile(FRAG, dir + "std_display.frag.glsl");
 
         std::string iblFile = osgDB::getNameLessExtension(sky) + ".ibl.osgb";
         skyboxIBL = dynamic_cast<osg::StateSet*>(osgDB::readObjectFile(iblFile));
@@ -104,21 +110,22 @@ namespace osgVerse
         osg::ref_ptr<osgVerse::LightModule> lightModule = new osgVerse::LightModule("Light", p);
         view->getCamera()->addUpdateCallback(lightModule.get());
 
+        // IBL related textures can be read from files or from run-once stages
         osgVerse::Pipeline::Stage *brdfLut = NULL, *prefiltering = NULL, *convolution = NULL;
         osg::Texture *brdfLutTex = NULL, *prefilteringTex = NULL, *convolutionTex = NULL;
         if (!spp.skyboxIBL)
         {
-            brdfLut = p->addDeferredStage("BrdfLut", true,
+            brdfLut = p->addDeferredStage("BrdfLut", 1.0f, true,
                     spp.shaders.quadVS, spp.shaders.brdfLutFS, 1,
                     "BrdfLutBuffer", osgVerse::Pipeline::RG_FLOAT16);
 
-            prefiltering = p->addDeferredStage("Prefilter", true,
+            prefiltering = p->addDeferredStage("Prefilter", 1.0f, true,
                     spp.shaders.quadVS, spp.shaders.envPrefilterFS, 1,
                     "PrefilterBuffer", osgVerse::Pipeline::RGB_INT8);
             prefiltering->applyTexture(spp.skyboxMap.get(), "EnvironmentMap", 0);
             prefiltering->applyUniform(new osg::Uniform("GlobalRoughness", 4.0f));
 
-            convolution = p->addDeferredStage("IrrConvolution", true,
+            convolution = p->addDeferredStage("IrrConvolution", 1.0f, true,
                     spp.shaders.quadVS, spp.shaders.irrConvolutionFS, 1,
                     "IrradianceBuffer", osgVerse::Pipeline::RGB_INT8);
             convolution->applyTexture(spp.skyboxMap.get(), "EnvironmentMap", 0);
@@ -141,31 +148,33 @@ namespace osgVerse
             convolutionTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         }
 
-        osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao",
+        // SSAO stages: AO -> BlurH -> BlurV
+        osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoFS, 1,
                 "SsaoBuffer", osgVerse::Pipeline::R_INT8);
         ssao->applyBuffer(*gbuffer, "NormalBuffer", 0);
         ssao->applyBuffer(*gbuffer, "DepthBuffer", 1);
         ssao->applyTexture(generateNoises2D(4, 4), "RandomTexture", 2);
-        ssao->applyUniform(new osg::Uniform("AORadius", 4.0f));
+        ssao->applyUniform(new osg::Uniform("AORadius", 6.0f));
         ssao->applyUniform(new osg::Uniform("AOBias", 0.1f));
-        ssao->applyUniform(new osg::Uniform("AOPowExponent", 1.5f));
+        ssao->applyUniform(new osg::Uniform("AOPowExponent", 12.0f));
 
-        osgVerse::Pipeline::Stage* ssaoBlur1 = p->addWorkStage("SsaoBlur1",
+        osgVerse::Pipeline::Stage* ssaoBlur1 = p->addWorkStage("SsaoBlur1", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
                 "SsaoBlurredBuffer0", osgVerse::Pipeline::R_INT8);
         ssaoBlur1->applyBuffer(*ssao, "SsaoBuffer", 0);
         ssaoBlur1->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(1.0f, 0.0f)));
         ssaoBlur1->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
 
-        osgVerse::Pipeline::Stage* ssaoBlur2 = p->addWorkStage("SsaoBlur2",
+        osgVerse::Pipeline::Stage* ssaoBlur2 = p->addWorkStage("SsaoBlur2", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
                 "SsaoBlurredBuffer", osgVerse::Pipeline::R_INT8);
         ssaoBlur2->applyBuffer(*ssaoBlur1, "SsaoBlurredBuffer0", "SsaoBuffer", 0);
         ssaoBlur2->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(0.0f, 1.0f)));
         ssaoBlur2->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
 
-        osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting",
+        // Deferred lighting stage
+        osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting", 1.0f,
                 spp.shaders.quadVS, spp.shaders.pbrLightingFS, 2,
                 "ColorBuffer", osgVerse::Pipeline::RGB_FLOAT16,
                 "IblAmbientBuffer", osgVerse::Pipeline::RGB_INT8);
@@ -188,21 +197,84 @@ namespace osgVerse
         }
         lightModule->applyTextureAndUniforms(lighting, "LightParameterMap", 8);
 
-        osgVerse::Pipeline::Stage* shadowing = p->addWorkStage("Shadowing",
+        // Shadow & AO combining stage
+        osgVerse::Pipeline::Stage* shadowing = p->addWorkStage("Shadowing", 1.0f,
                 spp.shaders.quadVS, spp.shaders.shadowCombineFS, 1,
                 "CombinedBuffer", osgVerse::Pipeline::RGB_FLOAT16);
         shadowing->applyBuffer(*lighting, "ColorBuffer", 0);
-        shadowing->applyBuffer(*lighting, "IblAmbientBuffer", 1);
+        shadowing->applyBuffer(*ssaoBlur2, "SsaoBlurredBuffer", 1);
         shadowing->applyBuffer(*gbuffer, "NormalBuffer", 2);
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
         shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture0", 4);
         shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture1", 5);
         shadowModule->applyTextureAndUniforms(shadowing, "ShadowMap", 6);
 
+        // Bloom stages: Brightness -> Downscaling x N -> Combine -> Bloom
+        osgVerse::Pipeline::Stage* brighting = p->addDeferredStage("Brighting", 1.0f, false,
+            spp.shaders.quadVS, spp.shaders.brightnessFS, 1,
+            "BrightnessBuffer0", osgVerse::Pipeline::RGB_INT8);
+        brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
+        brighting->applyUniform(new osg::Uniform("BrightnessThreshold", 0.7f));
+
+        std::vector<osgVerse::Pipeline::Stage*> downsamples;
+        osg::Vec2s stageSize = p->getStageSize();
+        int downsampleIndex = 1; float downsampleValue = 1080.0f;
+        downsamples.push_back(brighting);
+        for (; downsampleValue > 2.0f; ++downsampleIndex)
+        {
+            float sizeScale = 1.0f / float(1 << downsampleIndex);
+            downsampleValue = osg::maximum((int)stageSize[1], 1080) * sizeScale;
+            osg::Vec2 invRes(1.0f / osg::maximum((int)stageSize[0], 1920) * sizeScale,
+                             1.0f / downsampleValue);
+
+            std::string id = std::to_string(downsampleIndex), lastId = std::to_string(downsampleIndex - 1);
+            osgVerse::Pipeline::Stage* brightDownsampling = p->addDeferredStage(
+                "Downsampling" + id, sizeScale, false, spp.shaders.quadVS, spp.shaders.downsampleFS, 1,
+                ("BrightnessBuffer" + id).c_str(), osgVerse::Pipeline::RGB_INT8);
+            brightDownsampling->applyBuffer(
+                *downsamples.back(), "BrightnessBuffer" + lastId, "ColorBuffer", 0);
+            brightDownsampling->applyUniform(new osg::Uniform("InvBufferResolution", invRes));
+            downsamples.push_back(brightDownsampling);
+        }
+
+        osgVerse::Pipeline::Stage* brightCombining = p->addDeferredStage("BrightCombining", 1.0f, false,
+            spp.shaders.quadVS, spp.shaders.brightnessCombineFS, 1,
+            "BrightnessCombinedBuffer", osgVerse::Pipeline::RGB_INT8);
+        for (size_t i = 1; i <= 4; ++i)
+        {
+            std::string id = std::to_string(i);
+            brightCombining->applyBuffer(*downsamples[i], "BrightnessBuffer" + id, i - 1);
+        }
+
+        osgVerse::Pipeline::Stage* blooming = p->addDeferredStage("Blooming", 1.0f, false,
+            spp.shaders.quadVS, spp.shaders.bloomFS, 1,
+            "BloomBuffer", osgVerse::Pipeline::RGB_INT8);
+        blooming->applyBuffer(*brightCombining, "BrightnessCombinedBuffer", 0);
+        blooming->applyUniform(new osg::Uniform("BloomFactor", 1.0f));
+
+        // Lensflare stages
+        // TODO
+
+        // Eye-adaption & Tonemapping stage
+        std::string lastDs = std::to_string(downsamples.size() - 1);
+        osgVerse::Pipeline::Stage* tonemapping = p->addDeferredStage("ToneMapping", 1.0f, false,
+            spp.shaders.quadVS, spp.shaders.tonemappingFS, 1,
+            "ToneMappedBuffer", osgVerse::Pipeline::RGB_FLOAT16);
+        tonemapping->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
+        tonemapping->applyBuffer(*downsamples.back(), "BrightnessBuffer" + lastDs, "LuminanceBuffer", 1);
+        tonemapping->applyBuffer(*blooming, "BloomBuffer", 2);
+        tonemapping->applyBuffer(*lighting, "IblAmbientBuffer", 3);
+        tonemapping->applyUniform(new osg::Uniform("LuminanceFactor", osg::Vec2(1.0f, 10.0f)));
+
+        // Final stage (color grading)
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
                 spp.shaders.quadVS, spp.shaders.displayFS, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        output->applyBuffer(*shadowing, "CombinedBuffer", 0);
-        output->applyBuffer(*ssaoBlur2, "SsaoBlurredBuffer", 1);
+        output->applyBuffer(*tonemapping, "ToneMappedBuffer", "ColorBuffer", 0);
+        output->applyUniform(new osg::Uniform("ColorAttribute", osg::Vec3(1.0f, 1.0f, 1.0f)));
+        output->applyUniform(new osg::Uniform("ColorBalance", osg::Vec3(0.0f, 0.0f, 0.0f)));  // [-1, 1]
+        output->applyUniform(new osg::Uniform("ColorBalanceMode", (int)0));
+        output->applyUniform(new osg::Uniform("VignetteRadius", 1.0f));
+        output->applyUniform(new osg::Uniform("VignetteDarkness", 0.0f));
 
         p->applyStagesToView(view, spp.forwardMask);
         p->requireDepthBlit(gbuffer, true);

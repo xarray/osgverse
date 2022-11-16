@@ -36,7 +36,7 @@ LightDrawable::LightDrawable()
     _position.set(0.0f, 0.0f, 1.0f);
     _direction.set(1.0f, 0.0f, 0.0f);
     _attenuationRange.set(0.0f, 0.0f);
-    _spotExponent = 0.0f; _spotCutoff = 180.0f;
+    _spotExponent = 0.0f; _spotCutoff = osg::PI_4;
     setCullCallback(LightGlobalManager::instance()->getCallback());
     _directional = false; recreate();
 }
@@ -71,16 +71,29 @@ void LightDrawable::recreate()
 {
     bool unlimited = false;
     osg::ref_ptr<osg::Shape> shape;
+    osg::Quat q; q.makeRotate(osg::X_AXIS, _direction);
+    float length = _attenuationRange[1];
+
     switch (getType(unlimited))
     {
-    case Directional:  // TODO
-        shape = new osg::Cylinder(_position, 1.0f, 2.0f);
+    case Directional:
+        {
+            osg::Cylinder* cylinder = new osg::Cylinder(_position, length * 0.5f, length);
+            cylinder->setRotation(q); shape = cylinder;
+        }
         break;
-    case PointLight:  // TODO
-        shape = new osg::Sphere(_position, 1.0f);
+    case SpotLight:
+        if (_spotCutoff < osg::PI_2)
+        {
+            float radius = length * atan(_spotCutoff);
+            osg::Cone* cone = new osg::Cone(_position, radius, length);
+            cone->setRotation(q); shape = cone;
+        }
+        else
+            shape = new osg::Sphere(_position, length);
         break;
-    case SpotLight:  // TODO
-        shape = new osg::Cone(_position, 1.0f, 2.0f);
+    default:
+        shape = new osg::Sphere(_position, length);
         break;
     }
 

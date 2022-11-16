@@ -1,6 +1,6 @@
 #version 130
 #define DEBUG_SHADOW_COLOR 0
-uniform sampler2D ColorBuffer, IblAmbientBuffer, NormalBuffer, DepthBuffer;
+uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler1D RandomTexture0, RandomTexture1;
 uniform mat4 ShadowSpaceMatrices[4];
@@ -29,9 +29,10 @@ float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV,
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
-    vec4 colorData = texture(ColorBuffer, uv0), iblData = texture(IblAmbientBuffer, uv0);
+    vec4 colorData = texture(ColorBuffer, uv0);
     vec4 normalAlpha = texture(NormalBuffer, uv0);
     float depthValue = texture(DepthBuffer, uv0).r * 2.0 - 1.0;
+    float ao = texture(SsaoBlurredBuffer, uv0).r;
     
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
@@ -65,10 +66,9 @@ void main()
     }
     
 #if DEBUG_SHADOW_COLOR
-    colorData.rgb *= debugShadowColor;
+    colorData.rgb *= debugShadowColor * ao;
 #else
-    colorData.rgb *= shadow;
+    colorData.rgb *= shadow * ao;
 #endif
-    colorData.rgb += iblData.rgb;
 	fragData = colorData;
 }

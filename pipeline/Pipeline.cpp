@@ -504,7 +504,7 @@ namespace osgVerse
         return s;
     }
 
-    Pipeline::Stage* Pipeline::addWorkStage(const std::string& name,
+    Pipeline::Stage* Pipeline::addWorkStage(const std::string& name, float sizeScale,
                                             osg::Shader* vs, osg::Shader* fs, int buffers, ...)
     {
         Stage* s = new Stage; s->deferred = false;
@@ -518,8 +518,9 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(  // deferred quad not too low
-                type, osg::maximum((int)_stageSize[0], 1920), osg::maximum((int)_stageSize[1], 1080));
+            osg::ref_ptr<osg::Texture> tex = createTexture(type,
+                osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
+                osg::maximum((int)_stageSize[1], 1080) * sizeScale);
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), true);
             s->outputs[bufName] = tex.get();
@@ -532,7 +533,7 @@ namespace osgVerse
         return s;
     }
 
-    Pipeline::Stage* Pipeline::addDeferredStage(const std::string& name, bool runOnce,
+    Pipeline::Stage* Pipeline::addDeferredStage(const std::string& name, float sizeScale, bool runOnce,
                                                 osg::Shader* vs, osg::Shader* fs, int buffers, ...)
     {
         Stage* s = new Stage; s->deferred = true;
@@ -550,8 +551,9 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(  // deferred quad not too low
-                type, osg::maximum((int)_stageSize[0], 1920), osg::maximum((int)_stageSize[1], 1080));
+            osg::ref_ptr<osg::Texture> tex = createTexture(type,
+                osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
+                osg::maximum((int)_stageSize[1], 1080) * sizeScale);
             s->runner->attach(comp, tex.get());
             s->outputs[bufName] = tex.get();
         }

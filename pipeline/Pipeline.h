@@ -120,11 +120,12 @@ namespace osgVerse
                              osg::Shader* vs, osg::Shader* fs, int buffers, ...);
 
         /** Add textures and use an internal screen-sized buffer for shading */
-        Stage* addWorkStage(const std::string& n, osg::Shader* vs, osg::Shader* fs, int buffers, ...);
+        Stage* addWorkStage(const std::string& n, float sizeScale,
+                            osg::Shader* vs, osg::Shader* fs, int buffers, ...);
 
         /** Similar to WorkStage, but will use DeferredRenderCallback::Runner instead of a camera
             Note: it doesn't support <name>ProjectionToWorld which helps rebuild world vertex */
-        Stage* addDeferredStage(const std::string& n, bool runOnce,
+        Stage* addDeferredStage(const std::string& n, float sizeScale, bool runOnce,
                                 osg::Shader* vs, osg::Shader* fs, int buffers, ...);
 
         /** Display shading results on a screen-sized quad */
@@ -172,7 +173,9 @@ namespace osgVerse
         {
             osg::ref_ptr<osg::Shader> gbufferVS, shadowCastVS, quadVS;
             osg::ref_ptr<osg::Shader> gbufferFS, shadowCastFS, ssaoFS, ssaoBlurFS;
-            osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, displayFS;
+            osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, downsampleFS;
+            osg::ref_ptr<osg::Shader> brightnessFS, brightnessCombineFS, bloomFS;
+            osg::ref_ptr<osg::Shader> tonemappingFS, displayFS, quadFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
         };
 
