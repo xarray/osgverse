@@ -57,6 +57,7 @@ namespace osgVerse
         shaders.brightnessCombineFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_combine.frag.glsl");
         shaders.bloomFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_bloom.frag.glsl");
         shaders.tonemappingFS = osgDB::readShaderFile(FRAG, dir + "std_tonemapping.frag.glsl");
+        shaders.antiAliasingFS = osgDB::readShaderFile(FRAG, dir + "std_antialiasing.frag.glsl");
         shaders.brdfLutFS = osgDB::readShaderFile(FRAG, dir + "std_brdf_lut.frag.glsl");
         shaders.envPrefilterFS = osgDB::readShaderFile(FRAG, dir + "std_environment_prefiltering.frag.glsl");
         shaders.irrConvolutionFS = osgDB::readShaderFile(FRAG, dir + "std_irradiance_convolution.frag.glsl");
@@ -266,10 +267,19 @@ namespace osgVerse
         tonemapping->applyBuffer(*lighting, "IblAmbientBuffer", 3);
         tonemapping->applyUniform(new osg::Uniform("LuminanceFactor", osg::Vec2(1.0f, 10.0f)));
 
+        // Anti-aliasing
+        osgVerse::Pipeline::Stage* antiAliasing = p->addDeferredStage("AntiAliasing", 1.0f, false,
+            spp.shaders.quadVS, spp.shaders.antiAliasingFS, 1,
+            "AntiAliasedBuffer", osgVerse::Pipeline::RGB_FLOAT16);
+        antiAliasing->applyBuffer(*tonemapping, "ToneMappedBuffer", "ColorBuffer", 0);
+
         // Final stage (color grading)
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
                 spp.shaders.quadVS, spp.shaders.displayFS, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        output->applyBuffer(*tonemapping, "ToneMappedBuffer", "ColorBuffer", 0);
+        output->applyBuffer(*antiAliasing, "AntiAliasedBuffer", "ColorBuffer", 0);
+        output->applyBuffer(*gbuffer, "DepthBuffer", 1);
+        output->applyUniform(new osg::Uniform("FogDistance", osg::Vec2(0.0f, 0.0f)));
+        output->applyUniform(new osg::Uniform("FogColor", osg::Vec3(0.5f, 0.5f, 0.5f)));
         output->applyUniform(new osg::Uniform("ColorAttribute", osg::Vec3(1.0f, 1.0f, 1.0f)));
         output->applyUniform(new osg::Uniform("ColorBalance", osg::Vec3(0.0f, 0.0f, 0.0f)));  // [-1, 1]
         output->applyUniform(new osg::Uniform("ColorBalanceMode", (int)0));

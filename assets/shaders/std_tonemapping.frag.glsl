@@ -49,7 +49,7 @@ void main()
     {
         color = pow(color + iblColor + colorBloom, vec4(2.2));
         color.rgb = ACESToneMapping(color.rgb, LuminanceFactor.x + lumAvg * LuminanceFactor.y);
-        fragData = vec4(pow(color.rgb, vec3(1.0 / 2.2)), 1.0);
+        fragData = vec4(color.rgb, 1.0);
     }
     else
         fragData = vec4(color + iblColor + colorBloom);

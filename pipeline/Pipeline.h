@@ -175,7 +175,7 @@ namespace osgVerse
             osg::ref_ptr<osg::Shader> gbufferFS, shadowCastFS, ssaoFS, ssaoBlurFS;
             osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, downsampleFS;
             osg::ref_ptr<osg::Shader> brightnessFS, brightnessCombineFS, bloomFS;
-            osg::ref_ptr<osg::Shader> tonemappingFS, displayFS, quadFS;
+            osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, displayFS, quadFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
         };
 
