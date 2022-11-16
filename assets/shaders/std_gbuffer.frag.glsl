@@ -1,6 +1,7 @@
 #version 130
 uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;
 uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
+uniform float ModelIndicator;
 in vec4 texCoord0, texCoord1, color;
 in vec3 eyeNormal, eyeTangent, eyeBinormal;
 
@@ -24,7 +25,7 @@ void main()
     }
     
     // MRT output
-	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, diffuse.a);
+	gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, ModelIndicator / 10.0);
 	gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.g);
     gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.r);
     gl_FragData[3]/*EmissionOcclusionBuffer*/ = vec4(emission, occlusion);

@@ -89,7 +89,7 @@ namespace osgVerse
         // for following stages to use
         osgVerse::Pipeline::Stage* gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
             spp.shaders.gbufferVS, spp.shaders.gbufferFS, 5,
-            "NormalBuffer", osgVerse::Pipeline::RGBA_INT10_2,
+            "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
             "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
             "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,

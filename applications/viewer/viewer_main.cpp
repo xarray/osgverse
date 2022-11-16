@@ -99,6 +99,9 @@ int main(int argc, char** argv)
         postCamera->addChild(skybox.get());
     }
 
+    // Select model and show a hightlight outline
+    //osgVerse::Pipeline::setModelIndicator(scene.get(), osgVerse::Pipeline::SelectIndicator);
+
     // Start the viewer
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

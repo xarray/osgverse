@@ -619,6 +619,7 @@ namespace osgVerse
         ss->setTextureAttributeAndModes(5, tex0.get());  // EmissiveMap
         ss->setTextureAttributeAndModes(6, tex0.get());  // ReflectionMap
         for (int i = 0; i < 7; ++i) ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
+        ss->addUniform(new osg::Uniform("ModelIndicator", 0.0f));
 
         osg::Program* prog = static_cast<osg::Program*>(ss->getAttribute(osg::StateAttribute::PROGRAM));
         if (prog != NULL)
@@ -626,6 +627,13 @@ namespace osgVerse
             prog->addBindAttribLocation(attributeNames[6], 6);
             prog->addBindAttribLocation(attributeNames[7], 7);
         }
+    }
+
+    void Pipeline::setModelIndicator(osg::Node* node, IndicatorType type)
+    {
+        if (!node) return; osg::StateSet* ss = node->getOrCreateStateSet();
+        osg::Uniform* u = ss->getOrCreateUniform("ModelIndicator", osg::Uniform::FLOAT);
+        if (u) u->set((float)type);
     }
 
     osg::Texture* Pipeline::createTexture(BufferType type, int w, int h)

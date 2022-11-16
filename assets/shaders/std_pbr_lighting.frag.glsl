@@ -5,7 +5,7 @@ uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
 uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
 uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+att1, r2: dir+att0, r3: spotProp)
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
-uniform vec2 LightNumber;  // (num, max_num)
+uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)
 in vec4 texCoord0;
 
 /// PBR functions
@@ -184,4 +184,17 @@ void main()
     
 	gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut, 1.0);
 	gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
+    
+    // ModelIndicator functionalities
+    if (normalAlpha.a > 0.45 && normalAlpha.a < 0.55)  // 5: Highlight selection
+    {
+        vec2 off1 = vec2(1.0, 0.0) * InvScreenResolution;
+        vec2 off2 = vec2(0.0, 1.0) * InvScreenResolution;
+        vec4 n1 = texture(NormalBuffer, uv0 - off1);
+        vec4 n2 = texture(NormalBuffer, uv0 - off2);
+        vec4 n3 = texture(NormalBuffer, uv0 + off1);
+        vec4 n4 = texture(NormalBuffer, uv0 + off2);
+        if (n1.a < 0.1 || n2.a < 0.1 || n3.a < 0.1 || n4.a < 0.1)
+            gl_FragData[1] = vec4(1.0, 1.0, 0.0, 1.0);
+    }
 }
