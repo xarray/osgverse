@@ -173,23 +173,20 @@ int main(int argc, char** argv)
     light->setMainLight(light0.get(), "Shadow");
 
     // Post-HUD displays and utilities
-    osg::ref_ptr<osg::Camera> skyCamera = new osg::Camera;
-    skyCamera->setClearMask(0);
-    skyCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
-    skyCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    osg::ref_ptr<osg::Camera> skyCamera = osgVerse::SkyBox::createSkyCamera();
     auxRoot->addChild(skyCamera.get());
-
-    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
-    postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
-    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
-    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-    auxRoot->addChild(postCamera.get());
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skyCamera->addChild(skybox.get());
     }
+
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    auxRoot->addChild(postCamera.get());
 
     osg::ref_ptr<osgVerse::NodeSelector> selector = new osgVerse::NodeSelector;
     {

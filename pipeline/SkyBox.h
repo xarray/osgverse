@@ -15,6 +15,8 @@ namespace osgVerse
         SkyBox();
         SkyBox(const SkyBox& copy, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
 
+        static osg::Camera* createSkyCamera();
+
         void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
         void setEnvironmentMap(osg::Image* image);
         void setEnvironmentMap(osg::Texture* tex, bool asCubemap);

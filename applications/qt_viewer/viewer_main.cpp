@@ -77,10 +77,7 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     if (light) light->setMainLight(light0.get(), "Shadow");
 
     // Post-HUD display
-    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
-    postCamera->setClearMask(0);
-    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
-    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;

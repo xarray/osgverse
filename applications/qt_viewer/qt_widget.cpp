@@ -131,7 +131,7 @@ void OsgSceneWidget::wheelEvent(QWheelEvent* event)
     int delta = event->delta();
     osgGA::GUIEventAdapter::ScrollingMotion motion = (delta > 0) ? osgGA::GUIEventAdapter::SCROLL_UP
                                                                  : osgGA::GUIEventAdapter::SCROLL_DOWN;
-    _graphicsWindow->getEventQueue()->mouseScroll( motion );
+    _graphicsWindow->getEventQueue()->mouseScroll(motion);
 }
 
 bool OsgSceneWidget::event(QEvent* event)

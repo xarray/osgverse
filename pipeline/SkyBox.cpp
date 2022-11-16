@@ -1,5 +1,6 @@
 #include "SkyBox.h"
 #include "Utilities.h"
+#include <osg/io_utils>
 #include <osg/Depth>
 #include <osg/Drawable>
 #include <osg/Matrix>
@@ -93,6 +94,18 @@ SkyBox::SkyBox()
 SkyBox::SkyBox(const SkyBox& copy, const osg::CopyOp& copyop)
     : osg::Transform(copy, copyop), _skymap(copy._skymap)
 {
+}
+
+osg::Camera* SkyBox::createSkyCamera()
+{
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setName("SkyCamera");
+    postCamera->setClearMask(0);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    postCamera->setProjectionMatrixAsPerspective(30.0f, 1.0f, 1.0f, 1000.0f);
+    postCamera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
+    return postCamera.release();
 }
 
 void SkyBox::setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded)
@@ -214,11 +227,19 @@ bool SkyBox::computeLocalToWorldMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv
 {
     if (nv && nv->getVisitorType() == osg::NodeVisitor::CULL_VISITOR)
     {
-        osgUtil::CullVisitor* cv = dynamic_cast<osgUtil::CullVisitor*>(nv);
-        osg::RefMatrix* proj = cv->getProjectionMatrix();
+        osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
+#if COMPLEX_SKYBOX
+        const osg::RefMatrix* modelView = cv->getModelViewMatrix();
+        const osg::RefMatrix* proj = cv->getProjectionMatrix();
+
+        osg::Vec3d eye = osg::Matrix::inverse(*modelView).getTrans();
         double far = (*proj)(3, 2) / (1.0 + (*proj)(2, 2));
-        matrix.preMult(osg::Matrix::scale(far, far, far) *
-                       osg::Matrix::translate(cv->getEyeLocal()));
+        matrix.preMult(osg::Matrix::scale(far, far, far) * osg::Matrix::translate(eye));
+#else
+        const osg::RefMatrix* proj = cv->getProjectionMatrix();
+        double far = (*proj)(3, 2) / (1.0 + (*proj)(2, 2));
+        matrix.preMult(osg::Matrix::scale(far, far, far) * osg::Matrix::translate(cv->getEyeLocal()));
+#endif
         return true;
     }
     else
@@ -229,11 +250,20 @@ bool SkyBox::computeWorldToLocalMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv
 {
     if (nv && nv->getVisitorType() == osg::NodeVisitor::CULL_VISITOR)
     {
-        osgUtil::CullVisitor* cv = dynamic_cast<osgUtil::CullVisitor*>(nv);
-        osg::RefMatrix* proj = cv->getProjectionMatrix();
+        osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
+#if COMPLEX_SKYBOX
+        const osg::RefMatrix* modelView = cv->getModelViewMatrix();
+        const osg::RefMatrix* proj = cv->getProjectionMatrix();
+
+        osg::Vec3d eye = osg::Matrix::inverse(*modelView).getTrans();
+        double invFar = (1.0 + (*proj)(2, 2)) / (*proj)(3, 2);
+        matrix.postMult(osg::Matrix::translate(-eye) * osg::Matrix::scale(invFar, invFar, invFar));
+#else
+        const osg::RefMatrix* proj = cv->getProjectionMatrix();
         double invFar = (1.0 + (*proj)(2, 2)) / (*proj)(3, 2);
         matrix.postMult(osg::Matrix::translate(-cv->getEyeLocal()) *
                         osg::Matrix::scale(invFar, invFar, invFar));
+#endif
         return true;
     }
     else
