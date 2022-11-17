@@ -1,3 +1,34 @@
+CONFIGURE_FILE("leveldb/port/port_config.h.in"
+               "${CMAKE_BINARY_DIR}/3rdparty/leveldb/port/port_config.h")
+SET(LEVELDB_SOURCE_FILES
+    "leveldb/db/builder.cc" "leveldb/db/builder.h" "leveldb/db/c.cc"
+    "leveldb/db/db_impl.cc" "leveldb/db/db_impl.h" "leveldb/db/db_iter.cc" "leveldb/db/db_iter.h"
+    "leveldb/db/dbformat.cc" "leveldb/db/dbformat.h" "leveldb/db/dumpfile.cc"
+    "leveldb/db/filename.cc" "leveldb/db/filename.h" "leveldb/db/log_format.h"
+    "leveldb/db/log_reader.cc" "leveldb/db/log_reader.h" "leveldb/db/log_writer.cc" "leveldb/db/log_writer.h"
+    "leveldb/db/memtable.cc" "leveldb/db/memtable.h" "leveldb/db/repair.cc"
+    "leveldb/db/skiplist.h" "leveldb/db/snapshot.h" "leveldb/db/table_cache.cc" "leveldb/db/table_cache.h"
+    "leveldb/db/version_edit.cc" "leveldb/db/version_edit.h" "leveldb/db/version_set.cc" "leveldb/db/version_set.h"
+    "leveldb/db/write_batch_internal.h" "leveldb/db/write_batch.cc"
+    "leveldb/port/port_stdcxx.h" "leveldb/port/port.h" "leveldb/port/thread_annotations.h"
+    "leveldb/table/block_builder.cc" "leveldb/table/block_builder.h"
+    "leveldb/table/block.cc" "leveldb/table/block.h" "leveldb/table/filter_block.cc" "leveldb/table/filter_block.h"
+    "leveldb/table/format.cc" "leveldb/table/format.h" "leveldb/table/iterator_wrapper.h" "leveldb/table/iterator.cc"
+    "leveldb/table/merger.cc" "leveldb/table/merger.h" "leveldb/table/table_builder.cc" "leveldb/table/table.cc"
+    "leveldb/table/two_level_iterator.cc" "leveldb/table/two_level_iterator.h"
+    "leveldb/util/arena.cc" "leveldb/util/arena.h" "leveldb/util/bloom.cc" "leveldb/util/cache.cc" "leveldb/util/coding.cc"
+    "leveldb/util/coding.h" "leveldb/util/comparator.cc" "leveldb/util/crc32c.cc" "leveldb/util/crc32c.h" "leveldb/util/env.cc"
+    "leveldb/util/filter_policy.cc" "leveldb/util/hash.cc" "leveldb/util/hash.h"
+    "leveldb/util/logging.cc" "leveldb/util/logging.h" "leveldb/util/mutexlock.h" "leveldb/util/no_destructor.h"
+    "leveldb/util/options.cc" "leveldb/util/random.h" "leveldb/util/status.cc"
+    "leveldb/helpers/memenv/memenv.cc" "leveldb/helpers/memenv/memenv.h"
+)
+IF(WIN32)
+    SET(LEVELDB_SOURCE_FILES ${LEVELDB_SOURCE_FILES} "leveldb/util/env_windows.cc" "leveldb/util/windows_logger.h")
+ELSE(WIN32)
+    SET(LEVELDB_SOURCE_FILES ${LEVELDB_SOURCE_FILES} "leveldb/util/env_posix.cc" "leveldb/util/posix_logger.h")
+ENDIF(WIN32)
+
 SET(ApproxMVBB_VERSION_MAJOR 3)
 SET(ApproxMVBB_VERSION_MINOR 1)
 SET(ApproxMVBB_VERSION_PATCH 2)
@@ -127,6 +158,7 @@ SET(TINYSPLINE_SOURCE_FILES
     tinyspline/tinysplinecxx.cxx tinyspline/tinysplinecxx.h
 )
 
+SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
 SOURCE_GROUP("VHACD Files" FILES ${VHACD_SOURCE_FILES})
@@ -145,14 +177,15 @@ SET(LIBRARY_FILES
     tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h
     laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h any.hpp
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
-    ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
-    ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
-    ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
+    ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
+    ${LASZIP_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES}
+    ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
 )
 
-ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU
-				-DLASZIPDLL_EXPORTS -DUNORDERED -DHAVE_UNORDERED_MAP=1)
-INCLUDE_DIRECTORIES(ozz imgui)
+ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_PLATFORM_WINDOWS -DLEVELDB_HAS_PORT_CONFIG_H=1
+                -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+INCLUDE_DIRECTORIES(leveldb ozz imgui "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 

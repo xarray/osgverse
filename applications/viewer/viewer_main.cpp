@@ -10,6 +10,17 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#define FOG_TEST 0
+#define PARTICLE_TEST 0
+#define INDICATOR_TEST 0
+
+#if FOG_TEST
+#   include <osg/Fog>
+#endif
+#if PARTICLE_TEST
+#   include <osgParticle/PrecipitationEffect>
+#endif
+
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/LightModule.h>
@@ -99,8 +110,38 @@ int main(int argc, char** argv)
         postCamera->addChild(skybox.get());
     }
 
-    // Select model and show a hightlight outline
-    //osgVerse::Pipeline::setModelIndicator(scene.get(), osgVerse::Pipeline::SelectIndicator);
+#if INDICATOR_TEST
+    // Experimental: select model and show a highlight outline
+    osgVerse::Pipeline::setModelIndicator(scene.get(), osgVerse::Pipeline::SelectIndicator);
+#endif
+
+#if FOG_TEST
+    osg::Vec2 fogRange(1500.0f, 20000.0f);
+    osg::Vec3 fogColor(0.5f, 0.5f, 0.55f);
+    pipeline->getStage("Final")->getUniform("FogDistance")->set(fogRange);
+    pipeline->getStage("Final")->getUniform("FogColor")->set(fogColor);
+
+    osg::Fog* fog = new osg::Fog;
+    fog->setMode(osg::Fog::LINEAR);
+    fog->setStart(fogRange[0]); fog->setEnd(fogRange[1]);
+    fog->setColor(osg::Vec4(fogColor, 1.0f));
+    otherSceneRoot->getOrCreateStateSet()->setAttributeAndModes(fog);
+#endif
+
+#if PARTICLE_TEST
+    osg::ref_ptr<osg::Camera> particleCamera = new osg::Camera;
+    particleCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+    particleCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    particleCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    root->addChild(particleCamera.get());
+
+    osgParticle::PrecipitationEffect* precipitationEffect = new osgParticle::PrecipitationEffect;
+    precipitationEffect->setParticleSize(10.0f);
+    precipitationEffect->setWind(osg::Vec3(1.0f, 1.0f, 0.0f));
+    precipitationEffect->rain(1.0f);
+    precipitationEffect->setNodeMask(~DEFERRED_SCENE_MASK);
+    particleCamera->addChild(precipitationEffect);
+#endif
 
     // Start the viewer
     viewer.addEventHandler(new osgViewer::StatsHandler);

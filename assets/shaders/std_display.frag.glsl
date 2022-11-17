@@ -69,18 +69,20 @@ void main()
 	vec3 colorRGB = texture(ColorBuffer, uv0).rgb;
     float depthValue = texture(DepthBuffer, uv0).r * 2.0 - 1.0;
 
-    // Rebuild world vertex attributes
+    // Color grading work
+    colorRGB = colorBalanceFunc(colorRGB, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
+    colorRGB = colorAdjustmentFunc(colorRGB, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
+    colorRGB = vignetteEffectFunc(colorRGB, uv0 - vec2(0.5, 0.5));
+    
+    // Rebuild world vertex attributes and display fog
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
     vec4 eyeVertex = GBufferMatrices[3] * vecInProj;
+    
+    colorRGB = pow(colorRGB, vec3(1.0 / 2.2));
     if (FogDistance.y > 0.0)
     {
         float fogFactor = (FogDistance.y - abs(eyeVertex.z / eyeVertex.w)) / (FogDistance.y - FogDistance.x);
         colorRGB = mix(FogColor, colorRGB, clamp(fogFactor, 0.0, 1.0));
     }
-
-    // Color grading work
-    colorRGB = colorBalanceFunc(colorRGB, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
-    colorRGB = colorAdjustmentFunc(colorRGB, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
-    colorRGB = vignetteEffectFunc(colorRGB, uv0 - vec2(0.5, 0.5));
-	fragData = vec4(pow(colorRGB, vec3(1.0 / 2.2)), 1.0);
+	fragData = vec4(colorRGB, 1.0);
 }
