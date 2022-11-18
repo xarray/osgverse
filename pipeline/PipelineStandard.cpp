@@ -8,12 +8,21 @@
 #define VERT osg::Shader::VERTEX
 #define FRAG osg::Shader::FRAGMENT
 
-#if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
+#if defined(VERSE_WINDOWS)
 #include <windows.h>
 static void obtainScreenResolution(unsigned int& w, unsigned int& h)
 {
     HWND hd = ::GetDesktopWindow(); RECT rect; ::GetWindowRect(hd, &rect);
     w = (rect.right - rect.left); h = (rect.bottom - rect.top);
+    OSG_NOTICE << "[obtainScreenResolution] Get screen size " << w << " x " << h << "\n";
+}
+#elif defined(VERSE_X11)
+#include <X11/Xlib.h>
+static void obtainScreenResolution(unsigned int& w, unsigned int& h)
+{
+    Display* disp = XOpenDisplay(NULL);
+    Screen* screen = DefaultScreenOfDisplay(disp);
+    w = screen->width; h = screen->height;
     OSG_NOTICE << "[obtainScreenResolution] Get screen size " << w << " x " << h << "\n";
 }
 #else
