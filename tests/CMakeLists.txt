@@ -5,7 +5,7 @@ MACRO(NEW_TEST_EXECUTABLE EXECUTABLE_NAME SOURCE_FILE)
     NEW_EXECUTABLE(${EXE_NAME} SHARED)
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
     TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseReaderWriter
-                          osgVersePipeline osgVerseAnimation osgVerseModeling ${OPENGL_LIBRARIES})
+                          osgVersePipeline osgVerseAnimation osgVerseModeling ${ADDITIONAL_LIBRARIES})
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 
 ENDMACRO(NEW_TEST_EXECUTABLE)
