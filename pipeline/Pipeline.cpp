@@ -5,7 +5,7 @@
 #include <osgDB/ReadFile>
 #include <osgUtil/RenderStage>
 #include <osgViewer/Renderer>
-#if WIN32
+#if VERSE_WINDOWS
     #include <osgViewer/api/Win32/GraphicsWindowWin32>
     #include <imm.h>
 #endif
@@ -448,7 +448,7 @@ namespace osgVerse
             30.0f, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), 1.0f, 10000.0f);
         _forwardCamera = forwardCam;
 
-#if WIN32
+#if VERSE_WINDOWS
         osgViewer::GraphicsWindowWin32* gw = static_cast<osgViewer::GraphicsWindowWin32*>(_stageContext.get());
         if (gw) ImmAssociateContext(gw->getHWND(), NULL);  // disable default IME
 #endif

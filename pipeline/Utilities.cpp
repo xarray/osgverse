@@ -8,6 +8,7 @@
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+
 #include <codecvt>
 #include <iostream>
 #include <array>
@@ -16,7 +17,7 @@
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
 #include <random>
-#if WIN32
+#if VERSE_WINDOWS
     #include <windows.h>
 #endif
 

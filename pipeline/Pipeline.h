@@ -32,6 +32,14 @@
 
 namespace osgVerse
 {
+    /** OpenGL version data */
+    struct GLVersionData : public osg::Referenced
+    {
+        std::string version, renderer;
+        float glVersion, glslVersion;
+        bool glslSupported;
+    };
+
     /** Effect pipeline using a list of slave cameras, without invading main scene graph
         Some uniforms will be set automatically for internal stages:
         - sampler2d DiffuseMap: diffuse/albedo RGB texture of input scene
@@ -148,6 +156,9 @@ namespace osgVerse
         osg::Uniform* getInvScreenResolution() { return _invScreenResolution.get(); }
         osg::Vec2s getStageSize() const { return _stageSize; }
 
+        void setVersionData(GLVersionData* d) { _glVersionData = d; }
+        GLVersionData* getVersionData() { return _glVersionData.get(); }
+
         void addModule(const std::string& n, osg::NodeCallback* cb) { _modules[n] = cb; }
         void removeModule(osg::NodeCallback* cb);
         osg::NodeCallback* getModule(const std::string& n) { return _modules[n].get(); }
@@ -167,6 +178,7 @@ namespace osgVerse
         osg::ref_ptr<osg::GraphicsContext> _stageContext;
         osg::ref_ptr<osg::Depth> _deferredDepth;
         osg::ref_ptr<osg::Uniform> _invScreenResolution;
+        osg::ref_ptr<GLVersionData> _glVersionData;
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;
     };
@@ -196,8 +208,11 @@ namespace osgVerse
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);
     };
 
-    /** Standard pipeline */
+    /** Create standard pipeline */
     extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, const StandardPipelineParameters& spp);
+
+    /** Setup a OpenGL version tester and save the result to user-data of the pipeline */
+    extern GLVersionData* queryOpenGLVersion(Pipeline* p);
 }
 
 #endif

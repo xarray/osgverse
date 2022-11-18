@@ -2,11 +2,45 @@
 #include "ShadowModule.h"
 #include "LightModule.h"
 #include "Utilities.h"
+
 #include <osg/DisplaySettings>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
+#include <osgViewer/Viewer>
 #define VERT osg::Shader::VERTEX
 #define FRAG osg::Shader::FRAGMENT
+
+class GLExtensionTester : public osg::Camera::DrawCallback
+{
+public:
+    GLExtensionTester(osgVerse::Pipeline* p)
+    {
+        _data = new osgVerse::GLVersionData;
+        _data->glVersion = 0.0f; _data->glslVersion = 0.0f;
+        _data->glslSupported = false;
+        if (p) p->setVersionData(_data.get());
+    }
+
+    virtual void operator()(osg::RenderInfo& renderInfo) const
+    {
+        osgVerse::GLVersionData* d = const_cast<osgVerse::GLVersionData*>(_data.get());
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+        osg::GLExtensions* ext = renderInfo.getState()->get<osg::GLExtensions>();
+#else
+        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+#endif
+        const char* versionString = (const char*)glGetString(GL_VERSION);
+        const char* rendererString = (const char*)glGetString(GL_RENDERER);
+        if (versionString != NULL) d->version = versionString;
+        if (rendererString != NULL) d->renderer = rendererString;
+        d->glVersion = ext->glVersion;
+        d->glslVersion = ext->glslLanguageVersion;
+        d->glslSupported = ext->isGlslSupported;
+    }
+
+protected:
+    osg::ref_ptr<osgVerse::GLVersionData> _data;
+};
 
 #if defined(VERSE_WINDOWS)
 #include <windows.h>
@@ -88,14 +122,32 @@ namespace osgVerse
         }
     }
 
+    GLVersionData* queryOpenGLVersion(Pipeline* p)
+    {
+        osgViewer::Viewer tempViewer;
+        GLExtensionTester* tester = new GLExtensionTester(p);
+        tempViewer.getCamera()->setPreDrawCallback(tester);
+
+        tempViewer.setSceneData(new osg::Node);
+        tempViewer.setUpViewInWindow(0, 0, 1, 1);
+        tempViewer.realize();
+        for (int i = 0; i < 5; ++i) tempViewer.frame();
+
+        tempViewer.setDone(true);
+        return p ? p->getVersionData() : NULL;
+    }
+
     void setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view,
                                const StandardPipelineParameters& spp)
     {
-        int msaa = 0;  // FIXME: seems to cause some more flickers
+        GLVersionData* data = queryOpenGLVersion(p);
+        OSG_NOTICE << "[StandardPipeline] OpenGL: " << data->version << "; GLSL: "
+                   << data->glslVersion << "; Renderer: " << data->renderer << std::endl;
         p->startStages(spp.originWidth, spp.originHeight, view->getCamera()->getGraphicsContext());
 
         // GBuffer should always be first because it also computes the scene near/far planes
         // for following stages to use
+        int msaa = 0;  // FIXME: seems to cause some more flickers
         osgVerse::Pipeline::Stage* gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
             spp.shaders.gbufferVS, spp.shaders.gbufferFS, 5,
             "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
