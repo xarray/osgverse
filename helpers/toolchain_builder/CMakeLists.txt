@@ -90,39 +90,21 @@ IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 ENDIF()
 
 #########################################
-
-FIND_PACKAGE(OpenGL)
-IF(WIN32)
-    MESSAGE(STATUS "Using Win32 for GLFW window creation")
-ELSEIF(APPLE)
-    LIST(APPEND GLFW_LIBRARIES "-framework Cocoa" "-framework IOKit" "-framework CoreFoundation")
-    MESSAGE(STATUS "Using Cocoa for GLFW window creation")
-ELSEIF(UNIX)
-    FIND_LIBRARY(RT_LIBRARY rt)
-    MARK_AS_ADVANCED(RT_LIBRARY)
-    IF(RT_LIBRARY)
-        LIST(APPEND GLFW_LIBRARIES "${RT_LIBRARY}")
-    ENDIF()
-
-    FIND_LIBRARY(MATH_LIBRARY m)
-    MARK_AS_ADVANCED(MATH_LIBRARY)
-    IF(MATH_LIBRARY)
-        LIST(APPEND GLFW_LIBRARIES "${MATH_LIBRARY}")
-    ENDIF()
-
-    IF(CMAKE_DL_LIBS)
-        LIST(APPEND GLFW_LIBRARIES "${CMAKE_DL_LIBS}")
-    ENDIF()
-    MESSAGE(STATUS "Using X11 for GLFW window creation")
-ELSE()
-    MESSAGE(FATAL_ERROR "No supported platform was detected for GLFW")
-ENDIF()
-
 ADD_SUBDIRECTORY(zlib)
 ADD_SUBDIRECTORY(jpeg)
 ADD_SUBDIRECTORY(png)
 #ADD_SUBDIRECTORY(curl)  # TODO
 ADD_SUBDIRECTORY(tiff)
 ADD_SUBDIRECTORY(freetype)
-ADD_SUBDIRECTORY(glfw)
-ADD_SUBDIRECTORY(wizard)
+
+########## Download OSG from web...
+SET(OSG_REMOTE_URL "https://github.com/openscenegraph/OpenSceneGraph/archive/refs/tags/OpenSceneGraph-3.6.5.zip")
+SET(OSG_LOCAL_PATH ${CMAKE_BINARY_DIR}/sdk/OpenSceneGraph.zip)
+FILE(DOWNLOAD ${OSG_REMOTE_URL} ${OSG_LOCAL_PATH} STATUS OSG_DOWNLOADED_STATUS)
+LIST(GET OSG_DOWNLOADED_STATUS 0 OSG_DOWNLOADING_FAILED)
+
+IF(NOT OSG_DOWNLOADING_FAILED)
+    MESSAGE(STATUS "Downloaded OSG source code...")
+ELSE()
+    MESSAGE(FATAL_ERROR "Failed to downloaded OSG source code from web...")
+ENDIF()

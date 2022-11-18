@@ -6,7 +6,9 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 
 #### Dependencies
 1. Please use CMake 3.20 or higher version. (https://cmake.org/download/)
-2. Please use a C++ compiler supporting C++ 14 at least. Current project is already tested on Visual Studio 2017 & Ubuntu 18.0.
+2. Please use a C++ compiler supporting C++ 14 at least. Current project is already tested on:
+- 2.1 Windows 10, Visual Studio 2017
+- 2.2 Ubuntu 18.04, GCC 7.5 or later
 3. OpenSceneGraph is always required for building osgVerse. (https://github.com/openscenegraph/OpenSceneGraph) Current project mainly depends on OSG 3.7.0, but can compile on OSG 3.1.1 or later versions.
 4. Optional dependencies:
 - 4.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
