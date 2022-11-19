@@ -1,4 +1,3 @@
-#version 130
 #define DEBUG_SHADOW_COLOR 0
 uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;

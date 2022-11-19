@@ -1,4 +1,3 @@
-#version 130
 uniform sampler2D BrightnessCombinedBuffer;
 uniform float BloomFactor;
 in vec4 texCoord0;

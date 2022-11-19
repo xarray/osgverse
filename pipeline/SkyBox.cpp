@@ -204,7 +204,7 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
 
     osg::Program* program = new osg::Program;
     program->setName("SkyBoxShader");
-    program->addShader(new osg::Shader(osg::Shader::VERTEX, skyboxVS));
+    program->addShader(new osg::Shader(osg::Shader::VERTEX, skyboxVS));  // TODO: glsl version
     if (asCube) program->addShader(new osg::Shader(osg::Shader::FRAGMENT, skyboxFS1));
     else program->addShader(new osg::Shader(osg::Shader::FRAGMENT, skyboxFS2));
     stateset->setAttributeAndModes(program);

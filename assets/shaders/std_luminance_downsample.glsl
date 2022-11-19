@@ -1,4 +1,3 @@
-#version 130
 uniform sampler2D ColorBuffer;
 uniform vec2 InvBufferResolution;
 in vec4 texCoord0;

@@ -48,12 +48,14 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(skyBox, osg::Texture::MIRROR);
     osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "std_common_quad.vert.glsl");
     osg::Camera *cam0 = NULL, *cam1 = NULL, *cam2 = NULL;
+    osgVerse::Pipeline::createShaderDefinitions(vs, 130);
 
     // BrdfLut
     osg::ref_ptr<osg::Image> img0 = new osg::Image;
     {
         osg::Shader* fs = osgDB::readShaderFile(
             osg::Shader::FRAGMENT, SHADER_DIR "std_brdf_lut.frag.glsl");
+        osgVerse::Pipeline::createShaderDefinitions(fs, 130);
         img0->allocateImage(w, h, 1, GL_RGB, GL_HALF_FLOAT);
         img0->setInternalTextureFormat(GL_RGB16F_ARB);
 
@@ -69,6 +71,7 @@ int main(int argc, char** argv)
     {
         osg::Shader* fs = osgDB::readShaderFile(
             osg::Shader::FRAGMENT, SHADER_DIR "std_environment_prefiltering.frag.glsl");
+        osgVerse::Pipeline::createShaderDefinitions(fs, 130);
         img1->allocateImage(w, h, 1, GL_RGB, GL_UNSIGNED_BYTE);
         img1->setInternalTextureFormat(GL_RGB8);
 
@@ -87,6 +90,7 @@ int main(int argc, char** argv)
     {
         osg::Shader* fs = osgDB::readShaderFile(
             osg::Shader::FRAGMENT, SHADER_DIR "std_irradiance_convolution.frag.glsl");
+        osgVerse::Pipeline::createShaderDefinitions(fs, 130);
         img2->allocateImage(w, h, 1, GL_RGB, GL_UNSIGNED_BYTE);
         img2->setInternalTextureFormat(GL_RGB8);
 

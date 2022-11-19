@@ -170,9 +170,9 @@ ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 ######################################### Global Options
 SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse")
 SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (will force osgVerse to be static)")
-#SET(VERSE_USE_OSG_GL3CORE OFF CACHE BOOL "Use GL3 (core profile) build of OpenSceneGraph")
-#SET(VERSE_USE_OSG_GLES2 OFF CACHE BOOL "Use GLES2 build of OpenSceneGraph")
-#SET(VERSE_USE_OSG_GLES3 OFF CACHE BOOL "Use GLES3 build of OpenSceneGraph")
+#SET(VERSE_USE_OSG_GL3CORE OFF CACHE BOOL "Use GL3 (core profile) build of OpenSceneGraph (exclusively)")
+#SET(VERSE_USE_OSG_GLES2 OFF CACHE BOOL "Use GLES2 build of OpenSceneGraph (exclusively)")
+#SET(VERSE_USE_OSG_GLES3 OFF CACHE BOOL "Use GLES3 build of OpenSceneGraph (exclusively)")
 SET_PROPERTY(GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES "")
 
 IF(VERSE_USE_OSG_STATIC)

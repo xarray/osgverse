@@ -32,11 +32,22 @@
 
 namespace osgVerse
 {
-    /** OpenGL version data */
+    /** OpenGL version data for graphics hardware adpation.
+        OpenGL Version: GLSL Version
+        - 2.0: #version 110
+        - 2.1: #version 120
+        - 3.0: #version 130    // use in/out instead of attribute/varying, supports 'int'
+        - 3.1: #version 140
+        - 3.2: #version 150    // use generic 'texture()'
+        - 3.3: #version 330    // use layout qualifiers
+        - 4.0: #version 400...
+        - ES 2.0: #version 100 es
+        - ES 3.0: #version 300 es
+    */
     struct GLVersionData : public osg::Referenced
     {
         std::string version, renderer;
-        float glVersion, glslVersion;
+        int glVersion, glslVersion;
         bool glslSupported;
     };
 
@@ -98,12 +109,12 @@ namespace osgVerse
                   name(s.name), inputStage(s.inputStage), deferred(s.deferred) {}
         };
 
-        Pipeline();
+        Pipeline(int glContextVer = 100, int glslVer = 130);
         static osg::Texture* createTexture(BufferType type, int w, int h);
+        static void createShaderDefinitions(osg::Shader* s, int glslVer);
 
         void addStage(Stage* s) { _stages.push_back(s); }
         void removeStage(unsigned int index) { _stages.erase(_stages.begin() + index); }
-        void clearStages() { _stages.clear(); }
 
         unsigned int getNumStages() const { return _stages.size(); }
         Stage* getStage(unsigned int index) { return _stages[index].get(); }
@@ -116,6 +127,9 @@ namespace osgVerse
         /** Finish all pipeline stages in this function. It will automatically add
             a forward pass for normal scene object rendering */
         void applyStagesToView(osgViewer::View* view, unsigned int forwardMask);
+
+        /** Remove all stages and reset the viewer to default (clear all slaves) */
+        void clearStagesFromView(osgViewer::View* view);
 
         /** Require depth buffer of specific stage to blit to default forward pass */
         void requireDepthBlit(Stage* s, bool addToList)
@@ -158,6 +172,8 @@ namespace osgVerse
 
         void setVersionData(GLVersionData* d) { _glVersionData = d; }
         GLVersionData* getVersionData() { return _glVersionData.get(); }
+        int getTargetVersion() const { return _glTargetVersion; }
+        int getGlslTargetVersion() const { return _glslTargetVersion; }
 
         void addModule(const std::string& n, osg::NodeCallback* cb) { _modules[n] = cb; }
         void removeModule(osg::NodeCallback* cb);
@@ -181,6 +197,7 @@ namespace osgVerse
         osg::ref_ptr<GLVersionData> _glVersionData;
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;
+        int _glTargetVersion, _glslTargetVersion;
     };
 
     /** Standard pipeline parameters */

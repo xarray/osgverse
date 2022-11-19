@@ -1,4 +1,3 @@
-#version 130
 uniform sampler2D SsaoBuffer;
 uniform vec2 BlurDirection, InvScreenResolution;
 uniform float BlurSharpness;

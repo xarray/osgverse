@@ -1,4 +1,3 @@
-#version 130
 uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;
 uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
 uniform float ModelIndicator;

@@ -1,4 +1,3 @@
-#version 130
 uniform sampler2D ColorBuffer, DepthBuffer;
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 FogDistance;

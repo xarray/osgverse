@@ -1,4 +1,3 @@
-#version 130
 out vec4 texCoord0, lightProjVec;
 
 void main()

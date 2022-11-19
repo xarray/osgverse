@@ -41,13 +41,21 @@ public:
         switch (ea.getEventType())
         {
         case osgGA::GUIEventAdapter::KEYUP:
-            if (ea.getKey() == 'S')
+            if (ea.getKey() == 'X')
             {
+                OSG_NOTICE << "*** Changing to standard pipeline" << std::endl;
+                _pipeline->clearStagesFromView(view);
+
                 osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
                 setupStandardPipeline(_pipeline.get(), view, params);
 
                 osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(_pipeline->getModule("Light"));
                 if (light) light->setMainLight(_mainLight.get(), "Shadow");
+            }
+            else if (ea.getKey() == 'Z')
+            {
+                OSG_NOTICE << "*** Changing to fixed pipeline" << std::endl;
+                _pipeline->clearStagesFromView(view);
             }
             break;
         }

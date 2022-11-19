@@ -26,13 +26,13 @@ public:
         osgVerse::GLVersionData* d = const_cast<osgVerse::GLVersionData*>(_data.get());
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = renderInfo.getState()->get<osg::GLExtensions>();
-        d->glVersion = ext->glVersion;
-        d->glslVersion = ext->glslLanguageVersion;
+        d->glVersion = ext->glVersion * 100;
+        d->glslVersion = ext->glslLanguageVersion * 100;
         d->glslSupported = ext->isGlslSupported;
 #else
         osg::GL2Extensions* ext = osg::GL2Extensions::Get(renderInfo.getContextID(), true);
-        d->glVersion = ext->getGlVersion();
-        d->glslVersion = ext->getLanguageVersion();
+        d->glVersion = ext->getGlVersion() * 100;
+        d->glslVersion = ext->getLanguageVersion() * 100;
         d->glslSupported = ext->isGlslSupported();
 #endif
         
@@ -144,10 +144,15 @@ namespace osgVerse
     void setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view,
                                const StandardPipelineParameters& spp)
     {
-        GLVersionData* data = queryOpenGLVersion(p);
-        OSG_NOTICE << "[StandardPipeline] OpenGL: " << data->version << "; GLSL: "
-                   << data->glslVersion << "; Renderer: " << data->renderer << std::endl;
+        GLVersionData* data = p->getVersionData() ? NULL : queryOpenGLVersion(p);
         p->startStages(spp.originWidth, spp.originHeight, view->getCamera()->getGraphicsContext());
+        if (data)
+        {
+            OSG_NOTICE << "[StandardPipeline] OpenGL Driver: " << data->version << "; GLSL: "
+                       << data->glslVersion << "; Renderer: " << data->renderer << std::endl;
+            OSG_NOTICE << "[StandardPipeline] Using OpenGL Context: " << p->getTargetVersion()
+                       << "; Using GLSL Version: "<< p->getGlslTargetVersion() << std::endl;
+        }
 
         // GBuffer should always be first because it also computes the scene near/far planes
         // for following stages to use

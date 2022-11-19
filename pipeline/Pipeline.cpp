@@ -372,21 +372,24 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
 
 namespace osgVerse
 {
-    static osg::GraphicsContext* createGraphicsContext(int w, int h, osg::GraphicsContext* shared = NULL)
+    static osg::GraphicsContext* createGraphicsContext(int w, int h, const std::string& glContext,
+                                                       osg::GraphicsContext* shared = NULL)
     {
         osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
         traits->x = 0; traits->y = 0; traits->width = w; traits->height = h;
         traits->windowDecoration = false; traits->doubleBuffer = true;
         traits->sharedContext = shared; traits->vsync = true;
+        traits->glContextVersion = glContext;
         return osg::GraphicsContext::createGraphicsContext(traits.get());
     }
 
-    Pipeline::Pipeline()
+    Pipeline::Pipeline(int glContextVer, int glslVer)
     {
         _deferredCallback = new osgVerse::DeferredRenderCallback(true);
         _deferredDepth = new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false);
         _invScreenResolution = new osg::Uniform(
             "InvScreenResolution", osg::Vec2(1.0f / 1920.0f, 1.0f / 1080.0f));
+        _glTargetVersion = glContextVer; _glslTargetVersion = glslVer;
     }
 
     void Pipeline::Stage::applyUniform(osg::Uniform* u)
@@ -471,6 +474,14 @@ namespace osgVerse
 
     void Pipeline::startStages(int w, int h, osg::GraphicsContext* gc)
     {
+        if (_glVersionData.valid())
+        {
+            if (_glVersionData->glVersion < _glTargetVersion)
+                _glTargetVersion = _glVersionData->glVersion;
+            if (_glVersionData->glslVersion < _glslTargetVersion)
+                _glslTargetVersion = _glVersionData->glslVersion;
+        }
+
         if (gc)
         {
             osgViewer::GraphicsWindow* gw = dynamic_cast<osgViewer::GraphicsWindow*>(gc);
@@ -478,9 +489,32 @@ namespace osgVerse
             _stageContext = gc;  // FIXME: share or replace GC?
         }
         else
-            _stageContext = createGraphicsContext(w, h, NULL);
+        {
+            int m0 = _glTargetVersion / 100; int m1 = (_glTargetVersion - m0 * 100) / 10;
+            std::string glContext = std::to_string(m0) + "." + std::to_string(m1);
+            _stageContext = createGraphicsContext(w, h, glContext, NULL);
+        }
         _stageSize = osg::Vec2s(w, h);
         _stageContext->setResizedCallback(new MyResizedCallback(this));
+
+        // Enable the osg_* uniforms that the shaders will use in GL3/GL4 and GLES2
+        if (_glTargetVersion >= 300)
+        {
+            _stageContext->getState()->setUseModelViewAndProjectionUniforms(true);
+            _stageContext->getState()->setUseVertexAttributeAliasing(true);
+        }
+    }
+
+    void Pipeline::clearStagesFromView(osgViewer::View* view)
+    {
+        while (view->getNumSlaves() > 0) view->removeSlave(0);
+        view->getCamera()->setGraphicsContext(_stageContext.get());
+        if (_deferredCallback.valid())
+        {
+            _deferredCallback->getRunners().clear();
+            _deferredCallback->setClampCallback(NULL);
+        }
+        _stages.clear(); _forwardCamera = NULL;
     }
 
     void Pipeline::applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
@@ -665,8 +699,17 @@ namespace osgVerse
         {
             osg::ref_ptr<osg::Program> prog = new osg::Program;
             prog->setName(name + "_PROGRAM");
-            if (vs) { vs->setName(name + "_SHADER_VS"); prog->addShader(vs); }
-            if (fs) { fs->setName(name + "_SHADER_FS"); prog->addShader(fs); }
+            if (vs)
+            {
+                vs->setName(name + "_SHADER_VS");
+                createShaderDefinitions(vs, _glslTargetVersion); prog->addShader(vs);
+            }
+
+            if (fs)
+            {
+                fs->setName(name + "_SHADER_FS");
+                createShaderDefinitions(fs, _glslTargetVersion); prog->addShader(fs);
+            }
 
             osg::StateSet* ss = s.deferred ?
                 s.runner->geometry->getOrCreateStateSet() : s.camera->getOrCreateStateSet();
@@ -706,6 +749,18 @@ namespace osgVerse
         if (!node) return; osg::StateSet* ss = node->getOrCreateStateSet();
         osg::Uniform* u = ss->getOrCreateUniform("ModelIndicator", osg::Uniform::FLOAT);
         if (u) u->set((float)type);
+    }
+
+    void Pipeline::createShaderDefinitions(osg::Shader* s, int glslVer)
+    {
+        std::string source = s->getShaderSource();
+        if (source.find("#version") != std::string::npos) return;
+
+        std::stringstream ss;
+        ss << "#version " << glslVer << std::endl;
+        // TODO: more defines?
+
+        s->setShaderSource(ss.str() + source);
     }
 
     osg::Texture* Pipeline::createTexture(BufferType type, int w, int h)

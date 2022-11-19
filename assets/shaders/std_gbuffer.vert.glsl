@@ -1,5 +1,3 @@
-#version 130
-uniform mat4 osg_ViewMatrixInverse;
 in vec3 osg_Tangent, osg_Binormal;
 out vec4 texCoord0, texCoord1, color;
 out vec3 eyeNormal, eyeTangent, eyeBinormal;

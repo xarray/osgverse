@@ -1,4 +1,3 @@
-#version 130
 uniform sampler2D ColorBuffer, LuminanceBuffer;
 uniform sampler2D BloomBuffer, IblAmbientBuffer;
 uniform vec2 LuminanceFactor;

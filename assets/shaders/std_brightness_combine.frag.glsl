@@ -1,4 +1,3 @@
-#version 130
 uniform sampler2D BrightnessBuffer1, BrightnessBuffer2;
 uniform sampler2D BrightnessBuffer3, BrightnessBuffer4;
 uniform vec2 InvScreenResolution;

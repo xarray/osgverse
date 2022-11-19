@@ -1,4 +1,3 @@
-#version 130
 in vec4 texCoord0, lightProjVec;
 out vec4 fragData;
 
