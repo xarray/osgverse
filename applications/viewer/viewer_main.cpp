@@ -29,6 +29,36 @@
 #include <iostream>
 #include <sstream>
 
+class SetPipelineHandler : public osgGA::GUIEventHandler
+{
+public:
+    SetPipelineHandler(osgVerse::Pipeline* p, osgVerse::LightDrawable* l)
+        : _pipeline(p), _mainLight(l) {}
+
+    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+        switch (ea.getEventType())
+        {
+        case osgGA::GUIEventAdapter::KEYUP:
+            if (ea.getKey() == 'S')
+            {
+                osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+                setupStandardPipeline(_pipeline.get(), view, params);
+
+                osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(_pipeline->getModule("Light"));
+                if (light) light->setMainLight(_mainLight.get(), "Shadow");
+            }
+            break;
+        }
+        return false;
+    }
+
+protected:
+    osg::observer_ptr<osgVerse::Pipeline> _pipeline;
+    osg::observer_ptr<osgVerse::LightDrawable> _mainLight;
+};
+
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -85,19 +115,14 @@ int main(int argc, char** argv)
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow)
+    if (shadow && shadow->getFrustumGeode())
     {
-        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
-        shadow->addReferenceBound(cbv.getBoundingBox(), true);
-        if (shadow->getFrustumGeode())
-        {
-            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
-            root->addChild(shadow->getFrustumGeode());
-        }
+        shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+        root->addChild(shadow->getFrustumGeode());
     }
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    light->setMainLight(light0.get(), "Shadow");
+    if (light) light->setMainLight(light0.get(), "Shadow");
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
@@ -144,6 +169,7 @@ int main(int argc, char** argv)
 #endif
 
     // Start the viewer
+    viewer.addEventHandler(new SetPipelineHandler(pipeline.get(), light0.get()));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));

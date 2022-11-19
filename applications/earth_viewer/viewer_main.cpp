@@ -182,7 +182,7 @@ int main(int argc, char** argv)
     }
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    light->setMainLight(light0.get(), "Shadow");
+    if (light) light->setMainLight(light0.get(), "Shadow");
 
     // osgEarth configuration
     osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("F:/DataSet/osgEarthData/t2.earth");
@@ -250,9 +250,6 @@ int main(int argc, char** argv)
     float lightZ = -1.0f; bool lightD = true;
     while (!viewer.done())
     {
-        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
-        shadow->addReferenceBound(cbv.getBoundingBox(), true);
-
         if (lightD) { if (lightZ > -0.9f) lightD = false; else lightZ += 0.001f; }
         else { if (lightZ < -4.0f) lightD = true; else lightZ -= 0.001f; }
         light0->setDirection(osg::Vec3(0.0f, lightZ, -0.8f));

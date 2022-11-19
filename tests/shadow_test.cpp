@@ -84,8 +84,6 @@ int main(int argc, char** argv)
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
-        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
-        shadow->addReferenceBound(cbv.getBoundingBox(), true);
         if (shadow->getFrustumGeode())
         {
             shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
@@ -103,7 +101,7 @@ int main(int argc, char** argv)
     }
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    light->setMainLight(light0.get(), "Shadow");
+    if (light) light->setMainLight(light0.get(), "Shadow");
 
     // Start the viewer
     viewer.addEventHandler(new osgViewer::StatsHandler);

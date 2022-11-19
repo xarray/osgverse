@@ -25,19 +25,20 @@ bool LightCullCallback::cull(osg::NodeVisitor* nv, osg::Drawable* drawable, osg:
         lData.light = ld; lData.frameNo = cv->getFrameStamp()->getFrameNumber();
         lData.matrix = ld->getEyeSpace() ? osg::Matrix() : (*cv->getModelViewMatrix());
         LightGlobalManager::instance()->add(lData);
+        return !ld->getDebugShow();
     }
-    return !ld->getDebugShow();
+    return osg::Drawable::CullCallback::cull(nv, drawable, state);
 }
 
 LightDrawable::LightDrawable()
 :   osg::ShapeDrawable(), _eyeSpace(false), _debugShow(false)
 {
+    setCullCallback(LightGlobalManager::instance()->getCallback());
     _lightColor.set(1.0f, 1.0f, 1.0f);
     _position.set(0.0f, 0.0f, 1.0f);
     _direction.set(1.0f, 0.0f, 0.0f);
     _attenuationRange.set(0.0f, 0.0f);
     _spotExponent = 0.0f; _spotCutoff = osg::PI_4;
-    setCullCallback(LightGlobalManager::instance()->getCallback());
     _directional = false; recreate();
 }
 

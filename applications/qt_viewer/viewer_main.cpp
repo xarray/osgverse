@@ -62,15 +62,10 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
 
     // Setup shadow & light module
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow)
+    if (shadow && shadow->getFrustumGeode())
     {
-        osg::ComputeBoundsVisitor cbv; sceneRoot->accept(cbv);
-        shadow->addReferenceBound(cbv.getBoundingBox(), true);
-        if (shadow->getFrustumGeode())
-        {
-            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
-            root->addChild(shadow->getFrustumGeode());
-        }
+        shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+        root->addChild(shadow->getFrustumGeode());
     }
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));

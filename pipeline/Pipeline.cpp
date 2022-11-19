@@ -16,6 +16,11 @@
 #include "ShadowModule.h"
 #include "Utilities.h"
 
+#define DEBUG_CULL_VISITOR 1
+#if OSG_VERSION_LESS_THAN(3, 6, 0)
+#   define DEBUG_CULL_VISITOR 0
+#endif
+
 static osg::Camera::ComputeNearFarMode g_nearFarMode =
         osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES;
 
@@ -75,6 +80,66 @@ struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatr
     MyClampProjectionCallback(osgVerse::DeferredRenderCallback* cb) : _callback(cb) {}
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
 };
+
+#if DEBUG_CULL_VISITOR
+class MyCullVisitor : public osgUtil::CullVisitor
+{
+public:
+    MyCullVisitor() : osgUtil::CullVisitor() {}
+    MyCullVisitor(const MyCullVisitor& v) : osgUtil::CullVisitor(v) {}
+    virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
+
+    virtual void apply(osg::Drawable& drawable)
+    {
+        osg::RefMatrix& matrix = *getModelViewMatrix();
+        const osg::BoundingBox& bb = drawable.getBoundingBox();
+        if (drawable.getCullCallback())
+        {
+            osg::DrawableCullCallback* dcb = drawable.getCullCallback()->asDrawableCullCallback();
+            if (dcb) { if (dcb->cull(this, &drawable, &_renderInfo) == true) return; }
+            else drawable.getCullCallback()->run(&drawable, this);
+        }
+
+        if (drawable.isCullingActive() && isCulled(bb)) return;
+        if (_computeNearFar && bb.valid()) { if (!updateCalculatedNearFar(matrix, drawable, false)) return; }
+
+        // push the geoset's state on the geostate stack.
+        unsigned int numPopStateSetRequired = 0;
+        osg::StateSet* stateset = drawable.getStateSet();
+        if (stateset) { ++numPopStateSetRequired; pushStateSet(stateset); }
+
+        osg::CullingSet& cs = getCurrentCullingSet();
+        if (!cs.getStateFrustumList().empty())
+        {
+            osg::CullingSet::StateFrustumList& sfl = cs.getStateFrustumList();
+            for (osg::CullingSet::StateFrustumList::iterator itr = sfl.begin(); itr != sfl.end(); ++itr)
+            {
+                if (itr->second.contains(bb))
+                { ++numPopStateSetRequired; pushStateSet(itr->first.get()); }
+            }
+        }
+
+        float depth = bb.valid() ? distance(bb.center(), matrix) : 0.0f;
+        if (osg::isNaN(depth))
+        {
+            OSG_NOTICE << drawable.getName() << " detected NaN..."
+                       << " Camera: " << getCurrentCamera()->getName() << ", Center: " << bb.center().valid()
+                       << ", Matrix: " << matrix.valid() << std::endl;
+        }
+        else
+            addDrawableAndDepth(&drawable, &matrix, depth);
+        for (unsigned int i = 0; i < numPopStateSetRequired; ++i) { popStateSet(); }
+    }
+
+protected:
+    inline value_type distance(const osg::Vec3& coord, const osg::Matrix& matrix)
+    {
+        return -((value_type)coord[0] * (value_type)matrix(0, 2) +
+                 (value_type)coord[1] * (value_type)matrix(1, 2) +
+                 (value_type)coord[2] * (value_type)matrix(2, 2) + matrix(3, 2));
+    }
+};
+#endif
 
 class MySceneView : public osgUtil::SceneView
 {
@@ -158,8 +223,8 @@ protected:
         newSceneView->setAutomaticFlush(_sceneView[i]->getAutomaticFlush());
         newSceneView->setGlobalStateSet(_sceneView[i]->getGlobalStateSet());
         newSceneView->setSecondaryStateSet(_sceneView[i]->getSecondaryStateSet());
-
         newSceneView->setDefaults(flags);
+
         if (_sceneView[i]->getDisplaySettings())
             newSceneView->setDisplaySettings(_sceneView[i]->getDisplaySettings());
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
@@ -168,9 +233,16 @@ protected:
 #endif
         newSceneView->setCamera(_camera.get(), false);
 
+#if DEBUG_CULL_VISITOR
+        MyCullVisitor* cullVisitor = new MyCullVisitor;
+        cullVisitor->setStateGraph(_sceneView[i]->getStateGraph());
+        cullVisitor->setRenderStage(_sceneView[i]->getRenderStage());
+        newSceneView->setCullVisitor(cullVisitor);
+#else
         newSceneView->setCullVisitor(_sceneView[i]->getCullVisitor());
         newSceneView->setCullVisitorLeft(_sceneView[i]->getCullVisitorLeft());
         newSceneView->setCullVisitorRight(_sceneView[i]->getCullVisitorRight());
+#endif
         return newSceneView.release();
     }
 };

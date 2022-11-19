@@ -118,7 +118,7 @@ namespace osgVerse
         {
             // Recalculate light-space matrix
             osg::Vec3d eye, center, up, dir; osg::BoundingSphered bs;
-            _lightMatrix.getLookAt(eye, center, up, shadowDistance);
+            _lightInputMatrix.getLookAt(eye, center, up, shadowDistance);
             dir = center - eye; dir.normalize();
 
             for (size_t i = 0; i < _referencePoints.size(); ++i) bs.expandBy(_referencePoints[i]);
@@ -170,14 +170,6 @@ namespace osgVerse
 
     void ShadowModule::operator()(osg::Node* node, osg::NodeVisitor* nv)
     {
-        osg::Camera* cameraMV = static_cast<osg::Camera*>(node);
-        if (cameraMV) _updatedCamera = cameraMV;
-        for (size_t i = 0; i < _shadowCameras.size(); ++i)
-        {
-            osg::Camera* shadowCam = _shadowCameras[i].get();
-            updateFrustumGeometry(i, shadowCam);
-        }
-
         if (node->asGroup())
         {
             osg::Group* group = node->asGroup();
@@ -186,6 +178,14 @@ namespace osgVerse
                 osg::ComputeBoundsVisitor cbv; group->getChild(i)->accept(cbv);
                 addReferenceBound(cbv.getBoundingBox(), i == 0);
             }
+        }
+
+        osg::Camera* cameraMV = static_cast<osg::Camera*>(node);
+        if (cameraMV) _updatedCamera = cameraMV;
+        for (size_t i = 0; i < _shadowCameras.size(); ++i)
+        {
+            osg::Camera* shadowCam = _shadowCameras[i].get();
+            updateFrustumGeometry(i, shadowCam);
         }
         traverse(node, nv);
     }
