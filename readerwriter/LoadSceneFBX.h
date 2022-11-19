@@ -6,8 +6,10 @@
 #include <iostream>
 #include <ofbx.h>
 
-#if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__) || defined( __BCPLUSPLUS__)  || defined( __MWERKS__)
-#  if defined(OSGVERSE_RW_LIBRARY)
+#if defined(VERSE_STATIC_BUILD)
+#  define OSGVERSE_RW_EXPORT extern
+#elif defined(VERSE_WINDOWS)
+#  if defined(VERSE_RW_LIBRARY)
 #    define OSGVERSE_RW_EXPORT   __declspec(dllexport)
 #  else
 #    define OSGVERSE_RW_EXPORT   __declspec(dllimport)

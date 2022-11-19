@@ -8,6 +8,7 @@
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+#include <osgViewer/GraphicsWindow>
 
 #include <codecvt>
 #include <iostream>
@@ -20,8 +21,59 @@
 #if VERSE_WINDOWS
     #include <windows.h>
 #endif
-
 #include "Utilities.h"
+
+#if OSG_LIBRARY_STATIC
+USE_OSGPLUGIN(glsl)
+USE_OSGPLUGIN(trans)
+USE_OSGPLUGIN(rot)
+USE_OSGPLUGIN(scale)
+USE_OSGPLUGIN(osg)
+USE_OSGPLUGIN(osg2)
+USE_OSGPLUGIN(rgb)
+USE_OSGPLUGIN(bmp)
+
+USE_DOTOSGWRAPPER_LIBRARY(osg)
+USE_DOTOSGWRAPPER_LIBRARY(osgSim)
+USE_DOTOSGWRAPPER_LIBRARY(osgTerrain)
+USE_DOTOSGWRAPPER_LIBRARY(osgText)
+USE_DOTOSGWRAPPER_LIBRARY(osgViewer)
+
+USE_SERIALIZER_WRAPPER_LIBRARY(osg)
+USE_SERIALIZER_WRAPPER_LIBRARY(osgSim)
+USE_SERIALIZER_WRAPPER_LIBRARY(osgTerrain)
+USE_SERIALIZER_WRAPPER_LIBRARY(osgText)
+
+USE_GRAPHICSWINDOW()
+#endif
+
+#if VERSE_STATIC_BUILD
+USE_OSGPLUGIN(verse_ept);
+USE_OSGPLUGIN(verse_fbx);
+USE_OSGPLUGIN(verse_gltf);
+#endif
+
+namespace osgVerse
+{
+    void globalInitialize(int argc, char** argv)
+    {
+        std::string workingPath = BASE_DIR + std::string("/bin/");
+        osgDB::getDataFilePathList().push_back(workingPath);
+
+        setlocale(LC_ALL, ".UTF8");
+        if (argv && argc > 0)
+        {
+            std::string path = osgDB::getFilePath(argv[0]);
+            osgDB::setCurrentWorkingDirectory(path);
+        }
+
+        osgDB::Registry::instance()->addFileExtensionAlias("ept", "verse_ept");
+        osgDB::Registry::instance()->addFileExtensionAlias("fbx", "verse_fbx");
+        osgDB::Registry::instance()->addFileExtensionAlias("gltf", "verse_gltf");
+        osgDB::Registry::instance()->addFileExtensionAlias("glb", "verse_gltf");
+    }
+}
+
 typedef std::array<unsigned int, 3> Vec3ui;
 static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 static std::default_random_engine generator;
@@ -106,24 +158,6 @@ struct MikkTSpaceHelper
 
 namespace osgVerse
 {
-    void globalInitialize(int argc, char** argv)
-    {
-        std::string workingPath = BASE_DIR + std::string("/bin/");
-        osgDB::getDataFilePathList().push_back(workingPath);
-
-        setlocale(LC_ALL, ".UTF8");
-        if (argv && argc > 0)
-        {
-            std::string path = osgDB::getFilePath(argv[0]);
-            osgDB::setCurrentWorkingDirectory(path);
-        }
-
-        osgDB::Registry::instance()->addFileExtensionAlias("ept", "verse_ept");
-        osgDB::Registry::instance()->addFileExtensionAlias("fbx", "verse_fbx");
-        osgDB::Registry::instance()->addFileExtensionAlias("gltf", "verse_gltf");
-        osgDB::Registry::instance()->addFileExtensionAlias("glb", "verse_gltf");
-    }
-
     osg::Texture* generateNoises2D(int numRows, int numCols)
     {
         std::vector<osg::Vec3f> noises;

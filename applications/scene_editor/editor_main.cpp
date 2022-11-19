@@ -145,7 +145,6 @@ int main(int argc, char** argv)
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
-    light0->setName("MainLight");
     light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
     light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
     light0->setDirectional(true);

@@ -26,16 +26,20 @@ public:
         osgVerse::GLVersionData* d = const_cast<osgVerse::GLVersionData*>(_data.get());
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = renderInfo.getState()->get<osg::GLExtensions>();
+        d->glVersion = ext->glVersion;
+        d->glslVersion = ext->glslLanguageVersion;
+        d->glslSupported = ext->isGlslSupported;
 #else
-        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+        osg::GL2Extensions* ext = osg::GL2Extensions::Get(renderInfo.getContextID(), true);
+        d->glVersion = ext->getGlVersion();
+        d->glslVersion = ext->getLanguageVersion();
+        d->glslSupported = ext->isGlslSupported();
 #endif
+        
         const char* versionString = (const char*)glGetString(GL_VERSION);
         const char* rendererString = (const char*)glGetString(GL_RENDERER);
         if (versionString != NULL) d->version = versionString;
         if (rendererString != NULL) d->renderer = rendererString;
-        d->glVersion = ext->glVersion;
-        d->glslVersion = ext->glslLanguageVersion;
-        d->glslSupported = ext->isGlslSupported;
     }
 
 protected:
