@@ -32,8 +32,8 @@ public:
         double fov, ratio, zn, zf;
         osg::Camera* cam = renderInfo.getCurrentCamera();
         renderInfo.getState()->getProjectionMatrix().getPerspective(fov, ratio, zn, zf);
-        //std::cout << _name << ": " << cam->getName() << " = "
-        //          << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
+        std::cout << _name << ": " << cam->getName() << " = "
+                  << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
     }
 
     DebugDrawCallback(const std::string& n) : _name(n) {}
@@ -600,7 +600,7 @@ namespace osgVerse
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
             else ms = samples;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1]);
+            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1], _glTargetVersion);
             if (i > 0) s->camera->attach(comp, tex.get(), 0, 0, false, ms);
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), false);
             s->outputs[bufName] = tex.get();
@@ -633,7 +633,7 @@ namespace osgVerse
 
             osg::ref_ptr<osg::Texture> tex = createTexture(type,
                 osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
-                osg::maximum((int)_stageSize[1], 1080) * sizeScale);
+                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glTargetVersion);
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), true);
             s->outputs[bufName] = tex.get();
@@ -666,7 +666,7 @@ namespace osgVerse
 
             osg::ref_ptr<osg::Texture> tex = createTexture(type,
                 osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
-                osg::maximum((int)_stageSize[1], 1080) * sizeScale);
+                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glTargetVersion);
             s->runner->attach(comp, tex.get());
             s->outputs[bufName] = tex.get();
         }
@@ -808,7 +808,7 @@ namespace osgVerse
         s->setShaderSource(ss.str() + source);
     }
 
-    osg::Texture* Pipeline::createTexture(BufferType type, int w, int h)
+    osg::Texture* Pipeline::createTexture(BufferType type, int w, int h, int glVer)
     {
         osg::ref_ptr<osg::Texture2D> tex = new osg::Texture2D;
         switch (type)
@@ -874,33 +874,81 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_INT8:
-            tex->setInternalFormat(GL_R8);
-            tex->setSourceFormat(GL_RED);
+            if (glVer > 0 && glVer < 300)
+            {
+                tex->setInternalFormat(GL_LUMINANCE8);
+                tex->setSourceFormat(GL_LUMINANCE);
+            }
+            else
+            {
+                tex->setInternalFormat(GL_R8);
+                tex->setSourceFormat(GL_RED);
+            }
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_FLOAT16:
-            tex->setInternalFormat(GL_R16F);
-            tex->setSourceFormat(GL_RED);
+            if (glVer > 0 && glVer < 300)
+            {
+                tex->setInternalFormat(GL_LUMINANCE16F_ARB);
+                tex->setSourceFormat(GL_LUMINANCE);
+            }
+            else
+            {
+                tex->setInternalFormat(GL_R16F);
+                tex->setSourceFormat(GL_RED);
+            }
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
-            tex->setInternalFormat(GL_R32F);
-            tex->setSourceFormat(GL_RED);
+            if (glVer > 0 && glVer < 300)
+            {
+                tex->setInternalFormat(GL_LUMINANCE32F_ARB);
+                tex->setSourceFormat(GL_LUMINANCE);
+            }
+            else
+            {
+                tex->setInternalFormat(GL_R32F);
+                tex->setSourceFormat(GL_RED);
+            }
             tex->setSourceType(GL_FLOAT);
             break;
         case RG_INT8:
-            tex->setInternalFormat(GL_RG8);
-            tex->setSourceFormat(GL_RG);
+            if (glVer > 0 && glVer < 300)
+            {
+                tex->setInternalFormat(GL_LUMINANCE8_ALPHA8);
+                tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+            }
+            else
+            {
+                tex->setInternalFormat(GL_RG8);
+                tex->setSourceFormat(GL_RG);
+            }
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case RG_FLOAT16:
-            tex->setInternalFormat(GL_RG16F);
-            tex->setSourceFormat(GL_RG);
+            if (glVer > 0 && glVer < 300)
+            {
+                tex->setInternalFormat(GL_LUMINANCE_ALPHA16F_ARB);
+                tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+            }
+            else
+            {
+                tex->setInternalFormat(GL_RG16F);
+                tex->setSourceFormat(GL_RG);
+            }
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RG_FLOAT32:
-            tex->setInternalFormat(GL_RG32F);
-            tex->setSourceFormat(GL_RG);
+            if (glVer > 0 && glVer < 300)
+            {
+                tex->setInternalFormat(GL_LUMINANCE_ALPHA32F_ARB);
+                tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+            }
+            else
+            {
+                tex->setInternalFormat(GL_RG32F);
+                tex->setSourceFormat(GL_RG);
+            }
             tex->setSourceType(GL_FLOAT);
             break;
         case DEPTH16:
