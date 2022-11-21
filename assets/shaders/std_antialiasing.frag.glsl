@@ -26,7 +26,7 @@ vec4 fxaa(in sampler2D tex, in vec2 fragCoord,
     float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
     float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
     
-    mediump vec2 dir;
+    /*mediump */vec2 dir;
     dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
     dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));
     float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) *

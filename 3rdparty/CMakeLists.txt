@@ -178,7 +178,7 @@ SET(LIBRARY_FILES
     laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h any.hpp
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
-    ${LASZIP_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES}
+    ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
 )
 
