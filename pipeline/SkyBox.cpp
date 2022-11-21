@@ -11,47 +11,8 @@
 #include <osg/TexGen>
 #include <osgDB/ReadFile>
 #include <osgUtil/CullVisitor>
+#include "Pipeline.h"
 using namespace osgVerse;
-
-static const char* skyboxVS = {
-    "#version 130\n"
-    "uniform mat4 osg_ViewMatrixInverse;\n"
-    "uniform mat4 SkyTextureMatrix;\n"
-    "out vec3 TexCoord;\n"
-    "void main() {\n"
-    "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
-    "    vec3 N = normalize(gl_NormalMatrix * gl_Normal);\n"
-    "    vec3 eyeDir = normalize(gl_ModelViewMatrix * gl_Vertex).xyz;\n"
-    "    vec4 uvData = (osg_ViewMatrixInverse * vec4(reflect(-eyeDir, N), 0.0));\n"
-    "    TexCoord = (SkyTextureMatrix * uvData).xyz;\n"
-    "}\n"
-};
-
-static const char* skyboxFS1 = {
-    "#version 130\n"
-    "uniform samplerCube SkyTexture;\n"
-    "in vec3 TexCoord;\n"
-    "void main() {\n"
-    "    vec4 skyColor = texture(SkyTexture, TexCoord);\n"
-    "    gl_FragColor = pow(skyColor, vec4(1.0 / 2.2));\n"
-    "}\n"
-};
-
-static const char* skyboxFS2 = {
-    "#version 130\n"
-    "uniform sampler2D SkyTexture;\n"
-    "in vec3 TexCoord;\n"
-    "const vec2 invAtan = vec2(0.1591, 0.3183);\n"
-    "vec2 sphericalUV(vec3 v) {\n"
-    "    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));\n"
-    "    uv *= invAtan; uv += vec2(0.5);\n"
-    "    return clamp(uv, vec2(0.0), vec2(1.0));\n"
-    "}\n"
-    "void main() {\n"
-    "    vec4 skyColor = texture(SkyTexture, sphericalUV(TexCoord));\n"
-    "    gl_FragColor = pow(skyColor, vec4(1.0 / 2.2));\n"
-    "}\n"
-};
 
 #if 0
 struct TexMatCallback : public osg::NodeCallback
@@ -86,8 +47,8 @@ public:
 
 /* SkyBox */
 
-SkyBox::SkyBox()
-    : osg::Transform()
+SkyBox::SkyBox(Pipeline* p)
+    : osg::Transform(), _pipeline(p)
 {
 }
 
@@ -202,11 +163,20 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     stateset->setAttributeAndModes(depth, values);
     stateset->setRenderBinDetails(-9999, "RenderBin");
 
+    osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl");
+    osg::Shader* fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl");
+    vs->setName("SkyBox_SHADER_VS"); fs->setName("SkyBox_SHADER_FS");
+    if (_pipeline.valid())
+    {
+        std::vector<std::string> defs;
+        if (asCube) defs.push_back("#define VERSE_CUBEMAP_SKYBOX 1");
+        Pipeline::createShaderDefinitions(vs, _pipeline->getGlslTargetVersion());
+        Pipeline::createShaderDefinitions(fs, _pipeline->getGlslTargetVersion(), defs);
+    }
+
     osg::Program* program = new osg::Program;
-    program->setName("SkyBoxShader");
-    program->addShader(new osg::Shader(osg::Shader::VERTEX, skyboxVS));  // TODO: glsl version
-    if (asCube) program->addShader(new osg::Shader(osg::Shader::FRAGMENT, skyboxFS1));
-    else program->addShader(new osg::Shader(osg::Shader::FRAGMENT, skyboxFS2));
+    program->setName("SkyBox_PROGRAM");
+    program->addShader(vs); program->addShader(fs);
     stateset->setAttributeAndModes(program);
     stateset->addUniform(new osg::Uniform("SkyTexture", (int)0));
     stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));

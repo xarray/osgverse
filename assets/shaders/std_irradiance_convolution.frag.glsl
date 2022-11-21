@@ -1,7 +1,7 @@
 #define M_PI 3.1415926535897932384626433832795
 uniform sampler2D EnvironmentMap;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 const vec2 invAtan = vec2(0.1591, 0.3183);
 vec2 sphericalUV(vec3 v)
@@ -32,11 +32,12 @@ void main()
             float sinT = sin(theta), cosT = cos(theta);
             vec3 tangentVec = vec3(sinT * cos(phi), sinT * sin(phi), cosT);
             vec3 sampleVec = tangentVec.x * right + tangentVec.y * up + tangentVec.z * N;
-            irradiance += texture(EnvironmentMap, sphericalUV(sampleVec)).rgb * cosT * sinT;
+            irradiance += VERSE_TEX2D(EnvironmentMap, sphericalUV(sampleVec)).rgb * cosT * sinT;
             nrSamples += 1.0f;
         }
     }
     
     irradiance = M_PI * irradiance * (1.0 / float(nrSamples));
     fragData = vec4(irradiance, 1.0);
+    VERSE_FS_FINAL(fragData);
 }

@@ -1,7 +1,7 @@
 uniform sampler2D BrightnessCombinedBuffer;
 uniform float BloomFactor;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 const float noiseSeed = 20.0;
 const float noiseStrength = 0.3;
@@ -41,9 +41,10 @@ float rand(vec2 co) {
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
-	vec4 color = texture(BrightnessCombinedBuffer, uv0);
+	vec4 color = VERSE_TEX2D(BrightnessCombinedBuffer, uv0);
 
     float f = fbm(vec2(uv0 * noiseSeed));
     color.rgb += vec3(noiseStrength * luminance(color.rgb) * abs(f));
     fragData = vec4(color.rgb * BloomFactor, 1.0);
+    VERSE_FS_FINAL(fragData);
 }

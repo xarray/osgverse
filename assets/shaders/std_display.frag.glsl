@@ -7,8 +7,8 @@ uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
 uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 uniform float VignetteRadius;
 uniform float VignetteDarkness;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 // Color balance copied from gimp/app/base/color-balance.c
 float oneColorBalanceFunc(float v, float factor, int mode)
@@ -65,8 +65,8 @@ vec3 vignetteEffectFunc(vec3 color, vec2 uv)
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
-	vec3 colorRGB = texture(ColorBuffer, uv0).rgb;
-    float depthValue = texture(DepthBuffer, uv0).r * 2.0 - 1.0;
+	vec3 colorRGB = VERSE_TEX2D(ColorBuffer, uv0).rgb;
+    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
 
     // Color grading work
     colorRGB = colorBalanceFunc(colorRGB, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
@@ -84,4 +84,5 @@ void main()
         colorRGB = mix(FogColor, colorRGB, clamp(fogFactor, 0.0, 1.0));
     }
 	fragData = vec4(colorRGB, 1.0);
+    VERSE_FS_FINAL(fragData);
 }

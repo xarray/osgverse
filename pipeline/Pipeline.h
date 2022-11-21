@@ -111,7 +111,10 @@ namespace osgVerse
 
         Pipeline(int glContextVer = 100, int glslVer = 130);
         static osg::Texture* createTexture(BufferType type, int w, int h);
-        static void createShaderDefinitions(osg::Shader* s, int glslVer);
+
+        /** Add necessaray definitions for each Pipeline related shader */
+        static void createShaderDefinitions(osg::Shader* s, int glslVer,
+            const std::vector<std::string>& defs = std::vector<std::string>());
 
         void addStage(Stage* s) { _stages.push_back(s); }
         void removeStage(unsigned int index) { _stages.erase(_stages.begin() + index); }

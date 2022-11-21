@@ -507,20 +507,27 @@ namespace osgVerse
 
     void Pipeline::clearStagesFromView(osgViewer::View* view)
     {
-        while (view->getNumSlaves() > 0) view->removeSlave(0);
         view->getCamera()->setGraphicsContext(_stageContext.get());
+        for (unsigned int i = 0; i < view->getNumSlaves(); ++i)
+            view->getSlave(i)._camera->setStats(NULL);
+
+        while (view->getNumSlaves() > 0) view->removeSlave(0);
+        _stages.clear(); _modules.clear(); _forwardCamera = NULL;
         if (_deferredCallback.valid())
         {
             _deferredCallback->getRunners().clear();
             _deferredCallback->setClampCallback(NULL);
         }
-        _stages.clear(); _forwardCamera = NULL;
     }
 
     void Pipeline::applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
     {
         if (view->getCamera() && view->getCamera()->getClampProjectionMatrixCallback())
+        {
+            view->getCamera()->setGraphicsContext(NULL);
             _deferredCallback->setClampCallback(view->getCamera()->getClampProjectionMatrixCallback());
+        }
+
         for (unsigned int i = 0; i < _stages.size(); ++i)
         {
             bool useMainScene = _stages[i]->inputStage;
@@ -751,15 +758,53 @@ namespace osgVerse
         if (u) u->set((float)type);
     }
 
-    void Pipeline::createShaderDefinitions(osg::Shader* s, int glslVer)
+    void Pipeline::createShaderDefinitions(osg::Shader* s, int glslVer,
+                                           const std::vector<std::string>& userDefs)
     {
+        std::vector<std::string> extraDefs;
         std::string source = s->getShaderSource();
         if (source.find("#version") != std::string::npos) return;
 
+        std::string m_mvp = "gl_ModelViewProjectionMatrix", m_mv = "gl_ModelViewMatrix";
+        std::string m_p = "gl_ProjectionMatrix", m_n = "gl_NormalMatrix";
+        std::string tex1d = "texture", tex2d = "texture", tex3d = "texture", texCube = "texture";
+        std::string vin = "in", vout = "out", fin = "in", fout = "out", finalColor = "//";
+        if (glslVer < 130)
+        {
+            tex1d = "texture1D"; tex2d = "texture2D"; tex3d = "texture3D"; texCube = "textureCube";
+            vin = "attribute"; vout = "varying"; fin = "varying"; fout = "";
+            finalColor = "gl_FragColor = ";
+
+            extraDefs.push_back("float round(float v) { return v<0.0 ? ceil(v-0.5) : floor(v+0.5); }");
+            extraDefs.push_back("vec2 round(vec2 v) { return vec2(round(v.x), round(v.y)); }");
+            extraDefs.push_back("vec3 round(vec3 v) { return vec3(round(v.x), round(v.y), round(v.z)); }");
+            extraDefs.push_back("vec4 textureLod(sampler2D t, vec2 uv, float l) { return texture2D(t, uv); }");
+        }
+
         std::stringstream ss;
         ss << "#version " << glslVer << std::endl;
-        // TODO: more defines?
+        if (s->getType() == osg::Shader::VERTEX)
+        {
+            ss << "#define VERSE_MATRIX_MVP " << m_mvp << std::endl;
+            ss << "#define VERSE_MATRIX_MV " << m_mv << std::endl;
+            ss << "#define VERSE_MATRIX_P " << m_p << std::endl;
+            ss << "#define VERSE_MATRIX_N " << m_n << std::endl;
+            ss << "#define VERSE_VS_IN " << vin << std::endl;
+            ss << "#define VERSE_VS_OUT " << vout << std::endl;
+        }
+        else if (s->getType() == osg::Shader::FRAGMENT)
+        {
+            ss << "#define VERSE_FS_IN " << fin << std::endl;
+            ss << "#define VERSE_FS_OUT " << fout << std::endl;
+            ss << "#define VERSE_FS_FINAL " << finalColor << std::endl;
+        }
+        ss << "#define VERSE_TEX1D " << tex1d << std::endl;
+        ss << "#define VERSE_TEX2D " << tex2d << std::endl;
+        ss << "#define VERSE_TEX3D " << tex3d << std::endl;
+        ss << "#define VERSE_TEXCUBE " << texCube << std::endl;
 
+        for (size_t i = 0; i < extraDefs.size(); ++i) ss << extraDefs[i] << std::endl;
+        for (size_t i = 0; i < userDefs.size(); ++i) ss << userDefs[i] << std::endl;
         s->setShaderSource(ss.str() + source);
     }
 

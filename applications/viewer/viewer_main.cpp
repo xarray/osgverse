@@ -117,7 +117,7 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Start the pipeline
-    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(100, 120);
     MyViewer viewer(pipeline.get());
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
     setupStandardPipeline(pipeline.get(), &viewer, params);
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
 
-    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skybox->setNodeMask(~DEFERRED_SCENE_MASK);

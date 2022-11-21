@@ -4,12 +4,12 @@ uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler1D RandomTexture0, RandomTexture1;
 uniform mat4 ShadowSpaceMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
 {
-    vec4 lightProjVec0 = texture(shadowMap, lightProjUV.xy);
+    vec4 lightProjVec0 = VERSE_TEX2D(shadowMap, lightProjUV.xy);
     float depth0 = lightProjVec0.z;  // use polygon-offset instead of +0.005
     return (depth > depth0) ? 0.0 : 1.0;
 }
@@ -19,7 +19,7 @@ float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV,
 	float sum = 0;
 	for (int i = 0; i < 16; i++)
 	{
-        vec2 dir = texture(RandomTexture1, float(i) / 16.0).xy * 2.0 - vec2(1.0);
+        vec2 dir = VERSE_TEX1D(RandomTexture1, float(i) / 16.0).xy * 2.0 - vec2(1.0);
 		sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);
 	}
 	return sum / 16.0;
@@ -28,10 +28,10 @@ float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV,
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
-    vec4 colorData = texture(ColorBuffer, uv0);
-    vec4 normalAlpha = texture(NormalBuffer, uv0);
-    float depthValue = texture(DepthBuffer, uv0).r * 2.0 - 1.0;
-    float ao = texture(SsaoBlurredBuffer, uv0).r;
+    vec4 colorData = VERSE_TEX2D(ColorBuffer, uv0);
+    vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
+    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
+    float ao = VERSE_TEX2D(SsaoBlurredBuffer, uv0).r;
     
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
@@ -70,4 +70,5 @@ void main()
     colorData.rgb *= shadow * ao;
 #endif
 	fragData = colorData;
+    VERSE_FS_FINAL(fragData);
 }

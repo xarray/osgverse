@@ -75,7 +75,7 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
 
-    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skybox->setNodeMask(~DEFERRED_SCENE_MASK);

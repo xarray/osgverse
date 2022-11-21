@@ -176,7 +176,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Camera> skyCamera = osgVerse::SkyBox::createSkyCamera();
     auxRoot->addChild(skyCamera.get());
 
-    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skyCamera->addChild(skybox.get());

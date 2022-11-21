@@ -1,8 +1,8 @@
 uniform sampler2D ColorBuffer, LuminanceBuffer;
 uniform sampler2D BloomBuffer, IblAmbientBuffer;
 uniform vec2 LuminanceFactor;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 vec3 ReinhardToneMapping(vec3 color, float adapted_lum)
 {
@@ -39,10 +39,10 @@ vec3 ACESToneMapping(vec3 color, float adapted_lum)
 void main()
 {
     vec2 uv0 = texCoord0.xy;
-    vec4 color = texture(ColorBuffer, uv0);
-    vec4 colorBloom = texture(BloomBuffer, uv0);
-    vec4 iblColor = texture(IblAmbientBuffer, uv0);
-    float lumAvg = texture(LuminanceBuffer, vec2(0.5, 0.5)).r;
+    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);
+    vec4 colorBloom = VERSE_TEX2D(BloomBuffer, uv0);
+    vec4 iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);
+    float lumAvg = VERSE_TEX2D(LuminanceBuffer, vec2(0.5, 0.5)).r;
 
     if (true)
     {
@@ -52,4 +52,5 @@ void main()
     }
     else
         fragData = vec4(color + iblColor + colorBloom);
+    VERSE_FS_FINAL(fragData);
 }

@@ -4,8 +4,8 @@ uniform sampler2D NormalBuffer, DepthBuffer, RandomTexture;
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 NearFarPlanes, InvScreenResolution;
 uniform float AORadius, AOBias, AOPowExponent;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 const float NUM_STEPS = 4;
 const float NUM_DIRECTIONS = 8;
@@ -23,7 +23,7 @@ float falloff(float distanceSquare)
 vec4 getJitter()
 {
     // Get the current jitter vector
-    return texture(RandomTexture, (gl_FragCoord.xy / AO_RANDOMTEX_SIZE));
+    return VERSE_TEX2D(RandomTexture, (gl_FragCoord.xy / AO_RANDOMTEX_SIZE));
 }
 
 vec2 rotateDirection(vec2 dir, vec2 cosSin)
@@ -39,7 +39,7 @@ vec3 fetchViewPos(vec2 uv)
                          -(1.0f - projMatrix[2][0]) / projMatrix[0][0],
                          -(1.0f + projMatrix[2][1]) / projMatrix[1][1]);
     
-    float depthValue = texture(DepthBuffer, uv).r;
+    float depthValue = VERSE_TEX2D(DepthBuffer, uv).r;
     float eyeZ = (NearFarPlanes[0] * NearFarPlanes[1])
                / ((NearFarPlanes[0] - NearFarPlanes[1]) * depthValue + NearFarPlanes[1]);
     return vec3(uv * projInfo.xy + projInfo.zw, 1.0) * eyeZ;
@@ -85,7 +85,7 @@ float computeCoarseAO(vec2 fullResUV, float radiusPixels, vec4 rand, vec3 viewPo
         float rayPixels = (rand.z * stepSizePixels + 1.0);
         for (float stepIndex = 0; stepIndex < NUM_STEPS; ++stepIndex)
         {
-            vec2 snappedUV = round(rayPixels * direction) * InvScreenResolution + fullResUV;
+            vec2 snappedUV = round(vec2(rayPixels) * direction) * InvScreenResolution + fullResUV;
             vec3 S = fetchViewPos(snappedUV); rayPixels += stepSizePixels;
             AO += computeAO(viewPosition, viewNormal, S);
         }
@@ -107,4 +107,5 @@ void main()
     // Get jitter vector for the current full-res pixel
     float AO = computeCoarseAO(uv0, radiusPixels, getJitter(), eyePosition, eyeNormal);
     fragData = vec4(pow(AO, AOPowExponent));
+    VERSE_FS_FINAL(fragData);
 }

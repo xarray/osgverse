@@ -1,8 +1,8 @@
 #define M_PI 3.1415926535897932384626433832795
 uniform sampler2D EnvironmentMap;
 uniform float GlobalRoughness;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 const vec2 invAtan = vec2(0.1591, 0.3183);
 vec2 sphericalUV(vec3 v)
@@ -74,9 +74,10 @@ void main()
         float nDotL = max(dot(N, L), 0.0);
         if (nDotL > 0.0)
         {
-            prefilteredColor += texture(EnvironmentMap, sphericalUV(L)).rgb * nDotL;
+            prefilteredColor += VERSE_TEX2D(EnvironmentMap, sphericalUV(L)).rgb * nDotL;
             totalWeight += nDotL;
         }
     }
     fragData = vec4(prefilteredColor / totalWeight, 1.0);
+    VERSE_FS_FINAL(fragData);
 }

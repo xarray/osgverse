@@ -1,7 +1,7 @@
-out vec4 texCoord0;
+VERSE_VS_OUT vec4 texCoord0;
 
 void main()
 {
 	texCoord0 = gl_MultiTexCoord0;
-	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+	gl_Position = VERSE_MATRIX_MVP * gl_Vertex;
 }

@@ -5,7 +5,7 @@ uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
 uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+att1, r2: dir+att0, r3: spotProp)
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)
-in vec4 texCoord0;
+VERSE_FS_IN vec4 texCoord0;
 
 /// PBR functions
 const vec2 invAtan = vec2(0.1591, 0.3183);
@@ -117,10 +117,10 @@ int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,
                        out vec2 range, out vec2 spotExponentAndCutoff)
 {
     const vec2 halfP = vec2(0.5 / 1024.0, 0.5 / 4.0), step = vec2(1.0 / 1024.0, 1.0 / 4.0);
-    vec4 attr0 = texture(LightParameterMap, halfP + vec2(id * step.x, 0.0 * step.y)); // color, type
-    vec4 attr1 = texture(LightParameterMap, halfP + vec2(id * step.x, 1.0 * step.y)); // pos
-    vec4 attr2 = texture(LightParameterMap, halfP + vec2(id * step.x, 2.0 * step.y)); // dir
-    vec4 attr3 = texture(LightParameterMap, halfP + vec2(id * step.x, 3.0 * step.y)); // spot..
+    vec4 attr0 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 0.0 * step.y)); // color, type
+    vec4 attr1 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 1.0 * step.y)); // pos
+    vec4 attr2 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 2.0 * step.y)); // dir
+    vec4 attr3 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 3.0 * step.y)); // spot..
     color = attr0.xyz; pos = attr1.xyz; dir = attr2.xyz; range = vec2(attr2.w, attr1.w);
     spotExponentAndCutoff = vec2(attr3.x, attr3.y); return int(attr0.w);
 }
@@ -128,11 +128,11 @@ int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
-	vec4 diffuseMetallic = texture(DiffuseMetallicBuffer, uv0);
-	vec4 specularRoughness = texture(SpecularRoughnessBuffer, uv0);
-	vec4 emissionOcclusion = texture(EmissionOcclusionBuffer, uv0);
-    vec4 normalAlpha = texture(NormalBuffer, uv0);
-    float depthValue = texture(DepthBuffer, uv0).r * 2.0 - 1.0;
+	vec4 diffuseMetallic = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);
+	vec4 specularRoughness = VERSE_TEX2D(SpecularRoughnessBuffer, uv0);
+	vec4 emissionOcclusion = VERSE_TEX2D(EmissionOcclusionBuffer, uv0);
+    vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
+    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
     
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
@@ -171,12 +171,12 @@ void main()
     {
         vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);
         vec3 kD = (1.0 - kS) * (1.0 - metallic);
-        vec3 irradiance = texture(IrradianceBuffer, sphericalUV(eyeNormal)).rgb;
+        vec3 irradiance = VERSE_TEX2D(IrradianceBuffer, sphericalUV(eyeNormal)).rgb;
         vec3 diffuse = irradiance * albedo;
 
         const float MAX_REFLECTION_LOD = 4.0;
         vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;
-        vec2 envBRDF = texture(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
+        vec2 envBRDF = VERSE_TEX2D(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
         vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
         ambient = kD * diffuse + envSpecular;
     }
@@ -189,10 +189,10 @@ void main()
     {
         vec2 off1 = vec2(1.0, 0.0) * InvScreenResolution;
         vec2 off2 = vec2(0.0, 1.0) * InvScreenResolution;
-        vec4 n1 = texture(NormalBuffer, uv0 - off1);
-        vec4 n2 = texture(NormalBuffer, uv0 - off2);
-        vec4 n3 = texture(NormalBuffer, uv0 + off1);
-        vec4 n4 = texture(NormalBuffer, uv0 + off2);
+        vec4 n1 = VERSE_TEX2D(NormalBuffer, uv0 - off1);
+        vec4 n2 = VERSE_TEX2D(NormalBuffer, uv0 - off2);
+        vec4 n3 = VERSE_TEX2D(NormalBuffer, uv0 + off1);
+        vec4 n4 = VERSE_TEX2D(NormalBuffer, uv0 + off2);
         if (n1.a < 0.1 || n2.a < 0.1 || n3.a < 0.1 || n4.a < 0.1)
             gl_FragData[1] = vec4(1.0, 1.0, 0.0, 1.0);
     }

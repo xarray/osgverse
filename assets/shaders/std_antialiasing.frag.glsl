@@ -1,7 +1,7 @@
 uniform sampler2D ColorBuffer;
 uniform vec2 InvScreenResolution;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 // FXAA optimized version for mobile
 #define FXAA_REDUCE_MIN   (1.0 / 128.0)
@@ -10,11 +10,11 @@ out vec4 fragData;
 vec4 fxaa(in sampler2D tex, in vec2 fragCoord,
           in vec2 v_rgbNW, in vec2 v_rgbNE, in vec2 v_rgbSW, in vec2 v_rgbSE, in vec2 v_rgbM)
 {
-    vec3 rgbNW = texture(tex, v_rgbNW).xyz;
-    vec3 rgbNE = texture(tex, v_rgbNE).xyz;
-    vec3 rgbSW = texture(tex, v_rgbSW).xyz;
-    vec3 rgbSE = texture(tex, v_rgbSE).xyz;
-    vec4 texColor = texture(tex, v_rgbM);
+    vec3 rgbNW = VERSE_TEX2D(tex, v_rgbNW).xyz;
+    vec3 rgbNE = VERSE_TEX2D(tex, v_rgbNE).xyz;
+    vec3 rgbSW = VERSE_TEX2D(tex, v_rgbSW).xyz;
+    vec3 rgbSE = VERSE_TEX2D(tex, v_rgbSE).xyz;
+    vec4 texColor = VERSE_TEX2D(tex, v_rgbM);
     vec3 rgbM  = texColor.xyz;
     vec3 luma = vec3(0.299, 0.587, 0.114);
     
@@ -36,10 +36,10 @@ vec4 fxaa(in sampler2D tex, in vec2 fragCoord,
               max(vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),
               dir * rcpDirMin)) * InvScreenResolution;
     
-    vec3 rgbA = 0.5 * (texture(tex, fragCoord + dir * (1.0 / 3.0 - 0.5)).xyz +
-                       texture(tex, fragCoord + dir * (2.0 / 3.0 - 0.5)).xyz);
-    vec3 rgbB = rgbA * 0.5 + 0.25 * (texture(tex, fragCoord + dir * -0.5).xyz +
-                                     texture(tex, fragCoord + dir * 0.5).xyz);
+    vec3 rgbA = 0.5 * (VERSE_TEX2D(tex, fragCoord + dir * (1.0 / 3.0 - 0.5)).xyz +
+                       VERSE_TEX2D(tex, fragCoord + dir * (2.0 / 3.0 - 0.5)).xyz);
+    vec3 rgbB = rgbA * 0.5 + 0.25 * (VERSE_TEX2D(tex, fragCoord + dir * -0.5).xyz +
+                                     VERSE_TEX2D(tex, fragCoord + dir * 0.5).xyz);
     float lumaB = dot(rgbB, luma);
     if ((lumaB < lumaMin) || (lumaB > lumaMax))
         return vec4(rgbA, texColor.a);
@@ -55,4 +55,5 @@ void main()
 	vec2 v_rgbSW = (uv0 + vec2(-1.0, 1.0) * InvScreenResolution);
 	vec2 v_rgbSE = (uv0 + vec2(1.0, 1.0) * InvScreenResolution);
     fragData = fxaa(ColorBuffer, uv0, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, uv0);
+    VERSE_FS_FINAL(fragData);
 }

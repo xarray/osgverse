@@ -1,7 +1,7 @@
 uniform sampler2D ColorBuffer;
 uniform float BrightnessThreshold;
-in vec4 texCoord0;
-out vec4 fragData;
+VERSE_FS_IN vec4 texCoord0;
+VERSE_FS_OUT vec4 fragData;
 
 float luminance(vec3 color)
 {
@@ -11,6 +11,7 @@ float luminance(vec3 color)
 void main()
 {
 	vec2 uv0 = texCoord0.xy;
-    float lum = luminance(texture(ColorBuffer, uv0).xyz);
+    float lum = luminance(VERSE_TEX2D(ColorBuffer, uv0).xyz);
 	fragData = vec4((lum > BrightnessThreshold) ? vec3(lum) : vec3(0.0), 1.0);
+    VERSE_FS_FINAL(fragData);
 }

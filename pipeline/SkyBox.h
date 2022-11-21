@@ -8,13 +8,14 @@
 
 namespace osgVerse
 {
+    class Pipeline;
+
     /** The skybox node. */
     class SkyBox : public osg::Transform
     {
     public:
-        SkyBox();
+        SkyBox(Pipeline* p);
         SkyBox(const SkyBox& copy, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
-
         static osg::Camera* createSkyCamera();
 
         void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
@@ -31,6 +32,7 @@ namespace osgVerse
         virtual ~SkyBox() {}
         void initialize(bool asCube, const osg::Matrixf& texMat);
     
+        osg::observer_ptr<Pipeline> _pipeline;
         osg::observer_ptr<osg::Texture> _skymap;
     };
 }
