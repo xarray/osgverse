@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 #include <imgui/imgui.h>
+#include <imgui/imgui_impl_opengl2.h>
 #include <imgui/imgui_impl_opengl3.h>
 #include <imgui/ImGuizmo.h>
 #include <osg/Version>
@@ -15,6 +16,7 @@ extern void StyleColorsVisualStudio(ImGuiStyle* dst = (ImGuiStyle*)0);
 extern void StyleColorsSonicRiders(ImGuiStyle* dst = (ImGuiStyle*)0);
 extern void StyleColorsLightBlue(ImGuiStyle* dst = (ImGuiStyle*)0);
 extern void StyleColorsTransparent(ImGuiStyle* dst = (ImGuiStyle*)0);
+static bool s_useImguiLoaderGL3 = true;
 
 void newImGuiFrame(osg::RenderInfo& renderInfo, double& time, std::function<void(ImGuiIO&)> func)
 {
@@ -22,9 +24,13 @@ void newImGuiFrame(osg::RenderInfo& renderInfo, double& time, std::function<void
     if (!context) return; else if (time < 0.0f)
     {
         glewInit(); time = 0.0f;
-        ImGui_ImplOpenGL3_Init();
+        s_useImguiLoaderGL3 = glewIsSupported("GL_VERSION_3_0");
+        if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_Init();
+        else ImGui_ImplOpenGL2_Init();
     }
-    ImGui_ImplOpenGL3_NewFrame();
+
+    if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_NewFrame();
+    else ImGui_ImplOpenGL2_NewFrame();
 
     ImGuiIO& io = ImGui::GetIO();
     if (renderInfo.getView() != NULL)
@@ -80,7 +86,10 @@ void endImGuiFrame(osg::RenderInfo& renderInfo, ImGuiManager* manager,
     else return;
 
     ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    if (s_useImguiLoaderGL3)
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    else
+        ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 }
 
 void startImGuiContext(ImGuiManager* manager, std::map<std::string, ImFont*>& fonts)
@@ -233,7 +242,8 @@ public:
 protected:
     virtual ~ImGuiHandler()
     {
-        //ImGui_ImplOpenGL3_Shutdown();  // FIXME
+        //if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_Shutdown();  // FIXME
+        //else ImGui_ImplOpenGL2_Shutdown();
         ImGui::DestroyContext();
     }
 };

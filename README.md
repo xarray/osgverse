@@ -3,12 +3,16 @@
 
 #### Introduction
 osgVerse, a complete 3D engine solution based on OpenSceneGraph.
+| Operating System | Compiler                | Supported          | Notes |
+|------------------| ------------------------|--------------------| ----- |
+| Windows 10       | Visual Studio 2022      | :heavy_check_mark: |       |
+| Windows 10       | Visual Studio 2017      | :heavy_check_mark: |       |
+| Windows 10       | MSYS2 (GCC 10.2)        | :heavy_check_mark: |       |
+| Ubuntu 18.04     | GCC 7.5+                | :heavy_check_mark: |       |
 
 #### Dependencies
-1. Please use CMake 3.20 or higher version. (https://cmake.org/download/)
-2. Please use a C++ compiler supporting C++ 14 at least. Current project is already tested on:
-- 2.1 Windows 10, Visual Studio 2017
-- 2.2 Ubuntu 18.04, GCC 7.5 or later
+1. Please use CMake 3.10 or higher version. (https://cmake.org/download/)
+2. Please use a C++ compiler supporting C++ 14 at least.
 3. OpenSceneGraph is always required for building osgVerse. (https://github.com/openscenegraph/OpenSceneGraph) Current project mainly depends on OSG 3.7.0, but can compile on OSG 3.1.1 or later versions.
 4. Optional dependencies:
 - 4.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
@@ -21,7 +25,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 Our project is already tested on graphics cards listed as below:
 1. NVIDIA RTX 3060 (should also work with other NVIDIA cards)
 2. Intel UHD Graphics
-3. MooreThreads MTT S50, S80
+3. MooreThreads MTT S50, S80 (with some problems in D24S8 mode)
 
 #### Modules
 1. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.

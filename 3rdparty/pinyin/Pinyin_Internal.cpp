@@ -5,6 +5,7 @@
 #include "CikuManager.h"
 #include "StringFunction.h"
 #include <algorithm>
+#include <stdexcept>
 #include <cstdlib>
 
 using namespace ime::pinyin;
