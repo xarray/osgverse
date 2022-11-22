@@ -170,8 +170,10 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     {
         std::vector<std::string> defs;
         if (asCube) defs.push_back("#define VERSE_CUBEMAP_SKYBOX 1");
-        Pipeline::createShaderDefinitions(vs, _pipeline->getGlslTargetVersion());
-        Pipeline::createShaderDefinitions(fs, _pipeline->getGlslTargetVersion(), defs);
+        Pipeline::createShaderDefinitions(vs, _pipeline->getTargetVersion(),
+                                          _pipeline->getGlslTargetVersion());
+        Pipeline::createShaderDefinitions(fs, _pipeline->getTargetVersion(),
+                                          _pipeline->getGlslTargetVersion(), defs);
     }
 
     osg::Program* program = new osg::Program;

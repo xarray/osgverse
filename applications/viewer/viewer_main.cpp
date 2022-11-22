@@ -117,7 +117,10 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Start the pipeline
-    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+    int requiredGLContext = 100;  // 100: Compatible, 300: GL3 Core
+    int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
+    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+
     MyViewer viewer(pipeline.get());
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
     setupStandardPipeline(pipeline.get(), &viewer, params);

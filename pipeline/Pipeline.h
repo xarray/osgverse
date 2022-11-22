@@ -113,7 +113,7 @@ namespace osgVerse
         static osg::Texture* createTexture(BufferType type, int w, int h, int glVer = 0);
 
         /** Add necessaray definitions for each Pipeline related shader */
-        static void createShaderDefinitions(osg::Shader* s, int glslVer,
+        static void createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
             const std::vector<std::string>& defs = std::vector<std::string>());
 
         void addStage(Stage* s) { _stages.push_back(s); }

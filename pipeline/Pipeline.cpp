@@ -498,7 +498,7 @@ namespace osgVerse
         _stageContext->setResizedCallback(new MyResizedCallback(this));
 
         // Enable the osg_* uniforms that the shaders will use in GL3/GL4 and GLES2
-        if (_glTargetVersion >= 300)
+        if (_glTargetVersion >= 300 || _glslTargetVersion >= 140)
         {
             _stageContext->getState()->setUseModelViewAndProjectionUniforms(true);
             _stageContext->getState()->setUseVertexAttributeAliasing(true);
@@ -708,14 +708,14 @@ namespace osgVerse
             prog->setName(name + "_PROGRAM");
             if (vs)
             {
-                vs->setName(name + "_SHADER_VS");
-                createShaderDefinitions(vs, _glslTargetVersion); prog->addShader(vs);
+                vs->setName(name + "_SHADER_VS"); prog->addShader(vs);
+                createShaderDefinitions(vs, _glTargetVersion, _glslTargetVersion);
             }
 
             if (fs)
             {
-                fs->setName(name + "_SHADER_FS");
-                createShaderDefinitions(fs, _glslTargetVersion); prog->addShader(fs);
+                fs->setName(name + "_SHADER_FS"); prog->addShader(fs);
+                createShaderDefinitions(fs, _glTargetVersion, _glslTargetVersion);
             }
 
             osg::StateSet* ss = s.deferred ?
@@ -758,7 +758,7 @@ namespace osgVerse
         if (u) u->set((float)type);
     }
 
-    void Pipeline::createShaderDefinitions(osg::Shader* s, int glslVer,
+    void Pipeline::createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
                                            const std::vector<std::string>& userDefs)
     {
         std::vector<std::string> extraDefs;
@@ -769,7 +769,7 @@ namespace osgVerse
         std::string m_p = "gl_ProjectionMatrix", m_n = "gl_NormalMatrix";
         std::string tex1d = "texture", tex2d = "texture", tex3d = "texture", texCube = "texture";
         std::string vin = "in", vout = "out", fin = "in", fout = "out", finalColor = "//";
-        if (glslVer < 130)
+        if (glslVer <= 120)
         {
             tex1d = "texture1D"; tex2d = "texture2D"; tex3d = "texture3D"; texCube = "textureCube";
             vin = "attribute"; vout = "varying"; fin = "varying"; fout = "";
@@ -779,6 +779,29 @@ namespace osgVerse
             extraDefs.push_back("vec2 round(vec2 v) { return vec2(round(v.x), round(v.y)); }");
             extraDefs.push_back("vec3 round(vec3 v) { return vec3(round(v.x), round(v.y), round(v.z)); }");
             extraDefs.push_back("vec4 textureLod(sampler2D t, vec2 uv, float l) { return texture2D(t, uv); }");
+        }
+
+        if (s->getType() == osg::Shader::VERTEX)
+        {
+            if (glVer >= 300 || glslVer >= 140)
+            {
+                m_mvp = "osg_ModelViewProjectionMatrix"; m_mv = "osg_ModelViewMatrix";
+                m_p = "osg_ProjectionMatrix"; m_n = "osg_NormalMatrix";
+                extraDefs.push_back("uniform mat4 osg_ModelViewProjectionMatrix, "
+                                    "osg_ModelViewMatrix, osg_ProjectionMatrix;");
+                extraDefs.push_back("uniform mat3 osg_NormalMatrix;");
+                extraDefs.push_back("VERSE_VS_IN vec4 osg_Vertex, osg_Color, "
+                                    "osg_MultiTexCoord0, osg_MultiTexCoord1;");
+                extraDefs.push_back("VERSE_VS_IN vec3 osg_Normal;");
+            }
+            else
+            {
+                extraDefs.push_back("#define osg_Vertex gl_Vertex");
+                extraDefs.push_back("#define osg_Color gl_Color");
+                extraDefs.push_back("#define osg_MultiTexCoord0 gl_MultiTexCoord0");
+                extraDefs.push_back("#define osg_MultiTexCoord1 gl_MultiTexCoord1");
+                extraDefs.push_back("#define osg_Normal gl_Normal");
+            }
         }
 
         std::stringstream ss;

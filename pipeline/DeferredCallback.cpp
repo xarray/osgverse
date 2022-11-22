@@ -359,8 +359,6 @@ namespace osgVerse
 #endif
         state->applyProjectionMatrix(new osg::RefMatrix(projection));
         state->applyModelViewMatrix(modelView);
-        if (state->getUseModelViewAndProjectionUniforms())
-            state->applyModelViewAndProjectionUniformsIfRequired();
         drawInner(cb, renderInfo);
         state->apply();
 
@@ -368,7 +366,7 @@ namespace osgVerse
         if (status != GL_FRAMEBUFFER_COMPLETE_EXT)
         {
             OSG_WARN << "[Runner] FBO drawing failed: 0x" << std::hex << status
-                << std::dec << ", name: " << name << std::endl;
+                     << std::dec << ", name: " << name << std::endl;
             return false;
         }
 
@@ -396,7 +394,13 @@ namespace osgVerse
         DeferredRenderCallback* cb, osg::RenderInfo& renderInfo) const
     {
         if (!geometry) { OSG_WARN << "[RttRunner] No geometry for " << name << std::endl; return; }
-        if (geometry->getStateSet()) renderInfo.getState()->apply(geometry->getStateSet());
+        if (geometry->getStateSet())
+        {
+            osg::State* state = renderInfo.getState();
+            state->apply(geometry->getStateSet());  // apply uniforms after applying program
+            if (state->getUseModelViewAndProjectionUniforms())
+                state->applyModelViewAndProjectionUniformsIfRequired();
+        }
         if (viewport.valid()) viewport->apply(*renderInfo.getState());
         geometry->draw(renderInfo);
     }

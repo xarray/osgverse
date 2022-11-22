@@ -68,17 +68,17 @@ namespace osgVerse
             for (int i = 0; i < _shadowNumber; ++i)
                 _pipeline->addStage(createShadowCaster(i, prog.get(), casterMask));
 
-            int glsl = _pipeline->getGlslTargetVersion();
+            int gl = _pipeline->getGlslTargetVersion(), glsl = _pipeline->getGlslTargetVersion();
             if (vs)
             {
-                vs->setName("ShadowCaster_SHADER_VS");
-                Pipeline::createShaderDefinitions(vs, glsl); prog->addShader(vs);
+                vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);
+                Pipeline::createShaderDefinitions(vs, gl, glsl);
             }
             
             if (fs)
             {
-                fs->setName("ShadowCaster_SHADER_FS");
-                Pipeline::createShaderDefinitions(fs, glsl); prog->addShader(fs);
+                fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs);
+                Pipeline::createShaderDefinitions(fs, gl, glsl);
             }
         }
     }
