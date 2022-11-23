@@ -6,7 +6,7 @@ MACRO(NEW_TEST_EXECUTABLE EXECUTABLE_NAME SOURCE_FILE)
     
     IF(VERSE_STATIC_BUILD)
         GET_PROPERTY(PLUGIN_LIBRARIES_TO_LINK GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES)
-        SET(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} ${PLUGIN_LIBRARIES_TO_LINK})
+        SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${PLUGIN_LIBRARIES_TO_LINK})
         
         IF(VERSE_USE_OSG_STATIC)
             SET(OSGPLUGIN_LIBRARIES osgdb_glsl osgdb_trans osgdb_rot osgdb_scale osgdb_osg osgdb_rgb osgdb_bmp)
@@ -15,13 +15,14 @@ MACRO(NEW_TEST_EXECUTABLE EXECUTABLE_NAME SOURCE_FILE)
                 osgdb_deprecated_osgviewer osgdb_deprecated_osgterrain)
             SET(OSGPLUGIN_LIBRARIES ${OSGPLUGIN_LIBRARIES}
                 osgdb_serializers_osg osgdb_serializers_osgtext osgdb_serializers_osgterrain osgdb_serializers_osgsim)
-            SET(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} ${OSGPLUGIN_LIBRARIES})
+            SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${OSGPLUGIN_LIBRARIES})
         ENDIF(VERSE_USE_OSG_STATIC)
     ENDIF(VERSE_STATIC_BUILD)
     
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+    TARGET_INCLUDE_DIRECTORIES(${EXE_NAME} PUBLIC ${EXTERNAL_INCLUDES})
     TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseReaderWriter
-                          osgVersePipeline osgVerseAnimation osgVerseModeling ${ADDITIONAL_LIBRARIES})
+                          osgVersePipeline osgVerseAnimation osgVerseModeling ${EXTERNAL_LIBRARIES})
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 
 ENDMACRO(NEW_TEST_EXECUTABLE)

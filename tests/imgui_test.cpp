@@ -219,7 +219,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    bool guiAsTexture = true;
+    bool guiAsTexture = false;
     osgViewer::Viewer viewer;
 
     osg::ref_ptr<osg::Node> scene =
@@ -256,5 +256,6 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setUpViewOnSingleScreen(0);
     return viewer.run();
 }

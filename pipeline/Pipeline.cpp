@@ -474,6 +474,9 @@ namespace osgVerse
 
     void Pipeline::startStages(int w, int h, osg::GraphicsContext* gc)
     {
+#ifdef OSG_GL3_AVAILABLE
+        _glTargetVersion = 300;
+#endif
         if (_glVersionData.valid())
         {
             if (_glVersionData->glVersion < _glTargetVersion)

@@ -97,5 +97,6 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setUpViewOnSingleScreen(0);
     return viewer.run();
 }

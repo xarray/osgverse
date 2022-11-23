@@ -114,6 +114,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setUpViewOnSingleScreen(0);
     for (int i = 0; i < 3; ++i) viewer.frame();
 
     /*osg::Vec3ub* ptr = (osg::Vec3ub*)img2->data();

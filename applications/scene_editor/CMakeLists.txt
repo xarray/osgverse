@@ -10,7 +10,6 @@ SET(EXECUTABLE_FILES
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/imgui)
 NEW_EXECUTABLE(${EXE_NAME} SHARED)
 
-TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseModeling osgVerseAnimation
-                                  osgVersePipeline ${ADDITIONAL_LIBRARIES})
+TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseModeling osgVerseAnimation osgVersePipeline)
 LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)

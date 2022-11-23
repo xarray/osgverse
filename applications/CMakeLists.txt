@@ -1,6 +1,6 @@
 IF(VERSE_STATIC_BUILD)
     GET_PROPERTY(PLUGIN_LIBRARIES_TO_LINK GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES)
-    SET(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} ${PLUGIN_LIBRARIES_TO_LINK})
+    SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${PLUGIN_LIBRARIES_TO_LINK})
     
     IF(VERSE_USE_OSG_STATIC)
         SET(OSGPLUGIN_LIBRARIES osgdb_glsl osgdb_trans osgdb_rot osgdb_scale osgdb_osg osgdb_rgb osgdb_bmp)
@@ -9,7 +9,7 @@ IF(VERSE_STATIC_BUILD)
             osgdb_deprecated_osgviewer osgdb_deprecated_osgterrain)
         SET(OSGPLUGIN_LIBRARIES ${OSGPLUGIN_LIBRARIES}
             osgdb_serializers_osg osgdb_serializers_osgtext osgdb_serializers_osgterrain osgdb_serializers_osgsim)
-        SET(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} ${OSGPLUGIN_LIBRARIES})
+        SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${OSGPLUGIN_LIBRARIES})
     ENDIF(VERSE_USE_OSG_STATIC)
 ENDIF(VERSE_STATIC_BUILD)
 

@@ -58,5 +58,6 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setUpViewOnSingleScreen(0);
     return viewer.run();
 }
