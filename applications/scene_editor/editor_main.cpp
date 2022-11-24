@@ -9,6 +9,9 @@
 #include "properties.h"
 #include "scenelogic.h"
 #include "defines.h"
+
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
 GlobalData g_data;
 
 class MyViewer : public osgViewer::Viewer

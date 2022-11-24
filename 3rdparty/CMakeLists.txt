@@ -75,7 +75,7 @@ SET(LASZIP_SOURCE_FILES
     laszip/laswriteitemcompressed_v1.cpp laszip/laswriteitemcompressed_v2.cpp
     laszip/laswriteitemcompressed_v3.cpp laszip/laswriteitemcompressed_v4.cpp
     laszip/lasreadpoint.cpp laszip/laswritepoint.cpp laszip/mydefs.cpp
-    laszip/laszip.cpp #laszip/laszip_dll.cpp
+    laszip/laszip.cpp laszip/laszip_dll.cpp
 )
 
 SET(OZZ_SOURCE_FILES

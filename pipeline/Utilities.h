@@ -109,4 +109,37 @@ namespace osgVerse
     };
 }
 
+#if OSG_LIBRARY_STATIC
+#   define USE_OSG_PLUGINS() \
+    USE_OSGPLUGIN(glsl) \
+    USE_OSGPLUGIN(trans) \
+    USE_OSGPLUGIN(rot) \
+    USE_OSGPLUGIN(scale) \
+    USE_OSGPLUGIN(osg) \
+    USE_OSGPLUGIN(osg2) \
+    USE_OSGPLUGIN(rgb) \
+    USE_OSGPLUGIN(bmp) \
+    USE_DOTOSGWRAPPER_LIBRARY(osg) \
+    USE_DOTOSGWRAPPER_LIBRARY(osgSim) \
+    USE_DOTOSGWRAPPER_LIBRARY(osgTerrain) \
+    USE_DOTOSGWRAPPER_LIBRARY(osgText) \
+    USE_DOTOSGWRAPPER_LIBRARY(osgViewer) \
+    USE_SERIALIZER_WRAPPER_LIBRARY(osg) \
+    USE_SERIALIZER_WRAPPER_LIBRARY(osgSim) \
+    USE_SERIALIZER_WRAPPER_LIBRARY(osgTerrain) \
+    USE_SERIALIZER_WRAPPER_LIBRARY(osgText) \
+    USE_GRAPHICSWINDOW()
+#else
+#   define USE_OSG_PLUGINS()
+#endif
+
+#if VERSE_STATIC_BUILD
+#   define USE_VERSE_PLUGINS() \
+    USE_OSGPLUGIN(verse_ept) \
+    USE_OSGPLUGIN(verse_fbx) \
+    USE_OSGPLUGIN(verse_gltf)
+#else
+#   define USE_VERSE_PLUGINS()
+#endif
+
 #endif

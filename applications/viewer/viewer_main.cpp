@@ -29,6 +29,9 @@
 #include <iostream>
 #include <sstream>
 
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+
 class SetPipelineHandler : public osgGA::GUIEventHandler
 {
 public:

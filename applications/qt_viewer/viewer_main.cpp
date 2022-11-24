@@ -16,6 +16,9 @@
 #include <iostream>
 #include <sstream>
 
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+
 void OsgSceneWidget::initializeScene(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);

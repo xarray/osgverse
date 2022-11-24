@@ -1,7 +1,6 @@
 SET(LIB_NAME osgdb_verse_ept)
 SET(LIBRARY_FILES
     ReaderWriterEPT.cpp PointCloudFileReader.cpp
-    ${CMAKE_SOURCE_DIR}/3rdparty/laszip/laszip_dll.cpp
 )
 
 ADD_DEFINITIONS(-DLASZIPDLL_EXPORTS)
@@ -13,11 +12,7 @@ ELSE()
 ENDIF()
 
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-IF(UNIX)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseReaderWriter)  # FIXME
-ELSE()
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseReaderWriter)
-ENDIF()
+TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseReaderWriter)
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}

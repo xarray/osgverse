@@ -34,6 +34,9 @@
 #include <iostream>
 #include <sstream>
 
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+
 #if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
 #   define EarthManipulator osgEarth::EarthManipulator
 #   define AutoClipPlaneCullCallback osgEarth::AutoClipPlaneCullCallback
