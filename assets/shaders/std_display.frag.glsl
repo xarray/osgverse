@@ -64,8 +64,8 @@ vec3 vignetteEffectFunc(vec3 color, vec2 uv)
 
 void main()
 {
-	vec2 uv0 = texCoord0.xy;
-	vec3 colorRGB = VERSE_TEX2D(ColorBuffer, uv0).rgb;
+    vec2 uv0 = texCoord0.xy;
+    vec3 colorRGB = VERSE_TEX2D(ColorBuffer, uv0).rgb;
     float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
 
     // Color grading work
@@ -83,6 +83,6 @@ void main()
         float fogFactor = (FogDistance.y - abs(eyeVertex.z / eyeVertex.w)) / (FogDistance.y - FogDistance.x);
         colorRGB = mix(FogColor, colorRGB, clamp(fogFactor, 0.0, 1.0));
     }
-	fragData = vec4(colorRGB, 1.0);
+    fragData = vec4(colorRGB, 1.0);
     VERSE_FS_FINAL(fragData);
 }

@@ -44,18 +44,18 @@ vec2 hammersley(uint i, uint N)
 
 vec3 importanceSampleGGX(vec2 Xi, vec3 N, float roughness)
 {
-	float a = roughness * roughness, phi = 2.0 * M_PI * Xi.x;
-	float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
-	float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-	
-	// from spherical coordinates to cartesian coordinates - halfway vector
-	vec3 H = vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
-	
-	// from tangent-space H vector to world-space sample vector
-	vec3 up = (abs(N.z) < 0.999) ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-	vec3 tangent = normalize(cross(up, N));
-	vec3 bitangent = cross(N, tangent);
-	return normalize(tangent * H.x + bitangent * H.y + N * H.z);
+    float a = roughness * roughness, phi = 2.0 * M_PI * Xi.x;
+    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    
+    // from spherical coordinates to cartesian coordinates - halfway vector
+    vec3 H = vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+    
+    // from tangent-space H vector to world-space sample vector
+    vec3 up = (abs(N.z) < 0.999) ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, N));
+    vec3 bitangent = cross(N, tangent);
+    return normalize(tangent * H.x + bitangent * H.y + N * H.z);
 }
 
 void main()

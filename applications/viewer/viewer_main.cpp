@@ -117,7 +117,7 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Start the pipeline
-    int requiredGLContext = 100;  // 100: Compatible, 300: GL3 Core
+    int requiredGLContext = 100;  // 100: Compatible, 300: GL3
     int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
 

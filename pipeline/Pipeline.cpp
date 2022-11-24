@@ -16,9 +16,10 @@
 #include "ShadowModule.h"
 #include "Utilities.h"
 
-#define DEBUG_CULL_VISITOR 1
 #if OSG_VERSION_LESS_THAN(3, 6, 0)
 #   define DEBUG_CULL_VISITOR 0
+#else
+#   define DEBUG_CULL_VISITOR 1
 #endif
 
 static osg::Camera::ComputeNearFarMode g_nearFarMode =
@@ -474,9 +475,19 @@ namespace osgVerse
 
     void Pipeline::startStages(int w, int h, osg::GraphicsContext* gc)
     {
-#ifdef OSG_GL3_AVAILABLE
-        _glTargetVersion = 300;
+#if OSG_VERSION_GREATER_THAN(3, 6, 0)
+        int suggestedVer = (int)(atof(OSG_GL_CONTEXT_VERSION) * 100.0);
+        if (_glTargetVersion < suggestedVer) _glTargetVersion = suggestedVer;
 #endif
+
+#if defined(OSG_GL3_AVAILABLE)
+        if (_glTargetVersion < 300) _glTargetVersion = 300;
+#elif defined(OSG_GLES3_AVAILABLE)
+        if (_glslTargetVersion < 300) _glslTargetVersion = 300;
+#elif defined(OSG_GLES2_AVAILABLE)
+        if (_glslTargetVersion < 100) _glslTargetVersion = 100;
+#endif
+
         if (_glVersionData.valid())
         {
             if (_glVersionData->glVersion < _glTargetVersion)
@@ -500,7 +511,7 @@ namespace osgVerse
         _stageSize = osg::Vec2s(w, h);
         _stageContext->setResizedCallback(new MyResizedCallback(this));
 
-        // Enable the osg_* uniforms that the shaders will use in GL3/GL4 and GLES2
+        // Enable the osg_* uniforms that the shaders will use in GL3/GL4 and GLES2/3
         if (_glTargetVersion >= 300 || _glslTargetVersion >= 140)
         {
             _stageContext->getState()->setUseModelViewAndProjectionUniforms(true);
@@ -772,7 +783,9 @@ namespace osgVerse
         std::string m_p = "gl_ProjectionMatrix", m_n = "gl_NormalMatrix";
         std::string tex1d = "texture", tex2d = "texture", tex3d = "texture", texCube = "texture";
         std::string vin = "in", vout = "out", fin = "in", fout = "out", finalColor = "//";
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
         if (glslVer <= 120)
+#endif
         {
             tex1d = "texture1D"; tex2d = "texture2D"; tex3d = "texture3D"; texCube = "textureCube";
             vin = "attribute"; vout = "varying"; fin = "varying"; fout = "";
@@ -786,6 +799,7 @@ namespace osgVerse
 
         if (s->getType() == osg::Shader::VERTEX)
         {
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
             if (glVer >= 300 || glslVer >= 140)
             {
                 m_mvp = "osg_ModelViewProjectionMatrix"; m_mv = "osg_ModelViewMatrix";
@@ -805,10 +819,16 @@ namespace osgVerse
                 extraDefs.push_back("#define osg_MultiTexCoord1 gl_MultiTexCoord1");
                 extraDefs.push_back("#define osg_Normal gl_Normal");
             }
+#endif
         }
 
         std::stringstream ss;
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        ss << "#version " << glslVer << " es" << std::endl;
+#else
         ss << "#version " << glslVer << std::endl;
+#endif
+
         if (s->getType() == osg::Shader::VERTEX)
         {
             ss << "#define VERSE_MATRIX_MVP " << m_mvp << std::endl;

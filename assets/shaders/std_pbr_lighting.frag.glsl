@@ -127,10 +127,10 @@ int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,
 
 void main()
 {
-	vec2 uv0 = texCoord0.xy;
-	vec4 diffuseMetallic = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);
-	vec4 specularRoughness = VERSE_TEX2D(SpecularRoughnessBuffer, uv0);
-	vec4 emissionOcclusion = VERSE_TEX2D(EmissionOcclusionBuffer, uv0);
+    vec2 uv0 = texCoord0.xy;
+    vec4 diffuseMetallic = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);
+    vec4 specularRoughness = VERSE_TEX2D(SpecularRoughnessBuffer, uv0);
+    vec4 emissionOcclusion = VERSE_TEX2D(EmissionOcclusionBuffer, uv0);
     vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
     float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
     
@@ -181,8 +181,8 @@ void main()
         ambient = kD * diffuse + envSpecular;
     }
     
-	gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut, 1.0);
-	gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
+    gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut, 1.0);
+    gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
     
     // ModelIndicator functionalities
     if (normalAlpha.a > 0.45 && normalAlpha.a < 0.55)  // 5: Highlight selection

@@ -16,18 +16,18 @@ float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth
 
 float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float uvRadius)
 {
-	float sum = 0;
-	for (int i = 0; i < 16; i++)
-	{
+    float sum = 0;
+    for (int i = 0; i < 16; i++)
+    {
         vec2 dir = VERSE_TEX1D(RandomTexture1, float(i) / 16.0).xy * 2.0 - vec2(1.0);
-		sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);
-	}
-	return sum / 16.0;
+        sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);
+    }
+    return sum / 16.0;
 }
 
 void main()
 {
-	vec2 uv0 = texCoord0.xy;
+    vec2 uv0 = texCoord0.xy;
     vec4 colorData = VERSE_TEX2D(ColorBuffer, uv0);
     vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
     float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
@@ -69,6 +69,6 @@ void main()
 #else
     colorData.rgb *= shadow * ao;
 #endif
-	fragData = colorData;
+    fragData = colorData;
     VERSE_FS_FINAL(fragData);
 }

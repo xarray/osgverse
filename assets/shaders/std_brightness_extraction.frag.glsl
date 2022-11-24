@@ -10,8 +10,8 @@ float luminance(vec3 color)
 
 void main()
 {
-	vec2 uv0 = texCoord0.xy;
+    vec2 uv0 = texCoord0.xy;
     float lum = luminance(VERSE_TEX2D(ColorBuffer, uv0).xyz);
-	fragData = vec4((lum > BrightnessThreshold) ? vec3(lum) : vec3(0.0), 1.0);
+    fragData = vec4((lum > BrightnessThreshold) ? vec3(lum) : vec3(0.0), 1.0);
     VERSE_FS_FINAL(fragData);
 }

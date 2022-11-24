@@ -40,8 +40,8 @@ float rand(vec2 co) {
 
 void main()
 {
-	vec2 uv0 = texCoord0.xy;
-	vec4 color = VERSE_TEX2D(BrightnessCombinedBuffer, uv0);
+    vec2 uv0 = texCoord0.xy;
+    vec4 color = VERSE_TEX2D(BrightnessCombinedBuffer, uv0);
 
     float f = fbm(vec2(uv0 * noiseSeed));
     color.rgb += vec3(noiseStrength * luminance(color.rgb) * abs(f));

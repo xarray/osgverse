@@ -3,6 +3,6 @@ VERSE_FS_OUT vec4 fragData;
 
 void main()
 {
-	fragData = vec4(1.0, (lightProjVec.yz / lightProjVec.w), 1.0);
+    fragData = vec4(1.0, (lightProjVec.yz / lightProjVec.w), 1.0);
     VERSE_FS_FINAL(fragData);
 }

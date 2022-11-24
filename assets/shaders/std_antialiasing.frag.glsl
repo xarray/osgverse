@@ -49,11 +49,11 @@ vec4 fxaa(in sampler2D tex, in vec2 fragCoord,
 
 void main()
 {
-	vec2 uv0 = texCoord0.xy;
+    vec2 uv0 = texCoord0.xy;
     vec2 v_rgbNW = (uv0 + vec2(-1.0, -1.0) * InvScreenResolution);
-	vec2 v_rgbNE = (uv0 + vec2(1.0, -1.0) * InvScreenResolution);
-	vec2 v_rgbSW = (uv0 + vec2(-1.0, 1.0) * InvScreenResolution);
-	vec2 v_rgbSE = (uv0 + vec2(1.0, 1.0) * InvScreenResolution);
+    vec2 v_rgbNE = (uv0 + vec2(1.0, -1.0) * InvScreenResolution);
+    vec2 v_rgbSW = (uv0 + vec2(-1.0, 1.0) * InvScreenResolution);
+    vec2 v_rgbSE = (uv0 + vec2(1.0, 1.0) * InvScreenResolution);
     fragData = fxaa(ColorBuffer, uv0, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, uv0);
     VERSE_FS_FINAL(fragData);
 }

@@ -97,7 +97,7 @@ float computeCoarseAO(vec2 fullResUV, float radiusPixels, vec4 rand, vec3 viewPo
 void main()
 {
     // Reconstruct view-space normal from nearest neighbors
-	vec2 uv0 = texCoord0.xy;
+    vec2 uv0 = texCoord0.xy;
     vec3 eyePosition = fetchViewPos(uv0);
     vec3 eyeNormal = -reconstructNormal(uv0, eyePosition);
     
