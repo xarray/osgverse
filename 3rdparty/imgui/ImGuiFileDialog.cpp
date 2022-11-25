@@ -25,6 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <osgDB/fstream>  // to avoid link problem...
 #include "ImGuiFileDialog.h"
 
 #ifdef __cplusplus
@@ -2207,7 +2208,7 @@ namespace IGFD
 
 	bool IGFD::FileManager::IsFileExist(const std::string& vFile)
 	{
-		std::ifstream docFile(vFile, std::ios::in);
+		osgDB::ifstream docFile(vFile.c_str(), std::ios::in);
 		if (docFile.is_open())
 		{
 			docFile.close();

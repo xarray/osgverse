@@ -139,6 +139,9 @@ void SkyBox::setSkyColor(const osg::Vec4ub& color)
     (*ptr) = color; setEnvironmentMap(image.get());
 }
 
+void SkyBox::setSkyShaders(osg::Shader* vs, osg::Shader* fs)
+{ _vertex = vs; _fragment = fs; }
+
 void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
 {
     osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
@@ -163,22 +166,20 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     stateset->setAttributeAndModes(depth, values);
     stateset->setRenderBinDetails(-9999, "RenderBin");
 
-    osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl");
-    osg::Shader* fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl");
-    vs->setName("SkyBox_SHADER_VS"); fs->setName("SkyBox_SHADER_FS");
-    if (_pipeline.valid())
+    int glVer = (_pipeline.valid() ? _pipeline->getTargetVersion() : 100);
+    int glslVer = (_pipeline.valid() ? _pipeline->getGlslTargetVersion() : 130);
+    if (!_vertex || !_fragment) { OSG_WARN << "[SkyBox] Missing skybox shaders" << std::endl; }
+    _vertex->setName("SkyBox_SHADER_VS"); _fragment->setName("SkyBox_SHADER_FS");
     {
         std::vector<std::string> defs;
         if (asCube) defs.push_back("#define VERSE_CUBEMAP_SKYBOX 1");
-        Pipeline::createShaderDefinitions(vs, _pipeline->getTargetVersion(),
-                                          _pipeline->getGlslTargetVersion());
-        Pipeline::createShaderDefinitions(fs, _pipeline->getTargetVersion(),
-                                          _pipeline->getGlslTargetVersion(), defs);
+        Pipeline::createShaderDefinitions(_vertex.get(), glVer, glslVer);
+        Pipeline::createShaderDefinitions(_fragment.get(), glVer, glslVer, defs);
     }
 
     osg::Program* program = new osg::Program;
     program->setName("SkyBox_PROGRAM");
-    program->addShader(vs); program->addShader(fs);
+    program->addShader(_vertex.get()); program->addShader(_fragment.get());
     stateset->setAttributeAndModes(program);
     stateset->addUniform(new osg::Uniform("SkyTexture", (int)0));
     stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));

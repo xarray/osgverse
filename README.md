@@ -4,13 +4,13 @@
 #### Introduction
 osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Operating System | Compiler                 | Supported          | Notes |
-|------------------| -------------------------|--------------------| ----- |
+|------------------|--------------------------|--------------------|-------|
 | Windows 10       | Visual Studio 2022       | :heavy_check_mark: |       |
 | Windows 10       | Visual Studio 2017       | :heavy_check_mark: |       |
 | Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
 | Windows 10 UWP   |                          | :soon:             |       |
 | Ubuntu 18.04     | GCC 7.5                  | :heavy_check_mark: |       |
-| NeoKylin v7      | GCC 8.5 (built manually) | :gear:             | Must disable VERSE_USE_GLIBCXX11_ABI |
+| NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |
 | Android          |                          | :soon:             |       |
 | IOS              |                          | :soon:             |       |
@@ -28,10 +28,14 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 #### Graphics Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
 Our project is already tested on graphics cards listed as below:
-1. NVIDIA RTX 3060 (should also work with other NVIDIA cards)
-2. Intel UHD Graphics
-3. MooreThreads MTT S50, S80 (with some problems in D24S8 mode)
-4. TBD...
+| Grapihcs Card             | OpenGL Version | Supported          | Notes |
+|---------------------------|----------------|--------------------|-------|
+| NVIDIA RTX 3060 Laptop    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
+| AMD Radeon RX5500         |                | :soon:             |       |
+| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
+| MooreThreads MTT S50, S80 |                | :heavy_check_mark: | Has blitting problem in D24S8 mode |
+| Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :gear:             | Segment fault in osg::Texture at present  |
+| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :gear:             | Black screen at present |
 
 #### Modules
 1. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.

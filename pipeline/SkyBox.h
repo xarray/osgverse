@@ -22,11 +22,12 @@ namespace osgVerse
         void setEnvironmentMap(osg::Image* image);
         void setEnvironmentMap(osg::Texture* tex, bool asCubemap);
 
+        void setSkyShaders(osg::Shader* vs, osg::Shader* fs);
         void setSkyColor(const osg::Vec4ub& color);
         osg::Texture* getCurrentSkyTexture() const { return _skymap.get(); }
     
-        virtual bool computeLocalToWorldMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
-        virtual bool computeWorldToLocalMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const;
+        virtual bool computeLocalToWorldMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv) const;
+        virtual bool computeWorldToLocalMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv) const;
     
     protected:
         virtual ~SkyBox() {}
@@ -34,6 +35,7 @@ namespace osgVerse
     
         osg::observer_ptr<Pipeline> _pipeline;
         osg::observer_ptr<osg::Texture> _skymap;
+        osg::ref_ptr<osg::Shader> _vertex, _fragment;
     };
 }
 
