@@ -11,6 +11,9 @@
 #include <sstream>
 #include <tinydir.h>
 
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+
 int main(int argc, char** argv)
 {
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

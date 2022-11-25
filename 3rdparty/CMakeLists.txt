@@ -174,10 +174,11 @@ SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h nanoflann.hpp exprtk.hpp
-    sqlite3.c sqlite3.h strtk.hpp tinydir.h mio.hpp rapidxml/rapidxml.hpp
-    tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h mikktspace.c mikktspace.h
-    laplacian_deformation.cpp laplacian_deformation.hpp GL/glew.c GL/glew.h any.hpp
+    backward.hpp strtk.hpp tinydir.h mio.hpp any.hpp rapidxml/rapidxml.hpp
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
+    sqlite3.c sqlite3.h tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h
+    mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
+    GL/glew.c GL/glew.h
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
@@ -190,7 +191,7 @@ INCLUDE_DIRECTORIES(leveldb ozz imgui "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 
-SET(THIRDPARTY_INCLUDE_FILES json.hpp any.hpp strtk.hpp)
+SET(THIRDPARTY_INCLUDE_FILES json.hpp any.hpp strtk.hpp backward.hpp)
 SET(IMGUI_INCLUDE_FILES imgui/imgui.h imgui/imconfig.h imgui/ImGuizmo.h)
 INSTALL(FILES ${THIRDPARTY_INCLUDE_FILES} DESTINATION ${INSTALL_INCDIR}/osgVerse COMPONENT libosgverse-dev)
 INSTALL(FILES ${IMGUI_INCLUDE_FILES} DESTINATION ${INSTALL_INCDIR}/osgVerse/imgui COMPONENT libosgverse-dev)

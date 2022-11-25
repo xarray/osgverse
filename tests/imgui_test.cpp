@@ -17,6 +17,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+
 struct MyContentHandler : public osgVerse::ImGuiContentHandler
 {
     MyContentHandler(osg::Camera* camera, osg::MatrixTransform* mt)

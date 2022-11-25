@@ -12,6 +12,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+
 int main(int argc, char** argv)
 {
     osg::ref_ptr<osg::Node> scene =

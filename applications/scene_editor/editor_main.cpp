@@ -5,6 +5,9 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+
 #include "hierarchy.h"
 #include "properties.h"
 #include "scenelogic.h"

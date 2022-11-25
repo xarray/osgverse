@@ -3,20 +3,20 @@
 
 #### Introduction
 osgVerse, a complete 3D engine solution based on OpenSceneGraph.
-| Operating System | Compiler                | Supported          | Notes |
-|------------------| ------------------------|--------------------| ----- |
-| Windows 10       | Visual Studio 2022      | :heavy_check_mark: |       |
-| Windows 10       | Visual Studio 2017      | :heavy_check_mark: |       |
-| Windows 10       | MSYS2 (GCC 10.2)        | :heavy_check_mark: |       |
-| Windows 10 UWP   |                         | :soon:             |       |
-| Ubuntu 18.04     | GCC 7.5                 | :heavy_check_mark: |       |
-| Kylin v10        |                         | :soon:             |       |
-| Mac OS X         |                         | :soon:             |       |
-| Android          |                         | :soon:             |       |
-| IOS              |                         | :soon:             |       |
+| Operating System | Compiler                 | Supported          | Notes |
+|------------------| -------------------------|--------------------| ----- |
+| Windows 10       | Visual Studio 2022       | :heavy_check_mark: |       |
+| Windows 10       | Visual Studio 2017       | :heavy_check_mark: |       |
+| Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
+| Windows 10 UWP   |                          | :soon:             |       |
+| Ubuntu 18.04     | GCC 7.5                  | :heavy_check_mark: |       |
+| NeoKylin v7      | GCC 8.5 (built manually) | :gear:             | Must disable VERSE_USE_GLIBCXX11_ABI |
+| Mac OS X         |                          | :soon:             |       |
+| Android          |                          | :soon:             |       |
+| IOS              |                          | :soon:             |       |
 
 #### Dependencies
-1. Please use CMake 3.10 or higher version. (https://cmake.org/download/)
+1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
 2. Please use a C++ compiler supporting C++ 14 at least.
 3. OpenSceneGraph is always required for building osgVerse. (https://github.com/openscenegraph/OpenSceneGraph) Current project mainly depends on OSG 3.7.0, but can compile on OSG 3.1.1 or later versions.
 4. Optional dependencies:

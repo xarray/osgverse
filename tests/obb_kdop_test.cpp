@@ -10,6 +10,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+
 osg::Geometry* createOBB(osg::Node* node)
 {
     osgVerse::BoundingVolumeVisitor bvv;

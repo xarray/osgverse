@@ -16,6 +16,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
@@ -38,7 +41,7 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.0,0,-250.trans");
-    otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
+    if (otherSceneRoot.valid()) otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(otherSceneRoot.get());

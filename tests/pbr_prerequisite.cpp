@@ -14,6 +14,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+
 osg::Camera* createRTTCameraForImage(osg::Camera::BufferComponent buffer, osg::Image* image, bool screenSpaced)
 {
     osg::ref_ptr<osg::Camera> camera = new osg::Camera;
