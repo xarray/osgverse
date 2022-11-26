@@ -78,39 +78,20 @@ Our project is already tested on graphics cards listed as below:
 #### OSG CMake HowTo
 osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG with different GL/GLES options. A few common combinations of options to control OSG CMake results are listed as below.
 * Static building:
-  * -DDYNAMIC_OPENSCENEGRAPH=OFF
-  * -DDYNAMIC_OPENTHREADS=OFF
+  * DYNAMIC_OPENSCENEGRAPH=OFF
+  * DYNAMIC_OPENTHREADS=OFF
 * GL3/4 Core profile: You will have to find glcorearb.h from Khronos website. And then put include files to OSG's include folder.
-  * OPENGL_PROFILE=GL3
-  * OSG_GL3_AVAILABLE=ON
-  * OSG_GL_DISPLAYLISTS_AVAILABLE=OFF
-  * OSG_GL_MATRICES_AVAILABLE=OFF
-  * OSG_GL_VERTEX_FUNCS_AVAILABLE
-  * OSG_GL_VERTEX_ARRAY_FUNCS_AVAILABLE=OFF
-  * OSG_GL_FIXED_FUNCTION_AVAILABLE=OFF
-  * OSG_GL_CONTEXT_VERSION="3.3"
+  * OPENGL_PROFILE=GL3Core
   * OPENGL_HEADER1="#include <GL/glcorearb.h>"
-* GLES2 (Desktop): You will have to find include-files and libraries from PowerVR / Angel SDK. And then put include files to OSG's include folder.
+* GLES2 (Desktop): You will have to find include-files and libraries from PowerVR / Angel SDK. Only support OSG 3.7.0 or later.
   * OPENGL_PROFILE=GLES2
-  * OSG_GLES2_AVAILABLE=ON
-  * OSG_GL_DISPLAYLISTS_AVAILABLE=OFF
-  * OSG_GL_MATRICES_AVAILABLE=OFF
-  * OSG_GL_VERTEX_FUNCS_AVAILABLE
-  * OSG_GL_VERTEX_ARRAY_FUNCS_AVAILABLE=OFF
-  * OSG_GL_FIXED_FUNCTION_AVAILABLE=OFF
-  * OSG_CPP_EXCEPTIONS_AVAILABLE=OFF
-  * OPENGL_HEADER1="#include <GLES2/gl2.h>"
   * EGL_INCLUDE_DIR="<PowerVR_SDK>/include"
-  * EGL_LIBRARY="<PowerVR_SDK>/lib/libGLESv2.lib"
-* GLES3 (Desktop): You will have to find include-files and libraries from PowerVR / Angel SDK. And then put include files to OSG's include folder.
+  * EGL_LIBRARY="<PowerVR_SDK>/lib/libEGL.lib"
+  * OPENGL_INCLUDE_DIR="<PowerVR_SDK>/include"
+  * OPENGL_gl_LIBRARY="<PowerVR_SDK>/lib/libGLESv2.lib"
+* GLES3 (Desktop): You will have to find include-files and libraries from PowerVR / Angel SDK. Only support OSG 3.7.0 or later.
   * OPENGL_PROFILE=GLES3
-  * OSG_GLES2_AVAILABLE=ON
-  * OSG_GL_DISPLAYLISTS_AVAILABLE=OFF
-  * OSG_GL_MATRICES_AVAILABLE=OFF
-  * OSG_GL_VERTEX_FUNCS_AVAILABLE
-  * OSG_GL_VERTEX_ARRAY_FUNCS_AVAILABLE=OFF
-  * OSG_GL_FIXED_FUNCTION_AVAILABLE=OFF
-  * OSG_CPP_EXCEPTIONS_AVAILABLE=OFF
-  * OPENGL_HEADER1="#include <GLES3/gl3.h>"
   * EGL_INCLUDE_DIR="<PowerVR_SDK>/include"
-  * EGL_LIBRARY="<PowerVR_SDK>/lib/libGLESv2.lib"
+  * EGL_LIBRARY="<PowerVR_SDK>/lib/libEGL.lib"
+  * OPENGL_INCLUDE_DIR="<PowerVR_SDK>/include"
+  * OPENGL_gl_LIBRARY="<PowerVR_SDK>/lib/libGLESv2.lib"

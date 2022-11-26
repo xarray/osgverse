@@ -116,7 +116,11 @@
 extern "C" {
 #endif
 
+#if WIN32
+typedef int EGLint;
+#else
 typedef int32_t EGLint;
+#endif
 
 typedef unsigned int EGLBoolean;
 typedef void *EGLDisplay;

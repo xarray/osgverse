@@ -1,12 +1,16 @@
 #include <GL/glew.h>
-#include <imgui/imgui.h>
-#include <imgui/imgui_impl_opengl2.h>
-#include <imgui/imgui_impl_opengl3.h>
-#include <imgui/ImGuizmo.h>
 #include <osg/Version>
 #include <osg/Camera>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
+#include <imgui/imgui.h>
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+    // TODO: GLES version of IMGUI backend
+#else
+#   include <imgui/imgui_impl_opengl2.h>
+#   include <imgui/imgui_impl_opengl3.h>
+#endif
+#include <imgui/ImGuizmo.h>
 #include "ImGui.h"
 #include "ImGui.Styles.h"
 #include "pipeline//Utilities.h"
@@ -25,12 +29,20 @@ void newImGuiFrame(osg::RenderInfo& renderInfo, double& time, std::function<void
     {
         glewInit(); time = 0.0f;
         s_useImguiLoaderGL3 = glewIsSupported("GL_VERSION_3_0");
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        // TODO: GLES version of IMGUI backend
+#else
         if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_Init();
         else ImGui_ImplOpenGL2_Init();
+#endif
     }
 
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+    // TODO: GLES version of IMGUI backend
+#else
     if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_NewFrame();
     else ImGui_ImplOpenGL2_NewFrame();
+#endif
 
     ImGuiIO& io = ImGui::GetIO();
     if (renderInfo.getView() != NULL)
@@ -86,10 +98,14 @@ void endImGuiFrame(osg::RenderInfo& renderInfo, ImGuiManager* manager,
     else return;
 
     ImGui::Render();
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+    // TODO: GLES version of IMGUI backend
+#else
     if (s_useImguiLoaderGL3)
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     else
         ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+#endif
 }
 
 void startImGuiContext(ImGuiManager* manager, std::map<std::string, ImFont*>& fonts)

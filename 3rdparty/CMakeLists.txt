@@ -140,9 +140,12 @@ SET(IMGUI_SOURCE_FILES
     imgui/imgui.cpp imgui/imgui.h imgui/imconfig.h
     imgui/imgui_demo.cpp imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp imgui/imgui_widgets.cpp
-	imgui/imgui_impl_opengl2.cpp imgui/imgui_impl_opengl2.h
 	imgui/imgui_impl_opengl3.cpp imgui/imgui_impl_opengl3.h
 )
+IF(NOT VERSE_USE_EXTERNAL_GLES)
+    SET(IMGUI_SOURCE_FILES ${IMGUI_SOURCE_FILES}
+		imgui/imgui_impl_opengl2.cpp imgui/imgui_impl_opengl2.h)
+ENDIF()
 
 SET(PINYIN_SOURCE_FILES
     pinyin/Cache.cpp pinyin/CandidateStubs.cpp
@@ -185,8 +188,17 @@ SET(LIBRARY_FILES
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
-                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_PLATFORM_WINDOWS -DLEVELDB_HAS_PORT_CONFIG_H=1
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1
                 -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+IF(WIN32)
+    ADD_DEFINITIONS(-DLEVELDB_PLATFORM_WINDOWS)
+ELSE()
+    ADD_DEFINITIONS(-DLEVELDB_PLATFORM_POSIX)
+ENDIF()
+IF(VERSE_USE_EXTERNAL_GLES)
+    ADD_DEFINITIONS(-DGLEW_EGL)
+ENDIF()
+
 INCLUDE_DIRECTORIES(leveldb ozz imgui "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
