@@ -39,8 +39,8 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
-    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.15,15,1.scale.0,0,-300.trans");
-    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osgt.0,0,-250.trans");
+    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
+    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
     if (otherSceneRoot.valid()) otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;

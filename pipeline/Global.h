@@ -215,7 +215,7 @@ namespace osgVerse
     };
 
     /** Suggest run this function once to initialize some plugins & environments */
-    extern void globalInitialize(int argc, char** argv);
+    extern void globalInitialize(int argc, char** argv, const std::string& baseDir = BASE_DIR);
 }
 
 #endif

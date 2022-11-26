@@ -22,10 +22,10 @@ FIND_PATH(OSGEARTH_BUILD_INCLUDE_DIR osgEarth/BuildConfig
 
 FIND_PATH(OSGEARTH_LIB_DIR libosgEarth.so osgEarth.lib
     PATHS
-    $ENV{OSG_ROOT}/lib
-    $ENV{OSG_DIR}/lib
-    /usr/lib
-    /usr/local/lib
+    $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
+    $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+    /usr/${FIND_LIB_POSTFIX}
+    /usr/local/${FIND_LIB_POSTFIX}
 )
 #########################################
 

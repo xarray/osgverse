@@ -95,6 +95,11 @@ ELSE()
 ENDIF()
 
 ######################################### Dependency Finders
+SET(FIND_LIB_POSTFIX lib)
+IF(CMAKE_CL_64)
+    SET(FIND_LIB_POSTFIX lib64)
+ENDIF(CMAKE_CL_64)
+
 FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
     PATHS
     $ENV{BULLET_ROOT}/include/bullet
@@ -104,9 +109,9 @@ FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
 
 FIND_PATH(BULLET_LIB_DIR libBullet3Dynamics.a BulletDynamics.lib
     PATHS
-    $ENV{BULLET_ROOT}/lib
-    /usr/lib /usr/lib64
-    /usr/local/lib
+    $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
+    /usr/${FIND_LIB_POSTFIX}
+    /usr/local/${FIND_LIB_POSTFIX}
 )
 
 FIND_PATH(OSG_INCLUDE_DIR osg/Referenced
@@ -127,10 +132,10 @@ FIND_PATH(OSG_BUILD_INCLUDE_DIR osg/Config
 
 FIND_PATH(OSG_LIB_DIR libosg.so osg.lib
     PATHS
-    $ENV{OSG_ROOT}/lib
-    $ENV{OSG_DIR}/lib
-    /usr/lib /usr/lib64
-    /usr/local/lib
+    $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
+    $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+    /usr/${FIND_LIB_POSTFIX}
+    /usr/local/${FIND_LIB_POSTFIX}
 )
 
 SET(OSG_VERSION_THREADS "")
@@ -194,14 +199,14 @@ IF(OSG_BUILD_INCLUDE_DIR)
     IF(OSG_GLES3_INDEX GREATER -1)
         MESSAGE(STATUS "[osgVerse] OSG is built with GLES3 support. Please configure osgVerse to use GLES3, too.")
         FIND_PATH(OSG_GLES_INCLUDE_DIR GLES3/gl3.h PATHS /usr/include /usr/local/include)
-        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.lib HINTS /usr/lib /usr/lib64 /usr/local/lib)
-        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.lib HINTS /usr/lib /usr/lib64 /usr/local/lib)
+        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.lib HINTS /usr/${FIND_LIB_POSTFIX} /usr/local/${FIND_LIB_POSTFIX})
+        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.lib HINTS /usr/${FIND_LIB_POSTFIX} /usr/local/${FIND_LIB_POSTFIX})
         SET(VERSE_USE_EXTERNAL_GLES ON)
     ELSEIF(OSG_GLES2_INDEX GREATER -1)
         MESSAGE(STATUS "[osgVerse] OSG is built with GLES2 support. Please configure osgVerse to use GLES2, too.")
         FIND_PATH(OSG_GLES_INCLUDE_DIR GLES2/gl2.h PATHS /usr/include /usr/local/include)
-        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.lib HINTS /usr/lib /usr/lib64 /usr/local/lib)
-        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.lib HINTS /usr/lib /usr/lib64 /usr/local/lib)
+        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.lib HINTS /usr/${FIND_LIB_POSTFIX} /usr/local/${FIND_LIB_POSTFIX})
+        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.lib HINTS /usr/${FIND_LIB_POSTFIX} /usr/local/${FIND_LIB_POSTFIX})
         SET(VERSE_USE_EXTERNAL_GLES ON)
     ENDIF()
     
@@ -272,7 +277,7 @@ ELSE()
     IF(VERSE_WITH_DWARF)
         ADD_DEFINITIONS(-DBACKWARD_HAS_DW=1)
         FIND_PATH(DW_INCLUDE_DIR dwarf.h PATHS /usr/include /usr/local/include)
-        FIND_LIBRARY(DW_LIBRARY NAMES dw HINTS /usr/lib /usr/lib64 /usr/local/lib)
+        FIND_LIBRARY(DW_LIBRARY NAMES dw HINTS /usr/${FIND_LIB_POSTFIX} /usr/local/${FIND_LIB_POSTFIX})
         SET(EXTERNAL_INCLUDES ${EXTERNAL_INCLUDES} ${DW_INCLUDE_DIR})
         SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${DW_LIBRARY})
         SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
@@ -280,6 +285,8 @@ ELSE()
     ENDIF(VERSE_WITH_DWARF)
     
     IF(VERSE_USE_GLIBCXX11_ABI)
+        ADD_DEFINITIONS(-D_GLIBCXX_USE_CXX11_ABI=1)
+    ELSE(VERSE_USE_GLIBCXX11_ABI)
         ADD_DEFINITIONS(-D_GLIBCXX_USE_CXX11_ABI=0)
     ENDIF(VERSE_USE_GLIBCXX11_ABI)
     

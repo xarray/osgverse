@@ -9,7 +9,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Windows 10       | Visual Studio 2017       | :heavy_check_mark: |       |
 | Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
 | Windows 10 UWP   |                          | :soon:             |       |
-| Ubuntu 18.04     | GCC 7.5                  | :heavy_check_mark: |       |
+| Ubuntu 18.04     | GCC 7.5 (or later)       | :heavy_check_mark: |       |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |
 | Android          |                          | :soon:             |       |
@@ -31,11 +31,12 @@ Our project is already tested on graphics cards listed as below:
 | Grapihcs Card             | OpenGL Version | Supported          | Notes |
 |---------------------------|----------------|--------------------|-------|
 | NVIDIA RTX 3060 Laptop    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
+| NVIDIA RTX 1050 Mobile    | 3.2 / GLSL 1.5 | :soon:             |       |
 | AMD Radeon RX5500         |                | :soon:             |       |
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | MooreThreads MTT S50, S80 |                | :heavy_check_mark: | Has blitting problem in D24S8 mode |
-| Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :gear:             | Segment fault in osg::Texture at present  |
-| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :gear:             | Black screen at present |
+| Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
+| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | Black screen at present |
 
 #### Modules
 1. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.
@@ -80,9 +81,10 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
 * Static building:
   * DYNAMIC_OPENSCENEGRAPH=OFF
   * DYNAMIC_OPENTHREADS=OFF
+* GL Compatible profile:
+  * Nothing important to configure.
 * GL3/4 Core profile: You will have to find glcorearb.h from Khronos website. And then put include files to OSG's include folder.
   * OPENGL_PROFILE=GL3Core
-  * OPENGL_HEADER1="#include <GL/glcorearb.h>"
 * GLES2 (Desktop): You will have to find include-files and libraries from PowerVR / Angel SDK. Only support OSG 3.7.0 or later.
   * OPENGL_PROFILE=GLES2
   * EGL_INCLUDE_DIR="<PowerVR_SDK>/include"

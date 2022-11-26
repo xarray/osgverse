@@ -25,9 +25,9 @@
 
 namespace osgVerse
 {
-    void globalInitialize(int argc, char** argv)
+    void globalInitialize(int argc, char** argv, const std::string& baseDir)
     {
-        std::string workingPath = BASE_DIR + std::string("/bin/");
+        std::string workingPath = baseDir + std::string("/bin/");
         osgDB::getDataFilePathList().push_back(workingPath);
 
         setlocale(LC_ALL, ".UTF8");
