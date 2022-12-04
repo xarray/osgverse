@@ -231,5 +231,10 @@ int main(int argc, char** argv)
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+
+    // FIXME: just for test: custom component loading
+    osg::ref_ptr<osgVerse::UserComponentGroup> ucg = dynamic_cast<osgVerse::UserComponentGroup*>(
+        osgDB::readObjectFile("all.verse_osgparticle"));
+    if (ucg) osgVerse::UserComponentManager::instance()->registerComponents(ucg);
     return viewer.run();
 }

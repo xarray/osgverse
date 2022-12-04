@@ -52,6 +52,9 @@ namespace osgVerse
         PropertyItem* getStandardItem(StandardItemType t);
         PropertyItem* getExtendedItem(const std::string& t);
 
+        void registerExtendedItem(const std::string& t, PropertyItem* item);
+        void unregisterExtendedItem(const std::string& t);
+
     protected:
         PropertyItemManager();
 

@@ -68,7 +68,8 @@ Our project is already tested on graphics cards listed as below:
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
 2. osgdb_verse_fbx: a plugin with full-featured FBX format support.
 3. osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
-4. TBD...
+4. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example.
+5. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.

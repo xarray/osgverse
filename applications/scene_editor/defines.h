@@ -8,9 +8,9 @@
 
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
-#include <ui/ImGui.h>
 #include <ui/ImGuiComponents.h>
 #include <ui/CommandHandler.h>
+#include <ui/UserComponent.h>
 #include <pipeline/SkyBox.h>
 #include <pipeline/NodeSelector.h>
 #include <pipeline/Pipeline.h>

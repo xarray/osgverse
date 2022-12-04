@@ -46,15 +46,33 @@ UserComponent* UserComponentManager::createExtended(const std::string& className
 }
 
 void UserComponentManager::registerComponent(const std::string& className, UserComponent* uc)
-{ _extComponents[className] = uc; }
-
-void UserComponentManager::remove(const std::string& className)
 {
-    if (_extComponents.find(className) != _extComponents.end())
-        _extComponents.erase(_extComponents.find(className));
+    PropertyItemManager::instance()->registerExtendedItem(className, uc->getPropertyUI());
+    _extComponents[className] = uc;
 }
 
-void UserComponentManager::remove(osg::Object* target, PropertyItemManager::StandardItemType st)
+void UserComponentManager::registerComponents(UserComponentGroup* ucg)
+{
+    std::map<std::string, osg::ref_ptr<UserComponent>>& comps = ucg->getAll();
+    for (std::map<std::string, osg::ref_ptr<UserComponent>>::iterator itr = comps.begin();
+         itr != comps.end(); ++itr)
+    {
+        PropertyItemManager::instance()->registerExtendedItem(
+            itr->first, itr->second->getPropertyUI());
+        _extComponents[itr->first] = itr->second;
+    }
+}
+
+void UserComponentManager::unregisterComponent(const std::string& className)
+{
+    if (_extComponents.find(className) != _extComponents.end())
+    {
+        PropertyItemManager::instance()->unregisterExtendedItem(className);
+        _extComponents.erase(_extComponents.find(className));
+    }
+}
+
+void UserComponentManager::unregisterComponent(osg::Object* target, PropertyItemManager::StandardItemType st)
 {
     ComponentTarget comTarget(target, st);
     if (_stdComponents.find(comTarget) != _stdComponents.end())

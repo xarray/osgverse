@@ -65,3 +65,15 @@ PropertyItem* PropertyItemManager::getExtendedItem(const std::string& t)
     }
     return _extendedItemMap[t];
 }
+
+void PropertyItemManager::registerExtendedItem(const std::string& t, PropertyItem* item)
+{
+    if (item != NULL && _extendedItemMap.find(t) == _extendedItemMap.end())
+        _extendedItemMap[t] = item;
+}
+
+void PropertyItemManager::unregisterExtendedItem(const std::string& t)
+{
+    std::map<std::string, osg::ref_ptr<PropertyItem>>::iterator itr = _extendedItemMap.find(t);
+    if (itr != _extendedItemMap.end()) _extendedItemMap.erase(itr);
+}

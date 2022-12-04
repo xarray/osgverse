@@ -79,6 +79,28 @@ namespace osgVerse
         osg::ref_ptr<PropertyItem> _propertyUI;
     };
 
+    class UserComponentGroup : public Component
+    {
+    public:
+        UserComponentGroup() : Component() {}
+        UserComponentGroup(const UserComponentGroup& c, const osg::CopyOp& op)
+            : Component(c, op), _components(c._components) {}
+        META_Object(osgVerse, UserComponentGroup);
+
+        void add(const std::string& clsName, UserComponent* uc) { _components[clsName] = uc; }
+        void remove(const std::string& clsName)
+        { if (_components.find(clsName) != _components.end()) _components.erase(_components.find(clsName)); }
+
+        std::map<std::string, osg::ref_ptr<UserComponent>>& getAll() { return _components; }
+        const std::map<std::string, osg::ref_ptr<UserComponent>>& getAll() const { return _components; }
+
+        UserComponent* get(const std::string& clsName) { return _components[clsName]; }
+        virtual void run(osg::Object* object, osg::Referenced* nv) {}  // do nothing
+
+    protected:
+        std::map<std::string, osg::ref_ptr<UserComponent>> _components;
+    };
+
     class DefaultComponent : public UserComponent
     {
     public:
@@ -107,8 +129,9 @@ namespace osgVerse
         UserComponent* createExtended(const std::string& className, osg::Object* target, osg::Camera* cam);
         
         void registerComponent(const std::string& className, UserComponent* uc);
-        void remove(const std::string& className);
-        void remove(osg::Object* target, PropertyItemManager::StandardItemType st);
+        void registerComponents(UserComponentGroup* ucg);
+        void unregisterComponent(const std::string& className);
+        void unregisterComponent(osg::Object* target, PropertyItemManager::StandardItemType st);
 
     protected:
         typedef std::pair<osg::Object*, PropertyItemManager::StandardItemType> ComponentTarget;
