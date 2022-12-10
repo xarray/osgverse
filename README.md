@@ -76,25 +76,3 @@ Our project is already tested on graphics cards listed as below:
 2. shaders: Shaders for osgVerse rendering pipeline use.
 3. skyboxes: Skyboxes for test use, may be one HDR image or 6 cubemaps.
 4. misc: Chinese IME CiKu files, font files, ...
-
-#### OSG CMake HowTo
-osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG with different GL/GLES options. A few common combinations of options to control OSG CMake results are listed as below.
-* Static building:
-  * DYNAMIC_OPENSCENEGRAPH=OFF
-  * DYNAMIC_OPENTHREADS=OFF
-* GL Compatible profile:
-  * Nothing important to configure.
-* GL3/4 Core profile: You will have to find glcorearb.h from Khronos website. And then put include files to OSG's include folder.
-  * OPENGL_PROFILE=GL3Core
-* GLES2 (Desktop): You will have to find include-files and libraries from PowerVR / Angel SDK. Only support OSG 3.7.0 or later.
-  * OPENGL_PROFILE=GLES2
-  * EGL_INCLUDE_DIR="<PowerVR_SDK>/include"
-  * EGL_LIBRARY="<PowerVR_SDK>/lib/libEGL.lib"
-  * OPENGL_INCLUDE_DIR="<PowerVR_SDK>/include"
-  * OPENGL_gl_LIBRARY="<PowerVR_SDK>/lib/libGLESv2.lib"
-* GLES3 (Desktop): You will have to find include-files and libraries from PowerVR / Angel SDK. Only support OSG 3.7.0 or later.
-  * OPENGL_PROFILE=GLES3
-  * EGL_INCLUDE_DIR="<PowerVR_SDK>/include"
-  * EGL_LIBRARY="<PowerVR_SDK>/lib/libEGL.lib"
-  * OPENGL_INCLUDE_DIR="<PowerVR_SDK>/include"
-  * OPENGL_gl_LIBRARY="<PowerVR_SDK>/lib/libGLESv2.lib"
