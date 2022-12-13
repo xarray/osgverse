@@ -76,3 +76,23 @@ Our project is already tested on graphics cards listed as below:
 2. shaders: Shaders for osgVerse rendering pipeline use.
 3. skyboxes: Skyboxes for test use, may be one HDR image or 6 cubemaps.
 4. misc: Chinese IME CiKu files, font files, ...
+
+#### CMake options
+| Option                      | Type    | Default Value | Notes |
+|-----------------------------|---------|---------------------|-------|
+| OSG_INCLUDE_DIR             | Path    | (Required)    | Set to path of osg/Node |
+| OSG_BUILD_INCLUDE_DIR       | Path    | (Required)    | Set to path of osg/Version |
+| OSG_LIB_DIR                 | Path    | (Required)    | Set to path of libosg.a or osg.lib |
+| BULLET_INCLUDE_DIR          | Path    |               | Set to path of btBulletDynamicsCommon.h |
+| BULLET_LIB_DIR              | Path    |               | Set to path of libBullet3Dynamics.a or BulletDynamics.lib |
+| OSGEARTH_INCLUDE_DIR        | Path    |               | Set to path of osgEarth/EarthManipulator |
+| OSGEARTH_BUILD_INCLUDE_DIR  | Path    |               | Set to path of osgEarth/BuildConfig |
+| OSGEARTH_LIB_DIR            | Path    |               | Set to path of libosgEarth.so or osgEarth.lib |
+| Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
+| VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
+| VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
+| VERSE_WITH_DWARF            | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |
+| VERSE_USE_GLIBCXX11_ABI     | Boolean | ON            | Enable to use libraries built with GCC compiler newer than 4.9 |
+
+#### Screenshots
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza.jpg)

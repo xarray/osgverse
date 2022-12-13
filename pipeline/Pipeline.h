@@ -56,8 +56,8 @@ namespace osgVerse
         - sampler2d DiffuseMap: diffuse/albedo RGB texture of input scene
         - sampler2d NormalMap: tangent-space normal texture of input scene
         - sampler2d SpecularMap: specular RGB texture of input scene
-        - sampler2d ShininessMap: roughness+metallic (R+G) texture of input scene
-        - sampler2d AmbientMap: ambient occlusion R texture of input scene
+        - sampler2d ShininessMap: occlusion/roughness/metallic (RGB) texture of input scene
+        - sampler2d AmbientMap: ambient texture of input scene (FIXME: NOT USED)
         - sampler2d EmissiveMap: emissive RGB texture of input scene
         - sampler2d ReflectionMap: reflection RGB texture of input scene
         - mat4 <StageName>Matrices: matrices of specified input stage for rebuilding vertex attributes

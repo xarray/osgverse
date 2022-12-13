@@ -743,17 +743,16 @@ namespace osgVerse
 
     void Pipeline::applyDefaultInputStateSet(osg::StateSet* ss)
     {
-        static osg::ref_ptr<osg::Texture2D> tex0 = createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-        static osg::ref_ptr<osg::Texture2D> tex1 = createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-
+        osg::Vec4 color0 = osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        osg::Vec4 color1 = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
         ss->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-        ss->setTextureAttributeAndModes(0, tex1.get());  // DiffuseMap
-        ss->setTextureAttributeAndModes(1, tex0.get());  // NormalMap
-        ss->setTextureAttributeAndModes(2, tex1.get());  // SpecularMap
-        ss->setTextureAttributeAndModes(3, tex0.get());  // ShininessMap
-        ss->setTextureAttributeAndModes(4, tex0.get());  // AmbientMap
-        ss->setTextureAttributeAndModes(5, tex0.get());  // EmissiveMap
-        ss->setTextureAttributeAndModes(6, tex0.get());  // ReflectionMap
+        ss->setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap
+        ss->setTextureAttributeAndModes(1, createDefaultTexture(color0));  // NormalMap
+        ss->setTextureAttributeAndModes(2, createDefaultTexture(color1));  // SpecularMap
+        ss->setTextureAttributeAndModes(3, createDefaultTexture(color1));  // ShininessMap
+        ss->setTextureAttributeAndModes(4, createDefaultTexture(color0));  // AmbientMap
+        ss->setTextureAttributeAndModes(5, createDefaultTexture(color0));  // EmissiveMap
+        ss->setTextureAttributeAndModes(6, createDefaultTexture(color0));  // ReflectionMap
         for (int i = 0; i < 7; ++i) ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
         ss->addUniform(new osg::Uniform("ModelIndicator", 0.0f));
 

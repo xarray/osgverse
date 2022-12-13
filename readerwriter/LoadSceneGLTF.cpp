@@ -88,6 +88,8 @@ namespace osgVerse
                 int size = attrAccessor.count; if (!size) continue;
 
                 int copySize = size * (compSize * compNum);
+                //std::cout << attrib.first << ": Size = " << size << ", Components = " << compNum
+                //          << ", ComponentBytes = " << compSize << std::endl;
                 if (attrib.first.compare("POSITION") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* va = new osg::Vec3Array(size);
@@ -169,7 +171,7 @@ namespace osgVerse
                         memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], size * compSize);
                     }
                     break;
-                default: continue;
+                default: OSG_WARN << "[LoaderGLTF] Unknown size " << compSize << std::endl; continue;
                 }
             }
 
@@ -182,23 +184,23 @@ namespace osgVerse
             case TINYGLTF_MODE_TRIANGLES: p->setMode(GL_TRIANGLES); break;
             case TINYGLTF_MODE_TRIANGLE_STRIP: p->setMode(GL_TRIANGLE_STRIP); break;
             case TINYGLTF_MODE_TRIANGLE_FAN: p->setMode(GL_TRIANGLE_FAN); break;
-            default: continue;
+            default: OSG_WARN << "[LoaderGLTF] Unknown type " << primitive.mode << std::endl; continue;
             }
-            geom->addPrimitiveSet(p.get());
 
+            geom->addPrimitiveSet(p.get());
+            geode->addDrawable(geom.get());
             if (primitive.material >= 0)
             {
                 tinygltf::Material& material = _modelDef.materials[primitive.material];
                 createMaterial(geom->getOrCreateStateSet(), material);
             }
-            geode->addDrawable(geom.get());
         }
         return true;
     }
 
     void LoaderGLTF::createMaterial(osg::StateSet* ss, tinygltf::Material material)
     {
-        // FIXME: Shininess = inv(Roughness), Ambient = Occlusion...
+        // Shininess(RGB) = Occlusion/Roughness/Metallic, Ambient = Occlusion
         int baseID = material.pbrMetallicRoughness.baseColorTexture.index;
         int roughnessID = material.pbrMetallicRoughness.metallicRoughnessTexture.index;
         int normalID = material.normalTexture.index;
@@ -231,26 +233,30 @@ namespace osgVerse
         else if (imageSrc.component == 2) format = GL_RG;
         else if (imageSrc.component == 3) format = GL_RGB;
 
-        osg::Texture2D* tex2D = _textureMap[tex.source].get();
-        if (!tex2D || u == 1)  // FIXME: dont know why but normal-maps can't be shared?
+        osg::ref_ptr<osg::Image> image2D = _imageMap[tex.source].get();
+        if (!image2D)
         {
+            //std::cout << name << ": " << imageSrc.uri << ", Size = "
+            //          << imageSrc.width << "x" << imageSrc.height << "\n";
+
             osg::ref_ptr<osg::Image> image = new osg::Image;
             image->allocateImage(imageSrc.width, imageSrc.height, 1, format, type);
             image->setInternalTextureFormat(imageSrc.component);
             memcpy(image->data(), &imageSrc.image[0], image->getTotalSizeInBytes());
-
-            tex2D = new osg::Texture2D;
-            tex2D->setResizeNonPowerOfTwoHint(false);
-            tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
-            tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
-            tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
-            tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
-            tex2D->setImage(image.get()); tex2D->setName(imageSrc.uri);
-
-            _textureMap[tex.source] = tex2D;
+            
+            image2D = image.get(); image2D->setName(imageSrc.uri);
+            _imageMap[tex.source] = image2D;
             OSG_NOTICE << "[LoaderGLTF] " << imageSrc.uri << " loaded for " << name << std::endl;
         }
-        ss->setTextureAttributeAndModes(u, tex2D);
+
+        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+        tex2D->setResizeNonPowerOfTwoHint(false);
+        tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
+        tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
+        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+        tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+        tex2D->setImage(image2D.get()); tex2D->setName(imageSrc.uri);
+        ss->setTextureAttributeAndModes(u, tex2D.get());
         //ss->addUniform(new osg::Uniform(name.c_str(), u));
     }
 

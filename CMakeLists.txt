@@ -180,7 +180,7 @@ SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (wil
 SET_PROPERTY(GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES "")
 
 IF(UNIX)
-    SET(VERSE_WITH_DWARF OFF CACHE BOOL "Enable detailed debug-info and symbols. 'libdw-dev' must be installed.")
+    SET(VERSE_WITH_DWARF OFF CACHE BOOL "Enable detailed debug-info and symbols. 'libdw-dev' must be installed")
     SET(VERSE_USE_GLIBCXX11_ABI ON CACHE BOOL
         "Enable _GLIBCXX_USE_CXX11_ABI for newer GCC compilers. Set to OFF if you are using old ones")
 ENDIF(UNIX)

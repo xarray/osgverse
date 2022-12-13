@@ -35,7 +35,7 @@ namespace osgVerse
         void createMaterial(osg::StateSet* ss, tinygltf::Material mat);
         void createTexture(osg::StateSet* ss, int u, const std::string& name, tinygltf::Texture& tex);
 
-        std::map<int, osg::observer_ptr<osg::Texture2D>> _textureMap;
+        std::map<int, osg::observer_ptr<osg::Image>> _imageMap;
         osg::ref_ptr<osg::Group> _root;
         tinygltf::Model _modelDef;
         std::string _workingDir;

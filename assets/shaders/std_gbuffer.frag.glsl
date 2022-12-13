@@ -11,7 +11,7 @@ void main()
     vec4 normalValue = VERSE_TEX2D(NormalMap, uv0);
     vec3 specular = VERSE_TEX2D(SpecularMap, uv0).rgb;
     vec3 emission = VERSE_TEX2D(EmissiveMap, uv1).rgb;
-    vec2 metalRough = VERSE_TEX2D(ShininessMap, uv0).rg;
+    vec3 metalRough = VERSE_TEX2D(ShininessMap, uv0).rgb;
     float occlusion = VERSE_TEX2D(AmbientMap, uv0).r;
     if (diffuse.a < 0.1) discard;
     
@@ -25,7 +25,7 @@ void main()
     
     // MRT output
     gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, ModelIndicator * 0.1);
-    gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.g);
-    gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.r);
-    gl_FragData[3]/*EmissionOcclusionBuffer*/ = vec4(emission, occlusion);
+    gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.b);
+    gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.g);
+    gl_FragData[3]/*EmissionOcclusionBuffer*/ = vec4(emission, metalRough.r);
 }
