@@ -176,8 +176,8 @@ SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 
 SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
-	tiny_obj_loader.h tiny_gltf.h json.hpp picojson.h nanoflann.hpp exprtk.hpp
-    backward.hpp strtk.hpp tinydir.h mio.hpp any.hpp rapidxml/rapidxml.hpp
+	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp
+    backward.hpp strtk.hpp tinydir.h rapidxml/rapidxml.hpp rapidjson/rapidjson.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     sqlite3.c sqlite3.h tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
@@ -203,7 +203,7 @@ INCLUDE_DIRECTORIES(leveldb ozz imgui "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 
-SET(THIRDPARTY_INCLUDE_FILES json.hpp any.hpp strtk.hpp backward.hpp)
+SET(THIRDPARTY_INCLUDE_FILES any.hpp strtk.hpp backward.hpp)
 SET(IMGUI_INCLUDE_FILES imgui/imgui.h imgui/imconfig.h imgui/ImGuizmo.h)
 INSTALL(FILES ${THIRDPARTY_INCLUDE_FILES} DESTINATION ${INSTALL_INCDIR}/osgVerse COMPONENT libosgverse-dev)
 INSTALL(FILES ${IMGUI_INCLUDE_FILES} DESTINATION ${INSTALL_INCDIR}/osgVerse/imgui COMPONENT libosgverse-dev)

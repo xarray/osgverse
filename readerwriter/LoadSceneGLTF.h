@@ -4,6 +4,8 @@
 #include <iterator>
 #include <fstream>
 #include <iostream>
+
+#define TINYGLTF_USE_RAPIDJSON 1
 #include <tiny_gltf.h>
 
 #if defined(VERSE_STATIC_BUILD)
