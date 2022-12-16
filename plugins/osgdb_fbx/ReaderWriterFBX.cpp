@@ -19,7 +19,7 @@ public:
 
     virtual const char* className() const
     {
-        return "[osgVerse] FBX scene Reader";
+        return "[osgVerse] FBX scene reader";
     }
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const

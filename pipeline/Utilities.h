@@ -137,7 +137,8 @@ namespace osgVerse
 #   define USE_VERSE_PLUGINS() \
     USE_OSGPLUGIN(verse_ept) \
     USE_OSGPLUGIN(verse_fbx) \
-    USE_OSGPLUGIN(verse_gltf)
+    USE_OSGPLUGIN(verse_gltf \
+    USE_OSGPLUGIN(pbrlayout)
 #else
 #   define USE_VERSE_PLUGINS()
 #endif

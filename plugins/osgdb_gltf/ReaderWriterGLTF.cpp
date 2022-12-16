@@ -20,7 +20,7 @@ public:
 
     virtual const char* className() const
     {
-        return "[osgVerse] GLTF scene Reader";
+        return "[osgVerse] GLTF scene reader";
     }
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
