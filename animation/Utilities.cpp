@@ -79,10 +79,32 @@ namespace osgVerse
         const std::vector<unsigned int>& triangles = bvv.getTriangles();
         if (vertices.empty() || triangles.empty()) return NULL;
 
-        btTriangleIndexVertexArray* triangleData = new btTriangleIndexVertexArray(
-            triangles.size() / 3, (int*)&triangles[0], sizeof(int) * 3,
-            vertices.size(), (btScalar*)&vertices[0], sizeof(btScalar) * 3);
-        return new btBvhTriangleMeshShape(triangleData, compressed);
+        btIndexedMesh meshPart;
+        meshPart.m_numTriangles = triangles.size() / 3;
+        meshPart.m_numVertices = vertices.size();
+        meshPart.m_indexType = PHY_INTEGER;
+        meshPart.m_triangleIndexStride = 3 * sizeof(int);
+        meshPart.m_vertexType = PHY_FLOAT;
+        meshPart.m_vertexStride = sizeof(btVector3FloatData);
+
+        int* indexArray = (int*)btAlignedAlloc(sizeof(int) * 3 * meshPart.m_numTriangles, 16);
+        for (int j = 0; j < 3 * meshPart.m_numTriangles; j++) indexArray[j] = triangles[j];
+        meshPart.m_triangleIndexBase = (const unsigned char*)indexArray;
+
+        btVector3FloatData* btVertices = (btVector3FloatData*)btAlignedAlloc(
+            sizeof(btVector3FloatData) * meshPart.m_numVertices, 16);
+        for (int j = 0; j < meshPart.m_numVertices; j++)
+        {
+            btVertices[j].m_floats[0] = vertices[j][0];
+            btVertices[j].m_floats[1] = vertices[j][1];
+            btVertices[j].m_floats[2] = vertices[j][2];
+            btVertices[j].m_floats[3] = 0.f;
+        }
+        meshPart.m_vertexBase = (const unsigned char*)btVertices;
+
+        btTriangleIndexVertexArray* meshInterface = new btTriangleIndexVertexArray();
+        meshInterface->addIndexedMesh(meshPart, meshPart.m_indexType);
+        return new btBvhTriangleMeshShape(meshInterface, compressed);
     }
 
     btCollisionShape* createPhysicsHeightField(osg::HeightField* hf, bool filpQuad)
