@@ -7,6 +7,10 @@
 
 #include "pmp/MatVec.h"
 
+#ifndef M_PI
+#define M_PI	3.1415926535897932384626433832795
+#endif
+
 //! \def PMP_ASSERT(x)
 //! Custom assert macro that allows to silence unused variable warnings with no
 //! overhead. Generates no code in release mode since if the argument to

@@ -1133,7 +1133,7 @@ public:
     //!
     //! In addition, the OBJ and PMP formats support reading per-halfedge
     //! texture coordinates.
-    //void read(const std::string& filename, const IOFlags& flags = IOFlags());
+    void read(const std::string& filename, const IOFlags& flags = IOFlags());
 
     //! \brief Write mesh to file \p filename controlled by \p flags
     //! \details File extension determines file type. Supported formats and
@@ -1150,7 +1150,8 @@ public:
     //!
     //! In addition, the OBJ and PMP formats support writing per-halfedge
     //! texture coordinates.
-    //void write(const std::string& filename, const IOFlags& flags = IOFlags()) const;
+    void write(const std::string& filename,
+               const IOFlags& flags = IOFlags()) const;
 
     //!@}
     //! \name Add new elements by hand

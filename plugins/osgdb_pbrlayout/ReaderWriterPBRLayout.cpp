@@ -1,3 +1,4 @@
+#include <osg/Version>
 #include <osg/io_utils>
 #include <osg/Geometry>
 #include <osg/MatrixTransform>
@@ -6,6 +7,38 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 #include <osgDB/ReadFile>
+
+namespace osg
+{
+#if OSG_VERSION_LESS_THAN(3, 1, 9)
+    class Vec3i
+    {
+    public:
+        typedef int value_type;
+        enum { num_components = 3 };
+        value_type _v[3];
+
+        Vec3i() { _v[0] = 0; _v[1] = 0; _v[2] = 0; }
+        Vec3i(value_type x, value_type y, value_type z) { _v[0] = x; _v[1] = y; _v[2] = z; }
+
+        inline bool operator == (const Vec3i& v) const { return _v[0] == v._v[0] && _v[1] == v._v[1] && _v[2] == v._v[2]; }
+        inline bool operator != (const Vec3i& v) const { return _v[0] != v._v[0] || _v[1] != v._v[1] || _v[2] != v._v[2]; }
+        inline bool operator <  (const Vec3i& v) const
+        {
+            if (_v[0] < v._v[0]) return true;
+            else if (_v[0] > v._v[0]) return false;
+            else if (_v[1] < v._v[1]) return true;
+            else if (_v[1] > v._v[1]) return false;
+            else return (_v[2] < v._v[2]);
+        }
+
+        inline void set(value_type x, value_type y, value_type z) { _v[0] = x; _v[1] = y; _v[2] = z; }
+        inline void set(const Vec3i& rhs) { _v[0] = rhs._v[0]; _v[1] = rhs._v[1]; _v[2] = rhs._v[2]; }
+        inline value_type& operator [] (int i) { return _v[i]; }
+        inline value_type operator [] (int i) const { return _v[i]; }
+    };
+#endif
+}
 
 class TexLayoutVisitor : public osg::NodeVisitor
 {
@@ -216,7 +249,7 @@ public:
 
         std::string tmpName = osgDB::getNameLessExtension(path);
         std::size_t index = tmpName.find_last_of('.');
-        if (index == std::string::npos) return osgDB::readRefNodeFile(tmpName, options);
+        if (index == std::string::npos) return osgDB::readNodeFile(tmpName, options);
 
         std::string fileName = tmpName.substr(0, index);
         std::string params = (index < tmpName.size() - 1) ? tmpName.substr(index + 1) : "";
@@ -225,7 +258,7 @@ public:
 
         osgDB::StringList texParams; osgDB::split(params, texParams, ',');
         TexLayoutVisitor tlv(texParams); node->accept(tlv);
-        return node;
+        return node.get();
     }
 };
 

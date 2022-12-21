@@ -1,3 +1,4 @@
+#include <osg/Version>
 #include <osg/Shape>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
@@ -30,8 +31,13 @@ void EditorContentHandler::createEditorMenu2()
             boxItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                    osgVerse::ImGuiComponentBase* me)
             {
+#if OSG_VERSION_LESS_THAN(3, 4, 1)
+                const float r = sqrt(2.0f) * 0.5f;
+                osg::Geometry* box = osgVerse::createPrism(osg::Vec3(), r, r, 1.0f);
+#else
                 osg::ref_ptr<osg::Shape> s = new osg::Box(osg::Vec3(0.0f, 0.0f, 0.5f), 1.0f, 1.0f, 1.0f);
                 osg::Geometry* box = osg::convertShapeToGeometry(*s, NULL);
+#endif
                 box->setName("Box"); _hierarchy->addCreatedDrawable(box);
             };
             new3dItem.subItems.push_back(boxItem);
@@ -40,8 +46,12 @@ void EditorContentHandler::createEditorMenu2()
             sphereItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                       osgVerse::ImGuiComponentBase* me)
             {
+#if OSG_VERSION_LESS_THAN(3, 4, 1)
+                osg::Geometry* sphere = osgVerse::createEllipsoid(osg::Vec3(), 0.5f, 0.5f, 0.5f);
+#else
                 osg::ref_ptr<osg::Shape> s = new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.5f), 0.5f);
                 osg::Geometry* sphere = osg::convertShapeToGeometry(*s, NULL);
+#endif
                 sphere->setName("Sphere"); _hierarchy->addCreatedDrawable(sphere);
             };
             new3dItem.subItems.push_back(sphereItem);
@@ -50,8 +60,12 @@ void EditorContentHandler::createEditorMenu2()
             cylinderItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                         osgVerse::ImGuiComponentBase* me)
             {
+#if OSG_VERSION_LESS_THAN(3, 4, 1)
+                osg::Geometry* cylinder = osgVerse::createPrism(osg::Vec3(), 0.5f, 0.5f, 1.0f, 32);
+#else
                 osg::ref_ptr<osg::Shape> s = new osg::Cylinder(osg::Vec3(0.0f, 0.0f, 0.5f), 0.5f, 1.0f);
                 osg::Geometry* cylinder = osg::convertShapeToGeometry(*s, NULL);
+#endif
                 cylinder->setName("Cylinder"); _hierarchy->addCreatedDrawable(cylinder);
             };
             new3dItem.subItems.push_back(cylinderItem);
@@ -60,8 +74,12 @@ void EditorContentHandler::createEditorMenu2()
             coneItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                     osgVerse::ImGuiComponentBase* me)
             {
+#if OSG_VERSION_LESS_THAN(3, 4, 1)
+                osg::Geometry* cone = osgVerse::createPyramid(osg::Vec3(), 0.5f, 1.0f, 32);
+#else
                 osg::ref_ptr<osg::Shape> s = new osg::Cone(osg::Vec3(0.0f, 0.0f, 0.25f), 0.5f, 1.0f);
                 osg::Geometry* cone = osg::convertShapeToGeometry(*s, NULL);
+#endif
                 cone->setName("Cone"); _hierarchy->addCreatedDrawable(cone);
             };
             new3dItem.subItems.push_back(coneItem);
@@ -70,8 +88,12 @@ void EditorContentHandler::createEditorMenu2()
             capsuleItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                        osgVerse::ImGuiComponentBase* me)
             {
+#if OSG_VERSION_LESS_THAN(3, 4, 1)
+                osg::Geometry* capsule = osgVerse::createEllipsoid(osg::Vec3(), 0.5f, 0.5f, 1.0f);
+#else
                 osg::ref_ptr<osg::Shape> s = new osg::Capsule(osg::Vec3(0.0f, 0.0f, 0.5f), 0.25f, 0.5f);
                 osg::Geometry* capsule = osg::convertShapeToGeometry(*s, NULL);
+#endif
                 capsule->setName("Capsule"); _hierarchy->addCreatedDrawable(capsule);
             };
             new3dItem.subItems.push_back(capsuleItem);
