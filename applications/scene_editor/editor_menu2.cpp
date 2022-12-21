@@ -1,3 +1,4 @@
+#include <osg/Shape>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
@@ -29,8 +30,8 @@ void EditorContentHandler::createEditorMenu2()
             boxItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                    osgVerse::ImGuiComponentBase* me)
             {
-                const float r = sqrt(2.0f) * 0.5f;
-                osg::Geometry* box = osgVerse::createPrism(osg::Vec3(), r, r, 1.0f);
+                osg::ref_ptr<osg::Shape> s = new osg::Box(osg::Vec3(0.0f, 0.0f, 0.5f), 1.0f, 1.0f, 1.0f);
+                osg::Geometry* box = osg::convertShapeToGeometry(*s, NULL);
                 box->setName("Box"); _hierarchy->addCreatedDrawable(box);
             };
             new3dItem.subItems.push_back(boxItem);
@@ -39,7 +40,8 @@ void EditorContentHandler::createEditorMenu2()
             sphereItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                       osgVerse::ImGuiComponentBase* me)
             {
-                osg::Geometry* sphere = osgVerse::createEllipsoid(osg::Vec3(), 0.5f, 0.5f, 0.5f);
+                osg::ref_ptr<osg::Shape> s = new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.5f), 0.5f);
+                osg::Geometry* sphere = osg::convertShapeToGeometry(*s, NULL);
                 sphere->setName("Sphere"); _hierarchy->addCreatedDrawable(sphere);
             };
             new3dItem.subItems.push_back(sphereItem);
@@ -48,7 +50,8 @@ void EditorContentHandler::createEditorMenu2()
             cylinderItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                         osgVerse::ImGuiComponentBase* me)
             {
-                osg::Geometry* cylinder = osgVerse::createPrism(osg::Vec3(), 0.5f, 0.5f, 1.0f, 32);
+                osg::ref_ptr<osg::Shape> s = new osg::Cylinder(osg::Vec3(0.0f, 0.0f, 0.5f), 0.5f, 1.0f);
+                osg::Geometry* cylinder = osg::convertShapeToGeometry(*s, NULL);
                 cylinder->setName("Cylinder"); _hierarchy->addCreatedDrawable(cylinder);
             };
             new3dItem.subItems.push_back(cylinderItem);
@@ -57,15 +60,30 @@ void EditorContentHandler::createEditorMenu2()
             coneItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
                                     osgVerse::ImGuiComponentBase* me)
             {
-                osg::Geometry* cone = osgVerse::createPyramid(osg::Vec3(), 0.5f, 1.0f, 32);
+                osg::ref_ptr<osg::Shape> s = new osg::Cone(osg::Vec3(0.0f, 0.0f, 0.25f), 0.5f, 1.0f);
+                osg::Geometry* cone = osg::convertShapeToGeometry(*s, NULL);
                 cone->setName("Cone"); _hierarchy->addCreatedDrawable(cone);
             };
             new3dItem.subItems.push_back(coneItem);
 
             osgVerse::MenuBar::MenuItemData capsuleItem(osgVerse::MenuBar::TR("Capsule##menu030205"));
+            capsuleItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                       osgVerse::ImGuiComponentBase* me)
+            {
+                osg::ref_ptr<osg::Shape> s = new osg::Capsule(osg::Vec3(0.0f, 0.0f, 0.5f), 0.25f, 0.5f);
+                osg::Geometry* capsule = osg::convertShapeToGeometry(*s, NULL);
+                capsule->setName("Capsule"); _hierarchy->addCreatedDrawable(capsule);
+            };
             new3dItem.subItems.push_back(capsuleItem);
 
             osgVerse::MenuBar::MenuItemData quadItem(osgVerse::MenuBar::TR("Quad##menu030206"));
+            quadItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                    osgVerse::ImGuiComponentBase* me)
+            {
+                osg::Geometry* quad = osg::createTexturedQuadGeometry(
+                    osg::Vec3(-5.0f, -5.0f, 0.0f), osg::X_AXIS * 10.0f, osg::Y_AXIS * 10.0f);
+                quad->setName("Quad"); _hierarchy->addCreatedDrawable(quad);
+            };
             new3dItem.subItems.push_back(quadItem);
         }
         assetMenu.items.push_back(new3dItem);
@@ -100,6 +118,14 @@ void EditorContentHandler::createEditorMenu2()
         assetMenu.items.push_back(renNodeItem);
 
         osgVerse::MenuBar::MenuItemData delNodeItem(osgVerse::MenuBar::TR("Delete Node##menu0307"));
+        delNodeItem.callback = [&](osgVerse::ImGuiManager*, osgVerse::ImGuiContentHandler*,
+                                   osgVerse::ImGuiComponentBase* me)
+        {
+            osgVerse::ImGuiComponentBase::registerConfirmDialog(
+                [&](bool result) { if (result) _hierarchy->deleteSelectedNodes(); },
+                "ConfirmDelDialog##ed00", osgVerse::ImGuiComponentBase::TR("Delete the node?"),
+                true, osgVerse::ImGuiComponentBase::TR("Yes"), osgVerse::ImGuiComponentBase::TR("No"));
+        };
         assetMenu.items.push_back(delNodeItem);
 
         assetMenu.items.push_back(osgVerse::MenuBar::MenuItemData::separator);

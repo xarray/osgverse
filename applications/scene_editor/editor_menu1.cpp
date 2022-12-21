@@ -51,7 +51,7 @@ void EditorContentHandler::createEditorMenu1()
         {
             osgVerse::ImGuiComponentBase::registerConfirmDialog(
                 [&](bool result) { if (result) g_data.view->getEventQueue()->quitApplication(); },
-                "OpenConfirmFile##ed00", osgVerse::ImGuiComponentBase::TR("Quit the application now?"),
+                "ConfirmQuitDialog##ed00", osgVerse::ImGuiComponentBase::TR("Quit the application now?"),
                 true, osgVerse::ImGuiComponentBase::TR("Yes"), osgVerse::ImGuiComponentBase::TR("No"));
         };
         projMenu.items.push_back(quitItem);

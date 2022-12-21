@@ -23,6 +23,8 @@ public:
     void addCreatedDrawable(osg::Drawable* drawable);
     void addModelFromUrl(const std::string& url);
 
+    void deleteSelectedNodes();
+
 protected:
     osg::Group* getSelectedGroup();
     osg::Node* getOrCreateSelectedGeode();

@@ -157,9 +157,11 @@ Hierarchy::Hierarchy(EditorContentHandler* ech)
             new3dItem.subItems.push_back(coneItem);
 
             osgVerse::MenuBar::MenuItemData capsuleItem(osgVerse::MenuBar::TR("Capsule##ed01m0405"));
+            capsuleItem.callback = ech->getMainMenu()->getItemCallback("Capsule");
             new3dItem.subItems.push_back(capsuleItem);
 
             osgVerse::MenuBar::MenuItemData quadItem(osgVerse::MenuBar::TR("Quad##ed01m0406"));
+            quadItem.callback = ech->getMainMenu()->getItemCallback("Quad");
             new3dItem.subItems.push_back(quadItem);
         }
         _popupMenus.push_back(new3dItem);
@@ -194,6 +196,7 @@ Hierarchy::Hierarchy(EditorContentHandler* ech)
         _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
         osgVerse::MenuBar::MenuItemData deleteItem(osgVerse::MenuBar::TR("Delete##ed01m11"));
+        deleteItem.callback = ech->getMainMenu()->getItemCallback("Delete Node");
         _popupMenus.push_back(deleteItem);
     }
 }
@@ -213,17 +216,36 @@ bool Hierarchy::handleCommand(CommandData* cmd)
     std::vector<TreeView::TreeData*> pItems = _treeView->findByUserData(parent);
     if (pItems.empty()) return false;
 
-    HierarchyVisitor hv;
+    HierarchyVisitor hv; std::vector<TreeView::TreeData*> cItems;
+    bool toDel = false, toDelInHier = false; cmd->get(toDel, 1, false);
     if (cmd->get(node, 0, false))
     {
-        std::vector<TreeView::TreeData*> nItems = _treeView->findByUserData(node);
-        if (!nItems.empty()) return true;  // already recorded in hierarchy
-        hv._itemStack.push(pItems[0]); node->accept(hv);
+        cItems = _treeView->findByUserData(node);
+        if (!cItems.empty())  // already recorded in hierarchy
+            { if (toDel) toDelInHier = true; }
+        else
+            { hv._itemStack.push(pItems[0]); node->accept(hv); }
     }
     else if (cmd->get(drawable, 0, false))
     {
-        std::vector<TreeView::TreeData*> dItems = _treeView->findByUserData(drawable);
-        if (dItems.empty()) hv.applyItem(pItems[0], drawable);
+        cItems = _treeView->findByUserData(drawable);
+        if (!cItems.empty())  // already recorded in hierarchy
+            { if (toDel) toDelInHier = true; }
+        else
+            hv.applyItem(pItems[0], drawable);
+    }
+
+    if (toDel && toDelInHier)
+    {
+        for (size_t i = 0; i < pItems.size(); ++i)
+            for (size_t j = 0; j < cItems.size(); ++j)
+            {
+                TreeView::TreeData* child = cItems[j];
+                std::vector<osg::ref_ptr<TreeView::TreeData>>::iterator itr = std::find_if(
+                    pItems[i]->children.begin(), pItems[i]->children.end(),
+                    [&child](osg::ref_ptr<TreeView::TreeData>& td) { return td.get() == child; });
+                if (itr != pItems[i]->children.end()) pItems[i]->children.erase(itr);
+            }
     }
     return true;
 }
@@ -324,6 +346,28 @@ void Hierarchy::addModelFromUrl(const std::string& url)
         osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, g_data.sceneRoot.get(), n, false);
     osgVerse::CommandBuffer::instance()->add(
         osgVerse::RefreshSceneCommand, g_data.view.get(), g_data.pipeline.get(), true);
+}
+
+void Hierarchy::deleteSelectedNodes()
+{
+    if (_selectedItem.valid())
+    {
+        osg::Node* selectedNode = dynamic_cast<osg::Node*>(_selectedItem->userData.get());
+        if (selectedNode == g_data.mainCamera.get() ||
+            selectedNode == g_data.sceneRoot.get())
+        {
+            OSG_NOTICE << "[Hierarchy] Unable to delete CORE scene node" << std::endl;
+            return;
+        }
+        else if (!selectedNode || (selectedNode && selectedNode->getNumParents() == 0))
+        {
+            OSG_NOTICE << "[Hierarchy] Invalid scene node for deleting" << std::endl;
+            return;
+        }
+
+        osg::Group* parent = selectedNode->getParent(0);
+        osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, selectedNode, true);
+    }
 }
 
 osg::Group* Hierarchy::getSelectedGroup()

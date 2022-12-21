@@ -36,6 +36,7 @@ void NodeSelector::BoundUpdater::operator()(osg::Node* node, osg::NodeVisitor* n
             osg::Matrix worldMatrix;
             if (target->getNumParents() > 0)
                 worldMatrix = target->getParent(0)->getWorldMatrices().front();
+
             switch (_picker->getBoundType())
             {
             case NodeSelector::BOUND_RECTANGLE: case NodeSelector::BOUND_SQUARE:
@@ -52,42 +53,42 @@ void NodeSelector::BoundUpdater::operator()(osg::Node* node, osg::NodeVisitor* n
             switch (_picker->getComputationMethod())
             {
             case USE_NODE_BBOX:
-            {
-                osg::ComputeBoundsVisitor cbbv;
-                cbbv.pushMatrix(worldMatrix);
-                target->accept(cbbv);
-
-                osg::BoundingBox bb = cbbv.getBoundingBox();
-                if (bb.valid()) totalBound.expandBy(bb);
-                else
                 {
-                    OSG_INFO << "[NodeSelector::BoundUpdater] cannot compute bound of target "
-                        << target->getName() << std::endl;
+                    osg::ComputeBoundsVisitor cbbv;
+                    cbbv.pushMatrix(worldMatrix);
+                    target->accept(cbbv);
+
+                    osg::BoundingBox bb = cbbv.getBoundingBox();
+                    if (bb.valid()) totalBound.expandBy(bb);
+                    else
+                    {
+                        OSG_INFO << "[NodeSelector::BoundUpdater] cannot compute bound of target "
+                            << target->getName() << std::endl;
+                    }
                 }
-            }
-            break;
+                break;
             case USE_NODE_BSPHERE:
-            {
-                osg::Vec3 pt = target->getBound().center();
-                osg::BoundingSphere bs(pt * worldMatrix, 0.0f);
-
-                pt = pt + osg::X_AXIS * target->getBound().radius();
-                bs.expandRadiusBy(pt * worldMatrix);
-                if (bs.valid()) totalBound.expandBy(bs);
-                else
                 {
-                    OSG_INFO << "[NodeSelector::BoundUpdater] cannot compute bound of target "
-                        << target->getName() << std::endl;
+                    osg::Vec3 pt = target->getBound().center();
+                    osg::BoundingSphere bs(pt * worldMatrix, 0.0f);
+
+                    pt = pt + osg::X_AXIS * target->getBound().radius();
+                    bs.expandRadiusBy(pt * worldMatrix);
+                    if (bs.valid()) totalBound.expandBy(bs);
+                    else
+                    {
+                        OSG_INFO << "[NodeSelector::BoundUpdater] cannot compute bound of target "
+                                 << target->getName() << std::endl;
+                    }
                 }
-            }
-            break;
+                break;
             default: break;
             }
         }
         else
         {
-            OSG_NOTICE << "[NodeSelector::BoundUpdater] found invalid bound target "
-                << target->getName() << std::endl;
+            //OSG_NOTICE << "[NodeSelector::BoundUpdater] found invalid bound target" << std::endl;
+            removeTarget(target); return;
         }
     }
 
