@@ -83,6 +83,8 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
+                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skybox->setNodeMask(~DEFERRED_SCENE_MASK);
         postCamera->addChild(skybox.get());
@@ -104,12 +106,27 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+    QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication app(argc, argv);
     app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
 
+#if USE_QMAINWINDOW
+    QMainWindow mw;
+    QDockWidget* dock = new QDockWidget(QObject::tr("OsgDock"), &mw);
+    dock->setAllowedAreas(Qt::DockWidgetArea::AllDockWidgetAreas);
+
+    OsgSceneWidget w;
+    w.initializeScene(argc, argv);
+    dock->setWidget(&w);
+
+    mw.addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, dock);
+    mw.setGeometry(50, 50, 1280, 720);
+    mw.show();
+#else
     OsgSceneWidget w;
     w.initializeScene(argc, argv);
     w.setGeometry(50, 50, 1280, 720);
     w.show();
+#endif
     return app.exec();
 }

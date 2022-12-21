@@ -5,6 +5,7 @@
 #include <QtGui/QtGui>
 #include <QtWidgets/QtWidgets>
 #include <QtOpenGL/QtOpenGL>
+#define USE_QMAINWINDOW 1
 
 #include <osg/io_utils>
 #include <osg/MatrixTransform>
