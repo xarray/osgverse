@@ -47,7 +47,7 @@ public:
     osg::Matrix getInvParentMatrix()
     {
         osg::Node* n = static_cast<osg::Node*>(_target.get());
-        if (n->getNumParents() > 0)
+        if (n && n->getNumParents() > 0)
             return osg::Matrix::inverse(n->getParent(0)->getWorldMatrices()[0]);
         return osg::Matrix();
     }

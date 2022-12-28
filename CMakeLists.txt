@@ -138,17 +138,22 @@ FIND_PATH(OSG_LIB_DIR libosg.so osg.lib
     /usr/local/${FIND_LIB_POSTFIX}
 )
 
+SET(BULLET_DEBUG_POSTFIX "_Debug" CACHE STRING "Postfix of Bullet built-libraries")
+SET(OSG_DEBUG_POSTFIX "d" CACHE STRING "Postfix of OSG built-libraries")
+
 SET(OSG_VERSION_THREADS "")
 SET(OSG_VERSION_CORE "")
 MACRO(LINK_OSG_LIBRARY PROJECT_NAME)
     FOREACH(OSG_LIB_NAME ${ARGN})
         STRING(FIND ${OSG_LIB_NAME} "OpenThreads" FOUND_OT_INDEX)
         IF(FOUND_OT_INDEX GREATER "-1")
-            TARGET_LINK_LIBRARIES(${PROJECT_NAME} debug ${OSG_VERSION_THREADS}${OSG_LIB_NAME}d
-                                                  optimized ${OSG_VERSION_THREADS}${OSG_LIB_NAME})
+            TARGET_LINK_LIBRARIES(${PROJECT_NAME}
+				debug ${OSG_VERSION_THREADS}${OSG_LIB_NAME}${OSG_DEBUG_POSTFIX}
+                optimized ${OSG_VERSION_THREADS}${OSG_LIB_NAME})
         ELSE()
-            TARGET_LINK_LIBRARIES(${PROJECT_NAME} debug ${OSG_VERSION_CORE}${OSG_LIB_NAME}d
-                                                  optimized ${OSG_VERSION_CORE}${OSG_LIB_NAME})
+            TARGET_LINK_LIBRARIES(${PROJECT_NAME}
+				debug ${OSG_VERSION_CORE}${OSG_LIB_NAME}${OSG_DEBUG_POSTFIX}
+                optimized ${OSG_VERSION_CORE}${OSG_LIB_NAME})
         ENDIF()
     ENDFOREACH()
 ENDMACRO(LINK_OSG_LIBRARY)
