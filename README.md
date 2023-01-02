@@ -88,8 +88,10 @@ Our project is already tested on graphics cards listed as below:
 | OSG_INCLUDE_DIR             | Path    | (Required)    | Set to path of osg/Node |
 | OSG_BUILD_INCLUDE_DIR       | Path    | (Required)    | Set to path of osg/Version |
 | OSG_LIB_DIR                 | Path    | (Required)    | Set to path of libosg.a or osg.lib |
+| OSG_DEBUG_POSTFIX           | String  | d             | Set a postfix for OSG debug built-libraries |
 | BULLET_INCLUDE_DIR          | Path    |               | Set to path of btBulletDynamicsCommon.h |
 | BULLET_LIB_DIR              | Path    |               | Set to path of libBullet3Dynamics.a or BulletDynamics.lib |
+| BULLET_DEBUG_POSTFIX        | String  | _Debug        | Set a postfix for Bullet debug built-libraries |
 | OSGEARTH_INCLUDE_DIR        | Path    |               | Set to path of osgEarth/EarthManipulator |
 | OSGEARTH_BUILD_INCLUDE_DIR  | Path    |               | Set to path of osgEarth/BuildConfig |
 | OSGEARTH_LIB_DIR            | Path    |               | Set to path of libosgEarth.so or osgEarth.lib |

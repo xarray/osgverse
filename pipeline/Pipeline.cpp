@@ -745,11 +745,12 @@ namespace osgVerse
     {
         osg::Vec4 color0 = osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         osg::Vec4 color1 = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        osg::Vec4 colorORM = osg::Vec4(1.0f, 1.0f, 0.0f, 0.0f);
         ss->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
         ss->setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap
         ss->setTextureAttributeAndModes(1, createDefaultTexture(color0));  // NormalMap
         ss->setTextureAttributeAndModes(2, createDefaultTexture(color1));  // SpecularMap
-        ss->setTextureAttributeAndModes(3, createDefaultTexture(color1));  // ShininessMap
+        ss->setTextureAttributeAndModes(3, createDefaultTexture(colorORM));  // ShininessMap
         ss->setTextureAttributeAndModes(4, createDefaultTexture(color0));  // AmbientMap
         ss->setTextureAttributeAndModes(5, createDefaultTexture(color0));  // EmissiveMap
         ss->setTextureAttributeAndModes(6, createDefaultTexture(color0));  // ReflectionMap

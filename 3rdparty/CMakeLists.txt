@@ -181,7 +181,9 @@ SET(LIBRARY_FILES
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     sqlite3.c sqlite3.h tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
-    GL/glew.c GL/glew.h
+	mimalloc/static.c mimalloc/mimalloc.h mimalloc/mimalloc-new-delete.h
+	microprofile.cpp microprofile.h xatlas.cpp xatlas.h easing.cpp easing.h
+    lightmapper.h GL/glew.c GL/glew.h
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
@@ -199,7 +201,7 @@ IF(VERSE_USE_EXTERNAL_GLES)
     ADD_DEFINITIONS(-DGLEW_EGL)
 ENDIF()
 
-INCLUDE_DIRECTORIES(leveldb ozz imgui "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
+INCLUDE_DIRECTORIES(leveldb ozz imgui stb "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 

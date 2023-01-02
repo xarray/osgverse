@@ -366,6 +366,7 @@ void Hierarchy::deleteSelectedNodes()
         }
 
         osg::Group* parent = selectedNode->getParent(0);
+        osgVerse::CommandBuffer::instance()->add(SelectCommand, selectedNode, g_data.selector.get(), 2);
         osgVerse::CommandBuffer::instance()->add(osgVerse::SetNodeCommand, parent, selectedNode, true);
     }
 }
