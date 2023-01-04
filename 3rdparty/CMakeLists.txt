@@ -1,40 +1,41 @@
-CONFIGURE_FILE("leveldb/port/port_config.h.in"
-               "${CMAKE_BINARY_DIR}/3rdparty/leveldb/port/port_config.h")
+CONFIGURE_FILE(leveldb/port/port_config.h.in "${CMAKE_BINARY_DIR}/3rdparty/leveldb/port/port_config.h")
 SET(LEVELDB_SOURCE_FILES
-    "leveldb/db/builder.cc" "leveldb/db/builder.h" "leveldb/db/c.cc"
-    "leveldb/db/db_impl.cc" "leveldb/db/db_impl.h" "leveldb/db/db_iter.cc" "leveldb/db/db_iter.h"
-    "leveldb/db/dbformat.cc" "leveldb/db/dbformat.h" "leveldb/db/dumpfile.cc"
-    "leveldb/db/filename.cc" "leveldb/db/filename.h" "leveldb/db/log_format.h"
-    "leveldb/db/log_reader.cc" "leveldb/db/log_reader.h" "leveldb/db/log_writer.cc" "leveldb/db/log_writer.h"
-    "leveldb/db/memtable.cc" "leveldb/db/memtable.h" "leveldb/db/repair.cc"
-    "leveldb/db/skiplist.h" "leveldb/db/snapshot.h" "leveldb/db/table_cache.cc" "leveldb/db/table_cache.h"
-    "leveldb/db/version_edit.cc" "leveldb/db/version_edit.h" "leveldb/db/version_set.cc" "leveldb/db/version_set.h"
-    "leveldb/db/write_batch_internal.h" "leveldb/db/write_batch.cc"
-    "leveldb/port/port_stdcxx.h" "leveldb/port/port.h" "leveldb/port/thread_annotations.h"
-    "leveldb/table/block_builder.cc" "leveldb/table/block_builder.h"
-    "leveldb/table/block.cc" "leveldb/table/block.h" "leveldb/table/filter_block.cc" "leveldb/table/filter_block.h"
-    "leveldb/table/format.cc" "leveldb/table/format.h" "leveldb/table/iterator_wrapper.h" "leveldb/table/iterator.cc"
-    "leveldb/table/merger.cc" "leveldb/table/merger.h" "leveldb/table/table_builder.cc" "leveldb/table/table.cc"
-    "leveldb/table/two_level_iterator.cc" "leveldb/table/two_level_iterator.h"
-    "leveldb/util/arena.cc" "leveldb/util/arena.h" "leveldb/util/bloom.cc" "leveldb/util/cache.cc" "leveldb/util/coding.cc"
-    "leveldb/util/coding.h" "leveldb/util/comparator.cc" "leveldb/util/crc32c.cc" "leveldb/util/crc32c.h" "leveldb/util/env.cc"
-    "leveldb/util/filter_policy.cc" "leveldb/util/hash.cc" "leveldb/util/hash.h"
-    "leveldb/util/logging.cc" "leveldb/util/logging.h" "leveldb/util/mutexlock.h" "leveldb/util/no_destructor.h"
-    "leveldb/util/options.cc" "leveldb/util/random.h" "leveldb/util/status.cc"
-    "leveldb/helpers/memenv/memenv.cc" "leveldb/helpers/memenv/memenv.h"
+    leveldb/db/builder.cc leveldb/db/builder.h leveldb/db/c.cc
+    leveldb/db/db_impl.cc leveldb/db/db_impl.h leveldb/db/db_iter.cc leveldb/db/db_iter.h
+    leveldb/db/dbformat.cc leveldb/db/dbformat.h leveldb/db/dumpfile.cc
+    leveldb/db/filename.cc leveldb/db/filename.h leveldb/db/log_format.h
+    leveldb/db/log_reader.cc leveldb/db/log_reader.h leveldb/db/log_writer.cc leveldb/db/log_writer.h
+    leveldb/db/memtable.cc leveldb/db/memtable.h leveldb/db/repair.cc
+    leveldb/db/skiplist.h leveldb/db/snapshot.h leveldb/db/table_cache.cc leveldb/db/table_cache.h
+    leveldb/db/version_edit.cc leveldb/db/version_edit.h leveldb/db/version_set.cc leveldb/db/version_set.h
+    leveldb/db/write_batch_internal.h leveldb/db/write_batch.cc
+    leveldb/port/port_stdcxx.h leveldb/port/port.h leveldb/port/thread_annotations.h
+    leveldb/table/block_builder.cc leveldb/table/block_builder.h
+    leveldb/table/block.cc leveldb/table/block.h leveldb/table/filter_block.cc leveldb/table/filter_block.h
+    leveldb/table/format.cc leveldb/table/format.h leveldb/table/iterator_wrapper.h leveldb/table/iterator.cc
+    leveldb/table/merger.cc leveldb/table/merger.h leveldb/table/table_builder.cc leveldb/table/table.cc
+    leveldb/table/two_level_iterator.cc leveldb/table/two_level_iterator.h leveldb/util/coding.cc
+    leveldb/util/arena.cc leveldb/util/arena.h leveldb/util/bloom.cc leveldb/util/cache.cc
+    leveldb/util/coding.h leveldb/util/comparator.cc leveldb/util/crc32c.cc leveldb/util/crc32c.h
+    leveldb/util/env.cc leveldb/util/filter_policy.cc leveldb/util/hash.cc leveldb/util/hash.h
+    leveldb/util/logging.cc leveldb/util/logging.h leveldb/util/mutexlock.h leveldb/util/no_destructor.h
+    leveldb/util/options.cc leveldb/util/random.h leveldb/util/status.cc
+    leveldb/helpers/memenv/memenv.cc leveldb/helpers/memenv/memenv.h
 )
 IF(WIN32)
-    SET(LEVELDB_SOURCE_FILES ${LEVELDB_SOURCE_FILES} "leveldb/util/env_windows.cc" "leveldb/util/windows_logger.h")
+    SET(LEVELDB_SOURCE_FILES ${LEVELDB_SOURCE_FILES} leveldb/util/env_windows.cc leveldb/util/windows_logger.h)
 ELSE(WIN32)
-    SET(LEVELDB_SOURCE_FILES ${LEVELDB_SOURCE_FILES} "leveldb/util/env_posix.cc" "leveldb/util/posix_logger.h")
+    SET(LEVELDB_SOURCE_FILES ${LEVELDB_SOURCE_FILES} leveldb/util/env_posix.cc leveldb/util/posix_logger.h)
 ENDIF(WIN32)
 
 SET(ApproxMVBB_VERSION_MAJOR 3)
 SET(ApproxMVBB_VERSION_MINOR 1)
 SET(ApproxMVBB_VERSION_PATCH 2)
 SET(ApproxMVBB_FORCE_MSGLOG_LEVEL 0)
-CONFIGURE_FILE(ApproxMVBB/GeometryPredicates/Config.hpp.in.cmake "${CMAKE_BINARY_DIR}/3rdparty/ApproxMVBB/GeometryPredicates/Config.hpp")
-CONFIGURE_FILE(ApproxMVBB/Config/Config.hpp.in.cmake "${CMAKE_BINARY_DIR}/3rdparty/ApproxMVBB/Config/Config.hpp")
+CONFIGURE_FILE(ApproxMVBB/GeometryPredicates/Config.hpp.in.cmake
+               "${CMAKE_BINARY_DIR}/3rdparty/ApproxMVBB/GeometryPredicates/Config.hpp")
+CONFIGURE_FILE(ApproxMVBB/Config/Config.hpp.in.cmake
+               "${CMAKE_BINARY_DIR}/3rdparty/ApproxMVBB/Config/Config.hpp")
 SET(APPROXMVBB_SOURCE_FILES
     ApproxMVBB/AABB.cpp ApproxMVBB/AABB.hpp ApproxMVBB/AngleFunctions.hpp
     ApproxMVBB/ComputeApproxMVBB.hpp ApproxMVBB/ContainerFunctions.hpp
@@ -162,6 +163,36 @@ SET(TINYSPLINE_SOURCE_FILES
     tinyspline/tinysplinecxx.cxx tinyspline/tinysplinecxx.h
 )
 
+SET(LIBHV_SOURCE_FILES
+    libhv/base/hbase.c libhv/base/herr.c libhv/base/hlog.c libhv/base/hmain.c
+    libhv/base/hsocket.c libhv/base/htime.c libhv/base/hversion.c libhv/base/rbtree.c
+    libhv/event/epoll.c libhv/event/evport.c libhv/event/hevent.c libhv/event/hloop.c
+    libhv/event/iocp.c libhv/event/kqueue.c libhv/event/nio.c libhv/event/nlog.c
+    libhv/event/noevent.c libhv/event/overlapio.c libhv/event/poll.c libhv/event/rudp.c
+    libhv/event/select.c libhv/event/unpack.c libhv/event/kcp/hkcp.c libhv/event/kcp/ikcp.c
+    libhv/http/httpdef.c libhv/http/http_parser.c libhv/http/multipart_parser.c
+    libhv/http/websocket_parser.c libhv/http/wsdef.c libhv/mqtt/mqtt_client.c libhv/mqtt/mqtt_protocol.c
+    libhv/protocol/dns.c libhv/protocol/ftp.c libhv/protocol/icmp.c libhv/protocol/smtp.c
+    libhv/ssl/appletls.c libhv/ssl/gnutls.c libhv/ssl/hssl.c libhv/ssl/mbedtls.c
+    libhv/ssl/nossl.c libhv/ssl/openssl.c libhv/ssl/wintls.c libhv/util/base64.c
+    libhv/util/md5.c libhv/util/sha1.c
+    libhv/cpputil/hasync.cpp libhv/cpputil/hdir.cpp libhv/cpputil/hpath.cpp libhv/cpputil/hstring.cpp
+    libhv/cpputil/hurl.cpp libhv/cpputil/ifconfig.cpp libhv/cpputil/iniparser.cpp libhv/cpputil/RAII.cpp
+    libhv/cpputil/ThreadLocalStorage.cpp
+    libhv/evpp/EventLoopThreadPool_test.cpp libhv/evpp/EventLoopThread_test.cpp
+    libhv/evpp/EventLoop_test.cpp libhv/evpp/TcpClientEventLoop_test.cpp
+    libhv/evpp/TcpClient_test.cpp libhv/evpp/TcpServer_test.cpp
+    libhv/evpp/TimerThread_test.cpp libhv/evpp/UdpClient_test.cpp
+    libhv/evpp/UdpServer_test.cpp libhv/http/Http1Parser.cpp
+    libhv/http/Http2Parser.cpp libhv/http/HttpMessage.cpp
+    libhv/http/HttpParser.cpp libhv/http/http_content.cpp
+    libhv/http/WebSocketChannel.cpp libhv/http/WebSocketParser.cpp
+    libhv/http/client/AsyncHttpClient.cpp libhv/http/client/WebSocketClient.cpp
+    libhv/http/server/FileCache.cpp libhv/http/server/HttpHandler.cpp
+    libhv/http/server/HttpServer.cpp libhv/http/server/HttpService.cpp
+    libhv/http/client/http_client.cpp libhv/http/server/http_page.cpp libhv/hv.h
+)
+
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
@@ -172,6 +203,7 @@ SOURCE_GROUP("PMP & MCut Files" FILES ${PMP_MCUT_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
+SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
@@ -187,10 +219,11 @@ SET(LIBRARY_FILES
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
+    ${LIBHV_SOURCE_FILES}
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
-                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB
                 -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 IF(WIN32)
     ADD_DEFINITIONS(-DLEVELDB_PLATFORM_WINDOWS)
@@ -201,7 +234,8 @@ IF(VERSE_USE_EXTERNAL_GLES)
     ADD_DEFINITIONS(-DGLEW_EGL)
 ENDIF()
 
-INCLUDE_DIRECTORIES(leveldb ozz imgui stb "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
+INCLUDE_DIRECTORIES(libhv libhv/base libhv/ssl libhv/event libhv/evpp libhv/http libhv/util libhv/cpputil
+                    imgui stb ozz leveldb "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 
