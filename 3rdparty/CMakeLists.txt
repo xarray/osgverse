@@ -164,33 +164,33 @@ SET(TINYSPLINE_SOURCE_FILES
 )
 
 SET(LIBHV_SOURCE_FILES
-    libhv/base/hbase.c libhv/base/herr.c libhv/base/hlog.c libhv/base/hmain.c
-    libhv/base/hsocket.c libhv/base/htime.c libhv/base/hversion.c libhv/base/rbtree.c
-    libhv/event/epoll.c libhv/event/evport.c libhv/event/hevent.c libhv/event/hloop.c
-    libhv/event/iocp.c libhv/event/kqueue.c libhv/event/nio.c libhv/event/nlog.c
-    libhv/event/noevent.c libhv/event/overlapio.c libhv/event/poll.c libhv/event/rudp.c
-    libhv/event/select.c libhv/event/unpack.c libhv/event/kcp/hkcp.c libhv/event/kcp/ikcp.c
-    libhv/http/httpdef.c libhv/http/http_parser.c libhv/http/multipart_parser.c
-    libhv/http/websocket_parser.c libhv/http/wsdef.c libhv/mqtt/mqtt_client.c libhv/mqtt/mqtt_protocol.c
-    libhv/protocol/dns.c libhv/protocol/ftp.c libhv/protocol/icmp.c libhv/protocol/smtp.c
-    libhv/ssl/appletls.c libhv/ssl/gnutls.c libhv/ssl/hssl.c libhv/ssl/mbedtls.c
-    libhv/ssl/nossl.c libhv/ssl/openssl.c libhv/ssl/wintls.c libhv/util/base64.c
-    libhv/util/md5.c libhv/util/sha1.c
-    libhv/cpputil/hasync.cpp libhv/cpputil/hdir.cpp libhv/cpputil/hpath.cpp libhv/cpputil/hstring.cpp
-    libhv/cpputil/hurl.cpp libhv/cpputil/ifconfig.cpp libhv/cpputil/iniparser.cpp libhv/cpputil/RAII.cpp
-    libhv/cpputil/ThreadLocalStorage.cpp
-    libhv/evpp/EventLoopThreadPool_test.cpp libhv/evpp/EventLoopThread_test.cpp
-    libhv/evpp/EventLoop_test.cpp libhv/evpp/TcpClientEventLoop_test.cpp
-    libhv/evpp/TcpClient_test.cpp libhv/evpp/TcpServer_test.cpp
-    libhv/evpp/TimerThread_test.cpp libhv/evpp/UdpClient_test.cpp
-    libhv/evpp/UdpServer_test.cpp libhv/http/Http1Parser.cpp
-    libhv/http/Http2Parser.cpp libhv/http/HttpMessage.cpp
-    libhv/http/HttpParser.cpp libhv/http/http_content.cpp
-    libhv/http/WebSocketChannel.cpp libhv/http/WebSocketParser.cpp
-    libhv/http/client/AsyncHttpClient.cpp libhv/http/client/WebSocketClient.cpp
-    libhv/http/server/FileCache.cpp libhv/http/server/HttpHandler.cpp
-    libhv/http/server/HttpServer.cpp libhv/http/server/HttpService.cpp
-    libhv/http/client/http_client.cpp libhv/http/server/http_page.cpp libhv/hv.h
+    libhv/all/hbase.c libhv/all/herr.c libhv/all/hlog.c libhv/all/hmain.c
+    libhv/all/hsocket.c libhv/all/htime.c libhv/all/hversion.c libhv/all/rbtree.c
+    libhv/all/epoll.c libhv/all/evport.c libhv/all/hevent.c libhv/all/hloop.c
+    libhv/all/iocp.c libhv/all/kqueue.c libhv/all/nio.c libhv/all/nlog.c
+    libhv/all/noevent.c libhv/all/overlapio.c libhv/all/poll.c libhv/all/rudp.c
+    libhv/all/select.c libhv/all/unpack.c libhv/all/kcp/hkcp.c libhv/all/kcp/ikcp.c
+    libhv/all/httpdef.c libhv/all/http_parser.c libhv/all/multipart_parser.c
+    libhv/all/websocket_parser.c libhv/all/wsdef.c libhv/all/mqtt_client.c libhv/all/mqtt_protocol.c
+    libhv/all/dns.c libhv/all/ftp.c libhv/all/icmp.c libhv/all/smtp.c
+    libhv/all/appletls.c libhv/all/gnutls.c libhv/all/hssl.c libhv/all/mbedtls.c
+    libhv/all/nossl.c libhv/all/openssl.c libhv/all/wintls.c libhv/all/base64.c
+    libhv/all/md5.c libhv/all/sha1.c
+    libhv/all/hasync.cpp libhv/all/hdir.cpp libhv/all/hpath.cpp libhv/all/hstring.cpp
+    libhv/all/hurl.cpp libhv/all/ifconfig.cpp libhv/all/iniparser.cpp libhv/all/RAII.cpp
+    libhv/all/ThreadLocalStorage.cpp
+    libhv/all/EventLoopThreadPool_test.cpp libhv/all/EventLoopThread_test.cpp
+    libhv/all/EventLoop_test.cpp libhv/all/TcpClientEventLoop_test.cpp
+    libhv/all/TcpClient_test.cpp libhv/all/TcpServer_test.cpp
+    libhv/all/TimerThread_test.cpp libhv/all/UdpClient_test.cpp
+    libhv/all/UdpServer_test.cpp libhv/all/Http1Parser.cpp
+    libhv/all/Http2Parser.cpp libhv/all/HttpMessage.cpp
+    libhv/all/HttpParser.cpp libhv/all/http_content.cpp
+    libhv/all/WebSocketChannel.cpp libhv/all/WebSocketParser.cpp
+    libhv/all/client/AsyncHttpClient.cpp libhv/all/client/WebSocketClient.cpp
+    libhv/all/server/FileCache.cpp libhv/all/server/HttpHandler.cpp
+    libhv/all/server/HttpServer.cpp libhv/all/server/HttpService.cpp
+    libhv/all/client/http_client.cpp libhv/all/server/http_page.cpp libhv/hv.h
 )
 
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
@@ -234,8 +234,8 @@ IF(VERSE_USE_EXTERNAL_GLES)
     ADD_DEFINITIONS(-DGLEW_EGL)
 ENDIF()
 
-INCLUDE_DIRECTORIES(libhv libhv/base libhv/ssl libhv/event libhv/evpp libhv/http libhv/util libhv/cpputil
-                    imgui stb ozz leveldb "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
+INCLUDE_DIRECTORIES(libhv libhv/all imgui stb ozz leveldb
+                    "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 
