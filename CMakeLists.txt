@@ -109,9 +109,9 @@ FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
 
 FIND_PATH(BULLET_LIB_DIR libBullet3Dynamics.a BulletDynamics.lib
     PATHS
-    $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
-    /usr/${FIND_LIB_POSTFIX}
-    /usr/local/${FIND_LIB_POSTFIX}
+    $ENV{BULLET_ROOT}/lib $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
+    /usr/lib /usr/${FIND_LIB_POSTFIX}
+    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 
 FIND_PATH(OSG_INCLUDE_DIR osg/Referenced
@@ -132,10 +132,10 @@ FIND_PATH(OSG_BUILD_INCLUDE_DIR osg/Config
 
 FIND_PATH(OSG_LIB_DIR libosg.so osg.lib
     PATHS
-    $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
-    $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
-    /usr/${FIND_LIB_POSTFIX}
-    /usr/local/${FIND_LIB_POSTFIX}
+    $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
+    $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+    /usr/lib /usr/${FIND_LIB_POSTFIX}
+    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 
 SET(BULLET_DEBUG_POSTFIX "_Debug" CACHE STRING "Postfix of Bullet built-libraries")

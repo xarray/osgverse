@@ -5,6 +5,7 @@
 osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Operating System | Compiler                 | Supported          | Notes |
 |------------------|--------------------------|--------------------|-------|
+| Windows 11       | Visual Studio 2019       | :heavy_check_mark: |       |
 | Windows 10       | Visual Studio 2022       | :heavy_check_mark: |       |
 | Windows 10       | Visual Studio 2017       | :heavy_check_mark: |       |
 | Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
@@ -21,7 +22,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 3. OpenSceneGraph is always required for building osgVerse. (https://github.com/openscenegraph/OpenSceneGraph) Current project mainly depends on OSG 3.7.0, but can compile on OSG 3.1.1 or later versions.
 4. Optional dependencies:
 - 4.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
-- 4.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3)
+- 4.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable USE_MSVC_RUNTIME_LIBRARY_DLL while compiling Bullet.
 - 4.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
 - 4.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
 
