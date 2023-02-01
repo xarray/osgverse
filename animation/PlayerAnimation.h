@@ -15,7 +15,25 @@ namespace osgVerse
         typedef float (*SetJointWeightFunc)(int, int, void*);
         PlayerAnimation();
 
+        struct GeometryJointData
+        {
+            typedef std::vector<std::pair<uint16_t, float>> JointWeight;
+            std::vector<JointWeight> _weights;  // size must equal to vertex count
+            std::map<uint16_t, osg::Matrixf> _invBindPoses;
+        };
+
+        /** Initialize the player skeleton and mesh from OSG scene graph
+        *   - skeletonRoot: node_name = joint_name/parent_idx, matrix = rest_pose
+        *   - meshRoot: geometry = ozz_mesh (part.pos/normal/uv/tangents/colors)
+        *   - jointDataMap: joint_idx/weight (per vertex), inverse_bind_poses (per joint-in-geom)
+        */
+        bool initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
+                        const std::map<std::string, GeometryJointData>& jointDataMap);
+
+        /// Initialize the player from ozz skeleton and mesh files
         bool initialize(const std::string& skeleton, const std::string& mesh);
+
+        /// Load animation data from ozz files
         bool loadAnimation(const std::string& key, const std::string& animation);
         void unloadAnimation(const std::string& key);
 
@@ -51,8 +69,9 @@ namespace osgVerse
         void seek(const std::string& key, float timeRatio);
 
     protected:
-        struct TextureData { std::map<std::string, std::string> channels; };
-        std::vector<TextureData> _meshTextureList;
+        bool initializeInternal();
+
+        std::vector<osg::ref_ptr<osg::StateSet>> _meshStateSetList;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;
     };

@@ -35,6 +35,7 @@ NEW_TEST_EXECUTABLE(osgVerse_Test_Pbr_Prerequisite pbr_prerequisite.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Obb_KDop obb_kdop_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Mesh_Process mesh_process_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Paging_Lod paging_lod_test.cpp)
+NEW_TEST_EXECUTABLE(osgVerse_Test_Player_Animation player_animation_test.cpp)
 IF(BULLET_FOUND)
 	NEW_TEST_EXECUTABLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)
 	# TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test
