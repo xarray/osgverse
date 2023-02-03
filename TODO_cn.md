@@ -21,7 +21,7 @@
 | 编译      |              | 新增     |                    | initial  | 支持Android编译流程，支持直接纳入Android Studio | |
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |
 | 编译      |              | 新增     |                    | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
-| 渲染      | pipeline     | 优化     |                    | initial  | 不要用NodeMask来管理Deferred场景，避免影响用户代码 | |
+| 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 不要用NodeMask来管理Deferred场景，避免影响用户代码 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox对于大坐标场景显示错误，并且被裁切 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox用tex2d纹理时，会有一条明显的接缝边界线 | |
@@ -54,6 +54,7 @@
 | 模型      | readerwriter | 新增     |                    | initial  | 自动检查输入几何体的正确性，尝试用Indirect替换优化 | |
 | 模型      | readerwriter | 新增     |                    | initial  | 支持流传输修改模型，实现Blender和编辑器的动态模型切换编辑 | |
 | 模型/动画 | readerwriter | 优化     |                    | initial  | FBX和GLTF插件支持导入角色和角色动画并显示 | |
+| 模型/动画 | animation    | 优化     |                    | initial  | PlayerAnimation支持直接输入角色骨骼和动画数据 | |
 | 脚本      | ui           | 新增     |                    | initial  | 考虑合适的方式接入Lua和Python | |
 | 脚本      | ui           | 新增     |                    | initial  | 使用Serialization映射OSG和osgVerse的核心函数 | |
 | 脚本      | ui           | 新增     |                    | initial  | 支持通过脚本创建UserComponent接口以及Verse插件 | |

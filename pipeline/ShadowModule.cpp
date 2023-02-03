@@ -231,7 +231,7 @@ namespace osgVerse
         stage->name = "ShadowCaster" + std::to_string(id);
         stage->camera = camera; stage->camera->setName(stage->name);
         stage->deferred = false; stage->inputStage = true;
-        stage->camera->setCullMask(casterMask);
+        stage->camera->setUserValue("PipelineMask", casterMask);  // replacing setCullMask()
         stage->camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
         return stage;
     }

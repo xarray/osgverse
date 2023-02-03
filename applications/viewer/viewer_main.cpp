@@ -101,12 +101,13 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->addChild(scene.get());
-    sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
-    if (otherSceneRoot.valid()) otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
+    if (otherSceneRoot.valid())
+        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(otherSceneRoot.get());
@@ -134,7 +135,7 @@ int main(int argc, char** argv)
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow && shadow->getFrustumGeode())
     {
-        shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
         root->addChild(shadow->getFrustumGeode());
     }
 
@@ -150,7 +151,7 @@ int main(int argc, char** argv)
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
                               osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
-        skybox->setNodeMask(~DEFERRED_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }
 
@@ -183,7 +184,7 @@ int main(int argc, char** argv)
     precipitationEffect->setParticleSize(10.0f);
     precipitationEffect->setWind(osg::Vec3(1.0f, 1.0f, 0.0f));
     precipitationEffect->rain(1.0f);
-    precipitationEffect->setNodeMask(~DEFERRED_SCENE_MASK);
+    osgVerse::Pipeline::setPipelineMask(*precipitationEffect, ~DEFERRED_SCENE_MASK);
     particleCamera->addChild(precipitationEffect);
 #endif
 

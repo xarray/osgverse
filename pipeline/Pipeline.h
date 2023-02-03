@@ -116,6 +116,9 @@ namespace osgVerse
         static void createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
             const std::vector<std::string>& defs = std::vector<std::string>());
 
+        /** Set pipeline mask of scene graph nodes */
+        static void setPipelineMask(osg::Node& node, unsigned int mask);
+
         void addStage(Stage* s) { _stages.push_back(s); }
         void removeStage(unsigned int index) { _stages.erase(_stages.begin() + index); }
 

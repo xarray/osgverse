@@ -38,12 +38,11 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->addChild(scene.get());
-    sceneRoot->setNodeMask(DEFERRED_SCENE_MASK);
-    //sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile(
         "skydome.osgt.(0.005,0.005,0.01).scale.-100,-150,0.trans");
-    otherSceneRoot->setNodeMask(~DEFERRED_SCENE_MASK);
+    osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(otherSceneRoot.get());

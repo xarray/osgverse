@@ -51,18 +51,18 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->addChild(scene.get());
-    sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
     postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
-    postCamera->setNodeMask(FORWARD_SCENE_MASK);
     postCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
     postCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
     postCamera->setViewMatrix(osg::Matrix::identity());
     postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
     postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    osgVerse::Pipeline::setPipelineMask(*postCamera, FORWARD_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
     {
         if (shadow->getFrustumGeode())
         {
-            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
             root->addChild(shadow->getFrustumGeode());
         }
 

@@ -156,7 +156,7 @@ int main(int argc, char** argv)
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
-    sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
+    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
     
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(sceneRoot.get());
@@ -182,7 +182,7 @@ int main(int argc, char** argv)
     {
         if (shadow->getFrustumGeode())
         {
-            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
             root->addChild(shadow->getFrustumGeode());
         }
     }
@@ -233,7 +233,7 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Group> earthParent = new osg::Group;
         earthParent->addChild(earthRoot.get());
         earthParent->addChild(skyNode.get());
-        earthParent->setNodeMask(~DEFERRED_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*earthParent, ~DEFERRED_SCENE_MASK);
         root->addChild(earthParent.get());
 
         // Create places

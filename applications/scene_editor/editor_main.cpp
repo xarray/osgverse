@@ -139,11 +139,11 @@ int main(int argc, char** argv)
     // Core scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->setName("SceneRoot");
-    sceneRoot->setNodeMask(DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
+    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Group> auxRoot = new osg::Group;
     auxRoot->setName("AuxRoot");
-    auxRoot->setNodeMask(~DEFERRED_SCENE_MASK);
+    osgVerse::Pipeline::setPipelineMask(*auxRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
     {
         if (shadow->getFrustumGeode())
         {
-            shadow->getFrustumGeode()->setNodeMask(FORWARD_SCENE_MASK);
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
             root->addChild(shadow->getFrustumGeode());
         }
     }

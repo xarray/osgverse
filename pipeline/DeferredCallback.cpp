@@ -69,15 +69,22 @@ namespace osgVerse
         if (frameNo <= _cullFrameNumber) return _calculatedNearFar;
         else _cullFrameNumber = frameNo;
 
-        // Update global near/far using entire scene, ignoring callback/cull-mask
+        // Update global near/far using entire scene, ignoring callback/cull-mask/pipeline-mask
         osg::ref_ptr<osg::CullSettings::ClampProjectionMatrixCallback> clamper =
             sv->getClampProjectionMatrixCallback();
         unsigned int cullMask = sv->getCullMask();
+        if (sv->getCullVisitor()) sv->getCullVisitor()->setUserData(_nearFarUniform.get());
+        if (sv->getCullVisitorLeft()) sv->getCullVisitorLeft()->setUserData(_nearFarUniform.get());
+        if (sv->getCullVisitorRight()) sv->getCullVisitorRight()->setUserData(_nearFarUniform.get());
+
         sv->setClampProjectionMatrixCallback(_userClamperCallback.get());
         sv->setCullMask(0xffffffff);
         sv->osgUtil::SceneView::cull();
         sv->setCullMask(cullMask);
         sv->setClampProjectionMatrixCallback(clamper.get());
+        if (sv->getCullVisitor()) sv->getCullVisitor()->setUserData(NULL);
+        if (sv->getCullVisitorLeft()) sv->getCullVisitorLeft()->setUserData(NULL);
+        if (sv->getCullVisitorRight()) sv->getCullVisitorRight()->setUserData(NULL);
 
         // Apply near/far variable for future stages and forward pass to use
         double znear = 0.0, zfar = 0.0, epsilon = 1e-6;
