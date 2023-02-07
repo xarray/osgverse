@@ -152,6 +152,14 @@ namespace osgVerse
                        << data->glslVersion << "; Renderer: " << data->renderer << std::endl;
             OSG_NOTICE << "[StandardPipeline] Using OpenGL Context: " << p->getTargetVersion()
                        << "; Using GLSL Version: "<< p->getGlslTargetVersion() << std::endl;
+            if (data->renderer.find("MTT") != std::string::npos)
+            {
+#ifndef VERSE_ENABLE_MTT
+                OSG_WARN << "[StandardPipeline] It seems you are using MooreThreads graphics "
+                         << "driver but not setting VERSE_USE_MTT_DRIVER in CMake. It may cause "
+                         << "unexpected problems at present." << std::endl;
+#endif
+            }
         }
 
         // GBuffer should always be first because it also computes the scene near/far planes
@@ -163,7 +171,11 @@ namespace osgVerse
             "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
             "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
+#ifndef VERSE_ENABLE_MTT
             "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
+#else
+            "DepthBuffer", osgVerse::Pipeline::DEPTH32);
+#endif
 
         // Shadow module initialization
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =

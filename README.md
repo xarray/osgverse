@@ -11,6 +11,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
 | Windows 10 UWP   |                          | :soon:             |       |
 | Ubuntu 18.04     | GCC 7.5 (or later)       | :heavy_check_mark: |       |
+| Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: |       |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |
 | Android          |                          | :soon:             |       |
@@ -35,7 +36,7 @@ Our project is already tested on graphics cards listed as below:
 | NVIDIA RTX 1050 Mobile    | 3.2 / GLSL 1.5 | :soon:             |       |
 | AMD Radeon RX5500         |                | :soon:             |       |
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| MooreThreads MTT S50, S80 |                | :heavy_check_mark: | Has blitting problem in D24S8 mode |
+| MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
 | VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | Black screen at present |
 
@@ -101,6 +102,7 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
 | VERSE_WITH_DWARF            | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |
 | VERSE_USE_GLIBCXX11_ABI     | Boolean | ON            | Enable to use libraries built with GCC compiler newer than 4.9 |
+| VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 
 #### Screenshots
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza.jpg)

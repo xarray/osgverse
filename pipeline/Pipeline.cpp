@@ -960,12 +960,14 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_INT8:
+#ifndef VERSE_ENABLE_MTT
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE8);
                 tex->setSourceFormat(GL_LUMINANCE);
             }
             else
+#endif
             {
                 tex->setInternalFormat(GL_R8);
                 tex->setSourceFormat(GL_RED);
@@ -973,12 +975,14 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_FLOAT16:
+#ifndef VERSE_ENABLE_MTT
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE16F_ARB);
                 tex->setSourceFormat(GL_LUMINANCE);
             }
             else
+#endif
             {
                 tex->setInternalFormat(GL_R16F);
                 tex->setSourceFormat(GL_RED);
@@ -986,12 +990,14 @@ namespace osgVerse
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
+#ifndef VERSE_ENABLE_MTT
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE32F_ARB);
                 tex->setSourceFormat(GL_LUMINANCE);
             }
             else
+#endif
             {
                 tex->setInternalFormat(GL_R32F);
                 tex->setSourceFormat(GL_RED);
@@ -999,12 +1005,14 @@ namespace osgVerse
             tex->setSourceType(GL_FLOAT);
             break;
         case RG_INT8:
+#ifndef VERSE_ENABLE_MTT
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE8_ALPHA8);
                 tex->setSourceFormat(GL_LUMINANCE_ALPHA);
             }
             else
+#endif
             {
                 tex->setInternalFormat(GL_RG8);
                 tex->setSourceFormat(GL_RG);
@@ -1012,12 +1020,14 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case RG_FLOAT16:
+#ifndef VERSE_ENABLE_MTT
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE_ALPHA16F_ARB);
                 tex->setSourceFormat(GL_LUMINANCE_ALPHA);
             }
             else
+#endif
             {
                 tex->setInternalFormat(GL_RG16F);
                 tex->setSourceFormat(GL_RG);
@@ -1025,12 +1035,14 @@ namespace osgVerse
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RG_FLOAT32:
+#ifndef VERSE_ENABLE_MTT
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE_ALPHA32F_ARB);
                 tex->setSourceFormat(GL_LUMINANCE_ALPHA);
             }
             else
+#endif
             {
                 tex->setInternalFormat(GL_RG32F);
                 tex->setSourceFormat(GL_RG);

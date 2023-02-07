@@ -72,7 +72,7 @@ ENDIF()
 
 IF(NOT WIN32)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -fPIC")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -frtti -fopenmp")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -frtti -fopenmp -fpermissive")
     SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/bin;${CMAKE_INSTALL_PREFIX}/lib")
 ENDIF(NOT WIN32)
 
@@ -182,6 +182,7 @@ ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 ######################################### Global Options
 SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse")
 SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (will force osgVerse to be static)")
+SET(VERSE_USE_MTT_DRIVER OFF CACHE BOOL "Use MooreThreads MTT drivers")
 SET_PROPERTY(GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES "")
 
 IF(UNIX)
