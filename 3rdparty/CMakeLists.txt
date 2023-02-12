@@ -163,6 +163,42 @@ SET(TINYSPLINE_SOURCE_FILES
     tinyspline/tinysplinecxx.cxx tinyspline/tinysplinecxx.h
 )
 
+SET(MBEDTLS_SOURCE_FILES
+    libhv/everest/everest.c libhv/everest/x25519.c libhv/everest/Hacl_Curve25519_joined.c
+    libhv/mbedtls/aes.c libhv/mbedtls/aesni.c libhv/mbedtls/aria.c
+    libhv/mbedtls/asn1parse.c libhv/mbedtls/asn1write.c libhv/mbedtls/base64.c
+    libhv/mbedtls/bignum.c libhv/mbedtls/bignum_core.c libhv/mbedtls/bignum_mod.c
+    libhv/mbedtls/bignum_mod_raw.c libhv/mbedtls/camellia.c libhv/mbedtls/ccm.c
+    libhv/mbedtls/chacha20.c libhv/mbedtls/chachapoly.c libhv/mbedtls/cipher.c
+    libhv/mbedtls/cipher_wrap.c libhv/mbedtls/constant_time.c libhv/mbedtls/cmac.c
+    libhv/mbedtls/ctr_drbg.c libhv/mbedtls/des.c libhv/mbedtls/dhm.c libhv/mbedtls/ecdh.c
+    libhv/mbedtls/ecdsa.c libhv/mbedtls/ecjpake.c libhv/mbedtls/ecp.c libhv/mbedtls/ecp_curves.c
+    libhv/mbedtls/entropy.c libhv/mbedtls/entropy_poll.c libhv/mbedtls/error.c libhv/mbedtls/gcm.c
+    libhv/mbedtls/hash_info.c libhv/mbedtls/hkdf.c libhv/mbedtls/hmac_drbg.c libhv/mbedtls/lmots.c
+    libhv/mbedtls/lms.c libhv/mbedtls/md.c libhv/mbedtls/md5.c libhv/mbedtls/memory_buffer_alloc.c
+    libhv/mbedtls/nist_kw.c libhv/mbedtls/oid.c libhv/mbedtls/padlock.c libhv/mbedtls/pem.c
+    libhv/mbedtls/pk.c libhv/mbedtls/pk_wrap.c libhv/mbedtls/pkcs12.c libhv/mbedtls/pkcs5.c
+    libhv/mbedtls/pkparse.c libhv/mbedtls/pkwrite.c libhv/mbedtls/platform.c libhv/mbedtls/platform_util.c
+    libhv/mbedtls/poly1305.c libhv/mbedtls/psa_crypto.c libhv/mbedtls/psa_crypto_aead.c
+    libhv/mbedtls/psa_crypto_cipher.c libhv/mbedtls/psa_crypto_client.c
+    libhv/mbedtls/psa_crypto_driver_wrappers.c libhv/mbedtls/psa_crypto_ecp.c
+    libhv/mbedtls/psa_crypto_hash.c libhv/mbedtls/psa_crypto_mac.c libhv/mbedtls/psa_crypto_pake.c
+    libhv/mbedtls/psa_crypto_rsa.c libhv/mbedtls/psa_crypto_se.c libhv/mbedtls/psa_crypto_slot_management.c
+    libhv/mbedtls/psa_crypto_storage.c libhv/mbedtls/psa_its_file.c libhv/mbedtls/ripemd160.c
+    libhv/mbedtls/rsa.c libhv/mbedtls/rsa_alt_helpers.c libhv/mbedtls/sha1.c libhv/mbedtls/sha256.c
+    libhv/mbedtls/sha512.c libhv/mbedtls/threading.c libhv/mbedtls/timing.c
+    libhv/mbedtls/version.c libhv/mbedtls/version_features.c
+    libhv/mbedtls/pkcs7.c libhv/mbedtls/x509.c libhv/mbedtls/x509_create.c libhv/mbedtls/x509_crl.c
+    libhv/mbedtls/x509_crt.c libhv/mbedtls/x509_csr.c libhv/mbedtls/x509write_crt.c
+    libhv/mbedtls/x509write_csr.c
+    libhv/mbedtls/debug.c libhv/mbedtls/mps_reader.c libhv/mbedtls/mps_trace.c libhv/mbedtls/net_sockets.c
+    libhv/mbedtls/ssl_cache.c libhv/mbedtls/ssl_ciphersuites.c libhv/mbedtls/ssl_client.c
+    libhv/mbedtls/ssl_cookie.c libhv/mbedtls/ssl_debug_helpers_generated.c libhv/mbedtls/ssl_msg.c
+    libhv/mbedtls/ssl_ticket.c libhv/mbedtls/ssl_tls.c libhv/mbedtls/ssl_tls12_client.c
+    libhv/mbedtls/ssl_tls12_server.c libhv/mbedtls/ssl_tls13_keys.c libhv/mbedtls/ssl_tls13_server.c
+    libhv/mbedtls/ssl_tls13_client.c libhv/mbedtls/ssl_tls13_generic.c
+)
+
 SET(LIBHV_SOURCE_FILES
     libhv/all/hbase.c libhv/all/herr.c libhv/all/hlog.c libhv/all/hmain.c
     libhv/all/hsocket.c libhv/all/htime.c libhv/all/hversion.c libhv/all/rbtree.c
@@ -203,6 +239,7 @@ SOURCE_GROUP("PMP & MCut Files" FILES ${PMP_MCUT_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
+SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
 SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
 #######################
 
@@ -219,12 +256,12 @@ SET(LIBRARY_FILES
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
-    ${LIBHV_SOURCE_FILES}
+    ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
-                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB
-                -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
+				-DUNORDERED -DHAVE_UNORDERED_MAP=1)
 IF(WIN32)
     ADD_DEFINITIONS(-DLEVELDB_PLATFORM_WINDOWS)
 ELSE()
@@ -234,7 +271,7 @@ IF(VERSE_USE_EXTERNAL_GLES)
     ADD_DEFINITIONS(-DGLEW_EGL)
 ENDIF()
 
-INCLUDE_DIRECTORIES(libhv libhv/all imgui stb ozz leveldb
+INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
