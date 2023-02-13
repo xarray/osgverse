@@ -22,6 +22,9 @@ public:
         supportsProtocol("ftp", "Read from ftp port using libhv.");
         supportsProtocol("ftps", "Read from ftps port using libhv.");
 
+        // Examples:
+        // https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png.verse_web
+        // ftp://ftp.techtrade.si/SLIKE/0002133.jpg.verse_web
         supportsExtension("verse_web", "Pseudo file extension, used to select libhv plugin.");
         supportsExtension("*", "Passes all read files to other plugins to handle actual model loading.");
     }
@@ -100,7 +103,7 @@ public:
         if (osgDB::containsServerAddress(filename))
         {
             // TODO check remote existing state
-            printf("*********** %s\n", filename.c_str());
+            OSG_NOTICE << "[libhv] fileExists() not implemented." << std::endl;
         }
         return ReaderWriter::fileExists(filename, options);
     }

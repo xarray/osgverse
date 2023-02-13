@@ -1,4 +1,4 @@
-SET(EXE_NAME osgVerse_Viewer)
+SET(EXE_NAME osgVerse_ViewerComposite)
 SET(EXECUTABLE_FILES
     viewer_main.cpp
 )

@@ -50,7 +50,8 @@
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 支持自己扩展Pipeline::Stage，增加一个测试案例演示使用NV HBAO | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 通过脚本的方式来管理标准和自定义的Pipeline | |
 | 插件      | plugins      | 新增     | 80%                | initial  | 支持伪插件方式自动替换PBR贴图顺序(?.D4,S3,N3,X1M1R1.pbrlayout) | 已实现，未测试 |
-| 插件      | plugins      | 新增     |                    | initial  | 使用libhv支持多种网络协议，替代curl插件 | |
+| 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用libhv支持多种网络协议，替代curl插件 | |
+| 插件      | plugins      | 新增     |                    | initial  | 使用leveldb支持数据库读写操作，可以用数据库来存储osgb文件 | |
 | 辅助工具  | helpers      | 新增     | :heavy_check_mark: | initial  | 实现Unity的导出插件第一版(静态模型，PBR材质) | |
 | 辅助工具  | helpers      | 新增     |                    | initial  | 实现Blender的导出插件第一版(静态模型，PBR材质) | |
 | 辅助工具  | helpers      | 新增     |                    | initial  | 实现3dsmax的导出插件第一版(静态模型，PBR材质) | |

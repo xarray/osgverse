@@ -14,7 +14,7 @@ namespace osgVerse
     class SkyBox : public osg::Transform
     {
     public:
-        SkyBox(Pipeline* p);
+        SkyBox(Pipeline* p = NULL);
         SkyBox(const SkyBox& copy, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
         static osg::Camera* createSkyCamera();
 

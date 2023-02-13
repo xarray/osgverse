@@ -7,12 +7,11 @@
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
-#include <osgViewer/Viewer>
+#include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-#define INDICATOR_TEST 0
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
@@ -25,55 +24,17 @@ namespace backward { backward::SignalHandling sh; }
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-class SetPipelineHandler : public osgGA::GUIEventHandler
+class MyView : public osgViewer::View
 {
 public:
-    SetPipelineHandler(osgVerse::Pipeline* p, osgVerse::LightDrawable* l)
-        : _pipeline(p), _mainLight(l) {}
-
-    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
-    {
-        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
-        switch (ea.getEventType())
-        {
-        case osgGA::GUIEventAdapter::KEYUP:
-            if (ea.getKey() == 'X')
-            {
-                OSG_NOTICE << "*** Changing to standard pipeline" << std::endl;
-                _pipeline->clearStagesFromView(view);
-
-                osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
-                setupStandardPipeline(_pipeline.get(), view, params);
-
-                osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(_pipeline->getModule("Light"));
-                if (light) light->setMainLight(_mainLight.get(), "Shadow");
-            }
-            else if (ea.getKey() == 'Z')
-            {
-                OSG_NOTICE << "*** Changing to fixed pipeline" << std::endl;
-                _pipeline->clearStagesFromView(view);
-            }
-            break;
-        }
-        return false;
-    }
-
-protected:
-    osg::observer_ptr<osgVerse::Pipeline> _pipeline;
-    osg::observer_ptr<osgVerse::LightDrawable> _mainLight;
-};
-
-class MyViewer : public osgViewer::Viewer
-{
-public:
-    MyViewer(osgVerse::Pipeline* p) : osgViewer::Viewer(), _pipeline(p) {}
+    MyView(osgVerse::Pipeline* p) : osgViewer::View(), _pipeline(p) {}
     osg::ref_ptr<osgVerse::Pipeline> _pipeline;
 
 protected:
     virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
     {
         if (_pipeline.valid()) return _pipeline->createRenderer(camera);
-        else return osgViewer::Viewer::createRenderer(camera);
+        else return osgViewer::View::createRenderer(camera);
     }
 };
 
@@ -116,27 +77,33 @@ int main(int argc, char** argv)
     // Start the pipeline
     int requiredGLContext = 100;  // 100: Compatible, 300: GL3
     int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
-    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
-
-    MyViewer viewer(pipeline.get());
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
-    setupStandardPipeline(pipeline.get(), &viewer, params);
 
-    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow && shadow->getFrustumGeode())
+    const static int numViews = 2;
+    osg::ref_ptr<MyView> views[numViews];
+    for (int i = 0; i < numViews; ++i)
     {
-        osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-        root->addChild(shadow->getFrustumGeode());
-    }
+        osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+        views[i] = new MyView(pipeline.get());
+        views[i]->setUpViewInWindow(50 + 640 * i, 50, 640, 480);
+        setupStandardPipeline(pipeline.get(), views[i].get(), params);
 
-    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    if (light) light->setMainLight(light0.get(), "Shadow");
+        osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+        if (shadow && shadow->getFrustumGeode())
+        {
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
+
+        osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+        if (light) light->setMainLight(light0.get(), "Shadow");
+    }
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
 
-    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
                               osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
@@ -145,18 +112,16 @@ int main(int argc, char** argv)
         postCamera->addChild(skybox.get());
     }
 
-#if INDICATOR_TEST
-    // Experimental: select model and show a highlight outline
-    osgVerse::Pipeline::setModelIndicator(scene.get(), osgVerse::Pipeline::SelectIndicator);
-#endif
-
     // Start the viewer
-    viewer.addEventHandler(new SetPipelineHandler(pipeline.get(), light0.get()));
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
+    osgViewer::CompositeViewer viewer;
+    for (int i = 0; i < numViews; ++i)
+    {
+        views[i]->addEventHandler(new osgViewer::StatsHandler);
+        views[i]->addEventHandler(new osgViewer::WindowSizeHandler);
+        views[i]->setCameraManipulator(new osgGA::TrackballManipulator);
+        views[i]->setSceneData(root.get());
+        viewer.addView(views[i].get());
+    }
 
     // FIXME: how to avoid shadow problem...
     // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,

@@ -51,9 +51,10 @@ Our project is already tested on graphics cards listed as below:
 #### Applications
 1. osgVerse_SceneEditor: a forward-looking scene editor for osgVerse scene & components.
 2. osgVerse_Viewer: a scene viewer with modern rendering pipeline support.
-3. osgVerse_EarthViewer: an example demostrating how to integrate osgVerse with osgEarth.
-4. osgVerse_QtViewer: an example demostrating how to integrate osgVerse with Qt.
-5. TBD...
+3. osgVerse_ViewerComposite: a composite viewer with modern rendering pipeline support.
+4. osgVerse_EarthViewer: an example demostrating how to integrate osgVerse with osgEarth.
+5. osgVerse_QtViewer: an example demostrating how to integrate osgVerse with Qt.
+6. TBD...
 
 #### Tests and Examples
 1. osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
@@ -70,13 +71,14 @@ Our project is already tested on graphics cards listed as below:
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
 2. osgdb_verse_fbx: a plugin with full-featured FBX format support.
 3. osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
-4. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
-5. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
+4. osgdb_verse_web: a plugin for HTTP and more web protocols, which may replace the curl plugin.
+5. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
+6. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.
   - Example input: model.fbx.D4,M1R1X2,N3.pbrlayout (Tex0 = Diffuse x 4, Tex1 = Metallic+Roughness, Tex2 = Normal)
   - All layouts will be converted to osgVerse standard: D4,N3,S4,O1R1M1,A3,E3
-6. TBD...
+7. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.
