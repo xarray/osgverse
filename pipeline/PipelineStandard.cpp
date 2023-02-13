@@ -144,6 +144,23 @@ namespace osgVerse
     void setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view,
                                const StandardPipelineParameters& spp)
     {
+        if (!view)
+        {
+            OSG_WARN << "[StandardPipeline] No view provided." << std::endl;
+            return;
+        }
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
+        else if (!view->getLastAppliedViewConfig() && !view->getCamera()->getGraphicsContext())
+#else
+        else if (!view->getCamera()->getGraphicsContext())
+#endif
+        {
+            OSG_NOTICE << "[StandardPipeline] No view config applied. The pipeline will be constructed "
+                       << "with provided parameters. Please DO NOT apply any view config like "
+                       << "setUpViewInWindow() or setUpViewAcrossAllScreens() AFTER you called "
+                       << "setupStandardPipeline(). It may cause problems!!" << std::endl;
+        }
+
         GLVersionData* data = p->getVersionData() ? NULL : queryOpenGLVersion(p);
         p->startStages(spp.originWidth, spp.originHeight, view->getCamera()->getGraphicsContext());
         if (data)

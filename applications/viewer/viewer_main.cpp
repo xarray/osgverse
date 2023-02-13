@@ -118,8 +118,9 @@ int main(int argc, char** argv)
     int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
 
-    MyViewer viewer(pipeline.get());
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+    MyViewer viewer(pipeline.get());
+    viewer.setUpViewAcrossAllScreens();  // Always call viewer.setUp*() before setupStandardPipeline()!
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));

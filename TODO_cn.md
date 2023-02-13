@@ -34,14 +34,16 @@
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 需要明确贴图metallic和roughness是如何表达的，软件如何导出 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 解决Sponza法线贴图不能共享以及matallic闪烁的问题 | |
 | 渲染      | pipeline     | 优化     |                    | initial  | 对于大坐标模型，阴影bias需要根据坡度值动态修改PolygonOffset | |
-| 渲染      | pipeline     | 优化     |                    | initial  | 目前没办法处理多Slave（Across Screen）和CompositeViewer的情况 | |
+| 渲染      | pipeline     | 优化     | 50%                | initial  | 目前没办法处理多Slave（Across Screen）和CompositeViewer的情况 | CompositeViewer的例子已经添加 |
 | 渲染      | pipeline     | 优化     |                    | initial  | 目前没办法处理Viewer多线程DrawThreadPerContext和ThreadPerCamera | |
+| 渲染      | pipeline     | 新增     |                    | initial  | 考虑初步支持HTC VIVE VR渲染 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 全屏/窗口切换或者缩放窗口大小后，多层阴影显示不正确 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于小物件，AO的效果噪声比较严重，且Bloom结果不好 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于简单几何体，光照容易产生异常边界线，效果不好 | |
 | 渲染      | pipeline     | 优化     | 35%                | initial  | 在PBR Lighting过程中通过LightManager光源数据表计算多种光照结果 | 目前只支持了平行光，还需要支持点光源和锥光源，并且优化光照效果 |
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 增加一个测试案例演示如何增加多个光源，并测试多光源渲染压力 | |
+| 渲染      | pipeline     | 除虫     |                    | initial  | 如果clearStagesFromView()删除管线，移动视角后再恢复，则阴影错误 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现OSG 311版本中渲染报错，和Texture2DArray有关 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现311版本中缩放窗口后多层阴影的问题，因为没有实现resize() | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现摩尔S50/S80显卡上延迟和非延迟场景的深度融合错误 | |

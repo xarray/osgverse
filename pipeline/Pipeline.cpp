@@ -548,17 +548,40 @@ namespace osgVerse
 
     void Pipeline::clearStagesFromView(osgViewer::View* view)
     {
-        view->getCamera()->setGraphicsContext(_stageContext.get());
+        std::vector<osg::Camera*> slavesToRemove;
         for (unsigned int i = 0; i < view->getNumSlaves(); ++i)
-            view->getSlave(i)._camera->setStats(NULL);
+        {
+            Stage* s = getStage(view->getSlave(i)._camera.get());
+            if (s)
+            {
+                view->getSlave(i)._camera->setStats(NULL);
+                slavesToRemove.push_back(view->getSlave(i)._camera.get());
+            }
+        }
 
-        while (view->getNumSlaves() > 0) view->removeSlave(0);
+        slavesToRemove.push_back(_forwardCamera.get());
+        while (!slavesToRemove.empty())
+        {
+            osg::Camera* cam = slavesToRemove.back();
+            for (unsigned int i = 0; i < view->getNumSlaves(); ++i)
+            {
+                if (view->getSlave(i)._camera == cam)
+                { view->removeSlave(i); break; }
+            }
+            slavesToRemove.pop_back();
+        }
+
         _stages.clear(); _modules.clear(); _forwardCamera = NULL;
         if (_deferredCallback.valid())
         {
             _deferredCallback->getRunners().clear();
             _deferredCallback->setClampCallback(NULL);
         }
+
+        view->getCamera()->setGraphicsContext(_stageContext.get());
+        for (std::map<std::string, osg::ref_ptr<osg::NodeCallback>>::iterator itr = _modules.begin();
+            itr != _modules.end(); ++itr)
+        { view->getCamera()->removeUpdateCallback(itr->second.get()); }
     }
 
     void Pipeline::applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
