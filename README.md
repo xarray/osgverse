@@ -50,8 +50,8 @@ Our project is already tested on graphics cards listed as below:
 
 #### Applications
 1. osgVerse_SceneEditor: a forward-looking scene editor for osgVerse scene & components.
-2. osgVerse_Viewer: a scene viewer with modern rendering pipeline support.
-3. osgVerse_ViewerComposite: a composite viewer with modern rendering pipeline support.
+2. osgVerse_Viewer: a single-camera viewer with modern rendering pipeline support.
+3. osgVerse_ViewerComposite: a multi-camera (multi-view) viewer with modern rendering pipeline support.
 4. osgVerse_EarthViewer: an example demostrating how to integrate osgVerse with osgEarth.
 5. osgVerse_QtViewer: an example demostrating how to integrate osgVerse with Qt.
 6. TBD...

@@ -113,26 +113,12 @@ int main(int argc, char** argv)
     lightGeode->addDrawable(light0.get());
     root->addChild(lightGeode.get());
 
-    // Start the pipeline
+    // Create the pipeline
     int requiredGLContext = 100;  // 100: Compatible, 300: GL3
     int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
-    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
-
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
-    MyViewer viewer(pipeline.get());
-    viewer.setUpViewAcrossAllScreens();  // Always call viewer.setUp*() before setupStandardPipeline()!
-    setupStandardPipeline(pipeline.get(), &viewer, params);
-
-    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow && shadow->getFrustumGeode())
-    {
-        osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-        root->addChild(shadow->getFrustumGeode());
-    }
-
-    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    if (light) light->setMainLight(light0.get(), "Shadow");
-
+    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+    
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
@@ -140,18 +126,14 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }
-
-#if INDICATOR_TEST
-    // Experimental: select model and show a highlight outline
-    osgVerse::Pipeline::setModelIndicator(scene.get(), osgVerse::Pipeline::SelectIndicator);
-#endif
-
-    // Start the viewer
+    
+    // Realize the viewer
+    MyViewer viewer(pipeline.get());
     viewer.addEventHandler(new SetPipelineHandler(pipeline.get(), light0.get()));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
@@ -164,9 +146,30 @@ int main(int argc, char** argv)
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
+
+    // Setup the pipeline
+    setupStandardPipeline(pipeline.get(), &viewer, params);
+
+    // Post pipeline settings
+    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    if (shadow && shadow->getFrustumGeode())
+    {
+        osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+        root->addChild(shadow->getFrustumGeode());
+    }
+
+    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+    if (light) light->setMainLight(light0.get(), "Shadow");
+
+#if INDICATOR_TEST
+    // Experimental: select model and show a highlight outline
+    osgVerse::Pipeline::setModelIndicator(scene.get(), osgVerse::Pipeline::SelectIndicator);
+#endif
+
+    // Start the main loop
     while (!viewer.done())
     {
-        //std::cout << sceneRoot->getBound().center() << "; " << sceneRoot->getBound().radius() << "\n";
         viewer.frame();
     }
     return 0;

@@ -7,11 +7,15 @@
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
+#include <osgViewer/Viewer>
 #include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+
+// Change the macro to understand usage with composite viewer / viewer with slaves
+#define USE_COMPOSITE_VIEWER 1
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
@@ -24,6 +28,7 @@ namespace backward { backward::SignalHandling sh; }
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
+#if USE_COMPOSITE_VIEWER
 class MyView : public osgViewer::View
 {
 public:
@@ -37,6 +42,27 @@ protected:
         else return osgViewer::View::createRenderer(camera);
     }
 };
+#else
+class MyViewer : public osgViewer::Viewer
+{
+public:
+    MyViewer() : osgViewer::Viewer() {}
+    std::map<osg::Camera*, osg::ref_ptr<osgVerse::Pipeline>> _pipelines;
+
+protected:
+    virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
+    {
+        // FIXME: not working...
+        // 1. save <MainCam, DeferredCams> map
+        // 2. check if arg.camera matches the map
+        // 3. find pipeline according to MainCam
+        if (_pipelines.find(camera) != _pipelines.end())
+            return _pipelines[camera]->createRenderer(camera);
+        else
+            return osgViewer::Viewer::createRenderer(camera);
+    }
+};
+#endif
 
 int main(int argc, char** argv)
 {
@@ -74,20 +100,46 @@ int main(int argc, char** argv)
     lightGeode->addDrawable(light0.get());
     root->addChild(lightGeode.get());
 
-    // Start the pipeline
+    // Set the pipeline parameters
     int requiredGLContext = 100;  // 100: Compatible, 300: GL3
     int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
 
+    // Post-HUD display
+    osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
+    root->addChild(postCamera.get());
+
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
+    {
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+        skybox->setEnvironmentMap(params.skyboxMap.get(), false);
+        osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
+        postCamera->addChild(skybox.get());
+    }
+
+    // Use multiple views
     const static int numViews = 2;
+
+#if USE_COMPOSITE_VIEWER
     osg::ref_ptr<MyView> views[numViews];
     for (int i = 0; i < numViews; ++i)
     {
+        // Create the pipeline
         osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+
+        // Realize the viewer
         views[i] = new MyView(pipeline.get());
+        views[i]->addEventHandler(new osgViewer::StatsHandler);
+        views[i]->addEventHandler(new osgViewer::WindowSizeHandler);
+        views[i]->setCameraManipulator(new osgGA::TrackballManipulator);
+        views[i]->setSceneData(root.get());
         views[i]->setUpViewInWindow(50 + 640 * i, 50, 640, 480);
+
+        // Setup the pipeline... Always call viewer.setUp*() before setupStandardPipeline()!
         setupStandardPipeline(pipeline.get(), views[i].get(), params);
 
+        // Post pipeline settings
         osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
         if (shadow && shadow->getFrustumGeode())
         {
@@ -99,38 +151,77 @@ int main(int argc, char** argv)
         if (light) light->setMainLight(light0.get(), "Shadow");
     }
 
-    // Post-HUD display
-    osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
-    root->addChild(postCamera.get());
-
-    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
-    {
-        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
-        skybox->setEnvironmentMap(params.skyboxMap.get(), false);
-        osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
-        postCamera->addChild(skybox.get());
-    }
-
-    // Start the viewer
+    // Start the composite viewer
     osgViewer::CompositeViewer viewer;
     for (int i = 0; i < numViews; ++i)
-    {
-        views[i]->addEventHandler(new osgViewer::StatsHandler);
-        views[i]->addEventHandler(new osgViewer::WindowSizeHandler);
-        views[i]->setCameraManipulator(new osgGA::TrackballManipulator);
-        views[i]->setSceneData(root.get());
         viewer.addView(views[i].get());
-    }
+#else
+    MyViewer viewer;
+    viewer.addEventHandler(new osgViewer::StatsHandler);
+    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+    viewer.setSceneData(root.get());
 
     // FIXME: how to avoid shadow problem...
     // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+
+    double viewPos = (double)numViews - 1.0;
+    for (int i = 0; i < numViews; ++i, viewPos -= 2.0)
+    {
+        osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+        traits->screenNum = 0;
+        traits->x = 50 + 640 * i; traits->y = 50;
+        traits->width = 640; traits->height = 480;
+        traits->windowDecoration = true; traits->doubleBuffer = true;
+        traits->sharedContext = 0; traits->readDISPLAY();
+        traits->setUndefinedScreenDetailsToDefaultScreen();
+
+        osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+        if (!gc) return -1;
+
+        osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+        camera->setGraphicsContext(gc.get());
+        camera->setViewport(new osg::Viewport(0, 0, 640, 480));
+        camera->setDrawBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
+        camera->setReadBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
+
+        osg::Matrix viewOffset = osg::Matrix::scale((double)numViews, 1.0, 1.0)
+                               * osg::Matrix::translate(viewPos, 0.0, 0.0);
+        viewer.addSlave(camera.get(), viewOffset, osg::Matrix());
+
+        // Create the pipeline
+        osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+        viewer._pipelines[camera.get()] = pipeline;
+
+        // Setup the pipeline
+        setupStandardPipelineEx(pipeline.get(), &viewer, camera.get(), params);
+
+        // Post pipeline settings
+        osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+        if (shadow && shadow->getFrustumGeode())
+        {
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
+
+        osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+        if (light) light->setMainLight(light0.get(), "Shadow");
+    }
+#endif
+
+    // FIXME: how to avoid shadow problem...
+    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
+    // Shadow will go jigger because the output texture is not sync-ed before lighting...
+    // For SingleThreaded & CullDrawThreadPerContext it seems OK
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+
+    // Start the main loop
     while (!viewer.done())
     {
-        //std::cout << sceneRoot->getBound().center() << "; " << sceneRoot->getBound().radius() << "\n";
         viewer.frame();
     }
     return 0;

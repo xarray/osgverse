@@ -64,6 +64,7 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     _viewer->getCamera()->setViewport(0, 0, this->width(), this->height());
     _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());
 
+    // Setup the pipeline
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
     setupStandardPipeline(pipeline.get(), _viewer.get(), params);
 
@@ -91,7 +92,7 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
     }
 
-    // Start the viewer
+    // Start the embedded viewer
     _viewer->addEventHandler(new osgViewer::StatsHandler);
     _viewer->addEventHandler(new osgViewer::WindowSizeHandler);
     _viewer->setCameraManipulator(new osgGA::TrackballManipulator);

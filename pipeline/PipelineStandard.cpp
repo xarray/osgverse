@@ -17,7 +17,7 @@ public:
     {
         _data = new osgVerse::GLVersionData;
         _data->glVersion = 0.0f; _data->glslVersion = 0.0f;
-        _data->glslSupported = false;
+        _data->glslSupported = false; _data->fboSupported = false;
         if (p) p->setVersionData(_data.get());
     }
 
@@ -29,11 +29,15 @@ public:
         d->glVersion = ext->glVersion * 100;
         d->glslVersion = ext->glslLanguageVersion * 100;
         d->glslSupported = ext->isGlslSupported;
+        d->fboSupported = ext->isFrameBufferObjectSupported;
 #else
         osg::GL2Extensions* ext = osg::GL2Extensions::Get(renderInfo.getContextID(), true);
         d->glVersion = ext->getGlVersion() * 100;
         d->glslVersion = ext->getLanguageVersion() * 100;
         d->glslSupported = ext->isGlslSupported();
+
+        osg::FBOExtensions* ext2 = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+        d->fboSupported = ext2->isSupported();
 #endif
         
         const char* versionString = (const char*)glGetString(GL_VERSION);
@@ -141,18 +145,26 @@ namespace osgVerse
         return p ? p->getVersionData() : NULL;
     }
 
-    void setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view,
+    bool setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view,
                                const StandardPipelineParameters& spp)
     {
+        if (view) return setupStandardPipelineEx(p, view, view->getCamera(), spp);
+        else { OSG_WARN << "[StandardPipeline] No view provided." << std::endl; return false; }
+    }
+
+    bool setupStandardPipelineEx(Pipeline* p, osgViewer::View* view, osg::Camera* mainCam,
+                                 const StandardPipelineParameters& spp)
+    {
+        if (!mainCam) mainCam = view->getCamera();
         if (!view)
         {
             OSG_WARN << "[StandardPipeline] No view provided." << std::endl;
-            return;
+            return false;
         }
 #if OSG_VERSION_GREATER_THAN(3, 2, 0)
-        else if (!view->getLastAppliedViewConfig() && !view->getCamera()->getGraphicsContext())
+        else if (!view->getLastAppliedViewConfig() && !mainCam->getGraphicsContext())
 #else
-        else if (!view->getCamera()->getGraphicsContext())
+        else if (!mainCam->getGraphicsContext())
 #endif
         {
             OSG_NOTICE << "[StandardPipeline] No view config applied. The pipeline will be constructed "
@@ -161,15 +173,21 @@ namespace osgVerse
                        << "setupStandardPipeline(). It may cause problems!!" << std::endl;
         }
 
-        GLVersionData* data = p->getVersionData() ? NULL : queryOpenGLVersion(p);
-        p->startStages(spp.originWidth, spp.originHeight, view->getCamera()->getGraphicsContext());
+        GLVersionData* data = !p->getVersionData() ? NULL : queryOpenGLVersion(p);
+        p->startStages(spp.originWidth, spp.originHeight, mainCam->getGraphicsContext());
         if (data)
         {
             OSG_NOTICE << "[StandardPipeline] OpenGL Driver: " << data->version << "; GLSL: "
                        << data->glslVersion << "; Renderer: " << data->renderer << std::endl;
             OSG_NOTICE << "[StandardPipeline] Using OpenGL Context: " << p->getTargetVersion()
                        << "; Using GLSL Version: "<< p->getGlslTargetVersion() << std::endl;
-            if (data->renderer.find("MTT") != std::string::npos)
+            if (!data->glslSupported || !data->fboSupported)
+            {
+                OSG_FATAL << "[StandardPipeline] Necessary OpenGL features missing. The pipeline "
+                          << "can not work on your machine at present." << std::endl;
+                return false;
+            }
+            else if (data->renderer.find("MTT") != std::string::npos)
             {
 #ifndef VERSE_ENABLE_MTT
                 OSG_WARN << "[StandardPipeline] It seems you are using MooreThreads graphics "
@@ -204,11 +222,11 @@ namespace osgVerse
         osg::ref_ptr<osgVerse::ShadowDrawCallback> shadowCallback =
                 new osgVerse::ShadowDrawCallback(shadowModule.get());
         shadowCallback->setup(gbuffer->camera.get(), FINAL_DRAW);
-        view->getCamera()->addUpdateCallback(shadowModule.get());
+        mainCam->addUpdateCallback(shadowModule.get());
 
         // Light module only needs to be added to main camera
         osg::ref_ptr<osgVerse::LightModule> lightModule = new osgVerse::LightModule("Light", p);
-        view->getCamera()->addUpdateCallback(lightModule.get());
+        mainCam->addUpdateCallback(lightModule.get());
 
         // IBL related textures can be read from files or from run-once stages
         osgVerse::Pipeline::Stage *brdfLut = NULL, *prefiltering = NULL, *convolution = NULL;
@@ -385,8 +403,9 @@ namespace osgVerse
         output->applyUniform(new osg::Uniform("VignetteRadius", 1.0f));
         output->applyUniform(new osg::Uniform("VignetteDarkness", 0.0f));
 
-        p->applyStagesToView(view, spp.forwardMask);
+        p->applyStagesToView(view, mainCam, spp.forwardMask);
         p->requireDepthBlit(gbuffer, true);
+        return true;
     }
 }
 

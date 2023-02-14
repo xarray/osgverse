@@ -48,7 +48,7 @@ namespace osgVerse
     {
         std::string version, renderer;
         int glVersion, glslVersion;
-        bool glslSupported;
+        bool glslSupported, fboSupported;
     };
 
     /** Effect pipeline using a list of slave cameras, without invading main scene graph
@@ -132,10 +132,14 @@ namespace osgVerse
 
         /** Finish all pipeline stages in this function. It will automatically add
             a forward pass for normal scene object rendering */
-        void applyStagesToView(osgViewer::View* view, unsigned int forwardMask);
+        void applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int forwardMask);
+        
+        /** Convenient method to finish pipeline stages */
+        void applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
+        { applyStagesToView(view, view->getCamera(), forwardMask); }
 
         /** Remove all stages and reset the viewer to default (clear all slaves) */
-        void clearStagesFromView(osgViewer::View* view);
+        void clearStagesFromView(osgViewer::View* view, osg::Camera* mainCam = NULL);
 
         /** Require depth buffer of specific stage to blit to default forward pass */
         void requireDepthBlit(Stage* s, bool addToList)
@@ -232,7 +236,10 @@ namespace osgVerse
     };
 
     /** Create standard pipeline */
-    extern void setupStandardPipeline(Pipeline* p, osgViewer::View* view, const StandardPipelineParameters& spp);
+    extern bool setupStandardPipeline(Pipeline* p, osgViewer::View* view,
+                                      const StandardPipelineParameters& spp);
+    extern bool setupStandardPipelineEx(Pipeline* p, osgViewer::View* view, osg::Camera* mainCam,
+                                        const StandardPipelineParameters& spp);
 
     /** Setup a OpenGL version tester and save the result to user-data of the pipeline */
     extern GLVersionData* queryOpenGLVersion(Pipeline* p);

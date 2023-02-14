@@ -171,24 +171,17 @@ int main(int argc, char** argv)
     lightGeode->addDrawable(light0.get());
     root->addChild(lightGeode.get());
 
-    // Start the pipeline
+    // Create the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+
+    // Realize the viewer
     MyViewer viewer(pipeline.get());
-    setupStandardPipeline(pipeline.get(), &viewer,
-                          osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
-
-    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow)
-    {
-        if (shadow->getFrustumGeode())
-        {
-            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-            root->addChild(shadow->getFrustumGeode());
-        }
-    }
-
-    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    if (light) light->setMainLight(light0.get(), "Shadow");
+    viewer.addEventHandler(new osgViewer::StatsHandler);
+    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    viewer.setSceneData(root.get());
+    viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
+    viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
 
     // osgEarth configuration
     osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("F:/DataSet/osgEarthData/t2.earth");
@@ -247,11 +240,23 @@ int main(int argc, char** argv)
         viewer.addEventHandler(interacter.get());
     }
 
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setSceneData(root.get());
-    viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
+    // Setup the pipeline
+    setupStandardPipeline(pipeline.get(), &viewer,
+                          osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
+
+    // Post pipeline settings
+    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    if (shadow)
+    {
+        if (shadow->getFrustumGeode())
+        {
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
+    }
+
+    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+    if (light) light->setMainLight(light0.get(), "Shadow");
 
     float lightZ = -1.0f; bool lightD = true;
     while (!viewer.done())

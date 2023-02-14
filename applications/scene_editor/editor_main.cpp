@@ -159,26 +159,42 @@ int main(int argc, char** argv)
     lightGeode->addDrawable(light0.get());
     root->addChild(lightGeode.get());
 
-    // Pipeline initialization
+    // Create the pipeline
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+
+    // Realize the viewer
     MyViewer viewer(pipeline.get());
+    viewer.addEventHandler(new osgVerse::CommandHandler);
+    viewer.addEventHandler(new osgViewer::StatsHandler);
+    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    viewer.setCameraManipulator(new SceneManipulator);
+    viewer.setSceneData(root.get());
+    //viewer.setKeyEventSetsDone(0);
+
+    // FIXME: how to avoid shadow problem...
+    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
+    // Shadow will go jigger because the output texture is not sync-ed before lighting...
+    // For SingleThreaded & CullDrawThreadPerContext it seems OK
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer.setUpViewOnSingleScreen(0);
+
+    // Setup the pipeline
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
+    // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow)
+    if (shadow && shadow->getFrustumGeode())
     {
-        if (shadow->getFrustumGeode())
-        {
-            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-            root->addChild(shadow->getFrustumGeode());
-        }
+        osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+        root->addChild(shadow->getFrustumGeode());
     }
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 
-    // Post-HUD displays and utilities
+    // Post-HUD displays and utility nodekits
     osg::ref_ptr<osg::Camera> skyCamera = osgVerse::SkyBox::createSkyCamera();
     auxRoot->addChild(skyCamera.get());
 
@@ -203,6 +219,18 @@ int main(int argc, char** argv)
         // TODO: also add to hud camera?
     }
 
+    // UI settings
+    osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
+    imgui->setChineseSimplifiedFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
+    imgui->initialize(new EditorContentHandler);
+    imgui->addToView(&viewer, postCamera.get());
+
+    // FIXME: just for test: custom component loading
+    osg::ref_ptr<osgVerse::UserComponentGroup> ucg = dynamic_cast<osgVerse::UserComponentGroup*>(
+        osgDB::readObjectFile("all.verse_osgparticle"));
+    if (ucg) osgVerse::UserComponentManager::instance()->registerComponents(ucg);
+
+    // Setting global data and start the main loop
     g_data.mainCamera = viewer.getCamera();
     g_data.sceneRoot = sceneRoot.get();
     g_data.auxiliaryRoot = auxRoot.get();
@@ -210,31 +238,5 @@ int main(int argc, char** argv)
     g_data.view = &viewer;
     g_data.pipeline = pipeline.get();
     g_data.shadow = shadow;
-
-    // UI settings
-    osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
-    imgui->initialize(new EditorContentHandler);
-    imgui->addToView(&viewer, postCamera.get());
-
-    // Start the viewer
-    viewer.addEventHandler(new osgVerse::CommandHandler);
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new SceneManipulator);
-    viewer.setSceneData(root.get());
-    //viewer.setKeyEventSetsDone(0);
-
-    // FIXME: how to avoid shadow problem...
-    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
-    // Shadow will go jigger because the output texture is not sync-ed before lighting...
-    // For SingleThreaded & CullDrawThreadPerContext it seems OK
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-
-    // FIXME: just for test: custom component loading
-    osg::ref_ptr<osgVerse::UserComponentGroup> ucg = dynamic_cast<osgVerse::UserComponentGroup*>(
-        osgDB::readObjectFile("all.verse_osgparticle"));
-    if (ucg) osgVerse::UserComponentManager::instance()->registerComponents(ucg);
     return viewer.run();
 }

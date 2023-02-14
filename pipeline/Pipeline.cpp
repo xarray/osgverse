@@ -546,7 +546,7 @@ namespace osgVerse
         }
     }
 
-    void Pipeline::clearStagesFromView(osgViewer::View* view)
+    void Pipeline::clearStagesFromView(osgViewer::View* view, osg::Camera* mainCam)
     {
         std::vector<osg::Camera*> slavesToRemove;
         for (unsigned int i = 0; i < view->getNumSlaves(); ++i)
@@ -578,19 +578,21 @@ namespace osgVerse
             _deferredCallback->setClampCallback(NULL);
         }
 
-        view->getCamera()->setGraphicsContext(_stageContext.get());
+        if (!mainCam) mainCam = view->getCamera();
+        mainCam->setGraphicsContext(_stageContext.get());
         for (std::map<std::string, osg::ref_ptr<osg::NodeCallback>>::iterator itr = _modules.begin();
-            itr != _modules.end(); ++itr)
-        { view->getCamera()->removeUpdateCallback(itr->second.get()); }
+             itr != _modules.end(); ++itr)
+        { mainCam->removeUpdateCallback(itr->second.get()); }
     }
 
-    void Pipeline::applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
+    void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int forwardMask)
     {
+        if (!mainCam) mainCam = view->getCamera();
+        if (mainCam) mainCam->setGraphicsContext(NULL);
+
+        // ClampProjectionCallback must only exist on view's main camera
         if (view->getCamera() && view->getCamera()->getClampProjectionMatrixCallback())
-        {
-            view->getCamera()->setGraphicsContext(NULL);
             _deferredCallback->setClampCallback(view->getCamera()->getClampProjectionMatrixCallback());
-        }
 
         for (unsigned int i = 0; i < _stages.size(); ++i)
         {
@@ -604,8 +606,8 @@ namespace osgVerse
 #endif
         }
 
-        osg::ref_ptr<osg::Camera> forwardCam = (view->getCamera() != NULL)
-                                             ? new osg::Camera(*view->getCamera()) : new osg::Camera;
+        osg::ref_ptr<osg::Camera> forwardCam = (mainCam != NULL)
+                                             ? new osg::Camera(*mainCam) : new osg::Camera;
         forwardCam->setName("DefaultForward");
         forwardCam->setUserValue("NeedNearFarCalculation", true);
         forwardCam->setUserValue("PipelineMask", forwardMask);  // replacing setCullMask()
@@ -620,14 +622,14 @@ namespace osgVerse
 
         if (!_stages.empty()) forwardCam->setClearMask(0);
         view->addSlave(forwardCam.get(), osg::Matrix(), osg::Matrix(), true);
-        view->getCamera()->setViewport(0, 0, _stageSize.x(), _stageSize.y());
-        view->getCamera()->setProjectionMatrixAsPerspective(
+        mainCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
+        mainCam->setProjectionMatrixAsPerspective(
             30.0f, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), 1.0f, 10000.0f);
         _forwardCamera = forwardCam;
 
 #if VERSE_WINDOWS
         osgViewer::GraphicsWindowWin32* gw = static_cast<osgViewer::GraphicsWindowWin32*>(_stageContext.get());
-        if (gw) ImmAssociateContext(gw->getHWND(), NULL);  // disable default IME
+        if (gw) ImmAssociateContext(gw->getHWND(), NULL);  // FIXME: disable default IME.. better use TSF?
 #endif
     }
 
