@@ -15,7 +15,7 @@
 namespace backward { backward::SignalHandling sh; }
 
 // Change the macro to understand usage with composite viewer / viewer with slaves
-#define USE_COMPOSITE_VIEWER 1
+#define USE_COMPOSITE_VIEWER 0
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
@@ -47,19 +47,18 @@ class MyViewer : public osgViewer::Viewer
 {
 public:
     MyViewer() : osgViewer::Viewer() {}
-    std::map<osg::Camera*, osg::ref_ptr<osgVerse::Pipeline>> _pipelines;
+    std::vector<osg::ref_ptr<osgVerse::Pipeline>> pipelines;
 
 protected:
     virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
     {
-        // FIXME: not working...
-        // 1. save <MainCam, DeferredCams> map
-        // 2. check if arg.camera matches the map
-        // 3. find pipeline according to MainCam
-        if (_pipelines.find(camera) != _pipelines.end())
-            return _pipelines[camera]->createRenderer(camera);
-        else
-            return osgViewer::Viewer::createRenderer(camera);
+        for (size_t i = 0; i < pipelines.size(); ++i)
+        {
+            osgVerse::Pipeline* pipeline = pipelines[i].get();
+            if (pipeline->isValidCamera(camera))
+                return pipeline->createRenderer(camera);
+        }
+        return osgViewer::Viewer::createRenderer(camera);
     }
 };
 #endif
@@ -184,18 +183,19 @@ int main(int argc, char** argv)
         if (!gc) return -1;
 
         osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+        camera->setName("SlaveCamera" + std::to_string(i));
         camera->setGraphicsContext(gc.get());
         camera->setViewport(new osg::Viewport(0, 0, 640, 480));
         camera->setDrawBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
         camera->setReadBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
 
-        osg::Matrix viewOffset = osg::Matrix::scale((double)numViews, 1.0, 1.0)
+        osg::Matrix projOffset = osg::Matrix::scale((double)numViews, 1.0, 1.0)
                                * osg::Matrix::translate(viewPos, 0.0, 0.0);
-        viewer.addSlave(camera.get(), viewOffset, osg::Matrix());
+        viewer.addSlave(camera.get(), projOffset, osg::Matrix());
 
         // Create the pipeline
         osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
-        viewer._pipelines[camera.get()] = pipeline;
+        viewer.pipelines.push_back(pipeline);
 
         // Setup the pipeline
         setupStandardPipelineEx(pipeline.get(), &viewer, camera.get(), params);

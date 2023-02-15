@@ -34,7 +34,7 @@
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 需要明确贴图metallic和roughness是如何表达的，软件如何导出 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 解决Sponza法线贴图不能共享以及matallic闪烁的问题 | |
 | 渲染      | pipeline     | 优化     |                    | initial  | 对于大坐标模型，阴影bias需要根据坡度值动态修改PolygonOffset | |
-| 渲染      | pipeline     | 优化     | 50%                | initial  | 目前没办法处理多Slave（Across Screen）和CompositeViewer的情况 | CompositeViewer的例子已经添加 |
+| 渲染      | pipeline     | 优化     | 75%                | initial  | 目前没办法处理多Slave（Across Screen）和CompositeViewer的情况 | 多Slave可以处理但是不能显示Forward场景和天空盒 |
 | 渲染      | pipeline     | 优化     |                    | initial  | 目前没办法处理Viewer多线程DrawThreadPerContext和ThreadPerCamera | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 考虑初步支持HTC VIVE VR渲染 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 全屏/窗口切换或者缩放窗口大小后，多层阴影显示不正确 | |

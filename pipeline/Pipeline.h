@@ -125,7 +125,9 @@ namespace osgVerse
         unsigned int getNumStages() const { return _stages.size(); }
         Stage* getStage(unsigned int index) { return _stages[index].get(); }
         Stage* getStage(const std::string& name);
+
         Stage* getStage(osg::Camera* camera);
+        const Stage* getStage(osg::Camera* camera) const;
 
         /** Start adding pipeline stages after this function */
         void startStages(int w, int h, osg::GraphicsContext* gc = NULL);
@@ -185,6 +187,11 @@ namespace osgVerse
         int getTargetVersion() const { return _glTargetVersion; }
         int getGlslTargetVersion() const { return _glslTargetVersion; }
 
+        /** Check if a camera is created by this pipeline (stage or forward) */
+        bool isValidCamera(osg::Camera* cam) const
+        { return getStage(cam) != NULL || (_forwardCamera == cam); }
+
+        /** Add user modules to this pipeline */
         void addModule(const std::string& n, osg::NodeCallback* cb) { _modules[n] = cb; }
         void removeModule(osg::NodeCallback* cb);
         osg::NodeCallback* getModule(const std::string& n) { return _modules[n].get(); }

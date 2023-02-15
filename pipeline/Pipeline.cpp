@@ -580,6 +580,8 @@ namespace osgVerse
 
         if (!mainCam) mainCam = view->getCamera();
         mainCam->setGraphicsContext(_stageContext.get());
+        mainCam->setCullMask(0xffffffff);   // recover original slaves' displaying
+
         for (std::map<std::string, osg::ref_ptr<osg::NodeCallback>>::iterator itr = _modules.begin();
              itr != _modules.end(); ++itr)
         { mainCam->removeUpdateCallback(itr->second.get()); }
@@ -587,8 +589,24 @@ namespace osgVerse
 
     void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int forwardMask)
     {
+        osg::Matrix projOffset, viewOffset;
         if (!mainCam) mainCam = view->getCamera();
-        if (mainCam) mainCam->setGraphicsContext(NULL);
+        if (mainCam)
+        {
+            // Check if main camera is a slave and get its offsets
+            for (unsigned int i = 0; i < view->getNumSlaves(); ++i)
+            {
+                osg::View::Slave& slave = view->getSlave(i);
+                if (slave._camera == mainCam)
+                {
+                    projOffset = slave._projectionOffset;
+                    viewOffset = slave._viewOffset;
+                    mainCam->setCullMask(0);   // disable original slaves' displaying
+                    // FIXME: it also disables skybox and forward scene?
+                }
+            }
+            mainCam->setGraphicsContext(NULL);
+        }
 
         // ClampProjectionCallback must only exist on view's main camera
         if (view->getCamera() && view->getCamera()->getClampProjectionMatrixCallback())
@@ -598,7 +616,7 @@ namespace osgVerse
         {
             bool useMainScene = _stages[i]->inputStage;
             if (_stages[i]->deferred || !_stages[i]->camera) continue;
-            view->addSlave(_stages[i]->camera.get(), osg::Matrix(), osg::Matrix(), useMainScene);
+            view->addSlave(_stages[i]->camera.get(), projOffset, viewOffset, useMainScene);
 
 #if false  // TEST ONLY
             _stages[i]->camera->setPreDrawCallback(new DebugDrawCallback("PRE"));
@@ -619,13 +637,13 @@ namespace osgVerse
         forwardCam->setGraphicsContext(_stageContext.get());
         forwardCam->getOrCreateStateSet()->addUniform(_deferredCallback->getNearFarUniform());
         forwardCam->getOrCreateStateSet()->addUniform(_invScreenResolution.get());
+        _forwardCamera = forwardCam;
 
         if (!_stages.empty()) forwardCam->setClearMask(0);
-        view->addSlave(forwardCam.get(), osg::Matrix(), osg::Matrix(), true);
+        view->addSlave(forwardCam.get(), projOffset, viewOffset, true);
         mainCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
         mainCam->setProjectionMatrixAsPerspective(
             30.0f, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), 1.0f, 10000.0f);
-        _forwardCamera = forwardCam;
 
 #if VERSE_WINDOWS
         osgViewer::GraphicsWindowWin32* gw = static_cast<osgViewer::GraphicsWindowWin32*>(_stageContext.get());
@@ -640,15 +658,27 @@ namespace osgVerse
         return NULL;
     }
 
+    const Pipeline::Stage* Pipeline::getStage(osg::Camera* camera) const
+    {
+        for (size_t i = 0; i < _stages.size(); ++i)
+        { if (_stages[i]->camera == camera) return _stages[i].get(); }
+        return NULL;
+    }
+
     osg::GraphicsOperation* Pipeline::createRenderer(osg::Camera* camera)
     {
-        MyRenderer* render = new MyRenderer(camera);
-        render->useCustomSceneViews(_deferredCallback.get());
-        
         Pipeline::Stage* stage = getStage(camera);
         if (!stage || (stage && stage->inputStage))
             camera->setStats(new osg::Stats("Camera"));
-        return render;
+
+        if (stage != NULL)
+        {
+            MyRenderer* render = new MyRenderer(camera);
+            render->useCustomSceneViews(_deferredCallback.get());
+            return render;
+        }
+        else
+            return new osgViewer::Renderer(camera);
     }
     
     Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
