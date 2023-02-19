@@ -671,14 +671,17 @@ namespace osgVerse
         if (!stage || (stage && stage->inputStage))
             camera->setStats(new osg::Stats("Camera"));
 
-        if (stage != NULL)
+        if (stage != NULL || camera == _forwardCamera.get())
         {
             MyRenderer* render = new MyRenderer(camera);
             render->useCustomSceneViews(_deferredCallback.get());
             return render;
         }
         else
+        {
+            OSG_NOTICE << "[Pipeline] Unregistered camera " << camera->getName() << std::endl;
             return new osgViewer::Renderer(camera);
+        }
     }
     
     Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
