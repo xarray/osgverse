@@ -8,6 +8,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Windows 11       | Visual Studio 2019       | :heavy_check_mark: |       |
 | Windows 10       | Visual Studio 2022       | :heavy_check_mark: |       |
 | Windows 10       | Visual Studio 2017       | :heavy_check_mark: |       |
+| Windows 10       | Visual Studio 2015       | :heavy_check_mark: | Requires VS2015 Update-3 |
 | Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
 | Windows 10 UWP   |                          | :soon:             |       |
 | Ubuntu 18.04     | GCC 7.5 (or later)       | :heavy_check_mark: |       |

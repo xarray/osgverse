@@ -27,6 +27,7 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <iterator>
 
 #include "mcut/internal/bvh.h"
 #include "mcut/internal/hmesh.h"

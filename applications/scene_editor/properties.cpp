@@ -113,10 +113,14 @@ bool Properties::handleCommand(CommandData* cmd)
 
     // For extended class, find their component from the fullname
     // For any other (not registered) class, add an indicating component here
-    std::string clsName = std::string(cmd->object->libraryName())
-                        + std::string("::") + cmd->object->className();
-    UserComponent* userNodeData = ucm->createExtended(clsName, cmd->object.get(), mainCam);
-    if (userNodeData) _properties.push_back(userNodeData);
+    if (cmd->object.valid())
+    {
+        std::string clsName = std::string(cmd->object->libraryName())
+                            + std::string("::") + cmd->object->className();
+        UserComponent* userNodeData = ucm->createExtended(clsName, cmd->object.get(), mainCam);
+        if (userNodeData) _properties.push_back(userNodeData);
+    }
+    else return false;
 
     if (callback != NULL)
     {

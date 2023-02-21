@@ -299,7 +299,7 @@ namespace osgVerse
 #endif
 
             OSG_WARN << "[Runner] FBO setup failed: 0x" << std::hex << status
-                << std::dec << ", name: " << name << std::endl;
+                     << std::dec << ", name: " << name << std::endl;
             fbo = NULL; return false;
         }
 

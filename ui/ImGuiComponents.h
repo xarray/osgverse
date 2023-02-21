@@ -150,7 +150,7 @@ namespace osgVerse
         
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         Button(const std::string& n)
-            : name(n), repeatable(false), styled(false), callback(NULL) {}
+            : name(n), repeatable(false), styled(false), callback(ActionCallback()) {}
     };
 
     struct ImageButton : public ImGuiComponentBase
@@ -161,7 +161,7 @@ namespace osgVerse
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         ImageButton(const std::string& n)
-            : name(n), uv1(1.0f, 1.0f), imageOnly(false), callback(NULL) {}
+            : name(n), uv1(1.0f, 1.0f), imageOnly(false), callback(ActionCallback()) {}
     };
 
     struct CheckBox : public ImGuiComponentBase
@@ -170,7 +170,7 @@ namespace osgVerse
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        CheckBox(const std::string& n, bool v) : name(n), value(v), callback(NULL) {}
+        CheckBox(const std::string& n, bool v) : name(n), value(v), callback(ActionCallback()) {}
     };
 
     struct ComboBox : public ImGuiComponentBase
@@ -180,7 +180,7 @@ namespace osgVerse
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        ComboBox(const std::string& n) : name(n), index(0), callback(NULL) {}
+        ComboBox(const std::string& n) : name(n), index(0), callback(ActionCallback()) {}
     };
 
     struct RadioButtonGroup : public ImGuiComponentBase
@@ -191,7 +191,7 @@ namespace osgVerse
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        RadioButtonGroup() : value(0), inSameLine(true), callback(NULL) {}
+        RadioButtonGroup() : value(0), inSameLine(true), callback(ActionCallback()) {}
     };
 
     struct InputField : public ImGuiComponentBase
@@ -201,7 +201,7 @@ namespace osgVerse
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        InputField(const std::string& n) : name(n), flags(0), callback(NULL) {}
+        InputField(const std::string& n) : name(n), flags(0), callback(ActionCallback()) {}
     };
 
     struct InputValueField : public ImGuiComponentBase
@@ -215,7 +215,7 @@ namespace osgVerse
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         InputValueField(const std::string& n)
         :   type(DoubleValue), name(n), value(0),
-            minValue(0), maxValue(0), step(1), flags(0), callback(NULL) {}
+            minValue(0), maxValue(0), step(1), flags(0), callback(ActionCallback()) {}
     };
 
     struct InputVectorField : public InputValueField
@@ -254,7 +254,7 @@ namespace osgVerse
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         Slider(const std::string& n)
         :   type(IntValue), shape(Horizontal), name(n), value(0), minValue(0), maxValue(100),
-            size(24, 120), flags(0), callback(NULL) {}
+            size(24, 120), flags(0), callback(ActionCallback()) {}
     };
 
     struct MenuBarBase : public ImGuiComponentBase
@@ -269,7 +269,7 @@ namespace osgVerse
             static MenuItemData separator;
             MenuItemData(const std::string& n)
             :   name(n), enabled(true), selected(false),
-                checkable(false), callback(NULL) {}
+                checkable(false), callback(ActionCallback()) {}
         };
 
         struct MenuData
@@ -306,7 +306,7 @@ namespace osgVerse
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        ListView(const std::string& n) : name(n), index(0), rows(5), callback(NULL) {}
+        ListView(const std::string& n) : name(n), index(0), rows(5), callback(ActionCallback()) {}
     };
 
     struct TreeView : public ImGuiComponentBase
@@ -330,7 +330,7 @@ namespace osgVerse
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         void showRecursively(TreeData& td, ImGuiManager*, ImGuiContentHandler*);
-        TreeView() : callback(NULL) {}
+        TreeView() : callback(ActionCallback2()) {}
     };
 
     struct SpiderEditor : public ImGuiComponentBase
@@ -392,7 +392,7 @@ namespace osgVerse
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         Timeline()
         :   frameRange(0, 100), firstFrame(0), currentFrame(0), selectedIndex(-1),
-            flags(0), expanded(true), seqInterface(NULL), callback(NULL) {}
+            flags(0), expanded(true), seqInterface(NULL), callback(ActionCallback()) {}
     };
 
     struct VirtualKeyboard : public ImGuiComponentBase
@@ -431,7 +431,7 @@ namespace osgVerse
         virtual ~VirtualKeyboard() { destroy(); }
         VirtualKeyboard() : capslock(false), shifted(false), ctrled(false), alted(false), chsMode(false),
                             imeCandicatePages(0), currentPage(0), imeInterface(NULL),
-                            keyCallback(NULL), msgCallback(NULL) { resetCandidates(); }
+                            keyCallback(KeyCallback()), msgCallback(MessageCallback()) { resetCandidates(); }
     };
 }
 

@@ -65,8 +65,8 @@ void HttpHandler::Reset() {
     closeFile();
     if (writer) {
         writer->Begin();
-        writer->onwrite = NULL;
-        writer->onclose = NULL;
+        writer->onwrite = std::function<void (hv::Buffer*)>();
+        writer->onclose = std::function<void ()>();
     }
     initRequest();
 }

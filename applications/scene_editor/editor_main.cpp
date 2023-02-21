@@ -48,12 +48,18 @@ public:
         unsigned int bm = _ga_t1->getButtonMask(), mk = _ga_t1->getModKeyMask();
         bool modKeyDown = (mk & osgGA::GUIEventAdapter::MODKEY_ALT);
         if (bm == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON && modKeyDown)
-        { return performMovementRightMouseButton(eventTimeDelta, dx, dy); }
+        {
+            return performMovementRightMouseButton(eventTimeDelta, dx, dy);
+        }
         else if ((bm == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON && modKeyDown) ||
-                 bm == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON)
-        { return performMovementLeftMouseButton(eventTimeDelta, dx, dy); }
+            bm == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON)
+        {
+            return performMovementLeftMouseButton(eventTimeDelta, dx, dy);
+        }
         else if (bm == osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON)
-        { return performMovementMiddleMouseButton(eventTimeDelta, dx, dy); }
+        {
+            return performMovementMiddleMouseButton(eventTimeDelta, dx, dy);
+        }
         return false;
     }
 };
@@ -159,10 +165,10 @@ int main(int argc, char** argv)
     lightGeode->addDrawable(light0.get());
     root->addChild(lightGeode.get());
 
-    // Create the pipeline
+    // Pipeline initialization
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
 
-    // Realize the viewer
+    // Set-up the viewer
     MyViewer viewer(pipeline.get());
     viewer.addEventHandler(new osgVerse::CommandHandler);
     viewer.addEventHandler(new osgViewer::StatsHandler);
@@ -179,29 +185,30 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setUpViewOnSingleScreen(0);
 
-    // Setup the pipeline
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
-    // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow && shadow->getFrustumGeode())
+    if (shadow)
     {
-        osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-        root->addChild(shadow->getFrustumGeode());
+        if (shadow->getFrustumGeode())
+        {
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
     }
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 
-    // Post-HUD displays and utility nodekits
+    // Post-HUD displays and utilities
     osg::ref_ptr<osg::Camera> skyCamera = osgVerse::SkyBox::createSkyCamera();
     auxRoot->addChild(skyCamera.get());
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skyCamera->addChild(skybox.get());
     }
@@ -219,6 +226,14 @@ int main(int argc, char** argv)
         // TODO: also add to hud camera?
     }
 
+    g_data.mainCamera = viewer.getCamera();
+    g_data.sceneRoot = sceneRoot.get();
+    g_data.auxiliaryRoot = auxRoot.get();
+    g_data.selector = selector.get();
+    g_data.view = &viewer;
+    g_data.pipeline = pipeline.get();
+    g_data.shadow = shadow;
+
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
@@ -229,14 +244,5 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::UserComponentGroup> ucg = dynamic_cast<osgVerse::UserComponentGroup*>(
         osgDB::readObjectFile("all.verse_osgparticle"));
     if (ucg) osgVerse::UserComponentManager::instance()->registerComponents(ucg);
-
-    // Setting global data and start the main loop
-    g_data.mainCamera = viewer.getCamera();
-    g_data.sceneRoot = sceneRoot.get();
-    g_data.auxiliaryRoot = auxRoot.get();
-    g_data.selector = selector.get();
-    g_data.view = &viewer;
-    g_data.pipeline = pipeline.get();
-    g_data.shadow = shadow;
     return viewer.run();
 }

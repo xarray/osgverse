@@ -215,12 +215,11 @@ SET(LIBHV_SOURCE_FILES
     libhv/all/hasync.cpp libhv/all/hdir.cpp libhv/all/hpath.cpp libhv/all/hstring.cpp
     libhv/all/hurl.cpp libhv/all/ifconfig.cpp libhv/all/iniparser.cpp libhv/all/RAII.cpp
     libhv/all/ThreadLocalStorage.cpp
-    libhv/all/EventLoopThreadPool_test.cpp libhv/all/EventLoopThread_test.cpp
-    libhv/all/EventLoop_test.cpp libhv/all/TcpClientEventLoop_test.cpp
-    libhv/all/TcpClient_test.cpp libhv/all/TcpServer_test.cpp
-    libhv/all/TimerThread_test.cpp libhv/all/UdpClient_test.cpp
-    libhv/all/UdpServer_test.cpp libhv/all/Http1Parser.cpp
-    libhv/all/Http2Parser.cpp libhv/all/HttpMessage.cpp
+    #libhv/all/EventLoopThreadPool_test.cpp libhv/all/EventLoopThread_test.cpp
+    #libhv/all/EventLoop_test.cpp libhv/all/TcpClientEventLoop_test.cpp
+    #libhv/all/TcpClient_test.cpp libhv/all/TcpServer_test.cpp
+    #libhv/all/TimerThread_test.cpp libhv/all/UdpClient_test.cpp libhv/all/UdpServer_test.cpp
+    libhv/all/Http1Parser.cpp libhv/all/Http2Parser.cpp libhv/all/HttpMessage.cpp
     libhv/all/HttpParser.cpp libhv/all/http_content.cpp
     libhv/all/WebSocketChannel.cpp libhv/all/WebSocketParser.cpp
     libhv/all/client/AsyncHttpClient.cpp libhv/all/client/WebSocketClient.cpp
@@ -260,8 +259,12 @@ SET(LIBRARY_FILES
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
-                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
-				-DUNORDERED -DHAVE_UNORDERED_MAP=1)
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS 
+				-DIMGUI_IMPL_OPENGL_LOADER_GLEW -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+IF (MSVC_VERSION LESS 1910)
+    ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # disable use of json.hpp in VS2015 or lower
+ENDIF()
+
 IF(WIN32)
     ADD_DEFINITIONS(-DLEVELDB_PLATFORM_WINDOWS)
 ELSE()

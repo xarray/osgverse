@@ -425,7 +425,7 @@ bool MenuBarBase::findItemByName(const std::string& name, MenuData& parent, Menu
 ImGuiComponentBase::ActionCallback MenuBarBase::getItemCallback(const std::string& name)
 {
     MenuData md(""); MenuItemData mid("");
-    if (findItemByName(name, md, mid)) return mid.callback; else return NULL;
+    if (findItemByName(name, md, mid)) return mid.callback; else return ActionCallback();
 }
 
 void MenuBarBase::showMenuItem(MenuItemData& mid, ImGuiManager* mgr, ImGuiContentHandler* content)
