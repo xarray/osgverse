@@ -37,10 +37,14 @@ namespace osgVerse
             osgDB::setCurrentWorkingDirectory(path);
         }
 
-        osgDB::Registry::instance()->addFileExtensionAlias("ept", "verse_ept");
-        osgDB::Registry::instance()->addFileExtensionAlias("fbx", "verse_fbx");
-        osgDB::Registry::instance()->addFileExtensionAlias("gltf", "verse_gltf");
-        osgDB::Registry::instance()->addFileExtensionAlias("glb", "verse_gltf");
+        osgDB::Registry* regObject = osgDB::Registry::instance();
+        regObject->addFileExtensionAlias("ept", "verse_ept");
+        regObject->addFileExtensionAlias("fbx", "verse_fbx");
+        regObject->addFileExtensionAlias("gltf", "verse_gltf");
+        regObject->addFileExtensionAlias("glb", "verse_gltf");
+        regObject->addFileExtensionAlias("web", "verse_web");
+        regObject->addFileExtensionAlias("leveldb", "verse_leveldb");
+        regObject->registerProtocol("leveldb");
     }
 }
 

@@ -139,6 +139,7 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_fbx) \
     USE_OSGPLUGIN(verse_gltf) \
     USE_OSGPLUGIN(verse_web) \
+    USE_OSGPLUGIN(verse_leveldb) \
     USE_OSGPLUGIN(pbrlayout)
 #else
 #   define USE_VERSE_PLUGINS()

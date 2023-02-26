@@ -6,36 +6,33 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 
-#include <libhv/all/client/requests.h>
+#include <leveldb/db.h>
 
-class ReaderWriterWeb : public osgDB::ReaderWriter
+class ReaderWriterLevelDB : public osgDB::ReaderWriter
 {
 public:
     enum ObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE };
     
-    ReaderWriterWeb()
+    ReaderWriterLevelDB()
     {
-        _client = new hv::HttpClient;
-
-        supportsProtocol("http", "Read from http port using libhv.");
-        supportsProtocol("https", "Read from https port using libhv.");
-        supportsProtocol("ftp", "Read from ftp port using libhv.");
-        supportsProtocol("ftps", "Read from ftps port using libhv.");
+        supportsProtocol("leveldb", "Read from LevelDB database.");
+        supportsOption("LastOperation", "indicate the database to close after this operation");
 
         // Examples:
-        // osgviewer --image https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png.verse_web
-        // osgviewer --image ftp://ftp.techtrade.si/SLIKE/0002133.jpg.verse_web
-        supportsExtension("verse_web", "Pseudo file extension, used to select libhv plugin.");
+        // - Writing: osgconv cessna.osg leveldb://test.db/cessna.osg.verse_leveldb
+        // - Reading: osgviewer leveldb://test.db/cessna.osg.verse_leveldb
+        supportsExtension("verse_leveldb", "Pseudo file extension, used to select DB plugin.");
         supportsExtension("*", "Passes all read files to other plugins to handle actual model loading.");
     }
 
-    virtual ~ReaderWriterWeb()
+    virtual ~ReaderWriterLevelDB()
     {
-        delete _client;
+        for (std::map<std::string, leveldb::DB*>::iterator itr = _dbMap.begin();
+             itr != _dbMap.end(); ++itr) { delete itr->second; }
     }
 
     virtual const char* className() const
-    { return "[osgVerse] Scene reader/writer from web protocols"; }
+    { return "[osgVerse] Scene reader/writer from LevelDB database"; }
 
     virtual ReadResult openArchive(const std::string& fileName, ArchiveStatus status,
                                    unsigned int, const Options* options) const
@@ -100,10 +97,16 @@ public:
     
     virtual bool fileExists(const std::string& filename, const osgDB::Options* options) const
     {
-        if (osgDB::containsServerAddress(filename))
+        std::string scheme = osgDB::getServerProtocol(filename);
+        if (scheme == "leveldb")
         {
-            // TODO check remote existing state
-            OSG_NOTICE << "[libhv] fileExists() not implemented." << std::endl;
+            std::string dbName = osgDB::getServerAddress(filename);
+            std::string keyName = osgDB::getServerFileName(filename), value;
+            leveldb::DB* db = getOrCreateDatabase(dbName, false);
+            if (!db) return false;
+
+            leveldb::Status status = db->Get(leveldb::ReadOptions(), dbName, &value);
+            return status.ok();
         }
         return ReaderWriter::fileExists(filename, options);
     }
@@ -114,14 +117,14 @@ public:
         std::string fileName(fullFileName);
         std::string ext = osgDB::getFileExtension(fullFileName);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
-        bool usePseudo = (ext == "verse_web");
+        bool usePseudo = (ext == "verse_leveldb");
         if (usePseudo)
         {
             fileName = osgDB::getNameLessExtension(fullFileName);
             ext = osgDB::getFileExtension(fileName);
         }
 
-        if (!osgDB::containsServerAddress(fileName))
+        if (scheme != "leveldb")
         {
             if (options && !options->getDatabasePathList().empty())
             {
@@ -138,25 +141,20 @@ public:
             osgDB::Registry::instance()->getReaderWriterForExtension(ext);
         if (!reader)
         {
-            OSG_WARN << "[libhv] No reader/writer plugin for " << fileName << std::endl;
+            OSG_WARN << "[leveldb] No reader/writer plugin for " << fileName << std::endl;
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        // TODO: get connection parameters from options
-        HttpRequest req;
+        // Read data from DB
+        std::string dbName = osgDB::getServerAddress(fullFileName);
+        std::string keyName = osgDB::getServerFileName(fullFileName);
+        leveldb::DB* db = getOrCreateDatabase(dbName, false);
+        if (!db) return ReadResult::ERROR_IN_READING_FILE;
 
-        // Read data from web
-        req.method = HTTP_GET;
-        req.url = fileName;
-        req.scheme = scheme;
-
-        HttpResponse response;
-        int result = _client->send(&req, &response);
-        if (result != 0)
-        {
-            OSG_WARN << "[libhv] Failed getting " << fileName << ": " << result << std::endl;
-            return ReadResult::ERROR_IN_READING_FILE;
-        }
+        std::stringstream buffer; std::string value;
+        leveldb::Status status = db->Get(leveldb::ReadOptions(), keyName, &value);
+        if (!status.ok()) return ReadResult::FILE_NOT_FOUND;
+        else buffer.write(value.data(), value.length());
 
         // Load by other readerwriter
         osg::ref_ptr<Options> lOptions = options ?
@@ -165,12 +163,9 @@ public:
         lOptions->setPluginStringData("STREAM_FILENAME", osgDB::getSimpleFileName(fileName));
         lOptions->setPluginStringData("filename", fileName);
 
-        // TODO: uncompress remote osgz/ivez/gz?
-        std::stringstream buffer;
-        buffer << response.body;
-
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
+        checkLastOperation(db, dbName, options);
         return readResult;
     }
 
@@ -180,14 +175,14 @@ public:
         std::string fileName(fullFileName);
         std::string ext = osgDB::getFileExtension(fullFileName);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
-        bool usePseudo = (ext == "verse_web");
+        bool usePseudo = (ext == "verse_leveldb");
         if (usePseudo)
         {
             fileName = osgDB::getNameLessExtension(fullFileName);
             ext = osgDB::getFileExtension(fileName);
         }
 
-        if (!osgDB::containsServerAddress(fileName))
+        if (scheme != "leveldb")
         {
             if (options && !options->getDatabasePathList().empty())
             {
@@ -207,13 +202,44 @@ public:
         osgDB::ReaderWriter::WriteResult result = writeFile(obj, writer, requestBuffer, options);
         if (!result.success()) return result;
 
-        // TODO send to web
-        return WriteResult::FILE_NOT_HANDLED;
+        // Create database if missing
+        std::string dbName = osgDB::getServerAddress(fullFileName);
+        std::string keyName = osgDB::getServerFileName(fullFileName);
+        leveldb::DB* db = getOrCreateDatabase(dbName, true);
+        if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
+
+        leveldb::Status status = db->Put(leveldb::WriteOptions(), keyName, requestBuffer.str());
+        checkLastOperation(db, dbName, options);
+        return status.ok() ? WriteResult::FILE_SAVED : WriteResult::FILE_NOT_HANDLED;
     }
 
 protected:
-    hv::HttpClient* _client;
+    leveldb::DB* getOrCreateDatabase(const std::string& name, bool createdIfMissing) const
+    {
+        leveldb::DB* db = NULL;
+        DatabaseMap& dbMap = const_cast<DatabaseMap&>(_dbMap);
+        if (dbMap.find(name) == dbMap.end())
+        {
+            leveldb::Options options; options.create_if_missing = createdIfMissing;
+            leveldb::Status status = leveldb::DB::Open(options, name, &db);
+            if (!status.ok()) return NULL; else dbMap[name] = db;
+        }
+        else
+            db = dbMap[name];
+        return db;
+    }
+
+    void checkLastOperation(leveldb::DB* db, const std::string& dbName,
+                            const osgDB::Options* options) const
+    {
+        DatabaseMap& dbMap = const_cast<DatabaseMap&>(_dbMap);
+        if (options && options->getOptionString().find("LastOperation") != std::string::npos)
+        { delete db; dbMap.erase(dbMap.find(dbName)); }
+    }
+    
+    typedef std::map<std::string, leveldb::DB*> DatabaseMap;
+    DatabaseMap _dbMap;
 };
 
 // Now register with Registry to instantiate the above reader/writer.
-REGISTER_OSGPLUGIN(verse_web, ReaderWriterWeb)
+REGISTER_OSGPLUGIN(verse_leveldb, ReaderWriterLevelDB)
