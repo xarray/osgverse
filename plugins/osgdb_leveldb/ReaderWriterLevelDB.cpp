@@ -16,7 +16,6 @@ public:
     ReaderWriterLevelDB()
     {
         supportsProtocol("leveldb", "Read from LevelDB database.");
-        supportsOption("LastOperation", "indicate the database to close after this operation");
 
         // Examples:
         // - Writing: osgconv cessna.osg leveldb://test.db/cessna.osg.verse_leveldb
@@ -165,7 +164,6 @@ public:
 
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
-        checkLastOperation(db, dbName, options);
         return readResult;
     }
 
@@ -209,7 +207,6 @@ public:
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
         leveldb::Status status = db->Put(leveldb::WriteOptions(), keyName, requestBuffer.str());
-        checkLastOperation(db, dbName, options);
         return status.ok() ? WriteResult::FILE_SAVED : WriteResult::FILE_NOT_HANDLED;
     }
 
@@ -229,14 +226,6 @@ protected:
         return db;
     }
 
-    void checkLastOperation(leveldb::DB* db, const std::string& dbName,
-                            const osgDB::Options* options) const
-    {
-        DatabaseMap& dbMap = const_cast<DatabaseMap&>(_dbMap);
-        if (options && options->getOptionString().find("LastOperation") != std::string::npos)
-        { delete db; dbMap.erase(dbMap.find(dbName)); }
-    }
-    
     typedef std::map<std::string, leveldb::DB*> DatabaseMap;
     DatabaseMap _dbMap;
 };

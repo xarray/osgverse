@@ -149,6 +149,7 @@ int main(int argc, char** argv)
     viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
 
     // Setup the pipeline
+    params.enableVSync = false;
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     // Post pipeline settings

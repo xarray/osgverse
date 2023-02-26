@@ -236,7 +236,7 @@ namespace osgVerse
         unsigned int originWidth, originHeight;
         unsigned int deferredMask, forwardMask, shadowCastMask;
         unsigned int shadowNumber, shadowResolution;
-        bool debugShadowModule;
+        bool debugShadowModule, enableVSync;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);

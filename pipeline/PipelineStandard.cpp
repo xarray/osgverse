@@ -80,7 +80,7 @@ namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
-        shadowNumber(0), shadowResolution(2048), debugShadowModule(false)
+        shadowNumber(0), shadowResolution(2048), debugShadowModule(false), enableVSync(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -88,7 +88,7 @@ namespace osgVerse
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
-        shadowNumber(3), shadowResolution(2048), debugShadowModule(false)
+        shadowNumber(3), shadowResolution(2048), debugShadowModule(false), enableVSync(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -403,6 +403,13 @@ namespace osgVerse
         output->applyUniform(new osg::Uniform("VignetteRadius", 1.0f));
         output->applyUniform(new osg::Uniform("VignetteDarkness", 0.0f));
 
+        // Post operations
+        if (p->getContext())
+        {
+            osgViewer::GraphicsWindow* gw =
+                dynamic_cast<osgViewer::GraphicsWindow*>(p->getContext());
+            if (gw != NULL) gw->setSyncToVBlank(spp.enableVSync);
+        }
         p->applyStagesToView(view, mainCam, spp.forwardMask);
         p->requireDepthBlit(gbuffer, true);
         return true;

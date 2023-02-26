@@ -44,7 +44,6 @@ namespace osgVerse
         regObject->addFileExtensionAlias("glb", "verse_gltf");
         regObject->addFileExtensionAlias("web", "verse_web");
         regObject->addFileExtensionAlias("leveldb", "verse_leveldb");
-        regObject->registerProtocol("leveldb");
     }
 }
 
