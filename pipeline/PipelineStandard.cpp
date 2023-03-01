@@ -206,11 +206,7 @@ namespace osgVerse
             "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
             "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
-#ifndef VERSE_ENABLE_MTT
             "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
-#else
-            "DepthBuffer", osgVerse::Pipeline::DEPTH32);
-#endif
 
         // Shadow module initialization
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =

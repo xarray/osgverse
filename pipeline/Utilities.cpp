@@ -28,6 +28,8 @@ namespace osgVerse
     void globalInitialize(int argc, char** argv, const std::string& baseDir)
     {
         std::string workingPath = baseDir + std::string("/bin/");
+        if (!osgDB::fileExists(workingPath))
+            OSG_FATAL << "[osgVerse] Working directory " << workingPath << " not found. Following work may fail." << std::endl;
         osgDB::getDataFilePathList().push_back(workingPath);
 
         setlocale(LC_ALL, ".UTF8");
@@ -38,12 +40,16 @@ namespace osgVerse
         }
 
         osgDB::Registry* regObject = osgDB::Registry::instance();
+#if VERSE_STATIC_BUILD
+        // anything to do here?
+#else
+        regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_web"));
+        regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_leveldb"));
+#endif
         regObject->addFileExtensionAlias("ept", "verse_ept");
         regObject->addFileExtensionAlias("fbx", "verse_fbx");
         regObject->addFileExtensionAlias("gltf", "verse_gltf");
         regObject->addFileExtensionAlias("glb", "verse_gltf");
-        regObject->addFileExtensionAlias("web", "verse_web");
-        regObject->addFileExtensionAlias("leveldb", "verse_leveldb");
     }
 }
 

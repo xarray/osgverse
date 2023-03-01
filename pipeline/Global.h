@@ -13,8 +13,10 @@
 #define POST_DRAW 2
 #define FINAL_DRAW 3
 
-#ifdef INSTALL_PATH_PREFIX
-    #define BASE_DIR INSTALL_PATH_PREFIX
+#if VERSE_MSVC
+    #if defined(INSTALL_PATH_PREFIX)
+        #define BASE_DIR INSTALL_PATH_PREFIX
+    #endif
 #else
     #define BASE_DIR ".."
 #endif
