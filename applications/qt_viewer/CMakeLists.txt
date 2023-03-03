@@ -21,6 +21,7 @@ IF(Qt5_FOUND)
     )
 
     NEW_EXECUTABLE(${EXE_NAME} SHARED)
+    SET_PROPERTY(TARGET ${EXE_NAME} PROPERTY FOLDER "APPLICATIONS")
     TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseDependency osgVerseReaderWriter osgVersePipeline
                           Qt5::Core Qt5::Gui Qt5::Widgets Qt5::OpenGL)
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
