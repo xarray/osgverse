@@ -20,7 +20,7 @@ namespace osgVerse
 
         void setEnvironmentMap(const std::string& path, const std::string& ext, bool rightHanded = false);
         void setEnvironmentMap(osg::Image* image);
-        void setEnvironmentMap(osg::Texture* tex, bool asCubemap);
+        void setEnvironmentMap(osg::Texture* tex, bool keepYAxisUp = false);
 
         void setSkyShaders(osg::Shader* vs, osg::Shader* fs);
         void setSkyColor(const osg::Vec4ub& color);

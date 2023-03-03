@@ -257,6 +257,56 @@ namespace osgVerse
         return camera.release();
     }
 
+    osg::Group* createRTTCube(osg::Camera::BufferComponent buffer, osg::TextureCubeMap* tex,
+                              osg::Node* child, osg::GraphicsContext* gc)
+    {
+        osg::ref_ptr<osg::Group> cameraRoot = new osg::Group;
+        for (int i = 0; i < 6; ++i)
+        {
+            osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+            camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+            camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+            camera->setRenderOrder(osg::Camera::PRE_RENDER);
+            camera->setReferenceFrame(osg::Transform::RELATIVE_RF);
+            if (gc) camera->setGraphicsContext(gc);
+            if (child) camera->addChild(child);
+            cameraRoot->addChild(camera.get());
+
+            if (tex)
+            {
+                tex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+                tex->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+                camera->setViewport(0, 0, tex->getTextureWidth(), tex->getTextureHeight());
+                camera->attach(buffer, tex, 0, i);
+            }
+
+            switch ((osg::TextureCubeMap::Face)i)
+            {
+            case osg::TextureCubeMap::POSITIVE_X:
+                camera->setViewMatrix(osg::Matrix::rotate(-osg::PI_2, osg::Z_AXIS));
+                camera->setName("POSITIVE_X"); break;
+            case osg::TextureCubeMap::NEGATIVE_X:
+                camera->setViewMatrix(osg::Matrix::rotate(osg::PI_2, osg::Z_AXIS));
+                camera->setName("NEGATIVE_X"); break;
+            case osg::TextureCubeMap::POSITIVE_Y:
+                camera->setViewMatrix(osg::Matrix::rotate(-osg::PI_2, osg::X_AXIS));
+                camera->setName("POSITIVE_Y"); break;
+            case osg::TextureCubeMap::NEGATIVE_Y:
+                camera->setViewMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+                camera->setName("NEGATIVE_Y"); break;
+            case osg::TextureCubeMap::POSITIVE_Z:
+                camera->setViewMatrix(osg::Matrix::identity());
+                camera->setName("POSITIVE_Z"); break;
+            case osg::TextureCubeMap::NEGATIVE_Z:
+                camera->setViewMatrix(osg::Matrix::rotate(osg::PI, osg::Z_AXIS));
+                camera->setName("NEGATIVE_Z"); break;
+            default: break;
+            }
+        }
+        return cameraRoot.release();
+    }
+
     osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
                                  float quadW, float quadH, bool screenSpaced)
     {

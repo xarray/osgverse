@@ -110,7 +110,10 @@ namespace osgVerse
         };
 
         Pipeline(int glContextVer = 100, int glslVer = 130);
+
+        /** Create RTT texture of specific buffer type */
         static osg::Texture* createTexture(BufferType type, int w, int h, int glVer = 0);
+        static void setTextureBuffer(osg::Texture* tex, BufferType type, int glVer = 0);
 
         /** Add necessaray definitions for each Pipeline related shader */
         static void createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,

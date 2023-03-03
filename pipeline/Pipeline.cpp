@@ -955,6 +955,13 @@ namespace osgVerse
     osg::Texture* Pipeline::createTexture(BufferType type, int w, int h, int glVer)
     {
         osg::ref_ptr<osg::Texture2D> tex = new osg::Texture2D;
+        setTextureBuffer(tex.get(), type, glVer);
+        tex->setTextureSize(w, h);
+        return tex.release();
+    }
+    
+    void Pipeline::setTextureBuffer(osg::Texture* tex, BufferType type, int glVer)
+    {
         switch (type)
         {
         case RGB_INT8:
@@ -1123,10 +1130,7 @@ namespace osgVerse
             tex->setSourceType(GL_FLOAT);
             break;
         }
-
         tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        tex->setTextureSize(w, h);
-        return tex.release();
     }
 }

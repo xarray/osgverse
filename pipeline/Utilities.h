@@ -5,6 +5,8 @@
 #include <osg/Geometry>
 #include <osg/Texture1D>
 #include <osg/Texture2D>
+#include <osg/Texture3D>
+#include <osg/TextureCubeMap>
 #include <osg/Camera>
 #include "Global.h"
 struct SMikkTSpaceContext;
@@ -31,9 +33,13 @@ namespace osgVerse
     extern osg::Camera* createRTTCamera(osg::Camera::BufferComponent buffer, osg::Texture* tex,
                                         osg::GraphicsContext* gc, bool screenSpaced);
 
+    /** Create a list of RTT cameras to render a cubemap */
+    extern osg::Group* createRTTCube(osg::Camera::BufferComponent buffer, osg::TextureCubeMap* tex,
+                                     osg::Node* child, osg::GraphicsContext* gc);
+
     /** Create a standard post-render HUD camera, may contain a quad for display use */
     extern osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
-                                        float quadW, float quadH, bool screenSpaced);
+        float quadW, float quadH, bool screenSpaced);
 
     /** The tangent/binormal computing visitor */
     class TangentSpaceVisitor : public osg::NodeVisitor
