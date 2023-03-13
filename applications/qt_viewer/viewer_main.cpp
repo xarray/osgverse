@@ -94,7 +94,6 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
 
     // Start the embedded viewer
     _viewer->addEventHandler(new osgViewer::StatsHandler);
-    _viewer->addEventHandler(new osgViewer::WindowSizeHandler);
     _viewer->setCameraManipulator(new osgGA::TrackballManipulator);
     _viewer->setKeyEventSetsDone(0);
     _viewer->setSceneData(root.get());
