@@ -22,7 +22,7 @@
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |
 | 编译      |              | 新增     |                    | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 不要用NodeMask来管理Deferred场景，避免影响用户代码 | |
-| 渲染      | pipeline     | 除虫     |                    | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
+| 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox对于大坐标场景显示错误，并且被裁切 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox用tex2d纹理时，会有一条明显的接缝边界线 | |
 | 渲染      | pipeline     | 新增     |                    | initial  | SkyBox中支持后处理的Atmospheric Scattering天空盒 | |
@@ -53,7 +53,7 @@
 | 渲染      | pipeline     | 新增     |                    | initial  | 通过脚本的方式来管理标准和自定义的Pipeline | |
 | 插件      | plugins      | 新增     | 80%                | initial  | 支持伪插件方式自动替换PBR贴图顺序(?.D4,S3,N3,X1M1R1.pbrlayout) | 已实现，未测试 |
 | 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用libhv支持多种网络协议，替代curl插件 | |
-| 插件      | plugins      | 新增     |                    | initial  | 使用leveldb支持数据库读写操作，可以用数据库来存储osgb文件 | |
+| 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用leveldb支持数据库读写操作，可以用数据库来存储osgb文件 | |
 | 辅助工具  | helpers      | 新增     | :heavy_check_mark: | initial  | 实现Unity的导出插件第一版(静态模型，PBR材质) | |
 | 辅助工具  | helpers      | 新增     |                    | initial  | 实现Blender的导出插件第一版(静态模型，PBR材质) | |
 | 辅助工具  | helpers      | 新增     |                    | initial  | 实现3dsmax的导出插件第一版(静态模型，PBR材质) | |

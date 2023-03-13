@@ -371,7 +371,7 @@ namespace osgVerse
 
         // Eye-adaption & Tonemapping stage
         std::string lastDs = std::to_string(downsamples.size() - 1);
-        osgVerse::Pipeline::Stage* tonemapping = p->addDeferredStage("ToneMapping", 1.0f, false,
+        osgVerse::Pipeline::Stage* tonemapping = p->addWorkStage("ToneMapping", 1.0f,
             spp.shaders.quadVS, spp.shaders.tonemappingFS, 1,
             "ToneMappedBuffer", osgVerse::Pipeline::RGB_FLOAT16);
         tonemapping->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
@@ -381,7 +381,7 @@ namespace osgVerse
         tonemapping->applyUniform(new osg::Uniform("LuminanceFactor", osg::Vec2(1.0f, 10.0f)));
 
         // Anti-aliasing
-        osgVerse::Pipeline::Stage* antiAliasing = p->addDeferredStage("AntiAliasing", 1.0f, false,
+        osgVerse::Pipeline::Stage* antiAliasing = p->addWorkStage("AntiAliasing", 1.0f,
             spp.shaders.quadVS, spp.shaders.antiAliasingFS, 1,
             "AntiAliasedBuffer", osgVerse::Pipeline::RGB_FLOAT16);
         antiAliasing->applyBuffer(*tonemapping, "ToneMappedBuffer", "ColorBuffer", 0);

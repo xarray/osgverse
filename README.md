@@ -39,7 +39,7 @@ Our project is already tested on graphics cards listed as below:
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
-| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | Black screen at present |
+| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | osgVerse_Test_Pipeline can work; standard can't |
 
 #### Modules
 1. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.
