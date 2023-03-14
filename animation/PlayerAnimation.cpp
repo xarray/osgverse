@@ -35,7 +35,10 @@ bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
                                  const std::map<std::string, GeometryJointData>& jointDataMap)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
-    // TODO!!
+
+    // Load skeleton data from 'skeletonRoot'
+
+    // Load mesh data from 'meshRoot' and 'jointDataMap'
     return initializeInternal();
 }
 

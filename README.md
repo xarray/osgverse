@@ -27,6 +27,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - 4.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable USE_MSVC_RUNTIME_LIBRARY_DLL while compiling Bullet.
 - 4.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
 - 4.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
+- 4.5 SDL2 or later, for SDL/GLES related applications and examples. (https://github.com/libsdl-org/SDL)
 
 #### Graphics Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -53,9 +54,10 @@ Our project is already tested on graphics cards listed as below:
 1. osgVerse_SceneEditor: a forward-looking scene editor for osgVerse scene & components.
 2. osgVerse_Viewer: a single-camera viewer with modern rendering pipeline support.
 3. osgVerse_ViewerComposite: a multi-camera (multi-view) viewer with modern rendering pipeline support.
-4. osgVerse_EarthViewer: an example demostrating how to integrate osgVerse with osgEarth.
-5. osgVerse_QtViewer: an example demostrating how to integrate osgVerse with Qt.
-6. TBD...
+4. osgVerse_ViewerGLES: an example demostrating how to integrate osgVerse with SDL2, mainly with GLES2/3.
+5. osgVerse_EarthViewer: an example demostrating how to integrate osgVerse with osgEarth.
+6. osgVerse_QtViewer: an example demostrating how to integrate osgVerse with Qt.
+7. TBD...
 
 #### Tests and Examples
 1. osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.

@@ -126,7 +126,7 @@ void SkyBox::setEnvironmentMap(osg::Image* image)
 void SkyBox::setEnvironmentMap(osg::Texture* tex, bool keepYAxisUp)
 {
     osg::TextureCubeMap* cubemap = dynamic_cast<osg::TextureCubeMap*>(tex);
-    osg::Matrix m = keepYAxisUp ? osg::Matrix() : osg::Matrixf::rotate(-osg::PI_2, osg::X_AXIS);
+    osg::Matrix m = keepYAxisUp ? osg::Matrix() : osg::Matrix::rotate(-osg::PI_2, osg::X_AXIS);
     bool asCubemap = (cubemap != NULL) ? true : false;
     _skymap = tex; initialize(asCubemap, m);
 }
