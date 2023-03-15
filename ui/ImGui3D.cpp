@@ -1,4 +1,3 @@
-#include <GL/glew.h>
 #include <imgui/imgui.h>
 #include <osg/Version>
 #include <osg/Camera>

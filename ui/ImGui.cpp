@@ -1,3 +1,6 @@
+// Prevent GLES2/gl2.h to redefine gl* functions
+#define GL_GLES_PROTOTYPES 0
+
 #include <GL/glew.h>
 #include <osg/Version>
 #include <osg/Camera>
@@ -13,7 +16,7 @@
 #include <imgui/ImGuizmo.h>
 #include "ImGui.h"
 #include "ImGui.Styles.h"
-#include "pipeline//Utilities.h"
+#include "pipeline/Utilities.h"
 using namespace osgVerse;
 
 extern void StyleColorsVisualStudio(ImGuiStyle* dst = (ImGuiStyle*)0);

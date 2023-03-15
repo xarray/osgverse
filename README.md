@@ -94,17 +94,22 @@ Our project is already tested on graphics cards listed as below:
 
 #### CMake options
 | Option                      | Type    | Default Value | Notes |
-|-----------------------------|---------|---------------------|-------|
+|-----------------------------|---------|---------------|-------|
 | OSG_INCLUDE_DIR             | Path    | (Required)    | Set to path of osg/Node |
 | OSG_BUILD_INCLUDE_DIR       | Path    | (Required)    | Set to path of osg/Version |
 | OSG_LIB_DIR                 | Path    | (Required)    | Set to path of libosg.a or osg.lib |
 | OSG_DEBUG_POSTFIX           | String  | d             | Set a postfix for OSG debug built-libraries |
+| OSG_GLES_INCLUDE_DIR        | Path    |               | Set to path of GLES2/gl2.h or GLES3/gl3.h, for GLES build only |
+| OSG_GLES_LIBRARY            | Path    |               | Set to path of libGLESv2.so or libGLESv2.lib, for GLES build only |
+| OSG_EGL_LIBRARY             | Path    |               | Set to path of libEGL.so or libEGL.lib, for GLES build only |
 | BULLET_INCLUDE_DIR          | Path    |               | Set to path of btBulletDynamicsCommon.h |
 | BULLET_LIB_DIR              | Path    |               | Set to path of libBullet3Dynamics.a or BulletDynamics.lib |
 | BULLET_DEBUG_POSTFIX        | String  | _Debug        | Set a postfix for Bullet debug built-libraries |
 | OSGEARTH_INCLUDE_DIR        | Path    |               | Set to path of osgEarth/EarthManipulator |
 | OSGEARTH_BUILD_INCLUDE_DIR  | Path    |               | Set to path of osgEarth/BuildConfig |
 | OSGEARTH_LIB_DIR            | Path    |               | Set to path of libosgEarth.so or osgEarth.lib |
+| SDL2_INCLUDE_DIR            | Path    |               | Set to path of SDL.h |
+| SDL2_LIB_DIR                | Path    |               | Set to path of libSDL2.so or SDL2.lib |
 | Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
