@@ -897,6 +897,7 @@ namespace osgVerse
                 extraDefs.push_back("VERSE_VS_IN vec3 osg_Normal;");
             }
             else
+#endif
             {
                 extraDefs.push_back("#define osg_Vertex gl_Vertex");
                 extraDefs.push_back("#define osg_Color gl_Color");
@@ -904,12 +905,11 @@ namespace osgVerse
                 extraDefs.push_back("#define osg_MultiTexCoord1 gl_MultiTexCoord1");
                 extraDefs.push_back("#define osg_Normal gl_Normal");
             }
-#endif
         }
 
         std::stringstream ss;
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-        ss << "#version " << glslVer << " es" << std::endl;
+        //ss << "#version " << glslVer << " es" << std::endl;
 #else
         ss << "#version " << glslVer << std::endl;
 #endif

@@ -175,6 +175,7 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     {
         std::vector<std::string> defs;
         if (asCube) defs.push_back("#define VERSE_CUBEMAP_SKYBOX 1");
+        else defs.push_back("#define VERSE_CUBEMAP_SKYBOX 0");
         Pipeline::createShaderDefinitions(_vertex.get(), glVer, glslVer);
         Pipeline::createShaderDefinitions(_fragment.get(), glVer, glslVer, defs);
     }

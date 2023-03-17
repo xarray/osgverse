@@ -10,7 +10,13 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#   include <EGL/egl.h>
+#   define VERSE_GLES 1
+#   define TEST_PIPELINE 0
+#endif
 #include <SDL.h>
+#include <SDL_syswm.h>
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
@@ -76,10 +82,8 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Create the pipeline
-    int requiredGLContext = 100;  // 100: Compatible, 300: GL3
-    int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
-    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
@@ -110,15 +114,68 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    SDL_SysWMinfo sdlInfo; SDL_VERSION(&sdlInfo.version);
+    SDL_GetWindowWMInfo(sdlWindow, &sdlInfo);
+
+#if VERSE_GLES
+    EGLint configAttribList[] =
+    {
+        EGL_RED_SIZE,       8,
+        EGL_GREEN_SIZE,     8,
+        EGL_BLUE_SIZE,      8,
+        EGL_ALPHA_SIZE,     8,
+        EGL_DEPTH_SIZE,     16,
+        EGL_STENCIL_SIZE,   EGL_DONT_CARE,
+        EGL_SAMPLE_BUFFERS, 0,
+        EGL_NONE
+    };
+
+    EGLNativeWindowType hWnd = sdlInfo.info.win.window;
+    EGLDisplay display = eglGetDisplay(GetDC(hWnd));
+    if (display == EGL_NO_DISPLAY)
+    { OSG_WARN << "Failed to get EGL display" << std::endl; return 1; }
+
+    EGLint majorVersion = 0, minorVersion = 0;
+    if (!eglInitialize(display, &majorVersion, &minorVersion))
+    { OSG_WARN << "Failed to initialize EGL display" << std::endl; return 1; }
+
+    EGLint numConfigs = 0;
+    if (!eglGetConfigs(display, NULL, 0, &numConfigs))
+    { OSG_WARN << "Failed to get EGL display config" << std::endl; return 1; }
+
+    EGLConfig config;
+    if (!eglChooseConfig(display, configAttribList, &config, 1, &numConfigs))
+    { OSG_WARN << "Failed to choose EGL config" << std::endl; return 1; }
+
+    EGLint surfaceAttribList[] = { EGL_NONE, EGL_NONE };
+    EGLSurface surface = eglCreateWindowSurface(
+        display, config, (EGLNativeWindowType)hWnd, surfaceAttribList);
+    if (surface == EGL_NO_SURFACE)
+    { OSG_WARN << "Failed to create EGL surface" << std::endl; return 1; }
+
+    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE };
+    EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribList);
+    if (context == EGL_NO_CONTEXT)
+    { OSG_WARN << "Failed to create EGL context" << std::endl; return 1; }
+#else
     SDL_GLContext sdlContext = SDL_GL_CreateContext(sdlWindow);
     if (sdlContext == NULL)
     {
         OSG_WARN << "Unable to create SDL context: " << SDL_GetError() << std::endl;
         return 1;
     }
+#endif
 
     // Create the viewer
+#if TEST_PIPELINE
     MyViewer viewer(pipeline.get());
+#else
+    osg::setNotifyLevel(osg::INFO);
+    root = new osg::Group;
+    root->addChild(postCamera.get());
+    //root->addChild(osgDB::readNodeFile("cessna.osg"));
+    osgViewer::Viewer viewer;
+#endif
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
@@ -133,7 +190,7 @@ int main(int argc, char** argv)
     viewer.getCamera()->setReadBuffer(GL_BACK);
 
     // Setup the pipeline
-    params.enableVSync = false;
+#if TEST_PIPELINE
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     // Post pipeline settings
@@ -146,10 +203,15 @@ int main(int argc, char** argv)
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
+#endif
 
     // Start the main loop
+#if VERSE_GLES
+    eglMakeCurrent(display, surface, surface, context);
+#else
     SDL_GL_SetSwapInterval(0);
     SDL_GL_MakeCurrent(sdlWindow, sdlContext);
+#endif
     while (!viewer.done())
     {
         SDL_Event event;
@@ -179,10 +241,19 @@ int main(int argc, char** argv)
         }
 
         viewer.frame();
+#if VERSE_GLES
+        eglSwapBuffers(display, surface);
+#else
         SDL_GL_SwapWindow(sdlWindow);
+#endif
     }
 
+#if VERSE_GLES
+    eglDestroyContext(display, context);
+    eglDestroySurface(display, surface);
+#else
     SDL_GL_DeleteContext(sdlContext);
+#endif
     SDL_DestroyWindow(sdlWindow);
     SDL_Quit();
     return 0;

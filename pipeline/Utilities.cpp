@@ -33,6 +33,7 @@ namespace osgVerse
         osgDB::getDataFilePathList().push_back(workingPath);
 
         setlocale(LC_ALL, ".UTF8");
+        osg::setNotifyLevel(osg::NOTICE);
         if (argv && argc > 0)
         {
             std::string path = osgDB::getFilePath(argv[0]);
