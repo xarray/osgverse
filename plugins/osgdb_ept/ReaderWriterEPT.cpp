@@ -187,7 +187,7 @@ class ReaderWriterEPT : public osgDB::ReaderWriter
 public:
     ReaderWriterEPT()
     {
-        supportsExtension("ept", "Entwine point cloud");
+        supportsExtension("verse_ept", "Entwine point cloud");
         supportsExtension("eptile", "Entwine point cloud tile file");
         supportsExtension("las", "Standard LAS format");
         supportsExtension("laz", "Compressed LAS format");
@@ -224,7 +224,7 @@ public:
                                _globalOptions[pathKey].get());
             return builder.createPagedNode(osgDB::getStrippedName(eptTileFile));
         }
-        else if (ext == "ept")
+        else if (ext == "verse_ept")
         {
             osgDB::DirectoryContents eptRootDataFile = osgDB::expandWildcardsInFilename(eptPath + "/ept-data/0-0-0-0.*");
             if (!eptRootDataFile.empty())
@@ -234,7 +234,16 @@ public:
             else  // load .ept as a list file
             {
                 std::ifstream in(path); std::string line;
-                if (!in) return ReadResult::FILE_NOT_FOUND;
+                if (!in)
+                {
+                    if (ext2 == "las" || ext2 == "laz")
+                    {
+                        std::string lasFile = osgDB::findDataFile(eptPath, options);
+                        if (lasFile.empty()) return ReadResult::FILE_NOT_FOUND;
+                        return readNodeFromLaz(lasFile);
+                    }
+                    return ReadResult::FILE_NOT_FOUND;
+                }
 
                 osg::ref_ptr<osg::Group> group = new osg::Group;
                 osg::ref_ptr<osg::MatrixTransform> mt;
@@ -272,14 +281,6 @@ public:
                 }
                 return group;
             }
-        }
-
-        if (ext2 == "las" || ext2 == "laz")
-        {
-            std::string lasFile = osgDB::findDataFile(eptPath, options);
-            std::cout << lasFile << std::endl;
-            if (lasFile.empty()) return ReadResult::FILE_NOT_FOUND;
-            return readNodeFromLaz(lasFile);
         }
         return ReadResult::FILE_NOT_HANDLED;
     }
