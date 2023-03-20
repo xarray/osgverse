@@ -32,10 +32,11 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->setName("PlodGridRoot");
 
-    if (argc < 2)
+    if (argc > 2)
     {
         //std::string prefix = "F:/DataSet/FactoryDemo/Data/", dbBase = "leveldb://factory.db/";
-        std::string prefix = "I:/sdk/data/HongKong/", dbBase = "leveldb://hongkong.db/";
+        std::string prefix = std::string(argv[1]), dbBase = "leveldb://" + std::string(argv[2]);
+
         tinydir_dir dir; tinydir_open(&dir, prefix.c_str());
         while (dir.has_next)
         {
@@ -90,8 +91,13 @@ int main(int argc, char** argv)
         tinydir_close(&dir);
         osgDB::writeNodeFile(*root, "HongKong1.osg");
     }
-    else
+    else if (argc > 1)
         root->addChild(osgDB::readNodeFile(argv[1]));
+    else
+    {
+        std::cout << "Usage: " << argv[0] << " <input_osgb_path> <leveldb_filename>";
+        return 1;
+    }
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

@@ -69,8 +69,9 @@ Our project is already tested on graphics cards listed as below:
 7. osgVerse_Test_CubeRtt: a quick test for render-to-cubemap (6 faces) demonstaration.
 8. osgVerse_Test_Pipeline: a program for simple cases and compatiblity tests of osgVerse pipeline.
 9. osgVerse_Test_Pbr_Prerequisite: a quick utility to pre-compute global PBR textures and save them to IBL osgb files.
-10. osgVerse_Test_Paging_Lod: a quick utility for paged LOD file combination and testing.
-11. TBD...
+10. osgVerse_Test_Paging_Lod: a test for paged LOD file combination and transferring to levelDB.
+11. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
+12. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.

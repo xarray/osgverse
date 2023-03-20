@@ -15,7 +15,7 @@
 #include <osgEarth/GeoTransform>
 #include <osgEarth/MapNode>
 #include <osgEarth/GLUtils>
-#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 2)
 #   include <osgEarth/EarthManipulator>
 #   include <osgEarth/AutoClipPlaneHandler>
 #   include <osgEarth/Sky>
