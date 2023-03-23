@@ -118,9 +118,11 @@ public:
 
     bool passable(osg::Drawable& node)
     {
+        if (this->getUserData() != NULL) return true;  // computing near/far mode
+
         // Handle drawables without pipeline mask set:
         // if pipeline mask is never set, we will treat current drawable as forward one
-        // to avoid being rendered multiple times; otherwise, treat curren as passable. 
+        // to avoid being rendered multiple times; otherwise, treat curren as passable.
         if (_lastNodeWithPipelineMask.valid())
         {
             osg::NodePath::iterator itr = std::find(
