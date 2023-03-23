@@ -18,6 +18,9 @@ namespace osgVerse
         DeferredRenderCallback(bool inPipeline);
         virtual void operator()(osg::RenderInfo& renderInfo) const;
 
+        void setForwardMask(unsigned int m) { _forwardMask = m; }
+        unsigned int getForwardMask() const { return _forwardMask; }
+
         void setClearMask(GLenum m) { _clearMask = m; }
         void setClearColor(const osg::Vec4& c) { _clearColor = c; }
         void setClearAccum(const osg::Vec4& c) { _clearAccum = c; }
@@ -92,7 +95,7 @@ namespace osgVerse
         osg::Vec4 _clearColor, _clearAccum;
         osg::Vec2d _calculatedNearFar;
         double _clearDepth, _clearStencil;
-        unsigned int _cullFrameNumber;
+        unsigned int _cullFrameNumber, _forwardMask;
         bool _inPipeline, _drawBufferApplyMask, _readBufferApplyMask;
     };
 }
