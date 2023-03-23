@@ -80,11 +80,10 @@ class MyCullVisitor : public osgUtil::CullVisitor
 {
 public:
     MyCullVisitor()
-    :   osgUtil::CullVisitor(), _pipelineMask(0xffffffff), _defaultMask(0xffffffff),
-        _parentMaskSet(false) {}
+    :   osgUtil::CullVisitor(), _pipelineMask(0xffffffff), _defaultMask(0xffffffff) {}
     MyCullVisitor(const MyCullVisitor& v)
     :   osgUtil::CullVisitor(v), _pipelineMask(v._pipelineMask), _defaultMask(v._defaultMask),
-        _parentMaskSet(v._parentMaskSet) {}
+        _lastNodeWithPipelineMask(v._lastNodeWithPipelineMask) {}
 
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
@@ -93,7 +92,7 @@ public:
     virtual void reset()
     {
         if (_callback.valid()) _defaultMask = _callback->getForwardMask();
-        _pipelineMask = 0xffffffff; _parentMaskSet = false;
+        _pipelineMask = 0xffffffff; _lastNodeWithPipelineMask = NULL;
 
         osg::Camera* cam = this->getCurrentCamera();
         if (cam && cam->getUserDataContainer() != NULL)
@@ -101,31 +100,38 @@ public:
         osgUtil::CullVisitor::reset();
     }
 
-    void resetMask()
-    { _parentMaskSet = false; }
-
     bool passable(osg::Node& node)
     {
-        bool canSetParentMask = true;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
-        if (node.asGroup() && node.asGroup()->getNumChildren() == 0)
-        { _parentMaskSet = false; canSetParentMask = false; }  // reset parent mask state
-
         if (node.getUserDataContainer() != NULL)
         {
             // Use this to replace nodemasks while checking deferred/forward graphs
             unsigned int nodePipMask = 0xffffffff;
             if (node.getUserValue("PipelineMask", nodePipMask))
             {
-                if (canSetParentMask) _parentMaskSet = (nodePipMask != 0xffffffff);
+                if (nodePipMask != 0xffffffff) _lastNodeWithPipelineMask = &node;
                 return (_pipelineMask & nodePipMask) != 0;
             }
         }
         return true;
     }
 
+    bool passable(osg::Drawable& node)
+    {
+        // Handle drawables without pipeline mask set:
+        // if pipeline mask is never set, we will treat current drawable as forward one
+        // to avoid being rendered multiple times; otherwise, treat curren as passable. 
+        if (_lastNodeWithPipelineMask.valid())
+        {
+            osg::NodePath::iterator itr = std::find(
+                _nodePath.begin(), _nodePath.end(), _lastNodeWithPipelineMask.get());
+            if (itr != _nodePath.end()) return true;
+        }
+        return (_pipelineMask & _defaultMask) != 0;
+    }
+
     virtual void apply(osg::Node& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Geode& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); resetMask(); }
+    virtual void apply(osg::Geode& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
     virtual void apply(osg::Group& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
     virtual void apply(osg::Transform& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
     virtual void apply(osg::Switch& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
@@ -134,9 +140,7 @@ public:
 
     virtual void apply(osg::Drawable& drawable)
     {
-        // Check parent mask state: if it is never set (no pipeline mask set on current path),
-        // we will treat current drawables as forward ones to avoid being rendered multiple times
-        if (this->getUserData() == NULL && !_parentMaskSet) { if ((_pipelineMask & _defaultMask) == 0) return; }
+        if (!passable(drawable)) return;
 
 #if OSG_VERSION_GREATER_THAN(3, 5, 9)
         osg::RefMatrix& matrix = *getModelViewMatrix();
@@ -191,8 +195,8 @@ protected:
     }
 
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
+    osg::observer_ptr<osg::Node> _lastNodeWithPipelineMask;
     unsigned int _pipelineMask, _defaultMask;
-    bool _parentMaskSet;
 };
 
 class MySceneView : public osgUtil::SceneView
