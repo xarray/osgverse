@@ -80,10 +80,10 @@ class MyCullVisitor : public osgUtil::CullVisitor
 {
 public:
     MyCullVisitor()
-    :   osgUtil::CullVisitor(), _pipelineMask(0xffffffff), _defaultMask(0xffffffff) {}
+    :   osgUtil::CullVisitor(), _cullMask(0xffffffff), _defaultMask(0xffffffff) {}
     MyCullVisitor(const MyCullVisitor& v)
-    :   osgUtil::CullVisitor(v), _pipelineMask(v._pipelineMask), _defaultMask(v._defaultMask),
-        _lastNodeWithPipelineMask(v._lastNodeWithPipelineMask) {}
+    :   osgUtil::CullVisitor(v), _pipelineMaskPath(v._pipelineMaskPath),
+        _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
 
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
@@ -92,26 +92,48 @@ public:
     virtual void reset()
     {
         if (_callback.valid()) _defaultMask = _callback->getForwardMask();
-        _pipelineMask = 0xffffffff; _lastNodeWithPipelineMask = NULL;
+        _cullMask = 0xffffffff; _pipelineMaskPath.clear();
 
         osg::Camera* cam = this->getCurrentCamera();
         if (cam && cam->getUserDataContainer() != NULL)
-            cam->getUserValue("PipelineMask", _pipelineMask);
+            cam->getUserValue("PipelineCullMask", _cullMask);
         osgUtil::CullVisitor::reset();
     }
 
-    bool passable(osg::Node& node)
+    bool passable(osg::Node& node, bool& maskSet)
     {
+        maskSet = false;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
+
         if (node.getUserDataContainer() != NULL)
         {
             // Use this to replace nodemasks while checking deferred/forward graphs
-            unsigned int nodePipMask = 0xffffffff;
+            unsigned int nodePipMask = 0xffffffff, flags = 0;
             if (node.getUserValue("PipelineMask", nodePipMask))
             {
-                if (nodePipMask != 0xffffffff) _lastNodeWithPipelineMask = &node;
-                return (_pipelineMask & nodePipMask) != 0;
+                node.getUserValue("PipelineFlags", flags);
+                if (!_pipelineMaskPath.empty())
+                {
+                    std::pair<unsigned int, unsigned int> lastM = _pipelineMaskPath.back();
+                    if (lastM.second & osg::StateAttribute::OVERRIDE)
+                    {
+                        if (!(flags & osg::StateAttribute::PROTECTED))
+                        { nodePipMask = lastM.first; flags = lastM.second; }
+                    }
+                }
+
+                if (flags & osg::StateAttribute::ON)
+                {
+                    pushM(nodePipMask, flags); maskSet = true;
+                    return (_cullMask & nodePipMask) != 0;
+                }  // otherwise, treat the mask as not set
             }
+        }
+
+        if (!_pipelineMaskPath.empty())
+        {
+            std::pair<unsigned int, unsigned int> maskAndFlags = _pipelineMaskPath.back();
+            return (_cullMask & maskAndFlags.first) != 0;
         }
         return true;
     }
@@ -119,26 +141,42 @@ public:
     bool passable(osg::Drawable& node)
     {
         if (this->getUserData() != NULL) return true;  // computing near/far mode
-
-        // Handle drawables without pipeline mask set:
-        // if pipeline mask is never set, we will treat current drawable as forward one
-        // to avoid being rendered multiple times; otherwise, treat curren as passable.
-        if (_lastNodeWithPipelineMask.valid())
+        if (_pipelineMaskPath.empty())
         {
-            osg::NodePath::iterator itr = std::find(
-                _nodePath.begin(), _nodePath.end(), _lastNodeWithPipelineMask.get());
-            if (itr != _nodePath.end()) return true;
+            // Handle drawables which is never been set pipeline masks:
+            // if pipeline mask is never set, we will treat current node as forward one
+            // to avoid it being rendered multiple times.
+            return (_cullMask & _defaultMask) != 0;
         }
-        return (_pipelineMask & _defaultMask) != 0;
+        return true;
     }
 
-    virtual void apply(osg::Node& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Geode& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Group& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Transform& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Switch& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::LOD& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Camera& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
+    virtual void apply(osg::Node& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Geode& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Group& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Transform& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    
+    virtual void apply(osg::Projection& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Switch& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::LOD& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::ClearNode& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Camera& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
 
     virtual void apply(osg::Drawable& drawable)
     {
@@ -196,9 +234,15 @@ protected:
                  (value_type)coord[2] * (value_type)matrix(2, 2) + matrix(3, 2));
     }
 
+    inline void pushM(unsigned int m, unsigned int f)
+    { _pipelineMaskPath.push_back(std::pair<unsigned int, unsigned int>(m, f)); }
+    
+    inline void popM()
+    { if (!_pipelineMaskPath.empty()) _pipelineMaskPath.pop_back(); }
+
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
-    osg::observer_ptr<osg::Node> _lastNodeWithPipelineMask;
-    unsigned int _pipelineMask, _defaultMask;
+    std::vector<std::pair<unsigned int, unsigned int>> _pipelineMaskPath;
+    unsigned int _cullMask, _defaultMask;
 };
 
 class MySceneView : public osgUtil::SceneView
@@ -662,7 +706,7 @@ namespace osgVerse
                                              ? new osg::Camera(*mainCam) : new osg::Camera;
         forwardCam->setName("DefaultForward");
         forwardCam->setUserValue("NeedNearFarCalculation", true);
-        forwardCam->setUserValue("PipelineMask", forwardMask);  // replacing setCullMask()
+        forwardCam->setUserValue("PipelineCullMask", forwardMask);  // replacing setCullMask()
         forwardCam->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
         forwardCam->setComputeNearFarMode(g_nearFarMode);
         _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
@@ -742,7 +786,7 @@ namespace osgVerse
 
         applyDefaultStageData(*s, name, vs, fs);
         applyDefaultInputStateSet(s->camera->getOrCreateStateSet());
-        s->camera->setUserValue("PipelineMask", cullMask);  // replacing setCullMask()
+        s->camera->setUserValue("PipelineCullMask", cullMask);  // replacing setCullMask()
         s->camera->setUserValue("NeedNearFarCalculation", true);
         s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
         s->camera->setComputeNearFarMode(g_nearFarMode);
@@ -973,17 +1017,22 @@ namespace osgVerse
         s->setShaderSource(ss.str() + source);
     }
 
-    void Pipeline::setPipelineMask(osg::Node& node, unsigned int mask)
+    void Pipeline::setPipelineMask(osg::Node& node, unsigned int mask, unsigned int flags)
     {
         if (node.getUserDataContainer() != NULL)
         {
-            osg::Object* obj = dynamic_cast<osg::Object*>(node.getUserDataContainer());
-            std::string clsName = obj ? obj->className() : std::string("Unknown");
-            OSG_NOTICE << "The node already has user data '" << clsName
-                       << "' set before setting pipeline mask, which will overwrite it. "
-                       << "Consider a better way to handle user values!" << std::endl;
+            osg::DefaultUserDataContainer* defUdc =
+                dynamic_cast<osg::DefaultUserDataContainer*>(node.getUserDataContainer());
+            if (!defUdc)
+            {
+                OSG_NOTICE << "The node already has a user-define data container '"
+                           << node.getUserDataContainer()->className()
+                           << "' before setting pipeline mask, which may cause overwriting problems. "
+                           << "Consider a better way to handle user values!" << std::endl;
+            }
         }
         node.setUserValue("PipelineMask", mask);  // replacing setNodeMask()
+        node.setUserValue("PipelineFlags", flags);
     }
 
     osg::Texture* Pipeline::createTexture(BufferType type, int w, int h, int glVer)
