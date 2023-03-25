@@ -380,7 +380,7 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
 
             // Check if camera is for shadowing
             osgVerse::ShadowModule::ShadowData* sData =
-                static_cast<osgVerse::ShadowModule::ShadowData*>(camera->getUserData());
+                dynamic_cast<osgVerse::ShadowModule::ShadowData*>(camera->getUserData());
             bool isShadowCam = (sData != NULL);
 
             osg::Viewport* viewport = camera->getViewport();
@@ -403,7 +403,7 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
             }
 
             // if aspect ratio adjusted change the project matrix to suit.
-            if (aspectRatioChange == 1.0) continue;
+            //if (aspectRatioChange == 1.0) continue;
             if (slave)
             {
                 if (camera->getReferenceFrame() == osg::Transform::RELATIVE_RF)
@@ -423,14 +423,14 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 else
                 {
                     continue;  // FIXME: ignore all absolute slaves such as RTT & display quads?
-                    /*switch (camera->getProjectionResizePolicy())
-                    {
-                    case (osg::Camera::HORIZONTAL):
-                        camera->getProjectionMatrix() *= osg::Matrix::scale(1.0 / aspectRatioChange, 1.0, 1.0); break;
-                    case (osg::Camera::VERTICAL):
-                        camera->getProjectionMatrix() *= osg::Matrix::scale(1.0, aspectRatioChange, 1.0); break;
-                    default: break;
-                    }*/
+                    //switch (camera->getProjectionResizePolicy())
+                    //{
+                    //case (osg::Camera::HORIZONTAL):
+                    //    camera->getProjectionMatrix() *= osg::Matrix::scale(1.0 / aspectRatioChange, 1.0, 1.0); break;
+                    //case (osg::Camera::VERTICAL):
+                    //    camera->getProjectionMatrix() *= osg::Matrix::scale(1.0, aspectRatioChange, 1.0); break;
+                    //default: break;
+                    //}
                 }
             }
             else
