@@ -79,44 +79,110 @@ struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatr
 class MyCullVisitor : public osgUtil::CullVisitor
 {
 public:
-    MyCullVisitor() : osgUtil::CullVisitor(), _pipelineMask(0xffffffff) {}
-    MyCullVisitor(const MyCullVisitor& v) : osgUtil::CullVisitor(v), _pipelineMask(v._pipelineMask) {}
+    MyCullVisitor()
+    :   osgUtil::CullVisitor(), _cullMask(0xffffffff), _defaultMask(0xffffffff) {}
+    MyCullVisitor(const MyCullVisitor& v)
+    :   osgUtil::CullVisitor(v), _pipelineMaskPath(v._pipelineMaskPath),
+        _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
+
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
+    void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
+    osgVerse::DeferredRenderCallback* getDeferredCallback() { return _callback.get(); }
 
     virtual void reset()
     {
+        if (_callback.valid()) _defaultMask = _callback->getForwardMask();
+        _cullMask = 0xffffffff; _pipelineMaskPath.clear();
+
         osg::Camera* cam = this->getCurrentCamera();
         if (cam && cam->getUserDataContainer() != NULL)
-            cam->getUserValue("PipelineMask", _pipelineMask);
-        else
-            _pipelineMask = 0xffffffff;
+            cam->getUserValue("PipelineCullMask", _cullMask);
         osgUtil::CullVisitor::reset();
     }
 
-    bool passable(osg::Node& node)
+    bool passable(osg::Node& node, bool& maskSet)
     {
+        maskSet = false;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
-        else if (node.getUserDataContainer() != NULL)
+
+        if (node.getUserDataContainer() != NULL)
         {
             // Use this to replace nodemasks while checking deferred/forward graphs
-            unsigned int nodePipMask = 0xffffffff;
-            node.getUserValue("PipelineMask", nodePipMask);
-            return (_pipelineMask & nodePipMask) != 0;
+            unsigned int nodePipMask = 0xffffffff, flags = 0;
+            if (node.getUserValue("PipelineMask", nodePipMask))
+            {
+                node.getUserValue("PipelineFlags", flags);
+                if (!_pipelineMaskPath.empty())
+                {
+                    std::pair<unsigned int, unsigned int> lastM = _pipelineMaskPath.back();
+                    if (lastM.second & osg::StateAttribute::OVERRIDE)
+                    {
+                        if (!(flags & osg::StateAttribute::PROTECTED))
+                        { nodePipMask = lastM.first; flags = lastM.second; }
+                    }
+                }
+
+                if (flags & osg::StateAttribute::ON)
+                {
+                    pushM(nodePipMask, flags); maskSet = true;
+                    return (_cullMask & nodePipMask) != 0;
+                }  // otherwise, treat the mask as not set
+            }
+        }
+
+        if (!_pipelineMaskPath.empty())
+        {
+            std::pair<unsigned int, unsigned int> maskAndFlags = _pipelineMaskPath.back();
+            return (_cullMask & maskAndFlags.first) != 0;
         }
         return true;
     }
 
-    virtual void apply(osg::Node& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Geode& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Group& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Transform& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Switch& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::LOD& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
-    virtual void apply(osg::Camera& node) { if (passable(node)) osgUtil::CullVisitor::apply(node); }
+    bool passable(osg::Drawable& node)
+    {
+        if (this->getUserData() != NULL) return true;  // computing near/far mode
+        if (_pipelineMaskPath.empty())
+        {
+            // Handle drawables which is never been set pipeline masks:
+            // if pipeline mask is never set, we will treat current node as forward one
+            // to avoid it being rendered multiple times.
+            return (_cullMask & _defaultMask) != 0;
+        }
+        return true;
+    }
 
-#if OSG_VERSION_GREATER_THAN(3, 5, 9)
+    virtual void apply(osg::Node& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Geode& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Group& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Transform& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    
+    virtual void apply(osg::Projection& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Switch& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::LOD& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::ClearNode& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
+    virtual void apply(osg::Camera& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
     virtual void apply(osg::Drawable& drawable)
     {
+        if (!passable(drawable)) return;
+
+#if OSG_VERSION_GREATER_THAN(3, 5, 9)
         osg::RefMatrix& matrix = *getModelViewMatrix();
         const osg::BoundingBox& bb = drawable.getBoundingBox();
         if (drawable.getCullCallback())
@@ -155,8 +221,10 @@ public:
         else
             addDrawableAndDepth(&drawable, &matrix, depth);
         for (unsigned int i = 0; i < numPopStateSetRequired; ++i) { popStateSet(); }
-    }
+#else
+        osgUtil::CullVisitor::apply(drawable);
 #endif
+    }
 
 protected:
     inline value_type distance(const osg::Vec3& coord, const osg::Matrix& matrix)
@@ -166,7 +234,15 @@ protected:
                  (value_type)coord[2] * (value_type)matrix(2, 2) + matrix(3, 2));
     }
 
-    unsigned int _pipelineMask;
+    inline void pushM(unsigned int m, unsigned int f)
+    { _pipelineMaskPath.push_back(std::pair<unsigned int, unsigned int>(m, f)); }
+    
+    inline void popM()
+    { if (!_pipelineMaskPath.empty()) _pipelineMaskPath.pop_back(); }
+
+    osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
+    std::vector<std::pair<unsigned int, unsigned int>> _pipelineMaskPath;
+    unsigned int _cullMask, _defaultMask;
 };
 
 class MySceneView : public osgUtil::SceneView
@@ -263,6 +339,7 @@ protected:
 
 #if true
         MyCullVisitor* cullVisitor = new MyCullVisitor;
+        cullVisitor->setDeferredCallback(cb);
         cullVisitor->setStateGraph(_sceneView[i]->getStateGraph());
         cullVisitor->setRenderStage(_sceneView[i]->getRenderStage());
         newSceneView->setCullVisitor(cullVisitor);
@@ -303,7 +380,7 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
 
             // Check if camera is for shadowing
             osgVerse::ShadowModule::ShadowData* sData =
-                static_cast<osgVerse::ShadowModule::ShadowData*>(camera->getUserData());
+                dynamic_cast<osgVerse::ShadowModule::ShadowData*>(camera->getUserData());
             bool isShadowCam = (sData != NULL);
 
             osg::Viewport* viewport = camera->getViewport();
@@ -326,7 +403,7 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
             }
 
             // if aspect ratio adjusted change the project matrix to suit.
-            if (aspectRatioChange == 1.0) continue;
+            //if (aspectRatioChange == 1.0) continue;
             if (slave)
             {
                 if (camera->getReferenceFrame() == osg::Transform::RELATIVE_RF)
@@ -346,14 +423,14 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 else
                 {
                     continue;  // FIXME: ignore all absolute slaves such as RTT & display quads?
-                    /*switch (camera->getProjectionResizePolicy())
-                    {
-                    case (osg::Camera::HORIZONTAL):
-                        camera->getProjectionMatrix() *= osg::Matrix::scale(1.0 / aspectRatioChange, 1.0, 1.0); break;
-                    case (osg::Camera::VERTICAL):
-                        camera->getProjectionMatrix() *= osg::Matrix::scale(1.0, aspectRatioChange, 1.0); break;
-                    default: break;
-                    }*/
+                    //switch (camera->getProjectionResizePolicy())
+                    //{
+                    //case (osg::Camera::HORIZONTAL):
+                    //    camera->getProjectionMatrix() *= osg::Matrix::scale(1.0 / aspectRatioChange, 1.0, 1.0); break;
+                    //case (osg::Camera::VERTICAL):
+                    //    camera->getProjectionMatrix() *= osg::Matrix::scale(1.0, aspectRatioChange, 1.0); break;
+                    //default: break;
+                    //}
                 }
             }
             else
@@ -611,6 +688,7 @@ namespace osgVerse
         // ClampProjectionCallback must only exist on view's main camera
         if (view->getCamera() && view->getCamera()->getClampProjectionMatrixCallback())
             _deferredCallback->setClampCallback(view->getCamera()->getClampProjectionMatrixCallback());
+        _deferredCallback->setForwardMask(forwardMask);
 
         for (unsigned int i = 0; i < _stages.size(); ++i)
         {
@@ -628,7 +706,7 @@ namespace osgVerse
                                              ? new osg::Camera(*mainCam) : new osg::Camera;
         forwardCam->setName("DefaultForward");
         forwardCam->setUserValue("NeedNearFarCalculation", true);
-        forwardCam->setUserValue("PipelineMask", forwardMask);  // replacing setCullMask()
+        forwardCam->setUserValue("PipelineCullMask", forwardMask);  // replacing setCullMask()
         forwardCam->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
         forwardCam->setComputeNearFarMode(g_nearFarMode);
         _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
@@ -708,7 +786,7 @@ namespace osgVerse
 
         applyDefaultStageData(*s, name, vs, fs);
         applyDefaultInputStateSet(s->camera->getOrCreateStateSet());
-        s->camera->setUserValue("PipelineMask", cullMask);  // replacing setCullMask()
+        s->camera->setUserValue("PipelineCullMask", cullMask);  // replacing setCullMask()
         s->camera->setUserValue("NeedNearFarCalculation", true);
         s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
         s->camera->setComputeNearFarMode(g_nearFarMode);
@@ -939,17 +1017,22 @@ namespace osgVerse
         s->setShaderSource(ss.str() + source);
     }
 
-    void Pipeline::setPipelineMask(osg::Node& node, unsigned int mask)
+    void Pipeline::setPipelineMask(osg::Node& node, unsigned int mask, unsigned int flags)
     {
         if (node.getUserDataContainer() != NULL)
         {
-            osg::Object* obj = dynamic_cast<osg::Object*>(node.getUserDataContainer());
-            std::string clsName = obj ? obj->className() : std::string("Unknown");
-            OSG_NOTICE << "The node already has user data '" << clsName
-                       << "' set before setting pipeline mask, which will overwrite it. "
-                       << "Consider a better way to handle user values!" << std::endl;
+            osg::DefaultUserDataContainer* defUdc =
+                dynamic_cast<osg::DefaultUserDataContainer*>(node.getUserDataContainer());
+            if (!defUdc)
+            {
+                OSG_NOTICE << "The node already has a user-define data container '"
+                           << node.getUserDataContainer()->className()
+                           << "' before setting pipeline mask, which may cause overwriting problems. "
+                           << "Consider a better way to handle user values!" << std::endl;
+            }
         }
         node.setUserValue("PipelineMask", mask);  // replacing setNodeMask()
+        node.setUserValue("PipelineFlags", flags);
     }
 
     osg::Texture* Pipeline::createTexture(BufferType type, int w, int h, int glVer)

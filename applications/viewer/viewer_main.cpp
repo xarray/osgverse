@@ -90,18 +90,20 @@ int main(int argc, char** argv)
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
+    sceneRoot->setName("PbrSceneRoot");
     sceneRoot->addChild(scene.get());
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
-    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
+    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
-    if (otherSceneRoot.valid())
-        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
+    //if (otherSceneRoot.valid())
+    //    osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
+    root->setName("Root");
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;

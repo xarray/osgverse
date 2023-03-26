@@ -57,12 +57,12 @@ SkyBox::SkyBox(const SkyBox& copy, const osg::CopyOp& copyop)
 {
 }
 
-osg::Camera* SkyBox::createSkyCamera()
+osg::Camera* SkyBox::createSkyCamera(int renderOrder)
 {
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
     postCamera->setName("SkyCamera");
     postCamera->setClearMask(0);
-    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, renderOrder);
     postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
     postCamera->setProjectionMatrixAsPerspective(30.0f, 1.0f, 1.0f, 1000.0f);
     postCamera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
@@ -163,10 +163,10 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     stateset->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 
     osg::ref_ptr<osg::Depth> depth = new osg::Depth;
-    depth->setFunction(osg::Depth::LEQUAL);
-    depth->setRange(1.0, 1.0);
+    depth->setFunction(osg::Depth::LESS);
+    depth->setRange(0.0, 1.0);
     stateset->setAttributeAndModes(depth, values);
-    stateset->setRenderBinDetails(-9999, "RenderBin");
+    stateset->setRenderBinDetails(9999, "RenderBin");
 
     int glVer = (_pipeline.valid() ? _pipeline->getTargetVersion() : 100);
     int glslVer = (_pipeline.valid() ? _pipeline->getGlslTargetVersion() : 130);
