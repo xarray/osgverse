@@ -18,9 +18,9 @@ OsgSceneWidget::OsgSceneWidget(QWidget* parent)
     this->setMinimumSize(320, 240);
     this->setMouseTracking(true);
 
-    QTimer* timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), SLOT(update()));
-    timer->start(15);
+    //QTimer* timer = new QTimer(this);
+    //connect(timer, SIGNAL(timeout()), SLOT(update()));
+    //timer->start(15);
 }
 
 OsgSceneWidget::~OsgSceneWidget()
