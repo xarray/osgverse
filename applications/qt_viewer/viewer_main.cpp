@@ -22,7 +22,7 @@ namespace backward { backward::SignalHandling sh; }
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-void OsgSceneWidget::initializeScene(int argc, char** argv)
+static osg::Group* loadBasicScene(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
@@ -45,8 +45,15 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    root->addChild(otherSceneRoot.get());
+    if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
+    return root.release();
+}
+
+osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* sharedScene)
+{
+    osg::ref_ptr<osg::Group> root = (sharedScene != NULL)
+                                  ? sharedScene : loadBasicScene(argc, argv);
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
@@ -65,8 +72,8 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());
 
     // Setup the pipeline
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
-    setupStandardPipeline(pipeline.get(), _viewer.get(), params);
+    _params = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png");
+    setupStandardPipeline(pipeline.get(), _viewer.get(), _params);
 
     // Setup shadow & light module
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
@@ -87,7 +94,7 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
                               osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
-        skybox->setEnvironmentMap(params.skyboxMap.get(), false);
+        skybox->setEnvironmentMap(_params.skyboxMap.get(), false);
         postCamera->addChild(skybox.get());
         osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
     }
@@ -103,24 +110,46 @@ void OsgSceneWidget::initializeScene(int argc, char** argv)
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     _viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    return root.get();
 }
+
+#if USE_QMAINWINDOW
+void MainWindow::addNewView()
+{
+    OsgSceneWidget* w = new OsgSceneWidget;
+    _sceneRoot = w->initializeScene(0, NULL, _sceneRoot.get());  // FIXME
+    connect(this, SIGNAL(updateRequired()), w, SLOT(update()));
+    _allocatedWidgets.push_back(w);
+
+    QDockWidget* dock = new QDockWidget(QObject::tr("OsgDock"), this);
+    dock->setAllowedAreas(Qt::DockWidgetArea::AllDockWidgetAreas);
+    dock->setWidget(w);
+    addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, dock);
+}
+
+void MainWindow::removeLastView()
+{
+    if (_allocatedWidgets.size() < 2) return;
+    OsgSceneWidget* w = _allocatedWidgets.back();
+    w->deleteLater();
+    _allocatedWidgets.pop_back();
+}
+#endif
 
 int main(int argc, char** argv)
 {
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication app(argc, argv);
-    app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
 
 #if USE_QMAINWINDOW
-    QMainWindow mw;
-    QDockWidget* dock = new QDockWidget(QObject::tr("OsgDock"), &mw);
-    dock->setAllowedAreas(Qt::DockWidgetArea::AllDockWidgetAreas);
+    MainWindow mw;
+    {
+        QMenu* menu = mw.menuBar()->addMenu(QObject::tr("&Operation"));
+        menu->addAction(QObject::tr("&Add View"), &mw, SLOT(addNewView()));
+        menu->addAction(QObject::tr("&Remove View"), &mw, SLOT(removeLastView()));
+    }
 
-    OsgSceneWidget w;
-    w.initializeScene(argc, argv);
-    dock->setWidget(&w);
-
-    mw.addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, dock);
+    mw.addNewView();
     mw.setGeometry(50, 50, 1280, 720);
     mw.show();
 #else
@@ -129,5 +158,16 @@ int main(int argc, char** argv)
     w.setGeometry(50, 50, 1280, 720);
     w.show();
 #endif
+
+    RenderingThread thread(&app);
+#if USE_QMAINWINDOW
+    app.connect(&thread, SIGNAL(updateRequired()), &mw, SIGNAL(updateRequired()));
+#else
+    app.connect(&thread, SIGNAL(updateRequired()), &w, SLOT(update()));
+#endif
+    app.connect(&app, SIGNAL(lastWindowClosed()), &thread, SLOT(setDone()));
+    app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
+    
+    thread.start();
     return app.exec();
 }

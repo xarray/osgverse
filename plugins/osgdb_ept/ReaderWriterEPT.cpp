@@ -12,7 +12,7 @@
 #include <sstream>
 
 extern osg::Node* readNodeFromUnityPoint(const std::string& file, float invR = 1.0f);
-extern osg::Node* readNodeFromLaz(const std::string& file, float invR = 1.0 / 65535.0f);
+extern osg::Node* readNodeFromLaz(const std::string& file, float invR = 1.0 / 255.0f);
 
 static std::vector<std::string> split(const std::string& src, const char* seperator, bool ignoreEmpty)
 {

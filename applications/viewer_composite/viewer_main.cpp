@@ -86,7 +86,7 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    root->addChild(otherSceneRoot.get());
+    if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
     // Main light
