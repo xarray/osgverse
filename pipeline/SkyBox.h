@@ -35,6 +35,7 @@ namespace osgVerse
     
         osg::observer_ptr<Pipeline> _pipeline;
         osg::observer_ptr<osg::Texture> _skymap;
+        osg::ref_ptr<osg::StateSet> _stateset;
         osg::ref_ptr<osg::Shader> _vertex, _fragment;
     };
 }

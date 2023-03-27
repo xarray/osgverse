@@ -146,27 +146,28 @@ void SkyBox::setSkyShaders(osg::Shader* vs, osg::Shader* fs)
 
 void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
 {
-    osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
     unsigned int values = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE;
+    if (!_stateset) _stateset = new osg::StateSet;
 #if 0
     osg::ref_ptr<osg::TexGen> tg = new osg::TexGen;
     tg->setMode(osg::TexGen::REFLECTION_MAP);
-    stateset->setTextureAttributeAndModes(0, tg.get(), values);
+    _stateset->setTextureAttributeAndModes(0, tg.get(), values);
 
     osg::TexMat* tm = new osg::TexMat;
-    stateset->setTextureAttribute(0, tm);
+    _stateset->setTextureAttribute(0, tm);
     setCullCallback(new TexMatCallback(*tm));
 #endif
 
-    stateset->setTextureAttributeAndModes(0, _skymap.get(), values);
-    stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-    stateset->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+    _stateset->setTextureAttributeAndModes(0, _skymap.get(), values);
+    _stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    _stateset->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+    if (_vertex.valid() && _fragment.valid() && getNumChildren() > 0) return;
 
     osg::ref_ptr<osg::Depth> depth = new osg::Depth;
     depth->setFunction(osg::Depth::LESS);
     depth->setRange(0.0, 1.0);
-    stateset->setAttributeAndModes(depth, values);
-    stateset->setRenderBinDetails(9999, "RenderBin");
+    _stateset->setAttributeAndModes(depth, values);
+    _stateset->setRenderBinDetails(9999, "RenderBin");
 
     int glVer = (_pipeline.valid() ? _pipeline->getTargetVersion() : 100);
     int glslVer = (_pipeline.valid() ? _pipeline->getGlslTargetVersion() : 130);
@@ -183,9 +184,9 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     osg::Program* program = new osg::Program;
     program->setName("SkyBox_PROGRAM");
     program->addShader(_vertex.get()); program->addShader(_fragment.get());
-    stateset->setAttributeAndModes(program);
-    stateset->addUniform(new osg::Uniform("SkyTexture", (int)0));
-    stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));
+    _stateset->setAttributeAndModes(program);
+    _stateset->addUniform(new osg::Uniform("SkyTexture", (int)0));
+    _stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));
 
     osg::ref_ptr<osg::Drawable> drawable = new osg::ShapeDrawable(
         new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 1.0f));
@@ -193,7 +194,7 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
 
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     geode->setCullingActive(false);
-    geode->setStateSet(stateset.get());
+    geode->setStateSet(_stateset.get());
     geode->addDrawable(drawable.get());
     geode->setName("SkyBoxGeode");
     addChild(geode.get());
