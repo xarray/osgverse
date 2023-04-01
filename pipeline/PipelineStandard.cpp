@@ -3,6 +3,7 @@
 #include "LightModule.h"
 #include "Utilities.h"
 
+#include <osg/GLExtensions>
 #include <osg/DisplaySettings>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
@@ -37,9 +38,13 @@ public:
         d->glslVersion = ext->getLanguageVersion() * 100;
         d->glslSupported = ext->isGlslSupported();
 
+        typedef void (GL_APIENTRY * DrawBuffersProc)(GLsizei n, const GLenum *bufs);
+        DrawBuffersProc glDrawBuffersTemp = NULL;
+        osg::setGLExtensionFuncPtr(glDrawBuffersTemp, "glDrawBuffers", "glDrawBuffersARB");
+        d->drawBuffersSupported = (glDrawBuffersTemp != NULL);
+
         osg::FBOExtensions* ext2 = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
         d->fboSupported = ext2->isSupported();
-        d->drawBuffersSupported = (ext2->glDrawBuffers != NULL);
 #endif
         
         const char* versionString = (const char*)glGetString(GL_VERSION);

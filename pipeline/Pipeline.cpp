@@ -154,9 +154,6 @@ public:
     virtual void apply(osg::Node& node)
     { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
 
-    virtual void apply(osg::Geode& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
-
     virtual void apply(osg::Group& node)
     { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
 
@@ -178,11 +175,15 @@ public:
     virtual void apply(osg::Camera& node)
     { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
 
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
+    virtual void apply(osg::Geode& node)
+    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+
     virtual void apply(osg::Drawable& drawable)
     {
         if (!passable(drawable)) return;
 
-#if OSG_VERSION_GREATER_THAN(3, 5, 9)
+#   if OSG_VERSION_GREATER_THAN(3, 5, 9)
         osg::RefMatrix& matrix = *getModelViewMatrix();
         const osg::BoundingBox& bb = drawable.getBoundingBox();
         if (drawable.getCullCallback())
@@ -221,10 +222,49 @@ public:
         else
             addDrawableAndDepth(&drawable, &matrix, depth);
         for (unsigned int i = 0; i < numPopStateSetRequired; ++i) { popStateSet(); }
-#else
+#   else
         osgUtil::CullVisitor::apply(drawable);
-#endif
+#   endif
     }
+#else
+    virtual void apply(osg::Geode& node)
+    {
+        class DisableDrawableCallbackInternal : public osg::Drawable::CullCallback
+        {
+        public:
+            virtual bool cull(osg::NodeVisitor*, osg::Drawable* drawable, osg::State*) const
+            { return true; }
+        };
+
+        bool pipelineMaskSet = false;
+        if (passable(node, pipelineMaskSet))
+        {
+            typedef std::pair<osg::observer_ptr<osg::Drawable>,
+                              osg::ref_ptr<osg::Drawable::CullCallback>> DrawablePair;
+            std::vector<DrawablePair> drawablesToHide;
+            for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+            {
+                osg::Drawable* drawable = node.getDrawable(i);
+                if (!passable(*drawable))
+                {
+                    drawablesToHide.push_back(DrawablePair(drawable, drawable->getCullCallback()));
+                    drawable->setCullCallback(new DisableDrawableCallbackInternal);
+                }
+            }
+
+            osgUtil::CullVisitor::apply(node);
+            if (!drawablesToHide.empty())
+            {
+                for (unsigned int i = 0; i < drawablesToHide.size(); ++i)
+                {
+                    DrawablePair& pair = drawablesToHide[i];
+                    if (pair.first.valid()) pair.first->setCullCallback(pair.second);
+                }
+            }
+        }
+        if (pipelineMaskSet) popM();
+    }
+#endif
 
 protected:
     inline value_type distance(const osg::Vec3& coord, const osg::Matrix& matrix)
