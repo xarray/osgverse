@@ -30,6 +30,7 @@ public:
         d->glslVersion = ext->glslLanguageVersion * 100;
         d->glslSupported = ext->isGlslSupported;
         d->fboSupported = ext->isFrameBufferObjectSupported;
+        d->drawBuffersSupported = (ext->glDrawBuffers != NULL);
 #else
         osg::GL2Extensions* ext = osg::GL2Extensions::Get(renderInfo.getContextID(), true);
         d->glVersion = ext->getGlVersion() * 100;
@@ -38,6 +39,7 @@ public:
 
         osg::FBOExtensions* ext2 = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
         d->fboSupported = ext2->isSupported();
+        d->drawBuffersSupported = (ext2->glDrawBuffers != NULL);
 #endif
         
         const char* versionString = (const char*)glGetString(GL_VERSION);
@@ -80,7 +82,7 @@ namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
-        shadowNumber(0), shadowResolution(2048), debugShadowModule(false), enableVSync(true)
+        shadowNumber(0), shadowResolution(2048), debugShadowModule(false), enableVSync(true), enableMRT(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -88,7 +90,7 @@ namespace osgVerse
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
-        shadowNumber(3), shadowResolution(2048), debugShadowModule(false), enableVSync(true)
+        shadowNumber(3), shadowResolution(2048), debugShadowModule(false), enableVSync(true), enableMRT(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -155,6 +157,7 @@ namespace osgVerse
     bool setupStandardPipelineEx(Pipeline* p, osgViewer::View* view, osg::Camera* mainCam,
                                  const StandardPipelineParameters& spp)
     {
+        bool supportDrawBuffersMRT = spp.enableMRT;
         if (!mainCam) mainCam = view->getCamera();
         if (!view)
         {
@@ -173,7 +176,9 @@ namespace osgVerse
                        << "setupStandardPipeline(). It may cause problems!!" << std::endl;
         }
 
-        GLVersionData* data = !p->getVersionData() ? NULL : queryOpenGLVersion(p);
+        GLVersionData* data = p->getVersionData();
+        if (!data) data = queryOpenGLVersion(p);
+
         p->startStages(spp.originWidth, spp.originHeight, mainCam->getGraphicsContext());
         if (data)
         {
@@ -195,18 +200,31 @@ namespace osgVerse
                          << "unexpected problems at present." << std::endl;
 #endif
             }
+            supportDrawBuffersMRT &= data->drawBuffersSupported;
         }
 
         // GBuffer should always be first because it also computes the scene near/far planes
         // for following stages to use
         int msaa = 0;  // FIXME: seems to cause some more flickers
-        osgVerse::Pipeline::Stage* gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
-            spp.shaders.gbufferVS, spp.shaders.gbufferFS, 5,
-            "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
-            "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
-            "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
-            "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
-            "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
+        osgVerse::Pipeline::Stage* gbuffer = NULL;
+        if (supportDrawBuffersMRT)
+        {
+            gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
+                spp.shaders.gbufferVS, spp.shaders.gbufferFS, 5,
+                "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
+                "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
+                "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
+                "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
+                "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
+        }
+        else
+        {
+            gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
+                spp.shaders.gbufferVS, spp.shaders.gbufferFS, 2,
+                "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
+                "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
+            // TODO: more gbuffers
+        }
 
         // Shadow module initialization
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =

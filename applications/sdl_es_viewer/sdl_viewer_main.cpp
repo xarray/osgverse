@@ -10,6 +10,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#define TEST_PIPELINE 1
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
 #   define VERSE_GLES 1
@@ -68,7 +69,7 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    if (argc == 1) root->addChild(otherSceneRoot.get());
+    //if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
     // Main light
@@ -170,10 +171,10 @@ int main(int argc, char** argv)
 #if TEST_PIPELINE
     MyViewer viewer(pipeline.get());
 #else
-    osg::setNotifyLevel(osg::INFO);
+    //osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
     root->addChild(postCamera.get());
-    //root->addChild(osgDB::readNodeFile("cessna.osg"));
+    root->addChild(osgDB::readNodeFile("glider_es.osg"));
     osgViewer::Viewer viewer;
 #endif
     viewer.addEventHandler(new osgViewer::StatsHandler);
@@ -232,7 +233,10 @@ int main(int argc, char** argv)
                 eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
             case SDL_WINDOWEVENT:
                 if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+                {
+                    gw->resized(0, 0, event.window.data1, event.window.data2);
                     eq->windowResize(0, 0, event.window.data1, event.window.data2);
+                }
                 break;
             case SDL_QUIT:
                 viewer.setDone(true); break;

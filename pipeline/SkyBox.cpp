@@ -214,7 +214,7 @@ bool SkyBox::computeLocalToWorldMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv
         matrix.preMult(osg::Matrix::scale(far, far, far) * osg::Matrix::translate(eye));
 #else
         const osg::RefMatrix* proj = cv->getProjectionMatrix();
-        double far = (*proj)(3, 2) / (1.0 + (*proj)(2, 2));
+        double far = (*proj)(3, 2) / (1.0 + (*proj)(2, 2)); far -= 10.0;
         matrix.preMult(osg::Matrix::scale(far, far, far) * osg::Matrix::translate(cv->getEyeLocal()));
 #endif
         return true;

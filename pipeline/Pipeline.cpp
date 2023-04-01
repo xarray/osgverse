@@ -1006,6 +1006,9 @@ namespace osgVerse
             ss << "#define VERSE_FS_IN " << fin << std::endl;
             ss << "#define VERSE_FS_OUT " << fout << std::endl;
             ss << "#define VERSE_FS_FINAL " << finalColor << std::endl;
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+            ss << "precision mediump float;" << std::endl;
+#endif
         }
         ss << "#define VERSE_TEX1D " << tex1d << std::endl;
         ss << "#define VERSE_TEX2D " << tex2d << std::endl;

@@ -49,6 +49,7 @@ namespace osgVerse
         std::string version, renderer;
         int glVersion, glslVersion;
         bool glslSupported, fboSupported;
+        bool drawBuffersSupported;
     };
 
     /** Effect pipeline using a list of slave cameras, without invading main scene graph
@@ -240,7 +241,7 @@ namespace osgVerse
         unsigned int originWidth, originHeight;
         unsigned int deferredMask, forwardMask, shadowCastMask;
         unsigned int shadowNumber, shadowResolution;
-        bool debugShadowModule, enableVSync;
+        bool debugShadowModule, enableVSync, enableMRT;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);
