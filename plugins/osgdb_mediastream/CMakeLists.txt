@@ -1,0 +1,49 @@
+SET(LIB_NAME osgdb_verse_ms)
+SET(LIBRARY_FILES
+    ReaderWriterZLMedia.cpp
+)
+
+#########################################
+FIND_PATH(ZLMEDIAKIT_INCLUDE_DIR ZLMediaKit/Common/MediaSource.h
+    PATHS
+    $ENV{OSG_ROOT}/include
+    $ENV{OSG_DIR}/include
+    /usr/include
+    /usr/local/include
+)
+
+FIND_PATH(ZLMEDIAKIT_LIB_DIR libzlmediakit.so zlmediakit.lib
+    PATHS
+    $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
+    $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+    /usr/lib /usr/${FIND_LIB_POSTFIX}
+    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+)
+#########################################
+
+IF(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
+
+    INCLUDE_DIRECTORIES(${ZLMEDIAKIT_INCLUDE_DIR})
+    LINK_DIRECTORIES(${ZLMEDIAKIT_LIB_DIR})
+    SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
+    IF(VERSE_STATIC_BUILD)
+        NEW_LIBRARY(${LIB_NAME} STATIC)
+    ELSE()
+        NEW_LIBRARY(${LIB_NAME} SHARED)
+    ENDIF()
+
+    SET_PROPERTY(TARGET ${LIB_NAME} PROPERTY FOLDER "PLUGINS")
+    TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency mk_api)
+    LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)
+
+    INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
+            RUNTIME DESTINATION ${INSTALL_BINDIR} COMPONENT libosgverse
+            LIBRARY DESTINATION ${INSTALL_LIBDIR} COMPONENT libosgverse
+            ARCHIVE DESTINATION ${INSTALL_ARCHIVEDIR} COMPONENT libosgverse-dev)
+    
+ELSE(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
+    
+    MESSAGE("[osgVerse] Dependency ZLMediaKit not found. ${LIB_NAME} will be ignored.")
+    
+ENDIF(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)

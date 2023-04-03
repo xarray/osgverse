@@ -45,6 +45,7 @@ namespace osgVerse
         // anything to do here?
 #else
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_web"));
+        regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_ms"));
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_leveldb"));
 #endif
         regObject->addFileExtensionAlias("ept", "verse_ept");
