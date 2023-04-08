@@ -253,7 +253,7 @@ SET(LIBRARY_FILES
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
 	mimalloc/static.c mimalloc/mimalloc.h mimalloc/mimalloc-new-delete.h
 	microprofile.cpp microprofile.h xatlas.cpp xatlas.h easing.cpp easing.h
-    lightmapper.h GL/glew.c GL/glew.h
+    lightmapper.h GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
