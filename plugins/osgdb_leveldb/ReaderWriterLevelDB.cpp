@@ -5,14 +5,68 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
-
+#include <osgDB/Archive>
 #include <leveldb/db.h>
+
+enum LevelDBObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE, SHADER };
+class LevelDBArchive : public osgDB::Archive
+{
+public:
+    LevelDBArchive(const osgDB::ReaderWriter* rw, ArchiveStatus status, const std::string& dbName);
+    virtual ~LevelDBArchive() { close(); }
+
+    virtual const char* libraryName() const { return "osgVerse"; }
+    virtual const char* className() const { return "LevelDBArchive"; }
+    virtual bool acceptsExtension(const std::string& /*ext*/) const { return true; }
+
+    virtual void close();
+    virtual bool fileExists(const std::string& filename) const;
+    virtual std::string getArchiveFileName() const { return _dbName; }
+    virtual std::string getMasterFileName() const { return "leveldb://" + _dbName + "/"; }
+
+    virtual osgDB::FileType getFileType(const std::string& filename) const
+    {
+        if (fileExists(filename)) return osgDB::REGULAR_FILE;
+        else return osgDB::FILE_NOT_FOUND;
+    }
+
+    virtual bool getFileNames(osgDB::DirectoryContents& fileNames) const { return false; }
+    //virtual osgDB::DirectoryContents getDirectoryContents(const std::string& dirName) const;
+
+    osgDB::ReaderWriter::ReadResult readFile(
+        LevelDBObjectType type, const std::string& f, const osgDB::Options* o) const;
+    osgDB::ReaderWriter::WriteResult writeFile(const osg::Object& obj,
+        LevelDBObjectType type, const std::string& f, const osgDB::Options* o) const;
+
+    virtual ReadResult readObject(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return readFile(OBJECT, f, o); }
+    virtual ReadResult readImage(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return readFile(IMAGE, f, o); }
+    virtual ReadResult readHeightField(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return readFile(HEIGHTFIELD, f, o); }
+    virtual ReadResult readNode(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return readFile(NODE, f, o); }
+    virtual ReadResult readShader(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return readFile(SHADER, f, o); }
+    virtual WriteResult writeObject(const osg::Object& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return writeFile(obj, OBJECT, f, o); }
+    virtual WriteResult writeImage(const osg::Image& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return writeFile(obj, IMAGE, f, o); }
+    virtual WriteResult writeHeightField(const osg::HeightField& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return writeFile(obj, HEIGHTFIELD, f, o); }
+    virtual WriteResult writeNode(const osg::Node& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return writeFile(obj, NODE, f, o); }
+    virtual WriteResult writeShader(const osg::Shader& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return writeFile(obj, SHADER, f, o); }
+
+protected:
+    osg::observer_ptr<osgDB::ReaderWriter> _readerWriter;
+    leveldb::DB* _db; std::string _dbName;
+};
 
 class ReaderWriterLevelDB : public osgDB::ReaderWriter
 {
 public:
-    enum ObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE };
-    
     ReaderWriterLevelDB()
     {
         supportsProtocol("leveldb", "Read from LevelDB database.");
@@ -33,11 +87,12 @@ public:
     virtual const char* className() const
     { return "[osgVerse] Scene reader/writer from LevelDB database"; }
 
-    virtual ReadResult openArchive(const std::string& fileName, ArchiveStatus status,
+    virtual ReadResult openArchive(const std::string& fullFileName, ArchiveStatus status,
                                    unsigned int, const Options* options) const
     {
-        if (status != READ) return ReadResult(ReadResult::FILE_NOT_HANDLED);
-        else return readFile(ARCHIVE, fileName, options);
+        // Create archive from DB
+        std::string dbName = osgDB::getServerAddress(fullFileName);
+        return new LevelDBArchive(this, status, dbName);
     }
 
     virtual ReadResult readObject(const std::string& fileName, const Options* options) const
@@ -52,6 +107,9 @@ public:
     virtual ReadResult readNode(const std::string& fileName, const Options* options) const
     { return readFile(NODE, fileName, options); }
 
+    virtual ReadResult readShader(const std::string& fileName, const Options* options) const
+    { return readFile(SHADER, fileName, options); }
+
     virtual WriteResult writeObject(const osg::Object& obj, const std::string& fileName, const Options* options) const
     { return writeFile(obj, fileName, options); }
 
@@ -63,8 +121,11 @@ public:
 
     virtual WriteResult writeNode(const osg::Node& node, const std::string& fileName, const Options* options) const
     { return writeFile(node, fileName, options); }
+    
+    virtual WriteResult writeShader(const osg::Shader& s, const std::string& fileName, const Options* options) const
+    { return writeFile(s, fileName, options); }
 
-    ReadResult readFile(ObjectType objectType, osgDB::ReaderWriter* rw,
+    ReadResult readFile(LevelDBObjectType objectType, osgDB::ReaderWriter* rw,
                         std::istream& fin, const Options* options) const
     {
         switch (objectType)
@@ -91,6 +152,9 @@ public:
         const osg::Image* image = dynamic_cast<const osg::Image*>(&obj);
         if (image) return rw->writeImage(*image, fout, options);
 
+        const osg::Shader* shader = dynamic_cast<const osg::Shader*>(&obj);
+        if (shader) return rw->writeShader(*shader, fout, options);
+
         return rw->writeObject(obj, fout, options);
     }
     
@@ -104,14 +168,14 @@ public:
             leveldb::DB* db = getOrCreateDatabase(dbName, false);
             if (!db) return false;
 
-            leveldb::Status status = db->Get(leveldb::ReadOptions(), dbName, &value);
+            leveldb::Status status = db->Get(leveldb::ReadOptions(), keyName, &value);
             return status.ok();
         }
         return ReaderWriter::fileExists(filename, options);
     }
 
-    virtual ReadResult readFile(ObjectType objectType, const std::string& fullFileName,
-                                const osgDB::Options* options) const
+    ReadResult readFile(LevelDBObjectType objectType, const std::string& fullFileName,
+                        const osgDB::Options* options) const
     {
         std::string fileName(fullFileName);
         std::string ext = osgDB::getFileExtension(fullFileName);
@@ -149,7 +213,12 @@ public:
         std::string keyName = osgDB::getServerFileName(fullFileName);
         leveldb::DB* db = getOrCreateDatabase(dbName, false);
         if (!db) return ReadResult::ERROR_IN_READING_FILE;
+        else return read(db, fileName, keyName, objectType, reader, options);
+    }
 
+    ReadResult read(leveldb::DB* db, const std::string& fileName, const std::string& keyName,
+                    LevelDBObjectType type, osgDB::ReaderWriter* rw, const osgDB::Options* options) const
+    {
         std::stringstream buffer; std::string value;
         leveldb::Status status = db->Get(leveldb::ReadOptions(), keyName, &value);
         if (!status.ok()) return ReadResult::FILE_NOT_FOUND;
@@ -162,7 +231,7 @@ public:
         lOptions->setPluginStringData("STREAM_FILENAME", osgDB::getSimpleFileName(fileName));
         lOptions->setPluginStringData("filename", fileName);
 
-        ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
+        ReadResult readResult = readFile(type, rw, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
         return readResult;
     }
@@ -193,24 +262,27 @@ public:
             return WriteResult::FILE_NOT_HANDLED;
         }
 
-        osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
-        if (!writer) return WriteResult::FILE_NOT_HANDLED;
-
-        std::stringstream requestBuffer;
-        osgDB::ReaderWriter::WriteResult result = writeFile(obj, writer, requestBuffer, options);
-        if (!result.success()) return result;
-
-        // Create database if missing
         std::string dbName = osgDB::getServerAddress(fullFileName);
         std::string keyName = osgDB::getServerFileName(fullFileName);
         leveldb::DB* db = getOrCreateDatabase(dbName, true);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
+        osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        if (!writer) return WriteResult::FILE_NOT_HANDLED;
+        else return write(db, obj, keyName, writer, options);
+    }
+
+    WriteResult write(leveldb::DB* db, const osg::Object& obj, const std::string& keyName,
+                      osgDB::ReaderWriter* rw, const osgDB::Options* options) const
+    {
+        std::stringstream requestBuffer;
+        osgDB::ReaderWriter::WriteResult result = writeFile(obj, rw, requestBuffer, options);
+        if (!result.success()) return result;
+
         leveldb::Status status = db->Put(leveldb::WriteOptions(), keyName, requestBuffer.str());
         return status.ok() ? WriteResult::FILE_SAVED : WriteResult::FILE_NOT_HANDLED;
     }
 
-protected:
     leveldb::DB* getOrCreateDatabase(const std::string& name, bool createdIfMissing) const
     {
         leveldb::DB* db = NULL;
@@ -226,9 +298,61 @@ protected:
         return db;
     }
 
+    void closeDatabase(const std::string& name)
+    {
+        DatabaseMap::iterator itr = _dbMap.find(name);
+        if (itr != _dbMap.end()) { delete itr->second; _dbMap.erase(itr); }
+    }
+
+protected:
     typedef std::map<std::string, leveldb::DB*> DatabaseMap;
     DatabaseMap _dbMap;
 };
+
+LevelDBArchive::LevelDBArchive(const osgDB::ReaderWriter* rw, ArchiveStatus status, const std::string& dbName)
+    : _readerWriter(NULL), _dbName(dbName)
+{
+    ReaderWriterLevelDB* rwdb = static_cast<ReaderWriterLevelDB*>(const_cast<ReaderWriter*>(rw));
+    if (!rwdb) { _db = NULL; return; } else _readerWriter = rwdb;
+    _db = rwdb->getOrCreateDatabase(dbName, status == ArchiveStatus::CREATE);
+}
+
+void LevelDBArchive::close()
+{
+    ReaderWriterLevelDB* rwdb = static_cast<ReaderWriterLevelDB*>(_readerWriter.get());
+    if (rwdb) rwdb->closeDatabase(_dbName); _db = NULL;
+}
+
+bool LevelDBArchive::fileExists(const std::string& filename) const
+{
+    std::string value; if (!_db) return false;
+    leveldb::Status status = _db->Get(leveldb::ReadOptions(), filename, &value);
+    return status.ok();
+}
+
+osgDB::ReaderWriter::ReadResult LevelDBArchive::readFile(
+    LevelDBObjectType type, const std::string& fileName, const osgDB::Options* op) const
+{
+    std::string ext = osgDB::getFileExtension(fileName);
+    osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+    if (!reader) return ReadResult::FILE_NOT_HANDLED;
+
+    ReaderWriterLevelDB* rwdb = static_cast<ReaderWriterLevelDB*>(_readerWriter.get());
+    if (!rwdb || !_db) return ReadResult::FILE_NOT_HANDLED;
+    return rwdb->read(_db, getMasterFileName() + fileName, fileName, type, reader, op);
+}
+
+osgDB::ReaderWriter::WriteResult LevelDBArchive::writeFile(const osg::Object& obj,
+    LevelDBObjectType type, const std::string& fileName, const osgDB::Options* op) const
+{
+    std::string ext = osgDB::getFileExtension(fileName);
+    osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+    if (!writer) return WriteResult::FILE_NOT_HANDLED;
+
+    ReaderWriterLevelDB* rwdb = static_cast<ReaderWriterLevelDB*>(_readerWriter.get());
+    if (!rwdb || !_db) return WriteResult::FILE_NOT_HANDLED;
+    return rwdb->write(_db, obj, fileName, writer, op);
+}
 
 // Now register with Registry to instantiate the above reader/writer.
 REGISTER_OSGPLUGIN(verse_leveldb, ReaderWriterLevelDB)
