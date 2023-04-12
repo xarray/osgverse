@@ -320,7 +320,7 @@ LevelDBArchive::LevelDBArchive(const osgDB::ReaderWriter* rw, ArchiveStatus stat
 void LevelDBArchive::close()
 {
     ReaderWriterLevelDB* rwdb = static_cast<ReaderWriterLevelDB*>(_readerWriter.get());
-    if (rwdb) rwdb->closeDatabase(_dbName); _db = NULL;
+    if (rwdb) rwdb->closeDatabase(_dbName); _db = NULL; _readerWriter = NULL;
 }
 
 bool LevelDBArchive::fileExists(const std::string& filename) const

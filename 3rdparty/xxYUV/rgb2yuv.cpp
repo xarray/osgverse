@@ -112,6 +112,7 @@ void rgb2yuv_yu12(const rgb2yuv_parameter* parameter)
     converter(width, height, rgb, strideRGB, y, u, v, strideY, strideU, strideU);
 }
 //------------------------------------------------------------------------------
+#include <stdio.h>
 void rgb2yuv_yv12(const rgb2yuv_parameter* parameter)
 {
     int width = parameter->width;

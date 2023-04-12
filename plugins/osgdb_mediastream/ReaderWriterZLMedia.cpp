@@ -5,11 +5,281 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
+#include <osgDB/Archive>
 
 #include <xxYUV/rgb2yuv.h>
 #include <mk_mediakit.h>
 #include <chrono>
 #define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))
+
+// for webrtc answer sdp
+static char* escape_string(const char* ptr)
+{
+    char* escaped = (char*)malloc(2 * strlen(ptr));
+    char* ptr_escaped = escaped;
+    while (1)
+    {
+        switch (*ptr)
+        {
+        case '\r':
+            *(ptr_escaped++) = '\\';
+            *(ptr_escaped++) = 'r';
+            break;
+        case '\n':
+            *(ptr_escaped++) = '\\';
+            *(ptr_escaped++) = 'n';
+            break;
+        case '\t':
+            *(ptr_escaped++) = '\\';
+            *(ptr_escaped++) = 't';
+            break;
+        default:
+            *(ptr_escaped++) = *ptr;
+            if (!*ptr) return escaped;
+            break;
+        }
+        ++ptr;
+    }
+    return NULL;
+}
+
+class MediaServerArchive : public osgDB::Archive
+{
+public:
+    MediaServerArchive(const osgDB::Options* options);
+    virtual ~MediaServerArchive() { close(); }
+
+    virtual const char* libraryName() const { return "osgVerse"; }
+    virtual const char* className() const { return "MediaServerArchive"; }
+    virtual bool acceptsExtension(const std::string& /*ext*/) const { return true; }
+
+    virtual void close() { mk_stop_all_server(); }
+    virtual bool fileExists(const std::string& filename) const { return false; }
+    virtual std::string getArchiveFileName() const { return std::string(); }
+    virtual std::string getMasterFileName() const { return std::string(); }
+
+    virtual osgDB::FileType getFileType(const std::string& filename) const { return osgDB::FILE_NOT_FOUND; }
+    virtual bool getFileNames(osgDB::DirectoryContents& fileNames) const { return false; }
+    //virtual osgDB::DirectoryContents getDirectoryContents(const std::string& dirName) const;
+
+    virtual ReadResult readObject(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+    virtual ReadResult readImage(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+    virtual ReadResult readHeightField(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+    virtual ReadResult readNode(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+    virtual ReadResult readShader(
+        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+    virtual WriteResult writeObject(const osg::Object& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return WriteResult::NOT_IMPLEMENTED; }
+    virtual WriteResult writeImage(const osg::Image& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return WriteResult::NOT_IMPLEMENTED; }
+    virtual WriteResult writeHeightField(const osg::HeightField& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return WriteResult::NOT_IMPLEMENTED; }
+    virtual WriteResult writeNode(const osg::Node& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return WriteResult::NOT_IMPLEMENTED; }
+    virtual WriteResult writeShader(const osg::Shader& obj,
+        const std::string& f, const osgDB::Options* o = NULL) const { return WriteResult::NOT_IMPLEMENTED; }
+
+    static void API_CALL onMkMediaChanged(int regist, const mk_media_source sender)
+    {
+        const char* app = mk_media_source_get_app(sender);
+        const char* stream = mk_media_source_get_stream(sender);
+        OSG_NOTICE << "[MediaServerArchive] Media registry changed: " << app << "/" << stream
+                   << ", Registered to " << regist << std::endl;
+    }
+
+    static void API_CALL onMkMediaPublish(const mk_media_info url_info,
+                                          const mk_publish_auth_invoker invoker, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* app = mk_media_info_get_app(url_info);
+        const char* stream = mk_media_info_get_stream(url_info);
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] Media publishing: " << app << "/" << stream
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        mk_publish_auth_invoker_do(invoker, NULL, 1, 1);
+    }
+
+    static void API_CALL onMkMediaPlay(const mk_media_info url_info,
+                                       const mk_auth_invoker invoker, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* app = mk_media_info_get_app(url_info);
+        const char* stream = mk_media_info_get_stream(url_info);
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] Media playing: " << app << "/" << stream
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        mk_auth_invoker_do(invoker, NULL);
+    }
+
+    static int API_CALL onMkMediaNotFound(const mk_media_info url_info, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* app = mk_media_info_get_app(url_info);
+        const char* stream = mk_media_info_get_stream(url_info);
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] Media not found: " << app << "/" << stream
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        return 0;  // 0: wait for registry; 1: close now
+    }
+
+    static void API_CALL onMkMediaNoReader(const mk_media_source sender)
+    {
+        const char* app = mk_media_source_get_app(sender);
+        const char* stream = mk_media_source_get_stream(sender);
+        OSG_NOTICE << "[MediaServerArchive] Media registry changed: " << app << "/" << stream
+                   << ", Currently has no readers "<< std::endl;
+    }
+
+    static void onMkWebrtcGetAnswerSdp(void* userData, const char* answer, const char* err)
+    {
+        const char* response_header[] = { "Content-Type", "application/json",
+                                          "Access-Control-Allow-Origin", "*" , NULL };
+        if (answer) answer = escape_string(answer);
+
+        size_t len = answer ? 2 * strlen(answer) : 1024;
+        char* response_content = (char*)malloc(len);
+        if (answer)
+        {
+            snprintf(response_content, len,
+                    "{"
+                    "\"sdp\":\"%s\","
+                    "\"type\":\"answer\","
+                    "\"code\":0"
+                    "}", answer);
+        }
+        else
+        {
+            snprintf(response_content, len,
+                    "{"
+                    "\"msg\":\"%s\","
+                    "\"code\":-1"
+                    "}", err);
+        }
+
+        mk_http_response_invoker invoker = (mk_http_response_invoker)userData;
+        mk_http_response_invoker_do_string(invoker, 200, response_header, response_content);
+        mk_http_response_invoker_clone_release(invoker);
+        free(response_content);
+        if (answer) free((void*)answer);
+    }
+
+    static void API_CALL onMkHttpRequest(const mk_parser parser, const mk_http_response_invoker invoker,
+                                         int* consumed, const mk_sock_info sender)
+    {
+        const char* url = mk_parser_get_url(parser);
+        *consumed = 1;  // set to 1 to handle this request
+
+        if (strcmp(url, "/api/test") == 0)
+        {
+            const char* response_header[] = { "Content-Type", "text/html", NULL };
+            const char* reply = "<html>"
+                                "<head>"
+                                "<title>hello world</title>"
+                                "</head>"
+                                "<body bgcolor=\"white\">"
+                                "<center><h1>hello world</h1></center><hr>"
+                                "<center>ZLMediaKit-4.0</center>"
+                                "</body>"
+                                "</html>";
+            mk_http_body body = mk_http_body_from_string(reply, 0);
+            mk_http_response_invoker_do(invoker, 200, response_header, body);
+            mk_http_body_release(body);
+        }
+        else if (strcmp(url, "/index/api/webrtc") == 0)
+        {
+            char rtc_url[1024];
+            snprintf(rtc_url, sizeof(rtc_url), "rtc://%s/%s/%s?%s", mk_parser_get_header(parser, "Host"),
+                     mk_parser_get_url_param(parser, "app"), mk_parser_get_url_param(parser, "stream"),
+                     mk_parser_get_url_params(parser));
+            mk_webrtc_get_answer_sdp(
+                mk_http_response_invoker_clone(invoker), MediaServerArchive::onMkWebrtcGetAnswerSdp,
+                mk_parser_get_url_param(parser, "type"), mk_parser_get_content(parser, NULL), rtc_url);
+        }
+        else { *consumed = 0; return; }
+    }
+
+    static void API_CALL onMkHttpAccess(const mk_parser parser, const char* path, int is_dir,
+                                        const mk_http_access_path_invoker invoker, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* url = mk_parser_get_url(parser);
+        const char* params = mk_parser_get_url_params(parser);
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] HTTP access request: " << url << "?" << params
+                   << ", Path = " << path << "(DIR = " << is_dir << ")"
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        mk_http_access_path_invoker_do(invoker, NULL, NULL, 0);
+    }
+
+    static void API_CALL onMkHttpPreAccess(const mk_parser parser, char* path, const mk_sock_info sender)
+    {
+        // Do sth here if you want to redirect the path
+    }
+
+    static void API_CALL onMkRtspGetRealm(const mk_media_info url_info,
+                                          const mk_rtsp_get_realm_invoker invoker, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* app = mk_media_info_get_app(url_info);
+        const char* stream = mk_media_info_get_stream(url_info);
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] RTSP is getting realm: " << app << "/" << stream
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        mk_rtsp_get_realm_invoker_do(invoker, "zlmediakit");
+    }
+
+    static void API_CALL onMkRtspAuthorize(const mk_media_info url_info,
+                                           const char* realm, const char* user_name, int must_no_encrypt,
+                                           const mk_rtsp_auth_invoker invoker, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* app = mk_media_info_get_app(url_info);
+        const char* stream = mk_media_info_get_stream(url_info);
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] RTSP is authorizing: " << app << "/" << stream
+                   << ", Realm = " << realm << ", User = " << user_name
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        mk_rtsp_auth_invoker_do(invoker, 0, user_name);
+    }
+
+    static void API_CALL onMkRecordVideo(const mk_mp4_info mp4)
+    {
+    }
+
+    static void API_CALL onMkShellLogin(const char* user_name, const char* passwd,
+                                        const mk_auth_invoker invoker, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] Shell login: User = " << user_name
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        mk_auth_invoker_do(invoker, NULL);
+    }
+
+    static void API_CALL onMkFlowReport(const mk_media_info url_info, size_t total_bytes,
+                                        size_t total_seconds, int is_player, const mk_sock_info sender)
+    {
+        char ip[64];
+        const char* app = mk_media_info_get_app(url_info);
+        const char* stream = mk_media_info_get_stream(url_info);
+        const char* localIP = mk_sock_info_local_ip(sender, ip);
+        const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
+        OSG_NOTICE << "[MediaServerArchive] Flow report: " << app << "/" << stream
+                   << ", Total bytes = " << total_bytes << ", Total seconds = " << total_seconds
+                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+    }
+};
 
 // Pushing: rw->writeImage(img, "rtsp://push_url")
 // Pulling: rw->readImage("rtsp://pull_url")
@@ -40,6 +310,14 @@ public:
     virtual const char* className() const
     { return "[osgVerse] Media streaming plugin supporting image data pulling/pushing"; }
 
+    virtual ReadResult openArchive(const std::string& fullFileName, ArchiveStatus status,
+                                   unsigned int, const Options* options) const
+    {
+        // Create media server as archive
+        std::string msName = osgDB::getServerAddress(fullFileName);
+        return new MediaServerArchive(options);
+    }
+
     virtual ReadResult readImage(const std::string& fullFileName, const Options* options) const
     {
         std::string fileName(fullFileName);
@@ -51,6 +329,8 @@ public:
             fileName = osgDB::getNameLessExtension(fullFileName);
             ext = osgDB::getFileExtension(fileName);
         }
+        if (!acceptsProtocol(scheme))
+            return ReadResult::FILE_NOT_HANDLED;
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
         if (_players.find(fileName) == _players.end())
@@ -76,11 +356,14 @@ public:
             fileName = osgDB::getNameLessExtension(fullFileName);
             ext = osgDB::getFileExtension(fileName);
         }
+        if (!acceptsProtocol(scheme))
+            return WriteResult::FILE_NOT_HANDLED;
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
         if (_pushers.find(fileName) == _pushers.end())
         {
-            PusherContext* ctx = PusherContext::create();
+            PusherContext* ctx = PusherContext::create(image.s(), image.t());
+            ctx->pushUrl = fileName;
             nonconst->_pushers[fileName] = ctx;
         }
 
@@ -89,58 +372,53 @@ public:
     }
 
 protected:
-    struct BaseContext
+    class BaseContext
     {
+    protected:
         typedef std::pair<osg::ref_ptr<osg::Image>, long long> ImagePair;
         std::list<ImagePair> _images;
-        OpenThreads::Mutex _mutex;
         unsigned int _maxImages;
 
+    public:
         void clear(unsigned int m)
         { _maxImages = m; _images.clear(); }
 
         void pushToImageList(osg::Image* img, long long pts)
         {
-            _mutex.lock(); _images.push_back(ImagePair(img, pts));
+            _images.push_back(ImagePair(img, pts));
             if (_maxImages < _images.size()) _images.pop_front();
-            _mutex.unlock();
         }
 
         osg::Image* pullFromImageList(long long* pts = NULL)
         {
             osg::ref_ptr<osg::Image> image;
-            _mutex.lock();
             if (!_images.empty())
             {
                 ImagePair& pair = _images.front(); image = pair.first;
                 if (pts) *pts = pair.second; _images.pop_front();
             }
-            _mutex.unlock();
             return image.release();
         }
     };
     
-    struct PusherContext : public BaseContext
+    class PusherContext : public BaseContext
     {
+    public:
+        PusherContext() : BaseContext() {}
         mk_media media;
         mk_pusher pusher;
         std::string pushUrl;
+        std::vector<char> yuvBuffer;
 
-        static PusherContext* create(const char* app = "live", const char* stream = "stream")
+        static PusherContext* create(int w, int h, int fps = 25, int bitRate = 0,
+                                     const char* app = "live", const char* stream = "stream")
         {
             PusherContext* ctx = new PusherContext;
-            memset(ctx, 0, sizeof(PusherContext));
-            ctx->media = mk_media_create("__defaultVhost__", app, stream, 0, 0, 0);
             ctx->pusher = NULL;
-            {
-                codec_args v_args = { 0 };
-                mk_track v_track = mk_track_create(MKCodecH264, &v_args);
-                mk_media_init_track(ctx->media, v_track);
-                mk_media_init_complete(ctx->media);
-                mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, &ctx);
-                mk_track_unref(v_track);
-            }
-            ctx->clear(10); return ctx;
+            ctx->media = mk_media_create("__defaultVhost__", app, stream, 0, 0, 0);
+            mk_media_init_video(ctx->media, MKCodecH264, w, h, fps, bitRate);
+            mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, &ctx);
+            ctx->clear(1); return ctx;
         }
 
         void destroy()
@@ -154,31 +432,40 @@ protected:
             long long pts = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
             pushToImageList(const_cast<osg::Image*>(img), pts);
-            if (!media || !pusher) return WriteResult::FILE_SAVED;  // not prepared
+            if (!media) return WriteResult::FILE_SAVED;  // not prepared
 
             osg::ref_ptr<osg::Image> image = pullFromImageList(&pts);
             if (image.valid() && image->s() > 0 && image->t() > 0)
             {
                 if (osg::Image::computeNumComponents(image->getPixelFormat()) != 3 ||
                     image->getDataType() != GL_UNSIGNED_BYTE)
-                { return WriteResult::NOT_IMPLEMENTED; }
+                {
+                    OSG_NOTICE << "[ReaderWriterZLMedia] Unsupported image type" << std::endl;
+                    return WriteResult::NOT_IMPLEMENTED;
+                }
 
                 rgb2yuv_parameter rgb2yuv;
                 memset(&rgb2yuv, 0, sizeof(rgb2yuv_parameter));
                 rgb2yuv.width = image->s(); rgb2yuv.height = image->t();
                 rgb2yuv.rgb = image->data(); rgb2yuv.componentRGB = 3;
-                rgb2yuv.strideRGB = 0; rgb2yuv.swizzleRGB = false;
+                rgb2yuv.strideRGB = 0; rgb2yuv.swizzleRGB = true;
                 rgb2yuv.alignWidth = 16; rgb2yuv.alignHeight = 1;
                 rgb2yuv.alignSize = 1; rgb2yuv.videoRange = false;
-                rgb2yuv_yv12(&rgb2yuv);
 
                 int strideY = ALIGN(rgb2yuv.width, rgb2yuv.alignWidth);
                 int strideU = strideY / 2, strideV = strideY / 2;
                 int sizeY = ALIGN(strideY * ALIGN(rgb2yuv.height, rgb2yuv.alignHeight), rgb2yuv.alignSize);
                 int sizeU = ALIGN(strideU * ALIGN(rgb2yuv.height, rgb2yuv.alignHeight) / 2, rgb2yuv.alignSize);
+                size_t yuvSize = sizeY + sizeU + sizeU, lastSize = yuvBuffer.size();
+                if (yuvSize != lastSize) yuvBuffer.resize(yuvSize);
+                if (yuvSize == 0) return WriteResult::ERROR_IN_WRITING_FILE;
+                
+                char* ptr = &yuvBuffer[0]; rgb2yuv.y = ptr;
+                rgb2yuv.u = ptr + sizeY; rgb2yuv.v = ptr + sizeY + sizeU;
+                rgb2yuv_yv12(&rgb2yuv);
                 
                 char* yuvData[3] = { (char*)rgb2yuv.y, (char*)rgb2yuv.u, (char*)rgb2yuv.v };
-                int linesize[3] = { sizeY, sizeU, sizeU };
+                int linesize[3] = { rgb2yuv.width, rgb2yuv.width / 2, rgb2yuv.width / 2 };
                 mk_media_input_yuv(media, (const char**)yuvData, linesize, pts);
                 return WriteResult::FILE_SAVED;
             }
@@ -186,8 +473,10 @@ protected:
         }
     };
 
-    struct PlayerContext : public BaseContext
+    class PlayerContext : public BaseContext
     {
+    public:
+        PlayerContext() : BaseContext() {}
         mk_player player;
         mk_decoder decoder;
         mk_swscale swscale;
@@ -195,12 +484,11 @@ protected:
         static PlayerContext* create(int pixelFormat = 3/*AV_PIX_FMT_BGR24*/)
         {
             PlayerContext* ctx = new PlayerContext;
-            memset(ctx, 0, sizeof(PlayerContext));
             ctx->player = mk_player_create();
             ctx->swscale = mk_swscale_create(pixelFormat, 0, 0);
             mk_player_set_on_result(ctx->player, ReaderWriterZLMedia::onMkPlayerEvent, &ctx);
             mk_player_set_on_shutdown(ctx->player, ReaderWriterZLMedia::onMkShutdown, &ctx);
-            ctx->clear(10); return ctx;
+            ctx->clear(1); return ctx;
         }
 
         void destroy()
@@ -215,8 +503,9 @@ protected:
     {
         PusherContext* ctx = (PusherContext*)userData;
         const char* schema = mk_media_source_get_schema(sender);
+        if (!schema || ctx->pushUrl.empty()) return;
 
-        if (strncmp(schema, ctx->pushUrl.c_str(), strlen(schema)) == 0)
+        if (ctx->pushUrl == schema)
         {
             if (ctx->pusher) mk_pusher_release(ctx->pusher);
             if (regist)
@@ -227,7 +516,7 @@ protected:
                 mk_pusher_publish(ctx->pusher, ctx->pushUrl.c_str());
             }
             else
-                OSG_NOTICE << "[ReaderWriterZLMedia] pusher is stopped" << std::endl;
+                OSG_NOTICE << "[ReaderWriterZLMedia] Pusher is stopped" << std::endl;
         }
     }
 
@@ -318,6 +607,52 @@ protected:
     std::map<std::string, PusherContext*> _pushers;
     std::map<std::string, PlayerContext*> _players;
 };
+
+MediaServerArchive::MediaServerArchive(const osgDB::Options* options)
+{
+    int createdServer = 0;
+    if (options)
+    {
+        const std::string http = options->getPluginStringData("http");
+        const std::string rtsp = options->getPluginStringData("rtsp");
+        const std::string rtmp = options->getPluginStringData("rtmp");
+        const std::string shell = options->getPluginStringData("shell");
+        const std::string rtp = options->getPluginStringData("rtp");
+        const std::string rtc = options->getPluginStringData("rtc");
+        const std::string srt = options->getPluginStringData("srt");
+
+        if (!http.empty()) { mk_http_server_start(atoi(http.c_str()), 0); createdServer++; }
+        if (!rtsp.empty()) { mk_rtsp_server_start(atoi(rtsp.c_str()), 0); createdServer++; }
+        if (!rtmp.empty()) { mk_rtmp_server_start(atoi(rtmp.c_str()), 0); createdServer++; }
+        if (!shell.empty()) { mk_shell_server_start(atoi(shell.c_str())); createdServer++; }
+        if (!rtp.empty()) { mk_rtp_server_start(atoi(rtp.c_str())); createdServer++; }
+        if (!rtc.empty()) { mk_rtc_server_start(atoi(rtc.c_str())); createdServer++; }
+        if (!srt.empty()) { mk_srt_server_start(atoi(srt.c_str())); createdServer++; }
+    }
+
+    if (createdServer == 0)
+    {
+        mk_http_server_start(443, 0);
+        mk_rtsp_server_start(554, 0);
+        mk_rtmp_server_start(1935, 0);
+    }
+
+    mk_events events;
+    events.on_mk_media_changed = MediaServerArchive::onMkMediaChanged;
+    events.on_mk_media_publish = MediaServerArchive::onMkMediaPublish;
+    events.on_mk_media_play = MediaServerArchive::onMkMediaPlay;
+    events.on_mk_media_not_found = MediaServerArchive::onMkMediaNotFound;
+    events.on_mk_media_no_reader = MediaServerArchive::onMkMediaNoReader;
+    events.on_mk_http_request = MediaServerArchive::onMkHttpRequest;
+    events.on_mk_http_access = MediaServerArchive::onMkHttpAccess;
+    events.on_mk_http_before_access = MediaServerArchive::onMkHttpPreAccess;
+    events.on_mk_rtsp_get_realm = MediaServerArchive::onMkRtspGetRealm;
+    events.on_mk_rtsp_auth = MediaServerArchive::onMkRtspAuthorize;
+    events.on_mk_record_mp4 = MediaServerArchive::onMkRecordVideo;
+    events.on_mk_shell_login = MediaServerArchive::onMkShellLogin;
+    events.on_mk_flow_report = MediaServerArchive::onMkFlowReport;
+    mk_events_listen(&events);
+}
 
 // Now register with Registry to instantiate the above reader/writer.
 REGISTER_OSGPLUGIN(verse_ms, ReaderWriterZLMedia)
