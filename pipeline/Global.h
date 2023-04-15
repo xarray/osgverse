@@ -216,6 +216,46 @@ namespace osgVerse
         osg::ref_ptr<CameraDrawCallback> _subCallback;
     };
 
+    /** String vector object for use as UserCallback::Parameter */
+    class StringObject : public osg::Object
+    {
+    public:
+        StringObject() {}
+        StringObject(const StringObject& co, const osg::CopyOp copyop = osg::CopyOp::SHALLOW_COPY)
+            : osg::Object(co, copyop), values(co.values) {}
+        META_Object(osgVerse, StringObject);
+        std::vector<std::string> values;
+    };
+
+    /** Callback for attaching a script to a Node's via there UserDataContainer
+        for the purpose of overriding class methods within scripts.*/
+#if OSG_VERSION_GREATER_THAN(3, 2, 1)
+    class UserCallback : public osg::CallbackObject
+    {
+    public:
+        typedef osg::Parameters Parameters;
+        UserCallback() : osg::CallbackObject() {}
+        UserCallback(const std::string& n) : osg::CallbackObject(n) {}
+
+        virtual bool run(osg::Object* object, Parameters& in, Parameters& out) const
+        { return false; }
+    };
+#else
+    class UserCallback : public virtual osg::Object
+    {
+    public:
+        UserCallback() {}
+        UserCallback(const std::string& n) { setName(n); }
+        UserCallback(const UserCallback& co, const osg::CopyOp copyop = osg::CopyOp::SHALLOW_COPY)
+            : osg::Object(co, copyop) {}
+        META_Object(osg, CallbackObject);
+
+        typedef std::vector< osg::ref_ptr<osg::Object> > Parameters;
+        virtual bool run(osg::Object* object, Parameters& in, Parameters& out) const
+        { return false; }
+    };
+#endif
+
     /** Suggest run this function once to initialize some plugins & environments */
     extern void globalInitialize(int argc, char** argv, const std::string& baseDir = BASE_DIR);
 }

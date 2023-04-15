@@ -1,12 +1,13 @@
 #include <osg/io_utils>
 #include <osg/Geometry>
 #include <osg/MatrixTransform>
-#include <osg/PagedLOD>
+#include <osg/ImageStream>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 #include <osgDB/Archive>
 
+#include <pipeline/Global.h>
 #include <xxYUV/rgb2yuv.h>
 #include <mk_mediakit.h>
 #include <chrono>
@@ -43,14 +44,17 @@ static char* escape_string(const char* ptr)
     return NULL;
 }
 
-class MediaServerArchive : public osgDB::Archive
+class ZLMediaServerArchive;
+osg::observer_ptr<ZLMediaServerArchive> g_server;
+
+class ZLMediaServerArchive : public osgDB::Archive
 {
 public:
-    MediaServerArchive(const osgDB::Options* options);
-    virtual ~MediaServerArchive() { close(); }
+    ZLMediaServerArchive(const osgDB::Options* options);
+    virtual ~ZLMediaServerArchive() { close(); g_server = NULL; }
 
     virtual const char* libraryName() const { return "osgVerse"; }
-    virtual const char* className() const { return "MediaServerArchive"; }
+    virtual const char* className() const { return "ZLMediaServerArchive"; }
     virtual bool acceptsExtension(const std::string& /*ext*/) const { return true; }
 
     virtual void close() { mk_stop_all_server(); }
@@ -87,7 +91,7 @@ public:
     {
         const char* app = mk_media_source_get_app(sender);
         const char* stream = mk_media_source_get_stream(sender);
-        OSG_NOTICE << "[MediaServerArchive] Media registry changed: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] Media registry changed: " << app << "/" << stream
                    << ", Registered to " << regist << std::endl;
     }
 
@@ -99,7 +103,7 @@ public:
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] Media publishing: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] Media publishing: " << app << "/" << stream
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
         mk_publish_auth_invoker_do(invoker, NULL, 1, 1);
     }
@@ -112,7 +116,7 @@ public:
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] Media playing: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] Media playing: " << app << "/" << stream
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
         mk_auth_invoker_do(invoker, NULL);
     }
@@ -124,7 +128,7 @@ public:
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] Media not found: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] Media not found: " << app << "/" << stream
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
         return 0;  // 0: wait for registry; 1: close now
     }
@@ -133,7 +137,7 @@ public:
     {
         const char* app = mk_media_source_get_app(sender);
         const char* stream = mk_media_source_get_stream(sender);
-        OSG_NOTICE << "[MediaServerArchive] Media registry changed: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] Media registry changed: " << app << "/" << stream
                    << ", Currently has no readers "<< std::endl;
     }
 
@@ -148,20 +152,10 @@ public:
         if (answer)
         {
             snprintf(response_content, len,
-                    "{"
-                    "\"sdp\":\"%s\","
-                    "\"type\":\"answer\","
-                    "\"code\":0"
-                    "}", answer);
+                    "{\"sdp\":\"%s\", \"type\":\"answer\", \"code\":0}", answer);
         }
         else
-        {
-            snprintf(response_content, len,
-                    "{"
-                    "\"msg\":\"%s\","
-                    "\"code\":-1"
-                    "}", err);
-        }
+            snprintf(response_content, len, "{\"msg\":\"%s\", \"code\":-1}", err);
 
         mk_http_response_invoker invoker = (mk_http_response_invoker)userData;
         mk_http_response_invoker_do_string(invoker, 200, response_header, response_content);
@@ -174,35 +168,51 @@ public:
                                          int* consumed, const mk_sock_info sender)
     {
         const char* url = mk_parser_get_url(parser);
+        const char* params = mk_parser_get_url_params(parser);
+        std::string urlString = (url != NULL) ? std::string(url) : "";
+        std::string paramsString = (params != NULL) ? std::string(params) : "";
         *consumed = 1;  // set to 1 to handle this request
 
-        if (strcmp(url, "/api/test") == 0)
+        if (urlString == "/api/test")
         {
-            const char* response_header[] = { "Content-Type", "text/html", NULL };
-            const char* reply = "<html>"
-                                "<head>"
-                                "<title>hello world</title>"
-                                "</head>"
-                                "<body bgcolor=\"white\">"
-                                "<center><h1>hello world</h1></center><hr>"
-                                "<center>ZLMediaKit-4.0</center>"
-                                "</body>"
-                                "</html>";
+            const char* response_header[] = { "Content-Type", "text/plain", NULL };
+            const char* reply = "osgVerse.ZLMediaServerArchive.api.test";
             mk_http_body body = mk_http_body_from_string(reply, 0);
             mk_http_response_invoker_do(invoker, 200, response_header, body);
             mk_http_body_release(body);
         }
-        else if (strcmp(url, "/index/api/webrtc") == 0)
+        else if (urlString == "/api/webrtc")
         {
             char rtc_url[1024];
-            snprintf(rtc_url, sizeof(rtc_url), "rtc://%s/%s/%s?%s", mk_parser_get_header(parser, "Host"),
-                     mk_parser_get_url_param(parser, "app"), mk_parser_get_url_param(parser, "stream"),
-                     mk_parser_get_url_params(parser));
+            snprintf(rtc_url, sizeof(rtc_url), "rtc://%s/%s/%s?%s",
+                     mk_parser_get_header(parser, "Host"), mk_parser_get_url_param(parser, "app"),
+                     mk_parser_get_url_param(parser, "stream"), paramsString.c_str());
             mk_webrtc_get_answer_sdp(
-                mk_http_response_invoker_clone(invoker), MediaServerArchive::onMkWebrtcGetAnswerSdp,
+                mk_http_response_invoker_clone(invoker), ZLMediaServerArchive::onMkWebrtcGetAnswerSdp,
                 mk_parser_get_url_param(parser, "type"), mk_parser_get_content(parser, NULL), rtc_url);
         }
-        else { *consumed = 0; return; }
+        else
+        {
+            osg::ref_ptr<osgVerse::StringObject> so = new osgVerse::StringObject;
+            so->values.push_back(urlString); so->values.push_back(paramsString);
+            
+            osgVerse::UserCallback::Parameters in, out; in.push_back(so.get());
+            osgVerse::UserCallback* cb = g_server->getHttpAPI();
+            if (cb && cb->run(g_server.get(), in, out))
+            {
+                std::string reply;
+                osgVerse::StringObject* so = out.empty() ? NULL
+                                           : static_cast<osgVerse::StringObject*>(out[0].get());
+                if (so) for (size_t i = 0; i < so->values.size(); ++i) reply += so->values[i];
+                else reply = "ok"; *consumed = 1;
+
+                const char* response_header[] = { "Content-Type", "text/plain", NULL };
+                mk_http_body body = mk_http_body_from_string(reply.c_str(), 0);
+                mk_http_response_invoker_do(invoker, 200, response_header, body);
+                mk_http_body_release(body);
+            }
+            else *consumed = 0;
+        }
     }
 
     static void API_CALL onMkHttpAccess(const mk_parser parser, const char* path, int is_dir,
@@ -213,7 +223,7 @@ public:
         const char* params = mk_parser_get_url_params(parser);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] HTTP access request: " << url << "?" << params
+        OSG_NOTICE << "[ZLMediaServerArchive] HTTP access request: " << url << "?" << params
                    << ", Path = " << path << "(DIR = " << is_dir << ")"
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
         mk_http_access_path_invoker_do(invoker, NULL, NULL, 0);
@@ -232,7 +242,7 @@ public:
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] RTSP is getting realm: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] RTSP is getting realm: " << app << "/" << stream
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
         mk_rtsp_get_realm_invoker_do(invoker, "zlmediakit");
     }
@@ -246,7 +256,7 @@ public:
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] RTSP is authorizing: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] RTSP is authorizing: " << app << "/" << stream
                    << ", Realm = " << realm << ", User = " << user_name
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
         mk_rtsp_auth_invoker_do(invoker, 0, user_name);
@@ -262,7 +272,7 @@ public:
         char ip[64];
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] Shell login: User = " << user_name
+        OSG_NOTICE << "[ZLMediaServerArchive] Shell login: User = " << user_name
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
         mk_auth_invoker_do(invoker, NULL);
     }
@@ -275,10 +285,65 @@ public:
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[MediaServerArchive] Flow report: " << app << "/" << stream
+        OSG_NOTICE << "[ZLMediaServerArchive] Flow report: " << app << "/" << stream
                    << ", Total bytes = " << total_bytes << ", Total seconds = " << total_seconds
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
     }
+
+protected:
+    osgVerse::UserCallback* getHttpAPI()
+    {
+        if (!_httpApiCallback)
+        {
+            osg::UserDataContainer* udc = getUserDataContainer(); if (!udc) return NULL;
+            _httpApiCallback = dynamic_cast<osgVerse::UserCallback*>(udc->getUserObject("HttpAPI"));
+        }
+        return _httpApiCallback.get();
+    }
+    osg::observer_ptr<osgVerse::UserCallback> _httpApiCallback;
+};
+
+class ZLMediaPlayer : public osg::ImageStream, public OpenThreads::Thread
+{
+public:
+    ZLMediaPlayer() { _done = false; }
+    ZLMediaPlayer(const ZLMediaPlayer& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY)
+    :   osg::ImageStream(copy, copyop), OpenThreads::Thread(),
+        _reader(copy._reader), _name(copy._name), _done(copy._done) {}
+
+    META_Object(osgVerse, ZLMediaPlayer);
+    virtual void play() { _status = PLAYING; }
+    virtual void pause() { _status = PAUSED; }
+    virtual void rewind() { _status = REWINDING; }
+
+    void open(osgDB::ReaderWriter* rw, const std::string name)
+    {
+        allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+        ((osg::Vec4ub*)data())->set(255, 255, 255, 255);
+        _reader = rw; _name = name; _status = PAUSED;
+        start(); // start thread
+    }
+
+    virtual void quit(bool waitForThreadToExit = true)
+    { _done = true; if (isRunning() && waitForThreadToExit) join(); }
+
+protected:
+    virtual ~ZLMediaPlayer() { quit(true); }
+    void updateImage();
+
+    virtual void run()
+    {
+        _done = false;
+        while (!_done)
+        {
+            if (_status == PLAYING) updateImage();
+            else if (_status == REWINDING) _status = PLAYING;
+            YieldCurrentThread();
+        }
+    }
+
+    osg::observer_ptr<osgDB::ReaderWriter> _reader;
+    std::string _name; bool _done;
 };
 
 // Pushing: rw->writeImage(img, "rtsp://push_url")
@@ -315,7 +380,7 @@ public:
     {
         // Create media server as archive
         std::string msName = osgDB::getServerAddress(fullFileName);
-        return new MediaServerArchive(options);
+        return new ZLMediaServerArchive(options);
     }
 
     virtual ReadResult readImage(const std::string& fullFileName, const Options* options) const
@@ -340,8 +405,9 @@ public:
             nonconst->_players[fileName] = ctx;
         }
 
-        PlayerContext* ctx = nonconst->_players[fileName];
-        return ctx->pullFromImageList();
+        ZLMediaPlayer* player = new ZLMediaPlayer;
+        player->open(nonconst, fileName);
+        return player;
     }
 
     virtual WriteResult writeImage(const osg::Image& image, const std::string& fullFileName,
@@ -371,12 +437,19 @@ public:
         return ctx->pushNewFrame(&image);
     }
 
+    osg::Image* getPlayerImage(const std::string& fileName, long long* pts)
+    {
+        PlayerContext* ctx = _players[fileName];
+        return ctx ? ctx->pullFromImageList(pts) : NULL;
+    }
+
 protected:
     class BaseContext
     {
     protected:
         typedef std::pair<osg::ref_ptr<osg::Image>, long long> ImagePair;
         std::list<ImagePair> _images;
+        OpenThreads::Mutex _mutex;
         unsigned int _maxImages;
 
     public:
@@ -385,18 +458,22 @@ protected:
 
         void pushToImageList(osg::Image* img, long long pts)
         {
+            _mutex.lock();
             _images.push_back(ImagePair(img, pts));
             if (_maxImages < _images.size()) _images.pop_front();
+            _mutex.unlock();
         }
 
         osg::Image* pullFromImageList(long long* pts = NULL)
         {
-            osg::ref_ptr<osg::Image> image;
+            osg::ref_ptr<osg::Image> image; _mutex.lock();
             if (!_images.empty())
             {
-                ImagePair& pair = _images.front(); image = pair.first;
+                ImagePair& pair = _images.front();
+                image = (osg::Image*)pair.first->clone(osg::CopyOp::DEEP_COPY_ALL);
                 if (pts) *pts = pair.second; _images.pop_front();
             }
+            _mutex.unlock();
             return image.release();
         }
     };
@@ -484,10 +561,10 @@ protected:
         static PlayerContext* create(int pixelFormat = 3/*AV_PIX_FMT_BGR24*/)
         {
             PlayerContext* ctx = new PlayerContext;
-            ctx->player = mk_player_create();
+            ctx->player = mk_player_create(); ctx->decoder = NULL;
             ctx->swscale = mk_swscale_create(pixelFormat, 0, 0);
-            mk_player_set_on_result(ctx->player, ReaderWriterZLMedia::onMkPlayerEvent, &ctx);
-            mk_player_set_on_shutdown(ctx->player, ReaderWriterZLMedia::onMkShutdown, &ctx);
+            mk_player_set_on_result(ctx->player, ReaderWriterZLMedia::onMkPlayerEvent, ctx);
+            mk_player_set_on_shutdown(ctx->player, ReaderWriterZLMedia::onMkShutdown, ctx);
             ctx->clear(1); return ctx;
         }
 
@@ -548,7 +625,7 @@ protected:
             PlayerContext* ctx = (PlayerContext*)userData;
             for (int i = 0; i < trackCount; ++i)
             {
-                if (!mk_track_is_video(tracks[i])) continue;
+                if (mk_track_is_video(tracks[i]) == 0) continue;
                 if (ctx->decoder) mk_decoder_release(ctx->decoder, 1);
                 ctx->decoder = mk_decoder_create(tracks[i], 0);
 
@@ -608,7 +685,7 @@ protected:
     std::map<std::string, PlayerContext*> _players;
 };
 
-MediaServerArchive::MediaServerArchive(const osgDB::Options* options)
+ZLMediaServerArchive::ZLMediaServerArchive(const osgDB::Options* options)
 {
     int createdServer = 0;
     if (options)
@@ -636,22 +713,41 @@ MediaServerArchive::MediaServerArchive(const osgDB::Options* options)
         mk_rtsp_server_start(554, 0);
         mk_rtmp_server_start(1935, 0);
     }
+    g_server = this;
 
     mk_events events;
-    events.on_mk_media_changed = MediaServerArchive::onMkMediaChanged;
-    events.on_mk_media_publish = MediaServerArchive::onMkMediaPublish;
-    events.on_mk_media_play = MediaServerArchive::onMkMediaPlay;
-    events.on_mk_media_not_found = MediaServerArchive::onMkMediaNotFound;
-    events.on_mk_media_no_reader = MediaServerArchive::onMkMediaNoReader;
-    events.on_mk_http_request = MediaServerArchive::onMkHttpRequest;
-    events.on_mk_http_access = MediaServerArchive::onMkHttpAccess;
-    events.on_mk_http_before_access = MediaServerArchive::onMkHttpPreAccess;
-    events.on_mk_rtsp_get_realm = MediaServerArchive::onMkRtspGetRealm;
-    events.on_mk_rtsp_auth = MediaServerArchive::onMkRtspAuthorize;
-    events.on_mk_record_mp4 = MediaServerArchive::onMkRecordVideo;
-    events.on_mk_shell_login = MediaServerArchive::onMkShellLogin;
-    events.on_mk_flow_report = MediaServerArchive::onMkFlowReport;
+    events.on_mk_media_changed = ZLMediaServerArchive::onMkMediaChanged;
+    events.on_mk_media_publish = ZLMediaServerArchive::onMkMediaPublish;
+    events.on_mk_media_play = ZLMediaServerArchive::onMkMediaPlay;
+    events.on_mk_media_not_found = ZLMediaServerArchive::onMkMediaNotFound;
+    events.on_mk_media_no_reader = ZLMediaServerArchive::onMkMediaNoReader;
+    events.on_mk_http_request = ZLMediaServerArchive::onMkHttpRequest;
+    events.on_mk_http_access = ZLMediaServerArchive::onMkHttpAccess;
+    events.on_mk_http_before_access = ZLMediaServerArchive::onMkHttpPreAccess;
+    events.on_mk_rtsp_get_realm = ZLMediaServerArchive::onMkRtspGetRealm;
+    events.on_mk_rtsp_auth = ZLMediaServerArchive::onMkRtspAuthorize;
+    events.on_mk_record_mp4 = ZLMediaServerArchive::onMkRecordVideo;
+    events.on_mk_shell_login = ZLMediaServerArchive::onMkShellLogin;
+    events.on_mk_flow_report = ZLMediaServerArchive::onMkFlowReport;
     mk_events_listen(&events);
+}
+
+void ZLMediaPlayer::updateImage()
+{
+    ReaderWriterZLMedia* rw = static_cast<ReaderWriterZLMedia*>(_reader.get());
+    if (!rw || _name.empty()) return;
+
+    long long pts = 0;
+    osg::ref_ptr<osg::Image> img = rw->getPlayerImage(_name, &pts);
+    if (img.valid())
+    {
+        if (s() != img->s() || t() != img->t())
+        {
+            allocateImage(img->s(), img->t(), 1, img->getPixelFormat(), img->getDataType());
+            setInternalTextureFormat(img->getInternalTextureFormat());
+        }
+        memcpy(data(), img->data(), img->getTotalSizeInBytes()); dirty();
+    }
 }
 
 // Now register with Registry to instantiate the above reader/writer.

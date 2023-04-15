@@ -72,7 +72,8 @@ Our project is already tested on graphics cards listed as below:
 9. osgVerse_Test_Pbr_Prerequisite: a quick utility to pre-compute global PBR textures and save them to IBL osgb files.
 10. osgVerse_Test_Paging_Lod: a test for paged LOD file combination and transferring to levelDB.
 11. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
-12. TBD...
+12. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
+13. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
