@@ -181,7 +181,7 @@ public:
             mk_http_response_invoker_do(invoker, 200, response_header, body);
             mk_http_body_release(body);
         }
-        else if (urlString == "/api/webrtc")
+        else if (urlString == "/index/api/webrtc")
         {
             char rtc_url[1024];
             snprintf(rtc_url, sizeof(rtc_url), "rtc://%s/%s/%s?%s",
@@ -351,9 +351,8 @@ protected:
 class ReaderWriterZLMedia : public osgDB::ReaderWriter
 {
 public:
-    ReaderWriterZLMedia()
+    ReaderWriterZLMedia() : _mkEnvCreated(false)
     {
-        initialize();
         supportsProtocol("rtsp", "Support Real-Time Streaming Protocol.");
         supportsProtocol("rtmp", "Support Real-Time Messaging Protocol.");
 
@@ -379,6 +378,7 @@ public:
                                    unsigned int, const Options* options) const
     {
         // Create media server as archive
+        if (!_mkEnvCreated) initialize(options);
         std::string msName = osgDB::getServerAddress(fullFileName);
         return new ZLMediaServerArchive(options);
     }
@@ -394,8 +394,9 @@ public:
             fileName = osgDB::getNameLessExtension(fullFileName);
             ext = osgDB::getFileExtension(fileName);
         }
-        if (!acceptsProtocol(scheme))
-            return ReadResult::FILE_NOT_HANDLED;
+
+        if (!acceptsProtocol(scheme)) return ReadResult::FILE_NOT_HANDLED;
+        if (!_mkEnvCreated) initialize(options);
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
         if (_players.find(fileName) == _players.end())
@@ -422,14 +423,16 @@ public:
             fileName = osgDB::getNameLessExtension(fullFileName);
             ext = osgDB::getFileExtension(fileName);
         }
-        if (!acceptsProtocol(scheme))
-            return WriteResult::FILE_NOT_HANDLED;
+
+        if (!acceptsProtocol(scheme)) return WriteResult::FILE_NOT_HANDLED;
+        if (!_mkEnvCreated) initialize(options);
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
         if (_pushers.find(fileName) == _pushers.end())
         {
-            PusherContext* ctx = PusherContext::create(image.s(), image.t());
-            ctx->pushUrl = fileName;
+            PusherContext* ctx = PusherContext::create(fileName, image.s(), image.t());
+            //mk_media_start_send_rtp(ctx->media, "127.0.0.1", 30443,
+            //    stream_name, true, ReaderWriterZLMedia::onMkMediaSourceSendRtp, ctx);
             nonconst->_pushers[fileName] = ctx;
         }
 
@@ -487,14 +490,14 @@ protected:
         std::string pushUrl;
         std::vector<char> yuvBuffer;
 
-        static PusherContext* create(int w, int h, int fps = 25, int bitRate = 0,
+        static PusherContext* create(const std::string& url, int w, int h, int fps = 25, int bitRate = 0,
                                      const char* app = "live", const char* stream = "stream")
         {
             PusherContext* ctx = new PusherContext;
-            ctx->pusher = NULL;
+            ctx->pusher = NULL; ctx->pushUrl = url;
             ctx->media = mk_media_create("__defaultVhost__", app, stream, 0, 0, 0);
             mk_media_init_video(ctx->media, MKCodecH264, w, h, fps, bitRate);
-            mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, &ctx);
+            mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, ctx);
             ctx->clear(1); return ctx;
         }
 
@@ -582,7 +585,8 @@ protected:
         const char* schema = mk_media_source_get_schema(sender);
         if (!schema || ctx->pushUrl.empty()) return;
 
-        if (ctx->pushUrl == schema)
+        std::string protocol = osgDB::getServerProtocol(ctx->pushUrl);
+        if (protocol == schema)
         {
             if (ctx->pusher) mk_pusher_release(ctx->pusher);
             if (regist)
@@ -667,22 +671,33 @@ protected:
         }
     }
     
-    void initialize()
+    void initialize(const osgDB::Options* options) const
     {
         mk_config config;
         config.ini = NULL,
-        config.ini_is_path = 0,
-        config.log_level = 0,
-        config.log_mask = LOG_CONSOLE,
-        config.ssl = NULL,
-        config.ssl_is_path = 1,
-        config.ssl_pwd = NULL,
+        config.ini_is_path = 1;
+        config.log_level = 0;
+        config.log_mask = LOG_CONSOLE;
+        config.ssl = NULL;
+        config.ssl_is_path = 1;
+        config.ssl_pwd = NULL;
         config.thread_num = 0;
+
+        if (options != NULL)
+        {
+            std::string ini = options->getPluginStringData("ini_file");
+            std::string ssl = options->getPluginStringData("ssl_file");
+            std::string pwd = options->getPluginStringData("ssl_pwd");
+            if (!ini.empty()) config.ini = ini.c_str();
+            if (!ini.empty()) config.ssl = ssl.c_str();
+            if (!ini.empty()) config.ssl_pwd = pwd.c_str();
+        }
         mk_env_init(&config);
     }
 
     std::map<std::string, PusherContext*> _pushers;
     std::map<std::string, PlayerContext*> _players;
+    bool _mkEnvCreated;
 };
 
 ZLMediaServerArchive::ZLMediaServerArchive(const osgDB::Options* options)

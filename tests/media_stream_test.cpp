@@ -15,8 +15,8 @@
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-#define MEDIA_SERVER_AND_PULLER 1
-#define MEDIA_SERVER_WEBRTC 1
+#define MEDIA_PULLER 1
+#define MEDIA_SERVER 0
 
 class HttpApiCallback : public osgVerse::UserCallback
 {
@@ -45,19 +45,21 @@ public:
     CaptureCallback(osgViewer::View* v, bool b)
     {
         _msWriter = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ms");
+#if MEDIA_SERVER
         if (_msWriter.valid())
         {
             osg::ref_ptr<osgDB::Options> options = new osgDB::Options;
-#if MEDIA_SERVER_WEBRTC
+#   if MEDIA_SERVER_WEBRTC
             options->setPluginStringData("http", "80");
             options->setPluginStringData("rtsp", "554");
             options->setPluginStringData("rtmp", "1935");
             options->setPluginStringData("rtc", "8000");  // set RTC port: 8000
-#endif
+#   endif
             _msServer = _msWriter->openArchive(
                 "TestServer", osgDB::ReaderWriter::CREATE, 4096, options.get()).getArchive();
             _msServer->getOrCreateUserDataContainer()->addUserObject(new HttpApiCallback(v, "HttpAPI"));
         }
+#endif
     }
 
     virtual ~CaptureCallback()
@@ -80,8 +82,8 @@ public:
 
             osg::ref_ptr<osg::Image> image = new osg::Image;
             image->readPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE);
+            image->flipVertical();  // low-performance, just for example here
             _msWriter->writeImage(*image, "rtmp://127.0.0.1:1935/live/stream");
-            //osgDB::writeImageFile(*image, "capture.png");
         }
         else
             OSG_WARN << "Invalid readerwriter verse_ms?\n";
@@ -112,7 +114,7 @@ int main(int argc, char** argv)
     viewer.setSceneData(sceneRoot.get());
     viewer.setUpViewInWindow(50, 50, 800, 600);
 
-#if MEDIA_SERVER_AND_PULLER
+#if MEDIA_PULLER
     CaptureCallback* cap = new CaptureCallback(&viewer, true);
     viewer.getCamera()->setFinalDrawCallback(cap);
 #else
