@@ -13,10 +13,12 @@
 #include <iostream>
 #include <sstream>
 
+#include <libhv/all/server/WebSocketServer.h>
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 #define MEDIA_PULLER 1
 #define MEDIA_SERVER 0
+#define MEDIA_WEBRTC_COMMANDS 1
 
 class HttpApiCallback : public osgVerse::UserCallback
 {
@@ -127,6 +129,33 @@ int main(int argc, char** argv)
     mt->setMatrix(osg::Matrix::scale(4.0f, 4.0f, 4.0f) *
                   osg::Matrix::translate(0.0f, 0.0f, 5.0f));
     sceneRoot->addChild(mt.get());
+#endif
+
+#if MEDIA_WEBRTC_COMMANDS
+    // Example command from WebRTC puller
+    hv::WebSocketService ws;
+    ws.onmessage = [&viewer](const WebSocketChannelPtr& channel, const std::string& msg)
+    {
+        //printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
+        osgDB::StringList values;
+        osgDB::split(msg, values, ',');
+        if (values.size() < 3) return;  // cmd,x,y
+
+        float x = atof(values[1].c_str()) * 800.0f;
+        float y = atof(values[2].c_str()) * 600.0f;
+        if (values[0] == "move")
+            viewer.getEventQueue()->mouseMotion(x, y);
+        else if (values[0] == "press")
+            viewer.getEventQueue()->mouseButtonPress(x, y, osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON);
+        else if (values[0] == "release")
+            viewer.getEventQueue()->mouseButtonRelease(x, y, osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON);
+    };
+
+    hv::WebSocketServer server;
+    server.registerWebSocketService(&ws);
+    server.setPort(9999);
+    server.setThreadNum(4);
+    server.start();
 #endif
     return viewer.run();
 }
