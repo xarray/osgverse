@@ -10,11 +10,12 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#define TEST_PIPELINE 1
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
 #   define VERSE_GLES 1
 #   define TEST_PIPELINE 0
+#else
+#   define TEST_PIPELINE 1
 #endif
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -51,15 +52,16 @@ int main(int argc, char** argv)
     osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
-    if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
-
-    // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv;
-    scene->accept(tsv);
+    if (scene.valid())
+    {
+        // Add tangent/bi-normal arrays for normal mapping
+        osgVerse::TangentSpaceVisitor tsv;
+        scene->accept(tsv);
+    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
-    sceneRoot->addChild(scene.get());
+    if (scene.valid()) sceneRoot->addChild(scene.get());
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
@@ -174,7 +176,7 @@ int main(int argc, char** argv)
     //osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
     root->addChild(postCamera.get());
-    root->addChild(osgDB::readNodeFile("glider_es.osg"));
+    root->addChild(osgDB::readNodeFile("cessna.osg"));
     osgViewer::Viewer viewer;
 #endif
     viewer.addEventHandler(new osgViewer::StatsHandler);

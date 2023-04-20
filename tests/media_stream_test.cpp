@@ -16,7 +16,7 @@
 #include <libhv/all/server/WebSocketServer.h>
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-#define MEDIA_PULLER 1
+#define MEDIA_PUSHER 1
 #define MEDIA_SERVER 0
 #define MEDIA_WEBRTC_COMMANDS 1
 
@@ -71,7 +71,9 @@ public:
     
     virtual void operator()(osg::RenderInfo& renderInfo) const
     {
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
         glReadBuffer(GL_BACK);  // read from back buffer (gc must be double-buffered)
+#endif
         if (_msWriter.valid())
         {
             osg::GraphicsContext* gc = renderInfo.getCurrentCamera()->getGraphicsContext();
@@ -116,7 +118,7 @@ int main(int argc, char** argv)
     viewer.setSceneData(sceneRoot.get());
     viewer.setUpViewInWindow(50, 50, 800, 600);
 
-#if MEDIA_PULLER
+#if MEDIA_PUSHER
     CaptureCallback* cap = new CaptureCallback(&viewer, true);
     viewer.getCamera()->setFinalDrawCallback(cap);
 #else
