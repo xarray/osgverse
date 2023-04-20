@@ -15,12 +15,14 @@
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持MinGW编译流程 | |
 | 编译      |              | 除虫     | :heavy_check_mark: | initial  | 解决ept插件和laszip的Ubuntu编译问题 | |
 | 编译/渲染 |              | 新增     | :heavy_check_mark: | initial  | 支持GL3 Core Profile | |
-| 编译/渲染 |              | 新增     |                    | initial  | 支持GLES2 / GLES3 | |
-| 编译/渲染 |              | 新增     |                    | initial  | 支持Angel并通过自定义的GraphicsWindow来切换不同底层(DX/Vulkan) | |
-| 编译/渲染 |              | 新增     | 50%                | initial  | 支持GLSL 1.2，可以运行在虚拟机和低端国产显卡上 | 目前着色器可以编译通过，但是虚拟机和兆芯笔记本运行无结果 |
+| 编译/渲染 |              | **新增** | 80%                | initial  | 支持GLES2 / GLES3 | 已经编译通过，但是需要根据GLES2的要求改变渲染流水线的MRT机制 |
+| 编译/渲染 |              | 新增     | 80%                | initial  | 支持Angel并通过自定义的GraphicsWindow来切换不同底层(DX/Vulkan) | 基于Angel编译可用，尚未测试切换底层 |
+| 编译/渲染 |              | 新增     | 50%                | initial  | 支持GLSL 1.2，可以运行在虚拟机和低端国产显卡上 | 目前着色器可以编译通过，但兆芯笔记本运行无结果 |
 | 编译      |              | 新增     |                    | initial  | 支持Android编译流程，支持直接纳入Android Studio | |
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |
-| 编译      |              | 新增     |                    | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
+| 编译      |              | **新增** | 50%                | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | OSG库本身已经初步编译通过 |
+| 编译      |              | 新增     |                    | initial  | 通过Emscripten / Dawn支持WebGPU接口 | |
+| 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持流媒体推流和拉流，支持WebRTC云渲染 | |
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 不要用NodeMask来管理Deferred场景，避免影响用户代码 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox对于大坐标场景显示错误，并且被裁切 | |
@@ -34,10 +36,11 @@
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 需要明确贴图metallic和roughness是如何表达的，软件如何导出 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 解决Sponza法线贴图不能共享以及matallic闪烁的问题 | |
 | 渲染      | pipeline     | 优化     |                    | initial  | 对于大坐标模型，阴影bias需要根据坡度值动态修改PolygonOffset | |
-| 渲染      | pipeline     | 优化     | 75%                | initial  | 目前没办法处理多Slave（Across Screen）和CompositeViewer的情况 | 多Slave可以处理但是不能显示Forward场景和天空盒 |
+| 渲染      | pipeline     | 优化     | 75%                | initial  | 目前没办法处理多Slave（Across Screen）和CompositeViewer的情况 | 多Slave可处理但不能显示Forward天空盒 |
 | 渲染      | pipeline     | 优化     |                    | initial  | 目前没办法处理Viewer多线程DrawThreadPerContext和ThreadPerCamera | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 考虑初步支持HTC VIVE VR渲染 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 全屏/窗口切换或者缩放窗口大小后，多层阴影显示不正确 | |
+| 渲染      | pipeline     | **新增** |                    | initial  | 支持非MRT的流水线，且GBuffer Pass可以支持PBR透明体和前向光照 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于小物件，AO的效果噪声比较严重，且Bloom结果不好 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于简单几何体，光照容易产生异常边界线，效果不好 | |

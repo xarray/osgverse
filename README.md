@@ -18,6 +18,18 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Android          |                          | :soon:             |       |
 | IOS              |                          | :soon:             |       |
 
+#### Main Features (ongoing to v1.0)
+1. Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
+2. Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
+3. Supports physics simuation based on Bullet3 library, and character animation based on OZZ library.
+4. Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
+5. Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
+6. Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
+7. Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
+8. Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
+9. Supports Emscripten / WASM compilation and works with WebGL / WebGPU based browsers.
+10. Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
+
 #### Dependencies
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
 2. Please use a C++ compiler supporting C++ 14 at least.
@@ -30,7 +42,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - 4.5 SDL2 or later, for SDL/GLES related applications and examples. (https://github.com/libsdl-org/SDL)
 - 4.6 ZLMediaKit, for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit
 
-#### Graphics Hardware
+#### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
 Our project is already tested on graphics cards listed as below:
 | Grapihcs Card             | OpenGL Version | Supported          | Notes |
