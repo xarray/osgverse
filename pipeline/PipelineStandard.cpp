@@ -137,15 +137,15 @@ namespace osgVerse
         }
     }
 
-    GLVersionData* queryOpenGLVersion(Pipeline* p)
+    GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded)
     {
         osgViewer::Viewer tempViewer;
         GLExtensionTester* tester = new GLExtensionTester(p);
         tempViewer.getCamera()->setPreDrawCallback(tester);
 
         tempViewer.setSceneData(new osg::Node);
-        tempViewer.setUpViewInWindow(0, 0, 1, 1);
-        tempViewer.realize();
+        if (asEmbedded) tempViewer.setUpViewerAsEmbeddedInWindow(0, 0, 1, 1);
+        else tempViewer.setUpViewInWindow(0, 0, 1, 1);
         for (int i = 0; i < 5; ++i) tempViewer.frame();
 
         tempViewer.setDone(true);

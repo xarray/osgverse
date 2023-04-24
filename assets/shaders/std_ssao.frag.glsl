@@ -7,12 +7,10 @@ uniform float AORadius, AOBias, AOPowExponent;
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
 
-const float NUM_STEPS = 4;
-const float NUM_DIRECTIONS = 8;
+const float NUM_STEPS = 4.0;
+const float NUM_DIRECTIONS = 8.0;
 float projScale = 1.0 / (tan((M_PI * 0.25) * 0.5) * 2.0);
-float negInvR2 = -1.0 / (AORadius * AORadius);
-float radiusToScreen = AORadius * 0.5 * projScale / InvScreenResolution.y;
-float AOMultiplier = 1.0 / (1.0 - AOBias);
+float negInvR2 = 0.0, radiusToScreen = 0.0, AOMultiplier = 0.0;
 
 float falloff(float distanceSquare)
 {
@@ -23,7 +21,7 @@ float falloff(float distanceSquare)
 vec4 getJitter()
 {
     // Get the current jitter vector
-    return VERSE_TEX2D(RandomTexture, (gl_FragCoord.xy / AO_RANDOMTEX_SIZE));
+    return VERSE_TEX2D(RandomTexture, (gl_FragCoord.xy / float(AO_RANDOMTEX_SIZE)));
 }
 
 vec2 rotateDirection(vec2 dir, vec2 cosSin)
@@ -35,9 +33,9 @@ vec2 rotateDirection(vec2 dir, vec2 cosSin)
 vec3 fetchViewPos(vec2 uv)
 {
     mat4 projMatrix = GBufferMatrices[2];
-    vec4 projInfo = vec4(2.0f / projMatrix[0][0], 2.0f / projMatrix[1][1],
-                         -(1.0f - projMatrix[2][0]) / projMatrix[0][0],
-                         -(1.0f + projMatrix[2][1]) / projMatrix[1][1]);
+    vec4 projInfo = vec4(2.0 / projMatrix[0][0], 2.0 / projMatrix[1][1],
+                         -(1.0 - projMatrix[2][0]) / projMatrix[0][0],
+                         -(1.0 + projMatrix[2][1]) / projMatrix[1][1]);
     
     float depthValue = VERSE_TEX2D(DepthBuffer, uv).r;
     float eyeZ = (NearFarPlanes[0] * NearFarPlanes[1])
@@ -73,9 +71,9 @@ float computeAO(vec3 P, vec3 N, vec3 S)
 float computeCoarseAO(vec2 fullResUV, float radiusPixels, vec4 rand, vec3 viewPosition, vec3 viewNormal)
 {
     // Divide by NUM_STEPS+1 so that the farthest samples are not fully attenuated
-    float stepSizePixels = radiusPixels / (NUM_STEPS + 1), AO = 0;
+    float stepSizePixels = radiusPixels / (NUM_STEPS + 1.0), AO = 0.0;
     const float alpha = 2.0 * M_PI / NUM_DIRECTIONS;
-    for (float directionIndex = 0; directionIndex < NUM_DIRECTIONS; ++directionIndex)
+    for (float directionIndex = 0.0; directionIndex < NUM_DIRECTIONS; ++directionIndex)
     {
         // Compute normalized 2D direction
         float angle = alpha * directionIndex;
@@ -83,7 +81,7 @@ float computeCoarseAO(vec2 fullResUV, float radiusPixels, vec4 rand, vec3 viewPo
 
         // Jitter starting sample within the first step
         float rayPixels = (rand.z * stepSizePixels + 1.0);
-        for (float stepIndex = 0; stepIndex < NUM_STEPS; ++stepIndex)
+        for (float stepIndex = 0.0; stepIndex < NUM_STEPS; ++stepIndex)
         {
             vec2 snappedUV = round(vec2(rayPixels) * direction) * InvScreenResolution + fullResUV;
             vec3 S = fetchViewPos(snappedUV); rayPixels += stepSizePixels;
@@ -96,6 +94,10 @@ float computeCoarseAO(vec2 fullResUV, float radiusPixels, vec4 rand, vec3 viewPo
 
 void main()
 {
+    negInvR2 = -1.0 / (AORadius * AORadius);
+    radiusToScreen = AORadius * 0.5 * projScale / InvScreenResolution.y;
+    AOMultiplier = 1.0 / (1.0 - AOBias);
+
     // Reconstruct view-space normal from nearest neighbors
     vec2 uv0 = texCoord0.xy;
     vec3 eyePosition = fetchViewPos(uv0);

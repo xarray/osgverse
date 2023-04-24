@@ -254,7 +254,7 @@ namespace osgVerse
                                         const StandardPipelineParameters& spp);
 
     /** Setup a OpenGL version tester and save the result to user-data of the pipeline */
-    extern GLVersionData* queryOpenGLVersion(Pipeline* p);
+    extern GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded = false);
 }
 
 #endif

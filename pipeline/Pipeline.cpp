@@ -980,7 +980,7 @@ namespace osgVerse
     {
         std::vector<std::string> extraDefs;
         std::string source = s->getShaderSource();
-        if (source.find("#version") != std::string::npos) return;
+        if (source.find("//! osgVerse") != std::string::npos) return;
 
         std::string m_mvp = "gl_ModelViewProjectionMatrix", m_mv = "gl_ModelViewMatrix";
         std::string m_p = "gl_ProjectionMatrix", m_n = "gl_NormalMatrix";
@@ -1025,11 +1025,15 @@ namespace osgVerse
             }
         }
 
-        std::stringstream ss;
+        std::stringstream ss; ss << "//! osgVerse generated shader: " << glslVer << std::endl;
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-        //ss << "#version " << glslVer << " es" << std::endl;
+#   if defined(OSG_GLES2_AVAILABLE)
+        ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
+#   else
+        if (glslVer > 0) ss << "#version " << glslVer << " es" << std::endl;
+#   endif
 #else
-        ss << "#version " << glslVer << std::endl;
+        if (glslVer > 0) ss << "#version " << glslVer << std::endl;
 #endif
 
         if (s->getType() == osg::Shader::VERTEX)

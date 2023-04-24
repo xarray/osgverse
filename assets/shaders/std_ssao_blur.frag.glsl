@@ -4,7 +4,7 @@ uniform float BlurSharpness;
 
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
-const float KERNEL_RADIUS = 3;
+const float KERNEL_RADIUS = 3.0;
 
 float blurFunction(vec2 uv, float r, float center_c, float center_d, inout float w_total)
 {
