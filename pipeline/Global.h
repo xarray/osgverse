@@ -236,6 +236,9 @@ namespace osgVerse
         typedef osg::Parameters Parameters;
         UserCallback() : osg::CallbackObject() {}
         UserCallback(const std::string& n) : osg::CallbackObject(n) {}
+        UserCallback(const UserCallback& co, const osg::CopyOp copyop = osg::CopyOp::SHALLOW_COPY)
+            : osg::CallbackObject(co, copyop) {}
+        META_Object(osgVerse, UserCallback);
 
         virtual bool run(osg::Object* object, Parameters& in, Parameters& out) const
         { return false; }
@@ -248,7 +251,7 @@ namespace osgVerse
         UserCallback(const std::string& n) { setName(n); }
         UserCallback(const UserCallback& co, const osg::CopyOp copyop = osg::CopyOp::SHALLOW_COPY)
             : osg::Object(co, copyop) {}
-        META_Object(osg, CallbackObject);
+        META_Object(osgVerse, UserCallback);
 
         typedef std::vector< osg::ref_ptr<osg::Object> > Parameters;
         virtual bool run(osg::Object* object, Parameters& in, Parameters& out) const
