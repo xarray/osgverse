@@ -1026,12 +1026,10 @@ namespace osgVerse
         }
 
         std::stringstream ss; ss << "//! osgVerse generated shader: " << glslVer << std::endl;
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-#   if defined(OSG_GLES2_AVAILABLE)
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
         ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
-#   else
+#elif defined(OSG_GLES3_AVAILABLE)
         if (glslVer > 0) ss << "#version " << glslVer << " es" << std::endl;
-#   endif
 #else
         if (glslVer > 0) ss << "#version " << glslVer << std::endl;
 #endif
