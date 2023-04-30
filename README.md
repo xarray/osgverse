@@ -40,7 +40,8 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - 4.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
 - 4.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
 - 4.5 SDL2 or later, for SDL/GLES related applications and examples. (https://github.com/libsdl-org/SDL)
-- 4.6 ZLMediaKit, for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit
+- 4.6 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.
+- 4.7 cesium-native (git version), for 3dtiles reader/writer plugin. (https://github.com/CesiumGS/cesium-native)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -126,6 +127,7 @@ Our project is already tested on graphics cards listed as below:
 | SDL2_INCLUDE_DIR            | Path    |               | Set to path of SDL.h |
 | SDL2_LIB_DIR                | Path    |               | Set to path of libSDL2.so or SDL2.lib |
 | Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
+| VERSE_SUPPORT_CPP17         | Boolean | OFF           | Enable build of libraries using C++ 17 standard |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
 | VERSE_WITH_DWARF            | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |

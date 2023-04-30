@@ -208,6 +208,28 @@ namespace osgVerse
             supportDrawBuffersMRT &= data->drawBuffersSupported;
         }
 
+#if 0
+        osgVerse::Pipeline::Stage* gbuffer2 = p->addInputStage("GBuffer", spp.deferredMask, 0,
+            spp.shaders.gbufferVS, spp.shaders.gbufferFS, 1,
+            "NormalBuffer", osgVerse::Pipeline::RGBA_INT8);
+        osgVerse::Pipeline::Stage* output2 = p->addDisplayStage("Final",
+            spp.shaders.quadVS, spp.shaders.displayFS, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        output2->applyBuffer(*gbuffer2, "NormalBuffer", "ColorBuffer", 0);
+        //output2->applyBuffer(*gbuffer2, "DepthBuffer", 1);
+        output2->applyUniform(new osg::Uniform("FogDistance", osg::Vec2(0.0f, 0.0f)));
+        output2->applyUniform(new osg::Uniform("FogColor", osg::Vec3(0.5f, 0.5f, 0.5f)));
+        output2->applyUniform(new osg::Uniform("ColorAttribute", osg::Vec3(1.0f, 1.0f, 1.0f)));
+        output2->applyUniform(new osg::Uniform("ColorBalance", osg::Vec3(0.0f, 0.0f, 0.0f)));  // [-1, 1]
+        output2->applyUniform(new osg::Uniform("ColorBalanceMode", (int)0));
+        output2->applyUniform(new osg::Uniform("VignetteRadius", 1.0f));
+        output2->applyUniform(new osg::Uniform("VignetteDarkness", 0.0f));
+
+        // Post operations
+        p->applyStagesToView(view, mainCam, spp.forwardMask);
+        p->requireDepthBlit(gbuffer2, true);
+        return true;
+#endif
+
         // GBuffer should always be first because it also computes the scene near/far planes
         // for following stages to use
         int msaa = 0;  // FIXME: seems to cause some more flickers

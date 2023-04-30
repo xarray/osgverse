@@ -13,7 +13,7 @@
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
 #   define VERSE_GLES 1
-#   define TEST_PIPELINE 1
+#   define TEST_PIPELINE 0
 #else
 #   define TEST_PIPELINE 1
 #endif
@@ -180,10 +180,10 @@ int main(int argc, char** argv)
     //osg::setNotifyLevel(osg::INFO);
     MyViewer viewer(pipeline.get());
 #else
-    //osg::setNotifyLevel(osg::INFO);
+    osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
     root->addChild(postCamera.get());
-    root->addChild(osgDB::readNodeFile("cessna.osg"));
+    //root->addChild(sceneRoot.get());
     osgViewer::Viewer viewer;
 #endif
     viewer.addEventHandler(new osgViewer::StatsHandler);
