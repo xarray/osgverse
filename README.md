@@ -94,13 +94,15 @@ Our project is already tested on graphics cards listed as below:
 3. osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
 4. osgdb_verse_web: a plugin for HTTP and more web protocols, which may replace the curl plugin.
 5. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
-6. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
-7. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
+6. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
+7. osgdb_verse_cesium: a plugin for reading/writing from Cesium 3dtiles. (NOT WORKING)
+8. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
+9. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.
   - Example input: model.fbx.D4,M1R1X2,N3.pbrlayout (Tex0 = Diffuse x 4, Tex1 = Metallic+Roughness, Tex2 = Normal)
   - All layouts will be converted to osgVerse standard: D4,N3,S4,O1R1M1,A3,E3
-8. TBD...
+10. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.
