@@ -13,7 +13,7 @@
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
 #   define VERSE_GLES 1
-#   define TEST_PIPELINE 0
+#   define TEST_PIPELINE 1
 #else
 #   define TEST_PIPELINE 1
 #endif
@@ -127,8 +127,8 @@ int main(int argc, char** argv)
         EGL_GREEN_SIZE,     8,
         EGL_BLUE_SIZE,      8,
         EGL_ALPHA_SIZE,     8,
-        EGL_DEPTH_SIZE,     16,
-        EGL_STENCIL_SIZE,   EGL_DONT_CARE,
+        EGL_DEPTH_SIZE,     24,
+        EGL_STENCIL_SIZE,   8/*EGL_DONT_CARE*/,
         EGL_SAMPLE_BUFFERS, 0,
         EGL_NONE
     };

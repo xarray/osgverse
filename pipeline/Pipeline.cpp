@@ -1028,8 +1028,10 @@ namespace osgVerse
         std::stringstream ss; ss << "//! osgVerse generated shader: " << glslVer << std::endl;
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
         ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
+        ss << "#define VERSE_GLES2 1" << std::endl;
 #elif defined(OSG_GLES3_AVAILABLE)
         if (glslVer > 0) ss << "#version " << glslVer << " es" << std::endl;
+        ss << "#define VERSE_GLES3 1" << std::endl;
 #else
         if (glslVer > 0) ss << "#version " << glslVer << std::endl;
 #endif
@@ -1153,7 +1155,7 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_INT8:
-#ifndef VERSE_ENABLE_MTT
+#if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE8);
@@ -1168,7 +1170,7 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case R_FLOAT16:
-#ifndef VERSE_ENABLE_MTT
+#if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE16F_ARB);
@@ -1183,7 +1185,7 @@ namespace osgVerse
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
-#ifndef VERSE_ENABLE_MTT
+#if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE32F_ARB);
@@ -1198,7 +1200,7 @@ namespace osgVerse
             tex->setSourceType(GL_FLOAT);
             break;
         case RG_INT8:
-#ifndef VERSE_ENABLE_MTT
+#if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE8_ALPHA8);
@@ -1213,7 +1215,7 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case RG_FLOAT16:
-#ifndef VERSE_ENABLE_MTT
+#if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE_ALPHA16F_ARB);
@@ -1228,7 +1230,7 @@ namespace osgVerse
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RG_FLOAT32:
-#ifndef VERSE_ENABLE_MTT
+#if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             if (glVer > 0 && glVer < 300)
             {
                 tex->setInternalFormat(GL_LUMINANCE_ALPHA32F_ARB);
