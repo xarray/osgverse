@@ -86,7 +86,8 @@ Our project is already tested on graphics cards listed as below:
 10. osgVerse_Test_Paging_Lod: a test for paged LOD file combination and transferring to levelDB.
 11. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
 12. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
-13. TBD...
+13. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.
+14. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
@@ -95,7 +96,7 @@ Our project is already tested on graphics cards listed as below:
 4. osgdb_verse_web: a plugin for HTTP and more web protocols, which may replace the curl plugin.
 5. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
 6. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
-7. osgdb_verse_cesium: a plugin for reading/writing from Cesium 3dtiles. (NOT WORKING)
+7. osgdb_verse_cesium: a plugin for reading/writing from Cesium 3dtiles. It requires C++ 17. (UNFINISHED)
 8. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
 9. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)

@@ -424,7 +424,8 @@ namespace osgVerse
         // Final stage (color grading)
         osgVerse::Pipeline::Stage* output = p->addDisplayStage("Final",
                 TO_SHARE(spp.shaders.quadVS), spp.shaders.displayFS, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        output->applyBuffer(*antiAliasing, "AntiAliasedBuffer", "ColorBuffer", 0);
+        output->applyBuffer("ColorBuffer", 0, p);
+        //output->applyBuffer(*antiAliasing, "AntiAliasedBuffer", "ColorBuffer", 0);
         output->applyBuffer(*gbuffer, "DepthBuffer", 1);
         output->applyUniform(new osg::Uniform("FogDistance", osg::Vec2(0.0f, 0.0f)));
         output->applyUniform(new osg::Uniform("FogColor", osg::Vec3(0.5f, 0.5f, 0.5f)));

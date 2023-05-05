@@ -15,8 +15,8 @@
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持MinGW编译流程 | |
 | 编译      |              | 除虫     | :heavy_check_mark: | initial  | 解决ept插件和laszip的Ubuntu编译问题 | |
 | 编译/渲染 |              | 新增     | :heavy_check_mark: | initial  | 支持GL3 Core Profile | |
-| 编译/渲染 |              | **新增** | 80%                | initial  | 支持GLES2 / GLES3 | 已经编译通过，但是需要根据GLES2的要求改变渲染流水线的MRT机制 |
-| 编译/渲染 |              | 新增     | 80%                | initial  | 支持Angel并通过自定义的GraphicsWindow来切换不同底层(DX/Vulkan) | 基于Angel编译可用，尚未测试切换底层 |
+| 编译/渲染 |              | 新增     | :heavy_check_mark: | initial  | 支持GLES2 / GLES3 | |
+| 编译/渲染 |              | 新增     | 80%                | initial  | 支持Angel并通过自定义的方式来切换不同底层(DX/Vulkan) | 基于Angel编译可用，尚未测试切换底层 |
 | 编译/渲染 |              | 新增     | 50%                | initial  | 支持GLSL 1.2，可以运行在虚拟机和低端国产显卡上 | 目前着色器可以编译通过，但兆芯笔记本运行无结果 |
 | 编译      |              | 新增     |                    | initial  | 支持Android编译流程，支持直接纳入Android Studio | |
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |

@@ -89,11 +89,15 @@ namespace osgVerse
             osg::ref_ptr<osg::Camera> camera; std::string name;
             bool inputStage, deferred;
 
-            void applyUniform(osg::Uniform* u);
             void applyBuffer(Stage& s, const std::string& buffer, int unit,
                              osg::Texture::WrapMode wp = (osg::Texture::WrapMode)0);
             void applyBuffer(Stage& s, const std::string& buffer, const std::string& name, int unit,
                              osg::Texture::WrapMode wp = (osg::Texture::WrapMode)0);
+            void applyBuffer(const std::string& name, int unit, Pipeline* p,
+                             int stageID = -1, const std::string& buffer = "",
+                             osg::Texture::WrapMode wp = (osg::Texture::WrapMode)0);
+
+            void applyUniform(osg::Uniform* u);
             void applyTexture(osg::Texture* tex, const std::string& buffer, int u);
             void applyDefaultTexture(const osg::Vec4& color, const std::string& buffer, int u);
 

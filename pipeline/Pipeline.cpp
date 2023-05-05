@@ -544,6 +544,23 @@ namespace osgVerse
         if (ss->getUniform(u->getName()) == NULL) ss->addUniform(u);
     }
 
+    void Pipeline::Stage::applyBuffer(const std::string& name, int unit, Pipeline* p,
+                                      int stageID, const std::string& buffer, osg::Texture::WrapMode wp)
+    {
+        if (stageID < 0 && p) stageID = p->getNumStages() - 2;  // last stage except me
+        Stage* stage = (stageID >= 0 && p) ? p->getStage(stageID) : NULL;
+        if (!stage)
+        {
+            OSG_WARN << "[Pipeline] invalid pipeline or stage-" << stageID << " not found\n";
+            return;
+        }
+
+        if (buffer.empty() && !stage->outputs.empty())
+            applyBuffer(*stage, stage->outputs.begin()->first, name, unit, wp);
+        else
+            applyBuffer(*stage, buffer, name, unit, wp);
+    }
+
     void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, int unit, osg::Texture::WrapMode wp)
     { applyBuffer(src, buffer, buffer, unit, wp); }
 
@@ -565,8 +582,8 @@ namespace osgVerse
             ss->addUniform(new osg::Uniform(n.data(), unit));
         }
         else
-            std::cout << buffer << " is undefined at stage " << name
-            << ", which sources from stage " << src.name << "\n";
+            OSG_WARN << "[Pipeline] " << buffer << " is undefined at stage " << name
+                     << ", which sources from stage " << src.name << "\n";
     }
 
     void Pipeline::Stage::applyTexture(osg::Texture* tex, const std::string& buffer, int u)
