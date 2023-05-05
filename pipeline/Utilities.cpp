@@ -8,16 +8,18 @@
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+#include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 #include <osgViewer/GraphicsWindow>
 
 #include <codecvt>
 #include <iostream>
 #include <array>
+#include <random>
 #include <mikktspace.h>
 #include <PoissonGenerator.h>
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
-#include <random>
 #if VERSE_WINDOWS
     #include <windows.h>
 #endif
@@ -404,23 +406,49 @@ namespace osgVerse
         }
 
         double invPixel = 1.0 / 255.0;
+        std::string fileName = osgDB::getSimpleFileName(image->getFileName());
         if (_normalMapUnit > 0)
         {
-            NormalmapGenerator ng(IntensityMap::AVERAGE, invPixel, invPixel, invPixel, invPixel);
-            osg::ref_ptr<osg::Image> nMap = ng.calculateNormalmap(
-                image, NormalmapGenerator::PREWITT, _nStrength, _nInvert);
+            osg::ref_ptr<osg::Image> nMap;
+            std::string normFile = _cacheFolder + "/" + fileName + ".norm.png";
+            if (!_cacheFolder.empty())
+            {
+                if (osgDB::fileExists(normFile))
+                    nMap = osgDB::readImageFile(normFile);
+            }
+
+            if (!nMap)
+            {
+                NormalmapGenerator ng(IntensityMap::AVERAGE, invPixel, invPixel, invPixel, invPixel);
+                nMap = ng.calculateNormalmap(image, NormalmapGenerator::PREWITT, _nStrength, _nInvert);
+                if (!_cacheFolder.empty()) osgDB::writeImageFile(*nMap, normFile);
+            }
+
             if (nMap.valid() && nMap->valid())
                 ss.setTextureAttributeAndModes(_normalMapUnit, createTexture2D(nMap.get()));
         }
 
         if (_specMapUnit > 0)
         {
-            SpecularmapGenerator spg(IntensityMap::AVERAGE, invPixel, invPixel, invPixel, invPixel);
-            osg::ref_ptr<osg::Image> spMap = spg.calculateSpecmap(image, _spScale, _spContrast);
+            osg::ref_ptr<osg::Image> spMap;
+            std::string specFile = _cacheFolder + "/" + fileName + ".spec.png";
+            if (!_cacheFolder.empty())
+            {
+                if (osgDB::fileExists(specFile))
+                    spMap = osgDB::readImageFile(specFile);
+            }
+
+            if (!spMap)
+            {
+                SpecularmapGenerator spg(IntensityMap::AVERAGE, invPixel, invPixel, invPixel, invPixel);
+                spMap = spg.calculateSpecmap(image, _spScale, _spContrast);
+                if (!_cacheFolder.empty()) osgDB::writeImageFile(*spMap, specFile);
+            }
+
             if (spMap.valid() && spMap->valid())
                 ss.setTextureAttributeAndModes(_specMapUnit, createTexture2D(spMap.get()));
         }
-        OSG_NOTICE << "Normal-map generation for " << image->getFileName() << " finished" << std::endl;
+        OSG_NOTICE << "Normal-map generation for " << fileName << " finished" << std::endl;
     }
 
     void Frustum::create(const osg::Matrix& modelview, const osg::Matrix& originProj,

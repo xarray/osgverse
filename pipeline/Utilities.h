@@ -63,6 +63,7 @@ namespace osgVerse
         NormalMapGenerator(double nStrength = 2.0, double spScale = 0.2,
                            double spContrast = 1.0, bool nInvert = false);
         void setTextureUnits(int n, int sp) { _normalMapUnit = n; _specMapUnit = sp; }
+        void setCacheFolder(const std::string& folder) { _cacheFolder = folder; }
 
         virtual void apply(osg::Drawable& node) {}  // do nothing
         virtual void apply(osg::Geometry& geometry) {}  // do nothing
@@ -71,6 +72,7 @@ namespace osgVerse
         void apply(osg::StateSet& ss);
 
     protected:
+        std::string _cacheFolder;
         double _nStrength, _spScale, _spContrast;
         int _normalMapUnit, _specMapUnit;
         bool _nInvert;
