@@ -187,8 +187,8 @@ class ReaderWriterEPT : public osgDB::ReaderWriter
 public:
     ReaderWriterEPT()
     {
-        supportsExtension("verse_ept", "Entwine point cloud");
-        supportsExtension("eptile", "Entwine point cloud tile file");
+        supportsExtension("verse_ept", "Pseudo file extension, used to select Entwine point cloud");
+        supportsExtension("eptile", "Entwine point cloud tileset");
         supportsExtension("las", "Standard LAS format");
         supportsExtension("laz", "Compressed LAS format");
     }

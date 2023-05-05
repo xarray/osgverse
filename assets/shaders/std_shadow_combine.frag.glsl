@@ -1,7 +1,11 @@
 #define DEBUG_SHADOW_COLOR 0
 uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
+#if VERSE_GLES2
+// no sampler1D
+#else
 uniform sampler1D RandomTexture0, RandomTexture1;
+#endif
 uniform mat4 ShadowSpaceMatrices[4];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 VERSE_FS_IN vec4 texCoord0;
@@ -16,6 +20,9 @@ float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth
 
 float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float uvRadius)
 {
+#if VERSE_GLES2
+    return getShadowValue(shadowMap, lightProjUV.xy, depth);
+#else
     float sum = 0;
     for (int i = 0; i < 16; i++)
     {
@@ -23,6 +30,7 @@ float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV,
         sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);
     }
     return sum / 16.0;
+#endif
 }
 
 void main()

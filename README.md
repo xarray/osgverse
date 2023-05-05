@@ -40,7 +40,8 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - 4.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
 - 4.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
 - 4.5 SDL2 or later, for SDL/GLES related applications and examples. (https://github.com/libsdl-org/SDL)
-- 4.6 ZLMediaKit, for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit
+- 4.6 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.
+- 4.7 cesium-native (git version), for 3dtiles reader/writer plugin. (https://github.com/CesiumGS/cesium-native)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -93,13 +94,15 @@ Our project is already tested on graphics cards listed as below:
 3. osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
 4. osgdb_verse_web: a plugin for HTTP and more web protocols, which may replace the curl plugin.
 5. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
-6. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
-7. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
+6. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
+7. osgdb_verse_cesium: a plugin for reading/writing from Cesium 3dtiles. (NOT WORKING)
+8. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
+9. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.
   - Example input: model.fbx.D4,M1R1X2,N3.pbrlayout (Tex0 = Diffuse x 4, Tex1 = Metallic+Roughness, Tex2 = Normal)
   - All layouts will be converted to osgVerse standard: D4,N3,S4,O1R1M1,A3,E3
-8. TBD...
+10. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.
@@ -126,6 +129,7 @@ Our project is already tested on graphics cards listed as below:
 | SDL2_INCLUDE_DIR            | Path    |               | Set to path of SDL.h |
 | SDL2_LIB_DIR                | Path    |               | Set to path of libSDL2.so or SDL2.lib |
 | Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
+| VERSE_SUPPORT_CPP17         | Boolean | OFF           | Enable build of libraries using C++ 17 standard |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
 | VERSE_WITH_DWARF            | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |

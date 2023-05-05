@@ -178,7 +178,8 @@ ELSE(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 
 ######################################### Global Options
-SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse")
+SET(VERSE_SUPPORT_CPP17 OFF CACHE BOOL "Enable build of libraries using C++ 17 standard")
+SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse libraries")
 SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (will force osgVerse to be static)")
 SET(VERSE_USE_MTT_DRIVER OFF CACHE BOOL "Use MooreThreads MTT drivers")
 SET_PROPERTY(GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES "")

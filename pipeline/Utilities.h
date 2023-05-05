@@ -148,6 +148,7 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_gltf) \
     USE_OSGPLUGIN(verse_web) \
     USE_OSGPLUGIN(verse_ms) \
+    USE_OSGPLUGIN(verse_cesium) \
     USE_OSGPLUGIN(verse_leveldb) \
     USE_OSGPLUGIN(pbrlayout)
 #else

@@ -228,8 +228,10 @@ namespace osgVerse
         quad->addDrawable(geom);
 
         int values = osg::StateAttribute::OFF | osg::StateAttribute::PROTECTED;
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
         quad->getOrCreateStateSet()->setAttribute(
             new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::FILL), values);
+#endif
         quad->getOrCreateStateSet()->setMode(GL_LIGHTING, values);
         return quad.release();
     }

@@ -13,7 +13,7 @@
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
 #   define VERSE_GLES 1
-#   define TEST_PIPELINE 0
+#   define TEST_PIPELINE 1
 #else
 #   define TEST_PIPELINE 1
 #endif
@@ -127,8 +127,8 @@ int main(int argc, char** argv)
         EGL_GREEN_SIZE,     8,
         EGL_BLUE_SIZE,      8,
         EGL_ALPHA_SIZE,     8,
-        EGL_DEPTH_SIZE,     16,
-        EGL_STENCIL_SIZE,   EGL_DONT_CARE,
+        EGL_DEPTH_SIZE,     24,
+        EGL_STENCIL_SIZE,   8/*EGL_DONT_CARE*/,
         EGL_SAMPLE_BUFFERS, 0,
         EGL_NONE
     };
@@ -160,6 +160,9 @@ int main(int argc, char** argv)
     EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribList);
     if (context == EGL_NO_CONTEXT)
     { OSG_WARN << "Failed to create EGL context" << std::endl; return 1; }
+
+    // Make context current. GLES drawing commands can work now 
+    eglMakeCurrent(display, surface, surface, context);
 #else
     SDL_GLContext sdlContext = SDL_GL_CreateContext(sdlWindow);
     if (sdlContext == NULL)
@@ -167,16 +170,20 @@ int main(int argc, char** argv)
         OSG_WARN << "Unable to create SDL context: " << SDL_GetError() << std::endl;
         return 1;
     }
+
+    SDL_GL_SetSwapInterval(0);
+    SDL_GL_MakeCurrent(sdlWindow, sdlContext);
 #endif
 
     // Create the viewer
 #if TEST_PIPELINE
+    //osg::setNotifyLevel(osg::INFO);
     MyViewer viewer(pipeline.get());
 #else
-    //osg::setNotifyLevel(osg::INFO);
+    osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
     root->addChild(postCamera.get());
-    root->addChild(osgDB::readNodeFile("cessna.osg"));
+    //root->addChild(sceneRoot.get());
     osgViewer::Viewer viewer;
 #endif
     viewer.addEventHandler(new osgViewer::StatsHandler);
@@ -194,6 +201,7 @@ int main(int argc, char** argv)
 
     // Setup the pipeline
 #if TEST_PIPELINE
+    queryOpenGLVersion(pipeline.get(), true);
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     // Post pipeline settings
@@ -209,12 +217,6 @@ int main(int argc, char** argv)
 #endif
 
     // Start the main loop
-#if VERSE_GLES
-    eglMakeCurrent(display, surface, surface, context);
-#else
-    SDL_GL_SetSwapInterval(0);
-    SDL_GL_MakeCurrent(sdlWindow, sdlContext);
-#endif
     while (!viewer.done())
     {
         SDL_Event event;
