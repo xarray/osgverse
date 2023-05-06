@@ -56,12 +56,12 @@ Scalar triangle_area(const Point& p0, const Point& p1, const Point& p2);
 Scalar triangle_area(const SurfaceMesh& mesh, Face f);
 
 //! Compute the surface area of \p mesh
-//! \pre Input \p mesh needs to be a pure triangle mesh.
+//! \pre Input \p mesh needs to be a triangle mesh.
 Scalar surface_area(const SurfaceMesh& mesh);
 
 //! \brief Compute the volume of a mesh
 //! \details See \cite zhang_2002_efficient for details.
-//! \pre Input mesh needs to be a pure triangle mesh.
+//! \pre Input mesh needs to be a triangle mesh.
 //! \throw InvalidInputException if the input precondition is violated.
 Scalar volume(const SurfaceMesh& mesh);
 
@@ -87,24 +87,6 @@ double voronoi_area_barycentric(const SurfaceMesh& mesh, Vertex v);
 
 //! compute Laplace vector for vertex v (normalized by Voronoi area)
 Point laplace(const SurfaceMesh& mesh, Vertex v);
-
-//! compute the sum of angles around vertex v (used for Gaussian curvature)
-Scalar angle_sum(const SurfaceMesh& mesh, Vertex v);
-
-//! discrete curvature information for a vertex. used for vertex_curvature()
-struct VertexCurvature
-{
-    VertexCurvature() = default;
-
-    Scalar mean{0.0};
-    Scalar gauss{0.0};
-    Scalar max{0.0};
-    Scalar min{0.0};
-};
-
-//! compute min, max, mean, and Gaussian curvature for vertex v. this will not
-//! give reliable values for boundary vertices.
-VertexCurvature vertex_curvature(const SurfaceMesh& mesh, Vertex v);
 
 //! @}
 

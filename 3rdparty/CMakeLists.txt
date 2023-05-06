@@ -97,25 +97,23 @@ SET(OZZ_SOURCE_FILES
 SET(PMP_MCUT_SOURCE_FILES
     pmp/BoundingBox.h pmp/Exceptions.h pmp/MatVec.h
     pmp/MemoryUsage.h pmp/Properties.h pmp/Timer.h pmp/Types.h
-    pmp/SurfaceMesh.cpp pmp/SurfaceMesh.h #pmp/SurfaceMeshIO.cpp pmp/SurfaceMeshIO.h
-    pmp/algorithms/Heap.h pmp/algorithms/NormalCone.h pmp/algorithms/Quadric.h
-    pmp/algorithms/BarycentricCoordinates.h
+    pmp/SurfaceMesh.cpp pmp/SurfaceMesh.h pmp/utilities.cpp pmp/utilities.h
+    pmp/algorithms/curvature.cpp pmp/algorithms/curvature.h
+    pmp/algorithms/decimation.cpp pmp/algorithms/decimation.h
+    #pmp/algorithms/fairing.cpp pmp/algorithms/fairing.h
+    pmp/algorithms/features.cpp pmp/algorithms/features.h
+    pmp/algorithms/geodesics.cpp pmp/algorithms/geodesics.h
+    pmp/algorithms/hole_filling.cpp pmp/algorithms/hole_filling.h
+    pmp/algorithms/normals.cpp pmp/algorithms/normals.h
+    pmp/algorithms/parameterization.cpp pmp/algorithms/parameterization.h
+    pmp/algorithms/remeshing.cpp pmp/algorithms/remeshing.h
+    pmp/algorithms/shapes.cpp pmp/algorithms/shapes.h
+    pmp/algorithms/smoothing.cpp pmp/algorithms/smoothing.h
+    pmp/algorithms/subdivision.cpp pmp/algorithms/subdivision.h
+    pmp/algorithms/triangulation.cpp pmp/algorithms/triangulation.h
     pmp/algorithms/DifferentialGeometry.cpp pmp/algorithms/DifferentialGeometry.h
     pmp/algorithms/DistancePointTriangle.cpp pmp/algorithms/DistancePointTriangle.h
-    pmp/algorithms/SurfaceCurvature.cpp pmp/algorithms/SurfaceCurvature.h
-    pmp/algorithms/SurfaceFactory.cpp pmp/algorithms/SurfaceFactory.h
-    pmp/algorithms/SurfaceFairing.cpp pmp/algorithms/SurfaceFairing.h
-    pmp/algorithms/SurfaceFeatures.cpp pmp/algorithms/SurfaceFeatures.h
-    pmp/algorithms/SurfaceGeodesic.cpp pmp/algorithms/SurfaceGeodesic.h
-    pmp/algorithms/SurfaceHoleFilling.cpp pmp/algorithms/SurfaceHoleFilling.h
-    pmp/algorithms/SurfaceNormals.cpp pmp/algorithms/SurfaceNormals.h
-    pmp/algorithms/SurfaceParameterization.cpp pmp/algorithms/SurfaceParameterization.h
-    pmp/algorithms/SurfaceRemeshing.cpp pmp/algorithms/SurfaceRemeshing.h
-    pmp/algorithms/SurfaceSimplification.cpp pmp/algorithms/SurfaceSimplification.h
-    pmp/algorithms/SurfaceSmoothing.cpp pmp/algorithms/SurfaceSmoothing.h
-    pmp/algorithms/SurfaceSubdivision.cpp pmp/algorithms/SurfaceSubdivision.h
-    pmp/algorithms/SurfaceTriangulation.cpp pmp/algorithms/SurfaceTriangulation.h
-    pmp/algorithms/TriangleKdTree.cpp pmp/algorithms/TriangleKdTree.h
+    pmp/algorithms/BarycentricCoordinates.h pmp/algorithms/DistancePointTriangle.h
     mcut/bvh.cpp mcut/frontend.cpp mcut/hmesh.cpp
     mcut/kernel.cpp mcut/math.cpp mcut/mcut.cpp mcut/mcut.h
     mcut/preproc.cpp mcut/platform.h mcut/shewchuk.c

@@ -4,15 +4,17 @@
 
 #pragma once
 
+#ifndef M_PI
+#   define M_PI 3.14159265358979323846
+#endif
 #include <vector>
+//#include <filesystem>
 
 #include "pmp/Types.h"
 #include "pmp/Properties.h"
-#include "pmp/BoundingBox.h"
+//#include "pmp/io/IOFlags.h"
 
 namespace pmp {
-
-class SurfaceMeshIO;
 
 //! \addtogroup core
 //!@{
@@ -187,28 +189,6 @@ public:
     typename Property<T>::const_reference operator[](Face f) const
     {
         return Property<T>::operator[](f.idx());
-    }
-};
-
-//! Object property of type T
-template <class T>
-class ObjectProperty : public Property<T>
-{
-public:
-    //! default constructor
-    explicit ObjectProperty() = default;
-    explicit ObjectProperty(Property<T> p) : Property<T>(p) {}
-
-    //! access the data stored for the object
-    typename Property<T>::reference operator[](IndexType idx)
-    {
-        return Property<T>::operator[](idx);
-    }
-
-    //! access the data stored for the object
-    typename Property<T>::const_reference operator[](IndexType idx) const
-    {
-        return Property<T>::operator[](idx);
     }
 };
 
@@ -1114,46 +1094,6 @@ public:
     SurfaceMesh& assign(const SurfaceMesh& rhs);
 
     //!@}
-    //! \name File IO
-    //!@{
-
-    //! \brief Read mesh from file \p filename controlled by \p flags
-    //! \details File extension determines file type. Supported formats and
-    //! vertex attributes (a=ASCII, b=binary):
-    //!
-    //! Format | ASCII | Binary | Normals | Colors | Texcoords
-    //! -------|-------|--------|---------|--------|----------
-    //! OFF    | yes   | yes    | a / b   | a      | a / b
-    //! OBJ    | yes   | no     | a       | no     | no
-    //! STL    | yes   | yes    | no      | no     | no
-    //! PLY    | yes   | yes    | no      | no     | no
-    //! PMP    | no    | yes    | no      | no     | no
-    //! XYZ    | yes   | no     | a       | no     | no
-    //! AGI    | yes   | no     | a       | a      | no
-    //!
-    //! In addition, the OBJ and PMP formats support reading per-halfedge
-    //! texture coordinates.
-    void read(const std::string& filename, const IOFlags& flags = IOFlags());
-
-    //! \brief Write mesh to file \p filename controlled by \p flags
-    //! \details File extension determines file type. Supported formats and
-    //! vertex attributes (a=ASCII, b=binary):
-    //!
-    //! Format | ASCII | Binary | Normals | Colors | Texcoords
-    //! -------|-------|--------|---------|--------|----------
-    //! OFF    | yes   | yes    | a       | a      | a
-    //! OBJ    | yes   | no     | a       | no     | no
-    //! STL    | yes   | no     | no      | no     | no
-    //! PLY    | yes   | yes    | no      | no     | no
-    //! PMP    | no    | yes    | no      | no     | no
-    //! XYZ    | yes   | no     | a       | no     | no
-    //!
-    //! In addition, the OBJ and PMP formats support writing per-halfedge
-    //! texture coordinates.
-    void write(const std::string& filename,
-               const IOFlags& flags = IOFlags()) const;
-
-    //!@}
     //! \name Add new elements by hand
     //!@{
 
@@ -1407,54 +1347,6 @@ public:
     //! \name Property handling
     //!@{
 
-    //! add a object property of type \p T with name \p name and default value \p t.
-    //! fails if a property named \p name exists already, since the name has to
-    //! be unique. in this case it returns an invalid property
-    template <class T>
-    ObjectProperty<T> add_object_property(const std::string& name,
-                                          const T t = T())
-    {
-        return ObjectProperty<T>(oprops_.add<T>(name, t));
-    }
-
-    //! get the object property named \p name of type \p T. returns an invalid
-    //! ObjectProperty if the property does not exist or if the type does not
-    //! match.
-    template <class T>
-    ObjectProperty<T> get_object_property(const std::string& name) const
-    {
-        return ObjectProperty<T>(oprops_.get<T>(name));
-    }
-
-    //! if a object property of type \p T with name \p name exists, it is
-    //! returned.  otherwise this property is added (with default value \p t)
-    template <class T>
-    ObjectProperty<T> object_property(const std::string& name, const T t = T())
-    {
-        return ObjectProperty<T>(oprops_.get_or_add<T>(name, t));
-    }
-
-    //! remove the object property \p p
-    template <class T>
-    void remove_object_property(ObjectProperty<T>& p)
-    {
-        oprops_.remove(p);
-    }
-
-    //! get the type_info \p T of object property named \p name. returns an
-    //! typeid(void) if the property does not exist or if the type does not
-    //! match.
-    const std::type_info& get_object_property_type(const std::string& name)
-    {
-        return oprops_.get_type(name);
-    }
-
-    //! \return the names of all object properties
-    std::vector<std::string> object_properties() const
-    {
-        return oprops_.properties();
-    }
-
     //! add a vertex property of type \p T with name \p name and default
     //! value \p t. fails if a property named \p name exists already,
     //! since the name has to be unique. in this case it returns an
@@ -1581,30 +1473,6 @@ public:
         return eprops_.exists(name);
     }
 
-    //! get the type_info \p T of halfedge property named \p name. returns an
-    //! typeid(void) if the property does not exist or if the type does not
-    //! match.
-    const std::type_info& get_halfedge_property_type(const std::string& name)
-    {
-        return hprops_.get_type(name);
-    }
-
-    //! get the type_info \p T of vertex property named \p name. returns an
-    //! typeid(void) if the property does not exist or if the type does not
-    //! match.
-    const std::type_info& get_vertex_property_type(const std::string& name)
-    {
-        return vprops_.get_type(name);
-    }
-
-    //! get the type_info \p T of edge property named \p name. returns an
-    //! typeid(void) if the property does not exist or if the type does not
-    //! match.
-    const std::type_info& get_edge_property_type(const std::string& name)
-    {
-        return eprops_.get_type(name);
-    }
-
     //! \return the names of all vertex properties
     std::vector<std::string> vertex_properties() const
     {
@@ -1660,14 +1528,6 @@ public:
     bool has_face_property(const std::string& name) const
     {
         return fprops_.exists(name);
-    }
-
-    //! get the type_info \p T of face property named \p name . returns an
-    //! typeid(void) if the property does not exist or if the type does not
-    //! match.
-    const std::type_info& get_face_property_type(const std::string& name)
-    {
-        return fprops_.get_type(name);
     }
 
     //! \return the names of all face properties
@@ -1830,7 +1690,7 @@ public:
 
     //! \return whether collapsing the halfedge \p v0v1 is topologically legal.
     //! \attention This function is only valid for triangle meshes.
-    bool is_collapse_ok(Halfedge v0v1);
+    bool is_collapse_ok(Halfedge v0v1) const;
 
     //! Collapse the halfedge \p h by moving its start vertex into its target
     //! vertex. For non-boundary halfedges this function removes one vertex, three
@@ -1844,7 +1704,7 @@ public:
     void collapse(Halfedge h);
 
     //! \return whether removing the edge \p e is topologically legal.
-    bool is_removal_ok(Edge e);
+    bool is_removal_ok(Edge e) const;
 
     //! Remove edge and merge its two incident faces into one.
     //! This operation requires that the edge has two incident faces
@@ -1883,15 +1743,15 @@ public:
     //! the existing edge \p e.
     //!
     //! \attention This function is only valid for triangle meshes.
-    //! \sa split(Edge, Point)
+    //! \sa split(Edge, const Point&)
     Halfedge split(Edge e, Vertex v);
 
-    //! insert edge between the to-vertices v0 of \p h0 and v1 of \p h1.
-    //! \return the new halfedge from v0 to v1.
-    //! \attention \p h0 and \p h1 have to belong to the same face
+    //! Insert edge between the to-vertices of \p h0 and \p h1.
+    //! \return The new halfedge from v0 to v1.
+    //! \attention \p h0 and \p h1 have to belong to the same face.
     Halfedge insert_edge(Halfedge h0, Halfedge h1);
 
-    //! Check whether flipping edge \p e is topologically
+    //! Check whether flipping edge \p e is topologically OK.
     //! \attention This function is only valid for triangle meshes.
     //! \sa flip(Edge)
     bool is_flip_ok(Edge e) const;
@@ -1904,20 +1764,19 @@ public:
     //! \sa is_flip_ok()
     void flip(Edge e);
 
-    //! \return the valence (number of incident edges or neighboring
-    //! vertices) of vertex \p v.
+    //! Compute the valence of vertex \p v (number of incident edges).
     size_t valence(Vertex v) const;
 
-    //! \return the valence of face \p f (its number of vertices)
+    //! Compute the valence of face \p f (its number of vertices).
     size_t valence(Face f) const;
 
-    //! deletes the vertex \p v from the mesh
+    //! Delete vertex \p v from the mesh.
     void delete_vertex(Vertex v);
 
-    //! deletes the edge \p e from the mesh
+    //! Delete edge \p e from the mesh.
     void delete_edge(Edge e);
 
-    //! deletes the face \p f from the mesh
+    //! Deletes face \p f from the mesh.
     void delete_face(Face f);
 
     //!@}
@@ -1932,21 +1791,6 @@ public:
 
     //! \return vector of point positions
     std::vector<Point>& positions() { return vpoint_.vector(); }
-
-    //! compute the bounding box of the object
-    BoundingBox bounds() const
-    {
-        BoundingBox bb;
-        for (auto v : vertices())
-            bb += position(v);
-        return bb;
-    }
-
-    //! compute the length of edge \p e.
-    Scalar edge_length(Edge e) const
-    {
-        return norm(vpoint_[vertex(e, 0)] - vpoint_[vertex(e, 1)]);
-    }
 
     //!@}
 
@@ -2064,10 +1908,12 @@ private:
     // are there any deleted entities?
     inline bool has_garbage() const { return has_garbage_; }
 
-    friend SurfaceMeshIO; // code smell
+    // io functions that need access to internal details
+    //friend void read_pmp(SurfaceMesh&, const std::filesystem::path&);
+    //friend void write_pmp(const SurfaceMesh&, const std::filesystem::path&,
+    //                      const IOFlags&);
 
     // property containers for each entity type and object
-    PropertyContainer oprops_;
     PropertyContainer vprops_;
     PropertyContainer hprops_;
     PropertyContainer eprops_;

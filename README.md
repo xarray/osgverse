@@ -12,6 +12,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
 | Windows 10 UWP   |                          | :soon:             |       |
 | Ubuntu 18.04     | GCC 7.5 (or later)       | :heavy_check_mark: |       |
+| Debian 11.7.0    | GCC 10.2 (or later)      | :heavy_check_mark: |       |
 | Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: |       |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |

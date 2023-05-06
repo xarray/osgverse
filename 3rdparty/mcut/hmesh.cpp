@@ -295,14 +295,14 @@ halfedge_descriptor_t hmesh_t::halfedge(const vertex_descriptor_t s, const verte
     const vertex_data_t& tvd = m_vertices[t];
     const std::vector<halfedge_descriptor_t>& t_halfedges = tvd.m_halfedges;
 
-    static thread_local std::vector<edge_descriptor_t> t_edges;
-    t_edges.resize(0);
-    t_edges.reserve(t_halfedges.size());
-
+    std::vector<edge_descriptor_t> t_edges(t_halfedges.size());
+    //t_edges.resize(0);
+    //t_edges.resize(t_halfedges.size());
+    uint32_t counter = 0;
     for (std::vector<halfedge_descriptor_t>::const_iterator i = t_halfedges.cbegin(); i != t_halfedges.cend(); i++) {
         edge_descriptor_t e = edge(*i);
         MCUT_ASSERT(e != null_edge());
-        t_edges.push_back(e);
+        t_edges[counter++] = (e);
     }
 
     halfedge_descriptor_t result = null_halfedge();
@@ -371,7 +371,7 @@ vertex_descriptor_t hmesh_t::add_vertex(const double& x, const double& y, const 
 
         // std::pair<typename std::map<vertex_descriptor_t, vertex_data_t>::iterator, bool> ret = m_vertices.insert(std::make_pair(vd, vertex_data_t()));
         // MCUT_ASSERT(ret.second == true);
-        m_vertices.push_back(vertex_data_t());
+        m_vertices.emplace_back(vertex_data_t());
 
         MCUT_ASSERT((size_t)vd <= (m_vertices.size() - 1));
 
@@ -525,6 +525,7 @@ face_descriptor_t hmesh_t::add_face(const std::vector<vertex_descriptor_t>& vi)
 
     face_data_t* face_data_ptr = reusing_removed_face_descr ? &m_faces[new_face_idx] : &new_face_data;
     face_data_ptr->m_halfedges.clear();
+    face_data_ptr->m_halfedges.reserve(face_vertex_count);
 
     for (int i = 0; i < face_vertex_count; ++i) {
         const vertex_descriptor_t v0 = vi[i]; // i.e. src
@@ -714,14 +715,27 @@ std::vector<vertex_descriptor_t> hmesh_t::get_vertices_around_vertex(const verte
     MCUT_ASSERT(v != null_vertex());
     // halfedges whoe target is 'v'
     const std::vector<halfedge_descriptor_t>& halfedges = get_halfedges_around_vertex(v);
-    static thread_local std::vector<vertex_descriptor_t> out;
-    out.resize(0);
-    out.reserve(halfedges.size());
+    std::vector<vertex_descriptor_t> out(halfedges.size());
+    //out.resize(halfedges.size());
+    uint32_t counter = 0;
     for (std::vector<halfedge_descriptor_t>::const_iterator h = halfedges.cbegin(); h != halfedges.cend(); ++h) {
         vertex_descriptor_t src = source(*h);
-        out.push_back(src);
+        out[counter++] = src;
     }
     return out;
+}
+
+void hmesh_t::get_vertices_around_vertex(std::vector<vertex_descriptor_t>& vertices_around_vertex, const vertex_descriptor_t v) const
+{
+    MCUT_ASSERT(v != null_vertex());
+    // halfedges whoe target is 'v'
+    const std::vector<halfedge_descriptor_t>& halfedges = get_halfedges_around_vertex(v);
+    
+    vertices_around_vertex.reserve(halfedges.size());
+    for (std::vector<halfedge_descriptor_t>::const_iterator h = halfedges.cbegin(); h != halfedges.cend(); ++h) {
+        vertex_descriptor_t src = source(*h);
+        vertices_around_vertex.emplace_back(src);
+    }
 }
 
 const std::vector<halfedge_descriptor_t>& hmesh_t::get_halfedges_around_face(const face_descriptor_t f) const
@@ -736,7 +750,6 @@ const std::vector<face_descriptor_t> hmesh_t::get_faces_around_face(const face_d
     MCUT_ASSERT(f != null_face());
 
     std::vector<face_descriptor_t> faces_around_face;
-    faces_around_face.clear();
 
     const std::vector<halfedge_descriptor_t>& halfedges_on_face = (halfedges_around_face_ != nullptr) ? *halfedges_around_face_ : get_halfedges_around_face(f);
 
@@ -929,11 +942,11 @@ void hmesh_t::remove_face(const face_descriptor_t f)
             hd.p = null_halfedge();
         }
 
-        face_vertices.push_back(hd.t);
+        face_vertices.emplace_back(hd.t);
     }
 
     // disassociate vertices
-
+#if 0
     // for each vertex used by face
     for (std::vector<vertex_descriptor_t>::const_iterator it = face_vertices.cbegin(); it != face_vertices.cend(); ++it) {
         vertex_descriptor_t face_vertex = *it;
@@ -945,8 +958,8 @@ void hmesh_t::remove_face(const face_descriptor_t f)
             vd.m_faces.erase(fIter); // remove association
         }
     }
-
-    m_faces_removed.push_back(f);
+#endif
+    m_faces_removed.emplace_back(f);
 }
 
 // also disassociates (not remove) the halfedges(s) and vertex incident to this halfedge
@@ -997,7 +1010,7 @@ void hmesh_t::remove_halfedge(halfedge_descriptor_t h)
 
     htd.m_halfedges.erase(hIter); // remove association
 
-    m_halfedges_removed.push_back(h);
+    m_halfedges_removed.emplace_back(h);
 }
 
 // also disassociates (not remove) any face(s) incident to edge via its halfedges, and also disassociates the halfedges
@@ -1024,7 +1037,7 @@ void hmesh_t::remove_edge(const edge_descriptor_t e, bool remove_halfedges)
 
     ed.h = null_halfedge(); // we are removing the edge so every associated data element must be nullified
 
-    m_edges_removed.push_back(e);
+    m_edges_removed.emplace_back(e);
 }
 
 void hmesh_t::remove_vertex(const vertex_descriptor_t v)
@@ -1032,7 +1045,7 @@ void hmesh_t::remove_vertex(const vertex_descriptor_t v)
     MCUT_ASSERT(v != null_vertex());
     MCUT_ASSERT((size_t)v < m_vertices.size());
     MCUT_ASSERT(std::find(m_vertices_removed.cbegin(), m_vertices_removed.cend(), v) == m_vertices_removed.cend());
-    MCUT_ASSERT(m_vertices[v].m_faces.empty());
+    //MCUT_ASSERT(m_vertices[v].m_faces.empty());
     MCUT_ASSERT(m_vertices[v].m_halfedges.empty());
 
     m_vertices_removed.emplace_back(v);

@@ -1,9 +1,10 @@
 #include <osg/Texture2D>
 #include <pmp/SurfaceMesh.h>
-#include <pmp/algorithms/SurfaceFairing.h>
-#include <pmp/algorithms/SurfaceRemeshing.h>
-#include <pmp/algorithms/SurfaceSimplification.h>
-#include <pmp/algorithms/SurfaceHoleFilling.h>
+#include <pmp/utilities.h>
+//#include <pmp/algorithms/fairing.h>
+#include <pmp/algorithms/remeshing.h>
+#include <pmp/algorithms/decimation.h>
+#include <pmp/algorithms/hole_filling.h>
 #include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;
@@ -346,9 +347,8 @@ bool MeshTopology::simplify(float percentage, int aspectRatio, int normalDeviati
 {
     try
     {
-        pmp::SurfaceSimplification ss(*_mesh);
-        ss.initialize(aspectRatio, 0.0, 0.0, normalDeviation, 0.0);
-        ss.simplify(_mesh->n_vertices() * percentage);
+        pmp::decimate(*_mesh, _mesh->n_vertices() * percentage,
+                      aspectRatio, 0.0, 0, normalDeviation);
         return true;
     }
     catch (const pmp::InvalidInputException& e)
@@ -370,19 +370,18 @@ bool MeshTopology::remesh(float uniformValue, bool adaptive)
                                        _mesh->position(_mesh->vertex(eit, 1)));
                 l /= (float)_mesh->n_edges();
             }
-            pmp::SurfaceRemeshing(*_mesh).uniform_remeshing(l); return true;
+            pmp::uniform_remeshing(*_mesh, l, 10, true); return true;
         }
         catch (const pmp::InvalidInputException& e)
         { OSG_WARN << "[MeshTopology] " << e.what() << std::endl; }
     }
     else
     {
-        float bb = _mesh->bounds().size();
+        float bb = pmp::bounds(*_mesh).size();
         try
         {
-            pmp::SurfaceRemeshing(*_mesh).adaptive_remeshing(
-                0.0010 * bb, 0.0500 * bb,  // min/max length
-                0.0005 * bb); // approx. error
+            pmp::adaptive_remeshing(*_mesh, 0.0010 * bb, 0.0500 * bb,  // min/max length
+                                    0.0005 * bb /*approx. error*/, 10, true);
             return true;
         }
         catch (const pmp::InvalidInputException& e)

@@ -310,16 +310,7 @@ public:
         return false;
     }
 
-    //! \return true if all elements are finite, i.e. not NaN or +/- inf
-    bool allFinite() const
-    {
-        for (int i = 0; i < size(); ++i)
-            if (!std::isfinite(data_[i]))
-                return false;
-        return true;
-    }
-
-protected:
+private:
     std::array<Scalar, N * M> data_;
 };
 
@@ -974,7 +965,7 @@ template <typename Scalar>
 Mat3<Scalar> inverse(const Mat3<Scalar>& m)
 {
     const Scalar det = determinant(m);
-    if (det < 1.0e-10 || std::isnan(det))
+    if (fabs(det) < 1.0e-10 || std::isnan(det))
     {
         throw SolverException("3x3 matrix not invertible");
     }
@@ -1060,7 +1051,7 @@ bool symmetric_eigendecomposition(const Mat3<Scalar>& m, Scalar& eval1,
     if (iterations > 0)
     {
         // sort and return
-        std::array<int, 3> sorted;
+        std::array<int, 3> sorted{};
         std::array<Scalar, 3> d = {A(0, 0), A(1, 1), A(2, 2)};
 
         if (d[0] > d[1])

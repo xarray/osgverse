@@ -1,26 +1,54 @@
 // Copyright 2011-2020 the Polygon Mesh Processing Library developers.
 // Distributed under a MIT-style license, see LICENSE.txt for details.
 
-#include "pmp/algorithms/SurfaceTriangulation.h"
+#include "pmp/algorithms/triangulation.h"
 
 #include <limits>
+#include <stdexcept>
+#include <vector>
 
 namespace pmp {
+namespace {
 
-SurfaceTriangulation::SurfaceTriangulation(SurfaceMesh& mesh) : mesh_(mesh)
+class Triangulation
+{
+public:
+    explicit Triangulation(SurfaceMesh& mesh);
+
+    void triangulate(
+        Face f, TriangulationObjective o = TriangulationObjective::min_area);
+
+private:
+    // Compute the weight of the triangle (i,j,k).
+    Scalar compute_weight(int i, int j, int k) const;
+
+    // Does edge (a,b) exist?
+    bool is_edge(Vertex a, Vertex b) const;
+
+    // Add edge from vertex i to j.
+    bool insert_edge(int i, int j);
+
+    // mesh and properties
+    SurfaceMesh& mesh_;
+    VertexProperty<Point> points_;
+    std::vector<Halfedge> halfedges_;
+    std::vector<Vertex> vertices_;
+
+    // data for computing optimal triangulation
+    std::vector<std::vector<Scalar>> weight_;
+    std::vector<std::vector<int>> index_;
+
+    TriangulationObjective objective_;
+};
+
+Triangulation::Triangulation(SurfaceMesh& mesh) : mesh_(mesh)
 {
     points_ = mesh_.vertex_property<Point>("v:point");
 }
 
-void SurfaceTriangulation::triangulate(Objective o)
+void Triangulation::triangulate(Face f, TriangulationObjective o)
 {
-    for (auto f : mesh_.faces())
-        triangulate(f, o);
-}
-
-void SurfaceTriangulation::triangulate(Face f, Objective o)
-{
-    // store objective
+    // store TriangulationObjective
     objective_ = o;
 
     // collect polygon halfedges
@@ -32,7 +60,7 @@ void SurfaceTriangulation::triangulate(Face f, Objective o)
     {
         if (!mesh_.is_manifold(mesh_.to_vertex(h)))
         {
-            auto what = "[SurfaceTriangulation] Non-manifold polygon";
+            auto what = std::string{__func__} + ": Non-manifold polygon";
             throw InvalidInputException(what);
         }
 
@@ -41,7 +69,7 @@ void SurfaceTriangulation::triangulate(Face f, Objective o)
     } while ((h = mesh_.next_halfedge(h)) != h0);
 
     // do we have at least four vertices?
-    const int n = halfedges_.size();
+    const auto n = halfedges_.size();
     if (n <= 3)
         return;
 
@@ -52,43 +80,41 @@ void SurfaceTriangulation::triangulate(Face f, Objective o)
     index_.clear();
     index_.resize(n, std::vector<int>(n, 0));
 
-    int i, j, m, k, imin;
-    Scalar w, wmin;
-
     // initialize 2-gons
-    for (i = 0; i < n - 1; ++i)
+    for (size_t i = 0; i < n - 1; ++i)
     {
         weight_[i][i + 1] = 0.0;
         index_[i][i + 1] = -1;
     }
 
     // n-gons with n>2
-    for (j = 2; j < n; ++j)
+    for (size_t j = 2; j < n; ++j)
     {
         // for all n-gons [i,i+j]
-        for (i = 0; i < n - j; ++i)
+        for (size_t i = 0; i < n - j; ++i)
         {
-            k = i + j;
-            wmin = std::numeric_limits<Scalar>::max();
-            imin = -1;
+            auto k = i + j;
+            auto wmin = std::numeric_limits<Scalar>::max();
+            auto imin = -1;
 
             // find best split i < m < i+j
-            for (m = i + 1; m < k; ++m)
+            for (size_t m = i + 1; m < k; ++m)
             {
+                Scalar w{0};
                 switch (objective_)
                 {
-                    case Objective::MIN_AREA:
+                    case TriangulationObjective::min_area:
                         w = weight_[i][m] + compute_weight(i, m, k) +
                             weight_[m][k];
                         break;
-                    case Objective::MAX_ANGLE:
+                    case TriangulationObjective::max_angle:
                         w = std::max(
                             weight_[i][m],
                             std::max(compute_weight(i, m, k), weight_[m][k]));
                         break;
                     default:
                         // should never happen
-                        exit(1);
+                        throw std::invalid_argument("Unknown objective!");
                         break;
                 }
 
@@ -132,7 +158,7 @@ void SurfaceTriangulation::triangulate(Face f, Objective o)
     vertices_.clear();
 }
 
-Scalar SurfaceTriangulation::compute_weight(int i, int j, int k) const
+Scalar Triangulation::compute_weight(int i, int j, int k) const
 {
     const Vertex a = vertices_[i];
     const Vertex b = vertices_[j];
@@ -152,14 +178,14 @@ Scalar SurfaceTriangulation::compute_weight(int i, int j, int k) const
     switch (objective_)
     {
         // compute squared triangle area
-        case Objective::MIN_AREA:
+        case TriangulationObjective::min_area:
             w = sqrnorm(cross(pb - pa, pc - pa));
             break;
 
         // compute one over minimum angle
         // or cosine of minimum angle
         // maximum cosine (which should then be minimized)
-        case Objective::MAX_ANGLE:
+        case TriangulationObjective::max_angle:
             Scalar cosa = dot(normalize(pb - pa), normalize(pc - pa));
             Scalar cosb = dot(normalize(pa - pb), normalize(pc - pb));
             Scalar cosc = dot(normalize(pa - pc), normalize(pb - pc));
@@ -170,12 +196,12 @@ Scalar SurfaceTriangulation::compute_weight(int i, int j, int k) const
     return w;
 }
 
-bool SurfaceTriangulation::is_edge(Vertex a, Vertex b) const
+bool Triangulation::is_edge(Vertex a, Vertex b) const
 {
     return mesh_.find_halfedge(a, b).is_valid();
 }
 
-bool SurfaceTriangulation::insert_edge(int i, int j)
+bool Triangulation::insert_edge(int i, int j)
 {
     Halfedge h0 = halfedges_[i];
     Halfedge h1 = halfedges_[j];
@@ -217,6 +243,19 @@ bool SurfaceTriangulation::insert_edge(int i, int j)
     }
 
     return false;
+}
+} // namespace
+
+void triangulate(SurfaceMesh& mesh, TriangulationObjective o)
+{
+    Triangulation tr(mesh);
+    for (auto f : mesh.faces())
+        tr.triangulate(f, o);
+}
+
+void triangulate(SurfaceMesh& mesh, Face f, TriangulationObjective o)
+{
+    Triangulation(mesh).triangulate(f, o);
 }
 
 } // namespace pmp

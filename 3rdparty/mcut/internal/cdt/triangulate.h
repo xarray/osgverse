@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 #ifndef CDT_vW1vZ0lO8rS4gY4uI4fB
 #define CDT_vW1vZ0lO8rS4gY4uI4fB
 
@@ -582,7 +586,7 @@ public:
      */
     void eraseSuperTriangle();
     /// Erase triangles outside of constrained boundary using growing
-    void eraseOuterTriangles();
+    void erase_outer_triangles();
     /**
      * Erase triangles outside of constrained boundary and auto-detected holes
      *
@@ -1104,7 +1108,7 @@ void triangulator_t<T, TNearPointLocator>::eraseSuperTriangle()
 }
 
 template <typename T, typename TNearPointLocator>
-void triangulator_t<T, TNearPointLocator>::eraseOuterTriangles()
+void triangulator_t<T, TNearPointLocator>::erase_outer_triangles()
 {
     // make dummy triangles adjacent to super-triangle's vertices
     const std::stack<std::uint32_t> seed(std::deque<std::uint32_t>(1, vertTris[0].front()));

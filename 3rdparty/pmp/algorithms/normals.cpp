@@ -1,11 +1,11 @@
 // Copyright 2011-2020 the Polygon Mesh Processing Library developers.
 // Distributed under a MIT-style license, see LICENSE.txt for details.
 
-#include "pmp/algorithms/SurfaceNormals.h"
+#include "pmp/algorithms/normals.h"
 
 namespace pmp {
 
-Normal SurfaceNormals::compute_face_normal(const SurfaceMesh& mesh, Face f)
+Normal face_normal(const SurfaceMesh& mesh, Face f)
 {
     Halfedge h = mesh.halfedge(f);
     Halfedge hend = h;
@@ -42,7 +42,7 @@ Normal SurfaceNormals::compute_face_normal(const SurfaceMesh& mesh, Face f)
     }
 }
 
-Normal SurfaceNormals::compute_vertex_normal(const SurfaceMesh& mesh, Vertex v)
+Normal vertex_normal(const SurfaceMesh& mesh, Vertex v)
 {
     Point nn(0, 0, 0);
 
@@ -80,7 +80,7 @@ Normal SurfaceNormals::compute_vertex_normal(const SurfaceMesh& mesh, Vertex v)
                     is_triangle = (mesh.next_halfedge(mesh.next_halfedge(
                                        mesh.next_halfedge(h))) == h);
                     n = is_triangle ? normalize(cross(p1, p2))
-                                    : compute_face_normal(mesh, mesh.face(h));
+                                    : face_normal(mesh, mesh.face(h));
 
                     n *= angle;
                     nn += n;
@@ -94,14 +94,13 @@ Normal SurfaceNormals::compute_vertex_normal(const SurfaceMesh& mesh, Vertex v)
     return nn;
 }
 
-Normal SurfaceNormals::compute_corner_normal(const SurfaceMesh& mesh,
-                                             Halfedge h, Scalar crease_angle)
+Normal corner_normal(const SurfaceMesh& mesh, Halfedge h, Scalar crease_angle)
 {
     // catch the two trivial cases
     if (crease_angle < 0.01)
-        return compute_face_normal(mesh, mesh.face(h));
+        return face_normal(mesh, mesh.face(h));
     else if (crease_angle > 179)
-        return compute_vertex_normal(mesh, mesh.from_vertex(h));
+        return vertex_normal(mesh, mesh.from_vertex(h));
 
     // avoid numerical problems
     if (crease_angle < 0.001)
@@ -123,7 +122,7 @@ Normal SurfaceNormals::compute_corner_normal(const SurfaceMesh& mesh,
         bool is_triangle;
 
         // compute normal of h's face
-        const Point nf = compute_face_normal(mesh, mesh.face(h));
+        const Point nf = face_normal(mesh, mesh.face(h));
 
         // average over all incident faces
         do
@@ -139,9 +138,9 @@ Normal SurfaceNormals::compute_corner_normal(const SurfaceMesh& mesh,
                 is_triangle = (mesh.next_halfedge(mesh.next_halfedge(
                                    mesh.next_halfedge(h))) == h);
                 n = is_triangle ? normalize(cross(p1, p2))
-                                : compute_face_normal(mesh, mesh.face(h));
+                                : face_normal(mesh, mesh.face(h));
 
-                // check whether normal is withing crease_angle bound
+                // check whether normal is within crease_angle bound
                 if (dot(n, nf) >= cos_crease_angle)
                 {
                     // check whether we can robustly compute angle
@@ -170,18 +169,18 @@ Normal SurfaceNormals::compute_corner_normal(const SurfaceMesh& mesh,
     return nn;
 }
 
-void SurfaceNormals::compute_vertex_normals(SurfaceMesh& mesh)
+void vertex_normals(SurfaceMesh& mesh)
 {
     auto vnormal = mesh.vertex_property<Normal>("v:normal");
     for (auto v : mesh.vertices())
-        vnormal[v] = compute_vertex_normal(mesh, v);
+        vnormal[v] = vertex_normal(mesh, v);
 }
 
-void SurfaceNormals::compute_face_normals(SurfaceMesh& mesh)
+void face_normals(SurfaceMesh& mesh)
 {
     auto fnormal = mesh.face_property<Normal>("f:normal");
     for (auto f : mesh.faces())
-        fnormal[f] = compute_face_normal(mesh, f);
+        fnormal[f] = face_normal(mesh, f);
 }
 
 } // namespace pmp

@@ -193,12 +193,13 @@ template <typename V>
 class array_iterator_t;
 
 struct halfedge_data_t : id_<halfedge_descriptor_t> {
+    vertex_descriptor_t t; // target vertex
+    face_descriptor_t f; // face
     halfedge_descriptor_t o; // opposite halfedge
     halfedge_descriptor_t n; // next halfedge
     halfedge_descriptor_t p; // previous halfedge
-    vertex_descriptor_t t; // target vertex
     edge_descriptor_t e; // edge
-    face_descriptor_t f; // face
+    
 
     halfedge_data_t()
     //: o(null_halfedge()), n(null_halfedge()), p(null_halfedge()), t(null_vertex()), e(null_edge()), f(null_face())
@@ -216,7 +217,7 @@ struct face_data_t : id_<face_descriptor_t> {
 
 struct vertex_data_t : id_<vertex_descriptor_t> {
     vec3 p; // geometry coordinates
-    std::vector<face_descriptor_t> m_faces; // ... incident to vertex // TODO: this is not needed (can be inferred from "m_halfedges")
+    //std::vector<face_descriptor_t> m_faces; // ... incident to vertex // TODO: this is not needed (can be inferred from "m_halfedges")
     std::vector<halfedge_descriptor_t> m_halfedges; // ... which point to vertex (note: can be used to infer edges too)
 };
 
@@ -391,11 +392,12 @@ public:
     std::vector<vertex_descriptor_t> get_vertices_around_face(const face_descriptor_t f, uint32_t prepend_offset = 0) const;
     void get_vertices_around_face(std::vector<vertex_descriptor_t>& vertex_descriptors, const face_descriptor_t f, uint32_t prepend_offset=0) const;
     std::vector<vertex_descriptor_t> get_vertices_around_vertex(const vertex_descriptor_t v) const;
+    void get_vertices_around_vertex(std::vector<vertex_descriptor_t>& vertices_around_vertex, const vertex_descriptor_t v) const;
     uint32_t get_num_vertices_around_face(const face_descriptor_t f) const;
     const std::vector<halfedge_descriptor_t>& get_halfedges_around_face(const face_descriptor_t f) const;
     const std::vector<face_descriptor_t> get_faces_around_face(const face_descriptor_t f, const std::vector<halfedge_descriptor_t>* halfedges_around_face_ = nullptr) const;
     void get_faces_around_face( std::vector<face_descriptor_t>& faces_around_face, const face_descriptor_t f, const std::vector<halfedge_descriptor_t>* halfedges_around_face_ = nullptr) const;
-    uint32_t get_num_faces_around_face(const face_descriptor_t f, const std::vector<halfedge_descriptor_t>* halfedges_around_face_) const;
+    uint32_t get_num_faces_around_face(const face_descriptor_t f, const std::vector<halfedge_descriptor_t>* halfedges_around_face_ = nullptr) const;
     
     // iterators
     // ---------

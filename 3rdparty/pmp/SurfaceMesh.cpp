@@ -6,14 +6,10 @@
 
 #include <cmath>
 
-#include "pmp/SurfaceMeshIO.h"
-
 namespace pmp {
 
 SurfaceMesh::SurfaceMesh()
 {
-    oprops_.push_back();
-
     // allocate standard properties
     // same list is used in operator=() and assign()
     vpoint_ = add_vertex_property<Point>("v:point");
@@ -33,7 +29,6 @@ SurfaceMesh& SurfaceMesh::operator=(const SurfaceMesh& rhs)
     if (this != &rhs)
     {
         // deep copy of property containers
-        oprops_ = rhs.oprops_;
         vprops_ = rhs.vprops_;
         hprops_ = rhs.hprops_;
         eprops_ = rhs.eprops_;
@@ -65,8 +60,6 @@ SurfaceMesh& SurfaceMesh::assign(const SurfaceMesh& rhs)
     if (this != &rhs)
     {
         // clear properties
-        oprops_.clear();
-        oprops_.resize(1);
         vprops_.clear();
         hprops_.clear();
         eprops_.clear();
@@ -107,23 +100,10 @@ SurfaceMesh& SurfaceMesh::assign(const SurfaceMesh& rhs)
 
     return *this;
 }
-/*
-void SurfaceMesh::read(const std::string& filename, const IOFlags& flags)
-{
-    SurfaceMeshIO reader(filename, flags);
-    reader.read(*this);
-}
 
-void SurfaceMesh::write(const std::string& filename, const IOFlags& flags) const
-{
-    SurfaceMeshIO writer(filename, flags);
-    writer.write(*this);
-}
-*/
 void SurfaceMesh::clear()
 {
     // remove all properties
-    oprops_.clear();
     vprops_.clear();
     hprops_.clear();
     eprops_.clear();
@@ -133,7 +113,6 @@ void SurfaceMesh::clear()
     free_memory();
 
     // add the standard properties back
-    oprops_.push_back();
     vpoint_ = add_vertex_property<Point>("v:point");
     vconn_ = add_vertex_property<VertexConnectivity>("v:connectivity");
     hconn_ = add_halfedge_property<HalfedgeConnectivity>("h:connectivity");
@@ -152,7 +131,6 @@ void SurfaceMesh::clear()
 void SurfaceMesh::free_memory()
 {
     vprops_.free_memory();
-    oprops_.free_memory();
     hprops_.free_memory();
     eprops_.free_memory();
     fprops_.free_memory();
@@ -160,7 +138,6 @@ void SurfaceMesh::free_memory()
 
 void SurfaceMesh::reserve(size_t nvertices, size_t nedges, size_t nfaces)
 {
-    oprops_.reserve(1);
     vprops_.reserve(nvertices);
     hprops_.reserve(2 * nedges);
     eprops_.reserve(nedges);
@@ -775,7 +752,7 @@ void SurfaceMesh::flip(Edge e)
         set_halfedge(vb0, b1);
 }
 
-bool SurfaceMesh::is_collapse_ok(Halfedge v0v1)
+bool SurfaceMesh::is_collapse_ok(Halfedge v0v1) const
 {
     Halfedge v1v0(opposite_halfedge(v0v1));
     Vertex v0(to_vertex(v1v0));
@@ -826,7 +803,7 @@ bool SurfaceMesh::is_collapse_ok(Halfedge v0v1)
     return true;
 }
 
-bool SurfaceMesh::is_removal_ok(Edge e)
+bool SurfaceMesh::is_removal_ok(Edge e) const
 {
     Halfedge h0 = halfedge(e, 0);
     Halfedge h1 = halfedge(e, 1);

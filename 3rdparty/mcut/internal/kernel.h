@@ -24,7 +24,7 @@
 #define MCUT_KERNEL_H
 #include <mcut/internal/bvh.h>
 #include <mcut/internal/hmesh.h>
-#if defined(MCUT_MULTI_THREADED)
+#if defined(MCUT_WITH_COMPUTE_HELPER_THREADPOOL)
 #include <mcut/internal/tpool.h>
 #endif
 
@@ -110,11 +110,11 @@ struct floating_polygon_info_t {
 // settings for how to execute the function "dispatch(...)"
 //
 struct input_t {
-#if defined(MCUT_MULTI_THREADED)
+#if defined(MCUT_WITH_COMPUTE_HELPER_THREADPOOL)
     thread_pool* scheduler = nullptr;
 #endif
-    const hmesh_t* src_mesh = nullptr;
-    const hmesh_t* cut_mesh = nullptr;
+    /*const*/ std::shared_ptr<hmesh_t> src_mesh = nullptr;
+    /*const*/ std::shared_ptr<hmesh_t> cut_mesh = nullptr;
     // NOTE: we use std::map because it is beneficial that keys are sorted when
     // extracting edge-face intersection pairs
     const std::map<fd_t, std::vector<fd_t>>* ps_face_to_potentially_intersecting_others = nullptr;
@@ -169,7 +169,7 @@ struct output_mesh_data_maps_t {
 };
 
 struct output_mesh_info_t {
-    hmesh_t mesh;
+    std::shared_ptr<hmesh_t> mesh;
     std::vector<vd_t> seam_vertices;
     output_mesh_data_maps_t data_maps;
 };
@@ -179,7 +179,7 @@ struct output_mesh_info_t {
 //
 struct output_t {
 
-#if defined(MCUT_MULTI_THREADED)
+#if defined(MCUT_WITH_COMPUTE_HELPER_THREADPOOL)
     std::atomic<status_t> status;
 #else
     status_t status = status_t::SUCCESS;
@@ -187,15 +187,15 @@ struct output_t {
 
     logger_t logger;
     // fragments
-    std::map<sm_frag_location_t, std::map<cm_patch_location_t, std::vector<output_mesh_info_t>>> connected_components;
-    std::map<sm_frag_location_t, std::vector<output_mesh_info_t>> unsealed_cc; // connected components before hole-filling
+    std::map<sm_frag_location_t, std::map<cm_patch_location_t, std::vector<std::shared_ptr<output_mesh_info_t>>>> connected_components;
+    std::map<sm_frag_location_t, std::vector<std::shared_ptr<output_mesh_info_t>>> unsealed_cc; // connected components before hole-filling
     // patches
-    std::map<cm_patch_winding_order_t, std::vector<output_mesh_info_t>> inside_patches; // .. between neigbouring connected ccsponents (cs-sealing patches)
-    std::map<cm_patch_winding_order_t, std::vector<output_mesh_info_t>> outside_patches;
+    std::map<cm_patch_winding_order_t, std::vector<std::shared_ptr<output_mesh_info_t>>> inside_patches; // .. between neigbouring connected ccsponents (cs-sealing patches)
+    std::map<cm_patch_winding_order_t, std::vector<std::shared_ptr<output_mesh_info_t>>> outside_patches;
     // the input meshes which also include the edges that define the cut path
     // NOTE: not always defined (depending on the arising cutpath configurations)
-    output_mesh_info_t seamed_src_mesh;
-    output_mesh_info_t seamed_cut_mesh;
+    std::shared_ptr<output_mesh_info_t> seamed_src_mesh;
+    std::shared_ptr<output_mesh_info_t> seamed_cut_mesh;
 
     // floating polygon handling
     std::map<
@@ -212,7 +212,11 @@ struct output_t {
 // internal main
 void dispatch(output_t& out, const input_t& in);
 
-int find_connected_components(std::vector<int>& fccmap, const hmesh_t& mesh, std::vector<int>& cc_to_vertex_count,
+int find_connected_components(
+#if defined(MCUT_WITH_COMPUTE_HELPER_THREADPOOL)
+    thread_pool& scheduler,
+#endif
+    std::vector<int>& fccmap, const hmesh_t& mesh, std::vector<int>& cc_to_vertex_count,
     std::vector<int>& cc_to_face_count);
 
 // return true if point p lies on the plane of every three vertices of f
