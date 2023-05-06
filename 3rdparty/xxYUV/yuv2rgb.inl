@@ -553,6 +553,7 @@ void yuv2rgb(int width, int height, const void* y, const void* u, const void* v,
     yuv2rgb<componentRGB, swizzleRGB, interleaved, firstU, videoRange>
 #endif
 //------------------------------------------------------------------------------
+/*
 #ifndef yuv2rgb
 //------------------------------------------------------------------------------
 #if defined(__llvm__)
@@ -600,3 +601,5 @@ void yuv2rgb(int width, int height, const void* y, const void* u, const void* v,
 //------------------------------------------------------------------------------
 #endif
 //------------------------------------------------------------------------------
+*/
+

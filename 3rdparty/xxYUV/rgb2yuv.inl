@@ -198,8 +198,8 @@ void rgb2yuv(int width, int height, const void* rgb, int strideRGB, void* y, voi
             __m256i uv01 = _mm256_avg_epu8(rgb00[1], rgb10[1]);
             __m256i uv10 = _mm256_avg_epu8(rgb00[2], rgb10[2]);
             __m256i uv11 = _mm256_avg_epu8(rgb00[3], rgb10[3]);
-            __m256i uv0 = _mm256_avg_epu8(_mm256_shuffle_ps(uv00, uv01, _MM_SHUFFLE(2,0,2,0)), _mm256_shuffle_ps(uv00, uv01, _MM_SHUFFLE(3,1,3,1)));
-            __m256i uv1 = _mm256_avg_epu8(_mm256_shuffle_ps(uv10, uv11, _MM_SHUFFLE(2,0,2,0)), _mm256_shuffle_ps(uv10, uv11, _MM_SHUFFLE(3,1,3,1)));
+            __m256i uv0 = _mm256_avg_epu8(_mm256_cvtps_epi32(_mm256_shuffle_ps(uv00, uv01, _MM_SHUFFLE(2,0,2,0))), _mm256_cvtps_epi32(_mm256_shuffle_ps(uv00, uv01, _MM_SHUFFLE(3,1,3,1))));
+            __m256i uv1 = _mm256_avg_epu8(_mm256_cvtps_epi32(_mm256_shuffle_ps(uv10, uv11, _MM_SHUFFLE(2,0,2,0))), _mm256_cvtps_epi32(_mm256_shuffle_ps(uv10, uv11, _MM_SHUFFLE(3,1,3,1))));
             __m256i uu = _mm256_setr_epi8(U[0], U[1], U[2], 0,
                                           U[0], U[1], U[2], 0,
                                           U[0], U[1], U[2], 0,
@@ -309,8 +309,8 @@ void rgb2yuv(int width, int height, const void* rgb, int strideRGB, void* y, voi
             __m128i uv01 = _mm_avg_epu8(rgb00[1], rgb10[1]);
             __m128i uv10 = _mm_avg_epu8(rgb00[2], rgb10[2]);
             __m128i uv11 = _mm_avg_epu8(rgb00[3], rgb10[3]);
-            __m128i uv0 = _mm_avg_epu8(_mm_shuffle_ps(uv00, uv01, _MM_SHUFFLE(2,0,2,0)), _mm_shuffle_ps(uv00, uv01, _MM_SHUFFLE(3,1,3,1)));
-            __m128i uv1 = _mm_avg_epu8(_mm_shuffle_ps(uv10, uv11, _MM_SHUFFLE(2,0,2,0)), _mm_shuffle_ps(uv10, uv11, _MM_SHUFFLE(3,1,3,1)));
+            __m128i uv0 = _mm_avg_epu8(_mm_cvtps_epi32(_mm_shuffle_ps((__m128&)uv00, (__m128&)uv01, _MM_SHUFFLE(2,0,2,0))), _mm_cvtps_epi32(_mm_shuffle_ps((__m128&)uv00, (__m128&)uv01, _MM_SHUFFLE(3,1,3,1))));
+            __m128i uv1 = _mm_avg_epu8(_mm_cvtps_epi32(_mm_shuffle_ps((__m128&)uv10, (__m128&)uv11, _MM_SHUFFLE(2,0,2,0))), _mm_cvtps_epi32(_mm_shuffle_ps((__m128&)uv10, (__m128&)uv11, _MM_SHUFFLE(3,1,3,1))));
 #if HAVE_SSSE3
             __m128i uu = _mm_setr_epi8(U[0], U[1], U[2], 0,
                                        U[0], U[1], U[2], 0,
@@ -348,7 +348,7 @@ void rgb2yuv(int width, int height, const void* rgb, int strideRGB, void* y, voi
             if (interleaved)
             {
                 u00 = uv02;
-                v00 = _mm_movehl_ps(uv02, uv02);
+                v00 = _mm_cvtps_epi32(_mm_movehl_ps((__m128&)uv02, (__m128&)uv02));
                 if (firstU)
                 {
                     __m128i uv00 = _mm_unpacklo_epi8(u00, v00);
@@ -362,8 +362,8 @@ void rgb2yuv(int width, int height, const void* rgb, int strideRGB, void* y, voi
             }
             else
             {
-                _mm_storel_pi((__m64*)u0, uv02);    u0 += 8;
-                _mm_storeh_pi((__m64*)v0, uv02);    v0 += 8;
+                _mm_storel_pi((__m64*)u0, (__m128&)uv02);    u0 += 8;
+                _mm_storeh_pi((__m64*)v0, (__m128&)uv02);    v0 += 8;
             }
         }
         if (componentRGB == 4)
@@ -433,6 +433,7 @@ void rgb2yuv(int width, int height, const void* rgb, int strideRGB, void* y, voi
 #define rgb2yuv_select(componentRGB, swizzleRGB, interleaved, firstU, videoRange) \
     rgb2yuv<componentRGB, swizzleRGB, interleaved, firstU, videoRange>
 #endif
+/*
 //------------------------------------------------------------------------------
 #ifndef rgb2yuv
 //------------------------------------------------------------------------------
@@ -495,3 +496,4 @@ void rgb2yuv(int width, int height, const void* rgb, int strideRGB, void* y, voi
 //------------------------------------------------------------------------------
 #endif
 //------------------------------------------------------------------------------
+*/
