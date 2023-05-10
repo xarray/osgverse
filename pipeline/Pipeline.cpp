@@ -97,6 +97,12 @@ public:
         osg::Camera* cam = this->getCurrentCamera();
         if (cam && cam->getUserDataContainer() != NULL)
             cam->getUserValue("PipelineCullMask", _cullMask);
+
+#if false
+        OSG_NOTICE << "F-" << (getFrameStamp() != NULL ? getFrameStamp()->getFrameNumber() : -1)
+                   << (getUserData() != NULL ? " (COMPUTING NEAR/FAR): " : ": ")
+                   << "Stage = " << (cam != NULL ? cam->getName() : "(null)") << std::endl;
+#endif
         osgUtil::CullVisitor::reset();
     }
 
@@ -104,7 +110,6 @@ public:
     {
         maskSet = false;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
-
         if (node.getUserDataContainer() != NULL)
         {
             // Use this to replace nodemasks while checking deferred/forward graphs
@@ -379,6 +384,7 @@ protected:
 
 #if true
         MyCullVisitor* cullVisitor = new MyCullVisitor;
+        cullVisitor->setName("CullVisitor" + std::to_string(i));
         cullVisitor->setDeferredCallback(cb);
         cullVisitor->setStateGraph(_sceneView[i]->getStateGraph());
         cullVisitor->setRenderStage(_sceneView[i]->getRenderStage());

@@ -12,7 +12,6 @@ void main()
     vec3 specular = VERSE_TEX2D(SpecularMap, uv0).rgb;
     vec3 emission = VERSE_TEX2D(EmissiveMap, uv1).rgb;
     vec3 metalRough = VERSE_TEX2D(ShininessMap, uv0).rgb;
-    float occlusion = VERSE_TEX2D(AmbientMap, uv0).r;
     if (diffuse.a < 0.1) discard;
     
     // Compute eye-space normal
