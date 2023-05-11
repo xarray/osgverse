@@ -17,7 +17,7 @@ namespace osgVerse
     extern osg::Texture* generateNoises2D(int numRows, int numCols);
 
     /** Create poisson noises. e.g. for PCF shadow use */
-    extern osg::Texture* generatePoissonDiscDistribution(int numSamples);
+    extern osg::Texture* generatePoissonDiscDistribution(int numCols, int numRows = 1);
 
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);

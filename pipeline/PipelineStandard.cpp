@@ -363,11 +363,8 @@ namespace osgVerse
                                     "SsaoBlurredBuffer", 1);
         shadowing->applyBuffer(*gbuffer, "NormalBuffer", 2);
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
-        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture0", 4);
-        shadowing->applyTexture(generatePoissonDiscDistribution(16), "RandomTexture1", 5);
-#endif
-        shadowModule->applyTextureAndUniforms(shadowing, "ShadowMap", 6);
+        shadowing->applyTexture(generatePoissonDiscDistribution(16, 2), "RandomTexture", 4);
+        shadowModule->applyTextureAndUniforms(shadowing, "ShadowMap", 5);
 
         if (spp.enablePostEffects)
         {

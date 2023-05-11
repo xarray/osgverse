@@ -97,13 +97,26 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
-    //if (otherSceneRoot.valid())
-    //    osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
+    if (otherSceneRoot.valid())
+        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
     root->setName("Root");
+
+    // Test transparent object
+    osg::BoundingSphere bs = sceneRoot->getBound();
+    osg::ShapeDrawable* shape = new osg::ShapeDrawable(
+        new osg::Sphere(bs.center() + osg::X_AXIS * bs.radius() * 1.5f, bs.radius() * 0.4f));
+    shape->setColor(osg::Vec4(1.0f, 1.0f, 0.0f, 0.5f));
+    shape->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    shape->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+    osgVerse::Pipeline::setPipelineMask(*geode, ~DEFERRED_SCENE_MASK);
+    geode->addDrawable(shape);
+    root->addChild(geode.get());
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
@@ -128,7 +141,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
         postCamera->addChild(skybox.get());
@@ -151,8 +164,12 @@ int main(int argc, char** argv)
     viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
 
     // Setup the pipeline
-    params.enableVSync = false;
+    params.enablePostEffects = true; params.enableAO = true;
     setupStandardPipeline(pipeline.get(), &viewer, params);
+
+    // How to use clear color instead of skybox...
+    //postCamera->removeChild(skybox.get());
+    //pipeline->getStage("GBuffer")->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
 
     // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));

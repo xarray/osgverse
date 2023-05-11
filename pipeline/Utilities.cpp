@@ -166,28 +166,32 @@ namespace osgVerse
         return noiseTex.release();
     }
 
-    osg::Texture* generatePoissonDiscDistribution(int numSamples)
+    osg::Texture* generatePoissonDiscDistribution(int numSamples, int numRows)
     {
-        size_t attempts = 0; PoissonGenerator::DefaultPRNG prng;
-        auto points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, prng);
-        while (points.size() < numSamples && ++attempts < 100)
-            points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, prng);
-
         std::vector<osg::Vec3f> distribution;
-        for (int i = 0; i < numSamples; ++i)
-            distribution.push_back(osg::Vec3(points[i].x, points[i].y, 0.0f));
+        for (int j = 0; j < numRows; ++j)
+        {
+            size_t attempts = 0; PoissonGenerator::DefaultPRNG prng;
+            auto points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, prng);
+            while (points.size() < numSamples && ++attempts < 100)
+                points = PoissonGenerator::GeneratePoissonPoints(numSamples * 2, prng);
+
+            for (int i = 0; i < numSamples; ++i)
+                distribution.push_back(osg::Vec3(points[i].x, points[i].y, 0.0f));
+        }
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
-        image->allocateImage(numSamples, 1, 1, GL_RGB, GL_FLOAT);
+        image->allocateImage(numSamples, numRows, 1, GL_RGB, GL_FLOAT);
         image->setInternalTextureFormat(GL_RGB16F_ARB);
         memcpy(image->data(), (unsigned char*)&distribution[0], image->getTotalSizeInBytes());
 
-        osg::ref_ptr<osg::Texture1D> noiseTex = new osg::Texture1D;
+        osg::ref_ptr<osg::Texture> noiseTex = NULL;
+        if (numRows > 1) noiseTex = new osg::Texture2D; else noiseTex = new osg::Texture1D;
         noiseTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
         noiseTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
         noiseTex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
         noiseTex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
-        noiseTex->setImage(image.get());
+        noiseTex->setImage(0, image.get());
         return noiseTex.release();
     }
 
