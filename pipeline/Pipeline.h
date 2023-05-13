@@ -210,9 +210,11 @@ namespace osgVerse
         enum IndicatorType { NoIndicator = 0, SelectIndicator = 5 };
         static void setModelIndicator(osg::Node* node, IndicatorType type);
 
+        /** Apply default textures & uniforms to any input state set */
+        int applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff);
+
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
-        void applyDefaultInputStateSet(osg::StateSet* ss);
         
         std::vector<osg::ref_ptr<Stage>> _stages;
         std::map<std::string, osg::ref_ptr<osg::NodeCallback>> _modules;
@@ -237,6 +239,7 @@ namespace osgVerse
             osg::ref_ptr<osg::Shader> brightnessFS, brightnessCombineFS, bloomFS;
             osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, displayFS, quadFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
+            osg::ref_ptr<osg::Shader> forwardVS, forwardFS;
         };
 
         ShaderParameters shaders;
@@ -250,6 +253,7 @@ namespace osgVerse
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);
+        void applyForwardProgram(Pipeline* p, osg::StateSet& ss);
     };
 
     /** Create standard pipeline */

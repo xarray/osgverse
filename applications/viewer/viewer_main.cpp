@@ -12,6 +12,7 @@
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#define TRANSPARENT_OBJECT_TEST 1
 #define INDICATOR_TEST 0
 
 #include <pipeline/SkyBox.h>
@@ -105,6 +106,7 @@ int main(int argc, char** argv)
     root->addChild(sceneRoot.get());
     root->setName("Root");
 
+#if TRANSPARENT_OBJECT_TEST
     // Test transparent object
     osg::BoundingSphere bs = sceneRoot->getBound();
     osg::ShapeDrawable* shape = new osg::ShapeDrawable(
@@ -116,7 +118,11 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     osgVerse::Pipeline::setPipelineMask(*geode, ~DEFERRED_SCENE_MASK);
     geode->addDrawable(shape);
+
+    // Add tangent/bi-normal arrays for normal mapping
+    tsv.reset(); geode->accept(tsv);
     root->addChild(geode.get());
+#endif
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
@@ -166,6 +172,11 @@ int main(int argc, char** argv)
     // Setup the pipeline
     params.enablePostEffects = true; params.enableAO = true;
     setupStandardPipeline(pipeline.get(), &viewer, params);
+
+#if TRANSPARENT_OBJECT_TEST
+    // Apply forward program to transparent objects
+    params.applyForwardProgram(pipeline.get(), *geode->getOrCreateStateSet());
+#endif
 
     // How to use clear color instead of skybox...
     //postCamera->removeChild(skybox.get());

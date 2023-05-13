@@ -848,7 +848,7 @@ namespace osgVerse
         va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
-        applyDefaultInputStateSet(s->camera->getOrCreateStateSet());
+        applyDefaultInputStateSet(*s->camera->getOrCreateStateSet(), true);
         s->camera->setUserValue("PipelineCullMask", cullMask);  // replacing setCullMask()
         s->camera->setUserValue("NeedNearFarCalculation", true);
         s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
@@ -967,28 +967,29 @@ namespace osgVerse
         s.name = name; if (!s.deferred) s.camera->setName(name);
     }
 
-    void Pipeline::applyDefaultInputStateSet(osg::StateSet* ss)
+    int Pipeline::applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff)
     {
         osg::Vec4 color0 = osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         osg::Vec4 color1 = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
         osg::Vec4 colorORM = osg::Vec4(1.0f, 1.0f, 0.0f, 0.0f);
-        ss->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-        ss->setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap
-        ss->setTextureAttributeAndModes(1, createDefaultTexture(color0));  // NormalMap
-        ss->setTextureAttributeAndModes(2, createDefaultTexture(color1));  // SpecularMap
-        ss->setTextureAttributeAndModes(3, createDefaultTexture(colorORM));  // ShininessMap
-        ss->setTextureAttributeAndModes(4, createDefaultTexture(color0));  // AmbientMap
-        ss->setTextureAttributeAndModes(5, createDefaultTexture(color0));  // EmissiveMap
-        ss->setTextureAttributeAndModes(6, createDefaultTexture(color0));  // ReflectionMap
-        for (int i = 0; i < 7; ++i) ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
-        ss->addUniform(new osg::Uniform("ModelIndicator", 0.0f));
+        if (blendOff) ss.setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+        ss.setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap
+        ss.setTextureAttributeAndModes(1, createDefaultTexture(color0));  // NormalMap
+        ss.setTextureAttributeAndModes(2, createDefaultTexture(color1));  // SpecularMap
+        ss.setTextureAttributeAndModes(3, createDefaultTexture(colorORM));  // ShininessMap
+        ss.setTextureAttributeAndModes(4, createDefaultTexture(color0));  // AmbientMap
+        ss.setTextureAttributeAndModes(5, createDefaultTexture(color0));  // EmissiveMap
+        ss.setTextureAttributeAndModes(6, createDefaultTexture(color0));  // ReflectionMap
+        for (int i = 0; i < 7; ++i) ss.addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
+        ss.addUniform(new osg::Uniform("ModelIndicator", 0.0f));
 
-        osg::Program* prog = static_cast<osg::Program*>(ss->getAttribute(osg::StateAttribute::PROGRAM));
+        osg::Program* prog = static_cast<osg::Program*>(ss.getAttribute(osg::StateAttribute::PROGRAM));
         if (prog != NULL)
         {
             prog->addBindAttribLocation(attributeNames[6], 6);
             prog->addBindAttribLocation(attributeNames[7], 7);
         }
+        return 7;  // next texture unit = 7
     }
 
     void Pipeline::setModelIndicator(osg::Node* node, IndicatorType type)

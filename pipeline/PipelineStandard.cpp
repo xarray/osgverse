@@ -130,6 +130,9 @@ namespace osgVerse
         shaders.irrConvolutionFS = osgDB::readShaderFile(FRAG, dir + "std_irradiance_convolution.frag.glsl");
         shaders.quadFS = osgDB::readShaderFile(FRAG, dir + "std_common_quad.frag.glsl");
         shaders.displayFS = osgDB::readShaderFile(FRAG, dir + "std_display.frag.glsl");
+        
+        shaders.forwardVS = osgDB::readShaderFile(VERT, dir + "std_forward_render.vert.glsl");
+        shaders.forwardFS = osgDB::readShaderFile(FRAG, dir + "std_forward_render.frag.glsl");
 
         std::string iblFile = osgDB::getNameLessExtension(sky) + ".ibl.osgb";
         skyboxIBL = dynamic_cast<osg::StateSet*>(osgDB::readObjectFile(iblFile));
@@ -143,6 +146,31 @@ namespace osgVerse
         {
             skyboxMap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
             skyboxMap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        }
+    }
+
+    void StandardPipelineParameters::applyForwardProgram(Pipeline* p, osg::StateSet& ss)
+    {
+        osg::ref_ptr<osg::Program> program = new osg::Program;
+        program->setName("Forward_PROGRAM");
+        program->addShader(shaders.forwardVS.get());
+        program->addShader(shaders.forwardFS.get());
+        ss.setAttributeAndModes(program.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+        if (p)
+        {
+            int glVer = p->getTargetVersion(), glslVer = p->getGlslTargetVersion();
+            int nextTexUnit = p->applyDefaultInputStateSet(ss, false);
+            p->createShaderDefinitions(shaders.forwardVS.get(), glVer, glslVer);
+            p->createShaderDefinitions(shaders.forwardFS.get(), glVer, glslVer);
+
+            osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(p->getModule("Light"));
+            if (light)
+            {
+                ss.setTextureAttributeAndModes(nextTexUnit, light->getParameterTable());
+                ss.addUniform(new osg::Uniform("LightParameterMap", 7));
+                ss.addUniform(light->getLightNumber());
+            }
         }
     }
 

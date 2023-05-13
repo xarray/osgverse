@@ -1,11 +1,11 @@
 #define M_PI 3.1415926535897932384626433832795
-uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
 uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;
 uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
 uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+att1, r2: dir+att0, r3: spotProp)
 uniform vec2 LightNumber;  // (num, max_num)
-VERSE_FS_IN vec4 texCoord0, texCoord1, color;
+VERSE_FS_IN vec4 texCoord0, texCoord1, color, eyeVertex;
 VERSE_FS_IN vec3 eyeNormal, eyeTangent, eyeBinormal;
+VERSE_FS_OUT vec4 fragData;
 
 /// PBR functions
 const vec2 invAtan = vec2(0.1591, 0.3183);
@@ -127,24 +127,26 @@ int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,
 
 void main()
 {
-    vec2 uv0 = texCoord0.xy;
-    vec4 diffuseMetallic = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);
-    vec4 specularRoughness = VERSE_TEX2D(SpecularRoughnessBuffer, uv0);
-    vec4 emissionOcclusion = VERSE_TEX2D(EmissionOcclusionBuffer, uv0);
-    vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
-    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
+    vec2 uv0 = texCoord0.xy, uv1 = texCoord1.xy;
+    vec4 diffuse = VERSE_TEX2D(DiffuseMap, uv0) * color;
+    vec4 normalValue = VERSE_TEX2D(NormalMap, uv0);
+    vec3 specular = VERSE_TEX2D(SpecularMap, uv0).rgb;
+    vec3 emission = VERSE_TEX2D(EmissiveMap, uv1).rgb;
+    vec3 metalRough = VERSE_TEX2D(ShininessMap, uv0).rgb;
     
-    // Rebuild world vertex attributes
-    vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
-    vec4 eyeVertex = GBufferMatrices[3] * vecInProj;
-    vec3 eyeNormal = normalAlpha.rgb;
+    // Compute eye-space normal
+    vec3 eyeNormal2 = eyeNormal;
+    if (normalValue.a > 0.1)
+    {
+        vec3 tsNormal = normalize(2.0 * normalValue.rgb - vec3(1.0));
+        eyeNormal2 = normalize(mat3(eyeTangent, eyeBinormal, eyeNormal) * tsNormal);
+    }
     
     // Components common to all light types
     vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);
-    vec3 R = reflect(-viewDir, eyeNormal);
-    vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
-    float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;
-    float nDotV = max(dot(eyeNormal, viewDir), 0.0);
+    vec3 R = reflect(-viewDir, eyeNormal2), albedo = diffuse.rgb;
+    float metallic = metalRough.b, roughness = metalRough.g, ao = metalRough.r;
+    float nDotV = max(dot(eyeNormal2, viewDir), 0.0);
     
     // Calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 of 0.04;
     // if it's a metal, use the albedo color as F0 (metallic workflow)
@@ -157,40 +159,11 @@ void main()
     {
         int type = getLightAttributes(float(i), lightColor, lightPos, lightDir, lightRange, lightSpot);
         if (type == 1)
-            radianceOut += computeDirectionalLight(lightDir, lightColor, eyeNormal, viewDir,
+            radianceOut += computeDirectionalLight(lightDir, lightColor, eyeNormal2, viewDir,
                                                    albedo, specular, roughness, metallic, F0);
         else {}  // TODO: point light, spot light...
     }
     
-    // Treat ambient light as IBL or not
-    vec3 ambient = vec3(0.025) * albedo;
-    if (true && depthValue < 1.0)
-    {
-        vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);
-        vec3 kD = (1.0 - kS) * (1.0 - metallic);
-        vec3 irradiance = VERSE_TEX2D(IrradianceBuffer, sphericalUV(eyeNormal)).rgb;
-        vec3 diffuse = irradiance * albedo;
-
-        const float MAX_REFLECTION_LOD = 4.0;
-        vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;
-        vec2 envBRDF = VERSE_TEX2D(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
-        vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
-        ambient = kD * diffuse + envSpecular;
-    }
-    
-    gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut, 1.0);
-    gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
-    
-    // ModelIndicator functionalities
-    if (normalAlpha.a > 0.45 && normalAlpha.a < 0.55)  // 5: Highlight selection
-    {
-        vec2 off1 = vec2(1.0, 0.0) * InvScreenResolution;
-        vec2 off2 = vec2(0.0, 1.0) * InvScreenResolution;
-        vec4 n1 = VERSE_TEX2D(NormalBuffer, uv0 - off1);
-        vec4 n2 = VERSE_TEX2D(NormalBuffer, uv0 - off2);
-        vec4 n3 = VERSE_TEX2D(NormalBuffer, uv0 + off1);
-        vec4 n4 = VERSE_TEX2D(NormalBuffer, uv0 + off2);
-        if (n1.a < 0.1 || n2.a < 0.1 || n3.a < 0.1 || n4.a < 0.1)
-            gl_FragData[1] = vec4(1.0, 1.0, 0.0, 1.0);
-    }
+    fragData = vec4(radianceOut, diffuse.a);
+    VERSE_FS_FINAL(fragData);
 }
