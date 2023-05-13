@@ -10,9 +10,10 @@
 #include <string>
 #include "DeferredCallback.h"
 
-#define FORWARD_SCENE_MASK  0x00ffffff
-#define DEFERRED_SCENE_MASK 0xff000000
-#define SHADOW_CASTER_MASK  0x10000000
+#define DEFERRED_SCENE_MASK   0xffff0000
+#define FORWARD_SCENE_MASK    0x0000ffff
+#define FIXED_SHADING_MASK    0x00001000
+#define SHADOW_CASTER_MASK    0x10000000
 
 #ifndef GL_HALF_FLOAT
     #define GL_HALF_FLOAT                     0x140B
@@ -143,11 +144,13 @@ namespace osgVerse
 
         /** Finish all pipeline stages in this function. It will automatically add
             a forward pass for normal scene object rendering */
-        void applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int forwardMask);
+        void applyStagesToView(osgViewer::View* view, osg::Camera* mainCam,
+                               unsigned int defForwardMask, unsigned int fixedShadingMask);
         
         /** Convenient method to finish pipeline stages */
-        void applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
-        { applyStagesToView(view, view->getCamera(), forwardMask); }
+        void applyStagesToView(osgViewer::View* view,
+                               unsigned int forwardMask, unsigned int fixedShadingMask)
+        { applyStagesToView(view, view->getCamera(), forwardMask, fixedShadingMask); }
 
         /** Remove all stages and reset the viewer to default (clear all slaves) */
         void clearStagesFromView(osgViewer::View* view, osg::Camera* mainCam = NULL);
@@ -210,11 +213,12 @@ namespace osgVerse
         enum IndicatorType { NoIndicator = 0, SelectIndicator = 5 };
         static void setModelIndicator(osg::Node* node, IndicatorType type);
 
-        /** Apply default textures & uniforms to any input state set */
-        int applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff);
+        /** Create forward shading stateset which can make use of PBR and lighting functonalities */
+        osg::StateSet* createForwardStateSet(osg::Shader* vs, osg::Shader* fs);
 
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
+        int applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff);
         
         std::vector<osg::ref_ptr<Stage>> _stages;
         std::map<std::string, osg::ref_ptr<osg::NodeCallback>> _modules;
@@ -246,14 +250,13 @@ namespace osgVerse
         osg::ref_ptr<osg::StateSet> skyboxIBL;
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight;
-        unsigned int deferredMask, forwardMask, shadowCastMask;
-        unsigned int shadowNumber, shadowResolution;
+        unsigned int deferredMask, forwardMask, fixedShadingMask;
+        unsigned int shadowCastMask, shadowNumber, shadowResolution;
         bool debugShadowModule, enableVSync, enableMRT;
         bool enableAO, enablePostEffects;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);
-        void applyForwardProgram(Pipeline* p, osg::StateSet& ss);
     };
 
     /** Create standard pipeline */

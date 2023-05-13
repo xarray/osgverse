@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile(
         "skydome.osgt.(0.005,0.005,0.01).scale.-100,-150,0.trans");
-    osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
+    osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, FORWARD_SCENE_MASK);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(otherSceneRoot.get());

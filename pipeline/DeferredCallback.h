@@ -18,8 +18,13 @@ namespace osgVerse
         DeferredRenderCallback(bool inPipeline);
         virtual void operator()(osg::RenderInfo& renderInfo) const;
 
-        void setForwardMask(unsigned int m) { _forwardMask = m; }
+        void setForwardStateSet(osg::StateSet* ss) { _forwardStateSet = ss; }
+        osg::StateSet* getForwardStateSet() { return _forwardStateSet.get(); }
+
+        void setForwardMasks(unsigned int m1, unsigned int m2)
+        { _forwardMask = m1; _fixedShadingMask = m2; }
         unsigned int getForwardMask() const { return _forwardMask; }
+        unsigned int getFixedShadingMask() const { return _fixedShadingMask; }
 
         void setClearMask(GLenum m) { _clearMask = m; }
         void setClearColor(const osg::Vec4& c) { _clearColor = c; }
@@ -89,13 +94,14 @@ namespace osgVerse
         std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> _depthFboMap;
         std::set<osg::observer_ptr<osg::Camera>> _depthBlitList;
         std::vector<osg::ref_ptr<RttRunner>> _runners;
+        osg::ref_ptr<osg::StateSet> _forwardStateSet;
         osg::ref_ptr<osg::CullSettings::ClampProjectionMatrixCallback> _userClamperCallback;
         osg::ref_ptr<osg::Uniform> _nearFarUniform;
         GLenum _drawBuffer, _readBuffer, _clearMask;
         osg::Vec4 _clearColor, _clearAccum;
         osg::Vec2d _calculatedNearFar;
         double _clearDepth, _clearStencil;
-        unsigned int _cullFrameNumber, _forwardMask;
+        unsigned int _cullFrameNumber, _forwardMask, _fixedShadingMask;
         bool _inPipeline, _drawBufferApplyMask, _readBufferApplyMask;
     };
 }

@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Group> auxRoot = new osg::Group;
     auxRoot->setName("AuxRoot");
-    osgVerse::Pipeline::setPipelineMask(*auxRoot, ~DEFERRED_SCENE_MASK);
+    osgVerse::Pipeline::setPipelineMask(*auxRoot, FORWARD_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());

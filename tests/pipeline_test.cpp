@@ -145,7 +145,7 @@ int main(int argc, char** argv)
         output->applyBuffer(*gbuffer, "DepthBuffer", 1);
 
         // 6. Apply stages to viewer's slaves, also finish stage configuring
-        pipeline->applyStagesToView(&viewer, FORWARD_SCENE_MASK);
+        pipeline->applyStagesToView(&viewer, FORWARD_SCENE_MASK, FIXED_SHADING_MASK);
 
         // 7. Add gbuffer stage to depth bliting list
         pipeline->requireDepthBlit(gbuffer, true);

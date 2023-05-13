@@ -42,7 +42,7 @@ static osg::Group* loadBasicScene(int argc, char** argv)
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
     if (otherSceneRoot.valid())
-        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, ~DEFERRED_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, FORWARD_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (argc == 1) root->addChild(otherSceneRoot.get());
@@ -96,7 +96,7 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
                               osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(_params.skyboxMap.get(), false);
         postCamera->addChild(skybox.get());
-        osgVerse::Pipeline::setPipelineMask(*skybox, ~DEFERRED_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
     }
 
     // Start the embedded viewer

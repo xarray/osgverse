@@ -86,16 +86,18 @@ static void obtainScreenResolution(unsigned int& w, unsigned int& h)
 namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
-        shadowNumber(0), shadowResolution(2048), debugShadowModule(false), enableVSync(true), enableMRT(true),
-        enableAO(true), enablePostEffects(true)
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
+        fixedShadingMask(FIXED_SHADING_MASK), shadowCastMask(SHADOW_CASTER_MASK),
+        shadowNumber(0), shadowResolution(2048), debugShadowModule(false), enableVSync(true),
+        enableMRT(true), enableAO(true), enablePostEffects(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
     }
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
+        fixedShadingMask(FIXED_SHADING_MASK), shadowCastMask(SHADOW_CASTER_MASK),
         shadowNumber(3), shadowResolution(2048), debugShadowModule(false), enableVSync(true), enableMRT(true),
         enableAO(true), enablePostEffects(true)
     {
@@ -139,31 +141,6 @@ namespace osgVerse
         {
             skyboxMap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
             skyboxMap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        }
-    }
-
-    void StandardPipelineParameters::applyForwardProgram(Pipeline* p, osg::StateSet& ss)
-    {
-        osg::ref_ptr<osg::Program> program = new osg::Program;
-        program->setName("Forward_PROGRAM");
-        program->addShader(shaders.forwardVS.get());
-        program->addShader(shaders.forwardFS.get());
-        ss.setAttributeAndModes(program.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        if (p)
-        {
-            int glVer = p->getTargetVersion(), glslVer = p->getGlslTargetVersion();
-            int nextTexUnit = p->applyDefaultInputStateSet(ss, false);
-            p->createShaderDefinitions(shaders.forwardVS.get(), glVer, glslVer);
-            p->createShaderDefinitions(shaders.forwardFS.get(), glVer, glslVer);
-
-            osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(p->getModule("Light"));
-            if (light)
-            {
-                ss.setTextureAttributeAndModes(nextTexUnit, light->getParameterTable());
-                ss.addUniform(new osg::Uniform("LightParameterMap", 7));
-                ss.addUniform(light->getLightNumber());
-            }
         }
     }
 
@@ -474,8 +451,17 @@ namespace osgVerse
                 dynamic_cast<osgViewer::GraphicsWindow*>(p->getContext());
             if (gw != NULL) gw->setSyncToVBlank(spp.enableVSync);
         }
-        p->applyStagesToView(view, mainCam, spp.forwardMask);
+        p->applyStagesToView(view, mainCam, spp.forwardMask, spp.fixedShadingMask);
         p->requireDepthBlit(gbuffer, true);
+
+        osg::StateSet* forwardSS = p->createForwardStateSet(
+            spp.shaders.forwardVS.get(), spp.shaders.forwardFS.get());
+        if (forwardSS && lightModule)
+        {
+            forwardSS->setTextureAttributeAndModes(7, lightModule->getParameterTable());
+            forwardSS->addUniform(new osg::Uniform("LightParameterMap", 7));
+            forwardSS->addUniform(lightModule->getLightNumber());
+        }
         return true;
     }
 }

@@ -80,10 +80,11 @@ class MyCullVisitor : public osgUtil::CullVisitor
 {
 public:
     MyCullVisitor()
-    :   osgUtil::CullVisitor(), _cullMask(0xffffffff), _defaultMask(0xffffffff) {}
+    :   osgUtil::CullVisitor(), _cullMask(0xffffffff),
+        _defaultMask(0xffffffff), _fixedMask(0xffffffff) {}
     MyCullVisitor(const MyCullVisitor& v)
     :   osgUtil::CullVisitor(v), _pipelineMaskPath(v._pipelineMaskPath),
-        _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
+        _cullMask(v._cullMask), _defaultMask(v._defaultMask), _fixedMask(v._fixedMask) {}
 
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
@@ -91,8 +92,12 @@ public:
 
     virtual void reset()
     {
-        if (_callback.valid()) _defaultMask = _callback->getForwardMask();
         _cullMask = 0xffffffff; _pipelineMaskPath.clear();
+        if (_callback.valid())
+        {
+            _defaultMask = _callback->getForwardMask();
+            _fixedMask = _callback->getFixedShadingMask();
+        }
 
         osg::Camera* cam = this->getCurrentCamera();
         if (cam && cam->getUserDataContainer() != NULL)
@@ -106,9 +111,9 @@ public:
         osgUtil::CullVisitor::reset();
     }
 
-    bool passable(osg::Node& node, bool& maskSet)
+    bool passable(osg::Node& node, int& maskSet)
     {
-        maskSet = false;
+        maskSet = 0;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
         if (node.getUserDataContainer() != NULL)
         {
@@ -129,7 +134,14 @@ public:
 
                 if (flags & osg::StateAttribute::ON)
                 {
-                    pushM(nodePipMask, flags); maskSet = true;
+                    osg::StateSet* ss = NULL;
+                    if ((_defaultMask & nodePipMask) && !(_fixedMask & nodePipMask))
+                    {
+                        if (_callback.valid()) ss = _callback->getForwardStateSet();
+                        if (ss != NULL) maskSet |= 2;
+                    }
+
+                    pushM(nodePipMask, flags, ss); maskSet |= 1;
                     return (_cullMask & nodePipMask) != 0;
                 }  // otherwise, treat the mask as not set
             }
@@ -157,32 +169,32 @@ public:
     }
 
     virtual void apply(osg::Node& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::Group& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::Transform& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
     
     virtual void apply(osg::Projection& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::Switch& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::LOD& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::ClearNode& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::Camera& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
 #if OSG_VERSION_GREATER_THAN(3, 2, 0)
     virtual void apply(osg::Geode& node)
-    { bool s = false; if (passable(node, s)) osgUtil::CullVisitor::apply(node); if (s) popM(); }
+    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::Drawable& drawable)
     {
@@ -279,15 +291,21 @@ protected:
                  (value_type)coord[2] * (value_type)matrix(2, 2) + matrix(3, 2));
     }
 
-    inline void pushM(unsigned int m, unsigned int f)
-    { _pipelineMaskPath.push_back(std::pair<unsigned int, unsigned int>(m, f)); }
+    inline void pushM(unsigned int m, unsigned int f, osg::StateSet* ss)
+    {
+        _pipelineMaskPath.push_back(std::pair<unsigned int, unsigned int>(m, f));
+        if (ss) pushStateSet(ss);
+    }
     
-    inline void popM()
-    { if (!_pipelineMaskPath.empty()) _pipelineMaskPath.pop_back(); }
+    inline void popM(int maskSet)
+    {
+        if (maskSet == 0) return; else if (maskSet & 2) popStateSet();
+        if (!_pipelineMaskPath.empty()) _pipelineMaskPath.pop_back();
+    }
 
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
     std::vector<std::pair<unsigned int, unsigned int>> _pipelineMaskPath;
-    unsigned int _cullMask, _defaultMask;
+    unsigned int _cullMask, _defaultMask, _fixedMask;
 };
 
 class MySceneView : public osgUtil::SceneView
@@ -727,7 +745,8 @@ namespace osgVerse
         { mainCam->removeUpdateCallback(itr->second.get()); }
     }
 
-    void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int forwardMask)
+    void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam,
+                                     unsigned int defForwardMask, unsigned int fixedShadingMask)
     {
         osg::Matrix projOffset, viewOffset;
         if (!mainCam) mainCam = view->getCamera();
@@ -751,7 +770,7 @@ namespace osgVerse
         // ClampProjectionCallback must only exist on view's main camera
         if (view->getCamera() && view->getCamera()->getClampProjectionMatrixCallback())
             _deferredCallback->setClampCallback(view->getCamera()->getClampProjectionMatrixCallback());
-        _deferredCallback->setForwardMask(forwardMask);
+        _deferredCallback->setForwardMasks(defForwardMask, fixedShadingMask);
 
         for (unsigned int i = 0; i < _stages.size(); ++i)
         {
@@ -769,7 +788,7 @@ namespace osgVerse
                                              ? new osg::Camera(*mainCam) : new osg::Camera;
         forwardCam->setName("DefaultForward");
         forwardCam->setUserValue("NeedNearFarCalculation", true);
-        forwardCam->setUserValue("PipelineCullMask", forwardMask);  // replacing setCullMask()
+        forwardCam->setUserValue("PipelineCullMask", defForwardMask);  // replacing setCullMask()
         forwardCam->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
         forwardCam->setComputeNearFarMode(g_nearFarMode);
         _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
@@ -990,6 +1009,30 @@ namespace osgVerse
             prog->addBindAttribLocation(attributeNames[7], 7);
         }
         return 7;  // next texture unit = 7
+    }
+
+    osg::StateSet* Pipeline::createForwardStateSet(osg::Shader* vs, osg::Shader* fs)
+    {
+        osg::ref_ptr<osg::Program> program = new osg::Program;
+        program->setName("Forward_PROGRAM");
+
+        if (vs)
+        {
+            vs->setName("Forward_SHADER_VS"); program->addShader(vs);
+            createShaderDefinitions(vs, _glTargetVersion, _glslTargetVersion);
+        }
+        
+        if (fs)
+        {
+            fs->setName("Forward_SHADER_FS"); program->addShader(fs);
+            createShaderDefinitions(fs, _glTargetVersion, _glslTargetVersion);
+        }
+
+        osg::ref_ptr<osg::StateSet> ss = new osg::StateSet;
+        ss->setAttributeAndModes(program, osg::StateAttribute::ON);
+        applyDefaultInputStateSet(*ss, false);
+        _deferredCallback->setForwardStateSet(ss.get());
+        return ss.get();
     }
 
     void Pipeline::setModelIndicator(osg::Node* node, IndicatorType type)
