@@ -16,10 +16,10 @@ float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth
 
 float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float uvRadius)
 {
-    float sum = 0;
+    float sum = 0.0;
     for (int i = 0; i < 16; i++)
     {
-        vec2 dir = VERSE_TEX2D(RandomTexture, vec2(float(i) / 16.0, 0.25f)).xy * 2.0 - vec2(1.0);
+        vec2 dir = VERSE_TEX2D(RandomTexture, vec2(float(i) / 16.0, 0.25)).xy * 2.0 - vec2(1.0);
         sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);
     }
     return sum / 16.0;
