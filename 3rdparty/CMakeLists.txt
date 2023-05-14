@@ -228,6 +228,41 @@ SET(LIBHV_SOURCE_FILES
     libhv/all/client/http_client.cpp libhv/all/server/http_page.cpp libhv/hv.h
 )
 
+SET(KTX_SOURCE_FILES
+    ktx/basisu/transcoder/basisu_containers.h ktx/basisu/transcoder/basisu_containers_impl.h
+    ktx/basisu/transcoder/basisu_file_headers.h ktx/basisu/transcoder/basisu_transcoder_internal.h
+    ktx/basisu/transcoder/basisu_transcoder_uastc.h ktx/basisu/transcoder/basisu_transcoder.cpp
+    ktx/basisu/transcoder/basisu_transcoder.h ktx/basisu/transcoder/basisu.h ktx/basisu/zstd/zstd.c
+    ktx/dfdutils/createdfd.c ktx/dfdutils/colourspaces.c ktx/dfdutils/dfd.h ktx/dfdutils/interpretdfd.c
+    ktx/dfdutils/printdfd.c ktx/dfdutils/queries.c ktx/dfdutils/vk2dfd.c ktx/dfdutils/vk2dfd.inl
+    ktx/dfdutils/vulkan/vk_platform.h ktx/dfdutils/vulkan/vulkan_core.h
+    ktx/ktx.h ktx/basis_sgd.h ktx/basis_transcode.cpp ktx/checkheader.c ktx/etcdec.cxx ktx/etcunpack.cxx
+    ktx/filestream.c ktx/filestream.h ktx/formatsize.h ktx/gl_format.h ktx/hashlist.c ktx/info.c
+    ktx/ktxint.h ktx/memstream.c ktx/memstream.h ktx/strings.c ktx/swap.c ktx/texture.c ktx/texture.h
+    ktx/texture2.c ktx/texture2.h ktx/uthash.h ktx/vk_format.h ktx/vkformat_check.c
+    ktx/vkformat_enum.h ktx/vkformat_str.c ktx/gl_funcs.c ktx/gl_funcs.h ktx/glloader.c
+    ktx/texture1.c ktx/texture1.h ktx/basisu/encoder/basisu_backend.cpp ktx/basisu/encoder/basisu_backend.h
+    ktx/basis_encode.cpp ktx/astc_encode.cpp ktx/writer1.c ktx/writer2.c
+    ktx/basisu/encoder/basisu_basis_file.cpp ktx/basisu/encoder/basisu_basis_file.h
+    ktx/basisu/encoder/basisu_bc7enc.cpp ktx/basisu/encoder/basisu_bc7enc.h
+    ktx/basisu/encoder/basisu_comp.cpp ktx/basisu/encoder/basisu_comp.h
+    ktx/basisu/encoder/basisu_enc.cpp ktx/basisu/encoder/basisu_enc.h
+    ktx/basisu/encoder/basisu_etc.cpp ktx/basisu/encoder/basisu_etc.h
+    ktx/basisu/encoder/basisu_frontend.cpp ktx/basisu/encoder/basisu_frontend.h
+    ktx/basisu/encoder/basisu_gpu_texture.cpp ktx/basisu/encoder/basisu_gpu_texture.h
+    ktx/basisu/encoder/basisu_kernels_declares.h ktx/basisu/encoder/basisu_kernels_imp.h
+    ktx/basisu/encoder/basisu_kernels_sse.cpp ktx/basisu/encoder/basisu_miniz.h
+    ktx/basisu/encoder/basisu_opencl.cpp ktx/basisu/encoder/basisu_opencl.h
+    ktx/basisu/encoder/basisu_pvrtc1_4.cpp ktx/basisu/encoder/basisu_pvrtc1_4.h
+    ktx/basisu/encoder/basisu_resample_filters.cpp ktx/basisu/encoder/basisu_resampler_filters.h
+    ktx/basisu/encoder/basisu_resampler.cpp ktx/basisu/encoder/basisu_resampler.h
+    ktx/basisu/encoder/basisu_ssim.cpp ktx/basisu/encoder/basisu_ssim.h
+    ktx/basisu/encoder/basisu_uastc_enc.cpp ktx/basisu/encoder/basisu_uastc_enc.h
+    ktx/basisu/encoder/cppspmd_flow.h ktx/basisu/encoder/cppspmd_math.h
+    ktx/basisu/encoder/cppspmd_math_declares.h ktx/basisu/encoder/cppspmd_sse.h
+    ktx/basisu/encoder/cppspmd_type_aliases.h
+)
+
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
@@ -240,6 +275,7 @@ SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
 SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
+SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
@@ -255,11 +291,13 @@ SET(LIBRARY_FILES
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
-    ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
+    ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${KTX_SOURCE_FILES}
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
                 -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS 
+                -DKHRONOS_STATIC -DBASISD_SUPPORT_FXT1=0 -DKTX_FEATURE_KTX1 -DKTX_FEATURE_KTX1 -DKTX_OMIT_VULKAN=1
+                -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0 -DLIBKTX
 				-DIMGUI_IMPL_OPENGL_LOADER_GLEW -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 IF (MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # disable use of json.hpp in VS2015 or lower
@@ -277,6 +315,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb
+                    ktx ktx/basisu/zstd ktx/dfdutils
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
