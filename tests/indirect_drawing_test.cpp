@@ -324,7 +324,7 @@ public:
         _text = new osgText::Text;
         _text->setText("Indirect drawing mode.");
         _text->setPosition(osg::Vec3(10.0f, 10.0f, 0.0f));
-        _text->setCharacterSize(50.0f);
+        _text->setCharacterSize(20.0f);
         _text->setColor(osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 
         osg::Camera* camera = new osg::Camera;
@@ -389,5 +389,16 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
-    return viewer.run();
+    
+    viewer.getCameraManipulator()->setHomePosition(
+        osg::Vec3(-6.62242, -10.131, -38.5468), osg::Vec3(-6.46025, -9.8792, -37.5927), -osg::Y_AXIS);
+    viewer.getCameraManipulator()->home(0.0);
+    while (!viewer.done())
+    {
+        //osg::Vec3 eye, center, up;
+        //viewer.getCamera()->getViewMatrixAsLookAt(eye, center, up);
+        //std::cout << eye << "; " << center << "; " << up << "\n";
+        viewer.frame();
+    }
+    return 0;
 }
