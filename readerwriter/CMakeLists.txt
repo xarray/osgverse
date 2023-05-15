@@ -2,9 +2,10 @@ SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_FILES
     LoadSceneFBX.cpp LoadSceneFBX.h
     LoadSceneGLTF.cpp LoadSceneGLTF.h
+    LoadTextureKTX.cpp LoadTextureKTX.h
 )
 
-ADD_DEFINITIONS(-DVERSE_RW_LIBRARY)
+ADD_DEFINITIONS(-DVERSE_RW_LIBRARY -DKHRONOS_STATIC)
 INCLUDE_DIRECTORIES(../3rdparty/stb ../3rdparty/rapidjson)
 IF(VERSE_STATIC_BUILD)
     NEW_LIBRARY(${LIB_NAME} STATIC)
