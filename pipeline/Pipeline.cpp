@@ -253,7 +253,7 @@ public:
             { return true; }
         };
 
-        bool pipelineMaskSet = false;
+        int pipelineMaskSet = 0;
         if (passable(node, pipelineMaskSet))
         {
             typedef std::pair<osg::observer_ptr<osg::Drawable>,
@@ -279,7 +279,7 @@ public:
                 }
             }
         }
-        if (pipelineMaskSet) popM();
+        popM(pipelineMaskSet);
     }
 #endif
 
@@ -402,7 +402,6 @@ protected:
 
 #if true
         MyCullVisitor* cullVisitor = new MyCullVisitor;
-        cullVisitor->setName("CullVisitor" + std::to_string(i));
         cullVisitor->setDeferredCallback(cb);
         cullVisitor->setStateGraph(_sceneView[i]->getStateGraph());
         cullVisitor->setRenderStage(_sceneView[i]->getRenderStage());
