@@ -59,7 +59,7 @@ Our project is already tested on graphics cards listed as below:
 
 #### Modules
 1. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.
-2. osgVerseReaderWriter: full featured reader-writer support for FBX and GLTF formats, and for more later.
+2. osgVerseReaderWriter: full featured reader-writer support for FBX, GLTF and KTX formats, and for more later.
 3. osgVerseAnimation: physics and character animation supports.
 4. osgVerseModeling: model simplification pipeline, modeling operators, and computational geometry utilities
 5. osgVerseUI: IMGUI based quick UI support, HTML based UI solution, and related utilities.
@@ -88,7 +88,9 @@ Our project is already tested on graphics cards listed as below:
 11. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
 12. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
 13. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.
-14. TBD...
+14. osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x
+15. osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x
+16. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
