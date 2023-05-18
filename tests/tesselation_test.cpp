@@ -143,12 +143,14 @@ osg::Node* prepareHeightMap(osg::Image* heightMap, const std::vector<osg::ref_pt
 
     const char* vert = {
         "#version 400\n"
+        "in vec4 osg_Vertex, osg_MultiTexCoord0;\n"
+        "in vec3 osg_Normal;\n"
         "out vec3 vecNormal;\n"
         "out vec2 vecUV;\n"
         "void main() {\n"
-        "    vecUV = gl_MultiTexCoord0.xy;\n"
-        "    vecNormal = gl_Normal;\n"
-        "    gl_Position = gl_Vertex;\n"
+        "    vecUV = osg_MultiTexCoord0.xy;\n"
+        "    vecNormal = osg_Normal;\n"
+        "    gl_Position = osg_Vertex;\n"
         "}\n"
     };
 
@@ -298,18 +300,21 @@ osg::Node* prepareSkySphere(osg::Node* node, const std::vector<osg::ref_ptr<osg:
     node->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonMode);
 
     node->getOrCreateStateSet()->setAttributeAndModes(createProgram(
-        "varying vec2 UV;\n"
+        "#version 400\n"
+        "uniform mat4  osg_ModelViewProjectionMatrix;\n"
+        "in vec4 osg_Vertex, osg_MultiTexCoord0;\n"
+        "out vec2 UV;\n"
         "void main() {\n"
-        "    UV = gl_MultiTexCoord0.xy;\n"
-        "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
+        "    UV = osg_MultiTexCoord0.xy;\n"
+        "    gl_Position = osg_ModelViewProjectionMatrix * osg_Vertex;\n"
         "}\n",
 
         "#version 400\n"
         "uniform sampler2D tex2D;\n"
-        "varying vec2 UV;\n"
+        "in vec2 UV;\nout vec4 fragColor;\n"
         "void main() {\n"
         "    vec4 color = texture(tex2D, UV);\n"
-        "    gl_FragColor = color;\n"
+        "    fragColor = color;\n"
         "}\n"));
 
     osg::MatrixTransform* mt = new osg::MatrixTransform;
@@ -406,7 +411,14 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+
     viewer.setUpViewOnSingleScreen(0);
+    if (viewer.getCamera()->getGraphicsContext())
+    {
+        osg::State* state = viewer.getCamera()->getGraphicsContext()->getState();
+        state->setUseModelViewAndProjectionUniforms(true);
+        state->setUseVertexAttributeAliasing(true);
+    }
     
     viewer.getCameraManipulator()->setHomePosition(
         osg::Vec3(3.45756, -86.8474, 31.1284), osg::Vec3(3.47222, -85.8838, 30.8612), osg::Z_AXIS);

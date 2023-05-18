@@ -448,7 +448,14 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    
     viewer.setUpViewOnSingleScreen(0);
+    if (viewer.getCamera()->getGraphicsContext())
+    {
+        osg::State* state = viewer.getCamera()->getGraphicsContext()->getState();
+        state->setUseModelViewAndProjectionUniforms(true);
+        state->setUseVertexAttributeAliasing(true);
+    }
     
     viewer.getCameraManipulator()->setHomePosition(
         osg::Vec3(-6.62242, -10.131, -38.5468), osg::Vec3(-6.46025, -9.8792, -37.5927), -osg::Y_AXIS);
