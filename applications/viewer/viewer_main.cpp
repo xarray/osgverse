@@ -12,7 +12,7 @@
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-#define TRANSPARENT_OBJECT_TEST 1
+#define TRANSPARENT_OBJECT_TEST 0
 #define INDICATOR_TEST 0
 
 #include <pipeline/SkyBox.h>

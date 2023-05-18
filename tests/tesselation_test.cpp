@@ -142,7 +142,7 @@ osg::Node* prepareHeightMap(osg::Image* heightMap, const std::vector<osg::ref_pt
     geode->getOrCreateStateSet()->setTextureAttributeAndModes(1, texArray.get());
 
     const char* vert = {
-        "#version 130\n"
+        "#version 400\n"
         "out vec3 vecNormal;\n"
         "out vec2 vecUV;\n"
         "void main() {\n"
@@ -304,6 +304,7 @@ osg::Node* prepareSkySphere(osg::Node* node, const std::vector<osg::ref_ptr<osg:
         "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
         "}\n",
 
+        "#version 400\n"
         "uniform sampler2D tex2D;\n"
         "varying vec2 UV;\n"
         "void main() {\n"
@@ -354,11 +355,13 @@ public:
             if (ea.getKey() == osgGA::GUIEventAdapter::KEY_Left || ea.getKey() == 'z')
             {
                 _text->setText("Disable tesselation mode.");
+                _text->dirtyDisplayList();
                 ss->getOrCreateUniform("tessellationFactor", osg::Uniform::FLOAT)->set(0.0f);
             }
             else if (ea.getKey() == osgGA::GUIEventAdapter::KEY_Right || ea.getKey() == 'x')
             {
                 _text->setText("Tesselation mode. Value = 0.75");
+                _text->dirtyDisplayList();
                 ss->getOrCreateUniform("tessellationFactor", osg::Uniform::FLOAT)->set(0.75f);
             }
         }
