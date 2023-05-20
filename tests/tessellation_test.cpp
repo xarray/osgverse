@@ -333,7 +333,7 @@ public:
     LogicHandler(osg::Group* root) : _root(root)
     {
         _text = new osgText::Text;
-        _text->setText("Tesselation mode.");
+        _text->setText("Tessellation mode.");
         _text->setPosition(osg::Vec3(10.0f, 10.0f, 0.0f));
         _text->setCharacterSize(20.0f);
         _text->setColor(osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f)); 
@@ -359,13 +359,13 @@ public:
         {
             if (ea.getKey() == osgGA::GUIEventAdapter::KEY_Left || ea.getKey() == 'z')
             {
-                _text->setText("Disable tesselation mode.");
+                _text->setText("Disable tessellation mode.");
                 _text->dirtyDisplayList();
                 ss->getOrCreateUniform("tessellationFactor", osg::Uniform::FLOAT)->set(0.0f);
             }
             else if (ea.getKey() == osgGA::GUIEventAdapter::KEY_Right || ea.getKey() == 'x')
             {
-                _text->setText("Tesselation mode. Value = 0.75");
+                _text->setText("Tessellation mode. Value = 0.75");
                 _text->dirtyDisplayList();
                 ss->getOrCreateUniform("tessellationFactor", osg::Uniform::FLOAT)->set(0.75f);
             }

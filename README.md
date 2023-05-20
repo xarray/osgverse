@@ -88,9 +88,10 @@ Our project is already tested on graphics cards listed as below:
 11. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
 12. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
 13. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.
-14. osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x
-15. osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x
-16. TBD...
+14. osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x.
+15. osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
+16. osgVerse_Test_Scripting: a test for scripting implementation based on OSGB serialization format.
+17. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
