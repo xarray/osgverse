@@ -183,7 +183,7 @@ int main(int argc, char** argv)
     classMgr.setProperty(drawArrays, "Mode", GL_QUADS);
     classMgr.setProperty(drawArrays, "First", 0);
     classMgr.setProperty(drawArrays, "Count", 4);
-
+    
     classMgr.setProperty(geom, "UseDisplayList", false);
     classMgr.setProperty(geom, "UseVertexBufferObjects", true);
     classMgr.setProperty(geom, "VertexArray", vArray);
@@ -200,6 +200,11 @@ int main(int argc, char** argv)
     mIn.clear(); mIn.push_back(geode);
     classMgr.run(root.get(), "addChild", mIn, mOut);
 
+    bool shown = true;
+    handler->addCallback('t', [&]() {
+        shown = !shown;  // press 't' to show/hide the quad
+        classMgr.setProperty(geode, "NodeMask", shown ? 0xffffffff : 0);
+    });
 #endif
 
     osgViewer::Viewer viewer;
@@ -208,5 +213,6 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setUpViewInWindow(50, 50, 800, 600);
     return viewer.run();
 }

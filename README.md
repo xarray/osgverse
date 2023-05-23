@@ -63,7 +63,8 @@ Our project is already tested on graphics cards listed as below:
 3. osgVerseAnimation: physics and character animation supports.
 4. osgVerseModeling: model simplification pipeline, modeling operators, and computational geometry utilities
 5. osgVerseUI: IMGUI based quick UI support, HTML based UI solution, and related utilities.
-6. TBD...
+6. osgVerseScript: Scripting support based on OSG serialization functionalities.
+7. TBD...
 
 #### Applications
 1. osgVerse_SceneEditor: a forward-looking scene editor for osgVerse scene & components.

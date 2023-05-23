@@ -11,6 +11,7 @@
 #include <CesiumAsync/IAssetResponse.h>
 #include <Cesium3DTilesSelection/Tileset.h>
 #include <Cesium3DTilesSelection/registerAllTileContentTypes.h>
+// reference: https://github.com/timoore/vsgCs
 
 class FileAssetResponse : public CesiumAsync::IAssetResponse
 {
