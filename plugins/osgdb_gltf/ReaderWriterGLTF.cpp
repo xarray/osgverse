@@ -28,8 +28,8 @@ public:
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
-        if (ext == "glb") return osgVerse::loadGltf(path, true);
-        else return osgVerse::loadGltf(path, false);
+        if (ext == "glb") return osgVerse::loadGltf(path, true).get();
+        else return osgVerse::loadGltf(path, false).get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
@@ -42,7 +42,7 @@ public:
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
             if (mode == "binary") isBinary = true;
         }
-        return osgVerse::loadGltf2(fin, dir, isBinary);
+        return osgVerse::loadGltf2(fin, dir, isBinary).get();
     }
 };
 

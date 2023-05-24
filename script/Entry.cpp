@@ -42,6 +42,8 @@ std::vector<LibraryEntry::Property> LibraryEntry::getPropertyNames(const std::st
     std::vector<Property> properties;
     if (ow != NULL)
     {
+#if OSGVERSE_COMPLETED_SCRIPT
+#   if OSG_VERSION_GREATER_THAN(3, 4, 0)
         const osgDB::ObjectWrapper::RevisionAssociateList& associates = ow->getAssociates();
         for (osgDB::ObjectWrapper::RevisionAssociateList::const_iterator aitr = associates.begin();
              aitr != associates.end(); ++aitr)
@@ -63,6 +65,27 @@ std::vector<LibraryEntry::Property> LibraryEntry::getPropertyNames(const std::st
                 properties.push_back(prop);
             }
         }
+#   else
+        const osgDB::StringList& associates = ow->getAssociates();
+        for (size_t n = 0; n < associates.size(); ++n)
+        {
+            osgDB::ObjectWrapper* ow1 = registry->getObjectWrapperManager()->findWrapper(associates[n]);
+            if (ow1 == NULL) continue;
+
+            unsigned int i = 0;
+            const osgDB::ObjectWrapper::SerializerList& sList = ow1->getSerializerList();
+            for (osgDB::ObjectWrapper::SerializerList::const_iterator sitr = sList.begin();
+                sitr != sList.end(); ++sitr, ++i)
+            {
+                Property prop;
+                prop.ownerClass = associates[n]; prop.name = (*sitr)->getName();
+                prop.type = ow1->getTypeList()[i];
+                prop.typeName = _manager.getTypeName(prop.type);
+                properties.push_back(prop);
+            }
+        }
+#   endif
+#endif
     }
     return properties;
 }
@@ -79,6 +102,8 @@ std::vector<LibraryEntry::Method> LibraryEntry::getMethodNames(const std::string
     std::vector<Method> methods;
     if (ow != NULL)
     {
+#if OSGVERSE_COMPLETED_SCRIPT
+#   if OSG_VERSION_GREATER_THAN(3, 4, 0)
         const osgDB::ObjectWrapper::RevisionAssociateList& associates = ow->getAssociates();
         for (osgDB::ObjectWrapper::RevisionAssociateList::const_iterator aitr = associates.begin();
              aitr != associates.end(); ++aitr)
@@ -97,10 +122,29 @@ std::vector<LibraryEntry::Method> LibraryEntry::getMethodNames(const std::string
                 methods.push_back(method);
             }
         }
+#   else
+        const osgDB::StringList& associates = ow->getAssociates();
+        for (size_t n = 0; n < associates.size(); ++n)
+        {
+            osgDB::ObjectWrapper* ow1 = registry->getObjectWrapperManager()->findWrapper(associates[n]);
+            if (ow1 == NULL) continue;
+
+            const osgDB::ObjectWrapper::MethodObjectMap& mMap = ow1->getMethodObjectMap();
+            for (osgDB::ObjectWrapper::MethodObjectMap::const_iterator mitr = mMap.begin();
+                 mitr != mMap.end(); ++mitr)
+            {
+                Method method;
+                method.ownerClass = associates[n]; method.name = mitr->first;
+                methods.push_back(method);
+            }
+        }
+#   endif
+#endif
     }
     return methods;
 }
 
+#if OSGVERSE_COMPLETED_SCRIPT
 std::string LibraryEntry::getEnumProperty(const osg::Object* object, const std::string& name)
 {
     unsigned int value = 0;
@@ -141,3 +185,4 @@ osg::Object* LibraryEntry::callMethod(osg::Object* object, const std::string& na
 bool LibraryEntry::callMethod(osg::Object* object, const std::string& name,
                               osg::Parameters& args0, osg::Parameters& args1)
 { return _manager.run(object, name, args0, args1); }
+#endif

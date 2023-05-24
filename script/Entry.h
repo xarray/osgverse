@@ -1,7 +1,14 @@
 #ifndef MANA_SCRIPT_ENTRY_HPP
 #define MANA_SCRIPT_ENTRY_HPP
 
-#include <osgDB/ClassInterface>
+#include <osg/Version>
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#   include <osgDB/ClassInterface>
+#   define OSGVERSE_COMPLETED_SCRIPT 1
+#else
+#   define OSGVERSE_COMPLETED_SCRIPT 0
+#endif
+
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <map>
@@ -33,6 +40,7 @@ namespace osgVerse
         };
         std::vector<Method> getMethodNames(const std::string& clsName) const;
 
+#if OSGVERSE_COMPLETED_SCRIPT
         template<typename T>
         bool getProperty(const osg::Object* object, const std::string& name, T& value)
         { return _manager.getProperty<T>(object, name, value); }
@@ -79,9 +87,12 @@ namespace osgVerse
         bool callMethod(osg::Object* object, const std::string& name, osg::Object* arg1);
         bool callMethod(osg::Object* object, const std::string& name,
                         osg::Parameters& args0, osg::Parameters& args1);
+#endif
         
     protected:
+#if OSGVERSE_COMPLETED_SCRIPT
         osgDB::ClassInterface _manager;
+#endif
         std::set<std::string> _classes;
         std::string _libraryName;
     };

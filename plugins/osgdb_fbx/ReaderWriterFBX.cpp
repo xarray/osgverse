@@ -26,14 +26,14 @@ public:
     {
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-        return osgVerse::loadFbx(path);
+        return osgVerse::loadFbx(path).get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
         std::string dir = ".";
         if (options) dir = options->getPluginStringData("Directory");
-        return osgVerse::loadFbx2(fin, dir);
+        return osgVerse::loadFbx2(fin, dir).get();
     }
 };
 
