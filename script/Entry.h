@@ -7,6 +7,8 @@
 #   define OSGVERSE_COMPLETED_SCRIPT 1
 #else
 #   define OSGVERSE_COMPLETED_SCRIPT 0
+namespace osg
+{ typedef std::vector< osg::ref_ptr<osg::Object> > Parameters; }
 #endif
 
 #include <osgDB/ReadFile>
@@ -17,7 +19,7 @@
 
 namespace osgVerse
 {
-    class LibraryEntry
+    class LibraryEntry : public osg::Referenced
     {
     public:
         LibraryEntry(const std::string& libName);
@@ -79,6 +81,35 @@ namespace osgVerse
                 vs->addElement(*object, (void*)value[i].ptr());
             return true;
         }
+#else
+        template<typename T>
+        bool getProperty(const osg::Object* object, const std::string& name, T& value)
+        {
+            OSG_WARN << "[LibraryEntry] getProperty() not implemented" << std::endl;
+            return false;
+        }
+
+        template<typename T>
+        bool setProperty(osg::Object* object, const std::string& name, const T& value)
+        {
+            OSG_WARN << "[LibraryEntry] setProperty() not implemented" << std::endl;
+            return false;
+        }
+
+        template<typename T>
+        bool getProperty(const osg::Object* object, const std::string& name, std::vector<T>& value)
+        {
+            OSG_WARN << "[LibraryEntry] getProperty() not implemented" << std::endl;
+            return false;
+        }
+
+        template<typename T>
+        bool setProperty(osg::Object* object, const std::string& name, const std::vector<T>& value)
+        {
+            OSG_WARN << "[LibraryEntry] setProperty() not implemented" << std::endl;
+            return false;
+        }
+#endif
 
         std::string getEnumProperty(const osg::Object* object, const std::string& name);
         bool setEnumProperty(osg::Object* object, const std::string& name, const std::string& value);
@@ -87,7 +118,10 @@ namespace osgVerse
         bool callMethod(osg::Object* object, const std::string& name, osg::Object* arg1);
         bool callMethod(osg::Object* object, const std::string& name,
                         osg::Parameters& args0, osg::Parameters& args1);
-#endif
+
+        osg::Object* create(const std::string& clsName);
+        std::string getLibraryName() const { return _libraryName; }
+        static std::string getClassName(osg::Object* obj, bool withLibName);
         
     protected:
 #if OSGVERSE_COMPLETED_SCRIPT

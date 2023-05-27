@@ -1,9 +1,9 @@
 SET(LIB_NAME osgVerseScript)
 SET(LIBRARY_INCLUDE_FILES
-    Entry.h
+    Entry.h ScriptBase.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    Entry.cpp
+    Entry.cpp ScriptBase.cpp
 )
 
 INCLUDE_DIRECTORIES(. ${CMAKE_SOURCE_DIR}/3rdparty/libhv ${CMAKE_SOURCE_DIR}/3rdparty/libhv/all)

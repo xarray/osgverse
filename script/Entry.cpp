@@ -144,6 +144,12 @@ std::vector<LibraryEntry::Method> LibraryEntry::getMethodNames(const std::string
     return methods;
 }
 
+std::string LibraryEntry::getClassName(osg::Object* obj, bool withLibName)
+{
+    if (!obj) return ""; else if (!withLibName) return obj->className();
+    return obj->libraryName() + std::string("::") + obj->className();
+}
+
 #if OSGVERSE_COMPLETED_SCRIPT
 std::string LibraryEntry::getEnumProperty(const osg::Object* object, const std::string& name)
 {
@@ -185,4 +191,49 @@ osg::Object* LibraryEntry::callMethod(osg::Object* object, const std::string& na
 bool LibraryEntry::callMethod(osg::Object* object, const std::string& name,
                               osg::Parameters& args0, osg::Parameters& args1)
 { return _manager.run(object, name, args0, args1); }
+
+osg::Object* LibraryEntry::create(const std::string& clsName)
+{
+    std::size_t sep = clsName.find("::"); std::string name = clsName;
+    if (sep == std::string::npos) name = _libraryName + "::" + clsName;
+    return _manager.createObject(name);
+}
+#else
+std::string LibraryEntry::getEnumProperty(const osg::Object* object, const std::string& name)
+{
+    OSG_WARN << "[LibraryEntry] getEnumProperty() not implemented" << std::endl;
+    return "";
+}
+
+bool LibraryEntry::setEnumProperty(osg::Object* object, const std::string& name,
+                                   const std::string& value)
+{
+    OSG_WARN << "[LibraryEntry] setEnumProperty() not implemented" << std::endl;
+    return false;
+}
+
+bool LibraryEntry::callMethod(osg::Object* object, const std::string& name, osg::Object* arg1)
+{
+    OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl;
+    return false;
+}
+
+osg::Object* LibraryEntry::callMethod(osg::Object* object, const std::string& name)
+{
+    OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl;
+    return NULL;
+}
+
+bool LibraryEntry::callMethod(osg::Object* object, const std::string& name,
+                              osg::Parameters& args0, osg::Parameters& args1)
+{
+    OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl;
+    return false;
+}
+
+osg::Object* LibraryEntry::create(const std::string& name)
+{
+    OSG_WARN << "[LibraryEntry] create() not implemented" << std::endl;
+    return NULL;
+}
 #endif
