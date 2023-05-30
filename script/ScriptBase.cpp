@@ -3,12 +3,12 @@
 #include "ScriptBase.h"
 using namespace osgVerse;
 
-ScriptBase::Result ScriptBase::create(const std::string& typeName,
+ScriptBase::Result ScriptBase::create(const std::string& compName,
                                       const PropertyMap& properties)
 {
-    std::string libName, clsName; std::size_t sep = typeName.find("::");
-    if (sep == std::string::npos) { libName = "osg"; clsName = typeName; }
-    else { libName = typeName.substr(0, sep); clsName = typeName.substr(sep + 2); }
+    std::string libName, clsName; std::size_t sep = compName.find("::");
+    if (sep == std::string::npos) { libName = "osg"; clsName = compName; }
+    else { libName = compName.substr(0, sep); clsName = compName.substr(sep + 2); }
 
     if (_entries.find(libName) == _entries.end())
         _entries[libName] = new LibraryEntry(libName);
@@ -16,24 +16,32 @@ ScriptBase::Result ScriptBase::create(const std::string& typeName,
 
     if (obj != NULL)
     {
-        LibraryEntry* entry = _entries[libName].get();
-        std::string id = nanoid::generate(8);
-        Result result(id); _objects[id] = obj;
-
-        std::vector<LibraryEntry::Property> names = entry->getPropertyNames(clsName);
-        for (PropertyMap::const_iterator itr = properties.begin();
-             itr != properties.end(); ++itr)
-        {
-            if (!setProperty(itr->first, itr->second, entry, obj, names))
-            {
-                if (!result.msg.empty()) result.msg += "\n";
-                result.msg += "Can't set property: " + itr->first;
-            }
-        }
-        return result;
+        std::string id = nanoid::generate(8); _objects[id] = obj;
+        Result result(id, obj), result2 = set(id, properties);
+        result.msg = result2.msg; return result;
     }
     else
-        return Result(-2, "Invalid creation type: " + typeName);
+        return Result(-6, "Invalid creation type: " + compName);
+}
+
+ScriptBase::Result ScriptBase::create(const std::string& type, const std::string& uri,
+                                      const PropertyMap& properties)
+{
+    osg::Object* obj = NULL; std::string t;
+    std::transform(type.begin(), type.end(), t.begin(), tolower);
+    if (t == "node") obj = osgDB::readNodeFile(uri);
+    else if (t == "image") obj = osgDB::readImageFile(uri);
+    else if (t == "shader") obj = osgDB::readShaderFile(uri);
+    else obj = osgDB::readObjectFile(uri);
+
+    if (obj != NULL)
+    {
+        std::string id = nanoid::generate(8); _objects[id] = obj;
+        Result result(id, obj), result2 = set(id, properties);
+        result.msg = result2.msg; return result;
+    }
+    else
+        return Result(-7, "Invalid data URI: " + uri + " (" + type + ")");
 }
 
 ScriptBase::Result ScriptBase::set(const std::string& nodePath, const PropertyMap& properties)
@@ -45,7 +53,7 @@ ScriptBase::Result ScriptBase::set(const std::string& nodePath, const PropertyMa
         if (_entries.find(libName) == _entries.end())
             _entries[libName] = new LibraryEntry(libName);
 
-        Result result;
+        Result result; result.obj = obj;
         LibraryEntry* entry = _entries[libName].get();
         std::vector<LibraryEntry::Property> names = entry->getPropertyNames(clsName);
 
@@ -54,7 +62,7 @@ ScriptBase::Result ScriptBase::set(const std::string& nodePath, const PropertyMa
         {
             if (!setProperty(itr->first, itr->second, entry, obj, names))
             {
-                if (!result.msg.empty()) result.msg += "\n";
+                if (!result.msg.empty()) result.msg += "\n"; else result.code = -2;
                 result.msg += "Can't set property: " + itr->first;
             }
         }
@@ -74,10 +82,16 @@ ScriptBase::Result ScriptBase::call(const std::string& nodePath, const std::stri
         if (_entries.find(libName) == _entries.end())
             _entries[libName] = new LibraryEntry(libName);
 
-        Result result;
-        LibraryEntry* entry = _entries[libName].get();
+        Result result; LibraryEntry* entry = _entries[libName].get();
+        std::vector<LibraryEntry::Method> methods = entry->getMethodNames(clsName);
 
-        // TODO
+        osg::Parameters inArgs, outArgs;
+        for (size_t i = 0; i < params.size(); ++i)
+            inArgs.push_back(getFromPath(params[i]));
+        if (!entry->callMethod(obj, key, inArgs, outArgs))
+        { result.code = -8; result.msg += "Can't call method: " + key; }
+
+        if (!outArgs.empty()) result.obj = outArgs[0].get();
         return result;
     }
     else
@@ -93,10 +107,12 @@ ScriptBase::Result ScriptBase::get(const std::string& nodePath, const std::strin
         if (_entries.find(libName) == _entries.end())
             _entries[libName] = new LibraryEntry(libName);
 
-        Result result;
+        Result result; result.obj = obj;
         LibraryEntry* entry = _entries[libName].get();
+        std::vector<LibraryEntry::Property> names = entry->getPropertyNames(clsName);
 
-        // TODO
+        if (!getProperty(key, result.value, entry, obj, names))
+            return Result(-3, "Can't get property: " + key);
         return result;
     }
     else
@@ -113,41 +129,345 @@ ScriptBase::Result ScriptBase::remove(const std::string& nodePath)
              itr != _objects.end(); ++itr)
         { if (obj == itr->second) { id = itr->first; break; } }
 
+        Result result; result.obj = obj;
         if (id.empty())
-            return Result(-4, "Can't delete object which is not created here: " + nodePath);
+        { result.code = -4; result.msg = "Can't delete object not created here: " + nodePath; }
         else if (obj->referenceCount() > 1)
-            return Result(-5, "Can't delete object which is still referenced: " + nodePath);
-        _objects.erase(_objects.find(id)); return Result();
+        { result.code = -5; result.msg = "Can't delete object still referenced: " + nodePath; }
+        else _objects.erase(_objects.find(id));
+        return result;
     }
     else
         return Result(-1, "Invalid scene object: " + nodePath);
+}
+
+osg::Object* ScriptBase::getFromPath(const std::string& nodePath)
+{
+    if (_objects.find(nodePath) != _objects.end())
+        return _objects[nodePath].get();
+
+    osgDB::StringList path; osg::Object* obj = NULL;
+    osgDB::split(nodePath, path, '/');
+    if (_objects.find(path[0]) != _objects.end())
+        obj = _objects[nodePath].get();
+
+    osg::Node* node = obj->asNode();
+    if (node != NULL)
+    {
+        for (size_t i = 1; i < path.size(); ++i)
+        {
+            const std::string& name = path[i];
+            osg::Group* parent = node ? node->asGroup() : NULL;
+            if (parent == NULL) return NULL; node = NULL;
+
+            if (name == "0")
+            {
+                if (parent->getNumChildren() > 0)
+                    node = parent->getChild(0);
+            }
+            else
+            {
+                int index = atoi(name.c_str());
+                if (index > 0 && index < (int)parent->getNumChildren())
+                    node = parent->getChild(index);
+                else
+                {
+                    for (size_t j = 0; j < parent->getNumChildren(); ++j)
+                    {
+                        if (parent->getChild(j)->getName() == name)
+                        { node = parent->getChild(j); break; }
+                    }
+                }
+            }
+        }
+        obj = node;
+    }
+    return obj;
+}
+
+template<typename T> static T getVecValue(const std::string& v)
+{
+    osgDB::StringList values; osgDB::split(v, values, ' ');
+    T result; int num = osg::minimum((int)values.size(), (int)T::num_components);
+    for (int i = 0; i < num; ++i)
+        result[i] = (T::value_type)atof(values[i].c_str());
+    return result;
+}
+
+template<typename T> static T getMatrixValue(const std::string& v, int num = 16)
+{
+    osgDB::StringList values; osgDB::split(v, values, ' ');
+    T result; T::value_type* ptr = (T::value_type*)result.ptr();
+    int minNum = osg::minimum((int)values.size(), num);
+    for (int i = 0; i < minNum; ++i)
+        *(ptr + i) = (T::value_type)atof(values[i].c_str());
+    return result;
+}
+
+template<typename T> static std::vector<T> getVector(const std::string& v)
+{
+    osgDB::StringList values; osgDB::split(v, values, ' ');
+    std::vector<T> result;
+    for (size_t i = 0; i < values.size(); ++i)
+        result.push_back((T)atof(values[i].c_str()));
+    return result;
+}
+
+template<typename T> static std::vector<T> getVecVector(const std::string& v, char s)
+{
+    osgDB::StringList values; osgDB::split(v, values, s);
+    std::vector<T> result;
+    for (size_t i = 0; i < values.size(); ++i)
+        result.push_back(getVecValue<T>(values[i]));
+    return result;
 }
 
 bool ScriptBase::setProperty(const std::string& key, const std::string& value,
                              LibraryEntry* entry, osg::Object* object,
                              const std::vector<LibraryEntry::Property>& names)
 {
+    std::string clsName = object->className();
+    std::string value2; char sep = _vecSeparator;
     for (size_t i = 0; i < names.size(); ++i)
     {
         const LibraryEntry::Property& prop = names[i];
-        if (prop.name == key && !prop.outdated)
+        if (prop.name != key && prop.outdated) continue;
+
+#if OSGVERSE_COMPLETED_SCRIPT
+        switch (prop.type)
         {
-            switch (prop.type)
-            {
-            case osgDB::BaseSerializer::RW_OBJECT:
-            case osgDB::BaseSerializer::RW_IMAGE:
-                return entry->setProperty(object, key, getFromPath(value));
-            //RW_BOOL, RW_CHAR, RW_UCHAR, RW_SHORT, RW_USHORT, RW_INT, RW_UINT, RW_FLOAT, RW_DOUBLE,
-            //RW_VEC2F, RW_VEC2D, RW_VEC3F, RW_VEC3D, RW_VEC4F, RW_VEC4D, RW_QUAT, RW_PLANE,
-            //RW_MATRIXF, RW_MATRIXD, RW_MATRIX, RW_GLENUM, RW_STRING, RW_ENUM,
-            //RW_VEC2B, RW_VEC2UB, RW_VEC2S, RW_VEC2US, RW_VEC2I, RW_VEC2UI,
-            //RW_VEC3B, RW_VEC3UB, RW_VEC3S, RW_VEC3US, RW_VEC3I, RW_VEC3UI,
-            //RW_VEC4B, RW_VEC4UB, RW_VEC4S, RW_VEC4US, RW_VEC4I, RW_VEC4UI,
-            //RW_BOUNDINGBOXF, RW_BOUNDINGBOXD,
-            //RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED,
-            //RW_VECTOR
-            }
+        case osgDB::BaseSerializer::RW_OBJECT:
+        case osgDB::BaseSerializer::RW_IMAGE:
+            return entry->setProperty(object, key, getFromPath(value));
+        case osgDB::BaseSerializer::RW_BOOL:
+            std::transform(value.begin(), value.end(), value2.begin(), tolower);
+            if (value2 == "true") return entry->setProperty(object, key, true);
+            else return entry->setProperty(object, key, atoi(value2.c_str()) > 0);
+        case osgDB::BaseSerializer::RW_CHAR:
+            return entry->setProperty(object, key, (char)atoi(value.c_str()));
+        case osgDB::BaseSerializer::RW_UCHAR:
+            return entry->setProperty(object, key, (unsigned char)atoi(value.c_str()));
+        case osgDB::BaseSerializer::RW_SHORT:
+            return entry->setProperty(object, key, (short)atoi(value.c_str()));
+        case osgDB::BaseSerializer::RW_USHORT:
+            return entry->setProperty(object, key, (unsigned short)atoi(value.c_str()));
+        case osgDB::BaseSerializer::RW_INT:
+        case osgDB::BaseSerializer::RW_GLENUM:
+            return entry->setProperty(object, key, (int)atoi(value.c_str()));
+        case osgDB::BaseSerializer::RW_UINT:
+            return entry->setProperty(object, key, (unsigned int)atoi(value.c_str()));
+        case osgDB::BaseSerializer::RW_FLOAT:
+            return entry->setProperty(object, key, (float)atof(value.c_str()));
+        case osgDB::BaseSerializer::RW_DOUBLE:
+            return entry->setProperty(object, key, (double)atof(value.c_str()));
+        case osgDB::BaseSerializer::RW_QUAT:
+            return entry->setProperty(object, key, getVecValue<osg::Quat>(value));
+        case osgDB::BaseSerializer::RW_VEC2F:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2f>(value));
+        case osgDB::BaseSerializer::RW_VEC3F:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3f>(value));
+        case osgDB::BaseSerializer::RW_VEC4F:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4f>(value));
+        case osgDB::BaseSerializer::RW_VEC2D:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2d>(value));
+        case osgDB::BaseSerializer::RW_VEC3D:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3d>(value));
+        case osgDB::BaseSerializer::RW_VEC4D:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4d>(value));
+        case osgDB::BaseSerializer::RW_VEC2B:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2b>(value));
+        case osgDB::BaseSerializer::RW_VEC3B:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3b>(value));
+        case osgDB::BaseSerializer::RW_VEC4B:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4b>(value));
+        case osgDB::BaseSerializer::RW_VEC2UB:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2ub>(value));
+        case osgDB::BaseSerializer::RW_VEC3UB:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3ub>(value));
+        case osgDB::BaseSerializer::RW_VEC4UB:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4ub>(value));
+        case osgDB::BaseSerializer::RW_VEC2S:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2s>(value));
+        case osgDB::BaseSerializer::RW_VEC3S:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3s>(value));
+        case osgDB::BaseSerializer::RW_VEC4S:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4s>(value));
+        case osgDB::BaseSerializer::RW_VEC2US:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2us>(value));
+        case osgDB::BaseSerializer::RW_VEC3US:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3us>(value));
+        case osgDB::BaseSerializer::RW_VEC4US:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4us>(value));
+        case osgDB::BaseSerializer::RW_VEC2I:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2i>(value));
+        case osgDB::BaseSerializer::RW_VEC3I:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3i>(value));
+        case osgDB::BaseSerializer::RW_VEC4I:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4i>(value));
+        case osgDB::BaseSerializer::RW_VEC2UI:
+            return entry->setProperty(object, key, getVecValue<osg::Vec2ui>(value));
+        case osgDB::BaseSerializer::RW_VEC3UI:
+            return entry->setProperty(object, key, getVecValue<osg::Vec3ui>(value));
+        case osgDB::BaseSerializer::RW_VEC4UI:
+            return entry->setProperty(object, key, getVecValue<osg::Vec4ui>(value));
+        case osgDB::BaseSerializer::RW_MATRIXF:
+            return entry->setProperty(object, key, getMatrixValue<osg::Matrixf>(value));
+        case osgDB::BaseSerializer::RW_MATRIXD:
+            return entry->setProperty(object, key, getMatrixValue<osg::Matrixd>(value));
+        case osgDB::BaseSerializer::RW_MATRIX:
+            return entry->setProperty(object, key, getMatrixValue<osg::Matrix>(value));
+        case osgDB::BaseSerializer::RW_STRING:
+            return entry->setProperty(object, key, value);
+        case osgDB::BaseSerializer::RW_ENUM:
+            return entry->setEnumProperty(object, key, value);
+        case osgDB::BaseSerializer::RW_VECTOR:
+            if (clsName == "FloatArray")
+                return entry->setProperty(object, key, getVector<float>(value));
+            else if (clsName == "Vec2Array")
+                return entry->setVecProperty(object, key, getVecVector<osg::Vec2f>(value, sep));
+            else if (clsName == "Vec3Array")
+                return entry->setVecProperty(object, key, getVecVector<osg::Vec3f>(value, sep));
+            else if (clsName == "Vec4Array")
+                return entry->setVecProperty(object, key, getVecVector<osg::Vec4f>(value, sep));
+            else if (clsName == "DoubleArray")
+                return entry->setProperty(object, key, getVector<double>(value));
+            else if (clsName == "Vec2dArray")
+                return entry->setVecProperty(object, key, getVecVector<osg::Vec2d>(value, sep));
+            else if (clsName == "Vec3dArray")
+                return entry->setVecProperty(object, key, getVecVector<osg::Vec3d>(value, sep));
+            else if (clsName == "Vec4dArray")
+                return entry->setVecProperty(object, key, getVecVector<osg::Vec4d>(value, sep));
+            break;
+        //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
         }
+#else
+        OSG_WARN << "[ScriptBase] setProperty() not implemented" << std::endl;
+#endif
+    }
+    return false;
+}
+
+template<typename T> static std::string setVecValue(const T& v)
+{
+    std::stringstream ss; int num = T::num_components;
+    for (int i = 0; i < num; ++i) { if (i > 0) ss << " "; ss << v[i]; }
+    return ss.str();
+}
+
+template<typename T> static std::string setMatrixValue(const T& v, int num = 16)
+{
+    std::stringstream ss; T::value_type* ptr = (T::value_type*)v.ptr();
+    for (int i = 0; i < num; ++i) { if (i > 0) ss << " "; ss << *(ptr + i); }
+    return ss.str();
+}
+
+template<typename T> static std::string setVector(const std::vector<T>& v)
+{
+    std::stringstream ss;
+    for (size_t i = 0; i < v.size(); ++i)
+    { if (i > 0) ss << " "; ss << v[i]; }
+    return ss.str();
+}
+
+template<typename T> static std::string setVecVector(const std::vector<T>& v, char s)
+{
+    std::stringstream ss; int num = T::num_components;
+    for (size_t i = 0; i < v.size(); ++i)
+    {
+        const T& vec = v[i]; if (i > 0) ss << " ";
+        for (int j = 0; j < num; ++j) { if (j > 0) ss << s; ss << vec[j]; }
+    }
+    return ss.str();
+}
+
+bool ScriptBase::getProperty(const std::string& key, std::string& value,
+                             LibraryEntry* entry, osg::Object* object,
+                             const std::vector<LibraryEntry::Property>& names)
+{
+    std::string clsName = object->className();
+    std::string value2; char sep = _vecSeparator;
+    for (size_t i = 0; i < names.size(); ++i)
+    {
+        const LibraryEntry::Property& prop = names[i];
+        if (prop.name != key && prop.outdated) continue;
+
+#define GET_PROP_VALUE(type, func) { \
+    type v; if (!entry->getProperty(object, key, v)) return false; \
+    value = func (v); return true; }
+#define GET_PROP_VALUE2(type, func, arg) { \
+    type v; if (!entry->getProperty(object, key, v)) return false; \
+    value = func (v, arg); return true; }
+
+#if OSGVERSE_COMPLETED_SCRIPT
+        switch (prop.type)
+        {
+        //case osgDB::BaseSerializer::RW_OBJECT:
+        //case osgDB::BaseSerializer::RW_IMAGE:
+        //case osgDB::BaseSerializer::RW_BOOL:
+        case osgDB::BaseSerializer::RW_CHAR: GET_PROP_VALUE(char, std::to_string);
+        case osgDB::BaseSerializer::RW_UCHAR: GET_PROP_VALUE(unsigned char, std::to_string);
+        case osgDB::BaseSerializer::RW_SHORT: GET_PROP_VALUE(short, std::to_string);
+        case osgDB::BaseSerializer::RW_USHORT: GET_PROP_VALUE(unsigned short, std::to_string);
+        case osgDB::BaseSerializer::RW_INT: GET_PROP_VALUE(int, std::to_string);
+        case osgDB::BaseSerializer::RW_GLENUM: GET_PROP_VALUE(GLenum, std::to_string);
+        case osgDB::BaseSerializer::RW_UINT: GET_PROP_VALUE(unsigned int, std::to_string);
+        case osgDB::BaseSerializer::RW_FLOAT: GET_PROP_VALUE(float, std::to_string);
+        case osgDB::BaseSerializer::RW_DOUBLE: GET_PROP_VALUE(double, std::to_string);
+        case osgDB::BaseSerializer::RW_QUAT: GET_PROP_VALUE(osg::Quat, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2F: GET_PROP_VALUE(osg::Vec2f, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3F: GET_PROP_VALUE(osg::Vec3f, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4F: GET_PROP_VALUE(osg::Vec4f, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2D: GET_PROP_VALUE(osg::Vec2d, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3D: GET_PROP_VALUE(osg::Vec3d, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4D: GET_PROP_VALUE(osg::Vec4d, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2B: GET_PROP_VALUE(osg::Vec2b, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3B: GET_PROP_VALUE(osg::Vec3b, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4B: GET_PROP_VALUE(osg::Vec4b, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2UB: GET_PROP_VALUE(osg::Vec2ub, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3UB: GET_PROP_VALUE(osg::Vec3ub, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4UB: GET_PROP_VALUE(osg::Vec4ub, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2S: GET_PROP_VALUE(osg::Vec2s, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3S: GET_PROP_VALUE(osg::Vec3s, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4S: GET_PROP_VALUE(osg::Vec4s, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2US: GET_PROP_VALUE(osg::Vec2us, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3US: GET_PROP_VALUE(osg::Vec3us, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4US: GET_PROP_VALUE(osg::Vec4us, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2I: GET_PROP_VALUE(osg::Vec2i, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3I: GET_PROP_VALUE(osg::Vec3i, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4I: GET_PROP_VALUE(osg::Vec4i, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC2UI: GET_PROP_VALUE(osg::Vec2ui, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC3UI: GET_PROP_VALUE(osg::Vec3ui, setVecValue);
+        case osgDB::BaseSerializer::RW_VEC4UI: GET_PROP_VALUE(osg::Vec4ui, setVecValue);
+        case osgDB::BaseSerializer::RW_MATRIXF: GET_PROP_VALUE(osg::Matrixf, setMatrixValue);
+        case osgDB::BaseSerializer::RW_MATRIXD: GET_PROP_VALUE(osg::Matrixd, setMatrixValue);
+        case osgDB::BaseSerializer::RW_MATRIX: GET_PROP_VALUE(osg::Matrix, setMatrixValue);
+        case osgDB::BaseSerializer::RW_STRING: GET_PROP_VALUE(std::string, std::string);
+        case osgDB::BaseSerializer::RW_ENUM:
+            value = entry->getEnumProperty(object, key);
+            return !value.empty();
+        case osgDB::BaseSerializer::RW_VECTOR:
+            if (clsName == "FloatArray")
+                GET_PROP_VALUE(std::vector<float>, setVector)
+            else if (clsName == "Vec2Array")
+                GET_PROP_VALUE2(std::vector<osg::Vec2f>, setVecVector, sep)
+            else if (clsName == "Vec3Array")
+                GET_PROP_VALUE2(std::vector<osg::Vec3f>, setVecVector, sep)
+            else if (clsName == "Vec4Array")
+                GET_PROP_VALUE2(std::vector<osg::Vec4f>, setVecVector, sep)
+            else if (clsName == "DoubleArray")
+                GET_PROP_VALUE(std::vector<double>, setVector)
+            else if (clsName == "Vec2dArray")
+                GET_PROP_VALUE2(std::vector<osg::Vec2d>, setVecVector, sep)
+            else if (clsName == "Vec3dArray")
+                GET_PROP_VALUE2(std::vector<osg::Vec3d>, setVecVector, sep)
+            else if (clsName == "Vec4dArray")
+                GET_PROP_VALUE2(std::vector<osg::Vec4d>, setVecVector, sep)
+            break;
+            //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
+        }
+#else
+        OSG_WARN << "[ScriptBase] getProperty() not implemented" << std::endl;
+#endif
     }
     return false;
 }

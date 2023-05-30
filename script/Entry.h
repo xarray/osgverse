@@ -62,7 +62,7 @@ namespace osgVerse
             unsigned int size = vs->size(*object);
             for (size_t i = 0; i < size; ++i)
             {
-                void* ptr = vs->getElement(*object, i);
+                const void* ptr = vs->getElement(*object, i);
                 value.push_back(*(T*)ptr);
             }
             return true;
@@ -74,9 +74,21 @@ namespace osgVerse
             osgDB::BaseSerializer::Type type = osgDB::BaseSerializer::RW_UNDEFINED;
             osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(
                 _manager.getSerializer(object, name, type));
-            if (!vs) return false;
+            if (!vs) return false; else vs->clear(*object);
+            
+            for (size_t i = 0; i < value.size(); ++i)
+                vs->addElement(*object, (void*)&value[i]);
+            return true;
+        }
 
-            vs->clear(*object);
+        template<typename T>
+        bool setVecProperty(osg::Object* object, const std::string& name, const std::vector<T>& value)
+        {
+            osgDB::BaseSerializer::Type type = osgDB::BaseSerializer::RW_UNDEFINED;
+            osgDB::VectorBaseSerializer* vs = dynamic_cast<osgDB::VectorBaseSerializer*>(
+                _manager.getSerializer(object, name, type));
+            if (!vs) return false; else vs->clear(*object);
+
             for (size_t i = 0; i < value.size(); ++i)
                 vs->addElement(*object, (void*)value[i].ptr());
             return true;
@@ -107,6 +119,13 @@ namespace osgVerse
         bool setProperty(osg::Object* object, const std::string& name, const std::vector<T>& value)
         {
             OSG_WARN << "[LibraryEntry] setProperty() not implemented" << std::endl;
+            return false;
+        }
+
+        template<typename T>
+        bool setVecProperty(osg::Object* object, const std::string& name, const std::vector<T>& value)
+        {
+            OSG_WARN << "[LibraryEntry] setVecProperty() not implemented" << std::endl;
             return false;
         }
 #endif
