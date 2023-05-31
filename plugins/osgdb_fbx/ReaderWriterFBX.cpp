@@ -12,7 +12,7 @@ class ReaderWriterFBX : public osgDB::ReaderWriter
 public:
     ReaderWriterFBX()
     {
-        supportsExtension("verse", "osgVerse pseudo-loader");
+        supportsExtension("verse_fbx", "osgVerse pseudo-loader");
         supportsExtension("fbx", "FBX scene file");
         supportsOption("Directory", "Setting the working directory");
     }
@@ -24,9 +24,17 @@ public:
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
     {
+        std::string fileName(path);
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-        return osgVerse::loadFbx(path).get();
+
+        bool usePseudo = (ext == "verse_fbx");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return osgVerse::loadFbx(fileName).get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const

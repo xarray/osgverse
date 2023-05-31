@@ -116,4 +116,85 @@ namespace osgVerse
         }
         return loadKtxFromObject(texture);
     }
+
+    static ktxTexture1* saveImageToKtx(const std::vector<osg::Image*>& images, bool asCubeMap)
+    {
+        ktxTexture1* texture = NULL;
+        if (images.empty()) return false;
+        if (asCubeMap && images.size() < 6) return false;
+
+        osg::Image* image0 = images[0];
+        ktxTextureCreateInfo createInfo;
+
+        createInfo.glInternalformat = image0->getInternalTextureFormat();
+        createInfo.baseWidth = image0->s();
+        createInfo.baseHeight = image0->t();
+        createInfo.baseDepth = image0->r();
+        createInfo.numDimensions = (image0->r() > 1) ? 3 : 2;
+        createInfo.numLevels = 1;
+        createInfo.numLayers = asCubeMap ? 1 : images.size();
+        createInfo.numFaces = asCubeMap ? images.size() : 1;
+        createInfo.isArray = (images.size() > 1) ? KTX_TRUE : KTX_FALSE;
+        createInfo.generateMipmaps = KTX_FALSE;
+
+        KTX_error_code result = ktxTexture1_Create(
+            &createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
+        if (result != KTX_SUCCESS)
+        {
+            OSG_WARN << "[LoaderKTX] Unable to create KTX for saving\n";
+            return NULL;
+        }
+
+        for (size_t i = 0; i < images.size(); ++i)
+        {
+            osg::Image* img = images[i];
+            if (img->s() != image0->s() || img->t() != image0->t() ||
+                img->getInternalTextureFormat() != image0->getInternalTextureFormat())
+            {
+                OSG_WARN << "[LoaderKTX] Mismatched image format while saving "
+                    << "KTX texture\n"; continue;
+            }
+
+            ktx_uint8_t* src = (ktx_uint8_t*)img->data();
+            result = ktxTexture_SetImageFromMemory(
+                ktxTexture(texture), 0, (asCubeMap ? 0 : i), (asCubeMap ? i : 0),
+                src, img->getTotalSizeInBytes());
+            if (result != KTX_SUCCESS)
+            {
+                OSG_WARN << "[LoaderKTX] Unable to save image " << i
+                    << " to KTX texture\n";
+                ktxTexture_Destroy(ktxTexture(texture)); return NULL;
+            }
+        }
+        return texture;
+    }
+
+    bool saveKtx(const std::string& file, bool asCubeMap,
+                 const std::vector<osg::Image*>& images)
+    {
+        ktxTexture1* texture = saveImageToKtx(images, asCubeMap);
+        if (texture == NULL) return false;
+
+        KTX_error_code result = ktxTexture_WriteToNamedFile(ktxTexture(texture), file.c_str());
+        ktxTexture_Destroy(ktxTexture(texture));
+        return result == KTX_SUCCESS;
+    }
+
+    bool saveKtx2(std::ostream& out, bool asCubeMap,
+                  const std::vector<osg::Image*>& images)
+    {
+        ktxTexture1* texture = saveImageToKtx(images, asCubeMap);
+        if (texture == NULL) return false;
+
+        ktx_uint8_t* buffer = NULL; ktx_size_t length = 0;
+        KTX_error_code result = ktxTexture_WriteToMemory(
+            ktxTexture(texture), &buffer, &length);
+        if (result == KTX_SUCCESS)
+        {
+            out.write((char*)buffer, length);
+            delete buffer;
+        }
+        ktxTexture_Destroy(ktxTexture(texture));
+        return result == KTX_SUCCESS;
+    }
 }

@@ -12,6 +12,7 @@ class ReaderWriterGLTF : public osgDB::ReaderWriter
 public:
     ReaderWriterGLTF()
     {
+        supportsExtension("verse_gltf", "osgVerse pseudo-loader");
         supportsExtension("gltf", "GLTF ascii scene file");
         supportsExtension("glb", "GLTF binary scene file");
         supportsOption("Directory", "Setting the working directory");
@@ -25,11 +26,19 @@ public:
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
     {
+        std::string fileName(path);
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
-        if (ext == "glb") return osgVerse::loadGltf(path, true).get();
-        else return osgVerse::loadGltf(path, false).get();
+        bool usePseudo = (ext == "verse_gltf");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+
+        if (ext == "glb") return osgVerse::loadGltf(fileName, true).get();
+        else return osgVerse::loadGltf(fileName, false).get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
