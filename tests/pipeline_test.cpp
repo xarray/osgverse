@@ -42,7 +42,7 @@ protected:
 // - alternative of gl_FragColor: VERSE_FS_FINAL
 // Try to use them instead of GLSL ones to make osgVerse work smoothly!
 
-static char* middleFragmentShaderCode =
+static const char* middleFragmentShaderCode =
 {
     "uniform sampler2D DiffuseMetallicBuffer;\n"
     "VERSE_FS_IN vec4 texCoord0;\n"
@@ -55,7 +55,7 @@ static char* middleFragmentShaderCode =
     "}\n"
 };
 
-static char* displayFragmentShaderCode =
+static const char* displayFragmentShaderCode =
 {
     "uniform sampler2D ColorBuffer;\n"
     "uniform sampler2D DepthBuffer;\n"

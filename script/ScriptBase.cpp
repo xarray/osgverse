@@ -190,17 +190,17 @@ template<typename T> static T getVecValue(const std::string& v)
     osgDB::StringList values; osgDB::split(v, values, ' ');
     T result; int num = osg::minimum((int)values.size(), (int)T::num_components);
     for (int i = 0; i < num; ++i)
-        result[i] = (T::value_type)atof(values[i].c_str());
+        result[i] = (typename T::value_type)atof(values[i].c_str());
     return result;
 }
 
 template<typename T> static T getMatrixValue(const std::string& v, int num = 16)
 {
     osgDB::StringList values; osgDB::split(v, values, ' ');
-    T result; T::value_type* ptr = (T::value_type*)result.ptr();
+    T result; typename T::value_type* ptr = (typename T::value_type*)result.ptr();
     int minNum = osg::minimum((int)values.size(), num);
     for (int i = 0; i < minNum; ++i)
-        *(ptr + i) = (T::value_type)atof(values[i].c_str());
+        *(ptr + i) = (typename T::value_type)atof(values[i].c_str());
     return result;
 }
 
@@ -356,7 +356,7 @@ template<typename T> static std::string setVecValue(const T& v)
 
 template<typename T> static std::string setMatrixValue(const T& v, int num = 16)
 {
-    std::stringstream ss; T::value_type* ptr = (T::value_type*)v.ptr();
+    std::stringstream ss; typename T::value_type* ptr = (typename T::value_type*)v.ptr();
     for (int i = 0; i < num; ++i) { if (i > 0) ss << " "; ss << *(ptr + i); }
     return ss.str();
 }

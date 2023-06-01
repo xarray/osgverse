@@ -120,8 +120,8 @@ namespace osgVerse
     static ktxTexture1* saveImageToKtx(const std::vector<osg::Image*>& images, bool asCubeMap)
     {
         ktxTexture1* texture = NULL;
-        if (images.empty()) return false;
-        if (asCubeMap && images.size() < 6) return false;
+        if (images.empty()) return NULL;
+        if (asCubeMap && images.size() < 6) return NULL;
 
         osg::Image* image0 = images[0];
         ktxTextureCreateInfo createInfo;

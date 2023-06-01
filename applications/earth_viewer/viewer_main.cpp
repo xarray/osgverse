@@ -40,7 +40,7 @@ namespace backward { backward::SignalHandling sh; }
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 2)
 #   define EarthManipulator osgEarth::EarthManipulator
 #   define AutoClipPlaneCullCallback osgEarth::AutoClipPlaneCullCallback
 #else
@@ -148,7 +148,7 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
 
 int main(int argc, char** argv)
 {
-#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 2)
     osgEarth::initialize();
 #endif
     osgVerse::globalInitialize(argc, argv);
@@ -196,7 +196,7 @@ int main(int argc, char** argv)
 
         // read in the Earth file and open the map node
         osg::ref_ptr<osgEarth::MapNode> mapNode = osgEarth::MapNode::get(earthRoot.get());
-#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 1)
+#if OSGEARTH_VERSION_GREATER_THAN(2, 10, 2)
         if (!mapNode->open()) { OSG_WARN << "Failed to open earth map"; return 1; }
 #else
         if (!mapNode.valid()) { OSG_WARN << "Failed to open earth map"; return 1; }

@@ -108,7 +108,7 @@ FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
 FIND_PATH(BULLET_LIB_DIR libBullet3Dynamics.a BulletDynamics.lib
     PATHS
     $ENV{BULLET_ROOT}/lib $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
-    /usr/lib /usr/${FIND_LIB_POSTFIX}
+    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 
@@ -132,7 +132,7 @@ FIND_PATH(OSG_LIB_DIR libosg.so osg.lib
     PATHS
     $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
     $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
-    /usr/lib /usr/${FIND_LIB_POSTFIX}
+    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 

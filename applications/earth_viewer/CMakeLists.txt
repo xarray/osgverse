@@ -4,7 +4,7 @@ SET(EXECUTABLE_FILES
 )
 
 #########################################
-FIND_PATH(OSGEARTH_INCLUDE_DIR osgEarth/EarthManipulator
+FIND_PATH(OSGEARTH_INCLUDE_DIR osgEarth/MapNode
     PATHS
     $ENV{OSG_ROOT}/include
     $ENV{OSG_DIR}/include
@@ -12,7 +12,7 @@ FIND_PATH(OSGEARTH_INCLUDE_DIR osgEarth/EarthManipulator
     /usr/local/include
 )
 
-FIND_PATH(OSGEARTH_BUILD_INCLUDE_DIR osgEarth/BuildConfig
+FIND_PATH(OSGEARTH_BUILD_INCLUDE_DIR osgEarth/BuildConfig osgEarth/Config
     PATHS
     $ENV{OSG_ROOT}/include
     $ENV{OSG_DIR}/include
@@ -24,7 +24,7 @@ FIND_PATH(OSGEARTH_LIB_DIR libosgEarth.so osgEarth.lib
     PATHS
     $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
     $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
-    /usr/lib /usr/${FIND_LIB_POSTFIX}
+    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 #########################################
