@@ -49,8 +49,9 @@ To use osgVerse libraries and applications, OpenGL version must be higher than 2
 Our project is already tested on graphics cards listed as below:
 | Grapihcs Card             | OpenGL Version | Supported          | Notes |
 |---------------------------|----------------|--------------------|-------|
-| NVIDIA RTX 3060 Laptop    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| NVIDIA RTX 1050 Mobile    | 3.2 / GLSL 1.5 | :soon:             |       |
+| NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
+| NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
+| NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | Display has broken problems with Nouveau driver |
 | AMD Radeon RX5500         |                | :soon:             |       |
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
