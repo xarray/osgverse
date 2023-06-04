@@ -12,6 +12,8 @@
 
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
+#   include <EGL/eglext.h>
+#   include <EGL/eglext_angle.h>
 #   define VERSE_GLES 1
 #   define TEST_PIPELINE 1
 #else
@@ -134,7 +136,28 @@ int main(int argc, char** argv)
     };
 
     EGLNativeWindowType hWnd = sdlInfo.info.win.window;
-    EGLDisplay display = eglGetDisplay(GetDC(hWnd));
+    EGLDisplay display = EGL_NO_DISPLAY;
+    PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)(
+        eglGetProcAddress("eglGetPlatformDisplayEXT"));
+
+    if (eglGetPlatformDisplayEXT != NULL)
+    {
+        const EGLint attrD3D11[] = {
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
+            EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,
+            EGL_NONE,  // You may also select D3D9, Vulkan, OpenGL, ...
+        };
+        display = eglGetPlatformDisplayEXT(
+            EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrD3D11);
+        OSG_NOTICE << "**** Selected D3D11 backend successfully" << std::endl;
+    }
+
+    if (display == EGL_NO_DISPLAY)
+    {
+        display = eglGetDisplay(GetDC(hWnd));
+        OSG_NOTICE << "**** Selected default backend successfully" << std::endl;
+    }
+
     if (display == EGL_NO_DISPLAY)
     { OSG_WARN << "Failed to get EGL display" << std::endl; return 1; }
 
