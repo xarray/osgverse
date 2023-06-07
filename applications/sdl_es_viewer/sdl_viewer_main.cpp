@@ -10,15 +10,14 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#define TEST_PIPELINE 1
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
 #   include <EGL/eglext.h>
 #   include <EGL/eglext_angle.h>
 #   define VERSE_GLES 1
-#   define TEST_PIPELINE 1
-#else
-#   define TEST_PIPELINE 1
 #endif
+
 #include <SDL.h>
 #include <SDL_syswm.h>
 #include <backward.hpp>  // for better debug info
@@ -110,7 +109,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    unsigned int windowWidth = 1280, windowHeight = 720;
+    int windowWidth = 1280, windowHeight = 720;
     SDL_Window* sdlWindow = SDL_CreateWindow("osgVerse_ViewerSDL", 50, 50, windowWidth, windowHeight,
                                              SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
     if (sdlWindow == NULL)
@@ -125,6 +124,11 @@ int main(int argc, char** argv)
 #if VERSE_GLES
     EGLint configAttribList[] =
     {
+#   if defined(OSG_GLES3_AVAILABLE)
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+#   else
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+#   endif
         EGL_RED_SIZE,       8,
         EGL_GREEN_SIZE,     8,
         EGL_BLUE_SIZE,      8,
@@ -132,6 +136,7 @@ int main(int argc, char** argv)
         EGL_DEPTH_SIZE,     24,
         EGL_STENCIL_SIZE,   8/*EGL_DONT_CARE*/,
         EGL_SAMPLE_BUFFERS, 0,
+        EGL_SAMPLES,        0,
         EGL_NONE
     };
 
@@ -154,13 +159,14 @@ int main(int argc, char** argv)
 
     if (display == EGL_NO_DISPLAY)
     {
-        display = eglGetDisplay(GetDC(hWnd));
+        display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         OSG_NOTICE << "**** Selected default backend successfully" << std::endl;
     }
 
     if (display == EGL_NO_DISPLAY)
     { OSG_WARN << "Failed to get EGL display" << std::endl; return 1; }
 
+    // Initialize EGL
     EGLint majorVersion = 0, minorVersion = 0;
     if (!eglInitialize(display, &majorVersion, &minorVersion))
     { OSG_WARN << "Failed to initialize EGL display" << std::endl; return 1; }
@@ -168,18 +174,27 @@ int main(int argc, char** argv)
     EGLint numConfigs = 0;
     if (!eglGetConfigs(display, NULL, 0, &numConfigs))
     { OSG_WARN << "Failed to get EGL display config" << std::endl; return 1; }
-
+    
+    // Get an appropriate EGL framebuffer configuration
     EGLConfig config;
     if (!eglChooseConfig(display, configAttribList, &config, 1, &numConfigs))
     { OSG_WARN << "Failed to choose EGL config" << std::endl; return 1; }
 
+    // Configure the surface
     EGLint surfaceAttribList[] = { EGL_NONE, EGL_NONE };
     EGLSurface surface = eglCreateWindowSurface(
         display, config, (EGLNativeWindowType)hWnd, surfaceAttribList);
     if (surface == EGL_NO_SURFACE)
     { OSG_WARN << "Failed to create EGL surface" << std::endl; return 1; }
 
+#   if defined(OSG_GLES3_AVAILABLE)
+    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE, EGL_NONE };
+#   else
     EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE };
+#   endif
+    eglBindAPI(EGL_OPENGL_ES_API);  // Set rendering API
+
+    // Create an EGL rendering context
     EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribList);
     if (context == EGL_NO_CONTEXT)
     { OSG_WARN << "Failed to create EGL context" << std::endl; return 1; }
@@ -203,10 +218,11 @@ int main(int argc, char** argv)
     //osg::setNotifyLevel(osg::INFO);
     MyViewer viewer(pipeline.get());
 #else
-    osg::setNotifyLevel(osg::INFO);
+    //osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
     root->addChild(postCamera.get());
-    //root->addChild(sceneRoot.get());
+    root->addChild(sceneRoot.get());
+
     osgViewer::Viewer viewer;
 #endif
     viewer.addEventHandler(new osgViewer::StatsHandler);
@@ -217,6 +233,11 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     // Create the graphics window
+#if VERSE_GLES
+    eglQuerySurface(display, surface, EGL_WIDTH, &windowWidth);
+    eglQuerySurface(display, surface, EGL_HEIGHT, &windowHeight);
+#endif
+
     osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> gw =
         viewer.setUpViewerAsEmbeddedInWindow(0, 0, windowWidth, windowHeight);
     viewer.getCamera()->setDrawBuffer(GL_BACK);
@@ -234,6 +255,25 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
         root->addChild(shadow->getFrustumGeode());
     }
+
+    /*osg::ref_ptr<osg::Camera> hudCamera = new osg::Camera;
+    hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+    hudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+    hudCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
+    hudCamera->setViewMatrix(osg::Matrix::identity());
+    hudCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+    hudCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    osgVerse::Pipeline::setPipelineMask(*hudCamera, FORWARD_SCENE_MASK);
+
+    float quadY = 0.0f;
+    for (int i = 0; i < shadow->getShadowNumber(); ++i)
+    {
+        osg::Node* quad = osgVerse::createScreenQuad(
+            osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
+        hudCamera->addChild(quad); quadY += 0.21f;
+    }
+    root->addChild(hudCamera.get());*/
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
@@ -261,8 +301,8 @@ int main(int argc, char** argv)
             case SDL_WINDOWEVENT:
                 if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
                 {
-                    gw->resized(0, 0, event.window.data1, event.window.data2);
                     eq->windowResize(0, 0, event.window.data1, event.window.data2);
+                    gw->resized(0, 0, event.window.data1, event.window.data2);
                 }
                 break;
             case SDL_QUIT:

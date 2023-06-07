@@ -53,6 +53,7 @@ namespace osgVerse
         regObject->addFileExtensionAlias("ept", "verse_ept");
         regObject->addFileExtensionAlias("fbx", "verse_fbx");
         regObject->addFileExtensionAlias("ktx", "verse_ktx");
+        regObject->addFileExtensionAlias("vdb", "verse_vdb");
         regObject->addFileExtensionAlias("gltf", "verse_gltf");
         regObject->addFileExtensionAlias("glb", "verse_gltf");
     }

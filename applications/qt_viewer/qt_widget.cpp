@@ -61,14 +61,14 @@ void OsgSceneWidget::keyPressEvent(QKeyEvent* event)
     if (event->modifiers() != Qt::NoModifier)
     {
         int modifiers = event->modifiers(); _lastModifiers = modifiers;
-        if (modifiers & Qt::ShiftModifier)
-            _graphicsWindow->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KEY_Shift_L);
-        if (modifiers & Qt::ControlModifier)
-            _graphicsWindow->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KEY_Control_L);
-        if (modifiers & Qt::AltModifier)
-            _graphicsWindow->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KEY_Alt_L);
+        if (modifiers & Qt::ShiftModifier) _graphicsWindow->getEventQueue()->keyPress(
+            osgGA::GUIEventAdapter::KEY_Shift_L, osgGA::GUIEventAdapter::KEY_Shift_L);
+        if (modifiers & Qt::ControlModifier) _graphicsWindow->getEventQueue()->keyPress(
+            osgGA::GUIEventAdapter::KEY_Control_L, osgGA::GUIEventAdapter::KEY_Control_L);
+        if (modifiers & Qt::AltModifier) _graphicsWindow->getEventQueue()->keyPress(
+            osgGA::GUIEventAdapter::KEY_Alt_L, osgGA::GUIEventAdapter::KEY_Alt_L);
     }
-    _graphicsWindow->getEventQueue()->keyPress(key);
+    _graphicsWindow->getEventQueue()->keyPress(key, event->key());
 }
 
 void OsgSceneWidget::keyReleaseEvent(QKeyEvent* event)
@@ -79,14 +79,14 @@ void OsgSceneWidget::keyReleaseEvent(QKeyEvent* event)
     if (_lastModifiers != Qt::NoModifier)
     {
         int modifiers = _lastModifiers; _lastModifiers = 0;
-        if (modifiers & Qt::ShiftModifier)
-            _graphicsWindow->getEventQueue()->keyRelease(osgGA::GUIEventAdapter::KEY_Shift_L);
-        if (modifiers & Qt::ControlModifier)
-            _graphicsWindow->getEventQueue()->keyRelease(osgGA::GUIEventAdapter::KEY_Control_L);
-        if (modifiers & Qt::AltModifier)
-            _graphicsWindow->getEventQueue()->keyRelease(osgGA::GUIEventAdapter::KEY_Alt_L);
+        if (modifiers & Qt::ShiftModifier) _graphicsWindow->getEventQueue()->keyRelease(
+            osgGA::GUIEventAdapter::KEY_Shift_L, osgGA::GUIEventAdapter::KEY_Shift_L);
+        if (modifiers & Qt::ControlModifier) _graphicsWindow->getEventQueue()->keyRelease(
+            osgGA::GUIEventAdapter::KEY_Control_L, osgGA::GUIEventAdapter::KEY_Control_L);
+        if (modifiers & Qt::AltModifier) _graphicsWindow->getEventQueue()->keyRelease(
+            osgGA::GUIEventAdapter::KEY_Alt_L, osgGA::GUIEventAdapter::KEY_Alt_L);
     }
-    _graphicsWindow->getEventQueue()->keyRelease(key);
+    _graphicsWindow->getEventQueue()->keyRelease(key, event->key());
 }
 
 void OsgSceneWidget::mouseMoveEvent(QMouseEvent* event)

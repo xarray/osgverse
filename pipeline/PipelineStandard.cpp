@@ -416,7 +416,7 @@ namespace osgVerse
             std::string lastDs = std::to_string(downsamples.size() - 1);
             osgVerse::Pipeline::Stage* tonemapping = p->addWorkStage("ToneMapping", 1.0f,
                 spp.shaders.quadVS, spp.shaders.tonemappingFS, 1,
-                "ToneMappedBuffer", osgVerse::Pipeline::RGB_INT8/*RGB_FLOAT16*/);
+                "ToneMappedBuffer", osgVerse::Pipeline::RGB_INT8);  // RGB_FLOAT16
             tonemapping->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
             tonemapping->applyBuffer(*downsamples.back(), "BrightnessBuffer" + lastDs, "LuminanceBuffer", 1);
             tonemapping->applyBuffer(*blooming, "BloomBuffer", 2);
