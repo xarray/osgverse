@@ -105,7 +105,7 @@ FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
     /usr/local/include/bullet
 )
 
-FIND_PATH(BULLET_LIB_DIR libBullet3Dynamics.a BulletDynamics.lib
+FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
     PATHS
     $ENV{BULLET_ROOT}/lib $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
     /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
@@ -157,6 +157,7 @@ MACRO(LINK_OSG_LIBRARY PROJECT_NAME)
 ENDMACRO(LINK_OSG_LIBRARY)
 
 ######################################### Dependency Configuations
+SET(OpenGL_GL_PREFERENCE "GLVND")  # or LEGACY
 FIND_PACKAGE(OpenGL)
 FIND_PACKAGE(OpenMP)
 IF(OPENMP_FOUND)
@@ -173,7 +174,7 @@ IF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
     
 ELSE(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 
-    MESSAGE("[osgVerse] Dependency Bullet not found. Some modules will be ignored.")
+    MESSAGE("[osgVerse] Dependency Bullet not found. Some modules and functionalities will be ignored.")
 
 ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 

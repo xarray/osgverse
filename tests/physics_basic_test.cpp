@@ -154,12 +154,15 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> cessnaMT = new osg::MatrixTransform;
     cessnaMT->setMatrix(osg::Matrix::rotate(osg::PI_4, osg::X_AXIS) *
                         osg::Matrix::translate(0.0f, -5.0f, 10.0f));
+    
+    osg::ref_ptr<osg::Node> cessnaModel = osgDB::readNodeFile("cessna.osg");
+    if (cessnaModel.valid())
     {
         // Scale can't be handled with rotation & position in the same matrix
         osg::ref_ptr<osg::MatrixTransform> cessna = new osg::MatrixTransform;
         cessna->setMatrix(osg::Matrix::scale(0.1f, 0.1f, 0.1f));
-        cessna->addChild(osgDB::readNodeFile("cessna.osg"));
         cessna->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
+        cessna->addChild(cessnaModel.get());
         cessnaMT->addChild(cessna.get());
     }
 
@@ -186,8 +189,11 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::PhysicsEngine> physics = new osgVerse::PhysicsEngine;
     physics->addRigidBody("ground", osgVerse::createPhysicsBox(
         osg::Vec3(groundSize * 0.5f, groundSize * 0.5f, groundThickness * 0.5f)), 0.0f);
-    physics->addRigidBody("cessna", osgVerse::createPhysicsHull(
-        cessnaMT->getChild(0)), 15.0f, cessnaMT->getMatrix());
+    if (cessnaModel.valid())
+    {
+        physics->addRigidBody("cessna", osgVerse::createPhysicsHull(
+            cessnaMT->getChild(0)), 15.0f, cessnaMT->getMatrix());
+    }
 
     for (int i = 0; i < 50; ++i)
         physics->addRigidBody("box" + std::to_string(i), osgVerse::createPhysicsBox(
@@ -195,7 +201,7 @@ int main(int argc, char** argv)
 
     // Setup callbacks for scene object to update its pose
     groundMT->setUpdateCallback(new osgVerse::PhysicsUpdateCallback(physics.get(), "ground"));
-    cessnaMT->setUpdateCallback(new osgVerse::PhysicsUpdateCallback(physics.get(), "cessna"));
+    if (cessnaModel.valid()) cessnaMT->setUpdateCallback(new osgVerse::PhysicsUpdateCallback(physics.get(), "cessna"));
     for (int i = 0; i < 50; ++i)
         boxMT[i]->setUpdateCallback(
             new osgVerse::PhysicsUpdateCallback(physics.get(), "box" + std::to_string(i)));

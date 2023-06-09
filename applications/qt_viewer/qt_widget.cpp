@@ -130,7 +130,11 @@ void OsgSceneWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
 void OsgSceneWidget::wheelEvent(QWheelEvent* event)
 {
+#ifdef USE_QT6
+    int delta = event->pixelDelta().y();
+#else
     int delta = event->delta();
+#endif
     osgGA::GUIEventAdapter::ScrollingMotion motion = (delta > 0) ? osgGA::GUIEventAdapter::SCROLL_UP
                                                                  : osgGA::GUIEventAdapter::SCROLL_DOWN;
     _graphicsWindow->getEventQueue()->mouseScroll(motion);

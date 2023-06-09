@@ -5,6 +5,9 @@
 #include <QtGui/QtGui>
 #include <QtWidgets/QtWidgets>
 #include <QtOpenGL/QtOpenGL>
+#ifdef USE_QT6
+#   include <QtOpenGLWidgets/QtOpenGLWidgets>
+#endif
 
 #include <osg/io_utils>
 #include <osg/MatrixTransform>
