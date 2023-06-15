@@ -237,7 +237,6 @@ int main(int argc, char** argv)
     eglQuerySurface(display, surface, EGL_WIDTH, &windowWidth);
     eglQuerySurface(display, surface, EGL_HEIGHT, &windowHeight);
 #endif
-
     osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> gw =
         viewer.setUpViewerAsEmbeddedInWindow(0, 0, windowWidth, windowHeight);
     viewer.getCamera()->setDrawBuffer(GL_BACK);

@@ -358,6 +358,22 @@ class MyRenderer : public osgViewer::Renderer
 public:
     MyRenderer(osg::Camera* c) : osgViewer::Renderer(c) {}
 
+    virtual void compile()
+    {
+        osgUtil::SceneView* sceneView = _sceneView[0].get();
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+        osg::GLExtensions* ext = (sceneView == NULL) ? NULL
+                               : sceneView->getState()->get<osg::GLExtensions>();
+        if (ext)
+        {
+            // Re-check some extensions as they may fail in GLES and other situations
+            ext->isTextureLODBiasSupported = osg::isGLExtensionSupported(
+                sceneView->getState()->getContextID(), "GL_EXT_texture_lod_bias");
+        }
+#endif
+        osgViewer::Renderer::compile();
+    }
+
     void useCustomSceneViews(osgVerse::DeferredRenderCallback* cb)
     {
         unsigned int opt = osgUtil::SceneView::HEADLIGHT;
@@ -1117,7 +1133,8 @@ namespace osgVerse
             ss << "#define VERSE_FS_OUT " << fout << std::endl;
             ss << "#define VERSE_FS_FINAL " << finalColor << std::endl;
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-            ss << "precision mediump float;" << std::endl;
+            ss << "precision highp float;" << std::endl;
+            ss << "precision highp sampler2D;" << std::endl;
 #endif
         }
         ss << "#define VERSE_TEX1D " << tex1d << std::endl;
