@@ -31,6 +31,13 @@ protected:
 
 int main(int argc, char** argv)
 {
+    /*osg::ref_ptr<osg::Image> image = osgDB::readImageFile(argv[1]);
+    if (image.valid())
+    {
+        printf("%d x %d x %d\n", image->s(), image->t(), image->r());
+        osgDB::writeImageFile(*image, "result.vdb.verse_vdb");
+    }*/
+
     osg::ref_ptr<osg::Node> scene =
         (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFile(argv[1]);
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }

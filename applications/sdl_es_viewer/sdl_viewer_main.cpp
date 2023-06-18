@@ -11,6 +11,7 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #define TEST_PIPELINE 1
+#define TEST_SHADOW_MAP 0
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   include <EGL/egl.h>
 #   include <EGL/eglext.h>
@@ -66,13 +67,7 @@ int main(int argc, char** argv)
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
-    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
-    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
-    if (otherSceneRoot.valid())
-        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, FORWARD_SCENE_MASK);
-
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    //if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
 
     // Main light
@@ -244,6 +239,7 @@ int main(int argc, char** argv)
 
     // Setup the pipeline
 #if TEST_PIPELINE
+    params.enablePostEffects = false;
     queryOpenGLVersion(pipeline.get(), true);
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
@@ -255,7 +251,8 @@ int main(int argc, char** argv)
         root->addChild(shadow->getFrustumGeode());
     }
 
-    /*osg::ref_ptr<osg::Camera> hudCamera = new osg::Camera;
+#   if TEST_SHADOW_MAP
+    osg::ref_ptr<osg::Camera> hudCamera = new osg::Camera;
     hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
     hudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
     hudCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
@@ -272,7 +269,8 @@ int main(int argc, char** argv)
         quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
         hudCamera->addChild(quad); quadY += 0.21f;
     }
-    root->addChild(hudCamera.get());*/
+    root->addChild(hudCamera.get());
+#   endif
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");

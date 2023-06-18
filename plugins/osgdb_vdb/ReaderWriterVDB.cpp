@@ -6,6 +6,7 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 
+#include <pipeline/Global.h>
 #include <openvdb/openvdb.h>
 #include <openvdb/io/Stream.h>
 
@@ -65,10 +66,23 @@ public:
                 continue;
             }
 
-            openvdb::Vec3fGrid::Ptr g1 = openvdb::gridPtrCast<openvdb::Vec3fGrid>((*grids)[i]);
+            openvdb::Int32Grid::Ptr g1 = openvdb::gridPtrCast<openvdb::Int32Grid>((*grids)[i]);
             if (g1)
             {
-                for (openvdb::Vec3fGrid::ValueOnIter iter = g1->beginValueOn(); iter; ++iter)
+                for (openvdb::Int32Grid::ValueOnIter iter = g1->beginValueOn(); iter; ++iter)
+                {
+                    openvdb::Vec3d coord = iter.getCoord().asVec3d();
+                    float value = iter.getValue() / 255.0f;
+                    va->push_back(osg::Vec3(coord.x(), coord.y(), coord.z()));
+                    ca->push_back(osg::Vec4(value, value, value, 1.0f));
+                }
+                continue;
+            }
+
+            openvdb::Vec3fGrid::Ptr g2 = openvdb::gridPtrCast<openvdb::Vec3fGrid>((*grids)[i]);
+            if (g2)
+            {
+                for (openvdb::Vec3fGrid::ValueOnIter iter = g2->beginValueOn(); iter; ++iter)
                 {
                     openvdb::Vec3d coord = iter.getCoord().asVec3d();
                     openvdb::Vec3f value = iter.getValue();
@@ -142,6 +156,7 @@ public:
                 {
                     float* ptr = (float*)image.data(x, y, z);
                     coord.reset(x, y, z); accessor.setValue(coord, *ptr);
+                    if (*ptr == 0.0f) accessor.setValueOff(coord, (int)*ptr);
                 }
                 grids->push_back(grid);
             }
@@ -149,10 +164,27 @@ public:
             {
                 TRAVERSE_COORD(openvdb::Int32Grid, "density")
                 {
-                    int* ptr = (int*)image.data(x, y, z);
+                    unsigned int* ptr = (unsigned int*)image.data(x, y, z);
                     coord.reset(x, y, z); accessor.setValue(coord, *ptr);
+                    if (*ptr == 0) accessor.setValueOff(coord, (int)*ptr);
                 }
                 grids->push_back(grid);
+            }
+            else if (dataType == GL_BYTE || dataType == GL_UNSIGNED_BYTE)
+            {
+                TRAVERSE_COORD(openvdb::Int32Grid, "density")
+                {
+                    unsigned char* ptr = (unsigned char*)image.data(x, y, z);
+                    coord.reset(x, y, z); accessor.setValue(coord, (int)*ptr);
+                    if (*ptr == 0) accessor.setValueOff(coord, (int)*ptr);
+                }
+                grids->push_back(grid);
+            }
+            else
+            {
+                OSG_NOTICE << "[ReaderWriterVDB] Unsupported data type "
+                           << std::hex << dataType << std::dec << ", pixel size = "
+                           << pixelSize << std::endl;
             }
         }
         else if (numComponents == 3)
@@ -172,12 +204,29 @@ public:
                 TRAVERSE_COORD(openvdb::Vec3IGrid, "color")
                 {
                     osg::Vec3i* ptr = (osg::Vec3i*)image.data(x, y, z);
+                    openvdb::Vec3I vec((*ptr)[0], (*ptr)[1], (*ptr)[2]);
+                    coord.reset(x, y, z); accessor.setValue(coord, vec);
+                }
+                grids->push_back(grid);
+            }
+            else if (dataType == GL_BYTE || dataType == GL_UNSIGNED_BYTE)
+            {
+                TRAVERSE_COORD(openvdb::Vec3IGrid, "color")
+                {
+                    osg::Vec3b* ptr = (osg::Vec3b*)image.data(x, y, z);
                     openvdb::Vec3I vec(ptr->x(), ptr->y(), ptr->z());
                     coord.reset(x, y, z); accessor.setValue(coord, vec);
                 }
                 grids->push_back(grid);
             }
+            else
+            {
+                OSG_NOTICE << "[ReaderWriterVDB] Unsupported data type "
+                           << std::hex << dataType << std::dec << ", pixel size = "
+                           << pixelSize << std::endl;
+            }
         }
+#undef TRAVERSE_COORD
 
         if (grids->empty()) return WriteResult::NOT_IMPLEMENTED;
         openvdb::io::Stream(fout).write(*grids);

@@ -11,12 +11,13 @@ namespace osgVerse
     :   _pipeline(pipeline), _shadowMaxDistance(-1.0), _shadowNumber(0),
         _retainLightPos(false), _dirtyReference(false)
     {
-        for (int i = 0; i < 4; ++i) _shadowMaps[i] = new osg::Texture2D;
+        for (int i = 0; i < MAX_SHADOWS; ++i) _shadowMaps[i] = new osg::Texture2D;
         _cullFace = new osg::CullFace(osg::CullFace::FRONT);
         _polygonOffset = new osg::PolygonOffset(1.1f, 4.0f);
 
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
-        _lightMatrices = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", 4);
+        _lightMatrices = new osg::Uniform(
+            osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", MAX_SHADOWS);
         if (pipeline) pipeline->addModule(name, this);
     }
 
@@ -47,7 +48,7 @@ namespace osgVerse
                                     unsigned int casterMask)
     {
         _shadowCameras.clear();
-        _shadowNumber = osg::minimum(shadowNum, 4);
+        _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
         for (int i = 0; i < _shadowNumber; ++i)
         {
             _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);

@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/UserDataContainer>
 #include <osg/Geometry>
 #include <osg/MatrixTransform>
 #include <osg/ImageStream>
@@ -395,7 +396,9 @@ public:
             ext = osgDB::getFileExtension(fileName);
         }
 
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
         if (!acceptsProtocol(scheme)) return ReadResult::FILE_NOT_HANDLED;
+#endif
         if (!_mkEnvCreated) initialize(options);
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
@@ -424,7 +427,9 @@ public:
             ext = osgDB::getFileExtension(fileName);
         }
 
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
         if (!acceptsProtocol(scheme)) return WriteResult::FILE_NOT_HANDLED;
+#endif
         if (!_mkEnvCreated) initialize(options);
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);

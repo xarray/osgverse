@@ -2,6 +2,7 @@
 #define MANA_SCRIPT_ENTRY_HPP
 
 #include <osg/Version>
+#include <osg/Object>
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
 #   include <osgDB/ClassInterface>
 #   define OSGVERSE_COMPLETED_SCRIPT 1

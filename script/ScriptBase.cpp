@@ -151,7 +151,11 @@ osg::Object* ScriptBase::getFromPath(const std::string& nodePath)
     if (_objects.find(path[0]) != _objects.end())
         obj = _objects[nodePath].get();
 
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
     osg::Node* node = obj->asNode();
+#else
+    osg::Node* node = dynamic_cast<osg::Node*>(obj);
+#endif
     if (node != NULL)
     {
         for (size_t i = 1; i < path.size(); ++i)

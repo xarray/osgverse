@@ -2,7 +2,7 @@
 uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler2D RandomTexture;
-uniform mat4 ShadowSpaceMatrices[4];
+uniform mat4 ShadowSpaceMatrices[VERSE_MAX_SHADOWS];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
@@ -40,12 +40,12 @@ void main()
     
     // Compute shadow and combine with color
 #if DEBUG_SHADOW_COLOR
-    vec3 shadowColors[4], debugShadowColor = vec3(1, 1, 1);
+    vec3 shadowColors[VERSE_MAX_SHADOWS], debugShadowColor = vec3(1, 1, 1);
     shadowColors[0] = vec3(1, 0, 0); shadowColors[1] = vec3(0, 1, 0);
     shadowColors[2] = vec3(0, 0, 1); shadowColors[3] = vec3(0, 1, 1);
 #endif
     float shadow = 1.0;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < VERSE_MAX_SHADOWS; ++i)
     {
         vec4 lightProjVec = ShadowSpaceMatrices[i] * eyeVertex;
         vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);

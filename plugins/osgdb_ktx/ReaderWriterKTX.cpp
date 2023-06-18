@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/Image>
 #include <osg/ImageSequence>
 #include <osgDB/FileNameUtils>
@@ -82,7 +83,11 @@ public:
                 std::transform(scm.begin(), scm.end(), scm.begin(), tolower);
                 useCubemap = (scm == "true" || atoi(scm.c_str()) > 0);
             }
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
             for (size_t i = 0; i < seq->getNumImageData(); ++i)
+#else
+            for (size_t i = 0; i < seq->getNumImages(); ++i)
+#endif
                 imageList.push_back(seq->getImage(i));
 
             bool result = osgVerse::saveKtx(fileName, useCubemap, imageList);
@@ -110,7 +115,11 @@ public:
                 std::transform(scm.begin(), scm.end(), scm.begin(), tolower);
                 useCubemap = (scm == "true" || atoi(scm.c_str()) > 0);
             }
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
             for (size_t i = 0; i < seq->getNumImageData(); ++i)
+#else
+            for (size_t i = 0; i < seq->getNumImages(); ++i)
+#endif
                 imageList.push_back(seq->getImage(i));
 
             bool result = osgVerse::saveKtx2(fout, useCubemap, imageList);

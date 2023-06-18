@@ -1118,6 +1118,9 @@ namespace osgVerse
         if (glslVer > 0) ss << "#version " << glslVer << std::endl;
 #endif
 
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        ss << "precision highp float;" << std::endl;
+#endif
         if (s->getType() == osg::Shader::VERTEX)
         {
             ss << "#define VERSE_MATRIX_MVP " << m_mvp << std::endl;
@@ -1132,10 +1135,7 @@ namespace osgVerse
             ss << "#define VERSE_FS_IN " << fin << std::endl;
             ss << "#define VERSE_FS_OUT " << fout << std::endl;
             ss << "#define VERSE_FS_FINAL " << finalColor << std::endl;
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-            ss << "precision highp float;" << std::endl;
-            ss << "precision highp sampler2D;" << std::endl;
-#endif
+            ss << "#define VERSE_MAX_SHADOWS " << MAX_SHADOWS << std::endl;
         }
         ss << "#define VERSE_TEX1D " << tex1d << std::endl;
         ss << "#define VERSE_TEX2D " << tex2d << std::endl;

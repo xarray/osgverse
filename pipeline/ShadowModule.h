@@ -6,6 +6,7 @@
 #include <osg/Texture2DArray>
 #include <osg/Geometry>
 #include "Pipeline.h"
+#define MAX_SHADOWS 4
 
 namespace osgVerse
 {
@@ -52,7 +53,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Geode> _shadowFrustum;
         osg::ref_ptr<osg::CullFace> _cullFace;
         osg::ref_ptr<osg::PolygonOffset> _polygonOffset;
-        osg::ref_ptr<osg::Texture2D> _shadowMaps[4];
+        osg::ref_ptr<osg::Texture2D> _shadowMaps[MAX_SHADOWS];
         osg::ref_ptr<osg::Uniform> _lightMatrices;  // matrixf[]
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
