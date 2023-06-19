@@ -1,4 +1,4 @@
-SET(LIBRARY_NAME libjpeg)
+SET(LIBRARY_NAME jpeg)
 SET(JPEG_HEADERS jconfig.h jerror.h jmorecfg.h jpeglib.h)
 
 SET(JPEG_SOURCES

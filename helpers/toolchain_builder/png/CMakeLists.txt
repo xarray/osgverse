@@ -1,4 +1,4 @@
-SET(LIBRARY_NAME libpng)
+SET(LIBRARY_NAME png)
 SET(PNG_HEADERS png.h pngconf.h)
 
 SET(PNG_SOURCES

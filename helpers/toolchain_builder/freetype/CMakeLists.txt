@@ -35,9 +35,9 @@ IF(NOT (ORIGINAL_FTOPTION_H STREQUAL FTOPTION_H))
 ENDIF()
 
 IF(UNIX)
-    LIST(APPEND FREETYPE_SOURCES "builds/unix/ftsystem.c")
+    LIST(APPEND FREETYPE_SOURCES "src/base/ftsystem.c")
 ELSE()
-  LIST(APPEND FREETYPE_SOURCES "src/base/ftsystem.c")
+    LIST(APPEND FREETYPE_SOURCES "src/base/ftsystem.c")
 ENDIF()
 
 IF(WIN32)

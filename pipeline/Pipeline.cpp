@@ -361,7 +361,7 @@ public:
     virtual void compile()
     {
         osgUtil::SceneView* sceneView = _sceneView[0].get();
-#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+#if OSG_VERSION_GREATER_THAN(3, 6, 5)
         osg::GLExtensions* ext = (sceneView == NULL) ? NULL
                                : sceneView->getState()->get<osg::GLExtensions>();
         if (ext)
