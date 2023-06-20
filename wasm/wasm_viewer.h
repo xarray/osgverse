@@ -1,0 +1,96 @@
+#ifndef MANA_APP_VIEWERWASM_HPP
+#define MANA_APP_VIEWERWASM_HPP
+
+#include <osg/io_utils>
+#include <osg/ComputeBoundsVisitor>
+#include <osg/Texture2D>
+#include <osg/MatrixTransform>
+#include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
+#include <osgGA/StateSetManipulator>
+#include <osgGA/TrackballManipulator>
+#include <osgUtil/CullVisitor>
+#include <osgViewer/Viewer>
+#include <osgViewer/ViewerEventHandlers>
+
+#include <pipeline/SkyBox.h>
+#include <pipeline/Pipeline.h>
+#include <pipeline/LightModule.h>
+#include <pipeline/ShadowModule.h>
+#include <pipeline/Utilities.h>
+#include <iostream>
+#include <sstream>
+
+class NotifyLogger : public osg::NotifyHandler
+{
+public:
+    virtual void notify(osg::NotifySeverity severity, const char* message)
+    {
+        printf("[osgVerse / %s] %s", getLevel(severity).c_str(), message);
+    }
+
+    std::string getLevel(osg::NotifySeverity severity)
+    {
+        switch (severity)
+        {
+            case osg::DEBUG_FP: return "V";
+            case osg::DEBUG_INFO: return "D";
+            case osg::NOTICE: case osg::INFO: return "I";
+            case osg::WARN: return "W";
+            case osg::FATAL: case osg::ALWAYS: return "E";
+        }
+        return "?";
+    }
+};
+
+class VBOSetupVisitor : public osg::NodeVisitor
+{
+public:
+    VBOSetupVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+
+    virtual void apply(osg::Geode& geode)
+    {
+        for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
+        {
+            osg::Geometry *geom = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+            if (geom)
+            {
+                geom->setUseDisplayLists(false);
+                geom->setUseVertexBufferObjects(true);
+            }
+        }
+        NodeVisitor::apply(geode);
+    }
+};
+
+class Application : public osg::Referenced
+{
+public:
+    Application(int width, int height)
+    {
+        _gw = viewer.setUpViewerAsEmbeddedInWindow(0, 0, width, height);
+        _logger = new NotifyLogger;
+        osg::setNotifyHandler(_logger.get());
+        osg::setNotifyLevel(osg::INFO);
+    }
+
+    ~Application()
+    {
+        osg::setNotifyHandler(NULL);
+        _viewer = NULL; _logger = NULL;
+    }
+
+    bool handleEvent(SDL_Event& e)
+    {
+    }
+
+    void setViewer(osgViewer::Viewer* v) { _viewer = v; }
+    void frame() { _viewer->frame(); }
+
+protected:
+    osg::ref_ptr<NotifyLogger> _logger;
+    osg::ref_ptr<osgViewer::Viewer> _viewer;
+    osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> _gw;
+};
+
+#endif

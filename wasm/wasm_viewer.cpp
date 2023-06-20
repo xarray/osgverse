@@ -1,36 +1,9 @@
-#include <osg/io_utils>
-#include <osg/ComputeBoundsVisitor>
-#include <osg/Texture2D>
-#include <osg/MatrixTransform>
-#include <osgDB/ReadFile>
-#include <osgDB/WriteFile>
-#include <osgGA/StateSetManipulator>
-#include <osgGA/TrackballManipulator>
-#include <osgUtil/CullVisitor>
-#include <osgViewer/Viewer>
-#include <osgViewer/ViewerEventHandlers>
+#include <emscripten.h>
+#include <SDL2/SDL.h>
+#include "wasm_viewer.h"
 
 #define TEST_PIPELINE 1
 #define TEST_SHADOW_MAP 0
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-#   include <EGL/egl.h>
-#   include <EGL/eglext.h>
-#   include <EGL/eglext_angle.h>
-#   define VERSE_GLES 1
-#endif
-
-#include <SDL.h>
-#include <SDL_syswm.h>
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
-
-#include <pipeline/SkyBox.h>
-#include <pipeline/Pipeline.h>
-#include <pipeline/LightModule.h>
-#include <pipeline/ShadowModule.h>
-#include <pipeline/Utilities.h>
-#include <iostream>
-#include <sstream>
 
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
@@ -100,113 +73,28 @@ int main(int argc, char** argv)
     // Start SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
-        OSG_WARN << "Unable to init SDL: " << SDL_GetError() << std::endl;
+        printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
         return 1;
     }
 
-    int windowWidth = 1280, windowHeight = 720;
-    SDL_Window* sdlWindow = SDL_CreateWindow("osgVerse_ViewerSDL", 50, 50, windowWidth, windowHeight,
-                                             SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
-    if (sdlWindow == NULL)
+    atexit(SDL_Quit);
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+    int width = 800, height = 600;
+    SDL_Window* window = SDL_CreateWindow(
+        "osgVerse_ViewerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        width, height, SDL_WINDOW_OPENGL);
+    if (!window)
     {
-        OSG_WARN << "Unable to create SDL window: " << SDL_GetError() << std::endl;
+        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
         return 1;
     }
 
-    SDL_SysWMinfo sdlInfo; SDL_VERSION(&sdlInfo.version);
-    SDL_GetWindowWMInfo(sdlWindow, &sdlInfo);
-
-#if VERSE_GLES
-    EGLint configAttribList[] =
-    {
-#   if defined(OSG_GLES3_AVAILABLE)
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
-#   else
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-#   endif
-        EGL_RED_SIZE,       8,
-        EGL_GREEN_SIZE,     8,
-        EGL_BLUE_SIZE,      8,
-        EGL_ALPHA_SIZE,     8,
-        EGL_DEPTH_SIZE,     24,
-        EGL_STENCIL_SIZE,   8/*EGL_DONT_CARE*/,
-        EGL_SAMPLE_BUFFERS, 0,
-        EGL_SAMPLES,        0,
-        EGL_NONE
-    };
-
-    EGLNativeWindowType hWnd = sdlInfo.info.win.window;
-    EGLDisplay display = EGL_NO_DISPLAY;
-    PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)(
-        eglGetProcAddress("eglGetPlatformDisplayEXT"));
-
-    if (eglGetPlatformDisplayEXT != NULL)
-    {
-        const EGLint attrD3D11[] = {
-            EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
-            EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,
-            EGL_NONE,  // You may also select D3D9, Vulkan, OpenGL, ...
-        };
-        display = eglGetPlatformDisplayEXT(
-            EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrD3D11);
-        OSG_NOTICE << "**** Selected D3D11 backend successfully" << std::endl;
-    }
-
-    if (display == EGL_NO_DISPLAY)
-    {
-        display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        OSG_NOTICE << "**** Selected default backend successfully" << std::endl;
-    }
-
-    if (display == EGL_NO_DISPLAY)
-    { OSG_WARN << "Failed to get EGL display" << std::endl; return 1; }
-
-    // Initialize EGL
-    EGLint majorVersion = 0, minorVersion = 0;
-    if (!eglInitialize(display, &majorVersion, &minorVersion))
-    { OSG_WARN << "Failed to initialize EGL display" << std::endl; return 1; }
-
-    EGLint numConfigs = 0;
-    if (!eglGetConfigs(display, NULL, 0, &numConfigs))
-    { OSG_WARN << "Failed to get EGL display config" << std::endl; return 1; }
-    
-    // Get an appropriate EGL framebuffer configuration
-    EGLConfig config;
-    if (!eglChooseConfig(display, configAttribList, &config, 1, &numConfigs))
-    { OSG_WARN << "Failed to choose EGL config" << std::endl; return 1; }
-
-    // Configure the surface
-    EGLint surfaceAttribList[] = { EGL_NONE, EGL_NONE };
-    EGLSurface surface = eglCreateWindowSurface(
-        display, config, (EGLNativeWindowType)hWnd, surfaceAttribList);
-    if (surface == EGL_NO_SURFACE)
-    { OSG_WARN << "Failed to create EGL surface" << std::endl; return 1; }
-
-#   if defined(OSG_GLES3_AVAILABLE)
-    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE, EGL_NONE };
-#   else
-    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE };
-#   endif
-    eglBindAPI(EGL_OPENGL_ES_API);  // Set rendering API
-
-    // Create an EGL rendering context
-    EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribList);
-    if (context == EGL_NO_CONTEXT)
-    { OSG_WARN << "Failed to create EGL context" << std::endl; return 1; }
-
-    // Make context current. GLES drawing commands can work now 
-    eglMakeCurrent(display, surface, surface, context);
-#else
-    SDL_GLContext sdlContext = SDL_GL_CreateContext(sdlWindow);
-    if (sdlContext == NULL)
-    {
-        OSG_WARN << "Unable to create SDL context: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-
-    SDL_GL_SetSwapInterval(0);
-    SDL_GL_MakeCurrent(sdlWindow, sdlContext);
-#endif
+    SDL_GL_CreateContext(window);
 
     // Create the viewer
 #if TEST_PIPELINE
@@ -224,14 +112,10 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer.setSceneData(root.get());
 
     // Create the graphics window
-#if VERSE_GLES
-    eglQuerySurface(display, surface, EGL_WIDTH, &windowWidth);
-    eglQuerySurface(display, surface, EGL_HEIGHT, &windowHeight);
-#endif
     osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> gw =
         viewer.setUpViewerAsEmbeddedInWindow(0, 0, windowWidth, windowHeight);
     viewer.getCamera()->setDrawBuffer(GL_BACK);
@@ -239,7 +123,7 @@ int main(int argc, char** argv)
 
     // Setup the pipeline
 #if TEST_PIPELINE
-    //params.enablePostEffects = false;
+    params.enablePostEffects = false;
     queryOpenGLVersion(pipeline.get(), true);
     setupStandardPipeline(pipeline.get(), &viewer, params);
 

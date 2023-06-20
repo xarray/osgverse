@@ -4,6 +4,11 @@
  */
 
 #include "gzguts.h"
+#if defined(_WIN32) && !defined(__BORLANDC__) && !defined(__MINGW32__)
+//
+#else
+#   include <unistd.h>
+#endif
 
 /* Local functions */
 local int gz_load OF((gz_statep, unsigned char *, unsigned, unsigned *));

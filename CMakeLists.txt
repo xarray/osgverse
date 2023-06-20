@@ -70,7 +70,7 @@ ENDIF()
 
 IF(NOT WIN32)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -fPIC")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -frtti -fopenmp -fpermissive")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -frtti -fpermissive")
     SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/bin;${CMAKE_INSTALL_PREFIX}/lib")
 ENDIF(NOT WIN32)
 
@@ -112,30 +112,35 @@ FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 
-FIND_PATH(OSG_INCLUDE_DIR osg/Referenced
-    PATHS
-    $ENV{OSG_ROOT}/include
-    $ENV{OSG_DIR}/include
-    /usr/include
-    /usr/local/include
-)
+IF(OSG_ROOT)
+    SET(OSG_INCLUDE_DIR "${OSG_ROOT}/include")
+    SET(OSG_BUILD_INCLUDE_DIR "${OSG_ROOT}/include")
+    SET(OSG_LIB_DIR "${OSG_ROOT}/lib")
+ELSE(OSG_ROOT)
+    FIND_PATH(OSG_INCLUDE_DIR osg/Referenced
+        PATHS
+        $ENV{OSG_ROOT}/include
+        $ENV{OSG_DIR}/include
+        /usr/include
+        /usr/local/include
+    )
 
-FIND_PATH(OSG_BUILD_INCLUDE_DIR osg/Config
-    PATHS
-    $ENV{OSG_ROOT}/include
-    $ENV{OSG_DIR}/include
-    /usr/include
-    /usr/local/include
-)
+    FIND_PATH(OSG_BUILD_INCLUDE_DIR osg/Config
+        PATHS
+        $ENV{OSG_ROOT}/include
+        $ENV{OSG_DIR}/include
+        /usr/include
+        /usr/local/include
+    )
 
-FIND_PATH(OSG_LIB_DIR libosg.so osg.lib
-    PATHS
-    $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
-    $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
-    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
-    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
-)
-
+    FIND_PATH(OSG_LIB_DIR libosg.a libosg.so osg.lib
+        PATHS
+        $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
+        $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+        /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
+        /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+    )
+ENDIF(OSG_ROOT)
 SET(BULLET_DEBUG_POSTFIX "_Debug" CACHE STRING "Postfix of Bullet built-libraries")
 SET(OSG_DEBUG_POSTFIX "d" CACHE STRING "Postfix of OSG built-libraries")
 
@@ -199,6 +204,13 @@ ENDIF()
 IF(VERSE_USE_OSG_STATIC)
     SET(VERSE_STATIC_BUILD ON CACHE BOOL "Enable static build of osgVerse" FORCE)
 ENDIF(VERSE_USE_OSG_STATIC)
+
+IF(USE_WASM_OPTIONS)
+    SET(VERSE_USE_OSG_STATIC ON CACHE BOOL "Enable static build of osgVerse libraries")
+    SET(VERSE_STATIC_BUILD ON CACHE BOOL "Enable static build of osgVerse" FORCE)
+    SET(BUILD_FLAGS "-O3 -s USE_SDL=2")
+    ADD_DEFINITIONS(${BUILD_FLAGS})
+ENDIF()
 
 ######################################### Global Definintions
 SET(VERSE_USE_EXTERNAL_GLES2 OFF)
@@ -295,27 +307,29 @@ ELSEIF(APPLE)
     ADD_DEFINITIONS(-DVERSE_APPLE)
     # TODO
 ELSE()
-    FIND_PACKAGE(X11)
-    IF(VERSE_WITH_DWARF)
-        ADD_DEFINITIONS(-DBACKWARD_HAS_DW=1)
-        FIND_PATH(DW_INCLUDE_DIR dwarf.h PATHS /usr/include /usr/local/include)
-        FIND_LIBRARY(DW_LIBRARY NAMES dw HINTS /usr/${FIND_LIB_POSTFIX} /usr/local/${FIND_LIB_POSTFIX})
-        SET(EXTERNAL_INCLUDES ${EXTERNAL_INCLUDES} ${DW_INCLUDE_DIR})
-        SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${DW_LIBRARY})
-        SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
-        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-    ENDIF(VERSE_WITH_DWARF)
-    
-    IF(VERSE_USE_GLIBCXX11_ABI)
-        ADD_DEFINITIONS(-D_GLIBCXX_USE_CXX11_ABI=1)
-    ELSE(VERSE_USE_GLIBCXX11_ABI)
-        ADD_DEFINITIONS(-D_GLIBCXX_USE_CXX11_ABI=0)
-    ENDIF(VERSE_USE_GLIBCXX11_ABI)
-    
-    IF(X11_FOUND)
-        SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${X11_LIBRARIES})
-        ADD_DEFINITIONS(-DVERSE_X11)
-    ENDIF(X11_FOUND)
+    IF(NOT USE_WASM_OPTIONS)    
+        FIND_PACKAGE(X11)
+        IF(VERSE_WITH_DWARF)
+            ADD_DEFINITIONS(-DBACKWARD_HAS_DW=1)
+            FIND_PATH(DW_INCLUDE_DIR dwarf.h PATHS /usr/include /usr/local/include)
+            FIND_LIBRARY(DW_LIBRARY NAMES dw HINTS /usr/${FIND_LIB_POSTFIX} /usr/local/${FIND_LIB_POSTFIX})
+            SET(EXTERNAL_INCLUDES ${EXTERNAL_INCLUDES} ${DW_INCLUDE_DIR})
+            SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${DW_LIBRARY})
+            SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+            SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+        ENDIF(VERSE_WITH_DWARF)
+        
+        IF(VERSE_USE_GLIBCXX11_ABI)
+            ADD_DEFINITIONS(-D_GLIBCXX_USE_CXX11_ABI=1)
+        ELSE(VERSE_USE_GLIBCXX11_ABI)
+            ADD_DEFINITIONS(-D_GLIBCXX_USE_CXX11_ABI=0)
+        ENDIF(VERSE_USE_GLIBCXX11_ABI)
+        
+        IF(X11_FOUND)
+            SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${X11_LIBRARIES})
+            ADD_DEFINITIONS(-DVERSE_X11)
+        ENDIF(X11_FOUND)
+    ENDIF()
     ADD_DEFINITIONS(-DVERSE_UNIX)
 ENDIF()
 
@@ -345,9 +359,14 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ADD_SUBDIRECTORY(script)
     ADD_SUBDIRECTORY(ui)
     ADD_SUBDIRECTORY(plugins)
-    ADD_SUBDIRECTORY(applications)
-    ADD_SUBDIRECTORY(tests)
-    ADD_SUBDIRECTORY(assets)
+    IF(USE_WASM_OPTIONS)
+        MESSAGE(STATUS "[osgVerse] Emscripten / WebAssembly toolchain is used.")    
+        ADD_SUBDIRECTORY(wasm)
+    ELSE()
+        ADD_SUBDIRECTORY(applications)
+        ADD_SUBDIRECTORY(tests)
+        ADD_SUBDIRECTORY(assets)
+    ENDIF()
 
 ELSE(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
 

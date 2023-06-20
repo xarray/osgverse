@@ -47,7 +47,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
 Our project is already tested on graphics cards listed as below:
-| Grapihcs Card             | OpenGL Version | Supported          | Notes |
+| Graphics Card             | OpenGL Version | Supported          | Notes |
 |---------------------------|----------------|--------------------|-------|
 | NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |

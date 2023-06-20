@@ -8,6 +8,7 @@
 #if defined(_WIN32) && !defined(__BORLANDC__) && !defined(__MINGW32__)
 #  define LSEEK _lseeki64
 #else
+#include <unistd.h>
 #if defined(_LARGEFILE64_SOURCE) && _LFS64_LARGEFILE-0
 #  define LSEEK lseek64
 #else

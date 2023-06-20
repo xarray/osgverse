@@ -283,10 +283,10 @@ SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp
     backward.hpp strtk.hpp tinydir.h rapidxml/rapidxml.hpp rapidjson/rapidjson.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
-    sqlite3.c sqlite3.h tinyexr.cc tinyexr.h miniz.c miniz.h ofbx.cpp ofbx.h
+    sqlite3.c sqlite3.h miniz.c miniz.h ofbx.cpp ofbx.h tinyexr.cc tinyexr.h
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
 	mimalloc/static.c mimalloc/mimalloc.h mimalloc/mimalloc-new-delete.h
-	microprofile.cpp microprofile.h xatlas.cpp xatlas.h easing.cpp easing.h
+	xatlas.cpp xatlas.h easing.cpp easing.h #microprofile.cpp microprofile.h
     lightmapper.h GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
