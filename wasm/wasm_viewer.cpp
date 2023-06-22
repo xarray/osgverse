@@ -8,6 +8,15 @@
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
+Application* g_app = NULL;
+void loop()
+{
+    SDL_Event e;
+    while (SDL_PollEvent(&e))
+    { if (g_app) g_app->handleEvent(e); }
+    if (g_app) g_app->frame();
+}
+
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -70,32 +79,6 @@ int main(int argc, char** argv)
         postCamera->addChild(skybox.get());
     }
 
-    // Start SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
-        return 1;
-    }
-
-    atexit(SDL_Quit);
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-    int width = 800, height = 600;
-    SDL_Window* window = SDL_CreateWindow(
-        "osgVerse_ViewerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        width, height, SDL_WINDOW_OPENGL);
-    if (!window)
-    {
-        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
-        return 1;
-    }
-
-    SDL_GL_CreateContext(window);
-
     // Create the viewer
 #if TEST_PIPELINE
     //osg::setNotifyLevel(osg::INFO);
@@ -115,15 +98,15 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setSceneData(root.get());
 
-    // Create the graphics window
-    osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> gw =
-        viewer.setUpViewerAsEmbeddedInWindow(0, 0, windowWidth, windowHeight);
+    // Create the application object
+    int width = 800, height = 600;
+    g_app = new Application;
+    g_app->setViewer(&viewer, width, height);
     viewer.getCamera()->setDrawBuffer(GL_BACK);
     viewer.getCamera()->setReadBuffer(GL_BACK);
 
     // Setup the pipeline
 #if TEST_PIPELINE
-    params.enablePostEffects = false;
     queryOpenGLVersion(pipeline.get(), true);
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
@@ -160,53 +143,37 @@ int main(int argc, char** argv)
     if (light) light->setMainLight(light0.get(), "Shadow");
 #endif
 
-    // Start the main loop
-    while (!viewer.done())
+    // Start SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
-        SDL_Event event;
-        while (SDL_PollEvent(&event))
-        {
-            osgGA::EventQueue* eq = gw->getEventQueue();
-            switch (event.type)
-            {
-            case SDL_MOUSEMOTION:
-                eq->mouseMotion(event.motion.x, event.motion.y); break;
-            case SDL_MOUSEBUTTONDOWN:
-                eq->mouseButtonPress(event.button.x, event.button.y, event.button.button); break;
-            case SDL_MOUSEBUTTONUP:
-                eq->mouseButtonRelease(event.button.x, event.button.y, event.button.button); break;
-            case SDL_KEYUP:
-                eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
-            case SDL_KEYDOWN:
-                eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
-            case SDL_WINDOWEVENT:
-                if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
-                {
-                    eq->windowResize(0, 0, event.window.data1, event.window.data2);
-                    gw->resized(0, 0, event.window.data1, event.window.data2);
-                }
-                break;
-            case SDL_QUIT:
-                viewer.setDone(true); break;
-            default: break;
-            }
-        }
-
-        viewer.frame();
-#if VERSE_GLES
-        eglSwapBuffers(display, surface);
-#else
-        SDL_GL_SwapWindow(sdlWindow);
-#endif
+        printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
+        return 1;
     }
 
-#if VERSE_GLES
-    eglDestroyContext(display, context);
-    eglDestroySurface(display, surface);
-#else
-    SDL_GL_DeleteContext(sdlContext);
-#endif
-    SDL_DestroyWindow(sdlWindow);
-    SDL_Quit();
+    atexit(SDL_Quit);
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+    SDL_Window* window = SDL_CreateWindow(
+        "osgVerse_ViewerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        width, height, SDL_WINDOW_OPENGL);
+    if (!window)
+    {
+        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
+        return 1;
+    }
+
+    SDL_GLContext context = SDL_GL_CreateContext(window);
+    if (context == NULL)
+    {
+        printf("[osgVerse] Could not create SDL context: '%s'\n", SDL_GetError());
+        return 1;
+    }
+
+    // Start the main loop
+    emscripten_set_main_loop(loop, -1, 0);
     return 0;
 }

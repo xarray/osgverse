@@ -137,6 +137,11 @@ namespace osgVerse
     USE_SERIALIZER_WRAPPER_LIBRARY(osgTerrain) \
     USE_SERIALIZER_WRAPPER_LIBRARY(osgText) \
     USE_GRAPHICSWINDOW()
+// Note: plugins depending on external libraries should be called manually
+//  USE_OSGPLUGIN(jpg)
+//  USE_OSGPLUGIN(png)
+//  USE_OSGPLUGIN(tiff)
+//  USE_OSGPLUGIN(freetype)
 #else
 #   define USE_OSG_PLUGINS()
 #endif
@@ -148,11 +153,12 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_gltf) \
     USE_OSGPLUGIN(verse_ktx) \
     USE_OSGPLUGIN(verse_web) \
-    USE_OSGPLUGIN(verse_ms) \
-    USE_OSGPLUGIN(verse_cesium) \
-    USE_OSGPLUGIN(verse_vdb) \
     USE_OSGPLUGIN(verse_leveldb) \
     USE_OSGPLUGIN(pbrlayout)
+// Note: plugins depending on external libraries should be called manually
+//  USE_OSGPLUGIN(verse_ms)
+//  USE_OSGPLUGIN(verse_cesium)
+//  USE_OSGPLUGIN(verse_vdb)
 #else
 #   define USE_VERSE_PLUGINS()
 #endif

@@ -359,7 +359,7 @@ void VirtualKeyboard::create(const std::string& sysCikuPath, const std::string& 
                 ImColor(0.8f, 0.5f, 0.0f), [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
                 {
                     chsMode = !chsMode; resetCandidates();
-                    (static_cast<Button*>(me))->name = chsMode ? u8"ÖÐ##vk0" : "En##vk0";
+                    (static_cast<Button*>(me))->name = chsMode ? u8"ä¸­##vk0" : "En##vk0";
                 });
             row4.addKey("Home##vk0", osgGA::GUIEventAdapter::KEY_Home, 0, defSize);
             row4.addKey("End##vk0", osgGA::GUIEventAdapter::KEY_End, 0, defSize);

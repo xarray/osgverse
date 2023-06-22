@@ -78,7 +78,7 @@ osg::Node* CsgBoolean::generate()
         McConnectedComponent connComp = connectedComponents[i];
         
         // Query the vertices
-        uint64_t numBytesV = 0, numBytesF = 0;
+        size_t numBytesV = 0, numBytesF = 0;
         err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_VERTEX_DOUBLE, 0, NULL, &numBytesV);
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get vertex count: " << err << std::endl; continue; }
         

@@ -55,7 +55,7 @@ public:
             osg::Geometry *geom = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
             if (geom)
             {
-                geom->setUseDisplayLists(false);
+                geom->setUseDisplayList(false);
                 geom->setUseVertexBufferObjects(true);
             }
         }
@@ -66,9 +66,8 @@ public:
 class Application : public osg::Referenced
 {
 public:
-    Application(int width, int height)
+    Application()
     {
-        _gw = viewer.setUpViewerAsEmbeddedInWindow(0, 0, width, height);
         _logger = new NotifyLogger;
         osg::setNotifyHandler(_logger.get());
         osg::setNotifyLevel(osg::INFO);
@@ -80,11 +79,40 @@ public:
         _viewer = NULL; _logger = NULL;
     }
 
-    bool handleEvent(SDL_Event& e)
+    bool handleEvent(SDL_Event& event)
     {
+        osgGA::EventQueue* eq = _gw->getEventQueue();
+        switch (event.type)
+        {
+        case SDL_MOUSEMOTION:
+            eq->mouseMotion(event.motion.x, event.motion.y); break;
+        case SDL_MOUSEBUTTONDOWN:
+            eq->mouseButtonPress(event.button.x, event.button.y, event.button.button); break;
+        case SDL_MOUSEBUTTONUP:
+            eq->mouseButtonRelease(event.button.x, event.button.y, event.button.button); break;
+        case SDL_KEYUP:
+            eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
+        case SDL_KEYDOWN:
+            eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
+        case SDL_WINDOWEVENT:
+            if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+            {
+                eq->windowResize(0, 0, event.window.data1, event.window.data2);
+                _gw->resized(0, 0, event.window.data1, event.window.data2);
+            }
+            break;
+        case SDL_QUIT:
+            _viewer->setDone(true); break;
+        default: break;
+        }
     }
 
-    void setViewer(osgViewer::Viewer* v) { _viewer = v; }
+    void setViewer(osgViewer::Viewer* v, int width, int height)
+    {
+        _gw = v->setUpViewerAsEmbeddedInWindow(0, 0, width, height);
+        _viewer = v;
+    }
+
     void frame() { _viewer->frame(); }
 
 protected:

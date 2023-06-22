@@ -82,7 +82,9 @@
 #endif
 
 #ifndef HAVE_EVENTFD
-#define HAVE_EVENTFD 1
+#if !defined(__EMSCRIPTEN__)
+#   define HAVE_EVENTFD 1
+#endif
 #endif
 
 #ifndef HAVE_SETPROCTITLE
