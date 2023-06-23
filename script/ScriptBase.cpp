@@ -198,6 +198,15 @@ template<typename T> static T getVecValue(const std::string& v)
     return result;
 }
 
+template<typename T> static T getQuatValue(const std::string& v)
+{
+    osgDB::StringList values; osgDB::split(v, values, ' ');
+    T result; int num = osg::minimum((int)values.size(), 4);
+    for (int i = 0; i < num; ++i)
+        result[i] = (typename T::value_type)atof(values[i].c_str());
+    return result;
+}
+
 template<typename T> static T getMatrixValue(const std::string& v, int num = 16)
 {
     osgDB::StringList values; osgDB::split(v, values, ' ');
@@ -265,7 +274,7 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
         case osgDB::BaseSerializer::RW_DOUBLE:
             return entry->setProperty(object, key, (double)atof(value.c_str()));
         case osgDB::BaseSerializer::RW_QUAT:
-            return entry->setProperty(object, key, getVecValue<osg::Quat>(value));
+            return entry->setProperty(object, key, getQuatValue<osg::Quat>(value));
         case osgDB::BaseSerializer::RW_VEC2F:
             return entry->setProperty(object, key, getVecValue<osg::Vec2f>(value));
         case osgDB::BaseSerializer::RW_VEC3F:
@@ -278,6 +287,7 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
             return entry->setProperty(object, key, getVecValue<osg::Vec3d>(value));
         case osgDB::BaseSerializer::RW_VEC4D:
             return entry->setProperty(object, key, getVecValue<osg::Vec4d>(value));
+#if OSG_VERSION_GREATER_THAN(3, 4, 0)
         case osgDB::BaseSerializer::RW_VEC2B:
             return entry->setProperty(object, key, getVecValue<osg::Vec2b>(value));
         case osgDB::BaseSerializer::RW_VEC3B:
@@ -314,6 +324,7 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
             return entry->setProperty(object, key, getVecValue<osg::Vec3ui>(value));
         case osgDB::BaseSerializer::RW_VEC4UI:
             return entry->setProperty(object, key, getVecValue<osg::Vec4ui>(value));
+#endif
         case osgDB::BaseSerializer::RW_MATRIXF:
             return entry->setProperty(object, key, getMatrixValue<osg::Matrixf>(value));
         case osgDB::BaseSerializer::RW_MATRIXD:
@@ -355,6 +366,13 @@ template<typename T> static std::string setVecValue(const T& v)
 {
     std::stringstream ss; int num = T::num_components;
     for (int i = 0; i < num; ++i) { if (i > 0) ss << " "; ss << v[i]; }
+    return ss.str();
+}
+
+template<typename T> static std::string setQuatValue(const T& v)
+{
+    std::stringstream ss;
+    for (int i = 0; i < 4; ++i) { if (i > 0) ss << " "; ss << v[i]; }
     return ss.str();
 }
 
@@ -417,13 +435,14 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
         case osgDB::BaseSerializer::RW_UINT: GET_PROP_VALUE(unsigned int, std::to_string);
         case osgDB::BaseSerializer::RW_FLOAT: GET_PROP_VALUE(float, std::to_string);
         case osgDB::BaseSerializer::RW_DOUBLE: GET_PROP_VALUE(double, std::to_string);
-        case osgDB::BaseSerializer::RW_QUAT: GET_PROP_VALUE(osg::Quat, setVecValue);
+        case osgDB::BaseSerializer::RW_QUAT: GET_PROP_VALUE(osg::Quat, setQuatValue);
         case osgDB::BaseSerializer::RW_VEC2F: GET_PROP_VALUE(osg::Vec2f, setVecValue);
         case osgDB::BaseSerializer::RW_VEC3F: GET_PROP_VALUE(osg::Vec3f, setVecValue);
         case osgDB::BaseSerializer::RW_VEC4F: GET_PROP_VALUE(osg::Vec4f, setVecValue);
         case osgDB::BaseSerializer::RW_VEC2D: GET_PROP_VALUE(osg::Vec2d, setVecValue);
         case osgDB::BaseSerializer::RW_VEC3D: GET_PROP_VALUE(osg::Vec3d, setVecValue);
         case osgDB::BaseSerializer::RW_VEC4D: GET_PROP_VALUE(osg::Vec4d, setVecValue);
+#if OSG_VERSION_GREATER_THAN(3, 4, 0)
         case osgDB::BaseSerializer::RW_VEC2B: GET_PROP_VALUE(osg::Vec2b, setVecValue);
         case osgDB::BaseSerializer::RW_VEC3B: GET_PROP_VALUE(osg::Vec3b, setVecValue);
         case osgDB::BaseSerializer::RW_VEC4B: GET_PROP_VALUE(osg::Vec4b, setVecValue);
@@ -442,6 +461,7 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
         case osgDB::BaseSerializer::RW_VEC2UI: GET_PROP_VALUE(osg::Vec2ui, setVecValue);
         case osgDB::BaseSerializer::RW_VEC3UI: GET_PROP_VALUE(osg::Vec3ui, setVecValue);
         case osgDB::BaseSerializer::RW_VEC4UI: GET_PROP_VALUE(osg::Vec4ui, setVecValue);
+#endif
         case osgDB::BaseSerializer::RW_MATRIXF: GET_PROP_VALUE(osg::Matrixf, setMatrixValue);
         case osgDB::BaseSerializer::RW_MATRIXD: GET_PROP_VALUE(osg::Matrixd, setMatrixValue);
         case osgDB::BaseSerializer::RW_MATRIX: GET_PROP_VALUE(osg::Matrix, setMatrixValue);
