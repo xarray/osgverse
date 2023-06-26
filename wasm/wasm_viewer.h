@@ -79,7 +79,7 @@ public:
         _viewer = NULL; _logger = NULL;
     }
 
-    bool handleEvent(SDL_Event& event)
+    void handleEvent(SDL_Event& event)
     {
         osgGA::EventQueue* eq = _gw->getEventQueue();
         switch (event.type)

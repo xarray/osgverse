@@ -15,29 +15,15 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-class MyViewer : public osgViewer::Viewer
-{
-public:
-    MyViewer(osgVerse::Pipeline* p) : osgViewer::Viewer(), _pipeline(p) {}
-    osg::ref_ptr<osgVerse::Pipeline> _pipeline;
-
-protected:
-    virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
-    {
-        if (_pipeline.valid()) return _pipeline->createRenderer(camera);
-        else return osgViewer::Viewer::createRenderer(camera);
-    }
-};
+#define TEST_DEFERRED_RTT 0
+#define TEST_PBO_UPDATING 1
 
 int main(int argc, char** argv)
 {
-    /*osg::ref_ptr<osg::Image> image = osgDB::readImageFile(argv[1]);
-    if (image.valid())
-    {
-        printf("%d x %d x %d\n", image->s(), image->t(), image->r());
-        osgDB::writeImageFile(*image, "result.vdb.verse_vdb");
-    }*/
+    osgViewer::Viewer viewer;
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
 
+#if TEST_DEFERRED_RTT
     osg::ref_ptr<osg::Node> scene =
         (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFile(argv[1]);
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
@@ -45,20 +31,11 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->addChild(scene.get());
-    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile(
         "skydome.osgt.(0.005,0.005,0.01).scale.-100,-150,0.trans");
-    osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, FORWARD_SCENE_MASK);
-
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
-
-    //osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
-    //MyViewer viewer(pipeline.get());
-    //setupPipeline(pipeline.get(), &viewer, 1920, 1080);
-    osgViewer::Viewer viewer;
 
     osg::ref_ptr<osg::Texture> tex2D_0 =
         osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGB_INT8, 1024, 1024);
@@ -106,6 +83,55 @@ int main(int argc, char** argv)
         drcb->addRunner(gr1.get());
     }
     drcb->setup(viewer.getCamera(), PRE_DRAW);
+#elif TEST_PBO_UPDATING
+    class TextureUpdater : public osg::NodeCallback
+    {
+    public:
+        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        {
+            osg::Texture2D* tex = static_cast<osg::Texture2D*>(
+                node->getOrCreateStateSet()->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+            if (!tex)
+            {
+                tex = new osg::Texture2D;
+                tex->setImage(new osg::Image);
+                tex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+                tex->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+                node->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex);
+                updateImage(tex, tex->getImage(), true);
+            }
+            else
+                updateImage(tex, tex->getImage(), false);
+            traverse(node, nv);
+        }
+
+        void updateImage(osg::Texture2D* tex, osg::Image* img, bool created)
+        {
+            if (created)
+            {
+                img->allocateImage(4096, 4096, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+                img->setPixelBufferObject(new osg::PixelBufferObject(img));
+                img->setDataVariance(DYNAMIC); _value = 0;
+            }
+
+            if (_value > 255) _value = 0; else _value++;
+            memset(img->data(), _value, img->getTotalSizeInBytes());
+            img->dirty();
+        }
+
+    protected:
+        int _value;
+    };
+
+    osg::Geometry* geom = osg::createTexturedQuadGeometry(osg::Vec3(), osg::X_AXIS, osg::Z_AXIS);
+    geom->setUpdateCallback(new TextureUpdater);
+
+    osg::Geode* geode = new osg::Geode;
+    geode->addDrawable(geom);
+    root->addChild(geode);
+
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+#endif
 
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
