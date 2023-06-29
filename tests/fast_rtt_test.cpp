@@ -124,10 +124,9 @@ int main(int argc, char** argv)
     };
 
     osg::Geometry* geom = osg::createTexturedQuadGeometry(osg::Vec3(), osg::X_AXIS, osg::Z_AXIS);
-    geom->setUpdateCallback(new TextureUpdater);
-
     osg::Geode* geode = new osg::Geode;
     geode->addDrawable(geom);
+    geode->setUpdateCallback(new TextureUpdater);
     root->addChild(geode);
 
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
