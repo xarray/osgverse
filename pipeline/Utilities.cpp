@@ -20,7 +20,7 @@
 #include <PoissonGenerator.h>
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
-#if VERSE_WINDOWS
+#ifdef VERSE_WINDOWS
     #include <windows.h>
 #endif
 #include "Utilities.h"
@@ -29,10 +29,15 @@ namespace osgVerse
 {
     void globalInitialize(int argc, char** argv, const std::string& baseDir)
     {
+#if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
+        // anything to do here?
+        OSG_NOTICE << "[osgVerse] WebAssembly pipeline initialization." << std::endl;
+#else
         std::string workingPath = baseDir + std::string("/bin/");
         if (!osgDB::fileExists(workingPath))
             OSG_FATAL << "[osgVerse] Working directory " << workingPath << " not found. Following work may fail." << std::endl;
         osgDB::getDataFilePathList().push_back(workingPath);
+#endif
 
         setlocale(LC_ALL, ".UTF8");
         osg::setNotifyLevel(osg::NOTICE);
@@ -43,9 +48,11 @@ namespace osgVerse
         }
 
         osgDB::Registry* regObject = osgDB::Registry::instance();
-#if VERSE_STATIC_BUILD
+#ifdef VERSE_STATIC_BUILD
         // anything to do here?
+        OSG_NOTICE << "[osgVerse] Static-linking libraries are used..." << std::endl;
 #else
+        OSG_NOTICE << "[osgVerse] Dynamic-linking libraries are used..." << std::endl;
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_web"));
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_ms"));
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_leveldb"));

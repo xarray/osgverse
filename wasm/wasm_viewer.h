@@ -26,7 +26,7 @@ class NotifyLogger : public osg::NotifyHandler
 public:
     virtual void notify(osg::NotifySeverity severity, const char* message)
     {
-        printf("[osgVerse / %s] %s", getLevel(severity).c_str(), message);
+        printf("%s| %s", getLevel(severity).c_str(), message);
     }
 
     std::string getLevel(osg::NotifySeverity severity)

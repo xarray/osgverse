@@ -13,12 +13,16 @@
 #define POST_DRAW 2
 #define FINAL_DRAW 3
 
-#if VERSE_MSVC
-    #if defined(INSTALL_PATH_PREFIX)
-        #define BASE_DIR INSTALL_PATH_PREFIX
-    #endif
+#if defined(VERSE_MSVC)
+#   if defined(INSTALL_PATH_PREFIX)
+#       define BASE_DIR INSTALL_PATH_PREFIX
+#   else
+#       define BASE_DIR ".."
+#   endif
+#elif defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
+#   define BASE_DIR "assets"
 #else
-    #define BASE_DIR ".."
+#   define BASE_DIR ".."
 #endif
 #define SHADER_DIR BASE_DIR "/shaders/"
 #define SKYBOX_DIR BASE_DIR "/skyboxes/"

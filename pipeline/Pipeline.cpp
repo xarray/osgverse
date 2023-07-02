@@ -5,7 +5,7 @@
 #include <osgDB/ReadFile>
 #include <osgUtil/RenderStage>
 #include <osgViewer/Renderer>
-#if VERSE_WINDOWS
+#ifdef VERSE_WINDOWS
     #include <osgViewer/api/Win32/GraphicsWindowWin32>
     #include <imm.h>
 #endif
@@ -820,7 +820,7 @@ namespace osgVerse
         mainCam->setProjectionMatrixAsPerspective(
             30.0f, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), 1.0f, 10000.0f);
 
-#if VERSE_WINDOWS
+#ifdef VERSE_WINDOWS
         osgViewer::GraphicsWindowWin32* gw = static_cast<osgViewer::GraphicsWindowWin32*>(_stageContext.get());
         if (gw) ImmAssociateContext(gw->getHWND(), NULL);  // FIXME: disable default IME.. better use TSF?
 #endif

@@ -117,8 +117,8 @@ namespace osgVerse
     };
 }
 
-#if OSG_LIBRARY_STATIC
-#   define USE_OSG_PLUGINS() \
+#ifdef OSG_LIBRARY_STATIC
+#   define USE_OSG_PLUGINS_ONLY() \
     USE_OSGPLUGIN(glsl) \
     USE_OSGPLUGIN(trans) \
     USE_OSGPLUGIN(rot) \
@@ -128,25 +128,27 @@ namespace osgVerse
     USE_OSGPLUGIN(rgb) \
     USE_OSGPLUGIN(bmp) \
     USE_DOTOSGWRAPPER_LIBRARY(osg) \
-    USE_DOTOSGWRAPPER_LIBRARY(osgSim) \
-    USE_DOTOSGWRAPPER_LIBRARY(osgTerrain) \
-    USE_DOTOSGWRAPPER_LIBRARY(osgText) \
-    USE_DOTOSGWRAPPER_LIBRARY(osgViewer) \
     USE_SERIALIZER_WRAPPER_LIBRARY(osg) \
     USE_SERIALIZER_WRAPPER_LIBRARY(osgSim) \
     USE_SERIALIZER_WRAPPER_LIBRARY(osgTerrain) \
-    USE_SERIALIZER_WRAPPER_LIBRARY(osgText) \
-    USE_GRAPHICSWINDOW()
+    USE_SERIALIZER_WRAPPER_LIBRARY(osgText)
 // Note: plugins depending on external libraries should be called manually
 //  USE_OSGPLUGIN(jpg)
 //  USE_OSGPLUGIN(png)
 //  USE_OSGPLUGIN(tiff)
 //  USE_OSGPLUGIN(freetype)
+#   ifdef VERSE_WASM
+#       define USE_OSG_PLUGINS() USE_OSG_PLUGINS_ONLY()
+#   else
+#       define USE_OSG_PLUGINS() \
+        USE_OSG_PLUGINS_ONLY() \
+        USE_GRAPHICSWINDOW()
+#   endif
 #else
 #   define USE_OSG_PLUGINS()
 #endif
 
-#if VERSE_STATIC_BUILD
+#ifdef VERSE_STATIC_BUILD
 #   define USE_VERSE_PLUGINS() \
     USE_OSGPLUGIN(verse_ept) \
     USE_OSGPLUGIN(verse_fbx) \

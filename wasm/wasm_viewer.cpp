@@ -34,13 +34,17 @@ protected:
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
+    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("gltf");
+    osg::ref_ptr<osg::Node> scene = (rw != NULL) ? rw->readNode(BASE_DIR "/models/Sponza/Sponza.gltf");
+                                  : osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
         osgVerse::TangentSpaceVisitor tsv;
         scene->accept(tsv);
+
+        VBOSetupVisitor vsv;
+        scene->accept(vsv);
     }
 
     // The scene graph
