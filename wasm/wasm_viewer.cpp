@@ -2,13 +2,13 @@
 #include <SDL2/SDL.h>
 #include "wasm_viewer.h"
 
-#define TEST_PIPELINE 1
+#define TEST_PIPELINE 0
 #define TEST_SHADOW_MAP 0
 
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-Application* g_app = NULL;
+Application* g_app = new Application;;
 void loop()
 {
     SDL_Event e;
@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("gltf");
-    osg::ref_ptr<osg::Node> scene = (rw != NULL) ? rw->readNode(BASE_DIR "/models/Sponza/Sponza.gltf");
+    osg::ref_ptr<osg::Node> scene = (rw != NULL) ? rw->readNode(BASE_DIR "/models/Sponza/Sponza.gltf").getNode()
                                   : osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
@@ -69,7 +69,7 @@ int main(int argc, char** argv)
     // Create the pipeline
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
-    
+
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
@@ -77,7 +77,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
         postCamera->addChild(skybox.get());
@@ -86,33 +86,64 @@ int main(int argc, char** argv)
     // Create the viewer
 #if TEST_PIPELINE
     //osg::setNotifyLevel(osg::INFO);
-    MyViewer viewer(pipeline.get());
+    MyViewer* viewer = new MyViewer(pipeline.get());
 #else
     //osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
     root->addChild(postCamera.get());
     root->addChild(sceneRoot.get());
 
-    osgViewer::Viewer viewer;
+    osgViewer::Viewer* viewer = new osgViewer::Viewer;
 #endif
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-    viewer.setSceneData(root.get());
+    viewer->addEventHandler(new osgViewer::StatsHandler);
+    viewer->addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer->addEventHandler(new osgGA::StateSetManipulator(viewer->getCamera()->getOrCreateStateSet()));
+    viewer->setCameraManipulator(new osgGA::TrackballManipulator);
+    viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer->setSceneData(root.get());
 
     // Create the application object
     int width = 800, height = 600;
-    g_app = new Application;
-    g_app->setViewer(&viewer, width, height);
-    viewer.getCamera()->setDrawBuffer(GL_BACK);
-    viewer.getCamera()->setReadBuffer(GL_BACK);
+    g_app->setViewer(viewer, width, height);
+    viewer->getCamera()->setDrawBuffer(GL_BACK);
+    viewer->getCamera()->setReadBuffer(GL_BACK);
+
+    // Start SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
+        return 1;
+    }
+
+    atexit(SDL_Quit);
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+    SDL_Window* window = SDL_CreateWindow(
+        "osgVerse_ViewerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        width, height, SDL_WINDOW_OPENGL);
+    if (!window)
+    {
+        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
+        return 1;
+    }
+
+    SDL_GLContext context = SDL_GL_CreateContext(window);
+    if (context == NULL)
+    {
+        printf("[osgVerse] Could not create SDL context: '%s'\n", SDL_GetError());
+        return 1;
+    }
 
     // Setup the pipeline
 #if TEST_PIPELINE
+    params.originWidth = width; params.originHeight = height;
+    params.enableAO = false; params.enablePostEffects = false;
     queryOpenGLVersion(pipeline.get(), true);
-    setupStandardPipeline(pipeline.get(), &viewer, params);
+    setupStandardPipeline(pipeline.get(), viewer, params);
 
     // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
@@ -146,36 +177,6 @@ int main(int argc, char** argv)
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 #endif
-
-    // Start SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
-        return 1;
-    }
-
-    atexit(SDL_Quit);
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-    SDL_Window* window = SDL_CreateWindow(
-        "osgVerse_ViewerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        width, height, SDL_WINDOW_OPENGL);
-    if (!window)
-    {
-        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
-        return 1;
-    }
-
-    SDL_GLContext context = SDL_GL_CreateContext(window);
-    if (context == NULL)
-    {
-        printf("[osgVerse] Could not create SDL context: '%s'\n", SDL_GetError());
-        return 1;
-    }
 
     // Start the main loop
     emscripten_set_main_loop(loop, -1, 0);

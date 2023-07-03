@@ -208,8 +208,7 @@ ENDIF(VERSE_USE_OSG_STATIC)
 IF(USE_WASM_OPTIONS)
     SET(VERSE_USE_OSG_STATIC ON CACHE BOOL "Enable static build of osgVerse libraries" FORCE)
     SET(VERSE_STATIC_BUILD ON CACHE BOOL "Enable static build of osgVerse" FORCE)
-    SET(BUILD_FLAGS "-O3 -s USE_SDL=2")
-    ADD_DEFINITIONS(${BUILD_FLAGS})
+    ADD_DEFINITIONS("-O3 -s USE_SDL=2")
 ENDIF()
 
 ######################################### Global Definintions

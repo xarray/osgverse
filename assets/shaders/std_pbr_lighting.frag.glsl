@@ -7,8 +7,10 @@ uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)
 VERSE_FS_IN vec4 texCoord0;
 
-/// PBR functions
 const vec2 invAtan = vec2(0.1591, 0.3183);
+const int maxLights = 1024;
+
+/// PBR functions
 vec2 sphericalUV(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
@@ -153,8 +155,9 @@ void main()
     // Compute direcional lights
     vec3 lightColor, lightPos, lightDir; vec2 lightRange, lightSpot;
     int numLights = int(min(LightNumber.x, LightNumber.y));
-    for (int i = 0; i < numLights; ++i)
+    for (int i = 0; i < maxLights; ++i)
     {
+        if (numLights <= i) break;  // to avoid 'WebGL: Loop index cannot be compared with non-constant expression'
         int type = getLightAttributes(float(i), lightColor, lightPos, lightDir, lightRange, lightSpot);
         if (type == 1)
             radianceOut += computeDirectionalLight(lightDir, lightColor, eyeNormal, viewDir,

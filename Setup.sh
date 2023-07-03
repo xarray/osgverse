@@ -141,6 +141,10 @@ mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
 sed 's/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt" > CMakeLists.txt.tmp
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
 
+# Fix WebGL running errors
+sed 's#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp" > Texture.cpp.tmp
+mv Texture.cpp.tmp "$OpenSceneGraphRoot/src/osg/Texture.cpp"
+
 # Compile OpenSceneGraph
 echo "*** Building OpenSceneGraph..."
 ExtraOptions="-DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk"

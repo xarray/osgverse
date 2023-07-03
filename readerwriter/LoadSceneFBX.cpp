@@ -335,6 +335,12 @@ namespace osgVerse
     {
         std::string workDir = osgDB::getFilePath(file);
         std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
+        if (!in)
+        {
+            OSG_WARN << "[LoaderFBX] file " << file << " not readable" << std::endl;
+            return NULL;
+        }
+
         osg::ref_ptr<LoaderFBX> loader = new LoaderFBX(in, workDir);
         return loader->getRoot();
     }

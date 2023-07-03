@@ -104,34 +104,45 @@ namespace osgVerse
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
 
-        shaders.gbufferVS = osgDB::readShaderFile(VERT, dir + "std_gbuffer.vert.glsl");
-        shaders.shadowCastVS = osgDB::readShaderFile(VERT, dir + "std_shadow_cast.vert.glsl");
-        shaders.quadVS = osgDB::readShaderFile(VERT, dir + "std_common_quad.vert.glsl");
+        osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("glsl");
+        if (rw != NULL)
+        {
+#define READ_SHADER(var, type, name) \
+    var = rw->readShader(name).getShader(); \
+    if (var != NULL) var->setType(type);
 
-        shaders.gbufferFS = osgDB::readShaderFile(FRAG, dir + "std_gbuffer.frag.glsl");
-        shaders.shadowCastFS = osgDB::readShaderFile(FRAG, dir + "std_shadow_cast.frag.glsl");
-        shaders.ssaoFS = osgDB::readShaderFile(FRAG, dir + "std_ssao.frag.glsl");
-        shaders.ssaoBlurFS = osgDB::readShaderFile(FRAG, dir + "std_ssao_blur.frag.glsl");
-        shaders.pbrLightingFS = osgDB::readShaderFile(FRAG, dir + "std_pbr_lighting.frag.glsl");
-        shaders.shadowCombineFS = osgDB::readShaderFile(FRAG, dir + "std_shadow_combine.frag.glsl");
-        shaders.downsampleFS = osgDB::readShaderFile(FRAG, dir + "std_luminance_downsample.frag.glsl");
-        shaders.brightnessFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_extraction.frag.glsl");
-        shaders.brightnessCombineFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_combine.frag.glsl");
-        shaders.bloomFS = osgDB::readShaderFile(FRAG, dir + "std_brightness_bloom.frag.glsl");
-        shaders.tonemappingFS = osgDB::readShaderFile(FRAG, dir + "std_tonemapping.frag.glsl");
-        shaders.antiAliasingFS = osgDB::readShaderFile(FRAG, dir + "std_antialiasing.frag.glsl");
-        shaders.brdfLutFS = osgDB::readShaderFile(FRAG, dir + "std_brdf_lut.frag.glsl");
-        shaders.envPrefilterFS = osgDB::readShaderFile(FRAG, dir + "std_environment_prefiltering.frag.glsl");
-        shaders.irrConvolutionFS = osgDB::readShaderFile(FRAG, dir + "std_irradiance_convolution.frag.glsl");
-        shaders.quadFS = osgDB::readShaderFile(FRAG, dir + "std_common_quad.frag.glsl");
-        shaders.displayFS = osgDB::readShaderFile(FRAG, dir + "std_display.frag.glsl");
-        
-        shaders.forwardVS = osgDB::readShaderFile(VERT, dir + "std_forward_render.vert.glsl");
-        shaders.forwardFS = osgDB::readShaderFile(FRAG, dir + "std_forward_render.frag.glsl");
+            READ_SHADER(shaders.gbufferVS, VERT, dir + "std_gbuffer.vert.glsl");
+            READ_SHADER(shaders.shadowCastVS, VERT, dir + "std_shadow_cast.vert.glsl");
+            READ_SHADER(shaders.quadVS, VERT, dir + "std_common_quad.vert.glsl");
+
+            READ_SHADER(shaders.gbufferFS, FRAG, dir + "std_gbuffer.frag.glsl");
+            READ_SHADER(shaders.shadowCastFS, FRAG, dir + "std_shadow_cast.frag.glsl");
+            READ_SHADER(shaders.ssaoFS, FRAG, dir + "std_ssao.frag.glsl");
+            READ_SHADER(shaders.ssaoBlurFS, FRAG, dir + "std_ssao_blur.frag.glsl");
+            READ_SHADER(shaders.pbrLightingFS, FRAG, dir + "std_pbr_lighting.frag.glsl");
+            READ_SHADER(shaders.shadowCombineFS, FRAG, dir + "std_shadow_combine.frag.glsl");
+            READ_SHADER(shaders.downsampleFS, FRAG, dir + "std_luminance_downsample.frag.glsl");
+            READ_SHADER(shaders.brightnessFS, FRAG, dir + "std_brightness_extraction.frag.glsl");
+            READ_SHADER(shaders.brightnessCombineFS, FRAG, dir + "std_brightness_combine.frag.glsl");
+            READ_SHADER(shaders.bloomFS, FRAG, dir + "std_brightness_bloom.frag.glsl");
+            READ_SHADER(shaders.tonemappingFS, FRAG, dir + "std_tonemapping.frag.glsl");
+            READ_SHADER(shaders.antiAliasingFS, FRAG, dir + "std_antialiasing.frag.glsl");
+            READ_SHADER(shaders.brdfLutFS, FRAG, dir + "std_brdf_lut.frag.glsl");
+            READ_SHADER(shaders.envPrefilterFS, FRAG, dir + "std_environment_prefiltering.frag.glsl");
+            READ_SHADER(shaders.irrConvolutionFS, FRAG, dir + "std_irradiance_convolution.frag.glsl");
+            READ_SHADER(shaders.quadFS, FRAG, dir + "std_common_quad.frag.glsl");
+            READ_SHADER(shaders.displayFS, FRAG, dir + "std_display.frag.glsl");
+            
+            READ_SHADER(shaders.forwardVS, VERT, dir + "std_forward_render.vert.glsl");
+            READ_SHADER(shaders.forwardFS, FRAG, dir + "std_forward_render.frag.glsl");
+        }
 
         std::string iblFile = osgDB::getNameLessExtension(sky) + ".ibl.osgb";
-        skyboxIBL = dynamic_cast<osg::StateSet*>(osgDB::readObjectFile(iblFile));
-        skyboxMap = osgVerse::createTexture2D(osgDB::readImageFile(sky), osg::Texture::MIRROR);
+        rw = osgDB::Registry::instance()->getReaderWriterForExtension("osgb");
+        if (rw != NULL) skyboxIBL = dynamic_cast<osg::StateSet*>(rw->readObject(iblFile).getObject());
+
+        rw = osgDB::Registry::instance()->getReaderWriterForExtension(osgDB::getFileExtension(sky));
+        if (rw != NULL) skyboxMap = osgVerse::createTexture2D(rw->readImage(sky).getImage(), osg::Texture::MIRROR);
         if (!skyboxMap || !skyboxIBL)
         {
             OSG_NOTICE << "[StandardPipelineParameters] Skybox " << sky
@@ -227,14 +238,22 @@ namespace osgVerse
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_INT8,
+#ifdef VERSE_WASM
+                "DepthBuffer", osgVerse::Pipeline::DEPTH16);
+#else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
+#endif
         }
         else
         {
             gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
                 spp.shaders.gbufferVS, spp.shaders.gbufferFS, 2,
                 "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
+#ifdef VERSE_WASM
+                "DepthBuffer", osgVerse::Pipeline::DEPTH16);
+#else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
+#endif
 
             // TODO: more gbuffers
             OSG_WARN << "[StandardPipeline] DrawBuffersMRT doesn't work here. It may cause "
