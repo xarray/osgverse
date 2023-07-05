@@ -127,7 +127,6 @@ namespace osgVerse
     USE_OSGPLUGIN(osg2) \
     USE_OSGPLUGIN(rgb) \
     USE_OSGPLUGIN(bmp) \
-    USE_OSGPLUGIN(hdr) \
     USE_DOTOSGWRAPPER_LIBRARY(osg) \
     USE_SERIALIZER_WRAPPER_LIBRARY(osg) \
     USE_SERIALIZER_WRAPPER_LIBRARY(osgSim) \
@@ -156,6 +155,7 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_gltf) \
     USE_OSGPLUGIN(verse_ktx) \
     USE_OSGPLUGIN(verse_web) \
+    USE_OSGPLUGIN(verse_image) \
     USE_OSGPLUGIN(verse_leveldb) \
     USE_OSGPLUGIN(pbrlayout)
 // Note: plugins depending on external libraries should be called manually

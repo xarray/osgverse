@@ -142,6 +142,12 @@ sed 's/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g' "$OpenSceneGraph
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
 
 # Fix WebGL running errors
+if [ "$BuildMode" = '3' ]; then
+    sed 's#dlopen(#NULL;\/\/dlopen\/\/(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+else
+    sed 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+fi
+mv DynamicLibrary.cpp.tmp "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
 sed 's#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp" > Texture.cpp.tmp
 mv Texture.cpp.tmp "$OpenSceneGraphRoot/src/osg/Texture.cpp"
 

@@ -10,6 +10,7 @@
 #include "pipeline/Utilities.h"
 
 #define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "LoadSceneGLTF.h"

@@ -138,11 +138,8 @@ namespace osgVerse
         }
 
         std::string iblFile = osgDB::getNameLessExtension(sky) + ".ibl.osgb";
-        rw = osgDB::Registry::instance()->getReaderWriterForExtension("osgb");
-        if (rw != NULL) skyboxIBL = dynamic_cast<osg::StateSet*>(rw->readObject(iblFile).getObject());
-
-        rw = osgDB::Registry::instance()->getReaderWriterForExtension(osgDB::getFileExtension(sky));
-        if (rw != NULL) skyboxMap = osgVerse::createTexture2D(rw->readImage(sky).getImage(), osg::Texture::MIRROR);
+        skyboxIBL = dynamic_cast<osg::StateSet*>(osgDB::readObjectFile(iblFile));
+        skyboxMap = osgVerse::createTexture2D(osgDB::readImageFile(sky), osg::Texture::MIRROR);
         if (!skyboxMap || !skyboxIBL)
         {
             OSG_NOTICE << "[StandardPipelineParameters] Skybox " << sky

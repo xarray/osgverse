@@ -9,7 +9,7 @@ IF(VERSE_STATIC_BUILD)
     SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${PLUGIN_LIBRARIES_TO_LINK})
     
     IF(VERSE_USE_OSG_STATIC)
-        SET(OSGPLUGIN_LIBRARIES osgdb_glsl osgdb_trans osgdb_rot osgdb_scale osgdb_osg osgdb_rgb osgdb_bmp osgdb_hdr)
+        SET(OSGPLUGIN_LIBRARIES osgdb_glsl osgdb_trans osgdb_rot osgdb_scale osgdb_osg osgdb_rgb osgdb_bmp)
         SET(OSGPLUGIN_LIBRARIES ${OSGPLUGIN_LIBRARIES}
             osgdb_deprecated_osg osgdb_deprecated_osgsim osgdb_deprecated_osgtext
             osgdb_deprecated_osgviewer osgdb_deprecated_osgterrain)

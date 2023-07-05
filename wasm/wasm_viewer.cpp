@@ -34,9 +34,7 @@ protected:
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("gltf");
-    osg::ref_ptr<osg::Node> scene = (rw != NULL) ? rw->readNode(BASE_DIR "/models/Sponza/Sponza.gltf").getNode()
-                                  : osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf");
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
@@ -67,7 +65,7 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Create the pipeline
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
 
     // Post-HUD display
@@ -96,7 +94,6 @@ int main(int argc, char** argv)
     osgViewer::Viewer* viewer = new osgViewer::Viewer;
 #endif
     viewer->addEventHandler(new osgViewer::StatsHandler);
-    viewer->addEventHandler(new osgViewer::WindowSizeHandler);
     viewer->addEventHandler(new osgGA::StateSetManipulator(viewer->getCamera()->getOrCreateStateSet()));
     viewer->setCameraManipulator(new osgGA::TrackballManipulator);
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);

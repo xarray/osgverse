@@ -1,5 +1,8 @@
 #include "SkyBox.h"
 #include "Utilities.h"
+#include "Pipeline.h"
+#include <modeling/Utilities.h>
+
 #include <osg/io_utils>
 #include <osg/Depth>
 #include <osg/Drawable>
@@ -11,7 +14,6 @@
 #include <osg/TexGen>
 #include <osgDB/ReadFile>
 #include <osgUtil/CullVisitor>
-#include "Pipeline.h"
 using namespace osgVerse;
 
 #if 0
@@ -135,7 +137,7 @@ void SkyBox::setSkyColor(const osg::Vec4ub& color)
 {
     osg::ref_ptr<osg::Image> image = new osg::Image;
     image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    image->setInternalTextureFormat(GL_RGBA8);
+    image->setInternalTextureFormat(4);  // for WASM
     
     osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
     (*ptr) = color; setEnvironmentMap(image.get());
@@ -188,8 +190,13 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     _stateset->addUniform(new osg::Uniform("SkyTexture", (int)0));
     _stateset->addUniform(new osg::Uniform("SkyTextureMatrix", texMat));
 
+#if 0
     osg::ref_ptr<osg::Drawable> drawable = new osg::ShapeDrawable(
         new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 1.0f));
+#else
+    osg::ref_ptr<osg::Drawable> drawable = createEllipsoid(
+        osg::Vec3(0.0f, 0.0f, 0.0f), 1.0f, 1.0f, 1.0f, 16);
+#endif
     drawable->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
 
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;

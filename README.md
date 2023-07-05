@@ -100,6 +100,7 @@ Our project is already tested on graphics cards listed as below:
 2. osgdb_verse_fbx: a plugin with full-featured FBX format support.
 3. osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
 4. osgdb_verse_web: a plugin for HTTP and more web protocols, which may replace the curl plugin.
+4. osgdb_verse_image: a plugin for reading common image formats like JPEG and PNG. It mainly works for WASM case.
 5. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
 6. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
 7. osgdb_verse_cesium: a plugin for reading/writing from Cesium 3dtiles. It requires C++ 17. (UNFINISHED)
