@@ -13,7 +13,11 @@ namespace osgVerse
     {
         _parameterImage = new osg::Image;
         _parameterImage->allocateImage(1024, 4, 1, GL_RGBA, GL_FLOAT);
+#if defined(VERSE_WASM)
+        _parameterImage->setInternalTextureFormat(GL_RGBA);
+#else
         _parameterImage->setInternalTextureFormat(GL_RGBA32F_ARB);
+#endif
 
         _parameterTex = new osg::Texture2D;
         _parameterTex->setImage(_parameterImage.get());

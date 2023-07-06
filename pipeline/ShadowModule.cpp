@@ -52,7 +52,11 @@ namespace osgVerse
         for (int i = 0; i < _shadowNumber; ++i)
         {
             _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
+#if defined(VERSE_WASM)
+            _shadowMaps[i]->setInternalFormat(GL_RGB);
+#else
             _shadowMaps[i]->setInternalFormat(GL_RGB16F_ARB);
+#endif
             _shadowMaps[i]->setSourceFormat(GL_RGB);
             _shadowMaps[i]->setSourceType(GL_HALF_FLOAT);
             _shadowMaps[i]->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);

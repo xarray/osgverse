@@ -19,12 +19,33 @@ IF(VERSE_STATIC_BUILD)
     ENDIF(VERSE_USE_OSG_STATIC)
 ENDIF(VERSE_STATIC_BUILD)
 
+SET(WASM_FLAGS_EX "")
+IF(VERSE_USE_WEBGL2)
+    # WebGL2 Browser Compatibility:
+    # - IE     : none
+    # - Edge   : 79.0
+    # - Chrome : 56.0
+    # - Firefox: 51.0
+    # - Safari : 15.6 (iOS ver 15.2)
+    # - Android: 97.0
+    SET(WASM_FLAGS_EX "-s MIN_WEBGL_VERSION=2 -s MAX_WEBGL_VERSION=2")
+ELSE()
+    # WebGL1 Browser Compatibility:
+    # - IE     : 11.0
+    # - Edge   : 12.0
+    # - Chrome : 8.0
+    # - Firefox: 4.0
+    # - Safari : 5.1 (iOS ver 8.1)
+    # - Android: 97.0
+    SET(WASM_FLAGS_EX "-s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=2")
+ENDIF()
+
 FILE(COPY "${CMAKE_SOURCE_DIR}/assets" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
-SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_SOURCE_DIR}/wasm/shell.html")
-SET(WASM_FLAGS1 "-gsource-map -fsanitize=address -O3 -s USE_SDL=2 -s FULL_ES2 -s FULL_ES3")
+SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_SOURCE_DIR}/wasm/shell.html -gsource-map -fsanitize=address")
+SET(WASM_FLAGS1 "-O3 -s USE_SDL=2 -s FULL_ES2 -s FULL_ES3 -s WASM=1 -s ASSERTIONS=2")
 SET(WASM_FLAGS2 "-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=2GB -s MAXIMUM_MEMORY=4GB")
 NEW_EXECUTABLE(${EXE_NAME} SHARED)
-SET_TARGET_PROPERTIES(${EXE_NAME} PROPERTIES LINK_FLAGS "${WASM_FLAGS0} ${WASM_FLAGS1} ${WASM_FLAGS2}")
+SET_TARGET_PROPERTIES(${EXE_NAME} PROPERTIES LINK_FLAGS "${WASM_FLAGS0} ${WASM_FLAGS1} ${WASM_FLAGS2} ${WASM_FLAGS_EX}")
 
 SET_PROPERTY(TARGET ${EXE_NAME} PROPERTY FOLDER "APPLICATIONS")
 TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseDependency osgVerseReaderWriter osgVersePipeline)

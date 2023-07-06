@@ -1175,10 +1175,18 @@ namespace osgVerse
     
     void Pipeline::setTextureBuffer(osg::Texture* tex, BufferType type, int glVer)
     {
+        // WebGL texture formats:
+        //   https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/texImage2D
+        //   https://developer.mozilla.org/en-US/docs/Web/API/OES_texture_float
+        //   https://developer.mozilla.org/en-US/docs/Web/API/OES_texture_half_float
         switch (type)
         {
         case RGB_INT8:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_RGB);
+#else
             tex->setInternalFormat(GL_RGB8);
+#endif
             tex->setSourceFormat(GL_RGB);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
@@ -1193,12 +1201,20 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_INT_10_10_10_2);
             break;
         case RGB_FLOAT16:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_RGB);
+#else
             tex->setInternalFormat(GL_RGB16F_ARB);
+#endif
             tex->setSourceFormat(GL_RGB);
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RGB_FLOAT32:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_RGB);
+#else
             tex->setInternalFormat(GL_RGB32F_ARB);
+#endif
             tex->setSourceFormat(GL_RGB);
             tex->setSourceType(GL_FLOAT);
             break;
@@ -1208,7 +1224,11 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
         case RGBA_INT8:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_RGBA);
+#else
             tex->setInternalFormat(GL_RGBA8);
+#endif
             tex->setSourceFormat(GL_RGBA);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
@@ -1223,12 +1243,20 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_INT_10_10_10_2);
             break;
         case RGBA_FLOAT16:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_RGBA);
+#else
             tex->setInternalFormat(GL_RGBA16F_ARB);
+#endif
             tex->setSourceFormat(GL_RGBA);
             tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RGBA_FLOAT32:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_RGBA);
+#else
             tex->setInternalFormat(GL_RGBA32F_ARB);
+#endif
             tex->setSourceFormat(GL_RGBA);
             tex->setSourceType(GL_FLOAT);
             break;
@@ -1247,8 +1275,13 @@ namespace osgVerse
             else
 #endif
             {
+#if defined(VERSE_WASM)
+                tex->setInternalFormat(GL_LUMINANCE);
+                tex->setSourceFormat(GL_LUMINANCE);
+#else
                 tex->setInternalFormat(GL_R8);
                 tex->setSourceFormat(GL_RED);
+#endif
             }
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
@@ -1262,8 +1295,13 @@ namespace osgVerse
             else
 #endif
             {
+#if defined(VERSE_WASM)
+                tex->setInternalFormat(GL_LUMINANCE);
+                tex->setSourceFormat(GL_LUMINANCE);
+#else
                 tex->setInternalFormat(GL_R16F);
                 tex->setSourceFormat(GL_RED);
+#endif
             }
             tex->setSourceType(GL_HALF_FLOAT);
             break;
@@ -1277,8 +1315,13 @@ namespace osgVerse
             else
 #endif
             {
+#if defined(VERSE_WASM)
+                tex->setInternalFormat(GL_LUMINANCE);
+                tex->setSourceFormat(GL_LUMINANCE);
+#else
                 tex->setInternalFormat(GL_R32F);
                 tex->setSourceFormat(GL_RED);
+#endif
             }
             tex->setSourceType(GL_FLOAT);
             break;
@@ -1292,8 +1335,13 @@ namespace osgVerse
             else
 #endif
             {
+#if defined(VERSE_WASM)
+                tex->setInternalFormat(GL_LUMINANCE_ALPHA);
+                tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+#else
                 tex->setInternalFormat(GL_RG8);
                 tex->setSourceFormat(GL_RG);
+#endif
             }
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
@@ -1307,8 +1355,13 @@ namespace osgVerse
             else
 #endif
             {
+#if defined(VERSE_WASM)
+                tex->setInternalFormat(GL_LUMINANCE_ALPHA);
+                tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+#else
                 tex->setInternalFormat(GL_RG16F);
                 tex->setSourceFormat(GL_RG);
+#endif
             }
             tex->setSourceType(GL_HALF_FLOAT);
             break;
@@ -1322,15 +1375,24 @@ namespace osgVerse
             else
 #endif
             {
+#if defined(VERSE_WASM)
+                tex->setInternalFormat(GL_LUMINANCE_ALPHA);
+                tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+#else
                 tex->setInternalFormat(GL_RG32F);
                 tex->setSourceFormat(GL_RG);
+#endif
             }
             tex->setSourceType(GL_FLOAT);
             break;
         case DEPTH16:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_DEPTH_COMPONENT);
+#else
             tex->setInternalFormat(GL_DEPTH_COMPONENT16);
+#endif
             tex->setSourceFormat(GL_DEPTH_COMPONENT);
-            tex->setSourceType(GL_HALF_FLOAT);
+            tex->setSourceType(GL_UNSIGNED_SHORT);
             break;
         case DEPTH24_STENCIL8:
             tex->setInternalFormat(GL_DEPTH24_STENCIL8_EXT);
@@ -1338,9 +1400,13 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_INT_24_8_EXT);
             break;
         case DEPTH32:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_DEPTH_COMPONENT);
+#else
             tex->setInternalFormat(GL_DEPTH_COMPONENT32);
+#endif
             tex->setSourceFormat(GL_DEPTH_COMPONENT);
-            tex->setSourceType(GL_FLOAT);
+            tex->setSourceType(GL_UNSIGNED_INT);
             break;
         }
         tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);

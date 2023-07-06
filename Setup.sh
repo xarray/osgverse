@@ -227,7 +227,7 @@ if [ "$BuildMode" = '3' ]; then
 
     OsgRootLocation="$CurrentDir/build/sdk_wasm"
     cd $CurrentDir/build/verse_wasm
-    cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="$OsgRootLocation" $ExtraOptions $CurrentDir
+    cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DUSE_WASM_OPTIONS=1 -DVERSE_USE_WEBGL2=0 -DOSG_ROOT="$OsgRootLocation" $ExtraOptions $CurrentDir
     make install
 
 else

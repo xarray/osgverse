@@ -179,6 +179,9 @@ namespace osgVerse
         }
 
         osg::Camera* forwardCam = renderInfo.getCurrentCamera();
+#if defined(VERSE_WEBGL1)
+        // blitFramebuffer() only works for WebGL2...
+#else
         if (!_depthBlitList.empty())
         {
             GLuint fboId = state->getGraphicsContext()
@@ -203,10 +206,10 @@ namespace osgVerse
                 if (fbo) fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
                 ext->glBlitFramebuffer(0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
                                        GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-#if false
+#   if false
                 OSG_NOTICE << "Blitting " << cam->getName() << ": " << sWidth << "x" << sHeight << " => "
                            << forwardCam->getName() << ": " << tWidth << "x" << tHeight << std::endl;
-#endif
+#   endif
             }
             ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
         }
@@ -215,6 +218,7 @@ namespace osgVerse
             OSG_NOTICE << "[DeferredRenderCallback] No previous depth buffer is going to blit with "
                        << "current camera. Should not happen in deferred rendering mode" << std::endl;
         }
+#endif  // #if !defined(VERSE_WASM)
         if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
     }
 

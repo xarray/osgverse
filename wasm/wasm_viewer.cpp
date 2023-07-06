@@ -3,8 +3,6 @@
 #include "wasm_viewer.h"
 
 #define TEST_PIPELINE 0
-#define TEST_SHADOW_MAP 0
-
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
@@ -70,7 +68,11 @@ int main(int argc, char** argv)
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
+#if defined(VERSE_WEBGL2)
     root->addChild(postCamera.get());
+#elif defined(VERSE_WEBGL1)
+    // No forward scene can be added for WebGL1
+#endif
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
@@ -85,6 +87,7 @@ int main(int argc, char** argv)
 #if TEST_PIPELINE
     //osg::setNotifyLevel(osg::INFO);
     MyViewer* viewer = new MyViewer(pipeline.get());
+    OSG_NOTICE << "PBR + deferred rendering mode\n";
 #else
     //osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
@@ -113,6 +116,10 @@ int main(int argc, char** argv)
     }
 
     atexit(SDL_Quit);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -138,6 +145,7 @@ int main(int argc, char** argv)
     // Setup the pipeline
 #if TEST_PIPELINE
     params.originWidth = width; params.originHeight = height;
+    params.shadowNumber = 0;
     params.enableAO = false; params.enablePostEffects = false;
     queryOpenGLVersion(pipeline.get(), true);
     setupStandardPipeline(pipeline.get(), viewer, params);
@@ -149,27 +157,6 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
         root->addChild(shadow->getFrustumGeode());
     }
-
-#   if TEST_SHADOW_MAP
-    osg::ref_ptr<osg::Camera> hudCamera = new osg::Camera;
-    hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
-    hudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-    hudCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
-    hudCamera->setViewMatrix(osg::Matrix::identity());
-    hudCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
-    hudCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-    osgVerse::Pipeline::setPipelineMask(*hudCamera, FORWARD_SCENE_MASK);
-
-    float quadY = 0.0f;
-    for (int i = 0; i < shadow->getShadowNumber(); ++i)
-    {
-        osg::Node* quad = osgVerse::createScreenQuad(
-            osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
-        hudCamera->addChild(quad); quadY += 0.21f;
-    }
-    root->addChild(hudCamera.get());
-#   endif
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
