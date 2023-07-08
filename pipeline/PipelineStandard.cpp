@@ -314,7 +314,11 @@ namespace osgVerse
         // Deferred lighting stage
         osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting", 1.0f,
             spp.shaders.quadVS, spp.shaders.pbrLightingFS, 2,
+#if defined(VERSE_WASM)
+            "ColorBuffer", osgVerse::Pipeline::RGB_INT8,
+#else
             "ColorBuffer", osgVerse::Pipeline::RGB_FLOAT16,
+#endif
             "IblAmbientBuffer", osgVerse::Pipeline::RGB_INT8);
         lighting->applyBuffer(*gbuffer, "NormalBuffer", 0);
         lighting->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 1);
@@ -329,12 +333,25 @@ namespace osgVerse
         }
         else
         {
+#if defined(VERSE_WASM)
+            osg::ref_ptr<osg::Image> brdfImg = brdfLutTex->getImage(0);
+            if (brdfImg.valid())
+            {
+                unsigned char* data = new unsigned char[brdfImg->getTotalSizeInBytes()];
+                memcpy(data, brdfImg->data(), brdfImg->getTotalSizeInBytes());
+
+                osg::ref_ptr<osg::Image> newBrdfImg = new osg::Image;
+                newBrdfImg->setImage(brdfImg->s(), brdfImg->t(), brdfImg->r(), GL_LUMINANCE_ALPHA,
+                                     GL_LUMINANCE_ALPHA, GL_HALF_FLOAT_OES, data, osg::Image::USE_NEW_DELETE);
+                brdfLutTex->setImage(0, newBrdfImg.get());
+            }
+#endif
             lighting->applyTexture(brdfLutTex, "BrdfLutBuffer", 5);
             lighting->applyTexture(prefilteringTex, "PrefilterBuffer", 6);
             lighting->applyTexture(convolutionTex, "IrradianceBuffer", 7);
         }
         lightModule->applyTextureAndUniforms(lighting, "LightParameterMap", 8);
-
+        
         osgVerse::Pipeline::Stage* lastAoStage = NULL;
         if (spp.enableAO)
         {

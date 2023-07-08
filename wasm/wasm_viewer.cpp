@@ -2,7 +2,7 @@
 #include <SDL2/SDL.h>
 #include "wasm_viewer.h"
 
-#define TEST_PIPELINE 0
+#define TEST_PIPELINE 1
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 

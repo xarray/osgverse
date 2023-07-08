@@ -915,6 +915,7 @@ namespace osgVerse
         va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
+        s->camera->setImplicitBufferAttachmentMask(0, 0);
         s->camera->getOrCreateStateSet()->setAttributeAndModes(_deferredDepth.get());
         s->inputStage = false; _stages.push_back(s);
         return s;
@@ -1203,11 +1204,12 @@ namespace osgVerse
         case RGB_FLOAT16:
 #if defined(VERSE_WASM)
             tex->setInternalFormat(GL_RGB);
+            tex->setSourceType(GL_HALF_FLOAT_OES);
 #else
             tex->setInternalFormat(GL_RGB16F_ARB);
+            tex->setSourceType(GL_HALF_FLOAT);
 #endif
             tex->setSourceFormat(GL_RGB);
-            tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RGB_FLOAT32:
 #if defined(VERSE_WASM)
@@ -1245,11 +1247,12 @@ namespace osgVerse
         case RGBA_FLOAT16:
 #if defined(VERSE_WASM)
             tex->setInternalFormat(GL_RGBA);
+            tex->setSourceType(GL_HALF_FLOAT_OES);
 #else
             tex->setInternalFormat(GL_RGBA16F_ARB);
+            tex->setSourceType(GL_HALF_FLOAT);
 #endif
             tex->setSourceFormat(GL_RGBA);
-            tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RGBA_FLOAT32:
 #if defined(VERSE_WASM)
@@ -1291,6 +1294,7 @@ namespace osgVerse
             {
                 tex->setInternalFormat(GL_LUMINANCE16F_ARB);
                 tex->setSourceFormat(GL_LUMINANCE);
+                tex->setSourceType(GL_HALF_FLOAT);
             }
             else
 #endif
@@ -1298,12 +1302,13 @@ namespace osgVerse
 #if defined(VERSE_WASM)
                 tex->setInternalFormat(GL_LUMINANCE);
                 tex->setSourceFormat(GL_LUMINANCE);
+                tex->setSourceType(GL_HALF_FLOAT_OES);
 #else
                 tex->setInternalFormat(GL_R16F);
                 tex->setSourceFormat(GL_RED);
+                tex->setSourceType(GL_HALF_FLOAT);
 #endif
             }
-            tex->setSourceType(GL_HALF_FLOAT);
             break;
         case R_FLOAT32:
 #if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
@@ -1351,6 +1356,7 @@ namespace osgVerse
             {
                 tex->setInternalFormat(GL_LUMINANCE_ALPHA16F_ARB);
                 tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+                tex->setSourceType(GL_HALF_FLOAT);
             }
             else
 #endif
@@ -1358,12 +1364,13 @@ namespace osgVerse
 #if defined(VERSE_WASM)
                 tex->setInternalFormat(GL_LUMINANCE_ALPHA);
                 tex->setSourceFormat(GL_LUMINANCE_ALPHA);
+                tex->setSourceType(GL_HALF_FLOAT_OES);
 #else
                 tex->setInternalFormat(GL_RG16F);
                 tex->setSourceFormat(GL_RG);
+                tex->setSourceType(GL_HALF_FLOAT);
 #endif
             }
-            tex->setSourceType(GL_HALF_FLOAT);
             break;
         case RG_FLOAT32:
 #if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)

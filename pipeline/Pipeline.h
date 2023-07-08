@@ -19,6 +19,10 @@
     #define GL_HALF_FLOAT                     0x140B
 #endif
 
+#ifndef GL_HALF_FLOAT_OES
+    #define GL_HALF_FLOAT_OES                 0x8D61
+#endif
+
 #ifndef GL_ARB_texture_rg
     #define GL_RG                             0x8227
     #define GL_R8                             0x8229
