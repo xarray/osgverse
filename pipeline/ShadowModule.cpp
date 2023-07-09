@@ -51,15 +51,12 @@ namespace osgVerse
         _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
         for (int i = 0; i < _shadowNumber; ++i)
         {
+            // As WebGL requires, shadow map value should be encoded from float to RGBA8
+            // https://registry.khronos.org/webgl/specs/latest/1.0/#6.6
             _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
-#if defined(VERSE_WASM)
-            _shadowMaps[i]->setInternalFormat(GL_RGB);
-            _shadowMaps[i]->setSourceType(GL_HALF_FLOAT_OES);
-#else
-            _shadowMaps[i]->setInternalFormat(GL_RGB16F_ARB);
-            _shadowMaps[i]->setSourceType(GL_HALF_FLOAT);
-#endif
-            _shadowMaps[i]->setSourceFormat(GL_RGB);
+            _shadowMaps[i]->setInternalFormat(GL_RGBA);
+            _shadowMaps[i]->setSourceFormat(GL_RGBA);
+            _shadowMaps[i]->setSourceType(GL_UNSIGNED_BYTE);
             _shadowMaps[i]->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
             _shadowMaps[i]->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
             _shadowMaps[i]->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
@@ -225,6 +222,14 @@ namespace osgVerse
         if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps[id]->getTextureWidth(), _shadowMaps[id]->getTextureHeight());
         camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps[id].get());
+#if VERSE_WASM
+        // FBO without depth attachment will not enable depth test
+        // By default OSG use "ImplicitBufferAttachmentMask" to handle this,
+        // but the internal format should be reset for WebGL cases
+        // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
+        camera->attach(osg::Camera::DEPTH_BUFFER, GL_DEPTH_COMPONENT16);
+        camera->setImplicitBufferAttachmentMask(0, 0);
+#endif
 
         int value = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE;
         camera->getOrCreateStateSet()->setAttributeAndModes(prog, value);

@@ -145,8 +145,7 @@ int main(int argc, char** argv)
     // Setup the pipeline
 #if TEST_PIPELINE
     params.originWidth = width; params.originHeight = height;
-    params.shadowNumber = 0;
-    params.enableAO = false; params.enablePostEffects = false;
+    params.shadowNumber = 1; params.enableAO = false; params.enablePostEffects = true;
     queryOpenGLVersion(pipeline.get(), true);
     setupStandardPipeline(pipeline.get(), viewer, params);
 

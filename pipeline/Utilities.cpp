@@ -170,12 +170,11 @@ namespace osgVerse
             }
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(numRows, numRows, 1, GL_RGB, GL_FLOAT);
 #ifdef VERSE_WASM
-        image->allocateImage(numRows, numRows, 1, GL_RGB, GL_HALF_FLOAT_OES);
         image->setInternalTextureFormat(GL_RGB);
 #else
-        image->allocateImage(numRows, numCols, 1, GL_RGB, GL_HALF_FLOAT);
-        image->setInternalTextureFormat(GL_RGB16F_ARB);
+        image->setInternalTextureFormat(GL_RGB32F_ARB);
 #endif
         memcpy(image->data(), (unsigned char*)&noises[0], image->getTotalSizeInBytes());
 
@@ -203,12 +202,11 @@ namespace osgVerse
         }
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(numSamples, numRows, 1, GL_RGB, GL_FLOAT);
 #ifdef VERSE_WASM
-        image->allocateImage(numSamples, numRows, 1, GL_RGB, GL_HALF_FLOAT_OES);
         image->setInternalTextureFormat(GL_RGB);
 #else
-        image->allocateImage(numSamples, numRows, 1, GL_RGB, GL_HALF_FLOAT);
-        image->setInternalTextureFormat(GL_RGB16F_ARB);
+        image->setInternalTextureFormat(GL_RGB32F_ARB);
 #endif
         memcpy(image->data(), (unsigned char*)&distribution[0], image->getTotalSizeInBytes());
 

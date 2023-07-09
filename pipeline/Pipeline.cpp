@@ -1402,7 +1402,11 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_SHORT);
             break;
         case DEPTH24_STENCIL8:
+#if defined(VERSE_WASM)
+            tex->setInternalFormat(GL_DEPTH_STENCIL_EXT);
+#else
             tex->setInternalFormat(GL_DEPTH24_STENCIL8_EXT);
+#endif
             tex->setSourceFormat(GL_DEPTH_STENCIL_EXT);
             tex->setSourceType(GL_UNSIGNED_INT_24_8_EXT);
             break;

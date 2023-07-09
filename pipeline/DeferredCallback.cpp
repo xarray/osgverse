@@ -382,7 +382,7 @@ namespace osgVerse
             return false;
         }
 
-        fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+        fbo->apply(*state);
         if (cb->_readBufferApplyMask)
         {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)

@@ -236,7 +236,7 @@ namespace osgVerse
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_INT8,
 #ifdef VERSE_WASM
-                "DepthBuffer", osgVerse::Pipeline::DEPTH16);
+                "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 #endif
@@ -247,7 +247,7 @@ namespace osgVerse
                 spp.shaders.gbufferVS, spp.shaders.gbufferFS, 2,
                 "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
 #ifdef VERSE_WASM
-                "DepthBuffer", osgVerse::Pipeline::DEPTH16);
+                "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 #endif
@@ -358,7 +358,11 @@ namespace osgVerse
             // SSAO stages: AO -> BlurH -> BlurV
             osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoFS, 1,
+#if defined(VERSE_WASM)
+                "SsaoBuffer", osgVerse::Pipeline::RGB_INT8);
+#else
                 "SsaoBuffer", osgVerse::Pipeline::R_INT8);
+#endif
             ssao->applyBuffer(*gbuffer, "NormalBuffer", 0);
             ssao->applyBuffer(*gbuffer, "DepthBuffer", 1);
             ssao->applyTexture(generateNoises2D(4, 4), "RandomTexture", 2);
@@ -368,14 +372,22 @@ namespace osgVerse
 
             osgVerse::Pipeline::Stage* ssaoBlur1 = p->addWorkStage("SsaoBlur1", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
+#if defined(VERSE_WASM)
+                "SsaoBlurredBuffer0", osgVerse::Pipeline::RGB_INT8);
+#else
                 "SsaoBlurredBuffer0", osgVerse::Pipeline::R_INT8);
+#endif
             ssaoBlur1->applyBuffer(*ssao, "SsaoBuffer", 0);
             ssaoBlur1->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(1.0f, 0.0f)));
             ssaoBlur1->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
 
             osgVerse::Pipeline::Stage* ssaoBlur2 = p->addWorkStage("SsaoBlur2", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
+#if defined(VERSE_WASM)
+                "SsaoBlurredBuffer", osgVerse::Pipeline::RGB_INT8);
+#else
                 "SsaoBlurredBuffer", osgVerse::Pipeline::R_INT8);
+#endif
             ssaoBlur2->applyBuffer(*ssaoBlur1, "SsaoBlurredBuffer0", "SsaoBuffer", 0);
             ssaoBlur2->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(0.0f, 1.0f)));
             ssaoBlur2->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
