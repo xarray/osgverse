@@ -43,7 +43,7 @@ public:
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
-        std::string dir = ".", mode; bool isBinary = false;
+        std::string dir = "", mode; bool isBinary = false;
         if (options)
         {
             dir = options->getPluginStringData("Directory");
@@ -51,6 +51,9 @@ public:
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
             if (mode == "binary") isBinary = true;
         }
+
+        if (dir.empty() && options && !options->getDatabasePathList().empty())
+            dir = options->getDatabasePathList().front();
         return osgVerse::loadGltf2(fin, dir, isBinary).get();
     }
 };

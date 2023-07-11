@@ -5,8 +5,9 @@ SET(LIBRARY_FILES
     LoadTextureKTX.cpp LoadTextureKTX.h
 )
 
-ADD_DEFINITIONS(-DVERSE_RW_LIBRARY -DKHRONOS_STATIC)
-INCLUDE_DIRECTORIES(../3rdparty/stb ../3rdparty/rapidjson)
+INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all
+                    ../3rdparty/stb ../3rdparty/rapidjson)
+ADD_DEFINITIONS(-DVERSE_RW_LIBRARY -DKHRONOS_STATIC -DHV_STATICLIB)
 IF(VERSE_STATIC_BUILD)
     NEW_LIBRARY(${LIB_NAME} STATIC)
 ELSE()

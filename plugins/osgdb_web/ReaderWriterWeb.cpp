@@ -166,8 +166,8 @@ public:
         lOptions->setPluginStringData("filename", fileName);
 
         // TODO: uncompress remote osgz/ivez/gz?
-        std::stringstream buffer;
-        buffer << response.body;
+        std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
+        buffer.write((char*)response.body.data(), response.body.size());
 
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
@@ -207,8 +207,29 @@ public:
         osgDB::ReaderWriter::WriteResult result = writeFile(obj, writer, requestBuffer, options);
         if (!result.success()) return result;
 
-        // TODO send to web
-        return WriteResult::FILE_NOT_HANDLED;
+        // TODO: get connection parameters from options
+        HttpRequest req;
+
+        // Post data to web
+        req.method = HTTP_POST;
+        req.url = fileName;
+        req.scheme = scheme;
+        req.body = std::string((std::istreambuf_iterator<char>(requestBuffer)),
+                               std::istreambuf_iterator<char>());
+        
+        std::string connection, mimeType;
+        if (options)
+        {
+            connection = options->getPluginStringData("Connection");
+            mimeType = options->getPluginStringData("MimeType");
+        }
+        if (connection.empty()) connection = "keep-alive";
+        if (mimeType.empty()) mimeType = "application/octet-stream";
+        req.headers["Connection"] = connection;
+        req.headers["Content-Type"] = mimeType;
+
+        HttpResponse response; int code = _client->send(&req, &response);
+        return (code != 0) ? WriteResult::ERROR_IN_WRITING_FILE : WriteResult::FILE_SAVED;
     }
 
 protected:

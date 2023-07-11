@@ -39,8 +39,10 @@ public:
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
-        std::string dir = ".";
+        std::string dir = "";
         if (options) dir = options->getPluginStringData("Directory");
+        if (dir.empty() && options && !options->getDatabasePathList().empty())
+            dir = options->getDatabasePathList().front();
         return osgVerse::loadFbx2(fin, dir).get();
     }
 };

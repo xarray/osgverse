@@ -341,10 +341,12 @@ namespace osgVerse
                 memcpy(data, brdfImg->data(), brdfImg->getTotalSizeInBytes());
 
                 osg::ref_ptr<osg::Image> newBrdfImg = new osg::Image;
-                newBrdfImg->setImage(brdfImg->s(), brdfImg->t(), brdfImg->r(), GL_LUMINANCE_ALPHA,
-                                     GL_LUMINANCE_ALPHA, GL_HALF_FLOAT_OES, data, osg::Image::USE_NEW_DELETE);
+                newBrdfImg->setImage(brdfImg->s(), brdfImg->t(), brdfImg->r(), GL_RGB,
+                                     GL_RGB, GL_HALF_FLOAT_OES, data, osg::Image::USE_NEW_DELETE);
                 brdfLutTex->setImage(0, newBrdfImg.get());
             }
+            prefilteringTex->getImage(0)->setInternalTextureFormat(GL_RGB);
+            convolutionTex->getImage(0)->setInternalTextureFormat(GL_RGB);
 #endif
             lighting->applyTexture(brdfLutTex, "BrdfLutBuffer", 5);
             lighting->applyTexture(prefilteringTex, "PrefilterBuffer", 6);

@@ -7,6 +7,8 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+
+#include <libhv/all/client/requests.h>
 #include "pipeline/Utilities.h"
 
 #define TINYGLTF_IMPLEMENTATION
@@ -19,16 +21,68 @@
     #define GL_RG                             0x8227
 #endif
 
+class HttpRequester : public osg::Referenced
+{
+public:
+    static HttpRequester* instance()
+    {
+        static osg::ref_ptr<HttpRequester> s_ins = new HttpRequester;
+        return s_ins.get();
+    }
+
+    bool read(const std::string& fileName, std::vector<unsigned char>& data)
+    {
+        HttpRequest req;
+        req.method = HTTP_GET; req.url = fileName;
+        req.scheme = osgDB::getServerProtocol(fileName);
+
+        HttpResponse response;
+        int result = _client->send(&req, &response);
+        if (result != 0) return false;
+        data.assign(response.body.begin(), response.body.end());
+        return true;
+    }
+
+protected:
+    HttpRequester() { _client = new hv::HttpClient; }
+    virtual ~HttpRequester() { delete _client; }
+    hv::HttpClient* _client;
+};
+
 namespace osgVerse
 {
+    static bool FileExists(const std::string& absFilename, void* userData)
+    {
+        osgDB::ReaderWriter* rw = (osgDB::ReaderWriter*)userData;
+        if (rw) return true;  // FIXME: always believe remote file exists?
+        return tinygltf::FileExists(absFilename, userData);
+    }
+
+    static bool ReadWholeFile(std::vector<unsigned char>* out, std::string* err,
+                              const std::string& filepath, void* userData)
+    {
+        osgDB::ReaderWriter* rw = (osgDB::ReaderWriter*)userData;
+        if (rw && HttpRequester::instance()->read(filepath, *out)) return true;
+        return tinygltf::ReadWholeFile(out, err, filepath, userData);
+    }
+
     LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary)
     {
+        std::string protocol = osgDB::getServerProtocol(d);
+        osgDB::ReaderWriter* rwWeb = (protocol.empty()) ? NULL
+                : osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
+        tinygltf::FsCallbacks fs = {
+            &osgVerse::FileExists, &tinygltf::ExpandFilePath,
+            &osgVerse::ReadWholeFile, &tinygltf::WriteWholeFile,
+            (rwWeb ? NULL : &tinygltf::GetFileSizeInBytes), rwWeb };
+
         std::string err, warn; bool loaded = false;
         std::istreambuf_iterator<char> eos;
         std::vector<char> data(std::istreambuf_iterator<char>(in), eos);
         if (data.empty()) { OSG_WARN << "[LoaderGLTF] Unable to read from stream\n"; return; }
 
         tinygltf::TinyGLTF loader;
+        loader.SetFsCallbacks(fs);
         if (isBinary)
         {
             loaded = loader.LoadBinaryFromMemory(
