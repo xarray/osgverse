@@ -20,8 +20,8 @@
 | 编译/渲染 |              | 新增     | 50%                | initial  | 支持GLSL 1.2，可以运行在虚拟机和低端国产显卡上 | 目前着色器可以编译通过，但兆芯笔记本运行无结果 |
 | 编译      |              | 新增     |                    | initial  | 支持Android编译流程，支持直接纳入Android Studio | |
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |
-| 编译      |              | **新增** | 50%                | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | OSG库本身已经初步编译通过 |
-| 编译      |              | 新增     |                    | initial  | 通过Emscripten / Dawn支持WebGPU接口 | |
+| 编译      |              | **新增** | :heavy_check_mark: | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
+| 编译      |              | 新增     | 50%                | initial  | 通过Emscripten / Dawn支持WebGL1/2接口 | 已经支持WebGL1 |
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持流媒体推流和拉流，支持WebRTC云渲染 | |
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 不要用NodeMask来管理Deferred场景，避免影响用户代码 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
@@ -54,6 +54,7 @@
 | 渲染      | pipeline     | 新增     | 50%                | initial  | 支持后处理抗锯齿方案，FXAA/TAA | 目前已经支持FXAA |
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 支持自己扩展Pipeline::Stage，增加一个测试案例演示使用NV HBAO | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 通过脚本的方式来管理标准和自定义的Pipeline | |
+| 渲染      | pipeline     | 新增     |                    | initial  | 尝试OSG与Vulkan的结合方案（gl_vk_simple_interop/gl_vk_raytrace_interop） | |
 | 插件      | plugins      | 新增     | 80%                | initial  | 支持伪插件方式自动替换PBR贴图顺序(?.D4,S3,N3,X1M1R1.pbrlayout) | 已实现，未测试 |
 | 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用libhv支持多种网络协议，替代curl插件 | |
 | 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用leveldb支持数据库读写操作，可以用数据库来存储osgb文件 | |

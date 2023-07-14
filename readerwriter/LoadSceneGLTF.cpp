@@ -8,14 +8,15 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
-#include <libhv/all/client/requests.h>
 #include "pipeline/Utilities.h"
+#include <libhv/all/client/requests.h>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "LoadSceneGLTF.h"
+#include "Utilities.h"
 
 #ifndef GL_ARB_texture_rg
     #define GL_RG                             0x8227
@@ -32,6 +33,12 @@ public:
 
     bool read(const std::string& fileName, std::vector<unsigned char>& data)
     {
+#ifdef __EMSCRIPTEN__
+        osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
+        bool succeed = wf->httpGet(osgDB::getServerFileName(fileName));
+        if (!succeed) return false;
+        else data.assign(wf->buffer.begin(), wf->buffer.end());
+#else
         HttpRequest req;
         req.method = HTTP_GET; req.url = fileName;
         req.scheme = osgDB::getServerProtocol(fileName);
@@ -40,6 +47,7 @@ public:
         int result = _client->send(&req, &response);
         if (result != 0) return false;
         data.assign(response.body.begin(), response.body.end());
+#endif
         return true;
     }
 

@@ -7,6 +7,7 @@
 #include <osgDB/Registry>
 
 #include <libhv/all/client/requests.h>
+#include <readerwriter/Utilities.h>
 
 class ReaderWriterWeb : public osgDB::ReaderWriter
 {
@@ -142,6 +143,18 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
+#ifdef __EMSCRIPTEN__
+        osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
+        bool succeed = wf->httpGet(osgDB::getServerFileName(fileName));
+        if (!succeed)
+        {
+            OSG_WARN << "[emfetch] Failed getting " << fileName << std::endl;
+            return ReadResult::ERROR_IN_READING_FILE;
+        }
+
+        std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
+        buffer.write((char*)&wf->buffer[0], wf->buffer.size());
+#else
         // TODO: get connection parameters from options
         HttpRequest req;
 
@@ -158,6 +171,10 @@ public:
             return ReadResult::ERROR_IN_READING_FILE;
         }
 
+        std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
+        buffer.write((char*)response.body.data(), response.body.size());
+#endif
+
         // Load by other readerwriter
         osg::ref_ptr<Options> lOptions = options ?
             static_cast<Options*>(options->clone(osg::CopyOp::SHALLOW_COPY)) : new Options;
@@ -166,9 +183,6 @@ public:
         lOptions->setPluginStringData("filename", fileName);
 
         // TODO: uncompress remote osgz/ivez/gz?
-        std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
-        buffer.write((char*)response.body.data(), response.body.size());
-
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
         return readResult;

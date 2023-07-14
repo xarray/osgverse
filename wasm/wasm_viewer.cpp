@@ -29,10 +29,11 @@ protected:
     }
 };
 
+#define SERVER_ADDR "http://127.0.0.1:8000/assets"
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf");
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(SERVER_ADDR "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
@@ -63,7 +64,7 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Create the pipeline
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
+    osgVerse::StandardPipelineParameters params(SHADER_DIR, SERVER_ADDR "/skyboxes/sunset.png");
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
 
     // Post-HUD display
