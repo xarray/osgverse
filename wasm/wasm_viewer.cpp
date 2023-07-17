@@ -29,6 +29,14 @@ protected:
     }
 };
 
+// Server structure
+/* - <assets>: User resource folder copied from master/assets
+   - osgVerse_ViewerWASM.data: preload data (only shaders)
+   - osgVerse_ViewerWASM.html: main HTML page
+   - osgVerse_ViewerWASM.js: main Javascript file
+   - osgVerse_ViewerWASM.wasm: main WASM file
+   - osgVerse_ViewerWASM.wasm.map: source-map for debugging
+*/
 #define SERVER_ADDR "http://127.0.0.1:8000/assets"
 int main(int argc, char** argv)
 {

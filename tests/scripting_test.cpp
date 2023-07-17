@@ -10,6 +10,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Pipeline.h>
+#include <script/ScriptBase.h>
 #include <iostream>
 #include <sstream>
 
@@ -125,7 +126,7 @@ int main(int argc, char** argv)
         classMgr.setProperty(n1, "Matrix", swapped ? m2 : m1);
         classMgr.setProperty(n2, "Matrix", swapped ? m1 : m2);
     });
-#elif true
+#elif false
     // STEP-3: Create object and call its methods
     osgDB::ClassInterface classMgr;
 
@@ -205,6 +206,37 @@ int main(int argc, char** argv)
         shown = !shown;  // press 't' to show/hide the quad
         classMgr.setProperty(geode, "NodeMask", shown ? 0xffffffff : 0);
     });
+#else
+    // osgVerseScript test
+    osg::ref_ptr<osgVerse::ScriptBase> scripter = new osgVerse::ScriptBase;
+
+    osgVerse::LibraryEntry* osgLib = scripter->getOrCreateEntry("osg");
+    const std::set<std::string>& osgClasses = osgLib->getClasses();
+    for (std::set<std::string>::const_iterator itr = osgClasses.begin();
+         itr != osgClasses.end(); ++itr)
+    {
+        std::vector<osgVerse::LibraryEntry::Property> props = osgLib->getPropertyNames(*itr);
+        std::vector<osgVerse::LibraryEntry::Method> methods = osgLib->getMethodNames(*itr);
+        
+        std::cout << "Class " << *itr << ": [PROP] ";
+        for (size_t i = 0; i < props.size(); ++i)
+        {
+            if (props[i].outdated) continue; if (i > 0) std::cout << "; ";
+            std::cout << props[i].typeName << " " << props[i].name;
+        }
+
+        if (!methods.empty()) std::cout << "\n\t\t [METHOD] ";
+        for (size_t i = 0; i < methods.size(); ++i)
+        {
+            if (methods[i].outdated) continue;
+            if (i > 0) std::cout << "; "; std::cout << methods[i].name;
+        }
+        std::cout << "\n";
+    }
+
+    std::string id1 = scripter->createFromObject(n1).value;
+    std::string id2 = scripter->createFromObject(n2).value;
+    std::cout << "Created objects: " << id1 << ", " << id2 << "\n";
 #endif
 
     osgViewer::Viewer viewer;

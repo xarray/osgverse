@@ -16,7 +16,7 @@ SET(_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE "0" CACHE STRING "Prevent cfg 
 # Set special build flags:
 # * -O3: make compact binary, critical for web
 # * -s USE_SDL=2: provide SDL2
-SET(BUILD_FLAGS "-O3 -s USE_SDL=2")
+SET(BUILD_FLAGS "-O3 -s USE_SDL=2 -pthread")
 ADD_DEFINITIONS(${BUILD_FLAGS})
 INCLUDE_DIRECTORIES(${OSG_SOURCE_DIR}/include)
 INCLUDE_DIRECTORIES(${OSG_BUILD_DIR}/include)

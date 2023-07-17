@@ -263,6 +263,28 @@ SET(KTX_SOURCE_FILES
     ktx/basisu/encoder/cppspmd_type_aliases.h
 )
 
+SET(MARL_SOURCE_FILES
+    marl/debug.cpp marl/memory.cpp marl/scheduler.cpp marl/thread.cpp marl/trace.cpp)
+IF(NOT MSVC)
+    SET(MARL_SOURCE_FILES ${MARL_SOURCE_FILES}
+        marl/osfiber_aarch64.c marl/osfiber_arm.c
+        marl/osfiber_asm_aarch64.S marl/osfiber_asm_arm.S
+        marl/osfiber_asm_loongarch64.S marl/osfiber_asm_mips64.S
+        marl/osfiber_asm_ppc64.S marl/osfiber_asm_rv64.S
+        marl/osfiber_asm_x64.S marl/osfiber_asm_x86.S
+        marl/osfiber_loongarch64.c marl/osfiber_mips64.c
+        marl/osfiber_ppc64.c marl/osfiber_rv64.c
+        marl/osfiber_x64.c marl/osfiber_x86.c
+        marl/osfiber_emscripten.cpp
+    )
+    SET_SOURCE_FILES_PROPERTIES(
+        marl/osfiber_asm_aarch64.S marl/osfiber_asm_arm.S
+        marl/osfiber_asm_loongarch64.S marl/osfiber_asm_mips64.S
+        marl/osfiber_asm_ppc64.S marl/osfiber_asm_x64.S marl/osfiber_asm_x86.S
+        PROPERTIES LANGUAGE C
+    )
+ENDIF(NOT MSVC)
+
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
@@ -276,6 +298,7 @@ SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
 SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
+SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
@@ -291,7 +314,7 @@ SET(LIBRARY_FILES
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
     ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
-    ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${KTX_SOURCE_FILES}
+    ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES}
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS

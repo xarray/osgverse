@@ -46,6 +46,9 @@ namespace osgVerse
         /** Get node path: idXXX, idA/idB, idA/0 (first child) */
         osg::Object* getFromPath(const std::string& nodePath);
 
+        LibraryEntry* getOrCreateEntry(const std::string& lib);
+        Result createFromObject(osg::Object* obj);
+
     protected:
         bool setProperty(const std::string& key, const std::string& value,
                          LibraryEntry* entry, osg::Object* object,

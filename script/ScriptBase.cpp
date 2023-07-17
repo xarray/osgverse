@@ -3,6 +3,24 @@
 #include "ScriptBase.h"
 using namespace osgVerse;
 
+LibraryEntry* ScriptBase::getOrCreateEntry(const std::string& libName)
+{
+    if (_entries.find(libName) == _entries.end())
+        _entries[libName] = new LibraryEntry(libName);
+    return _entries[libName].get();
+}
+
+ScriptBase::Result ScriptBase::createFromObject(osg::Object* obj)
+{
+    if (obj != NULL)
+    {
+        std::string id = nanoid::generate(8);
+        _objects[id] = obj; return Result(id, obj);
+    }
+    else
+        return Result(-6, "Invalid creation");
+}
+
 ScriptBase::Result ScriptBase::create(const std::string& compName,
                                       const PropertyMap& properties)
 {

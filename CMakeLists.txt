@@ -209,7 +209,7 @@ IF(USE_WASM_OPTIONS)
     SET(VERSE_USE_WEBGL2 OFF CACHE BOOL "Enable WebGL 2.0 version while build with WASM, or WebGL 1.0 if disabled")
     SET(VERSE_USE_OSG_STATIC ON CACHE BOOL "Enable static build of osgVerse libraries" FORCE)
     SET(VERSE_STATIC_BUILD ON CACHE BOOL "Enable static build of osgVerse" FORCE)
-    ADD_DEFINITIONS("-O3 -s USE_SDL=2")
+    ADD_DEFINITIONS("-O3 -s USE_SDL=2 -pthread")
 ENDIF()
 
 ######################################### Global Definintions
