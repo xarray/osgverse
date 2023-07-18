@@ -2,7 +2,7 @@
 #define MANA_APP_VIEWERWASM_HPP
 
 #include <osg/io_utils>
-#include <osg/ComputeBoundsVisitor>
+#include <osg/Material>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -40,26 +40,6 @@ public:
             case osg::FATAL: case osg::ALWAYS: return "E";
         }
         return "?";
-    }
-};
-
-class VBOSetupVisitor : public osg::NodeVisitor
-{
-public:
-    VBOSetupVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
-
-    virtual void apply(osg::Geode& geode)
-    {
-        for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
-        {
-            osg::Geometry *geom = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
-            if (geom)
-            {
-                geom->setUseDisplayList(false);
-                geom->setUseVertexBufferObjects(true);
-            }
-        }
-        NodeVisitor::apply(geode);
     }
 };
 

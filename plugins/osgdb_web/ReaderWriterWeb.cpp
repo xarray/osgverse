@@ -78,7 +78,18 @@ public:
         case (ARCHIVE): return rw->openArchive(fin, options);
         case (IMAGE): return rw->readImage(fin, options);
         case (HEIGHTFIELD): return rw->readHeightField(fin, options);
-        case (NODE): return rw->readNode(fin, options);
+        case (NODE):
+            {
+                ReadResult rr = rw->readNode(fin, options);
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+                if (rr.validNode())
+                {
+                    osgVerse::FixedFunctionOptimizer ffo;
+                    rr.getNode()->accept(ffo);
+                }
+#endif
+                return rr;
+            }
         default: break;
         }
         return ReadResult::FILE_NOT_HANDLED;

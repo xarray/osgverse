@@ -11,6 +11,54 @@
 
 namespace osgVerse
 {
+    class FixedFunctionOptimizer : public osg::NodeVisitor
+    {
+    public:
+        FixedFunctionOptimizer()
+            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+
+        virtual void apply(osg::Geode& geode)
+        {
+            for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
+            {
+                osg::Geometry *geom = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+                if (geom)
+                {
+                    removeUnusedStateAttributes(geom->getStateSet());
+                    geom->setUseDisplayList(false);
+                    geom->setUseVertexBufferObjects(true);
+                }
+            }
+            removeUnusedStateAttributes(geode.getStateSet());
+            NodeVisitor::apply(geode);
+        }
+
+        virtual void apply(osg::Group& node)
+        {
+            removeUnusedStateAttributes(node.getStateSet());
+            NodeVisitor::apply(node);
+        }
+
+    protected:
+        void removeUnusedStateAttributes(osg::StateSet* ssPtr)
+        {
+            if (ssPtr == NULL) return;
+            osg::StateSet& ss = *ssPtr;
+
+            ss.removeAttribute(osg::StateAttribute::ALPHAFUNC);
+            ss.removeAttribute(osg::StateAttribute::CLIPPLANE);
+            ss.removeAttribute(osg::StateAttribute::COLORMATRIX);
+            ss.removeAttribute(osg::StateAttribute::FOG);
+            ss.removeAttribute(osg::StateAttribute::LIGHT);
+            ss.removeAttribute(osg::StateAttribute::LIGHTMODEL);
+            ss.removeAttribute(osg::StateAttribute::LINESTIPPLE);
+            ss.removeAttribute(osg::StateAttribute::LOGICOP);
+            ss.removeAttribute(osg::StateAttribute::MATERIAL);
+            ss.removeAttribute(osg::StateAttribute::POINT);
+            ss.removeAttribute(osg::StateAttribute::POLYGONSTIPPLE);
+            ss.removeAttribute(osg::StateAttribute::SHADEMODEL);
+        }   
+    };
 
 #ifdef __EMSCRIPTEN__
     struct WebFetcher : public osg::Referenced

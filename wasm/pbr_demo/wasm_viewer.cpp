@@ -47,9 +47,6 @@ int main(int argc, char** argv)
         // Add tangent/bi-normal arrays for normal mapping
         osgVerse::TangentSpaceVisitor tsv;
         scene->accept(tsv);
-
-        VBOSetupVisitor vsv;
-        scene->accept(vsv);
     }
 
     // The scene graph
