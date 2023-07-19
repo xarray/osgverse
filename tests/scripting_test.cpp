@@ -237,6 +237,10 @@ int main(int argc, char** argv)
     std::string id1 = scripter->createFromObject(n1).value;
     std::string id2 = scripter->createFromObject(n2).value;
     std::cout << "Created objects: " << id1 << ", " << id2 << "\n";
+
+    osgVerse::ScriptBase::Result r1 = scripter->get(id2, "Matrix");
+    osgVerse::ScriptBase::Result r2 = scripter->get(id2 + "/0", "Matrix");
+    std::cout << "Matrix: " << r1.value << ", " << r2.value << "\n";
 #endif
 
     osgViewer::Viewer viewer;

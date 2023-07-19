@@ -121,29 +121,41 @@ Our project is already tested on graphics cards listed as below:
 #### CMake options
 | Option                      | Type    | Default Value | Notes |
 |-----------------------------|---------|---------------|-------|
-| OSG_INCLUDE_DIR             | Path    | (Required)    | Set to path of osg/Node |
-| OSG_BUILD_INCLUDE_DIR       | Path    | (Required)    | Set to path of osg/Version |
-| OSG_LIB_DIR                 | Path    | (Required)    | Set to path of libosg.a or osg.lib |
+| OSG_INCLUDE_DIR             | Path    |               | (Required) Set to path of osg/Node |
+| OSG_BUILD_INCLUDE_DIR       | Path    |               | (Required) Set to path of osg/Version |
+| OSG_LIB_DIR                 | Path    |               | (Required) Set to path of libosg.a or osg.lib |
 | OSG_DEBUG_POSTFIX           | String  | d             | Set a postfix for OSG debug built-libraries |
 | OSG_GLES_INCLUDE_DIR        | Path    |               | Set to path of GLES2/gl2.h or GLES3/gl3.h, for GLES build only |
 | OSG_GLES_LIBRARY            | Path    |               | Set to path of libGLESv2.so or libGLESv2.lib, for GLES build only |
 | OSG_EGL_LIBRARY             | Path    |               | Set to path of libEGL.so or libEGL.lib, for GLES build only |
 | BULLET_INCLUDE_DIR          | Path    |               | Set to path of btBulletDynamicsCommon.h |
-| BULLET_LIB_DIR              | Path    |               | Set to path of libBullet3Dynamics.a or BulletDynamics.lib |
+| BULLET_LIB_DIR              | Path    |               | Set to path of libBulletDynamics.a or BulletDynamics.lib |
 | BULLET_DEBUG_POSTFIX        | String  | _Debug        | Set a postfix for Bullet debug built-libraries |
+| ZLMEDIAKIT_INCLUDE_DIR      | Path    |               | Set to path of mk_common.h |
+| ZLMEDIAKIT_LIB_DIR          | Path    |               | Set to path of libmk_api.so or mk_api.lib |
+| CESIUMNATIVE_INCLUDE_DIR    | Path    |               | Set to path of Cesium3DTilesReader/Library.h |
+| CESIUMNATIVE_LIB_DIR        | Path    |               | Set to path of libCesium3DTilesReader.so or Cesium3DTilesReader.lib |
+| OPENVDB_INCLUDE_DIR         | Path    |               | Set to path of openvdb/openvdb.h |
+| OPENVDB_BOOST_INCLUDE_DIR   | Path    |               | Set to path of boost/type.hpp |
+| OPENVDB_TBB_INCLUDE_DIR     | Path    |               | Set to path of tbb/blocked_range.h |
+| OPENVDB_LIB_DIR             | Path    |               | Set to path of libopenvdb.so or openvdb.lib |
+| OPENVDB_TBB_LIB_DIR         | Path    |               | Set to path of libtbb.so or tbb.lib |
 | OSGEARTH_INCLUDE_DIR        | Path    |               | Set to path of osgEarth/EarthManipulator |
 | OSGEARTH_BUILD_INCLUDE_DIR  | Path    |               | Set to path of osgEarth/BuildConfig |
 | OSGEARTH_LIB_DIR            | Path    |               | Set to path of libosgEarth.so or osgEarth.lib |
 | SDL2_INCLUDE_DIR            | Path    |               | Set to path of SDL.h |
 | SDL2_LIB_DIR                | Path    |               | Set to path of libSDL2.so or SDL2.lib |
 | Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
+| Qt6_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt6 |
 | VERSE_SUPPORT_CPP17         | Boolean | OFF           | Enable build of libraries using C++ 17 standard |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
-| VERSE_WITH_DWARF            | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |
+| VERSE_USE_DWARF             | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |
 | VERSE_USE_GLIBCXX11_ABI     | Boolean | ON            | Enable to use libraries built with GCC compiler newer than 4.9 |
 | VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
+| VERSE_WASM_USE_WEBGL2       | Boolean | OFF           | Enable WebGL 2.0 version while build with WASM, or WebGL 1.0 if disabled, for WASM build only |
+| VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |
 
 #### Screenshots
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza.jpg)

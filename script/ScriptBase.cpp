@@ -15,7 +15,8 @@ ScriptBase::Result ScriptBase::createFromObject(osg::Object* obj)
     if (obj != NULL)
     {
         std::string id = nanoid::generate(8);
-        _objects[id] = obj; return Result(id, obj);
+        obj->setName(id); _objects[id] = obj;
+        return Result(id, obj);
     }
     else
         return Result(-6, "Invalid creation");
@@ -34,7 +35,8 @@ ScriptBase::Result ScriptBase::create(const std::string& compName,
 
     if (obj != NULL)
     {
-        std::string id = nanoid::generate(8); _objects[id] = obj;
+        std::string id = nanoid::generate(8);
+        obj->setName(id); _objects[id] = obj;
         Result result(id, obj), result2 = set(id, properties);
         result.msg = result2.msg; return result;
     }
@@ -54,7 +56,8 @@ ScriptBase::Result ScriptBase::create(const std::string& type, const std::string
 
     if (obj != NULL)
     {
-        std::string id = nanoid::generate(8); _objects[id] = obj;
+        std::string id = nanoid::generate(8);
+        obj->setName(id); _objects[id] = obj;
         Result result(id, obj), result2 = set(id, properties);
         result.msg = result2.msg; return result;
     }
@@ -167,10 +170,10 @@ osg::Object* ScriptBase::getFromPath(const std::string& nodePath)
     osgDB::StringList path; osg::Object* obj = NULL;
     osgDB::split(nodePath, path, '/');
     if (_objects.find(path[0]) != _objects.end())
-        obj = _objects[nodePath].get();
+        obj = _objects[path[0]].get();
 
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
-    osg::Node* node = obj->asNode();
+    osg::Node* node = obj ? obj->asNode() : NULL;
 #else
     osg::Node* node = dynamic_cast<osg::Node*>(obj);
 #endif
@@ -262,7 +265,7 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
     for (size_t i = 0; i < names.size(); ++i)
     {
         const LibraryEntry::Property& prop = names[i];
-        if (prop.name != key && prop.outdated) continue;
+        if (prop.name != key || prop.outdated) continue;
 
 #if OSGVERSE_COMPLETED_SCRIPT
         switch (prop.type)
@@ -429,7 +432,7 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
     for (size_t i = 0; i < names.size(); ++i)
     {
         const LibraryEntry::Property& prop = names[i];
-        if (prop.name != key && prop.outdated) continue;
+        if (prop.name != key || prop.outdated) continue;
 
 #define GET_PROP_VALUE(type, func) { \
     type v; if (!entry->getProperty(object, key, v)) return false; \
