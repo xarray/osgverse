@@ -20,7 +20,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
 
 def main():
 
-    addr = "127.0.0.1"
+    addr = "0.0.0.0"
     port = 8000
     httpd = HTTPServer((addr, port), RequestHandler)
     print("Serving http at http://{}:{}".format(addr, port))

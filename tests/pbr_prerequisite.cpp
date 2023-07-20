@@ -1,5 +1,5 @@
 #include <osg/io_utils>
-#include <osg/LightSource>
+#include <osg/ImageSequence>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osgDB/FileNameUtils>
@@ -120,15 +120,8 @@ int main(int argc, char** argv)
     viewer.setUpViewOnSingleScreen(0);
     for (int i = 0; i < 3; ++i) viewer.frame();
 
-    /*osg::Vec3ub* ptr = (osg::Vec3ub*)img2->data();
-    for (int y = 530; y < 550; ++y)
-        for (int x = 950; x < 970; ++x)
-        {
-            osg::Vec3ub v = *(ptr + y * w + x);
-            printf("%d, %d, %d\n", v[0], v[1], v[2]);
-        }*/
-
     std::string outFile = osgDB::getNameLessExtension(skyFile);
+#if 0
     osg::ref_ptr<osg::Texture2D> tex0 = osgVerse::createTexture2D(img0.get(), osg::Texture::MIRROR);
     osg::ref_ptr<osg::Texture2D> tex1 = osgVerse::createTexture2D(img1.get(), osg::Texture::MIRROR);
     osg::ref_ptr<osg::Texture2D> tex2 = osgVerse::createTexture2D(img2.get(), osg::Texture::MIRROR);
@@ -139,5 +132,11 @@ int main(int argc, char** argv)
     savedSS->setTextureAttribute(2, tex2.get());
     osgDB::writeObjectFile(*savedSS, outFile + ".ibl.osgb");
     std::cout << "PBR textures output to " << outFile + ".ibl.osgb" << "\n";
+#else
+    osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
+    seq->addImage(img0); seq->addImage(img1); seq->addImage(img2);
+    if (osgDB::writeImageFile(*seq, outFile + ".ibl.rseq.verse_image"))
+        std::cout << "PBR textures output to " << outFile + ".ibl.rseq" << "\n";
+#endif
     return 0;
 }

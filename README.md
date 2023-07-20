@@ -30,6 +30,9 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 9. Supports Emscripten / WASM compilation and works with WebGL / WebGPU based browsers.
 10. Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
+#### Screenshots
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza.jpg)
+
 #### Dependencies
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
 2. Please use a C++ compiler supporting C++ 14 at least.
@@ -156,6 +159,3 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
 | VERSE_WASM_USE_WEBGL2       | Boolean | OFF           | Enable WebGL 2.0 version while build with WASM, or WebGL 1.0 if disabled, for WASM build only |
 | VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |
-
-#### Screenshots
-![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza.jpg)

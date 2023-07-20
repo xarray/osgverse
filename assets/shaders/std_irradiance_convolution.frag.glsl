@@ -23,7 +23,7 @@ void main()
     vec3 prefilteredColor = vec3(0.0), irradiance = vec3(0.0), up = vec3(0.0, 1.0, 0.0);
     vec3 right = cross(up, N); up = cross(N, right);  // tangent space calculation
     
-    float delta = 0.025, nrSamples = 0.0f, maxPhi = 2.0 * M_PI, maxT = 0.5 * M_PI;
+    float delta = 0.05, nrSamples = 0.0f, maxPhi = 2.0 * M_PI, maxT = 0.5 * M_PI;
     for (float phi = 0.0; phi < maxPhi; phi += delta)
     {
         for (float theta = 0.0; theta < maxT; theta += delta)

@@ -3,7 +3,7 @@ SET(LIBRARY_FILES
     LoadSceneFBX.cpp LoadSceneFBX.h
     LoadSceneGLTF.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h
-    Utilities.h
+    Utilities.h Utilities.cpp
 )
 
 INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all

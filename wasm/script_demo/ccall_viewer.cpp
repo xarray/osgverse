@@ -2,6 +2,14 @@
 #include <SDL2/SDL.h>
 #include "ccall_viewer.h"
 
+extern "C"
+{
+    const char* execute(const char* json)
+    {
+
+    }
+}
+
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
@@ -30,6 +38,14 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8053/Tile_+958_+8053.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8054/Tile_+958_+8054.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8055/Tile_+958_+8055.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+959_+8053/Tile_+959_+8053.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+959_+8054/Tile_+959_+8054.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+959_+8055/Tile_+959_+8055.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+960_+8053/Tile_+960_+8053.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+960_+8054/Tile_+960_+8054.osgb"));
+    root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+960_+8055/Tile_+960_+8055.osgb"));
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();

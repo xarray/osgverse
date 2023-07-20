@@ -2,6 +2,7 @@
 #define MANA_PP_PIPELINE_HPP
 
 #include <osg/Vec2s>
+#include <osg/ImageSequence>
 #include <osg/Depth>
 #include <osg/Program>
 #include <osg/Texture2D>
@@ -251,7 +252,7 @@ namespace osgVerse
         };
 
         ShaderParameters shaders;
-        osg::ref_ptr<osg::StateSet> skyboxIBL;
+        osg::ref_ptr<osg::ImageSequence> skyboxIBL;
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight;
         unsigned int deferredMask, forwardMask, fixedShadingMask;

@@ -137,8 +137,8 @@ namespace osgVerse
             READ_SHADER(shaders.forwardFS, FRAG, dir + "std_forward_render.frag.glsl");
         }
 
-        std::string iblFile = osgDB::getNameLessExtension(sky) + ".ibl.osgb";
-        skyboxIBL = dynamic_cast<osg::StateSet*>(osgDB::readObjectFile(iblFile));
+        std::string iblFile = osgDB::getNameLessExtension(sky) + ".ibl.rseq";
+        skyboxIBL = dynamic_cast<osg::ImageSequence*>(osgDB::readImageFile(iblFile));
         skyboxMap = osgVerse::createTexture2D(osgDB::readImageFile(sky), osg::Texture::MIRROR);
         if (!skyboxMap || !skyboxIBL)
         {
@@ -295,20 +295,27 @@ namespace osgVerse
         }
         else
         {
-            brdfLutTex = static_cast<osg::Texture*>(
-                spp.skyboxIBL->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
-            brdfLutTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-            brdfLutTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            size_t imgCount = spp.skyboxIBL->getNumImageData();
+            if (imgCount > 0)
+            {
+                brdfLutTex = createTexture2D(spp.skyboxIBL->getImage(0), osg::Texture::MIRROR);
+                brdfLutTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                brdfLutTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            }
 
-            prefilteringTex = static_cast<osg::Texture*>(
-                spp.skyboxIBL->getTextureAttribute(1, osg::StateAttribute::TEXTURE));
-            prefilteringTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-            prefilteringTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            if (imgCount > 1)
+            {
+                prefilteringTex = createTexture2D(spp.skyboxIBL->getImage(1), osg::Texture::MIRROR);
+                prefilteringTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                prefilteringTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            }
 
-            convolutionTex = static_cast<osg::Texture*>(
-                spp.skyboxIBL->getTextureAttribute(2, osg::StateAttribute::TEXTURE));
-            convolutionTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-            convolutionTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            if (imgCount > 2)
+            {
+                convolutionTex = createTexture2D(spp.skyboxIBL->getImage(2), osg::Texture::MIRROR);
+                convolutionTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                convolutionTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            }
         }
 
         // Deferred lighting stage
@@ -348,9 +355,19 @@ namespace osgVerse
             prefilteringTex->getImage(0)->setInternalTextureFormat(GL_RGB);
             convolutionTex->getImage(0)->setInternalTextureFormat(GL_RGB);
 #endif
+
+#if defined(VERSE_WASM)  // FIXME???
+            lighting->applyTexture(createDefaultTexture(
+                osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "BrdfLutBuffer", 5);
+            lighting->applyTexture(createDefaultTexture(
+                osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "PrefilterBuffer", 6);
+            lighting->applyTexture(createDefaultTexture(
+                osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "IrradianceBuffer", 7);
+#else
             lighting->applyTexture(brdfLutTex, "BrdfLutBuffer", 5);
             lighting->applyTexture(prefilteringTex, "PrefilterBuffer", 6);
             lighting->applyTexture(convolutionTex, "IrradianceBuffer", 7);
+#endif
         }
         lightModule->applyTextureAndUniforms(lighting, "LightParameterMap", 8);
         

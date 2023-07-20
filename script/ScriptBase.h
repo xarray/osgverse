@@ -21,7 +21,7 @@ namespace osgVerse
         };
 
         /** POST: create an object with properties
-        *   Example: /scene/create { 'class': '...', 'properties': ['...': '...'] }
+        *   Example: /scene/create { 'class': '...', 'properties': [{'...': '...'}] }
         *            Result = { 'code': ..., 'msg': '...', 'id': ... } */
         virtual Result create(const std::string& compName, const PropertyMap& properties);
         virtual Result create(const std::string& type, const std::string& uri,

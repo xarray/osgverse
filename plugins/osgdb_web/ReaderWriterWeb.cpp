@@ -124,13 +124,13 @@ public:
                                 const osgDB::Options* options) const
     {
         std::string fileName(fullFileName);
-        std::string ext = osgDB::getFileExtension(fullFileName);
+        std::string ext = osgDB::getLowerCaseFileExtension(fullFileName);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
         bool usePseudo = (ext == "verse_web");
         if (usePseudo)
         {
             fileName = osgDB::getNameLessExtension(fullFileName);
-            ext = osgDB::getFileExtension(fileName);
+            ext = osgDB::getLowerCaseFileExtension(fileName);
         }
 
         if (!osgDB::containsServerAddress(fileName))
