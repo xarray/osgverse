@@ -298,13 +298,27 @@ namespace osgVerse
             size_t imgCount = spp.skyboxIBL->getNumImageData();
             if (imgCount > 0)
             {
+#if defined(VERSE_WASM)
+                osg::ref_ptr<osg::Image> brdfImg = spp.skyboxIBL->getImage(0);
+                unsigned char* data = new unsigned char[brdfImg->getTotalSizeInBytes()];
+                memcpy(data, brdfImg->data(), brdfImg->getTotalSizeInBytes());
+
+                osg::ref_ptr<osg::Image> newBrdfImg = new osg::Image;
+                newBrdfImg->setImage(brdfImg->s(), brdfImg->t(), brdfImg->r(), GL_RGB,
+                    GL_RGB, GL_HALF_FLOAT_OES, data, osg::Image::USE_NEW_DELETE);
+                brdfLutTex = createTexture2D(newBrdfImg.get(), osg::Texture::MIRROR);
+#else
                 brdfLutTex = createTexture2D(spp.skyboxIBL->getImage(0), osg::Texture::MIRROR);
+#endif
                 brdfLutTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
                 brdfLutTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
             }
 
             if (imgCount > 1)
             {
+#if defined(VERSE_WASM)
+                spp.skyboxIBL->getImage(1)->setInternalTextureFormat(GL_RGB);
+#endif
                 prefilteringTex = createTexture2D(spp.skyboxIBL->getImage(1), osg::Texture::MIRROR);
                 prefilteringTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
                 prefilteringTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
@@ -312,6 +326,9 @@ namespace osgVerse
 
             if (imgCount > 2)
             {
+#if defined(VERSE_WASM)
+                spp.skyboxIBL->getImage(2)->setInternalTextureFormat(GL_RGB);
+#endif
                 convolutionTex = createTexture2D(spp.skyboxIBL->getImage(2), osg::Texture::MIRROR);
                 convolutionTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
                 convolutionTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
@@ -340,22 +357,6 @@ namespace osgVerse
         }
         else
         {
-#if defined(VERSE_WASM)
-            osg::ref_ptr<osg::Image> brdfImg = brdfLutTex->getImage(0);
-            if (brdfImg.valid())
-            {
-                unsigned char* data = new unsigned char[brdfImg->getTotalSizeInBytes()];
-                memcpy(data, brdfImg->data(), brdfImg->getTotalSizeInBytes());
-
-                osg::ref_ptr<osg::Image> newBrdfImg = new osg::Image;
-                newBrdfImg->setImage(brdfImg->s(), brdfImg->t(), brdfImg->r(), GL_RGB,
-                                     GL_RGB, GL_HALF_FLOAT_OES, data, osg::Image::USE_NEW_DELETE);
-                brdfLutTex->setImage(0, newBrdfImg.get());
-            }
-            prefilteringTex->getImage(0)->setInternalTextureFormat(GL_RGB);
-            convolutionTex->getImage(0)->setInternalTextureFormat(GL_RGB);
-#endif
-
 #if defined(VERSE_WASM)  // FIXME???
             lighting->applyTexture(createDefaultTexture(
                 osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "BrdfLutBuffer", 5);

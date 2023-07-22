@@ -31,21 +31,26 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 10. Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
 #### Screenshots
+* osgVerse_Viewer: PBR and deferred pipeline with Desktop GL
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza.jpg)
+* osgVerse_ViewerWASM: PBR and deferred pipeline with WebGL 1.0, compiled from WASM
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza_wasm.jpg)
+* osgVerse_JsCallerWASM: Scriptable osgb rendering with WebGL 1.0, compiled from WASM
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/osgb_wasm.jpg)
 
 #### Dependencies
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
 2. Please use a C++ compiler supporting C++ 14 at least.
 3. OpenSceneGraph is always required for building osgVerse. (https://github.com/openscenegraph/OpenSceneGraph) Current project mainly depends on OSG 3.7.0, but can compile on OSG 3.1.1 or later versions.
 4. Optional dependencies:
-- 4.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
-- 4.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable USE_MSVC_RUNTIME_LIBRARY_DLL while compiling Bullet.
-- 4.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
-- 4.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
-- 4.5 SDL2 or later, for SDL/GLES related applications and examples. (https://github.com/libsdl-org/SDL)
-- 4.6 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.
-- 4.7 cesium-native (git version), for 3dtiles reader/writer plugin. (https://github.com/CesiumGS/cesium-native)
-- 4.8 OpenVDB 10.0 or later, for VDB point cloud and 3D image reader/writer plugin. (https://github.com/AcademySoftwareFoundation/openvdb)
+  - 4.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
+  - 4.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable USE_MSVC_RUNTIME_LIBRARY_DLL while compiling Bullet.
+  - 4.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
+  - 4.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
+  - 4.5 SDL2 or later, for SDL/GLES related applications and examples. (https://github.com/libsdl-org/SDL)
+  - 4.6 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.
+  - 4.7 cesium-native (git version), for 3dtiles reader/writer plugin. (https://github.com/CesiumGS/cesium-native)
+  - 4.8 OpenVDB 10.0 or later, for VDB point cloud and 3D image reader/writer plugin. (https://github.com/AcademySoftwareFoundation/openvdb)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -119,7 +124,20 @@ Our project is already tested on graphics cards listed as below:
 1. models: 3D models for test use, mainly in GLTF format.
 2. shaders: Shaders for osgVerse rendering pipeline use.
 3. skyboxes: Skyboxes for test use, may be one HDR image or 6 cubemaps.
-4. misc: Chinese IME CiKu files, font files, ...
+4. misc: Chinese IME CiKu files, font files, screenshots...
+5. tests: Some test data
+
+#### Build from Source
+1. Desktop Windows / Linux
+  - TBD... (Use CMake directly)
+2. Desktop Mac OSX
+  - TBD...
+3. Android
+  - TBD...
+4. IOS
+  - TBD...
+5. WebAssembly
+  - TBD... (Use Setup.sh)
 
 #### CMake options
 | Option                      | Type    | Default Value | Notes |

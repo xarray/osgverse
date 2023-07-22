@@ -2,24 +2,47 @@
 #include <SDL2/SDL.h>
 #include "ccall_viewer.h"
 
-extern "C"
-{
-    const char* execute(const char* json)
-    {
-
-    }
-}
-
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-Application* g_app = new Application;;
+osg::ref_ptr<Application> g_app = new Application;
 void loop()
 {
     SDL_Event e;
-    while (SDL_PollEvent(&e))
-    { if (g_app) g_app->handleEvent(e); }
-    if (g_app) g_app->frame();
+    while (SDL_PollEvent(&e)) { g_app->handleEvent(e); }
+    g_app->frame();
+}
+
+extern "C"
+{
+    const char* EMSCRIPTEN_KEEPALIVE execute(const char* cmd, const char* json)
+    {
+        std::string type = (cmd == NULL) ? "get" : std::string(cmd);
+        std::string input = (json == NULL) ? "" : std::string(json);
+        osgVerse::JsonScript* scripter = g_app->scripter();
+        
+        picojson::value in, out;
+        std::string output = picojson::parse(in, input);
+        if (output.empty())
+        {
+            if (type.find("creat") != type.npos)
+                out = scripter->execute(osgVerse::JsonScript::EXE_Creation, in);
+            else if (type.find("list") != type.npos)
+                out = scripter->execute(osgVerse::JsonScript::EXE_List, in);
+            else if (type.find("remove") != type.npos)
+                out = scripter->execute(osgVerse::JsonScript::EXE_Remove, in);
+            else if (type.find("set") != type.npos)
+                out = scripter->execute(osgVerse::JsonScript::EXE_Set, in);
+            else
+                out = scripter->execute(osgVerse::JsonScript::EXE_Get, in);
+            output = out.serialize(false);
+        }
+
+        static char* result = NULL; if (result != NULL) free(result);
+        int size = output.length(); result = (char*)malloc(size + 1);
+        memcpy(result, output.c_str(), size);
+        result[size] = '\0'; return result;
+    }
 }
 
 // Server structure

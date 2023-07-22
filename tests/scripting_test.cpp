@@ -10,7 +10,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Pipeline.h>
-#include <script/ScriptBase.h>
+#include <script/JsonScript.h>
 #include <iostream>
 #include <sstream>
 
@@ -208,39 +208,29 @@ int main(int argc, char** argv)
     });
 #else
     // osgVerseScript test
-    osg::ref_ptr<osgVerse::ScriptBase> scripter = new osgVerse::ScriptBase;
-
-    osgVerse::LibraryEntry* osgLib = scripter->getOrCreateEntry("osg");
-    const std::set<std::string>& osgClasses = osgLib->getClasses();
-    for (std::set<std::string>::const_iterator itr = osgClasses.begin();
-         itr != osgClasses.end(); ++itr)
-    {
-        std::vector<osgVerse::LibraryEntry::Property> props = osgLib->getPropertyNames(*itr);
-        std::vector<osgVerse::LibraryEntry::Method> methods = osgLib->getMethodNames(*itr);
-        
-        std::cout << "Class " << *itr << ": [PROP] ";
-        for (size_t i = 0; i < props.size(); ++i)
-        {
-            if (props[i].outdated) continue; if (i > 0) std::cout << "; ";
-            std::cout << props[i].typeName << " " << props[i].name;
-        }
-
-        if (!methods.empty()) std::cout << "\n\t\t [METHOD] ";
-        for (size_t i = 0; i < methods.size(); ++i)
-        {
-            if (methods[i].outdated) continue;
-            if (i > 0) std::cout << "; "; std::cout << methods[i].name;
-        }
-        std::cout << "\n";
-    }
-
+    osg::ref_ptr<osgVerse::JsonScript> scripter = new osgVerse::JsonScript;
     std::string id1 = scripter->createFromObject(n1).value;
     std::string id2 = scripter->createFromObject(n2).value;
     std::cout << "Created objects: " << id1 << ", " << id2 << "\n";
 
-    osgVerse::ScriptBase::Result r1 = scripter->get(id2, "Matrix");
-    osgVerse::ScriptBase::Result r2 = scripter->get(id2 + "/0", "Matrix");
-    std::cout << "Matrix: " << r1.value << ", " << r2.value << "\n";
+    picojson::value exe, ret1, ret2, ret3, ret4, ret5;
+    std::string s1 = "{\"object\": \"" + id1 + "\", \"property\": \"Matrix\"}";
+    std::string s2 = "{\"object\": \"" + id2 + "/0\", \"property\": \"Matrix\"}";
+    std::string s3 = "{\"object\": \"" + id1 + "\", \"properties\": "
+                      "{\"Matrix\": \"1 0 0 0 0 1 0 0 0 0 1 0 20 1 0 1\"}}";
+    std::string s4 = "{\"class\": \"MatrixTransform\"}";
+    std::string s5 = "{\"object\": \"" + id1 + "\"}";
+
+    picojson::parse(exe, s1); ret1 = scripter->execute(osgVerse::JsonScript::EXE_Get, exe);
+    picojson::parse(exe, s2); ret2 = scripter->execute(osgVerse::JsonScript::EXE_Get, exe);
+    picojson::parse(exe, s3); ret3 = scripter->execute(osgVerse::JsonScript::EXE_Set, exe);
+    picojson::parse(exe, s4); ret4 = scripter->execute(osgVerse::JsonScript::EXE_List, exe);
+    picojson::parse(exe, s5); ret5 = scripter->execute(osgVerse::JsonScript::EXE_Get, exe);
+    std::cout << "Exe1: " << ret1.serialize(true);
+    std::cout << "Exe2: " << ret2.serialize(true);
+    std::cout << "Exe3: " << ret3.serialize(true);
+    std::cout << "Exe4: " << ret4.serialize(true);
+    std::cout << "Exe5 (FAILED): " << ret5.serialize(true);
 #endif
 
     osgViewer::Viewer viewer;

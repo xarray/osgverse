@@ -9,9 +9,11 @@ LibraryEntry::LibraryEntry(const std::string& libName)
         std::string("serializers_") + libName);
     std::string pluginLib2 = registry->createLibraryNameForExtension(libName);
 
+#ifndef VERSE_STATIC_BUILD
     if (registry->loadLibrary(nodeKitLib) == osgDB::Registry::LOADED ||
         registry->loadLibrary(pluginLib) == osgDB::Registry::LOADED ||
         registry->loadLibrary(pluginLib2) == osgDB::Registry::LOADED)
+#endif
     { refresh(libName); }
 }
 

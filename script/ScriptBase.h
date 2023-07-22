@@ -20,27 +20,20 @@ namespace osgVerse
             int code; std::string msg, value; osg::observer_ptr<osg::Object> obj;
         };
 
-        /** POST: create an object with properties
-        *   Example: /scene/create { 'class': '...', 'properties': [{'...': '...'}] }
-        *            Result = { 'code': ..., 'msg': '...', 'id': ... } */
+        /** POST: create an object with properties */
         virtual Result create(const std::string& compName, const PropertyMap& properties);
         virtual Result create(const std::string& type, const std::string& uri,
                               const PropertyMap& properties);
 
-        /** PUT: find an object and set properties/call methods
-        *   Example: /scene/idXXX { 'set'/'call': '...', 'value': '...' }
-        *            Result = { 'code': ..., 'msg': '...' } */
+        /** PUT: find an object and set properties/call methods */
         virtual Result set(const std::string& nodePath, const PropertyMap& properties);
-        virtual Result call(const std::string& nodePath, const std::string& key,
+        virtual Result call(const std::string& nodePath, const std::string& method,
                             const ParameterList& params);
 
-        /** GET: find an object and get its property
-        *   Example: /scene/idXXX { 'get': '...' }
-        *            Result = { 'code': ..., 'msg': '...', 'value': '...' } */
+        /** GET: find an object and get its property */
         virtual Result get(const std::string& nodePath, const std::string& key);
 
-        /** DELETE: delete an existing object
-        *   Example: /scene/idXXX, Result = { 'code': ..., 'msg': '...' } */
+        /** DELETE: delete an object (only from script manager, not scene graph) */
         virtual Result remove(const std::string& nodePath);
 
         /** Get node path: idXXX, idA/idB, idA/0 (first child) */

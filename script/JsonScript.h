@@ -11,15 +11,25 @@ namespace osgVerse
     public:
         enum ExecutionType
         {
-            EXE_Creation, EXE_Set, EXE_Call,
-            EXE_Get, EXE_Remove, EXE_List
+            EXE_Creation, EXE_Set, EXE_Get,
+            EXE_Remove, EXE_List
         };
 
         /** Json inputs:
         *   - EXE_Creation
-        *     { 'class': ..., 'type': ..., 'uri': ..., 'properties': [{'...': '...'}] }
+        *     { 'class': ..., , 'properties': [{'...': '...'}] }
+        *     { 'type': ..., 'uri': ..., 'properties': [{'...': '...'}] }
+        *   - EXE_Set
+        *     { 'object': ..., 'properties': [{'...': '...'}] }
+        *     { 'object': ..., 'method': ..., 'properties': [..., ...] }
+        *   - EXE_Get
+        *     { 'object': ..., 'property': ... }
+        *   - EXE_Remove
+        *     { 'object': ... }
+        *   - EXE_List
+        *     { 'library': ... }, { 'library': ..., 'class': ... }, { 'object': ... }
         *   Json result:
-        *     { 'code': ..., 'msg': '...', 'value': ..., 'id': ... }
+        *     { 'code': ..., 'message': '...', 'value': ..., 'object': ... }
         */
         picojson::value execute(ExecutionType t, picojson::value in);
     };

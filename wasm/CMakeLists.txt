@@ -18,6 +18,7 @@ IF(VERSE_WASM_USE_PTHREAD)
     SET(WASM_FLAGS_EX "-pthread -s PTHREAD_POOL_SIZE=4")
 ENDIF(VERSE_WASM_USE_PTHREAD)
 
+# https://emscripten.org/docs/optimizing/Optimizing-WebGL.html
 IF(VERSE_USE_WEBGL2)
     # WebGL2 Browser Compatibility:
     # - IE     : none
@@ -39,7 +40,7 @@ ELSE()
 ENDIF()
 
 FILE(COPY "${CMAKE_SOURCE_DIR}/assets/shaders" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/assets")
-SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_SOURCE_DIR}/wasm/shell.html -gsource-map -fsanitize=address")
+SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/shell.html -gsource-map -fsanitize=address")
 SET(WASM_FLAGS1 "-O3 -s ASYNCIFY=1 -s USE_SDL=2 -s FULL_ES2 -s FULL_ES3 -s WASM=1 -s FETCH=1")
 SET(WASM_FLAGS2 "-s ASSERTIONS=2 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=2GB -s MAXIMUM_MEMORY=4GB")
 

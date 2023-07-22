@@ -6,13 +6,12 @@
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-Application* g_app = new Application;;
+osg::ref_ptr<Application> g_app = new Application;
 void loop()
 {
     SDL_Event e;
-    while (SDL_PollEvent(&e))
-    { if (g_app) g_app->handleEvent(e); }
-    if (g_app) g_app->frame();
+    while (SDL_PollEvent(&e)) { g_app->handleEvent(e); }
+    g_app->frame();
 }
 
 class MyViewer : public osgViewer::Viewer

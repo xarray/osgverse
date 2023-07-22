@@ -1,5 +1,5 @@
-#ifndef MANA_APP_VIEWERWASM_HPP
-#define MANA_APP_VIEWERWASM_HPP
+#ifndef MANA_APP_JSCALLERWASM_HPP
+#define MANA_APP_JSCALLERWASM_HPP
 
 #include <osg/io_utils>
 #include <osg/Material>
@@ -18,6 +18,7 @@
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
+#include <script/JsonScript.h>
 #include <iostream>
 #include <sstream>
 
@@ -48,6 +49,7 @@ class Application : public osg::Referenced
 public:
     Application()
     {
+        _scripter = new osgVerse::JsonScript;
         _logger = new NotifyLogger;
         osg::setNotifyHandler(_logger.get());
         osg::setNotifyLevel(osg::INFO);
@@ -57,6 +59,7 @@ public:
     {
         osg::setNotifyHandler(NULL);
         _viewer = NULL; _logger = NULL;
+        _gw = NULL; _scripter = NULL;
     }
 
     void handleEvent(SDL_Event& event)
@@ -93,12 +96,14 @@ public:
         _viewer = v;
     }
 
+    osgVerse::JsonScript* scripter() { return _scripter.get(); }
     void frame() { _viewer->frame(); }
 
 protected:
     osg::ref_ptr<NotifyLogger> _logger;
     osg::ref_ptr<osgViewer::Viewer> _viewer;
     osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> _gw;
+    osg::ref_ptr<osgVerse::JsonScript> _scripter;
 };
 
 #endif

@@ -14,7 +14,7 @@ ScriptBase::Result ScriptBase::createFromObject(osg::Object* obj)
 {
     if (obj != NULL)
     {
-        std::string id = nanoid::generate(8);
+        std::string id = "vobj_" + nanoid::generate(8);
         obj->setName(id); _objects[id] = obj;
         return Result(id, obj);
     }
@@ -35,7 +35,7 @@ ScriptBase::Result ScriptBase::create(const std::string& compName,
 
     if (obj != NULL)
     {
-        std::string id = nanoid::generate(8);
+        std::string id = "vobj_" + nanoid::generate(8);
         obj->setName(id); _objects[id] = obj;
         Result result(id, obj), result2 = set(id, properties);
         result.msg = result2.msg; return result;
@@ -49,14 +49,14 @@ ScriptBase::Result ScriptBase::create(const std::string& type, const std::string
 {
     osg::Object* obj = NULL; std::string t;
     std::transform(type.begin(), type.end(), t.begin(), tolower);
-    if (t == "node") obj = osgDB::readNodeFile(uri);
+    if (t == "object") obj = osgDB::readObjectFile(uri);
     else if (t == "image") obj = osgDB::readImageFile(uri);
     else if (t == "shader") obj = osgDB::readShaderFile(uri);
-    else obj = osgDB::readObjectFile(uri);
+    else obj = osgDB::readNodeFile(uri);
 
     if (obj != NULL)
     {
-        std::string id = nanoid::generate(8);
+        std::string id = "vobj_" + nanoid::generate(8);
         obj->setName(id); _objects[id] = obj;
         Result result(id, obj), result2 = set(id, properties);
         result.msg = result2.msg; return result;
