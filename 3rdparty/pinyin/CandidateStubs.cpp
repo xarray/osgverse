@@ -1,4 +1,4 @@
-﻿#include "CandidateStubs.h"
+#include "CandidateStubs.h"
 #include "Query.h"
 #include "StringFunction.h"
 #include "PinyinBase.h"
@@ -11,12 +11,9 @@ void CombineAssociateCandidate::setInput(const std::string &divided, bool enable
 {
 	clear();
 	m_divided = divided;
-	//如果只有单个拼音，则没有组合词组
 	if (m_divided.find("'") == std::string::npos)
 		return;
 
-	//以下获取不可调换顺序
-	//按顺序搜索获取组合词（成功表示最长长度的pinyin不能搜索到词组；反之搜到了词组，不再获取组合词和联想词）
 	std::string sFirstPinyins;
 	std::wstring sFirstCizu;
 	std::string sSecondPinyin;
@@ -28,18 +25,13 @@ void CombineAssociateCandidate::setInput(const std::string &divided, bool enable
 			return;
 	}
 
-	//如果最长长度的pinyin不能搜索到词组，获取模糊词组
 	if (enableAssociateCandidate)
 		getAssociate(m_divided);
 
-	//如果最长长度的pinyin不能搜索到词组，才执行下面
-	//且第一个拼音是特殊独立的汉字拼音比如“我”，“你”，“他”，“这”等
-	//sFirstCizu.size()是1的话第二组合词肯定等于第一个组合词了，没必要再获取
 	bool bGetSecond = false;
 	if (enableCombineCandidate && bGetFirst && sFirstCizu.size() != 1)
 		bGetSecond = getSecondCombine(m_divided);
 
-	//sCombineCizu2未插入且第二个词为特殊独立的汉字拼音就添加一个组合词
 	if (enableCombineCandidate && !bGetSecond)
 		bool bGetThird = getThirdCombine(m_divided, sFirstPinyins, sFirstCizu, sSecondPinyin);
 }
@@ -92,7 +84,6 @@ bool CombineAssociateCandidate::getFirstCombine(const std::string &input, std::s
 				firstCizu = StringFunction::utf8ToUnicode(firstCan.cizu);
 			}
 
-			//如果最长长度的pinyin能搜索到词组，取消组合词
 			if (sSearch == m_divided && firstCan.size == std::count(input.begin(), input.end(), '\'') + 1)
 			{
 				return false;
@@ -131,7 +122,6 @@ bool CombineAssociateCandidate::getFirstCombine(const std::string &input, std::s
 
 void CombineAssociateCandidate::getAssociate(const std::string &input)
 {
-	//模糊搜索，与size无关
 	Query longestQuery;
 	longestQuery.search(Query::size | Query::pinyin | Query::cizu | Query::weight, -1, Query::Condition::none, input, Query::Condition::like, true, false, "", Query::Condition::none, Query::weight);
 	for (int i = 0; i != longestQuery.recordCount(); ++i)
@@ -268,13 +258,12 @@ void QueryCandidate::getCandidate(unsigned int index, unsigned int count, std::v
 		return;
 
 	unsigned int nGetCount = 0;
-	//计算起始query，并获取该query数据
 	int nStartQueryIndex = 0;
 	for (int n = 0; nStartQueryIndex != m_queryLine.queryCount(); ++nStartQueryIndex)
 	{
 		std::shared_ptr<Query> query = m_queryLine.at(nStartQueryIndex);
 		n += query->recordCount();
-		if ((int)index <= n - 1)	//强制转换为int，因为n - 1可能被隐性转为unsgned int，导致比较结果错误
+		if ((int)index <= n - 1)
 		{
 			int beg = index - (n - query->recordCount());
 			int size = m_queryLine.queryCount() + 1 - nStartQueryIndex;
@@ -290,7 +279,6 @@ void QueryCandidate::getCandidate(unsigned int index, unsigned int count, std::v
 		}
 	}
 
-	//从nStartQueryIndex的下一个query继续获取数据
 	for (int i = nStartQueryIndex + 1; i != m_queryLine.queryCount(); ++i)
 	{
 		int size = m_queryLine.queryCount() + 1 - i;

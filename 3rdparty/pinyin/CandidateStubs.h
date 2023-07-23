@@ -1,4 +1,4 @@
-﻿/**********************************************
+/**********************************************
 *	PRTCandidateCombineAssociate
 *
 *	组合词候选词和联想候选词管理器
@@ -47,8 +47,6 @@ private:
 	};
 
 	bool getFirstCombine(const std::string &input, std::string &firstPinyins, std::wstring &firstCizu, std::string &secondPinyin);
-	//获取最长模糊查询结果，比如"zai'suo'you'ren'shi'yi'fei'de'jing'se'li'wo'zui'xi'huan'ni",
-	//输入"zai'suo'you'ren'shi'"也会搜索"zai'suo'you'ren'shi%"
 	void getAssociate(const std::string &input);
 	bool getSecondCombine(const std::string &input);
 	bool getThirdCombine(const std::string &input, const std::string &firstPinyins, std::wstring &firstCizu, std::string &secondPinyin);

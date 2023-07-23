@@ -1,4 +1,4 @@
-﻿#include "PinyinBase.h"
+#include "PinyinBase.h"
 #include <map>
 
 using namespace ime::pinyin;
@@ -108,7 +108,6 @@ void PinyinBase::getPossibles(const std::string &prefix, std::set<std::string> &
 
 	std::string sm = std::get<1>(ext);
 	std::string ym = std::get<2>(ext);
-	//查找拼音表
 	for (auto const &str : g_pyBase[ sm.empty() ? "NOSM" : sm])
 	{
 		if (str.size() >= ym.size() && str.substr(0, ym.size()) == ym)
@@ -118,7 +117,6 @@ void PinyinBase::getPossibles(const std::string &prefix, std::set<std::string> &
 		}
 	}
 
-	//如果是无韵母且声母是c,s,z，把ch,sh，zh的结果也获取
 	if((ym.empty()) && (sm == "c" || sm == "s" || sm == "z"))
 	{
 		for (auto const &str : g_pyBase[sm + 'h'])

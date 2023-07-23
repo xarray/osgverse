@@ -1,4 +1,4 @@
-﻿#include <string.h>
+#include <string.h>
 #include <algorithm>
 #include "StringFunction.h"
 
@@ -18,7 +18,6 @@ unsigned int UTF8StrToUnicode(const char*UTF8String, unsigned int UTF8StringLeng
 		if ((UTF8Char & 0x80) == 0)
 		{
 			const unsigned int cUTF8CharRequire = 1;
-			// UTF8字码不足
 			if (UTF8Index + cUTF8CharRequire > UTF8StringLength)
 				break;
 
@@ -32,7 +31,6 @@ unsigned int UTF8StrToUnicode(const char*UTF8String, unsigned int UTF8StringLeng
 		else if ((UTF8Char & 0xE0) == 0xC0)  ///< 110x-xxxx 10xx-xxxx
 		{
 			const unsigned int cUTF8CharRequire = 2;
-			// UTF8字码不足
 			if (UTF8Index + cUTF8CharRequire > UTF8StringLength)
 				break;
 
@@ -47,7 +45,6 @@ unsigned int UTF8StrToUnicode(const char*UTF8String, unsigned int UTF8StringLeng
 		else if ((UTF8Char & 0xF0) == 0xE0)  ///< 1110-xxxx 10xx-xxxx 10xx-xxxx
 		{
 			const unsigned int cUTF8CharRequire = 3;
-			// UTF8字码不足
 			if (UTF8Index + cUTF8CharRequire > UTF8StringLength)
 				break;
 
@@ -61,10 +58,9 @@ unsigned int UTF8StrToUnicode(const char*UTF8String, unsigned int UTF8StringLeng
 			}
 			UTF8Index += cUTF8CharRequire;
 		}
-		else if ((UTF8Char & 0xF8) == 0xF0)  ///< 1111-0xxx 10xx-xxxx 10xx-xxxx 10xx-xxxx 
+		else if ((UTF8Char & 0xF8) == 0xF0)  ///< 1111-0xxx 10xx-xxxx 10xx-xxxx 10xx-xxxx
 		{
 			const unsigned int cUTF8CharRequire = 4;
-			// UTF8字码不足
 			if (UTF8Index + cUTF8CharRequire > UTF8StringLength)
 				break;
 
@@ -79,10 +75,9 @@ unsigned int UTF8StrToUnicode(const char*UTF8String, unsigned int UTF8StringLeng
 			}
 			UTF8Index += cUTF8CharRequire;
 		}
-		else ///< 1111-10xx 10xx-xxxx 10xx-xxxx 10xx-xxxx 10xx-xxxx 
+		else ///< 1111-10xx 10xx-xxxx 10xx-xxxx 10xx-xxxx 10xx-xxxx
 		{
 			const unsigned int cUTF8CharRequire = 5;
-			// UTF8字码不足
 			if (UTF8Index + cUTF8CharRequire > UTF8StringLength)
 				break;
 
@@ -180,7 +175,7 @@ void StringFunction::split(const std::string &sSource, const std::string &sSymbo
 			{
 				ret.push_back(sInsert);
 			}
-			
+
 			if(nPos + nSymbolSize == sCurString.size() && !bSkipEmptyString)
 			{
 				ret.push_back("");

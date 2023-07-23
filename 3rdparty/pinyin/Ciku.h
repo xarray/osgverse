@@ -1,4 +1,4 @@
-﻿/**********************************************
+/**********************************************
 *	Ciku词库
 *
 *	1、使用sqlite3
@@ -22,21 +22,16 @@ public:
 	Ciku(const Ciku &other) = delete;
 	void operator = (const Ciku &other) = delete;
 
-	//加载
 	bool load(const std::string &path);
 
-	//获取路径
 	const std::string &path() const;
 
-	//别名
 	const std::string &alias() const;
 
-	//全局sql句柄
 	static sqlite3 *sqlHandle();
 	static void freeSqlHandle();
 
 private:
-	//计算数据库别名
 	std::string calcNextAliasName() const;
 
 	static sqlite3	*m_sqlHandle;

@@ -1,4 +1,4 @@
-﻿#include "PinyinHanzi.h"
+#include "PinyinHanzi.h"
 #include <map>
 
 using namespace ime::pinyin;
@@ -423,7 +423,6 @@ static std::map<std::string, std::wstring> g_pinyinHanzis
 
 void PinyinHanzi::getHanzis(const std::string &pinyin, std::wstring &hanzis)
 {
-	//i,u,v直接返回i,u,v
 	if (pinyin == "i")
 	{
 		hanzis = L"i";

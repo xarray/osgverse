@@ -1,4 +1,4 @@
-﻿#include "CikuManager.h"
+#include "CikuManager.h"
 #include "Ciku.h"
 #include "StringFunction.h"
 #include "PinyinBase.h"

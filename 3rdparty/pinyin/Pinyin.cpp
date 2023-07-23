@@ -1,4 +1,4 @@
-﻿#include "pinyin/Pinyin.h"
+#include "pinyin/Pinyin.h"
 #include "Pinyin_Internal.h"
 #include <exception>
 #include <cstdlib>

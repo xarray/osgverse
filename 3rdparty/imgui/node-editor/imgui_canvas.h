@@ -1,4 +1,4 @@
-﻿// Canvas widget - view over infinite virtual space.
+// Canvas widget - view over infinite virtual space.
 //
 // Canvas allows you to draw your widgets anywhere over infinite space and provide
 // view over it with support for panning and scaling.

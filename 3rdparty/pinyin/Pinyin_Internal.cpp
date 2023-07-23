@@ -1,4 +1,4 @@
-﻿#include "Pinyin_Internal.h"
+#include "Pinyin_Internal.h"
 #include "pinyin/Pinyin.h"
 #include "PinyinBase.h"
 #include "PinyinHanzi.h"
@@ -106,7 +106,6 @@ bool Pinyin_Internal::search(const std::string &input)
 	else
 	{
 		m_dividedPinyin = m_divider.divide(input);
-		//分别执行三种候选词搜索
 		m_combineAndAssociateCandidates.setInput(m_dividedPinyin, isEnableAICombineCandidate(), isEnableAssociateCandidate());
 		m_queryCandidates.setInput(m_dividedPinyin);
 		std::string sFirstCompletePinyin = PinyinBase::getDefalut(m_dividedPinyin.substr(0, m_dividedPinyin.find("'")));
@@ -174,7 +173,6 @@ void Pinyin_Internal::getCandidateInfo(unsigned int index, CandidateInfo &info) 
 bool Pinyin_Internal::learn(const std::string &pinyin, const std::string &cizu, bool &alreadyExist)
 {
 	checkInit();
-	//必须两个拼音以上且每个拼音都是isValid
 	if (!checkLegalPinyinString(pinyin))
 		return false;
 
@@ -183,7 +181,6 @@ bool Pinyin_Internal::learn(const std::string &pinyin, const std::string &cizu, 
 
 	Query q;
 	q.search(Query::pinyin | Query::cizu, -1, Query::Condition::none, pinyin, Query::Condition::eq, false, false, cizu, Query::Condition::eq, Query::none);
-	//如果词条不存在，以最高weight插入新纪录
 	if (q.recordCount() == 0)
 	{
 		alreadyExist = false;
@@ -252,7 +249,7 @@ void Pinyin_Internal::getCandidate(unsigned int index, unsigned int count, std::
 		throw std::out_of_range(std::string(__FUNCTION__) + "->index(" + std::to_string(index) + ") is out of range [0, " + std::to_string(getCandidateCount()) + ")");
 
 	int nGet = 0;
-	if (index < m_combineAndAssociateCandidates.getCandidateCount())	//开始点落在组合词内
+	if (index < m_combineAndAssociateCandidates.getCandidateCount())
 	{
 		for (int i = index; i != m_combineAndAssociateCandidates.getCandidateCount(); ++i)
 		{
@@ -260,13 +257,13 @@ void Pinyin_Internal::getCandidate(unsigned int index, unsigned int count, std::
 			if (++nGet == count)
 				return;
 		}
-		//如果组合联想词不够，填上query的数据
+
 		int nRecordGet = count - nGet > m_queryCandidates.getCandidateCount() ? m_queryCandidates.getCandidateCount() : count - nGet;
 		m_queryCandidates.getCandidate(0, nRecordGet, candidates);
 		nGet += nRecordGet;
 		if (nGet == count)
 			return;
-		//如果query不够，填上首位拼音汉字组
+
 		for (int i = 0; i != m_singleCandidates.getCandidateCount(); ++i)
 		{
 			candidates.push_back(m_singleCandidates.getCandidate(i));
@@ -276,14 +273,13 @@ void Pinyin_Internal::getCandidate(unsigned int index, unsigned int count, std::
 	}
 	else if ((int)index >= (int)m_combineAndAssociateCandidates.getCandidateCount() && (int)index <= (int)m_combineAndAssociateCandidates.getCandidateCount() + (int)m_queryCandidates.getCandidateCount() - 1)	//开始点落在m_pQueryDeque
 	{
-		//搜集query的数据
 		int nStart = index - m_combineAndAssociateCandidates.getCandidateCount();
 		int nRecordGet = nStart + count >= m_queryCandidates.getCandidateCount() ? m_queryCandidates.getCandidateCount() - nStart : count;
 		m_queryCandidates.getCandidate(nStart, nRecordGet, candidates);
 		nGet += nRecordGet;
 		if (nGet == count)
 			return;
-		//如果query不够，填上首位拼音汉字组
+
 		for (int i = 0; i != m_singleCandidates.getCandidateCount(); ++i)
 		{
 			candidates.push_back(m_singleCandidates.getCandidate(i));
@@ -291,7 +287,7 @@ void Pinyin_Internal::getCandidate(unsigned int index, unsigned int count, std::
 				return;
 		}
 	}
-	else	//开始点落在首位拼音汉字组
+	else
 	{
 		for (int i = index - (m_queryCandidates.getCandidateCount() + m_combineAndAssociateCandidates.getCandidateCount()); i != m_singleCandidates.getCandidateCount(); ++i)
 		{

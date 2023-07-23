@@ -82,7 +82,9 @@ Our project is already tested on graphics cards listed as below:
 4. osgVerse_ViewerGLES: an example demostrating how to integrate osgVerse with SDL2, mainly with GLES2/3.
 5. osgVerse_EarthViewer: an example demostrating how to integrate osgVerse with osgEarth.
 6. osgVerse_QtViewer: an example demostrating how to integrate osgVerse with Qt.
-7. TBD...
+7. osgVerse_ViewerWASM (wasm/pbr_demo): an example of WASM, with modern rendering pipeline support.
+8. osgVerse_JsCallerWASM (wasm/script_demo): an example of WASM, demostrating how to use OSGB scripts with JS.
+9. TBD...
 
 #### Tests and Examples
 1. osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
@@ -128,8 +130,20 @@ Our project is already tested on graphics cards listed as below:
 5. tests: Some test data
 
 #### Build from Source
+0. Assume that osgVerse source code is already at <osgverse_folder>.
 1. Desktop Windows / Linux
-  - TBD... (Use CMake directly)
+  - Make sure you have a compiler environment (e.g., Visual Studio).
+  - Download and install CMake tool.
+  - Download OSG prebuilt libraries or build them from source, extracting to <osg_sdk_folder>.
+  - Declare an environment variable OSG_ROOT, to indicate OSG root directory:
+    $ export OSG_ROOT=<osg_sdk_folder>
+  - Run commands below in terminal:
+    $ cd <osgverse_folder>
+    $ mkdir build
+    $ cd build
+    $ cmake ..
+    $ cmake --build .
+  - You may also choose to use cmake-gui and set OSG related options in GUI mode.
 2. Desktop Mac OSX
   - TBD...
 3. Android
@@ -137,7 +151,14 @@ Our project is already tested on graphics cards listed as below:
 4. IOS
   - TBD...
 5. WebAssembly
-  - TBD... (Use Setup.sh)
+  - Download emsdk from https://emscripten.org/docs/getting_started/downloads.html, extracting to <emsdk_folder>.
+  - Update and activate emsdk as required at the page above.
+  - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph.
+  - Start a UNIX ternimal (in Windows, please install WSL and start it).
+  - Run commands below in terminal:
+    $ cd <osgverse_folder>
+    $ ./Setup.sh <emsdk_folder>
+  - Select "3. WASM / OpenGL ES2" and starting building WASM at <osgverse_folder>/build/verse_wasm.
 
 #### CMake options
 | Option                      | Type    | Default Value | Notes |

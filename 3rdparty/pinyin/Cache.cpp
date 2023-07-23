@@ -1,11 +1,10 @@
-﻿#include "Cache.h"
+#include "Cache.h"
 #include <algorithm>
 #include "PinyinHanzi.h"
 #include "StringFunction.h"
 
 using namespace ime::pinyin;
 
-//为了兼容多个引擎，全局变量应该对象化
 std::map<std::string, std::shared_ptr<Query>>		g_queryLineCaches;
 std::map<std::string, std::shared_ptr<Query>>		g_combineAssociateLineCaches;
 std::map<std::string, std::vector<std::string>>		g_SingleCaches;
@@ -16,7 +15,6 @@ std::shared_ptr<Query> QueryLineCache::getQuery(const std::string & validPinyinS
 	if (iter == g_queryLineCaches.end())
 	{
 		std::shared_ptr<Query> p = std::make_shared<Query>();
-		//搜索size=，pinyin like的条目
 		p->search(Query::pinyin | Query::cizu | Query::weight, std::count(validPinyinStr.begin(), validPinyinStr.end(), '\'') + 1, Query::Condition::eq,
 			validPinyinStr, Query::Condition::like, false, false, "", Query::Condition::none, Query::weight);
 		g_queryLineCaches.insert({ validPinyinStr, p });
@@ -40,7 +38,6 @@ std::shared_ptr<Query> CombineLineCache::getQuery(const std::string & validPinyi
 	if (iter == g_combineAssociateLineCaches.end())
 	{
 		std::shared_ptr<Query> p = std::make_shared<Query>();
-		//搜索size=，pinyin like的条目
 		p->search(Query::pinyin | Query::cizu | Query::priority, std::count(validPinyinStr.begin(), validPinyinStr.end(), '\'') + 1, Query::Condition::eq,
 			validPinyinStr, Query::Condition::like, false, false, "", Query::Condition::none, Query::priority);
 		g_combineAssociateLineCaches.insert({ validPinyinStr, p });

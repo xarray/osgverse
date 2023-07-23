@@ -1,4 +1,4 @@
-﻿#include "Query.h"
+#include "Query.h"
 #include <vector>
 #include "sqlite3.h"
 #include "StringFunction.h"
@@ -66,9 +66,9 @@ std::string Query::getQueryPinyin(const std::string & validPinyinStr, bool exten
 			if (iter == --pinyins.end())
 			{
 				if (extended)
-					ret += PinyinBase::isCompleted(one) ? (one + "''%") : (one + "%");		//ta'po't 模糊查询 [踏破铁鞋无觅处]等
+					ret += PinyinBase::isCompleted(one) ? (one + "''%") : (one + "%");
 				else
-					ret += PinyinBase::isCompleted(one) ? one : (one + "%");				//完整的拼音不需要%
+					ret += PinyinBase::isCompleted(one) ? one : (one + "%");
 			}
 			else
 			{
@@ -131,7 +131,7 @@ std::string Query::getSelectInner(int fields, int size, Condition sizeCondition,
 		sOneSelect = sOneSelect.substr(0, sOneSelect.size() - 5) + " union ";
 		ret += sOneSelect;
 	}
-	//-7表示截掉最后的" union "
+
 	ret = ret.substr(0, ret.size() - 7) + ")";
 	return ret;
 }
