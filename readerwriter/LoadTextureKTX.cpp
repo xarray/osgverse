@@ -205,15 +205,31 @@ static inline VkFormat glGetVkFormatFromInternalFormat(GLint glFormat)
 namespace osgVerse
 {
     static osg::ref_ptr<osg::Image> loadImageFromKtx(ktxTexture* texture, int layer, int face,
-                                                     ktx_size_t imgDataSize)
+                                                     ktx_size_t imgDataSize, bool noCompress = false)
     {
-        bool transcoded = false;
+        bool transcoded = false, compressed = false;
+        ktx_error_code_e result = KTX_SUCCESS;
         if (ktxTexture_NeedsTranscoding(texture))
         {
-            // FIXME: mobile compressing textures
-            ktxTexture2_TranscodeBasis(
-                (ktxTexture2*)texture, ktx_transcode_fmt_e::KTX_TTF_RGBA32, 0);
-            transcoded = true;
+            if (noCompress)
+            {
+                result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
+                    ktx_transcode_fmt_e::KTX_TTF_RGBA32, 0);
+                compressed = false;
+            }
+            else
+            {
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+                // FIXME: mobile compressing textures
+                result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
+                    ktx_transcode_fmt_e::KTX_TTF_ETC, 0);
+#else
+                result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
+                    ktx_transcode_fmt_e::KTX_TTF_BC1_OR_3, 0);
+#endif
+                compressed = true;
+            }
+            transcoded = (result == KTX_SUCCESS);
         }
 
         ktx_uint32_t w = texture->baseWidth, h = texture->baseHeight, d = texture->baseDepth;
@@ -225,7 +241,8 @@ namespace osgVerse
         {
             ktxTexture2* tex = (ktxTexture2*)texture;
             GLint glInternalformat = glGetInternalFormatFromVkFormat((VkFormat)tex->vkFormat);
-            GLenum glFormat = glGetFormatFromInternalFormat(glInternalformat);
+            GLenum glFormat = compressed ? glInternalformat  /* Use compressed format */
+                            : glGetFormatFromInternalFormat(glInternalformat);
             GLenum glType = glGetTypeFromInternalFormat(glInternalformat);
             if (glFormat == GL_INVALID_VALUE || glType == GL_INVALID_VALUE)
             {
@@ -236,9 +253,9 @@ namespace osgVerse
             else if (transcoded)
             {
                 // FIXME: KTX1 transcoding?
-                OSG_NOTICE << "[LoaderKTX] Transcoded format: internalFmt = " << std::hex
-                           << glInternalformat << ", pixelFmt = " << glFormat << ", type = "
-                           << glType << std::dec << std::endl;
+                OSG_INFO << "[LoaderKTX] Transcoded format: internalFmt = " << std::hex
+                         << glInternalformat << ", pixelFmt = " << glFormat << ", type = "
+                         << glType << std::dec << std::endl;
                 imgDataSize = ktxTexture_GetImageSize(texture, 0);
             }
             image->allocateImage(w, h, d, glFormat, glType, 4);

@@ -142,7 +142,7 @@ picojson::value JsonScript::execute(ExecutionType t, picojson::value in)
                            "\"type\": \"" + props[i].typeName + "\"}";
             }
             if (!value1.empty()) value1 += "]"; else value1 = "\"properties\": []";
-            
+
             std::vector<osgVerse::LibraryEntry::Method> methods = entry->getMethodNames(clsName);
             for (size_t i = 0; i < methods.size(); ++i)
             {

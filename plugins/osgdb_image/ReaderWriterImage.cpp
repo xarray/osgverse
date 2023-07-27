@@ -90,7 +90,7 @@ public:
         int x = 0, y = 0, channels = 0;
         stbi_uc* data = stbi_load_from_memory(
             (const unsigned char*)&buffer[0], buffer.size(), &x, &y, &channels, 0);
-        
+
         GLenum format = GL_RGBA;
         switch (channels)
         {

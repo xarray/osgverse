@@ -34,11 +34,17 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    osg::ref_ptr<osg::Image> image = rw->readImage("clockface.ktx").getImage();
-    if (image.valid())
+    // No compressed RGBA32: CPU memory = 1.06GB, GPU memory = 1.4GB
+    // DXT BC1 / BC3: CPU memory = 207MB, GPU memory = 0.6GB
+    // KTX ETC1 / ETC2: CPU memory = 209MB, GPU memory = 1.4GB (NV drivers may not support it)
+    for (int i = 0; i < 1000; ++i)
     {
-        osg::Geode* geode = osg::createGeodeForImage(image.get());
-        root->addChild(geode);
+        osg::ref_ptr<osg::Image> image = rw->readImage("clockface.ktx").getImage();
+        if (image.valid())
+        {
+            osg::Geode* geode = osg::createGeodeForImage(image.get());
+            root->addChild(geode);
+        }
     }
 #else
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/clockface.jpg");
