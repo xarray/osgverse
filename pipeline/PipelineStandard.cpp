@@ -295,7 +295,11 @@ namespace osgVerse
         }
         else
         {
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
             size_t imgCount = spp.skyboxIBL->getNumImageData();
+#else
+            size_t imgCount = spp.skyboxIBL->getNumImages();
+#endif
             if (imgCount > 0)
             {
 #if defined(VERSE_WASM)

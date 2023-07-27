@@ -34,7 +34,7 @@ void ImGuiComponentBase::adjustLine(bool newLine, bool sep, float indentX, float
 
 void ImGuiComponentBase::showTooltip(const std::string& desc, const std::string& t, float wrapPos)
 {
-    ImGui::SameLine(); ImGui::TextDisabled(TR(t).c_str());
+    ImGui::SameLine(); ImGui::TextDisabled("%s", TR(t).c_str());
     if (ImGui::IsItemHovered())
     {
         ImGui::BeginTooltip();
@@ -99,7 +99,7 @@ bool ImGuiComponentBase::showConfirmDialog(bool& result)
 
     if (displayed)
     {
-        ImGui::Text(s_confirmDialogRunner.title.c_str()); ImGui::Separator();
+        ImGui::Text("%s", s_confirmDialogRunner.title.c_str()); ImGui::Separator();
         if (ImGui::Button(s_confirmDialogRunner.btn0.c_str(), ImVec2(120, 0)))
         { ImGui::CloseCurrentPopup(); result = true; closed = true; }
         
@@ -168,13 +168,13 @@ bool Label::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
             if (colored)
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(td.color[0], td.color[1], td.color[2], 1.0f));
-            if (td.wrapped) ImGui::TextWrapped(t.c_str());
-            else if (td.disabled) ImGui::TextDisabled(t.c_str());
-            else ImGui::Text(t.c_str());
+            if (td.wrapped) ImGui::TextWrapped("%s", t.c_str());
+            else if (td.disabled) ImGui::TextDisabled("%s", t.c_str());
+            else ImGui::Text("%s", t.c_str());
             if (colored) ImGui::PopStyleColor();
         }
         else
-            ImGui::Text(t.c_str());
+            ImGui::Text("%s", t.c_str());
     }
     return true;
 }

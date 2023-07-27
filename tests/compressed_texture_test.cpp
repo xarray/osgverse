@@ -19,6 +19,7 @@ int main(int argc, char** argv)
     osgViewer::Viewer viewer;
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
 
+#if 1
     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ktx");
     if (rw)
     {
@@ -39,6 +40,15 @@ int main(int argc, char** argv)
         osg::Geode* geode = osg::createGeodeForImage(image.get());
         root->addChild(geode);
     }
+#else
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/clockface.jpg");
+    osg::Geode* geode = osg::createGeodeForImage(image.get());
+
+    osg::Texture* tex = static_cast<osg::Texture*>(
+        geode->getDrawable(0)->getStateSet()->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+    if (tex) tex->setInternalFormatMode(osg::Texture::USE_S3TC_DXT1_COMPRESSION);
+    root->addChild(geode);
+#endif
 
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

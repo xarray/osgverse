@@ -136,13 +136,13 @@ Our project is already tested on graphics cards listed as below:
   - Download and install CMake tool.
   - Download OSG prebuilt libraries or build them from source, extracting to <osg_sdk_folder>.
   - Declare an environment variable OSG_ROOT, to indicate OSG root directory:
-    $ export OSG_ROOT=<osg_sdk_folder>
+    - $ export OSG_ROOT=<osg_sdk_folder>
   - Run commands below in terminal:
-    $ cd <osgverse_folder>
-    $ mkdir build
-    $ cd build
-    $ cmake ..
-    $ cmake --build .
+    - $ cd <osgverse_folder>
+    - $ mkdir build
+    - $ cd build
+    - $ cmake ..
+    - $ cmake --build .
   - You may also choose to use cmake-gui and set OSG related options in GUI mode.
 2. Desktop Mac OSX
   - TBD...
@@ -156,8 +156,8 @@ Our project is already tested on graphics cards listed as below:
   - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph.
   - Start a UNIX ternimal (in Windows, please install WSL and start it).
   - Run commands below in terminal:
-    $ cd <osgverse_folder>
-    $ ./Setup.sh <emsdk_folder>
+    - $ cd <osgverse_folder>
+    - $ ./Setup.sh <emsdk_folder>
   - Select "3. WASM / OpenGL ES2" and starting building WASM at <osgverse_folder>/build/verse_wasm.
 
 #### CMake options
@@ -196,5 +196,4 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_GLIBCXX11_ABI     | Boolean | ON            | Enable to use libraries built with GCC compiler newer than 4.9 |
 | VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
-| VERSE_WASM_USE_WEBGL2       | Boolean | OFF           | Enable WebGL 2.0 version while build with WASM, or WebGL 1.0 if disabled, for WASM build only |
 | VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |

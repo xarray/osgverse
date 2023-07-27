@@ -161,6 +161,7 @@ protected:
                          const Options* options) const
     {
         const osg::ImageSequence* seq = dynamic_cast<const osg::ImageSequence*>(&image);
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
         osg::ImageSequence::ImageDataList images;
         if (!seq)
         {
@@ -170,6 +171,11 @@ protected:
         }
         else
             images = seq->getImageDataList();
+#else
+        std::vector<osg::ref_ptr<osg::Image>> images;
+        if (!seq) images.push_back(const_cast<osg::Image*>(&image));
+        else images = seq->getImages();
+#endif
 
         long long imgCount = (long long)images.size();
         fout.write((char*)&s_rawHeader1, sizeof(int));
@@ -179,26 +185,31 @@ protected:
         long long imgW = 0, imgH = 0, imgSize = 0;
         for (long long i = 0; i < imgCount; ++i)
         {
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
             osg::ImageSequence::ImageData& imgData = images[i];
-            if (!imgData._image)
+            osg::Image* img = imgData._image.get();
+#else
+            osg::Image* img = images[i].get();
+#endif
+            if (!img)
             {
                 imgSize = 0;
                 fout.write((char*)&imgSize, sizeof(long long));
                 continue;
             }
 
-            GLenum internalFmt = imgData._image->getInternalTextureFormat();
-            GLenum pixelFmt = imgData._image->getPixelFormat();
-            GLenum dataType = imgData._image->getDataType();
-            imgW = imgData._image->s(); imgH = imgData._image->t();
-            imgSize = imgData._image->getTotalSizeInBytes();
+            GLenum internalFmt = img->getInternalTextureFormat();
+            GLenum pixelFmt = img->getPixelFormat();
+            GLenum dataType = img->getDataType();
+            imgW = img->s(); imgH = img->t();
+            imgSize = img->getTotalSizeInBytes();
             fout.write((char*)&imgSize, sizeof(long long));
             fout.write((char*)&imgW, sizeof(long long));
             fout.write((char*)&imgH, sizeof(long long));
             fout.write((char*)&internalFmt, sizeof(GLenum));
             fout.write((char*)&pixelFmt, sizeof(GLenum));
             fout.write((char*)&dataType, sizeof(GLenum));
-            fout.write((char*)imgData._image->data(), imgSize);
+            fout.write((char*)img->data(), imgSize);
         }
         return WriteResult::FILE_SAVED;
     }

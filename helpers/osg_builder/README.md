@@ -30,7 +30,7 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
   * DYNAMIC_OPENTHREADS: OFF
   * OPENGL_PROFILE: GLES2/GLES3
 * Command-line example: (Windows only)
-  * cmake -G"MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE="android.toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -DANDROID_NDK="%ndk_path%" -DANDROID_ABI="armeabi-v7a with NEON" -DCMAKE_MAKE_PROGRAM="%ndk_path%/prebuilt/windows-x86_64/bin/make.exe" -DANDROID_NATIVE_API_LEVEL=21 -DDYNAMIC_OPENSCENEGRAPH=OFF -DDYNAMIC_OPENTHREADS=OFF -DOPENGL_PROFILE=GLES2 "%osg_root_path%"
+  * cmake -G"MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE="%ndk_path%/build/cmake/android.toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -DANDROID_ABI="armeabi-v7a with NEON" -DCMAKE_MAKE_PROGRAM="%ndk_path%/prebuilt/windows-x86_64/bin/make.exe" -DANDROID_PLATFORM=21 -DDYNAMIC_OPENSCENEGRAPH=OFF -DDYNAMIC_OPENTHREADS=OFF -DOPENGL_PROFILE=GLES2 "%osg_root_path%"
   * cmake --build .
 
 #### OSG for WASM (Emscripten)

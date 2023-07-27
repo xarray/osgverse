@@ -11,7 +11,7 @@ typedef unsigned int u32;
 #ifdef _WIN32
 	typedef long long i64;
 	typedef unsigned long long u64;
-#elif defined(__EMSCRIPTEN__)
+#elif defined(__EMSCRIPTEN__) || defined(__ANDROID__)
 	typedef long long i64;
 	typedef unsigned long long u64;
 #else

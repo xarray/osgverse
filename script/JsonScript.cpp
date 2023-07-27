@@ -1,3 +1,4 @@
+#include <osg/Version>
 #include "JsonScript.h"
 using namespace osgVerse;
 
@@ -110,6 +111,7 @@ picojson::value JsonScript::execute(ExecutionType t, picojson::value in)
                 result.value = "{\"class\": \"" + std::string(obj->className())
                     + "\", \"library\": \"" + std::string(obj->libraryName())
                     + "\", \"referenced\": " + std::to_string(obj->referenceCount());
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
                 if (obj->asNode())
                 {
                     osg::Node* node = obj->asNode();
@@ -119,6 +121,7 @@ picojson::value JsonScript::execute(ExecutionType t, picojson::value in)
                         result.value += ", \"children\": \"" + std::to_string(num) + "\"";
                     }
                 }
+#endif
                 result.value += "}";
                 result.obj = obj;
             }

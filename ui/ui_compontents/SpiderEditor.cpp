@@ -75,7 +75,7 @@ bool SpiderEditor::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         ed::BeginNode(itr->first);
         if (nodeItem != NULL)
         {
-            ImGui::Text(nodeItem->name.c_str());
+            ImGui::Text("%s", nodeItem->name.c_str());
             ImGui::Separator();
 
             std::vector<int> inIds, outIds;
@@ -127,5 +127,5 @@ bool SpiderEditor::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
 void SpiderEditor::showPin(ImGuiManager* mgr, ImGuiContentHandler* content, PinItem* pin)
 {
-    ImGui::Text(pin->name.c_str());
+    ImGui::Text("%s", pin->name.c_str());
 }

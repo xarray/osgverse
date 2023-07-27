@@ -27,7 +27,7 @@ public:
     {
         std::string msg; msg = "Unregistered component type. It is harmless but means\nthis target is created"
                                "by OpenSceneGraph or user,\nand unmanagable in osgVerse at present.";
-        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), ImGuiComponentBase::TR(msg).c_str());
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "%s", ImGuiComponentBase::TR(msg).c_str());
         return false;
     }
 };
