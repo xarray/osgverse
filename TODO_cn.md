@@ -18,10 +18,10 @@
 | 编译/渲染 |              | 新增     | :heavy_check_mark: | initial  | 支持GLES2 / GLES3 | |
 | 编译/渲染 |              | 新增     | 80%                | initial  | 支持Angel并通过自定义的方式来切换不同底层(DX/Vulkan) | 基于Angel编译可用，尚未测试切换底层 |
 | 编译/渲染 |              | 新增     | 50%                | initial  | 支持GLSL 1.2，可以运行在虚拟机和低端国产显卡上 | 目前着色器可以编译通过，但兆芯笔记本运行无结果 |
-| 编译      |              | 新增     |                    | initial  | 支持Android编译流程，支持直接纳入Android Studio | |
+| 编译      |              | 新增     | 50%                | initial  | 支持Android编译流程，支持直接纳入Android Studio | 目前已经可以编译Android库 |
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |
 | 编译      |              | **新增** | :heavy_check_mark: | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
-| 编译      |              | 新增     | 50%                | initial  | 通过Emscripten / Dawn支持WebGL1/2接口 | 已经支持WebGL1 |
+| 编译      |              | 新增     | 50%                | initial  | 通过Emscripten支持WebGL1/2接口 | 已经支持WebGL1 |
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持流媒体推流和拉流，支持WebRTC云渲染 | |
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 不要用NodeMask来管理Deferred场景，避免影响用户代码 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
@@ -44,7 +44,7 @@
 | 渲染      | pipeline     | **除虫** |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于小物件，AO的效果噪声比较严重，且Bloom结果不好 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于简单几何体，光照容易产生异常边界线，效果不好 | |
-| 渲染      | pipeline     | 优化     | 35%                | initial  | 在PBR Lighting过程中通过LightManager光源数据表计算多种光照结果 | 目前只支持了平行光，还需要支持点光源和锥光源，并且优化光照效果 |
+| 渲染      | pipeline     | 优化     | 35%                | initial  | 在PBR Lighting过程中通过LightManager光源数据表计算多种光照结果 | 还需要支持点光源和锥光源，优化光照 |
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 增加一个测试案例演示如何增加多个光源，并测试多光源渲染压力 | |
 | 渲染      | pipeline     | 除虫     |                    | initial  | 如果clearStagesFromView()删除管线，移动视角后再恢复，则阴影错误 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现OSG 311版本中渲染报错，和Texture2DArray有关 | |
@@ -64,9 +64,11 @@
 | 数据读写  | readerwriter | 新增     |                    | initial  | 自动检查输入几何体的正确性，尝试用Indirect替换优化 | |
 | 数据读写  | readerwriter | 新增     |                    | initial  | 支持流传输修改模型，实现Blender和编辑器的动态模型切换编辑 | |
 | 数据读写  | readerwriter | 优化     |                    | initial  | FBX和GLTF插件支持导入角色和角色动画并显示 | |
+| 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持KTX纹理格式的读取和写入，支持纹理压缩功能 | |
+| 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持默认常见图片格式的读取，不需要额外插件，主要用于WASM等场合 | |
 | 模型/动画 | animation    | 优化     |                    | initial  | PlayerAnimation支持直接输入角色骨骼和动画数据 | |
-| 脚本      | ui           | 新增     |                    | initial  | 考虑合适的方式接入Lua和Python | |
-| 脚本      | ui           | 新增     |                    | initial  | 使用Serialization映射OSG和osgVerse的核心函数 | |
+| 脚本      | ui           | 新增     |                    | initial  | 考虑合适的方式接入C#和Python等脚本语言 | |
+| 脚本      | ui           | 新增     | 80%                | initial  | 使用Serialization映射OSG和osgVerse的核心函数 | OSG函数已经全部映射完成 |
 | 脚本      | ui           | 新增     |                    | initial  | 支持通过脚本创建UserComponent接口以及Verse插件 | |
 | 编辑器    | applications | 新增     |                    | initial  | 通过imgui docker支持窗口的位置和大小自动对齐 | |
 | 编辑器    | applications | 新增     |                    | initial  | 显示一个独立的XYZ轴向坐标，用来指示3D场景坐标系 | |

@@ -15,20 +15,23 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: |       |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |
-| Android          |                          | :soon:             |       |
+| Android          | WSL + NDK r20e (Clang)   | :soon:             |       |
 | IOS              |                          | :soon:             |       |
+| WebAssmebly      | WSL + Emscripten 3.1.28  | :heavy_check_mark: | Supports GLES2 (WebGL1) at present |
 
 #### Main Features (ongoing to v1.0)
-1. Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
-2. Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
-3. Supports physics simuation based on Bullet3 library, and character animation based on OZZ library.
-4. Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
-5. Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
-6. Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
-7. Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
-8. Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
-9. Supports Emscripten / WASM compilation and works with WebGL / WebGPU based browsers.
-10. Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
+- [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
+- [x] Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
+- [ ] Supports physics simuation based on Bullet3 library, and character animation based on OZZ library.
+- [ ] Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
+- [x] Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
+- [x] Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
+- [x] Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
+- [ ] Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
+- [ ] Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
+- [ ] Supports major embedded devices with GPU supports, including ARM and RISC-V.
+- [x] Supports Emscripten / WASM compilation and works with WebGL / WebGPU based browsers.
+- [ ] Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
 #### Screenshots
 * osgVerse_Viewer: PBR and deferred pipeline with Desktop GL
@@ -51,6 +54,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 4.6 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.
   - 4.7 cesium-native (git version), for 3dtiles reader/writer plugin. (https://github.com/CesiumGS/cesium-native)
   - 4.8 OpenVDB 10.0 or later, for VDB point cloud and 3D image reader/writer plugin. (https://github.com/AcademySoftwareFoundation/openvdb)
+  - 4.9 libDraco 1.5 or later, for Draco mesh compression support in osgVerseReaderWriter library. (https://github.com/google/draco)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -103,7 +107,8 @@ Our project is already tested on graphics cards listed as below:
 14. osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x.
 15. osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
 16. osgVerse_Test_Scripting: a test for scripting implementation based on OSGB serialization format.
-17. TBD...
+17. osgVerse_Test_Compressing_Texture: a test for KTX texture compression (DXT / ETC) and reading.
+18. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
