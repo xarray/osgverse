@@ -20,6 +20,7 @@ namespace backward { backward::SignalHandling sh; }
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -88,6 +89,14 @@ int main(int argc, char** argv)
     // Add tangent/bi-normal arrays for normal mapping
     osgVerse::TangentSpaceVisitor tsv;
     scene->accept(tsv);
+
+#if 1
+    // Compress and optimize textures (it may take a while)
+    // With op: CPU memory = 167.5MB, GPU memory = 0.8GB
+    // Without: CPU memory = 401.8MB, GPU memory = 2.1GB
+    osgVerse::TextureOptimizer texOp;
+    scene->accept(texOp);
+#endif
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

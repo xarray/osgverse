@@ -303,8 +303,15 @@ namespace osgVerse
             //          << imageSrc.width << "x" << imageSrc.height << "\n";
 
             osg::ref_ptr<osg::Image> image = new osg::Image;
+            image->setFileName(imageSrc.uri);
             image->allocateImage(imageSrc.width, imageSrc.height, 1, format, type);
-            image->setInternalTextureFormat(imageSrc.component);
+            switch (imageSrc.component)
+            {
+            case 1: image->setInternalTextureFormat(GL_R8); break;
+            case 2: image->setInternalTextureFormat(GL_RG8); break;
+            case 3: image->setInternalTextureFormat(GL_RGB8); break;
+            default: image->setInternalTextureFormat(GL_RGBA8); break;
+            }
             memcpy(image->data(), &imageSrc.image[0], image->getTotalSizeInBytes());
             
             image2D = image.get(); image2D->setName(imageSrc.uri);

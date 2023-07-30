@@ -9,19 +9,46 @@
 #   include <emscripten.h>
 #endif
 
+#if defined(VERSE_STATIC_BUILD)
+#  define OSGVERSE_RW_EXPORT extern
+#elif defined(VERSE_WINDOWS)
+#  if defined(VERSE_RW_LIBRARY)
+#    define OSGVERSE_RW_EXPORT   __declspec(dllexport)
+#  else
+#    define OSGVERSE_RW_EXPORT   __declspec(dllimport)
+#  endif
+#else
+#  define OSGVERSE_RW_EXPORT extern
+#endif
+
 namespace osgVerse
 {
-    class FixedFunctionOptimizer : public osg::NodeVisitor
+    class OSGVERSE_RW_EXPORT FixedFunctionOptimizer : public osg::NodeVisitor
     {
     public:
         FixedFunctionOptimizer()
             : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
 
         virtual void apply(osg::Geode& geode);
-        virtual void apply(osg::Group& node);
+        virtual void apply(osg::Node& node);
 
     protected:
         void removeUnusedStateAttributes(osg::StateSet* ssPtr);
+    };
+
+    class OSGVERSE_RW_EXPORT TextureOptimizer : public osg::NodeVisitor
+    {
+    public:
+        TextureOptimizer()
+            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+
+        virtual void apply(osg::Geode& geode);
+        virtual void apply(osg::Node& node);
+
+    protected:
+        void applyTextureAttributes(osg::StateSet* ssPtr);
+        void applyTexture(osg::Texture* tex, unsigned int unit);
+        osg::Image* compressImage(osg::Texture* tex, osg::Image* img);
     };
 
 #ifdef __EMSCRIPTEN__

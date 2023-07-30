@@ -361,12 +361,18 @@ namespace osgVerse
         createInfo.numFaces = asCubeMap ? images.size() : 1;
         createInfo.isArray = (images.size() > 1) ? KTX_TRUE : KTX_FALSE;
         createInfo.generateMipmaps = KTX_FALSE;
+        if (createInfo.vkFormat == 0)
+        {
+            OSG_WARN << "[LoaderKTX] No VkFormat for GL internal format: "
+                     << std::hex << createInfo.glInternalformat << std::dec << std::endl;
+            return NULL;
+        }
 
         KTX_error_code result = ktxTexture2_Create(
             &createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, (ktxTexture2**)&texture);
         if (result != KTX_SUCCESS)
         {
-            OSG_WARN << "[LoaderKTX] Unable to create KTX for saving\n";
+            OSG_WARN << "[LoaderKTX] Unable to create KTX for saving" << std::endl;
             return NULL;
         }
 
