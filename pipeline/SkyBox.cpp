@@ -171,7 +171,7 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     _stateset->setAttributeAndModes(depth, values);
     _stateset->setRenderBinDetails(-9999, "RenderBin");
 
-    int glVer = (_pipeline.valid() ? _pipeline->getTargetVersion() : 100);
+    int glVer = (_pipeline.valid() ? _pipeline->getContextTargetVersion() : 100);
     int glslVer = (_pipeline.valid() ? _pipeline->getGlslTargetVersion() : 130);
     if (!_vertex || !_fragment) { OSG_WARN << "[SkyBox] Missing skybox shaders" << std::endl; return; }
     _vertex->setName("SkyBox_SHADER_VS"); _fragment->setName("SkyBox_SHADER_FS");

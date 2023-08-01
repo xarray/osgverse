@@ -573,7 +573,8 @@ namespace osgVerse
         _deferredDepth = new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false);
         _invScreenResolution = new osg::Uniform(
             "InvScreenResolution", osg::Vec2(1.0f / 1920.0f, 1.0f / 1080.0f));
-        _glTargetVersion = glContextVer; _glslTargetVersion = glslVer;
+        _glContextVersion = glContextVer; _glVersion = 0;
+        _glslTargetVersion = glslVer;
     }
 
     void Pipeline::Stage::applyUniform(osg::Uniform* u)
@@ -677,21 +678,21 @@ namespace osgVerse
     {
 #if OSG_VERSION_GREATER_THAN(3, 6, 0)
         int suggestedVer = (int)(atof(OSG_GL_CONTEXT_VERSION) * 100.0);
-        if (_glTargetVersion < suggestedVer) _glTargetVersion = suggestedVer;
+        if (_glContextVersion < suggestedVer) _glContextVersion = suggestedVer;
 #endif
 
 #if defined(OSG_GL3_AVAILABLE)
-        if (_glTargetVersion < 300) _glTargetVersion = 300;
+        if (_glContextVersion < 300) _glContextVersion = 300;
 #elif defined(OSG_GLES3_AVAILABLE)
         if (_glslTargetVersion < 300) _glslTargetVersion = 300;
 #elif defined(OSG_GLES2_AVAILABLE)
         if (_glslTargetVersion < 100) _glslTargetVersion = 100;
 #endif
-
         if (_glVersionData.valid())
         {
-            if (_glVersionData->glVersion < _glTargetVersion)
-                _glTargetVersion = _glVersionData->glVersion;
+            _glVersion = _glVersionData->glVersion;
+            if (_glVersionData->glVersion < _glContextVersion)
+                _glContextVersion = _glVersionData->glVersion;
             if (_glVersionData->glslVersion < _glslTargetVersion)
                 _glslTargetVersion = _glVersionData->glslVersion;
         }
@@ -704,7 +705,7 @@ namespace osgVerse
         }
         else
         {
-            int m0 = _glTargetVersion / 100; int m1 = (_glTargetVersion - m0 * 100) / 10;
+            int m0 = _glContextVersion / 100; int m1 = (_glContextVersion - m0 * 100) / 10;
             std::string glContext = std::to_string(m0) + "." + std::to_string(m1);
             _stageContext = createGraphicsContext(w, h, glContext, NULL);
         }
@@ -712,7 +713,7 @@ namespace osgVerse
         _stageContext->setResizedCallback(new MyResizedCallback(this));
 
         // Enable the osg_* uniforms that the shaders will use in GL3/GL4 and GLES2/3
-        if (_glTargetVersion >= 300 || _glslTargetVersion >= 140)
+        if (_glContextVersion >= 300 || _glslTargetVersion >= 140)
         {
             _stageContext->getState()->setUseModelViewAndProjectionUniforms(true);
             _stageContext->getState()->setUseVertexAttributeAliasing(true);
@@ -874,7 +875,7 @@ namespace osgVerse
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
             else ms = samples;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1], _glTargetVersion);
+            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1], _glVersion);
             if (i > 0) s->camera->attach(comp, tex.get(), 0, 0, false, ms);
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), false);
             s->outputs[bufName] = tex.get();
@@ -907,7 +908,7 @@ namespace osgVerse
 
             osg::ref_ptr<osg::Texture> tex = createTexture(type,
                 osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
-                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glTargetVersion);
+                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glVersion);
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), true);
             s->outputs[bufName] = tex.get();
@@ -941,7 +942,7 @@ namespace osgVerse
 
             osg::ref_ptr<osg::Texture> tex = createTexture(type,
                 osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
-                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glTargetVersion);
+                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glVersion);
             s->runner->attach(comp, tex.get());
             s->outputs[bufName] = tex.get();
         }
@@ -984,13 +985,13 @@ namespace osgVerse
             if (vs)
             {
                 vs->setName(name + "_SHADER_VS"); prog->addShader(vs);
-                createShaderDefinitions(vs, _glTargetVersion, _glslTargetVersion);
+                createShaderDefinitions(vs, _glContextVersion, _glslTargetVersion);
             }
 
             if (fs)
             {
                 fs->setName(name + "_SHADER_FS"); prog->addShader(fs);
-                createShaderDefinitions(fs, _glTargetVersion, _glslTargetVersion);
+                createShaderDefinitions(fs, _glContextVersion, _glslTargetVersion);
             }
 
             osg::StateSet* ss = s.deferred ?
@@ -1035,13 +1036,13 @@ namespace osgVerse
         if (vs)
         {
             vs->setName("Forward_SHADER_VS"); program->addShader(vs);
-            createShaderDefinitions(vs, _glTargetVersion, _glslTargetVersion);
+            createShaderDefinitions(vs, _glContextVersion, _glslTargetVersion);
         }
         
         if (fs)
         {
             fs->setName("Forward_SHADER_FS"); program->addShader(fs);
-            createShaderDefinitions(fs, _glTargetVersion, _glslTargetVersion);
+            createShaderDefinitions(fs, _glContextVersion, _glslTargetVersion);
         }
 
         osg::ref_ptr<osg::StateSet> ss = new osg::StateSet;
@@ -1268,6 +1269,11 @@ namespace osgVerse
             tex->setSourceFormat(GL_RGBA);
             tex->setSourceType(GL_UNSIGNED_BYTE);
             break;
+
+        // RTT to 1-component / 2-component textures:
+        // GLver > 300 (NVIDIA, INTEL), MTT: GL_R8 / GL_RED
+        // GLver < 300: GL_LUMINANCE8 / GL_LUMINANCE
+        // WebGL 1.0: GL_LUMINANCE / GL_LUMINANCE
         case R_INT8:
 #if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             if (glVer > 0 && glVer < 300)

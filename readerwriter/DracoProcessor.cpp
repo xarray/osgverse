@@ -98,12 +98,12 @@ static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribut
     if (outArray)
     {
         unsigned char* data = new unsigned char[attr->byte_stride()];
+        const char* dst = (const char*)(outArray->getDataPointer());
         for (draco::PointIndex i(0); i < mesh->num_points(); ++i)
         {
             const draco::AttributeValueIndex valIndex = attr->mapped_index(i);
             attr->GetValue(valIndex, data);
-            GLvoid* dst = const_cast<GLvoid*>(outArray->getDataPointer(i.value()));
-            memcpy(dst, data, attr->byte_stride());
+            memcpy((void*)(dst + i.value()), data, attr->byte_stride());
         }
         delete[] data;
     }

@@ -204,7 +204,7 @@ namespace osgVerse
         {
             OSG_NOTICE << "[StandardPipeline] OpenGL Driver: " << data->version << "; GLSL: "
                        << data->glslVersion << "; Renderer: " << data->renderer << std::endl;
-            OSG_NOTICE << "[StandardPipeline] Using OpenGL Context: " << p->getTargetVersion()
+            OSG_NOTICE << "[StandardPipeline] Using OpenGL Context: " << p->getContextTargetVersion()
                        << "; Using GLSL Version: "<< p->getGlslTargetVersion() << std::endl;
             if (!data->glslSupported || !data->fboSupported)
             {

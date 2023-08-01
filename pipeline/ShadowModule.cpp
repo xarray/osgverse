@@ -71,7 +71,7 @@ namespace osgVerse
             for (int i = 0; i < _shadowNumber; ++i)
                 _pipeline->addStage(createShadowCaster(i, prog.get(), casterMask));
 
-            int gl = _pipeline->getGlslTargetVersion(), glsl = _pipeline->getGlslTargetVersion();
+            int gl = _pipeline->getContextTargetVersion(), glsl = _pipeline->getGlslTargetVersion();
             if (vs)
             {
                 vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);

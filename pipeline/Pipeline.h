@@ -201,8 +201,9 @@ namespace osgVerse
 
         void setVersionData(GLVersionData* d) { _glVersionData = d; }
         GLVersionData* getVersionData() { return _glVersionData.get(); }
-        int getTargetVersion() const { return _glTargetVersion; }
+        int getContextTargetVersion() const { return _glContextVersion; }
         int getGlslTargetVersion() const { return _glslTargetVersion; }
+        int getGlCurrentVersion() const { return _glVersion; }
 
         /** Check if a camera is created by this pipeline (stage or forward) */
         bool isValidCamera(osg::Camera* cam) const
@@ -234,7 +235,7 @@ namespace osgVerse
         osg::ref_ptr<GLVersionData> _glVersionData;
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;
-        int _glTargetVersion, _glslTargetVersion;
+        int _glContextVersion, _glVersion, _glslTargetVersion;
     };
 
     /** Standard pipeline parameters */
