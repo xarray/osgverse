@@ -90,7 +90,7 @@ int main(int argc, char** argv)
     osgVerse::TangentSpaceVisitor tsv;
     scene->accept(tsv);
 
-#if 0
+#if 1
     // Compress and optimize textures (it may take a while)
     // With op: CPU memory = 167.5MB, GPU memory = 0.8GB
     // Without: CPU memory = 401.8MB, GPU memory = 2.1GB

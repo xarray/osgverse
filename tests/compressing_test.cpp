@@ -11,15 +11,62 @@
 #include <iostream>
 #include <sstream>
 
+#include <readerwriter/DracoProcessor.h>
+#ifdef OSG_LIBRARY_STATIC
+USE_SERIALIZER_WRAPPER(DracoGeometry)
+#endif
+
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+
+#define COMPRESSING_GEOMETRY 1
+#define COMPRESSING_TEXTURE 0
 
 int main(int argc, char** argv)
 {
     osgViewer::Viewer viewer;
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
 
+#if COMPRESSING_GEOMETRY
+    {
+        osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile("cow.osg");
+        if (!scene.valid()) return 1;
+
+        osg::Geode* parent = scene->asGroup()->getChild(0)->asGeode();
+        osg::Geometry* geom = parent->getDrawable(0)->asGeometry();
+        if (geom)
+        {
 #if 1
+            // Without Draco: cow.osgb = 297kb
+            // With DracoGeo: cow.osgb = 81kb
+            osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geom);
+            parent->replaceDrawable(geom, geom2.get());
+            osgDB::writeNodeFile(*scene, "draco_cow.osgb");
+
+            scene = osgDB::readNodeFile("draco_cow.osgb");
+            root->addChild(scene.get());
+#else
+            osgVerse::DracoProcessor dp;
+            std::ofstream out("draco_geom.bin", std::ios::out | std::ios::binary);
+            if (dp.encodeDracoData(out, geom))
+            {
+                out.close();
+                std::ifstream in("draco_geom.bin", std::ios::in | std::ios::binary);
+                osg::ref_ptr<osg::Geometry> new_geom = dp.decodeDracoData(in);
+                if (new_geom.valid())
+                {
+                    osg::Geode* geode = new osg::Geode;
+                    geode->addDrawable(new_geom.get());
+                    root->addChild(geode);
+                    std::cout << "Draco data added\n";
+                }
+            }
+            else return 1;
+#endif
+        }
+    }
+
+#elif COMPRESSING_TEXTURE
     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ktx");
     if (rw)
     {

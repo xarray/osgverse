@@ -4,10 +4,11 @@
 #include <osg/Transform>
 #include <osg/Geometry>
 #include <osgDB/ReaderWriter>
+#include "Export.h"
 
 namespace osgVerse
 {
-    class DracoProcessor : public osg::Referenced
+    class OSGVERSE_RW_EXPORT DracoProcessor : public osg::Referenced
     {
     public:
         DracoProcessor();
@@ -23,11 +24,23 @@ namespace osgVerse
         int getCompressionLevel() const { return _compressionLevel; }
 
         osg::Geometry* decodeDracoData(std::istream& in);
+        bool decodeDracoData(std::istream& in, osg::Geometry* geom);
         bool encodeDracoData(std::ostream& out, osg::Geometry* geom);
 
     protected:
         int _posQuantizationBits, _uvQuantizationBits;
         int _normalQuantizationBits, _compressionLevel;
+    };
+
+    class OSGVERSE_RW_EXPORT DracoGeometry : public osg::Geometry
+    {
+    public:
+        DracoGeometry();
+        DracoGeometry(const DracoGeometry& copy,
+                      const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
+        DracoGeometry(const osg::Geometry& copy,
+                      const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
+        META_Object(osgVerse, DracoGeometry)
     };
 
 }

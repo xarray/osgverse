@@ -44,7 +44,7 @@ NEW_TEST_EXECUTABLE(osgVerse_Test_Paging_Lod paging_lod_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Point_Cloud point_cloud_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Restful_Server restful_server_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Player_Animation player_animation_test.cpp)
-NEW_TEST_EXECUTABLE(osgVerse_Test_Compressing_Texture compressed_texture_test.cpp)
+NEW_TEST_EXECUTABLE(osgVerse_Test_Compressing compressing_test.cpp)
 
 IF(BULLET_FOUND)
 	NEW_TEST_EXECUTABLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)

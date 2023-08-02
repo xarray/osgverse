@@ -107,7 +107,7 @@ Our project is already tested on graphics cards listed as below:
 14. osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x.
 15. osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
 16. osgVerse_Test_Scripting: a test for scripting implementation based on OSGB serialization format.
-17. osgVerse_Test_Compressing_Texture: a test for KTX texture compression (DXT / ETC) and reading.
+17. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
 18. TBD...
 
 #### OSG-style Plugins

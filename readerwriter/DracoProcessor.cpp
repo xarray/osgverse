@@ -1,10 +1,16 @@
 #include <osg/TriangleIndexFunctor>
+#include <osgDB/ObjectWrapper>
+#include <osgDB/InputStream>
+#include <osgDB/OutputStream>
 #include <pipeline/Global.h>
-#include <draco/mesh/mesh.h>
-#include <draco/compression/encode.h>
-#include <draco/compression/decode.h>
 #include "DracoProcessor.h"
 using namespace osgVerse;
+
+#ifdef VERSE_USE_DRACO
+#   include <draco/mesh/mesh.h>
+#   include <draco/compression/encode.h>
+#   include <draco/compression/decode.h>
+#endif
 
 struct CollectFaceOperator
 {
@@ -16,6 +22,7 @@ struct CollectFaceOperator
     std::vector<osg::Vec3i> triangles;
 };
 
+#ifdef VERSE_USE_DRACO
 static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribute* attr)
 {
     osg::Array* outArray = NULL;
@@ -99,11 +106,12 @@ static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribut
     {
         unsigned char* data = new unsigned char[attr->byte_stride()];
         const char* dst = (const char*)(outArray->getDataPointer());
+        unsigned int elemSize = outArray->getElementSize();
         for (draco::PointIndex i(0); i < mesh->num_points(); ++i)
         {
             const draco::AttributeValueIndex valIndex = attr->mapped_index(i);
             attr->GetValue(valIndex, data);
-            memcpy((void*)(dst + i.value()), data, attr->byte_stride());
+            memcpy((void*)(dst + i.value() * elemSize), data, attr->byte_stride());
         }
         delete[] data;
     }
@@ -133,6 +141,7 @@ static int addGeometryAttribute(draco::Mesh* mesh, draco::GeometryAttribute::Typ
               draco::DataTypeLength(dt) * (int64_t)arrayPtr->getDataSize(), 0);
     return mesh->AddAttribute(attr, true, arrayPtr->getNumElements());
 }
+#endif
 
 DracoProcessor::DracoProcessor()
 {
@@ -144,9 +153,20 @@ DracoProcessor::DracoProcessor()
 
 osg::Geometry* DracoProcessor::decodeDracoData(std::istream& in)
 {
+    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+    geom->setUseDisplayList(false);
+    geom->setUseVertexBufferObjects(true);
+    if (decodeDracoData(in, geom.get()))
+        return geom.release();
+    return NULL;
+}
+
+bool DracoProcessor::decodeDracoData(std::istream& in, osg::Geometry* geom)
+{
+#ifdef VERSE_USE_DRACO
     std::string data((std::istreambuf_iterator<char>(in)),
                      std::istreambuf_iterator<char>());
-    if (data.empty()) return NULL;
+    if (data.empty()) return false;
 
     draco::DecoderBuffer buffer;
     buffer.Init(data.data(), data.size());
@@ -156,12 +176,12 @@ osg::Geometry* DracoProcessor::decodeDracoData(std::istream& in)
     if (!statusor.ok())
     {
         OSG_WARN << "[DracoProcessor] Error initing: " << statusor.status() << std::endl;
-        return NULL;
+        return false;
     }
-    else if (statusor.value() == draco::TRIANGULAR_MESH)
+    else if (statusor.value() != draco::TRIANGULAR_MESH)
     {
         OSG_WARN << "[DracoProcessor] Unsupported mesh type: " << statusor.value() << std::endl;
-        return NULL;
+        return false;
     }
 
     draco::Decoder decoder;
@@ -173,9 +193,6 @@ osg::Geometry* DracoProcessor::decodeDracoData(std::istream& in)
         return false;
     }
 
-    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-    geom->setUseDisplayList(false);
-    geom->setUseVertexBufferObjects(true);
 
     std::unique_ptr<draco::Mesh> mesh = std::move(statusor2).value();
     const draco::PointAttribute* va = mesh->GetNamedAttribute(draco::GeometryAttribute::POSITION);
@@ -206,11 +223,16 @@ osg::Geometry* DracoProcessor::decodeDracoData(std::istream& in)
         (*de)[index++] = face[2].value();
     }
     geom->addPrimitiveSet(de);
-    return geom.release();
+    return true;
+#else
+    OSG_WARN << "[DracoProcessor] Dependency not found" << std::endl;
+    return false;
+#endif
 }
 
 bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
 {
+#ifdef VERSE_USE_DRACO
     const int speed = 10 - _compressionLevel;
     draco::Encoder encoder;
     encoder.SetSpeedOptions(speed, speed);
@@ -284,4 +306,72 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
     draco::Status status = encoder.EncodeMeshToBuffer(*mesh, &buffer);
     if (status.ok()) out.write(buffer.data(), buffer.size());
     return status.ok();
+#else
+    OSG_WARN << "[DracoProcessor] Dependency not found" << std::endl;
+    return false;
+#endif
+}
+
+DracoGeometry::DracoGeometry() : osg::Geometry() {}
+DracoGeometry::DracoGeometry(const DracoGeometry& copy, const osg::CopyOp& op)
+    : osg::Geometry(copy, op) {}
+DracoGeometry::DracoGeometry(const osg::Geometry& copy, const osg::CopyOp& op)
+    : osg::Geometry(copy, op) {}
+
+// DracoGeometry Wrappers
+struct GeometryFinishedObjectReadCallback : public osgDB::FinishedObjectReadCallback
+{
+    virtual void objectRead(osgDB::InputStream&, osg::Object& obj)
+    {
+        osg::Geometry& geometry = static_cast<osg::Geometry&>(obj);
+        if (!geometry.getUseVertexBufferObjects())
+        {
+            geometry.setUseDisplayList(false);
+            geometry.setUseVertexBufferObjects(true);
+        }
+    }
+};
+
+static bool checkCompressedData(const osgVerse::DracoGeometry& geom)
+{ return true; }
+
+static bool readCompressedData(osgDB::InputStream& is, osgVerse::DracoGeometry& geom)
+{
+    unsigned int dataSize = 0; is >> dataSize;
+    if (dataSize == 0) return true;
+
+    std::vector<char> data(dataSize);
+    is.readCharArray(&data[0], dataSize);
+
+    DracoProcessor dp;
+    std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+    ss.write(&data[0], dataSize);
+    return dp.decodeDracoData(ss, &geom);
+}
+
+static bool writeCompressedData(osgDB::OutputStream& os, const osgVerse::DracoGeometry& geom)
+{
+    DracoProcessor dp;
+    std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+    if (dp.encodeDracoData(ss, (osg::Geometry*)&geom))
+    {
+        std::string data = ss.str();
+        unsigned int dataSize = data.size();
+        os << dataSize; if (dataSize == 0) return true;
+        os.writeCharArray(&data[0], dataSize); return true;
+    }
+    return false;
+}
+
+REGISTER_OBJECT_WRAPPER(DracoGeometry,
+    new osgVerse::DracoGeometry,
+    osgVerse::DracoGeometry,  // ignore osg::Geometry to NOT serialize vertices and primitives
+    "osg::Object osg::Node osg::Drawable osgVerse::DracoGeometry")
+{
+    {
+        UPDATE_TO_VERSION_SCOPED(154)
+        ADDED_ASSOCIATE("osg::Node")
+    }
+    ADD_USER_SERIALIZER(CompressedData);
+    wrapper->addFinishedObjectReadCallback(new GeometryFinishedObjectReadCallback());
 }
