@@ -38,7 +38,7 @@ int main(int argc, char** argv)
         {
 #if 1
             // Without Draco: cow.osgb = 297kb
-            // With DracoGeo: cow.osgb = 81kb
+            // With Draco   : cow.osgb = 81kb
             osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geom);
             parent->replaceDrawable(geom, geom2.get());
             osgDB::writeNodeFile(*scene, "draco_cow.osgb");

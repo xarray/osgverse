@@ -108,7 +108,8 @@ Our project is already tested on graphics cards listed as below:
 15. osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
 16. osgVerse_Test_Scripting: a test for scripting implementation based on OSGB serialization format.
 17. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
-18. TBD...
+18. osgVerse_Test_Thread: a test for using the Marl thread task scheduler along with osgViewer.
+19. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
