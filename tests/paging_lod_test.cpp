@@ -4,6 +4,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgDB/FileUtils>
+#include <osgDB/FileNameUtils>
 #include <osgGA/TrackballManipulator>
 #include <osgGA/StateSetManipulator>
 #include <osgViewer/Viewer>
@@ -11,6 +12,12 @@
 #include <iostream>
 #include <sstream>
 #include <tinydir.h>
+
+#include <readerwriter/Utilities.h>
+#include <readerwriter/DracoProcessor.h>
+#ifdef OSG_LIBRARY_STATIC
+USE_SERIALIZER_WRAPPER(DracoGeometry)
+#endif
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
@@ -20,8 +27,21 @@ class RemoveDataPathVisitor : public osg::NodeVisitor
 public:
     virtual void apply(osg::PagedLOD& node)
     {
-        std::cout << "DB Path: " << node.getDatabasePath() << " => empty\n";
+        //std::cout << "DB Path: " << node.getDatabasePath() << " => empty\n";
         node.setDatabasePath("");  traverse(node);
+    }
+
+    virtual void apply(osg::Geode& geode)
+    {
+        for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
+        {
+            osg::Geometry* geom = geode.getDrawable(i)->asGeometry();
+            if (!geom) continue;
+
+            osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geom);
+            geode.replaceDrawable(geom, geom2.get());
+        }
+        traverse(geode);
     }
 };
 
@@ -32,10 +52,11 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->setName("PlodGridRoot");
 
-    if (argc > 2)
+    if (argc > 3)
     {
-        //std::string prefix = "F:/DataSet/FactoryDemo/Data/", dbBase = "leveldb://factory.db/";
-        std::string prefix = std::string(argv[1]), dbBase = "leveldb://" + std::string(argv[2]);
+        std::string prefix = std::string(argv[1]), dbBase = std::string(argv[2]);
+        std::string outputFile = std::string(argv[3]);
+        bool savingToDB = (dbBase.find("leveldb://") != dbBase.npos);
 
         tinydir_dir dir; tinydir_open(&dir, prefix.c_str());
         while (dir.has_next)
@@ -61,7 +82,11 @@ int main(int argc, char** argv)
                         rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
                         node->accept(rdp);
 
+                        osgVerse::TextureOptimizer opt;
+                        node->accept(opt);
+
                         std::string dbFileName = dbBase + dirName + "/" + osgbFiles[i];
+                        if (!savingToDB) osgDB::makeDirectoryForFile(dbFileName);
                         osgDB::writeNodeFile(*node, dbFileName,
                                              new osgDB::Options("WriteImageHint=IncludeFile"));
                         std::cout << "Re-saving " << osgbFiles[i] << "\n";
@@ -89,13 +114,14 @@ int main(int argc, char** argv)
             tinydir_next(&dir);
         }
         tinydir_close(&dir);
-        osgDB::writeNodeFile(*root, "HongKong1.osg");
+        osgDB::writeNodeFile(*root, outputFile);
     }
     else if (argc > 1)
         root->addChild(osgDB::readNodeFile(argv[1]));
     else
     {
-        std::cout << "Usage: " << argv[0] << " <input_osgb_path> <leveldb_filename>";
+        std::cout << "Usage: " << argv[0] << " <input_osgb_path> <output_path> <total_file>\n";
+        std::cout << "      To save to database, set <output_path> to 'leveldb://factory.db/'";
         return 1;
     }
 

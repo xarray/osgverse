@@ -19,7 +19,15 @@
 #include "Utilities.h"
 
 #ifndef GL_ARB_texture_rg
-    #define GL_RG                             0x8227
+#define GL_RG                             0x8227
+#define GL_R8                             0x8229
+#define GL_R16                            0x822A
+#define GL_RG8                            0x822B
+#define GL_RG16                           0x822C
+#define GL_R16F                           0x822D
+#define GL_R32F                           0x822E
+#define GL_RG16F                          0x822F
+#define GL_RG32F                          0x8230
 #endif
 
 class HttpRequester : public osg::Referenced

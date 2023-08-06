@@ -1,3 +1,4 @@
+#include <osg/Version>
 #include <osg/TriangleIndexFunctor>
 #include <osgDB/ObjectWrapper>
 #include <osgDB/InputStream>
@@ -363,6 +364,7 @@ static bool writeCompressedData(osgDB::OutputStream& os, const osgVerse::DracoGe
     return false;
 }
 
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
 REGISTER_OBJECT_WRAPPER(DracoGeometry,
     new osgVerse::DracoGeometry,
     osgVerse::DracoGeometry,  // ignore osg::Geometry to NOT serialize vertices and primitives
@@ -375,3 +377,13 @@ REGISTER_OBJECT_WRAPPER(DracoGeometry,
     ADD_USER_SERIALIZER(CompressedData);
     wrapper->addFinishedObjectReadCallback(new GeometryFinishedObjectReadCallback());
 }
+#else
+REGISTER_OBJECT_WRAPPER(DracoGeometry,
+    new osgVerse::DracoGeometry,
+    osgVerse::DracoGeometry,  // ignore osg::Geometry to NOT serialize vertices and primitives
+    "osg::Object osg::Drawable osgVerse::DracoGeometry")
+{
+    ADD_USER_SERIALIZER(CompressedData);
+    wrapper->addFinishedObjectReadCallback(new GeometryFinishedObjectReadCallback());
+}
+#endif

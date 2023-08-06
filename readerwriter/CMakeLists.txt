@@ -3,6 +3,7 @@ SET(LIBRARY_FILES
     LoadSceneFBX.cpp LoadSceneFBX.h
     LoadSceneGLTF.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h
+    DracoProcessor.cpp DracoProcessor.h
     Utilities.h Utilities.cpp Export.h
 )
 
@@ -29,9 +30,6 @@ IF(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
     INCLUDE_DIRECTORIES(${DRACO_INCLUDE_DIR})
     LINK_DIRECTORIES(${DRACO_LIB_DIR})
     ADD_DEFINITIONS(-DVERSE_USE_DRACO)
-
-    SET(LIBRARY_FILES ${LIBRARY_FILES}
-        DracoProcessor.cpp DracoProcessor.h)
     SET_PROPERTY(GLOBAL APPEND PROPERTY EXTERNAL_LIBRARY_PATHS ${DRACO_LIB_DIR})
 
 ELSE(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
