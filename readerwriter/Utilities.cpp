@@ -1,7 +1,11 @@
 #include <osg/Geode>
 #include <osg/Texture2D>
 #include <osgDB/Registry>
+#include <osgDB/FileUtils>
+#include <osgDB/FileNameUtils>
 #include "LoadTextureKTX.h"
+
+#include <nanoid/nanoid.h>
 #include "Utilities.h"
 using namespace osgVerse;
 
@@ -58,6 +62,18 @@ void FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
 #endif
 }
 
+TextureOptimizer::TextureOptimizer(bool inlineFile, const std::string& newTexFolder)
+:   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+{
+    if (inlineFile) osgDB::makeDirectory(newTexFolder);
+    _textureFolder = newTexFolder;
+    _preparingForInlineFile = inlineFile;
+}
+
+TextureOptimizer::~TextureOptimizer()
+{
+}
+
 void TextureOptimizer::apply(osg::Geode& geode)
 {
     for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
@@ -97,7 +113,8 @@ void TextureOptimizer::applyTexture(osg::Texture* tex, unsigned int unit)
     {
         // Copy to original image as it may be shared by other textures
         osg::ref_ptr<osg::Image> image0 = tex2D->getImage();
-        osg::ref_ptr<osg::Image> image1 = compressImage(tex, image0.get());
+        osg::ref_ptr<osg::Image> image1 = compressImage(
+                tex, image0.get(), !_preparingForInlineFile);
         if (!image1 || (image1.valid() && !image1->valid())) return;
         image0->allocateImage(image1->s(), image1->t(), image1->r(),
                               image1->getPixelFormat(), image1->getDataType(),
@@ -107,10 +124,11 @@ void TextureOptimizer::applyTexture(osg::Texture* tex, unsigned int unit)
     }
 }
 
-osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img)
+osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, bool toLoad)
 {
     std::stringstream ss; if (!img->valid()) return NULL;
     if (img->isCompressed()) return NULL;
+    if (img->getFileName().find("verse_ktx") != std::string::npos) return NULL;
 
     switch (img->getInternalTextureFormat())
     {
@@ -126,6 +144,19 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img)
     else OSG_NOTICE << "[TextureOptimizer] Compressed: " << img->getFileName()
                     << " (" << img->s() << " x " << img->t() << ")" << std::endl;
 
-    std::vector<osg::ref_ptr<osg::Image>> outImages = loadKtx2(ss);
-    return outImages.empty() ? NULL : outImages[0].release();
+    if (!toLoad)
+    {
+        std::string fileName = img->getFileName(), id = "__" + nanoid::generate(8);
+        if (fileName.empty()) fileName = "temp" + id + ".ktx.verse_ktx";
+        else fileName = osgDB::getStrippedName(fileName) + id + ".ktx.verse_ktx";
+        img->setFileName(_textureFolder + osgDB::getNativePathSeparator() + fileName);
+
+        std::ofstream out(img->getFileName().c_str(), std::ios::out | std::ios::binary);
+        out.write(ss.str().data(), ss.str().size()); return NULL;
+    }
+    else
+    {
+        std::vector<osg::ref_ptr<osg::Image>> outImages = loadKtx2(ss);
+        return outImages.empty() ? NULL : outImages[0].release();
+    }
 }

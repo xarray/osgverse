@@ -52,6 +52,9 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->setName("PlodGridRoot");
 
+    // Benchmark of geometry & texture optimization:
+    // Before: Data size: 419MB, CPU memory 185.7MB, GPU memory: 0.6GB
+    // After : Data size: 154MB, CPU memory 150.1MB, GPU memory: 0.4GB
     if (argc > 3)
     {
         std::string prefix = std::string(argv[1]), dbBase = std::string(argv[2]);
@@ -82,7 +85,7 @@ int main(int argc, char** argv)
                         rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
                         node->accept(rdp);
 
-                        osgVerse::TextureOptimizer opt;
+                        osgVerse::TextureOptimizer opt(true);
                         node->accept(opt);
 
                         std::string dbFileName = dbBase + dirName + "/" + osgbFiles[i];

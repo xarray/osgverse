@@ -21,16 +21,16 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 
 #### Main Features (ongoing to v1.0)
 - [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
-- [x] Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
+- [x] (PARTLY) Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
 - [ ] Supports physics simuation based on Bullet3 library, and character animation based on OZZ library.
 - [ ] Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
 - [x] Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
 - [x] Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
 - [x] Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
-- [ ] Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
-- [ ] Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
+- [x] (PARTLY) Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
+- [x] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
 - [ ] Supports major embedded devices with GPU supports, including ARM and RISC-V.
-- [x] Supports Emscripten / WASM compilation and works with WebGL / WebGPU based browsers.
+- [x] (PARTLY) Supports Emscripten / WASM compilation and works with WebGL / WebGPU based browsers.
 - [ ] Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
 #### Screenshots
@@ -100,7 +100,7 @@ Our project is already tested on graphics cards listed as below:
 7. osgVerse_Test_CubeRtt: a quick test for render-to-cubemap (6 faces) demonstaration.
 8. osgVerse_Test_Pipeline: a program for simple cases and compatiblity tests of osgVerse pipeline.
 9. osgVerse_Test_Pbr_Prerequisite: a quick utility to pre-compute global PBR textures and save them to IBL osgb files.
-10. osgVerse_Test_Paging_Lod: a test for paged LOD file combination and transferring to levelDB.
+10. osgVerse_Test_Paging_Lod: a test for paged LOD file combination, optimization and transferring to levelDB.
 11. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
 12. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
 13. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.

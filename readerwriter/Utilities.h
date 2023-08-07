@@ -40,8 +40,9 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT TextureOptimizer : public osg::NodeVisitor
     {
     public:
-        TextureOptimizer()
-            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+        TextureOptimizer(bool preparingForInlineFile = false,
+                         const std::string& newTexFolder = "optimized_tex");
+        virtual ~TextureOptimizer();
 
         virtual void apply(osg::Geode& geode);
         virtual void apply(osg::Node& node);
@@ -49,7 +50,10 @@ namespace osgVerse
     protected:
         void applyTextureAttributes(osg::StateSet* ssPtr);
         void applyTexture(osg::Texture* tex, unsigned int unit);
-        osg::Image* compressImage(osg::Texture* tex, osg::Image* img);
+        osg::Image* compressImage(osg::Texture* tex, osg::Image* img, bool toLoad);
+
+        std::string _textureFolder;
+        bool _preparingForInlineFile;
     };
 
 #ifdef __EMSCRIPTEN__
