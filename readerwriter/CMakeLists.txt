@@ -9,13 +9,13 @@ SET(LIBRARY_FILES
 
 #########################################
 FIND_PATH(DRACO_INCLUDE_DIR draco/draco_features.h
-    PATHS
+    PATHS ${VERSE_3RDPARTY_PATH}/include
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(DRACO_LIB_DIR libdraco.so draco.lib
-    PATHS
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )

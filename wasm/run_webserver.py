@@ -8,7 +8,7 @@ Note:
 """
 
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-
+import ssl, sys
 
 class RequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -21,9 +21,24 @@ class RequestHandler(SimpleHTTPRequestHandler):
 def main():
 
     addr = "0.0.0.0"
-    port = 8000
-    httpd = HTTPServer((addr, port), RequestHandler)
-    print("Serving http at http://{}:{}".format(addr, port))
+    if len(sys.argv) > 1:
+        """
+        Make locally-trusted development certificates at:
+        https://github.com/FiloSottile/mkcert
+        """
+        port = 4443
+        certPath = str(sys.argv[1])
+        httpd = HTTPServer((addr, port), RequestHandler)
+        httpd.socket = ssl.wrap_socket(httpd.socket,
+                                       server_side=True,
+                                       certfile=certPath + "/server.pem",
+                                       keyfile=certPath + "/key.pem",
+                                       ssl_version=ssl.PROTOCOL_TLS)
+        print("Serving HTTPS at https://{}:{}".format(addr, port))
+    else:
+        port = 8000
+        httpd = HTTPServer((addr, port), RequestHandler)
+        print("Serving HTTP at http://{}:{}".format(addr, port))
 
     try:
         httpd.serve_forever()

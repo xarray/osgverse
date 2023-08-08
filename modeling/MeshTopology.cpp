@@ -34,13 +34,16 @@ pmp::SurfaceMesh* MeshTopology::generate(MeshCollector* collector)
     if (ta.empty()) _mesh->remove_vertex_property(texcoords);
 
     const std::vector<osg::Vec3>& vertices = collector->getVertices();
+    bool withNormals = (na.size() >= vertices.size());
+    bool withColors = (ca.size() >= vertices.size());
+    bool withUVs = (ta.size() >= vertices.size());
     for (size_t i = 0; i < vertices.size(); ++i)
     {
         const osg::Vec3& v = vertices[i];
         pmp::Vertex vec = _mesh->add_vertex(pmp::Point(v[0], v[1], v[2]));
-        if (!na.empty()) normals[vec] = pmp::Normal(na[i][0], na[i][1], na[i][2]);
-        if (!ca.empty()) colors[vec] = pmp::Color(ca[i][0], ca[i][1], ca[i][2]);
-        if (!ta.empty()) texcoords[vec] = pmp::TexCoord(ta[i][0], ta[i][1]);
+        if (withNormals) normals[vec] = pmp::Normal(na[i][0], na[i][1], na[i][2]);
+        if (withColors) colors[vec] = pmp::Color(ca[i][0], ca[i][1], ca[i][2]);
+        if (withUVs) texcoords[vec] = pmp::TexCoord(ta[i][0], ta[i][1]);
     }
 
     const std::vector<unsigned int>& indices = collector->getTriangles();

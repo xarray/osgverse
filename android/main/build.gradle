@@ -1,0 +1,59 @@
+apply plugin: 'com.android.model.native'
+model {
+     repositories {
+        libs(PrebuiltLibraries) {
+            SDL2 {
+                headers.srcDir "../SDL2/include"
+                binaries.withType(SharedLibraryBinary) {
+                    sharedLibraryFile = file("${gradle.libDistributionRoot}/SDL2/lib/${targetPlatform.getName()}/libSDL2.so")
+                }
+            }
+        }
+    }
+
+   android {
+        compileSdkVersion = gradle.sdkVersion
+        buildToolsVersion = gradle.buildToolsVersion
+
+        defaultConfig {
+            minSdkVersion.apiLevel = gradle.minSdkVersion
+            versionCode = 1
+            versionName = '1.0'
+        }
+        ndk {
+            moduleName = 'main'
+            cppFlags.addAll([
+                    "-I" + file("../SDL2/include/").absolutePath,
+            ])
+            CFlags.addAll([
+                    "-I" + file("../SDL2/include/").absolutePath,
+            ])
+            stl "stlport_static"
+        }
+
+        sources {
+            main {
+                jni {
+                    dependencies {
+                        library 'SDL2' linkage 'shared'
+                    }
+                    source {
+                        srcDirs 'src/'
+
+                        // The code from this directory contains bridge between Java and C for SDL2
+                        srcDirs '../SDL2/src/main/android/'
+                    }
+                }
+            }
+        }
+
+    }
+}
+
+task(distributeLib, type : Copy) {
+    dependsOn assemble
+    into gradle.libDistributionRoot + '/main/'
+    from('build/outputs/native/release/lib') {
+        into 'lib/'
+    }
+}

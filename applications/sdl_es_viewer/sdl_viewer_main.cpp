@@ -105,8 +105,9 @@ int main(int argc, char** argv)
     }
 
     int windowWidth = 1280, windowHeight = 720;
-    SDL_Window* sdlWindow = SDL_CreateWindow("osgVerse_ViewerSDL", 50, 50, windowWidth, windowHeight,
-                                             SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
+    SDL_Window* sdlWindow = SDL_CreateWindow(
+        "osgVerse_ViewerSDL", 50, 50, windowWidth, windowHeight,
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
     if (sdlWindow == NULL)
     {
         OSG_WARN << "Unable to create SDL window: " << SDL_GetError() << std::endl;
@@ -142,21 +143,23 @@ int main(int argc, char** argv)
 
     if (eglGetPlatformDisplayEXT != NULL)
     {
-        const EGLint attrD3D11[] = {
+        const EGLint attrNewBackend[] = {
             EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
             EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,
-            EGL_NONE,  // You may also select D3D9, Vulkan, OpenGL, ...
+            EGL_NONE,  // You may also select Vulkan, D3D11, OpenGL, ...
         };
         display = eglGetPlatformDisplayEXT(
-            EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrD3D11);
-        OSG_NOTICE << "**** Selected D3D11 backend successfully" << std::endl;
+            EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrNewBackend);
     }
 
     if (display == EGL_NO_DISPLAY)
     {
         display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        OSG_NOTICE << "**** Selected default backend successfully" << std::endl;
+        if (display != EGL_NO_DISPLAY)
+            OSG_NOTICE << "**** Selected default backend successfully" << std::endl;
     }
+    else
+        OSG_NOTICE << "**** Selected Custom backend successfully" << std::endl;
 
     if (display == EGL_NO_DISPLAY)
     { OSG_WARN << "Failed to get EGL display" << std::endl; return 1; }
@@ -277,6 +280,7 @@ int main(int argc, char** argv)
 #endif
 
     // Start the main loop
+    gw->getEventQueue()->windowResize(0, 0, windowWidth, windowHeight);
     while (!viewer.done())
     {
         SDL_Event event;

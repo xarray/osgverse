@@ -90,6 +90,7 @@ public:
     void setViewer(osgViewer::Viewer* v, int width, int height)
     {
         _gw = v->setUpViewerAsEmbeddedInWindow(0, 0, width, height);
+        _gw->getEventQueue()->windowResize(0, 0, width, height);
         _viewer = v;
     }
 

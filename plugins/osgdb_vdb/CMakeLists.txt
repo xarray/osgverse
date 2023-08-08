@@ -5,41 +5,31 @@ SET(LIBRARY_FILES
 
 #########################################
 FIND_PATH(OPENVDB_INCLUDE_DIR openvdb/openvdb.h
-    PATHS
-    $ENV{OSG_ROOT}/include
-    $ENV{OSG_DIR}/include
+    PATHS ${VERSE_3RDPARTY_PATH}/include
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(OPENVDB_BOOST_INCLUDE_DIR boost/type.hpp
-    PATHS
-    $ENV{OSG_ROOT}/include
-    $ENV{OSG_DIR}/include
+    PATHS ${VERSE_3RDPARTY_PATH}/include
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(OPENVDB_TBB_INCLUDE_DIR tbb/blocked_range.h
-    PATHS
-    $ENV{OSG_ROOT}/include
-    $ENV{OSG_DIR}/include
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(OPENVDB_LIB_DIR libopenvdb.so openvdb.lib
-    PATHS
-    $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
-    $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 
 FIND_PATH(OPENVDB_TBB_LIB_DIR libtbb.so tbb.lib
-    PATHS
-    $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
-    $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
@@ -76,5 +66,5 @@ ELSEIF(OPENVDB_INCLUDE_DIR AND OPENVDB_LIB_DIR)
 ELSE()
 
     MESSAGE("[osgVerse] Dependency OpenVDB not found. ${LIB_NAME} will be ignored.")
-    
+
 ENDIF()

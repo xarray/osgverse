@@ -5,17 +5,13 @@ SET(LIBRARY_FILES
 
 #########################################
 FIND_PATH(ZLMEDIAKIT_INCLUDE_DIR ZLMediaKit/Common/MediaSource.h
-    PATHS
-    $ENV{OSG_ROOT}/include
-    $ENV{OSG_DIR}/include
+    PATHS ${VERSE_3RDPARTY_PATH}/include/ZLMediaKit
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(ZLMEDIAKIT_LIB_DIR libzlmediakit.so zlmediakit.lib
-    PATHS
-    $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
-    $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
@@ -41,9 +37,9 @@ IF(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
             RUNTIME DESTINATION ${INSTALL_BINDIR} COMPONENT libosgverse
             LIBRARY DESTINATION ${INSTALL_LIBDIR} COMPONENT libosgverse
             ARCHIVE DESTINATION ${INSTALL_ARCHIVEDIR} COMPONENT libosgverse-dev)
-    
+
 ELSE(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
-    
+
     MESSAGE("[osgVerse] Dependency ZLMediaKit not found. ${LIB_NAME} will be ignored.")
-    
+
 ENDIF(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)

@@ -68,6 +68,7 @@ MACRO(USE_STATIC_RUNTIME)
 ENDMACRO(USE_STATIC_RUNTIME)
 
 ######################################### Install Configurations
+SET(VERSE_3RDPARTY_PATH "${CMAKE_SOURCE_DIR}/../Dependencies" CACHE STRING "Dependency root path")
 IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     SET(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/sdk" CACHE PATH "..." FORCE)
 ENDIF()
@@ -103,15 +104,27 @@ IF(CMAKE_CL_64)
 ENDIF(CMAKE_CL_64)
 
 FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
-    PATHS
+    PATHS ${VERSE_3RDPARTY_PATH}/include/bullet
     $ENV{BULLET_ROOT}/include/bullet
     /usr/include/bullet
     /usr/local/include/bullet
 )
 
 FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
-    PATHS
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
     $ENV{BULLET_ROOT}/lib $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
+    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
+    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+)
+
+FIND_PATH(SDL2_INCLUDE_DIR SDL.h
+    PATHS ${VERSE_3RDPARTY_PATH}/include/SDL
+    /usr/include
+    /usr/local/include
+)
+
+FIND_PATH(SDL2_LIB_DIR libSDL2.so SDL2.lib
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
@@ -176,16 +189,19 @@ ENDIF()
 
 SET(BULLET_FOUND FALSE)
 IF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
-
     INCLUDE_DIRECTORIES(${BULLET_INCLUDE_DIR})
     LINK_DIRECTORIES(${BULLET_LIB_DIR})
     SET(BULLET_FOUND TRUE)
-
 ELSE(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
-
     MESSAGE("[osgVerse] Dependency Bullet not found. Some modules and functionalities will be ignored.")
-
 ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
+
+SET(SDL2_FOUND FALSE)
+IF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
+    SET(SDL2_FOUND TRUE)
+ELSE(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
+    MESSAGE("[osgVerse] Dependency SDL2 not found. Some modules and functionalities will be ignored.")
+ENDIF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 
 ######################################### Global Options
 SET(VERSE_SUPPORT_CPP17 OFF CACHE BOOL "Enable build of libraries using C++ 17 standard")
@@ -382,6 +398,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         ADD_SUBDIRECTORY(wasm)
     ELSEIF(ANDROID)
         MESSAGE(STATUS "[osgVerse] Android toolchain is used. (GLES3 = ${VERSE_USE_EXTERNAL_GLES3})")
+        # Nothing else to do... Start 'Android Studio' to continue compiling examples
     ELSE()
         ADD_SUBDIRECTORY(applications)
         ADD_SUBDIRECTORY(tests)

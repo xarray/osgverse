@@ -92,12 +92,6 @@ int main(int argc, char** argv)
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer->setSceneData(root.get());
 
-    // Create the application object
-    int width = 800, height = 600;
-    g_app->setViewer(viewer, width, height);
-    viewer->getCamera()->setDrawBuffer(GL_BACK);
-    viewer->getCamera()->setReadBuffer(GL_BACK);
-
     // Start SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -131,6 +125,12 @@ int main(int argc, char** argv)
         printf("[osgVerse] Could not create SDL context: '%s'\n", SDL_GetError());
         return 1;
     }
+
+    // Create the application object
+    int width = 800, height = 600;
+    g_app->setViewer(viewer, width, height);
+    viewer->getCamera()->setDrawBuffer(GL_BACK);
+    viewer->getCamera()->setReadBuffer(GL_BACK);
 
     // Start the main loop
     emscripten_set_main_loop(loop, -1, 0);
