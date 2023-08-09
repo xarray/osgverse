@@ -48,12 +48,12 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
                   | ImGuiWindowFlags_NoCollapse;
 
         setupWindow(ImVec2(view->WorkPos.x + xPos, view->WorkPos.y + yPos), ImVec2(400, 250));
-        if (ImGui::Begin(u8"Í¼±ê×´Ì¬", NULL, flags))
+        if (ImGui::Begin(u8"å›¾æ ‡çŠ¶æ€ ", NULL, flags))
         {
             ImGui::SetWindowFontScale(1.2f);
-            if (ImGui::Button(u8"Ïò×ó×ª", ImVec2(120, 60))) _rotateDir = -1.0f;
-            if (ImGui::Button(u8"Í£Ö¹", ImVec2(120, 60))) _rotateDir = 0.0f;
-            if (ImGui::Button(u8"ÏòÓÒ×ª", ImVec2(120, 60))) _rotateDir = 1.0f;
+            if (ImGui::Button(u8"å‘å·¦è½¬ ", ImVec2(120, 60))) _rotateDir = -1.0f;
+            if (ImGui::Button(u8"Í£åœæ­¢ ", ImVec2(120, 60))) _rotateDir = 0.0f;
+            if (ImGui::Button(u8"å‘å³è½¬ ", ImVec2(120, 60))) _rotateDir = 1.0f;
 
             imageRotated(icon, ImVec2(280, 140), ImVec2(180, 180), _rotateValue);
             _rotateValue += _rotateDir * 0.002f;
@@ -61,7 +61,7 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
         ImGui::End(); yPos += 250;
 
         setupWindow(ImVec2(view->WorkPos.x + xPos, view->WorkPos.y + yPos), ImVec2(400, 250));
-        if (ImGui::Begin(u8"ÎïÌå±ä»»", NULL, flags))
+        if (ImGui::Begin(u8"ç‰©ä½“å˜æ¢", NULL, flags))
         {
             osg::Matrixf matrix = _transform->getMatrix();
             ImGui::SetWindowFontScale(1.2f);
@@ -71,16 +71,16 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
         ImGui::End(); yPos += 250;
 
         setupWindow(ImVec2(view->WorkPos.x + xPos, view->WorkPos.y + yPos), ImVec2(400, 450));
-        if (ImGui::Begin(u8"¶ÔÏóÍ¼²ã", NULL, flags))
+        if (ImGui::Begin(u8"å¯¹è±¡å›¾å±‚", NULL, flags))
         {
             ImGui::SetWindowFontScale(1.2f);
-            if (ImGui::TreeNodeEx(u8"½ÚµãÁÐ±í", ImGuiTreeNodeFlags_DefaultOpen))
+            if (ImGui::TreeNodeEx(u8"èŠ‚ç‚¹åˆ—è¡¨", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (ImGui::BeginListBox(u8"", ImVec2(360, 260)))
                 {
                     for (int i = 0; i < 15; ++i)
                     {
-                        if (ImGui::Selectable((u8"½Úµã" + std::to_string(i)).c_str(), i == _selectID))
+                        if (ImGui::Selectable((u8"èŠ‚ç‚¹" + std::to_string(i)).c_str(), i == _selectID))
                         { _selectID = i; }
                     }
                     ImGui::EndListBox();
@@ -88,13 +88,13 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNodeEx(u8"ÓÃ»§ÁÐ±í", ImGuiTreeNodeFlags_DefaultOpen))
+            if (ImGui::TreeNodeEx(u8"ç”¨æˆ·åˆ—è¡¨", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (ImGui::BeginListBox(u8"", ImVec2(360, 120)))
                 {
                     for (int i = 0; i < 5; ++i)
                     {
-                        ImGui::Selectable((u8"ÓÃ»§" + std::to_string(i)).c_str(), false);
+                        ImGui::Selectable((u8"ç”¨æˆ·" + std::to_string(i)).c_str(), false);
                         ImGui::SameLine(200); ImGui::Text((u8"xArray" + std::to_string(i)).c_str());
                     }
                     ImGui::EndListBox();
@@ -111,28 +111,28 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
 
     bool editTransform(osg::Matrixf& matrix, const osg::Vec3& snapVec, bool useSnap)
     {
-        if (ImGui::RadioButton(u8"Î»ÒÆ", _gizmoOperation == ImGuizmo::TRANSLATE))
+        if (ImGui::RadioButton(u8"ä½ç§»", _gizmoOperation == ImGuizmo::TRANSLATE))
             _gizmoOperation = ImGuizmo::TRANSLATE;
         ImGui::SameLine();
-        if (ImGui::RadioButton(u8"Ðý×ª", _gizmoOperation == ImGuizmo::ROTATE))
+        if (ImGui::RadioButton(u8"æ—‹è½¬", _gizmoOperation == ImGuizmo::ROTATE))
             _gizmoOperation = ImGuizmo::ROTATE;
         ImGui::SameLine();
-        if (ImGui::RadioButton(u8"Ëõ·Å", _gizmoOperation == ImGuizmo::SCALE))
+        if (ImGui::RadioButton(u8"ç¼©æ”¾", _gizmoOperation == ImGuizmo::SCALE))
             _gizmoOperation = ImGuizmo::SCALE;
 
         float matrixTranslation[3], matrixRotation[3], matrixScale[3];
         ImGuizmo::DecomposeMatrixToComponents(matrix.ptr(), matrixTranslation, matrixRotation, matrixScale);
-        ImGui::InputFloat3(u8"Ã×/m", matrixTranslation);
-        ImGui::InputFloat3(u8"¶È/deg", matrixRotation);
-        ImGui::InputFloat3(u8"±ÈÀý", matrixScale);
+        ImGui::InputFloat3(u8"ç±³/m", matrixTranslation);
+        ImGui::InputFloat3(u8"åº¦/deg", matrixRotation);
+        ImGui::InputFloat3(u8"æ¯”ä¾‹", matrixScale);
         ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, matrix.ptr());
 
         if (_gizmoOperation != ImGuizmo::SCALE)
         {
-            if (ImGui::RadioButton(u8"¾Ö²¿×ø±êÏµ", _gizmoMode == ImGuizmo::LOCAL))
+            if (ImGui::RadioButton(u8"å±€éƒ¨åæ ‡ç³» ", _gizmoMode == ImGuizmo::LOCAL))
                 _gizmoMode = ImGuizmo::LOCAL;
             ImGui::SameLine();
-            if (ImGui::RadioButton(u8"ÊÀ½ç×ø±êÏµ", _gizmoMode == ImGuizmo::WORLD))
+            if (ImGui::RadioButton(u8"ä¸–ç•Œåæ ‡ç³» ", _gizmoMode == ImGuizmo::WORLD))
                 _gizmoMode = ImGuizmo::WORLD;
         }
 
@@ -140,11 +140,11 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
         switch (_gizmoOperation)
         {
         case ImGuizmo::TRANSLATE:
-            ImGui::InputFloat3(u8"Î»ÒÆ²¶×½", (float*)snapVec.ptr()); break;
+            ImGui::InputFloat3(u8"ä½ç§»æ•æ‰", (float*)snapVec.ptr()); break;
         case ImGuizmo::ROTATE:
-            ImGui::InputFloat(u8"½Ç¶È²¶×½", (float*)snapVec.ptr()); break;
+            ImGui::InputFloat(u8"è§’åº¦æ•æ‰", (float*)snapVec.ptr()); break;
         case ImGuizmo::SCALE:
-            ImGui::InputFloat(u8"Ëõ·Å²¶×½", (float*)snapVec.ptr()); break;
+            ImGui::InputFloat(u8"ç¼©æ”¾æ•æ‰", (float*)snapVec.ptr()); break;
         }
 
         osg::Matrixf view(_camera->getViewMatrix()), proj(_camera->getProjectionMatrix());

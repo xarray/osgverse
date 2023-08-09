@@ -66,7 +66,8 @@ Our project is already tested on graphics cards listed as below:
 | NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | Display has broken problems with Nouveau driver |
 | AMD Radeon RX5500         |                | :soon:             |       |
-| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
+| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
+| AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 15fps |
 | MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
 | VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | osgVerse_Test_Pipeline can work; standard can't |
