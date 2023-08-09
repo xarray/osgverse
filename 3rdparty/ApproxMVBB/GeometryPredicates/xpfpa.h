@@ -65,7 +65,9 @@
 #            define HAVE__CONTROLFP
 #        endif  // MSC_VER >= 1500 \
                 // Tell MSVC optimizer that we access FP environment
-#        pragma fenv_access(on)
+#        ifndef INTEL_COMPILER
+#            pragma fenv_access(on)
+#        endif
 #    endif  // _MSC_VER
 
 // MSVC does NOT support precision control (_control_fp) stuff on x64 platforms!
