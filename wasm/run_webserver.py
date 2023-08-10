@@ -23,8 +23,10 @@ def main():
     addr = "0.0.0.0"
     if len(sys.argv) > 1:
         """
-        Make locally-trusted development certificates at:
-        https://github.com/FiloSottile/mkcert
+        Make locally-trusted development certificates at: https://github.com/FiloSottile/mkcert
+        $ mkcert -install
+        $ mkcert 192.168.1.5 127.0.0.1
+        Copy and rename generated .pem files to certPath (argv[1])
         """
         port = 4443
         certPath = str(sys.argv[1])

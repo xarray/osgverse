@@ -108,6 +108,7 @@ int main(int argc, char** argv)
     viewer->setSceneData(root.get());
 
     // Start SDL
+    int width = 800, height = 600;
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
@@ -141,6 +142,11 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    // Create the application object
+    g_app->setViewer(viewer, width, height);
+    viewer->getCamera()->setDrawBuffer(GL_BACK);
+    viewer->getCamera()->setReadBuffer(GL_BACK);
+
     // Setup the pipeline
 #if TEST_PIPELINE
     params.originWidth = width; params.originHeight = height;
@@ -159,12 +165,6 @@ int main(int argc, char** argv)
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 #endif
-
-    // Create the application object
-    int width = 800, height = 600;
-    g_app->setViewer(viewer, width, height);
-    viewer->getCamera()->setDrawBuffer(GL_BACK);
-    viewer->getCamera()->setReadBuffer(GL_BACK);
 
     // Start the main loop
     emscripten_set_main_loop(loop, -1, 0);

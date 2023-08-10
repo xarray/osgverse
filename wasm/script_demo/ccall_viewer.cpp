@@ -20,7 +20,7 @@ extern "C"
         std::string type = (cmd == NULL) ? "get" : std::string(cmd);
         std::string input = (json == NULL) ? "" : std::string(json);
         osgVerse::JsonScript* scripter = g_app->scripter();
-        
+
         picojson::value in, out;
         std::string output = picojson::parse(in, input);
         if (output.empty())
@@ -93,6 +93,7 @@ int main(int argc, char** argv)
     viewer->setSceneData(root.get());
 
     // Start SDL
+    int width = 800, height = 600;
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
@@ -111,7 +112,7 @@ int main(int argc, char** argv)
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
     SDL_Window* window = SDL_CreateWindow(
-        "osgVerse_ViewerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        "osgVerse_JsCallerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         width, height, SDL_WINDOW_OPENGL);
     if (!window)
     {
@@ -127,7 +128,6 @@ int main(int argc, char** argv)
     }
 
     // Create the application object
-    int width = 800, height = 600;
     g_app->setViewer(viewer, width, height);
     viewer->getCamera()->setDrawBuffer(GL_BACK);
     viewer->getCamera()->setReadBuffer(GL_BACK);

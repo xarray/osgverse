@@ -16,7 +16,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: |       |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |
-| Android          | WSL + NDK r20e (Clang)   | :soon:             |       |
+| Android          | WSL + NDK r20e (Clang)   | :heavy_check_mark: |       |
 | IOS              |                          | :soon:             |       |
 | WebAssmebly      | WSL + Emscripten 3.1.28  | :heavy_check_mark: | Supports GLES2 (WebGL1) at present |
 
@@ -119,16 +119,16 @@ Our project is already tested on graphics cards listed as below:
 2. osgdb_verse_fbx: a plugin with full-featured FBX format support.
 3. osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
 4. osgdb_verse_web: a plugin for HTTP and more web protocols, which may replace the curl plugin.
-4. osgdb_verse_image: a plugin for reading common image formats like JPEG and PNG. It mainly works for WASM case.
-5. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
-6. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
-7. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
-8. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
+5. osgdb_verse_image: a plugin for reading common image formats like JPEG and PNG. It mainly works for WASM case.
+6. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
+7. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
+8. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
+9. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.
   - Example input: model.fbx.D4,M1R1X2,N3.pbrlayout (Tex0 = Diffuse x 4, Tex1 = Metallic+Roughness, Tex2 = Normal)
   - All layouts will be converted to osgVerse standard: D4,N3,S4,O1R1M1,A3,E3
-9. TBD...
+10. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.
@@ -144,7 +144,8 @@ Our project is already tested on graphics cards listed as below:
   - Download and install CMake tool.
   - Download OSG prebuilt libraries or build them from source, extracting to <osg_sdk_folder>.
   - Declare an environment variable OSG_ROOT, to indicate OSG root directory:
-    - $ export OSG_ROOT=<osg_sdk_folder>
+    - (Windows) $ set OSG_ROOT=<osg_sdk_folder>
+    - (Linux)   $ export OSG_ROOT=<osg_sdk_folder>
   - Run commands below in terminal:
     - $ cd <osgverse_folder>
     - $ mkdir build
@@ -162,11 +163,13 @@ Our project is already tested on graphics cards listed as below:
   - Download emsdk from https://emscripten.org/docs/getting_started/downloads.html, extracting to <emsdk_folder>.
   - Update and activate emsdk as required at the page above.
   - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph.
-  - Start a UNIX ternimal (in Windows, please install WSL and start it).
+  - Start a UNIX ternimal (under Windows, please install WSL v1 and start it).
   - Run commands below in terminal:
     - $ cd <osgverse_folder>
     - $ ./Setup.sh <emsdk_folder>
   - Select "3. WASM / OpenGL ES2" and starting building WASM at <osgverse_folder>/build/verse_wasm.
+  - Start an HTTPS server at <osgverse_folder>/build/verse_wasm/bin. See <osgverse_folder>/wasm/run_webserver.py as an example.
+  - Copy <osgverse_folder>/assets to the same root folder of the server, and enjoy our WebGL examples.
 
 #### CMake options
 | Option                      | Type    | Default Value | Notes |
