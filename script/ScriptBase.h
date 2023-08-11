@@ -36,8 +36,11 @@ namespace osgVerse
         /** DELETE: delete an object (only from script manager, not scene graph) */
         virtual Result remove(const std::string& nodePath);
 
-        /** Get node path: idXXX, idA/idB, idA/0 (first child) */
+        /** Get node path: idXXX, idA/idB, idA/0 (first child), or empty for root node */
         osg::Object* getFromPath(const std::string& nodePath);
+
+        void setRootNode(osg::Group* root) { _rootNode = root; }
+        osg::Group* getRootNode() { return _rootNode.get(); }
 
         LibraryEntry* getOrCreateEntry(const std::string& lib);
         Result createFromObject(osg::Object* obj);
@@ -52,6 +55,7 @@ namespace osgVerse
 
         std::map<std::string, osg::ref_ptr<osg::Object>> _objects;
         std::map<std::string, osg::ref_ptr<LibraryEntry>> _entries;
+        osg::observer_ptr<osg::Group> _rootNode;
         char _vecSeparator;
     };
 }

@@ -164,10 +164,13 @@ ScriptBase::Result ScriptBase::remove(const std::string& nodePath)
 
 osg::Object* ScriptBase::getFromPath(const std::string& nodePath)
 {
-    if (_objects.find(nodePath) != _objects.end())
+    osg::Object* obj = _rootNode.get();
+    if (nodePath.empty() || nodePath == "root")
+        return obj;
+    else if (_objects.find(nodePath) != _objects.end())
         return _objects[nodePath].get();
 
-    osgDB::StringList path; osg::Object* obj = NULL;
+    osgDB::StringList path;
     osgDB::split(nodePath, path, '/');
     if (_objects.find(path[0]) != _objects.end())
         obj = _objects[path[0]].get();

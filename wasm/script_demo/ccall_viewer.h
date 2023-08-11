@@ -84,6 +84,9 @@ public:
                 _gw->resized(0, 0, event.window.data1, event.window.data2);
             }
             break;
+        case SDL_MULTIGESTURE:
+            OSG_NOTICE << "Gesture Dist: " << event.mgesture.dDist << "\n";  // TODO
+            break;
         case SDL_QUIT:
             _viewer->setDone(true); break;
         default: break;

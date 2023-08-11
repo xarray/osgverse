@@ -47,19 +47,19 @@ extern "C"
 
 // Server structure
 /* - <assets>: User resource folder copied from master/assets
-   - osgVerse_ViewerWASM.data: preload data (only shaders)
-   - osgVerse_ViewerWASM.html: main HTML page
-   - osgVerse_ViewerWASM.js: main Javascript file
-   - osgVerse_ViewerWASM.wasm: main WASM file
-   - osgVerse_ViewerWASM.wasm.map: source-map for debugging
+   - osgVerse_JsCallerWASM.data: preload data (only shaders)
+   - osgVerse_JsCallerWASM.html: main HTML page
+   - osgVerse_JsCallerWASM.js: main Javascript file
+   - osgVerse_JsCallerWASM.wasm: main WASM file
+   - osgVerse_JsCallerWASM.wasm.map: source-map for debugging
 */
 #define SERVER_ADDR "http://127.0.0.1:8000/assets"
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-
-    // The scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
+    g_app->scripter()->setRootNode(root.get());
+
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8053/Tile_+958_+8053.osgb"));
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8054/Tile_+958_+8054.osgb"));
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8055/Tile_+958_+8055.osgb"));
