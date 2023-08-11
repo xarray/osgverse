@@ -81,22 +81,25 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ref_ptr<osg::Node> scene = (argc > 1) ?
+        osgDB::readNodeFiles(arguments) : osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
     osgVerse::TangentSpaceVisitor tsv;
     scene->accept(tsv);
 
-#if 1
-    // Compress and optimize textures (it may take a while)
-    // With op: CPU memory = 167.5MB, GPU memory = 0.8GB
-    // Without: CPU memory = 401.8MB, GPU memory = 2.1GB
-    osgVerse::TextureOptimizer texOp;
-    scene->accept(texOp);
-#endif
+    if (arguments.read("--save"))
+    {
+        // Compress and optimize textures (it may take a while)
+        // With op: CPU memory = 167.5MB, GPU memory = 0.8GB
+        // Without: CPU memory = 401.8MB, GPU memory = 2.1GB
+        osgVerse::TextureOptimizer texOp;
+        scene->accept(texOp);
+        osgDB::writeNodeFile(*scene, "pbr_scene.osgb");
+        return 0;
+    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -148,7 +151,7 @@ int main(int argc, char** argv)
     int requiredGLSL = 130;       // GLSL version: 120, 130, 140, ...
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
-    
+
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
@@ -161,7 +164,7 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }
-    
+
     // Realize the viewer
     MyViewer viewer(pipeline.get());
     viewer.addEventHandler(new SetPipelineHandler(pipeline.get(), light0.get()));

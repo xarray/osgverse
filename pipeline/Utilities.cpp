@@ -25,10 +25,11 @@
 #endif
 #include "Pipeline.h"
 #include "Utilities.h"
+static int g_argumentCount = 0;
 
 namespace osgVerse
 {
-    void globalInitialize(int argc, char** argv, const std::string& baseDir)
+    osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir)
     {
 #if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
         // anything to do here?
@@ -72,6 +73,9 @@ namespace osgVerse
         regObject->addFileExtensionAlias("psd", "verse_image");
         regObject->addFileExtensionAlias("hdr", "verse_image");
 #endif
+
+        g_argumentCount = argc;
+        return osg::ArgumentParser(&g_argumentCount, argv);
     }
 }
 
@@ -389,7 +393,7 @@ namespace osgVerse
             osg::Geometry* geom = node.getDrawable(i)->asGeometry();
             if (!geom || (geom && geom->getNormalArray() == NULL)) continue;
             if (geom->getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) continue;
-            
+
             osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
             geom->accept(functor);
             if (functor.initialize(_mikkiTSpace, geom))

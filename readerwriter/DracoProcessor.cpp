@@ -7,6 +7,8 @@
 #include "DracoProcessor.h"
 using namespace osgVerse;
 
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+
 #ifdef VERSE_USE_DRACO
 #   include <draco/mesh/mesh.h>
 #   include <draco/compression/encode.h>
@@ -56,6 +58,7 @@ static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribut
         case 4: outArray = new osg::Vec4bArray(mesh->num_points()); break;
         }
         break;
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
     case draco::DT_UINT8:
         switch (attr->num_components())
         {
@@ -65,6 +68,7 @@ static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribut
         case 4: outArray = new osg::Vec4ubArray(mesh->num_points()); break;
         }
         break;
+#endif
     case draco::DT_INT16:
         switch (attr->num_components())
         {
@@ -74,6 +78,7 @@ static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribut
         case 4: outArray = new osg::Vec4sArray(mesh->num_points()); break;
         }
         break;
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
     case draco::DT_UINT16:
         switch (attr->num_components())
         {
@@ -101,6 +106,7 @@ static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribut
         case 4: outArray = new osg::Vec4uiArray(mesh->num_points()); break;
         }
         break;
+#endif
     }
 
     if (outArray)
@@ -143,14 +149,6 @@ static int addGeometryAttribute(draco::Mesh* mesh, draco::GeometryAttribute::Typ
     return mesh->AddAttribute(attr, true, arrayPtr->getNumElements());
 }
 #endif
-
-DracoProcessor::DracoProcessor()
-{
-    _posQuantizationBits = 11;
-    _uvQuantizationBits = 10;
-    _normalQuantizationBits = 8;
-    _compressionLevel = 7;
-}
 
 osg::Geometry* DracoProcessor::decodeDracoData(std::istream& in)
 {
@@ -312,6 +310,11 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
     return false;
 #endif
 }
+#else  // OSG_VERSION_GREATER_THAN
+osg::Geometry* DracoProcessor::decodeDracoData(std::istream& in) { return NULL; }
+bool DracoProcessor::decodeDracoData(std::istream& in, osg::Geometry* geom) { return false; }
+bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom) { return false; }
+#endif  // OSG_VERSION_GREATER_THAN
 
 DracoGeometry::DracoGeometry() : osg::Geometry() {}
 DracoGeometry::DracoGeometry(const DracoGeometry& copy, const osg::CopyOp& op)

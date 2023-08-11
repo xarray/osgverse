@@ -11,7 +11,13 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT DracoProcessor : public osg::Referenced
     {
     public:
-        DracoProcessor();
+        DracoProcessor()
+        {
+            _posQuantizationBits = 11;
+            _uvQuantizationBits = 10;
+            _normalQuantizationBits = 8;
+            _compressionLevel = 7;
+        }
 
         void setPosQuantizationBits(int bits) { _posQuantizationBits = bits; }
         void setUvQuantizationBits(int bits) { _uvQuantizationBits = bits; }

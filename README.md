@@ -51,7 +51,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 4.2 Google Angle (https://github.com/google/angle)
 5. Optional dependencies:
   - 5.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
-  - 5.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable USE_MSVC_RUNTIME_LIBRARY_DLL while compiling Bullet.
+  - 5.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable INSTALL_LIBS (for correct installation) and USE_MSVC_RUNTIME_LIBRARY_DLL (for /MD flag) while compiling Bullet.
   - 5.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
   - 5.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
   - 5.5 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.

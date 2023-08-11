@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <osg/Version>
+#include <osg/ArgumentParser>
 #include <osg/Polytope>
 #include <osg/Geometry>
 #include <osg/Texture2D>
@@ -184,7 +185,7 @@ namespace osgVerse
         {
             if (nc)
             {
-                if (!_subCallback) _subCallback = nc; 
+                if (!_subCallback) _subCallback = nc;
                 else _subCallback->addSubCallback(nc);
             }
         }
@@ -264,7 +265,7 @@ namespace osgVerse
 #endif
 
     /** Suggest run this function once to initialize some plugins & environments */
-    extern void globalInitialize(int argc, char** argv, const std::string& baseDir = BASE_DIR);
+    extern osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir = BASE_DIR);
 }
 
 namespace osg
