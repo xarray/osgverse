@@ -31,16 +31,6 @@ namespace osgVerse
 {
     osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir)
     {
-#if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
-        // anything to do here?
-        OSG_NOTICE << "[osgVerse] WebAssembly pipeline initialization." << std::endl;
-#else
-        std::string workingPath = baseDir + std::string("/bin/");
-        if (!osgDB::fileExists(workingPath))
-            OSG_FATAL << "[osgVerse] Working directory " << workingPath << " not found. Following work may fail." << std::endl;
-        osgDB::getDataFilePathList().push_back(workingPath);
-#endif
-
         setlocale(LC_ALL, ".UTF8");
         osg::setNotifyLevel(osg::NOTICE);
         if (argv && argc > 0)
@@ -48,6 +38,18 @@ namespace osgVerse
             std::string path = osgDB::getFilePath(argv[0]);
             osgDB::setCurrentWorkingDirectory(path);
         }
+
+#if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
+        // anything to do here?
+        OSG_NOTICE << "[osgVerse] WebAssembly pipeline initialization." << std::endl;
+#else
+        std::string workingPath = baseDir + std::string("/bin/");
+        if (!osgDB::fileExists(workingPath))
+            OSG_FATAL << "[osgVerse] Working directory " << workingPath << " not found. Following work may fail." << std::endl;
+        else
+            OSG_NOTICE << "[osgVerse] Working directory: " << workingPath << std::endl;
+        osgDB::getDataFilePathList().push_back(workingPath);
+#endif
 
         osgDB::Registry* regObject = osgDB::Registry::instance();
 #ifdef VERSE_STATIC_BUILD

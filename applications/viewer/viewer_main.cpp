@@ -92,12 +92,14 @@ int main(int argc, char** argv)
 
     if (arguments.read("--save"))
     {
+        osg::ref_ptr<osgDB::Options> options = new osgDB::Options;
+        options->setPluginStringData("TargetFileVersion", "91");  // the first version
+
         // Compress and optimize textures (it may take a while)
         // With op: CPU memory = 167.5MB, GPU memory = 0.8GB
         // Without: CPU memory = 401.8MB, GPU memory = 2.1GB
-        osgVerse::TextureOptimizer texOp;
-        scene->accept(texOp);
-        osgDB::writeNodeFile(*scene, "pbr_scene.osgb");
+        osgVerse::TextureOptimizer texOp; scene->accept(texOp);
+        osgDB::writeNodeFile(*scene, "pbr_scene.osgb", options.get());
         return 0;
     }
 

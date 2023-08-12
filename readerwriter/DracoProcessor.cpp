@@ -7,8 +7,6 @@
 #include "DracoProcessor.h"
 using namespace osgVerse;
 
-#if OSG_VERSION_GREATER_THAN(3, 1, 8)
-
 #ifdef VERSE_USE_DRACO
 #   include <draco/mesh/mesh.h>
 #   include <draco/compression/encode.h>
@@ -113,7 +111,7 @@ static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribut
     {
         unsigned char* data = new unsigned char[attr->byte_stride()];
         const char* dst = (const char*)(outArray->getDataPointer());
-        unsigned int elemSize = outArray->getElementSize();
+        unsigned int elemSize = outArray->getTotalDataSize() / outArray->getNumElements();
         for (draco::PointIndex i(0); i < mesh->num_points(); ++i)
         {
             const draco::AttributeValueIndex valIndex = attr->mapped_index(i);
@@ -269,22 +267,28 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
     if (posAttrID >= 0)
     {
         draco::GeometryAttribute* attr = mesh->attribute(posAttrID);
+        const char* dst = (const char*)(va->getDataPointer());
+        unsigned int elemSize = va->getTotalDataSize() / va->getNumElements();
         for (unsigned int i = 0; i < va->getNumElements(); ++i)
-            attr->SetAttributeValue(draco::AttributeValueIndex(i), va->getDataPointer(i));
+            attr->SetAttributeValue(draco::AttributeValueIndex(i), dst + i * elemSize);
     }
 
     if (normalAttrID >= 0)
     {
         draco::GeometryAttribute* attr = mesh->attribute(normalAttrID);
+        const char* dst = (const char*)(na->getDataPointer());
+        unsigned int elemSize = na->getTotalDataSize() / na->getNumElements();
         for (unsigned int i = 0; i < na->getNumElements(); ++i)
-            attr->SetAttributeValue(draco::AttributeValueIndex(i), na->getDataPointer(i));
+            attr->SetAttributeValue(draco::AttributeValueIndex(i), dst + i * elemSize);
     }
 
     if (colorAttrID >= 0)
     {
         draco::GeometryAttribute* attr = mesh->attribute(colorAttrID);
+        const char* dst = (const char*)(ca->getDataPointer());
+        unsigned int elemSize = ca->getTotalDataSize() / ca->getNumElements();
         for (unsigned int i = 0; i < ca->getNumElements(); ++i)
-            attr->SetAttributeValue(draco::AttributeValueIndex(i), ca->getDataPointer(i));
+            attr->SetAttributeValue(draco::AttributeValueIndex(i), dst + i * elemSize);
     }
 
     if (uvAttrID >= 0)
@@ -297,8 +301,10 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
                 draco::GeometryAttribute::Type::TEX_COORD, draco::PREDICTION_NONE);
         }
 
+        const char* dst = (const char*)(ta->getDataPointer());
+        unsigned int elemSize = ta->getTotalDataSize() / ta->getNumElements();
         for (unsigned int i = 0; i < ta->getNumElements(); ++i)
-            attr->SetAttributeValue(draco::AttributeValueIndex(i), ta->getDataPointer(i));
+            attr->SetAttributeValue(draco::AttributeValueIndex(i), dst + i * elemSize);
     }
 
     draco::EncoderBuffer buffer;
@@ -310,11 +316,6 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
     return false;
 #endif
 }
-#else  // OSG_VERSION_GREATER_THAN
-osg::Geometry* DracoProcessor::decodeDracoData(std::istream& in) { return NULL; }
-bool DracoProcessor::decodeDracoData(std::istream& in, osg::Geometry* geom) { return false; }
-bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom) { return false; }
-#endif  // OSG_VERSION_GREATER_THAN
 
 DracoGeometry::DracoGeometry() : osg::Geometry() {}
 DracoGeometry::DracoGeometry(const DracoGeometry& copy, const osg::CopyOp& op)
