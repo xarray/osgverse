@@ -72,6 +72,8 @@ namespace osgVerse
             attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
             attr.onsuccess = WebFetcher::downloadSuccess;
             attr.onerror = WebFetcher::downloadFailure;
+            attr.onprogress = WebFetcher::emptyCallback;
+            attr.onreadystatechange = WebFetcher::emptyCallback;
             attr.userData = this;
 
             emscripten_fetch(&attr, uri.c_str());
@@ -93,6 +95,8 @@ namespace osgVerse
             fr->done = true; fr->buffer.clear();
             emscripten_fetch_close(f);
         }
+
+        static void emptyCallback(emscripten_fetch_t* f) {}
     };
 #endif
 

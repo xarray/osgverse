@@ -46,7 +46,7 @@ public:
         osg::FBOExtensions* ext2 = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
         d->fboSupported = ext2->isSupported();
 #endif
-        
+
         const char* versionString = (const char*)glGetString(GL_VERSION);
         const char* rendererString = (const char*)glGetString(GL_RENDERER);
         if (versionString != NULL) d->version = versionString;
@@ -132,7 +132,7 @@ namespace osgVerse
             READ_SHADER(shaders.irrConvolutionFS, FRAG, dir + "std_irradiance_convolution.frag.glsl");
             READ_SHADER(shaders.quadFS, FRAG, dir + "std_common_quad.frag.glsl");
             READ_SHADER(shaders.displayFS, FRAG, dir + "std_display.frag.glsl");
-            
+
             READ_SHADER(shaders.forwardVS, VERT, dir + "std_forward_render.vert.glsl");
             READ_SHADER(shaders.forwardFS, FRAG, dir + "std_forward_render.frag.glsl");
         }
@@ -375,7 +375,7 @@ namespace osgVerse
 #endif
         }
         lightModule->applyTextureAndUniforms(lighting, "LightParameterMap", 8);
-        
+
         osgVerse::Pipeline::Stage* lastAoStage = NULL;
         if (spp.enableAO)
         {

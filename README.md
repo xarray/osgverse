@@ -18,7 +18,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Mac OS X         |                          | :soon:             |       |
 | Android          | WSL + NDK r20e (Clang)   | :heavy_check_mark: |       |
 | IOS              |                          | :soon:             |       |
-| WebAssmebly      | WSL + Emscripten 3.1.28  | :heavy_check_mark: | Supports GLES2 (WebGL1) at present |
+| WebAssmebly      | WSL + Emscripten 3.1.44  | :heavy_check_mark: | Supports GLES2 (WebGL1) at present |
 
 #### Main Features (ongoing to v1.0)
 - [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.

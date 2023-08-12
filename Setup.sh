@@ -202,6 +202,8 @@ DepOptions="
 
 # Fix some OpenSceneGraph compile errors
 OpenSceneGraphRoot=$CurrentDir/../OpenSceneGraph
+sed 's/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g' "$OpenSceneGraphRoot/src/osgDB/FileUtils.cpp" > FileUtils.cpp.tmp
+mv FileUtils.cpp.tmp "$OpenSceneGraphRoot/src/osgDB/FileUtils.cpp"
 sed 's/std::mem_fun_ref/std::mem_fn/g' "$OpenSceneGraphRoot/src/osgUtil/tristripper/include/detail/graph_array.h" > graph_array.h.tmp
 mv graph_array.h.tmp "$OpenSceneGraphRoot/src/osgUtil/tristripper/include/detail/graph_array.h"
 sed 's/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt" > CMakeLists.txt.tmp
