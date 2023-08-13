@@ -60,6 +60,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Group> root = new osg::Group;
     g_app->scripter()->setRootNode(root.get());
 
+    // FIXME: These should be called in caller.js for testing osgVerse scripting module
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8053/Tile_+958_+8053.osgb"));
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8054/Tile_+958_+8054.osgb"));
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8055/Tile_+958_+8055.osgb"));

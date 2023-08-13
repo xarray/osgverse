@@ -129,13 +129,13 @@ SET(IMGUI_SOURCE_FILES
     imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h
     imgui/ImGuiFileDialog.cpp imgui/ImGuiFileDialog.h
     imgui/ImGuiFileDialogConfig.h
-	
+
 	imgui/node-editor/imgui_bezier_math.h imgui/node-editor/imgui_extra_math.h
 	imgui/node-editor/crude_json.cpp imgui/node-editor/crude_json.h
 	imgui/node-editor/imgui_canvas.cpp imgui/node-editor/imgui_canvas.h
 	imgui/node-editor/imgui_node_editor.cpp imgui/node-editor/imgui_node_editor.h
 	imgui/node-editor/imgui_node_editor_api.cpp
-    
+
     imgui/imgui.cpp imgui/imgui.h imgui/imconfig.h
     imgui/imgui_demo.cpp imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp imgui/imgui_widgets.cpp
@@ -312,19 +312,19 @@ SET(LIBRARY_FILES
 	xatlas.cpp xatlas.h easing.cpp easing.h #microprofile.cpp microprofile.h
     lightmapper.h GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
-    ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
-    ${IMGUI_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
-    ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES}
+    ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
+    ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
+    ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES}
 )
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
-                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS 
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
                 -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0
 				-DIMGUI_IMPL_OPENGL_LOADER_GLEW -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # disable use of json.hpp in VS2015 or lower
-ENDIF()
+ENDIF(MSVC_VERSION LESS 1910)
 
 IF(WIN32)
     ADD_DEFINITIONS(-DLEVELDB_PLATFORM_WINDOWS)

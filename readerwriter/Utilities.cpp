@@ -9,6 +9,24 @@
 #include "Utilities.h"
 using namespace osgVerse;
 
+#ifdef __EMSCRIPTEN__
+// Reference: https://github.com/emscripten-core/emscripten/issues/9574
+EM_JS(void, emscripten_sleep_using_raf, (),
+{
+    Asyncify.handleSleep(wakeUp =>
+    { requestAnimationFrame(wakeUp); });
+});
+
+void emscripten_advance()
+{
+#if 1
+    emscripten_sleep_using_raf();
+#else
+    emscripten_sleep(10);
+#endif
+}
+#endif
+
 void FixedFunctionOptimizer::apply(osg::Geode& geode)
 {
     for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)

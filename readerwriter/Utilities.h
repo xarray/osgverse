@@ -7,6 +7,7 @@
 #ifdef __EMSCRIPTEN__
 #   include <emscripten/fetch.h>
 #   include <emscripten.h>
+extern void emscripten_advance();
 #endif
 #include "Export.h"
 
@@ -77,7 +78,7 @@ namespace osgVerse
             attr.userData = this;
 
             emscripten_fetch(&attr, uri.c_str());
-            while (!done) emscripten_sleep(10);
+            while (!done) emscripten_advance();
             return !buffer.empty();
         }
 

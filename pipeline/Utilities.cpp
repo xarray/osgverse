@@ -1,3 +1,4 @@
+#include <osg/ImageUtils>
 #include <osg/FrameBufferObject>
 #include <osg/RenderInfo>
 #include <osg/GLExtensions>
@@ -11,11 +12,13 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgViewer/GraphicsWindow>
-
 #include <codecvt>
 #include <iostream>
 #include <array>
 #include <random>
+
+#define STB_RECT_PACK_IMPLEMENTATION
+#include <stb/stb_rect_pack.h>
 #include <mikktspace.h>
 #include <PoissonGenerator.h>
 #include <normalmap/normalmapgenerator.h>
@@ -369,6 +372,88 @@ namespace osgVerse
             camera->addChild(createScreenQuad(quadPt, quadW, quadH, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f)));
         }
         return camera.release();
+    }
+
+    void TexturePacker::clear()
+    { _input.clear(); _result.clear(); _dictIndex = 0; }
+
+    size_t TexturePacker::addElement(osg::Image* image)
+    { _input[++_dictIndex] = InputPair(image, osg::Vec4()); return _dictIndex; }
+
+    size_t TexturePacker::addElement(int w, int h)
+    { _input[++_dictIndex] = InputPair(NULL, osg::Vec4(0, 0, w, h)); return _dictIndex; }
+
+    void TexturePacker::removeElement(size_t id)
+    { if (_input.find(id) != _input.end()) _input.erase(_input.find(id)); }
+
+    osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult)
+    {
+        stbrp_context context; int ptr = 0;
+        int maxSize = osg::maximum(_maxWidth, _maxHeight) * 2;
+        stbrp_node* nodes = (stbrp_node*)malloc(sizeof(stbrp_node) * maxSize);
+        if (nodes) memset(nodes, 0, sizeof(stbrp_node) * maxSize);
+
+        stbrp_rect* rects = (stbrp_rect*)malloc(sizeof(stbrp_rect) * _input.size());
+        for (std::map<size_t, InputPair>::iterator itr = _input.begin();
+             itr != _input.end(); ++itr, ++ptr)
+        {
+            stbrp_rect& r = rects[ptr];
+            InputPair& pair = itr->second;
+            r.id = itr->first; r.was_packed = 0;
+            r.x = 0; r.w = pair.first.valid() ? pair.first->s() : pair.second[2];
+            r.y = 0; r.h = pair.first.valid() ? pair.first->t() : pair.second[3];
+        }
+
+        stbrp_init_target(&context, _maxWidth, _maxHeight, nodes, maxSize);
+        stbrp_pack_rects(&context, rects, _input.size());
+        free(nodes); _result.clear(); ptr = 0;
+
+        osg::observer_ptr<osg::Image> validChild;
+        for (std::map<size_t, InputPair>::iterator itr = _input.begin();
+             itr != _input.end(); ++itr, ++ptr)
+        {
+            stbrp_rect& r = rects[ptr];
+            InputPair& pair = itr->second;
+            if (r.id != itr->first || !r.was_packed) continue;
+
+            osg::Vec4 v(r.x, r.y, r.w, r.h);
+            _result[itr->first] = InputPair(pair.first, v);
+            if (pair.first.valid()) validChild = pair.first;
+        }
+        free(rects); numImages = _result.size();
+        if (!generateResult) return NULL;
+
+        osg::ref_ptr<osg::Image> total = new osg::Image;
+        if (validChild.valid())
+        {
+            total->allocateImage(_maxWidth, _maxHeight, 1,
+                validChild->getPixelFormat(), validChild->getDataType());
+            total->setInternalTextureFormat(validChild->getInternalTextureFormat());
+        }
+        else
+            total->allocateImage(_maxWidth, _maxHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+
+        for (std::map<size_t, InputPair>::iterator itr = _result.begin();
+             itr != _result.end(); ++itr)
+        {
+            InputPair& pair = itr->second;
+            const osg::Vec4& r = itr->second.second;
+            if (!pair.first.valid()) continue;
+            osg::copyImage(pair.first.get(), 0, 0, 0, r[2], r[3], 0,
+                           total.get(), r[0], r[1], 0);
+        }
+        return total.release();
+    }
+
+    bool TexturePacker::getPackingData(size_t id, int& x, int& y, int& w, int& h)
+    {
+        if (_result.find(id) != _result.end())
+        {
+            const osg::Vec4& rect = _result[id].second;
+            x = rect[0]; y = rect[1]; w = rect[2]; h = rect[3];
+            return true;
+        }
+        return false;
     }
 
     TangentSpaceVisitor::TangentSpaceVisitor(const float threshold)

@@ -39,8 +39,8 @@ ELSE()
     STRING(APPEND WASM_FLAGS_EX " -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=2")
 ENDIF()
 
-SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/shell.html -gsource-map -fsanitize=address")
-SET(WASM_FLAGS1 "-O3 -s ASYNCIFY=1 -s USE_SDL=2 -s FULL_ES2 -s FULL_ES3 -s WASM=1 -s FETCH=1")
+SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/shell.html -gsource-map -fsanitize=address -O3 -s WASM=1")
+SET(WASM_FLAGS1 "-s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL=2 -s FULL_ES2 -s FULL_ES3 -s FETCH=1")
 
 ADD_SUBDIRECTORY(pbr_demo)
 ADD_SUBDIRECTORY(script_demo)
