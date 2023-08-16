@@ -204,6 +204,7 @@ ELSE(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 ENDIF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 
 ######################################### Global Options
+SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg, PNG and Tiff")
 SET(VERSE_SUPPORT_CPP17 OFF CACHE BOOL "Enable build of libraries using C++ 17 standard")
 SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse libraries")
 SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (will force osgVerse to be static)")
@@ -319,6 +320,8 @@ IF(NOT OPENGL_gl_LIBRARY)
     MESSAGE(FATAL_ERROR "[osgVerse] Dependency OpenGL not found. All following steps may not work...")
 ENDIF(NOT OPENGL_gl_LIBRARY)
 
+SET(THIRDPARTY_INCLUDE_DIRS "")
+SET(THIRDPARTY_LIBRARIES "")
 SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${OPENGL_gl_LIBRARY})
 IF(OPENMP_FOUND)
     SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} OpenMP::OpenMP_CXX)
@@ -401,6 +404,27 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: "
                    "${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}")
     MESSAGE(STATUS "[osgVerse] Global configuation finished. Now start traversing subdirectories.")
+
+    IF(VERSE_BUILD_3RDPARTIES)
+        MESSAGE(STATUS "[osgVerse] Build third-party libraries under helpers/toolchain_builder.")
+        ADD_SUBDIRECTORY(helpers/toolchain_builder)
+        SET(THIRDPARTY_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/freetype/include
+                                    ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/jpeg ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/png
+                                    ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/zlib ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/tiff
+                                    ${CMAKE_BINARY_DIR}/helpers/toolchain_builder/tiff)
+        SET(THIRDPARTY_LIBRARIES freetype jpeg png tiff zlib)
+        SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${THIRDPARTY_LIBRARIES}")
+    ELSE(VERSE_BUILD_3RDPARTIES)
+        IF(JPEG_INCLUDE_DIR AND TIFF_INCLUDE_DIR AND ZLIB_INCLUDE_DIR)
+            SET(THIRDPARTY_INCLUDE_DIRS ${FREETYPE_INCLUDE_DIR_freetype2} ${FREETYPE_INCLUDE_DIR_ft2build}
+                                        ${JPEG_INCLUDE_DIR} ${PNG_PNG_INCLUDE_DIR} ${TIFF_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR})
+            SET(THIRDPARTY_LIBRARIES ${FREETYPE_LIBRARY_RELEASE} ${JPEG_LIBRARY_RELEASE} ${PNG_LIBRARY_RELEASE}
+                                    ${TIFF_LIBRARY_RELEASE} ${ZLIB_LIBRARY_RELEASE})
+            SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${THIRDPARTY_LIBRARIES}")
+        ELSE()
+            MESSAGE("[osgVerse] Common third-party libraries not found. Some modules and functionalities will be ignored.")
+        ENDIF()
+    ENDIF(VERSE_BUILD_3RDPARTIES)
 
     ADD_SUBDIRECTORY(3rdparty)
     ADD_SUBDIRECTORY(readerwriter)

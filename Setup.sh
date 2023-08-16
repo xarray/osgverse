@@ -1,6 +1,7 @@
 #!/bin/sh
 CurrentDir=$(cd $(dirname $0); pwd)
 CurrentKernel=$(uname -r)
+CMakeExe=$(printf "cmake -DCMAKE_BUILD_TYPE=Release")
 UsingWSL=0
 SkipCMakeConfig=0
 SkipOsgBuild=0
@@ -138,12 +139,7 @@ if [ ! -d "$CurrentDir/build" ]; then
 fi
 
 ThirdPartyBuildDir="$CurrentDir/build/3rdparty"
-if [ "$SkipOsgBuild" = '1' ]; then
-
-    # Do nothing if skip OSG build
-    :
-
-elif [ "$BuildMode" = '3' ]; then
+if [ "$BuildMode" = '3' ]; then
 
     # WASM toolchain
     ThirdPartyBuildDir="$CurrentDir/build/3rdparty_wasm"
@@ -151,11 +147,13 @@ elif [ "$BuildMode" = '3' ]; then
         mkdir $ThirdPartyBuildDir
     fi
 
-    cd $ThirdPartyBuildDir
-    if [ "$SkipCMakeConfig" = 0 ]; then
-        cmake -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain" -DCMAKE_BUILD_TYPE=Release -DUSE_WASM_OPTIONS=1 $CurrentDir/helpers/toolchain_builder
+    if [ "$SkipOsgBuild" = 0 ]; then
+        cd $ThirdPartyBuildDir
+        if [ "$SkipCMakeConfig" = 0 ]; then
+            $CMakeExe -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain" -DUSE_WASM_OPTIONS=1 $CurrentDir/helpers/toolchain_builder
+        fi
+        cmake --build .
     fi
-    cmake --build .
 
 elif [ "$BuildMode" = '4' ]; then
 
@@ -165,11 +163,13 @@ elif [ "$BuildMode" = '4' ]; then
         mkdir $ThirdPartyBuildDir
     fi
 
-    cd $ThirdPartyBuildDir
-    if [ "$SkipCMakeConfig" = 0 ]; then
-        cmake -G "Unix Makefiles" $AndroidDepOptions -DCMAKE_BUILD_TYPE=Release $CurrentDir/helpers/toolchain_builder
+    if [ "$SkipOsgBuild" = 0 ]; then
+        cd $ThirdPartyBuildDir
+        if [ "$SkipCMakeConfig" = 0 ]; then
+            $CMakeExe $AndroidDepOptions $CurrentDir/helpers/toolchain_builder
+        fi
+        cmake --build .
     fi
-    cmake --build .
 
 else
 
@@ -178,16 +178,18 @@ else
         mkdir $ThirdPartyBuildDir
     fi
 
-    cd $ThirdPartyBuildDir
-    if [ "$SkipCMakeConfig" = 0 ]; then
-        cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release $CurrentDir/helpers/toolchain_builder
+    if [ "$SkipOsgBuild" = 0 ]; then
+        cd $ThirdPartyBuildDir
+        if [ "$SkipCMakeConfig" = 0 ]; then
+            $CMakeExe $CurrentDir/helpers/toolchain_builder
+        fi
+        cmake --build .
     fi
-    cmake --build .
 
 fi
 
 # Generate 3rdparty options
-DepOptions="
+ThirdDepOptions="
     -DFREETYPE_INCLUDE_DIR_freetype2=$CurrentDir/helpers/toolchain_builder/freetype/include
     -DFREETYPE_INCLUDE_DIR_ft2build=$CurrentDir/helpers/toolchain_builder/freetype/include
     -DFREETYPE_LIBRARY_RELEASE=$ThirdPartyBuildDir/freetype/libfreetype.a
@@ -198,7 +200,8 @@ DepOptions="
     -DTIFF_INCLUDE_DIR=$ThirdPartyBuildDir/tiff;$CurrentDir/helpers/toolchain_builder/tiff
     -DTIFF_LIBRARY_RELEASE=$ThirdPartyBuildDir/tiff/libtiff.a
     -DZLIB_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/zlib
-    -DZLIB_LIBRARY_RELEASE=$ThirdPartyBuildDir/zlib/libzlib.a"
+    -DZLIB_LIBRARY_RELEASE=$ThirdPartyBuildDir/zlib/libzlib.a
+    -DVERSE_BUILD_3RDPARTIES=OFF"
 
 # Fix some OpenSceneGraph compile errors
 OpenSceneGraphRoot=$CurrentDir/../OpenSceneGraph
@@ -242,7 +245,7 @@ if [ "$BuildMode" = '1' ]; then
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $CurrentDir/build/osg_core
         if [ "$SkipCMakeConfig" = 0 ]; then
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release $DepOptions $ExtraOptions $OpenSceneGraphRoot
+            $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
         fi
         make install
     fi
@@ -268,7 +271,7 @@ elif [ "$BuildMode" = '3' ]; then
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $CurrentDir/build/osg_wasm
         if [ "$SkipCMakeConfig" = 0 ]; then
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release $DepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/wasm
+            $CMakeExe $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/wasm
         fi
         make install
     fi
@@ -288,7 +291,7 @@ elif [ "$BuildMode" = '4' ]; then
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $CurrentDir/build/osg_android
         if [ "$SkipCMakeConfig" = 0 ]; then
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release $AndroidDepOptions $DepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/android
+            $CMakeExe $AndroidDepOptions $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/android
         fi
         make install
     fi
@@ -303,7 +306,7 @@ else
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $CurrentDir/build/osg_def
         if [ "$SkipCMakeConfig" = 0 ]; then
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release $ExtraOptions $OpenSceneGraphRoot
+            $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
         fi
     fi
     make install
@@ -321,7 +324,7 @@ if [ "$BuildMode" = '3' ]; then
 
     OsgRootLocation="$CurrentDir/build/sdk_wasm"
     cd $CurrentDir/build/verse_wasm
-    cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="$OsgRootLocation" $ExtraOptions $CurrentDir
+    $CMakeExe -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
     make install
 
 elif [ "$BuildMode" = '4' ]; then
@@ -333,7 +336,7 @@ elif [ "$BuildMode" = '4' ]; then
 
     OsgRootLocation="$CurrentDir/build/sdk_android"
     cd $CurrentDir/build/verse_android
-    cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release $AndroidDepOptions -DOSG_ROOT="$OsgRootLocation" $ExtraOptions $CurrentDir
+    $CMakeExe $AndroidDepOptions -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
     make install
 
 else
@@ -349,7 +352,7 @@ else
         OsgRootLocation="$CurrentDir/build/sdk"
     fi
     cd $CurrentDir/build/verse
-    cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DOSG_ROOT="$OsgRootLocation" $ExtraOptions $CurrentDir
+    $CMakeExe -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
     make install
 
 fi

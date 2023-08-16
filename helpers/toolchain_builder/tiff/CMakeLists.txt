@@ -76,7 +76,7 @@ SET(TIFF_SOURCES
     tif_predict.c tif_print.c tif_read.c tif_strip.c
     tif_swab.c tif_thunder.c tif_tile.c tif_version.c
     tif_warning.c tif_webp.c tif_write.c tif_zip.c tif_zstd.c)
-    
+
 IF(WIN32)
     LIST(APPEND TIFF_SOURCES tif_win32.c)
 ELSE()
@@ -86,4 +86,5 @@ ENDIF()
 INCLUDE_DIRECTORIES(../zlib ../jpeg ${CMAKE_CURRENT_BINARY_DIR})
 ADD_DEFINITIONS(-DTIFF_DISABLE_DEPRECATED)
 ADD_LIBRARY(${LIBRARY_NAME} STATIC ${TIFF_SOURCES} ${TIFF_HEADERS})
+SET_PROPERTY(TARGET ${LIBRARY_NAME} PROPERTY FOLDER "THIRD_PARTY")
 #INSTALL(FILES ${${LIBRARY_NAME}_ZLIB_HEADERS} DESTINATION include)

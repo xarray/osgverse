@@ -20,7 +20,6 @@ class RequestHandler(SimpleHTTPRequestHandler):
 
 def main():
 
-    addr = "0.0.0.0"
     if len(sys.argv) > 1:
         """
         Make locally-trusted development certificates at: https://github.com/FiloSottile/mkcert
@@ -28,6 +27,7 @@ def main():
         $ mkcert 192.168.1.5 127.0.0.1
         Copy and rename generated .pem files to certPath (argv[1])
         """
+        addr = "0.0.0.0"
         port = 4443
         certPath = str(sys.argv[1])
         httpd = HTTPServer((addr, port), RequestHandler)
@@ -38,6 +38,7 @@ def main():
                                        ssl_version=ssl.PROTOCOL_TLS)
         print("Serving HTTPS at https://{}:{}".format(addr, port))
     else:
+        addr = "127.0.0.1"
         port = 8000
         httpd = HTTPServer((addr, port), RequestHandler)
         print("Serving HTTP at http://{}:{}".format(addr, port))
