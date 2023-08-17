@@ -178,6 +178,7 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_web) \
     USE_OSGPLUGIN(verse_image) \
     USE_OSGPLUGIN(verse_leveldb) \
+    USE_OSGPLUGIN(verse_tiff) \
     USE_OSGPLUGIN(pbrlayout)
 // Note: plugins depending on external libraries should be called manually
 //  USE_OSGPLUGIN(verse_ms)

@@ -92,7 +92,7 @@ ENDIF()
 
 #########################################
 IF(USE_WASM_OPTIONS)
-    SET(BUILD_FLAGS "-O3")
+    SET(BUILD_FLAGS "-O3 -pthread")
     ADD_DEFINITIONS(${BUILD_FLAGS})
 ENDIF()
 

@@ -24,6 +24,8 @@ static inline VkFormat glGetVkFormatFromInternalFormat(GLint glFormat)
     case GL_RG8: return VK_FORMAT_R8G8_UNORM;               // 2-component, 8-bit unsigned normalized
     case GL_RGB8: return VK_FORMAT_R8G8B8_UNORM;              // 3-component, 8-bit unsigned normalized
     case GL_RGBA8: return VK_FORMAT_R8G8B8A8_UNORM;             // 4-component, 8-bit unsigned normalized
+    case GL_RGB: return VK_FORMAT_R8G8B8_UNORM;              // 3-component, 8-bit unsigned normalized
+    case GL_RGBA: return VK_FORMAT_R8G8B8A8_UNORM;             // 4-component, 8-bit unsigned normalized
 
     case GL_R8_SNORM: return VK_FORMAT_R8_SNORM;          // 1-component, 8-bit signed normalized
     case GL_RG8_SNORM: return VK_FORMAT_R8G8_SNORM;         // 2-component, 8-bit signed normalized

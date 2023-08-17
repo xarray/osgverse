@@ -57,9 +57,8 @@ namespace osgVerse
         osgDB::Registry* regObject = osgDB::Registry::instance();
 #ifdef VERSE_STATIC_BUILD
         // anything to do here?
-        OSG_NOTICE << "[osgVerse] Static-linking libraries are used..." << std::endl;
 #else
-        OSG_NOTICE << "[osgVerse] Dynamic-linking libraries are used..." << std::endl;
+        // Pre-load libraries to register web/streaming/database protocols
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_web"));
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_ms"));
         regObject->loadLibrary(regObject->createLibraryNameForExtension("verse_leveldb"));
@@ -70,6 +69,7 @@ namespace osgVerse
         regObject->addFileExtensionAlias("vdb", "verse_vdb");
         regObject->addFileExtensionAlias("gltf", "verse_gltf");
         regObject->addFileExtensionAlias("glb", "verse_gltf");
+        regObject->addFileExtensionAlias("tiff", "verse_tiff");
         regObject->addFileExtensionAlias("rseq", "verse_image");
 #if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
         regObject->addFileExtensionAlias("jpg", "verse_image");

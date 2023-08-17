@@ -6,13 +6,11 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 
+#include "ReaderWriterEPT_Setting.h"
 #include <picojson.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
-
-extern osg::Node* readNodeFromUnityPoint(const std::string& file, float invR = 1.0f);
-extern osg::Node* readNodeFromLaz(const std::string& file, float invR = 1.0 / 255.0f);
 
 static std::vector<std::string> split(const std::string& src, const char* seperator, bool ignoreEmpty)
 {
@@ -43,17 +41,15 @@ public:
     EptBuilder(const std::string& dir, const std::string& ext, osgDB::Options* op = NULL)
         : _dataFilePath(dir), _dataFileExtIncludingDot(ext)
     {
-        for (int i = 0; i < 15; ++i)
-        {
-            _levelToLodRangeMin[i] = 200.0f * powf((float)(i + 1), 0.2f);
-            _levelToLodRangeMax[i] = 1000.0f / powf((float)(i + 1), 0.2f);
-        }
         loadDataFromOptions(op);
+        if (!_readEptSettings) _readEptSettings = getDefaultEptSettings();
     }
 
     void loadDataFromOptions(osgDB::Options* op)
     {
         if (!op) return; else _options = op;
+        _readEptSettings = dynamic_cast<ReadEptSettings*>(op->getUserData());
+
         _minTotalBound[0] = atof(op->getPluginStringData("MinTotalBoundX").c_str());
         _minTotalBound[1] = atof(op->getPluginStringData("MinTotalBoundY").c_str());
         _minTotalBound[2] = atof(op->getPluginStringData("MinTotalBoundZ").c_str());
@@ -94,12 +90,12 @@ public:
         plod->setName(hierarchyName);
         plod->setCenter(bb.center());
         plod->setRadius(bb.radius());
-        plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
+        plod->setRangeMode(_readEptSettings->rangeMode);
 
         osg::Node* child = (_dataFileExtIncludingDot.find("unitypoint") != std::string::npos)
-            ? readNodeFromUnityPoint(_dataFilePath + hierarchyName + _dataFileExtIncludingDot)
-            : readNodeFromLaz(_dataFilePath + hierarchyName + _dataFileExtIncludingDot);
-        plod->addChild(child, _levelToLodRangeMin[level], FLT_MAX);
+            ? readNodeFromUnityPoint(_dataFilePath + hierarchyName + _dataFileExtIncludingDot, *_readEptSettings)
+            : readNodeFromLaz(_dataFilePath + hierarchyName + _dataFileExtIncludingDot, *_readEptSettings);
+        plod->addChild(child, _readEptSettings->levelToLodRangeMin[level], FLT_MAX);
 
         int index = plod->getNumChildren();
         for (int z = 0; z <= 1; ++z)
@@ -111,7 +107,9 @@ public:
                     if (_options.valid() && _options->getPluginStringData(ss.str()).empty()) continue;
 
                     plod->setFileName(index, _dataFilePath + ss.str() + _dataFileExtIncludingDot + ".eptile");
-                    plod->setRange(index, _levelToLodRangeMax[level], FLT_MAX);
+                    plod->setRange(index, _readEptSettings->levelToLodRangeMax[level], FLT_MAX);
+                    if (_readEptSettings->minimumExpiryTime > 0.0f)
+                        plod->setMinimumExpiryTime(index, _readEptSettings->minimumExpiryTime);
                     index++;
                 }
         plod->setDatabaseOptions(_options.get());
@@ -176,10 +174,16 @@ protected:
         return osg::BoundingBoxd(minBound, minBound + cellSize);
     }
 
+    static ReadEptSettings* getDefaultEptSettings()
+    {
+        static osg::ref_ptr<ReadEptSettings> s_instance = new ReadEptSettings;
+        return s_instance.get();
+    }
+
+    osg::ref_ptr<ReadEptSettings> _readEptSettings;
     osg::ref_ptr<osgDB::Options> _options;
     osg::Vec3d _minTotalBound, _maxTotalBound;
     std::string _dataFilePath, _dataFileExtIncludingDot;
-    std::map<int, float> _levelToLodRangeMin, _levelToLodRangeMax;
 };
 
 class ReaderWriterEPT : public osgDB::ReaderWriter
@@ -240,7 +244,11 @@ public:
                     {
                         std::string lasFile = osgDB::findDataFile(eptPath, options);
                         if (lasFile.empty()) return ReadResult::FILE_NOT_FOUND;
-                        return readNodeFromLaz(lasFile);
+
+                        osg::Referenced* userData = const_cast<osg::Referenced*>(options->getUserData());
+                        osg::ref_ptr<ReadEptSettings> settings = dynamic_cast<ReadEptSettings*>(userData);
+                        if (!settings) settings = new ReadEptSettings;
+                        return readNodeFromLaz(lasFile, *settings);
                     }
                     return ReadResult::FILE_NOT_FOUND;
                 }

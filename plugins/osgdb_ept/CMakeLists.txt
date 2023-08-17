@@ -1,6 +1,7 @@
 SET(LIB_NAME osgdb_verse_ept)
 SET(LIBRARY_FILES
     ReaderWriterEPT.cpp PointCloudFileReader.cpp
+    ReaderWriterEPT_Setting.h
 )
 
 ADD_DEFINITIONS(-DLASZIPDLL_EXPORTS)
