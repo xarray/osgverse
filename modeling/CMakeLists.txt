@@ -1,9 +1,14 @@
 SET(LIB_NAME osgVerseModeling)
-SET(LIBRARY_INCLUDE_FILES MeshDeformer.h CsgBoolean.h MeshTopology.h
+SET(LIBRARY_INCLUDE_FILES MeshDeformer.h MeshTopology.h
                           Math.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    MeshDeformer.cpp CsgBoolean.cpp MeshTopology.cpp Math.cpp Utilities.cpp 
+    MeshDeformer.cpp MeshTopology.cpp Math.cpp Utilities.cpp
 )
+
+IF(VERSE_BUILD_GPL)
+    SET(LIBRARY_INCLUDE_FILES ${LIBRARY_INCLUDE_FILES} CsgBoolean.h)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} CsgBoolean.h CsgBoolean.cpp)
+ENDIF(VERSE_BUILD_GPL)
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency)

@@ -114,9 +114,6 @@ SET(PMP_MCUT_SOURCE_FILES
     pmp/algorithms/DifferentialGeometry.cpp pmp/algorithms/DifferentialGeometry.h
     pmp/algorithms/DistancePointTriangle.cpp pmp/algorithms/DistancePointTriangle.h
     pmp/algorithms/BarycentricCoordinates.h pmp/algorithms/DistancePointTriangle.h
-    mcut/bvh.cpp mcut/frontend.cpp mcut/hmesh.cpp
-    mcut/kernel.cpp mcut/math.cpp mcut/mcut.cpp mcut/mcut.h
-    mcut/preproc.cpp mcut/platform.h mcut/shewchuk.c
 )
 
 SET(IMGUI_SOURCE_FILES
@@ -316,6 +313,13 @@ SET(LIBRARY_FILES
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES}
 )
+
+IF(VERSE_BUILD_GPL)
+    SET(LIBRARY_FILES ${LIBRARY_FILES}
+        mcut/bvh.cpp mcut/frontend.cpp mcut/hmesh.cpp
+        mcut/kernel.cpp mcut/math.cpp mcut/mcut.cpp mcut/mcut.h
+        mcut/preproc.cpp mcut/platform.h mcut/shewchuk.c)
+ENDIF(VERSE_BUILD_GPL)
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
                 -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS

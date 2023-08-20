@@ -199,6 +199,8 @@ Our project is already tested on graphics cards listed as below:
 | SDL2_LIB_DIR                | Path    |               | Set to path of libSDL2.so or SDL2.lib |
 | Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
 | Qt6_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt6 |
+| VERSE_BUILD_GPL             | Boolean | OFF           | Enable build of GPL dependencies (e.g., mcut), which will makes osgVerse a GPL library |
+| VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg, PNG and Tiff |
 | VERSE_SUPPORT_CPP17         | Boolean | OFF           | Enable build of libraries using C++ 17 standard |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |

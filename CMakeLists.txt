@@ -204,6 +204,7 @@ ELSE(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 ENDIF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 
 ######################################### Global Options
+SET(VERSE_BUILD_GPL OFF CACHE BOOL "Enable build of GPL dependencies (e.g., mcut), which will makes osgVerse a GPL3 library")
 SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg, PNG and Tiff")
 SET(VERSE_SUPPORT_CPP17 OFF CACHE BOOL "Enable build of libraries using C++ 17 standard")
 SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse libraries")
