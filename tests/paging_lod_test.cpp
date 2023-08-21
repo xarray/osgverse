@@ -16,6 +16,8 @@
 #include <readerwriter/Utilities.h>
 #include <readerwriter/DracoProcessor.h>
 #ifdef OSG_LIBRARY_STATIC
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
@@ -47,8 +49,12 @@ public:
 
 int main(int argc, char** argv)
 {
+#ifndef OSG_LIBRARY_STATIC
+    osgDB::Registry::instance()->loadLibrary(
+        osgDB::Registry::instance()->createLibraryNameForNodeKit("osgVerseReaderWriter"));
     osgDB::Registry::instance()->loadLibrary(
         osgDB::Registry::instance()->createLibraryNameForExtension("verse_leveldb"));
+#endif
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->setName("PlodGridRoot");
 
