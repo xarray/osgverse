@@ -11,6 +11,11 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <iostream>
 #include <sstream>
+#include <thread>
+#include <functional>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
 #include <tinydir.h>
 
 #include <readerwriter/Utilities.h>
@@ -23,6 +28,49 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+
+class ThreadPool
+{
+public:
+    ThreadPool(size_t numThreads) : _stopped(false)
+    {
+        for (size_t i = 0; i < numThreads; ++i)
+        {
+            _threads.emplace_back([this]
+            {
+                while (true)
+                {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(_mutex);
+                        _condition.wait(lock, [this] { return _stopped || !_tasks.empty(); });
+                        if (_stopped && _tasks.empty()) return;
+                        task = std::move(_tasks.front()); _tasks.pop();
+                    }
+                    task();
+                }
+            });
+        }
+    }
+
+    ~ThreadPool()
+    {
+        { std::unique_lock<std::mutex> lock(_mutex); _stopped = true; } _condition.notify_all();
+        for (size_t i = 0; i < _threads.size(); ++i) { _threads[i].join(); }
+    }
+
+    template <class F, class... Args> void enqueue(F&& func, Args &&... args)
+    {
+        { std::unique_lock<std::mutex> lock(_mutex); _tasks.emplace(std::bind(func, args...)); }
+        _condition.notify_one();
+    }
+
+private:
+    std::vector<std::thread> _threads;
+    std::queue<std::function<void()>> _tasks;
+    std::condition_variable _condition;
+    std::mutex _mutex; bool _stopped;
+};
 
 class RemoveDataPathVisitor : public osg::NodeVisitor
 {
@@ -46,6 +94,28 @@ public:
         traverse(geode);
     }
 };
+
+void processFile(const std::string& prefix, const std::string& dirName,
+                 const std::string& dbBase, const std::string& fileName, bool savingToDB)
+{
+    std::string tileName = prefix + dirName + "/" + fileName;
+    osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(tileName);
+    if (node.valid())
+    {
+        RemoveDataPathVisitor rdp;
+        rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
+        node->accept(rdp);
+
+        osgVerse::TextureOptimizer opt(true);
+        node->accept(opt);
+
+        std::string dbFileName = dbBase + dirName + "/" + fileName;
+        if (!savingToDB) osgDB::makeDirectoryForFile(dbFileName);
+        osgDB::writeNodeFile(*node, dbFileName,
+                             new osgDB::Options("WriteImageHint=IncludeFile"));
+        std::cout << "Re-saving " << fileName << "\n";
+    }
+}
 
 int main(int argc, char** argv)
 {
@@ -74,32 +144,18 @@ int main(int argc, char** argv)
             if (file.is_dir)
             {
                 std::string dirName = file.name, rootTileName;
-                if (dirName.find("Tile") != dirName.npos)
+                if (dirName.find("Tile") != dirName.npos || dirName.find("Block") != dirName.npos)
                     rootTileName = prefix + dirName + "/" + dirName + ".osgb";
                 //else if (dirName.find("tile") != dirName.npos)
                 //    rootTileName = prefix + dirName + "/Data/Model/Model_with_transform.osgb";
                 if (rootTileName.empty()) { tinydir_next(&dir); continue; }
 
                 osgDB::DirectoryContents osgbFiles = osgDB::getDirectoryContents(prefix + dirName);
+                ThreadPool pool(std::thread::hardware_concurrency()); // Create a thread pool
                 for (size_t i = 0; i < osgbFiles.size(); ++i)
                 {
-                    std::string tileName = prefix + dirName + "/" + osgbFiles[i];
-                    osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(tileName);
-                    if (node.valid())
-                    {
-                        RemoveDataPathVisitor rdp;
-                        rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
-                        node->accept(rdp);
-
-                        osgVerse::TextureOptimizer opt(true);
-                        node->accept(opt);
-
-                        std::string dbFileName = dbBase + dirName + "/" + osgbFiles[i];
-                        if (!savingToDB) osgDB::makeDirectoryForFile(dbFileName);
-                        osgDB::writeNodeFile(*node, dbFileName,
-                                             new osgDB::Options("WriteImageHint=IncludeFile"));
-                        std::cout << "Re-saving " << osgbFiles[i] << "\n";
-                    }
+                    std::string fileName = osgbFiles[i];
+                    pool.enqueue([=]() { processFile(prefix, dirName, dbBase, fileName, savingToDB); });
                 }
 
                 osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(rootTileName);

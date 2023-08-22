@@ -9,34 +9,13 @@
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-#include <pipeline/Pipeline.h>
+#include <pipeline/Utilities.h>
 #include <script/JsonScript.h>
 #include <iostream>
 #include <sstream>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-
-class KeyEventHandler : public osgGA::GUIEventHandler
-{
-public:
-    typedef std::function<void()> KeyCallback;
-    void addCallback(int key, KeyCallback cb) { _keyCallbacks[key] = cb; }
-    
-    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
-    {
-        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
-        {
-            int key = ea.getKey();
-            if (_keyCallbacks.find(key) != _keyCallbacks.end())
-            { _keyCallbacks[key](); }
-        }
-        return false;
-    }
-
-protected:
-    std::map<int, KeyCallback> _keyCallbacks;
-};
 
 void printClassInfo(osgDB::ClassInterface& classMgr, osg::Object* obj)
 {
@@ -102,8 +81,8 @@ int main(int argc, char** argv)
     std::cout << "Exe4: " << ret4.serialize(true);
     std::cout << "Exe5 (FAILED): " << ret5.serialize(true);
 
-    KeyEventHandler* handler = new KeyEventHandler;
-    handler->addCallback('t', [&]() {
+    osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
+    handler->addKeyUpCallback('t', [&](int key) {
         s1 = "{\"class\": \"osg::MatrixTransform\"}";
         s2 = "{\"type\": \"node\", \"uri\": \"dumptruck.osgt\"}";
         picojson::parse(exe, s1); ret1 = scripter->execute(osgVerse::JsonScript::EXE_Creation, exe);

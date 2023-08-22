@@ -8,7 +8,9 @@
 #include <osg/Texture3D>
 #include <osg/TextureCubeMap>
 #include <osg/Camera>
+#include <osgGA/GUIEventHandler>
 #include "Global.h"
+#include <functional>
 struct SMikkTSpaceContext;
 
 namespace osgVerse
@@ -116,6 +118,31 @@ namespace osgVerse
                                             const osg::Matrix& worldToLocal);
     };
 
+    /** Quick event handler for testing purpose */
+    class QuickEventHandler : public osgGA::GUIEventHandler
+    {
+    public:
+        typedef std::function<void(int, int)> MouseCallback;
+        typedef std::function<void (int)> KeyCallback;
+        virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
+
+        void addMouseDownCallback(int btn, MouseCallback cb) { _pushCallbacks[btn] = cb; }
+        void addMouseUpCallback(int btn, MouseCallback cb) { _clickCallbacks[btn] = cb; }
+        void addDoubleClickCallback(int btn, MouseCallback cb) { _dbClickCallbacks[btn] = cb; }
+
+        void addKeyDownCallback(int key, KeyCallback cb) { _keyCallbacks0[key] = cb; }
+        void addKeyUpCallback(int key, KeyCallback cb) { _keyCallbacks1[key] = cb; }
+
+        void addKeyDownCallback(int* keys, int num, KeyCallback cb)
+        { for (int i = 0; i < num; ++i) _keyCallbacks0[keys[i]] = cb; }
+        void addKeyUpCallback(int* keys, int num, KeyCallback cb)
+        { for (int i = 0; i < num; ++i) _keyCallbacks1[keys[i]] = cb; }
+
+    protected:
+        std::map<int, MouseCallback> _pushCallbacks, _clickCallbacks, _dbClickCallbacks;
+        std::map<int, KeyCallback> _keyCallbacks0, _keyCallbacks1;
+    };
+
     class DisableBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
     {
     public:
@@ -156,7 +183,6 @@ namespace osgVerse
 // Note: plugins depending on external libraries should be called manually
 //  USE_OSGPLUGIN(jpg)
 //  USE_OSGPLUGIN(png)
-//  USE_OSGPLUGIN(tiff)
 //  USE_OSGPLUGIN(freetype)
 #   ifdef VERSE_WASM
 #       define USE_OSG_PLUGINS() USE_OSG_PLUGINS_ONLY()

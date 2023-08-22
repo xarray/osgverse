@@ -80,6 +80,7 @@ namespace osgVerse
 #endif
 
         g_argumentCount = argc;
+        if (argc == 0) return osg::ArgumentParser(NULL, NULL);
         return osg::ArgumentParser(&g_argumentCount, argv);
     }
 }
@@ -629,5 +630,35 @@ namespace osgVerse
         if (lightSpaceBB1._max[1] < lightSpaceBB0._max[1]) lightSpaceBB0._max[1] = lightSpaceBB1._max[1];
         if (lightSpaceBB1._max[2] < lightSpaceBB0._max[2]) lightSpaceBB0._max[2] = lightSpaceBB1._max[2];
         return lightSpaceBB0;
+    }
+
+    bool QuickEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH)
+        {
+            int btn = ea.getButton(), modkey = ea.getModKeyMask();
+            if (_pushCallbacks.find(btn) != _pushCallbacks.end()) _pushCallbacks[btn](btn, modkey);
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE)
+        {
+            int btn = ea.getButton(), modkey = ea.getModKeyMask();
+            if (_clickCallbacks.find(btn) != _clickCallbacks.end()) _clickCallbacks[btn](btn, modkey);
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::DOUBLECLICK)
+        {
+            int btn = ea.getButton(), modkey = ea.getModKeyMask();
+            if (_dbClickCallbacks.find(btn) != _dbClickCallbacks.end()) _dbClickCallbacks[btn](btn, modkey);
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN)
+        {
+            int key = ea.getKey();
+            if (_keyCallbacks0.find(key) != _keyCallbacks0.end()) _keyCallbacks0[key](key);
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        {
+            int key = ea.getKey();
+            if (_keyCallbacks1.find(key) != _keyCallbacks1.end()) _keyCallbacks1[key](key);
+        }
+        return false;
     }
 }
