@@ -9,7 +9,6 @@ SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 ######################################### Macros
 MACRO(NEW_EXECUTABLE EXECUTABLE_NAME)
 
-    GET_PROPERTY(PATH_LIST GLOBAL PROPERTY EXTERNAL_LIBRARY_PATHS)
     LINK_DIRECTORIES(${PATH_LIST})
     ADD_EXECUTABLE(${EXECUTABLE_NAME} ${EXECUTABLE_FILES})
 
@@ -32,7 +31,6 @@ ENDMACRO(NEW_EXECUTABLE)
 
 MACRO(NEW_LIBRARY LIBRARY_NAME LIBRARY_TYPE)
 
-    GET_PROPERTY(PATH_LIST GLOBAL PROPERTY EXTERNAL_LIBRARY_PATHS)
     LINK_DIRECTORIES(${PATH_LIST})
     ADD_LIBRARY(${LIBRARY_NAME} ${LIBRARY_TYPE} ${LIBRARY_FILES})
 
@@ -117,6 +115,18 @@ FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 
+FIND_PATH(DRACO_INCLUDE_DIR draco/draco_features.h
+    PATHS ${VERSE_3RDPARTY_PATH}/include
+    /usr/include
+    /usr/local/include
+)
+
+FIND_PATH(DRACO_LIB_DIR libdraco.so draco.lib
+    PATHS ${VERSE_3RDPARTY_PATH}/lib
+    /usr/lib /usr/${FIND_LIB_POSTFIX}
+    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+)
+
 FIND_PATH(SDL2_INCLUDE_DIR SDL.h
     PATHS ${VERSE_3RDPARTY_PATH}/include/SDL
     /usr/include
@@ -196,6 +206,15 @@ ELSE(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
     MESSAGE("[osgVerse] Dependency Bullet not found. Some modules and functionalities will be ignored.")
 ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 
+SET(DRACO_FOUND FALSE)
+IF(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
+    INCLUDE_DIRECTORIES(${DRACO_INCLUDE_DIR})
+    LINK_DIRECTORIES(${DRACO_LIB_DIR})
+    SET(DRACO_FOUND TRUE)
+ELSE(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
+    MESSAGE("[osgVerse] Dependency Draco not found. Some modules and functionalities will be ignored.")
+ENDIF(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
+
 SET(SDL2_FOUND FALSE)
 IF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
     SET(SDL2_FOUND TRUE)
@@ -206,6 +225,7 @@ ENDIF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 ######################################### Global Options
 SET(VERSE_BUILD_GPL OFF CACHE BOOL "Enable build of GPL dependencies (e.g., mcut), which will makes osgVerse a GPL3 library")
 SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg, PNG and Tiff")
+SET(VERSE_BUILD_WITH_QT OFF CACHE BOOL "Enable build of Qt based applications and tests")
 SET(VERSE_SUPPORT_CPP17 OFF CACHE BOOL "Enable build of libraries using C++ 17 standard")
 SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse libraries")
 SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (will force osgVerse to be static)")
@@ -316,7 +336,6 @@ IF(OSG_BUILD_INCLUDE_DIR)
 ENDIF(OSG_BUILD_INCLUDE_DIR)
 
 ######################################### Global Definintions
-SET_PROPERTY(GLOBAL APPEND PROPERTY EXTERNAL_LIBRARY_PATHS)
 IF(NOT OPENGL_gl_LIBRARY)
     MESSAGE(FATAL_ERROR "[osgVerse] Dependency OpenGL not found. All following steps may not work...")
 ENDIF(NOT OPENGL_gl_LIBRARY)
