@@ -7,8 +7,12 @@ SET(LIBRARY_INCLUDE_FILES
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp DeferredCallback.cpp
 	ShadowModule.cpp LightModule.cpp LightDrawable.cpp SkyBox.cpp
-	NodeSelector.cpp IntersectionManager.cpp Utilities.cpp 
+	NodeSelector.cpp IntersectionManager.cpp Utilities.cpp
 )
+
+IF(WIN32 AND MSVC)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} TsfFramework.cpp TsfFramework.h)
+ENDIF(WIN32 AND MSVC)
 
 IF(VERSE_USE_MTT_DRIVER)
     ADD_DEFINITIONS(-DVERSE_ENABLE_MTT)
