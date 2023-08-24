@@ -93,7 +93,7 @@ static void tiffStreamUnmapProc(thandle_t, tdata_t, toff_t)
 {
 }
 
-static void invertRow(unsigned char* ptr, unsigned char* data, int n, int invert, uint16 bitspersample)
+static void invertRow(unsigned char* ptr, unsigned char* data, int n, int invert, uint16_t bitspersample)
 {
     if (bitspersample == 8)
     {
@@ -138,7 +138,7 @@ static void remapRow(unsigned char* ptr, unsigned char* data, int n,
 }
 
 static void interleaveRow(unsigned char *ptr, unsigned char *red, unsigned char *green, unsigned char *blue,
-                          int n, int numSamples, uint16 bitspersample)
+                          int n, int numSamples, uint16_t bitspersample)
 {
     if (bitspersample == 8)
     {
@@ -173,7 +173,7 @@ static void interleaveRow(unsigned char *ptr, unsigned char *red, unsigned char 
 }
 
 static void interleaveRow(unsigned char* ptr, unsigned char* red, unsigned char* green, unsigned char* blue,
-                          unsigned char* alpha, int n, int numSamples, uint16 bitspersample)
+                          unsigned char* alpha, int n, int numSamples, uint16_t bitspersample)
 {
     if (bitspersample == 8)
     {
@@ -209,7 +209,7 @@ static void interleaveRow(unsigned char* ptr, unsigned char* red, unsigned char*
     }
 }
 
-static int checkColormap(int n, uint16* r, uint16* g, uint16* b)
+static int checkColormap(int n, uint16_t* r, uint16_t* g, uint16_t* b)
 {
     while (n-- > 0)
     { if (*r++ >= 256 || *g++ >= 256 || *b++ >= 256) return (16); }
@@ -269,7 +269,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
                               tiffStreamSizeProc, tiffStreamMapProc, tiffStreamUnmapProc);
     if (in == NULL) { OSG_WARN << "[ReaderWriterTiff] Unable to open stream" << std::endl; return NULL; }
 
-    uint16 photometric = 0;
+    uint16_t photometric = 0;
     if (TIFFGetField(in, TIFFTAG_PHOTOMETRIC, &photometric) == 1)
     {
         if (photometric != PHOTOMETRIC_RGB && photometric != PHOTOMETRIC_PALETTE &&
@@ -285,7 +285,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
         TIFFClose(in); return NULL;
     }
 
-    uint16 samplesperpixel = 0;
+    uint16_t samplesperpixel = 0;
     if (TIFFGetField(in, TIFFTAG_SAMPLESPERPIXEL, &samplesperpixel) == 1)
     {
         if (samplesperpixel != 1 && samplesperpixel != 2 &&
@@ -301,7 +301,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
         TIFFClose(in); return NULL;
     }
 
-    uint16 bitspersample = 0;
+    uint16_t bitspersample = 0;
     if (TIFFGetField(in, TIFFTAG_BITSPERSAMPLE, &bitspersample) == 1)
     {
         if (bitspersample != 8 && bitspersample != 16 && bitspersample != 32)
@@ -316,7 +316,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
         TIFFClose(in); return NULL;
     }
 
-    uint32 w = 0, h = 0, d = 1; uint16 config = 0, dataType = 0;
+    uint32_t w = 0, h = 0, d = 1; uint16_t config = 0, dataType = 0;
     if (TIFFGetField(in, TIFFTAG_IMAGEWIDTH, &w) != 1 || TIFFGetField(in, TIFFTAG_IMAGELENGTH, &h) != 1 ||
         TIFFGetField(in, TIFFTAG_PLANARCONFIG, &config) != 1)
     {
@@ -347,7 +347,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
             memset(buffer, 0, imgSize); dirCount++;
 
             unsigned char* currPtr = buffer + (h - 1) * w * format;
-            uint16 *red = NULL, *green = NULL, *blue = NULL;
+            uint16_t *red = NULL, *green = NULL, *blue = NULL;
             size_t rowSize = TIFFScanlineSize(in);
             switch (PACK(photometric, config))
             {
@@ -356,7 +356,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
             case PACK(PHOTOMETRIC_MINISWHITE, PLANARCONFIG_SEPARATE):
             case PACK(PHOTOMETRIC_MINISBLACK, PLANARCONFIG_SEPARATE):
                 inBuffer = new unsigned char[rowSize];
-                for (uint32 row = 0; row < h; row++)
+                for (uint32_t row = 0; row < h; row++)
                 {
                     if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
                     invertRow(currPtr, inBuffer, samplesperpixel * w,
@@ -376,7 +376,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
                 }
 
                 inBuffer = new unsigned char[rowSize];
-                for (uint32 row = 0; row < h; row++)
+                for (uint32_t row = 0; row < h; row++)
                 {
                     if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
                     remapRow(currPtr, inBuffer, w, red, green, blue); currPtr -= format * w;
@@ -385,7 +385,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
 
             case PACK(PHOTOMETRIC_RGB, PLANARCONFIG_CONTIG):
                 inBuffer = new unsigned char[rowSize];
-                for (uint32 row = 0; row < h; row++)
+                for (uint32_t row = 0; row < h; row++)
                 {
                     if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
                     memcpy(currPtr, inBuffer, format * w); currPtr -= format * w;
@@ -394,11 +394,11 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
 
             case PACK(PHOTOMETRIC_RGB, PLANARCONFIG_SEPARATE):
                 inBuffer = new unsigned char[format * rowSize];
-                for (uint32 row = 0; !hasError && row < h; row++)
+                for (uint32_t row = 0; !hasError && row < h; row++)
                 {
                     for (int s = 0; s < format; s++)
                     {
-                        if (TIFFReadScanline(in, (tdata_t)(inBuffer + s * rowSize), (uint32)row, (tsample_t)s) < 0)
+                        if (TIFFReadScanline(in, (tdata_t)(inBuffer + s * rowSize), (uint32_t)row, (tsample_t)s) < 0)
                         { hasError = true; break; }
                     }
 
@@ -491,10 +491,12 @@ public:
         osg::ref_ptr<osg::ImageSequence> seq = tiffLoad(fin, options);
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         osg::ImageSequence::ImageDataList images = seq->getImageDataList();
-        return images.empty() ? NULL : ((images.size() == 1) ? images[0]._image : seq);
+        return images.empty() ? NULL : ((images.size() == 1) ?
+                                        images[0]._image.get() : static_cast<osg::Image*>(seq.get()));
 #else
         std::vector<osg::ref_ptr<osg::Image>> images = seq->getImages();
-        return images.empty() ? NULL : ((images.size() == 1) ? images[0] : seq);
+        return images.empty() ? NULL : ((images.size() == 1) ?
+                                        images[0].get() : static_cast<osg::Image*>(seq.get()));
 #endif
     }
 

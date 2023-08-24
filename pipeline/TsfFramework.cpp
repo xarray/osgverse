@@ -1,8 +1,9 @@
 // Copied and modified from Unreal5 engine source code
 // Source/Runtime/ApplicationCore/Private/Windows/WindowsTextInputMethodSystem.cpp
 #include <osg/Notify>
-#include <vector>
+#include <string>
 #include <set>
+#include <vector>
 #include <iostream>
 #include "TsfFramework.h"
 using namespace osgVerse;
