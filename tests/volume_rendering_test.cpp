@@ -92,42 +92,42 @@ int main(int argc, char** argv)
     osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
     osg::Vec2 xOffset(0.0f, 1.0f), yOffset(0.0f, 1.0f), zOffset(0.0f, 1.0f);
 
-    handler->addKeyDownCallback(new int[]{ 'a', 'A' }, 2, [&](int key) {
+    handler->addKeyDownCallback(new int[2] { 'a', 'A' }, 2, [&](int key) {
         va->dirty(); ta->dirty(); int ids[4] = {0, 3, 4, 7};
         if (key == 'a' && xOffset[0] < xOffset[1]) xOffset[0] += 0.01f;
         else if (key == 'A' && xOffset[0] > 0.0f) xOffset[0] -= 0.01f;
         for (int i = 0; i < 4; ++i) { (*va)[ids[i]].x() = xOffset[0]; (*ta)[ids[i]].x() = xOffset[0]; }
     });
 
-    handler->addKeyDownCallback(new int[] { 'd', 'D' }, 2, [&](int key) {
+    handler->addKeyDownCallback(new int[2] { 'd', 'D' }, 2, [&](int key) {
         va->dirty(); ta->dirty(); int ids[4] = { 1, 2, 5, 6 };
         if (key == 'd' && xOffset[0] < xOffset[1]) xOffset[1] -= 0.01f;
         else if (key == 'D' && xOffset[1] < 1.0f) xOffset[1] += 0.01f;
         for (int i = 0; i < 4; ++i) { (*va)[ids[i]].x() = xOffset[1]; (*ta)[ids[i]].x() = xOffset[1]; }
     });
 
-    handler->addKeyDownCallback(new int[] { 's', 'S' }, 2, [&](int key) {
+    handler->addKeyDownCallback(new int[2] { 's', 'S' }, 2, [&](int key) {
         va->dirty(); ta->dirty(); int ids[4] = { 0, 1, 4, 5 };
         if (key == 's' && yOffset[0] < yOffset[1]) yOffset[0] += 0.01f;
         else if (key == 'S' && yOffset[0] > 0.0f) yOffset[0] -= 0.01f;
         for (int i = 0; i < 4; ++i) { (*va)[ids[i]].y() = yOffset[0]; (*ta)[ids[i]].y() = yOffset[0]; }
     });
 
-    handler->addKeyDownCallback(new int[] { 'w', 'W' }, 2, [&](int key) {
+    handler->addKeyDownCallback(new int[2] { 'w', 'W' }, 2, [&](int key) {
         va->dirty(); ta->dirty(); int ids[4] = { 2, 3, 6, 7 };
         if (key == 'w' && yOffset[0] < yOffset[1]) yOffset[1] -= 0.01f;
         else if (key == 'W' && yOffset[1] < 1.0f) yOffset[1] += 0.01f;
         for (int i = 0; i < 4; ++i) { (*va)[ids[i]].y() = yOffset[1]; (*ta)[ids[i]].y() = yOffset[1]; }
     });
 
-    handler->addKeyDownCallback(new int[] { 'q', 'Q' }, 2, [&](int key) {
+    handler->addKeyDownCallback(new int[2] { 'q', 'Q' }, 2, [&](int key) {
         va->dirty(); ta->dirty(); int ids[4] = { 0, 1, 2, 3 };
         if (key == 'q' && zOffset[0] < zOffset[1]) zOffset[0] += 0.01f;
         else if (key == 'Q' && zOffset[0] > 0.0f) zOffset[0] -= 0.01f;
         for (int i = 0; i < 4; ++i) { (*va)[ids[i]].z() = zOffset[0]; (*ta)[ids[i]].z() = zOffset[0]; }
     });
 
-    handler->addKeyDownCallback(new int[] { 'e', 'E' }, 2, [&](int key) {
+    handler->addKeyDownCallback(new int[2] { 'e', 'E' }, 2, [&](int key) {
         va->dirty(); ta->dirty(); int ids[4] = { 4, 5, 6, 7 };
         if (key == 'e' && zOffset[0] < zOffset[1]) zOffset[1] -= 0.01f;
         else if (key == 'E' && zOffset[1] < 1.0f) zOffset[1] += 0.01f;

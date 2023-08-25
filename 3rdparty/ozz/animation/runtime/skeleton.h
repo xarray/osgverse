@@ -59,6 +59,7 @@ class SkeletonBuilder;
 // IterateJointsDF() from skeleton_utils.h that implements a depth-first
 // traversal utility.
 class OZZ_ANIMATION_DLL Skeleton {
+    friend class CreateSkeletonVisitor;
  public:
   // Defines Skeleton constant values.
   enum Constants {

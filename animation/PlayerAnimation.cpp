@@ -4,6 +4,7 @@
 #include <osg/Version>
 #include <osg/Notify>
 #include <osgDB/ReadFile>
+#include <nanoid/nanoid.h>
 using namespace osgVerse;
 
 static std::string& trim(std::string& s)
@@ -25,6 +26,114 @@ static osg::Texture2D* createTexture(const std::string& fileName)
     return tex.release();
 }
 
+namespace ozz
+{
+    namespace animation
+    {
+        class CreateSkeletonVisitor : public osg::NodeVisitor
+        {
+        public:
+            CreateSkeletonVisitor()
+                : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+
+            virtual void apply(osg::Transform& node)
+            {
+                if (node.getName().empty())
+                {
+                    OSG_WARN << "[PlayerAnimation] Find possible skeleton node without name. "
+                             << "Will set a default one but will not work with animations." << std::endl;
+                    node.setName("Joint_" + nanoid::generate(8));
+                }
+
+                if (node.getNumParents() > 0)
+                {
+                    if (_parentMap.find(&node) == _parentMap.end())
+                    {
+                        _parentMap[&node] = node.getParent(0);
+                        _nodeList.push_back(&node);
+                        _namesToStore.append(node.getName());
+                    }
+                }
+                traverse(node);
+            }
+
+            void build(ozz::animation::Skeleton& skeleton)
+            {
+                int32_t charsCount = (int32_t)_namesToStore.size();
+                int32_t numJoints = (int32_t)_nodeList.size();
+                skeleton.Deallocate(); if (numJoints < 1) return;
+
+                char* cursor = skeleton.Allocate(charsCount, numJoints);
+                memcpy(cursor, _namesToStore.data(), charsCount);
+                for (int i = 0; i < numJoints - 1; ++i)
+                {
+                    skeleton.joint_names_[i] = cursor;
+                    cursor += std::strlen(skeleton.joint_names_[i]) + 1;
+                }
+                skeleton.joint_names_[numJoints - 1] = cursor;
+
+                osg::Matrix matrices[4]; int soaIndex = 0;
+                for (int i = 0; i < numJoints; ++i)
+                {
+                    osg::Transform* t = _nodeList[i];
+                    skeleton.joint_parents_[i] = -1;
+                    if (_parentMap.find(t) != _parentMap.end())
+                    {
+                        osg::Transform* parent = dynamic_cast<osg::Transform*>(_parentMap.find(t)->second);
+                        if (parent != NULL)
+                        {
+                            std::vector<osg::Transform*>::iterator itr =
+                                std::find(_nodeList.begin(), _nodeList.end(), parent);
+                            if (itr != _nodeList.end())
+                                skeleton.joint_parents_[i] = std::distance(_nodeList.begin(), itr);
+                        }
+                    }
+                    
+                    t->computeLocalToWorldMatrix(matrices[soaIndex++], NULL);
+                    if (soaIndex == 4)
+                    {
+                        applySoaTransform(skeleton, matrices, i / 4, soaIndex);
+                        soaIndex = 0;
+                    }
+                }
+                if (soaIndex != 0)
+                    applySoaTransform(skeleton, matrices, (numJoints + 3) / 4 - 1, soaIndex);
+            }
+
+        protected:
+            void applySoaTransform(ozz::animation::Skeleton& skeleton, osg::Matrix* matrices,
+                                   int idx, int numSoa)
+            {
+                ozz::math::SoaFloat3 translations, scales;
+                ozz::math::SoaQuaternion rotations;
+                osg::Vec3 p[4], s[4]; osg::Quat q[4], so;
+                for (int j = 0; j < numSoa; ++j) matrices[j].decompose(p[j], q[j], s[j], so);
+                for (int j = numSoa; j < 4; ++j) q[j] = osg::Quat(0.0f, 0.0f, 0.0f, 0.0f);
+
+                skeleton.joint_rest_poses_[idx] = ozz::math::SoaTransform{
+                    ozz::math::SoaFloat3 {
+                        ozz::math::simd_float4::Load(p[0].x(), p[1].x(), p[2].x(), p[3].x()),
+                        ozz::math::simd_float4::Load(p[0].y(), p[1].y(), p[2].y(), p[3].y()),
+                        ozz::math::simd_float4::Load(p[0].z(), p[1].z(), p[2].z(), p[3].z()) },
+                    ozz::math::SoaQuaternion {
+                        ozz::math::simd_float4::Load(q[0].x(), q[1].x(), q[2].x(), q[3].x()),
+                        ozz::math::simd_float4::Load(q[0].y(), q[1].y(), q[2].y(), q[3].y()),
+                        ozz::math::simd_float4::Load(q[0].z(), q[1].z(), q[2].z(), q[3].z()),
+                        ozz::math::simd_float4::Load(q[0].w(), q[1].w(), q[2].w(), q[3].w()) },
+                    ozz::math::SoaFloat3 {
+                        ozz::math::simd_float4::Load(s[0].x(), s[1].x(), s[2].x(), s[3].x()),
+                        ozz::math::simd_float4::Load(s[0].y(), s[1].y(), s[2].y(), s[3].y()),
+                        ozz::math::simd_float4::Load(s[0].z(), s[1].z(), s[2].z(), s[3].z()) }
+                };
+            }
+
+            std::map<osg::Transform*, osg::Node*> _parentMap;
+            std::vector<osg::Transform*> _nodeList;
+            std::string _namesToStore;
+        };
+    }
+}
+
 PlayerAnimation::PlayerAnimation()
 {
     _internal = new OzzAnimation;
@@ -37,6 +146,8 @@ bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
 
     // Load skeleton data from 'skeletonRoot'
+    ozz::animation::CreateSkeletonVisitor csv;
+    skeletonRoot.accept(csv); csv.build(ozz->_skeleton);
 
     // Load mesh data from 'meshRoot' and 'jointDataMap'
     return initializeInternal();
