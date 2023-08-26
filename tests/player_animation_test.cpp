@@ -42,6 +42,9 @@ int main(int argc, char** argv)
                    << ", parent ID = " << p.second << std::endl;
     }
 
+    osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
+    root->addChild(skeleton.get());
+
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
@@ -53,7 +56,10 @@ int main(int argc, char** argv)
     {
         animManager->update(*viewer.getFrameStamp(), false);
         animManager->applyMeshes(*player, true);
+        animManager->applyTransforms(*skeleton, true);
         viewer.frame();
     }
+
+    //osgDB::writeNodeFile(*skeleton, "test_skeleton.osg");
     return 0;
 }

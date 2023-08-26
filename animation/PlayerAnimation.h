@@ -39,6 +39,7 @@ namespace osgVerse
 
         bool update(const osg::FrameStamp& fs, bool paused);
         bool applyMeshes(osg::Geode& meshDataRoot, bool withSkinning);
+        bool applyTransforms(osg::Transform& skeletonRoot, bool createIfMissing);
 
         struct JointIkData { int joint; float weight; osg::Vec3 localUp; osg::Vec3 localForward; };
         bool updateAimIK(const osg::Vec3& target, const std::vector<JointIkData>& chain,

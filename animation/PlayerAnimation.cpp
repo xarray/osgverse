@@ -91,10 +91,7 @@ namespace ozz
                     
                     t->computeLocalToWorldMatrix(matrices[soaIndex++], NULL);
                     if (soaIndex == 4)
-                    {
-                        applySoaTransform(skeleton, matrices, i / 4, soaIndex);
-                        soaIndex = 0;
-                    }
+                    { applySoaTransform(skeleton, matrices, i / 4, soaIndex); soaIndex = 0; }
                 }
                 if (soaIndex != 0)
                     applySoaTransform(skeleton, matrices, (numJoints + 3) / 4 - 1, soaIndex);
@@ -104,8 +101,6 @@ namespace ozz
             void applySoaTransform(ozz::animation::Skeleton& skeleton, osg::Matrix* matrices,
                                    int idx, int numSoa)
             {
-                ozz::math::SoaFloat3 translations, scales;
-                ozz::math::SoaQuaternion rotations;
                 osg::Vec3 p[4], s[4]; osg::Quat q[4], so;
                 for (int j = 0; j < numSoa; ++j) matrices[j].decompose(p[j], q[j], s[j], so);
                 for (int j = numSoa; j < 4; ++j) q[j] = osg::Quat(0.0f, 0.0f, 0.0f, 0.0f);
@@ -123,8 +118,7 @@ namespace ozz
                     ozz::math::SoaFloat3 {
                         ozz::math::simd_float4::Load(s[0].x(), s[1].x(), s[2].x(), s[3].x()),
                         ozz::math::simd_float4::Load(s[0].y(), s[1].y(), s[2].y(), s[3].y()),
-                        ozz::math::simd_float4::Load(s[0].z(), s[1].z(), s[2].z(), s[3].z()) }
-                };
+                        ozz::math::simd_float4::Load(s[0].z(), s[1].z(), s[2].z(), s[3].z()) } };
             }
 
             std::map<osg::Transform*, osg::Node*> _parentMap;

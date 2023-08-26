@@ -3,6 +3,9 @@
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/Notify>
+#include <osg/MatrixTransform>
+#include <osg/PositionAttitudeTransform>
+#include <osg/ShapeDrawable>
 #include <osgUtil/SmoothingVisitor>
 using namespace osgVerse;
 
@@ -304,7 +307,7 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
         samplingJob.output = ozz::make_span(sampler.locals);
         if (!samplingJob.Run())
         {
-            OSG_WARN << "PlayerAnimation: sampling job failed." << std::endl;
+            OSG_WARN << "[PlayerAnimation] sampling job failed." << std::endl;
             return false;
         }
     }
@@ -315,10 +318,9 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
     blendJob.layers = ozz::make_span(layers);
     blendJob.rest_pose = ozz->_skeleton.joint_rest_poses();
     blendJob.output = ozz::make_span(ozz->_blended_locals);
-
     if (!blendJob.Run())
     {
-        OSG_WARN << "PlayerAnimation: blending job failed." << std::endl;
+        OSG_WARN << "[PlayerAnimation] blending job failed." << std::endl;
         return false;
     }
 
@@ -448,6 +450,83 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
                 ozz->_models[mesh.joint_remaps[j]] * mesh.inverse_bind_poses[j];
         }
         if (!ozz->applySkinningMesh(*geom, mesh)) return false;
+    }
+    return true;
+}
+
+static bool applyTransform(osg::Transform& node, const ozz::math::Float4x4& m, const osg::Matrix& parentM)
+{
+    osg::Matrix matrix(
+        ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
+        ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
+        ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
+        ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
+    matrix = matrix * osg::Matrix::inverse(parentM);
+    if (!osg::equivalent(matrix(3, 3), 1.0)) return false;
+
+    osg::MatrixTransform* mt = node.asMatrixTransform();
+    if (mt) { mt->setMatrix(matrix); return true; }
+
+    osg::PositionAttitudeTransform* pat = node.asPositionAttitudeTransform();
+    if (pat)
+    {
+        osg::Vec3 pos, scale; osg::Quat rot, so; matrix.decompose(pos, rot, scale, so);
+        pat->setPosition(pos); pat->setScale(scale); pat->setAttitude(rot); return true;
+    }
+    return false;
+}
+
+bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createIfMissing)
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
+    ozz::span<const char* const> joints = ozz->_skeleton.joint_names();
+    const ozz::vector<ozz::math::Float4x4>& matrices = ozz->_models;
+    if (parents.empty() || joints.size() != matrices.size()) return false;
+
+    std::vector<osg::Group*> createdNodes; osg::ref_ptr<osg::Geode> geode;
+    createdNodes.push_back(&skeletonRoot); skeletonRoot.setName(joints[0]);
+    applyTransform(skeletonRoot, matrices[0], osg::Matrix());
+    for (size_t i = 0; i < parents.size(); ++i)
+    {
+        std::string jointName = joints[i];
+        int16_t idx = parents[i]; if (idx < 0) continue;
+        if (createdNodes.size() <= idx) continue;  // FIXME: will this happen?
+
+        osg::Group* parent = createdNodes[idx]; bool found = false;
+        for (size_t j = 0; j < parent->getNumChildren(); ++j)
+        {
+            osg::Group* child = parent->getChild(j)->asGroup();
+            if (child && child->getName() == jointName)
+            { createdNodes.push_back(child); found = true; break; }
+        }
+
+#if 0   // display a sphere of bone joint
+        if (createIfMissing && !geode)
+        {
+            geode = new osg::Geode;
+            geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 0.01f)));
+        }
+#endif
+
+        if (found)
+        {
+            osg::Transform* childT = createdNodes.back()->asTransform();
+            applyTransform(*childT, matrices[i], parent->getWorldMatrices(&skeletonRoot)[0]);
+        }
+        else if (createIfMissing)
+        {
+            osg::MatrixTransform* newT = new osg::MatrixTransform;
+            if (geode.valid()) newT->addChild(geode.get());
+            newT->setName(jointName); parent->addChild(newT); createdNodes.push_back(newT);
+            applyTransform(*newT, matrices[i], parent->getWorldMatrices(&skeletonRoot)[0]);
+        }
+        else
+        {
+            OSG_WARN << "[PlayerAnimation] Joint node not found: " << jointName
+                     << ", while applying transforms to scene graph" << std::endl;
+            return false;
+        }
     }
     return true;
 }
