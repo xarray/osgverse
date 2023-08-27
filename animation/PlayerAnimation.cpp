@@ -2,7 +2,7 @@
 #include "PlayerAnimationInternal.h"
 #include <osg/io_utils>
 #include <osg/Version>
-#include <osg/Notify>
+#include <osg/TriangleIndexFunctor>
 #include <osgDB/ReadFile>
 #include <nanoid/nanoid.h>
 using namespace osgVerse;
@@ -35,6 +35,7 @@ namespace ozz
         public:
             CreateSkeletonVisitor()
                 : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+            const std::vector<osg::Transform*>& getSkeletonNodes() const { return _nodeList; }
 
             virtual void apply(osg::Transform& node)
             {
@@ -125,6 +126,139 @@ namespace ozz
             std::vector<osg::Transform*> _nodeList;
             std::string _namesToStore;
         };
+
+        struct CollectTriangleOperator
+        {
+            void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+            {
+                if (i1 == i2 || i2 == i3 || i1 == i3) return;
+                triangles.push_back(startIndex + i1);
+                triangles.push_back(startIndex + i2);
+                triangles.push_back(startIndex + i3);
+            }
+
+            std::vector<uint16_t> triangles;
+            uint16_t startIndex;
+        };
+
+        class CreateMeshVisitor : public osg::NodeVisitor
+        {
+        public:
+            CreateMeshVisitor(const std::vector<osg::Transform*>& nodes,
+                              const std::map<osg::Geometry*, PlayerAnimation::GeometryJointData>& jd)
+                : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _jointMap(jd)
+            { for (size_t i = 0; i < nodes.size(); ++i) _nodeMap[nodes[i]] = i; }
+
+            ozz::vector<OzzMesh>& getMeshes() { return _meshes; }
+            const ozz::vector<OzzMesh>& getMeshes() const { return _meshes; }
+
+            virtual void apply(osg::Geode& node)
+            {
+                for (size_t i = 0; i < node.getNumDrawables(); ++i)
+                {
+                    osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+                    if (geom && _jointMap.find(geom) != _jointMap.end())
+                        apply(*geom, _jointMap.find(geom)->second);
+                }
+                traverse(node);
+            }
+
+            void apply(osg::Geometry& geom, PlayerAnimation::GeometryJointData& jData)
+            {
+                osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom.getVertexArray());
+                osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom.getNormalArray());
+                osg::Vec3Array* ta = dynamic_cast<osg::Vec3Array*>(geom.getVertexAttribArray(6));
+                osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geom.getColorArray());
+                osg::Vec2Array* uv = dynamic_cast<osg::Vec2Array*>(geom.getTexCoordArray(0));
+                if (!va || (va && va->empty())) return;
+
+                size_t vCount = va->size(), wCount = jData._weightList.size();
+                if (vCount != wCount)
+                {
+                    OSG_WARN << "[PlayerAnimation] Imported joint-weight list size mismatched: "
+                             << wCount << " != (vertex count) " << vCount << std::endl;
+                    return;
+                }
+
+                // Apply to mesh part
+                OzzMesh::Part meshPart;
+                meshPart.positions.resize(vCount * 3);
+                memcpy(&meshPart.positions[0], &(*va)[0], vCount * sizeof(float) * 3);
+                if (ta && ta->size() == vCount)
+                {
+                    for (size_t i = 0; i < vCount; ++i)
+                    {
+                        const osg::Vec3& t = (*ta)[i]; meshPart.tangents.push_back(t[0]);
+                        meshPart.tangents.push_back(t[1]); meshPart.tangents.push_back(t[2]);
+                        meshPart.tangents.push_back(0.0f);
+                    }
+                }
+
+                if (na && na->size() == vCount)
+                {
+                    meshPart.normals.resize(vCount * 3);
+                    memcpy(&meshPart.normals[0], &(*na)[0], vCount * sizeof(float) * 3);
+                }
+                if (ca && ca->size() == vCount)
+                {
+                    meshPart.colors.resize(vCount * 4);
+                    memcpy(&meshPart.colors[0], &(*ca)[0], vCount * sizeof(float) * 4);
+                }
+                if (uv && uv->size() == vCount)
+                {
+                    meshPart.uvs.resize(vCount * 2);
+                    memcpy(&meshPart.uvs[0], &(*uv)[0], vCount * sizeof(float) * 2);
+                }
+
+                // Compute joint weights
+                size_t numJointsToWeight = jData._weightList[0].size(), count = 0;
+                if (numJointsToWeight == 0) return;  // FIXME: a valid range like [1, 4]?
+                for (size_t i = 0; i < wCount; ++i)
+                {
+                    std::map<osg::Transform*, float>& jMap = jData._weightList[i];
+                    for (std::map<osg::Transform*, float>::iterator itr = jMap.begin();
+                         itr != jMap.end(); ++itr, ++count)
+                    {
+                        meshPart.joint_indices.push_back(_nodeMap[itr->first]);
+                        meshPart.joint_weights.push_back(itr->second);
+                        if (count == numJointsToWeight - 1) break;
+                    }
+
+                    while (count < numJointsToWeight - 1)
+                    {
+                        meshPart.joint_indices.push_back(0);
+                        meshPart.joint_weights.push_back(0.0f);
+                    }
+                    count = 0;
+                }
+
+                // Apply to OZZ mesh
+                osg::TriangleIndexFunctor<CollectTriangleOperator> functor;
+                functor.startIndex = 0; geom.accept(functor);
+
+                OzzMesh mesh; mesh.parts.push_back(meshPart);
+                mesh.triangle_indices.assign(functor.triangles.begin(), functor.triangles.end());
+                for (std::map<osg::Transform*, osg::Matrixf>::iterator itr = jData._invBindPoseMap.begin();
+                     itr != jData._invBindPoseMap.end(); ++itr)
+                {
+                    const osg::Matrixf& m = itr->second;
+                    ozz::math::Float4x4 pose = ozz::math::Float4x4::identity();
+                    pose.cols[0] = ozz::math::simd_float4::Load(m(0, 0), m(1, 0), m(2, 0), m(3, 0));
+                    pose.cols[1] = ozz::math::simd_float4::Load(m(0, 1), m(1, 1), m(2, 1), m(3, 1));
+                    pose.cols[2] = ozz::math::simd_float4::Load(m(0, 2), m(1, 2), m(2, 2), m(3, 2));
+                    pose.cols[3] = ozz::math::simd_float4::Load(m(0, 3), m(1, 3), m(2, 3), m(3, 3));
+
+                    mesh.joint_remaps.push_back(_nodeMap[itr->first]);
+                    mesh.inverse_bind_poses.push_back(pose);
+                }
+                _meshes.push_back(mesh);
+            }
+
+        protected:
+            std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> _jointMap;
+            std::map<osg::Transform*, uint16_t> _nodeMap;
+            ozz::vector<OzzMesh> _meshes;
+        };
     }
 }
 
@@ -135,7 +269,7 @@ PlayerAnimation::PlayerAnimation()
 }
 
 bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
-                                 const std::map<std::string, GeometryJointData>& jointDataMap)
+                                 const std::map<osg::Geometry*, GeometryJointData>& jointDataMap)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
 
@@ -144,6 +278,8 @@ bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
     skeletonRoot.accept(csv); csv.build(ozz->_skeleton);
 
     // Load mesh data from 'meshRoot' and 'jointDataMap'
+    ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
+    meshRoot.accept(cmv); ozz->_meshes = cmv.getMeshes();
     return initializeInternal();
 }
 

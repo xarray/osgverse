@@ -58,3 +58,8 @@ IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Tessellation tessellation_test.cpp)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Scripting scripting_test.cpp)
 ENDIF()
+
+IF(VERSE_SUPPORT_CPP17)
+    SET(CMAKE_CXX_STANDARD 17)
+    NEW_TEST_EXECUTABLE(osgVerse_Test_ECS entity_components_test.cpp)
+ENDIF(VERSE_SUPPORT_CPP17)

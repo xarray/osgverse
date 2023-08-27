@@ -476,7 +476,8 @@ static bool applyTransform(osg::Transform& node, const ozz::math::Float4x4& m, c
     return false;
 }
 
-bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createIfMissing)
+bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot,
+                                      bool createIfMissing, bool createWithShape)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
@@ -501,13 +502,12 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createI
             { createdNodes.push_back(child); found = true; break; }
         }
 
-#if 0   // display a sphere of bone joint
-        if (createIfMissing && !geode)
+        // Display a sphere of bone joint
+        if (createIfMissing && createWithShape && !geode)
         {
             geode = new osg::Geode;
             geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 0.01f)));
         }
-#endif
 
         if (found)
         {

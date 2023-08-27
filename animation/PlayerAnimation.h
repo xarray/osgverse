@@ -17,9 +17,9 @@ namespace osgVerse
 
         struct GeometryJointData
         {
-            typedef std::vector<std::pair<uint16_t, float>> JointWeight;
-            std::vector<JointWeight> _weights;  // size must equal to vertex count
-            std::map<uint16_t, osg::Matrixf> _invBindPoses;
+            typedef std::map<osg::Transform*, float> JointWeights;  // [joint, weight]
+            std::vector<JointWeights> _weightList;  // size equals to vertex count
+            std::map<osg::Transform*, osg::Matrixf> _invBindPoseMap;  // [joint, invBindPose]
         };
 
         /** Initialize the player skeleton and mesh from OSG scene graph
@@ -28,7 +28,7 @@ namespace osgVerse
         *   - jointDataMap: joint_idx/weight (per vertex), inverse_bind_poses (per joint-in-geom)
         */
         bool initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
-                        const std::map<std::string, GeometryJointData>& jointDataMap);
+                        const std::map<osg::Geometry*, GeometryJointData>& jointDataMap);
 
         /// Initialize the player from ozz skeleton and mesh files
         bool initialize(const std::string& skeleton, const std::string& mesh);
@@ -39,7 +39,7 @@ namespace osgVerse
 
         bool update(const osg::FrameStamp& fs, bool paused);
         bool applyMeshes(osg::Geode& meshDataRoot, bool withSkinning);
-        bool applyTransforms(osg::Transform& skeletonRoot, bool createIfMissing);
+        bool applyTransforms(osg::Transform& root, bool createIfMissing, bool withShape = false);
 
         struct JointIkData { int joint; float weight; osg::Vec3 localUp; osg::Vec3 localForward; };
         bool updateAimIK(const osg::Vec3& target, const std::vector<JointIkData>& chain,
