@@ -4,6 +4,7 @@
 #include <iterator>
 #include <fstream>
 #include <iostream>
+#include <animation/PlayerAnimation.h>
 
 #define TINYGLTF_USE_RAPIDJSON 1
 #include <tiny_gltf.h>
@@ -20,13 +21,38 @@ namespace osgVerse
         tinygltf::Model& getModelData() { return _modelDef; }
 
     protected:
+        struct DeferredMeshData
+        {
+            osg::ref_ptr<osg::Geode> meshRoot;
+            tinygltf::Mesh mesh; int skinIndex;
+            DeferredMeshData() : skinIndex(-1) {}
+            DeferredMeshData(osg::Geode* g, tinygltf::Mesh& m, int i)
+                : meshRoot(g), mesh(m), skinIndex(i) {}
+        };
+
+        struct SkinningData
+        {
+            osg::ref_ptr<PlayerAnimation> player;
+            osg::ref_ptr<osg::Geode> meshRoot;
+            osg::ref_ptr<osg::Group> skeletonRoot;
+            std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> jointData;
+            std::vector<osg::Geometry*> meshList; std::vector<int> joints;
+            int skeletonBaseIndex, invBindPoseAccessor;
+            SkinningData() : skeletonBaseIndex(-1), invBindPoseAccessor(-1) {}
+        };
+
         virtual ~LoaderGLTF() {}
-        osg::Node* createNode(tinygltf::Node& node);
-        bool createMesh(osg::Geode* geode, tinygltf::Mesh mesh);
+        osg::Node* createNode(int id, tinygltf::Node& node);
+        bool createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex);
         void createMaterial(osg::StateSet* ss, tinygltf::Material mat);
         void createTexture(osg::StateSet* ss, int u, const std::string& name, tinygltf::Texture& tex);
+        void createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,
+                                   tinygltf::Accessor& accessor);
 
         std::map<int, osg::observer_ptr<osg::Image>> _imageMap;
+        std::map<int, osg::Node*> _nodeCreationMap;
+        std::vector<DeferredMeshData> _deferredMeshList;
+        std::vector<SkinningData> _skinningDataList;
         osg::ref_ptr<osg::Group> _root;
         tinygltf::Model _modelDef;
         std::string _workingDir;

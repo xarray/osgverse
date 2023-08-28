@@ -58,6 +58,18 @@ namespace ozz
                 traverse(node);
             }
 
+            void initialize(const std::vector<osg::Transform*>& skeletonList)
+            {   // call this if not use me as a visitor
+                for (size_t i = 0; i < skeletonList.size(); ++i)
+                {
+                    osg::Transform* node = skeletonList[i];
+                    if (node->getNumParents() > 0)
+                        _parentMap[node] = node->getParent(0);
+                    _nodeList.push_back(node);
+                    _namesToStore.append(node->getName());
+                }
+            }
+
             void build(ozz::animation::Skeleton& skeleton)
             {
                 int32_t charsCount = (int32_t)_namesToStore.size();
@@ -150,7 +162,7 @@ namespace ozz
             { for (size_t i = 0; i < nodes.size(); ++i) _nodeMap[nodes[i]] = i; }
 
             ozz::vector<OzzMesh>& getMeshes() { return _meshes; }
-            const ozz::vector<OzzMesh>& getMeshes() const { return _meshes; }
+            std::vector<osg::ref_ptr<osg::StateSet>>& getStateSets() { return _stateSetList; }
 
             virtual void apply(osg::Geode& node)
             {
@@ -161,6 +173,16 @@ namespace ozz
                         apply(*geom, _jointMap.find(geom)->second);
                 }
                 traverse(node);
+            }
+
+            void initialize(const std::vector<osg::Geometry*>& meshList)
+            {   // call this if not use me as a visitor
+                for (size_t i = 0; i < meshList.size(); ++i)
+                {
+                    osg::Geometry* geom = meshList[i];
+                    if (geom && _jointMap.find(geom) != _jointMap.end())
+                        apply(*geom, _jointMap.find(geom)->second);
+                }
             }
 
             void apply(osg::Geometry& geom, PlayerAnimation::GeometryJointData& jData)
@@ -181,8 +203,7 @@ namespace ozz
                 }
 
                 // Apply to mesh part
-                OzzMesh::Part meshPart;
-                meshPart.positions.resize(vCount * 3);
+                OzzMesh::Part meshPart; meshPart.positions.resize(vCount * 3);
                 memcpy(&meshPart.positions[0], &(*va)[0], vCount * sizeof(float) * 3);
                 if (ta && ta->size() == vCount)
                 {
@@ -190,7 +211,7 @@ namespace ozz
                     {
                         const osg::Vec3& t = (*ta)[i]; meshPart.tangents.push_back(t[0]);
                         meshPart.tangents.push_back(t[1]); meshPart.tangents.push_back(t[2]);
-                        meshPart.tangents.push_back(0.0f);
+                        meshPart.tangents.push_back(1.0f);  // LH = -1, RH = +1
                     }
                 }
 
@@ -212,7 +233,13 @@ namespace ozz
 
                 // Compute joint weights
                 size_t numJointsToWeight = jData._weightList[0].size(), count = 0;
-                if (numJointsToWeight == 0) return;  // FIXME: a valid range like [1, 4]?
+                if (numJointsToWeight == 0 || numJointsToWeight > 4)
+                {
+                    OSG_WARN << "[PlayerAnimation] Unsupported joint-weight size: "
+                             << numJointsToWeight << std::endl;
+                    return;  // FIXME: a valid range like [1, 4]?
+                }
+
                 for (size_t i = 0; i < wCount; ++i)
                 {
                     std::map<osg::Transform*, float>& jMap = jData._weightList[i];
@@ -226,7 +253,7 @@ namespace ozz
 
                     while (count < numJointsToWeight - 1)
                     {
-                        meshPart.joint_indices.push_back(0);
+                        meshPart.joint_indices.push_back(0); count++;
                         meshPart.joint_weights.push_back(0.0f);
                     }
                     count = 0;
@@ -252,11 +279,13 @@ namespace ozz
                     mesh.inverse_bind_poses.push_back(pose);
                 }
                 _meshes.push_back(mesh);
+                _stateSetList.push_back(jData._stateset);
             }
 
         protected:
             std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> _jointMap;
             std::map<osg::Transform*, uint16_t> _nodeMap;
+            std::vector<osg::ref_ptr<osg::StateSet>> _stateSetList;
             ozz::vector<OzzMesh> _meshes;
         };
     }
@@ -264,7 +293,7 @@ namespace ozz
 
 PlayerAnimation::PlayerAnimation()
 {
-    _internal = new OzzAnimation;
+    _internal = new OzzAnimation; _animated = true;
     _blendingThreshold = ozz::animation::BlendingJob().threshold;
 }
 
@@ -280,6 +309,21 @@ bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
     // Load mesh data from 'meshRoot' and 'jointDataMap'
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
     meshRoot.accept(cmv); ozz->_meshes = cmv.getMeshes();
+    _meshStateSetList = cmv.getStateSets();
+    return initializeInternal();
+}
+
+bool PlayerAnimation::initialize(const std::vector<osg::Transform*>& nodes,
+                                 const std::vector<osg::Geometry*>& meshList,
+                                 const std::map<osg::Geometry*, GeometryJointData>& jointDataMap)
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    ozz::animation::CreateSkeletonVisitor csv;
+    csv.initialize(nodes); csv.build(ozz->_skeleton);
+
+    ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
+    cmv.initialize(meshList); ozz->_meshes = cmv.getMeshes();
+    _meshStateSetList = cmv.getStateSets();
     return initializeInternal();
 }
 

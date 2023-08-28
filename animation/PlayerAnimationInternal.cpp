@@ -13,12 +13,12 @@ bool OzzAnimation::loadSkeleton(const char* filename, ozz::animation::Skeleton* 
 {
     ozz::io::File file(filename, "rb");
     if (!file.opened())
-        ozz::log::Err() << "Failed to open skeleton file " << filename << std::endl;
+        ozz::log::Err() << "[PlayerAnimation] Failed to open skeleton file " << filename << std::endl;
     else
     {
         ozz::io::IArchive archive(&file);
         if (!archive.TestTag<ozz::animation::Skeleton>())
-            ozz::log::Err() << "Failed to load skeleton instance from file "
+            ozz::log::Err() << "[PlayerAnimation] Failed to load skeleton instance from file "
                             << filename << std::endl;
         else { archive >> *skeleton; return true; }
     }
@@ -29,12 +29,12 @@ bool OzzAnimation::loadAnimation(const char* filename, ozz::animation::Animation
 {
     ozz::io::File file(filename, "rb");
     if (!file.opened())
-        ozz::log::Err() << "Failed to open animation file " << filename << std::endl;
+        ozz::log::Err() << "[PlayerAnimation] Failed to open animation file " << filename << std::endl;
     else
     {
         ozz::io::IArchive archive(&file);
         if (!archive.TestTag<ozz::animation::Animation>())
-            ozz::log::Err() << "Failed to load animation instance from file "
+            ozz::log::Err() << "[PlayerAnimation] Failed to load animation instance from file "
                             << filename << std::endl;
         else { archive >> *anim; return true; }
     }
@@ -46,7 +46,7 @@ bool OzzAnimation::loadMesh(const char* filename, ozz::vector<ozz::sample::Mesh>
     ozz::io::File file(filename, "rb");
     if (!file.opened())
     {
-        ozz::log::Err() << "Failed to open mesh file " << filename << std::endl;
+        ozz::log::Err() << "[PlayerAnimation] Failed to open mesh file " << filename << std::endl;
         return false;
     }
     else
@@ -225,7 +225,7 @@ bool OzzAnimation::applySkinningMesh(osg::Geometry& geom, const OzzMesh& mesh)
                 memcpy(&((*na)[vIndex]), &(outNormals[0]), count * sizeof(float) * 3);
         }
         else
-            ozz::log::Err() << "Failed with skinning job" << std::endl;
+            ozz::log::Err() << "[PlayerAnimation] Failed with skinning job" << std::endl;
 
         // Update non-skinning attributes
         if (dirtyVA > 0)
@@ -529,4 +529,13 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot,
         }
     }
     return true;
+}
+
+void PlayerAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
+{
+    osg::Geode* geode = node->asGeode();
+    if (nv->getFrameStamp()) update(*nv->getFrameStamp(), !_animated);
+    if (node->asGeode()) applyMeshes(*node->asGeode(), true);
+    else OSG_WARN << "[PlayerAnimation] Callback should set to a geode to animate meshes" << std::endl;
+    traverse(node, nv);
 }

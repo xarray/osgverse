@@ -112,36 +112,108 @@ namespace osgVerse
         if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene\n"; return; }
         _root = new osg::Group;
 
+        // Preload skin data
+        for (size_t i = 0; i < _modelDef.skins.size(); ++i)
+        {
+            const tinygltf::Skin& skin = _modelDef.skins[i];
+            SkinningData sd; sd.skeletonBaseIndex = skin.skeleton;
+            sd.invBindPoseAccessor = skin.inverseBindMatrices;
+            sd.player = new PlayerAnimation; sd.player->setName(skin.name);
+            sd.joints.assign(skin.joints.begin(), skin.joints.end());
+            _skinningDataList.push_back(sd);
+        }
+
+        // Read and construct scene graph
         const tinygltf::Scene& defScene = _modelDef.scenes[_modelDef.defaultScene];
         for (size_t i = 0; i < defScene.nodes.size(); ++i)
         {
-            osg::ref_ptr<osg::Node> child = createNode(_modelDef.nodes[defScene.nodes[i]]);
+            osg::ref_ptr<osg::Node> child = createNode(
+                defScene.nodes[i], _modelDef.nodes[defScene.nodes[i]]);
             if (child.valid()) _root->addChild(child.get());
+        }
+
+        // Load geometries to geodes of the scene graph
+        for (size_t i = 0; i < _deferredMeshList.size(); ++i)
+        {
+            DeferredMeshData& mData = _deferredMeshList[i];
+            createMesh(mData.meshRoot.get(), mData.mesh, mData.skinIndex);
+        }
+
+        // Configure skinning data and player objects
+        for (size_t i = 0; i < _skinningDataList.size(); ++i)
+        {
+            SkinningData& sd = _skinningDataList[i];
+            std::vector<osg::Transform*> boneList;
+            for (size_t b = 0; b < sd.joints.size(); ++b)
+            {
+                osg::Node* n = _nodeCreationMap[sd.joints[b]];
+                if (n && n->asGroup() && n->asGroup()->asTransform())
+                    boneList.push_back(n->asGroup()->asTransform());
+                else if (n)
+                    OSG_WARN << "[LoaderGLTF] Invalid bone: " << n->getName() << std::endl;
+                else
+                    OSG_WARN << "[LoaderGLTF] Invalid empty bone: " << sd.joints[b] << std::endl;
+            }
+
+            createInvBindMatrices(sd, boneList, _modelDef.accessors[sd.invBindPoseAccessor]);
+            if (!sd.meshList.empty()) sd.player->initialize(boneList, sd.meshList, sd.jointData);
+
+            osg::Node* skeletonRoot = _nodeCreationMap[sd.skeletonBaseIndex];
+            sd.skeletonRoot = skeletonRoot ? skeletonRoot->asGroup() : NULL;
+            sd.meshRoot = new osg::Geode; sd.meshRoot->addUpdateCallback(sd.player.get());
+            if (sd.skeletonRoot.valid()) sd.skeletonRoot->addChild(sd.meshRoot.get());
+            else _root->addChild(sd.meshRoot.get());
         }
     }
 
-    osg::Node* LoaderGLTF::createNode(tinygltf::Node& node)
+    osg::Node* LoaderGLTF::createNode(int id, tinygltf::Node& node)
     {
         osg::ref_ptr<osg::Geode> geode = (node.mesh >= 0) ? new osg::Geode : NULL;
-        if (geode.valid()) createMesh(geode.get(), _modelDef.meshes[node.mesh]);  // TODO: skin
-        if (node.matrix.empty() && node.children.empty()) return geode.release();
+        bool emptyTRS = (node.translation.empty() && node.rotation.empty()
+                     && node.scale.empty()), emptyM = node.matrix.empty();
+        if (geode.valid()) _deferredMeshList.push_back(
+            DeferredMeshData(geode.get(), _modelDef.meshes[node.mesh], node.skin));
+        /*if (emptyTRS && emptyM && node.children.empty())
+        {
+            geode->setName(node.name); _nodeCreationMap[id] = geode.get();
+            return geode.release();
+        }*/
 
         osg::ref_ptr<osg::MatrixTransform> group = new osg::MatrixTransform;
         for (size_t i = 0; i < node.children.size(); ++i)
         {
-            osg::ref_ptr<osg::Node> child = createNode(_modelDef.nodes[node.children[i]]);
+            osg::ref_ptr<osg::Node> child = createNode(
+                node.children[i], _modelDef.nodes[node.children[i]]);
             if (child.valid()) group->addChild(child.get());
         }
 
         if (geode.valid()) group->addChild(geode.get());
-        if (!node.matrix.empty()) group->setMatrix(osg::Matrix(&node.matrix[0]));
-        return group.release();
+        //else group->addChild(osgDB::readNodeFile("axes.osgt.(0.1,0.1,0.1).scale"));
+        group->setName(node.name); _nodeCreationMap[id] = group.get();
+
+        osg::Matrix matrix; std::vector<double> &t = node.translation, &r = node.rotation;
+        if (!emptyTRS)
+        {
+            if (node.scale.size() == 3)
+                matrix *= osg::Matrix::scale(node.scale[0], node.scale[1], node.scale[2]);
+            if (r.size() == 4) matrix *= osg::Matrix::rotate(osg::Quat(r[0], r[1], r[2], r[3]));
+            if (t.size() == 3) matrix *= osg::Matrix::translate(t[0], t[1], t[2]);
+        }
+        else if (!emptyM)
+            matrix = osg::Matrix(&node.matrix[0]);
+        group->setMatrix(matrix); return group.release();
     }
 
-    bool LoaderGLTF::createMesh(osg::Geode* geode, tinygltf::Mesh mesh)
+    bool LoaderGLTF::createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex)
     {
+        SkinningData* sd = (skinIndex < 0) ? NULL : &_skinningDataList[skinIndex];
+        if (sd != NULL) geode->setNodeMask(0);  // FIXME: ugly to hide original meshes
+
         for (size_t i = 0; i < mesh.primitives.size(); ++i)
         {
+            std::vector<unsigned char> jointList0; std::vector<unsigned short> jointList1;
+            std::vector<float> weightList;
+
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
             geom->setUseDisplayList(false);
             geom->setUseVertexBufferObjects(true);
@@ -149,7 +221,7 @@ namespace osgVerse
             tinygltf::Primitive primitive = mesh.primitives[i];
             for (auto& attrib : primitive.attributes)
             {
-                tinygltf::Accessor attrAccessor = _modelDef.accessors[attrib.second];
+                tinygltf::Accessor& attrAccessor = _modelDef.accessors[attrib.second];
                 const tinygltf::BufferView& attrView = _modelDef.bufferViews[attrAccessor.bufferView];
                 if (attrView.buffer < 0) continue;
 
@@ -203,6 +275,32 @@ namespace osgVerse
 #endif
                     geom->setTexCoordArray(atoi(attrib.first.substr(9).c_str()), ta);
                 }
+                else if (attrib.first.find("JOINTS_") != std::string::npos && compNum == 4)
+                {
+                    int jID = atoi(attrib.first.substr(7).c_str());
+                    if (jID == 0)  // FIXME: joints group > 0?
+                    {
+                        if (compSize == 1)
+                        {
+                            jointList0.resize(size * compNum);
+                            memcpy(&jointList0[0], &buffer.data[attrView.byteOffset], copySize);
+                        }
+                        else
+                        {
+                            jointList1.resize(size * compNum);
+                            memcpy(&jointList1[0], &buffer.data[attrView.byteOffset], copySize);
+                        }
+                    }
+                }
+                else if (attrib.first.find("WEIGHTS_") != std::string::npos && compSize == 4 && compNum == 4)
+                {
+                    int wID = atoi(attrib.first.substr(8).c_str());
+                    if (wID == 0)  // FIXME: weights group > 0?
+                    {
+                        weightList.resize(size * compNum);
+                        memcpy(&weightList[0], &buffer.data[attrView.byteOffset], copySize);
+                    }
+                }
                 else
                     OSG_WARN << "[LoaderGLTF] Unsupported primitive " << attrib.first << " with "
                              << compNum << "-components and dataSize=" << compSize << std::endl;
@@ -216,7 +314,7 @@ namespace osgVerse
             osg::ref_ptr<osg::PrimitiveSet> p;
             if (indexView.target == 0)
                 p = new osg::DrawArrays(GL_POINTS, 0, va->size());
-            else
+            else  // ELEMENT_ARRAY_BUFFER = 34963
             {
                 const tinygltf::Buffer& indexBuffer = _modelDef.buffers[indexView.buffer];
                 int compSize = tinygltf::GetComponentSizeInBytes(indexAccessor.componentType);
@@ -242,7 +340,7 @@ namespace osgVerse
                         memcpy(&(*de)[0], &indexBuffer.data[indexView.byteOffset], size * compSize);
                     }
                     break;
-                default: OSG_WARN << "[LoaderGLTF] Unknown size " << compSize << std::endl; continue;
+                default: OSG_WARN << "[LoaderGLTF] Unknown size " << compSize << std::endl; break;
                 }
             }
 
@@ -255,7 +353,7 @@ namespace osgVerse
             case TINYGLTF_MODE_TRIANGLES: p->setMode(GL_TRIANGLES); break;
             case TINYGLTF_MODE_TRIANGLE_STRIP: p->setMode(GL_TRIANGLE_STRIP); break;
             case TINYGLTF_MODE_TRIANGLE_FAN: p->setMode(GL_TRIANGLE_FAN); break;
-            default: OSG_WARN << "[LoaderGLTF] Unknown type " << primitive.mode << std::endl; continue;
+            default: OSG_WARN << "[LoaderGLTF] Unknown primitive " << primitive.mode << std::endl; continue;
             }
 
             geom->addPrimitiveSet(p.get());
@@ -264,6 +362,29 @@ namespace osgVerse
             {
                 tinygltf::Material& material = _modelDef.materials[primitive.material];
                 createMaterial(geom->getOrCreateStateSet(), material);
+            }
+
+            if (sd != NULL && !weightList.empty())  // handle skinning data
+            {
+                PlayerAnimation::GeometryJointData gjData;
+                for (size_t w = 0; w < weightList.size(); w += 4)
+                {
+                    PlayerAnimation::GeometryJointData::JointWeights jwMap;
+                    osg::Transform* tList[4] = { NULL };
+                    for (int k = 0; k < 4; ++k)
+                    {
+                        osg::Node* n = _nodeCreationMap[
+                            !jointList0.empty() ? (int)jointList0[w + k] : (int)jointList1[w + k]];
+                        if (n && n->asGroup()) tList[k] = n->asGroup()->asTransform();
+                        if (tList[k]) jwMap[tList[k]] = weightList[w + k];
+                        else OSG_WARN << "[LoaderGLTF] No joint found for weight " << (w + k) << std::endl;
+                    }
+                    gjData._weightList.push_back(jwMap);
+                }
+
+                gjData._stateset = geom->getStateSet();
+                sd->jointData[geom.get()] = gjData;
+                sd->meshList.push_back(geom.get());
             }
         }
         return true;
@@ -336,6 +457,30 @@ namespace osgVerse
         tex2D->setImage(image2D.get()); tex2D->setName(imageSrc.uri);
         ss->setTextureAttributeAndModes(u, tex2D.get());
         //ss->addUniform(new osg::Uniform(name.c_str(), u));
+    }
+
+    void LoaderGLTF::createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,
+                                           tinygltf::Accessor& accessor)
+    {
+        const tinygltf::BufferView& attrView = _modelDef.bufferViews[accessor.bufferView];
+        if (attrView.buffer < 0) return;
+
+        const tinygltf::Buffer& buffer = _modelDef.buffers[attrView.buffer];
+        int compSize = tinygltf::GetComponentSizeInBytes(accessor.componentType);
+        int compNum = accessor.type, size = accessor.count;
+        if (compNum != TINYGLTF_TYPE_MAT4 || size != (int)bones.size()) return;
+
+        size_t matSize = compSize * 4; std::vector<float> matrices(size * matSize);
+        memcpy(&matrices[0], &buffer.data[attrView.byteOffset], matrices.size() * sizeof(float));
+        for (int i = 0; i < size; ++i)
+        {
+            osg::Matrixf matrix(&matrices[i * matSize]);
+            for (size_t j = 0; j < sd.meshList.size(); ++j)
+            {
+                PlayerAnimation::GeometryJointData& jData = sd.jointData[sd.meshList[j]];
+                jData._invBindPoseMap[bones[i]] = matrix;
+            }
+        }
     }
 
     osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary)

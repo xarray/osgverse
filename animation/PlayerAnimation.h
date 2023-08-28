@@ -9,17 +9,22 @@ namespace osgVerse
 {
 
     /** The player animation support class */
-    class PlayerAnimation : public osg::Referenced
+    class PlayerAnimation : public osg::NodeCallback
     {
     public:
         typedef float (*SetJointWeightFunc)(int, int, void*);
         PlayerAnimation();
+
+        void setPlaying(bool b) { _animated = b; }
+        bool getPlaying() const { return _animated; }
+        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         struct GeometryJointData
         {
             typedef std::map<osg::Transform*, float> JointWeights;  // [joint, weight]
             std::vector<JointWeights> _weightList;  // size equals to vertex count
             std::map<osg::Transform*, osg::Matrixf> _invBindPoseMap;  // [joint, invBindPose]
+            osg::ref_ptr<osg::StateSet> _stateset;
         };
 
         /** Initialize the player skeleton and mesh from OSG scene graph
@@ -28,6 +33,9 @@ namespace osgVerse
         *   - jointDataMap: joint_idx/weight (per vertex), inverse_bind_poses (per joint-in-geom)
         */
         bool initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
+                        const std::map<osg::Geometry*, GeometryJointData>& jointDataMap);
+        bool initialize(const std::vector<osg::Transform*>& nodes,
+                        const std::vector<osg::Geometry*>& meshList,
                         const std::map<osg::Geometry*, GeometryJointData>& jointDataMap);
 
         /// Initialize the player from ozz skeleton and mesh files
@@ -75,6 +83,7 @@ namespace osgVerse
         std::vector<osg::ref_ptr<osg::StateSet>> _meshStateSetList;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;
+        bool _animated;
     };
 
 }

@@ -26,6 +26,6 @@ IF(DRACO_FOUND)
 ENDIF(DRACO_FOUND)
 
 IF(NOT UNIX)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation)
 ENDIF()
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)

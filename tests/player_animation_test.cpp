@@ -18,8 +18,10 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments(&argc, argv);
     osg::ref_ptr<osg::Geode> player = new osg::Geode;
+    osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
 
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
+    playerRoot->addChild(skeleton.get());
     playerRoot->addChild(player.get());
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
@@ -42,9 +44,6 @@ int main(int argc, char** argv)
                    << ", parent ID = " << p.second << std::endl;
     }
 
-    osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
-    root->addChild(skeleton.get());
-
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
@@ -52,11 +51,11 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
+
+    player->addUpdateCallback(animManager.get());
     while (!viewer.done())
     {
-        animManager->update(*viewer.getFrameStamp(), false);
-        animManager->applyMeshes(*player, true);
-        animManager->applyTransforms(*skeleton, true);
+        animManager->applyTransforms(*skeleton, true, true);
         viewer.frame();
     }
 
