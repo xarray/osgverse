@@ -52,7 +52,8 @@ namespace ozz
                     {
                         _parentMap[&node] = node.getParent(0);
                         _nodeList.push_back(&node);
-                        _namesToStore.append(node.getName());
+                        _namesToStore.append(node.getName() + " ");
+                        _namesToStore.back() = '\0';
                     }
                 }
                 traverse(node);
@@ -65,9 +66,10 @@ namespace ozz
                     osg::Transform* node = skeletonList[i];
                     if (node->getNumParents() > 0)
                         _parentMap[node] = node->getParent(0);
-                    _nodeList.push_back(node);
-                    _namesToStore.append(node->getName());
+                    _namesToStore.append(node->getName() + " ");
+                    _namesToStore.back() = '\0';
                 }
+                _nodeList = skeletonList;
             }
 
             void build(ozz::animation::Skeleton& skeleton)
@@ -233,17 +235,17 @@ namespace ozz
 
                 // Compute joint weights
                 size_t numJointsToWeight = jData._weightList[0].size(), count = 0;
-                if (numJointsToWeight == 0 || numJointsToWeight > 4)
+                if (numJointsToWeight != 4)
                 {
                     OSG_WARN << "[PlayerAnimation] Unsupported joint-weight size: "
                              << numJointsToWeight << std::endl;
-                    return;  // FIXME: a valid range like [1, 4]?
+                    return;  // FIXME: a valid range besides [1, 4]?
                 }
 
                 for (size_t i = 0; i < wCount; ++i)
                 {
-                    std::map<osg::Transform*, float>& jMap = jData._weightList[i];
-                    for (std::map<osg::Transform*, float>::iterator itr = jMap.begin();
+                    std::vector<std::pair<osg::Transform*, float>>& jMap = jData._weightList[i];
+                    for (std::vector<std::pair<osg::Transform*, float>>::iterator itr = jMap.begin();
                          itr != jMap.end(); ++itr, ++count)
                     {
                         meshPart.joint_indices.push_back(_nodeMap[itr->first]);
@@ -267,15 +269,22 @@ namespace ozz
                 mesh.triangle_indices.assign(functor.triangles.begin(), functor.triangles.end());
                 for (std::map<osg::Transform*, osg::Matrixf>::iterator itr = jData._invBindPoseMap.begin();
                      itr != jData._invBindPoseMap.end(); ++itr)
+                { mesh.joint_remaps.push_back(_nodeMap[itr->first]); }
+
+                std::sort(mesh.joint_remaps.begin(), mesh.joint_remaps.end());  // required by OZZ
+                for (size_t j = 0; j < mesh.joint_remaps.size(); ++j)
                 {
+                    uint16_t id = mesh.joint_remaps[j];
+                    std::map<osg::Transform*, osg::Matrixf>::iterator itr = jData._invBindPoseMap.begin();
+                    for (; itr != jData._invBindPoseMap.end(); ++itr)
+                    { if (_nodeMap[itr->first] == id) break; }
+
                     const osg::Matrixf& m = itr->second;
                     ozz::math::Float4x4 pose = ozz::math::Float4x4::identity();
-                    pose.cols[0] = ozz::math::simd_float4::Load(m(0, 0), m(1, 0), m(2, 0), m(3, 0));
-                    pose.cols[1] = ozz::math::simd_float4::Load(m(0, 1), m(1, 1), m(2, 1), m(3, 1));
-                    pose.cols[2] = ozz::math::simd_float4::Load(m(0, 2), m(1, 2), m(2, 2), m(3, 2));
-                    pose.cols[3] = ozz::math::simd_float4::Load(m(0, 3), m(1, 3), m(2, 3), m(3, 3));
-
-                    mesh.joint_remaps.push_back(_nodeMap[itr->first]);
+                    pose.cols[0] = ozz::math::simd_float4::Load(m(0, 0), m(0, 1), m(0, 2), m(0, 3));
+                    pose.cols[1] = ozz::math::simd_float4::Load(m(1, 0), m(1, 1), m(1, 2), m(1, 3));
+                    pose.cols[2] = ozz::math::simd_float4::Load(m(2, 0), m(2, 1), m(2, 2), m(2, 3));
+                    pose.cols[3] = ozz::math::simd_float4::Load(m(3, 0), m(3, 1), m(3, 2), m(3, 3));
                     mesh.inverse_bind_poses.push_back(pose);
                 }
                 _meshes.push_back(mesh);

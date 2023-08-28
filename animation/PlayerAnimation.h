@@ -21,7 +21,7 @@ namespace osgVerse
 
         struct GeometryJointData
         {
-            typedef std::map<osg::Transform*, float> JointWeights;  // [joint, weight]
+            typedef std::vector<std::pair<osg::Transform*, float>> JointWeights;  // [joint, weight]
             std::vector<JointWeights> _weightList;  // size equals to vertex count
             std::map<osg::Transform*, osg::Matrixf> _invBindPoseMap;  // [joint, invBindPose]
             osg::ref_ptr<osg::StateSet> _stateset;
