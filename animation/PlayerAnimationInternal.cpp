@@ -535,10 +535,10 @@ void PlayerAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
 {
     osg::Geode* geode = node->asGeode();
     if (nv->getFrameStamp()) update(*nv->getFrameStamp(), !_animated);
-    if (node->asGeode()) applyMeshes(*node->asGeode(), false);
+    if (node->asGeode()) applyMeshes(*node->asGeode(), true);
     else OSG_WARN << "[PlayerAnimation] Callback should set to a geode to animate meshes" << std::endl;
 
-    node->getParent(0)->asTransform()->asMatrixTransform()->setMatrix(osg::Matrix());
-    applyTransforms(*(node->getParent(0)->asTransform()), true, true);
+    //node->getParent(0)->asTransform()->asMatrixTransform()->setMatrix(osg::Matrix());
+    //applyTransforms(*(node->getParent(0)->asTransform()), true, true);
     traverse(node, nv);
 }

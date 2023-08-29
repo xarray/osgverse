@@ -35,8 +35,7 @@ int main(int argc, char** argv)
     animManager->select("idle", 1.0f, true);
     animManager->seek("idle", 0.0f);
 
-    std::vector<osgVerse::PlayerAnimation::ThisAndParent> joints =
-        animManager->getSkeletonIndices();
+    std::vector<osgVerse::PlayerAnimation::ThisAndParent> joints = animManager->getSkeletonIndices();
     for (size_t i = 0; i < joints.size(); ++i)
     {
         osgVerse::PlayerAnimation::ThisAndParent p = joints[i];

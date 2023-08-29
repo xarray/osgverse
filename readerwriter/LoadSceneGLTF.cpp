@@ -235,18 +235,15 @@ namespace osgVerse
                 int compSize = tinygltf::GetComponentSizeInBytes(attrAccessor.componentType);
                 int copySize = size * (compSize * compNum);
                 size_t offset = attrView.byteOffset + attrAccessor.byteOffset;
-                if (attrView.byteStride > 0 && attrView.byteStride != (compSize * compNum))
-                {
-                    OSG_WARN << "[LoaderGLTF] Unsupported byte-stride: " << attrView.byteStride
-                             << " for " << attrib.first << std::endl;
-                }
+                size_t stride = (attrView.byteStride > 0 && attrView.byteStride != (compSize * compNum))
+                              ? attrView.byteStride : 0;
 
                 //std::cout << attrib.first << ": Size = " << size << ", Components = " << compNum
                 //          << ", ComponentBytes = " << compSize << std::endl;
                 if (attrib.first.compare("POSITION") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* va = new osg::Vec3Array(size);
-                    memcpy(&(*va)[0], &buffer.data[offset], copySize);
+                    copyBufferData(&(*va)[0], &buffer.data[offset], copySize, stride, size);
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
                     va->setNormalize(attrAccessor.normalized);
 #endif
@@ -255,7 +252,7 @@ namespace osgVerse
                 else if (attrib.first.compare("NORMAL") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* na = new osg::Vec3Array(size);
-                    memcpy(&(*na)[0], &buffer.data[offset], copySize);
+                    copyBufferData(&(*na)[0], &buffer.data[offset], copySize, stride, size);
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
                     na->setNormalize(attrAccessor.normalized);
                     geom->setNormalArray(na, osg::Array::BIND_PER_VERTEX);
@@ -267,7 +264,7 @@ namespace osgVerse
                 {   // Do nothing as we calculate tangent/binormal by ourselves
 #if 0
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
-                    memcpy(&(*ta)[0], &buffer.data[offset], copySize);
+                    copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
                     ta->setNormalize(attrAccessor.normalized);
                     geom->setVertexAttribArray(6, ta, osg::Array::BIND_PER_VERTEX);
@@ -279,7 +276,7 @@ namespace osgVerse
                 else if (attrib.first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
                 {
                     osg::Vec2Array* ta = new osg::Vec2Array(size);
-                    memcpy(&(*ta)[0], &buffer.data[offset], copySize);
+                    copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
                     ta->setNormalize(attrAccessor.normalized);
 #endif
@@ -293,12 +290,12 @@ namespace osgVerse
                         if (compSize == 1)
                         {
                             jointList0.resize(size * compNum);
-                            memcpy(&jointList0[0], &buffer.data[offset], copySize);
+                            copyBufferData(&jointList0[0], &buffer.data[offset], copySize, stride, size);
                         }
                         else
                         {
                             jointList1.resize(size * compNum);
-                            memcpy(&jointList1[0], &buffer.data[offset], copySize);
+                            copyBufferData(&jointList1[0], &buffer.data[offset], copySize, stride, size);
                         }
                     }
                 }
@@ -308,7 +305,7 @@ namespace osgVerse
                     if (wID == 0)  // FIXME: weights group > 0?
                     {
                         weightList.resize(size * compNum);
-                        memcpy(&weightList[0], &buffer.data[offset], copySize);
+                        copyBufferData(&weightList[0], &buffer.data[offset], copySize, stride, size);
                     }
                 }
                 else
@@ -329,11 +326,8 @@ namespace osgVerse
                 const tinygltf::Buffer& indexBuffer = _modelDef.buffers[indexView.buffer];
                 int compSize = tinygltf::GetComponentSizeInBytes(indexAccessor.componentType);
                 int size = indexAccessor.count; if (!size) continue;
-                if (indexView.byteStride > 0 && indexView.byteStride != compSize)
-                {
-                    OSG_WARN << "[LoaderGLTF] Unsupported byte-stride: " << indexView.byteStride
-                             << " for primitive indices" << std::endl;
-                }
+                size_t stride = (indexView.byteStride > 0 && indexView.byteStride != compSize)
+                              ? indexView.byteStride : 0;
 
                 size_t offset = indexView.byteOffset + indexAccessor.byteOffset;
                 switch (compSize)
@@ -341,19 +335,19 @@ namespace osgVerse
                 case 1:
                     {
                         osg::DrawElementsUByte* de = new osg::DrawElementsUByte(GL_POINTS, size); p = de;
-                        memcpy(&(*de)[0], &indexBuffer.data[offset], size * compSize);
+                        copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
                     }
                     break;
                 case 2:
                     {
                         osg::DrawElementsUShort* de = new osg::DrawElementsUShort(GL_POINTS, size); p = de;
-                        memcpy(&(*de)[0], &indexBuffer.data[offset], size * compSize);
+                        copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
                     }
                     break;
                 case 4:
                     {
                         osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_POINTS, size); p = de;
-                        memcpy(&(*de)[0], &indexBuffer.data[offset], size * compSize);
+                        copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
                     }
                     break;
                 default:
@@ -487,15 +481,12 @@ namespace osgVerse
         int compSize = tinygltf::GetComponentSizeInBytes(accessor.componentType);
         int compNum = accessor.type, size = accessor.count;
         if (compNum != TINYGLTF_TYPE_MAT4 || size != (int)bones.size()) return;
-        if (attrView.byteStride > 0 && attrView.byteStride != (compSize * 4 * sizeof(float)))
-        {
-            OSG_WARN << "[LoaderGLTF] Unsupported byte-stride: " << attrView.byteStride
-                     << " for inv-bind matrices" << std::endl;
-        }
-
+        
+        size_t stride = (attrView.byteStride > 0 && attrView.byteStride != (compSize * 4 * sizeof(float)))
+                      ? attrView.byteStride : 0;
         size_t offset = accessor.byteOffset + attrView.byteOffset;
         size_t matSize = compSize * 4; std::vector<float> matrices(size * matSize);
-        memcpy(&matrices[0], &buffer.data[offset], matrices.size() * sizeof(float));
+        copyBufferData(&matrices[0], &buffer.data[offset], matrices.size() * sizeof(float), stride, size);
         for (int i = 0; i < size; ++i)
         {
             osg::Matrixf matrix(&matrices[i * matSize]);

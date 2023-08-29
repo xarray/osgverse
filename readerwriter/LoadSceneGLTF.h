@@ -49,6 +49,19 @@ namespace osgVerse
         void createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,
                                    tinygltf::Accessor& accessor);
 
+        inline void copyBufferData(void* dst, const void* src, size_t size,
+                                   size_t stride, size_t count)
+        {
+            if (stride > 0 && count > 0)
+            {
+                size_t elemSize = size / count;
+                for (size_t i = 0; i < count; ++i)
+                    memcpy((char*)dst + i * elemSize, (const char*)src + i * stride, elemSize);
+            }
+            else
+                memcpy(dst, src, size);
+        }
+
         std::map<int, osg::observer_ptr<osg::Image>> _imageMap;
         std::map<int, osg::Node*> _nodeCreationMap;
         std::vector<DeferredMeshData> _deferredMeshList;

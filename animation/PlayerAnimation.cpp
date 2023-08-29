@@ -103,9 +103,10 @@ namespace ozz
                                 skeleton.joint_parents_[i] = std::distance(_nodeList.begin(), itr);
                         }
                     }
-                    
-                    t->computeLocalToWorldMatrix(matrices[soaIndex++], NULL);
-                    if (soaIndex == 4)
+
+                    matrices[soaIndex].makeIdentity();
+                    t->computeLocalToWorldMatrix(matrices[soaIndex], NULL);
+                    if ((++soaIndex) == 4)
                     { applySoaTransform(skeleton, matrices, i / 4, soaIndex); soaIndex = 0; }
                 }
                 if (soaIndex != 0)
@@ -118,7 +119,7 @@ namespace ozz
             {
                 osg::Vec3 p[4], s[4]; osg::Quat q[4], so;
                 for (int j = 0; j < numSoa; ++j) matrices[j].decompose(p[j], q[j], s[j], so);
-                for (int j = numSoa; j < 4; ++j) q[j] = osg::Quat(0.0f, 0.0f, 0.0f, 0.0f);
+                for (int j = numSoa; j < 4; ++j) s[j] = osg::Vec3(1.0f, 1.0f, 1.0f);
 
                 skeleton.joint_rest_poses_[idx] = ozz::math::SoaTransform{
                     ozz::math::SoaFloat3 {
