@@ -303,7 +303,7 @@ namespace ozz
 
 PlayerAnimation::PlayerAnimation()
 {
-    _internal = new OzzAnimation; _animated = true;
+    _internal = new OzzAnimation; _animated = true; _drawSkeleton = true;
     _blendingThreshold = ozz::animation::BlendingJob().threshold;
 }
 
@@ -350,20 +350,17 @@ bool PlayerAnimation::loadAnimation(const std::string& key, const std::string& a
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     if (!ozz->loadAnimation(animation.c_str(), &(sampler.animation))) return false;
+    return loadAnimationInternal(key);
+}
 
-    const int num_joints = ozz->_skeleton.num_joints();
-    if (num_joints != sampler.animation.num_tracks())
-    {
-        ozz::log::Err() << "The provided animation " << key << " doesn't match skeleton "
-                        << "(joint count mismatch)" << std::endl;
-        return false;
-    }
+bool PlayerAnimation::loadAnimation(const std::string& key,
+                                    const std::map<osg::Transform*, AnimationData>& animDataMap)
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
 
-    sampler.locals.resize(ozz->_skeleton.num_soa_joints());
-    ozz->_context.Resize(num_joints);
-    if (ozz->_animations.size() > 1) sampler.weight = 0.0f;
-    else sampler.weight = 1.0f;  // by default only the first animation is full weighted
-    return true;
+    // TODO
+    return loadAnimationInternal(key);
 }
 
 void PlayerAnimation::unloadAnimation(const std::string& key)
@@ -552,5 +549,25 @@ bool PlayerAnimation::initializeInternal()
             return false;
         }
     }
+    return true;
+}
+
+bool PlayerAnimation::loadAnimationInternal(const std::string& key)
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
+
+    const int num_joints = ozz->_skeleton.num_joints();
+    if (num_joints != sampler.animation.num_tracks())
+    {
+        ozz::log::Err() << "The provided animation " << key << " doesn't match skeleton "
+            << "(joint count mismatch)" << std::endl;
+        return false;
+    }
+
+    sampler.locals.resize(ozz->_skeleton.num_soa_joints());
+    ozz->_context.Resize(num_joints);
+    if (ozz->_animations.size() > 1) sampler.weight = 0.0f;
+    else sampler.weight = 1.0f;  // by default only the first animation is full weighted
     return true;
 }

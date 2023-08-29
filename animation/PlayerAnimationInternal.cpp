@@ -422,22 +422,23 @@ bool PlayerAnimation::updateTwoBoneIK(const osg::Vec3& target, int start, int mi
 bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
-    if (meshDataRoot.getNumDrawables() != ozz->_meshes.size())
+    size_t numMeshes = ozz->_meshes.size() + (_drawSkeleton ? 1 : 0);
+    if (meshDataRoot.getNumDrawables() != numMeshes)
     {
-        std::map<std::string, osg::ref_ptr<osg::Texture2D>> textures;
         meshDataRoot.removeDrawables(0, meshDataRoot.getNumDrawables());
-        for (unsigned int i = 0; i < ozz->_meshes.size(); ++i)
+        for (size_t i = 0; i < numMeshes; ++i)
         {
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
             geom->setUseDisplayList(false);
             geom->setUseVertexBufferObjects(true);
-            if (i < _meshStateSetList.size())
-                geom->setStateSet(_meshStateSetList[i].get());
+            if (i < _meshStateSetList.size()) geom->setStateSet(_meshStateSetList[i].get());
+            else if (_drawSkeleton && i == numMeshes - 1)
+                geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
             meshDataRoot.addDrawable(geom.get());
         }
     }
 
-    for (unsigned int i = 0; i < ozz->_meshes.size(); ++i)
+    for (size_t i = 0; i < ozz->_meshes.size(); ++i)
     {
         const ozz::sample::Mesh& mesh = ozz->_meshes[i];
         osg::Geometry* geom = meshDataRoot.getDrawable(i)->asGeometry();
@@ -451,6 +452,8 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
         }
         if (!ozz->applySkinningMesh(*geom, mesh)) return false;
     }
+    if (_drawSkeleton)
+        updateSkeletonMesh(*(meshDataRoot.getDrawable(numMeshes - 1)->asGeometry()));
     return true;
 }
 
@@ -529,6 +532,50 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot,
         }
     }
     return true;
+}
+
+void PlayerAnimation::updateSkeletonMesh(osg::Geometry& geom)
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
+    const ozz::vector<ozz::math::Float4x4>& matrices = ozz->_models;
+    size_t vCount = parents.size();
+    if (vCount < 1 || vCount != matrices.size()) return;
+
+    osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom.getVertexArray());
+    if (!va) { va = new osg::Vec3Array(vCount); geom.setVertexArray(va); }
+    else if (va->size() != vCount) va->resize(vCount);
+
+    osg::Vec4ubArray* ca = static_cast<osg::Vec4ubArray*>(geom.getColorArray());
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+    if (!ca) { ca = new osg::Vec4ubArray(vCount); geom.setColorArray(ca, osg::Array::BIND_PER_VERTEX); }
+#else
+    if (!ca)
+    {
+        ca = new osg::Vec4ubArray(vCount); geom.setColorArray(ca);
+        geom.setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+#endif
+    else if (ca->size() != vCount) { ca->resize(vCount); ca->dirty(); }
+
+    osg::DrawElementsUShort* de = (geom.getNumPrimitiveSets() == 0) ? NULL
+                                : static_cast<osg::DrawElementsUShort*>(geom.getPrimitiveSet(0));
+    if (!de) { de = new osg::DrawElementsUShort(GL_LINES, vCount * 2); geom.addPrimitiveSet(de); }
+    else if (de->size() != vCount * 2) { de->resize(vCount * 2); de->dirty(); }
+
+    for (size_t i = 0; i < parents.size(); ++i)
+    {
+        int16_t pID = parents[i]; if (pID < 0) pID = 0;  // make an invalid line
+        const ozz::math::Float4x4& m = matrices[i];
+        osg::Matrix matrix(
+            ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
+            ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
+            ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
+            ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
+        (*ca)[i] = (i == 0) ? osg::Vec4ub(255, 0, 0, 255) : osg::Vec4ub(255, 255, 255, 255);
+        (*va)[i] = matrix.getTrans(); (*de)[i * 2] = i; (*de)[i * 2 + 1] = pID;
+    }
+    va->dirty();
 }
 
 void PlayerAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)

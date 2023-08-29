@@ -69,6 +69,7 @@ bool SamplingJob::Validate() const {
 
   // Tests context size.
   valid &= context->max_soa_tracks() >= num_soa_tracks;
+
   return valid;
 }
 

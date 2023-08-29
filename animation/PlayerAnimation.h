@@ -16,7 +16,9 @@ namespace osgVerse
         PlayerAnimation();
 
         void setPlaying(bool b) { _animated = b; }
+        void setDrawingSkeleton(bool b) { _drawSkeleton = b; }
         bool getPlaying() const { return _animated; }
+        bool getDrawingSkeleton() const { return _drawSkeleton; }
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         struct GeometryJointData
@@ -25,6 +27,14 @@ namespace osgVerse
             std::vector<JointWeights> _weightList;  // size equals to vertex count
             std::map<osg::Transform*, osg::Matrixf> _invBindPoseMap;  // [joint, invBindPose]
             osg::ref_ptr<osg::StateSet> _stateset;
+        };
+
+        struct AnimationData
+        {
+            std::map<std::string, std::string> _interpolations;
+            std::vector<std::pair<float, float>> _morphFrames;
+            std::vector<std::pair<float, osg::Vec3>> _positionFrames, _scaleFrames;
+            std::vector<std::pair<float, osg::Vec4>> _rotationFrames;
         };
 
         /** Initialize the player skeleton and mesh from OSG scene graph
@@ -43,6 +53,10 @@ namespace osgVerse
 
         /// Load animation data from ozz files
         bool loadAnimation(const std::string& key, const std::string& animation);
+
+        /// Load animation data from structure
+        bool loadAnimation(const std::string& key,
+                           const std::map<osg::Transform*, AnimationData>& animDataMap);
         void unloadAnimation(const std::string& key);
 
         bool update(const osg::FrameStamp& fs, bool paused);
@@ -79,11 +93,13 @@ namespace osgVerse
 
     protected:
         bool initializeInternal();
+        bool loadAnimationInternal(const std::string& key);
+        void updateSkeletonMesh(osg::Geometry& geom);
 
         std::vector<osg::ref_ptr<osg::StateSet>> _meshStateSetList;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;
-        bool _animated;
+        bool _animated, _drawSkeleton;
     };
 
 }

@@ -133,7 +133,7 @@ namespace osgVerse
             if (child.valid()) _root->addChild(child.get());
         }
 
-        // Load geometries to geodes of the scene graph
+        // Load geometries to geodes (after all nodes have registered with an ID)
         for (size_t i = 0; i < _deferredMeshList.size(); ++i)
         {
             DeferredMeshData& mData = _deferredMeshList[i];
@@ -166,6 +166,13 @@ namespace osgVerse
             if (sd.skeletonRoot.valid()) sd.skeletonRoot->addChild(sd.meshRoot.get());
             else _root->addChild(sd.meshRoot.get());
 #endif
+        }
+
+        // Configure animations
+        for (size_t i = 0; i < _modelDef.animations.size(); ++i)
+        {
+            tinygltf::Animation& anim = _modelDef.animations[i];
+            // TODO
         }
     }
 
