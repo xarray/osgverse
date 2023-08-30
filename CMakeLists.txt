@@ -460,6 +460,9 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ELSEIF(ANDROID)
         MESSAGE(STATUS "[osgVerse] Android toolchain is used. (GLES3 = ${VERSE_USE_EXTERNAL_GLES3})")
         # Nothing else to do... Start 'Android Studio' to continue compiling examples
+    ELSEIF(IOS)
+        MESSAGE(STATUS "[osgVerse] IOS toolchain is used. (GLES3 = ${VERSE_USE_EXTERNAL_GLES3})")
+        # Add demo project here?
     ELSE()
         ADD_SUBDIRECTORY(applications)
         ADD_SUBDIRECTORY(tests)

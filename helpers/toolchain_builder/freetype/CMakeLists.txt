@@ -19,7 +19,7 @@ SET(FREETYPE_SOURCES
     src/type42/type42.c src/winfonts/winfnt.c
 )
 
-INCLUDE_DIRECTORIES(../zlib ../png include)
+INCLUDE_DIRECTORIES(BEFORE ../zlib ../png include)
 FILE(READ "include/freetype/config/ftoption.h" FTOPTION_H)
 STRING(REGEX REPLACE "/\\* +(#define +FT_CONFIG_OPTION_SYSTEM_ZLIB) +\\*/" "\\1" FTOPTION_H "${FTOPTION_H}")
 STRING(REGEX REPLACE "/\\* +(#define +FT_CONFIG_OPTION_USE_PNG) +\\*/" "\\1" FTOPTION_H "${FTOPTION_H}")

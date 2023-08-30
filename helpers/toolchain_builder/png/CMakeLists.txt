@@ -6,7 +6,7 @@ SET(PNG_SOURCES
     pngread.c pngrio.c pngwio.c pngwrite.c pngrtran.c
     pngwtran.c pngmem.c pngerror.c pngpread.c)
 
-INCLUDE_DIRECTORIES(../zlib)
+INCLUDE_DIRECTORIES(BEFORE ../zlib .)
 ADD_DEFINITIONS(-DPNG_NO_MMX_CODE)
 ADD_LIBRARY(${LIBRARY_NAME} STATIC ${PNG_SOURCES} ${PNG_HEADERS})
 SET_PROPERTY(TARGET ${LIBRARY_NAME} PROPERTY FOLDER "THIRD_PARTY")
