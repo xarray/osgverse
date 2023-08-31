@@ -19,8 +19,8 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-#define COMPRESSING_GEOMETRY 1
-#define COMPRESSING_TEXTURE 0
+#define COMPRESSING_GEOMETRY 0
+#define COMPRESSING_TEXTURE 1
 
 int main(int argc, char** argv)
 {
@@ -71,7 +71,6 @@ int main(int argc, char** argv)
     if (rw)
     {
         osg::ref_ptr<osg::Image> image0 = osgDB::readImageFile("Images/clockface.jpg");
-        image0->setInternalTextureFormat(GL_RGB8);
         rw->writeImage(*image0, "clockface.ktx");
         OSG_NOTICE << "KTX file saved!\n";
     }

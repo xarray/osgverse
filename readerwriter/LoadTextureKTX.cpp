@@ -215,10 +215,17 @@ namespace osgVerse
     {
         bool transcoded = false, compressed = false;
         ktx_error_code_e result = KTX_SUCCESS;
+        ktx_uint32_t w = texture->baseWidth, h = texture->baseHeight, d = texture->baseDepth;
+        ktx_uint32_t w2 = osg::Image::computeNearestPowerOfTwo(w), h2 = osg::Image::computeNearestPowerOfTwo(h);
         if (ktxTexture_NeedsTranscoding(texture))
         {
-            if (noCompress)
+            if (noCompress || (w2 != w || h2 != h))
             {
+                if (!noCompress)
+                {
+                    OSG_NOTICE << "[LoaderKTX] Found NPOT image: " << w << " x " << h
+                               << ", will not transcode to compressing texture format" << std::endl;
+                }
                 result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
                     ktx_transcode_fmt_e::KTX_TTF_RGBA32, 0);
                 compressed = false;
@@ -238,7 +245,6 @@ namespace osgVerse
             transcoded = (result == KTX_SUCCESS);
         }
 
-        ktx_uint32_t w = texture->baseWidth, h = texture->baseHeight, d = texture->baseDepth;
         ktx_size_t offset = 0; ktxTexture_GetImageOffset(texture, 0, layer, face, &offset);
         ktx_uint8_t* imgData = ktxTexture_GetData(texture) + offset;
 
@@ -274,7 +280,7 @@ namespace osgVerse
             image->setInternalTextureFormat(tex->glInternalformat);
         }
 
-        memcpy(image->data(), imgData, imgDataSize);
+        memcpy(image->data(), imgData, image->getTotalSizeInBytes());
         return image;
     }
 
