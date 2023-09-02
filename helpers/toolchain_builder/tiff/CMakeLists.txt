@@ -36,7 +36,7 @@ if(SIZEOF_SIZE_T EQUAL 4)
 elseif(SIZEOF_SIZE_T EQUAL 8)
     set(TIFF_SSIZE_T "int64_t")
 else()
-    set(TIFF_SSIZE_T "long long")
+    set(TIFF_SSIZE_T "int64_t")
     message("Unsupported size_t size ${SIZEOF_SIZE_T}; use default")
 endif()
 

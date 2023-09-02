@@ -282,35 +282,52 @@ IF(NOT MSVC)
     )
 ENDIF(NOT MSVC)
 
-IF(NOT USE_WASM_OPTIONS)
-    SET(GAINPUT_SOURCE_FILES
-        gainput/gainput.cpp gainput/gainput.h gainput/GainputInputManager.h
-        gainput/GainputInputDevice.h gainput/GainputInputListener.h
-        gainput/GainputAllocator.cpp gainput/GainputAllocator.h
-        gainput/GainputInputDeltaState.cpp gainput/GainputInputDevice.cpp
-        gainput/GainputInputManager.cpp gainput/GainputInputMap.cpp
-        gainput/GainputInputState.cpp gainput/GainputMapFilters.cpp
-        gainput/builtin/GainputInputDeviceBuiltIn.cpp gainput/dev/GainputNetListener.cpp
-        gainput/dev/GainputDev.cpp gainput/dev/GainputMemoryStream.cpp
-        gainput/dev/GainputNetAddress.cpp gainput/dev/GainputNetConnection.cpp
-        gainput/gestures/GainputButtonStickGesture.cpp gainput/gestures/GainputDoubleClickGesture.cpp
-        gainput/gestures/GainputHoldGesture.cpp gainput/gestures/GainputPinchGesture.cpp
-        gainput/gestures/GainputRotateGesture.cpp gainput/gestures/GainputSimultaneouslyDownGesture.cpp
-        gainput/gestures/GainputTapGesture.cpp gainput/gestures/GainputGestures.h
-        gainput/keyboard/GainputInputDeviceKeyboard.cpp gainput/keyboard/GainputKeyboardKeyNames.h
-        gainput/mouse/GainputInputDeviceMouse.cpp gainput/mouse/GainputMouseInfo.h
-        gainput/pad/GainputInputDevicePad.cpp gainput/pad/GainputInputDevicePadMac.cpp
-        gainput/recorder/GainputInputPlayer.cpp gainput/recorder/GainputInputRecorder.cpp
-        gainput/recorder/GainputInputRecording.cpp gainput/touch/GainputInputDeviceTouch.cpp
+SET(GAINPUT_SOURCE_FILES
+    gainput/gainput.cpp gainput/gainput.h gainput/GainputInputManager.h
+    gainput/GainputInputDevice.h gainput/GainputInputListener.h
+    gainput/GainputAllocator.cpp gainput/GainputAllocator.h
+    gainput/GainputInputDeltaState.cpp gainput/GainputInputDevice.cpp
+    gainput/GainputInputManager.cpp gainput/GainputInputMap.cpp
+    gainput/GainputInputState.cpp gainput/GainputMapFilters.cpp
+    gainput/builtin/GainputInputDeviceBuiltIn.cpp gainput/dev/GainputNetListener.cpp
+    gainput/dev/GainputDev.cpp gainput/dev/GainputMemoryStream.cpp
+    gainput/dev/GainputNetAddress.cpp gainput/dev/GainputNetConnection.cpp
+    gainput/gestures/GainputButtonStickGesture.cpp gainput/gestures/GainputDoubleClickGesture.cpp
+    gainput/gestures/GainputHoldGesture.cpp gainput/gestures/GainputPinchGesture.cpp
+    gainput/gestures/GainputRotateGesture.cpp gainput/gestures/GainputSimultaneouslyDownGesture.cpp
+    gainput/gestures/GainputTapGesture.cpp gainput/gestures/GainputGestures.h
+    gainput/keyboard/GainputInputDeviceKeyboard.cpp gainput/keyboard/GainputKeyboardKeyNames.h
+    gainput/mouse/GainputInputDeviceMouse.cpp gainput/mouse/GainputMouseInfo.h
+    gainput/pad/GainputInputDevicePad.cpp gainput/pad/GainputInputDevicePadMac.cpp
+    gainput/recorder/GainputInputPlayer.cpp gainput/recorder/GainputInputRecorder.cpp
+    gainput/recorder/GainputInputRecording.cpp gainput/touch/GainputInputDeviceTouch.cpp
+)
+IF(APPLE)
+    SET(GAINPUT_SOURCE_FILES ${GAINPUT_SOURCE_FILES}
+        gainput/GainputIos.mm gainput/GainputMac.mm
+        gainput/builtin/GainputInputDeviceBuiltInIos.mm
+        gainput/pad/GainputInputDevicePadIos.mm
     )
-    IF(APPLE)
-        SET(GAINPUT_SOURCE_FILES ${GAINPUT_SOURCE_FILES}
-            gainput/GainputIos.mm gainput/GainputMac.mm
-            gainput/builtin/GainputInputDeviceBuiltInIos.mm
-            gainput/pad/GainputInputDevicePadIos.mm
-        )
-    ENDIF(APPLE)
-ENDIF(NOT USE_WASM_OPTIONS)
+ENDIF(APPLE)
+
+SET(RECAST_SOURCE_FILES
+    recastnavigation/Detour/DetourAlloc.cpp recastnavigation/Detour/DetourAssert.cpp
+    recastnavigation/Detour/DetourNode.cpp recastnavigation/Detour/DetourNavMesh.cpp
+    recastnavigation/Detour/DetourNavMeshBuilder.cpp recastnavigation/Detour/DetourNavMeshQuery.cpp
+    recastnavigation/Detour/DetourCommon.cpp recastnavigation/Detour/DetourCommon.h
+    recastnavigation/DetourCrowd/DetourLocalBoundary.cpp recastnavigation/DetourCrowd/DetourObstacleAvoidance.cpp
+    recastnavigation/DetourCrowd/DetourPathCorridor.cpp recastnavigation/DetourCrowd/DetourPathQueue.cpp
+    recastnavigation/DetourCrowd/DetourProximityGrid.cpp
+    recastnavigation/DetourCrowd/DetourCrowd.cpp recastnavigation/DetourCrowd/DetourCrowd.h
+    recastnavigation/DetourTileCache/DetourTileCache.cpp recastnavigation/DetourTileCache/DetourTileCache.h
+    recastnavigation/DetourTileCache/DetourTileCacheBuilder.cpp
+    recastnavigation/Recast/RecastAlloc.cpp recastnavigation/Recast/RecastArea.cpp
+    recastnavigation/Recast/RecastAssert.cpp recastnavigation/Recast/RecastContour.cpp
+    recastnavigation/Recast/RecastFilter.cpp recastnavigation/Recast/RecastLayers.cpp
+    recastnavigation/Recast/RecastMesh.cpp recastnavigation/Recast/RecastMeshDetail.cpp
+    recastnavigation/Recast/RecastRasterization.cpp recastnavigation/Recast/RecastRegion.cpp
+    recastnavigation/Recast/Recast.cpp recastnavigation/Recast/Recast.h
+)
 
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
@@ -327,6 +344,7 @@ SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
 SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
+SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
@@ -342,7 +360,7 @@ SET(LIBRARY_FILES
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
-    ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES}
+    ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
 )
 
 IF(VERSE_BUILD_GPL)
@@ -372,8 +390,8 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
     ADD_DEFINITIONS(-DGLEW_EGL -DIMGUI_IMPL_OPENGL_ES3)
 ENDIF()
 
-INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb
-                    ktx ktx/basisu/zstd ktx/dfdutils
+INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
+                    recastnavigation/Detour
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)

@@ -56,6 +56,7 @@ ENDIF(BULLET_FOUND)
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Indirect_Draw indirect_drawing_test.cpp)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Tessellation tessellation_test.cpp)
+    NEW_TEST_EXECUTABLE(osgVerse_Test_MultiView_Shader multiview_shader_test.cpp)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Scripting scripting_test.cpp)
 ENDIF()
 
