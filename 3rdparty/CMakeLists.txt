@@ -391,8 +391,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    recastnavigation/Detour
-                    "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
+                    recastnavigation/Detour "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 

@@ -41,6 +41,11 @@ namespace osgVerse
             SkinningData() : skeletonBaseIndex(-1), invBindPoseAccessor(-1) {}
         };
 
+        struct AnimationData
+        {
+            std::map<osg::Transform*, AnimationData> objDataMap;
+        };
+
         virtual ~LoaderGLTF() {}
         osg::Node* createNode(int id, tinygltf::Node& node);
         bool createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex);
@@ -64,6 +69,7 @@ namespace osgVerse
 
         std::map<int, osg::observer_ptr<osg::Image>> _imageMap;
         std::map<int, osg::Node*> _nodeCreationMap;
+        std::map<std::string, AnimationData> _animationMap;
         std::vector<DeferredMeshData> _deferredMeshList;
         std::vector<SkinningData> _skinningDataList;
         osg::ref_ptr<osg::Group> _root;

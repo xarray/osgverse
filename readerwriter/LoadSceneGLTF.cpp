@@ -172,7 +172,41 @@ namespace osgVerse
         for (size_t i = 0; i < _modelDef.animations.size(); ++i)
         {
             tinygltf::Animation& anim = _modelDef.animations[i];
-            // TODO
+            AnimationData& animData = _animationMap[anim.name];
+            unsigned int belongsToSkeleton = -1;
+
+            typedef std::pair<std::string, int> PathAndSampler;
+            std::map<osg::Node*, std::vector<PathAndSampler>> samplers;
+            for (size_t j = 0; j < anim.channels.size(); ++j)
+            {
+                tinygltf::AnimationChannel& ch = anim.channels[j];
+                if (ch.sampler < 0 || ch.target_node < 0) continue;
+
+                osg::Node* node = _nodeCreationMap[ch.target_node];
+                samplers[node].push_back(PathAndSampler(ch.target_path, ch.sampler));
+                for (size_t k = 0; k < _skinningDataList.size(); ++k)
+                {
+                    std::vector<int>& joints = _skinningDataList[k].joints;
+                    if (std::find(joints.begin(), joints.end(), ch.target_node) != joints.end())
+                    { belongsToSkeleton = k; break; }
+                    else if (node == _skinningDataList[k].skeletonRoot)
+                    { belongsToSkeleton = k; break; }
+                }
+            }
+
+            for (std::map<osg::Node*, std::vector<PathAndSampler>>::iterator
+                 itr = samplers.begin(); itr != samplers.end(); ++itr)
+            {
+                PlayerAnimation::AnimationData playerAnim;
+                std::vector<PathAndSampler>& pathList = itr->second;
+                for (size_t j = 0; j < pathList.size(); ++j)
+                {
+                    tinygltf::AnimationSampler& sp = anim.samplers[pathList[j].second];
+                    if (sp.input < 0 || sp.output < 0) continue;
+
+                    //(_modelDef.accessors[sp.input], _modelDef.accessors[sp.output], playerAnim);
+                }
+            }
         }
     }
 

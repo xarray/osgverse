@@ -35,6 +35,10 @@
 	#else
 		#error Gainput: Unknown/unsupported Apple platform!
 	#endif
+#elif defined(__EMSCRIPTEN__)
+    #define GAINPUT_PLATFORM_EMSCRIPTEN
+    #define GAINPUT_PLATFORM_LINUX
+    #define GAINPUT_LIBEXPORT
 #else
 	#error Gainput: Unknown/unsupported platform!
 #endif

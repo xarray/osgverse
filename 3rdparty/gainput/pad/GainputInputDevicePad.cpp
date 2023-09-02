@@ -7,7 +7,9 @@
 #include <gainput/GainputHelpers.h>
 #include <gainput/GainputLog.h>
 
-#if defined(GAINPUT_PLATFORM_LINUX)
+#if defined(GAINPUT_PLATFORM_EMSCRIPTEN)
+    // do nothing
+#elif defined(GAINPUT_PLATFORM_LINUX)
 	#include "GainputInputDevicePadLinux.h"
 #elif defined(GAINPUT_PLATFORM_WIN)
 	#include "GainputInputDevicePadWin.h"
@@ -127,7 +129,9 @@ InputDevicePad::InputDevicePad(InputManager& manager, DeviceId device, unsigned 
 	previousState_ = manager.GetAllocator().New<InputState>(manager.GetAllocator(), PadButtonCount + PadAxisCount);
 	GAINPUT_ASSERT(previousState_);
 
-#if defined(GAINPUT_PLATFORM_LINUX)
+#if defined(GAINPUT_PLATFORM_EMSCRIPTEN)
+    // do nothing
+#elif defined(GAINPUT_PLATFORM_LINUX)
 	impl_ = manager.GetAllocator().New<InputDevicePadImplLinux>(manager, *this, index_, *state_, *previousState_);
 #elif defined(GAINPUT_PLATFORM_WIN)
 	impl_ = manager.GetAllocator().New<InputDevicePadImplWin>(manager, *this, index_, *state_, *previousState_);
@@ -271,4 +275,4 @@ InputDevicePad::Vibrate(float leftMotor, float rightMotor)
 }
 
 }
-    
+

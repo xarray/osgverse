@@ -9,7 +9,9 @@
 #include <gainput/GainputHelpers.h>
 #include <gainput/GainputLog.h>
 
-#if defined(GAINPUT_PLATFORM_LINUX)
+#if defined(GAINPUT_PLATFORM_EMSCRIPTEN)
+    // do nothing
+#elif defined(GAINPUT_PLATFORM_LINUX)
 	#include "GainputInputDeviceMouseLinux.h"
 	#include "GainputInputDeviceMouseEvdev.h"
 #elif defined(GAINPUT_PLATFORM_WIN)
@@ -32,7 +34,9 @@ InputDeviceMouse::InputDeviceMouse(InputManager& manager, DeviceId device, unsig
 	previousState_ = manager.GetAllocator().New<InputState>(manager.GetAllocator(), MouseButtonCount + MouseAxisCount);
 	GAINPUT_ASSERT(previousState_);
 
-#if defined(GAINPUT_PLATFORM_LINUX)
+#if defined(GAINPUT_PLATFORM_EMSCRIPTEN)
+    // do nothing
+#elif defined(GAINPUT_PLATFORM_LINUX)
 	if (variant == DV_STANDARD)
 	{
 		impl_ = manager.GetAllocator().New<InputDeviceMouseImplLinux>(manager, *this, *state_, *previousState_);

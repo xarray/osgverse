@@ -8,7 +8,9 @@
 #include <gainput/GainputHelpers.h>
 #include <gainput/GainputLog.h>
 
-#if defined(GAINPUT_PLATFORM_LINUX)
+#if defined(GAINPUT_PLATFORM_EMSCRIPTEN)
+    // do nothing
+#elif defined(GAINPUT_PLATFORM_LINUX)
 	#include "GainputInputDeviceKeyboardLinux.h"
 	#include "GainputInputDeviceKeyboardEvdev.h"
 #elif defined(GAINPUT_PLATFORM_WIN)
@@ -36,7 +38,9 @@ InputDeviceKeyboard::InputDeviceKeyboard(InputManager& manager, DeviceId device,
 	previousState_ = manager.GetAllocator().New<InputState>(manager.GetAllocator(), KeyCount_);
 	GAINPUT_ASSERT(previousState_);
 
-#if defined(GAINPUT_PLATFORM_LINUX)
+#if defined(GAINPUT_PLATFORM_EMSCRIPTEN)
+    // do nothing...
+#elif defined(GAINPUT_PLATFORM_LINUX)
 	if (variant == DV_STANDARD)
 	{
 		impl_ = manager.GetAllocator().New<InputDeviceKeyboardImplLinux>(manager, *this, *state_, *previousState_);
