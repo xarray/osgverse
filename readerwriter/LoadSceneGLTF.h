@@ -41,11 +41,6 @@ namespace osgVerse
             SkinningData() : skeletonBaseIndex(-1), invBindPoseAccessor(-1) {}
         };
 
-        struct AnimationData
-        {
-            std::map<osg::Transform*, AnimationData> objDataMap;
-        };
-
         virtual ~LoaderGLTF() {}
         osg::Node* createNode(int id, tinygltf::Node& node);
         bool createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex);
@@ -53,6 +48,8 @@ namespace osgVerse
         void createTexture(osg::StateSet* ss, int u, const std::string& name, tinygltf::Texture& tex);
         void createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,
                                    tinygltf::Accessor& accessor);
+        void createAnimationSampler(PlayerAnimation::AnimationData& anim, const std::string& p,
+                                    tinygltf::Accessor& in, tinygltf::Accessor& out);
 
         inline void copyBufferData(void* dst, const void* src, size_t size,
                                    size_t stride, size_t count)
@@ -69,7 +66,6 @@ namespace osgVerse
 
         std::map<int, osg::observer_ptr<osg::Image>> _imageMap;
         std::map<int, osg::Node*> _nodeCreationMap;
-        std::map<std::string, AnimationData> _animationMap;
         std::vector<DeferredMeshData> _deferredMeshList;
         std::vector<SkinningData> _skinningDataList;
         osg::ref_ptr<osg::Group> _root;

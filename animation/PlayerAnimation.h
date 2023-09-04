@@ -55,7 +55,7 @@ namespace osgVerse
         bool loadAnimation(const std::string& key, const std::string& animation);
 
         /// Load animation data from structure
-        bool loadAnimation(const std::string& key,
+        bool loadAnimation(const std::string& key, const std::vector<osg::Transform*>& nodes,
                            const std::map<osg::Transform*, AnimationData>& animDataMap);
         void unloadAnimation(const std::string& key);
 

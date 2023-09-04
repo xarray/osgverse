@@ -60,6 +60,7 @@ struct QuaternionKey;
 // coherency when sampling the animation, Keyframes in this array are sorted by
 // time, then by track number.
 class OZZ_ANIMATION_DLL Animation {
+    friend struct AnimationConverter;
  public:
   // Builds a default animation.
   Animation();

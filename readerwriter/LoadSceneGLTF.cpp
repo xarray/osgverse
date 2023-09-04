@@ -141,10 +141,11 @@ namespace osgVerse
         }
 
         // Configure skinning data and player objects
+        std::map<size_t, std::vector<osg::Transform*>> boneListMap;
         for (size_t i = 0; i < _skinningDataList.size(); ++i)
         {
             SkinningData& sd = _skinningDataList[i];
-            std::vector<osg::Transform*> boneList;
+            std::vector<osg::Transform*>& boneList = boneListMap[i];
             for (size_t b = 0; b < sd.joints.size(); ++b)
             {
                 osg::Node* n = _nodeCreationMap[sd.joints[b]];
@@ -172,7 +173,7 @@ namespace osgVerse
         for (size_t i = 0; i < _modelDef.animations.size(); ++i)
         {
             tinygltf::Animation& anim = _modelDef.animations[i];
-            AnimationData& animData = _animationMap[anim.name];
+            std::string animName = anim.name; if (animName.empty()) animName = "Take001";
             unsigned int belongsToSkeleton = -1;
 
             typedef std::pair<std::string, int> PathAndSampler;
@@ -194,6 +195,7 @@ namespace osgVerse
                 }
             }
 
+            std::map<osg::Transform*, PlayerAnimation::AnimationData> skeletonAnimMap;
             for (std::map<osg::Node*, std::vector<PathAndSampler>>::iterator
                  itr = samplers.begin(); itr != samplers.end(); ++itr)
             {
@@ -203,11 +205,27 @@ namespace osgVerse
                 {
                     tinygltf::AnimationSampler& sp = anim.samplers[pathList[j].second];
                     if (sp.input < 0 || sp.output < 0) continue;
-
-                    //(_modelDef.accessors[sp.input], _modelDef.accessors[sp.output], playerAnim);
+                    playerAnim._interpolations[pathList[j].first] = sp.interpolation;
+                    createAnimationSampler(playerAnim, pathList[j].first,
+                            _modelDef.accessors[sp.input], _modelDef.accessors[sp.output]);
                 }
+
+                if (belongsToSkeleton >= 0)
+                {
+                    osg::Group* g = (itr->first) ? itr->first->asGroup() : NULL;
+                    osg::Transform* t = g ? g->asTransform() : NULL;
+                    if (t) skeletonAnimMap[t] = playerAnim;
+                }
+                else {}  // TODO: non-skeleton animations
             }
-        }
+
+            if (belongsToSkeleton >= 0 && !skeletonAnimMap.empty())
+            {
+                std::vector<osg::Transform*>& boneList = boneListMap[belongsToSkeleton];
+                _skinningDataList[belongsToSkeleton].player->loadAnimation(
+                    animName, boneList, skeletonAnimMap);
+            }
+        }  // end of for (animations)
     }
 
     osg::Node* LoaderGLTF::createNode(int id, tinygltf::Node& node)
@@ -536,6 +554,104 @@ namespace osgVerse
                 PlayerAnimation::GeometryJointData& jData = sd.jointData[sd.meshList[j]];
                 jData._invBindPoseMap[bones[i]] = matrix;
             }
+        }
+    }
+
+    void LoaderGLTF::createAnimationSampler(
+            PlayerAnimation::AnimationData& anim, const std::string& path,
+            tinygltf::Accessor& in, tinygltf::Accessor& out)
+    {
+        const tinygltf::BufferView& inView = _modelDef.bufferViews[in.bufferView];
+        const tinygltf::BufferView& outView = _modelDef.bufferViews[out.bufferView];
+        if (inView.buffer < 0 || outView.buffer < 0) return;
+
+        const tinygltf::Buffer& inBuffer = _modelDef.buffers[inView.buffer];
+        const tinygltf::Buffer& outBuffer = _modelDef.buffers[outView.buffer];
+        int inCompSize = tinygltf::GetComponentSizeInBytes(in.componentType);
+        int outCompSize = tinygltf::GetComponentSizeInBytes(out.componentType);
+        size_t inSize = in.count, outSize = out.count;
+
+        size_t inStride = (inView.byteStride > 0 && inView.byteStride != sizeof(float))
+                        ? inView.byteStride : 0, inOffset = in.byteOffset + inView.byteOffset;
+        std::vector<float> timeList(inSize), weightList;
+        copyBufferData(&timeList[0], &inBuffer.data[inOffset],
+                       inSize * sizeof(float), inStride, inSize);
+
+        int outCompNum = (out.type != TINYGLTF_TYPE_SCALAR) ? out.type : 1;
+        size_t outStride = (outView.byteStride > 0 && outView.byteStride != (outCompNum * outCompSize))
+                         ? outView.byteStride : 0, outOffset = out.byteOffset + outView.byteOffset;
+        std::vector<osg::Vec3> vec3List; std::vector<osg::Vec4> vec4List;
+        switch (outCompNum)
+        {
+        case 1:
+            if (outCompSize != 4)
+            {
+                OSG_WARN << "[LoaderGLTF] Unsupported component size " << outCompSize
+                         << " for weight animation sampler" << std::endl;
+                // TODO
+            }
+            else
+            {
+                weightList.resize(outSize);
+                copyBufferData(&weightList[0], &outBuffer.data[outOffset],
+                               outSize * sizeof(float), outStride, outSize);
+            }
+            break;
+        case 3:
+            vec3List.resize(outSize);
+            copyBufferData(&vec3List[0], &outBuffer.data[outOffset],
+                outSize * sizeof(osg::Vec3f), outStride, outSize); break;
+        case 4:
+            if (outCompSize != 4)
+            {
+                OSG_WARN << "[LoaderGLTF] Unsupported component size " << outCompSize
+                         << " for rotation animation sampler" << std::endl;
+                // TODO
+            }
+            else
+            {
+                vec4List.resize(outSize);
+                copyBufferData(&vec4List[0], &outBuffer.data[outOffset],
+                    outSize * sizeof(osg::Vec4f), outStride, outSize);
+            }
+            break;
+        default:
+            OSG_WARN << "[LoaderGLTF] Unsupported animation sampler " << out.name << " with "
+                     << outCompNum << "-components and dataSize=" << outCompSize << std::endl;
+            break;
+        }
+
+        if (!weightList.empty())
+        {
+            for (size_t i = 0; i < timeList.size(); ++i)
+            {
+                float w = (i < weightList.size()) ? weightList[i] : weightList.back();
+                anim._morphFrames.push_back(std::pair<float, float>(timeList[i], w));
+            }
+            std::sort(anim._morphFrames.begin(), anim._morphFrames.end(),
+                      [](std::pair<float, float>& l, std::pair<float, float>& r) { return l.first < r.first; });
+        }
+        else if (!vec3List.empty())
+        {
+            std::vector<std::pair<float, osg::Vec3>>& frames =
+                (path.find("scale") != path.npos) ? anim._scaleFrames : anim._positionFrames;
+            for (size_t i = 0; i < timeList.size(); ++i)
+            {
+                const osg::Vec3& w = (i < vec3List.size()) ? vec3List[i] : vec3List.back();
+                frames.push_back(std::pair<float, osg::Vec3>(timeList[i], w));
+            }
+            std::sort(frames.begin(), frames.end(),
+                      [](std::pair<float, osg::Vec3>& l, std::pair<float, osg::Vec3>& r) { return l.first < r.first; });
+        }
+        else if (!vec4List.empty())
+        {
+            for (size_t i = 0; i < timeList.size(); ++i)
+            {
+                const osg::Vec4& w = (i < vec4List.size()) ? vec4List[i] : vec4List.back();
+                anim._rotationFrames.push_back(std::pair<float, osg::Vec4>(timeList[i], w));
+            }
+            std::sort(anim._rotationFrames.begin(), anim._rotationFrames.end(),
+                      [](std::pair<float, osg::Vec4>& l, std::pair<float, osg::Vec4>& r) { return l.first < r.first; });
         }
     }
 

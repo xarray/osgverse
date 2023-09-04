@@ -4,6 +4,8 @@
 #include <osg/Geometry>
 #include <osg/Geode>
 
+#define OZZ_INCLUDE_PRIVATE_HEADER
+#include <ozz/animation/runtime/animation_keyframe.h>
 #include <ozz/animation/runtime/animation.h>
 #include <ozz/animation/runtime/sampling_job.h>
 #include <ozz/animation/runtime/blending_job.h>
