@@ -444,11 +444,19 @@ namespace osgVerse
                     osg::Transform* tList[4] = { NULL };
                     for (int k = 0; k < 4; ++k)
                     {
-                        osg::Node* n = _nodeCreationMap[
-                            !jointList0.empty() ? (int)jointList0[w + k] : (int)jointList1[w + k]];
+                        int jID = jointList0.empty() ? (int)jointList1[w + k] : (int)jointList0[w + k];
+                        if (jID < 0 || jID >= sd->joints.size())
+                        {
+                            OSG_WARN << "[LoaderGLTF] Invalid joint index " << jID
+                                     << " for weight index " << (w + k) << std::endl;
+                            continue;
+                        }
+
+                        osg::Node* n = _nodeCreationMap[sd->joints[jID]];
                         if (n && n->asGroup()) tList[k] = n->asGroup()->asTransform();
                         if (tList[k]) jwMap.push_back(JointWeightPair(tList[k], weightList[w + k]));
-                        //else OSG_WARN << "[LoaderGLTF] No joint found for weight " << (w + k) << std::endl;
+                        else OSG_WARN << "[LoaderGLTF] No joint with ID = " << sd->joints[jID]
+                                      << " for weight index " << (w + k) << std::endl;
                     }
                     gjData._weightList.push_back(jwMap);
                 }

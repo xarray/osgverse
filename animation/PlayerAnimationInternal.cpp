@@ -291,9 +291,11 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
             }
         }
 
+        float timeRatio = (sampler.timeRatio < 0.0f) ? 1.0f : sampler.timeRatio;
         if (sampler.weight <= 0.0f) continue;
+
         ozz::animation::BlendingJob::Layer layer;
-        layer.transform = make_span(sampler.locals);
+        layer.transform = ozz::make_span(sampler.locals);
         layer.weight = sampler.weight;
         if (!sampler.jointWeights.empty())
             layer.joint_weights = ozz::make_span(sampler.jointWeights);
@@ -303,7 +305,7 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
         ozz::animation::SamplingJob samplingJob;
         samplingJob.animation = &(sampler.animation);
         samplingJob.context = &(ozz->_context);
-        samplingJob.ratio = osg::clampBetween(sampler.timeRatio, 0.0f, 1.0f);
+        samplingJob.ratio = osg::clampBetween(timeRatio, 0.0f, 1.0f);
         samplingJob.output = ozz::make_span(sampler.locals);
         if (!samplingJob.Run())
         {
