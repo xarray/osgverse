@@ -8,6 +8,8 @@
 #include <osg/Referenced>
 #include <osg/Vec2>
 #include <osg/ref_ptr>
+#include <vector>
+#include <map>
 
 #ifndef uint32
 typedef unsigned int uint32;
@@ -58,6 +60,8 @@ private:
 namespace osgVerse
 {
 
+    class TextStoreACP;
+
     /**
      * Editable texts should implement this class and maintain an object of this type after registering it.
      * Methods of this class are called by the system to query contextual information about the state
@@ -69,6 +73,7 @@ namespace osgVerse
     {
     public:
         enum class CaretPosition { Beginning, Ending };
+        HWND getWindow() const { return _window; }
 
         virtual bool IsComposing();
         virtual bool IsReadOnly();
@@ -87,6 +92,9 @@ namespace osgVerse
         virtual void BeginComposition();
         virtual void UpdateCompositionRange(int32 beginIndex, uint32 length);
         virtual void EndComposition();
+
+    protected:
+        HWND _window;
     };
 
     /**
@@ -98,10 +106,15 @@ namespace osgVerse
     {
     public:
         enum class LayoutChangeType { Created, Changed, Destroyed };
+        TextInputMethodChangeNotifier(TextStoreACP* textStore);
+
         virtual void NotifyLayoutChanged(const LayoutChangeType ChangeType);
         virtual void NotifySelectionChanged();
         virtual void NotifyTextChanged(uint32 beginIndex, uint32 oldLength, uint32 newLength);
         virtual void CancelComposition();
+
+    protected:
+        const ComPtr<TextStoreACP> _textStore;
     };
 
     /**
@@ -129,9 +142,179 @@ namespace osgVerse
         ComPtr<ITfThreadMgr> _tsfThreadManager;
         ComPtr<ITfDocumentMgr> _tsfDisabledDocumentManager;
 
+        std::map<TextInputMethodContext*, ComPtr<TextStoreACP>> _contextMap;
         osg::ref_ptr<TextInputMethodContext> _activeContext;
         TfClientId _tsfClientId;
         bool _tsfActivated;
+    };
+
+    class TextStoreACP : public ITextStoreACP, public ITfContextOwnerCompositionSink
+    {
+    public:
+        TextStoreACP(TextInputMethodContext* context)
+            : _tsfDocumentManager(NULL), _textContext(context), _referenceCount(1) {}
+        virtual ~TextStoreACP() {}
+
+        // IUnknown Interface Begin
+        STDMETHODIMP QueryInterface(REFIID riid, void** ppvObj)
+        {
+            *ppvObj = nullptr;
+            if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITextStoreACP))
+            { *ppvObj = static_cast<ITextStoreACP*>(this); }
+            else if (IsEqualIID(riid, IID_ITfContextOwnerCompositionSink))
+            { *ppvObj = static_cast<ITfContextOwnerCompositionSink*>(this); }
+
+            if (*ppvObj) AddRef();
+            return *ppvObj ? S_OK : E_NOINTERFACE;
+        }
+
+        STDMETHODIMP_(ULONG) AddRef(void) { return ++_referenceCount; }
+        STDMETHODIMP_(ULONG) Release(void)
+        {
+            const ULONG localReferenceCount = --_referenceCount;
+            if (_referenceCount == 0) delete this; return localReferenceCount;
+        }
+        // IUnknown Interface End
+
+        // ITextStoreACP Interface Begin
+        STDMETHODIMP AdviseSink(__RPC__in REFIID riid, __RPC__in_opt IUnknown* punk, DWORD dwMask)
+        {
+            if (!punk) return E_UNEXPECTED;
+            if (!IsEqualIID(riid, IID_ITextStoreACPSink)) return E_INVALIDARG;
+
+            // Install sink object if we have none.
+            if (!_adviseSinkObject._textStoreACPSink)
+            {
+                if (FAILED(_adviseSinkObject._textStoreACPSink.FromQueryInterface(
+                            IID_ITextStoreACPSink, punk))) return E_UNEXPECTED;
+                if (!_adviseSinkObject._textStoreACPSink) return E_UNEXPECTED;
+            }
+            else
+            {
+                ComPtr<IUnknown> ourSinkId(nullptr), theirSinkId(nullptr);
+                if (FAILED(ourSinkId.FromQueryInterface(IID_IUnknown, punk))) return E_UNEXPECTED;
+                if (FAILED(theirSinkId.FromQueryInterface(IID_IUnknown, punk))) return E_UNEXPECTED;
+                if (ourSinkId != theirSinkId) return E_FAIL;
+            }
+
+            // Update flags for what notifications we should broadcast back to TSF.
+            _adviseSinkObject._sinkFlags = dwMask; return S_OK;
+        }
+
+        STDMETHODIMP UnadviseSink(__RPC__in_opt IUnknown* punk)
+        {
+            if (!punk) return E_INVALIDARG;
+            if (!_adviseSinkObject._textStoreACPSink) return E_POINTER;
+
+            ComPtr<IUnknown> ourSinkId(nullptr), theirSinkId(nullptr);
+            if (FAILED(ourSinkId.FromQueryInterface(IID_IUnknown, punk))) return E_UNEXPECTED;
+            if (FAILED(theirSinkId.FromQueryInterface(IID_IUnknown, punk))) return E_UNEXPECTED;
+            if (ourSinkId != theirSinkId) return E_FAIL;
+            _adviseSinkObject._textStoreACPSink.Reset(); return S_OK;
+        }
+
+        STDMETHODIMP RequestLock(DWORD dwLockFlags, HRESULT* phrSession);
+
+        STDMETHODIMP GetStatus(__RPC__out TS_STATUS* pdcs)
+        {
+            if (!pdcs) return E_INVALIDARG;
+            pdcs->dwDynamicFlags = _textContext->IsReadOnly() ? TS_SD_READONLY : 0;
+            pdcs->dwStaticFlags = TS_SS_NOHIDDENTEXT; return S_OK;
+        }
+
+        STDMETHODIMP GetEndACP(__RPC__out LONG* pacp);
+
+        // Selection Methods
+        STDMETHODIMP GetSelection(ULONG ulIndex, ULONG ulCount,
+            __RPC__out_ecount_part(ulCount, *pcFetched) TS_SELECTION_ACP* pSelection,
+            __RPC__out ULONG* pcFetched);
+        STDMETHODIMP SetSelection(ULONG ulCount,
+            __RPC__in_ecount_full(ulCount) const TS_SELECTION_ACP* pSelection);
+
+        // Attributes Methods
+        STDMETHODIMP RequestSupportedAttrs(DWORD dwFlags, ULONG cFilterAttrs,
+            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs);
+
+        STDMETHODIMP RequestAttrsAtPosition(LONG acpPos, ULONG cFilterAttrs,
+            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs, DWORD dwFlags);
+
+        STDMETHODIMP RequestAttrsTransitioningAtPosition(LONG acpPos, ULONG cFilterAttrs,
+            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs, DWORD dwFlags);
+        STDMETHODIMP FindNextAttrTransition(LONG acpStart, LONG acpHalt, ULONG cFilterAttrs,
+            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs,
+            DWORD dwFlags, __RPC__out LONG* pacpNext, __RPC__out BOOL* pfFound,
+            __RPC__out LONG* plFoundOffset);
+        STDMETHODIMP RetrieveRequestedAttrs(ULONG ulCount,
+            __RPC__out_ecount_part(ulCount, *pcFetched) TS_ATTRVAL* paAttrVals,
+            __RPC__out ULONG* pcFetched);
+
+        // View Methods
+        STDMETHODIMP GetActiveView(__RPC__out TsViewCookie* pvcView);
+        STDMETHODIMP GetACPFromPoint(TsViewCookie vcView, __RPC__in const POINT* pt,
+                                     DWORD dwFlags, __RPC__out LONG* pacp);
+        STDMETHODIMP GetTextExt(TsViewCookie vcView, LONG acpStart, LONG acpEnd,
+                                __RPC__out RECT* prc, __RPC__out BOOL* pfClipped);
+        STDMETHODIMP GetScreenExt(TsViewCookie vcView, __RPC__out RECT* prc);
+        STDMETHODIMP GetWnd(TsViewCookie vcView, __RPC__deref_out_opt HWND* phwnd);
+
+        // Plain Character Methods
+        STDMETHODIMP GetText(LONG acpStart, LONG acpEnd,
+            __RPC__out_ecount_part(cchPlainReq, *pcchPlainOut) WCHAR* pchPlain,
+            ULONG cchPlainReq, __RPC__out ULONG* pcchPlainOut,
+            __RPC__out_ecount_part(ulRunInfoReq, *pulRunInfoOut) TS_RUNINFO* prgRunInfo,
+            ULONG ulRunInfoReq, __RPC__out ULONG* pulRunInfoOut, __RPC__out LONG* pacpNext);
+        STDMETHODIMP QueryInsert(LONG acpInsertStart, LONG acpInsertEnd, ULONG cch,
+            __RPC__out LONG* pacpResultStart, __RPC__out LONG* pacpResultEnd);
+        STDMETHODIMP InsertTextAtSelection(DWORD dwFlags, __RPC__in_ecount_full(cch) const WCHAR* pchText,
+            ULONG cch, __RPC__out LONG* pacpStart, __RPC__out LONG* pacpEnd,
+            __RPC__out TS_TEXTCHANGE* pChange);
+        STDMETHODIMP SetText(DWORD dwFlags, LONG acpStart, LONG acpEnd,
+            __RPC__in_ecount_full(cch) const WCHAR* pchText, ULONG cch,
+            __RPC__out TS_TEXTCHANGE* pChange);
+
+        // Embedded Character Methods
+        STDMETHODIMP GetEmbedded(LONG acpPos, __RPC__in REFGUID rguidService,
+            __RPC__in REFIID riid, __RPC__deref_out_opt IUnknown** ppunk);
+        STDMETHODIMP GetFormattedText(LONG acpStart, LONG acpEnd,
+            __RPC__deref_out_opt IDataObject** ppDataObject);
+        STDMETHODIMP QueryInsertEmbedded(__RPC__in const GUID* pguidService,
+            __RPC__in const FORMATETC* pFormatEtc, __RPC__out BOOL* pfInsertable);
+        STDMETHODIMP InsertEmbedded(DWORD dwFlags, LONG acpStart, LONG acpEnd,
+            __RPC__in_opt IDataObject* pDataObject, __RPC__out TS_TEXTCHANGE* pChange);
+        STDMETHODIMP InsertEmbeddedAtSelection(DWORD dwFlags, __RPC__in_opt IDataObject* pDataObject,
+            __RPC__out LONG* pacpStart, __RPC__out LONG* pacpEnd, __RPC__out TS_TEXTCHANGE* pChange);
+        // ITextStoreACP Interface End
+
+        // ITfContextOwnerCompositionSink Interface Begin
+        STDMETHODIMP OnStartComposition(__RPC__in_opt ITfCompositionView* pComposition,
+                                        __RPC__out BOOL* pfOk);
+        STDMETHODIMP OnUpdateComposition(__RPC__in_opt ITfCompositionView* pComposition,
+                                         __RPC__in_opt ITfRange* pRangeNew);
+        STDMETHODIMP OnEndComposition(__RPC__in_opt ITfCompositionView* pComposition);
+        // ITfContextOwnerCompositionSink Interface End
+
+        struct AdviseSinkObject
+        {
+            AdviseSinkObject() :_textStoreACPSink(nullptr), _sinkFlags(0) {}
+            ComPtr<ITextStoreACPSink> _textStoreACPSink;
+            ComPtr<ITextStoreACPServices> _textStoreACPServices;
+            DWORD _sinkFlags;
+        } _adviseSinkObject;
+
+        struct Composition
+        {
+            Composition() : _tsfCompositionView(nullptr) {}
+            ComPtr<ITfCompositionView> _tsfCompositionView;
+        } _composition;
+
+        ComPtr<ITfDocumentMgr> _tsfDocumentManager;
+        ComPtr<ITfContext> _tsfContext;
+        ComPtr<ITfContextOwnerCompositionServices> _tsfContextOwnerCompositionServices;
+        TfEditCookie _tsfEditCookie;
+
+    protected:
+        osg::ref_ptr<TextInputMethodContext> _textContext;
+        ULONG _referenceCount;
     };
 
 }

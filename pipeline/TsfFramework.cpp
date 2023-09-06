@@ -8,6 +8,8 @@
 #include "TsfFramework.h"
 using namespace osgVerse;
 
+////////////////////// TSFActivationProxy
+
 class TSFActivationProxy
     : public ITfInputProcessorProfileActivationSink
     , public ITfActiveLanguageProfileNotifySink
@@ -62,6 +64,8 @@ private:
     TextInputMethodSystem* _owner;
     ULONG _referenceCount;
 };
+
+////////////////////// TsfTextInputMethodSystem
 
 class TsfTextInputMethodSystem : public TextInputMethodSystem
 {
@@ -144,7 +148,7 @@ bool TsfTextInputMethodSystem::Initialize()
     r = _tsfThreadManager->CreateDocumentMgr(&(_tsfDisabledDocumentManager));
     if (FAILED(r))
     {
-        OSG_WARN << "[TextInputMethodSystem] Failed while creating TSF document manager\n";
+        OSG_WARN << "[TextInputMethodSystem] Failed while creating TSF disabled document manager\n";
         _tsfInputProcessorProfiles.Reset(); _tsfInputProcessorProfileManager.Reset();
         _tsfThreadManager.Reset(); _tsfActivationProxy.Reset(); return false;
     }
@@ -153,7 +157,7 @@ bool TsfTextInputMethodSystem::Initialize()
     r = _tsfThreadManager->SetFocus(_tsfDisabledDocumentManager);
     if (FAILED(r))
     {
-        OSG_WARN << "[TextInputMethodSystem] Failed while activating TSF document manager\n";
+        OSG_WARN << "[TextInputMethodSystem] Failed while activating TSF disabled document manager\n";
         _tsfInputProcessorProfiles.Reset(); _tsfInputProcessorProfileManager.Reset();
         _tsfThreadManager.Reset(); _tsfActivationProxy.Reset(); return false;
     }
@@ -237,6 +241,52 @@ void TsfTextInputMethodSystem::Terminate()
     _tsfInputProcessorProfileManager.Reset();
 }
 
+////////////////////// TextInputMethodChangeNotifier
+
+TextInputMethodChangeNotifier::TextInputMethodChangeNotifier(TextStoreACP* textStore)
+: _textStore(textStore) {}
+
+void TextInputMethodChangeNotifier::NotifyLayoutChanged(const LayoutChangeType ChangeType)
+{
+    TsLayoutCode LayoutCode = TS_LC_CHANGE;
+    if (_textStore->_adviseSinkObject._textStoreACPSink == nullptr) return;
+
+    switch (ChangeType)
+    {
+    case LayoutChangeType::Created: { LayoutCode = TS_LC_CREATE; } break;
+    case LayoutChangeType::Changed: { LayoutCode = TS_LC_CHANGE; } break;
+    case LayoutChangeType::Destroyed: { LayoutCode = TS_LC_DESTROY; } break;
+    }
+    _textStore->_adviseSinkObject._textStoreACPSink->OnLayoutChange(LayoutCode, 0);
+}
+
+void TextInputMethodChangeNotifier::NotifySelectionChanged()
+{
+    if (_textStore->_adviseSinkObject._textStoreACPSink != nullptr)
+        _textStore->_adviseSinkObject._textStoreACPSink->OnSelectionChange();
+}
+
+void TextInputMethodChangeNotifier::NotifyTextChanged(uint32 beginIndex, uint32 oldLength, uint32 newLength)
+{
+    if (_textStore->_adviseSinkObject._textStoreACPSink == nullptr) return;
+    TS_TEXTCHANGE textChange; textChange.acpStart = beginIndex;
+    textChange.acpOldEnd = beginIndex + oldLength;
+    textChange.acpNewEnd = beginIndex + newLength;
+    _textStore->_adviseSinkObject._textStoreACPSink->OnTextChange(0, &(textChange));
+}
+
+void TextInputMethodChangeNotifier::CancelComposition()
+{
+    if (_textStore->_tsfContextOwnerCompositionServices != nullptr &&
+        _textStore->_composition._tsfCompositionView != nullptr)
+    {
+        _textStore->_tsfContextOwnerCompositionServices->TerminateComposition(
+            _textStore->_composition._tsfCompositionView);
+    }
+}
+
+////////////////////// TextInputMethodSystem
+
 void TextInputMethodSystem::OnIMEActivationStateChanged(bool isEnabled)
 {
     _tsfActivated = false;
@@ -254,7 +304,7 @@ void TextInputMethodSystem::ApplyDefaults(HWND window)
     ITfDocumentMgr* tsfDocumentManagerToSet = nullptr;
     if (_activeContext.valid())
     {
-        const HRESULT r = _tsfThreadManager->GetFocus(&tsfDocumentManagerToSet);
+        HRESULT r = _tsfThreadManager->GetFocus(&tsfDocumentManagerToSet);
         if (FAILED(r))
         {
             OSG_NOTICE << "[TextInputMethodSystem] Getting the active TSF document manager failed, "
@@ -269,6 +319,91 @@ void TextInputMethodSystem::ApplyDefaults(HWND window)
     else
     {
         ITfDocumentMgr* unused = NULL;
-        _tsfThreadManager->AssociateFocus(window, _tsfDisabledDocumentManager, &unused);
+        HRESULT r = _tsfThreadManager->AssociateFocus(window, _tsfDisabledDocumentManager, &unused);
+        if (FAILED(r))
+            OSG_WARN << "[TextInputMethodSystem] Failed while setting focus on default manager\n";
     }
 }
+
+TextInputMethodChangeNotifier* TextInputMethodSystem::RegisterContext(TextInputMethodContext* context)
+{
+    ComPtr<TextStoreACP>& textStore = _contextMap[context];
+    textStore.Attach(new TextStoreACP(context));
+
+    HRESULT r = _tsfThreadManager->CreateDocumentMgr(&(textStore->_tsfDocumentManager));
+    if (FAILED(r) || !textStore->_tsfDocumentManager)
+    {
+        OSG_WARN << "[TextInputMethodSystem] Failed while creating TSF document manager\n";
+        textStore.Reset(); return NULL;
+    }
+
+    r = textStore->_tsfDocumentManager->CreateContext(
+        _tsfClientId, 0, static_cast<ITextStoreACP*>(textStore), &(textStore->_tsfContext),
+        &(textStore->_tsfEditCookie));
+    if (FAILED(r) || !textStore->_tsfContext)
+    {
+        OSG_WARN << "[TextInputMethodSystem] Failed while creating TSF context\n";
+        textStore.Reset(); return NULL;
+    }
+
+    r = textStore->_tsfDocumentManager->Push(textStore->_tsfContext);
+    if (FAILED(r))
+    {
+        OSG_WARN << "[TextInputMethodSystem] Failed while pushing TSF context\n";
+        textStore.Reset(); return NULL;
+    }
+
+    r = textStore->_tsfContextOwnerCompositionServices.FromQueryInterface(
+        IID_ITfContextOwnerCompositionServices, textStore->_tsfContext);
+    if (FAILED(r) || !textStore->_tsfContextOwnerCompositionServices)
+    {
+        OSG_WARN << "[TextInputMethodSystem] Failed getting TSF context owner composition services\n";
+        textStore->_tsfDocumentManager->Pop(TF_POPF_ALL);
+        textStore.Reset(); return NULL;
+    }
+    return new TextInputMethodChangeNotifier(textStore);
+}
+
+void TextInputMethodSystem::UnregisterContext(TextInputMethodContext* context)
+{
+    ComPtr<TextStoreACP>& textStore = _contextMap[context];
+    if (textStore.IsValid())
+    {
+        textStore->_tsfDocumentManager->Pop(TF_POPF_ALL);
+        _contextMap.erase(_contextMap.find(context));
+    }
+}
+
+void TextInputMethodSystem::ActivateContext(TextInputMethodContext* context)
+{
+    HWND window = context->getWindow();
+    _activeContext = context;
+
+    ComPtr<TextStoreACP>& textStore = _contextMap[context];
+    if (textStore.IsValid() && window != 0)
+    {
+        ITfDocumentMgr* unused = NULL;
+        HRESULT r = _tsfThreadManager->AssociateFocus(
+            window, textStore->_tsfDocumentManager, &unused);
+        if (FAILED(r))
+            OSG_WARN << "[TextInputMethodSystem] Failed while setting focus on document manager\n";
+    }
+}
+
+void TextInputMethodSystem::DeactivateContext(TextInputMethodContext* context)
+{
+    HWND window = context->getWindow();
+    _activeContext = NULL;
+
+    ComPtr<TextStoreACP>& textStore = _contextMap[context];
+    if (textStore.IsValid() && window != 0)
+    {
+        ITfDocumentMgr* unused = NULL;
+        HRESULT r = _tsfThreadManager->AssociateFocus(window, _tsfDisabledDocumentManager, &unused);
+        if (FAILED(r))
+            OSG_WARN << "[TextInputMethodSystem] Failed while setting focus on default manager\n";
+    }
+}
+
+bool TextInputMethodSystem::IsActiveContext(TextInputMethodContext* context) const
+{ return _activeContext == context; }
