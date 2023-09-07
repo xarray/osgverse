@@ -283,9 +283,10 @@ namespace osgVerse
             geom->setUseVertexBufferObjects(true);
 
             tinygltf::Primitive primitive = mesh.primitives[i];
-            for (auto& attrib : primitive.attributes)
+            for (std::map<std::string, int>::iterator attrib = primitive.attributes.begin();
+                attrib != primitive.attributes.end(); ++attrib)
             {
-                tinygltf::Accessor& attrAccessor = _modelDef.accessors[attrib.second];
+                tinygltf::Accessor& attrAccessor = _modelDef.accessors[attrib->second];
                 const tinygltf::BufferView& attrView = _modelDef.bufferViews[attrAccessor.bufferView];
                 int size = attrAccessor.count; if (!size || attrView.buffer < 0) continue;
 
@@ -297,9 +298,9 @@ namespace osgVerse
                 size_t stride = (attrView.byteStride > 0 && attrView.byteStride != (compSize * compNum))
                               ? attrView.byteStride : 0;
 
-                //std::cout << attrib.first << ": Size = " << size << ", Components = " << compNum
+                //std::cout << attrib->first << ": Size = " << size << ", Components = " << compNum
                 //          << ", ComponentBytes = " << compSize << std::endl;
-                if (attrib.first.compare("POSITION") == 0 && compSize == 4 && compNum == 3)
+                if (attrib->first.compare("POSITION") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* va = new osg::Vec3Array(size);
                     copyBufferData(&(*va)[0], &buffer.data[offset], copySize, stride, size);
@@ -308,7 +309,7 @@ namespace osgVerse
 #endif
                     geom->setVertexArray(va);
                 }
-                else if (attrib.first.compare("NORMAL") == 0 && compSize == 4 && compNum == 3)
+                else if (attrib->first.compare("NORMAL") == 0 && compSize == 4 && compNum == 3)
                 {
                     osg::Vec3Array* na = new osg::Vec3Array(size);
                     copyBufferData(&(*na)[0], &buffer.data[offset], copySize, stride, size);
@@ -319,7 +320,8 @@ namespace osgVerse
                     geom->setNormalArray(na); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 #endif
                 }
-                else if (attrib.first.compare("TANGENT") == 0 && compSize == 4 && compNum == 4)
+                else if (attrib->first.compare("TANGENT") == 0 &&
+                         compSize == 4 && compNum == 4)
                 {   // Do nothing as we calculate tangent/binormal by ourselves
 #if 0
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
@@ -332,18 +334,19 @@ namespace osgVerse
                     geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
 #endif
                 }
-                else if (attrib.first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
+                else if (attrib->first.find("TEXCOORD_") != std::string::npos &&
+                         compSize == 4 && compNum == 2)
                 {
                     osg::Vec2Array* ta = new osg::Vec2Array(size);
                     copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
                     ta->setNormalize(attrAccessor.normalized);
 #endif
-                    geom->setTexCoordArray(atoi(attrib.first.substr(9).c_str()), ta);
+                    geom->setTexCoordArray(atoi(attrib->first.substr(9).c_str()), ta);
                 }
-                else if (attrib.first.find("JOINTS_") != std::string::npos && compNum == 4)
+                else if (attrib->first.find("JOINTS_") != std::string::npos && compNum == 4)
                 {
-                    int jID = atoi(attrib.first.substr(7).c_str());
+                    int jID = atoi(attrib->first.substr(7).c_str());
                     if (jID == 0)  // FIXME: joints group > 0?
                     {
                         if (compSize == 1)
@@ -358,9 +361,10 @@ namespace osgVerse
                         }
                     }
                 }
-                else if (attrib.first.find("WEIGHTS_") != std::string::npos && compSize == 4 && compNum == 4)
+                else if (attrib->first.find("WEIGHTS_") != std::string::npos &&
+                         compSize == 4 && compNum == 4)
                 {
-                    int wID = atoi(attrib.first.substr(8).c_str());
+                    int wID = atoi(attrib->first.substr(8).c_str());
                     if (wID == 0)  // FIXME: weights group > 0?
                     {
                         weightList.resize(size * compNum);
@@ -368,10 +372,11 @@ namespace osgVerse
                     }
                 }
                 else
-                    OSG_WARN << "[LoaderGLTF] Unsupported primitive " << attrib.first << " with "
+                    OSG_WARN << "[LoaderGLTF] Unsupported primitive " << attrib->first << " with "
                              << compNum << "-components and dataSize=" << compSize << std::endl;
             }
 
+            // Configure primitive index array
             tinygltf::Accessor indexAccessor = _modelDef.accessors[primitive.indices];
             const tinygltf::BufferView& indexView = _modelDef.bufferViews[indexAccessor.bufferView];
             osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
@@ -426,6 +431,7 @@ namespace osgVerse
             default: OSG_WARN << "[LoaderGLTF] Unknown primitive " << primitive.mode << std::endl; continue;
             }
 
+            // Apply to geode and create material
             geom->addPrimitiveSet(p.get());
             geode->addDrawable(geom.get());
             if (primitive.material >= 0)
@@ -434,7 +440,8 @@ namespace osgVerse
                 createMaterial(geom->getOrCreateStateSet(), material);
             }
 
-            if (sd != NULL && !weightList.empty())  // handle skinning data
+            // Handle skinning data
+            if (sd != NULL && !weightList.empty())
             {
                 typedef std::pair<osg::Transform*, float> JointWeightPair;
                 PlayerAnimation::GeometryJointData gjData;
@@ -465,7 +472,15 @@ namespace osgVerse
                 sd->jointData[geom.get()] = gjData;
                 sd->meshList.push_back(geom.get());
             }
+
+            // Handle blendshapes
+            for (size_t j = 0; j < primitive.targets.size(); ++j)
+                createBlendshapeData(geom.get(), primitive.targets[j]);
         }
+
+        bool withNames = mesh.extras.Has("targetNames");
+        if (!mesh.weights.empty()) applyBlendshapeWeights(geode, mesh.weights,
+            withNames ? mesh.extras.Get("targetNames") : tinygltf::Value());
         return true;
     }
 
@@ -661,6 +676,73 @@ namespace osgVerse
             std::sort(anim._rotationFrames.begin(), anim._rotationFrames.end(),
                       [](std::pair<float, osg::Vec4>& l, std::pair<float, osg::Vec4>& r) { return l.first < r.first; });
         }
+    }
+
+    void LoaderGLTF::createBlendshapeData(osg::Geometry* geom, std::map<std::string, int>& target)
+    {
+        osg::Vec3Array *va = NULL, *na = NULL; osg::Vec4Array *ta = NULL;
+        for (std::map<std::string, int>::iterator attrib = target.begin();
+             attrib != target.end(); ++attrib)
+        {
+            tinygltf::Accessor& attrAccessor = _modelDef.accessors[attrib->second];
+            const tinygltf::BufferView& attrView = _modelDef.bufferViews[attrAccessor.bufferView];
+            int size = attrAccessor.count; if (!size || attrView.buffer < 0) continue;
+
+            const tinygltf::Buffer& buffer = _modelDef.buffers[attrView.buffer];
+            int compNum = (attrAccessor.type != TINYGLTF_TYPE_SCALAR) ? attrAccessor.type : 1;
+            int compSize = tinygltf::GetComponentSizeInBytes(attrAccessor.componentType);
+            int copySize = size * (compSize * compNum);
+            size_t offset = attrView.byteOffset + attrAccessor.byteOffset;
+            size_t stride = (attrView.byteStride > 0 && attrView.byteStride != (compSize * compNum))
+                          ? attrView.byteStride : 0;
+
+            if (attrib->first.compare("POSITION") == 0 && compSize == 4 && compNum == 3)
+            {
+                va = new osg::Vec3Array(size);
+                copyBufferData(&(*va)[0], &buffer.data[offset], copySize, stride, size);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                va->setNormalize(attrAccessor.normalized);
+#endif
+            }
+            else if (attrib->first.compare("NORMAL") == 0 && compSize == 4 && compNum == 3)
+            {
+                na = new osg::Vec3Array(size);
+                copyBufferData(&(*na)[0], &buffer.data[offset], copySize, stride, size);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                na->setNormalize(attrAccessor.normalized);
+#endif
+            }
+            else if (attrib->first.compare("TANGENT") == 0 &&
+                     compSize == 4 && compNum == 4)
+            {   // Do nothing as we calculate tangent/binormal by ourselves
+#if 0
+                ta = new osg::Vec4Array(size);
+                copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                ta->setNormalize(attrAccessor.normalized);
+#endif
+#endif
+            }
+            else
+                OSG_WARN << "[LoaderGLTF] Unsupported target " << attrib->first << " with "
+                         << compNum << "-components and dataSize=" << compSize << std::endl;
+        }
+        // Save targets to specified geometry callback?
+        // TODO
+    }
+
+    void LoaderGLTF::applyBlendshapeWeights(osg::Geode* geode, const std::vector<double>& weights,
+                                            const tinygltf::Value& targetNames)
+    {
+        std::vector<std::string> names;
+        if (targetNames.IsArray())
+        {
+            for (size_t i = 0; i < targetNames.ArrayLen(); ++i)
+                names.push_back(targetNames.Get(i).Get<std::string>());
+        }
+
+        // Save names and weights to specified geometry callback
+        // TODO
     }
 
     osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary)

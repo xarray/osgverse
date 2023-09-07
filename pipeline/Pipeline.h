@@ -222,6 +222,9 @@ namespace osgVerse
         /** Create forward shading stateset which can make use of PBR and lighting functonalities */
         osg::StateSet* createForwardStateSet(osg::Shader* vs, osg::Shader* fs);
 
+        /** Load pipeline preset from stream */
+        bool load(std::istream& in, osgViewer::View* view, osg::Camera* mainCam = NULL);
+
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
         int applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff);

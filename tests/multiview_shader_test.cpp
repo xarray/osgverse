@@ -1,6 +1,7 @@
 #include <osg/io_utils>
 #include <osg/ClipPlane>
 #include <osg/Texture2D>
+#include <osg/LightSource>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
@@ -22,13 +23,15 @@ void createShaders(osg::StateSet* ss)
 {
     static const char* vertSource = {
         "#version 130\n"
-        "#extension GL_EXT_geometry_shader4 : enable\n"
-        "varying vec4 v_color;\n"
-        "varying vec3 v_normal;\n"
+        "out vec4 eyeVertex_gs, texCoord0_gs, texCoord1_gs;\n"
+        "out vec3 eyeNormal_gs;\n"
         "void main(void)\n"
         "{\n"
-        "    v_color = gl_Color;\n"
-        "    v_normal = gl_NormalMatrix * gl_Normal;\n"
+        "    eyeVertex_gs = gl_ModelViewMatrix * gl_Vertex;\n"
+        "    eyeNormal_gs = normalize(gl_NormalMatrix * gl_Normal);\n"
+        "    texCoord0_gs = gl_MultiTexCoord0;\n"
+        "    texCoord1_gs = gl_MultiTexCoord1;\n"
+        "    gl_FrontColor = gl_Color;\n"
         "    gl_Position = gl_ModelViewMatrix * gl_Vertex;\n"
         "}\n"
     };
@@ -36,14 +39,14 @@ void createShaders(osg::StateSet* ss)
     static const char* geomSource = {
         "#version 130\n"
         "#extension GL_EXT_geometry_shader4 : enable\n"
-        "uniform mat4 osg_ViewMatrixInverse;\n"
-        "varying in vec4 v_color[];\n"
-        "varying in vec3 v_normal[];\n"
-        "varying out vec4 v_color_out;\n"
+        "in vec4 eyeVertex_gs[], texCoord0_gs[], texCoord1_gs[];\n"
+        "in vec3 eyeNormal_gs[];\n"
+        "out vec4 eyeVertex, texCoord0, texCoord1;\n"
+        "out vec3 eyeNormal;\n"
         "void main(void)\n"
         "{\n"
         "    vec2 NV = vec2(" NV "); \n"
-        "    float eyeSep = " EYESEP "f;\n"
+        "    float eyeSep = " EYESEP ";\n"
         "    int numViews = " NUMVIEWS ";\n"
 
         "    vec2 T = -1.0 + 1.0 / NV;\n"
@@ -63,7 +66,9 @@ void createShaders(osg::StateSet* ss)
         "            gl_ClipDistance[1] = coeff.x - (tmp.x + tmp.w);\n"
         "            gl_ClipDistance[2] = tmp.y + tmp.w;\n"
         "            gl_ClipDistance[3] = coeff.y - (tmp.y + tmp.w);\n"
-        "            v_color_out = vec4(v_normal[i], 1.0);\n"
+
+        "            eyeVertex = eyeVertex_gs[i]; eyeNormal = eyeNormal_gs[i];\n"
+        "            texCoord0 = texCoord0_gs[i]; texCoord1 = texCoord1_gs[i];\n"
         "            gl_Position = tmp;\n"
         "            gl_Position.xy += (vec2(float(Sx), float(Sy)) / NV) * tmp.w * 2.0;\n"
         "            EmitVertex();\n"
@@ -76,11 +81,47 @@ void createShaders(osg::StateSet* ss)
 
     static const char* fragSource = {
         "#version 130\n"
-        "#extension GL_EXT_geometry_shader4 : enable\n"
-        "varying vec4 v_color_out;\n"
+        "uniform sampler2D DiffuseMap;\n"
+        "in vec4 eyeVertex, texCoord0, texCoord1;\n"
+        "in vec3 eyeNormal;\n"
+
         "void main(void)\n"
         "{\n"
-        "    gl_FragColor = v_color_out;\n"
+        "    vec3 normalDirection = normalize(eyeNormal);\n"
+        "    vec3 viewDirection = -normalize(vec3(eyeVertex));\n"
+        "    vec3 lightDirection = vec3(0.0, 0.0, 0.0);\n"
+        "    float attenuation = 1.0;\n"
+        "    vec3 totalLighting = vec3(gl_LightModel.ambient);\n"
+
+        "    for (int index = 0; index < 1; index++) {\n"
+        "        if (gl_LightSource[index].position.w == 0.0) {\n"
+        "            attenuation = 1.0;\n"
+        "            lightDirection = normalize(vec3(gl_LightSource[index].position));\n"
+        "        } else if (gl_LightSource[index].spotCutoff > 90.0) {\n"
+        "             vec3 positionToLightSource = vec3(gl_LightSource[index].position - eyeVertex);\n"
+        "             attenuation = 1.0 / length(positionToLightSource);\n"
+        "             lightDirection = normalize(positionToLightSource);\n"
+        "        } else if (gl_LightSource[index].spotCutoff <= 90.0) {\n"
+        "            vec3 positionToLightSource = vec3(gl_LightSource[index].position - eyeVertex);\n"
+        "            attenuation = 1.0 / length(positionToLightSource);\n"
+        "            lightDirection = normalize(positionToLightSource);\n"
+        "            float clamped = max(0.0, dot(-lightDirection, gl_LightSource[0].spotDirection));\n"
+        "            if (clamped < gl_LightSource[0].spotCosCutoff) attenuation = 0.0;\n"
+        "            else attenuation = attenuation * pow(clamped, gl_LightSource[0].spotExponent);\n"
+        "        }\n"
+
+        "        vec3 diffuseReflection = attenuation * vec3(gl_LightSource[index].diffuse)\n"
+        "                               * max(0.0, dot(normalDirection, lightDirection));\n"
+        "        vec3 specularReflection = vec3(0.0);\n"
+        "        if (dot(normalDirection, lightDirection) >= 0.0) {\n"
+        "            specularReflection = vec3(gl_LightSource[index].specular) *\n"
+        "                pow(max(0.0, dot(reflect(-lightDirection, normalDirection), viewDirection)),\n"
+        "                    64.0) * attenuation;\n"
+        "        }\n"
+        "        totalLighting += diffuseReflection + specularReflection;\n"
+        "    }\n"
+        "    vec4 baseColor = texture2D(DiffuseMap, texCoord0.xy);\n"
+        "    gl_FragColor = baseColor * vec4(totalLighting, 1.0);\n"
         "}\n"
     };
 
@@ -89,22 +130,44 @@ void createShaders(osg::StateSet* ss)
     program->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragSource));
     program->addShader(new osg::Shader(osg::Shader::GEOMETRY, geomSource));
     program->setParameter(GL_GEOMETRY_VERTICES_OUT_EXT, atoi(NUMVIEWS) * 3);
-    program->setParameter(GL_GEOMETRY_INPUT_TYPE_EXT, GL_TRIANGLE_STRIP);
-    program->setParameter(GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLE_STRIP);
+    program->setParameter(GL_GEOMETRY_INPUT_TYPE_EXT, GL_TRIANGLES);
+    program->setParameter(GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLES);
     ss->setAttributeAndModes(program);
+
     ss->setMode(GL_CLIP_PLANE0, osg::StateAttribute::ON);
     ss->setMode(GL_CLIP_PLANE1, osg::StateAttribute::ON);
     ss->setMode(GL_CLIP_PLANE2, osg::StateAttribute::ON);
     ss->setMode(GL_CLIP_PLANE3, osg::StateAttribute::ON);
+    ss->addUniform(new osg::Uniform("DiffuseMap", (int)0));
+}
+
+osg::Texture2D* createDefaultTexture(const osg::Vec4& color)
+{
+    osg::ref_ptr<osg::Image> image = new osg::Image;
+    image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    image->setInternalTextureFormat(GL_RGBA);
+
+    osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
+    *ptr = osg::Vec4ub(color[0] * 255, color[1] * 255, color[2] * 255, color[3] * 255);
+
+    osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+    tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
+    tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
+    tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
+    tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
+    tex2D->setImage(image.get()); return tex2D.release();
 }
 
 int main(int argc, char** argv)
 {
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile("cessna.osg");
+    osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFile(argv[1])
+                                  : osgDB::readNodeFile("cessna.osg");
     createShaders(scene->getOrCreateStateSet());
 
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(scene.get());
+    root->getOrCreateStateSet()->setTextureAttributeAndModes(
+        0, createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

@@ -50,6 +50,9 @@ namespace osgVerse
                                    tinygltf::Accessor& accessor);
         void createAnimationSampler(PlayerAnimation::AnimationData& anim, const std::string& p,
                                     tinygltf::Accessor& in, tinygltf::Accessor& out);
+        void createBlendshapeData(osg::Geometry* geom, std::map<std::string, int>& target);
+        void applyBlendshapeWeights(osg::Geode* geode, const std::vector<double>& weights,
+                                    const tinygltf::Value& targetNames);
 
         inline void copyBufferData(void* dst, const void* src, size_t size,
                                    size_t stride, size_t count)

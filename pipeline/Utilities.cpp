@@ -482,6 +482,11 @@ namespace osgVerse
             if (!geom || (geom && geom->getNormalArray() == NULL)) continue;
             if (geom->getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) continue;
 
+            if (geom->getVertexAttribArray(6) != NULL && geom->getVertexAttribArray(7) != NULL &&
+                geom->getVertexAttribBinding(6) == osg::Geometry::BIND_PER_VERTEX &&
+                geom->getVertexAttribBinding(7) == osg::Geometry::BIND_PER_VERTEX)
+            { continue; }  // already set
+
             osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
             geom->accept(functor);
             if (functor.initialize(_mikkiTSpace, geom))

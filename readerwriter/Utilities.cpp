@@ -169,6 +169,7 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
         else fileName = osgDB::getStrippedName(fileName) + id + ".ktx.verse_ktx";
         img->setFileName(_textureFolder + osgDB::getNativePathSeparator() + fileName);
 
+        // FIXME: not good to save to a file on disk...
         std::ofstream out(img->getFileName().c_str(), std::ios::out | std::ios::binary);
         out.write(ss.str().data(), ss.str().size()); return NULL;
     }

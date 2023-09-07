@@ -2,14 +2,17 @@
 #include "ShadowModule.h"
 #include "LightModule.h"
 #include "Utilities.h"
+#include <picojson.h>
 
 #include <osg/GLExtensions>
 #include <osg/DisplaySettings>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
 #include <osgViewer/Viewer>
+
 #define VERT osg::Shader::VERTEX
 #define FRAG osg::Shader::FRAGMENT
+#define GEOM osg::Shader::GEOMETRY
 
 class GLExtensionTester : public osg::Camera::DrawCallback
 {
@@ -537,3 +540,71 @@ namespace osgVerse
 
 #undef VERT
 #undef FRAG
+#undef GEOM
+
+namespace osgVerse
+{
+    /* {
+    *    "stages": [
+    *      { "stage": [
+    *        { "name": "..", "type": "input/deferred/work/display", <"module": "shadow/light">,
+    *          <"scale": "1">, <"runOnce": "false">,
+    *          "inputs": [ {"name": "..", <"type": "..">, <"path": "..">, <"unit": "..">} ],
+    *          "outputs": [ {"name": "..", "type": ".."} ],
+    *          "shaders": [ {"name": "..", <"type": "..">}, <"path": ".."> ],
+    *          "uniforms": [ {"name": "..", <"type": "..">, <"value": "..">} ]
+    *        }, { ... } ]
+    *      }, { "stage": [...] }, ...
+    *    ],
+    *    "masks": {},
+    *    "shared": {}
+    *  }
+    */
+    bool Pipeline::load(std::istream& in, osgViewer::View* view, osg::Camera* mainCam)
+    {
+        picojson::value root;
+        std::string err = picojson::parse(root, in);
+        if (err.empty())
+        {
+            if (!mainCam) mainCam = view->getCamera();
+            if (!view)
+            {
+                OSG_WARN << "[Pipeline] No view provided." << std::endl;
+                return false;
+            }
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
+            else if (!view->getLastAppliedViewConfig() && !mainCam->getGraphicsContext())
+#else
+            else if (!mainCam->getGraphicsContext())
+#endif
+            {
+                OSG_NOTICE << "[Pipeline] No view config applied. The pipeline will be constructed "
+                           << "with provided parameters. Please DO NOT apply any view config like "
+                           << "setUpViewInWindow() or setUpViewAcrossAllScreens() AFTER you called "
+                           << "setupStandardPipeline(). It may cause problems!!" << std::endl;
+            }
+
+            unsigned int width = 0, height = 0; obtainScreenResolution(width, height);
+            if (!width) width = 1920; if (!height) height = 1080;
+            if (!_glVersionData) _glVersionData = queryOpenGLVersion(this);
+
+            bool supportDrawBuffersMRT = true;
+            startStages(width, height, mainCam->getGraphicsContext());
+            if (_glVersionData.valid())
+            {
+                if (!_glVersionData->glslSupported || !_glVersionData->fboSupported)
+                {
+                    OSG_FATAL << "[Pipeline] Necessary OpenGL features missing. The pipeline "
+                              << "can not work on your machine at present." << std::endl;
+                    return false;
+                }
+                supportDrawBuffersMRT &= _glVersionData->drawBuffersSupported;
+            }
+
+            // TODO
+        }
+        else
+            OSG_WARN << "[Pipeline] Unable to load pipeline preset: " << err << std::endl;
+        return false;
+    }
+}
