@@ -29,8 +29,7 @@ namespace osgVerse
         virtual void apply(osg::Geode& node);
 
         virtual void apply(osg::Node& node);
-        virtual void apply(osg::Drawable& node) {}  // do nothing
-        virtual void apply(osg::Geometry& geometry) {}  // do nothing
+        virtual void apply(osg::Geometry& geometry);
 
         virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss);
         virtual void apply(osg::Node* n, osg::Drawable* d, osg::Texture* ss, int u) {}

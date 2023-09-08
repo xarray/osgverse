@@ -70,9 +70,8 @@ namespace osgVerse
     public:
         TangentSpaceVisitor(const float angularThreshold = 180.0f);
         virtual ~TangentSpaceVisitor();
-        virtual void apply(osg::Drawable& node) {}  // do nothing
-        virtual void apply(osg::Geometry& geometry) {}  // do nothing
         virtual void apply(osg::Geode& node);
+        virtual void apply(osg::Geometry& geometry);
 
     protected:
         SMikkTSpaceContext* _mikkiTSpace;
@@ -88,10 +87,9 @@ namespace osgVerse
         void setTextureUnits(int n, int sp) { _normalMapUnit = n; _specMapUnit = sp; }
         void setCacheFolder(const std::string& folder) { _cacheFolder = folder; }
 
-        virtual void apply(osg::Drawable& node) {}  // do nothing
-        virtual void apply(osg::Geometry& geometry) {}  // do nothing
         virtual void apply(osg::Node& node);
         virtual void apply(osg::Geode& node);
+        virtual void apply(osg::Drawable& geometry);
         void apply(osg::StateSet& ss);
 
     protected:

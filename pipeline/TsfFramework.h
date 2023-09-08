@@ -73,7 +73,7 @@ namespace osgVerse
     {
     public:
         enum class CaretPosition { Beginning, Ending };
-        HWND getWindow() const { return _window; }
+        HWND GetWindow() const { return _window; }
 
         virtual bool IsComposing();
         virtual bool IsReadOnly();
@@ -213,7 +213,33 @@ namespace osgVerse
             _adviseSinkObject._textStoreACPSink.Reset(); return S_OK;
         }
 
-        STDMETHODIMP RequestLock(DWORD dwLockFlags, HRESULT* phrSession);
+        STDMETHODIMP RequestLock(DWORD dwLockFlags, HRESULT* phrSession)
+        {
+            if (!_adviseSinkObject._textStoreACPSink) return E_FAIL;
+            if (!phrSession) return E_INVALIDARG;
+
+            if (_lockManager.lockType == 0)
+            {
+                _lockManager.lockType = dwLockFlags & (~TS_LF_SYNC);
+                *phrSession = _adviseSinkObject._textStoreACPSink->OnLockGranted(_lockManager.lockType);
+                while (_lockManager.isPendingLockUpgrade)
+                {
+                    _lockManager.lockType = TS_LF_READWRITE;
+                    _lockManager.isPendingLockUpgrade = false;
+                    _adviseSinkObject._textStoreACPSink->OnLockGranted(_lockManager.lockType);
+                }
+
+                _lockManager.lockType = 0;
+                return S_OK;
+            }
+            else if (!isFlaggedReadLocked(_lockManager.lockType) &&
+                    !!isFlaggedReadWriteLocked(_lockManager.lockType) &&
+                     !isFlaggedReadWriteLocked(dwLockFlags) && !(dwLockFlags & TS_LF_SYNC))
+            { *phrSession = TS_S_ASYNC; _lockManager.isPendingLockUpgrade = true; }
+            else
+            { *phrSession = TS_E_SYNCHRONOUS; return E_FAIL; }
+            return S_OK;
+        }
 
         STDMETHODIMP GetStatus(__RPC__out TS_STATUS* pdcs)
         {
@@ -222,47 +248,217 @@ namespace osgVerse
             pdcs->dwStaticFlags = TS_SS_NOHIDDENTEXT; return S_OK;
         }
 
-        STDMETHODIMP GetEndACP(__RPC__out LONG* pacp);
+        STDMETHODIMP GetEndACP(__RPC__out LONG* pacp)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            *pacp = _textContext->GetTextLength(); return S_OK;
+        }
 
         // Selection Methods
         STDMETHODIMP GetSelection(ULONG ulIndex, ULONG ulCount,
             __RPC__out_ecount_part(ulCount, *pcFetched) TS_SELECTION_ACP* pSelection,
-            __RPC__out ULONG* pcFetched);
+            __RPC__out ULONG* pcFetched)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            if (ulIndex != TS_DEFAULT_SELECTION) return TS_E_NOSELECTION;
+
+            ULONG selectionCount = osg::minimum(1ul, ulCount); *pcFetched = 0;
+            for (ULONG i = 0; i < selectionCount; ++i)
+            {
+                uint32 selectionBeginIndex, selectionLength;
+                TextInputMethodContext::CaretPosition caretPosition;
+                _textContext->GetSelectionRange(selectionBeginIndex, selectionLength, caretPosition);
+
+                pSelection[i].acpStart = selectionBeginIndex;
+                pSelection[i].acpEnd = selectionBeginIndex + selectionLength;
+                switch (caretPosition)
+                {
+                case TextInputMethodContext::CaretPosition::Beginning:
+                    pSelection[i].style.ase = TS_AE_START; break;
+                case TextInputMethodContext::CaretPosition::Ending:
+                    pSelection[i].style.ase = TS_AE_END; break;
+                }
+
+                pSelection[i].style.fInterimChar = FALSE;
+                ++(*pcFetched);
+            }
+            return S_OK;
+        }
+
         STDMETHODIMP SetSelection(ULONG ulCount,
-            __RPC__in_ecount_full(ulCount) const TS_SELECTION_ACP* pSelection);
+            __RPC__in_ecount_full(ulCount) const TS_SELECTION_ACP* pSelection)
+        {
+            if (!isFlaggedReadWriteLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            const LONG stringLength = _textContext->GetTextLength();
+            unsigned int selectionCount = osg::minimum(1ul, ulCount);
+            for (unsigned int i = 0; i < selectionCount; ++i)
+            {
+                if (pSelection[i].acpStart < 0 || pSelection[i].acpStart > stringLength ||
+                    pSelection[i].acpEnd < 0 || pSelection[i].acpEnd > stringLength)
+                { return TF_E_INVALIDPOS; }
+            }
+
+            for (unsigned int i = 0; i < selectionCount; ++i)
+            {
+                uint32 selectionBeginIndex = pSelection[i].acpStart;
+                uint32 selectionLength = pSelection[i].acpEnd - pSelection[i].acpStart;
+                TextInputMethodContext::CaretPosition caretPosition =
+                    TextInputMethodContext::CaretPosition::Ending;
+                _textContext->SetSelectionRange(selectionBeginIndex, selectionLength, caretPosition);
+            }
+            return S_OK;
+        }
 
         // Attributes Methods
         STDMETHODIMP RequestSupportedAttrs(DWORD dwFlags, ULONG cFilterAttrs,
-            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs);
+            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs)
+        {
+            for (ULONG i = 0; i < cFilterAttrs; ++i)
+            {
+                auto predicate = [&](const SupportedAttribute& attribute) -> bool
+                { return IsEqualGUID(*attribute.id, paFilterAttrs[i]) == TRUE; };
+
+                std::vector<SupportedAttribute>::iterator itr =
+                    std::find_if(_supportedAttributes.begin(), _supportedAttributes.end(), predicate);
+                if (itr != _supportedAttributes.end())
+                {
+                    size_t index = std::distance(_supportedAttributes.begin(), itr);
+                    _supportedAttributes[index].wantsDefault = true;
+                }
+            }
+            return S_OK;
+        }
 
         STDMETHODIMP RequestAttrsAtPosition(LONG acpPos, ULONG cFilterAttrs,
-            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs, DWORD dwFlags);
+            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs, DWORD dwFlags)
+        {
+            for (ULONG i = 0; i < cFilterAttrs; ++i)
+            {
+                auto predicate = [&](const SupportedAttribute& attribute) -> bool
+                { return IsEqualGUID(*attribute.id, paFilterAttrs[i]) == TRUE; };
+
+                std::vector<SupportedAttribute>::iterator itr =
+                    std::find_if(_supportedAttributes.begin(), _supportedAttributes.end(), predicate);
+                if (itr != _supportedAttributes.end())
+                {
+                    size_t index = std::distance(_supportedAttributes.begin(), itr);
+                    _supportedAttributes[index].wantsDefault = true;
+                }
+            }
+            return S_OK;
+        }
 
         STDMETHODIMP RequestAttrsTransitioningAtPosition(LONG acpPos, ULONG cFilterAttrs,
-            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs, DWORD dwFlags);
+            __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs, DWORD dwFlags)
+        { return E_NOTIMPL; }
         STDMETHODIMP FindNextAttrTransition(LONG acpStart, LONG acpHalt, ULONG cFilterAttrs,
             __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs,
             DWORD dwFlags, __RPC__out LONG* pacpNext, __RPC__out BOOL* pfFound,
-            __RPC__out LONG* plFoundOffset);
+            __RPC__out LONG* plFoundOffset) { return E_NOTIMPL; }
+
         STDMETHODIMP RetrieveRequestedAttrs(ULONG ulCount,
             __RPC__out_ecount_part(ulCount, *pcFetched) TS_ATTRVAL* paAttrVals,
-            __RPC__out ULONG* pcFetched);
+            __RPC__out ULONG* pcFetched)
+        {
+            *pcFetched = 0;
+            for (int32 i = 0; i < _supportedAttributes.size() && *pcFetched < ulCount; ++i)
+            {
+                if (_supportedAttributes[i].wantsDefault)
+                {
+                    paAttrVals[i].idAttr = *(_supportedAttributes[i].id);
+                    VariantCopy(&(paAttrVals[*pcFetched].varValue),
+                                &(_supportedAttributes[i].defaultValue));
+                    paAttrVals[i].dwOverlapId = 0;
+                }
+                ++(*pcFetched);
+            }
+            return S_OK;
+        }
 
         // View Methods
-        STDMETHODIMP GetActiveView(__RPC__out TsViewCookie* pvcView);
+        STDMETHODIMP GetActiveView(__RPC__out TsViewCookie* pvcView)
+        { *pvcView = 0; return S_OK; }
+
         STDMETHODIMP GetACPFromPoint(TsViewCookie vcView, __RPC__in const POINT* pt,
-                                     DWORD dwFlags, __RPC__out LONG* pacp);
+                                     DWORD dwFlags, __RPC__out LONG* pacp)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            const osg::Vec2 point(pt->x, pt->y);
+            *pacp = _textContext->GetCharacterIndexFromPoint(point); return S_OK;
+        }
+
         STDMETHODIMP GetTextExt(TsViewCookie vcView, LONG acpStart, LONG acpEnd,
-                                __RPC__out RECT* prc, __RPC__out BOOL* pfClipped);
-        STDMETHODIMP GetScreenExt(TsViewCookie vcView, __RPC__out RECT* prc);
-        STDMETHODIMP GetWnd(TsViewCookie vcView, __RPC__deref_out_opt HWND* phwnd);
+                                __RPC__out RECT* prc, __RPC__out BOOL* pfClipped)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            if (acpStart == acpEnd) return E_INVALIDARG;
+
+            const LONG stringLength = _textContext->GetTextLength();
+            if (acpStart < 0 || acpStart > stringLength ||
+                (acpEnd != -1 && (acpEnd < 0 || acpEnd > stringLength)))
+            { return TS_E_INVALIDPOS;  }
+
+            osg::Vec2 position, size;
+            *pfClipped = _textContext->GetTextBounds(acpStart, acpEnd - acpStart, position, size);
+            prc->left = (LONG)position.x(); prc->top = (LONG)position.y();
+            prc->right = (LONG)(position.x() + size.x());
+            prc->bottom = (LONG)(position.y() + size.y());
+            return S_OK;
+        }
+
+        STDMETHODIMP GetScreenExt(TsViewCookie vcView, __RPC__out RECT* prc)
+        {
+            osg::Vec2 position, size;
+            if (vcView != 0) return E_INVALIDARG;
+            _textContext->GetScreenBounds(position, size);
+            prc->left = (LONG)position.x(); prc->top = (LONG)position.y();
+            prc->right = (LONG)(position.x() + size.x());
+            prc->bottom = (LONG)(position.y() + size.y());
+            return S_OK;
+        }
+
+        STDMETHODIMP GetWnd(TsViewCookie vcView, __RPC__deref_out_opt HWND* phwnd)
+        { *phwnd = _textContext->GetWindow(); return S_OK; }
 
         // Plain Character Methods
         STDMETHODIMP GetText(LONG acpStart, LONG acpEnd,
             __RPC__out_ecount_part(cchPlainReq, *pcchPlainOut) WCHAR* pchPlain,
             ULONG cchPlainReq, __RPC__out ULONG* pcchPlainOut,
             __RPC__out_ecount_part(ulRunInfoReq, *pulRunInfoOut) TS_RUNINFO* prgRunInfo,
-            ULONG ulRunInfoReq, __RPC__out ULONG* pulRunInfoOut, __RPC__out LONG* pacpNext);
+            ULONG ulRunInfoReq, __RPC__out ULONG* pulRunInfoOut, __RPC__out LONG* pacpNext)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            const LONG stringLength = _textContext->GetTextLength();
+
+            // Validate range.
+            if (acpStart < 0 || acpStart > stringLength ||
+                (acpEnd != -1 && (acpEnd < 0 || acpEnd > stringLength))) return TF_E_INVALIDPOS;
+            const uint32 beginIndex = acpStart;
+            const uint32 length = (acpEnd == -1 ? stringLength : acpEnd) - beginIndex;
+            *pcchPlainOut = 0; // No characters yet copied to buffer.
+
+            // Write characters to buffer only if there is a buffer with allocated size.
+            if (pchPlain && cchPlainReq > 0)
+            {
+                std::string stringInRange;
+                _textContext->GetTextInRange(beginIndex, length, stringInRange);
+                for (uint32 i = 0; i < length && *pcchPlainOut < cchPlainReq; ++i)
+                {
+                    pchPlain[i] = stringInRange[i];
+                    ++(*pcchPlainOut);
+                }
+            }
+
+            *pulRunInfoOut = 0; // No runs yet copied to buffer.
+            if (prgRunInfo && ulRunInfoReq > 0)
+            {
+                prgRunInfo[0].uCount = osg::minimum(static_cast<uint32>(ulRunInfoReq), length);
+                prgRunInfo[0].type = TS_RT_PLAIN; ++(*pulRunInfoOut);
+            }
+            *pacpNext = beginIndex + length;
+            return S_OK;
+        }
+
         STDMETHODIMP QueryInsert(LONG acpInsertStart, LONG acpInsertEnd, ULONG cch,
             __RPC__out LONG* pacpResultStart, __RPC__out LONG* pacpResultEnd);
         STDMETHODIMP InsertTextAtSelection(DWORD dwFlags, __RPC__in_ecount_full(cch) const WCHAR* pchText,
@@ -287,10 +483,43 @@ namespace osgVerse
 
         // ITfContextOwnerCompositionSink Interface Begin
         STDMETHODIMP OnStartComposition(__RPC__in_opt ITfCompositionView* pComposition,
-                                        __RPC__out BOOL* pfOk);
+                                        __RPC__out BOOL* pfOk)
+        {
+            if (!_composition._tsfCompositionView)
+            {
+                _composition._tsfCompositionView = pComposition;
+                if (!_textContext->IsComposing()) _textContext->BeginComposition(); *pfOk = TRUE;
+            }
+            else *pfOk = FALSE;
+            return S_OK;
+        }
+
         STDMETHODIMP OnUpdateComposition(__RPC__in_opt ITfCompositionView* pComposition,
-                                         __RPC__in_opt ITfRange* pRangeNew);
-        STDMETHODIMP OnEndComposition(__RPC__in_opt ITfCompositionView* pComposition);
+                                         __RPC__in_opt ITfRange* pRangeNew)
+        {
+            if (!_composition._tsfCompositionView) return E_UNEXPECTED;
+            if (pComposition != _composition._tsfCompositionView) return E_UNEXPECTED;
+
+            if (pRangeNew)
+            {
+                ComPtr<ITfRangeACP> rangeACP;
+                rangeACP.FromQueryInterface(IID_ITfRangeACP, pRangeNew);
+
+                LONG beginIndex = 0, length = 0;
+                const auto result = rangeACP->GetExtent(&(beginIndex), &(length));
+                if (FAILED(result)) return E_FAIL;
+                else _textContext->UpdateCompositionRange(beginIndex, length);
+            }
+            return S_OK;
+        }
+
+        STDMETHODIMP OnEndComposition(__RPC__in_opt ITfCompositionView* pComposition)
+        {
+            if (!_composition._tsfCompositionView) return E_UNEXPECTED;
+            if (pComposition != _composition._tsfCompositionView) return E_UNEXPECTED;
+            _composition._tsfCompositionView.Reset();
+            _textContext->EndComposition(); return S_OK;
+        }
         // ITfContextOwnerCompositionSink Interface End
 
         struct AdviseSinkObject
@@ -313,6 +542,29 @@ namespace osgVerse
         TfEditCookie _tsfEditCookie;
 
     protected:
+        struct SupportedAttribute
+        {
+            SupportedAttribute(const TS_ATTRID* const inId) : wantsDefault(false), id(inId)
+            { VariantInit(&(defaultValue)); }
+
+            bool wantsDefault;
+            const TS_ATTRID* const id;
+            VARIANT defaultValue;
+        };
+
+        struct LockManager
+        {
+            LockManager() : lockType(0), isPendingLockUpgrade(false) {}
+            DWORD lockType; bool isPendingLockUpgrade;
+        } _lockManager;
+
+        static bool isFlaggedReadLocked(const DWORD flags)
+        { return (flags & TS_LF_READ) == TS_LF_READ; }
+
+        static bool isFlaggedReadWriteLocked(const DWORD flags)
+        { return (flags & TS_LF_READWRITE) == TS_LF_READWRITE; }
+
+        std::vector<SupportedAttribute> _supportedAttributes;
         osg::ref_ptr<TextInputMethodContext> _textContext;
         ULONG _referenceCount;
     };

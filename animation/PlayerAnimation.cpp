@@ -169,13 +169,24 @@ namespace ozz
 
             virtual void apply(osg::Geode& node)
             {
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
                 for (size_t i = 0; i < node.getNumDrawables(); ++i)
                 {
                     osg::Geometry* geom = node.getDrawable(i)->asGeometry();
                     if (geom && _jointMap.find(geom) != _jointMap.end())
                         apply(*geom, _jointMap.find(geom)->second);
                 }
+#endif
                 traverse(node);
+            }
+
+            virtual void apply(osg::Geometry& geom)
+            {
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+                if (_jointMap.find(&geom) != _jointMap.end())
+                    apply(geom, _jointMap.find(&geom)->second);
+                traverse(geom);
+#endif
             }
 
             void initialize(const std::vector<osg::Geometry*>& meshList)

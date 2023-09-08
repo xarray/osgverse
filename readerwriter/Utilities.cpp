@@ -1,3 +1,4 @@
+#include <osg/Version>
 #include <osg/Geode>
 #include <osg/Texture2D>
 #include <osgDB/Registry>
@@ -27,18 +28,25 @@ void emscripten_advance()
 }
 #endif
 
+void FixedFunctionOptimizer::apply(osg::Geometry& geom)
+{
+    removeUnusedStateAttributes(geom.getStateSet());
+    geom.setUseDisplayList(false);
+    geom.setUseVertexBufferObjects(true);
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+    traverse(geom);
+#endif
+}
+
 void FixedFunctionOptimizer::apply(osg::Geode& geode)
 {
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
     for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
     {
         osg::Geometry* geom = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
-        if (geom)
-        {
-            removeUnusedStateAttributes(geom->getStateSet());
-            geom->setUseDisplayList(false);
-            geom->setUseVertexBufferObjects(true);
-        }
+        if (geom) apply(*geom);
     }
+#endif
     removeUnusedStateAttributes(geode.getStateSet());
     NodeVisitor::apply(geode);
 }
@@ -92,10 +100,20 @@ TextureOptimizer::~TextureOptimizer()
 {
 }
 
+void TextureOptimizer::apply(osg::Drawable& drawable)
+{
+    applyTextureAttributes(drawable.getStateSet());
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+    traverse(drawable);
+#endif
+}
+
 void TextureOptimizer::apply(osg::Geode& geode)
 {
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
     for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
         applyTextureAttributes(geode.getDrawable(i)->getStateSet());
+#endif
     applyTextureAttributes(geode.getStateSet());
     NodeVisitor::apply(geode);
 }

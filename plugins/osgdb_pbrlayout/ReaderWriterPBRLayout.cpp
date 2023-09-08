@@ -13,8 +13,14 @@ class TexLayoutVisitor : public osg::NodeVisitor
 {
 public:
     TexLayoutVisitor(const osgDB::StringList& params) { parse(params); }
-    virtual void apply(osg::Drawable& node) {}  // do nothing
-    virtual void apply(osg::Geometry& geometry) {}  // do nothing
+
+    virtual void apply(osg::Drawable& drawable)
+    {
+        if (drawable.getStateSet()) applyStateSet(*(drawable.getStateSet()));
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+        traverse(drawable);
+#endif
+    }
     
     virtual void apply(osg::Node& node)
     {
@@ -24,11 +30,13 @@ public:
 
     virtual void apply(osg::Geode& node)
     {
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
         {
             osg::Drawable* d = node.getDrawable(i);
-            if (d->getStateSet()) applyStateSet(*(d->getStateSet()));
+            if (d) apply(*d);
         }
+#endif
         if (node.getStateSet()) applyStateSet(*node.getStateSet());
         traverse(node);
     }

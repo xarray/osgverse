@@ -1,3 +1,4 @@
+#include <osg/Version>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geometry>
 #include <osg/Geode>
@@ -165,36 +166,45 @@ void MeshCollector::apply(osg::Transform& node)
 
 void MeshCollector::apply(osg::Geode& node)
 {
-    osg::Matrix matrix;
-    if (_matrixStack.size() > 0) matrix = _matrixStack.back();
     if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
-
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
     {
         osg::Geometry* geom = node.getDrawable(i)->asGeometry();
-        osg::StateSet* ss = node.getDrawable(i)->getStateSet();
-        if (ss) apply(&node, node.getDrawable(i), *ss);
-        if (!geom) continue;
-
-        osg::TriangleIndexFunctor<CollectVertexOperator> functor;
-        functor.inputV = static_cast<osg::Vec3Array*>(geom->getVertexArray());
-        functor.inputT = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
-        if (geom->getNormalBinding() == osg::Geometry::BIND_PER_VERTEX)
-            functor.inputN = static_cast<osg::Vec3Array*>(geom->getNormalArray());
-        if (geom->getColorBinding() == osg::Geometry::BIND_PER_VERTEX)
-            functor.inputC = static_cast<osg::Vec4Array*>(geom->getColorArray());
-
-        functor.vertices = &_vertices; functor.attributes = &_attributes;
-        functor.indices = &_indices; functor.matrix = matrix;
-        functor.baseIndex = _vertices.size();
-        if (_weldVertices)
-        {
-            if (!_globalVertices) _vertexMap.clear();
-            functor.vertexMap = &_vertexMap;
-        }
-        geom->accept(functor);
+        if (geom != NULL) apply(*geom);
     }
+#endif
     traverse(node);
+}
+
+void MeshCollector::apply(osg::Geometry& geom)
+{
+    osg::Matrix matrix;
+    if (_matrixStack.size() > 0) matrix = _matrixStack.back();
+
+    osg::StateSet* ss = geom.getStateSet();
+    if (ss) apply(geom.getParent(0), &geom, *ss);
+
+    osg::TriangleIndexFunctor<CollectVertexOperator> functor;
+    functor.inputV = static_cast<osg::Vec3Array*>(geom.getVertexArray());
+    functor.inputT = static_cast<osg::Vec2Array*>(geom.getTexCoordArray(0));
+    if (geom.getNormalBinding() == osg::Geometry::BIND_PER_VERTEX)
+        functor.inputN = static_cast<osg::Vec3Array*>(geom.getNormalArray());
+    if (geom.getColorBinding() == osg::Geometry::BIND_PER_VERTEX)
+        functor.inputC = static_cast<osg::Vec4Array*>(geom.getColorArray());
+
+    functor.vertices = &_vertices; functor.attributes = &_attributes;
+    functor.indices = &_indices; functor.matrix = matrix;
+    functor.baseIndex = _vertices.size();
+    if (_weldVertices)
+    {
+        if (!_globalVertices) _vertexMap.clear();
+        functor.vertexMap = &_vertexMap;
+    }
+    geom.accept(functor);
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+    traverse(geom);
+#endif
 }
 
 void MeshCollector::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)

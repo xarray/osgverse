@@ -476,23 +476,40 @@ namespace osgVerse
 
     void TangentSpaceVisitor::apply(osg::Geode& node)
     {
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
         {
             osg::Geometry* geom = node.getDrawable(i)->asGeometry();
-            if (!geom || (geom && geom->getNormalArray() == NULL)) continue;
-            if (geom->getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) continue;
-
-            if (geom->getVertexAttribArray(6) != NULL && geom->getVertexAttribArray(7) != NULL &&
-                geom->getVertexAttribBinding(6) == osg::Geometry::BIND_PER_VERTEX &&
-                geom->getVertexAttribBinding(7) == osg::Geometry::BIND_PER_VERTEX)
-            { continue; }  // already set
-
-            osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
-            geom->accept(functor);
-            if (functor.initialize(_mikkiTSpace, geom))
-                genTangSpace(_mikkiTSpace, _angularThreshold);
+            if (geom) apply(*geom);
         }
+#endif
         traverse(node);
+    }
+
+    void TangentSpaceVisitor::apply(osg::Geometry& geom)
+    {
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+        if (geom.getNormalArray() == NULL) { traverse(geom); return; }
+        if (geom.getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) { traverse(geom); return; }
+
+        if (geom.getVertexAttribArray(6) != NULL &&
+            geom.getVertexAttribBinding(6) == osg::Geometry::BIND_PER_VERTEX)
+        { traverse(geom); return; }  // already set
+#else
+        if (geom.getNormalArray() == NULL) return;
+        if (geom.getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) return;
+
+        if (geom.getVertexAttribArray(6) != NULL &&
+            geom.getVertexAttribBinding(6) == osg::Geometry::BIND_PER_VERTEX) return;
+#endif
+
+        osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
+        geom.accept(functor);
+        if (functor.initialize(_mikkiTSpace, &geom))
+            genTangSpace(_mikkiTSpace, _angularThreshold);
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+        traverse(geom);
+#endif
     }
 
     NormalMapGenerator::NormalMapGenerator(double nStrength, double spScale, double spContrast, bool nInvert)
@@ -508,15 +525,23 @@ namespace osgVerse
 
     void NormalMapGenerator::apply(osg::Geode& node)
     {
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
         {
             osg::Drawable* drawable = node.getDrawable(i);
-            if (drawable && drawable->getStateSet())
-                apply(*drawable->getStateSet());
+            if (drawable) apply(*drawable);
         }
-
+#endif
         if (node.getStateSet()) apply(*node.getStateSet());
         traverse(node);
+    }
+
+    void NormalMapGenerator::apply(osg::Drawable& drawable)
+    {
+        if (drawable.getStateSet()) apply(*drawable.getStateSet());
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+        traverse(drawable);
+#endif
     }
 
     void NormalMapGenerator::apply(osg::StateSet& ss)

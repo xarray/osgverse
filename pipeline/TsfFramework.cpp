@@ -376,7 +376,7 @@ void TextInputMethodSystem::UnregisterContext(TextInputMethodContext* context)
 
 void TextInputMethodSystem::ActivateContext(TextInputMethodContext* context)
 {
-    HWND window = context->getWindow();
+    HWND window = context->GetWindow();
     _activeContext = context;
 
     ComPtr<TextStoreACP>& textStore = _contextMap[context];
@@ -392,7 +392,7 @@ void TextInputMethodSystem::ActivateContext(TextInputMethodContext* context)
 
 void TextInputMethodSystem::DeactivateContext(TextInputMethodContext* context)
 {
-    HWND window = context->getWindow();
+    HWND window = context->GetWindow();
     _activeContext = NULL;
 
     ComPtr<TextStoreACP>& textStore = _contextMap[context];

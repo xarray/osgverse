@@ -31,6 +31,7 @@ namespace osgVerse
         FixedFunctionOptimizer()
             : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
 
+        virtual void apply(osg::Geometry& geom);
         virtual void apply(osg::Geode& geode);
         virtual void apply(osg::Node& node);
 
@@ -45,6 +46,7 @@ namespace osgVerse
                          const std::string& newTexFolder = "optimized_tex");
         virtual ~TextureOptimizer();
 
+        virtual void apply(osg::Drawable& drawable);
         virtual void apply(osg::Geode& geode);
         virtual void apply(osg::Node& node);
 
