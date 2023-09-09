@@ -322,8 +322,7 @@ namespace osgVerse
                 }
                 else if (attrib->first.compare("TANGENT") == 0 &&
                          compSize == 4 && compNum == 4)
-                {   // Do nothing as we calculate tangent/binormal by ourselves
-#if 0
+                {
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
                     copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
@@ -332,7 +331,6 @@ namespace osgVerse
 #endif
                     geom->setVertexAttribArray(6, ta);
                     geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
-#endif
                 }
                 else if (attrib->first.find("TEXCOORD_") != std::string::npos &&
                          compSize == 4 && compNum == 2)

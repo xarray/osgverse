@@ -1022,7 +1022,7 @@ namespace osgVerse
         if (prog != NULL)
         {
             prog->addBindAttribLocation(attributeNames[6], 6);
-            prog->addBindAttribLocation(attributeNames[7], 7);
+            //prog->addBindAttribLocation(attributeNames[7], 7);
         }
         return 7;  // next texture unit = 7
     }

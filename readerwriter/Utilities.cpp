@@ -6,6 +6,7 @@
 #include <osgDB/FileNameUtils>
 #include "LoadTextureKTX.h"
 
+#include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
 #include "Utilities.h"
 using namespace osgVerse;
@@ -100,6 +101,15 @@ TextureOptimizer::~TextureOptimizer()
 {
 }
 
+void TextureOptimizer::deleteSavedTextures()
+{
+    for (size_t i = 0; i < _savedTextures.size(); ++i)
+    {
+        ghc::filesystem::path path = _savedTextures[i];
+        ghc::filesystem::remove(path);
+    }
+}
+
 void TextureOptimizer::apply(osg::Drawable& drawable)
 {
     applyTextureAttributes(drawable.getStateSet());
@@ -183,13 +193,14 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     if (!toLoad)
     {
         std::string fileName = img->getFileName(), id = "__" + nanoid::generate(8);
-        if (fileName.empty()) fileName = "temp" + id + ".ktx.verse_ktx";
-        else fileName = osgDB::getStrippedName(fileName) + id + ".ktx.verse_ktx";
-        img->setFileName(_textureFolder + osgDB::getNativePathSeparator() + fileName);
+        if (fileName.empty()) fileName = "temp" + id + ".ktx";
+        else fileName = osgDB::getStrippedName(fileName) + id + ".ktx";
+        fileName = _textureFolder + osgDB::getNativePathSeparator() + fileName;
+        img->setFileName(fileName + ".verse_ktx");
 
-        // FIXME: not good to save to a file on disk...
-        std::ofstream out(img->getFileName().c_str(), std::ios::out | std::ios::binary);
-        out.write(ss.str().data(), ss.str().size()); return NULL;
+        std::ofstream out(fileName.c_str(), std::ios::out | std::ios::binary);
+        out.write(ss.str().data(), ss.str().size());
+        _savedTextures.push_back(fileName); return NULL;
     }
     else
     {

@@ -350,7 +350,7 @@ SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
 SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp
-    backward.hpp strtk.hpp tinydir.h rapidxml/rapidxml.hpp rapidjson/rapidjson.h
+    backward.hpp strtk.hpp ghc/filesystem.hpp rapidxml/rapidxml.hpp rapidjson/rapidjson.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     sqlite3.c sqlite3.h miniz.c miniz.h ofbx.cpp ofbx.h tinyexr.cc tinyexr.h
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp

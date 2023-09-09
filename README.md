@@ -94,26 +94,28 @@ Our project is already tested on graphics cards listed as below:
 9. TBD...
 
 #### Tests and Examples
-1. osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
-2. osgVerse_Test_Obb_KDop: a quick test for creating a model's obb/kdop bounding volume.
-3. osgVerse_Test_ImGui: a quick test for demostrating the use of IMGUI in osg scene.
-4. osgVerse_Test_Mesh_Process: a mesh process and topology builder example.
-5. osgVerse_Test_Physics_Basic: a physics world example supporting rigid bodies & kinematics, requiring Bullet3.
-6. osgVerse_Test_Shadow: a test for shadow algorithm debugging and optimizing.
-7. osgVerse_Test_CubeRtt: a quick test for render-to-cubemap (6 faces) demonstaration.
-8. osgVerse_Test_Pipeline: a program for simple cases and compatiblity tests of osgVerse pipeline.
-9. osgVerse_Test_Pbr_Prerequisite: a quick utility to pre-compute global PBR textures and save them to IBL osgb files.
-10. osgVerse_Test_Paging_Lod: a test for paged LOD file combination, optimization and transferring to levelDB.
-11. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
-12. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
-13. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.
-14. osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x.
-15. osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
-16. osgVerse_Test_Scripting: a test for scripting implementation based on OSGB serialization format.
-17. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
-18. osgVerse_Test_Thread: a test for using the Marl thread task scheduler along with osgViewer.
-19. osgVerse_Test_Volume_Rendering: a test for different methods to implement volume rendering.
-20. TBD...
+1. osgVerse_Test_ImGui: a quick test for demostrating the use of IMGUI in osg scene.
+2. osgVerse_Test_Mesh_Process: a mesh process and topology builder example.
+3. osgVerse_Test_Physics_Basic: a physics world example supporting rigid bodies & kinematics, requiring Bullet3.
+4. osgVerse_Test_Shadow: a test for shadow algorithm debugging and optimizing.
+5. osgVerse_Test_Pipeline: a program for simple cases and compatiblity tests of osgVerse pipeline.
+6. osgVerse_Test_Pbr_Prerequisite: a quick utility to pre-compute global PBR textures and save them to IBL osgb files.
+7. osgVerse_Test_Paging_Lod: a test for paged LOD file combination, optimization and transferring to levelDB.
+8. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
+9. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
+10. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.
+11. osgVerse_Test_Scripting: a test for scripting implementation based on OSGB serialization format.
+12. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
+13. osgVerse_Test_Thread: a test for using the Marl thread task scheduler along with osgViewer.
+14. osgVerse_Test_Volume_Rendering: a test for different methods to implement volume rendering.
+15. osgVerse_Test_MultiView_Shader: a test for using geometry shader to implement multi-view rendering.
+16. Deprecated tests:
+  - osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
+  - osgVerse_Test_Obb_KDop: a quick test for creating a model's obb/kdop bounding volume.
+  - osgVerse_Test_CubeRtt: a quick test for render-to-cubemap (6 faces) demonstaration.
+  - osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x.
+  - osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
+27. TBD...
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
@@ -203,6 +205,7 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_BUILD_GPL             | Boolean | OFF           | Enable build of GPL dependencies (e.g., mcut), which will makes osgVerse a GPL library |
 | VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg, PNG and Tiff |
 | VERSE_BUILD_WITH_QT         | Boolean | OFF           | Enable build of Qt based applications and tests |
+| VERSE_BUILD_DEPRECATED_TESTS| Boolean | OFF           | Enable build of deprecated tests |
 | VERSE_SUPPORT_CPP17         | Boolean | OFF           | Enable build of libraries using C++ 17 standard |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |

@@ -93,7 +93,7 @@ static std::default_random_engine generator;
 struct MikkTSpaceHelper
 {
     std::vector<Vec3ui> _faceList;
-    osg::Vec3Array *tangents, *binormals;
+    osg::Vec4Array *tangents;
     osg::Geometry* _geometry;
 
     bool initialize(SMikkTSpaceContext* sc, osg::Geometry* g)
@@ -111,9 +111,8 @@ struct MikkTSpaceHelper
         if (!va || !na || !ta) return false;
         if (va->size() != na->size() || va->size() != ta->size()) return false;
 
-        tangents = new osg::Vec3Array(va->size()); binormals = new osg::Vec3Array(va->size());
+        tangents = new osg::Vec4Array(va->size());
         g->setVertexAttribArray(6, tangents); g->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
-        g->setVertexAttribArray(7, binormals); g->setVertexAttribBinding(7, osg::Geometry::BIND_PER_VERTEX);
         return true;
     }
 
@@ -161,9 +160,9 @@ struct MikkTSpaceHelper
                                     const float fSign, const int iFace, const int iVert)
     {
         MikkTSpaceHelper* self = me(pContext); unsigned int vIndex = self->_faceList[iFace][iVert];
-        osg::Vec3 T(fvTangent[0], fvTangent[1], fvTangent[2]);
-        osg::Vec3 N = self->nArray()->at(vIndex);  osg::Vec3 B = (N ^ T) * fSign;
-        (*self->tangents)[vIndex] = T; (*self->binormals)[vIndex] = B;
+        osg::Vec4 T(fvTangent[0], fvTangent[1], fvTangent[2], fSign);
+        //osg::Vec3 N = self->nArray()->at(vIndex); osg::Vec3 B = (N ^ T) * fSign;
+        (*self->tangents)[vIndex] = T; //(*self->binormals)[vIndex] = B;
     }
 };
 

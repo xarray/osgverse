@@ -16,7 +16,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
-#include <tinydir.h>
+#include <ghc/filesystem.hpp>
 
 #include <readerwriter/Utilities.h>
 #include <readerwriter/DracoProcessor.h>
@@ -113,6 +113,7 @@ void processFile(const std::string& prefix, const std::string& dirName,
         if (!savingToDB) osgDB::makeDirectoryForFile(dbFileName);
         osgDB::writeNodeFile(*node, dbFileName,
                              new osgDB::Options("WriteImageHint=IncludeFile"));
+        opt.deleteSavedTextures();
         std::cout << "Re-saving " << fileName << "\n";
     }
 }
@@ -137,18 +138,18 @@ int main(int argc, char** argv)
         std::string outputFile = std::string(argv[3]);
         bool savingToDB = (dbBase.find("leveldb://") != dbBase.npos);
 
-        tinydir_dir dir; tinydir_open(&dir, prefix.c_str());
-        while (dir.has_next)
+        ghc::filesystem::path dir(prefix);
+        for (auto itr : ghc::filesystem::directory_iterator(dir))
         {
-            tinydir_file file; tinydir_readfile(&dir, &file);
-            if (file.is_dir)
+            const ghc::filesystem::path& file = itr.path();
+            if (itr.is_directory())
             {
-                std::string dirName = file.name, rootTileName;
+                std::string dirName = file.filename().string(), rootTileName;
                 if (dirName.find("Tile") != dirName.npos || dirName.find("Block") != dirName.npos)
                     rootTileName = prefix + dirName + "/" + dirName + ".osgb";
                 //else if (dirName.find("tile") != dirName.npos)
                 //    rootTileName = prefix + dirName + "/Data/Model/Model_with_transform.osgb";
-                if (rootTileName.empty()) { tinydir_next(&dir); continue; }
+                if (rootTileName.empty()) continue;
 
                 osgDB::DirectoryContents osgbFiles = osgDB::getDirectoryContents(prefix + dirName);
                 ThreadPool pool(std::thread::hardware_concurrency()); // Create a thread pool
@@ -176,9 +177,7 @@ int main(int argc, char** argv)
                 }
                 std::cout << dirName << " added...\n";
             }
-            tinydir_next(&dir);
         }
-        tinydir_close(&dir);
         osgDB::writeNodeFile(*root, outputFile);
     }
     else if (argc > 1)

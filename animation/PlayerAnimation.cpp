@@ -203,7 +203,7 @@ namespace ozz
             {
                 osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom.getVertexArray());
                 osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom.getNormalArray());
-                osg::Vec3Array* ta = dynamic_cast<osg::Vec3Array*>(geom.getVertexAttribArray(6));
+                osg::Vec4Array* ta = dynamic_cast<osg::Vec4Array*>(geom.getVertexAttribArray(6));
                 osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geom.getColorArray());
                 osg::Vec2Array* uv = dynamic_cast<osg::Vec2Array*>(geom.getTexCoordArray(0));
                 if (!va || (va && va->empty())) return;
@@ -221,12 +221,8 @@ namespace ozz
                 memcpy(&meshPart.positions[0], &(*va)[0], vCount * sizeof(float) * 3);
                 if (ta && ta->size() == vCount)
                 {
-                    for (size_t i = 0; i < vCount; ++i)
-                    {
-                        const osg::Vec3& t = (*ta)[i]; meshPart.tangents.push_back(t[0]);
-                        meshPart.tangents.push_back(t[1]); meshPart.tangents.push_back(t[2]);
-                        meshPart.tangents.push_back(1.0f);  // LH = -1, RH = +1
-                    }
+                    meshPart.tangents.resize(vCount * 4);
+                    memcpy(&meshPart.tangents[0], &(*ta)[0], vCount * sizeof(float) * 4);
                 }
 
                 if (na && na->size() == vCount)

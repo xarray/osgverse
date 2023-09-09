@@ -43,7 +43,6 @@ public:
                 addListItemFromArray(it, ImGuiComponentBase::TR("Normal"), g->getNormalArray());
                 addListItemFromArray(it, ImGuiComponentBase::TR("Color"), g->getColorArray());
                 addListItemFromArray(it, ImGuiComponentBase::TR("Tangent"), g->getVertexAttribArray(6));
-                addListItemFromArray(it, ImGuiComponentBase::TR("Binormal"), g->getVertexAttribArray(7));
                 addListItemFromArray(it, ImGuiComponentBase::TR("Weights"), g->getVertexAttribArray(1));
                 addListItemFromArray(it, ImGuiComponentBase::TR("UV0"), g->getTexCoordArray(0));
                 addListItemFromArray(it, ImGuiComponentBase::TR("UV1"), g->getTexCoordArray(1));

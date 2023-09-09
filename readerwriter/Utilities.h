@@ -45,6 +45,7 @@ namespace osgVerse
         TextureOptimizer(bool preparingForInlineFile = false,
                          const std::string& newTexFolder = "optimized_tex");
         virtual ~TextureOptimizer();
+        void deleteSavedTextures();
 
         virtual void apply(osg::Drawable& drawable);
         virtual void apply(osg::Geode& geode);
@@ -55,6 +56,7 @@ namespace osgVerse
         void applyTexture(osg::Texture* tex, unsigned int unit);
         osg::Image* compressImage(osg::Texture* tex, osg::Image* img, bool toLoad);
 
+        std::vector<std::string> _savedTextures;
         std::string _textureFolder;
         bool _preparingForInlineFile;
     };
