@@ -5,10 +5,6 @@
 #include <osgDB/ReadFile>
 #include <osgUtil/RenderStage>
 #include <osgViewer/Renderer>
-#ifdef VERSE_WINDOWS
-    #include <osgViewer/api/Win32/GraphicsWindowWin32>
-    #include <imm.h>
-#endif
 #include <iostream>
 #include <sstream>
 #include <stdarg.h>
@@ -759,6 +755,10 @@ namespace osgVerse
         for (std::map<std::string, osg::ref_ptr<osg::NodeCallback>>::iterator itr = _modules.begin();
              itr != _modules.end(); ++itr)
         { mainCam->removeUpdateCallback(itr->second.get()); }
+
+#ifdef VERSE_WINDOWS
+        TextInputMethodManager::instance()->unbind();
+#endif
     }
 
     void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam,
@@ -822,8 +822,7 @@ namespace osgVerse
             30.0f, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), 1.0f, 10000.0f);
 
 #ifdef VERSE_WINDOWS
-        osgViewer::GraphicsWindowWin32* gw = static_cast<osgViewer::GraphicsWindowWin32*>(_stageContext.get());
-        if (gw) ImmAssociateContext(gw->getHWND(), NULL);  // FIXME: disable default IME.. better use TSF?
+        TextInputMethodManager::instance()->disable(_stageContext.get());
 #endif
     }
 

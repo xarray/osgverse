@@ -141,6 +141,20 @@ namespace osgVerse
         std::map<int, KeyCallback> _keyCallbacks0, _keyCallbacks1;
     };
 
+    /** Handle IME events under Windows */
+#ifdef VERSE_WINDOWS
+    class TextInputMethodManager : public osg::Referenced
+    {
+    public:
+        static TextInputMethodManager* instance();
+        static void disable(osg::GraphicsContext* gc);
+        virtual void bind(osg::GraphicsContext* gc) = 0;
+        virtual void unbind() = 0;
+        virtual void updateNotifier() = 0;
+        virtual void setFocus(bool b) = 0;
+    };
+#endif
+
     class DisableBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
     {
     public:

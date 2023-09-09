@@ -72,29 +72,95 @@ namespace osgVerse
     class TextInputMethodContext : public osg::Referenced
     {
     public:
+        TextInputMethodContext(HWND hwnd)
+            : _window(hwnd), _selectionRangeBeginIndex(0), _selectionRangeLength(0),
+              _compositionBeginIndex(0), _compositionLength(0), _isComposing(false)
+        { _selectionCaretPosition = CaretPosition::Ending; }
+
         enum class CaretPosition { Beginning, Ending };
         HWND GetWindow() const { return _window; }
 
-        virtual bool IsComposing();
-        virtual bool IsReadOnly();
-        virtual uint32 GetTextLength();
+        virtual bool IsComposing() { return _isComposing; }
+        virtual bool IsReadOnly() { return false; }
+        virtual uint32 GetTextLength() { return _compositionString.size(); }
 
-        virtual void GetSelectionRange(uint32& beginIndex, uint32& length, CaretPosition& caretPosition);
-        virtual void SetSelectionRange(uint32 beginIndex, uint32 length, CaretPosition caretPosition);
+        virtual void GetSelectionRange(uint32& beginIndex, uint32& length, CaretPosition& caretPosition)
+        {
+            beginIndex = _selectionRangeBeginIndex; length = _selectionRangeLength;
+            caretPosition = _selectionCaretPosition;
+        }
 
-        virtual void GetTextInRange(uint32 beginIndex, uint32 length, std::string& outString);
-        virtual void SetTextInRange(uint32 beginIndex, uint32 length, const std::string& string);
+        virtual void SetSelectionRange(uint32 beginIndex, uint32 length, CaretPosition caretPosition)
+        {
+            _selectionRangeBeginIndex = beginIndex; _selectionRangeLength = length;
+            _selectionCaretPosition = caretPosition;
+            // TODO: update current IME composition
+            std::cout << "SetSelectionRange: " << beginIndex << ", " << length << "\n";
+        }
 
-        virtual int32 GetCharacterIndexFromPoint(const osg::Vec2& point);
-        virtual bool GetTextBounds(uint32 beginIndex, uint32 length, osg::Vec2& outPosition, osg::Vec2& outSize);
-        virtual void GetScreenBounds(osg::Vec2& outPosition, osg::Vec2& outSize);
+        virtual void GetTextInRange(uint32 beginIndex, uint32 length, std::wstring& outString)
+        { outString = _compositionString.substr(beginIndex, length); }
 
-        virtual void BeginComposition();
-        virtual void UpdateCompositionRange(int32 beginIndex, uint32 length);
-        virtual void EndComposition();
+        virtual void SetTextInRange(uint32 beginIndex, uint32 length, const std::wstring& inString)
+        {
+            std::wstring newString;
+            if (beginIndex > 0) newString = _compositionString.substr(0, beginIndex);
+            newString += inString;
+
+            if ((int32)(beginIndex + length) < _compositionString.size())
+                newString += _compositionString.substr(beginIndex + length);
+            _compositionString = newString;
+            // TODO: update current IME composition
+            std::wcout << L"SetTextInRange: " << beginIndex << L", " << length
+                       << L", " << inString << L"\n";
+        }
+
+        virtual int32 GetCharacterIndexFromPoint(const osg::Vec2& point)
+        {
+            std::cout << "GetCharacterIndexFromPoint: " << point[0] << ", " << point[1] << "\n";
+            int32 resultIdx = -1;  // TODO: compute index from point
+            return resultIdx;
+        }
+
+        virtual bool GetTextBounds(uint32 beginIndex, uint32 length,
+                                   osg::Vec2& outPosition, osg::Vec2& outSize)
+        {
+            // TODO: compute bounds?
+            std::cout << "GetTextBounds: " << beginIndex << ", " << length << "\n";
+            return false; // false means "not clipped"
+        }
+
+        virtual void GetScreenBounds(osg::Vec2& outPosition, osg::Vec2& outSize)
+        {
+            // TODO: compute bounds?
+            std::cout << "GetScreenBounds\n";
+        }
+
+        virtual void BeginComposition() { _isComposing = true; }
+        virtual void UpdateCompositionRange(int32 beginIndex, uint32 length)
+        { _compositionBeginIndex = beginIndex; _compositionLength = length; }
+
+        virtual void EndComposition()
+        {
+            if (!_isComposing) return; _isComposing = false;
+            if (_compositionString.size() > 0)
+            {
+                // TODO: commit string
+                std::wcout << L"EndComposition: " << _compositionString << L"\n";
+            }
+            _compositionBeginIndex = 0; _compositionLength = 0;
+            _selectionRangeBeginIndex = 0; _selectionRangeLength = 0;
+            _compositionString.clear();
+        }
 
     protected:
+        std::wstring _compositionString;
         HWND _window;
+
+        uint32 _selectionRangeBeginIndex, _selectionRangeLength;
+        int32 _compositionBeginIndex, _compositionLength;
+        CaretPosition _selectionCaretPosition;
+        bool _isComposing;
     };
 
     /**
@@ -108,7 +174,7 @@ namespace osgVerse
         enum class LayoutChangeType { Created, Changed, Destroyed };
         TextInputMethodChangeNotifier(TextStoreACP* textStore);
 
-        virtual void NotifyLayoutChanged(const LayoutChangeType ChangeType);
+        virtual void NotifyLayoutChanged(const LayoutChangeType changeType);
         virtual void NotifySelectionChanged();
         virtual void NotifyTextChanged(uint32 beginIndex, uint32 oldLength, uint32 newLength);
         virtual void CancelComposition();
@@ -123,7 +189,7 @@ namespace osgVerse
     class TextInputMethodSystem : public osg::Referenced
     {
     public:
-        TextInputMethodSystem() : _tsfClientId(-1), _tsfActivated(false) {}
+        TextInputMethodSystem() : _tsfClientId(-1), _immContext(0), _tsfActivated(false) {}
         virtual bool Initialize() = 0;
         virtual void Terminate() = 0;
         void OnIMEActivationStateChanged(bool isEnabled);
@@ -145,7 +211,7 @@ namespace osgVerse
         std::map<TextInputMethodContext*, ComPtr<TextStoreACP>> _contextMap;
         osg::ref_ptr<TextInputMethodContext> _activeContext;
         TfClientId _tsfClientId;
-        bool _tsfActivated;
+        HIMC _immContext; bool _tsfActivated;
     };
 
     class TextStoreACP : public ITextStoreACP, public ITfContextOwnerCompositionSink
@@ -351,6 +417,7 @@ namespace osgVerse
         STDMETHODIMP RequestAttrsTransitioningAtPosition(LONG acpPos, ULONG cFilterAttrs,
             __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs, DWORD dwFlags)
         { return E_NOTIMPL; }
+
         STDMETHODIMP FindNextAttrTransition(LONG acpStart, LONG acpHalt, ULONG cFilterAttrs,
             __RPC__in_ecount_full_opt(cFilterAttrs) const TS_ATTRID* paFilterAttrs,
             DWORD dwFlags, __RPC__out LONG* pacpNext, __RPC__out BOOL* pfFound,
@@ -440,7 +507,7 @@ namespace osgVerse
             // Write characters to buffer only if there is a buffer with allocated size.
             if (pchPlain && cchPlainReq > 0)
             {
-                std::string stringInRange;
+                std::wstring stringInRange;
                 _textContext->GetTextInRange(beginIndex, length, stringInRange);
                 for (uint32 i = 0; i < length && *pcchPlainOut < cchPlainReq; ++i)
                 {
@@ -460,25 +527,119 @@ namespace osgVerse
         }
 
         STDMETHODIMP QueryInsert(LONG acpInsertStart, LONG acpInsertEnd, ULONG cch,
-            __RPC__out LONG* pacpResultStart, __RPC__out LONG* pacpResultEnd);
+            __RPC__out LONG* pacpResultStart, __RPC__out LONG* pacpResultEnd)
+        {
+            if (!pacpResultStart || !pacpResultEnd) return E_INVALIDARG;
+            uint32 beginIndex = 0, length = 0;
+            TextInputMethodContext::CaretPosition caretPosition;
+            _textContext->GetSelectionRange(beginIndex, length, caretPosition);
+
+            // Workaround for Microsoft IMEs that expect QueryInsert to return the current selection range (since they omit a call to GetSelection).
+            *pacpResultStart = static_cast<LONG>(beginIndex);
+            *pacpResultEnd = static_cast<LONG>(beginIndex + length); return S_OK;
+        }
+
         STDMETHODIMP InsertTextAtSelection(DWORD dwFlags, __RPC__in_ecount_full(cch) const WCHAR* pchText,
             ULONG cch, __RPC__out LONG* pacpStart, __RPC__out LONG* pacpEnd,
-            __RPC__out TS_TEXTCHANGE* pChange);
+            __RPC__out TS_TEXTCHANGE* pChange)
+        {
+            if (dwFlags == TS_IAS_QUERYONLY && !isFlaggedReadLocked(_lockManager.lockType))
+                return TS_E_NOLOCK;
+            else if (!isFlaggedReadWriteLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            if (cch && !pchText) return E_INVALIDARG;
+
+            std::wstring newString(pchText, pchText + cch);
+            uint32 beginIndex = 0, length = 0;
+            TextInputMethodContext::CaretPosition caretPosition;
+            _textContext->GetSelectionRange(beginIndex, length, caretPosition);
+            if (dwFlags == TS_IAS_QUERYONLY)
+            {
+                // pacpStart and pacpEnd must be valid.
+                if (!pacpStart || !pacpEnd) return E_INVALIDARG;
+                *pacpStart = beginIndex; *pacpEnd = beginIndex + length;
+
+                if (pChange)
+                {
+                    pChange->acpStart = beginIndex;
+                    pChange->acpOldEnd = beginIndex + length;
+                    pChange->acpNewEnd = beginIndex + newString.size();
+                }
+            }
+            else
+            {
+                if (dwFlags != TS_IAS_NOQUERY && (!pacpStart || !pacpEnd)) return E_INVALIDARG;
+                if (!pChange) return E_INVALIDARG;
+
+                // Some IMEs call InsertTextAtSelection text before OnStartComposition; in that case we need to call BeginComposition ourselves here to make sure things are notified in the correct order
+                if (!_textContext->IsComposing()) _textContext->BeginComposition();
+                _textContext->SetTextInRange(beginIndex, length, newString);
+                _textContext->SetSelectionRange(beginIndex + newString.size(), 0,
+                                                TextInputMethodContext::CaretPosition::Ending);
+
+                pChange->acpStart = beginIndex;
+                pChange->acpOldEnd = beginIndex + length;
+                pChange->acpNewEnd = beginIndex + newString.size();
+                if (dwFlags != TS_IAS_NOQUERY)
+                {
+                    *pacpStart = pChange->acpStart;
+                    *pacpEnd = pChange->acpNewEnd;
+                }
+            }
+            return S_OK;
+        }
+
         STDMETHODIMP SetText(DWORD dwFlags, LONG acpStart, LONG acpEnd,
             __RPC__in_ecount_full(cch) const WCHAR* pchText, ULONG cch,
-            __RPC__out TS_TEXTCHANGE* pChange);
+            __RPC__out TS_TEXTCHANGE* pChange)
+        {
+            if (!isFlaggedReadWriteLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            const LONG stringLength = _textContext->GetTextLength();
+            if (acpStart < 0 || acpStart > stringLength || acpEnd < 0 || acpEnd > stringLength)
+                return TF_E_INVALIDPOS;
+
+            TS_SELECTION_ACP tsSelectionACP;
+            tsSelectionACP.acpStart = acpStart; tsSelectionACP.acpEnd = acpEnd;
+            tsSelectionACP.style.fInterimChar = false; // TODO: Is this appropriate?
+            tsSelectionACP.style.ase = TS_AE_END; // TODO: Is this appropriate?
+            SetSelection(1, &(tsSelectionACP));
+
+            LONG insertionResultBegin = 0, insertionResultEnd = 0;
+            InsertTextAtSelection(0, pchText, cch, &insertionResultBegin, &insertionResultEnd, pChange);
+            return S_OK;
+        }
 
         // Embedded Character Methods
         STDMETHODIMP GetEmbedded(LONG acpPos, __RPC__in REFGUID rguidService,
-            __RPC__in REFIID riid, __RPC__deref_out_opt IUnknown** ppunk);
+            __RPC__in REFIID riid, __RPC__deref_out_opt IUnknown** ppunk)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            return E_NOTIMPL;
+        }
+
         STDMETHODIMP GetFormattedText(LONG acpStart, LONG acpEnd,
-            __RPC__deref_out_opt IDataObject** ppDataObject);
+            __RPC__deref_out_opt IDataObject** ppDataObject)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            return E_NOTIMPL;
+        }
+
         STDMETHODIMP QueryInsertEmbedded(__RPC__in const GUID* pguidService,
-            __RPC__in const FORMATETC* pFormatEtc, __RPC__out BOOL* pfInsertable);
+            __RPC__in const FORMATETC* pFormatEtc, __RPC__out BOOL* pfInsertable)
+        { return E_NOTIMPL; }
+
         STDMETHODIMP InsertEmbedded(DWORD dwFlags, LONG acpStart, LONG acpEnd,
-            __RPC__in_opt IDataObject* pDataObject, __RPC__out TS_TEXTCHANGE* pChange);
+            __RPC__in_opt IDataObject* pDataObject, __RPC__out TS_TEXTCHANGE* pChange)
+        {
+            if (!isFlaggedReadWriteLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            return E_NOTIMPL;
+        }
+
         STDMETHODIMP InsertEmbeddedAtSelection(DWORD dwFlags, __RPC__in_opt IDataObject* pDataObject,
-            __RPC__out LONG* pacpStart, __RPC__out LONG* pacpEnd, __RPC__out TS_TEXTCHANGE* pChange);
+            __RPC__out LONG* pacpStart, __RPC__out LONG* pacpEnd, __RPC__out TS_TEXTCHANGE* pChange)
+        {
+            if (!isFlaggedReadLocked(_lockManager.lockType)) return TS_E_NOLOCK;
+            return E_NOTIMPL;
+        }
         // ITextStoreACP Interface End
 
         // ITfContextOwnerCompositionSink Interface Begin

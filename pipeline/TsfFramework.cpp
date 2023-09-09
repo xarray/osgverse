@@ -1,10 +1,12 @@
 // Copied and modified from Unreal5 engine source code
 // Source/Runtime/ApplicationCore/Private/Windows/WindowsTextInputMethodSystem.cpp
 #include <osg/Notify>
+#include <osgViewer/api/Win32/GraphicsWindowWin32>
 #include <string>
 #include <set>
 #include <vector>
 #include <iostream>
+#include "Utilities.h"
 #include "TsfFramework.h"
 using namespace osgVerse;
 
@@ -209,11 +211,12 @@ bool TsfTextInputMethodSystem::Initialize()
     TF_INPUTPROCESSORPROFILE tsfProfile;
     if (SUCCEEDED(_tsfInputProcessorProfileManager->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &tsfProfile))
         && tsfProfile.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR)
-    { _tsfActivated = true; }
+    { _tsfActivated = true; std::cout << "[TsfTextInputMethodSystem] TSF activated." << std::endl; }
 
-    std::wcout << L"Available Input Methods: " << std::endl;
+    std::wcout << L"[TsfTextInputMethodSystem] Available Input Methods: " << std::endl;
     for (size_t i = 0; i < availableInputMethods.size(); ++i)
         std::wcout << L"    " << availableInputMethods[i] << std::endl;
+    _immContext = ::ImmCreateContext();
     return true;
 }
 
@@ -233,6 +236,7 @@ void TsfTextInputMethodSystem::Terminate()
             r = tsfSource->UnadviseSink(_tsfActivationProxy->TSFProfileCookie);
     }
 
+    ::ImmDestroyContext(_immContext); _immContext = 0;
     _tsfActivationProxy.Reset();
     _tsfThreadManager->Deactivate();
     _tsfThreadManager.Reset();
@@ -246,18 +250,19 @@ void TsfTextInputMethodSystem::Terminate()
 TextInputMethodChangeNotifier::TextInputMethodChangeNotifier(TextStoreACP* textStore)
 : _textStore(textStore) {}
 
-void TextInputMethodChangeNotifier::NotifyLayoutChanged(const LayoutChangeType ChangeType)
+void TextInputMethodChangeNotifier::NotifyLayoutChanged(const LayoutChangeType changeType)
 {
-    TsLayoutCode LayoutCode = TS_LC_CHANGE;
+    TsLayoutCode layoutCode = TS_LC_CHANGE;
     if (_textStore->_adviseSinkObject._textStoreACPSink == nullptr) return;
+    OSG_NOTICE << "[TextInputMethodChangeNotifier] Notify layout changed" << std::endl;
 
-    switch (ChangeType)
+    switch (changeType)
     {
-    case LayoutChangeType::Created: { LayoutCode = TS_LC_CREATE; } break;
-    case LayoutChangeType::Changed: { LayoutCode = TS_LC_CHANGE; } break;
-    case LayoutChangeType::Destroyed: { LayoutCode = TS_LC_DESTROY; } break;
+    case LayoutChangeType::Created: { layoutCode = TS_LC_CREATE; } break;
+    case LayoutChangeType::Changed: { layoutCode = TS_LC_CHANGE; } break;
+    case LayoutChangeType::Destroyed: { layoutCode = TS_LC_DESTROY; } break;
     }
-    _textStore->_adviseSinkObject._textStoreACPSink->OnLayoutChange(LayoutCode, 0);
+    _textStore->_adviseSinkObject._textStoreACPSink->OnLayoutChange(layoutCode, 0);
 }
 
 void TextInputMethodChangeNotifier::NotifySelectionChanged()
@@ -295,7 +300,7 @@ void TextInputMethodSystem::OnIMEActivationStateChanged(bool isEnabled)
         TF_INPUTPROCESSORPROFILE tsfProfile;
         if (SUCCEEDED(_tsfInputProcessorProfileManager->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &tsfProfile))
             && tsfProfile.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR)
-        { _tsfActivated = true; }
+        { _tsfActivated = true; std::cout << "[TsfTextInputMethodSystem] TSF activated." << std::endl; }
     }
 }
 
@@ -314,6 +319,7 @@ void TextInputMethodSystem::ApplyDefaults(HWND window)
     }
 
     // TSF Implementation
+    ::ImmAssociateContext(window, _immContext);
     if (tsfDocumentManagerToSet)
         _tsfThreadManager->SetFocus(tsfDocumentManagerToSet);
     else
@@ -383,6 +389,7 @@ void TextInputMethodSystem::ActivateContext(TextInputMethodContext* context)
     if (textStore.IsValid() && window != 0)
     {
         ITfDocumentMgr* unused = NULL;
+        ::ImmAssociateContext(window, _immContext);
         HRESULT r = _tsfThreadManager->AssociateFocus(
             window, textStore->_tsfDocumentManager, &unused);
         if (FAILED(r))
@@ -407,3 +414,87 @@ void TextInputMethodSystem::DeactivateContext(TextInputMethodContext* context)
 
 bool TextInputMethodSystem::IsActiveContext(TextInputMethodContext* context) const
 { return _activeContext == context; }
+
+////////////////////// TsfManager
+
+class TsfManager : public TextInputMethodManager
+{
+public:
+    TsfManager();
+    virtual void bind(osg::GraphicsContext* gc);
+    virtual void unbind();
+    virtual void updateNotifier();
+    virtual void setFocus(bool b);
+
+protected:
+    virtual ~TsfManager();
+    osg::ref_ptr<TextInputMethodSystem> _tsfSystem;
+    osg::ref_ptr<TextInputMethodContext> _tsfContext;
+    osg::ref_ptr<TextInputMethodChangeNotifier> _tsfNotifier;
+};
+
+TextInputMethodManager* TextInputMethodManager::instance()
+{
+    static osg::ref_ptr<TsfManager> s_instance = new TsfManager;
+    return s_instance.get();
+}
+
+void TextInputMethodManager::disable(osg::GraphicsContext* gc)
+{
+    osgViewer::GraphicsWindowWin32* gw = static_cast<osgViewer::GraphicsWindowWin32*>(gc);
+    if (gw) ImmAssociateContext(gw->getHWND(), NULL);
+}
+
+TsfManager::TsfManager()
+{
+    _tsfSystem = new TsfTextInputMethodSystem;
+    if (!_tsfSystem->Initialize()) _tsfSystem = NULL;
+}
+
+TsfManager::~TsfManager()
+{
+    if (_tsfSystem.valid()) _tsfSystem->Terminate();
+}
+
+void TsfManager::bind(osg::GraphicsContext* gc)
+{
+    osgViewer::GraphicsWindowWin32* gw = static_cast<osgViewer::GraphicsWindowWin32*>(gc);
+    if (!gw) { OSG_WARN << "[TsfManager] No window to bind" << std::endl; return; }
+    if (!_tsfSystem) { OSG_WARN << "[TsfManager] No input system" << std::endl; return; }
+
+    _tsfContext = new TextInputMethodContext(gw->getHWND());
+    _tsfNotifier = _tsfSystem->RegisterContext(_tsfContext.get());
+    if (_tsfNotifier.valid())
+        _tsfNotifier->NotifyLayoutChanged(TextInputMethodChangeNotifier::LayoutChangeType::Created);
+    _tsfSystem->ActivateContext(_tsfContext.get());
+}
+
+void TsfManager::unbind()
+{
+    if (!_tsfSystem) { OSG_WARN << "[TsfManager] No input system" << std::endl; return; }
+    if (!_tsfContext) return; else setFocus(false);
+    if (_tsfNotifier.valid())
+        _tsfNotifier->NotifyLayoutChanged(TextInputMethodChangeNotifier::LayoutChangeType::Destroyed);
+    _tsfSystem->UnregisterContext(_tsfContext.get());
+    _tsfContext = NULL; _tsfNotifier = NULL;
+}
+
+void TsfManager::updateNotifier()
+{
+    if (_tsfNotifier.valid())
+        _tsfNotifier->NotifyLayoutChanged(TextInputMethodChangeNotifier::LayoutChangeType::Changed);
+}
+
+void TsfManager::setFocus(bool b)
+{
+    if (!_tsfSystem) { OSG_WARN << "[TsfManager] No input system" << std::endl; return; }
+    if (!_tsfContext) return;
+    if (b)
+        _tsfSystem->ActivateContext(_tsfContext.get());
+    else if (_tsfSystem->IsActiveContext(_tsfContext.get()))
+    {
+        if (_tsfContext->IsComposing() && _tsfNotifier.valid())
+            _tsfNotifier->CancelComposition();
+        _tsfSystem->DeactivateContext(_tsfContext.get());
+    }
+}
