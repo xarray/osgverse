@@ -93,9 +93,10 @@ namespace osgVerse
         int vCount = gData.getVertexCount(), iCount = gData.getIndexCount();
         const ofbx::Vec3* vData = gData.getVertices();
         const ofbx::Vec3* nData = gData.getNormals();
+        const ofbx::Vec3* tData = gData.getTangents();
         const ofbx::Vec4* cData = gData.getColors();
-        const ofbx::Vec2* tData0 = gData.getUVs(0);
-        const ofbx::Vec2* tData1 = gData.getUVs(1);
+        const ofbx::Vec2* uvData0 = gData.getUVs(0);
+        const ofbx::Vec2* uvData1 = gData.getUVs(1);
         const int* iData = gData.getFaceIndices();
         const int* mData = gData.getMaterials();
 
@@ -105,16 +106,18 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(vCount);
         osg::ref_ptr<osg::Vec3Array> na = nData ? new osg::Vec3Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec4Array> ta = tData ? new osg::Vec4Array(vCount) : NULL;
         osg::ref_ptr<osg::Vec4Array> ca = cData ? new osg::Vec4Array(vCount) : NULL;
-        osg::ref_ptr<osg::Vec2Array> ta0 = tData0 ? new osg::Vec2Array(vCount) : NULL;
-        osg::ref_ptr<osg::Vec2Array> ta1 = tData1 ? new osg::Vec2Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec2Array> uv0 = uvData0 ? new osg::Vec2Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec2Array> uv1 = uvData1 ? new osg::Vec2Array(vCount) : NULL;
         for (int i = 0; i < vCount; ++i)
         {
             (*va)[i] = osg::Vec3(vData[i].x, vData[i].y, vData[i].z);
             if (nData) (*na)[i] = osg::Vec3(nData[i].x, nData[i].y, nData[i].z);
+            if (tData) (*ta)[i] = osg::Vec4(tData[i].x, tData[i].y, tData[i].z, 1.0f);
             if (cData) (*ca)[i] = osg::Vec4(cData[i].x, cData[i].y, cData[i].z, cData[i].w);
-            if (tData0) (*ta0)[i] = osg::Vec2(tData0[i].x, tData0[i].y);
-            if (tData1) (*ta1)[i] = osg::Vec2(tData1[i].x, tData1[i].y);
+            if (uvData0) (*uv0)[i] = osg::Vec2(uvData0[i].x, uvData0[i].y);
+            if (uvData1) (*uv1)[i] = osg::Vec2(uvData1[i].x, uvData1[i].y);
         }
 
         std::map<int, osg::ref_ptr<osg::DrawElementsUInt>> primitivesByMtl;
@@ -144,20 +147,22 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         for (std::map<int, osg::ref_ptr<osg::DrawElementsUInt>>::iterator itr = primitivesByMtl.begin();
-            itr != primitivesByMtl.end(); ++itr)
+             itr != primitivesByMtl.end(); ++itr)
         {
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
             geom->setVertexArray(va.get());
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
             if (nData) geom->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
+            if (tData) geom->setVertexAttribArray(6, ta.get(), osg::Array::BIND_PER_VERTEX);
             if (cData) geom->setColorArray(ca.get(), osg::Array::BIND_PER_VERTEX);
-            if (tData0) geom->setTexCoordArray(0, ta0.get(), osg::Array::BIND_PER_VERTEX);
-            if (tData1) geom->setTexCoordArray(1, ta1.get(), osg::Array::BIND_PER_VERTEX);
+            if (uvData0) geom->setTexCoordArray(0, uv0.get(), osg::Array::BIND_PER_VERTEX);
+            if (uvData1) geom->setTexCoordArray(1, uv1.get(), osg::Array::BIND_PER_VERTEX);
 #else
             if (nData) { geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
+            if (tData) { geom->setVertexAttribArray(6, ta.get()); geom->setVertexAttribBinding(osg::Geometry::BIND_PER_VERTEX); }
             if (cData) { geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
-            if (tData0) { geom->setTexCoordArray(0, ta0.get()); }
-            if (tData1) { geom->setTexCoordArray(1, ta1.get()); }
+            if (tData0) { geom->setTexCoordArray(0, uv0.get()); }
+            if (tData1) { geom->setTexCoordArray(1, uv1.get()); }
 #endif
             geom->addPrimitiveSet(itr->second.get());
             geode->addDrawable(geom.get());
@@ -174,11 +179,13 @@ namespace osgVerse
         if (gData.getSkin())
         {
             OSG_NOTICE << "[LoaderFBX] <SKIN> not implemented\n";
+            // TODO
         }
 
         if (gData.getBlendShape())
         {
             OSG_NOTICE << "<BLENDSHAPE> not implemented\n";
+            // TODO
         }
         return geode.release();
     }

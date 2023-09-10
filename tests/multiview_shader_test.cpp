@@ -15,8 +15,8 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-#define NUMVIEWS "12"
-#define NV "4, 3"
+#define NUMVIEWS "16"
+#define NV "4, 4"
 #define EYESEP "5.0"
 
 void createShaders(osg::StateSet* ss)

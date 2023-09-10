@@ -364,18 +364,18 @@ namespace osgVerse
         }
         else
         {
-#if defined(VERSE_WASM)  // FIXME???
+#   if defined(VERSE_WASM)  // FIXME???
             lighting->applyTexture(createDefaultTexture(
                 osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "BrdfLutBuffer", 5);
             lighting->applyTexture(createDefaultTexture(
                 osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "PrefilterBuffer", 6);
             lighting->applyTexture(createDefaultTexture(
                 osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "IrradianceBuffer", 7);
-#else
+#   else
             lighting->applyTexture(brdfLutTex, "BrdfLutBuffer", 5);
             lighting->applyTexture(prefilteringTex, "PrefilterBuffer", 6);
             lighting->applyTexture(convolutionTex, "IrradianceBuffer", 7);
-#endif
+#   endif
         }
         lightModule->applyTextureAndUniforms(lighting, "LightParameterMap", 8);
 
