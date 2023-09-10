@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include <ofbx.h>
+#include <animation/PlayerAnimation.h>
 #include "Export.h"
 
 namespace osgVerse

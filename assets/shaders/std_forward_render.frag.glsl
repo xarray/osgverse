@@ -87,9 +87,9 @@ void main()
             radianceOut += get_point_light_contribution(
                     viewDir, eyeVertex.xyz, lightPos, lightColor, albedo, metallic, roughness, eyeNormal);
         }
-        else {}  // TODO: pspot light...
+        else {}  // TODO: spot light...
     }
 
-    fragData = vec4(radianceOut, diffuse.a);
+    fragData = vec4(radianceOut * pow(ao, 2.2), diffuse.a);
     VERSE_FS_FINAL(fragData);
 }

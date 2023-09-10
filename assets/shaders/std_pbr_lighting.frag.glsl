@@ -105,7 +105,8 @@ void main()
         ambient = kD * diffuse + envSpecular;
     }
 
-    gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut * pow(1.0 - ao, 2.2), 1.0);
+    ao = 1.0;  // FIXME: sponza seems to have a negative AO?
+    gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
     gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
 
     // ModelIndicator functionalities

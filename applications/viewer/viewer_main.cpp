@@ -84,7 +84,7 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments)
                                   : osgDB::readNodeFile(BASE_DIR "/models/Sponza.osgb");
-    if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
+    if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
     osgVerse::TangentSpaceVisitor tsv;

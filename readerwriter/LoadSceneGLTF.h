@@ -4,10 +4,10 @@
 #include <iterator>
 #include <fstream>
 #include <iostream>
-#include <animation/PlayerAnimation.h>
 
 #define TINYGLTF_USE_RAPIDJSON 1
 #include <tiny_gltf.h>
+#include <animation/PlayerAnimation.h>
 #include "Export.h"
 
 namespace osgVerse

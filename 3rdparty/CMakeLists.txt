@@ -329,6 +329,11 @@ SET(RECAST_SOURCE_FILES
     recastnavigation/Recast/Recast.cpp recastnavigation/Recast/Recast.h
 )
 
+SET(TWEENY_SOURCE_FILES
+    tweeny/tween.h tweeny/tween.tcc tweeny/tweeny.h tweeny/tweeny.tcc
+    tweeny/tweenone.tcc tweeny/tweenpoint.tcc
+)
+
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
@@ -345,6 +350,7 @@ SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
 SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
 SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
+SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
@@ -355,12 +361,13 @@ SET(LIBRARY_FILES
     sqlite3.c sqlite3.h miniz.c miniz.h ofbx.cpp ofbx.h tinyexr.cc tinyexr.h
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
 	mimalloc/static.c mimalloc/mimalloc.h mimalloc/mimalloc-new-delete.h
-	xatlas.cpp xatlas.h easing.cpp easing.h #microprofile.cpp microprofile.h
-    lightmapper.h GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
+	lightmapper.h xatlas.cpp xatlas.h #microprofile.cpp microprofile.h
+    GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
+    ${TWEENY_SOURCE_FILES}
 )
 
 IF(VERSE_BUILD_GPL)
