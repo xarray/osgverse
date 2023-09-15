@@ -30,15 +30,14 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 }
 
 int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,
-                       out vec2 range, out vec2 spotExponentAndCutoff)
+                       out float range, out float spotCutoff)
 {
     const vec2 halfP = vec2(0.5 / 1024.0, 0.5 / 4.0), step = vec2(1.0 / 1024.0, 1.0 / 4.0);
     vec4 attr0 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 0.0 * step.y)); // color, type
-    vec4 attr1 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 1.0 * step.y)); // pos
-    vec4 attr2 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 2.0 * step.y)); // dir
-    vec4 attr3 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 3.0 * step.y)); // spot..
-    color = attr0.xyz; pos = attr1.xyz; dir = attr2.xyz; range = vec2(attr2.w, attr1.w);
-    spotExponentAndCutoff = vec2(attr3.x, attr3.y); return int(attr0.w);
+    vec4 attr1 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 1.0 * step.y)); // pos, att
+    vec4 attr2 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 2.0 * step.y)); // dir, spot
+    color = attr0.xyz; pos = attr1.xyz; dir = attr2.xyz; range = attr1.w;
+    spotCutoff = attr2.w; return int(attr0.w);
 }
 
 void main()
@@ -69,7 +68,7 @@ void main()
     vec3 F0 = mix(vec3(0.04), albedo, metallic), radianceOut = vec3(0.0);
 
     // Compute direcional lights
-    vec3 lightColor, lightPos, lightDir; vec2 lightRange, lightSpot;
+    vec3 lightColor, lightPos, lightDir; float lightRange = 0.0, lightSpot = 0.0;
     int numLights = int(min(LightNumber.x, LightNumber.y));
     for (int i = 0; i < maxLights; ++i)
     {
@@ -80,14 +79,20 @@ void main()
             //radianceOut += computeDirectionalLight(
             //      lightDir, lightColor, eyeNormal, viewDir, albedo, specular, roughness, metallic, F0);
             radianceOut += get_directional_light_contribution(
-                    viewDir, lightDir, lightColor, albedo, metallic, roughness, eyeNormal);
+                    viewDir, eyeVertex.xyz, lightPos, lightDir, lightColor, albedo, metallic, roughness,
+                    eyeNormal, lightRange);
         }
         else if (type == 2)
         {
             radianceOut += get_point_light_contribution(
-                    viewDir, eyeVertex.xyz, lightPos, lightColor, albedo, metallic, roughness, eyeNormal);
+                    viewDir, eyeVertex.xyz, lightPos, lightColor, albedo, metallic, roughness, eyeNormal, lightRange);
         }
-        else {}  // TODO: spot light...
+        else if (type == 3)
+        {
+            radianceOut += get_spot_light_contribution(
+                    viewDir, eyeVertex.xyz, lightPos, lightDir, lightColor, albedo, metallic, roughness,
+                    eyeNormal, lightRange, lightSpot);
+        }
     }
 
     fragData = vec4(radianceOut * pow(ao, 2.2), diffuse.a);

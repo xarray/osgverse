@@ -47,17 +47,10 @@ namespace osgVerse
         inline bool getDirectional() const { return _directional; }
 
         /** Set the attenuation range of the light. */
-        inline void setMaxRange(float r) { _attenuationRange = osg::Vec2(0.0f, r); recreate(); }
-        inline void setRange(const osg::Vec2& r) { _attenuationRange = r; recreate(); }
+        inline void setRange(float r) { _attenuationRange = r; recreate(); }
 
         /** Get the attenuation range of the light. */
-        inline osg::Vec2 getRange() const { return _attenuationRange; }
-
-        /** Set the spot exponent of the light. */
-        inline void setSpotExponent(float se) { _spotExponent = se; }
-
-        /** Get the spot exponent of the light. */
-        inline float getSpotExponent() const { return _spotExponent; }
+        inline float getRange() const { return _attenuationRange; }
 
         /** Set the spot cutoff (in radians) of the light. */
         inline void setSpotCutoff(float sc) { _spotCutoff = sc; recreate(); }
@@ -82,8 +75,7 @@ namespace osgVerse
         void recreate();
 
         osg::Vec3 _position, _direction, _lightColor;
-        osg::Vec2 _attenuationRange;
-        float _spotExponent, _spotCutoff;
+        float _attenuationRange, _spotCutoff;
         bool _eyeSpace, _directional, _debugShow;
     };
 }

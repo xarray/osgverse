@@ -12,11 +12,11 @@ namespace osgVerse
         : _pipeline(pipeline), _maxLightsInPass(maxLightsInPass)
     {
         _parameterImage = new osg::Image;
-        _parameterImage->allocateImage(1024, 4, 1, GL_RGBA, GL_FLOAT);
+        _parameterImage->allocateImage(1024, 4, 1, GL_RGB, GL_FLOAT);
 #if defined(VERSE_WASM)
-        _parameterImage->setInternalTextureFormat(GL_RGBA);
+        _parameterImage->setInternalTextureFormat(GL_RGB);
 #else
-        _parameterImage->setInternalTextureFormat(GL_RGBA32F_ARB);
+        _parameterImage->setInternalTextureFormat(GL_RGB32F_ARB);
 #endif
 
         _parameterTex = new osg::Texture2D;
@@ -67,7 +67,7 @@ namespace osgVerse
         if (numData > 1024) numData = 1024;
 
         // Save all lights to a parameter texture to use in deferred shader
-        osg::Vec4f* paramPtr = (osg::Vec4f*)_parameterImage->data();
+        osg::Vec3f* paramPtr = (osg::Vec3f*)_parameterImage->data();
         for (size_t i = 0; i < numData; ++i)
         {
             LightGlobalManager::LightData& ld = resultLights[i];
@@ -78,16 +78,12 @@ namespace osgVerse
             osg::Vec3 pos1 = (ld.light->getPosition() +
                               ld.light->getDirection() * dirLength) * ld.matrix;
             osg::Vec3 dir = pos1 - pos0; dir.normalize();
-            osg::Vec2 range = ld.light->getRange();
 
-            *(paramPtr + 1024 * 0 + i)/*light color, type*/ =
-                osg::Vec4(color[0], color[1], color[2], (float)t);
-            *(paramPtr + 1024 * 1 + i)/*eye-space position, attMax*/ =
-                osg::Vec4(pos0[0], pos0[1], pos0[2], range[1]);
-            *(paramPtr + 1024 * 2 + i)/*eye-space rotation, attMin*/ =
-                osg::Vec4(dir[0], dir[1], dir[2], range[0]);
-            *(paramPtr + 1024 * 3 + i)/*spot*/ =
-                osg::Vec4(ld.light->getSpotExponent(), ld.light->getSpotCutoff(), 0.0f, 0.0f);
+            *(paramPtr + 1024 * 0 + i)/*light color*/ = osg::Vec3(color[0], color[1], color[2]);
+            *(paramPtr + 1024 * 1 + i)/*eye-space position, att*/ = osg::Vec3(pos0[0], pos0[1], pos0[2]);
+            *(paramPtr + 1024 * 2 + i)/*eye-space rotation, spot*/ = osg::Vec3(dir[0], dir[1], dir[2]);
+            *(paramPtr + 1024 * 3 + i)/*type, range, spot-cutoff*/ =
+                osg::Vec3((float)t, ld.light->getRange(), ld.light->getSpotCutoff());
         }
         _lightNumber->set(osg::Vec2((float)numData, (float)_maxLightsInPass));
         _parameterImage->dirty();

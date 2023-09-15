@@ -50,21 +50,36 @@ vec3 get_light_contribution(vec3 albedo, float metallic, float roughness, vec3 n
     return mix(dielectric_contribution, metallic_contribution, metallic);
 }
 
-vec3 get_directional_light_contribution(vec3 view_dir, vec3 light_dir0, vec3 light_irradiance,
-                                        vec3 albedo, float metallic, float roughness, vec3 normal)
+vec3 get_directional_light_contribution(vec3 view_dir, vec3 eyespace_pos, vec3 light_pos, vec3 light_dir0, vec3 light_irradiance,
+                                        vec3 albedo, float metallic, float roughness, vec3 normal, float range)
 {
-    vec3 light_dir = -light_dir0, incoming_irradiance = light_irradiance * clamped_cosine(normal, light_dir);
+    vec3 light_dir = -light_dir0;
+    float dist = distance(eyespace_pos, light_pos), falloff = 1.0;
+    if (range > 0.0) falloff = pow(clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);
+
+    vec3 incoming_irradiance = light_irradiance * clamped_cosine(normal, light_dir);
     return get_light_contribution(albedo, metallic, roughness, normal, incoming_irradiance, view_dir, light_dir);
 }
 
 vec3 get_point_light_contribution(vec3 view_dir, vec3 eyespace_pos, vec3 light_pos, vec3 light_irradiance,
-                                  vec3 albedo, float metallic, float roughness, vec3 normal)
+                                  vec3 albedo, float metallic, float roughness, vec3 normal, float range)
 {
     vec3 light_dir = -normalize(light_pos - eyespace_pos);
-    float dist = distance(eyespace_pos, light_pos);
-    float falloff = 1.0 / (dist * dist + 1.0), light_radius = 100.0;
-    falloff = pow(clamp(1.0 - pow(dist / light_radius, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);
+    float dist = distance(eyespace_pos, light_pos), falloff = 1.0;
+    if (range > 0.0) falloff = pow(clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);
 
+    vec3 incoming_irradiance = (light_irradiance * falloff) * clamped_cosine(normal, light_dir);
+    return get_light_contribution(albedo, metallic, roughness, normal, incoming_irradiance, view_dir, light_dir);
+}
+
+vec3 get_spot_light_contribution(vec3 view_dir, vec3 eyespace_pos, vec3 light_pos, vec3 light_dir0, vec3 light_irradiance,
+                                 vec3 albedo, float metallic, float roughness, vec3 normal, float range, float cutoff)
+{
+    vec3 spot_dir = -light_dir0, light_dir = -normalize(light_pos - eyespace_pos);
+    if (dot(spot_dir, light_dir) < cutoff) return vec3(0.0, 0.0, 0.0);
+
+    float dist = distance(eyespace_pos, light_pos), falloff = 1.0;
+    if (range > 0.0) falloff = pow(clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);
     vec3 incoming_irradiance = (light_irradiance * falloff) * clamped_cosine(normal, light_dir);
     return get_light_contribution(albedo, metallic, roughness, normal, incoming_irradiance, view_dir, light_dir);
 }

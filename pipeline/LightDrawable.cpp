@@ -37,15 +37,14 @@ LightDrawable::LightDrawable()
     _lightColor.set(1.0f, 1.0f, 1.0f);
     _position.set(0.0f, 0.0f, 1.0f);
     _direction.set(1.0f, 0.0f, 0.0f);
-    _attenuationRange.set(0.0f, 0.0f);
-    _spotExponent = 0.0f; _spotCutoff = osg::PI_4;
+    _attenuationRange = 0.0f; _spotCutoff = 0.0f;
     _directional = false; recreate();
 }
 
 LightDrawable::LightDrawable(const LightDrawable& copy, const osg::CopyOp& copyop)
 :   osg::ShapeDrawable(copy, copyop), _lightColor(copy._lightColor),
     _position(copy._position), _direction(copy._direction), _attenuationRange(copy._attenuationRange),
-    _spotExponent(copy._spotExponent), _spotCutoff(copy._spotCutoff), _eyeSpace(copy._eyeSpace),
+    _spotCutoff(copy._spotCutoff), _eyeSpace(copy._eyeSpace),
     _directional(copy._directional), _debugShow(copy._debugShow) {}
 
 LightDrawable::~LightDrawable()
@@ -58,12 +57,12 @@ LightDrawable::Type LightDrawable::getType(bool& unlimited) const
 {
     if (!_directional)
     {
-        if (_spotExponent > 0.0f) { unlimited = false; return SpotLight; }
-        else { unlimited = !(_attenuationRange[0] < _attenuationRange[1]); return PointLight; }
+        if (_spotCutoff > 0.0f) { unlimited = false; return SpotLight; }
+        else { unlimited = !(_attenuationRange > 0.0f); return PointLight; }
     }
     else
     {
-        unlimited = !(_attenuationRange[0] < _attenuationRange[1]);
+        unlimited = !(_attenuationRange > 0.0f);
         return Directional;
     }
 }
@@ -73,7 +72,7 @@ void LightDrawable::recreate()
     bool unlimited = false;
     osg::ref_ptr<osg::Shape> shape;
     osg::Quat q; q.makeRotate(osg::X_AXIS, _direction);
-    float length = _attenuationRange[1];
+    float length = _attenuationRange;
 
     switch (getType(unlimited))
     {
