@@ -16,8 +16,8 @@
 namespace backward { backward::SignalHandling sh; }
 
 #define NUMVIEWS "16"
-#define NV "4, 4"
-#define EYESEP "5.0"
+#define NX "4"
+#define NY "4"
 
 void createShaders(osg::StateSet* ss)
 {
@@ -39,14 +39,14 @@ void createShaders(osg::StateSet* ss)
     static const char* geomSource = {
         "#version 130\n"
         "#extension GL_EXT_geometry_shader4 : enable\n"
+        "uniform float eyeSep[" NUMVIEWS "];\n"
         "in vec4 eyeVertex_gs[], texCoord0_gs[], texCoord1_gs[];\n"
         "in vec3 eyeNormal_gs[];\n"
         "out vec4 eyeVertex, texCoord0, texCoord1;\n"
         "out vec3 eyeNormal;\n"
         "void main(void)\n"
         "{\n"
-        "    vec2 NV = vec2(" NV "); \n"
-        "    float eyeSep = " EYESEP ";\n"
+        "    vec2 NV = vec2(" NX ", " NY "); \n"
         "    int numViews = " NUMVIEWS ";\n"
 
         "    vec2 T = -1.0 + 1.0 / NV;\n"
@@ -54,8 +54,7 @@ void createShaders(osg::StateSet* ss)
         "                        0.0, 1.0 / NV.y, 0.0, 0.0,\n"
         "                        0.0, 0.0, 1.0, 0.0,\n"
         "                        T.x, T.y, 0.0, 1.0) * gl_ProjectionMatrix;\n"
-        "    vec4 Tv = vec4(-float(numViews / 2) * eyeSep, 0.0, 0.0, 0.0);\n"
-        "    if (mod(numViews, 2) == 0) Tv.x += eyeSep * 0.5;\n"
+        "    vec4 Tv = vec4(eyeSep[0], 0.0, 0.0, 0.0);\n"
 
         "    for (int k = 0; k < numViews; ++k) {\n"
         "        int Sx = k % int(NV.x), Sy = int(floor(k / NV.x));\n"
@@ -74,7 +73,7 @@ void createShaders(osg::StateSet* ss)
         "            EmitVertex();\n"
         "        }\n"
         "        EndPrimitive();\n"
-        "        Tv.x += eyeSep;\n"
+        "        Tv.x = eyeSep[k];\n"
         "    }\n"
         "}\n"
     };
@@ -174,5 +173,32 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setUpViewOnSingleScreen(0);
+
+    int w = viewer.getCamera()->getViewport()->width();
+    int h = viewer.getCamera()->getViewport()->height();
+    int subW = w / 3, subH = h / 2, numViews = atoi(NUMVIEWS), nX = atoi(NX), nY = atoi(NY);
+    std::vector<float> eyeSeps(numViews * 6);  // view = 4 x 4, total: 12 x 8
+    for (int k = -48; k < 48; ++k) eyeSeps[k + 48] = (float)k + 0.5f;
+
+    for (int x = 0; x < 3; ++x)
+        for (int y = 0; y < 2; ++y)
+        {
+            osg::Uniform* eyeSep = new osg::Uniform(osg::Uniform::FLOAT, "eyeSep", numViews);
+            for (int k = 0; k < numViews; ++k)
+            {
+                int tx = (k % nX + 1) + (x * nX), ty = (k / nX + 1) + (y * nY);
+                eyeSep->setElement(k, eyeSeps[(tx - 1) + (ty - 1) * 3 * nX]);
+            }
+
+            osg::Camera* camera = new osg::Camera;
+            camera->setGraphicsContext(viewer.getCamera()->getGraphicsContext());
+            camera->setDrawBuffer(GL_BACK);
+            camera->setReadBuffer(GL_BACK);
+            camera->setViewport(x * subW, y * subH, subW, subH);
+            camera->getOrCreateStateSet()->addUniform(eyeSep);
+            viewer.addSlave(camera, osg::Matrix(), osg::Matrix(), true);
+        }
+    viewer.getCamera()->setGraphicsContext(NULL);
     return viewer.run();
 }
