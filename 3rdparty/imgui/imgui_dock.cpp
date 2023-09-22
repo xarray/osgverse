@@ -46,7 +46,7 @@ struct DockContext
 			, status(Status_Float)
 			, label(nullptr)
 			, opened(false)
-        
+
 		{
 			location[0] = 0;
 			children[0] = children[1] = nullptr;
@@ -76,7 +76,7 @@ struct DockContext
 			for (Dock* tmp = prev_tab; tmp; tmp = tmp->prev_tab) tmp->parent = dock;
 			for (Dock* tmp = next_tab; tmp; tmp = tmp->next_tab) tmp->parent = dock;
 		}
-        
+
         Dock& getRoot()
         {
             Dock *dock = this;
@@ -272,7 +272,7 @@ struct DockContext
 		m_last_frame = GetFrameCount();
 
 		putInBackground();
-        
+
 		for (int i = 0; i < m_docks.size(); ++i) {
 			Dock& dock = *m_docks[i];
             if (!dock.parent && (dock.status == Status_Docked)) {
@@ -291,12 +291,12 @@ struct DockContext
 
 			PushID(i);
 			if (!IsMouseDown(0)) dock.status = Status_Docked;
-            
+
             ImVec2 pos0 = dock.children[0]->pos;
             ImVec2 pos1 = dock.children[1]->pos;
             ImVec2 size0 = dock.children[0]->size;
             ImVec2 size1 = dock.children[1]->size;
-            
+
             ImGuiMouseCursor cursor;
 
 			ImVec2 dsize(0, 0);
@@ -342,7 +342,7 @@ struct DockContext
             if (IsItemHovered()) {
                 SetMouseCursor(cursor);
             }
-            
+
 			if (IsItemHovered() && IsMouseClicked(0))
 			{
 				dock.status = Status_Dragged;
@@ -921,7 +921,7 @@ struct DockContext
 	{
 		if (dock.status == Status_Docked) return;
 		if (dock.location[0] == 0) return;
-		
+
 		Dock* tmp = getRootDock();
 		if (!tmp) return;
 
@@ -970,7 +970,7 @@ struct DockContext
 		dock.opened = true;
 
 		checkNonexistent();
-        
+
         if (first || (prev_opened != dock.opened)) {
             Dock* root = m_next_parent ? m_next_parent : getRootDock();
             if (root && (&dock != root) && !dock.parent) {
@@ -978,7 +978,7 @@ struct DockContext
             }
             m_next_parent = &dock;
         }
-        
+
 		m_current = &dock;
 		if (dock.status == Status_Dragged) handleDrag(dock);
 
@@ -1014,7 +1014,7 @@ struct DockContext
         //beginPanel();
 
 		m_end_action = EndAction_EndChild;
-        
+
         splits();
 
 		PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
@@ -1036,7 +1036,7 @@ struct DockContext
 								 extra_flags;
 		bool ret = BeginChild(label, size, true, flags);
 		PopStyleColor();
-        
+
 		return ret;
 	}
 
@@ -1066,7 +1066,7 @@ struct DockContext
             for (int i = 0; i < m_docks.size(); ++i) {
                 if (TreeNode((void*)i, "Dock %d (%p)", i, m_docks[i])) {
                     Dock &dock = *m_docks[i];
-                    Text("pos=(%.1f %.1f) size=(%.1f %.1f)", 
+                    Text("pos=(%.1f %.1f) size=(%.1f %.1f)",
                         dock.pos.x, dock.pos.y,
                         dock.size.x, dock.size.y);
                     Text("parent = %p\n",
@@ -1075,12 +1075,12 @@ struct DockContext
                         dock.isContainer()?"true":"false");
                     Text("status = %s\n",
                         (dock.status == Status_Docked)?"Docked":
-                            ((dock.status == Status_Dragged)?"Dragged": 
+                            ((dock.status == Status_Dragged)?"Dragged":
                                 ((dock.status == Status_Float)?"Float": "?")));
                     TreePop();
-                }            
+                }
             }
-            
+
         }
         End();
     }
@@ -1099,7 +1099,7 @@ int getDockIndex( const DockContext& context , DockContext::Dock* dock )
 
     for(int i = 0; i < context.m_docks.size(); ++i)
     {
-        if(dock == context.m_docks[i]) 
+        if(dock == context.m_docks[i])
             return i;
     }
 
@@ -1108,7 +1108,7 @@ int getDockIndex( const DockContext& context , DockContext::Dock* dock )
 }
 
 DockContext::Dock* getDockByIndex( const DockContext& context , int idx )
-{ 
+{
 	if( idx >= 0 && idx < context.m_docks.size() )
 	{
 		return context.m_docks[idx];
@@ -1321,7 +1321,7 @@ bool ImGui::BeginDockspace()
 	IM_ASSERT( cur_dock_panel );
 
 	if( !cur_dock_panel )	return false;
-	
+
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar;
 	char child_name[1024];
 	sprintf( child_name , "##%s" , cur_dock_panel );
@@ -1352,11 +1352,11 @@ bool ImGui::BeginDock(const char* label, bool* opened, ImGuiWindowFlags extra_fl
 		DockContext& context = g_docklist[cur_dock_panel];
 
 		char new_label[128];
-		sprintf_s( new_label , "%s##%s" , label , cur_dock_panel );
+		sprintf( new_label , "%s##%s" , label , cur_dock_panel );
 
 		return context.begin( new_label , opened , extra_flags );
 	}
-	
+
 	return false;
 }
 
