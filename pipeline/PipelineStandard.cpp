@@ -392,8 +392,8 @@ namespace osgVerse
 #endif
             ssao->applyBuffer(*gbuffer, "NormalBuffer", 0);
             ssao->applyBuffer(*gbuffer, "DepthBuffer", 1);
-            ssao->applyTexture(generateNoises2D(4, 4), "RandomTexture", 2);
-            ssao->applyUniform(new osg::Uniform("AORadius", 6.0f));
+            ssao->applyTexture(generatePoissonDiscDistribution(4, 4), "RandomTexture", 2);
+            ssao->applyUniform(new osg::Uniform("AORadius", 12.0f));
             ssao->applyUniform(new osg::Uniform("AOBias", 0.1f));
             ssao->applyUniform(new osg::Uniform("AOPowExponent", 12.0f));
 
@@ -696,7 +696,7 @@ namespace osgVerse
     *          <"scale": "1">, <"runOnce": "false">,
     *          "inputs": [ {"name": "..", <"type": "..">, <"path": "..">, <"unit": "..">} ],
     *          "outputs": [ {"name": "..", "type": ".."} ],
-    *          "shaders": [ {"name": "..", <"type": "..">}, <"path": ".."> ],
+    *          "shaders": [ {"name": "..", <"type": "..">, <"path": "..">} ],
     *          "uniforms": [ {"name": "..", <"type": "..">, <"value": "..">} ]
     *        }, { ... } ]
     *      }, { "stage": [...] }, ...

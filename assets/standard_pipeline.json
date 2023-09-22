@@ -1,0 +1,289 @@
+{
+    "settings": {
+        "width": 1920,
+        "height": 1080,
+        "masks": {
+            "deferred": "ffff0000",
+            "forward": "0000ffff",
+            "forward_shading": "00001000",
+            "shadow_caster": "10000000"
+        },
+        "shadow_resolution": 2048,
+        "shadow_number": 3
+    },
+
+    "shared": [
+        {
+            "name": "QuadVS", "type": "shader", "shader_type": "vertex",
+            "source": [
+                "VERSE_VS_OUT vec4 texCoord0;",
+                "void main() {",
+                "    texCoord0 = osg_MultiTexCoord0;",
+                "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;",
+                "}"
+            ]
+        },
+        {
+            "name": "QuadFS", "type": "shader", "shader_type": "fragment",
+            "source": [
+                "uniform sampler2D ColorBuffer;",
+                "VERSE_FS_IN vec4 texCoord0;",
+                "VERSE_FS_OUT vec4 fragData;",
+                "void main() {",
+                "    vec2 uv0 = texCoord0.xy;",
+                "    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);",
+                "    fragData = vec4(color.rgb, 1.0);",
+                "    VERSE_FS_FINAL(fragData);",
+                "}"
+            ]
+        },
+        {
+            "name": "LightingModule", "type": "shader_module",
+            "source": [
+                "#define M_PI 3.1415926535897932384626433832795",
+                "#define NUM_IBL_SAMPLES 32",
+
+                "float clamped_cosine(vec3 a, vec3 b)",
+                "{ return min(max(dot(a, b), 0.0), 1.0); }",
+
+                "float normal_distribution_function(vec3 normal, vec3 halfway, float roughness) {",
+                "    float alpha_2 = pow(roughness, 4.0);",
+                "    return alpha_2 / (M_PI * pow((pow(dot(normal, halfway), 2.0) * (alpha_2 - 1.0) + 1.0), 2.0));",
+                "}",
+
+                "float get_geometric_attenuation(vec3 direction, vec3 view, vec3 normal,",
+                "                                vec3 halfway, float roughness) {",
+                "    float k = pow(roughness + 1.0, 2.0) / 8.0;",
+                "    float g1l = dot(normal, direction) / (dot(normal, direction) * (1.0 - k) + k);",
+                "    float g1v = dot(normal, view) / (dot(normal, view) * (1.0 - k) + k);",
+                "    return g1l * g1v;",
+                "}",
+
+                "vec3 get_fresnel(vec3 view, vec3 halfway, vec3 f0) {",
+                "    float dot_vh = dot(view, halfway);",
+                "    return f0 + (1.0 - f0) * pow(2.0, (-5.55473 * dot_vh - 6.98316) * dot_vh);",
+                "}",
+
+                "vec3 get_light_contribution_helper(vec3 albedo, vec3 f0, float roughness, vec3 normal,",
+                "                                  vec3 incoming_irradiance, vec3 view_dir, vec3 light_dir) {",
+                "    vec3 view = normalize(view_dir);  // view_dir = cam_pos - obj_pos",
+                "    vec3 halfway = normalize(light_dir + view);  // light_dir = light_pos - obj_pos",
+                "    vec3 albedo_contribution = albedo / M_PI;",
+                "    float d = normal_distribution_function(normal, halfway, roughness);",
+                "    vec3 f = get_fresnel(view, halfway, f0);",
+                "    float g = get_geometric_attenuation(light_dir, view, normal, halfway, roughness);",
+                "    vec3 specular_contribution = (d * f * g) / (dot(normal, light_dir) * dot(normal, view));",
+                "    return (albedo_contribution + specular_contribution) * incoming_irradiance;",
+                "}",
+
+                "vec3 get_light_contribution(vec3 albedo, float metallic, float roughness, vec3 normal,",
+                "                            vec3 incoming_irradiance, vec3 view_dir, vec3 light_dir) {",
+                "    vec3 dielectric_contribution = get_light_contribution_helper(",
+                "        albedo, vec3(0.04, 0.04, 0.04), roughness, normal, incoming_irradiance, view_dir, light_dir);",
+                "    vec3 metallic_contribution = get_light_contribution_helper(",
+                "        vec3(0.0, 0.0, 0.0), albedo, roughness, normal, incoming_irradiance, view_dir, light_dir);",
+                "    return mix(dielectric_contribution, metallic_contribution, metallic);",
+                "}",
+
+                "vec3 get_directional_light_contribution(vec3 view_dir, vec3 eyespace_pos, vec3 light_pos, vec3 light_dir0, vec3 light_irradiance,",
+                "                                        vec3 albedo, float metallic, float roughness, vec3 normal, float range) {",
+                "    vec3 light_dir = -light_dir0;",
+                "    float dist = distance(eyespace_pos, light_pos), falloff = 1.0;",
+                "    if (range > 0.0) falloff = pow(clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);",
+                "    vec3 incoming_irradiance = light_irradiance * clamped_cosine(normal, light_dir);",
+                "    return get_light_contribution(albedo, metallic, roughness, normal, incoming_irradiance, view_dir, light_dir);",
+                "}",
+
+                "vec3 get_point_light_contribution(vec3 view_dir, vec3 eyespace_pos, vec3 light_pos, vec3 light_irradiance,",
+                "                                  vec3 albedo, float metallic, float roughness, vec3 normal, float range) {",
+                "    vec3 light_dir = -normalize(light_pos - eyespace_pos);",
+                "    float dist = distance(eyespace_pos, light_pos), falloff = 1.0;",
+                "    if (range > 0.0) falloff = pow(clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);",
+                "    vec3 incoming_irradiance = (light_irradiance * falloff) * clamped_cosine(normal, light_dir);",
+                "    return get_light_contribution(albedo, metallic, roughness, normal, incoming_irradiance, view_dir, light_dir);",
+                "}",
+
+                "vec3 get_spot_light_contribution(vec3 view_dir, vec3 eyespace_pos, vec3 light_pos, vec3 light_dir0, vec3 light_irradiance,",
+                "                                 vec3 albedo, float metallic, float roughness, vec3 normal, float range, float cutoff) {",
+                "    vec3 spot_dir = -light_dir0, light_dir = -normalize(light_pos - eyespace_pos);",
+                "    if (dot(spot_dir, light_dir) < cutoff) return vec3(0.0, 0.0, 0.0);",
+                "    float dist = distance(eyespace_pos, light_pos), falloff = 1.0;",
+                "    if (range > 0.0) falloff = pow(clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0), 2.0) / (pow(dist, 2.0) + 1.0);",
+                "    vec3 incoming_irradiance = (light_irradiance * falloff) * clamped_cosine(normal, light_dir);",
+                "    return get_light_contribution(albedo, metallic, roughness, normal, incoming_irradiance, view_dir, light_dir);",
+                "}"
+            ]
+        }
+    ],
+
+    "stages": [
+        {
+            "name": "SceneInputStage",
+            "stage": [
+                {
+                    "name": "GBuffering", "type": "input",
+                    "outputs": [
+                        { "name": "NormalBuffer", "format": "RGBA_INT8" },
+                        { "name": "DiffuseMetallicBuffer", "format": "RGBA_INT8" },
+                        { "name": "SpecularRoughnessBuffer", "format": "RGBA_INT8" },
+                        { "name": "EmissionOcclusionBuffer", "format": "RGBA_INT8" },
+                        { "name": "DepthBuffer", "format": "DEPTH24_STENCIL8" }
+                    ],
+                    "shaders": [
+                        {
+                            "name": "GBufferVS", "shader_type": "vertex",
+                            "source": [
+                                "VERSE_VS_IN vec4 osg_Tangent;",
+                                "VERSE_VS_OUT vec4 texCoord0, texCoord1, color;",
+                                "VERSE_VS_OUT vec3 eyeNormal, eyeTangent, eyeBinormal;",
+
+                                "void main() {",
+                                "    eyeNormal = normalize(VERSE_MATRIX_N * osg_Normal);",
+                                "    eyeTangent = normalize(VERSE_MATRIX_N * osg_Tangent.xyz);",
+                                "    eyeBinormal = normalize(VERSE_MATRIX_N * (cross(osg_Normal, osg_Tangent.xyz) * osg_Tangent.w));",
+                                "    texCoord0 = osg_MultiTexCoord0;",
+                                "    texCoord1 = osg_MultiTexCoord1;",
+                                "    color = osg_Color;",
+                                "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;",
+                                "}"
+                            ]
+                        },
+                        {
+                            "name": "GBufferFS", "shader_type": "fragment",
+                            "source": [
+                                "uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;",
+                                "uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;",
+                                "uniform float ModelIndicator;",
+                                "VERSE_FS_IN vec4 texCoord0, texCoord1, color;",
+                                "VERSE_FS_IN vec3 eyeNormal, eyeTangent, eyeBinormal;",
+
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy, uv1 = texCoord1.xy;",
+                                "    vec4 diffuse = VERSE_TEX2D(DiffuseMap, uv0) * color;",
+                                "    vec4 normalValue = VERSE_TEX2D(NormalMap, uv0);",
+                                "    vec3 specular = VERSE_TEX2D(SpecularMap, uv0).rgb;",
+                                "    vec3 emission = VERSE_TEX2D(EmissiveMap, uv1).rgb;",
+                                "    vec3 metalRough = VERSE_TEX2D(ShininessMap, uv0).rgb;",
+                                "    if (diffuse.a < 0.1) discard;",
+
+                                "    vec3 eyeNormal2 = eyeNormal;",
+                                "    if (normalValue.a > 0.1) {",
+                                "        vec3 tsNormal = normalize(2.0 * normalValue.rgb - vec3(1.0));",
+                                "        eyeNormal2 = normalize(mat3(eyeTangent, eyeBinormal, eyeNormal) * tsNormal);",
+                                "    }",
+                                "    gl_FragData[0]/*NormalBuffer*/ = vec4(eyeNormal2.xyz, ModelIndicator * 0.1);",
+                                "    gl_FragData[1]/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.b);",
+                                "    gl_FragData[2]/*SpecularRoughnessBuffer*/ = vec4(specular, metalRough.g);",
+                                "    gl_FragData[3]/*EmissionOcclusionBuffer*/ = vec4(emission, metalRough.r);",
+                                "}"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "Shadowing", "type": "shadow_module",
+                    "shaders": [
+                        {
+                            "name": "ShadowCastVS", "shader_type": "vertex",
+                            "source": [
+                                "VERSE_VS_OUT vec4 texCoord0, lightProjVec;",
+                                "void main() {",
+                                "    lightProjVec = VERSE_MATRIX_MVP * osg_Vertex;",
+                                "    texCoord0 = osg_MultiTexCoord0;",
+                                "    gl_Position = lightProjVec;",
+                                "}"
+                            ]
+                        },
+                        {
+                            "name": "ShadowCastFS", "shader_type": "fragment",
+                            "source": [
+                                "VERSE_FS_IN vec4 texCoord0, lightProjVec;",
+                                "VERSE_FS_OUT vec4 fragData;",
+                                "const vec4 bitEnc = vec4(1., 255., 65025., 16581375.);",
+                                "const vec4 bitDec = 1. / bitEnc;",
+
+                                "vec4 EncodeFloatRGBA(float v) {",
+                                "    vec4 enc = fract(bitEnc * v);",
+                                "    enc -= enc.yzww * vec2(1. / 255., 0.).xxxy;",
+                                "    return enc;",
+                                "}",
+                                "void main() {",
+                                "    //fragData = vec4(1.0, (lightProjVec.yz / lightProjVec.w), 1.0);",
+                                "    fragData = EncodeFloatRGBA((lightProjVec.z * 0.5 / lightProjVec.w) + 0.5);",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
+                },
+                { "name": "Light", "type": "light_module" }
+            ]
+        },
+        {
+            "name": "LightingStage",
+            "stage": [
+                {
+                    "name": "PbrLighting", "type": "work",
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "PbrLightingFS", "shader_type": "fragment",
+                            "source": [
+                                // TODO
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "AmbientOcclusionStage",
+            "stage": [
+                {
+                    "name": "SSAO", "type": "work",
+                    //
+                },
+                {
+                    "name": "SSAO_BlurH", "type": "work",
+                    //
+                },
+                {
+                    "name": "SSAO_BlurV", "type": "work",
+                    //
+                },
+                {
+                    "name": "ShadowCombining", "type": "work",
+                    //
+                }
+            ]
+        },
+        {
+            "name": "BloomingStage",
+            "stage": [
+            ]
+        },
+        {
+            "name": "TonemappingStage",
+            "stage": [
+                {
+                    "name": "Tonemapping", "type": "work",
+                    //
+                }
+            ]
+        },
+        {
+            "name": "FinalStage",
+            "stage": [
+                {
+                    "name": "AntiAliasing", "type": "work",
+                    //
+                },
+                {
+                    "name": "ColorGrading", "type": "display",
+                    //
+                }
+            ]
+        },
+        {}
+    ]
+}

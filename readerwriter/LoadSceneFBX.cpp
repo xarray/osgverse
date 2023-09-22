@@ -159,10 +159,10 @@ namespace osgVerse
             if (uvData1) geom->setTexCoordArray(1, uv1.get(), osg::Array::BIND_PER_VERTEX);
 #else
             if (nData) { geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
-            if (tData) { geom->setVertexAttribArray(6, ta.get()); geom->setVertexAttribBinding(osg::Geometry::BIND_PER_VERTEX); }
+            if (tData) { geom->setVertexAttribArray(6, ta.get()); geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX); }
             if (cData) { geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
-            if (tData0) { geom->setTexCoordArray(0, uv0.get()); }
-            if (tData1) { geom->setTexCoordArray(1, uv1.get()); }
+            if (uvData0) { geom->setTexCoordArray(0, uv0.get()); }
+            if (uvData1) { geom->setTexCoordArray(1, uv1.get()); }
 #endif
             geom->addPrimitiveSet(itr->second.get());
             geode->addDrawable(geom.get());
