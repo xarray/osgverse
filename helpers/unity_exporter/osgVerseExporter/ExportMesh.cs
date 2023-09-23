@@ -11,8 +11,8 @@ namespace osgVerse
         public static string ExportGeometry(ref SceneData sceneData, ref SceneMeshRenderer smr,
                                             ref SceneMesh mesh, string path, string spaces)
         {
-            string osgData = spaces + "useDisplayList TRUE\n"
-                           + spaces + "useVertexBufferObjects FALSE\n";
+            string osgData = spaces + "useDisplayList FALSE\n"
+                           + spaces + "useVertexBufferObjects TRUE\n";
             if (smr != null)
                 osgData += MaterialExporter.ExportStateSet(ref sceneData, ref smr, path, spaces);
             osgData += ExportGeometryData(ref sceneData, ref mesh, spaces);
@@ -22,13 +22,15 @@ namespace osgVerse
         public static string ExportSkinnedGeometry(ref SceneData sceneData, ref SceneSkinnedMeshRenderer smr,
                                                    ref SceneMesh mesh, string path, string spaces)
         {
-            string osgData = spaces + "useDisplayList TRUE\n"
-                           + spaces + "useVertexBufferObjects FALSE\n";
+            string osgData = spaces + "useDisplayList FALSE\n"
+                           + spaces + "useVertexBufferObjects TRUE\n";
             if (smr != null)
             {
                 SceneMeshRenderer smr0 = (SceneMeshRenderer)smr;
                 osgData += MaterialExporter.ExportStateSet(ref sceneData, ref smr0, path, spaces);
             }
+
+            // TODO: bone bindposes
             osgData += ExportGeometryData(ref sceneData, ref mesh, spaces);
             return osgData;
         }

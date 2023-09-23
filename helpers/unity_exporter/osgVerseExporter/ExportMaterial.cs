@@ -81,21 +81,22 @@ namespace osgVerse
                 SceneMaterial material = sceneData.resources.GetMaterial(smr.materials[i]);
                 if (material.textureIDs == null) continue;
 
-                //string shaderData = spaces + "  osgVerse::ShaderData {\n"
-                //                  + spaces + "    ShaderName \"" + material.shader + "\"\n";
+                string shaderData = spaces + "  osgVerse::ShaderData {\n"
+                                  + spaces + "    ShaderName \"" + material.shader + "\"\n";
                 for (int j = 0; j < material.textureIDs.Length; ++j)
                 {
                     int texID = material.textureIDs[j], unit = material.textureUnits[j];
                     SceneTexture texture = sceneData.resources.GetTexture(texID, false);
                     if (texture == null || unit < 0) continue;
 
-                    //shaderData += spaces + "    Texture" + unit + " \"" + texture.name + "\""
-                    //            + " \"" + texture.path + "\"\n";
-                    if (i > 0)
+                    shaderData += spaces + "    Texture" + unit + " \"" + texture.name + "\"\n"
+                                + spaces + "    Path \"" + texture.path + "\"\n"
+                                + spaces + "    Type \"" + texture.propName + "\"\n";
+                    /*if (i > 0)
                     {
                         Debug.LogWarning("[osgVerse] Multi-material is not supported");
                         continue;  // FIXME: multi-material case
-                    }
+                    }*/
 
                     // Handle texture tiling and offset
                     osgData += spaces + "  textureUnit " + unit + " {\n"
@@ -133,18 +134,20 @@ namespace osgVerse
                     int texID = 0;
                     SceneTexture texture = sceneData.resources.GetCombinedTexture(
                         material.combinedTextures, ref texID);
-
-                    osgData += spaces + "  textureUnit 3 {\n"  // FIXME: combined unit
-                             + spaces + "    GL_TEXTURE_2D ON\n";
-                    osgData += spaces + "    Texture2D {\n"
+                    if (texture != null)
+                    {
+                        osgData += spaces + "  textureUnit 7 {\n"  // FIXME: combined unit
+                                 + spaces + "    GL_TEXTURE_2D ON\n";
+                        osgData += spaces + "    Texture2D {\n"
                                  + spaces + "      UniqueID Texture_" + texID + "\n"
                                  + ExportTextureAttr(ref texture, path, spaces + "    ")
                                  + spaces + "    }\n";
-                    osgData += spaces + "  }\n";
+                        osgData += spaces + "  }\n";
+                    }
                 }
 
                 // Save shader data for use
-                /*if (material.shaderKeywords != null)
+                if (material.shaderKeywords != null)
                 {
                     shaderData += spaces + "    Keywords ";
                     for (int k = 0; k < material.shaderKeywords.Length; ++k)
@@ -153,7 +156,7 @@ namespace osgVerse
                                     + ((k < material.shaderKeywords.Length - 1) ? " " : "\n");
                     }
                 }
-                osgData += shaderData + spaces + "  }\n";*/
+                osgData += shaderData + spaces + "  }\n";
             }
 
             // Handle lightmaps

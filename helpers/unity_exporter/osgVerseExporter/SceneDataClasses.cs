@@ -290,6 +290,8 @@ namespace osgVerse
             {
                 SceneTexture tex = kv.Value;
                 texName = tex.name; path = tex.path; texID = kv.Key;
+                if (!tex.propName.Contains("Metallic") &&
+                    !tex.propName.Contains("Occlusion")) continue;
 
                 byte[] texData = System.Convert.FromBase64String(tex.base64);
                 if (tex.base64Length > 0 && texData != null)
@@ -328,6 +330,7 @@ namespace osgVerse
                     GameObject.DestroyImmediate(unityTexture);
                 }
             }
+            if (!combinedTexture) return null;
 
             SceneTexture newTex = new SceneTexture();
             newTex.name = texName + "__OcclusionRoughnessMetallic";
