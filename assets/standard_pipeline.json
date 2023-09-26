@@ -14,6 +14,22 @@
 
     "shared": [
         {
+            "name": "SkyTexture", "type": "texture",
+            "uri": "skyboxes/barcelona.hdr"
+        },
+        {
+            "name": "BrdfLutTexture", "type": "ibl_data",
+            "uri": "skyboxes/barcelona.ibl.rseq", "index": 0
+        },
+        {
+            "name": "PrefilterTexture", "type": "ibl_data",
+            "uri": "skyboxes/barcelona.ibl.rseq", "index": 1
+        },
+        {
+            "name": "IrradianceTexture", "type": "ibl_data",
+            "uri": "skyboxes/barcelona.ibl.rseq", "index": 2
+        },
+        {
             "name": "QuadVS", "type": "shader", "shader_type": "vertex",
             "source": [
                 "VERSE_VS_OUT vec4 texCoord0;",
@@ -33,6 +49,45 @@
                 "    vec2 uv0 = texCoord0.xy;",
                 "    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);",
                 "    fragData = vec4(color.rgb, 1.0);",
+                "    VERSE_FS_FINAL(fragData);",
+                "}"
+            ]
+        },
+        {
+            "name": "SsaoBlurFS", "type": "shader", "shader_type": "fragment",
+            "source": [
+                "uniform sampler2D SsaoBuffer;",
+                "uniform vec2 BlurDirection, InvScreenResolution;",
+                "uniform float BlurSharpness;",
+                "VERSE_FS_IN vec4 texCoord0;",
+                "VERSE_FS_OUT vec4 fragData;",
+                "const float KERNEL_RADIUS = 3.0;",
+
+                "float blurFunction(vec2 uv, float r, float center_c, float center_d, inout float w_total) {",
+                "    vec2 aoz = VERSE_TEX2D(SsaoBuffer, uv).xy;",
+                "    float c = aoz.x, d = aoz.y;",
+                "    const float blurSigma = float(KERNEL_RADIUS) * 0.5;",
+                "    const float blurFalloff = 1.0 / (2.0 * blurSigma * blurSigma);",
+                "    float ddiff = (d - center_d) * BlurSharpness;",
+                "    float w = exp2(-r * r * blurFalloff - ddiff * ddiff);",
+                "    w_total += w; return c * w;",
+                "}",
+
+                "void main() {",
+                "    vec2 uv0 = texCoord0.xy;",
+                "    vec2 aoz = VERSE_TEX2D(SsaoBuffer, uv0).xy;",
+                "    float center_c = aoz.x, center_d = aoz.y;",
+                "    float c_total = center_c, w_total = 1.0;",
+
+                "    for (float r = 1.0; r <= KERNEL_RADIUS; ++r) {",
+                "        vec2 uv = uv0 + BlurDirection * InvScreenResolution * r;",
+                "        c_total += blurFunction(uv, r, center_c, center_d, w_total);",
+                "    }",
+                "    for (float r = 1.0; r <= KERNEL_RADIUS; ++r) {",
+                "        vec2 uv = uv0 - BlurDirection * InvScreenResolution * r;",
+                "        c_total += blurFunction(uv, r, center_c, center_d, w_total);",
+                "    }",
+                "    fragData = vec4(c_total / w_total);",
                 "    VERSE_FS_FINAL(fragData);",
                 "}"
             ]
@@ -121,7 +176,7 @@
             "name": "SceneInputStage",
             "stage": [
                 {
-                    "name": "GBuffering", "type": "input",
+                    "name": "GBuffer", "type": "input",
                     "outputs": [
                         { "name": "NormalBuffer", "format": "RGBA_INT8" },
                         { "name": "DiffuseMetallicBuffer", "format": "RGBA_INT8" },
@@ -181,7 +236,7 @@
                     ]
                 },
                 {
-                    "name": "Shadowing", "type": "shadow_module",
+                    "name": "Shadow", "type": "shadow_module",
                     "shaders": [
                         {
                             "name": "ShadowCastVS", "shader_type": "vertex",
@@ -224,12 +279,121 @@
             "stage": [
                 {
                     "name": "PbrLighting", "type": "work",
+                    "inputs": [
+                        { "stage": "GBuffer", "name": "NormalBuffer", "unit": 0 },
+                        { "stage": "GBuffer", "name": "DiffuseMetallicBuffer", "unit": 1 },
+                        { "stage": "GBuffer", "name": "SpecularRoughnessBuffer", "unit": 2 },
+                        { "stage": "GBuffer", "name": "EmissionOcclusionBuffer", "unit": 3 },
+                        { "stage": "GBuffer", "name": "DepthBuffer", "unit": 4 },
+                        { "name": "BrdfLutTexture", "unit": 5 },
+                        { "name": "PrefilterTexture", "unit": 6 },
+                        { "name": "IrradianceTexture", "unit": 7 },
+                        { "stage": "Light", "name": "LightParameterMap", "unit": 8 }
+                    ],
+                    "outputs": [
+                        { "name": "ColorBuffer", "format": "RGB_FLOAT16" },
+                        { "name": "IblAmbientBuffer", "format": "RGB_INT8" }
+                    ],
                     "shaders": [
                         { "name": "QuadVS" },
                         {
                             "name": "PbrLightingFS", "shader_type": "fragment",
+                            "include": [ "LightingModule" ],
                             "source": [
-                                // TODO
+                                "uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;",
+                                "uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;",
+                                "uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;",
+                                "uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+att1, r2: dir+att0, r3: spotProp)",
+                                "uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v",
+                                "uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)",
+                                "VERSE_FS_IN vec4 texCoord0;",
+
+                                "const vec2 invAtan = vec2(0.1591, 0.3183);",
+                                "const int maxLights = 1024;",
+                                "vec2 sphericalUV(vec3 v) {",
+                                "    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));",
+                                "    uv *= invAtan; uv += 0.5; return uv;",
+                                "}",
+                                "vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {",
+                                "    float val = 1.0 - cosTheta;",
+                                "    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * (val*val*val*val*val); //Faster than pow",
+                                "}",
+                                "vec3 fresnelSchlick(float cosTheta, vec3 F0) {",
+                                "    float val = 1.0 - cosTheta;",
+                                "    return F0 + (1.0 - F0) * (val*val*val*val*val); //Faster than pow",
+                                "}",
+
+                                "int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,",
+                                "                       out float range, out float spotCutoff) {",
+                                "    const vec2 halfP = vec2(0.5 / 1024.0, 0.5 / 4.0), step = vec2(1.0 / 1024.0, 1.0 / 4.0);",
+                                "    vec4 attr0 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 0.0 * step.y)); // color, type",
+                                "    vec4 attr1 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 1.0 * step.y)); // pos, att",
+                                "    vec4 attr2 = VERSE_TEX2D(LightParameterMap, halfP + vec2(id * step.x, 2.0 * step.y)); // dir, spot",
+                                "    color = attr0.xyz; pos = attr1.xyz; dir = attr2.xyz; range = attr1.w;",
+                                "    spotCutoff = attr2.w; return int(attr0.w);",
+                                "}",
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec4 diffuseMetallic = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);",
+                                "    vec4 specularRoughness = VERSE_TEX2D(SpecularRoughnessBuffer, uv0);",
+                                "    vec4 emissionOcclusion = VERSE_TEX2D(EmissionOcclusionBuffer, uv0);",
+                                "    vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);",
+                                "    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;",
+
+                                "    // Rebuild world vertex attributes",
+                                "    vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);",
+                                "    vec4 eyeVertex = GBufferMatrices[3] * vecInProj;",
+                                "    vec3 eyeNormal = normalAlpha.rgb;",
+
+                                "    // Components common to all light types",
+                                "    vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);",
+                                "    vec3 R = reflect(-viewDir, eyeNormal);",
+                                "    vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;",
+                                "    float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;",
+                                "    float nDotV = max(dot(eyeNormal, viewDir), 0.0);",
+
+                                "    // Calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 of 0.04;",
+                                "    // if it's a metal, use the albedo color as F0 (metallic workflow)",
+                                "    vec3 F0 = mix(vec3(0.04), albedo, metallic), radianceOut = vec3(0.0);",
+
+                                "    // Compute direcional/point/spot lights",
+                                "    vec3 lightColor, lightPos, lightDir; float lightRange = 0.0, lightSpot = 0.0;",
+                                "    int numLights = int(min(LightNumber.x, LightNumber.y));",
+                                "    for (int i = 0; i < maxLights; ++i) {",
+                                "        if (numLights <= i) break;  // to avoid 'WebGL: Loop index cannot be compared with non-constant expression'",
+                                "        int type = getLightAttributes(float(i), lightColor, lightPos, lightDir, lightRange, lightSpot);",
+                                "        if (type == 1) {",
+                                "            radianceOut += get_directional_light_contribution(",
+                                "                    viewDir, eyeVertex.xyz, lightPos, lightDir, lightColor, albedo, metallic, roughness,",
+                                "                    eyeNormal, lightRange);",
+                                "        } else if (type == 2) {",
+                                "            radianceOut += get_point_light_contribution(",
+                                "                    viewDir, eyeVertex.xyz, lightPos, lightColor, albedo, metallic, roughness, eyeNormal, lightRange);",
+                                "        } else if (type == 3) {",
+                                "            radianceOut += get_spot_light_contribution(",
+                                "                    viewDir, eyeVertex.xyz, lightPos, lightDir, lightColor, albedo, metallic, roughness,",
+                                "                    eyeNormal, lightRange, lightSpot);",
+                                "        }",
+                                "    }",
+
+                                "    // Treat ambient light as IBL",
+                                "    vec3 ambient = vec3(0.025) * albedo;",
+                                "    if (depthValue < 1.0) {",
+                                "        vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);",
+                                "        vec3 kD = (1.0 - kS) * (1.0 - metallic);",
+                                "        vec3 irradiance = VERSE_TEX2D(IrradianceBuffer, sphericalUV(eyeNormal)).rgb;",
+                                "        vec3 diffuse = irradiance * albedo;",
+
+                                "        const float MAX_REFLECTION_LOD = 4.0;",
+                                "        vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;",
+                                "        vec2 envBRDF = VERSE_TEX2D(BrdfLutBuffer, vec2(nDotV, roughness)).rg;",
+                                "        vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);",
+                                "        ambient = kD * diffuse + envSpecular;",
+                                "    }",
+                                "    ao = 1.0;  // FIXME: sponza seems to have a negative AO?",
+                                "    gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);",
+                                "    gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);",
+                                "}"
                             ]
                         }
                     ]
@@ -241,25 +405,296 @@
             "stage": [
                 {
                     "name": "SSAO", "type": "work",
-                    //
+                    "inputs": [
+                        { "stage": "GBuffer", "name": "NormalBuffer", "unit": 0 },
+                        { "stage": "GBuffer", "name": "DepthBuffer", "unit": 1 },
+                        { "name": "RandomTexture", "unit": 2, "function": "poisson", "arguments": "4 4" }
+                    ],
+                    "outputs": [
+                        { "name": "SsaoBuffer", "format": "R_INT8" }
+                    ],
+                    "uniforms": [
+                        { "name": "AORadius", "uniform_type": "float", "value": "12.0" },
+                        { "name": "AOBias", "uniform_type": "float", "value": "0.1" },
+                        { "name": "AOPowExponent", "uniform_type": "float", "value": "12.0" }
+                    ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "SsaoFS", "shader_type": "fragment",
+                            "source": [
+                                "#define AO_RANDOMTEX_SIZE 4",
+                                "#define M_PI 3.1415926535897932384626433832795",
+                                "uniform sampler2D NormalBuffer, DepthBuffer, RandomTexture;",
+                                "uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v",
+                                "uniform vec2 NearFarPlanes, InvScreenResolution;",
+                                "uniform float AORadius, AOBias, AOPowExponent;",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+
+                                "const float NUM_STEPS = 4.0;",
+                                "const float NUM_DIRECTIONS = 8.0;",
+                                "float projScale = 1.0 / (tan((M_PI * 0.25) * 0.5) * 2.0);",
+                                "float negInvR2 = 0.0, radiusToScreen = 0.0, AOMultiplier = 0.0;",
+
+                                "float falloff(float distanceSquare) {",
+                                "    // 1 scalar mad instruction",
+                                "    return distanceSquare * negInvR2 + 1.0;",
+                                "}",
+                                "vec4 getJitter() {",
+                                "    // Get the current jitter vector",
+                                "    return VERSE_TEX2D(RandomTexture, (gl_FragCoord.xy / float(AO_RANDOMTEX_SIZE)));",
+                                "}",
+                                "vec2 rotateDirection(vec2 dir, vec2 cosSin) {",
+                                "    return vec2(dir.x * cosSin.x - dir.y * cosSin.y,",
+                                "                dir.x * cosSin.y + dir.y * cosSin.x);",
+                                "}",
+
+                                "vec3 fetchViewPos(vec2 uv) {",
+                                "    mat4 projMatrix = GBufferMatrices[2];",
+                                "    vec4 projInfo = vec4(2.0 / projMatrix[0][0], 2.0 / projMatrix[1][1],",
+                                "                         -(1.0 - projMatrix[2][0]) / projMatrix[0][0],",
+                                "                         -(1.0 + projMatrix[2][1]) / projMatrix[1][1]);",
+                                "    float depthValue = VERSE_TEX2D(DepthBuffer, uv).r;",
+                                "    float eyeZ = (NearFarPlanes[0] * NearFarPlanes[1])",
+                                "               / ((NearFarPlanes[0] - NearFarPlanes[1]) * depthValue + NearFarPlanes[1]);",
+                                "    return vec3(uv * projInfo.xy + projInfo.zw, 1.0) * eyeZ;",
+                                "}",
+
+                                "vec3 minDiff(vec3 P, vec3 Pr, vec3 Pl) {",
+                                "    vec3 v1 = Pr - P, v2 = P - Pl;",
+                                "    return (dot(v1, v1) < dot(v2, v2)) ? v1 : v2;",
+                                "}",
+
+                                "vec3 reconstructNormal(vec2 uv, vec3 P) {",
+                                "    vec3 Pr = fetchViewPos(uv + vec2(InvScreenResolution.x, 0));",
+                                "    vec3 Pl = fetchViewPos(uv + vec2(-InvScreenResolution.x, 0));",
+                                "    vec3 Pt = fetchViewPos(uv + vec2(0, InvScreenResolution.y));",
+                                "    vec3 Pb = fetchViewPos(uv + vec2(0, -InvScreenResolution.y));",
+                                "    return normalize(cross(minDiff(P, Pr, Pl), minDiff(P, Pt, Pb)));",
+                                "}",
+
+                                "float computeAO(vec3 P, vec3 N, vec3 S) {",
+                                "    // P = view-space position at the kernel center",
+                                "    // N = view-space normal at the kernel center",
+                                "    // S = view-space position of the current sample",
+                                "    vec3 V = S - P; float VdotV = dot(V, V);",
+                                "     float NdotV = dot(N, V) * 1.0 / sqrt(VdotV);",
+                                "    return clamp(NdotV - AOBias, 0.0, 1.0) * clamp(falloff(VdotV), 0.0, 1.0);",
+                                "}",
+
+                                "float computeCoarseAO(vec2 fullResUV, float radiusPixels, vec4 rand, vec3 viewPosition, vec3 viewNormal) {",
+                                "    // Divide by NUM_STEPS+1 so that the farthest samples are not fully attenuated",
+                                "    float stepSizePixels = radiusPixels / (NUM_STEPS + 1.0), AO = 0.0;",
+                                "    const float alpha = 2.0 * M_PI / NUM_DIRECTIONS;",
+                                "    for (float directionIndex = 0.0; directionIndex < NUM_DIRECTIONS; ++directionIndex) {",
+                                "        // Compute normalized 2D direction",
+                                "        float angle = alpha * directionIndex;",
+                                "        vec2 direction = rotateDirection(vec2(cos(angle), sin(angle)), rand.xy);",
+
+                                "        // Jitter starting sample within the first step",
+                                "        float rayPixels = (rand.z * stepSizePixels + 1.0);",
+                                "        for (float stepIndex = 0.0; stepIndex < NUM_STEPS; ++stepIndex) {",
+                                "            vec2 snappedUV = round(vec2(rayPixels) * direction) * InvScreenResolution + fullResUV;",
+                                "            vec3 S = fetchViewPos(snappedUV); rayPixels += stepSizePixels;",
+                                "            AO += computeAO(viewPosition, viewNormal, S);",
+                                "        }",
+                                "    }",
+                                "    AO *= AOMultiplier / (NUM_DIRECTIONS * NUM_STEPS);",
+                                "    return clamp(1.0 - AO * 2.0, 0.0, 1.0);",
+                                "}",
+
+                                "void main() {",
+                                "    negInvR2 = -1.0 / (AORadius * AORadius);",
+                                "    radiusToScreen = AORadius * 0.5 * projScale / InvScreenResolution.y;",
+                                "    AOMultiplier = 1.0 / (1.0 - AOBias);",
+
+                                "    // Reconstruct view-space normal from nearest neighbors",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec3 eyePosition = fetchViewPos(uv0);",
+                                "    vec3 eyeNormal = -reconstructNormal(uv0, eyePosition);",
+
+                                "    // Compute projection of disk of radius into screen space",
+                                "    float radiusPixels = radiusToScreen / eyePosition.z;",
+
+                                "    // Get jitter vector for the current full-res pixel",
+                                "    float AO = computeCoarseAO(uv0, radiusPixels, getJitter(), eyePosition, eyeNormal);",
+                                "    fragData = vec4(pow(AO, AOPowExponent));",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
                 },
                 {
                     "name": "SSAO_BlurH", "type": "work",
-                    //
+                    "inputs": [
+                        { "stage": "SSAO", "name": "SsaoBuffer", "sampler_name": "SsaoBuffer", "unit": 0 }
+                    ],
+                    "outputs": [
+                        { "name": "SsaoBlurredBufferH", "format": "R_INT8" }
+                    ],
+                    "uniforms": [
+                        { "name": "BlurDirection", "uniform_type": "vec2", "value": "1.0 0.0" },
+                        { "name": "BlurSharpness", "uniform_type": "float", "value": "40.0" }
+                    ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        { "name": "SsaoBlurFS" }
+                    ]
                 },
                 {
                     "name": "SSAO_BlurV", "type": "work",
-                    //
+                    "inputs": [
+                        { "stage": "SSAO", "name": "SsaoBlurredBufferH", "sampler_name": "SsaoBuffer", "unit": 0 }
+                    ],
+                    "outputs": [
+                        { "name": "SsaoBlurredBufferV", "format": "R_INT8" }
+                    ],
+                    "uniforms": [
+                        { "name": "BlurDirection", "uniform_type": "vec2", "value": "0.0 1.0" },
+                        { "name": "BlurSharpness", "uniform_type": "float", "value": "40.0" }
+                    ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        { "name": "SsaoBlurFS" }
+                    ]
                 },
                 {
                     "name": "ShadowCombining", "type": "work",
-                    //
+                    "inputs": [
+                        { "stage": "PbrLighting", "name": "ColorBuffer", "unit": 0 },
+                        { "stage": "SSAO_BlurV", "name": "SsaoBlurredBufferV", "sampler_name": "SsaoBlurredBuffer", "unit": 1 },
+                        { "stage": "GBuffer", "name": "NormalBuffer", "unit": 2 },
+                        { "stage": "GBuffer", "name": "DepthBuffer", "unit": 3 },
+                        { "name": "RandomTexture", "unit": 4, "function": "poisson", "arguments": "16 2" },
+                        { "stage": "Shadow", "name": "ShadowMap", "unit": 5 }
+                    ],
+                    "outputs": [
+                        { "name": "CombinedBuffer", "format": "RGB_INT8" }
+                    ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "ShadowCombineFS", "shader_type": "fragment",
+                            "source": [
+                                "#define DEBUG_SHADOW_COLOR 0",
+                                "uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;",
+                                "uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;",
+                                "uniform sampler2D RandomTexture;",
+                                "uniform mat4 ShadowSpaceMatrices[VERSE_MAX_SHADOWS];",
+                                "uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+
+                                "const vec4 bitEnc = vec4(1., 255., 65025., 16581375.);",
+                                "const vec4 bitDec = 1. / bitEnc;",
+                                "float DecodeFloatRGBA(vec4 v) {",
+                                "    v = floor(v * 255.0 + 0.5) / 255.0;",
+                                "    return dot(v, bitDec);",
+                                "}",
+
+                                "float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth) {",
+                                "    vec4 lightProjVec0 = VERSE_TEX2D(shadowMap, lightProjUV.xy);",
+                                "    float decDepth = DecodeFloatRGBA(lightProjVec0) * 2.0 - 1.0;",
+                                "    float depth0 = decDepth;// lightProjVec0.z;  // use polygon-offset instead of +0.005",
+                                "    return (depth > depth0) ? 0.0 : 1.0;",
+                                "}",
+
+                                "float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV,",
+                                "                                   in float depth, in float uvRadius) {",
+                                "    float sum = 0.0;",
+                                "    for (int i = 0; i < 16; i++) {",
+                                "        vec2 dir = VERSE_TEX2D(RandomTexture, vec2(float(i) / 16.0, 0.25)).xy * 2.0 - vec2(1.0);",
+                                "        sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);",
+                                "    }",
+                                "    return sum / 16.0;",
+                                "}",
+
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec4 colorData = VERSE_TEX2D(ColorBuffer, uv0);",
+                                "    vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);",
+                                "    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;",
+                                "    float ao = VERSE_TEX2D(SsaoBlurredBuffer, uv0).r;",
+
+                                "    // Rebuild world vertex attributes",
+                                "    vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);",
+                                "    vec4 eyeVertex = GBufferMatrices[3] * vecInProj;",
+                                "    vec3 eyeNormal = normalAlpha.rgb;",
+
+                                "    // Compute shadow and combine with color",
+                                "#if DEBUG_SHADOW_COLOR",
+                                "    vec3 shadowColors[VERSE_MAX_SHADOWS], debugShadowColor = vec3(1, 1, 1);",
+                                "    shadowColors[0] = vec3(1, 0, 0); shadowColors[1] = vec3(0, 1, 0);",
+                                "    shadowColors[2] = vec3(0, 0, 1); shadowColors[3] = vec3(0, 1, 1);",
+                                "#endif",
+                                "    float shadow = 1.0;",
+                                "    for (int i = 0; i < VERSE_MAX_SHADOWS; ++i) {",
+                                "        vec4 lightProjVec = ShadowSpaceMatrices[i] * eyeVertex;",
+                                "        vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);",
+                                "        if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0)))) continue;",
+
+                                "        float depth = lightProjVec.z / lightProjVec.w;  // real depth in light space",
+                                "        float shadowValue = 1.0, pcfRadius = 0.0012;",
+                                "        if (i == 0) shadowValue = getShadowPCF_DirectionalLight(ShadowMap0, lightProjUV.xy, depth, pcfRadius);",
+                                "        else if (i == 1) shadowValue = getShadowPCF_DirectionalLight(ShadowMap1, lightProjUV.xy, depth, pcfRadius);",
+                                "        else if (i == 2) shadowValue = getShadowPCF_DirectionalLight(ShadowMap2, lightProjUV.xy, depth, pcfRadius);",
+                                "        else if (i == 3) shadowValue = getShadowPCF_DirectionalLight(ShadowMap3, lightProjUV.xy, depth, pcfRadius);",
+                                "        shadow *= shadowValue;",
+                                "#if DEBUG_SHADOW_COLOR",
+                                "        if (shadowValue < 0.5) debugShadowColor = shadowColors[i];",
+                                "#endif",
+                                "    }",
+
+                                "#if DEBUG_SHADOW_COLOR",
+                                "    colorData.rgb *= debugShadowColor * ao;",
+                                "#else",
+                                "    colorData.rgb *= shadow * ao;",
+                                "#endif",
+                                "    fragData = colorData;",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
                 }
             ]
         },
         {
             "name": "BloomingStage",
             "stage": [
+                {
+                    "name": "Tonemapping", "type": "deferred",
+                    "inputs": [ { "stage": "ShadowCombining", "name": "CombinedBuffer", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "BrightnessBuffer0", "format": "RGB_INT8" } ],
+                    "uniforms": [ { "name": "BrightnessThreshold", "uniform_type": "float", "value": "0.7" } ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "BrightnessFS", "shader_type": "fragment",
+                            "source": [
+                                "uniform sampler2D ColorBuffer;",
+                                "uniform float BrightnessThreshold;",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+                                "float luminance(vec3 color) {",
+                                "    return dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));",
+                                "}",
+
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    float lum = luminance(VERSE_TEX2D(ColorBuffer, uv0).xyz);",
+                                "    fragData = vec4((lum > BrightnessThreshold) ? vec3(lum) : vec3(0.0), 1.0);",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    // TODO
+                }
             ]
         },
         {

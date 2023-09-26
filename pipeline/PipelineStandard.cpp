@@ -581,6 +581,7 @@ namespace osgVerseUtils
 
     static osg::Texture* loadTexture(picojson::value& root)
     {
+        // TODO
         return NULL;
     }
 
@@ -692,16 +693,16 @@ namespace osgVerse
     /* {
     *    "stages": [
     *      { "stage": [
-    *        { "name": "..", "type": "input/deferred/work/display", <"module": "shadow/light">,
+    *        { "name": "..", "type": "input/deferred/work/display/shadow_module/light_module",
     *          <"scale": "1">, <"runOnce": "false">,
-    *          "inputs": [ {"name": "..", <"type": "..">, <"path": "..">, <"unit": "..">} ],
+    *          "inputs": [ {"name": "..", <"type": "..">, <"uri": "..">, <"unit": "..">} ],
     *          "outputs": [ {"name": "..", "type": ".."} ],
-    *          "shaders": [ {"name": "..", <"type": "..">, <"path": "..">} ],
+    *          "shaders": [ {"name": "..", <"type": "..">, <"uri": "..">} ],
     *          "uniforms": [ {"name": "..", <"type": "..">, <"value": "..">} ]
     *        }, { ... } ]
     *      }, { "stage": [...] }, ...
     *    ],
-    *    "shared": [{"type": "shader/texture/uniform", "name": ".."}, {}, {}]
+    *    "shared": [{"type": "shader/texture/uniform/ibl_data", "name": ".."}, {}, {}]
     *    "settings": {"width": 1920, "height": 1080, "masks": {..}},
     *  }
     */
