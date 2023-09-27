@@ -14,10 +14,6 @@
 
     "shared": [
         {
-            "name": "SkyTexture", "type": "texture",
-            "uri": "skyboxes/barcelona.hdr"
-        },
-        {
             "name": "BrdfLutTexture", "type": "ibl_data",
             "uri": "skyboxes/barcelona.ibl.rseq", "index": 0
         },
@@ -93,7 +89,25 @@
             ]
         },
         {
-            "name": "LightingModule", "type": "shader_module",
+            "name": "BrightnessDownsampleFS", "type": "shader", "shader_type": "fragment",
+            "source": [
+                "uniform sampler2D ColorBuffer;",
+                "uniform vec2 InvBufferResolution;",
+                "VERSE_FS_IN vec4 texCoord0;",
+                "VERSE_FS_OUT vec4 fragData;",
+                "void main() {",
+                "    vec2 uv0 = texCoord0.xy, texelSize = InvBufferResolution;",
+                "    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);",
+                "    color += VERSE_TEX2D(ColorBuffer, uv0 + vec2(texelSize.x, 0.0));",
+                "    color += VERSE_TEX2D(ColorBuffer, uv0 + vec2(0.0, texelSize.y));",
+                "    color += VERSE_TEX2D(ColorBuffer, uv0 + vec2(texelSize.x, texelSize.y));",
+                "    fragData = vec4(color.rgb * 0.25, 1.0);",
+                "    VERSE_FS_FINAL(fragData);",
+                "}"
+            ]
+        },
+        {
+            "name": "LightingModule", "type": "shader_inc",
             "source": [
                 "#define M_PI 3.1415926535897932384626433832795",
                 "#define NUM_IBL_SAMPLES 32",
@@ -171,10 +185,10 @@
         }
     ],
 
-    "stages": [
+    "pipeline": [
         {
             "name": "SceneInputStage",
-            "stage": [
+            "stages": [
                 {
                     "name": "GBuffer", "type": "input",
                     "outputs": [
@@ -276,19 +290,19 @@
         },
         {
             "name": "LightingStage",
-            "stage": [
+            "stages": [
                 {
                     "name": "PbrLighting", "type": "work",
                     "inputs": [
-                        { "stage": "GBuffer", "name": "NormalBuffer", "unit": 0 },
-                        { "stage": "GBuffer", "name": "DiffuseMetallicBuffer", "unit": 1 },
-                        { "stage": "GBuffer", "name": "SpecularRoughnessBuffer", "unit": 2 },
-                        { "stage": "GBuffer", "name": "EmissionOcclusionBuffer", "unit": 3 },
-                        { "stage": "GBuffer", "name": "DepthBuffer", "unit": 4 },
+                        { "stages": "GBuffer", "name": "NormalBuffer", "unit": 0 },
+                        { "stages": "GBuffer", "name": "DiffuseMetallicBuffer", "unit": 1 },
+                        { "stages": "GBuffer", "name": "SpecularRoughnessBuffer", "unit": 2 },
+                        { "stages": "GBuffer", "name": "EmissionOcclusionBuffer", "unit": 3 },
+                        { "stages": "GBuffer", "name": "DepthBuffer", "unit": 4 },
                         { "name": "BrdfLutTexture", "unit": 5 },
                         { "name": "PrefilterTexture", "unit": 6 },
                         { "name": "IrradianceTexture", "unit": 7 },
-                        { "stage": "Light", "name": "LightParameterMap", "unit": 8 }
+                        { "stages": "Light", "name": "LightParameterMap", "unit": 8 }
                     ],
                     "outputs": [
                         { "name": "ColorBuffer", "format": "RGB_FLOAT16" },
@@ -402,12 +416,12 @@
         },
         {
             "name": "AmbientOcclusionStage",
-            "stage": [
+            "stages": [
                 {
                     "name": "SSAO", "type": "work",
                     "inputs": [
-                        { "stage": "GBuffer", "name": "NormalBuffer", "unit": 0 },
-                        { "stage": "GBuffer", "name": "DepthBuffer", "unit": 1 },
+                        { "stages": "GBuffer", "name": "NormalBuffer", "unit": 0 },
+                        { "stages": "GBuffer", "name": "DepthBuffer", "unit": 1 },
                         { "name": "RandomTexture", "unit": 2, "function": "poisson", "arguments": "4 4" }
                     ],
                     "outputs": [
@@ -529,7 +543,7 @@
                 {
                     "name": "SSAO_BlurH", "type": "work",
                     "inputs": [
-                        { "stage": "SSAO", "name": "SsaoBuffer", "sampler_name": "SsaoBuffer", "unit": 0 }
+                        { "stages": "SSAO", "name": "SsaoBuffer", "sampler_name": "SsaoBuffer", "unit": 0 }
                     ],
                     "outputs": [
                         { "name": "SsaoBlurredBufferH", "format": "R_INT8" }
@@ -546,7 +560,7 @@
                 {
                     "name": "SSAO_BlurV", "type": "work",
                     "inputs": [
-                        { "stage": "SSAO", "name": "SsaoBlurredBufferH", "sampler_name": "SsaoBuffer", "unit": 0 }
+                        { "stages": "SSAO", "name": "SsaoBlurredBufferH", "sampler_name": "SsaoBuffer", "unit": 0 }
                     ],
                     "outputs": [
                         { "name": "SsaoBlurredBufferV", "format": "R_INT8" }
@@ -563,12 +577,12 @@
                 {
                     "name": "ShadowCombining", "type": "work",
                     "inputs": [
-                        { "stage": "PbrLighting", "name": "ColorBuffer", "unit": 0 },
-                        { "stage": "SSAO_BlurV", "name": "SsaoBlurredBufferV", "sampler_name": "SsaoBlurredBuffer", "unit": 1 },
-                        { "stage": "GBuffer", "name": "NormalBuffer", "unit": 2 },
-                        { "stage": "GBuffer", "name": "DepthBuffer", "unit": 3 },
+                        { "stages": "PbrLighting", "name": "ColorBuffer", "unit": 0 },
+                        { "stages": "SSAO_BlurV", "name": "SsaoBlurredBufferV", "sampler_name": "SsaoBlurredBuffer", "unit": 1 },
+                        { "stages": "GBuffer", "name": "NormalBuffer", "unit": 2 },
+                        { "stages": "GBuffer", "name": "DepthBuffer", "unit": 3 },
                         { "name": "RandomTexture", "unit": 4, "function": "poisson", "arguments": "16 2" },
-                        { "stage": "Shadow", "name": "ShadowMap", "unit": 5 }
+                        { "stages": "Shadow", "name": "ShadowMap", "unit": 5 }
                     ],
                     "outputs": [
                         { "name": "CombinedBuffer", "format": "RGB_INT8" }
@@ -663,10 +677,10 @@
         },
         {
             "name": "BloomingStage",
-            "stage": [
+            "stages": [
                 {
-                    "name": "Tonemapping", "type": "deferred",
-                    "inputs": [ { "stage": "ShadowCombining", "name": "CombinedBuffer", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "name": "BrightnessExtracting", "type": "deferred",
+                    "inputs": [ { "stages": "ShadowCombining", "name": "CombinedBuffer", "sampler_name": "ColorBuffer", "unit": 0 } ],
                     "outputs": [ { "name": "BrightnessBuffer0", "format": "RGB_INT8" } ],
                     "uniforms": [ { "name": "BrightnessThreshold", "uniform_type": "float", "value": "0.7" } ],
                     "shaders": [
@@ -693,29 +707,373 @@
                     ]
                 },
                 {
-                    // TODO
+                    "name": "BrightnessDownsampling1", "type": "deferred", "scale": 0.5,
+                    "inputs": [ { "stages": "BrightnessExtracting", "name": "BrightnessBuffer0", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "BrightnessBuffer1", "format": "RGB_INT8" } ],
+                    "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.000260417 0.00185185" } ],
+                    "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
+                },
+                {
+                    "name": "BrightnessDownsampling2", "type": "deferred", "scale": 0.125,
+                    "inputs": [ { "stages": "BrightnessDownsampling1", "name": "BrightnessBuffer1", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "BrightnessBuffer2", "format": "RGB_INT8" } ],
+                    "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.0000651 0.00740741" } ],
+                    "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
+                },
+                {
+                    "name": "BrightnessDownsampling3", "type": "deferred", "scale": 0.03125,
+                    "inputs": [ { "stages": "BrightnessDownsampling2", "name": "BrightnessBuffer2", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "BrightnessBuffer3", "format": "RGB_INT8" } ],
+                    "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.0000162 0.0296296" } ],
+                    "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
+                },
+                {
+                    "name": "BrightnessDownsampling4", "type": "deferred", "scale": 0.0078125,
+                    "inputs": [ { "stages": "BrightnessDownsampling3", "name": "BrightnessBuffer3", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "BrightnessBuffer4", "format": "RGB_INT8" } ],
+                    "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.00000407 0.118519" } ],
+                    "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
+                },
+                {
+                    "name": "BrightnessDownsampling5", "type": "deferred", "scale": 0.001953125,
+                    "inputs": [ { "stages": "BrightnessDownsampling4", "name": "BrightnessBuffer4", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "BrightnessBuffer5", "format": "RGB_INT8" } ],
+                    "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.000001017 0.474074" } ],
+                    "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
+                },
+                {
+                    "name": "BrightCombining", "type": "deferred",
+                    "inputs": [
+                        { "stages": "BrightnessExtracting", "name": "BrightnessBuffer0", "unit": 0 },
+                        { "stages": "BrightnessDownsampling1", "name": "BrightnessBuffer1", "unit": 1 },
+                        { "stages": "BrightnessDownsampling2", "name": "BrightnessBuffer2", "unit": 2 },
+                        { "stages": "BrightnessDownsampling3", "name": "BrightnessBuffer3", "unit": 3 },
+                        { "stages": "BrightnessDownsampling4", "name": "BrightnessBuffer4", "unit": 4 },
+                        { "stages": "BrightnessDownsampling5", "name": "BrightnessBuffer5", "unit": 5 }
+                    ],
+                    "outputs": [ { "name": "BrightnessCombinedBuffer", "format": "RGB_INT8" } ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "BrightnessCombineFS", "shader_type": "fragment",
+                            "source": [
+                                "uniform sampler2D BrightnessBuffer0, BrightnessBuffer1, BrightnessBuffer2;",
+                                "uniform sampler2D BrightnessBuffer3, BrightnessBuffer4, BrightnessBuffer5;",
+                                "uniform vec2 InvScreenResolution;",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+
+                                "vec4 blur5(in sampler2D image, in vec2 uv) {",
+                                "    vec4 color = vec4(0.0); vec2 dir = vec2(1.0, 0.0);",
+                                "    vec2 off1 = vec2(1.3333333333333333) * dir * InvScreenResolution;",
+                                "    color += VERSE_TEX2D(image, uv) * 0.29411764705882354 * 2.0;",
+                                "    color += VERSE_TEX2D(image, uv + off1) * 0.35294117647058826;",
+                                "    color += VERSE_TEX2D(image, uv - off1) * 0.35294117647058826;",
+
+                                "    dir = vec2(0.0, 1.0);",
+                                "    off1 = vec2(1.3333333333333333) * dir * InvScreenResolution;",
+                                "    color += VERSE_TEX2D(image, uv + off1) * 0.35294117647058826;",
+                                "    color += VERSE_TEX2D(image, uv - off1) * 0.35294117647058826;",
+                                "    return color * 0.5;",
+                                "}",
+
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec4 color1 = blur5(BrightnessBuffer0, uv0);",
+                                "    vec4 color2 = blur5(BrightnessBuffer1, uv0);",
+                                "    vec4 color3 = blur5(BrightnessBuffer2, uv0);",
+                                "    vec4 color4 = blur5(BrightnessBuffer3, uv0);",
+                                "    vec4 color5 = blur5(BrightnessBuffer4, uv0);",
+                                "    vec4 color6 = blur5(BrightnessBuffer5, uv0);",
+
+                                "    vec3 color = mix(color1.rgb, color2.rgb, color2.a);",
+                                "    color = mix(color.rgb, color3.rgb, color3.a);",
+                                "    color = mix(color.rgb, color4.rgb, color4.a);",
+                                "    color = mix(color.rgb, color5.rgb, color5.a);",
+                                "    color = mix(color.rgb, color6.rgb, color6.a);",
+                                "    fragData = vec4(color, 1.0);",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "Blooming", "type": "deferred",
+                    "inputs": [ { "stages": "BrightCombining", "name": "BrightnessCombinedBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "BloomBuffer", "format": "RGB_INT8" } ],
+                    "uniforms": [ { "name": "BloomFactor", "uniform_type": "float", "value": "1.0" } ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "BloomFS", "shader_type": "fragment",
+                            "source": [
+                                "uniform sampler2D BrightnessCombinedBuffer;",
+                                "uniform float BloomFactor;",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+
+                                "const float noiseSeed = 20.0;",
+                                "const float noiseStrength = 0.3;",
+                                "float hash(vec2 p) {",
+                                "    float h = dot(p, vec2(127.1, 311.7));",
+                                "    return -1.0 + 2.0 * fract(sin(h) * 43758.5453123);",
+                                "}",
+
+                                "float noise(in vec2 p) {",
+                                "    vec2 i = floor(p), f = fract(p);",
+                                "    vec2 u = f * f * (3.0 - 2.0 * f);",
+                                "    return mix(mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),",
+                                "               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);",
+                                "}",
+                                "float fbm(vec2 p) {",
+                                "    float f = 0.0;",
+                                "    f += 0.5000 * noise(p); p *= 2.02;",
+                                "    f += 0.2500 * noise(p); p *= 2.03;",
+                                "    f += 0.1250 * noise(p); p *= 2.01;",
+                                "    f += 0.0625 * noise(p); p *= 2.04;",
+                                "    f /= 0.9375; return f;",
+                                "}",
+                                "float luminance(vec3 color) { return dot(color.rgb, vec3(0.2126, 0.7152, 0.0722)); }",
+                                "float rand(vec2 co) { return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453); }",
+
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec4 color = VERSE_TEX2D(BrightnessCombinedBuffer, uv0);",
+
+                                "    float f = fbm(vec2(uv0 * noiseSeed));",
+                                "    color.rgb += vec3(noiseStrength * luminance(color.rgb) * abs(f));",
+                                "    fragData = vec4(color.rgb * BloomFactor, 1.0);",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
                 }
             ]
         },
         {
             "name": "TonemappingStage",
-            "stage": [
+            "stages": [
                 {
                     "name": "Tonemapping", "type": "work",
-                    //
+                    "inputs": [
+                        { "stages": "ShadowCombining", "name": "CombinedBuffer", "sampler_name": "ColorBuffer", "unit": 0 },
+                        { "stages": "BrightnessDownsampling5", "name": "BrightnessBuffer5", "sampler_name": "LuminanceBuffer", "unit": 1 },
+                        { "stages": "Blooming", "name": "BloomBuffer", "unit": 2 },
+                        { "stages": "PbrLighting", "name": "IblAmbientBuffer", "unit": 3 }
+                    ],
+                    "outputs": [ { "name": "ToneMappedBuffer", "format": "RGB_INT8" } ],
+                    "uniforms": [
+                        { "name": "LuminanceFactor", "uniform_type": "vec2", "value": "1.0 10.0" }
+                    ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "TonemappingFS", "shader_type": "fragment",
+                            "source": [
+                                "uniform sampler2D ColorBuffer, LuminanceBuffer;",
+                                "uniform sampler2D BloomBuffer, IblAmbientBuffer;",
+                                "uniform vec2 LuminanceFactor;",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+
+                                "vec3 ACESToneMapping(vec3 color, float adapted_lum) {",
+                                "    const float A = 2.51, B = 0.03, C = 2.43;",
+                                "    const float D = 0.59, E = 0.14; color *= adapted_lum;",
+                                "    return (color * (A * color + B)) / (color * (C * color + D) + vec3(E));",
+                                "}",
+
+                                "void main()",
+                                "{",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);",
+                                "    vec4 colorBloom = VERSE_TEX2D(BloomBuffer, uv0);",
+                                "    vec4 iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);",
+                                "    float lumAvg = VERSE_TEX2D(LuminanceBuffer, vec2(0.5, 0.5)).r;",
+
+                                "    if (true) {",
+                                "        color = pow(color + iblColor + colorBloom, vec4(2.2));",
+                                "        color.rgb = ACESToneMapping(color.rgb, LuminanceFactor.x + lumAvg * LuminanceFactor.y);",
+                                "        fragData = vec4(color.rgb, 1.0);",
+                                "    } else",
+                                "        fragData = vec4(color + iblColor + colorBloom);",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
                 }
             ]
         },
         {
             "name": "FinalStage",
-            "stage": [
+            "stages": [
                 {
                     "name": "AntiAliasing", "type": "work",
-                    //
+                    "inputs": [ { "stages": "Tonemapping", "name": "ToneMappedBuffer", "sampler_name": "ColorBuffer", "unit": 0 } ],
+                    "outputs": [ { "name": "AntiAliasedBuffer", "format": "RGB_INT8" } ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "AntiAliasingFS", "shader_type": "fragment",
+                            "source": [
+                                "uniform sampler2D ColorBuffer;",
+                                "uniform vec2 InvScreenResolution;",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+
+                                "// FXAA optimized version for mobile",
+                                "#define FXAA_REDUCE_MIN   (1.0 / 128.0)",
+                                "#define FXAA_REDUCE_MUL   (1.0 / 8.0)",
+                                "#define FXAA_SPAN_MAX     8.0",
+                                "vec4 fxaa(in sampler2D tex, in vec2 fragCoord,",
+                                "          in vec2 v_rgbNW, in vec2 v_rgbNE, in vec2 v_rgbSW, in vec2 v_rgbSE, in vec2 v_rgbM) {",
+                                "    vec3 rgbNW = VERSE_TEX2D(tex, v_rgbNW).xyz;",
+                                "    vec3 rgbNE = VERSE_TEX2D(tex, v_rgbNE).xyz;",
+                                "    vec3 rgbSW = VERSE_TEX2D(tex, v_rgbSW).xyz;",
+                                "    vec3 rgbSE = VERSE_TEX2D(tex, v_rgbSE).xyz;",
+                                "    vec4 texColor = VERSE_TEX2D(tex, v_rgbM);",
+                                "    vec3 rgbM  = texColor.xyz;",
+                                "    vec3 luma = vec3(0.299, 0.587, 0.114);",
+
+                                "    float lumaNW = dot(rgbNW, luma);",
+                                "    float lumaNE = dot(rgbNE, luma);",
+                                "    float lumaSW = dot(rgbSW, luma);",
+                                "    float lumaSE = dot(rgbSE, luma);",
+                                "    float lumaM  = dot(rgbM,  luma);",
+                                "    float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));",
+                                "    float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));",
+
+                                "    /*mediump */vec2 dir;",
+                                "    dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));",
+                                "    dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));",
+                                "    float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) *",
+                                "                          (0.25 * FXAA_REDUCE_MUL), FXAA_REDUCE_MIN);",
+                                "    float rcpDirMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce);",
+                                "    dir = min(vec2(FXAA_SPAN_MAX, FXAA_SPAN_MAX),",
+                                "              max(vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),",
+                                "                  dir * rcpDirMin)) * InvScreenResolution;",
+
+                                "    vec3 rgbA = 0.5 * (VERSE_TEX2D(tex, fragCoord + dir * (1.0 / 3.0 - 0.5)).xyz +",
+                                "                       VERSE_TEX2D(tex, fragCoord + dir * (2.0 / 3.0 - 0.5)).xyz);",
+                                "    vec3 rgbB = rgbA * 0.5 + 0.25 * (VERSE_TEX2D(tex, fragCoord + dir * -0.5).xyz +",
+                                "                                     VERSE_TEX2D(tex, fragCoord + dir * 0.5).xyz);",
+                                "    float lumaB = dot(rgbB, luma);",
+                                "    if ((lumaB < lumaMin) || (lumaB > lumaMax)) return vec4(rgbA, texColor.a);",
+                                "    else return vec4(rgbB, texColor.a);",
+                                "}",
+
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec2 v_rgbNW = (uv0 + vec2(-1.0, -1.0) * InvScreenResolution);",
+                                "    vec2 v_rgbNE = (uv0 + vec2(1.0, -1.0) * InvScreenResolution);",
+                                "    vec2 v_rgbSW = (uv0 + vec2(-1.0, 1.0) * InvScreenResolution);",
+                                "   vec2 v_rgbSE = (uv0 + vec2(1.0, 1.0) * InvScreenResolution);",
+                                "    fragData = fxaa(ColorBuffer, uv0, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, uv0);",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
                 },
                 {
                     "name": "ColorGrading", "type": "display",
-                    //
+                    "inputs": [
+                        { "stages": "AntiAliasing", "name": "AntiAliasedBuffer", "sampler_name": "ColorBuffer", "unit": 0 },
+                        { "stages": "GBuffer", "name": "DepthBuffer", "unit": 1 }
+                    ],
+                    "uniforms": [
+                        { "name": "FogDistance", "uniform_type": "vec2", "value": "0.0 0.0" },
+                        { "name": "FogColor", "uniform_type": "vec3", "value": "0.5 0.5 0.5" },
+                        { "name": "ColorAttribute", "uniform_type": "vec3", "value": "1.0 1.0 1.0" },
+                        { "name": "ColorBalance", "uniform_type": "vec3", "value": "0.0 0.0 0.0" },
+                        { "name": "ColorBalanceMode", "uniform_type": "int", "value": "0" },
+                        { "name": "VignetteRadius", "uniform_type": "float", "value": "1.0" },
+                        { "name": "VignetteDarkness", "uniform_type": "float", "value": "0.0" }
+                    ],
+                    "shaders": [
+                        { "name": "QuadVS" },
+                        {
+                            "name": "DisplayFS", "shader_type": "fragment",
+                            "source": [
+                                "uniform sampler2D ColorBuffer, DepthBuffer;",
+                                "uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v",
+                                "uniform vec2 FogDistance;",
+                                "uniform vec3 FogColor;",
+                                "uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)",
+                                "uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)",
+                                "uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight",
+                                "uniform float VignetteRadius, VignetteDarkness;",
+                                "VERSE_FS_IN vec4 texCoord0;",
+                                "VERSE_FS_OUT vec4 fragData;",
+
+                                "// Color balance copied from gimp/app/base/color-balance.c",
+                                "float oneColorBalanceFunc(float v, float factor, int mode) {",
+                                "    if (factor == 0.0) return v;",
+                                "    else if (mode == 0) {",
+                                "        float lowValue = 1.075 - 1.0 / ((factor > 0.0 ? v : 1.0 - v) * 16.0 + 1.0);",
+                                "        return clamp(v + factor * lowValue, 0.0, 1.0);",
+                                "    } else if (mode == 1) {",
+                                "        float midValue = 0.667 * (1.0 - pow((v - 0.5) * 2.0, 2.0));",
+                                "        return clamp(v + factor * midValue, 0.0, 1.0);",
+                                "    } else if (mode == 2) {",
+                                "        float lowValue = 1.075 - 1.0 / ((factor > 0.0 ? 1.0 - v : v) * 16.0 + 1.0);",
+                                "        return clamp(v + factor * lowValue, 0.0, 1.0);",
+                                "    }",
+                                "}",
+
+                                "vec3 colorBalanceFunc(vec3 color, float cyan_red, float magenta_green, float yellow_blue, int mode) {",
+                                "    return vec3(oneColorBalanceFunc(color.r, cyan_red, mode),",
+                                "                oneColorBalanceFunc(color.g, magenta_green, mode),",
+                                "                oneColorBalanceFunc(color.b, yellow_blue, mode));",
+                                "}",
+
+                                "// Brightness, saturation, and contrast",
+                                "vec3 colorAdjustmentFunc(vec3 color, float brt, float sat, float con) {",
+                                "    // Increase or decrease theese values to adjust r, g and b color channels seperately",
+                                "    const float avgLumR = 0.5, avgLumG = 0.5, avgLumB = 0.5;",
+                                "    const vec3 lumCoeff = vec3(0.2125, 0.7154, 0.0721);",
+
+                                "    vec3 avgLumin = vec3(avgLumR, avgLumG, avgLumB);",
+                                "    vec3 brtColor = color * brt;",
+                                "    vec3 intensity = vec3(dot(brtColor, lumCoeff));",
+                                "    vec3 satColor = mix(intensity, brtColor, sat);",
+                                "    vec3 conColor = mix(avgLumin, satColor, con);",
+                                "    return conColor;",
+                                "}",
+
+                                "// Vignette effect",
+                                "vec3 vignetteEffectFunc(vec3 color, vec2 uv) {",
+                                "    float vignette = 1.0 - dot(uv, uv);",
+                                "    return color.rgb * clamp(pow(vignette, VignetteRadius) - VignetteDarkness, 0.0, 1.0);",
+                                "}",
+
+                                "void main() {",
+                                "    vec2 uv0 = texCoord0.xy;",
+                                "    vec3 colorRGB = VERSE_TEX2D(ColorBuffer, uv0).rgb;",
+                                "    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;",
+
+                                "    // Color grading work",
+                                "    colorRGB = colorBalanceFunc(colorRGB, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);",
+                                "    colorRGB = colorAdjustmentFunc(colorRGB, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);",
+                                "    colorRGB = vignetteEffectFunc(colorRGB, uv0 - vec2(0.5, 0.5));",
+
+                                "    // Rebuild world vertex attributes and display fog",
+                                "    vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);",
+                                "    vec4 eyeVertex = GBufferMatrices[3] * vecInProj;",
+
+                                "    colorRGB = pow(colorRGB, vec3(1.0 / 2.2));",
+                                "    if (FogDistance.y > 0.0) {",
+                                "        float fogFactor = (FogDistance.y - abs(eyeVertex.z / eyeVertex.w)) / (FogDistance.y - FogDistance.x);",
+                                "        colorRGB = mix(FogColor, colorRGB, clamp(fogFactor, 0.0, 1.0));",
+                                "    }",
+                                "    fragData = vec4(colorRGB, 1.0);",
+                                "    VERSE_FS_FINAL(fragData);",
+                                "}"
+                            ]
+                        }
+                    ]
                 }
             ]
         },

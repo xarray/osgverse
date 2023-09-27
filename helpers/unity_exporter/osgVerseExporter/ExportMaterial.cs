@@ -50,7 +50,7 @@ namespace osgVerse
                 byte[] texData = System.Convert.FromBase64String(texture.base64);
                 if (texData != null) File.WriteAllBytes(dstPath, texData);
             }
-            
+
             string dataPath = Path.GetFileName(path);
             texture.path = dataPath + "/" + texture.path;
 
@@ -136,7 +136,7 @@ namespace osgVerse
                         material.combinedTextures, ref texID);
                     if (texture != null)
                     {
-                        osgData += spaces + "  textureUnit 7 {\n"  // FIXME: combined unit
+                        osgData += spaces + "  textureUnit 3 {\n"  // ORM combined unit
                                  + spaces + "    GL_TEXTURE_2D ON\n";
                         osgData += spaces + "    Texture2D {\n"
                                  + spaces + "      UniqueID Texture_" + texID + "\n"
@@ -165,7 +165,7 @@ namespace osgVerse
                 SceneTexture texture = sceneData.resources.lightmaps[smr.lightmapIndex];
                 if (texture != null)
                 {
-                    osgData += spaces + "  textureUnit 5 {\n"  // FIXME: lightmap unit
+                    osgData += spaces + "  textureUnit 5 {\n"  // Lightmap unit
                              + spaces + "    GL_TEXTURE_2D ON\n";
 
                     // Handle lightmap tiling and offset

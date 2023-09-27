@@ -454,7 +454,7 @@ namespace osgVerse
                 float sizeScale = 1.0f / float(1 << downsampleIndex);
                 downsampleValue = osg::maximum((int)stageSize[1], 1080) * sizeScale;
                 osg::Vec2 invRes(1.0f / osg::maximum((int)stageSize[0], 1920) * sizeScale,
-                    1.0f / downsampleValue);
+                                 1.0f / downsampleValue);
 
                 std::string id = std::to_string(downsampleIndex), lastId = std::to_string(downsampleIndex - 1);
                 osgVerse::Pipeline::Stage* brightDownsampling = p->addDeferredStage(
@@ -567,7 +567,7 @@ namespace osgVerseUtils
             osg::ShaderBinary* sb = osg::ShaderBinary::readShaderBinaryFile(root.get("binary").to_str());
             if (sb) shader->setShaderBinary(sb);
         }
-        else if (root.contains("path"))
+        else if (root.contains("uri"))
             shader->loadShaderSourceFromFile(root.get("path").to_str());
 
         std::string type = root.get("shader_type").to_str();
@@ -691,8 +691,8 @@ namespace osgVerseUtils
 namespace osgVerse
 {
     /* {
-    *    "stages": [
-    *      { "stage": [
+    *    "pipeline": [
+    *      { "stages": [
     *        { "name": "..", "type": "input/deferred/work/display/shadow_module/light_module",
     *          <"scale": "1">, <"runOnce": "false">,
     *          "inputs": [ {"name": "..", <"type": "..">, <"uri": "..">, <"unit": "..">} ],
@@ -702,7 +702,7 @@ namespace osgVerse
     *        }, { ... } ]
     *      }, { "stage": [...] }, ...
     *    ],
-    *    "shared": [{"type": "shader/texture/uniform/ibl_data", "name": ".."}, {}, {}]
+    *    "shared": [{"type": "shader/texture/uniform/ibl_data/shader_inc", "name": ".."}, {}, {}]
     *    "settings": {"width": 1920, "height": 1080, "masks": {..}},
     *  }
     */
@@ -712,7 +712,7 @@ namespace osgVerse
         std::string err = picojson::parse(root, in);
         if (err.empty())
         {
-            picojson::value& stages = root.get("stages");
+            picojson::value& pipeline = root.get("pipeline");
             picojson::value& shared = root.get("shared");
             picojson::value& props = root.get("settings");
 
@@ -786,12 +786,14 @@ namespace osgVerse
 
                     std::string name = element.get("name").to_str();
                     std::string type = element.get("type").to_str();
-                    if (type.find("shader") != std::string::npos)
+                    if (type.find("shader") != std::string::npos)  // shader/shader_inc
                         sharedShaders[name] = osgVerseUtils::loadShader(element);
                     else if (type.find("texture") != std::string::npos)
                         sharedTextures[name] = osgVerseUtils::loadTexture(element);
                     else if (type.find("uniform") != std::string::npos)
                         sharedUniforms[name] = osgVerseUtils::loadUniform(element);
+                    else if (type.find("ibl_data") != std::string::npos)
+                        { }  // TODO
                     else
                         OSG_NOTICE << "[Pipeline] Unknown element " << type
                                    << " in 'shared'" << std::endl;
