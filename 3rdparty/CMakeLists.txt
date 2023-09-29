@@ -357,6 +357,111 @@ SET(LIBSPATIALINDEX_SOURCE_FILES
     spatialindex/TPRTree.h spatialindex/Version.h spatialindex/tools/rand48.cc spatialindex/tools/Tools.cc
 )
 
+SET(BLEND2D_SOURCE_FILES
+    blend2d/blend2d.h blend2d/blend2d-debug.h blend2d/blend2d-impl.h blend2d/api.h blend2d/api-build_p.h blend2d/api-build_test_p.h
+    blend2d/api-globals.cpp blend2d/api-impl.h blend2d/api-internal_p.h blend2d/api-nocxx.cpp blend2d/array.cpp blend2d/array_test.cpp
+    blend2d/array.h blend2d/array_p.h blend2d/bitarray.cpp blend2d/bitarray_test.cpp blend2d/bitarray.h blend2d/bitarray_p.h
+    blend2d/bitset.cpp blend2d/bitset_test.cpp blend2d/bitset.h blend2d/bitset_p.h blend2d/compop.cpp blend2d/compop_p.h
+    blend2d/context.cpp blend2d/context_test.cpp blend2d/context.h blend2d/context_p.h blend2d/fontdata.cpp blend2d/fontdata.h
+    blend2d/filesystem.cpp blend2d/filesystem.h blend2d/filesystem_p.h blend2d/font.cpp blend2d/font.h blend2d/font_p.h
+    blend2d/font_test.cpp blend2d/fontdata_p.h blend2d/fontdefs.h blend2d/fontface.cpp blend2d/fontface.h blend2d/fontface_p.h
+    blend2d/fontfeaturesettings.cpp blend2d/fontfeaturesettings_test.cpp blend2d/fontfeaturesettings.h blend2d/fontfeaturesettings_p.h
+    blend2d/fontmanager.cpp blend2d/fontmanager.h blend2d/fontmanager_p.h blend2d/fonttagset.cpp blend2d/fonttagset_p.h
+    blend2d/fonttagdata_p.h blend2d/fonttagdataids.cpp blend2d/fonttagdataids_test.cpp blend2d/fonttagdataids_p.h blend2d/format_p.h
+    blend2d/fonttagdatainfo.cpp blend2d/fonttagdatainfo_test.cpp blend2d/fonttagdatainfo_p.h blend2d/format.cpp blend2d/format.h
+    blend2d/fontvariationsettings.cpp blend2d/fontvariationsettings_test.cpp blend2d/fontvariationsettings.h blend2d/fontvariationsettings_p.h
+    blend2d/geometry.cpp blend2d/geometry.h blend2d/geometry_p.h blend2d/glyphbuffer.cpp blend2d/glyphbuffer.h blend2d/glyphbuffer_p.h
+    blend2d/glyphrun.h blend2d/gradient.cpp blend2d/gradient_test.cpp blend2d/gradient.h blend2d/gradient_p.h blend2d/imagecodec_test.cpp
+    blend2d/image.cpp blend2d/image_test.cpp blend2d/image.h blend2d/image_p.h blend2d/imagecodec.cpp blend2d/imagecodec.h
+    blend2d/imagedecoder.cpp blend2d/imagedecoder.h blend2d/imageencoder.cpp blend2d/imageencoder.h blend2d/imagescale.cpp blend2d/imagescale_p.h
+    blend2d/math.cpp blend2d/math_test.cpp blend2d/math_p.h blend2d/matrix.cpp blend2d/matrix_avx.cpp blend2d/matrix_sse2.cpp
+    blend2d/matrix_test.cpp blend2d/matrix.h blend2d/matrix_p.h blend2d/object.cpp blend2d/object.h blend2d/object_p.h
+    blend2d/path.cpp blend2d/path_test.cpp blend2d/path.h blend2d/path_p.h blend2d/pathstroke.cpp blend2d/pathstroke_p.h
+    blend2d/pattern.cpp blend2d/pattern.h blend2d/pattern_p.h blend2d/runtime.cpp blend2d/runtime.h blend2d/runtime_p.h
+    blend2d/pixelconverter.cpp blend2d/pixelconverter_avx2.cpp blend2d/pixelconverter_sse2.cpp blend2d/pixelconverter_ssse3.cpp
+    blend2d/pixelconverter_test.cpp blend2d/pixelconverter.h blend2d/pixelconverter_p.h blend2d/trace.cpp blend2d/trace_p.h
+    blend2d/random.cpp blend2d/random_test.cpp blend2d/random.h blend2d/random_p.h blend2d/rgba_test.cpp blend2d/rgba.h
+    blend2d/string.cpp blend2d/string_test.cpp blend2d/string.h blend2d/string_p.h
+    blend2d/var.cpp blend2d/var_test.cpp blend2d/var.h blend2d/var_p.h
+
+    blend2d/codec/bmpcodec.cpp blend2d/codec/bmpcodec_p.h blend2d/codec/jpegcodec.cpp blend2d/codec/jpegcodec_p.h
+    blend2d/codec/jpeghuffman.cpp blend2d/codec/jpeghuffman_p.h blend2d/codec/jpegops.cpp blend2d/codec/jpegops_sse2.cpp
+    blend2d/codec/jpegops_p.h blend2d/codec/pngcodec.cpp blend2d/codec/pngcodec_p.h
+    blend2d/codec/pngops.cpp blend2d/codec/pngops_sse2.cpp blend2d/codec/pngops_p.h
+
+    blend2d/compression/checksum.cpp blend2d/compression/checksum_test.cpp blend2d/compression/checksum_p.h
+    blend2d/compression/deflatedecoder.cpp blend2d/compression/deflatedecoder_p.h blend2d/compression/deflatedefs_p.h
+    blend2d/compression/deflateencoder.cpp blend2d/compression/deflateencoder_p.h blend2d/compression/matchfinder_p.h
+
+    blend2d/opentype/otcff.cpp blend2d/opentype/otcff_test.cpp blend2d/opentype/otcff_p.h
+    blend2d/opentype/otcmap.cpp blend2d/opentype/otcmap_p.h blend2d/opentype/otcore.cpp blend2d/opentype/otcore_p.h
+    blend2d/opentype/otdefs_p.h blend2d/opentype/otface.cpp blend2d/opentype/otface_p.h
+    blend2d/opentype/otglyf.cpp blend2d/opentype/otglyf_avx2.cpp blend2d/opentype/otglyf_sse4_2.cpp
+    blend2d/opentype/otglyf_p.h blend2d/opentype/otkern.cpp blend2d/opentype/otkern_p.h
+    blend2d/opentype/otlayout.cpp blend2d/opentype/otlayout_p.h blend2d/opentype/otlayoutcontext_p.h
+    blend2d/opentype/otlayouttables_p.h blend2d/opentype/otmetrics.cpp blend2d/opentype/otmetrics_p.h
+    blend2d/opentype/otname.cpp blend2d/opentype/otname_p.h blend2d/opentype/otplatform_p.h
+
+    blend2d/pipeline/pipedefs.cpp blend2d/pipeline/pipedefs_p.h blend2d/pipeline/piperuntime.cpp blend2d/pipeline/piperuntime_p.h
+    blend2d/pipeline/jit/compoppart.cpp blend2d/pipeline/jit/compoppart_p.h
+    blend2d/pipeline/jit/fetchgradientpart.cpp blend2d/pipeline/jit/fetchgradientpart_p.h
+    blend2d/pipeline/jit/fetchpart.cpp blend2d/pipeline/jit/fetchpart_p.h
+    blend2d/pipeline/jit/fetchpatternpart.cpp blend2d/pipeline/jit/fetchpatternpart_p.h
+    blend2d/pipeline/jit/fetchpixelptrpart.cpp blend2d/pipeline/jit/fetchpixelptrpart_p.h
+    blend2d/pipeline/jit/fetchsolidpart.cpp blend2d/pipeline/jit/fetchsolidpart_p.h
+    blend2d/pipeline/jit/fetchutils.cpp blend2d/pipeline/jit/fetchutils_p.h
+    blend2d/pipeline/jit/fillpart.cpp blend2d/pipeline/jit/fillpart_p.h blend2d/pipeline/jit/jitbase_p.h
+    blend2d/pipeline/jit/pipecompiler.cpp blend2d/pipeline/jit/pipecompiler_p.h blend2d/pipeline/jit/pipedebug_p.h
+    blend2d/pipeline/jit/pipegencore.cpp blend2d/pipeline/jit/pipegencore_p.h
+    blend2d/pipeline/jit/pipegenruntime_p.h blend2d/pipeline/jit/pipegenruntime.cpp
+    blend2d/pipeline/jit/pipepart.cpp blend2d/pipeline/jit/pipepart_p.h
+
+    blend2d/pipeline/reference/compopgeneric_p.h blend2d/pipeline/reference/fetchgeneric_p.h blend2d/pipeline/reference/fillgeneric_p.h
+    blend2d/pipeline/reference/fixedpiperuntime_p.h blend2d/pipeline/reference/fixedpiperuntime.cpp
+    blend2d/pipeline/reference/pixelbufferptr_p.h blend2d/pipeline/reference/pixelgeneric_p.h
+
+    blend2d/pixelops/interpolation.cpp blend2d/pixelops/interpolation_avx2.cpp blend2d/pixelops/interpolation_sse2.cpp
+    blend2d/pixelops/funcs.cpp blend2d/pixelops/funcs_p.h blend2d/pixelops/scalar_test.cpp blend2d/pixelops/scalar_p.h
+
+    blend2d/raster/analyticrasterizer_test.cpp blend2d/raster/analyticrasterizer_p.h
+    blend2d/raster/debugging_p.h blend2d/raster/edgebuilder_p.h blend2d/raster/edgestorage_p.h
+    blend2d/raster/rastercontext.cpp blend2d/raster/rastercontext_p.h
+    blend2d/raster/rastercontextops.cpp blend2d/raster/rastercontextops_p.h
+    blend2d/raster/rasterdefs_p.h blend2d/raster/renderbatch_p.h blend2d/raster/rendercommand_p.h
+    blend2d/raster/rendercommandprocasync_p.h blend2d/raster/rendercommandprocsync_p.h
+    blend2d/raster/renderfetchdata.cpp blend2d/raster/renderfetchdata_p.h
+    blend2d/raster/renderjob_p.h blend2d/raster/renderjobproc_p.h blend2d/raster/renderqueue_p.h
+    blend2d/raster/rendertargetinfo.cpp blend2d/raster/rendertargetinfo_p.h blend2d/raster/statedata_p.h blend2d/raster/styledata_p.h
+    blend2d/raster/workdata.cpp blend2d/raster/workdata_p.h blend2d/raster/workermanager.cpp blend2d/raster/workermanager_p.h
+    blend2d/raster/workerproc.cpp blend2d/raster/workerproc_p.h blend2d/raster/workersynchronization.cpp blend2d/raster/workersynchronization_p.h
+
+    blend2d/simd/simd_p.h blend2d/simd/simd_test.cpp blend2d/simd/simd_test_p.h
+    blend2d/simd/simdbase_p.h blend2d/simd/simdarm_p.h blend2d/simd/simdarm_test_asimd.cpp
+    blend2d/simd/simdx86_p.h blend2d/simd/simdx86_test_avx.cpp blend2d/simd/simdx86_test_avx2.cpp
+    blend2d/simd/simdx86_test_avx512.cpp blend2d/simd/simdx86_test_sse2.cpp blend2d/simd/simdx86_test_sse4_1.cpp
+    blend2d/simd/simdx86_test_sse4_2.cpp blend2d/simd/simdx86_test_ssse3.cpp
+
+    blend2d/support/algorithm_test.cpp blend2d/support/algorithm_p.h
+    blend2d/support/arenaallocator.cpp blend2d/support/arenaallocator_p.h
+    blend2d/support/arenabitarray_test.cpp blend2d/support/arenabitarray_p.h
+    blend2d/support/arenahashmap.cpp blend2d/support/arenahashmap_test.cpp blend2d/support/arenahashmap_p.h
+    blend2d/support/arenalist_test.cpp blend2d/support/arenalist_p.h blend2d/support/arenatree_test.cpp
+    blend2d/support/arenatree_p.h blend2d/support/bitops_test.cpp blend2d/support/bitops_p.h
+    blend2d/support/fixedbitarray_p.h blend2d/support/hashops_p.h blend2d/support/intops_test.cpp  blend2d/support/intops_p.h
+    blend2d/support/lookuptable_p.h blend2d/support/memops_test.cpp  blend2d/support/memops_p.h
+    blend2d/support/ptrops_test.cpp blend2d/support/ptrops_p.h blend2d/support/stringops_p.h blend2d/support/wrap_p.h
+    blend2d/support/scopedallocator.cpp blend2d/support/scopedallocator_p.h blend2d/support/scopedbuffer_p.h
+    blend2d/support/zeroallocator.cpp blend2d/support/zeroallocator_test.cpp blend2d/support/zeroallocator_p.h
+
+    blend2d/tables/tables.cpp blend2d/tables/tables_test.cpp blend2d/tables/tables_p.h
+    blend2d/threading/atomic_p.h blend2d/threading/conditionvariable_p.h
+    blend2d/threading/futex.cpp blend2d/threading/futex_p.h blend2d/threading/mutex_p.h
+    blend2d/threading/thread.cpp blend2d/threading/thread_p.h blend2d/threading/threadingutils_p.h
+    blend2d/threading/threadpool.cpp blend2d/threading/threadpool_test.cpp blend2d/threading/threadpool_p.h
+    blend2d/threading/uniqueidgenerator.cpp blend2d/threading/uniqueidgenerator_p.h
+    blend2d/unicode/unicode.cpp blend2d/unicode/unicode_test.cpp blend2d/unicode/unicode_p.h
+)
+
 SET(TWEENY_SOURCE_FILES
     tweeny/tween.h tweeny/tween.tcc tweeny/tweeny.h tweeny/tweeny.tcc
     tweeny/tweenone.tcc tweeny/tweenpoint.tcc
@@ -379,6 +484,7 @@ SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
 SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
 SOURCE_GROUP("libSpatialIndex Files" FILES ${LIBSPATIALINDEX_SOURCE_FILES})
+SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 #######################
 
@@ -396,7 +502,7 @@ SET(LIBRARY_FILES
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
-    ${LIBSPATIALINDEX_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
+    ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
 )
 
 IF(VERSE_BUILD_GPL)
@@ -406,7 +512,7 @@ IF(VERSE_BUILD_GPL)
         mcut/preproc.cpp mcut/platform.h mcut/shewchuk.c)
 ENDIF(VERSE_BUILD_GPL)
 
-ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS
+ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS -DBL_BUILD_NO_JIT
                 -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
                 -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0

@@ -769,6 +769,12 @@ namespace osgVerse
                     shadowCastMask = std::stoi(masks.get("shadow_caster").to_str(), 0, 16);
             }
 
+            unsigned int shadowNumber = 0, shadowRes = 1024;
+            if (props.contains("shadow_number"))
+                shadowNumber = props.get("shadow_number").get<double>();
+            if (props.contains("shadow_resolution"))
+                shadowRes = props.get("shadow_resolution").get<double>();
+
             std::map<std::string, osg::ref_ptr<osg::Shader>> sharedShaders;
             std::map<std::string, osg::ref_ptr<osg::Texture>> sharedTextures;
             std::map<std::string, osg::ref_ptr<osg::Uniform>> sharedUniforms;
@@ -800,8 +806,47 @@ namespace osgVerse
                 }
             }
 
-            startStages(width, height, mainCam->getGraphicsContext());
-            // TODO
+            if (pipeline.is<picojson::array>())
+            {
+                std::vector<Stage*> inputStages;
+                startStages(width, height, mainCam->getGraphicsContext());
+
+                picojson::array& ppArray = pipeline.get<picojson::array>();
+                for (size_t i = 0; i < ppArray.size(); ++i)
+                {
+                    picojson::value& stageGroup = ppArray[i];
+                    std::string sgName = stageGroup.get("name").to_str();
+                    if (!stageGroup.contains("stages")) continue;
+
+                    picojson::value& stages = stageGroup.get("stages");
+                    if (stages.is<picojson::array>())
+                    {
+                        picojson::array& sgArray = stages.get<picojson::array>();
+                        for (size_t s = 0; s < sgArray.size(); ++s)
+                        {
+                            picojson::value& stage = sgArray[s];
+                            if (!stage.contains("name") || !stage.contains("type"))
+                            {
+                                OSG_NOTICE << "[Pipeline] Unknown stage data: "
+                                           << stage.to_str() << std::endl; continue;
+                            }
+
+                            std::string name = stage.get("name").to_str();
+                            std::string type = stage.get("type").to_str();
+
+                            picojson::value& inputs = stage.get("inputs");
+                            picojson::value& outputs = stage.get("outputs");
+                            picojson::value& uniforms = stage.get("uniforms");
+                            picojson::value& shaders = stage.get("shaders");
+                            // TODO
+                        }
+                    }
+                }
+
+                applyStagesToView(view, mainCam, forwardMask, fixedShadingMask);
+                for (size_t i = 0; i < inputStages.size(); ++i)
+                    requireDepthBlit(inputStages[i], true);
+            }
         }
         else
             OSG_WARN << "[Pipeline] Unable to load pipeline preset: " << err << std::endl;
