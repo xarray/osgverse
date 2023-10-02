@@ -107,7 +107,7 @@
             ]
         },
         {
-            "name": "LightingModule", "type": "shader_inc",
+            "name": "LightingModule", "type": "inclusion",
             "source": [
                 "#define M_PI 3.1415926535897932384626433832795",
                 "#define NUM_IBL_SAMPLES 32",

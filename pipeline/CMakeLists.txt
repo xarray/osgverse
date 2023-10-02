@@ -5,9 +5,9 @@ SET(LIBRARY_INCLUDE_FILES
 	IntersectionManager.h Utilities.h Global.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    Pipeline.cpp PipelineStandard.cpp DeferredCallback.cpp
-	ShadowModule.cpp LightModule.cpp LightDrawable.cpp SkyBox.cpp
-	NodeSelector.cpp IntersectionManager.cpp Utilities.cpp
+    Pipeline.cpp PipelineStandard.cpp PipelineLoader.cpp
+    DeferredCallback.cpp ShadowModule.cpp LightModule.cpp LightDrawable.cpp
+    SkyBox.cpp NodeSelector.cpp IntersectionManager.cpp Utilities.cpp
 )
 
 IF(WIN32 AND MSVC)
