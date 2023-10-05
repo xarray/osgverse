@@ -184,7 +184,7 @@ int main(int argc, char** argv)
     viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
 
     // Setup the pipeline
-#if 1
+#if true
     params.enablePostEffects = true; params.enableAO = true;
     setupStandardPipeline(pipeline.get(), &viewer, params);
 #else

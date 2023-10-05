@@ -12,6 +12,7 @@
 #include "ShadowModule.h"
 #include "Utilities.h"
 
+#define VERBOSE_CREATING 0
 static osg::Camera::ComputeNearFarMode g_nearFarMode =
         osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES;
 
@@ -578,6 +579,9 @@ namespace osgVerse
         osg::StateSet* ss = deferred ?
             runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
         if (ss->getUniform(u->getName()) == NULL) ss->addUniform(u);
+#if VERBOSE_CREATING
+        OSG_NOTICE << "  Uniform: " << u->getName() << std::endl;
+#endif
     }
 
     void Pipeline::Stage::applyBuffer(const std::string& name, int unit, Pipeline* p,
@@ -616,6 +620,9 @@ namespace osgVerse
                 runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
             ss->setTextureAttributeAndModes(unit, tex);
             ss->addUniform(new osg::Uniform(n.data(), unit));
+#if VERBOSE_CREATING
+            OSG_NOTICE << "  Buffer " << unit << ": " << buffer << " (" << n << ")" << std::endl;
+#endif
         }
         else
             OSG_WARN << "[Pipeline] " << buffer << " is undefined at stage " << name
@@ -628,6 +635,9 @@ namespace osgVerse
             runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
         ss->setTextureAttributeAndModes(u, tex);
         ss->addUniform(new osg::Uniform(buffer.data(), u));
+#if VERBOSE_CREATING
+        OSG_NOTICE << "  Texture " << u << ": " << buffer << std::endl;
+#endif
     }
 
     void Pipeline::Stage::applyDefaultTexture(const osg::Vec4& color, const std::string& buffer, int u)
@@ -888,6 +898,12 @@ namespace osgVerse
         s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
         s->camera->setComputeNearFarMode(g_nearFarMode);
         s->inputStage = true; _stages.push_back(s);
+
+#if VERBOSE_CREATING
+        OSG_NOTICE << "[Pipeline] Add Input Stage: " << name << " ("
+                   << vs->getName() << " / " << fs->getName() << ");\n  OutBuffers: ";
+        for (auto& kv : s->outputs) OSG_NOTICE << kv.first << ", "; OSG_NOTICE << std::endl;
+#endif
         return s;
     }
 
@@ -918,6 +934,11 @@ namespace osgVerse
         s->camera->setImplicitBufferAttachmentMask(0, 0);
         s->camera->getOrCreateStateSet()->setAttributeAndModes(_deferredDepth.get());
         s->inputStage = false; _stages.push_back(s);
+#if VERBOSE_CREATING
+        OSG_NOTICE << "[Pipeline] Add Working Stage: " << name << " ("
+                   << vs->getName() << " / " << fs->getName() << ");\n  OutBuffers: ";
+        for (auto& kv : s->outputs) OSG_NOTICE << kv.first << ", "; OSG_NOTICE << std::endl;
+#endif
         return s;
     }
 
@@ -949,6 +970,11 @@ namespace osgVerse
 
         applyDefaultStageData(*s, name, vs, fs);
         s->inputStage = false; _stages.push_back(s);
+#if VERBOSE_CREATING
+        OSG_NOTICE << "[Pipeline] Add Deferred Stage: " << name << " ("
+                   << vs->getName() << " / " << fs->getName() << ");\n  OutBuffers: ";
+        for (auto& kv : s->outputs) OSG_NOTICE << kv.first << ", "; OSG_NOTICE << std::endl;
+#endif
         return s;
     }
 
@@ -959,9 +985,14 @@ namespace osgVerse
         s->camera = createHUDCamera(_stageContext.get(), _stageSize[0], _stageSize[1],
                                     osg::Vec3(geom[0], geom[1], 0.0f), geom[2], geom[3], true);
         applyDefaultStageData(*s, name, vs, fs);
+
         //s->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
         s->camera->getOrCreateStateSet()->setAttributeAndModes(_deferredDepth.get());
         s->inputStage = false; _stages.push_back(s);
+#if VERBOSE_CREATING
+        OSG_NOTICE << "[Pipeline] Add Display Stage: " << name << " ("
+                   << vs->getName() << " / " << fs->getName() << ")" << std::endl;
+#endif
         return s;
     }
 

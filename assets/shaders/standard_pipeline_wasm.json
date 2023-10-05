@@ -14,21 +14,6 @@
 
     "shared": [
         {
-            "name": "BrdfLutBuffer", "type": "ibl_data",
-            "uri": "../skyboxes/barcelona.ibl.rseq", "index": 0,
-            "wrap": "mirror", "filter": "linear"
-        },
-        {
-            "name": "PrefilterBuffer", "type": "ibl_data",
-            "uri": "../skyboxes/barcelona.ibl.rseq", "index": 1,
-            "wrap": "mirror", "filter": "linear"
-        },
-        {
-            "name": "IrradianceBuffer", "type": "ibl_data",
-            "uri": "../skyboxes/barcelona.ibl.rseq", "index": 2,
-            "wrap": "mirror", "filter": "linear"
-        },
-        {
             "name": "QuadVS", "type": "shader", "shader_type": "vertex",
             "source": [
                 "VERSE_VS_OUT vec4 texCoord0;",
@@ -199,7 +184,7 @@
                         { "name": "DiffuseMetallicBuffer", "format": "RGBA_INT8" },
                         { "name": "SpecularRoughnessBuffer", "format": "RGBA_INT8" },
                         { "name": "EmissionOcclusionBuffer", "format": "RGBA_INT8" },
-                        { "name": "DepthBuffer", "format": "DEPTH24_STENCIL8" }
+                        { "name": "DepthBuffer", "format": "DEPTH32" }
                     ],
                     "shaders": [
                         {
@@ -302,13 +287,13 @@
                         { "stage": "GBuffer", "name": "SpecularRoughnessBuffer", "unit": 2 },
                         { "stage": "GBuffer", "name": "EmissionOcclusionBuffer", "unit": 3 },
                         { "stage": "GBuffer", "name": "DepthBuffer", "unit": 4 },
-                        { "name": "BrdfLutBuffer", "unit": 5 },
-                        { "name": "PrefilterBuffer", "unit": 6 },
-                        { "name": "IrradianceBuffer", "unit": 7 },
+                        { "name": "BrdfLutBuffer", "unit": 5, "function": "const", "arguments": "0.3 0.3 0.3 1" },
+                        { "name": "PrefilterBuffer", "unit": 6, "function": "const", "arguments": "0.3 0.3 0.3 1" },
+                        { "name": "IrradianceBuffer", "unit": 7, "function": "const", "arguments": "0.3 0.3 0.3 1" },
                         { "stage": "Light", "name": "LightParameterMap", "unit": 8 }
                     ],
                     "outputs": [
-                        { "name": "ColorBuffer", "format": "RGB_FLOAT16" },
+                        { "name": "ColorBuffer", "format": "RGB_INT8" },
                         { "name": "IblAmbientBuffer", "format": "RGB_INT8" }
                     ],
                     "shaders": [
@@ -428,7 +413,7 @@
                         { "name": "RandomTexture", "unit": 2, "function": "poisson", "arguments": "4 4" }
                     ],
                     "outputs": [
-                        { "name": "SsaoBuffer", "format": "R_INT8" }
+                        { "name": "SsaoBuffer", "format": "RGB_INT8" }
                     ],
                     "uniforms": [
                         { "name": "AORadius", "uniform_type": "float", "value": "12.0" },
@@ -549,7 +534,7 @@
                         { "stage": "SSAO", "name": "SsaoBuffer", "sampler_name": "SsaoBuffer", "unit": 0 }
                     ],
                     "outputs": [
-                        { "name": "SsaoBlurredBufferH", "format": "R_INT8" }
+                        { "name": "SsaoBlurredBufferH", "format": "RGB_INT8" }
                     ],
                     "uniforms": [
                         { "name": "BlurDirection", "uniform_type": "vec2", "value": "1.0 0.0" },
@@ -566,7 +551,7 @@
                         { "stage": "SSAO_BlurH", "name": "SsaoBlurredBufferH", "sampler_name": "SsaoBuffer", "unit": 0 }
                     ],
                     "outputs": [
-                        { "name": "SsaoBlurredBufferV", "format": "R_INT8" }
+                        { "name": "SsaoBlurredBufferV", "format": "RGB_INT8" }
                     ],
                     "uniforms": [
                         { "name": "BlurDirection", "uniform_type": "vec2", "value": "0.0 1.0" },

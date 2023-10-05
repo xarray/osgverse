@@ -90,17 +90,93 @@ namespace osgVerseUtils
     }
 
     static osg::Texture* loadTexture(picojson::value& root, bool isIblData,
-                                     std::map<std::string, osg::ref_ptr<osg::Texture>>& textures)
+                                     std::map<std::string, osg::ref_ptr<osg::Image>>& iblData)
     {
+        std::string uri, options, name = root.get("name").to_str();
+        if (root.contains("uri")) uri = root.get("uri").to_str();
+        if (root.contains("options")) options = root.get("options").to_str();
+
+        osg::Image* image = NULL;
         if (!isIblData)
         {
-            // "uri", "texture_type" / "function", "arguments"
+            if (uri.empty() && root.contains("function"))
+            {
+                std::string funcName = root.get("function").to_str();
+                std::string args = root.contains("arguments")
+                                 ? root.get("arguments").to_str() : "";
+                std::stringstream ss; ss << args;
+                if (funcName == "poisson")
+                {
+                    int cols = 0, rows = 0; ss >> cols >> rows;
+                    return osgVerse::generatePoissonDiscDistribution(cols, rows);
+                }
+                else if (funcName == "const")
+                {
+                    osg::Vec4 c; ss >> c[0] >> c[1] >> c[2] >> c[3];
+                    return osgVerse::createDefaultTexture(c);
+                }
+                else
+                    OSG_WARN << "[Pipeline] Unknown texture function: " << funcName
+                             << " for texture " << name << " while loading pipeline" << std::endl;
+            }
+            else
+                image = osgDB::readImageFile(uri, new osgDB::Options(options));
         }
         else
         {
-            // "uri": "...", "index": 0
+            osg::ImageSequence* seq = NULL;
+            if (iblData.find(uri) != iblData.end())
+                seq = dynamic_cast<osg::ImageSequence*>(iblData[uri].get());
+            else if (!uri.empty())
+            {
+                image = osgDB::readImageFile(uri, new osgDB::Options(options));
+                if (image != NULL) seq = dynamic_cast<osg::ImageSequence*>(image);
+            }
+
+            if (seq != NULL)
+            {
+                int index = root.contains("index") ? root.get("index").get<double>() : 0;
+                image = seq->getImage(index); iblData[uri] = seq;
+            }
         }
-        return NULL;
+
+        if (image == NULL)
+        {
+            OSG_WARN << "[Pipeline] No valid image loaded for: " << name
+                     << " while loading pipeline" << std::endl;
+            return NULL;
+        }
+
+        osg::Texture::WrapMode wrapMode = osg::Texture::REPEAT;
+        if (root.contains("wrap"))
+        {
+            std::string wrap = root.get("wrap").to_str();
+            if (wrap == "mirror") wrapMode = osg::Texture::MIRROR;
+            else if (wrap == "clamp") wrapMode = osg::Texture::CLAMP;
+        }
+
+        osg::Texture* texture = osgVerse::createTexture2D(image, wrapMode);
+        if (root.contains("filter"))
+        {
+            std::string filter = root.get("filter").to_str();
+            if (filter == "linear")
+            {
+                texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            }
+            else if (filter == "nearest")
+            {
+                texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+                texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+            }
+            else
+            {
+                texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+                texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            }
+        }
+        texture->setName(name);
+        return texture;
     }
 
     static void setUniformValue(osg::Uniform* u, int idx, const std::string& v)
@@ -108,7 +184,7 @@ namespace osgVerseUtils
         std::vector<int> iv; std::vector<float> fv;
         osgDB::StringList sList; osgDB::split(v, sList);
         for (size_t i = 0; i < sList.size(); ++i)
-        { iv.push_back(std::stoi(sList[i])); fv.push_back(std::stof(sList[i])); }
+        { iv.push_back(atoi(sList[i].c_str())); fv.push_back(atof(sList[i].c_str())); }
 
         size_t l = iv.size(); if (iv.empty() || fv.empty()) return;
         switch (u->getType())
@@ -277,14 +353,19 @@ namespace osgVerse
             if (props.contains("masks"))
             {
                 picojson::value& masks = props.get("masks");
-                if (masks.contains("deferred"))
-                    deferredMask = std::stoi(masks.get("deferred").to_str(), 0, 16);
-                if (masks.contains("forward"))
-                    forwardMask = std::stoi(masks.get("forward").to_str(), 0, 16);
-                if (masks.contains("forward_shading"))
-                    fixedShadingMask = std::stoi(masks.get("forward_shading").to_str(), 0, 16);
-                if (masks.contains("shadow_caster"))
-                    shadowCastMask = std::stoi(masks.get("shadow_caster").to_str(), 0, 16);
+                try
+                {
+                    if (masks.contains("deferred"))
+                        deferredMask = std::stoul(masks.get("deferred").to_str(), 0, 16);
+                    if (masks.contains("forward"))
+                        forwardMask = std::stoul(masks.get("forward").to_str(), 0, 16);
+                    if (masks.contains("forward_shading"))
+                        fixedShadingMask = std::stoul(masks.get("forward_shading").to_str(), 0, 16);
+                    if (masks.contains("shadow_caster"))
+                        shadowCastMask = std::stoul(masks.get("shadow_caster").to_str(), 0, 16);
+                }
+                catch (std::exception& e)
+                { OSG_WARN << "[Pipeline] " << e.what() << " while reading masks" << std::endl; }
             }
 
             unsigned int shadowNumber = 0, shadowRes = 1024;
@@ -296,6 +377,7 @@ namespace osgVerse
             std::map<std::string, osg::ref_ptr<osg::Shader>> sharedShaders;
             std::map<std::string, osg::ref_ptr<osg::Texture>> sharedTextures;
             std::map<std::string, osg::ref_ptr<osg::Uniform>> sharedUniforms;
+            std::map<std::string, osg::ref_ptr<osg::Image>> sharedIblData;
             std::map<std::string, std::string> sharedInclusions;
             if (shared.is<picojson::array>())
             {
@@ -314,9 +396,9 @@ namespace osgVerse
                     if (type.find("shader") != std::string::npos)  // shader
                         sharedShaders[name] = osgVerseUtils::loadShader(element, sharedInclusions);
                     else if (type.find("texture") != std::string::npos)
-                        sharedTextures[name] = osgVerseUtils::loadTexture(element, false, sharedTextures);
+                        sharedTextures[name] = osgVerseUtils::loadTexture(element, false, sharedIblData);
                     else if (type.find("ibl_data") != std::string::npos)
-                        sharedTextures[name] = osgVerseUtils::loadTexture(element, true, sharedTextures);
+                        sharedTextures[name] = osgVerseUtils::loadTexture(element, true, sharedIblData);
                     else if (type.find("uniform") != std::string::npos)
                         sharedUniforms[name] = osgVerseUtils::loadUniform(element);
                     else if (type.find("inclusion") != std::string::npos)
@@ -343,9 +425,9 @@ namespace osgVerse
                     if (stages.is<picojson::array>())
                     {
                         picojson::array& sgArray = stages.get<picojson::array>();
-                        for (size_t s = 0; s < sgArray.size(); ++s)
+                        for (size_t j = 0; j < sgArray.size(); ++j)
                         {
-                            picojson::value& stage = sgArray[s];
+                            picojson::value& stage = sgArray[j];
                             if (!stage.contains("name") || !stage.contains("type"))
                             {
                                 OSG_NOTICE << "[Pipeline] Unknown stage data: "
@@ -354,15 +436,204 @@ namespace osgVerse
 
                             std::string name = stage.get("name").to_str();
                             std::string type = stage.get("type").to_str();
+                            picojson::array emptyVar;
+                            picojson::array& inputs = stage.get("inputs").is<picojson::array>()
+                                ? stage.get("inputs").get<picojson::array>() : emptyVar;
+                            picojson::array& outputs = stage.get("outputs").is<picojson::array>()
+                                ? stage.get("outputs").get<picojson::array>() : emptyVar;
+                            picojson::array& uniforms = stage.get("uniforms").is<picojson::array>()
+                                ? stage.get("uniforms").get<picojson::array>() : emptyVar;
+                            picojson::array& shaders = stage.get("shaders").is<picojson::array>()
+                                ? stage.get("shaders").get<picojson::array>() : emptyVar;
 
-                            picojson::value& inputs = stage.get("inputs");
-                            picojson::value& outputs = stage.get("outputs");
-                            picojson::value& uniforms = stage.get("uniforms");
-                            picojson::value& shaders = stage.get("shaders");
-                            // TODO
+                            std::vector<osg::ref_ptr<osg::Shader>> inShaders;
+                            size_t vIdx = 0, fIdx = 0;
+                            for (size_t n = 0; n < shaders.size(); ++n)
+                            {
+                                std::string shName = shaders[n].get("name").to_str();
+                                osg::ref_ptr<osg::Shader> s = (sharedShaders.find(shName) == sharedShaders.end()) ?
+                                    osgVerseUtils::loadShader(shaders[n], sharedInclusions) : sharedShaders[shName];
+                                if (!s) { OSG_WARN << "[Pipeline] No such shader " << shName << "\n"; continue; }
+                                if (s->getType() == osg::Shader::VERTEX) vIdx = inShaders.size();
+                                if (s->getType() == osg::Shader::FRAGMENT) fIdx = inShaders.size();
+                                inShaders.push_back(s);
+                            }
+
+                            Stage* s = NULL;
+                            if (type.find("module") != std::string::npos)
+                            {
+                                if (type.find("shadow") != std::string::npos &&
+                                    !inputStages.empty() && !inShaders.empty())
+                                {
+                                    osg::ref_ptr<osgVerse::ShadowModule> shadowModule =
+                                        new osgVerse::ShadowModule(name, this, false);
+                                    shadowModule->createStages(shadowRes, shadowNumber,
+                                        inShaders[vIdx], inShaders[fIdx], shadowCastMask);
+
+                                    // Update shadow matrices at the end of g-buffer (when near/far planes are sync-ed)
+                                    osg::ref_ptr<osgVerse::ShadowDrawCallback> shadowCallback =
+                                        new osgVerse::ShadowDrawCallback(shadowModule.get());
+                                    shadowCallback->setup(inputStages.back()->camera.get(), FINAL_DRAW);
+                                    mainCam->addUpdateCallback(shadowModule.get());
+                                }
+                                else if (type.find("light") != std::string::npos)
+                                {
+                                    // Light module only needs to be added to main camera
+                                    osg::ref_ptr<osgVerse::LightModule> lightModule =
+                                        new osgVerse::LightModule(name, this);
+                                    mainCam->addUpdateCallback(lightModule.get());
+                                }
+                                else
+                                    OSG_WARN << "[Pipeline] Invalid module data: " << name << std::endl;
+                            }
+                            else if (type != "display" && !inShaders.empty())
+                            {
+                                // Find all outputs
+#define CHK_OUTPUT(fmt) \
+    else if (oFmt == #fmt) inOutputs.push_back(std::pair<std::string, int>(oName, fmt))
+                                std::vector<std::pair<std::string, int>> inOutputs;
+                                for (size_t n = 0; n < outputs.size(); ++n)
+                                {
+                                    std::string oName = outputs[n].get("name").to_str();
+                                    std::string oFmt = outputs[n].contains("format")
+                                                     ? outputs[n].get("format").to_str() : "";
+                                    if (oFmt.empty())
+                                        inOutputs.push_back(std::pair<std::string, int>(oName, RGB_INT8));
+                                    CHK_OUTPUT(RGB_INT8); CHK_OUTPUT(RGB_INT5); CHK_OUTPUT(RGB_INT10);
+                                    CHK_OUTPUT(RGB_FLOAT16); CHK_OUTPUT(RGB_FLOAT32); CHK_OUTPUT(SRGB_INT8);
+                                    CHK_OUTPUT(RGBA_INT8); CHK_OUTPUT(RGBA_INT5_1); CHK_OUTPUT(RGBA_INT10_2);
+                                    CHK_OUTPUT(RGBA_FLOAT16); CHK_OUTPUT(RGBA_FLOAT32); CHK_OUTPUT(SRGBA_INT8);
+                                    CHK_OUTPUT(R_INT8); CHK_OUTPUT(R_FLOAT16); CHK_OUTPUT(R_FLOAT32);
+                                    CHK_OUTPUT(RG_INT8); CHK_OUTPUT(RG_FLOAT16); CHK_OUTPUT(RG_FLOAT32);
+                                    CHK_OUTPUT(DEPTH16); CHK_OUTPUT(DEPTH24_STENCIL8); CHK_OUTPUT(DEPTH32);
+                                    else OSG_WARN << "[Pipeline] Invalid output: " << oName << std::endl;
+                                }
+
+                                // Create stage from outputs and save inputStages
+                                float scale = stage.contains("scale")
+                                            ? stage.get("scale").get<double>() : 1.0f;
+                                bool once = stage.contains("once")
+                                          ? stage.get("once").get<bool>() : false;
+                                if (!inOutputs.empty())
+                                {
+#define STAGE_ARG1(a) inShaders[vIdx], inShaders[fIdx], 1, a[0].first.c_str(), a[0].second
+#define STAGE_ARG2(a) inShaders[vIdx], inShaders[fIdx], 2, a[0].first.c_str(), a[0].second, \
+                      a[1].first.c_str(), a[1].second
+#define STAGE_ARG3(a) inShaders[vIdx], inShaders[fIdx], 3, a[0].first.c_str(), a[0].second, \
+                      a[1].first.c_str(), a[1].second, a[2].first.c_str(), a[2].second
+#define STAGE_ARG4(a) inShaders[vIdx], inShaders[fIdx], 4, a[0].first.c_str(), a[0].second, \
+                      a[1].first, a[1].second, a[2].first, a[2].second, a[3].first, a[3].second
+#define STAGE_ARG5(a) inShaders[vIdx], inShaders[fIdx], 5, a[0].first.c_str(), a[0].second, \
+                      a[1].first.c_str(), a[1].second, a[2].first.c_str(), a[2].second, \
+                      a[3].first.c_str(), a[3].second, a[4].first.c_str(), a[4].second
+#define STAGE_ARG6(a) inShaders[vIdx], inShaders[fIdx], 6, a[0].first.c_str(), a[0].second, \
+                      a[1].first.c_str(), a[1].second, a[2].first.c_str(), a[2].second, \
+                      a[3].first.c_str(), a[3].second, a[4].first.c_str(), a[4].second, a[5].first.c_str(), a[5].second
+                                    if (type == "input")
+                                    {
+                                        switch (inOutputs.size())
+                                        {
+                                        case 1: s = addInputStage(name, deferredMask, 0, STAGE_ARG1(inOutputs)); break;
+                                        case 2: s = addInputStage(name, deferredMask, 0, STAGE_ARG2(inOutputs)); break;
+                                        case 3: s = addInputStage(name, deferredMask, 0, STAGE_ARG3(inOutputs)); break;
+                                        case 4: s = addInputStage(name, deferredMask, 0, STAGE_ARG4(inOutputs)); break;
+                                        case 5: s = addInputStage(name, deferredMask, 0, STAGE_ARG5(inOutputs)); break;
+                                        default: s = addInputStage(name, deferredMask, 0, STAGE_ARG6(inOutputs)); break;
+                                        }
+                                        inputStages.push_back(s);
+                                    }
+                                    else if (type == "work")
+                                    {
+                                        switch (inOutputs.size())
+                                        {
+                                        case 1: s = addWorkStage(name, scale, STAGE_ARG1(inOutputs)); break;
+                                        case 2: s = addWorkStage(name, scale, STAGE_ARG2(inOutputs)); break;
+                                        case 3: s = addWorkStage(name, scale, STAGE_ARG3(inOutputs)); break;
+                                        case 4: s = addWorkStage(name, scale, STAGE_ARG4(inOutputs)); break;
+                                        case 5: s = addWorkStage(name, scale, STAGE_ARG5(inOutputs)); break;
+                                        default: s = addWorkStage(name, scale, STAGE_ARG6(inOutputs)); break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        switch (inOutputs.size())
+                                        {
+                                        case 1: s = addDeferredStage(name, scale, once, STAGE_ARG1(inOutputs)); break;
+                                        case 2: s = addDeferredStage(name, scale, once, STAGE_ARG2(inOutputs)); break;
+                                        case 3: s = addDeferredStage(name, scale, once, STAGE_ARG3(inOutputs)); break;
+                                        case 4: s = addDeferredStage(name, scale, once, STAGE_ARG4(inOutputs)); break;
+                                        case 5: s = addDeferredStage(name, scale, once, STAGE_ARG5(inOutputs)); break;
+                                        default: s = addDeferredStage(name, scale, once, STAGE_ARG6(inOutputs)); break;
+                                        }
+                                    }
+                                }
+                                else
+                                    OSG_WARN << "[Pipeline] No output provided: " << name << std::endl;
+                            }
+                            else if (!inShaders.empty())
+                            {
+                                s = addDisplayStage(name, inShaders[vIdx], inShaders[fIdx],
+                                                    osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+                            }
+                            else
+                                OSG_WARN << "[Pipeline] Invalid stage data: " << name << std::endl;
+                            if (!s) continue;
+
+                            // TODO: add other shaders..
+
+                            // Add inputs and uniforms
+                            for (size_t n = 0; n < inputs.size(); ++n)
+                            {
+                                std::string iName = inputs[n].get("name").to_str();
+                                int unit = inputs[n].contains("unit") ? inputs[n].get("unit").get<double>() : 0;
+                                if (inputs[n].contains("stage"))
+                                {
+                                    std::string iStage = inputs[n].get("stage").to_str();
+                                    Stage* s0 = getStage(iStage);
+                                    if (s0 != NULL)
+                                    {
+                                        std::string iName2 = inputs[n].contains("sampler_name")
+                                                           ? inputs[n].get("sampler_name").to_str() : "";
+                                        if (!iName2.empty()) s->applyBuffer(*s0, iName, iName2, unit);
+                                        else s->applyBuffer(*s0, iName, unit);
+                                    }
+                                    else
+                                    {
+                                        osg::NodeCallback* cb = getModule(iStage);
+                                        if (cb != NULL)
+                                        {
+                                            LightModule* light = dynamic_cast<LightModule*>(cb);
+                                            if (light) light->applyTextureAndUniforms(s, iName, unit);
+
+                                            ShadowModule* shadow = dynamic_cast<ShadowModule*>(cb);
+                                            if (shadow) shadow->applyTextureAndUniforms(s, iName, unit);
+                                        }
+                                        else
+                                            OSG_WARN << "[Pipeline] No such stage " << iStage << "\n";
+                                    }
+                                }
+                                else
+                                {
+                                    osg::ref_ptr<osg::Texture> t =
+                                        (sharedTextures.find(iName) == sharedTextures.end()) ?
+                                        osgVerseUtils::loadTexture(inputs[n], false, sharedIblData) : sharedTextures[iName];
+                                    if (!t) { OSG_WARN << "[Pipeline] No such texture " << iName << "\n"; continue; }
+                                    else s->applyTexture(t.get(), iName, unit);
+                                }
+                            }
+
+                            for (size_t n = 0; n < uniforms.size(); ++n)
+                            {
+                                std::string uName = uniforms[n].get("name").to_str();
+                                osg::ref_ptr<osg::Uniform> u =
+                                    (sharedUniforms.find(uName) == sharedUniforms.end()) ?
+                                    osgVerseUtils::loadUniform(uniforms[n]) : sharedUniforms[uName];
+                                if (!u) { OSG_WARN << "[Pipeline] No such uniform " << uName << "\n"; continue; }
+                                else s->applyUniform(u.get());
+                            }
                         }
                     }
-                }
+                }  // for (size_t i = 0; i < ppArray.size(); ++i)
 
                 applyStagesToView(view, mainCam, forwardMask, fixedShadingMask);
                 for (size_t i = 0; i < inputStages.size(); ++i)

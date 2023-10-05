@@ -44,7 +44,7 @@
 | 渲染      | pipeline     | **除虫** |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于小物件，AO的效果噪声比较严重，且Bloom结果不好 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于简单几何体，光照容易产生异常边界线，效果不好 | |
-| 渲染      | pipeline     | 优化     | 35%                | initial  | 在PBR Lighting过程中通过LightManager光源数据表计算多种光照结果 | 还需要支持点光源和锥光源，优化光照 |
+| 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 在PBR Lighting过程中通过LightManager光源数据表计算多种光照结果 | |
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 增加一个测试案例演示如何增加多个光源，并测试多光源渲染压力 | |
 | 渲染      | pipeline     | 除虫     |                    | initial  | 如果clearStagesFromView()删除管线，移动视角后再恢复，则阴影错误 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现OSG 311版本中渲染报错，和Texture2DArray有关 | |
@@ -53,7 +53,7 @@
 | 渲染      | pipeline     | 优化     |                    | initial  | 后处理Bloom的模糊处理方法不理想，目前可能会产生锯齿 | |
 | 渲染      | pipeline     | 新增     | 50%                | initial  | 支持后处理抗锯齿方案，FXAA/TAA | 目前已经支持FXAA |
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 支持自己扩展Pipeline::Stage，增加一个测试案例演示使用NV HBAO | |
-| 渲染      | pipeline     | 新增     |                    | initial  | 通过脚本的方式来管理标准和自定义的Pipeline | |
+| 渲染      | pipeline     | 新增     | :heavy_check_mark: | initial  | 通过脚本的方式来管理标准和自定义的Pipeline | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 尝试OSG与Vulkan的结合方案（gl_vk_simple_interop/gl_vk_raytrace_interop） | |
 | 插件      | plugins      | 新增     | 80%                | initial  | 支持伪插件方式自动替换PBR贴图顺序(?.D4,S3,N3,X1M1R1.pbrlayout) | 已实现，未测试 |
 | 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用libhv支持多种网络协议，替代curl插件 | |
@@ -63,10 +63,10 @@
 | 辅助工具  | helpers      | 新增     |                    | initial  | 实现3dsmax的导出插件第一版(静态模型，PBR材质) | |
 | 数据读写  | readerwriter | 新增     |                    | initial  | 自动检查输入几何体的正确性，尝试用Indirect替换优化 | |
 | 数据读写  | readerwriter | 新增     |                    | initial  | 支持流传输修改模型，实现Blender和编辑器的动态模型切换编辑 | |
-| 数据读写  | readerwriter | 优化     |                    | initial  | FBX和GLTF插件支持导入角色和角色动画并显示 | |
+| 数据读写  | readerwriter | 优化     | 50%                | initial  | FBX和GLTF插件支持导入角色和角色动画并显示 | 已实现GLTF导入角色 |
 | 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持KTX纹理格式的读取和写入，支持纹理压缩功能 | |
 | 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持默认常见图片格式的读取，不需要额外插件，主要用于WASM等场合 | |
-| 模型/动画 | animation    | 优化     |                    | initial  | PlayerAnimation支持直接输入角色骨骼和动画数据 | |
+| 模型/动画 | animation    | 优化     | :heavy_check_mark: | initial  | PlayerAnimation支持直接输入角色骨骼和动画数据 | |
 | 脚本      | ui           | 新增     |                    | initial  | 考虑合适的方式接入C#和Python等脚本语言 | |
 | 脚本      | ui           | 新增     | 80%                | initial  | 使用Serialization映射OSG和osgVerse的核心函数 | OSG函数已经全部映射完成 |
 | 脚本      | ui           | 新增     |                    | initial  | 支持通过脚本创建UserComponent接口以及Verse插件 | |
