@@ -1,7 +1,7 @@
 SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_FILES
     LoadSceneFBX.cpp LoadSceneFBX.h
-    LoadSceneGLTF.cpp LoadSceneGLTF.h
+    LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h
     DracoProcessor.cpp DracoProcessor.h
     Utilities.h Utilities.cpp Export.h

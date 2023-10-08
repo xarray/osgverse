@@ -19,6 +19,11 @@
 #include "LoadSceneGLTF.h"
 #include "Utilities.h"
 
+namespace osgVerse
+{
+    extern bool LoadBinaryV1(std::vector<char>& data, const std::string& baseDir);
+}
+
 #ifndef GL_ARB_texture_rg
 #define GL_RG                             0x8227
 #define GL_R8                             0x8229
@@ -83,6 +88,26 @@ namespace osgVerse
         return tinygltf::ReadWholeFile(out, err, filepath, userData);
     }
 
+    unsigned int ReadB3dmHeader(std::vector<char>& data)
+    {
+        // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Batched3DModel/README.adoc#tileformats-batched3dmodel-batched-3d-model
+        // magic + version + length + featureTableJsonLength + featureTableBinLength +
+        // batchTableJsonLength + batchTableBinLength +
+        // <Real feature table> + <Real batch table> + GLTF body
+        int header[7]; memcpy(header, data.data(), 7 * sizeof(int));
+        return 7 * sizeof(int) + header[3] + header[4] + header[5] + header[6];
+    }
+
+    unsigned int ReadI3dmHeader(std::vector<char>& data, unsigned int& format)
+    {
+        // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Instanced3DModel/README.adoc#tileformats-instanced3dmodel-instanced-3d-model
+        // magic + version + length + featureTableJsonLength + featureTableBinLength +
+        // batchTableJsonLength + batchTableBinLength + gltfFormat +
+        // <Real feature table> + <Real batch table> + GLTF body
+        int header[8]; memcpy(header, data.data(), 8 * sizeof(int)); format = header[7];
+        return 8 * sizeof(int) + header[3] + header[4] + header[5] + header[6];
+    }
+
     LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary)
     {
         std::string protocol = osgDB::getServerProtocol(d);
@@ -102,15 +127,36 @@ namespace osgVerse
         loader.SetFsCallbacks(fs);
         if (isBinary)
         {
+            unsigned int version = 0, offset = 0, format = 0;  // 0: url, 1: raw GLTF
+            if (data.size() > 4)
+            {
+                if (data[0] == 'b' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
+                {
+                    offset = ReadB3dmHeader(data);
+                    memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version);
+                    if (version < 2) loaded = LoadBinaryV1(data, d);
+                }
+                else if (data[0] == 'i' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
+                {
+                    offset = ReadI3dmHeader(data, format);
+                    if (format == 0)
+                    {
+                        OSG_WARN << "[LoaderGLTF] Reading external URL from i3dm"
+                                 << " is not implemented" << std::endl; return;
+                    }
+                    memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version);
+                    if (version < 2) loaded = LoadBinaryV1(data, d);
+                }
+            }
             loaded = loader.LoadBinaryFromMemory(
-                &_modelDef, &err, &warn, (unsigned char*)&data[0], data.size(), d);
+                &_modelDef, &err, &warn, (unsigned char*)&data[0] + offset, data.size() - offset, d);
         }
         else
             loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);
-        
-        if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << "\n";
-        if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << "\n";
-        if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene\n"; return; }
+
+        if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
+        if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << std::endl;
+        if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; return; }
         _root = new osg::Group;
 
         // Preload skin data
@@ -497,12 +543,10 @@ namespace osgVerse
         if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);
         if (emissiveID >= 0) createTexture(ss, 5, uniformNames[5], _modelDef.textures[emissiveID]);
 
-#if 0
-        if (material.alphaMode.compare("OPAQUE") == 0)  // FIXME: handle transparent
-            ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
-        else
+        if (material.alphaMode.compare("BLEND") == 0)
             ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-#endif
+        else
+            ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
     }
 
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,

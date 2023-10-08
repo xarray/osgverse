@@ -15,6 +15,8 @@ public:
         supportsExtension("verse_gltf", "osgVerse pseudo-loader");
         supportsExtension("gltf", "GLTF ascii scene file");
         supportsExtension("glb", "GLTF binary scene file");
+        supportsExtension("b3dm", "Cesium batch 3D model");
+        supportsExtension("i3dm", "Cesium instanced 3D model");
         supportsOption("Directory", "Setting the working directory");
         supportsOption("Mode", "Set to 'ascii/binary' to read specific GLTF data");
     }
@@ -37,8 +39,10 @@ public:
             ext = osgDB::getFileExtension(fileName);
         }
 
-        if (ext == "glb") return osgVerse::loadGltf(fileName, true).get();
-        else return osgVerse::loadGltf(fileName, false).get();
+        if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
+            return osgVerse::loadGltf(fileName, true).get();
+        else
+            return osgVerse::loadGltf(fileName, false).get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
