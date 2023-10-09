@@ -451,8 +451,9 @@ namespace osgVerse
                             for (size_t n = 0; n < shaders.size(); ++n)
                             {
                                 std::string shName = shaders[n].get("name").to_str();
-                                osg::ref_ptr<osg::Shader> s = (sharedShaders.find(shName) == sharedShaders.end()) ?
-                                    osgVerseUtils::loadShader(shaders[n], sharedInclusions) : sharedShaders[shName];
+                                osg::ref_ptr<osg::Shader> s = NULL;
+                                if (sharedShaders.find(shName) == sharedShaders.end()) s = osgVerseUtils::loadShader(shaders[n], sharedInclusions);
+                                else s = sharedShaders[shName];
                                 if (!s) { OSG_WARN << "[Pipeline] No such shader " << shName << "\n"; continue; }
                                 if (s->getType() == osg::Shader::VERTEX) vIdx = inShaders.size();
                                 if (s->getType() == osg::Shader::FRAGMENT) fIdx = inShaders.size();
@@ -522,7 +523,7 @@ namespace osgVerse
 #define STAGE_ARG3(a) inShaders[vIdx], inShaders[fIdx], 3, a[0].first.c_str(), a[0].second, \
                       a[1].first.c_str(), a[1].second, a[2].first.c_str(), a[2].second
 #define STAGE_ARG4(a) inShaders[vIdx], inShaders[fIdx], 4, a[0].first.c_str(), a[0].second, \
-                      a[1].first, a[1].second, a[2].first, a[2].second, a[3].first, a[3].second
+                      a[1].first.c_str(), a[1].second, a[2].first.c_str(), a[2].second, a[3].first.c_str(), a[3].second
 #define STAGE_ARG5(a) inShaders[vIdx], inShaders[fIdx], 5, a[0].first.c_str(), a[0].second, \
                       a[1].first.c_str(), a[1].second, a[2].first.c_str(), a[2].second, \
                       a[3].first.c_str(), a[3].second, a[4].first.c_str(), a[4].second
@@ -614,9 +615,9 @@ namespace osgVerse
                                 }
                                 else
                                 {
-                                    osg::ref_ptr<osg::Texture> t =
-                                        (sharedTextures.find(iName) == sharedTextures.end()) ?
-                                        osgVerseUtils::loadTexture(inputs[n], false, sharedIblData) : sharedTextures[iName];
+                                    osg::ref_ptr<osg::Texture> t = NULL;
+                                    if (sharedTextures.find(iName) == sharedTextures.end()) t = osgVerseUtils::loadTexture(inputs[n], false, sharedIblData);
+                                    else t = sharedTextures[iName];
                                     if (!t) { OSG_WARN << "[Pipeline] No such texture " << iName << "\n"; continue; }
                                     else s->applyTexture(t.get(), iName, unit);
                                 }
@@ -625,9 +626,9 @@ namespace osgVerse
                             for (size_t n = 0; n < uniforms.size(); ++n)
                             {
                                 std::string uName = uniforms[n].get("name").to_str();
-                                osg::ref_ptr<osg::Uniform> u =
-                                    (sharedUniforms.find(uName) == sharedUniforms.end()) ?
-                                    osgVerseUtils::loadUniform(uniforms[n]) : sharedUniforms[uName];
+                                osg::ref_ptr<osg::Uniform> u = NULL;
+                                if (sharedUniforms.find(uName) == sharedUniforms.end()) u = osgVerseUtils::loadUniform(uniforms[n]);
+                                else u = sharedUniforms[uName];
                                 if (!u) { OSG_WARN << "[Pipeline] No such uniform " << uName << "\n"; continue; }
                                 else s->applyUniform(u.get());
                             }
