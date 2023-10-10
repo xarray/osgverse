@@ -607,6 +607,8 @@ class TinyGLTFLoader {
 
 #ifdef _WIN32
 #include <Windows.h>
+#elif defined(__EMSCRIPTEN__)
+// FIXME?
 #else
 #include <wordexp.h>
 #endif
@@ -670,7 +672,7 @@ static std::string ExpandFilePath(const std::string &filepath) {
   return s;
 #else
 
-#if defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR)
+#if defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(__EMSCRIPTEN__)
   // no expansion
   std::string s = filepath;
 #else
@@ -744,7 +746,7 @@ static std::string GetBaseDir(const std::string &filepath) {
 }
 
 // std::string base64_encode(unsigned char const* , unsigned int len);
-std::string base64_decode(std::string const &s);
+static std::string base64_decode(std::string const &s);
 
 /*
    base64.cpp and base64.h
