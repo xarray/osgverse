@@ -183,6 +183,10 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
     viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
 
+    // Setup the pipeline
+    setupStandardPipeline(pipeline.get(), &viewer,
+        osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
+
     // osgEarth configuration
     osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("F:/DataSet/osgEarthData/t2.earth");
     if (earthRoot.valid())
@@ -239,10 +243,6 @@ int main(int argc, char** argv)
         interacter->addViewpoint(vp0);
         viewer.addEventHandler(interacter.get());
     }
-
-    // Setup the pipeline
-    setupStandardPipeline(pipeline.get(), &viewer,
-                          osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
 
     // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
