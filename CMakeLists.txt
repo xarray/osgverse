@@ -132,42 +132,64 @@ IF(CMAKE_CL_64)
     SET(FIND_LIB_POSTFIX lib64)
 ENDIF(CMAKE_CL_64)
 
+SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/x86)
+IF(USE_WASM_OPTIONS)
+    # WASM third-parties
+    # - How to build Draco (https://github.com/google/draco/blob/master/BUILDING.md)
+    #    export EMSCRIPTEN=/mnt/.../em_sdk/upstream/emscripten
+    #    cmake ../ -DCMAKE_TOOLCHAIN_FILE=/mnt/.../em_sdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
+    #              -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=/mnt/.../Dependencies/wasm
+    SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/wasm)
+ELSEIF(ANDROID)
+    SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/android)
+ELSEIF(APPLE)
+    SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/apple)
+ELSEIF(CMAKE_CL_64)
+    SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/x64)
+ENDIF()
+
 FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
-    PATHS ${VERSE_3RDPARTY_PATH}/include/bullet
+    PATHS ${THIRDPARTY_ROOT}/include/bullet
     $ENV{BULLET_ROOT}/include/bullet
     /usr/include/bullet
     /usr/local/include/bullet
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
-    PATHS ${VERSE_3RDPARTY_PATH}/lib
+    PATHS ${THIRDPARTY_ROOT}/lib
     $ENV{BULLET_ROOT}/lib $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
     /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 FIND_PATH(DRACO_INCLUDE_DIR draco/draco_features.h
-    PATHS ${VERSE_3RDPARTY_PATH}/include
+    PATHS ${THIRDPARTY_ROOT}/include
     /usr/include
     /usr/local/include
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
-FIND_PATH(DRACO_LIB_DIR libdraco.so draco.lib
-    PATHS ${VERSE_3RDPARTY_PATH}/lib
+FIND_PATH(DRACO_LIB_DIR libdraco.so libdraco.a draco.lib
+    PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 FIND_PATH(SDL2_INCLUDE_DIR SDL.h
-    PATHS ${VERSE_3RDPARTY_PATH}/include/SDL
+    PATHS ${THIRDPARTY_ROOT}/include/SDL
     /usr/include
     /usr/local/include
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 FIND_PATH(SDL2_LIB_DIR libSDL2.so SDL2.lib
-    PATHS ${VERSE_3RDPARTY_PATH}/lib
+    PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 IF(OSG_ROOT)
