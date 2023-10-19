@@ -233,9 +233,9 @@ namespace osgVerse
             else
             {
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-                // FIXME: mobile compressing textures
+                // FIXME: mobile compressing textures, how to get extentions?
                 result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
-                    ktx_transcode_fmt_e::KTX_TTF_ETC, 0);
+                    ktx_transcode_fmt_e::KTX_TTF_BC1_OR_3/*KTX_TTF_ETC*/, 0);
 #else
                 result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
                     ktx_transcode_fmt_e::KTX_TTF_BC1_OR_3, 0);

@@ -1,9 +1,11 @@
 #include <emscripten.h>
 #include <SDL2/SDL.h>
+#include <pipeline/Predefines.h>
 #include "ccall_viewer.h"
 
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
+USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 osg::ref_ptr<Application> g_app = new Application;
 void loop()
@@ -56,6 +58,8 @@ extern "C"
 #define SERVER_ADDR "http://127.0.0.1:8000/assets"
 int main(int argc, char** argv)
 {
+    printf("CPU INFO: %s, %s\n", VERSE_PLATFORM, VERSE_ARCH_NAME);
+
     osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Group> root = new osg::Group;
     g_app->scripter()->setRootNode(root.get());

@@ -33,6 +33,8 @@
     #define OS_BSD
 #elif defined(sun) || defined(__sun) || defined(__sun__)
     #define OS_SOLARIS
+#elif defined(__EMSCRIPTEN__)
+    #define OS_EMSCRIPTEN
 #else
     #warning "Untested operating system platform!"
 #endif
