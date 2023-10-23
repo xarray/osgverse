@@ -101,7 +101,7 @@ vec3 get_ibl_sample_contribution(sampler2D envMap, vec3 view_dir, vec2 hammersle
     vec3 l = normalize(h - v), n = normal;
 
     // Calculate the light contribution from the sample and the environment map.
-    if (clamped_cosine(n, l) > 0)
+    if (clamped_cosine(n, l) > 0.0)
     {
         float lod = mix(6.0, 0.0, metallic);
         vec2 uv1 = vec2((1.0 + atan(l.x, l.z) / M_PI) / 2.0, acos(l.y) / M_PI);

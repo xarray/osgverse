@@ -75,10 +75,10 @@ namespace osgVerse
 
     /** Create a geometry with specified arrays */
     extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, osg::Vec2Array* ta,
-                                         osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = false);
+                                         osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = true);
 
     extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, const osg::Vec4& color,
-                                         osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = false);
+                                         osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = true);
 
     /** Create a polar sphere (r1 = r2 = r3) or ellipsoid */
     extern osg::Geometry* createEllipsoid(const osg::Vec3& center, float radius1, float radius2,
