@@ -2,12 +2,13 @@ SET(LIB_NAME osgVersePipeline)
 SET(LIBRARY_INCLUDE_FILES
     Pipeline.h DeferredCallback.h ShadowModule.h
 	LightModule.h LightDrawable.h SkyBox.h NodeSelector.h
-	IntersectionManager.h Utilities.h Global.h
+    SymbolManager.h IntersectionManager.h Utilities.h Global.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp PipelineLoader.cpp
     DeferredCallback.cpp ShadowModule.cpp LightModule.cpp LightDrawable.cpp
-    SkyBox.cpp NodeSelector.cpp IntersectionManager.cpp Utilities.cpp
+    SkyBox.cpp NodeSelector.cpp SymbolManager.cpp
+    IntersectionManager.cpp Utilities.cpp
 )
 
 IF(WIN32 AND MSVC)

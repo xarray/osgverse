@@ -31,11 +31,15 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/LightModule.h>
 #include <pipeline/Utilities.h>
+#include <pipeline/SymbolManager.h>
 #include <iostream>
 #include <sstream>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+
+#define TEST_PIPELINE 0
+#define TEST_SYMBOLS 1
 
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
@@ -48,6 +52,7 @@ USE_VERSE_PLUGINS()
 #   define AutoClipPlaneCullCallback osgEarth::Util::AutoClipPlaneCullCallback
 #endif
 
+#if TEST_PIPELINE
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -145,6 +150,7 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
     vp.range()->set(scene->getBound().radius() * 10.0, osgEarth::Units::METERS);
     return vp;
 }
+#endif
 
 int main(int argc, char** argv)
 {
@@ -161,6 +167,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(sceneRoot.get());
 
+#if TEST_PIPELINE
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
     light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
@@ -176,6 +183,9 @@ int main(int argc, char** argv)
 
     // Realize the viewer
     MyViewer viewer(pipeline.get());
+#else
+    osgViewer::Viewer viewer;
+#endif
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
@@ -183,12 +193,15 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
     viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
 
+#if TEST_PIPELINE
     // Setup the pipeline
     setupStandardPipeline(pipeline.get(), &viewer,
         osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
+#endif
 
     // osgEarth configuration
-    osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("F:/DataSet/osgEarthData/t2.earth");
+    osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("openstreetmap.earth");
+    //osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("F:/DataSet/osgEarthData/t2.earth");
     if (earthRoot.valid())
     {
         // Tell the database pager to not modify the unref settings
@@ -206,11 +219,17 @@ int main(int argc, char** argv)
         if (!mapNode.valid()) { OSG_WARN << "Failed to open earth map"; return 1; }
 #endif
 
+#if TEST_PIPELINE
         // default uniform values and disable small feature culling
         osgVerse::Pipeline::Stage* gbufferStage = pipeline->getStage("GBuffer");
         osgEarth::GLUtils::setGlobalDefaults(pipeline->getForwardCamera()->getOrCreateStateSet());
         gbufferStage->camera->setSmallFeatureCullingPixelSize(-1.0f);
         gbufferStage->camera->addCullCallback(new AutoClipPlaneCullCallback(mapNode.get()));
+#else
+        osgEarth::GLUtils::setGlobalDefaults(viewer.getCamera()->getOrCreateStateSet());
+        viewer.getCamera()->setSmallFeatureCullingPixelSize(-1.0f);
+        viewer.getCamera()->addCullCallback(new AutoClipPlaneCullCallback(mapNode.get()));
+#endif
 
         // thread-safe initialization of the OSG wrapper manager. Calling this here
         // prevents the "unsupported wrapper" messages from OSG
@@ -233,6 +252,7 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*earthParent, ~DEFERRED_SCENE_MASK);
         root->addChild(earthParent.get());
 
+#if TEST_PIPELINE
         // Create places
         osgEarth::Viewpoint vp0 = createPlaceOnEarth(
             sceneRoot.get(), mapNode.get(), "../models/Sponza/Sponza.gltf",
@@ -242,8 +262,46 @@ int main(int argc, char** argv)
         osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
         interacter->addViewpoint(vp0);
         viewer.addEventHandler(interacter.get());
+#endif
+
+#if TEST_SYMBOLS
+        const osg::Vec3 colors[12] = {
+            osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(1.0f, 1.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 1.0f),
+            osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec3(0.0f, 1.0f, 1.0f), osg::Vec3(0.0f, 0.0f, 1.0f),
+            osg::Vec3(1.0f, 0.0f, 0.5f), osg::Vec3(1.0f, 0.5f, 0.0f), osg::Vec3(0.5f, 0.0f, 1.0f),
+            osg::Vec3(0.0f, 0.5f, 1.0f), osg::Vec3(0.0f, 1.0f, 0.5f), osg::Vec3(1.0f, 0.0f, 0.5f)
+        };
+
+        osg::ref_ptr<osg::EllipsoidModel> ellipsoid = new osg::EllipsoidModel;
+        osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
+        for (int y = 0; y < 100; ++y)
+            for (int x = 0; x < 100; ++x)
+            {
+                double lat = (double)(x - 50), lon = (double)y, h = 1e5; osg::Vec3d pos;
+                ellipsoid->convertLatLongHeightToXYZ(
+                    osg::inDegrees(lat), osg::inDegrees(lon), h, pos[0], pos[1], pos[2]);
+
+                osgVerse::Symbol* s = new osgVerse::Symbol;
+                s->position = pos; s->scale = 0.015f;
+                s->rotateAngle = osg::PI * rand() / (float)RAND_MAX;
+                s->color = colors[(x * 100 + y) % 12];
+                s->name = "BATCH: ID" + std::to_string((x * 100 + y));
+                s->desciption = s->name + "\nXXXXXXXXXXX\nYYYYYYYY\n";
+                s->fileName = "cessna.osg.200,200,200.scale.osgearth_shadergen";
+                symManager->updateSymbol(s);
+            }
+        symManager->setLodDistance(osgVerse::SymbolManager::LOD0, 1e8);
+        symManager->setLodDistance(osgVerse::SymbolManager::LOD1, 1e6);
+        symManager->setLodDistance(osgVerse::SymbolManager::LOD2, 1e5);
+        symManager->setMainCamera(viewer.getCamera());
+
+        osg::ref_ptr<osg::Group> symbols = new osg::Group;
+        symbols->addUpdateCallback(symManager.get());
+        sceneRoot->addChild(symbols.get());
+#endif
     }
 
+#if TEST_PIPELINE
     // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
@@ -267,4 +325,6 @@ int main(int argc, char** argv)
         viewer.frame();
     }
     return 0;
+#endif
+    return viewer.run();
 }
