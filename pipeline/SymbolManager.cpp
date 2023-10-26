@@ -1,18 +1,27 @@
 #include <osg/Geode>
 #include <osg/ProxyNode>
+#include <osgDB/ConvertUTF>
+#include <osgDB/WriteFile>
 //#include <spatialindex/SpatialIndex.h>
 #include "SymbolManager.h"
+
+#define RES 512
+#define RESV "512"
 using namespace osgVerse;
 
 SymbolManager::SymbolManager()
     : _idCounter(0), _firstRun(true)
 {
     osg::Image* posImage = new osg::Image;
-    posImage->allocateImage(1024, 1024, 1, GL_RGBA, GL_FLOAT);
+    posImage->allocateImage(RES, RES, 1, GL_RGBA, GL_FLOAT);
     posImage->setInternalTextureFormat(GL_RGBA32F_ARB);
 
+    osg::Image* posImage2 = new osg::Image;
+    posImage2->allocateImage(RES, RES, 1, GL_RGBA, GL_FLOAT);
+    posImage2->setInternalTextureFormat(GL_RGBA32F_ARB);
+
     osg::Image* dirImage = new osg::Image;
-    dirImage->allocateImage(1024, 1024, 1, GL_RGBA, GL_FLOAT);
+    dirImage->allocateImage(RES, RES, 1, GL_RGBA, GL_FLOAT);
     dirImage->setInternalTextureFormat(GL_RGBA32F_ARB);
 
     _posTexture = new osg::Texture2D;
@@ -23,6 +32,14 @@ SymbolManager::SymbolManager()
     _posTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
     _posTexture->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
+    _posTexture2 = new osg::Texture2D;
+    _posTexture2->setImage(posImage2);
+    _posTexture2->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+    _posTexture2->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+    _posTexture2->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
+    _posTexture2->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
+    _posTexture2->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+
     _dirTexture = new osg::Texture2D;
     _dirTexture->setImage(dirImage);
     _dirTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
@@ -31,6 +48,11 @@ SymbolManager::SymbolManager()
     _dirTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
     _dirTexture->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
+    _textTexture = new osg::Texture2D;
+    _textTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+    _textTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
+    _drawer = new Drawer2D;
     _lodDistances[(int)LOD0] = 1e6;
     _lodDistances[(int)LOD1] = 100.0;
     _lodDistances[(int)LOD2] = 5.0;
@@ -68,6 +90,7 @@ bool SymbolManager::removeSymbol(Symbol* sym)
     if (!sym || (sym && sym->id < 0)) return false;
     if (_symbols.find(sym->id) != _symbols.end())
         _symbols.erase(_symbols.find(sym->id));
+    return true;
 }
 
 void SymbolManager::initialize(osg::Group* group)
@@ -106,8 +129,8 @@ void SymbolManager::initialize(osg::Group* group)
                 "}\n"
 
                 "void main() {\n"
-                "    float r = float(gl_InstanceID) / 1024.0;\n"
-                "    float c = floor(r) / 1024.0; r = fract(r);\n"
+                "    float r = float(gl_InstanceID) / " RESV ".0;\n"
+                "    float c = floor(r) / " RESV ".0; r = fract(r);\n"
                 "    vec4 pos = texture2D(PosTexture, vec2(r, c));\n"
                 "    vec4 dir = texture2D(DirTexture, vec2(r, c));\n"
 
@@ -138,12 +161,91 @@ void SymbolManager::initialize(osg::Group* group)
         ss->addUniform(new osg::Uniform("DirTexture", (int)1));
     }
 
+    if (!_instanceBoard)
+    {
+        // Create default instance billboard for displaying text boards
+        osg::Vec3Array* va = new osg::Vec3Array(4);
+        (*va)[3] = osg::Vec3(-0.5f, -0.4f, 0.0f);
+        (*va)[2] = osg::Vec3(0.5f, -0.4f, 0.0f);
+        (*va)[1] = osg::Vec3(0.5f, 0.4f, 0.0f);
+        (*va)[0] = osg::Vec3(-0.5f, 0.4f, 0.0f);
+        osg::Vec2Array* ta = new osg::Vec2Array(4);
+        (*ta)[0] = osg::Vec2(0.0f, 0.0f); (*ta)[1] = osg::Vec2(1.0f, 0.0f);
+        (*ta)[2] = osg::Vec2(1.0f, 1.0f); (*ta)[3] = osg::Vec2(0.0f, 1.0f);
+
+        _instanceBoard = new osg::Geometry;
+        _instanceBoard->setUseDisplayList(false);
+        _instanceBoard->setUseVertexBufferObjects(true);
+#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+        _instanceBoard->setCullingActive(false);
+#endif
+        _instanceBoard->setVertexArray(va);
+        _instanceBoard->setTexCoordArray(0, ta);
+        _instanceBoard->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4, 0));
+
+        // Apply instancing shader
+        osg::StateSet* ss = _instanceBoard->getOrCreateStateSet();
+        {
+            const char* instanceVertShader2 = {
+                "#version 120\n"
+                "#extension GL_EXT_draw_instanced : enable\n"
+                "uniform sampler2D PosTexture;\n"
+                "uniform vec3 Offset;\n"
+                "varying vec2 TexCoord;\n"
+                "void main() {\n"
+                "    float r = float(gl_InstanceID) / " RESV ".0;\n"
+                "    float c = floor(r) / " RESV ".0; r = fract(r);\n"
+                "    vec4 pos = texture2D(PosTexture, vec2(r, c));\n"
+
+                "    float tx = float(gl_InstanceID) * Offset.z;\n"
+                "    float ty = floor(tx) * Offset.z; tx = fract(tx);\n"
+                "    TexCoord = vec2(tx, ty) + gl_MultiTexCoord0.xy * Offset.z;\n"
+
+                "    gl_FrontColor = vec4(1.0);\n"
+                "    vec4 v0 = vec4(gl_Vertex.xyz * pos.w, 1.0);\n"
+                "    vec4 projP = gl_ProjectionMatrix * vec4(pos.xyz, 1.0);\n"
+                "    gl_Position = vec4(v0.xyz / v0.w + projP.xyz / projP.w, 1.0)\n"
+                "                + vec4(Offset.xy, 0.0, 0.0);\n"
+                "}"
+            };
+
+            const char* instanceFragShader2 = {
+                "uniform sampler2D TextTexture;\n"
+                "varying vec2 TexCoord;\n"
+                "void main() {\n"
+                "    vec4 baseColor = texture2D(TextTexture, TexCoord);\n"
+                "    gl_FragColor = baseColor * gl_Color;\n"
+                "}"
+            };
+
+            osg::Program* program = new osg::Program;
+            program->addShader(new osg::Shader(osg::Shader::VERTEX, instanceVertShader2));
+            program->addShader(new osg::Shader(osg::Shader::FRAGMENT, instanceFragShader2));
+            ss->setAttributeAndModes(program);
+        }
+
+        // Apply default parameter textures
+        ss->setTextureAttributeAndModes(0, _posTexture2.get());
+        ss->setTextureAttributeAndModes(1, _textTexture.get());
+        ss->addUniform(new osg::Uniform("PosTexture", (int)0));
+        ss->addUniform(new osg::Uniform("TextTexture", (int)1));
+        ss->addUniform(new osg::Uniform("Offset", osg::Vec3(0.1f, 0.05f, 1.0f / 10.0f)));
+    }
+
     // Add to geode
-    osg::Geode* geode = new osg::Geode;
-    geode->setName("SymbolHelperGeode");
-    geode->addDrawable(_instanceGeom.get());
-    geode->setCullingActive(false);
-    group->addChild(geode);
+    osg::Geode* geode1 = new osg::Geode;
+    geode1->setName("SymbolGeometryGeode");
+    geode1->addDrawable(_instanceGeom.get());
+    geode1->setCullingActive(false);
+
+    osg::Geode* geode2 = new osg::Geode;
+    geode2->setName("SymbolTextBoardGeode");
+    geode2->addDrawable(_instanceBoard.get());
+    geode2->setCullingActive(false);
+    geode2->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    geode2->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+
+    group->addChild(geode1); group->addChild(geode2);
     group->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 }
 
@@ -153,7 +255,8 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
     osg::Matrix viewMatrix = _camera->getViewMatrix();
     double inv1 = 1.0 / (_lodDistances[0] - _lodDistances[1]);
     double inv2 = 1.0 / (_lodDistances[1] - _lodDistances[2]);
-    Symbol* nearestSym = NULL; double nearest = FLT_MAX; int numInstances = 0;
+    Symbol* nearestSym = NULL; double nearest = FLT_MAX;
+    int numInstances = 0, numInstances2 = 0;
 
     osg::Polytope frustum;
     frustum.setToUnitFrustum(false, false);
@@ -165,7 +268,9 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
 
     // Traverse all symbols
     osg::Vec4f* posHandle = (osg::Vec4f*)_posTexture->getImage()->data();
+    osg::Vec4f* posHandle2 = (osg::Vec4f*)_posTexture2->getImage()->data();
     osg::Vec4f* dirHandle = (osg::Vec4f*)_dirTexture->getImage()->data();
+    std::vector<std::string> texts;
     for (std::map<int, osg::ref_ptr<Symbol>>::iterator itr = _symbols.begin();
          itr != _symbols.end(); ++itr)
     {
@@ -215,18 +320,24 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
             sym->state == Symbol::NearDistance) continue;
 
         // Save to parameter textures
-        int y = itr->first / 1024, x = itr->first % 1024;
-        if (y < 0 || y > 1023)
+        int y = itr->first / RES, x = itr->first % RES;
+        if (y < 0 || y > (RES - 1))
         { OSG_WARN << "[SymbolManager] Data overflow!" << std::endl; break; }
 
         *(posHandle + numInstances) = osg::Vec4(eyePos, (float)scale);
         *(dirHandle + numInstances) = osg::Vec4(sym->color, sym->rotateAngle);
         boundBox.expandBy(sym->position); numInstances++;
+
+        if (sym->state == Symbol::MidDistance)
+        {
+            *(posHandle2 + numInstances2) = osg::Vec4(eyePos, (float)scale * 3.0f);
+            texts.push_back(sym->name); numInstances2++;
+        }
     }
 
+    // If only one symbol left and near enough, select it as NearDistance one
     if (numInstances == 1 && nearest < _lodDistances[1])
     {
-        // If only one symbol left and near enough, select it as NearDistance one
         nearestSym->modelFrame0 = frameNo;
         if (!nearestSym->fileName.empty())
         {
@@ -248,6 +359,22 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
     }
     else
         _instanceGeom->getParent(0)->setNodeMask(0);
+
+    // Draw middle distance text boards
+    if (numInstances2 > 0)
+    {
+        osg::PrimitiveSet* p = (_instanceBoard->getNumPrimitiveSets() > 0)
+                             ? _instanceBoard->getPrimitiveSet(0) : NULL;
+        if (p) { p->setNumInstances(numInstances2); p->dirty(); }
+        _instanceBoard->setInitialBound(boundBox);
+        _instanceBoard->getParent(0)->setNodeMask(0xffffffff);
+        _posTexture2->getImage()->dirty();
+
+        // Collect labels and recreate texture
+        _textTexture->setImage(createGrid(2048, 1024, 10, texts));
+    }
+    else
+        _instanceBoard->getParent(0)->setNodeMask(0);
 }
 
 void SymbolManager::updateNearDistance(Symbol* sym, osg::Group* group)
@@ -266,4 +393,52 @@ void SymbolManager::updateNearDistance(Symbol* sym, osg::Group* group)
     }
     else
         sym->loadedModel->setNodeMask(0xffffffff);
+}
+
+osg::Image* SymbolManager::createLabel(int w, int h, const std::string& text,
+                                       const osg::Vec4& color)
+{
+    _drawer->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    _drawer->start(false);
+    _drawer->fillBackground(osg::Vec4(0.6f, 0.6f, 0.8f, 0.6f));
+
+    std::vector<std::string> lines;
+    osgDB::split(text, lines, '\n');
+
+    float yStep = (float)h / (float)(lines.size() + 1);
+    float size = yStep * 0.6f;
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        std::wstring t = osgDB::convertUTF8toUTF16(lines[i]);
+        _drawer->drawText(osg::Vec2(20.0f, yStep * (i + 1)), size, t, "def", color);
+    }
+    _drawer->finish();
+    return (osg::Image*)_drawer->clone(osg::CopyOp::DEEP_COPY_ALL);
+}
+
+osg::Image* SymbolManager::createGrid(int w, int h, int grid,
+                                      const std::vector<std::string>& texts,
+                                      const osg::Vec4& color)
+{
+    _drawer->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    _drawer->start(false);
+    _drawer->clear();
+
+    int stepW = w / grid, stepH = h / grid;
+    size_t numText = texts.size();
+    for (size_t j = 0; j < numText; ++j)
+    {
+        int tx = j % grid, ty = j / grid;
+        std::vector<std::string> lines;
+        osgDB::split(texts[j], lines, '\n');
+
+        float x = stepW * tx + 10.0f, y = stepH * ty + 30.0f;
+        for (size_t i = 0; i < lines.size(); ++i)
+        {
+            std::wstring t = osgDB::convertUTF8toUTF16(lines[i]);
+            _drawer->drawText(osg::Vec2(x, y + i * 40.0f), 30.0f, t, "def", color);
+        }
+    }
+    _drawer->finish();
+    return (osg::Image*)_drawer->clone(osg::CopyOp::DEEP_COPY_ALL);
 }

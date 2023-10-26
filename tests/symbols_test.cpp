@@ -11,12 +11,22 @@
 #include <sstream>
 #include <pipeline/Utilities.h>
 #include <pipeline/SymbolManager.h>
+#include <pipeline/Drawer2D.h>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
+    osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
+    drawer->allocateImage(1024, 1024, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    drawer->start(false);
+    drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.5f));
+    drawer->loadFont("default", MISC_DIR "/SourceHanSansHWSC-Regular.otf");
+    drawer->drawText(osg::Vec2(512, 100), 40.0f, L"Hello World");
+    drawer->finish();
+    osgDB::writeImageFile(*drawer, "drawer.png");
+
     const osg::Vec3 colors[12] = {
         osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(1.0f, 1.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 1.0f),
         osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec3(0.0f, 1.0f, 1.0f), osg::Vec3(0.0f, 0.0f, 1.0f),

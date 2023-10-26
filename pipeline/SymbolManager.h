@@ -5,6 +5,7 @@
 #include <osg/Geometry>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
+#include "Drawer2D.h"
 
 namespace osgVerse
 {
@@ -39,8 +40,14 @@ namespace osgVerse
         void setInstanceGeometry(osg::Geometry* g) { _instanceGeom = g; }
         osg::Geometry* getInstanceGeometry() { return _instanceGeom.get(); }
 
+        void setInstanceBillboard(osg::Geometry* g) { _instanceBoard = g; }
+        osg::Geometry* getInstanceBillboard() { return _instanceBoard.get(); }
+
         void setMainCamera(osg::Camera* cam) { _camera = cam; }
         osg::Camera* getMainCamera() { return _camera.get(); }
+
+        void setFontFileName(const std::string& file)
+        { _drawer->loadFont("def", file); }
 
         int updateSymbol(Symbol* sym);
         bool removeSymbol(Symbol* sym);
@@ -51,9 +58,16 @@ namespace osgVerse
         void update(osg::Group* group, unsigned int frameNo);
         void updateNearDistance(Symbol* sym, osg::Group* group);
 
+        osg::Image* createLabel(int w, int h, const std::string& text,
+                                const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f));
+        osg::Image* createGrid(int w, int h, int grid, const std::vector<std::string>& texts,
+                               const osg::Vec4& color = osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f));
+
         std::map<int, osg::ref_ptr<Symbol>> _symbols;
-        osg::ref_ptr<osg::Geometry> _instanceGeom;
-        osg::ref_ptr<osg::Texture2D> _posTexture, _dirTexture;
+        osg::ref_ptr<osg::Geometry> _instanceGeom, _instanceBoard;
+        osg::ref_ptr<osg::Texture2D> _posTexture, _posTexture2;
+        osg::ref_ptr<osg::Texture2D> _dirTexture, _textTexture;
+        osg::ref_ptr<Drawer2D> _drawer;
         osg::observer_ptr<osg::Camera> _camera;
         double _lodDistances[3];
         int _idCounter;

@@ -4,6 +4,7 @@
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+#include <osgDB/ConvertUTF>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
@@ -285,8 +286,10 @@ int main(int argc, char** argv)
                 s->position = pos; s->scale = 0.015f;
                 s->rotateAngle = osg::PI * rand() / (float)RAND_MAX;
                 s->color = colors[(x * 100 + y) % 12];
-                s->name = "BATCH: ID" + std::to_string((x * 100 + y));
-                s->desciption = s->name + "\nXXXXXXXXXXX\nYYYYYYYY\n";
+                s->name = osgDB::convertStringFromCurrentCodePageToUTF8(
+                    "BATCH: 1\nID" + std::to_string((x * 100 + y)));
+                s->desciption = s->name +
+                    osgDB::convertStringFromCurrentCodePageToUTF8("\nXXXXXXXXXXX\nYYYYYYYY\n");
                 s->fileName = "cessna.osg.200,200,200.scale.osgearth_shadergen";
                 symManager->updateSymbol(s);
             }
@@ -294,6 +297,7 @@ int main(int argc, char** argv)
         symManager->setLodDistance(osgVerse::SymbolManager::LOD1, 1e6);
         symManager->setLodDistance(osgVerse::SymbolManager::LOD2, 1e5);
         symManager->setMainCamera(viewer.getCamera());
+        symManager->setFontFileName(MISC_DIR "/SourceHanSansHWSC-Regular.otf");
 
         osg::ref_ptr<osg::Group> symbols = new osg::Group;
         symbols->addUpdateCallback(symManager.get());
