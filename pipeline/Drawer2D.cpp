@@ -63,7 +63,9 @@ bool Drawer2D::start(bool useCurrentPixels)
     }
     else
         core->image.create(w, h, format);
-    core->context = new BLContext(core->image);
+
+    BLContextCreateInfo info; info.threadCount = 0;
+    core->context = new BLContext(core->image, &info);
     _drawing = true; return true;
 }
 
@@ -134,8 +136,85 @@ bool Drawer2D::loadFont(const std::string& name, const std::string& file)
 #define VALID_B2D() BlendCore* core = (BlendCore*)_b2dData.get(); \
                     if (core && core->context && _drawing)
 
+namespace osgVerse_Drawer
+{
+    template<typename T>
+    void drawText(BLContext* context, const osg::Vec2f pos, BLFont& font,
+                  const std::wstring& text, bool filled, const T& style)
+    {
+        if (filled)
+            context->fillUtf16Text(
+                BLPoint(pos[0], pos[1]), font, (uint16_t*)text.data(), text.length(), style);
+        else
+            context->strokeUtf16Text(
+                BLPoint(pos[0], pos[1]), font, (uint16_t*)text.data(), text.length(), style);
+    }
+
+    template<typename T>
+    void drawPolyline(BLContext* context, const std::vector<BLPoint>& blPts,
+                      bool filled, bool closed, const T& style)
+    {
+        if (closed)
+        {
+            if (filled) context->fillPolygon(&blPts[0], blPts.size(), style);
+            else context->strokePolygon(&blPts[0], blPts.size(), style);
+        }
+        else context->strokePolyline(&blPts[0], blPts.size(), style);
+    }
+
+    template<typename T>
+    void drawCircle(BLContext* context, const osg::Vec2f pos0, float r1, float r2,
+                    bool filled, const T& style)
+    {
+        if (filled)
+        {
+            if (r2 > 0.0f && !osg::equivalent(r2, r1))
+                context->fillEllipse(pos0[0], pos0[1], r1, r2, style);
+            else
+                context->fillCircle(pos0[0], pos0[1], r1, style);
+        }
+        else
+        {
+            if (r2 > 0.0f && !osg::equivalent(r2, r1))
+                context->strokeEllipse(pos0[0], pos0[1], r1, r2, style);
+            else
+                context->strokeCircle(pos0[0], pos0[1], r1, style);
+        }
+    }
+
+    template<typename T>
+    void drawRectangle(BLContext* context, const osg::Vec4f r, float rx, float ry,
+                       bool filled, const T& style)
+    {
+        BLRect rect{ r[0], r[1], r[2], r[3] };
+        if (filled)
+        {
+            if (!(rx > 0.0f || ry > 0.0f)) context->fillRect(rect, style);
+            else context->fillRoundRect(rect, rx, ry, style);
+        }
+        else
+        {
+            if (!(rx > 0.0f || ry > 0.0f)) context->strokeRect(rect, style);
+            else context->strokeRoundRect(rect, rx, ry, style);
+        }
+    }
+
+    template<typename T>
+    void drawPath(BLContext* context, const BLPath& path, bool filled, const T& style)
+    {
+        if (filled) context->fillPath(path, style);
+        else context->strokePath(path, style);
+    }
+}
+
+static BLRgba32 asColor(const Drawer2D::StyleData& sd)
+{
+    return BLRgba32(sd.color[0] * 255, sd.color[1] * 255,
+                    sd.color[2] * 255, sd.color[3] * 255);
+}
+
 void Drawer2D::drawText(const osg::Vec2f pos, float size, const std::wstring& text,
-                        const std::string& fontName, const osg::Vec4f& c)
+                        const std::string& fontName, const StyleData& sd)
 {
     VALID_B2D()
     {
@@ -150,9 +229,78 @@ void Drawer2D::drawText(const osg::Vec2f pos, float size, const std::wstring& te
             fontFace = core->fonts[fontName];
 
         BLFont font; font.createFromFace(fontFace, size);
-        BLRgba32 color(c[0] * 255, c[1] * 255, c[2] * 255, c[3] * 255);
-        core->context->strokeUtf16Text(
-            BLPoint(pos[0], pos[1]), font, (uint16_t*)text.data(), text.length(), color);
+        osgVerse_Drawer::drawText(core->context, pos, font, text, sd.filled, asColor(sd));
+    }
+}
+
+void Drawer2D::drawLine(const osg::Vec2f p0, const osg::Vec2f p1, const StyleData& sd)
+{
+    VALID_B2D()
+    {
+        core->context->strokeLine(BLPoint(p0[0], p0[1]),
+                                  BLPoint(p1[0], p1[1]), asColor(sd));
+    }
+}
+
+void Drawer2D::drawPolyline(const std::vector<osg::Vec2f>& points,
+                            bool closed, const StyleData& sd)
+{
+    VALID_B2D()
+    {
+        if (points.size() < 2)
+        {
+            OSG_WARN << "[Drawer2D] Too few points for drawing polyline" << std::endl;
+            return;
+        }
+        else if (points.size() == 2) closed = false;
+
+        std::vector<BLPoint> blPts;
+        for (size_t i = 0; i < points.size(); ++i)
+            blPts.push_back(BLPoint(points[i].x(), points[i].y()));
+        osgVerse_Drawer::drawPolyline(core->context, blPts, sd.filled, closed, asColor(sd));
+    }
+}
+
+void Drawer2D::drawCircle(const osg::Vec2f pos0, float r1, float r2, const StyleData& sd)
+{
+    VALID_B2D()
+    {
+        osgVerse_Drawer::drawCircle(core->context, pos0, r1, r2, sd.filled, asColor(sd));
+    }
+}
+
+void Drawer2D::drawRectangle(const osg::Vec4f r, float rx, float ry, const StyleData& sd)
+{
+    VALID_B2D()
+    {
+        osgVerse_Drawer::drawRectangle(core->context, r, rx, ry, sd.filled, asColor(sd));
+    }
+}
+
+void Drawer2D::drawPath(const std::vector<PathData>& path, const StyleData& sd)
+{
+    VALID_B2D()
+    {
+        if (path.size() < 2)
+        {
+            OSG_WARN << "[Drawer2D] Too few points for drawing path" << std::endl;
+            return;
+        }
+
+        BLPath blPath;
+        for (size_t i = 0; i < path.size(); ++i)
+        {
+            const PathData& pd = path[i];
+            if (pd.isCubic)
+            {
+                blPath.cubicTo(BLPoint(pd.pos[0], pd.pos[1]),
+                               BLPoint(pd.control0[0], pd.control0[1]),
+                               BLPoint(pd.control1[0], pd.control1[1]));
+            }
+            else if (pd.isMoving) blPath.moveTo(BLPoint(pd.pos[0], pd.pos[1]));
+            else blPath.lineTo(BLPoint(pd.pos[0], pd.pos[1]));
+        }
+        osgVerse_Drawer::drawPath(core->context, blPath, sd.filled, asColor(sd));
     }
 }
 

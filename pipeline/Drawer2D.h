@@ -18,10 +18,37 @@ namespace osgVerse
         /** Finish drawing work and copy back to the image itself */
         bool finish();
 
+        struct StyleData
+        {
+            StyleData(const osg::Vec4f& c = osg::Vec4f(1.0f, 1.0f, 1.0f, 1.0f),
+                      bool f = false) : color(c), filled(f) {}
+            osg::Vec4f color; bool filled;
+        };
+
         bool loadFont(const std::string& name, const std::string& file);
         void drawText(const osg::Vec2f pos, float size, const std::wstring& text,
-                      const std::string& font = std::string(),
-                      const osg::Vec4f& color = osg::Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+                      const std::string& font = std::string(), const StyleData& sd = StyleData());
+
+        void drawLine(const osg::Vec2f pos0, const osg::Vec2f pos1,
+                      const StyleData& sd = StyleData());
+        void drawPolyline(const std::vector<osg::Vec2f>& points, bool closed,
+                          const StyleData& sd = StyleData());
+        void drawCircle(const osg::Vec2f pos0, float r1, float r2 = 0.0f,
+                        const StyleData& sd = StyleData());
+        void drawRectangle(const osg::Vec4f rect, float rx = 0.0f, float ry = 0.0f,
+                           const StyleData& sd = StyleData());
+
+        struct PathData
+        {
+            PathData(const osg::Vec2& pt, bool onlyMove)
+                : pos(pt), isMoving(onlyMove), isCubic(false) {}
+            PathData(const osg::Vec2& pt, const osg::Vec2& c0, const osg::Vec2& c1)
+                : pos(pt), control0(c0), control1(c1), isMoving(false), isCubic(true) {}
+
+            osg::Vec2 pos, control0, control1;
+            bool isMoving, isCubic;
+        };
+        void drawPath(const std::vector<PathData>& path, const StyleData& sd = StyleData());
 
         void clear(const osg::Vec4f& rect = osg::Vec4());
         void fillBackground(const osg::Vec4f& color);

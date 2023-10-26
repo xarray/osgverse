@@ -410,7 +410,8 @@ osg::Image* SymbolManager::createLabel(int w, int h, const std::string& text,
     for (size_t i = 0; i < lines.size(); ++i)
     {
         std::wstring t = osgDB::convertUTF8toUTF16(lines[i]);
-        _drawer->drawText(osg::Vec2(20.0f, yStep * (i + 1)), size, t, "def", color);
+        _drawer->drawText(osg::Vec2(20.0f, yStep * (i + 1)), size, t, "",
+                          Drawer2D::StyleData(color, true));
     }
     _drawer->finish();
     return (osg::Image*)_drawer->clone(osg::CopyOp::DEEP_COPY_ALL);
@@ -420,7 +421,8 @@ osg::Image* SymbolManager::createGrid(int w, int h, int grid,
                                       const std::vector<std::string>& texts,
                                       const osg::Vec4& color)
 {
-    _drawer->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    if (w != _drawer->s() || h != _drawer->t())
+        _drawer->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
     _drawer->start(false);
     _drawer->clear();
 
@@ -436,7 +438,8 @@ osg::Image* SymbolManager::createGrid(int w, int h, int grid,
         for (size_t i = 0; i < lines.size(); ++i)
         {
             std::wstring t = osgDB::convertUTF8toUTF16(lines[i]);
-            _drawer->drawText(osg::Vec2(x, y + i * 40.0f), 30.0f, t, "def", color);
+            _drawer->drawText(osg::Vec2(x, y + i * 40.0f), 30.0f, t, "",
+                              Drawer2D::StyleData(color, true));
         }
     }
     _drawer->finish();
