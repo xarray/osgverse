@@ -49,8 +49,23 @@ namespace osgVerse
         void setFontFileName(const std::string& file)
         { _drawer->loadFont("def", file); }
 
+        /** Add or update symbol data to manager */
         int updateSymbol(Symbol* sym);
+
+        /** Remove symbol data from manager */
         bool removeSymbol(Symbol* sym);
+
+        /** Get symbol by ID */
+        Symbol* getSymbol(int id);
+        const Symbol* getSymbol(int id) const;
+
+        /** Query symbols by position / polytope */
+        std::vector<Symbol*> querySymbols(const osg::Vec3d& pos, double radius) const;
+        std::vector<Symbol*> querySymbols(const osg::Polytope& polytope) const;
+        std::vector<Symbol*> querySymbols(const osg::Vec2d& proj, double eplsion) const;
+
+        std::map<int, osg::ref_ptr<Symbol>>& getSymols() { return _symbols; }
+        const std::map<int, osg::ref_ptr<Symbol>>& getSymols() const { return _symbols; }
     
     protected:
         virtual ~SymbolManager() {}

@@ -18,12 +18,15 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
-    osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
-    drawer->allocateImage(1024, 1024, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    drawer->start(false);
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
+    osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D(
+        *image, osg::CopyOp::DEEP_COPY_ALL);
+    //drawer->allocateImage(1024, 1024, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+
+    drawer->start(true);
     drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.5f));
     drawer->loadFont("default", MISC_DIR "/SourceHanSansHWSC-Regular.otf");
-    drawer->drawText(osg::Vec2(512, 100), 40.0f, L"Hello World");
+    drawer->drawText(osg::Vec2(100, 100), 40.0f, L"Hello World");
     drawer->finish();
     osgDB::writeImageFile(*drawer, "drawer.png");
 

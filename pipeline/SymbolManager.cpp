@@ -93,11 +93,71 @@ bool SymbolManager::removeSymbol(Symbol* sym)
     return true;
 }
 
+Symbol* SymbolManager::getSymbol(int id)
+{
+    if (_symbols.find(id) == _symbols.end()) return NULL;
+    else return _symbols[id].get();
+}
+
+const Symbol* SymbolManager::getSymbol(int id) const
+{
+    std::map<int, osg::ref_ptr<Symbol>>::const_iterator itr = _symbols.find(id);
+    if (itr != _symbols.end()) return itr->second.get(); else return NULL;
+}
+
+std::vector<Symbol*> SymbolManager::querySymbols(const osg::Vec3d& pos, double radius) const
+{
+    // TODO: use RTree query
+    std::vector<Symbol*> result;
+    for (std::map<int, osg::ref_ptr<Symbol>>::const_iterator itr = _symbols.begin();
+         itr != _symbols.end(); ++itr)
+    {
+        Symbol* sym = itr->second.get();
+        double length = (sym->position - pos).length();
+        if (length < radius) result.push_back(sym);
+    }
+    return result;
+}
+
+std::vector<Symbol*> SymbolManager::querySymbols(const osg::Polytope& polytope) const
+{
+    // TODO: use RTree query
+    std::vector<Symbol*> result;
+    for (std::map<int, osg::ref_ptr<Symbol>>::const_iterator itr = _symbols.begin();
+         itr != _symbols.end(); ++itr)
+    {
+        Symbol* sym = itr->second.get();
+        if (polytope.contains(sym->position)) result.push_back(sym);
+    }
+    return result;
+}
+
+std::vector<Symbol*> SymbolManager::querySymbols(const osg::Vec2d& proj, double e) const
+{
+    // TODO: use RTree query
+    osg::BoundingBoxd bb;
+    bb._min.set(proj[0] - e, proj[1] - e, -1.0);
+    bb._max.set(proj[0] + e, proj[1] + e, 1.0);
+
+    osg::Polytope polytope;
+    polytope.setToBoundingBox(bb);
+    polytope.transformProvidingInverse(
+        _camera->getViewMatrix() * _camera->getProjectionMatrix());
+
+    std::vector<Symbol*> result;
+    for (std::map<int, osg::ref_ptr<Symbol>>::const_iterator itr = _symbols.begin();
+         itr != _symbols.end(); ++itr)
+    {
+        Symbol* sym = itr->second.get();
+        if (polytope.contains(sym->position)) result.push_back(sym);
+    }
+    return result;
+}
+
 void SymbolManager::initialize(osg::Group* group)
 {
     if (!_instanceGeom)
-    {
-        // Create default instance geometry which shows a simple triangle
+    {   // Create default instance geometry which shows a simple triangle
         osg::Vec3Array* va = new osg::Vec3Array(3);
         (*va)[0] = osg::Vec3(0.6f, 0.0f, 0.0f);
         (*va)[1] = osg::Vec3(-0.2f, 0.2f, 0.0f);
@@ -162,8 +222,7 @@ void SymbolManager::initialize(osg::Group* group)
     }
 
     if (!_instanceBoard)
-    {
-        // Create default instance billboard for displaying text boards
+    {   // Create default instance billboard for displaying text boards
         osg::Vec3Array* va = new osg::Vec3Array(4);
         (*va)[3] = osg::Vec3(-0.5f, -0.4f, 0.0f);
         (*va)[2] = osg::Vec3(0.5f, -0.4f, 0.0f);
