@@ -20,6 +20,7 @@ namespace osgVerse
         }
 
         osg::observer_ptr<osg::Node> loadedModel;
+        osg::observer_ptr<osg::Texture2D> loadedModelBoard;
         std::string name, desciption, fileName;
         osg::Vec3d position; osg::Vec3f color;
         float rotateAngle, scale;

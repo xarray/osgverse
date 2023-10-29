@@ -1,4 +1,5 @@
 #include <osg/Geode>
+#include <osg/Billboard>
 #include <osg/ProxyNode>
 #include <osgDB/ConvertUTF>
 #include <osgDB/WriteFile>
@@ -445,10 +446,25 @@ void SymbolManager::updateNearDistance(Symbol* sym, osg::Group* group)
         osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
         mt->setMatrix(osg::Matrix::rotate(osg::PI - sym->rotateAngle, osg::Z_AXIS) *
                       osg::Matrix::rotate(q) * osg::Matrix::translate(sym->position));
+        group->addChild(mt.get()); sym->loadedModel = mt.get();
 
         osg::ref_ptr<osg::ProxyNode> proxy = new osg::ProxyNode;
         proxy->setFileName(0, sym->fileName); mt->addChild(proxy.get());
-        group->addChild(mt.get()); sym->loadedModel = mt.get();
+
+        /*osg::ref_ptr<osg::Billboard> billboard = new osg::Billboard;
+        billboard->setMode(osg::Billboard::POINT_ROT_WORLD);
+        billboard->addDrawable(osg::createTexturedQuadGeometry(
+                osg::Vec3(), osg::X_AXIS * 200.0f, osg::Y_AXIS * 300.0f));
+        {
+            osg::Texture2D* tex2d = new osg::Texture2D;
+            tex2d->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+            tex2d->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            //billboard->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+            //billboard->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+            billboard->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2d);
+            sym->loadedModelBoard = tex2d;
+        }
+        mt->addChild(billboard.get());*/
     }
     else
         sym->loadedModel->setNodeMask(0xffffffff);

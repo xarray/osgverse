@@ -1,0 +1,20 @@
+# ===================================================================================
+#  The osgVerse CMake configuration file
+#
+#  Usage from an external project:
+#    In your CMakeLists.txt, add these lines:
+#
+#    FIND_PACKAGE(osgVerse)
+#    INCLUDE_DIRECTORIES(${OSGVERSE_INCLUDE_DIRS})
+#    TARGET_LINK_LIBRARIES(TARGET_NAME ${OSGVERSE_LIBRARIES})
+#
+#    If the module is found then OSGVERSE_FOUND is set to TRUE.
+#    This file will define the following variables:
+#      - OSGVERSE_FOUND                  : The module is found or not
+#      - OSGVERSE_LIBRARIES              : The list of libraries to link against
+#      - OSGVERSE_INCLUDE_DIRS           : The OpenCV include directories
+#      - OSGVERSE_VERSION                : The version of this osgVerse build: "1.1.0"
+#      - OSGVERSE_API                    : Which graphics API is used: "GL / GLCore / GLES2 / GLES3"
+#      - OSGVERSE_PLATFORM               : Where the module is compiled: "Windows / Linux / MacOSX / ..."
+#
+# ===================================================================================

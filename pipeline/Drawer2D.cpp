@@ -36,7 +36,7 @@ unsigned char* Drawer2D::convertImage(osg::Image* image, int& format, int& compo
 
     switch (image->getPixelFormat())
     {
-    case GL_LUMINANCE: case GL_ALPHA: case GL_R:
+    case GL_LUMINANCE: case GL_ALPHA: case GL_RED:
         format = BLFormat::BL_FORMAT_A8; components = 1; pixels = image->data(); break;
     case GL_RGBA:
         format = BLFormat::BL_FORMAT_PRGB32; components = 4; pixels = image->data(); break;
@@ -101,7 +101,7 @@ bool Drawer2D::finish()
             }
             else if (dataOut.format == BLFormat::BL_FORMAT_A8)
             {
-                if (_pixelFormat != GL_R && _pixelFormat != GL_ALPHA &&
+                if (_pixelFormat != GL_RED && _pixelFormat != GL_ALPHA &&
                     _pixelFormat != GL_LUMINANCE)
                 { allocateImage(dataOut.size.w, dataOut.size.h, 1, GL_LUMINANCE, dType); }
             }
@@ -246,9 +246,9 @@ namespace osgVerse_Drawer
 #define VALID_B2D() BlendCore* core = (BlendCore*)_b2dData.get(); \
                     if (core && core->context && _drawing)
 #define STYLE_CASES(func, ...) switch (sd.type) { \
-        case StyleData::COLOR: func (##__VA_ARGS__, asColor(sd)); break; \
-        case StyleData::IMAGE: func (##__VA_ARGS__, asPattern(sd)); break; \
-        case StyleData::LINEAR_GRADIENT: func (##__VA_ARGS__, asLinearGradient(sd)); break; \
+        case StyleData::COLOR: func ( __VA_ARGS__, asColor(sd)); break; \
+        case StyleData::IMAGE: func ( __VA_ARGS__, asPattern(sd)); break; \
+        case StyleData::LINEAR_GRADIENT: func ( __VA_ARGS__, asLinearGradient(sd)); break; \
         default: OSG_WARN << "[Drawer2D] Unknown style: " << sd.type << std::endl; break; }
 
 static BLRgba32 asColor(const Drawer2D::StyleData& sd)
