@@ -63,8 +63,9 @@ bool Drawer2D::start(bool useCurrentPixels)
 
     unsigned char* pixels = NULL;
     if (useCurrentPixels) pixels = convertImage(this, format, numComponents);
+    if (!_b2dData) _b2dData = new BlendCore;
 
-    BlendCore* core = (BlendCore*)_b2dData.get(); if (!core) return false;
+    BlendCore* core = (BlendCore*)_b2dData.get();
     if (useCurrentPixels && pixels != NULL)
     {
         BLResult r = core->image.createFromData(
@@ -130,13 +131,13 @@ bool Drawer2D::finish()
             OSG_WARN << "[Drawer2D] Failed to get result data" << std::endl;
         delete core->context;
     }
-    _b2dData = NULL; return contextClosed;
+    return contextClosed;
 }
 
 bool Drawer2D::loadFont(const std::string& name, const std::string& file)
 {
     BlendCore* core = (BlendCore*)_b2dData.get();
-    if (core && core->context)
+    if (core != NULL)
     {
         BLFontFace& fontFace = core->fonts[name];
         BLArray<uint8_t> dataBuffer;
@@ -149,7 +150,10 @@ bool Drawer2D::loadFont(const std::string& name, const std::string& file)
                 fontFace.createFromData(fontData, 0);
                 return true;
             }
+            else
+                OSG_WARN << "[Drawer2D] Unable to create font: " << name << std::endl;
         }
+        else OSG_WARN << "[Drawer2D] Unable to read font file: " << file << std::endl;
     }
     return false;
 }

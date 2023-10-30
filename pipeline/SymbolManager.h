@@ -3,6 +3,7 @@
 
 #include <osg/Version>
 #include <osg/Geometry>
+#include <osg/ShapeDrawable>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include "Drawer2D.h"
@@ -16,14 +17,17 @@ namespace osgVerse
         Symbol() : state(Hidden), id(-1), modelFrame0(0)
         {
             color = osg::Vec3(1.0f, 1.0f, 1.0f);
-            rotateAngle = 0.0f; scale = 0.1f;
+            rotateAngle = 0.0f; scale = 0.1f; dirtyDesc = false;
         }
+
+        void setDesciption(const std::string& d)
+        { desciption = d; dirtyDesc = true; }
 
         osg::observer_ptr<osg::Node> loadedModel;
         osg::observer_ptr<osg::Texture2D> loadedModelBoard;
         std::string name, desciption, fileName;
         osg::Vec3d position; osg::Vec3f color;
-        float rotateAngle, scale;
+        float rotateAngle, scale; bool dirtyDesc;
         State state; int id, modelFrame0;
     };
 

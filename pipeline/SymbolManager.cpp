@@ -50,7 +50,7 @@ SymbolManager::SymbolManager()
     _dirTexture->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
     _textTexture = new osg::Texture2D;
-    _textTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+    _textTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
     _textTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
     _drawer = new Drawer2D;
@@ -79,7 +79,7 @@ void SymbolManager::operator()(osg::Node* node, osg::NodeVisitor* nv)
 int SymbolManager::updateSymbol(Symbol* sym)
 {
     // TODO: add to RTree
-    sym->id = _idCounter++;
+    if (sym && sym->id < 0) sym->id = _idCounter++;
 
     if (!sym || (sym && sym->id < 0)) return -1;
     _symbols[sym->id] = sym; return sym->id;
@@ -451,23 +451,51 @@ void SymbolManager::updateNearDistance(Symbol* sym, osg::Group* group)
         osg::ref_ptr<osg::ProxyNode> proxy = new osg::ProxyNode;
         proxy->setFileName(0, sym->fileName); mt->addChild(proxy.get());
 
-        /*osg::ref_ptr<osg::Billboard> billboard = new osg::Billboard;
-        billboard->setMode(osg::Billboard::POINT_ROT_WORLD);
+        osg::ref_ptr<osg::Billboard> billboard = new osg::Billboard;
+        billboard->setMode(osg::Billboard::POINT_ROT_EYE);
         billboard->addDrawable(osg::createTexturedQuadGeometry(
-                osg::Vec3(), osg::X_AXIS * 200.0f, osg::Y_AXIS * 300.0f));
+            osg::Vec3(1000.0f, 1000.0f, 0.0f), osg::X_AXIS * 2000.0f, osg::Z_AXIS * 3000.0f,
+            0.0f, 1.0f, 1.0f, 0.0f));
         {
             osg::Texture2D* tex2d = new osg::Texture2D;
+            tex2d->setImage(createLabel(
+                512, 1024, sym->desciption, osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f)));
             tex2d->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
             tex2d->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-            //billboard->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-            //billboard->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+
             billboard->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2d);
+            billboard->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+            billboard->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+            billboard->getOrCreateStateSet()->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
             sym->loadedModelBoard = tex2d;
         }
-        mt->addChild(billboard.get());*/
+        mt->addChild(billboard.get());
     }
     else
+    {
+        osg::MatrixTransform* mt = static_cast<osg::MatrixTransform*>(sym->loadedModel.get());
+        osg::Vec3d dir = sym->position; dir.normalize();
+        osg::Quat q; q.makeRotate(osg::Z_AXIS, osg::Vec3(dir));
+        mt->setMatrix(osg::Matrix::rotate(osg::PI - sym->rotateAngle, osg::Z_AXIS) *
+                      osg::Matrix::rotate(q) * osg::Matrix::translate(sym->position));
+        if (sym->dirtyDesc)
+        {
+            for (int i = mt->getNumChildren() - 1; i >= 0; --i)
+            {
+                osg::Billboard* billboard = dynamic_cast<osg::Billboard*>(mt->getChild(i));
+                if (billboard)
+                {
+                    osg::Texture2D* tex2d = static_cast<osg::Texture2D*>(
+                        billboard->getOrCreateStateSet()->getTextureAttribute(
+                            0, osg::StateAttribute::TEXTURE));
+                    if (tex2d) tex2d->setImage(createLabel(
+                        512, 1024, sym->desciption, osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f)));
+                }
+            }
+            sym->dirtyDesc = false;
+        }
         sym->loadedModel->setNodeMask(0xffffffff);
+    }
 }
 
 osg::Image* SymbolManager::createLabel(int w, int h, const std::string& text,
@@ -491,6 +519,7 @@ osg::Image* SymbolManager::createLabel(int w, int h, const std::string& text,
     _drawer->finish();
     return (osg::Image*)_drawer->clone(osg::CopyOp::DEEP_COPY_ALL);
 }
+
 
 osg::Image* SymbolManager::createGrid(int w, int h, int grid,
                                       const std::vector<std::string>& texts,

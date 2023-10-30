@@ -5,16 +5,80 @@
 #    In your CMakeLists.txt, add these lines:
 #
 #    FIND_PACKAGE(osgVerse)
-#    INCLUDE_DIRECTORIES(${OSGVERSE_INCLUDE_DIRS})
-#    TARGET_LINK_LIBRARIES(TARGET_NAME ${OSGVERSE_LIBRARIES})
+#    INCLUDE_DIRECTORIES(${osgVerse_INCLUDE_DIRS})
+#    TARGET_LINK_LIBRARIES(TARGET_NAME ${osgVerse_LIBRARIES})
 #
-#    If the module is found then OSGVERSE_FOUND is set to TRUE.
+#    If the module is found then osgVerse_FOUND is set to TRUE.
 #    This file will define the following variables:
-#      - OSGVERSE_FOUND                  : The module is found or not
-#      - OSGVERSE_LIBRARIES              : The list of libraries to link against
-#      - OSGVERSE_INCLUDE_DIRS           : The OpenCV include directories
-#      - OSGVERSE_VERSION                : The version of this osgVerse build: "1.1.0"
-#      - OSGVERSE_API                    : Which graphics API is used: "GL / GLCore / GLES2 / GLES3"
-#      - OSGVERSE_PLATFORM               : Where the module is compiled: "Windows / Linux / MacOSX / ..."
+#      - osgVerse_FOUND                  : The module is found or not
+#      - osgVerse_LIBRARIES              : The list of libraries to link against
+#      - osgVerse_INCLUDE_DIRS           : The OpenCV include directories
+#      - osgVerse_VERSION                : The version of this osgVerse build: "1.1.0"
+#      - osgVerse_API                    : Which graphics API is used: "GL / GLES2 / GLES3"
+#      - osgVerse_PLATFORM               : Where the module is compiled: "MSVC / Linux / MacOSX / ..."
 #
 # ===================================================================================
+
+SET(osgVerse_VERSION "@VERSE_VERSION@")
+SET(osgVerse_API "@VERSE_GRAPHICS_API@")
+SET(osgVerse_PLATFORM "@VERSE_PLATFORM@")
+SET(osgVerse_FOUND FALSE)
+
+MACRO(FIND_LIBRARY_DATA LIB_NAME LIB_FILENAME)
+    FIND_LIBRARY(osgVerse_${LIB_NAME}_LIBRARY
+                 NAMES ${LIB_FILENAME}.lib lib${LIB_FILENAME}.a lib${LIB_FILENAME}.so
+                 PATHS ${osgVerse_LIB_DIR})
+    FIND_LIBRARY(osgVerse_${LIB_NAME}_LIBRARY_DBG
+                 NAMES ${LIB_FILENAME}d.lib lib${LIB_FILENAME}d.a lib${LIB_FILENAME}d.so
+                 PATHS ${osgVerse_LIB_DIR})
+ENDMACRO(FIND_LIBRARY_DATA)
+
+MACRO(ADD_LIBRARY_DEP LIB_NAME)
+    IF(MSVC)
+        IF(osgVerse_${LIB_NAME}_LIBRARY_DBG AND osgVerse_${LIB_NAME}_LIBRARY)
+            SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES}
+                debug "${osgVerse_${LIB_NAME}_LIBRARY_DBG}" optimized "${osgVerse_${LIB_NAME}_LIBRARY}")
+        ELSEIF(osgVerse_${LIB_NAME}_LIBRARY)
+            SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES} "${osgVerse_${LIB_NAME}_LIBRARY}")
+        ENDIF()
+    ELSE()
+        IF(osgVerse_${LIB_NAME}_LIBRARY_DBG)
+            IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
+                SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES} "${osgVerse_${LIB_NAME}_LIBRARY_DBG}")
+            ELSEIF(osgVerse_${LIB_NAME}_LIBRARY)
+                SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES} "${osgVerse_${LIB_NAME}_LIBRARY}")
+            ENDIF()
+        ELSEIF(osgVerse_${LIB_NAME}_LIBRARY)
+            SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES} "${osgVerse_${LIB_NAME}_LIBRARY}")
+        ENDIF()
+    ENDIF()
+ENDMACRO(ADD_LIBRARY_DEP)
+
+FIND_PATH(osgVerse_LIB_DIR osgVersePipeline.lib libosgVersePipeline.a
+          PATHS ${osgVerse_DIR} /usr/lib /usr/local/lib NO_CMAKE_FIND_ROOT_PATH)
+IF(osgVerse_LIB_DIR)
+    FIND_PATH(osgVerse_INCLUDE_DIR osgVerse/pipeline/Pipeline.h
+              PATHS ${osgVerse_LIB_DIR}/../include NO_CMAKE_FIND_ROOT_PATH)
+    FIND_LIBRARY_DATA(DEPS osgVerseDependency)
+    FIND_LIBRARY_DATA(RW osgVerseReaderWriter)
+    FIND_LIBRARY_DATA(SCRIPT osgVerseScript)
+    FIND_LIBRARY_DATA(PIPELINE osgVersePipeline)
+    FIND_LIBRARY_DATA(ANIM osgVerseAnimation)
+    FIND_LIBRARY_DATA(MODELING osgVerseModeling)
+    FIND_LIBRARY_DATA(UI osgVerseUI)
+ELSE()
+    FIND_PATH(osgVerse_INCLUDE_DIR osgVerse/pipeline/Pipeline.h
+              PATHS /usr/include /usr/local/include NO_CMAKE_FIND_ROOT_PATH)
+ENDIF()
+
+IF(osgVerse_INCLUDE_DIR AND osgVerse_LIB_DIR)
+    SET(osgVerse_FOUND TRUE)
+    SET(osgVerse_INCLUDE_DIRS "${osgVerse_INCLUDE_DIR}")
+    ADD_LIBRARY_DEP(UI)
+    ADD_LIBRARY_DEP(DEPS)
+    ADD_LIBRARY_DEP(RW)
+    ADD_LIBRARY_DEP(SCRIPT)
+    ADD_LIBRARY_DEP(PIPELINE)
+    ADD_LIBRARY_DEP(ANIM)
+    ADD_LIBRARY_DEP(MODELING)
+ENDIF(osgVerse_INCLUDE_DIR AND osgVerse_LIB_DIR)
