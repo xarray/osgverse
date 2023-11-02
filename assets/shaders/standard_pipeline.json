@@ -684,7 +684,7 @@
                 {
                     "name": "BrightnessExtracting", "type": "deferred",
                     "inputs": [ { "stage": "ShadowCombining", "name": "CombinedBuffer", "sampler_name": "ColorBuffer", "unit": 0 } ],
-                    "outputs": [ { "name": "BrightnessBuffer0", "format": "RGB_INT8" } ],
+                    "outputs": [ { "name": "BrightnessBuffer0", "format": "R_INT8" } ],
                     "uniforms": [ { "name": "BrightnessThreshold", "uniform_type": "float", "value": "0.7" } ],
                     "shaders": [
                         { "name": "QuadVS" },
@@ -712,35 +712,35 @@
                 {
                     "name": "BrightnessDownsampling1", "type": "deferred", "scale": 0.5,
                     "inputs": [ { "stage": "BrightnessExtracting", "name": "BrightnessBuffer0", "sampler_name": "ColorBuffer", "unit": 0 } ],
-                    "outputs": [ { "name": "BrightnessBuffer1", "format": "RGB_INT8" } ],
+                    "outputs": [ { "name": "BrightnessBuffer1", "format": "R_INT8" } ],
                     "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.000260417 0.00185185" } ],
                     "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
                 },
                 {
                     "name": "BrightnessDownsampling2", "type": "deferred", "scale": 0.125,
                     "inputs": [ { "stage": "BrightnessDownsampling1", "name": "BrightnessBuffer1", "sampler_name": "ColorBuffer", "unit": 0 } ],
-                    "outputs": [ { "name": "BrightnessBuffer2", "format": "RGB_INT8" } ],
+                    "outputs": [ { "name": "BrightnessBuffer2", "format": "R_INT8" } ],
                     "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.0000651 0.00740741" } ],
                     "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
                 },
                 {
                     "name": "BrightnessDownsampling3", "type": "deferred", "scale": 0.03125,
                     "inputs": [ { "stage": "BrightnessDownsampling2", "name": "BrightnessBuffer2", "sampler_name": "ColorBuffer", "unit": 0 } ],
-                    "outputs": [ { "name": "BrightnessBuffer3", "format": "RGB_INT8" } ],
+                    "outputs": [ { "name": "BrightnessBuffer3", "format": "R_INT8" } ],
                     "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.0000162 0.0296296" } ],
                     "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
                 },
                 {
                     "name": "BrightnessDownsampling4", "type": "deferred", "scale": 0.0078125,
                     "inputs": [ { "stage": "BrightnessDownsampling3", "name": "BrightnessBuffer3", "sampler_name": "ColorBuffer", "unit": 0 } ],
-                    "outputs": [ { "name": "BrightnessBuffer4", "format": "RGB_INT8" } ],
+                    "outputs": [ { "name": "BrightnessBuffer4", "format": "R_INT8" } ],
                     "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.00000407 0.118519" } ],
                     "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
                 },
                 {
                     "name": "BrightnessDownsampling5", "type": "deferred", "scale": 0.001953125,
                     "inputs": [ { "stage": "BrightnessDownsampling4", "name": "BrightnessBuffer4", "sampler_name": "ColorBuffer", "unit": 0 } ],
-                    "outputs": [ { "name": "BrightnessBuffer5", "format": "RGB_INT8" } ],
+                    "outputs": [ { "name": "BrightnessBuffer5", "format": "R_INT8" } ],
                     "uniforms": [ { "name": "InvBufferResolution", "uniform_type": "vec2", "value": "0.000001017 0.474074" } ],
                     "shaders": [ { "name": "QuadVS" }, { "name": "BrightnessDownsampleFS" } ]
                 },
@@ -789,11 +789,11 @@
                                 "    vec4 color5 = blur5(BrightnessBuffer4, uv0);",
                                 "    vec4 color6 = blur5(BrightnessBuffer5, uv0);",
 
-                                "    vec3 color = mix(color1.rgb, color2.rgb, color2.a);",
-                                "    color = mix(color.rgb, color3.rgb, color3.a);",
-                                "    color = mix(color.rgb, color4.rgb, color4.a);",
-                                "    color = mix(color.rgb, color5.rgb, color5.a);",
-                                "    color = mix(color.rgb, color6.rgb, color6.a);",
+                                "    vec3 color = mix(color1.rgb, color2.rgb, color2.r);",
+                                "    color = mix(color.rgb, color3.rgb, color3.r);",
+                                "    color = mix(color.rgb, color4.rgb, color4.r);",
+                                "    color = mix(color.rgb, color5.rgb, color5.r);",
+                                "    color = mix(color.rgb, color6.rgb, color6.r);",
                                 "    fragData = vec4(color, 1.0);",
                                 "    VERSE_FS_FINAL(fragData);",
                                 "}"

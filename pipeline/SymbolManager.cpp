@@ -304,9 +304,7 @@ void SymbolManager::initialize(osg::Group* group)
     geode2->setCullingActive(false);
     geode2->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     geode2->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
-
     group->addChild(geode1); group->addChild(geode2);
-    group->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 }
 
 void SymbolManager::update(osg::Group* group, unsigned int frameNo)

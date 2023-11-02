@@ -156,8 +156,6 @@ ELSEIF(ANDROID)
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/android)
 ELSEIF(APPLE)
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/apple)
-ELSEIF(NOT CMAKE_CL_64)
-    SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/x86)
 ENDIF()
 
 FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
@@ -168,7 +166,7 @@ FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
     NO_CMAKE_FIND_ROOT_PATH
 )
 
-FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so BulletDynamics.lib
+FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so libBulletDynamics.a BulletDynamics.lib
     PATHS ${THIRDPARTY_ROOT}/lib
     $ENV{BULLET_ROOT}/lib $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
     /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
@@ -183,7 +181,7 @@ FIND_PATH(DRACO_INCLUDE_DIR draco/draco_features.h
     NO_CMAKE_FIND_ROOT_PATH
 )
 
-FIND_PATH(DRACO_LIB_DIR libdraco.so libdraco.a draco.lib
+FIND_PATH(DRACO_LIB_DIR libdraco.so draco.lib
     PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
@@ -192,12 +190,12 @@ FIND_PATH(DRACO_LIB_DIR libdraco.so libdraco.a draco.lib
 
 FIND_PATH(SDL2_INCLUDE_DIR SDL.h
     PATHS ${THIRDPARTY_ROOT}/include/SDL
-    /usr/include
-    /usr/local/include
+    ${THIRDPARTY_ROOT}/include/SDL2
+    /usr/include /usr/local/include
     NO_CMAKE_FIND_ROOT_PATH
 )
 
-FIND_PATH(SDL2_LIB_DIR libSDL2.so SDL2.lib
+FIND_PATH(SDL2_LIB_DIR libSDL2.so libSDL2.a SDL2.lib
     PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}

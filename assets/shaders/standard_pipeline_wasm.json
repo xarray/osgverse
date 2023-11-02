@@ -774,11 +774,11 @@
                                 "    vec4 color5 = blur5(BrightnessBuffer4, uv0);",
                                 "    vec4 color6 = blur5(BrightnessBuffer5, uv0);",
 
-                                "    vec3 color = mix(color1.rgb, color2.rgb, color2.a);",
-                                "    color = mix(color.rgb, color3.rgb, color3.a);",
-                                "    color = mix(color.rgb, color4.rgb, color4.a);",
-                                "    color = mix(color.rgb, color5.rgb, color5.a);",
-                                "    color = mix(color.rgb, color6.rgb, color6.a);",
+                                "    vec3 color = mix(color1.rgb, color2.rgb, color2.r);",
+                                "    color = mix(color.rgb, color3.rgb, color3.r);",
+                                "    color = mix(color.rgb, color4.rgb, color4.r);",
+                                "    color = mix(color.rgb, color5.rgb, color5.r);",
+                                "    color = mix(color.rgb, color6.rgb, color6.r);",
                                 "    fragData = vec4(color, 1.0);",
                                 "    VERSE_FS_FINAL(fragData);",
                                 "}"

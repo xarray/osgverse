@@ -1,4 +1,5 @@
 # !IMPORTANT!
+# Use 'docker build -t osgverse:linux -m 2GB <dockerfile_path>' to build
 # * Pass -m 2GB (or more) when building the image.
 # * Configure Docker to use disks larger than the default 20 GB.
 
@@ -33,6 +34,8 @@ RUN cd /home/osgv/Source; \
     git clone --branch release-2.28.4 https://github.com/libsdl-org/SDL.git SDL
 RUN cd /home/osgv/Source; \
     git clone --branch OpenSceneGraph-3.6.5 https://github.com/openscenegraph/OpenSceneGraph.git OpenSceneGraph
+RUN cd /home/osgv/Release; \
+    git clone https://github.com/openscenegraph/OpenSceneGraph-Data.git data
 RUN cd /home/osgv; \
     git clone https://github.com/xarray/osgverse.git osgverse
 
@@ -44,7 +47,7 @@ RUN mkdir -p /home/osgv/Builds/bullet3; cd /home/osgv/Builds/bullet3; \
 #    cmake -DCMAKE_INSTALL_PREFIX=/home/osgv/Dependencies/x64 -DCMAKE_BUILD_TYPE=Release ../../Source/ZLMediaKit; \
 #    make; make install
 RUN mkdir -p /home/osgv/Builds/draco; cd /home/osgv/Builds/draco; \
-    cmake -DCMAKE_INSTALL_PREFIX=/home/osgv/Dependencies/x64 -DCMAKE_BUILD_TYPE=Release ../../Source/draco; \
+    cmake -DCMAKE_INSTALL_PREFIX=/home/osgv/Dependencies/x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON ../../Source/draco; \
     make; make install
 RUN mkdir -p /home/osgv/Builds/SDL; cd /home/osgv/Builds/SDL; \
     cmake -DCMAKE_INSTALL_PREFIX=/home/osgv/Dependencies/x64 -DCMAKE_BUILD_TYPE=Release ../../Source/SDL; \
@@ -65,6 +68,9 @@ RUN mkdir -p /home/osgv/Builds/osgverse; cd /home/osgv/Builds/osgverse; \
 RUN bash -c 'echo -e "%manavr ALL=(ALL) NOPASSWD: ALL\n" > /etc/sudoers.d/01_manavr'
 RUN addgroup manavr && useradd -u 1000 -m osgv && usermod -aG manavr osgv
 
+# Use 'docker run -it osgverse:linux' to start the terminal
 USER osgv
 WORKDIR /home/osgv
+ENV OSG_FILE_PATH=/home/osgv/Release/data
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/osgv/Release/lib
 CMD ["/bin/bash"]
