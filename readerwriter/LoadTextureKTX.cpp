@@ -210,8 +210,8 @@ static inline VkFormat glGetVkFormatFromInternalFormat(GLint glFormat)
 
 namespace osgVerse
 {
-    static osg::ref_ptr<osg::Image> loadImageFromKtx(ktxTexture* texture, int layer, int face,
-                                                     ktx_size_t imgDataSize, bool noCompress = false)
+    static osg::ref_ptr<osg::Image> loadImageFromKtx(ktxTexture* texture, const osgDB::Options* opt,
+                                                     int layer, int face, ktx_size_t imgDataSize)
     {
         bool transcoded = false, compressed = false;
         ktx_error_code_e result = KTX_SUCCESS;
@@ -219,29 +219,35 @@ namespace osgVerse
         ktx_uint32_t w2 = osg::Image::computeNearestPowerOfTwo(w), h2 = osg::Image::computeNearestPowerOfTwo(h);
         if (ktxTexture_NeedsTranscoding(texture))
         {
-            if (noCompress || (w2 != w || h2 != h))
+            bool noCompress = false, supportsDXT = true, supportsETC = false;
+            if (opt != NULL)
+            {
+                if (!opt->getPluginStringData("UseDXT").empty())
+                    supportsDXT = atoi(opt->getPluginStringData("UseDXT").c_str()) > 0;
+                if (!opt->getPluginStringData("UseETC").empty())
+                    supportsETC = atoi(opt->getPluginStringData("UseETC").c_str()) > 0;
+                if (!opt->getPluginStringData("UseRGBA").empty())
+                    noCompress = atoi(opt->getPluginStringData("UseRGBA").c_str()) > 0;
+            }
+
+            ktx_transcode_fmt_e fmt = ktx_transcode_fmt_e::KTX_TTF_RGBA32;
+            if (w2 != w || h2 != h)
             {
                 if (!noCompress)
                 {
                     OSG_NOTICE << "[LoaderKTX] Found NPOT image: " << w << " x " << h
                                << ", will not transcode to compressing texture format" << std::endl;
                 }
-                result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
-                    ktx_transcode_fmt_e::KTX_TTF_RGBA32, 0);
-                compressed = false;
             }
-            else
+            else if (!noCompress)
             {
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-                // FIXME: mobile compressing textures, how to get extentions?
-                result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
-                    ktx_transcode_fmt_e::KTX_TTF_BC1_OR_3/*KTX_TTF_ETC*/, 0);
-#else
-                result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture,
-                    ktx_transcode_fmt_e::KTX_TTF_BC1_OR_3, 0);
-#endif
                 compressed = true;
+                if (supportsETC) fmt = ktx_transcode_fmt_e::KTX_TTF_ETC;
+                else if (supportsDXT) fmt = ktx_transcode_fmt_e::KTX_TTF_BC1_OR_3;
+                else compressed = false;
             }
+
+            result = ktxTexture2_TranscodeBasis((ktxTexture2*)texture, fmt, 0);
             transcoded = (result == KTX_SUCCESS);
         }
 
@@ -284,15 +290,15 @@ namespace osgVerse
         return image;
     }
 
-    static std::vector<osg::ref_ptr<osg::Image>> loadKtxFromObject(ktxTexture* texture)
+    static std::vector<osg::ref_ptr<osg::Image>> loadKtxFromObject(
+            ktxTexture* texture, const osgDB::Options* opt)
     {
         std::vector<osg::ref_ptr<osg::Image>> resultArray;
-        ktx_uint32_t numLevels = texture->numLevels;
-        ktx_size_t imgDataSize = 0;
+        ktx_uint32_t numLevels = texture->numLevels; ktx_size_t imgSize = 0;
         if (texture->classId == ktxTexture2_c)
-            imgDataSize = ktxTexture_calcImageSize(texture, 0, KTX_FORMAT_VERSION_TWO);
+            imgSize = ktxTexture_calcImageSize(texture, 0, KTX_FORMAT_VERSION_TWO);
         else
-            imgDataSize = ktxTexture_calcImageSize(texture, 0, KTX_FORMAT_VERSION_ONE);
+            imgSize = ktxTexture_calcImageSize(texture, 0, KTX_FORMAT_VERSION_ONE);
 
         if (texture->isArray || texture->numFaces > 1)
         {
@@ -300,29 +306,29 @@ namespace osgVerse
             {
                 for (ktx_uint32_t i = 0; i < texture->numLayers; ++i)
                 {
-                    osg::ref_ptr<osg::Image> image = loadImageFromKtx(texture, i, 0, imgDataSize);
-                    if (image.valid()) resultArray.push_back(image);
+                    osg::ref_ptr<osg::Image> img = loadImageFromKtx(texture, opt, i, 0, imgSize);
+                    if (img.valid()) resultArray.push_back(img);
                 }
             }
             else
             {
                 for (ktx_uint32_t i = 0; i < texture->numFaces; ++i)
                 {
-                    osg::ref_ptr<osg::Image> image = loadImageFromKtx(texture, 0, i, imgDataSize);
-                    if (image.valid()) resultArray.push_back(image);
+                    osg::ref_ptr<osg::Image> img = loadImageFromKtx(texture, opt, 0, i, imgSize);
+                    if (img.valid()) resultArray.push_back(img);
                 }
             }
         }
         else
         {
-            osg::ref_ptr<osg::Image> image = loadImageFromKtx(texture, 0, 0, imgDataSize);
+            osg::ref_ptr<osg::Image> image = loadImageFromKtx(texture, opt, 0, 0, imgSize);
             if (image.valid()) resultArray.push_back(image);
         }
         ktxTexture_Destroy(texture);
         return resultArray;
     }
 
-    std::vector<osg::ref_ptr<osg::Image>> loadKtx(const std::string& file)
+    std::vector<osg::ref_ptr<osg::Image>> loadKtx(const std::string& file, const osgDB::Options* opt)
     {
         ktxTexture* texture = NULL;
         ktx_error_code_e result = ktxTexture_CreateFromNamedFile(
@@ -332,10 +338,10 @@ namespace osgVerse
             OSG_WARN << "[LoaderKTX] Unable to read from KTX file: " << file << "\n";
             return std::vector<osg::ref_ptr<osg::Image>>();
         }
-        return loadKtxFromObject(texture);
+        return loadKtxFromObject(texture, opt);
     }
 
-    std::vector<osg::ref_ptr<osg::Image>> loadKtx2(std::istream& in)
+    std::vector<osg::ref_ptr<osg::Image>> loadKtx2(std::istream& in, const osgDB::Options* opt)
     {
         std::string data((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
@@ -350,10 +356,12 @@ namespace osgVerse
             OSG_WARN << "[LoaderKTX] Unable to read from KTX stream\n";
             return std::vector<osg::ref_ptr<osg::Image>>();
         }
-        return loadKtxFromObject(texture);
+        return loadKtxFromObject(texture, opt);
     }
 
-    static ktxTexture* saveImageToKtx(const std::vector<osg::Image*>& images, bool asCubeMap)
+    static ktxTexture* saveImageToKtx(const std::vector<osg::Image*>& images, bool asCubeMap,
+                                      bool useBASISU, bool useUASTC = false, int basisuThreadCount = 1,
+                                      int basisuCompressLv = 2, int basisuQualityLv = 128)
     {
         ktxTexture* texture = NULL;
         if (images.empty()) return NULL;
@@ -410,25 +418,46 @@ namespace osgVerse
             }
         }
 
-#if 1  // FIXME: user options
-        ktxBasisParams params = { 0 };
-        params.structSize = sizeof(params);
-        params.compressionLevel = KTX_ETC1S_DEFAULT_COMPRESSION_LEVEL;
-        params.uastc = KTX_FALSE; params.threadCount = 1;
-        result = ktxTexture2_CompressBasisEx((ktxTexture2*)texture, &params);
-        if (result != KTX_SUCCESS)
+        if (useBASISU)
         {
-            OSG_WARN << "[LoaderKTX] Failed to compress ktxTexture2: "
-                     << ktxErrorString(result) << std::endl;
+            ktxBasisParams params = { 0 };
+            params.structSize = sizeof(params);
+            params.uastc = useUASTC ? KTX_TRUE : KTX_FALSE;
+            params.compressionLevel = basisuCompressLv;
+            params.qualityLevel = basisuQualityLv;
+            params.threadCount = basisuThreadCount;
+            result = ktxTexture2_CompressBasisEx((ktxTexture2*)texture, &params);
+            if (result != KTX_SUCCESS)
+            {
+                OSG_WARN << "[LoaderKTX] Failed to compress ktxTexture2: "
+                         << ktxErrorString(result) << std::endl;
+            }
         }
-#endif
         return texture;
     }
 
-    bool saveKtx(const std::string& file, bool asCubeMap,
+    static ktxTexture* saveImageToKtx(const std::vector<osg::Image*>& images,
+                                      bool asCubeMap, const osgDB::Options* opt)
+    {
+        if (opt != NULL)
+        {
+            std::string useBASISU = opt->getPluginStringData("UseBASISU");
+            std::string useUASTC = opt->getPluginStringData("UseUASTC");
+            std::string threadCount = opt->getPluginStringData("ThreadCount");
+            std::string compressLv = opt->getPluginStringData("CompressLevel");
+            std::string qualityLv = opt->getPluginStringData("QualityLevel");
+            return saveImageToKtx(images, asCubeMap, atoi(useBASISU.c_str()) > 0,
+                                  atoi(useUASTC.c_str()) > 0, atoi(threadCount.c_str()),
+                                  atoi(compressLv.c_str()), atoi(qualityLv.c_str()));
+        }
+        else
+            return saveImageToKtx(images, asCubeMap, false, false);
+    }
+
+    bool saveKtx(const std::string& file, bool asCubeMap, const osgDB::Options* opt,
                  const std::vector<osg::Image*>& images)
     {
-        ktxTexture* texture = saveImageToKtx(images, asCubeMap);
+        ktxTexture* texture = saveImageToKtx(images, asCubeMap, opt);
         if (texture == NULL) return false;
 
         KTX_error_code result = ktxTexture_WriteToNamedFile(texture, file.c_str());
@@ -436,10 +465,10 @@ namespace osgVerse
         return result == KTX_SUCCESS;
     }
 
-    bool saveKtx2(std::ostream& out, bool asCubeMap,
+    bool saveKtx2(std::ostream& out, bool asCubeMap, const osgDB::Options* opt,
                   const std::vector<osg::Image*>& images)
     {
-        ktxTexture* texture = saveImageToKtx(images, asCubeMap);
+        ktxTexture* texture = saveImageToKtx(images, asCubeMap, opt);
         if (texture == NULL) return false;
 
         ktx_uint8_t* buffer = NULL; ktx_size_t length = 0;

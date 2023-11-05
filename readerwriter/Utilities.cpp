@@ -95,6 +95,7 @@ TextureOptimizer::TextureOptimizer(bool inlineFile, const std::string& newTexFol
     if (inlineFile) osgDB::makeDirectory(newTexFolder);
     _textureFolder = newTexFolder;
     _preparingForInlineFile = inlineFile;
+    _ktxOptions = new osgDB::Options("UseBASISU=1");
 }
 
 TextureOptimizer::~TextureOptimizer()
@@ -186,7 +187,7 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     }
 
     std::vector<osg::Image*> images; images.push_back(img);
-    if (!saveKtx2(ss, false, images)) return NULL;
+    if (!saveKtx2(ss, false, _ktxOptions.get(), images)) return NULL;
     else OSG_NOTICE << "[TextureOptimizer] Compressed: " << img->getFileName()
                     << " (" << img->s() << " x " << img->t() << ")" << std::endl;
 
@@ -204,7 +205,7 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     }
     else
     {
-        std::vector<osg::ref_ptr<osg::Image>> outImages = loadKtx2(ss);
+        std::vector<osg::ref_ptr<osg::Image>> outImages = loadKtx2(ss, _ktxOptions.get());
         return outImages.empty() ? NULL : outImages[0].release();
     }
 }

@@ -35,7 +35,7 @@ public:
             ext = osgDB::getFileExtension(fileName);
         }
 
-        std::vector<osg::ref_ptr<osg::Image>> images = osgVerse::loadKtx(fileName);
+        std::vector<osg::ref_ptr<osg::Image>> images = osgVerse::loadKtx(fileName, options);
         if (images.size() > 1)
         {
             osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
@@ -45,9 +45,9 @@ public:
         return images.empty() ? ReadResult::ERROR_IN_READING_FILE : ReadResult(images[0]);
     }
 
-    virtual ReadResult readImage(std::istream& fin, const Options* = NULL) const
+    virtual ReadResult readImage(std::istream& fin, const Options* options = NULL) const
     {
-        std::vector<osg::ref_ptr<osg::Image>> images = osgVerse::loadKtx2(fin);
+        std::vector<osg::ref_ptr<osg::Image>> images = osgVerse::loadKtx2(fin, options);
         if (images.size() > 1)
         {
             osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
@@ -90,13 +90,13 @@ public:
 #endif
                 imageList.push_back(seq->getImage(i));
 
-            bool result = osgVerse::saveKtx(fileName, useCubemap, imageList);
+            bool result = osgVerse::saveKtx(fileName, useCubemap, options, imageList);
             return result ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
         }
         else
             imageList.push_back(imagePtr);
         
-        bool result = osgVerse::saveKtx(fileName, false, imageList);
+        bool result = osgVerse::saveKtx(fileName, false, options, imageList);
         return result ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 
@@ -122,13 +122,13 @@ public:
 #endif
                 imageList.push_back(seq->getImage(i));
 
-            bool result = osgVerse::saveKtx2(fout, useCubemap, imageList);
+            bool result = osgVerse::saveKtx2(fout, useCubemap, options, imageList);
             return result ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
         }
         else
             imageList.push_back(imagePtr);
 
-        bool result = osgVerse::saveKtx2(fout, false, imageList);
+        bool result = osgVerse::saveKtx2(fout, false, options, imageList);
         return result ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 };

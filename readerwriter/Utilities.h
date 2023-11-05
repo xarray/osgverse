@@ -4,6 +4,7 @@
 #include <osg/Transform>
 #include <osg/Geometry>
 #include <osg/Camera>
+#include <osgDB/ReaderWriter>
 #ifdef __EMSCRIPTEN__
 #   include <emscripten/fetch.h>
 #   include <emscripten.h>
@@ -47,6 +48,9 @@ namespace osgVerse
         virtual ~TextureOptimizer();
         void deleteSavedTextures();
 
+        void setOptions(osgDB::Options* op) { _ktxOptions = op; }
+        osgDB::Options* getOptions() { return _ktxOptions.get(); }
+
         virtual void apply(osg::Drawable& drawable);
         virtual void apply(osg::Geode& geode);
         virtual void apply(osg::Node& node);
@@ -56,6 +60,7 @@ namespace osgVerse
         void applyTexture(osg::Texture* tex, unsigned int unit);
         osg::Image* compressImage(osg::Texture* tex, osg::Image* img, bool toLoad);
 
+        osg::ref_ptr<osgDB::Options> _ktxOptions;
         std::vector<std::string> _savedTextures;
         std::string _textureFolder;
         bool _preparingForInlineFile;
