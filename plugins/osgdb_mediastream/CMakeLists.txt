@@ -5,13 +5,13 @@ SET(LIBRARY_FILES
 
 #########################################
 FIND_PATH(ZLMEDIAKIT_INCLUDE_DIR ZLMediaKit/Common/MediaSource.h
-    PATHS ${VERSE_3RDPARTY_PATH}/include/ZLMediaKit
+    PATHS ${THIRDPARTY_ROOT}/include/ZLMediaKit
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(ZLMEDIAKIT_LIB_DIR libzlmediakit.so zlmediakit.lib
-    PATHS ${VERSE_3RDPARTY_PATH}/lib
+    PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )

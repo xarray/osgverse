@@ -136,7 +136,7 @@ std::vector<Symbol*> SymbolManager::querySymbols(const osg::Polytope& polytope) 
 std::vector<Symbol*> SymbolManager::querySymbols(const osg::Vec2d& proj, double e) const
 {
     // TODO: use RTree query
-    osg::BoundingBoxd bb;
+    osg::BoundingBox bb;
     bb._min.set(proj[0] - e, proj[1] - e, -1.0);
     bb._max.set(proj[0] + e, proj[1] + e, 1.0);
 

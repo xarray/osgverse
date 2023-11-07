@@ -157,6 +157,10 @@ Our project is already tested on graphics cards listed as below:
     - $ cmake ..
     - $ cmake --build .
   - You may also choose to use cmake-gui and set OSG related options in GUI mode.
+  - For UWP build:
+    - First download Windows Store SDk or latest Windows 11 SDK (with VS2022).
+    - Run commands below in terminal:
+      - $ cmake -G "Visual Studio 17 2022" -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" ..
 2. Desktop Mac OSX
   - TBD...
 3. Android

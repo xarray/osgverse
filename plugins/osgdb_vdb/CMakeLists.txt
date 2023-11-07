@@ -5,31 +5,31 @@ SET(LIBRARY_FILES
 
 #########################################
 FIND_PATH(OPENVDB_INCLUDE_DIR openvdb/openvdb.h
-    PATHS ${VERSE_3RDPARTY_PATH}/include
+    PATHS ${THIRDPARTY_ROOT}/include
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(OPENVDB_BOOST_INCLUDE_DIR boost/type.hpp
-    PATHS ${VERSE_3RDPARTY_PATH}/include
+    PATHS ${THIRDPARTY_ROOT}/include
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(OPENVDB_TBB_INCLUDE_DIR tbb/blocked_range.h
-    PATHS ${VERSE_3RDPARTY_PATH}/lib
+    PATHS ${THIRDPARTY_ROOT}/lib
     /usr/include
     /usr/local/include
 )
 
 FIND_PATH(OPENVDB_LIB_DIR libopenvdb.so openvdb.lib
-    PATHS ${VERSE_3RDPARTY_PATH}/lib
+    PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 
 FIND_PATH(OPENVDB_TBB_LIB_DIR libtbb.so tbb.lib
-    PATHS ${VERSE_3RDPARTY_PATH}/lib
+    PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
