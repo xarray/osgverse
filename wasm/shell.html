@@ -74,8 +74,10 @@
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
       var spinnerElement = document.getElementById('spinner');
+      var extensions = "undefined";
 
       var Module = {
+        arguments: [],
         preRun: [],
         postRun: [],
         print: (function() {
@@ -97,10 +99,7 @@
         })(),
         canvas: (function() {
           var canvas = document.getElementById('canvas');
-
-          // TODO: tell main module about the extensions
-          var extensions = canvas.getContext('webgl').getSupportedExtensions();
-          console.log("Supported extensions: "); console.log(extensions);
+          extensions = canvas.getContext('webgl').getSupportedExtensions();
 
           // As a default initial behavior, pop up an alert when webgl context is lost. To make your
           // application robust, you may want to override this behavior before shipping!
@@ -134,6 +133,10 @@
         monitorRunDependencies: function(left) {
           this.totalDependencies = Math.max(this.totalDependencies, left);
           Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+        },
+        onRuntimeInitialized: function() {
+            Module.arguments.push("--extensions");
+            Module.arguments.push(extensions.toString());
         }
       };
 
