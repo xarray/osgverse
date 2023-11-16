@@ -1,4 +1,5 @@
 #include <nanoid/nanoid.h>
+#include <osg/ProxyNode>
 #include <osgDB/Serializer>
 #include "ScriptBase.h"
 using namespace osgVerse;
@@ -47,12 +48,30 @@ ScriptBase::Result ScriptBase::create(const std::string& compName,
 ScriptBase::Result ScriptBase::create(const std::string& type, const std::string& uri,
                                       const PropertyMap& properties)
 {
+    osg::ref_ptr<osgDB::Options> opt;
+    for (PropertyMap::const_iterator itr = properties.begin();
+         itr != properties.end(); ++itr)
+    {
+        if (itr->first == "Options")
+        {
+            if (!opt) opt = new osgDB::Options(itr->second);
+            else opt->setOptionString(itr->second);
+        }
+    }
+
     osg::Object* obj = NULL; std::string t;
     std::transform(type.begin(), type.end(), t.begin(), tolower);
-    if (t == "object") obj = osgDB::readObjectFile(uri);
-    else if (t == "image") obj = osgDB::readImageFile(uri);
-    else if (t == "shader") obj = osgDB::readShaderFile(uri);
-    else obj = osgDB::readNodeFile(uri);
+    if (t == "image")
+    {
+        OSG_WARN << "[ScriptBase] Loading image from proxy is not implemented" << std::endl;
+        //obj = osgDB::readImageFile(uri);
+    }
+    else
+    {
+        osg::ProxyNode* proxy = new osg::ProxyNode; obj = proxy;
+        proxy->setDatabaseOptions(opt.get());
+        proxy->setFileName(0, uri);  //obj = osgDB::readNodeFile(uri);
+    }
 
     if (obj != NULL)
     {

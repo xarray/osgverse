@@ -70,7 +70,8 @@ int main(int argc, char** argv)
         else optData = "UseDXT=0 UseETC=0";
     }
 
-    // FIXME: These should be called in caller.js for testing osgVerse scripting module
+    // FIXME: These will be called in caller.js for testing osgVerse scripting module
+#if false
     osgDB::Options* options = new osgDB::Options(optData);
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8053/Tile_+958_+8053.osgb", options));
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+958_+8054/Tile_+958_+8054.osgb", options));
@@ -81,6 +82,7 @@ int main(int argc, char** argv)
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+960_+8053/Tile_+960_+8053.osgb", options));
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+960_+8054/Tile_+960_+8054.osgb", options));
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+960_+8055/Tile_+960_+8055.osgb", options));
+#endif
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
