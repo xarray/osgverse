@@ -8,11 +8,14 @@
 - 已完成的"优化/除虫"任务如果需要再次优化/除虫，则在原列表行直接改动
 
 #### TODO列表
-| 模块      | 所属库       | 类型     | 完成情况           | 对应版本 | 具体内容描述 | 备注 |
-|-----------|--------------|----------|--------------------|----------|--------------|------|
+| 模块      | 所属库        | 类型     | 完成情况           | 对应版本  | 具体内容描述 | 备注 |
+|-----------|--------------|----------|-------------------|----------|--------------|------|
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持backward-cpp自动打印崩溃时的程序堆栈 | |
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持Static编译流程 | |
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持MinGW编译流程 | |
+| 编译      |              | 新增     |                    | initial  | 支持Docker自动编译Angle | |
+| 编译      |              | 新增     |                    | initial  | 支持Docker自动编译依赖库，OSG，以及osgVerse的多版本程序包 | |
+| 编译      |              | 新增     |                    | initial  | 支持UWP编译流程 | |
 | 编译      |              | 除虫     | :heavy_check_mark: | initial  | 解决ept插件和laszip的Ubuntu编译问题 | |
 | 编译/渲染 |              | 新增     | :heavy_check_mark: | initial  | 支持GL3 Core Profile | |
 | 编译/渲染 |              | 新增     | :heavy_check_mark: | initial  | 支持GLES2 / GLES3 | |
@@ -20,9 +23,12 @@
 | 编译/渲染 |              | 新增     | 50%                | initial  | 支持GLSL 1.2，可以运行在虚拟机和低端国产显卡上 | 目前着色器可以编译通过，但兆芯笔记本运行无结果 |
 | 编译      |              | 新增     | 50%                | initial  | 支持Android编译流程，支持直接纳入Android Studio | 目前已经可以编译Android库 |
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |
-| 编译      |              | **新增** | :heavy_check_mark: | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
+| 编译      |              | 新增     | 20%                | initial  | 支持摩尔线程，景嘉微，Quadro，树莓派，RISC-V的编译和测试运行 | |
+| 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
 | 编译      |              | 新增     | 50%                | initial  | 通过Emscripten支持WebGL1/2接口 | 已经支持WebGL1 |
+| 编译      |              | 新增     |                    | initial  | 测试手机端浏览器的支持情况，微信，Chrome，Opera等 | |
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持流媒体推流和拉流，支持WebRTC云渲染 | |
+| 渲染      | pipeline     | 新增     |                    | initial  | 支持集群渲染，多机自动帧同步，网格调整，融合带调整 | |
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 不要用NodeMask来管理Deferred场景，避免影响用户代码 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox对于大坐标场景显示错误，并且被裁切 | |
@@ -40,7 +46,7 @@
 | 渲染      | pipeline     | 优化     |                    | initial  | 目前没办法处理Viewer多线程DrawThreadPerContext和ThreadPerCamera | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 考虑初步支持HTC VIVE VR渲染 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 全屏/窗口切换或者缩放窗口大小后，多层阴影显示不正确 | |
-| 渲染      | pipeline     | **新增** |                    | initial  | 支持非MRT的流水线，且GBuffer Pass可以支持PBR透明体和前向光照 | |
+| 渲染      | pipeline     | 新增     | :heavy_check_mark: | initial  | 支持非MRT的流水线，且GBuffer Pass可以支持PBR透明体和前向光照 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于小物件，AO的效果噪声比较严重，且Bloom结果不好 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 对于简单几何体，光照容易产生异常边界线，效果不好 | |
@@ -50,11 +56,10 @@
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现OSG 311版本中渲染报错，和Texture2DArray有关 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现311版本中缩放窗口后多层阴影的问题，因为没有实现resize() | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现摩尔S50/S80显卡上延迟和非延迟场景的深度融合错误 | |
-| 渲染      | pipeline     | 优化     |                    | initial  | 后处理Bloom的模糊处理方法不理想，目前可能会产生锯齿 | |
+| 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 后处理Bloom的模糊处理方法不理想，目前可能会产生锯齿 | |
 | 渲染      | pipeline     | 新增     | 50%                | initial  | 支持后处理抗锯齿方案，FXAA/TAA | 目前已经支持FXAA |
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 支持自己扩展Pipeline::Stage，增加一个测试案例演示使用NV HBAO | |
 | 渲染      | pipeline     | 新增     | :heavy_check_mark: | initial  | 通过脚本的方式来管理标准和自定义的Pipeline | |
-| 渲染      | pipeline     | 新增     |                    | initial  | 尝试OSG与Vulkan的结合方案（gl_vk_simple_interop/gl_vk_raytrace_interop） | |
 | 插件      | plugins      | 新增     | 80%                | initial  | 支持伪插件方式自动替换PBR贴图顺序(?.D4,S3,N3,X1M1R1.pbrlayout) | 已实现，未测试 |
 | 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用libhv支持多种网络协议，替代curl插件 | |
 | 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用leveldb支持数据库读写操作，可以用数据库来存储osgb文件 | |
@@ -66,38 +71,13 @@
 | 数据读写  | readerwriter | 优化     | 50%                | initial  | FBX和GLTF插件支持导入角色和角色动画并显示 | 已实现GLTF导入角色 |
 | 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持KTX纹理格式的读取和写入，支持纹理压缩功能 | |
 | 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持默认常见图片格式的读取，不需要额外插件，主要用于WASM等场合 | |
+| 数据读写  | readerwriter | 新增     |                    | initial  | 支持倾斜摄影模型的相邻层合并，顶层合并，3dtiles读取和转换 | |
+| 数据读写  | readerwriter | 新增     |                    | initial  | 支持倾斜摄影数据的自动修改处理框架| |
 | 模型/动画 | animation    | 优化     | :heavy_check_mark: | initial  | PlayerAnimation支持直接输入角色骨骼和动画数据 | |
-| 脚本      | ui           | 新增     |                    | initial  | 考虑合适的方式接入C#和Python等脚本语言 | |
+| 模型/动画 | animation    | 优化     |                    | initial  | PlayerAnimation支持外部数据驱动 | |
+| 模型/动画 | animation    | 优化     |                    | initial  | 支持EaseMotion，路径动画，DoTween形式的纤程动画 | |
+| 模型/动画 | animation    | 优化     |                    | initial  | 支持PhysX引擎的刚体，步行漫游，驾驶 | |
+| 模型/动画 | animation    | 优化     |                    | initial  | 支持初步的粒子系统，基于计算着色器 | |
+| 脚本      | ui           | 新增     |                    | initial  | 考虑SWIG的方式接入C#和Python等脚本语言 | |
 | 脚本      | ui           | 新增     | 80%                | initial  | 使用Serialization映射OSG和osgVerse的核心函数 | OSG函数已经全部映射完成 |
-| 脚本      | ui           | 新增     |                    | initial  | 支持通过脚本创建UserComponent接口以及Verse插件 | |
-| 编辑器    | applications | 新增     |                    | initial  | 通过imgui docker支持窗口的位置和大小自动对齐 | |
-| 编辑器    | applications | 新增     |                    | initial  | 显示一个独立的XYZ轴向坐标，用来指示3D场景坐标系 | |
-| 编辑器    | applications | 新增     |                    | initial  | 显示工具图标和播放控制按钮，标题栏，工程名 | |
-| 编辑器    | applications | 新增     |                    | initial  | 点击场景对象，自动更新层次编辑器和属性编辑器显示 | |
-| 编辑器    | applications | 新增     |                    | initial  | 层次编辑器支持共享节点，被隐藏节点的特殊显示 | |
-| 编辑器    | applications | 除虫     |                    | initial  | 大坐标模型在UI操作Transform移动时，数据变化异常 | |
-| 编辑器    | applications | 新增     |                    | initial  | 漫游器支持以选中对象为中心旋转，并且自动识别对象实际几何中心 | |
-| 编辑器    | applications | 新增     |                    | initial  | 节点Mask采用类似Unity Layer的下拉列表，可以自定义 | |
-| 编辑器    | applications | 新增     |                    | initial  | 层次编辑器支持选择多个节点，显示包围盒 | |
-| 编辑器    | applications | 新增     |                    | initial  | 层次编辑器支持剪切/拷贝/粘贴节点，共享/解除共享节点 | |
-| 编辑器    | applications | 新增     |                    | initial  | 支持新建相机对象(用于RTT)，新建光源对象 | |
-| 编辑器    | applications | 新增     |                    | initial  | 支持LOD对象和PagedLOD对象，层次编辑器合理显示PagedLOD层次 | |
-| 编辑器    | applications | 新增     |                    | initial  | 层次编辑器在MainCamera下自动加入所有Slave(以及Stage)显示 | |
-| 编辑器    | applications | 新增     |                    | initial  | 属性编辑器中删除属性，复制/粘贴属性，上移/下移属性 | |
-| 编辑器    | applications | 新增     |                    | initial  | 属性编辑器中新增、删除、替换纹理图片，对接资源管理 | |
-| 编辑器    | applications | 新增     |                    | initial  | 属性编辑器中显示标准属性Shader/Attribute/Camera/Slave/Lod/Light | |
-| 编辑器    | applications | 新增     |                    | initial  | 属性编辑器中加载插件，从插件中新建UserComponent属性 | |
-| 编辑器    | applications | 新增     |                    | initial  | 搭建leveldb资源数据库，导入/管理：模型/Tile/纹理/其它资源 | |
-| 编辑器    | applications | 新增     |                    | initial  | 自动获取和通过leveldb数据库管理已导入场景的资源 | |
-| 编辑器    | applications | 新增     |                    | initial  | 资源窗口中显示资源列表，记录所有共享节点 | |
-| 编辑器    | applications | 新增     |                    | initial  | 蜘蛛窗口中列出基本变量/基本方法/UserComponent属性方法 | |
-| 编辑器    | applications | 新增     |                    | initial  | 蜘蛛窗口中选择方法并新建蜘蛛节点，连接蜘蛛节点 | |
-| 编辑器    | applications | 新增     |                    | initial  | 蜘蛛窗口中剪切，复制，删除蜘蛛节点，成组/解组 | |
-| 编辑器    | applications | 新增     |                    | initial  | 保存蜘蛛到当前节点(与节点对应，存为一个ValueObject) | |
-| 编辑器    | applications | 新增     |                    | initial  | 时间线窗口中列出基本变量/基本方法/UserComponent属性方法 | |
-| 编辑器    | applications | 新增     |                    | initial  | 时间线窗口中选择方法并新建节点，剪辑节点 | |
-| 编辑器    | applications | 新增     |                    | initial  | 时间线窗口中剪切，复制，删除节点，修改通道属性 | |
-| 编辑器    | applications | 新增     |                    | initial  | 保存时间线到当前节点(与节点对应，存为一个ValueObject) | |
-| 编辑器    | applications | 新增     |                    | initial  | 日志窗口中，捕捉错误信息并通过backward-cpp简单显示堆栈内容 | |
-| 编辑器    | applications | 新增     |                    | initial  | 日志窗口中自动清除过多的控制台数据，选中数据可复制 | |
 |<img width=40/>|          |<img width=40/>|<img width=40/>|          | | |

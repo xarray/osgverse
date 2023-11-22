@@ -5,6 +5,7 @@
 #include <osg/Geometry>
 #include <osgDB/ConvertUTF>
 #include <osgDB/FileNameUtils>
+#include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
 #include "pipeline/Utilities.h"
 #include "LoadSceneFBX.h"
@@ -45,7 +46,13 @@ namespace osgVerse
             _root->addChild(mt.get());
 
             const ofbx::Pose* pData = mesh.getPose();
-            if (pData != NULL) OSG_NOTICE << "[LoaderFBX] <POSE> not implemented\n";
+            if (pData != NULL)
+            {
+                OSG_NOTICE << "[LoaderFBX] <POSE> " << pData->name << " not implemented\n";
+
+                const ofbx::Object* node = pData->getNode();
+                printf("(%s) %s: %d\n", pData->name, node->name, node->getType());
+            }
 
             const ofbx::Geometry* gData = mesh.getGeometry();
             if (gData != NULL)
@@ -176,15 +183,17 @@ namespace osgVerse
                 OSG_NOTICE << "[LoaderFBX] No material on this geometry\n";
         }
 
-        if (gData.getSkin())
+        const ofbx::Skin* skin = gData.getSkin();
+        if (skin != NULL)
         {
-            OSG_NOTICE << "[LoaderFBX] <SKIN> not implemented\n";
+            OSG_NOTICE << "[LoaderFBX] <SKIN> " << skin->name << " not implemented\n";
             // TODO
         }
 
-        if (gData.getBlendShape())
+        const ofbx::BlendShape* bs = gData.getBlendShape();
+        if (bs != NULL)
         {
-            OSG_NOTICE << "<BLENDSHAPE> not implemented\n";
+            OSG_NOTICE << "[LoaderFBX] <BLENDSHAPE> " << bs->name << " not implemented\n";
             // TODO
         }
         return geode.release();
@@ -310,11 +319,14 @@ namespace osgVerse
                         image = rw->readImage(ss).getImage();
                         image->setFileName(originalName);
                     }
-                    else
-                        image = osgDB::readImageFile(fileName);
+
                 }
-                else
-                    image = osgDB::readImageFile(fileName);
+
+                if (!image)
+                {
+                    std::string realFile = osgDB::findDataFile(fileName);
+                    if (!realFile.empty()) image = osgDB::readImageFile(realFile);
+                }
 
                 if (!image)
                 {
