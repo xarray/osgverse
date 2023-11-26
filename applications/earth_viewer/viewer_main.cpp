@@ -39,8 +39,8 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-#define TEST_PIPELINE 0
-#define TEST_SYMBOLS 1
+#define TEST_PIPELINE 1
+#define TEST_SYMBOLS 0
 
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
@@ -256,7 +256,7 @@ int main(int argc, char** argv)
 #if TEST_PIPELINE
         // Create places
         osgEarth::Viewpoint vp0 = createPlaceOnEarth(
-            sceneRoot.get(), mapNode.get(), "../models/Sponza/Sponza.gltf",
+            sceneRoot.get(), mapNode.get(), BASE_DIR "/models/Sponza/Sponza.gltf",
             osg::Matrix::scale(1.0, 1.0, 1.0) * osg::Matrix::rotate(0.1, osg::Z_AXIS),
             119.008f, 25.9f, 15.0f, -40.0f);
 

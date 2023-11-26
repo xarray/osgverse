@@ -239,7 +239,7 @@ ELSE(OSG_ROOT)
         /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
     )
 ENDIF(OSG_ROOT)
-SET(BULLET_DEBUG_POSTFIX "_Debug" CACHE STRING "Postfix of Bullet built-libraries")
+SET(VERSE_DEBUG_POSTFIX "_Debug" CACHE STRING "Postfix of thirdparty built-libraries")
 SET(OSG_DEBUG_POSTFIX "d" CACHE STRING "Postfix of OSG built-libraries")
 
 SET(OSG_VERSION_THREADS "")

@@ -11,9 +11,9 @@ NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseModeling)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 IF(BULLET_FOUND)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug BulletDynamics${BULLET_DEBUG_POSTFIX} optimized BulletDynamics)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug BulletCollision${BULLET_DEBUG_POSTFIX} optimized BulletCollision)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug LinearMath${BULLET_DEBUG_POSTFIX} optimized LinearMath)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug BulletDynamics${VERSE_DEBUG_POSTFIX} optimized BulletDynamics)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug BulletCollision${VERSE_DEBUG_POSTFIX} optimized BulletCollision)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug LinearMath${VERSE_DEBUG_POSTFIX} optimized LinearMath)
 ENDIF(BULLET_FOUND)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
