@@ -233,13 +233,17 @@ namespace osgVerse
         {
             gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
                 spp.shaders.gbufferVS, spp.shaders.gbufferFS, 5,
+#ifdef VERSE_WASM
                 "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_INT8,
-#ifdef VERSE_WASM
                 "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #else
+                "NormalBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
+                "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
+                "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
+                "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 #endif
         }

@@ -58,7 +58,8 @@ void main()
     // Components common to all light types
     vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);
     vec3 R = reflect(-viewDir, eyeNormal);
-    vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
+    vec3 albedo = pow(diffuseMetallic.rgb, vec3(2.2));
+    vec3 specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
     float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;
     float nDotV = max(dot(eyeNormal, viewDir), 0.0);
 

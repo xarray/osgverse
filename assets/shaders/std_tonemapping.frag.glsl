@@ -44,13 +44,9 @@ void main()
     vec4 iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);
     float lumAvg = VERSE_TEX2D(LuminanceBuffer, vec2(0.5, 0.5)).r;
 
+    color.rgb = color.rgb + iblColor.rgb + colorBloom.rgb;
     if (true)
-    {
-        color = pow(color + iblColor + colorBloom, vec4(2.2));
         color.rgb = ACESToneMapping(color.rgb, LuminanceFactor.x + lumAvg * LuminanceFactor.y);
-        fragData = vec4(color.rgb, 1.0);
-    }
-    else
-        fragData = vec4(color + iblColor + colorBloom);
+    fragData = vec4(color.rgb, 1.0);
     VERSE_FS_FINAL(fragData);
 }

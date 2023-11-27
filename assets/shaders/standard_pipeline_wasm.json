@@ -350,7 +350,8 @@
                                 "    // Components common to all light types",
                                 "    vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);",
                                 "    vec3 R = reflect(-viewDir, eyeNormal);",
-                                "    vec3 albedo = diffuseMetallic.rgb, specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;",
+                                "    vec3 albedo = pow(diffuseMetallic.rgb, vec3(2.2));  // srgb -> linear",
+                                "    vec3 specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;",
                                 "    float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;",
                                 "    float nDotV = max(dot(eyeNormal, viewDir), 0.0);",
 
@@ -880,12 +881,9 @@
                                 "    vec4 iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);",
                                 "    float lumAvg = VERSE_TEX2D(LuminanceBuffer, vec2(0.5, 0.5)).r;",
 
-                                "    if (true) {",
-                                "        color = pow(color + iblColor + colorBloom, vec4(2.2));",
+                                "    color.rgb = color.rgb + iblColor.rgb + colorBloom.rgb;",
+                                "    if (true)",
                                 "        color.rgb = ACESToneMapping(color.rgb, LuminanceFactor.x + lumAvg * LuminanceFactor.y);",
-                                "        fragData = vec4(color.rgb, 1.0);",
-                                "    } else",
-                                "        fragData = vec4(color + iblColor + colorBloom);",
                                 "    VERSE_FS_FINAL(fragData);",
                                 "}"
                             ]
