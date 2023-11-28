@@ -1,7 +1,10 @@
 SET(LIB_NAME osgVerseAnimation)
-SET(LIBRARY_INCLUDE_FILES PlayerAnimation.h PhysicsEngine.h Utilities.h)
+SET(LIBRARY_INCLUDE_FILES
+    PlayerAnimation.h BlendShapeAnimation.h
+    PhysicsEngine.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp)
+    PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp
+    BlendShapeAnimation.cpp)
 
 IF(BULLET_FOUND)
 	SET(LIBRARY_FILES ${LIBRARY_FILES} PhysicsEngine.cpp Utilities.cpp)

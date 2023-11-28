@@ -8,6 +8,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
+#include "animation/BlendShapeAnimation.h"
 #include "pipeline/Utilities.h"
 #include <libhv/all/client/requests.h>
 #define DISABLE_SKINNING_DATA 0
@@ -772,8 +773,14 @@ namespace osgVerse
                 OSG_WARN << "[LoaderGLTF] Unsupported target " << attrib->first << " with "
                          << compNum << "-components and dataSize=" << compSize << std::endl;
         }
-        // Save targets to specified geometry callback?
-        // TODO
+
+        // Save targets to specified geometry callback
+        BlendShapeAnimation* bsa = dynamic_cast<BlendShapeAnimation*>(geom->getUpdateCallback());
+        if (!bsa) { bsa = new BlendShapeAnimation; geom->addUpdateCallback(bsa); }
+
+        BlendShapeAnimation::BlendShapeData* bsd = new BlendShapeAnimation::BlendShapeData;
+        bsd->vertices = va; bsd->normals = na; bsd->tangents = ta;
+        bsa->addBlendShapeData(bsd);
     }
 
     void LoaderGLTF::applyBlendshapeWeights(osg::Geode* geode, const std::vector<double>& weights,
@@ -787,7 +794,12 @@ namespace osgVerse
         }
 
         // Save names and weights to specified geometry callback
-        // TODO
+        for (unsigned int i = 0; i < geode->getNumDrawables(); ++i)
+        {
+            BlendShapeAnimation* bsa = dynamic_cast<BlendShapeAnimation*>(
+                geode->getDrawable(i)->getUpdateCallback());
+            if (bsa) bsa->apply(names, weights);
+        }
     }
 
     osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary)
