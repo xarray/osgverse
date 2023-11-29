@@ -213,7 +213,8 @@ namespace osgVerse
             osg::Node* skeletonRoot = _nodeCreationMap[sd.skeletonBaseIndex];
             sd.skeletonRoot = skeletonRoot ? skeletonRoot->asGroup() : NULL;
 #if !DISABLE_SKINNING_DATA
-            sd.meshRoot = new osg::Geode; sd.meshRoot->addUpdateCallback(sd.player.get());
+            sd.meshRoot = new osg::Geode; sd.meshRoot->setName("CharacterGeode");
+            sd.meshRoot->addUpdateCallback(sd.player.get());
             if (sd.skeletonRoot.valid()) sd.skeletonRoot->addChild(sd.meshRoot.get());
             else _root->addChild(sd.meshRoot.get());
 #endif
@@ -283,8 +284,12 @@ namespace osgVerse
         osg::ref_ptr<osg::Geode> geode = (node.mesh >= 0) ? new osg::Geode : NULL;
         bool emptyTRS = (node.translation.empty() && node.rotation.empty()
                      && node.scale.empty()), emptyM = node.matrix.empty();
-        if (geode.valid()) _deferredMeshList.push_back(
-            DeferredMeshData(geode.get(), _modelDef.meshes[node.mesh], node.skin));
+        if (geode.valid())
+        {
+            geode->setName(node.name + "_Geode");
+            _deferredMeshList.push_back(
+                DeferredMeshData(geode.get(), _modelDef.meshes[node.mesh], node.skin));
+        }
         /*if (emptyTRS && emptyM && node.children.empty())
         {
             geode->setName(node.name); _nodeCreationMap[id] = geode.get();
@@ -329,6 +334,7 @@ namespace osgVerse
             std::vector<float> weightList;
 
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+            geom->setName(mesh.name + "_" + std::to_string(i));
             geom->setUseDisplayList(false);
             geom->setUseVertexBufferObjects(true);
 
@@ -776,7 +782,11 @@ namespace osgVerse
 
         // Save targets to specified geometry callback
         BlendShapeAnimation* bsa = dynamic_cast<BlendShapeAnimation*>(geom->getUpdateCallback());
-        if (!bsa) { bsa = new BlendShapeAnimation; geom->addUpdateCallback(bsa); }
+        if (!bsa)
+        {
+            bsa = new BlendShapeAnimation; bsa->setName(geom->getName() + "BsCallback");
+            geom->addUpdateCallback(bsa);
+        }
 
         BlendShapeAnimation::BlendShapeData* bsd = new BlendShapeAnimation::BlendShapeData;
         bsd->vertices = va; bsd->normals = na; bsd->tangents = ta;

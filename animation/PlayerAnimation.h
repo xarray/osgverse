@@ -7,6 +7,7 @@
 
 namespace osgVerse
 {
+    class BlendShapeAnimation;
 
     /** The player animation support class */
     class PlayerAnimation : public osg::NodeCallback
@@ -91,11 +92,19 @@ namespace osgVerse
                            SetJointWeightFunc func, void* userData);
         void seek(const std::string& key, float timeRatio);
 
+        void setBlendShape(const std::string& key, float weight);
+        void clearAllBlendShapes();
+
+        BlendShapeAnimation* getBlendShapeCallback(int i) { return _blendshapes[i].get(); }
+        const BlendShapeAnimation* getBlendShapeCallback(int i) const { return _blendshapes[i].get(); }
+        unsigned int getNumBlendShapeCallbacks() const { return _blendshapes.size(); }
+
     protected:
         bool initializeInternal();
         bool loadAnimationInternal(const std::string& key);
         void updateSkeletonMesh(osg::Geometry& geom);
 
+        std::vector<osg::ref_ptr<BlendShapeAnimation>> _blendshapes;
         std::vector<osg::ref_ptr<osg::StateSet>> _meshStateSetList;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;

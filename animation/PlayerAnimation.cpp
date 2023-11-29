@@ -1,5 +1,6 @@
 #include "PlayerAnimation.h"
 #include "PlayerAnimationInternal.h"
+#include "BlendShapeAnimation.h"
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/TriangleIndexFunctor>
@@ -165,6 +166,7 @@ namespace ozz
             { for (size_t i = 0; i < nodes.size(); ++i) _nodeMap[nodes[i]] = i; }
 
             ozz::vector<OzzMesh>& getMeshes() { return _meshes; }
+            std::vector<osg::ref_ptr<osgVerse::BlendShapeAnimation>>& getBS() { return _blendshapes; }
             std::vector<osg::ref_ptr<osg::StateSet>>& getStateSets() { return _stateSetList; }
 
             virtual void apply(osg::Geode& node)
@@ -281,6 +283,11 @@ namespace ozz
                     count = 0;
                 }
 
+                // Handle blendshapes
+                BlendShapeAnimation* bsa =
+                    dynamic_cast<osgVerse::BlendShapeAnimation*>(geom.getUpdateCallback());
+                _blendshapes.push_back(bsa != NULL ? bsa : NULL);
+
                 // Apply to OZZ mesh
                 osg::TriangleIndexFunctor<CollectTriangleOperator> functor;
                 functor.startIndex = 0; geom.accept(functor);
@@ -316,6 +323,7 @@ namespace ozz
             std::map<osg::Transform*, uint16_t> _nodeMap;
             std::vector<osg::ref_ptr<osg::StateSet>> _stateSetList;
             ozz::vector<OzzMesh> _meshes;
+            std::vector<osg::ref_ptr<osgVerse::BlendShapeAnimation>> _blendshapes;
         };
 
         struct AnimationConverter
@@ -542,7 +550,7 @@ bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
     // Load mesh data from 'meshRoot' and 'jointDataMap'
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
     meshRoot.accept(cmv); ozz->_meshes = cmv.getMeshes();
-    _meshStateSetList = cmv.getStateSets();
+    _meshStateSetList = cmv.getStateSets(); _blendshapes = cmv.getBS();
 #if 0
     printPlayerData(ozz);
 #endif
@@ -559,7 +567,7 @@ bool PlayerAnimation::initialize(const std::vector<osg::Transform*>& nodes,
 
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
     cmv.initialize(meshList); ozz->_meshes = cmv.getMeshes();
-    _meshStateSetList = cmv.getStateSets();
+    _meshStateSetList = cmv.getStateSets(); _blendshapes = cmv.getBS();
 #if 0
     printPlayerData(ozz);
 #endif
@@ -761,6 +769,27 @@ void PlayerAnimation::seek(const std::string& key, float timeRatio)
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     sampler.timeRatio = osg::clampBetween(timeRatio, 0.0f, 1.0f);
     sampler.resetTimeRatio = true;
+}
+
+void PlayerAnimation::setBlendShape(const std::string& key, float weight)
+{
+    for (size_t i = 0; i < _blendshapes.size(); ++i)
+    {
+        BlendShapeAnimation::BlendShapeData* bsd = (!_blendshapes[i]) ? NULL
+                                                 : _blendshapes[i]->getBlendShapeData(key);
+        if (bsd != NULL) bsd->weight = weight;
+    }
+}
+
+void PlayerAnimation::clearAllBlendShapes()
+{
+    for (size_t i = 0; i < _blendshapes.size(); ++i)
+    {
+        if (!_blendshapes[i]) continue;
+        std::vector<osg::ref_ptr<BlendShapeAnimation::BlendShapeData>>& bsList =
+            _blendshapes[i]->getAllBlendShapes();
+        for (size_t j = 0; j < bsList.size(); ++j) bsList[j]->weight = 0.0f;
+    }
 }
 
 bool PlayerAnimation::initializeInternal()

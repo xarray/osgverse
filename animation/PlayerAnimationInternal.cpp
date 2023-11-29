@@ -1,5 +1,6 @@
 #include "PlayerAnimation.h"
 #include "PlayerAnimationInternal.h"
+#include "BlendShapeAnimation.h"
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/Notify>
@@ -433,6 +434,7 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
             geom->setUseDisplayList(false);
             geom->setUseVertexBufferObjects(true);
+            if (i < _blendshapes.size()) geom->addUpdateCallback(_blendshapes[i].get());
             if (i < _meshStateSetList.size()) geom->setStateSet(_meshStateSetList[i].get());
             else if (_drawSkeleton && i == numMeshes - 1)
                 geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
