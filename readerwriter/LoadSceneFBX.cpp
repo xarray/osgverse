@@ -49,9 +49,6 @@ namespace osgVerse
             if (pData != NULL)
             {
                 OSG_NOTICE << "[LoaderFBX] <POSE> " << pData->name << " not implemented\n";
-
-                const ofbx::Object* node = pData->getNode();
-                printf("(%s) %s: %d\n", pData->name, node->name, node->getType());
             }
 
             const ofbx::Geometry* gData = mesh.getGeometry();
@@ -186,14 +183,38 @@ namespace osgVerse
         const ofbx::Skin* skin = gData.getSkin();
         if (skin != NULL)
         {
-            OSG_NOTICE << "[LoaderFBX] <SKIN> " << skin->name << " not implemented\n";
-            // TODO
+            MeshSkinningData& msd = _meshBoneMap[geode.get()];
+            for (int i = 0; i < skin->getClusterCount(); ++i)
+            {
+                const ofbx::Cluster* cluster = skin->getCluster(i);
+                ofbx::Object* boneNode = const_cast<ofbx::Object*>(cluster->getLink());
+
+                if (boneNode && boneNode->getParent())
+                {
+                    MeshSkinningData::ParentAndBindPose parentAndPose(
+                        boneNode->getParent(), osg::Matrix(cluster->getTransformLinkMatrix().m));
+                    msd.boneLinks[boneNode] = parentAndPose;
+                }
+
+                std::vector<int> boneIndices(cluster->getIndicesCount());
+                std::vector<double> boneWeights(cluster->getWeightsCount());
+                memcpy(&boneIndices[0], cluster->getIndices(), cluster->getIndicesCount());
+                memcpy(&boneWeights[0], cluster->getWeights(), cluster->getWeightsCount());
+
+                // TODO: relationship among bones, indices and weights of current MESH?
+                // Actually requires:
+                // - Bone list: std::vector<osg::Transform*>
+                // - Skinned mesh list: std::vector<osg::Geometry*>
+                // - Relationship: std::map<osg::Geometry*, GeometryJointData>
+                //   (jointID/weight per vertex, inverse_bind_poses of joint)
+            }
         }
 
         const ofbx::BlendShape* bs = gData.getBlendShape();
         if (bs != NULL)
         {
             OSG_NOTICE << "[LoaderFBX] <BLENDSHAPE> " << bs->name << " not implemented\n";
+            MeshSkinningData& msd = _meshBoneMap[geode.get()];
             // TODO
         }
         return geode.release();

@@ -25,6 +25,13 @@ namespace osgVerse
         void createAnimation(const ofbx::AnimationCurveNode* curveNode);
         void createMaterial(const ofbx::Material* mtlData, osg::StateSet* ss);
 
+        struct MeshSkinningData
+        {
+            typedef std::pair<ofbx::Object*, osg::Matrix> ParentAndBindPose;
+            std::map<ofbx::Object*, ParentAndBindPose> boneLinks;
+        };
+
+        std::map<osg::Geode*, MeshSkinningData> _meshBoneMap;
         std::map<const ofbx::Material*, std::vector<osg::Geometry*>> _geometriesByMtl;
         std::map<const ofbx::Texture*, osg::ref_ptr<osg::Texture2D>> _textureMap;
         osg::ref_ptr<osg::MatrixTransform> _root;
