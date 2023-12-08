@@ -60,6 +60,8 @@ namespace osgVerse
         // Prune global light manager
         if (uv->getFrameStamp() && !(uv->getFrameStamp()->getFrameNumber() % 10))
             LightGlobalManager::instance()->prune(uv->getFrameStamp());
+        if (!LightGlobalManager::instance()->checkDirty())
+        { traverse(node, nv); return; }
 
         // Get and sort lights by its importance (e.g., last frame number, distance to eye)
         std::vector<LightGlobalManager::LightData> resultLights;
@@ -105,7 +107,7 @@ namespace osgVerse
     }
 
     LightGlobalManager::LightGlobalManager()
-    { _callback = new LightCullCallback; }
+    { _callback = new LightCullCallback; _dirty = false; }
 
     size_t LightGlobalManager::getSortedResult(std::vector<LightData>& result)
     {
@@ -124,7 +126,7 @@ namespace osgVerse
     void LightGlobalManager::remove(LightDrawable* light)
     {
         if (_lights.find(light) != _lights.end())
-            _lights.erase(_lights.find(light));
+        { _lights.erase(_lights.find(light)); _dirty = true; }
     }
 
     void LightGlobalManager::prune(const osg::FrameStamp* fs, int outdatedFrames)
@@ -134,7 +136,7 @@ namespace osgVerse
              itr != _lights.end();)
         {
             if ((itr->second.frameNo + outdatedFrames) >= frameNo) itr++;
-            else itr = _lights.erase(itr);
+            else { itr = _lights.erase(itr); _dirty = true; }
         }
     }
 }

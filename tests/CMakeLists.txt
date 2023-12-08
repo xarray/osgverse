@@ -46,6 +46,10 @@ NEW_TEST_EXECUTABLE(osgVerse_Test_Thread hybrid_thread_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Volume_Rendering volume_rendering_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Symbols symbols_test.cpp)
 
+IF(VERSE_BUILD_GPL)
+    NEW_TEST_EXECUTABLE(osgVerse_Test_Mesh_Boolean mesh_boolean_test.cpp)
+ENDIF(VERSE_BUILD_GPL)
+
 IF(BULLET_FOUND)
 	NEW_TEST_EXECUTABLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)
 	# TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test

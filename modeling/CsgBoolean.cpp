@@ -1,6 +1,10 @@
 #include <osg/Texture2D>
+#include <osg/Geode>
+#include <osgUtil/SmoothingVisitor>
 #include <mcut/mcut.h>
 #include "CsgBoolean.h"
+#include "MeshTopology.h"
+#include "Utilities.h"
 using namespace osgVerse;
 
 static std::map<CsgBoolean::Operation, McFlags> s_booleanOperators =
@@ -11,13 +15,57 @@ static std::map<CsgBoolean::Operation, McFlags> s_booleanOperators =
     { CsgBoolean::INTERSECTION, MC_DISPATCH_FILTER_FRAGMENT_SEALING_INSIDE | MC_DISPATCH_FILTER_FRAGMENT_LOCATION_BELOW }
 };
 
+osg::Node* CsgBoolean::process(Operation op, osg::Node* nodeA, osg::Node* nodeB)
+{
+    CsgBoolean csg(op);
+    if (!csg.setMesh(nodeA, true)) return NULL;
+    if (!csg.setMesh(nodeB, false)) return NULL;
+    return csg.generate();
+}
+
 CsgBoolean::CsgBoolean(Operation op)
 :   _operation(op)
 {
 }
 
-void CsgBoolean::setMesh(osg::Node* node, bool AorB)
+bool CsgBoolean::setMesh(osg::Node* node, bool AorB)
 {
+    /*MeshTopologyVisitor mtv;
+    mtv.setWeldingVertices(true);
+    if (node) node->accept(mtv);
+
+    osg::ref_ptr<osgVerse::MeshTopology> topology = mtv.generate();
+    std::vector<std::vector<uint32_t>> entities = topology->getEntityFaces();
+    for (size_t i = 0; i < entities.size(); ++i)
+    {
+        std::vector<uint32_t>& faces = entities[i];
+        printf("%d: %d\n", AorB, faces.size());
+    }*/
+
+    MeshCollector collector;
+    collector.setWeldingVertices(true);
+    //osg::ref_ptr<osg::Geometry> geom = topology->output();
+    //if (geom.valid()) collector.apply(*geom);
+    node->accept(collector);
+
+    const std::vector<osg::Vec3>& vertices = collector.getVertices();
+    const std::vector<unsigned int>& indices = collector.getTriangles();
+    MeshData& mesh = AorB ? _meshA : _meshB;
+    if (vertices.empty() || indices.empty()) return false;
+
+    mesh.vertexCoordsArray.resize(vertices.size() * 3);
+    for (size_t i = 0; i < vertices.size(); ++i)
+    {
+        const osg::Vec3& v = vertices[i];
+        mesh.vertexCoordsArray[3 * i + 0] = v[0];
+        mesh.vertexCoordsArray[3 * i + 1] = v[1];
+        mesh.vertexCoordsArray[3 * i + 2] = v[2];
+    }
+
+    mesh.faceSizesArray.resize(indices.size() / 3, 3);
+    mesh.faceIndicesArray.resize(indices.size());
+    memcpy(&(mesh.faceIndicesArray)[0], &indices[0], indices.size() * sizeof(uint32_t));
+    return true;
 }
 
 osg::Node* CsgBoolean::generate()
@@ -28,7 +76,10 @@ osg::Node* CsgBoolean::generate()
     McContext context = MC_NULL_HANDLE;
     McResult err = mcCreateContext(&context, MC_NULL_HANDLE);
     McFlags boolOpFlags = s_booleanOperators[_operation];
-    
+
+    McUint32 attempts = 1 << 3; McDouble epsilon = 1e-4;
+    err = mcBindState(context, MC_CONTEXT_GENERAL_POSITION_ENFORCEMENT_ATTEMPTS, sizeof(McUint32), (void*)&attempts);
+    err = mcBindState(context, MC_CONTEXT_GENERAL_POSITION_ENFORCEMENT_CONSTANT, sizeof(McDouble), &epsilon);
     err = mcDispatch(
         context,
         MC_DISPATCH_VERTEX_ARRAY_DOUBLE | // vertices are in array of doubles
@@ -72,7 +123,8 @@ osg::Node* CsgBoolean::generate()
         OSG_WARN << "[CsgBoolean] Failed to get connected components: " << err << std::endl;
         mcReleaseContext(context); return NULL;
     }
-    
+
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     for (uint32_t i = 0; i < numConnComps; ++i)
     {
         McConnectedComponent connComp = connectedComponents[i];
@@ -112,35 +164,46 @@ osg::Node* CsgBoolean::generate()
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to fragment location: " << err << std::endl; continue; }
         
         // Write vertices and faces to new geometry
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(ccVertexCount);
         for (uint32_t i = 0; i < ccVertexCount; ++i)
         {
             double x = ccVertices[(uint64_t)i * 3 + 0];
             double y = ccVertices[(uint64_t)i * 3 + 1];
             double z = ccVertices[(uint64_t)i * 3 + 2];
-            // TODO
+            (*va)[i] = osg::Vec3(x, y, z);
         }
         
         // For each face in CC
         int faceVertexOffsetBase = 0;
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
         for (uint32_t f = 0; f < ccFaceCount; ++f)
         {
             bool reverseWindingOrder = (fragmentLocation == MC_FRAGMENT_LOCATION_BELOW) &&
                                        (patchLocation == MC_PATCH_LOCATION_OUTSIDE);
             int faceSize = faceSizes.at(f);
+            if (faceSize > 3) OSG_WARN << "[CsgBoolean] Invalid face size: " << faceSize << std::endl;
             
             // For each vertex in face
             for (int v = (reverseWindingOrder ? (faceSize - 1) : 0);
                  (reverseWindingOrder ? (v >= 0) : (v < faceSize)); v += (reverseWindingOrder ? -1 : 1))
             {
                 const int ccVertexIdx = ccFaceIndices[(uint64_t)faceVertexOffsetBase + v];
-                // TODO
+                de->push_back(ccVertexIdx);
             }
             faceVertexOffsetBase += faceSize;
         }
         
-        // TODO: save to OSG node?
+        // Save to OSG geometry
+        osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+        geom->setUseDisplayList(false);
+        geom->setUseVertexBufferObjects(true);
+        geom->setVertexArray(va.get());
+        geom->addPrimitiveSet(de.get());
+        geode->addDrawable(geom.get());
     }
     mcReleaseConnectedComponents(context, (uint32_t)connectedComponents.size(), connectedComponents.data());
     mcReleaseContext(context);
-    return NULL;  // TODO
+
+    osgUtil::SmoothingVisitor smv; geode->accept(smv);
+    return geode.release();
 }

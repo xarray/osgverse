@@ -55,6 +55,7 @@ namespace osgVerse
     public:
         static LightGlobalManager* instance();
         LightCullCallback* getCallback() { return _callback.get(); }
+        bool checkDirty() { bool b = _dirty; _dirty = false; return b; }
 
         struct LightData
         {
@@ -64,7 +65,7 @@ namespace osgVerse
         };
         size_t getSortedResult(std::vector<LightData>& result);
 
-        void add(const LightData& ld) { _lights[ld.light] = ld; }
+        void add(const LightData& ld) { _lights[ld.light] = ld; _dirty = true; }
         void remove(LightDrawable* light);
         void prune(const osg::FrameStamp* fs, int outdatedFrames = 5);
 
@@ -72,6 +73,7 @@ namespace osgVerse
         LightGlobalManager();
         std::map<LightDrawable*, LightData> _lights;
         osg::ref_ptr<LightCullCallback> _callback;
+        bool _dirty;
     };
 }
 

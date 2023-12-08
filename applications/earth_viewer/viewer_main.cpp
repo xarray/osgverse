@@ -255,14 +255,14 @@ int main(int argc, char** argv)
 
 #if TEST_PIPELINE
         // Create places
-        osgEarth::Viewpoint vp0 = createPlaceOnEarth(
+        /*osgEarth::Viewpoint vp0 = createPlaceOnEarth(
             sceneRoot.get(), mapNode.get(), BASE_DIR "/models/Sponza/Sponza.gltf",
             osg::Matrix::scale(1.0, 1.0, 1.0) * osg::Matrix::rotate(0.1, osg::Z_AXIS),
             119.008f, 25.9f, 15.0f, -40.0f);
 
         osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
         interacter->addViewpoint(vp0);
-        viewer.addEventHandler(interacter.get());
+        viewer.addEventHandler(interacter.get());*/
 #endif
 
 #if TEST_SYMBOLS

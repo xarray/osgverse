@@ -15,8 +15,10 @@ namespace osgVerse
         enum Operation { A_NOT_B, B_NOT_A, UNION, INTERSECTION };
         CsgBoolean(Operation op);
         
-        void setMesh(osg::Node* node, bool AorB);
+        bool setMesh(osg::Node* node, bool AorB);
         osg::Node* generate();
+
+        static osg::Node* process(Operation op, osg::Node* nodeA, osg::Node* nodeB);
         
     protected:
         struct MeshData
