@@ -2,7 +2,8 @@ SET(LIB_NAME osgVerseModeling)
 SET(LIBRARY_INCLUDE_FILES MeshDeformer.h MeshTopology.h
                           Math.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    MeshDeformer.cpp MeshTopology.cpp Math.cpp Utilities.cpp
+    MeshDeformer.cpp MeshTopology.cpp Math.cpp
+    Utilities.cpp Barycentric.h
 )
 
 IF(VERSE_BUILD_GPL)

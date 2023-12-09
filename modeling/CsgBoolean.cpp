@@ -5,6 +5,7 @@
 #include "CsgBoolean.h"
 #include "MeshTopology.h"
 #include "Utilities.h"
+#include "Barycentric.h"
 using namespace osgVerse;
 
 static std::map<CsgBoolean::Operation, McFlags> s_booleanOperators =
@@ -76,6 +77,10 @@ osg::Node* CsgBoolean::generate()
     McContext context = MC_NULL_HANDLE;
     McResult err = mcCreateContext(&context, MC_NULL_HANDLE);
     McFlags boolOpFlags = s_booleanOperators[_operation];
+    //std::cout << "Source: Vertices = " << _meshA.vertexCoordsArray.size() / 3
+    //          << ", Triangles = " << _meshA.faceSizesArray.size() << std::endl
+    //          << "Target: Vertices = " << _meshB.vertexCoordsArray.size() / 3
+    //          << ", Triangles = " << _meshB.faceSizesArray.size() << std::endl;
 
     McUint32 attempts = 1 << 3; McDouble epsilon = 1e-4;
     err = mcBindState(context, MC_CONTEXT_GENERAL_POSITION_ENFORCEMENT_ATTEMPTS, sizeof(McUint32), (void*)&attempts);
@@ -84,6 +89,7 @@ osg::Node* CsgBoolean::generate()
         context,
         MC_DISPATCH_VERTEX_ARRAY_DOUBLE | // vertices are in array of doubles
         MC_DISPATCH_ENFORCE_GENERAL_POSITION | // perturb if necessary
+        MC_DISPATCH_INCLUDE_VERTEX_MAP | MC_DISPATCH_INCLUDE_FACE_MAP |  // vertex / face map
         boolOpFlags, // filter flags which specify the type of output we want
         reinterpret_cast<const void*>(_meshA.vertexCoordsArray.data()),
         reinterpret_cast<const uint32_t*>(_meshA.faceIndicesArray.data()), _meshA.faceSizesArray.data(),
@@ -131,7 +137,8 @@ osg::Node* CsgBoolean::generate()
         
         // Query the vertices
         size_t numBytesV = 0, numBytesF = 0;
-        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_VERTEX_DOUBLE, 0, NULL, &numBytesV);
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_VERTEX_DOUBLE,
+                                          0, NULL, &numBytesV);
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get vertex count: " << err << std::endl; continue; }
         
         uint32_t ccVertexCount = (uint32_t)(numBytesV / (sizeof(double) * 3));
@@ -141,7 +148,8 @@ osg::Node* CsgBoolean::generate()
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get vertices: " << err << std::endl; continue; }
         
         // Triangulated faces
-        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION, 0, NULL, &numBytesF);
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION,
+                                          0, NULL, &numBytesF);
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get face count: " << err << std::endl; continue; }
         
         std::vector<uint32_t> ccFaceIndices(numBytesF / sizeof(uint32_t), 0);
@@ -151,7 +159,27 @@ osg::Node* CsgBoolean::generate()
         
         std::vector<uint32_t> faceSizes(ccFaceIndices.size() / 3, 3);
         const uint32_t ccFaceCount = static_cast<uint32_t>(faceSizes.size());
-        
+        numBytesV = 0; numBytesF = 0;
+
+        // Get vertex and face map
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_VERTEX_MAP,
+                                          0, NULL, &numBytesV);
+        if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get vertex map count: " << err << std::endl; continue; }
+
+        std::vector<uint32_t> ccVertexMap(numBytesV / sizeof(uint32_t));
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_VERTEX_MAP,
+                                          numBytesV, ccVertexMap.data(), NULL);
+        if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get vertex map: " << err << std::endl; continue; }
+
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_MAP,
+                                          0, NULL, &numBytesF);
+        if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get face map count: " << err << std::endl; continue; }
+
+        std::vector<uint32_t> ccFaceMap(numBytesF / sizeof(uint32_t), 0);
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_MAP,
+                                          numBytesF, ccFaceMap.data(), NULL);
+        if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get face map: " << err << std::endl; continue; }
+
         // When connected components, pertain particular boolean operations
         McPatchLocation patchLocation = (McPatchLocation)0;
         err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_PATCH_LOCATION,
@@ -175,6 +203,8 @@ osg::Node* CsgBoolean::generate()
         
         // For each face in CC
         int faceVertexOffsetBase = 0;
+        size_t faceCountA = _meshA.faceSizesArray.size(),
+               vertexCountA = _meshA.vertexCoordsArray.size() / 3;
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
         for (uint32_t f = 0; f < ccFaceCount; ++f)
         {
@@ -182,13 +212,31 @@ osg::Node* CsgBoolean::generate()
                                        (patchLocation == MC_PATCH_LOCATION_OUTSIDE);
             int faceSize = faceSizes.at(f);
             if (faceSize > 3) OSG_WARN << "[CsgBoolean] Invalid face size: " << faceSize << std::endl;
-            
+
+            const uint32_t imFaceIdxRaw = ccFaceMap.at(f);
+            bool faceFromA = (imFaceIdxRaw < faceCountA);
+            uint32_t imFaceIdx = faceFromA ? imFaceIdxRaw : (imFaceIdxRaw - faceCountA);
+
             // For each vertex in face
             for (int v = (reverseWindingOrder ? (faceSize - 1) : 0);
                  (reverseWindingOrder ? (v >= 0) : (v < faceSize)); v += (reverseWindingOrder ? -1 : 1))
             {
                 const int ccVertexIdx = ccFaceIndices[(uint64_t)faceVertexOffsetBase + v];
                 de->push_back(ccVertexIdx);
+
+                const uint32_t imVertexIdxRaw = ccVertexMap.at(ccVertexIdx);
+                const bool vertexIsIntersection = (imVertexIdxRaw == MC_UNDEFINED_VALUE);
+                bool vertexFromA = (imVertexIdxRaw < vertexCountA);
+                uint32_t imVertexIdx = vertexFromA ? imVertexIdxRaw : (imVertexIdxRaw - vertexCountA);
+
+                // TODO
+                // - IF (vertexIsIntersection)
+                //   - Get current intersection vertex (ccVertexIdx)
+                //   - Get origin face from imFaceIdx
+                //   - Compute barycentric coords of point on origin face
+                //   - Get texcoord of vertices of origin face and interpolate a new one
+                // - ELSE
+                //   - Get texcoord from meshA or meshB
             }
             faceVertexOffsetBase += faceSize;
         }
