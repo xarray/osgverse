@@ -61,7 +61,7 @@ pmp::SurfaceMesh* MeshTopology::generate(MeshCollector* collector)
     return _mesh;
 }
 
-osg::Geometry* MeshTopology::output()
+osg::Geometry* MeshTopology::output(int eID)
 {
     if (!_mesh) return NULL;
     pmp::VertexProperty<pmp::Point> points = _mesh->get_vertex_property<pmp::Point>("v:point");
@@ -80,22 +80,17 @@ osg::Geometry* MeshTopology::output()
     {
         const pmp::Point& pt = pts[i]; pmp::Vertex v(i);
         va->push_back(osg::Vec3(pt[0], pt[1], pt[2]));
-        if (normals) { const pmp::Normal& n = normals[v];
-                       na->push_back(osg::Vec3(n[0], n[1], n[2])); }
-        if (colors) { const pmp::Color& c = colors[v];
-                      ca->push_back(osg::Vec4(c[0], c[1], c[2], 1.0f)); }
-        if (texcoords) { const pmp::TexCoord& t = texcoords[v];
-                         ta->push_back(osg::Vec2(t[0], t[1])); }
-    }
-
-    osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
-    for (auto f : _mesh->faces())
-    {
-        for (auto h : _mesh->halfedges(f))
-        {
-            pmp::Vertex v = _mesh->to_vertex(h);
-            if (v.is_valid()) de->push_back(v.idx());
-            else { OSG_WARN << "[MeshTopology] Invalid mesh vertex" << std::endl; }
+        if (normals) {
+            const pmp::Normal& n = normals[v];
+            na->push_back(osg::Vec3(n[0], n[1], n[2]));
+        }
+        if (colors) {
+            const pmp::Color& c = colors[v];
+            ca->push_back(osg::Vec4(c[0], c[1], c[2], 1.0f));
+        }
+        if (texcoords) {
+            const pmp::TexCoord& t = texcoords[v];
+            ta->push_back(osg::Vec2(t[0], t[1]));
         }
     }
 
@@ -104,12 +99,68 @@ osg::Geometry* MeshTopology::output()
     geom->setUseVertexBufferObjects(true);
     geom->setVertexArray(va.get());
     if (texcoords) geom->setTexCoordArray(0, ta.get());
-    if (normals) { geom->setNormalArray(na.get());
-                   geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
-    if (colors) { geom->setColorArray(ca.get());
-                  geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
-    geom->addPrimitiveSet(de.get());
+    if (normals)
+    {
+        geom->setNormalArray(na.get());
+        geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+    if (colors)
+    {
+        geom->setColorArray(ca.get());
+        geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+
+    if (eID >= 0)
+    {
+        std::vector<std::vector<uint32_t>> entities = getEntityFaces();
+        if (eID < entities.size()) processGeometryFaces(geom.get(), entities[eID]);
+    }
+    else
+        processGeometryFaces(geom.get(), std::vector<uint32_t>());
     return geom.release();
+}
+
+void MeshTopology::processGeometryFaces(osg::Geometry* geom, const std::vector<uint32_t>& faces)
+{
+    osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+    if (!faces.empty())
+    {
+        for (size_t i = 0; i < faces.size(); ++i)
+        {
+            std::vector<uint32_t> vList = getConnectiveData(MFace, faces[i], QVertices);
+            for (size_t t = 0; t < vList.size(); ++t) de->push_back(vList[t]);
+        }
+    }
+    else
+    {
+        pmp::SurfaceMesh::FaceContainer faces2 = _mesh->faces();
+        for (auto f : faces2)
+            for (auto h : _mesh->halfedges(f))
+            {
+                pmp::Vertex v = _mesh->to_vertex(h);
+                if (v.is_valid()) de->push_back(v.idx());
+                else { OSG_WARN << "[MeshTopology] Invalid mesh vertex" << std::endl; }
+            }
+    }
+    geom->addPrimitiveSet(de.get());
+}
+
+osg::Geode* MeshTopology::outputByEntity()
+{
+    std::vector<std::vector<uint32_t>> entities = getEntityFaces();
+    osg::ref_ptr<osg::Geometry> geom0 = output(entities.size());  // not applying primitives
+    if (!geom0 || entities.empty()) return NULL;
+
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+    geode->addDrawable(geom0.get());
+    for (size_t i = 1; i < entities.size(); ++i)
+    {
+        osg::ref_ptr<osg::Geometry> geom = (osg::Geometry*)geom0->clone(osg::CopyOp::SHALLOW_COPY);
+        processGeometryFaces(geom.get(), entities[i]);
+        geode->addDrawable(geom.get());
+    }
+    processGeometryFaces(geom0.get(), entities[0]);
+    return geode.release();
 }
 
 void MeshTopology::prune()
@@ -297,7 +348,7 @@ std::vector<std::vector<uint32_t>> MeshTopology::getEntityFaces() const
     {
         uint32_t f = faces[i]; bool alreadyAdded = false;
         for (std::map<uint32_t, std::set<uint32_t>>::iterator itr = faceSetMap.begin();
-            itr != faceSetMap.end(); ++itr)
+             itr != faceSetMap.end(); ++itr)
         {
             if (itr->second.find(f) != itr->second.end())
             { alreadyAdded = true; break; }

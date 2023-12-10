@@ -48,7 +48,7 @@ namespace osgVerse
             const ofbx::Pose* pData = mesh.getPose();
             if (pData != NULL)
             {
-                OSG_NOTICE << "[LoaderFBX] <POSE> " << pData->name << " not implemented\n";
+                //OSG_NOTICE << "[LoaderFBX] <POSE> " << pData->name << " not implemented\n";
             }
 
             const ofbx::Geometry* gData = mesh.getGeometry();
@@ -63,6 +63,10 @@ namespace osgVerse
                 mt->addChild(mtSelf.get());
             }
         }
+
+        // Merge and configure skeleton and skinning data
+        std::vector<SkinningData> skinningList;
+        mergeMeshBones(skinningList); createPlayers(skinningList);
 
         // Get and apply animations
         int animCount = _scene->getAnimationStackCount();
@@ -189,15 +193,17 @@ namespace osgVerse
                 const ofbx::Cluster* cluster = skin->getCluster(i);
                 ofbx::Object* boneNode = const_cast<ofbx::Object*>(cluster->getLink());
 
-                if (boneNode && boneNode->getParent())
+                if (boneNode->getParent())
                 {
                     MeshSkinningData::ParentAndBindPose parentAndPose(
                         boneNode->getParent(), osg::Matrix(cluster->getTransformLinkMatrix().m));
                     msd.boneLinks[boneNode] = parentAndPose;
                 }
 
-                std::vector<int> boneIndices(cluster->getIndicesCount());
-                std::vector<double> boneWeights(cluster->getWeightsCount());
+                std::vector<int>& boneIndices = msd.boneIndices[boneNode];
+                std::vector<double>& boneWeights = msd.boneWeights[boneNode];
+                boneIndices.resize(cluster->getIndicesCount());
+                boneWeights.resize(cluster->getWeightsCount());
                 memcpy(&boneIndices[0], cluster->getIndices(), cluster->getIndicesCount());
                 memcpy(&boneWeights[0], cluster->getWeights(), cluster->getWeightsCount());
 
@@ -369,6 +375,16 @@ namespace osgVerse
             ss->setTextureAttributeAndModes(i, tex2D);
             //ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
         }
+    }
+
+    void LoaderFBX::mergeMeshBones(std::vector<SkinningData>& skinningList)
+    {
+        // TODO
+    }
+
+    void LoaderFBX::createPlayers(std::vector<SkinningData>& skinningList)
+    {
+        // TODO
     }
 
     osg::ref_ptr<osg::Group> loadFbx(const std::string& file)

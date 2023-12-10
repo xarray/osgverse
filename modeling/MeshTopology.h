@@ -1,7 +1,7 @@
 #ifndef MANA_MODELING_MESHTOPOLOGY_HPP
 #define MANA_MODELING_MESHTOPOLOGY_HPP
 
-#include <osg/MatrixTransform>
+#include <osg/Geode>
 #include <osg/Geometry>
 #include <map>
 #include <vector>
@@ -23,7 +23,8 @@ namespace osgVerse
         pmp::SurfaceMesh* generate(MeshCollector* collector);
 
         /** Generate OSG scene geometry */
-        osg::Geometry* output();
+        osg::Geometry* output(int entity = -1);
+        osg::Geode* outputByEntity();
 
         /** Remove all deleted elements */
         void prune();
@@ -87,6 +88,7 @@ namespace osgVerse
         bool findConnectedEdges(
             uint32_t he, std::vector<uint32_t>& subEdges, std::set<uint32_t>& usedEdges) const;
         void addNeighborFaces(std::set<uint32_t>& faceSet, uint32_t f) const;
+        void processGeometryFaces(osg::Geometry* geom, const std::vector<uint32_t>& faces);
 
         pmp::SurfaceMesh* _mesh;
     };

@@ -171,12 +171,12 @@ osg::Node* CsgBoolean::generate()
                                           numBytesV, ccVertexMap.data(), NULL);
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get vertex map: " << err << std::endl; continue; }
 
-        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_MAP,
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION_MAP,
                                           0, NULL, &numBytesF);
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get face map count: " << err << std::endl; continue; }
 
         std::vector<uint32_t> ccFaceMap(numBytesF / sizeof(uint32_t), 0);
-        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_MAP,
+        err = mcGetConnectedComponentData(context, connComp, MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION_MAP,
                                           numBytesF, ccFaceMap.data(), NULL);
         if (err != MC_NO_ERROR) { OSG_WARN << "[CsgBoolean] Failed to get face map: " << err << std::endl; continue; }
 

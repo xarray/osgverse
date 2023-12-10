@@ -42,9 +42,11 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::MatrixTransform> topoMT = new osg::MatrixTransform;
     {
-        osg::ref_ptr<osg::Geode> topoGeode = new osg::Geode;
-        topoGeode->addDrawable(topology->output());
+        osg::ref_ptr<osg::Group> topoGeode = new osg::Group;
+        topoGeode->addChild(topology->outputByEntity());
         topoGeode->setStateSet(mtv.getMergedStateSet());
+        osgDB::writeNodeFile(*topoGeode, "topoResult.osg");
+
         topoMT->addChild(topoGeode.get());
         topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 50.0f));
     }

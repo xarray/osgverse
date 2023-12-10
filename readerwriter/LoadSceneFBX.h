@@ -29,7 +29,20 @@ namespace osgVerse
         {
             typedef std::pair<ofbx::Object*, osg::Matrix> ParentAndBindPose;
             std::map<ofbx::Object*, ParentAndBindPose> boneLinks;
+            std::map<ofbx::Object*, std::vector<int>> boneIndices;
+            std::map<ofbx::Object*, std::vector<double>> boneWeights;
         };
+
+        struct SkinningData
+        {
+            osg::ref_ptr<PlayerAnimation> player;
+            osg::ref_ptr<osg::Geode> meshRoot;
+            std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> jointData;
+            std::vector<osg::Geometry*> meshList;
+            std::vector<osg::Transform*> joints;
+        };
+        void mergeMeshBones(std::vector<SkinningData>& skinningList);
+        void createPlayers(std::vector<SkinningData>& skinningList);
 
         std::map<osg::Geode*, MeshSkinningData> _meshBoneMap;
         std::map<const ofbx::Material*, std::vector<osg::Geometry*>> _geometriesByMtl;
