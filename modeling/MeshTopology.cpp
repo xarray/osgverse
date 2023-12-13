@@ -80,15 +80,18 @@ osg::Geometry* MeshTopology::output(int eID)
     {
         const pmp::Point& pt = pts[i]; pmp::Vertex v(i);
         va->push_back(osg::Vec3(pt[0], pt[1], pt[2]));
-        if (normals) {
+        if (normals)
+        {
             const pmp::Normal& n = normals[v];
             na->push_back(osg::Vec3(n[0], n[1], n[2]));
         }
-        if (colors) {
+        if (colors)
+        {
             const pmp::Color& c = colors[v];
             ca->push_back(osg::Vec4(c[0], c[1], c[2], 1.0f));
         }
-        if (texcoords) {
+        if (texcoords)
+        {
             const pmp::TexCoord& t = texcoords[v];
             ta->push_back(osg::Vec2(t[0], t[1]));
         }
@@ -355,7 +358,19 @@ std::vector<std::vector<uint32_t>> MeshTopology::getEntityFaces() const
         }
 
         if (alreadyAdded) continue; else faceSetMap[f].insert(f);
-        addNeighborFaces(faceSetMap[f], f);
+        std::set<uint32_t>& newFaceSet = faceSetMap[f]; addNeighborFaces(newFaceSet, f);
+
+        for (std::set<uint32_t>::iterator itr = newFaceSet.begin(); itr != newFaceSet.end();)
+        {
+            bool toRemove = false;
+            for (std::map<uint32_t, std::set<uint32_t>>::iterator itr2 = faceSetMap.begin();
+                 itr2 != faceSetMap.end(); ++itr2)
+            {
+                if (itr2->first == f) continue;
+                if (itr2->second.find(*itr) != itr2->second.end()) toRemove = true;
+            }
+            if (toRemove) itr = newFaceSet.erase(itr); else itr++;
+        }
     }
 
     std::vector<std::vector<uint32_t>> entityList;

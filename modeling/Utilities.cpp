@@ -127,7 +127,7 @@ struct CollectVertexOperator
         vertices(NULL), indices(NULL), attributes(NULL), baseIndex(0) {}
     osg::Vec3Array *inputV, *inputN;
     osg::Vec2Array *inputT; osg::Vec4Array *inputC;
-    std::map<osg::Vec3, unsigned int>* vertexMap;
+    std::map<osg::Vec3, unsigned int, Vec3MapComparer>* vertexMap;
     std::map<unsigned int, unsigned int> indexMap;
 
     std::vector<osg::Vec3>* vertices; std::vector<unsigned int>* indices;

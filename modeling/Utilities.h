@@ -14,7 +14,24 @@ namespace osgVerse
         std::vector<osg::Vec3> points;
         std::vector<unsigned int> triangles;
     };
-    
+
+    struct Vec3MapComparer
+    {
+        bool operator()(const osg::Vec3& key1, const osg::Vec3& key2) const
+        {
+#if 0
+            int x0 = round(key1[0] * 1000.0f), x1 = round(key2[0] * 1000.0f);
+            int y0 = round(key1[1] * 1000.0f), y1 = round(key2[1] * 1000.0f);
+            int z0 = round(key1[2] * 1000.0f), z1 = round(key2[2] * 1000.0f);
+            if (x0 < x1) return true; else if (x0 > x1) return false;
+            else if (y0 < y1) return true; else if (y0 > y1) return false;
+            else return (z0 < z1);
+#else
+            return key1 < key2;
+#endif
+        }
+    };
+
     class MeshCollector : public osg::NodeVisitor
     {
     public:
@@ -43,7 +60,7 @@ namespace osgVerse
         typedef std::vector<osg::Matrix> MatrixStack;
         MatrixStack _matrixStack;
 
-        std::map<osg::Vec3, unsigned int> _vertexMap;
+        std::map<osg::Vec3, unsigned int, Vec3MapComparer> _vertexMap;
         std::map<VertexAttribute, std::vector<osg::Vec4>> _attributes;
         std::vector<osg::Vec3> _vertices;
         std::vector<unsigned int> _indices;

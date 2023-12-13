@@ -28,8 +28,8 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::MeshTopology> topology = mtv.generate();
     //topology->simplify(0.8f);
 
-    // Remove all small frac
     std::vector<std::vector<uint32_t>> entities = topology->getEntityFaces();
+#if 0
     for (size_t i = 0; i < entities.size(); ++i)
     {
         std::vector<uint32_t>& faces = entities[i];
@@ -39,16 +39,39 @@ int main(int argc, char** argv)
             topology->deleteFace(faces[j]);
     }
     topology->prune();
+#endif
 
     osg::ref_ptr<osg::MatrixTransform> topoMT = new osg::MatrixTransform;
     {
-        osg::ref_ptr<osg::Group> topoGeode = new osg::Group;
-        topoGeode->addChild(topology->outputByEntity());
+        static osg::Vec4 colors[] = {
+            osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f), osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
+            osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f), osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f),
+            osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f), osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f),
+            osg::Vec4(1.0f, 0.0f, 1.0f, 1.0f), osg::Vec4(0.2f, 0.2f, 0.2f, 1.0f)
+        };
+
+        char* fragCode = {
+            "uniform vec4 color;\n"
+            "void main() {\n"
+            "    gl_FragColor = gl_Color * color;\n"
+            "}\n"
+        };
+        osg::ref_ptr<osg::Program> program = new osg::Program;
+        program->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
+
+        osg::ref_ptr<osg::Geode> topoGeode = topology->outputByEntity();
+        for (size_t i = 0; i < topoGeode->getNumDrawables(); ++i)
+        {
+            std::cout << "Entity-" << i << ": Faces = " << entities[i].size() << std::endl;
+            topoGeode->getDrawable(i)->getOrCreateStateSet()->addUniform(
+                new osg::Uniform("color", colors[i % 8]));
+        }
         topoGeode->setStateSet(mtv.getMergedStateSet());
+        topoGeode->getOrCreateStateSet()->setAttributeAndModes(program.get());
         osgDB::writeNodeFile(*topoGeode, "topoResult.osg");
 
         topoMT->addChild(topoGeode.get());
-        topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 50.0f));
+        topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 20.0f));
     }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
