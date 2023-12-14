@@ -743,5 +743,29 @@ namespace osgVerse
         return createGeometry(va.get(), NULL, ta.get(), de.get());
     }
 
+    osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb)
+    {
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(8);
+        for (int i = 0; i < 8; ++i) (*va)[i] = bb.corner(i);
+
+        osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(8);
+        (*ta)[0] = osg::Vec2(0.0f, 0.0f); (*ta)[1] = osg::Vec2(0.33f, 0.0f);
+        (*ta)[3] = osg::Vec2(0.67f, 0.0f); (*ta)[2] = osg::Vec2(1.0f, 0.0f);
+        (*ta)[4] = osg::Vec2(0.0f, 1.0f); (*ta)[5] = osg::Vec2(0.33f, 1.0f);
+        (*ta)[7] = osg::Vec2(0.67f, 1.0f); (*ta)[6] = osg::Vec2(1.0f, 1.0f);
+
+        osg::ref_ptr<osg::DrawElementsUByte> de = new osg::DrawElementsUByte(GL_QUADS);
+        de->push_back(0); de->push_back(1); de->push_back(3); de->push_back(2);
+        de->push_back(4); de->push_back(5); de->push_back(7); de->push_back(6);
+        de->push_back(0); de->push_back(1); de->push_back(5); de->push_back(4);
+        de->push_back(1); de->push_back(3); de->push_back(7); de->push_back(5);
+        de->push_back(3); de->push_back(2); de->push_back(6); de->push_back(7);
+        de->push_back(2); de->push_back(0); de->push_back(4); de->push_back(6);
+        return createGeometry(va.get(), NULL, ta.get(), de.get());
+    }
+
+    osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs)
+    { return createEllipsoid(bs.center(), bs.radius(), bs.radius(), bs.radius()); }
+
 }
 

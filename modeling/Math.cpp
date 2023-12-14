@@ -391,3 +391,55 @@ bool GeometryAlgorithm::clockwise2D(const PointList2D& points)
     }
     return count < 0;
 }
+
+struct ResortHelper
+{
+    static osg::Vec3 centroid;
+    static double to_angle(const osg::Vec3& p, const osg::Vec3& o)
+    { return atan2(p.y() - o.y(), p.x() - o.x()); }
+
+    static void find_centroid(osg::Vec3& c, osg::Vec3* pts, int n_pts)
+    {
+        double x = 0, y = 0;
+        for (int i = 0; i < n_pts; i++) { x += pts[i].x(); y += pts[i].y(); }
+        c.x() = x / n_pts; c.y() = y / n_pts;
+    }
+
+    static int by_polar_angle(const void* va, const void* vb)
+    {
+        double theta_a = to_angle(*(osg::Vec3*)va, centroid);
+        double theta_b = to_angle(*(osg::Vec3*)vb, centroid);
+        return theta_a < theta_b ? -1 : theta_a > theta_b ? 1 : 0;
+    }
+
+    static void sort_by_polar_angle(osg::Vec3* pts, int n_pts)
+    {
+        find_centroid(centroid, pts, n_pts);
+        qsort(pts, n_pts, sizeof(pts[0]), by_polar_angle);
+    }
+};
+osg::Vec3 ResortHelper::centroid;
+
+bool GeometryAlgorithm::reorderPointsInPlane(const PointList3D& pIn, PointList3D& pOut)
+{
+    PointList3D proj; size_t ptr = 2, size = pIn.size();
+    if (size < 3) return false; else { pOut.resize(size); proj.resize(size); }
+
+    osg::Vec3 v0 = pIn[1] - pIn[0]; v0.normalize();
+    osg::Vec3 v1 = pIn[2] - pIn[1]; v1.normalize();
+    osg::Vec3 norm = v0 ^ v1, p0(pIn[0]);
+    while (norm.length2() == 0.0f || !norm.valid())
+    {
+        v1 = pIn[ptr] - pIn[ptr - 1]; v1.normalize();
+        norm = v0 ^ v1; ptr++; if (ptr >= size) return false;
+    }
+
+    osg::Matrix m = osg::Matrix::lookAt(p0 + norm, p0, v0);
+    for (size_t i = 0; i < proj.size(); ++i)
+    { proj[i] = pIn[i] * m; proj[i].z() = (float)i; }
+
+    ResortHelper::sort_by_polar_angle(&proj[0], proj.size());
+    for (size_t i = 0; i < proj.size(); ++i)
+        pOut[i] = pIn[(int)proj[i].z()];
+    return true;
+}

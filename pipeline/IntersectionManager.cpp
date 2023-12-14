@@ -284,6 +284,8 @@ static void saveLinesegmentIntersectionResult(
     result.distanceToReference = intersection.ratio;
     result.primitiveIndex = intersection.primitiveIndex;
     result.intersectPoints.push_back(intersection.localIntersectionPoint);
+    result.intersectNormals.push_back(intersection.localIntersectionNormal);
+    result.ratioList.push_back(intersection.ratio);
 
     IntersectionResult::IntersectTextureData tdata;
     tdata.first = getTextureLookUp(intersection, tdata.second);
@@ -291,14 +293,22 @@ static void saveLinesegmentIntersectionResult(
 }
 
 static void savePolytopeIntersectionResult(
-    const osgUtil::PolytopeIntersector::Intersection& intersection,
+    const osg::Polytope& polytope, const osgUtil::PolytopeIntersector::Intersection& intersection,
     IntersectionResult& result)
 {
     result.nodePath = intersection.nodePath;
     result.drawable = intersection.drawable;
     result.matrix = intersection.matrix.valid() ? *(intersection.matrix) : osg::Matrix();
     for (unsigned int i = 0; i < intersection.numIntersectionPoints; ++i)
-        result.intersectPoints.push_back(intersection.intersectionPoints[i]);
+    {
+        double ratio = FLT_MAX; osg::Vec3d pt = intersection.intersectionPoints[i];
+        result.intersectPoints.push_back(pt);
+
+        const osg::Polytope::PlaneList& pList = polytope.getPlaneList();
+        for (size_t p = 0; p < pList.size(); ++p)
+        { double d = pList[p].distance(pt); if (d < ratio) ratio = d; }
+        result.ratioList.push_back(ratio);
+    }
     result.distanceToReference = intersection.distance;
     result.primitiveIndex = intersection.primitiveIndex;
 }
@@ -387,8 +397,8 @@ namespace osgVerse
         node->accept(iv);
 
         IntersectionResult result;
-        if (intersector->containsIntersections())
-            savePolytopeIntersectionResult(intersector->getFirstIntersection(), result);
+        if (intersector->containsIntersections()) savePolytopeIntersectionResult(
+            intersector->getPolytope(), intersector->getFirstIntersection(), result);
         return result;
     }
 
@@ -406,7 +416,7 @@ namespace osgVerse
 
         IntersectionResult result;
         if (intersector->containsIntersections())
-            savePolytopeIntersectionResult(intersector->getFirstIntersection(), result);
+            savePolytopeIntersectionResult(polytope, intersector->getFirstIntersection(), result);
         return result;
     }
 
@@ -429,7 +439,7 @@ namespace osgVerse
                 itr != all.end(); ++itr)
             {
                 IntersectionResult result;
-                savePolytopeIntersectionResult(*itr, result);
+                savePolytopeIntersectionResult(polytope , *itr, result);
                 results.push_back(result);
             }
         }

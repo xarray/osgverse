@@ -29,6 +29,8 @@ namespace osgVerse
         osg::ref_ptr<osg::Drawable> drawable;
         osg::Matrix matrix;
         std::vector<osg::Vec3d> intersectPoints;
+        std::vector<osg::Vec3d> intersectNormals;
+        std::vector<double> ratioList;
         double distanceToReference;
         unsigned int primitiveIndex;
 
@@ -37,6 +39,8 @@ namespace osgVerse
 
         IntersectionResult() : distanceToReference(FLT_MAX), primitiveIndex(0) {}
         osg::Vec3d getWorldIntersectPoint(unsigned int i = 0) const { return intersectPoints[i] * matrix; }
+        osg::Vec3 getWorldIntersectNormal(unsigned int i = 0) const
+        { return osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), intersectNormals[i]); }
     };
 
     /** Find nearest intersection result with projected coordinates to form a linesegment */

@@ -93,6 +93,9 @@ namespace osgVerse
 
         /** Check for clockwise/counter-clockwise */
         static bool clockwise2D(const PointList2D& points);
+
+        /** Reorder a list of 3D hull points on a plane */
+        static bool reorderPointsInPlane(const PointList3D& points, PointList3D& pointsOut);
     };
 
 }

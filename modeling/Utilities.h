@@ -124,6 +124,10 @@ namespace osgVerse
 
     /** Create a textured icosahedron for panorama use */
     extern osg::Geometry* createPanoramaSphere(int subdivs = 2);
+
+    /** Create a bounding volume geometry */
+    extern osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb);
+    extern osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs);
 }
 
 #endif
