@@ -11,6 +11,7 @@
 | Qt               | Depended | > 5.5         | App                | LGPL / Commercial | :heavy_check_mark: | |
 | ApproxMVBB       | Embedded |               | -                  | MPL2              | :heavy_check_mark: | https://github.com/gabyx/ApproxMVBB |
 | blend2d          | Embedded |               | -                  | Zlib              | :heavy_check_mark: | https://github.com/blend2d/blend2d |
+| CDT              | Embedded | 1.4.0         | -                  | MPL2              | :heavy_check_mark: | https://github.com/artem-ogre/CDT |
 | Eigen            | Embedded |               | -                  | MPL2              | :heavy_check_mark: | https://gitlab.com/libeigen/eigen |
 | entt             | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/skypjack/entt |
 | gainput          | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/jkuhlmann/gainput |

@@ -296,15 +296,16 @@ static void savePolytopeIntersectionResult(
     const osg::Polytope& polytope, const osgUtil::PolytopeIntersector::Intersection& intersection,
     IntersectionResult& result)
 {
+    const osg::Polytope::PlaneList& pList = polytope.getPlaneList();
     result.nodePath = intersection.nodePath;
     result.drawable = intersection.drawable;
     result.matrix = intersection.matrix.valid() ? *(intersection.matrix) : osg::Matrix();
     for (unsigned int i = 0; i < intersection.numIntersectionPoints; ++i)
     {
-        double ratio = FLT_MAX; osg::Vec3d pt = intersection.intersectionPoints[i];
+        osg::Vec3d pt = intersection.intersectionPoints[i];
         result.intersectPoints.push_back(pt);
 
-        const osg::Polytope::PlaneList& pList = polytope.getPlaneList();
+        double ratio = FLT_MAX;
         for (size_t p = 0; p < pList.size(); ++p)
         { double d = pList[p].distance(pt); if (d < ratio) ratio = d; }
         result.ratioList.push_back(ratio);

@@ -5,6 +5,7 @@
 #include <climits>
 
 #include <exprtk.hpp>
+#include <cdt/CDT.h>
 #include "Math.h"
 const float ZERO_TOLERANCE = float(1e-5);
 
@@ -254,6 +255,73 @@ double MathExpression::evaluate(bool* ok)
 
 /* GeometryAlgorithm */
 
+bool GeometryAlgorithm::project(const PointList3D& pIn, PointList2D& proj)
+{
+    size_t ptr = 2, size = pIn.size();
+    if (size < 3) return false; else proj.resize(size);
+
+    osg::Vec3 v0 = pIn[1] - pIn[0]; v0.normalize();
+    osg::Vec3 v1 = pIn[2] - pIn[1]; v1.normalize();
+    osg::Vec3 norm = v0 ^ v1, p0(pIn[0]);
+    while (norm.length2() == 0.0f || !norm.valid())
+    {
+        v1 = pIn[ptr] - pIn[ptr - 1]; v1.normalize();
+        norm = v0 ^ v1; ptr++; if (ptr >= size) return false;
+    }
+
+    osg::Matrix m = osg::Matrix::lookAt(p0 + norm, p0, v0);
+    for (size_t i = 0; i < proj.size(); ++i)
+    {
+        osg::Vec3 pt = pIn[i] * m; proj[i].second = i;
+        proj[i].first = osg::Vec2(pt[0], pt[1]);
+    }
+    return true;
+}
+
+EdgeList GeometryAlgorithm::project(const std::vector<LineType3D>& edges, const osg::Vec3& normal,
+                                    PointList3D& points, PointList2D& points2D)
+{
+    osg::Matrix matrix;
+    if (normal.length2() > 0.0f)
+    {
+        osg::Vec3 center; size_t centerN = 0;
+        for (size_t i = 0; i < edges.size(); ++i)
+        { center += edges[i].first; center += edges[i].second; centerN += 2; }
+        center /= (float)centerN;
+
+        osg::Vec3 up = (normal.z() > 0.8f) ? osg::Y_AXIS : osg::Z_AXIS;
+        matrix = osg::Matrix::lookAt(center + normal, center, up);
+    }
+
+    std::map<osg::Vec3, osgVerse::PointType2D> projected;
+    for (size_t i = 0; i < edges.size(); ++i)
+    {
+        const osg::Vec3& e0 = edges[i].first, e1 = edges[i].second;
+        osg::Vec3 p0 = e0 * matrix, p1 = e1 * matrix;
+        if (projected.find(e0) == projected.end())
+            projected[e0] = osgVerse::PointType2D(osg::Vec2(p0[0], p0[1]), projected.size());
+        if (projected.find(e1) == projected.end())
+            projected[e1] = osgVerse::PointType2D(osg::Vec2(p1[0], p1[1]), projected.size());
+    }
+
+    points.resize(projected.size()); points2D.resize(projected.size());
+    for (std::map<osg::Vec3, osgVerse::PointType2D>::iterator vitr = projected.begin();
+         vitr != projected.end(); ++vitr)
+    {
+        points[vitr->second.second] = vitr->first;
+        points2D[vitr->second.second] = vitr->second;
+    }
+
+    EdgeList edgeIndices;
+    for (size_t i = 0; i < edges.size(); ++i)
+    {
+        size_t e0 = projected[edges[i].first].second;
+        size_t e1 = projected[edges[i].second].second;
+        edgeIndices.push_back(EdgeType(e0, e1));
+    }
+    return edgeIndices;
+}
+
 bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& polygon, bool isConvex)
 {
     unsigned int numPoints = polygon.size();
@@ -261,11 +329,11 @@ bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& 
     {
         for (unsigned int i = 0, j = numPoints - 1; i < numPoints; j = i++)
         {
-            float nx = polygon[i].y() - polygon[j].y();
-            float ny = polygon[j].x() - polygon[i].x();
-            float dx = p.x() - polygon[j].x();
-            float dy = p.y() - polygon[j].y();
-            if ((nx*dx + ny * dy) > 0.0f) return false;
+            float nx = polygon[i].first.y() - polygon[j].first.y();
+            float ny = polygon[j].first.x() - polygon[i].first.x();
+            float dx = p.x() - polygon[j].first.x();
+            float dy = p.y() - polygon[j].first.y();
+            if ((nx * dx + ny * dy) > 0.0f) return false;
         }
         return true;
     }
@@ -273,8 +341,8 @@ bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& 
     bool inside = false;
     for (unsigned int i = 0, j = numPoints - 1; i < numPoints; j = i++)
     {
-        const osg::Vec2& u0 = polygon[i];
-        const osg::Vec2& u1 = polygon[j];
+        const osg::Vec2& u0 = polygon[i].first;
+        const osg::Vec2& u1 = polygon[j].first;
         float lhs = 0.0f, rhs = 0.0f;
 
         if (p.y() < u1.y())  // U1 above ray
@@ -301,7 +369,7 @@ std::vector<LineType2D> GeometryAlgorithm::decomposePolygon2D(const PointList2D&
     std::vector<LineType2D> result, temp1, temp2;
     unsigned int numDiags = INT_MAX;
 
-#define SAFT_POLYGON_INDEX(i) polygon[(i) < 0 ? ((i) % size + size) : ((i) % size)]
+#define SAFT_POLYGON_INDEX(i) polygon[(i) < 0 ? ((i) % size + size) : ((i) % size)].first
 #define TRIANGLE_AREA(a, b, c) \
         (((b.x() - a.x()) * (c.y() - a.y())) - ((c.x() - a.x()) * (b.y() - a.y())))
 
@@ -346,7 +414,7 @@ std::vector<LineType2D> GeometryAlgorithm::decomposePolygon2D(const PointList2D&
             }
             if (!accepted) continue;
 
-            std::vector<osg::Vec2> p1, p2;
+            std::vector<PointType2D> p1, p2;
             if (i < j)
             {
                 p1.insert(p1.begin(), polygon.begin() + i, polygon.begin() + j + 1);
@@ -384,8 +452,10 @@ bool GeometryAlgorithm::clockwise2D(const PointList2D& points)
     {
         unsigned int j = (i + 1) % num;
         unsigned int k = (i + 2) % num;
-        float z = (points[j].x() - points[i].x()) * (points[k].y() - points[j].y())
-            - (points[j].y() - points[i].y()) * (points[k].x() - points[j].x());
+        float z = (points[j].first.x() - points[i].first.x()) *
+                  (points[k].first.y() - points[j].first.y())
+                - (points[j].first.y() - points[i].first.y()) *
+                  (points[k].first.x() - points[j].first.x());
         if (z < 0.0f) count--;
         else if (z > 0.0f) count++;
     }
@@ -394,52 +464,68 @@ bool GeometryAlgorithm::clockwise2D(const PointList2D& points)
 
 struct ResortHelper
 {
-    static osg::Vec3 centroid;
-    static double to_angle(const osg::Vec3& p, const osg::Vec3& o)
-    { return atan2(p.y() - o.y(), p.x() - o.x()); }
+    static PointType2D centroid;
+    static double to_angle(const PointType2D& p, const PointType2D& o)
+    { return atan2(p.first.y() - o.first.y(), p.first.x() - o.first.x()); }
 
-    static void find_centroid(osg::Vec3& c, osg::Vec3* pts, int n_pts)
+    static void find_centroid(PointType2D& c, PointType2D* pts, int n_pts)
     {
         double x = 0, y = 0;
-        for (int i = 0; i < n_pts; i++) { x += pts[i].x(); y += pts[i].y(); }
-        c.x() = x / n_pts; c.y() = y / n_pts;
+        for (int i = 0; i < n_pts; i++) { x += pts[i].first.x(); y += pts[i].first.y(); }
+        c.first.x() = x / n_pts; c.first.y() = y / n_pts;
     }
 
     static int by_polar_angle(const void* va, const void* vb)
     {
-        double theta_a = to_angle(*(osg::Vec3*)va, centroid);
-        double theta_b = to_angle(*(osg::Vec3*)vb, centroid);
+        double theta_a = to_angle(*(PointType2D*)va, centroid);
+        double theta_b = to_angle(*(PointType2D*)vb, centroid);
         return theta_a < theta_b ? -1 : theta_a > theta_b ? 1 : 0;
     }
-
-    static void sort_by_polar_angle(osg::Vec3* pts, int n_pts)
-    {
-        find_centroid(centroid, pts, n_pts);
-        qsort(pts, n_pts, sizeof(pts[0]), by_polar_angle);
-    }
 };
-osg::Vec3 ResortHelper::centroid;
+PointType2D ResortHelper::centroid;
 
-bool GeometryAlgorithm::reorderPointsInPlane(const PointList3D& pIn, PointList3D& pOut)
+bool GeometryAlgorithm::reorderPointsInPlane(PointList2D& proj)
 {
-    PointList3D proj; size_t ptr = 2, size = pIn.size();
-    if (size < 3) return false; else { pOut.resize(size); proj.resize(size); }
+    ResortHelper::find_centroid(ResortHelper::centroid, &proj[0], proj.size());
+    qsort(&proj[0], proj.size(), sizeof(PointType2D), ResortHelper::by_polar_angle);
+    return true;
+}
 
-    osg::Vec3 v0 = pIn[1] - pIn[0]; v0.normalize();
-    osg::Vec3 v1 = pIn[2] - pIn[1]; v1.normalize();
-    osg::Vec3 norm = v0 ^ v1, p0(pIn[0]);
-    while (norm.length2() == 0.0f || !norm.valid())
+std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
+        const PointList2D& points, const EdgeList& edges)
+{
+    if (points.size() < 3) return std::vector<size_t>();
+    CDT::Triangulation<double> cdt;
+    try
     {
-        v1 = pIn[ptr] - pIn[ptr - 1]; v1.normalize();
-        norm = v0 ^ v1; ptr++; if (ptr >= size) return false;
+        cdt.insertVertices(
+            points.begin(), points.end(),
+            [](const PointType2D& p) { return p.first[0]; },
+            [](const PointType2D& p) { return p.first[1]; });
+    }
+    catch (const CDT::DuplicateVertexError& err)
+    {
+        OSG_WARN << "[GeometryAlgorithm] Duplicated vertex in delaunayTriangulation(): "
+                 << err.description() << "... " << err.v1() << ", " << err.v2() << std::endl;
+        return std::vector<size_t>();
     }
 
-    osg::Matrix m = osg::Matrix::lookAt(p0 + norm, p0, v0);
-    for (size_t i = 0; i < proj.size(); ++i)
-    { proj[i] = pIn[i] * m; proj[i].z() = (float)i; }
+    if (!edges.empty())
+    {
+        cdt.insertEdges(
+            edges.begin(), edges.end(),
+            [](const EdgeType& e) { return e.first; },
+            [](const EdgeType& e) { return e.second; });
+        cdt.eraseOuterTrianglesAndHoles();
+    }
+    else
+        cdt.eraseSuperTriangle();
 
-    ResortHelper::sort_by_polar_angle(&proj[0], proj.size());
-    for (size_t i = 0; i < proj.size(); ++i)
-        pOut[i] = pIn[(int)proj[i].z()];
-    return true;
+    std::vector<size_t> indices;
+    for (size_t i = 0; i < cdt.triangles.size(); ++i)
+    {
+        CDT::VerticesArr3 idx = cdt.triangles[i].vertices;
+        indices.push_back(idx[0]); indices.push_back(idx[1]); indices.push_back(idx[2]);
+    }
+    return indices;
 }

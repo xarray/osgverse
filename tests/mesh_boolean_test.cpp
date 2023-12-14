@@ -39,28 +39,46 @@ int main(int argc, char** argv)
         nodeA->accept(cbv);
 
         osg::BoundingBox bb = cbv.getBoundingBox();
-        osg::Vec3 maxPt((bb._max.x() + bb._min.x()) * 0.5f, bb._max.y(), bb._max.z());
-        polytope.setToBoundingBox(osg::BoundingBox(bb._min, maxPt));
+        osg::Vec3 minPt(bb._min.x() * 0.8f + bb._max.x() * 0.2f, bb._min.y(), bb._min.z());
+        osg::Vec3 maxPt(bb._min.x() * 0.5f + bb._max.x() * 0.5f, bb._max.y(), bb._max.z());
+        polytope.setToBoundingBox(osg::BoundingBox(minPt, maxPt));
     }
 
     std::vector<osgVerse::IntersectionResult> results =
         osgVerse::findAllIntersections(nodeA.get(), polytope);
-    osg::Vec3Array *va = new osg::Vec3Array, *va2 = new osg::Vec3Array;
+    osg::Vec3Array* va = new osg::Vec3Array;
     osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_TRIANGLES);
+
+    std::map<int, std::vector<std::pair<osg::Vec3, osg::Vec3>>> edgeOnPlaneMap;
+    const osg::Polytope::PlaneList& planes = polytope.getPlaneList();
     for (size_t k = 0; k < results.size(); ++k)
     {
         osgVerse::IntersectionResult& ir = results[k];
         std::vector<osg::Vec3d> origPt = ir.intersectPoints;
 
-        std::vector<osg::Vec3> ptIn, ptOut, boundary;
-        for (size_t i = 0; i < origPt.size(); ++i)
-        {
-            ptIn.push_back(origPt[i]);
-            if (ir.ratioList[i] == 0.0) boundary.push_back(ptIn.back());
-        };
-        osgVerse::GeometryAlgorithm::reorderPointsInPlane(ptIn, ptOut);
-        if (boundary.size() == 2) { va2->push_back(boundary[0]); va2->push_back(boundary[1]); }
+        // Find and reorder vertices on a intersected face (with 3-5 points)
+        std::vector<osg::Vec3> ptIn, ptOut, edge;
+        for (size_t i = 0; i < origPt.size(); ++i) ptIn.push_back(origPt[i]);
 
+        osgVerse::PointList2D projected; ptOut.resize(ptIn.size());
+        osgVerse::GeometryAlgorithm::project(ptIn, projected);
+        osgVerse::GeometryAlgorithm::reorderPointsInPlane(projected);
+        for (size_t i = 0; i < ptIn.size(); ++i) ptOut[i] = ptIn[projected[i].second];
+
+        // Find which plane this face is intersected and record a co-plane edge if exists
+        for (size_t j = 0; j < planes.size(); ++j)
+        {
+            const osg::Plane& plane = planes[j]; edge.clear();
+            for (size_t i = 0; i < origPt.size(); ++i)
+            {
+                if (osg::equivalent(plane.distance(origPt[i]), 0.0))
+                    edge.push_back(origPt[i]);
+            };
+            if (edge.size() > 1)
+                edgeOnPlaneMap[j].push_back(std::pair<osg::Vec3, osg::Vec3>(edge[0], edge[1]));
+        }
+
+        // Triangulate the face in a simple way
         size_t numPt = ptOut.size(), i0 = va->size();
         for (size_t p = 0; p < numPt; ++p) va->push_back(ptOut[p] * ir.matrix);
         switch (numPt)
@@ -74,14 +92,44 @@ int main(int argc, char** argv)
         }
     }
 
-    osg::Geometry* geom = osgVerse::createGeometry(va, NULL, NULL, de);
-    osg::Geometry* geom2 = osgVerse::createGeometry(va2, NULL, osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f),
-                                                    new osg::DrawArrays(GL_LINES, 0, va2->size()));
-
-
+    // Find each cap and do Delaunay
     osg::ref_ptr<osg::Geode> root = new osg::Geode;
-    root->addDrawable(geom); root->addDrawable(geom2);
-    //osgDB::writeNodeFile(*root, "test.osg");
+    for (std::map<int, std::vector<std::pair<osg::Vec3, osg::Vec3>>>::iterator
+         itr = edgeOnPlaneMap.begin(); itr != edgeOnPlaneMap.end(); ++itr)
+    {
+        std::vector<osgVerse::LineType3D>& edges = itr->second;
+        if (edges.size() < 3) continue;
+
+        osg::Vec3Array* va2 = new osg::Vec3Array;
+#if 0
+        osg::DrawElementsUInt* de2 = new osg::DrawElementsUInt(GL_LINES);
+#else
+        osg::DrawElementsUInt* de2 = new osg::DrawElementsUInt(GL_TRIANGLES);
+#endif
+        osgVerse::PointList3D points; osgVerse::PointList2D points2D;
+        osgVerse::EdgeList edgeIndices = osgVerse::GeometryAlgorithm::project(
+            edges, -planes[itr->first].getNormal(), points, points2D);
+        va2->assign(points.begin(), points.end());
+
+#if 0
+        for (size_t i = 0; i < edgeIndices.size(); ++i)
+        {
+            de2->push_back(edgeIndices[i].first);
+            de2->push_back(edgeIndices[i].second);
+        }
+#else
+        std::vector<size_t> indices =
+            osgVerse::GeometryAlgorithm::delaunayTriangulation(points2D, edgeIndices);
+        de2->assign(indices.begin(), indices.end());
+#endif
+
+        osg::Geometry* geom2 = osgVerse::createGeometry(
+            va2, NULL, osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f), de2);
+        root->addDrawable(geom2);
+    }
+
+    osg::Geometry* geom = osgVerse::createGeometry(va, NULL, NULL, de);
+    root->addDrawable(geom); //osgDB::writeNodeFile(*root, "test.osg");
 #endif
 
     osgViewer::Viewer viewer;
