@@ -173,6 +173,18 @@ namespace osgVerse_Drawer
     }
 
     template<typename T>
+    void drawText(BLContext* context, const osg::Vec2f pos, BLFont& font,
+                  const std::string& text, bool filled, const T& style)
+    {
+        if (filled)
+            context->fillUtf8Text(
+                BLPoint(pos[0], pos[1]), font, text.data(), text.length(), style);
+        else
+            context->strokeUtf8Text(
+                BLPoint(pos[0], pos[1]), font, text.data(), text.length(), style);
+    }
+
+    template<typename T>
     void drawPolyline(BLContext* context, const std::vector<BLPoint>& blPts,
                       bool filled, bool closed, const T& style)
     {
@@ -285,6 +297,26 @@ static BLGradient asLinearGradient(const Drawer2D::StyleData& sd)
 
 void Drawer2D::drawText(const osg::Vec2f pos, float size, const std::wstring& text,
                         const std::string& fontName, const StyleData& sd)
+{
+    VALID_B2D()
+    {
+        if (core->fonts.empty())
+        {
+            OSG_WARN << "[Drawer2D] Unable to draw text without any font" << std::endl;
+            return;
+        }
+
+        BLFontFace& fontFace = core->fonts.begin()->second;
+        if (core->fonts.find(fontName) != core->fonts.end())
+            fontFace = core->fonts[fontName];
+
+        BLFont font; font.createFromFace(fontFace, size);
+        STYLE_CASES(osgVerse_Drawer::drawText, core->context, pos, font, text, sd.filled);
+    }
+}
+
+void Drawer2D::drawUtf8Text(const osg::Vec2f pos, float size, const std::string& text,
+                            const std::string& fontName, const StyleData& sd)
 {
     VALID_B2D()
     {

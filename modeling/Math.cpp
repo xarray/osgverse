@@ -505,18 +505,25 @@ std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
     }
     catch (const CDT::DuplicateVertexError& err)
     {
-        OSG_WARN << "[GeometryAlgorithm] Duplicated vertex in delaunayTriangulation(): "
-                 << err.description() << "... " << err.v1() << ", " << err.v2() << std::endl;
+        OSG_WARN << "[GeometryAlgorithm] Exception: " << err.description() << std::endl;
         return std::vector<size_t>();
     }
 
     if (!edges.empty())
     {
-        cdt.insertEdges(
-            edges.begin(), edges.end(),
-            [](const EdgeType& e) { return e.first; },
-            [](const EdgeType& e) { return e.second; });
-        cdt.eraseOuterTrianglesAndHoles();
+        try
+        {
+            cdt.insertEdges(
+                edges.begin(), edges.end(),
+                [](const EdgeType& e) { return e.first; },
+                [](const EdgeType& e) { return e.second; });
+            cdt.eraseOuterTrianglesAndHoles();
+        }
+        catch (const CDT::IntersectingConstraintsError& err)
+        {
+            OSG_WARN << "[GeometryAlgorithm] Exception: " << err.description() << std::endl;
+            return std::vector<size_t>();
+        }
     }
     else
         cdt.eraseSuperTriangle();

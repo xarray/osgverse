@@ -55,10 +55,11 @@ int main(int argc, char** argv)
     {
         osgVerse::IntersectionResult& ir = results[k];
         std::vector<osg::Vec3d> origPt = ir.intersectPoints;
+        if (origPt.size() < 3) continue;
 
         // Find and reorder vertices on a intersected face (with 3-5 points)
         std::vector<osg::Vec3> ptIn, ptOut, edge;
-        for (size_t i = 0; i < origPt.size(); ++i) ptIn.push_back(origPt[i]);
+        for (size_t i = 0; i < origPt.size(); ++i) ptIn.push_back(origPt[i] * ir.matrix);
 
         osgVerse::PointList2D projected; ptOut.resize(ptIn.size());
         osgVerse::GeometryAlgorithm::project(ptIn, projected);
@@ -69,18 +70,15 @@ int main(int argc, char** argv)
         for (size_t j = 0; j < planes.size(); ++j)
         {
             const osg::Plane& plane = planes[j]; edge.clear();
-            for (size_t i = 0; i < origPt.size(); ++i)
-            {
-                if (osg::equivalent(plane.distance(origPt[i]), 0.0))
-                    edge.push_back(origPt[i]);
-            };
+            for (size_t i = 0; i < ptOut.size(); ++i)
+            { if (osg::equivalent(plane.distance(ptOut[i]), 0.0f)) edge.push_back(ptOut[i]); }
             if (edge.size() > 1)
                 edgeOnPlaneMap[j].push_back(std::pair<osg::Vec3, osg::Vec3>(edge[0], edge[1]));
         }
 
         // Triangulate the face in a simple way
         size_t numPt = ptOut.size(), i0 = va->size();
-        for (size_t p = 0; p < numPt; ++p) va->push_back(ptOut[p] * ir.matrix);
+        for (size_t p = 0; p < numPt; ++p) va->push_back(ptOut[p]);
         switch (numPt)
         {
         case 3: de->push_back(i0); de->push_back(i0 + 1); de->push_back(i0 + 2); break;
