@@ -31,12 +31,13 @@ namespace osgVerse
             std::map<ofbx::Object*, ParentAndBindPose> boneLinks;
             std::map<ofbx::Object*, std::vector<int>> boneIndices;
             std::map<ofbx::Object*, std::vector<double>> boneWeights;
+            std::map<int, std::pair<osg::Geometry*, int>> globalIndexMap;
         };
 
         struct SkinningData
         {
             osg::ref_ptr<PlayerAnimation> player;
-            osg::ref_ptr<osg::Geode> meshRoot;
+            osg::ref_ptr<osg::Node> meshRoot, boneRoot;
             std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> jointData;
             std::vector<osg::Geometry*> meshList;
             std::vector<osg::Transform*> joints;

@@ -1,5 +1,6 @@
 #include <osg/io_utils>
 #include <osg/Version>
+#include <osg/ValueObject>
 #include <osg/AnimationPath>
 #include <osg/Texture2D>
 #include <osg/Geometry>
@@ -7,6 +8,8 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
+#include <osgUtil/SmoothingVisitor>
 #include "pipeline/Utilities.h"
 #include "LoadSceneFBX.h"
 
@@ -24,6 +27,9 @@ namespace osgVerse
 
         //const ofbx::Object* const* objects = _scene->getAllObjects();
         _root = new osg::MatrixTransform;
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
+        _root->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
+#endif
 
         int meshCount = _scene->getMeshCount();
         for (int i = 0; i < meshCount; ++i)
@@ -64,6 +70,15 @@ namespace osgVerse
             }
         }
 
+        // Apply materials to geometries
+        for (std::map<const ofbx::Material*, std::vector<osg::Geometry*>>::iterator
+            itr = _geometriesByMtl.begin(); itr != _geometriesByMtl.end(); ++itr)
+        {
+            std::vector<osg::Geometry*>& geometries = itr->second;
+            for (size_t i = 0; i < geometries.size(); ++i)
+                createMaterial(itr->first, geometries[i]->getOrCreateStateSet());
+        }
+
         // Merge and configure skeleton and skinning data
         std::vector<SkinningData> skinningList;
         mergeMeshBones(skinningList); createPlayers(skinningList);
@@ -84,15 +99,6 @@ namespace osgVerse
                 }
             }
             // TODO: more than 1 animations?
-        }
-
-        // Apply materials to geometries
-        for (std::map<const ofbx::Material*, std::vector<osg::Geometry*>>::iterator
-            itr = _geometriesByMtl.begin(); itr != _geometriesByMtl.end(); ++itr)
-        {
-            std::vector<osg::Geometry*>& geometries = itr->second;
-            for (size_t i = 0; i < geometries.size(); ++i)
-                createMaterial(itr->first, geometries[i]->getOrCreateStateSet());
         }
     }
 
@@ -154,26 +160,58 @@ namespace osgVerse
         }
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        std::map<int, std::pair<osg::Geometry*, int>> globalIndexMap;
         for (std::map<int, osg::ref_ptr<osg::DrawElementsUInt>>::iterator itr = primitivesByMtl.begin();
              itr != primitivesByMtl.end(); ++itr)
         {
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-            geom->setVertexArray(va.get());
+            osg::ref_ptr<osg::Vec3Array> subVA = new osg::Vec3Array;
+            osg::ref_ptr<osg::Vec3Array> subNA = nData ? new osg::Vec3Array : NULL;
+            osg::ref_ptr<osg::Vec4Array> subTA = tData ? new osg::Vec4Array : NULL;
+            osg::ref_ptr<osg::Vec4Array> subCA = cData ? new osg::Vec4Array : NULL;
+            osg::ref_ptr<osg::Vec2Array> subUV0 = uvData0 ? new osg::Vec2Array : NULL;
+            osg::ref_ptr<osg::Vec2Array> subUV1 = uvData1 ? new osg::Vec2Array : NULL;
+
+            osg::DrawElementsUInt* de = itr->second.get();
+            std::map<unsigned int, unsigned int> globalToLocalMap;
+            for (size_t i = 0; i < de->size(); ++i)
+            {
+                unsigned int idx = (*de)[i];
+                if (globalToLocalMap.find(idx) == globalToLocalMap.end())
+                {
+                    globalToLocalMap[idx] = subVA->size();
+                    if (globalIndexMap.find(idx) != globalIndexMap.end())
+                    {
+                        OSG_NOTICE << "[LoaderFBX] global vertex index (in an FBX mesh) " << idx
+                                   << " seems to be reused by multiple geometries" << std::endl;
+                    }
+                    globalIndexMap[idx] = std::pair<osg::Geometry*, int>(geom.get(), subVA->size());
+
+                    subVA->push_back((*va)[idx]); if (nData) subNA->push_back((*na)[idx]);
+                    if (tData) subTA->push_back((*ta)[idx]); if (cData) subCA->push_back((*ca)[idx]);
+                    if (uvData0) subUV0->push_back((*uv0)[idx]);
+                    if (uvData1) subUV1->push_back((*uv1)[idx]);
+                }
+                (*de)[i] = globalToLocalMap[idx];
+            }
+
+            geom->setVertexArray(subVA.get());
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
-            if (nData) geom->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
-            if (tData) geom->setVertexAttribArray(6, ta.get(), osg::Array::BIND_PER_VERTEX);
-            if (cData) geom->setColorArray(ca.get(), osg::Array::BIND_PER_VERTEX);
-            if (uvData0) geom->setTexCoordArray(0, uv0.get(), osg::Array::BIND_PER_VERTEX);
-            if (uvData1) geom->setTexCoordArray(1, uv1.get(), osg::Array::BIND_PER_VERTEX);
+            if (nData) geom->setNormalArray(subNA.get(), osg::Array::BIND_PER_VERTEX);
+            if (tData) geom->setVertexAttribArray(6, subTA.get(), osg::Array::BIND_PER_VERTEX);
+            if (cData) geom->setColorArray(subCA.get(), osg::Array::BIND_PER_VERTEX);
+            if (uvData0) geom->setTexCoordArray(0, subUV0.get(), osg::Array::BIND_PER_VERTEX);
+            if (uvData1) geom->setTexCoordArray(1, subUV1.get(), osg::Array::BIND_PER_VERTEX);
 #else
-            if (nData) { geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
-            if (tData) { geom->setVertexAttribArray(6, ta.get()); geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX); }
-            if (cData) { geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
-            if (uvData0) { geom->setTexCoordArray(0, uv0.get()); }
-            if (uvData1) { geom->setTexCoordArray(1, uv1.get()); }
+            if (nData) { geom->setNormalArray(subNA.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
+            if (tData) { geom->setVertexAttribArray(6, subTA.get()); geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX); }
+            if (cData) { geom->setColorArray(subCA.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
+            if (uvData0) { geom->setTexCoordArray(0, subUV0.get()); }
+            if (uvData1) { geom->setTexCoordArray(1, subUV1.get()); }
 #endif
-            geom->addPrimitiveSet(itr->second.get());
+            geom->addPrimitiveSet(de);
             geode->addDrawable(geom.get());
+            if (!nData) osgUtil::SmoothingVisitor::smooth(*geom);
 
             if (itr->first < mesh.getMaterialCount())
             {
@@ -188,6 +226,7 @@ namespace osgVerse
         if (skin != NULL)
         {
             MeshSkinningData& msd = _meshBoneMap[geode.get()];
+            msd.globalIndexMap = globalIndexMap;
             for (int i = 0; i < skin->getClusterCount(); ++i)
             {
                 const ofbx::Cluster* cluster = skin->getCluster(i);
@@ -206,13 +245,6 @@ namespace osgVerse
                 boneWeights.resize(cluster->getWeightsCount());
                 memcpy(&boneIndices[0], cluster->getIndices(), cluster->getIndicesCount());
                 memcpy(&boneWeights[0], cluster->getWeights(), cluster->getWeightsCount());
-
-                // TODO: relationship among bones, indices and weights of current MESH?
-                // Actually requires:
-                // - Bone list: std::vector<osg::Transform*>
-                // - Skinned mesh list: std::vector<osg::Geometry*>
-                // - Relationship: std::map<osg::Geometry*, GeometryJointData>
-                //   (jointID/weight per vertex, inverse_bind_poses of joint)
             }
         }
 
@@ -338,13 +370,16 @@ namespace osgVerse
                 if (content.begin != NULL && content.begin != content.end)
                 {
                     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+                    if (rw == NULL)  // try our luck!
+                        rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_image");
+
                     if (rw != NULL)
                     {
                         std::vector<unsigned char> buffer(content.begin + 4, content.end);
                         std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
                         ss.write((char*)&buffer[0], buffer.size());
                         image = rw->readImage(ss).getImage();
-                        image->setFileName(originalName);
+                        if (image.valid()) image->setFileName(originalName);
                     }
 
                 }
@@ -372,14 +407,109 @@ namespace osgVerse
                            << uniformNames[i] << std::endl;
             }
 
-            ss->setTextureAttributeAndModes(i, tex2D);
+            if (tex2D->getImage() != NULL)
+                ss->setTextureAttributeAndModes(i, tex2D);
             //ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
         }
     }
 
+    class FindTransformVisitor : public osg::NodeVisitor
+    {
+    public:
+        FindTransformVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN) {}
+        std::vector<osg::Transform*> bones;
+
+        virtual void apply(osg::Transform& node)
+        { bones.push_back(&node); traverse(node); }
+    };
+
     void LoaderFBX::mergeMeshBones(std::vector<SkinningData>& skinningList)
     {
-        // TODO
+        std::map<ofbx::Object*, osg::MatrixTransform*> boneMapper;
+        std::map<osg::Transform*, ofbx::Object*> boneMapper2;
+        std::map<osg::Node*, osg::Geode*> boneToGeodeMap;
+        for (std::map<osg::Geode*, MeshSkinningData>::iterator itr = _meshBoneMap.begin();
+             itr != _meshBoneMap.end(); ++itr)
+        {
+            MeshSkinningData& msd = itr->second;
+            std::map<ofbx::Object*, MeshSkinningData::ParentAndBindPose>::iterator itr2;
+            for (itr2 = msd.boneLinks.begin(); itr2 != msd.boneLinks.end(); ++itr2)
+            {
+                ofbx::Object *child = itr2->first, *parent = itr2->second.first;
+                osg::MatrixTransform *childMT = NULL, *parentMT = NULL;
+                if (boneMapper.find(child) == boneMapper.end())
+                {
+                    childMT = new osg::MatrixTransform; childMT->setName(child->name);
+                    boneMapper[child] = childMT; boneMapper2[childMT] = child;
+                }
+                if (boneMapper.find(parent) == boneMapper.end())
+                {
+                    parentMT = new osg::MatrixTransform; parentMT->setName(parent->name);
+                    boneMapper[parent] = parentMT; boneMapper2[parentMT] = parent;
+                }
+
+                childMT = boneMapper[child]; parentMT = boneMapper[parent];
+                childMT->setMatrix(itr2->second.second);
+                if (!parentMT->containsNode(childMT)) parentMT->addChild(childMT);
+                boneToGeodeMap[childMT] = itr->first;
+                boneToGeodeMap[parentMT] = itr->first;
+            }
+        }
+
+        // Find bones
+        std::vector<std::vector<osg::Transform*>> skeletonList;
+        for (std::map<ofbx::Object*, osg::MatrixTransform*>::iterator itr = boneMapper.begin();
+             itr != boneMapper.end(); ++itr)
+        {
+            if (itr->second->getNumParents() > 0) continue;
+            FindTransformVisitor ftv; itr->second->accept(ftv);
+            skeletonList.push_back(ftv.bones);
+        }
+
+        // Fill skinning data with bones and geometry-related data
+        skinningList.resize(skeletonList.size());
+        for (size_t i = 0; i < skinningList.size(); ++i)
+        {
+            SkinningData& sd = skinningList[i];
+            sd.boneRoot = skeletonList[i].front();
+            sd.joints = skeletonList[i];
+
+            osg::Geode* geode = boneToGeodeMap[sd.boneRoot.get()];
+            if (!geode) { OSG_WARN << "[LoaderFBX] Invalid bone root data" << std::endl; continue; }
+            for (size_t j = 0; j < geode->getNumDrawables(); ++j)
+            {
+                osg::Geometry* geom = geode->getDrawable(j)->asGeometry();
+                if (!geom) continue; else sd.meshList.push_back(geom);
+
+                PlayerAnimation::GeometryJointData& gjd = sd.jointData[geom];
+                gjd._weightList.resize(static_cast<osg::Vec3Array*>(geom->getVertexArray())->size());
+                gjd._stateset = geom->getStateSet();
+            }
+
+            MeshSkinningData& msd = _meshBoneMap[geode];
+            for (size_t j = 0; j < sd.joints.size(); ++j)
+            {
+                osg::Transform* boneT = sd.joints[j]; ofbx::Object* fbxNode = boneMapper2[boneT];
+                if (!fbxNode) { OSG_WARN << "[LoaderFBX] Invalid bone data" << std::endl; continue; }
+
+                std::vector<int>& indices = msd.boneIndices[fbxNode];
+                std::vector<double>& weights = msd.boneWeights[fbxNode];
+                if (indices.empty() || indices.size() != weights.size()) continue;
+
+                std::map<int, std::pair<osg::Geometry*, int>>& globalMap = msd.globalIndexMap;
+                for (size_t k = 0; k < indices.size(); ++k)
+                {
+                    std::pair<osg::Geometry*, int>& kv = globalMap[indices[k]];
+                    if (kv.first == NULL)
+                    { OSG_WARN << "[LoaderFBX] Invalid index " << indices[k] << std::endl; continue; }
+
+                    PlayerAnimation::GeometryJointData& gjd = sd.jointData[kv.first];
+                    gjd._invBindPoseMap[boneT] = boneT->asMatrixTransform()->getMatrix();
+                    gjd._weightList[kv.second].push_back(
+                        std::pair<osg::Transform*, float>(boneT, weights[k]));
+                }
+            }
+        }  // for (size_t i = 0; i < skinningList.size(); ++i)
     }
 
     void LoaderFBX::createPlayers(std::vector<SkinningData>& skinningList)
