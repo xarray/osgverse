@@ -628,6 +628,7 @@ namespace osgVerse
             {
                 PlayerAnimation::GeometryJointData& jData = sd.jointData[sd.meshList[j]];
                 jData._invBindPoseMap[bones[i]] = matrix;
+                //std::cout << bones[i]->getName().c_str() << matrix;
             }
         }
     }

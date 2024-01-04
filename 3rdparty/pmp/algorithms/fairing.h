@@ -3,22 +3,25 @@
 
 #pragma once
 
-#include "pmp/SurfaceMesh.h"
+#include "pmp/surface_mesh.h"
 
 namespace pmp {
 
-//! minimize surface area
+//! Minimize surface area.
+//! \note This algorithm works on general polygon meshes.
 //! \sa fair()
 //! \ingroup algorithms
 void minimize_area(SurfaceMesh& mesh);
 
-//! minimize surface curvature
+//! Minimize surface curvature.
+//! \note This algorithm works on general polygon meshes.
 //! \sa fair()
 //! \ingroup algorithms
 void minimize_curvature(SurfaceMesh& mesh);
 
 //! \brief Implicit surface fairing.
 //! \details Computes a surface by solving k-harmonic equation. See also \cite desbrun_1999_implicit .
+//! \note This algorithm works on general polygon meshes.
 //! \throw SolverException in case of failure to solve the linear system
 //! \throw InvalidInputException in case of missing boundary constraints
 //! \ingroup algorithms

@@ -1,7 +1,6 @@
 #include <osg/Texture2D>
-#include <pmp/SurfaceMesh.h>
-#include <pmp/utilities.h>
-//#include <pmp/algorithms/fairing.h>
+#include <pmp/surface_mesh.h>
+#include <pmp/algorithms/utilities.h>
 #include <pmp/algorithms/remeshing.h>
 #include <pmp/algorithms/decimation.h>
 #include <pmp/algorithms/hole_filling.h>

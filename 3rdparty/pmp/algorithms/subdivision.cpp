@@ -2,7 +2,7 @@
 // Distributed under a MIT-style license, see LICENSE.txt for details.
 
 #include "pmp/algorithms/subdivision.h"
-#include "pmp/algorithms/DifferentialGeometry.h"
+#include "pmp/algorithms/differential_geometry.h"
 
 namespace pmp {
 
@@ -376,8 +376,10 @@ void quad_tri_subdivision(SurfaceMesh& mesh)
             // quadrangulate the rest
             Halfedge h0 = mesh.halfedge(f);
             Halfedge h1 = mesh.next_halfedge(mesh.next_halfedge(h0));
+            //NOTE: It's important to calculate the centroid before inserting the new edge
+            auto cen = centroid(mesh, f);
             h1 = mesh.insert_edge(h0, h1);
-            mesh.insert_vertex(mesh.edge(h1), centroid(mesh, f));
+            mesh.insert_vertex(mesh.edge(h1), cen);
 
             auto h =
                 mesh.next_halfedge(mesh.next_halfedge(mesh.next_halfedge(h1)));

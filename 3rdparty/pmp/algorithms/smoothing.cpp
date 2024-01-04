@@ -2,110 +2,59 @@
 // Distributed under a MIT-style license, see LICENSE.txt for details.
 
 #include "pmp/algorithms/smoothing.h"
-
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-
-#include "pmp/algorithms/DifferentialGeometry.h"
+#include "pmp/algorithms/differential_geometry.h"
+#include "pmp/algorithms/laplace.h"
 
 namespace pmp {
-namespace {
 
-// compute cotan/uniform Laplace weights.
-void compute_edge_weights(SurfaceMesh& mesh, bool use_uniform_laplace)
-{
-    auto eweight = mesh.edge_property<Scalar>("e:cotan");
-
-    if (use_uniform_laplace)
-    {
-        for (auto e : mesh.edges())
-            eweight[e] = 1.0;
-    }
-    else
-    {
-        for (auto e : mesh.edges())
-            eweight[e] = std::max(0.0, cotan_weight(mesh, e));
-    }
-}
-
-// compute cotan/uniform Laplace weights.
-void compute_vertex_weights(SurfaceMesh& mesh, bool use_uniform_laplace)
-{
-    auto vweight = mesh.vertex_property<Scalar>("v:area");
-
-    if (use_uniform_laplace)
-    {
-        for (auto v : mesh.vertices())
-            vweight[v] = 1.0 / mesh.valence(v);
-    }
-    else
-    {
-        for (auto v : mesh.vertices())
-            vweight[v] = 0.5 / voronoi_area(mesh, v);
-    }
-}
-} // namespace
-
-void explicit_smoothing(SurfaceMesh& mesh, unsigned int iters,
+void explicit_smoothing(SurfaceMesh& mesh, unsigned int iterations,
                         bool use_uniform_laplace)
 {
     if (!mesh.n_vertices())
         return;
 
-    compute_edge_weights(mesh, use_uniform_laplace);
+    // Laplace matrix (clamp negative cotan weights to zero)
+    SparseMatrix L;
+    if (use_uniform_laplace)
+        uniform_laplace_matrix(mesh, L);
+    else
+        laplace_matrix(mesh, L, true);
 
-    auto points = mesh.get_vertex_property<Point>("v:point");
-    auto eweight = mesh.get_edge_property<Scalar>("e:cotan");
-    auto laplace = mesh.add_vertex_property<Point>("v:laplace");
+    SparseMatrix G, D, L1, L2;
+    laplace_matrix(mesh, L1);
+    gradient_matrix(mesh, G);
+    divergence_matrix(mesh, D);
+    L2 = D * G;
 
-    // smoothing iterations
-    Vertex vv;
-    Edge e;
-    for (unsigned int i = 0; i < iters; ++i)
-    {
-        // step 1: compute Laplace for each vertex
-        for (auto v : mesh.vertices())
-        {
-            Point l(0, 0, 0);
+    // normalize each row by sum of weights
+    // scale by 0.5 to make it more robust
+    // multiply by -1 to make it neg. definite again
+    L = -0.5 * L.diagonal().asDiagonal().inverse() * L;
 
-            if (!mesh.is_boundary(v))
-            {
-                Scalar w(0);
+    // cancel out boundary vertices
+    SparseMatrix S;
+    auto is_inner = [&](Vertex v) { return !mesh.is_boundary(v); };
+    selector_matrix(mesh, is_inner, S);
+    L = S.transpose() * S * L;
 
-                for (auto h : mesh.halfedges(v))
-                {
-                    vv = mesh.to_vertex(h);
-                    e = mesh.edge(h);
-                    l += eweight[e] * (points[vv] - points[v]);
-                    w += eweight[e];
-                }
+    // copy vertex coordinates to matrix
+    DenseMatrix X;
+    coordinates_to_matrix(mesh, X);
 
-                l /= w;
-            }
+    // perform some iterations
+    for (unsigned int i = 0; i < iterations; ++i)
+        X += L * X;
 
-            laplace[v] = l;
-        }
-
-        // step 2: move each vertex by its (damped) Laplacian
-        for (auto v : mesh.vertices())
-        {
-            points[v] += 0.5f * laplace[v];
-        }
-    }
-
-    // clean-up custom properties
-    mesh.remove_vertex_property(laplace);
-    mesh.remove_edge_property(eweight);
+    // copy matrix back to vertex coordinates
+    matrix_to_coordinates(X, mesh);
 }
 
 void implicit_smoothing(SurfaceMesh& mesh, Scalar timestep,
-                        bool use_uniform_laplace, bool rescale)
+                        unsigned int iterations, bool use_uniform_laplace,
+                        bool rescale)
 {
     if (!mesh.n_vertices())
         return;
-
-    compute_edge_weights(mesh, use_uniform_laplace);
-    compute_vertex_weights(mesh, use_uniform_laplace);
 
     // store center and area
     Point center_before(0, 0, 0);
@@ -116,113 +65,56 @@ void implicit_smoothing(SurfaceMesh& mesh, Scalar timestep,
         area_before = surface_area(mesh);
     }
 
-    // properties
-    auto points = mesh.get_vertex_property<Point>("v:point");
-    auto vweight = mesh.get_vertex_property<Scalar>("v:area");
-    auto eweight = mesh.get_edge_property<Scalar>("e:cotan");
-    auto idx = mesh.add_vertex_property<int>("v:idx", -1);
-
-    // collect free (non-boundary) vertices in array free_vertices[]
-    // assign indices such that idx[ free_vertices[j] ] == j
-    unsigned j = 0;
-    std::vector<Vertex> free_vertices;
-    free_vertices.reserve(mesh.n_vertices());
-    for (auto v : mesh.vertices())
+    // build system matrix A (clamp negative cotan weights to zero)
+    SparseMatrix L;
+    DiagonalMatrix M;
+    if (use_uniform_laplace)
     {
-        if (!mesh.is_boundary(v))
-        {
-            idx[v] = j++;
-            free_vertices.push_back(v);
-        }
-    }
-    const unsigned int n = free_vertices.size();
-
-    // A*X = B
-    using SparseMatrix = Eigen::SparseMatrix<double>;
-    SparseMatrix A(n, n);
-    Eigen::MatrixXd B(n, 3);
-
-    // nonzero elements of A as triplets: (row, column, value)
-    using Triplet = Eigen::Triplet<double>;
-    std::vector<Triplet> triplets;
-
-    // setup matrix A and rhs B
-    for (unsigned int i = 0; i < n; ++i)
-    {
-        auto v = free_vertices[i];
-
-        // rhs row
-        auto b = static_cast<dvec3>(points[v]) / vweight[v];
-
-        // lhs row
-        auto ww = 0.0;
-        for (auto h : mesh.halfedges(v))
-        {
-            auto vv = mesh.to_vertex(h);
-            auto e = mesh.edge(h);
-            ww += eweight[e];
-
-            // fixed boundary vertex -> right hand side
-            if (mesh.is_boundary(vv))
-            {
-                b -= -timestep * eweight[e] * static_cast<dvec3>(points[vv]);
-            }
-            // free interior vertex -> matrix
-            else
-            {
-                triplets.emplace_back(i, idx[vv], -timestep * eweight[e]);
-            }
-
-            B.row(i) = (Eigen::Vector3d)b;
-        }
-
-        // center vertex -> matrix
-        triplets.emplace_back(i, i, 1.0 / vweight[v] + timestep * ww);
-    }
-
-    // build sparse matrix from triplets
-    A.setFromTriplets(triplets.begin(), triplets.end());
-
-    // solve A*X = B
-    Eigen::SimplicialLDLT<SparseMatrix> solver(A);
-    Eigen::MatrixXd X = solver.solve(B);
-    if (solver.info() != Eigen::Success)
-    {
-        // clean-up
-        mesh.remove_vertex_property(idx);
-        mesh.remove_vertex_property(vweight);
-        mesh.remove_edge_property(eweight);
-        auto what = std::string{__func__} + ": Failed to solve linear system.";
-        throw SolverException(what);
+        uniform_laplace_matrix(mesh, L);
+        uniform_mass_matrix(mesh, M);
     }
     else
     {
-        // copy solution
-        for (unsigned int i = 0; i < n; ++i)
+        laplace_matrix(mesh, L);
+        mass_matrix(mesh, M);
+    }
+    SparseMatrix A = SparseMatrix(M) - timestep * L;
+    DenseMatrix X, B;
+
+    for (unsigned int iter = 0; iter < iterations; ++iter)
+    {
+        if (!use_uniform_laplace)
         {
-            points[free_vertices[i]] = X.row(i);
+            mass_matrix(mesh, M);
+            A = SparseMatrix(M) - timestep * L;
+        }
+
+        // build right-hand side B
+        coordinates_to_matrix(mesh, X);
+        B = M * X;
+
+        // solve system
+        auto is_constrained = [&](unsigned int i) {
+            return mesh.is_boundary(Vertex(i));
+        };
+        X = cholesky_solve(A, B, is_constrained, X);
+        matrix_to_coordinates(X, mesh);
+
+        if (rescale)
+        {
+            // restore original surface area
+            Scalar area_after = surface_area(mesh);
+            Scalar scale = sqrt(area_before / area_after);
+            for (auto v : mesh.vertices())
+                mesh.position(v) *= scale;
+
+            // restore original center
+            Point center_after = centroid(mesh);
+            Point trans = center_before - center_after;
+            for (auto v : mesh.vertices())
+                mesh.position(v) += trans;
         }
     }
-
-    if (rescale)
-    {
-        // restore original surface area
-        Scalar area_after = surface_area(mesh);
-        Scalar scale = sqrt(area_before / area_after);
-        for (auto v : mesh.vertices())
-            mesh.position(v) *= scale;
-
-        // restore original center
-        Point center_after = centroid(mesh);
-        Point trans = center_before - center_after;
-        for (auto v : mesh.vertices())
-            mesh.position(v) += trans;
-    }
-
-    // clean-up
-    mesh.remove_vertex_property(idx);
-    mesh.remove_vertex_property(vweight);
-    mesh.remove_edge_property(eweight);
 }
 
 } // namespace pmp

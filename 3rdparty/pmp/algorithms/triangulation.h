@@ -3,34 +3,22 @@
 
 #pragma once
 
-#include "pmp/SurfaceMesh.h"
+#include "pmp/surface_mesh.h"
 
 namespace pmp {
 
-//! Triangulation objective
+//! \brief Triangulate all faces in \p mesh by applying triangulate().
 //! \ingroup algorithms
-enum class TriangulationObjective
-{
-    min_area, //!< minimize the sum of squared areas
-    max_angle //!< maximize the minimum angle
-};
+void triangulate(SurfaceMesh& mesh);
 
-//! \brief Triangulate polygons to get a triangle mesh.
+//! \brief Triangulate the Face \p f .
 //! \details Triangulate n-gons into n-2 triangles. Finds the triangulation that
-//! minimizes the sum of squared triangle areas, or the one that maximizes the
-//! minimum angle.
+//! minimizes the sum of squared triangle areas.
 //! See \cite liepa_2003_filling for details.
-//! \warning Objective::MAX_ANGLE can lead to fold-overs in case of non-convex polygons. Use Objective::MIN_AREA` instead in this case.
-//! \ingroup algorithms
-void triangulate(SurfaceMesh& mesh,
-                 TriangulationObjective o = TriangulationObjective::min_area);
-
-//! \brief Triangulate the Face \p f
 //! \pre The input face is manifold
+//! \note This algorithm works on general polygon meshes.
 //! \throw InvalidInputException in case the input precondition is violated
-//! \warning Objective::MAX_ANGLE can lead to fold-overs in case of non-convex polygons. Use Objective::MIN_AREA` instead in this case.
 //! \ingroup algorithms
-void triangulate(SurfaceMesh& mesh, Face f,
-                 TriangulationObjective o = TriangulationObjective::min_area);
+void triangulate(SurfaceMesh& mesh, Face f);
 
 } // namespace pmp

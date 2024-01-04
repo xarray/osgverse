@@ -13,7 +13,6 @@
 #include <pipeline/IntersectionManager.h>
 #include <modeling/Utilities.h>
 #include <modeling/Math.h>
-#include <modeling/CsgBoolean.h>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
@@ -22,17 +21,6 @@ int main(int argc, char** argv)
 {
     osg::ref_ptr<osg::Node> nodeA = (argc < 2)
                                   ? osgDB::readNodeFile("cow.osg") : osgDB::readNodeFile(argv[1]);
-#if false
-    //osg::ref_ptr<osg::Node> nodeB = osgDB::readNodeFile("cow.osg.(-1,-0.5,0).trans");
-    osg::ref_ptr<osg::Geode> nodeB = new osg::Geode;
-    //nodeB->addDrawable(osgVerse::createEllipsoid(osg::Vec3(0.0f, -0.5f, 0.0f), 1.0f, 1.0f, 3.0f));
-    nodeB->addDrawable(osgVerse::createPrism(osg::Vec3(0.0f, -8.0f, -10.0f), 10.0f, 10.0f, 20.0f));
-
-    osg::ref_ptr<osg::Group> root = new osg::Group;
-    root->addChild(osgVerse::CsgBoolean::process(
-        osgVerse::CsgBoolean::A_NOT_B, nodeA.get(), nodeB.get()));
-    //root->addChild(nodeA.get()); root->addChild(nodeB.get());
-#else
     osg::Polytope polytope;
     {
         osg::ComputeBoundsVisitor cbv;
@@ -128,7 +116,6 @@ int main(int argc, char** argv)
 
     osg::Geometry* geom = osgVerse::createGeometry(va, NULL, NULL, de);
     root->addDrawable(geom); //osgDB::writeNodeFile(*root, "test.osg");
-#endif
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

@@ -95,25 +95,27 @@ SET(OZZ_SOURCE_FILES
 )
 
 SET(PMP_MCUT_SOURCE_FILES
-    pmp/BoundingBox.h pmp/Exceptions.h pmp/MatVec.h
-    pmp/MemoryUsage.h pmp/Properties.h pmp/Timer.h pmp/Types.h
-    pmp/SurfaceMesh.cpp pmp/SurfaceMesh.h pmp/utilities.cpp pmp/utilities.h
+    pmp/bounding_box.h pmp/exceptions.h pmp/mat_vec.h pmp/memory_usage.h
+    pmp/properties.h pmp/stop_watch.h pmp/types.h pmp/surface_mesh.cpp pmp/surface_mesh.h
+    pmp/algorithms/barycentric_coordinates.h
     pmp/algorithms/curvature.cpp pmp/algorithms/curvature.h
     pmp/algorithms/decimation.cpp pmp/algorithms/decimation.h
-    #pmp/algorithms/fairing.cpp pmp/algorithms/fairing.h
+    pmp/algorithms/differential_geometry.cpp pmp/algorithms/differential_geometry.h
+    pmp/algorithms/distance_point_triangle.cpp pmp/algorithms/distance_point_triangle.h
+    pmp/algorithms/fairing.cpp pmp/algorithms/fairing.h
     pmp/algorithms/features.cpp pmp/algorithms/features.h
     pmp/algorithms/geodesics.cpp pmp/algorithms/geodesics.h
     pmp/algorithms/hole_filling.cpp pmp/algorithms/hole_filling.h
+    pmp/algorithms/laplace.cpp pmp/algorithms/laplace.h
     pmp/algorithms/normals.cpp pmp/algorithms/normals.h
+    pmp/algorithms/numerics.cpp pmp/algorithms/numerics.h
     pmp/algorithms/parameterization.cpp pmp/algorithms/parameterization.h
     pmp/algorithms/remeshing.cpp pmp/algorithms/remeshing.h
     pmp/algorithms/shapes.cpp pmp/algorithms/shapes.h
     pmp/algorithms/smoothing.cpp pmp/algorithms/smoothing.h
     pmp/algorithms/subdivision.cpp pmp/algorithms/subdivision.h
     pmp/algorithms/triangulation.cpp pmp/algorithms/triangulation.h
-    pmp/algorithms/DifferentialGeometry.cpp pmp/algorithms/DifferentialGeometry.h
-    pmp/algorithms/DistancePointTriangle.cpp pmp/algorithms/DistancePointTriangle.h
-    pmp/algorithms/BarycentricCoordinates.h pmp/algorithms/DistancePointTriangle.h
+    pmp/algorithms/utilities.cpp pmp/algorithms/utilities.h
 )
 
 SET(IMGUI_SOURCE_FILES
@@ -139,7 +141,7 @@ SET(IMGUI_SOURCE_FILES
 	imgui/imgui_impl_opengl3.cpp imgui/imgui_impl_opengl3.h
 )
 IF(VERSE_USE_EXTERNAL_GLES2 OR VERSE_USE_EXTERNAL_GLES3)
-    #SET ?
+    #
 ELSE()
     SET(IMGUI_SOURCE_FILES ${IMGUI_SOURCE_FILES}
 		imgui/imgui_impl_opengl2.cpp imgui/imgui_impl_opengl2.h)
@@ -467,6 +469,15 @@ SET(TWEENY_SOURCE_FILES
     tweeny/tweenone.tcc tweeny/tweenpoint.tcc
 )
 
+SET(QUADRIFLOW_SOURCE_FILES
+    quadriflow/manifold/types.h quadriflow/manifold/GridIndex.h
+    quadriflow/manifold/Intersection.h quadriflow/manifold/Intersection.cc
+    quadriflow/manifold/Manifold.h quadriflow/manifold/Manifold.cc
+    quadriflow/manifold/MeshProjector.h quadriflow/manifold/MeshProjector.cc
+    quadriflow/manifold/Octree.h quadriflow/manifold/Octree.cc
+    quadriflow/manifold/Parser.h quadriflow/manifold/Parser.cc
+)
+
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
@@ -485,6 +496,7 @@ SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
 SOURCE_GROUP("libSpatialIndex Files" FILES ${LIBSPATIALINDEX_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
+SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
@@ -504,12 +516,9 @@ SET(LIBRARY_FILES
     ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
 )
 
-IF(VERSE_BUILD_GPL)
-    SET(LIBRARY_FILES ${LIBRARY_FILES}
-        mcut/bvh.cpp mcut/frontend.cpp mcut/hmesh.cpp
-        mcut/kernel.cpp mcut/math.cpp mcut/mcut.cpp mcut/mcut.h
-        mcut/preproc.cpp mcut/platform.h mcut/shewchuk.c)
-ENDIF(VERSE_BUILD_GPL)
+IF(LIBIGL_FOUND)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ${QUADRIFLOW_SOURCE_FILES})
+ENDIF(LIBIGL_FOUND)
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS -DBL_STATIC -DBL_BUILD_NO_JIT
                 -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
@@ -519,6 +528,10 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPD
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # disable use of json.hpp in VS2015 or lower
 ENDIF(MSVC_VERSION LESS 1910)
+
+IF(OPENMP_FOUND)
+    ADD_DEFINITIONS(-DWITH_OMP)
+ENDIF(OPENMP_FOUND)
 
 IF("sse4.2" IN_LIST VERSE_SIMD_FEATURES)
     ADD_DEFINITIONS(-DBL_BUILD_OPT_SSE4_2 -DBASISU_SUPPORT_SSE)
@@ -545,7 +558,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    recastnavigation/Detour "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
+                    quadriflow recastnavigation/Detour "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 

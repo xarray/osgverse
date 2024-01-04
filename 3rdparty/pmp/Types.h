@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "pmp/MatVec.h"
+#include "pmp/mat_vec.h"
 
 //! The pmp-library namespace
 namespace pmp {
