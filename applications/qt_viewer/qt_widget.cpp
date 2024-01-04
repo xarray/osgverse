@@ -159,10 +159,9 @@ bool OsgSceneWidget::event(QEvent* event)
 
 osgGA::GUIEventAdapter::KeySymbol getKey(int key, const QString& value)
 {
-    char* keyData = value.toLocal8Bit().data();
     if (!value.isEmpty())
     {
-        char code = *keyData;
+        char code = value[0].toLatin1();
         if ((code >= 'a' && code <= 'z') || (code >= 'A' && code <= 'Z') ||
             (code >= '0' && code <= '9'))
             return (osgGA::GUIEventAdapter::KeySymbol)code;
