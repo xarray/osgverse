@@ -8,6 +8,11 @@ uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)
 VERSE_FS_IN vec4 texCoord0;
 
+#if VERSE_GLES3
+layout(location = 0) VERSE_FS_OUT vec4 fragData0;
+layout(location = 1) VERSE_FS_OUT vec4 fragData1;
+#endif
+
 const vec2 invAtan = vec2(0.1591, 0.3183);
 const int maxLights = 1024;
 
@@ -112,19 +117,11 @@ void main()
     }
 
     ao = 1.0;  // FIXME: sponza seems to have a negative AO?
+#if VERSE_GLES3
+    fragData0/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
+    fragData1/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
+#else
     gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
     gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
-
-    // ModelIndicator functionalities
-    if (normalAlpha.a > 0.45 && normalAlpha.a < 0.55)  // 5: Highlight selection
-    {
-        vec2 off1 = vec2(1.0, 0.0) * InvScreenResolution;
-        vec2 off2 = vec2(0.0, 1.0) * InvScreenResolution;
-        vec4 n1 = VERSE_TEX2D(NormalBuffer, uv0 - off1);
-        vec4 n2 = VERSE_TEX2D(NormalBuffer, uv0 - off2);
-        vec4 n3 = VERSE_TEX2D(NormalBuffer, uv0 + off1);
-        vec4 n4 = VERSE_TEX2D(NormalBuffer, uv0 + off2);
-        if (n1.a < 0.1 || n2.a < 0.1 || n3.a < 0.1 || n4.a < 0.1)
-            gl_FragData[1] = vec4(1.0, 1.0, 0.0, 1.0);
-    }
+#endif
 }

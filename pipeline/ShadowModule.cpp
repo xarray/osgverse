@@ -234,7 +234,7 @@ namespace osgVerse
         int value = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE;
         camera->getOrCreateStateSet()->setAttributeAndModes(prog, value);
         camera->getOrCreateStateSet()->setAttributeAndModes(_cullFace.get(), value);
-        camera->getOrCreateStateSet()->setAttributeAndModes(_polygonOffset.get(), value);
+        camera->getOrCreateStateSet()->setAttribute(_polygonOffset.get(), value);
         camera->getOrCreateStateSet()->setMode(GL_POLYGON_OFFSET_FILL, value);
         _shadowCameras.push_back(camera.get());
 

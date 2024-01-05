@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf.125,125,125.scale");
+        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
@@ -64,11 +64,15 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     if (scene.valid()) sceneRoot->addChild(scene.get());
-    sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+    sceneRoot->setMatrix(osg::Matrix::scale(125.0f, 125.0f, 125.0f) *
+                         osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
+
+    osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
+    root->addChild(postCamera.get());
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
@@ -84,19 +88,6 @@ int main(int argc, char** argv)
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     
-    // Post-HUD display
-    osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
-    root->addChild(postCamera.get());
-
-    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
-    {
-        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
-        skybox->setEnvironmentMap(params.skyboxMap.get(), false);
-        osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
-        postCamera->addChild(skybox.get());
-    }
-
     // Start SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -278,6 +269,16 @@ int main(int argc, char** argv)
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 #endif
+
+    // Post-HUD display
+    osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
+    {
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+        skybox->setEnvironmentMap(params.skyboxMap.get(), false);
+        osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
+        postCamera->addChild(skybox.get());
+    }
 
     // Start the main loop
     gw->getEventQueue()->windowResize(0, 0, windowWidth, windowHeight);

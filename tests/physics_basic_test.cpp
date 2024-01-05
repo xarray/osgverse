@@ -161,7 +161,9 @@ int main(int argc, char** argv)
         // Scale can't be handled with rotation & position in the same matrix
         osg::ref_ptr<osg::MatrixTransform> cessna = new osg::MatrixTransform;
         cessna->setMatrix(osg::Matrix::scale(0.1f, 0.1f, 0.1f));
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         cessna->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
+#endif
         cessna->addChild(cessnaModel.get());
         cessnaMT->addChild(cessna.get());
     }

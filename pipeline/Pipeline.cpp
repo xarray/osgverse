@@ -1139,16 +1139,17 @@ namespace osgVerse
             }
         }
 
-        std::stringstream ss; ss << "//! osgVerse generated shader: " << glslVer << std::endl;
+        std::stringstream ss;
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
         ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
         ss << "#define VERSE_GLES2 1" << std::endl;
 #elif defined(OSG_GLES3_AVAILABLE)
-        if (glslVer > 0) ss << "#version " << glslVer << " es" << std::endl;
+        if (glslVer > 0) ss << "#version " << osg::minimum(glslVer, 300) << " es" << std::endl;
         ss << "#define VERSE_GLES3 1" << std::endl;
 #else
         if (glslVer > 0) ss << "#version " << glslVer << std::endl;
 #endif
+        ss << "//! osgVerse generated shader: " << glslVer << std::endl;
 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         ss << "precision highp float;" << std::endl;
