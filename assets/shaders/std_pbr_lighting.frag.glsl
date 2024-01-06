@@ -8,7 +8,7 @@ uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)
 VERSE_FS_IN vec4 texCoord0;
 
-#if VERSE_GLES3
+#ifdef VERSE_GLES3
 layout(location = 0) VERSE_FS_OUT vec4 fragData0;
 layout(location = 1) VERSE_FS_OUT vec4 fragData1;
 #endif
@@ -117,7 +117,7 @@ void main()
     }
 
     ao = 1.0;  // FIXME: sponza seems to have a negative AO?
-#if VERSE_GLES3
+#ifdef VERSE_GLES3
     fragData0/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
     fragData1/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
 #else

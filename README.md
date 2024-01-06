@@ -28,10 +28,10 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - [x] Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
 - [x] Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
 - [x] Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
-- [x] (PARTLY) Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
+- [x] Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
 - [x] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
 - [ ] Supports major embedded devices with GPU supports, including ARM and RISC-V.
-- [x] (PARTLY) Supports Emscripten / WASM compilation and works with WebGL / WebGPU based browsers.
+- [x] (PARTLY) Supports Emscripten / WASM compilation and works with WebGL 1/2 based browsers.
 - [ ] Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
 #### Screenshots

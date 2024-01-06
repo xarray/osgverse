@@ -33,7 +33,8 @@ Please Select:
 1. Desktop / OpenGL Core Mode
 2. Desktop / Google Angle
 3. WASM / WebGL 1.0
-4. Android / OpenGL ES2
+4. WASM / WebGL 2.0
+5. Android / OpenGL ES2
 q. Quit
 -----------------------------------"
 read -p "Enter selection [0-4] > " BuildMode
@@ -46,11 +47,15 @@ case "$BuildMode" in
         BuildResultChecker=build/sdk_es/lib/libosgviewer.a
         CMakeResultChecker=build/osg_es/CMakeCache.txt
         ;;
-    3)  echo "WebAssembly."
+    3)  echo "WebAssembly WebGL 1."
         BuildResultChecker=build/sdk_wasm/lib/libosgviewer.a
         CMakeResultChecker=build/osg_wasm/CMakeCache.txt
         ;;
-    4)  echo "Android."
+    4)  echo "WebAssembly WebGL 2."
+        BuildResultChecker=build/sdk_wasm2/lib/libosgviewer.a
+        CMakeResultChecker=build/osg_wasm2/CMakeCache.txt
+        ;;
+    5)  echo "Android GLES 2."
         BuildResultChecker=build/sdk_android/lib/libosgviewer.a
         CMakeResultChecker=build/osg_android/CMakeCache.txt
         ;;
@@ -66,13 +71,13 @@ esac
 EmsdkToolchain="$1/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
 NdkToolchain="$1/build/cmake/android.toolchain.cmake"
 AndroidDepOptions=""
-if [ "$BuildMode" = '3' ]; then
+if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     # WASM toolchain
     if [ ! -f "$EmsdkToolchain" ]; then
         echo "Emscripten.cmake not found. Please check if Emscripten root folder is provided as an argument."
         exit 1
     fi
-elif [ "$BuildMode" = '4' ]; then
+elif [ "$BuildMode" = '5' ]; then
     # Android toolchain
     if [ ! -f "$NdkToolchain" ]; then
         echo "android.toolchain.cmake not found. Please check if NDK root folder is provided as an argument."
@@ -139,7 +144,7 @@ if [ ! -d "$CurrentDir/build" ]; then
 fi
 
 ThirdPartyBuildDir="$CurrentDir/build/3rdparty"
-if [ "$BuildMode" = '3' ]; then
+if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
 
     # WASM toolchain
     ThirdPartyBuildDir="$CurrentDir/build/3rdparty_wasm"
@@ -155,7 +160,7 @@ if [ "$BuildMode" = '3' ]; then
         cmake --build .
     fi
 
-elif [ "$BuildMode" = '4' ]; then
+elif [ "$BuildMode" = '5' ]; then
 
     # Android toolchain
     ThirdPartyBuildDir="$CurrentDir/build/3rdparty_android"
@@ -217,7 +222,7 @@ sed 's/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g' "$OpenSceneGraphRoot/CMakeLi
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/CMakeLists.txt"
 
 # Fix WebGL running errors
-if [ "$BuildMode" = '3' ]; then
+if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     sed 's#dlopen(#NULL;\/\/dlopen\/\/(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
 else
     sed 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
@@ -257,7 +262,7 @@ elif [ "$BuildMode" = '2' ]; then
 
 elif [ "$BuildMode" = '3' ]; then
 
-    # WASM toolchain
+    # WASM toolchain (WebGL 1)
     if [ ! -d "$CurrentDir/build/osg_wasm" ]; then
         mkdir $CurrentDir/build/osg_wasm
     fi
@@ -277,6 +282,27 @@ elif [ "$BuildMode" = '3' ]; then
     fi
 
 elif [ "$BuildMode" = '4' ]; then
+
+    # WASM toolchain (WebGL 2)
+    if [ ! -d "$CurrentDir/build/osg_wasm2" ]; then
+        mkdir $CurrentDir/build/osg_wasm2
+    fi
+
+    ExtraOptions="
+        -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain"
+        -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
+        -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_wasm2
+        -DOSG_SOURCE_DIR=$OpenSceneGraphRoot
+        -DOSG_BUILD_DIR=$CurrentDir/build/osg_wasm2/osg"
+    if [ "$SkipOsgBuild" = 0 ]; then
+        cd $CurrentDir/build/osg_wasm2
+        if [ "$SkipCMakeConfig" = 0 ]; then
+            $CMakeExe $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/wasm2
+        fi
+        make install
+    fi
+
+elif [ "$BuildMode" = '5' ]; then
 
     # Android toolchain
     if [ ! -d "$CurrentDir/build/osg_android" ]; then
@@ -317,7 +343,7 @@ fi
 echo "*** Building osgVerse..."
 if [ "$BuildMode" = '3' ]; then
 
-    # WASM toolchain
+    # WASM toolchain (WebGL 1)
     if [ ! -d "$CurrentDir/build/verse_wasm" ]; then
         mkdir $CurrentDir/build/verse_wasm
     fi
@@ -328,6 +354,18 @@ if [ "$BuildMode" = '3' ]; then
     make install
 
 elif [ "$BuildMode" = '4' ]; then
+
+    # WASM toolchain (WebGL 2)
+    if [ ! -d "$CurrentDir/build/verse_wasm2" ]; then
+        mkdir $CurrentDir/build/verse_wasm2
+    fi
+
+    OsgRootLocation="$CurrentDir/build/sdk_wasm2"
+    cd $CurrentDir/build/verse_wasm2
+    $CMakeExe -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
+    make install
+
+elif [ "$BuildMode" = '5' ]; then
 
     # WASM toolchain
     if [ ! -d "$CurrentDir/build/verse_android" ]; then

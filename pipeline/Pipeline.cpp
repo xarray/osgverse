@@ -173,7 +173,7 @@ public:
 
     virtual void apply(osg::Transform& node)
     { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
-    
+
     virtual void apply(osg::Projection& node)
     { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
@@ -293,7 +293,7 @@ protected:
         _pipelineMaskPath.push_back(std::pair<unsigned int, unsigned int>(m, f));
         if (ss) pushStateSet(ss);
     }
-    
+
     inline void popM(int maskSet)
     {
         if (maskSet == 0) return; else if (maskSet & 2) popStateSet();
@@ -868,7 +868,7 @@ namespace osgVerse
             return new osgViewer::Renderer(camera);
         }
     }
-    
+
     Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
                                              osg::Shader* vs, osg::Shader* fs, int buffers, ...)
     {
@@ -1068,7 +1068,7 @@ namespace osgVerse
             vs->setName("Forward_SHADER_VS"); program->addShader(vs);
             createShaderDefinitions(vs, _glContextVersion, _glslTargetVersion);
         }
-        
+
         if (fs)
         {
             fs->setName("Forward_SHADER_FS"); program->addShader(fs);
@@ -1144,7 +1144,7 @@ namespace osgVerse
         ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
         ss << "#define VERSE_GLES2 1" << std::endl;
 #elif defined(OSG_GLES3_AVAILABLE)
-        if (glslVer > 0) ss << "#version " << osg::minimum(glslVer, 300) << " es" << std::endl;
+        ss << "#version " << osg::maximum(glslVer, 300) << " es" << std::endl;
         ss << "#define VERSE_GLES3 1" << std::endl;
 #else
         if (glslVer > 0) ss << "#version " << glslVer << std::endl;
@@ -1205,7 +1205,7 @@ namespace osgVerse
         tex->setTextureSize(w, h);
         return tex.release();
     }
-    
+
     void Pipeline::setTextureBuffer(osg::Texture* tex, BufferType type, int glVer)
     {
         // WebGL texture formats:
