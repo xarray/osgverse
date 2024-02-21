@@ -27,7 +27,7 @@ IF(VERSE_USE_EXTERNAL_GLES3)
     # - Firefox: 51.0
     # - Safari : 15.6 (iOS ver 15.2)
     # - Android: 97.0
-    STRING(APPEND WASM_FLAGS_EX " -s USE_WEBGL2=1")
+    STRING(APPEND WASM_FLAGS_EX " -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=2")
 ELSE()
     # WebGL1 Browser Compatibility:
     # - IE     : 11.0

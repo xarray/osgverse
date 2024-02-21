@@ -202,7 +202,7 @@ FIND_PATH(DRACO_INCLUDE_DIR draco/draco_features.h
     NO_CMAKE_FIND_ROOT_PATH
 )
 
-FIND_PATH(DRACO_LIB_DIR libdraco.so draco.lib
+FIND_PATH(DRACO_LIB_DIR libdraco.so libdraco.a draco.lib
     PATHS ${THIRDPARTY_ROOT}/lib
     /usr/lib /usr/${FIND_LIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
