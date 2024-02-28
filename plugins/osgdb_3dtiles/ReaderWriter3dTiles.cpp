@@ -2,6 +2,7 @@
 #include <osg/Geometry>
 #include <osg/CoordinateSystemNode>
 #include <osg/MatrixTransform>
+#include <osg/ProxyNode>
 #include <osg/PagedLOD>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
@@ -41,7 +42,7 @@ static std::vector<std::string> split(const std::string& src, const char* sepera
 class ReaderWriter3dtiles : public osgDB::ReaderWriter
 {
 public:
-    ReaderWriter3dtiles()
+    ReaderWriter3dtiles() : _maxScreenSpaceError(16.0 * 0.1)
     {
         _ellipsoid = new osg::EllipsoidModel;
         supportsExtension("verse_3dtiles", "Pseudo file extension");
@@ -66,7 +67,6 @@ public:
             fileName = osgDB::getNameLessExtension(path);
             ext = osgDB::getFileExtension(fileName);
         }
-        std::cout << "========== " << path << "\n";
 
         osg::ref_ptr<Options> localOptions = NULL;
         if (options)
@@ -99,11 +99,16 @@ public:
     {
         picojson::value document;
         std::string err = picojson::parse(document, fin);
+        std::string prefix = options ? options->getPluginStringData("prefix") : "";
         if (err.empty())
         {
             picojson::value& root = document.get("root");
             if (root.is<picojson::object>())
-                return createTile(root, options->getPluginStringData("prefix"));
+            {
+                osg::ref_ptr<osg::Node> node = createTile(root, prefix);
+                //osgDB::writeNodeFile(*node, prefix + "/root.osg");
+                if (node.valid()) return node;
+            }
             else
                 OSG_WARN << "[ReaderWriter3dtiles] Bad <root> type" << std::endl;
         }
@@ -122,8 +127,12 @@ protected:
         picojson::value& children = root.get("children");
         picojson::value& trans = root.get("transform");
 
+        double range = rangeV.is<double>() ? rangeV.get<double>() : 0.0;
+        double sseDenominator = 0.5629, height = 1080.0; // FIXME
+        if (range < 0.0 || range > 99999.0) range = FLT_MAX;  // invalid range
+        range = (range * height) / (_maxScreenSpaceError * sseDenominator);
+
         std::string st = rangeSt.is<std::string>() ? rangeSt.get<std::string>() : "";
-        double range = rangeV.is<double>() ? rangeV.get<double>() : 10000000000.0;
         osg::BoundingSphered bs = getBoundingSphere(bound);
         osg::ref_ptr<osg::Node> tile = createTile(content, children, bs, range, st, prefix);
 
@@ -180,15 +189,21 @@ protected:
 
             if (bound.valid())
             {
-                plod->setCenterMode(osg::LOD::USER_DEFINED_CENTER);
+                plod->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
                 plod->setCenter(bound.center());
                 plod->setRadius(bound.radius());
             }
+            else
+                OSG_WARN << "[ReaderWriter3dtiles] Missing <boundingVolume>?" << std::endl;
+#if true
+            plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
+            plod->setRange(0, (float)range, FLT_MAX);  // TODO: consider REPLACE/ADD?
+            plod->setRange(1, 0.0f, (float)range);
+#else
             plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
-            //plod->setRange(0, (float)range, FLT_MAX);  // TODO: consider REPLACE/ADD?
-            //plod->setRange(1, 0.0f, (float)range);
-            plod->setRange(0, 0.0f, FLT_MAX);
-            plod->setRange(1, 0.0f, FLT_MAX);  // TODO
+            plod->setRange(0, 0.0f, 5000.0f / (float)range);
+            plod->setRange(1, 5000.0f / (float)range, FLT_MAX);
+#endif
             return plod;
         }
         else
@@ -257,6 +272,7 @@ protected:
     }
 
     osg::ref_ptr<osg::EllipsoidModel> _ellipsoid;
+    double _maxScreenSpaceError;
 };
 
 // Now register with Registry to instantiate the above reader/writer.

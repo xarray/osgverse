@@ -6672,7 +6672,7 @@ bool TinyGLTF::LoadBinaryFromMemory(Model *model, std::string *err,
       if (err) {
         (*err) = "BIN Chunk end does not aligned to a 4-byte boundary.";
       }
-      return false;
+      //return false;
     }
 
     if (uint64_t(chunk1_length) + header_and_json_size > uint64_t(length)) {

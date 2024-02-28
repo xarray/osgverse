@@ -824,6 +824,7 @@ namespace osgVerse
         }
         
         osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, workDir, isBinary);
+        if (loader->getRoot()) loader->getRoot()->setName(file);
         return loader->getRoot();
     }
 

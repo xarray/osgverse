@@ -548,6 +548,7 @@ namespace osgVerse
         }
 
         osg::ref_ptr<LoaderFBX> loader = new LoaderFBX(in, workDir);
+        if (loader->getRoot()) loader->getRoot()->setName(file);
         return loader->getRoot();
     }
 
