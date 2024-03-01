@@ -1,7 +1,7 @@
 #ifndef MANA_SCRIPT_JSONSCRIPT_HPP
 #define MANA_SCRIPT_JSONSCRIPT_HPP
 
-#include <picojson.h>
+#include "3rdparty/picojson.h"
 #include "ScriptBase.h"
 
 namespace osgVerse

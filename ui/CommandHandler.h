@@ -4,8 +4,8 @@
 #include <osg/Camera>
 #include <osg/MatrixTransform>
 #include <osgGA/GUIEventHandler>
+#include "3rdparty/any.hpp"
 #include <mutex>
-#include <any.hpp>
 
 namespace osgVerse
 {

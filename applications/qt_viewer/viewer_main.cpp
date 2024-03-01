@@ -66,7 +66,7 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
     root->addChild(lightGeode.get());
 
     // Start the pipeline, with camera assoicated with embedded Qt window
-    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+    static osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     _viewer = new MyViewer(pipeline.get());
     _viewer->getCamera()->setViewport(0, 0, this->width(), this->height());
     _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());

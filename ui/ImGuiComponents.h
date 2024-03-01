@@ -5,8 +5,8 @@
 #include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
-#include <imgui/imgui.h>
-#include <imgui/ImGuizmo.h>
+#include "3rdparty/imgui/imgui.h"
+#include "3rdparty/imgui/ImGuizmo.h"
 #include "ImGui.h"
 #include <string>
 #include <map>

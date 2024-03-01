@@ -1,6 +1,6 @@
-#include <nanoid/nanoid.h>
 #include <osg/ProxyNode>
 #include <osgDB/Serializer>
+#include "3rdparty/nanoid/nanoid.h"
 #include "ScriptBase.h"
 using namespace osgVerse;
 

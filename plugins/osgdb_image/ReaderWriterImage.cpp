@@ -11,8 +11,8 @@
 #define STBI_WINDOWS_UTF8
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb/stb_image.h>
-#include <stb/stb_image_write.h>
+#include "3rdparty/stb/stb_image.h"
+#include "3rdparty/stb/stb_image_write.h"
 
 static const int s_rawHeader1 = 0xF1259E55;
 static const int s_rawHeader2 = 0x42F2E926;

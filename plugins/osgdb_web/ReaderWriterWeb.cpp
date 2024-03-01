@@ -6,7 +6,7 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 
-#include <libhv/all/client/requests.h>
+#include "3rdparty/libhv/all/client/requests.h"
 #include <readerwriter/Utilities.h>
 
 class ReaderWriterWeb : public osgDB::ReaderWriter

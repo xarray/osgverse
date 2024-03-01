@@ -6,7 +6,7 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 #include <osgDB/Archive>
-#include <leveldb/db.h>
+#include "3rdparty/leveldb/db.h"
 
 enum LevelDBObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE, SHADER };
 class LevelDBArchive : public osgDB::Archive

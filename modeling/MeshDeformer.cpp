@@ -1,5 +1,5 @@
 #include "MeshDeformer.h"
-#include "laplacian_deformation.hpp"
+#include "3rdparty/laplacian_deformation.hpp"
 using namespace osgVerse;
 using namespace osgVerse::helper;
 

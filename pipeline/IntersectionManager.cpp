@@ -246,6 +246,7 @@ public:
         return osgUtil::PolytopeIntersector::enter(node);
     }
 
+    const osg::Polytope& getCurrentPolytope() const { return _polytope; }
     std::set<osg::Node*> _nodesToIgnore;
 };
 
@@ -399,7 +400,7 @@ namespace osgVerse
 
         IntersectionResult result;
         if (intersector->containsIntersections()) savePolytopeIntersectionResult(
-            intersector->getPolytope(), intersector->getFirstIntersection(), result);
+            intersector->getCurrentPolytope(), intersector->getFirstIntersection(), result);
         return result;
     }
 

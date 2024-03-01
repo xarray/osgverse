@@ -3,7 +3,7 @@
 #include <osg/ImageUtils>
 
 #define BL_STATIC
-#include <blend2d/blend2d.h>
+#include "3rdparty/blend2d/blend2d.h"
 #include "Drawer2D.h"
 
 using namespace osgVerse;

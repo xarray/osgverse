@@ -8,8 +8,8 @@
 #include <osgDB/Registry>
 #include <osgDB/Archive>
 
-#include <pipeline/Global.h>
-#include <xxYUV/rgb2yuv.h>
+#include "pipeline/Global.h"
+#include "3rdparty/xxYUV/rgb2yuv.h"
 #include <mk_mediakit.h>
 #include <chrono>
 #define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))

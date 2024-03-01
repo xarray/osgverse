@@ -5,7 +5,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
-#include "../pipeline/Global.h"
+#include "pipeline/Global.h"
 #include "../PropertyInterface.h"
 #include "../ImGuiComponents.h"
 using namespace osgVerse;

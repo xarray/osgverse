@@ -6,7 +6,7 @@
 #include <osgDB/fstream>
 
 #include "ReaderWriterEPT_Setting.h"
-#include <laszip/laszip_api.h>
+#include "3rdparty/laszip/laszip_api.h"
 #include <iostream>
 
 osg::Node* readNodeFromUnityPoint(const std::string& file, const ReadEptSettings& settings)

@@ -6,8 +6,8 @@
 #include <iostream>
 
 #define TINYGLTF_USE_RAPIDJSON 1
-#include <tiny_gltf.h>
-#include <animation/PlayerAnimation.h>
+#include "3rdparty/tiny_gltf.h"
+#include "animation/PlayerAnimation.h"
 #include "Export.h"
 
 namespace osgVerse

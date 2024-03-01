@@ -4,7 +4,7 @@
 #include <iterator>
 #include <fstream>
 #include <iostream>
-#include <ktx/ktx.h>
+#include "3rdparty/ktx/ktx.h"
 #include "Export.h"
 
 namespace osgVerse

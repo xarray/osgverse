@@ -5,7 +5,7 @@
 #include <osgUtil/SmoothingVisitor>
 #include <iostream>
 
-#include <ApproxMVBB/ComputeApproxMVBB.hpp>
+#include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
 #include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;

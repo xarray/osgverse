@@ -9,8 +9,8 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
-#include <nanoid/nanoid.h>
-#include <picojson.h>
+#include "3rdparty/nanoid/nanoid.h"
+#include "3rdparty/picojson.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>

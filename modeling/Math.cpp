@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <climits>
 
-#include <exprtk.hpp>
-#include <cdt/CDT.h>
+#include "3rdparty/exprtk.hpp"
+#include "3rdparty/cdt/CDT.h"
 #include "Math.h"
 const float ZERO_TOLERANCE = float(1e-5);
 

@@ -13,7 +13,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Windows 10 UWP   |                          | :soon:             |       |
 | Ubuntu 18.04     | GCC 7.5 (or later)       | :heavy_check_mark: |       |
 | Debian 11.7.0    | GCC 10.2 (or later)      | :heavy_check_mark: |       |
-| Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: |       |
+| Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: | Set VERSE_FIND_LEGACY_OPENGL to ON |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |
 | Android          | WSL + NDK r20e (Clang)   | :heavy_check_mark: |       |
@@ -66,10 +66,13 @@ Our project is already tested on graphics cards listed as below:
 | NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | Display has broken problems with Nouveau driver |
+| NVIDIA GT720              |                | :soon:             |       |
+| NVIDIA Quadro K2200       |                | :soon:             |       |
 | AMD Radeon RX5500         |                | :soon:             |       |
-| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
 | AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 15fps |
+| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
 | MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
+| JingJia Micro JM7201      |                | :soon:             |       |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
 | VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | osgVerse_Test_Pipeline can work; standard can't |
 
@@ -218,3 +221,4 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
 | VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |
+| VERSE_FIND_LEGACY_OPENGL    | Boolean | OFF           | Enable to use legacy mode to search OpenGL libraries, for some Linux systems like Kylin |

@@ -786,7 +786,7 @@ namespace osgVerse
         if (!bsa)
         {
             bsa = new BlendShapeAnimation; bsa->setName(geom->getName() + "BsCallback");
-            geom->addUpdateCallback(bsa);
+            geom->setUpdateCallback(bsa);
         }
 
         BlendShapeAnimation::BlendShapeData* bsd = new BlendShapeAnimation::BlendShapeData;

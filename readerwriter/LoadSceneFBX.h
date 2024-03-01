@@ -5,8 +5,8 @@
 #include <fstream>
 #include <iostream>
 
-#include <ofbx.h>
 #include <animation/PlayerAnimation.h>
+#include "3rdparty/ofbx.h"
 #include "Export.h"
 
 namespace osgVerse
