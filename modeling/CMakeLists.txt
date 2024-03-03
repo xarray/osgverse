@@ -1,9 +1,9 @@
 SET(LIB_NAME osgVerseModeling)
 SET(LIBRARY_INCLUDE_FILES MeshDeformer.h MeshTopology.h
-                          Math.h Utilities.h)
+                          DynamicGeometry.h Math.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     MeshDeformer.cpp MeshTopology.cpp Math.cpp
-    Utilities.cpp
+    DynamicGeometry.cpp Utilities.cpp
 )
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
