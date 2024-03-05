@@ -7,6 +7,7 @@
 #include <osgGA/StateSetManipulator>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+#include <modeling/DynamicGeometry.h>
 #include <modeling/MeshTopology.h>
 #include <modeling/Utilities.h>
 #include <iostream>
@@ -74,9 +75,21 @@ int main(int argc, char** argv)
         topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 20.0f));
     }
 
+    // Test DynamicGeometry
+    osg::ref_ptr<osgVerse::DynamicPolyline> lines = new osgVerse::DynamicPolyline(true);
+    lines->addPoint(osg::Vec3(-5.0f, -5.0f, 0.0f));
+    lines->addPoint(osg::Vec3(5.0f, -5.0f, 0.0f));
+    lines->addPoint(osg::Vec3(5.0f, 5.0f, 0.0f));
+    lines->addPoint(osg::Vec3(-5.0f, 5.0f, 0.0f));
+
+    osg::ref_ptr<osg::Geode> lineGeode = new osg::Geode;
+    lineGeode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    lineGeode->addDrawable(lines.get());
+
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(scene.get());
     root->addChild(topoMT.get());
+    root->addChild(lineGeode.get());
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

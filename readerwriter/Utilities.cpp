@@ -76,16 +76,21 @@ void FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     ss.removeAttribute(osg::StateAttribute::POLYGONSTIPPLE);
     ss.removeAttribute(osg::StateAttribute::SHADEMODEL);
 
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     // Remove texture modes as they are not needed by glEnable() in GLES 2.0/3.x
     // https://docs.gl/es2/glEnable
     const osg::StateSet::TextureModeList& texModes = ss.getTextureModeList();
     for (size_t i = 0; i < texModes.size(); ++i)
     {
+        ss.removeTextureAttribute(i, osg::StateAttribute::TEXENV);
+        ss.removeTextureAttribute(i, osg::StateAttribute::TEXGEN);
+        ss.removeTextureAttribute(i, osg::StateAttribute::TEXMAT);
+
         osg::StateSet::ModeList modes = texModes[i];
         for (osg::StateSet::ModeList::const_iterator itr = modes.begin();
             itr != modes.end(); ++itr) ss.removeTextureMode(i, itr->first);
     }
+    ss.removeMode(GL_NORMALIZE);
 #endif
 }
 

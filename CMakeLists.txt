@@ -351,12 +351,20 @@ ELSEIF(ANDROID)
 ENDIF()
 
 ######################################### Checking OSG version and definition
+SET(VERSE_USE_EXTERNAL_GLCORE OFF)
 SET(VERSE_USE_EXTERNAL_GLES2 OFF)
 SET(VERSE_USE_EXTERNAL_GLES3 OFF)
 IF(OSG_BUILD_INCLUDE_DIR)
     FILE(READ "${OSG_BUILD_INCLUDE_DIR}/osg/GL" OSG_GL_FILE_CONTENTS)
+    STRING(FIND "${OSG_GL_FILE_CONTENTS}" "#define OSG_GL3_AVAILABLE" OSG_GLCORE_INDEX)
     STRING(FIND "${OSG_GL_FILE_CONTENTS}" "#define OSG_GLES2_AVAILABLE" OSG_GLES2_INDEX)
     STRING(FIND "${OSG_GL_FILE_CONTENTS}" "#define OSG_GLES3_AVAILABLE" OSG_GLES3_INDEX)
+
+    IF(OSG_GLCORE_INDEX GREATER -1)
+        MESSAGE(STATUS "[osgVerse] OSG is built with GL3/4 support.")
+        SET(VERSE_USE_EXTERNAL_GLCORE ON)
+        SET(VERSE_GRAPHICS_API "GLCORE")
+    ENDIF()
 
     IF(OSG_GLES3_INDEX GREATER -1)
         MESSAGE(STATUS "[osgVerse] OSG is built with GLES3 support. Please configure osgVerse to use GLES3, too.")
@@ -532,7 +540,6 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ADD_DEFINITIONS(-DINSTALL_PATH_PREFIX="${CMAKE_INSTALL_PREFIX}")
     MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: "
                    "${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}")
-    MESSAGE(STATUS "[osgVerse] Global configuation finished. Now start traversing subdirectories.")
 
     IF(VERSE_BUILD_3RDPARTIES)
         MESSAGE(STATUS "[osgVerse] Build third-party libraries under helpers/toolchain_builder.")
@@ -573,6 +580,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         MESSAGE(STATUS "[osgVerse] IOS toolchain is used. (GLES3 = ${VERSE_USE_EXTERNAL_GLES3})")
         # Add demo project here?
     ELSE()
+        MESSAGE(STATUS "[osgVerse] Desktop toolchain is used. (GLCore = ${VERSE_USE_EXTERNAL_GLCORE})")
         ADD_SUBDIRECTORY(applications)
         ADD_SUBDIRECTORY(tests)
         ADD_SUBDIRECTORY(assets)

@@ -3,8 +3,11 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
 
 #### OSG for GL3/4 Core profile
 * CMake options: (not in cmake-gui)
-  * OPENGL_PROFILE: GL3Core
-* You will have to find glcorearb.h from Khronos website. And then put include files to OSG's include folder.
+  * OPENGL_PROFILE: GL3 or GLCORE
+* You will have to find glcorearb.h from Khronos website. And then set the GLCORE_ROOT environment variable.
+* Command-line example: (Windows only)
+  * cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLCORE "%osg_root_path%"
+  * cmake --build .
 
 #### OSG for GLES2/GLES3 (Desktop)
 * CMake options: (not in cmake-gui)

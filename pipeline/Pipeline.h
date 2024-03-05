@@ -71,7 +71,6 @@ namespace osgVerse
                                     Including: world-to-view, view-to-world, view-to-proj, proj-to-view
         - vec2 NearFarPlanes: calculated near/far values of entire scene
         - vec2 InvScreenResolution: (1.0 / view-width, 1.0 / view-height)
-        - float ModelIndicator: a user indicator (0-4: none, 5: selected)
     */
     class Pipeline : public osg::Referenced
     {
@@ -121,6 +120,8 @@ namespace osgVerse
         };
 
         Pipeline(int glContextVer = 100, int glslVer = 130);
+        static osg::GraphicsContext* createGraphicsContext(int w, int h, const std::string& glContext,
+                                                           osg::GraphicsContext* shared = NULL, int flags = 0);
 
         /** Create RTT texture of specific buffer type */
         static osg::Texture* createTexture(BufferType type, int w, int h, int glVer = 0);
@@ -199,7 +200,7 @@ namespace osgVerse
         osg::Uniform* getInvScreenResolution() { return _invScreenResolution.get(); }
         osg::Vec2s getStageSize() const { return _stageSize; }
 
-        void setVersionData(GLVersionData* d) { _glVersionData = d; }
+        void setVersionData(GLVersionData* d);
         GLVersionData* getVersionData() { return _glVersionData.get(); }
         int getContextTargetVersion() const { return _glContextVersion; }
         int getGlslTargetVersion() const { return _glslTargetVersion; }
@@ -214,10 +215,6 @@ namespace osgVerse
         void removeModule(osg::NodeCallback* cb);
         osg::NodeCallback* getModule(const std::string& n) { return _modules[n].get(); }
         const std::map<std::string, osg::ref_ptr<osg::NodeCallback>>& getModules() const { return _modules; }
-
-        /** Model indicator functionalities */
-        enum IndicatorType { NoIndicator = 0, SelectIndicator = 5 };
-        static void setModelIndicator(osg::Node* node, IndicatorType type);
 
         /** Create forward shading stateset which can make use of PBR and lighting functonalities */
         osg::StateSet* createForwardStateSet(osg::Shader* vs, osg::Shader* fs);

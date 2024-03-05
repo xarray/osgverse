@@ -177,9 +177,15 @@ int main(int argc, char** argv)
     { OSG_WARN << "Failed to create EGL surface" << std::endl; return 1; }
 
 #   if defined(OSG_GLES3_AVAILABLE)
-    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE, EGL_NONE };
+    EGLint contextAttribList[] = {
+        EGL_CONTEXT_CLIENT_VERSION, 3,
+        EGL_CONTEXT_MINOR_VERSION, 1,
+        EGL_NONE, EGL_NONE
+    };
 #   else
-    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE };
+    EGLint contextAttribList[] = {
+        EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE
+    };
 #   endif
     eglBindAPI(EGL_OPENGL_ES_API);  // Set rendering API
 

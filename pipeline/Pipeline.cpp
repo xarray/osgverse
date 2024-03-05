@@ -553,17 +553,6 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
 
 namespace osgVerse
 {
-    static osg::GraphicsContext* createGraphicsContext(int w, int h, const std::string& glContext,
-                                                       osg::GraphicsContext* shared = NULL)
-    {
-        osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
-        traits->x = 0; traits->y = 0; traits->width = w; traits->height = h;
-        traits->windowDecoration = false; traits->doubleBuffer = true;
-        traits->sharedContext = shared; traits->vsync = true;
-        traits->glContextVersion = glContext;
-        return osg::GraphicsContext::createGraphicsContext(traits.get());
-    }
-
     Pipeline::Pipeline(int glContextVer, int glslVer)
     {
         _deferredCallback = new osgVerse::DeferredRenderCallback(true);
@@ -572,6 +561,18 @@ namespace osgVerse
             "InvScreenResolution", osg::Vec2(1.0f / 1920.0f, 1.0f / 1080.0f));
         _glContextVersion = glContextVer; _glVersion = 0;
         _glslTargetVersion = glslVer;
+    }
+    
+    osg::GraphicsContext* Pipeline::createGraphicsContext(int w, int h, const std::string& glContext,
+                                                          osg::GraphicsContext* shared, int flags)
+    {
+        osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+        traits->x = 0; traits->y = 0; traits->width = w; traits->height = h;
+        traits->windowDecoration = false; traits->doubleBuffer = true;
+        traits->sharedContext = shared; traits->vsync = true;
+        traits->glContextVersion = glContext; traits->glContextFlags = flags;
+        traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
+        return osg::GraphicsContext::createGraphicsContext(traits.get());
     }
 
     void Pipeline::Stage::applyUniform(osg::Uniform* u)
@@ -680,15 +681,34 @@ namespace osgVerse
         return NULL;
     }
 
+    void Pipeline::setVersionData(GLVersionData* d)
+    {
+        _glVersionData = d;
+        if (_glVersionData.valid())
+        {
+            _glVersion = _glVersionData->glVersion;
+            if (_glContextVersion < _glVersionData->glVersion)
+                _glContextVersion = _glVersionData->glVersion;
+            if (_glslTargetVersion < _glVersionData->glslVersion)
+                _glslTargetVersion = _glVersionData->glslVersion;
+        }
+    }
+
     void Pipeline::startStages(int w, int h, osg::GraphicsContext* gc)
     {
 #if OSG_VERSION_GREATER_THAN(3, 6, 0)
         int suggestedVer = (int)(atof(OSG_GL_CONTEXT_VERSION) * 100.0);
         if (_glContextVersion < suggestedVer) _glContextVersion = suggestedVer;
 #endif
+        if (gc && gc->getTraits())
+        {
+            int userVer = (int)(atof(gc->getTraits()->glContextVersion.c_str()) * 100.0);
+            if (_glContextVersion < userVer) _glContextVersion = userVer;
+        }
 
 #if defined(OSG_GL3_AVAILABLE)
         if (_glContextVersion < 300) _glContextVersion = 300;
+        if (_glslTargetVersion < 330) _glslTargetVersion = 330;
 #elif defined(OSG_GLES3_AVAILABLE)
         if (_glslTargetVersion < 300) _glslTargetVersion = 300;
 #elif defined(OSG_GLES2_AVAILABLE)
@@ -696,11 +716,10 @@ namespace osgVerse
 #endif
         if (_glVersionData.valid())
         {
-            _glVersion = _glVersionData->glVersion;
-            if (_glVersionData->glVersion < _glContextVersion)
-                _glContextVersion = _glVersionData->glVersion;
-            if (_glVersionData->glslVersion < _glslTargetVersion)
-                _glslTargetVersion = _glVersionData->glslVersion;
+            OSG_NOTICE << "[Pipeline] OpenGL Driver: " << _glVersionData->version << "; GLSL: "
+                       << _glVersionData->glslVersion << "; Renderer: " << _glVersionData->renderer << std::endl;
+            OSG_NOTICE << "[Pipeline] Using OpenGL Context: " << getContextTargetVersion()
+                       << "; Target GLSL Version: " << getGlslTargetVersion() << std::endl;
         }
 
         if (gc)
@@ -1082,13 +1101,6 @@ namespace osgVerse
         return ss.get();
     }
 
-    void Pipeline::setModelIndicator(osg::Node* node, IndicatorType type)
-    {
-        if (!node) return; osg::StateSet* ss = node->getOrCreateStateSet();
-        osg::Uniform* u = ss->getOrCreateUniform("ModelIndicator", osg::Uniform::FLOAT);
-        if (u) u->set((float)type);
-    }
-
     void Pipeline::createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
                                            const std::vector<std::string>& userDefs)
     {
@@ -1146,8 +1158,11 @@ namespace osgVerse
 #elif defined(OSG_GLES3_AVAILABLE)
         ss << "#version " << osg::maximum(glslVer, 300) << " es" << std::endl;
         ss << "#define VERSE_GLES3 1" << std::endl;
+#elif defined(OSG_GL3_AVAILABLE)
+        ss << "#version " << osg::maximum(glslVer, 330) << " core" << std::endl;
+        ss << "#define VERSE_GLES3 1" << std::endl;
 #else
-        if (glslVer > 0) ss << "#version " << glslVer << std::endl;
+        if (glslVer > 0) ss << "#version " << osg::minimum(glslVer, 130) << std::endl;
 #endif
         ss << "//! osgVerse generated shader: " << glslVer << std::endl;
 
