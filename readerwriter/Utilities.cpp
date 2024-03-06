@@ -1,4 +1,5 @@
 #include <osg/Version>
+#include <osg/TriangleIndexFunctor>
 #include <osg/Geode>
 #include <osg/Texture2D>
 #include <osgDB/Registry>
@@ -29,8 +30,39 @@ void emscripten_advance()
 }
 #endif
 
+struct ResortVertexOperator
+{
+    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+    {
+        if (i1 == i2 || i2 == i3 || i1 == i3) return;
+        indices.push_back(i1); indices.push_back(i2); indices.push_back(i3);
+    }
+    std::vector<unsigned int> indices;
+};
+
 void FixedFunctionOptimizer::apply(osg::Geometry& geom)
 {
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    bool invalidMode = false;
+    for (size_t i = 0; i < geom.getNumPrimitiveSets(); ++i)
+    {
+        // glDrawArrays() and glDrawElements() doesn't support GL_QUADS in GLES 2.0/3.x and GL3/4
+        // https://docs.gl/gl3/glDrawArrays  // https://docs.gl/gl3/glDrawElements
+        GLenum mode = geom.getPrimitiveSet(i)->getMode();
+        invalidMode = true;
+    }
+
+    if (invalidMode)
+    {
+        osg::TriangleIndexFunctor<ResortVertexOperator> functor; geom.accept(functor);
+        geom.removePrimitiveSet(0, geom.getNumPrimitiveSets());
+
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+        de->assign(functor.indices.begin(), functor.indices.end());
+        geom.addPrimitiveSet(de.get());
+    }
+#endif
+
     removeUnusedStateAttributes(geom.getStateSet());
     geom.setUseDisplayList(false);
     geom.setUseVertexBufferObjects(true);
@@ -77,8 +109,8 @@ void FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     ss.removeAttribute(osg::StateAttribute::SHADEMODEL);
 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-    // Remove texture modes as they are not needed by glEnable() in GLES 2.0/3.x
-    // https://docs.gl/es2/glEnable
+    // Remove texture modes as they are not needed by glEnable() in GLES 2.0/3.x and GL3/4
+    // https://docs.gl/es2/glEnable  // https://docs.gl/gl4/glEnable
     const osg::StateSet::TextureModeList& texModes = ss.getTextureModeList();
     for (size_t i = 0; i < texModes.size(); ++i)
     {
