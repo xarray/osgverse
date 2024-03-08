@@ -343,7 +343,8 @@ namespace ozz
                 {
                     std::vector<osg::Transform*>::iterator itr2 =
                         std::find(nodes.begin(), nodes.end(), itr->first);
-                    if (itr2 != nodes.end()) trackMap[itr->first] = std::distance(nodes.begin(), itr2);
+                    if (itr2 != nodes.end())
+                        trackMap[itr->first] = std::distance(nodes.begin(), itr2);
 
                     const PlayerAnimation::AnimationData& ad = itr->second;
                     if (!ad._positionFrames.empty())
@@ -380,14 +381,14 @@ namespace ozz
 
                 // Record extra tracks for SoaTransform use
                 int numSoaTracks = ozz::Align(anim.num_tracks_, 4);
-                for (int j = anim.num_tracks_; j < numSoaTracks; ++j)
+                /*for (int j = anim.num_tracks_; j < numSoaTracks; ++j)
                 {
                     const PlayerAnimation::AnimationData& ad = dataMap.rbegin()->second;
                     std::map<std::string, std::string> ipMap = ad._interpolations;
                     sampleData(positions, ipMap["translation"], 0, j, ad._positionFrames, invD);
                     sampleData(rotations, ipMap["rotation"], 1, j, ad._rotationFrames, invD);
                     sampleData(scales, ipMap["scale"], 2, j, ad._scaleFrames, invD);
-                }
+                }*/
 
                 // Allocate animation buffer
                 int tCount = (int)positions.size(), rCount = (int)rotations.size(),
@@ -426,8 +427,8 @@ namespace ozz
                     float defV = (type == 0) ? 0.0f : 1.0f;
                     for (int k = 0; k < 3; ++k)
                     {
-                        k0.value[0] = ozz::math::FloatToHalf(defV);
-                        k1.value[0] = ozz::math::FloatToHalf(defV);
+                        k0.value[k] = ozz::math::FloatToHalf(defV);
+                        k1.value[k] = ozz::math::FloatToHalf(defV);
                     }
                     values.push_back(k0); values.push_back(k1); return;
                 }
@@ -518,6 +519,44 @@ namespace ozz
 
 static void printPlayerData(OzzAnimation* ozz)
 {
+    ozz::span<const char* const> names = ozz->_skeleton.joint_names();
+    ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
+    ozz::span<const ozz::math::SoaTransform> restPoses = ozz->_skeleton.joint_rest_poses();
+    for (size_t i = 0; i < names.size(); ++i)
+    {
+        int16_t pid = parents[i], soaID = i % 4;
+        const ozz::math::SoaTransform soaT = restPoses[i / 4];
+        std::cout << "Bone-" << i << ": " << names[i] << ", Parent = "
+                  << (pid >= 0 ? names[pid] : "(null)") << std::endl;
+
+        osg::Vec3 pos, scale;
+        switch (soaID)
+        {
+        case 0:
+            scale[0] = ozz::math::GetX(soaT.scale.x); scale[1] = ozz::math::GetX(soaT.scale.y);
+            scale[2] = ozz::math::GetX(soaT.scale.z);
+            pos[0] = ozz::math::GetX(soaT.translation.x); pos[1] = ozz::math::GetX(soaT.translation.y);
+            pos[2] = ozz::math::GetX(soaT.translation.z); break;
+        case 1:
+            scale[0] = ozz::math::GetY(soaT.scale.x); scale[1] = ozz::math::GetY(soaT.scale.y);
+            scale[2] = ozz::math::GetY(soaT.scale.z);
+            pos[0] = ozz::math::GetY(soaT.translation.x); pos[1] = ozz::math::GetY(soaT.translation.y);
+            pos[2] = ozz::math::GetY(soaT.translation.z); break;
+        case 2:
+            scale[0] = ozz::math::GetZ(soaT.scale.x); scale[1] = ozz::math::GetZ(soaT.scale.y);
+            scale[2] = ozz::math::GetZ(soaT.scale.z);
+            pos[0] = ozz::math::GetZ(soaT.translation.x); pos[1] = ozz::math::GetZ(soaT.translation.y);
+            pos[2] = ozz::math::GetZ(soaT.translation.z); break;
+        case 3:
+            scale[0] = ozz::math::GetW(soaT.scale.x); scale[1] = ozz::math::GetW(soaT.scale.y);
+            scale[2] = ozz::math::GetW(soaT.scale.z);
+            pos[0] = ozz::math::GetW(soaT.translation.x); pos[1] = ozz::math::GetW(soaT.translation.y);
+            pos[2] = ozz::math::GetW(soaT.translation.z); break;
+        }
+        std::cout << "  Position = " << pos << ", Scale = " << scale << std::endl;
+    }
+    std::cout << std::endl;
+
     for (size_t i = 0; i < ozz->_meshes.size(); ++i)
     {
         OzzMesh& mesh = ozz->_meshes[i];
@@ -525,10 +564,44 @@ static void printPlayerData(OzzAnimation* ozz)
         for (size_t j = 0; j < mesh.parts.size(); ++j)
         {
             OzzMesh::Part& part = mesh.parts[j];
-            std::cout << "  Part: Vertices = " << part.vertex_count() << ", Influences = "
-                << part.influences_count() << ", JointIdx = " << part.joint_indices.size()
-                << ", Weights = " << part.joint_weights.size() << std::endl;
+            int numVertices = part.vertex_count(), numInfluences = part.influences_count();
+            ozz::vector<uint16_t> jointIds = part.joint_indices;
+            ozz::vector<float> jointWeights = part.joint_weights;
+            std::cout << "  Part-" << j << ": Vertices = " << numVertices << ", Influences = "
+                      << numInfluences << ", JointIDs = " << jointIds.size()
+                      << ", Weights = " << jointWeights.size() << std::endl;
+
+            for (size_t n = 0; n < numVertices; ++n)
+            {
+                size_t n0 = n * 4, n1 = n * 3;
+                float w = jointWeights[n1] + jointWeights[n1 + 1] + jointWeights[n1 + 2];
+                std::cout << "    Vec-" << n << ": B" << jointIds[n0] << " / " << jointWeights[n1]
+                          << ", B" << jointIds[n0 + 1] << " / " << jointWeights[n1 + 1]
+                          << ", B" << jointIds[n0 + 2] << " / " << jointWeights[n1 + 2]
+                          << ", B" << jointIds[n0 + 3] << " / " << (1.0f - w) << std::endl;
+            }
         }
+        std::cout << std::endl;
+    }
+}
+
+static void printAnimationData(OzzAnimation* ozz, const std::string& key)
+{
+    ozz::span<const char* const> names = ozz->_skeleton.joint_names();
+    OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
+    ozz::animation::Animation& animation = sampler.animation;
+
+    ozz::span<const ozz::animation::Float3Key> posList = sampler.animation.translations();
+    ozz::span<const ozz::animation::QuaternionKey> rotList = sampler.animation.rotations();
+    std::cout << "Anim " << key << ": Duration = " << sampler.animation.duration() << ", T/R = "
+              << posList.size() << "/" << rotList.size() << std::endl;
+
+    for (size_t i = 0; i < posList.size(); ++i)
+    {
+        const ozz::animation::Float3Key& value = posList[i];
+        std::cout << "  T-" << i << " (" << value.ratio << "): Track = " << value.track << ", Vec = "
+                  << ozz::math::HalfToFloat(value.value[0]) << ", " << ozz::math::HalfToFloat(value.value[1])
+                  << ", " << ozz::math::HalfToFloat(value.value[2]) << std::endl;
     }
 }
 
@@ -818,18 +891,29 @@ bool PlayerAnimation::loadAnimationInternal(const std::string& key)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
+    if (sampler.animation.translations().empty() && sampler.animation.rotations().empty() &&
+        sampler.animation.scales().empty())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation data: " << key << std::endl;
+        ozz->_animations.erase(ozz->_animations.find(key)); return false;
+    }
 
     const int num_joints = ozz->_skeleton.num_joints();
     if (num_joints != sampler.animation.num_tracks())
     {
-        ozz::log::Err() << "The provided animation " << key << " doesn't match skeleton "
-            << "(joint count mismatch)" << std::endl;
-        return false;
+        OSG_WARN << "[PlayerAnimation] The animation " << key << " failed to match skeleton. "
+                 << "Joint count (" << num_joints << ") doesn't equal to animation tracks ("
+                 << sampler.animation.num_tracks() << ")" << std::endl;
+        ozz->_animations.erase(ozz->_animations.find(key)); return false;
     }
 
     sampler.locals.resize(ozz->_skeleton.num_soa_joints());
     ozz->_context.Resize(num_joints);
     if (ozz->_animations.size() > 1) sampler.weight = 0.0f;
     else sampler.weight = 1.0f;  // by default only the first animation is full weighted
+
+#if 1
+    printAnimationData(ozz, key);
+#endif
     return true;
 }
