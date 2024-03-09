@@ -16,9 +16,9 @@ namespace osgVerse
         typedef float (*SetJointWeightFunc)(int, int, void*);
         PlayerAnimation();
 
-        void setPlaying(bool b) { _animated = b; }
+        void setPlaying(bool b, bool rp = false) { _animated = b; _restPose = rp; }
         void setDrawingSkeleton(bool b) { _drawSkeleton = b; }
-        bool getPlaying() const { return _animated; }
+        bool getPlaying(bool* rp = NULL) const { if (rp) *rp = _restPose; return _animated; }
         bool getDrawingSkeleton() const { return _drawSkeleton; }
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
@@ -108,7 +108,7 @@ namespace osgVerse
         std::vector<osg::ref_ptr<osg::StateSet>> _meshStateSetList;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;
-        bool _animated, _drawSkeleton;
+        bool _animated, _drawSkeleton, _restPose;
     };
 
 }

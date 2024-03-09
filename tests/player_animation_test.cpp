@@ -94,6 +94,7 @@ int main(int argc, char** argv)
         // For blendshape test
         animManager->setBlendShape("jawOpen", 1.0f);
     }
+    //animManager->setPlaying(false);
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

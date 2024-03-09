@@ -264,6 +264,14 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz::vector<ozz::animation::BlendingJob::Layer> layers;
+    if (_restPose)
+    {
+        ozz::animation::LocalToModelJob ltmJob;
+        ltmJob.skeleton = &(ozz->_skeleton);
+        ltmJob.input = ozz::make_span(ozz->_skeleton.joint_rest_poses());
+        ltmJob.output = ozz::make_span(ozz->_models);
+        return ltmJob.Run();
+    }
 
     std::map<std::string, OzzAnimation::AnimationSampler>::iterator itr;
     for (itr = ozz->_animations.begin(); itr != ozz->_animations.end(); ++itr)
@@ -336,7 +344,7 @@ bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
 }
 
 bool PlayerAnimation::updateAimIK(const osg::Vec3& target, const std::vector<JointIkData>& chain,
-    const osg::Vec3& offset, const osg::Vec3& pole)
+                                  const osg::Vec3& offset, const osg::Vec3& pole)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz::math::SimdQuaternion correction;
@@ -389,8 +397,8 @@ bool PlayerAnimation::updateAimIK(const osg::Vec3& target, const std::vector<Joi
 }
 
 bool PlayerAnimation::updateTwoBoneIK(const osg::Vec3& target, int start, int mid, int end, bool& reached,
-    float weight, float soften, float twist,
-    const osg::Vec3& midAxis, const osg::Vec3& pole)
+                                      float weight, float soften, float twist,
+                                      const osg::Vec3& midAxis, const osg::Vec3& pole)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz::math::SimdQuaternion startCorrection, midCorrection;
