@@ -364,37 +364,38 @@ namespace ozz
                 }
                 if (osg::equivalent(maxTime, 0.0f)) return;
 
-                // Record T/R/S keyframes
-                float invD = 1.0f / maxTime;
-                std::vector<Float3Key> positions, scales;
-                std::vector<QuaternionKey> rotations;
-                for (AnimationMap::const_iterator itr = dataMap.begin(); itr != dataMap.end(); ++itr)
-                {
-                    const PlayerAnimation::AnimationData& ad = itr->second;
-                    std::map<std::string, std::string> ipMap = ad._interpolations;
-                    std::pair<int, int>& trackData = trackMap[itr->first];
-
-                    int track = trackData.first; trackData.second += 1;
-                    sampleData(positions, ipMap["translation"], 0, track, ad._positionFrames, invD);
-                    sampleData(rotations, ipMap["rotation"], 1, track, ad._rotationFrames, invD);
-                    sampleData(scales, ipMap["scale"], 2, track, ad._scaleFrames, invD);
-                }
-
-                // For unrecorded tracks, get and use its default pose as keyframe data
+                // Get and use every track's default pose as keyframe data
                 std::map<osg::Transform*, std::vector<std::pair<float, osg::Vec3>>> defPosTracks, defScaleTracks;
                 std::map<osg::Transform*, std::vector<std::pair<float, osg::Vec4>>> defRotTracks;
                 std::map<int, osg::Transform*> candicates0;
                 for (size_t i = 0; i < nodes.size(); ++i)
                 {
                     osg::Transform* t = nodes[i]; candicates0[i] = t;
-                    std::pair<int, int>& trackData = trackMap[t];
-
                     osg::Matrix matrix; osg::Vec3 pos, scale; osg::Quat rot, so;
                     t->computeLocalToWorldMatrix(matrix, NULL);
+
                     matrix.decompose(pos, rot, scale, so);
                     defPosTracks[t].push_back(std::pair<float, osg::Vec3>(0.0f, pos));
                     defRotTracks[t].push_back(std::pair<float, osg::Vec4>(0.0f, rot.asVec4()));
                     defScaleTracks[t].push_back(std::pair<float, osg::Vec3>(0.0f, scale));
+                }
+
+                // Record T/R/S keyframes
+                float invD = 1.0f / maxTime; osg::Vec3 defScale(1.0f, 1.0f, 1.0f);
+                std::vector<Float3Key> positions, scales; std::vector<QuaternionKey> rotations;
+                for (AnimationMap::const_iterator itr = dataMap.begin(); itr != dataMap.end(); ++itr)
+                {
+                    const PlayerAnimation::AnimationData& ad = itr->second;
+                    std::map<std::string, std::string> ipMap = ad._interpolations;
+                    std::pair<int, int>& trackData = trackMap[itr->first]; trackData.second += 1;
+
+                    int track = trackData.first; osg::Transform* tr = candicates0[track];
+                    sampleData(positions, ipMap["translation"], 0, track, ad._positionFrames, invD,
+                               true, defPosTracks[tr].front().second);
+                    sampleData(rotations, ipMap["rotation"], 1, track, ad._rotationFrames, invD,
+                               true, defRotTracks[tr].front().second);
+                    sampleData(scales, ipMap["scale"], 2, track, ad._scaleFrames, invD,
+                               true, defScaleTracks[tr].front().second);
                 }
 
                 // Fill empty tracks of each frame
@@ -405,13 +406,13 @@ namespace ozz
 
                 // Record extra tracks for SoaTransform use
                 int numSoaTracks = ozz::Align(anim.num_tracks_, 4);
+                osg::Transform* tr0 = nodes[0];  // clear default to generate empty keyframes for extra
+                defPosTracks[tr0].clear(); defRotTracks[tr0].clear(); defScaleTracks[tr0].clear();
                 for (int j = anim.num_tracks_; j < numSoaTracks; ++j)
                 {
-                    const PlayerAnimation::AnimationData& ad = dataMap.rbegin()->second;
-                    std::map<std::string, std::string> ipMap = ad._interpolations;
-                    sampleData(positions, ipMap["translation"], 0, j, ad._positionFrames, invD);
-                    sampleData(rotations, ipMap["rotation"], 1, j, ad._rotationFrames, invD);
-                    sampleData(scales, ipMap["scale"], 2, j, ad._scaleFrames, invD);
+                    sampleData(positions, "LINEAR", 0, j, defPosTracks[tr0], 1.0f);
+                    sampleData(rotations, "LINEAR", 0, j, defRotTracks[tr0], 1.0f);
+                    sampleData(scales, "LINEAR", 0, j, defScaleTracks[tr0], 1.0f, true, defScale);
                 }
 
                 // Allocate animation buffer
@@ -473,18 +474,17 @@ namespace ozz
             }
 
             void sampleData(std::vector<Float3Key>& values, const std::string& interpo, int type,
-                            int track, const std::vector<std::pair<float, osg::Vec3>>& frames,
-                            float invD, bool autoFill01 = true)
+                            int track, const std::vector<std::pair<float, osg::Vec3>>& frames, float invD,
+                            bool autoFill01 = true, const osg::Vec3& def01 = osg::Vec3())
             {
                 if (frames.empty() && autoFill01)
                 {
                     Float3Key k0; k0.ratio = 0.0f; k0.track = track;
                     Float3Key k1; k1.ratio = 1.0f; k1.track = track;
-                    float defV = (type == 0) ? 0.0f : 1.0f;
                     for (int k = 0; k < 3; ++k)
                     {
-                        k0.value[k] = ozz::math::FloatToHalf(defV);
-                        k1.value[k] = ozz::math::FloatToHalf(defV);
+                        k0.value[k] = ozz::math::FloatToHalf(def01[k]);
+                        k1.value[k] = ozz::math::FloatToHalf(def01[k]);
                     }
                     values.push_back(k0); values.push_back(k1); return;
                 }
@@ -515,15 +515,14 @@ namespace ozz
             }
 
             void sampleData(std::vector<QuaternionKey>& values, const std::string& interpo, int type,
-                            int track, const std::vector<std::pair<float, osg::Vec4>>& frames,
-                            float invD, bool autoFill01 = true)
+                            int track, const std::vector<std::pair<float, osg::Vec4>>& frames, float invD,
+                            bool autoFill01 = true, const osg::Vec4& def01 = osg::Vec4())
             {
                 if (frames.empty() && autoFill01)
                 {
                     QuaternionKey k0; k0.ratio = 0.0f; k0.track = track;
                     QuaternionKey k1; k1.ratio = 1.0f; k1.track = track;
-                    compressQuat(osg::Quat().asVec4(), &k0);
-                    compressQuat(osg::Quat().asVec4(), &k1);
+                    compressQuat(def01, &k0); compressQuat(def01, &k1);
                     values.push_back(k0); values.push_back(k1); return;
                 }
 
@@ -826,6 +825,15 @@ osg::BoundingBox PlayerAnimation::computeSkeletonBounds() const
     return bound;
 }
 
+std::vector<std::string> PlayerAnimation::getAnimationNames() const
+{
+    std::vector<std::string> names;
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    std::map<std::string, OzzAnimation::AnimationSampler>::iterator itr;
+    for (itr = ozz->_animations.begin(); itr != ozz->_animations.end(); ++itr) names.push_back(itr->first);
+    return names;
+}
+
 float PlayerAnimation::getAnimationStartTime(const std::string& key)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
@@ -900,6 +908,19 @@ void PlayerAnimation::seek(const std::string& key, float timeRatio)
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     sampler.timeRatio = osg::clampBetween(timeRatio, 0.0f, 1.0f);
     sampler.resetTimeRatio = true;
+}
+
+std::vector<std::string> PlayerAnimation::getBlendshapeNames() const
+{
+    std::vector<std::string> names;
+    for (size_t i = 0; i < _blendshapes.size(); ++i)
+    {
+        osgVerse::BlendShapeAnimation* bs = _blendshapes[i].get();
+        if (!bs) continue;  // It is common to have an empty BS callback...
+        for (size_t j = 0; j < bs->getNumBlendShapes(); ++j)
+            names.push_back(bs->getBlendShapeData(j)->name);
+    }
+    return names;
 }
 
 void PlayerAnimation::setBlendShape(const std::string& key, float weight)

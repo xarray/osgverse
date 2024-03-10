@@ -521,7 +521,7 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot,
         if (createIfMissing && createWithShape && !geode)
         {
             geode = new osg::Geode;
-            geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 0.01f)));
+            geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 0.05f)));
         }
 
         if (found)
@@ -596,8 +596,5 @@ void PlayerAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
     if (nv->getFrameStamp()) update(*nv->getFrameStamp(), !_animated);
     if (geode) applyMeshes(*geode, true);
     else OSG_WARN << "[PlayerAnimation] Callback should set to a geode" << std::endl;
-
-    //node->getParent(0)->asTransform()->asMatrixTransform()->setMatrix(osg::Matrix());
-    //applyTransforms(*(node->getParent(0)->asTransform()), true, true);
     traverse(node, nv);
 }

@@ -60,10 +60,12 @@ namespace osgVerse
                            const std::map<osg::Transform*, AnimationData>& animDataMap);
         void unloadAnimation(const std::string& key);
 
+        /* Update functions */
         bool update(const osg::FrameStamp& fs, bool paused);
         bool applyMeshes(osg::Geode& meshDataRoot, bool withSkinning);
         bool applyTransforms(osg::Transform& root, bool createIfMissing, bool withShape = false);
 
+        /* Update IK functions */
         struct JointIkData { int joint; float weight; osg::Vec3 localUp; osg::Vec3 localForward; };
         bool updateAimIK(const osg::Vec3& target, const std::vector<JointIkData>& chain,
                          const osg::Vec3& aimOffset = osg::Vec3(), const osg::Vec3& pole = osg::Y_AXIS);
@@ -71,6 +73,7 @@ namespace osgVerse
                              float weight = 1.0f, float soften = 1.0f, float twist = 0.0f,
                              const osg::Vec3& midAxis = osg::Z_AXIS, const osg::Vec3& pole = osg::Y_AXIS);
 
+        /* Skeleton set/get functions */
         typedef std::pair<int, int> ThisAndParent;
         std::vector<ThisAndParent> getSkeletonIndices(int from = -1) const;
         std::string getSkeletonJointName(int joint) const;
@@ -78,8 +81,10 @@ namespace osgVerse
 
         void setModelSpaceJointMatrix(int joint, const osg::Matrix& m);
         osg::Matrix getModelSpaceJointMatrix(int joint) const;
-
         osg::BoundingBox computeSkeletonBounds() const;
+
+        /* Animation set/get functions */
+        std::vector<std::string> getAnimationNames() const;
         float getAnimationStartTime(const std::string& key);
         float getTimeRatio(const std::string& key) const;
         float getDuration(const std::string& key) const;
@@ -92,8 +97,10 @@ namespace osgVerse
                            SetJointWeightFunc func, void* userData);
         void seek(const std::string& key, float timeRatio);
 
+        /* Blendshape set/get functions */
         void setBlendShape(const std::string& key, float weight);
         void clearAllBlendShapes();
+        std::vector<std::string> getBlendshapeNames() const;
 
         BlendShapeAnimation* getBlendShapeCallback(int i) { return _blendshapes[i].get(); }
         const BlendShapeAnimation* getBlendShapeCallback(int i) const { return _blendshapes[i].get(); }

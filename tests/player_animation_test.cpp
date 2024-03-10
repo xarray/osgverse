@@ -45,11 +45,11 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
-    playerRoot->addChild(skeleton.get());
+    playerRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
     root->addChild(playerRoot.get());
+    root->addChild(skeleton.get());
     root->addChild(osgDB::readNodeFile("axes.osgt"));
 
     osg::ref_ptr<osgVerse::PlayerAnimation> animManager;
@@ -106,7 +106,11 @@ int main(int argc, char** argv)
 
     while (!viewer.done())
     {
-        if (animManager.valid()) animManager->applyTransforms(*skeleton, true, true);
+        if (animManager.valid())
+        {
+            animManager->applyTransforms(*skeleton, true, true);
+            //skeleton->postMult(...);
+        }
         viewer.frame();
     }
     //osgDB::writeNodeFile(*skeleton, "test_skeleton.osg");
