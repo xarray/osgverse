@@ -45,14 +45,15 @@ public:
     ReaderWriter3dtiles() : _maxScreenSpaceError(16.0 * 0.1)
     {
         _ellipsoid = new osg::EllipsoidModel;
-        supportsExtension("verse_3dtiles", "Pseudo file extension");
+        supportsExtension("verse_tiles", "Pseudo file extension");
+        supportsExtension("s3c", "Index file of ContextCapture (Smart3D)");
         supportsExtension("json", "Decription file of 3dtiles");
-        supportsExtension("children", "Internal use of 3dtile <children> tag");
+        supportsExtension("children", "Internal use of 3dtiles' <children> tag");
     }
 
     virtual const char* className() const
     {
-        return "[osgVerse] Cesium 3dtiles Reader";
+        return "[osgVerse] S3C and Cesium-3dtiles Reader";
     }
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
@@ -61,7 +62,7 @@ public:
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
-        bool usePseudo = (ext == "verse_3dtiles");
+        bool usePseudo = (ext == "verse_tiles");
         if (usePseudo)
         {
             fileName = osgDB::getNameLessExtension(path);
@@ -91,15 +92,23 @@ public:
         else
         {
             std::ifstream fin(fileName.c_str());
+            localOptions->setPluginStringData("extension", ext);
             return (!fin) ? ReadResult::FILE_NOT_FOUND : readNode(fin, localOptions.get());
         }
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
+        std::string ext = options ? options->getPluginStringData("extension") : "";
+        std::string prefix = options ? options->getPluginStringData("prefix") : "";
+        if (ext == "s3c")
+        {
+            // TODO
+            return ReadResult::FILE_NOT_HANDLED;
+        }
+
         picojson::value document;
         std::string err = picojson::parse(document, fin);
-        std::string prefix = options ? options->getPluginStringData("prefix") : "";
         if (err.empty())
         {
             picojson::value& root = document.get("root");
@@ -179,13 +188,13 @@ protected:
             osg::PagedLOD* plod = new osg::PagedLOD;
             plod->setDatabasePath(prefix);
             if (ext.empty()) plod->addChild(new osg::Node);
-            else if (ext == "json") plod->addChild(osgDB::readNodeFile(uri + ".verse_3dtiles"));
+            else if (ext == "json") plod->addChild(osgDB::readNodeFile(uri + ".verse_tiles"));
             else plod->addChild(osgDB::readNodeFile(uri + ".verse_gltf"));
 
             // Put <children> to a virtual file with options to fit OSG's LOD structure
             osgDB::Options* opt = new osgDB::Options(children.serialize());
             plod->setDatabaseOptions(opt);
-            plod->setFileName(1, nanoid::generate(8) + ".children.verse_3dtiles");
+            plod->setFileName(1, nanoid::generate(8) + ".children.verse_tiles");
 
             if (bound.valid())
             {
@@ -209,7 +218,7 @@ protected:
         else
         {
             if (ext.empty()) return new osg::Node;
-            else if (ext == "json") return osgDB::readNodeFile(uri + ".verse_3dtiles");
+            else if (ext == "json") return osgDB::readNodeFile(uri + ".verse_tiles");
             else return osgDB::readNodeFile(uri + ".verse_gltf");
         }
     }
@@ -276,4 +285,4 @@ protected:
 };
 
 // Now register with Registry to instantiate the above reader/writer.
-REGISTER_OSGPLUGIN(verse_3dtiles, ReaderWriter3dtiles)
+REGISTER_OSGPLUGIN(verse_tiles, ReaderWriter3dtiles)

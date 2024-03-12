@@ -10,8 +10,10 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgUtil/SmoothingVisitor>
+
 #include "pipeline/Utilities.h"
 #include "LoadSceneFBX.h"
+#define DISABLE_SKINNING_DATA 0
 
 namespace osgVerse
 {
@@ -271,7 +273,11 @@ namespace osgVerse
 
         std::string propertyName = curveNode->name;
         osg::Vec3d pivotOffset(pivot.x, pivot.y, pivot.z);
-        if (!mt) { OSG_NOTICE << "[LoaderFBX] Unable to find animation " << boneName << std::endl; return; }
+        if (!mt)
+        {
+            OSG_NOTICE << "[LoaderFBX] Unable to find bone node " << boneName << " matching animation "
+                       << propertyName << std::endl; return;
+        }
 
         osg::ref_ptr<osg::AnimationPath> animationPath;
         osg::observer_ptr<osg::AnimationPathCallback> apcb;
@@ -531,9 +537,11 @@ namespace osgVerse
             SkinningData& sd = skinningList[i];
             if (sd.joints.empty() || !sd.meshRoot) continue;
 
-            //sd.player = new PlayerAnimation;
-            //sd.player->initialize(sd.joints, sd.meshList, sd.jointData);
-            //sd.meshRoot->addUpdateCallback(sd.player.get());  // TODO
+#if !DISABLE_SKINNING_DATA
+            sd.player = new PlayerAnimation;
+            sd.player->initialize(sd.joints, sd.meshList, sd.jointData);
+            sd.meshRoot->addUpdateCallback(sd.player.get());
+#endif
         }
     }
 

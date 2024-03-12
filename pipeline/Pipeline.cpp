@@ -940,9 +940,9 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(type,
-                osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
-                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glVersion);
+            float ww = _stageSize[0] * sizeScale, hh = _stageSize[1] * sizeScale;
+            if (ww < 1.0f) ww = 1.0f; if (hh < 1.0f) hh = 1.0f;
+            osg::ref_ptr<osg::Texture> tex = createTexture(type, (int)ww, (int)hh, _glVersion);
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), true);
             s->outputs[bufName] = tex.get();
@@ -979,9 +979,9 @@ namespace osgVerse
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(type,
-                osg::maximum((int)_stageSize[0], 1920) * sizeScale,   // deferred quad not too low
-                osg::maximum((int)_stageSize[1], 1080) * sizeScale, _glVersion);
+            float ww = _stageSize[0] * sizeScale, hh = _stageSize[1] * sizeScale;
+            if (ww < 1.0f) ww = 1.0f; if (hh < 1.0f) hh = 1.0f;
+            osg::ref_ptr<osg::Texture> tex = createTexture(type, (int)ww, (int)hh, _glVersion);
             s->runner->attach(comp, tex.get());
             s->outputs[bufName] = tex.get();
         }

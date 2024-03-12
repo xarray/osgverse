@@ -93,8 +93,10 @@ int main(int argc, char** argv)
 
         // For blendshape test
         animManager->setBlendShape("jawOpen", 1.0f);
+
+        // To play/pause animation, or show only rest pose
+        //animManager->setPlaying(false, true);
     }
-    //animManager->setPlaying(false);
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
@@ -108,7 +110,7 @@ int main(int argc, char** argv)
     {
         if (animManager.valid())
         {
-            animManager->applyTransforms(*skeleton, true, true);
+            //animManager->applyTransforms(*skeleton, true, true);
             //skeleton->postMult(...);
         }
         viewer.frame();

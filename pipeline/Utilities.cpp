@@ -71,6 +71,8 @@ namespace osgVerse
         regObject->addFileExtensionAlias("glb", "verse_gltf");
         regObject->addFileExtensionAlias("tiff", "verse_tiff");
         regObject->addFileExtensionAlias("rseq", "verse_image");
+        regObject->addFileExtensionAlias("json", "verse_tiles");
+        regObject->addFileExtensionAlias("s3c", "verse_tiles");
 #if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
         regObject->addFileExtensionAlias("jpg", "verse_image");
         regObject->addFileExtensionAlias("jpeg", "verse_image");

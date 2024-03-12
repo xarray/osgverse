@@ -582,7 +582,7 @@ static void printPlayerData(OzzAnimation* ozz)
     {
         int16_t pid = parents[i], soaID = i % 4;
         const ozz::math::SoaTransform soaT = restPoses[i / 4];
-        std::cout << "Bone-" << i << ": " << names[i] << ", Parent = "
+        std::cout << "B" << i << ": " << names[i] << ", Parent = "
                   << (pid >= 0 ? names[pid] : "(null)") << std::endl;
 
         osg::Vec3 pos, scale;
@@ -627,7 +627,7 @@ static void printPlayerData(OzzAnimation* ozz)
                       << numInfluences << ", JointIDs = " << jointIds.size()
                       << ", Weights = " << jointWeights.size() << std::endl;
 
-            /*for (size_t n = 0; n < numVertices; ++n)
+            for (size_t n = 0; n < numVertices; ++n)
             {
                 size_t n0 = n * 4, n1 = n * 3;
                 float w = jointWeights[n1] + jointWeights[n1 + 1] + jointWeights[n1 + 2];
@@ -635,7 +635,7 @@ static void printPlayerData(OzzAnimation* ozz)
                           << ", B" << jointIds[n0 + 1] << " / " << jointWeights[n1 + 1]
                           << ", B" << jointIds[n0 + 2] << " / " << jointWeights[n1 + 2]
                           << ", B" << jointIds[n0 + 3] << " / " << (1.0f - w) << std::endl;
-            }*/
+            }
         }
         std::cout << std::endl;
     }
@@ -698,7 +698,7 @@ bool PlayerAnimation::initialize(const std::vector<osg::Transform*>& nodes,
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
     cmv.initialize(meshList); ozz->_meshes = cmv.getMeshes();
     _meshStateSetList = cmv.getStateSets(); _blendshapes = cmv.getBS();
-#if 0
+#if 1
     printPlayerData(ozz);
 #endif
     return initializeInternal();

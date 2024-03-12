@@ -1,4 +1,4 @@
-SET(LIB_NAME osgdb_verse_3dtiles)
+SET(LIB_NAME osgdb_verse_tiles)
 SET(LIBRARY_FILES
     ReaderWriter3dTiles.cpp
 )
