@@ -66,8 +66,8 @@ Our project is already tested on graphics cards listed as below:
 | NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | Display has broken problems with Nouveau driver |
-| NVIDIA GT720              |                | :soon:             |       |
-| NVIDIA Quadro K2200       |                | :soon:             |       |
+| NVIDIA GT720              | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 12fps |
+| NVIDIA Quadro K2200       | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | AMD Radeon RX5500         |                | :soon:             |       |
 | AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 15fps |
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
