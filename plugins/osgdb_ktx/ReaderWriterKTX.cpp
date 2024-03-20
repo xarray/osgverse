@@ -95,7 +95,7 @@ public:
         }
         else
             imageList.push_back(imagePtr);
-        
+
         bool result = osgVerse::saveKtx(fileName, false, options, imageList);
         return result ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }

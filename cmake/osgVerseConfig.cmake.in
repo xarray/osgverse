@@ -55,10 +55,10 @@ MACRO(ADD_LIBRARY_DEP LIB_NAME)
 ENDMACRO(ADD_LIBRARY_DEP)
 
 FIND_PATH(osgVerse_LIB_DIR osgVersePipeline.lib libosgVersePipeline.a
-          PATHS ${osgVerse_DIR} /usr/lib /usr/local/lib NO_CMAKE_FIND_ROOT_PATH)
+          PATHS ${osgVerse_DIR}/lib /usr/lib /usr/local/lib NO_CMAKE_FIND_ROOT_PATH)
 IF(osgVerse_LIB_DIR)
     FIND_PATH(osgVerse_INCLUDE_DIR osgVerse/pipeline/Pipeline.h
-              PATHS ${osgVerse_LIB_DIR}/../include NO_CMAKE_FIND_ROOT_PATH)
+              PATHS ${osgVerse_DIR}/include NO_CMAKE_FIND_ROOT_PATH)
     FIND_LIBRARY_DATA(DEPS osgVerseDependency)
     FIND_LIBRARY_DATA(RW osgVerseReaderWriter)
     FIND_LIBRARY_DATA(SCRIPT osgVerseScript)

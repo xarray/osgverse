@@ -1162,7 +1162,11 @@ namespace osgVerse
         ss << "#version " << osg::maximum(glslVer, 330) << " core" << std::endl;
         ss << "#define VERSE_GLES3 1" << std::endl;
 #else
-        if (glslVer > 0) ss << "#version " << osg::minimum(glslVer, 130) << std::endl;
+        if (glslVer > 0)
+        {
+            if (glslVer < 300) ss << "#version " << glslVer << std::endl;
+            else ss << "#version " << glslVer << " compatibility" << std::endl;
+        }
 #endif
         ss << "//! osgVerse generated shader: " << glslVer << std::endl;
 

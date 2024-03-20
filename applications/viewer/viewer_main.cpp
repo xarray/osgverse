@@ -234,7 +234,11 @@ int main(int argc, char** argv)
 
     // Create the pipeline
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+#if true
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+#else  // Set different Context and GLSL version on you own risk
+    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(100, 330);
+#endif
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
@@ -270,10 +274,9 @@ int main(int argc, char** argv)
     // WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002
     int flags = 0x0001 | 0x0002;
 #   else
-    int flags = 0;
+    int flags = 0;  // TODO
 #   endif
-    osg::ref_ptr<osg::GraphicsContext> gc = pipeline->createGraphicsContext(
-        1920, 1080, "4.5", NULL, flags);
+    osg::ref_ptr<osg::GraphicsContext> gc = pipeline->createGraphicsContext(1920, 1080, "4.5", NULL, flags);
     viewer.getCamera()->setGraphicsContext(gc.get());
     viewer.getCamera()->setProjectionMatrix(osg::Matrix::perspective(
         30., (double)1920 / (double)1080, 1., 100.));
