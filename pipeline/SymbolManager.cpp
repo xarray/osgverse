@@ -49,14 +49,18 @@ SymbolManager::SymbolManager()
     _dirTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
     _dirTexture->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-    _textTexture = new osg::Texture2D;
+    _iconTexture = new osg::Texture2D; _iconTexture->setResizeNonPowerOfTwoHint(false);
+    _iconTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+    _iconTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
+    _textTexture = new osg::Texture2D; _textTexture->setResizeNonPowerOfTwoHint(false);
     _textTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
     _textTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
     _drawer = new Drawer2D;
-    _lodDistances[(int)LOD0] = 1e6;
-    _lodDistances[(int)LOD1] = 100.0;
-    _lodDistances[(int)LOD2] = 5.0;
+    _lodDistances[(int)LOD0] = 1e6; _lodDistances[(int)LOD1] = 100.0; _lodDistances[(int)LOD2] = 5.0;
+    _midDistanceOffset = new osg::Uniform("Offset", osg::Vec3(2.0f, 0.0f, -0.001f));
+    _midDistanceScale = new osg::Uniform("Scale", osg::Vec3(3.0f, 1.0f, 1.0f / 10.0f));
 }
 
 void SymbolManager::operator()(osg::Node* node, osg::NodeVisitor* nv)
@@ -158,11 +162,15 @@ std::vector<Symbol*> SymbolManager::querySymbols(const osg::Vec2d& proj, double 
 void SymbolManager::initialize(osg::Group* group)
 {
     if (!_instanceGeom)
-    {   // Create default instance geometry which shows a simple triangle
-        osg::Vec3Array* va = new osg::Vec3Array(3);
-        (*va)[0] = osg::Vec3(0.6f, 0.0f, 0.0f);
-        (*va)[1] = osg::Vec3(-0.2f, 0.2f, 0.0f);
-        (*va)[2] = osg::Vec3(-0.2f, -0.2f, 0.0f);
+    {   // Create default instance geometry which shows a simple quad
+        osg::Vec3Array* va = new osg::Vec3Array(4);
+        (*va)[0] = osg::Vec3(-0.5f, -0.5f, 0.0f);
+        (*va)[1] = osg::Vec3(0.5f, -0.5f, 0.0f);
+        (*va)[2] = osg::Vec3(0.5f, 0.5f, 0.0f);
+        (*va)[3] = osg::Vec3(-0.5f, 0.5f, 0.0f);
+        osg::Vec2Array* ta = new osg::Vec2Array(4);
+        (*ta)[0] = osg::Vec2(0.0f, 0.0f); (*ta)[1] = osg::Vec2(1.0f, 0.0f);
+        (*ta)[2] = osg::Vec2(1.0f, 1.0f); (*ta)[3] = osg::Vec2(0.0f, 1.0f);
 
         _instanceGeom = new osg::Geometry;
         _instanceGeom->setUseDisplayList(false);
@@ -171,7 +179,12 @@ void SymbolManager::initialize(osg::Group* group)
         _instanceGeom->setCullingActive(false);
 #endif
         _instanceGeom->setVertexArray(va);
-        _instanceGeom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3, 0));
+        _instanceGeom->setTexCoordArray(0, ta);
+
+        osg::DrawElementsUByte* de = new osg::DrawElementsUByte(GL_TRIANGLES);
+        de->push_back(0); de->push_back(1); de->push_back(2);
+        de->push_back(0); de->push_back(2); de->push_back(3);
+        de->setNumInstances(0); _instanceGeom->addPrimitiveSet(de);
 
         // Apply instancing shader
         osg::StateSet* ss = _instanceGeom->getOrCreateStateSet();
@@ -180,6 +193,7 @@ void SymbolManager::initialize(osg::Group* group)
                 "#version 120\n"
                 "#extension GL_EXT_draw_instanced : enable\n"
                 "uniform sampler2D PosTexture, DirTexture;\n"
+                "uniform vec3 Offset; varying vec2 TexCoord;\n"
                 "mat4 rotationMatrix(vec3 axis0, float angle) {\n"
                 "    float s = sin(angle), c = cos(angle);\n"
                 "    float oc = 1.0 - c; vec3 a = normalize(axis0);\n"
@@ -194,18 +208,22 @@ void SymbolManager::initialize(osg::Group* group)
                 "    float c = floor(r) / " RESV ".0; r = fract(r);\n"
                 "    vec4 pos = texture2D(PosTexture, vec2(r, c));\n"
                 "    vec4 dir = texture2D(DirTexture, vec2(r, c));\n"
+                "    mat4 proj = gl_ProjectionMatrix; float ar = proj[0][0] / proj[1][1];\n"
 
-                "    gl_FrontColor = vec4(dir.xyz, 1.0);\n"
-                "    vec4 v0 = vec4(gl_Vertex.xyz * pos.w, 1.0);\n"
+                "    gl_FrontColor = vec4(1.0);\n"
+                "    TexCoord = gl_MultiTexCoord0.xy * dir.z + dir.xy;\n"
+                "    vec4 v0 = vec4(gl_Vertex.xyz * pos.w, 1.0), projP = proj * vec4(pos.xyz, 1.0);\n"
                 "    vec4 v1 = rotationMatrix(vec3(0.0, 0.0, 1.0), dir.w) * v0;\n"
-                "    vec4 projP = gl_ProjectionMatrix * vec4(pos.xyz, 1.0);\n"
-                "    gl_Position = vec4(v1.xyz / v1.w + projP.xyz / projP.w, 1.0);\n"
+                "    gl_Position = vec4(vec3(v1.x * ar, v1.yz) / v1.w + projP.xyz / projP.w, 1.0);\n"
                 "}"
             };
 
             const char* instanceFragShader = {
+                "uniform sampler2D IconTexture;\n"
+                "varying vec2 TexCoord;\n"
                 "void main() {\n"
-                "    gl_FragColor = gl_Color;\n"
+                "    vec4 baseColor = texture2D(IconTexture, TexCoord);\n"
+                "    gl_FragColor = baseColor * gl_Color;\n"
                 "}"
             };
 
@@ -218,17 +236,19 @@ void SymbolManager::initialize(osg::Group* group)
         // Apply default parameter textures
         ss->setTextureAttributeAndModes(0, _posTexture.get());
         ss->setTextureAttributeAndModes(1, _dirTexture.get());
+        ss->setTextureAttributeAndModes(2, _iconTexture.get());
         ss->addUniform(new osg::Uniform("PosTexture", (int)0));
         ss->addUniform(new osg::Uniform("DirTexture", (int)1));
+        ss->addUniform(new osg::Uniform("IconTexture", (int)2));
     }
 
     if (!_instanceBoard)
     {   // Create default instance billboard for displaying text boards
         osg::Vec3Array* va = new osg::Vec3Array(4);
-        (*va)[3] = osg::Vec3(-0.5f, -0.4f, 0.0f);
-        (*va)[2] = osg::Vec3(0.5f, -0.4f, 0.0f);
-        (*va)[1] = osg::Vec3(0.5f, 0.4f, 0.0f);
-        (*va)[0] = osg::Vec3(-0.5f, 0.4f, 0.0f);
+        (*va)[3] = osg::Vec3(-0.5f, -0.5f, 0.0f);
+        (*va)[2] = osg::Vec3(0.5f, -0.5f, 0.0f);
+        (*va)[1] = osg::Vec3(0.5f, 0.5f, 0.0f);
+        (*va)[0] = osg::Vec3(-0.5f, 0.5f, 0.0f);
         osg::Vec2Array* ta = new osg::Vec2Array(4);
         (*ta)[0] = osg::Vec2(0.0f, 0.0f); (*ta)[1] = osg::Vec2(1.0f, 0.0f);
         (*ta)[2] = osg::Vec2(1.0f, 1.0f); (*ta)[3] = osg::Vec2(0.0f, 1.0f);
@@ -241,7 +261,11 @@ void SymbolManager::initialize(osg::Group* group)
 #endif
         _instanceBoard->setVertexArray(va);
         _instanceBoard->setTexCoordArray(0, ta);
-        _instanceBoard->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4, 0));
+
+        osg::DrawElementsUByte* de = new osg::DrawElementsUByte(GL_TRIANGLES);
+        de->push_back(0); de->push_back(1); de->push_back(2);
+        de->push_back(0); de->push_back(2); de->push_back(3);
+        de->setNumInstances(0); _instanceBoard->addPrimitiveSet(de);
 
         // Apply instancing shader
         osg::StateSet* ss = _instanceBoard->getOrCreateStateSet();
@@ -250,22 +274,23 @@ void SymbolManager::initialize(osg::Group* group)
                 "#version 120\n"
                 "#extension GL_EXT_draw_instanced : enable\n"
                 "uniform sampler2D PosTexture;\n"
-                "uniform vec3 Offset;\n"
+                "uniform vec3 Offset, Scale;\n"
                 "varying vec2 TexCoord;\n"
                 "void main() {\n"
                 "    float r = float(gl_InstanceID) / " RESV ".0;\n"
                 "    float c = floor(r) / " RESV ".0; r = fract(r);\n"
                 "    vec4 pos = texture2D(PosTexture, vec2(r, c));\n"
+                "    mat4 proj = gl_ProjectionMatrix; float ar = proj[0][0] / proj[1][1];\n"
 
-                "    float tx = float(gl_InstanceID) * Offset.z;\n"
-                "    float ty = floor(tx) * Offset.z; tx = fract(tx);\n"
-                "    TexCoord = vec2(tx, ty) + gl_MultiTexCoord0.xy * Offset.z;\n"
+                "    float tx = float(gl_InstanceID) * Scale.z;\n"
+                "    float ty = floor(tx) * Scale.z; tx = fract(tx);\n"
+                "    TexCoord = vec2(tx, ty) + gl_MultiTexCoord0.xy * Scale.z;\n"
 
                 "    gl_FrontColor = vec4(1.0);\n"
-                "    vec4 v0 = vec4(gl_Vertex.xyz * pos.w, 1.0);\n"
-                "    vec4 projP = gl_ProjectionMatrix * vec4(pos.xyz, 1.0);\n"
-                "    gl_Position = vec4(v0.xyz / v0.w + projP.xyz / projP.w, 1.0)\n"
-                "                + vec4(Offset.xy, 0.0, 0.0);\n"
+                "    vec4 v0 = vec4((gl_Vertex.xyz + Offset) * pos.w, 1.0);\n"
+                "    vec4 v1 = proj * vec4(pos.xyz, 1.0); v1 = v1 / v1.w;\n"
+                "    gl_Position = vec4(vec3(v0.x * Scale.x * ar, v0.y * Scale.y, v0.z) / v0.w"
+                "                     + v1.xyz, 1.0);\n"
                 "}"
             };
 
@@ -289,7 +314,8 @@ void SymbolManager::initialize(osg::Group* group)
         ss->setTextureAttributeAndModes(1, _textTexture.get());
         ss->addUniform(new osg::Uniform("PosTexture", (int)0));
         ss->addUniform(new osg::Uniform("TextTexture", (int)1));
-        ss->addUniform(new osg::Uniform("Offset", osg::Vec3(0.1f, 0.05f, 1.0f / 10.0f)));
+        ss->addUniform(_midDistanceOffset.get());
+        ss->addUniform(_midDistanceScale.get());
     }
 
     // Add to geode
@@ -328,7 +354,7 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
     osg::Vec4f* posHandle = (osg::Vec4f*)_posTexture->getImage()->data();
     osg::Vec4f* posHandle2 = (osg::Vec4f*)_posTexture2->getImage()->data();
     osg::Vec4f* dirHandle = (osg::Vec4f*)_dirTexture->getImage()->data();
-    std::vector<std::string> texts;
+    std::vector<Symbol*> texts;
     for (std::map<int, osg::ref_ptr<Symbol>>::iterator itr = _symbols.begin();
          itr != _symbols.end(); ++itr)
     {
@@ -345,13 +371,13 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         {
             sym->state = Symbol::FarDistance;
             interpo = (distance - _lodDistances[1]) * inv1;
-            scale = sym->scale * (interpo + 2.0f * (1.0 - interpo));
+            scale = sym->scale * (interpo * 0.5f + 2.0f);  // scale = [2, 2.5]
         }
         else if (distance > _lodDistances[2])
         {
             sym->state = Symbol::MidDistance;
             interpo = (distance - _lodDistances[2]) * inv2;
-            scale = sym->scale * 2.0 * (interpo + 4.0f * (1.0 - interpo));
+            scale = sym->scale * (interpo * 1.0f + 1.0f);  // scale = [1, 2]
         }
         else
         {
@@ -383,13 +409,13 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         { OSG_WARN << "[SymbolManager] Data overflow!" << std::endl; break; }
 
         *(posHandle + numInstances) = osg::Vec4(eyePos, (float)scale);
-        *(dirHandle + numInstances) = osg::Vec4(sym->color, sym->rotateAngle);
+        *(dirHandle + numInstances) = osg::Vec4(sym->texTiling, sym->rotateAngle);
         boundBox.expandBy(sym->position); numInstances++;
 
         if (sym->state == Symbol::MidDistance)
         {
-            *(posHandle2 + numInstances2) = osg::Vec4(eyePos, (float)scale * 3.0f);
-            texts.push_back(sym->name); numInstances2++;
+            *(posHandle2 + numInstances2) = osg::Vec4(eyePos, (float)scale);
+            texts.push_back(sym); numInstances2++;
         }
     }
 
@@ -429,7 +455,10 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         _posTexture2->getImage()->dirty();
 
         // Collect labels and recreate texture
-        _textTexture->setImage(createGrid(2048, 1024, 10, texts));
+        if (_drawGridCallback.valid())
+            _textTexture->setImage(_drawGridCallback->create(_drawer.get(), texts));
+        else
+            _textTexture->setImage(createGrid(2048, 1024, 10, texts));
     }
     else
         _instanceBoard->getParent(0)->setNodeMask(0);
@@ -520,13 +549,14 @@ osg::Image* SymbolManager::createLabel(int w, int h, const std::string& text,
 
 
 osg::Image* SymbolManager::createGrid(int w, int h, int grid,
-                                      const std::vector<std::string>& texts,
+                                      const std::vector<Symbol*>& texts,
                                       const osg::Vec4& color)
 {
     if (w != _drawer->s() || h != _drawer->t())
         _drawer->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
     _drawer->start(false);
     _drawer->clear();
+    //_drawer->fillBackground(osg::Vec4(0.5f, 0.5f, 0.5f, 0.8f));
 
     int stepW = w / grid, stepH = h / grid;
     size_t numText = texts.size();
@@ -534,7 +564,7 @@ osg::Image* SymbolManager::createGrid(int w, int h, int grid,
     {
         int tx = j % grid, ty = j / grid;
         std::vector<std::string> lines;
-        osgDB::split(texts[j], lines, '\n');
+        osgDB::split(texts[j]->name, lines, '\n');
 
         float x = stepW * tx + 10.0f, y = stepH * ty + 30.0f;
         for (size_t i = 0; i < lines.size(); ++i)

@@ -30,7 +30,7 @@ unsigned char* Drawer2D::convertImage(osg::Image* image, int& format, int& compo
     unsigned char* pixels = NULL; if (!image) return NULL;
     if (image->getDataType() != GL_UNSIGNED_BYTE)
     {
-        OSG_WARN << "[Drawer2D] Invalid data type" << std::endl;
+        OSG_WARN << "[Drawer2D] Invalid data type: " << image->getDataType() << std::endl;
         return NULL;
     }
 
