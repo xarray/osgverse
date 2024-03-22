@@ -225,7 +225,7 @@ namespace osgVerse
         {
             tinygltf::Animation& anim = _modelDef.animations[i];
             std::string animName = anim.name; if (animName.empty()) animName = "Take001";
-            unsigned int belongsToSkeleton = -1;
+            int belongsToSkeleton = -1;
 
             typedef std::pair<std::string, int> PathAndSampler;
             std::map<osg::Node*, std::vector<PathAndSampler>> samplers;
