@@ -44,6 +44,10 @@ int main(int argc, char** argv)
     symManager->setFontFileName(MISC_DIR "/SourceHanSansHWSC-Regular.otf");
     symManager->setIconAtlasImage(iconAtlas.get());
     symManager->setMidDistanceTextOffset(osg::Vec3(2.0f, 0.0f, -0.001f));
+    symManager->setLodDistance(osgVerse::SymbolManager::LOD0, 100.0);
+    symManager->setLodDistance(osgVerse::SymbolManager::LOD1, 20.0);
+    symManager->setLodDistance(osgVerse::SymbolManager::LOD2, 1.0);
+
     for (int y = 0; y < 10; ++y)
         for (int x = 0; x < 10; ++x)
         {

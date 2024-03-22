@@ -57,7 +57,7 @@ SymbolManager::SymbolManager()
     _textTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
     _textTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
 
-    _drawer = new Drawer2D;
+    _drawer = new Drawer2D; _lodIconScaleFactor.set(1.5f, 1.4f, 1.0f);
     _lodDistances[(int)LOD0] = 1e6; _lodDistances[(int)LOD1] = 100.0; _lodDistances[(int)LOD2] = 5.0;
     _midDistanceOffset = new osg::Uniform("Offset", osg::Vec3(2.0f, 0.0f, -0.001f));
     _midDistanceScale = new osg::Uniform("Scale", osg::Vec3(3.0f, 1.0f, 1.0f / 10.0f));
@@ -320,15 +320,15 @@ void SymbolManager::initialize(osg::Group* group)
 
     // Add to geode
     osg::Geode* geode1 = new osg::Geode;
-    geode1->setName("SymbolGeometryGeode");
+    geode1->setName("SymbolIconGeode");
     geode1->addDrawable(_instanceGeom.get());
     geode1->setCullingActive(false);
+    geode1->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
 
     osg::Geode* geode2 = new osg::Geode;
     geode2->setName("SymbolTextBoardGeode");
     geode2->addDrawable(_instanceBoard.get());
     geode2->setCullingActive(false);
-    geode2->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     geode2->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     group->addChild(geode1); group->addChild(geode2);
 }
@@ -354,6 +354,8 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
     osg::Vec4f* posHandle = (osg::Vec4f*)_posTexture->getImage()->data();
     osg::Vec4f* posHandle2 = (osg::Vec4f*)_posTexture2->getImage()->data();
     osg::Vec4f* dirHandle = (osg::Vec4f*)_dirTexture->getImage()->data();
+    float lodScale0 = _lodIconScaleFactor[0] - _lodIconScaleFactor[1];
+    float lodScale1 = _lodIconScaleFactor[1] - _lodIconScaleFactor[2];
     std::vector<Symbol*> texts;
     for (std::map<int, osg::ref_ptr<Symbol>>::iterator itr = _symbols.begin();
          itr != _symbols.end(); ++itr)
@@ -371,17 +373,18 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         {
             sym->state = Symbol::FarDistance;
             interpo = (distance - _lodDistances[1]) * inv1;
-            scale = sym->scale * (interpo * 0.5f + 2.0f);  // scale = [2, 2.5]
+            scale = sym->scale * (interpo * lodScale0 + _lodIconScaleFactor[1]);
         }
         else if (distance > _lodDistances[2])
         {
             sym->state = Symbol::MidDistance;
             interpo = (distance - _lodDistances[2]) * inv2;
-            scale = sym->scale * (interpo * 1.0f + 1.0f);  // scale = [1, 2]
+            scale = sym->scale * (interpo * lodScale1 + _lodIconScaleFactor[2]);
         }
         else
         {
             // Load or re-use symbol model
+            scale = sym->scale * _lodIconScaleFactor[2];
             sym->modelFrame0 = frameNo;
             if (!sym->fileName.empty())
             {

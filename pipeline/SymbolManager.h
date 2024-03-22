@@ -42,6 +42,9 @@ namespace osgVerse
         void setLodDistance(LodLevel lv, double d) { _lodDistances[(int)lv] = d; }
         double getLodDistance(LodLevel lv) const { return _lodDistances[(int)lv]; }
 
+        void setLodScaleFactor(const osg::Vec3& factor) { _lodIconScaleFactor = factor; }
+        const osg::Vec3& getLodScaleFactor() const { return _lodIconScaleFactor; }
+
         void setInstanceGeometry(osg::Geometry* g) { _instanceGeom = g; }
         osg::Geometry* getInstanceGeometry() { return _instanceGeom.get(); }
 
@@ -120,6 +123,7 @@ namespace osgVerse
         osg::ref_ptr<DrawTextGridCallback> _drawGridCallback;
         osg::ref_ptr<Drawer2D> _drawer;
         osg::observer_ptr<osg::Camera> _camera;
+        osg::Vec3 _lodIconScaleFactor;
         double _lodDistances[3];
         int _idCounter;
         bool _firstRun;
