@@ -154,7 +154,25 @@ public:
 
     bool passable(osg::Drawable& node)
     {
+        unsigned int nodePipMask = 0xffffffff, flags = 0;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
+        if (node.getUserValue("PipelineMask", nodePipMask))
+        {
+            node.getUserValue("PipelineFlags", flags);
+            if (!_pipelineMaskPath.empty())
+            {
+                std::pair<unsigned int, unsigned int> lastM = _pipelineMaskPath.back();
+                if (lastM.second & osg::StateAttribute::OVERRIDE)
+                {
+                    if (!(flags & osg::StateAttribute::PROTECTED))
+                    { nodePipMask = lastM.first; flags = lastM.second; }
+                }
+            }
+
+            if (flags & osg::StateAttribute::ON)
+                return (_cullMask & nodePipMask) != 0;
+        }
+
         if (_pipelineMaskPath.empty())
         {
             // Handle drawables which is never been set pipeline masks:
@@ -162,7 +180,7 @@ public:
             // to avoid it being rendered multiple times.
             return (_cullMask & _defaultMask) != 0;
         }
-        return true;
+        return (_cullMask & _pipelineMaskPath.back().first) != 0;
     }
 
     virtual void apply(osg::Node& node)
@@ -794,7 +812,9 @@ namespace osgVerse
                                      unsigned int defForwardMask, unsigned int fixedShadingMask)
     {
         osg::Matrix projOffset, viewOffset;
+        double mainFov = 30.0, mainAspect = 1.0, mainNear = 1.0, mainFar = 10000.0;
         if (!mainCam) mainCam = view->getCamera();
+
         if (mainCam)
         {
             // Check if main camera is a slave and get its offsets
@@ -810,13 +830,21 @@ namespace osgVerse
                 }
             }
             mainCam->setGraphicsContext(NULL);
+            mainCam->getProjectionMatrixAsPerspective(mainFov, mainAspect, mainNear, mainFar);
         }
 
-        // ClampProjectionCallback must only exist on view's main camera
-        if (view->getCamera() && view->getCamera()->getClampProjectionMatrixCallback())
-            _deferredCallback->setClampCallback(view->getCamera()->getClampProjectionMatrixCallback());
+        // Set-up projection matrix clamper
+        osg::ref_ptr<MyClampProjectionCallback> customClamper =
+            new MyClampProjectionCallback(_deferredCallback.get());
+        if (mainCam)
+        {
+            // User's ClampProjectionCallback on view's main camera will be kept and reused
+            if (mainCam->getClampProjectionMatrixCallback())
+                _deferredCallback->setClampCallback(mainCam->getClampProjectionMatrixCallback());
+        }
         _deferredCallback->setForwardMasks(defForwardMask, fixedShadingMask);
 
+        // Set-up stages as to add them as slaves
         for (unsigned int i = 0; i < _stages.size(); ++i)
         {
             bool useMainScene = _stages[i]->inputStage;
@@ -829,12 +857,13 @@ namespace osgVerse
 #endif
         }
 
+        // The forward pass is kept for fixed-pipeline compatibility only
         osg::ref_ptr<osg::Camera> forwardCam = (mainCam != NULL)
                                              ? new osg::Camera(*mainCam) : new osg::Camera;
         forwardCam->setName("DefaultForward");
         forwardCam->setUserValue("NeedNearFarCalculation", true);
         forwardCam->setUserValue("PipelineCullMask", defForwardMask);  // replacing setCullMask()
-        forwardCam->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
+        forwardCam->setClampProjectionMatrixCallback(customClamper.get());
         forwardCam->setComputeNearFarMode(g_nearFarMode);
         _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
 
@@ -848,7 +877,7 @@ namespace osgVerse
         view->addSlave(forwardCam.get(), projOffset, viewOffset, true);
         mainCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
         mainCam->setProjectionMatrixAsPerspective(
-            30.0f, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), 1.0f, 10000.0f);
+            mainFov, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), mainNear, mainFar);
 
 #ifdef VERSE_WINDOWS
         TextInputMethodManager::instance()->disable(_stageContext.get());
