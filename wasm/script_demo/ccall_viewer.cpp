@@ -130,6 +130,7 @@ int main(int argc, char** argv)
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
+#if false
     SDL_Window* window = SDL_CreateWindow(
         "osgVerse_JsCallerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         width, height, SDL_WINDOW_OPENGL);
@@ -145,6 +146,15 @@ int main(int argc, char** argv)
         printf("[osgVerse] Could not create SDL context: '%s'\n", SDL_GetError());
         return 1;
     }
+#else
+    SDL_Window* window = nullptr;
+    SDL_CreateWindowAndRenderer(width, height, SDL_WINDOW_OPENGL, &window, nullptr);
+    if (!window)
+    {
+        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
+        return 1;
+    }
+#endif
 
     // Create the application object
     g_app->setViewer(viewer, width, height);
