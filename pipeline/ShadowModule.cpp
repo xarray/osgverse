@@ -77,7 +77,7 @@ namespace osgVerse
                 vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);
                 Pipeline::createShaderDefinitions(vs, gl, glsl);
             }
-            
+
             if (fs)
             {
                 fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs);
@@ -91,7 +91,7 @@ namespace osgVerse
         if (toReset) _referencePoints.clear(); _dirtyReference = true;
         _referencePoints.insert(_referencePoints.end(), pt.begin(), pt.end());
     }
-    
+
     void ShadowModule::addReferenceBound(const osg::BoundingBoxd& bb, bool toReset)
     {
         if (toReset) _referencePoints.clear(); _dirtyReference = true;
@@ -125,7 +125,7 @@ namespace osgVerse
         osg::Matrix viewInv = cam->getInverseViewMatrix(), proj = state->getProjectionMatrix();
         double fov, ratio, zn, zf; proj.getPerspective(fov, ratio, zn, zf);
         if (_shadowMaxDistance > 0.0 && (zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
-        
+
         double shadowDistance = zf - zn;
         if (shadowDistance <= 0.01) return;  // state not prepared? we have to quit then
         if (_dirtyReference && !_retainLightPos)
@@ -222,7 +222,7 @@ namespace osgVerse
         if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps[id]->getTextureWidth(), _shadowMaps[id]->getTextureHeight());
         camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps[id].get());
-#if VERSE_WASM
+#if defined(VERSE_WEBGL1)
         // FBO without depth attachment will not enable depth test
         // By default OSG use "ImplicitBufferAttachmentMask" to handle this,
         // but the internal format should be reset for WebGL cases
@@ -281,7 +281,7 @@ namespace osgVerse
             geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
             _shadowFrustum->addDrawable(geom);
         }
-        
+
         Frustum frustum; osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
         frustum.create(shadowCam->getViewMatrix(), shadowCam->getProjectionMatrix());
         for (int i = 0; i < 8; ++i) (*va)[i] = frustum.corners[i];

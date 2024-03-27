@@ -183,7 +183,7 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
         image->allocateImage(numRows, numRows, 1, GL_RGB, GL_FLOAT);
-#ifdef VERSE_WASM
+#ifdef VERSE_WEBGL1
         image->setInternalTextureFormat(GL_RGB);
 #else
         image->setInternalTextureFormat(GL_RGB32F_ARB);
@@ -215,7 +215,7 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
         image->allocateImage(numSamples, numRows, 1, GL_RGB, GL_FLOAT);
-#ifdef VERSE_WASM
+#ifdef VERSE_WEBGL1
         image->setInternalTextureFormat(GL_RGB);
 #else
         image->setInternalTextureFormat(GL_RGB32F_ARB);

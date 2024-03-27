@@ -72,12 +72,10 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
 
     // Post-HUD display
+    // FIXME: No forward scene can be added for WebGL at present
+#if false
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
-#if defined(VERSE_WEBGL2)
     root->addChild(postCamera.get());
-#elif defined(VERSE_WEBGL1)
-    // No forward scene can be added for WebGL1
-#endif
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
@@ -87,6 +85,7 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }
+#endif
 
     // Create the viewer
 #if TEST_PIPELINE
@@ -153,6 +152,13 @@ int main(int argc, char** argv)
     if (!window)
     {
         printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
+        return 1;
+    }
+
+    SDL_GLContext context = SDL_GL_GetCurrentContext();
+    if (context == NULL)
+    {
+        printf("[osgVerse] Could not get SDL context: '%s'\n", SDL_GetError());
         return 1;
     }
 #endif

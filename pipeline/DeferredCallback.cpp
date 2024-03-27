@@ -56,7 +56,7 @@ namespace osgVerse
                 matrices.push_back(osg::Matrix::inverse(matrices.back()));
                 std::get<1>(itr->second) = matrices;
             }
-            
+
             osg::Uniform* u1 = sv->getLocalStateSet()->getOrCreateUniform(
                 (uName + "Matrices").c_str(), osg::Uniform::FLOAT_MAT4, 4);
             const std::vector<osg::Matrixf>& matrices = std::get<1>(itr->second);
@@ -179,8 +179,9 @@ namespace osgVerse
         }
 
         osg::Camera* forwardCam = renderInfo.getCurrentCamera();
-#if defined(VERSE_WEBGL1)
-        // blitFramebuffer() only works for WebGL2...
+#if defined(VERSE_WASM)
+        // blitFramebuffer() not work for WebGL1...
+        // And it said 'invalid op on multisampled framebuffer' for WebGL2
 #else
         if (!_depthBlitList.empty())
         {

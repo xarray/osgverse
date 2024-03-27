@@ -99,7 +99,7 @@
         })(),
         canvas: (function() {
           var canvas = document.getElementById('canvas');
-          extensions = canvas.getContext('webgl').getSupportedExtensions();
+          extensions = canvas.getContext('@VERSE_WEBGL_NAME@').getSupportedExtensions();
 
           // As a default initial behavior, pop up an alert when webgl context is lost. To make your
           // application robust, you may want to override this behavior before shipping!

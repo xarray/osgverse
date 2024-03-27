@@ -154,6 +154,13 @@ int main(int argc, char** argv)
         printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
         return 1;
     }
+
+    SDL_GLContext context = SDL_GL_GetCurrentContext();
+    if (context == NULL)
+    {
+        printf("[osgVerse] Could not get SDL context: '%s'\n", SDL_GetError());
+        return 1;
+    }
 #endif
 
     // Create the application object

@@ -28,6 +28,7 @@ IF(VERSE_USE_EXTERNAL_GLES3)
     # - Safari : 15.6 (iOS ver 15.2)
     # - Android: 97.0
     STRING(APPEND WASM_FLAGS_EX " -s MIN_WEBGL_VERSION=2 -s MAX_WEBGL_VERSION=2 -s FULL_ES3")
+    SET(VERSE_WEBGL_NAME "webgl2")
 ELSE()
     # WebGL1 Browser Compatibility:
     # - IE     : 11.0
@@ -37,9 +38,11 @@ ELSE()
     # - Safari : 5.1 (iOS ver 8.1)
     # - Android: 97.0
     STRING(APPEND WASM_FLAGS_EX " -s MIN_WEBGL_VERSION=1 -s MAX_WEBGL_VERSION=2 -s FULL_ES2")
+    SET(VERSE_WEBGL_NAME "webgl")
 ENDIF()
 
-SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/shell.html -gsource-map -fsanitize=address -O3")
+CONFIGURE_FILE(shell.html.in "${CMAKE_CURRENT_BINARY_DIR}/shell.html" @ONLY)
+SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell.html -gsource-map -fsanitize=address -O3")
 SET(WASM_FLAGS1 "-s WASM=1 -s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL=2 -s FETCH=1")
 
 ADD_SUBDIRECTORY(pbr_demo)
