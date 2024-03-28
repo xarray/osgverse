@@ -111,8 +111,10 @@ void processFile(const std::string& prefix, const std::string& dirName,
 
         std::string dbFileName = dbBase + dirName + "/" + fileName;
         if (!savingToDB) osgDB::makeDirectoryForFile(dbFileName);
-        osgDB::writeNodeFile(*node, dbFileName,
-                             new osgDB::Options("WriteImageHint=IncludeFile"));
+
+        osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
+        options->setPluginStringData("UseBASISU", "1");
+        osgDB::writeNodeFile(*node, dbFileName, options.get());
         opt.deleteSavedTextures();
         std::cout << "Re-saving " << fileName << "\n";
     }

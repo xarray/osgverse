@@ -917,27 +917,47 @@ namespace osgVerse
         }
     }
 
+#define ARGS_TO_BUFFERLIST(CMD) \
+    BufferDescriptions bufferList; \
+    va_list params; va_start(params, buffers); \
+    for (int i = 0; i < buffers; i++) { \
+        std::string bufName = std::string(va_arg(params, const char*)); \
+        BufferType type = (BufferType)va_arg(params, int); \
+        bufferList.push_back(BufferDescription(bufName, type)); \
+    } va_end(params); return CMD;
+
     Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
                                              osg::Shader* vs, osg::Shader* fs, int buffers, ...)
+    { ARGS_TO_BUFFERLIST(addInputStage(name, cullMask, samples, vs, fs, bufferList)); }
+
+    Pipeline::Stage* Pipeline::addWorkStage(const std::string& name, float sizeScale,
+                                            osg::Shader* vs, osg::Shader* fs, int buffers, ...)
+    { ARGS_TO_BUFFERLIST(addWorkStage(name, sizeScale, vs, fs, bufferList)); }
+
+    Pipeline::Stage* Pipeline::addDeferredStage(const std::string& name, float sizeScale, bool runOnce,
+                                                osg::Shader* vs, osg::Shader* fs, int buffers, ...)
+    { ARGS_TO_BUFFERLIST(addDeferredStage(name, sizeScale, runOnce, vs, fs, bufferList)); }
+
+    Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
+                                             osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers)
     {
         Stage* s = new Stage; s->deferred = false;
-        va_list params; va_start(params, buffers);
-        for (int i = 0; i < buffers; i ++)
+        for (size_t i = 0; i < buffers.size(); i ++)
         {
-            std::string bufName = std::string(va_arg(params, const char*));
-            BufferType type = (BufferType)va_arg(params, int); int ms = 0;
-            osg::Camera::BufferComponent comp = (buffers == 1) ? osg::Camera::COLOR_BUFFER
+            std::string bufName = buffers[i].bufferName;
+            BufferType type = buffers[i].type; int ms = 0;
+            osg::Camera::BufferComponent comp = (buffers.size() == 1) ? osg::Camera::COLOR_BUFFER
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
             else ms = samples;
 
-            osg::ref_ptr<osg::Texture> tex = createTexture(type, _stageSize[0], _stageSize[1], _glVersion);
+            osg::ref_ptr<osg::Texture> tex = buffers[i].bufferToShare;
+            if (!tex) tex = createTexture(type, _stageSize[0], _stageSize[1], _glVersion);
             if (i > 0) s->camera->attach(comp, tex.get(), 0, 0, false, ms);
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), false);
             s->outputs[bufName] = tex.get();
         }
-        va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
         applyDefaultInputStateSet(*s->camera->getOrCreateStateSet(), true);
@@ -956,27 +976,26 @@ namespace osgVerse
     }
 
     Pipeline::Stage* Pipeline::addWorkStage(const std::string& name, float sizeScale,
-                                            osg::Shader* vs, osg::Shader* fs, int buffers, ...)
+                                            osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers)
     {
         Stage* s = new Stage; s->deferred = false;
-        va_list params; va_start(params, buffers);
-        for (int i = 0; i < buffers; i++)
+        for (int i = 0; i < buffers.size(); i++)
         {
-            std::string bufName = std::string(va_arg(params, const char*));
-            BufferType type = (BufferType)va_arg(params, int);
-            osg::Camera::BufferComponent comp = (buffers == 1) ? osg::Camera::COLOR_BUFFER
+            std::string bufName = buffers[i].bufferName;
+            BufferType type = buffers[i].type;
+            osg::Camera::BufferComponent comp = (buffers.size() == 1) ? osg::Camera::COLOR_BUFFER
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             float ww = _stageSize[0] * sizeScale, hh = _stageSize[1] * sizeScale;
             if (ww < 1.0f) ww = 1.0f; if (hh < 1.0f) hh = 1.0f;
-            osg::ref_ptr<osg::Texture> tex = createTexture(type, (int)ww, (int)hh, _glVersion);
+            osg::ref_ptr<osg::Texture> tex = buffers[i].bufferToShare;
+            if (!tex) tex = createTexture(type, (int)ww, (int)hh, _glVersion);
             if (i > 0) s->camera->attach(comp, tex.get());
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), true);
             s->outputs[bufName] = tex.get();
         }
-        va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
         s->camera->setImplicitBufferAttachmentMask(0, 0);
@@ -991,30 +1010,29 @@ namespace osgVerse
     }
 
     Pipeline::Stage* Pipeline::addDeferredStage(const std::string& name, float sizeScale, bool runOnce,
-                                                osg::Shader* vs, osg::Shader* fs, int buffers, ...)
+                                                osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers)
     {
         Stage* s = new Stage; s->deferred = true;
         s->runner = new osgVerse::DeferredRenderCallback::RttGeometryRunner(name);
         s->runner->runOnce = runOnce; s->runner->setUseScreenQuad(0, NULL);  // quad at the beginning
         _deferredCallback->addRunner(s->runner.get());
 
-        va_list params; va_start(params, buffers);
-        for (int i = 0; i < buffers; i++)
+        for (int i = 0; i < buffers.size(); i++)
         {
-            std::string bufName = std::string(va_arg(params, const char*));
-            BufferType type = (BufferType)va_arg(params, int);
-            osg::Camera::BufferComponent comp = (buffers == 1) ? osg::Camera::COLOR_BUFFER
+            std::string bufName = buffers[i].bufferName;
+            BufferType type = buffers[i].type;
+            osg::Camera::BufferComponent comp = (buffers.size() == 1) ? osg::Camera::COLOR_BUFFER
                 : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             float ww = _stageSize[0] * sizeScale, hh = _stageSize[1] * sizeScale;
             if (ww < 1.0f) ww = 1.0f; if (hh < 1.0f) hh = 1.0f;
-            osg::ref_ptr<osg::Texture> tex = createTexture(type, (int)ww, (int)hh, _glVersion);
+            osg::ref_ptr<osg::Texture> tex = buffers[i].bufferToShare;
+            if (!tex) tex = createTexture(type, (int)ww, (int)hh, _glVersion);
             s->runner->attach(comp, tex.get());
             s->outputs[bufName] = tex.get();
         }
-        va_end(params);
 
         applyDefaultStageData(*s, name, vs, fs);
         s->inputStage = false; _stages.push_back(s);

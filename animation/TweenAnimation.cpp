@@ -3,8 +3,22 @@
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
 #include "3rdparty/tweeny/tweeny.h"
+#include "3rdparty/tweeny/easing.h"
 #include "TweenAnimation.h"
 using namespace osgVerse;
+
+class EasingType : public osg::Referenced
+{
+public:
+    EasingType(double s, double e)
+    {
+        duration = e - s; num = osg::minimum((int)duration / 1000, 1000);
+        tween = tweeny::from(s).to(e).during(num).via(tweeny::easing::linear);
+    }
+
+    double value(double dt) { return tween.jump(dt * num / duration); }
+    tweeny::tween<double> tween; int num; double duration;
+};
 
 class AnimationPathVisitor : public osg::NodeVisitor
 {
@@ -72,6 +86,10 @@ public:
     bool _useInverseMatrix;
 };
 
+void TweenAnimation::AnimationCallback::interpolate(osg::Node* node, const osg::AnimationPath::ControlPoint& cp,
+                                                    const osg::Vec3d& pivotPoint, bool invMatrix)
+{ AnimationPathVisitor apcv(cp, pivotPoint, invMatrix); node->accept(apcv); }
+
 TweenAnimation::TweenAnimation()
 :   _currentAnimationTime(0.0), _referenceTime(-1.0),
     _playingState(0), _useInverseMatrix(false)
@@ -83,15 +101,20 @@ void TweenAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
     double delta = 0.02, timestamp = _currentAnimationTime;
     if (_playingState > 0 && nv->getFrameStamp())
     {
-        if (_referenceTime < 0.0) delta = 0.0;
-        else delta = nv->getFrameStamp()->getSimulationTime() - _referenceTime;
+        if (_referenceTime < 0.0)
+        {
+            if (_animationCallback.valid()) _animationCallback->onStart(this, _currentName);
+            delta = 0.0;
+        }
+        else
+            delta = nv->getFrameStamp()->getSimulationTime() - _referenceTime;
         _referenceTime = nv->getFrameStamp()->getSimulationTime();
     }
 
     if (_playingState == 1)
     {
         Animation& animationPair = _animations.find(_currentName)->second;
-        Property& prop = animationPair.second;
+        Property& prop = animationPair.second; bool atEnd = false;
         osg::AnimationPath* path = animationPair.first.get();
         if (prop.mode == Forwarding)
         {
@@ -104,36 +127,47 @@ void TweenAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
         {
         case Reversing:
             timestamp -= delta * prop.timeMultiplier;
-            if (timestamp <= startT) timestamp = startT; break;
+            if (timestamp <= startT) { timestamp = startT; _playingState = 0; atEnd = true; } break;
             break;
         case Looping:
             timestamp += delta * prop.timeMultiplier;
-            if (timestamp >= endT) timestamp = prop.timeOffset; break;
+            if (timestamp >= endT) { timestamp = prop.timeOffset; atEnd = true; } break;
         case ReversedLooping:
             timestamp -= delta * prop.timeMultiplier;
-            if (timestamp <= startT) timestamp = prop.timeOffset; break;
+            if (timestamp <= startT) { timestamp = prop.timeOffset; atEnd = true; } break;
         case PingPong:
             if (prop.direction == 0)
             {
                 timestamp += delta * prop.timeMultiplier;
-                if (timestamp >= endT) { timestamp = endT; prop.direction = 1; }
+                if (timestamp >= endT) { timestamp = endT; prop.direction = 1; atEnd = true; }
             }
             else if (prop.direction > 0)
             {
                 timestamp -= delta * prop.timeMultiplier;
-                if (timestamp <= startT) { timestamp = startT; prop.direction = 0; }
+                if (timestamp <= startT) { timestamp = startT; prop.direction = 0; atEnd = true; }
             }
             break;
         default:
             timestamp += delta * prop.timeMultiplier;
-            if (timestamp >= endT) timestamp = endT; break;
+            if (timestamp >= endT) { timestamp = endT; _playingState = 0; atEnd = true; } break;
+        }
+
+        if (atEnd && _animationCallback.valid())
+            _animationCallback->onEnd(this, _currentName, _playingState > 0);
+        if (prop.easing.valid())
+        {
+            EasingType* easing = static_cast<EasingType*>(prop.easing.get());
+            timestamp = easing->value(timestamp - startT);
         }
         
         osg::AnimationPath::ControlPoint cp;
-        if (path && path->getInterpolatedControlPoint(timestamp, cp))
+        if (path && getInterpolatedControlPoint(path, timestamp, cp))
         {
-            AnimationPathVisitor apcv(cp, _pivotPoint, _useInverseMatrix);
-            node->accept(apcv); _currentAnimationTime = timestamp;
+            if (!_animationCallback)
+                { AnimationPathVisitor apcv(cp, _pivotPoint, _useInverseMatrix); node->accept(apcv); }
+            else
+                _animationCallback->interpolate(node, cp, _pivotPoint, _useInverseMatrix);
+            _currentAnimationTime = timestamp;
         }
     }
     traverse(node, nv);
@@ -164,11 +198,12 @@ osg::AnimationPath* TweenAnimation::getAnimation(const std::string& name)
     return _animations[name].first.get();
 }
 
-bool TweenAnimation::getProperty(const std::string& name, float& offset, float& multiplier) const
+TweenAnimation::PlayingMode TweenAnimation::getProperty(
+        const std::string& name, float& offset, float& multiplier) const
 {
-    if (_animations.find(name) == _animations.end()) return false;
+    if (_animations.find(name) == _animations.end()) return TweenAnimation::Invalid;
     const Property& prop = _animations.find(name)->second.second;
-    offset = prop.timeOffset; multiplier = prop.timeMultiplier; return true;
+    offset = prop.timeOffset; multiplier = prop.timeMultiplier; return prop.mode;
 }
 
 bool TweenAnimation::getTimeProperty(const std::string& name, double& start, double& duration) const
@@ -192,14 +227,16 @@ bool TweenAnimation::play(const std::string& name, PlayingMode mode)
     Property& prop = _animations[name].second;
     prop.mode = mode; prop.direction = 0;
     _currentName = name; _playingState = 1; _referenceTime = -1.0;
-
     _currentAnimationTime = prop.timeOffset;
-    if (mode == Reversing || mode == ReversedLooping)
+
+    double start = 0.0, duration = 0.0;
+    if (getTimeProperty(_currentName, start, duration))
     {
-        double start = 0.0, duration = 0.0;
-        if (getTimeProperty(_currentName, start, duration))
+        prop.easing = new EasingType(start, start + duration);
+        if (mode == Reversing || mode == ReversedLooping)
             _currentAnimationTime = start + duration - prop.timeOffset;
     }
+    return true;
 }
 
 bool TweenAnimation::seek(double timestamp, bool asTimeRatio)
@@ -230,4 +267,33 @@ double TweenAnimation::getCurrentTimeRatio() const
             return (_currentAnimationTime - start) / duration;
     }
     return -1.0;
+}
+
+bool TweenAnimation::getInterpolatedControlPoint(osg::AnimationPath* path, double time,
+                                                 osg::AnimationPath::ControlPoint& controlPoint) const
+{
+    const osg::AnimationPath::TimeControlPointMap& controlMap = path->getTimeControlPointMap();
+    if (controlMap.empty()) return false;
+
+    osg::AnimationPath::TimeControlPointMap::const_iterator second = controlMap.lower_bound(time);
+    if (second == controlMap.begin())
+        controlPoint = second->second;
+    else if (second != controlMap.end())
+    {
+        // we have both a lower bound and the next item.
+        osg::AnimationPath::TimeControlPointMap::const_iterator first = second; --first;
+
+        // delta_time = second.time - first.time
+        double delta_time = second->first - first->first;
+        if (delta_time == 0.0)
+            controlPoint = first->second;
+        else
+        {
+            controlPoint.interpolate((time - first->first) / delta_time,
+                                     first->second, second->second);
+        }
+    }
+    else // (second == controlMap.end())
+        controlPoint = controlMap.rbegin()->second;
+    return true;
 }

@@ -168,18 +168,36 @@ namespace osgVerse
         /** Use it in a cusom osgViewer::View class! */
         osg::GraphicsOperation* createRenderer(osg::Camera* camera);
 
+        /** The buffer description */
+        struct BufferDescription
+        {
+            osg::Texture* bufferToShare;
+            std::string bufferName; BufferType type;
+
+            BufferDescription() : bufferToShare(NULL), type(RGBA_INT8) {}
+            BufferDescription(const std::string& s, BufferType t)
+                : bufferToShare(NULL), bufferName(s), type(t) {}
+        };
+        typedef std::vector<BufferDescription> BufferDescriptions;
+
         /** Add input stage which uses main scene graph for initial shading and rendering-to-texture */
         Stage* addInputStage(const std::string& n, unsigned int cullMask, int samples,
                              osg::Shader* vs, osg::Shader* fs, int buffers, ...);
+        Stage* addInputStage(const std::string& n, unsigned int cullMask, int samples,
+                             osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers);
 
         /** Add textures and use an internal screen-sized buffer for shading */
         Stage* addWorkStage(const std::string& n, float sizeScale,
                             osg::Shader* vs, osg::Shader* fs, int buffers, ...);
+        Stage* addWorkStage(const std::string& n, float sizeScale,
+                            osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers);
 
         /** Similar to WorkStage, but will use DeferredRenderCallback::Runner instead of a camera
             Note: it doesn't support <name>ProjectionToWorld which helps rebuild world vertex */
         Stage* addDeferredStage(const std::string& n, float sizeScale, bool runOnce,
                                 osg::Shader* vs, osg::Shader* fs, int buffers, ...);
+        Stage* addDeferredStage(const std::string& n, float sizeScale, bool runOnce,
+                                osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers);
 
         /** Display shading results on a screen-sized quad */
         Stage* addDisplayStage(const std::string& n, osg::Shader* vs, osg::Shader* fs,

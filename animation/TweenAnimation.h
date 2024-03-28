@@ -19,7 +19,7 @@ namespace osgVerse
         enum PlayingMode
         {
             Forwarding = 0, Reversing, Looping,
-            ReversedLooping, PingPong
+            ReversedLooping, PingPong, Invalid
         };
 
         void setPivotPoint(const osg::Vec3d& pivot) { _pivotPoint = pivot; }
@@ -33,7 +33,7 @@ namespace osgVerse
         bool setProperty(const std::string& name, float offset, float multiplier = 1.0f);
 
         osg::AnimationPath* getAnimation(const std::string& name);
-        bool getProperty(const std::string& name, float& offset, float& multiplier) const;
+        PlayingMode getProperty(const std::string& name, float& offset, float& multiplier) const;
         bool getTimeProperty(const std::string& name, double& start, double& duration) const;
         std::vector<std::string> getAnimationNames() const;
 
@@ -49,9 +49,23 @@ namespace osgVerse
         double getCurrentTime() const { return _currentAnimationTime; }
         double getCurrentTimeRatio() const;
 
+        struct AnimationCallback : public osg::Referenced
+        {
+            virtual void onStart(TweenAnimation* anim, const std::string& name) {}
+            virtual void onEnd(TweenAnimation* anim, const std::string& name, bool toLoop) {}
+            virtual void interpolate(osg::Node* node, const osg::AnimationPath::ControlPoint& cp,
+                                     const osg::Vec3d& pivotPoint, bool invMatrix);
+        };
+        void setAnimationCallback(AnimationCallback* acb) { _animationCallback = acb; }
+        AnimationCallback* getAnimationCallback() { return _animationCallback.get(); }
+
     protected:
+        bool getInterpolatedControlPoint(osg::AnimationPath* path, double time,
+                                         osg::AnimationPath::ControlPoint& controlPoint) const;
+
         struct Property
         {
+            osg::ref_ptr<osg::Referenced> easing;
             float timeOffset, timeMultiplier, weight;
             PlayingMode mode; int direction;
             Property() : timeOffset(0.0f), timeMultiplier(1.0f),
@@ -69,6 +83,7 @@ namespace osgVerse
         std::map<std::string, Animation> _animations;
         std::vector<TimelineNode> _timeline;  // TODO
 
+        osg::ref_ptr<AnimationCallback> _animationCallback;
         std::string _currentName;
         osg::Vec3d _pivotPoint;
         double _currentAnimationTime, _referenceTime;
