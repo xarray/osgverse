@@ -74,13 +74,13 @@ AndroidDepOptions=""
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     # WASM toolchain
     if [ ! -f "$EmsdkToolchain" ]; then
-        echo "Emscripten.cmake not found. Please check if Emscripten root folder is provided as an argument."
+        echo "Emscripten.cmake not found. Please run as follows: ./Setup.sh <your_path>/emsdk-3.?.?/"
         exit 1
     fi
 elif [ "$BuildMode" = '5' ]; then
     # Android toolchain
     if [ ! -f "$NdkToolchain" ]; then
-        echo "android.toolchain.cmake not found. Please check if NDK root folder is provided as an argument."
+        echo "android.toolchain.cmake not found. Please run as follows: ./Setup.sh <your_path>/ndk-r??-linux/"
         exit 1
     fi
 
