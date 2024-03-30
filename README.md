@@ -23,7 +23,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 #### Main Features (ongoing to v1.0)
 - [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
 - [x] (PARTLY) Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
-- [ ] Supports physics simuation based on Bullet3 library, and character animation based on OZZ library.
+- [x] (PARTLY) Supports physics simuation based on Bullet3/PhysX library, and character animation based on OZZ library.
 - [ ] Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
 - [x] Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
 - [x] Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
@@ -31,7 +31,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - [x] Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
 - [x] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
 - [ ] Supports major embedded devices with GPU supports, including ARM and RISC-V.
-- [x] (PARTLY) Supports Emscripten / WASM compilation and works with WebGL 1/2 based browsers.
+- [x] Supports Emscripten / WASM compilation and works with WebGL 1/2 based browsers.
 - [ ] Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
 #### Screenshots
@@ -161,7 +161,10 @@ Our project is already tested on graphics cards listed as below:
     - $ cmake --build .
   - You may also choose to use cmake-gui and set OSG related options in GUI mode.
   - For UWP build:
-    - First download Windows Store SDk or latest Windows 11 SDK (with VS2022).
+    - First download Windows Store SDK or latest Windows 11 SDK (with VS2022).
+    - Download Angle for UWP: https://www.nuget.org/packages/ANGLE.WindowsStore
+    - Rename the .nuget file to .zip and extract it. Find libraries and include files there.
+    - Build OSG for GLES2/GLES3 (Desktop / GoogleAngle). See herlps/osg_builder/README.md for details.
     - Run commands below in terminal:
       - $ cmake -G "Visual Studio 17 2022" -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" ..
 2. Desktop Mac OSX

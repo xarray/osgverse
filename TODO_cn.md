@@ -23,9 +23,9 @@
 | 编译/渲染 |              | 新增     | 50%                | initial  | 支持GLSL 1.2，可以运行在虚拟机和低端国产显卡上 | 目前着色器可以编译通过，但兆芯笔记本运行无结果 |
 | 编译      |              | 新增     | 50%                | initial  | 支持Android编译流程，支持直接纳入Android Studio | 目前已经可以编译Android库 |
 | 编译      |              | 新增     |                    | initial  | 支持Apple Mac OSX和IOS编译流程 | |
-| 编译      |              | 新增     | 20%                | initial  | 支持摩尔线程，景嘉微，Quadro，树莓派，RISC-V的编译和测试运行 | |
+| 编译      |              | 新增     | 30%                | initial  | 支持摩尔线程，景嘉微，Quadro，树莓派，RISC-V的编译和测试运行 | |
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持Emscripten / WebAssembly编译流程，可以输出到浏览器端 | |
-| 编译      |              | 新增     | 50%                | initial  | 通过Emscripten支持WebGL1/2接口 | 已经支持WebGL1 |
+| 编译      |              | 新增     | :heavy_check_mark: | initial  | 通过Emscripten支持WebGL1/2接口 | |
 | 编译      |              | 新增     |                    | initial  | 测试手机端浏览器的支持情况，微信，Chrome，Opera等 | |
 | 编译      |              | 新增     | :heavy_check_mark: | initial  | 支持流媒体推流和拉流，支持WebRTC云渲染 | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 支持集群渲染，多机自动帧同步，网格调整，融合带调整 | |
@@ -44,7 +44,7 @@
 | 渲染      | pipeline     | 优化     |                    | initial  | 对于大坐标模型，阴影bias需要根据坡度值动态修改PolygonOffset | |
 | 渲染      | pipeline     | 优化     | 75%                | initial  | 目前没办法处理多Slave（Across Screen）和CompositeViewer的情况 | 多Slave可处理但不能显示Forward天空盒 |
 | 渲染      | pipeline     | 优化     |                    | initial  | 目前没办法处理Viewer多线程DrawThreadPerContext和ThreadPerCamera | |
-| 渲染      | pipeline     | 新增     |                    | initial  | 考虑初步支持HTC VIVE VR渲染 | |
+| 渲染      | pipeline     | 新增     |                    | initial  | 考虑初步支持OpenXR标准的VR设备渲染 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 全屏/窗口切换或者缩放窗口大小后，多层阴影显示不正确 | |
 | 渲染      | pipeline     | 新增     | :heavy_check_mark: | initial  | 支持非MRT的流水线，且GBuffer Pass可以支持PBR透明体和前向光照 | |
 | 渲染      | pipeline     | **除虫** |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
@@ -58,7 +58,7 @@
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 发现摩尔S50/S80显卡上延迟和非延迟场景的深度融合错误 | |
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 后处理Bloom的模糊处理方法不理想，目前可能会产生锯齿 | |
 | 渲染      | pipeline     | 新增     | 50%                | initial  | 支持后处理抗锯齿方案，FXAA/TAA | 目前已经支持FXAA |
-| 渲染/例程 | pipeline     | 新增     |                    | initial  | 支持自己扩展Pipeline::Stage，增加一个测试案例演示使用NV HBAO | |
+| 渲染/例程 | pipeline     | 新增     | 40%                | initial  | 支持自己扩展Pipeline::Stage，增加一个测试案例演示使用NV HBAO | |
 | 渲染      | pipeline     | 新增     | :heavy_check_mark: | initial  | 通过脚本的方式来管理标准和自定义的Pipeline | |
 | 插件      | plugins      | 新增     | 80%                | initial  | 支持伪插件方式自动替换PBR贴图顺序(?.D4,S3,N3,X1M1R1.pbrlayout) | 已实现，未测试 |
 | 插件      | plugins      | 新增     | :heavy_check_mark: | initial  | 使用libhv支持多种网络协议，替代curl插件 | |
@@ -75,7 +75,7 @@
 | 数据读写  | readerwriter | 新增     |                    | initial  | 支持倾斜摄影数据的自动修改处理框架| |
 | 模型/动画 | animation    | 优化     | :heavy_check_mark: | initial  | PlayerAnimation支持直接输入角色骨骼和动画数据 | |
 | 模型/动画 | animation    | 优化     |                    | initial  | PlayerAnimation支持外部数据驱动 | |
-| 模型/动画 | animation    | 优化     |                    | initial  | 支持EaseMotion，路径动画，DoTween形式的纤程动画 | |
+| 模型/动画 | animation    | 优化     | 80%                | initial  | 支持EaseMotion，路径动画，DoTween形式的纤程动画 | 已实现TweenAnimation，待测试 |
 | 模型/动画 | animation    | 优化     |                    | initial  | 支持PhysX引擎的刚体，步行漫游，驾驶 | |
 | 模型/动画 | animation    | 优化     |                    | initial  | 支持初步的粒子系统，基于计算着色器 | |
 | 脚本      | ui           | 新增     |                    | initial  | 考虑SWIG的方式接入C#和Python等脚本语言 | |

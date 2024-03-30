@@ -10,6 +10,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#define TEST_VULKAN_IMPLEMENTATION 1
 #define TEST_PIPELINE 1
 #define TEST_SHADOW_MAP 0
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
@@ -17,10 +18,25 @@
 #   include <EGL/eglext.h>
 #   include <EGL/eglext_angle.h>
 #   define VERSE_GLES 1
+#else
+#   undef TEST_VULKAN_IMPLEMENTATION
+#   define TEST_VULKAN_IMPLEMENTATION 0
 #endif
 
 #include <SDL.h>
 #include <SDL_syswm.h>
+
+#if TEST_VULKAN_IMPLEMENTATION
+#   include <SDL_vulkan.h>
+typedef enum VkResult {
+    VK_SUCCESS = 0, VK_NOT_READY = 1, VK_TIMEOUT = 2,
+    VK_EVENT_SET = 3, VK_EVENT_RESET = 4, VK_INCOMPLETE = 5,
+    VK_RESULT_MAX_ENUM = 0x7FFFFFFF
+} VkResult;
+typedef VkResult(__stdcall* PFN_vkEnumerateInstanceVersion)(uint32_t* pApiVersion);
+typedef void*(__stdcall* PFN_vkGetInstanceProcAddr)(VkInstance instance, const char* pName);
+#endif
+
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
@@ -135,22 +151,24 @@ int main(int argc, char** argv)
     if (eglGetPlatformDisplayEXT != NULL)
     {
         const EGLint attrNewBackend[] = {
-            EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
-            EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,
-            EGL_NONE,  // You may also select Vulkan, D3D11, OpenGL, ...
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE,
+            //EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,  // for D3D11
+            EGL_NONE,
         };
         display = eglGetPlatformDisplayEXT(
             EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrNewBackend);
     }
+    else
+        OSG_WARN << "eglGetPlatformDisplayEXT() not found" << std::endl;
 
     if (display == EGL_NO_DISPLAY)
     {
         display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         if (display != EGL_NO_DISPLAY)
-            OSG_NOTICE << "**** Selected default backend successfully" << std::endl;
+            OSG_NOTICE << "**** Selected default backend as fallback" << std::endl;
     }
     else
-        OSG_NOTICE << "**** Selected Custom backend successfully" << std::endl;
+        OSG_NOTICE << "**** Selected custom backend successfully" << std::endl;
 
     if (display == EGL_NO_DISPLAY)
     { OSG_WARN << "Failed to get EGL display" << std::endl; return 1; }
@@ -179,7 +197,7 @@ int main(int argc, char** argv)
 #   if defined(OSG_GLES3_AVAILABLE)
     EGLint contextAttribList[] = {
         EGL_CONTEXT_CLIENT_VERSION, 3,
-        EGL_CONTEXT_MINOR_VERSION, 1,
+        EGL_CONTEXT_MINOR_VERSION, 0,
         EGL_NONE, EGL_NONE
     };
 #   else
@@ -286,6 +304,22 @@ int main(int argc, char** argv)
         postCamera->addChild(skybox.get());
     }
 
+    // Quick test for Vulkan availablity
+#if TEST_VULKAN_IMPLEMENTATION
+    SDL_Vulkan_LoadLibrary(NULL);
+    auto vkGetInstanceProcAddr = PFN_vkGetInstanceProcAddr(SDL_Vulkan_GetVkGetInstanceProcAddr());
+    auto FN_vkEnumerateInstanceVersion = PFN_vkEnumerateInstanceVersion(
+        vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion"));
+    if (FN_vkEnumerateInstanceVersion != nullptr)
+    {
+        uint32_t instanceVersion = 0;
+        auto result = FN_vkEnumerateInstanceVersion(&instanceVersion);
+        OSG_NOTICE << "Detected Vulkan version: " << (instanceVersion & 0xFFFFF000) << std::endl;
+    }
+    else
+        OSG_NOTICE << "Vulkan version undetected." << std::endl;
+#endif
+
     // Start the main loop
     gw->getEventQueue()->windowResize(0, 0, windowWidth, windowHeight);
     while (!viewer.done())
@@ -335,5 +369,8 @@ int main(int argc, char** argv)
 #endif
     SDL_DestroyWindow(sdlWindow);
     SDL_Quit();
+#if TEST_VULKAN_IMPLEMENTATION
+    SDL_Vulkan_UnloadLibrary();
+#endif
     return 0;
 }

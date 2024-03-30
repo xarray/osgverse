@@ -6,20 +6,44 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
   * OPENGL_PROFILE: GL3 or GLCORE
 * You will have to find glcorearb.h from Khronos website. And then set the GLCORE_ROOT environment variable.
 * Command-line example: (Windows only)
-  * cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLCORE "%osg_root_path%"
-  * cmake --build .
+  * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLCORE "%osg_root_path%"</em>
+  * <em>cmake --build .</em>
 
-#### OSG for GLES2/GLES3 (Desktop)
+#### OSG for GLES2/GLES3 (Desktop / GoogleAngle)
 * CMake options: (not in cmake-gui)
   * OPENGL_PROFILE: GLES2/GLES3
   * EGL_INCLUDE_DIR: <PowerVR_SDK>/include
   * EGL_LIBRARY: <PowerVR_SDK>/lib/libEGL.lib
   * OPENGL_INCLUDE_DIR: <PowerVR_SDK>/include
   * OPENGL_gl_LIBRARY: <PowerVR_SDK>/lib/libGLESv2.lib
-* You will have to find include-files and libraries from PowerVR / Angel SDK. Only support OSG 3.7.0 or later.
+* You will have to find include-files and libraries from PowerVR / GoogleAngel SDK. Only support OSG 3.7.0 or later.
+  * A quick guild to compile GoogleAngel on Windows/MacOSX
+    * Prepare Ninja, Python3 and CMake first. (from Homebrew on MacOSX)
+    * <em>git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git</em>
+    * <em>git clone https://chromium.googlesource.com/angle/angle</em>
+    * <em>set PATH=<path>/depot_tools;%PATH% 'OR' export PATH=<path>/depot_tools:$PATH</em>
+    * <em>set DEPOT_TOOLS_WIN_TOOLCHAIN=0</em>  '''Disable private downloading from Google Cloud
+    * <em>cd <path>/angle; python.exe scripts/bootstrap.py</em>
+    * <em>gclient sync</em>  '''Make sure you can visit the website!
+    * <em>gn gen out/Release</em>  '''Generate makefiles
+    * Set options in args.gn</em> (like: angle_enable_vulkan = true, is_debug = false, etc.)
+    * <em>cd out/Release; ninja -j4 -k1 -C out/Release</em>
+    * Don't forget to copy vulkan-1.dll as well as libEGL.dll and libGLESv2.dll to executable folder.
 * Command-line example: (Windows only)
-  * cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES2 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib "%osg_root_path%"
-  * cmake --build .
+  * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib "%osg_root_path%"</em>
+  * <em>cmake --build .</em>
+
+#### OSG for GLES2/GLES3 (UWP / GoogleAngle)
+* CMake options: see above.
+* You will have to find include-files and libraries from Windows NuGet package.
+  * First download Windows Store SDK or latest Windows 11 SDK (with VS2022).
+  * Download Angle for UWP: https://www.nuget.org/packages/ANGLE.WindowsStore
+  * Rename the .nuget file to .zip and extract it. Find libraries and include files there.
+* Patches to version 3.6.5
+  * TBD...
+* Command-line example: (Windows only)
+  * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib "%osg_root_path%"</em>
+  * <em>cmake --build .</em>
 
 #### OSG for Android (Cross-compiling)
 * CMake options: (not in cmake-gui)
@@ -33,8 +57,8 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
   * DYNAMIC_OPENTHREADS: OFF
   * OPENGL_PROFILE: GLES2/GLES3
 * Command-line example: (Windows only)
-  * cmake -G"MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE="%ndk_path%/build/cmake/android.toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -DANDROID_ABI="armeabi-v7a with NEON" -DCMAKE_MAKE_PROGRAM="%ndk_path%/prebuilt/windows-x86_64/bin/make.exe" -DANDROID_PLATFORM=21 -DDYNAMIC_OPENSCENEGRAPH=OFF -DDYNAMIC_OPENTHREADS=OFF -DOPENGL_PROFILE=GLES2 "%osg_root_path%"
-  * cmake --build .
+  * <em>cmake -G"MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE="%ndk_path%/build/cmake/android.toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -DANDROID_ABI="armeabi-v7a with NEON" -DCMAKE_MAKE_PROGRAM="%ndk_path%/prebuilt/windows-x86_64/bin/make.exe" -DANDROID_PLATFORM=21 -DDYNAMIC_OPENSCENEGRAPH=OFF -DDYNAMIC_OPENTHREADS=OFF -DOPENGL_PROFILE=GLES2 "%osg_root_path%"</em>
+  * <em>cmake --build .</em>
 
 #### OSG for WASM (Emscripten)
 * CMake options: (not in cmake-gui)
@@ -50,16 +74,16 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
 * Patches to version 3.6.5
   * src/osgUtil/tristripper/include/detail/graph_array.h
     * <Line 449> std::for_each(G.begin(), G.end(), std::mem_fn(&graph_array<N>::node::unmark));
-  * src/osgPlugins/cfg ... (TODO: omit it?)
-* Linux only steps at present
+  * src/osgPlugins/cfg (Comment out it in src/osgPlugins/CMakeLists.txt)
+* Download and prepare the emscripten toolchain, for Linux / WSL only at present:
   * Download emsdk first (e.g. https://github.com/emscripten-core/emsdk/releases/)
   * Configure emsdk:
-    * ./emsdk update
-    * ./emsdk install latest
-    * ./emsdk activate latest
-    * source ./emsdk_env.sh
-  * cmake -DCMAKE_TOOLCHAIN_FILE=%emsdk_path%/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake %osg_root_path%/examples/osgemscripten
-  * make
+    * <em>./emsdk update</em>
+    * <em>./emsdk install latest</em>
+    * <em>./emsdk activate latest</em>
+    * <em>source ./emsdk_env.sh</em>
+  * <em>cmake -DCMAKE_TOOLCHAIN_FILE=%emsdk_path%/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake %osg_root_path%/examples/osgemscripten</em>
+  * <em>make</em>  '''This is the deprecated way to compile OSG to WASM, see osgVerse for a better one!
 * Run it in web browsers
   * Copy osgemscripten.html/js/wasm/data to folder
   * Start a simple HTTP server: python -m http.server
