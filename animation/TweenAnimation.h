@@ -22,6 +22,11 @@ namespace osgVerse
             ReversedLooping, PingPong, Invalid
         };
 
+        enum TweenMode
+        {
+            NoTweening = 0, Linear, CubicInOut
+        };
+
         void setPivotPoint(const osg::Vec3d& pivot) { _pivotPoint = pivot; }
         const osg::Vec3d& getPivotPoint() const { return _pivotPoint; }
 
@@ -37,7 +42,7 @@ namespace osgVerse
         bool getTimeProperty(const std::string& name, double& start, double& duration) const;
         std::vector<std::string> getAnimationNames() const;
 
-        bool play(const std::string& name, PlayingMode mode = Forwarding);
+        bool play(const std::string& name, PlayingMode pm = Forwarding, TweenMode tw = NoTweening);
         bool seek(double timestamp, bool asTimeRatio = true);
         void stop() { _playingState = 0; }
         void pause();

@@ -77,11 +77,10 @@ class MyCullVisitor : public osgUtil::CullVisitor
 {
 public:
     MyCullVisitor()
-    :   osgUtil::CullVisitor(), _cullMask(0xffffffff),
-        _defaultMask(0xffffffff), _fixedMask(0xffffffff) {}
+    :   osgUtil::CullVisitor(), _cullMask(0xffffffff), _defaultMask(0xffffffff) {}
     MyCullVisitor(const MyCullVisitor& v)
     :   osgUtil::CullVisitor(v), _pipelineMaskPath(v._pipelineMaskPath),
-        _cullMask(v._cullMask), _defaultMask(v._defaultMask), _fixedMask(v._fixedMask) {}
+        _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
 
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
@@ -90,11 +89,7 @@ public:
     virtual void reset()
     {
         _cullMask = 0xffffffff; _pipelineMaskPath.clear();
-        if (_callback.valid())
-        {
-            _defaultMask = _callback->getForwardMask();
-            _fixedMask = _callback->getFixedShadingMask();
-        }
+        if (_callback.valid()) _defaultMask = _callback->getForwardMask();
 
         osg::Camera* cam = this->getCurrentCamera();
         if (cam && cam->getUserDataContainer() != NULL)
@@ -132,9 +127,9 @@ public:
                 if (flags & osg::StateAttribute::ON)
                 {
                     osg::StateSet* ss = NULL;
-                    if ((_defaultMask & nodePipMask) && !(_fixedMask & nodePipMask))
+                    if (_defaultMask & nodePipMask)
                     {
-                        if (_callback.valid()) ss = _callback->getForwardStateSet();
+                        //if (_callback.valid()) ss = _callback->getForwardStateSet();
                         if (ss != NULL) maskSet |= 2;
                     }
 
@@ -320,7 +315,7 @@ protected:
 
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
     std::vector<std::pair<unsigned int, unsigned int>> _pipelineMaskPath;
-    unsigned int _cullMask, _defaultMask, _fixedMask;
+    unsigned int _cullMask, _defaultMask;
 };
 
 class MySceneView : public osgUtil::SceneView
@@ -608,16 +603,15 @@ namespace osgVerse
     {
         if (stageID < 0 && p) stageID = p->getNumStages() - 2;  // last stage except me
         Stage* stage = (stageID >= 0 && p) ? p->getStage(stageID) : NULL;
-        if (!stage)
-        {
-            OSG_WARN << "[Pipeline] invalid pipeline or stage-" << stageID << " not found\n";
-            return;
-        }
+        if (!stage) { OSG_WARN << "[Pipeline] invalid pipeline or stage not found\n"; return; }
 
-        if (buffer.empty() && !stage->outputs.empty())
-            applyBuffer(*stage, stage->outputs.begin()->first, name, unit, wp);
-        else
-            applyBuffer(*stage, buffer, name, unit, wp);
+        std::string bufferName = buffer;
+        if (bufferName.empty() && !stage->outputs.empty())
+        {
+            if (stage->outputs.find(name) != stage->outputs.end()) bufferName = name;
+            else bufferName = stage->outputs.begin()->first;
+        }
+        applyBuffer(*stage, bufferName, name, unit, wp);
     }
 
     void Pipeline::Stage::applyBuffer(Stage& src, const std::string& buffer, int unit, osg::Texture::WrapMode wp)
@@ -690,6 +684,22 @@ namespace osgVerse
         int u = -1; if (!samplerU->get(u)) return NULL;
         return static_cast<osg::Texture*>(
             ss->getTextureAttribute(u, osg::StateAttribute::TEXTURE));
+    }
+
+    osg::Texture* Pipeline::Stage::getBufferTexture(osg::Camera::BufferComponent bc)
+    {
+        osg::Camera::BufferAttachmentMap* attMap = NULL;
+        if (camera.valid()) attMap = &(camera->getBufferAttachmentMap());
+        else if (runner.valid()) attMap = &(runner->attachments);
+
+        if (attMap == NULL) return NULL;
+        if (attMap->find(bc) == attMap->end())
+        {
+            if (bc == osg::Camera::COLOR_BUFFER) bc = osg::Camera::COLOR_BUFFER0;
+            else if (bc == osg::Camera::DEPTH_BUFFER) bc = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
+            if (attMap->find(bc) == attMap->end()) return NULL;
+        }
+        return attMap->at(bc)._texture.get();
     }
 
     Pipeline::Stage* Pipeline::getStage(const std::string& name)
@@ -808,8 +818,7 @@ namespace osgVerse
 #endif
     }
 
-    void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam,
-                                     unsigned int defForwardMask, unsigned int fixedShadingMask)
+    void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int defForwardMask)
     {
         osg::Matrix projOffset, viewOffset;
         double mainFov = 30.0, mainAspect = 1.0, mainNear = 1.0, mainFar = 10000.0;
@@ -842,7 +851,7 @@ namespace osgVerse
             if (mainCam->getClampProjectionMatrixCallback())
                 _deferredCallback->setClampCallback(mainCam->getClampProjectionMatrixCallback());
         }
-        _deferredCallback->setForwardMasks(defForwardMask, fixedShadingMask);
+        _deferredCallback->setForwardMask(defForwardMask);
 
         // Set-up stages as to add them as slaves
         for (unsigned int i = 0; i < _stages.size(); ++i)
@@ -938,15 +947,27 @@ namespace osgVerse
                                                 osg::Shader* vs, osg::Shader* fs, int buffers, ...)
     { ARGS_TO_BUFFERLIST(addDeferredStage(name, sizeScale, runOnce, vs, fs, bufferList)); }
 
+    int Pipeline::getNumNonDepthBuffers(const BufferDescriptions& buffers)
+    {
+        int numBuffers = (int)buffers.size();
+        for (size_t i = 0; i < buffers.size(); i++)
+        {
+            BufferType type = buffers[i].type;
+            if (type == DEPTH24_STENCIL8 || type >= DEPTH16) numBuffers--;
+        }
+        return numBuffers;
+    }
+
     Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
                                              osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers)
     {
         Stage* s = new Stage; s->deferred = false;
+        bool useColorBuf = (getNumNonDepthBuffers(buffers) == 1);
         for (size_t i = 0; i < buffers.size(); i ++)
         {
             std::string bufName = buffers[i].bufferName;
             BufferType type = buffers[i].type; int ms = 0;
-            osg::Camera::BufferComponent comp = (buffers.size() == 1) ? osg::Camera::COLOR_BUFFER
+            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
@@ -979,11 +1000,12 @@ namespace osgVerse
                                             osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers)
     {
         Stage* s = new Stage; s->deferred = false;
+        bool useColorBuf = (getNumNonDepthBuffers(buffers) == 1);
         for (int i = 0; i < buffers.size(); i++)
         {
             std::string bufName = buffers[i].bufferName;
             BufferType type = buffers[i].type;
-            osg::Camera::BufferComponent comp = (buffers.size() == 1) ? osg::Camera::COLOR_BUFFER
+            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
@@ -1017,12 +1039,13 @@ namespace osgVerse
         s->runner->runOnce = runOnce; s->runner->setUseScreenQuad(0, NULL);  // quad at the beginning
         _deferredCallback->addRunner(s->runner.get());
 
+        bool useColorBuf = (getNumNonDepthBuffers(buffers) == 1);
         for (int i = 0; i < buffers.size(); i++)
         {
             std::string bufName = buffers[i].bufferName;
             BufferType type = buffers[i].type;
-            osg::Camera::BufferComponent comp = (buffers.size() == 1) ? osg::Camera::COLOR_BUFFER
-                : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
+            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER
+                                              : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
@@ -1074,6 +1097,8 @@ namespace osgVerse
 
     void Pipeline::applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs)
     {
+        osg::StateSet* ss = s.deferred ?
+            s.runner->geometry->getOrCreateStateSet() : s.camera->getOrCreateStateSet();
         if (vs || fs)
         {
             osg::ref_ptr<osg::Program> prog = new osg::Program;
@@ -1090,12 +1115,12 @@ namespace osgVerse
                 createShaderDefinitions(fs, _glContextVersion, _glslTargetVersion);
             }
 
-            osg::StateSet* ss = s.deferred ?
-                s.runner->geometry->getOrCreateStateSet() : s.camera->getOrCreateStateSet();
             ss->setAttributeAndModes(prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
             ss->addUniform(_deferredCallback->getNearFarUniform());
             ss->addUniform(_invScreenResolution.get());
         }
+        else
+            ss->setAttributeAndModes(new osg::Program, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         s.name = name; if (!s.deferred) s.camera->setName(name);
     }
 

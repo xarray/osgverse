@@ -13,8 +13,9 @@ namespace osgVerse
     {
     public:
         UserInputModule(const std::string& name, Pipeline* pipeline);
-        Pipeline::Stage* createStages(osg::Shader* vs, osg::Shader* fs, unsigned int cullMask,
-                                      osg::Texture* colorBuffer = NULL, osg::Texture* depthBuffer = NULL);
+        Pipeline::Stage* createStages(unsigned int cullMask, osg::Shader* vs, osg::Shader* fs,
+                                      const std::string& cName = "ColorBuffer", osg::Texture* colorBuffer = NULL,
+                                      const std::string& dName = "DepthBuffer", osg::Texture* depthBuffer = NULL);
 
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 

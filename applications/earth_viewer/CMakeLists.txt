@@ -5,7 +5,7 @@ SET(EXECUTABLE_FILES
 
 #########################################
 FIND_PATH(OSGEARTH_INCLUDE_DIR osgEarth/MapNode
-    PATHS
+    PATHS ${THIRDPARTY_ROOT}/include
     $ENV{OSG_ROOT}/include
     $ENV{OSG_DIR}/include
     /usr/include
@@ -13,7 +13,7 @@ FIND_PATH(OSGEARTH_INCLUDE_DIR osgEarth/MapNode
 )
 
 FIND_PATH(OSGEARTH_BUILD_INCLUDE_DIR osgEarth/BuildConfig osgEarth/Config
-    PATHS
+    PATHS ${THIRDPARTY_ROOT}/include
     $ENV{OSG_ROOT}/include
     $ENV{OSG_DIR}/include
     /usr/include
@@ -21,7 +21,7 @@ FIND_PATH(OSGEARTH_BUILD_INCLUDE_DIR osgEarth/BuildConfig osgEarth/Config
 )
 
 FIND_PATH(OSGEARTH_LIB_DIR libosgEarth.so osgEarth.lib
-    PATHS
+    PATHS ${THIRDPARTY_ROOT}/lib
     $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
     $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
     /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu

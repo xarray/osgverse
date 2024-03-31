@@ -73,7 +73,12 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
 
     // Setup the pipeline
     _params = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png");
-    setupStandardPipeline(pipeline.get(), _viewer.get(), _params);
+#if true
+    setupStandardPipeline(pipeline.get(), _viewer, _params);
+#else
+    std::ifstream ppConfig(SHADER_DIR "/standard_pipeline.json");
+    pipeline->load(ppConfig, _viewer);
+#endif
 
     // Setup shadow & light module
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));

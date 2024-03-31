@@ -250,7 +250,7 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Group> earthParent = new osg::Group;
         earthParent->addChild(earthRoot.get());
         earthParent->addChild(skyNode.get());
-        osgVerse::Pipeline::setPipelineMask(*earthParent, ~DEFERRED_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*earthParent, FORWARD_SCENE_MASK);
         root->addChild(earthParent.get());
 
 #if TEST_PIPELINE

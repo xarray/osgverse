@@ -152,9 +152,11 @@ IF(VERSE_SIMD_FEATURES)
 ENDIF()
 
 ######################################### Dependency Finders
+SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/x64)
 SET(FIND_LIB_POSTFIX lib)
 IF(CMAKE_CL_64)
     SET(FIND_LIB_POSTFIX lib64)
+    SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/x86)
 ENDIF(CMAKE_CL_64)
 
 SET(USE_UWP_OPTIONS OFF)
@@ -163,7 +165,6 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
     MESSAGE("[osgVerse] Building Windows Store (UWP) libraries...")
 ENDIF()
 
-SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/x64)
 IF(USE_WASM_OPTIONS)
     # WASM third-parties
     # - How to build Draco (https://github.com/google/draco/blob/master/BUILDING.md)
@@ -175,6 +176,8 @@ ELSEIF(USE_UWP_OPTIONS)
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/uwp)
 ELSEIF(ANDROID)
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/android)
+ELSEIF(IOS)
+    SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/ios)
 ELSEIF(APPLE)
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/apple)
 ENDIF()
@@ -229,7 +232,7 @@ IF(OSG_ROOT)
     SET(OSG_LIB_DIR "${OSG_ROOT}/lib")
 ELSE(OSG_ROOT)
     FIND_PATH(OSG_INCLUDE_DIR osg/Referenced
-        PATHS
+        PATHS ${THIRDPARTY_ROOT}/include
         $ENV{OSG_ROOT}/include
         $ENV{OSG_DIR}/include
         /usr/include
@@ -237,7 +240,7 @@ ELSE(OSG_ROOT)
     )
 
     FIND_PATH(OSG_BUILD_INCLUDE_DIR osg/Config
-        PATHS
+        PATHS ${THIRDPARTY_ROOT}/include
         $ENV{OSG_ROOT}/include
         $ENV{OSG_DIR}/include
         /usr/include
@@ -245,7 +248,7 @@ ELSE(OSG_ROOT)
     )
 
     FIND_PATH(OSG_LIB_DIR libosg.a libosg.so osg.lib
-        PATHS
+        PATHS ${THIRDPARTY_ROOT}/lib
         $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
         $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
         /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu

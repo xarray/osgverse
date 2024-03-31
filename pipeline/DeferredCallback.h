@@ -21,10 +21,8 @@ namespace osgVerse
         void setForwardStateSet(osg::StateSet* ss) { _forwardStateSet = ss; }
         osg::StateSet* getForwardStateSet() { return _forwardStateSet.get(); }
 
-        void setForwardMasks(unsigned int m1, unsigned int m2)
-        { _forwardMask = m1; _fixedShadingMask = m2; }
+        void setForwardMask(unsigned int m1) { _forwardMask = m1; }
         unsigned int getForwardMask() const { return _forwardMask; }
-        unsigned int getFixedShadingMask() const { return _fixedShadingMask; }
 
         void setClearMask(GLenum m) { _clearMask = m; }
         void setClearColor(const osg::Vec4& c) { _clearColor = c; }
@@ -101,7 +99,7 @@ namespace osgVerse
         osg::Vec4 _clearColor, _clearAccum;
         osg::Vec2d _calculatedNearFar;
         double _clearDepth, _clearStencil;
-        unsigned int _cullFrameNumber, _forwardMask, _fixedShadingMask;
+        unsigned int _cullFrameNumber, _forwardMask;
         bool _inPipeline, _drawBufferApplyMask, _readBufferApplyMask;
     };
 }

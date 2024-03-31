@@ -144,6 +144,26 @@ Our project is already tested on graphics cards listed as below:
 4. misc: Chinese IME CiKu files, font files, screenshots...
 5. tests: Some test data
 
+#### Prepare and build third-party libraries
+1. By default, osgVerse will find third-party libraries as follows:
+  - OpenGL: from the system. Note that some Linux distributions (e.g., Qilin) should enable VERSE_FIND_LEGACY_OPENGL first.
+  - OpenSceneGraph: from environment variable $OSG_ROOT.
+  - SDL, Draco, Bullet, etc.: from CMake variable ${VERSE_3RDPARTY_PATH}, which is <osgverse_folder>/../Dependencies by default.
+    - Actually path to find includes and libraries will be automatically set to '${VERSE_3RDPARTY_PATH}/<platform>'.
+    - For x86/x64 build: <platform> is 'x86/x64'.
+    - For Android build: <platform> is 'android'.
+    - For MacOSX/IOS build: <platform> is 'apple/ios'.
+    - For WebAssembly (WASM) build: <platform> is 'wasm'.
+    - For Windows UWP build: <platform> is 'uwp'.
+2. Build Draco:
+  - For WebAssembly (WASM):
+    - export EMSCRIPTEN=<emsdk_folder>/upstream/emscripten
+    - cmake -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
+            -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/wasm <draco_folder>
+  - See https://github.com/google/draco/blob/master/BUILDING.md for other platforms.
+3. Build ZLMediaKit: TBD...
+4. TBD...
+
 #### Build from Source
 0. Assume that osgVerse source code is already at <osgverse_folder>.
 1. Desktop Windows / Linux
@@ -166,7 +186,7 @@ Our project is already tested on graphics cards listed as below:
     - Rename the .nuget file to .zip and extract it. Find libraries and include files there.
     - Build OSG for GLES2/GLES3 (Desktop / GoogleAngle). See herlps/osg_builder/README.md for details.
     - Run commands below in terminal:
-      - $ cmake -G "Visual Studio 17 2022" -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" ..
+      - $ cmake -G "Visual Studio 17 2022" -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" <osgverse_folder>
 2. Desktop Mac OSX
   - TBD...
 3. Android
@@ -212,6 +232,7 @@ Our project is already tested on graphics cards listed as below:
 | SDL2_LIB_DIR                | Path    |               | Set to path of libSDL2.so or SDL2.lib |
 | Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
 | Qt6_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt6 |
+| VERSE_3RDPARTY_PATH         | Path    |               | Set to path of third-party libraries |
 | VERSE_BUILD_GPL             | Boolean | OFF           | Enable build of GPL dependencies (e.g., mcut), which will makes osgVerse a GPL library |
 | VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg, PNG and Tiff |
 | VERSE_BUILD_WITH_QT         | Boolean | OFF           | Enable build of Qt based applications and tests |

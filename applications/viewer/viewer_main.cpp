@@ -214,7 +214,7 @@ int main(int argc, char** argv)
     shape->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
 
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-    osgVerse::Pipeline::setPipelineMask(*geode, FORWARD_SCENE_MASK & (~FIXED_SHADING_MASK));
+    osgVerse::Pipeline::setPipelineMask(*geode, FORWARD_SCENE_MASK);
     geode->addDrawable(shape);
 
     // Add tangent/bi-normal arrays for normal mapping

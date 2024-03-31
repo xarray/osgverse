@@ -11,9 +11,8 @@
 #include <string>
 #include "DeferredCallback.h"
 
-#define DEFERRED_SCENE_MASK   0xffff0000
-#define FORWARD_SCENE_MASK    0x0000ffff
-#define FIXED_SHADING_MASK    0x00001000
+#define DEFERRED_SCENE_MASK   0xff000000
+#define FORWARD_SCENE_MASK    0x000000ff
 #define SHADOW_CASTER_MASK    0x10000000
 
 #ifndef GL_HALF_FLOAT
@@ -109,6 +108,7 @@ namespace osgVerse
             osg::StateSet::UniformList getUniforms() const;
             osg::Uniform* getUniform(const std::string& name) const;
             osg::Texture* getTexture(const std::string& name) const;
+            osg::Texture* getBufferTexture(osg::Camera::BufferComponent bc);
 
             osg::Texture* getBufferTexture(const std::string& name)
             { return (outputs.find(name) != outputs.end()) ? outputs[name].get() : NULL; }
@@ -150,13 +150,11 @@ namespace osgVerse
 
         /** Finish all pipeline stages in this function. It will automatically add
             a forward pass for normal scene object rendering */
-        void applyStagesToView(osgViewer::View* view, osg::Camera* mainCam,
-                               unsigned int defForwardMask, unsigned int fixedShadingMask);
+        void applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int defForwardMask);
         
         /** Convenient method to finish pipeline stages */
-        void applyStagesToView(osgViewer::View* view,
-                               unsigned int forwardMask, unsigned int fixedShadingMask)
-        { applyStagesToView(view, view->getCamera(), forwardMask, fixedShadingMask); }
+        void applyStagesToView(osgViewer::View* view, unsigned int forwardMask)
+        { applyStagesToView(view, view->getCamera(), forwardMask); }
 
         /** Remove all stages and reset the viewer to default (clear all slaves) */
         void clearStagesFromView(osgViewer::View* view, osg::Camera* mainCam = NULL);
@@ -175,8 +173,8 @@ namespace osgVerse
             std::string bufferName; BufferType type;
 
             BufferDescription() : bufferToShare(NULL), type(RGBA_INT8) {}
-            BufferDescription(const std::string& s, BufferType t)
-                : bufferToShare(NULL), bufferName(s), type(t) {}
+            BufferDescription(const std::string& s, BufferType t, osg::Texture* tex = NULL)
+                : bufferToShare(tex), bufferName(s), type(t) {}
         };
         typedef std::vector<BufferDescription> BufferDescriptions;
 
@@ -243,6 +241,7 @@ namespace osgVerse
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
         int applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff);
+        int getNumNonDepthBuffers(const BufferDescriptions& buffers);
         
         std::vector<osg::ref_ptr<Stage>> _stages;
         std::map<std::string, osg::ref_ptr<osg::NodeCallback>> _modules;
@@ -274,7 +273,7 @@ namespace osgVerse
         osg::ref_ptr<osg::ImageSequence> skyboxIBL;
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight;
-        unsigned int deferredMask, forwardMask, fixedShadingMask;
+        unsigned int deferredMask, forwardMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution;
         bool debugShadowModule, enableVSync, enableMRT;
         bool enableAO, enablePostEffects;

@@ -14,6 +14,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Pipeline.h>
+#include <pipeline/UserInputModule.h>
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
@@ -50,7 +51,7 @@ static const char* middleFragmentShaderCode =
     "void main() {\n"
     "    vec2 uv0 = texCoord0.xy;\n"
     "    vec4 color = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);\n"
-    "    fragData = color.bgra;"  // some very simple trick...
+    "    fragData = color.bgra;\n"  // some very simple trick...
     "    VERSE_FS_FINAL(fragData);\n"
     "}\n"
 };
@@ -65,11 +66,12 @@ static const char* displayFragmentShaderCode =
     "    vec2 uv0 = texCoord0.xy;\n"
     "    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);\n"
     "    vec4 depth = VERSE_TEX2D(DepthBuffer, uv0);\n"
-    "    fragData = gl_FragCoord.y < 500 ? depth : color;"
+    "    fragData = gl_FragCoord.y < 500 ? depth : color;\n"
     "    VERSE_FS_FINAL(fragData);\n"
     "}\n"
 };
 
+#define CUSTOM_INPUT_MASK 0x00010000
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
@@ -87,6 +89,11 @@ int main(int argc, char** argv)
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
+    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
+    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
+    if (otherSceneRoot.valid())
+        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, CUSTOM_INPUT_MASK);
+
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
     postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
@@ -99,6 +106,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
+    root->addChild(otherSceneRoot.get());
     
     // Create the pipeline and the viewer
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
@@ -129,12 +137,24 @@ int main(int argc, char** argv)
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
             "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 
+        // Optional, add another custom input pass, which may use forward pipeline to render
+        // transparent objects and third party nodekits.
+        osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
+        {
+            // FIXME: depth ok, color not?
+            inModule->createStages(CUSTOM_INPUT_MASK, NULL, NULL,
+                                   "DiffuseMetallicBuffer", gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
+                                   "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+        }
+        viewer.getCamera()->addUpdateCallback(inModule);
+
         // 4. Add a custom middle stage
-        osgVerse::Pipeline::Stage* testStage = pipeline->addDeferredStage("TestStage", 1.0f, false,
+        osgVerse::Pipeline::Stage* testStage = pipeline->addWorkStage("TestStage", 1.0f,
             osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "std_common_quad.vert.glsl"),
             new osg::Shader(osg::Shader::FRAGMENT, middleFragmentShaderCode), 1,
             "MiddleBuffer", osgVerse::Pipeline::RGB_INT8);
-        testStage->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 0);
+        testStage->applyBuffer("DiffuseMetallicBuffer", 0, pipeline.get());  // get last buffer
+        //testStage->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 0);
 
         // 5. Add a custom display stage
         osgVerse::Pipeline::Stage* output = pipeline->addDisplayStage("Final",
@@ -145,7 +165,7 @@ int main(int argc, char** argv)
         output->applyBuffer(*gbuffer, "DepthBuffer", 1);
 
         // 6. Apply stages to viewer's slaves, also finish stage configuring
-        pipeline->applyStagesToView(&viewer, FORWARD_SCENE_MASK, FIXED_SHADING_MASK);
+        pipeline->applyStagesToView(&viewer, FORWARD_SCENE_MASK);
 
         // 7. Add gbuffer stage to depth bliting list
         pipeline->requireDepthBlit(gbuffer, true);

@@ -88,8 +88,7 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
 namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        fixedShadingMask(FIXED_SHADING_MASK), shadowCastMask(SHADOW_CASTER_MASK),
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
         shadowNumber(0), shadowResolution(2048), debugShadowModule(false), enableVSync(true),
         enableMRT(true), enableAO(true), enablePostEffects(true)
     {
@@ -98,8 +97,7 @@ namespace osgVerse
     }
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        fixedShadingMask(FIXED_SHADING_MASK), shadowCastMask(SHADOW_CASTER_MASK),
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
         shadowNumber(3), shadowResolution(2048), debugShadowModule(false), enableVSync(true), enableMRT(true),
         enableAO(true), enablePostEffects(true)
     {
@@ -526,17 +524,17 @@ namespace osgVerse
                 dynamic_cast<osgViewer::GraphicsWindow*>(p->getContext());
             if (gw != NULL) gw->setSyncToVBlank(spp.enableVSync);
         }
-        p->applyStagesToView(view, mainCam, spp.forwardMask, spp.fixedShadingMask);
+        p->applyStagesToView(view, mainCam, spp.forwardMask);
         p->requireDepthBlit(gbuffer, true);
 
-        osg::StateSet* forwardSS = p->createForwardStateSet(
+        /*osg::StateSet* forwardSS = p->createForwardStateSet(
             spp.shaders.forwardVS.get(), spp.shaders.forwardFS.get());
         if (forwardSS && lightModule)
         {
             forwardSS->setTextureAttributeAndModes(7, lightModule->getParameterTable());
             forwardSS->addUniform(new osg::Uniform("LightParameterMap", 7));
             forwardSS->addUniform(lightModule->getLightNumber());
-        }
+        }*/
         return true;
     }
 }

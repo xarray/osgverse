@@ -348,7 +348,6 @@ namespace osgVerse
 
             unsigned int deferredMask = DEFERRED_SCENE_MASK,
                          forwardMask = FORWARD_SCENE_MASK,
-                         fixedShadingMask = FIXED_SHADING_MASK,
                          shadowCastMask = SHADOW_CASTER_MASK;
             if (props.contains("masks"))
             {
@@ -359,8 +358,6 @@ namespace osgVerse
                         deferredMask = std::stoul(masks.get("deferred").to_str(), 0, 16);
                     if (masks.contains("forward"))
                         forwardMask = std::stoul(masks.get("forward").to_str(), 0, 16);
-                    if (masks.contains("forward_shading"))
-                        fixedShadingMask = std::stoul(masks.get("forward_shading").to_str(), 0, 16);
                     if (masks.contains("shadow_caster"))
                         shadowCastMask = std::stoul(masks.get("shadow_caster").to_str(), 0, 16);
                 }
@@ -636,7 +633,7 @@ namespace osgVerse
                     }
                 }  // for (size_t i = 0; i < ppArray.size(); ++i)
 
-                applyStagesToView(view, mainCam, forwardMask, fixedShadingMask);
+                applyStagesToView(view, mainCam, forwardMask);
                 for (size_t i = 0; i < inputStages.size(); ++i)
                     requireDepthBlit(inputStages[i], true);
             }

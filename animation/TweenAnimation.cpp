@@ -10,10 +10,13 @@ using namespace osgVerse;
 class EasingType : public osg::Referenced
 {
 public:
-    EasingType(double s, double e)
+    EasingType(double s, double e, TweenAnimation::TweenMode tm)
     {
         duration = e - s; num = osg::minimum((int)duration / 1000, 1000);
-        tween = tweeny::from(s).to(e).during(num).via(tweeny::easing::linear);
+        if (tm == TweenAnimation::CubicInOut)
+            tween = tweeny::from(s).to(e).during(num).via(tweeny::easing::cubicInOut);
+        else
+            tween = tweeny::from(s).to(e).during(num).via(tweeny::easing::linear);
     }
 
     double value(double dt) { return tween.jump(dt * num / duration); }
@@ -221,19 +224,19 @@ std::vector<std::string> TweenAnimation::getAnimationNames() const
     return names;
 }
 
-bool TweenAnimation::play(const std::string& name, PlayingMode mode)
+bool TweenAnimation::play(const std::string& name, PlayingMode pm, TweenMode tw)
 {
     if (_animations.find(name) == _animations.end()) return false;
     Property& prop = _animations[name].second;
-    prop.mode = mode; prop.direction = 0;
+    prop.mode = pm; prop.direction = 0;
     _currentName = name; _playingState = 1; _referenceTime = -1.0;
     _currentAnimationTime = prop.timeOffset;
 
     double start = 0.0, duration = 0.0;
     if (getTimeProperty(_currentName, start, duration))
     {
-        prop.easing = new EasingType(start, start + duration);
-        if (mode == Reversing || mode == ReversedLooping)
+        prop.easing = (tw != NoTweening) ? new EasingType(start, start + duration, tw) : NULL;
+        if (pm == Reversing || pm == ReversedLooping)
             _currentAnimationTime = start + duration - prop.timeOffset;
     }
     return true;
