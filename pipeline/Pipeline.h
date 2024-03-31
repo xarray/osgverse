@@ -91,6 +91,7 @@ namespace osgVerse
             std::map<std::string, osg::observer_ptr<osg::Uniform>> uniforms;
             osg::ref_ptr<osgVerse::DeferredRenderCallback::RttGeometryRunner> runner;
             osg::ref_ptr<osg::Camera> camera; std::string name;
+            osg::Matrix projectionOffset, viewOffset;
             bool inputStage, deferred;
 
             void applyBuffer(Stage& s, const std::string& buffer, int unit,

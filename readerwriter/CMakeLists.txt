@@ -5,6 +5,7 @@ SET(LIBRARY_FILES
     LoadTextureKTX.cpp LoadTextureKTX.h
     DracoProcessor.cpp DracoProcessor.h
     Utilities.h Utilities.cpp Export.h
+    Geometry_FixedWrapper.cpp
 )
 
 INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all

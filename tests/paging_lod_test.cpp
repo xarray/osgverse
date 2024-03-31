@@ -120,8 +120,19 @@ void processFile(const std::string& prefix, const std::string& dirName,
     }
 }
 
+namespace osgVerse
+{
+    extern void replaceWrapper_GeometryFixed();
+}
+
 int main(int argc, char** argv)
 {
+#if true  // to fix dead-lock of certain .osgb files
+    osgVerse::fixOsgBinaryWrappers();
+    osgDB::readNodeFile("E:/Solutions/YunZhou/13-2Tile_-968_+333_L22_00012030.osgb");
+    return 0;
+#endif
+
 #ifndef OSG_LIBRARY_STATIC
     osgDB::Registry::instance()->loadLibrary(
         osgDB::Registry::instance()->createLibraryNameForNodeKit("osgVerseReaderWriter"));

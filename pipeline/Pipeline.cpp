@@ -858,7 +858,8 @@ namespace osgVerse
         {
             bool useMainScene = _stages[i]->inputStage;
             if (_stages[i]->deferred || !_stages[i]->camera) continue;
-            view->addSlave(_stages[i]->camera.get(), projOffset, viewOffset, useMainScene);
+            view->addSlave(_stages[i]->camera.get(), projOffset * _stages[i]->projectionOffset,
+                           viewOffset * _stages[i]->viewOffset, useMainScene);
 
 #if false  // TEST ONLY
             _stages[i]->camera->setPreDrawCallback(new DebugDrawCallback("PRE"));

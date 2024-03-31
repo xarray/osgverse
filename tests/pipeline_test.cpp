@@ -71,6 +71,15 @@ static const char* displayFragmentShaderCode =
     "}\n"
 };
 
+static const char* inputFragmentShaderCode =
+{
+    "uniform sampler2D DiffuseMap;\n"
+    "varying vec4 gl_TexCoord[gl_MaxTextureCoords];\n"
+    "void main() {\n"
+    "    gl_FragColor = texture2D(DiffuseMap, gl_TexCoord[0].xy);\n"
+    "}\n"
+};
+
 #define CUSTOM_INPUT_MASK 0x00010000
 int main(int argc, char** argv)
 {
@@ -90,9 +99,15 @@ int main(int argc, char** argv)
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
-    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
+    /*osg::ref_ptr<osg::MatrixTransform> otherSceneRoot = new osg::MatrixTransform;
+    otherSceneRoot->addChild(scene.get());
+    otherSceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS) *
+                              osg::Matrix::translate(0.0f, 3000.0f, 0.0f));*/
     if (otherSceneRoot.valid())
+    {
+        otherSceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("DiffuseMap", 0));
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, CUSTOM_INPUT_MASK);
+    }
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
@@ -142,9 +157,10 @@ int main(int argc, char** argv)
         osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
         {
             // FIXME: depth ok, color not?
-            inModule->createStages(CUSTOM_INPUT_MASK, NULL, NULL,
-                                   "DiffuseMetallicBuffer", gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
-                                   "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+            osgVerse::Pipeline::Stage* customIn = inModule->createStages(
+                CUSTOM_INPUT_MASK, NULL, new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                "ColorBuffer", gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
+                "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
         viewer.getCamera()->addUpdateCallback(inModule);
 
@@ -153,7 +169,7 @@ int main(int argc, char** argv)
             osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "std_common_quad.vert.glsl"),
             new osg::Shader(osg::Shader::FRAGMENT, middleFragmentShaderCode), 1,
             "MiddleBuffer", osgVerse::Pipeline::RGB_INT8);
-        testStage->applyBuffer("DiffuseMetallicBuffer", 0, pipeline.get());  // get last buffer
+        testStage->applyBuffer("ColorBuffer", 0, pipeline.get());  // get last buffer
         //testStage->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 0);
 
         // 5. Add a custom display stage
@@ -178,10 +194,7 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
 
-    // FIXME: how to avoid shadow problem...
-    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
-    // Shadow will go jigger because the output texture is not sync-ed before lighting...
-    // For SingleThreaded & CullDrawThreadPerContext it seems OK
+    // Must use single-threaded if you share buffers between stages!
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     return viewer.run();
 }
