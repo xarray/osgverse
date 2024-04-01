@@ -10,6 +10,7 @@
 
 #include "animation/BlendShapeAnimation.h"
 #include "pipeline/Utilities.h"
+#include "LoadTextureKTX.h"
 #include <libhv/all/client/requests.h>
 #define DISABLE_SKINNING_DATA 0
 
@@ -112,6 +113,97 @@ namespace osgVerse
         return 8 * sizeof(int) + header[3] + header[4] + header[5] + header[6];
     }
 
+    bool LoadImageDataEx(tinygltf::Image* image, const int image_idx, std::string* err,
+                         std::string* warn, int req_width, int req_height,
+                         const unsigned char* bytes, int size, void* user_data)
+    {
+        // Most copied from tinygltf::LoadImageData()
+        int w = 0, h = 0, comp = 0, req_comp = 0;
+        unsigned char* data = nullptr;
+        tinygltf::LoadImageDataOption option;
+        if (user_data)
+            option = *reinterpret_cast<tinygltf::LoadImageDataOption*>(user_data);
+
+        // preserve_channels true: Use channels stored in the image file.
+        req_comp = option.preserve_channels ? 0 : 4;
+        int bits = 8, pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
+
+        // It is possible that the image we want to load is a 16bit per channel image
+        if (stbi_is_16_bit_from_memory(bytes, size))
+        {
+            data = reinterpret_cast<unsigned char*>(
+                stbi_load_16_from_memory(bytes, size, &w, &h, &comp, req_comp));
+            if (data) { bits = 16; pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT; }
+        }
+
+        // Load it as a normal 8bit per channel if not 16bit
+        if (!data) data = stbi_load_from_memory(bytes, size, &w, &h, &comp, req_comp);
+        if (!data)
+        {
+            if (image->mimeType.find("ktx") != std::string::npos)
+            {
+                image->image.resize(size);
+                std::copy(bytes, bytes + size, image->image.begin());
+                return true;  // parsing KTX later
+            }
+            else if (image->mimeType.find("image/") != std::string::npos)
+            {
+                std::string ext = image->mimeType.substr(6);  // image/ext
+                osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+                if (rw != NULL)
+                {
+                    image->image.resize(size); image->extensions_json_string = ext;
+                    std::copy(bytes, bytes + size, image->image.begin());
+                    return true;  // parsing by plugin later
+                }
+            }
+
+            if (err) (*err) += "Unknown image format. STB cannot decode image data for image[" +
+                               std::to_string(image_idx) + "] name = \"" + image->name + "\", type = " +
+                               image->mimeType + ".\n";
+            return false;
+        }
+
+        if ((w < 1) || (h < 1))
+        {
+            stbi_image_free(data);
+            if (err) (*err) += "Invalid image data for image[" + std::to_string(image_idx) +
+                               "] name = \"" + image->name + "\"\n";
+            return false;
+        }
+
+        if (req_width > 0)
+        {
+            if (req_width != w)
+            {
+                stbi_image_free(data);
+                if (err) (*err) += "Image width mismatch for image[" +
+                                   std::to_string(image_idx) + "] name = \"" + image->name + "\"\n";
+                return false;
+            }
+        }
+
+        if (req_height > 0)
+        {
+            if (req_height != h)
+            {
+                stbi_image_free(data);
+                if (err) (*err) += "Image height mismatch. for image[" +
+                                   std::to_string(image_idx) + "] name = \"" + image->name + "\"\n";
+                return false;
+            }
+        }
+
+        // loaded data has `req_comp` channels(components)
+        if (req_comp != 0) comp = req_comp;
+        image->width = w; image->height = h;
+        image->component = comp; image->bits = bits;
+        image->pixel_type = pixel_type;
+        image->image.resize(static_cast<size_t>(w * h * comp) * size_t(bits / 8));
+        std::copy(data, data + w * h * comp * (bits / 8), image->image.begin());
+        stbi_image_free(data); return true;
+    }
+
     LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary)
     {
         std::string protocol = osgDB::getServerProtocol(d);
@@ -128,6 +220,7 @@ namespace osgVerse
         if (data.empty()) { OSG_WARN << "[LoaderGLTF] Unable to read from stream\n"; return; }
 
         tinygltf::TinyGLTF loader;
+        loader.SetImageLoader(&LoadImageDataEx, this);
         loader.SetFsCallbacks(fs);
         if (isBinary)
         {
@@ -565,30 +658,49 @@ namespace osgVerse
         tinygltf::Image& imageSrc = _modelDef.images[tex.source];
         if (imageSrc.image.empty()) return;
 
-        GLenum format = GL_RGBA, type = GL_UNSIGNED_BYTE;
-        if (imageSrc.bits == 16) type = GL_UNSIGNED_SHORT;
-        if (imageSrc.component == 1) format = GL_RED;
-        else if (imageSrc.component == 2) format = GL_RG;
-        else if (imageSrc.component == 3) format = GL_RGB;
-
         osg::ref_ptr<osg::Image> image2D = _imageMap[tex.source].get();
         if (!image2D)
         {
             //std::cout << name << ": " << imageSrc.uri << ", Size = "
             //          << imageSrc.width << "x" << imageSrc.height << "\n";
-
-            osg::ref_ptr<osg::Image> image = new osg::Image;
-            image->setFileName(imageSrc.uri);
-            image->allocateImage(imageSrc.width, imageSrc.height, 1, format, type);
-            switch (imageSrc.component)
+            osg::ref_ptr<osg::Image> image;
+            if (imageSrc.width < 1 || imageSrc.height < 1)
             {
-            case 1: image->setInternalTextureFormat(GL_R8); break;
-            case 2: image->setInternalTextureFormat(GL_RG8); break;
-            case 3: image->setInternalTextureFormat(GL_RGB8); break;
-            default: image->setInternalTextureFormat(GL_RGBA8); break;
+                std::stringstream dataIn(std::ios::in | std::ios::out | std::ios::binary);
+                dataIn.write((char*)&imageSrc.image[0], imageSrc.image.size());
+                if (imageSrc.mimeType.find("ktx") != std::string::npos)
+                {
+                    std::vector<osg::ref_ptr<osg::Image>> imageList = loadKtx2(dataIn, NULL);
+                    if (!imageList.empty()) image = imageList[0];
+                }
+                else if (!imageSrc.extensions_json_string.empty())
+                {
+                    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(
+                        imageSrc.extensions_json_string);
+                    if (rw) image = rw->readImage(dataIn).getImage();
+                }
+                if (!image) return;
             }
-            memcpy(image->data(), &imageSrc.image[0], image->getTotalSizeInBytes());
-            
+            else
+            {
+                GLenum format = GL_RGBA, type = GL_UNSIGNED_BYTE;
+                if (imageSrc.bits == 16) type = GL_UNSIGNED_SHORT;
+                if (imageSrc.component == 1) format = GL_RED;
+                else if (imageSrc.component == 2) format = GL_RG;
+                else if (imageSrc.component == 3) format = GL_RGB;
+
+                image = new osg::Image; image->setFileName(imageSrc.uri);
+                image->allocateImage(imageSrc.width, imageSrc.height, 1, format, type);
+                switch (imageSrc.component)
+                {
+                case 1: image->setInternalTextureFormat(GL_R8); break;
+                case 2: image->setInternalTextureFormat(GL_RG8); break;
+                case 3: image->setInternalTextureFormat(GL_RGB8); break;
+                default: image->setInternalTextureFormat(GL_RGBA8); break;
+                }
+                memcpy(image->data(), &imageSrc.image[0], image->getTotalSizeInBytes());
+            }
+
             image2D = image.get(); image2D->setName(imageSrc.uri);
             _imageMap[tex.source] = image2D;
             OSG_NOTICE << "[LoaderGLTF] " << imageSrc.uri << " loaded for " << name << std::endl;
