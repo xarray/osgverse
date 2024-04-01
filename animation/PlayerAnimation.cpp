@@ -452,7 +452,11 @@ namespace ozz
                         }
                         c1 = candicates0; lastR = r;
                     }
-                    c1.erase(c1.find(track));
+                    auto itr = c1.find(track);
+                    if (itr != c1.end())
+                    {
+                        c1.erase(itr);
+                    }
                 }
 
                 for (std::map<int, osg::Transform*>::iterator it = c1.begin(); it != c1.end(); ++it)
