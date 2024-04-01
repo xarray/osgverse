@@ -121,9 +121,9 @@ bool OzzAnimation::applyMesh(osg::Geometry& geom, const OzzMesh& mesh)
         vIndex += count;
     }
 
-    if (!hasNormals) osgUtil::SmoothingVisitor::smooth(geom);
+    if (!hasNormals) osgUtil::SmoothingVisitor::smooth(geom); else na->dirty();
     if (!hasColors && ca->size() > 0) memset(&((*ca)[0]), 255, ca->size() * sizeof(uint8_t) * 4);
-    va->dirty(); na->dirty(); ta->dirty(); ca->dirty();
+    va->dirty(); ta->dirty(); ca->dirty();
     geom.dirtyBound();
     return true;
 }
@@ -239,10 +239,10 @@ bool OzzAnimation::applySkinningMesh(osg::Geometry& geom, const OzzMesh& mesh)
         vIndex += count;
     }
 
-    if (!hasNormals) osgUtil::SmoothingVisitor::smooth(geom);
+    if (!hasNormals) osgUtil::SmoothingVisitor::smooth(geom); else na->dirty();
     if (!hasColors && ca->size() > 0) memset(&((*ca)[0]), 255, ca->size() * sizeof(uint8_t) * 4);
     if (dirtyVA > 0) { ta->dirty(); ca->dirty(); }
-    va->dirty(); na->dirty(); geom.dirtyBound();
+    va->dirty(); geom.dirtyBound();
     return true;
 }
 
