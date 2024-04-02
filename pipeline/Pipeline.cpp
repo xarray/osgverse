@@ -936,9 +936,9 @@ namespace osgVerse
         bufferList.push_back(BufferDescription(bufName, type)); \
     } va_end(params); return CMD;
 
-    Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
+    Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int flags,
                                              osg::Shader* vs, osg::Shader* fs, int buffers, ...)
-    { ARGS_TO_BUFFERLIST(addInputStage(name, cullMask, samples, vs, fs, bufferList)); }
+    { ARGS_TO_BUFFERLIST(addInputStage(name, cullMask, flags, vs, fs, bufferList)); }
 
     Pipeline::Stage* Pipeline::addWorkStage(const std::string& name, float sizeScale,
                                             osg::Shader* vs, osg::Shader* fs, int buffers, ...)
@@ -959,11 +959,12 @@ namespace osgVerse
         return numBuffers;
     }
 
-    Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int samples,
+    Pipeline::Stage* Pipeline::addInputStage(const std::string& name, unsigned int cullMask, int flags,
                                              osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers)
     {
         Stage* s = new Stage; s->deferred = false;
         bool useColorBuf = (getNumNonDepthBuffers(buffers) == 1);
+        bool withDefTex = ((flags & NO_DEFAULT_TEXTURES) == 0);
         for (size_t i = 0; i < buffers.size(); i ++)
         {
             std::string bufName = buffers[i].bufferName;
@@ -972,7 +973,6 @@ namespace osgVerse
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
-            else ms = samples;
 
             osg::ref_ptr<osg::Texture> tex = buffers[i].bufferToShare;
             if (!tex) tex = createTexture(type, _stageSize[0], _stageSize[1], _glVersion);
@@ -982,7 +982,7 @@ namespace osgVerse
         }
 
         applyDefaultStageData(*s, name, vs, fs);
-        applyDefaultInputStateSet(*s->camera->getOrCreateStateSet(), true);
+        applyDefaultInputStateSet(*s->camera->getOrCreateStateSet(), withDefTex, true);
         s->camera->setUserValue("PipelineCullMask", cullMask);  // replacing setCullMask()
         s->camera->setUserValue("NeedNearFarCalculation", true);
         s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
@@ -1120,26 +1120,26 @@ namespace osgVerse
             ss->addUniform(_deferredCallback->getNearFarUniform());
             ss->addUniform(_invScreenResolution.get());
         }
-        else
-            ss->setAttributeAndModes(new osg::Program, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         s.name = name; if (!s.deferred) s.camera->setName(name);
     }
 
-    int Pipeline::applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff)
+    int Pipeline::applyDefaultInputStateSet(osg::StateSet& ss, bool applyDefTextures, bool blendOff)
     {
         osg::Vec4 color0 = osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         osg::Vec4 color1 = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
         osg::Vec4 colorORM = osg::Vec4(1.0f, 1.0f, 0.0f, 0.0f);
         if (blendOff) ss.setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-        ss.setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap
-        ss.setTextureAttributeAndModes(1, createDefaultTexture(color0));  // NormalMap
-        ss.setTextureAttributeAndModes(2, createDefaultTexture(color1));  // SpecularMap
-        ss.setTextureAttributeAndModes(3, createDefaultTexture(colorORM));  // ShininessMap
-        ss.setTextureAttributeAndModes(4, createDefaultTexture(color0));  // AmbientMap
-        ss.setTextureAttributeAndModes(5, createDefaultTexture(color0));  // EmissiveMap
-        ss.setTextureAttributeAndModes(6, createDefaultTexture(color0));  // ReflectionMap
-        for (int i = 0; i < 7; ++i) ss.addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
-        ss.addUniform(new osg::Uniform("ModelIndicator", 0.0f));
+        if (applyDefTextures)
+        {
+            ss.setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap
+            ss.setTextureAttributeAndModes(1, createDefaultTexture(color0));  // NormalMap
+            ss.setTextureAttributeAndModes(2, createDefaultTexture(color1));  // SpecularMap
+            ss.setTextureAttributeAndModes(3, createDefaultTexture(colorORM));  // ShininessMap
+            ss.setTextureAttributeAndModes(4, createDefaultTexture(color0));  // AmbientMap
+            ss.setTextureAttributeAndModes(5, createDefaultTexture(color0));  // EmissiveMap
+            ss.setTextureAttributeAndModes(6, createDefaultTexture(color0));  // ReflectionMap
+            for (int i = 0; i < 7; ++i) ss.addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
+        }
 
         osg::Program* prog = static_cast<osg::Program*>(ss.getAttribute(osg::StateAttribute::PROGRAM));
         if (prog != NULL)
@@ -1147,7 +1147,7 @@ namespace osgVerse
             prog->addBindAttribLocation(attributeNames[6], 6);
             //prog->addBindAttribLocation(attributeNames[7], 7);
         }
-        return 7;  // next texture unit = 7
+        return applyDefTextures ? 7 : 0;
     }
 
     osg::StateSet* Pipeline::createForwardStateSet(osg::Shader* vs, osg::Shader* fs)
@@ -1169,7 +1169,7 @@ namespace osgVerse
 
         osg::ref_ptr<osg::StateSet> ss = new osg::StateSet;
         ss->setAttributeAndModes(program, osg::StateAttribute::ON);
-        applyDefaultInputStateSet(*ss, false);
+        applyDefaultInputStateSet(*ss, true, false);
         _deferredCallback->setForwardStateSet(ss.get());
         return ss.get();
     }

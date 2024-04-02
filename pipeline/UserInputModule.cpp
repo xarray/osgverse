@@ -38,7 +38,8 @@ namespace osgVerse
 
             // Draw on existing buffers, no clear masks
             // This requires single-threaded only!!
-            Pipeline::Stage* stage = _pipeline->addInputStage(getName(), cullMask, 0, vs, fs, buffers);
+            int flags = Pipeline::NO_DEFAULT_TEXTURES;
+            Pipeline::Stage* stage = _pipeline->addInputStage(getName(), cullMask, flags, vs, fs, buffers);
             stage->camera->setClearMask(0); return stage;
         }
         else

@@ -84,6 +84,11 @@ namespace osgVerse
             RG_INT8/*16bit*/, RG_FLOAT16/*32bit*/, RG_FLOAT32/*64bit*/,
             DEPTH16/*16bit*/, DEPTH24_STENCIL8/*32bit*/, DEPTH32/*32bit*/
         };
+
+        enum InputFlag
+        {
+            NO_DEFAULT_TEXTURES = 0xf0
+        };
         
         struct Stage : public osg::Referenced
         {
@@ -180,9 +185,9 @@ namespace osgVerse
         typedef std::vector<BufferDescription> BufferDescriptions;
 
         /** Add input stage which uses main scene graph for initial shading and rendering-to-texture */
-        Stage* addInputStage(const std::string& n, unsigned int cullMask, int samples,
+        Stage* addInputStage(const std::string& n, unsigned int cullMask, int flags,
                              osg::Shader* vs, osg::Shader* fs, int buffers, ...);
-        Stage* addInputStage(const std::string& n, unsigned int cullMask, int samples,
+        Stage* addInputStage(const std::string& n, unsigned int cullMask, int flags,
                              osg::Shader* vs, osg::Shader* fs, const BufferDescriptions& buffers);
 
         /** Add textures and use an internal screen-sized buffer for shading */
@@ -241,7 +246,7 @@ namespace osgVerse
 
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
-        int applyDefaultInputStateSet(osg::StateSet& ss, bool blendOff);
+        int applyDefaultInputStateSet(osg::StateSet& ss, bool applyDefTextures, bool blendOff);
         int getNumNonDepthBuffers(const BufferDescriptions& buffers);
         
         std::vector<osg::ref_ptr<Stage>> _stages;

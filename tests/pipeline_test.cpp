@@ -156,9 +156,8 @@ int main(int argc, char** argv)
         // transparent objects and third party nodekits.
         osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
         {
-            // FIXME: depth ok, color not?
             osgVerse::Pipeline::Stage* customIn = inModule->createStages(
-                CUSTOM_INPUT_MASK, NULL, new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                CUSTOM_INPUT_MASK, NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
                 "ColorBuffer", gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
                 "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
