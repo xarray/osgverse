@@ -279,10 +279,10 @@ namespace osgVerse
         osg::ref_ptr<osg::ImageSequence> skyboxIBL;
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight;
-        unsigned int deferredMask, forwardMask;
+        unsigned int deferredMask, forwardMask, userInputMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution;
         bool debugShadowModule, enableVSync, enableMRT;
-        bool enableAO, enablePostEffects;
+        bool enableAO, enablePostEffects, enableUserInput;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);

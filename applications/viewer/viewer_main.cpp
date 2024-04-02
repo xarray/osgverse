@@ -12,7 +12,6 @@
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-#define TRANSPARENT_OBJECT_TEST 0
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
@@ -23,6 +22,7 @@ namespace backward { backward::SignalHandling sh; }
 #include <iostream>
 #include <sstream>
 
+#define CUSTOM_INPUT_MASK 0x00010000
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
@@ -197,30 +197,12 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
     if (otherSceneRoot.valid())
-        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, FORWARD_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, CUSTOM_INPUT_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
     root->setName("Root");
-
-#if TRANSPARENT_OBJECT_TEST
-    // Test transparent object
-    osg::BoundingSphere bs = sceneRoot->getBound();
-    osg::ShapeDrawable* shape = new osg::ShapeDrawable(
-        new osg::Sphere(bs.center() + osg::X_AXIS * bs.radius() * 1.5f, bs.radius() * 0.4f));
-    shape->setColor(osg::Vec4(1.0f, 1.0f, 0.0f, 0.5f));
-    shape->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-    shape->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
-
-    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-    osgVerse::Pipeline::setPipelineMask(*geode, FORWARD_SCENE_MASK);
-    geode->addDrawable(shape);
-
-    // Add tangent/bi-normal arrays for normal mapping
-    tsv.reset(); geode->accept(tsv);
-    root->addChild(geode.get());
-#endif
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
@@ -291,8 +273,9 @@ int main(int argc, char** argv)
 #endif
 
     // Setup the pipeline
-#if false
+#if true
     params.enablePostEffects = true; params.enableAO = true;
+    params.userInputMask = CUSTOM_INPUT_MASK; params.enableUserInput = true;
     setupStandardPipeline(pipeline.get(), &viewer, params);
 #else
     std::ifstream ppConfig(SHADER_DIR "/standard_pipeline.json");

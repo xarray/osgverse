@@ -42,6 +42,7 @@ namespace backward { backward::SignalHandling sh; }
 #define TEST_PIPELINE 1
 #define TEST_SYMBOLS 0
 
+#define EARTH_INPUT_MASK 0x00010000
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
@@ -196,13 +197,13 @@ int main(int argc, char** argv)
 
 #if TEST_PIPELINE
     // Setup the pipeline
-    setupStandardPipeline(pipeline.get(), &viewer,
-        osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
+    osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "sunset.png");
+    spp.userInputMask = EARTH_INPUT_MASK; spp.enableUserInput = true;
+    setupStandardPipeline(pipeline.get(), &viewer, spp);
 #endif
 
     // osgEarth configuration
-    osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("openstreetmap.earth");
-    //osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("F:/DataSet/osgEarthData/t2.earth");
+    osg::ref_ptr<osg::Node> earthRoot = osgDB::readNodeFile("simple.earth");
     if (earthRoot.valid())
     {
         // Tell the database pager to not modify the unref settings
@@ -223,7 +224,7 @@ int main(int argc, char** argv)
 #if TEST_PIPELINE
         // default uniform values and disable small feature culling
         osgVerse::Pipeline::Stage* gbufferStage = pipeline->getStage("GBuffer");
-        osgEarth::GLUtils::setGlobalDefaults(pipeline->getForwardCamera()->getOrCreateStateSet());
+        osgEarth::GLUtils::setGlobalDefaults(pipeline->getStage("Forward")->camera->getOrCreateStateSet());
         gbufferStage->camera->setSmallFeatureCullingPixelSize(-1.0f);
         gbufferStage->camera->addCullCallback(new AutoClipPlaneCullCallback(mapNode.get()));
 #else
@@ -250,19 +251,19 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Group> earthParent = new osg::Group;
         earthParent->addChild(earthRoot.get());
         earthParent->addChild(skyNode.get());
-        osgVerse::Pipeline::setPipelineMask(*earthParent, FORWARD_SCENE_MASK);
+        osgVerse::Pipeline::setPipelineMask(*earthParent, EARTH_INPUT_MASK);
         root->addChild(earthParent.get());
 
 #if TEST_PIPELINE
         // Create places
-        /*osgEarth::Viewpoint vp0 = createPlaceOnEarth(
+        osgEarth::Viewpoint vp0 = createPlaceOnEarth(
             sceneRoot.get(), mapNode.get(), BASE_DIR "/models/Sponza/Sponza.gltf",
             osg::Matrix::scale(1.0, 1.0, 1.0) * osg::Matrix::rotate(0.1, osg::Z_AXIS),
             119.008f, 25.9f, 15.0f, -40.0f);
 
         osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
         interacter->addViewpoint(vp0);
-        viewer.addEventHandler(interacter.get());*/
+        viewer.addEventHandler(interacter.get());
 #endif
 
 #if TEST_SYMBOLS

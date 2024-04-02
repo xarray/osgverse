@@ -1,4 +1,5 @@
 #include "Pipeline.h"
+#include "UserInputModule.h"
 #include "ShadowModule.h"
 #include "LightModule.h"
 #include "Utilities.h"
@@ -88,18 +89,18 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
 namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
-        shadowNumber(0), shadowResolution(2048), debugShadowModule(false), enableVSync(true),
-        enableMRT(true), enableAO(true), enablePostEffects(true)
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(2048), debugShadowModule(false),
+        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true), enableUserInput(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
     }
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), shadowCastMask(SHADOW_CASTER_MASK),
-        shadowNumber(3), shadowResolution(2048), debugShadowModule(false), enableVSync(true), enableMRT(true),
-        enableAO(true), enablePostEffects(true)
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(2048), debugShadowModule(false),
+        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true), enableUserInput(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -437,13 +438,24 @@ namespace osgVerse
         shadowing->applyTexture(generatePoissonDiscDistribution(16, 2), "RandomTexture", 4);
         shadowModule->applyTextureAndUniforms(shadowing, "ShadowMap", 5);
 
+        // User input module
+        if (spp.enableUserInput && spp.userInputMask > 0)
+        {
+            osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", p);
+            inModule->createStages(spp.userInputMask, NULL, NULL,
+                "ColorBuffer", shadowing->getBufferTexture("CombinedBuffer"),
+                "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+            mainCam->addUpdateCallback(inModule);
+        }
+
         if (spp.enablePostEffects)
         {
             // Bloom stages: Brightness -> Downscaling x N -> Combine -> Bloom
             osgVerse::Pipeline::Stage* brighting = p->addDeferredStage("Brighting", 1.0f, false,
                 spp.shaders.quadVS, spp.shaders.brightnessFS, 1,
                 "BrightnessBuffer0", osgVerse::Pipeline::RGB_INT8);
-            brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
+            brighting->applyBuffer("ColorBuffer", 0, p);
+            //brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
             brighting->applyUniform(new osg::Uniform("BrightnessThreshold", 0.7f));
 
             std::vector<osgVerse::Pipeline::Stage*> downsamples;

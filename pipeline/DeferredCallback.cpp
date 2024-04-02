@@ -179,6 +179,9 @@ namespace osgVerse
         }
 
         osg::Camera* forwardCam = renderInfo.getCurrentCamera();
+        if (forwardCam->getNumChildren() == 0)
+        { if (_subCallback.valid()) _subCallback.get()->run(renderInfo); return; }
+
 #if defined(VERSE_WASM)
         // blitFramebuffer() not work for WebGL1...
         // And it said 'invalid op on multisampled framebuffer' for WebGL2
