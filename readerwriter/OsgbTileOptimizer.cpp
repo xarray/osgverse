@@ -1,4 +1,6 @@
 #include "OsgbTileOptimizer.h"
+#include "DracoProcessor.h"
+#include "Utilities.h"
 #include <osg/PagedLOD>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
@@ -19,6 +21,24 @@ public:
 
     virtual void apply(osg::PagedLOD& node)
     { plodList.push_back(&node); traverse(node); }
+};
+
+class FindGeometryVisitor : public osg::NodeVisitor
+{
+public:
+    FindGeometryVisitor()
+        : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    std::vector<osg::Geometry*> geomList;
+
+    virtual void apply(osg::Geode& node)
+    {
+        for (size_t i = 0; i < node.getNumDrawables(); ++i)
+        {
+            osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+            if (geom) geomList.push_back(geom);
+        }
+        traverse(node);
+    }
 };
 
 static std::string tileNumberToString(int num, int digits = 3)
@@ -108,20 +128,7 @@ bool TileOptimizer::processAdjacency(int adjacentX, int adjacentY)
         TileNameList& srcTiles = itr->second;
         std::string outTileFolder = std::string(outSubFolder) + '/';
         osgDB::makeDirectory(_outFolder + outTileFolder);
-
-        if (srcTiles.size() == 1)
-        {
-            // Directly copy all tile files
-            std::string inTileFolder = _inFolder + srcTiles[0] + '/';
-            osgDB::DirectoryContents contents = osgDB::getDirectoryContents(inTileFolder);
-            for (size_t n = 0; n < contents.size(); ++n)
-            {
-                const std::string& f = contents[n]; if (f[0] == '.') continue;
-                ////FIXME!!!! osgDB::copyFile(inTileFolder + f, _outFolder + outTileFolder + f);
-            }
-        }
-        else
-            processTileFiles(outTileFolder, srcTiles);
+        processTileFiles(outTileFolder, srcTiles);
     }
     return true;
 }
@@ -171,11 +178,30 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
         osg::ref_ptr<osg::Node> newTile = mergeNodes(loadedNodes, plodNameMap);
         if (newTile.valid())
         {
+            TextureOptimizer opt(true);
+            if (_withBasisu) newTile->accept(opt);
+
             osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
             options->setPluginStringData("UseBASISU", "1");
             osgDB::writeNodeFile(*newTile, _outFolder + outFileName, options.get());
+            if (_withBasisu) opt.deleteSavedTextures();
         }
     }
+}
+
+osg::Vec2s TileOptimizer::getNumberFromTileName(const std::string& name, const std::string& inRegex)
+{
+    std::vector<int> numbers; std::regex re(inRegex);
+    auto words_begin = std::sregex_iterator(name.begin(), name.end(), re);
+    auto words_end = std::sregex_iterator();
+    for (std::sregex_iterator it = words_begin; it != words_end; ++it)
+    {
+        std::smatch match = *it;
+        numbers.push_back(std::stoi(match.str()));
+    }
+
+    if (numbers.size() > 1) return osg::Vec2s(numbers[0], numbers[1]);
+    else return osg::Vec2s(SHRT_MAX, SHRT_MAX);
 }
 
 osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>& loadedNodes,
@@ -218,22 +244,58 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
          itr != plodGroupMap.end(); ++itr)
     {
         std::vector<osg::PagedLOD*>& plodList = itr->second;
-        // TODO
+        osg::PagedLOD* ref = plodList[0];
+
+        osg::BoundingSphere bs; std::vector<osg::Geometry*> geomList;
+        for (size_t i = 0; i < plodList.size(); ++i)
+        {
+            osg::PagedLOD* n = plodList[i]; FindGeometryVisitor fgv; n->accept(fgv);
+            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+
+            osg::BoundingSphere bs0(n->getCenter(), n->getRadius());
+            bs.expandBy(bs0.valid() ? bs0 : n->getBound());
+        }
+
+        osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
+        plod->setRangeMode(ref->getRangeMode());
+        plod->setCenterMode(ref->getCenterMode());
+        plod->setCenter(bs.center());
+        plod->setRadius(bs.radius());
+        plod->addChild(mergeGeometries(geomList));
+        for (size_t i = 0; i < ref->getNumFileNames(); ++i)
+        {
+            std::string fileName = ref->getFileName(i);
+            if (fileName.empty()) continue; else fileName = ref->getDatabasePath() + fileName;
+            fileName = plodNameMap.find(fileName)->second;  // this should be valid
+
+            plod->setFileName(i, osgDB::getSimpleFileName(fileName));
+            plod->setRange(i, ref->getMinRange(i), ref->getMaxRange(i));
+        }
+        root->addChild(plod.get());
+    }
+
+    if (plodGroupMap.empty())
+    {
+        // If no paged LOD nodes found, this may be a leaf tile with only geometries
+        std::vector<osg::Geometry*> geomList;
+        for (size_t i = 0; i < loadedNodes.size(); ++i)
+        {
+            FindGeometryVisitor fgv; loadedNodes[i]->accept(fgv);
+            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+        }
+        if (!geomList.empty()) root->addChild(mergeGeometries(geomList));
     }
     return (root->getNumChildren() > 0) ? root.release() : NULL;
 }
 
-osg::Vec2s TileOptimizer::getNumberFromTileName(const std::string& name, const std::string& inRegex)
+osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList)
 {
-    std::vector<int> numbers; std::regex re(inRegex);
-    auto words_begin = std::sregex_iterator(name.begin(), name.end(), re);
-    auto words_end = std::sregex_iterator();
-    for (std::sregex_iterator it = words_begin; it != words_end; ++it)
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+    for (size_t i = 0; i < geomList.size(); ++i)
     {
-        std::smatch match = *it;
-        numbers.push_back(std::stoi(match.str()));
+        // TODO: merge them
+        osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geomList[i]);
+        geode->addDrawable(geom2.get());
     }
-
-    if (numbers.size() > 1) return osg::Vec2s(numbers[0], numbers[1]);
-    else return osg::Vec2s(SHRT_MAX, SHRT_MAX);
+    return geode.release();
 }

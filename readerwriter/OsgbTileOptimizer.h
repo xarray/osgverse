@@ -26,7 +26,7 @@ namespace osgVerse
         osg::Vec2s getNumberFromTileName(const std::string& name, const std::string& inRegex);
         osg::Node* mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>& loadedNodes,
                               const std::map<std::string, std::string>& plodNameMap);
-        void mergeGeometries(const std::vector<osg::Geometry*>& geomList);
+        osg::Node* mergeGeometries(const std::vector<osg::Geometry*>& geomList);
 
         std::map<std::string, osg::Vec2s> _srcToDstTileMap;
         std::map<osg::Vec2s, std::string> _srcNumberMap;
