@@ -90,8 +90,8 @@ ADD_ARRAYDATA_FUNCTIONS(FogCoordData, FogCoordArray)
     static bool check##ORIGINAL_PROP( const osg::Geometry& geom ) \
     { return geom.get##LISTNAME().size()>0; } \
     static bool read##ORIGINAL_PROP( osgDB::InputStream& is, osg::Geometry& geom ) { \
-        if (geom.get##LISTNAME().size() == 0) return false; \
         unsigned int size = is.readSize(); is >> is.BEGIN_BRACKET; \
+        if (size > 100000000) return false; /* FIXME: some old osgb files fail here.. why? */ \
         for ( unsigned int i=0; i<size; ++i ) { \
             is >> is.PROPERTY("Data") >> is.BEGIN_BRACKET; \
             osg::Array* array = readArray(is); \

@@ -19,6 +19,7 @@
 #include <ghc/filesystem.hpp>
 
 #include <readerwriter/Utilities.h>
+#include <readerwriter/OsgbTileOptimizer.h>
 #include <readerwriter/DracoProcessor.h>
 #ifdef OSG_LIBRARY_STATIC
 USE_OSG_PLUGINS()
@@ -120,16 +121,13 @@ void processFile(const std::string& prefix, const std::string& dirName,
     }
 }
 
-namespace osgVerse
-{
-    extern void replaceWrapper_GeometryFixed();
-}
-
 int main(int argc, char** argv)
 {
-#if true  // to fix dead-lock of certain .osgb files
+#if true  // test osgb optimizer
     osgVerse::fixOsgBinaryWrappers();
-    osgDB::readNodeFile("E:/Solutions/YunZhou/13-2Tile_-968_+333_L22_00012030.osgb");
+    osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer("G:/OsgbData2");
+    if (!opt->prepare("G:/OsgbData")) { printf("Can't prepare for tiles\n"); return 1; }
+    opt->processAdjacency(2, 2);
     return 0;
 #endif
 

@@ -4,6 +4,7 @@ SET(LIBRARY_FILES
     LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h
     DracoProcessor.cpp DracoProcessor.h
+    OsgbTileOptimizer.cpp OsgbTileOptimizer.h
     Utilities.h Utilities.cpp Export.h
     Geometry_FixedWrapper.cpp
 )
