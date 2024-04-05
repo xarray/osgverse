@@ -207,11 +207,11 @@ osg::Vec2s TileOptimizer::getNumberFromTileName(const std::string& name, const s
 osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>& loadedNodes,
                                      const std::map<std::string, std::string>& plodNameMap)
 {
+    std::map<std::string, std::vector<osg::PagedLOD*>> plodGroupMap;
     if (loadedNodes.empty()) return NULL;
-    else if (loadedNodes.size() == 1) return loadedNodes[0].get();
+    //else if (loadedNodes.size() == 1) return loadedNodes[0].get();
 
     // Find all paged-LODs and group them
-    std::map<std::string, std::vector<osg::PagedLOD*>> plodGroupMap;
     for (size_t i = 0; i < loadedNodes.size(); ++i)
     {
         FindPlodVisitor fpv; loadedNodes[i]->accept(fpv);
@@ -274,9 +274,9 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         root->addChild(plod.get());
     }
 
+    // If no paged LOD nodes found, this may be a leaf tile with only geometries
     if (plodGroupMap.empty())
     {
-        // If no paged LOD nodes found, this may be a leaf tile with only geometries
         std::vector<osg::Geometry*> geomList;
         for (size_t i = 0; i < loadedNodes.size(); ++i)
         {

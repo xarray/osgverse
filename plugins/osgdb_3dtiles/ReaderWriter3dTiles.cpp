@@ -9,6 +9,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
+#include "3rdparty/rapidxml/rapidxml.hpp"
 #include "3rdparty/nanoid/nanoid.h"
 #include "3rdparty/picojson.h"
 #include <iostream>
@@ -46,14 +47,14 @@ public:
     {
         _ellipsoid = new osg::EllipsoidModel;
         supportsExtension("verse_tiles", "Pseudo file extension");
-        supportsExtension("s3c", "Index file of ContextCapture (Smart3D)");
+        supportsExtension("xml", "coordinate file of ContextCapture (metadata.xml)");
         supportsExtension("json", "Decription file of 3dtiles");
         supportsExtension("children", "Internal use of 3dtiles' <children> tag");
     }
 
     virtual const char* className() const
     {
-        return "[osgVerse] S3C and Cesium-3dtiles Reader";
+        return "[osgVerse] Osgb and Cesium-3dtiles Reader";
     }
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
@@ -70,10 +71,8 @@ public:
         }
 
         osg::ref_ptr<Options> localOptions = NULL;
-        if (options)
-            localOptions = options->cloneOptions();
-        else
-            localOptions = new osgDB::Options();
+        if (options) localOptions = options->cloneOptions();
+        else localOptions = new osgDB::Options();
         localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
 
         if (ext == "children" && options)
@@ -101,10 +100,23 @@ public:
     {
         std::string ext = options ? options->getPluginStringData("extension") : "";
         std::string prefix = options ? options->getPluginStringData("prefix") : "";
-        if (ext == "s3c")
+        if (ext == "xml")
         {
-            // TODO
-            return ReadResult::FILE_NOT_HANDLED;
+            std::string xml_contents((std::istreambuf_iterator<char>(fin)),
+                                     std::istreambuf_iterator<char>());
+            rapidxml::xml_document<> doc;
+            doc.parse<rapidxml::parse_default>((char*)xml_contents.data());
+
+            rapidxml::xml_node<>* root = doc.first_node("ModelMetadata");
+            if (root != NULL)
+            {
+                rapidxml::xml_node<>* srs = root->first_node("SRS");
+                rapidxml::xml_node<>* origin = root->first_node("SRSOrigin");
+                return createFromMetadata(
+                    prefix, srs ? srs->value() : NULL, origin ? origin->value() : NULL);
+            }
+            else
+                return ReadResult::ERROR_IN_READING_FILE;
         }
 
         picojson::value document;
@@ -127,6 +139,36 @@ public:
     }
 
 protected:
+    osg::Node* createFromMetadata(const std::string& prefix, char* srs, char* origin) const
+    {
+        osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode;
+        std::string dataFolder = prefix + "/Data/"; int num = 0;
+        osgDB::DirectoryContents tiles = osgDB::getDirectoryContents(dataFolder);
+        for (size_t i = 0; i < tiles.size(); ++i)
+        {
+            const std::string& tName = tiles[i];
+            std::string ext = osgDB::getFileExtension(tName);
+            std::string file = dataFolder + "/" + tName + "/" + tName + ".osgb";
+            if (tName.empty() || !ext.empty()) continue;
+            if (tName[0] < 'A' || tName[0] > 'z') continue;
+            if (num == 0) tileProxy->addChild(osgDB::readNodeFile(file));
+            tileProxy->setFileName(num++, file);
+        }
+
+        if (origin != NULL)
+        {
+            std::vector<std::string> coords; osgDB::split(origin, coords, ',');
+            if (coords.size() > 2)
+            {
+                osg::Vec3d center(std::atof(coords[0].data()), std::atof(coords[1].data()),
+                                  std::atof(coords[2].data()));
+                tileProxy->setUserValue("SRSOrigin", center);
+            }
+        }
+        if (srs != NULL) tileProxy->setUserValue("SRS", std::string(srs));
+        return tileProxy.release();
+    }
+
     osg::Node* createTile(picojson::value& root, const std::string& prefix) const
     {
         picojson::value& bound = root.get("boundingVolume");
