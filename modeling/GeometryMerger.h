@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 #include <iostream>
+#include <osg/Geometry>
 
 namespace osgVerse
 {
@@ -13,6 +14,8 @@ namespace osgVerse
     public:
         GeometryMerger();
         ~GeometryMerger();
+
+        osg::Geometry* process(const std::vector<osg::Geometry*>& geomList);
 
     protected:
     };

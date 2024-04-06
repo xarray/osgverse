@@ -69,12 +69,12 @@ public:
             fileName = osgDB::getNameLessExtension(path);
             ext = osgDB::getFileExtension(fileName);
         }
+        if (ext.empty()) return createFromFolder(fileName);
 
         osg::ref_ptr<Options> localOptions = NULL;
         if (options) localOptions = options->cloneOptions();
         else localOptions = new osgDB::Options();
         localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
-
         if (ext == "children" && options)
         {
             picojson::value children;
@@ -141,20 +141,8 @@ public:
 protected:
     osg::Node* createFromMetadata(const std::string& prefix, char* srs, char* origin) const
     {
-        osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode;
-        std::string dataFolder = prefix + "/Data/"; int num = 0;
-        osgDB::DirectoryContents tiles = osgDB::getDirectoryContents(dataFolder);
-        for (size_t i = 0; i < tiles.size(); ++i)
-        {
-            const std::string& tName = tiles[i];
-            std::string ext = osgDB::getFileExtension(tName);
-            std::string file = dataFolder + "/" + tName + "/" + tName + ".osgb";
-            if (tName.empty() || !ext.empty()) continue;
-            if (tName[0] < 'A' || tName[0] > 'z') continue;
-            if (num == 0) tileProxy->addChild(osgDB::readNodeFile(file));
-            tileProxy->setFileName(num++, file);
-        }
-
+        std::string dataFolder = prefix + "/Data/";
+        osg::ref_ptr<osg::Node> tileGroup = createFromFolder(dataFolder);
         if (origin != NULL)
         {
             std::vector<std::string> coords; osgDB::split(origin, coords, ',');
@@ -162,10 +150,27 @@ protected:
             {
                 osg::Vec3d center(std::atof(coords[0].data()), std::atof(coords[1].data()),
                                   std::atof(coords[2].data()));
-                tileProxy->setUserValue("SRSOrigin", center);
+                tileGroup->setUserValue("SRSOrigin", center);
             }
         }
-        if (srs != NULL) tileProxy->setUserValue("SRS", std::string(srs));
+        if (srs != NULL) tileGroup->setUserValue("SRS", std::string(srs));
+        return tileGroup.release();
+    }
+
+    osg::Node* createFromFolder(const std::string& prefix) const
+    {
+        osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode; int num = 0;
+        osgDB::DirectoryContents tiles = osgDB::getDirectoryContents(prefix);
+        for (size_t i = 0; i < tiles.size(); ++i)
+        {
+            const std::string& tName = tiles[i];
+            std::string ext = osgDB::getFileExtension(tName);
+            std::string file = prefix + "/" + tName + "/" + tName + ".osgb";
+            if (tName.empty() || !ext.empty()) continue;
+            if (tName[0] < 'A' || tName[0] > 'z') continue;
+            if (num == 0) tileProxy->addChild(osgDB::readNodeFile(file));
+            tileProxy->setFileName(num++, file);
+        }
         return tileProxy.release();
     }
 
@@ -227,11 +232,18 @@ protected:
 
         if (children.is<picojson::array>())
         {
+            osg::ref_ptr<osg::Node> child0;
+            if (ext == "json") child0 = osgDB::readNodeFile(uri + ".verse_tiles");
+            else if (!ext.empty()) child0 = osgDB::readNodeFile(uri + ".verse_gltf");
+
             osg::PagedLOD* plod = new osg::PagedLOD;
             plod->setDatabasePath(prefix);
-            if (ext.empty()) plod->addChild(new osg::Node);
-            else if (ext == "json") plod->addChild(osgDB::readNodeFile(uri + ".verse_tiles"));
-            else plod->addChild(osgDB::readNodeFile(uri + ".verse_gltf"));
+            plod->addChild(child0.valid() ? child0.get() : new osg::Node);
+            if (!child0)
+            {
+                OSG_WARN << "[ReaderWriter3dtiles] Missing rough-level child: "
+                         << uri << ", result will be lack of certain tiles" << std::endl;
+            }
 
             // Put <children> to a virtual file with options to fit OSG's LOD structure
             osgDB::Options* opt = new osgDB::Options(children.serialize());

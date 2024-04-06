@@ -124,11 +124,14 @@ void processFile(const std::string& prefix, const std::string& dirName,
 int main(int argc, char** argv)
 {
 #if true  // test osgb optimizer
-    osgVerse::fixOsgBinaryWrappers();
-    osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer("G:/OsgbData2");
-    if (!opt->prepare("G:/OsgbData")) { printf("Can't prepare for tiles\n"); return 1; }
-    opt->processAdjacency(2, 2);
-    return 0;
+    if (argc == 1)
+    {
+        osgVerse::fixOsgBinaryWrappers();
+        osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer("G:/OsgbData2");
+        if (!opt->prepare("G:/OsgbData")) { printf("Can't prepare for tiles\n"); return 1; }
+        opt->processAdjacency(2, 2);
+        return 0;
+    }
 #endif
 
 #ifndef OSG_LIBRARY_STATIC

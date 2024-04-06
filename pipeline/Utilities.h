@@ -43,27 +43,6 @@ namespace osgVerse
     extern osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
         float quadW, float quadH, bool screenSpaced);
 
-    /** The 2D texture atlaser */
-    class TexturePacker : public osg::Referenced
-    {
-    public:
-        TexturePacker(int maxW, int maxH)
-            : _maxWidth(maxW), _maxHeight(maxH), _dictIndex(0) {}
-        void clear();
-
-        size_t addElement(osg::Image* image);
-        size_t addElement(int width, int height);
-        void removeElement(size_t id);
-
-        osg::Image* pack(size_t& numImages, bool generateResult);
-        bool getPackingData(size_t id, int& x, int& y, int& w, int& h);
-
-    protected:
-        typedef std::pair<osg::observer_ptr<osg::Image>, osg::Vec4> InputPair;
-        std::map<size_t, InputPair> _input, _result;
-        int _maxWidth, _maxHeight, _dictIndex;
-    };
-
     /** The tangent/binormal computing visitor */
     class TangentSpaceVisitor : public osg::NodeVisitor
     {

@@ -1,6 +1,7 @@
 #include "OsgbTileOptimizer.h"
 #include "DracoProcessor.h"
 #include "Utilities.h"
+#include "modeling/GeometryMerger.h"
 #include <osg/PagedLOD>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
@@ -253,7 +254,8 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
 
             osg::BoundingSphere bs0(n->getCenter(), n->getRadius());
-            bs.expandBy(bs0.valid() ? bs0 : n->getBound());
+            if (i == 0) bs = bs0;
+            else bs.expandBy(bs0.valid() ? bs0 : n->getBound());
         }
 
         osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
@@ -264,12 +266,16 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         plod->addChild(mergeGeometries(geomList));
         for (size_t i = 0; i < ref->getNumFileNames(); ++i)
         {
+            float minV = ref->getMinRange(i), maxV = ref->getMaxRange(i);
+            if (i == 0) maxV *= 2.0f;
+            else if (i == ref->getNumFileNames() - 1) minV *= 2.0f;
+            else { minV *= 2.0f; maxV *= 2.0f; }
+            plod->setRange(i, minV, maxV);
+
             std::string fileName = ref->getFileName(i);
             if (fileName.empty()) continue; else fileName = ref->getDatabasePath() + fileName;
             fileName = plodNameMap.find(fileName)->second;  // this should be valid
-
             plod->setFileName(i, osgDB::getSimpleFileName(fileName));
-            plod->setRange(i, ref->getMinRange(i), ref->getMaxRange(i));
         }
         root->addChild(plod.get());
     }
@@ -291,11 +297,20 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
 osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList)
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+#if false
+    GeometryMerger merger;
+    osg::ref_ptr<osg::Geometry> result = merger.process(geomList);
+    if (result.valid())
+    {
+        osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*result);
+        geode->addDrawable(geom2.get());
+    }
+#else
     for (size_t i = 0; i < geomList.size(); ++i)
     {
-        // TODO: merge them
         osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geomList[i]);
         geode->addDrawable(geom2.get());
     }
+#endif
     return geode.release();
 }

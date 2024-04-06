@@ -90,6 +90,27 @@ namespace osgVerse
         osg::ref_ptr<osg::StateSet> _stateset;
     };
 
+    /** The 2D texture atlaser */
+    class TexturePacker : public osg::Referenced
+    {
+    public:
+        TexturePacker(int maxW, int maxH)
+            : _maxWidth(maxW), _maxHeight(maxH), _dictIndex(0) {}
+        void clear();
+
+        size_t addElement(osg::Image* image);
+        size_t addElement(int width, int height);
+        void removeElement(size_t id);
+
+        osg::Image* pack(size_t& numImages, bool generateResult);
+        bool getPackingData(size_t id, int& x, int& y, int& w, int& h);
+
+    protected:
+        typedef std::pair<osg::observer_ptr<osg::Image>, osg::Vec4> InputPair;
+        std::map<size_t, InputPair> _input, _result;
+        int _maxWidth, _maxHeight, _dictIndex;
+    };
+
     /** Create a geometry with specified arrays */
     extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, osg::Vec2Array* ta,
                                          osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = true);
