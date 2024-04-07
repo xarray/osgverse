@@ -233,9 +233,9 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
                 }
                 else
                     OSG_WARN << "[TileOptimizer] Failed to map PagedLOD child file: "
-                    << fileName << " of index " << n << std::endl;
+                             << fileName << " of index " << n << std::endl;
             }
-            plodGroupMap[plodListString].push_back(plod);
+            if (!plodListString.empty()) plodGroupMap[plodListString].push_back(plod);
         }
     }
 
@@ -297,7 +297,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
 osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList)
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-#if false
+#if true
     GeometryMerger merger;
     osg::ref_ptr<osg::Geometry> result = merger.process(geomList);
     if (result.valid())

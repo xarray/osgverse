@@ -4,6 +4,8 @@
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <osgUtil/SmoothingVisitor>
+#include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 #include <iostream>
 
 #define STB_RECT_PACK_IMPLEMENTATION
@@ -272,14 +274,14 @@ void TexturePacker::removeElement(size_t id)
 
 osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult)
 {
-    stbrp_context context; int ptr = 0;
+    stbrp_context context; int ptr = 0, totalW = 0, totalH = 0;
     int maxSize = osg::maximum(_maxWidth, _maxHeight) * 2;
     stbrp_node* nodes = (stbrp_node*)malloc(sizeof(stbrp_node) * maxSize);
     if (nodes) memset(nodes, 0, sizeof(stbrp_node) * maxSize);
 
     stbrp_rect* rects = (stbrp_rect*)malloc(sizeof(stbrp_rect) * _input.size());
     for (std::map<size_t, InputPair>::iterator itr = _input.begin();
-            itr != _input.end(); ++itr, ++ptr)
+         itr != _input.end(); ++itr, ++ptr)
     {
         stbrp_rect& r = rects[ptr];
         InputPair& pair = itr->second;
@@ -294,13 +296,15 @@ osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult)
 
     osg::observer_ptr<osg::Image> validChild;
     for (std::map<size_t, InputPair>::iterator itr = _input.begin();
-            itr != _input.end(); ++itr, ++ptr)
+         itr != _input.end(); ++itr, ++ptr)
     {
         stbrp_rect& r = rects[ptr];
         InputPair& pair = itr->second;
         if (r.id != itr->first || !r.was_packed) continue;
 
         osg::Vec4 v(r.x, r.y, r.w, r.h);
+        if (totalW < (r.x + r.w)) totalW = r.x + r.w;
+        if (totalH < (r.y + r.h)) totalH = r.y + r.h;
         _result[itr->first] = InputPair(pair.first, v);
         if (pair.first.valid()) validChild = pair.first;
     }
@@ -310,21 +314,22 @@ osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult)
     osg::ref_ptr<osg::Image> total = new osg::Image;
     if (validChild.valid())
     {
-        total->allocateImage(_maxWidth, _maxHeight, 1,
+        total->allocateImage(totalW, totalH, 1,
             validChild->getPixelFormat(), validChild->getDataType());
         total->setInternalTextureFormat(validChild->getInternalTextureFormat());
     }
     else
-        total->allocateImage(_maxWidth, _maxHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+        total->allocateImage(totalW, totalH, 1, GL_RGBA, GL_UNSIGNED_BYTE);
 
     for (std::map<size_t, InputPair>::iterator itr = _result.begin();
-            itr != _result.end(); ++itr)
+         itr != _result.end(); ++itr)
     {
         InputPair& pair = itr->second;
         const osg::Vec4& r = itr->second.second;
         if (!pair.first.valid()) continue;
-        osg::copyImage(pair.first.get(), 0, 0, 0, r[2], r[3], 0,
-                        total.get(), r[0], r[1], 0);
+        if (!osg::copyImage(pair.first.get(), 0, 0, 0, r[2], r[3], 1,
+                            total.get(), r[0], r[1], 0))
+        { OSG_WARN << "[TexturePacker] Failed to copy image " << itr->first << std::endl; }
     }
     return total.release();
 }

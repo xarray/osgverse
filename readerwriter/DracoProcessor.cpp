@@ -239,7 +239,8 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
 
     osg::TriangleIndexFunctor<CollectFaceOperator> functor;
     if (geom) geom->accept(functor);
-    if (functor.triangles.empty()) return false;
+    if (functor.triangles.empty())
+    { OSG_WARN << "[DracoProcessor] No triangles to encode\n"; return false; }
 
     std::unique_ptr<draco::Mesh> mesh(new draco::Mesh());
     mesh->SetNumFaces(functor.triangles.size());
@@ -254,7 +255,7 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
     const osg::Array* na = geom->getNormalArray();
     const osg::Array* ca = geom->getColorArray();
     const osg::Array* ta = geom->getTexCoordArray(0);
-    if (!va || !ta) return false;
+    if (!va || !ta) { OSG_WARN << "[DracoProcessor] No vertex array to encode\n"; return false; }
     else mesh->set_num_points(va->getNumElements());
 
     int posAttrID = -1, uvAttrID = -1, normalAttrID = -1, colorAttrID = -1;
