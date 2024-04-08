@@ -239,7 +239,7 @@ protected:
             osg::PagedLOD* plod = new osg::PagedLOD;
             plod->setDatabasePath(prefix);
             plod->addChild(child0.valid() ? child0.get() : new osg::Node);
-            if (!child0)
+            if (!child0 && !uri.empty())
             {
                 OSG_WARN << "[ReaderWriter3dtiles] Missing rough-level child: "
                          << uri << ", result will be lack of certain tiles" << std::endl;

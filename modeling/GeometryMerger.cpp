@@ -107,6 +107,7 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
     }
 
     osg::ref_ptr<osg::Geometry> resultGeom = new osg::Geometry;
+    resultGeom->setStateSet(geomList[0]->getStateSet());
     resultGeom->setUseDisplayList(false);
     resultGeom->setUseVertexBufferObjects(true);
     resultGeom->setVertexArray(vaAll.get());

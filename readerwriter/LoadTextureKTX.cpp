@@ -259,6 +259,14 @@ namespace osgVerse
         {
             ktxTexture2* tex = (ktxTexture2*)texture;
             GLint glInternalformat = glGetInternalFormatFromVkFormat((VkFormat)tex->vkFormat);
+            switch (glInternalformat)  // FIXME: compressed SRGB DXT not working directly...
+            {
+            case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT: glInternalformat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT; break;
+            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT: glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT; break;
+            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT: glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT; break;
+            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; break;
+            }
+
             GLenum glFormat = compressed ? glInternalformat  /* Use compressed format */
                             : glGetFormatFromInternalFormat(glInternalformat);
             GLenum glType = glGetTypeFromInternalFormat(glInternalformat);
@@ -269,8 +277,7 @@ namespace osgVerse
                 return NULL;
             }
             else if (transcoded)
-            {
-                // FIXME: KTX1 transcoding?
+            {   // FIXME: KTX1 transcoding?
                 OSG_INFO << "[LoaderKTX] Transcoded format: internalFmt = " << std::hex
                          << glInternalformat << ", pixelFmt = " << glFormat << ", type = "
                          << glType << std::dec << std::endl;
