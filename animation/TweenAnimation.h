@@ -18,7 +18,7 @@ namespace osgVerse
 
         enum PlayingMode
         {
-            Forwarding = 0, Reversing, Looping,
+            Inherited = 0, Forwarding, Reversing, Looping,
             ReversedLooping, PingPong, Invalid
         };
 
@@ -42,7 +42,7 @@ namespace osgVerse
         bool getTimeProperty(const std::string& name, double& start, double& duration) const;
         std::vector<std::string> getAnimationNames() const;
 
-        bool play(const std::string& name, PlayingMode pm = Forwarding, TweenMode tw = NoTweening);
+        bool play(const std::string& name, PlayingMode pm = Inherited, TweenMode tw = NoTweening);
         bool seek(double timestamp, bool asTimeRatio = true);
         void stop() { _playingState = 0; }
         void pause();
@@ -77,16 +77,8 @@ namespace osgVerse
                          mode(Forwarding), direction(0) {}
         };
 
-        struct TimelineNode
-        {
-            std::string animationName;
-            double start, duration;
-            TimelineNode() : start(0.0), duration(0.0) {}
-        };
-
         typedef std::pair<osg::ref_ptr<osg::AnimationPath>, Property> Animation;
         std::map<std::string, Animation> _animations;
-        std::vector<TimelineNode> _timeline;  // TODO
 
         osg::ref_ptr<AnimationCallback> _animationCallback;
         std::string _currentName;

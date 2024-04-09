@@ -111,14 +111,15 @@ Our project is already tested on graphics cards listed as below:
 12. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
 13. osgVerse_Test_Thread: a test for using the Marl thread task scheduler along with osgViewer.
 14. osgVerse_Test_Volume_Rendering: a test for different methods to implement volume rendering.
-15. osgVerse_Test_MultiView_Shader: a test for using geometry shader to implement multi-view rendering.
-16. Deprecated tests:
+15. osgVerse_Test_Symbols: a test for displaying massive symbols with icons and texts.
+16. osgVerse_Test_Tween_Animation: a test for tween animations, like path and data-driven animations.
+17. Deprecated tests:
   - osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
   - osgVerse_Test_Obb_KDop: a quick test for creating a model's obb/kdop bounding volume.
   - osgVerse_Test_CubeRtt: a quick test for render-to-cubemap (6 faces) demonstaration.
   - osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x.
   - osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
-27. TBD...
+  - osgVerse_Test_MultiView_Shader: a test for using geometry shader to implement multi-view rendering.
 
 #### OSG-style Plugins
 1. osgdb_verse_ept: a plugin for massive point cloud paging and rendering based on Entwine.
@@ -129,13 +130,14 @@ Our project is already tested on graphics cards listed as below:
 6. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
 7. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
 8. osgdb_verse_tiff: a plugin for reading/writing TIFF files, which supports 2D/3D tiff files.
-9. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
-10. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
+9. osgdb_vese_tiles: a plugin for reading Cesium 3dtiles (.json) and Osgb files (metadata.xml, or just the root folder).
+10. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
+11. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.
   - Example input: model.fbx.D4,M1R1X2,N3.pbrlayout (Tex0 = Diffuse x 4, Tex1 = Metallic+Roughness, Tex2 = Normal)
   - All layouts will be converted to osgVerse standard: D4,N3,S4,O1R1M1,A3,E3
-11. TBD...
+12. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.

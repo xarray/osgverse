@@ -12,14 +12,14 @@ class EasingType : public osg::Referenced
 public:
     EasingType(double s, double e, TweenAnimation::TweenMode tm)
     {
-        duration = e - s; num = osg::minimum((int)duration / 1000, 1000);
+        duration = e - s; num = (duration > 0.0) ? osg::maximum(100 * (int)duration, 2000) : 1;
         if (tm == TweenAnimation::CubicInOut)
             tween = tweeny::from(s).to(e).during(num).via(tweeny::easing::cubicInOut);
         else
             tween = tweeny::from(s).to(e).during(num).via(tweeny::easing::linear);
     }
 
-    double value(double dt) { return tween.jump(dt * num / duration); }
+    double value(double dt) { return tween.peek((uint32_t)(dt * num / duration)); }
     tweeny::tween<double> tween; int num; double duration;
 };
 
@@ -119,7 +119,7 @@ void TweenAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
         Animation& animationPair = _animations.find(_currentName)->second;
         Property& prop = animationPair.second; bool atEnd = false;
         osg::AnimationPath* path = animationPair.first.get();
-        if (prop.mode == Forwarding)
+        if (prop.mode == Inherited)
         {
             if (path->getLoopMode() == osg::AnimationPath::LOOP) prop.mode = Looping;
             else if (path->getLoopMode() == osg::AnimationPath::SWING) prop.mode = PingPong;
@@ -155,16 +155,17 @@ void TweenAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
             if (timestamp >= endT) { timestamp = endT; _playingState = 0; atEnd = true; } break;
         }
 
+        double realTimestamp = timestamp;
         if (atEnd && _animationCallback.valid())
             _animationCallback->onEnd(this, _currentName, _playingState > 0);
         if (prop.easing.valid())
         {
             EasingType* easing = static_cast<EasingType*>(prop.easing.get());
-            timestamp = easing->value(timestamp - startT);
+            realTimestamp = easing->value(timestamp - startT);
         }
         
         osg::AnimationPath::ControlPoint cp;
-        if (path && getInterpolatedControlPoint(path, timestamp, cp))
+        if (path && getInterpolatedControlPoint(path, realTimestamp, cp))
         {
             if (!_animationCallback)
                 { AnimationPathVisitor apcv(cp, _pivotPoint, _useInverseMatrix); node->accept(apcv); }

@@ -3,6 +3,7 @@
 #include <osg/ValueObject>
 #include <osg/AnimationPath>
 #include <osg/Texture2D>
+#include <osg/Material>
 #include <osg/Geometry>
 #include <osgDB/ConvertUTF>
 #include <osgDB/FileNameUtils>
@@ -411,6 +412,18 @@ namespace osgVerse
                 ss->setTextureAttributeAndModes(i, tex2D);
             //ss->addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
         }
+
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
+        ofbx::Color dC = mtlData->getDiffuseColor(), sC = mtlData->getSpecularColor();
+        ofbx::Color aC = mtlData->getAmbientColor(), eC = mtlData->getEmissiveColor();
+
+        osg::ref_ptr<osg::Material> material = new osg::Material;
+        material->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(dC.r, dC.g, dC.b, 1.0f));
+        material->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(aC.r, aC.g, aC.b, 1.0f));
+        material->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(sC.r, sC.g, sC.b, 1.0f));
+        material->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(eC.r, eC.g, eC.b, 1.0f));
+        ss->setAttributeAndModes(material.get());
+#endif
     }
 
     class FindTransformVisitor : public osg::NodeVisitor
