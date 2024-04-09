@@ -10,8 +10,18 @@
 #define RESV "512"
 using namespace osgVerse;
 
+static osg::Texture2D* createParameterTable(osg::Image* image)
+{
+    osg::Texture2D* tex = new osg::Texture2D; tex->setImage(image);
+    tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+    tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+    tex->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
+    tex->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
+    tex->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f)); return tex;
+}
+
 SymbolManager::SymbolManager()
-    : _idCounter(0), _firstRun(true)
+    : _idCounter(0), _firstRun(true), _showIconsInMidDistance(true)
 {
     osg::Image* posImage = new osg::Image;
     posImage->allocateImage(RES, RES, 1, GL_RGBA, GL_FLOAT);
@@ -24,34 +34,31 @@ SymbolManager::SymbolManager()
     osg::Image* dirImage = new osg::Image;
     dirImage->allocateImage(RES, RES, 1, GL_RGBA, GL_FLOAT);
     dirImage->setInternalTextureFormat(GL_RGBA32F_ARB);
+    memset(dirImage->data(), 0, dirImage->getTotalSizeInBytes());
 
-    _posTexture = new osg::Texture2D;
-    _posTexture->setImage(posImage);
-    _posTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-    _posTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
-    _posTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
-    _posTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
-    _posTexture->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    osg::Image* dirImage2 = new osg::Image;
+    dirImage2->allocateImage(RES, RES, 1, GL_RGBA, GL_FLOAT);
+    dirImage2->setInternalTextureFormat(GL_RGBA32F_ARB);
+    memset(dirImage2->data(), 0, dirImage2->getTotalSizeInBytes());
 
-    _posTexture2 = new osg::Texture2D;
-    _posTexture2->setImage(posImage2);
-    _posTexture2->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-    _posTexture2->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
-    _posTexture2->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
-    _posTexture2->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
-    _posTexture2->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    osg::Image* emptyImage = new osg::Image;
+    emptyImage->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    memset(emptyImage->data(), 0, emptyImage->getTotalSizeInBytes());
 
-    _dirTexture = new osg::Texture2D;
-    _dirTexture->setImage(dirImage);
-    _dirTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-    _dirTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
-    _dirTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
-    _dirTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_BORDER);
-    _dirTexture->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    _posTexture = createParameterTable(posImage);
+    _posTexture2 = createParameterTable(posImage2);
+    _dirTexture = createParameterTable(dirImage);
+    _dirTexture2 = createParameterTable(dirImage2);
 
     _iconTexture = new osg::Texture2D; _iconTexture->setResizeNonPowerOfTwoHint(false);
     _iconTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
     _iconTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+    _iconTexture->setImage(emptyImage);
+
+    _bgIconTexture = new osg::Texture2D; _bgIconTexture->setResizeNonPowerOfTwoHint(false);
+    _bgIconTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+    _bgIconTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+    _bgIconTexture->setImage(emptyImage);
 
     _textTexture = new osg::Texture2D; _textTexture->setResizeNonPowerOfTwoHint(false);
     _textTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
@@ -273,18 +280,20 @@ void SymbolManager::initialize(osg::Group* group)
             const char* instanceVertShader2 = {
                 "#version 120\n"
                 "#extension GL_EXT_draw_instanced : enable\n"
-                "uniform sampler2D PosTexture;\n"
+                "uniform sampler2D PosTexture, DirTexture;\n"
                 "uniform vec3 Offset, Scale;\n"
-                "varying vec2 TexCoord;\n"
+                "varying vec2 TexCoord, TexCoordBG;\n"
                 "void main() {\n"
                 "    float r = float(gl_InstanceID) / " RESV ".0;\n"
                 "    float c = floor(r) / " RESV ".0; r = fract(r);\n"
                 "    vec4 pos = texture2D(PosTexture, vec2(r, c));\n"
+                "    vec4 dir = texture2D(DirTexture, vec2(r, c));\n"
                 "    mat4 proj = gl_ProjectionMatrix; float ar = proj[0][0] / proj[1][1];\n"
 
                 "    float tx = float(gl_InstanceID) * Scale.z;\n"
                 "    float ty = floor(tx) * Scale.z; tx = fract(tx);\n"
                 "    TexCoord = vec2(tx, ty) + gl_MultiTexCoord0.xy * Scale.z;\n"
+                "    TexCoordBG = gl_MultiTexCoord0.xy * dir.z + dir.xy;\n"
 
                 "    gl_FrontColor = vec4(1.0);\n"
                 "    vec4 v0 = vec4((gl_Vertex.xyz + Offset) * pos.w, 1.0);\n"
@@ -296,10 +305,13 @@ void SymbolManager::initialize(osg::Group* group)
 
             const char* instanceFragShader2 = {
                 "uniform sampler2D TextTexture;\n"
-                "varying vec2 TexCoord;\n"
+                "uniform sampler2D BackgroundTexture;\n"
+                "varying vec2 TexCoord, TexCoordBG;\n"
                 "void main() {\n"
-                "    vec4 baseColor = texture2D(TextTexture, TexCoord);\n"
-                "    gl_FragColor = baseColor * gl_Color;\n"
+                "    vec4 textColor = texture2D(TextTexture, TexCoord);\n"
+                "    vec4 bgColor = texture2D(BackgroundTexture, TexCoordBG);\n"
+                "    textColor = mix(bgColor, textColor, textColor.a);"
+                "    gl_FragColor = textColor * gl_Color;\n"
                 "}"
             };
 
@@ -311,9 +323,13 @@ void SymbolManager::initialize(osg::Group* group)
 
         // Apply default parameter textures
         ss->setTextureAttributeAndModes(0, _posTexture2.get());
-        ss->setTextureAttributeAndModes(1, _textTexture.get());
+        ss->setTextureAttributeAndModes(1, _dirTexture2.get());
+        ss->setTextureAttributeAndModes(2, _textTexture.get());
+        ss->setTextureAttributeAndModes(3, _bgIconTexture.get());
         ss->addUniform(new osg::Uniform("PosTexture", (int)0));
-        ss->addUniform(new osg::Uniform("TextTexture", (int)1));
+        ss->addUniform(new osg::Uniform("DirTexture", (int)1));
+        ss->addUniform(new osg::Uniform("TextTexture", (int)2));
+        ss->addUniform(new osg::Uniform("BackgroundTexture", (int)3));
         ss->addUniform(_midDistanceOffset.get());
         ss->addUniform(_midDistanceScale.get());
     }
@@ -324,12 +340,14 @@ void SymbolManager::initialize(osg::Group* group)
     geode1->addDrawable(_instanceGeom.get());
     geode1->setCullingActive(false);
     geode1->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    //geode1->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
     osg::Geode* geode2 = new osg::Geode;
     geode2->setName("SymbolTextBoardGeode");
     geode2->addDrawable(_instanceBoard.get());
     geode2->setCullingActive(false);
     geode2->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    geode2->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     group->addChild(geode1); group->addChild(geode2);
 }
 
@@ -354,11 +372,14 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
     osg::Vec4f* posHandle = (osg::Vec4f*)_posTexture->getImage()->data();
     osg::Vec4f* posHandle2 = (osg::Vec4f*)_posTexture2->getImage()->data();
     osg::Vec4f* dirHandle = (osg::Vec4f*)_dirTexture->getImage()->data();
+    osg::Vec4f* dirHandle2 = (osg::Vec4f*)_dirTexture2->getImage()->data();
     float lodScale0 = _lodIconScaleFactor[0] - _lodIconScaleFactor[1];
     float lodScale1 = _lodIconScaleFactor[1] - _lodIconScaleFactor[2];
+
     std::vector<Symbol*> texts;
+    std::map<double, std::vector<std::pair<Symbol*, osg::Vec4>>> symbolsInOrder;
     for (std::map<int, osg::ref_ptr<Symbol>>::iterator itr = _symbols.begin();
-         itr != _symbols.end(); ++itr)
+        itr != _symbols.end(); ++itr)
     {
         // Update state and eye-space position
         Symbol* sym = itr->second.get();
@@ -403,22 +424,35 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         }
 
         // TODO: when convert to FarClustered?
-        if (sym->state == Symbol::Hidden ||
-            sym->state == Symbol::NearDistance) continue;
+        if (sym->state == Symbol::Hidden || sym->state == Symbol::NearDistance) continue;
+        symbolsInOrder[distance].push_back(
+            std::pair<Symbol*, osg::Vec4>(sym, osg::Vec4(eyePos, (float)scale)));
 
-        // Save to parameter textures
         int y = itr->first / RES, x = itr->first % RES;
-        if (y < 0 || y > (RES - 1))
-        { OSG_WARN << "[SymbolManager] Data overflow!" << std::endl; break; }
+        if (y < 0 || y >(RES - 1)) { OSG_WARN << "[SymbolManager] Data overflow!" << std::endl; break; }
+    }
 
-        *(posHandle + numInstances) = osg::Vec4(eyePos, (float)scale);
-        *(dirHandle + numInstances) = osg::Vec4(sym->texTiling, sym->rotateAngle);
-        boundBox.expandBy(sym->position); numInstances++;
-
-        if (sym->state == Symbol::MidDistance)
+    std::map<double, std::vector<std::pair<Symbol*, osg::Vec4>>>::iterator itr;
+    for (itr = symbolsInOrder.begin(); itr != symbolsInOrder.end(); ++itr)
+    {
+        std::vector<std::pair<Symbol*, osg::Vec4>>& pairList = itr->second;
+        for (size_t n = 0; n < pairList.size(); ++n)
         {
-            *(posHandle2 + numInstances2) = osg::Vec4(eyePos, (float)scale);
-            texts.push_back(sym); numInstances2++;
+            Symbol* sym = pairList[n].first;
+            const osg::Vec4 posAndScale = pairList[n].second;
+
+            // Save to parameter textures
+            if (sym->state == Symbol::MidDistance)
+            {
+                *(posHandle2 + numInstances2) = posAndScale;
+                *(dirHandle2 + numInstances2) = osg::Vec4(sym->texTiling2, 1.0f);
+                texts.push_back(sym); numInstances2++;
+                if (!_showIconsInMidDistance) continue;
+            }
+
+            *(posHandle + numInstances) = posAndScale;
+            *(dirHandle + numInstances) = osg::Vec4(sym->texTiling, sym->rotateAngle);
+            boundBox.expandBy(sym->position); numInstances++;  // FarDistance
         }
     }
 
@@ -456,6 +490,7 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         _instanceBoard->setInitialBound(boundBox);
         _instanceBoard->getParent(0)->setNodeMask(0xffffffff);
         _posTexture2->getImage()->dirty();
+        _dirTexture2->getImage()->dirty();
 
         // Collect labels and recreate texture
         if (_drawGridCallback.valid())
