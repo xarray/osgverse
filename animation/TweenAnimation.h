@@ -19,7 +19,7 @@ namespace osgVerse
         enum PlayingMode
         {
             Inherited = 0, Forwarding, Reversing, Looping,
-            ReversedLooping, PingPong, Invalid
+            ReversedLooping, PingPong, DynamicData, Invalid
         };
 
         enum TweenMode
@@ -36,6 +36,9 @@ namespace osgVerse
         bool addAnimation(const std::string& name, osg::AnimationPath* path);
         bool removeAnimation(const std::string& name);
         bool setProperty(const std::string& name, float offset, float multiplier = 1.0f);
+
+        bool addControlPoint(const std::string& name, double time,
+                             const osg::AnimationPath::ControlPoint& cp, bool relativeToEnd = false);
 
         osg::AnimationPath* getAnimation(const std::string& name);
         PlayingMode getProperty(const std::string& name, float& offset, float& multiplier) const;
@@ -87,6 +90,17 @@ namespace osgVerse
         int _playingState;  // 0: idle, 1: playing, 2: paused
         bool _useInverseMatrix;
     };
+
+    /** Convenient methods to quick add and play a tween animation */
+    typedef void (*AnimationEndFunction)();
+    extern bool doAnimation(osg::Node* n, osg::AnimationPath* anim, AnimationEndFunction f = NULL,
+                            TweenAnimation::TweenMode tw = TweenAnimation::CubicInOut);
+    extern bool doMove(osg::Node* n, const osg::Vec3d& e, double duration, bool local = false, bool incr = false,
+                       AnimationEndFunction f = NULL, TweenAnimation::TweenMode tw = TweenAnimation::CubicInOut);
+    extern bool doRotate(osg::Node* n, const osg::Quat& e, double duration, bool local = false, bool incr = false,
+                         AnimationEndFunction f = NULL, TweenAnimation::TweenMode tw = TweenAnimation::CubicInOut);
+    extern bool doScale(osg::Node* n, const osg::Vec3d& e, double duration, bool local = false, bool incr = false,
+                        AnimationEndFunction f = NULL, TweenAnimation::TweenMode tw = TweenAnimation::CubicInOut);
 
 }
 

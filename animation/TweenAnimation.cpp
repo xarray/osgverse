@@ -5,6 +5,7 @@
 #include "3rdparty/tweeny/tweeny.h"
 #include "3rdparty/tweeny/easing.h"
 #include "TweenAnimation.h"
+#include <iostream>
 using namespace osgVerse;
 
 class EasingType : public osg::Referenced
@@ -152,7 +153,12 @@ void TweenAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
             break;
         default:
             timestamp += delta * prop.timeMultiplier;
-            if (timestamp >= endT) { timestamp = endT; _playingState = 0; atEnd = true; } break;
+            if (timestamp >= endT)
+            {
+                if (prop.mode != DynamicData) _playingState = 0;
+                timestamp = endT; atEnd = true;
+            }
+            break;
         }
 
         double realTimestamp = timestamp;
@@ -163,6 +169,7 @@ void TweenAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
             EasingType* easing = static_cast<EasingType*>(prop.easing.get());
             realTimestamp = easing->value(timestamp - startT);
         }
+        //std::cout << "State-" << _playingState << ": " << timestamp << " => " << realTimestamp << "\n";
         
         osg::AnimationPath::ControlPoint cp;
         if (path && getInterpolatedControlPoint(path, realTimestamp, cp))
@@ -194,6 +201,14 @@ bool TweenAnimation::setProperty(const std::string& name, float offset, float mu
     if (_animations.find(name) == _animations.end()) return false;
     Property& prop = _animations[name].second;
     prop.timeOffset = offset; prop.timeMultiplier = multiplier; return true;
+}
+
+bool TweenAnimation::addControlPoint(const std::string& name, double time,
+                                     const osg::AnimationPath::ControlPoint& cp, bool relativeToEnd)
+{
+    osg::AnimationPath* path = getAnimation(name); if (!path) return false;
+    double realT = relativeToEnd ? (path->getLastTime() + time) : time;
+    path->insert(realT, cp); return true;
 }
 
 osg::AnimationPath* TweenAnimation::getAnimation(const std::string& name)
@@ -236,7 +251,8 @@ bool TweenAnimation::play(const std::string& name, PlayingMode pm, TweenMode tw)
     double start = 0.0, duration = 0.0;
     if (getTimeProperty(_currentName, start, duration))
     {
-        prop.easing = (tw != NoTweening) ? new EasingType(start, start + duration, tw) : NULL;
+        prop.easing = (pm != DynamicData && tw != NoTweening)
+                    ? new EasingType(start, start + duration, tw) : NULL;
         if (pm == Reversing || pm == ReversedLooping)
             _currentAnimationTime = start + duration - prop.timeOffset;
     }
@@ -300,4 +316,90 @@ bool TweenAnimation::getInterpolatedControlPoint(osg::AnimationPath* path, doubl
     else // (second == controlMap.end())
         controlPoint = controlMap.rbegin()->second;
     return true;
+}
+
+namespace osgVerse
+{
+    struct QuickAnimationCallback : public TweenAnimation::AnimationCallback
+    {
+        virtual void onStart(TweenAnimation* anim, const std::string& name) {}
+        virtual void onEnd(TweenAnimation* anim, const std::string& name, bool toLoop)
+        { if (_endFunc != NULL) (*_endFunc)(); }
+
+        QuickAnimationCallback(AnimationEndFunction func) : _endFunc(func) {}
+        AnimationEndFunction _endFunc;
+    };
+
+    bool doAnimation(osg::Node* n, osg::AnimationPath* anim, AnimationEndFunction func,
+                     TweenAnimation::TweenMode tw)
+    {
+        osg::NodeCallback* cb = dynamic_cast<osg::NodeCallback*>(n ? n->getUpdateCallback() : NULL);
+        if (!n || !anim) return false;
+
+        TweenAnimation* tween = dynamic_cast<TweenAnimation*>(cb);
+        while (tween == NULL && cb != NULL)
+        {
+            cb = dynamic_cast<osg::NodeCallback*>(cb->getNestedCallback());
+            tween = dynamic_cast<TweenAnimation*>(cb);
+        }
+
+        if (tween == NULL) { tween = new TweenAnimation; n->addUpdateCallback(tween); }
+        tween->removeAnimation("quick"); tween->addAnimation("quick", anim);
+
+        QuickAnimationCallback* aniCB = dynamic_cast<QuickAnimationCallback*>(tween->getAnimationCallback());
+        if (aniCB != NULL) aniCB->_endFunc = func;
+        else tween->setAnimationCallback(new QuickAnimationCallback(func));
+        return tween->play("quick", TweenAnimation::Inherited, tw);
+    }
+
+    bool doMove(osg::Node* n, const osg::Vec3d& end, double duration, bool localSpace, bool incr,
+                AnimationEndFunction func, TweenAnimation::TweenMode tw)
+    {
+        osg::Vec3d start, scale; osg::Quat rot, so;
+        if (n != NULL && n->getNumParents() > 0)
+        {
+            osg::Matrix l2w = n->getWorldMatrices(localSpace ? n->getParent(0) : NULL)[0];
+            l2w.decompose(start, rot, scale, so);
+        }
+
+        osg::AnimationPath* path = new osg::AnimationPath;
+        path->setLoopMode(osg::AnimationPath::NO_LOOPING);
+        path->insert(0.0, osg::AnimationPath::ControlPoint(start, rot, scale));
+        path->insert(duration, osg::AnimationPath::ControlPoint(incr ? (start + end) : end, rot, scale));
+        return doAnimation(n, path, func, tw);
+    }
+
+    bool doRotate(osg::Node* n, const osg::Quat& end, double duration, bool localSpace, bool incr,
+                  AnimationEndFunction func, TweenAnimation::TweenMode tw)
+    {
+        osg::Vec3d pos, scale; osg::Quat start, so;
+        if (n != NULL && n->getNumParents() > 0)
+        {
+            osg::Matrix l2w = n->getWorldMatrices(localSpace ? n->getParent(0) : NULL)[0];
+            l2w.decompose(pos, start, scale, so);
+        }
+
+        osg::AnimationPath* path = new osg::AnimationPath;
+        path->setLoopMode(osg::AnimationPath::NO_LOOPING);
+        path->insert(0.0, osg::AnimationPath::ControlPoint(pos, start, scale));
+        path->insert(duration, osg::AnimationPath::ControlPoint(pos, incr ? (start * end) : end, scale));
+        return doAnimation(n, path, func, tw);
+    }
+
+    bool doScale(osg::Node* n, const osg::Vec3d& end, double duration, bool localSpace, bool incr,
+                 AnimationEndFunction func, TweenAnimation::TweenMode tw)
+    {
+        osg::Vec3d pos, start; osg::Quat rot, so;
+        if (n != NULL && n->getNumParents() > 0)
+        {
+            osg::Matrix l2w = n->getWorldMatrices(localSpace ? n->getParent(0) : NULL)[0];
+            l2w.decompose(pos, rot, start, so);
+        }
+
+        osg::AnimationPath* path = new osg::AnimationPath;
+        path->setLoopMode(osg::AnimationPath::NO_LOOPING);
+        path->insert(0.0, osg::AnimationPath::ControlPoint(pos, rot, start));
+        path->insert(duration, osg::AnimationPath::ControlPoint(pos, rot, incr ? (start + end) : end));
+        return doAnimation(n, path, func, tw);
+    }
 }
