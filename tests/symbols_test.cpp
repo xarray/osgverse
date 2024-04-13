@@ -71,6 +71,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     symManager->setMainCamera(viewer.getCamera());
     return viewer.run();

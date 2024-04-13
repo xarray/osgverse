@@ -25,7 +25,7 @@ GeometryMerger::GeometryMerger()
 GeometryMerger::~GeometryMerger()
 {}
 
-osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomList)
+osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomList, int maxTextureSize)
 {
     if (geomList.empty()) return NULL;
     else if (geomList.size() == 1) return geomList[0];
@@ -73,6 +73,10 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
 
         int totalW1 = osg::Image::computeNearestPowerOfTwo(totalW);
         int totalH1 = osg::Image::computeNearestPowerOfTwo(totalH);
+        if (totalW1 > (totalW * 1.5)) totalW1 = totalW1 / 2;
+        if (totalH1 > (totalH * 1.5)) totalH1 = totalH1 / 2;
+        if (totalW1 > maxTextureSize) totalW1 = maxTextureSize;
+        if (totalH1 > maxTextureSize) totalH1 = maxTextureSize;
         if (totalW1 != totalW || totalH1 != totalH) atlas->scaleImage(totalW1, totalH1, 1);
 
         size_t index0 = imageName.find("_L");

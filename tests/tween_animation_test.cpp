@@ -7,9 +7,11 @@
 #include <osgGA/TrackballManipulator>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+
+#include <animation/TweenAnimation.h>
+#include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
-#include <animation/TweenAnimation.h>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
@@ -39,16 +41,41 @@ osg::AnimationPath* createPath(const osg::Vec3d& pivot, const osg::Vec3d& axis, 
 
 int main(int argc, char** argv)
 {
+    // Default method to add a path animation
     osg::ref_ptr<osgVerse::TweenAnimation> tween = new osgVerse::TweenAnimation;
-    tween->addAnimation("default", createPath(osg::Vec3(), osg::Y_AXIS, 1.0f));
+    tween->addAnimation("default", createPath(osg::Vec3(), osg::Z_AXIS, 1.0f));
     tween->play("default", osgVerse::TweenAnimation::PingPong, osgVerse::TweenAnimation::CubicInOut);
 
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->addUpdateCallback(tween.get());
-    root->addChild(osgDB::readNodeFile("axes.osgt"));
+    osg::ref_ptr<osg::MatrixTransform> axesMT = new osg::MatrixTransform;
+    //axesMT->addUpdateCallback(tween.get());
+    axesMT->addChild(osgDB::readNodeFile("axes.osgt.10,10,10.scale"));
 
+    // A node for more interactive tests
+    osg::ref_ptr<osg::MatrixTransform> playerMT = new osg::MatrixTransform;
+    playerMT->addChild(osgDB::readNodeFile("cow.osgt"));
+
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    root->addChild(axesMT.get());
+    root->addChild(playerMT.get());
+
+    // Quick test convenient animation functions
+    osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
+    handler->addKeyUpCallback('s', [&](int key) {
+        osgVerse::doMove(playerMT.get(), osg::Vec3d(0.0, 0.0, -5.0), 1.0, false, true); });
+    handler->addKeyUpCallback('w', [&](int key) {
+        osgVerse::doMove(playerMT.get(), osg::Vec3d(0.0, 0.0, 5.0), 1.0, false, true); });
+    handler->addKeyUpCallback('a', [&](int key) {
+        osgVerse::doMove(playerMT.get(), osg::Vec3d(-5.0, 0.0, 0.0), 1.0, false, true); });
+    handler->addKeyUpCallback('d', [&](int key) {
+        osgVerse::doMove(playerMT.get(), osg::Vec3d(5.0, 0.0, 0.0), 1.0, false, true); });
+    handler->addKeyUpCallback('x', [&](int key) {
+        osgVerse::doMove(playerMT.get(), osg::Vec3d(0.0, 0.0, 0.0), 1.0, false, false,
+        []() { std::cout << "Back to home position." << std::endl; });
+    });
+
+    // Start the main loop
     osgViewer::Viewer viewer;
-    viewer.addEventHandler(new osgViewer::StatsHandler);
+    viewer.addEventHandler(handler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());

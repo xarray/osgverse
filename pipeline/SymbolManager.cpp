@@ -3,7 +3,7 @@
 #include <osg/ProxyNode>
 #include <osgDB/ConvertUTF>
 #include <osgDB/WriteFile>
-//#include <spatialindex/SpatialIndex.h>
+#include <spatialindex/SpatialIndex.h>
 #include "SymbolManager.h"
 
 #define RES 512

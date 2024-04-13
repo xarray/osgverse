@@ -13,6 +13,44 @@
 #include <iomanip>
 using namespace osgVerse;
 
+class ProcessThread : public OpenThreads::Thread
+{
+public:
+    ProcessThread(size_t id, TileOptimizer* opt) : _optimizer(opt), _id(id), _done(false) {}
+    bool done() const { return _done; }
+
+    void add(const std::string& name, const TileOptimizer::TileNameList& src)
+    { _sourceTiles.push_back(TileNamePair(name, src)); }
+
+    virtual void run()
+    {
+        while (!_done)
+        {
+            if (_sourceTiles.empty()) { _done = true; break; }
+            std::string outTileFolder = _sourceTiles[0].first;
+            TileOptimizer::TileNameList srcTiles = _sourceTiles[0].second;
+            _sourceTiles.erase(_sourceTiles.begin());
+
+            std::cout << outTileFolder << " is being processed at " << "Thread-" << _id
+                      << "... " << _sourceTiles.size() << " remains." << std::endl;
+            _optimizer->processTileFiles(outTileFolder, srcTiles);
+            OpenThreads::Thread::microSleep(50);
+        }
+    }
+
+    virtual int cancel()
+    {
+        _done = true;
+        return OpenThreads::Thread::cancel();
+    }
+
+protected:
+    typedef std::pair<std::string, TileOptimizer::TileNameList> TileNamePair;
+    std::vector<TileNamePair> _sourceTiles;
+    TileOptimizer* _optimizer;
+    size_t _id;  bool _done;
+};
+
 class FindPlodVisitor : public osg::NodeVisitor
 {
 public:
@@ -56,6 +94,7 @@ TileOptimizer::TileOptimizer(const std::string& outFolder, const std::string& ou
         char endChar = *_outFolder.rbegin();
         if (endChar != '/' && endChar != '\\') _outFolder += '/';
     }
+    _numThreads = 10; _withThreads = true;
 }
 
 TileOptimizer::~TileOptimizer()
@@ -119,6 +158,8 @@ bool TileOptimizer::processAdjacency(int adjacentX, int adjacentY)
     if (dstToSrcTileMap.empty()) return false;
     std::string adjX = "+" + std::to_string(adjacentX), adjY = "+" + std::to_string(adjacentY);
     char outSubFolder[1024] = ""; osgDB::makeDirectory(_outFolder);
+
+    std::vector<ProcessThread*> threads(_numThreads); size_t ptr = 0;
     for (std::map<osg::Vec2s, TileNameList>::iterator itr = dstToSrcTileMap.begin();
          itr != dstToSrcTileMap.end(); ++itr)
     {
@@ -129,7 +170,33 @@ bool TileOptimizer::processAdjacency(int adjacentX, int adjacentY)
         TileNameList& srcTiles = itr->second;
         std::string outTileFolder = std::string(outSubFolder) + '/';
         osgDB::makeDirectory(_outFolder + outTileFolder);
-        processTileFiles(outTileFolder, srcTiles);
+
+        if (_numThreads > 0)
+        {
+            size_t index = (ptr++) % _numThreads; ProcessThread* th = threads[index];
+            if (!th) { th = new ProcessThread(index, this); threads[index] = th; }
+            th->add(outTileFolder, srcTiles);  //processTileFiles(outTileFolder, srcTiles);
+        }
+        else
+            processTileFiles(outTileFolder, srcTiles);
+    }
+
+    int numCPUs = OpenThreads::GetNumberOfProcessors(); if (numCPUs < 1) numCPUs = 1;
+    for (size_t i = 0; i < _numThreads; ++i)
+    {
+        ProcessThread* th = threads[i]; if (th == NULL) continue;
+        th->setProcessorAffinity(i % numCPUs); th->start();
+    }
+
+    bool allThreadDone = false;
+    while (!allThreadDone)
+    {
+        allThreadDone = true;
+        for (size_t i = 0; i < _numThreads; ++i)
+        {
+            ProcessThread* th = threads[i]; if (!th) continue; else allThreadDone = false;
+            if (th->done()) { th->join(); delete th; threads[i] = NULL; }
+        }
     }
     return true;
 }
@@ -151,13 +218,14 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
         }
     }
 
-    // Start merging every level-set
+    // Merge every level-set, starting from the highest one
     std::map<std::string, std::string> plodNameMap;
     for (std::map<std::string, TileNameList>::reverse_iterator itr = levelToFileMap.rbegin();
          itr != levelToFileMap.rend(); ++itr)
     {
         TileNameList& tileFiles = itr->second;
         if (tileFiles.empty()) continue;
+        if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
         
         // Get output tile name
         std::string outTileName = outTileFolder, postfix = itr->first;
@@ -174,6 +242,7 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
             plodNameMap[tileFiles[i]] = outFileName;
             if (tile.valid()) loadedNodes.push_back(tile); 
         }
+        if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
 
         // Merge and generate new tile node
         osg::ref_ptr<osg::Node> newTile = mergeNodes(loadedNodes, plodNameMap);
@@ -246,6 +315,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
     {
         std::vector<osg::PagedLOD*>& plodList = itr->second;
         osg::PagedLOD* ref = plodList[0];
+        if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
 
         osg::BoundingSphere bs; std::vector<osg::Geometry*> geomList;
         for (size_t i = 0; i < plodList.size(); ++i)
@@ -263,7 +333,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         plod->setCenterMode(ref->getCenterMode());
         plod->setCenter(bs.center());
         plod->setRadius(bs.radius());
-        plod->addChild(mergeGeometries(geomList));
+        plod->addChild(mergeGeometries(geomList, false));
         for (size_t i = 0; i < ref->getNumFileNames(); ++i)
         {
             float minV = ref->getMinRange(i), maxV = ref->getMaxRange(i);
@@ -289,17 +359,18 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
             FindGeometryVisitor fgv; loadedNodes[i]->accept(fgv);
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
         }
-        if (!geomList.empty()) root->addChild(mergeGeometries(geomList));
+        if (!geomList.empty()) root->addChild(mergeGeometries(geomList, true));
+        if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
     }
     return (root->getNumChildren() > 0) ? root.release() : NULL;
 }
 
-osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList)
+osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList, bool isHighest)
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 #if true
     GeometryMerger merger;
-    osg::ref_ptr<osg::Geometry> result = merger.process(geomList);
+    osg::ref_ptr<osg::Geometry> result = merger.process(geomList, isHighest ? 4096 : 2048);
     if (result.valid())
     {
         osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*result);

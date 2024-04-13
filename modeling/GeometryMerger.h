@@ -15,7 +15,7 @@ namespace osgVerse
         GeometryMerger();
         ~GeometryMerger();
 
-        osg::Geometry* process(const std::vector<osg::Geometry*>& geomList);
+        osg::Geometry* process(const std::vector<osg::Geometry*>& geomList, int maxTextureSize);
 
     protected:
     };
