@@ -374,7 +374,7 @@ osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geo
     if (result.valid())
     {
         osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*result);
-        geode->addDrawable(result.get());
+        geode->addDrawable(geom2.get());
     }
 #else
     for (size_t i = 0; i < geomList.size(); ++i)
