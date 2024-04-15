@@ -34,6 +34,7 @@ IF(Qt5_FOUND)
                           Qt5::Core Qt5::Gui Qt5::Widgets Qt5::OpenGL)
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+    INSTALL(FILES $<TARGET_PDB_FILE:${EXE_NAME}> DESTINATION ${INSTALL_BINDIR} OPTIONAL)
 
 ELSEIF(Qt6_FOUND)
 
@@ -52,6 +53,10 @@ ELSEIF(Qt6_FOUND)
                           Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+
+    IF(MSVC AND VERSE_INSTALL_PDB_FILES)
+        INSTALL(FILES $<TARGET_PDB_FILE:${EXE_NAME}> DESTINATION ${INSTALL_BINDIR} OPTIONAL)
+    ENDIF()
 
 ELSE()
 

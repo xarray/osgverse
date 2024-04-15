@@ -123,7 +123,7 @@ void processFile(const std::string& prefix, const std::string& dirName,
 
 int main(int argc, char** argv)
 {
-#if true  // test osgb optimizer
+#if false  // test osgb optimizer
     if (argc == 1)
     {
         osgVerse::fixOsgBinaryWrappers();
@@ -158,11 +158,8 @@ int main(int argc, char** argv)
             const ghc::filesystem::path& file = itr.path();
             if (itr.is_directory())
             {
-                std::string dirName = file.filename().string(), rootTileName;
-                if (dirName.find("Tile") != dirName.npos || dirName.find("Block") != dirName.npos)
-                    rootTileName = prefix + dirName + "/" + dirName + ".osgb";
-                //else if (dirName.find("tile") != dirName.npos)
-                //    rootTileName = prefix + dirName + "/Data/Model/Model_with_transform.osgb";
+                std::string dirName = file.filename().string();
+                std::string rootTileName = prefix + dirName + "/" + dirName + ".osgb";
                 if (rootTileName.empty()) continue;
 
                 osgDB::DirectoryContents osgbFiles = osgDB::getDirectoryContents(prefix + dirName);
@@ -188,8 +185,10 @@ int main(int argc, char** argv)
                     plod->setRange(1, 0.0f, 150000.0f);
                     plod->setName(dirName);
                     root->addChild(plod.get());
+                    std::cout << dirName << " added..." << std::endl;
                 }
-                std::cout << dirName << " added...\n";
+                else
+                    std::cout << "[Error] no root tile: " << rootTileName << std::endl;
             }
         }
         osgDB::writeNodeFile(*root, outputFile);

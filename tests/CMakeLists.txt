@@ -25,6 +25,11 @@ MACRO(NEW_TEST_EXECUTABLE EXECUTABLE_NAME SOURCE_FILE)
     TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseReaderWriter osgVerseScript
                           osgVersePipeline osgVerseAnimation osgVerseModeling ${EXTERNAL_LIBRARIES})
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
+    IF(NOT VERSE_STATIC_BUILD)
+        IF(MSVC AND VERSE_INSTALL_PDB_FILES)
+            INSTALL(FILES $<TARGET_PDB_FILE:${EXE_NAME}> DESTINATION ${INSTALL_BINDIR} OPTIONAL)
+        ENDIF()
+    ENDIF()
 
 ENDMACRO(NEW_TEST_EXECUTABLE)
 
