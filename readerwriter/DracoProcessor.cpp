@@ -255,12 +255,12 @@ bool DracoProcessor::encodeDracoData(std::ostream& out, osg::Geometry* geom)
     const osg::Array* na = geom->getNormalArray();
     const osg::Array* ca = geom->getColorArray();
     const osg::Array* ta = geom->getTexCoordArray(0);
-    if (!va || !ta) { OSG_WARN << "[DracoProcessor] No vertex array to encode\n"; return false; }
+    if (!va) { OSG_WARN << "[DracoProcessor] No vertex array to encode\n"; return false; }
     else mesh->set_num_points(va->getNumElements());
 
     int posAttrID = -1, uvAttrID = -1, normalAttrID = -1, colorAttrID = -1;
     posAttrID = addGeometryAttribute(mesh.get(), draco::GeometryAttribute::POSITION, va);
-    uvAttrID = addGeometryAttribute(mesh.get(), draco::GeometryAttribute::TEX_COORD, ta);
+    if (ta) uvAttrID = addGeometryAttribute(mesh.get(), draco::GeometryAttribute::TEX_COORD, ta);
     if (na && geom->getNormalBinding() == osg::Geometry::BIND_PER_VERTEX)
         normalAttrID = addGeometryAttribute(mesh.get(), draco::GeometryAttribute::NORMAL, na);
     if (ca && geom->getColorBinding() == osg::Geometry::BIND_PER_VERTEX)

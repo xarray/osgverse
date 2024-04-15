@@ -337,9 +337,18 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         for (size_t i = 0; i < ref->getNumFileNames(); ++i)
         {
             float minV = ref->getMinRange(i), maxV = ref->getMaxRange(i);
-            if (i == 0) maxV *= 2.0f;
-            else if (i == ref->getNumFileNames() - 1) minV *= 2.0f;
-            else { minV *= 2.0f; maxV *= 2.0f; }
+            if (plod->getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT)
+            {
+                if (i == ref->getNumFileNames() - 1) maxV *= 0.5f;
+                else if (i == 0) minV *= 0.5f;
+                else { minV *= 0.5f; maxV *= 0.5f; }
+            }
+            else
+            {
+                if (i == 0) maxV *= 2.0f;
+                else if (i == ref->getNumFileNames() - 1) minV *= 2.0f;
+                else { minV *= 2.0f; maxV *= 2.0f; }
+            }
             plod->setRange(i, minV, maxV);
 
             std::string fileName = ref->getFileName(i);

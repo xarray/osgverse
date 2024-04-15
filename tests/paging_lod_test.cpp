@@ -160,13 +160,13 @@ int main(int argc, char** argv)
             {
                 std::string dirName = file.filename().string();
                 std::string rootTileName = prefix + dirName + "/" + dirName + ".osgb";
-                if (rootTileName.empty()) continue;
+                if (dirName.empty() || dirName[0] == '.') continue;
 
                 osgDB::DirectoryContents osgbFiles = osgDB::getDirectoryContents(prefix + dirName);
                 ThreadPool pool(std::thread::hardware_concurrency()); // Create a thread pool
                 for (size_t i = 0; i < osgbFiles.size(); ++i)
                 {
-                    std::string fileName = osgbFiles[i];
+                    std::string fileName = osgbFiles[i]; if (fileName.empty() || fileName[0] == '.') continue;
                     pool.enqueue([=]() { processFile(prefix, dirName, dbBase, fileName, savingToDB); });
                 }
 

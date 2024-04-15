@@ -213,6 +213,11 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     std::stringstream ss; if (!img->valid()) return NULL;
     if (img->isCompressed()) return NULL;
     if (img->getFileName().find("verse_ktx") != std::string::npos) return NULL;
+    if (img->s() < 4 || img->t() < 4) return NULL;
+
+    int w = osg::Image::computeNearestPowerOfTwo(img->s());
+    int h = osg::Image::computeNearestPowerOfTwo(img->t());
+    if (w != img->s() || h != img->t()) img->scaleImage(w, h, 1);
 
     switch (img->getInternalTextureFormat())
     {
