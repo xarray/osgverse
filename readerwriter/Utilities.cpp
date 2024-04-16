@@ -146,6 +146,7 @@ void TextureOptimizer::deleteSavedTextures()
         ghc::filesystem::path path = _savedTextures[i];
         ghc::filesystem::remove(path);
     }
+    ghc::filesystem::remove(_textureFolder);
 }
 
 void TextureOptimizer::apply(osg::Drawable& drawable)

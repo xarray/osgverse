@@ -2,6 +2,7 @@
 #include "DracoProcessor.h"
 #include "Utilities.h"
 #include "modeling/GeometryMerger.h"
+#include "nanoid/nanoid.h"
 #include <osg/PagedLOD>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
@@ -121,6 +122,9 @@ bool TileOptimizer::prepare(const std::string& inputFolder, const std::string& i
         std::string tileName = contents[i];
         osg::Vec2s tileNum = getNumberFromTileName(tileName, inRegex);
         if (tileNum.x() == SHRT_MAX || tileNum.y() == SHRT_MAX) continue;
+        OSG_NOTICE << "[TileOptimizer] Preparing tile folder " << tileName << ": Grid = "
+                   << tileNum[0] << "x" << tileNum[1] << std::endl;
+
         if (tileNum.x() < _minNum.x()) _minNum.x() = tileNum.x();
         if (tileNum.x() > _maxNum.x()) _maxNum.x() = tileNum.x();
         if (tileNum.y() < _minNum.y()) _minNum.y() = tileNum.y();
@@ -248,7 +252,7 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
         osg::ref_ptr<osg::Node> newTile = mergeNodes(loadedNodes, plodNameMap);
         if (newTile.valid())
         {
-            TextureOptimizer opt(true);
+            TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
             if (_withBasisu) newTile->accept(opt);
 
             osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
@@ -261,15 +265,16 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
 
 osg::Vec2s TileOptimizer::getNumberFromTileName(const std::string& name, const std::string& inRegex)
 {
-    std::vector<int> numbers; std::regex re(inRegex);
-    auto words_begin = std::sregex_iterator(name.begin(), name.end(), re);
-    auto words_end = std::sregex_iterator();
-    for (std::sregex_iterator it = words_begin; it != words_end; ++it)
-    {
-        std::smatch match = *it;
-        numbers.push_back(std::stoi(match.str()));
-    }
+    std::vector<int> numbers; std::string text = name;
+    while (text[0] >= '0' && text[0] <= '9')
+    { text.erase(text.begin()); if (text.empty()) break; }
 
+    std::regex re(inRegex); std::smatch results;
+    while (std::regex_search(text, results, re))
+    {
+        numbers.push_back(std::stoi(results[0]));
+        text = results.suffix().str();
+    }
     if (numbers.size() > 1) return osg::Vec2s(numbers[0], numbers[1]);
     else return osg::Vec2s(SHRT_MAX, SHRT_MAX);
 }
@@ -310,6 +315,12 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
 
     // Merge plod nodes and rough-level geometries
     osg::ref_ptr<osg::Group> root = new osg::Group;
+    if (!plodGroupMap.empty())
+    {
+        OSG_NOTICE << "[TileOptimizer] Merging " << plodGroupMap.size() << " paged LODs from "
+                   << loadedNodes.size() << " tile nodes" << std::endl;
+    }
+
     for (std::map<std::string, std::vector<osg::PagedLOD*>>::iterator itr = plodGroupMap.begin();
          itr != plodGroupMap.end(); ++itr)
     {
@@ -368,6 +379,9 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
             FindGeometryVisitor fgv; loadedNodes[i]->accept(fgv);
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
         }
+
+        OSG_NOTICE << "[TileOptimizer] Merging " << geomList.size() << " geometries from "
+                   << loadedNodes.size() << " leaf nodes" << std::endl;
         if (!geomList.empty()) root->addChild(mergeGeometries(geomList, true));
         if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
     }

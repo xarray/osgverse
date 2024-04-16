@@ -123,12 +123,13 @@ void processFile(const std::string& prefix, const std::string& dirName,
 
 int main(int argc, char** argv)
 {
-#if false  // test osgb optimizer
-    if (argc == 1)
+    osgVerse::fixOsgBinaryWrappers();
+#if true  // test osgb optimizer
+    if (argc > 3 && std::string(argv[1]) == "adj")
     {
-        osgVerse::fixOsgBinaryWrappers();
-        osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer("G:/OsgbData2");
-        if (!opt->prepare("G:/OsgbData")) { printf("Can't prepare for tiles\n"); return 1; }
+        std::string srcDir = std::string(argv[2]), dstDir = std::string(argv[3]);
+        osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer(dstDir);
+        if (!opt->prepare(srcDir)) { printf("Can't prepare for tiles\n"); return 1; }
         opt->processAdjacency(2, 2);
         return 0;
     }
@@ -146,10 +147,11 @@ int main(int argc, char** argv)
     // Benchmark of geometry & texture optimization:
     // Before: Data size: 419MB, CPU memory 185.7MB, GPU memory: 0.6GB
     // After : Data size: 154MB, CPU memory 150.1MB, GPU memory: 0.4GB
-    if (argc > 3)
+    osgViewer::Viewer viewer;
+    if (argc > 4 && std::string(argv[1]) == "opt")
     {
-        std::string prefix = std::string(argv[1]), dbBase = std::string(argv[2]);
-        std::string outputFile = std::string(argv[3]);
+        std::string prefix = std::string(argv[2]), dbBase = std::string(argv[3]);
+        std::string outputFile = std::string(argv[4]);
         bool savingToDB = (dbBase.find("leveldb://") != dbBase.npos);
 
         ghc::filesystem::path dir(prefix);
@@ -194,15 +196,21 @@ int main(int argc, char** argv)
         osgDB::writeNodeFile(*root, outputFile);
     }
     else if (argc > 1)
-        root->addChild(osgDB::readNodeFile(argv[1]));
+    {
+        osg::ArgumentParser arguments(&argc, argv);
+        float lodScale = 1.0f; arguments.read("--lod-scale", lodScale);
+        float smallPixel = 1.0f; arguments.read("--small", smallPixel);
+        viewer.getCamera()->setLODScale(lodScale);
+        viewer.getCamera()->setSmallFeatureCullingPixelSize(smallPixel);
+        root->addChild(osgDB::readNodeFiles(arguments));
+    }
     else
     {
-        std::cout << "Usage: " << argv[0] << " <input_osgb_path> <output_path> <total_file>\n";
+        std::cout << "Usage: " << argv[0] << " 'adj/opt' <input_osgb_path> <output_path> <total_file>\n";
         std::cout << "      To save to database, set <output_path> to 'leveldb://factory.db/'";
         return 1;
     }
 
-    osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getStateSet()));
