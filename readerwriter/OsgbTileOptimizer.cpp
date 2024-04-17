@@ -37,6 +37,7 @@ public:
             _optimizer->processTileFiles(outTileFolder, srcTiles);
             OpenThreads::Thread::microSleep(50);
         }
+        _done = true;
     }
 
     virtual int cancel()
@@ -222,8 +223,13 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
 
             osg::Vec3s tileNum = getNumberFromTileName(fileName, _inFormat);
             std::string levelName = std::to_string(tileNum[2]);
-            size_t pos = fileName.find(levelName, 2);
-            if (pos != std::string::npos) levelName = fileName.substr(pos);
+            size_t pos = fileName.find("L" + levelName, 2);
+            if (pos != std::string::npos) levelName = fileName.substr(pos + 1);
+            else
+            {
+                pos = fileName.find("_" + levelName, 2);
+                if (pos != std::string::npos) levelName = fileName.substr(pos + 1);
+            }
             levelToFileMap["L" + levelName].push_back(inTileFolder + fileName);
         }
     }
