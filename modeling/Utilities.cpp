@@ -1,4 +1,5 @@
 #include <osg/Version>
+#include <osg/io_utils>
 #include <osg/ImageUtils>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geometry>
@@ -300,7 +301,8 @@ osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult)
     {
         stbrp_rect& r = rects[ptr];
         InputPair& pair = itr->second;
-        if (r.id != itr->first || !r.was_packed) continue;
+        if (r.id != itr->first || !r.was_packed)
+        { OSG_NOTICE << "[TexturePacker] Bad packing element" << std::endl; continue; }
 
         osg::Vec4 v(r.x, r.y, r.w, r.h);
         if (totalW < (r.x + r.w)) totalW = r.x + r.w;

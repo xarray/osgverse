@@ -130,7 +130,7 @@ int main(int argc, char** argv)
         std::string srcDir = std::string(argv[2]), dstDir = std::string(argv[3]);
         osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer(dstDir);
         if (!opt->prepare(srcDir)) { printf("Can't prepare for tiles\n"); return 1; }
-        opt->processAdjacency(2, 2);
+        opt->setUseThreads(10); opt->processAdjacency(2, 2);
         return 0;
     }
 #endif

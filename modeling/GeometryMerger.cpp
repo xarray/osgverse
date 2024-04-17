@@ -2,6 +2,7 @@
 #include <osg/TriangleIndexFunctor>
 #include <osg/Texture2D>
 #include <osgDB/FileNameUtils>
+#include <osgDB/WriteFile>
 #include "GeometryMerger.h"
 #include "Utilities.h"
 using namespace osgVerse;
@@ -25,8 +26,10 @@ GeometryMerger::GeometryMerger()
 GeometryMerger::~GeometryMerger()
 {}
 
-osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomList, int maxTextureSize)
+osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomList,
+                                       size_t offset, size_t size, int maxTextureSize)
 {
+    if (size == 0) size = geomList.size() - offset;
     if (geomList.empty()) return NULL;
     else if (geomList.size() == 1) return geomList[0];
 
@@ -34,7 +37,8 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
     osg::ref_ptr<TexturePacker> packer = new TexturePacker(4096, 4096);
     std::map<size_t, size_t> geometryIdMap;
     std::string imageName; size_t numImages = 0;
-    for (size_t i = 0; i < geomList.size(); ++i)
+    size_t end = osg::minimum(offset + size, geomList.size());
+    for (size_t i = offset; i < end; ++i)
     {
         osg::StateSet* ss = geomList[i]->getStateSet();
         if (!ss) continue;
@@ -111,7 +115,8 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
     }
 
     osg::ref_ptr<osg::Geometry> resultGeom = new osg::Geometry;
-    resultGeom->setStateSet(geomList[0]->getStateSet());
+    resultGeom->setStateSet(static_cast<osg::StateSet*>(
+        geomList[0]->getStateSet()->clone(osg::CopyOp::DEEP_COPY_ALL)));
     resultGeom->setUseDisplayList(false);
     resultGeom->setUseVertexBufferObjects(true);
     resultGeom->setVertexArray(vaAll.get());
