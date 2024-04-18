@@ -25,6 +25,10 @@ USE_VERSE_PLUGINS()
 static osg::Group* loadBasicScene(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
+#if true
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    root->addChild(osgDB::readNodeFile("cow.osg"));
+#else
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
     if (!scene) scene = new osg::Group;
@@ -47,14 +51,19 @@ static osg::Group* loadBasicScene(int argc, char** argv)
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (argc == 1) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
+#endif
     return root.release();
 }
 
-osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* sharedScene)
+void OsgFramebufferObject::initializeScene()
 {
-    osg::ref_ptr<osg::Group> root = (sharedScene != NULL)
-                                  ? sharedScene : loadBasicScene(argc, argv);
+    osg::ref_ptr<osg::Group> root = loadBasicScene(0, NULL);
 
+#if true
+    _viewer = new osgViewer::Viewer;
+    _viewer->getCamera()->setViewport(0, 0, 640, 480);
+    _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());
+#else
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
     light0->setColor(osg::Vec3(4.0f, 4.0f, 3.8f));
@@ -68,17 +77,12 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
     // Start the pipeline, with camera assoicated with embedded Qt window
     static osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     _viewer = new MyViewer(pipeline.get());
-    _viewer->getCamera()->setViewport(0, 0, this->width(), this->height());
+    _viewer->getCamera()->setViewport(0, 0, 640, 480);
     _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());
 
     // Setup the pipeline
     _params = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png");
-#if true
     setupStandardPipeline(pipeline.get(), _viewer, _params);
-#else
-    std::ifstream ppConfig(SHADER_DIR "/standard_pipeline.json");
-    pipeline->load(ppConfig, _viewer);
-#endif
 
     // Setup shadow & light module
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
@@ -103,6 +107,7 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
         postCamera->addChild(skybox.get());
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
     }
+#endif
 
     // Start the embedded viewer
     _viewer->addEventHandler(new osgViewer::StatsHandler);
@@ -110,67 +115,18 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
     _viewer->setKeyEventSetsDone(0);
     _viewer->setSceneData(root.get());
     _viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
-    return root.get();
 }
-
-#if USE_QMAINWINDOW
-void MainWindow::addNewView()
-{
-    OsgSceneWidget* w = new OsgSceneWidget;
-    _sceneRoot = w->initializeScene(0, NULL, _sceneRoot.get());  // FIXME
-    connect(this, SIGNAL(updateRequired()), w, SLOT(update()));
-    _allocatedWidgets.push_back(w);
-
-    QDockWidget* dock = new QDockWidget(QObject::tr("OsgDock"), this);
-    dock->setAllowedAreas(Qt::DockWidgetArea::AllDockWidgetAreas);
-    dock->setWidget(w);
-    addDockWidget(Qt::DockWidgetArea::RightDockWidgetArea, dock);
-}
-
-void MainWindow::removeLastView()
-{
-    if (_allocatedWidgets.size() < 2) return;
-    OsgSceneWidget* w = _allocatedWidgets.back();
-    w->deleteLater();
-    _allocatedWidgets.pop_back();
-}
-#endif
 
 int main(int argc, char** argv)
 {
-    QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-    QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
     QApplication app(argc, argv);
+    qmlRegisterType<OsgFramebufferObject>("osgVerse", 1, 0, "OsgFramebufferObject");
 
-#if USE_QMAINWINDOW
-    MainWindow mw;
-    {
-        QMenu* menu = mw.menuBar()->addMenu(QObject::tr("&Operation"));
-        menu->addAction(QObject::tr("&Add View"), &mw, SLOT(addNewView()));
-        menu->addAction(QObject::tr("&Remove View"), &mw, SLOT(removeLastView()));
-    }
+    QQmlApplicationEngine engine;
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
+                     &app, [](QObject* obj, const QUrl& objUrl)
+    { if (!obj) QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 
-    mw.addNewView();
-    mw.setGeometry(50, 50, 1280, 720);
-    mw.show();
-#else
-    OsgSceneWidget w;
-    w.initializeScene(argc, argv);
-    w.setGeometry(50, 50, 1280, 720);
-    w.show();
-#endif
-
-    RenderingThread thread(&app);
-#if USE_QMAINWINDOW
-    app.connect(&thread, SIGNAL(updateRequired()), &mw, SIGNAL(updateRequired()));
-#else
-    app.connect(&thread, SIGNAL(updateRequired()), &w, SLOT(update()));
-#endif
-    app.connect(&app, SIGNAL(lastWindowClosed()), &thread, SLOT(setDone()));
-    app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
-
-    thread.start();
-    app.exec();
-    while (!thread.isFinished()) {}
-    return 0;
+    engine.load(QUrl(QStringLiteral("qrc:/qt_interface.qml")));
+    return app.exec();
 }

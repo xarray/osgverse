@@ -17,9 +17,24 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     ADD_SUBDIRECTORY(viewer)
     ADD_SUBDIRECTORY(viewer_composite)
     ADD_SUBDIRECTORY(earth_viewer)
-    IF(VERSE_BUILD_WITH_QT)
-        ADD_SUBDIRECTORY(qt_viewer)
-    ENDIF()
     ADD_SUBDIRECTORY(scene_editor)
+
+    IF(VERSE_BUILD_WITH_QT)
+        IF(DEFINED ENV{QT5_DIR})
+            SET(QT5_DIR $ENV{QT5_DIR})
+        ENDIF()
+
+        IF(DEFINED ENV{QT6_DIR})
+            SET(QT6_DIR $ENV{QT6_DIR})
+        ENDIF()
+
+        SET(CMAKE_AUTOMOC OFF)
+        FIND_PACKAGE(Qt5 COMPONENTS Core Gui Widgets OpenGL)
+        FIND_PACKAGE(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
+        #########################################
+
+        ADD_SUBDIRECTORY(qt_viewer)
+        ADD_SUBDIRECTORY(qml_viewer)
+    ENDIF()
 ENDIF()
 ADD_SUBDIRECTORY(sdl_es_viewer)
