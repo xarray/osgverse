@@ -109,7 +109,7 @@ namespace osgVerse
 
         /** Delaunay triangulation (with/without auto-detected boundaries and holes) */
         static std::vector<size_t> delaunayTriangulation(
-                const PointList2D& points, const EdgeList& edges);
+                const PointList2D& points, const EdgeList& edges, bool allowEdgeIntersection = false);
     };
 
 }

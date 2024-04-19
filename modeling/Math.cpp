@@ -492,10 +492,13 @@ bool GeometryAlgorithm::reorderPointsInPlane(PointList2D& proj)
 }
 
 std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
-        const PointList2D& points, const EdgeList& edges)
+        const PointList2D& points, const EdgeList& edges, bool allowEdgeIntersection)
 {
     if (points.size() < 3) return std::vector<size_t>();
-    CDT::Triangulation<double> cdt;
+    CDT::Triangulation<double> cdt(
+        CDT::VertexInsertionOrder::Auto,
+        allowEdgeIntersection ? CDT::IntersectingConstraintEdges::TryResolve
+                              : CDT::IntersectingConstraintEdges::NotAllowed, 0.0);
     try
     {
         cdt.insertVertices(

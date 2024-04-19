@@ -35,27 +35,12 @@ protected:
 class OsgFramebufferObjectRenderer : public QQuickFramebufferObject::Renderer
 {
 public:
-    OsgFramebufferObjectRenderer(osgViewer::Viewer* v) : _viewer(v) {}
-
-    virtual void render()
-    {
-        QOpenGLContext::currentContext()->functions()->glUseProgram(0);
-        if (_viewer.valid() && !_viewer->done()) _viewer->frame();
-    }
-
-    virtual QOpenGLFramebufferObject *createFramebufferObject(const QSize &size)
-    {
-        QOpenGLFramebufferObjectFormat format; format.setSamples(4);
-        format.setAttachment(QOpenGLFramebufferObject::CombinedDepthStencil);
-
-        QOpenGLFramebufferObject* fbo = new QOpenGLFramebufferObject(size, format);
-        osgViewer::GraphicsWindow* gw = static_cast<osgViewer::GraphicsWindow*>(
-            _viewer->getCamera()->getGraphicsContext());
-        if (gw) gw->setDefaultFboId(fbo->handle()); return fbo;
-    }
+    OsgFramebufferObjectRenderer(const QQuickFramebufferObject* fbo) : _fboParentItem(fbo) {}
+    virtual QOpenGLFramebufferObject* createFramebufferObject(const QSize &size);
+    virtual void render();
 
 protected:
-    osg::observer_ptr<osgViewer::Viewer> _viewer;
+    const QQuickFramebufferObject* _fboParentItem;
 };
 
 class OsgFramebufferObject : public QQuickFramebufferObject
@@ -65,10 +50,11 @@ public:
     OsgFramebufferObject(QQuickItem* parent = NULL);
 
     virtual QQuickFramebufferObject::Renderer* createRenderer() const
-    { return new OsgFramebufferObjectRenderer(_viewer.get()); }
+    { return new OsgFramebufferObjectRenderer(this); }
 
     virtual void initializeScene();
-    osgViewer::Viewer* getViewer() { return _viewer.get(); }
+    osgViewer::GraphicsWindow* getGraphicsWindow() const { return _graphicsWindow.get(); }
+    osgViewer::Viewer* getViewer() const { return _viewer.get(); }
 
 protected:
     virtual void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry);

@@ -25,10 +25,6 @@ USE_VERSE_PLUGINS()
 static osg::Group* loadBasicScene(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
-#if true
-    osg::ref_ptr<osg::Group> root = new osg::Group;
-    root->addChild(osgDB::readNodeFile("cow.osg"));
-#else
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
     if (!scene) scene = new osg::Group;
@@ -43,23 +39,20 @@ static osg::Group* loadBasicScene(int argc, char** argv)
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
-    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
-    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
+    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.(0.15,0.15,0.15).scale.0,0,-20.trans");
     if (otherSceneRoot.valid())
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, FORWARD_SCENE_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    if (argc == 1) root->addChild(otherSceneRoot.get());
+    if (argc < 2) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
-#endif
     return root.release();
 }
 
 void OsgFramebufferObject::initializeScene()
 {
     osg::ref_ptr<osg::Group> root = loadBasicScene(0, NULL);
-
-#if true
+#if false
     _viewer = new osgViewer::Viewer;
     _viewer->getCamera()->setViewport(0, 0, 640, 480);
     _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());

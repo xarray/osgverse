@@ -4,6 +4,33 @@
 #include "qt_header.h"
 extern osgGA::GUIEventAdapter::KeySymbol getKey(int key, const QString& value);
 
+QOpenGLFramebufferObject* OsgFramebufferObjectRenderer::createFramebufferObject(const QSize &size)
+{
+    QOpenGLFramebufferObjectFormat format; format.setSamples(4);
+    format.setAttachment(QOpenGLFramebufferObject::CombinedDepthStencil);
+
+    QOpenGLFramebufferObject* fbo = new QOpenGLFramebufferObject(size, format);
+    const OsgFramebufferObject* fboItem = qobject_cast<const OsgFramebufferObject*>(_fboParentItem);
+    if (fboItem && fboItem->getGraphicsWindow())
+        fboItem->getGraphicsWindow()->setDefaultFboId(fbo->handle());
+    return fbo;
+}
+
+void OsgFramebufferObjectRenderer::render()
+{
+    const OsgFramebufferObject* fboItem = qobject_cast<const OsgFramebufferObject*>(_fboParentItem);
+    QOpenGLContext::currentContext()->functions()->glUseProgram(0);
+    QOpenGLContext::currentContext()->functions()->glDisable(GL_BLEND);
+    QOpenGLContext::currentContext()->functions()->glDisable(GL_DEPTH_TEST);
+
+    if (fboItem && fboItem->getViewer())
+    {
+        osgViewer::Viewer* viewer = fboItem->getViewer();
+        if (!viewer->done()) viewer->frame();
+        fboItem->window()->resetOpenGLState();
+    }
+}
+
 OsgFramebufferObject::OsgFramebufferObject(QQuickItem* parent)
 :   QQuickFramebufferObject(parent), _lastModifiers(0)
 {
