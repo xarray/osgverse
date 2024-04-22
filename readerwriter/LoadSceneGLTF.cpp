@@ -630,6 +630,23 @@ namespace osgVerse
             withNames ? mesh.extras.Get("targetNames") : tinygltf::Value());
         return true;
     }
+	
+	osg::Texture2D* createDefaultTexture(const osg::Vec4& color)
+    {
+        osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+        image->setInternalTextureFormat(GL_RGBA);
+
+        osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
+        *ptr = osg::Vec4ub(color[0] * 255, color[1] * 255, color[2] * 255, color[3] * 255);
+
+        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
+        tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
+        tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
+        tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
+        tex2D->setImage(image.get()); return tex2D.release();
+    }
 
     void LoaderGLTF::createMaterial(osg::StateSet* ss, tinygltf::Material material)
     {
@@ -641,6 +658,15 @@ namespace osgVerse
         int occlusionID = material.occlusionTexture.index;
 
         if (baseID >= 0) createTexture(ss, 0, uniformNames[0], _modelDef.textures[baseID]);
+		else
+        {
+            osg::Texture2D* tex2D = createDefaultTexture(osg::Vec4(material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1],
+                material.pbrMetallicRoughness.baseColorFactor[2], material.pbrMetallicRoughness.baseColorFactor[3]));
+            if (tex2D)
+            {
+                ss->setTextureAttributeAndModes(0, tex2D);
+            }
+        }
         if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
         if (roughnessID >= 0) createTexture(ss, 3, uniformNames[3], _modelDef.textures[roughnessID]);
         if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);
