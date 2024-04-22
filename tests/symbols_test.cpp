@@ -29,20 +29,13 @@ int main(int argc, char** argv)
     drawer->finish();
     osgDB::writeImageFile(*drawer, "drawer.png");*/
 
-    const osg::Vec3 colors[9] = {
-        osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(1.0f, 1.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 1.0f),
-        osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec3(0.0f, 1.0f, 1.0f), osg::Vec3(0.0f, 0.0f, 1.0f),
-        osg::Vec3(1.0f, 0.0f, 0.5f), osg::Vec3(1.0f, 0.5f, 0.0f), osg::Vec3(0.5f, 0.0f, 1.0f)
-    };
-    osg::ref_ptr<osg::Image> iconAtlas = new osg::Image;
-    iconAtlas->allocateImage(3, 3, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    for (int x = 0; x < 3; ++x)
-        for (int y = 0; y < 3; ++y)
-            iconAtlas->setColor(osg::Vec4(colors[x + y * 3], 1.0f), x, y, 0);
+    osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(MISC_DIR "poi_icons.png");
+    osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(MISC_DIR "poi_textbg.png");
 
     osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
     symManager->setFontFileName(MISC_DIR "/SourceHanSansHWSC-Regular.otf");
     symManager->setIconAtlasImage(iconAtlas.get());
+    symManager->setTextBackgroundAtlasImage(textBgAtlas.get());
     symManager->setMidDistanceTextOffset(osg::Vec3(2.0f, 0.0f, -0.001f));
     symManager->setLodDistance(osgVerse::SymbolManager::LOD0, 100.0);
     symManager->setLodDistance(osgVerse::SymbolManager::LOD1, 20.0);
@@ -54,7 +47,8 @@ int main(int argc, char** argv)
             osgVerse::Symbol* s = new osgVerse::Symbol;
             s->position = osg::Vec3d(x - 5, y - 5, y - 5);
             s->rotateAngle = 0.0f;// osg::PI * rand() / (float)RAND_MAX;
-            s->texTiling = osg::Vec3((x % 3) / 3.0f, (y % 3) / 3.0f, 1.0f / 3.0f);
+            s->texTiling = osg::Vec3((x % 5) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
+            s->texTiling2 = osg::Vec3((x % 1) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
             s->name = "ID_" + std::to_string(x + y * 100);
             symManager->updateSymbol(s);
         }

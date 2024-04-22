@@ -596,6 +596,7 @@ osg::Image* SymbolManager::createGrid(int w, int h, int grid,
     _drawer->clear();
     //_drawer->fillBackground(osg::Vec4(0.5f, 0.5f, 0.5f, 0.8f));
 
+    float textSize = 30.0f;
     int stepW = w / grid, stepH = h / grid;
     size_t numText = texts.size();
     for (size_t j = 0; j < numText; ++j)
@@ -604,11 +605,11 @@ osg::Image* SymbolManager::createGrid(int w, int h, int grid,
         std::vector<std::string> lines;
         osgDB::split(texts[j]->name, lines, '\n');
 
-        float x = stepW * tx + 10.0f, y = stepH * ty + 30.0f;
+        float x = stepW * tx + 30.0f, y = stepH * ty + (stepH + textSize) * 0.5f;
         for (size_t i = 0; i < lines.size(); ++i)
         {
             std::wstring t = osgDB::convertUTF8toUTF16(lines[i]);
-            _drawer->drawText(osg::Vec2(x, y + i * 40.0f), 30.0f, t, "",
+            _drawer->drawText(osg::Vec2(x, y + i * stepH), textSize, t, "",
                               Drawer2D::StyleData(color, true));
         }
     }
