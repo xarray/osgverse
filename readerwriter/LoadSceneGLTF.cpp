@@ -631,7 +631,7 @@ namespace osgVerse
         return true;
     }
 	
-	osg::Texture2D* createDefaultTexture(const osg::Vec4& color)
+	static osg::Texture2D* createDefaultTextureForColor(const osg::Vec4& color)
     {
         osg::ref_ptr<osg::Image> image = new osg::Image;
         image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
@@ -657,16 +657,16 @@ namespace osgVerse
         int emissiveID = material.emissiveTexture.index;
         int occlusionID = material.occlusionTexture.index;
 
-        if (baseID >= 0) createTexture(ss, 0, uniformNames[0], _modelDef.textures[baseID]);
-		else
+        if (baseID >= 0)
+            createTexture(ss, 0, uniformNames[0], _modelDef.textures[baseID]);
+        else
         {
-            osg::Texture2D* tex2D = createDefaultTexture(osg::Vec4(material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1],
+            osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
+                material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1],
                 material.pbrMetallicRoughness.baseColorFactor[2], material.pbrMetallicRoughness.baseColorFactor[3]));
-            if (tex2D)
-            {
-                ss->setTextureAttributeAndModes(0, tex2D);
-            }
+            if (tex2D) ss->setTextureAttributeAndModes(0, tex2D);
         }
+
         if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
         if (roughnessID >= 0) createTexture(ss, 3, uniformNames[3], _modelDef.textures[roughnessID]);
         if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);

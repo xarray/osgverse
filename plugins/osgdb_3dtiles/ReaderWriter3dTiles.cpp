@@ -10,7 +10,6 @@
 #include <osgDB/WriteFile>
 
 #include "3rdparty/rapidxml/rapidxml.hpp"
-#include "3rdparty/nanoid/nanoid.h"
 #include "3rdparty/picojson.h"
 #include <iostream>
 #include <fstream>
@@ -91,6 +90,7 @@ public:
         else
         {
             std::ifstream fin(fileName.c_str());
+            localOptions->setPluginStringData("simple_name", osgDB::getStrippedName(fileName));
             localOptions->setPluginStringData("extension", ext);
             return (!fin) ? ReadResult::FILE_NOT_FOUND : readNode(fin, localOptions.get());
         }
@@ -126,7 +126,8 @@ public:
             picojson::value& root = document.get("root");
             if (root.is<picojson::object>())
             {
-                osg::ref_ptr<osg::Node> node = createTile(root, prefix);
+                std::string name = options ? options->getPluginStringData("simple_name") : "";
+                osg::ref_ptr<osg::Node> node = createTile(root, prefix, name);
                 //osgDB::writeNodeFile(*node, prefix + "/root.osg");
                 if (node.valid()) return node;
             }
@@ -174,7 +175,7 @@ protected:
         return tileProxy.release();
     }
 
-    osg::Node* createTile(picojson::value& root, const std::string& prefix) const
+    osg::Node* createTile(picojson::value& root, const std::string& prefix, const std::string& name) const
     {
         picojson::value& bound = root.get("boundingVolume");
         picojson::value& content = root.get("content");
@@ -190,7 +191,7 @@ protected:
 
         std::string st = rangeSt.is<std::string>() ? rangeSt.get<std::string>() : "";
         osg::BoundingSphered bs = getBoundingSphere(bound);
-        osg::ref_ptr<osg::Node> tile = createTile(content, children, bs, range, st, prefix);
+        osg::ref_ptr<osg::Node> tile = createTile(content, children, bs, range, st, prefix, name);
 
         if (trans.is<picojson::array>())
         {
@@ -213,7 +214,7 @@ protected:
         osg::Group* group = new osg::Group;
         for (size_t i = 0; i < children.size(); ++i)
         {
-            osg::ref_ptr<osg::Node> child = createTile(children[i], prefix);
+            osg::ref_ptr<osg::Node> child = createTile(children[i], prefix, name);
             if (child.valid()) group->addChild(child.get());
         }
         //osgDB::writeNodeFile(*group, prefix + "/" + name + ".osg");
@@ -221,11 +222,11 @@ protected:
     }
 
     osg::Node* createTile(picojson::value& content, picojson::value& children,
-                          const osg::BoundingSphered& bound, double range,
-                          const std::string& st, const std::string& prefix) const
+                          const osg::BoundingSphered& bound, double range, const std::string& st,
+                          const std::string& prefix, const std::string& name) const
     {
         std::string uri = (content.is<picojson::object>() && content.contains("uri"))
-                        ? content.get("uri").to_str() : "";
+                         ? content.get("uri").to_str() : "";
         std::string ext = osgDB::getFileExtension(uri);
         if (!uri.empty() && !osgDB::isAbsolutePath(uri))
             uri = prefix + osgDB::getNativePathSeparator() + uri;
@@ -246,15 +247,24 @@ protected:
             }
 
             // Put <children> to a virtual file with options to fit OSG's LOD structure
+            osgDB::StringList parts; osgDB::split(name, parts, '-');
             osgDB::Options* opt = new osgDB::Options(children.serialize());
             plod->setDatabaseOptions(opt);
-            plod->setFileName(1, nanoid::generate(8) + ".children.verse_tiles");
+            plod->setFileName(1, name + "-" + std::to_string(parts.size()) + ".children.verse_tiles");
 
-            if (bound.valid())
+            if (child0.valid())
             {
+                osg::BoundingSphered bound2;// = bound;  // FIXME: some <boundingVolume> too far away?
+                osg::BoundingSphere bound0 = child0->getBound();
+                bound2.expandBy(osg::BoundingSphered(bound0.center(), bound0.radius()));
+
                 plod->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
-                plod->setCenter(bound.center());
-                plod->setRadius(bound.radius());
+                plod->setCenter(bound2.center()); plod->setRadius(bound2.radius());
+            }
+            else if (bound.valid())
+            {
+                plod->setCenterMode(osg::LOD::USER_DEFINED_CENTER);
+                plod->setCenter(bound.center()); plod->setRadius(bound.radius());
             }
             else
                 OSG_WARN << "[ReaderWriter3dtiles] Missing <boundingVolume>?" << std::endl;
