@@ -124,16 +124,20 @@ void processFile(const std::string& prefix, const std::string& dirName,
 int main(int argc, char** argv)
 {
     osgVerse::fixOsgBinaryWrappers();
-#if true  // test osgb optimizer
     if (argc > 3 && std::string(argv[1]) == "adj")
     {
         std::string srcDir = std::string(argv[2]), dstDir = std::string(argv[3]);
         osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer(dstDir);
         if (!opt->prepare(srcDir)) { printf("Can't prepare for tiles\n"); return 1; }
-        opt->setUseThreads(10); opt->processAdjacency(2, 2);
-        return 0;
+        opt->setUseThreads(10); opt->processAdjacency(2, 2); return 0;
     }
-#endif
+    else if (argc > 3 && std::string(argv[1]) == "top")
+    {
+        std::string srcDir = std::string(argv[2]), dstDir = std::string(argv[3]);
+        osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer(dstDir);
+        if (!opt->prepare(srcDir)) { printf("Can't prepare for tiles\n"); return 1; }
+        opt->setUseThreads(10); opt->processGroundLevel(2, 2); return 0;
+    }
 
 #ifndef OSG_LIBRARY_STATIC
     osgDB::Registry::instance()->loadLibrary(

@@ -4,10 +4,12 @@
 #include "modeling/GeometryMerger.h"
 #include "nanoid/nanoid.h"
 #include <osg/PagedLOD>
+#include <osg/ProxyNode>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+#include <osgUtil/Simplifier>
 #include <vector>
 #include <regex>
 #include <limits>
@@ -41,10 +43,7 @@ public:
     }
 
     virtual int cancel()
-    {
-        _done = true;
-        return OpenThreads::Thread::cancel();
-    }
+    { _done = true; return OpenThreads::Thread::cancel(); }
 
 protected:
     typedef std::pair<std::string, TileOptimizer::TileNameList> TileNamePair;
@@ -114,76 +113,186 @@ bool TileOptimizer::prepare(const std::string& inputFolder, const std::string& i
     else return false;
 
     osgDB::DirectoryContents contents = osgDB::getDirectoryContents(_inFolder);
-    _minNum.set(SHRT_MAX, SHRT_MAX); _maxNum.set(-SHRT_MAX, -SHRT_MAX);
-    _srcNumberMap.clear(); _srcToDstTileMap.clear(); _inFormat = inRegex;
+    _srcNumberMap.clear(); _inFormat = inRegex;
 
     // Collect all tiles
     for (size_t i = 0; i < contents.size(); ++i)
     {
-        std::string tileName = contents[i];
-        osg::Vec3s tileNum = getNumberFromTileName(tileName, inRegex);
+        std::string tileName = contents[i], tilePrefix;
+        osg::Vec3s tileNum = getNumberFromTileName(tileName, inRegex, &tilePrefix);
         if (tileNum.x() == SHRT_MAX || tileNum.y() == SHRT_MAX) continue;
-        OSG_NOTICE << "[TileOptimizer] Preparing tile folder " << tileName << ": Grid = "
-                   << tileNum[0] << "x" << tileNum[1] << std::endl;
 
-        if (tileNum.x() < _minNum.x()) _minNum.x() = tileNum.x();
-        if (tileNum.x() > _maxNum.x()) _maxNum.x() = tileNum.x();
-        if (tileNum.y() < _minNum.y()) _minNum.y() = tileNum.y();
-        if (tileNum.y() > _maxNum.y()) _maxNum.y() = tileNum.y();
-        _srcNumberMap[osg::Vec2s(tileNum.x(), tileNum.y())] = tileName;
+        OSG_NOTICE << "[TileOptimizer] Preparing tile folder " << tileName << ": Grid = "
+                   << tileNum[0] << "x" << tileNum[1] << ", Prefix = " << tilePrefix << std::endl;
+        if (_minMaxMap.find(tilePrefix) == _minMaxMap.end())
+        {
+            _minMaxMap[tilePrefix] = std::pair<osg::Vec2s, osg::Vec2s>(
+                osg::Vec2s(SHRT_MAX, SHRT_MAX), osg::Vec2s(-SHRT_MAX, -SHRT_MAX));
+        }
+
+        std::pair<osg::Vec2s, osg::Vec2s>& minMax = _minMaxMap[tilePrefix];
+        if (tileNum.x() < minMax.first.x()) minMax.first.x() = tileNum.x();
+        if (tileNum.x() > minMax.second.x()) minMax.second.x() = tileNum.x();
+        if (tileNum.y() < minMax.first.y()) minMax.first.y() = tileNum.y();
+        if (tileNum.y() > minMax.second.y()) minMax.second.y() = tileNum.y();
+        _srcNumberMap[tilePrefix][osg::Vec2s(tileNum.x(), tileNum.y())] = tileName;
+    }
+    return true;
+}
+
+bool TileOptimizer::processGroundLevel(int combinedX, int combinedY, const std::string& subDir)
+{
+    osgDB::makeDirectory(_outFolder); osgDB::makeDirectory(_outFolder + subDir);
+    for (std::map<std::string, NumberMap>::iterator itr = _srcNumberMap.begin();
+         itr != _srcNumberMap.end(); ++itr)
+    {
+        const std::string& tilePrefix = itr->first;
+        const std::pair<osg::Vec2s, osg::Vec2s>& minMax = _minMaxMap[tilePrefix];
+        const osg::Vec2s& minNum = minMax.first, maxNum = minMax.second;
+
+        NumberMap& srcNumberMap = itr->second;
+        std::map<osg::Vec2s, TileNameList> dstToSrcTileMap;
+        if ((maxNum.x() - minNum.x()) < 1 && (maxNum.y() - minNum.y()) < 1) continue;
+
+        // Get map of source-tile list and destination tile
+        for (short y = minNum.y(); y <= maxNum.y(); y += combinedY)
+        {
+            for (short x = minNum.x(); x <= maxNum.x(); x += combinedX)
+            {
+                osg::Vec2s numD(x, y); TileNameList& tList = dstToSrcTileMap[numD];
+                for (short dy = 0; dy < combinedY; ++dy)
+                    for (short dx = 0; dx < combinedX; ++dx)
+                    {
+                        osg::Vec2s numS(x + dx, y + dy);
+                        if (srcNumberMap.find(numS) == srcNumberMap.end()) continue;
+                        tList.push_back(srcNumberMap[numS]);
+                    }
+                if (tList.empty()) dstToSrcTileMap.erase(numD);
+            }
+        }
+
+        // Handle first combinations
+        typedef std::pair<std::string, osg::ref_ptr<osg::Node>> NameAndRoughLevel;
+        std::map<osg::Vec2s, NameAndRoughLevel> combination; char outSubName[1024] = "";
+        std::string outFormat = tilePrefix + _outFormat; if (dstToSrcTileMap.empty()) continue;
+        for (std::map<osg::Vec2s, TileNameList>::iterator itr2 = dstToSrcTileMap.begin();
+             itr2 != dstToSrcTileMap.end(); ++itr2)
+        {
+            std::string dstX = tileNumberToString(itr2->first.x()) + "_D" + std::to_string(combinedX);
+            std::string dstY = tileNumberToString(itr2->first.y()) + "_D" + std::to_string(combinedY);
+            snprintf(outSubName, 1024, outFormat.c_str(), dstX.data(), dstY.data());
+
+            TileNameList& srcTiles = itr2->second; TileNameAndRoughList srcTiles2;
+            for (size_t n = 0; n < srcTiles.size(); ++n)
+                srcTiles2.push_back(NameAndRoughLevel(srcTiles[n], NULL));
+
+            std::string outFileName = subDir + "/" + outSubName + ".osgb";
+            osg::ref_ptr<osg::Node> rough = processTopTileFiles(outFileName, false, srcTiles2);
+            combination[itr2->first] = NameAndRoughLevel(outFileName, rough);
+        }
+
+        // Loop combination until the top
+        bool isRootNode = false;
+        while (!isRootNode)
+        {
+            std::map<osg::Vec2s, TileNameAndRoughList> dstToSrcTileMap2;
+            combinedX *= 2; combinedY *= 2;
+            for (short y = minNum.y(); y <= maxNum.y(); y += combinedY)
+            {
+                for (short x = minNum.x(); x <= maxNum.x(); x += combinedX)
+                {
+                    osg::Vec2s numD(x, y);
+                    std::vector<NameAndRoughLevel>& tList = dstToSrcTileMap2[numD];
+                    for (short dy = 0; dy < combinedY; ++dy)
+                        for (short dx = 0; dx < combinedX; ++dx)
+                        {
+                            osg::Vec2s numS(x + dx, y + dy);
+                            if (combination.find(numS) == combination.end()) continue;
+                            tList.push_back(combination[numS]);
+                        }
+                    if (tList.empty()) dstToSrcTileMap2.erase(numD);
+                }
+            }
+
+            // Handle new combinations
+            if (dstToSrcTileMap2.size() < 2) isRootNode = true; combination.clear();
+            for (std::map<osg::Vec2s, TileNameAndRoughList>::iterator itr2 = dstToSrcTileMap2.begin();
+                 itr2 != dstToSrcTileMap2.end(); ++itr2)
+            {
+                std::string dstX = tileNumberToString(itr2->first.x()) + "_D" + std::to_string(combinedX);
+                std::string dstY = tileNumberToString(itr2->first.y()) + "_D" + std::to_string(combinedY);
+                snprintf(outSubName, 1024, outFormat.c_str(), dstX.data(), dstY.data());
+
+                TileNameAndRoughList& srcTiles = itr2->second;
+                std::string outFileName = isRootNode ? (tilePrefix + "root.osgb")
+                                        : (subDir + "/" + outSubName + ".osgb");
+                osg::ref_ptr<osg::Node> rough = processTopTileFiles(outFileName, isRootNode, srcTiles);
+                combination[itr2->first] = NameAndRoughLevel(outFileName, rough);
+            }
+        }
     }
     return true;
 }
 
 bool TileOptimizer::processAdjacency(int adjacentX, int adjacentY)
 {
-    std::map<osg::Vec2s, TileNameList> dstToSrcTileMap;
-    if ((_maxNum.x() - _minNum.x()) < 1 && (_maxNum.y() - _minNum.y()) < 1) return false;
+    std::string adjX, adjY; adjX.resize(adjacentX); adjY.resize(adjacentY);
+    std::fill(adjX.begin(), adjX.end(), 'x'); std::fill(adjY.begin(), adjY.end(), 'y');
     if (adjacentX < 1 || adjacentY < 1) return false;
 
-    // Get map of source-tile list and destination tile
-    for (short y = _minNum.y(); y <= _maxNum.y(); y += adjacentY)
-    {
-        for (short x = _minNum.x(); x <= _maxNum.x(); x += adjacentX)
-        {
-            osg::Vec2s numD(x, y); TileNameList& tList = dstToSrcTileMap[numD];
-            for (short dy = 0; dy < adjacentY; ++dy)
-                for (short dx = 0; dx < adjacentX; ++dx)
-                {
-                    osg::Vec2s numS(x + dx, y + dy);
-                    if (_srcNumberMap.find(numS) == _srcNumberMap.end()) continue;
-                    const std::string& srcTile = _srcNumberMap[numS];
-                    _srcToDstTileMap[srcTile] = numD; tList.push_back(srcTile);
-                }
-            if (tList.empty()) dstToSrcTileMap.erase(numD);
-        }
-    }
-
-    // Process the map to merge source tiles and generate destination folder;
-    if (dstToSrcTileMap.empty()) return false;
-    std::string adjX = "+" + std::to_string(adjacentX), adjY = "+" + std::to_string(adjacentY);
     char outSubFolder[1024] = ""; osgDB::makeDirectory(_outFolder);
-
     std::vector<ProcessThread*> threads(_numThreads); size_t ptr = 0;
-    for (std::map<osg::Vec2s, TileNameList>::iterator itr = dstToSrcTileMap.begin();
-         itr != dstToSrcTileMap.end(); ++itr)
+    for (std::map<std::string, NumberMap>::iterator itr = _srcNumberMap.begin();
+        itr != _srcNumberMap.end(); ++itr)
     {
-        std::string dstX = tileNumberToString(itr->first.x()) + adjX;
-        std::string dstY = tileNumberToString(itr->first.y()) + adjY;
-        snprintf(outSubFolder, 1024, _outFormat.c_str(), dstX.data(), dstY.data());
+        const std::string& tilePrefix = itr->first;
+        const std::pair<osg::Vec2s, osg::Vec2s>& minMax = _minMaxMap[tilePrefix];
+        const osg::Vec2s& minNum = minMax.first, maxNum = minMax.second;
 
-        TileNameList& srcTiles = itr->second;
-        std::string outTileFolder = std::string(outSubFolder) + '/';
-        osgDB::makeDirectory(_outFolder + outTileFolder);
+        NumberMap& srcNumberMap = itr->second;
+        std::map<osg::Vec2s, TileNameList> dstToSrcTileMap;
+        if ((maxNum.x() - minNum.x()) < 1 && (maxNum.y() - minNum.y()) < 1) continue;
 
-        if (_numThreads > 0)
+        // Get map of source-tile list and destination tile
+        for (short y = minNum.y(); y <= maxNum.y(); y += adjacentY)
         {
-            size_t index = (ptr++) % _numThreads; ProcessThread* th = threads[index];
-            if (!th) { th = new ProcessThread(index, this); threads[index] = th; }
-            th->add(outTileFolder, srcTiles);  //processTileFiles(outTileFolder, srcTiles);
+            for (short x = minNum.x(); x <= maxNum.x(); x += adjacentX)
+            {
+                osg::Vec2s numD(x, y); TileNameList& tList = dstToSrcTileMap[numD];
+                for (short dy = 0; dy < adjacentY; ++dy)
+                    for (short dx = 0; dx < adjacentX; ++dx)
+                    {
+                        osg::Vec2s numS(x + dx, y + dy);
+                        if (srcNumberMap.find(numS) == srcNumberMap.end()) continue;
+                        const std::string& srcTile = srcNumberMap[numS];
+                        tList.push_back(srcTile);
+                    }
+                if (tList.empty()) dstToSrcTileMap.erase(numD);
+            }
         }
-        else
-            processTileFiles(outTileFolder, srcTiles);
+
+        // Process the map to merge source tiles and generate destination folder;
+        std::string outFormat = tilePrefix + _outFormat; if (dstToSrcTileMap.empty()) continue;
+        for (std::map<osg::Vec2s, TileNameList>::iterator itr2 = dstToSrcTileMap.begin();
+             itr2 != dstToSrcTileMap.end(); ++itr2)
+        {
+            std::string dstX = tileNumberToString(itr2->first.x()) + "+" + adjX;
+            std::string dstY = tileNumberToString(itr2->first.y()) + "+" + adjY;
+            snprintf(outSubFolder, 1024, outFormat.c_str(), dstX.data(), dstY.data());
+
+            TileNameList& srcTiles = itr2->second;
+            std::string outTileFolder = std::string(outSubFolder) + '/';
+            osgDB::makeDirectory(_outFolder + outTileFolder);
+
+            if (_numThreads > 0)
+            {
+                size_t index = (ptr++) % _numThreads; ProcessThread* th = threads[index];
+                if (!th) { th = new ProcessThread(index, this); threads[index] = th; }
+                th->add(outTileFolder, srcTiles);
+            }
+            else
+                processTileFiles(outTileFolder, srcTiles);
+        }
     }
 
     int numCPUs = OpenThreads::GetNumberOfProcessors(); if (numCPUs < 1) numCPUs = 1;
@@ -281,7 +390,84 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
     }
 }
 
-osg::Vec3s TileOptimizer::getNumberFromTileName(const std::string& name, const std::string& inRegex)
+osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName, bool isRootNode,
+                                              const TileNameAndRoughList& srcTiles)
+{
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    std::vector<osg::ref_ptr<osg::Geometry>> geomList;
+    for (size_t i = 0; i < srcTiles.size(); ++i)
+    {
+        const std::pair<std::string, osg::ref_ptr<osg::Node>>& nameAndRough = srcTiles[i];
+        std::string fileName = nameAndRough.first, ext = osgDB::getFileExtension(nameAndRough.first);
+        if (ext.empty()) fileName = fileName + "/" + fileName + ".osgb";
+
+        osg::ref_ptr<osg::Node> roughNode = nameAndRough.second; osg::PagedLOD* refPlod = NULL;
+        osg::ref_ptr<osg::Node> fineNode = osgDB::readNodeFile(_outFolder + fileName);
+        if (fineNode.valid())
+        {
+            FindPlodVisitor fpv; fineNode->accept(fpv);
+            if (!fpv.plodList.empty()) refPlod = fpv.plodList.front();
+
+            FindGeometryVisitor fgv; fineNode->accept(fgv);
+            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+        }
+        else if (roughNode.valid())
+        {
+            FindGeometryVisitor fgv; roughNode->accept(fgv);
+            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+        }
+
+        if (!isRootNode) fileName = "../" + fileName;
+        if (roughNode.valid())
+        {
+            osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
+            plod->addChild(roughNode.get());
+            plod->setFileName(1, fileName);
+            if (refPlod != NULL)
+            {
+                plod->setRangeMode(refPlod->getRangeMode());
+                plod->setCenterMode(refPlod->getCenterMode());
+                plod->setCenter(roughNode->getBound().center());
+                plod->setRadius(roughNode->getBound().radius());
+                for (size_t i = 0; i < refPlod->getNumFileNames(); ++i)
+                {
+                    float minV = refPlod->getMinRange(i), maxV = refPlod->getMaxRange(i);
+                    if (plod->getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT)
+                    {
+                        if (i == refPlod->getNumFileNames() - 1) maxV *= 0.5f;
+                        else if (i == 0) minV *= 0.5f;
+                        else { minV *= 0.5f; maxV *= 0.5f; }
+                    }
+                    else
+                    {
+                        if (i == 0) maxV *= 2.0f;
+                        else if (i == refPlod->getNumFileNames() - 1) minV *= 2.0f;
+                        else { minV *= 2.0f; maxV *= 2.0f; }
+                    }
+                    plod->setRange(i, minV, maxV);
+                }
+            }
+            root->addChild(plod.get());
+        }
+        else
+        {
+            osg::ref_ptr<osg::ProxyNode> proxy = new osg::ProxyNode;
+            proxy->setFileName(0, fileName);
+            root->addChild(proxy.get());
+        }
+    }
+
+    std::vector<osg::Geometry*> geomList2;
+    geomList2.assign(geomList.begin(), geomList.end());
+    osgDB::writeNodeFile(*root, _outFolder + outTileFileName);
+
+    osg::ref_ptr<osg::Node> mergedNode = mergeGeometries(geomList2, 1024);
+    //osgUtil::Simplifier sim(0.2f); if (mergedNode.valid()) mergedNode->accept(sim);
+    return mergedNode.release();  // return merged rough level node
+}
+
+osg::Vec3s TileOptimizer::getNumberFromTileName(const std::string& name, const std::string& inRegex,
+                                                std::string* textPrefix)
 {
     std::vector<int> numbers; std::string text = name;
     while (text[0] >= '0' && text[0] <= '9')
@@ -290,6 +476,7 @@ osg::Vec3s TileOptimizer::getNumberFromTileName(const std::string& name, const s
     std::regex re(inRegex); std::smatch results;
     while (std::regex_search(text, results, re))
     {
+        if (numbers.empty() && textPrefix != NULL) *textPrefix = results.prefix().str();
         numbers.push_back(std::stoi(results[0]));
         text = results.suffix().str();
     }
@@ -354,8 +541,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
 
             osg::BoundingSphere bs0(n->getCenter(), n->getRadius());
-            if (i == 0) bs = bs0;
-            else bs.expandBy(bs0.valid() ? bs0 : n->getBound());
+            if (i == 0) bs = bs0; else bs.expandBy(bs0.valid() ? bs0 : n->getBound());
         }
 
         osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
@@ -363,7 +549,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         plod->setCenterMode(ref->getCenterMode());
         plod->setCenter(bs.center());
         plod->setRadius(bs.radius());
-        plod->addChild(mergeGeometries(geomList, false));
+        plod->addChild(mergeGeometries(geomList, 2048));
         for (size_t i = 0; i < ref->getNumFileNames(); ++i)
         {
             float minV = ref->getMinRange(i), maxV = ref->getMaxRange(i);
@@ -401,32 +587,39 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
 
         OSG_NOTICE << "[TileOptimizer] Merging " << geomList.size() << " geometries from "
                    << loadedNodes.size() << " leaf nodes" << std::endl;
-        if (!geomList.empty()) root->addChild(mergeGeometries(geomList, true));
+        if (!geomList.empty()) root->addChild(mergeGeometries(geomList, 4096));
         if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
     }
     return (root->getNumChildren() > 0) ? root.release() : NULL;
 }
 
-osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList, bool isHighest)
+osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList, int highestRes)
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 #if true
     for (size_t i = 0; i < geomList.size(); i += 8)
     {
         GeometryMerger merger;
-        osg::ref_ptr<osg::Geometry> result = merger.process(
-            geomList, i, 8, isHighest ? 4096 : 2048);
+        osg::ref_ptr<osg::Geometry> result = merger.process(geomList, i, 8, highestRes);
         if (result.valid())
         {
-            osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*result);
-            geode->addDrawable(geom2.get());
+            if (_withDraco)
+            {
+                osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*result);
+                geode->addDrawable(geom2.get());
+            }
+            else geode->addDrawable(result.get());
         }
     }
 #else
     for (size_t i = 0; i < geomList.size(); ++i)
     {
-        osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geomList[i]);
-        geode->addDrawable(geom2.get());
+        if (_withDraco)
+        {
+            osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geomList[i]);
+            geode->addDrawable(geom2.get());
+        }
+        else geode->addDrawable(geomList[i]);
     }
 #endif
     return geode.release();

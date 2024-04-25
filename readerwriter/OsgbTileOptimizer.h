@@ -11,29 +11,33 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT TileOptimizer : public osg::Referenced
     {
     public:
-        typedef std::vector<std::string> TileNameList;
-        TileOptimizer(const std::string& outFolder, const std::string& outFormat = "Tile_%s_%s");
+        TileOptimizer(const std::string& outFolder, const std::string& outFormat = "%s_%s");
         void setUseThreads(int num) { _numThreads = num; _withThreads = (num > 0); }
 
         bool prepare(const std::string& inputFolder, const std::string& inRegex = "([+-]?\\d+)",
                      bool withDraco = true, bool withBasisuTex = true);
         bool processAdjacency(int adjacentX = 2, int adjacentY = 2);
-        bool processGroundLevel(int combinedX = 2, int combinedY = 2, bool atOutput = true);
+        bool processGroundLevel(int combinedX = 2, int combinedY = 2, const std::string& subDir = "0");
 
+        typedef std::vector<std::string> TileNameList;
+        typedef std::vector<std::pair<std::string, osg::ref_ptr<osg::Node>>> TileNameAndRoughList;
         void processTileFiles(const std::string& outTileFolder, const TileNameList& srcTiles);
+        osg::Node* processTopTileFiles(const std::string& outTileFileName, bool isRootNode,
+                                       const TileNameAndRoughList& srcTiles);
 
     protected:
         virtual ~TileOptimizer();
-        osg::Vec3s getNumberFromTileName(const std::string& name, const std::string& inRegex);
+        osg::Vec3s getNumberFromTileName(const std::string& name, const std::string& inRegex,
+                                         std::string* textPrefix = NULL);
         osg::Node* mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>& loadedNodes,
                               const std::map<std::string, std::string>& plodNameMap);
-        osg::Node* mergeGeometries(const std::vector<osg::Geometry*>& geomList, bool isHighest);
+        osg::Node* mergeGeometries(const std::vector<osg::Geometry*>& geomList, int highestRes);
 
-        std::map<std::string, osg::Vec2s> _srcToDstTileMap;
-        std::map<osg::Vec2s, std::string> _srcNumberMap;
+        typedef std::map<osg::Vec2s, std::string> NumberMap;
+        std::map<std::string, NumberMap> _srcNumberMap;
+        std::map<std::string, std::pair<osg::Vec2s, osg::Vec2s>> _minMaxMap;
         std::string _inFolder, _outFolder, _inFormat, _outFormat;
-        osg::Vec2s _minNum, _maxNum; int _numThreads;
-        bool _withDraco, _withBasisu, _withThreads;
+        int _numThreads; bool _withDraco, _withBasisu, _withThreads;
     };
 
 }

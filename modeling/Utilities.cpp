@@ -273,7 +273,7 @@ size_t TexturePacker::addElement(int w, int h)
 void TexturePacker::removeElement(size_t id)
 { if (_input.find(id) != _input.end()) _input.erase(_input.find(id)); }
 
-osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult)
+osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult, bool verbose)
 {
     stbrp_context context; int ptr = 0, totalW = 0, totalH = 0;
     int maxSize = osg::maximum(_maxWidth, _maxHeight) * 2;
@@ -332,9 +332,22 @@ osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult)
         InputPair& pair = itr->second;
         const osg::Vec4& r = itr->second.second;
         if (!pair.first.valid()) continue;
+
+        if (verbose)
+        {
+            std::cout << "Image " << pair.first->getFileName()
+                      << ":  PixelFmt=" << (pair.first->getPixelFormat() == total->getPixelFormat())
+                      << ", DataType=" << (pair.first->getDataType() == total->getDataType())
+                      << ", TexFormat=" << (pair.first->getInternalTextureFormat() == total->getInternalTextureFormat())
+                      << ", Origin=" << (pair.first->getOrigin() == total->getOrigin()) << "\n";
+            std::cout << "Copy to total: " << r[0] << ", " << r[1] << "; " << r[2] << "x" << r[3] << "\n";
+        }
+
         if (!osg::copyImage(pair.first.get(), 0, 0, 0, r[2], r[3], 1,
                             total.get(), r[0], r[1], 0))
         { OSG_WARN << "[TexturePacker] Failed to copy image " << itr->first << std::endl; }
+
+        if (verbose) osgDB::writeImageFile(*total, "../pp_" + pair.first->getFileName());
     }
     return total.release();
 }

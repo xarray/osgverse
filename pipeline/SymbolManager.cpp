@@ -340,7 +340,7 @@ void SymbolManager::initialize(osg::Group* group)
     geode1->addDrawable(_instanceGeom.get());
     geode1->setCullingActive(false);
     geode1->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
-    //geode1->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    geode1->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
     osg::Geode* geode2 = new osg::Geode;
     geode2->setName("SymbolTextBoardGeode");

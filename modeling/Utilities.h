@@ -102,7 +102,7 @@ namespace osgVerse
         size_t addElement(int width, int height);
         void removeElement(size_t id);
 
-        osg::Image* pack(size_t& numImages, bool generateResult);
+        osg::Image* pack(size_t& numImages, bool generateResult, bool verbose = false);
         bool getPackingData(size_t id, int& x, int& y, int& w, int& h);
 
     protected:
