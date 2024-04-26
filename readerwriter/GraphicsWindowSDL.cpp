@@ -1,4 +1,5 @@
 #include "GraphicsWindowSDL.h"
+#include <osg/DeleteHandler>
 #include <SDL.h>
 #include <SDL_syswm.h>
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
@@ -10,6 +11,101 @@
 #   endif
 #endif
 using namespace osgVerse;
+
+static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
+{
+    switch (key)
+    {
+    case SDLK_RETURN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Return;
+    case SDLK_ESCAPE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Escape;
+    case SDLK_BACKSPACE: return osgGA::GUIEventAdapter::KeySymbol::KEY_BackSpace;
+    case SDLK_TAB: return osgGA::GUIEventAdapter::KeySymbol::KEY_Tab;
+    case SDLK_SPACE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Space;
+    case SDLK_CAPSLOCK: return osgGA::GUIEventAdapter::KeySymbol::KEY_Caps_Lock;
+    case SDLK_F1: return osgGA::GUIEventAdapter::KeySymbol::KEY_F1;
+    case SDLK_F2: return osgGA::GUIEventAdapter::KeySymbol::KEY_F2;
+    case SDLK_F3: return osgGA::GUIEventAdapter::KeySymbol::KEY_F3;
+    case SDLK_F4: return osgGA::GUIEventAdapter::KeySymbol::KEY_F4;
+    case SDLK_F5: return osgGA::GUIEventAdapter::KeySymbol::KEY_F5;
+    case SDLK_F6: return osgGA::GUIEventAdapter::KeySymbol::KEY_F6;
+    case SDLK_F7: return osgGA::GUIEventAdapter::KeySymbol::KEY_F7;
+    case SDLK_F8: return osgGA::GUIEventAdapter::KeySymbol::KEY_F8;
+    case SDLK_F9: return osgGA::GUIEventAdapter::KeySymbol::KEY_F9;
+    case SDLK_F10: return osgGA::GUIEventAdapter::KeySymbol::KEY_F10;
+    case SDLK_F11: return osgGA::GUIEventAdapter::KeySymbol::KEY_F11;
+    case SDLK_F12: return osgGA::GUIEventAdapter::KeySymbol::KEY_F12;
+    case SDLK_PRINTSCREEN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Print;
+    case SDLK_SCROLLLOCK: return osgGA::GUIEventAdapter::KeySymbol::KEY_Scroll_Lock;
+    case SDLK_PAUSE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Pause;
+    case SDLK_INSERT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Insert;
+    case SDLK_HOME: return osgGA::GUIEventAdapter::KeySymbol::KEY_Home;
+    case SDLK_PAGEUP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Page_Up;
+    case SDLK_DELETE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Delete;
+    case SDLK_END: return osgGA::GUIEventAdapter::KeySymbol::KEY_End;
+    case SDLK_PAGEDOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Page_Down;
+    case SDLK_RIGHT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Right;
+    case SDLK_LEFT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Left;
+    case SDLK_DOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Down;
+    case SDLK_UP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Up;
+    default: return (osgGA::GUIEventAdapter::KeySymbol)key;
+    }
+}
+
+class SDLWindowingSystem : public osg::GraphicsContext::WindowingSystemInterface
+{
+public:
+    SDLWindowingSystem() {}
+
+    virtual unsigned int getNumScreens(const osg::GraphicsContext::ScreenIdentifier& screenIdentifier =
+                                       osg::GraphicsContext::ScreenIdentifier())
+    { return SDL_GetNumVideoDisplays(); }
+
+    virtual void getScreenSettings(const osg::GraphicsContext::ScreenIdentifier& identifier,
+                                   osg::GraphicsContext::ScreenSettings& resolution)
+    {
+        SDL_DisplayMode mode;
+        if (SDL_GetCurrentDisplayMode(identifier.displayNum, &mode) == 0)
+        {
+            resolution.width = mode.w; resolution.height = mode.h;
+            resolution.refreshRate = mode.refresh_rate;
+        }
+    }
+
+    virtual bool setScreenSettings(const osg::GraphicsContext::ScreenIdentifier& identifier,
+                                   const osg::GraphicsContext::ScreenSettings& resolution)
+    {
+        OSG_WARN << "[SDLWindowingSystem] setScreenSettings() not implemented" << std::endl;
+        return false;
+    }
+
+    virtual void enumerateScreenSettings(const osg::GraphicsContext::ScreenIdentifier& identifier,
+                                         osg::GraphicsContext::ScreenSettingsList& resolutionList)
+    {
+        int numModes = SDL_GetNumDisplayModes(identifier.displayNum);
+        for (int i = 0; i < numModes; ++i)
+        {
+            SDL_DisplayMode mode; osg::GraphicsContext::ScreenSettings settings;
+            if (SDL_GetDisplayMode(i, 0, &mode) != 0) continue;
+
+            settings.width = mode.w; settings.height = mode.h;
+            settings.refreshRate = mode.refresh_rate;
+            resolutionList.push_back(settings);
+        }
+    }
+
+    virtual osg::GraphicsContext* createGraphicsContext(osg::GraphicsContext::Traits* traits)
+    { return new GraphicsWindowSDL(traits); }
+
+protected:
+    virtual ~SDLWindowingSystem()
+    {
+        if (osg::Referenced::getDeleteHandler())
+        {
+            osg::Referenced::getDeleteHandler()->setNumFramesToRetainObjects(0);
+            osg::Referenced::getDeleteHandler()->flushAll();
+        }
+    }
+};
 
 GraphicsWindowSDL::GraphicsWindowSDL(osg::GraphicsContext::Traits* traits)
     : _glContext(NULL), _glDisplay(NULL), _glSurface(NULL), _valid(false), _realized(false)
@@ -70,14 +166,14 @@ void GraphicsWindowSDL::initialize()
 #   else
             EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 #   endif
-            EGL_RED_SIZE,       _traits->red,
-            EGL_GREEN_SIZE,     _traits->green,
-            EGL_BLUE_SIZE,      _traits->blue,
-            EGL_ALPHA_SIZE,     _traits->alpha,
-            EGL_DEPTH_SIZE,     _traits->depth,
-            EGL_STENCIL_SIZE,   _traits->stencil,
-            EGL_SAMPLE_BUFFERS, _traits->sampleBuffers,
-            EGL_SAMPLES,        _traits->samples,
+            EGL_RED_SIZE,       (int)_traits->red,
+            EGL_GREEN_SIZE,     (int)_traits->green,
+            EGL_BLUE_SIZE,      (int)_traits->blue,
+            EGL_ALPHA_SIZE,     (int)_traits->alpha,
+            EGL_DEPTH_SIZE,     (int)_traits->depth,
+            EGL_STENCIL_SIZE,   (int)_traits->stencil,
+            EGL_SAMPLE_BUFFERS, (int)_traits->sampleBuffers,
+            EGL_SAMPLES,        (int)_traits->samples,
             EGL_NONE
         };
 
@@ -266,9 +362,9 @@ bool GraphicsWindowSDL::checkEvents()
             if (event.wheel.y > 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP);
             else eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN);
         case SDL_KEYUP:
-            eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
+            eq->keyRelease(getKey(event.key.keysym.sym)); break;
         case SDL_KEYDOWN:
-            eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
+            eq->keyPress(getKey(event.key.keysym.sym)); break;
         case SDL_WINDOWEVENT:
             if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
             {
@@ -340,3 +436,9 @@ void GraphicsWindowSDL::setCursor(osgViewer::GraphicsWindow::MouseCursor cursor)
     }
     SDL_SetCursor(sdlCursor); SDL_SetCursor(NULL);
 }
+
+void GraphicsWindowSDL::setSyncToVBlank(bool on)
+{ SDL_GL_SetSwapInterval(on ? 1 : 0); }
+
+extern "C" OSGVERSE_RW_EXPORT void graphicswindow_SDL(void) {}
+static osg::WindowingSystemInterfaceProxy<SDLWindowingSystem> s_proxy_SDLWindowingSystem("SDL");

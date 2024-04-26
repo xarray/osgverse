@@ -10,31 +10,20 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#define TEST_VULKAN_IMPLEMENTATION 1
 #define TEST_PIPELINE 1
 #define TEST_SHADOW_MAP 0
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-#   include <EGL/egl.h>
-#   include <EGL/eglext.h>
-#   include <EGL/eglext_angle.h>
-#   define VERSE_GLES 1
+#   define TEST_VULKAN_IMPLEMENTATION 1
 #else
-#   undef TEST_VULKAN_IMPLEMENTATION
 #   define TEST_VULKAN_IMPLEMENTATION 0
 #endif
 
 #include <SDL.h>
 #include <SDL_syswm.h>
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 
 #if TEST_VULKAN_IMPLEMENTATION
-#   include <SDL_vulkan.h>
-typedef enum VkResult {
-    VK_SUCCESS = 0, VK_NOT_READY = 1, VK_TIMEOUT = 2,
-    VK_EVENT_SET = 3, VK_EVENT_RESET = 4, VK_INCOMPLETE = 5,
-    VK_RESULT_MAX_ENUM = 0x7FFFFFFF
-} VkResult;
-typedef VkResult(__stdcall* PFN_vkEnumerateInstanceVersion)(uint32_t* pApiVersion);
-typedef void*(__stdcall* PFN_vkGetInstanceProcAddr)(VkInstance instance, const char* pName);
+// TODO
 #endif
 
 #include <backward.hpp>  // for better debug info
@@ -104,129 +93,6 @@ int main(int argc, char** argv)
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     
-    // Start SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        OSG_WARN << "Unable to init SDL: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-
-    int windowWidth = 1280, windowHeight = 720;
-    SDL_Window* sdlWindow = SDL_CreateWindow(
-        "osgVerse_ViewerSDL", 50, 50, windowWidth, windowHeight,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
-    if (sdlWindow == NULL)
-    {
-        OSG_WARN << "Unable to create SDL window: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-
-    SDL_SysWMinfo sdlInfo; SDL_VERSION(&sdlInfo.version);
-    SDL_GetWindowWMInfo(sdlWindow, &sdlInfo);
-
-#if VERSE_GLES
-    EGLint configAttribList[] =
-    {
-#   if defined(OSG_GLES3_AVAILABLE)
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
-#   else
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-#   endif
-        EGL_RED_SIZE,       8,
-        EGL_GREEN_SIZE,     8,
-        EGL_BLUE_SIZE,      8,
-        EGL_ALPHA_SIZE,     8,
-        EGL_DEPTH_SIZE,     24,
-        EGL_STENCIL_SIZE,   8/*EGL_DONT_CARE*/,
-        EGL_SAMPLE_BUFFERS, 0,
-        EGL_SAMPLES,        0,
-        EGL_NONE
-    };
-
-    EGLNativeWindowType hWnd = sdlInfo.info.win.window;
-    EGLDisplay display = EGL_NO_DISPLAY;
-    PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)(
-        eglGetProcAddress("eglGetPlatformDisplayEXT"));
-
-    if (eglGetPlatformDisplayEXT != NULL)
-    {
-        const EGLint attrNewBackend[] = {
-            EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE,
-            //EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
-            //EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,  // for D3D11
-            EGL_NONE,
-        };
-        display = eglGetPlatformDisplayEXT(
-            EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrNewBackend);
-    }
-    else
-        OSG_WARN << "eglGetPlatformDisplayEXT() not found" << std::endl;
-
-    if (display == EGL_NO_DISPLAY)
-    {
-        display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        if (display != EGL_NO_DISPLAY)
-            OSG_NOTICE << "**** Selected default backend as fallback" << std::endl;
-    }
-    else
-        OSG_NOTICE << "**** Selected custom backend successfully" << std::endl;
-
-    if (display == EGL_NO_DISPLAY)
-    { OSG_WARN << "Failed to get EGL display" << std::endl; return 1; }
-
-    // Initialize EGL
-    EGLint majorVersion = 0, minorVersion = 0;
-    if (!eglInitialize(display, &majorVersion, &minorVersion))
-    { OSG_WARN << "Failed to initialize EGL display" << std::endl; return 1; }
-
-    EGLint numConfigs = 0;
-    if (!eglGetConfigs(display, NULL, 0, &numConfigs))
-    { OSG_WARN << "Failed to get EGL display config" << std::endl; return 1; }
-    
-    // Get an appropriate EGL framebuffer configuration
-    EGLConfig config;
-    if (!eglChooseConfig(display, configAttribList, &config, 1, &numConfigs))
-    { OSG_WARN << "Failed to choose EGL config" << std::endl; return 1; }
-
-    // Configure the surface
-    EGLint surfaceAttribList[] = { EGL_NONE, EGL_NONE };
-    EGLSurface surface = eglCreateWindowSurface(
-        display, config, (EGLNativeWindowType)hWnd, surfaceAttribList);
-    if (surface == EGL_NO_SURFACE)
-    { OSG_WARN << "Failed to create EGL surface" << std::endl; return 1; }
-
-#   if defined(OSG_GLES3_AVAILABLE)
-    EGLint contextAttribList[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 3,
-        EGL_CONTEXT_MINOR_VERSION, 0,
-        EGL_NONE, EGL_NONE
-    };
-#   else
-    EGLint contextAttribList[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE
-    };
-#   endif
-    eglBindAPI(EGL_OPENGL_ES_API);  // Set rendering API
-
-    // Create an EGL rendering context
-    EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribList);
-    if (context == EGL_NO_CONTEXT)
-    { OSG_WARN << "Failed to create EGL context" << std::endl; return 1; }
-
-    // Make context current. GLES drawing commands can work now 
-    eglMakeCurrent(display, surface, surface, context);
-#else
-    SDL_GLContext sdlContext = SDL_GL_CreateContext(sdlWindow);
-    if (sdlContext == NULL)
-    {
-        OSG_WARN << "Unable to create SDL context: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-
-    SDL_GL_SetSwapInterval(0);
-    SDL_GL_MakeCurrent(sdlWindow, sdlContext);
-#endif
-
     // Create the viewer
 #if TEST_PIPELINE
     //osg::setNotifyLevel(osg::INFO);
@@ -247,14 +113,22 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     // Create the graphics window
-#if VERSE_GLES
-    eglQuerySurface(display, surface, EGL_WIDTH, &windowWidth);
-    eglQuerySurface(display, surface, EGL_HEIGHT, &windowHeight);
-#endif
-    osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> gw =
-        viewer.setUpViewerAsEmbeddedInWindow(0, 0, windowWidth, windowHeight);
+    osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+    traits->x = 50; traits->y = 50; traits->width = 1280; traits->height = 720;
+    traits->alpha = 8; traits->depth = 24; traits->stencil = 8;
+    traits->windowDecoration = true; traits->doubleBuffer = true;
+    traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
+    traits->windowingSystemPreference = "SDL";
+
+    osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+    viewer.getCamera()->setGraphicsContext(gc.get());
+    viewer.getCamera()->setViewport(0, 0, traits->width, traits->height);
     viewer.getCamera()->setDrawBuffer(GL_BACK);
     viewer.getCamera()->setReadBuffer(GL_BACK);
+    viewer.getCamera()->setProjectionMatrixAsPerspective(
+        30.0f, static_cast<double>(traits->width) / static_cast<double>(traits->height), 1.0f, 10000.0f);
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    gc->makeCurrent();
 
     // Setup the pipeline
 #if TEST_PIPELINE
@@ -307,71 +181,14 @@ int main(int argc, char** argv)
 
     // Quick test for Vulkan availablity
 #if TEST_VULKAN_IMPLEMENTATION
-    SDL_Vulkan_LoadLibrary(NULL);
-    auto vkGetInstanceProcAddr = PFN_vkGetInstanceProcAddr(SDL_Vulkan_GetVkGetInstanceProcAddr());
-    auto FN_vkEnumerateInstanceVersion = PFN_vkEnumerateInstanceVersion(
-        vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion"));
-    if (FN_vkEnumerateInstanceVersion != nullptr)
-    {
-        uint32_t instanceVersion = 0;
-        auto result = FN_vkEnumerateInstanceVersion(&instanceVersion);
-        OSG_NOTICE << "Detected Vulkan version: " << (instanceVersion & 0xFFFFF000) << std::endl;
-    }
-    else
-        OSG_NOTICE << "Vulkan version undetected." << std::endl;
+    // TODO
 #endif
 
     // Start the main loop
-    gw->getEventQueue()->windowResize(0, 0, windowWidth, windowHeight);
+    gc->releaseContext();
     while (!viewer.done())
     {
-        SDL_Event event;
-        while (SDL_PollEvent(&event))
-        {
-            osgGA::EventQueue* eq = gw->getEventQueue();
-            switch (event.type)
-            {
-            case SDL_MOUSEMOTION:
-                eq->mouseMotion(event.motion.x, event.motion.y); break;
-            case SDL_MOUSEBUTTONDOWN:
-                eq->mouseButtonPress(event.button.x, event.button.y, event.button.button); break;
-            case SDL_MOUSEBUTTONUP:
-                eq->mouseButtonRelease(event.button.x, event.button.y, event.button.button); break;
-            case SDL_KEYUP:
-                eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
-            case SDL_KEYDOWN:
-                eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)event.key.keysym.sym); break;
-            case SDL_WINDOWEVENT:
-                if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
-                {
-                    eq->windowResize(0, 0, event.window.data1, event.window.data2);
-                    gw->resized(0, 0, event.window.data1, event.window.data2);
-                }
-                break;
-            case SDL_QUIT:
-                viewer.setDone(true); break;
-            default: break;
-            }
-        }
-
         viewer.frame();
-#if VERSE_GLES
-        eglSwapBuffers(display, surface);
-#else
-        SDL_GL_SwapWindow(sdlWindow);
-#endif
     }
-
-#if VERSE_GLES
-    eglDestroyContext(display, context);
-    eglDestroySurface(display, surface);
-#else
-    SDL_GL_DeleteContext(sdlContext);
-#endif
-    SDL_DestroyWindow(sdlWindow);
-    SDL_Quit();
-#if TEST_VULKAN_IMPLEMENTATION
-    SDL_Vulkan_UnloadLibrary();
-#endif
     return 0;
 }

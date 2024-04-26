@@ -36,6 +36,7 @@ namespace osgVerse
         virtual bool setWindowRectangleImplementation(int x, int y, int width, int height);
         virtual void setWindowName(const std::string& name);
         virtual void setCursor(osgViewer::GraphicsWindow::MouseCursor cursor);
+        virtual void setSyncToVBlank(bool on);
 
     protected:
         void initialize();
