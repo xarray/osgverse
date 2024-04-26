@@ -12,7 +12,13 @@ namespace osgVerse
     {
     public:
         TileOptimizer(const std::string& outFolder, const std::string& outFormat = "%s_%s");
+
         void setUseThreads(int num) { _numThreads = num; _withThreads = (num > 0); }
+        void setLodScale(float adjacency, float groundLv, float mulForDistanceMode)
+        {
+            _lodScaleAdjacency = adjacency; _lodScaleTopLevels = groundLv;
+            _mulForDistanceMode = mulForDistanceMode;
+        }
 
         bool prepare(const std::string& inputFolder, const std::string& inRegex = "([+-]?\\d+)",
                      bool withDraco = true, bool withBasisuTex = true);
@@ -25,6 +31,13 @@ namespace osgVerse
         osg::Node* processTopTileFiles(const std::string& outTileFileName, bool isRootNode,
                                        const TileNameAndRoughList& srcTiles);
 
+        struct FilterNodeCallback : public osg::Referenced
+        {
+            virtual void prefilter(const std::string& name, osg::Node& node) {}
+        };
+        void setFilterNodeCallback(FilterNodeCallback* cb) { _filterNodeCallback = cb; }
+        FilterNodeCallback* getFilterNodeCallback() const { return _filterNodeCallback.get(); }
+
     protected:
         virtual ~TileOptimizer();
         osg::Vec3s getNumberFromTileName(const std::string& name, const std::string& inRegex,
@@ -36,7 +49,9 @@ namespace osgVerse
         typedef std::map<osg::Vec2s, std::string> NumberMap;
         std::map<std::string, NumberMap> _srcNumberMap;
         std::map<std::string, std::pair<osg::Vec2s, osg::Vec2s>> _minMaxMap;
+        osg::ref_ptr<FilterNodeCallback> _filterNodeCallback;
         std::string _inFolder, _outFolder, _inFormat, _outFormat;
+        float _lodScaleAdjacency, _lodScaleTopLevels, _mulForDistanceMode;
         int _numThreads; bool _withDraco, _withBasisu, _withThreads;
     };
 

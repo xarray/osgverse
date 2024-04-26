@@ -203,7 +203,7 @@ int main(int argc, char** argv)
     {
         osg::ArgumentParser arguments(&argc, argv);
         float lodScale = 1.0f; arguments.read("--lod-scale", lodScale);
-        float smallPixel = 1.0f; arguments.read("--small", smallPixel);
+        float smallPixel = 0.0f; arguments.read("--small", smallPixel);
         viewer.getCamera()->setLODScale(lodScale);
         viewer.getCamera()->setSmallFeatureCullingPixelSize(smallPixel);
         root->addChild(osgDB::readNodeFiles(arguments));

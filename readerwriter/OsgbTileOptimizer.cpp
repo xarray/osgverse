@@ -66,16 +66,40 @@ public:
 class FindGeometryVisitor : public osg::NodeVisitor
 {
 public:
-    FindGeometryVisitor()
-        : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    FindGeometryVisitor(bool applyM)
+        : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), appliedMatrix(applyM) {}
+    inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
+    inline void popMatrix() { _matrixStack.pop_back(); }
+
+    std::vector<osg::Matrix> _matrixStack;
     std::vector<osg::Geometry*> geomList;
+    bool appliedMatrix;
+
+    virtual void apply(osg::Transform& node)
+    {
+        osg::Matrix matrix;
+        if (!_matrixStack.empty()) matrix = _matrixStack.back();
+        node.computeLocalToWorldMatrix(matrix, this);
+        pushMatrix(matrix); traverse(node); popMatrix();
+    }
 
     virtual void apply(osg::Geode& node)
     {
+        osg::Matrix matrix;
+        if (_matrixStack.size() > 0) matrix = _matrixStack.back();
         for (size_t i = 0; i < node.getNumDrawables(); ++i)
         {
             osg::Geometry* geom = node.getDrawable(i)->asGeometry();
-            if (geom) geomList.push_back(geom);
+            if (geom)
+            {
+                if (appliedMatrix && !matrix.isIdentity())
+                {
+                    osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+                    if (va && va->size() > 0)
+                    { for (size_t n = 0; n < va->size(); ++n) (*va)[n] = (*va)[n] * matrix; }
+                }
+                geomList.push_back(geom);
+            }
         }
         traverse(node);
     }
@@ -95,6 +119,7 @@ TileOptimizer::TileOptimizer(const std::string& outFolder, const std::string& ou
         char endChar = *_outFolder.rbegin();
         if (endChar != '/' && endChar != '\\') _outFolder += '/';
     }
+    _lodScaleAdjacency = 1.0f; _lodScaleTopLevels = 1.0f; _mulForDistanceMode = 2.0f;
     _numThreads = 10; _withThreads = true;
 }
 
@@ -405,15 +430,18 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
         osg::ref_ptr<osg::Node> fineNode = osgDB::readNodeFile(_outFolder + fileName);
         if (fineNode.valid())
         {
+            if (ext.empty() && _filterNodeCallback.valid())
+                _filterNodeCallback->prefilter(fileName, *fineNode);
+
             FindPlodVisitor fpv; fineNode->accept(fpv);
             if (!fpv.plodList.empty()) refPlod = fpv.plodList.front();
 
-            FindGeometryVisitor fgv; fineNode->accept(fgv);
+            FindGeometryVisitor fgv(true); fineNode->accept(fgv);
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
         }
         else if (roughNode.valid())
         {
-            FindGeometryVisitor fgv; roughNode->accept(fgv);
+            FindGeometryVisitor fgv(true); roughNode->accept(fgv);
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
         }
 
@@ -434,33 +462,34 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
                     float minV = refPlod->getMinRange(i), maxV = refPlod->getMaxRange(i);
                     if (plod->getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT)
                     {
-                        if (i == refPlod->getNumFileNames() - 1) maxV *= 2.0f;
-                        else if (i == 0) minV *= 2.0f;
-                        else { minV *= 2.0f; maxV *= 2.0f; }
+                        float lodScale = _lodScaleTopLevels * _mulForDistanceMode;
+                        if (i == refPlod->getNumFileNames() - 1) maxV /= lodScale;
+                        else if (i == 0) minV /= lodScale;
+                        else { minV /= lodScale; maxV /= lodScale; }
                     }
                     else
                     {
-                        if (i == 0) maxV *= 0.5f;
-                        else if (i == refPlod->getNumFileNames() - 1) minV *= 0.5f;
-                        else { minV *= 0.5f; maxV *= 0.5f; }
+                        if (i == 0) maxV *= _lodScaleTopLevels;
+                        else if (i == refPlod->getNumFileNames() - 1) minV *= _lodScaleTopLevels;
+                        else { minV *= _lodScaleTopLevels; maxV *= _lodScaleTopLevels; }
                     }
                     plod->setRange(i, minV, maxV);
                 }
             }
             root->addChild(plod.get());
         }
-        else
-        {
-            osg::ref_ptr<osg::ProxyNode> proxy = new osg::ProxyNode;
-            proxy->setFileName(0, fileName);
-            root->addChild(proxy.get());
-        }
+        else  // "xxx_D2" top tiles just include 4 tile root nodes
+            if (fineNode.valid()) root->addChild(fineNode.get());
+    }
+
+    if (root.valid())
+    {
+        osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
+        osgDB::writeNodeFile(*root, _outFolder + outTileFileName, options.get());
     }
 
     std::vector<osg::Geometry*> geomList2;
     geomList2.assign(geomList.begin(), geomList.end());
-    osgDB::writeNodeFile(*root, _outFolder + outTileFileName);
-
     osg::ref_ptr<osg::Node> mergedNode = mergeGeometries(geomList2, 1024);
     //osgUtil::Simplifier sim(0.2f); if (mergedNode.valid()) mergedNode->accept(sim);
     return mergedNode.release();  // return merged rough level node
@@ -469,14 +498,15 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
 osg::Vec3s TileOptimizer::getNumberFromTileName(const std::string& name, const std::string& inRegex,
                                                 std::string* textPrefix)
 {
-    std::vector<int> numbers; std::string text = name;
+    std::vector<int> numbers; std::string text = name, text0;
     while (text[0] >= '0' && text[0] <= '9')
-    { text.erase(text.begin()); if (text.empty()) break; }
+    { text0.push_back(text[0]); text.erase(text.begin()); if (text.empty()) break; }
 
     std::regex re(inRegex); std::smatch results;
     while (std::regex_search(text, results, re))
     {
-        if (numbers.empty() && textPrefix != NULL) *textPrefix = results.prefix().str();
+        if (numbers.empty() && textPrefix != NULL)
+            *textPrefix = text0 + results.prefix().str();
         numbers.push_back(std::stoi(results[0]));
         text = results.suffix().str();
     }
@@ -537,7 +567,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         osg::BoundingSphere bs; std::vector<osg::Geometry*> geomList;
         for (size_t i = 0; i < plodList.size(); ++i)
         {
-            osg::PagedLOD* n = plodList[i]; FindGeometryVisitor fgv; n->accept(fgv);
+            osg::PagedLOD* n = plodList[i]; FindGeometryVisitor fgv(true); n->accept(fgv);
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
 
             osg::BoundingSphere bs0(n->getCenter(), n->getRadius());
@@ -555,15 +585,16 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
             float minV = ref->getMinRange(i), maxV = ref->getMaxRange(i);
             if (plod->getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT)
             {
-                if (i == ref->getNumFileNames() - 1) maxV *= 2.0f;
-                else if (i == 0) minV *= 2.0f;
-                else { minV *= 2.0f; maxV *= 2.0f; }
+                float lodScale = _lodScaleAdjacency * _mulForDistanceMode;
+                if (i == ref->getNumFileNames() - 1) maxV /= lodScale;
+                else if (i == 0) minV /= lodScale;
+                else { minV /= lodScale; maxV /= lodScale; }
             }
             else
             {
-                if (i == 0) maxV *= 0.5f;
-                else if (i == ref->getNumFileNames() - 1) minV *= 0.5f;
-                else { minV *= 0.5f; maxV *= 0.5f; }
+                if (i == 0) maxV *= _lodScaleAdjacency;
+                else if (i == ref->getNumFileNames() - 1) minV *= _lodScaleAdjacency;
+                else { minV *= _lodScaleAdjacency; maxV *= _lodScaleAdjacency; }
             }
             plod->setRange(i, minV, maxV);
 
@@ -581,7 +612,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         std::vector<osg::Geometry*> geomList;
         for (size_t i = 0; i < loadedNodes.size(); ++i)
         {
-            FindGeometryVisitor fgv; loadedNodes[i]->accept(fgv);
+            FindGeometryVisitor fgv(true); loadedNodes[i]->accept(fgv);
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
         }
 
@@ -597,10 +628,10 @@ osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geo
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 #if true
-    for (size_t i = 0; i < geomList.size(); i += 8)
+    for (size_t i = 0; i < geomList.size(); i += 16)
     {
         GeometryMerger merger;
-        osg::ref_ptr<osg::Geometry> result = merger.process(geomList, i, 8, highestRes);
+        osg::ref_ptr<osg::Geometry> result = merger.process(geomList, i, 16, highestRes);
         if (result.valid())
         {
             if (_withDraco)
