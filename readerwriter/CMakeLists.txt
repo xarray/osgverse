@@ -9,6 +9,14 @@ SET(LIBRARY_FILES
     Geometry_FixedWrapper.cpp
 )
 
+IF(SDL2_FOUND)
+    INCLUDE_DIRECTORIES(${SDL2_INCLUDE_DIR})
+    LINK_DIRECTORIES(${SDL2_LIB_DIR})
+    SET(LIBRARY_FILES ${LIBRARY_FILES} GraphicsWindowSDL.cpp GraphicsWindowSDL.h)
+ELSEIF(USE_WASM_OPTIONS)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} GraphicsWindowSDL.cpp GraphicsWindowSDL.h)
+ENDIF()
+
 INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all
                     ../3rdparty/stb ../3rdparty/rapidjson)
 ADD_DEFINITIONS(-DVERSE_RW_LIBRARY -DKHRONOS_STATIC -DHV_STATICLIB)
@@ -27,10 +35,15 @@ IF(DRACO_FOUND)
     TARGET_LINK_LIBRARIES(${LIB_NAME} debug draco${VERSE_DEBUG_POSTFIX} optimized draco)
 ENDIF(DRACO_FOUND)
 
+IF(SDL2_FOUND)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug SDL2main${VERSE_DEBUG_POSTFIX} optimized SDL2main
+                                      debug SDL2${VERSE_DEBUG_POSTFIX} optimized SDL2)
+ENDIF(SDL2_FOUND)
+
 IF(NOT UNIX)
     TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling)
 ENDIF()
-LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)
+LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
         RUNTIME DESTINATION ${INSTALL_BINDIR} COMPONENT libosgverse

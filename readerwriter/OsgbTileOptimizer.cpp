@@ -434,15 +434,15 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
                     float minV = refPlod->getMinRange(i), maxV = refPlod->getMaxRange(i);
                     if (plod->getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT)
                     {
-                        if (i == refPlod->getNumFileNames() - 1) maxV *= 0.5f;
-                        else if (i == 0) minV *= 0.5f;
-                        else { minV *= 0.5f; maxV *= 0.5f; }
+                        if (i == refPlod->getNumFileNames() - 1) maxV *= 2.0f;
+                        else if (i == 0) minV *= 2.0f;
+                        else { minV *= 2.0f; maxV *= 2.0f; }
                     }
                     else
                     {
-                        if (i == 0) maxV *= 2.0f;
-                        else if (i == refPlod->getNumFileNames() - 1) minV *= 2.0f;
-                        else { minV *= 2.0f; maxV *= 2.0f; }
+                        if (i == 0) maxV *= 0.5f;
+                        else if (i == refPlod->getNumFileNames() - 1) minV *= 0.5f;
+                        else { minV *= 0.5f; maxV *= 0.5f; }
                     }
                     plod->setRange(i, minV, maxV);
                 }
@@ -555,15 +555,15 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
             float minV = ref->getMinRange(i), maxV = ref->getMaxRange(i);
             if (plod->getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT)
             {
-                if (i == ref->getNumFileNames() - 1) maxV *= 0.5f;
-                else if (i == 0) minV *= 0.5f;
-                else { minV *= 0.5f; maxV *= 0.5f; }
+                if (i == ref->getNumFileNames() - 1) maxV *= 2.0f;
+                else if (i == 0) minV *= 2.0f;
+                else { minV *= 2.0f; maxV *= 2.0f; }
             }
             else
             {
-                if (i == 0) maxV *= 2.0f;
-                else if (i == ref->getNumFileNames() - 1) minV *= 2.0f;
-                else { minV *= 2.0f; maxV *= 2.0f; }
+                if (i == 0) maxV *= 0.5f;
+                else if (i == ref->getNumFileNames() - 1) minV *= 0.5f;
+                else { minV *= 0.5f; maxV *= 0.5f; }
             }
             plod->setRange(i, minV, maxV);
 
