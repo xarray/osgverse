@@ -167,6 +167,7 @@ bool TileOptimizer::prepare(const std::string& inputFolder, const std::string& i
 
 bool TileOptimizer::processGroundLevel(int combinedX, int combinedY, const std::string& subDir)
 {
+    std::vector<std::string> rootFileNames;
     osgDB::makeDirectory(_outFolder); osgDB::makeDirectory(_outFolder + subDir);
     for (std::map<std::string, NumberMap>::iterator itr = _srcNumberMap.begin();
          itr != _srcNumberMap.end(); ++itr)
@@ -249,13 +250,19 @@ bool TileOptimizer::processGroundLevel(int combinedX, int combinedY, const std::
                 snprintf(outSubName, 1024, outFormat.c_str(), dstX.data(), dstY.data());
 
                 TileNameAndRoughList& srcTiles = itr2->second;
-                std::string outFileName = isRootNode ? (tilePrefix + "root.osgb")
-                                        : (subDir + "/" + outSubName + ".osgb");
+                //std::string outFileName = isRootNode ? (tilePrefix + "root.osgb")
+                //                        : (subDir + "/" + outSubName + ".osgb");
+                std::string outFileName = subDir + "/" + outSubName + ".osgb";
                 osg::ref_ptr<osg::Node> rough = processTopTileFiles(outFileName, isRootNode, srcTiles);
                 combination[itr2->first] = NameAndRoughLevel(outFileName, rough);
+                if (isRootNode) rootFileNames.push_back(outFileName);
             }
         }
     }
+
+    osg::ref_ptr<osg::ProxyNode> root = new osg::ProxyNode;
+    for (size_t i = 0; i < rootFileNames.size(); ++i) root->setFileName(i, rootFileNames[i]);
+    osgDB::writeNodeFile(*root, _outFolder + "Tile_Root.osgb");
     return true;
 }
 
@@ -420,9 +427,9 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
 {
     osg::ref_ptr<osg::Group> root = new osg::Group;
     std::vector<osg::ref_ptr<osg::Geometry>> geomList;
-    for (size_t i = 0; i < srcTiles.size(); ++i)
+    for (size_t t = 0; t < srcTiles.size(); ++t)
     {
-        const std::pair<std::string, osg::ref_ptr<osg::Node>>& nameAndRough = srcTiles[i];
+        const std::pair<std::string, osg::ref_ptr<osg::Node>>& nameAndRough = srcTiles[t];
         std::string fileName = nameAndRough.first, ext = osgDB::getFileExtension(nameAndRough.first);
         if (ext.empty()) fileName = fileName + "/" + fileName + ".osgb";
 
@@ -445,7 +452,7 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
             geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
         }
 
-        if (!isRootNode) fileName = "../" + fileName;
+        fileName = "../" + fileName;
         if (roughNode.valid())
         {
             osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
@@ -474,6 +481,8 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
                         else { minV *= _lodScaleTopLevels; maxV *= _lodScaleTopLevels; }
                     }
                     plod->setRange(i, minV, maxV);
+                    OSG_NOTICE << "[TileOptimizer::processTopTileFiles] " << outTileFileName << ": "
+                               << i << ", Range = " << minV << ", " << maxV << std::endl;
                 }
             }
             root->addChild(plod.get());
@@ -499,7 +508,7 @@ osg::Vec3s TileOptimizer::getNumberFromTileName(const std::string& name, const s
                                                 std::string* textPrefix)
 {
     std::vector<int> numbers; std::string text = name, text0;
-    while (text[0] >= '0' && text[0] <= '9')
+    while (text[0] > 'z' || text[0] < 'A')
     { text0.push_back(text[0]); text.erase(text.begin()); if (text.empty()) break; }
 
     std::regex re(inRegex); std::smatch results;

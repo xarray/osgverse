@@ -242,7 +242,8 @@ namespace osgVerse
         osg::StateSet* createForwardStateSet(osg::Shader* vs, osg::Shader* fs);
 
         /** Load pipeline preset from stream */
-        bool load(std::istream& in, osgViewer::View* view, osg::Camera* mainCam = NULL);
+        bool load(std::istream& in, osgViewer::View* view,
+                  osg::Camera* mainCam = NULL, bool asEmbedded = false);
 
     protected:
         void applyDefaultStageData(Stage& s, const std::string& name, osg::Shader* vs, osg::Shader* fs);
@@ -281,7 +282,7 @@ namespace osgVerse
         unsigned int originWidth, originHeight;
         unsigned int deferredMask, forwardMask, userInputMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution;
-        bool debugShadowModule, enableVSync, enableMRT;
+        bool withEmbeddedViewer, debugShadowModule, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput;
 
         StandardPipelineParameters();
@@ -295,7 +296,8 @@ namespace osgVerse
                                         const StandardPipelineParameters& spp);
 
     /** Setup a OpenGL version tester and save the result to user-data of the pipeline */
-    extern GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded = false);
+    extern GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded,
+                                             osg::GraphicsContext* embeddedGC = NULL);
 }
 
 #endif

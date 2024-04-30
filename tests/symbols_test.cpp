@@ -2,6 +2,7 @@
 #include <osg/Texture2D>
 #include <osg/PagedLOD>
 #include <osg/MatrixTransform>
+#include <osgDB/ConvertUTF>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgGA/TrackballManipulator>

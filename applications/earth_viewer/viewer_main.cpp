@@ -41,6 +41,10 @@ namespace backward { backward::SignalHandling sh; }
 
 #define TEST_PIPELINE 1
 #define TEST_SYMBOLS 0
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#   define VERSE_GLES_DESKTOP 1
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+#endif
 
 #define EARTH_INPUT_MASK 0x00010000
 USE_OSG_PLUGINS()
@@ -192,13 +196,36 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setSceneData(root.get());
-    viewer.setThreadingModel(osgViewer::Viewer::CullDrawThreadPerContext);
-    viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()!
+
+    // Create the graphics window
+#ifdef VERSE_GLES_DESKTOP
+    osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+    traits->x = 50; traits->y = 50; traits->width = 1280; traits->height = 720;
+    traits->alpha = 8; traits->depth = 24; traits->stencil = 8;
+    traits->windowDecoration = true; traits->doubleBuffer = true;
+    traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
+    traits->windowingSystemPreference = "SDL";
+
+    osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+    viewer.getCamera()->setGraphicsContext(gc.get());
+    viewer.getCamera()->setViewport(0, 0, traits->width, traits->height);
+    viewer.getCamera()->setDrawBuffer(GL_BACK);
+    viewer.getCamera()->setReadBuffer(GL_BACK);
+    viewer.getCamera()->setProjectionMatrixAsPerspective(
+        30.0f, static_cast<double>(traits->width) / static_cast<double>(traits->height), 1.0f, 10000.0f);
+#else
+    viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()
+#endif
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer.realize();
 
 #if TEST_PIPELINE
     // Setup the pipeline
     osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "sunset.png");
     spp.userInputMask = EARTH_INPUT_MASK; spp.enableUserInput = true;
+#ifdef VERSE_GLES_DESKTOP
+    spp.withEmbeddedViewer = true;
+#endif
     setupStandardPipeline(pipeline.get(), &viewer, spp);
 #endif
 
@@ -331,5 +358,11 @@ int main(int argc, char** argv)
     }
     return 0;
 #endif
-    return viewer.run();
+
+    //osg::setNotifyLevel(osg::INFO);
+    while (!viewer.done())
+    {
+        viewer.frame();
+    }
+    return 0;
 }

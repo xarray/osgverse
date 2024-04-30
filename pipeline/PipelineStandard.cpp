@@ -90,8 +90,9 @@ namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(2048), debugShadowModule(false),
-        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true), enableUserInput(false)
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(2048),
+        withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
+        enableAO(true), enablePostEffects(true), enableUserInput(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -99,8 +100,9 @@ namespace osgVerse
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(2048), debugShadowModule(false),
-        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true), enableUserInput(false)
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(2048),
+        withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
+        enableAO(true), enablePostEffects(true), enableUserInput(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -153,18 +155,20 @@ namespace osgVerse
         }
     }
 
-    GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded)
+    GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded, osg::GraphicsContext* embeddedGC)
     {
         osgViewer::Viewer tempViewer;
         GLExtensionTester* tester = new GLExtensionTester(p);
         tempViewer.getCamera()->setPreDrawCallback(tester);
 
         tempViewer.setSceneData(new osg::Node);
+        if (asEmbedded && embeddedGC) embeddedGC->makeCurrent();
         if (asEmbedded) tempViewer.setUpViewerAsEmbeddedInWindow(0, 0, 1, 1);
         else tempViewer.setUpViewInWindow(0, 0, 1, 1);
         for (int i = 0; i < 5; ++i) tempViewer.frame();
 
         tempViewer.setDone(true);
+        if (asEmbedded && embeddedGC) embeddedGC->releaseContext();
         return p ? p->getVersionData() : NULL;
     }
 
@@ -198,7 +202,7 @@ namespace osgVerse
         }
 
         GLVersionData* data = p->getVersionData();
-        if (!data) data = queryOpenGLVersion(p);
+        if (!data) data = queryOpenGLVersion(p, spp.withEmbeddedViewer, mainCam->getGraphicsContext());
 
         p->startStages(spp.originWidth, spp.originHeight, mainCam->getGraphicsContext());
         if (data)

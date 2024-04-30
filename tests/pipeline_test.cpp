@@ -130,7 +130,7 @@ int main(int argc, char** argv)
     
     {
         // 1. Checking GL version is always a good start
-        osgVerse::GLVersionData* glData = osgVerse::queryOpenGLVersion(pipeline.get());
+        osgVerse::GLVersionData* glData = osgVerse::queryOpenGLVersion(pipeline.get(), false);
         if (glData && (!glData->glslSupported || !glData->fboSupported))
         {
             OSG_FATAL << "[SimplePipeline] Necessary OpenGL features missing. The pipeline "

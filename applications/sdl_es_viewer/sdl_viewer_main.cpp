@@ -128,12 +128,11 @@ int main(int argc, char** argv)
     viewer.getCamera()->setProjectionMatrixAsPerspective(
         30.0f, static_cast<double>(traits->width) / static_cast<double>(traits->height), 1.0f, 10000.0f);
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-    gc->makeCurrent();
-
+    
     // Setup the pipeline
 #if TEST_PIPELINE
     //params.enablePostEffects = false;
-    queryOpenGLVersion(pipeline.get(), true);
+    queryOpenGLVersion(pipeline.get(), true, gc.get());
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     // Post pipeline settings
@@ -185,7 +184,6 @@ int main(int argc, char** argv)
 #endif
 
     // Start the main loop
-    gc->releaseContext();
     while (!viewer.done())
     {
         viewer.frame();

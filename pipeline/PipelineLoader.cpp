@@ -300,7 +300,7 @@ namespace osgVerse
     *    "settings": {"width": 1920, "height": 1080, "masks": {..}},
     *  }
     */
-    bool Pipeline::load(std::istream& in, osgViewer::View* view, osg::Camera* mainCam)
+    bool Pipeline::load(std::istream& in, osgViewer::View* view, osg::Camera* mainCam, bool asEmbedded)
     {
         picojson::value root;
         std::string err = picojson::parse(root, in);
@@ -334,7 +334,8 @@ namespace osgVerse
             if (!width) width = 1920; if (!height) height = 1080;
 
             bool supportDrawBuffersMRT = true;
-            if (!_glVersionData) _glVersionData = queryOpenGLVersion(this);
+            if (!_glVersionData)
+                _glVersionData = queryOpenGLVersion(this, asEmbedded, mainCam->getGraphicsContext());
             if (_glVersionData.valid())
             {
                 if (!_glVersionData->glslSupported || !_glVersionData->fboSupported)
