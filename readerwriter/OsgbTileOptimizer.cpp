@@ -165,7 +165,7 @@ bool TileOptimizer::prepare(const std::string& inputFolder, const std::string& i
     return true;
 }
 
-bool TileOptimizer::processGroundLevel(int combinedX, int combinedY, const std::string& subDir)
+bool TileOptimizer::processGroundLevel(int combinedX0, int combinedY0, const std::string& subDir)
 {
     std::vector<std::string> rootFileNames;
     osgDB::makeDirectory(_outFolder); osgDB::makeDirectory(_outFolder + subDir);
@@ -175,6 +175,7 @@ bool TileOptimizer::processGroundLevel(int combinedX, int combinedY, const std::
         const std::string& tilePrefix = itr->first;
         const std::pair<osg::Vec2s, osg::Vec2s>& minMax = _minMaxMap[tilePrefix];
         const osg::Vec2s& minNum = minMax.first, maxNum = minMax.second;
+        int combinedX = combinedX0, combinedY = combinedY0;
 
         NumberMap& srcNumberMap = itr->second;
         std::map<osg::Vec2s, TileNameList> dstToSrcTileMap;
@@ -397,7 +398,12 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
         {
             osg::ref_ptr<osg::Node> tile = osgDB::readNodeFile(tileFiles[i]);
             plodNameMap[tileFiles[i]] = outFileName;
-            if (tile.valid()) loadedNodes.push_back(tile); 
+            if (tile.valid())
+            {
+                if (_filterNodeCallback.valid())
+                    _filterNodeCallback->prefilter(tileFiles[i], *tile);
+                loadedNodes.push_back(tile);
+            }
         }
         if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
 
@@ -407,6 +413,8 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
         if (newTile.valid())
         {
             osg::ref_ptr<TextureOptimizer> opt;
+            if (_filterNodeCallback.valid())
+                _filterNodeCallback->postfilter(_outFolder + outFileName, *newTile);
             if (_withBasisu)
             {
                 opt = new TextureOptimizer(true, "optimize_tex_" + nanoid::generate(8));
@@ -494,6 +502,8 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
     if (root.valid())
     {
         osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
+        if (_filterNodeCallback.valid())
+            _filterNodeCallback->postfilter(_outFolder + outTileFileName, *root);
         osgDB::writeNodeFile(*root, _outFolder + outTileFileName, options.get());
     }
 

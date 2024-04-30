@@ -94,15 +94,15 @@ namespace osgVerse
     class TexturePacker : public osg::Referenced
     {
     public:
-        TexturePacker(int maxW, int maxH)
-            : _maxWidth(maxW), _maxHeight(maxH), _dictIndex(0) {}
+        TexturePacker(int maxW, int maxH) : _maxWidth(maxW), _maxHeight(maxH), _dictIndex(0) {}
+        void setMaxSize(int w, int h) { _maxWidth = w; _maxHeight = h; }
         void clear();
 
         size_t addElement(osg::Image* image);
         size_t addElement(int width, int height);
         void removeElement(size_t id);
 
-        osg::Image* pack(size_t& numImages, bool generateResult, bool verbose = false);
+        osg::Image* pack(size_t& numImages, bool generateResult, bool stopIfFailed = false);
         bool getPackingData(size_t id, int& x, int& y, int& w, int& h);
 
     protected:

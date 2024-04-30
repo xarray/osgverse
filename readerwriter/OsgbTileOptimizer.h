@@ -34,6 +34,7 @@ namespace osgVerse
         struct FilterNodeCallback : public osg::Referenced
         {
             virtual void prefilter(const std::string& name, osg::Node& node) {}
+            virtual void postfilter(const std::string& name, osg::Node& node) {}
         };
         void setFilterNodeCallback(FilterNodeCallback* cb) { _filterNodeCallback = cb; }
         FilterNodeCallback* getFilterNodeCallback() const { return _filterNodeCallback.get(); }

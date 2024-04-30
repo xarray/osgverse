@@ -60,6 +60,7 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
 
     // Recompute texture coords
     osg::ref_ptr<osg::Image> atlas = packer->pack(numImages, true);
+    if (!atlas) { packer->setMaxSize(8192, 8192); atlas = packer->pack(numImages, true); }
     if (atlas.valid())
     {
         float totalW = atlas->s(), totalH = atlas->t();
