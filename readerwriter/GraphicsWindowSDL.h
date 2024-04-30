@@ -39,6 +39,7 @@ namespace osgVerse
         virtual void setSyncToVBlank(bool on);
 
     protected:
+        virtual ~GraphicsWindowSDL();
         void initialize();
 
         SDL_Window* _sdlWindow;

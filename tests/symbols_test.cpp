@@ -1,4 +1,4 @@
-#include <osg/io_utils>
+﻿#include <osg/io_utils>
 #include <osg/Texture2D>
 #include <osg/PagedLOD>
 #include <osg/MatrixTransform>
@@ -50,7 +50,7 @@ int main(int argc, char** argv)
             s->rotateAngle = 0.0f;// osg::PI * rand() / (float)RAND_MAX;
             s->texTiling = osg::Vec3((x % 5) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
             s->texTiling2 = osg::Vec3((x % 1) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
-            s->name = "ID_" + std::to_string(x + y * 100);
+            s->name = u8"ID_" + std::to_string(x + y * 100);
             symManager->updateSymbol(s);
         }
 

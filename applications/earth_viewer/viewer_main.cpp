@@ -12,6 +12,8 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include <osgEarth/Version>
+#include <osgEarth/Registry>
+#include <osgEarth/Capabilities>
 #include <osgEarth/Notify>
 #include <osgEarth/GeoTransform>
 #include <osgEarth/MapNode>
@@ -32,15 +34,13 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/LightModule.h>
 #include <pipeline/Utilities.h>
-#include <pipeline/SymbolManager.h>
 #include <iostream>
 #include <sstream>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-#define TEST_PIPELINE 1
-#define TEST_SYMBOLS 0
+#define TEST_PIPELINE 0
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   define VERSE_GLES_DESKTOP 1
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
@@ -166,6 +166,10 @@ int main(int argc, char** argv)
     osgVerse::globalInitialize(argc, argv);
     osg::ArgumentParser arguments(&argc, argv);
 
+    osgEarth::setNotifyLevel(osg::INFO);
+    osgEarth::Registry::instance()->getCapabilities();
+    osgDB::Registry::instance()->addFileExtensionAlias("tiff", "verse_tiff");
+
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
@@ -223,9 +227,9 @@ int main(int argc, char** argv)
     // Setup the pipeline
     osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "sunset.png");
     spp.userInputMask = EARTH_INPUT_MASK; spp.enableUserInput = true;
-#ifdef VERSE_GLES_DESKTOP
+#   ifdef VERSE_GLES_DESKTOP
     spp.withEmbeddedViewer = true;
-#endif
+#   endif
     setupStandardPipeline(pipeline.get(), &viewer, spp);
 #endif
 
@@ -265,19 +269,19 @@ int main(int argc, char** argv)
         osgDB::Registry::instance()->getObjectWrapperManager()->findWrapper("osg::Image");
 
         // sky initialization
-        osgEarth::Util::Ephemeris* ephemeris = new osgEarth::Util::Ephemeris;
+        /*osgEarth::Util::Ephemeris* ephemeris = new osgEarth::Util::Ephemeris;
         osg::ref_ptr<osgEarth::Util::SkyNode> skyNode = osgEarth::Util::SkyNode::create();
         skyNode->setName("SkyNode");
         skyNode->setEphemeris(ephemeris);
         skyNode->setDateTime(osgEarth::DateTime(2022, 7, 1, 10));
         skyNode->attach(&viewer, 0);
         skyNode->setLighting(true);
-        skyNode->addChild(mapNode.get());
+        skyNode->addChild(mapNode.get());*/
 
         // Add earth root to scene graph
         osg::ref_ptr<osg::Group> earthParent = new osg::Group;
         earthParent->addChild(earthRoot.get());
-        earthParent->addChild(skyNode.get());
+        //earthParent->addChild(skyNode.get());
         osgVerse::Pipeline::setPipelineMask(*earthParent, EARTH_INPUT_MASK);
         root->addChild(earthParent.get());
 
@@ -291,45 +295,6 @@ int main(int argc, char** argv)
         osg::ref_ptr<InteractiveHandler> interacter = new InteractiveHandler(earthMani.get());
         interacter->addViewpoint(vp0);
         viewer.addEventHandler(interacter.get());
-#endif
-
-#if TEST_SYMBOLS
-        const osg::Vec3 colors[12] = {
-            osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(1.0f, 1.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 1.0f),
-            osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec3(0.0f, 1.0f, 1.0f), osg::Vec3(0.0f, 0.0f, 1.0f),
-            osg::Vec3(1.0f, 0.0f, 0.5f), osg::Vec3(1.0f, 0.5f, 0.0f), osg::Vec3(0.5f, 0.0f, 1.0f),
-            osg::Vec3(0.0f, 0.5f, 1.0f), osg::Vec3(0.0f, 1.0f, 0.5f), osg::Vec3(1.0f, 0.0f, 0.5f)
-        };
-
-        osg::ref_ptr<osg::EllipsoidModel> ellipsoid = new osg::EllipsoidModel;
-        osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
-        for (int y = 0; y < 100; ++y)
-            for (int x = 0; x < 100; ++x)
-            {
-                double lat = (double)(x - 50), lon = (double)y, h = 1e5; osg::Vec3d pos;
-                ellipsoid->convertLatLongHeightToXYZ(
-                    osg::inDegrees(lat), osg::inDegrees(lon), h, pos[0], pos[1], pos[2]);
-
-                osgVerse::Symbol* s = new osgVerse::Symbol;
-                s->position = pos; s->scale = 0.015f;
-                s->rotateAngle = osg::PI * rand() / (float)RAND_MAX;
-                s->color = colors[(x * 100 + y) % 12];
-                s->name = osgDB::convertStringFromCurrentCodePageToUTF8(
-                    "BATCH: 1\nID" + std::to_string((x * 100 + y)));
-                s->desciption = s->name +
-                    osgDB::convertStringFromCurrentCodePageToUTF8("\nXXXXXXXXXXX\nYYYYYYYY\n");
-                s->fileName = "cessna.osg.200,200,200.scale.osgearth_shadergen";
-                symManager->updateSymbol(s);
-            }
-        symManager->setLodDistance(osgVerse::SymbolManager::LOD0, 1e8);
-        symManager->setLodDistance(osgVerse::SymbolManager::LOD1, 1e6);
-        symManager->setLodDistance(osgVerse::SymbolManager::LOD2, 1e5);
-        symManager->setMainCamera(viewer.getCamera());
-        symManager->setFontFileName(MISC_DIR "/SourceHanSansHWSC-Regular.otf");
-
-        osg::ref_ptr<osg::Group> symbols = new osg::Group;
-        symbols->addUpdateCallback(symManager.get());
-        sceneRoot->addChild(symbols.get());
 #endif
     }
 

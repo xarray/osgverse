@@ -125,6 +125,11 @@ GraphicsWindowSDL::GraphicsWindowSDL(osg::GraphicsContext::Traits* traits)
     }
 }
 
+GraphicsWindowSDL::~GraphicsWindowSDL()
+{
+    releaseContextImplementation();
+}
+
 void GraphicsWindowSDL::initialize()
 {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -146,8 +151,7 @@ void GraphicsWindowSDL::initialize()
     int winX = 50, winY = 50, winW = 1280, winH = 720;
     if (_traits.valid())
     {
-        unsigned int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL
-                           | SDL_WINDOW_KEYBOARD_GRABBED | SDL_WINDOW_MOUSE_GRABBED;
+        unsigned int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
         if (_traits->supportsResize) flags |= SDL_WINDOW_RESIZABLE;
         if (!_traits->windowDecoration) flags |= SDL_WINDOW_BORDERLESS;
         winX = _traits->x; winY = _traits->y;
@@ -290,7 +294,7 @@ bool GraphicsWindowSDL::realizeImplementation()
 
 void GraphicsWindowSDL::closeImplementation()
 {
-    if (!_valid) return;
+    if (!_valid) return; else _valid = false;
 #ifdef VERSE_GLES_DESKTOP
     EGLDisplay display = (EGLContext)_glDisplay;
     EGLContext context = (EGLContext)_glContext;
@@ -312,7 +316,9 @@ bool GraphicsWindowSDL::makeCurrentImplementation()
     EGLDisplay display = (EGLContext)_glDisplay;
     EGLContext context = (EGLContext)_glContext;
     EGLSurface surface = (EGLContext)_glSurface;
-    return eglMakeCurrent(display, surface, surface, context) == EGL_TRUE;
+    bool ok = (eglMakeCurrent(display, surface, surface, context) == EGL_TRUE);
+    if (!ok) { OSG_WARN << "[GraphicsWindowSDL] Make current failed: " << eglGetError() << std::endl; }
+    return ok;
 #else
     SDL_GLContext context = (SDL_GLContext)_glContext;
     return SDL_GL_MakeCurrent(_sdlWindow, context) == 0;
@@ -393,10 +399,10 @@ bool GraphicsWindowSDL::checkEvents()
 }
 
 void GraphicsWindowSDL::grabFocus()
-{ if (_valid) SDL_SetWindowGrab(_sdlWindow, SDL_TRUE); }
+{ if (_valid) SDL_SetWindowInputFocus(_sdlWindow); }
 
 void GraphicsWindowSDL::grabFocusIfPointerInWindow()
-{ if (_valid) SDL_SetWindowGrab(_sdlWindow, SDL_TRUE); }
+{ if (_valid) SDL_SetWindowInputFocus(_sdlWindow); }
 
 void GraphicsWindowSDL::raiseWindow()
 { if (_valid) SDL_RaiseWindow(_sdlWindow); }
