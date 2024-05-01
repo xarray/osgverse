@@ -1,6 +1,7 @@
 #ifndef MANA_READERWRITER_GRAPHICSWINDOWSDL_HPP
 #define MANA_READERWRITER_GRAPHICSWINDOWSDL_HPP
 
+#include <osg/Version>
 #include <osgDB/ReaderWriter>
 #include <osgViewer/GraphicsWindow>
 #include "Export.h"
@@ -27,7 +28,11 @@ namespace osgVerse
         virtual bool makeCurrentImplementation();
         virtual bool releaseContextImplementation();
         virtual void swapBuffersImplementation();
+#if OSG_VERSION_GREATER_THAN(3, 1, 1)
         virtual bool checkEvents();
+#else
+        virtual void checkEvents();
+#endif
         virtual void grabFocus();
         virtual void grabFocusIfPointerInWindow();
         virtual void raiseWindow();

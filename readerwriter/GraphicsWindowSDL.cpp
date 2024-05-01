@@ -115,7 +115,7 @@ GraphicsWindowSDL::GraphicsWindowSDL(osg::GraphicsContext::Traits* traits)
     {
         setState(new osg::State);
         getState()->setGraphicsContext(this);
-        if (_traits.valid() && _traits->sharedContext.valid())
+        if (_traits.valid() && _traits->sharedContext != NULL)
         {
             getState()->setContextID(_traits->sharedContext->getState()->getContextID());
             incrementContextIDUsageCount(getState()->getContextID());
@@ -279,7 +279,9 @@ void GraphicsWindowSDL::initialize()
 bool GraphicsWindowSDL::realizeImplementation()
 {
     _realized = false; if (!_valid) initialize(); if (!_valid) return false;
+#if OSG_VERSION_GREATER_THAN(3, 5, 0)
     getEventQueue()->syncWindowRectangleWithGraphicsContext();
+#endif
 
     int windowWidth = 1280, windowHeight = 720;
     if (_traits.valid()) { windowWidth = _traits->width; windowHeight = _traits->height; }
@@ -348,10 +350,18 @@ void GraphicsWindowSDL::swapBuffersImplementation()
 #endif
 }
 
+#if OSG_VERSION_GREATER_THAN(3, 1, 1)
 bool GraphicsWindowSDL::checkEvents()
+#else
+void GraphicsWindowSDL::checkEvents()
+#endif
 {
     SDL_Event event;
+#if OSG_VERSION_GREATER_THAN(3, 1, 1)
     if (!_realized) return false;
+#else
+    if (!_realized) return;
+#endif
 
     while (SDL_PollEvent(&event))
     {
@@ -395,7 +405,9 @@ bool GraphicsWindowSDL::checkEvents()
         default: break;
         }
     }
+#if OSG_VERSION_GREATER_THAN(3, 1, 1)
     return true;
+#endif
 }
 
 void GraphicsWindowSDL::grabFocus()
@@ -447,4 +459,6 @@ void GraphicsWindowSDL::setSyncToVBlank(bool on)
 { SDL_GL_SetSwapInterval(on ? 1 : 0); }
 
 extern "C" OSGVERSE_RW_EXPORT void graphicswindow_SDL(void) {}
+#if OSG_VERSION_GREATER_THAN(3, 5, 0)
 static osg::WindowingSystemInterfaceProxy<SDLWindowingSystem> s_proxy_SDLWindowingSystem("SDL");
+#endif

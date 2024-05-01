@@ -1,13 +1,18 @@
 SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_INCLUDE_FILES
-    ImGui.h ImGuiComponents.h UserComponent.h
-	CommandHandler.h PropertyInterface.h)
+    ImGui.h ImGuiComponents.h SerializerInterface.h
+    ###
+    UserComponent.h CommandHandler.h PropertyInterface.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
 	ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Styles.h
-	UserComponent.cpp CommandHandler.cpp PropertyInterface.cpp
+    SerializerInterface.cpp ui_serializers/object_serializer.cpp
+    ui_serializers/bool_serializer.cpp ui_serializers/value_serializer.cpp
+    ui_serializers/string_serializer.cpp
 	ui_compontents/SpiderEditor.cpp
 	ui_compontents/Timeline.cpp
 	ui_compontents/VirtualKeyboard.cpp
+    ###
+	UserComponent.cpp CommandHandler.cpp PropertyInterface.cpp
 	std_properties/BasicPropertyItem.cpp
 	std_properties/TransformPropertyItem.cpp
 	std_properties/GeometryPropertyItem.cpp
@@ -24,7 +29,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 NEW_LIBRARY(${LIB_NAME} STATIC)
 
-TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency)
+TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseScript)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}

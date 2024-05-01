@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ValueObject>
 #include <osg/Geometry>
 #include <osg/CoordinateSystemNode>
 #include <osg/MatrixTransform>
@@ -129,7 +130,7 @@ public:
                 std::string name = options ? options->getPluginStringData("simple_name") : "";
                 osg::ref_ptr<osg::Node> node = createTile(root, prefix, name);
                 //osgDB::writeNodeFile(*node, prefix + "/root.osg");
-                if (node.valid()) return node;
+                if (node.valid()) return node.get();
             }
             else
                 OSG_WARN << "[ReaderWriter3dtiles] Bad <root> type" << std::endl;

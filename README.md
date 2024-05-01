@@ -42,6 +42,9 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 * osgVerse_JsCallerWASM: Scriptable osgb rendering with WebGL 1.0, compiled from WASM
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/osgb_wasm.jpg)
 
+#### Business partner cases
+https://www.yuque.com/wangrui-jhjnz/zx531p/io8e7aq2ufsdhhl2
+
 #### Dependencies
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
 2. Please use a C++ compiler supporting C++ 14 at least.

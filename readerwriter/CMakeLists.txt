@@ -6,8 +6,11 @@ SET(LIBRARY_FILES
     DracoProcessor.cpp DracoProcessor.h
     OsgbTileOptimizer.cpp OsgbTileOptimizer.h
     Utilities.h Utilities.cpp Export.h
-    Geometry_FixedWrapper.cpp
 )
+
+IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} Geometry_FixedWrapper.cpp)
+ENDIF()
 
 IF(SDL2_FOUND)
     INCLUDE_DIRECTORIES(${SDL2_INCLUDE_DIR})

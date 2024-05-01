@@ -10,9 +10,9 @@ LibraryEntry::LibraryEntry(const std::string& libName)
     std::string pluginLib2 = registry->createLibraryNameForExtension(libName);
 
 #ifndef VERSE_STATIC_BUILD
-    if (registry->loadLibrary(nodeKitLib) == osgDB::Registry::LOADED ||
-        registry->loadLibrary(pluginLib) == osgDB::Registry::LOADED ||
-        registry->loadLibrary(pluginLib2) == osgDB::Registry::LOADED)
+    if (registry->loadLibrary(nodeKitLib) != osgDB::Registry::NOT_LOADED ||
+        registry->loadLibrary(pluginLib) != osgDB::Registry::NOT_LOADED ||
+        registry->loadLibrary(pluginLib2) != osgDB::Registry::NOT_LOADED)
 #endif
     { refresh(libName); }
 }

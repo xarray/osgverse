@@ -252,3 +252,10 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
         return outImages.empty() ? NULL : outImages[0].release();
     }
 }
+
+namespace osgVerse
+{
+#if OSG_VERSION_LESS_THAN(3, 5, 0)
+    bool fixOsgBinaryWrappers(const std::string& libName) { return false; }
+#endif
+}

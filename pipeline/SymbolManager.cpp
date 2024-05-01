@@ -234,7 +234,7 @@ void SymbolManager::initialize(osg::Group* group)
                 "}"
             };
 
-            osg::Program* program = new osg::Program;
+            osg::Program* program = new osg::Program; program->setName("FarDistanceIconProgram");
             program->addShader(new osg::Shader(osg::Shader::VERTEX, instanceVertShader));
             program->addShader(new osg::Shader(osg::Shader::FRAGMENT, instanceFragShader));
             ss->setAttributeAndModes(program);
@@ -315,7 +315,7 @@ void SymbolManager::initialize(osg::Group* group)
                 "}"
             };
 
-            osg::Program* program = new osg::Program;
+            osg::Program* program = new osg::Program; program->setName("MidDistanceTextProgram");
             program->addShader(new osg::Shader(osg::Shader::VERTEX, instanceVertShader2));
             program->addShader(new osg::Shader(osg::Shader::FRAGMENT, instanceFragShader2));
             ss->setAttributeAndModes(program);

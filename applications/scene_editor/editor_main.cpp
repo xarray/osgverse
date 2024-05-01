@@ -67,6 +67,7 @@ public:
 EditorContentHandler::EditorContentHandler()
     : _uiFrameNumber(0)
 {
+#ifdef ORIGIN_CODE
     _mainMenu = new osgVerse::MainMenuBar;
     _mainMenu->userData = this;
     createEditorMenu1();
@@ -77,15 +78,17 @@ EditorContentHandler::EditorContentHandler()
     _hierarchy = new Hierarchy(this);
     _properties = new Properties(this);
     _sceneLogic = new SceneLogic(this);
+#endif
 }
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 {
     ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
+#ifdef ORIGIN_CODE
     handleCommands();
-
     _mainMenu->show(mgr, this);
     ImGui::Separator();
+
     if (_uiFrameNumber > 0)
     {
         // Wait for the first frame to initialize ImGui work-size
@@ -105,6 +108,19 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     // Dialog management
     { std::string r; osgVerse::ImGuiComponentBase::showFileDialog(r); }
     { bool r = false; osgVerse::ImGuiComponentBase::showConfirmDialog(r); }
+#endif
+
+    static osg::ref_ptr<osg::MatrixTransform> mt;
+    static osg::ref_ptr<osgVerse::LibraryEntry> entry;
+    static std::vector<osg::ref_ptr<osgVerse::SerializerInterface>> interfaces;
+    if (!mt)
+    {
+        mt = new osg::MatrixTransform;
+        entry = osgVerse::SerializerFactory::instance()
+              ->createInterfaces(mt.get(), NULL, interfaces);
+    }
+    for (size_t i = 0; i < interfaces.size(); ++i)
+        interfaces[i]->show(mgr, this);
 
     ImGui::PopFont();
     _uiFrameNumber++;
@@ -112,6 +128,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 
 void EditorContentHandler::handleCommands()
 {
+#ifdef ORIGIN_CODE
     osgVerse::CommandData cmd;
     while (osgVerse::CommandBuffer::instance()->take(cmd, false))
     {
@@ -136,6 +153,7 @@ void EditorContentHandler::handleCommands()
             break;
         }
     }
+#endif
 }
 
 int main(int argc, char** argv)
@@ -241,8 +259,10 @@ int main(int argc, char** argv)
     imgui->addToView(&viewer, postCamera.get());
 
     // FIXME: just for test: custom component loading
+#ifdef ORIGIN_CODE
     osg::ref_ptr<osgVerse::UserComponentGroup> ucg = dynamic_cast<osgVerse::UserComponentGroup*>(
         osgDB::readObjectFile("all.verse_osgparticle"));
     if (ucg) osgVerse::UserComponentManager::instance()->registerComponents(ucg);
+#endif
     return viewer.run();
 }

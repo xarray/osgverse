@@ -146,7 +146,7 @@ int main(int argc, char** argv)
         geom->setUseDisplayList(false);
         geom->setUseVertexBufferObjects(true);
         geom->setVertexArray(va);
-        geom->setColorArray(ca, osg::Array::BIND_OVERALL);
+        geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_OVERALL);
         geom->addPrimitiveSet(new osg::DrawArrays(GL_LINE_LOOP, 0, va->size()));
         geom->getOrCreateStateSet()->setAttributeAndModes(new osg::LineWidth(4.0f));
         geom->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -166,7 +166,7 @@ int main(int argc, char** argv)
         g_delaunay->setUseDisplayList(false);
         g_delaunay->setUseVertexBufferObjects(true);
         g_delaunay->setVertexArray(va);
-        g_delaunay->setColorArray(ca, osg::Array::BIND_PER_VERTEX);
+        g_delaunay->setColorArray(ca); g_delaunay->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
         g_delaunay->addPrimitiveSet(de); createDelaunay(g_delaunay.get());
         delaunayNode->addDrawable(g_delaunay.get());
     }

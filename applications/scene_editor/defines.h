@@ -8,7 +8,7 @@
 
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
-#include <ui/ImGuiComponents.h>
+#include <ui/SerializerInterface.h>
 #include <ui/CommandHandler.h>
 #include <ui/UserComponent.h>
 #include <pipeline/SkyBox.h>
@@ -20,6 +20,14 @@
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
+
+USE_SERIALIZER_INTERFACE(RW_OBJECT)
+USE_SERIALIZER_INTERFACE(RW_BOOL)
+USE_SERIALIZER_INTERFACE(RW_INT)
+USE_SERIALIZER_INTERFACE(RW_UINT)
+USE_SERIALIZER_INTERFACE(RW_FLOAT)
+USE_SERIALIZER_INTERFACE(RW_DOUBLE)
+USE_SERIALIZER_INTERFACE(RW_STRING)
 
 #define A2U(s) osgDB::convertStringFromCurrentCodePageToUTF8(s)
 #define U2A(s) osgDB::convertStringFromUTF8toCurrentCodePage(s)
