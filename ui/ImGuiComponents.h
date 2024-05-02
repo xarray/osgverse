@@ -5,6 +5,7 @@
 #include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
+#include "3rdparty/any.hpp"
 #include "3rdparty/imgui/imgui.h"
 #include "3rdparty/imgui/ImGuizmo.h"
 #include "ImGui.h"
@@ -134,7 +135,7 @@ namespace osgVerse
         struct TextData
         {
             bool useBullet, disabled, wrapped; osg::Vec3 color;
-            TextData() : useBullet(false), disabled(false), wrapped(true) {}
+            TextData(bool d = false) : useBullet(false), disabled(d), wrapped(true) {}
         };
         std::vector<TextData> attributes;
         std::vector<std::string> texts;
@@ -335,21 +336,31 @@ namespace osgVerse
 
     struct SpiderEditor : public ImGuiComponentBase
     {
+        struct NodeItem;
+        struct LinkItem;
+
         struct PinItem : public osg::Referenced
-        { int nodeId; std::string name, type; };
+        {
+            int nodeId; std::string name; linb::any value;
+            PinItem() : nodeId(-1) {}  // name = data type
+        };
 
         struct NodeItem : public osg::Referenced
         {
-            int id; std::string name;
+            int id; std::string name;  // name = object property/method
             std::map<int, osg::ref_ptr<PinItem>> inPins, outPins;
+            std::map<int, osg::observer_ptr<LinkItem>> outLinks;
+            osg::observer_ptr<osg::Object> owner;
+
             int findPin(const std::string& n, bool isOut) const;
+            NodeItem(osg::Object* obj = NULL) : id(-1), owner(obj) {}
         };
 
         struct LinkItem : public osg::Referenced
         {
+            int id, inPin, outPin; osg::Vec4 color;
             osg::observer_ptr<NodeItem> inNode, outNode;
-            int inPin, outPin, flow; osg::Vec4 color;
-            LinkItem() : flow(0), color(1.0f, 1.0f, 1.0f, 1.0f) {}
+            LinkItem() : id(-1), inPin(-1), outPin(-1), color(1.0f, 1.0f, 1.0f, 1.0f) {}
         };
 
         std::map<int, osg::ref_ptr<NodeItem>> nodes;

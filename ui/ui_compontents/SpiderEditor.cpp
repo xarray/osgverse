@@ -29,7 +29,7 @@ SpiderEditor::NodeItem* SpiderEditor::createNode(const std::string& n)
 {
     osg::ref_ptr<NodeItem> item = new NodeItem;
     item->name = n + "##spider" + std::to_string(g_counter);
-    nodes[g_counter++] = item; item->id = g_counter; return item.get();
+    nodes[++g_counter] = item; item->id = g_counter; return item.get();
 }
 
 SpiderEditor::PinItem* SpiderEditor::createPin(NodeItem* it, const std::string& n, bool isOut)
@@ -45,8 +45,9 @@ SpiderEditor::LinkItem* SpiderEditor::createLink(NodeItem* src, const std::strin
 {
     osg::ref_ptr<LinkItem> link = new LinkItem;
     link->inNode = src; link->inPin = src->findPin(srcPin, false);
-    link->outNode = dst; link->outPin = src->findPin(dstPin, true);
-    links[g_counter++] = link; return link.get();
+    link->outNode = dst; link->outPin = dst->findPin(dstPin, true);
+    links[++g_counter] = link; link->id = g_counter;
+    src->outLinks[link->inPin] = link.get(); return link.get();
 }
 
 void SpiderEditor::createEditor(const std::string& cfg)
@@ -75,7 +76,9 @@ bool SpiderEditor::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         ed::BeginNode(itr->first);
         if (nodeItem != NULL)
         {
-            ImGui::Text("%s", nodeItem->name.c_str());
+            std::string ownerName = nodeItem->owner.valid() ? nodeItem->owner->getName() : "";
+            if (ownerName.empty()) ownerName = nodeItem->owner->className();
+            ImGui::Text("%s.%s", ownerName.c_str(), nodeItem->name.c_str());
             ImGui::Separator();
 
             std::vector<int> inIds, outIds;

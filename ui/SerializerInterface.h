@@ -16,19 +16,21 @@ namespace osgVerse
                             const LibraryEntry::Property& prop, bool composited);
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
+        virtual int createSpiderNode(SpiderEditor* spider, bool getter, bool setter);
 
         void addIndent(float incr) { _indent += incr; }
-
         void dirty() { _dirty = true; }
+
         bool isDirty() const { return _dirty; }
+        bool isHidden() const { return _hidden; }
 
     protected:
         osg::observer_ptr<osg::Object> _object;
         osg::ref_ptr<LibraryEntry> _entry;
         LibraryEntry::Property _property;
-        std::string _postfix;
-        float _indent;
+        std::string _postfix; float _indent;
         bool _composited, _selected, _dirty;
+        bool _hidden;
     };
 
     class SerializerFactory : public osg::Referenced
@@ -63,12 +65,12 @@ namespace osgVerse
 }
 
 #define REGISTER_SERIALIZER_INTERFACE(t, clsName) \
-    osgVerse::SerializerInterface* serializerInterfaceFunc_##clsName (osg::Object* obj, \
+    osgVerse::SerializerInterface* serializerInterfaceFunc_##t##clsName (osg::Object* obj, \
         osgVerse::LibraryEntry* entry, const osgVerse::LibraryEntry::Property& prop) \
         { return new clsName (obj, entry, prop); } \
     extern "C" void serializerInterfaceFuncCaller_##t () {} \
-    static osgVerse::SerializerInterfaceProxy proxy_##clsName \
-    (osgDB::BaseSerializer::##t, serializerInterfaceFunc_##clsName );
+    static osgVerse::SerializerInterfaceProxy proxy_##t##clsName \
+    (osgDB::BaseSerializer::##t, serializerInterfaceFunc_##t##clsName );
 
 #define USE_SERIALIZER_INTERFACE(t) \
     extern "C" void serializerInterfaceFuncCaller_##t (); \

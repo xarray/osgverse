@@ -331,6 +331,15 @@ bool InputVectorField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
             vecValue.set((double)valueI[0], (double)valueI[1], (double)valueI[2], (double)valueI[3]);
         }
         break;
+    case UIntValue:
+        {
+            unsigned int valueI[4] = { (unsigned int)vecValue[0], (unsigned int)vecValue[1],
+                                       (unsigned int)vecValue[2], (unsigned int)vecValue[3] };
+            done = ImGui::InputScalarN(name.c_str(), ImGuiDataType_U32, valueI, vecNumber,
+                                       (step > 0 ? &step : NULL), NULL, "%d", flags);
+            vecValue.set((double)valueI[0], (double)valueI[1], (double)valueI[2], (double)valueI[3]);
+        }
+        break;
     case FloatValue:
         {
             float valueF[4] = { (float)vecValue[0], (float)vecValue[1],
@@ -348,6 +357,8 @@ bool InputVectorField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         break;
     }
 
+    if (minValue < maxValue) for (int n = 0; n < 4; ++n)
+        vecValue[n] = osg::clampBetween(vecValue[n], minValue, maxValue);
     if (!tooltip.empty()) showTooltip(tooltip);
     if (done && callback) callback(mgr, content, this);
     return done;

@@ -5,11 +5,14 @@ SET(LIBRARY_INCLUDE_FILES
     UserComponent.h CommandHandler.h PropertyInterface.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
 	ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Styles.h
-    SerializerInterface.cpp ui_serializers/object_serializer.cpp
-    ui_serializers/bool_serializer.cpp ui_serializers/value_serializer.cpp
-    ui_serializers/string_serializer.cpp
-	ui_compontents/SpiderEditor.cpp
-	ui_compontents/Timeline.cpp
+    SerializerInterface.cpp
+    ui_serializers/object_serializer.cpp ui_serializers/image_serializer.cpp
+    ui_serializers/bool_serializer.cpp ui_serializers/string_serializer.cpp
+    ui_serializers/value_serializer.cpp ui_serializers/vector_serializer.cpp
+    ui_serializers/enum_serializer.cpp ui_serializers/matrix_serializer.cpp
+    ui_serializers/quat_serializer.cpp ui_serializers/bound_serializer.cpp
+    ui_serializers/list_serializer.cpp ui_serializers/empty_serializer.cpp
+	ui_compontents/SpiderEditor.cpp ui_compontents/Timeline.cpp
 	ui_compontents/VirtualKeyboard.cpp
     ###
 	UserComponent.cpp CommandHandler.cpp PropertyInterface.cpp

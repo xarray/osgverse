@@ -7,35 +7,45 @@ static int g_headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_B
 
 SerializerInterface::SerializerInterface(osg::Object* obj, LibraryEntry* entry,
                                          const LibraryEntry::Property& prop, bool composited)
-    : _object(obj), _entry(entry), _property(prop), _indent(2.0f), _selected(false), _dirty(true)
+:   _object(obj), _entry(entry), _property(prop), _indent(2.0f),
+    _selected(false), _dirty(true), _hidden(false)
 { _postfix = "##" + nanoid::generate(8); _composited = composited; }
 
 bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    bool toOpen = true; ImGui::Indent(_indent);
+    std::string title = TR(_property.name) + _postfix;
+    bool toOpen = true; if (_hidden) return false; else ImGui::Indent(_indent);
+
+    if (ImGui::ArrowButton((title + "_Arrow").c_str(), ImGuiDir_Down))  // TODO: disabled = ImGuiDir_None
+    {
+        // Select the item and also open popup menu
+        ImGui::OpenPopup((title + "_Popup").c_str());
+    }
+    ImGui::SameLine();
+
     if (_composited)
     {
-        std::string title = TR(_property.name) + _postfix;
-        if (ImGui::ArrowButton((title + "_Arrow").c_str(), ImGuiDir_Down))  // TODO: disabled = ImGuiDir_None
-        {
-            // Select the item and also open popup menu
-            ImGui::OpenPopup((title + "_Popup").c_str());
-        }
-        ImGui::SameLine();
-
         if (_selected) ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.4f, 0.4f, 0.0f, 1.0f));
         toOpen = ImGui::CollapsingHeader(title.c_str(), g_headerFlags);
         if (_selected) ImGui::PopStyleColor();
+    }
 
-        if (ImGui::BeginPopup((title + "_Popup").c_str()))
-        {
-            // TODO: up/down/edit/delete for custom interface
-            ImGui::EndPopup();
-        }
+    if (ImGui::BeginPopup((title + "_Popup").c_str()))
+    {
+        // TODO: up/down/edit/delete for custom interface
+        ImGui::EndPopup();
     }
 
     if (toOpen) { toOpen = showProperty(mgr, content); _dirty = false; }
     ImGui::Unindent(_indent); return toOpen;
+}
+
+int SerializerInterface::createSpiderNode(SpiderEditor* spider, bool getter, bool setter)
+{
+    SpiderEditor::NodeItem* node = spider->createNode(TR(_property.name));
+    if (getter) spider->createPin(node, _property.typeName, true);
+    if (setter) spider->createPin(node, _property.typeName, false);
+    node->owner = _object; return node->id;
 }
 
 SerializerFactory* SerializerFactory::instance()

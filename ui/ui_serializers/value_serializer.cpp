@@ -31,6 +31,50 @@ protected:
     osg::ref_ptr<InputValueField> _value;
 };
 
+class CharSerializerInterface : public ValueSerializerInterface<char>
+{
+public:
+    CharSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
+    : ValueSerializerInterface(obj, entry, prop)
+    {
+        _value->type = InputValueField::IntValue;
+        _value->minValue = -128; _value->maxValue = 127;
+    }
+};
+
+class UCharSerializerInterface : public ValueSerializerInterface<unsigned char>
+{
+public:
+    UCharSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
+    : ValueSerializerInterface(obj, entry, prop)
+    {
+        _value->type = InputValueField::UIntValue;
+        _value->minValue = 0; _value->maxValue = 255;
+    }
+};
+
+class ShortSerializerInterface : public ValueSerializerInterface<short>
+{
+public:
+    ShortSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
+    : ValueSerializerInterface(obj, entry, prop)
+    {
+        _value->type = InputValueField::IntValue;
+        _value->minValue = -32768; _value->maxValue = 32767;
+    }
+};
+
+class UShortSerializerInterface : public ValueSerializerInterface<unsigned short>
+{
+public:
+    UShortSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
+    : ValueSerializerInterface(obj, entry, prop)
+    {
+        _value->type = InputValueField::UIntValue;
+        _value->minValue = 0; _value->maxValue = 65535;
+    }
+};
+
 class IntSerializerInterface : public ValueSerializerInterface<int>
 {
 public:
@@ -63,6 +107,10 @@ public:
     : ValueSerializerInterface(obj, entry, prop) { _value->type = InputValueField::DoubleValue; }
 };
 
+REGISTER_SERIALIZER_INTERFACE(RW_CHAR, CharSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(RW_UCHAR, UCharSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(RW_SHORT, ShortSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(RW_USHORT, UShortSerializerInterface)
 REGISTER_SERIALIZER_INTERFACE(RW_INT, IntSerializerInterface)
 REGISTER_SERIALIZER_INTERFACE(RW_UINT, UIntSerializerInterface)
 REGISTER_SERIALIZER_INTERFACE(RW_FLOAT, FloatSerializerInterface)
