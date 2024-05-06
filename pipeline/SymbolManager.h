@@ -16,8 +16,10 @@ namespace osgVerse
                      MidDistance, NearDistance };
         Symbol() : state(Hidden), id(-1), modelFrame0(0)
         {
-            texTiling = osg::Vec3(0.0f, 0.0f, 1.0f);
-            texTiling2 = osg::Vec3(0.0f, 0.0f, 1.0f);
+            tiling = osg::Vec3(0.0f, 0.0f, 1.0f);
+            tiling2 = osg::Vec3(0.0f, 0.0f, 1.0f);
+            color = osg::Vec4f(1.0f, 1.0f, 1.0f, 1.0f);
+            textColor = osg::Vec4f(1.0f, 1.0f, 1.0f, 1.0f);
             rotateAngle = 0.0f; scale = 0.1f; dirtyDesc = false;
         }
 
@@ -29,7 +31,8 @@ namespace osgVerse
         std::string name;                                    // Name text for 'mid' mode
         std::string desciption, fileName;                    // Description text and file name for 'near' mode
         osg::Vec3d position;                                 // Position of the symbol
-        osg::Vec3f texTiling, texTiling2;                    // tiling parameter (for atlas texture) for 'far/mid'
+        osg::Vec3f tiling, tiling2;                          // tiling parameter (for atlas texture) for 'far/mid'
+        osg::Vec4f color, textColor;                         // background color scale and text color scale
         float rotateAngle, scale;                            // Rotation and scale of the symbol
         State state;                                         // State of the symbol
         int id, modelFrame0;                                 // unique ID of the symbol, and frame info for 'near'
@@ -140,12 +143,12 @@ namespace osgVerse
 
         osg::Image* createLabel(int w, int h, const std::string& text,
                                 const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f));
-        osg::Image* createGrid(int w, int h, int grid, const std::vector<Symbol*>& texts,
-                               const osg::Vec4& color = osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f));
+        osg::Image* createGrid(int w, int h, int grid, const std::vector<Symbol*>& texts);
 
         std::map<int, osg::ref_ptr<Symbol>> _symbols;
         osg::ref_ptr<osg::Geometry> _instanceGeom, _instanceBoard;
-        osg::ref_ptr<osg::Texture2D> _posTexture, _posTexture2, _dirTexture, _dirTexture2;
+        osg::ref_ptr<osg::Texture2D> _posTexture, _dirTexture, _colorTexture;
+        osg::ref_ptr<osg::Texture2D> _posTexture2, _dirTexture2, _colorTexture2;
         osg::ref_ptr<osg::Texture2D> _iconTexture, _bgIconTexture, _textTexture;
         osg::ref_ptr<osg::Uniform> _midDistanceOffset, _midDistanceScale;
         osg::ref_ptr<DrawTextGridCallback> _drawGridCallback;

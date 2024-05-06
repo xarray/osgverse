@@ -1,4 +1,4 @@
-﻿#include <osg/io_utils>
+#include <osg/io_utils>
 #include <osg/Texture2D>
 #include <osg/PagedLOD>
 #include <osg/MatrixTransform>
@@ -48,8 +48,8 @@ int main(int argc, char** argv)
             osgVerse::Symbol* s = new osgVerse::Symbol;
             s->position = osg::Vec3d(x - 5, y - 5, y - 5);
             s->rotateAngle = 0.0f;// osg::PI * rand() / (float)RAND_MAX;
-            s->texTiling = osg::Vec3((x % 5) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
-            s->texTiling2 = osg::Vec3((x % 1) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
+            s->tiling = osg::Vec3((x % 5) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
+            s->tiling2 = osg::Vec3((x % 1) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
             s->name = u8"ID_" + std::to_string(x + y * 100);
             symManager->updateSymbol(s);
         }
