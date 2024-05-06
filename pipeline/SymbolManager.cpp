@@ -455,41 +455,44 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         }
     }
 
-    size_t numK = kmeansPoints.size() / 4; if (numK == 0) numK = 1;
-    auto result = dkm::kmeans_lloyd_parallel(kmeansPoints, numK);
-    std::vector<std::array<float, 2>> centers = std::get<0>(result);
-    std::vector<uint32_t> classIndices = std::get<1>(result);
-    std::set<uint32_t> usedIndices;
-
-    for (size_t n = 0; n < symbolsInOrder2.size(); ++n)
+    if (!kmeansPoints.empty())
     {
-        Symbol* sym = symbolsInOrder2[n].first;
-        uint32_t classId = classIndices[n];
-        osg::Vec2 offset(kmeansPoints[n][0] - centers[classId][0],
-                         kmeansPoints[n][1] - centers[classId][1]);
-        if (offset.length() < 0.1f)
-        {
-            //if (usedIndices.find(classId) == usedIndices.end())
-            //    { usedIndices.insert(classId); }
-            //else
-            //    { sym->state = Symbol::FarClustered; continue; }
-        }
+        size_t numK = kmeansPoints.size() / 4; if (numK == 0) numK = 1;
+        auto result = dkm::kmeans_lloyd_parallel(kmeansPoints, numK);
+        std::vector<std::array<float, 2>> centers = std::get<0>(result);
+        std::vector<uint32_t> classIndices = std::get<1>(result);
+        std::set<uint32_t> usedIndices;
 
-        // Save to parameter textures
-        const osg::Vec4 posAndScale = symbolsInOrder2[n].second;
-        if (sym->state == Symbol::MidDistance)
+        for (size_t n = 0; n < symbolsInOrder2.size(); ++n)
         {
-            *(posHandle2 + numInstances2) = posAndScale;
-            *(dirHandle2 + numInstances2) = osg::Vec4(sym->tiling2, 1.0f);
-            *(colorHandle2 + numInstances) = sym->color;
-            texts.push_back(sym); numInstances2++;
-            if (!_showIconsInMidDistance) continue;
-        }
+            Symbol* sym = symbolsInOrder2[n].first;
+            uint32_t classId = classIndices[n];
+            osg::Vec2 offset(kmeansPoints[n][0] - centers[classId][0],
+                             kmeansPoints[n][1] - centers[classId][1]);
+            if (offset.length() < 0.01f)
+            {
+                //if (usedIndices.find(classId) == usedIndices.end())
+                //    { usedIndices.insert(classId); }
+                //else
+                //    { continue; }
+            }
 
-        *(posHandle + numInstances) = posAndScale;
-        *(dirHandle + numInstances) = osg::Vec4(sym->tiling, sym->rotateAngle);
-        *(colorHandle + numInstances) = sym->color;
-        boundBox.expandBy(sym->position); numInstances++;  // FarDistance
+            // Save to parameter textures
+            const osg::Vec4 posAndScale = symbolsInOrder2[n].second;
+            if (sym->state == Symbol::MidDistance)
+            {
+                *(posHandle2 + numInstances2) = posAndScale;
+                *(dirHandle2 + numInstances2) = osg::Vec4(sym->tiling2, 1.0f);
+                *(colorHandle2 + numInstances) = sym->color;
+                texts.push_back(sym); numInstances2++;
+                if (!_showIconsInMidDistance) continue;
+            }
+
+            *(posHandle + numInstances) = posAndScale;
+            *(dirHandle + numInstances) = osg::Vec4(sym->tiling, sym->rotateAngle);
+            *(colorHandle + numInstances) = sym->color;
+            boundBox.expandBy(sym->position); numInstances++;  // FarDistance
+        }
     }
 
     // If only one symbol left and near enough, select it as NearDistance one
