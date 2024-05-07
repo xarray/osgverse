@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ValueObject>
 #include <osg/MatrixTransform>
 #include <osg/PagedLOD>
 #include <osgDB/ReadFile>
@@ -18,6 +19,7 @@
 #include <queue>
 #include <ghc/filesystem.hpp>
 
+#include <readerwriter/DatabasePager.h>
 #include <readerwriter/Utilities.h>
 #include <readerwriter/OsgbTileOptimizer.h>
 #include <readerwriter/DracoProcessor.h>
@@ -94,6 +96,37 @@ public:
         }
         traverse(geode);
     }
+};
+
+struct DataMergeCallback : public osgVerse::DatabasePager::DataMergeCallback
+{
+    virtual FilterResult filter(osg::PagedLOD* parent, const std::string& name, osg::Node*)
+    {
+        if (name.find(_prefixToScale) != std::string::npos)
+        {
+            bool scaled = false;
+            if (parent->getUserValue("LodScaled", scaled))
+            { if (scaled) return FilterResult::MERGE_NOW; }
+
+            for (size_t i = 0; i < parent->getNumFileNames(); ++i)
+            {
+                float minV = parent->getMinRange(i), maxV = parent->getMaxRange(i);
+                switch (parent->getRangeMode())
+                {
+                case osg::PagedLOD::PIXEL_SIZE_ON_SCREEN:
+                    parent->setRange(i, minV * _lodScale, maxV * _lodScale); break;
+                case osg::PagedLOD::DISTANCE_FROM_EYE_POINT:
+                    parent->setRange(i, minV / _lodScale, maxV / _lodScale); break;
+                }
+            }
+            parent->setUserValue("LodScaled", true);
+            return FilterResult::DISCARDED;
+        }
+        return FilterResult::MERGE_NOW;
+    }
+
+    DataMergeCallback(const std::string& p, float s) : _prefixToScale(p), _lodScale(s) {}
+    std::string _prefixToScale; float _lodScale;
 };
 
 void processFile(const std::string& prefix, const std::string& dirName,
@@ -202,11 +235,15 @@ int main(int argc, char** argv)
     else if (argc > 1)
     {
         osg::ArgumentParser arguments(&argc, argv);
+        std::string prefix = ""; arguments.read("--prefix", prefix);
         float lodScale = 1.0f; arguments.read("--lod-scale", lodScale);
-        float smallPixel = 0.0f; arguments.read("--small", smallPixel);
-        viewer.getCamera()->setLODScale(lodScale);
-        viewer.getCamera()->setSmallFeatureCullingPixelSize(smallPixel);
+        //viewer.getCamera()->setLODScale(lodScale);
         root->addChild(osgDB::readNodeFiles(arguments));
+
+        osgVerse::DatabasePager* dbPager = new osgVerse::DatabasePager;
+        dbPager->setDataMergeCallback(new DataMergeCallback(prefix, lodScale));
+        viewer.setDatabasePager(dbPager);
+        viewer.setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
     }
     else
     {

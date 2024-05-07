@@ -5,7 +5,8 @@ SET(LIBRARY_FILES
     LoadTextureKTX.cpp LoadTextureKTX.h
     DracoProcessor.cpp DracoProcessor.h
     OsgbTileOptimizer.cpp OsgbTileOptimizer.h
-    Utilities.h Utilities.cpp Export.h
+    Utilities.h Utilities.cpp
+    DatabasePager.h Export.h
 )
 
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
