@@ -40,9 +40,13 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
+#define VERSE_FORCE_SDL 1
+
 #define TEST_PIPELINE 0
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   define VERSE_GLES_DESKTOP 1
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+#elif defined(VERSE_FORCE_SDL)
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 #endif
 
@@ -168,6 +172,9 @@ int main(int argc, char** argv)
 
     osgEarth::setNotifyLevel(osg::INFO);
     osgEarth::Registry::instance()->getCapabilities();
+#ifdef VERSE_GLES_DESKTOP
+    osgEarth::Registry::instance()->overrideTerrainEngineDriverName() = "mp";
+#endif
     osgDB::Registry::instance()->addFileExtensionAlias("tiff", "verse_tiff");
 
     // The scene graph
@@ -202,7 +209,7 @@ int main(int argc, char** argv)
     viewer.setSceneData(root.get());
 
     // Create the graphics window
-#ifdef VERSE_GLES_DESKTOP
+#if defined(VERSE_GLES_DESKTOP) || defined(VERSE_FORCE_SDL)
     osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
     traits->x = 50; traits->y = 50; traits->width = 1280; traits->height = 720;
     traits->alpha = 8; traits->depth = 24; traits->stencil = 8;

@@ -285,12 +285,19 @@ bool GraphicsWindowSDL::realizeImplementation()
 
     int windowWidth = 1280, windowHeight = 720;
     if (_traits.valid()) { windowWidth = _traits->width; windowHeight = _traits->height; }
-#if VERSE_GLES
+#if VERSE_GLES_DESKTOP
+    EGLDisplay display = (EGLContext)_glDisplay;
+    EGLSurface surface = (EGLContext)_glSurface;
     eglQuerySurface(display, surface, EGL_WIDTH, &windowWidth);
     eglQuerySurface(display, surface, EGL_HEIGHT, &windowHeight);
 #endif
     getEventQueue()->windowResize(0, 0, windowWidth, windowHeight);
     resized(0, 0, windowWidth, windowHeight);
+
+#if VERSE_GLES_DESKTOP
+    getState()->setUseModelViewAndProjectionUniforms(true);
+    getState()->setUseVertexAttributeAliasing(true);
+#endif
     _realized = true; return true;
 }
 

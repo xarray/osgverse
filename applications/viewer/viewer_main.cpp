@@ -26,7 +26,7 @@ namespace backward { backward::SignalHandling sh; }
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-#ifdef OSG_GL3_AVAILABLE
+#ifdef false  // GLDebug requires OpenGL 4.3, enable it by yourselves
 class GLDebugOperation : public osg::GraphicsOperation
 {
 public:
