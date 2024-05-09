@@ -25,6 +25,34 @@ static osg::Texture2D* createParameterTable(osg::Image* image)
     tex->setBorderColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f)); return tex;
 }
 
+osg::Vec3 Symbol::getCorner2D(SymbolManager* mgr, int index) const
+{
+    osg::Viewport* vp = mgr->getMainCamera()->getViewport();
+    osg::Vec3 midScale = mgr->getMidDistanceTextScale(),
+              midOffset = mgr->getMidDistanceTextOffset(),
+              pos = osg::Vec3(projAndScale[0], projAndScale[1], projAndScale[2]);
+    float aspect = (vp ? ((float)vp->height() / (float)vp->width()) : 1.0f);
+    float halfPY = 0.5f, scaleY = projAndScale[3]; float scaleX = aspect * scaleY;
+    float halfPX = halfPY, halfNX = halfPX, halfNY = halfPY;
+    if (state > FarDistance)
+    {
+        float midW = midScale[0], midH = midScale[1];
+        halfPX = osg::maximum(midW * 0.5f + midW * midOffset[0], halfPX);
+        halfPY = osg::maximum(midH * 0.5f + midH * midOffset[1], halfPY);
+        halfNX = osg::maximum(midW * 0.5f - midW * midOffset[0], halfNX);
+        halfNY = osg::maximum(midH * 0.5f - midH * midOffset[1], halfNY);
+    }
+
+    switch (index)
+    {
+    case 0: return pos + osg::Vec3(-halfNX * scaleX, -halfNY * scaleY, 0.0f);
+    case 1: return pos + osg::Vec3(halfPX * scaleX, -halfNY * scaleY, 0.0f);
+    case 2: return pos + osg::Vec3(halfPX * scaleX, halfPY * scaleY, 0.0f);
+    case 3: return pos + osg::Vec3(-halfNX * scaleX, halfPY * scaleY, 0.0f);
+    default: return pos;
+    }
+}
+
 SymbolManager::SymbolManager()
     : _idCounter(0), _firstRun(true), _showIconsInMidDistance(true)
 {
@@ -385,7 +413,7 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
     std::vector<Symbol*> texts;
     std::map<double, std::vector<std::pair<Symbol*, osg::Vec4>>> symbolsInOrder;
     for (std::map<int, osg::ref_ptr<Symbol>>::iterator itr = _symbols.begin();
-        itr != _symbols.end(); ++itr)
+         itr != _symbols.end(); ++itr)
     {
         // Update state and eye-space position
         Symbol* sym = itr->second.get();
@@ -447,11 +475,12 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
         std::vector<std::pair<Symbol*, osg::Vec4>>& pairList = itr->second;
         for (size_t n = 0; n < pairList.size(); ++n)
         {
-            const osg::Vec4 posAndScale = pairList[n].second;
-            osg::Vec3 proj = osg::Vec3(posAndScale[0], posAndScale[1],
-                                       posAndScale[2]) * projMatrix;
+            std::pair<Symbol*, osg::Vec4>& pair = pairList[n];
+            osg::Vec3 proj = osg::Vec3(pair.second[0], pair.second[1],
+                                       pair.second[2]) * projMatrix;
             std::array<float, 2> vec; vec[0] = proj[0]; vec[1] = proj[1];
-            kmeansPoints.push_back(vec); symbolsInOrder2.push_back(pairList[n]);
+            pair.first->projAndScale = osg::Vec4(proj, pair.second[3]);
+            kmeansPoints.push_back(vec); symbolsInOrder2.push_back(pair);
         }
     }
 

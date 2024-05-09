@@ -10,6 +10,7 @@
 
 namespace osgVerse
 {
+    class SymbolManager;
     struct Symbol : public osg::Referenced
     {
         enum State { Hidden = 0, FarClustered, FarDistance,
@@ -23,8 +24,8 @@ namespace osgVerse
             rotateAngle = 0.0f; scale = 0.1f; dirtyDesc = false;
         }
 
-        void setDesciption(const std::string& d)
-        { desciption = d; dirtyDesc = true; }
+        osg::Vec3 getCorner2D(SymbolManager* mgr, int index) const;  // 0-3: corners, -1: origin
+        void setDesciption(const std::string& d) { desciption = d; dirtyDesc = true; }
 
         osg::observer_ptr<osg::Node> loadedModel;            // Loaded model for 'near' mode
         osg::observer_ptr<osg::Texture2D> loadedModelBoard;  // Description texture for 'near' mode
@@ -33,8 +34,9 @@ namespace osgVerse
         osg::Vec3d position;                                 // Position of the symbol
         osg::Vec3f tiling, tiling2;                          // tiling parameter (for atlas texture) for 'far/mid'
         osg::Vec4f color, textColor;                         // background color scale and text color scale
+        osg::Vec4f projAndScale;                             // Current projection and scale (output value)
         float rotateAngle, scale;                            // Rotation and scale of the symbol
-        State state;                                         // State of the symbol
+        State state;                                         // State of the symbol (output value)
         int id, modelFrame0;                                 // unique ID of the symbol, and frame info for 'near'
         bool dirtyDesc;                                      // Whether to update description text for 'near' mode
     };

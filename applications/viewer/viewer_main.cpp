@@ -250,7 +250,7 @@ int main(int argc, char** argv)
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
-#ifdef OSG_GL3_AVAILABLE
+#ifdef false  // GLDebug requires OpenGL 4.3, enable it by yourselves
 #   ifdef VERSE_WINDOWS
     // WGL_CONTEXT_DEBUG_BIT_ARB = 0x0001
     // WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002

@@ -40,7 +40,7 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-#define VERSE_FORCE_SDL 1
+//#define VERSE_FORCE_SDL 1
 
 #define TEST_PIPELINE 0
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
