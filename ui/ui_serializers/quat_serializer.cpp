@@ -45,5 +45,5 @@ protected:
     osg::ref_ptr<CheckBox> _check;
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_QUAT, QuatSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_PLANE, PlaneSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(QUAT, QuatSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(PLANE, PlaneSerializerInterface)

@@ -70,7 +70,7 @@ namespace osgVerse
         { return new clsName (obj, entry, prop); } \
     extern "C" void serializerInterfaceFuncCaller_##t () {} \
     static osgVerse::SerializerInterfaceProxy proxy_##t##clsName \
-    (osgDB::BaseSerializer::##t, serializerInterfaceFunc_##t##clsName );
+    (osgDB::BaseSerializer::RW_##t, serializerInterfaceFunc_##t##clsName );
 
 #define USE_SERIALIZER_INTERFACE(t) \
     extern "C" void serializerInterfaceFuncCaller_##t (); \

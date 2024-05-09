@@ -55,8 +55,8 @@ typedef BBoxSerializerInterface<osg::BoundingBoxd> BBoxdSerializerInterface;
 typedef BSphereSerializerInterface<osg::BoundingSpheref> BSpherefSerializerInterface;
 typedef BSphereSerializerInterface<osg::BoundingSphered> BSpheredSerializerInterface;
 
-REGISTER_SERIALIZER_INTERFACE(RW_BOUNDINGBOXF, BBoxfSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_BOUNDINGBOXD, BBoxdSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_BOUNDINGSPHEREF, BSpherefSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_BOUNDINGSPHERED, BSpheredSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(BOUNDINGBOXF, BBoxfSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(BOUNDINGBOXD, BBoxdSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(BOUNDINGSPHEREF, BSpherefSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(BOUNDINGSPHERED, BSpheredSerializerInterface)
 #endif

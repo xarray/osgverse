@@ -23,5 +23,5 @@ protected:
     osg::ref_ptr<CheckBox> _check;
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_LIST, ListSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VECTOR, ListSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(LIST, ListSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VECTOR, ListSerializerInterface)

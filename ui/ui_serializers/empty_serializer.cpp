@@ -14,5 +14,5 @@ public:
     { return -1; }  // no spider node to create
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_UNDEFINED, EmptySerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_USER, EmptySerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(UNDEFINED, EmptySerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(USER, EmptySerializerInterface)

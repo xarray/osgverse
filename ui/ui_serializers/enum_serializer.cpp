@@ -45,5 +45,5 @@ protected:
     osg::ref_ptr<CheckBox> _check;
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_ENUM, EnumSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_GLENUM, GLEnumSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(ENUM, EnumSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(GLENUM, GLEnumSerializerInterface)

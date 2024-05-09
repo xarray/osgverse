@@ -30,4 +30,4 @@ protected:
     osg::observer_ptr<osg::Image> _valueImage;
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_IMAGE, ImageSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(IMAGE, ImageSerializerInterface)

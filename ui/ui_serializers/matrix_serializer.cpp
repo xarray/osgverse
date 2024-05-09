@@ -26,12 +26,12 @@ protected:
 };
 
 typedef MatrixSerializerInterface<osg::Matrix> Matrix0SerializerInterface;
-REGISTER_SERIALIZER_INTERFACE(RW_MATRIX, Matrix0SerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(MATRIX, Matrix0SerializerInterface)
 
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)
 typedef MatrixSerializerInterface<osg::Matrixf> MatrixfSerializerInterface;
 typedef MatrixSerializerInterface<osg::Matrixd> MatrixdSerializerInterface;
 
-REGISTER_SERIALIZER_INTERFACE(RW_MATRIXF, MatrixfSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_MATRIXD, MatrixdSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(MATRIXF, MatrixfSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(MATRIXD, MatrixdSerializerInterface)
 #endif

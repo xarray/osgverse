@@ -23,4 +23,4 @@ protected:
     osg::ref_ptr<InputField> _input;
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_STRING, StringSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(STRING, StringSerializerInterface)

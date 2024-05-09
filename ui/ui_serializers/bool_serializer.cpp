@@ -23,4 +23,4 @@ protected:
     osg::ref_ptr<CheckBox> _check;
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_BOOL, BoolSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(BOOL, BoolSerializerInterface)

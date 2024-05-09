@@ -37,10 +37,11 @@ class CharVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     CharVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop)
+    : VecSerializerInterface<T>(obj, entry, prop)
     {
-        _value->type = InputValueField::IntValue;
-        _value->minValue = -128; _value->maxValue = 127;
+        VecSerializerInterface<T>::_value->type = InputValueField::IntValue;
+        VecSerializerInterface<T>::_value->minValue = -128;
+        VecSerializerInterface<T>::_value->maxValue = 127;
     }
 };
 
@@ -49,10 +50,11 @@ class UCharVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     UCharVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop)
+    : VecSerializerInterface<T>(obj, entry, prop)
     {
-        _value->type = InputValueField::UIntValue;
-        _value->minValue = 0; _value->maxValue = 255;
+        VecSerializerInterface<T>::_value->type = InputValueField::UIntValue;
+        VecSerializerInterface<T>::_value->minValue = 0;
+        VecSerializerInterface<T>::_value->maxValue = 255;
     }
 };
 
@@ -61,10 +63,11 @@ class ShortVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     ShortVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop)
+    : VecSerializerInterface<T>(obj, entry, prop)
     {
-        _value->type = InputValueField::IntValue;
-        _value->minValue = -32768; _value->maxValue = 32767;
+        VecSerializerInterface<T>::_value->type = InputValueField::IntValue;
+        VecSerializerInterface<T>::_value->minValue = -32768;
+        VecSerializerInterface<T>::_value->maxValue = 32767;
     }
 };
 
@@ -73,10 +76,11 @@ class UShortVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     UShortVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop)
+    : VecSerializerInterface<T>(obj, entry, prop)
     {
-        _value->type = InputValueField::UIntValue;
-        _value->minValue = 0; _value->maxValue = 65535;
+        VecSerializerInterface<T>::_value->type = InputValueField::UIntValue;
+        VecSerializerInterface<T>::_value->minValue = 0;
+        VecSerializerInterface<T>::_value->maxValue = 65535;
     }
 };
 
@@ -85,7 +89,8 @@ class IntVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     IntVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop) { _value->type = InputValueField::IntValue; }
+    : VecSerializerInterface<T>(obj, entry, prop)
+    { VecSerializerInterface<T>::_value->type = InputValueField::IntValue; }
 };
 
 template<typename T>
@@ -93,10 +98,10 @@ class UIntVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     UIntVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop)
+    : VecSerializerInterface<T>(obj, entry, prop)
     {
-        _value->type = InputValueField::UIntValue;
-        _value->flags = ImGuiInputTextFlags_CharsHexadecimal;
+        VecSerializerInterface<T>::_value->type = InputValueField::UIntValue;
+        VecSerializerInterface<T>::_value->flags = ImGuiInputTextFlags_CharsHexadecimal;
     }
 };
 
@@ -105,7 +110,8 @@ class FloatVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     FloatVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop) { _value->type = InputValueField::FloatValue; }
+    : VecSerializerInterface<T>(obj, entry, prop)
+    { VecSerializerInterface<T>::_value->type = InputValueField::FloatValue; }
 };
 
 template<typename T>
@@ -113,7 +119,8 @@ class DoubleVecSerializerInterface : public VecSerializerInterface<T>
 {
 public:
     DoubleVecSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-    : VecSerializerInterface(obj, entry, prop) { _value->type = InputValueField::DoubleValue; }
+    : VecSerializerInterface<T>(obj, entry, prop)
+    { VecSerializerInterface<T>::_value->type = InputValueField::DoubleValue; }
 };
 
 typedef FloatVecSerializerInterface<osg::Vec2f> Vec2fSerializerInterface;
@@ -122,12 +129,12 @@ typedef FloatVecSerializerInterface<osg::Vec4f> Vec4fSerializerInterface;
 typedef DoubleVecSerializerInterface<osg::Vec2d> Vec2dSerializerInterface;
 typedef DoubleVecSerializerInterface<osg::Vec3d> Vec3dSerializerInterface;
 typedef DoubleVecSerializerInterface<osg::Vec4d> Vec4dSerializerInterface;
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2F, Vec2fSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3F, Vec3fSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4F, Vec4fSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2D, Vec2dSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3D, Vec3dSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4D, Vec4dSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2F, Vec2fSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3F, Vec3fSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4F, Vec4fSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2D, Vec2dSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3D, Vec3dSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4D, Vec4dSerializerInterface)
 
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)
 typedef CharVecSerializerInterface<osg::Vec2b> Vec2bSerializerInterface;
@@ -149,22 +156,22 @@ typedef UIntVecSerializerInterface<osg::Vec2ui> Vec2uiSerializerInterface;
 typedef UIntVecSerializerInterface<osg::Vec3ui> Vec3uiSerializerInterface;
 typedef UIntVecSerializerInterface<osg::Vec4ui> Vec4uiSerializerInterface;
 
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2B, Vec2bSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3B, Vec3bSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4B, Vec4bSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2UB, Vec2ubSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3UB, Vec3ubSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4UB, Vec4ubSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2S, Vec2sSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3S, Vec3sSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4S, Vec4sSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2US, Vec2usSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3US, Vec3usSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4US, Vec4usSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2I, Vec2iSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3I, Vec3iSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4I, Vec4iSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC2UI, Vec2uiSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC3UI, Vec3uiSerializerInterface)
-REGISTER_SERIALIZER_INTERFACE(RW_VEC4UI, Vec4uiSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2B, Vec2bSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3B, Vec3bSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4B, Vec4bSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2UB, Vec2ubSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3UB, Vec3ubSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4UB, Vec4ubSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2S, Vec2sSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3S, Vec3sSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4S, Vec4sSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2US, Vec2usSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3US, Vec3usSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4US, Vec4usSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2I, Vec2iSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3I, Vec3iSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4I, Vec4iSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC2UI, Vec2uiSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC3UI, Vec3uiSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(VEC4UI, Vec4uiSerializerInterface)
 #endif

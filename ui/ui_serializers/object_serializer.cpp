@@ -37,4 +37,4 @@ protected:
     std::vector<osg::ref_ptr<SerializerInterface>> _serializerUIs;
 };
 
-REGISTER_SERIALIZER_INTERFACE(RW_OBJECT, ObjectSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE(OBJECT, ObjectSerializerInterface)
