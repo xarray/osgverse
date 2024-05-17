@@ -16,7 +16,7 @@
 #include <libhv/all/server/WebSocketServer.h>
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-#define MEDIA_PUSHER 1
+#define MEDIA_PUSHER 0
 #define MEDIA_SERVER 0
 #define MEDIA_WEBRTC_COMMANDS 1
 
@@ -68,7 +68,7 @@ public:
     {
         if (_msServer.valid()) _msServer->close();
     }
-    
+
     virtual void operator()(osg::RenderInfo& renderInfo) const
     {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)

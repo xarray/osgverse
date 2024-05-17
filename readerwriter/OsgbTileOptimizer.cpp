@@ -143,9 +143,16 @@ bool TileOptimizer::prepare(const std::string& inputFolder, const std::string& i
     // Collect all tiles
     for (size_t i = 0; i < contents.size(); ++i)
     {
-        std::string tileName = contents[i], tilePrefix;
+        std::string tileName = contents[i], tilePrefix; bool validDir = false;
+        osgDB::DirectoryContents subContents = osgDB::getDirectoryContents(_inFolder + tileName);
+        for (size_t j = 0; j < subContents.size(); ++j)
+        {
+            std::string ext = osgDB::getFileExtension(subContents[j]);
+            if (ext == "osgb" || ext == "OSGB") { validDir = true; break; }
+        }
+
         osg::Vec3s tileNum = getNumberFromTileName(tileName, inRegex, &tilePrefix);
-        if (tileNum.x() == SHRT_MAX || tileNum.y() == SHRT_MAX) continue;
+        if (!validDir || tileNum.x() == SHRT_MAX || tileNum.y() == SHRT_MAX) continue;
 
         OSG_NOTICE << "[TileOptimizer] Preparing tile folder " << tileName << ": Grid = "
                    << tileNum[0] << "x" << tileNum[1] << ", Prefix = " << tilePrefix << std::endl;
