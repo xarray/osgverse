@@ -5,14 +5,10 @@
 #define TEST_PIPELINE 1
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 
 osg::ref_ptr<Application> g_app = new Application;
-void loop()
-{
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) { g_app->handleEvent(e); }
-    g_app->frame();
-}
+void loop() { g_app->frame(); }
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -106,71 +102,23 @@ int main(int argc, char** argv)
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer->setSceneData(root.get());
 
-    // Start SDL
-    int width = 800, height = 600;
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        printf("[osgVerse] Could not init SDL: '%s'\n", SDL_GetError());
-        return 1;
-    }
+    // Create the graphics window
+    osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+    traits->x = 0; traits->y = 0; traits->width = 800; traits->height = 600;
+    traits->alpha = 8; traits->depth = 24; traits->stencil = 8;
+    traits->windowDecoration = true; traits->doubleBuffer = true;
+    traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
+    traits->windowingSystemPreference = "SDL";
 
-    atexit(SDL_Quit);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#ifdef VERSE_WEBGL1
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#else
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#endif
-
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-#if false
-    SDL_Window* window = SDL_CreateWindow(
-        "osgVerse_JsCallerWASM", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        width, height, SDL_WINDOW_OPENGL);
-    if (!window)
-    {
-        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
-        return 1;
-    }
-
-    SDL_GLContext context = SDL_GL_CreateContext(window);
-    if (context == NULL)
-    {
-        printf("[osgVerse] Could not create SDL context: '%s'\n", SDL_GetError());
-        return 1;
-    }
-#else
-    SDL_Window* window = nullptr;
-    SDL_CreateWindowAndRenderer(width, height, SDL_WINDOW_OPENGL, &window, nullptr);
-    if (!window)
-    {
-        printf("[osgVerse] Could not create window: '%s'\n", SDL_GetError());
-        return 1;
-    }
-
-    SDL_GLContext context = SDL_GL_GetCurrentContext();
-    if (context == NULL)
-    {
-        printf("[osgVerse] Could not get SDL context: '%s'\n", SDL_GetError());
-        return 1;
-    }
-#endif
-
-    // Create the application object
-    g_app->setViewer(viewer, width, height);
+    osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+    viewer->getCamera()->setGraphicsContext(gc.get());
+    viewer->getCamera()->setViewport(0, 0, traits->width, traits->height);
     viewer->getCamera()->setDrawBuffer(GL_BACK);
     viewer->getCamera()->setReadBuffer(GL_BACK);
 
     // Setup the pipeline
 #if TEST_PIPELINE
-    params.originWidth = width; params.originHeight = height;
+    params.originWidth = traits->width; params.originHeight = traits->height;
     params.shadowNumber = 1; params.enableAO = false; params.enablePostEffects = true;
     queryOpenGLVersion(pipeline.get(), true);
     setupStandardPipeline(pipeline.get(), viewer, params);
@@ -188,6 +136,8 @@ int main(int argc, char** argv)
 #endif
 
     // Start the main loop
+    atexit(SDL_Quit);
+    g_app->setViewer(viewer);
     emscripten_set_main_loop(loop, -1, 0);
     return 0;
 }
