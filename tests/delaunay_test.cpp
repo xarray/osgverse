@@ -19,27 +19,99 @@
 #include <modeling/Utilities.h>
 #include <modeling/Math.h>
 
+#include <3rdparty/Eigen/Core>
+#include <3rdparty/BSplineFitting/spline_curve_fitting.h>
+
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
 static std::map<int, osg::observer_ptr<osg::Node>> g_toothMap;
 static std::map<int, std::vector<osg::Vec3>> g_borderMap;
-static std::map<int, osg::Quat> g_obbMap;
+static std::map<int, std::pair<osg::Vec4, osg::Quat>> g_obbMap;
 static osg::ref_ptr<osg::Geometry> g_delaunay;
 
-bool createDelaunay(osg::Geometry* geom)
+std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>& curveSamples, float z)
+{
+    OpenCubicBSplineCurve curve0(0.002); SplineCurveFitting scf;
+    scf.fitAOpenCurve(curveSamples, curve0, 18, 20, 0.005, 0.005, 0.0001);
+
+    // Fit gum center-line to a spline and resample it
+    std::vector<osg::Vec3> centerLine;
+    const std::vector<Eigen::Vector2d>& samples = curve0.getSamples();
+    for (size_t i = 0; i < samples.size(); ++i)
+        centerLine.push_back(osg::Vec3(samples[i].x(), samples[i].y(), z));
+    return centerLine;
+}
+
+std::vector<osg::Vec3> generateGumOutline(
+    osg::Geode* geode, const std::vector<osg::Vec3>& centerLine, float width)
+{
+    std::vector<osg::Vec3> outline; size_t num = centerLine.size();
+    osg::Vec3 sideA, sideB, axis; double angle = 0.0f;
+
+    // Get outline from center-line
+    for (size_t i = 1; i < num; ++i)
+    {
+        osg::Vec3 dir = centerLine[i] - centerLine[i - 1]; dir.normalize(); sideA = dir ^ osg::Z_AXIS;
+        outline.push_back(centerLine[i] + sideA * width);
+    }
+
+    for (size_t i = num - 1; i > 0; --i)
+    {
+        osg::Vec3 dir = centerLine[i - 1] - centerLine[i]; dir.normalize(); sideB = dir ^ osg::Z_AXIS;
+        if (i == num - 1)
+        {
+            osg::Quat q0; q0.makeRotate(sideA, sideB); q0.getRotate(angle, axis);
+            for (size_t i = 1; i < 8; ++i)
+            {
+                osg::Vec3 side = osg::Quat(angle * (float)i / 8.0, axis) * sideA;
+                outline.push_back(centerLine[num - 1] + side * width);
+            }
+        }
+        outline.push_back(centerLine[i] + sideB * width);
+    }
+
+    osg::Vec3 dir = centerLine[1] - centerLine[0]; dir.normalize(); sideA = dir ^ osg::Z_AXIS;
+    osg::Quat q1; q1.makeRotate(sideB, sideA); q1.getRotate(angle, axis);
+    for (size_t i = 1; i < 8; ++i)
+    {
+        osg::Vec3 side = osg::Quat(angle * (float)i / 8.0, axis) * sideB;
+        outline.push_back(centerLine[0] + side * width);
+    }
+
+    // Test displaying
+    {
+        osg::Vec3Array* va = new osg::Vec3Array;
+        osg::Vec4Array* ca = new osg::Vec4Array; ca->push_back(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        for (size_t i = 0; i < outline.size(); ++i) va->assign(outline.begin(), outline.end());
+
+        osg::Geometry* geom = new osg::Geometry;
+        geom->setVertexArray(va);
+        geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_OVERALL);
+        geom->addPrimitiveSet(new osg::DrawArrays(GL_LINE_LOOP, 0, va->size()));
+        geom->getOrCreateStateSet()->setAttributeAndModes(new osg::LineWidth(4.0f));
+        geode->addDrawable(geom);
+    }
+    return outline;
+}
+
+bool createDelaunay(osg::Geode* geode, osg::Geometry* geom)
 {
     osgVerse::PointList3D points; osgVerse::PointList2D points2D;
     osgVerse::EdgeList edges; osg::BoundingBox bb;
+    std::map<int, osg::Vec3> centerMap; float maxTeethRadius = 0.0f;
     for (std::map<int, std::vector<osg::Vec3>>::iterator itr = g_borderMap.begin();
          itr != g_borderMap.end(); ++itr)
     {
         std::vector<osg::Vec3>& border = itr->second;
-        size_t startIdx = 0, endIdx = 0; osg::Vec3 center;
+        size_t startIdx = 0, endIdx = 0; osg::Vec3& center = centerMap[itr->first];
         for (size_t i = 0; i < border.size(); ++i) center += border[i];
         center *= 1.0f / (float)border.size();
 
-        osg::Quat& q = g_obbMap[itr->first];
+        std::pair<osg::Vec4, osg::Quat>& obb = g_obbMap[itr->first];
+        if (maxTeethRadius < obb.first.w()) maxTeethRadius = obb.first.w();
+        std::cout << obb.first << "\n";
+
         for (size_t i = 0; i < border.size(); ++i)
         {
             size_t idx = points.size();
@@ -57,17 +129,31 @@ bool createDelaunay(osg::Geometry* geom)
 
     // Outer boundary
     size_t outerIdx0 = points.size();
-    bb._min -= osg::Vec3(1.0f, 1.0f, 0.0f); bb._max += osg::Vec3(1.0f, 1.0f, 0.0f);
-    for (size_t i = 0; i < 4; ++i)
+    std::vector<Eigen::Vector2d> curveSamples;
+    for (std::map<int, std::vector<osg::Vec3>>::iterator itr = g_borderMap.begin();
+        itr != g_borderMap.end(); ++itr)
     {
-        points.push_back(bb.corner(i));
+        osg::Vec3& center = centerMap[itr->first];
+        curveSamples.push_back(Eigen::Vector2d(center.x(), center.y()));
+    }
+
+    std::vector<osg::Vec3> centerline = generateGumCenterline(curveSamples, bb.zMin());
+    std::vector<osg::Vec3> outline = generateGumOutline(geode, centerline, maxTeethRadius + 0.5f);
+    if (!outline.empty())
+    {
+        points.push_back(outline[0]);
+        points2D.push_back(osgVerse::PointType2D(
+            osg::Vec2(points.back()[0], points.back()[1]), outerIdx0));
+        edges.push_back(osgVerse::EdgeType(outerIdx0 + (outline.size() - 1), outerIdx0));
+    }
+
+    for (size_t i = 1; i < outline.size(); ++i)
+    {
+        points.push_back(outline[i]);
         points2D.push_back(osgVerse::PointType2D(
             osg::Vec2(points.back()[0], points.back()[1]), outerIdx0 + i));
+        edges.push_back(osgVerse::EdgeType(outerIdx0 + (i - 1), outerIdx0 + i));
     }
-    edges.push_back(osgVerse::EdgeType(outerIdx0 + 0, outerIdx0 + 1));
-    edges.push_back(osgVerse::EdgeType(outerIdx0 + 1, outerIdx0 + 3));
-    edges.push_back(osgVerse::EdgeType(outerIdx0 + 3, outerIdx0 + 2));
-    edges.push_back(osgVerse::EdgeType(outerIdx0 + 2, outerIdx0 + 0));
 
     // Generate geometry
     osg::DrawElementsUInt* de = static_cast<osg::DrawElementsUInt*>(geom->getPrimitiveSet(0));
@@ -127,8 +213,33 @@ int main(int argc, char** argv)
             g_toothMap[id] = osgDB::readNodeFile(dirName + fileName + ".-90,0,0.rot");
             root->addChild(g_toothMap[id].get());
 
+            std::pair<osg::Vec4, osg::Quat>& pair = g_obbMap[id];
             osgVerse::BoundingVolumeVisitor bvv;
-            g_toothMap[id]->accept(bvv); bvv.computeOBB(g_obbMap[id]);
+            g_toothMap[id]->accept(bvv);
+
+            osg::BoundingBox bb = bvv.computeOBB(pair.second);
+            osg::Vec3 extent = bb._max - bb._min; osg::Vec3 corners[8];
+            corners[0] = pair.second * bb._min;
+            corners[1] = pair.second * (bb._min + osg::Vec3(extent[0], 0.0f, 0.0f));
+            corners[2] = pair.second * (bb._min + osg::Vec3(0.0f, extent[1], 0.0f));
+            corners[3] = pair.second * (bb._min + osg::Vec3(extent[0], extent[1], 0.0f));
+            corners[4] = pair.second * (bb._min + osg::Vec3(0.0f, 0.0f, extent[2]));
+            corners[5] = pair.second * (bb._min + osg::Vec3(extent[0], 0.0f, extent[2]));
+            corners[6] = pair.second * (bb._min + osg::Vec3(0.0f, extent[1], extent[2]));
+            corners[7] = pair.second * bb._max;
+
+            osg::Vec3 dir[3] = { corners[1] - corners[0], corners[2] - corners[0], corners[4] - corners[0] };
+            float bestCosine = 0.0f, minCosine = 1.0f, teethSize = 0.0f; int bestK = 0;
+            for (int k = 0; k < 3; ++k)
+            {
+                dir[k].normalize(); float cosine = 1.0f - abs(dir[k] * osg::Z_AXIS);
+                if (cosine < minCosine) { minCosine = cosine; bestK = k; }
+            }
+
+            if (bestK == 0) teethSize = osg::maximum(extent[1], extent[2]);
+            else if (bestK == 1) teethSize = osg::maximum(extent[0], extent[2]);
+            else teethSize = osg::maximum(extent[0], extent[1]);
+            pair.first = osg::Vec4(dir[bestK], teethSize * 0.5f);
         }
     }
 
@@ -167,10 +278,10 @@ int main(int argc, char** argv)
         g_delaunay->setUseVertexBufferObjects(true);
         g_delaunay->setVertexArray(va);
         g_delaunay->setColorArray(ca); g_delaunay->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-        g_delaunay->addPrimitiveSet(de); createDelaunay(g_delaunay.get());
+        g_delaunay->addPrimitiveSet(de); createDelaunay(delaunayNode.get(), g_delaunay.get());
         delaunayNode->addDrawable(g_delaunay.get());
     }
-    delaunayNode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    //delaunayNode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     root->addChild(delaunayNode.get());
 
     // Handler related
@@ -207,7 +318,7 @@ int main(int argc, char** argv)
         osg::MatrixTransform* mt = teethItr->second->asTransform()->asMatrixTransform();
         std::vector<osg::Vec3>& border = borderItr->second; osg::Matrix m = mt->getMatrix();
         for (size_t i = 0; i < border.size(); ++i) border[i].y() += 0.01f;
-        if (!createDelaunay(g_delaunay.get())) return;
+        if (!createDelaunay(delaunayNode.get(), g_delaunay.get())) return;
         m.setTrans(m.getTrans() + osg::Vec3(0.0f, 0.01f, 0.0f)); mt->setMatrix(m);
     });
 
@@ -216,7 +327,7 @@ int main(int argc, char** argv)
         osg::MatrixTransform* mt = teethItr->second->asTransform()->asMatrixTransform();
         std::vector<osg::Vec3>& border = borderItr->second; osg::Matrix m = mt->getMatrix();
         for (size_t i = 0; i < border.size(); ++i) border[i].y() -= 0.01f;
-        if (!createDelaunay(g_delaunay.get())) return;
+        if (!createDelaunay(delaunayNode.get(), g_delaunay.get())) return;
         m.setTrans(m.getTrans() - osg::Vec3(0.0f, 0.01f, 0.0f)); mt->setMatrix(m);
     });
 

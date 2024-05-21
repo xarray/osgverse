@@ -364,6 +364,45 @@ bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& 
     return inside;
 }
 
+struct IntersectionHelper2D
+{
+    static osg::Vec2 intersect(const osg::Vec2& a1, const osg::Vec2& b1,
+                               const osg::Vec2& a2, const osg::Vec2& b2)
+    {
+        if (fabs((b1.x() - a1.x()) * (b2.y() - a2.y()) - (b2.x() - a2.x()) * (b1.y() - a1.y())) < 1e-5)
+            return osg::Vec2(-FLT_MAX, -FLT_MAX);
+
+        float x = (b1.x() * b2.y() - b2.x() * b1.y()) * (a2.x() - a1.x()) -
+                  (a1.x() * a2.y() - a2.x() * a1.y()) * (b2.x() - b1.x());
+        float y = (b1.x() * b2.y() - b2.x() * b1.y()) * (a2.y() - a1.y()) -
+                  (a1.x() * a2.y() - a2.x() * a1.y()) * (b2.y() - b1.y());
+        return osg::Vec2(x / (b2.x() - b1.x()) * (a2.x() - a1.x()) + a1.x(),
+                         y / (b2.y() - b1.y()) * (a2.y() - a1.y()) + a1.y());
+    }
+
+    static bool onSegment(const osg::Vec2& a, const osg::Vec2& b, const osg::Vec2& p)
+    {
+        return (p.x() >= osg::minimum(a.x(), b.x()) && p.x() <= osg::maximum(a.x(), b.x()) &&
+                p.y() >= osg::minimum(a.y(), b.y()) && p.y() <= osg::maximum(a.y(), b.y()) &&
+                (p.x() - a.x()) * (b.y() - a.y()) == (b.x() - a.x()) * (p.y() - a.y()));
+    }
+};
+
+std::vector<osg::Vec2> GeometryAlgorithm::intersectionWithPolygon2D(
+        const LineType2D& line, const PointList2D& polygon)
+{
+    std::vector<osg::Vec2> result; size_t num = polygon.size();
+    osg::Vec2 s = line.first, e = line.second;
+    for (size_t i = 0; i < num; ++i)
+    {
+        osg::Vec2 p0 = polygon[i].first, p1 = polygon[(i + 1) % num].first;
+        osg::Vec2 intersection = IntersectionHelper2D::intersect(p0, p1, s, e);
+        if (IntersectionHelper2D::onSegment(p0, p1, intersection) &&
+            IntersectionHelper2D::onSegment(s, e, intersection)) result.push_back(intersection);
+    }
+    return result;
+}
+
 std::vector<LineType2D> GeometryAlgorithm::decomposePolygon2D(const PointList2D& polygon)
 {
     std::vector<LineType2D> result, temp1, temp2;

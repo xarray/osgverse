@@ -26,7 +26,6 @@
 | leveldb          | Embedded |               | verse_db           | BSD3              | :heavy_check_mark: | https://github.com/google/leveldb |
 | libhv            | Embedded |               | verse_web          | BSD3              | :heavy_check_mark: | https://github.com/ithewei/libhv |
 | marl             | Embedded |               | -                  | Apache2           | :heavy_check_mark: | https://github.com/google/marl |
-| mcut             | Embedded |               | -                  | GPL / Commercial  | :x:                | https://github.com/cutdigital/mcut |
 | mimalloc         | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/microsoft/mimalloc |
 | nanoid           | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/mcmikecreations/nanoid_cpp |
 | NormalGenerator  | Embedded |               | -                  |                   | :zap: | |
@@ -43,7 +42,7 @@
 | xxYUV            | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/metarutaiga/xxYUV |
 | any              | Embedded |               | -                  | Boost             | :heavy_check_mark: | https://github.com/thelink2012/any |
 | backward-cpp     | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/bombela/backward-cpp |
-| dbscan           | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/james-yoo/DBSCAN/tree/master |
+| BSplineFitting   | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/QianZheng/BSplineFitting/tree/master |
 | exprtk           | Embedded |               | -                  | MIT               | :heavy_check_mark: | https://github.com/ArashPartow/exprtk |
 | laplace_deform   | Embedded |               | -                  | -                 | :heavy_check_mark: | |
 | layout           | Embedded |               | -                  | -                 | :heavy_check_mark: | |

@@ -161,7 +161,7 @@ protected:
 
     osg::Node* createFromFolder(const std::string& prefix) const
     {
-        osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode; int num = 0;
+        osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode;
         osgDB::DirectoryContents tiles = osgDB::getDirectoryContents(prefix);
         for (size_t i = 0; i < tiles.size(); ++i)
         {
@@ -170,8 +170,7 @@ protected:
             std::string file = prefix + "/" + tName + "/" + tName + ".osgb";
             if (tName.empty() || !ext.empty()) continue;
             if (tName[0] < 'A' || tName[0] > 'z') continue;
-            if (num == 0) tileProxy->addChild(osgDB::readNodeFile(file));
-            tileProxy->setFileName(num++, file);
+            tileProxy->setFileName(i, file);
         }
         return tileProxy.release();
     }
