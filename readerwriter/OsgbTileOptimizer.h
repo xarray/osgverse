@@ -14,6 +14,7 @@ namespace osgVerse
         TileOptimizer(const std::string& outFolder, const std::string& outFormat = "%s_%s");
 
         void setUseThreads(int num) { _numThreads = num; _withThreads = (num > 0); }
+        void setMergingSimplifyRatio(float r) { _simplifyRatio = r; }
         void setLodScale(float adjacency, float groundLv, float mulForDistanceMode)
         {
             _lodScaleAdjacency = adjacency; _lodScaleTopLevels = groundLv;
@@ -52,7 +53,7 @@ namespace osgVerse
         std::map<std::string, std::pair<osg::Vec2s, osg::Vec2s>> _minMaxMap;
         osg::ref_ptr<FilterNodeCallback> _filterNodeCallback;
         std::string _inFolder, _outFolder, _inFormat, _outFormat;
-        float _lodScaleAdjacency, _lodScaleTopLevels, _mulForDistanceMode;
+        float _lodScaleAdjacency, _lodScaleTopLevels, _mulForDistanceMode, _simplifyRatio;
         int _numThreads; bool _withDraco, _withBasisu, _withThreads;
     };
 

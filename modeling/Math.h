@@ -99,7 +99,7 @@ namespace osgVerse
         static bool pointInPolygon2D(const osg::Vec2& p, const PointList2D& polygon, bool isConvex);
 
         /** Compute intersections of a 2D line and a 2D polygon */
-        static std::vector<osg::Vec2> intersectionWithPolygon2D(const LineType2D& l, const PointList2D& polygon);
+        static PointList2D intersectionWithPolygon2D(const LineType2D& l, const PointList2D& polygon);
 
         /** Decompose a concave polygon into multiple convex polygons and return splitting edges */
         static std::vector<LineType2D> decomposePolygon2D(const PointList2D& polygon);

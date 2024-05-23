@@ -366,39 +366,46 @@ bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& 
 
 struct IntersectionHelper2D
 {
-    static osg::Vec2 intersect(const osg::Vec2& a1, const osg::Vec2& b1,
-                               const osg::Vec2& a2, const osg::Vec2& b2)
+    static osg::Vec2 intersect(const osg::Vec2& A, const osg::Vec2& B,
+                               const osg::Vec2& C, const osg::Vec2& D)
     {
-        if (fabs((b1.x() - a1.x()) * (b2.y() - a2.y()) - (b2.x() - a2.x()) * (b1.y() - a1.y())) < 1e-5)
-            return osg::Vec2(-FLT_MAX, -FLT_MAX);
+        // Line AB represented as a1x + b1y = c1
+        double a1 = B.y() - A.y(), b1 = A.x() - B.x();
+        double c1 = a1 * A.x() + b1 * A.y();
 
-        float x = (b1.x() * b2.y() - b2.x() * b1.y()) * (a2.x() - a1.x()) -
-                  (a1.x() * a2.y() - a2.x() * a1.y()) * (b2.x() - b1.x());
-        float y = (b1.x() * b2.y() - b2.x() * b1.y()) * (a2.y() - a1.y()) -
-                  (a1.x() * a2.y() - a2.x() * a1.y()) * (b2.y() - b1.y());
-        return osg::Vec2(x / (b2.x() - b1.x()) * (a2.x() - a1.x()) + a1.x(),
-                         y / (b2.y() - b1.y()) * (a2.y() - a1.y()) + a1.y());
+        // Line CD represented as a2x + b2y = c2
+        double a2 = D.y() - C.y(), b2 = C.x() - D.x();
+        double c2 = a2 * C.x() + b2 * C.y();
+
+        double determinant = a1 * b2 - a2 * b1;
+        if (determinant == 0)
+            return osg::Vec2(FLT_MAX, FLT_MAX);
+        else
+        {
+            double x = (b2 * c1 - b1 * c2) / determinant;
+            double y = (a1 * c2 - a2 * c1) / determinant;
+            return osg::Vec2(x, y);
+        }
     }
 
-    static bool onSegment(const osg::Vec2& a, const osg::Vec2& b, const osg::Vec2& p)
+    static bool isWithinSegment(const osg::Vec2& p, const osg::Vec2& a, const osg::Vec2& b)
     {
-        return (p.x() >= osg::minimum(a.x(), b.x()) && p.x() <= osg::maximum(a.x(), b.x()) &&
-                p.y() >= osg::minimum(a.y(), b.y()) && p.y() <= osg::maximum(a.y(), b.y()) &&
-                (p.x() - a.x()) * (b.y() - a.y()) == (b.x() - a.x()) * (p.y() - a.y()));
+        return (osg::minimum(a.x(), b.x()) <= p.x() && p.x() <= osg::maximum(a.x(), b.x())) &&
+               (osg::minimum(a.y(), b.y()) <= p.y() && p.y() <= osg::maximum(a.y(), b.y()));
     }
 };
 
-std::vector<osg::Vec2> GeometryAlgorithm::intersectionWithPolygon2D(
-        const LineType2D& line, const PointList2D& polygon)
+PointList2D GeometryAlgorithm::intersectionWithPolygon2D(const LineType2D& line, const PointList2D& polygon)
 {
-    std::vector<osg::Vec2> result; size_t num = polygon.size();
+    PointList2D result; size_t num = polygon.size();
     osg::Vec2 s = line.first, e = line.second;
     for (size_t i = 0; i < num; ++i)
     {
         osg::Vec2 p0 = polygon[i].first, p1 = polygon[(i + 1) % num].first;
         osg::Vec2 intersection = IntersectionHelper2D::intersect(p0, p1, s, e);
-        if (IntersectionHelper2D::onSegment(p0, p1, intersection) &&
-            IntersectionHelper2D::onSegment(s, e, intersection)) result.push_back(intersection);
+        if (IntersectionHelper2D::isWithinSegment(intersection, p0, p1) &&
+            IntersectionHelper2D::isWithinSegment(intersection, s, e))
+        { result.push_back(PointType2D(intersection, i)); }
     }
     return result;
 }

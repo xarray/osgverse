@@ -189,7 +189,7 @@ void MeshCollector::apply(osg::Geometry& geom)
     if (_matrixStack.size() > 0) matrix = _matrixStack.back();
 
     osg::StateSet* ss = geom.getStateSet();
-    if (ss) apply(geom.getParent(0), &geom, *ss);
+    if (ss) apply(geom.getNumParents() > 0 ? geom.getParent(0) : NULL, &geom, *ss);
 
     osg::TriangleIndexFunctor<CollectVertexOperator> functor;
     functor.inputV = static_cast<osg::Vec3Array*>(geom.getVertexArray());
