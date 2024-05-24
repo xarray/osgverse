@@ -16,6 +16,7 @@
 #include <fstream>
 #include <sstream>
 #include <limits.h>
+#define WRITE_TO_OSG 0
 
 static std::vector<std::string> split(const std::string& src, const char* seperator, bool ignoreEmpty)
 {
@@ -81,8 +82,7 @@ public:
             std::string err = picojson::parse(children, localOptions->getOptionString());
             if (err.empty() && children.is<picojson::array>())
                 return createTileChildren(children.get<picojson::array>(),
-                                          osgDB::getStrippedName(fileName),
-                                          localOptions->getPluginStringData("prefix"));
+                                          osgDB::getStrippedName(fileName), localOptions.get());
             else
                 OSG_WARN << "[ReaderWriter3dtiles] Failed to parse from "
                          << options->getOptionString() << ": " << err << std::endl;
@@ -129,7 +129,10 @@ public:
             {
                 std::string name = options ? options->getPluginStringData("simple_name") : "";
                 osg::ref_ptr<osg::Node> node = createTile(root, prefix, name);
-                //osgDB::writeNodeFile(*node, prefix + "/root.osg");
+                node->setUserValue("RTC_ROOT", true);  // to work with RTC_CENTER in b3dm
+#if WRITE_TO_OSG
+                osgDB::writeNodeFile(*node, prefix + "/root.osgt");
+#endif
                 if (node.valid()) return node.get();
             }
             else
@@ -209,15 +212,24 @@ protected:
     }
 
     osg::Node* createTileChildren(picojson::array& children, const std::string& name,
-                                  const std::string& prefix) const
+                                  const osgDB::Options* localOptions) const
     {
+        std::string prefix = localOptions->getPluginStringData("prefix");
         osg::Group* group = new osg::Group;
         for (size_t i = 0; i < children.size(); ++i)
         {
             osg::ref_ptr<osg::Node> child = createTile(children[i], prefix, name);
             if (child.valid()) group->addChild(child.get());
         }
-        //osgDB::writeNodeFile(*group, prefix + "/" + name + ".osg");
+
+        if (group->getNumChildren() == 0)
+        {
+            std::string fallback = localOptions->getPluginStringData("fallback");
+            if (!fallback.empty()) group->addChild(osgDB::readNodeFile(fallback));
+        }
+#if WRITE_TO_OSG
+        osgDB::writeNodeFile(*group, prefix + "/" + name + ".osgt");
+#endif
         return group;
     }
 
@@ -244,11 +256,13 @@ protected:
             {
                 OSG_WARN << "[ReaderWriter3dtiles] Missing rough-level child: "
                          << uri << ", result will be lack of certain tiles" << std::endl;
+                plod->getChild(0)->setName(uri);
             }
 
             // Put <children> to a virtual file with options to fit OSG's LOD structure
             osgDB::StringList parts; osgDB::split(name, parts, '-');
             osgDB::Options* opt = new osgDB::Options(children.serialize());
+            opt->setPluginStringData("fallback", uri + (ext == "json" ? ".verse_tiles" : ".verse_gltf"));
             plod->setDatabaseOptions(opt);
             plod->setFileName(1, name + "-" + std::to_string(parts.size()) + ".children.verse_tiles");
 
@@ -270,8 +284,8 @@ protected:
                 OSG_WARN << "[ReaderWriter3dtiles] Missing <boundingVolume>?" << std::endl;
 #if true
             plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
-            plod->setRange(0, (float)range, FLT_MAX);  // TODO: consider REPLACE/ADD?
-            plod->setRange(1, 0.0f, (float)range);
+            plod->setRange(0, (float)range * 0.25f, FLT_MAX);  // TODO: consider REPLACE/ADD?
+            plod->setRange(1, 0.0f, (float)range * 0.25f);
 #else
             plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
             plod->setRange(0, 0.0f, 5000.0f / (float)range);

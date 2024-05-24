@@ -72,6 +72,7 @@ namespace osgVerse
         std::vector<DeferredMeshData> _deferredMeshList;
         std::vector<SkinningData> _skinningDataList;
         osg::ref_ptr<osg::Group> _root;
+        osg::ref_ptr<osg::NodeCallback> _rtcCenterCallback;
         tinygltf::Model _modelDef;
         std::string _workingDir;
     };

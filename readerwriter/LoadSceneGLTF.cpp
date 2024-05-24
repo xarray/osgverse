@@ -12,6 +12,7 @@
 #include "pipeline/Utilities.h"
 #include "LoadTextureKTX.h"
 #include <libhv/all/client/requests.h>
+#include <picojson.h>
 #define DISABLE_SKINNING_DATA 0
 
 #define TINYGLTF_IMPLEMENTATION
@@ -93,14 +94,65 @@ namespace osgVerse
         return tinygltf::ReadWholeFile(out, err, filepath, userData);
     }
 
-    unsigned int ReadB3dmHeader(std::vector<char>& data)
+    class RTCCenterCallback : public osg::NodeCallback
+    {
+    public:
+        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        {
+            osg::Transform* transform = node->asGroup()->asTransform();
+            if (transform != NULL && transform->asMatrixTransform())
+            {
+                osg::Vec3d rtcCenter;
+                if (node->getUserValue("RTC_CENTER", rtcCenter))
+                {
+                    osg::MatrixList matrices = node->getWorldMatrices(getRtcRoot(node));
+                    if (!matrices.empty())
+                    {
+                        osg::Vec3d offset = rtcCenter - matrices[0].getTrans();
+                        if (!osg::equivalent(offset.length2(), 0.0))
+                            transform->asMatrixTransform()->setMatrix(osg::Matrix::translate(offset));
+                    }
+                }
+            }
+            traverse(node, nv);
+        }
+
+        osg::Node* getRtcRoot(osg::Node* node)
+        {
+            bool rtcRoot = false;
+            if (node->getUserValue("RTC_ROOT", rtcRoot)) { if (rtcRoot) return node; }
+            if (node->getNumParents() == 0) return NULL;
+            return getRtcRoot(node->getParent(0));
+        }
+
+        static osg::Vec3d ReadRtcCenterFeatureTable(std::vector<char>& data, int offset, int size)
+        {
+            std::string json; json.assign(data.begin() + offset, data.begin() + size + offset);
+            picojson::value root; std::string err = picojson::parse(root, json);
+            if (err.empty() && root.contains("RTC_CENTER"))
+            {
+                picojson::value center = root.get<picojson::object>().at("RTC_CENTER");
+                if (center.is<picojson::array>())
+                {
+                    picojson::array cValues = center.get<picojson::array>();
+                    if (cValues.size() > 2) return osg::Vec3d(
+                        cValues[0].get<double>(), cValues[2].get<double>(), -cValues[1].get<double>());
+                }
+            }
+            return osg::Vec3d();
+        }
+    };
+
+    unsigned int ReadB3dmHeader(std::vector<char>& data, osg::Vec3d* rtcCenter = NULL)
     {
         // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Batched3DModel/README.adoc#tileformats-batched3dmodel-batched-3d-model
         // magic + version + length + featureTableJsonLength + featureTableBinLength +
         // batchTableJsonLength + batchTableBinLength +
         // <Real feature table> + <Real batch table> + GLTF body
-        int header[7]; memcpy(header, data.data(), 7 * sizeof(int));
-        return 7 * sizeof(int) + header[3] + header[4] + header[5] + header[6];
+        int header[7], hSize = 7 * sizeof(int); memcpy(header, data.data(), hSize);
+        if (rtcCenter && header[3] > 0)
+            *rtcCenter = RTCCenterCallback::ReadRtcCenterFeatureTable(data, hSize, header[3]);
+        return hSize + header[3] + header[4] + header[5] + header[6];
     }
 
     unsigned int ReadI3dmHeader(std::vector<char>& data, unsigned int& format)
@@ -213,9 +265,10 @@ namespace osgVerse
             &osgVerse::FileExists, &tinygltf::ExpandFilePath,
             &osgVerse::ReadWholeFile, &tinygltf::WriteWholeFile,
             (rwWeb ? NULL : &tinygltf::GetFileSizeInBytes), rwWeb };
+        _rtcCenterCallback = new RTCCenterCallback;
 
         std::string err, warn; bool loaded = false;
-        std::istreambuf_iterator<char> eos;
+        std::istreambuf_iterator<char> eos; osg::Vec3d rtcCenter;
         std::vector<char> data(std::istreambuf_iterator<char>(in), eos);
         if (data.empty()) { OSG_WARN << "[LoaderGLTF] Unable to read from stream\n"; return; }
 
@@ -229,7 +282,7 @@ namespace osgVerse
             {
                 if (data[0] == 'b' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
                 {
-                    offset = ReadB3dmHeader(data);
+                    offset = ReadB3dmHeader(data, &rtcCenter);
                     memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version);
                     if (version < 2) loaded = LoadBinaryV1(data, d);
                 }
@@ -254,7 +307,14 @@ namespace osgVerse
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
         if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << std::endl;
         if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; return; }
-        _root = new osg::Group;
+
+        if (rtcCenter.length2() > 0.0)
+        {
+            _root = new osg::MatrixTransform;
+            _root->setUserValue("RTC_CENTER", rtcCenter);
+            _root->addUpdateCallback(_rtcCenterCallback.get());
+        }
+        else _root = new osg::Group;
 
         // Preload skin data
         for (size_t i = 0; i < _modelDef.skins.size(); ++i)
