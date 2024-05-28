@@ -127,8 +127,9 @@ MACRO(APPLY_SIMD_FLAGS CHECK_NAME DEF_FLAG COMPILER_FLAG)
 
 ENDMACRO(APPLY_SIMD_FLAGS)
 
+SET(VERSE_NO_SIMD_FEATURES OFF CACHE BOOL "Enable to ignore all SIMD features (when struggling with compile errors)")
 SET(VERSE_SIMD_FEATURES "")
-IF(USE_WASM_OPTIONS)
+IF(USE_WASM_OPTIONS OR VERSE_NO_SIMD_FEATURES)
     #SET(VERSE_SIMD_FEATURES "sse2")
     #SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse -msimd128")
     #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse -msimd128")
@@ -164,11 +165,6 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
 ENDIF()
 
 IF(USE_WASM_OPTIONS)
-    # WASM third-parties
-    # - How to build Draco (https://github.com/google/draco/blob/master/BUILDING.md)
-    #    export EMSCRIPTEN=/mnt/.../em_sdk/upstream/emscripten
-    #    cmake ../ -DCMAKE_TOOLCHAIN_FILE=/mnt/.../em_sdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
-    #              -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=/mnt/.../Dependencies/wasm
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/wasm)
 ELSEIF(USE_UWP_OPTIONS)
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/uwp)

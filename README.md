@@ -201,7 +201,20 @@ Our project is already tested on graphics cards listed as below:
 5. WebAssembly
   - Download emsdk from https://emscripten.org/docs/getting_started/downloads.html, extracting to <emsdk_folder>.
   - Update and activate emsdk as required at the page above.
-  - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph.
+  - Build dependencies and save to <osgverse_folder>/../Dependencies/wasm
+    - Build Draco (https://github.com/google/draco/blob/master/BUILDING.md)
+      - $ export EMSCRIPTEN=<emsdk_folder>/upstream/emscripten
+      - $ cmake ../ -DCMAKE_TOOLCHAIN_FILE=<emsdk_folder>/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
+                    -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<osgverse_folder>/../Dependencies/wasm
+      - $ make install
+    - Build GDAL, GEOS, etc. (https://github.com/bugra9/gdal3.js)
+      - $ sudo apt install nodejs automake sqlite3
+      - $ npm install -g pnpm@8.0
+      - $ source <emsdk_folder>/emsdk_env.sh
+      - $ pnpm install
+      - $ pnpm run build
+      - Copy bin/include/lib from gdal3.js\build\native\usr to <osgverse_folder>/../Dependencies/wasm
+  - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph
   - Start a UNIX ternimal (under Windows, please install WSL v1 and start it).
   - Run commands below in terminal:
     - $ cd <osgverse_folder>
@@ -243,6 +256,7 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg, PNG and Tiff |
 | VERSE_BUILD_WITH_QT         | Boolean | OFF           | Enable build of Qt based applications and tests |
 | VERSE_BUILD_DEPRECATED_TESTS| Boolean | OFF           | Enable build of deprecated tests |
+| VERSE_NO_SIMD_FEATURES      | Boolean | OFF           | Enable to ignore all SIMD features (when struggling with compile errors) |
 | VERSE_SUPPORT_CPP17         | Boolean | OFF           | Enable build of libraries using C++ 17 standard |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |

@@ -1,5 +1,6 @@
 #include <osg/io_utils>
 #include <osg/Version>
+#include <osg/ValueObject>
 #include <osg/AnimationPath>
 #include <osg/Texture2D>
 #include <osg/Geometry>

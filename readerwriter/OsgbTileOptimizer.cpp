@@ -661,46 +661,50 @@ osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geo
         osg::ref_ptr<osg::Geometry> result = merger.process(geomList, i, 16, highestRes);
         if (result.valid())
         {
-            MeshCollector collector;
-            collector.setWeldingVertices(true);
-            collector.apply(*result);
-
-            const std::vector<osg::Vec3>& va = collector.getVertices();
-            const std::vector<unsigned int>& tri = collector.getTriangles();
-            std::vector<osg::Vec4>& na = collector.getAttributes(MeshCollector::NormalAttr);
-            std::vector<osg::Vec4>& ca = collector.getAttributes(MeshCollector::ColorAttr);
-            std::vector<osg::Vec4>& ta = collector.getAttributes(MeshCollector::UvAttr);
-
-            osg::Vec3Array* vaArray = new osg::Vec3Array(va.begin(), va.end());
-            osg::Vec4Array* caArray = new osg::Vec4Array(ca.begin(), ca.end());
-            osg::Vec3Array* naArray = new osg::Vec3Array(na.size());
-            osg::Vec2Array* uvArray = new osg::Vec2Array(ta.size());
-
-            result->setVertexArray(vaArray);
-            if (va.size() != ca.size()) result->setColorArray(NULL);
-            else { result->setColorArray(caArray); result->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
-
-            if (va.size() != na.size()) result->setNormalArray(NULL);
-            else
+            if (_simplifyRatio > 0.0f && _simplifyRatio < 1.0f)
             {
-                for (size_t n = 0; n < na.size(); ++n) (*naArray)[n] = osg::Vec3(na[n][0], na[n][1], na[n][2]);
-                result->setNormalArray(naArray); result->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+                MeshCollector collector;
+                collector.setWeldingVertices(true);
+                collector.apply(*result);
+
+                const std::vector<osg::Vec3>& va = collector.getVertices();
+                const std::vector<unsigned int>& tri = collector.getTriangles();
+                std::vector<osg::Vec4>& na = collector.getAttributes(MeshCollector::NormalAttr);
+                std::vector<osg::Vec4>& ca = collector.getAttributes(MeshCollector::ColorAttr);
+                std::vector<osg::Vec4>& ta = collector.getAttributes(MeshCollector::UvAttr);
+
+                osg::Vec3Array* vaArray = new osg::Vec3Array(va.begin(), va.end());
+                osg::Vec4Array* caArray = new osg::Vec4Array(ca.begin(), ca.end());
+                osg::Vec3Array* naArray = new osg::Vec3Array(na.size());
+                osg::Vec2Array* uvArray = new osg::Vec2Array(ta.size());
+
+                result->setVertexArray(vaArray);
+                if (va.size() != ca.size()) result->setColorArray(NULL);
+                else { result->setColorArray(caArray); result->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
+
+                if (va.size() != na.size()) result->setNormalArray(NULL);
+                else
+                {
+                    for (size_t n = 0; n < na.size(); ++n) (*naArray)[n] = osg::Vec3(na[n][0], na[n][1], na[n][2]);
+                    result->setNormalArray(naArray); result->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+                }
+
+                if (va.size() != ta.size()) result->setTexCoordArray(0, NULL);
+                else
+                {
+                    for (size_t n = 0; n < ta.size(); ++n) (*uvArray)[n] = osg::Vec2(ta[n][0], ta[n][1]);
+                    result->setTexCoordArray(0, uvArray);
+                }
+
+                osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_TRIANGLES);
+                de->assign(tri.begin(), tri.end());
+                result->removePrimitiveSet(0, result->getNumPrimitiveSets());
+                result->addPrimitiveSet(de);
+
+                osgUtil::Simplifier simplifier(_simplifyRatio);
+                simplifier.simplify(*result);
             }
 
-            if (va.size() != ta.size()) result->setTexCoordArray(0, NULL);
-            else
-            {
-                for (size_t n = 0; n < ta.size(); ++n) (*uvArray)[n] = osg::Vec2(ta[n][0], ta[n][1]);
-                result->setTexCoordArray(0, uvArray);
-            }
-
-            osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_TRIANGLES);
-            de->assign(tri.begin(), tri.end());
-            result->removePrimitiveSet(0, result->getNumPrimitiveSets());
-            result->addPrimitiveSet(de);
-
-            osgUtil::Simplifier simplifier(_simplifyRatio);
-            simplifier.simplify(*result);
             if (_withDraco)
             {
                 osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*result);

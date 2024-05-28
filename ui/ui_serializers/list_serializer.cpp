@@ -24,4 +24,6 @@ protected:
 };
 
 REGISTER_SERIALIZER_INTERFACE(LIST, ListSerializerInterface)
+#if OSG_VERSION_GREATER_THAN(3, 4, 0)
 REGISTER_SERIALIZER_INTERFACE(VECTOR, ListSerializerInterface)
+#endif
