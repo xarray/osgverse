@@ -14,19 +14,18 @@ namespace osgVerse
 
     struct AreaStub
     {
-        osg::BoundingBoxd bounds;
-        unsigned char areaID;
+        osg::BoundingBox bounds;
+        unsigned char areaID;  // RecastPolyArea
     };
 
     struct BuildDataBase
     {
-        // World-space bounding and geometry data
-        osg::BoundingBoxd worldBoundingBox;
-        std::vector<osg::Vec3d> vertices;
-        std::vector<unsigned int> indices;
+        // Geometry data
+        std::vector<osg::Vec3> vertices;
+        std::vector<int> indices;
 
         /// Offmesh connection data
-        std::vector<osg::Vec3d> offMeshVertices;
+        std::vector<osg::Vec3> offMeshVertices;
         std::vector<float> offMeshRadii;
         std::vector<unsigned short> offMeshFlags;
         std::vector<unsigned char> offMeshAreas;

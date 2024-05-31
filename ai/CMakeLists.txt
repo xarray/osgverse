@@ -1,7 +1,8 @@
 SET(LIB_NAME osgVerseAI)
 SET(LIBRARY_INCLUDE_FILES RecastManager.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    RecastManager.cpp RecastManager_Builder.h RecastManager_Builder.cpp)
+    RecastManager.cpp RecastManager_Private.h
+    RecastManager_Builder.cpp RecastManager_Builder.h)
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/recastnavigation/Detour)
 

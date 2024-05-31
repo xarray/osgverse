@@ -23,7 +23,7 @@ MACRO(NEW_TEST_EXECUTABLE EXECUTABLE_NAME SOURCE_FILE)
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
     TARGET_INCLUDE_DIRECTORIES(${EXE_NAME} PUBLIC ${EXTERNAL_INCLUDES})
     TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseReaderWriter osgVerseScript
-                          osgVersePipeline osgVerseAnimation osgVerseModeling ${EXTERNAL_LIBRARIES})
+                          osgVersePipeline osgVerseAnimation osgVerseModeling osgVerseAI ${EXTERNAL_LIBRARIES})
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
     IF(NOT VERSE_STATIC_BUILD)
         IF(MSVC AND VERSE_INSTALL_PDB_FILES)
@@ -52,6 +52,7 @@ NEW_TEST_EXECUTABLE(osgVerse_Test_Thread hybrid_thread_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Volume_Rendering volume_rendering_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Symbols symbols_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)
+NEW_TEST_EXECUTABLE(osgVerse_Test_Navigation navigation_test.cpp)
 
 NEW_TEST_EXECUTABLE(osgVerse_Test_Delaunay delaunay_test.cpp)
 
