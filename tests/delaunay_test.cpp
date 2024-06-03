@@ -23,6 +23,7 @@
 
 #include <3rdparty/Eigen/Core>
 #include <3rdparty/BSplineFitting/spline_curve_fitting.h>
+#include <3rdparty/tinyspline/tinysplinecxx.h>
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
@@ -46,27 +47,35 @@ std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>&
 }
 
 osg::Vec3 getIntersectionFromBorders(std::map<int, osgVerse::PointList2D>& polygons,
-                                     const osg::Vec3& start, const osg::Vec3& end, const osg::Vec3& lastRef)
+                                     const osg::Vec3& start, const osg::Vec3& end,
+                                     const osg::Vec3& lastRef, bool* noResult = NULL,
+                                     float hOffset = 0.1f, float vOffset = 0.0f)
 {
     osgVerse::LineType2D line(osg::Vec2(start[0], start[1]), osg::Vec2(end[0], end[1]));
     std::vector<osg::Vec3> result; osg::Vec3 dir = end - start;
-    float length = dir.normalize(); float minLength = 0.01f;  // FIXME: will cause delaunay failed
+    float length = dir.normalize(), length2 = (line.second - line.first).length();
     for (std::map<int, osgVerse::PointList2D>::iterator itr = polygons.begin();
          itr != polygons.end(); ++itr)
     {
         std::vector<osgVerse::PointType2D> intersections =
             osgVerse::GeometryAlgorithm::intersectionWithPolygon2D(line, itr->second);
         std::vector<osg::Vec3>& border = g_borderMap[itr->first];
+        osg::Vec3 center; for (size_t i = 0; i < border.size(); ++i) center += border[i];
+        center /= (float)border.size(); osg::Vec2 center2(center[0], center[1]);
+
         for (size_t i = 0; i < intersections.size(); ++i)
         {
             float z = border[intersections[i].second].z();
             osg::Vec3 pt(intersections[i].first, z);
+            float lC = (osg::Vec2(pt[0], pt[1]) - center2).length();
             float l1 = (osg::Vec2(pt[0], pt[1]) - line.first).length();
-            float l2 = osg::minimum(length - l1, minLength);
-            if (l1 > 0.1f && l1 < length) result.push_back(pt + dir * l2);
+            if (l1 < lC * 0.5f) continue;  // intersections near teeth gap are also ignored
+            float l2 = osg::minimum(length - l1, hOffset);
+            if (l1 > 0.1f && l1 < length) result.push_back(pt + dir * l2 + osg::Z_AXIS * vOffset);
         }
     }
 
+    if (noResult) *noResult = result.empty();
     if (result.empty())
     {
         float length1 = (osg::Vec2(lastRef[0], lastRef[1]) - line.first).length();
@@ -85,9 +94,35 @@ osg::Vec3 getIntersectionFromBorders(std::map<int, osgVerse::PointList2D>& polyg
     }
 }
 
+void fitSpline(std::vector<osg::Vec3>& outline, std::vector<osg::Vec3>* refOutline = NULL,
+               std::vector<osg::Vec3>* refCenters = NULL)
+{
+    std::vector<tinyspline::real> ctrlPoints;
+    for (size_t i = 0; i < outline.size(); ++i)
+    { for (int j = 0; j < 3; ++j) ctrlPoints.push_back(outline[i][j]); }
+
+    tinyspline::BSpline spline = tinyspline::BSpline::interpolateCatmullRom(ctrlPoints, 3);
+    size_t numOutline = outline.size(); outline.clear();
+    std::vector<tinyspline::real> samples = spline.sample(numOutline);
+
+    std::vector<osg::Vec3> outline1, refOutline1, refCenters1;
+    for (size_t i = 0; i < samples.size(); i += 3)
+        outline1.push_back(osg::Vec3(samples[i], samples[i + 1], samples[i + 2]));
+
+    if (refCenters) { refCenters1 = *refCenters; refCenters->clear(); }
+    if (refOutline) { refOutline1 = *refOutline; refOutline->clear(); }
+    for (size_t i = 0; i < outline1.size(); i += 5)
+    {
+        outline.push_back(outline1[i]);
+        if (refCenters) refCenters->push_back(refCenters1[i]);
+        if (refOutline) refOutline->push_back(refOutline1[i]);
+    }
+}
+
 std::vector<osg::Vec3> generateGumOutline(
     const std::vector<osg::Vec3>& centerLine, float width, bool checkBorders,
-    std::vector<osg::Vec3>* refOutline = NULL, std::vector<osg::Vec3>* refCenters = NULL)
+    std::vector<osg::Vec3>* refOutline = NULL, std::vector<osg::Vec3>* refCenters = NULL,
+    float hOffset = 0.1f, float vOffset = 0.0f)
 {
     std::vector<osg::Vec3> outline; size_t num = centerLine.size();
     osg::Vec3 sideA, sideB, result, lastRef, axis; double angle = 0.0f;
@@ -107,39 +142,107 @@ std::vector<osg::Vec3> generateGumOutline(
     }
 
     // Get outline from center-line
+    std::vector<osg::Vec3> outline0, refOutline0, refCenters0;
+    std::vector<std::pair<int, int>> noResultList; bool noResult = false;
     for (size_t i = 1; i < num; ++i)
     {
+        // Inside gumline
         osg::Vec3 dir = centerLine[i] - centerLine[i - 1]; dir.normalize();
         sideA = dir ^ osg::Z_AXIS; result = centerLine[i] + sideA * width;
-        if (refCenters) refCenters->push_back(centerLine[i]);
-        if (refOutline) refOutline->push_back(result); if (i == 1) lastRef = result;  // init first
-        if (checkBorders) result = getIntersectionFromBorders(polygons, centerLine[i], result, lastRef);
-        outline.push_back(result); lastRef = result;
+        refCenters0.push_back(centerLine[i]);
+        refOutline0.push_back(result); if (i == 1) lastRef = result;  // init first
+        if (checkBorders)
+        {
+            bool noResult0 = (noResult == true);
+            result = getIntersectionFromBorders(
+                polygons, centerLine[i], result, lastRef, &noResult, hOffset, vOffset);
+            if (noResult)
+            {
+                if (noResult0) noResultList.back().second = outline0.size();
+                else noResultList.push_back(std::pair<int, int>(outline0.size(), outline0.size()));
+            }
+        }
+        outline0.push_back(result); lastRef = result;
     }
+
+    // Fix points not intersecting with teeth borders
+    for (size_t i = 0; i < noResultList.size(); ++i)
+    {
+        int l = noResultList[i].first, r = noResultList[i].second;
+        if (l <= 0 || outline0.size() <= r + 1) continue;
+        osg::Vec3 lRef = outline0[l - 1], rRef = outline0[r + 1];
+        for (int k = l; k <= r; ++k)
+        {
+            float ratio = (float)(1 + k - l) / (float)(2 + r - l);
+            outline0[k] = lRef * (1.0f - ratio) + rRef * ratio;
+        }
+    }
+
+    // Smooth inside part of the gumline
+    fitSpline(outline0, &refOutline0, &refCenters0);
+    outline.insert(outline.end(), outline0.begin(), outline0.end());
+    if (refOutline) refOutline->insert(refOutline->end(), refOutline0.begin(), refOutline0.end());
+    if (refCenters) refCenters->insert(refCenters->end(), refCenters0.begin(), refCenters0.end());
+    outline0.clear(); refOutline0.clear(); refCenters0.clear(); noResultList.clear(); noResult = false;
 
     for (size_t i = num - 1; i > 0; --i)
     {
         osg::Vec3 dir = centerLine[i - 1] - centerLine[i]; dir.normalize(); sideB = dir ^ osg::Z_AXIS;
         if (i == num - 1)
         {
+            // Left end
             osg::Quat q0; q0.makeRotate(sideA, sideB); q0.getRotate(angle, axis);
             for (size_t i = 1; i < 8; ++i)
             {
                 osg::Vec3 side = osg::Quat(angle * (float)i / 8.0, axis) * sideA;
                 result = centerLine[num - 1] + side * width; if (refOutline) refOutline->push_back(result);
-                if (checkBorders)
-                    result = getIntersectionFromBorders(polygons, centerLine[num - 1], result, lastRef);
+                if (checkBorders) result = getIntersectionFromBorders(
+                    polygons, centerLine[num - 1], result, lastRef, NULL, hOffset, vOffset);
                 if (refCenters) refCenters->push_back(centerLine[num - 1]);
                 outline.push_back(result); lastRef = result;
             }
         }
 
-        result = centerLine[i] + sideB * width; if (refOutline) refOutline->push_back(result);
-        if (refCenters) refCenters->push_back(centerLine[i]);
-        if (checkBorders) result = getIntersectionFromBorders(polygons, centerLine[i], result, lastRef);
-        outline.push_back(result); lastRef = result;
+        // Outside gumline
+        result = centerLine[i] + sideB * width;
+        refOutline0.push_back(result); refCenters0.push_back(centerLine[i]);
+        if (checkBorders)
+        {
+            bool noResult0 = (noResult == true);
+            result = getIntersectionFromBorders(
+                polygons, centerLine[i], result, lastRef, &noResult, hOffset, vOffset);
+            if (noResult)
+            {
+                if (noResult0) noResultList.back().second = outline0.size();
+                else noResultList.push_back(std::pair<int, int>(outline0.size(), outline0.size()));
+            }
+        }
+        outline0.push_back(result); lastRef = result;
     }
 
+    // Fix points not intersecting with teeth borders
+    for (size_t i = 0; i < noResultList.size(); ++i)
+    {
+        int l = noResultList[i].first, r = noResultList[i].second;
+        if (l <= 0 || outline0.size() <= r + 1) continue;
+        osg::Vec3 lRef = outline0[l - 1], rRef = outline0[r + 1];
+        for (int k = l; k <= r; ++k)
+        {
+            float ratio = (float)(1 + k - l) / (float)(2 + r - l);
+            osg::Vec3 dir = refOutline0[k] - refCenters0[k]; dir.normalize();
+            outline0[k] = lRef * (1.0f - ratio) + rRef * ratio - dir * (1.0f - abs(0.5f - ratio));
+            //outline0[k] = lRef * (1.0f - ratio) + rRef * ratio;
+        }
+    }
+
+    // Smooth outside part of the gumline
+    fitSpline(outline0, &refOutline0, &refCenters0);
+    outline.insert(outline.end(), outline0.begin(), outline0.end());
+    if (refOutline) refOutline->insert(refOutline->end(), refOutline0.begin(), refOutline0.end());
+    if (refCenters) refCenters->insert(refCenters->end(), refCenters0.begin(), refCenters0.end());
+    outline0.clear(); refOutline0.clear(); refCenters0.clear();
+
+    // Right end
     osg::Vec3 dir = centerLine[1] - centerLine[0]; dir.normalize(); sideA = dir ^ osg::Z_AXIS;
     osg::Quat q1; q1.makeRotate(sideB, sideA); q1.getRotate(angle, axis);
     for (size_t i = 1; i < 8; ++i)
@@ -147,7 +250,8 @@ std::vector<osg::Vec3> generateGumOutline(
         osg::Vec3 side = osg::Quat(angle * (float)i / 8.0, axis) * sideB;
         result = centerLine[0] + side * width; if (refOutline) refOutline->push_back(result);
         if (refCenters) refCenters->push_back(centerLine[0]);
-        if (checkBorders) result = getIntersectionFromBorders(polygons, centerLine[0], result, lastRef);
+        if (checkBorders) result = getIntersectionFromBorders(
+            polygons, centerLine[0], result, lastRef, NULL, hOffset, vOffset);
         outline.push_back(result); lastRef = result;
     }
     return outline;
@@ -171,7 +275,11 @@ std::vector<osg::Vec3> generateGumOutline(const std::vector<osg::Vec3>& refOutli
         for (size_t i = 0; i < outline.size(); ++i)
         {
             osg::Vec3 dir = refOutline[i] - refCenters[i], newPt;
-            dir.z() = 0.0f; dir.normalize(); newPt = refCenters[i] + dir * maxR;
+            dir.z() = 0.0f; dir.normalize();
+
+            float cosine = dir * osg::Y_AXIS;
+            if (cosine < 0.0f) newPt = refCenters[i] + dir * maxR * (0.5f + 0.5f * (1.0f + cosine));
+            else newPt = refCenters[i] + dir * maxR;
             outline[i] = outline[i] * (1.0f - uniform) + newPt * uniform;
         }
     }
@@ -224,19 +332,23 @@ bool createDelaunay(osg::Geode* geode)
         if (maxTeethRadius < obb.first.w()) maxTeethRadius = obb.first.w();
         //std::cout << obb.first << "\n";
 
-        for (size_t i = 0; i < border.size(); ++i)
+        for (int nn = 0; nn < 4; ++nn)
         {
-            size_t idx = points.size();
-            if (i == border.size() - 1) endIdx = idx;
-            else if (i == 0) startIdx = idx;
-            points.push_back(border[i]); bb.expandBy(border[i]);
+            for (size_t i = 0; i < border.size(); ++i)
+            {
+                size_t idx = points.size();
+                osg::Vec3 dir = border[i] - center; float len = dir.normalize();
+                osg::Vec3 point = center + dir * (len * (float)(nn + 1) * 0.25f);
+                point.z() -= (1.0f - (float)(nn + 1) * 0.25f);
 
-            osg::Vec3 point = center + (border[i] - center);
-            points2D.push_back(osgVerse::PointType2D(
-                osg::Vec2(point.x(), point.y()), idx));
-            //if (i > 0) edges.push_back(osgVerse::EdgeType(idx - 1, idx));
+                if (i == border.size() - 1) endIdx = idx;
+                else if (i == 0) startIdx = idx;
+                points.push_back(point); bb.expandBy(point);
+                points2D.push_back(osgVerse::PointType2D(osg::Vec2(point.x(), point.y()), idx));
+                //if (i > 0) edges.push_back(osgVerse::EdgeType(idx - 1, idx));
+            }
+            //edges.push_back(osgVerse::EdgeType(endIdx, startIdx));
         }
-        //edges.push_back(osgVerse::EdgeType(endIdx, startIdx));
         //std::cout << "Edges of teeth " << itr->first << ": " << startIdx << " - " << endIdx << "\n";
     }
 
@@ -251,8 +363,12 @@ bool createDelaunay(osg::Geode* geode)
 
     std::vector<osg::Vec3> refOutline, refCenters;
     std::vector<osg::Vec3> centerline = generateGumCenterline(curveSamples, bb.zMin() - 5.0f);
+    std::vector<osg::Vec3> outlineT2 = generateGumOutline(
+        centerline, maxTeethRadius + 0.5f, true, NULL, NULL, 0.4f, 0.1f);
+    std::vector<osg::Vec3> outlineT1 = generateGumOutline(
+        centerline, maxTeethRadius + 0.5f, true, NULL, NULL, 0.3f, 0.2f);
     std::vector<osg::Vec3> outlineT = generateGumOutline(
-        centerline, maxTeethRadius + 0.5f, true, &refOutline, &refCenters);
+        centerline, maxTeethRadius + 0.5f, true, &refOutline, &refCenters, 0.1f, 0.0f);
     std::vector<osg::Vec3> outlineB = generateGumOutline(outlineT, refCenters, bb.zMin() - 5.0f, 1.0f);
     size_t numOutline = outlineT.size(), numLayers = 9;
 
@@ -260,10 +376,10 @@ bool createDelaunay(osg::Geode* geode)
     for (size_t layer = 0; layer < numLayers; ++layer)
     {
         float ratio = (float)(layer + 1) / (float)(numLayers + 1);
-        outlineM[layer] = generateGumOutline(outlineT, refCenters, 0.0f, 1.0f - ratio * ratio);
+        outlineM[layer] = generateGumOutline(outlineT2, refCenters, 0.0f, 1.0f - ratio * ratio);
         for (size_t i = 0; i < numOutline; ++i)
         {
-            osg::Vec3& b = outlineB[i], t = outlineT[i];
+            osg::Vec3& b = outlineB[i], t = outlineT2[i];
             outlineM[layer][i].z() = b.z() * (1.0f - ratio) + t.z() * ratio;
         }
         refineOutlineWithTeeth(outlineM[layer], refCenters);
@@ -294,14 +410,21 @@ bool createDelaunay(osg::Geode* geode)
     // Generate side geometry
     osg::DrawElementsUInt* de0 = static_cast<osg::DrawElementsUInt*>(g_gumline->getPrimitiveSet(0));
     osg::Vec3Array* va0 = static_cast<osg::Vec3Array*>(g_gumline->getVertexArray());
+    osg::Vec2Array* ta0 = static_cast<osg::Vec2Array*>(g_gumline->getTexCoordArray(0));
     osg::Vec4Array* ca0 = static_cast<osg::Vec4Array*>(g_gumline->getColorArray());
     outlineM.insert(outlineM.begin(), outlineB);
+    outlineM.push_back(outlineT2); outlineM.push_back(outlineT1);
     outlineM.push_back(outlineT); va0->clear(); de0->clear();
 
     for (size_t i = 0; i < outlineM.size(); ++i)
     {
         std::vector<osg::Vec3>& outline = outlineM[i]; size_t maxIdx = outline.size();
-        for (size_t j = 0; j < maxIdx; ++j) va0->push_back(outline[j]);
+        for (size_t j = 0; j < maxIdx; ++j)
+        {
+            ta0->push_back(osg::Vec2((float)j / (float)(maxIdx - 1),
+                                     (float)i / (float)(outlineM.size() - 1)));
+            va0->push_back(outline[j]);
+        }
         if (i == 0) continue;
 
         size_t index1 = i * maxIdx, index0 = (i - 1) * maxIdx;
@@ -312,17 +435,17 @@ bool createDelaunay(osg::Geode* geode)
         }
     }
 
-    size_t numVA = va0->size(); ca0->resize(numVA);
+    size_t numVA = va0->size(); ta0->resize(numVA); ca0->resize(numVA);
     for (size_t i = 0; i < numVA; ++i) (*ca0)[i] = osg::Vec4(0.82f, 0.58f, 0.59f, 1.0f);
-    de0->dirty(); va0->dirty(); ca0->dirty(); g_gumline->dirtyBound();
+    de0->dirty(); va0->dirty(); ta0->dirty(); ca0->dirty(); g_gumline->dirtyBound();
     
     // Generate top-cap geometry
     osg::DrawElementsUInt* de = static_cast<osg::DrawElementsUInt*>(g_delaunay->getPrimitiveSet(0));
     osg::Vec3Array* va = static_cast<osg::Vec3Array*>(g_delaunay->getVertexArray());
+    osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(g_delaunay->getTexCoordArray(0));
     osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(g_delaunay->getColorArray());
 
-    std::vector<size_t> indices =
-        osgVerse::GeometryAlgorithm::delaunayTriangulation(points2D, edges);
+    std::vector<size_t> indices = osgVerse::GeometryAlgorithm::delaunayTriangulation(points2D, edges);
     if (indices.empty())
     {
         points.erase(points.begin(), points.begin() + outerIdx0);
@@ -335,12 +458,15 @@ bool createDelaunay(osg::Geode* geode)
     }
     
     numVA = points.size();
-    if (va->size() != numVA) { va->resize(numVA); ca->resize(numVA); }
+    if (va->size() != numVA) { va->resize(numVA); ta->resize(numVA); ca->resize(numVA); }
     for (size_t i = 0; i < numVA; ++i)
-    { (*va)[i] = points[i]; (*ca)[i] = osg::Vec4(0.82f, 0.58f, 0.59f, 1.0f); }
-    de->dirty(); va->dirty(); ca->dirty(); g_delaunay->dirtyBound();
+    {
+        (*va)[i] = points[i]; (*ta)[i] = osg::Vec2(0.5f, 1.0f);
+        (*ca)[i] = osg::Vec4(0.82f, 0.58f, 0.59f, 1.0f);
+    }
+    de->dirty(); va->dirty(); ta->dirty(); ca->dirty(); g_delaunay->dirtyBound();
 
-    //osgUtil::Simplifier simplifier(15.0f); simplifier.simplify(*g_delaunay);
+    //osgUtil::Simplifier simplifier(5.0f); simplifier.simplify(*g_delaunay);
     osgUtil::SmoothingVisitor smv; geode->accept(smv); return true;
 }
 
@@ -444,7 +570,7 @@ int main(int argc, char** argv)
         g_delaunay = new osg::Geometry;
         g_delaunay->setUseDisplayList(false);
         g_delaunay->setUseVertexBufferObjects(true);
-        g_delaunay->setVertexArray(new osg::Vec3Array);
+        g_delaunay->setVertexArray(new osg::Vec3Array); g_delaunay->setTexCoordArray(0, new osg::Vec2Array);
         g_delaunay->setColorArray(new osg::Vec4Array); g_delaunay->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
         g_delaunay->addPrimitiveSet(new osg::DrawElementsUInt(GL_TRIANGLES));
         delaunayNode->addDrawable(g_delaunay.get());
@@ -452,7 +578,7 @@ int main(int argc, char** argv)
         g_gumline = new osg::Geometry;
         g_gumline->setUseDisplayList(false);
         g_gumline->setUseVertexBufferObjects(true);
-        g_gumline->setVertexArray(new osg::Vec3Array);
+        g_gumline->setVertexArray(new osg::Vec3Array); g_gumline->setTexCoordArray(0, new osg::Vec2Array);
         g_gumline->setColorArray(new osg::Vec4Array); g_gumline->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
         g_gumline->addPrimitiveSet(new osg::DrawElementsUInt(GL_QUADS));
         delaunayNode->addDrawable(g_gumline.get());

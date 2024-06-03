@@ -106,7 +106,11 @@ struct CollectVertexOperator
                 for (size_t i = 0; i < inputV->size(); ++i)
                 {
                     if (vertexMap && !vertexAddingList[i]) continue;
-                    if (inputN) na.push_back(osg::Vec4((*inputN)[i], 0.0));
+                    if (inputN)
+                    {
+                        osg::Vec3 n = osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), (*inputN)[i]);
+                        na.push_back(osg::Vec4(n, 0.0));
+                    }
                     if (inputC) ca.push_back((*inputC)[i]);
                     if (inputT) ta.push_back(osg::Vec4((*inputT)[i].x(),
                                                        (*inputT)[i].y(), 0.0f, 1.0));

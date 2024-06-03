@@ -215,13 +215,22 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
                          << x << ", " << y << std::endl; dtFree(resultData); continue;
             }
         }
-    return false;
+
+    int numTiles = navData->navMesh->getMaxTiles();
+    if (numTiles > 0)
+    {
+        navData->navQuery = dtAllocNavMeshQuery();
+        if (dtStatusFailed(navData->navQuery->init(navData->navMesh, _settings.maxSearchNodes)))
+            OSG_WARN << "[RecastManager] Failed to create query object" << std::endl;
+    }
+    return (numTiles > 0);
 }
 
 osg::Node* RecastManager::getDebugMesh() const
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     NavData* navData = static_cast<NavData*>(_recastData.get());
+    if (!navData->navMesh) return NULL;
 
     const dtNavMesh* navMesh = navData->navMesh;
     for (int t = 0; t < navMesh->getMaxTiles(); ++t)

@@ -48,23 +48,62 @@ namespace osgVerse
         float tileSize;  // Size of the tiles in voxels
         float padding;   // Padding of bounding box
         int partitionType;  // Partition type (WATERSHED / MONOTONE)
+        int maxSearchNodes;  // Max search nodes of NavMeshQuery
 
         RecastSettings() :
             cellSize(0.3f), cellHeight(0.2f), agentHeight(2.0f), agentRadius(0.6f), agentMaxClimb(0.9f),
             agentMaxSlope(45.0f), regionMinSize(8.0f), regionMergeSize(20.0f), edgeMaxLen(12.0f),
             edgeMaxError(1.3f), vertsPerPoly(6.0f), detailSampleDist(6.0f), detailSampleMaxError(1.0f),
-            tileSize(128.0f), padding(1.0f), partitionType(PARTITION_WATERSHED) {}
+            tileSize(128.0f), padding(1.0f), partitionType(PARTITION_WATERSHED), maxSearchNodes(2048) {}
     };
 
-    /// Recast-navigation implementation
-    /// OSG vertex(x, y, z) -> Recast vertex(x, z, -y)
+    /** Recast-navigation implementation
+        OSG vertex(x, y, z) -> Recast vertex(x, z, -y)
+    */
     class RecastManager : public osg::Referenced
     {
     public:
         RecastManager();
 
+        /** Build nav-mesh tiles from scene graph */
         bool build(osg::Node* node);
+
+        /** Get debug nav-mesh of all current tiles */
         osg::Node* getDebugMesh() const;
+
+        /** Save current nav-mesh tiles to stream */
+        bool save(std::ostream& out);
+
+        /** Read from stream and add tiles to nav-mesh */
+        bool read(std::istream& in);
+
+        // Agent structure
+        struct Agent : public osg::Referenced
+        {
+            std::string name;
+            osg::Vec3 position, velocity;
+            osg::Vec3 target, targetVelocity;
+        };
+
+        /** Update/add agent */
+        bool updateAgent(Agent* agent);
+
+        /** Remove agent */
+        bool removeAgent(Agent* agent);
+
+        std::vector<osg::ref_ptr<Agent>>& getAgents() { return _agents; }
+        bool clearAllAgents();
+
+        /** Advance the scene to update all agents */
+        void advance(float simulationTime);
+
+        /** Find a path on nav-mesh surface */
+        std::vector<osg::Vec3> findPath(const osg::Vec3& s, const osg::Vec3& e,
+                                        const osg::Vec3& extents = osg::Vec3(1.0f, 1.0f, 1.0f));
+
+        /** Recast on the nav-mesh */
+        bool recast(osg::Vec3& result, const osg::Vec3& s, const osg::Vec3& e,
+                    const osg::Vec3& extents = osg::Vec3(1.0f, 1.0f, 1.0f));
 
     protected:
         virtual ~RecastManager();
@@ -73,6 +112,7 @@ namespace osgVerse
                         const osg::BoundingBox& worldBounds, const osg::Vec2i& tileStart,
                         const osg::Vec2i& tileEnd);
 
+        std::vector<osg::ref_ptr<Agent>> _agents;
         osg::ref_ptr<osg::Referenced> _recastData;
         RecastSettings _settings;
     };
