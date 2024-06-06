@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include <queue>
 #include <ghc/filesystem.hpp>
+#include <nanoid/nanoid.h>
 
 #include <readerwriter/DatabasePager.h>
 #include <readerwriter/Utilities.h>
@@ -140,7 +141,7 @@ void processFile(const std::string& prefix, const std::string& dirName,
         rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
         node->accept(rdp);
 
-        osgVerse::TextureOptimizer opt(true);
+        osgVerse::TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
         node->accept(opt);
 
         std::string dbFileName = dbBase + dirName + "/" + fileName;
@@ -195,6 +196,7 @@ int main(int argc, char** argv)
         for (auto itr : ghc::filesystem::directory_iterator(dir))
         {
             const ghc::filesystem::path& file = itr.path();
+            std::cout << file.filename().string() << "..........\n";
             if (itr.is_directory())
             {
                 std::string dirName = file.filename().string();
@@ -240,10 +242,10 @@ int main(int argc, char** argv)
         //viewer.getCamera()->setLODScale(lodScale);
         root->addChild(osgDB::readNodeFiles(arguments));
 
-        osgVerse::DatabasePager* dbPager = new osgVerse::DatabasePager;
-        dbPager->setDataMergeCallback(new DataMergeCallback(prefix, lodScale));
-        viewer.setDatabasePager(dbPager);
-        viewer.setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
+        //osgVerse::DatabasePager* dbPager = new osgVerse::DatabasePager;
+        //dbPager->setDataMergeCallback(new DataMergeCallback(prefix, lodScale));
+        //viewer.setDatabasePager(dbPager);
+        //viewer.setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
     }
     else
     {

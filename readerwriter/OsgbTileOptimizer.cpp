@@ -1,9 +1,11 @@
 #include "OsgbTileOptimizer.h"
 #include "DracoProcessor.h"
 #include "Utilities.h"
+#include "LoadTextureKTX.h"
 #include "modeling/GeometryMerger.h"
 #include "modeling/Utilities.h"
 #include "nanoid/nanoid.h"
+
 #include <osg/PagedLOD>
 #include <osg/ProxyNode>
 #include <osgDB/FileUtils>
@@ -443,6 +445,9 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
 {
     osg::ref_ptr<osg::Group> root = new osg::Group;
     std::vector<osg::ref_ptr<osg::Geometry>> geomList;
+
+    // Have to merge textures later, so must read RGBA
+    setReadingKtxFlag(osgVerse::ReadKtx_ToRGBA, 1);
     for (size_t t = 0; t < srcTiles.size(); ++t)
     {
         const std::pair<std::string, osg::ref_ptr<osg::Node>>& nameAndRough = srcTiles[t];
@@ -507,6 +512,7 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
             if (fineNode.valid()) root->addChild(fineNode.get());
     }
 
+    setReadingKtxFlag(osgVerse::ReadKtx_ToRGBA, 0);
     if (root.valid())
     {
         osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");

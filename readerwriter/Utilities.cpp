@@ -141,12 +141,19 @@ TextureOptimizer::~TextureOptimizer()
 
 void TextureOptimizer::deleteSavedTextures()
 {
-    for (size_t i = 0; i < _savedTextures.size(); ++i)
+    try
     {
-        ghc::filesystem::path path = _savedTextures[i];
-        ghc::filesystem::remove(path);
+        for (size_t i = 0; i < _savedTextures.size(); ++i)
+        {
+            ghc::filesystem::path path = _savedTextures[i];
+            ghc::filesystem::remove(path);
+        }
+        ghc::filesystem::remove(_textureFolder);
     }
-    ghc::filesystem::remove(_textureFolder);
+    catch (std::runtime_error& err)
+    {
+        OSG_WARN << "[TextureOptimizer] deleteSavedTextures(): " << err.what() << std::endl;
+    }
 }
 
 void TextureOptimizer::apply(osg::Drawable& drawable)

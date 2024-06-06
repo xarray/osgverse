@@ -9,6 +9,7 @@
 #include <osgDB/WriteFile>
 #include "pipeline/Utilities.h"
 
+#include <mutex>
 #include <ktx/texture.h>
 #include <ktx/gl_format.h>
 #include "LoadTextureKTX.h"
@@ -207,6 +208,8 @@ static inline VkFormat glGetVkFormatFromInternalFormat(GLint glFormat)
     }
 }
 
+static std::map<osgVerse::ReadingKtxFlag, int> g_readKtxFlags;
+static std::mutex g_readKtxMutex;
 
 namespace osgVerse
 {
@@ -219,7 +222,12 @@ namespace osgVerse
         ktx_uint32_t w2 = osg::Image::computeNearestPowerOfTwo(w), h2 = osg::Image::computeNearestPowerOfTwo(h);
         if (ktxTexture_NeedsTranscoding(texture))
         {
-            bool noCompress = false, supportsDXT = true, supportsETC = false;
+            bool noCompress = false, supportsDXT = false, supportsETC = false;
+            g_readKtxMutex.lock();
+            noCompress = (g_readKtxFlags[ReadKtx_ToRGBA] > 0);
+            supportsDXT = (g_readKtxFlags[ReadKtx_NoDXT] == 0);
+            g_readKtxMutex.unlock();
+
             if (opt != NULL)
             {
                 if (!opt->getPluginStringData("UseDXT").empty())
@@ -261,10 +269,14 @@ namespace osgVerse
             GLint glInternalformat = glGetInternalFormatFromVkFormat((VkFormat)tex->vkFormat);
             switch (glInternalformat)  // FIXME: compressed SRGB DXT not working directly...
             {
-            case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT: glInternalformat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT; break;
-            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT: glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT; break;
-            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT: glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT; break;
-            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; break;
+            case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT: case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+                glInternalformat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT; compressed = true; break;
+            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT: case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+                glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT; compressed = true; break;
+            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT: case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+                glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT; compressed = true; break;
+            case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT: case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+                glInternalformat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; compressed = true; break;
             }
 
             GLenum glFormat = compressed ? glInternalformat  /* Use compressed format */
@@ -283,8 +295,17 @@ namespace osgVerse
                          << glType << std::dec << std::endl;
                 imgDataSize = ktxTexture_GetImageSize(texture, 0);
             }
+
             image->allocateImage(w, h, d, glFormat, glType, 4);
             image->setInternalTextureFormat(glInternalformat);
+            if (image->getTotalSizeInBytes() != imgDataSize)
+            {
+                OSG_WARN << "[LoaderKTX] Failed to copy image data, size mismatched: "
+                         << imgDataSize << " != " << image->getTotalSizeInBytes() << std::endl;
+                OSG_WARN << "[LoaderKTX] Source format: internalFmt = " << std::hex
+                         << glInternalformat << ", pixelFmt = " << glFormat << ", type = "
+                         << glType << std::dec << std::endl;
+            }
         }
         else
         {
@@ -292,8 +313,7 @@ namespace osgVerse
             image->allocateImage(w, h, d, tex->glFormat, tex->glType, 4);
             image->setInternalTextureFormat(tex->glInternalformat);
         }
-
-        memcpy(image->data(), imgData, image->getTotalSizeInBytes());
+        memcpy(image->data(), imgData, imgDataSize);
         return image;
     }
 
@@ -488,4 +508,7 @@ namespace osgVerse
         ktxTexture_Destroy(texture);
         return result == KTX_SUCCESS;
     }
+
+    void setReadingKtxFlag(ReadingKtxFlag flag, int value)
+    { g_readKtxMutex.lock(); g_readKtxFlags[flag] = value; g_readKtxMutex.unlock(); }
 }

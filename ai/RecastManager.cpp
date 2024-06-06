@@ -40,3 +40,25 @@ bool RecastManager::build(osg::Node* node)
     if (dtStatusFailed(navData->navMesh->init(&params))) return false;
     return buildTiles(collector.getVertices(), collector.getTriangles(), worldBounds, tStart, tEnd);
 }
+
+void RecastManager::updateAgent(Agent* agent)
+{
+    if (_agents.find(agent) == _agents.end())
+        _agents.insert(agent);
+}
+
+void RecastManager::removeAgent(Agent* agent)
+{
+    if (_agents.find(agent) != _agents.end())
+        _agents.erase(_agents.find(agent));
+}
+
+void RecastManager::clearAllAgents()
+{
+    _agents.clear();
+}
+
+void RecastManager::advance(float simulationTime)
+{
+
+}

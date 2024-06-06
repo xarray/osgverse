@@ -209,7 +209,7 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
                          << x << ", " << y << std::endl; continue;
             }
             else if (dtStatusFailed(navData->navMesh->addTile(resultData, resultDataSize,
-                                                         DT_TILE_FREE_DATA, 0, NULL)))
+                                                              DT_TILE_FREE_DATA, 0, NULL)))
             {
                 OSG_WARN << "[RecastManager] Failed to add tile to recast manager: "
                          << x << ", " << y << std::endl; dtFree(resultData); continue;

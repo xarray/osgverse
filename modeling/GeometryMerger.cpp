@@ -89,6 +89,8 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
         if (totalW1 > maxTextureSize) totalW1 = maxTextureSize;
         if (totalH1 > maxTextureSize) totalH1 = maxTextureSize;
         if (totalW1 != totalW || totalH1 != totalH) atlas->scaleImage(totalW1, totalH1, 1);
+
+        ext = ".jpg";  // packed image should always be saved to JPG at current time...
         atlas->setFileName(imageName + "_all." + ext);
     }
 

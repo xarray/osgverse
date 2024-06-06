@@ -86,13 +86,13 @@ namespace osgVerse
         };
 
         /** Update/add agent */
-        bool updateAgent(Agent* agent);
+        void updateAgent(Agent* agent);
 
         /** Remove agent */
-        bool removeAgent(Agent* agent);
+        void removeAgent(Agent* agent);
 
-        std::vector<osg::ref_ptr<Agent>>& getAgents() { return _agents; }
-        bool clearAllAgents();
+        std::set<osg::ref_ptr<Agent>>& getAgents() { return _agents; }
+        void clearAllAgents();
 
         /** Advance the scene to update all agents */
         void advance(float simulationTime);
@@ -112,7 +112,7 @@ namespace osgVerse
                         const osg::BoundingBox& worldBounds, const osg::Vec2i& tileStart,
                         const osg::Vec2i& tileEnd);
 
-        std::vector<osg::ref_ptr<Agent>> _agents;
+        std::set<osg::ref_ptr<Agent>> _agents;
         osg::ref_ptr<osg::Referenced> _recastData;
         RecastSettings _settings;
     };
