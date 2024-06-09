@@ -523,7 +523,7 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
 
     std::vector<osg::Geometry*> geomList2;
     geomList2.assign(geomList.begin(), geomList.end());
-    osg::ref_ptr<osg::Node> mergedNode = mergeGeometries(geomList2, 1024);
+    osg::ref_ptr<osg::Node> mergedNode = mergeGeometries(geomList2, 1024, true);
     //osgUtil::Simplifier sim(0.2f); if (mergedNode.valid()) mergedNode->accept(sim);
     return mergedNode.release();  // return merged rough level node
 }
@@ -612,7 +612,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         plod->setCenterMode(ref->getCenterMode());
         plod->setCenter(bs.center());
         plod->setRadius(bs.radius());
-        plod->addChild(mergeGeometries(geomList, 2048));
+        plod->addChild(mergeGeometries(geomList, 2048, false));
         for (size_t i = 0; i < ref->getNumFileNames(); ++i)
         {
             float minV = ref->getMinRange(i), maxV = ref->getMaxRange(i);
@@ -651,13 +651,14 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
 
         OSG_NOTICE << "[TileOptimizer] Merging " << geomList.size() << " geometries from "
                    << loadedNodes.size() << " leaf nodes" << std::endl;
-        if (!geomList.empty()) root->addChild(mergeGeometries(geomList, 4096));
+        if (!geomList.empty()) root->addChild(mergeGeometries(geomList, 4096, false));
         if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
     }
     return (root->getNumChildren() > 0) ? root.release() : NULL;
 }
 
-osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList, int highestRes)
+osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList,
+                                          int highestRes, bool simplify)
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 #if true
@@ -667,7 +668,7 @@ osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geo
         osg::ref_ptr<osg::Geometry> result = merger.process(geomList, i, 16, highestRes);
         if (result.valid())
         {
-            if (_simplifyRatio > 0.0f && _simplifyRatio < 1.0f)
+            if (simplify && _simplifyRatio > 0.0f)
             {
                 MeshCollector collector;
                 collector.setWeldingVertices(true);
