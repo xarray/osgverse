@@ -239,6 +239,12 @@ protected:
     {
         std::string uri = (content.is<picojson::object>() && content.contains("uri"))
                          ? content.get("uri").to_str() : "";
+        if (uri.empty())
+        {
+            uri = (content.is<picojson::object>() && content.contains("url"))
+                ? content.get("url").to_str() : "";
+        }
+
         std::string ext = osgDB::getFileExtension(uri);
         if (!uri.empty() && !osgDB::isAbsolutePath(uri))
             uri = prefix + osgDB::getNativePathSeparator() + uri;
