@@ -57,6 +57,7 @@ namespace osgVerse
                 std::get<1>(itr->second) = matrices;
             }
 
+            if (sv->getLocalStateSet() == NULL) continue;
             osg::Uniform* u1 = sv->getLocalStateSet()->getOrCreateUniform(
                 (uName + "Matrices").c_str(), osg::Uniform::FLOAT_MAT4, 4);
             const std::vector<osg::Matrixf>& matrices = std::get<1>(itr->second);

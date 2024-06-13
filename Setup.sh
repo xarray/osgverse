@@ -33,7 +33,7 @@ Please Select:
 1. Desktop / OpenGL Core Mode
 2. Desktop / Google Angle
 3. WASM / WebGL 1.0
-4. WASM / WebGL 2.0
+4. WASM / WebGL 2.0 (optional with osgEarth)
 5. Android / OpenGL ES2
 q. Quit
 -----------------------------------"
@@ -336,6 +336,32 @@ else
         fi
     fi
     make install
+
+fi
+
+# Build osgEarth (Optional)
+if [ "$BuildMode" = '4' ]; then
+
+    if [ -d "../osgEarth_wasm" ]; then
+
+        # WASM toolchain (WebGL 2)
+        if [ ! -d "$CurrentDir/build/osgearth_wasm2" ]; then
+            mkdir $CurrentDir/build/osgearth_wasm2
+        fi
+
+        echo "*** Building osgEarth 2.10..."
+        ExtraOptions2="
+            -DOSG_DIR=$CurrentDir/build/sdk_wasm
+            -DTHIRDPARTY_ROOT=$CurrentDir/../Dependencies/wasm
+            -DOSGEARTH_SOURCE_DIR=$CurrentDir/../osgEarth_wasm
+            -DOSGEARTH_BUILD_DIR=$CurrentDir/build/osgearth_wasm2/osgearth"
+        cd $CurrentDir/build/osgearth_wasm2
+        $CMakeExe $ExtraOptions $ExtraOptions2 $CurrentDir/helpers/osg_builder/wasm2_oe
+        make install
+
+    else
+        echo "osgEarth WASM not found. Please download it and unzip it in ../osgEarth_WASM if you wish."
+    fi
 
 fi
 

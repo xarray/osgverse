@@ -35,6 +35,7 @@ static osg::ref_ptr<osg::Geometry> g_delaunay, g_gumline;
 
 std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>& curveSamples, float z)
 {
+#if false
     OpenCubicBSplineCurve curve0(0.002); SplineCurveFitting scf;
     scf.fitAOpenCurve(curveSamples, curve0, 18, 20, 0.005, 0.005, 0.0001);
 
@@ -43,6 +44,29 @@ std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>&
     const std::vector<Eigen::Vector2d>& samples = curve0.getSamples();
     for (size_t i = 0; i < samples.size(); i += 10)
         centerLine.push_back(osg::Vec3(samples[i].x(), samples[i].y(), z));
+#else
+    int maxHalf = 400;
+    osg::BoundingBox bb; float invMaxHalf = 1.0f / (float)maxHalf;
+    for (size_t i = 0; i < curveSamples.size(); ++i)
+        bb.expandBy(osg::Vec3(curveSamples[i].x(), curveSamples[i].y(), 0.0f));
+
+    std::vector<osg::Vec3> centerLine; float cx = bb.center().x();
+    centerLine.push_back(osg::Vec3(bb.xMin(), bb.yMax(), z));
+    for (int i = 1 - maxHalf; i < 0; ++i)
+    {
+        float xx = (float)i * invMaxHalf; float yy = pow(xx, 2.0f);
+        centerLine.push_back(osg::Vec3(
+            bb.xMin() * (-xx) + cx * (1.0f + xx), bb.yMax() * yy + bb.yMin() * (1.0f - yy), z));
+    }
+    centerLine.push_back(osg::Vec3(cx, bb.yMin(), z));
+    for (int i = 1; i < maxHalf; ++i)
+    {
+        float xx = (float)i * invMaxHalf; float yy = pow(xx, 2.0f);
+        centerLine.push_back(osg::Vec3(
+            bb.xMax() * xx + cx * (1.0f - xx), bb.yMax() * yy + bb.yMin() * (1.0f - yy), z));
+    }
+    centerLine.push_back(osg::Vec3(bb.xMax(), bb.yMax(), z));
+#endif
     return centerLine;
 }
 
@@ -387,6 +411,7 @@ bool createDelaunay(osg::Geode* geode)
     }
     //createOutlineGeometry(geode, outlineB);
     //createOutlineGeometry(geode, outlineT);
+    createOutlineGeometry(geode, centerline);
 
     // Find top gumline and then compute top outer boundary
     size_t outerIdx0 = points.size();
