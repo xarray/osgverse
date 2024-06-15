@@ -37,7 +37,7 @@ Please Select:
 5. Android / OpenGL ES2
 q. Quit
 -----------------------------------"
-read -p "Enter selection [0-4] > " BuildMode
+read -p "Enter selection [0-5] > " BuildMode
 case "$BuildMode" in
     1)  echo "OpenGL Core Mode."
         BuildResultChecker=build/sdk_core/bin/osgviewer
@@ -202,8 +202,6 @@ ThirdDepOptions="
     -DJPEG_LIBRARY_RELEASE=$ThirdPartyBuildDir/jpeg/libjpeg.a
     -DPNG_PNG_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/png
     -DPNG_LIBRARY_RELEASE=$ThirdPartyBuildDir/png/libpng.a
-    -DTIFF_INCLUDE_DIR=$ThirdPartyBuildDir/tiff;$CurrentDir/helpers/toolchain_builder/tiff
-    -DTIFF_LIBRARY_RELEASE=$ThirdPartyBuildDir/tiff/libtiff.a
     -DZLIB_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/zlib
     -DZLIB_LIBRARY_RELEASE=$ThirdPartyBuildDir/zlib/libzlib.a
     -DVERSE_BUILD_3RDPARTIES=OFF"
@@ -340,6 +338,7 @@ else
 fi
 
 # Build osgEarth (Optional)
+WithOsgEarth=0
 if [ "$BuildMode" = '4' ]; then
 
     if [ -d "../osgEarth_wasm" ]; then
@@ -358,6 +357,7 @@ if [ "$BuildMode" = '4' ]; then
         cd $CurrentDir/build/osgearth_wasm2
         $CMakeExe $ExtraOptions $ExtraOptions2 $CurrentDir/helpers/osg_builder/wasm2_oe
         make install
+        WithOsgEarth=1
 
     else
         echo "osgEarth WASM not found. Please download it and unzip it in ../osgEarth_WASM if you wish."
@@ -388,7 +388,7 @@ elif [ "$BuildMode" = '4' ]; then
 
     OsgRootLocation="$CurrentDir/build/sdk_wasm2"
     cd $CurrentDir/build/verse_wasm2
-    $CMakeExe -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
+    $CMakeExe -DUSE_WASM_OPTIONS=1 -DUSE_WASM_OSGEARTH=$WithOsgEarth -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
     make install
 
 elif [ "$BuildMode" = '5' ]; then

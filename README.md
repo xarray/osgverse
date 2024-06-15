@@ -133,15 +133,14 @@ Our project is already tested on graphics cards listed as below:
 5. osgdb_verse_image: a plugin for reading common image formats like JPEG and PNG. It mainly works for WASM case.
 6. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
 7. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
-8. osgdb_verse_tiff: a plugin for reading/writing TIFF files, which supports 2D/3D tiff files.
-9. osgdb_vese_tiles: a plugin for reading Cesium 3dtiles (.json) and Osgb files (metadata.xml, or just the root folder).
-10. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
-11. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
+8. osgdb_vese_tiles: a plugin for reading Cesium 3dtiles (.json) and Osgb files (metadata.xml, or just the root folder).
+9. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
+10. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.
   - Example input: model.fbx.D4,M1R1X2,N3.pbrlayout (Tex0 = Diffuse x 4, Tex1 = Metallic+Roughness, Tex2 = Normal)
   - All layouts will be converted to osgVerse standard: D4,N3,S4,O1R1M1,A3,E3
-12. TBD...
+11. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.
@@ -209,7 +208,10 @@ Our project is already tested on graphics cards listed as below:
                     -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<osgverse_folder>/../Dependencies/wasm
       - $ make install
     - Build GDAL, GEOS, etc. (https://github.com/bugra9/gdal3.js)
-      - $ sudo apt install nodejs automake sqlite3
+      - Modify GDAL_EMCC_FLAGS.mk to add '-pthread' to flags
+      - $ sudo apt install automake sqlite3
+      - $ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+      - $ nvm install node
       - $ npm install -g pnpm@8.0
       - $ source <emsdk_folder>/emsdk_env.sh
       - $ pnpm install
@@ -254,7 +256,7 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_3RDPARTY_PATH         | Path    |               | Set to path of third-party libraries |
 | VERSE_INSTALL_PDB_FILES     | Boolean | ON            | Enable to install PDB files along with executables and dynamic libraries |
 | VERSE_BUILD_GPL             | Boolean | OFF           | Enable build of GPL dependencies, which will makes osgVerse a GPL library |
-| VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg, PNG and Tiff |
+| VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg and PNG |
 | VERSE_BUILD_WITH_QT         | Boolean | OFF           | Enable build of Qt based applications and tests |
 | VERSE_BUILD_DEPRECATED_TESTS| Boolean | OFF           | Enable build of deprecated tests |
 | VERSE_NO_SIMD_FEATURES      | Boolean | OFF           | Enable to ignore all SIMD features (when struggling with compile errors) |

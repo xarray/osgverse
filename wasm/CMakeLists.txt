@@ -47,3 +47,4 @@ SET(WASM_FLAGS1 "-s WASM=1 -s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=[\"emscripten_sleep
 
 ADD_SUBDIRECTORY(pbr_demo)
 ADD_SUBDIRECTORY(script_demo)
+ADD_SUBDIRECTORY(osgearth_demo)

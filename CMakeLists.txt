@@ -312,7 +312,7 @@ ENDIF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 ######################################### Global Options
 SET(VERSE_INSTALL_PDB_FILES ON CACHE BOOL "Enable to install PDB files along with executables and dynamic libraries")
 SET(VERSE_BUILD_GPL OFF CACHE BOOL "Enable build of GPL dependencies (e.g., mcut), which will makes osgVerse a GPL3 library")
-SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg, PNG and Tiff")
+SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg and PNG")
 SET(VERSE_BUILD_WITH_QT OFF CACHE BOOL "Enable build of Qt based applications and tests")
 SET(VERSE_BUILD_DEPRECATED_TESTS OFF CACHE BOOL "Enable build of deprecated tests")
 SET(VERSE_SUPPORT_CPP17 OFF CACHE BOOL "Enable build of libraries using C++ 17 standard")
@@ -549,16 +549,14 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         ADD_SUBDIRECTORY(helpers/toolchain_builder)
         SET(THIRDPARTY_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/freetype/include
                                     ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/jpeg ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/png
-                                    ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/zlib ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/tiff
-                                    ${CMAKE_BINARY_DIR}/helpers/toolchain_builder/tiff)
-        SET(THIRDPARTY_LIBRARIES freetype jpeg png tiff zlib)
+                                    ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/zlib)
+        SET(THIRDPARTY_LIBRARIES freetype jpeg png zlib)
         SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${THIRDPARTY_LIBRARIES}")
     ELSE(VERSE_BUILD_3RDPARTIES)
-        IF(JPEG_INCLUDE_DIR AND TIFF_INCLUDE_DIR AND ZLIB_INCLUDE_DIR)
+        IF(JPEG_INCLUDE_DIR AND PNG_PNG_INCLUDE_DIR AND ZLIB_INCLUDE_DIR)
             SET(THIRDPARTY_INCLUDE_DIRS ${FREETYPE_INCLUDE_DIR_freetype2} ${FREETYPE_INCLUDE_DIR_ft2build}
-                                        ${JPEG_INCLUDE_DIR} ${PNG_PNG_INCLUDE_DIR} ${TIFF_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR})
-            SET(THIRDPARTY_LIBRARIES ${FREETYPE_LIBRARY_RELEASE} ${JPEG_LIBRARY_RELEASE} ${PNG_LIBRARY_RELEASE}
-                                    ${TIFF_LIBRARY_RELEASE} ${ZLIB_LIBRARY_RELEASE})
+                                        ${JPEG_INCLUDE_DIR} ${PNG_PNG_INCLUDE_DIR}${ZLIB_INCLUDE_DIR})
+            SET(THIRDPARTY_LIBRARIES ${FREETYPE_LIBRARY_RELEASE} ${JPEG_LIBRARY_RELEASE} ${PNG_LIBRARY_RELEASE} ${ZLIB_LIBRARY_RELEASE})
             SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${THIRDPARTY_LIBRARIES}")
         ELSE()
             MESSAGE("[osgVerse] Common third-party libraries not found. Some modules and functionalities will be ignored.")

@@ -11,7 +11,7 @@ ADD_SUBDIRECTORY(osgdb_mediastream)
 ADD_SUBDIRECTORY(osgdb_vdb)
 
 IF(THIRDPARTY_INCLUDE_DIRS AND THIRDPARTY_LIBRARIES)
-    ADD_SUBDIRECTORY(osgdb_tiff)
+    #ADD_SUBDIRECTORY(osgdb_tiff)
 ENDIF()
 ADD_SUBDIRECTORY(osgdb_pbrlayout)
 ADD_SUBDIRECTORY(osgdb_verse_osgparticle)
