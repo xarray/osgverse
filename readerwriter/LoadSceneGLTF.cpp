@@ -95,7 +95,7 @@ namespace osgVerse
         return tinygltf::ReadWholeFile(out, err, filepath, userData);
     }
 
-    class RTCCenterCallback : public osg::NodeCallback
+    /*class RTCCenterCallback : public osg::NodeCallback
     {
     public:
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
@@ -125,24 +125,24 @@ namespace osgVerse
             if (node->getNumParents() == 0) return NULL;
             return getRtcRoot(node->getParent(0));
         }
+    };*/
 
-        static osg::Vec3d ReadRtcCenterFeatureTable(std::vector<char>& data, int offset, int size)
+    static osg::Vec3d ReadRtcCenterFeatureTable(std::vector<char>& data, int offset, int size)
+    {
+        std::string json; json.assign(data.begin() + offset, data.begin() + size + offset);
+        picojson::value root; std::string err = picojson::parse(root, json);
+        if (err.empty() && root.contains("RTC_CENTER"))
         {
-            std::string json; json.assign(data.begin() + offset, data.begin() + size + offset);
-            picojson::value root; std::string err = picojson::parse(root, json);
-            if (err.empty() && root.contains("RTC_CENTER"))
+            picojson::value center = root.get<picojson::object>().at("RTC_CENTER");
+            if (center.is<picojson::array>())
             {
-                picojson::value center = root.get<picojson::object>().at("RTC_CENTER");
-                if (center.is<picojson::array>())
-                {
-                    picojson::array cValues = center.get<picojson::array>();
-                    if (cValues.size() > 2) return osg::Vec3d(
-                        cValues[0].get<double>(), cValues[2].get<double>(), -cValues[1].get<double>());
-                }
+                picojson::array cValues = center.get<picojson::array>();
+                if (cValues.size() > 2) return osg::Vec3d(
+                    cValues[0].get<double>(), cValues[2].get<double>(), -cValues[1].get<double>());
             }
-            return osg::Vec3d();
         }
-    };
+        return osg::Vec3d();
+    }
 
     unsigned int ReadB3dmHeader(std::vector<char>& data, osg::Vec3d* rtcCenter = NULL)
     {
@@ -151,8 +151,7 @@ namespace osgVerse
         // batchTableJsonLength + batchTableBinLength +
         // <Real feature table> + <Real batch table> + GLTF body
         int header[7], hSize = 7 * sizeof(int); memcpy(header, data.data(), hSize);
-        if (rtcCenter && header[3] > 0)
-            *rtcCenter = RTCCenterCallback::ReadRtcCenterFeatureTable(data, hSize, header[3]);
+        if (rtcCenter && header[3] > 0) *rtcCenter = ReadRtcCenterFeatureTable(data, hSize, header[3]);
         return hSize + header[3] + header[4] + header[5] + header[6];
     }
 
@@ -203,6 +202,7 @@ namespace osgVerse
             {
                 std::string ext = image->mimeType.substr(6);  // image/ext
                 osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+                if (rw == NULL) rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_" + ext);
                 if (rw != NULL)
                 {
                     image->image.resize(size); image->extensions_json_string = ext;
@@ -266,7 +266,7 @@ namespace osgVerse
             &osgVerse::FileExists, &tinygltf::ExpandFilePath,
             &osgVerse::ReadWholeFile, &tinygltf::WriteWholeFile,
             (rwWeb ? NULL : &tinygltf::GetFileSizeInBytes), rwWeb };
-        _rtcCenterCallback = new RTCCenterCallback;
+        //_rtcCenterCallback = new RTCCenterCallback;
 
         std::string err, warn; bool loaded = false;
         std::istreambuf_iterator<char> eos; osg::Vec3d rtcCenter;
@@ -307,13 +307,14 @@ namespace osgVerse
 
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
         if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << std::endl;
-        if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; return; }
+        if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; }
 
         if (rtcCenter.length2() > 0.0)
         {
-            _root = new osg::MatrixTransform;
-            _root->setUserValue("RTC_CENTER", rtcCenter);
-            _root->addUpdateCallback(_rtcCenterCallback.get());
+            osg::MatrixTransform* mt = new osg::MatrixTransform;
+            mt->setMatrix(osg::Matrix::translate(rtcCenter)); _root = mt;
+            //_root->setUserValue("RTC_CENTER", rtcCenter);
+            //_root->addUpdateCallback(_rtcCenterCallback.get());
         }
         else _root = new osg::Group;
 
@@ -718,7 +719,7 @@ namespace osgVerse
         int emissiveID = material.emissiveTexture.index;
         int occlusionID = material.occlusionTexture.index;
 
-        if (baseID >= 0)
+        if (baseID >= 0 && baseID < _modelDef.textures.size())
             createTexture(ss, 0, uniformNames[0], _modelDef.textures[baseID]);
         else
         {
@@ -742,6 +743,7 @@ namespace osgVerse
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,
                                    const std::string& name, tinygltf::Texture& tex)
     {
+        if (tex.source < 0) tex.source = 0; if (tex.source >= _modelDef.images.size()) return;
         tinygltf::Image& imageSrc = _modelDef.images[tex.source];
         if (imageSrc.image.empty()) return;
 
@@ -762,8 +764,9 @@ namespace osgVerse
                 }
                 else if (!imageSrc.extensions_json_string.empty())
                 {
-                    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(
-                        imageSrc.extensions_json_string);
+                    std::string ext = imageSrc.extensions_json_string;
+                    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+                    if (!rw) rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_" + ext);
                     if (rw) image = rw->readImage(dataIn).getImage();
                 }
                 if (!image) return;
@@ -788,9 +791,10 @@ namespace osgVerse
                 memcpy(image->data(), &imageSrc.image[0], image->getTotalSizeInBytes());
             }
 
-            image2D = image.get(); image2D->setName(imageSrc.uri);
-            _imageMap[tex.source] = image2D;
-            OSG_NOTICE << "[LoaderGLTF] " << imageSrc.uri << " loaded for " << name << std::endl;
+            image2D = image.get(); _imageMap[tex.source] = image2D;
+            image2D->setFileName(imageSrc.uri); image2D->setName(imageSrc.name);
+            if (!imageSrc.name.empty())
+                OSG_NOTICE << "[LoaderGLTF] " << imageSrc.name << " loaded for " << name << std::endl;
         }
 
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;

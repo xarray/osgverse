@@ -131,10 +131,10 @@ Our project is already tested on graphics cards listed as below:
 3. osgdb_verse_gltf: a plugin with full-featured GLTF & GLB format support.
 4. osgdb_verse_web: a plugin for HTTP and more web protocols, which may replace the curl plugin.
 5. osgdb_verse_image: a plugin for reading common image formats like JPEG and PNG. It mainly works for WASM case.
-6. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
-7. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
-8. osgdb_vese_tiles: a plugin for reading Cesium 3dtiles (.json) and Osgb files (metadata.xml, or just the root folder).
-9. osgdb_verse_osgparticle: a plugin to wrap osgParticle classes for use in scene editor, mainly as an example for custom extensions.
+6. osgdb_verse_webp: a plugin for reading WEBP formats. It mainly works for 3dtiles scene.
+7. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
+8. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
+9. osgdb_vese_tiles: a plugin for reading Cesium 3dtiles (.json) and Osgb files (metadata.xml, or just the root folder).
 10. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.

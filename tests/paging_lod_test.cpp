@@ -157,6 +157,9 @@ void processFile(const std::string& prefix, const std::string& dirName,
 
 int main(int argc, char** argv)
 {
+    osg::ArgumentParser arguments(&argc, argv);
+    std::string output; arguments.read("--output", output);
+
     osgVerse::fixOsgBinaryWrappers();
     if (argc > 3 && std::string(argv[1]) == "adj")
     {
@@ -236,7 +239,6 @@ int main(int argc, char** argv)
     }
     else if (argc > 1)
     {
-        osg::ArgumentParser arguments(&argc, argv);
         std::string prefix = ""; arguments.read("--prefix", prefix);
         float lodScale = 1.0f; arguments.read("--lod-scale", lodScale);
         //viewer.getCamera()->setLODScale(lodScale);
@@ -260,5 +262,7 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
-    return viewer.run();
+    viewer.run();
+    if (!output.empty()) osgDB::writeNodeFile(*root, output);
+    return 0;
 }
