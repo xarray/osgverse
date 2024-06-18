@@ -32,8 +32,10 @@ static std::map<int, osg::observer_ptr<osg::Node>> g_toothMap;
 static std::map<int, std::vector<osg::Vec3>> g_borderMap;
 static std::map<int, std::pair<osg::Vec4, osg::Quat>> g_obbMap;
 static osg::ref_ptr<osg::Geometry> g_delaunay, g_gumline;
+static bool g_upGum = false;
 
-std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>& curveSamples, float z)
+std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>& curveSamples,
+                                             float z, float power)
 {
 #if false
     OpenCubicBSplineCurve curve0(0.002); SplineCurveFitting scf;
@@ -50,20 +52,21 @@ std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>&
     for (size_t i = 0; i < curveSamples.size(); ++i)
         bb.expandBy(osg::Vec3(curveSamples[i].x(), curveSamples[i].y(), 0.0f));
 
-    std::vector<osg::Vec3> centerLine; float cx = bb.center().x();
+    float cx = bb.center().x(), cy = bb.yMin();
+    std::vector<osg::Vec3> centerLine;
     centerLine.push_back(osg::Vec3(bb.xMin(), bb.yMax(), z));
     for (int i = 1 - maxHalf; i < 0; ++i)
     {
-        float xx = (float)i * invMaxHalf; float yy = pow(xx, 2.0f);
+        float xx = (float)i * invMaxHalf; float yy = pow(-xx, power);
         centerLine.push_back(osg::Vec3(
-            bb.xMin() * (-xx) + cx * (1.0f + xx), bb.yMax() * yy + bb.yMin() * (1.0f - yy), z));
+            bb.xMin() * (-xx) + cx * (1.0f + xx), bb.yMax() * yy + cy * (1.0f - yy), z));
     }
-    centerLine.push_back(osg::Vec3(cx, bb.yMin(), z));
+    centerLine.push_back(osg::Vec3(cx, cy, z));
     for (int i = 1; i < maxHalf; ++i)
     {
-        float xx = (float)i * invMaxHalf; float yy = pow(xx, 2.0f);
+        float xx = (float)i * invMaxHalf; float yy = pow(xx, power);
         centerLine.push_back(osg::Vec3(
-            bb.xMax() * xx + cx * (1.0f - xx), bb.yMax() * yy + bb.yMin() * (1.0f - yy), z));
+            bb.xMax() * xx + cx * (1.0f - xx), bb.yMax() * yy + cy * (1.0f - yy), z));
     }
     centerLine.push_back(osg::Vec3(bb.xMax(), bb.yMax(), z));
 #endif
@@ -385,25 +388,33 @@ bool createDelaunay(osg::Geode* geode)
         curveSamples.push_back(Eigen::Vector2d(center.x(), center.y()));
     }
 
+    float baseZ = (g_upGum ? bb.zMax() + 5.0f : bb.zMin() - 5.0f);
     std::vector<osg::Vec3> refOutline, refCenters;
-    std::vector<osg::Vec3> centerline = generateGumCenterline(curveSamples, bb.zMin() - 5.0f);
-    std::vector<osg::Vec3> outlineT2 = generateGumOutline(
-        centerline, maxTeethRadius + 0.5f, true, NULL, NULL, 0.4f, 0.1f);
-    std::vector<osg::Vec3> outlineT1 = generateGumOutline(
-        centerline, maxTeethRadius + 0.5f, true, NULL, NULL, 0.3f, 0.2f);
+    std::vector<osg::Vec3> centerline = generateGumCenterline(curveSamples, baseZ, 2.5f);
+    std::vector<osg::Vec3> outlineTlist[8];
+    osg::Vec2 outlineOffsets[8] = {
+        osg::Vec2(0.4f, 0.1f), osg::Vec2(0.36f, 0.14f), osg::Vec2(0.32f, 0.18f), osg::Vec2(0.28f, 0.2f),
+        osg::Vec2(0.24f, 0.18f), osg::Vec2(0.2f, 0.1f), osg::Vec2(0.16f, 0.05f), osg::Vec2(0.12f, 0.02f)
+    };
+    for (int i = 0; i < 8; ++i)
+    {
+        outlineTlist[i] = generateGumOutline(
+            centerline, maxTeethRadius + 0.5f, true, NULL, NULL,
+            outlineOffsets[i].x(), g_upGum ? -outlineOffsets[i].y() : outlineOffsets[i].y());
+    }
     std::vector<osg::Vec3> outlineT = generateGumOutline(
         centerline, maxTeethRadius + 0.5f, true, &refOutline, &refCenters, 0.1f, 0.0f);
-    std::vector<osg::Vec3> outlineB = generateGumOutline(outlineT, refCenters, bb.zMin() - 5.0f, 1.0f);
+    std::vector<osg::Vec3> outlineB = generateGumOutline(outlineT, refCenters, baseZ, 1.0f);
     size_t numOutline = outlineT.size(), numLayers = 9;
 
     std::vector<std::vector<osg::Vec3>> outlineM(numLayers);
     for (size_t layer = 0; layer < numLayers; ++layer)
     {
         float ratio = (float)(layer + 1) / (float)(numLayers + 1);
-        outlineM[layer] = generateGumOutline(outlineT2, refCenters, 0.0f, 1.0f - ratio * ratio);
+        outlineM[layer] = generateGumOutline(outlineTlist[0], refCenters, 0.0f, 1.0f - ratio * ratio);
         for (size_t i = 0; i < numOutline; ++i)
         {
-            osg::Vec3& b = outlineB[i], t = outlineT2[i];
+            osg::Vec3& b = outlineB[i], t = outlineTlist[0][i];
             outlineM[layer][i].z() = b.z() * (1.0f - ratio) + t.z() * ratio;
         }
         refineOutlineWithTeeth(outlineM[layer], refCenters);
@@ -432,13 +443,16 @@ bool createDelaunay(osg::Geode* geode)
     }
     std::cout << "Edges of gumline: " << outerIdx0 << " - " << (outerIdx0 + (numOutline - 1)) << "\n";
 
+    std::vector<size_t> indices = osgVerse::GeometryAlgorithm::delaunayTriangulation(points2D, edges);
+    if (g_upGum) std::reverse(indices.begin(), indices.end());
+
     // Generate side geometry
     osg::DrawElementsUInt* de0 = static_cast<osg::DrawElementsUInt*>(g_gumline->getPrimitiveSet(0));
     osg::Vec3Array* va0 = static_cast<osg::Vec3Array*>(g_gumline->getVertexArray());
     osg::Vec2Array* ta0 = static_cast<osg::Vec2Array*>(g_gumline->getTexCoordArray(0));
     osg::Vec4Array* ca0 = static_cast<osg::Vec4Array*>(g_gumline->getColorArray());
     outlineM.insert(outlineM.begin(), outlineB);
-    outlineM.push_back(outlineT2); outlineM.push_back(outlineT1);
+    for (int i = 0; i < 8; ++i) outlineM.push_back(outlineTlist[i]);
     outlineM.push_back(outlineT); va0->clear(); de0->clear();
 
     for (size_t i = 0; i < outlineM.size(); ++i)
@@ -455,8 +469,16 @@ bool createDelaunay(osg::Geode* geode)
         size_t index1 = i * maxIdx, index0 = (i - 1) * maxIdx;
         for (size_t j = 0; j < maxIdx; ++j)
         {
-            de0->push_back(index0 + j); de0->push_back(index0 + ((j + 1) % maxIdx));
-            de0->push_back(index1 + ((j + 1) % maxIdx)); de0->push_back(index1 + j);
+            if (g_upGum)
+            {
+                de0->push_back(index1 + j); de0->push_back(index1 + ((j + 1) % maxIdx));
+                de0->push_back(index0 + ((j + 1) % maxIdx)); de0->push_back(index0 + j);
+            }
+            else
+            {
+                de0->push_back(index0 + j); de0->push_back(index0 + ((j + 1) % maxIdx));
+                de0->push_back(index1 + ((j + 1) % maxIdx)); de0->push_back(index1 + j);
+            }
         }
     }
 
@@ -469,8 +491,6 @@ bool createDelaunay(osg::Geode* geode)
     osg::Vec3Array* va = static_cast<osg::Vec3Array*>(g_delaunay->getVertexArray());
     osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(g_delaunay->getTexCoordArray(0));
     osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(g_delaunay->getColorArray());
-
-    std::vector<size_t> indices = osgVerse::GeometryAlgorithm::delaunayTriangulation(points2D, edges);
     if (indices.empty())
     {
         points.erase(points.begin(), points.begin() + outerIdx0);
@@ -512,7 +532,8 @@ int main(int argc, char** argv)
         if (idPrefix != std::string::npos) checkName = fileName.substr(idPrefix + 5);
         if (ext != "obj") continue;
 
-        int id = std::stoi(checkName); if (id < 30) continue;  // FIXME
+        int id = std::stoi(checkName);
+        if (g_upGum) { if (id >= 30) continue; } else { if (id < 30) continue; }
         if (checkName.find("border") != std::string::npos)
         {
             std::ifstream in(dirName + fileName);

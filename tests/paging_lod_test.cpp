@@ -241,13 +241,13 @@ int main(int argc, char** argv)
     {
         std::string prefix = ""; arguments.read("--prefix", prefix);
         float lodScale = 1.0f; arguments.read("--lod-scale", lodScale);
-        //viewer.getCamera()->setLODScale(lodScale);
+        viewer.getCamera()->setLODScale(lodScale);
         root->addChild(osgDB::readNodeFiles(arguments));
 
         //osgVerse::DatabasePager* dbPager = new osgVerse::DatabasePager;
         //dbPager->setDataMergeCallback(new DataMergeCallback(prefix, lodScale));
         //viewer.setDatabasePager(dbPager);
-        //viewer.setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
+        viewer.setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
     }
     else
     {
@@ -263,6 +263,7 @@ int main(int argc, char** argv)
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
     viewer.run();
-    if (!output.empty()) osgDB::writeNodeFile(*root, output);
+
+    if (!output.empty()) osgDB::writeNodeFile(*root, output, new osgDB::Options("WriteImageHint=WriteOut"));
     return 0;
 }

@@ -275,11 +275,11 @@ protected:
             plod->setDatabaseOptions(childOpt);
             plod->setFileName(1, name + "-" + std::to_string(parts.size()) + ".children.verse_tiles");
 
-            if (child0.valid())
+            /*if (child0.valid())
                 std::cout << uri << ": CHILD = " << child0->getBound().center() << "; " << child0->getBound().radius()
                           << ";; REGION = " << bound.center() <<"; " << bound.radius() << "\n";
             else
-                std::cout << uri << ": REGION = " << bound.center() << "; " << bound.radius() << "\n";
+                std::cout << uri << ": REGION = " << bound.center() << "; " << bound.radius() << "\n";*/
 
             if (child0.valid())
             {
