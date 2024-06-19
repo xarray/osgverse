@@ -350,7 +350,7 @@ if [ "$BuildMode" = '4' ]; then
 
         echo "*** Building osgEarth 2.10..."
         ExtraOptions2="
-            -DOSG_DIR=$CurrentDir/build/sdk_wasm
+            -DOSG_DIR=$CurrentDir/build/sdk_wasm2
             -DTHIRDPARTY_ROOT=$CurrentDir/../Dependencies/wasm
             -DOSGEARTH_SOURCE_DIR=$CurrentDir/../osgEarth_wasm
             -DOSGEARTH_BUILD_DIR=$CurrentDir/build/osgearth_wasm2/osgearth"

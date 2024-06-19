@@ -11,9 +11,9 @@ IF(USE_WASM_OSGEARTH)
     LINK_DIRECTORIES(${THIRDPARTY_ROOT}/lib)
     SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES}
         expat proj iconv tiff tiffxx geotiff sharpyuv spatialite sqlite3 webp gdal geos geos_c
-        osgEarth osgEarthUtil osgEarthSymbology osgdb_earth osgdb_osgearth_xyz osgdb_osgearth_engine_mp)
+        osgEarth osgEarthUtil osgEarthSymbology osgdb_osgearth_engine_mp osgdb_earth osgdb_osgearth_xyz)
 
-    SET(WASM_FLAGS2 "-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=1GB -s MAXIMUM_MEMORY=4GB")
+    SET(WASM_FLAGS2 "-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=1GB -s MAXIMUM_MEMORY=4GB -fexceptions")
     FILE(COPY "${CMAKE_SOURCE_DIR}/assets/shaders" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/assets")
     NEW_EXECUTABLE(${EXE_NAME} SHARED)
     SET_TARGET_PROPERTIES(${EXE_NAME} PROPERTIES LINK_FLAGS "${WASM_FLAGS0} ${WASM_FLAGS1} ${WASM_FLAGS2} ${WASM_FLAGS_EX}")
