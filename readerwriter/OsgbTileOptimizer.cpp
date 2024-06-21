@@ -6,6 +6,7 @@
 #include "modeling/Utilities.h"
 #include "nanoid/nanoid.h"
 
+#include <osg/io_utils>
 #include <osg/PagedLOD>
 #include <osg/ProxyNode>
 #include <osgDB/FileUtils>
@@ -75,7 +76,7 @@ public:
     inline void popMatrix() { _matrixStack.pop_back(); }
 
     std::vector<osg::Matrix> _matrixStack;
-    std::vector<osg::Geometry*> geomList;
+    std::vector<std::pair<osg::Geometry*, osg::Matrix>> geomList;
     bool appliedMatrix;
 
     virtual void apply(osg::Transform& node)
@@ -89,20 +90,11 @@ public:
     virtual void apply(osg::Geode& node)
     {
         osg::Matrix matrix;
-        if (_matrixStack.size() > 0) matrix = _matrixStack.back();
+        if (appliedMatrix && _matrixStack.size() > 0) matrix = _matrixStack.back();
         for (size_t i = 0; i < node.getNumDrawables(); ++i)
         {
             osg::Geometry* geom = node.getDrawable(i)->asGeometry();
-            if (geom)
-            {
-                if (appliedMatrix && !matrix.isIdentity())
-                {
-                    osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
-                    if (va && va->size() > 0)
-                    { for (size_t n = 0; n < va->size(); ++n) (*va)[n] = (*va)[n] * matrix; }
-                }
-                geomList.push_back(geom);
-            }
+            if (geom) geomList.push_back(std::pair<osg::Geometry*, osg::Matrix>(geom, matrix));
         }
         traverse(node);
     }
@@ -444,7 +436,7 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
                                               const TileNameAndRoughList& srcTiles)
 {
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    std::vector<osg::ref_ptr<osg::Geometry>> geomList;
+    std::vector<std::pair<osg::ref_ptr<osg::Geometry>, osg::Matrix>> geomList;
 
     // Have to merge textures later, so must read RGBA
     setReadingKtxFlag(osgVerse::ReadKtx_ToRGBA, 1);
@@ -502,8 +494,8 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
                         else { minV *= _lodScaleTopLevels; maxV *= _lodScaleTopLevels; }
                     }
                     plod->setRange(i, minV, maxV);
-                    OSG_NOTICE << "[TileOptimizer::processTopTileFiles] " << outTileFileName << ": "
-                               << i << ", Range = " << minV << ", " << maxV << std::endl;
+                    //OSG_NOTICE << "[TileOptimizer::processTopTileFiles] " << outTileFileName << ": "
+                    //           << i << ", Range = " << minV << ", " << maxV << std::endl;
                 }
             }
             root->addChild(plod.get());
@@ -521,10 +513,10 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
         osgDB::writeNodeFile(*root, _outFolder + outTileFileName, options.get());
     }
 
-    std::vector<osg::Geometry*> geomList2;
+    std::vector<std::pair<osg::Geometry*, osg::Matrix>> geomList2;
     geomList2.assign(geomList.begin(), geomList.end());
     osg::ref_ptr<osg::Node> mergedNode = mergeGeometries(geomList2, 1024, true);
-    //osgUtil::Simplifier sim(0.2f); if (mergedNode.valid()) mergedNode->accept(sim);
+    std::cout << outTileFileName << ": provided new geom: " << mergedNode->getBound().center() << "\n";
     return mergedNode.release();  // return merged rough level node
 }
 
@@ -597,7 +589,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         osg::PagedLOD* ref = plodList[0];
         if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
 
-        osg::BoundingSphere bs; std::vector<osg::Geometry*> geomList;
+        osg::BoundingSphere bs; std::vector<std::pair<osg::Geometry*, osg::Matrix>> geomList;
         for (size_t i = 0; i < plodList.size(); ++i)
         {
             osg::PagedLOD* n = plodList[i]; FindGeometryVisitor fgv(true); n->accept(fgv);
@@ -642,7 +634,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
     // If no paged LOD nodes found, this may be a leaf tile with only geometries
     if (plodGroupMap.empty())
     {
-        std::vector<osg::Geometry*> geomList;
+        std::vector<std::pair<osg::Geometry*, osg::Matrix>> geomList;
         for (size_t i = 0; i < loadedNodes.size(); ++i)
         {
             FindGeometryVisitor fgv(true); loadedNodes[i]->accept(fgv);
@@ -657,7 +649,7 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
     return (root->getNumChildren() > 0) ? root.release() : NULL;
 }
 
-osg::Node* TileOptimizer::mergeGeometries(const std::vector<osg::Geometry*>& geomList,
+osg::Node* TileOptimizer::mergeGeometries(const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList,
                                           int highestRes, bool simplify)
 {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;

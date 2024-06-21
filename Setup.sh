@@ -341,7 +341,7 @@ fi
 WithOsgEarth=0
 if [ "$BuildMode" = '4' ]; then
 
-    if [ -d "../osgEarth_wasm" ]; then
+    if [ -d "../osgearth-wasm" ]; then
 
         # WASM toolchain (WebGL 2)
         if [ ! -d "$CurrentDir/build/osgearth_wasm2" ]; then
@@ -352,7 +352,7 @@ if [ "$BuildMode" = '4' ]; then
         ExtraOptions2="
             -DOSG_DIR=$CurrentDir/build/sdk_wasm2
             -DTHIRDPARTY_ROOT=$CurrentDir/../Dependencies/wasm
-            -DOSGEARTH_SOURCE_DIR=$CurrentDir/../osgEarth_wasm
+            -DOSGEARTH_SOURCE_DIR=$CurrentDir/../osgearth-wasm
             -DOSGEARTH_BUILD_DIR=$CurrentDir/build/osgearth_wasm2/osgearth"
         cd $CurrentDir/build/osgearth_wasm2
         $CMakeExe $ExtraOptions $ExtraOptions2 $CurrentDir/helpers/osg_builder/wasm2_oe
@@ -360,7 +360,7 @@ if [ "$BuildMode" = '4' ]; then
         WithOsgEarth=1
 
     else
-        echo "osgEarth WASM not found. Please download it and unzip it in ../osgEarth_WASM if you wish."
+        echo "osgEarth-WASM not found. Please download it and unzip in ../osgearth-wasm if you wish."
     fi
 
 fi

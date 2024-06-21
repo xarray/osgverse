@@ -32,7 +32,7 @@ static std::map<int, osg::observer_ptr<osg::Node>> g_toothMap;
 static std::map<int, std::vector<osg::Vec3>> g_borderMap;
 static std::map<int, std::pair<osg::Vec4, osg::Quat>> g_obbMap;
 static osg::ref_ptr<osg::Geometry> g_delaunay, g_gumline;
-static bool g_upGum = false;
+static bool g_upGum = true;
 
 std::vector<osg::Vec3> generateGumCenterline(const std::vector<Eigen::Vector2d>& curveSamples,
                                              float z, float power)
@@ -350,13 +350,14 @@ bool createDelaunay(osg::Geode* geode)
     for (std::map<int, std::vector<osg::Vec3>>::iterator itr = g_borderMap.begin();
          itr != g_borderMap.end(); ++itr)
     {
-        std::vector<osg::Vec3>& border = itr->second;
+        std::vector<osg::Vec3>& border = itr->second; osg::BoundingSphere bs;
         size_t startIdx = 0, endIdx = 0; osg::Vec3& center = centerMap[itr->first];
-        for (size_t i = 0; i < border.size(); ++i) center += border[i];
+        for (size_t i = 0; i < border.size(); ++i) { center += border[i]; bs.expandBy(border[i]); }
         center *= 1.0f / (float)border.size();
 
-        std::pair<osg::Vec4, osg::Quat>& obb = g_obbMap[itr->first];
-        if (maxTeethRadius < obb.first.w()) maxTeethRadius = obb.first.w();
+        if (maxTeethRadius < bs.radius()) maxTeethRadius = bs.radius();
+        //std::pair<osg::Vec4, osg::Quat>& obb = g_obbMap[itr->first];
+        //if (maxTeethRadius < obb.first.w()) maxTeethRadius = obb.first.w();
         //std::cout << obb.first << "\n";
 
         for (int nn = 0; nn < 4; ++nn)
@@ -366,17 +367,19 @@ bool createDelaunay(osg::Geode* geode)
                 size_t idx = points.size();
                 osg::Vec3 dir = border[i] - center; float len = dir.normalize();
                 osg::Vec3 point = center + dir * (len * (float)(nn + 1) * 0.25f);
-                point.z() -= (1.0f - (float)(nn + 1) * 0.25f);
+                osg::Vec3 point2 = center + dir * (len * (float)(nn + 1) * 0.24f);
+                if (g_upGum) point.z() += (2.0f - (float)(nn + 1) * 0.5f);
+                else point.z() -= (2.0f - (float)(nn + 1) * 0.5f);
 
                 if (i == border.size() - 1) endIdx = idx;
                 else if (i == 0) startIdx = idx;
                 points.push_back(point); bb.expandBy(point);
-                points2D.push_back(osgVerse::PointType2D(osg::Vec2(point.x(), point.y()), idx));
+                points2D.push_back(osgVerse::PointType2D(osg::Vec2(point2.x(), point2.y()), idx));
                 //if (i > 0) edges.push_back(osgVerse::EdgeType(idx - 1, idx));
             }
             //edges.push_back(osgVerse::EdgeType(endIdx, startIdx));
         }
-        //std::cout << "Edges of teeth " << itr->first << ": " << startIdx << " - " << endIdx << "\n";
+        std::cout << "Edges of teeth " << itr->first << ": " << startIdx << " - " << endIdx << "\n";
     }
 
     // Compute center-line
@@ -393,8 +396,8 @@ bool createDelaunay(osg::Geode* geode)
     std::vector<osg::Vec3> centerline = generateGumCenterline(curveSamples, baseZ, 2.5f);
     std::vector<osg::Vec3> outlineTlist[8];
     osg::Vec2 outlineOffsets[8] = {
-        osg::Vec2(0.4f, 0.1f), osg::Vec2(0.36f, 0.14f), osg::Vec2(0.32f, 0.18f), osg::Vec2(0.28f, 0.2f),
-        osg::Vec2(0.24f, 0.18f), osg::Vec2(0.2f, 0.1f), osg::Vec2(0.16f, 0.05f), osg::Vec2(0.12f, 0.02f)
+        osg::Vec2(0.8f, 0.05f), osg::Vec2(0.7f, 0.2f), osg::Vec2(0.6f, 0.3f), osg::Vec2(0.5f, 0.4f),
+        osg::Vec2(0.4f, 0.45f), osg::Vec2(0.3f, 0.5f), osg::Vec2(0.2f, 0.3f), osg::Vec2(0.15f, 0.2f),
     };
     for (int i = 0; i < 8; ++i)
     {
@@ -403,7 +406,7 @@ bool createDelaunay(osg::Geode* geode)
             outlineOffsets[i].x(), g_upGum ? -outlineOffsets[i].y() : outlineOffsets[i].y());
     }
     std::vector<osg::Vec3> outlineT = generateGumOutline(
-        centerline, maxTeethRadius + 0.5f, true, &refOutline, &refCenters, 0.1f, 0.0f);
+        centerline, maxTeethRadius + 0.5f, true, &refOutline, &refCenters, 0.05f, 0.0f);
     std::vector<osg::Vec3> outlineB = generateGumOutline(outlineT, refCenters, baseZ, 1.0f);
     size_t numOutline = outlineT.size(), numLayers = 9;
 
@@ -472,14 +475,35 @@ bool createDelaunay(osg::Geode* geode)
             if (g_upGum)
             {
                 de0->push_back(index1 + j); de0->push_back(index1 + ((j + 1) % maxIdx));
-                de0->push_back(index0 + ((j + 1) % maxIdx)); de0->push_back(index0 + j);
+                de0->push_back(index0 + ((j + 1) % maxIdx));
+                de0->push_back(index1 + j); de0->push_back(index0 + ((j + 1) % maxIdx));
+                de0->push_back(index0 + j);
             }
             else
             {
                 de0->push_back(index0 + j); de0->push_back(index0 + ((j + 1) % maxIdx));
-                de0->push_back(index1 + ((j + 1) % maxIdx)); de0->push_back(index1 + j);
+                de0->push_back(index1 + ((j + 1) % maxIdx));
+                de0->push_back(index0 + j); de0->push_back(index1 + ((j + 1) % maxIdx));
+                de0->push_back(index1 + j);
             }
         }
+    }
+
+    // Bottom cap
+    {
+        osgVerse::PointList2D bottom2D; osgVerse::EdgeList bEdges;
+        std::vector<osg::Vec3>& outline = outlineM[0]; size_t maxIdx = outline.size();
+        for (size_t j = 0; j < maxIdx; ++j)
+        {
+            bottom2D.push_back(osgVerse::PointType2D(
+                osg::Vec2(outline[j][0], outline[j][1]), j));
+            if (j > 0) bEdges.push_back(osgVerse::EdgeType(j - 1, j));
+        }
+        bEdges.push_back(osgVerse::EdgeType(maxIdx - 1, 0));
+
+        std::vector<size_t> bIndices = osgVerse::GeometryAlgorithm::delaunayTriangulation(bottom2D, bEdges);
+        if (!g_upGum) std::reverse(bIndices.begin(), bIndices.end());
+        de0->insert(de0->end(), bIndices.begin(), bIndices.end());
     }
 
     size_t numVA = va0->size(); ta0->resize(numVA); ca0->resize(numVA);
@@ -626,7 +650,7 @@ int main(int argc, char** argv)
         g_gumline->setUseVertexBufferObjects(true);
         g_gumline->setVertexArray(new osg::Vec3Array); g_gumline->setTexCoordArray(0, new osg::Vec2Array);
         g_gumline->setColorArray(new osg::Vec4Array); g_gumline->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-        g_gumline->addPrimitiveSet(new osg::DrawElementsUInt(GL_QUADS));
+        g_gumline->addPrimitiveSet(new osg::DrawElementsUInt(GL_TRIANGLES));
         delaunayNode->addDrawable(g_gumline.get());
         createDelaunay(delaunayNode.get());
     }

@@ -383,7 +383,7 @@ void GraphicsWindowSDL::checkEvents()
             eq->mouseButtonRelease(event.button.x, event.button.y, event.button.button); break;
         case SDL_MOUSEWHEEL:
             if (event.wheel.y > 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP);
-            else eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN);
+            else eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN); break;
         case SDL_KEYUP:
             eq->keyRelease(getKey(event.key.keysym.sym)); break;
         case SDL_KEYDOWN:

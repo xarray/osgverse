@@ -46,7 +46,8 @@ namespace osgVerse
                                          std::string* textPrefix = NULL);
         osg::Node* mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>& loadedNodes,
                               const std::map<std::string, std::string>& plodNameMap);
-        osg::Node* mergeGeometries(const std::vector<osg::Geometry*>& geomList, int highestRes, bool simplify);
+        osg::Node* mergeGeometries(const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList,
+                                   int highestRes, bool simplify);
 
         typedef std::map<osg::Vec2s, std::string> NumberMap;
         std::map<std::string, NumberMap> _srcNumberMap;

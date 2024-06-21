@@ -26,12 +26,11 @@ GeometryMerger::GeometryMerger()
 GeometryMerger::~GeometryMerger()
 {}
 
-osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomList,
+osg::Geometry* GeometryMerger::process(const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList,
                                        size_t offset, size_t size, int maxTextureSize)
 {
     if (size == 0) size = geomList.size() - offset;
     if (geomList.empty()) return NULL;
-    else if (geomList.size() == 1) return geomList[0];
 
     // Collect textures and make atlas
     osg::ref_ptr<TexturePacker> packer = new TexturePacker(4096, 4096);
@@ -43,7 +42,7 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
     size_t end = osg::minimum(offset + size, geomList.size());
     for (size_t i = offset; i < end; ++i)
     {
-        osg::StateSet* ss = geomList[i]->getStateSet();
+        osg::StateSet* ss = geomList[i].first->getStateSet();
         if (!ss) continue; else if (ss->getNumTextureAttributeLists() == 0) continue;
 
         osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(
@@ -66,7 +65,7 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
         float totalW = atlas->s(), totalH = atlas->t();
         for (size_t i = offset; i < end; ++i)
         {
-            osg::Geometry* geom = geomList[i];
+            osg::Geometry* geom = geomList[i].first;
             osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
             if (!ta || geometryIdMap.find(i) == geometryIdMap.end()) continue;
 
@@ -103,23 +102,24 @@ osg::Geometry* GeometryMerger::process(const std::vector<osg::Geometry*>& geomLi
     osg::ref_ptr<osg::Geometry> resultGeom = new osg::Geometry;
     for (size_t i = offset; i < end; ++i)
     {
-        osg::Geometry* geom = geomList[i];
+        osg::Geometry* geom = geomList[i].first;
         osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
         osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
         osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
         if (!va || geom->getNumPrimitiveSets() == 0) continue;
 
-        if (!resultGeom->getStateSet() && geomList[i]->getStateSet() != NULL)
+        if (!resultGeom->getStateSet() && geom->getStateSet() != NULL)
         {
             resultGeom->setStateSet(static_cast<osg::StateSet*>(
-                geomList[i]->getStateSet()->clone(osg::CopyOp::DEEP_COPY_ALL)));
+                geom->getStateSet()->clone(osg::CopyOp::DEEP_COPY_ALL)));
         }
 
         osg::TriangleIndexFunctor<ResetTrianglesOperator> functor;
         functor._de = de.get(); functor._start = vaAll->size();
         geom->accept(functor);
 
-        vaAll->insert(vaAll->end(), va->begin(), va->end());
+        osg::Matrix matrix = geomList[i].second;
+        for (size_t v = 0; v < va->size(); ++v) vaAll->push_back((*va)[v] * matrix);
         if (na) naAll->insert(naAll->end(), na->begin(), na->end());
         if (ta) taAll->insert(taAll->end(), ta->begin(), ta->end());
     }
