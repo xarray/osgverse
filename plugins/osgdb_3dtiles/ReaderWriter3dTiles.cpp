@@ -175,7 +175,7 @@ protected:
             std::string ext = osgDB::getFileExtension(tName);
             std::string file = prefix + "/" + tName + "/" + tName + ".osgb";
             if (tName.empty() || !ext.empty()) continue;
-            if (tName[0] < 'A' || tName[0] > 'z') continue;
+            if (tName[0] == '.') continue;
             tileProxy->setFileName(i, file);
         }
         return tileProxy.release();

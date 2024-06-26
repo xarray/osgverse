@@ -386,7 +386,7 @@ void TileOptimizer::processTileFiles(const std::string& outTileFolder, const Til
         TileNameList& tileFiles = itr->second;
         if (tileFiles.empty()) continue;
         if (_withThreads) OpenThreads::Thread::YieldCurrentThread();
-        
+
         // Get output tile name
         std::string outTileName = outTileFolder, postfix = itr->first;
         if (*outTileFolder.rbegin() == '/')
@@ -516,7 +516,6 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
     std::vector<std::pair<osg::Geometry*, osg::Matrix>> geomList2;
     geomList2.assign(geomList.begin(), geomList.end());
     osg::ref_ptr<osg::Node> mergedNode = mergeGeometries(geomList2, 1024, true);
-    std::cout << outTileFileName << ": provided new geom: " << mergedNode->getBound().center() << "\n";
     return mergedNode.release();  // return merged rough level node
 }
 

@@ -298,13 +298,13 @@ namespace osgVerse
 
             image->allocateImage(w, h, d, glFormat, glType, 4);
             image->setInternalTextureFormat(glInternalformat);
-            if (image->getTotalSizeInBytes() != imgDataSize)
+            if (image->getTotalSizeInBytes() < imgDataSize)
             {
                 OSG_WARN << "[LoaderKTX] Failed to copy image data, size mismatched: "
                          << imgDataSize << " != " << image->getTotalSizeInBytes() << std::endl;
                 OSG_WARN << "[LoaderKTX] Source format: internalFmt = " << std::hex
                          << glInternalformat << ", pixelFmt = " << glFormat << ", type = "
-                         << glType << std::dec << std::endl;
+                         << glType << std::dec << ", res = " << w << "x" << h << std::endl;
             }
         }
         else

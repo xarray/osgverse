@@ -247,7 +247,10 @@ int main(int argc, char** argv)
         //osgVerse::DatabasePager* dbPager = new osgVerse::DatabasePager;
         //dbPager->setDataMergeCallback(new DataMergeCallback(prefix, lodScale));
         //viewer.setDatabasePager(dbPager);
-        viewer.setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
+        //viewer.setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
+        viewer.getDatabasePager()->setDrawablePolicy(osgDB::DatabasePager::USE_VERTEX_BUFFER_OBJECTS);
+        viewer.getDatabasePager()->setUnrefImageDataAfterApplyPolicy(true, true);
+        viewer.getDatabasePager()->setTargetMaximumNumberOfPageLOD(1000);
     }
     else
     {
