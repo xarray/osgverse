@@ -6,10 +6,213 @@
 #include "RecastManager_Builder.h"
 using namespace osgVerse;
 
+namespace
+{
+    struct BoundsItem
+    {
+        float bmin[2];
+        float bmax[2];
+        int i;
+    };
+
+    static int compareItemX(const void* va, const void* vb)
+    {
+        const BoundsItem* a = (const BoundsItem*)va;
+        const BoundsItem* b = (const BoundsItem*)vb;
+        if (a->bmin[0] < b->bmin[0]) return -1;
+        if (a->bmin[0] > b->bmin[0]) return 1;
+        return 0;
+    }
+
+    static int compareItemY(const void* va, const void* vb)
+    {
+        const BoundsItem* a = (const BoundsItem*)va;
+        const BoundsItem* b = (const BoundsItem*)vb;
+        if (a->bmin[1] < b->bmin[1]) return -1;
+        if (a->bmin[1] > b->bmin[1]) return 1;
+        return 0;
+    }
+
+    static void calcExtends(const BoundsItem* items, const int /*nitems*/,
+                            const int imin, const int imax, float* bmin, float* bmax)
+    {
+        bmin[0] = items[imin].bmin[0];
+        bmin[1] = items[imin].bmin[1];
+        bmax[0] = items[imin].bmax[0];
+        bmax[1] = items[imin].bmax[1];
+        for (int i = imin + 1; i < imax; ++i)
+        {
+            const BoundsItem& it = items[i];
+            if (it.bmin[0] < bmin[0]) bmin[0] = it.bmin[0];
+            if (it.bmin[1] < bmin[1]) bmin[1] = it.bmin[1];
+            if (it.bmax[0] > bmax[0]) bmax[0] = it.bmax[0];
+            if (it.bmax[1] > bmax[1]) bmax[1] = it.bmax[1];
+        }
+    }
+
+    inline int longestAxis(float x, float y)
+    { return y > x ? 1 : 0; }
+
+    static void subdivide(BoundsItem* items, int nitems, int imin, int imax, int trisPerChunk,
+                          int& curNode, rcChunkyTriMeshNode* nodes, const int maxNodes,
+                          int& curTri, int* outTris, const int* inTris)
+    {
+        int inum = imax - imin, icur = curNode;
+        if (curNode >= maxNodes) return;
+        rcChunkyTriMeshNode& node = nodes[curNode++];
+
+        if (inum <= trisPerChunk)
+        {
+            calcExtends(items, nitems, imin, imax, node.bmin, node.bmax);  // Leaf
+            node.i = curTri; node.n = inum;  // Copy triangles
+            for (int i = imin; i < imax; ++i)
+            {
+                const int* src = &inTris[items[i].i * 3];
+                int* dst = &outTris[curTri * 3]; curTri++;
+                dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2];
+            }
+        }
+        else
+        {
+            calcExtends(items, nitems, imin, imax, node.bmin, node.bmax);  // Split
+            int	axis = longestAxis(node.bmax[0] - node.bmin[0], node.bmax[1] - node.bmin[1]);
+            if (axis == 0)  // Sort along x-axis
+                qsort(items + imin, static_cast<size_t>(inum), sizeof(BoundsItem), compareItemX);
+            else if (axis == 1)  // Sort along y-axis
+                qsort(items + imin, static_cast<size_t>(inum), sizeof(BoundsItem), compareItemY);
+
+            int isplit = imin + inum / 2;
+            subdivide(items, nitems, imin, isplit, trisPerChunk, curNode, nodes, maxNodes, curTri, outTris, inTris);
+            subdivide(items, nitems, isplit, imax, trisPerChunk, curNode, nodes, maxNodes, curTri, outTris, inTris);
+            int iescape = curNode - icur; node.i = -iescape;  // Negative index means escape.
+        }
+    }
+
+
+    static bool checkOverlapSegment(const float p[2], const float q[2],
+                                    const float bmin[2], const float bmax[2])
+    {
+        static const float EPSILON = 1e-6f;
+        float tmin = 0, tmax = 1; float d[2];
+        d[0] = q[0] - p[0]; d[1] = q[1] - p[1];
+        for (int i = 0; i < 2; i++)
+        {
+            if (fabsf(d[i]) < EPSILON)
+            {   // Ray is parallel to slab. No hit if origin not within slab
+                if (p[i] < bmin[i] || p[i] > bmax[i]) return false;
+            }
+            else
+            {   // Compute intersection t value of ray with near and far plane of slab
+                float ood = 1.0f / d[i];
+                float t1 = (bmin[i] - p[i]) * ood;
+                float t2 = (bmax[i] - p[i]) * ood;
+                if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
+                if (t1 > tmin) tmin = t1; if (t2 < tmax) tmax = t2;
+                if (tmin > tmax) return false;
+            }
+        }
+        return true;
+    }
+
+    static bool checkOverlapRect(const float amin[2], const float amax[2],
+                                 const float bmin[2], const float bmax[2])
+    {
+        bool overlap = true;
+        overlap = (amin[0] > bmax[0] || amax[0] < bmin[0]) ? false : overlap;
+        overlap = (amin[1] > bmax[1] || amax[1] < bmin[1]) ? false : overlap;
+        return overlap;
+    }
+}
+
+bool rcChunkyTriMesh::createChunkyTriMesh(const float* verts, const int* tris, int ntris,
+                                          int trisPerChunk, rcChunkyTriMesh* cm)
+{
+    int nchunks = (ntris + trisPerChunk - 1) / trisPerChunk;
+    cm->nodes = new rcChunkyTriMeshNode[nchunks * 4];
+    if (!cm->nodes) return false; cm->tris = new int[ntris * 3];
+    if (!cm->tris) return false; cm->ntris = ntris;
+
+    // Build tree
+    BoundsItem* items = new BoundsItem[ntris];
+    if (!items) return false;
+    for (int i = 0; i < ntris; i++)
+    {
+        const int* t = &tris[i * 3];
+        BoundsItem& it = items[i]; it.i = i;
+
+        // Calc triangle XZ bounds.
+        it.bmin[0] = it.bmax[0] = verts[t[0] * 3 + 0];
+        it.bmin[1] = it.bmax[1] = verts[t[0] * 3 + 2];
+        for (int j = 1; j < 3; ++j)
+        {
+            const float* v = &verts[t[j] * 3];
+            if (v[0] < it.bmin[0]) it.bmin[0] = v[0];
+            if (v[2] < it.bmin[1]) it.bmin[1] = v[2];
+            if (v[0] > it.bmax[0]) it.bmax[0] = v[0];
+            if (v[2] > it.bmax[1]) it.bmax[1] = v[2];
+        }
+    }
+
+    int curTri = 0, curNode = 0;
+    subdivide(items, ntris, 0, ntris, trisPerChunk, curNode, cm->nodes, nchunks * 4, curTri, cm->tris, tris);
+    delete[] items; cm->nnodes = curNode;
+
+    // Calc max tris per node.
+    cm->maxTrisPerChunk = 0;
+    for (int i = 0; i < cm->nnodes; ++i)
+    {
+        rcChunkyTriMeshNode& node = cm->nodes[i];
+        const bool isLeaf = node.i >= 0; if (!isLeaf) continue;
+        if (node.n > cm->maxTrisPerChunk) cm->maxTrisPerChunk = node.n;
+    }
+    return true;
+}
+
+std::vector<int> rcChunkyTriMesh::getChunksOverlappingRect(const rcChunkyTriMesh* cm, float bmin[2], float bmax[2])
+{
+    int i = 0, n = 0; std::vector<int> idList;
+    while (i < cm->nnodes)
+    {
+        const rcChunkyTriMeshNode* node = &cm->nodes[i];
+        const bool overlap = checkOverlapRect(bmin, bmax, node->bmin, node->bmax);
+        const bool isLeafNode = node->i >= 0;
+        if (isLeafNode && overlap) { idList.push_back(i); n++; }
+        if (overlap || isLeafNode) i++;
+        else { const int escapeIndex = -node->i; i += escapeIndex; }
+    }
+    return idList;
+}
+
+std::vector<int> rcChunkyTriMesh::getChunksOverlappingSegment(const rcChunkyTriMesh* cm, float p[2], float q[2])
+{
+    int i = 0, n = 0; std::vector<int> idList;
+    while (i < cm->nnodes)
+    {
+        const rcChunkyTriMeshNode* node = &cm->nodes[i];
+        const bool overlap = checkOverlapSegment(p, q, node->bmin, node->bmax);
+        const bool isLeafNode = node->i >= 0;
+        if (isLeafNode && overlap) { idList.push_back(i); n++; }
+        if (overlap || isLeafNode) i++;
+        else { const int escapeIndex = -node->i; i += escapeIndex; }
+    }
+    return idList;
+}
+
 bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vector<unsigned int>& indices,
                                const osg::BoundingBox& worldBounds, const osg::Vec2i& tileStart,
                                const osg::Vec2i& tileEnd)
 {
+    std::vector<osg::Vec3> va1(va.size()); if (va.empty() || indices.empty()) return false;
+    for (size_t i = 0; i < va.size(); ++i) { const osg::Vec3& v = va[i]; va1[i] = osg::Vec3(v[0], v[2], -v[1]); }
+
+    rcChunkyTriMesh* chunkyMesh = new rcChunkyTriMesh; std::vector<int> chunkyIdList;
+    if (!rcChunkyTriMesh::createChunkyTriMesh((float*)&va1[0], (int*)&indices[0],
+                                              indices.size() / 3, 256, chunkyMesh))
+    {
+        OSG_WARN << "[RecastManager] Failed to build chunky tri-mesh" << std::endl;
+        delete chunkyMesh; chunkyMesh = NULL;
+    }
+
     NavData* navData = static_cast<NavData*>(_recastData.get());
     const float tileEdgeLength = _settings.tileSize * _settings.cellSize;
     for (int y = tileStart[1]; y <= tileEnd[1]; ++y)
@@ -43,19 +246,27 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
             // Fill build data
             SimpleBuildData build(navData->context); osg::BoundingBox cfgBounds(minBB, maxBB);
             navData->navMesh->removeTile(navData->navMesh->getTileRefAt(x, y, 0), NULL, NULL);
-            for (size_t i = 0; i < va.size(); ++i)
-            { const osg::Vec3& v = va[i]; build.vertices.push_back(osg::Vec3(v[0], v[2], -v[1])); }
-
-            for (size_t i = 0; i < indices.size(); i += 3)
-            {
-                unsigned int id0 = indices[i + 0], id1 = indices[i + 1], id2 = indices[i + 2];
-                if (cfgBounds.contains(build.vertices[id0]) || cfgBounds.contains(build.vertices[id1]) ||
-                    cfgBounds.contains(build.vertices[id2]))
-                { build.indices.push_back(id0); build.indices.push_back(id1); build.indices.push_back(id2); }
-            }
 
             // TODO: how to add off-mesh connections and nav-areas?
-            if (build.vertices.empty() || build.indices.empty()) continue;
+            if (chunkyMesh == NULL)
+            {
+                build.vertices.assign(va1.begin(), va1.end());
+                for (size_t i = 0; i < indices.size(); i += 3)
+                {
+                    unsigned int id0 = indices[i + 0], id1 = indices[i + 1], id2 = indices[i + 2];
+                    if (cfgBounds.contains(build.vertices[id0]) || cfgBounds.contains(build.vertices[id1]) ||
+                        cfgBounds.contains(build.vertices[id2]))
+                    { build.indices.push_back(id0); build.indices.push_back(id1); build.indices.push_back(id2); }
+                }
+                if (build.vertices.empty() || build.indices.empty()) continue;
+            }
+            else
+            {
+                float tbmin[2]; tbmin[0] = cfg.bmin[0]; tbmin[1] = cfg.bmin[2];
+                float tbmax[2]; tbmax[0] = cfg.bmax[0]; tbmax[1] = cfg.bmax[2];
+                chunkyIdList = rcChunkyTriMesh::getChunksOverlappingRect(chunkyMesh, tbmin, tbmax);
+                if (chunkyIdList.empty()) continue;
+            }
 
             // Create and config height-field
             build.heightField = rcAllocHeightfield();
@@ -67,16 +278,39 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
             }
             else
             {
-                unsigned int numTriangles = build.indices.size() / 3;
-                std::vector<unsigned char> triAreas(numTriangles); memset(&triAreas[0], 0, numTriangles);
-                rcMarkWalkableTriangles(build.context, cfg.walkableSlopeAngle,
-                                        (float*)build.vertices.data(), build.vertices.size(),
-                                        build.indices.data(), numTriangles, &triAreas[0]);
+                if (chunkyMesh == NULL)
+                {
+                    unsigned int numTriangles = build.indices.size() / 3;
+                    std::vector<unsigned char> triAreas(numTriangles); memset(&triAreas[0], 0, numTriangles);
+                    rcMarkWalkableTriangles(build.context, cfg.walkableSlopeAngle,
+                                            (float*)build.vertices.data(), build.vertices.size(),
+                                            build.indices.data(), numTriangles, &triAreas[0]);
 
-                bool ok = rcRasterizeTriangles(build.context, (float*)build.vertices.data(), build.vertices.size(),
-                                               build.indices.data(), &triAreas[0], numTriangles,
-                                               *build.heightField, cfg.walkableClimb);
-                if (!ok) OSG_WARN << "[RecastManager] Failed to rasterize triangles" << std::endl;
+                    // TODO: mark non-walkable?
+                    bool ok = rcRasterizeTriangles(
+                            build.context, (float*)build.vertices.data(), build.vertices.size(),
+                            build.indices.data(), &triAreas[0], numTriangles,
+                            *build.heightField, cfg.walkableClimb);
+                    if (!ok) OSG_WARN << "[RecastManager] Failed to rasterize triangles" << std::endl;
+                }
+                else
+                {
+                    std::vector<unsigned char> triAreas(chunkyMesh->maxTrisPerChunk);
+                    for (int i = 0; i < chunkyIdList.size(); ++i)
+                    {
+                        const rcChunkyTriMeshNode& node = chunkyMesh->nodes[chunkyIdList[i]];
+                        const int* ptrT = &chunkyMesh->tris[node.i * 3]; const int numT = node.n;
+                        memset(&triAreas[0], 0, numT * sizeof(unsigned char));
+                        rcMarkWalkableTriangles(build.context, cfg.walkableSlopeAngle,
+                                                (float*)va1.data(), va1.size(), ptrT, numT, &triAreas[0]);
+
+                        // TODO: mark non-walkable?
+                        bool ok = rcRasterizeTriangles(
+                            build.context, (float*)va1.data(), va1.size(), ptrT,
+                            &triAreas[0], numT, *build.heightField, cfg.walkableClimb);
+                        if (!ok) OSG_WARN << "[RecastManager] Failed to rasterize triangles" << std::endl;
+                    }
+                }
 
                 rcFilterLowHangingWalkableObstacles(build.context, cfg.walkableClimb, *build.heightField);
                 rcFilterWalkableLowHeightSpans(build.context, cfg.walkableHeight, *build.heightField);
@@ -215,6 +449,7 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
                          << x << ", " << y << std::endl; dtFree(resultData); continue;
             }
         }
+    delete chunkyMesh;
 
     int numTiles = navData->navMesh->getMaxTiles();
     if (numTiles > 0)

@@ -80,10 +80,22 @@ namespace osgVerse
         // Agent structure
         struct Agent : public osg::Referenced
         {
-            std::string name;
-            osg::Vec3 position, velocity;
-            osg::Vec3 target, targetVelocity;
+            osg::observer_ptr<osg::Transform> transform;  // (in/out) The node as an agent (optional)
+            osg::Vec3 position, velocity;                 // (in/out) Current position and (out) velocity
+            osg::Vec3 target;                             // Target position
+            float maxSpeed, maxAcceleration;              // Max speed and acceleration
+            float separationAggressivity;                 // How aggressive to be separated from others
+            int id, state;                                // (out) Unique ID and state of the agent
+            bool dirtyParams, byVelocity;                 // If dirty parameters, and if computed by velocity
+
+            Agent(osg::Transform* node, const osg::Vec3& t)
+            :   transform(node), target(t), maxSpeed(4.0f), maxAcceleration(8.0f),
+                separationAggressivity(0.01f), id(-1), state(0), dirtyParams(true), byVelocity(false) {}
+            osg::BoundingBox getBoundingBox() const;
         };
+
+        /** Initialize agent manager */
+        bool initializeAgents(int maxAgents = 128);
 
         /** Update/add agent */
         void updateAgent(Agent* agent);
@@ -115,6 +127,7 @@ namespace osgVerse
         std::set<osg::ref_ptr<Agent>> _agents;
         osg::ref_ptr<osg::Referenced> _recastData;
         RecastSettings _settings;
+        float _lastSimulationTime;
     };
 
 }

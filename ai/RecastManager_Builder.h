@@ -12,6 +12,32 @@
 namespace osgVerse
 {
 
+    struct rcChunkyTriMeshNode
+    {
+        float bmin[2];
+        float bmax[2];
+        int i, n;
+    };
+
+    struct rcChunkyTriMesh
+    {
+        inline rcChunkyTriMesh() : nodes(0), nnodes(0), ntris(0), maxTrisPerChunk(0), tris(0) {}
+        inline ~rcChunkyTriMesh() { delete[] nodes; delete[] tris; }
+
+        rcChunkyTriMeshNode* nodes;
+        int nnodes, ntris, maxTrisPerChunk;
+        int* tris;
+
+        static bool createChunkyTriMesh(const float* verts, const int* tris, int ntris,
+                                        int trisPerChunk, rcChunkyTriMesh* cm);
+        static std::vector<int> getChunksOverlappingRect(const rcChunkyTriMesh* cm, float bmin[2], float bmax[2]);
+        static std::vector<int> getChunksOverlappingSegment(const rcChunkyTriMesh* cm, float p[2], float q[2]);
+
+    private:
+        rcChunkyTriMesh(const rcChunkyTriMesh&);
+        rcChunkyTriMesh& operator=(const rcChunkyTriMesh&);
+    };
+
     struct AreaStub
     {
         osg::BoundingBox bounds;

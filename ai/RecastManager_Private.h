@@ -1,6 +1,7 @@
 #pragma once
 
 #include <recastnavigation/Recast/Recast.h>
+#include <recastnavigation/Detour/DetourCommon.h>
 #include <recastnavigation/Detour/DetourNavMesh.h>
 #include <recastnavigation/Detour/DetourNavMeshBuilder.h>
 #include <recastnavigation/DetourTileCache/DetourTileCache.h>
@@ -55,7 +56,7 @@ namespace osgVerse
     {
     public:
         NavData() : navMesh(NULL), navQuery(NULL), crowd(NULL)
-        { context = new BuildContext; }
+        { nearestReference = 0; context = new BuildContext; }
 
         static int calculateMaxTiles(const osg::BoundingBoxd& bb, osg::Vec2i& begin, osg::Vec2i& end,
                                      int tileSize, float cellSize)
@@ -78,16 +79,28 @@ namespace osgVerse
             unsigned ret = 0; while (value >>= 1) ++ret; return ret;
         }
 
+        static void computeVelocity(float* vel, const float* pos, const float* tgt, const float speed)
+        {
+            dtVsub(vel, tgt, pos); vel[1] = 0.0;
+            dtVnormalize(vel); dtVscale(vel, vel, speed);
+        }
+
         void clear()
         {
             if (navMesh != NULL) dtFreeNavMesh(navMesh); navMesh = NULL;
             if (navQuery != NULL) dtFreeNavMeshQuery(navQuery); navQuery = NULL;
         }
 
+        void clearCrowd()
+        { if (!crowd) dtFreeCrowd(crowd); crowd = NULL; }
+
         dtNavMesh* navMesh;
         dtNavMeshQuery* navQuery;
         dtCrowd* crowd;
         BuildContext* context;
+        dtCrowdAgentDebugInfo agentDebugger;
+        dtPolyRef nearestReference;
+        float nearestPointOnRef[3];
 
     protected:
         virtual ~NavData() { clear(); delete context; }

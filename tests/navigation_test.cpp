@@ -23,6 +23,15 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::RecastManager> recast = new osgVerse::RecastManager;
     recast->build(terrain.get());
+    recast->initializeAgents();
+
+    osg::ref_ptr<osg::MatrixTransform> player = new osg::MatrixTransform;
+    player->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 100.0f));
+    player->addChild(osgDB::readNodeFile("dumptruck.osgt"));
+
+    osg::ref_ptr<osgVerse::RecastManager::Agent> agent =
+        new osgVerse::RecastManager::Agent(player.get(), osg::Vec3(100.0f, 100.0f, 140.0f));
+    recast->updateAgent(agent.get());
 
     osg::ref_ptr<osg::MatrixTransform> debugNode = new osg::MatrixTransform;
     debugNode->addChild(recast->getDebugMesh());
@@ -33,6 +42,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(terrain.get());
+    root->addChild(player.get());
     root->addChild(debugNode.get());
 
     osgViewer::Viewer viewer;
@@ -40,5 +50,10 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
-    return viewer.run();
+    while (!viewer.done())
+    {
+        recast->advance(viewer.getFrameStamp()->getSimulationTime());
+        viewer.frame();
+    }
+    return 0;
 }

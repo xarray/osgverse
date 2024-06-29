@@ -148,8 +148,7 @@ namespace osgVerse
     {
         // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Batched3DModel/README.adoc#tileformats-batched3dmodel-batched-3d-model
         // magic + version + length + featureTableJsonLength + featureTableBinLength +
-        // batchTableJsonLength + batchTableBinLength +
-        // <Real feature table> + <Real batch table> + GLTF body
+        // batchTableJsonLength + batchTableBinLength + <Real feature table> + <Real batch table> + GLTF body
         int header[7], hSize = 7 * sizeof(int); memcpy(header, data.data(), hSize);
         if (rtcCenter && header[3] > 0) *rtcCenter = ReadRtcCenterFeatureTable(data, hSize, header[3]);
         return hSize + header[3] + header[4] + header[5] + header[6];
@@ -312,9 +311,8 @@ namespace osgVerse
         if (rtcCenter.length2() > 0.0)
         {
             osg::MatrixTransform* mt = new osg::MatrixTransform;
-            mt->setMatrix(osg::Matrix::translate(rtcCenter)); _root = mt;
-            //_root->setUserValue("RTC_CENTER", rtcCenter);
-            //_root->addUpdateCallback(_rtcCenterCallback.get());
+            mt->setMatrix(osg::Matrix::translate(rtcCenter));
+            _root = mt;  //_root->setUserValue("RTC_CENTER", rtcCenter);
         }
         else _root = new osg::Group;
 
