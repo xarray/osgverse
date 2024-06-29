@@ -13,6 +13,15 @@
 namespace osgVerse
 {
 
+    static const int MAX_POLYS = 2048;
+    struct FindPathData
+    {
+        dtPolyRef polygons[MAX_POLYS]{};       // Polygons
+        dtPolyRef pathPolygons[MAX_POLYS]{};   // Polygons on the path
+        osg::Vec3 pathPoints[MAX_POLYS];       // Points on the path
+        unsigned char pathFlags[MAX_POLYS]{};  // Flags on the path
+    };
+
     class BuildContext : public rcContext
     {
     public:
@@ -56,7 +65,7 @@ namespace osgVerse
     {
     public:
         NavData() : navMesh(NULL), navQuery(NULL), crowd(NULL)
-        { nearestReference = 0; context = new BuildContext; }
+        { nearestReference = 0; context = new BuildContext; queryFilter = new dtQueryFilter; }
 
         static int calculateMaxTiles(const osg::BoundingBoxd& bb, osg::Vec2i& begin, osg::Vec2i& end,
                                      int tileSize, float cellSize)
@@ -97,9 +106,11 @@ namespace osgVerse
         dtNavMesh* navMesh;
         dtNavMeshQuery* navQuery;
         dtCrowd* crowd;
+        dtQueryFilter* queryFilter;
         BuildContext* context;
         dtCrowdAgentDebugInfo agentDebugger;
         dtPolyRef nearestReference;
+        FindPathData pathData;
         float nearestPointOnRef[3];
 
     protected:

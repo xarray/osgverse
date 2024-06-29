@@ -450,15 +450,59 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
             }
         }
     delete chunkyMesh;
+    return initializeQuery();
+}
 
-    int numTiles = navData->navMesh->getMaxTiles();
-    if (numTiles > 0)
+bool RecastManager::read(std::istream& in)
+{
+    float orig[3], tileW = 0.0f, tileH = 0.0f;
+    osg::Vec3 o; int maxPolys = 0, maxTiles = 0;
+    in.read((char*)orig, sizeof(float) * 3); o.set(orig[0], orig[1], orig[2]);
+    in.read((char*)&tileW, sizeof(float)); in.read((char*)&tileH, sizeof(float));
+    in.read((char*)&maxTiles, sizeof(int)); in.read((char*)&maxPolys, sizeof(int));
+    if (!initializeNavMesh(o, tileW, tileH, maxPolys, maxTiles)) return false;
+
+    NavData* navData = static_cast<NavData*>(_recastData.get());
+    while (!in.eof())
     {
-        navData->navQuery = dtAllocNavMeshQuery();
-        if (dtStatusFailed(navData->navQuery->init(navData->navMesh, _settings.maxSearchNodes)))
-            OSG_WARN << "[RecastManager] Failed to create query object" << std::endl;
+        int x = 0, y = 0, dataSize = 0;
+        in.read((char*)&x, sizeof(int)); in.read((char*)&y, sizeof(int));
+        in.read((char*)&dataSize, sizeof(int));
+
+        unsigned char* tData = (unsigned char*)dtAlloc(dataSize, DT_ALLOC_PERM);
+        in.read((char*)tData, dataSize);
+        if (dtStatusFailed(navData->navMesh->addTile(tData, dataSize, DT_TILE_FREE_DATA, 0, NULL)))
+        {
+            OSG_WARN << "[RecastManager] Failed to add tile to recast manager: "
+                     << x << ", " << y << std::endl; dtFree(tData); continue;
+        }
     }
-    return (numTiles > 0);
+    return initializeQuery();
+}
+
+bool RecastManager::save(std::ostream& out)
+{
+    NavData* navData = static_cast<NavData*>(_recastData.get());
+    if (!navData->navMesh) return false;
+
+    const dtNavMesh* navMesh = navData->navMesh;
+    const dtNavMeshParams* params = navMesh->getParams();
+    out.write((char*)params->orig, sizeof(float) * 3);
+    out.write((char*)&(params->tileWidth), sizeof(float));
+    out.write((char*)&(params->tileHeight), sizeof(float));
+    out.write((char*)&(params->maxTiles), sizeof(int));
+    out.write((char*)&(params->maxPolys), sizeof(int));
+
+    for (int t = 0; t < navMesh->getMaxTiles(); ++t)
+    {
+        const dtMeshTile* tile = navMesh->getTile(t);
+        if (!tile->header || !tile->dataSize) continue;
+        out.write((char*)&(tile->header->x), sizeof(int));
+        out.write((char*)&(tile->header->y), sizeof(int));
+        out.write((char*)&(tile->dataSize), sizeof(int));
+        out.write((char*)tile->data, tile->dataSize);
+    }
+    return true;
 }
 
 osg::Node* RecastManager::getDebugMesh() const

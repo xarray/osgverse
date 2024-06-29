@@ -17,6 +17,36 @@ RecastManager::~RecastManager()
 {
 }
 
+bool RecastManager::initializeNavMesh(const osg::Vec3& o, float tileW, float tileH,
+                                      int maxPolys, int maxTiles)
+{
+    dtNavMeshParams params{};
+    params.orig[0] = o[0]; params.orig[1] = o[1]; params.orig[2] = o[2];
+    params.tileWidth = tileW; params.tileHeight = tileH;
+    params.maxPolys = maxPolys; params.maxTiles = maxTiles;
+
+    NavData* navData = static_cast<NavData*>(_recastData.get());
+    navData->clear(); navData->navMesh = dtAllocNavMesh();
+    if (dtStatusFailed(navData->navMesh->init(&params))) return false;
+    else return true;
+}
+
+bool RecastManager::initializeQuery()
+{
+    NavData* navData = static_cast<NavData*>(_recastData.get());
+    if (!navData->navMesh) return false;
+    if (navData->navQuery != NULL) return true;
+
+    bool numTiles = navData->navMesh->getMaxTiles();
+    if (numTiles > 0)
+    {
+        navData->navQuery = dtAllocNavMeshQuery();
+        if (dtStatusFailed(navData->navQuery->init(navData->navMesh, _settings.maxSearchNodes)))
+        { OSG_WARN << "[RecastManager] Failed to create query object" << std::endl; return false; }
+    }
+    return (numTiles > 0);
+}
+
 bool RecastManager::build(osg::Node* node)
 {
     MeshCollector collector; osg::Vec2i tStart, tEnd;
@@ -34,14 +64,9 @@ bool RecastManager::build(osg::Node* node)
     NavData* navData = static_cast<NavData*>(_recastData.get());
     int maxTiles = navData->calculateMaxTiles(
         worldBounds, tStart, tEnd, _settings.tileSize, _settings.cellSize);
-    dtNavMeshParams params{};
-    params.tileWidth = _settings.tileSize * _settings.cellSize;
-    params.tileHeight = params.tileWidth;
-    params.maxPolys = 1u << (22 - navData->logBaseTwo(maxTiles));
-    params.maxTiles = maxTiles;
-    navData->clear(); navData->navMesh = dtAllocNavMesh();
-
-    if (dtStatusFailed(navData->navMesh->init(&params))) return false;
+    float tileWidth = _settings.tileSize * _settings.cellSize;
+    int maxPolys = 1u << (22 - navData->logBaseTwo(maxTiles));
+    if (!initializeNavMesh(osg::Vec3(), tileWidth, tileWidth, maxPolys, maxTiles)) return false;
     return buildTiles(collector.getVertices(), collector.getTriangles(), worldBounds, tStart, tEnd);
 }
 
@@ -184,4 +209,56 @@ void RecastManager::advance(float simulationTime)
         }
     }
     _lastSimulationTime = simulationTime;
+}
+
+std::vector<osg::Vec3> RecastManager::findPath(std::vector<int>& flags,
+                                               const osg::Vec3& s, const osg::Vec3& e, const osg::Vec3& ex)
+{
+    std::vector<osg::Vec3> path;
+    NavData* navData = static_cast<NavData*>(_recastData.get());
+    if (!navData->navQuery) { OSG_WARN << "[RecastManager] nav-query not created" << std::endl; return path; }
+
+    float start[3] = { s[0], s[2], -s[1] }, end[3] = { e[0], e[2], -e[1] }, end1[3];
+    float extents[3] = { ex[0], ex[2], ex[1] }; dtPolyRef startRef, endRef;
+    navData->navQuery->findNearestPoly(start, extents, navData->queryFilter, &startRef, NULL);
+    navData->navQuery->findNearestPoly(end, extents, navData->queryFilter, &endRef, NULL);
+    if (!startRef || !endRef) return path;
+
+    int numPolys = 0, numPathPoints = 0; FindPathData& pathData = navData->pathData;
+    navData->navQuery->findPath(startRef, endRef, start, end, navData->queryFilter,
+                                pathData.polygons, &numPolys, MAX_POLYS);
+    if (!numPolys) return path;
+
+    end1[0] = end[0]; end1[1] = end[1]; end1[2] = end[2];
+    if (pathData.polygons[numPolys - 1] != endRef)
+        navData->navQuery->closestPointOnPoly(pathData.polygons[numPolys - 1], end, end1, NULL);
+    navData->navQuery->findStraightPath(start, end1, pathData.polygons, numPolys,
+                                        (float*)&pathData.pathPoints[0], pathData.pathFlags,
+                                        pathData.pathPolygons, &numPathPoints, MAX_POLYS);
+    for (int i = 0; i < numPathPoints; ++i)
+    {
+        const osg::Vec3& pos = pathData.pathPoints[i];
+        path.push_back(osg::Vec3(pos[0], -pos[2], pos[1]));
+        flags.push_back(pathData.pathFlags[i]);
+    }
+    return path;
+}
+
+bool RecastManager::hitWall(osg::Vec3& result, osg::Vec3& resultNormal,
+                            const osg::Vec3& s, const osg::Vec3& e, const osg::Vec3& ex)
+{
+    NavData* navData = static_cast<NavData*>(_recastData.get());
+    if (!navData->navQuery) { OSG_WARN << "[RecastManager] nav-query not created" << std::endl; return false; }
+
+    float start[3] = { s[0], s[2], -s[1] }, end[3] = { e[0], e[2], -e[1] };
+    dtPolyRef startRef; float extents[3] = { ex[0], ex[2], ex[1] }, norm[3] = { 0.0f, -1.0f, 0.0f };
+    navData->navQuery->findNearestPoly(start, extents, navData->queryFilter, &startRef, NULL);
+    if (!startRef) { result = e; return false; }
+
+    float t = 1.0f; int numPolys = 0; FindPathData& pathData = navData->pathData;
+    navData->navQuery->raycast(startRef, start, end, navData->queryFilter, &t,
+                               norm, pathData.polygons, &numPolys, MAX_POLYS);
+    if (t == FLT_MAX) { result = e; return false; }
+    resultNormal.set(norm[0], -norm[2], norm[1]);
+    result = s * (1.0f - t) + e * t; return true;
 }

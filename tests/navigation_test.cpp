@@ -22,7 +22,14 @@ int main(int argc, char** argv)
     if (!terrain) terrain = osgDB::readNodeFile("lz.osg");
 
     osg::ref_ptr<osgVerse::RecastManager> recast = new osgVerse::RecastManager;
-    recast->build(terrain.get());
+    std::ifstream dataIn("recast_terrain.bin", std::ios::in | std::ios::binary);
+    if (!dataIn)
+    {
+        std::ofstream dataOut("recast_terrain.bin", std::ios::out | std::ios::binary);
+        recast->build(terrain.get()); recast->save(dataOut);
+    }
+    else
+    { recast->read(dataIn); OSG_NOTICE << "Read recast data from file." << std::endl; }
     recast->initializeAgents();
 
     osg::ref_ptr<osg::MatrixTransform> player = new osg::MatrixTransform;

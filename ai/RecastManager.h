@@ -65,17 +65,20 @@ namespace osgVerse
     public:
         RecastManager();
 
-        /** Build nav-mesh tiles from scene graph */
-        bool build(osg::Node* node);
+        void setSettings(const RecastSettings& s) { _settings = s; }
+        const RecastSettings& getSettings() const { return _settings; }
 
         /** Get debug nav-mesh of all current tiles */
         osg::Node* getDebugMesh() const;
 
-        /** Save current nav-mesh tiles to stream */
-        bool save(std::ostream& out);
+        /** Build nav-mesh tiles from scene graph */
+        bool build(osg::Node* node);
 
         /** Read from stream and add tiles to nav-mesh */
         bool read(std::istream& in);
+
+        /** Save current nav-mesh tiles to stream */
+        bool save(std::ostream& out);
 
         // Agent structure
         struct Agent : public osg::Referenced
@@ -109,17 +112,19 @@ namespace osgVerse
         /** Advance the scene to update all agents */
         void advance(float simulationTime);
 
-        /** Find a path on nav-mesh surface */
-        std::vector<osg::Vec3> findPath(const osg::Vec3& s, const osg::Vec3& e,
+        /** Find a path on nav-mesh surface. For flags, see 'enum dtStraightPathFlags' */
+        std::vector<osg::Vec3> findPath(std::vector<int>& flags, const osg::Vec3& s, const osg::Vec3& e,
                                         const osg::Vec3& extents = osg::Vec3(1.0f, 1.0f, 1.0f));
 
-        /** Recast on the nav-mesh */
-        bool recast(osg::Vec3& result, const osg::Vec3& s, const osg::Vec3& e,
-                    const osg::Vec3& extents = osg::Vec3(1.0f, 1.0f, 1.0f));
+        /** Casts a 'walkability' ray along nav-mesh surface to find nearest wall */
+        bool hitWall(osg::Vec3& result, osg::Vec3& resultNormal, const osg::Vec3& s, const osg::Vec3& e,
+                     const osg::Vec3& extents = osg::Vec3(1.0f, 1.0f, 1.0f));
 
     protected:
         virtual ~RecastManager();
 
+        bool initializeNavMesh(const osg::Vec3& o, float tileW, float tileH, int maxPolys, int maxTiles);
+        bool initializeQuery();
         bool buildTiles(const std::vector<osg::Vec3>& va, const std::vector<unsigned int>& indices,
                         const osg::BoundingBox& worldBounds, const osg::Vec2i& tileStart,
                         const osg::Vec2i& tileEnd);
