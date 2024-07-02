@@ -88,7 +88,7 @@ namespace osgVerse
             osg::Vec3 target;                             // Target position
             float maxSpeed, maxAcceleration;              // Max speed and acceleration
             float separationAggressivity;                 // How aggressive to be separated from others
-            int id, state;                                // (out) Unique ID and state of the agent
+            int id, state;                                // (out) ID and state (active?0xf0 + CrowdAgentState)
             bool dirtyParams, byVelocity;                 // If dirty parameters, and if computed by velocity
 
             Agent(osg::Transform* node, const osg::Vec3& t)
@@ -102,6 +102,9 @@ namespace osgVerse
 
         /** Update/add agent */
         void updateAgent(Agent* agent);
+
+        /** Cancel agent target */
+        void cancelAgent(Agent* agent);
 
         /** Remove agent */
         void removeAgent(Agent* agent);

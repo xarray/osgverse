@@ -120,9 +120,9 @@ void RecastManager::updateAgent(Agent* agent)
     dtCrowdAgentParams ap; memset(&ap, 0, sizeof(ap));
     ap.radius = _settings.agentRadius; ap.height = _settings.agentHeight;
     ap.maxAcceleration = agent->maxAcceleration; ap.maxSpeed = agent->maxSpeed;
-    ap.collisionQueryRange = ap.radius * 12.0f;
+    ap.collisionQueryRange = ap.radius * 4.0f;
     ap.pathOptimizationRange = ap.radius * 30.0f;
-    ap.updateFlags = DT_CROWD_ANTICIPATE_TURNS | DT_CROWD_OPTIMIZE_TOPO |
+    ap.updateFlags = DT_CROWD_ANTICIPATE_TURNS | DT_CROWD_OPTIMIZE_TOPO | DT_CROWD_OPTIMIZE_VIS |
                      DT_CROWD_OBSTACLE_AVOIDANCE | DT_CROWD_SEPARATION;
     ap.obstacleAvoidanceType = 1.0f;  // (0, DT_CROWD_MAX_OBSTAVOIDANCE_PARAMS]
     ap.separationWeight = agent->separationAggressivity;  // (0, 20]
@@ -149,9 +149,16 @@ void RecastManager::updateAgent(Agent* agent)
                                                &navData->nearestReference, navData->nearestPointOnRef);
             navData->crowd->requestMoveTarget(agent->id, navData->nearestReference, dst);
         }
-        agent->velocity.set(dt->nvel[0], dt->nvel[2], -dt->nvel[1]);
+        agent->velocity.set(dt->vel[0], dt->vel[2], -dt->vel[1]);
     }
     agent->dirtyParams = false;
+}
+
+void RecastManager::cancelAgent(Agent* agent)
+{
+    NavData* navData = static_cast<NavData*>(_recastData.get());
+    if (!navData->crowd) { OSG_WARN << "[RecastManager] Crowd not created" << std::endl; return; }
+    if (_agents.find(agent) != _agents.end()) navData->crowd->resetMoveTarget(agent->id);
 }
 
 void RecastManager::removeAgent(Agent* agent)
@@ -187,7 +194,7 @@ void RecastManager::advance(float simulationTime)
         const dtCrowdAgent* dt = navData->crowd->getAgent(agent->id);
 
         agent->position.set(dt->npos[0], -dt->npos[2], dt->npos[1]);
-        agent->velocity.set(dt->nvel[0], -dt->nvel[2], dt->nvel[1]);
+        agent->velocity.set(dt->vel[0], -dt->vel[2], dt->vel[1]);
         agent->state = dt->state | (dt->active ? 0xf0 : 0);
         if (agent->transform.valid())
         {

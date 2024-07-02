@@ -11,9 +11,35 @@
 #include <iostream>
 #include <sstream>
 
+#include <pipeline/IntersectionManager.h>
 #include <ai/RecastManager.h>
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+
+class InteractiveHandler : public osgGA::GUIEventHandler
+{
+public:
+    InteractiveHandler(osg::Group* root, osgVerse::RecastManager* rm)
+        : _root(root), _recast(rm) {}
+
+    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE &&
+            (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL))
+        {
+
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::DOUBLECLICK)
+        {
+
+        }
+        return false;
+    }
+
+protected:
+    osg::observer_ptr<osg::Group> _root;
+    osg::observer_ptr<osgVerse::RecastManager> _recast;
+};
 
 int main(int argc, char** argv)
 {
@@ -53,6 +79,7 @@ int main(int argc, char** argv)
     root->addChild(debugNode.get());
 
     osgViewer::Viewer viewer;
+    viewer.addEventHandler(new InteractiveHandler(root.get(), recast.get()));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
