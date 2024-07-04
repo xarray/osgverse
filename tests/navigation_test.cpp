@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include <pipeline/IntersectionManager.h>
+#include <readerwriter/Utilities.h>
 #include <ai/RecastManager.h>
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
@@ -44,6 +45,8 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments(&argc, argv);
+    osgVerse::fixOsgBinaryWrappers();
+
     osg::ref_ptr<osg::Node> terrain = osgDB::readNodeFiles(arguments);
     if (!terrain) terrain = osgDB::readNodeFile("lz.osg");
 
@@ -52,7 +55,8 @@ int main(int argc, char** argv)
     if (!dataIn)
     {
         std::ofstream dataOut("recast_terrain.bin", std::ios::out | std::ios::binary);
-        recast->build(terrain.get()); recast->save(dataOut);
+        if (recast->build(terrain.get(), true)) recast->save(dataOut);
+        else { OSG_WARN << "Failed to build nav-mesh." << std::endl; return -1; }
     }
     else
     { recast->read(dataIn); OSG_NOTICE << "Read recast data from file." << std::endl; }
@@ -68,10 +72,11 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::MatrixTransform> debugNode = new osg::MatrixTransform;
     debugNode->addChild(recast->getDebugMesh());
-    debugNode->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 1.0f));
+    //debugNode->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 1.0f));
     debugNode->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     debugNode->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     debugNode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    debugNode->getOrCreateStateSet()->setMode(GL_DEPTH, osg::StateAttribute::OFF);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(terrain.get());

@@ -1,5 +1,4 @@
 #include <osg/io_utils>
-#include <osg/ComputeBoundsVisitor>
 #include <osg/PositionAttitudeTransform>
 #include <iostream>
 
@@ -34,7 +33,7 @@ bool RecastManager::initializeNavMesh(const osg::Vec3& o, float tileW, float til
 bool RecastManager::initializeQuery()
 {
     NavData* navData = static_cast<NavData*>(_recastData.get());
-    if (!navData->navMesh) return false;
+    if (!navData->navMesh) { OSG_WARN << "[RecastManager] Nav-mesh not created" << std::endl; return false; }
     if (navData->navQuery != NULL) return true;
 
     bool numTiles = navData->navMesh->getMaxTiles();
@@ -44,19 +43,21 @@ bool RecastManager::initializeQuery()
         if (dtStatusFailed(navData->navQuery->init(navData->navMesh, _settings.maxSearchNodes)))
         { OSG_WARN << "[RecastManager] Failed to create query object" << std::endl; return false; }
     }
+    else
+        OSG_WARN << "[RecastManager] Nav-mesh created without any tiles" << std::endl;
     return (numTiles > 0);
 }
 
-bool RecastManager::build(osg::Node* node)
+bool RecastManager::build(osg::Node* node, bool loadingFineLevels)
 {
     MeshCollector collector; osg::Vec2i tStart, tEnd;
-    collector.setWeldingVertices(true);
-    collector.setUseGlobalVertices(true);
+    collector.setWeldingVertices(true); collector.setUseGlobalVertices(false);
+    collector.setOnlyVertexAndIndices(true);
+    collector.setLoadingFineLevels(loadingFineLevels);
     if (!node) return false; else node->accept(collector);
     if (collector.getVertices().empty()) return false;
 
-    osg::ComputeBoundsVisitor cbv; node->accept(cbv);
-    osg::BoundingBox worldBounds = cbv.getBoundingBox();
+    osg::BoundingBox worldBounds = collector.getBoundingBox();
     osg::Vec3 padding(_settings.padding * _settings.tileSize,
                       _settings.padding * _settings.tileSize, _settings.padding);
     worldBounds._min -= padding; worldBounds._max += padding;

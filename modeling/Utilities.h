@@ -1,6 +1,8 @@
 #ifndef MANA_MODELING_UTILITIES_HPP
 #define MANA_MODELING_UTILITIES_HPP
 
+#include <osg/ProxyNode>
+#include <osg/PagedLOD>
 #include <osg/Transform>
 #include <osg/Geometry>
 #include <osg/Camera>
@@ -38,14 +40,18 @@ namespace osgVerse
         MeshCollector();
         void setWeldingVertices(bool b) { _weldVertices = b; }
         void setUseGlobalVertices(bool b) { _globalVertices = b; }
+        void setLoadingFineLevels(bool b) { _loadedFineLevels = b; }
+        void setOnlyVertexAndIndices(bool b) { _onlyVertexAndIndices = b; }
+
         inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
         inline void popMatrix() { _matrixStack.pop_back(); }
-
         virtual void reset();
-        virtual void apply(osg::Transform& transform);
-        virtual void apply(osg::Geode& node);
 
         virtual void apply(osg::Node& node);
+        virtual void apply(osg::PagedLOD& node);
+        virtual void apply(osg::ProxyNode& node);
+        virtual void apply(osg::Transform& transform);
+        virtual void apply(osg::Geode& node);
         virtual void apply(osg::Geometry& geometry);
 
         virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss);
@@ -55,6 +61,7 @@ namespace osgVerse
         std::vector<osg::Vec4>& getAttributes(VertexAttribute a) { return _attributes[a]; }
         const std::vector<osg::Vec3>& getVertices() const { return _vertices; }
         const std::vector<unsigned int>& getTriangles() const { return _indices; }
+        const osg::BoundingBoxd& getBoundingBox() const { return _boundingBox; }
 
     protected:
         typedef std::vector<osg::Matrix> MatrixStack;
@@ -64,7 +71,9 @@ namespace osgVerse
         std::map<VertexAttribute, std::vector<osg::Vec4>> _attributes;
         std::vector<osg::Vec3> _vertices;
         std::vector<unsigned int> _indices;
+        osg::BoundingBoxd _boundingBox;
         bool _weldVertices, _globalVertices;
+        bool _loadedFineLevels, _onlyVertexAndIndices;
     };
 
     class BoundingVolumeVisitor : public MeshCollector

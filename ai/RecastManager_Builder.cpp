@@ -448,6 +448,8 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
                 OSG_WARN << "[RecastManager] Failed to add tile to recast manager: "
                          << x << ", " << y << std::endl; dtFree(resultData); continue;
             }
+            //OSG_NOTICE << "[RecastManager] Tile added: " << x << ", " << y << " (End = "
+            //           << tileEnd[0] << ", " << tileEnd[1] << ")" << std::endl;
         }
     delete chunkyMesh;
     return initializeQuery();

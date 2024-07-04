@@ -146,12 +146,12 @@ struct CollectVertexOperator
 };
 
 MeshCollector::MeshCollector()
-:   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN),
-    _weldVertices(false), _globalVertices(false) {}
+:   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _weldVertices(false), _globalVertices(false),
+    _loadedFineLevels(false), _onlyVertexAndIndices(false) {}
 
 void MeshCollector::reset()
 {
-    _matrixStack.clear();
+    _matrixStack.clear(); _boundingBox.init();
     _vertexMap.clear(); _attributes.clear();
     _vertices.clear(); _indices.clear();
 }
@@ -160,6 +160,65 @@ void MeshCollector::apply(osg::Node& node)
 {
     if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
     traverse(node);
+}
+
+void MeshCollector::apply(osg::PagedLOD& node)
+{
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+    if (_loadedFineLevels)
+    {
+        if (node.getNumFileNames() > 0 && _traversalMode == TRAVERSE_ALL_CHILDREN)
+        {
+            float targetRangeValue = 0.0f;
+            if (node.getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT) targetRangeValue = 1e6;
+            else targetRangeValue = 0;
+
+            const osg::LOD::RangeList rl = node.getRangeList();
+            for (osg::LOD::RangeList::const_iterator rit = rl.begin(); rit != rl.end(); rit++)
+            {
+                if (node.getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT)
+                { if (rit->first < targetRangeValue) targetRangeValue = rit->first; }
+                else
+                { if (rit->first > targetRangeValue) targetRangeValue = rit->first; }
+            }
+
+            unsigned int childIndex = 0;
+            for (osg::LOD::RangeList::const_iterator rit = rl.begin();
+                 rit != rl.end(); rit++, childIndex++)
+            {
+                osg::ref_ptr<osg::Node> child;
+                if (rit->first != targetRangeValue) continue;
+                if (childIndex < node.getNumChildren()) child = node.getChild(childIndex);
+
+                if (!child)
+                {   // Child is NULL; attempt to load it
+                    unsigned int validIndex(childIndex);
+                    if (node.getNumFileNames() <= childIndex) validIndex = node.getNumFileNames() - 1;
+                    child = osgDB::readNodeFile(node.getDatabasePath() + node.getFileName(validIndex));
+                }
+
+                if (!child && node.getNumChildren() > 0)
+                    child = node.getChild(node.getNumChildren() - 1);
+                if (child.valid()) child->accept(*this);
+            }
+            return;
+        }
+    }
+    traverse(node);
+}
+
+void MeshCollector::apply(osg::ProxyNode& node)
+{
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet()); traverse(node);
+    if (!_loadedFineLevels || _traversalMode != TRAVERSE_ALL_CHILDREN) return;
+
+    for (unsigned int i = node.getNumChildren(); i < node.getNumFileNames(); ++i)
+    {
+        osg::ref_ptr<osg::Node> child = osgDB::readNodeFile(
+            node.getDatabasePath() + node.getFileName(i));
+        OSG_NOTICE << "[MeshCollector] Loaded " << node.getFileName(i) << std::endl;
+        if (child.valid()) child->accept(*this);
+    }
 }
 
 void MeshCollector::apply(osg::Transform& node)
@@ -184,6 +243,21 @@ void MeshCollector::apply(osg::Geode& node)
         if (geom != NULL) apply(*geom);
     }
 #endif
+
+    osg::Matrix matrix;
+    if (_matrixStack.size() > 0) matrix = _matrixStack.back();
+    for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+    {
+        const osg::BoundingBox& bbox = node.getDrawable(i)->getBoundingBox();
+        _boundingBox.expandBy(bbox.corner(0) * matrix);
+        _boundingBox.expandBy(bbox.corner(1) * matrix);
+        _boundingBox.expandBy(bbox.corner(2) * matrix);
+        _boundingBox.expandBy(bbox.corner(3) * matrix);
+        _boundingBox.expandBy(bbox.corner(4) * matrix);
+        _boundingBox.expandBy(bbox.corner(5) * matrix);
+        _boundingBox.expandBy(bbox.corner(6) * matrix);
+        _boundingBox.expandBy(bbox.corner(7) * matrix);
+    }
     traverse(node);
 }
 
@@ -197,10 +271,11 @@ void MeshCollector::apply(osg::Geometry& geom)
 
     osg::TriangleIndexFunctor<CollectVertexOperator> functor;
     functor.inputV = static_cast<osg::Vec3Array*>(geom.getVertexArray());
-    functor.inputT = static_cast<osg::Vec2Array*>(geom.getTexCoordArray(0));
-    if (geom.getNormalBinding() == osg::Geometry::BIND_PER_VERTEX)
+    if (!_onlyVertexAndIndices)
+        functor.inputT = static_cast<osg::Vec2Array*>(geom.getTexCoordArray(0));
+    if (!_onlyVertexAndIndices && geom.getNormalBinding() == osg::Geometry::BIND_PER_VERTEX)
         functor.inputN = static_cast<osg::Vec3Array*>(geom.getNormalArray());
-    if (geom.getColorBinding() == osg::Geometry::BIND_PER_VERTEX)
+    if (!_onlyVertexAndIndices && geom.getColorBinding() == osg::Geometry::BIND_PER_VERTEX)
         functor.inputC = static_cast<osg::Vec4Array*>(geom.getColorArray());
 
     functor.vertices = &_vertices; functor.attributes = &_attributes;

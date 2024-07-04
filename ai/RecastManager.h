@@ -72,7 +72,7 @@ namespace osgVerse
         osg::Node* getDebugMesh() const;
 
         /** Build nav-mesh tiles from scene graph */
-        bool build(osg::Node* node);
+        bool build(osg::Node* node, bool loadingFineLevels = false);
 
         /** Read from stream and add tiles to nav-mesh */
         bool read(std::istream& in);
