@@ -3,6 +3,7 @@
 
 #include <osg/Polytope>
 #include <osg/Geometry>
+#include <osg/ShapeDrawable>
 #include <osg/Texture1D>
 #include <osg/Texture2D>
 #include <osg/Texture3D>
@@ -41,7 +42,10 @@ namespace osgVerse
 
     /** Create a standard post-render HUD camera, may contain a quad for display use */
     extern osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
-        float quadW, float quadH, bool screenSpaced);
+                                        float quadW, float quadH, bool screenSpaced);
+
+    /** Create heightmap from given scene graph */
+    extern osg::HeightField* createHeightField(osg::Node* node, int resX, int resY, osg::View* viewer = NULL);
 
     /** The tangent/binormal computing visitor */
     class TangentSpaceVisitor : public osg::NodeVisitor

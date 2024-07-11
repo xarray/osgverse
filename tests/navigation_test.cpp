@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include <pipeline/IntersectionManager.h>
+#include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <ai/RecastManager.h>
 #include <backward.hpp>  // for better debug info
@@ -82,6 +83,11 @@ int main(int argc, char** argv)
     root->addChild(terrain.get());
     root->addChild(player.get());
     root->addChild(debugNode.get());
+
+    //osg::Geode* geode = new osg::Geode;
+    //geode->addDrawable(new osg::ShapeDrawable(
+    //    osgVerse::createHeightField(terrain.get(), 1024, 1024)));
+    //root->addChild(geode);
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new InteractiveHandler(root.get(), recast.get()));

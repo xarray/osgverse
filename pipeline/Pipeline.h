@@ -133,7 +133,21 @@ namespace osgVerse
         static osg::Texture* createTexture(BufferType type, int w, int h, int glVer = 0);
         static void setTextureBuffer(osg::Texture* tex, BufferType type, int glVer = 0);
 
-        /** Add necessaray definitions for each Pipeline related shader */
+        /** Add necessaray definitions for each Pipeline related shader
+            Special macros:
+            - VERSE_GLES2: for GLES2 shaders, set to 1
+            - VERSE_GLES3: for GLES3 and GLCore shaders, set to 1
+            - VERSE_MATRIX_MVP: model-view-projection matrix in vertex shader
+            - VERSE_MATRIX_MV: model-view matrix in vertex shader
+            - VERSE_MATRIX_P: projection matrix in vertex shader
+            - VERSE_MATRIX_N: normal matrix in vertex shader
+            - VERSE_VS_IN/VERSE_VS_OUT: in/out variables in vertex shader
+            - VERSE_FS_IN/VERSE_FS_OUT: in/out variables in fragment shader
+            - VERSE_FS_FINAL: final frag-color for GLCompatible / GLES2 shaders in fragment shader
+            - VERSE_MAX_SHADOWS: maximum number of shadows in fragment shader
+            - VERSE_TEX1D/VERSE_TEX2D/VERSE_TEX3D/VERSE_TEXCUBE: texture sampling function
+            - osg_Vertex/osg_Color/osg_MultiTexCoord0/osg_MultiTexCoord1/osg_Normal: attributes in vertex shader
+        */
         static void createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
             const std::vector<std::string>& defs = std::vector<std::string>());
 

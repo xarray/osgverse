@@ -314,7 +314,29 @@ namespace osgVerse
             mt->setMatrix(osg::Matrix::translate(rtcCenter));
             _root = mt;  //_root->setUserValue("RTC_CENTER", rtcCenter);
         }
-        else _root = new osg::Group;
+        else
+        {
+            if (!_modelDef.extensions.empty() &&
+                _modelDef.extensions.find("CESIUM_RTC") != _modelDef.extensions.end())
+            {
+                if (_modelDef.extensions["CESIUM_RTC"].Has("center"))
+                {
+                    const tinygltf::Value& center = _modelDef.extensions["CESIUM_RTC"].Get("center");
+                    if (center.IsArray())
+                    {
+                        const tinygltf::Value::Array& centerData = center.Get<tinygltf::Value::Array>();
+                        if (centerData.size() > 2) rtcCenter.set(
+                            centerData[0].GetNumberAsDouble(), centerData[2].GetNumberAsDouble(),
+                            -centerData[1].GetNumberAsDouble());
+
+                        osg::MatrixTransform* mt = new osg::MatrixTransform;
+                        mt->setMatrix(osg::Matrix::translate(rtcCenter));
+                        _root = mt;  //_root->setUserValue("RTC_CENTER", rtcCenter);
+                    }
+                }
+            }
+            if (!_root) _root = new osg::Group;
+        }
 
         // Preload skin data
         for (size_t i = 0; i < _modelDef.skins.size(); ++i)

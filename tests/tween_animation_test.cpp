@@ -47,7 +47,7 @@ int main(int argc, char** argv)
     tween->play("default", osgVerse::TweenAnimation::PingPong, osgVerse::TweenAnimation::CubicInOut);
 
     osg::ref_ptr<osg::MatrixTransform> axesMT = new osg::MatrixTransform;
-    //axesMT->addUpdateCallback(tween.get());
+    axesMT->addUpdateCallback(tween.get());
     axesMT->addChild(osgDB::readNodeFile("axes.osgt.10,10,10.scale"));
 
     // A node for more interactive tests

@@ -633,10 +633,10 @@ static void printPlayerData(OzzAnimation* ozz)
             {
                 size_t n0 = n * 4, n1 = n * 3;
                 float w = jointWeights[n1] + jointWeights[n1 + 1] + jointWeights[n1 + 2];
-                std::cout << "    Vec-" << n << ": B" << jointIds[n0] << " / " << jointWeights[n1]
-                          << ", B" << jointIds[n0 + 1] << " / " << jointWeights[n1 + 1]
-                          << ", B" << jointIds[n0 + 2] << " / " << jointWeights[n1 + 2]
-                          << ", B" << jointIds[n0 + 3] << " / " << (1.0f - w) << std::endl;
+                //std::cout << "    Vec-" << n << ": B" << jointIds[n0] << " / " << jointWeights[n1]
+                //          << ", B" << jointIds[n0 + 1] << " / " << jointWeights[n1 + 1]
+                //          << ", B" << jointIds[n0 + 2] << " / " << jointWeights[n1 + 2]
+                //          << ", B" << jointIds[n0 + 3] << " / " << (1.0f - w) << std::endl;
             }
         }
         std::cout << std::endl;

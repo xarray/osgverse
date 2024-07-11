@@ -1,4 +1,5 @@
 #include <osg/Version>
+#include <osg/ComputeBoundsVisitor>
 #include <osg/FrameBufferObject>
 #include <osg/RenderInfo>
 #include <osg/GLExtensions>
@@ -12,6 +13,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgViewer/GraphicsWindow>
+#include <osgViewer/Viewer>
 #include <codecvt>
 #include <iostream>
 #include <array>
@@ -372,6 +374,78 @@ namespace osgVerse
             camera->addChild(createScreenQuad(quadPt, quadW, quadH, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f)));
         }
         return camera.release();
+    }
+
+    osg::HeightField* createHeightField(osg::Node* node, int resX, int resY, osg::View* userViewer)
+    {
+        osg::ComputeBoundsVisitor cbv; node->accept(cbv);
+        osg::BoundingBox bbox = cbv.getBoundingBox();
+        osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(resX, resY, 1, GL_LUMINANCE, GL_FLOAT);
+        image->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
+
+        osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+        camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+        camera->setRenderOrder(osg::Camera::PRE_RENDER);
+        camera->setViewport(0, 0, image->s(), image->t());
+        camera->attach(osg::Camera::COLOR_BUFFER, image.get());
+
+        osg::Vec3 center = bbox.center(); center.z() = bbox.zMax();
+        camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+        camera->setProjectionMatrix(osg::Matrix::ortho(
+            bbox.xMin() - center.x(), bbox.xMax() - center.x(),
+            bbox.yMin() - center.y(), bbox.yMax() - center.y(), bbox.zMin(), bbox.zMax()));
+        camera->setViewMatrix(osg::Matrix::lookAt(center, bbox.center(), osg::Y_AXIS));
+
+        osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
+        if (!viewer) viewer = new osgViewer::Viewer;
+        viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+        viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        {
+            const char* vsCode = {
+                "VERSE_VS_OUT float depth;\n"
+                "void main() {\n"
+                "    depth = -(VERSE_MATRIX_MV * osg_Vertex).z;\n"
+                "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n"
+                "}\n"
+            };
+            const char* fsCode = {
+                "VERSE_FS_IN float depth;\n"
+                "VERSE_FS_OUT vec4 fragData;\n"
+                "void main() {\n"
+                "    fragData = vec4(depth, 1.0, 1.0, 1.0);\n"
+                "    VERSE_FS_FINAL(fragData);\n"
+                "}\n"
+            };
+            osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode);
+            osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode);
+
+            osg::ref_ptr<osg::Program> prog = new osg::Program;
+            Pipeline::createShaderDefinitions(vs, 100, 130); prog->addShader(vs);
+            Pipeline::createShaderDefinitions(fs, 100, 130); prog->addShader(fs);
+            camera->getOrCreateStateSet()->setAttributeAndModes(prog.get());
+
+            osg::ref_ptr<osg::Group> root = new osg::Group;
+            root->addChild(camera.get()); camera->addChild(node);
+            viewer->setSceneData(root.get());
+            for (int i = 0; i < 2; ++i) viewer->frame();
+        }
+
+        osg::ref_ptr<osg::HeightField> hf = new osg::HeightField;
+        hf->allocate(resX, resY); hf->setOrigin(bbox._min);
+        hf->setXInterval((bbox.xMax() - bbox.xMin()) / (float)(resX - 1));
+        hf->setYInterval((bbox.yMax() - bbox.yMin()) / (float)(resY - 1));
+
+        float* ptr = (float*)image->data(); float zRange = bbox.zMax() - bbox.zMin();
+        for (int y = 0; y < resY; ++y) for (int x = 0; x < resX; ++x)
+        {
+            float eyeZ = *(ptr + (y * resX) + x);
+            if (eyeZ <= 0.0f) hf->setHeight(x, y, bbox.zMin());
+            else hf->setHeight(x, y, bbox.zMin() + zRange - eyeZ);
+        }
+        return hf.release();
     }
 
     TangentSpaceVisitor::TangentSpaceVisitor(const float threshold)

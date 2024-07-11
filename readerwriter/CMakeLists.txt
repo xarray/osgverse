@@ -1,12 +1,13 @@
 SET(LIB_NAME osgVerseReaderWriter)
-SET(LIBRARY_FILES
+SET(LIBRARY_INCLUDE_FILES
+    OsgbTileOptimizer.h Utilities.h DatabasePager.h Export.h
+)
+SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h
     LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h
     DracoProcessor.cpp DracoProcessor.h
-    OsgbTileOptimizer.cpp OsgbTileOptimizer.h
-    Utilities.h Utilities.cpp
-    DatabasePager.h Export.h
+    OsgbTileOptimizer.cpp Utilities.cpp
 )
 
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
@@ -53,6 +54,7 @@ INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
         RUNTIME DESTINATION ${INSTALL_BINDIR} COMPONENT libosgverse
         LIBRARY DESTINATION ${INSTALL_LIBDIR} COMPONENT libosgverse
         ARCHIVE DESTINATION ${INSTALL_ARCHIVEDIR} COMPONENT libosgverse-dev)
+INSTALL(FILES ${LIBRARY_INCLUDE_FILES} DESTINATION ${INSTALL_INCDIR}/osgVerse/readerwriter COMPONENT libosgverse-dev)
 IF(NOT VERSE_STATIC_BUILD)
     IF(MSVC AND VERSE_INSTALL_PDB_FILES)
         INSTALL(FILES $<TARGET_PDB_FILE:${LIB_NAME}> DESTINATION ${INSTALL_BINDIR} OPTIONAL)
