@@ -54,8 +54,6 @@ NEW_TEST_EXECUTABLE(osgVerse_Test_Symbols symbols_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Navigation navigation_test.cpp)
 
-NEW_TEST_EXECUTABLE(osgVerse_Test_Delaunay delaunay_test.cpp)
-
 IF(BULLET_FOUND)
 	NEW_TEST_EXECUTABLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)
 	# TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test

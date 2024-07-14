@@ -36,7 +36,7 @@ bool RecastManager::initializeQuery()
     if (!navData->navMesh) { OSG_WARN << "[RecastManager] Nav-mesh not created" << std::endl; return false; }
     if (navData->navQuery != NULL) return true;
 
-    bool numTiles = navData->navMesh->getMaxTiles();
+    int numTiles = navData->navMesh->getMaxTiles();
     if (numTiles > 0)
     {
         navData->navQuery = dtAllocNavMeshQuery();
@@ -113,6 +113,7 @@ void RecastManager::updateAgent(Agent* agent)
     {
         agent->transform->computeLocalToWorldMatrix(matrix, NULL);
         agent->position = matrix.getTrans();
+        _agentFinderMap[agent->transform.get()] = agent;
     }
 
     float pos[3] = { agent->position[0], agent->position[2], -agent->position[1] };
@@ -167,7 +168,18 @@ void RecastManager::removeAgent(Agent* agent)
     NavData* navData = static_cast<NavData*>(_recastData.get());
     if (!navData->crowd) { OSG_WARN << "[RecastManager] Crowd not created" << std::endl; return; }
     if (_agents.find(agent) != _agents.end())
-    { _agents.erase(_agents.find(agent)); navData->crowd->removeAgent(agent->id); }
+    {
+        std::map<osg::Node*, osg::observer_ptr<Agent>>::iterator itr =
+            _agentFinderMap.find(agent->transform.get());
+        if (itr != _agentFinderMap.end()) _agentFinderMap.erase(itr);
+        _agents.erase(_agents.find(agent)); navData->crowd->removeAgent(agent->id);
+    }
+}
+
+RecastManager::Agent* RecastManager::getAgentFromNode(osg::Node* node)
+{
+    std::map<osg::Node*, osg::observer_ptr<Agent>>::iterator itr = _agentFinderMap.find(node);
+    if (itr != _agentFinderMap.end()) return itr->second.get(); else return NULL;
 }
 
 void RecastManager::clearAllAgents()
@@ -177,7 +189,7 @@ void RecastManager::clearAllAgents()
 
     for (std::set<osg::ref_ptr<Agent>>::iterator itr = _agents.begin();
          itr != _agents.end(); ++itr) navData->crowd->removeAgent((*itr)->id);
-    _agents.clear();
+    _agents.clear(); _agentFinderMap.clear();
 }
 
 void RecastManager::advance(float simulationTime)

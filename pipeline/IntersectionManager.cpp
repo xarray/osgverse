@@ -3,6 +3,7 @@
 #include <functional>
 #include <iostream>
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/Texture>
 #include <osg/TexMat>
 #include <osg/TriangleIndexFunctor>
@@ -110,6 +111,15 @@ static osg::Texture* getTextureLookUp(const osgUtil::LineSegmentIntersector::Int
         return const_cast<osg::Texture*>(activeTexture);
     }
     return 0;
+}
+
+osg::Node* IntersectionResult::findNode(IntersectionResult::FindNodeFunc func)
+{
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+    if (drawable.valid() && func(drawable.get())) return drawable.get();
+#endif
+    for (osg::NodePath::reverse_iterator itr = nodePath.rbegin(); itr != nodePath.rend(); ++itr)
+    { if (func(*itr)) return *itr; } return NULL;
 }
 
 class LineSegmentIntersectorEx : public osgUtil::LineSegmentIntersector

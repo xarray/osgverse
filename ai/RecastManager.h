@@ -109,6 +109,9 @@ namespace osgVerse
         /** Remove agent */
         void removeAgent(Agent* agent);
 
+        /** Get agent from node */
+        Agent* getAgentFromNode(osg::Node* node);
+
         std::set<osg::ref_ptr<Agent>>& getAgents() { return _agents; }
         void clearAllAgents();
 
@@ -132,6 +135,7 @@ namespace osgVerse
                         const osg::BoundingBox& worldBounds, const osg::Vec2i& tileStart,
                         const osg::Vec2i& tileEnd);
 
+        std::map<osg::Node*, osg::observer_ptr<Agent>> _agentFinderMap;
         std::set<osg::ref_ptr<Agent>> _agents;
         osg::ref_ptr<osg::Referenced> _recastData;
         RecastSettings _settings;

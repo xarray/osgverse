@@ -10,7 +10,9 @@
 #include <iostream>
 
 #define STB_RECT_PACK_IMPLEMENTATION
+#define ENABLE_VHACD_IMPLEMENTATION 1
 #include <stb/stb_rect_pack.h>
+#include "3rdparty/VHACD.h"
 #include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
 #include "MeshTopology.h"
 #include "Utilities.h"
@@ -306,6 +308,49 @@ void MeshCollector::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
                 apply(n ,d, static_cast<osg::Texture*>(itr->second.first.get()), i);
         }
     }
+}
+
+osg::Geometry* BoundingVolumeVisitor::computeVHACD(bool findBestPlane, bool shrinkWrap,
+                                                   int resolution, int maxConvexHulls, float maxError)
+{
+    VHACD::IVHACD::Parameters params;
+    params.m_findBestPlane = findBestPlane;
+    params.m_shrinkWrap = shrinkWrap;
+    if (resolution > 0) params.m_resolution = resolution;
+    if (maxConvexHulls > 0) params.m_maxConvexHulls = maxConvexHulls;
+    if (maxError > 0.0f) params.m_minimumVolumePercentErrorAllowed = maxError;
+    // params.m_maxRecursionDepth; params.m_fillMode; params.m_maxNumVerticesPerCH; params.m_minEdgeLength
+    if (_vertices.empty() || _indices.empty()) return NULL;
+
+    std::vector<double> points(_vertices.size() * 3);
+    for (size_t i = 0; i < _vertices.size(); ++i)
+    {
+        size_t index = i * 3; const osg::Vec3& pt = _vertices[i];
+        points[index] = pt[0]; points[index + 1] = pt[1]; points[index + 2] = pt[2];
+    }
+
+    VHACD::IVHACD* iface = VHACD::CreateVHACD();
+    iface->Compute(&points[0], _vertices.size(), &_indices[0], _indices.size() / 3, params);
+    if (iface->GetNConvexHulls() == 0) return NULL;
+
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
+    for (uint32_t i = 0; i < iface->GetNConvexHulls(); i++)
+    {
+        VHACD::IVHACD::ConvexHull ch; iface->GetConvexHull(i, ch);
+        for (size_t v = 0; v < ch.m_points.size(); ++v)
+        { const VHACD::Vertex& pt = ch.m_points[v]; va->push_back(osg::Vec3(pt.mX, pt.mY, pt.mZ)); }
+
+        for (size_t v = 0; v < ch.m_triangles.size(); ++v)
+        {
+            const VHACD::Triangle& t = ch.m_triangles[v];
+            de->push_back(t.mI0); de->push_back(t.mI1); de->push_back(t.mI2);
+        }
+    }
+
+    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+    geom->setVertexArray(va.get()); geom->addPrimitiveSet(de.get());
+    iface->Release();
 }
 
 osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float relativeExtent, int numSamples)

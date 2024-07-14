@@ -41,6 +41,9 @@ namespace osgVerse
         osg::Vec3d getWorldIntersectPoint(unsigned int i = 0) const { return intersectPoints[i] * matrix; }
         osg::Vec3 getWorldIntersectNormal(unsigned int i = 0) const
         { return osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), intersectNormals[i]); }
+
+        typedef bool (*FindNodeFunc)(osg::Node*);
+        osg::Node* findNode(FindNodeFunc func);
     };
 
     /** Find nearest intersection result with projected coordinates to form a linesegment */
