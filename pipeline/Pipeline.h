@@ -7,7 +7,8 @@
 #include <osg/Program>
 #include <osg/Texture2D>
 #include <osg/Group>
-#include <osgViewer/View>
+#include <osg/Geode>
+#include <osgViewer/Viewer>
 #include <string>
 #include "DeferredCallback.h"
 
@@ -312,6 +313,24 @@ namespace osgVerse
     /** Setup a OpenGL version tester and save the result to user-data of the pipeline */
     extern GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded,
                                              osg::GraphicsContext* embeddedGC = NULL);
+
+    /** Create a quick PBR+deferred pipeline viewer */
+    class StandardPipelineViewer : public osgViewer::Viewer
+    {
+    public:
+        StandardPipelineViewer(bool withSky = true);
+        StandardPipelineViewer(const StandardPipelineParameters& spp, bool withSky = true);
+        virtual void setSceneData(osg::Node* node);
+        void setMainLight(const osg::Vec3& color, const osg::Vec3& dir);
+
+    protected:
+        virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera);
+        void initialize(const StandardPipelineParameters& spp, bool withSky);
+
+        osg::ref_ptr<osgVerse::Pipeline> _pipeline;
+        osg::ref_ptr<osg::Group> _root;
+        osg::ref_ptr<osg::Geode> _lightGeode;
+    };
 }
 
 #endif

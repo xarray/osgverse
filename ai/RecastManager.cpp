@@ -9,7 +9,7 @@ using namespace osgVerse;
 RecastManager::RecastManager()
 {
     _recastData = new NavData;
-    _lastSimulationTime = -1.0f;
+    _obstacleAvoidingType = -1; _lastSimulationTime = -1.0f;
 }
 
 RecastManager::~RecastManager()
@@ -71,7 +71,7 @@ bool RecastManager::build(osg::Node* node, bool loadingFineLevels)
     return buildTiles(collector.getVertices(), collector.getTriangles(), worldBounds, tStart, tEnd);
 }
 
-bool RecastManager::initializeAgents(int maxAgents)
+bool RecastManager::initializeAgents(int maxAgents, int obstacleAvoidType)
 {
     NavData* navData = static_cast<NavData*>(_recastData.get());
     if (!navData->navMesh)
@@ -83,26 +83,28 @@ bool RecastManager::initializeAgents(int maxAgents)
 
     dtObstacleAvoidanceParams params;  // Use mostly default settings, copy from dtCrowd
     memcpy(&params, navData->crowd->getObstacleAvoidanceParams(0), sizeof(dtObstacleAvoidanceParams));
+    {
+        params.velBias = 0.5f; params.adaptiveDivs = 5;
+        params.adaptiveRings = 2; params.adaptiveDepth = 1;
+        navData->crowd->setObstacleAvoidanceParams(0, &params);  // Low (11)
 
-    params.velBias = 0.5f; params.adaptiveDivs = 5;
-    params.adaptiveRings = 2; params.adaptiveDepth = 1;
-    navData->crowd->setObstacleAvoidanceParams(0, &params);  // Low (11)
+        params.velBias = 0.5f; params.adaptiveDivs = 5;
+        params.adaptiveRings = 2; params.adaptiveDepth = 2;
+        navData->crowd->setObstacleAvoidanceParams(1, &params);  // Medium (22)
 
-    params.velBias = 0.5f; params.adaptiveDivs = 5;
-    params.adaptiveRings = 2; params.adaptiveDepth = 2;
-    navData->crowd->setObstacleAvoidanceParams(1, &params);  // Medium (22)
+        params.velBias = 0.5f; params.adaptiveDivs = 7;
+        params.adaptiveRings = 2; params.adaptiveDepth = 3;
+        navData->crowd->setObstacleAvoidanceParams(2, &params);  // Good (45)
 
-    params.velBias = 0.5f; params.adaptiveDivs = 7;
-    params.adaptiveRings = 2; params.adaptiveDepth = 3;
-    navData->crowd->setObstacleAvoidanceParams(2, &params);  // Good (45)
-
-    params.velBias = 0.5f; params.adaptiveDivs = 7;
-    params.adaptiveRings = 3; params.adaptiveDepth = 3;
-    navData->crowd->setObstacleAvoidanceParams(3, &params);  // High (66)
+        params.velBias = 0.5f; params.adaptiveDivs = 7;
+        params.adaptiveRings = 3; params.adaptiveDepth = 3;
+        navData->crowd->setObstacleAvoidanceParams(3, &params);  // High (66)
+    }
+    _obstacleAvoidingType = obstacleAvoidType;
     return true;
 }
 
-void RecastManager::updateAgent(Agent* agent)
+void RecastManager::updateAgent(Agent* agent, const osg::Vec2& rangeFactor)
 {
     NavData* navData = static_cast<NavData*>(_recastData.get());
     if (!navData->crowd) { OSG_WARN << "[RecastManager] Crowd not created" << std::endl; return; }
@@ -122,12 +124,19 @@ void RecastManager::updateAgent(Agent* agent)
     dtCrowdAgentParams ap; memset(&ap, 0, sizeof(ap));
     ap.radius = _settings.agentRadius; ap.height = _settings.agentHeight;
     ap.maxAcceleration = agent->maxAcceleration; ap.maxSpeed = agent->maxSpeed;
-    ap.collisionQueryRange = ap.radius * 4.0f;
-    ap.pathOptimizationRange = ap.radius * 30.0f;
-    ap.updateFlags = DT_CROWD_ANTICIPATE_TURNS | DT_CROWD_OPTIMIZE_TOPO | DT_CROWD_OPTIMIZE_VIS |
-                     DT_CROWD_OBSTACLE_AVOIDANCE | DT_CROWD_SEPARATION;
-    ap.obstacleAvoidanceType = 1.0f;  // (0, DT_CROWD_MAX_OBSTAVOIDANCE_PARAMS]
-    ap.separationWeight = agent->separationAggressivity;  // (0, 20]
+    ap.collisionQueryRange = ap.radius * rangeFactor[0];
+    ap.pathOptimizationRange = ap.radius * rangeFactor[1];
+    ap.updateFlags = DT_CROWD_ANTICIPATE_TURNS | DT_CROWD_OPTIMIZE_TOPO | DT_CROWD_OPTIMIZE_VIS;
+    if (_obstacleAvoidingType >= 0)
+    {
+        ap.updateFlags |= DT_CROWD_OBSTACLE_AVOIDANCE;
+        ap.obstacleAvoidanceType = _obstacleAvoidingType;
+    }
+    if (agent->separationAggressivity > 0.0f)
+    {
+        ap.updateFlags |= DT_CROWD_SEPARATION;
+        ap.separationWeight = agent->separationAggressivity;  // (0, 20]
+    }
     if (newlyCreated)
         agent->id = navData->crowd->addAgent(pos, &ap);
     else if (agent->dirtyParams)
@@ -192,14 +201,14 @@ void RecastManager::clearAllAgents()
     _agents.clear(); _agentFinderMap.clear();
 }
 
-void RecastManager::advance(float simulationTime)
+void RecastManager::advance(float simulationTime, float multiplier)
 {
     NavData* navData = static_cast<NavData*>(_recastData.get());
     if (!navData->crowd) { OSG_WARN << "[RecastManager] Crowd not created" << std::endl; return; }
     if (_lastSimulationTime < 0.0f) { _lastSimulationTime = simulationTime; return; }
 
     float dt = simulationTime - _lastSimulationTime;
-    navData->crowd->update(dt, &navData->agentDebugger);
+    navData->crowd->update(dt * multiplier, &navData->agentDebugger);
     for (std::set<osg::ref_ptr<Agent>>::iterator itr = _agents.begin();
          itr != _agents.end(); ++itr)
     {
@@ -209,9 +218,13 @@ void RecastManager::advance(float simulationTime)
         agent->position.set(dt->npos[0], -dt->npos[2], dt->npos[1]);
         agent->velocity.set(dt->vel[0], -dt->vel[2], dt->vel[1]);
         agent->state = dt->state | (dt->active ? 0xf0 : 0);
+        float distance = (agent->position - agent->target).length2();
+        if (distance < 0.2f)
+            navData->crowd->resetMoveTarget(agent->id);
+
         if (agent->transform.valid())
         {
-            osg::Vec3 dir = agent->velocity; bool canRotate = (dir.length2() > 0.01f);
+            osg::Vec3 dir = agent->velocity; bool canRotate = (dir.length2() > 0.2f);
             osg::Quat q; dir.normalize(); if (canRotate) q.makeRotate(osg::X_AXIS, dir);
             osg::MatrixTransform* mt = agent->transform->asMatrixTransform();
             osg::PositionAttitudeTransform* pat = agent->transform->asPositionAttitudeTransform();

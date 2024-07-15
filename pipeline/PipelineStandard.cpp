@@ -1,4 +1,5 @@
 #include "Pipeline.h"
+#include "SkyBox.h"
 #include "UserInputModule.h"
 #include "ShadowModule.h"
 #include "LightModule.h"
@@ -552,6 +553,75 @@ namespace osgVerse
             forwardSS->addUniform(lightModule->getLightNumber());
         }*/
         return true;
+    }
+
+    StandardPipelineViewer::StandardPipelineViewer(bool withSky) : osgViewer::Viewer()
+    {
+        osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+        spp.enablePostEffects = true; spp.enableAO = true;
+        initialize(spp, withSky);
+        setMainLight(osg::Vec3(1.5f, 1.5f, 1.2f), osg::Vec3(0.02f, 0.1f, -1.0f));
+        setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    }
+
+    StandardPipelineViewer::StandardPipelineViewer(const StandardPipelineParameters& spp, bool withSky)
+        : osgViewer::Viewer()
+    {
+        initialize(spp, withSky);
+        setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    }
+
+    void StandardPipelineViewer::setSceneData(osg::Node* node)
+    {
+        osgVerse::TangentSpaceVisitor tsv; node->accept(tsv);
+        osgVerse::Pipeline::setPipelineMask(*node, DEFERRED_SCENE_MASK);
+        _root->addChild(node);
+    }
+
+    void StandardPipelineViewer::setMainLight(const osg::Vec3& color, const osg::Vec3& dir)
+    {
+        osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
+        light0->setColor(color); light0->setDirection(dir);
+        light0->setDirectional(true);
+        if (_lightGeode->getNumDrawables() > 0) _lightGeode->setDrawable(0, light0.get());
+        else _lightGeode->addDrawable(light0.get());
+
+        osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(_pipeline->getModule("Light"));
+        if (light) light->setMainLight(light0.get(), "Shadow");
+    }
+
+    osg::GraphicsOperation* StandardPipelineViewer::createRenderer(osg::Camera* camera)
+    {
+        if (_pipeline.valid()) return _pipeline->createRenderer(camera);
+        else return osgViewer::Viewer::createRenderer(camera);
+    }
+
+    void StandardPipelineViewer::initialize(const StandardPipelineParameters& spp, bool withSky)
+    {
+        _pipeline = new osgVerse::Pipeline;
+#if true
+        setupStandardPipeline(_pipeline.get(), this, spp);
+#else
+        std::ifstream ppConfig(SHADER_DIR "/standard_pipeline.json");
+        _pipeline->load(ppConfig, &viewer);
+#endif
+
+        _lightGeode = new osg::Geode; _root = new osg::Group;
+        _root->addChild(_lightGeode.get());
+        osgViewer::Viewer::setSceneData(_root.get());
+
+        if (withSky)
+        {
+            osg::ref_ptr<osg::Camera> postCamera = SkyBox::createSkyCamera();
+            _root->addChild(postCamera.get());
+
+            osg::ref_ptr<SkyBox> skybox = new SkyBox(_pipeline.get());
+            skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
+                osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+            skybox->setEnvironmentMap(spp.skyboxMap.get(), false);
+            osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
+            postCamera->addChild(skybox.get());
+        }
     }
 }
 

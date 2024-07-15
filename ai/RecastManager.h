@@ -93,15 +93,15 @@ namespace osgVerse
 
             Agent(osg::Transform* node, const osg::Vec3& t)
             :   transform(node), target(t), maxSpeed(4.0f), maxAcceleration(8.0f),
-                separationAggressivity(0.01f), id(-1), state(0), dirtyParams(true), byVelocity(false) {}
+                separationAggressivity(-1.0f), id(-1), state(0), dirtyParams(true), byVelocity(false) {}
             osg::BoundingBox getBoundingBox() const;
         };
 
         /** Initialize agent manager */
-        bool initializeAgents(int maxAgents = 128);
+        bool initializeAgents(int maxAgents = 128, int obstacleAvoidType = -1);
 
         /** Update/add agent */
-        void updateAgent(Agent* agent);
+        void updateAgent(Agent* agent, const osg::Vec2& rangeFactor = osg::Vec2(4.0f, 30.0f));
 
         /** Cancel agent target */
         void cancelAgent(Agent* agent);
@@ -116,7 +116,7 @@ namespace osgVerse
         void clearAllAgents();
 
         /** Advance the scene to update all agents */
-        void advance(float simulationTime);
+        void advance(float simulationTime, float multiplier = 1.0f);
 
         /** Find a path on nav-mesh surface. For flags, see 'enum dtStraightPathFlags' */
         std::vector<osg::Vec3> findPath(std::vector<int>& flags, const osg::Vec3& s, const osg::Vec3& e,
@@ -139,6 +139,7 @@ namespace osgVerse
         std::set<osg::ref_ptr<Agent>> _agents;
         osg::ref_ptr<osg::Referenced> _recastData;
         RecastSettings _settings;
+        int _obstacleAvoidingType;
         float _lastSimulationTime;
     };
 
