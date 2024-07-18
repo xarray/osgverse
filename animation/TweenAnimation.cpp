@@ -2,6 +2,7 @@
 #include <osg/CameraView>
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
+#include <osgViewer/View>
 #include "3rdparty/tweeny/tweeny.h"
 #include "3rdparty/tweeny/easing.h"
 #include "TweenAnimation.h"
@@ -30,13 +31,24 @@ public:
 
     AnimationPathVisitor(const osg::AnimationPath::ControlPoint& cp,
                          const osg::Vec3d& pivotPoint, bool invMatrix)
-    : _cp(cp), _pivotPoint(pivotPoint), _useInverseMatrix(invMatrix) {}
+    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _cp(cp), _pivotPoint(pivotPoint), _useInverseMatrix(invMatrix) {}
 
     virtual void apply(osg::Camera& camera)
     {
         osg::Matrix matrix;
-        if (_useInverseMatrix) _cp.getInverse(matrix);
-        else _cp.getMatrix(matrix);
+        if (_useInverseMatrix) _cp.getInverse(matrix); else _cp.getMatrix(matrix);
+
+        osg::View* view = camera.getView();
+        if (view != NULL)
+        {
+            osgViewer::View* view1 = dynamic_cast<osgViewer::View*>(view);
+            if (view1 && view1->getCameraManipulator())
+            {
+                view1->getCameraManipulator()->setByInverseMatrix(
+                    osg::Matrix::translate(-_pivotPoint) * matrix); return;
+            }
+        }
         camera.setViewMatrix(osg::Matrix::translate(-_pivotPoint) * matrix);
     }
 
@@ -48,7 +60,6 @@ public:
             cv.setPosition(matrix.getTrans());
             cv.setAttitude(_cp.getRotation().inverse());
             cv.setFocalLength(1.0f / _cp.getScale().x());
-
         }
         else
         {
