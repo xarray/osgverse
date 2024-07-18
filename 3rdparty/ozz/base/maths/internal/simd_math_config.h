@@ -30,10 +30,12 @@
 
 #include "ozz/base/platform.h"
 
+#ifdef __EMSCRIPTEN__
+#include <wasm_simd128.h>
+#elif !defined(OZZ_BUILD_SIMD_REF)
 // Avoid SIMD instruction detection if reference (aka scalar) implementation is
 // forced.
-#if !defined(OZZ_BUILD_SIMD_REF)
-
+// 
 // Try to match a SSE2+ version.
 #if defined(__AVX2__) || defined(OZZ_SIMD_AVX2)
 #include <immintrin.h>

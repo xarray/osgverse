@@ -1,5 +1,5 @@
 #include "spline_curve_fitting.h"
-#include <eigen/SVD>
+#include <Eigen/SVD>
 
 
 #include <iostream>
@@ -212,7 +212,7 @@ double SplineCurveFitting::fitAClosedCurve(
 //************************************
 // Method:    initOpenControlPoints
 // Returns:   void
-// Function:  需要修改，如果初始控制点的位置偏差太大，会出现问题
+// Function:  闇�瑕佷慨鏀癸紝濡傛灉鍒濆鎺у埗鐐圭殑浣嶇疆鍋忓樊澶ぇ锛屼細鍑虹幇闂
 // Time:      2015/07/13
 // Author:    Qian
 //************************************

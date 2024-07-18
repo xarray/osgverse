@@ -84,7 +84,8 @@ public:
             osg::Matrix matrix; _cp.getInverse(matrix);
             pat.setPosition(matrix.getTrans());
             pat.setAttitude(_cp.getRotation().inverse());
-            pat.setScale(osg::Vec3(1.0f / _cp.getScale().x(), 1.0f / _cp.getScale().y(), 1.0f / _cp.getScale().z()));
+            pat.setScale(osg::Vec3(
+                1.0f / _cp.getScale().x(), 1.0f / _cp.getScale().y(), 1.0f / _cp.getScale().z()));
             pat.setPivotPoint(_pivotPoint);
         }
         else
