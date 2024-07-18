@@ -3,6 +3,8 @@
 #include "UserInputModule.h"
 #include "ShadowModule.h"
 #include "LightModule.h"
+#include "IntersectionManager.h"
+#include "NodeSelector.h"
 #include "Utilities.h"
 
 #include <osg/GLExtensions>
@@ -555,27 +557,32 @@ namespace osgVerse
         return true;
     }
 
-    StandardPipelineViewer::StandardPipelineViewer(bool withSky) : osgViewer::Viewer()
+    StandardPipelineViewer::StandardPipelineViewer(bool withSky)
+        : osgViewer::Viewer(), _withSky(withSky)
     {
-        osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
-        spp.enablePostEffects = true; spp.enableAO = true;
-        initialize(spp, withSky);
-        setMainLight(osg::Vec3(1.5f, 1.5f, 1.2f), osg::Vec3(0.02f, 0.1f, -1.0f));
-        setThreadingModel(osgViewer::Viewer::SingleThreaded);
+        _parameters = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+        _parameters.enablePostEffects = true; _parameters.enableAO = true;
+        _lightGeode = new osg::Geode; _root = new osg::Group;
     }
 
     StandardPipelineViewer::StandardPipelineViewer(const StandardPipelineParameters& spp, bool withSky)
-        : osgViewer::Viewer()
-    {
-        initialize(spp, withSky);
-        setThreadingModel(osgViewer::Viewer::SingleThreaded);
-    }
+        : osgViewer::Viewer(), _parameters(spp), _withSky(withSky)
+    { _lightGeode = new osg::Geode; _root = new osg::Group; }
 
     void StandardPipelineViewer::setSceneData(osg::Node* node)
     {
         osgVerse::TangentSpaceVisitor tsv; node->accept(tsv);
-        osgVerse::Pipeline::setPipelineMask(*node, DEFERRED_SCENE_MASK);
-        _root->addChild(node);
+        if (!_root->containsNode(node)) _root->addChild(node);
+        osgViewer::Viewer::setSceneData(_root.get());
+    }
+
+    void StandardPipelineViewer::realize()
+    {
+        if (isRealized()) return;
+        initialize(_parameters, _withSky);
+        setMainLight(osg::Vec3(1.5f, 1.5f, 1.2f), osg::Vec3(0.02f, 0.1f, -1.0f));
+        setThreadingModel(osgViewer::Viewer::SingleThreaded);
+        osgViewer::Viewer::realize();
     }
 
     void StandardPipelineViewer::setMainLight(const osg::Vec3& color, const osg::Vec3& dir)
@@ -585,6 +592,7 @@ namespace osgVerse
         light0->setDirectional(true);
         if (_lightGeode->getNumDrawables() > 0) _lightGeode->setDrawable(0, light0.get());
         else _lightGeode->addDrawable(light0.get());
+        if (!_pipeline) return;
 
         osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(_pipeline->getModule("Light"));
         if (light) light->setMainLight(light0.get(), "Shadow");
@@ -606,9 +614,10 @@ namespace osgVerse
         _pipeline->load(ppConfig, &viewer);
 #endif
 
-        _lightGeode = new osg::Geode; _root = new osg::Group;
+        osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(_pipeline->getModule("Light"));
+        if (light && _lightGeode->getNumDrawables() > 0)
+            light->setMainLight(static_cast<LightDrawable*>(_lightGeode->getDrawable(0)), "Shadow");
         _root->addChild(_lightGeode.get());
-        osgViewer::Viewer::setSceneData(_root.get());
 
         if (withSky)
         {

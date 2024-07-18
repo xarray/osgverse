@@ -61,6 +61,12 @@ namespace osgVerse
     /** Compute perspective matrix from horizontal and vertical FOVs */
     extern osg::Matrix computePerspectiveMatrix(double hfov, double vfov, double zn, double zf);
 
+    /** Compute perspective matrix from OpenCV intrinsic camera matrix
+        See: http://www.info.hiroshima-cu.ac.jp/~miyazaki/knowledge/teche0092.html
+    */
+    extern osg::Matrix computePerspectiveMatrix(double focalX, double focalY,
+                                                double centerX, double centerY, double zn, double zf);
+
     /** Change an existing perspective matrix to an infinite one (not for displaying use) */
     extern osg::Matrix computeInfiniteMatrix(const osg::Matrix& proj, double zn);
 

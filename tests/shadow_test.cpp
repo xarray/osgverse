@@ -17,6 +17,7 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/LightModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -45,8 +46,8 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv;
-    scene->accept(tsv);
+    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+    //osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -68,25 +69,25 @@ int main(int argc, char** argv)
     root->addChild(sceneRoot.get());
     root->addChild(postCamera.get());
 
-    // Main light
-    osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
-    light0->setColor(osg::Vec3(1.5f, 1.5f, 1.2f));
-    light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
-    light0->setDirectional(true);
+    // Start the viewer
+    osgVerse::StandardPipelineViewer viewer(false);
+    viewer.addEventHandler(new osgViewer::StatsHandler);
+    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+    viewer.setSceneData(root.get());
+    viewer.setUpViewOnSingleScreen(0);
+    viewer.realize();
 
-    osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
-    lightGeode->addDrawable(light0.get());
-    root->addChild(lightGeode.get());
-
-    // Start the pipeline
-    osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
-    MyViewer viewer(pipeline.get());
-    setupStandardPipeline(pipeline.get(), &viewer,
-                          osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png"));
+    // Config shadow settings
+    osgVerse::Pipeline* pipeline = viewer.getPipeline();
+    osgVerse::LightDrawable* light0 =
+        static_cast<osgVerse::LightDrawable*>(viewer.getLightRoot()->getDrawable(0));
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
+        //shadow->createCasterGeometries(sceneRoot.get(), SHADOW_CASTER_MASK);
         if (shadow->getFrustumGeode())
         {
             osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
@@ -102,22 +103,6 @@ int main(int argc, char** argv)
             postCamera->addChild(quad); quadY += 0.21f;
         }
     }
-
-    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    if (light) light->setMainLight(light0.get(), "Shadow");
-
-    // Start the viewer
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
-
-    // FIXME: how to avoid shadow problem...
-    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
-    // Shadow will go jigger because the output texture is not sync-ed before lighting...
-    // For SingleThreaded & CullDrawThreadPerContext it seems OK
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     float lightX = 0.02f; bool lightD = true;
     while (!viewer.done())

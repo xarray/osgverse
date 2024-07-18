@@ -335,22 +335,27 @@ osg::Geometry* BoundingVolumeVisitor::computeVHACD(bool findBestPlane, bool shri
 
     osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
     osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
-    for (uint32_t i = 0; i < iface->GetNConvexHulls(); i++)
+    for (uint32_t i = 0; i < iface->GetNConvexHulls(); ++i)
     {
         VHACD::IVHACD::ConvexHull ch; iface->GetConvexHull(i, ch);
+        unsigned int baseIndex = va->size();
         for (size_t v = 0; v < ch.m_points.size(); ++v)
-        { const VHACD::Vertex& pt = ch.m_points[v]; va->push_back(osg::Vec3(pt.mX, pt.mY, pt.mZ)); }
+        {
+            const VHACD::Vertex& pt = ch.m_points[v];
+            va->push_back(osg::Vec3(pt.mX, pt.mY, pt.mZ));
+        }
 
         for (size_t v = 0; v < ch.m_triangles.size(); ++v)
         {
-            const VHACD::Triangle& t = ch.m_triangles[v];
-            de->push_back(t.mI0); de->push_back(t.mI1); de->push_back(t.mI2);
+            const VHACD::Triangle& t = ch.m_triangles[v]; de->push_back(baseIndex + t.mI0);
+            de->push_back(baseIndex + t.mI1); de->push_back(baseIndex + t.mI2);
         }
     }
 
     osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+    geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
     geom->setVertexArray(va.get()); geom->addPrimitiveSet(de.get());
-    iface->Release();
+    iface->Release(); return geom.release();
 }
 
 osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float relativeExtent, int numSamples)

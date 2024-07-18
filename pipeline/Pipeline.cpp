@@ -1290,6 +1290,20 @@ namespace osgVerse
         node.setUserValue("PipelineFlags", flags);
     }
 
+    unsigned int Pipeline::getPipelineMask(osg::Node& node)
+    {
+        unsigned int mask = 0xffffffff;
+        if (node.getUserDataContainer() != NULL)
+            node.getUserValue("PipelineMask", mask); return mask;
+    }
+
+    unsigned int Pipeline::getPipelineMaskFlags(osg::Node& node)
+    {
+        unsigned int flags = 0xffffffff;
+        if (node.getUserDataContainer() != NULL)
+            node.getUserValue("PipelineFlags", flags); return flags;
+    }
+
     osg::Texture* Pipeline::createTexture(BufferType type, int w, int h, int glVer)
     {
         osg::ref_ptr<osg::Texture2D> tex = new osg::Texture2D;

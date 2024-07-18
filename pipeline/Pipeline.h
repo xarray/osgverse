@@ -155,6 +155,8 @@ namespace osgVerse
         /** Set pipeline mask of scene graph nodes */
         static void setPipelineMask(osg::Node& node, unsigned int mask,
                                     unsigned int flags = osg::StateAttribute::ON);
+        static unsigned int getPipelineMask(osg::Node& node);
+        static unsigned int getPipelineMaskFlags(osg::Node& node);
 
         void addStage(Stage* s) { _stages.push_back(s); }
         void removeStage(unsigned int index) { _stages.erase(_stages.begin() + index); }
@@ -320,16 +322,24 @@ namespace osgVerse
     public:
         StandardPipelineViewer(bool withSky = true);
         StandardPipelineViewer(const StandardPipelineParameters& spp, bool withSky = true);
-        virtual void setSceneData(osg::Node* node);
+
         void setMainLight(const osg::Vec3& color, const osg::Vec3& dir);
+        osg::Geode* getLightRoot() { return _lightGeode.get(); }
+        StandardPipelineParameters& getParameters() { return _parameters; }
+        Pipeline* getPipeline() { return _pipeline.get(); }
+
+        virtual void setSceneData(osg::Node* node);
+        virtual void realize();
 
     protected:
         virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera);
         void initialize(const StandardPipelineParameters& spp, bool withSky);
 
-        osg::ref_ptr<osgVerse::Pipeline> _pipeline;
+        osg::ref_ptr<Pipeline> _pipeline;
         osg::ref_ptr<osg::Group> _root;
         osg::ref_ptr<osg::Geode> _lightGeode;
+        StandardPipelineParameters _parameters;
+        bool _withSky;
     };
 }
 

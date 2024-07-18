@@ -510,8 +510,7 @@ namespace osgVerse
 
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
             geom->setName(mesh.name + "_" + std::to_string(i));
-            geom->setUseDisplayList(false);
-            geom->setUseVertexBufferObjects(true);
+            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
 
             tinygltf::Primitive primitive = mesh.primitives[i];
             for (std::map<std::string, int>::iterator attrib = primitive.attributes.begin();

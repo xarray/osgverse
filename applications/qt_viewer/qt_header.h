@@ -82,7 +82,7 @@ protected:
     virtual bool event(QEvent* event);
     
     osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> _graphicsWindow;
-    osg::ref_ptr<MyViewer> _viewer;
+    osg::ref_ptr<osgViewer::Viewer> _viewer;
 
     osgVerse::StandardPipelineParameters _params;
     int _lastModifiers;

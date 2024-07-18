@@ -34,8 +34,8 @@ osg::Node* readNodeFromUnityPoint(const std::string& file, const ReadEptSettings
     in.close();
 
     osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-    geom->setName(file);
-    geom->setVertexArray(va.get());
+    geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+    geom->setName(file); geom->setVertexArray(va.get());
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
     if (ca.get()) { geom->setColorArray(ca.get(), osg::Array::BIND_PER_VERTEX); }
     if (na.get()) { geom->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX); }
@@ -112,10 +112,8 @@ osg::Node* readNodeFromLaz(const std::string& file, const ReadEptSettings& setti
     laszip_close_reader(laszipReader);
 
     osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-    geom->setName(file);
-    geom->setUseDisplayList(false);
-    geom->setUseVertexBufferObjects(true);
-    geom->setVertexArray(va.get());
+    geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+    geom->setName(file); geom->setVertexArray(va.get());
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
     if (ca.get()) geom->setColorArray(ca.get(), osg::Array::BIND_PER_VERTEX);
     if (na.get()) geom->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);

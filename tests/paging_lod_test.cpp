@@ -237,6 +237,20 @@ int main(int argc, char** argv)
         }
         osgDB::writeNodeFile(*root, outputFile);
     }
+    else if (argc > 2 && std::string(argv[1]) == "opt_single")
+    {
+        osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(argv[2]);
+        if (node.valid())
+        {
+            osgVerse::TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
+            node->accept(opt);
+
+            osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
+            options->setPluginStringData("UseBASISU", "1");
+            osgDB::writeNodeFile(*node, std::string(argv[2]) + "_opt.osgb", options.get());
+            opt.deleteSavedTextures();
+        }
+    }
     else if (argc > 1)
     {
         std::string prefix = ""; arguments.read("--prefix", prefix);

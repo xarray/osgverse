@@ -168,6 +168,13 @@ namespace osgVerse
         return osg::Matrix::frustum(l, r, b, t, zn, zf);
     };
 
+    osg::Matrix computePerspectiveMatrix(double focalX, double focalY,
+                                         double centerX, double centerY, double zn, double zf)
+    {
+        osg::Matrix matrix = osg::Matrix::frustum(-1.0, 1.0, -1.0, 1.0, zn, zf);
+        matrix(0, 0) = focalX / centerX; matrix(1, 1) = focalY / centerY; return matrix;
+    }
+
     osg::Matrix computeInfiniteMatrix(const osg::Matrix& proj, double zn)
     {
         const static double nudge = 1.0 - 1.0 / double(1 << 23);

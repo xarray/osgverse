@@ -1,9 +1,74 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/ComputeBoundsVisitor>
 #include <osgDB/ReadFile>
 #include <iostream>
-#include "ShadowModule.h"
+#include "../modeling/Utilities.h"
 #include "Utilities.h"
+#include "ShadowModule.h"
+
+class CreateVHACDVisitor : public osg::NodeVisitor
+{
+public:
+    CreateVHACDVisitor()
+    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+
+    virtual void apply(osg::Geode& node)
+    {
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
+        for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+        {
+            osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+            if (geom != NULL) apply(*geom);
+        }
+#endif
+        traverse(node);
+    }
+
+    virtual void apply(osg::Geometry& geom)
+    {
+        osgVerse::BoundingVolumeVisitor bvv; bvv.apply(geom);
+        unsigned int numTriangleIndices = bvv.getTriangles().size();
+        if (numTriangleIndices > 50)
+        {
+            osg::ref_ptr<osg::Geometry> newGeom = bvv.computeVHACD(false, true, 5000, 5);
+            if (newGeom.valid() && newGeom->getNumPrimitiveSets() > 0)
+            {
+                unsigned int numNewTriangleIndices =
+                    static_cast<osg::DrawElementsUShort*>(newGeom->getPrimitiveSet(0))->size();
+                if (numNewTriangleIndices < numTriangleIndices) _vhacdMap[&geom] = newGeom;
+            }
+        }
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+        traverse(geom);
+#endif
+    }
+
+    void updateGeometries(unsigned int rcvMask, unsigned int castMask)
+    {
+        for (std::map<osg::Geometry*, osg::ref_ptr<osg::Geometry>>::iterator itr = _vhacdMap.begin();
+             itr != _vhacdMap.end(); ++itr)
+        {
+            osg::Geometry* geom = itr->first;
+            if (geom->getNumParents() == 0) continue;
+
+#if true
+            for (unsigned int i = 0; i < geom->getNumParents(); ++i)
+            {
+                osg::Geode* geode = static_cast<osg::Geode*>(geom->getParent(i));
+                geode->replaceDrawable(geom, itr->second.get());
+            }
+#else
+            unsigned int mask = osgVerse::Pipeline::getPipelineMask(*geom);
+            osgVerse::Pipeline::setPipelineMask(*geom, mask & rcvMask);
+            osgVerse::Pipeline::setPipelineMask(*itr->second, castMask);
+#endif
+        }
+    }
+
+protected:
+    std::map<osg::Geometry*, osg::ref_ptr<osg::Geometry>> _vhacdMap;
+};
 
 namespace osgVerse
 {
@@ -42,6 +107,12 @@ namespace osgVerse
             _lightInputMatrix = m; _lightMatrix = m; _dirtyReference = true;
             _shadowMaxDistance = maxDistance; _retainLightPos = retainLightPos;
         }
+    }
+
+    void ShadowModule::createCasterGeometries(osg::Node* scene, unsigned int casterMask)
+    {
+        CreateVHACDVisitor cvv; scene->accept(cvv);
+        cvv.updateGeometries(~casterMask, casterMask);
     }
 
     void ShadowModule::createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,

@@ -248,6 +248,8 @@ void DynamicPolygon::finish()
 {
     // FIXME!
     osg::Geometry* tessellatedGeom = new osg::Geometry;
+    tessellatedGeom->setUseDisplayList(false);
+    tessellatedGeom->setUseVertexBufferObjects(true);
     //copyToAndOptimize( *tessellatedGeom );
     //setInternalOptimizedGeometry( tessellatedGeom );
 

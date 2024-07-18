@@ -17,11 +17,15 @@ namespace osgVerse
         { int index; osg::BoundingBoxd bound; };  // will be set to camera's user-data
 
         ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom);
+
+        /** Create simplified caster geometries to improve shadow pass effectiveness */
+        void createCasterGeometries(osg::Node* scene, unsigned int casterMask);
+        
         void createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
                           unsigned int casterMask);
-
         void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, double maxDistance = -1.0,
                            bool retainLightPos = false);
+
         void addReferenceBound(const osg::BoundingBoxd& bb, bool toReset);
         void addReferenceBound(const osg::BoundingBoxf& bb, bool toReset);
         void addReferencePoints(const std::vector<osg::Vec3d>& pt, bool toReset);

@@ -42,14 +42,17 @@ struct ResortVertexOperator
 
 void FixedFunctionOptimizer::apply(osg::Geometry& geom)
 {
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     bool invalidMode = false;
     for (size_t i = 0; i < geom.getNumPrimitiveSets(); ++i)
     {
         // glDrawArrays() and glDrawElements() doesn't support GL_QUADS in GLES 2.0/3.x and GL3/4
         // https://docs.gl/gl3/glDrawArrays  // https://docs.gl/gl3/glDrawElements
-        GLenum mode = geom.getPrimitiveSet(i)->getMode();
-        invalidMode = true;
+        osg::PrimitiveSet* p = geom.getPrimitiveSet(i); GLenum mode = p->getMode();
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+        if (mode > GL_TRIANGLES) invalidMode = true;
+#endif
+        if (p->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType ||
+            p->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) invalidMode = true;
     }
 
     if (invalidMode)
@@ -61,7 +64,6 @@ void FixedFunctionOptimizer::apply(osg::Geometry& geom)
         de->assign(functor.indices.begin(), functor.indices.end());
         geom.addPrimitiveSet(de.get());
     }
-#endif
 
     removeUnusedStateAttributes(geom.getStateSet());
     geom.setUseDisplayList(false);

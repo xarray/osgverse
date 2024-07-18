@@ -130,10 +130,10 @@ int main(int argc, char** argv)
     debugNode->getOrCreateStateSet()->setMode(GL_DEPTH, osg::StateAttribute::OFF);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->addChild(terrain.get()); //root->addChild(debugNode.get());
+    root->addChild(terrain.get()); root->addChild(debugNode.get());
     osgVerse::Pipeline::setPipelineMask(*terrain, DEFERRED_SCENE_MASK & (~SHADOW_CASTER_MASK));
 
-    //osg::Geode* geode = new osg::Geode;
+    osg::Geode* geode = new osg::Geode;
     //geode->addDrawable(new osg::ShapeDrawable(
     //    osgVerse::createHeightField(terrain.get(), 4096, 4096)));
     //root->addChild(geode);

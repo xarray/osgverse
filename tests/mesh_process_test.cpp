@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/PolygonMode>
 #include <osg/MatrixTransform>
 #include <osg/Geometry>
 #include <osgDB/ReadFile>
@@ -82,14 +83,21 @@ int main(int argc, char** argv)
     lines->addPoint(osg::Vec3(5.0f, 5.0f, 0.0f));
     lines->addPoint(osg::Vec3(-5.0f, 5.0f, 0.0f));
 
-    osg::ref_ptr<osg::Geode> lineGeode = new osg::Geode;
-    lineGeode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-    lineGeode->addDrawable(lines.get());
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+    geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    geode->getOrCreateStateSet()->setAttributeAndModes(
+        new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE));
+    geode->addDrawable(lines.get());
+
+    // Test VHACD
+    osgVerse::BoundingVolumeVisitor bvv;
+    scene->accept(bvv);
+    geode->addDrawable(bvv.computeVHACD());
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(scene.get());
     root->addChild(topoMT.get());
-    root->addChild(lineGeode.get());
+    root->addChild(geode.get());
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

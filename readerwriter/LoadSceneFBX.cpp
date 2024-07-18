@@ -192,6 +192,7 @@ namespace osgVerse
                 (*de)[i] = globalToLocalMap[idx];
             }
 
+            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
             geom->setVertexArray(subVA.get());
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
             if (nData) geom->setNormalArray(subNA.get(), osg::Array::BIND_PER_VERTEX);

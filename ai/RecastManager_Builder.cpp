@@ -536,7 +536,8 @@ osg::Node* RecastManager::getDebugMesh() const
         }
 
         osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-        geom->setVertexArray(va);
+        geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+        geom->setName("RecastDebugMesh"); geom->setVertexArray(va);
         geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
         geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, va->size()));
         geode->addDrawable(geom.get());
