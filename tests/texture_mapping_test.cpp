@@ -19,22 +19,24 @@ namespace backward { backward::SignalHandling sh; }
 // Triplanar-mapping implementation
 const char* commonVert = {
     "uniform mat4 osg_ViewMatrixInverse;\n"
+    "uniform float localOrWorld;\n"
     "varying vec3 worldNormal, eyeNormal;\n"
     "varying vec4 worldVec, eyeVec;\n"
     "void main(void) {\n"
-    "    mat4 worldMatrix = osg_ViewMatrixInverse * gl_ModelViewMatrix;"
+    "    mat4 worldMatrix = (localOrWorld < 0.0) ? mat4(1.0) : osg_ViewMatrixInverse * gl_ModelViewMatrix;\n"
     "    worldNormal = (worldMatrix * vec4(gl_Normal, 0.0)).xyz;\n"
-    "    eyeNormal = vec3(gl_NormalMatrix * gl_Normal);\n"
     "    worldVec = worldMatrix * gl_Vertex;\n"
+    "    eyeNormal = vec3(gl_NormalMatrix * gl_Normal);\n"
     "    eyeVec = gl_ModelViewMatrix * gl_Vertex;\n"
     "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
     "}\n"
 };
 
 const char* commonFrag = {
+    "uniform sampler2D baseTexture, topTexture;\n"
+    "uniform float localOrWorld;\n"
     "varying vec3 worldNormal, eyeNormal;\n"
     "varying vec4 worldVec, eyeVec;\n"
-    "uniform sampler2D baseTexture, topTexture;\n"
 
     "vec4 computeLight() {\n"
     "    vec3 N = normalize(eyeNormal);\n"
@@ -71,8 +73,9 @@ const char* commonFrag = {
     "}\n"
 
     "void main(void) {\n"
+    "    float scale = abs(localOrWorld);\n"
     "    vec3 rgb = triplanarMapping(baseTexture, baseTexture, topTexture, normalize(worldNormal),\n"
-    "                                worldVec.xyz / worldVec.w, 1.0);\n"
+    "                                worldVec.xyz / worldVec.w, scale);\n"
     "    vec4 color = vec4(rgb, 1.0) * computeLight();\n"
     "    gl_FragColor = color;\n"
     "}\n"
@@ -97,6 +100,7 @@ int main(int argc, char** argv)
     ss->setAttributeAndModes(program.get());
     ss->addUniform(new osg::Uniform("baseTexture", (int)0));
     ss->addUniform(new osg::Uniform("topTexture", (int)1));
+    ss->addUniform(new osg::Uniform("localOrWorld", 1.0f));
 
     // Quick test convenient animation functions
     osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;

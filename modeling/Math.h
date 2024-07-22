@@ -21,12 +21,12 @@
 namespace osgVerse
 {
 
-    typedef std::pair<osg::Vec2, osg::Vec2> LineType2D;
-    typedef std::pair<osg::Vec3, osg::Vec3> LineType3D;
-    typedef std::pair<osg::Vec2, size_t> PointType2D;
+    typedef std::pair<osg::Vec2d, osg::Vec2d> LineType2D;
+    typedef std::pair<osg::Vec3d, osg::Vec3d> LineType3D;
+    typedef std::pair<osg::Vec2d, size_t> PointType2D;
     typedef std::pair<size_t, size_t> EdgeType;
     typedef std::vector<PointType2D> PointList2D;
-    typedef std::vector<osg::Vec3> PointList3D;
+    typedef std::vector<osg::Vec3d> PointList3D;
     typedef std::vector<osg::Plane> PlaneList;
     typedef std::vector<EdgeType> EdgeList;
     struct MathExpressionPrivate;
@@ -95,20 +95,25 @@ namespace osgVerse
     struct GeometryAlgorithm
     {
         /** Project a list of 3D points on a plane to 2D type (with Z as index) */
-        static bool project(const PointList3D& points, PointList2D& pointsOut);
+        static bool project(const PointList3D& points, const osg::Vec3d& planeNormal,
+                            const osg::Vec3d& planeUp, PointList2D& pointsOut);
 
         /** Convenient method to convert edges to 3D vertices, 2D projections and edge indices */
-        static EdgeList project(const std::vector<LineType3D>& edges, const osg::Vec3& planeNormal,
+        static EdgeList project(const std::vector<LineType3D>& edges, const osg::Vec3d& planeNormal,
                                 PointList3D& points, PointList2D& points2D);
         
         /** Containment computations */
-        static bool pointInPolygon2D(const osg::Vec2& p, const PointList2D& polygon, bool isConvex);
+        static bool pointInPolygon2D(const osg::Vec2d& p, const PointList2D& polygon, bool isConvex);
 
         /** Compute intersections of a 2D line and a 2D polygon */
         static PointList2D intersectionWithPolygon2D(const LineType2D& l, const PointList2D& polygon);
 
         /** Decompose a concave polygon into multiple convex polygons and return splitting edges */
         static std::vector<LineType2D> decomposePolygon2D(const PointList2D& polygon);
+
+        /** Compute the pole of inaccessibility coordinate of a polygon.
+            It is the most distant internal point from the polygon outline (not centroid) */
+        static osg::Vec2d getPoleOfInaccessibility(const PointList2D& polygon, double precision = 1.0);
 
         /** Check for clockwise/counter-clockwise */
         static bool clockwise2D(const PointList2D& points);

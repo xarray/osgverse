@@ -46,11 +46,11 @@ int main(int argc, char** argv)
         if (origPt.size() < 3) continue;
 
         // Find and reorder vertices on a intersected face (with 3-5 points)
-        std::vector<osg::Vec3> ptIn, ptOut, edge;
+        std::vector<osg::Vec3d> ptIn, ptOut, edge;
         for (size_t i = 0; i < origPt.size(); ++i) ptIn.push_back(origPt[i] * ir.matrix);
 
         osgVerse::PointList2D projected; ptOut.resize(ptIn.size());
-        osgVerse::GeometryAlgorithm::project(ptIn, projected);
+        osgVerse::GeometryAlgorithm::project(ptIn, osg::Vec3d(), osg::Vec3d(), projected);
         osgVerse::GeometryAlgorithm::reorderPointsInPlane(projected);
         for (size_t i = 0; i < ptIn.size(); ++i) ptOut[i] = ptIn[projected[i].second];
 
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
         {
             const osg::Plane& plane = planes[j]; edge.clear();
             for (size_t i = 0; i < ptOut.size(); ++i)
-            { if (osg::equivalent(plane.distance(ptOut[i]), 0.0f)) edge.push_back(ptOut[i]); }
+            { if (osg::equivalent(plane.distance(ptOut[i]), 0.0)) edge.push_back(ptOut[i]); }
             if (edge.size() > 1)
                 edgeOnPlaneMap[j].push_back(std::pair<osg::Vec3, osg::Vec3>(edge[0], edge[1]));
         }
@@ -83,7 +83,8 @@ int main(int argc, char** argv)
     for (std::map<int, std::vector<std::pair<osg::Vec3, osg::Vec3>>>::iterator
          itr = edgeOnPlaneMap.begin(); itr != edgeOnPlaneMap.end(); ++itr)
     {
-        std::vector<osgVerse::LineType3D>& edges = itr->second;
+        std::vector<osgVerse::LineType3D> edges(itr->second.size());
+        for (size_t k = 0; k < edges.size(); ++k) edges[k] = itr->second[k];
         if (edges.size() < 3) continue;
 
         osg::Vec3Array* va2 = new osg::Vec3Array;

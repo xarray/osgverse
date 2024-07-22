@@ -6,6 +6,8 @@
 
 #include "3rdparty/exprtk.hpp"
 #include "3rdparty/cdt/CDT.h"
+#include "3rdparty/mapbox/polylabel.hpp"
+#include "3rdparty/clipper2/clipper.h"
 #include "Math.h"
 const float ZERO_TOLERANCE = float(1e-5);
 
@@ -262,49 +264,52 @@ double MathExpression::evaluate(bool* ok)
 
 /* GeometryAlgorithm */
 
-bool GeometryAlgorithm::project(const PointList3D& pIn, PointList2D& proj)
+bool GeometryAlgorithm::project(const PointList3D& pIn, const osg::Vec3d& planeNormal,
+                                const osg::Vec3d& planeUp, PointList2D& proj)
 {
-    size_t ptr = 2, size = pIn.size();
-    if (size < 3) return false; else proj.resize(size);
-
-    osg::Vec3 v0 = pIn[1] - pIn[0]; v0.normalize();
-    osg::Vec3 v1 = pIn[2] - pIn[1]; v1.normalize();
-    osg::Vec3 norm = v0 ^ v1, p0(pIn[0]);
-    while (norm.length2() == 0.0f || !norm.valid())
+    size_t ptr = 2, size = pIn.size(); if (!size) return false; proj.resize(size);
+    osg::Vec3d norm = planeNormal, p0 = pIn[0], v0 = planeUp, v1;
+    if (norm.length2() == 0.0 || !norm.valid())
     {
-        v1 = pIn[ptr] - pIn[ptr - 1]; v1.normalize();
-        norm = v0 ^ v1; ptr++; if (ptr >= size) return false;
+        if (size < 3) return false;
+        v0 = pIn[1] - pIn[0]; v0.normalize();
+        v1 = pIn[2] - pIn[1]; v1.normalize(); norm = v0 ^ v1;
+        while (norm.length2() == 0.0 || !norm.valid())
+        {
+            v1 = pIn[ptr] - pIn[ptr - 1]; v1.normalize();
+            norm = v0 ^ v1; ptr++; if (ptr >= size) return false;
+        }
     }
 
     osg::Matrix m = osg::Matrix::lookAt(p0 + norm, p0, v0);
     for (size_t i = 0; i < proj.size(); ++i)
     {
-        osg::Vec3 pt = pIn[i] * m; proj[i].second = i;
-        proj[i].first = osg::Vec2(pt[0], pt[1]);
+        osg::Vec3d pt = pIn[i] * m; proj[i].second = i;
+        proj[i].first = osg::Vec2d(pt[0], pt[1]);
     }
     return true;
 }
 
-EdgeList GeometryAlgorithm::project(const std::vector<LineType3D>& edges, const osg::Vec3& normal,
+EdgeList GeometryAlgorithm::project(const std::vector<LineType3D>& edges, const osg::Vec3d& normal,
                                     PointList3D& points, PointList2D& points2D)
 {
     osg::Matrix matrix;
-    if (normal.length2() > 0.0f)
+    if (normal.length2() > 0.0)
     {
-        osg::Vec3 center; size_t centerN = 0;
+        osg::Vec3d center; size_t centerN = 0;
         for (size_t i = 0; i < edges.size(); ++i)
         { center += edges[i].first; center += edges[i].second; centerN += 2; }
-        center /= (float)centerN;
+        center /= (double)centerN;
 
-        osg::Vec3 up = (normal.z() > 0.8f) ? osg::Y_AXIS : osg::Z_AXIS;
+        osg::Vec3d up = (normal.z() > 0.8) ? osg::Y_AXIS : osg::Z_AXIS;
         matrix = osg::Matrix::lookAt(center + normal, center, up);
     }
 
-    std::map<osg::Vec3, osgVerse::PointType2D> projected;
+    std::map<osg::Vec3d, osgVerse::PointType2D> projected;
     for (size_t i = 0; i < edges.size(); ++i)
     {
-        const osg::Vec3& e0 = edges[i].first, e1 = edges[i].second;
-        osg::Vec3 p0 = e0 * matrix, p1 = e1 * matrix;
+        const osg::Vec3d& e0 = edges[i].first, e1 = edges[i].second;
+        osg::Vec3d p0 = e0 * matrix, p1 = e1 * matrix;
         if (projected.find(e0) == projected.end())
             projected[e0] = osgVerse::PointType2D(osg::Vec2(p0[0], p0[1]), projected.size());
         if (projected.find(e1) == projected.end())
@@ -312,7 +317,7 @@ EdgeList GeometryAlgorithm::project(const std::vector<LineType3D>& edges, const 
     }
 
     points.resize(projected.size()); points2D.resize(projected.size());
-    for (std::map<osg::Vec3, osgVerse::PointType2D>::iterator vitr = projected.begin();
+    for (std::map<osg::Vec3d, osgVerse::PointType2D>::iterator vitr = projected.begin();
          vitr != projected.end(); ++vitr)
     {
         points[vitr->second.second] = vitr->first;
@@ -329,18 +334,18 @@ EdgeList GeometryAlgorithm::project(const std::vector<LineType3D>& edges, const 
     return edgeIndices;
 }
 
-bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& polygon, bool isConvex)
+bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2d& p, const PointList2D& polygon, bool isConvex)
 {
     unsigned int numPoints = polygon.size();
     if (isConvex)
     {
         for (unsigned int i = 0, j = numPoints - 1; i < numPoints; j = i++)
         {
-            float nx = polygon[i].first.y() - polygon[j].first.y();
-            float ny = polygon[j].first.x() - polygon[i].first.x();
-            float dx = p.x() - polygon[j].first.x();
-            float dy = p.y() - polygon[j].first.y();
-            if ((nx * dx + ny * dy) > 0.0f) return false;
+            double nx = polygon[i].first.y() - polygon[j].first.y();
+            double ny = polygon[j].first.x() - polygon[i].first.x();
+            double dx = p.x() - polygon[j].first.x();
+            double dy = p.y() - polygon[j].first.y();
+            if ((nx * dx + ny * dy) > 0.0) return false;
         }
         return true;
     }
@@ -348,9 +353,9 @@ bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& 
     bool inside = false;
     for (unsigned int i = 0, j = numPoints - 1; i < numPoints; j = i++)
     {
-        const osg::Vec2& u0 = polygon[i].first;
-        const osg::Vec2& u1 = polygon[j].first;
-        float lhs = 0.0f, rhs = 0.0f;
+        const osg::Vec2d& u0 = polygon[i].first;
+        const osg::Vec2d& u1 = polygon[j].first;
+        double lhs = 0.0, rhs = 0.0;
 
         if (p.y() < u1.y())  // U1 above ray
         {
@@ -373,8 +378,8 @@ bool GeometryAlgorithm::pointInPolygon2D(const osg::Vec2& p, const PointList2D& 
 
 struct IntersectionHelper2D
 {
-    static osg::Vec2 intersect(const osg::Vec2& A, const osg::Vec2& B,
-                               const osg::Vec2& C, const osg::Vec2& D)
+    static osg::Vec2d intersect(const osg::Vec2d& A, const osg::Vec2d& B,
+                                const osg::Vec2d& C, const osg::Vec2d& D)
     {
         // Line AB represented as a1x + b1y = c1
         double a1 = B.y() - A.y(), b1 = A.x() - B.x();
@@ -386,16 +391,16 @@ struct IntersectionHelper2D
 
         double determinant = a1 * b2 - a2 * b1;
         if (determinant == 0)
-            return osg::Vec2(FLT_MAX, FLT_MAX);
+            return osg::Vec2d(FLT_MAX, FLT_MAX);
         else
         {
             double x = (b2 * c1 - b1 * c2) / determinant;
             double y = (a1 * c2 - a2 * c1) / determinant;
-            return osg::Vec2(x, y);
+            return osg::Vec2d(x, y);
         }
     }
 
-    static bool isWithinSegment(const osg::Vec2& p, const osg::Vec2& a, const osg::Vec2& b)
+    static bool isWithinSegment(const osg::Vec2d& p, const osg::Vec2d& a, const osg::Vec2d& b)
     {
         return (osg::minimum(a.x(), b.x()) <= p.x() && p.x() <= osg::maximum(a.x(), b.x())) &&
                (osg::minimum(a.y(), b.y()) <= p.y() && p.y() <= osg::maximum(a.y(), b.y()));
@@ -405,11 +410,11 @@ struct IntersectionHelper2D
 PointList2D GeometryAlgorithm::intersectionWithPolygon2D(const LineType2D& line, const PointList2D& polygon)
 {
     PointList2D result; size_t num = polygon.size();
-    osg::Vec2 s = line.first, e = line.second;
+    osg::Vec2d s = line.first, e = line.second;
     for (size_t i = 0; i < num; ++i)
     {
-        osg::Vec2 p0 = polygon[i].first, p1 = polygon[(i + 1) % num].first;
-        osg::Vec2 intersection = IntersectionHelper2D::intersect(p0, p1, s, e);
+        osg::Vec2d p0 = polygon[i].first, p1 = polygon[(i + 1) % num].first;
+        osg::Vec2d intersection = IntersectionHelper2D::intersect(p0, p1, s, e);
         if (IntersectionHelper2D::isWithinSegment(intersection, p0, p1) &&
             IntersectionHelper2D::isWithinSegment(intersection, s, e))
         { result.push_back(PointType2D(intersection, i)); }
@@ -429,38 +434,38 @@ std::vector<LineType2D> GeometryAlgorithm::decomposePolygon2D(const PointList2D&
     int size = (int)polygon.size();
     for (int i = 0; i < size; ++i)
     {
-        const osg::Vec2& a = SAFT_POLYGON_INDEX(i - 1);
-        const osg::Vec2& b = SAFT_POLYGON_INDEX(i);
-        const osg::Vec2& c = SAFT_POLYGON_INDEX(i + 1);
-        if (TRIANGLE_AREA(a, b, c) >= 0.0f) continue;
+        const osg::Vec2d& a = SAFT_POLYGON_INDEX(i - 1);
+        const osg::Vec2d& b = SAFT_POLYGON_INDEX(i);
+        const osg::Vec2d& c = SAFT_POLYGON_INDEX(i + 1);
+        if (TRIANGLE_AREA(a, b, c) >= 0.0) continue;
 
         for (int j = 0; j < size; ++j)
         {
-            const osg::Vec2& d = SAFT_POLYGON_INDEX(j);
-            if (TRIANGLE_AREA(c, b, d) >= 0.0f && TRIANGLE_AREA(a, b, d) <= 0.0f) continue;
+            const osg::Vec2d& d = SAFT_POLYGON_INDEX(j);
+            if (TRIANGLE_AREA(c, b, d) >= 0.0 && TRIANGLE_AREA(a, b, d) <= 0.0) continue;
 
             // Check for each edge
             bool accepted = true;
-            float distance = (b - d).length2();
+            double distance = (b - d).length2();
             for (int k = 0; k < size; ++k)
             {
-                const osg::Vec2& e = SAFT_POLYGON_INDEX(k);
-                const osg::Vec2& f = SAFT_POLYGON_INDEX(k + 1);
+                const osg::Vec2d& e = SAFT_POLYGON_INDEX(k);
+                const osg::Vec2d& f = SAFT_POLYGON_INDEX(k + 1);
                 if (((k + 1) % size) == i || k == i) continue;  // ignore incident edges
 
-                if (TRIANGLE_AREA(b, d, f) >= 0.0f && TRIANGLE_AREA(b, d, e) <= 0.0f)
+                if (TRIANGLE_AREA(b, d, f) >= 0.0 && TRIANGLE_AREA(b, d, e) <= 0.0)
                 {   // if diag intersects an edge
                     // Compute line intersection: (b, d) - (e, f)
-                    float a1 = d.y() - b.y(), b1 = b.x() - d.x();
-                    float c1 = a1 * b.x() + b1 * b.y();
-                    float a2 = f.y() - e.y(), b2 = e.x() - f.x();
-                    float c2 = a2 * e.x() + b2 * e.y();
-                    float det = a1 * b2 - a2 * b1;
-                    if (fabs(det) > 0.0001f)
+                    double a1 = d.y() - b.y(), b1 = b.x() - d.x();
+                    double c1 = a1 * b.x() + b1 * b.y();
+                    double a2 = f.y() - e.y(), b2 = e.x() - f.x();
+                    double c2 = a2 * e.x() + b2 * e.y();
+                    double det = a1 * b2 - a2 * b1;
+                    if (fabs(det) > 0.0001)
                     {
-                        osg::Vec2 ip((b2 * c1 - b1 * c2) / det,
-                            (a1 * c2 - a2 * c1) / det);
-                        float newDistance = (b - ip).length2() + 0.0001f;
+                        osg::Vec2d ip((b2 * c1 - b1 * c2) / det,
+                                      (a1 * c2 - a2 * c1) / det);
+                        double newDistance = (b - ip).length2() + 0.0001;
                         if (newDistance < distance) { accepted = false; break; }
                     }
                 }
@@ -486,13 +491,26 @@ std::vector<LineType2D> GeometryAlgorithm::decomposePolygon2D(const PointList2D&
             temp1.insert(temp1.end(), temp2.begin(), temp2.end());
             if (temp1.size() < numDiags)
             {
-                numDiags = temp1.size();
-                result = temp1;
+                numDiags = temp1.size(); result = temp1;
                 result.push_back(LineType2D(b, d));
             }
         }
     }
     return result;
+}
+
+osg::Vec2d GeometryAlgorithm::getPoleOfInaccessibility(const PointList2D& polygon, double precision)
+{
+    mapbox::geometry::linear_ring<double> ring;
+    for (size_t i = 0; i < polygon.size(); ++i)
+    {
+        const osg::Vec2d& pt = polygon[i].first;
+        ring.push_back(mapbox::geometry::point<double>(pt[0], pt[1]));
+    }
+
+    mapbox::geometry::polygon<double> mbPolygon; mbPolygon.push_back(ring);
+    mapbox::geometry::point<double> result = mapbox::polylabel(mbPolygon, precision);
+    return osg::Vec2d(result.x, result.y);
 }
 
 bool GeometryAlgorithm::clockwise2D(const PointList2D& points)
@@ -505,12 +523,12 @@ bool GeometryAlgorithm::clockwise2D(const PointList2D& points)
     {
         unsigned int j = (i + 1) % num;
         unsigned int k = (i + 2) % num;
-        float z = (points[j].first.x() - points[i].first.x()) *
-                  (points[k].first.y() - points[j].first.y())
-                - (points[j].first.y() - points[i].first.y()) *
-                  (points[k].first.x() - points[j].first.x());
-        if (z < 0.0f) count--;
-        else if (z > 0.0f) count++;
+        double z = (points[j].first.x() - points[i].first.x()) *
+                   (points[k].first.y() - points[j].first.y())
+                 - (points[j].first.y() - points[i].first.y()) *
+                   (points[k].first.x() - points[j].first.x());
+        if (z < 0.0) count--;
+        else if (z > 0.0) count++;
     }
     return count < 0;
 }
