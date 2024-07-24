@@ -18,7 +18,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Mac OS X         |                          | :soon:             |       |
 | Android          | WSL + NDK r20e (Clang)   | :heavy_check_mark: |       |
 | IOS              |                          | :soon:             |       |
-| WebAssmebly      | WSL + Emscripten 3.1.44  | :heavy_check_mark: | Supports GLES2 (WebGL1) at present |
+| WebAssmebly      | WSL + Emscripten 3.1.64  | :heavy_check_mark: | Supports GLES2 (WebGL1) at present |
 
 #### Main Features (ongoing to v1.0)
 - [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
@@ -50,8 +50,9 @@ https://www.yuque.com/wangrui-jhjnz/zx531p/io8e7aq2ufsdhhl2
 2. Please use a C++ compiler supporting C++ 14 at least.
 3. OpenSceneGraph is always required for building osgVerse. (https://github.com/openscenegraph/OpenSceneGraph) Current project mainly depends on OSG 3.7.0, but can compile on OSG 3.1.1 or later versions.
 4. Important dependencies:
-  - 4.1 SDL2 (https://github.com/libsdl-org/SDL)
-  - 4.2 Google Angle (https://github.com/google/angle)
+  - 4.1 SDL2 (https://github.com/libsdl-org/SDL): for windowing system supports on Android, IOS and WebAssembly builds.
+  - 4.2 Google Angle (https://github.com/google/angle): for cross-Graphics API uses and Vulkan integrations.
+  - 4.3 Emscripten SDK (https://emscripten.org/docs/getting_started/downloads.html): for WebAssembly builds.
 5. Optional dependencies:
   - 5.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
   - 5.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable INSTALL_LIBS (for correct installation) and USE_MSVC_RUNTIME_LIBRARY_DLL (for /MD flag) while compiling Bullet.
@@ -268,4 +269,5 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
 | VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |
+| VERSE_WASM_OPTIMIZE_SIZE    | Boolean | ON            | Enable -O3 for WASM, which is slow but with small generated size |
 | VERSE_FIND_LEGACY_OPENGL    | Boolean | OFF           | Enable to use legacy mode to search OpenGL libraries, for some Linux systems like Kylin |

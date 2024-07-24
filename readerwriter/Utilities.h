@@ -69,41 +69,66 @@ namespace osgVerse
 #ifdef __EMSCRIPTEN__
     struct WebFetcher : public osg::Referenced
     {
-        WebFetcher() : fetch(NULL), done(false) {}
-        emscripten_fetch_t* fetch; bool done;
+        WebFetcher() : status(0), done(false) {}
+        std::vector<std::string> resHeaders;
         std::vector<char> buffer;
+        int status; bool done;
 
-        bool httpGet(const std::string& uri)
+        bool httpGet(const std::string& uri, const char* userName = NULL, const char* password = NULL,
+                     const char* mimeType = NULL, const std::vector<std::string> requestHeaders = std::vector<std::string>())
         {
             // https://emscripten.org/docs/api_reference/fetch.html
             emscripten_fetch_attr_t attr;
-            emscripten_fetch_attr_init(&attr);
-            strcpy(attr.requestMethod, "GET");
+            emscripten_fetch_attr_init(&attr); strcpy(attr.requestMethod, "GET");
+            if (userName != NULL) attr.userName = userName;
+            if (password != NULL) attr.password = password;
+            if (mimeType != NULL) attr.overriddenMimeType = mimeType;
+            if (!requestHeaders.empty())
+            {
+                std::vector<const char*> cRequestHeaders;
+                cRequestHeaders.reserve(requestHeaders.size());
+                for(size_t i = 0; i < requestHeaders.size(); ++i)
+                    cRequestHeaders.push_back(requestHeaders[i].c_str());
+                attr.requestHeaders = &cRequestHeaders[0];
+            }
+
+            attr.userData = this;
             attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
             attr.onsuccess = WebFetcher::downloadSuccess;
             attr.onerror = WebFetcher::downloadFailure;
             attr.onprogress = WebFetcher::emptyCallback;
             attr.onreadystatechange = WebFetcher::emptyCallback;
-            attr.userData = this;
 
-            emscripten_fetch(&attr, uri.c_str());
+            emscripten_fetch_t* f = emscripten_fetch(&attr, uri.c_str());
             while (!done) emscripten_advance();
+            emscripten_fetch_close(f);
             return !buffer.empty();
+        }
+
+        static std::vector<std::string> getResponseHeaders(emscripten_fetch_t* f)
+        {
+            int headerSize = (int)emscripten_fetch_get_response_headers_length(f);
+            std::string headerData; headerData.resize(headerSize + 1);
+            if (headerSize <= 0) return std::vector<std::string>();
+            emscripten_fetch_get_response_headers(f, (char*)headerData.data(), headerData.size());
+
+            char** cHeaders = emscripten_fetch_unpack_response_headers(headerData.data());
+            std::vector<std::string> headers; int ptr = 0; char* hValue = cHeaders[ptr];
+            while (hValue != NULL) { headers.push_back(hValue); hValue = cHeaders[++ptr]; }
+            emscripten_fetch_free_unpacked_response_headers(cHeaders); return headers;
         }
 
         static void downloadSuccess(emscripten_fetch_t* f)
         {
             WebFetcher* fr = (WebFetcher*)f->userData;
-            char* ptr = (char*)&f->data[0]; fr->done = true;
-            fr->buffer.assign(ptr, ptr + f->numBytes);
-            emscripten_fetch_close(f);
+            char* ptr = (char*)&f->data[0]; fr->buffer.assign(ptr, ptr + f->numBytes);
+            fr->status = f->status; fr->done = true;
         }
 
         static void downloadFailure(emscripten_fetch_t* f)
         {
             WebFetcher* fr = (WebFetcher*)f->userData;
-            fr->done = true; fr->buffer.clear();
-            emscripten_fetch_close(f);
+            fr->status = f->status; fr->done = true; fr->buffer.clear();
         }
 
         static void emptyCallback(emscripten_fetch_t* f) {}

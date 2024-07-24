@@ -15,7 +15,7 @@ ENDIF(VERSE_STATIC_BUILD)
 
 SET(WASM_FLAGS_EX "")
 IF(VERSE_WASM_USE_PTHREAD)
-    SET(WASM_FLAGS_EX "-pthread -s PTHREAD_POOL_SIZE=4")
+    SET(WASM_FLAGS_EX "-pthread -s PTHREAD_POOL_SIZE=15 -s WASM_BIGINT -s TOTAL_MEMORY=1GB -s MAXIMUM_MEMORY=4GB")
 ENDIF(VERSE_WASM_USE_PTHREAD)
 
 # https://emscripten.org/docs/optimizing/Optimizing-WebGL.html
@@ -42,8 +42,15 @@ ELSE()
 ENDIF()
 
 CONFIGURE_FILE(shell.html.in "${CMAKE_CURRENT_BINARY_DIR}/shell.html" @ONLY)
-SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell.html -gsource-map -fsanitize=address -O3")
-SET(WASM_FLAGS1 "-s WASM=1 -s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL=2 -s FETCH=1")
+SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell.html -fsanitize=address")
+SET(WASM_FLAGS1 "-s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL=2 -s FETCH=1 -s WASM=1 -s ASYNCIFY=1")
+
+# https://developer.chrome.com/blog/faster-wasm-debugging
+IF(VERSE_WASM_OPTIMIZE_SIZE)
+    SET(WASM_FLAGS2 "-s ALLOW_MEMORY_GROWTH=1 -Oz")
+ELSE(VERSE_WASM_OPTIMIZE_SIZE)
+    SET(WASM_FLAGS2 "-gsource-map -s ALLOW_MEMORY_GROWTH=1 -s ASYNCIFY_STACK_SIZE=24576 -O0")
+ENDIF(VERSE_WASM_OPTIMIZE_SIZE)
 
 ADD_SUBDIRECTORY(pbr_demo)
 ADD_SUBDIRECTORY(script_demo)

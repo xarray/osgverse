@@ -154,19 +154,19 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
+        // TODO: get connection parameters from options
 #ifdef __EMSCRIPTEN__
         osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
         bool succeed = wf->httpGet(osgDB::getServerFileName(fileName));
         if (!succeed)
         {
-            OSG_WARN << "[emfetch] Failed getting " << fileName << std::endl;
-            return ReadResult::ERROR_IN_READING_FILE;
+            OSG_WARN << "[emfetch] Failed getting " << fileName << ": " << wf->status << std::endl;
+            return ReadResult::FILE_NOT_FOUND;
         }
 
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
         buffer.write((char*)&wf->buffer[0], wf->buffer.size());
 #else
-        // TODO: get connection parameters from options
         HttpRequest req;
 
         // Read data from web

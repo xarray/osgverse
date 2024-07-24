@@ -376,10 +376,10 @@ namespace osgVerse
                 osg::Node* n = _nodeCreationMap[sd.joints[b]];
                 if (n && n->asGroup() && n->asGroup()->asTransform())
                     boneList.push_back(n->asGroup()->asTransform());
-                else if (n)
-                    OSG_WARN << "[LoaderGLTF] Invalid bone: " << n->getName() << std::endl;
+                else if (n != NULL)
+                    { OSG_WARN << "[LoaderGLTF] Invalid bone: " << n->getName() << std::endl; }
                 else
-                    OSG_WARN << "[LoaderGLTF] Invalid empty bone: " << sd.joints[b] << std::endl;
+                    { OSG_WARN << "[LoaderGLTF] Invalid empty bone: " << sd.joints[b] << std::endl; }
             }
 
             createInvBindMatrices(sd, boneList, _modelDef.accessors[sd.invBindPoseAccessor]);
@@ -711,7 +711,7 @@ namespace osgVerse
             withNames ? mesh.extras.Get("targetNames") : tinygltf::Value());
         return true;
     }
-	
+
 	static osg::Texture2D* createDefaultTextureForColor(const osg::Vec4& color)
     {
         osg::ref_ptr<osg::Image> image = new osg::Image;
@@ -837,7 +837,7 @@ namespace osgVerse
         int compSize = tinygltf::GetComponentSizeInBytes(accessor.componentType);
         int compNum = accessor.type, size = accessor.count;
         if (compNum != TINYGLTF_TYPE_MAT4 || size != (int)bones.size()) return;
-        
+
         size_t stride = (attrView.byteStride > 0 && attrView.byteStride != (compSize * 4 * sizeof(float)))
                       ? attrView.byteStride : 0;
         size_t offset = accessor.byteOffset + attrView.byteOffset;
@@ -1037,14 +1037,15 @@ namespace osgVerse
 
     osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary)
     {
-        std::string workDir = osgDB::getFilePath(file);
+        std::string workDir = osgDB::getFilePath(file), http = osgDB::getServerProtocol(file);
+        if (!http.empty()) return NULL;
         std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
         if (!in)
         {
             OSG_WARN << "[LoaderGLTF] file " << file << " not readable" << std::endl;
             return NULL;
         }
-        
+
         osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, workDir, isBinary);
         if (loader->getRoot()) loader->getRoot()->setName(file);
         return loader->getRoot();

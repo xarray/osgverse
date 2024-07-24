@@ -557,7 +557,8 @@ PointType2D ResortHelper::centroid;
 
 bool GeometryAlgorithm::reorderPointsInPlane(PointList2D& proj)
 {
-    ResortHelper::find_centroid(ResortHelper::centroid, &proj[0], proj.size());
+    ResortHelper::centroid.first = getPoleOfInaccessibility(proj);
+    //ResortHelper::find_centroid(ResortHelper::centroid, &proj[0], proj.size());
     qsort(&proj[0], proj.size(), sizeof(PointType2D), ResortHelper::by_polar_angle);
     return true;
 }

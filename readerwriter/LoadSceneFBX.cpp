@@ -561,7 +561,8 @@ namespace osgVerse
 
     osg::ref_ptr<osg::Group> loadFbx(const std::string& file)
     {
-        std::string workDir = osgDB::getFilePath(file);
+        std::string workDir = osgDB::getFilePath(file), http = osgDB::getServerProtocol(file);
+        if (!http.empty()) return NULL;
         std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
         if (!in)
         {
