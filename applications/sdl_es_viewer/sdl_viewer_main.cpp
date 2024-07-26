@@ -34,6 +34,7 @@ namespace backward { backward::SignalHandling sh; }
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -62,8 +63,8 @@ int main(int argc, char** argv)
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
-        osgVerse::TangentSpaceVisitor tsv;
-        scene->accept(tsv);
+        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
     }
 
     // The scene graph

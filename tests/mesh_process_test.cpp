@@ -92,7 +92,7 @@ int main(int argc, char** argv)
     // Test VHACD
     osgVerse::BoundingVolumeVisitor bvv;
     scene->accept(bvv);
-    geode->addDrawable(bvv.computeVHACD());
+    geode->addDrawable(bvv.computeCoACD());
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(scene.get());

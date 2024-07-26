@@ -469,6 +469,16 @@ SET(TWEENY_SOURCE_FILES
     tweeny/tweenone.tcc tweeny/tweenpoint.tcc
 )
 
+SET(COACD_SOURCE_FILES
+    coacd/bvh.cpp coacd/bvh.h coacd/clip.cpp coacd/clip.h coacd/coacd.cpp coacd/coacd.h
+    coacd/config.h coacd/cost.cpp coacd/cost.h coacd/hausdorff.h coacd/intersection.h
+    coacd/logger.cpp coacd/logger.h coacd/mcts.cpp coacd/mcts.h coacd/process.cpp coacd/process.h
+    coacd/shape.cpp coacd/shape.h coacd/sobol.cpp coacd/sobol.h coacd/model_obj.cpp coacd/model_obj.h
+    coacd/btConvexHull/btAlignedAllocator.cpp coacd/btConvexHull/btAlignedAllocator.h
+    coacd/btConvexHull/btConvexHullComputer.cpp coacd/btConvexHull/btConvexHullComputer.h
+    coacd/quickhull/QuickHull.cpp coacd/quickhull/QuickHull.hpp
+)
+
 SET(QUADRIFLOW_SOURCE_FILES
     quadriflow/manifold/types.h quadriflow/manifold/GridIndex.h
     quadriflow/manifold/Intersection.h quadriflow/manifold/Intersection.cc
@@ -496,6 +506,7 @@ SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
 SOURCE_GROUP("libSpatialIndex Files" FILES ${LIBSPATIALINDEX_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
+SOURCE_GROUP("CoACD Files" FILES ${COACD_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
 
@@ -507,15 +518,15 @@ SET(LIBRARY_FILES
     sqlite3.c sqlite3.h miniz.c miniz.h ofbx.cpp ofbx.h tinyexr.cc tinyexr.h dkm_parallel.hpp
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
 	mimalloc/static.c mimalloc/mimalloc.h mimalloc/mimalloc-new-delete.h lsqcpp.hpp
-	lightmapper.h xatlas.cpp xatlas.h VHACD.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp
-    GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
+	lightmapper.h xatlas.cpp xatlas.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp
+    GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp VHACD.h
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
-    ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
+    ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES} ${COACD_SOURCE_FILES}
 )
 
 IF(LIBIGL_FOUND)

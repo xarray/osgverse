@@ -10,8 +10,13 @@
 class CreateVHACDVisitor : public osg::NodeVisitor
 {
 public:
-    CreateVHACDVisitor()
-    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    CreateVHACDVisitor(const osg::BoundingBox& bb, const std::set<std::string>& whitelist, float bRatio)
+    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _sceneBoundingBox(bb),
+        _whitelist(whitelist), _numMinTriangleVertices(50)
+    {
+        osg::Vec3 extent = bb._max - bb._min;
+        _sceneBoundThreshold = extent[0] * extent[1] * extent[2] * bRatio;
+    }
 
     virtual void apply(osg::Geode& node)
     {
@@ -27,11 +32,24 @@ public:
 
     virtual void apply(osg::Geometry& geom)
     {
+        bool found = false; const std::string& name = geom.getName();
+        for (std::set<std::string>::iterator itr = _whitelist.begin(); itr != _whitelist.end(); ++itr)
+        { if (name.find(*itr) != std::string::npos) { found = true; break; } }
+        
         osgVerse::BoundingVolumeVisitor bvv; bvv.apply(geom);
-        unsigned int numTriangleIndices = bvv.getTriangles().size();
-        if (numTriangleIndices > 50)
+        found |= _whitelist.empty();
+        if (_sceneBoundThreshold > 0.0f)
         {
-            osg::ref_ptr<osg::Geometry> newGeom = bvv.computeVHACD(false, true, 5000, 5);
+            const osg::BoundingBox& bb = geom.getBoundingBox();
+            osg::Vec3 extent = bb._max - bb._min; float volume = extent[0] * extent[1] * extent[2];
+            if (volume > _sceneBoundThreshold) found = false;
+        }
+
+        unsigned int numTriangleIndices = bvv.getTriangles().size();
+        if (found && numTriangleIndices > _numMinTriangleVertices)
+        {
+            osg::ref_ptr<osg::Geometry> newGeom = bvv.computeVHACD(false, true, 5000, 100);
+            //osg::ref_ptr<osg::Geometry> newGeom = bvv.computeCoACD(0.1f);
             if (newGeom.valid() && newGeom->getNumPrimitiveSets() > 0)
             {
                 unsigned int numNewTriangleIndices =
@@ -49,25 +67,33 @@ public:
         for (std::map<osg::Geometry*, osg::ref_ptr<osg::Geometry>>::iterator itr = _vhacdMap.begin();
              itr != _vhacdMap.end(); ++itr)
         {
-            osg::Geometry* geom = itr->first;
-            if (geom->getNumParents() == 0) continue;
-
-#if true
+            osg::Geometry *geom = itr->first, *geom2 = itr->second.get();
+            if (geom->getNumParents() == 0) continue; geom2->setName(geom->getName());
+#if false
             for (unsigned int i = 0; i < geom->getNumParents(); ++i)
             {
                 osg::Geode* geode = static_cast<osg::Geode*>(geom->getParent(i));
-                geode->replaceDrawable(geom, itr->second.get());
+                geode->replaceDrawable(geom, geom2);
             }
 #else
             unsigned int mask = osgVerse::Pipeline::getPipelineMask(*geom);
             osgVerse::Pipeline::setPipelineMask(*geom, mask & rcvMask);
-            osgVerse::Pipeline::setPipelineMask(*itr->second, castMask);
+            osgVerse::Pipeline::setPipelineMask(*geom2, castMask);
+            for (unsigned int i = 0; i < geom->getNumParents(); ++i)
+            {
+                osg::Geode* geode = static_cast<osg::Geode*>(geom->getParent(i));
+                geode->addDrawable(geom2);
+            }
 #endif
         }
     }
 
 protected:
     std::map<osg::Geometry*, osg::ref_ptr<osg::Geometry>> _vhacdMap;
+    std::set<std::string> _whitelist;
+    osg::BoundingBox _sceneBoundingBox;
+    unsigned int _numMinTriangleVertices;
+    float _sceneBoundThreshold;
 };
 
 namespace osgVerse
@@ -109,10 +135,12 @@ namespace osgVerse
         }
     }
 
-    void ShadowModule::createCasterGeometries(osg::Node* scene, unsigned int casterMask)
+    void ShadowModule::createCasterGeometries(osg::Node* scene, unsigned int casterMask, float boundRatio,
+                                              const std::set<std::string>& whitelist)
     {
-        CreateVHACDVisitor cvv; scene->accept(cvv);
-        cvv.updateGeometries(~casterMask, casterMask);
+        osg::ComputeBoundsVisitor cbv; scene->accept(cbv);
+        CreateVHACDVisitor cvv(cbv.getBoundingBox(), whitelist, boundRatio);
+        scene->accept(cvv); cvv.updateGeometries(~casterMask, casterMask);
     }
 
     void ShadowModule::createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,

@@ -13,13 +13,14 @@ namespace osgVerse
     class ShadowModule : public osg::NodeCallback
     {
     public:
-        struct ShadowData : public osg::Referenced
-        { int index; osg::BoundingBoxd bound; };  // will be set to camera's user-data
+        struct ShadowData : public osg::Referenced  // will be set to camera's user-data
+        { int index; osg::BoundingBoxd bound; ShadowData() { index = -1; } };
 
         ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom);
 
         /** Create simplified caster geometries to improve shadow pass effectiveness */
-        void createCasterGeometries(osg::Node* scene, unsigned int casterMask);
+        void createCasterGeometries(osg::Node* scene, unsigned int casterMask, float boundRatio = 0.1f,
+                                    const std::set<std::string>& whitelist = std::set<std::string>());
         
         void createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
                           unsigned int casterMask);

@@ -22,6 +22,7 @@ namespace backward { backward::SignalHandling sh; }
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -71,8 +72,8 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv;
-    scene->accept(tsv);
+    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

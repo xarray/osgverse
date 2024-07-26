@@ -12,6 +12,7 @@
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include "qt_header.h"
 #include <iostream>
 #include <sstream>
@@ -30,8 +31,8 @@ static osg::Group* loadBasicScene(int argc, char** argv)
     if (!scene) scene = new osg::Group;
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv;
-    scene->accept(tsv);
+    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

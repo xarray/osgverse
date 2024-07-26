@@ -22,7 +22,6 @@ namespace backward { backward::SignalHandling sh; }
 #include <iostream>
 #include <sstream>
 
-#define CUSTOM_INPUT_MASK 0x00010000
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
@@ -171,8 +170,8 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv;
-    scene->accept(tsv);
+    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
 
     if (arguments.read("--save"))
     {
@@ -192,7 +191,7 @@ int main(int argc, char** argv)
     sceneRoot->setName("PbrSceneRoot");
     sceneRoot->addChild(scene.get());
     sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
-    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK);
+    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");

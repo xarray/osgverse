@@ -87,7 +87,7 @@ int main(int argc, char** argv)
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
-        //shadow->createCasterGeometries(sceneRoot.get(), SHADOW_CASTER_MASK);
+        shadow->createCasterGeometries(sceneRoot.get(), SHADOW_CASTER_MASK);
         if (shadow->getFrustumGeode())
         {
             osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);

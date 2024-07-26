@@ -12,9 +12,16 @@
 #include <string>
 #include "DeferredCallback.h"
 
+/** Pipeline mask range:
+    - Deferred attributes: Bit 24-32
+    - Shadow & misc:       Bit 16-31
+    - User reserved:       Bit 8-15
+    - Forward reserved:    Bit 0-7
+*/
 #define DEFERRED_SCENE_MASK   0xff000000
 #define FORWARD_SCENE_MASK    0x000000ff
-#define SHADOW_CASTER_MASK    0x10000000
+#define SHADOW_CASTER_MASK    0x00100000
+#define CUSTOM_INPUT_MASK     0x00010000
 
 #ifndef GL_HALF_FLOAT
     #define GL_HALF_FLOAT                     0x140B

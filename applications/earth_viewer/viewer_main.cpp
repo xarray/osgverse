@@ -34,6 +34,7 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/LightModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -138,8 +139,8 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
         baseScene->setMatrix(baseT); scene->addChild(baseScene.get());
     }
 
-    osgVerse::TangentSpaceVisitor tsv;
-    scene->accept(tsv);
+    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
     sceneRoot->addChild(scene.get());
 
     // Use a geo-transform node to place scene on earth

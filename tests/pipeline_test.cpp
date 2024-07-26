@@ -16,6 +16,7 @@
 #include <pipeline/Pipeline.h>
 #include <pipeline/UserInputModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -80,7 +81,6 @@ static const char* inputFragmentShaderCode =
     "}\n"
 };
 
-#define CUSTOM_INPUT_MASK 0x00010000
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
@@ -89,8 +89,8 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv;
-    scene->accept(tsv);
+    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
