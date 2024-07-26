@@ -1,6 +1,7 @@
 SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_INCLUDE_FILES
-    OsgbTileOptimizer.h Utilities.h DatabasePager.h Export.h
+    OsgbTileOptimizer.h Utilities.h DatabasePager.h
+    NamedObjectFinder.h Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h

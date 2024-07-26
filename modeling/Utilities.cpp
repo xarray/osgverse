@@ -14,6 +14,7 @@
 #include <stb/stb_rect_pack.h>
 #include "3rdparty/VHACD.h"
 #include "3rdparty/coacd/coacd.h"
+#include "3rdparty/coacd/process.h"
 #include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
 #include "MeshTopology.h"
 #include "Utilities.h"
@@ -151,6 +152,28 @@ struct CollectVertexOperator
 MeshCollector::MeshCollector()
 :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _weldVertices(false), _globalVertices(false),
     _loadedFineLevels(false), _onlyVertexAndIndices(false) {}
+
+MeshCollector::NonManifoldType MeshCollector::isManifold() const
+{
+    coacd::Model model;
+    if (_vertices.empty() || _indices.empty()) return UNDEFINED;
+    model.points.resize(_vertices.size());
+    for (size_t i = 0; i < _vertices.size(); ++i)
+    {
+        const osg::Vec3& pt = _vertices[i];
+        model.points[i] = { pt[0], pt[1], pt[2] };
+    }
+
+    model.triangles.resize(_indices.size() / 3);
+    for (size_t i = 0; i < model.triangles.size(); ++i)
+    {
+        size_t j = i * 3; model.triangles[i] = {
+            (int)_indices[j], (int)_indices[j + 1], (int)_indices[j + 2] };
+    }
+
+    int errorType = 0; coacd::IsManifold(model, errorType);
+    return (NonManifoldType)errorType;
+}
 
 void MeshCollector::reset()
 {
@@ -300,7 +323,7 @@ void MeshCollector::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
     osg::StateSet::TextureAttributeList& texAttrList = ss.getTextureAttributeList();
     for (size_t i = 0; i < texAttrList.size(); ++i)
     {
-        osg::StateSet::AttributeList& attr = texAttrList[0];
+        osg::StateSet::AttributeList& attr = texAttrList[i];
         for (osg::StateSet::AttributeList::iterator itr = attr.begin();
              itr != attr.end(); ++itr)
         {

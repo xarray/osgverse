@@ -10,11 +10,11 @@ namespace coacd
 {
     thread_local std::mt19937 random_engine;
 
-    bool IsManifold(Model &input)
+    bool IsManifold(Model &input, int& errorType)
     {
-        logger::info(" - Manifold Check");
+        //logger::info(" - Manifold Check");
         clock_t start, end;
-        start = clock();
+        start = clock(); errorType = 0;
         // Check all edges are shared by exactly two triangles (watertight manifold)
         vector<pair<int, int>> edges;
         map<pair<int, int>, int> edge_num;
@@ -31,28 +31,28 @@ namespace coacd
                 edge_num[{idx0, idx1}] = 1;
             else
             {
-                logger::info("\tWrong triangle orientation");
+                //logger::info("\tWrong triangle orientation");
                 end = clock();
-                logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
-                return false;
+                //logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
+                errorType = 1; return false;
             }
             if (edge_num.find({idx1, idx2}) == edge_num.end())
                 edge_num[{idx1, idx2}] = 1;
             else
             {
-                logger::info("\tWrong triangle orientation");
+                //logger::info("\tWrong triangle orientation");
                 end = clock();
-                logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
-                return false;
+                //logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
+                errorType = 1; return false;
             }
             if (edge_num.find({idx2, idx0}) == edge_num.end())
                 edge_num[{idx2, idx0}] = 1;
             else
             {
-                logger::info("\tWrong triangle orientation");
+                //logger::info("\tWrong triangle orientation");
                 end = clock();
-                logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
-                return false;
+                //logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
+                errorType = 1; return false;
             }
         }
 
@@ -61,13 +61,13 @@ namespace coacd
             pair<int, int> oppo_edge = {edges[i].second, edges[i].first};
             if (edge_num.find(oppo_edge) == edge_num.end())
             {
-                logger::info("\tUnclosed mesh");
+                //logger::info("\tUnclosed mesh");
                 end = clock();
-                logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
-                return false;
+                //logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
+                errorType = 2; return false;
             }
         }
-        logger::info("[1/3] Edge check finish");
+        //logger::info("[1/3] Edge check finish");
 
         // Check self-intersection
         BVH bvhTree(input);
@@ -76,13 +76,13 @@ namespace coacd
             bool is_intersect = bvhTree.IntersectBVH(input.triangles[i], 0);
             if (is_intersect)
             {
-                logger::info("\tTriangle self-intersection");
+                //logger::info("\tTriangle self-intersection");
                 end = clock();
-                logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
-                return false;
+                //logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
+                errorType = 3; return false;
             }
         }
-        logger::info("[2/3] Self-intersection check finish");
+        //logger::info("[2/3] Self-intersection check finish");
 
         // Check triange orientation
         double mesh_vol = MeshVolume(input);
@@ -91,12 +91,12 @@ namespace coacd
             // Reverse all the triangles
             for (int i = 0; i < (int)input.triangles.size(); i++)
                 std::swap(input.triangles[i][0], input.triangles[i][1]);
+            errorType = 4;
         }
         end = clock();
 
-        logger::info("[3/3] Triangle orientation check finish. Reversed: {}", mesh_vol < 0);
-        logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
-
+        //logger::info("[3/3] Triangle orientation check finish. Reversed: {}", mesh_vol < 0);
+        //logger::info("Manifold Check Time: {}s", double(end - start) / CLOCKS_PER_SEC);
         return true;
     }
 

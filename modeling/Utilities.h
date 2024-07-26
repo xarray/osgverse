@@ -62,6 +62,13 @@ namespace osgVerse
         const std::vector<osg::Vec3>& getVertices() const { return _vertices; }
         const std::vector<unsigned int>& getTriangles() const { return _indices; }
         const osg::BoundingBoxd& getBoundingBox() const { return _boundingBox; }
+        
+        enum NonManifoldType
+        {
+            IS_MANIFOLD = 0, NONMANIFOLD_EDGE = 1, UNCLOSED_MESH = 2,
+            SELF_INTERSECTION = 3, NEGATIVE_VOLUME = 4, UNDEFINED
+        };
+        NonManifoldType isManifold() const;
 
     protected:
         typedef std::vector<osg::Matrix> MatrixStack;

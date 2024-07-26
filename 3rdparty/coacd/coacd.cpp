@@ -77,7 +77,7 @@ std::vector<Mesh> CoACD(Mesh const &input, double threshold,
       {{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}}};
 
   if (params.preprocess_mode == std::string("auto")) {
-    bool is_manifold = IsManifold(m);
+    int errorType = 0; bool is_manifold = IsManifold(m, errorType);
     //logger::info("Mesh Manifoldness: {}", is_manifold);
     //if (!is_manifold) ManifoldPreprocess(params, m);
   } else if (params.preprocess_mode == std::string("on")) {

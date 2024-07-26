@@ -28,7 +28,8 @@ namespace osgVerse
         double term5 = sqw - sqx - sqy + sqz;
 
         double heading = atan2(term1, term2), pitch = atan2(term4, term5), roll = asin(term3);
-        return osg::Vec3d(heading, pitch, roll);
+        return osg::Vec3d(
+            osg::RadiansToDegrees(heading), osg::RadiansToDegrees(pitch), osg::RadiansToDegrees(roll));
     }
 
     int computePowerOfTwo(int s, bool findNearest)
