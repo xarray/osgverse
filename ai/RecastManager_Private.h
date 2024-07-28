@@ -67,7 +67,7 @@ namespace osgVerse
         NavData() : navMesh(NULL), navQuery(NULL), crowd(NULL)
         { nearestReference = 0; context = new BuildContext; queryFilter = new dtQueryFilter; }
 
-        static int calculateMaxTiles(const osg::BoundingBoxd& bb, osg::Vec2i& begin, osg::Vec2i& end,
+        static int calculateMaxTiles(const osg::BoundingBoxd& bb, osg::Vec2d& begin, osg::Vec2d& end,
                                      int tileSize, float cellSize)
         {
             if (!bb.valid()) return 0;
@@ -77,8 +77,8 @@ namespace osgVerse
             const osg::Vec2 tileRange = endTileIndex - beginTileIndex + osg::Vec2();
 
             int numTiles = (int)tileRange.x() * (int)tileRange.y();
-            begin = osg::Vec2i((int)beginTileIndex.x(), (int)beginTileIndex.y());
-            end = osg::Vec2i((int)(endTileIndex.x() + 0.5f), (int)(endTileIndex.y() + 0.5f));
+            begin = osg::Vec2d((int)beginTileIndex.x(), (int)beginTileIndex.y());
+            end = osg::Vec2d((int)(endTileIndex.x() + 0.5f), (int)(endTileIndex.y() + 0.5f));
             return osg::Image::computeNearestPowerOfTwo(numTiles);
         }
 

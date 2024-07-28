@@ -154,13 +154,15 @@ public:
         case osgVerse::MeshCollector::NEGATIVE_VOLUME: nonManiType = "Negative Mesh"; break;
         default: break;
         }
+
+        size_t numV = bvv.getVertices().size(), weldedV = bvv1.getVertices().size();
         std::cout << std::string(_indent, ' ') << "<" << nonManiType << ">: "
                   << "Primitives = " << geom.getNumPrimitiveSets() << ", Triangles = "
-                  << (bvv.getTriangles().size() / 3) << "; V = " << bvv.getVertices().size() << ",";
+                  << (bvv.getTriangles().size() / 3) << "; Vertices = " << numV << ",";
         if (!bvv.getAttributes(osgVerse::MeshCollector::NormalAttr).empty()) std::cout << " +N";
         if (!bvv.getAttributes(osgVerse::MeshCollector::ColorAttr).empty()) std::cout << " +C";
         for (size_t u = 0; u < geom.getNumTexCoordArrays(); ++u) std::cout << " +UV" << u;
-        std::cout << "; WeldedV = " << bvv1.getVertices().size() << std::endl;
+        std::cout << "; Weldable = " << (float)(numV - weldedV) / (float)numV << std::endl;
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
         traverse(geom);
 #endif
@@ -226,16 +228,23 @@ protected:
     inline void outputBasic(osg::Object& obj)
     {
         std::cout << std::string(_indent, ' ') << "[" << obj.libraryName() << "::"
-                  << obj.className() << "] " << obj.getName() << ": Depth = " << (_indent / 2);
+                  << obj.className() << "] " << osgVerse::getNodePathID(obj) << ": ";
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
         osg::Geode* geode = (obj.asNode() != NULL) ? obj.asNode()->asGeode() : NULL;
+#else
+        osg::Geode* geode = dynamic_cast<osg::Geode*>(&obj);
+#endif
         if (geode)
-            std::cout << ", Drawables = " << geode->getNumDrawables();
+            std::cout << "Drawables = " << geode->getNumDrawables();
         else
         {
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
             osg::Group* group = (obj.asNode() != NULL) ? obj.asNode()->asGroup() : NULL;
-            if (group) std::cout << ", Children = " << group->getNumChildren();
+#else
+            osg::Group* group = dynamic_cast<osg::Group*>(&obj);
+#endif
+            if (group) std::cout << "Children = " << group->getNumChildren();
         }
-
         if (obj.referenceCount() == 1) std::cout << std::endl;
         else std::cout << " (SHARED x" << obj.referenceCount() << ")" << std::endl;
     }

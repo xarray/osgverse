@@ -132,8 +132,8 @@ namespace osgVerse
         bool initializeNavMesh(const osg::Vec3& o, float tileW, float tileH, int maxPolys, int maxTiles);
         bool initializeQuery();
         bool buildTiles(const std::vector<osg::Vec3>& va, const std::vector<unsigned int>& indices,
-                        const osg::BoundingBox& worldBounds, const osg::Vec2i& tileStart,
-                        const osg::Vec2i& tileEnd);
+                        const osg::BoundingBoxd& worldBounds, const osg::Vec2d& tileStart,
+                        const osg::Vec2d& tileEnd);
 
         std::map<osg::Node*, osg::observer_ptr<Agent>> _agentFinderMap;
         std::set<osg::ref_ptr<Agent>> _agents;

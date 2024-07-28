@@ -199,8 +199,8 @@ std::vector<int> rcChunkyTriMesh::getChunksOverlappingSegment(const rcChunkyTriM
 }
 
 bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vector<unsigned int>& indices,
-                               const osg::BoundingBox& worldBounds, const osg::Vec2i& tileStart,
-                               const osg::Vec2i& tileEnd)
+                               const osg::BoundingBoxd& worldBounds, const osg::Vec2d& tileStart,
+                               const osg::Vec2d& tileEnd)
 {
     std::vector<osg::Vec3> va1(va.size()); if (va.empty() || indices.empty()) return false;
     for (size_t i = 0; i < va.size(); ++i) { const osg::Vec3& v = va[i]; va1[i] = osg::Vec3(v[0], v[2], -v[1]); }
@@ -215,8 +215,8 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
 
     NavData* navData = static_cast<NavData*>(_recastData.get());
     const float tileEdgeLength = _settings.tileSize * _settings.cellSize;
-    for (int y = tileStart[1]; y <= tileEnd[1]; ++y)
-        for (int x = tileStart[0]; x <= tileEnd[0]; ++x)
+    for (int y = (int)tileStart[1]; y <= (int)tileEnd[1]; ++y)
+        for (int x = (int)tileStart[0]; x <= (int)tileEnd[0]; ++x)
         {
             rcConfig cfg; memset(&cfg, 0, sizeof(cfg));
             cfg.cs = _settings.cellSize; cfg.ch = _settings.cellHeight;

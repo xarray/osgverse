@@ -170,6 +170,105 @@ struct MikkTSpaceHelper
 
 namespace osgVerse
 {
+    std::string getNodePathID(osg::Object& obj, osg::Node* root, char sep)
+    {
+        std::string pathID = obj.getName();
+        osg::Node* parent = NULL;
+
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+        osg::Drawable* d = obj.asDrawable();
+#else
+        osg::Drawable* d = dynamic_cast<osg::Drawable*>(&obj);
+#endif
+        if (d != NULL)
+        {
+            if (d->getNumParents() > 0) parent = d->getParent(0); if (!parent) return pathID;
+            if (pathID.empty()) pathID = std::to_string(parent->asGeode()->getDrawableIndex(d));
+        }
+        else
+        {
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+            osg::Node* n = obj.asNode(); if (n == NULL) return pathID;
+#else
+            osg::Node* n = dynamic_cast<osg::Node*>(&obj); if (n == NULL) return pathID;
+#endif
+            if (n->getNumParents() > 0) parent = n->getParent(0); if (!parent) return pathID;
+            if (pathID.empty()) pathID = std::to_string(parent->asGroup()->getChildIndex(n));
+        }
+
+        while (parent != NULL && parent != root)
+        {
+            osg::Node* current = parent; std::string currentID = current->getName();
+            parent = (parent->getNumParents() > 0) ? parent->getParent(0) : NULL;
+            if (parent != NULL && currentID.empty())
+                currentID = std::to_string(parent->asGroup()->getChildIndex(current));
+            if (currentID.empty()) currentID = "root";
+            pathID = currentID + sep + pathID;
+        }
+        return pathID;
+    }
+
+    osg::Object* getFromPathID(const std::string& idData, osg::Object* root, char sep)
+    {
+        osgDB::StringList idList; osgDB::split(idData, idList, sep);
+        if (root->getName() != idList[0] && idList[0] != "root") return NULL;
+        
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+        osg::Node* node = root ? root->asNode() : NULL;
+#else
+        osg::Node* node = dynamic_cast<osg::Node*>(root);
+#endif
+        if (node != NULL)
+        {
+            for (size_t i = 1; i < idList.size(); ++i)
+            {
+                const std::string& name = idList[i];
+                osg::Group* parent = node ? node->asGroup() : NULL;
+                if (parent == NULL)
+                {
+                    osg::Geode* parentG = node ? node->asGeode() : NULL;
+                    if (parentG != NULL)
+                    {
+                        int index = atoi(name.c_str());
+                        if (name == "0" && parentG->getNumDrawables() > 0)
+                            return parentG->getDrawable(0);
+                        else if (index > 0 && index < (int)parentG->getNumDrawables())
+                            return parentG->getDrawable(index);
+                        else
+                        {
+                            for (size_t j = 0; j < parentG->getNumDrawables(); ++j)
+                            {
+                                if (parentG->getDrawable(j)->getName() == name)
+                                    return parentG->getDrawable(j);
+                            }
+                        }
+                    }
+                    return NULL;
+                }
+
+                node = NULL;
+                if (name == "0")
+                    { if (parent->getNumChildren() > 0) node = parent->getChild(0); }
+                else
+                {
+                    int index = atoi(name.c_str());
+                    if (index > 0 && index < (int)parent->getNumChildren())
+                        node = parent->getChild(index);
+                    else
+                    {
+                        for (size_t j = 0; j < parent->getNumChildren(); ++j)
+                        {
+                            if (parent->getChild(j)->getName() == name)
+                            { node = parent->getChild(j); break; }
+                        }
+                    }
+                }  // if (name == "0")
+            }
+            return node;
+        }
+        return root;
+    }
+
     osg::Texture* generateNoises2D(int numRows, int numCols)
     {
         std::vector<osg::Vec3f> noises;
@@ -371,7 +470,8 @@ namespace osgVerse
             camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
             camera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
             camera->setViewMatrix(osg::Matrix::identity());
-            camera->addChild(createScreenQuad(quadPt, quadW, quadH, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f)));
+            if (quadW > 0.0f && quadH > 0.0f)
+                camera->addChild(createScreenQuad(quadPt, quadW, quadH, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f)));
         }
         return camera.release();
     }

@@ -271,6 +271,31 @@ namespace osgVerse
 namespace osg
 {
 #if OSG_VERSION_LESS_THAN(3, 1, 9)
+    class Vec2i
+    {
+    public:
+        typedef int value_type;
+        enum { num_components = 2 };
+        value_type _v[2];
+
+        Vec2i() { _v[0] = 0; _v[1] = 0; }
+        Vec2i(value_type x, value_type y) { _v[0] = x; _v[1] = y; }
+
+        inline bool operator == (const Vec2i& v) const { return _v[0] == v._v[0] && _v[1] == v._v[1]; }
+        inline bool operator != (const Vec2i& v) const { return _v[0] != v._v[0] || _v[1] != v._v[1]; }
+        inline bool operator <  (const Vec2i& v) const
+        {
+            if (_v[0] < v._v[0]) return true;
+            else if (_v[0] > v._v[0]) return false;
+            else return (_v[1] < v._v[1]);
+        }
+
+        inline void set(value_type x, value_type y) { _v[0] = x; _v[1] = y; }
+        inline void set(const Vec2i& rhs) { _v[0] = rhs._v[0]; _v[1] = rhs._v[1]; }
+        inline value_type& operator [] (int i) { return _v[i]; }
+        inline value_type operator [] (int i) const { return _v[i]; }
+    };
+
     class Vec3i
     {
     public:

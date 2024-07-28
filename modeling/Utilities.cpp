@@ -274,7 +274,11 @@ void MeshCollector::apply(osg::Geode& node)
     if (_matrixStack.size() > 0) matrix = _matrixStack.back();
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
     {
+#if OSG_VERSION_GREATER_THAN(3, 2, 2)
         const osg::BoundingBox& bbox = node.getDrawable(i)->getBoundingBox();
+#else
+        const osg::BoundingBox& bbox = node.getDrawable(i)->getBound();
+#endif
         _boundingBox.expandBy(bbox.corner(0) * matrix);
         _boundingBox.expandBy(bbox.corner(1) * matrix);
         _boundingBox.expandBy(bbox.corner(2) * matrix);

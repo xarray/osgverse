@@ -11,6 +11,8 @@
 #include <osg/DisplaySettings>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
+#include <osgText/Font>
+#include <osgText/Text>
 #include <osgViewer/Viewer>
 
 #define VERT osg::Shader::VERTEX
@@ -557,29 +559,81 @@ namespace osgVerse
         return true;
     }
 
-    StandardPipelineViewer::StandardPipelineViewer(bool withSky)
-        : osgViewer::Viewer(), _withSky(withSky)
+    ////////////////// StandardPipelineViewer
+    class SelectSceneHandler : public osgGA::GUIEventHandler
+    {
+    public:
+        SelectSceneHandler(NodeSelector* sel, osg::Geode* tNode)
+            : _selector(sel), _textGeode(tNode)
+        {
+            _condition.nodesToIgnore.insert(_selector->getAuxiliaryRoot());
+            _condition.nodesToIgnore.insert(_textGeode.get());
+        }
+
+        virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+        {
+            osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+            if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE &&
+                (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL))
+            {
+                IntersectionResult result = findNearestIntersection(
+                    view->getCamera(), ea.getXnormalized(), ea.getYnormalized(), &_condition);
+                if (!result.drawable) return false;
+
+                osg::Object* selectedObj = NULL; _selector->clearAllSelectedNodes();
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
+                selectedObj = result.nodePath.back();
+                _selector->addSelectedNode(result.nodePath.back());
+#else
+                selectedObj = result.drawable.get();
+                _selector->addSelectedNode(result.drawable.get());
+#endif
+
+                osgText::Text* text = NULL;
+                if (_textGeode->getNumDrawables() == 0)
+                {
+                    text = new osgText::Text;
+                    text->setPosition(osg::Vec3(-0.98f, 0.95f, 0.0f));
+                    text->setCharacterSize(0.05f, 1.667f);
+                    text->setFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
+                    _textGeode->addDrawable(text);
+                }
+                else
+                    text = static_cast<osgText::Text*>(_textGeode->getDrawable(0));
+                text->setText(getNodePathID(*selectedObj, view->getSceneData()));
+            }
+            return false;
+        }
+
+    protected:
+        osg::ref_ptr<NodeSelector> _selector;
+        osg::observer_ptr<osg::Geode> _textGeode;
+        IntersectionCondition _condition;
+    };
+
+    StandardPipelineViewer::StandardPipelineViewer(bool withSky, bool withSelector)
+        : osgViewer::Viewer(), _withSky(withSky), _withSelector(withSelector)
     {
         _parameters = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
         _parameters.enablePostEffects = true; _parameters.enableAO = true;
-        _lightGeode = new osg::Geode; _root = new osg::Group;
+        _lightGeode = new osg::Geode; _textGeode = new osg::Geode; _root = new osg::Group;
     }
 
-    StandardPipelineViewer::StandardPipelineViewer(const StandardPipelineParameters& spp, bool withSky)
-        : osgViewer::Viewer(), _parameters(spp), _withSky(withSky)
-    { _lightGeode = new osg::Geode; _root = new osg::Group; }
+    StandardPipelineViewer::StandardPipelineViewer(const StandardPipelineParameters& spp,
+                                                   bool withSky, bool withSelector)
+        : osgViewer::Viewer(), _parameters(spp), _withSky(withSky), _withSelector(withSelector)
+    { _lightGeode = new osg::Geode; _textGeode = new osg::Geode; _root = new osg::Group; }
 
     void StandardPipelineViewer::setSceneData(osg::Node* node)
     {
-        osgVerse::TangentSpaceVisitor tsv; node->accept(tsv);
         if (!_root->containsNode(node)) _root->addChild(node);
-        osgViewer::Viewer::setSceneData(_root.get());
+        osgViewer::Viewer::setSceneData(_root.get()); _scene = node;
     }
 
     void StandardPipelineViewer::realize()
     {
         if (isRealized()) return;
-        initialize(_parameters, _withSky);
+        initialize(_parameters, _withSky, _withSelector);
         setMainLight(osg::Vec3(1.5f, 1.5f, 1.2f), osg::Vec3(0.02f, 0.1f, -1.0f));
         setThreadingModel(osgViewer::Viewer::SingleThreaded);
         osgViewer::Viewer::realize();
@@ -604,7 +658,8 @@ namespace osgVerse
         else return osgViewer::Viewer::createRenderer(camera);
     }
 
-    void StandardPipelineViewer::initialize(const StandardPipelineParameters& spp, bool withSky)
+    void StandardPipelineViewer::initialize(const StandardPipelineParameters& spp,
+                                            bool withSky, bool withSelector)
     {
         _pipeline = new osgVerse::Pipeline;
 #if true
@@ -628,8 +683,33 @@ namespace osgVerse
             skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
                 osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
             skybox->setEnvironmentMap(spp.skyboxMap.get(), false);
-            osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
+            Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
             postCamera->addChild(skybox.get());
+        }
+
+        if (withSelector)
+        {
+            osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+            postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+            postCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+            postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+            _root->addChild(postCamera.get());
+
+            osg::ref_ptr<osg::Camera> postCamera2 = new osg::Camera;
+            postCamera2->setClearMask(GL_DEPTH_BUFFER_BIT);
+            postCamera2->setRenderOrder(osg::Camera::POST_RENDER);
+            postCamera2->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+            postCamera2->setProjectionMatrix(osg::Matrix::ortho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0));
+            postCamera2->setViewMatrix(osg::Matrix::identity());
+            postCamera2->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+            postCamera2->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+            postCamera2->addChild(_textGeode.get());
+            _root->addChild(postCamera2.get());
+
+            osg::ref_ptr<NodeSelector> selector = new NodeSelector;
+            selector->setMainCamera(_pipeline->getForwardCamera());
+            postCamera->addChild(selector->getAuxiliaryRoot());
+            addEventHandler(new SelectSceneHandler(selector.get(), _textGeode.get()));
         }
     }
 }

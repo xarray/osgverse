@@ -160,10 +160,10 @@ namespace osgVerse
             const std::vector<std::string>& defs = std::vector<std::string>());
 
         /** Set pipeline mask of scene graph nodes */
-        static void setPipelineMask(osg::Node& node, unsigned int mask,
+        static void setPipelineMask(osg::Object& node, unsigned int mask,
                                     unsigned int flags = osg::StateAttribute::ON);
-        static unsigned int getPipelineMask(osg::Node& node);
-        static unsigned int getPipelineMaskFlags(osg::Node& node);
+        static unsigned int getPipelineMask(osg::Object& node);
+        static unsigned int getPipelineMaskFlags(osg::Object& node);
 
         void addStage(Stage* s) { _stages.push_back(s); }
         void removeStage(unsigned int index) { _stages.erase(_stages.begin() + index); }
@@ -327,8 +327,9 @@ namespace osgVerse
     class StandardPipelineViewer : public osgViewer::Viewer
     {
     public:
-        StandardPipelineViewer(bool withSky = true);
-        StandardPipelineViewer(const StandardPipelineParameters& spp, bool withSky = true);
+        StandardPipelineViewer(bool withSky = true, bool withSelector = true);
+        StandardPipelineViewer(const StandardPipelineParameters& spp,
+                               bool withSky = true, bool withSelector = true);
 
         void setMainLight(const osg::Vec3& color, const osg::Vec3& dir);
         osg::Geode* getLightRoot() { return _lightGeode.get(); }
@@ -340,13 +341,14 @@ namespace osgVerse
 
     protected:
         virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera);
-        void initialize(const StandardPipelineParameters& spp, bool withSky);
+        void initialize(const StandardPipelineParameters& spp, bool withSky, bool withSelector);
 
         osg::ref_ptr<Pipeline> _pipeline;
         osg::ref_ptr<osg::Group> _root;
-        osg::ref_ptr<osg::Geode> _lightGeode;
+        osg::ref_ptr<osg::Geode> _lightGeode, _textGeode;
+        osg::observer_ptr<osg::Node> _scene;
         StandardPipelineParameters _parameters;
-        bool _withSky;
+        bool _withSky, _withSelector;
     };
 }
 

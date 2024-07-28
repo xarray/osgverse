@@ -40,7 +40,11 @@ public:
         found |= _whitelist.empty();
         if (_sceneBoundThreshold > 0.0f)
         {
+#if OSG_VERSION_GREATER_THAN(3, 2, 2)
             const osg::BoundingBox& bb = geom.getBoundingBox();
+#else
+            const osg::BoundingBox& bb = geom.getBound();
+#endif
             osg::Vec3 extent = bb._max - bb._min; float volume = extent[0] * extent[1] * extent[2];
             if (volume > _sceneBoundThreshold) found = false;
         }

@@ -50,14 +50,14 @@ bool RecastManager::initializeQuery()
 
 bool RecastManager::build(osg::Node* node, bool loadingFineLevels)
 {
-    MeshCollector collector; osg::Vec2i tStart, tEnd;
+    MeshCollector collector; osg::Vec2d tStart, tEnd;
     collector.setWeldingVertices(true); collector.setUseGlobalVertices(false);
     collector.setOnlyVertexAndIndices(true);
     collector.setLoadingFineLevels(loadingFineLevels);
     if (!node) return false; else node->accept(collector);
     if (collector.getVertices().empty()) return false;
 
-    osg::BoundingBox worldBounds = collector.getBoundingBox();
+    osg::BoundingBoxd worldBounds = collector.getBoundingBox();
     osg::Vec3 padding(_settings.padding * _settings.tileSize,
                       _settings.padding * _settings.tileSize, _settings.padding);
     worldBounds._min -= padding; worldBounds._max += padding;

@@ -1272,7 +1272,7 @@ namespace osgVerse
         s->setShaderSource(ss.str() + source);
     }
 
-    void Pipeline::setPipelineMask(osg::Node& node, unsigned int mask, unsigned int flags)
+    void Pipeline::setPipelineMask(osg::Object& node, unsigned int mask, unsigned int flags)
     {
         if (node.getUserDataContainer() != NULL)
         {
@@ -1290,14 +1290,14 @@ namespace osgVerse
         node.setUserValue("PipelineFlags", flags);
     }
 
-    unsigned int Pipeline::getPipelineMask(osg::Node& node)
+    unsigned int Pipeline::getPipelineMask(osg::Object& node)
     {
         unsigned int mask = 0xffffffff;
         if (node.getUserDataContainer() != NULL)
             node.getUserValue("PipelineMask", mask); return mask;
     }
 
-    unsigned int Pipeline::getPipelineMaskFlags(osg::Node& node)
+    unsigned int Pipeline::getPipelineMaskFlags(osg::Object& node)
     {
         unsigned int flags = 0xffffffff;
         if (node.getUserDataContainer() != NULL)

@@ -16,6 +16,12 @@ struct SMikkTSpaceContext;
 
 namespace osgVerse
 {
+    /** Get unique node-path like name (e.g. rootName/childA/subChildB/0) */
+    extern std::string getNodePathID(osg::Object& obj, osg::Node* root = NULL, char sep = '/');
+
+    /** Get object from root node and path ID */
+    extern osg::Object* getFromPathID(const std::string& id, osg::Object* root, char sep = '/');
+
     /** Create 2D noises. e.g. for SSAO use */
     extern osg::Texture* generateNoises2D(int numRows, int numCols);
 
