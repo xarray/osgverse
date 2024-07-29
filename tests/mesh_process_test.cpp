@@ -11,6 +11,7 @@
 #include <modeling/DynamicGeometry.h>
 #include <modeling/MeshTopology.h>
 #include <modeling/Utilities.h>
+#include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -92,12 +93,18 @@ int main(int argc, char** argv)
     // Test VHACD
     osgVerse::BoundingVolumeVisitor bvv;
     scene->accept(bvv);
-    geode->addDrawable(bvv.computeCoACD());
+    geode->addDrawable(bvv.computeVHACD());
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(scene.get());
     root->addChild(topoMT.get());
     root->addChild(geode.get());
+
+    /*osg::Image* image = new osg::Image;
+    image->allocateImage(1024, 512, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+    osg::Camera* camera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER, image, scene);
+    osgVerse::alignCameraToBox(camera, bvv.getBoundingBox(), 1024, 512);
+    root->addChild(camera);*/
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

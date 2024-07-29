@@ -23,7 +23,7 @@ namespace osgVerse
     extern osg::Object* getFromPathID(const std::string& id, osg::Object* root, char sep = '/');
 
     /** Create 2D noises. e.g. for SSAO use */
-    extern osg::Texture* generateNoises2D(int numRows, int numCols);
+    extern osg::Texture* generateNoises2D(int numCols, int numRows);
 
     /** Create poisson noises. e.g. for PCF shadow use */
     extern osg::Texture* generatePoissonDiscDistribution(int numCols, int numRows = 1);
@@ -37,18 +37,29 @@ namespace osgVerse
     /** Create a XOY quad, often for screen-rendering use */
     extern osg::Geode* createScreenQuad(const osg::Vec3& corner, float width, float height,
                                         const osg::Vec4& uvRange);
+    
+    /** Create a pre-render RTT camera for capturing sub-scene to image */
+    extern osg::Camera* createRTTCamera(osg::Camera::BufferComponent buffer, osg::Image* image,
+                                        osg::Node* child, osg::GraphicsContext* gc = NULL);
 
-    /** Create a standard pre-render RTT camera, may contain a quad for deferred use */
+    /** Create a pre-render RTT camera, which may contain a quad for deferred use */
     extern osg::Camera* createRTTCamera(osg::Camera::BufferComponent buffer, osg::Texture* tex,
                                         osg::GraphicsContext* gc, bool screenSpaced);
 
     /** Create a list of RTT cameras to render a cubemap */
     extern osg::Group* createRTTCube(osg::Camera::BufferComponent buffer, osg::TextureCubeMap* tex,
-                                     osg::Node* child, osg::GraphicsContext* gc);
+                                     osg::Node* child, osg::GraphicsContext* gc = NULL);
 
-    /** Create a standard post-render HUD camera, may contain a quad for display use */
+    /** Create a post-render HUD camera, for displaying UI in (0,0,-1) - (w,h,1) range */
+    extern osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h);
+
+    /** Create a post-render HUD camera, which may contain a quad for display use */
     extern osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
                                         float quadW, float quadH, bool screenSpaced);
+
+    /** Align the camera (usually RTT) to a bounding box to capture one of its face exactly */
+    extern void alignCameraToBox(osg::Camera* camera, const osg::BoundingBoxd& bb, int resW, int resH,
+                                 osg::TextureCubeMap::Face face = osg::TextureCubeMap::POSITIVE_Z);
 
     /** Create heightmap from given scene graph */
     extern osg::HeightField* createHeightField(osg::Node* node, int resX, int resY, osg::View* viewer = NULL);

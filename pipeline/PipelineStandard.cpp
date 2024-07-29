@@ -593,8 +593,8 @@ namespace osgVerse
                 if (_textGeode->getNumDrawables() == 0)
                 {
                     text = new osgText::Text;
-                    text->setPosition(osg::Vec3(-0.98f, 0.95f, 0.0f));
-                    text->setCharacterSize(0.05f, 1.667f);
+                    text->setPosition(osg::Vec3(10.0f, 1060.0f, 0.0f));
+                    text->setCharacterSize(20.0f, 1.0f);
                     text->setFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
                     _textGeode->addDrawable(text);
                 }
@@ -695,14 +695,7 @@ namespace osgVerse
             postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
             _root->addChild(postCamera.get());
 
-            osg::ref_ptr<osg::Camera> postCamera2 = new osg::Camera;
-            postCamera2->setClearMask(GL_DEPTH_BUFFER_BIT);
-            postCamera2->setRenderOrder(osg::Camera::POST_RENDER);
-            postCamera2->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-            postCamera2->setProjectionMatrix(osg::Matrix::ortho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0));
-            postCamera2->setViewMatrix(osg::Matrix::identity());
-            postCamera2->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-            postCamera2->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+            osg::ref_ptr<osg::Camera> postCamera2 = createHUDCamera(NULL, 1920, 1080);
             postCamera2->addChild(_textGeode.get());
             _root->addChild(postCamera2.get());
 

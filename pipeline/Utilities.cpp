@@ -269,7 +269,7 @@ namespace osgVerse
         return root;
     }
 
-    osg::Texture* generateNoises2D(int numRows, int numCols)
+    osg::Texture* generateNoises2D(int numCols, int numRows)
     {
         std::vector<osg::Vec3f> noises;
         for (int i = 0; i < numCols; ++i)
@@ -281,7 +281,7 @@ namespace osgVerse
             }
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
-        image->allocateImage(numRows, numRows, 1, GL_RGB, GL_FLOAT);
+        image->allocateImage(numCols, numRows, 1, GL_RGB, GL_FLOAT);
 #ifdef VERSE_WEBGL1
         image->setInternalTextureFormat(GL_RGB);
 #else
@@ -376,6 +376,25 @@ namespace osgVerse
         return quad.release();
     }
 
+    osg::Camera* createRTTCamera(osg::Camera::BufferComponent buffer, osg::Image* image,
+                                 osg::Node* child, osg::GraphicsContext* gc)
+    {
+        osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+        camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+        camera->setRenderOrder(osg::Camera::PRE_RENDER);
+        if (gc) camera->setGraphicsContext(gc);
+        if (child) camera->addChild(child);
+
+        if (image)
+        {
+            camera->setViewport(0, 0, image->s(), image->t());
+            camera->attach(buffer, image);
+        }
+        return camera.release();
+    }
+
     osg::Camera* createRTTCamera(osg::Camera::BufferComponent buffer, osg::Texture* tex,
                                  osg::GraphicsContext* gc, bool screenSpaced)
     {
@@ -453,6 +472,23 @@ namespace osgVerse
         return cameraRoot.release();
     }
 
+    osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h)
+    {
+        osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+        camera->setClearMask(GL_DEPTH_BUFFER_BIT);
+        camera->setRenderOrder(osg::Camera::POST_RENDER);
+        camera->setAllowEventFocus(false);
+        if (gc) camera->setGraphicsContext(gc);
+
+        camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+        camera->setViewport(0, 0, w, h);
+        camera->setProjectionMatrix(osg::Matrix::ortho(0.0, w, 0.0, h, -1.0, 1.0));
+        camera->setViewMatrix(osg::Matrix::identity());
+        camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+        camera->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        return camera.release();
+    }
+
     osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
                                  float quadW, float quadH, bool screenSpaced)
     {
@@ -461,7 +497,7 @@ namespace osgVerse
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderOrder(osg::Camera::POST_RENDER);
         camera->setAllowEventFocus(false);
-        camera->setGraphicsContext(gc);
+        if (gc) camera->setGraphicsContext(gc);
         camera->setViewport(0, 0, w, h);
         camera->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
@@ -474,6 +510,37 @@ namespace osgVerse
                 camera->addChild(createScreenQuad(quadPt, quadW, quadH, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f)));
         }
         return camera.release();
+    }
+
+    void alignCameraToBox(osg::Camera* camera, const osg::BoundingBoxd& bb,
+                          int resW, int resH, osg::TextureCubeMap::Face face)
+    {
+        double xHalf = (bb.xMax() - bb.xMin()) / 2.0, yHalf = (bb.yMax() - bb.yMin()) / 2.0;
+        double zHalf = (bb.zMax() - bb.zMin()) / 2.0, h0 = 0.0, h1 = 0.0, hD = 0.0;
+        osg::Vec3 dir = osg::Z_AXIS, up = osg::Y_AXIS;
+        switch (face)
+        {
+        case osg::TextureCubeMap::POSITIVE_X:
+            h0 = yHalf; h1 = zHalf; hD = xHalf; dir = osg::X_AXIS; up = osg::Z_AXIS; break;
+        case osg::TextureCubeMap::NEGATIVE_X:
+            h0 = yHalf; h1 = zHalf; hD = xHalf; dir = -osg::X_AXIS; up = osg::Z_AXIS; break;
+        case osg::TextureCubeMap::POSITIVE_Y:
+            h0 = xHalf; h1 = zHalf; hD = yHalf; dir = osg::Y_AXIS; up = osg::Z_AXIS; break;
+        case osg::TextureCubeMap::NEGATIVE_Y:
+            h0 = xHalf; h1 = zHalf; hD = yHalf; dir = -osg::Y_AXIS; up = osg::Z_AXIS; break;
+        case osg::TextureCubeMap::NEGATIVE_Z:
+            h0 = xHalf; h1 = yHalf; hD = zHalf; dir = -osg::Z_AXIS; break;
+        default:  // POSITIVE_Z
+            h0 = xHalf; h1 = yHalf; hD = zHalf; break;
+        }
+
+        double halfResW = (float)(resW / 2) - 0.5, halfResH = (float)(resH / 2) - 0.5;
+        double halfPW = (h0 / halfResW) * 0.5, halfPH = (h1 / halfResH) * 0.5;
+        camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+        camera->setViewMatrixAsLookAt(bb.center() + dir * hD, bb.center(), up);
+        camera->setProjectionMatrixAsOrtho(
+            -h0 - halfPW, h0 + halfPW, -h1 - halfPH, h1 + halfPH, 0.0, hD * 2.05);
+        camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
     }
 
     osg::HeightField* createHeightField(osg::Node* node, int resX, int resY, osg::View* userViewer)
