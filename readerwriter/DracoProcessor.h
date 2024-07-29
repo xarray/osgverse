@@ -13,8 +13,8 @@ namespace osgVerse
     public:
         DracoProcessor()
         {
-            _posQuantizationBits = 11;
-            _uvQuantizationBits = 10;
+            _posQuantizationBits = 24;
+            _uvQuantizationBits = 12;
             _normalQuantizationBits = 8;
             _compressionLevel = 7;
         }
@@ -48,7 +48,6 @@ namespace osgVerse
                       const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
         META_Object(osgVerse, DracoGeometry)
     };
-
 }
 
 #endif

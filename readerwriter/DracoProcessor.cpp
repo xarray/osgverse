@@ -5,6 +5,8 @@
 #include <osgDB/OutputStream>
 #include <pipeline/Global.h>
 #include "DracoProcessor.h"
+#include "Utilities.h"
+#include <mutex>
 using namespace osgVerse;
 
 #ifdef VERSE_USE_DRACO
@@ -339,6 +341,12 @@ struct GeometryFinishedObjectReadCallback : public osgDB::FinishedObjectReadCall
     }
 };
 
+static std::map<int, int> g_dracoParameters;
+static std::mutex g_dracoMutex;
+
+void setEncodingDracoFlag(EncodingDracoFlag flag, int value)
+{ g_dracoMutex.lock(); g_dracoParameters[(int)flag] = value; g_dracoMutex.unlock(); }
+
 static bool checkCompressedData(const osgVerse::DracoGeometry& geom)
 { return true; }
 
@@ -358,7 +366,17 @@ static bool readCompressedData(osgDB::InputStream& is, osgVerse::DracoGeometry& 
 
 static bool writeCompressedData(osgDB::OutputStream& os, const osgVerse::DracoGeometry& geom)
 {
-    DracoProcessor dp;
+    DracoProcessor dp; g_dracoMutex.lock();
+    for (std::map<int, int>::iterator itr = g_dracoParameters.begin();
+         itr != g_dracoParameters.end(); ++itr)
+    {
+        if (itr->first == 0) dp.setCompressionLevel(itr->second);
+        else if (itr->first == 1) dp.setPosQuantizationBits(itr->second);
+        else if (itr->first == 2) dp.setNormalQuantizationBits(itr->second);
+        else if (itr->first == 3) dp.setUvQuantizationBits(itr->second);
+    }
+    g_dracoMutex.unlock();
+
     std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
     if (dp.encodeDracoData(ss, (osg::Geometry*)&geom))
     {

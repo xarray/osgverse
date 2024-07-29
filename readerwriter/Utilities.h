@@ -137,6 +137,15 @@ namespace osgVerse
 
     /** A quick function to help fix .osgb dead lock problem */
     OSGVERSE_RW_EXPORT bool fixOsgBinaryWrappers(const std::string& libName = "osg");
+
+    /** Setup draco encoding parameters */
+    enum EncodingDracoFlag { COMPRESS_LEVEL = 0, POSITION_QUANTIZATION = 1,
+                             UV_QUANTIZATION = 2, NORMAL_QUANTIZATION = 3 };
+    OSGVERSE_RW_EXPORT void setEncodingDracoFlag(EncodingDracoFlag flag, int value);
+
+    /** Setup KTX trancoding flags */
+    enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
+    OSGVERSE_RW_EXPORT void setReadingKtxFlag(ReadingKtxFlag flag, int value);
 }
 
 #endif

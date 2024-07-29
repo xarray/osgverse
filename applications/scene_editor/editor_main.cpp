@@ -83,7 +83,7 @@ EditorContentHandler::EditorContentHandler()
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 {
-    ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
+    ImGui::PushFont(ImGuiFonts["LXGWFasmartGothic"]);
 #ifdef ORIGIN_CODE
     handleCommands();
     _mainMenu->show(mgr, this);
@@ -254,7 +254,7 @@ int main(int argc, char** argv)
 
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
+    imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
     imgui->initialize(new EditorContentHandler);
     imgui->addToView(&viewer, postCamera.get());
 

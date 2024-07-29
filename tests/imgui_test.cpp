@@ -42,7 +42,7 @@ struct MyContentHandler : public osgVerse::ImGuiContentHandler
     {
         ImTextureID icon = ImGuiTextures["icon"];
         const ImGuiViewport* view = ImGui::GetMainViewport();
-        ImGui::PushFont(ImGuiFonts["SourceHanSansHWSC-Regular"]);
+        ImGui::PushFont(ImGuiFonts["LXGWFasmartGothic"]);
 #if 1
         int xPos = 0, yPos = 0;
         int flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
@@ -237,7 +237,7 @@ int main(int argc, char** argv)
 
     // The ImGui setup
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
+    imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
     imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()), guiAsTexture);
     if (guiAsTexture)

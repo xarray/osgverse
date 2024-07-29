@@ -8,6 +8,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include "pipeline/Utilities.h"
+#include "Utilities.h"
 
 #include <mutex>
 #include <ktx/texture.h>

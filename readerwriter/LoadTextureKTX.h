@@ -16,7 +16,4 @@ namespace osgVerse
                                     const std::vector<osg::Image*>& images);
     OSGVERSE_RW_EXPORT bool saveKtx2(std::ostream& out, bool asCubeMap, const osgDB::Options* opt,
                                      const std::vector<osg::Image*>& images);
-
-    enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
-    OSGVERSE_RW_EXPORT void setReadingKtxFlag(ReadingKtxFlag flag, int value);
 }

@@ -76,7 +76,7 @@ private:
     std::mutex _mutex; bool _stopped;
 };
 
-class RemoveDataPathVisitor : public osg::NodeVisitor
+class GeomCompressor : public osg::NodeVisitor
 {
 public:
     virtual void apply(osg::PagedLOD& node)
@@ -137,7 +137,7 @@ void processFile(const std::string& prefix, const std::string& dirName,
     osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(tileName);
     if (node.valid())
     {
-        RemoveDataPathVisitor rdp;
+        GeomCompressor rdp;
         rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
         node->accept(rdp);
 
@@ -242,6 +242,10 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(argv[2]);
         if (node.valid())
         {
+            GeomCompressor rdp;
+            rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
+            node->accept(rdp);
+
             osgVerse::TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
             node->accept(opt);
 

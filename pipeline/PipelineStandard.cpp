@@ -11,6 +11,7 @@
 #include <osg/DisplaySettings>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
+#include <osgDB/ConvertUTF>
 #include <osgText/Font>
 #include <osgText/Text>
 #include <osgViewer/Viewer>
@@ -595,12 +596,14 @@ namespace osgVerse
                     text = new osgText::Text;
                     text->setPosition(osg::Vec3(10.0f, 1060.0f, 0.0f));
                     text->setCharacterSize(20.0f, 1.0f);
-                    text->setFont(MISC_DIR "SourceHanSansHWSC-Regular.otf");
+                    text->setFont(MISC_DIR "LXGWFasmartGothic.ttf");
                     _textGeode->addDrawable(text);
                 }
                 else
                     text = static_cast<osgText::Text*>(_textGeode->getDrawable(0));
-                text->setText(getNodePathID(*selectedObj, view->getSceneData()));
+
+                std::wstring t = osgDB::convertUTF8toUTF16(getNodePathID(*selectedObj, view->getSceneData()));
+                text->setText((t.length() > 80) ? (L"..." + t.substr(t.length() - 80)).c_str() : t.c_str());
             }
             return false;
         }

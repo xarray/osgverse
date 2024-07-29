@@ -24,7 +24,7 @@ int main(int argc, char** argv)
 
     drawer->start(true);
     drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.5f));
-    drawer->loadFont("default", MISC_DIR "/SourceHanSansHWSC-Regular.otf");
+    drawer->loadFont("default", MISC_DIR "/LXGWFasmartGothic.otf");
     //drawer->drawText(osg::Vec2(100, 100), 40.0f, L"Hello World");
     drawer->drawUtf8Text(osg::Vec2(100, 100), 40.0f, "Hello World");
     drawer->finish();
@@ -34,7 +34,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(MISC_DIR "poi_textbg.png");
 
     osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
-    symManager->setFontFileName(MISC_DIR "/SourceHanSansHWSC-Regular.otf");
+    symManager->setFontFileName(MISC_DIR "/LXGWFasmartGothic.otf");
     symManager->setIconAtlasImage(iconAtlas.get());
     symManager->setTextBackgroundAtlasImage(textBgAtlas.get());
     symManager->setMidDistanceTextOffset(osg::Vec3(2.0f, 0.0f, -0.001f));
