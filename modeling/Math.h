@@ -94,9 +94,9 @@ namespace osgVerse
     /** Computational geometry helpers struct */
     struct GeometryAlgorithm
     {
-        /** Project a list of 3D points on a plane to 2D type (with Z as index) */
-        static bool project(const PointList3D& points, const osg::Vec3d& planeNormal,
-                            const osg::Vec3d& planeUp, PointList2D& pointsOut);
+        /** Project a list of 3D points on a plane to 2D and return the transform matrix */
+        static osg::Matrix project(const PointList3D& points, const osg::Vec3d& planeNormal,
+                                   const osg::Vec3d& planeUp, PointList2D& pointsOut);
 
         /** Convenient method to convert edges to 3D vertices, 2D projections and edge indices */
         static EdgeList project(const std::vector<LineType3D>& edges, const osg::Vec3d& planeNormal,

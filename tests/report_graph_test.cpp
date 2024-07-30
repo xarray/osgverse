@@ -222,7 +222,7 @@ public:
 protected:
     inline void pushIndent() { _indent += 2; }
     inline void popIndent() { if (_indent > 0) _indent -= 2; }
-    inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
+    inline void pushMatrix(const osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
     inline void popMatrix() { _matrixStack.pop_back(); }
 
     inline void outputBasic(osg::Object& obj)

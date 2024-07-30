@@ -43,7 +43,7 @@ namespace osgVerse
         void setLoadingFineLevels(bool b) { _loadedFineLevels = b; }
         void setOnlyVertexAndIndices(bool b) { _onlyVertexAndIndices = b; }
 
-        inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
+        inline void pushMatrix(const osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
         inline void popMatrix() { _matrixStack.pop_back(); }
         virtual void reset();
 

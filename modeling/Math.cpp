@@ -265,20 +265,22 @@ double MathExpression::evaluate(bool* ok)
 
 /* GeometryAlgorithm */
 
-bool GeometryAlgorithm::project(const PointList3D& pIn, const osg::Vec3d& planeNormal,
-                                const osg::Vec3d& planeUp, PointList2D& proj)
+osg::Matrix GeometryAlgorithm::project(const PointList3D& pIn, const osg::Vec3d& planeNormal,
+                                       const osg::Vec3d& planeUp, PointList2D& proj)
 {
-    size_t ptr = 2, size = pIn.size(); if (!size) return false; proj.resize(size);
+    size_t ptr = 2, size = pIn.size();
+    if (!size) return osg::Matrix(); proj.resize(size);
+
     osg::Vec3d norm = planeNormal, p0 = pIn[0], v0 = planeUp, v1;
     if (norm.length2() == 0.0 || !norm.valid())
     {
-        if (size < 3) return false;
+        if (size < 3) return osg::Matrix();
         v0 = pIn[1] - pIn[0]; v0.normalize();
         v1 = pIn[2] - pIn[1]; v1.normalize(); norm = v0 ^ v1;
         while (norm.length2() == 0.0 || !norm.valid())
         {
             v1 = pIn[ptr] - pIn[ptr - 1]; v1.normalize();
-            norm = v0 ^ v1; ptr++; if (ptr >= size) return false;
+            norm = v0 ^ v1; ptr++; if (ptr >= size) return osg::Matrix();
         }
     }
 
@@ -288,7 +290,7 @@ bool GeometryAlgorithm::project(const PointList3D& pIn, const osg::Vec3d& planeN
         osg::Vec3d pt = pIn[i] * m; proj[i].second = i;
         proj[i].first = osg::Vec2d(pt[0], pt[1]);
     }
-    return true;
+    return m;
 }
 
 EdgeList GeometryAlgorithm::project(const std::vector<LineType3D>& edges, const osg::Vec3d& normal,
