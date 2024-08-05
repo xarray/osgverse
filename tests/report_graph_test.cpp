@@ -14,6 +14,7 @@
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <modeling/Utilities.h>
+#include <modeling/MeshTopology.h>
 #include <modeling/Math.h>
 #include <iostream>
 #include <sstream>

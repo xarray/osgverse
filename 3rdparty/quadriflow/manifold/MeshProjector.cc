@@ -473,6 +473,7 @@ void MeshProjector::IterativeOptimize(FT len, bool initialized) {
 }
 
 void MeshProjector::Highlight(int id, FT len) {
+#if false
 	UpdateNearestDistance();
 	double max_dis = 0;
 	std::vector<FT> distances(sqrD_.size());
@@ -506,6 +507,7 @@ void MeshProjector::Highlight(int id, FT len) {
  		}
  	}
  	os.close();
+#endif
 }
 
 void MeshProjector::AdaptiveRefine(FT len, FT ratio) {

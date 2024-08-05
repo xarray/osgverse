@@ -1,7 +1,7 @@
 #include <osg/io_utils>
 #include <osg/Multisample>
 #include <osg/Texture2D>
-#include <osg/LOD>
+#include <osg/PolygonOffset>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
@@ -21,50 +21,7 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-class ApplyTexCoordVisitor : public osg::NodeVisitor
-{
-public:
-    ApplyTexCoordVisitor(int u = 1)
-    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _unit(u) {}
-    inline void pushMatrix(const osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
-    inline void popMatrix() { _matrixStack.pop_back(); }
-
-    virtual void apply(osg::Transform& node)
-    {
-        osg::Matrix matrix;
-        if (!_matrixStack.empty()) matrix = _matrixStack.back();
-        node.computeLocalToWorldMatrix(matrix, this);
-        pushMatrix(matrix); traverse(node); popMatrix();
-    }
-
-    virtual void apply(osg::Geode& node)
-    {
-        osg::Matrix matrix;
-        if (_matrixStack.size() > 0) matrix = _matrixStack.back();
-        for (size_t i = 0; i < node.getNumDrawables(); ++i)
-        {
-            osg::Geometry* geom = node.getDrawable(i)->asGeometry();
-            if (!geom) continue;
-
-            osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
-            osg::Vec2Array* ta = new osg::Vec2Array;
-            for (size_t v = 0; v < va->size(); ++v)
-            {
-                osg::Vec3 pt = (*va)[v] * matrix;
-                ta->push_back(osg::Vec2(pt[0], pt[1]));
-            }
-            geom->setTexCoordArray(_unit, ta);
-        }
-        traverse(node);
-    }
-
-protected:
-    typedef std::vector<osg::Matrix> MatrixStack;
-    MatrixStack _matrixStack; int _unit;
-};
-
-void createBlendingArea(osg::Node* input, const osg::Vec3& dir, const osg::Vec3& up,
-                        float offset = 0.1f, int texUnit = 1)
+osg::Node* createBlendingArea(osg::Node* input, float offset, const osg::Vec3& dir, const osg::Vec3& up)
 {
     osgVerse::MeshCollector mc; mc.setWeldingVertices(true);
     mc.setUseGlobalVertices(true); input->accept(mc);
@@ -91,45 +48,94 @@ void createBlendingArea(osg::Node* input, const osg::Vec3& dir, const osg::Vec3&
     }
 
     // 2. Project boundary points to 2D plane which matches the best view area
-    osgVerse::PointList2D points2; osgVerse::PointList3D points3;
+    osgVerse::PointList2D points2, inner2; osgVerse::PointList3D points3;
     for (std::set<unsigned int>::iterator itr = boundary.begin();
          itr != boundary.end(); ++itr) { points3.push_back(vertices[*itr]); }
     osg::Matrix mat3To2 = osgVerse::GeometryAlgorithm::project(points3, -dir, up, points2);
     osgVerse::GeometryAlgorithm::reorderPointsInPlane(points2);
 
-    // 3. Apply 2D coord to each original vertex as UV1
-    float radius = input->getBound().radius() * 1.5f;
+    // 3. Compute inner offset of the boundary points, getting entire edge-list
     osg::Vec2d poi = osgVerse::GeometryAlgorithm::getPoleOfInaccessibility(points2);
-    ApplyTexCoordVisitor atv(texUnit); atv.pushMatrix(mat3To2); input->accept(atv);
+    for (size_t i = 0; i < points2.size(); ++i)
+    {
+        const osgVerse::PointType2D& pt = points2[i];
+        osg::Vec2d dir = pt.first - poi; float length = dir.normalize() * offset;
+        inner2.push_back(osgVerse::PointType2D(osg::Vec2d(pt.first - dir * length), pt.second));
+    }
 
-    // 4. Create 1D texture for 360deg distances from POI to boundary
+    osgVerse::EdgeList edges; unsigned int base = points2.size();
+    for (size_t i = 0; i < points2.size(); ++i)
+        edges.push_back(osgVerse::EdgeType((i > 0) ? (i - 1) : base - 1, i));
+    for (size_t i = 0; i < inner2.size(); ++i)
+        edges.push_back(osgVerse::EdgeType(base + ((i > 0) ? (i - 1) : inner2.size() - 1), base + i));
+    points2.insert(points2.end(), inner2.begin(), inner2.end());
+
+    // 4. Delaunay triangulation to get new geometry data
+    osg::Vec3Array* va = new osg::Vec3Array; osg::Vec2Array* ta = new osg::Vec2Array;
+    osg::DrawElementsUShort* de = new osg::DrawElementsUShort(GL_TRIANGLES);
+    std::vector<size_t> indices = osgVerse::GeometryAlgorithm::delaunayTriangulation(points2, edges);
+    if (indices.empty())
+    {
+        de->setMode(GL_LINES);  // failed, show the boundary to see what happened
+        for (size_t i = 0; i < base; ++i)
+        {
+            const osgVerse::PointType2D& pt = points2[i];
+            //va->push_back(osg::Vec3(pt.first, 0.0f)); ta->push_back(osg::Vec2()); de->push_back(i);
+            va->push_back(points3[pt.second]); ta->push_back(osg::Vec2()); de->push_back(i);
+            if (i > 0) de->push_back(i - 1); else de->push_back(base - 1);
+        }
+    }
+    else
+    {
+        osg::Matrix mat2To3 = osg::Matrix::inverse(mat3To2);
+        for (size_t i = 0; i < points2.size(); ++i)
+        {
+            const osgVerse::PointType2D& pt = points2[i];
+            if (i >= base)
+            {
+                const osg::Vec2d& v = pt.first; double z = -1000.0;
+                osgVerse::IntersectionResult result = osgVerse::findNearestIntersection(
+                    input, osg::Vec3d(v[0], v[1], -z) * mat2To3, osg::Vec3d(v[0], v[1], z) * mat2To3);
+                if (!result.drawable.valid())
+                {
+                    OSG_WARN << "No intersection found for " << v << std::endl;
+                    va->push_back(osg::Vec3d(v[0], v[1], 0.0) * mat2To3);
+                }
+                else
+                    va->push_back(result.getWorldIntersectPoint());
+                ta->push_back(osg::Vec2(0.0f, 0.0f));
+            }
+            else
+                { va->push_back(points3[pt.second]); ta->push_back(osg::Vec2(1.0f, 0.0f)); }
+        }
+        de->assign(indices.begin(), indices.end());
+    }
+
+    // 5. Output the geometry
+    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+    geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+    geom->setVertexArray(va); geom->setTexCoordArray(0, ta); geom->addPrimitiveSet(de);
+    geom->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+
     osg::ref_ptr<osg::Texture1D> tex = new osg::Texture1D;
     tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
     tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     tex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
     {
         osg::ref_ptr<osg::Image> image = new osg::Image;
-        image->allocateImage(256, 1, 1, GL_RGB, GL_FLOAT);
-        image->setInternalTextureFormat(GL_RGB32F_ARB);
+        image->allocateImage(256, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
         for (int i = 0; i < 256; ++i)
-        {
-            float angle = osg::PI * 2.0f * (float)i / 256.0f;
-            osg::Vec2 dir(cosf(angle), sinf(angle));
-            osgVerse::PointList2D result = osgVerse::GeometryAlgorithm::intersectionWithPolygon2D(
-                osgVerse::LineType2D(poi, poi + dir * radius), points2);
-            if (result.empty())
-                { OSG_WARN << "No intersection found at angle " << angle << std::endl; }
-            else
-                ((osg::Vec3f*)image->data(i, 0))->set((result.back().first - poi).length(), 0.0f, 0.0f);
-        }
+        { float r = (float)i / 255.0f; image->setColor(osg::Vec4(r, r, r, r), i, 0); }
         tex->setImage(0, image.get());
     }
+    geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex.get());
 
-    // 5. Apply textures, uniforms, and shaders
-    osg::StateSet* ss = input->getOrCreateStateSet();
-    ss->addUniform(new osg::Uniform("poleOfInaccess", osg::Vec2f(poi)));
-    ss->addUniform(new osg::Uniform("DistanceMap", texUnit));
-    ss->setTextureAttributeAndModes(texUnit, tex.get());
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+    geode->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonOffset(-1.1f, 1.0f));
+    geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    geode->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    geode->addDrawable(geom.get());
+    return geode.release();
 }
 
 int main(int argc, char** argv)
@@ -148,8 +154,8 @@ int main(int argc, char** argv)
     side = up ^ direction; up = direction ^ side;
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    root->addChild(scene.get());
-    createBlendingArea(scene.get(), direction, up, 0.1f);
+    //root->addChild(scene.get());
+    root->addChild(createBlendingArea(scene.get(), 0.1f, direction, up));
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));

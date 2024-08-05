@@ -6,6 +6,7 @@
 | Bullet           | Depended | > 3.17    | Animation          | Zlib (+)     | :heavy_check_mark: | https://github.com/bulletphysics/bullet3 |
 | ZLMediaKit       | Depended |           | verse_ms           | MIT          | :heavy_check_mark: | https://github.com/ZLMediaKit/ZLMediaKit |
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | :heavy_check_mark: | https://github.com/google/draco |
+| libIGL           | Depended | > 2.5     | Modeling           | MPL2         | :heavy_check_mark: | https://github.com/libigl/libigl |
 | OpenVDB          | Depended | > 10.0    | verse_vdb          | MPL2         | :heavy_check_mark: | https://github.com/AcademySoftwareFoundation/openvdb |
 | osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | :heavy_check_mark: | https://github.com/gwaldron/osgearth |
 | Qt               | Depended | > 5.5     | App                | LGPL         | :heavy_check_mark: | |
@@ -45,6 +46,7 @@
 | backward-cpp     | Embedded |           | -                  | MIT          | :heavy_check_mark: | https://github.com/bombela/backward-cpp |
 | BSplineFitting   | Embedded |           | Modeling           | MIT          | :heavy_check_mark: | https://github.com/QianZheng/BSplineFitting/tree/master |
 | exprtk           | Embedded |           | Modeling           | MIT          | :heavy_check_mark: | https://github.com/ArashPartow/exprtk |
+| Fir & Iir        | Embedded |           | Animation          | MIT          | :heavy_check_mark: | https://github.com/berndporr |
 | laplace_deform   | Embedded |           | -                  | -            | :heavy_check_mark: | |
 | layout           | Embedded |           | -                  | -            | :heavy_check_mark: | |
 | lightmapper      | Embedded |           | -                  | -            | :heavy_check_mark: | https://github.com/ands/lightmapper |

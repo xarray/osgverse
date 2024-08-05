@@ -216,6 +216,13 @@ FIND_PATH(DRACO_LIB_DIR libdraco.so libdraco.a draco.lib
     NO_CMAKE_FIND_ROOT_PATH
 )
 
+FIND_PATH(LIBIGL_INCLUDE_DIR igl/igl_inline.h
+    PATHS ${THIRDPARTY_ROOT}/include
+    /usr/include
+    /usr/local/include
+    NO_CMAKE_FIND_ROOT_PATH
+)
+
 FIND_PATH(SDL2_INCLUDE_DIR SDL.h
     PATHS ${THIRDPARTY_ROOT}/include/SDL
     ${THIRDPARTY_ROOT}/include/SDL2
@@ -311,6 +318,14 @@ IF(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
 ELSE(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
     MESSAGE("[osgVerse] Dependency Draco not found. Some modules and functionalities will be ignored.")
 ENDIF(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
+
+SET(LIBIGL_FOUND FALSE)
+IF(LIBIGL_INCLUDE_DIR)
+    INCLUDE_DIRECTORIES(${LIBIGL_INCLUDE_DIR})
+    SET(LIBIGL_FOUND TRUE)
+ELSE(LIBIGL_INCLUDE_DIR)
+    MESSAGE("[osgVerse] Dependency libIGL not found. Some modules and functionalities will be ignored.")
+ENDIF(LIBIGL_INCLUDE_DIR)
 
 SET(SDL2_FOUND FALSE)
 IF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)

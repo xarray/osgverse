@@ -61,6 +61,7 @@ https://www.yuque.com/wangrui-jhjnz/zx531p/io8e7aq2ufsdhhl2
   - 5.5 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.
   - 5.6 OpenVDB 10.0 or later, for VDB point cloud and 3D image reader/writer plugin. (https://github.com/AcademySoftwareFoundation/openvdb)
   - 5.7 libDraco 1.5 or later, for Draco mesh compression support in osgVerseReaderWriter library. (https://github.com/google/draco)
+  - 5.8 libIGL 2.5 or later, for Quadriflow, ManifoldPlus and other functionalities in osgModeling library. (https://github.com/libigl/libigl)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -240,6 +241,9 @@ Our project is already tested on graphics cards listed as below:
 | BULLET_INCLUDE_DIR          | Path    |               | Set to path of btBulletDynamicsCommon.h |
 | BULLET_LIB_DIR              | Path    |               | Set to path of libBulletDynamics.a or BulletDynamics.lib |
 | BULLET_DEBUG_POSTFIX        | String  | _Debug        | Set a postfix for Bullet debug built-libraries |
+| DRACO_INCLUDE_DIR           | Path    |               | Set to path of draco/draco_features.h |
+| DRACO_LIB_DIR               | Path    |               | Set to path of libdraco.a or draco.lib |
+| LIBIGL_INCLUDE_DIR          | Path    |               | Set to path of igl/igl_inline.h |
 | ZLMEDIAKIT_INCLUDE_DIR      | Path    |               | Set to path of mk_common.h |
 | ZLMEDIAKIT_LIB_DIR          | Path    |               | Set to path of libmk_api.so or mk_api.lib |
 | OPENVDB_INCLUDE_DIR         | Path    |               | Set to path of openvdb/openvdb.h |
