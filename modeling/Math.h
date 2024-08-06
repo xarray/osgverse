@@ -91,6 +91,37 @@ namespace osgVerse
         bool _compiled;
     };
 
+    /** Point cloud querying manager, used for finding closest points */
+    class PointCloudQuery
+    {
+    public:
+        typedef std::pair<uint32_t, float> IndexAndDistancePair;
+        typedef std::pair<osg::Vec3, osg::ref_ptr<osg::Referenced> > PointData;
+
+        PointCloudQuery();
+        ~PointCloudQuery();
+
+        void addPoint(const osg::Vec3& pt, osg::Referenced* userData);
+        void setPoints(const std::vector<PointData>& data);
+
+        unsigned int getNumPoints() const;
+        const std::vector<PointData>& getPoints() const;
+
+        /** Build the KDTree index for point cloud */
+        void buildIndex(int maxLeafSize = 10);
+
+        /** Find nearest neighbors of specific point */
+        void findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
+                         unsigned int maxResults = 1000);
+
+        /** Find points inside the radius of specific point */
+        int findInRadius(const osg::Vec3& pt, float radius, std::vector<IndexAndDistancePair>& resultIndices);
+
+    protected:
+        void* _queryData;
+        void* _index;
+    };
+
     /** Computational geometry helpers struct */
     struct GeometryAlgorithm
     {
