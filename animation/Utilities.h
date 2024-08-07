@@ -14,6 +14,7 @@ class btTypedConstraint;
 namespace osgVerse
 {
 
+    /** Update physics pose callback */
     class PhysicsUpdateCallback : public osg::NodeCallback
     {
     public:
@@ -24,6 +25,8 @@ namespace osgVerse
         osg::observer_ptr<PhysicsEngine> _engine;
         std::string _bodyName;
     };
+
+    /* Physics creation functions */
 
     extern btCollisionShape* createPhysicsPoint();  // for kinematic use only
     extern btCollisionShape* createPhysicsBox(const osg::Vec3& halfSize);
@@ -43,6 +46,25 @@ namespace osgVerse
     extern btTypedConstraint* createConstraintP2P(btRigidBody* bodyA, const osg::Vec3& pivotA,
                                                   btRigidBody* bodyB, const osg::Vec3& pivotB,
                                                   const ConstraintSetting* setting = NULL);
+
+    /** Vector smoothing filter */
+    struct FilterBase : public osg::Referenced
+    { virtual double filter(double input) = 0; };
+
+    class VectorSmoother : public osg::Referenced
+    {
+    public:
+        VectorSmoother(double sampleRate = 100);
+
+        osg::Vec3 filter(const osg::Vec3& in) const
+        {
+            return osg::Vec3(_filter[0]->filter(in[0]), _filter[1]->filter(in[1]),
+                             _filter[2]->filter(in[2]));
+        }
+
+    protected:
+        osg::ref_ptr<FilterBase> _filter[3];
+    };
 
 }
 

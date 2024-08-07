@@ -472,6 +472,7 @@ SET(TWEENY_SOURCE_FILES
 SET(FILTER_SOURCE_FILES
     filters/Fir1.cpp filters/Fir1.h filters/Common.h filters/Biquad.cpp filters/Biquad.h
     filters/Butterworth.cpp filters/Butterworth.h filters/Cascade.cpp filters/Cascade.h
+    filters/PoleFilter.cpp filters/PoleFilter.h
 )
 
 SET(COACD_SOURCE_FILES

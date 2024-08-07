@@ -498,8 +498,7 @@ struct IntersectionHelper2D
 
     static bool isWithinSegment(const osg::Vec2d& p, const osg::Vec2d& a, const osg::Vec2d& b)
     {
-        int64_t s = 10e8; int64_t p0 = p.x() * s, p1 = p.y() * s;
-        int64_t a0 = a.x() * s, a1 = a.y() * s, b0 = b.x() * s, b1 = b.y() * s;
+        double p0 = p.x(), p1 = p.y(), a0 = a.x(), a1 = a.y(), b0 = b.x(), b1 = b.y();
         return (osg::minimum(a0, b0) <= p0 && p0 <= osg::maximum(a0, b0)) &&
                (osg::minimum(a1, b1) <= p1 && p1 <= osg::maximum(a1, b1));
     }

@@ -10,9 +10,26 @@
 
 #include <btBulletDynamicsCommon.h>
 #include <BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h>
+#include <3rdparty/filters/Butterworth.h>
 #include <modeling/Utilities.h>
 #include "Utilities.h"
 using namespace osgVerse;
+
+struct ButterworthFilter : public FilterBase
+{
+    ButterworthFilter(double sampleRate, double cutoff)
+    { f.setup(2, sampleRate, cutoff); f.reset(); }
+
+    virtual double filter(double input) { return f.filter(input); }
+    Iir::Butterworth::LowPass<2> f;
+};
+
+VectorSmoother::VectorSmoother(double sampleRate)
+{
+    _filter[0] = new ButterworthFilter(sampleRate, 5);
+    _filter[1] = new ButterworthFilter(sampleRate, 5);
+    _filter[2] = new ButterworthFilter(sampleRate, 5);
+}
 
 PhysicsUpdateCallback::PhysicsUpdateCallback(PhysicsEngine* e, const std::string& n)
 { _engine = e; _bodyName = n; }

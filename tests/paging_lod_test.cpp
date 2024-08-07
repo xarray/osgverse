@@ -277,10 +277,18 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    std::string pathfile;
+    if (arguments.read("-p", pathfile))
+    {
+        osgGA::AnimationPathManipulator* apm = new osgGA::AnimationPathManipulator(pathfile);
+        if (!apm->getAnimationPath()->empty()) viewer.setCameraManipulator(apm);
+    }
+    else
+        viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
     viewer.run();
