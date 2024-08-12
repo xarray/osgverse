@@ -165,7 +165,7 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments)
+    osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgVerse::readNodeFiles(arguments)
                                   : osgDB::readNodeFile(BASE_DIR "/models/Sponza.osgb");
     if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 

@@ -7,11 +7,11 @@
 #include <osg/Geometry>
 #include <osg/PolygonMode>
 #include <osg/Geode>
-#include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+#include <osgDB/ConvertUTF>
 #include <osgViewer/GraphicsWindow>
 #include <osgViewer/Viewer>
 #include <codecvt>
@@ -84,6 +84,30 @@ namespace osgVerse
         g_argumentCount = argc;
         if (argc == 0) return osg::ArgumentParser(NULL, NULL);
         return osg::ArgumentParser(&g_argumentCount, argv);
+    }
+
+    osg::Node* readNodeFiles(osg::ArgumentParser& arguments, const osgDB::Options* options)
+    {
+        std::vector<osg::ref_ptr<osg::Node>> nodeList;
+        for (int pos = 1; pos < arguments.argc(); ++pos)
+        {
+            if (arguments.isOption(pos)) continue;
+            std::string fileName = osgDB::convertStringFromCurrentCodePageToUTF8(arguments[pos]);
+            osg::ref_ptr<osg::Node> node = osgDB::readRefNodeFile(fileName, options);
+
+            if (node)
+            {
+                if (node->getName().empty()) node->setName(fileName);
+                nodeList.push_back(node);
+            }
+        }
+        if (nodeList.empty()) return NULL;
+        if (nodeList.size() == 1) return nodeList.front().release();
+
+        osg::ref_ptr<osg::Group> group = new osg::Group;
+        for (std::vector<osg::ref_ptr<osg::Node>>::iterator itr = nodeList.begin();
+             itr != nodeList.end(); ++itr) group->addChild(*itr);
+        return group.release();
     }
 }
 

@@ -32,7 +32,18 @@ class Reporter : public osg::NodeVisitor
 {
 public:
     Reporter::Reporter()
-    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _indent(0) {}
+    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _geomReporter(NULL), _indent(0) {}
+
+    Reporter::~Reporter()
+    { if (_geomReporter) delete _geomReporter; }
+
+    void setGeometryReport(const std::string& file)
+    {
+        _geomReporter = new std::ofstream(file);
+        (*_geomReporter) << "Class\tName\tPrimitives\tTriangles\tVertices\tWeldable\tAttributes\t"
+                         << "Tex0\tTex1\tTex2\tTex3\tTex4\tTex5\tTex6\tTex7\tProgram" << std::endl;
+    }
 
     virtual void apply(osg::Node& node)
     {
@@ -115,8 +126,7 @@ public:
             std::cout << "T = " << pos << std::endl;
         }
 
-        pushMatrix(matrix);
-        traverse(node);
+        pushMatrix(matrix); traverse(node);
         popMatrix(); popIndent();
     }
 
@@ -138,14 +148,14 @@ public:
     {
         osg::Matrix matrix;
         if (_matrixStack.size() > 0) matrix = _matrixStack.back();
-        outputBasic(geom); pushIndent();
+        outputBasic(geom); pushIndent(); _imageMap.clear();
 
         osg::StateSet* ss = geom.getStateSet();
         if (ss) apply(geom.getNumParents() > 0 ? geom.getParent(0) : NULL, &geom, *ss);
 
         osgVerse::BoundingVolumeVisitor bvv; bvv.apply(geom);
         osgVerse::BoundingVolumeVisitor bvv1; bvv1.setWeldingVertices(true); bvv1.apply(geom);
-        std::string nonManiType = "";
+        std::string nonManiType = "", attrTypes;
         switch (bvv1.isManifold())
         {
         case osgVerse::MeshCollector::IS_MANIFOLD: nonManiType = "Manifold"; break;
@@ -160,10 +170,28 @@ public:
         std::cout << std::string(_indent, ' ') << "<" << nonManiType << ">: "
                   << "Primitives = " << geom.getNumPrimitiveSets() << ", Triangles = "
                   << (bvv.getTriangles().size() / 3) << "; Vertices = " << numV << ",";
-        if (!bvv.getAttributes(osgVerse::MeshCollector::NormalAttr).empty()) std::cout << " +N";
-        if (!bvv.getAttributes(osgVerse::MeshCollector::ColorAttr).empty()) std::cout << " +C";
-        for (size_t u = 0; u < geom.getNumTexCoordArrays(); ++u) std::cout << " +UV" << u;
-        std::cout << "; Weldable = " << (float)(numV - weldedV) / (float)numV << std::endl;
+        if (!bvv.getAttributes(osgVerse::MeshCollector::NormalAttr).empty()) attrTypes += " +N";
+        if (!bvv.getAttributes(osgVerse::MeshCollector::ColorAttr).empty()) attrTypes += " +C";
+        for (size_t u = 0; u < geom.getNumTexCoordArrays(); ++u) attrTypes += " +UV" + std::to_string(u);
+        std::cout << attrTypes << "; Weldable = " << (float)(numV - weldedV) / (float)numV << std::endl;
+
+        if (_geomReporter)
+        {
+            (*_geomReporter) << geom.libraryName() << "::" << geom.className() << "\t" << geom.getName()
+                             << "\t" << geom.getNumPrimitiveSets() << "\t" << (bvv.getTriangles().size() / 3)
+                             << "\t" << numV << "\t" << (numV - weldedV) << "\t" << attrTypes << "\t";
+            for (int i = 0; i < 8; ++i)
+            {
+                if (_imageMap.find(i) == _imageMap.end()) { (*_geomReporter) << "\t"; continue; }
+                osg::Image* img = (_imageMap[i]->getNumImages() > 0) ? _imageMap[i]->getImage(0) : NULL;
+                if (img) (*_geomReporter) << img->s() << "x" << img->t(); (*_geomReporter) << "\t";
+            }
+
+            osg::Program* prog = static_cast<osg::Program*>(
+                ss ? ss->getAttribute(osg::StateAttribute::PROGRAM) : NULL);
+            if (prog) (*_geomReporter) << prog->getName() << " (" << prog->getNumShaders() << ")\t";
+            else (*_geomReporter) << "\t"; (*_geomReporter) << std::endl;
+        }
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
         traverse(geom);
 #endif
@@ -214,7 +242,7 @@ public:
                     if (image->referenceCount() == 1) std::cout << std::endl;
                     else std::cout << " (SHARED x" << image->referenceCount() << ")" << std::endl;
                 }
-                popIndent();
+                _imageMap[i] = tex; popIndent();
             }
         }
         popIndent();
@@ -252,19 +280,22 @@ protected:
 
     typedef std::vector<osg::Matrix> MatrixStack;
     MatrixStack _matrixStack;
+    std::map<int, osg::Texture*> _imageMap;
+    std::ostream* _geomReporter;
     int _indent;
 };
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::fixOsgBinaryWrappers();
 
     osg::ref_ptr<osg::Node> scene =
-        (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFile(argv[1]);
+        (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgVerse::readNodeFiles(arguments);
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
 
     Reporter reporter;
+    reporter.setGeometryReport("geom_report.csv");
     scene->accept(reporter);
 
     // Start the main loop
