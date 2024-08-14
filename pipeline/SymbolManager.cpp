@@ -206,7 +206,7 @@ void SymbolManager::initialize(osg::Group* group)
         _instanceGeom = new osg::Geometry;
         _instanceGeom->setUseDisplayList(false);
         _instanceGeom->setUseVertexBufferObjects(true);
-#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
         _instanceGeom->setCullingActive(false);
 #endif
         _instanceGeom->setVertexArray(va);
@@ -291,7 +291,7 @@ void SymbolManager::initialize(osg::Group* group)
         _instanceBoard = new osg::Geometry;
         _instanceBoard->setUseDisplayList(false);
         _instanceBoard->setUseVertexBufferObjects(true);
-#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
         _instanceBoard->setCullingActive(false);
 #endif
         _instanceBoard->setVertexArray(va);

@@ -14,7 +14,7 @@ bool LightCullCallback::cull(osg::NodeVisitor* nv, osg::Drawable* drawable, osg:
     {
         // Cull this drawable first
         bool unlimited = false; LightDrawable::Type t = ld->getType(unlimited);
-#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
         if (!unlimited && cv->isCulled(ld->getBoundingBox())) return true;
 #else
         if (!unlimited && cv->isCulled(ld->getBound())) return true;

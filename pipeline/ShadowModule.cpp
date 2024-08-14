@@ -2,6 +2,7 @@
 #include <osg/Version>
 #include <osg/ComputeBoundsVisitor>
 #include <osgDB/ReadFile>
+#include <osgUtil/SmoothingVisitor>
 #include <iostream>
 #include "../modeling/Utilities.h"
 #include "Utilities.h"
@@ -40,7 +41,7 @@ public:
         found |= _whitelist.empty();
         if (_sceneBoundThreshold > 0.0f)
         {
-#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
             const osg::BoundingBox& bb = geom.getBoundingBox();
 #else
             const osg::BoundingBox& bb = geom.getBound();
@@ -73,10 +74,11 @@ public:
         {
             osg::Geometry *geom = itr->first, *geom2 = itr->second.get();
             if (geom->getNumParents() == 0) continue; geom2->setName(geom->getName());
-#if false
+#if true
             for (unsigned int i = 0; i < geom->getNumParents(); ++i)
             {
                 osg::Geode* geode = static_cast<osg::Geode*>(geom->getParent(i));
+                osgUtil::SmoothingVisitor::smooth(*geom2);
                 geode->replaceDrawable(geom, geom2);
             }
 #else

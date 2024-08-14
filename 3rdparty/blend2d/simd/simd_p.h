@@ -11,7 +11,11 @@
 // SIMD - Architecture
 // ===================
 
-#if BL_TARGET_ARCH_ARM
+#ifdef BL_BUILD_NO_SIMD
+  #define BL_TARGET_SIMD_I 0
+  #define BL_TARGET_SIMD_F 0
+  #define BL_TARGET_SIMD_D 0
+#elif BL_TARGET_ARCH_ARM
   #include "../simd/simdarm_p.h"
 #elif BL_TARGET_ARCH_X86
   #include "../simd/simdx86_p.h"

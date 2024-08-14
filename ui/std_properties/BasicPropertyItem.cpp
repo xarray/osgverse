@@ -106,7 +106,7 @@ public:
             osg::Drawable* d = static_cast<osg::Drawable*>(_target.get());
             if (d->getNumParents() > 0)
                 l2w = new osg::RefMatrix(d->getParent(0)->getWorldMatrices()[0]);
-#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
             bb = d->getBoundingBox();
 #else
             bb = d->getBound();

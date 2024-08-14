@@ -56,7 +56,7 @@ NEW_TEST_EXECUTABLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Navigation navigation_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Texture_Mapping texture_mapping_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Auto_LOD auto_lod_test.cpp)
-#NEW_TEST_EXECUTABLE(osgVerse_Test_Polygon_Process polygon_process_test.cpp)
+NEW_TEST_EXECUTABLE(osgVerse_Test_Sky_Box sky_box_test.cpp)
 
 IF(BULLET_FOUND)
 	NEW_TEST_EXECUTABLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)

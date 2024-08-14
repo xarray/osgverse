@@ -235,7 +235,7 @@ int main(int argc, char** argv)
                     std::cout << "[Error] no root tile: " << rootTileName << std::endl;
             }
         }
-        osgDB::writeNodeFile(*root, outputFile);
+        osgDB::writeNodeFile(*root, outputFile); return 0;
     }
     else if (argc > 2 && std::string(argv[1]) == "opt_single")
     {
@@ -252,7 +252,7 @@ int main(int argc, char** argv)
             osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
             options->setPluginStringData("UseBASISU", "1");
             osgDB::writeNodeFile(*node, std::string(argv[2]) + "_opt.osgb", options.get());
-            opt.deleteSavedTextures();
+            opt.deleteSavedTextures(); return 0;
         }
     }
     else if (argc > 1)

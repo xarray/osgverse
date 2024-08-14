@@ -202,7 +202,7 @@ public:
     virtual void apply(osg::Camera& node)
     { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
-#if OSG_VERSION_GREATER_THAN(3, 2, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
     virtual void apply(osg::Geode& node)
     { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 

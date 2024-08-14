@@ -60,14 +60,14 @@ namespace osgVerse
     };
 
     /** Node/drawable callback for compatiblity */
-#if OSG_VERSION_GREATER_THAN(3, 2, 1)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
     class ComponentCallback : public osg::Callback
 #else
     class ComponentCallback
 #endif
     {
     public:
-#if OSG_VERSION_GREATER_THAN(3, 2, 1)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
         virtual bool run(osg::Object* object, osg::Object* data)
         {
             size_t index = 0;
@@ -121,7 +121,7 @@ namespace osgVerse
         bool _dirty;
     };
 
-#if OSG_VERSION_GREATER_THAN(3, 2, 1)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
     typedef ComponentCallback NodeComponentCallback;
     typedef ComponentCallback DrawableComponentCallback;
 #else
@@ -235,7 +235,7 @@ namespace osgVerse
 
     /** Callback for attaching a script to a Node's via there UserDataContainer
         for the purpose of overriding class methods within scripts.*/
-#if OSG_VERSION_GREATER_THAN(3, 2, 1)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
     class UserCallback : public osg::CallbackObject
     {
     public:

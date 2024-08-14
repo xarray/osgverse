@@ -383,7 +383,7 @@ osg::Group* Hierarchy::getSelectedGroup()
             if (parentG == NULL)
             {
                 osg::Drawable* parentD = dynamic_cast<osg::Drawable*>(_selectedItem->userData.get());
-#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
                 if (parentD != NULL && parentD->getNumParents() > 0) parent = parentD->getParent(0);
 #else
                 if (parentD != NULL && parentD->getNumParents() > 0)

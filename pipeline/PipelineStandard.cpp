@@ -195,7 +195,7 @@ namespace osgVerse
             OSG_WARN << "[StandardPipeline] No view provided." << std::endl;
             return false;
         }
-#if OSG_VERSION_GREATER_THAN(3, 2, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
         else if (!view->getLastAppliedViewConfig() && !mainCam->getGraphicsContext())
 #else
         else if (!mainCam->getGraphicsContext())
@@ -310,7 +310,7 @@ namespace osgVerse
         }
         else
         {
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
             size_t imgCount = spp.skyboxIBL->getNumImageData();
 #else
             size_t imgCount = spp.skyboxIBL->getNumImages();
