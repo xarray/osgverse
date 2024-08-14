@@ -77,6 +77,7 @@ Our project is already tested on graphics cards listed as below:
 | AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 15fps |
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
 | MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
+| PhytiumVR AXT-16-512      | 3.0 / GLSL 3.3 | :heavy_check_mark: | Current frame rate < 10fps. Will go blank if GLSL code has '#include'... Why? |
 | JingJia Micro JM7201      |                | :soon:             |       |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
 | VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | osgVerse_Test_Pipeline can work; standard can't |

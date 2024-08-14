@@ -10,6 +10,7 @@
 #include <osgGA/TrackballManipulator>
 #include <osgGA/StateSetManipulator>
 #include <osgUtil/CullVisitor>
+#include <osgUtil/Optimizer>
 
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
@@ -40,14 +41,14 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf.125,125,125.scale");
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgVerse::readNodeFiles(arguments)
+            : osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf.125,125,125.scale");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
     osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-    //osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -87,7 +88,7 @@ int main(int argc, char** argv)
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
-        shadow->createCasterGeometries(sceneRoot.get(), SHADOW_CASTER_MASK);
+        //shadow->createCasterGeometries(sceneRoot.get(), SHADOW_CASTER_MASK, 0.1f);
         if (shadow->getFrustumGeode())
         {
             osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);

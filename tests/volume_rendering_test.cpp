@@ -31,7 +31,7 @@ int main(int argc, char** argv)
     if (seq != NULL)
     {
         osg::ImageList images;
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
         osg::ImageSequence::ImageDataList imgList = seq->getImageDataList();
         for (size_t i = 0; i < imgList.size(); ++i) images.push_back(imgList[i]._image);
 #else

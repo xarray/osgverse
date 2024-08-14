@@ -287,7 +287,7 @@ public:
                     }
                     lineNum++;
                 }
-                return group;
+                return group.get();
             }
         }
         return ReadResult::FILE_NOT_HANDLED;

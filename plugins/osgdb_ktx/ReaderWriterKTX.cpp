@@ -40,7 +40,7 @@ public:
         {
             osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
             for (size_t i = 0; i < images.size(); ++i) seq->addImage(images[i]);
-            return seq;
+            return seq.get();
         }
         return images.empty() ? ReadResult::ERROR_IN_READING_FILE : ReadResult(images[0]);
     }
@@ -52,7 +52,7 @@ public:
         {
             osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
             for (size_t i = 0; i < images.size(); ++i) seq->addImage(images[i]);
-            return seq;
+            return seq.get();
         }
         return images.empty() ? ReadResult::ERROR_IN_READING_FILE : ReadResult(images[0]);
     }
@@ -83,7 +83,7 @@ public:
                 std::transform(scm.begin(), scm.end(), scm.begin(), tolower);
                 useCubemap = (scm == "true" || atoi(scm.c_str()) > 0);
             }
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
             for (size_t i = 0; i < seq->getNumImageData(); ++i)
 #else
             for (size_t i = 0; i < seq->getNumImages(); ++i)
@@ -115,7 +115,7 @@ public:
                 std::transform(scm.begin(), scm.end(), scm.begin(), tolower);
                 useCubemap = (scm == "true" || atoi(scm.c_str()) > 0);
             }
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
             for (size_t i = 0; i < seq->getNumImageData(); ++i)
 #else
             for (size_t i = 0; i < seq->getNumImages(); ++i)

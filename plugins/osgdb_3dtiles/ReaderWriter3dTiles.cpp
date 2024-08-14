@@ -9,6 +9,7 @@
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+#include <osgDB/ConvertUTF>
 
 #include "3rdparty/rapidxml/rapidxml.hpp"
 #include "3rdparty/picojson.h"
@@ -177,6 +178,24 @@ protected:
             if (tName.empty() || !ext.empty()) continue;
             if (tName[0] == '.') continue;
             tileProxy->setFileName(i, file);
+        }
+
+        if (tileProxy->getNumFileNames() == 0)
+        {
+            osg::ref_ptr<osg::Group> group = new osg::Group;
+            for (size_t i = 0; i < tiles.size(); ++i)
+            {
+                if (tiles[i][0] == '.') continue;
+                std::string file = osgDB::convertStringFromCurrentCodePageToUTF8(tiles[i]);
+
+                osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(prefix + "/" + file);
+                if (node.valid())
+                {
+                    OSG_NOTICE << "[ReaderWriter3dtiles] Loaded " << file << std::endl;
+                    group->addChild(node.get());
+                }
+            }
+            return group.release();
         }
         return tileProxy.release();
     }

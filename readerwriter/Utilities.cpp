@@ -5,6 +5,7 @@
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+#include <osgUtil/MeshOptimizers>
 #include "LoadTextureKTX.h"
 
 #include <ghc/filesystem.hpp>
@@ -55,15 +56,35 @@ void FixedFunctionOptimizer::apply(osg::Geometry& geom)
             p->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) invalidMode = true;
     }
 
+#if false
     if (invalidMode)
     {
         osg::TriangleIndexFunctor<ResortVertexOperator> functor; geom.accept(functor);
         geom.removePrimitiveSet(0, geom.getNumPrimitiveSets());
 
-        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
-        de->assign(functor.indices.begin(), functor.indices.end());
-        geom.addPrimitiveSet(de.get());
+        size_t idxSize = functor.indices.size();
+        if (idxSize < 255)
+        {
+            osg::ref_ptr<osg::DrawElementsUByte> de = new osg::DrawElementsUByte(GL_TRIANGLES);
+            de->assign(functor.indices.begin(), functor.indices.end());
+            geom.addPrimitiveSet(de.get());
+        }
+        else if (idxSize < 65535)
+        {
+            osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
+            de->assign(functor.indices.begin(), functor.indices.end());
+            geom.addPrimitiveSet(de.get());
+        }
+        else
+        {
+            osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+            de->assign(functor.indices.begin(), functor.indices.end());
+            geom.addPrimitiveSet(de.get());
+        }
     }
+#else
+    osgUtil::IndexMeshVisitor imv; imv.makeMesh(geom);
+#endif
 
     removeUnusedStateAttributes(geom.getStateSet());
     geom.setUseDisplayList(false);

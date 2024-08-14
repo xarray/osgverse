@@ -74,7 +74,7 @@ public:
         {
             osg::Geometry *geom = itr->first, *geom2 = itr->second.get();
             if (geom->getNumParents() == 0) continue; geom2->setName(geom->getName());
-#if true
+#if false
             for (unsigned int i = 0; i < geom->getNumParents(); ++i)
             {
                 osg::Geode* geode = static_cast<osg::Geode*>(geom->getParent(i));

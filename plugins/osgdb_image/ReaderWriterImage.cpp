@@ -150,18 +150,18 @@ protected:
         }
 
         if (images.empty()) return ReadResult::FILE_LOADED;
-        else if (images.size() == 1) return images.front();
+        else if (images.size() == 1) return images.front().get();
 
         osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
         for (size_t i = 0; i < images.size(); ++i) seq->addImage(images[i]);
-        return seq;
+        return seq.get();
     }
 
     WriteResult writeRaw(std::ostream& fout, const osg::Image& image,
                          const Options* options) const
     {
         const osg::ImageSequence* seq = dynamic_cast<const osg::ImageSequence*>(&image);
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
         osg::ImageSequence::ImageDataList images;
         if (!seq)
         {
@@ -185,7 +185,7 @@ protected:
         long long imgW = 0, imgH = 0, imgSize = 0;
         for (long long i = 0; i < imgCount; ++i)
         {
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
             osg::ImageSequence::ImageData& imgData = images[i];
             osg::Image* img = imgData._image.get();
 #else
