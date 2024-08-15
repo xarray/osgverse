@@ -7,7 +7,7 @@ SkipCMakeConfig=0
 SkipOsgBuild=0
 
 CurrentKernel=$(echo $CurrentKernel | grep "Microsoft")
-if [ $CurrentKernel != "" ]; then
+if [ "$CurrentKernel" != "" ]; then
     echo "Using Windows subsystem for Linux..."
     UsingWSL=1
 fi
@@ -341,7 +341,7 @@ fi
 WithOsgEarth=0
 if [ "$BuildMode" = '4' ]; then
 
-    if [ -d "../osgearth-wasm" ]; then
+    if [ -d "$CurrentDir/../osgearth-wasm" ]; then
 
         # WASM toolchain (WebGL 2)
         if [ ! -d "$CurrentDir/build/osgearth_wasm2" ]; then
