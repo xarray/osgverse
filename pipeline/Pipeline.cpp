@@ -79,8 +79,10 @@ public:
     MyCullVisitor()
     :   osgUtil::CullVisitor(), _cullMask(0xffffffff), _defaultMask(0xffffffff) {}
     MyCullVisitor(const MyCullVisitor& v)
-    :   osgUtil::CullVisitor(v), _pipelineMaskPath(v._pipelineMaskPath),
-        _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
+    :   osgUtil::CullVisitor(v), _callback(v._callback), _shadowData(v._shadowData),
+        _shadowViewport(v._shadowViewport), _pipelineMaskPath(v._pipelineMaskPath),
+        _shadowModelViews(v._shadowModelViews), _shadowProjections(v._shadowProjections),
+        _pixelSizeVector(v._pixelSizeVector), _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
 
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
@@ -88,12 +90,25 @@ public:
 
     virtual void reset()
     {
-        _cullMask = 0xffffffff; _pipelineMaskPath.clear();
+        _cullMask = 0xffffffff; _pipelineMaskPath.clear(); _shadowData = NULL;
         if (_callback.valid()) _defaultMask = _callback->getForwardMask();
 
         osg::Camera* cam = this->getCurrentCamera();
         if (cam && cam->getUserDataContainer() != NULL)
             cam->getUserValue("PipelineCullMask", _cullMask);
+        if (cam && cam->getUserData() != NULL)
+        {
+            osgVerse::ShadowModule::ShadowData* sd =
+                dynamic_cast<osgVerse::ShadowModule::ShadowData*>(cam->getUserData());
+            if (sd && sd->smallPixels > 0)
+            {
+                if (!_shadowModelViews.empty()) _shadowModelViews.clear();
+                if (!_shadowProjections.empty()) _shadowProjections.clear();
+                _shadowModelViews.push_back(sd->viewMatrix);
+                _shadowProjections.push_back(sd->projMatrix);
+                _shadowViewport = sd->_viewport.get(); _shadowData = sd;
+            }
+        }
 
 #if false
         OSG_NOTICE << "F-" << (getFrameStamp() != NULL ? getFrameStamp()->getFrameNumber() : -1)
@@ -106,7 +121,9 @@ public:
     bool passable(osg::Node& node, int& maskSet)
     {
         maskSet = 0;
+        if (checkSmallPixelSizeCulling(node.getBound())) return false;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
+
         if (node.getUserDataContainer() != NULL)
         {
             // Use this to replace nodemasks while checking deferred/forward graphs
@@ -150,7 +167,9 @@ public:
     bool passable(osg::Drawable& node)
     {
         unsigned int nodePipMask = 0xffffffff, flags = 0;
+        if (checkSmallPixelSizeCulling(node.getBound())) return false;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
+
         if (node.getUserValue("PipelineMask", nodePipMask))
         {
             node.getUserValue("PipelineFlags", flags);
@@ -185,10 +204,18 @@ public:
     { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
 
     virtual void apply(osg::Transform& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    {
+        int s = 0; pushModelViewMatrix(node);
+        if (passable(node, s)) osgUtil::CullVisitor::apply(node);
+        popM(s); popModelViewMatrix();
+    }
 
     virtual void apply(osg::Projection& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    {
+        int s = 0; pushProjectionMatrix(node);
+        if (passable(node, s)) osgUtil::CullVisitor::apply(node);
+        popM(s); popProjectionMatrix();
+    }
 
     virtual void apply(osg::Switch& node)
     { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
@@ -242,7 +269,7 @@ public:
         float depth = bb.valid() ? distance(bb.center(), matrix) : 0.0f;
         if (osg::isNaN(depth))
         {
-            OSG_NOTICE << drawable.getName() << " detected NaN..."
+            OSG_NOTICE << "[CullVisitorEx] " << drawable.getName() << " detected NaN..."
                        << " Camera: " << getCurrentCamera()->getName() << ", Center: " << bb.center().valid()
                        << ", Matrix: " << matrix.valid() << std::endl;
         }
@@ -294,6 +321,43 @@ public:
 #endif
 
 protected:
+    void pushModelViewMatrix(osg::Transform& t)
+    {
+        osg::Matrix matrix; if (!_shadowData) return;
+        if (!_shadowModelViews.empty()) matrix = _shadowModelViews.back();
+        t.computeLocalToWorldMatrix(matrix, this);
+        _shadowModelViews.push_back(matrix);
+        computePixelSizeVector();
+    }
+
+    void pushProjectionMatrix(osg::Projection& p)
+    {
+        if (!_shadowData) return;
+        _shadowProjections.push_back(p.getMatrix());
+        computePixelSizeVector();
+    }
+
+    void popModelViewMatrix() { if (_shadowData.valid()) _shadowModelViews.pop_back(); }
+    void popProjectionMatrix() { if (_shadowData.valid()) _shadowProjections.pop_back(); }
+
+    void computePixelSizeVector()
+    {
+        if (!_shadowData || (_shadowData.valid() && _shadowData->smallPixels < 1)) return;
+        if (!_shadowViewport) { OSG_WARN << "[CullVisitorEx] No valid viewport" << std::endl; return; }
+        _pixelSizeVector = osg::CullingSet::computePixelSizeVector(
+            *_shadowViewport, _shadowProjections.back(), _shadowModelViews.back());
+    }
+
+    bool checkSmallPixelSizeCulling(const osg::BoundingSphere& bs) const
+    {
+        if (_shadowData.valid() && _shadowData->smallPixels > 0)
+        {
+            float ps = (bs.center() * _pixelSizeVector) * (float)_shadowData->smallPixels;
+            if (bs.radius() < ps) return true;  // small-pixels-culling of shadow camera
+        }
+        return false;
+    }
+
     inline value_type distance(const osg::Vec3& coord, const osg::Matrix& matrix)
     {
         return -((value_type)coord[0] * (value_type)matrix(0, 2) +
@@ -314,7 +378,13 @@ protected:
     }
 
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
+    osg::observer_ptr<osgVerse::ShadowModule::ShadowData> _shadowData;
+    osg::observer_ptr<osg::Viewport> _shadowViewport;
     std::vector<std::pair<unsigned int, unsigned int>> _pipelineMaskPath;
+
+    typedef std::vector<osg::Matrix> MatrixValueStack;
+    MatrixValueStack _shadowModelViews, _shadowProjections;
+    osg::Vec4 _pixelSizeVector;
     unsigned int _cullMask, _defaultMask;
 };
 

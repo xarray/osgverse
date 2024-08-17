@@ -88,7 +88,22 @@ int main(int argc, char** argv)
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
-        //shadow->createCasterGeometries(sceneRoot.get(), SHADOW_CASTER_MASK, 0.1f);
+        if (arguments.read("--vhacd"))
+        {
+            // Effective Shadow Culling Method 1:
+            //    Convert geometries into V-HACD polygons and thus enable fast rendering
+            shadow->createCasterGeometries(sceneRoot.get(), SHADOW_CASTER_MASK, 0.1f);
+        }
+
+        if (arguments.read("--small-culling"))
+        {
+            // Effective Shadow Culling Method 2:
+            //    Use main camera VPW for small-pixels-culling under shadow cameras
+            shadow->setSmallPixelsToCull(0, 5);
+            shadow->setSmallPixelsToCull(1, 10);
+            shadow->setSmallPixelsToCull(2, 30);
+        }
+
         if (shadow->getFrustumGeode())
         {
             osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
@@ -106,6 +121,7 @@ int main(int argc, char** argv)
     }
 
     float lightX = 0.02f; bool lightD = true;
+    std::cout << "Shadow testing started..." << std::endl;
     while (!viewer.done())
     {
         if (lightD) { if (lightX > 0.8f) lightD = false; else lightX += 0.001f; }

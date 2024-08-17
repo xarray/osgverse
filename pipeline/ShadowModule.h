@@ -14,9 +14,16 @@ namespace osgVerse
     {
     public:
         struct ShadowData : public osg::Referenced  // will be set to camera's user-data
-        { int index; osg::BoundingBoxd bound; ShadowData() { index = -1; } };
+        {
+            int index, smallPixels; osg::BoundingBoxd bound;
+            osg::Matrix viewMatrix, projMatrix; osg::ref_ptr<osg::Viewport> _viewport;
+            ShadowData() { index = -1; smallPixels = 0; }
+        };
 
         ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom);
+
+        /** Set small-pixels-culling-feature of shadow cameras after createStages() */
+        void setSmallPixelsToCull(int cameraNum, int smallPixels);
 
         /** Create simplified caster geometries to improve shadow pass effectiveness */
         void createCasterGeometries(osg::Node* scene, unsigned int casterMask, float boundRatio = 0.1f,

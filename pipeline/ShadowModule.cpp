@@ -123,6 +123,17 @@ namespace osgVerse
         if (_pipeline.valid()) _pipeline->removeModule(this);
     }
 
+    void ShadowModule::setSmallPixelsToCull(int cameraNum, int smallPixels)
+    {
+        if (cameraNum < _shadowCameras.size())
+        {
+            ShadowData* sData = static_cast<ShadowData*>(_shadowCameras[cameraNum]->getUserData());
+            if (sData != NULL) sData->smallPixels = smallPixels;
+        }
+        else
+            OSG_NOTICE << "[ShadowModule] No camera found for setSmallPixelsToCull()" << std::endl;
+    }
+
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0,
                                      double maxDistance, bool retainLightPos)
     {
@@ -231,7 +242,8 @@ namespace osgVerse
         osg::State* state = renderInfo.getState();
         if (!cam || !state) return;
 
-        osg::Matrix viewInv = cam->getInverseViewMatrix(), proj = state->getProjectionMatrix();
+        osg::Matrix viewMat = cam->getViewMatrix(), proj = state->getProjectionMatrix(),
+                    viewInv = cam->getInverseViewMatrix();
         double fov, ratio, zn, zf; proj.getPerspective(fov, ratio, zn, zf);
         if (_shadowMaxDistance > 0.0 && (zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
 
@@ -257,7 +269,7 @@ namespace osgVerse
         for (size_t i = 0; i < numCameras; ++i)
         {
             double zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
-            Frustum frustum; frustum.create(cam->getViewMatrix(), proj, zMin, zMax);
+            Frustum frustum; frustum.create(viewMat, proj, zMin, zMax);
 
             // Get light-space bounding box of the splitted frustum
             osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
@@ -286,7 +298,11 @@ namespace osgVerse
                 shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
 
             ShadowData* sData = static_cast<ShadowData*>(shadowCam->getUserData());
-            if (sData != NULL) sData->bound = shadowBB;
+            if (sData != NULL)
+            {
+                sData->viewMatrix = viewMat; sData->projMatrix = proj;
+                sData->_viewport = cam->getViewport(); sData->bound = shadowBB;
+            }
         }
         _lightMatrices->dirty();
     }
