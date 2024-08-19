@@ -121,8 +121,8 @@ public:
     bool passable(osg::Node& node, int& maskSet)
     {
         maskSet = 0;
-        if (checkSmallPixelSizeCulling(node.getBound())) return false;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
+        if (checkSmallPixelSizeCulling(node.getBound())) return false;
 
         if (node.getUserDataContainer() != NULL)
         {
@@ -167,8 +167,8 @@ public:
     bool passable(osg::Drawable& node)
     {
         unsigned int nodePipMask = 0xffffffff, flags = 0;
-        if (checkSmallPixelSizeCulling(node.getBound())) return false;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
+        if (checkSmallPixelSizeCulling(node.getBound())) return false;
 
         if (node.getUserValue("PipelineMask", nodePipMask))
         {
@@ -205,16 +205,16 @@ public:
 
     virtual void apply(osg::Transform& node)
     {
-        int s = 0; pushModelViewMatrix(node);
+        int s = 0; pushModelViewMatrixInShadow(node);
         if (passable(node, s)) osgUtil::CullVisitor::apply(node);
-        popM(s); popModelViewMatrix();
+        popM(s);  popModelViewMatrixInShadow();
     }
 
     virtual void apply(osg::Projection& node)
     {
-        int s = 0; pushProjectionMatrix(node);
+        int s = 0; pushProjectionMatrixInShadow(node);
         if (passable(node, s)) osgUtil::CullVisitor::apply(node);
-        popM(s); popProjectionMatrix();
+        popM(s); popProjectionMatrixInShadow();
     }
 
     virtual void apply(osg::Switch& node)
@@ -321,26 +321,26 @@ public:
 #endif
 
 protected:
-    void pushModelViewMatrix(osg::Transform& t)
+    void pushModelViewMatrixInShadow(osg::Transform& t)
     {
         osg::Matrix matrix; if (!_shadowData) return;
         if (!_shadowModelViews.empty()) matrix = _shadowModelViews.back();
         t.computeLocalToWorldMatrix(matrix, this);
         _shadowModelViews.push_back(matrix);
-        computePixelSizeVector();
+        computeShadowPixelSizeVector();
     }
 
-    void pushProjectionMatrix(osg::Projection& p)
+    void pushProjectionMatrixInShadow(osg::Projection& p)
     {
         if (!_shadowData) return;
         _shadowProjections.push_back(p.getMatrix());
-        computePixelSizeVector();
+        computeShadowPixelSizeVector();
     }
 
-    void popModelViewMatrix() { if (_shadowData.valid()) _shadowModelViews.pop_back(); }
-    void popProjectionMatrix() { if (_shadowData.valid()) _shadowProjections.pop_back(); }
+    void popModelViewMatrixInShadow() { if (_shadowData.valid()) _shadowModelViews.pop_back(); }
+    void popProjectionMatrixInShadow() { if (_shadowData.valid()) _shadowProjections.pop_back(); }
 
-    void computePixelSizeVector()
+    void computeShadowPixelSizeVector()
     {
         if (!_shadowData || (_shadowData.valid() && _shadowData->smallPixels < 1)) return;
         if (!_shadowViewport) { OSG_WARN << "[CullVisitorEx] No valid viewport" << std::endl; return; }
@@ -1310,6 +1310,12 @@ namespace osgVerse
             if (glslVer < 300) ss << "#version " << glslVer << std::endl;
             else ss << "#version " << glslVer << " compatibility" << std::endl;
         }
+#endif
+
+#if defined(VERSE_WEBGL1)
+        ss << "#define VERSE_WEBGL1 1" << std::endl;
+#elif defined(VERSE_WEBGL2)
+        ss << "#define VERSE_WEBGL2 1" << std::endl;
 #endif
         ss << "//! osgVerse generated shader: " << glslVer << std::endl;
 

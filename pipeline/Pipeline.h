@@ -327,7 +327,7 @@ namespace osgVerse
     class StandardPipelineViewer : public osgViewer::Viewer
     {
     public:
-        StandardPipelineViewer(bool withSky = true, bool withSelector = true);
+        StandardPipelineViewer(bool withSky = true, bool withSelector = true, bool withDebugShadow = false);
         StandardPipelineViewer(const StandardPipelineParameters& spp,
                                bool withSky = true, bool withSelector = true);
 

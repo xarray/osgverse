@@ -172,11 +172,13 @@ namespace osgVerse
             _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
 #if defined(VERSE_WEBGL1)
             _shadowMaps[i]->setInternalFormat(GL_RGBA);
-#else
-            _shadowMaps[i]->setInternalFormat(GL_RGBA8);
-#endif
             _shadowMaps[i]->setSourceFormat(GL_RGBA);
             _shadowMaps[i]->setSourceType(GL_UNSIGNED_BYTE);
+#else
+            _shadowMaps[i]->setInternalFormat(GL_RGB16F_ARB);
+            _shadowMaps[i]->setSourceFormat(GL_RGB);
+            _shadowMaps[i]->setSourceType(GL_HALF_FLOAT);
+#endif
             _shadowMaps[i]->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
             _shadowMaps[i]->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
             _shadowMaps[i]->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
@@ -262,13 +264,15 @@ namespace osgVerse
         }
 
         // Split the main frustum
-        static const float ratios[] = { 0.0f, 0.15f, 0.35f, 0.55f, 1.0f };
+        double step = 0.0, zMaxTotal = 0.0;
         size_t numCameras = _shadowCameras.size();
-        double zStep = shadowDistance / ratios[numCameras], zMaxTotal = 0.0f;
         std::vector<osg::BoundingBoxd> shadowBBs(numCameras);
+#if false
+        static const float ratios[] = { 0.0f, 0.15f, 0.35f, 0.55f, 1.0f };
+        step = shadowDistance / ratios[numCameras];
         for (size_t i = 0; i < numCameras; ++i)
         {
-            double zMin = zn + zStep * ratios[i], zMax = zn + zStep * ratios[i + 1];
+            double zMin = zn + step * ratios[i], zMax = zn + step * ratios[i + 1];
             Frustum frustum; frustum.create(viewMat, proj, zMin, zMax);
 
             // Get light-space bounding box of the splitted frustum
@@ -276,13 +280,31 @@ namespace osgVerse
             double zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
             shadowBBs[i] = shadowBB; if (zMaxTotal < zNew) zMaxTotal = zNew;
         }
+#else
+        // Get light-space bounding box of the entire frustum
+        Frustum frustum; frustum.create(viewMat, proj, zn, zf);
+        osg::BoundingBoxd entireShadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+        zMaxTotal = osg::maximum(osg::absolute(entireShadowBB.zMin()),
+                                 osg::absolute(entireShadowBB.zMax()));
+
+        static double splitSchemeBias = 0.66;
+        double far = entireShadowBB.xMax(), near = entireShadowBB.xMin();
+        for (size_t i = 0; i < numCameras; ++i)
+        {
+            // exponential: Ci = (f - n) * (i / numsplits) ^ (bias + 1) + n;
+            double IDM0 = (double)(i) / numCameras, IDM1 = (double)(i + 1) / numCameras;
+            shadowBBs[i] = entireShadowBB;
+            shadowBBs[i]._min.x() = (far - near) * (pow(IDM0, splitSchemeBias + 1.0)) + near;
+            shadowBBs[i]._max.x() = (far - near) * (pow(IDM1, splitSchemeBias + 1.0)) + near;
+        }
+#endif
 
         for (size_t i = 0; i < numCameras; ++i)
         {
             const osg::BoundingBoxd& shadowBB = shadowBBs[i];
             const osg::Vec3 center = shadowBB.center();
             double radius = osg::maximum(shadowBB.xMax() - shadowBB.xMin(),
-                shadowBB.yMax() - shadowBB.yMin()) * 0.5;
+                                         shadowBB.yMax() - shadowBB.yMin()) * 0.5;
             double xMin = center[0] - radius, xMax = center[0] + radius;
             double yMin = center[1] - radius, yMax = center[1] + radius;
             //xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
@@ -347,7 +369,7 @@ namespace osgVerse
         if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps[id]->getTextureWidth(), _shadowMaps[id]->getTextureHeight());
         camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps[id].get());
-#if defined(VERSE_WASM)
+#if defined(VERSE_WEBGL1)
         // FBO without depth attachment will not enable depth test
         // By default OSG use "ImplicitBufferAttachmentMask" to handle this,
         // but the internal format should be reset for WebGL cases
@@ -361,6 +383,7 @@ namespace osgVerse
         camera->getOrCreateStateSet()->setAttributeAndModes(_cullFace.get(), value);
         camera->getOrCreateStateSet()->setAttribute(_polygonOffset.get(), value);
         camera->getOrCreateStateSet()->setMode(GL_POLYGON_OFFSET_FILL, value);
+        camera->getOrCreateStateSet()->setMode(GL_DEPTH_CLAMP, value);
         _shadowCameras.push_back(camera.get());
 
         Pipeline::Stage* stage = new Pipeline::Stage;
@@ -378,6 +401,11 @@ namespace osgVerse
         if (!_shadowFrustum) return;
         else _shadowFrustum->setCullingActive(false);
 
+        static osg::Vec4 dbgColor[MAX_SHADOWS] = {
+            osg::Vec4(1.0f, 0.0f, 0.0f, 0.6f), osg::Vec4(1.0f, 1.0f, 0.0f, 0.6f),
+            osg::Vec4(0.0f, 0.0f, 1.0f, 0.6f), osg::Vec4(0.0f, 1.0f, 1.0f, 0.6f)
+        };
+
         if (id < (int)_shadowFrustum->getNumDrawables())
             geom = _shadowFrustum->getDrawable(id)->asGeometry();
         else
@@ -394,7 +422,7 @@ namespace osgVerse
 
             osg::DrawElementsUByte* de2 = new osg::DrawElementsUByte(GL_QUADS);
             de2->push_back(4); de2->push_back(5); de2->push_back(6); de2->push_back(7);
-            osg::Vec4Array* ca = new osg::Vec4Array; ca->push_back(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+            osg::Vec4Array* ca = new osg::Vec4Array; ca->push_back(dbgColor[id]);
 
             geom = new osg::Geometry;
             geom->setUseDisplayList(false);

@@ -71,7 +71,7 @@ int main(int argc, char** argv)
     root->addChild(postCamera.get());
 
     // Start the viewer
-    osgVerse::StandardPipelineViewer viewer(false);
+    osgVerse::StandardPipelineViewer viewer(false, true, true);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
@@ -120,13 +120,16 @@ int main(int argc, char** argv)
         }
     }
 
-    float lightX = 0.02f; bool lightD = true;
+    float lightX = 0.02f; bool lightD = true, animated = arguments.read("--animated");
     std::cout << "Shadow testing started..." << std::endl;
     while (!viewer.done())
     {
-        if (lightD) { if (lightX > 0.8f) lightD = false; else lightX += 0.001f; }
-        else { if (lightX < -0.8f) lightD = true; else lightX -= 0.001f; }
-        light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
+        if (animated)
+        {
+            if (lightD) { if (lightX > 0.8f) lightD = false; else lightX += 0.001f; }
+            else { if (lightX < -0.8f) lightD = true; else lightX -= 0.001f; }
+        }
+        light0->setDirection(osg::Vec3(lightX, 0.5f, -1.0f));
         viewer.frame();
     }
     return 0;

@@ -96,7 +96,7 @@ namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(2048),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
         withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
         enableAO(true), enablePostEffects(true), enableUserInput(false)
     {
@@ -106,7 +106,7 @@ namespace osgVerse
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(2048),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
         withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
         enableAO(true), enablePostEffects(true), enableUserInput(false)
     {
@@ -614,11 +614,12 @@ namespace osgVerse
         IntersectionCondition _condition;
     };
 
-    StandardPipelineViewer::StandardPipelineViewer(bool withSky, bool withSelector)
+    StandardPipelineViewer::StandardPipelineViewer(bool withSky, bool withSelector, bool withDebugShadow)
         : osgViewer::Viewer(), _withSky(withSky), _withSelector(withSelector)
     {
         _parameters = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
         _parameters.enablePostEffects = true; _parameters.enableAO = true;
+        _parameters.debugShadowModule = withDebugShadow;
         _lightGeode = new osg::Geode; _textGeode = new osg::Geode; _root = new osg::Group;
     }
 
