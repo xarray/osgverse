@@ -45,6 +45,8 @@ namespace osgVerse
 
         inline void pushMatrix(const osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
         inline void popMatrix() { _matrixStack.pop_back(); }
+        inline void pushStateSet(osg::StateSet& ss) { _stateSetStack.push_back(&ss); }
+        inline void popStateSet() { _stateSetStack.pop_back(); }
         virtual void reset();
 
         virtual void apply(osg::Node& node);
@@ -62,6 +64,9 @@ namespace osgVerse
         const std::vector<osg::Vec3>& getVertices() const { return _vertices; }
         const std::vector<unsigned int>& getTriangles() const { return _indices; }
         const osg::BoundingBoxd& getBoundingBox() const { return _boundingBox; }
+
+        std::map<osg::StateSet*, std::vector<size_t>>& getVerticesOfStateSets()
+        { return _vertexOfStateSetMap; }
         
         enum NonManifoldType
         {
@@ -72,10 +77,13 @@ namespace osgVerse
 
     protected:
         typedef std::vector<osg::Matrix> MatrixStack;
+        typedef std::vector<osg::StateSet*> StateSetStack;
         MatrixStack _matrixStack;
+        StateSetStack _stateSetStack;
 
         std::map<osg::Vec3, unsigned int, Vec3MapComparer> _vertexMap;
         std::map<VertexAttribute, std::vector<osg::Vec4>> _attributes;
+        std::map<osg::StateSet*, std::vector<size_t>> _vertexOfStateSetMap;
         std::vector<osg::Vec3> _vertices;
         std::vector<unsigned int> _indices;
         osg::BoundingBoxd _boundingBox;

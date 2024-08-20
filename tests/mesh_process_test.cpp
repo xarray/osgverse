@@ -6,15 +6,18 @@
 #include <osgDB/WriteFile>
 #include <osgGA/TrackballManipulator>
 #include <osgGA/StateSetManipulator>
+#include <osgUtil/SmoothingVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <modeling/DynamicGeometry.h>
 #include <modeling/MeshTopology.h>
+#include <modeling/GeometryMapper.h>
 #include <modeling/Utilities.h>
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
 
+#define TEST_MAPPING_TO_VHACD 1
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
@@ -44,6 +47,7 @@ int main(int argc, char** argv)
     topology->prune();
 #endif
 
+#if !TEST_MAPPING_TO_VHACD
     osg::ref_ptr<osg::MatrixTransform> topoMT = new osg::MatrixTransform;
     {
         static osg::Vec4 colors[] = {
@@ -71,7 +75,7 @@ int main(int argc, char** argv)
         }
         topoGeode->setStateSet(mtv.getMergedStateSet());
         topoGeode->getOrCreateStateSet()->setAttributeAndModes(program.get());
-        osgDB::writeNodeFile(*topoGeode, "topoResult.osg");
+        //osgDB::writeNodeFile(*topoGeode, "topoResult.osg");
 
         topoMT->addChild(topoGeode.get());
         topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 20.0f));
@@ -83,22 +87,40 @@ int main(int argc, char** argv)
     lines->addPoint(osg::Vec3(5.0f, -5.0f, 0.0f));
     lines->addPoint(osg::Vec3(5.0f, 5.0f, 0.0f));
     lines->addPoint(osg::Vec3(-5.0f, 5.0f, 0.0f));
+#endif
 
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#if TEST_MAPPING_TO_VHACD
+    osgVerse::BoundingVolumeVisitor bvv; scene->accept(bvv);
+    geode->addDrawable(bvv.computeVHACD());
+    osgUtil::SmoothingVisitor smv; geode->accept(smv);
+
+    osgVerse::GeometryMapper mapper;
+    std::cout << "Similarity: " << mapper.computeSimilarity(scene.get(), geode.get()) << std::endl;
+    mapper.mapAttributes(scene.get(), geode.get());
+
+    osg::ref_ptr<osg::MatrixTransform> sceneMT = new osg::MatrixTransform;
+    sceneMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 20.0f));
+    sceneMT->addChild(scene.get());
+
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    root->addChild(sceneMT.get());
+    root->addChild(geode.get());
+#else
     geode->getOrCreateStateSet()->setAttributeAndModes(
         new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE));
     geode->addDrawable(lines.get());
 
     // Test VHACD
-    osgVerse::BoundingVolumeVisitor bvv;
-    scene->accept(bvv);
+    osgVerse::BoundingVolumeVisitor bvv; scene->accept(bvv);
     geode->addDrawable(bvv.computeVHACD());
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(scene.get());
     root->addChild(topoMT.get());
     root->addChild(geode.get());
+#endif
 
     /*osg::Image* image = new osg::Image;
     image->allocateImage(1024, 512, 1, GL_RGBA, GL_UNSIGNED_BYTE);

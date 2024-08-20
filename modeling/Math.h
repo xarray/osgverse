@@ -96,7 +96,7 @@ namespace osgVerse
     {
     public:
         typedef std::pair<uint32_t, float> IndexAndDistancePair;
-        typedef std::pair<osg::Vec3, osg::ref_ptr<osg::Referenced> > PointData;
+        typedef std::pair<osg::Vec3, osg::ref_ptr<osg::Referenced>> PointData;
 
         PointCloudQuery();
         ~PointCloudQuery();
@@ -111,8 +111,8 @@ namespace osgVerse
         void buildIndex(int maxLeafSize = 10);
 
         /** Find nearest neighbors of specific point */
-        void findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
-                         unsigned int maxResults = 1000);
+        float findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
+                          unsigned int maxResults = 1000);
 
         /** Find points inside the radius of specific point */
         int findInRadius(const osg::Vec3& pt, float radius, std::vector<IndexAndDistancePair>& resultIndices);

@@ -335,8 +335,8 @@ void PointCloudQuery::buildIndex(int maxLeafSize)
     kdtree->buildIndex(); _index = kdtree;
 }
 
-void PointCloudQuery::findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
-                                  unsigned int maxResults)
+float PointCloudQuery::findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
+                                   unsigned int maxResults)
 {
     KdTreeType* kdtree = (KdTreeType*)_index;
     std::vector<float> resultDistance2(maxResults);
@@ -344,6 +344,8 @@ void PointCloudQuery::findNearest(const osg::Vec3& pt, std::vector<uint32_t>& re
 
     float queryPt[3] = { pt[0], pt[1], pt[2] };
     kdtree->knnSearch(&queryPt[0], maxResults, &(resultIndices[0]), &(resultDistance2[0]));
+    std::sort(resultDistance2.begin(), resultDistance2.end(), std::less<float>());
+    return resultDistance2[0];
 }
 
 int PointCloudQuery::findInRadius(const osg::Vec3& pt, float radius,

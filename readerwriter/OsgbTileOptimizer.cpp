@@ -666,6 +666,8 @@ osg::Node* TileOptimizer::mergeGeometries(const std::vector<std::pair<osg::Geome
         {
             if (simplify && _simplifyRatio > 0.0f)
             {
+                // FIXME: not good to weld vertices, it makes wrong texture mapping
+                // A better way is to render all to textures to get heightmap for use.
                 MeshCollector collector;
                 collector.setWeldingVertices(true);
                 collector.apply(*result);

@@ -1345,6 +1345,11 @@ namespace osgVerse
 
         for (size_t i = 0; i < extraDefs.size(); ++i) ss << extraDefs[i] << std::endl;
         for (size_t i = 0; i < userDefs.size(); ++i) ss << userDefs[i] << std::endl;
+        if (source.find("#include") != std::string::npos)
+        {
+            OSG_WARN << "[Pipeline] Found not working '#include' flags: "
+                     << s->getName() << std::endl;
+        }
         s->setShaderSource(ss.str() + source);
     }
 

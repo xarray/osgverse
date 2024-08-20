@@ -185,7 +185,7 @@ void MeshCollector::reset()
 void MeshCollector::apply(osg::Node& node)
 {
     if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
-    traverse(node);
+    traverse(node); if (node.getStateSet()) popStateSet();
 }
 
 void MeshCollector::apply(osg::PagedLOD& node)
@@ -230,21 +230,23 @@ void MeshCollector::apply(osg::PagedLOD& node)
             return;
         }
     }
-    traverse(node);
+    traverse(node); if (node.getStateSet()) popStateSet();
 }
 
 void MeshCollector::apply(osg::ProxyNode& node)
 {
-    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet()); traverse(node);
-    if (!_loadedFineLevels || _traversalMode != TRAVERSE_ALL_CHILDREN) return;
-
-    for (unsigned int i = node.getNumChildren(); i < node.getNumFileNames(); ++i)
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+    if (_loadedFineLevels && _traversalMode == TRAVERSE_ALL_CHILDREN)
     {
-        osg::ref_ptr<osg::Node> child = osgDB::readNodeFile(
-            node.getDatabasePath() + node.getFileName(i));
-        OSG_NOTICE << "[MeshCollector] Loaded " << node.getFileName(i) << std::endl;
-        if (child.valid()) child->accept(*this);
+        for (unsigned int i = node.getNumChildren(); i < node.getNumFileNames(); ++i)
+        {
+            osg::ref_ptr<osg::Node> child = osgDB::readNodeFile(
+                node.getDatabasePath() + node.getFileName(i));
+            OSG_NOTICE << "[MeshCollector] Loaded " << node.getFileName(i) << std::endl;
+            if (child.valid()) child->accept(*this);
+        }
     }
+    traverse(node); if (node.getStateSet()) popStateSet();
 }
 
 void MeshCollector::apply(osg::Transform& node)
@@ -254,9 +256,8 @@ void MeshCollector::apply(osg::Transform& node)
     node.computeLocalToWorldMatrix(matrix, this);
     if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
 
-    pushMatrix(matrix);
-    traverse(node);
-    popMatrix();
+    pushMatrix(matrix); traverse(node);
+    popMatrix(); if (node.getStateSet()) popStateSet();
 }
 
 void MeshCollector::apply(osg::Geode& node)
@@ -288,7 +289,7 @@ void MeshCollector::apply(osg::Geode& node)
         _boundingBox.expandBy(bbox.corner(6) * matrix);
         _boundingBox.expandBy(bbox.corner(7) * matrix);
     }
-    traverse(node);
+    traverse(node); if (node.getStateSet()) popStateSet();
 }
 
 void MeshCollector::apply(osg::Geometry& geom)
@@ -316,10 +317,17 @@ void MeshCollector::apply(osg::Geometry& geom)
         if (!_globalVertices) _vertexMap.clear();
         functor.vertexMap = &_vertexMap;
     }
+
     geom.accept(functor);
+    if (!_stateSetStack.empty())
+    {
+        std::vector<size_t>& vids = _vertexOfStateSetMap[_stateSetStack.back()];
+        for (size_t i = functor.baseIndex; i < _vertices.size(); ++i) vids.push_back(i);
+    }
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
     traverse(geom);
 #endif
+    if (ss) popStateSet();
 }
 
 void MeshCollector::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
@@ -336,6 +344,7 @@ void MeshCollector::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
                 apply(n ,d, static_cast<osg::Texture*>(itr->second.first.get()), i);
         }
     }
+    pushStateSet(ss);
 }
 
 osg::Geometry* BoundingVolumeVisitor::computeVHACD(bool findBestPlane, bool shrinkWrap,
