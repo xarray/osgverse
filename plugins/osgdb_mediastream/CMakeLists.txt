@@ -4,23 +4,9 @@ SET(LIBRARY_FILES
 )
 
 #########################################
-FIND_PATH(ZLMEDIAKIT_INCLUDE_DIR ZLMediaKit/Common/MediaSource.h
-    PATHS ${THIRDPARTY_ROOT}/include/ZLMediaKit
-    /usr/include
-    /usr/local/include
-)
+FIND_DEPENDENCE(ZLMEDIAKIT "ZLMediaKit/Common/MediaSource.h" "libzlmediakit.so;zlmediakit.lib" "ZLMediaKit")
+IF(ZLMEDIAKIT_FOUND)
 
-FIND_PATH(ZLMEDIAKIT_LIB_DIR libzlmediakit.so zlmediakit.lib
-    PATHS ${THIRDPARTY_ROOT}/lib
-    /usr/lib /usr/${FIND_LIB_POSTFIX}
-    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
-)
-#########################################
-
-IF(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
-
-    INCLUDE_DIRECTORIES(${ZLMEDIAKIT_INCLUDE_DIR})
-    LINK_DIRECTORIES(${ZLMEDIAKIT_LIB_DIR})
     SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
     IF(VERSE_STATIC_BUILD)
         NEW_LIBRARY(${LIB_NAME} STATIC)
@@ -43,8 +29,4 @@ IF(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
         ENDIF()
     ENDIF()
 
-ELSE(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
-
-    MESSAGE("[osgVerse] Dependency ZLMediaKit not found. ${LIB_NAME} will be ignored.")
-
-ENDIF(ZLMEDIAKIT_INCLUDE_DIR AND ZLMEDIAKIT_LIB_DIR)
+ENDIF(ZLMEDIAKIT_FOUND)

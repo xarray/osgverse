@@ -4,23 +4,9 @@ SET(LIBRARY_FILES
 )
 
 #########################################
-FIND_PATH(LIBWEBP_INCLUDE_DIR webp/decode.h
-    PATHS ${THIRDPARTY_ROOT}/include
-    /usr/include
-    /usr/local/include
-)
+FIND_DEPENDENCE(LIBWEBP "webp/decode.h" "libwebp.so;libwebp.lib" "")
+IF(LIBWEBP_FOUND)
 
-FIND_PATH(LIBWEBP_LIB_DIR libwebp.so libwebp.lib
-    PATHS ${THIRDPARTY_ROOT}/lib
-    /usr/lib /usr/${FIND_LIB_POSTFIX}
-    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
-)
-#########################################
-
-IF(LIBWEBP_INCLUDE_DIR AND LIBWEBP_LIB_DIR)
-
-    INCLUDE_DIRECTORIES(${LIBWEBP_INCLUDE_DIR})
-    LINK_DIRECTORIES(${LIBWEBP_LIB_DIR})
     SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
     IF(VERSE_STATIC_BUILD)
         NEW_LIBRARY(${LIB_NAME} STATIC)
@@ -42,9 +28,5 @@ IF(LIBWEBP_INCLUDE_DIR AND LIBWEBP_LIB_DIR)
             INSTALL(FILES $<TARGET_PDB_FILE:${LIB_NAME}> DESTINATION ${INSTALL_BINDIR} OPTIONAL)
         ENDIF()
     ENDIF()
-    
-ELSE(LIBWEBP_INCLUDE_DIR AND LIBWEBP_LIB_DIR)
 
-    MESSAGE("[osgVerse] Dependency libWebP not found. ${LIB_NAME} will be ignored.")
-
-ENDIF(LIBWEBP_INCLUDE_DIR AND LIBWEBP_LIB_DIR)
+ENDIF(LIBWEBP_FOUND)

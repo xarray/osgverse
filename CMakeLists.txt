@@ -7,6 +7,7 @@ SET(VERSE_PLATFORM "")
 SET(CMAKE_DEBUG_POSTFIX "d")
 SET(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
+SET_PROPERTY(GLOBAL PROPERTY VERSE_DEPENDENCIES "")
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 
 ######################################### Macros
@@ -51,6 +52,54 @@ MACRO(NEW_LIBRARY LIBRARY_NAME LIBRARY_TYPE)
                                     ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 
 ENDMACRO(NEW_LIBRARY)
+
+MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
+
+    SET(${DEP_NAME}_FOUND FALSE)
+    IF(NOT "${INC_PATH_POSTFIX}" STREQUAL "")
+        FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
+            PATHS ${THIRDPARTY_ROOT}/include/${INC_PATH_POSTFIX}
+            /usr/include/${INC_PATH_POSTFIX}
+            /usr/local/include/${INC_PATH_POSTFIX}
+            NO_CMAKE_FIND_ROOT_PATH
+        )
+    ELSE()
+        FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
+            PATHS ${THIRDPARTY_ROOT}/include
+            /usr/include /usr/local/include
+            NO_CMAKE_FIND_ROOT_PATH
+        )
+    ENDIF()
+
+    IF(NOT "${LIB_NAMES}" STREQUAL "")
+        FIND_PATH(${DEP_NAME}_LIB_DIR ${LIB_NAMES}
+            PATHS ${THIRDPARTY_ROOT}/lib
+            /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
+            /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+            NO_CMAKE_FIND_ROOT_PATH
+        )
+
+        IF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
+            INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
+            LINK_DIRECTORIES(${${DEP_NAME}_LIB_DIR})
+            SET(${DEP_NAME}_FOUND TRUE)
+        ELSE(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
+            MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
+        ENDIF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
+    ELSE()
+        IF(${DEP_NAME}_INCLUDE_DIR)
+            INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
+            SET(${DEP_NAME}_FOUND TRUE)
+        ELSE(${DEP_NAME}_INCLUDE_DIR)
+            MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
+        ENDIF(${DEP_NAME}_INCLUDE_DIR)
+    ENDIF()
+
+    IF(${DEP_NAME}_FOUND)
+        SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_DEPENDENCIES "${DEP_NAME}")
+    ENDIF()
+
+ENDMACRO(FIND_DEPENDENCE)
 
 MACRO(USE_MSVC_DEBUGGER EXECUTABLE_NAME PATH_ENV)
 
@@ -186,56 +235,11 @@ ELSEIF(APPLE)
     SET(THIRDPARTY_ROOT ${VERSE_3RDPARTY_PATH}/apple)
 ENDIF()
 
-FIND_PATH(BULLET_INCLUDE_DIR btBulletDynamicsCommon.h
-    PATHS ${THIRDPARTY_ROOT}/include/bullet
-    $ENV{BULLET_ROOT}/include/bullet
-    /usr/include/bullet
-    /usr/local/include/bullet
-    NO_CMAKE_FIND_ROOT_PATH
-)
-
-FIND_PATH(BULLET_LIB_DIR libBulletDynamics.so libBulletDynamics.a BulletDynamics.lib
-    PATHS ${THIRDPARTY_ROOT}/lib
-    $ENV{BULLET_ROOT}/lib $ENV{BULLET_ROOT}/${FIND_LIB_POSTFIX}
-    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
-    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
-    NO_CMAKE_FIND_ROOT_PATH
-)
-
-FIND_PATH(DRACO_INCLUDE_DIR draco/draco_features.h
-    PATHS ${THIRDPARTY_ROOT}/include
-    /usr/include
-    /usr/local/include
-    NO_CMAKE_FIND_ROOT_PATH
-)
-
-FIND_PATH(DRACO_LIB_DIR libdraco.so libdraco.a draco.lib
-    PATHS ${THIRDPARTY_ROOT}/lib
-    /usr/lib /usr/${FIND_LIB_POSTFIX}
-    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
-    NO_CMAKE_FIND_ROOT_PATH
-)
-
-FIND_PATH(LIBIGL_INCLUDE_DIR igl/igl_inline.h
-    PATHS ${THIRDPARTY_ROOT}/include
-    /usr/include
-    /usr/local/include
-    NO_CMAKE_FIND_ROOT_PATH
-)
-
-FIND_PATH(SDL2_INCLUDE_DIR SDL.h
-    PATHS ${THIRDPARTY_ROOT}/include/SDL
-    ${THIRDPARTY_ROOT}/include/SDL2
-    /usr/include /usr/local/include
-    NO_CMAKE_FIND_ROOT_PATH
-)
-
-FIND_PATH(SDL2_LIB_DIR libSDL2.so libSDL2.a SDL2.lib
-    PATHS ${THIRDPARTY_ROOT}/lib
-    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
-    /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
-    NO_CMAKE_FIND_ROOT_PATH
-)
+FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulletDynamics.a;BulletDynamics.lib" "bullet")
+FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib" "")
+FIND_DEPENDENCE(LIBCEF "cef_base.h" "libcef.so;libcef.a;libcef.lib" "libcef")
+FIND_DEPENDENCE(LIBIGL "igl/igl_inline.h" "" "")
+FIND_DEPENDENCE(SDL2 "SDL.h" "libSDL2.so;libSDL2.a;SDL2.lib" "")
 
 IF(OSG_ROOT)
     SET(OSG_INCLUDE_DIR "${OSG_ROOT}/include")
@@ -309,30 +313,6 @@ IF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
 ELSE(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
     MESSAGE("[osgVerse] Dependency Bullet not found. Some modules and functionalities will be ignored.")
 ENDIF(BULLET_INCLUDE_DIR AND BULLET_LIB_DIR)
-
-SET(DRACO_FOUND FALSE)
-IF(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
-    INCLUDE_DIRECTORIES(${DRACO_INCLUDE_DIR})
-    LINK_DIRECTORIES(${DRACO_LIB_DIR})
-    SET(DRACO_FOUND TRUE)
-ELSE(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
-    MESSAGE("[osgVerse] Dependency Draco not found. Some modules and functionalities will be ignored.")
-ENDIF(DRACO_INCLUDE_DIR AND DRACO_LIB_DIR)
-
-SET(LIBIGL_FOUND FALSE)
-IF(LIBIGL_INCLUDE_DIR)
-    INCLUDE_DIRECTORIES(${LIBIGL_INCLUDE_DIR})
-    SET(LIBIGL_FOUND TRUE)
-ELSE(LIBIGL_INCLUDE_DIR)
-    MESSAGE("[osgVerse] Dependency libIGL not found. Some modules and functionalities will be ignored.")
-ENDIF(LIBIGL_INCLUDE_DIR)
-
-SET(SDL2_FOUND FALSE)
-IF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
-    SET(SDL2_FOUND TRUE)
-ELSE(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
-    MESSAGE("[osgVerse] Dependency SDL2 not found. Some modules and functionalities will be ignored.")
-ENDIF(SDL2_INCLUDE_DIR AND SDL2_LIB_DIR)
 
 ######################################### Global Options
 SET(VERSE_INSTALL_PDB_FILES ON CACHE BOOL "Enable to install PDB files along with executables and dynamic libraries")
@@ -569,8 +549,6 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
                         "${CMAKE_BINARY_DIR}/3rdparty")
     LINK_DIRECTORIES(${OSG_LIB_DIR} .)
     ADD_DEFINITIONS(-DINSTALL_PATH_PREFIX="${CMAKE_INSTALL_PREFIX}")
-    MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: "
-                   "${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}")
 
     IF(VERSE_BUILD_3RDPARTIES)
         MESSAGE(STATUS "[osgVerse] Build third-party libraries under helpers/toolchain_builder.")
@@ -600,6 +578,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ADD_SUBDIRECTORY(script)
     ADD_SUBDIRECTORY(ui)
     ADD_SUBDIRECTORY(plugins)
+
     IF(USE_WASM_OPTIONS)
         MESSAGE(STATUS "[osgVerse] Emscripten / WebAssembly toolchain is used. (WebGL2 = ${VERSE_USE_EXTERNAL_GLES3})")
         ADD_SUBDIRECTORY(wasm)
@@ -617,6 +596,11 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         ENDIF()
         ADD_SUBDIRECTORY(assets)
     ENDIF()
+
+    GET_PROPERTY(VERSE_DEPENDENCIES_TO_SHOW GLOBAL PROPERTY VERSE_DEPENDENCIES)
+    MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: "
+                   "${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}")
+    MESSAGE(STATUS "[osgVerse] Dependency libraries: ${VERSE_DEPENDENCIES_TO_SHOW}")
     CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/FindosgVerse.cmake" @ONLY)
 
 ELSE(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
