@@ -7,7 +7,7 @@ uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
 
-#if VERSE_WEBGL1
+#ifdef VERSE_WEBGL1
 const vec4 bitEnc = vec4(1., 255., 65025., 16581375.);
 const vec4 bitDec = 1. / bitEnc;
 
@@ -28,7 +28,7 @@ float DecodeFloatRGBA(vec4 v)
 float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
 {
     vec4 lightProjVec0 = VERSE_TEX2D(shadowMap, lightProjUV.xy);
-#if VERSE_WEBGL1
+#ifdef VERSE_WEBGL1
     float decDepth = DecodeFloatRGBA(lightProjVec0) * 2.0 - 1.0;
     float depth0 = decDepth;// lightProjVec0.z;  // use polygon-offset instead of +0.005
 #else

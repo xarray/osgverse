@@ -16,6 +16,15 @@
 #include "Intersection.h"
 #include "IO.h"
 
+#if true
+#include <random>
+template<class RandomIt> void my_random_shuffle(RandomIt first, RandomIt last)
+{
+    std::random_device rd; std::mt19937 g(rd());
+    std::shuffle(first, last, g);
+}
+#endif
+
 #define ZERO_THRES 1e-9
 MeshProjector::MeshProjector()
 {}
@@ -185,7 +194,12 @@ void MeshProjector::ComputeIndependentSet() {
 				group.push_back(i);
 				marked_vertices += 1;
 			}
+
+#if false
 			std::random_shuffle(group.begin(), group.end());
+#else
+            my_random_shuffle(group.begin(), group.end());
+#endif
 		}
 		group_id += 1;
 	}	

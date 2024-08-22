@@ -1,5 +1,6 @@
 #include "GraphicsWindowSDL.h"
 #include <osg/DeleteHandler>
+#include <iostream>
 #include <SDL.h>
 #include <SDL_syswm.h>
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
@@ -8,8 +9,14 @@
 #       include <EGL/eglext.h>
 #       include <EGL/eglext_angle.h>
 #       define VERSE_GLES_DESKTOP 1
+#       if VERSE_WITH_VULKAN
+#           include "VulkanExtension.h"
+#       endif
 #   endif
 #endif
+
+// EGL_VERSE_vulkan_objects
+typedef void* (EGLAPIENTRYP PFNEGLGETVKOBJECTSVERSEPROC)(EGLDisplay dpy);
 using namespace osgVerse;
 
 static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
@@ -108,7 +115,7 @@ protected:
 };
 
 GraphicsWindowSDL::GraphicsWindowSDL(osg::GraphicsContext::Traits* traits)
-    : _glContext(NULL), _glDisplay(NULL), _glSurface(NULL), _valid(false), _realized(false)
+:   _glContext(NULL), _glDisplay(NULL), _glSurface(NULL), _valid(false), _realized(false)
 {
     _traits = traits; initialize();
     if (valid())
@@ -185,6 +192,13 @@ void GraphicsWindowSDL::initialize()
         EGLNativeWindowType hWnd = sdlInfo.info.win.window;
         PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT =
             (PFNEGLGETPLATFORMDISPLAYEXTPROC)(eglGetProcAddress("eglGetPlatformDisplayEXT"));
+#if false
+        PFNEGLCREATEDEVICEANGLEPROC eglCreateDeviceANGLE =
+            (PFNEGLCREATEDEVICEANGLEPROC)(eglGetProcAddress("eglCreateDeviceANGLE"));
+        PFNEGLRELEASEDEVICEANGLEPROC eglReleaseDeviceANGLE =
+            (PFNEGLRELEASEDEVICEANGLEPROC)(eglGetProcAddress("eglReleaseDeviceANGLE"));
+#endif
+
         if (eglGetPlatformDisplayEXT != NULL)
         {
             const EGLint attrNewBackend[] = {
@@ -268,6 +282,22 @@ void GraphicsWindowSDL::initialize()
     EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribList);
     if (context == EGL_NO_CONTEXT)
     { OSG_WARN << "[GraphicsWindowSDL] Failed to create EGL context" << std::endl; return; }
+
+#   if VERSE_WITH_VULKAN
+    // Check if Google Angle is modified for VERSE use?
+    PFNEGLGETVKOBJECTSVERSEPROC eglGetVkObjectsVERSE =
+        (PFNEGLGETVKOBJECTSVERSEPROC)(eglGetProcAddress("eglGetVkObjectsVERSE"));
+    if (eglGetVkObjectsVERSE != NULL)
+    {
+        OSG_NOTICE << "[GraphicsWindowSDL] eglGetVkObjectsVERSE() found. "
+                   << "Retrieving Vulkan objects for integration uses." << std::endl;
+        VulkanObjectInfo* infoData = (VulkanObjectInfo*)eglGetVkObjectsVERSE(display);
+        if (infoData != NULL)
+        {
+            _vulkanObjects = new VulkanManager(infoData);
+        }
+    }
+#   endif
 #else
     SDL_GLContext context = SDL_GL_CreateContext(_sdlWindow);
     if (context == NULL)
@@ -287,7 +317,7 @@ bool GraphicsWindowSDL::realizeImplementation()
     if (_traits.valid()) { windowWidth = _traits->width; windowHeight = _traits->height; }
 #if VERSE_GLES_DESKTOP
     EGLDisplay display = (EGLContext)_glDisplay;
-    EGLSurface surface = (EGLContext)_glSurface;
+    EGLSurface surface = (EGLSurface)_glSurface;
     eglQuerySurface(display, surface, EGL_WIDTH, &windowWidth);
     eglQuerySurface(display, surface, EGL_HEIGHT, &windowHeight);
 #endif
@@ -305,9 +335,9 @@ void GraphicsWindowSDL::closeImplementation()
 {
     if (!_valid) return; else _valid = false;
 #ifdef VERSE_GLES_DESKTOP
-    EGLDisplay display = (EGLContext)_glDisplay;
+    EGLDisplay display = (EGLDisplay)_glDisplay;
     EGLContext context = (EGLContext)_glContext;
-    EGLSurface surface = (EGLContext)_glSurface;
+    EGLSurface surface = (EGLSurface)_glSurface;
     eglDestroyContext(display, context);
     eglDestroySurface(display, surface);
 #else
@@ -322,9 +352,9 @@ bool GraphicsWindowSDL::makeCurrentImplementation()
 {
     if (!_valid) return false;
 #ifdef VERSE_GLES_DESKTOP
-    EGLDisplay display = (EGLContext)_glDisplay;
+    EGLDisplay display = (EGLDisplay)_glDisplay;
     EGLContext context = (EGLContext)_glContext;
-    EGLSurface surface = (EGLContext)_glSurface;
+    EGLSurface surface = (EGLSurface)_glSurface;
     bool ok = (eglMakeCurrent(display, surface, surface, context) == EGL_TRUE);
     if (!ok) { OSG_WARN << "[GraphicsWindowSDL] Make current failed: " << eglGetError() << std::endl; }
     return ok;
@@ -338,7 +368,7 @@ bool GraphicsWindowSDL::releaseContextImplementation()
 {
     if (!_valid) return false;
 #ifdef VERSE_GLES_DESKTOP
-    EGLDisplay display = (EGLContext)_glDisplay;
+    EGLDisplay display = (EGLDisplay)_glDisplay;
     return eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) == EGL_TRUE;
 #else
     return true;
@@ -349,8 +379,8 @@ void GraphicsWindowSDL::swapBuffersImplementation()
 {
     if (!_valid) return;
 #ifdef VERSE_GLES_DESKTOP
-    EGLDisplay display = (EGLContext)_glDisplay;
-    EGLSurface surface = (EGLContext)_glSurface;
+    EGLDisplay display = (EGLDisplay)_glDisplay;
+    EGLSurface surface = (EGLSurface)_glSurface;
     eglSwapBuffers(display, surface);
 #else
     SDL_GL_SwapWindow(_sdlWindow);

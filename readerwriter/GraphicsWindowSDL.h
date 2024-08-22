@@ -17,6 +17,9 @@ namespace osgVerse
         virtual const char* libraryName() const { return "osgVerse"; }
         virtual const char* className() const { return "GraphicsWindowSDL"; }
 
+        osg::Referenced* getVulkanObjects() { return _vulkanObjects.get(); }
+        const osg::Referenced* getVulkanObjects() const { return _vulkanObjects.get(); }
+
         virtual bool isSameKindAs(const osg::Object* object) const
         { return dynamic_cast<const GraphicsWindowSDL*>(object) != 0; }
 
@@ -47,6 +50,7 @@ namespace osgVerse
         virtual ~GraphicsWindowSDL();
         void initialize();
 
+        osg::ref_ptr<osg::Referenced> _vulkanObjects;
         SDL_Window* _sdlWindow;
         void *_glContext, * _glDisplay, *_glSurface;
         bool _valid, _realized;
