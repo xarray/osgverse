@@ -14,28 +14,33 @@
        <command>
            <proto><ptype>void *</ptype> <name>eglGetVkObjectsVERSE</name></proto>
            <param><ptype>EGLDisplay</ptype> <name>dpy</name></param>
+           <param><ptype>EGLSurface</ptype> <name>surface</name></param>
        </command>
    - EDIT angle/scripts/registry_xml.py:
      - Add to the last of variable 'supported_egl_extensions':
        "EGL_VERSE_vulkan_objects",
    - RUN: python scripts/run_code_generation.py
    - EDIT src/libANGLE/Display.h:
-        void *GetVkObjectsFromDisplayVERSE(Display* display);
+        void *GetVkObjectsFromDisplayVERSE(Display* display, Surface *surface);
    - EDIT src/libANGLE/Display.cpp:
-        void* GetVkObjectsFromDisplayVERSE(Display* display) {
+        void* GetVkObjectsFromDisplayVERSE(Display* display, Surface *surface) {
         #if defined(ANGLE_ENABLE_VULKAN)
-            return rx::GetVulkanObjectsVERSE(display);
+            return rx::GetVulkanObjectsVERSE(display, surface);
         #else
             return nullptr;
         #endif
         }
    - EDIT src/libANGLE/renderer/vulkan/DisplayVk_api.h:
-        void *GetVulkanObjectsVERSE(egl::Display *display);
-   - EDIT src/libANGLE/renderer/vulkan/DisplayVk.cpp:
+        void *GetVulkanObjectsVERSE(egl::Display *display, egl::Surface *surface);
+   - EDIT src/libANGLE/renderer/vulkan/SurfaceVk.h, add to WindowSurfaceVk:
+        VkSurfaceKHR getSurface() const { return mSurface; }
+        VkSwapchainKHR getSwapChain() const { return mSwapchain; }
+   - EDIT src/libANGLE/renderer/vulkan/SurfaceVk.cpp:
         struct VulkanObjectInfo { ... };  // must be same with declaration here
-        void *GetVulkanObjectsVERSE(egl::Display *display) {
+        void *GetVulkanObjectsVERSE(egl::Display *display, egl::Surface *surface) {
             DisplayVk *displayVk = vk::GetImpl(display);
             vk::Renderer *renderer = displayVk->getRenderer();
+            const WindowSurfaceVk *windowSurface = GetImplAs<WindowSurfaceVk>(surface);
             VulkanObjectInfo* info = new VulkanObjectInfo();
             ...
             return info;
@@ -43,21 +48,23 @@
    - EDIT include/EGL/eglext_angle.h:
        #ifndef EGL_VERSE_vulkan_objects
        #define EGL_VERSE_vulkan_objects
-       typedef void* (EGLAPIENTRYP PFNEGLGETVKOBJECTSVERSEPROC)(EGLDisplay dpy);
+       typedef void* (EGLAPIENTRYP PFNEGLGETVKOBJECTSVERSEPROC)(EGLDisplay dpy, EGLSurface surface);
        #ifdef EGL_EGLEXT_PROTOTYPES
-       EGLAPI void *EGLAPIENTRY eglGetVkObjectsVERSE(EGLDisplay dpy);
+       EGLAPI void *EGLAPIENTRY eglGetVkObjectsVERSE(EGLDisplay dpy, EGLSurface surface);
        #endif
        #endif // EGL_VERSE_vulkan_objects
    - EDIT src/libGLESv2/egl_ext_stubs.cpp:
-       void *GetVkObjectsVERSE(Thread *thread, egl::Display *display) {
+       void *GetVkObjectsVERSE(Thread *thread, egl::Display *display, SurfaceID surfaceID) {
+           Surface *surface = display->getSurface(surfaceID);
            ANGLE_EGL_TRY_RETURN(thread, display->prepareForCall(), "eglGetVkObjectsVERSE",
                                 GetDisplayIfValid(display), EGL_FALSE);
-           void *returnValue = GetVkObjectsFromDisplayVERSE(display);
+           void *returnValue = GetVkObjectsFromDisplayVERSE(display, surface);
            thread->setSuccess(); return returnValue;
        }
    - EDIT libANGLE/validationEGL.cpp:
-       bool ValidateGetVkObjectsVERSE(const ValidationContext *val, const egl::Display *dpy) {
+       bool ValidateGetVkObjectsVERSE(const ValidationContext *val, const egl::Display *dpy, SurfaceID sID) {
            ANGLE_VALIDATION_TRY(ValidateDisplay(val, dpy));
+           ANGLE_VALIDATION_TRY(ValidateSurface(val, dpy, sID));
            if (!dpy->getExtensions().vulkanImageANGLE) {
                val->setError(EGL_BAD_ACCESS); return false;
            }
@@ -74,6 +81,10 @@ struct VulkanObjectInfo
     VkInstance instance;
     VkPhysicalDevice physicsDevice;
     VkDevice device;
+    VkQueue queues[3];
+
+    VkSurfaceKHR surface;
+    VkSwapchainKHR swapChain;
 };
 
 class VulkanManager : public osg::Referenced

@@ -598,8 +598,8 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ENDIF()
 
     GET_PROPERTY(VERSE_DEPENDENCIES_TO_SHOW GLOBAL PROPERTY VERSE_DEPENDENCIES)
-    MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: "
-                   "${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}")
+    MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: ${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}"
+                   "; osgVerse version: ${VERSE_VERSION} (${VERSE_PLATFORM})")
     MESSAGE(STATUS "[osgVerse] Dependency libraries: ${VERSE_DEPENDENCIES_TO_SHOW}")
     CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/FindosgVerse.cmake" @ONLY)
 

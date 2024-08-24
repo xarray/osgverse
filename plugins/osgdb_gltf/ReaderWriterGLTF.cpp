@@ -5,6 +5,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
+#include <osgDB/ConvertUTF>
 #include <readerwriter/LoadSceneGLTF.h>
 
 class ReaderWriterGLTF : public osgDB::ReaderWriter
@@ -39,10 +40,13 @@ public:
             ext = osgDB::getFileExtension(fileName);
         }
 
+        osg::ref_ptr<osg::Node> group;
         if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
-            return osgVerse::loadGltf(fileName, true).get();
+            group = osgVerse::loadGltf(fileName, true).get();
         else
-            return osgVerse::loadGltf(fileName, false).get();
+            group = osgVerse::loadGltf(fileName, false).get();
+        if (!group) OSG_WARN << "[ReaderWriterGLTF] Failed to load " << fileName << std::endl;
+        return group.get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const

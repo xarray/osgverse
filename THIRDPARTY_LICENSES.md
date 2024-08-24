@@ -51,6 +51,7 @@
 | layout           | Embedded |           | -                  | -            | :heavy_check_mark: | |
 | lightmapper      | Embedded |           | -                  | -            | :heavy_check_mark: | https://github.com/ands/lightmapper |
 | least-squares    | Embedded |           | Modeling           | MIT          | :heavy_check_mark: | https://github.com/Rookfighter/least-squares-cpp |
+| MeshOptimizer    | Embedded | 0.26      | Modeling           | MIT          | :heavy_check_mark: | https://github.com/zeux/meshoptimizer |
 | mikktspace       | Embedded |           | Pipeline           | Public       | :heavy_check_mark: | https://github.com/mmikk/MikkTSpace |
 | miniz            | Embedded |           | -                  | MIT          | :heavy_check_mark: | https://github.com/richgel999/miniz |
 | mio              | Embedded |           | -                  | MIT          | :heavy_check_mark: | https://github.com/vimpunk/mio |
@@ -65,6 +66,7 @@
 | tiny_gltf        | Embedded |           | verse_gltf         | MIT          | :heavy_check_mark: | https://github.com/syoyo/tinygltf |
 | tiny_gltf_loader | Embedded |           | verse_gltf         | MIT          | :heavy_check_mark: | https://github.com/syoyo/tinygltfloader |
 | tiny_obj_loader  | Embedded |           | -                  | MIT          | :heavy_check_mark: | https://github.com/tinyobjloader/tinyobjloader |
+| tinyfiledialogs  | Embedded | 3.18.2    | -                  | Zlib         | :heavy_check_mark: | https://sourceforge.net/projects/tinyfiledialogs/ |
 | tinyexr          | Embedded |           | -                  | BSD          | :heavy_check_mark: | https://github.com/syoyo/tinyexr |
 | VHACD            | Embedded | 4.1       | Modeling           | BSD3         | :heavy_check_mark: | https://github.com/kmammou/v-hacd
 | xatlas           | Embedded |           | -                  | MIT          | :heavy_check_mark: | https://github.com/jpcy/xatlas |

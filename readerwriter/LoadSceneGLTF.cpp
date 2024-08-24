@@ -303,10 +303,10 @@ namespace osgVerse
         }
         else
             loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);
-
+        
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
         if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << std::endl;
-        if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; }
+        if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; return; }
 
         if (rtcCenter.length2() > 0.0)
         {
@@ -548,6 +548,17 @@ namespace osgVerse
                     geom->setNormalArray(na, osg::Array::BIND_PER_VERTEX);
 #else
                     geom->setNormalArray(na); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+#endif
+                }
+                else if (attrib->first.compare("COLOR") == 0 && compSize == 4 && compNum == 4)
+                {
+                    osg::Vec4Array* ca = new osg::Vec4Array(size);
+                    copyBufferData(&(*ca)[0], &buffer.data[offset], copySize, stride, size);
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                    ca->setNormalize(attrAccessor.normalized);
+                    geom->setColorArray(ca, osg::Array::BIND_PER_VERTEX);
+#else
+                    geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 #endif
                 }
                 else if (attrib->first.compare("TANGENT") == 0 &&

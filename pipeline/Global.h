@@ -265,6 +265,67 @@ namespace osgVerse
     };
 #endif
 
+    /** Reference: https://github.com/JulienPalard/is_utf8 */
+    class Utf8StringValidator
+    {
+    public:
+        static inline bool check(const unsigned char* s, size_t length)
+        {
+            size_t i = 0, i1 = 0, i2 = 0, i3 = 0;
+            while (i < length)
+            {
+                i1 = i + 1; i2 = i + 2; i3 = i + 3; if (s[i] <= 0x7F) i += 1;  /* 00..7F */
+                else if (s[i] >= 0xC2 && s[i] <= 0xDF) /* C2..DF 80..BF */
+                {
+                    i += 2; if (i1 >= length) return false;
+                    else if (s[i1] < 0x80 || s[i1] > 0xBF) return false;
+                }
+                else if (s[i] == 0xE0) /* E0 A0..BF 80..BF */
+                {
+                    i += 3; if (i2 >= length) return false;
+                    else if ((s[i1] < 0xA0 || s[i1] > 0xBF) || (s[i2] < 0x80 || s[i2] > 0xBF)) return false;
+                }
+                else if (s[i] >= 0xE1 && s[i] <= 0xEC) /* E1..EC 80..BF 80..BF */
+                {
+                    i += 3; if (i2 >= length) return false;
+                    else if ((s[i1] < 0x80 || s[i1] > 0xBF) || (s[i2] < 0x80 || s[i2] > 0xBF)) return false;
+                }
+                else if (s[i] == 0xED) /* ED 80..9F 80..BF */
+                {
+                    i += 3; if (i2 >= length) return false;
+                    else if ((s[i1] < 0x80 || s[i1] > 0x9F) || (s[i2] < 0x80 || s[i2] > 0xBF)) return false;
+                }
+                else if (s[i] >= 0xEE && s[i] <= 0xEF) /* EE..EF 80..BF 80..BF */
+                {
+                    i += 3; if (i2 >= length) return false;
+                    else if ((s[i1] < 0x80 || s[i1] > 0xBF) || (s[i2] < 0x80 || s[i2] > 0xBF)) return false;
+                }
+                else if (s[i] == 0xF0) /* F0 90..BF 80..BF 80..BF */
+                {
+                    i += 4; if (i3 >= length) return false;
+                    else if ((s[i1] < 0x90 || s[i1] > 0xBF) || (s[i2] < 0x80 || s[i2] > 0xBF) ||
+                             (s[i3] < 0x80 || s[i3] > 0xBF)) return false;
+                }
+                else if (s[i] >= 0xF1 && s[i] <= 0xF3) /* F1..F3 80..BF 80..BF 80..BF */
+                {
+                    i += 4; if (i3 >= length) return false;
+                    else if ((s[i1] < 0x80 || s[i1] > 0xBF) || (s[i2] < 0x80 || s[i2] > 0xBF) ||
+                             (s[i3] < 0x80 || s[i3] > 0xBF)) return false;
+                }
+                else if (s[i] == 0xF4) /* F4 80..8F 80..BF 80..BF */
+                {
+                    i += 4; if (i3 >= length) return false;
+                    else if ((s[i1] < 0x80 || s[i1] > 0x8F) || (s[i2] < 0x80 || s[i2] > 0xBF) ||
+                             (s[i3] < 0x80 || s[i3] > 0xBF)) return false;
+                }
+                else return false;
+            } return true;
+        }
+
+        static inline bool check(const std::string& s)
+        { return check((unsigned char*)s.data(), s.length()); }
+    };
+
     /** Suggest run this function once to initialize some plugins & environments */
     extern osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir = BASE_DIR);
 

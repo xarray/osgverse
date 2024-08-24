@@ -12,11 +12,11 @@
 #       if VERSE_WITH_VULKAN
 #           include "VulkanExtension.h"
 #       endif
+// EGL_VERSE_vulkan_objects
+typedef void* (EGLAPIENTRYP PFNEGLGETVKOBJECTSVERSEPROC)(EGLDisplay dpy, EGLSurface surface);
 #   endif
 #endif
 
-// EGL_VERSE_vulkan_objects
-typedef void* (EGLAPIENTRYP PFNEGLGETVKOBJECTSVERSEPROC)(EGLDisplay dpy);
 using namespace osgVerse;
 
 static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
@@ -276,6 +276,7 @@ void GraphicsWindowSDL::initialize()
     EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE };
 #   endif
     EGLDisplay display = (EGLDisplay)_glDisplay;
+    EGLSurface surface = (EGLSurface)_glSurface;
     eglBindAPI(EGL_OPENGL_ES_API);  // Set rendering API
 
     // Create an EGL rendering context
@@ -291,11 +292,8 @@ void GraphicsWindowSDL::initialize()
     {
         OSG_NOTICE << "[GraphicsWindowSDL] eglGetVkObjectsVERSE() found. "
                    << "Retrieving Vulkan objects for integration uses." << std::endl;
-        VulkanObjectInfo* infoData = (VulkanObjectInfo*)eglGetVkObjectsVERSE(display);
-        if (infoData != NULL)
-        {
-            _vulkanObjects = new VulkanManager(infoData);
-        }
+        VulkanObjectInfo* infoData = (VulkanObjectInfo*)eglGetVkObjectsVERSE(display, surface);
+        if (infoData != NULL) _vulkanObjects = new VulkanManager(infoData);
     }
 #   endif
 #else

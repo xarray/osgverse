@@ -475,6 +475,18 @@ SET(FILTER_SOURCE_FILES
     filters/PoleFilter.cpp filters/PoleFilter.h
 )
 
+SET(MESHOPTIMIZER_SOURCE_FILES
+    meshoptimizer/meshoptimizer.h
+    meshoptimizer/allocator.cpp meshoptimizer/clusterizer.cpp
+    meshoptimizer/indexcodec.cpp meshoptimizer/indexgenerator.cpp
+    meshoptimizer/overdrawanalyzer.cpp meshoptimizer/overdrawoptimizer.cpp
+    meshoptimizer/quantization.cpp meshoptimizer/simplifier.cpp
+    meshoptimizer/spatialorder.cpp meshoptimizer/stripifier.cpp
+    meshoptimizer/vcacheanalyzer.cpp meshoptimizer/vcacheoptimizer.cpp
+    meshoptimizer/vertexcodec.cpp meshoptimizer/vertexfilter.cpp
+    meshoptimizer/vfetchanalyzer.cpp meshoptimizer/vfetchoptimizer.cpp
+)
+
 SET(COACD_SOURCE_FILES
     coacd/bvh.cpp coacd/bvh.h coacd/clip.cpp coacd/clip.h coacd/coacd.cpp coacd/coacd.h
     coacd/config.h coacd/cost.cpp coacd/cost.h coacd/hausdorff.h coacd/intersection.h
@@ -513,20 +525,21 @@ SOURCE_GROUP("libSpatialIndex Files" FILES ${LIBSPATIALINDEX_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
+SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
 SOURCE_GROUP("CoACD Files" FILES ${COACD_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
 
 SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
-	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp
+	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp VHACD.h
     backward.hpp strtk.hpp ghc/filesystem.hpp rapidxml/rapidxml.hpp rapidjson/rapidjson.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
     sqlite3.c sqlite3.h miniz.c miniz.h ofbx.cpp ofbx.h tinyexr.cc tinyexr.h dkm_parallel.hpp
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
 	mimalloc/static.c mimalloc/mimalloc.h mimalloc/mimalloc-new-delete.h lsqcpp.hpp
 	lightmapper.h xatlas.cpp xatlas.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp
-    GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp VHACD.h
+    GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
@@ -534,12 +547,22 @@ SET(LIBRARY_FILES
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
     ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
-    ${FILTER_SOURCE_FILES} ${COACD_SOURCE_FILES}
+    ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${COACD_SOURCE_FILES}
 )
 
 IF(LIBIGL_FOUND)
     SET(LIBRARY_FILES ${LIBRARY_FILES} ${QUADRIFLOW_SOURCE_FILES})
 ENDIF(LIBIGL_FOUND)
+
+IF(USE_WASM_OPTIONS)
+    #
+ELSEIF(ANDROID)
+    #
+ELSEIF(IOS)
+    #
+ELSE()
+    SET(LIBRARY_FILES ${LIBRARY_FILES} tinyfiledialogs.c tinyfiledialogs.h)
+ENDIF()
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS -DBL_STATIC -DBL_BUILD_NO_JIT
                 -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
