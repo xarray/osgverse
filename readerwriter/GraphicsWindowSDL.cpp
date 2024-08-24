@@ -10,6 +10,7 @@
 #       include <EGL/eglext_angle.h>
 #       define VERSE_GLES_DESKTOP 1
 #       if VERSE_WITH_VULKAN
+#           include <SDL_vulkan.h>
 #           include "VulkanExtension.h"
 #       endif
 // EGL_VERSE_vulkan_objects
@@ -290,10 +291,18 @@ void GraphicsWindowSDL::initialize()
         (PFNEGLGETVKOBJECTSVERSEPROC)(eglGetProcAddress("eglGetVkObjectsVERSE"));
     if (eglGetVkObjectsVERSE != NULL)
     {
-        OSG_NOTICE << "[GraphicsWindowSDL] eglGetVkObjectsVERSE() found. "
-                   << "Retrieving Vulkan objects for integration uses." << std::endl;
         VulkanObjectInfo* infoData = (VulkanObjectInfo*)eglGetVkObjectsVERSE(display, surface);
-        if (infoData != NULL) _vulkanObjects = new VulkanManager(infoData);
+        if (infoData != NULL)
+        {
+            _vulkanObjects = new VulkanManager(infoData);
+#if true
+            SDL_Vulkan_LoadLibrary(NULL);
+            ((VulkanManager&)*_vulkanObjects).testValidation(SDL_Vulkan_GetVkGetInstanceProcAddr());
+            SDL_Vulkan_UnloadLibrary();
+#endif
+        }
+        OSG_NOTICE << "[GraphicsWindowSDL] eglGetVkObjectsVERSE() found. "
+                   << "Retrieved Vulkan objects for integration uses." << std::endl;
     }
 #   endif
 #else

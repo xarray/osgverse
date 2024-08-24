@@ -92,6 +92,19 @@ class VulkanManager : public osg::Referenced
 public:
     VulkanManager(VulkanObjectInfo* info) : _infoData(info) {}
 
+    void testValidation(void* procAddr)
+    {
+        if (!_infoData || !procAddr) return;
+        PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)procAddr;
+        PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)
+            vkGetInstanceProcAddr(_infoData->instance, "vkGetPhysicalDeviceProperties");
+
+        VkPhysicalDeviceProperties properties {};
+        vkGetPhysicalDeviceProperties(_infoData->physicsDevice, &properties);
+        OSG_NOTICE << "[VulkanManager] Get device data: " << properties.deviceName << "; "
+                   << properties.driverVersion << ", " << properties.apiVersion << std::endl;
+    }
+
 protected:
     virtual ~VulkanManager() { if (_infoData != NULL) delete _infoData; }
     VulkanObjectInfo* _infoData;
