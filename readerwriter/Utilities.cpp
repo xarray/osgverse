@@ -5,11 +5,11 @@
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
-#include <osgUtil/MeshOptimizers>
-#include "LoadTextureKTX.h"
-
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
+
+#include "modeling/Utilities.h"
+#include "LoadTextureKTX.h"
 #include "Utilities.h"
 using namespace osgVerse;
 
@@ -31,61 +31,9 @@ void emscripten_advance()
 }
 #endif
 
-struct ResortVertexOperator
-{
-    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
-    {
-        if (i1 == i2 || i2 == i3 || i1 == i3) return;
-        indices.push_back(i1); indices.push_back(i2); indices.push_back(i3);
-    }
-    std::vector<unsigned int> indices;
-};
-
 void FixedFunctionOptimizer::apply(osg::Geometry& geom)
 {
-    bool invalidMode = false;
-    for (size_t i = 0; i < geom.getNumPrimitiveSets(); ++i)
-    {
-        // glDrawArrays() and glDrawElements() doesn't support GL_QUADS in GLES 2.0/3.x and GL3/4
-        // https://docs.gl/gl3/glDrawArrays  // https://docs.gl/gl3/glDrawElements
-        osg::PrimitiveSet* p = geom.getPrimitiveSet(i); GLenum mode = p->getMode();
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-        if (mode > GL_TRIANGLES) invalidMode = true;
-#endif
-        if (p->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType ||
-            p->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) invalidMode = true;
-    }
-
-#if false
-    if (invalidMode)
-    {
-        osg::TriangleIndexFunctor<ResortVertexOperator> functor; geom.accept(functor);
-        geom.removePrimitiveSet(0, geom.getNumPrimitiveSets());
-
-        size_t idxSize = functor.indices.size();
-        if (idxSize < 255)
-        {
-            osg::ref_ptr<osg::DrawElementsUByte> de = new osg::DrawElementsUByte(GL_TRIANGLES);
-            de->assign(functor.indices.begin(), functor.indices.end());
-            geom.addPrimitiveSet(de.get());
-        }
-        else if (idxSize < 65535)
-        {
-            osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
-            de->assign(functor.indices.begin(), functor.indices.end());
-            geom.addPrimitiveSet(de.get());
-        }
-        else
-        {
-            osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
-            de->assign(functor.indices.begin(), functor.indices.end());
-            geom.addPrimitiveSet(de.get());
-        }
-    }
-#else
-    osgUtil::IndexMeshVisitor imv; imv.makeMesh(geom);
-#endif
-
+    optimizeIndices(geom);
     removeUnusedStateAttributes(geom.getStateSet());
     geom.setUseDisplayList(false);
     geom.setUseVertexBufferObjects(true);

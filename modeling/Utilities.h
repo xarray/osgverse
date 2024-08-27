@@ -189,6 +189,9 @@ namespace osgVerse
     /** Create a bounding volume geometry */
     extern osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb);
     extern osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs);
+
+    /** Change primitives to triangles for GL-Core use */
+    extern bool optimizeIndices(osg::Geometry& geom);
 }
 
 #endif

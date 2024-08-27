@@ -5,6 +5,7 @@
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <osgUtil/SmoothingVisitor>
+#include <osgUtil/MeshOptimizers>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <iostream>
@@ -19,6 +20,16 @@
 #include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;
+
+struct ResortVertexOperator
+{
+    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+    {
+        if (i1 == i2 || i2 == i3 || i1 == i3) return;
+        indices.push_back(i1); indices.push_back(i2); indices.push_back(i3);
+    }
+    std::vector<unsigned int> indices;
+};
 
 static osg::Vec3 computeMidpointOnSphere(const osg::Vec3& a, const osg::Vec3& b,
                                          const osg::Vec3& center, float radius)
@@ -623,7 +634,7 @@ namespace osgVerse
         }
         else if (autoNormals)
             osgUtil::SmoothingVisitor::smooth(*geom);
-        return geom.release();
+        optimizeIndices(*geom); return geom.release();
     }
 
     osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, const osg::Vec4& color,
@@ -1093,5 +1104,48 @@ namespace osgVerse
     osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs)
     { return createEllipsoid(bs.center(), bs.radius(), bs.radius(), bs.radius()); }
 
+    bool optimizeIndices(osg::Geometry& geom)
+    {
+        bool invalidMode = false;
+        osgUtil::IndexMeshVisitor imv; imv.makeMesh(geom);
+        for (size_t i = 0; i < geom.getNumPrimitiveSets(); ++i)
+        {
+            // glDrawArrays() and glDrawElements() doesn't support GL_QUADS in GLES 2.0/3.x and GL3/4
+            // https://docs.gl/gl3/glDrawArrays  // https://docs.gl/gl3/glDrawElements
+            osg::PrimitiveSet* p = geom.getPrimitiveSet(i); GLenum mode = p->getMode();
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+            if (mode > GL_TRIANGLES) invalidMode = true;
+#endif
+            if (p->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType ||
+                p->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) invalidMode = true;
+        }
+
+        if (invalidMode)
+        {
+            osg::TriangleIndexFunctor<ResortVertexOperator> functor; geom.accept(functor);
+            geom.removePrimitiveSet(0, geom.getNumPrimitiveSets());
+
+            size_t idxSize = functor.indices.size();
+            if (idxSize < 255)
+            {
+                osg::ref_ptr<osg::DrawElementsUByte> de = new osg::DrawElementsUByte(GL_TRIANGLES);
+                de->assign(functor.indices.begin(), functor.indices.end());
+                geom.addPrimitiveSet(de.get());
+            }
+            else if (idxSize < 65535)
+            {
+                osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
+                de->assign(functor.indices.begin(), functor.indices.end());
+                geom.addPrimitiveSet(de.get());
+            }
+            else
+            {
+                osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+                de->assign(functor.indices.begin(), functor.indices.end());
+                geom.addPrimitiveSet(de.get());
+            }
+        }
+        return invalidMode;
+    }
 }
 
