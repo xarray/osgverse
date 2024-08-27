@@ -49,7 +49,6 @@ public:
     {
         _ellipsoid = new osg::EllipsoidModel;
         _subOptions = new osgDB::Options;
-        _subOptions->setPluginStringData("sub_loader", "1");
 
         supportsExtension("verse_tiles", "Pseudo file extension");
         supportsExtension("xml", "coordinate file of ContextCapture (metadata.xml)");
@@ -132,8 +131,7 @@ public:
             if (root.is<picojson::object>())
             {
                 std::string name = options ? options->getPluginStringData("simple_name") : "";
-                bool isRootTile = options && options->getPluginStringData("sub_loader").empty();
-                osg::ref_ptr<osg::Node> node = createTile(root, prefix, name, options, isRootTile);
+                osg::ref_ptr<osg::Node> node = createTile(root, prefix, name, "", options);
 #if WRITE_TO_OSG
                 osgDB::writeNodeFile(*node, prefix + "/root.osgt");
 #endif
@@ -199,10 +197,36 @@ protected:
         }
         return tileProxy.release();
     }
+    
+    osg::Node* createTileChildren(picojson::array& children, const std::string& name,
+                                  const osgDB::Options* localOptions) const
+    {
+        osg::ref_ptr<osgDB::Options> opt = _subOptions->cloneOptions();
+        std::string refine = localOptions->getPluginStringData("refinement");
+        std::string prefix = localOptions->getPluginStringData("prefix");
+
+        osg::Group* group = new osg::Group;
+        for (size_t i = 0; i < children.size(); ++i)
+        {
+            osg::ref_ptr<osg::Node> child = createTile(children[i], prefix, name, refine, opt.get());
+            if (child.valid()) group->addChild(child.get());
+        }
+
+        if (group->getNumChildren() == 0)
+        {
+            std::string fallback = localOptions->getPluginStringData("fallback");
+            if (!fallback.empty()) group->addChild(osgDB::readNodeFile(fallback, opt.get()));
+        }
+#if WRITE_TO_OSG
+        osgDB::writeNodeFile(*group, prefix + "/" + name + ".osgt");
+#endif
+        return group;
+    }
 
     osg::Node* createTile(picojson::value& root, const std::string& prefix, const std::string& name,
-                          const osgDB::Options* options, bool isRootTile) const
+                          const std::string& parentRefine, const osgDB::Options* options) const
     {
+        osg::ref_ptr<osgDB::Options> opt = _subOptions->cloneOptions();
         picojson::value& bound = root.get("boundingVolume");
         picojson::value& content = root.get("content");
         picojson::value& rangeV = root.get("geometricError");
@@ -215,11 +239,12 @@ protected:
         if (range < 0.0 || range > 99999.0) range = FLT_MAX;  // invalid range
         range = (range * height) / (_maxScreenSpaceError * sseDenominator);
 
-        std::string st = rangeSt.is<std::string>() ? rangeSt.get<std::string>() : "";
         osg::BoundingSphered bs = getBoundingSphere(bound);
+        std::string st = rangeSt.is<std::string>() ? rangeSt.get<std::string>() : "";
+        if (st.empty()) st = parentRefine;
 
         osg::ref_ptr<osg::Node> tile = createTile(
-            content, children, bs, range, st, prefix, name, options);
+            content, children, bs, range, st, prefix, name, opt.get());
         if (trans.is<picojson::array>())
         {
             picojson::array& tArray = trans.get<picojson::array>();
@@ -235,35 +260,11 @@ protected:
         else return tile.release();
     }
 
-    osg::Node* createTileChildren(picojson::array& children, const std::string& name,
-                                  const osgDB::Options* localOptions) const
-    {
-        osg::ref_ptr<osgDB::Options> opt = _subOptions->cloneOptions();
-        std::string prefix = localOptions->getPluginStringData("prefix");
-        osg::Group* group = new osg::Group;
-        for (size_t i = 0; i < children.size(); ++i)
-        {
-            osg::ref_ptr<osg::Node> child = createTile(children[i], prefix, name, opt.get(), false);
-            if (child.valid()) group->addChild(child.get());
-        }
-
-        if (group->getNumChildren() == 0)
-        {
-            std::string fallback = localOptions->getPluginStringData("fallback");
-            if (!fallback.empty()) group->addChild(osgDB::readNodeFile(fallback, opt.get()));
-        }
-#if WRITE_TO_OSG
-        osgDB::writeNodeFile(*group, prefix + "/" + name + ".osgt");
-#endif
-        return group;
-    }
-
     osg::Node* createTile(picojson::value& content, picojson::value& children,
                           const osg::BoundingSphered& bound, double range, const std::string& st,
                           const std::string& prefix, const std::string& name,
-                          const osgDB::Options * options) const
+                          const osgDB::Options* options) const
     {
-        osg::ref_ptr<osgDB::Options> opt = _subOptions->cloneOptions();
         std::string uri = (content.is<picojson::object>() && content.contains("uri"))
                          ? content.get("uri").to_str() : "";
         if (uri.empty())
@@ -276,11 +277,12 @@ protected:
         if (!uri.empty() && !osgDB::isAbsolutePath(uri))
             uri = prefix + osgDB::getNativePathSeparator() + uri;
 
+        bool additive = (st == "ADD" || st == "add");
         if (children.is<picojson::array>())
         {
             osg::ref_ptr<osg::Node> child0;
-            if (ext == "json") child0 = osgDB::readNodeFile(uri + ".verse_tiles", opt.get());
-            else if (!ext.empty()) child0 = osgDB::readNodeFile(uri + ".verse_gltf", opt.get());
+            if (ext == "json") child0 = osgDB::readNodeFile(uri + ".verse_tiles", options);
+            else if (!ext.empty()) child0 = osgDB::readNodeFile(uri + ".verse_gltf", options);
 
             osg::PagedLOD* plod = new osg::PagedLOD;
             plod->setDatabasePath(prefix);
@@ -296,7 +298,7 @@ protected:
             osgDB::StringList parts; osgDB::split(name, parts, '-');
             osgDB::Options* childOpt = new osgDB::Options(children.serialize());
             childOpt->setPluginStringData("fallback", uri + (ext == "json" ? ".verse_tiles" : ".verse_gltf"));
-            //childOpt->setPluginStringData("root_bound", rootBound);
+            childOpt->setPluginStringData("refinement", st);
             plod->setDatabaseOptions(childOpt);
             plod->setFileName(1, name + "-" + std::to_string(parts.size()) + ".children.verse_tiles");
 
@@ -324,11 +326,13 @@ protected:
                 OSG_WARN << "[ReaderWriter3dtiles] Missing <boundingVolume>?" << std::endl;
 #if true
             plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
-            plod->setRange(0, (float)range * 0.25f, FLT_MAX);  // TODO: consider REPLACE/ADD?
+            if (additive) plod->setRange(0, 0.0f, FLT_MAX);
+            else plod->setRange(0, (float)range * 0.25f, FLT_MAX);
             plod->setRange(1, 0.0f, (float)range * 0.25f);
 #else
             plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
-            plod->setRange(0, 0.0f, 5000.0f / (float)range);
+            if (additive) plod->setRange(0, 0.0f, FLT_MAX);
+            else plod->setRange(0, 0.0f, 5000.0f / (float)range);
             plod->setRange(1, 5000.0f / (float)range, FLT_MAX);
 #endif
             return plod;
@@ -336,8 +340,8 @@ protected:
         else
         {
             if (ext.empty()) return new osg::Node;
-            else if (ext == "json") return osgDB::readNodeFile(uri + ".verse_tiles", opt.get());
-            else return osgDB::readNodeFile(uri + ".verse_gltf", opt.get());
+            else if (ext == "json") return osgDB::readNodeFile(uri + ".verse_tiles", options);
+            else return osgDB::readNodeFile(uri + ".verse_gltf", options);
         }
     }
 

@@ -18,6 +18,7 @@ public:
         supportsExtension("glb", "GLTF binary scene file");
         supportsExtension("b3dm", "Cesium batch 3D model");
         supportsExtension("i3dm", "Cesium instanced 3D model");
+        supportsExtension("cmpt", "Cesium cmposite tiles");
         supportsOption("Directory", "Setting the working directory");
         supportsOption("Mode", "Set to 'ascii/binary' to read specific GLTF data");
     }
@@ -41,7 +42,9 @@ public:
         }
 
         osg::ref_ptr<osg::Node> group;
-        if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
+        if (ext == "cmpt")
+            group = readCesiumFormatCmpt(fileName, osgDB::getFilePath(fileName));
+        else if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
             group = osgVerse::loadGltf(fileName, true).get();
         else
             group = osgVerse::loadGltf(fileName, false).get();
@@ -63,6 +66,47 @@ public:
         if (dir.empty() && options && !options->getDatabasePathList().empty())
             dir = options->getDatabasePathList().front();
         return osgVerse::loadGltf2(fin, dir, isBinary).get();
+    }
+
+protected:
+    osg::Group* readCesiumFormatCmpt(const std::string& fileName, const std::string& dir) const
+    {
+        std::ifstream fin(fileName, std::ios::in | std::ios::binary);
+        if (!fin) return NULL;
+
+        unsigned char magic[4]; unsigned int version = 0, bytes = 0, tiles = 0;
+        fin.read((char*)magic, sizeof(char) * 4); fin.read((char*)&version, sizeof(int));
+        fin.read((char*)&bytes, sizeof(int)); fin.read((char*)&tiles, sizeof(int));
+        if (magic[0] != 'c' || magic[1] != 'm' || magic[2] != 'p' || magic[3] != 't') return false;
+
+        osg::ref_ptr<osg::Group> group = new osg::Group;
+        for (unsigned int t = 0; t < tiles; ++t)
+        {
+            std::stringstream binaryData;
+            fin.read((char*)magic, sizeof(char) * 4); binaryData.write((char*)magic, sizeof(char) * 4);
+            fin.read((char*)&version, sizeof(int)); binaryData.write((char*)&version, sizeof(int));
+            fin.read((char*)&bytes, sizeof(int)); binaryData.write((char*)&bytes, sizeof(int));
+
+            std::vector<unsigned char> remain(bytes - sizeof(char) * 4 - sizeof(int) * 2);
+            if (!remain.empty())
+            {
+                fin.read((char*)&remain[0], remain.size());
+                binaryData.write((char*)&remain[0], remain.size());
+            }
+
+            if ((magic[0] == 'b' && magic[1] == '3' && magic[2] == 'd' && magic[3] == 'm') ||
+                (magic[0] == 'i' && magic[1] == '3' && magic[2] == 'd' && magic[3] == 'm'))
+            {
+                osg::ref_ptr<osg::Node> child = osgVerse::loadGltf2(binaryData, dir, true);
+                if (child.valid()) group->addChild(child.get());
+            }
+            else
+            {
+                OSG_NOTICE << "[ReaderWriterGLTF] Unknown format: " << std::string(magic, magic + 4)
+                           << ", found in " << fileName << std::endl;
+            }
+        }
+        group->setName(fileName); return group.release();
     }
 };
 

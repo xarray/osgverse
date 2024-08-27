@@ -43,6 +43,15 @@ namespace osgVerse
 #define GL_RG32F                          0x8230
 #endif
 
+static std::string trimString(const std::string& str)
+{
+    if (!str.size()) return str;
+    std::string::size_type first = str.find_first_not_of(" \t");
+    std::string::size_type last = str.find_last_not_of("  \t\r\n");
+    if ((first == str.npos) || (last == str.npos)) return std::string("");
+    return str.substr(first, last - first + 1);
+}
+
 class HttpRequester : public osg::Referenced
 {
 public:
@@ -277,29 +286,42 @@ namespace osgVerse
         loader.SetFsCallbacks(fs);
         if (isBinary)
         {
-            unsigned int version = 0, offset = 0, format = 0;  // 0: url, 1: raw GLTF
+            unsigned int version = 2, offset = 0, format = 0;  // 0: url, 1: raw GLTF
+            std::string externalFileURI;
             if (data.size() > 4)
             {
                 if (data[0] == 'b' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
                 {
                     offset = ReadB3dmHeader(data, &rtcCenter);
                     memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version);
-                    if (version < 2) loaded = LoadBinaryV1(data, d);
                 }
                 else if (data[0] == 'i' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
                 {
                     offset = ReadI3dmHeader(data, format);
                     if (format == 0)
                     {
-                        OSG_WARN << "[LoaderGLTF] Reading external URL from i3dm"
-                                 << " is not implemented" << std::endl; return;
+                        std::vector<char> uri(data.size() - offset);
+                        memcpy(&uri[0], &data[0] + offset, uri.size()); char* p = &uri[0];
+                        externalFileURI = std::string(p, p + uri.size());
                     }
-                    memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version);
-                    if (version < 2) loaded = LoadBinaryV1(data, d);
+                    else
+                        { memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version); }
                 }
             }
-            loaded = loader.LoadBinaryFromMemory(
-                &_modelDef, &err, &warn, (unsigned char*)&data[0] + offset, data.size() - offset, d);
+
+            if (!externalFileURI.empty())
+            {
+                std::string fileName = d + "/" + trimString(externalFileURI);
+                std::string ext = osgDB::getFileExtension(fileName);
+                if (ext == "glb") loaded = loader.LoadBinaryFromFile(&_modelDef, &err, &warn, fileName);
+                else loaded = loader.LoadASCIIFromFile(&_modelDef, &err, &warn, fileName);
+            }
+            else if (version >= 2)
+            {
+                loaded = loader.LoadBinaryFromMemory(
+                    &_modelDef, &err, &warn, (unsigned char*)&data[0] + offset, data.size() - offset, d);
+            }
+            else loaded = LoadBinaryV1(data, d);
         }
         else
             loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);
@@ -550,7 +572,7 @@ namespace osgVerse
                     geom->setNormalArray(na); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 #endif
                 }
-                else if (attrib->first.compare("COLOR") == 0 && compSize == 4 && compNum == 4)
+                else if (attrib->first.compare("COLOR") == 0 && compNum == 4 && compSize == 4)
                 {
                     osg::Vec4Array* ca = new osg::Vec4Array(size);
                     copyBufferData(&(*ca)[0], &buffer.data[offset], copySize, stride, size);
@@ -561,8 +583,7 @@ namespace osgVerse
                     geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 #endif
                 }
-                else if (attrib->first.compare("TANGENT") == 0 &&
-                         compSize == 4 && compNum == 4)
+                else if (attrib->first.compare("TANGENT") == 0 && compSize == 4 && compNum == 4)
                 {
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
                     copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
@@ -573,8 +594,7 @@ namespace osgVerse
                     geom->setVertexAttribArray(6, ta);
                     geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
                 }
-                else if (attrib->first.find("TEXCOORD_") != std::string::npos &&
-                         compSize == 4 && compNum == 2)
+                else if (attrib->first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
                 {
                     osg::Vec2Array* ta = new osg::Vec2Array(size);
                     copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
