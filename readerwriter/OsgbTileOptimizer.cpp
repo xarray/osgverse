@@ -458,7 +458,7 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
             {
                 refPlod = fpv.plodList.front();
                 refPlod->setDatabasePath("");
-                refPlod->setFileName(1,"../" + fileName);
+                refPlod->setFileName(1, "../" + fileName);
             }
 
             FindGeometryVisitor fgv(true); fineNode->accept(fgv);

@@ -9,10 +9,10 @@
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
-#include <osgDB/ConvertUTF>
 
 #include "3rdparty/rapidxml/rapidxml.hpp"
 #include "3rdparty/picojson.h"
+#include "pipeline/Global.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -183,13 +183,13 @@ protected:
             osg::ref_ptr<osg::Group> group = new osg::Group;
             for (size_t i = 0; i < tiles.size(); ++i)
             {
-                if (tiles[i][0] == '.') continue;
-                std::string file = osgDB::convertStringFromCurrentCodePageToUTF8(tiles[i]);
+                const std::string& tName = tiles[i];
+                if (tName[0] == '.') continue;
 
-                osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(prefix + "/" + file);
+                osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(prefix + "/" + tName);
                 if (node.valid())
                 {
-                    OSG_NOTICE << "[ReaderWriter3dtiles] Loaded " << file << std::endl;
+                    OSG_NOTICE << "[ReaderWriter3dtiles] Loaded " << tName << std::endl;
                     group->addChild(node.get());
                 }
             }

@@ -30,12 +30,71 @@
 #include "Utilities.h"
 static int g_argumentCount = 0;
 
+class MyReadFileCallback : public osgDB::ReadFileCallback
+{
+public:
+    virtual osgDB::ReaderWriter::ReadResult openArchive(
+            const std::string& f, osgDB::ReaderWriter::ArchiveStatus status,
+            unsigned int indexBlockSizeHint, const osgDB::Options* useObjectCache)
+    {
+        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+        return osgDB::ReadFileCallback::openArchive(file, status, indexBlockSizeHint, useObjectCache);
+    }
+
+    virtual osgDB::ReaderWriter::ReadResult readObject(const std::string& f, const osgDB::Options* opt)
+    {
+        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+        return osgDB::ReadFileCallback::readObject(file, opt);
+    }
+
+    virtual osgDB::ReaderWriter::ReadResult readImage(const std::string& f, const osgDB::Options* opt)
+    {
+        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+        return osgDB::ReadFileCallback::readImage(file, opt);
+    }
+
+    virtual osgDB::ReaderWriter::ReadResult readHeightField(const std::string& f, const osgDB::Options* opt)
+    {
+        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+        return osgDB::ReadFileCallback::readHeightField(file, opt);
+    }
+
+    virtual osgDB::ReaderWriter::ReadResult readNode(const std::string& f, const osgDB::Options* opt)
+    {
+        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+        return osgDB::ReadFileCallback::readNode(file, opt);
+    }
+
+    virtual osgDB::ReaderWriter::ReadResult readShader(const std::string& f, const osgDB::Options* opt)
+    {
+        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+        return osgDB::ReadFileCallback::readShader(file, opt);
+    }
+
+    virtual osgDB::ReaderWriter::ReadResult readScript(const std::string& f, const osgDB::Options* opt)
+    {
+        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+        return osgDB::ReadFileCallback::readScript(file, opt);
+    }
+
+protected:
+    virtual ~MyReadFileCallback() {}
+};
+
 namespace osgVerse
 {
     osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir)
     {
         setlocale(LC_ALL, ".UTF8");
         osg::setNotifyLevel(osg::NOTICE);
+        osgDB::Registry::instance()->setReadFileCallback(new MyReadFileCallback);
         if (argv && argc > 0)
         {
             std::string path = osgDB::getFilePath(argv[0]);
@@ -84,30 +143,6 @@ namespace osgVerse
         g_argumentCount = argc;
         if (argc == 0) return osg::ArgumentParser(NULL, NULL);
         return osg::ArgumentParser(&g_argumentCount, argv);
-    }
-
-    osg::Node* readNodeFiles(osg::ArgumentParser& arguments, const osgDB::Options* options)
-    {
-        std::vector<osg::ref_ptr<osg::Node>> nodeList;
-        for (int pos = 1; pos < arguments.argc(); ++pos)
-        {
-            if (arguments.isOption(pos)) continue;
-            std::string fileName = osgDB::convertStringFromCurrentCodePageToUTF8(arguments[pos]);
-            osg::ref_ptr<osg::Node> node = osgDB::readRefNodeFile(fileName, options);
-
-            if (node)
-            {
-                if (node->getName().empty()) node->setName(fileName);
-                nodeList.push_back(node);
-            }
-        }
-        if (nodeList.empty()) return NULL;
-        if (nodeList.size() == 1) return nodeList.front().release();
-
-        osg::ref_ptr<osg::Group> group = new osg::Group;
-        for (std::vector<osg::ref_ptr<osg::Node>>::iterator itr = nodeList.begin();
-             itr != nodeList.end(); ++itr) group->addChild(*itr);
-        return group.release();
     }
 }
 

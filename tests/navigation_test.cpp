@@ -99,7 +99,7 @@ int main(int argc, char** argv)
     std::string agentPath = "dumptruck.osgt"; arguments.read("--agent", agentPath);
     std::string recastData = "recast_terrain.bin"; arguments.read("--recast", recastData);
     osg::ref_ptr<osg::Node> agentNode = osgDB::readNodeFile(agentPath);
-    osg::ref_ptr<osg::Node> terrain = osgVerse::readNodeFiles(arguments);
+    osg::ref_ptr<osg::Node> terrain = osgDB::readNodeFiles(arguments);
     if (!terrain) terrain = osgDB::readNodeFile("lz.osg");
 
     osg::ref_ptr<osgVerse::RecastManager> recast = new osgVerse::RecastManager;

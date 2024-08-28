@@ -33,7 +33,7 @@ int main(int argc, char** argv)
     osgVerse::fixOsgBinaryWrappers();
 
     osg::ref_ptr<osg::Node> scene =
-        (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgVerse::readNodeFiles(arguments);
+        (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFiles(arguments);
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
     root->addChild(scene.get());
 
@@ -44,7 +44,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
         skybox->setEnvironmentMap(osgDB::readImageFile("Images/osg256.png"));
         postCamera->addChild(skybox.get());
     }

@@ -328,9 +328,6 @@ namespace osgVerse
 
     /** Suggest run this function once to initialize some plugins & environments */
     extern osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir = BASE_DIR);
-
-    /** Convenient function to read nodes from arguments quickly (supporting unicode filenames) */
-    extern osg::Node* readNodeFiles(osg::ArgumentParser& arguments, const osgDB::Options* options = NULL);
 }
 
 namespace osg

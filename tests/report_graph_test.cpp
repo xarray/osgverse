@@ -291,7 +291,7 @@ int main(int argc, char** argv)
     osgVerse::fixOsgBinaryWrappers();
 
     osg::ref_ptr<osg::Node> scene =
-        (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgVerse::readNodeFiles(arguments);
+        (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFiles(arguments);
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
 
     Reporter reporter;
