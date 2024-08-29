@@ -214,7 +214,7 @@ ENDIF(VERSE_USE_OSG_STATIC)
 
 IF(USE_WASM_OPTIONS)
     SET(VERSE_WASM_USE_PTHREAD ON CACHE BOOL "Enable Pthread for WASM, which requires SharedArrayBuffer (COOP / COEP) on server-side")
-    SET(VERSE_WASM_OPTIMIZE_SIZE ON CACHE BOOL "Enable -O3 for WASM, which is slow but with small generated size")
+    SET(VERSE_WASM_OPTIMIZE_SIZE OFF CACHE BOOL "Enable -O3 for WASM, which is very slow but with small generated size")
     SET(VERSE_USE_OSG_STATIC ON CACHE BOOL "Enable static build of osgVerse libraries" FORCE)
     SET(VERSE_STATIC_BUILD ON CACHE BOOL "Enable static build of osgVerse" FORCE)
     ADD_DEFINITIONS("-s USE_SDL=2 -pthread")

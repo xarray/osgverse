@@ -273,5 +273,5 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
 | VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |
-| VERSE_WASM_OPTIMIZE_SIZE    | Boolean | ON            | Enable -O3 for WASM, which is slow but with small generated size |
+| VERSE_WASM_OPTIMIZE_SIZE    | Boolean | OFF           | Enable -O3 for WASM, which is slow but with small generated size |
 | VERSE_FIND_LEGACY_OPENGL    | Boolean | OFF           | Enable to use legacy mode to search OpenGL libraries, for some Linux systems like Kylin |

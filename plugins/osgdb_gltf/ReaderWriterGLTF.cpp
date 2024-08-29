@@ -77,7 +77,7 @@ protected:
         unsigned char magic[4]; unsigned int version = 0, bytes = 0, tiles = 0;
         fin.read((char*)magic, sizeof(char) * 4); fin.read((char*)&version, sizeof(int));
         fin.read((char*)&bytes, sizeof(int)); fin.read((char*)&tiles, sizeof(int));
-        if (magic[0] != 'c' || magic[1] != 'm' || magic[2] != 'p' || magic[3] != 't') return false;
+        if (magic[0] != 'c' || magic[1] != 'm' || magic[2] != 'p' || magic[3] != 't') return NULL;
 
         osg::ref_ptr<osg::Group> group = new osg::Group;
         for (unsigned int t = 0; t < tiles; ++t)

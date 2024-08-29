@@ -42,14 +42,14 @@ ELSE()
 ENDIF()
 
 CONFIGURE_FILE(shell.html.in "${CMAKE_CURRENT_BINARY_DIR}/shell.html" @ONLY)
-SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell.html -fsanitize=address")
+SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell.html")
 SET(WASM_FLAGS1 "-s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL=2 -s FETCH=1 -s WASM=1 -s ASYNCIFY=1")
 
 # https://developer.chrome.com/blog/faster-wasm-debugging
 IF(VERSE_WASM_OPTIMIZE_SIZE)
     SET(WASM_FLAGS2 "-s ALLOW_MEMORY_GROWTH=1 -Oz")
 ELSE(VERSE_WASM_OPTIMIZE_SIZE)
-    SET(WASM_FLAGS2 "-gsource-map -s ALLOW_MEMORY_GROWTH=1 -s ASYNCIFY_STACK_SIZE=24576 -O0")
+    SET(WASM_FLAGS2 "-fsanitize=address -gsource-map -s ALLOW_MEMORY_GROWTH=1 -s ASYNCIFY_STACK_SIZE=24576 -O0")
 ENDIF(VERSE_WASM_OPTIMIZE_SIZE)
 
 ADD_SUBDIRECTORY(pbr_demo)
