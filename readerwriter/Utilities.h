@@ -138,6 +138,12 @@ namespace osgVerse
     /** A quick function to help fix .osgb dead lock problem */
     OSGVERSE_RW_EXPORT bool fixOsgBinaryWrappers(const std::string& libName = "osg");
 
+    /** Encode data to base64 */
+    OSGVERSE_RW_EXPORT std::string encodeBase64(const std::vector<unsigned char>& buffer);
+
+    /** Decode base64 to data */
+    OSGVERSE_RW_EXPORT std::vector<unsigned char> decodeBase64(const std::string& data);
+
     /** Setup draco encoding parameters */
     enum EncodingDracoFlag { COMPRESS_LEVEL = 0, POSITION_QUANTIZATION = 1,
                              UV_QUANTIZATION = 2, NORMAL_QUANTIZATION = 3 };

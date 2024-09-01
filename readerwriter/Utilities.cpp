@@ -7,6 +7,7 @@
 #include <osgDB/FileNameUtils>
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
+#include <libhv/all/base64.h>
 
 #include "modeling/Utilities.h"
 #include "LoadTextureKTX.h"
@@ -236,4 +237,14 @@ namespace osgVerse
 #if OSG_VERSION_LESS_THAN(3, 5, 0)
     bool fixOsgBinaryWrappers(const std::string& libName) { return false; }
 #endif
+
+    std::string encodeBase64(const std::vector<unsigned char>& buffer)
+    { return buffer.empty() ? "" : hv::Base64Encode(&buffer[0], buffer.size()); }
+
+    std::vector<unsigned char> decodeBase64(const std::string& data)
+    {
+        std::string result = hv::Base64Decode(data.data(), data.size());
+        std::vector<unsigned char> out(result.size()); if (result.empty()) return out;
+        memcpy(&out[0], result.data(), result.size()); return out;
+    }
 }
