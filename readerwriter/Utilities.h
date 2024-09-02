@@ -94,10 +94,10 @@ namespace osgVerse
 
             attr.userData = this;
             attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+            attr.onreadystatechange = WebFetcher::stateChanged;
             attr.onsuccess = WebFetcher::downloadSuccess;
             attr.onerror = WebFetcher::downloadFailure;
             attr.onprogress = WebFetcher::emptyCallback;
-            attr.onreadystatechange = WebFetcher::emptyCallback;
 
             emscripten_fetch_t* f = emscripten_fetch(&attr, uri.c_str());
             while (!done) emscripten_advance();
@@ -129,6 +129,12 @@ namespace osgVerse
         {
             WebFetcher* fr = (WebFetcher*)f->userData;
             fr->status = f->status; fr->done = true; fr->buffer.clear();
+        }
+
+        static void stateChanged(emscripten_fetch_t* f)
+        {
+            WebFetcher* fr = (WebFetcher*)f->userData;
+            if (f->readyState == /*HEADERS_RECEIVED*/2) fr->resHeaders = getResponseHeaders(f);
         }
 
         static void emptyCallback(emscripten_fetch_t* f) {}

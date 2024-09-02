@@ -280,14 +280,16 @@ namespace osgVerse
             Frustum frustum; frustum.create(viewMat, proj, zMin, zMax);
 
             // Get light-space bounding box of the splitted frustum
-            osg::BoundingBoxd shadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+            Frustum::AABB aabb = frustum.createShadowBound(_referencePoints, _lightMatrix);
+            osg::BoundingBoxd shadowBB(aabb.first, aabb.second);
             double zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
             shadowBBs[i] = shadowBB; if (zMaxTotal < zNew) zMaxTotal = zNew;
         }
 #else
         // Get light-space bounding box of the entire frustum
         Frustum frustum; frustum.create(viewMat, proj, zn, zf);
-        osg::BoundingBoxd entireShadowBB = frustum.createShadowBound(_referencePoints, _lightMatrix);
+        Frustum::AABB aabb = frustum.createShadowBound(_referencePoints, _lightMatrix);
+        osg::BoundingBoxd entireShadowBB(aabb.first, aabb.second);
         zMaxTotal = osg::maximum(osg::absolute(entireShadowBB.zMin()),
                                  osg::absolute(entireShadowBB.zMax()));
 

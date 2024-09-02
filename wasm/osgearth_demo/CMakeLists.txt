@@ -11,7 +11,8 @@ IF(USE_WASM_OSGEARTH)
     LINK_DIRECTORIES(${THIRDPARTY_ROOT}/lib)
     SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES}
         expat proj iconv tiff tiffxx geotiff sharpyuv spatialite sqlite3 webp gdal geos geos_c
-        osgEarth osgEarthUtil osgEarthSymbology osgdb_osgearth_engine_mp osgdb_earth osgdb_osgearth_xyz)
+        osgEarth osgEarthUtil osgEarthSymbology osgdb_osgearth_engine_mp osgdb_earth
+        osgdb_osgearth_xyz osgdb_osgearth_tms)
 
     CONFIGURE_FILE(shell_earth.html.in "${CMAKE_CURRENT_BINARY_DIR}/shell_earth.html" @ONLY)
     SET(WASM_FLAGS0 "--preload-file assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell_earth.html")

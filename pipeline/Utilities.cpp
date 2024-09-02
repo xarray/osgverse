@@ -861,12 +861,12 @@ namespace osgVerse
         frustumDir.normalize();
     }
 
-    osg::BoundingBoxd Frustum::createShadowBound(const std::vector<osg::Vec3d>& refPoints,
-                                                 const osg::Matrix& worldToLocal)
+    Frustum::AABB Frustum::createShadowBound(
+            const std::vector<osg::Vec3d>& refPoints, const osg::Matrix& worldToLocal)
     {
         osg::BoundingBoxd lightSpaceBB0, lightSpaceBB1;
         for (int i = 0; i < 8; ++i) lightSpaceBB0.expandBy(corners[i] * worldToLocal);
-        if (refPoints.empty()) return lightSpaceBB0;
+        if (refPoints.empty()) return AABB(lightSpaceBB0._min, lightSpaceBB0._max);
 
         for (size_t i = 0; i < refPoints.size(); ++i)
             lightSpaceBB1.expandBy(refPoints[i] * worldToLocal);
@@ -876,7 +876,7 @@ namespace osgVerse
         if (lightSpaceBB1._max[0] < lightSpaceBB0._max[0]) lightSpaceBB0._max[0] = lightSpaceBB1._max[0];
         if (lightSpaceBB1._max[1] < lightSpaceBB0._max[1]) lightSpaceBB0._max[1] = lightSpaceBB1._max[1];
         if (lightSpaceBB1._max[2] < lightSpaceBB0._max[2]) lightSpaceBB0._max[2] = lightSpaceBB1._max[2];
-        return lightSpaceBB0;
+        return AABB(lightSpaceBB0._min, lightSpaceBB0._max);
     }
 
     bool QuickEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)

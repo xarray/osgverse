@@ -102,6 +102,7 @@ namespace osgVerse
     /** The frustum geometry which is used by shadow computation */
     struct Frustum
     {
+        typedef std::pair<osg::Vec3d, osg::Vec3d> AABB;
         osg::Vec3d corners[8];
         osg::Vec3d centerNearPlane, centerFarPlane;
         osg::Vec3d center, frustumDir;
@@ -112,8 +113,7 @@ namespace osgVerse
 
         /** Compute minimum light-space bounding box from given frustum and some reference points.
             Result in light-space can be used for setting shadow camera pojection matrix */
-        osg::BoundingBoxd createShadowBound(const std::vector<osg::Vec3d>& refPoints,
-                                            const osg::Matrix& worldToLocal);
+        AABB createShadowBound(const std::vector<osg::Vec3d>& refPoints, const osg::Matrix& worldToLocal);
     };
 
     /** Quick event handler for testing purpose */

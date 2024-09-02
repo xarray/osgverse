@@ -252,8 +252,8 @@ void GraphicsWindowSDL::initialize()
         SDL_GL_SetAttribute(SDL_GL_STEREO, _traits->quadBufferStereo ? 1 : 0);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, _traits->sampleBuffers);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _traits->samples);
+        //SDL_GL_SetSwapInterval(_traits->vsync ? 1 : 0);
 #endif
-        SDL_GL_SetSwapInterval(_traits->vsync ? 1 : 0);
     }
     else
     {
@@ -413,14 +413,15 @@ void GraphicsWindowSDL::checkEvents()
         switch (event.type)
         {
         case SDL_MOUSEMOTION:
-            eq->mouseMotion(event.motion.x, event.motion.y); break;
+            if (event.motion.x > 0 || event.motion.y > 0)
+                eq->mouseMotion(event.motion.x, event.motion.y); break;
         case SDL_MOUSEBUTTONDOWN:
             eq->mouseButtonPress(event.button.x, event.button.y, event.button.button); break;
         case SDL_MOUSEBUTTONUP:
             eq->mouseButtonRelease(event.button.x, event.button.y, event.button.button); break;
         case SDL_MOUSEWHEEL:
-            if (event.wheel.y > 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP);
-            else eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN); break;
+            if (event.wheel.y < 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN);
+            else if (event.wheel.y > 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP); break;
         case SDL_KEYUP:
             eq->keyRelease(getKey(event.key.keysym.sym)); break;
         case SDL_KEYDOWN:

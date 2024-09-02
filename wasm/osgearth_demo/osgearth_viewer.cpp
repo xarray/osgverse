@@ -11,6 +11,7 @@ USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 USE_OSGPLUGIN(earth)
 USE_OSGPLUGIN(osgearth_xyz)
+USE_OSGPLUGIN(osgearth_tms)
 USE_OSGPLUGIN(osgearth_engine_mp)
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
@@ -51,9 +52,9 @@ int main(int argc, char** argv)
        << "  </options></map>";
 #else
     ss << "<map version=\"2\">\n"
-       << "<image driver=\"xyz\" enabled=\"true\" name=\"gaode_sat\" profile=\"global-mercator\""
-       << "       url=\"http://webst0[1234].is.autonavi.com/appmaptile?style=6&amp;x={x}&amp;y={y}&amp;z={z}\">"
-       << "<cache_policy min_time=\"0\" usage=\"no_cache\"/></image></map>";
+       << "<image driver=\"tms\" enabled=\"true\" name=\"readymap\""
+       << "    url=\"http://readymap.org/readymap/tiles/1.0.0/22/\">"
+       << "    <cache_policy min_time=\"0\" usage=\"no_cache\"/></image></map>";
 #endif
     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("earth");
     osg::ref_ptr<osg::Node> earthRoot = rw ? rw->readNode(ss).getNode() : NULL;
