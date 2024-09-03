@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments)
-            : osgDB::readNodeFile(BASE_DIR "/models/Sponza/Sponza.gltf.125,125,125.scale");
+                                  : osgDB::readNodeFile(BASE_DIR "/models/Sponza.osgb");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
             if (lightD) { if (lightX > 0.8f) lightD = false; else lightX += 0.001f; }
             else { if (lightX < -0.8f) lightD = true; else lightX -= 0.001f; }
         }
-        light0->setDirection(osg::Vec3(lightX, 0.5f, -1.0f));
+        light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
         viewer.frame();
     }
     return 0;

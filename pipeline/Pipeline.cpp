@@ -82,7 +82,7 @@ public:
     :   osgUtil::CullVisitor(v), _callback(v._callback), _shadowData(v._shadowData),
         _shadowViewport(v._shadowViewport), _pipelineMaskPath(v._pipelineMaskPath),
         _shadowModelViews(v._shadowModelViews), _shadowProjections(v._shadowProjections),
-        _pixelSizeVector(v._pixelSizeVector), _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
+        _pixelSizeVectorList(v._pixelSizeVectorList), _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
 
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
@@ -107,6 +107,9 @@ public:
                 _shadowModelViews.push_back(sd->viewMatrix);
                 _shadowProjections.push_back(sd->projMatrix);
                 _shadowViewport = sd->_viewport.get(); _shadowData = sd;
+
+                if (!_pixelSizeVectorList.empty()) _pixelSizeVectorList.clear();
+                computeShadowPixelSizeVector();
             }
         }
 
@@ -337,22 +340,25 @@ protected:
         computeShadowPixelSizeVector();
     }
 
-    void popModelViewMatrixInShadow() { if (_shadowData.valid()) _shadowModelViews.pop_back(); }
-    void popProjectionMatrixInShadow() { if (_shadowData.valid()) _shadowProjections.pop_back(); }
+    void popModelViewMatrixInShadow()
+    { if (_shadowData.valid()) {_shadowModelViews.pop_back(); _pixelSizeVectorList.pop_back();} }
+
+    void popProjectionMatrixInShadow()
+    { if (_shadowData.valid()) {_shadowProjections.pop_back(); _pixelSizeVectorList.pop_back();} }
 
     void computeShadowPixelSizeVector()
     {
         if (!_shadowData || (_shadowData.valid() && _shadowData->smallPixels < 1)) return;
         if (!_shadowViewport) { OSG_WARN << "[CullVisitorEx] No valid viewport" << std::endl; return; }
-        _pixelSizeVector = osg::CullingSet::computePixelSizeVector(
-            *_shadowViewport, _shadowProjections.back(), _shadowModelViews.back());
+        _pixelSizeVectorList.push_back(osg::CullingSet::computePixelSizeVector(
+            *_shadowViewport, _shadowProjections.back(), _shadowModelViews.back()));
     }
 
     bool checkSmallPixelSizeCulling(const osg::BoundingSphere& bs) const
     {
         if (_shadowData.valid() && _shadowData->smallPixels > 0)
         {
-            float ps = (bs.center() * _pixelSizeVector) * (float)_shadowData->smallPixels;
+            float ps = (bs.center() * _pixelSizeVectorList.back()) * (float)_shadowData->smallPixels;
             if (bs.radius() < ps) return true;  // small-pixels-culling of shadow camera
         }
         return false;
@@ -384,7 +390,7 @@ protected:
 
     typedef std::vector<osg::Matrix> MatrixValueStack;
     MatrixValueStack _shadowModelViews, _shadowProjections;
-    osg::Vec4 _pixelSizeVector;
+    std::vector<osg::Vec4> _pixelSizeVectorList;
     unsigned int _cullMask, _defaultMask;
 };
 

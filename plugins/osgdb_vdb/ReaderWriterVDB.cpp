@@ -1,10 +1,13 @@
 #include <osg/io_utils>
+#include <osg/Multisample>
+#include <osg/Point>
+#include <osg/PointSprite>
 #include <osg/Image>
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
-#include <osgDB/Registry>
+#include <osgDB/ReadFile>
 
 #include <pipeline/Global.h>
 #include <openvdb/openvdb.h>
@@ -102,7 +105,21 @@ public:
             geom->setVertexArray(va.get());
             geom->setColorArray(ca.get());
             geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+#if true
             geom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, va->size()));
+#else
+            osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_POINTS);
+            for (size_t i = 0; i < va->size(); ++i) de->push_back(i);
+            geom->addPrimitiveSet(de);
+#endif
+
+            osg::Texture2D* tex = new osg::Texture2D();
+            tex->setImage(osgDB::readImageFile("Images/particle.rgb"));
+            geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex);
+            geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, new osg::PointSprite);
+            geom->getOrCreateStateSet()->setAttribute(new osg::Point(5.0f));
+            geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+            geom->getOrCreateStateSet()->setMode(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB, osg::StateAttribute::ON);
 
             osg::Geode* geode = new osg::Geode;
             geode->addDrawable(geom);

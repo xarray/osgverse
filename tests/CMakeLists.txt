@@ -36,6 +36,7 @@ ENDMACRO(NEW_TEST_EXECUTABLE)
 INCLUDE_DIRECTORIES(. ${CMAKE_SOURCE_DIR}/3rdparty/libhv ${CMAKE_SOURCE_DIR}/3rdparty/libhv/all)
 ADD_DEFINITIONS(-DHV_STATICLIB)
 
+NEW_TEST_EXECUTABLE(osgVerse_Test_Plugins plugins_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Report_Graph report_graph_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_ImGui imgui_test.cpp)
 NEW_TEST_EXECUTABLE(osgVerse_Test_Pipeline pipeline_test.cpp)
