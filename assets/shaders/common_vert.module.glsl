@@ -14,19 +14,6 @@
 
 ////////////////// COMMON
 
-float smoothMin(float a, float b, float k)
-{
-    // https://iquilezles.org/articles/smin/
-    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-    return mix(b, a, h) - k * h * (1.0 - h);
-}
-
-vec3 approximateFaceNormal(vec3 eyePos)
-{
-    vec3 fdx = dFdx(-eyePos), fdy = dFdy(-eyePos);
-    return normalize(cross(fdx, fdy));
-}
-
 vec3 barycentricInTriangle(vec2 p, vec2 a, vec2 b, vec2 c)
 {
     float l0 = ((b.y-c.y)*(p.x-c.x) + (c.x-b.x)*(p.y-c.y))
@@ -34,41 +21,6 @@ vec3 barycentricInTriangle(vec2 p, vec2 a, vec2 b, vec2 c)
     float l1 = ((c.y-a.y)*(p.x-c.x)+(a.x-c.x)*(p.y-c.y))
              / ((b.y-c.y)*(a.x-c.x)+(c.x-b.x)*(a.y-c.y));
     return vec3(l0, l1, 1.0 - l0 - l1);
-}
-
-vec4 tiling(vec2 uv, vec2 number)
-{
-    // result.xy is a vec2 with the new coordinates.
-	// result.zw is a vec2 with the tiles i, j indices
-    return vec4(fract(p * n), floor(p * n));
-}
-
-vec3 convertRGB2HSV(vec3 rgb)
-{
-    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-    vec4 p = mix(vec4(rgb.bg, K.wz), vec4(rgb.gb, K.xy), step(rgb.b, rgb.g));
-    vec4 q = mix(vec4(p.xyw, rgb.r), vec4(rgb.r, p.yzx), step(p.x, rgb.r));
-    float d = q.x - min(q.w, q.y), e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-
-vec3 convertHSV2RGB(vec3 hsv)
-{
-    vec3 rgb = clamp(abs(mod(hsv.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-	return hsv.z * mix(vec3(1.0), rgb, hsv.y);
-}
-
-vec3 convertHSV2RGB_Smooth(vec3 hsv)
-{
-    vec3 rgb = clamp(abs(mod(hsv.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-	rgb = rgb * rgb * (3.0 - 2.0 * rgb); // cubic smoothing
-	return hsv.z * mix(vec3(1.0), rgb, hsv.y);
-}
-
-vec3 lerpHSV(vec3 hsv1, vec3 hsv2, float rate)
-{
-    float hue = (mod(mod((hsv2.x - hsv1.x), 1.) + 1.5, 1.0) - 0.5) * rate + hsv1.x;
-    return vec3(hue, mix(hsv1.yz, hsv2.yz, rate));
 }
 
 mat2 rotationMatrix2D(float angle)

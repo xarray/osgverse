@@ -26,6 +26,7 @@
 #ifdef VERSE_WINDOWS
     #include <windows.h>
 #endif
+#include "ShaderLibrary.h"
 #include "Pipeline.h"
 #include "Utilities.h"
 static int g_argumentCount = 0;
@@ -107,11 +108,13 @@ namespace osgVerse
 #else
         std::string workingPath = baseDir + std::string("/bin/");
         if (!osgDB::fileExists(workingPath))
-            OSG_FATAL << "[osgVerse] Working directory " << workingPath << " not found. Following work may fail." << std::endl;
+            OSG_FATAL << "[osgVerse] Working directory " << workingPath
+                      << " not found. Following work may fail." << std::endl;
         else
             OSG_NOTICE << "[osgVerse] Working directory: " << workingPath << std::endl;
         osgDB::getDataFilePathList().push_back(workingPath);
 #endif
+        ShaderLibrary::instance()->refreshModules(baseDir + std::string("/shaders/"));
 
         osgDB::Registry* regObject = osgDB::Registry::instance();
 #ifdef VERSE_STATIC_BUILD

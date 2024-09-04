@@ -3,13 +3,13 @@ SET(LIBRARY_INCLUDE_FILES
     Pipeline.h DeferredCallback.h UserInputModule.h ShadowModule.h
 	LightModule.h LightDrawable.h SkyBox.h NodeSelector.h
     SymbolManager.h Drawer2D.h IntersectionManager.h
-    Utilities.h Global.h
+    ShaderLibrary.h Utilities.h Global.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp PipelineLoader.cpp DeferredCallback.cpp
     UserInputModule.cpp ShadowModule.cpp LightModule.cpp LightDrawable.cpp
     SkyBox.cpp NodeSelector.cpp SymbolManager.cpp Drawer2D.cpp
-    IntersectionManager.cpp Utilities.cpp
+    IntersectionManager.cpp ShaderLibrary.cpp Utilities.cpp
 )
 
 IF(WIN32 AND MSVC)

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdarg.h>
+#include "ShaderLibrary.h"
 #include "Pipeline.h"
 #include "ShadowModule.h"
 #include "Utilities.h"
@@ -125,8 +126,6 @@ public:
     {
         maskSet = 0;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
-        if (checkSmallPixelSizeCulling(node.getBound())) return false;
-
         if (node.getUserDataContainer() != NULL)
         {
             // Use this to replace nodemasks while checking deferred/forward graphs
@@ -154,11 +153,13 @@ public:
                     }
 
                     pushM(nodePipMask, flags, ss); maskSet |= 1;
+                    if (checkSmallPixelSizeCulling(node.getBound())) return false;
                     return (_cullMask & nodePipMask) != 0;
                 }  // otherwise, treat the mask as not set
             }
         }
 
+        if (checkSmallPixelSizeCulling(node.getBound())) return false;
         if (!_pipelineMaskPath.empty())
         {
             std::pair<unsigned int, unsigned int> maskAndFlags = _pipelineMaskPath.back();
@@ -171,8 +172,6 @@ public:
     {
         unsigned int nodePipMask = 0xffffffff, flags = 0;
         if (this->getUserData() != NULL) return true;  // computing near/far mode
-        if (checkSmallPixelSizeCulling(node.getBound())) return false;
-
         if (node.getUserValue("PipelineMask", nodePipMask))
         {
             node.getUserValue("PipelineFlags", flags);
@@ -187,9 +186,13 @@ public:
             }
 
             if (flags & osg::StateAttribute::ON)
+            {
+                if (checkSmallPixelSizeCulling(node.getBound())) return false;
                 return (_cullMask & nodePipMask) != 0;
+            }
         }
 
+        if (checkSmallPixelSizeCulling(node.getBound())) return false;
         if (_pipelineMaskPath.empty())
         {
             // Handle drawables which is never been set pipeline masks:
@@ -208,16 +211,26 @@ public:
 
     virtual void apply(osg::Transform& node)
     {
-        int s = 0; pushModelViewMatrixInShadow(node);
-        if (passable(node, s)) osgUtil::CullVisitor::apply(node);
-        popM(s);  popModelViewMatrixInShadow();
+        int s = 0;
+        if (passable(node, s))
+        {
+            pushModelViewMatrixInShadow(node);
+            osgUtil::CullVisitor::apply(node);
+            popModelViewMatrixInShadow();
+        }
+        popM(s);
     }
 
     virtual void apply(osg::Projection& node)
     {
-        int s = 0; pushProjectionMatrixInShadow(node);
-        if (passable(node, s)) osgUtil::CullVisitor::apply(node);
-        popM(s); popProjectionMatrixInShadow();
+        int s = 0;
+        if (passable(node, s))
+        {
+            pushProjectionMatrixInShadow(node);
+            osgUtil::CullVisitor::apply(node);
+            popProjectionMatrixInShadow();
+        }
+        popM(s);
     }
 
     virtual void apply(osg::Switch& node)
@@ -348,9 +361,11 @@ protected:
 
     void computeShadowPixelSizeVector()
     {
-        if (!_shadowData || (_shadowData.valid() && _shadowData->smallPixels < 1)) return;
-        if (!_shadowViewport) { OSG_WARN << "[CullVisitorEx] No valid viewport" << std::endl; return; }
-        _pixelSizeVectorList.push_back(osg::CullingSet::computePixelSizeVector(
+        if (!_shadowData) return; osg::Vec4 empty;
+        if (_shadowData->smallPixels < 1) _pixelSizeVectorList.push_back(empty);
+        else if (!_shadowViewport)
+            { OSG_WARN << "[CullVisitorEx] No valid viewport" << std::endl; _pixelSizeVectorList.push_back(empty); }
+        else _pixelSizeVectorList.push_back(osg::CullingSet::computePixelSizeVector(
             *_shadowViewport, _shadowProjections.back(), _shadowModelViews.back()));
     }
 
@@ -1253,110 +1268,8 @@ namespace osgVerse
     void Pipeline::createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
                                            const std::vector<std::string>& userDefs)
     {
-        std::vector<std::string> extraDefs;
-        std::string source = s->getShaderSource();
-        if (source.find("//! osgVerse") != std::string::npos) return;
-
-        std::string m_mvp = "gl_ModelViewProjectionMatrix", m_mv = "gl_ModelViewMatrix";
-        std::string m_p = "gl_ProjectionMatrix", m_n = "gl_NormalMatrix";
-        std::string tex1d = "texture", tex2d = "texture", tex3d = "texture", texCube = "texture";
-        std::string vin = "in", vout = "out", fin = "in", fout = "out", finalColor = "//";
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
-        if (glslVer <= 120)
-#endif
-        {
-            tex1d = "texture1D"; tex2d = "texture2D"; tex3d = "texture3D"; texCube = "textureCube";
-            vin = "attribute"; vout = "varying"; fin = "varying"; fout = "";
-            finalColor = "gl_FragColor = ";
-
-            extraDefs.push_back("float round(float v) { return v<0.0 ? ceil(v-0.5) : floor(v+0.5); }");
-            extraDefs.push_back("vec2 round(vec2 v) { return vec2(round(v.x), round(v.y)); }");
-            extraDefs.push_back("vec3 round(vec3 v) { return vec3(round(v.x), round(v.y), round(v.z)); }");
-            extraDefs.push_back("vec4 textureLod(sampler2D t, vec2 uv, float l) { return texture2D(t, uv); }");
-        }
-
-        if (s->getType() == osg::Shader::VERTEX)
-        {
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
-            if (glVer >= 300 || glslVer >= 140)
-            {
-                m_mvp = "osg_ModelViewProjectionMatrix"; m_mv = "osg_ModelViewMatrix";
-                m_p = "osg_ProjectionMatrix"; m_n = "osg_NormalMatrix";
-                extraDefs.push_back("uniform mat4 osg_ModelViewProjectionMatrix, "
-                                    "osg_ModelViewMatrix, osg_ProjectionMatrix;");
-                extraDefs.push_back("uniform mat3 osg_NormalMatrix;");
-                extraDefs.push_back("VERSE_VS_IN vec4 osg_Vertex, osg_Color, "
-                                    "osg_MultiTexCoord0, osg_MultiTexCoord1;");
-                extraDefs.push_back("VERSE_VS_IN vec3 osg_Normal;");
-            }
-            else
-#endif
-            {
-                extraDefs.push_back("#define osg_Vertex gl_Vertex");
-                extraDefs.push_back("#define osg_Color gl_Color");
-                extraDefs.push_back("#define osg_MultiTexCoord0 gl_MultiTexCoord0");
-                extraDefs.push_back("#define osg_MultiTexCoord1 gl_MultiTexCoord1");
-                extraDefs.push_back("#define osg_Normal gl_Normal");
-            }
-        }
-
-        std::stringstream ss;
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
-        ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
-        ss << "#define VERSE_GLES2 1" << std::endl;
-#elif defined(OSG_GLES3_AVAILABLE)
-        ss << "#version " << osg::maximum(glslVer, 300) << " es" << std::endl;
-        ss << "#define VERSE_GLES3 1" << std::endl;
-#elif defined(OSG_GL3_AVAILABLE)
-        ss << "#version " << osg::maximum(glslVer, 330) << " core" << std::endl;
-        ss << "#define VERSE_GLES3 1" << std::endl;
-#else
-        if (glslVer > 0)
-        {
-            if (glslVer < 300) ss << "#version " << glslVer << std::endl;
-            else ss << "#version " << glslVer << " compatibility" << std::endl;
-        }
-#endif
-
-#if defined(VERSE_WEBGL1)
-        ss << "#define VERSE_WEBGL1 1" << std::endl;
-#elif defined(VERSE_WEBGL2)
-        ss << "#define VERSE_WEBGL2 1" << std::endl;
-#endif
-        ss << "//! osgVerse generated shader: " << glslVer << std::endl;
-
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-        ss << "precision highp float;" << std::endl;
-#endif
-        if (s->getType() == osg::Shader::VERTEX)
-        {
-            ss << "#define VERSE_MATRIX_MVP " << m_mvp << std::endl;
-            ss << "#define VERSE_MATRIX_MV " << m_mv << std::endl;
-            ss << "#define VERSE_MATRIX_P " << m_p << std::endl;
-            ss << "#define VERSE_MATRIX_N " << m_n << std::endl;
-            ss << "#define VERSE_VS_IN " << vin << std::endl;
-            ss << "#define VERSE_VS_OUT " << vout << std::endl;
-        }
-        else if (s->getType() == osg::Shader::FRAGMENT)
-        {
-            ss << "#define VERSE_FS_IN " << fin << std::endl;
-            ss << "#define VERSE_FS_OUT " << fout << std::endl;
-            ss << "#define VERSE_FS_FINAL " << finalColor << std::endl;
-            ss << "#define VERSE_MAX_SHADOWS " << MAX_SHADOWS << std::endl;
-        }
-        ss << "#define VERSE_TEX1D " << tex1d << std::endl;
-        ss << "#define VERSE_TEX2D " << tex2d << std::endl;
-        ss << "#define VERSE_TEX3D " << tex3d << std::endl;
-        ss << "#define VERSE_TEXCUBE " << texCube << std::endl;
-
-        for (size_t i = 0; i < extraDefs.size(); ++i) ss << extraDefs[i] << std::endl;
-        for (size_t i = 0; i < userDefs.size(); ++i) ss << userDefs[i] << std::endl;
-        if (source.find("#include") != std::string::npos)
-        {
-            OSG_WARN << "[Pipeline] Found not working '#include' flags: "
-                     << s->getName() << std::endl;
-        }
-        s->setShaderSource(ss.str() + source);
+        if (!s || (s && s->getShaderSource().empty())) return;
+        ShaderLibrary::instance()->createShaderDefinitions(*s, glVer, glslVer, userDefs);
     }
 
     void Pipeline::setPipelineMask(osg::Object& node, unsigned int mask, unsigned int flags)

@@ -1,7 +1,4 @@
 #include <osg/io_utils>
-#include <osg/Multisample>
-#include <osg/Point>
-#include <osg/PointSprite>
 #include <osg/Image>
 #include <osg/Geometry>
 #include <osg/Geode>
@@ -102,6 +99,8 @@ public:
         if (!va->empty())
         {
             osg::Geometry* geom = new osg::Geometry;
+            geom->setUseDisplayList(false);
+            geom->setUseVertexBufferObjects(true);
             geom->setVertexArray(va.get());
             geom->setColorArray(ca.get());
             geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
@@ -112,14 +111,6 @@ public:
             for (size_t i = 0; i < va->size(); ++i) de->push_back(i);
             geom->addPrimitiveSet(de);
 #endif
-
-            osg::Texture2D* tex = new osg::Texture2D();
-            tex->setImage(osgDB::readImageFile("Images/particle.rgb"));
-            geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex);
-            geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, new osg::PointSprite);
-            geom->getOrCreateStateSet()->setAttribute(new osg::Point(5.0f));
-            geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-            geom->getOrCreateStateSet()->setMode(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB, osg::StateAttribute::ON);
 
             osg::Geode* geode = new osg::Geode;
             geode->addDrawable(geom);
@@ -164,7 +155,7 @@ public:
     grid->setName( name ); gridType ::Accessor accessor = grid->getAccessor(); \
     for (int z = 0; z < image.r(); ++z) for (int y = 0; y < image.t(); ++y) \
     for (int x = 0; x < image.s(); ++x)
-    
+
         if (numComponents == 1)
         {
             if (dataType == GL_FLOAT && pixelSize == 32)
