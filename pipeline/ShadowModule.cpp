@@ -398,7 +398,7 @@ namespace osgVerse
         stage->camera = camera; stage->camera->setName(stage->name);
         stage->camera->setUserValue("PipelineCullMask", casterMask);  // replacing setCullMask()
         stage->camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-        return stage;
+        stage->parentModule = this; return stage;
     }
 
     void ShadowModule::updateFrustumGeometry(int id, osg::Camera* shadowCam)

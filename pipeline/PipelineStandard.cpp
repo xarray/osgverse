@@ -95,7 +95,7 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
 namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
         withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
         enableAO(true), enablePostEffects(true), enableUserInput(false)
@@ -105,7 +105,7 @@ namespace osgVerse
     }
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
-    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK), userInputMask(0),
+    :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
         withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
         enableAO(true), enablePostEffects(true), enableUserInput(false)
@@ -161,6 +161,26 @@ namespace osgVerse
         }
     }
 
+    void StandardPipelineParameters::addUserInputStage(const std::string& name, unsigned int mask,
+                                                       UserInputOccasion occasion, UserInputType t)
+    { userInputs[occasion].push_back(UserInputStageData(name, mask, t)); }
+
+    void StandardPipelineParameters::applyUserInputStages(
+            osg::Camera* mainCam, Pipeline* p, UserInputOccasion occasion,
+            osg::Texture* colorBuffer, osg::Texture* depthBuffer) const
+    {
+        std::map<UserInputOccasion, UserInputStageList>::const_iterator itr = userInputs.find(occasion);
+        const StandardPipelineParameters::UserInputStageList& userStages = itr->second;
+        for (size_t u = 0; u < userStages.size(); ++u)
+        {
+            const StandardPipelineParameters::UserInputStageData usd = userStages[u];
+            osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule(usd.stageName, p);
+            inModule->createStages(
+                usd.mask, NULL, NULL, "ColorBuffer", colorBuffer, "DepthBuffer", depthBuffer);
+            mainCam->addUpdateCallback(inModule);  // TODO: UserInputType?
+        }
+    }
+
     GLVersionData* queryOpenGLVersion(Pipeline* p, bool asEmbedded, osg::GraphicsContext* embeddedGC)
     {
         osgViewer::Viewer tempViewer;
@@ -189,7 +209,9 @@ namespace osgVerse
                                  const StandardPipelineParameters& spp)
     {
         bool supportDrawBuffersMRT = spp.enableMRT;
+        StandardPipelineParameters::UserInputOccasion occasion;
         if (!mainCam) mainCam = view->getCamera();
+
         if (!view)
         {
             OSG_WARN << "[StandardPipeline] No view provided." << std::endl;
@@ -448,14 +470,13 @@ namespace osgVerse
         shadowing->applyTexture(generatePoissonDiscDistribution(16, 2), "RandomTexture", 4);
         shadowModule->applyTextureAndUniforms(shadowing, "ShadowMap", 5);
 
-        // User input module
-        if (spp.enableUserInput && spp.userInputMask > 0)
+        // User input module before post-effects
+        occasion = StandardPipelineParameters::BEFORE_POSTEFFECTS;
+        if (spp.enableUserInput && spp.userInputs.find(occasion) != spp.userInputs.end())
         {
-            osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", p);
-            inModule->createStages(spp.userInputMask, NULL, NULL,
-                "ColorBuffer", shadowing->getBufferTexture("CombinedBuffer"),
-                "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
-            mainCam->addUpdateCallback(inModule);
+            spp.applyUserInputStages(mainCam, p, occasion,
+                                     shadowing->getBufferTexture("CombinedBuffer"),
+                                     gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
 
         if (spp.enablePostEffects)

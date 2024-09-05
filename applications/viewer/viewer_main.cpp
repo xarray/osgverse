@@ -276,8 +276,9 @@ int main(int argc, char** argv)
 
     // Setup the pipeline
 #if true
-    params.enablePostEffects = true; params.enableAO = true;
-    params.userInputMask = CUSTOM_INPUT_MASK; params.enableUserInput = true;
+    params.enablePostEffects = true; params.enableAO = true; params.enableUserInput = true;
+    params.addUserInputStage("Forward", CUSTOM_INPUT_MASK,
+                             osgVerse::StandardPipelineParameters::BEFORE_POSTEFFECTS);
     setupStandardPipeline(pipeline.get(), &viewer, params);
 #else
     std::ifstream ppConfig(SHADER_DIR "/standard_pipeline.json");

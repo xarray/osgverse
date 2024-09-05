@@ -1,9 +1,3 @@
-#if VERSE_WEBGL1
-#extension GL_OES_standard_derivatives : enable
-#elif VERSE_WEBGL2
-#extension GL_OES_standard_derivatives : enable
-#endif
-
 #ifndef PI
 #define PI 3.141592653589793
 #endif

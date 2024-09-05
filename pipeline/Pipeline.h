@@ -102,6 +102,7 @@ namespace osgVerse
         {
             std::map<std::string, osg::observer_ptr<osg::Texture>> outputs;
             std::map<std::string, osg::observer_ptr<osg::Uniform>> uniforms;
+            osg::observer_ptr<osg::NodeCallback> parentModule;
             osg::ref_ptr<osgVerse::DeferredRenderCallback::RttGeometryRunner> runner;
             osg::ref_ptr<osg::Camera> camera; std::string name;
             osg::Matrix projectionOffset, viewOffset;
@@ -133,7 +134,7 @@ namespace osgVerse
                   name(s.name), inputStage(s.inputStage), deferred(s.deferred) {}
         };
 
-        Pipeline(int glContextVer = 100, int glslVer = 130);
+        Pipeline(int glContextVer = 100, int glslVer = 120);
         static osg::GraphicsContext* createGraphicsContext(int w, int h, const std::string& glContext,
                                                            osg::GraphicsContext* shared = NULL, int flags = 0);
 
@@ -276,6 +277,31 @@ namespace osgVerse
     /** Standard pipeline parameters */
     struct StandardPipelineParameters
     {
+        enum UserInputOccasion
+        {
+            BEFORE_POSTEFFECTS
+        };
+
+        enum UserInputType
+        {
+            DEFAULT_INPUT,
+            DEPTH_PARTITION_FRONT,
+            DEPTH_PARTITION_BACK
+        };
+
+        /** User input stage information */
+        struct UserInputStageData
+        {
+            std::string stageName;
+            unsigned int mask;
+            UserInputType type;
+
+            UserInputStageData() : mask(0), type(DEFAULT_INPUT) { stageName = "Forward"; }
+            UserInputStageData(const std::string& n, unsigned int m,
+                               UserInputType t = DEFAULT_INPUT) : stageName(n), mask(m), type(t) {}
+        };
+
+        /** Shader configuations */
         struct ShaderParameters
         {
             osg::ref_ptr<osg::Shader> gbufferVS, shadowCastVS, quadVS;
@@ -287,17 +313,23 @@ namespace osgVerse
             osg::ref_ptr<osg::Shader> forwardVS, forwardFS;
         };
 
+        typedef std::vector<UserInputStageData> UserInputStageList;
+        std::map<UserInputOccasion, UserInputStageList> userInputs;
         ShaderParameters shaders;
+
         osg::ref_ptr<osg::ImageSequence> skyboxIBL;
         osg::ref_ptr<osg::Texture2D> skyboxMap;
-        unsigned int originWidth, originHeight;
-        unsigned int deferredMask, forwardMask, userInputMask;
+        unsigned int originWidth, originHeight, deferredMask, forwardMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution;
         bool withEmbeddedViewer, debugShadowModule, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);
+        void addUserInputStage(const std::string& name, unsigned int mask,
+                               UserInputOccasion occasion, UserInputType t = DEFAULT_INPUT);
+        void applyUserInputStages(osg::Camera* mainCam, Pipeline* pipeline, UserInputOccasion occ,
+                                  osg::Texture* colorBuffer, osg::Texture* depthBuffer) const;
     };
 
     /** Create standard pipeline */

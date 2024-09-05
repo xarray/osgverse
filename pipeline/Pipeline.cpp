@@ -42,6 +42,9 @@ struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatr
         osg::Vec2d nearFar = _callback->getCalculatedNearFar();
         if (nearFar[0] > 0.0 && nearFar[1] > 0.0)
         {
+            // TODO!! work with near/far values, setting a better result
+            // check stage->parentModule to implement depth-partition here
+
             if (fabs(proj(0, 3)) < epsilon  && fabs(proj(1, 3)) < epsilon  && fabs(proj(2, 3)) < epsilon)
             {   // Orthographic matrix
                 proj(2, 2) = -2.0f / (nearFar[1] - nearFar[0]);
@@ -70,7 +73,9 @@ struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatr
     virtual bool clampProjectionMatrixImplementation(osg::Matrixd& p, double& znear, double& zfar) const
     { return _clampProjectionMatrix(p, znear, zfar); }
 
-    MyClampProjectionCallback(osgVerse::DeferredRenderCallback* cb) : _callback(cb) {}
+    MyClampProjectionCallback(osgVerse::Pipeline::Stage* s, osgVerse::DeferredRenderCallback* cb)
+        : _stage(s), _callback(cb) {}
+    osg::observer_ptr<osgVerse::Pipeline::Stage> _stage;
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
 };
 
@@ -153,8 +158,9 @@ public:
                     }
 
                     pushM(nodePipMask, flags, ss); maskSet |= 1;
-                    if (checkSmallPixelSizeCulling(node.getBound())) return false;
-                    return (_cullMask & nodePipMask) != 0;
+                    if ((_cullMask & nodePipMask) != 0)
+                        return !checkSmallPixelSizeCulling(node.getBound());
+                    return false;
                 }  // otherwise, treat the mask as not set
             }
         }
@@ -187,8 +193,9 @@ public:
 
             if (flags & osg::StateAttribute::ON)
             {
-                if (checkSmallPixelSizeCulling(node.getBound())) return false;
-                return (_cullMask & nodePipMask) != 0;
+                if ((_cullMask & nodePipMask) != 0)
+                    return !checkSmallPixelSizeCulling(node.getBound());
+                return false;
             }
         }
 
@@ -423,6 +430,10 @@ public:
         // Note that cullWithNearFarCalculation() will only compute whole near/far once per frame
         bool calcNearFar = false; getCamera()->getUserValue("NeedNearFarCalculation", calcNearFar);
         if (calcNearFar && _callback.valid()) _callback->cullWithNearFarCalculation(this);
+
+        // TODO!! add software-rasterizer for occlusion culling here
+        // Drawable AABBs should be collect in culling stage above, and pixels computed here
+        // Results will be check in customized CullVisitor then
 
         // Do regular culling and apply every input camera's inverse(ViewProj) uniform to all sceneViews
         // This uniform is helpful for deferred passes to rebuild world vertex and normals
@@ -935,7 +946,7 @@ namespace osgVerse
 
         // Set-up projection matrix clamper
         osg::ref_ptr<MyClampProjectionCallback> customClamper =
-            new MyClampProjectionCallback(_deferredCallback.get());
+            new MyClampProjectionCallback(NULL, _deferredCallback.get());
         if (mainCam)
         {
             // User's ClampProjectionCallback on view's main camera will be kept and reused
@@ -1076,7 +1087,8 @@ namespace osgVerse
         applyDefaultInputStateSet(*s->camera->getOrCreateStateSet(), withDefTex, true);
         s->camera->setUserValue("PipelineCullMask", cullMask);  // replacing setCullMask()
         s->camera->setUserValue("NeedNearFarCalculation", true);
-        s->camera->setClampProjectionMatrixCallback(new MyClampProjectionCallback(_deferredCallback.get()));
+        s->camera->setClampProjectionMatrixCallback(
+            new MyClampProjectionCallback(s, _deferredCallback.get()));
         s->camera->setComputeNearFarMode(g_nearFarMode);
         s->inputStage = true; _stages.push_back(s);
 

@@ -40,7 +40,7 @@ namespace osgVerse
             // This requires single-threaded only!!
             int flags = Pipeline::NO_DEFAULT_TEXTURES;
             Pipeline::Stage* stage = _pipeline->addInputStage(getName(), cullMask, flags, vs, fs, buffers);
-            stage->camera->setClearMask(0); return stage;
+            stage->camera->setClearMask(0); stage->parentModule = this; return stage;
         }
         else
         {
@@ -52,7 +52,7 @@ namespace osgVerse
                 dName.c_str(), osgVerse::Pipeline::DEPTH24_STENCIL8);
 #endif
             // TODO: combine this with pipeline color/depth?
-            return stage;
+            stage->parentModule = this; return stage;
         }
     }
 

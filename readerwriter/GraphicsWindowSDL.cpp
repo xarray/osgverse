@@ -20,6 +20,14 @@ typedef void* (EGLAPIENTRYP PFNEGLGETVKOBJECTSVERSEPROC)(EGLDisplay dpy, EGLSurf
 
 using namespace osgVerse;
 
+#if defined(VERSE_GLES_DESKTOP)
+static void EGLAPIENTRY eglErrorCallback(EGLenum error, const char* command, EGLint messageType,
+                                         EGLLabelKHR threadLabel, EGLLabelKHR objectLabel, const char* msg)
+{
+    OSG_NOTICE << "[eglErrorCallback] Get message: " << msg << ", command = " << command << std::endl;
+}
+#endif
+
 static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
 {
     switch (key)
@@ -191,6 +199,8 @@ void GraphicsWindowSDL::initialize()
 
         EGLDisplay display = EGL_NO_DISPLAY;
         EGLNativeWindowType hWnd = sdlInfo.info.win.window;
+        PFNEGLDEBUGMESSAGECONTROLKHRPROC eglDebugMessageControlKHR =
+            (PFNEGLDEBUGMESSAGECONTROLKHRPROC)(eglGetProcAddress("eglDebugMessageControlKHR"));
         PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT =
             (PFNEGLGETPLATFORMDISPLAYEXTPROC)(eglGetProcAddress("eglGetPlatformDisplayEXT"));
 #if false
@@ -199,6 +209,17 @@ void GraphicsWindowSDL::initialize()
         PFNEGLRELEASEDEVICEANGLEPROC eglReleaseDeviceANGLE =
             (PFNEGLRELEASEDEVICEANGLEPROC)(eglGetProcAddress("eglReleaseDeviceANGLE"));
 #endif
+        if (eglDebugMessageControlKHR != NULL)
+        {
+            EGLAttrib controls[] = {
+                EGL_DEBUG_MSG_CRITICAL_KHR, EGL_TRUE,
+                EGL_DEBUG_MSG_ERROR_KHR, EGL_TRUE,
+                EGL_DEBUG_MSG_WARN_KHR, EGL_TRUE,
+                EGL_DEBUG_MSG_INFO_KHR, EGL_FALSE,
+                EGL_NONE, EGL_NONE,
+            };
+            eglDebugMessageControlKHR(&eglErrorCallback, controls);
+        }
 
         if (eglGetPlatformDisplayEXT != NULL)
         {
@@ -206,7 +227,7 @@ void GraphicsWindowSDL::initialize()
                 EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE,
                 //EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
                 //EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,  // for D3D11
-                EGL_NONE,
+                EGL_NONE, EGL_NONE
             };
             display = eglGetPlatformDisplayEXT(
                 EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrNewBackend);

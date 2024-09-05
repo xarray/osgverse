@@ -1,9 +1,3 @@
-#if VERSE_WEBGL1
-#extension GL_OES_standard_derivatives : enable
-#elif VERSE_WEBGL2
-#extension GL_OES_standard_derivatives : enable
-#endif
-
 #ifndef PI
 #define PI 3.141592653589793
 #endif
@@ -31,7 +25,7 @@ vec4 tiling(vec2 uv, vec2 number)
 {
     // result.xy is a vec2 with the new coordinates.
 	// result.zw is a vec2 with the tiles i, j indices
-    return vec4(fract(p * n), floor(p * n));
+    return vec4(fract(uv * number), floor(uv * number));
 }
 
 vec3 convertRGB2HSV(vec3 rgb)

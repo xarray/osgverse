@@ -5,6 +5,15 @@
 #include <sstream>
 using namespace osgVerse;
 
+static std::string trimString(const std::string& str)
+{
+    if (!str.size()) return str;
+    std::string::size_type first = str.find_first_not_of(" \t");
+    std::string::size_type last = str.find_last_not_of("  \t\r\n");
+    if ((first == str.npos) || (last == str.npos)) return std::string("");
+    return str.substr(first, last - first + 1);
+}
+
 ShaderLibrary* ShaderLibrary::instance()
 {
     static osg::ref_ptr<ShaderLibrary> s_instance = new ShaderLibrary;
@@ -23,6 +32,7 @@ void ShaderLibrary::updateModuleData(PreDefinedModule m, osg::Shader::Type type,
     std::ifstream fin(baseDir + name + ".module.h");
     osg::ref_ptr<osg::Shader> shader = osgDB::readRefShaderFile(baseDir + name + ".module.glsl");
     std::string moduleMarker = "//! osgVerse module: " + name + "\n";
+
     if (fin && shader.valid())
     {
         std::istreambuf_iterator<char> eos;
@@ -40,7 +50,7 @@ void ShaderLibrary::refreshModules(const std::string& baseDir)
     updateModuleData(LIGHTING_SHADERS, osg::Shader::FRAGMENT, baseDir, "lighting");
 }
 
-void ShaderLibrary::updateShaderModules(osg::Program& program, int moduleFlags)
+void ShaderLibrary::updateProgram(osg::Program& program, int moduleFlags)
 {
     std::vector<osg::ref_ptr<osg::Shader>> shadersToAdd;
     for (std::map<PreDefinedModule, osg::ref_ptr<osg::Shader>>::iterator
@@ -61,13 +71,35 @@ void ShaderLibrary::updateShaderModules(osg::Program& program, int moduleFlags)
 
         if (!alreadyAdded)
         {   // add declarations and ready to add modules
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+            std::string defs = itr->second->getShaderSource() + "\n";
+#else
             std::string defs = _moduleHeaders[itr->first] + "\n";
+#endif
+
             for (size_t i = 0; i < shadersToHaveHeader.size(); ++i)
             {
                 std::string code = shadersToHaveHeader[i]->getShaderSource();
-                shadersToHaveHeader[i]->setShaderSource(defs + code);
+                std::string line; std::stringstream ss; ss << code;
+                while (std::getline(ss, line))
+                {
+                    line = trimString(line); if (line.empty()) continue;
+                    if (line.find("precision") != std::string::npos) continue;
+                    if (line[0] == '#' || line[0] == '/') continue; else break;
+                }
+
+                size_t posToInsert = line.empty() ? std::string::npos : code.find(line);
+                if (posToInsert != std::string::npos)
+                {
+                    shadersToHaveHeader[i]->setShaderSource(
+                        code.substr(0, posToInsert) + defs + code.substr(posToInsert));
+                }
+                else
+                    shadersToHaveHeader[i]->setShaderSource(defs + code);
             }
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             shadersToAdd.push_back(itr->second);
+#endif
         }
     }
 
@@ -184,7 +216,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     if (source.find("#include") != std::string::npos)
     {
         OSG_WARN << "[Pipeline] Found not working '#include' flags: "
-            << shader.getName() << std::endl;
+                 << shader.getName() << std::endl;
     }
     shader.setShaderSource(ss.str() + source);
 }

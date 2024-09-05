@@ -128,7 +128,6 @@ int main(int argc, char** argv)
     viewer.getCamera()->setReadBuffer(GL_BACK);
     viewer.getCamera()->setProjectionMatrixAsPerspective(
         30.0f, static_cast<double>(traits->width) / static_cast<double>(traits->height), 1.0f, 10000.0f);
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     
     // Setup the pipeline
 #if TEST_PIPELINE
@@ -178,11 +177,6 @@ int main(int argc, char** argv)
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }
-
-    // Quick test for Vulkan availablity
-#if TEST_VULKAN_IMPLEMENTATION
-    // TODO
-#endif
 
     // Start the main loop
     while (!viewer.done())

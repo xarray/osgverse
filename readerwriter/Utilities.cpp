@@ -81,20 +81,45 @@ void FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     ss.removeAttribute(osg::StateAttribute::SHADEMODEL);
 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-    // Remove texture modes as they are not needed by glEnable() in GLES 2.0/3.x and GL3/4
-    // https://docs.gl/es2/glEnable  // https://docs.gl/gl4/glEnable
-    const osg::StateSet::TextureModeList& texModes = ss.getTextureModeList();
-    for (size_t i = 0; i < texModes.size(); ++i)
+    osg::StateSet::TextureAttributeList texAttrs = ss.getTextureAttributeList();
+    for (size_t i = 0; i < texAttrs.size(); ++i)
     {
+        osg::Texture* tex = static_cast<osg::Texture*>(
+            ss.getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+        if (tex && tex->getNumImages() > 0)
+        {
+            // Try to fix some old and wrong internal formats
+            for (size_t j = 0; j < tex->getNumImages(); ++j)
+            {
+#if !defined(VERSE_WEBGL1)
+                GLenum internalFmt = tex->getImage(j)->getInternalTextureFormat();
+                switch (internalFmt)
+                {
+                case GL_ALPHA: tex->getImage(j)->setInternalTextureFormat(GL_ALPHA8); break;
+                case GL_LUMINANCE: tex->getImage(j)->setInternalTextureFormat(GL_LUMINANCE8); break;
+                case GL_RGB: tex->getImage(j)->setInternalTextureFormat(GL_RGB8); break;
+                case GL_RGBA: tex->getImage(j)->setInternalTextureFormat(GL_RGBA8); break;
+                }
+#endif
+            }
+        }
+
         ss.removeTextureAttribute(i, osg::StateAttribute::TEXENV);
         ss.removeTextureAttribute(i, osg::StateAttribute::TEXGEN);
         ss.removeTextureAttribute(i, osg::StateAttribute::TEXMAT);
+    }
 
+    // Remove texture modes as they are not needed by glEnable() in GLES 2.0/3.x and GL3/4
+    // https://docs.gl/es2/glEnable  // https://docs.gl/gl4/glEnable
+    osg::StateSet::TextureModeList texModes = ss.getTextureModeList();
+    for (size_t i = 0; i < texModes.size(); ++i)
+    {
         osg::StateSet::ModeList modes = texModes[i];
         for (osg::StateSet::ModeList::const_iterator itr = modes.begin();
             itr != modes.end(); ++itr) ss.removeTextureMode(i, itr->first);
     }
-    ss.removeMode(GL_NORMALIZE);
+    ss.removeMode(GL_RESCALE_NORMAL);
+    ss.removeMode(GL_NORMALIZE); ss.removeMode(GL_LIGHTING);
 #endif
 }
 

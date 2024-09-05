@@ -27,7 +27,7 @@ namespace osgVerse
             And declarations will be added to each existing shaders of the program.
             Parameter moduleFlags is the commbination of PreDefinedModules
         */
-        void updateShaderModules(osg::Program& program, int moduleFlags = COMMON_SHADERS);
+        void updateProgram(osg::Program& program, int moduleFlags = COMMON_SHADERS);
 
         /** Add necessaray definitions for GLSL shaders
             Special macros:
@@ -44,7 +44,7 @@ namespace osgVerse
             - VERSE_TEX1D/VERSE_TEX2D/VERSE_TEX3D/VERSE_TEXCUBE: texture sampling function
             - osg_Vertex/osg_Color/osg_MultiTexCoord0/osg_MultiTexCoord1/osg_Normal: attributes in vertex shader
         */
-        void createShaderDefinitions(osg::Shader& s, int glVer = 100, int glslVer = 130,
+        void createShaderDefinitions(osg::Shader& s, int glVer = 100, int glslVer = 120,
                                      const std::vector<std::string>& userDefs = std::vector<std::string>(),
                                      const osgDB::ReaderWriter::Options* options = NULL);
 

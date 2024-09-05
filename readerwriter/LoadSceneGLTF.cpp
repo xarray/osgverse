@@ -747,7 +747,7 @@ namespace osgVerse
     {
         osg::ref_ptr<osg::Image> image = new osg::Image;
         image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-        image->setInternalTextureFormat(GL_RGBA);
+        image->setInternalTextureFormat(GL_RGBA8);
 
         osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
         *ptr = osg::Vec4ub(color[0] * 255, color[1] * 255, color[2] * 255, color[3] * 255);
