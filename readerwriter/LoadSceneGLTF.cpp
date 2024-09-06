@@ -65,7 +65,7 @@ public:
     {
 #ifdef __EMSCRIPTEN__
         osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
-        bool succeed = wf->httpGet(osgDB::getServerFileName(fileName));
+        bool succeed = wf->httpGet(fileName);
         if (!succeed) return false;
         else data.assign(wf->buffer.begin(), wf->buffer.end());
 #else

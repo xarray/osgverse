@@ -11,6 +11,7 @@
 #include "ShaderLibrary.h"
 #include "Pipeline.h"
 #include "ShadowModule.h"
+#include "UserInputModule.h"
 #include "Utilities.h"
 
 #define VERBOSE_CREATING 0
@@ -42,8 +43,15 @@ struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatr
         osg::Vec2d nearFar = _callback->getCalculatedNearFar();
         if (nearFar[0] > 0.0 && nearFar[1] > 0.0)
         {
-            // TODO!! work with near/far values, setting a better result
-            // check stage->parentModule to implement depth-partition here
+            // Work with near/far values to implement depth-partition here
+            if (_stage.valid() && _stage->depthPartition.x() > 0.0)
+            {
+                double near = _stage->depthPartition.y(); if (near <= 0.0) near = 0.1;
+                if ((int)_stage->depthPartition.x() == 1)  // front frustum
+                    nearFar.set(near, sqrt(near * nearFar[1]));
+                else
+                    nearFar.set(sqrt(near * nearFar[1]), nearFar[1]);
+            }
 
             if (fabs(proj(0, 3)) < epsilon  && fabs(proj(1, 3)) < epsilon  && fabs(proj(2, 3)) < epsilon)
             {   // Orthographic matrix
@@ -911,7 +919,7 @@ namespace osgVerse
         mainCam->setGraphicsContext(_stageContext.get());
         mainCam->setCullMask(0xffffffff);   // recover original slaves' displaying
 
-        for (std::map<std::string, osg::ref_ptr<osg::NodeCallback>>::iterator itr = _modules.begin();
+        for (std::map<std::string, osg::ref_ptr<RenderingModuleBase>>::iterator itr = _modules.begin();
              itr != _modules.end(); ++itr)
         { mainCam->removeUpdateCallback(itr->second.get()); }
 
@@ -972,7 +980,7 @@ namespace osgVerse
         // The forward pass is kept for fixed-pipeline compatibility only
         osg::ref_ptr<osg::Camera> forwardCam = (mainCam != NULL)
                                              ? new osg::Camera(*mainCam) : new osg::Camera;
-        forwardCam->setName("DefaultForward");
+        forwardCam->setName("DefaultFixed");
         forwardCam->setUserValue("NeedNearFarCalculation", true);
         forwardCam->setUserValue("PipelineCullMask", defForwardMask);  // replacing setCullMask()
         forwardCam->setClampProjectionMatrixCallback(customClamper.get());
@@ -1189,10 +1197,10 @@ namespace osgVerse
         return s;
     }
 
-    void Pipeline::removeModule(osg::NodeCallback* cb)
+    void Pipeline::removeModule(RenderingModuleBase* cb)
     {
-        for (std::map<std::string, osg::ref_ptr<osg::NodeCallback>>::iterator itr = _modules.begin();
-             itr != _modules.end(); ++itr)
+        for (std::map<std::string, osg::ref_ptr<RenderingModuleBase>>::iterator
+             itr = _modules.begin(); itr != _modules.end(); ++itr)
         { if (itr->second == cb) { _modules.erase(itr); return; } }
     }
 

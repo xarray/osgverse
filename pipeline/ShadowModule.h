@@ -10,7 +10,7 @@
 
 namespace osgVerse
 {
-    class ShadowModule : public osg::NodeCallback
+    class ShadowModule : public RenderingModuleBase
     {
     public:
         struct ShadowData : public osg::Referenced  // will be set to camera's user-data
@@ -21,6 +21,7 @@ namespace osgVerse
         };
 
         ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom);
+        virtual ShadowModule* asShadowModule() { return this; }
 
         /** Set small-pixels-culling-feature of shadow cameras after createStages() */
         void setSmallPixelsToCull(int cameraNum, int smallPixels);

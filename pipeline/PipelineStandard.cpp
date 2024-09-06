@@ -97,8 +97,9 @@ namespace osgVerse
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
-        withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
-        enableAO(true), enablePostEffects(true), enableUserInput(false)
+        depthPartitionNearValue(0.1), withEmbeddedViewer(false), debugShadowModule(false),
+        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
+        enableUserInput(false), enableDepthPartition(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -107,8 +108,9 @@ namespace osgVerse
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
-        withEmbeddedViewer(false), debugShadowModule(false), enableVSync(true), enableMRT(true),
-        enableAO(true), enablePostEffects(true), enableUserInput(false)
+        depthPartitionNearValue(0.1), withEmbeddedViewer(false), debugShadowModule(false),
+        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
+        enableUserInput(false), enableDepthPartition(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -163,7 +165,10 @@ namespace osgVerse
 
     void StandardPipelineParameters::addUserInputStage(const std::string& name, unsigned int mask,
                                                        UserInputOccasion occasion, UserInputType t)
-    { userInputs[occasion].push_back(UserInputStageData(name, mask, t)); }
+    {
+        userInputs[occasion].push_back(UserInputStageData(name, mask, t));
+        if (t != UserInputType::DEFAULT_INPUT) enableDepthPartition = true;
+    }
 
     void StandardPipelineParameters::applyUserInputStages(
             osg::Camera* mainCam, Pipeline* p, UserInputOccasion occasion,
@@ -175,9 +180,18 @@ namespace osgVerse
         {
             const StandardPipelineParameters::UserInputStageData usd = userStages[u];
             osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule(usd.stageName, p);
-            inModule->createStages(
+            Pipeline::Stage* stage = inModule->createStages(
                 usd.mask, NULL, NULL, "ColorBuffer", colorBuffer, "DepthBuffer", depthBuffer);
-            mainCam->addUpdateCallback(inModule);  // TODO: UserInputType?
+
+            switch (usd.type)
+            {
+            case UserInputType::DEPTH_PARTITION_FRONT:
+                stage->depthPartition = osg::Vec2(1.0, depthPartitionNearValue); break;
+            case UserInputType::DEPTH_PARTITION_BACK:
+                stage->depthPartition = osg::Vec2(2.0, depthPartitionNearValue); break;
+            default: break;
+            }
+            mainCam->addUpdateCallback(inModule);
         }
     }
 
@@ -293,6 +307,8 @@ namespace osgVerse
             OSG_WARN << "[StandardPipeline] DrawBuffersMRT doesn't work here. It may cause "
                      << "unexpected problems at present." << std::endl;
         }
+        if (gbuffer && spp.enableDepthPartition)  // GBuffer is always depth-partition front
+            gbuffer->depthPartition.set(1.0, spp.depthPartitionNearValue);
 
         // Shadow module initialization
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =

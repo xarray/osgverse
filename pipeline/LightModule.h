@@ -10,10 +10,11 @@
 
 namespace osgVerse
 {
-    class LightModule : public osg::NodeCallback
+    class LightModule : public RenderingModuleBase
     {
     public:
         LightModule(const std::string& name, Pipeline* pipeline, int maxLightsInPass = 24);
+        virtual LightModule* asLightModule() { return this; }
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         /** Feed light parameter data & uniforms to certain pipeline stage */

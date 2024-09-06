@@ -45,6 +45,10 @@
 
 namespace osgVerse
 {
+    class LightModule;
+    class ShadowModule;
+    class UserInputModule;
+
     /** OpenGL version data for graphics hardware adpation.
         OpenGL Version: GLSL Version
         - 2.0: #version 110
@@ -63,6 +67,15 @@ namespace osgVerse
         int glVersion, glslVersion;
         bool glslSupported, fboSupported;
         bool drawBuffersSupported;
+    };
+
+    /** Module to be used in pipeline */
+    class RenderingModuleBase : public osg::NodeCallback
+    {
+    public:
+        virtual LightModule* asLightModule() { return NULL; }
+        virtual ShadowModule* asShadowModule() { return NULL; }
+        virtual UserInputModule* asUserInputModule() { return NULL; }
     };
 
     /** Effect pipeline using a list of slave cameras, without invading main scene graph
@@ -102,10 +115,11 @@ namespace osgVerse
         {
             std::map<std::string, osg::observer_ptr<osg::Texture>> outputs;
             std::map<std::string, osg::observer_ptr<osg::Uniform>> uniforms;
-            osg::observer_ptr<osg::NodeCallback> parentModule;
+            osg::observer_ptr<RenderingModuleBase> parentModule;
             osg::ref_ptr<osgVerse::DeferredRenderCallback::RttGeometryRunner> runner;
             osg::ref_ptr<osg::Camera> camera; std::string name;
             osg::Matrix projectionOffset, viewOffset;
+            osg::Vec2d depthPartition;  // x: 0=none, 1=front, 2=back; y: global near
             bool inputStage, deferred;
 
             void applyBuffer(Stage& s, const std::string& buffer, int unit,
@@ -130,8 +144,9 @@ namespace osgVerse
 
             Stage() : name("Undefined"), inputStage(false), deferred(false) {}
             Stage(const Stage& s)
-                : outputs(s.outputs), uniforms(s.uniforms), runner(s.runner), camera(s.camera),
-                  name(s.name), inputStage(s.inputStage), deferred(s.deferred) {}
+                : outputs(s.outputs), uniforms(s.uniforms), runner(s.runner),
+                  camera(s.camera), name(s.name), depthPartition(s.depthPartition),
+                  inputStage(s.inputStage), deferred(s.deferred) {}
         };
 
         Pipeline(int glContextVer = 100, int glslVer = 120);
@@ -245,10 +260,10 @@ namespace osgVerse
         { return getStage(cam) != NULL || (_forwardCamera == cam); }
 
         /** Add user modules to this pipeline */
-        void addModule(const std::string& n, osg::NodeCallback* cb) { _modules[n] = cb; }
-        void removeModule(osg::NodeCallback* cb);
-        osg::NodeCallback* getModule(const std::string& n) { return _modules[n].get(); }
-        const std::map<std::string, osg::ref_ptr<osg::NodeCallback>>& getModules() const { return _modules; }
+        void addModule(const std::string& n, RenderingModuleBase* cb) { _modules[n] = cb; }
+        void removeModule(RenderingModuleBase* cb);
+        RenderingModuleBase* getModule(const std::string& n) { return _modules[n].get(); }
+        const std::map<std::string, osg::ref_ptr<RenderingModuleBase>>& getModules() const { return _modules; }
 
         /** Create forward shading stateset which can make use of PBR and lighting functonalities */
         osg::StateSet* createForwardStateSet(osg::Shader* vs, osg::Shader* fs);
@@ -263,7 +278,7 @@ namespace osgVerse
         int getNumNonDepthBuffers(const BufferDescriptions& buffers);
         
         std::vector<osg::ref_ptr<Stage>> _stages;
-        std::map<std::string, osg::ref_ptr<osg::NodeCallback>> _modules;
+        std::map<std::string, osg::ref_ptr<RenderingModuleBase>> _modules;
         osg::ref_ptr<osgVerse::DeferredRenderCallback> _deferredCallback;
         osg::ref_ptr<osg::GraphicsContext> _stageContext;
         osg::ref_ptr<osg::Depth> _deferredDepth;
@@ -321,8 +336,9 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight, deferredMask, forwardMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution;
+        double depthPartitionNearValue;
         bool withEmbeddedViewer, debugShadowModule, enableVSync, enableMRT;
-        bool enableAO, enablePostEffects, enableUserInput;
+        bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);

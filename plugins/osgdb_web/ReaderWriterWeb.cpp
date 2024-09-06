@@ -157,7 +157,7 @@ public:
         // TODO: get connection parameters from options
 #ifdef __EMSCRIPTEN__
         osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
-        bool succeed = wf->httpGet(osgDB::getServerFileName(fileName));
+        bool succeed = wf->httpGet(fileName);
         if (!succeed)
         {
             OSG_WARN << "[emfetch] Failed getting " << fileName << ": " << wf->status << std::endl;
