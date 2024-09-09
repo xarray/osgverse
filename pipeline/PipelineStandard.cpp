@@ -581,7 +581,9 @@ namespace osgVerse
         {
             osgViewer::GraphicsWindow* gw =
                 dynamic_cast<osgViewer::GraphicsWindow*>(p->getContext());
+#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
             if (gw != NULL) gw->setSyncToVBlank(spp.enableVSync);
+#endif
         }
         p->applyStagesToView(view, mainCam, spp.forwardMask);
         p->requireDepthBlit(gbuffer, true);

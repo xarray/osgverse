@@ -13,12 +13,8 @@ osg::ref_ptr<Application> g_app = new Application;
 void loop() { g_app->frame(); }
 
 const char* vertCode = {
-    "VERSE_VS_OUT vec3 viewInEye, normalInEye;\n"
-    "VERSE_VS_OUT vec4 vertexColor, texCoord;\n"
+    "VERSE_VS_OUT vec4 texCoord;\n"
     "void main() {\n"
-    "    viewInEye = normalize(VERSE_MATRIX_MV * osg_Vertex).xyz;\n"
-    "    normalInEye = normalize(VERSE_MATRIX_N * osg_Normal);\n"
-    "    vertexColor = osg_Color;\n"
     "    texCoord = osg_MultiTexCoord0;\n"
     "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n"
     "}\n"
@@ -26,16 +22,10 @@ const char* vertCode = {
 
 const char* fragCode = {
     "uniform sampler2D DiffuseMap;\n"
-    "VERSE_FS_IN vec3 viewInEye, normalInEye;\n"
-    "VERSE_FS_IN vec4 vertexColor, texCoord;\n"
+    "VERSE_FS_IN vec4 texCoord;\n"
     "VERSE_FS_OUT vec4 fragData;\n"
     "void main() {\n"
-    "    vec3 lightDir = normalize(vec3(0.1, 0.1, 1.0));\n"
-    "    vec4 diffuse = vec4(0.6, 0.6, 0.65, 1.0), specular = vec4(1.0, 1.0, 0.96, 1.0);\n"
-    "    vec4 color = VERSE_TEX2D(DiffuseMap, texCoord.st);\n"
-    "    float dTerm = VERSE_lambertDiffuse(lightDir, normalInEye);\n"
-    "    float sTerm = VERSE_blinnPhongSpecular(lightDir, viewInEye, normalInEye, 64.0);\n"
-    "    fragData = color * (diffuse * dTerm + specular * sTerm);\n"
+    "    fragData = VERSE_TEX2D(DiffuseMap, texCoord.st);\n"
     "    VERSE_FS_FINAL(fragData);\n"
     "}\n"
 };
