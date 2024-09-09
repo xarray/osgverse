@@ -1,25 +1,25 @@
 ////////////////// COMMON
-vec3 barycentricInTriangle(vec2 p, vec2 a, vec2 b, vec2 c);
-vec4 tiling(vec2 uv, vec2 number);
-mat2 rotationMatrix2D(float angle);
-mat4 rotationMatrix3D(vec3 axis0, float angle);
-vec2 rotateVector2(vec2 v, float angle);
-vec3 rotateVector3(vec3 v, vec3 axis, float angle);
-mat2 transposeMatrix(mat2 m)
-mat3 transposeMatrix(mat3 m)
-mat4 transposeMatrix(mat4 m)
-mat2 inverseMatrix(mat2 m);
-mat3 inverseMatrix(mat3 m);
-mat4 inverseMatrix(mat4 m);
-mat3 lookAtMatrix(vec3 origin, vec3 target, float roll);
+vec3 VERSE_barycentricInTriangle(vec2 p, vec2 a, vec2 b, vec2 c);
+vec4 VERSE_tiling(vec2 uv, vec2 number);
+mat2 VERSE_rotationMatrix2D(float angle);
+mat4 VERSE_rotationMatrix3D(vec3 axis0, float angle);
+vec2 VERSE_rotateVector2(vec2 v, float angle);
+vec3 VERSE_rotateVector3(vec3 v, vec3 axis, float angle);
+mat2 VERSE_transposeMatrix(mat2 m)
+mat3 VERSE_transposeMatrix(mat3 m)
+mat4 VERSE_transposeMatrix(mat4 m)
+mat2 VERSE_inverseMatrix(mat2 m);
+mat3 VERSE_inverseMatrix(mat3 m);
+mat4 VERSE_inverseMatrix(mat4 m);
+mat3 VERSE_lookAtMatrix(vec3 origin, vec3 target, float roll);
 
 ////////////////// EASING
-float backInOut(float t);
-float bounceInOut(float t);
-float circularInOut(float t);
-float cubicInOut(float t);
-float elasticInOut(float t);
-float exponentialInOut(float t);
-float quadraticInOut(float t);
-float quarticInOut(float t);
-float qinticInOut(float t);
+float VERSE_backInOut(float t);
+float VERSE_bounceInOut(float t);
+float VERSE_circularInOut(float t);
+float VERSE_cubicInOut(float t);
+float VERSE_elasticInOut(float t);
+float VERSE_exponentialInOut(float t);
+float VERSE_quadraticInOut(float t);
+float VERSE_quarticInOut(float t);
+float VERSE_qinticInOut(float t);

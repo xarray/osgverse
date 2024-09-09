@@ -650,10 +650,11 @@ namespace osgVerse
             };
             osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode);
             osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode);
+            int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
 
             osg::ref_ptr<osg::Program> prog = new osg::Program;
-            Pipeline::createShaderDefinitions(vs, 100, 130); prog->addShader(vs);
-            Pipeline::createShaderDefinitions(fs, 100, 130); prog->addShader(fs);
+            Pipeline::createShaderDefinitions(vs, glVer, glslVer); prog->addShader(vs);
+            Pipeline::createShaderDefinitions(fs, glVer, glslVer); prog->addShader(fs);
             camera->getOrCreateStateSet()->setAttributeAndModes(prog.get());
 
             osg::ref_ptr<osg::Group> root = new osg::Group;

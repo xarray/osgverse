@@ -159,8 +159,10 @@ namespace osgVerse
 
         /** Add necessaray definitions for each Pipeline related shader
             See ShaderLibrary::createShaderDefinitions() for details */
-        static void createShaderDefinitions(osg::Shader* s, int glVer = 100, int glslVer = 130,
+        static void createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
                                             const std::vector<std::string>& defs = std::vector<std::string>());
+        void createShaderDefinitionsFromPipeline(
+            osg::Shader* s, const std::vector<std::string>& defs = std::vector<std::string>());
 
         /** Set pipeline mask of scene graph nodes */
         static void setPipelineMask(osg::Object& node, unsigned int mask,

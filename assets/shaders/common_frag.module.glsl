@@ -8,27 +8,27 @@
 
 ////////////////// COMMON
 
-float smoothMin(float a, float b, float k)
+float VERSE_smoothMin(float a, float b, float k)
 {
     // https://iquilezles.org/articles/smin/
     float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
     return mix(b, a, h) - k * h * (1.0 - h);
 }
 
-vec3 approximateFaceNormal(vec3 eyePos)
+vec3 VERSE_approximateFaceNormal(vec3 eyePos)
 {
     vec3 fdx = dFdx(-eyePos), fdy = dFdy(-eyePos);
     return normalize(cross(fdx, fdy));
 }
 
-vec4 tiling(vec2 uv, vec2 number)
+vec4 VERSE_tiling(vec2 uv, vec2 number)
 {
     // result.xy is a vec2 with the new coordinates.
 	// result.zw is a vec2 with the tiles i, j indices
     return vec4(fract(uv * number), floor(uv * number));
 }
 
-vec3 convertRGB2HSV(vec3 rgb)
+vec3 VERSE_convertRGB2HSV(vec3 rgb)
 {
     vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
     vec4 p = mix(vec4(rgb.bg, K.wz), vec4(rgb.gb, K.xy), step(rgb.b, rgb.g));
@@ -37,33 +37,33 @@ vec3 convertRGB2HSV(vec3 rgb)
     return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
 }
 
-vec3 convertHSV2RGB(vec3 hsv)
+vec3 VERSE_convertHSV2RGB(vec3 hsv)
 {
     vec3 rgb = clamp(abs(mod(hsv.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
 	return hsv.z * mix(vec3(1.0), rgb, hsv.y);
 }
 
-vec3 convertHSV2RGB_Smooth(vec3 hsv)
+vec3 VERSE_convertHSV2RGB_Smooth(vec3 hsv)
 {
     vec3 rgb = clamp(abs(mod(hsv.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
 	rgb = rgb * rgb * (3.0 - 2.0 * rgb); // cubic smoothing
 	return hsv.z * mix(vec3(1.0), rgb, hsv.y);
 }
 
-vec3 lerpHSV(vec3 hsv1, vec3 hsv2, float rate)
+vec3 VERSE_lerpHSV(vec3 hsv1, vec3 hsv2, float rate)
 {
     float hue = (mod(mod((hsv2.x - hsv1.x), 1.) + 1.5, 1.0) - 0.5) * rate + hsv1.x;
     return vec3(hue, mix(hsv1.yz, hsv2.yz, rate));
 }
 
-mat2 rotationMatrix2D(float angle)
+mat2 VERSE_rotationMatrix2D(float angle)
 {
     float s = sin(angle);
     float c = cos(angle);
     return mat2(c, -s, s, c);
 }
 
-mat4 rotationMatrix3D(vec3 axis0, float angle)
+mat4 VERSE_rotationMatrix3D(vec3 axis0, float angle)
 {
     vec3 axis = normalize(axis0);
     float s = sin(angle), c = cos(angle);
@@ -74,29 +74,29 @@ mat4 rotationMatrix3D(vec3 axis0, float angle)
                 0.0,                                0.0,                                0.0,                                1.0);
 }
 
-vec2 rotateVector2(vec2 v, float angle)
+vec2 VERSE_rotateVector2(vec2 v, float angle)
 {
-    return rotationMatrix2D(angle) * v;
+    return VERSE_rotationMatrix2D(angle) * v;
 }
 
-vec3 rotateVector3(vec3 v, vec3 axis, float angle)
+vec3 VERSE_rotateVector3(vec3 v, vec3 axis, float angle)
 {
-    return (rotationMatrix3D(axis, angle) * vec4(v, 1.0)).xyz;
+    return (VERSE_rotationMatrix3D(axis, angle) * vec4(v, 1.0)).xyz;
 }
 
-mat2 transposeMatrix(mat2 m)
+mat2 VERSE_transposeMatrix(mat2 m)
 {
     return mat2(m[0][0], m[1][0], m[0][1], m[1][1]);
 }
 
-mat3 transposeMatrix(mat3 m)
+mat3 VERSE_transposeMatrix(mat3 m)
 {
     return mat3(m[0][0], m[1][0], m[2][0],
                 m[0][1], m[1][1], m[2][1],
                 m[0][2], m[1][2], m[2][2]);
 }
 
-mat4 transposeMatrix(mat4 m)
+mat4 VERSE_transposeMatrix(mat4 m)
 {
     return mat4(m[0][0], m[1][0], m[2][0], m[3][0],
                 m[0][1], m[1][1], m[2][1], m[3][1],
@@ -104,12 +104,12 @@ mat4 transposeMatrix(mat4 m)
                 m[0][3], m[1][3], m[2][3], m[3][3]);
 }
 
-mat2 inverseMatrix(mat2 m)
+mat2 VERSE_inverseMatrix(mat2 m)
 {
     return mat2(m[1][1], -m[0][1], -m[1][0], m[0][0]) / (m[0][0]*m[1][1] - m[0][1]*m[1][0]);
 }
 
-mat3 inverseMatrix(mat3 m)
+mat3 VERSE_inverseMatrix(mat3 m)
 {
     float a00 = m[0][0], a01 = m[0][1], a02 = m[0][2];
     float a10 = m[1][0], a11 = m[1][1], a12 = m[1][2];
@@ -123,7 +123,7 @@ mat3 inverseMatrix(mat3 m)
                 b21, (-a21 * a00 + a01 * a20), (a11 * a00 - a01 * a10)) / det;
 }
 
-mat4 inverseMatrix(mat4 m)
+mat4 VERSE_inverseMatrix(mat4 m)
 {
     float a00 = m[0][0], a01 = m[0][1], a02 = m[0][2], a03 = m[0][3],
           a10 = m[1][0], a11 = m[1][1], a12 = m[1][2], a13 = m[1][3],
@@ -154,14 +154,14 @@ mat4 inverseMatrix(mat4 m)
 
 ////////////////// EASING
 
-float backInOut(float t)
+float VERSE_backInOut(float t)
 {
     float f = (t < 0.5) ? (2.0 * t) : (1.0 - (2.0 * t - 1.0));
     float g = pow(f, 3.0) - f * sin(f * PI);
     return (t < 0.5) ? (0.5 * g) : (0.5 * (1.0 - g) + 0.5);
 }
 
-float bounceOut(float t)
+float VERSE_bounceOut(float t)
 {
     const float a = 4.0 / 11.0;
     const float b = 8.0 / 11.0;
@@ -176,47 +176,48 @@ float bounceOut(float t)
                                        : (10.8 * t * t - 20.52 * t + 10.72);
 }
 
-float bounceInOut(float t)
+float VERSE_bounceInOut(float t)
 {
-    return (t < 0.5) ? (0.5 * (1.0 - bounceOut(1.0 - t * 2.0))) : (0.5 * bounceOut(t * 2.0 - 1.0) + 0.5);
+    return (t < 0.5) ? (0.5 * (1.0 - VERSE_bounceOut(1.0 - t * 2.0)))
+                     : (0.5 * VERSE_bounceOut(t * 2.0 - 1.0) + 0.5);
 }
 
-float circularInOut(float t)
+float VERSE_circularInOut(float t)
 {
     return (t < 0.5) ? (0.5 * (1.0 - sqrt(1.0 - 4.0 * t * t)))
                      : (0.5 * (sqrt((3.0 - 2.0 * t) * (2.0 * t - 1.0)) + 1.0));
 }
 
-float cubicInOut(float t)
+float VERSE_cubicInOut(float t)
 {
     return (t < 0.5) ? (4.0 * t * t * t)
                      : (0.5 * pow(2.0 * t - 2.0, 3.0) + 1.0);
 }
 
-float elasticInOut(float t)
+float VERSE_elasticInOut(float t)
 {
     return (t < 0.5) ? (0.5 * sin(+13.0 * HALF_PI * 2.0 * t) * pow(2.0, 10.0 * (2.0 * t - 1.0)))
                      : (0.5 * sin(-13.0 * HALF_PI * ((2.0 * t - 1.0) + 1.0)) * pow(2.0, -10.0 * (2.0 * t - 1.0)) + 1.0);
 }
 
-float exponentialInOut(float t)
+float VERSE_exponentialInOut(float t)
 {
     return (t == 0.0 || t == 1.0) ? t : (t < 0.5) ? (+0.5 * pow(2.0, (20.0 * t) - 10.0))
                                                   : (-0.5 * pow(2.0, 10.0 - (t * 20.0)) + 1.0);
 }
 
-float quadraticInOut(float t)
+float VERSE_quadraticInOut(float t)
 {
     float p = 2.0 * t * t;
     return (t < 0.5) ? p : (-p + (4.0 * t) - 1.0);
 }
 
-float quarticInOut(float t)
+float VERSE_quarticInOut(float t)
 {
     return (t < 0.5) ? (+8.0 * pow(t, 4.0)) : (-8.0 * pow(t - 1.0, 4.0) + 1.0);
 }
 
-float qinticInOut(float t)
+float VERSE_qinticInOut(float t)
 {
     return (t < 0.5) ? (+16.0 * pow(t, 5.0)) : (-0.5 * pow(2.0 * t - 2.0, 5.0) + 1.0);
 }

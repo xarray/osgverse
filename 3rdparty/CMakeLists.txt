@@ -475,6 +475,13 @@ SET(FILTER_SOURCE_FILES
     filters/PoleFilter.cpp filters/PoleFilter.h
 )
 
+SET(RASTERIZER_SOURCE_FILES
+    rasterizer/Rasterizer.cpp rasterizer/Rasterizer.h
+    rasterizer/QuadDecomposition.cpp rasterizer/QuadDecomposition.h
+    rasterizer/SurfaceAreaHeuristic.cpp rasterizer/SurfaceAreaHeuristic.h
+    rasterizer/Occluder.cpp rasterizer/Occluder.h rasterizer/VectorMath.h
+)
+
 SET(MESHOPTIMIZER_SOURCE_FILES
     meshoptimizer/meshoptimizer.h
     meshoptimizer/allocator.cpp meshoptimizer/clusterizer.cpp
@@ -485,16 +492,6 @@ SET(MESHOPTIMIZER_SOURCE_FILES
     meshoptimizer/vcacheanalyzer.cpp meshoptimizer/vcacheoptimizer.cpp
     meshoptimizer/vertexcodec.cpp meshoptimizer/vertexfilter.cpp
     meshoptimizer/vfetchanalyzer.cpp meshoptimizer/vfetchoptimizer.cpp
-)
-
-SET(COACD_SOURCE_FILES
-    coacd/bvh.cpp coacd/bvh.h coacd/clip.cpp coacd/clip.h coacd/coacd.cpp coacd/coacd.h
-    coacd/config.h coacd/cost.cpp coacd/cost.h coacd/hausdorff.h coacd/intersection.h
-    coacd/logger.cpp coacd/logger.h coacd/mcts.cpp coacd/mcts.h coacd/process.cpp coacd/process.h
-    coacd/shape.cpp coacd/shape.h coacd/sobol.cpp coacd/sobol.h coacd/model_obj.cpp coacd/model_obj.h
-    coacd/btConvexHull/btAlignedAllocator.cpp coacd/btConvexHull/btAlignedAllocator.h
-    coacd/btConvexHull/btConvexHullComputer.cpp coacd/btConvexHull/btConvexHullComputer.h
-    coacd/quickhull/QuickHull.cpp coacd/quickhull/QuickHull.hpp
 )
 
 SET(QUADRIFLOW_SOURCE_FILES
@@ -525,8 +522,8 @@ SOURCE_GROUP("libSpatialIndex Files" FILES ${LIBSPATIALINDEX_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
+SOURCE_GROUP("Rasterizer Files" FILES ${RASTERIZER_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
-SOURCE_GROUP("CoACD Files" FILES ${COACD_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
 
@@ -547,7 +544,7 @@ SET(LIBRARY_FILES
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
     ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
-    ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${COACD_SOURCE_FILES}
+    ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES}
 )
 
 IF(LIBIGL_FOUND)
@@ -594,6 +591,10 @@ ELSEIF("sse2" IN_LIST VERSE_SIMD_FEATURES)
 ENDIF()
 
 IF(NOT USE_WASM_OPTIONS)
+    IF("avx2" IN_LIST VERSE_SIMD_FEATURES)
+        SET(LIBRARY_FILES ${LIBRARY_FILES} ${RASTERIZER_SOURCE_FILES})
+    ENDIF()
+
     # libktx and Blend2D NOT compile with Emscripten at present?
     IF("sse4.2" IN_LIST VERSE_SIMD_FEATURES)
         ADD_DEFINITIONS(-DBL_BUILD_OPT_SSE4_2 -DBASISU_SUPPORT_SSE=1)

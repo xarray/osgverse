@@ -14,8 +14,6 @@
 #define ENABLE_VHACD_IMPLEMENTATION 1
 #include <stb/stb_rect_pack.h>
 #include "3rdparty/VHACD.h"
-#include "3rdparty/coacd/coacd.h"
-#include "3rdparty/coacd/process.h"
 #include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
 #include "MeshTopology.h"
 #include "Utilities.h"
@@ -166,24 +164,8 @@ MeshCollector::MeshCollector()
 
 MeshCollector::NonManifoldType MeshCollector::isManifold() const
 {
-    coacd::Model model;
-    if (_vertices.empty() || _indices.empty()) return UNDEFINED;
-    model.points.resize(_vertices.size());
-    for (size_t i = 0; i < _vertices.size(); ++i)
-    {
-        const osg::Vec3& pt = _vertices[i];
-        model.points[i] = { pt[0], pt[1], pt[2] };
-    }
-
-    model.triangles.resize(_indices.size() / 3);
-    for (size_t i = 0; i < model.triangles.size(); ++i)
-    {
-        size_t j = i * 3; model.triangles[i] = {
-            (int)_indices[j], (int)_indices[j + 1], (int)_indices[j + 2] };
-    }
-
-    int errorType = 0; coacd::IsManifold(model, errorType);
-    return (NonManifoldType)errorType;
+    // TODO
+    return NonManifoldType::UNDEFINED;
 }
 
 void MeshCollector::reset()
@@ -404,65 +386,6 @@ osg::Geometry* BoundingVolumeVisitor::computeVHACD(bool findBestPlane, bool shri
     geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
     geom->setVertexArray(va.get()); geom->addPrimitiveSet(de.get());
     iface->Release(); return geom.release();
-}
-
-osg::Geometry* BoundingVolumeVisitor::computeCoACD(float threshold, int maxConvexHull, bool merge,
-                                                   bool decimate, bool extrude, bool approximationByCubes)
-{
-    coacd::Mesh meshIn;
-    if (_vertices.empty() || _indices.empty()) return NULL;
-
-    meshIn.vertices.resize(_vertices.size());
-    for (size_t i = 0; i < _vertices.size(); ++i)
-    {
-        const osg::Vec3& pt = _vertices[i];
-        meshIn.vertices[i] = { pt[0], pt[1], pt[2] };
-    }
-
-    meshIn.indices.resize(_indices.size() / 3);
-    for (size_t i = 0; i < meshIn.indices.size(); ++i)
-    {
-        size_t j = i * 3; meshIn.indices[i] = {
-            (int)_indices[j], (int)_indices[j + 1], (int)_indices[j + 2] };
-    }
-
-    std::vector<coacd::Mesh> result;
-    try
-    {
-        result = coacd::CoACD(
-            meshIn, threshold, maxConvexHull, "off", 50, 2000, 20, 150, 3, false, merge,
-            decimate, 256, extrude, 0.01, approximationByCubes ? "box" : "ch");
-    }
-    catch (std::runtime_error& e)
-    {
-        OSG_WARN << "[BoundingVolumeVisitor] Runtime error: " << e.what() << std::endl;
-    }
-    catch (...) {}
-    if (result.empty()) return NULL;
-
-    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
-    osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
-    for (uint32_t i = 0; i < result.size(); ++i)
-    {
-        const coacd::Mesh& mesh = result[i];
-        unsigned int baseIndex = va->size();
-        for (size_t v = 0; v < mesh.vertices.size(); ++v)
-        {
-            const std::array<double, 3>& pt = mesh.vertices[v];
-            va->push_back(osg::Vec3(pt[0], pt[1], pt[2]));
-        }
-
-        for (size_t v = 0; v < mesh.indices.size(); ++v)
-        {
-            const std::array<int, 3>& t = mesh.indices[v]; de->push_back(baseIndex + t[0]);
-            de->push_back(baseIndex + t[1]); de->push_back(baseIndex + t[2]);
-        }
-    }
-
-    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-    geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
-    geom->setVertexArray(va.get()); geom->addPrimitiveSet(de.get());
-    return geom.release();
 }
 
 osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float relativeExtent, int numSamples)

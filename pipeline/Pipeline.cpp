@@ -1292,6 +1292,9 @@ namespace osgVerse
         ShaderLibrary::instance()->createShaderDefinitions(*s, glVer, glslVer, userDefs);
     }
 
+    void Pipeline::createShaderDefinitionsFromPipeline(osg::Shader* s, const std::vector<std::string>& defs)
+    { createShaderDefinitions(s, _glContextVersion, _glslTargetVersion, defs); }
+
     void Pipeline::setPipelineMask(osg::Object& node, unsigned int mask, unsigned int flags)
     {
         if (node.getUserDataContainer() != NULL)

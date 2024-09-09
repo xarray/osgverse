@@ -1,4 +1,5 @@
 #include <osgDB/ReadFile>
+#include "Pipeline.h"
 #include "ShadowModule.h"
 #include "ShaderLibrary.h"
 #include <iostream>
@@ -26,6 +27,19 @@ ShaderLibrary::ShaderLibrary()
 ShaderLibrary::~ShaderLibrary()
 {}
 
+int ShaderLibrary::guessShaderVersion(int& glContext)
+{
+#if defined(OSG_GL3_AVAILABLE)
+    glContext = 300; return 330;
+#elif defined(OSG_GLES2_AVAILABLE)
+    glContext = 100; return 200;
+#elif defined(OSG_GLES3_AVAILABLE)
+    glContext = 100; return 300;
+#else
+    glContext = 100; return 120;
+#endif
+}
+
 void ShaderLibrary::updateModuleData(PreDefinedModule m, osg::Shader::Type type,
                                      const std::string& baseDir, const std::string& name)
 {
@@ -41,6 +55,9 @@ void ShaderLibrary::updateModuleData(PreDefinedModule m, osg::Shader::Type type,
         shader->setName(name + ".module"); shader->setType(type);
         shader->setShaderSource(moduleMarker + shader->getShaderSource());
     }
+    else
+        OSG_WARN << "[ShaderLibrary] Shader module " << name << " not found. "
+                 << "Your base directory <" << baseDir << "> may be broken." << std::endl;
 }
 
 void ShaderLibrary::refreshModules(const std::string& baseDir)
@@ -50,8 +67,19 @@ void ShaderLibrary::refreshModules(const std::string& baseDir)
     updateModuleData(LIGHTING_SHADERS, osg::Shader::FRAGMENT, baseDir, "lighting");
 }
 
-void ShaderLibrary::updateProgram(osg::Program& program, int moduleFlags)
+void ShaderLibrary::updateProgram(osg::Program& program, Pipeline* pipeline,
+                                  int moduleFlags, bool needDefinitions)
 {
+    int glVer = 0; int glslVer = guessShaderVersion(glVer);
+    if (needDefinitions)
+    {
+        for (size_t i = 0; i < program.getNumShaders(); ++i)
+        {
+            if (!pipeline) createShaderDefinitions(*program.getShader(i), glVer, glslVer);
+            else pipeline->createShaderDefinitionsFromPipeline(program.getShader(i));
+        }
+    }
+
     std::vector<osg::ref_ptr<osg::Shader>> shadersToAdd;
     for (std::map<PreDefinedModule, osg::ref_ptr<osg::Shader>>::iterator
          itr = _moduleShaders.begin(); itr != _moduleShaders.end(); ++itr)

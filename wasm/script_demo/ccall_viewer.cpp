@@ -1,5 +1,6 @@
 #include <emscripten.h>
 #include <SDL2/SDL.h>
+#include <pipeline/ShaderLibrary.h>
 #include <pipeline/Predefines.h>
 #include "ccall_viewer.h"
 
@@ -10,6 +11,46 @@ USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 
 osg::ref_ptr<Application> g_app = new Application;
 void loop() { g_app->frame(); }
+
+const char* vertCode = {
+    "VERSE_VS_OUT vec3 viewInEye, normalInEye;\n"
+    "VERSE_VS_OUT vec4 vertexColor, texCoord;\n"
+    "void main() {\n"
+    "    viewInEye = normalize(VERSE_MATRIX_MV * osg_Vertex).xyz;\n"
+    "    normalInEye = normalize(VERSE_MATRIX_N * osg_Normal);\n"
+    "    vertexColor = osg_Color;\n"
+    "    texCoord = osg_MultiTexCoord0;\n"
+    "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n"
+    "}\n"
+};
+
+const char* fragCode = {
+    "uniform sampler2D DiffuseMap;\n"
+    "VERSE_FS_IN vec3 viewInEye, normalInEye;\n"
+    "VERSE_FS_IN vec4 vertexColor, texCoord;\n"
+    "VERSE_FS_OUT vec4 fragData;\n"
+    "void main() {\n"
+    "    vec3 lightDir = normalize(vec3(0.1, 0.1, 1.0));\n"
+    "    vec4 diffuse = vec4(0.6, 0.6, 0.65, 1.0), specular = vec4(1.0, 1.0, 0.96, 1.0);\n"
+    "    vec4 color = VERSE_TEX2D(DiffuseMap, texCoord.st);\n"
+    "    float dTerm = VERSE_lambertDiffuse(lightDir, normalInEye);\n"
+    "    float sTerm = VERSE_blinnPhongSpecular(lightDir, viewInEye, normalInEye, 64.0);\n"
+    "    fragData = color * (diffuse * dTerm + specular * sTerm);\n"
+    "    VERSE_FS_FINAL(fragData);\n"
+    "}\n"
+};
+
+void applyProgram(osg::Node* scene)
+{
+    osg::ref_ptr<osg::Program> program = new osg::Program;
+    program->addShader(new osg::Shader(osg::Shader::VERTEX, vertCode));
+    program->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
+    osgVerse::ShaderLibrary::instance()->updateProgram(*program);
+
+    osg::StateSet* stateSet = scene->getOrCreateStateSet();
+    stateSet->setAttribute(program.get());
+    stateSet->addUniform(new osg::Uniform("DiffuseMap", (int)0));
+}
 
 extern "C"
 {
@@ -80,10 +121,11 @@ int main(int argc, char** argv)
     root->addChild(osgDB::readNodeFile(SERVER_ADDR "/Data/Tile_+960_+8055/Tile_+960_+8055.osgb", options));
 #endif
 
-    // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     root->addChild(postCamera.get());
+    applyProgram(root.get());
 
+    // Post-HUD display
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
         osgVerse::StandardPipelineParameters params(SHADER_DIR, SERVER_ADDR "/skyboxes/sunset.png");

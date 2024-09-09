@@ -4,14 +4,18 @@
 #include <osg/Version>
 #include <osg/Shader>
 #include <osg/Program>
+#include <osgDB/Registry>
 #include <map>
 
 namespace osgVerse
 {
+    class Pipeline;
+
     class ShaderLibrary : public osg::Referenced
     {
     public:
         static ShaderLibrary* instance();
+        static int guessShaderVersion(int& glContext);
 
         enum PreDefinedModule
         {
@@ -27,7 +31,8 @@ namespace osgVerse
             And declarations will be added to each existing shaders of the program.
             Parameter moduleFlags is the commbination of PreDefinedModules
         */
-        void updateProgram(osg::Program& program, int moduleFlags = COMMON_SHADERS);
+        void updateProgram(osg::Program& program, Pipeline* pipeline = NULL,
+                           int moduleFlags = COMMON_SHADERS, bool needDefinitions = true);
 
         /** Add necessaray definitions for GLSL shaders
             Special macros:
@@ -44,7 +49,7 @@ namespace osgVerse
             - VERSE_TEX1D/VERSE_TEX2D/VERSE_TEX3D/VERSE_TEXCUBE: texture sampling function
             - osg_Vertex/osg_Color/osg_MultiTexCoord0/osg_MultiTexCoord1/osg_Normal: attributes in vertex shader
         */
-        void createShaderDefinitions(osg::Shader& s, int glVer = 100, int glslVer = 120,
+        void createShaderDefinitions(osg::Shader& s, int glVer, int glslVer,
                                      const std::vector<std::string>& userDefs = std::vector<std::string>(),
                                      const osgDB::ReaderWriter::Options* options = NULL);
 

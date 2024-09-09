@@ -40,8 +40,8 @@ const char* fragCode = {
     "    vec3 lightDir = normalize(vec3(0.1, 0.1, 1.0));\n"
     "    vec4 diffuse = vec4(0.6, 0.6, 0.65, 1.0), specular = vec4(1.0, 1.0, 0.96, 1.0);\n"
     "    vec4 color = VERSE_TEX2D(DiffuseMap, texCoord.st);\n"
-    "    float dTerm = lambertDiffuse(lightDir, normalInEye);\n"
-    "    float sTerm = blinnPhongSpecular(lightDir, viewInEye, normalInEye, 64.0);\n"
+    "    float dTerm = VERSE_lambertDiffuse(lightDir, normalInEye);\n"
+    "    float sTerm = VERSE_blinnPhongSpecular(lightDir, viewInEye, normalInEye, 64.0);\n"
     "    fragData = color * (diffuse * dTerm + specular * sTerm);\n"
     "    VERSE_FS_FINAL(fragData);\n"
     "}\n"
@@ -62,21 +62,7 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Program> program = new osg::Program;
         program->addShader(new osg::Shader(osg::Shader::VERTEX, vertCode));
         program->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
-
-        osgVerse::ShaderLibrary* shaderLib = osgVerse::ShaderLibrary::instance();
-        for (size_t i = 0; i < program->getNumShaders(); ++i)
-        {
-#if defined(OSG_GL3_AVAILABLE)
-            shaderLib->createShaderDefinitions(*program->getShader(i), 100, 330);
-#elif defined(OSG_GLES2_AVAILABLE)
-            shaderLib->createShaderDefinitions(*program->getShader(i), 100, 200);
-#elif defined(OSG_GLES3_AVAILABLE)
-            shaderLib->createShaderDefinitions(*program->getShader(i), 100, 300);
-#else
-            shaderLib->createShaderDefinitions(*program->getShader(i), 100, 120);
-#endif
-        }
-        shaderLib->updateProgram(*program);
+        osgVerse::ShaderLibrary::instance()->updateProgram(*program);
 
         osg::StateSet* stateSet = scene->getOrCreateStateSet();
         stateSet->setAttribute(program.get());

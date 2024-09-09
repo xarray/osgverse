@@ -6,7 +6,7 @@
 #define HALF_PI 1.5707963267948966
 #endif
 
-float beckmannDistribution(float x, float roughness)
+float VERSE_beckmannDistribution(float x, float roughness)
 {
     float NdotH = max(x, 0.0001);
     float cos2Alpha = NdotH * NdotH;
@@ -16,7 +16,7 @@ float beckmannDistribution(float x, float roughness)
     return exp(tan2Alpha / roughness2) / denom;
 }
 
-float signedDistanceSquare(vec2 point, float width)
+float VERSE_signedDistanceSquare(vec2 point, float width)
 {
 	vec2 d = abs(point) - width;
 	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
@@ -26,7 +26,7 @@ float signedDistanceSquare(vec2 point, float width)
    - lightDirection: unit length vec3 from the surface point toward the light
    - surfaceNormal: unit length normal at the sample point
 */
-float lambertDiffuse(vec3 lightDirection, vec3 surfaceNormal)
+float VERSE_lambertDiffuse(vec3 lightDirection, vec3 surfaceNormal)
 {
     return max(0.0, dot(lightDirection, surfaceNormal));
 }
@@ -38,8 +38,8 @@ float lambertDiffuse(vec3 lightDirection, vec3 surfaceNormal)
    - roughness: measuring the surface roughness, 0 for smooth, 1 for matte
    - albedo: measuring the intensity of the diffuse reflection, >0.96 do not conserve energy
 */
-float orenNayarDiffuse(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
-                       float roughness, float albedo)
+float VERSE_orenNayarDiffuse(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
+                             float roughness, float albedo)
 {
     float LdotV = dot(lightDirection, viewDirection);
     float NdotL = dot(lightDirection, surfaceNormal);
@@ -58,7 +58,7 @@ float orenNayarDiffuse(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNorm
    - surfaceNormal: unit length normal at the sample point
    - shininess: exponent in the Phong equation
 */
-float phongSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float shininess)
+float VERSE_phongSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float shininess)
 {
     vec3 R = -reflect(lightDirection, surfaceNormal);
     return pow(max(0.0, dot(viewDirection, R)), shininess);
@@ -70,7 +70,7 @@ float phongSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
    - surfaceNormal: unit length normal at the sample point
    - shininess: exponent in the Phong equation
 */
-float blinnPhongSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float shininess)
+float VERSE_blinnPhongSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float shininess)
 {
     vec3 H = normalize(viewDirection + lightDirection);
     return pow(max(0.0, dot(surfaceNormal, H)), shininess);
@@ -82,9 +82,9 @@ float blinnPhongSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNo
    - surfaceNormal: unit length normal at the sample point
    - roughness: measuring surface roughness, smaller values are shinier
 */
-float beckmannSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float roughness)
+float VERSE_beckmannSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float roughness)
 {
-    return beckmannDistribution(dot(surfaceNormal, normalize(lightDirection + viewDirection)), roughness);
+    return VERSE_beckmannDistribution(dot(surfaceNormal, normalize(lightDirection + viewDirection)), roughness);
 }
 
 /* Computes specular power from Gaussian microfacet distribution
@@ -93,7 +93,7 @@ float beckmannSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNorm
    - surfaceNormal: unit length normal at the sample point
    - shininess: size of the specular hight light, smaller values give a sharper spot
 */
-float gaussianSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float shininess)
+float VERSE_gaussianSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal, float shininess)
 {
     vec3 H = normalize(lightDirection + viewDirection);
     float theta = acos(dot(H, surfaceNormal));
@@ -107,8 +107,8 @@ float gaussianSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNorm
    - roughness: measuring the surface roughness, 0 for smooth, 1 for matte
    - fresnel: Fresnel exponent, 0 for no Fresnel, higher values create a rim effect around objects
 */
-float cookTorranceSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
-                           float roughness, float fresnel)
+float VERSE_cookTorranceSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
+                                 float roughness, float fresnel)
 {
     float VdotN = max(dot(viewDirection, surfaceNormal), 0.0);
     float LdotN = max(dot(lightDirection, surfaceNormal), 0.0);
@@ -117,7 +117,7 @@ float cookTorranceSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surface
     float VdotH = max(dot(viewDirection, H), 0.000001);
     float x = 2.0 * NdotH / VdotH;
     float G = min(1.0, min(x * VdotN, x * LdotN));
-    float D = beckmannDistribution(NdotH, roughness);
+    float D = VERSE_beckmannDistribution(NdotH, roughness);
     float F = pow(1.0 - VdotN, fresnel);  // Fresnel term
     return G * F * D / max(PI * VdotN * LdotN, 0.000001);
 }
@@ -136,9 +136,9 @@ float cookTorranceSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surface
    fiberParallel = normalize(fiberDirection);
    fiberPerpendicular = normalize(cross(surfaceNormal, fiberDirection));
 */
-float wardSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
-                   vec3 fiberParallel, vec3 fiberPerpendicular,
-                   float shinyParallel, float shinyPerpendicular)
+float VERSE_wardSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
+                         vec3 fiberParallel, vec3 fiberPerpendicular,
+                         float shinyParallel, float shinyPerpendicular)
 {
     float NdotL = dot(surfaceNormal, lightDirection);
     float NdotR = dot(surfaceNormal, viewDirection);
@@ -159,13 +159,13 @@ float wardSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNormal,
    - radius: vignette's radius, 0.5 results in a vignette that will just touch the edges of the UV coordinate system
    - smoothness: how quickly the vignette fades in, a value of zero resulting in a hard edge
 */
-float vignetteEffect(vec2 uv, vec2 size, float roundness, float smoothness)
+float VERSE_vignetteEffect(vec2 uv, vec2 size, float roundness, float smoothness)
 {
 	uv -= 0.5;  // Center UVs
 	float minWidth = min(size.x, size.y);  // Shift UVs based on the larger of width/height
 	uv.x = sign(uv.x) * clamp(abs(uv.x) - abs(minWidth - size.x), 0.0, 1.0);
 	uv.y = sign(uv.y) * clamp(abs(uv.y) - abs(minWidth - size.y), 0.0, 1.0);
 	float boxSize = minWidth * (1.0 - roundness);
-	float dist = signedDistanceSquare(uv, boxSize) - (minWidth * roundness);
+	float dist = VERSE_signedDistanceSquare(uv, boxSize) - (minWidth * roundness);
 	return 1.0 - smoothstep(0.0, smoothness, dist);
 }
