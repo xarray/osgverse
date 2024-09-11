@@ -42,8 +42,8 @@
 namespace backward { backward::SignalHandling sh; }
 
 //#define VERSE_FORCE_SDL 1
+#define TEST_PIPELINE 1
 
-#define TEST_PIPELINE 0
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   define VERSE_GLES_DESKTOP 1
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
@@ -233,7 +233,9 @@ int main(int argc, char** argv)
 #if TEST_PIPELINE
     // Setup the pipeline
     osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "sunset.png");
-    spp.userInputMask = EARTH_INPUT_MASK; spp.enableUserInput = true;
+    spp.enableUserInput = true;
+    spp.addUserInputStage("Forward", EARTH_INPUT_MASK,
+                          osgVerse::StandardPipelineParameters::BEFORE_POSTEFFECTS);
 #   ifdef VERSE_GLES_DESKTOP
     spp.withEmbeddedViewer = true;
 #   endif

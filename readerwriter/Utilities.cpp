@@ -2,6 +2,7 @@
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geode>
 #include <osg/Texture2D>
+#include <osg/Material>
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
@@ -34,17 +35,29 @@ void emscripten_advance()
 
 void FixedFunctionOptimizer::apply(osg::Geometry& geom)
 {
+    bool added = removeUnusedStateAttributes(geom.getStateSet());
+    osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom.getVertexArray());
+    if (va && !va->empty() && !_materialStack.empty())
+    {
+        // Change material to color array
+        osg::Material* mtl = static_cast<osg::Material*>(_materialStack.back().get());
+        osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
+        ca->assign(va->size(), mtl->getDiffuse(osg::Material::FRONT));
+        geom.setColorArray(ca.get()); geom.setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+
     optimizeIndices(geom);
-    removeUnusedStateAttributes(geom.getStateSet());
     geom.setUseDisplayList(false);
     geom.setUseVertexBufferObjects(true);
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
     traverse(geom);
 #endif
+    if (added) _materialStack.pop_back();
 }
 
 void FixedFunctionOptimizer::apply(osg::Geode& geode)
 {
+    bool added = removeUnusedStateAttributes(geode.getStateSet());
 #if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
     for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
     {
@@ -52,20 +65,24 @@ void FixedFunctionOptimizer::apply(osg::Geode& geode)
         if (geom) apply(*geom);
     }
 #endif
-    removeUnusedStateAttributes(geode.getStateSet());
     NodeVisitor::apply(geode);
+    if (added) _materialStack.pop_back();
 }
 
 void FixedFunctionOptimizer::apply(osg::Node& node)
 {
-    removeUnusedStateAttributes(node.getStateSet());
+    bool added = removeUnusedStateAttributes(node.getStateSet());
     NodeVisitor::apply(node);
+    if (added) _materialStack.pop_back();
 }
 
-void FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
+bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
 {
-    if (ssPtr == NULL) return;
+    if (ssPtr == NULL) return false;
     osg::StateSet& ss = *ssPtr;
+
+    osg::StateAttribute* sa = ss.getAttribute(osg::StateAttribute::MATERIAL);
+    if (sa != NULL) _materialStack.push_back(sa);
 
     ss.removeAttribute(osg::StateAttribute::ALPHAFUNC);
     ss.removeAttribute(osg::StateAttribute::CLIPPLANE);
@@ -121,6 +138,7 @@ void FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     ss.removeMode(GL_RESCALE_NORMAL);
     ss.removeMode(GL_NORMALIZE); ss.removeMode(GL_LIGHTING);
 #endif
+    return (sa != NULL);
 }
 
 TextureOptimizer::TextureOptimizer(bool inlineFile, const std::string& newTexFolder)

@@ -37,7 +37,8 @@ namespace osgVerse
         virtual void apply(osg::Node& node);
 
     protected:
-        void removeUnusedStateAttributes(osg::StateSet* ssPtr);
+        bool removeUnusedStateAttributes(osg::StateSet* ssPtr);
+        std::vector<osg::ref_ptr<osg::StateAttribute>> _materialStack;
     };
 
     class OSGVERSE_RW_EXPORT TextureOptimizer : public osg::NodeVisitor
