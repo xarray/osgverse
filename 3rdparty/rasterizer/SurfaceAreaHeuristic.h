@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef _MSC_VER
+#   include <cstdint>
+#endif
 #include <vector>
 
 struct Aabb;

@@ -91,6 +91,8 @@ IF(VERSE_SIMD_FEATURES)
         APPLY_SIMD_FLAGS("sse4.1" "-D__SSE4_1__" "-msse4.1")
         APPLY_SIMD_FLAGS("sse4.2" "-D__SSE4_2__" "-msse4.2")
         APPLY_SIMD_FLAGS("avx" "-D__AVX__" "-mavx")
+        APPLY_SIMD_FLAGS("avx2" "-D__AVX2__" "-mavx2")
+        APPLY_SIMD_FLAGS("fma" "-D__FMA__" "-mfma")
     ENDIF()
 ENDIF()
 

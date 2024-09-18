@@ -1,4 +1,5 @@
 #include <osg/Version>
+#include <algorithm>
 #include "Math.h"
 #include "Utilities.h"
 #include "GeometryMapper.h"
@@ -37,7 +38,7 @@ public:
                      _verticesOfStateSets->begin(); itr != _verticesOfStateSets->end(); ++itr)
                 {
                     std::vector<size_t>::iterator found = std::find(
-                        itr->second.begin(), itr->second.end(), index);
+                        itr->second.begin(), itr->second.end(), (size_t)index);
                     if (found != itr->second.end()) stateSetCounts[itr->first]++;
                 }
             }

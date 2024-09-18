@@ -2,9 +2,11 @@
 
 #include <memory>
 #include <vector>
+#include <cstring>
 #ifdef _MSC_VER
 #   include <intrin.h>
 #else
+#   define __forceinline inline
 #   include "linux/intrin.h"
 #endif
 

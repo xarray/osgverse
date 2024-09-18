@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <smmintrin.h>
 
 // Cross product
