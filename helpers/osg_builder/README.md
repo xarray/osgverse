@@ -1,5 +1,6 @@
 # Build scripts for platforms
 osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG with different GL/GLES options. A few common combinations of options to control OSG CMake results are listed as below.
+For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) should be copied to %osg_build_path%/include first.
 
 #### OSG for GL3/4 Core profile
 * CMake options: (not in cmake-gui)
@@ -12,10 +13,10 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
 #### OSG for GLES2/GLES3 (Desktop / GoogleAngle)
 * CMake options: (not in cmake-gui)
   * OPENGL_PROFILE: GLES2/GLES3
-  * EGL_INCLUDE_DIR: <PowerVR_SDK>/include
-  * EGL_LIBRARY: <PowerVR_SDK>/lib/libEGL.lib
-  * OPENGL_INCLUDE_DIR: <PowerVR_SDK>/include
-  * OPENGL_gl_LIBRARY: <PowerVR_SDK>/lib/libGLESv2.lib
+  * EGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
+  * EGL_LIBRARY: <GoogleAngle_SDK>/lib/libEGL.lib
+  * OPENGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
+  * OPENGL_gl_LIBRARY: <GoogleAngle_SDK>/lib/libGLESv2.lib
 * You will have to find include-files and libraries from PowerVR / GoogleAngel SDK. Only support OSG 3.7.0 or later.
   * A quick guild to compile GoogleAngel on Windows/MacOSX
     * Prepare Ninja, Python3 and CMake first. (from Homebrew on MacOSX)
@@ -34,16 +35,37 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
   * <em>cmake --build .</em>
 
 #### OSG for GLES2/GLES3 (UWP / GoogleAngle)
-* CMake options: see above.
+* CMake options: (not in cmake-gui)
+  * CMAKE_SYSTEM_NAME: WindowsStore
+  * CMAKE_SYSTEM_VERSION: "10.0"
+  * OPENGL_PROFILE: GLES2
+  * EGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
+  * EGL_LIBRARY: <GoogleAngle_SDK>/lib/libEGL.lib
+  * OPENGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
+  * OPENGL_gl_LIBRARY: <GoogleAngle_SDK>/lib/libGLESv2.lib
+  * OSG_USE_UTF8_FILENAME: ON
+  * OSG_WINDOWING_SYSTEM: "None"
+  * _OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE: 0
 * You will have to find include-files and libraries from Windows NuGet package.
   * First download Windows Store SDK or latest Windows 11 SDK (with VS2022).
   * Download Angle for UWP: https://www.nuget.org/packages/ANGLE.WindowsStore
   * Rename the .nuget file to .zip and extract it. Find libraries and include files there.
 * Patches to version 3.6.5
-  * TBD...
+  * GLES3/gl2.h and GLES3/gl3.h
+    * <Line 44 Insertion> #define GL_GLEXT_PROTOTYPES
+  * src/OpenThreads/win32/Win32Thread.cpp
+    * <Line 434> //return TerminateThread(pd->tid.get(),(DWORD)-1);
+  * src/osgDB/FileNameUtils.cpp
+    * <Line 310> memcpy(tempbuf1, retbuf, _countof(retbuf));
+    * <Line 320> if (0 == memcpy(tempbuf1, convertUTF8toUTF16(FilePath).c_str(), convertUTF8toUTF16(FilePath).size()))
+  * src/osgDB/FilUtils.cpp
+    * <Line 19> //typedef char TCHAR;
+    * <Line 247> if (_wgetcwd(rootdir, MAX_PATH - 1))
+      <Line 249> return OSGDB_FILENAME_TO_STRING(rootdir);
+    * <Line 861> retval = OSGDB_WINDOWS_FUNCT(GetSystemWindowsDirectory)(windowsDir, (UINT)size);
 * Command-line example: (Windows only)
-  * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib "%osg_root_path%"</em>
-  * <em>cmake --build .</em>
+  * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES2 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_USE_UTF8_FILENAME=ON -DOSG_WINDOWING_SYSTEM="None" -D_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE=0 "%osg_root_path%"</em>
+  * Run <em>Solution File</em> and build
 
 #### OSG for Android (Cross-compiling)
 * CMake options: (not in cmake-gui)
@@ -70,7 +92,7 @@ osgVerse depends on OpenSceneGraph (OSG), so developers should first compile OSG
   * DYNAMIC_OPENSCENEGRAPH: OFF
   * DYNAMIC_OPENTHREADS: OFF
   * BUILD_OSG_APPLICATIONS: NO
-  * _OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE: "0"
+  * _OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE: 0
 * Patches to version 3.6.5
   * src/osgUtil/tristripper/include/detail/graph_array.h
     * <Line 449> std::for_each(G.begin(), G.end(), std::mem_fn(&graph_array<N>::node::unmark));

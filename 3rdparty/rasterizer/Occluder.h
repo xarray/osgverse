@@ -2,7 +2,11 @@
 
 #include <memory>
 #include <vector>
-#include <intrin.h>
+#ifdef _MSC_VER
+#   include <intrin.h>
+#else
+#   include "linux/intrin.h"
+#endif
 
 struct Occluder
 {

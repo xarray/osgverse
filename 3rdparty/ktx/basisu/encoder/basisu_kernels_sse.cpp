@@ -24,7 +24,7 @@
 
 #if !defined(_MSC_VER)
 	#if __AVX__ || __AVX2__ || __AVX512F__
-		#error Please check your compiler options
+		//#error Please check your compiler options
 	#endif
 
 	#if CPPSPMD_SSE2
