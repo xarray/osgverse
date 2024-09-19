@@ -9,7 +9,7 @@ public:
         : SerializerInterface(obj, entry, prop, false)
     {
         _value = new InputVectorField(TR(_property.name) + _postfix);
-        _value->tooltip = prop.ownerClass + "::set" + prop.name + "()";
+        _value->tooltip = tooltip(_property);
         _value->vecNumber = T::num_components;
         _value->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {

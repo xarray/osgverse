@@ -11,6 +11,13 @@ SerializerInterface::SerializerInterface(osg::Object* obj, LibraryEntry* entry,
     _selected(false), _dirty(true), _hidden(false)
 { _postfix = "##" + nanoid::generate(8); _composited = composited; }
 
+std::string SerializerInterface::tooltip(const LibraryEntry::Property& prop,
+                                         const std::string& postfix) const
+{
+    std::string body = prop.ownerClass + "\nset" + prop.name + "(" + prop.typeName + ")";
+    return body + (postfix.empty() ? "" : ("\n<" + postfix + ">"));
+}
+
 bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     std::string title = TR(_property.name) + _postfix;

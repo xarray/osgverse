@@ -25,6 +25,9 @@ namespace osgVerse
         bool isHidden() const { return _hidden; }
 
     protected:
+        std::string tooltip(const LibraryEntry::Property& prop,
+                            const std::string& postfix = "") const;
+
         osg::observer_ptr<osg::Object> _object;
         osg::ref_ptr<LibraryEntry> _entry;
         LibraryEntry::Property _property;

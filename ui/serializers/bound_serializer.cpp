@@ -11,7 +11,7 @@ public:
         : SerializerInterface(obj, entry, prop, false)
     {
         _check = new CheckBox(TR(_property.name) + _postfix, false);
-        _check->tooltip = prop.ownerClass + "::set" + prop.name + "()";
+        _check->tooltip = tooltip(_property);
         //_check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
     }
@@ -34,7 +34,7 @@ public:
         : SerializerInterface(obj, entry, prop, false)
     {
         _check = new CheckBox(TR(_property.name) + _postfix, false);
-        _check->tooltip = prop.ownerClass + "::set" + prop.name + "()";
+        _check->tooltip = tooltip(_property);
         //_check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
     }

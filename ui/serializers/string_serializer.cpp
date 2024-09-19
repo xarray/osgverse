@@ -8,7 +8,7 @@ public:
         : SerializerInterface(obj, entry, prop, false)
     {
         _input = new InputField(TR(_property.name) + _postfix);
-        _input->tooltip = prop.ownerClass + "::set" + prop.name + "()";
+        _input->tooltip = tooltip(_property);
         _input->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         { _entry->setProperty(_object.get(), _property.name, _input->value); };
     }
