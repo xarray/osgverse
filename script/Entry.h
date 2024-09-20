@@ -131,6 +131,7 @@ namespace osgVerse
         }
 #endif
 
+        std::vector<std::string> getEnumPropertyItems(const osg::Object* object, const std::string& name);
         std::string getEnumProperty(const osg::Object* object, const std::string& name);
         bool setEnumProperty(osg::Object* object, const std::string& name, const std::string& value);
 

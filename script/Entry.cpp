@@ -153,10 +153,24 @@ std::string LibraryEntry::getClassName(osg::Object* obj, bool withLibName)
 }
 
 #if OSGVERSE_COMPLETED_SCRIPT
+std::vector<std::string> LibraryEntry::getEnumPropertyItems(const osg::Object* object, const std::string& name)
+{
+    osgDB::BaseSerializer::Type type = osgDB::BaseSerializer::RW_UNDEFINED;
+    osgDB::BaseSerializer* bs = _manager.getSerializer(object, name, type);
+    std::vector<std::string> items;
+    if (bs && bs->getIntLookup())
+    {
+        const osgDB::IntLookup::StringToValue& values = bs->getIntLookup()->getStringToValue();
+        for (osgDB::IntLookup::StringToValue::const_iterator itr = values.begin();
+            itr != values.end(); ++itr) items.push_back(itr->first);
+    }
+    return items;
+}
+
 std::string LibraryEntry::getEnumProperty(const osg::Object* object, const std::string& name)
 {
-    unsigned int value = 0;
-    if (_manager.getProperty<unsigned int>(object, name, value))
+    int value = 0;
+    if (_manager.getProperty<int>(object, name, value))
     {
         osgDB::BaseSerializer::Type type = osgDB::BaseSerializer::RW_UNDEFINED;
         osgDB::BaseSerializer* bs = _manager.getSerializer(object, name, type);
@@ -201,41 +215,29 @@ osg::Object* LibraryEntry::create(const std::string& clsName)
     return _manager.createObject(name);
 }
 #else
-std::string LibraryEntry::getEnumProperty(const osg::Object* object, const std::string& name)
+std::vector<std::string> LibraryEntry::getEnumPropertyItems(const osg::Object* object, const std::string& name)
 {
-    OSG_WARN << "[LibraryEntry] getEnumProperty() not implemented" << std::endl;
-    return "";
+    OSG_WARN << "[LibraryEntry] getEnumPropertyItems() not implemented" << std::endl;
+    return std::vector<std::string>();
 }
+
+std::string LibraryEntry::getEnumProperty(const osg::Object* object, const std::string& name)
+{ OSG_WARN << "[LibraryEntry] getEnumProperty() not implemented" << std::endl; return ""; }
 
 bool LibraryEntry::setEnumProperty(osg::Object* object, const std::string& name,
                                    const std::string& value)
-{
-    OSG_WARN << "[LibraryEntry] setEnumProperty() not implemented" << std::endl;
-    return false;
-}
+{ OSG_WARN << "[LibraryEntry] setEnumProperty() not implemented" << std::endl; return false; }
 
 bool LibraryEntry::callMethod(osg::Object* object, const std::string& name, osg::Object* arg1)
-{
-    OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl;
-    return false;
-}
+{ OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl; return false; }
 
 osg::Object* LibraryEntry::callMethod(osg::Object* object, const std::string& name)
-{
-    OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl;
-    return NULL;
-}
+{ OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl; return NULL; }
 
 bool LibraryEntry::callMethod(osg::Object* object, const std::string& name,
                               osg::Parameters& args0, osg::Parameters& args1)
-{
-    OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl;
-    return false;
-}
+{ OSG_WARN << "[LibraryEntry] callMethod() not implemented" << std::endl; return false; }
 
 osg::Object* LibraryEntry::create(const std::string& name)
-{
-    OSG_WARN << "[LibraryEntry] create() not implemented" << std::endl;
-    return NULL;
-}
+{ OSG_WARN << "[LibraryEntry] create() not implemented" << std::endl; return NULL; }
 #endif

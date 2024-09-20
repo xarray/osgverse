@@ -10,10 +10,22 @@ public:
     MatrixSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
         : SerializerInterface(obj, entry, prop, true), _numToShow(3), _matType(TransformMatrix)
     {
+        _typeSelector = new ComboBox(TR("Type") + _postfix);
+        _typeSelector->tooltip = TR("Matrix editing type");
+        _typeSelector->items.push_back(TR("Transformation"));
+        _typeSelector->items.push_back(TR("LookAt"));
+        _typeSelector->items.push_back(TR("Orthogonal"));
+        _typeSelector->items.push_back(TR("Perspective"));
+        _typeSelector->items.push_back(TR("Generic 2x2"));
+        _typeSelector->items.push_back(TR("Generic 3x3"));
+
         _vector[0] = new InputVectorField(TR("T") + _postfix);
         _vector[1] = new InputVectorField(TR("R") + _postfix);
         _vector[2] = new InputVectorField(TR("S") + _postfix);
         updateVectorFields(_matrixValue);
+
+        _typeSelector->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        { _matType = (MatrixType)_typeSelector->index; updateVectorFields(_matrixValue); };
 
         _vector[0]->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
@@ -42,7 +54,7 @@ public:
             updateVectorFields(_matrixValue);
         }
 
-        bool edited = false;
+        bool edited = _typeSelector->show(mgr, content);
         for (int i = 0; i < _numToShow; ++i) edited |= _vector[i]->show(mgr, content);
         return edited;
     }
@@ -50,7 +62,7 @@ public:
 protected:
     enum MatrixType
     {
-        TransformMatrix, LookAtMatrix, OrthoMatrix,
+        TransformMatrix = 0, LookAtMatrix, OrthoMatrix,
         PerspectiveMatrix, Generic2x2, Generic3x3
     };
 
@@ -61,8 +73,8 @@ protected:
         case LookAtMatrix:
             if (index < 3)
             {
-                osg::Vec3d eye, center, up; _matrixValue.getLookAt(eye, center, up, 100.0f);
-                if (index == 0) eye = value; else if (index == 1) center = value;
+                osg::Vec3d eye, center, up; _matrixValue.getLookAt(eye, center, up, 100.0);
+                if (index == 0) eye = value; else if (index == 1) center = eye + value * 100.0;
                 else { up = value; up.normalize(); }
 
                 osg::Vec3d dir = center - eye; double length = dir.normalize();
@@ -189,9 +201,7 @@ protected:
                 osg::Vec3d pos, sc; osg::Quat rot, so; osg::Matrixd(matrix).decompose(pos, rot, sc, so);
                 osg::Vec3d eulers = computeHPRFromQuat(rot);
                 _vector[0]->setVector(pos); _vector[2]->setVector(sc);
-                _vector[1]->setVector(osg::Vec3d(osg::RadiansToDegrees(eulers[1]),
-                                                 osg::RadiansToDegrees(eulers[2]),
-                                                 osg::RadiansToDegrees(eulers[0])));
+                _vector[1]->setVector(osg::Vec3d(eulers[1], eulers[2], eulers[0]));
             }
             _numToShow = 3; break;
         }
@@ -202,6 +212,7 @@ protected:
        OrthoMatrix      : SizeX, SizeY (vec2); Near, Far (vec2)
        PerspectiveMatrix: Aspect Ratio, Width, Height (vec3); Near, Far (vec2) */
     osg::ref_ptr<InputVectorField> _vector[3];
+    osg::ref_ptr<ComboBox> _typeSelector;
     T _matrixValue; int _numToShow;
     MatrixType _matType;
 };
