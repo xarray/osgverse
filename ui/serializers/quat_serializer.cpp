@@ -79,20 +79,39 @@ public:
     PlaneSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
         : SerializerInterface(obj, entry, prop, true)
     {
-        _check = new CheckBox(TR(_property.name) + _postfix, false);
-        _check->tooltip = tooltip(_property);
-        //_check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
-        //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
+        _normal = new InputVectorField(TR("N") + _postfix); _normal->vecNumber = 3;
+        _normal->tooltip = tooltip(_property, "Plane Normal");
+        _normal->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            osg::Vec3d n; _normal->getVector(n); _plane.set(n, -_distance->value);
+            _entry->setProperty(_object.get(), _property.name, _plane);
+        };
+
+        _distance = new InputValueField(TR("D") + _postfix);
+        _distance->tooltip = tooltip(_property, "Distance to origin");
+        _distance->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            osg::Vec3d n; _normal->getVector(n); _plane.set(n, -_distance->value);
+            _entry->setProperty(_object.get(), _property.name, _plane);
+        };
     }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        //if (isDirty()) _entry->getProperty(_object.get(), _property.name, _check->value);
-        return _check->show(mgr, content);
+        if (isDirty())
+        {
+            _entry->getProperty(_object.get(), _property.name, _plane);
+            _normal->setVector(_plane.getNormal());
+            _distance->value = -_plane[3];
+        }
+        bool edited = _normal->show(mgr, content);
+        return edited | _distance->show(mgr, content);
     }
 
 protected:
-    osg::ref_ptr<CheckBox> _check;
+    osg::ref_ptr<InputVectorField> _normal;
+    osg::ref_ptr<InputValueField> _distance;
+    osg::Plane _plane;
 };
 
 REGISTER_SERIALIZER_INTERFACE(QUAT, QuatSerializerInterface)

@@ -270,15 +270,33 @@ bool InputField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     return done;
 }
 
+static bool ImGUI_InputUInt(const char* label, unsigned int* v, int step,
+                            int step_fast, ImGuiInputTextFlags flags)
+{
+    // Hexadecimal input provided as a convenience but the flag name is awkward.
+    // Typically you'd use InputText() to parse your own data, if you want to handle prefixes.
+    const char* format = (flags & ImGuiInputTextFlags_CharsHexadecimal) ? "%08X" : "%u";
+    return ImGui::InputScalar(label, ImGuiDataType_U32, (void*)v, (void*)(step > 0 ? &step : NULL),
+                              (void*)(step_fast > 0 ? &step_fast : NULL), format, flags);
+}
+
 bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = false;
     switch (type)
     {
-    case IntValue: case UIntValue:
+    case IntValue:
         {
-            int valueI = (type == UIntValue) ? (unsigned int)value : (int)value;
+            int valueI = (int)value;
             done = ImGui::InputInt(name.c_str(), &valueI, (int)step, (int)step * 5, flags);
+            if (done) value = (double)valueI;
+            if (minValue < maxValue) value = osg::clampBetween((double)valueI, minValue, maxValue);
+        }
+        break;
+    case UIntValue:
+        {
+            unsigned int valueI = (unsigned int)value;
+            done = ImGUI_InputUInt(name.c_str(), &valueI, (int)step, (int)step * 5, flags);
             if (done) value = (double)valueI;
             if (minValue < maxValue) value = osg::clampBetween((double)valueI, minValue, maxValue);
         }

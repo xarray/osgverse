@@ -362,7 +362,9 @@ void ApplyUserNodeVisitor::computeNewVertex(osg::Geometry* geometry)
     }
 
     if (geometry->getUseVertexBufferObjects()) { va->dirty(); }
+#ifdef OSG_USE_DEPRECATED_API
     if (geometry->getUseDisplayList()) { geometry->dirtyDisplayList(); }
+#endif
     geometry->dirtyBound();
 }
 

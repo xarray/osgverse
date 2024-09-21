@@ -40,8 +40,8 @@ public:
     GLEnumSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
         : SerializerInterface(obj, entry, prop, true)
     {
-        _check = new CheckBox(TR(_property.name) + _postfix, false);
-        _check->tooltip = tooltip(_property);
+        _result = new InputValueField(TR(_property.name) + _postfix);
+        _result->tooltip = tooltip(_property);
         //_check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
     }
@@ -49,11 +49,11 @@ public:
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         //if (isDirty()) _entry->getProperty(_object.get(), _property.name, _check->value);
-        return _check->show(mgr, content);
+        return _result->show(mgr, content);
     }
 
 protected:
-    osg::ref_ptr<CheckBox> _check;
+    osg::ref_ptr<InputValueField> _result;
 };
 
 REGISTER_SERIALIZER_INTERFACE(ENUM, EnumSerializerInterface)

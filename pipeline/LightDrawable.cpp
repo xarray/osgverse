@@ -100,5 +100,8 @@ void LightDrawable::recreate()
     setShape(shape.get());
     setComputeBoundingBoxCallback(
         unlimited ? new osgVerse::DisableBoundingBoxCallback : NULL);
-    dirtyBound(); dirtyDisplayList();
+    dirtyBound();
+#ifdef OSG_USE_DEPRECATED_API
+    dirtyDisplayList();
+#endif
 }

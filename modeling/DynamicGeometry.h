@@ -65,7 +65,9 @@ protected:
         if (num > 0)
         {
             ca->resize(num); ca->at(num - 1) = ca->front();
+#ifdef OSG_USE_DEPRECATED_API
             if (getUseDisplayList()) dirtyDisplayList(); else ca->dirty();
+#endif
         }
     }
 

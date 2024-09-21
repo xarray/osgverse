@@ -1,7 +1,7 @@
 #include <osgDB/ReadFile>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
-#include <osg/PositionAttitudeTransform>
+#include <osg/Fog>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
@@ -110,12 +110,12 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     { bool r = false; osgVerse::ImGuiComponentBase::showConfirmDialog(r); }
 #endif
 
-    static osg::ref_ptr<osg::PositionAttitudeTransform> mt;
+    static osg::ref_ptr<osg::Fog> mt;
     static osg::ref_ptr<osgVerse::LibraryEntry> entry;
     static std::vector<osg::ref_ptr<osgVerse::SerializerInterface>> interfaces;
     if (!mt)
     {
-        mt = new osg::PositionAttitudeTransform;
+        mt = new osg::Fog;
         entry = osgVerse::SerializerFactory::instance()
               ->createInterfaces(mt.get(), NULL, interfaces);
     }

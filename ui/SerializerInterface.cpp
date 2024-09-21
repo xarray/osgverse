@@ -7,7 +7,7 @@ static int g_headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_B
 
 SerializerInterface::SerializerInterface(osg::Object* obj, LibraryEntry* entry,
                                          const LibraryEntry::Property& prop, bool composited)
-:   _object(obj), _entry(entry), _property(prop), _indent(2.0f),
+:   _object(obj), _entry(entry), _property(prop), _indent(30.0f),
     _selected(false), _dirty(true), _hidden(false)
 { _postfix = "##" + nanoid::generate(8); _composited = composited; }
 
@@ -21,7 +21,7 @@ std::string SerializerInterface::tooltip(const LibraryEntry::Property& prop,
 bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     std::string title = TR(_property.name) + _postfix;
-    bool toOpen = true; if (_hidden) return false; else ImGui::Indent(_indent);
+    bool toOpen = true; if (_hidden) return false;
 
     if (ImGui::ArrowButton((title + "_Arrow").c_str(), ImGuiDir_Down))  // TODO: disabled = ImGuiDir_None
     {
@@ -33,6 +33,7 @@ bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     if (_composited)
     {
         if (_selected) ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.4f, 0.4f, 0.0f, 1.0f));
+        else ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.3f, 0.4f, 1.0f));
         toOpen = ImGui::CollapsingHeader(title.c_str(), g_headerFlags);
         if (_selected) ImGui::PopStyleColor();
     }
@@ -40,10 +41,20 @@ bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     if (ImGui::BeginPopup((title + "_Popup").c_str()))
     {
         // TODO: up/down/edit/delete for custom interface
+        int selection = 0;
+        if (ImGui::MenuItem(TR(_selected ? "Unselect" : "Select").c_str())) selection = 1;
         ImGui::EndPopup();
+
+        if (selection) _selected = !_selected;  // FIXME: just for test
     }
 
-    if (toOpen) { toOpen = showProperty(mgr, content); _dirty = false; }
+    ImGui::Indent(_indent);
+    if (toOpen)
+    {
+        if (_composited) ImGui::Indent(_indent);
+        toOpen = showProperty(mgr, content); _dirty = false;
+        if (_composited) ImGui::Unindent(_indent);
+    }
     ImGui::Unindent(_indent); return toOpen;
 }
 

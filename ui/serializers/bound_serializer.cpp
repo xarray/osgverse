@@ -8,22 +8,42 @@ class BBoxSerializerInterface : public SerializerInterface
 {
 public:
     BBoxSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-        : SerializerInterface(obj, entry, prop, false)
+        : SerializerInterface(obj, entry, prop, true)
     {
-        _check = new CheckBox(TR(_property.name) + _postfix, false);
-        _check->tooltip = tooltip(_property);
-        //_check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
-        //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
+        _center = new InputVectorField(TR("Center") + _postfix); _center->vecNumber = 3;
+        _center->tooltip = tooltip(_property, "Bounding box center");
+        _center->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            osg::Vec3d c, s; _center->getVector(c); _sizes->getVector(s);
+            _bbox._min = c - s * 0.5; _bbox._max = c + s * 0.5;
+            _entry->setProperty(_object.get(), _property.name, _bbox);
+        };
+
+        _sizes = new InputVectorField(TR("Size") + _postfix); _sizes->vecNumber = 3;
+        _sizes->tooltip = tooltip(_property, "Bounding box extent");
+        _sizes->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            osg::Vec3d c, s; _center->getVector(c); _sizes->getVector(s);
+            _bbox._min = c - s * 0.5; _bbox._max = c + s * 0.5;
+            _entry->setProperty(_object.get(), _property.name, _bbox);
+        };
     }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        //if (isDirty()) _entry->getProperty(_object.get(), _property.name, _check->value);
-        return _check->show(mgr, content);
+        if (isDirty())
+        {
+            _entry->getProperty(_object.get(), _property.name, _bbox);
+            _center->setVector(_bbox.center()); _sizes->setVector(_bbox._max - _bbox._min);
+        }
+        bool edited = _center->show(mgr, content);
+        return edited | _sizes->show(mgr, content);
     }
 
 protected:
-    osg::ref_ptr<CheckBox> _check;
+    osg::ref_ptr<InputVectorField> _center;
+    osg::ref_ptr<InputVectorField> _sizes;
+    T _bbox;
 };
 
 template<typename T>
@@ -33,20 +53,38 @@ public:
     BSphereSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
         : SerializerInterface(obj, entry, prop, false)
     {
-        _check = new CheckBox(TR(_property.name) + _postfix, false);
-        _check->tooltip = tooltip(_property);
-        //_check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
-        //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
+        _center = new InputVectorField(TR("Center") + _postfix); _center->vecNumber = 3;
+        _center->tooltip = tooltip(_property, "Bounding sphere center");
+        _center->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            osg::Vec3d c; _center->getVector(c); _bsphere.set(c, _radius->value);
+            _entry->setProperty(_object.get(), _property.name, _bsphere);
+        };
+
+        _radius = new InputValueField(TR("Radius") + _postfix);
+        _radius->tooltip = tooltip(_property, "Bounding sphere radius");
+        _radius->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            osg::Vec3d c; _center->getVector(c); _bsphere.set(c, _radius->value);
+            _entry->setProperty(_object.get(), _property.name, _bsphere);
+        };
     }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        //if (isDirty()) _entry->getProperty(_object.get(), _property.name, _check->value);
-        return _check->show(mgr, content);
+        if (isDirty())
+        {
+            _entry->getProperty(_object.get(), _property.name, _bsphere);
+            _center->setVector(_bsphere.center()); _radius->value = _bsphere.radius();
+        }
+        bool edited = _center->show(mgr, content);
+        return edited | _radius->show(mgr, content);
     }
 
 protected:
-    osg::ref_ptr<CheckBox> _check;
+    osg::ref_ptr<InputVectorField> _center;
+    osg::ref_ptr<InputValueField> _radius;
+    T _bsphere;
 };
 
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)

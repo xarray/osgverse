@@ -6,7 +6,7 @@ class ValueSerializerInterface : public SerializerInterface
 {
 public:
     ValueSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
-        : SerializerInterface(obj, entry, prop, false)
+        : SerializerInterface(obj, entry, prop, false), _showHexButton(false)
     {
         _value = new InputValueField(TR(_property.name) + _postfix);
         _value->tooltip = tooltip(_property);
@@ -14,6 +14,14 @@ public:
         {
             T value = (T)_value->value;
             _entry->setProperty(_object.get(), _property.name, value);
+        };
+
+        _toHex = new CheckBox(_postfix, false);
+        _toHex->tooltip = TR("Hexadecimal");
+        _toHex->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+        {
+            _value->flags = (_toHex->value) ? ImGuiInputTextFlags_CharsHexadecimal
+                                            : ImGuiInputTextFlags_CharsDecimal;
         };
     }
 
@@ -24,11 +32,15 @@ public:
             T value; _entry->getProperty(_object.get(), _property.name, value);
             _value->value = (double)value;
         }
-        return _value->show(mgr, content);
+        bool edited = _showHexButton ? _toHex->show(mgr, content) : false;
+        if (_showHexButton) ImGui::SameLine();
+        return edited | _value->show(mgr, content);
     }
 
 protected:
     osg::ref_ptr<InputValueField> _value;
+    osg::ref_ptr<CheckBox> _toHex;
+    bool _showHexButton;
 };
 
 class CharSerializerInterface : public ValueSerializerInterface<char>
@@ -48,7 +60,7 @@ public:
     UCharSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
     : ValueSerializerInterface(obj, entry, prop)
     {
-        _value->type = InputValueField::UIntValue;
+        _value->type = InputValueField::UIntValue; _showHexButton = true;
         _value->minValue = 0; _value->maxValue = 255;
     }
 };
@@ -70,7 +82,7 @@ public:
     UShortSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
     : ValueSerializerInterface(obj, entry, prop)
     {
-        _value->type = InputValueField::UIntValue;
+        _value->type = InputValueField::UIntValue; _showHexButton = true;
         _value->minValue = 0; _value->maxValue = 65535;
     }
 };
@@ -87,10 +99,7 @@ class UIntSerializerInterface : public ValueSerializerInterface<unsigned int>
 public:
     UIntSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
     : ValueSerializerInterface(obj, entry, prop)
-    {
-        _value->type = InputValueField::UIntValue;
-        _value->flags = ImGuiInputTextFlags_CharsHexadecimal;
-    }
+    { _value->type = InputValueField::UIntValue; _showHexButton = true; }
 };
 
 class FloatSerializerInterface : public ValueSerializerInterface<float>

@@ -56,7 +56,7 @@ namespace osgVerseUtils
             }
         }
 
-        osg::Shader* shader = new osg::Shader;
+        osg::ref_ptr<osg::Shader> shader = new osg::Shader;
         shader->setName(root.get("name").to_str());
         if (root.contains("source"))
         {
@@ -78,7 +78,10 @@ namespace osgVerseUtils
             if (sb) shader->setShaderBinary(sb);
         }
         else if (root.contains("uri"))
-            shader->loadShaderSourceFromFile(root.get("uri").to_str());
+        {
+            shader = osgDB::readRefShaderFile(root.get("uri").to_str());
+            shader->setName(root.get("uri").to_str());
+        }
 
         std::string type = root.get("shader_type").to_str();
         if (type.find("vertex") != std::string::npos) shader->setType(osg::Shader::VERTEX);
@@ -86,7 +89,7 @@ namespace osgVerseUtils
         else if (type.find("control") != std::string::npos) shader->setType(osg::Shader::TESSCONTROL);
         else if (type.find("eval") != std::string::npos) shader->setType(osg::Shader::TESSEVALUATION);
         else shader->setType(osg::Shader::FRAGMENT);
-        return shader;
+        return shader.release();
     }
 
     static osg::Texture* loadTexture(picojson::value& root, bool isIblData,
