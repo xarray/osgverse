@@ -1,4 +1,3 @@
-#include "Rasterizer.h"
 
 #include "Occluder.h"
 

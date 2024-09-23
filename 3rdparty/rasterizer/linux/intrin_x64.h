@@ -138,8 +138,13 @@ _InterlockedExchangePointer(void *volatile *const Target, void *const Value) {
   return __sync_lock_test_and_set(Target, Value);
 }
 
-static __inline__ __attribute__((always_inline)) long long _InterlockedExchangeAdd(
-    volatile long *const Addend, const long long Value) {
+static __inline__ __attribute__((always_inline)) long _InterlockedExchangeAdd(
+    volatile long *const Addend, const long Value) {
+  return __sync_fetch_and_add(Addend, Value);
+}
+
+static __inline__ __attribute__((always_inline)) long long _InterlockedExchangeAdd64(
+    volatile long long *const Addend, const long long Value) {
   return __sync_fetch_and_add(Addend, Value);
 }
 
@@ -153,8 +158,13 @@ static __inline__ __attribute__((always_inline)) short _InterlockedAnd16(
   return __sync_fetch_and_and(value, mask);
 }
 
-static __inline__ __attribute__((always_inline)) long long _InterlockedAnd(
-    volatile long *const value, const long long mask) {
+static __inline__ __attribute__((always_inline)) long _InterlockedAnd(
+    volatile long *const value, const long mask) {
+  return __sync_fetch_and_and(value, mask);
+}
+
+static __inline__ __attribute__((always_inline)) long _InterlockedAnd64(
+    volatile long long * const value, const long long mask) {
   return __sync_fetch_and_and(value, mask);
 }
 
@@ -168,8 +178,13 @@ static __inline__ __attribute__((always_inline)) short _InterlockedOr16(
   return __sync_fetch_and_or(value, mask);
 }
 
-static __inline__ __attribute__((always_inline)) long long _InterlockedOr(
-    volatile long *const value, const long long mask) {
+static __inline__ __attribute__((always_inline)) long _InterlockedOr(
+    volatile long *const value, const long mask) {
+  return __sync_fetch_and_or(value, mask);
+}
+
+static __inline__ __attribute__((always_inline)) long _InterlockedOr64(
+    volatile long long *const value, const long long mask) {
   return __sync_fetch_and_or(value, mask);
 }
 
@@ -436,12 +451,12 @@ _InterlockedAddLargeStatistic(volatile long long *const Addend,
 
 static __inline__ __attribute__((always_inline)) long long _InterlockedDecrement(
     volatile long long *const lpAddend) {
-  return _InterlockedExchangeAdd(lpAddend, -1) - 1;
+  return _InterlockedExchangeAdd64(lpAddend, -1) - 1;
 }
 
 static __inline__ __attribute__((always_inline)) long long _InterlockedIncrement(
     volatile long long *const lpAddend) {
-  return _InterlockedExchangeAdd(lpAddend, 1) + 1;
+  return _InterlockedExchangeAdd64(lpAddend, 1) + 1;
 }
 
 static __inline__ __attribute__((always_inline)) unsigned char

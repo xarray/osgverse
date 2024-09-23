@@ -3,10 +3,14 @@
 #include <memory>
 #include <vector>
 #include <cstring>
+
+#include "Rasterizer.h"
 #ifdef _MSC_VER
 #   include <intrin.h>
 #else
 #   define __forceinline inline
+#   define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
+#   define _aligned_free(ptr) free(ptr)
 #   include "linux/intrin.h"
 #endif
 
