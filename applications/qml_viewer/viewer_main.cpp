@@ -1,3 +1,4 @@
+#include "qt_header.h"
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osgDB/ReadFile>
@@ -13,7 +14,6 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
-#include "qt_header.h"
 #include <iostream>
 #include <sstream>
 

@@ -291,7 +291,7 @@ void GraphicsWindowSDL::initialize()
 #   if defined(OSG_GLES3_AVAILABLE)
     EGLint contextAttribList[] = {
         EGL_CONTEXT_CLIENT_VERSION, 3,
-        EGL_CONTEXT_MINOR_VERSION, 0,
+        EGL_CONTEXT_MINOR_VERSION, 1,
         EGL_NONE, EGL_NONE
     };
 #   else

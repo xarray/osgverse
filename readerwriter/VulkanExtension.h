@@ -74,6 +74,7 @@
        ANGLE_INLINE ScopedContextMutexLock GetContextLock_GetVkObjectsVERSE(Thread *thread, egl::Display *dpyPacked)
        { return TryLockCurrentContext(thread); }
   - Re-MAKE the project and copy result libraries to VERSE binary folder!
+       ninja -j 10 -k1 -C out/Release
 */
 
 struct VulkanObjectInfo

@@ -1,11 +1,11 @@
 SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_INCLUDE_FILES
-    ImGui.h ImGuiComponents.h SerializerInterface.h
+    ImGui.h ImGuiComponents.h SerializerInterface.h SceneHierarchy.h
     ###
     UserComponent.h CommandHandler.h PropertyInterface.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
 	ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Styles.h
-    SerializerInterface.cpp
+    SerializerInterface.cpp SceneHierarchy.cpp
     serializers/object_serializer.cpp serializers/image_serializer.cpp
     serializers/bool_serializer.cpp serializers/string_serializer.cpp
     serializers/value_serializer.cpp serializers/vector_serializer.cpp
