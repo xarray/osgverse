@@ -1,15 +1,21 @@
 #!/bin/sh
 CurrentDir=$(cd $(dirname $0); pwd)
+CurrentSystem=$(uname)
 CurrentKernel=$(uname -r)
 CMakeExe=$(printf "cmake -DCMAKE_BUILD_TYPE=Release")
 UsingWSL=0
 SkipCMakeConfig=0
 SkipOsgBuild=0
 
-CurrentKernel=$(echo $CurrentKernel | grep "Microsoft")
-if [ "$CurrentKernel" != "" ]; then
+MingwSystem=$(echo $CurrentSystem | grep "MINGW")
+WslKernel=$(echo $CurrentKernel | grep "Microsoft")
+if [ "$WslKernel" != "" ]; then
     echo "Using Windows subsystem for Linux..."
     UsingWSL=1
+elif [ "$MingwSystem" != "" ]; then
+    # Should install MinGW-CMake first: pacman -S mingw-w64-x86_64-cmake
+    echo "Using MinGW system..."
+    CMakeExe=$(printf 'cmake -DCYGWIN=ON -DCMAKE_BUILD_TYPE=Release')
 fi
 
 # Pre-build Checks
@@ -143,7 +149,7 @@ if [ ! -d "$CurrentDir/build" ]; then
     mkdir $CurrentDir/build
 fi
 
-ThirdPartyBuildDir="$CurrentDir/build/3rdparty"
+ThirdPartyBuildDir="$CurrentDir/build/3rdparty_def"
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
 
     # WASM toolchain
@@ -157,7 +163,7 @@ if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain" -DUSE_WASM_OPTIONS=1 $CurrentDir/helpers/toolchain_builder
         fi
-        cmake --build .
+        cmake --build . || exit 1
     fi
 
 elif [ "$BuildMode" = '5' ]; then
@@ -173,7 +179,7 @@ elif [ "$BuildMode" = '5' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $AndroidDepOptions $CurrentDir/helpers/toolchain_builder
         fi
-        cmake --build .
+        cmake --build . || exit 1
     fi
 
 else
@@ -188,7 +194,7 @@ else
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $CurrentDir/helpers/toolchain_builder
         fi
-        cmake --build .
+        cmake --build . || exit 1
     fi
 
 fi
@@ -250,7 +256,7 @@ if [ "$BuildMode" = '1' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
         fi
-        make install
+        cmake --build . --target install --config Release || exit 1
     fi
 
 elif [ "$BuildMode" = '2' ]; then
@@ -276,7 +282,7 @@ elif [ "$BuildMode" = '3' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/wasm
         fi
-        make install
+        cmake --build . --target install --config Release || exit 1
     fi
 
 elif [ "$BuildMode" = '4' ]; then
@@ -297,7 +303,7 @@ elif [ "$BuildMode" = '4' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/wasm2
         fi
-        make install
+        cmake --build . --target install --config Release || exit 1
     fi
 
 elif [ "$BuildMode" = '5' ]; then
@@ -317,7 +323,7 @@ elif [ "$BuildMode" = '5' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $AndroidDepOptions $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/android
         fi
-        make install
+        cmake --build . --target install --config Release || exit 1
     fi
 
 else
@@ -333,7 +339,7 @@ else
             $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
         fi
     fi
-    make install
+    cmake --build . --target install --config Release || exit 1
 
 fi
 
@@ -356,7 +362,7 @@ if [ "$BuildMode" = '4' ]; then
             -DOSGEARTH_BUILD_DIR=$CurrentDir/build/osgearth_wasm2/osgearth"
         cd $CurrentDir/build/osgearth_wasm2
         $CMakeExe $ExtraOptions $ExtraOptions2 $CurrentDir/helpers/osg_builder/wasm2_oe
-        make install
+        make install || exit 1
         WithOsgEarth=1
 
     else
@@ -377,7 +383,7 @@ if [ "$BuildMode" = '3' ]; then
     OsgRootLocation="$CurrentDir/build/sdk_wasm"
     cd $CurrentDir/build/verse_wasm
     $CMakeExe -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
-    make install
+    cmake --build . --target install --config Release || exit 1
 
 elif [ "$BuildMode" = '4' ]; then
 
@@ -389,7 +395,7 @@ elif [ "$BuildMode" = '4' ]; then
     OsgRootLocation="$CurrentDir/build/sdk_wasm2"
     cd $CurrentDir/build/verse_wasm2
     $CMakeExe -DUSE_WASM_OPTIONS=1 -DUSE_WASM_OSGEARTH=$WithOsgEarth -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
-    make install
+    cmake --build . --target install --config Release || exit 1
 
 elif [ "$BuildMode" = '5' ]; then
 
@@ -401,7 +407,7 @@ elif [ "$BuildMode" = '5' ]; then
     OsgRootLocation="$CurrentDir/build/sdk_android"
     cd $CurrentDir/build/verse_android
     $CMakeExe $AndroidDepOptions -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
-    make install
+    cmake --build . --target install --config Release || exit 1
 
 else
 
@@ -417,6 +423,6 @@ else
     fi
     cd $CurrentDir/build/verse
     $CMakeExe -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
-    make install
+    cmake --build . --target install --config Release || exit 1
 
 fi

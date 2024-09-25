@@ -15,7 +15,7 @@
 namespace backward { backward::SignalHandling sh; }
 
 // Change the macro to switch between composite viewer / viewer with slaves
-#define USE_COMPOSITE_VIEWER 0
+#define USE_COMPOSITE_VIEWER 1
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>

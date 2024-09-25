@@ -108,7 +108,7 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
             // Try to fix some old and wrong internal formats
             for (size_t j = 0; j < tex->getNumImages(); ++j)
             {
-#if !defined(VERSE_WEBGL1)
+#  if !defined(VERSE_WEBGL1)
                 GLenum internalFmt = tex->getImage(j)->getInternalTextureFormat();
                 switch (internalFmt)
                 {
@@ -117,7 +117,7 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
                 case GL_RGB: tex->getImage(j)->setInternalTextureFormat(GL_RGB8); break;
                 case GL_RGBA: tex->getImage(j)->setInternalTextureFormat(GL_RGBA8); break;
                 }
-#endif
+#  endif
             }
         }
 
@@ -135,9 +135,13 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
         for (osg::StateSet::ModeList::const_iterator itr = modes.begin();
             itr != modes.end(); ++itr) ss.removeTextureMode(i, itr->first);
     }
+
+#  if defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+    ss.removeMode(GL_POLYGON_OFFSET_LINE); ss.removeMode(GL_POLYGON_OFFSET_POINT);
+#  endif
     ss.removeMode(GL_RESCALE_NORMAL);
     ss.removeMode(GL_NORMALIZE); ss.removeMode(GL_LIGHTING);
-#endif
+#endif  // defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     return (sa != NULL);
 }
 

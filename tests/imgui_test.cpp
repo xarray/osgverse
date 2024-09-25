@@ -8,6 +8,7 @@
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
+#include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
@@ -20,6 +21,7 @@
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#define USE_COMPOSITE_VIEWER 0
 
 struct MyContentHandler : public osgVerse::ImGuiContentHandler
 {
@@ -225,7 +227,11 @@ int main(int argc, char** argv)
 {
     bool guiAsTexture = false;
     osgVerse::globalInitialize(argc, argv);
+#if USE_COMPOSITE_VIEWER
+    osgViewer::CompositeViewer viewer;
+#else
     osgViewer::Viewer viewer;
+#endif
 
     osg::ref_ptr<osg::Node> scene =
         (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFile(argv[1]);
@@ -239,6 +245,23 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
+
+#if USE_COMPOSITE_VIEWER
+    for (int v = 0; v < 3; ++v)
+    {
+        osg::ref_ptr<osgViewer::View> view = new osgViewer::View;
+        view->addEventHandler(new osgViewer::StatsHandler);
+        view->addEventHandler(new osgViewer::WindowSizeHandler);
+        view->setCameraManipulator(new osgGA::TrackballManipulator);
+        view->setSceneData(root.get());
+        view->setUpViewInWindow(640 * v, 20, 640, 640);
+        viewer.addView(view.get());
+
+        if (v > 0) continue;  // ImGUI cannot working on multiple views at present
+        imgui->initialize(new MyContentHandler(view->getCamera(), root.get()), false);
+        imgui->addToView(view);
+    }
+#else
     imgui->initialize(new MyContentHandler(viewer.getCamera(), root.get()), guiAsTexture);
     if (guiAsTexture)
     {
@@ -262,5 +285,7 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
+#endif
+    viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     return viewer.run();
 }
