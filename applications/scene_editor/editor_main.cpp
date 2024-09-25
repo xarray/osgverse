@@ -257,12 +257,5 @@ int main(int argc, char** argv)
     imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
     imgui->initialize(new EditorContentHandler);
     imgui->addToView(&viewer, postCamera.get());
-
-    // FIXME: just for test: custom component loading
-#ifdef ORIGIN_CODE
-    osg::ref_ptr<osgVerse::UserComponentGroup> ucg = dynamic_cast<osgVerse::UserComponentGroup*>(
-        osgDB::readObjectFile("all.verse_osgparticle"));
-    if (ucg) osgVerse::UserComponentManager::instance()->registerComponents(ucg);
-#endif
     return viewer.run();
 }
