@@ -64,7 +64,7 @@ ENDMACRO(APPLY_SIMD_FLAGS)
 SET(VERSE_NO_SIMD_FEATURES OFF CACHE BOOL "Enable to ignore all SIMD features (when struggling with compile errors)")
 SET(VERSE_SIMD_FEATURES "")
 IF(VERSE_NO_SIMD_FEATURES)
-    # Do nothing
+    # Do nothing...
 ELSEIF(USE_WASM_OPTIONS)
     # https://emscripten.org/docs/porting/simd.html
     SET(VERSE_SIMD_FEATURES sse sse2 sse3 avx)
@@ -172,9 +172,15 @@ IF(OPENMP_FOUND)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 ENDIF()
 
-IF(NOT OPENGL_gl_LIBRARY)
+IF(NOT OPENGL_INCLUDE_DIR)
     MESSAGE(FATAL_ERROR "[osgVerse] Dependency OpenGL not found. All following steps may not work...")
-ENDIF(NOT OPENGL_gl_LIBRARY)
+ELSEIF(NOT OPENGL_gl_LIBRARY)
+    IF(OPENGL_opengl_LIBRARY)
+        SET(OPENGL_gl_LIBRARY ${OPENGL_opengl_LIBRARY})
+    ELSE(OPENGL_opengl_LIBRARY)
+        MESSAGE(FATAL_ERROR "[osgVerse] Dependency OpenGL not found. All following steps may not work...")
+    ENDIF(OPENGL_opengl_LIBRARY)
+ENDIF()
 
 SET(THIRDPARTY_INCLUDE_DIRS "")
 SET(THIRDPARTY_LIBRARIES "")

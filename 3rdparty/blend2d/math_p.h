@@ -369,7 +369,7 @@ static BL_INLINE int blRoundToInt(float x) noexcept { int y = blNearbyToInt(x); 
 static BL_INLINE int blRoundToInt(double x) noexcept { int y = blNearbyToInt(x); return y + (double(y) - x == -0.5);  }
 
 static BL_INLINE int64_t blNearbyToInt64(float x) noexcept {
-#if BL_TARGET_ARCH_X86 == 64
+#if BL_TARGET_ARCH_X86 == 64 && !defined(BL_BUILD_NO_SIMD)
   return SIMD::cvt_f32_to_scalar_i64(SIMD::cast_from_f32(x));
 #elif BL_TARGET_ARCH_X86 == 32 && defined(__GNUC__)
   int64_t y;
@@ -388,7 +388,7 @@ static BL_INLINE int64_t blNearbyToInt64(float x) noexcept {
 }
 
 static BL_INLINE int64_t blNearbyToInt64(double x) noexcept {
-#if BL_TARGET_ARCH_X86 == 64
+#if BL_TARGET_ARCH_X86 == 64 && !defined(BL_BUILD_NO_SIMD)
   return SIMD::cvt_f64_to_scalar_i64(SIMD::cast_from_f64(x));
 #elif BL_TARGET_ARCH_X86 == 32 && defined(__GNUC__)
   int64_t y;

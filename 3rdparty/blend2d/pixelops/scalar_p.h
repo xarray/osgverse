@@ -167,7 +167,7 @@ static BL_INLINE uint32_t cvt_abgr32_8888_from_prgb32_8888(uint32_t val32) noexc
 }
 
 static BL_INLINE uint64_t cvt_prgb64_8888_from_argb64_8888(uint64_t val64, uint32_t _a) noexcept {
-#if BL_TARGET_ARCH_X86
+#if BL_TARGET_ARCH_X86 && !defined(BL_BUILD_NO_SIMD)
   using namespace SIMD;
 
   Vec8xU16 v0 = cast_from_u64<Vec8xU16>(val64 | 0xFFFF000000000000u);
@@ -196,7 +196,7 @@ static BL_INLINE uint64_t cvt_prgb64_8888_from_argb64_8888(uint64_t val64, uint3
 }
 
 static BL_INLINE uint64_t cvt_prgb64_8888_from_argb64_8888(uint64_t val64) noexcept {
-#if BL_TARGET_ARCH_X86
+#if BL_TARGET_ARCH_X86 && !defined(BL_BUILD_NO_SIMD)
   using namespace SIMD;
 
   Vec8xU16 v0 = cast_from_u64<Vec8xU16>(val64);

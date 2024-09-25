@@ -174,6 +174,11 @@
   #endif
 #endif
 
+#ifdef BL_BUILD_NO_SIMD
+  #undef BL_TARGET_OPT_SSE2
+  #undef BL_TARGET_OPT_SSE
+#endif
+
 //! \}
 //! \endcond
 

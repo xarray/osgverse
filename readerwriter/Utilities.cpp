@@ -3,6 +3,7 @@
 #include <osg/Geode>
 #include <osg/Texture2D>
 #include <osg/Material>
+#include <osg/PolygonOffset>
 #include <osgDB/Registry>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>

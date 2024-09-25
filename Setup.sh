@@ -2,6 +2,7 @@
 CurrentDir=$(cd $(dirname $0); pwd)
 CurrentSystem=$(uname)
 CurrentKernel=$(uname -r)
+CheckCmakeExe=$(command -v cmake)
 CMakeExe=$(printf "cmake -DCMAKE_BUILD_TYPE=Release")
 UsingWSL=0
 SkipCMakeConfig=0
@@ -19,7 +20,7 @@ elif [ "$MingwSystem" != "" ]; then
 fi
 
 # Pre-build Checks
-if [ ! command -v cmake >/dev/null 2>&1 ]; then
+if [ "$CheckCmakeExe" = "" ]; then
     echo "CMake not found. Please run 'apt install cmake'."
     exit 1
 fi
