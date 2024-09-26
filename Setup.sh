@@ -212,6 +212,12 @@ ThirdDepOptions="
     -DZLIB_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/zlib
     -DZLIB_LIBRARY_RELEASE=$ThirdPartyBuildDir/zlib/libzlib.a
     -DVERSE_BUILD_3RDPARTIES=OFF"
+if [ -e "$CurrentDir/../Dependencies/wasm/lib/libtiff.a" ]; then
+    ThirdDepOptions="
+        $ThirdDepOptions
+        -DTIFF_INCLUDE_DIR=$CurrentDir/../Dependencies/wasm/include
+        -DTIFF_LIBRARY_RELEASE=$CurrentDir/../Dependencies/wasm/lib/libtiff.a"
+fi
 
 # Fix some OpenSceneGraph compile errors
 OpenSceneGraphRoot=$CurrentDir/../OpenSceneGraph
@@ -222,6 +228,8 @@ mv graph_array.h.tmp "$OpenSceneGraphRoot/src/osgUtil/tristripper/include/detail
 sed 's/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt" > CMakeLists.txt.tmp
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
 sed 's/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt" > CMakeLists.txt.tmp
+mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+sed 's/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt" > CMakeLists.txt.tmp
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
 sed 's/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g' "$OpenSceneGraphRoot/CMakeLists.txt" > CMakeLists.txt.tmp
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/CMakeLists.txt"
@@ -240,7 +248,6 @@ mv Image.cpp.tmp "$OpenSceneGraphRoot/src/osg/Image.cpp"
 
 # Compile OpenSceneGraph
 echo "*** Building OpenSceneGraph..."
-ExtraOptions="-DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk"
 if [ "$BuildMode" = '1' ]; then
 
     # OpenGL Core

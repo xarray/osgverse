@@ -9,6 +9,7 @@
 
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
+USE_OSGPLUGIN(tiff)
 USE_OSGPLUGIN(earth)
 USE_OSGPLUGIN(osgearth_xyz)
 USE_OSGPLUGIN(osgearth_tms)
@@ -52,8 +53,10 @@ int main(int argc, char** argv)
        << "  </options></map>";
 #else
     ss << "<map version=\"2\">\n"
-       << "<image driver=\"tms\" enabled=\"true\" name=\"readymap\""
-       << "    url=\"http://readymap.org/readymap/tiles/1.0.0/22/\">"
+       << "<elevation driver=\"tms\" name=\"test_elevation\""
+       << "    url=\"http://127.0.0.1:8000/test_dem/tms.xml\"></elevation>"
+       << "<image driver=\"tms\" enabled=\"true\" name=\"test_imagery\""
+       << "    url=\"http://127.0.0.1:8000/test_dom/tms.xml\">"
        << "    <cache_policy min_time=\"0\" usage=\"no_cache\"/></image></map>";
 #endif
     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("earth");

@@ -125,6 +125,7 @@ function(DETECT_X64_MICRO_ARCHITECTURE out_vendor out_arch)
             167 "rocketlake"   151 "alderlake"     154 "alderlake"
             87  "knl"          133 "knm"            92  "goldmont"
             90  "silvermont"    76 "silvermont"    102 "cannonlake"
+            140 "tigerlake"    141 "tigerlake"
             142 "kabylake"     158 "coffelake"
             85  "skylake-avx512"
             78  "skylake"       94  "skylake"

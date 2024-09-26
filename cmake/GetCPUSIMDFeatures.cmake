@@ -21,10 +21,10 @@ function(GET_CPU_SIMD_FEATURES outvar target_architecture)
         get_x64_simd_features(features ${target_architecture})
     elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" MATCHES "(ARM|aarch64)")
         # FIXME implement me
-        message(WARNING "get_arm_simd_features():Not implemented yet. Implement me!")
+        message(WARNING "GET_CPU_SIMD_FEATURES not implemented yet for ARM|aarch64")
     elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" MATCHES "(PPC|PPC64)")
         # FIXME implement me
-        message(WARNING "get_ppc_simd_features():Not implemented yet. Implement me!")
+        message(WARNING "GET_CPU_SIMD_FEATURES not implemented yet for PPC|PPC64")
     endif()
     set(${outvar} ${features} PARENT_SCOPE)
 endfunction()
