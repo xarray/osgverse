@@ -8,6 +8,7 @@
 
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
+#include <ui/SceneHierarchy.h>
 #include <ui/SerializerInterface.h>
 #include <ui/CommandHandler.h>
 #include <ui/UserComponent.h>
@@ -78,17 +79,14 @@ USE_SERIALIZER_INTERFACE(VECTOR)
 #define U2A(s) osgDB::convertStringFromUTF8toCurrentCodePage(s)
 #define W2U(s) osgDB::convertUTF16toUTF8(s)
 #define U2W(s) osgDB::convertUTF8toUTF16(s)
-class Hierarchy;
-class Properties;
-class SceneLogic;
+#define TR0(s) osgVerse::ImGuiComponentBase::TR(s)
 
 class EditorContentHandler : public osgVerse::ImGuiContentHandler
 {
 public:
-    EditorContentHandler();
-    Hierarchy* getHierarchy() { return _hierarchy.get(); }
-    Properties* getProperties() { return _properties.get(); }
-    SceneLogic* getSceneLogic() { return _sceneLogic.get(); }
+    EditorContentHandler(osgViewer::View* view);
+    osgVerse::Window* getHierarchy() { return _hierarchy.get(); }
+    osgVerse::Window* getProperties() { return _properties.get(); }
     osgVerse::MainMenuBar* getMainMenu() { return _mainMenu.get(); }
 
     void handleCommands();
@@ -100,9 +98,8 @@ protected:
     void createEditorMenu3();
 
     osg::ref_ptr<osgVerse::MainMenuBar> _mainMenu;
-    osg::ref_ptr<Hierarchy> _hierarchy;
-    osg::ref_ptr<Properties> _properties;
-    osg::ref_ptr<SceneLogic> _sceneLogic;
+    osg::ref_ptr<osgVerse::Window> _hierarchy, _properties;
+    osg::ref_ptr<osgVerse::SceneHierarchy> _hierarchyData;
     unsigned int _uiFrameNumber;
 };
 

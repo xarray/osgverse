@@ -14,14 +14,6 @@ SceneHierarchy::SceneHierarchy()
     : _selectedItemPopupTriggered(false)
 {
     _postfix = "##" + nanoid::generate(8);
-    _treeWindow = new Window(TR("Hierarchy") + _postfix);
-    _treeWindow->pos = osg::Vec2(0.0f, 0.0f);
-    _treeWindow->size = osg::Vec2(0.15f, 0.75f);
-    _treeWindow->alpha = 0.9f;
-    _treeWindow->useMenuBar = false;
-    _treeWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
-    _treeWindow->userData = this;
-
     _treeView = new TreeView;
     _treeView->userData = this;
     {
@@ -35,9 +27,8 @@ SceneHierarchy::SceneHierarchy()
     }
 
     // Selected events:
-    // 1. LMB selects item = show highlighter in scene + show data in properties
+    // 1. LMB selects/double-clicks item: callbacks
     // 2. RMB selects item/empty = show popup window
-    // 3. LMB double clicks item = focus on this item
     _treeView->callback = [&](ImGuiManager*, ImGuiContentHandler*,
                               ImGuiComponentBase* me, const std::string& id)
     {
@@ -46,13 +37,9 @@ SceneHierarchy::SceneHierarchy()
         if (!_selectedItem) return;
 
         if (!ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-        {
-            // TODO: select in scene and show properties
-        }
-        else
-        {
-            // TODO: show it in center
-        }
+            { if (_clickAction) _clickAction(treeView, _selectedItem.get()); }
+        else if (_dbClickAction)
+            _dbClickAction(treeView, _selectedItem.get());
     };
 
     _treeView->callbackR = [&](ImGuiManager*, ImGuiContentHandler*,
@@ -70,27 +57,38 @@ void SceneHierarchy::setViewer(osgViewer::View* view)
     _sceneTreeData->userData = view->getSceneData();
 }
 
+TreeView::TreeData* SceneHierarchy::addItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph)
+{
+    TreeView::TreeData* treeItem = new TreeView::TreeData;
+    treeItem->name = obj->getName().empty() ? obj->className() : obj->getName();
+    treeItem->id = "##node_" + nanoid::generate(8);
+    treeItem->name += treeItem->id;
+    treeItem->tooltip = obj->libraryName() + std::string("::") + obj->className();
+    treeItem->userData = obj;
+
+    if (!parent) parent = _sceneTreeData.get();
+    parent->children.push_back(treeItem);
+
+    // TODO: asSubGraph
+    return treeItem;
+}
+
 bool SceneHierarchy::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
-    bool done = _treeWindow->show(mgr, content);
-    if (done)
+    bool done = _treeView->show(mgr, content);
+    if (_selectedItem.valid())
     {
-        _treeView->show(mgr, content);
-        if (_selectedItem.valid())
+        if (_selectedItemPopupTriggered)
         {
-            if (_selectedItemPopupTriggered)
-            {
-                ImGui::OpenPopup((_selectedItem->id + "Popup").c_str());
-                _selectedItemPopupTriggered = false;
-            }
-
-            if (ImGui::BeginPopup((_selectedItem->id + "Popup").c_str()))
-            {
-                showPopupMenu(_selectedItem.get(), mgr, content);
-                ImGui::EndPopup();
-            }
+            ImGui::OpenPopup((_selectedItem->id + "Popup").c_str());
+            _selectedItemPopupTriggered = false;
         }
-        _treeWindow->showEnd();
+
+        if (ImGui::BeginPopup((_selectedItem->id + "Popup").c_str()))
+        {
+            showPopupMenu(_selectedItem.get(), mgr, content);
+            ImGui::EndPopup();
+        }
     }
     return done;
 }

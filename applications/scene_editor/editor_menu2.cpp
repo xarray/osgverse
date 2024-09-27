@@ -13,7 +13,7 @@
 #include "defines.h"
 
 void EditorContentHandler::createEditorMenu2()
-{
+{/*
     osgVerse::MenuBar::MenuData assetMenu(osgVerse::MenuBar::TR("Assets##menu03"));
     {
         osgVerse::MenuBar::MenuItemData transNodeItem(osgVerse::MenuBar::TR("New Node##menu0301"));
@@ -286,5 +286,5 @@ void EditorContentHandler::createEditorMenu2()
         osgVerse::MenuBar::MenuItemData showFpsItem(osgVerse::MenuBar::TR("Show FPS##menu0507"));
         viewMenu.items.push_back(showFpsItem);
     }
-    _mainMenu->menuDataList.push_back(viewMenu);
+    _mainMenu->menuDataList.push_back(viewMenu);*/
 }

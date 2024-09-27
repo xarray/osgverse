@@ -64,7 +64,7 @@ public:
     }
 };
 
-EditorContentHandler::EditorContentHandler()
+EditorContentHandler::EditorContentHandler(osgViewer::View* view)
     : _uiFrameNumber(0)
 {
 #ifdef ORIGIN_CODE
@@ -73,12 +73,28 @@ EditorContentHandler::EditorContentHandler()
     createEditorMenu1();
     createEditorMenu2();
     createEditorMenu3();
-
-    // Initialize components after menu items to reuse their callbacks
-    _hierarchy = new Hierarchy(this);
-    _properties = new Properties(this);
-    _sceneLogic = new SceneLogic(this);
 #endif
+
+    _hierarchyData = new osgVerse::SceneHierarchy;
+    _hierarchyData->setViewer(view);
+    _hierarchyData->setItemClickAction(
+        [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
+            // TODO: select in 3D view, show properties
+            std::cout << "ITEM SELECTED " << item->name << std::endl;
+        });
+    _hierarchyData->setItemDoubleClickAction(
+        [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
+            // TODO: focus in 3D view
+            std::cout << "ITEM DOUBLE CLICKED " << item->name << std::endl;
+        });
+
+    _hierarchy = new osgVerse::Window(TR0("Hierarchy") + "##editor");
+    _hierarchy->pos = osg::Vec2(0.0f, 0.0f);
+    _hierarchy->size = osg::Vec2(0.15f, 0.75f);
+    _hierarchy->alpha = 0.9f;
+    _hierarchy->useMenuBar = false;
+    _hierarchy->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
+    _hierarchy->userData = this;
 }
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
@@ -115,12 +131,20 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     static std::vector<osg::ref_ptr<osgVerse::SerializerInterface>> interfaces;
     if (!mt)
     {
+        _hierarchyData->addItem(NULL, new osg::Geode, false);
+
         mt = new osg::Fog;
         entry = osgVerse::SerializerFactory::instance()
               ->createInterfaces(mt.get(), NULL, interfaces);
     }
     for (size_t i = 0; i < interfaces.size(); ++i)
         interfaces[i]->show(mgr, this);
+
+    bool done = _hierarchy->show(mgr, this);
+    {
+        _hierarchyData->show(mgr, this);
+        _hierarchy->showEnd();
+    }
 
     ImGui::PopFont();
     _uiFrameNumber++;
@@ -195,11 +219,6 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new SceneManipulator);
     viewer.setSceneData(root.get());
     //viewer.setKeyEventSetsDone(0);
-
-    // FIXME: how to avoid shadow problem...
-    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
-    // Shadow will go jigger because the output texture is not sync-ed before lighting...
-    // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setUpViewOnSingleScreen(0);
 
@@ -255,7 +274,7 @@ int main(int argc, char** argv)
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
-    imgui->initialize(new EditorContentHandler);
+    imgui->initialize(new EditorContentHandler(&viewer));
     imgui->addToView(&viewer, postCamera.get());
     return viewer.run();
 }
