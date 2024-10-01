@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ImageUtils>
 #include <osg/Image>
 #include <osg/ImageSequence>
 #include <osg/Geometry>
@@ -6,6 +7,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 
 #include <pipeline/Global.h>
 #include <tbb/enumerable_thread_specific.h>
@@ -206,6 +208,16 @@ public:
                 createImage<openvdb::DoubleGrid, double>(*g2, img.get(), res);
                 if (img->valid()) images.push_back(img);
             }
+
+#if 0
+            for (int r = 0; r < img->r(); ++r)
+            {
+                osg::ref_ptr<osg::Image> cp = new osg::Image;
+                cp->allocateImage(img->s(), img->t(), 1, img->getPixelFormat(), img->getDataType());
+                osg::copyImage(img.get(), 0, 0, r, img->s(), img->t(), 1, cp.get(), 0, 0, 0);
+                osgDB::writeImageFile(*cp, std::to_string(r) + "___.bmp");
+            }
+#endif
         }
         if (images.empty()) return ReadResult::FILE_LOADED;
         else if (images.size() == 1) return images.front().get();
