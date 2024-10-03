@@ -131,7 +131,7 @@ public:
                 else
                     { if (valueMin.y() > 0.0f) valueMin.y() -= 0.01f; sliceMin->set(valueMin); }
                 break;
-            case osgGA::GUIEventAdapter::KEY_Up: std::cout << valueMin << "\n";
+            case osgGA::GUIEventAdapter::KEY_Up:
                 if (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT)
                     { if (valueMax.y() < 1.0f) valueMax.y() += 0.01f; sliceMax->set(valueMax); }
                 else

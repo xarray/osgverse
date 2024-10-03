@@ -2,6 +2,7 @@
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geode>
 #include <osg/Texture2D>
+#include <osg/Multisample>
 #include <osg/Material>
 #include <osg/PolygonOffset>
 #include <osgDB/Registry>
@@ -15,6 +16,97 @@
 #include "LoadTextureKTX.h"
 #include "Utilities.h"
 using namespace osgVerse;
+
+class ModeChecker : public osg::Referenced
+{
+public:
+    static ModeChecker* instance()
+    {
+        static osg::ref_ptr<ModeChecker> s_instance = new ModeChecker;
+        return s_instance.get();
+    }
+
+    bool check(osg::StateSet& ss)
+    {
+        if (modeSet.empty()) return true;
+        osg::StateSet::ModeList modeList = ss.getModeList();
+        for (osg::StateSet::ModeList::iterator it = modeList.begin(); it != modeList.end(); ++it)
+        { if (!check(it->first)) ss.removeMode(it->first); } return true;
+    }
+
+    bool check(GLenum mode)
+    {
+        if (modeSet.empty()) return true;
+        return modeSet.find(mode) != modeSet.end();
+    }
+
+protected:
+    ModeChecker()
+    {
+#if defined(OSG_GL3_AVAILABLE)
+        // https://docs.gl/gl4/glEnable
+        modeSet.insert(GL_BLEND);
+        //modeSet.insert(GL_CLIP_DISTANCE);
+        modeSet.insert(GL_COLOR_LOGIC_OP);
+        modeSet.insert(GL_CULL_FACE);
+        modeSet.insert(GL_DEBUG_OUTPUT);
+        modeSet.insert(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        modeSet.insert(GL_DEPTH_CLAMP);
+        modeSet.insert(GL_DEPTH_TEST);
+        modeSet.insert(GL_DITHER);
+        modeSet.insert(GL_FRAMEBUFFER_SRGB);
+        modeSet.insert(GL_LINE_SMOOTH);
+        modeSet.insert(GL_MULTISAMPLE_ARB);
+        modeSet.insert(GL_POLYGON_OFFSET_FILL);
+        modeSet.insert(GL_POLYGON_OFFSET_LINE);
+        modeSet.insert(GL_POLYGON_OFFSET_POINT);
+        modeSet.insert(GL_POLYGON_SMOOTH);
+        modeSet.insert(GL_PRIMITIVE_RESTART);
+        //modeSet.insert(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+        modeSet.insert(GL_RASTERIZER_DISCARD);
+        modeSet.insert(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB);
+        modeSet.insert(GL_SAMPLE_ALPHA_TO_ONE_ARB);
+        modeSet.insert(GL_SAMPLE_COVERAGE_ARB);
+        //modeSet.insert(GL_SAMPLE_SHADING);
+        //modeSet.insert(GL_SAMPLE_MASK);
+        modeSet.insert(GL_SCISSOR_TEST);
+        modeSet.insert(GL_STENCIL_TEST);
+        modeSet.insert(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+        modeSet.insert(GL_PROGRAM_POINT_SIZE);
+#elif defined(OSG_GLES2_AVAILABLE)
+        // https://docs.gl/es2/glEnable
+        // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/enable
+        modeSet.insert(GL_BLEND);
+        modeSet.insert(GL_CULL_FACE);
+        modeSet.insert(GL_DEPTH_TEST);
+        modeSet.insert(GL_DITHER);
+        modeSet.insert(GL_POLYGON_OFFSET_FILL);
+        modeSet.insert(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB);
+        modeSet.insert(GL_SAMPLE_COVERAGE_ARB);
+        modeSet.insert(GL_SCISSOR_TEST);
+        modeSet.insert(GL_STENCIL_TEST);
+#elif defined(OSG_GLES3_AVAILABLE)
+        // https://docs.gl/es3/glEnable
+        modeSet.insert(GL_BLEND);
+        modeSet.insert(GL_CULL_FACE);
+        modeSet.insert(GL_DEPTH_TEST);
+        modeSet.insert(GL_DITHER);
+        modeSet.insert(GL_POLYGON_OFFSET_FILL);
+        modeSet.insert(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB);
+        modeSet.insert(GL_SAMPLE_COVERAGE_ARB);
+        modeSet.insert(GL_SCISSOR_TEST);
+        modeSet.insert(GL_STENCIL_TEST);
+        // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/enable
+        modeSet.insert(GL_RASTERIZER_DISCARD);
+#  if !defined(VERSE_WEBGL2)
+        //modeSet.insert(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+        //modeSet.insert(GL_SAMPLE_MASK);
+#  endif
+#endif
+    }
+
+    std::set<GLenum> modeSet;
+};
 
 #ifdef __EMSCRIPTEN__
 // Reference: https://github.com/emscripten-core/emscripten/issues/9574
@@ -121,7 +213,6 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
 #  endif
             }
         }
-
         ss.removeTextureAttribute(i, osg::StateAttribute::TEXENV);
         ss.removeTextureAttribute(i, osg::StateAttribute::TEXGEN);
         ss.removeTextureAttribute(i, osg::StateAttribute::TEXMAT);
@@ -137,11 +228,8 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
             itr != modes.end(); ++itr) ss.removeTextureMode(i, itr->first);
     }
 
-#  if defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
-    ss.removeMode(GL_POLYGON_OFFSET_LINE); ss.removeMode(GL_POLYGON_OFFSET_POINT);
-#  endif
-    ss.removeMode(GL_RESCALE_NORMAL);
-    ss.removeMode(GL_NORMALIZE); ss.removeMode(GL_LIGHTING);
+    // Remove unused GL modes
+    ModeChecker::instance()->check(ss);
 #endif  // defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     return (sa != NULL);
 }

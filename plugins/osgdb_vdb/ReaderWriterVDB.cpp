@@ -191,21 +191,27 @@ public:
             openvdb::FloatGrid::Ptr g0 = openvdb::gridPtrCast<openvdb::FloatGrid>((*grids)[i]);
             if (g0)
             {
-                createImage<openvdb::FloatGrid, float>(*g0, img.get(), res);
+                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_UNSIGNED_BYTE);
+                img->setInternalTextureFormat(GL_LUMINANCE8);
+                createImage<openvdb::FloatGrid, float>(*g0, img.get(), res, 1);
                 if (img->valid()) images.push_back(img);
             }
 
             openvdb::Int32Grid::Ptr g1 = openvdb::gridPtrCast<openvdb::Int32Grid>((*grids)[i]);
             if (g1)
             {
-                createImage<openvdb::Int32Grid, int32_t>(*g1, img.get(), res);
+                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_UNSIGNED_BYTE);
+                img->setInternalTextureFormat(GL_LUMINANCE8);
+                createImage<openvdb::Int32Grid, int32_t>(*g1, img.get(), res, 1);
                 if (img->valid()) images.push_back(img);
             }
 
             openvdb::DoubleGrid::Ptr g2 = openvdb::gridPtrCast<openvdb::DoubleGrid>((*grids)[i]);
             if (g2)
             {
-                createImage<openvdb::DoubleGrid, double>(*g2, img.get(), res);
+                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_UNSIGNED_BYTE);
+                img->setInternalTextureFormat(GL_LUMINANCE8);
+                createImage<openvdb::DoubleGrid, double>(*g2, img.get(), res, 1);
                 if (img->valid()) images.push_back(img);
             }
 
@@ -359,21 +365,19 @@ protected:
     };
 
     template<typename GridType, typename T>
-    void createImage(GridType& grid, osg::Image* image, const osg::Vec3d& res) const
+    void createImage(GridType& grid, osg::Image* image, const osg::Vec3d& res, int comp) const
     {
         openvdb::tools::GridSampler<GridType, openvdb::tools::BoxSampler> sampler(grid);
         openvdb::BBoxd worldBox = grid.transform().indexToWorld(getIndexSpaceBoundingBox(grid));
         openvdb::CoordBBox domain(
             openvdb::Coord(0, 0, 0), openvdb::Coord(res[0] - 1, res[1] - 1, res[2] - 1));
         const openvdb::Vec3i stride = { 1, (int)res[0], (int)(res[0] * res[1]) };
-        image->allocateImage(res[0], res[1], res[2], GL_RGBA, GL_UNSIGNED_BYTE);
-        image->setInternalTextureFormat(GL_RGBA8);
 
         long long num_voxels = domain.volume();
-        std::vector<T> dataArray(num_voxels * 4);
+        std::vector<T> dataArray(num_voxels * comp);
         tbb::enumerable_thread_specific<ValueRange<T>> ranges;
         tbb::parallel_for(domain,
-            [&sampler, &worldBox, &res, &stride, &ranges, &dataArray](const openvdb::CoordBBox& bbox)
+            [&sampler, &worldBox, &res, &comp, &stride, &ranges, &dataArray](const openvdb::CoordBBox& bbox)
         {
             tbb::enumerable_thread_specific<ValueRange<T>>::reference this_range = ranges.local();
             for (int z = bbox.min().z(); z <= bbox.max().z(); ++z)
@@ -381,12 +385,12 @@ protected:
                     for (int x = bbox.min().x(); x <= bbox.max().x(); ++x)
                     {
                         const openvdb::Vec3i domain_index(x, y, z);
-                        const int linear_index = domain_index.dot(stride) * 4;
+                        const int linear_index = domain_index.dot(stride) * comp;
                         openvdb::Vec3d pos(res[0], res[1], res[2]), ext = worldBox.extents();
                         pos = worldBox.min() + ((openvdb::Vec3d(domain_index) + 0.5) / pos) * ext;
 
                         T value = sampler.wsSample(pos);
-                        for (int i = 0; i < 4; ++i) dataArray[linear_index + i] = value;
+                        for (int i = 0; i < comp; ++i) dataArray[linear_index + i] = value;
                         this_range.addValue(value);
                     }
         });
@@ -402,7 +406,7 @@ protected:
 
         // Remap sample values to [0, 1]
         unsigned char* ptr = (unsigned char*)image->data();
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, num_voxels * 4),
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, num_voxels * comp),
             [&ptr, &dataArray, &out_value_range](const tbb::blocked_range<size_t>& range)
         {
             double inv = 1.0 / (double)(out_value_range._max - out_value_range._min);

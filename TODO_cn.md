@@ -33,6 +33,7 @@
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 帧速率较低时，会明显感受到Deferred场景比Forward慢一拍 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox对于大坐标场景显示错误，并且被裁切 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | SkyBox用tex2d纹理时，会有一条明显的接缝边界线 | |
+| 渲染      | pipeline     | 除虫     |                    | initial  | BrdfLUT处理的结果没有考虑滤波问题 | https://github.com/xarray/osgverse/issues/7 |
 | 渲染      | pipeline     | 新增     |                    | initial  | SkyBox中支持后处理的Atmospheric Scattering天空盒 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | NodeSelector会被物体遮挡 | |
 | 渲染      | pipeline     | 除虫     |                    | initial  | 对于大坐标模型，NodeSelector无法正确显示 | |
@@ -46,10 +47,11 @@
 | 渲染      | pipeline     | 优化     |                    | initial  | 目前没办法处理Viewer多线程DrawThreadPerContext和ThreadPerCamera | |
 | 渲染      | pipeline     | 新增     |                    | initial  | 考虑初步支持OpenXR标准的VR设备渲染 | |
 | 渲染      | pipeline     | 除虫     | :heavy_check_mark: | initial  | 全屏/窗口切换或者缩放窗口大小后，多层阴影显示不正确 | |
+| 渲染      | pipeline     | 除虫     |                    | initial  | 加入自定义管线后，全屏/窗口切换，阴影和场景显示错误 | |
 | 渲染      | pipeline     | 新增     | :heavy_check_mark: | initial  | 支持非MRT的流水线，且GBuffer Pass可以支持PBR透明体和前向光照 | |
-| 渲染      | pipeline     | **除虫** |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
-| 渲染      | pipeline     | **除虫** |                    | initial  | 对于小物件，AO的效果噪声比较严重，且Bloom结果不好 | |
-| 渲染      | pipeline     | **除虫** |                    | initial  | 对于简单几何体，光照容易产生异常边界线，效果不好 | |
+| 渲染      | pipeline     | 除虫     |                    | initial  | 处理某些模型时，HBAO法线出现大量花斑 | |
+| 渲染      | pipeline     | 除虫     |                    | initial  | 对于小物件，AO的效果噪声比较严重，且Bloom结果不好 | |
+| 渲染      | pipeline     | 除虫     |                    | initial  | 对于简单几何体，光照容易产生异常边界线，效果不好 | |
 | 渲染      | pipeline     | 优化     | :heavy_check_mark: | initial  | 在PBR Lighting过程中通过LightManager光源数据表计算多种光照结果 | |
 | 渲染/例程 | pipeline     | 新增     |                    | initial  | 增加一个测试案例演示如何增加多个光源，并测试多光源渲染压力 | |
 | 渲染      | pipeline     | 除虫     |                    | initial  | 如果clearStagesFromView()删除管线，移动视角后再恢复，则阴影错误 | |
@@ -66,15 +68,15 @@
 | 辅助工具  | helpers      | 新增     | :heavy_check_mark: | initial  | 实现Unity的导出插件第一版(静态模型，PBR材质) | |
 | 辅助工具  | helpers      | 新增     |                    | initial  | 实现Blender的导出插件第一版(静态模型，PBR材质) | |
 | 辅助工具  | helpers      | 新增     |                    | initial  | 实现3dsmax的导出插件第一版(静态模型，PBR材质) | |
-| 数据读写  | readerwriter | 新增     |                    | initial  | 自动检查输入几何体的正确性，尝试用Indirect替换优化 | |
-| 数据读写  | readerwriter | 新增     |                    | initial  | 支持流传输修改模型，实现Blender和编辑器的动态模型切换编辑 | |
+| 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 自动检查输入几何体的正确性，尝试优化输入的几何数据 | |
+| 数据读写  | readerwriter | 新增     |                    | initial  | 支持MeshSync流传输修改模型，实现Blender和编辑器的动态模型切换编辑 | |
 | 数据读写  | readerwriter | 优化     | 50%                | initial  | FBX和GLTF插件支持导入角色和角色动画并显示 | 已实现GLTF导入角色 |
 | 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持KTX纹理格式的读取和写入，支持纹理压缩功能 | |
 | 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持默认常见图片格式的读取，不需要额外插件，主要用于WASM等场合 | |
-| 数据读写  | readerwriter | 新增     |                    | initial  | 支持倾斜摄影模型的相邻层合并，顶层合并，3dtiles读取和转换 | |
+| 数据读写  | readerwriter | 新增     | :heavy_check_mark: | initial  | 支持倾斜摄影模型的相邻层合并，顶层合并，3dtiles读取 | |
 | 数据读写  | readerwriter | 新增     |                    | initial  | 支持倾斜摄影数据的自动修改处理框架| |
 | 模型/动画 | animation    | 优化     | :heavy_check_mark: | initial  | PlayerAnimation支持直接输入角色骨骼和动画数据 | |
-| 模型/动画 | animation    | 优化     |                    | initial  | PlayerAnimation支持外部数据驱动 | |
+| 模型/动画 | animation    | 优化     | :heavy_check_mark: | initial  | PlayerAnimation支持外部数据驱动 | |
 | 模型/动画 | animation    | 优化     | 80%                | initial  | 支持EaseMotion，路径动画，DoTween形式的纤程动画 | 已实现TweenAnimation，待测试 |
 | 模型/动画 | animation    | 优化     |                    | initial  | 支持PhysX引擎的刚体，步行漫游，驾驶 | |
 | 模型/动画 | animation    | 优化     |                    | initial  | 支持初步的粒子系统，基于计算着色器 | |
