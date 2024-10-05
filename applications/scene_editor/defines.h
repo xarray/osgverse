@@ -84,7 +84,7 @@ USE_SERIALIZER_INTERFACE(VECTOR)
 class EditorContentHandler : public osgVerse::ImGuiContentHandler
 {
 public:
-    EditorContentHandler(osgViewer::View* view);
+    EditorContentHandler(osgViewer::View* view, osg::Group* root);
     osgVerse::Window* getHierarchy() { return _hierarchy.get(); }
     osgVerse::Window* getProperties() { return _properties.get(); }
     osgVerse::MainMenuBar* getMainMenu() { return _mainMenu.get(); }
@@ -100,6 +100,9 @@ protected:
     osg::ref_ptr<osgVerse::MainMenuBar> _mainMenu;
     osg::ref_ptr<osgVerse::Window> _hierarchy, _properties;
     osg::ref_ptr<osgVerse::SceneHierarchy> _hierarchyData;
+
+    osg::ref_ptr<osgVerse::LibraryEntry> _entry;
+    std::vector<osg::ref_ptr<osgVerse::SerializerInterface>> _interfaces;
     unsigned int _uiFrameNumber;
 };
 

@@ -13,7 +13,7 @@ namespace osgVerse
     {
     public:
         SceneHierarchy();
-        void setViewer(osgViewer::View* view);
+        void setViewer(osgViewer::View* view, osg::Node* rootNode = NULL);
 
         TreeView* getTreeView() { return _treeView.get(); }
         TreeView::TreeData* getViewerRoot() { return _camTreeData.get(); }
@@ -34,8 +34,12 @@ namespace osgVerse
                            osgVerse::ImGuiContentHandler* content);
 
     protected:
+        MenuBar::MenuItemData createPopupMenu(const std::string& name,
+                                              ImGuiComponentBase::ActionCallback cb = NULL);
+
         osg::ref_ptr<TreeView> _treeView;
         osg::ref_ptr<TreeView::TreeData> _camTreeData, _sceneTreeData;
+        osg::ref_ptr<MenuBar> _popupBar;
         osg::observer_ptr<TreeView::TreeData> _selectedItem;
         std::vector<MenuBarBase::MenuItemData> _popupMenus;
         NodeToItemMapper _nodeToItemMap;

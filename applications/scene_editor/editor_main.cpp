@@ -64,7 +64,7 @@ public:
     }
 };
 
-EditorContentHandler::EditorContentHandler(osgViewer::View* view)
+EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* root)
     : _uiFrameNumber(0)
 {
 #ifdef ORIGIN_CODE
@@ -76,15 +76,22 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view)
 #endif
 
     _hierarchyData = new osgVerse::SceneHierarchy;
-    _hierarchyData->setViewer(view);
+    _hierarchyData->setViewer(view, root);
     _hierarchyData->setItemClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
-            // TODO: select in 3D view, show properties
-            std::cout << "ITEM SELECTED " << item->name << std::endl;
+            // TODO: select in 3D view
+            osg::Object* obj = dynamic_cast<osg::Object*>(item->userData.get());
+            if (obj != NULL)
+            {
+                _entry = osgVerse::SerializerFactory::instance()
+                       ->createInterfaces(obj, NULL, _interfaces);
+            }
+            else
+                _interfaces.clear();
         });
     _hierarchyData->setItemDoubleClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
-            // TODO: focus in 3D view
+            // TODO: focus in 3D view?
             std::cout << "ITEM DOUBLE CLICKED " << item->name << std::endl;
         });
 
@@ -95,55 +102,37 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view)
     _hierarchy->useMenuBar = false;
     _hierarchy->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _hierarchy->userData = this;
+
+    _properties = new osgVerse::Window(TR0("Properties") + "##editor");
+    _properties->pos = osg::Vec2(0.8f, 0.0f);
+    _properties->size = osg::Vec2(0.4f, 0.75f);
+    _properties->alpha = 0.9f;
+    _properties->useMenuBar = false;
+    _properties->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
+    _properties->userData = this;
+
+    // TEST
+    root->addChild(osgDB::readNodeFile("cessna.osg"));
+    _hierarchyData->addItem(NULL, root->getChild(0));
 }
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 {
     ImGui::PushFont(ImGuiFonts["LXGWFasmartGothic"]);
-#ifdef ORIGIN_CODE
-    handleCommands();
-    _mainMenu->show(mgr, this);
-    ImGui::Separator();
-
-    if (_uiFrameNumber > 0)
-    {
-        // Wait for the first frame to initialize ImGui work-size
-        if (_hierarchy.valid()) _hierarchy->show(mgr, this);
-        if (_properties.valid()) _properties->show(mgr, this);
-        if (_sceneLogic.valid()) _sceneLogic->show(mgr, this);
-    }
-
-    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-    {
-        // TODO: auto layout
-        osg::Vec4 hSize = _hierarchy->getWindow()->getCurrentRectangle();
-        osg::Vec4 pSize = _properties->getWindow()->getCurrentRectangle();
-        osg::Vec4 lSize = _sceneLogic->getWindow()->getCurrentRectangle();
-    }
-
-    // Dialog management
-    { std::string r; osgVerse::ImGuiComponentBase::showFileDialog(r); }
-    { bool r = false; osgVerse::ImGuiComponentBase::showConfirmDialog(r); }
-#endif
-
-    static osg::ref_ptr<osg::Fog> mt;
-    static osg::ref_ptr<osgVerse::LibraryEntry> entry;
-    static std::vector<osg::ref_ptr<osgVerse::SerializerInterface>> interfaces;
-    if (!mt)
-    {
-        _hierarchyData->addItem(NULL, osgDB::readNodeFile("lz.osgt"));
-
-        mt = new osg::Fog;
-        entry = osgVerse::SerializerFactory::instance()
-              ->createInterfaces(mt.get(), NULL, interfaces);
-    }
-    for (size_t i = 0; i < interfaces.size(); ++i)
-        interfaces[i]->show(mgr, this);
 
     bool done = _hierarchy->show(mgr, this);
+    if (done)
     {
         _hierarchyData->show(mgr, this);
         _hierarchy->showEnd();
+    }
+
+    done |= _properties->show(mgr, this);
+    if (done)
+    {
+        for (size_t i = 0; i < _interfaces.size(); ++i)
+            _interfaces[i]->show(mgr, this);
+        _properties->showEnd();
     }
 
     ImGui::PopFont();
@@ -274,7 +263,7 @@ int main(int argc, char** argv)
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
-    imgui->initialize(new EditorContentHandler(&viewer));
+    imgui->initialize(new EditorContentHandler(&viewer, sceneRoot.get()));
     imgui->addToView(&viewer, postCamera.get());
     return viewer.run();
 }

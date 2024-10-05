@@ -116,12 +116,108 @@ SceneHierarchy::SceneHierarchy()
         _selectedItem = treeView->findByID(id);
         if (_selectedItem.valid()) _selectedItemPopupTriggered = true;
     };
+
+    _popupBar = new osgVerse::MenuBar;
+    {
+        MenuBar::MenuItemData newItem = createPopupMenu("Add Child");
+        {
+            newItem.subItems.push_back(createPopupMenu("Group",
+                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+            { OSG_NOTICE << "TODO: add Group" << std::endl; }));
+            newItem.subItems.push_back(createPopupMenu("Transform",
+                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+            { OSG_NOTICE << "TODO: add Transform" << std::endl; }));
+
+            MenuBar::MenuItemData newGeomItem = createPopupMenu("Geometry");
+            {
+                newGeomItem.subItems.push_back(createPopupMenu("Box",
+                    [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+                { OSG_NOTICE << "TODO: add Box" << std::endl; }));
+                newGeomItem.subItems.push_back(createPopupMenu("Sphere",
+                    [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+                { OSG_NOTICE << "TODO: add Sphere" << std::endl; }));
+                newGeomItem.subItems.push_back(createPopupMenu("Cylinder",
+                    [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+                { OSG_NOTICE << "TODO: add Cylinder" << std::endl; }));
+                newGeomItem.subItems.push_back(createPopupMenu("Cone",
+                    [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+                { OSG_NOTICE << "TODO: add Cone" << std::endl; }));
+                newGeomItem.subItems.push_back(createPopupMenu("Capsule",
+                    [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+                { OSG_NOTICE << "TODO: add Capsule" << std::endl; }));
+                newGeomItem.subItems.push_back(createPopupMenu("Plane",
+                    [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+                { OSG_NOTICE << "TODO: add Plane" << std::endl; }));
+            }
+            newItem.subItems.push_back(newGeomItem);
+
+            newItem.subItems.push_back(createPopupMenu("Light",
+                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+            { OSG_NOTICE << "TODO: add Light" << std::endl; }));
+
+            newItem.subItems.push_back(createPopupMenu("Camera",
+                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+            { OSG_NOTICE << "TODO: add Camera" << std::endl; }));
+        }
+        _popupMenus.push_back(newItem);
+
+        _popupMenus.push_back(createPopupMenu("Add from ...",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: add from ..." << std::endl; }));
+
+        _popupMenus.push_back(createPopupMenu("Remove",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: remove" << std::endl; }));
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        _popupMenus.push_back(createPopupMenu("Move Up",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: move-up" << std::endl; }));
+
+        _popupMenus.push_back(createPopupMenu("Move Down",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: move-down" << std::endl; }));
+
+        _popupMenus.push_back(createPopupMenu("Cut",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: cut" << std::endl; }));
+
+        _popupMenus.push_back(createPopupMenu("Copy",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: copy" << std::endl; }));
+
+        _popupMenus.push_back(createPopupMenu("Paste",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: paste" << std::endl; }));
+
+        _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
+
+        _popupMenus.push_back(createPopupMenu("Hide",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: hide" << std::endl; }));
+
+        _popupMenus.push_back(createPopupMenu("Rename",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: rename" << std::endl; }));
+
+        _popupMenus.push_back(createPopupMenu("Share",
+            [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+        { OSG_NOTICE << "TODO: share" << std::endl; }));
+    }
 }
 
-void SceneHierarchy::setViewer(osgViewer::View* view)
+MenuBar::MenuItemData SceneHierarchy::createPopupMenu(const std::string& name,
+                                                      ImGuiComponentBase::ActionCallback cb)
+{
+    MenuBar::MenuItemData item(osgVerse::MenuBar::TR(name) + "##popup" + _postfix);
+    item.callback = cb; return item;
+}
+
+void SceneHierarchy::setViewer(osgViewer::View* view, osg::Node* rootNode)
 {
     _camTreeData->userData = view;
-    _sceneTreeData->userData = view->getSceneData();
+    _sceneTreeData->userData = (rootNode != NULL) ? rootNode : view->getSceneData();
 }
 
 TreeView::TreeData* SceneHierarchy::addItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph)
@@ -195,5 +291,6 @@ bool SceneHierarchy::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 void SceneHierarchy::showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGuiManager* mgr,
                                    osgVerse::ImGuiContentHandler* content)
 {
-    // TODO
+    for (size_t i = 0; i < _popupMenus.size(); ++i)
+        _popupBar->showMenuItem(_popupMenus[i], mgr, content);
 }

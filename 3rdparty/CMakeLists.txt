@@ -482,18 +482,9 @@ SET(RASTERIZER_SOURCE_FILES
     rasterizer/Occluder.cpp rasterizer/Occluder.h rasterizer/VectorMath.h
 )
 
-SET(SCRIPTX_SOURCE_FILES
-    scriptx/src/Engine.h scriptx/src/Engine.hpp scriptx/src/Engine.cc scriptx/src/Reference.h scriptx/src/Reference.cc
-    scriptx/src/Scope.h scriptx/src/Scope.cc scriptx/src/Value.h scriptx/src/Exception.h scriptx/src/Inspector.h
-    scriptx/src/Native.h scriptx/src/Native.hpp scriptx/src/Native.cc scriptx/src/types.h scriptx/src/Utils.cc
-    scriptx/src/utils/GlobalWeakBookkeeping.hpp scriptx/src/utils/Helper.hpp scriptx/src/utils/Helper.cc
-    scriptx/src/utils/MemoryPool.hpp scriptx/src/utils/MessageQueue.cc
-    scriptx/src/utils/ThreadPool.cc scriptx/src/utils/TypeInformation.h
-    scriptx/backend/Template/TemplateEngine.cc scriptx/backend/Template/TemplateEngine.h
-    scriptx/backend/Template/TemplateException.cc scriptx/backend/Template/TemplateLocalReference.cc
-    scriptx/backend/Template/TemplateNative.cc scriptx/backend/Template/TemplateNative.hpp
-    scriptx/backend/Template/TemplateReference.hpp
-    scriptx/backend/Template/TemplateUtils.cc scriptx/backend/Template/TemplateValue.cc
+SET(QUICKJS_SOURCE_FILES
+    quickjs/cutils.c quickjs/libbf.c quickjs/libregexp.c quickjs/quickjs.h
+    quickjs/libunicode.c quickjs/quickjs.c quickjs/quickjs-libc.c
 )
 
 SET(MESHOPTIMIZER_SOURCE_FILES
@@ -537,7 +528,7 @@ SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
 SOURCE_GROUP("Rasterizer Files" FILES ${RASTERIZER_SOURCE_FILES})
-SOURCE_GROUP("ScriptX Files" FILES ${SCRIPTX_SOURCE_FILES})
+SOURCE_GROUP("QuickJS Files" FILES ${QUICKJS_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
@@ -559,7 +550,7 @@ SET(LIBRARY_FILES
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
     ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
-    ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${SCRIPTX_SOURCE_FILES}
+    ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${QUICKJS_SOURCE_FILES}
 )
 
 IF(LIBIGL_FOUND)
@@ -580,8 +571,7 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPD
                 -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
                 -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0
-				-DIMGUI_IMPL_OPENGL_LOADER_GLEW -DUNORDERED -DHAVE_UNORDERED_MAP=1
-                -DDISABLE_EXCEPTION_CATCHING=0 -DSCRIPTX_BACKEND_TRAIT_PREFIX=../backend/Template/trait/Trait)
+				-DIMGUI_IMPL_OPENGL_LOADER_GLEW -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # disable use of json.hpp in VS2015 or lower
 ENDIF(MSVC_VERSION LESS 1910)
@@ -641,7 +631,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    quadriflow recastnavigation/Detour scriptx/src/include scriptx/thirdparty/quickjs
+                    quadriflow recastnavigation/Detour scriptx/src/include quickjs
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
