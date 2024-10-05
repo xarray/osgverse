@@ -131,7 +131,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     static std::vector<osg::ref_ptr<osgVerse::SerializerInterface>> interfaces;
     if (!mt)
     {
-        _hierarchyData->addItem(NULL, new osg::Geode, false);
+        _hierarchyData->addItem(NULL, osgDB::readNodeFile("lz.osgt"));
 
         mt = new osg::Fog;
         entry = osgVerse::SerializerFactory::instance()

@@ -60,6 +60,7 @@
 | PoissonGenerator | Embedded |           | Pipeline           | -            | |
 | polylabel        | Embedded | 2.0.1     | Modeling           | ISC          | https://github.com/mapbox/polylabel |
 | rasterizer       | Embedded |           | Pipeline           | -            | https://github.com/rawrunprotected/rasterizer |
+| ScriptX          | Embedded |           | Script             | Apache2      | https://github.com/Tencent/ScriptX |
 | span             | Embedded |           | -                  | Boost        | https://github.com/tcbrindle/span |
 | sqlite3          | Embedded |           | -                  | Public       | https://www.sqlite.org/index.html |
 | strtk            | Embedded |           | -                  | MIT          | https://github.com/ArashPartow/strtk |

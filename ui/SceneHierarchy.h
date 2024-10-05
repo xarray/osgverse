@@ -19,12 +19,15 @@ namespace osgVerse
         TreeView::TreeData* getViewerRoot() { return _camTreeData.get(); }
         TreeView::TreeData* getSceneRoot() { return _sceneTreeData.get(); }
 
+        typedef std::map<osg::Object*, osg::observer_ptr<TreeView::TreeData>> NodeToItemMapper;
+        NodeToItemMapper& getNodeToItemMap() { return _nodeToItemMap; }
+
         typedef std::function<void(TreeView*, TreeView::TreeData*)> ActionCallback;
         void setItemClickAction(ActionCallback act) { _clickAction = act; }
         void setItemDoubleClickAction(ActionCallback act) { _dbClickAction = act; }
 
-        TreeView::TreeData* addItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph);
-        void removeItem(TreeView::TreeData* parent, osg::Object* obj);
+        TreeView::TreeData* addItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph = true);
+        bool removeItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph = true);
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         void showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse::ImGuiManager* mgr,
@@ -33,8 +36,9 @@ namespace osgVerse
     protected:
         osg::ref_ptr<TreeView> _treeView;
         osg::ref_ptr<TreeView::TreeData> _camTreeData, _sceneTreeData;
-        std::vector<MenuBarBase::MenuItemData> _popupMenus;
         osg::observer_ptr<TreeView::TreeData> _selectedItem;
+        std::vector<MenuBarBase::MenuItemData> _popupMenus;
+        NodeToItemMapper _nodeToItemMap;
 
         ActionCallback _clickAction, _dbClickAction;
         std::string _postfix;
