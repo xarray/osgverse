@@ -2,6 +2,7 @@
 #include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
+#include <osg/PagedLOD>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
 #include <nanoid/nanoid.h>
@@ -16,34 +17,45 @@ public:
     HierarchyCreatingVisitor(SceneHierarchy* h, TreeView::TreeData* parent, bool m)
         : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
     {
-        _itemStack.push(parent); _hierarchy = h; _removingMode = m;
+        _maskStack.push(0xffffffff); _itemStack.push(parent);
+        _hierarchy = h; _removingMode = m;
         setNodeMaskOverride(0xffffffff);
     }
 
     virtual void apply(osg::Drawable& node)
     {
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
+        _maskStack.push(_maskStack.top() & node.getNodeMask());
         push(&node); traverse(node); pop(&node);
+        _maskStack.pop();
 #endif
     }
 
     virtual void apply(osg::Geometry& node)
     {
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
+        _maskStack.push(_maskStack.top() & node.getNodeMask());
         push(&node); traverse(node); pop(&node);
+        _maskStack.pop();
 #endif
     }
 
     virtual void apply(osg::Node& node)
-    { push(&node); traverse(node); pop(&node); }
+    {
+        _maskStack.push(_maskStack.top() & node.getNodeMask());
+        push(&node); traverse(node); pop(&node);
+        _maskStack.pop();
+    }
 
     virtual void apply(osg::Geode& node)
     {
+        _maskStack.push(_maskStack.top() & node.getNodeMask());
 #if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
             apply(*node.getDrawable(i));
 #endif
         push(&node); traverse(node); pop(&node);
+        _maskStack.pop();
     }
 
     void push(osg::Object* obj)
@@ -56,31 +68,35 @@ public:
         }
         else
         {
-            TreeView::TreeData* item = _hierarchy->addItem(_itemStack.top(), obj, false);
+            TreeView::TreeData* item =
+                _hierarchy->addItem(_itemStack.top(), obj, false, _maskStack.top());
             if (item != NULL) _itemStack.push(item);
         }
     }
 
     void pop(osg::Object* obj)
     {
-        if (_removingMode)
+        _itemStack.pop();
+        if (_removingMode && !_itemStack.empty())
         {
             TreeView::TreeData* parent = _itemStack.top();
             _hierarchy->removeItem(parent, obj, false);
         }
-        _itemStack.pop();
     }
 
 protected:
+    std::stack<unsigned int> _maskStack;
     std::stack<TreeView::TreeData*> _itemStack;
     osg::observer_ptr<SceneHierarchy> _hierarchy;
     bool _removingMode;
 };
 
 SceneHierarchy::SceneHierarchy()
-    : _selectedItemPopupTriggered(false)
+    : _stateFlags(0), _selectedItemPopupTriggered(false)
 {
     _postfix = "##" + nanoid::generate(8);
+    _entries["osg"] = new LibraryEntry("osg");
+
     _treeView = new TreeView;
     _treeView->userData = this;
     {
@@ -123,10 +139,16 @@ SceneHierarchy::SceneHierarchy()
         {
             newItem.subItems.push_back(createPopupMenu("Group",
                 [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-            { OSG_NOTICE << "TODO: add Group" << std::endl; }));
+            {
+                if (!addOperation(_selectedItem.get(), "osg::Group"))
+                    OSG_WARN << "[SceneHierarchy] Failed adding group: " << _selectedItem->name << std::endl;
+            }));
             newItem.subItems.push_back(createPopupMenu("Transform",
                 [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-            { OSG_NOTICE << "TODO: add Transform" << std::endl; }));
+            {
+                if (!addOperation(_selectedItem.get(), "osg::MatrixTransform"))
+                    OSG_WARN << "[SceneHierarchy] Failed adding transform: " << _selectedItem->name << std::endl;
+            }));
 
             MenuBar::MenuItemData newGeomItem = createPopupMenu("Geometry");
             {
@@ -167,7 +189,10 @@ SceneHierarchy::SceneHierarchy()
 
         _popupMenus.push_back(createPopupMenu("Remove",
             [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-        { OSG_NOTICE << "TODO: remove" << std::endl; }));
+        {
+            if (!removeOperation(_selectedItem.get()))
+                OSG_WARN << "[SceneHierarchy] Failed removing child: " << _selectedItem->name << std::endl;
+        }));
 
         _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
@@ -193,6 +218,22 @@ SceneHierarchy::SceneHierarchy()
 
         _popupMenus.push_back(osgVerse::MenuBar::MenuItemData::separator);
 
+        MenuBar::MenuItemData stateItem = createPopupMenu("Information");
+        {
+            stateItem.subItems.push_back(createPopupMenu("Stateset",
+                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+            { _stateFlags = 0; refreshItem(_sceneTreeData.get()); }));
+
+            stateItem.subItems.push_back(createPopupMenu("Callback",
+                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+            { _stateFlags = 1; refreshItem(_sceneTreeData.get()); }));
+
+            stateItem.subItems.push_back(createPopupMenu("Ref Count",
+                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
+            { _stateFlags = 2; refreshItem(_sceneTreeData.get()); }));
+        }
+        _popupMenus.push_back(stateItem);
+
         _popupMenus.push_back(createPopupMenu("Hide",
             [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
         { OSG_NOTICE << "TODO: hide" << std::endl; }));
@@ -216,11 +257,12 @@ MenuBar::MenuItemData SceneHierarchy::createPopupMenu(const std::string& name,
 
 void SceneHierarchy::setViewer(osgViewer::View* view, osg::Node* rootNode)
 {
-    _camTreeData->userData = view;
+    _camTreeData->userData = NULL;
     _sceneTreeData->userData = (rootNode != NULL) ? rootNode : view->getSceneData();
 }
 
-TreeView::TreeData* SceneHierarchy::addItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph)
+TreeView::TreeData* SceneHierarchy::addItem(TreeView::TreeData* parent, osg::Object* obj,
+                                            bool asSubGraph, unsigned int parentMask)
 {
     if (!obj) return NULL; else if (!parent) parent = _sceneTreeData.get();
     if (asSubGraph)
@@ -229,17 +271,25 @@ TreeView::TreeData* SceneHierarchy::addItem(TreeView::TreeData* parent, osg::Obj
         if (node != NULL) { HierarchyCreatingVisitor hv(this, parent, false); node->accept(hv); }
     }
 
-    if (_nodeToItemMap.find(obj) == _nodeToItemMap.end())
+    NodeToItemMapper::iterator itr = _nodeToItemMap.find(obj);
+    if (itr == _nodeToItemMap.end())
     {
         TreeView::TreeData* treeItem = new TreeView::TreeData;
-        treeItem->name = (obj->getName().empty() ? obj->className() : obj->getName());
         treeItem->id = "##node_" + nanoid::generate(8);
-        treeItem->name += treeItem->id;
         treeItem->tooltip = obj->libraryName() + std::string("::") + obj->className();
         treeItem->userData = obj; _nodeToItemMap[obj] = treeItem;
         parent->children.push_back(treeItem);
     }
+    updateStateInformation(_nodeToItemMap[obj].get(), obj, parentMask);
     return _nodeToItemMap[obj].get();
+}
+
+void SceneHierarchy::refreshItem(TreeView::TreeData* parent)
+{
+    if (!parent) parent = _selectedItem.get(); if (!parent) parent = _sceneTreeData.get();
+    osg::Node* node = dynamic_cast<osg::Node*>(parent->userData.get());
+    if (node != NULL) { HierarchyCreatingVisitor hv(this, parent, false); node->accept(hv); }
+    // TODO: remove non-existing items when refreshing scene graph
 }
 
 bool SceneHierarchy::removeItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph)
@@ -263,7 +313,8 @@ bool SceneHierarchy::removeItem(TreeView::TreeData* parent, osg::Object* obj, bo
             return true;
         }
         else
-            OSG_WARN << "[SceneHierarchy] Object to remove not belong to " << parent->name << std::endl;
+            OSG_WARN << "[SceneHierarchy] Item to remove (" << current->name << ") not belong to "
+                     << parent->name << std::endl;
     }
     return false;
 }
@@ -293,4 +344,94 @@ void SceneHierarchy::showPopupMenu(osgVerse::TreeView::TreeData* item, osgVerse:
 {
     for (size_t i = 0; i < _popupMenus.size(); ++i)
         _popupBar->showMenuItem(_popupMenus[i], mgr, content);
+}
+
+void SceneHierarchy::updateStateInformation(TreeView::TreeData* item, osg::Object* obj,
+                                            unsigned int parentMask)
+{
+    bool fixedColor = false; item->color = 0xFFFFFFFF;
+    if (parentMask == 0) { item->color = 0xFF666666; fixedColor = true; }
+    item->name = (obj->getName().empty() ? obj->className() : obj->getName()) + item->id;
+
+    if (obj->asDrawable())
+    {
+        osg::Drawable* drawable = obj->asDrawable();
+        if (!fixedColor) item->color = 0xFF00FFFF;
+
+        switch (_stateFlags)
+        {
+        case 0: item->state = drawable->getStateSet() ? "SS" : ""; break;
+        case 1: item->state = (drawable->getUpdateCallback() || drawable->getEventCallback()) ? "CB" : ""; break;
+        default: item->state = std::to_string(drawable->referenceCount() - 1); break;
+        }
+    }
+    else if (obj->asNode())
+    {
+        osg::Node* node = obj->asNode();
+        if (node->asGeode())
+            { if (!fixedColor) item->color = 0xFFAAFFAA; }
+        else if (node->asGroup())
+        {
+            if (node->asGroup()->asTransform())
+                { if (!fixedColor) item->color = 0xFFFFAAAA; }
+            else
+            {
+                osg::PagedLOD* plod = dynamic_cast<osg::PagedLOD*>(node);
+                if (plod && !fixedColor) item->color = 0xFFAAAAFF;
+            }
+        }
+
+        switch (_stateFlags)
+        {
+        case 0: item->state = node->getStateSet() ? "SS" : ""; break;
+        case 1: item->state = (node->getUpdateCallback() || node->getEventCallback()) ? "CB" : ""; break;
+        default: item->state = std::to_string(node->referenceCount() - 1); break;
+        }
+    }
+}
+
+bool SceneHierarchy::addOperation(TreeView::TreeData* item, const std::string& childType, bool isGeom)
+{
+    bool finished = false;
+    if (item && item->userData.valid())
+    {
+        osg::ref_ptr<osg::Object> parent = static_cast<osg::Object*>(item->userData.get());
+        osg::ref_ptr<osg::Object> child = _entries["osg"]->create(childType);
+        if (isGeom)
+        {
+            osg::ref_ptr<osg::Object> geode = dynamic_cast<osg::Geode*>(parent.get());
+            if (!geode)
+            {
+                geode = _entries["osg"]->create("osg::Geode");
+                if (_entries["osg"]->callMethod(parent.get(), "addChild", geode.get()))
+                    finished = false;
+            }
+            finished = _entries["osg"]->callMethod(geode.get(), "addDrawable", child.get());
+        }
+        else if (parent.valid() && child.valid())
+            finished = _entries["osg"]->callMethod(parent.get(), "addChild", child.get());
+        if (finished) addItem(item, child.get(), true);
+    }
+    return finished;
+}
+
+bool SceneHierarchy::removeOperation(TreeView::TreeData* subItem)
+{
+    osg::ref_ptr<osg::Object> child = static_cast<osg::Object*>(subItem ? subItem->userData.get() : NULL);
+    if (child.valid())
+    {
+        std::vector<TreeView::TreeData*> parents = _treeView->findParents(subItem);
+        for (size_t i = 0; i < parents.size(); ++i)
+        {
+            bool finished = false;
+            osg::ref_ptr<osg::Object> parent = static_cast<osg::Object*>(parents[i]->userData.get());
+            if (dynamic_cast<osg::Geode*>(parent.get()) != NULL)
+                finished = _entries["osg"]->callMethod(parent.get(), "removeDrawable", child.get());
+            else
+                finished = _entries["osg"]->callMethod(parent.get(), "removeChild", child.get());
+            if (finished) removeItem(parents[i], child.get(), true);
+        }
+        return !parents.empty();
+    }
+    return false;
 }

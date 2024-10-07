@@ -285,17 +285,18 @@ namespace osgVerse
     {
         struct TreeData : public osg::Referenced
         {
-            ImGuiTreeNodeFlags flags;
-            std::string id, name, tooltip;
+            ImGuiTreeNodeFlags flags; unsigned int color;
+            std::string id, name, state, tooltip;
             std::vector<osg::ref_ptr<TreeData>> children;
             osg::ref_ptr<osg::Referenced> userData;
-            TreeData() : flags(ImGuiTreeNodeFlags_DefaultOpen |
-                               ImGuiTreeNodeFlags_OpenOnArrow) {}
+            TreeData() : flags(ImGuiTreeNodeFlags_DefaultOpen | /*ImGuiTreeNodeFlags_Framed |*/
+                               ImGuiTreeNodeFlags_OpenOnArrow), color(0xffffffff) {}
         };
         std::vector<osg::ref_ptr<TreeData>> treeDataList;
         std::string selectedItemID;
-        ActionCallback2 callback, callbackR;
+        ActionCallback2 callback, callbackR, callbackSB;
 
+        std::vector<TreeData*> findParents(TreeData* child) const;
         std::vector<TreeData*> findByName(const std::string& name) const;
         std::vector<TreeData*> findByUserData(osg::Referenced* ud) const;
         TreeData* findByID(const std::string& id) const;

@@ -16,7 +16,7 @@ public:
         {
             osg::Vec3d c, s; _center->getVector(c); _sizes->getVector(s);
             _bbox._min = c - s * 0.5; _bbox._max = c + s * 0.5;
-            _entry->setProperty(_object.get(), _property.name, _bbox);
+            if (_entry->setProperty(_object.get(), _property.name, _bbox)) doneEditing();
         };
 
         _sizes = new InputVectorField(TR("Size") + _postfix); _sizes->vecNumber = 3;
@@ -25,7 +25,7 @@ public:
         {
             osg::Vec3d c, s; _center->getVector(c); _sizes->getVector(s);
             _bbox._min = c - s * 0.5; _bbox._max = c + s * 0.5;
-            _entry->setProperty(_object.get(), _property.name, _bbox);
+            if (_entry->setProperty(_object.get(), _property.name, _bbox)) doneEditing();
         };
     }
 
@@ -58,7 +58,7 @@ public:
         _center->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             osg::Vec3d c; _center->getVector(c); _bsphere.set(c, _radius->value);
-            _entry->setProperty(_object.get(), _property.name, _bsphere);
+            if (_entry->setProperty(_object.get(), _property.name, _bsphere)) doneEditing();
         };
 
         _radius = new InputValueField(TR("Radius") + _postfix);
@@ -66,7 +66,7 @@ public:
         _radius->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             osg::Vec3d c; _center->getVector(c); _bsphere.set(c, _radius->value);
-            _entry->setProperty(_object.get(), _property.name, _bsphere);
+            if (_entry->setProperty(_object.get(), _property.name, _bsphere)) doneEditing();
         };
     }
 

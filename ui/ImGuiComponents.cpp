@@ -534,14 +534,34 @@ bool ListView::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
 /// TreeView related
 
+static void findTreeParentRecursively(TreeView::TreeData* td, std::vector<TreeView::TreeData*>& output,
+                                      TreeView::TreeData* child)
+{
+    if (td == child) return;
+    for (size_t i = 0; i < td->children.size(); ++i)
+    {
+        TreeView::TreeData* item = td->children[i].get();
+        if (item == child) output.push_back(td);
+        findTreeParentRecursively(item, output, child);
+    }
+}
+
 static void findTreeDataRecursively(TreeView::TreeData& td, std::vector<TreeView::TreeData*>& output,
                                     const std::string& id, const std::string& name, osg::Referenced* ud)
 {
-    if (!id.empty()) { if (id == td.id) { output.push_back(&td); return; } }
+    if (!id.empty()) { if (id == td.id) {output.push_back(&td); return;} }
     else if (!name.empty()) { if (name == td.name) output.push_back(&td); }
     else if (ud) { if (ud == td.userData) output.push_back(&td); }
     for (size_t i = 0; i < td.children.size(); ++i)
         findTreeDataRecursively(*td.children[i], output, id, name, ud);
+}
+
+std::vector<TreeView::TreeData*> TreeView::findParents(TreeView::TreeData* child) const
+{
+    std::vector<TreeView::TreeData*> output;
+    for (size_t i = 0; i < treeDataList.size(); ++i)
+        findTreeParentRecursively(treeDataList[i], output, child);
+    return output;
 }
 
 std::vector<TreeView::TreeData*> TreeView::findByName(const std::string& name) const
@@ -586,6 +606,7 @@ void TreeView::showRecursively(TreeData& td, ImGuiManager* mgr, ImGuiContentHand
     if (td.children.empty()) td.flags |= ImGuiTreeNodeFlags_Leaf;
     else td.flags &= ~ImGuiTreeNodeFlags_Leaf;
 
+    ImGui::PushStyleColor(ImGuiCol_Text, td.color);
     if (ImGui::TreeNodeEx(td.name.c_str(), td.flags))
     {
         if (ImGui::IsItemClicked(0))
@@ -600,9 +621,16 @@ void TreeView::showRecursively(TreeData& td, ImGuiManager* mgr, ImGuiContentHand
             if (callbackR) callbackR(mgr, content, this, td.id);
         }
 
+        if (!td.state.empty())
+        {
+            ImGui::SameLine(); if (ImGui::SmallButton(td.state.c_str()))
+            { if (callbackSB) callbackSB(mgr, content, this, td.id); }
+        }
+
         if (!td.tooltip.empty()) showTooltip(td.tooltip);
         for (size_t i = 0; i < td.children.size(); ++i)
             showRecursively(*td.children[i], mgr, content);
         ImGui::TreePop();
     }
+    ImGui::PopStyleColor();
 }

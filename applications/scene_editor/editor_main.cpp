@@ -104,7 +104,7 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
     _hierarchy->userData = this;
 
     _properties = new osgVerse::Window(TR0("Properties") + "##editor");
-    _properties->pos = osg::Vec2(0.8f, 0.0f);
+    _properties->pos = osg::Vec2(0.6f, 0.0f);
     _properties->size = osg::Vec2(0.4f, 0.75f);
     _properties->alpha = 0.9f;
     _properties->useMenuBar = false;
@@ -113,14 +113,14 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
 
     // TEST
     root->addChild(osgDB::readNodeFile("cessna.osg"));
-    _hierarchyData->addItem(NULL, root->getChild(0));
+    _hierarchyData->addItem(NULL, root);
 }
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 {
     ImGui::PushFont(ImGuiFonts["LXGWFasmartGothic"]);
 
-    bool done = _hierarchy->show(mgr, this);
+    bool done = _hierarchy->show(mgr, this), edited = false;
     if (done)
     {
         _hierarchyData->show(mgr, this);
@@ -131,7 +131,11 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     if (done)
     {
         for (size_t i = 0; i < _interfaces.size(); ++i)
+        {
             _interfaces[i]->show(mgr, this);
+            edited |= _interfaces[i]->checkEdited();
+        }
+        if (edited) _hierarchyData->refreshItem();
         _properties->showEnd();
     }
 

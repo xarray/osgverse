@@ -10,7 +10,7 @@ public:
         _input = new InputField(TR(_property.name) + _postfix);
         _input->tooltip = tooltip(_property);
         _input->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
-        { _entry->setProperty(_object.get(), _property.name, _input->value); };
+        { if (_entry->setProperty(_object.get(), _property.name, _input->value)) doneEditing(); };
     }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)

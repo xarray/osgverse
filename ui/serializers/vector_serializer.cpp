@@ -14,7 +14,7 @@ public:
         _value->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             T value; _value->getVector(value);
-            _entry->setProperty(_object.get(), _property.name, value);
+            if (_entry->setProperty(_object.get(), _property.name, value)) doneEditing();
         };
     }
 

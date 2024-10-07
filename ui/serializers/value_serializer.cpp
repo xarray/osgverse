@@ -13,7 +13,7 @@ public:
         _value->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             T value = (T)_value->value;
-            _entry->setProperty(_object.get(), _property.name, value);
+            if (_entry->setProperty(_object.get(), _property.name, value)) doneEditing();
         };
 
         _toHex = new CheckBox(_postfix, false);

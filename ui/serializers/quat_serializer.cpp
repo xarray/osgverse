@@ -41,7 +41,7 @@ public:
             }
             else
                 _quat = osg::Quat(value[0], value[1], value[2], value[3]);
-            _entry->setProperty(_object.get(), _property.name, _quat);
+            if (_entry->setProperty(_object.get(), _property.name, _quat)) doneEditing();
         };
     }
 
@@ -84,7 +84,7 @@ public:
         _normal->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             osg::Vec3d n; _normal->getVector(n); _plane.set(n, -_distance->value);
-            _entry->setProperty(_object.get(), _property.name, _plane);
+            if (_entry->setProperty(_object.get(), _property.name, _plane)) doneEditing();
         };
 
         _distance = new InputValueField(TR("D") + _postfix);
@@ -92,7 +92,7 @@ public:
         _distance->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             osg::Vec3d n; _normal->getVector(n); _plane.set(n, -_distance->value);
-            _entry->setProperty(_object.get(), _property.name, _plane);
+            if (_entry->setProperty(_object.get(), _property.name, _plane)) doneEditing();
         };
     }
 

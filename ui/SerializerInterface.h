@@ -20,9 +20,11 @@ namespace osgVerse
 
         void addIndent(float incr) { _indent += incr; }
         void dirty() { _dirty = true; }
+        void doneEditing() { _edited = true; }
 
         bool isDirty() const { return _dirty; }
         bool isHidden() const { return _hidden; }
+        bool checkEdited() { bool b = _edited; _edited = false; return b; }
 
     protected:
         std::string tooltip(const LibraryEntry::Property& prop,
@@ -33,7 +35,7 @@ namespace osgVerse
         LibraryEntry::Property _property;
         std::string _postfix; float _indent;
         bool _composited, _selected, _dirty;
-        bool _hidden;
+        bool _hidden, _edited;
     };
 
     class SerializerFactory : public osg::Referenced

@@ -12,7 +12,7 @@ public:
         _combo->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             const std::string& value = _combo->items[_combo->index];
-            _entry->setEnumProperty(_object.get(), _property.name, value);
+            if (_entry->setEnumProperty(_object.get(), _property.name, value)) doneEditing();
         };
 
         std::vector<std::string> items = _entry->getEnumPropertyItems(_object.get(), _property.name);

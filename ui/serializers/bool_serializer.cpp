@@ -10,7 +10,7 @@ public:
         _check = new CheckBox(TR(_property.name) + _postfix, false);
         _check->tooltip = tooltip(_property);
         _check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
-        { _entry->setProperty(_object.get(), _property.name, _check->value); };
+        { if (_entry->setProperty(_object.get(), _property.name, _check->value)) doneEditing(); };
     }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)

@@ -30,19 +30,19 @@ public:
         _vector[0]->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             osg::Vec3d value; _vector[0]->getVector(value); applyToMatrix(0, value);
-            _entry->setProperty(_object.get(), _property.name, _matrixValue);
+            if (_entry->setProperty(_object.get(), _property.name, _matrixValue)) doneEditing();
         };
 
         _vector[1]->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             osg::Vec3d value; _vector[1]->getVector(value); applyToMatrix(1, value);
-            _entry->setProperty(_object.get(), _property.name, _matrixValue);
+            if (_entry->setProperty(_object.get(), _property.name, _matrixValue)) doneEditing();
         };
 
         _vector[2]->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
         {
             osg::Vec3d value; _vector[2]->getVector(value); applyToMatrix(2, value);
-            _entry->setProperty(_object.get(), _property.name, _matrixValue);
+            if (_entry->setProperty(_object.get(), _property.name, _matrixValue)) doneEditing();
         };
     }
 
