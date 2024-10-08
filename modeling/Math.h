@@ -136,6 +136,9 @@ namespace osgVerse
         /** Containment computations */
         static bool pointInPolygon2D(const osg::Vec2d& p, const PointList2D& polygon, bool isConvex);
 
+        /** Compute intersections of a 2D line and another */
+        static PointList2D intersectionWithLine2D(const LineType2D& l0, const LineType2D& l1);
+
         /** Compute intersections of a 2D line and a 2D polygon */
         static PointList2D intersectionWithPolygon2D(const LineType2D& l, const PointList2D& polygon);
 
@@ -146,11 +149,15 @@ namespace osgVerse
             It is the most distant internal point from the polygon outline (not centroid) */
         static osg::Vec2d getPoleOfInaccessibility(const PointList2D& polygon, double precision = 1.0);
 
+        /** Compute center of geometry / mass of a polygon */
+        static osg::Vec2d getCentroid(const PointList2D& polygon, bool centerOfMass);
+
         /** Check for clockwise/counter-clockwise */
         static bool clockwise2D(const PointList2D& points);
 
         /** Reorder a list of 2D hull points on a plane */
-        static bool reorderPointsInPlane(PointList2D& points);
+        static bool reorderPointsInPlane(PointList2D& points, bool usePoleOfInaccessibility = true,
+                                         const std::vector<osgVerse::EdgeType>& edges = {});
 
         /** Delaunay triangulation (with/without auto-detected boundaries and holes) */
         static std::vector<size_t> delaunayTriangulation(

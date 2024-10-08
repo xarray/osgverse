@@ -506,6 +506,15 @@ struct IntersectionHelper2D
     }
 };
 
+PointList2D GeometryAlgorithm::intersectionWithLine2D(const LineType2D& l0, const LineType2D& l1)
+{
+    PointList2D result; osg::Vec2d s = l0.first, e = l0.second, p0 = l1.first, p1 = l1.second;
+    osg::Vec2d intersection = IntersectionHelper2D::intersect(p0, p1, s, e);
+    if (IntersectionHelper2D::isWithinSegment(intersection, p0, p1) &&
+        IntersectionHelper2D::isWithinSegment(intersection, s, e))
+    { result.push_back(PointType2D(intersection, 0)); } return result;
+}
+
 PointList2D GeometryAlgorithm::intersectionWithPolygon2D(const LineType2D& line, const PointList2D& polygon)
 {
     PointList2D result; size_t num = polygon.size();
@@ -638,11 +647,25 @@ struct ResortHelper
     static double to_angle(const PointType2D& p, const PointType2D& o)
     { return atan2(p.first.y() - o.first.y(), p.first.x() - o.first.x()); }
 
-    static void find_centroid(PointType2D& c, PointType2D* pts, int n_pts)
+    static void find_centroid(PointType2D& c, const PointType2D* pts, int n_pts)
     {
         double x = 0, y = 0;
         for (int i = 0; i < n_pts; i++) { x += pts[i].first.x(); y += pts[i].first.y(); }
         c.first.x() = x / n_pts; c.first.y() = y / n_pts;
+    }
+
+    static void find_center_of_mass(PointType2D& c, const PointType2D* pts, int n_pts)
+    {
+        double x = 0, y = 0, area = 0;
+        for (int i = 0; i < n_pts - 1; i++)
+        {
+            double subArea = (pts[i].first.x() * pts[i + 1].first.y())
+                           - (pts[i + 1].first.x() * pts[i].first.y());
+            x += (pts[i].first.x() + pts[i + 1].first.x()) * subArea;
+            y += (pts[i].first.y() + pts[i + 1].first.y()) * subArea;
+            area += subArea;
+        }
+        c.first.x() = x / (area * 6.0); c.first.y() = y / (area * 6.0);
     }
 
     static int by_polar_angle(const void* va, const void* vb)
@@ -654,12 +677,74 @@ struct ResortHelper
 };
 PointType2D ResortHelper::centroid;
 
-bool GeometryAlgorithm::reorderPointsInPlane(PointList2D& proj)
+bool GeometryAlgorithm::reorderPointsInPlane(PointList2D& proj, bool usePoleOfInaccessibility,
+                                             const std::vector<osgVerse::EdgeType>& edges0)
 {
-    ResortHelper::centroid.first = getPoleOfInaccessibility(proj);
-    //ResortHelper::find_centroid(ResortHelper::centroid, &proj[0], proj.size());
+    if (usePoleOfInaccessibility)
+        ResortHelper::centroid.first = getPoleOfInaccessibility(proj);
+    else
+        ResortHelper::find_centroid(ResortHelper::centroid, &proj[0], proj.size());
     qsort(&proj[0], proj.size(), sizeof(PointType2D), ResortHelper::by_polar_angle);
+
+    if (!edges0.empty())
+    {
+        // First find 2 vertices in pre-ordered list
+        size_t pt0 = 0, pt1 = 0; std::map<size_t, PointType2D> idMap;
+        for (size_t i = 0; i < proj.size(); ++i) idMap[proj[i].second] = proj[i];
+
+        std::vector<osgVerse::EdgeType> edges = edges0;
+        std::vector<osgVerse::EdgeType>::iterator itr0 = edges.end();
+        for (size_t i = 1; i < proj.size(); ++i)
+        {
+            osgVerse::EdgeType e0(proj[i - 1].second, proj[i].second);
+            osgVerse::EdgeType e1(proj[i].second, proj[i - 1].second);
+            itr0 = std::find(edges.begin(), edges.end(), e0);
+            if (itr0 != edges.end())
+                { pt0 = e0.first; pt1 = e0.second; break; }
+            else
+            {
+                itr0 = std::find(edges.begin(), edges.end(), e1);
+                if (itr0 != edges.end()) { pt0 = e1.first; pt1 = e1.second; break; }
+            }
+        }
+        if (itr0 == edges.end()) return false; else edges.erase(itr0);
+
+        // Find all other vertices along the edges, instead of finding by centroid and angles
+        PointList2D projNew; bool canContinue = true;
+        projNew.push_back(idMap[pt0]); projNew.push_back(idMap[pt1]);
+        while (canContinue)
+        {
+            std::vector<osgVerse::EdgeType>::iterator itr1 = edges.end(); canContinue = false;
+            for (itr1 = edges.begin(); itr1 != edges.end(); ++itr1)
+            {
+                if (itr1->first == pt1 && itr1->second != pt0)
+                    { pt0 = pt1; pt1 = itr1->second; canContinue = true; }
+                else if (itr1->second == pt1 && itr1->first != pt0)
+                    { pt0 = pt1; pt1 = itr1->first; canContinue = true; }
+                if (canContinue) { projNew.push_back(idMap[pt1]); break; }
+            }
+            if (itr1 != edges.end()) edges.erase(itr1);
+        }
+
+        if (projNew.front() == projNew.back()) projNew.pop_back();
+        if (projNew.size() != proj.size())
+        {
+            OSG_WARN << "[GeometryAlgorithm] Reordered polygon has different points than original? "
+                     << projNew.size() << " != " << proj.size() << std::endl;
+        }
+        proj.assign(projNew.begin(), projNew.end());
+    }
     return true;
+}
+
+osg::Vec2d GeometryAlgorithm::getCentroid(const PointList2D& proj, bool centerOfMass)
+{
+    PointType2D centroidOfMass;
+    if (centerOfMass)
+        ResortHelper::find_center_of_mass(centroidOfMass, &proj[0], proj.size());
+    else
+        ResortHelper::find_centroid(centroidOfMass, &proj[0], proj.size());
+    return osg::Vec2d(centroidOfMass.first);
 }
 
 std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
