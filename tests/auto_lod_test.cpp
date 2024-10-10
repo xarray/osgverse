@@ -121,7 +121,7 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    osgVerse::fixOsgBinaryWrappers();
+    osgVerse::updateOsgBinaryWrappers();
 
     std::string treeFileName; arguments.read("--tree", treeFileName);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(treeFileName);

@@ -8,14 +8,37 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-#include "hierarchy.h"
-#include "properties.h"
-#include "scenelogic.h"
 #include "defines.h"
-
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 GlobalData g_data;
+
+class ConsoleHandler : public osg::NotifyHandler
+{
+public:
+    ConsoleHandler() {}
+
+    virtual void notify(osg::NotifySeverity severity, const char* message)
+    {
+        // TODO
+        std::cout << "Lv-" << severity << ": " << message;
+    }
+
+    std::string getDateTimeTick()
+    {
+        auto tick = std::chrono::system_clock::now();
+        std::time_t posix = std::chrono::system_clock::to_time_t(tick);
+        uint64_t millseconds =
+            std::chrono::duration_cast<std::chrono::milliseconds>(tick.time_since_epoch()).count() -
+            std::chrono::duration_cast<std::chrono::seconds>(tick.time_since_epoch()).count() * 1000;
+
+        char buf[20], buf2[5];
+        std::tm tp = *std::localtime(&posix);
+        std::string dateTime{ buf, std::strftime(buf, sizeof(buf), "%F %T", &tp) };
+        snprintf(buf2, 5, ".%03d", (int)millseconds);
+        return dateTime + std::string(buf2);
+    }
+};
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -176,6 +199,7 @@ void EditorContentHandler::handleCommands()
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
+    osgVerse::updateOsgBinaryWrappers();
 
     // Core scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -205,7 +229,6 @@ int main(int argc, char** argv)
 
     // Set-up the viewer
     MyViewer viewer(pipeline.get());
-    viewer.addEventHandler(new osgVerse::CommandHandler);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));

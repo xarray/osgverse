@@ -371,6 +371,7 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
 namespace osgVerse
 {
 #if OSG_VERSION_LESS_THAN(3, 5, 0)
+    bool updateOsgBinaryWrappers(const std::string& libName) { return false; }
     bool fixOsgBinaryWrappers(const std::string& libName) { return false; }
 #endif
 

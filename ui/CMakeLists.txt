@@ -1,8 +1,6 @@
 SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_INCLUDE_FILES
-    ImGui.h ImGuiComponents.h SerializerInterface.h SceneHierarchy.h
-    ###
-    UserComponent.h CommandHandler.h PropertyInterface.h)
+    ImGui.h ImGuiComponents.h SerializerInterface.h SceneHierarchy.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
 	ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Styles.h
     SerializerInterface.cpp SceneHierarchy.cpp
@@ -14,13 +12,6 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     serializers/list_serializer.cpp serializers/empty_serializer.cpp
 	compontents/SpiderEditor.cpp compontents/Timeline.cpp
 	compontents/VirtualKeyboard.cpp
-    ###
-	UserComponent.cpp CommandHandler.cpp PropertyInterface.cpp
-	std_properties/BasicPropertyItem.cpp
-	std_properties/TransformPropertyItem.cpp
-	std_properties/GeometryPropertyItem.cpp
-	std_properties/TexturePropertyItem.cpp
-	executors/DefaultExecutors.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/imgui)

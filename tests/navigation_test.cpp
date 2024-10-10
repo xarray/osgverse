@@ -94,7 +94,7 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    osgVerse::fixOsgBinaryWrappers();
+    osgVerse::updateOsgBinaryWrappers();
 
     std::string agentPath = "dumptruck.osgt"; arguments.read("--agent", agentPath);
     std::string recastData = "recast_terrain.bin"; arguments.read("--recast", recastData);

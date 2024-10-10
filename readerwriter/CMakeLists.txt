@@ -12,7 +12,8 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
 )
 
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
-    SET(LIBRARY_FILES ${LIBRARY_FILES} Geometry_FixedWrapper.cpp)
+    SET(LIBRARY_FILES ${LIBRARY_FILES}
+        WrapperMethods.cpp Geometry_FixedWrapper.cpp)
 ENDIF()
 
 IF(SDL2_FOUND OR USE_WASM_OPTIONS)
@@ -49,7 +50,7 @@ IF(SDL2_FOUND)
 ENDIF(SDL2_FOUND)
 
 IF(NOT UNIX)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
 ENDIF()
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 

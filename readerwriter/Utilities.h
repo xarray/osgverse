@@ -142,6 +142,9 @@ namespace osgVerse
     };
 #endif
 
+    /** Add necessary methods to OSG class wrappers */
+    OSGVERSE_RW_EXPORT bool updateOsgBinaryWrappers(const std::string& libName = "osg");
+
     /** A quick function to help fix .osgb dead lock problem */
     OSGVERSE_RW_EXPORT bool fixOsgBinaryWrappers(const std::string& libName = "osg");
 
