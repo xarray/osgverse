@@ -56,7 +56,7 @@ std::vector<LibraryEntry::Property> LibraryEntry::getPropertyNames(const std::st
             unsigned int i = 0;
             const osgDB::ObjectWrapper::SerializerList& sList = ow1->getSerializerList();
             for (osgDB::ObjectWrapper::SerializerList::const_iterator sitr = sList.begin();
-                    sitr != sList.end(); ++sitr, ++i)
+                 sitr != sList.end(); ++sitr, ++i)
             {
                 Property prop;
                 prop.ownerClass = aitr->_name; prop.name = (*sitr)->getName();

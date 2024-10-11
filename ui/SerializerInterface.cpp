@@ -81,9 +81,14 @@ LibraryEntry* SerializerFactory::createInterfaces(osg::Object* obj, LibraryEntry
     interfaces.clear();
 
     std::vector<LibraryEntry::Property> props = entry->getPropertyNames(clsName);
+    std::set<std::string> registeredProps;  // to avoid duplicated props
+
     SerializerFactory* factory = SerializerFactory::instance();
     for (size_t i = 0; i < props.size(); ++i)
     {
+        if (registeredProps.find(props[i].name) != registeredProps.end()) continue;
+        if (props[i].outdated) continue; else registeredProps.insert(props[i].name);
+
         osg::ref_ptr<SerializerInterface> si = factory->createInterface(obj, entry, props[i]);
         if (si.valid()) interfaces.push_back(si);
     }

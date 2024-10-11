@@ -258,7 +258,8 @@ MenuBar::MenuItemData SceneHierarchy::createPopupMenu(const std::string& name,
 void SceneHierarchy::setViewer(osgViewer::View* view, osg::Node* rootNode)
 {
     _camTreeData->userData = NULL;
-    _sceneTreeData->userData = (rootNode != NULL) ? rootNode : view->getSceneData();
+    _sceneTreeData->userData = new SceneDataProxy(
+        (rootNode != NULL) ? rootNode : view->getSceneData());
 }
 
 TreeView::TreeData* SceneHierarchy::addItem(TreeView::TreeData* parent, osg::Object* obj,
@@ -277,19 +278,35 @@ TreeView::TreeData* SceneHierarchy::addItem(TreeView::TreeData* parent, osg::Obj
         TreeView::TreeData* treeItem = new TreeView::TreeData;
         treeItem->id = "##node_" + nanoid::generate(8);
         treeItem->tooltip = obj->libraryName() + std::string("::") + obj->className();
-        treeItem->userData = obj; _nodeToItemMap[obj] = treeItem;
+        treeItem->userData = new SceneDataProxy(obj); _nodeToItemMap[obj] = treeItem;
         parent->children.push_back(treeItem);
     }
     updateStateInformation(_nodeToItemMap[obj].get(), obj, parentMask);
     return _nodeToItemMap[obj].get();
 }
 
+void SceneHierarchy::removeUnusedItem(TreeView::TreeData* parent, bool recursively)
+{
+    for (size_t i = 0; i < parent->children.size();)
+    {
+        TreeView::TreeData* child = parent->children[i].get();
+        removeUnusedItem(child, true);
+        if (child->userData.valid())
+        {
+            SceneDataProxy* proxy = static_cast<SceneDataProxy*>(child->userData.get());
+            if (proxy && !proxy->data)  // if data is empty, scene is already deleted
+            { parent->children.erase(parent->children.begin() + i); continue; }
+        } ++i;
+    }
+}
+
 void SceneHierarchy::refreshItem(TreeView::TreeData* parent)
 {
     if (!parent) parent = _selectedItem.get(); if (!parent) parent = _sceneTreeData.get();
-    osg::Node* node = dynamic_cast<osg::Node*>(parent->userData.get());
+    if (!parent) return; else removeUnusedItem(parent, true);
+
+    osg::Node* node = SceneDataProxy::get<osg::Node*>(parent->userData.get());
     if (node != NULL) { HierarchyCreatingVisitor hv(this, parent, false); node->accept(hv); }
-    // TODO: remove non-existing items when refreshing scene graph
 }
 
 bool SceneHierarchy::removeItem(TreeView::TreeData* parent, osg::Object* obj, bool asSubGraph)
@@ -362,7 +379,7 @@ void SceneHierarchy::updateStateInformation(TreeView::TreeData* item, osg::Objec
         {
         case 0: item->state = drawable->getStateSet() ? "SS" : ""; break;
         case 1: item->state = (drawable->getUpdateCallback() || drawable->getEventCallback()) ? "CB" : ""; break;
-        default: item->state = std::to_string(drawable->referenceCount() - 1); break;
+        default: item->state = std::to_string(drawable->referenceCount()); break;
         }
     }
     else if (obj->asNode())
@@ -385,7 +402,7 @@ void SceneHierarchy::updateStateInformation(TreeView::TreeData* item, osg::Objec
         {
         case 0: item->state = node->getStateSet() ? "SS" : ""; break;
         case 1: item->state = (node->getUpdateCallback() || node->getEventCallback()) ? "CB" : ""; break;
-        default: item->state = std::to_string(node->referenceCount() - 1); break;
+        default: item->state = std::to_string(node->referenceCount()); break;
         }
     }
 }
@@ -395,7 +412,7 @@ bool SceneHierarchy::addOperation(TreeView::TreeData* item, const std::string& c
     bool finished = false;
     if (item && item->userData.valid())
     {
-        osg::ref_ptr<osg::Object> parent = static_cast<osg::Object*>(item->userData.get());
+        osg::ref_ptr<osg::Object> parent = SceneDataProxy::get<osg::Object*>(item->userData.get());
         osg::ref_ptr<osg::Object> child = _entries["osg"]->create(childType);
         if (isGeom)
         {
@@ -417,14 +434,14 @@ bool SceneHierarchy::addOperation(TreeView::TreeData* item, const std::string& c
 
 bool SceneHierarchy::removeOperation(TreeView::TreeData* subItem)
 {
-    osg::ref_ptr<osg::Object> child = static_cast<osg::Object*>(subItem ? subItem->userData.get() : NULL);
+    osg::ref_ptr<osg::Object> child = SceneDataProxy::get<osg::Object*>(subItem ? subItem->userData.get() : NULL);
     if (child.valid())
     {
         std::vector<TreeView::TreeData*> parents = _treeView->findParents(subItem);
         for (size_t i = 0; i < parents.size(); ++i)
         {
             bool finished = false;
-            osg::ref_ptr<osg::Object> parent = static_cast<osg::Object*>(parents[i]->userData.get());
+            osg::ref_ptr<osg::Object> parent = SceneDataProxy::get<osg::Object*>(parents[i]->userData.get());
             if (dynamic_cast<osg::Geode*>(parent.get()) != NULL)
                 finished = _entries["osg"]->callMethod(parent.get(), "removeDrawable", child.get());
             else

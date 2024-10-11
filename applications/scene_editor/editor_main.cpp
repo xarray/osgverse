@@ -103,7 +103,7 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
     _hierarchyData->setItemClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
             // TODO: select in 3D view
-            osg::Object* obj = dynamic_cast<osg::Object*>(item->userData.get());
+            osg::Object* obj = osgVerse::SceneDataProxy::get<osg::Object*>(item->userData.get());
             if (obj != NULL)
             {
                 _entry = osgVerse::SerializerFactory::instance()
@@ -153,6 +153,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     done |= _properties->show(mgr, this);
     if (done)
     {
+        printf("START\n");
         for (size_t i = 0; i < _interfaces.size(); ++i)
         {
             _interfaces[i]->show(mgr, this);

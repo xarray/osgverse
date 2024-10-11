@@ -9,6 +9,19 @@
 
 namespace osgVerse
 {
+    struct SceneDataProxy : public osg::Referenced
+    {
+        osg::observer_ptr<osg::Object> data;
+        SceneDataProxy(osg::Object* o) { data = o; }
+
+        template<typename T>
+        static T get(osg::Referenced* ud)
+        {
+            SceneDataProxy* p = static_cast<SceneDataProxy*>(ud);
+            return p ? dynamic_cast<T>(p->data.get()) : NULL;
+        }
+    };
+
     class SceneHierarchy : public ImGuiComponentBase
     {
     public:
@@ -42,6 +55,8 @@ namespace osgVerse
         MenuBar::MenuItemData createPopupMenu(const std::string& name,
                                               ImGuiComponentBase::ActionCallback cb = NULL);
         void updateStateInformation(TreeView::TreeData* item, osg::Object* obj, unsigned int parentMask);
+        void removeUnusedItem(TreeView::TreeData* parent, bool recursively);
+
         bool addOperation(TreeView::TreeData* item, const std::string& childType, bool isGeom = false);
         bool removeOperation(TreeView::TreeData* child);
 
@@ -55,7 +70,7 @@ namespace osgVerse
 
         ActionCallback _clickAction, _dbClickAction;
         std::string _postfix;
-        int _stateFlags;  // small button display: 0: ss, 1: cb, 2: refcount-1 (as tree-item has 1 ref)
+        int _stateFlags;  // small button display: 0: ss, 1: cb, 2: refcount
         bool _selectedItemPopupTriggered;
     };
 }
