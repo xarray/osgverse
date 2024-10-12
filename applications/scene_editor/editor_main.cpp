@@ -90,6 +90,16 @@ public:
 EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* root)
     : _uiFrameNumber(0)
 {
+    osgVerse::SerializerFactory* factory = osgVerse::SerializerFactory::instance();
+    factory->registerBlacklist("UserDataContainer", NULL);
+    factory->registerBlacklist("ComputeBoundingSphereCallback", NULL);
+    factory->registerBlacklist("ComputeBoundingBoxCallback", NULL);
+    factory->registerBlacklist("CullCallback", NULL);
+    factory->registerBlacklist("DrawCallback", NULL);
+    factory->registerBlacklist("SupportsDisplayList", NULL);
+    factory->registerBlacklist("UseDisplayList", NULL);
+    factory->registerBlacklist("UseVertexBufferObjects", NULL);
+
 #ifdef ORIGIN_CODE
     _mainMenu = new osgVerse::MainMenuBar;
     _mainMenu->userData = this;
@@ -153,7 +163,6 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     done |= _properties->show(mgr, this);
     if (done)
     {
-        printf("START\n");
         for (size_t i = 0; i < _interfaces.size(); ++i)
         {
             _interfaces[i]->show(mgr, this);

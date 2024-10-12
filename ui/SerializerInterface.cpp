@@ -5,24 +5,14 @@ using namespace osgVerse;
 static int g_headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Bullet
                          | ImGuiTreeNodeFlags_OpenOnDoubleClick;
 
-SerializerInterface::SerializerInterface(osg::Object* obj, LibraryEntry* entry,
-                                         const LibraryEntry::Property& prop, bool composited)
-:   _object(obj), _entry(entry), _property(prop), _indent(30.0f),
-    _selected(false), _dirty(true), _hidden(false)
+SerializerBaseItem::SerializerBaseItem(osg::Object* obj, bool composited)
+:   _object(obj), _indent(30.0f), _selected(false), _dirty(true), _hidden(false)
 { _postfix = "##" + nanoid::generate(8); _composited = composited; }
 
-std::string SerializerInterface::tooltip(const LibraryEntry::Property& prop,
-                                         const std::string& postfix) const
+bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* content,
+                                      const std::string& title)
 {
-    std::string body = prop.ownerClass + "\nset" + prop.name + "(" + prop.typeName + ")";
-    return body + (postfix.empty() ? "" : ("\n<" + postfix + ">"));
-}
-
-bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
-{
-    std::string title = TR(_property.name) + _postfix;
     bool toOpen = true; if (_hidden) return false;
-
     if (ImGui::ArrowButton((title + "_Arrow").c_str(), ImGuiDir_Down))  // TODO: disabled = ImGuiDir_None
     {
         // Select the item and also open popup menu
@@ -58,6 +48,23 @@ bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     ImGui::Unindent(_indent); return toOpen;
 }
 
+std::string SerializerBaseItem::tooltip(const LibraryEntry::Property& prop,
+                                    const std::string& postfix) const
+{
+    std::string body = prop.ownerClass + "\nset" + prop.name + "(" + prop.typeName + ")";
+    return body + (postfix.empty() ? "" : ("\n<" + postfix + ">"));
+}
+
+SerializerInterface::SerializerInterface(osg::Object* obj, LibraryEntry* entry,
+                                         const LibraryEntry::Property& prop, bool composited)
+: SerializerBaseItem(obj, composited), _entry(entry), _property(prop) {}
+
+bool SerializerInterface::show(ImGuiManager* mgr, ImGuiContentHandler* content)
+{
+    std::string title = TR(_property.name) + _postfix;
+    return showInternal(mgr, content, title);
+}
+
 int SerializerInterface::createSpiderNode(SpiderEditor* spider, bool getter, bool setter)
 {
     SpiderEditor::NodeItem* node = spider->createNode(TR(_property.name));
@@ -73,30 +80,44 @@ SerializerFactory* SerializerFactory::instance()
 }
 
 LibraryEntry* SerializerFactory::createInterfaces(osg::Object* obj, LibraryEntry* lastEntry,
-                                                  std::vector<osg::ref_ptr<SerializerInterface>>& interfaces)
+                                                  std::vector<osg::ref_ptr<SerializerBaseItem>>& interfaces)
 {
     std::string libName = obj->libraryName(), clsName = obj->className();
+    std::string fullName = libName + "::" + clsName; interfaces.clear();
     LibraryEntry* entry = (lastEntry && lastEntry->getLibraryName() == libName)
                         ? lastEntry : new LibraryEntry(libName);
-    interfaces.clear();
-
+    SerializerFactory* factory = SerializerFactory::instance();
+    
     std::vector<LibraryEntry::Property> props = entry->getPropertyNames(clsName);
     std::set<std::string> registeredProps;  // to avoid duplicated props
-
-    SerializerFactory* factory = SerializerFactory::instance();
     for (size_t i = 0; i < props.size(); ++i)
     {
-        if (registeredProps.find(props[i].name) != registeredProps.end()) continue;
-        if (props[i].outdated) continue; else registeredProps.insert(props[i].name);
+        const std::string propName = props[i].name;
+        if (registeredProps.find(propName) != registeredProps.end()) continue;
+        if (props[i].outdated) continue; else registeredProps.insert(propName);
 
-        osg::ref_ptr<SerializerInterface> si = factory->createInterface(obj, entry, props[i]);
+        if (_blacklistMap.find(propName) != _blacklistMap.end())
+        {
+            std::set<std::string>& bl = _blacklistMap[propName];
+            if (bl.find("") != bl.end() || bl.find(fullName) != bl.end()) continue;
+        }
+
+        osg::ref_ptr<SerializerBaseItem> si;
+        if (_userCreatorMap.find(propName) != _userCreatorMap.end())
+        {
+            InterfaceFunctionMap& funcMap = _userCreatorMap[propName];
+            if (funcMap.find(fullName) != funcMap.end()) si = funcMap[fullName](obj, entry, props[i]);
+            else if (funcMap.find("") != funcMap.end()) si = funcMap[""](obj, entry, props[i]);
+        }
+
+        if (!si) si = factory->createInterface(obj, entry, props[i]);
         if (si.valid()) interfaces.push_back(si);
     }
     return entry;
 }
 
-SerializerInterface* SerializerFactory::createInterface(osg::Object* obj, LibraryEntry* entry,
-                                                        const LibraryEntry::Property& prop)
+SerializerBaseItem* SerializerFactory::createInterface(osg::Object* obj, LibraryEntry* entry,
+                                                       const LibraryEntry::Property& prop)
 {
     osgDB::BaseSerializer::Type t = prop.type;
     if (obj == NULL || entry == NULL)

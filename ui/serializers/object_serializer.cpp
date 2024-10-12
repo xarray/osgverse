@@ -34,7 +34,7 @@ public:
 protected:
     osg::observer_ptr<osg::Object> _valueObject;
     osg::ref_ptr<LibraryEntry> _valueEntry;
-    std::vector<osg::ref_ptr<SerializerInterface>> _serializerUIs;
+    std::vector<osg::ref_ptr<SerializerBaseItem>> _serializerUIs;
 };
 
 REGISTER_SERIALIZER_INTERFACE(OBJECT, ObjectSerializerInterface)

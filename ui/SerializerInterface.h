@@ -9,14 +9,12 @@
 
 namespace osgVerse
 {
-    class SerializerInterface : public ImGuiComponentBase
+    class SerializerBaseItem : public ImGuiComponentBase
     {
     public:
-        SerializerInterface(osg::Object* obj, LibraryEntry* entry,
-                            const LibraryEntry::Property& prop, bool composited);
-        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
+        SerializerBaseItem(osg::Object* obj, bool composited);
         virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
-        virtual int createSpiderNode(SpiderEditor* spider, bool getter, bool setter);
+        virtual int createSpiderNode(SpiderEditor* spider, bool getter, bool setter) = 0;
 
         void addIndent(float incr) { _indent += incr; }
         void dirty() { _dirty = true; }
@@ -27,39 +25,87 @@ namespace osgVerse
         bool checkEdited() { bool b = _edited; _edited = false; return b; }
 
     protected:
-        std::string tooltip(const LibraryEntry::Property& prop,
-                            const std::string& postfix = "") const;
+        virtual bool showInternal(ImGuiManager* mgr, ImGuiContentHandler* content, const std::string& title);
+        std::string tooltip(const LibraryEntry::Property& prop, const std::string& postfix = "") const;
 
         osg::observer_ptr<osg::Object> _object;
-        osg::ref_ptr<LibraryEntry> _entry;
-        LibraryEntry::Property _property;
         std::string _postfix; float _indent;
         bool _composited, _selected, _dirty;
         bool _hidden, _edited;
     };
 
+    class SerializerInterface : public SerializerBaseItem
+    {
+    public:
+        SerializerInterface(osg::Object* obj, LibraryEntry* entry,
+                            const LibraryEntry::Property& prop, bool composited);
+        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
+        virtual int createSpiderNode(SpiderEditor* spider, bool getter, bool setter);
+
+    protected:
+        osg::ref_ptr<LibraryEntry> _entry;
+        LibraryEntry::Property _property;
+    };
+
     class SerializerFactory : public osg::Referenced
     {
     public:
-        typedef std::function<SerializerInterface* (
+        typedef std::function<SerializerBaseItem* (
             osg::Object*, LibraryEntry*, const LibraryEntry::Property&)> InterfaceFunction;
         static SerializerFactory* instance();
 
         void registerInterface(osgDB::BaseSerializer::Type t, InterfaceFunction func)
         { _creatorMap[t] = func; }
 
+        void registerInterface(const std::string& prop, osg::Object* ref, InterfaceFunction func)
+        {
+            std::string cName = ref ? std::string(ref->libraryName()) + "::" + ref->className() : "";
+            _userCreatorMap[prop][cName] = func;
+        }
+
+        void registerBlacklist(const std::string& prop, osg::Object* ref)
+        {
+            std::string cName = ref ? std::string(ref->libraryName()) + "::" + ref->className() : "";
+            _blacklistMap[prop].insert(cName);
+        }
+
         void unregisterInterface(osgDB::BaseSerializer::Type t)
         { if (_creatorMap.find(t) != _creatorMap.end()) _creatorMap.erase(_creatorMap.find(t)); }
 
+        void unregisterInterface(const std::string& prop, osg::Object* ref)
+        {
+            std::string cName = ref ? std::string(ref->libraryName()) + "::" + ref->className() : "";
+            InterfaceFunctionMap& funcMap = _userCreatorMap[prop];
+            if (funcMap.find(cName) != funcMap.end())
+            {
+                funcMap.erase(funcMap.find(cName));
+                if (funcMap.empty()) _userCreatorMap.erase(_userCreatorMap.find(prop));
+            }
+        }
+
+        void unregisterBlacklist(const std::string& prop, osg::Object* ref)
+        {
+            std::set<std::string>& bl = _blacklistMap[prop];
+            std::string cName = ref ? std::string(ref->libraryName()) + "::" + ref->className() : "";
+            std::set<std::string>::iterator it = bl.find(cName); if (it != bl.end()) { bl.erase(it); }
+            if (bl.empty()) _blacklistMap.erase(_blacklistMap.find(prop));
+        }
+
+        /** Create serializer UI items of given object */
         LibraryEntry* createInterfaces(osg::Object* obj, LibraryEntry* lastEntry,
-                                       std::vector<osg::ref_ptr<SerializerInterface>>& interfaces);
-        SerializerInterface* createInterface(osg::Object* obj, LibraryEntry* entry,
-                                             const LibraryEntry::Property& prop);
+                                       std::vector<osg::ref_ptr<SerializerBaseItem>>& interfaces);
 
     protected:
         SerializerFactory() {}
         virtual ~SerializerFactory() {}
+        
+        SerializerBaseItem* createInterface(osg::Object* obj, LibraryEntry* entry,
+                                            const LibraryEntry::Property& prop);
+
+        typedef std::map<std::string, InterfaceFunction> InterfaceFunctionMap;
         std::map<osgDB::BaseSerializer::Type, InterfaceFunction> _creatorMap;
+        std::map<std::string, InterfaceFunctionMap> _userCreatorMap;
+        std::map<std::string, std::set<std::string>> _blacklistMap;
     };
 
     struct SerializerInterfaceProxy

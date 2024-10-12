@@ -101,7 +101,7 @@ protected:
     osg::ref_ptr<osgVerse::SceneHierarchy> _hierarchyData;
 
     osg::ref_ptr<osgVerse::LibraryEntry> _entry;
-    std::vector<osg::ref_ptr<osgVerse::SerializerInterface>> _interfaces;
+    std::vector<osg::ref_ptr<osgVerse::SerializerBaseItem>> _interfaces;
     unsigned int _uiFrameNumber;
 };
 
