@@ -89,15 +89,15 @@ namespace osgVerse
     {
         std::string name; float alpha;
         osg::Vec2 pos, pivot, size; osg::Vec4 rectRT;  // [0, 1]
-        bool isOpen, collapsed, useMenuBar, sizeApplied;
+        bool withBorder, isOpen, collapsed, useMenuBar, sizeApplied;
         ImGuiWindowFlags flags;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        virtual void showEnd() { ImGui::End(); }
+        virtual void showEnd();
         void resize(const osg::Vec2& p, const osg::Vec2& s);
         osg::Vec4 getCurrentRectangle() const { return rectRT; }
         Window(const std::string& n)
-        :   name(n), alpha(1.0f), isOpen(true), collapsed(false),
+        :   name(n), alpha(1.0f), withBorder(true), isOpen(true), collapsed(false),
             useMenuBar(false), sizeApplied(false), flags(0) {}
     };
 
@@ -116,13 +116,13 @@ namespace osgVerse
     struct Button : public ImGuiComponentBase
     {
         std::string name, tooltip;
-        osg::Vec2 size; bool repeatable, styled;
+        osg::Vec2 size; bool repeatable, styled, isSmall;
         ImColor styleNormal, styleHovered, styleActive;
         ActionCallback callback;
         
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        Button(const std::string& n)
-            : name(n), repeatable(false), styled(false), callback(ActionCallback()) {}
+        Button(const std::string& n) : name(n), repeatable(false), styled(false),
+                                       isSmall(false), callback(ActionCallback()) {}
     };
 
     struct ImageButton : public ImGuiComponentBase
@@ -148,11 +148,11 @@ namespace osgVerse
     struct ComboBox : public ImGuiComponentBase
     {
         std::vector<std::string> items;
-        std::string name, tooltip; int index;
+        std::string name, tooltip; int index, width;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        ComboBox(const std::string& n) : name(n), index(0), callback(ActionCallback()) {}
+        ComboBox(const std::string& n) : name(n), index(0), width(200), callback(ActionCallback()) {}
     };
 
     struct RadioButtonGroup : public ImGuiComponentBase
@@ -169,24 +169,25 @@ namespace osgVerse
     struct InputField : public ImGuiComponentBase
     {
         std::string name, value, tooltip, placeholder;
-        ImGuiInputTextFlags flags; osg::Vec2 size;
+        ImGuiInputTextFlags flags; int width; osg::Vec2 size;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        InputField(const std::string& n) : name(n), flags(0), callback(ActionCallback()) {}
+        InputField(const std::string& n) : name(n), flags(0), width(200),
+                                           callback(ActionCallback()) {}
     };
 
     struct InputValueField : public ImGuiComponentBase
     {
         enum Type { IntValue, UIntValue, FloatValue, DoubleValue } type;
-        std::string name, format, tooltip;
+        std::string name, format, tooltip; int width;
         double value, minValue, maxValue, step;
         ImGuiInputTextFlags flags;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         InputValueField(const std::string& n)
-        :   type(DoubleValue), name(n), value(0),
+        :   type(DoubleValue), name(n), width(200), value(0),
             minValue(0), maxValue(0), step(1), flags(0), callback(ActionCallback()) {}
     };
 

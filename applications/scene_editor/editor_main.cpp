@@ -108,6 +108,9 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
     createEditorMenu3();
 #endif
 
+    _navigationData = new osgVerse::SceneNavigation;
+    _navigationData->setCamera(view->getCamera());
+
     _hierarchyData = new osgVerse::SceneHierarchy;
     _hierarchyData->setViewer(view, root);
     _hierarchyData->setItemClickAction(
@@ -132,15 +135,20 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
     _hierarchy->pos = osg::Vec2(0.0f, 0.0f);
     _hierarchy->size = osg::Vec2(0.15f, 0.75f);
     _hierarchy->alpha = 0.9f;
-    _hierarchy->useMenuBar = false;
     _hierarchy->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _hierarchy->userData = this;
 
+    _navigation = new osgVerse::Window(TR0("Navigation") + "##editor");
+    _navigation->pos = osg::Vec2(0.2f, 0.0f);
+    _navigation->size = osg::Vec2(0.55f, 0.1f);
+    _navigation->alpha = 0.0f; _navigation->withBorder = false;
+    _navigation->flags = ImGuiWindowFlags_NoDecoration;
+    _navigation->userData = this;
+
     _properties = new osgVerse::Window(TR0("Properties") + "##editor");
-    _properties->pos = osg::Vec2(0.6f, 0.0f);
-    _properties->size = osg::Vec2(0.4f, 0.75f);
+    _properties->pos = osg::Vec2(0.75f, 0.0f);
+    _properties->size = osg::Vec2(0.25f, 0.75f);
     _properties->alpha = 0.9f;
-    _properties->useMenuBar = false;
     _properties->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _properties->userData = this;
 
@@ -160,7 +168,14 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
         _hierarchy->showEnd();
     }
 
-    done |= _properties->show(mgr, this);
+    done = _navigation->show(mgr, this);
+    if (done)
+    {
+        _navigationData->show(mgr, this);
+        _navigation->showEnd();
+    }
+
+    done = _properties->show(mgr, this);
     if (done)
     {
         for (size_t i = 0; i < _interfaces.size(); ++i)

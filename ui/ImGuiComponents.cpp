@@ -140,9 +140,11 @@ bool Window::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         sizeApplied = true;
     }
 
+    ImGuiStyle& style = ImGui::GetStyle();
     ImGui::SetNextWindowBgAlpha(alpha);
     ImGui::SetNextWindowCollapsed(collapsed);
     if (useMenuBar) flags |= ImGuiWindowFlags_MenuBar;
+    style.WindowBorderSize = withBorder ? 1.0f : 0.0f;
     
     bool done = ImGui::Begin(name.c_str(), &isOpen, flags);
     if (done)
@@ -153,6 +155,9 @@ bool Window::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     }
     return done;
 }
+
+void Window::showEnd()
+{ ImGui::End(); }
 
 bool Label::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
@@ -188,11 +193,13 @@ bool Button::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)styleNormal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)styleHovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)styleActive);
-        done = ImGui::Button(name.c_str(), ImVec2(size[0], size[1]));
+        done = isSmall ? ImGui::SmallButton(name.c_str())
+                       : ImGui::Button(name.c_str(), ImVec2(size[0], size[1]));
         ImGui::PopStyleColor(3);
     }
     else
-        done = ImGui::Button(name.c_str(), ImVec2(size[0], size[1]));
+        done = isSmall ? ImGui::SmallButton(name.c_str())
+                       : ImGui::Button(name.c_str(), ImVec2(size[0], size[1]));
     
     if (repeatable) ImGui::PopButtonRepeat();
     if (!tooltip.empty()) showTooltip(tooltip);
@@ -229,11 +236,13 @@ bool ComboBox::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     for (size_t i = 0; i < items.size(); ++i) itemValues[i] = items[i].c_str();
     
     bool done = false;
+    if (width > 0) ImGui::PushItemWidth((float)width);
     if (itemValues.empty())
         done = ImGui::Combo(name.c_str(), &index, (const char**)NULL, 0);
     else
         done = ImGui::Combo(name.c_str(), &index, &itemValues[0], (int)items.size());
-    
+    if (width > 0) ImGui::PopItemWidth();
+
     if (!tooltip.empty()) showTooltip(tooltip);
     if (done && callback) callback(mgr, content, this);
     return done;
@@ -258,12 +267,14 @@ bool InputField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = false; size_t length = value.size() + 10;
     if (length > 128) length = 128; value.resize(length);
+    if (width > 0) ImGui::PushItemWidth((float)width);
     if (placeholder.empty())
         done = ImGui::InputTextEx(name.c_str(), NULL, &value[0], length,
                                   ImVec2(size[0], size[1]), flags, NULL, NULL);
     else
         done = ImGui::InputTextEx(name.c_str(), placeholder.c_str(), &value[0], length,
                                   ImVec2(size[0], size[1]), flags, NULL, NULL);
+    if (width > 0) ImGui::PopItemWidth();
 
     if (!tooltip.empty()) showTooltip(tooltip);
     if (done && callback) callback(mgr, content, this);
@@ -283,6 +294,7 @@ static bool ImGUI_InputUInt(const char* label, unsigned int* v, int step,
 bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = false;
+    if (width > 0) ImGui::PushItemWidth((float)width);
     switch (type)
     {
     case IntValue:
@@ -318,6 +330,7 @@ bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         break;
     }
 
+    if (width > 0) ImGui::PopItemWidth();
     if (!tooltip.empty()) showTooltip(tooltip);
     if (done && callback) callback(mgr, content, this);
     return done;

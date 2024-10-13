@@ -6,7 +6,7 @@ static int g_headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_B
                          | ImGuiTreeNodeFlags_OpenOnDoubleClick;
 
 SerializerBaseItem::SerializerBaseItem(osg::Object* obj, bool composited)
-:   _object(obj), _indent(30.0f), _selected(false), _dirty(true), _hidden(false)
+:   _object(obj), _indent(10.0f), _selected(false), _dirty(true), _hidden(false)
 { _postfix = "##" + nanoid::generate(8); _composited = composited; }
 
 bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* content,
@@ -38,14 +38,14 @@ bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* co
         if (selection) _selected = !_selected;  // FIXME: just for test
     }
 
-    ImGui::Indent(_indent);
+    const static float popUpButtonIndent = 30.0f; ImGui::Indent(popUpButtonIndent);
     if (toOpen)
     {
         if (_composited) ImGui::Indent(_indent);
         toOpen = showProperty(mgr, content); _dirty = false;
         if (_composited) ImGui::Unindent(_indent);
     }
-    ImGui::Unindent(_indent); return toOpen;
+    ImGui::Unindent(popUpButtonIndent); return toOpen;
 }
 
 std::string SerializerBaseItem::tooltip(const LibraryEntry::Property& prop,

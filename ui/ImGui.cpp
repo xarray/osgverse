@@ -82,7 +82,7 @@ void endImGuiFrame(osg::RenderInfo& renderInfo, ImGuiManager* manager,
         {
             std::map<std::string, osg::ref_ptr<osg::Texture2D>>& tList = manager->getTextures();
             for (std::map<std::string, osg::ref_ptr<osg::Texture2D>>::iterator itr = tList.begin();
-                itr != tList.end(); ++itr)
+                 itr != tList.end(); ++itr)
             {
                 osg::Texture2D* tex2D = itr->second.get();
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)

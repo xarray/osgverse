@@ -9,6 +9,7 @@
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
 #include <ui/SceneHierarchy.h>
+#include <ui/SceneNavigation.h>
 #include <ui/SerializerInterface.h>
 #include <readerwriter/Utilities.h>
 #include <pipeline/SkyBox.h>
@@ -97,8 +98,9 @@ protected:
     void createEditorMenu3();
 
     osg::ref_ptr<osgVerse::MainMenuBar> _mainMenu;
-    osg::ref_ptr<osgVerse::Window> _hierarchy, _properties;
+    osg::ref_ptr<osgVerse::Window> _hierarchy, _properties, _navigation;
     osg::ref_ptr<osgVerse::SceneHierarchy> _hierarchyData;
+    osg::ref_ptr<osgVerse::SceneNavigation> _navigationData;
 
     osg::ref_ptr<osgVerse::LibraryEntry> _entry;
     std::vector<osg::ref_ptr<osgVerse::SerializerBaseItem>> _interfaces;
