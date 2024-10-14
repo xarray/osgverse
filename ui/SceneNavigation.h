@@ -15,6 +15,9 @@ namespace osgVerse
         void setCamera(osg::Camera* camera) { _camera = camera; }
         void setSelection(osg::Transform* t) { _transform = t; }
 
+        typedef std::function<void(SceneNavigation*, osg::Transform*)> TransformCallback;
+        void setTransformAction(TransformCallback cb) { _transformCallback = cb; }
+
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
 
     protected:
@@ -23,6 +26,8 @@ namespace osgVerse
         osg::ref_ptr<osgVerse::Button> _transformOp[4];
         osg::ref_ptr<osgVerse::ComboBox> _transformCoord, _manipulator;
         osg::ref_ptr<osgVerse::ImageButton> _navigationImage;
+
+        TransformCallback _transformCallback;
         std::string _postfix;
         unsigned int _operation, _gizmoMode;
     };

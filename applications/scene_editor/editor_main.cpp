@@ -110,17 +110,22 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
 
     _navigationData = new osgVerse::SceneNavigation;
     _navigationData->setCamera(view->getCamera());
+    _navigationData->setTransformAction([this](osgVerse::SceneNavigation* nav, osg::Transform* t)
+    {
+        // Notify properties
+        for (size_t i = 0; i < _interfaces.size(); ++i) _interfaces[i]->dirty();
+    });
 
     _hierarchyData = new osgVerse::SceneHierarchy;
     _hierarchyData->setViewer(view, root);
     _hierarchyData->setItemClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
-            // TODO: select in 3D view
             osg::Object* obj = osgVerse::SceneDataProxy::get<osg::Object*>(item->userData.get());
             if (obj != NULL)
             {
                 _entry = osgVerse::SerializerFactory::instance()
                        ->createInterfaces(obj, NULL, _interfaces);
+                _navigationData->setSelection(dynamic_cast<osg::Transform*>(obj));
             }
             else
                 _interfaces.clear();
@@ -223,6 +228,7 @@ void EditorContentHandler::handleCommands()
 
 int main(int argc, char** argv)
 {
+    osg::setNotifyHandler(new ConsoleHandler);
     osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 

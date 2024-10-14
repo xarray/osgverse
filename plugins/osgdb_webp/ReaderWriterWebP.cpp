@@ -14,6 +14,7 @@ class ReaderWriterWebP : public osgDB::ReaderWriter
 public:
     ReaderWriterWebP()
     {
+        supportsOption("WriteQuality=<q>", "Quality option: 0-100");
         supportsExtension("verse_webp", "osgVerse pseudo-loader");
         supportsExtension("webp", "WEBP image file");
     }
@@ -58,6 +59,53 @@ public:
         image->setInternalTextureFormat(GL_RGBA8);
         memcpy(image->data(), rgba, image->getTotalSizeInBytes());
         return image;
+    }
+
+    virtual WriteResult writeImage(const osg::Image& image, const std::string& path,
+                                   const Options* options) const
+    {
+        std::string fileName(path);
+        std::string ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
+
+        bool usePseudo = (ext == "verse_webp");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getLowerCaseFileExtension(fileName);
+        }
+
+        std::ofstream out(fileName, std::ios::out | std::ios::binary);
+        return writeImage(image, out, options);
+    }
+
+    virtual WriteResult writeImage(const osg::Image& image, std::ostream& out,
+                                   const Options* options) const
+    {
+        std::string quality = options ? options->getPluginStringData("WriteQuality") : "";
+        int q = quality.empty() ? 80 : atoi(quality.c_str());
+
+        uint8_t* result = NULL; size_t size = 0;
+        switch (image.getInternalTextureFormat())
+        {
+        case GL_RGBA: case GL_RGBA8:
+            size = WebPEncodeRGBA(image.data(), image.s(), image.t(),
+                                  image.s() * 4, q, &result); break;
+        case GL_RGB: case GL_RGB8:
+            size = WebPEncodeRGB(image.data(), image.s(), image.t(),
+                                  image.s() * 3, q, &result); break;
+        case GL_BGR:
+            size = WebPEncodeBGR(image.data(), image.s(), image.t(),
+                image.s() * 3, q, &result); break;
+        default:
+            OSG_NOTICE << "[ReaderWriterWebP] Unsupported image type: " << std::hex
+                       << image.getInternalTextureFormat() << std::endl;
+            return WriteResult::NOT_IMPLEMENTED;
+        }
+        
+        if (!result || !size) return WriteResult::ERROR_IN_WRITING_FILE;
+        else { out.write((char*)result, size); WebPFree(result); }
+        return WriteResult::FILE_SAVED;
     }
 
 protected:

@@ -70,6 +70,7 @@ public:
     ReaderWriterLevelDB()
     {
         supportsProtocol("leveldb", "Read from LevelDB database.");
+        supportsOption("WriteBufferSize=<s>", "Size in byte, default is 4Mb");
 
         // Examples:
         // - Writing: osgconv cessna.osg leveldb://test.db/cessna.osg.verse_leveldb
@@ -289,7 +290,10 @@ public:
         DatabaseMap& dbMap = const_cast<DatabaseMap&>(_dbMap);
         if (dbMap.find(name) == dbMap.end())
         {
-            leveldb::Options options; options.create_if_missing = createdIfMissing;
+            leveldb::Options options;
+            options.create_if_missing = createdIfMissing;
+            options.write_buffer_size = 256 * 1024 * 1024;
+
             leveldb::Status status = leveldb::DB::Open(options, name, &db);
             if (!status.ok()) return NULL; else dbMap[name] = db;
         }

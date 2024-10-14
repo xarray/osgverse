@@ -16,7 +16,7 @@ IF(LIBWEBP_FOUND)
 
     SET_PROPERTY(TARGET ${LIB_NAME} PROPERTY FOLDER "PLUGINS")
     TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseReaderWriter libwebp)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseReaderWriter libwebp libsharpyuv)
     LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)
 
     INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}

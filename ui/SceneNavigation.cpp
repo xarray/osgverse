@@ -1,12 +1,15 @@
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
 #include <nanoid/nanoid.h>
+#include <osg/MatrixTransform>
+#include <osg/PositionAttitudeTransform>
 #include "SceneNavigation.h"
 
 using namespace osgVerse;
 
 SceneNavigation::SceneNavigation()
-    : _operation(ImGuizmo::TRANSLATE), _gizmoMode(ImGuizmo::WORLD)
+:   _transformCallback(NULL),
+    _operation(ImGuizmo::TRANSLATE), _gizmoMode(ImGuizmo::WORLD)
 {
     _postfix = "##" + nanoid::generate(8);
     _navigationImage = new osgVerse::ImageButton("Navigation");
@@ -71,8 +74,21 @@ bool SceneNavigation::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
         osg::Matrixf view(_camera->getViewMatrix()), proj(_camera->getProjectionMatrix());
         ImGuiIO& io = ImGui::GetIO(); ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
-        done |= ImGuizmo::Manipulate(view.ptr(), proj.ptr(), (ImGuizmo::OPERATION)_operation,
-                                     (ImGuizmo::MODE)_gizmoMode, matrix.ptr());  // TODO: snap
+        done = ImGuizmo::Manipulate(view.ptr(), proj.ptr(), (ImGuizmo::OPERATION)_operation,
+                                    (ImGuizmo::MODE)_gizmoMode, matrix.ptr());  // TODO: snap, local/world
+        if (done)
+        {
+            if (_transform->asMatrixTransform())
+                _transform->asMatrixTransform()->setMatrix(matrix);
+            else if (_transform->asPositionAttitudeTransform())
+            {
+                osg::Vec3 pos, scale; osg::Quat rot, so; matrix.decompose(pos, rot, scale, so);
+                _transform->asPositionAttitudeTransform()->setPosition(pos);
+                _transform->asPositionAttitudeTransform()->setAttitude(rot);
+                _transform->asPositionAttitudeTransform()->setScale(scale);
+            }
+            if (_transformCallback) _transformCallback(this, _transform.get());
+        }
     }
     return done;
 }
