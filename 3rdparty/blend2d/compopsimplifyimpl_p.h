@@ -3,56 +3,17 @@
 // See blend2d.h or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include "api-build_p.h"
-#include "compop_p.h"
+#ifndef BLEND2D_COMPOPSIMPLIFYIMPL_P_H_INCLUDED
+#define BLEND2D_COMPOPSIMPLIFYIMPL_P_H_INCLUDED
 
-static constexpr uint32_t BL_FORMAT_RESERVED_COUNT = uint32_t(BLInternalFormat::kMaxReserved) + 1u;
+#include "api-internal_p.h"
+#include "compopinfo_p.h"
 
-struct BLCompOpInfoGen {
-  #define F(VALUE) BLCompOpFlags::VALUE
+//! \cond INTERNAL
+//! \addtogroup blend2d_internal
+//! \{
 
-  static constexpr BLCompOpInfo value(size_t op) noexcept {
-    return BLCompOpInfo { uint16_t(
-      op == BL_COMP_OP_SRC_OVER           ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_SRC_COPY           ? F(kTypeB) | F(kNone) | F(kNone) | F(kSc)   | F(kSa)   | F(kNone)       | F(kNone)       :
-      op == BL_COMP_OP_SRC_IN             ? F(kTypeB) | F(kNone) | F(kDa)   | F(kSc)   | F(kSa)   | F(kNopIfDaEq0) | F(kNone)       :
-      op == BL_COMP_OP_SRC_OUT            ? F(kTypeB) | F(kNone) | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNone)       :
-      op == BL_COMP_OP_SRC_ATOP           ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNopIfDaEq0) | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_DST_OVER           ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNopIfDaEq1) | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_DST_COPY           ? F(kTypeC) | F(kDc)   | F(kDa)   | F(kNone) | F(kNone) | F(kNop)        | F(kNop)        :
-      op == BL_COMP_OP_DST_IN             ? F(kTypeB) | F(kDc)   | F(kDa)   | F(kNone) | F(kSa)   | F(kNone)       | F(kNopIfSaEq1) :
-      op == BL_COMP_OP_DST_OUT            ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kNone) | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_DST_ATOP           ? F(kTypeB) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNone)       :
-      op == BL_COMP_OP_XOR                ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_CLEAR              ? F(kTypeC) | F(kNone) | F(kNone) | F(kNone) | F(kNone) | F(kNopIfDaEq0) | F(kNone)       :
-
-      op == BL_COMP_OP_PLUS               ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_MINUS              ? F(kTypeC) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_MODULATE           ? F(kTypeB) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNopIfDaEq0) | F(kNone)       :
-      op == BL_COMP_OP_MULTIPLY           ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNopIfDaEq0) | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_SCREEN             ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_OVERLAY            ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_DARKEN             ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_LIGHTEN            ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_COLOR_DODGE        ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_COLOR_BURN         ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_LINEAR_BURN        ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_LINEAR_LIGHT       ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_PIN_LIGHT          ? F(kTypeC) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_HARD_LIGHT         ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_SOFT_LIGHT         ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_DIFFERENCE         ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-      op == BL_COMP_OP_EXCLUSION          ? F(kTypeA) | F(kDc)   | F(kDa)   | F(kSc)   | F(kSa)   | F(kNone)       | F(kNopIfSaEq0) :
-
-      op == BL_COMP_OP_INTERNAL_ALPHA_INV ? F(kTypeC) | F(kNone) | F(kDa)   | F(kNone) | F(kNone) | F(kNone)       | F(kNone)       : F(kNone)
-    ) };
-  }
-
-  #undef F
-};
-
-const BLLookupTable<BLCompOpInfo, BL_COMP_OP_INTERNAL_COUNT> blCompOpInfo =
-  blMakeLookupTable<BLCompOpInfo, BL_COMP_OP_INTERNAL_COUNT, BLCompOpInfoGen>();
+namespace bl {
 
 // Legend:
 //
@@ -74,68 +35,33 @@ const BLLookupTable<BLCompOpInfo, BL_COMP_OP_INTERNAL_COUNT> blCompOpInfo =
 //
 //  - Dca' = Func(Sc, Dc) * Sa.Da + Sca.(1 - Da) + Dca.(1 - Sa)
 //  - Da'  = Da + Sa.(1 - Da)
-struct BLCompOpSimplifyInfoGen {
+struct CompOpSimplifyInfoImpl {
   // Shorthands of pixel formats.
-  using Fmt = BLInternalFormat;
+  using Fmt = bl::FormatExt;
 
-  // Shorthands of composition operators.
-  enum CompOp : uint32_t {
-    SrcOver     = BL_COMP_OP_SRC_OVER,
-    SrcCopy     = BL_COMP_OP_SRC_COPY,
-    SrcIn       = BL_COMP_OP_SRC_IN,
-    SrcOut      = BL_COMP_OP_SRC_OUT,
-    SrcAtop     = BL_COMP_OP_SRC_ATOP,
-    DstOver     = BL_COMP_OP_DST_OVER,
-    DstCopy     = BL_COMP_OP_DST_COPY,
-    DstIn       = BL_COMP_OP_DST_IN,
-    DstOut      = BL_COMP_OP_DST_OUT,
-    DstAtop     = BL_COMP_OP_DST_ATOP,
-    Xor         = BL_COMP_OP_XOR,
-    Clear       = BL_COMP_OP_CLEAR,
-    Plus        = BL_COMP_OP_PLUS,
-    Minus       = BL_COMP_OP_MINUS,
-    Modulate    = BL_COMP_OP_MODULATE,
-    Multiply    = BL_COMP_OP_MULTIPLY,
-    Screen      = BL_COMP_OP_SCREEN,
-    Overlay     = BL_COMP_OP_OVERLAY,
-    Darken      = BL_COMP_OP_DARKEN,
-    Lighten     = BL_COMP_OP_LIGHTEN,
-    ColorDodge  = BL_COMP_OP_COLOR_DODGE,
-    ColorBurn   = BL_COMP_OP_COLOR_BURN,
-    LinearBurn  = BL_COMP_OP_LINEAR_BURN,
-    LinearLight = BL_COMP_OP_LINEAR_LIGHT,
-    PinLight    = BL_COMP_OP_PIN_LIGHT,
-    HardLight   = BL_COMP_OP_HARD_LIGHT,
-    SoftLight   = BL_COMP_OP_SOFT_LIGHT,
-    Difference  = BL_COMP_OP_DIFFERENCE,
-    Exclusion   = BL_COMP_OP_EXCLUSION,
-
-    AlphaInv    = BL_COMP_OP_INTERNAL_ALPHA_INV
-  };
-
-  static constexpr BLCompOpSimplifyInfo makeOp(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return BLCompOpSimplifyInfo::make(compOp, d, s, BLCompOpSolidId::kNone);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo makeOp(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return CompOpSimplifyInfo::make(compOp, d, s, CompOpSolidId::kNone);
   }
 
-  static constexpr BLCompOpSimplifyInfo transparent(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return BLCompOpSimplifyInfo::make(compOp, d, s, BLCompOpSolidId::kTransparent);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo transparent(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return CompOpSimplifyInfo::make(compOp, d, s, CompOpSolidId::kTransparent);
   }
 
-  static constexpr BLCompOpSimplifyInfo opaqueBlack(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return BLCompOpSimplifyInfo::make(compOp, d, s, BLCompOpSolidId::kOpaqueBlack);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo opaqueBlack(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return CompOpSimplifyInfo::make(compOp, d, s, CompOpSolidId::kOpaqueBlack);
   }
 
-  static constexpr BLCompOpSimplifyInfo opaqueWhite(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return BLCompOpSimplifyInfo::make(compOp, d, s, BLCompOpSolidId::kOpaqueWhite);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo opaqueWhite(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return CompOpSimplifyInfo::make(compOp, d, s, CompOpSolidId::kOpaqueWhite);
   }
 
-  static constexpr BLCompOpSimplifyInfo opaqueAlpha(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return BLCompOpSimplifyInfo::make(compOp, d, s, BLCompOpSolidId::kOpaqueWhite);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo opaqueAlpha(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return CompOpSimplifyInfo::make(compOp, d, s, CompOpSolidId::kOpaqueWhite);
   }
 
   // Internal Formats:
-  static constexpr BLCompOpSimplifyInfo alphaInv(Fmt d, Fmt s) noexcept {
-    return BLCompOpSimplifyInfo::make(AlphaInv, d, s, BLCompOpSolidId::kOpaqueWhite);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo alphaInv(Fmt d, Fmt s) noexcept {
+    return CompOpSimplifyInfo::make(CompOpExt::kAlphaInv, d, s, CompOpSolidId::kOpaqueWhite);
   }
 
   // Clear
@@ -150,12 +76,12 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [Clear PRGBxXRGB] ~= [Clear PRGBxPRGB]
   // [Clear XRGBxXRGB] ~= [Clear XRGBxPRGB]
-  static constexpr BLCompOpSimplifyInfo clear(Fmt d, Fmt s) noexcept {
-    return d == Fmt::kPRGB32 ? transparent(SrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
-           d == Fmt::kXRGB32 ? opaqueBlack(SrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
-           d == Fmt::kA8     ? transparent(SrcCopy, Fmt::kA8    , Fmt::kPRGB32) :
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo clear(Fmt d, Fmt s) noexcept {
+    return d == Fmt::kPRGB32 ? transparent(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
+           d == Fmt::kXRGB32 ? opaqueBlack(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
+           d == Fmt::kA8     ? transparent(CompOpExt::kSrcCopy, Fmt::kA8    , Fmt::kPRGB32) :
 
-           makeOp(Clear, d, s);
+           makeOp(CompOpExt::kClear, d, s);
   }
 
   // SrcCopy
@@ -174,20 +100,20 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [Src XRGBxXRGB]
   //   Dc'  = Sc                             Dc'  = Sc.m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo srcCopy(Fmt d, Fmt s) noexcept {
-    return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? makeOp(SrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
-           d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? makeOp(SrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo srcCopy(Fmt d, Fmt s) noexcept {
+    return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? makeOp(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
+           d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? makeOp(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
 
-           d == Fmt::kXRGB32 && s == Fmt::kPRGB32 ? makeOp(SrcCopy, Fmt::kPRGB32, Fmt::kXRGB32) :
-           d == Fmt::kXRGB32 && s == Fmt::kZERO32 ? makeOp(SrcCopy, Fmt::kPRGB32, Fmt::kXRGB32) :
-           d == Fmt::kXRGB32 && s == Fmt::kXRGB32 ? makeOp(SrcCopy, Fmt::kPRGB32, Fmt::kXRGB32) :
-           d == Fmt::kXRGB32 && s == Fmt::kFRGB32 ? makeOp(SrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
+           d == Fmt::kXRGB32 && s == Fmt::kPRGB32 ? makeOp(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kXRGB32) :
+           d == Fmt::kXRGB32 && s == Fmt::kZERO32 ? makeOp(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kXRGB32) :
+           d == Fmt::kXRGB32 && s == Fmt::kXRGB32 ? makeOp(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kXRGB32) :
+           d == Fmt::kXRGB32 && s == Fmt::kFRGB32 ? makeOp(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
 
            d == Fmt::kA8 && s == Fmt::kZERO32 ? clear(Fmt::kA8, Fmt::kZERO32) :
-           d == Fmt::kA8 && s == Fmt::kXRGB32 ? opaqueAlpha(SrcCopy, d, Fmt::kPRGB32) :
-           d == Fmt::kA8 && s == Fmt::kFRGB32 ? opaqueAlpha(SrcCopy, d, Fmt::kPRGB32) :
+           d == Fmt::kA8 && s == Fmt::kXRGB32 ? opaqueAlpha(CompOpExt::kSrcCopy, d, Fmt::kPRGB32) :
+           d == Fmt::kA8 && s == Fmt::kFRGB32 ? opaqueAlpha(CompOpExt::kSrcCopy, d, Fmt::kPRGB32) :
 
-           makeOp(SrcCopy, d, s);
+           makeOp(CompOpExt::kSrcCopy, d, s);
   }
 
   // DstCopy
@@ -197,8 +123,8 @@ struct BLCompOpSimplifyInfoGen {
   //   Dca' = Dca
   //   Da   = Da
   BL_DIAGNOSTIC_PUSH(BL_DIAGNOSTIC_NO_UNUSED_PARAMETERS)
-  static constexpr BLCompOpSimplifyInfo dstCopy(Fmt d, Fmt s) noexcept {
-    return BLCompOpSimplifyInfo::dstCopy();
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo dstCopy(Fmt d, Fmt s) noexcept {
+    return CompOpSimplifyInfo::dstCopy();
   }
   BL_DIAGNOSTIC_POP
 
@@ -218,7 +144,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [SrcOver XRGBxXRGB] ~= [Src PRGBxPRGB]
   //   Dc'  = Sc                             Dc'  = Sc.m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo srcOver(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo srcOver(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(Fmt::kPRGB32, Fmt::kPRGB32) :
            d == Fmt::kPRGB32 && s == Fmt::kXRGB32 ? srcCopy(Fmt::kPRGB32, Fmt::kXRGB32) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? srcCopy(Fmt::kPRGB32, Fmt::kFRGB32) :
@@ -232,7 +158,7 @@ struct BLCompOpSimplifyInfoGen {
            d == Fmt::kA8 && s == Fmt::kXRGB32 ? srcCopy(Fmt::kA8, Fmt::kXRGB32) :
            d == Fmt::kA8 && s == Fmt::kFRGB32 ? srcCopy(Fmt::kA8, Fmt::kFRGB32) :
 
-           makeOp(SrcOver, d, s);
+           makeOp(CompOpExt::kSrcOver, d, s);
   }
 
   // DstOver
@@ -251,7 +177,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [DstOver XRGBxXRGB] ~= [Dst]
   //   Dc'  = Dc
-  static constexpr BLCompOpSimplifyInfo dstOver(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo dstOver(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(Fmt::kPRGB32, Fmt::kPRGB32) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? dstOver(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -259,7 +185,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(DstOver, d, s);
+           makeOp(CompOpExt::kDstOver, d, s);
   }
 
   // SrcIn
@@ -278,7 +204,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [SrcIn XRGBxXRGB] ~= [SrcCopy XRGBxXRGB]
   //   Dc'  = Sc                             Dc'  = Sc.m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo srcIn(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo srcIn(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? srcIn(Fmt::kPRGB32, Fmt::kPRGB32) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? srcIn(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -288,7 +214,7 @@ struct BLCompOpSimplifyInfoGen {
            d == Fmt::kA8 && s == Fmt::kXRGB32 ? dstCopy(d, s) :
            d == Fmt::kA8 && s == Fmt::kFRGB32 ? dstCopy(d, s) :
 
-           makeOp(SrcIn, d, s);
+           makeOp(CompOpExt::kSrcIn, d, s);
   }
 
   // DstIn
@@ -307,7 +233,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [DstIn XRGBxXRGB] ~= [Dst]
   //   Dc'  = Dc
-  static constexpr BLCompOpSimplifyInfo dstIn(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo dstIn(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? srcCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kXRGB32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? dstCopy(d, s) :
@@ -319,7 +245,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcIn(d, s) :
 
-           makeOp(DstIn, d, s);
+           makeOp(CompOpExt::kDstIn, d, s);
   }
 
   // SrcOut
@@ -338,7 +264,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [SrcOut XRGBxXRGB] ~= [Clear XRGBxPRGB]
   //   Dc'  = 0                              Dc'  = Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo srcOut(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo srcOut(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? clear(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? srcOut(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -348,7 +274,7 @@ struct BLCompOpSimplifyInfoGen {
            d == Fmt::kA8 && s == Fmt::kXRGB32 ? alphaInv(d, Fmt::kXRGB32) :
            d == Fmt::kA8 && s == Fmt::kFRGB32 ? alphaInv(d, Fmt::kXRGB32) :
 
-           makeOp(SrcOut, d, s);
+           makeOp(CompOpExt::kSrcOut, d, s);
   }
 
   // DstOut
@@ -367,7 +293,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [DstOut XRGBxXRGB] ~= [Clear XRGBxPRGB]
   //   Dc'  = 0
-  static constexpr BLCompOpSimplifyInfo dstOut(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo dstOut(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kXRGB32 ? clear(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? clear(d, s) :
@@ -380,7 +306,7 @@ struct BLCompOpSimplifyInfoGen {
            d == Fmt::kA8 && s == Fmt::kXRGB32 ? clear(d, s) :
            d == Fmt::kA8 && s == Fmt::kFRGB32 ? clear(d, s) :
 
-           makeOp(DstOut, d, s);
+           makeOp(CompOpExt::kDstOut, d, s);
   }
 
   // SrcAtop
@@ -399,7 +325,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [SrcAtop XRGBxXRGB] ~= [Src PRGBxPRGB]
   //   Dc'  = Sc                             Dc'  = Sc.m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo srcAtop(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo srcAtop(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kXRGB32 ? srcIn(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? srcIn(d, s) :
@@ -411,7 +337,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? dstCopy(d, s) :
 
-           makeOp(SrcAtop, d, s);
+           makeOp(CompOpExt::kSrcAtop, d, s);
   }
 
   // DstAtop
@@ -430,7 +356,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [DstAtop XRGBxXRGB] ~= [Dst]
   //   Dc'  = Dc
-  static constexpr BLCompOpSimplifyInfo dstAtop(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo dstAtop(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? clear(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kXRGB32 ? dstOver(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? dstOver(d, s) :
@@ -442,7 +368,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcCopy(d, s) :
 
-           makeOp(DstAtop, d, s);
+           makeOp(CompOpExt::kDstAtop, d, s);
   }
 
   // Xor
@@ -461,7 +387,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [Xor XRGBxXRGB] ~= [Clear XRGBxPRGB]
   //   Dc'  = 0                              Dc'  = Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo xor_(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo xor_(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kXRGB32 ? srcOut(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? srcOut(d, s) :
@@ -475,7 +401,7 @@ struct BLCompOpSimplifyInfoGen {
            d == Fmt::kA8 && s == Fmt::kXRGB32 ? alphaInv(d, Fmt::kXRGB32) :
            d == Fmt::kA8 && s == Fmt::kFRGB32 ? alphaInv(d, Fmt::kXRGB32) :
 
-           makeOp(Xor, d, s);
+           makeOp(CompOpExt::kXor, d, s);
   }
 
   // Plus
@@ -494,7 +420,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // [Plus XRGBxXRGB] ~= [Plus PRGBxPRGB]
   //   Dc'  = Clamp(Dc + Sc)                 Dc'  = Clamp(Dc + Sc.m)
-  static constexpr BLCompOpSimplifyInfo plus(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo plus(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? plus(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -504,10 +430,10 @@ struct BLCompOpSimplifyInfoGen {
            d == Fmt::kXRGB32 && s == Fmt::kFRGB32 ? plus(Fmt::kPRGB32, Fmt::kPRGB32) :
 
            d == Fmt::kA8 && s == Fmt::kZERO32 ? dstCopy(d, s) :
-           d == Fmt::kA8 && s == Fmt::kXRGB32 ? opaqueAlpha(Plus, d, Fmt::kPRGB32) :
-           d == Fmt::kA8 && s == Fmt::kFRGB32 ? opaqueAlpha(Plus, d, Fmt::kPRGB32) :
+           d == Fmt::kA8 && s == Fmt::kXRGB32 ? opaqueAlpha(CompOpExt::kPlus, d, Fmt::kPRGB32) :
+           d == Fmt::kA8 && s == Fmt::kFRGB32 ? opaqueAlpha(CompOpExt::kPlus, d, Fmt::kPRGB32) :
 
-           makeOp(Plus, d, s);
+           makeOp(CompOpExt::kPlus, d, s);
   }
 
   // Minus
@@ -529,7 +455,7 @@ struct BLCompOpSimplifyInfoGen {
   //
   // NOTE:
   //   `Clamp(a - b)` == `Max(a - b, 0)` == `1 - Min(1 - a + b, 1)`
-  static constexpr BLCompOpSimplifyInfo minus(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo minus(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? minus(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -540,7 +466,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(Minus, d, s);
+           makeOp(CompOpExt::kMinus, d, s);
   }
 
   // Modulate
@@ -567,17 +493,17 @@ struct BLCompOpSimplifyInfoGen {
   // [Modulate XRGBxXRGB]
   //   Dc' = Dc.Sc
   //   Dc' = Dc.(Sc.m + 1 - m)
-  static constexpr BLCompOpSimplifyInfo modulate(Fmt d, Fmt s) noexcept {
-    return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? transparent(SrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo modulate(Fmt d, Fmt s) noexcept {
+    return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? transparent(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? modulate(Fmt::kPRGB32, Fmt::kPRGB32) :
 
-           d == Fmt::kXRGB32 && s == Fmt::kZERO32 ? opaqueBlack(SrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
+           d == Fmt::kXRGB32 && s == Fmt::kZERO32 ? opaqueBlack(CompOpExt::kSrcCopy, Fmt::kPRGB32, Fmt::kPRGB32) :
            d == Fmt::kXRGB32 && s == Fmt::kFRGB32 ? modulate(Fmt::kXRGB32, Fmt::kPRGB32) :
            d == Fmt::kXRGB32 && s == Fmt::kXRGB32 ? modulate(Fmt::kXRGB32, Fmt::kPRGB32) :
 
            d == Fmt::kA8 || s == Fmt::kA8 ? dstIn(d, s) :
 
-           makeOp(Modulate, d, s);
+           makeOp(CompOpExt::kModulate, d, s);
   }
 
   // Multiply
@@ -604,7 +530,7 @@ struct BLCompOpSimplifyInfoGen {
   // [Multiply XRGBxXRGB] ~= [Modulate XRGBxXRGB]
   //   Dc'  = Dc.Sc
   //   Dc'  = Dc.(Sc.m + 1 - m)
-  static constexpr BLCompOpSimplifyInfo multiply(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo multiply(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? multiply(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -614,7 +540,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? dstOver(d, s) :
 
-           makeOp(Multiply, d, s);
+           makeOp(CompOpExt::kMultiply, d, s);
   }
 
   // Screen
@@ -642,7 +568,7 @@ struct BLCompOpSimplifyInfoGen {
   //   Dc'  = Dc + Sc  .(1 - Dc)
   //   Dc'  = Dc + Sc.m.(1 - Dc)
 
-  static constexpr BLCompOpSimplifyInfo screen(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo screen(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? screen(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -653,7 +579,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(Screen, d, s);
+           makeOp(CompOpExt::kScreen, d, s);
   }
 
   // Overlay
@@ -686,7 +612,7 @@ struct BLCompOpSimplifyInfoGen {
   //     Dc'  = 2.Dc.Sc
   //   else
   //     Dc'  = 2.(Dc + Sc) - 2.Sc.Dc - 1
-  static constexpr BLCompOpSimplifyInfo overlay(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo overlay(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? overlay(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -695,7 +621,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(Overlay, d, s);
+           makeOp(CompOpExt::kOverlay, d, s);
   }
 
   // Darken
@@ -726,7 +652,7 @@ struct BLCompOpSimplifyInfoGen {
   // [Darken XRGBxXRGB]
   //   Dc'  = min(Sc, Dc)
   //   Dc'  = min(Sc, Dc).m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo darken(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo darken(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? darken(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -735,7 +661,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? dstOver(d, s) :
 
-           makeOp(Darken, d, s);
+           makeOp(CompOpExt::kDarken, d, s);
   }
 
   // Lighten
@@ -766,7 +692,7 @@ struct BLCompOpSimplifyInfoGen {
   // [Lighten XRGBxXRGB]
   //   Dc'  = max(Sc, Dc)
   //   Dc'  = max(Sc, Dc).m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo lighten(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo lighten(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? lighten(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -775,7 +701,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(Lighten, d, s);
+           makeOp(CompOpExt::kLighten, d, s);
   }
 
   // ColorDodge
@@ -802,7 +728,7 @@ struct BLCompOpSimplifyInfoGen {
   // [ColorDodge XRGBxXRGB]
   //   Dc'  = min(Dc / max(1 - Sc, 0.001), 1)
   //   Dc'  = min(Dc / max(1 - Sc, 0.001), 1).m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo colorDodge(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo colorDodge(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? colorDodge(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -811,7 +737,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(ColorDodge, d, s);
+           makeOp(CompOpExt::kColorDodge, d, s);
   }
 
   // ColorBurn
@@ -838,7 +764,7 @@ struct BLCompOpSimplifyInfoGen {
   // [ColorBurn XRGBxXRGB]
   //   Dc'  = (1 - min(1, (1 - Dc) / max(Sc, 0.001)))
   //   Dc'  = (1 - min(1, (1 - Dc) / max(Sc, 0.001))).m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo colorBurn(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo colorBurn(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? colorBurn(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -847,7 +773,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? dstOver(d, s) :
 
-           makeOp(ColorBurn, d, s);
+           makeOp(CompOpExt::kColorBurn, d, s);
   }
 
   // LinearBurn
@@ -874,7 +800,7 @@ struct BLCompOpSimplifyInfoGen {
   // [LinearBurn XRGBxXRGB]
   //   Dc'  = Clamp(Dc + Sc - 1)
   //   Dc'  = Clamp(Dc + Sc - 1).m + Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo linearBurn(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo linearBurn(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? linearBurn(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -883,7 +809,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? dstOver(d, s) :
 
-           makeOp(LinearBurn, d, s);
+           makeOp(CompOpExt::kLinearBurn, d, s);
   }
 
   // LinearLight
@@ -910,7 +836,7 @@ struct BLCompOpSimplifyInfoGen {
   // [LinearLight XRGBxXRGB]
   //   Dc'  = min(max((Dc + 2.Sc - 1), 0), 1)
   //   Dc'  = min(max((Dc + 2.Sc - 1), 0), 1).m + Dca.(1 - m)
-  static constexpr BLCompOpSimplifyInfo linearLight(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo linearLight(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? linearLight(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -919,7 +845,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(LinearLight, d, s);
+           makeOp(CompOpExt::kLinearLight, d, s);
   }
 
   // PinLight
@@ -976,7 +902,7 @@ struct BLCompOpSimplifyInfoGen {
   //     Dc'  = min(Dc, 2.Sc).m + Dca.(1 - m)
   //   else
   //     Dc'  = max(Dc, 2.Sc - 1).m + Dca.(1 - m)
-  static constexpr BLCompOpSimplifyInfo pinLight(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo pinLight(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? pinLight(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -985,7 +911,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(PinLight, d, s);
+           makeOp(CompOpExt::kPinLight, d, s);
   }
 
   // HardLight
@@ -1042,7 +968,7 @@ struct BLCompOpSimplifyInfoGen {
   //     Dc'  = 2.Sc.Dc.m + Dc.(1 - m)
   //   else
   //     Dc'  = (1 - 2.(1 - Dc).(1 - Sc)).m - Dc.(1 - m)
-  static constexpr BLCompOpSimplifyInfo hardLight(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo hardLight(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? hardLight(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -1051,7 +977,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 || s == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(HardLight, d, s);
+           makeOp(CompOpExt::kHardLight, d, s);
   }
 
   // SoftLight
@@ -1076,7 +1002,7 @@ struct BLCompOpSimplifyInfoGen {
   //     Dc' = Dc + (2.Sc - 1).[[ 4.Dc.(4.Dc.Dc + Dc - 4.Dc + 1) - Dc]]
   //   else
   //     Dc' = Dc + (2.Sc - 1).[[             sqrt(Dc) - Dc          ]]
-  static constexpr BLCompOpSimplifyInfo softLight(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo softLight(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? softLight(Fmt::kPRGB32, Fmt::kXRGB32) :
 
@@ -1085,7 +1011,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(SoftLight, d, s);
+           makeOp(CompOpExt::kSoftLight, d, s);
   }
 
   // Difference
@@ -1112,7 +1038,7 @@ struct BLCompOpSimplifyInfoGen {
   // [Difference XRGBxXRGB]
   //   Dc'  = Dc + Sc   - 2.min(Sc  , Dc  )
   //   Dc'  = Dc + Sc.m - 2.min(Sc.m, Dc.m)
-  static constexpr BLCompOpSimplifyInfo difference(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo difference(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? difference(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -1121,7 +1047,7 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(Difference, d, s);
+           makeOp(CompOpExt::kDifference, d, s);
   }
 
   // Exclusion
@@ -1148,7 +1074,7 @@ struct BLCompOpSimplifyInfoGen {
   // [Exclusion XRGBxXRGB] ~= [Exclusion XRGBxPRGB]
   //   Dc'  = Dc + Sc  .(1 - 2.Dc)
   //   Dc'  = Dc + Sc.m.(1 - 2.Dc)
-  static constexpr BLCompOpSimplifyInfo exclusion(Fmt d, Fmt s) noexcept {
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo exclusion(Fmt d, Fmt s) noexcept {
     return d == Fmt::kPRGB32 && s == Fmt::kZERO32 ? dstCopy(d, s) :
            d == Fmt::kPRGB32 && s == Fmt::kFRGB32 ? exclusion(Fmt::kPRGB32, Fmt::kPRGB32) :
 
@@ -1157,86 +1083,62 @@ struct BLCompOpSimplifyInfoGen {
 
            d == Fmt::kA8 ? srcOver(d, s) :
 
-           makeOp(Exclusion, d, s);
+           makeOp(CompOpExt::kExclusion, d, s);
   }
 
   // HACK: MSVC has a problem with code that does multiple ternary operations (? :)
   //       so we had to split it so Blend2D can compile. So please don't be active
   //       here and don't try to join these functions as you would break MSVC builds.
-  static constexpr BLCompOpSimplifyInfo valueDecomposed_1(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return compOp == BL_COMP_OP_SRC_COPY     ? srcCopy(d, s)     :
-           compOp == BL_COMP_OP_SRC_OVER     ? srcOver(d, s)     :
-           compOp == BL_COMP_OP_SRC_IN       ? srcIn(d, s)       :
-           compOp == BL_COMP_OP_SRC_OUT      ? srcOut(d, s)      :
-           compOp == BL_COMP_OP_SRC_ATOP     ? srcAtop(d, s)     :
-           compOp == BL_COMP_OP_DST_COPY     ? dstCopy(d, s)     :
-           compOp == BL_COMP_OP_DST_OVER     ? dstOver(d, s)     :
-           compOp == BL_COMP_OP_DST_IN       ? dstIn(d, s)       :
-           compOp == BL_COMP_OP_DST_OUT      ? dstOut(d, s)      :
-           compOp == BL_COMP_OP_DST_ATOP     ? dstAtop(d, s)     : dstCopy(d, s);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo simplify_1(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return compOp == CompOpExt::kSrcCopy     ? srcCopy(d, s)     :
+           compOp == CompOpExt::kSrcOver     ? srcOver(d, s)     :
+           compOp == CompOpExt::kSrcIn       ? srcIn(d, s)       :
+           compOp == CompOpExt::kSrcOut      ? srcOut(d, s)      :
+           compOp == CompOpExt::kSrcAtop     ? srcAtop(d, s)     :
+           compOp == CompOpExt::kDstCopy     ? dstCopy(d, s)     :
+           compOp == CompOpExt::kDstOver     ? dstOver(d, s)     :
+           compOp == CompOpExt::kDstIn       ? dstIn(d, s)       :
+           compOp == CompOpExt::kDstOut      ? dstOut(d, s)      :
+           compOp == CompOpExt::kDstAtop     ? dstAtop(d, s)     : dstCopy(d, s);
   }
 
-  static constexpr BLCompOpSimplifyInfo valueDecomposed_2(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return compOp == BL_COMP_OP_XOR          ? xor_(d, s)        :
-           compOp == BL_COMP_OP_CLEAR        ? clear(d, s)       :
-           compOp == BL_COMP_OP_PLUS         ? plus(d, s)        :
-           compOp == BL_COMP_OP_MINUS        ? minus(d, s)       :
-           compOp == BL_COMP_OP_MODULATE     ? modulate(d, s)    :
-           compOp == BL_COMP_OP_MULTIPLY     ? multiply(d, s)    :
-           compOp == BL_COMP_OP_SCREEN       ? screen(d, s)      :
-           compOp == BL_COMP_OP_OVERLAY      ? overlay(d, s)     :
-           compOp == BL_COMP_OP_DARKEN       ? darken(d, s)      :
-           compOp == BL_COMP_OP_LIGHTEN      ? lighten(d, s)     : valueDecomposed_1(compOp, d, s);
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo simplify_2(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return compOp == CompOpExt::kXor         ? xor_(d, s)        :
+           compOp == CompOpExt::kClear       ? clear(d, s)       :
+           compOp == CompOpExt::kPlus        ? plus(d, s)        :
+           compOp == CompOpExt::kMinus       ? minus(d, s)       :
+           compOp == CompOpExt::kModulate    ? modulate(d, s)    :
+           compOp == CompOpExt::kMultiply    ? multiply(d, s)    :
+           compOp == CompOpExt::kScreen      ? screen(d, s)      :
+           compOp == CompOpExt::kOverlay     ? overlay(d, s)     :
+           compOp == CompOpExt::kDarken      ? darken(d, s)      :
+           compOp == CompOpExt::kLighten     ? lighten(d, s)     : simplify_1(compOp, d, s);
   }
 
-  static constexpr BLCompOpSimplifyInfo valueDecomposed_3(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return compOp == BL_COMP_OP_COLOR_DODGE  ? colorDodge(d, s)  :
-           compOp == BL_COMP_OP_COLOR_BURN   ? colorBurn(d, s)   :
-           compOp == BL_COMP_OP_LINEAR_BURN  ? linearBurn(d, s)  :
-           compOp == BL_COMP_OP_LINEAR_LIGHT ? linearLight(d, s) :
-           compOp == BL_COMP_OP_PIN_LIGHT    ? pinLight(d, s)    :
-           compOp == BL_COMP_OP_HARD_LIGHT   ? hardLight(d, s)   :
-           compOp == BL_COMP_OP_SOFT_LIGHT   ? softLight(d, s)   :
-           compOp == BL_COMP_OP_DIFFERENCE   ? difference(d, s)  :
-           compOp == BL_COMP_OP_EXCLUSION    ? exclusion(d, s)   :
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo simplify_3(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return compOp == CompOpExt::kColorDodge  ? colorDodge(d, s)  :
+           compOp == CompOpExt::kColorBurn   ? colorBurn(d, s)   :
+           compOp == CompOpExt::kLinearBurn  ? linearBurn(d, s)  :
+           compOp == CompOpExt::kLinearLight ? linearLight(d, s) :
+           compOp == CompOpExt::kPinLight    ? pinLight(d, s)    :
+           compOp == CompOpExt::kHardLight   ? hardLight(d, s)   :
+           compOp == CompOpExt::kSoftLight   ? softLight(d, s)   :
+           compOp == CompOpExt::kDifference  ? difference(d, s)  :
+           compOp == CompOpExt::kExclusion   ? exclusion(d, s)   :
 
-           // Internal operators, only used to simplify others.
-           compOp == BL_COMP_OP_INTERNAL_ALPHA_INV ? alphaInv(d, s) : valueDecomposed_2(compOp, d, s);
+           // Extended operators, only used to simplify others.
+           compOp == CompOpExt::kAlphaInv    ? alphaInv(d, s)    : simplify_2(compOp, d, s);
   }
 
   // Just dispatches to the respective composition operator.
-  static constexpr BLCompOpSimplifyInfo valueDecomposed(uint32_t compOp, Fmt d, Fmt s) noexcept {
-    return valueDecomposed_3(compOp, d, s);
-  }
-
-  // Function called by the table generator, decompose and continue...
-  static constexpr BLCompOpSimplifyInfo value(size_t index) noexcept {
-    return valueDecomposed(uint32_t((index / BL_FORMAT_RESERVED_COUNT)) % uint32_t(BL_COMP_OP_INTERNAL_COUNT),
-                           Fmt(index / (uint32_t(BL_COMP_OP_INTERNAL_COUNT) * BL_FORMAT_RESERVED_COUNT)),
-                           Fmt(index % BL_FORMAT_RESERVED_COUNT));
+  static BL_INLINE_NODEBUG constexpr CompOpSimplifyInfo simplify(CompOpExt compOp, Fmt d, Fmt s) noexcept {
+    return simplify_3(compOp, d, s);
   }
 };
 
-template<BLInternalFormat Dst>
-struct BLSimplifyInfoRecordSetGen {
-  // Function called by the table generator, decompose and continue...
-  static constexpr BLCompOpSimplifyInfo value(size_t index) noexcept {
-    return BLCompOpSimplifyInfoGen::valueDecomposed(uint32_t(index / BL_FORMAT_RESERVED_COUNT), Dst, BLInternalFormat(index % BL_FORMAT_RESERVED_COUNT));
-  }
-};
+} // {bl}
 
-// HACK: MSVC doesn't honor constexpr functions and sometimes outputs initialization
-//       code even when the expression can be calculated at compile time. To fix this
-//       we go throught an additional constexpr to force the compiler to always generate
-//       our lookup tables at compile time.
-//
-// Additionally, if there is a mistake leading to recursion the compiler would catch it
-// at compile-time instead of hitting it at runtime during initialization.
-static_assert(BL_FORMAT_MAX_VALUE == 3u, "Don't forget to add new formats to blCompOpSimplifyInfoTable");
-static constexpr const BLCompOpSimplifyInfoTable blCompOpSimplifyInfoTable_ = {{
-  blMakeLookupTable<BLCompOpSimplifyInfo, BL_COMP_OP_SIMPLIFY_RECORD_SIZE, BLSimplifyInfoRecordSetGen<BLInternalFormat(0)>>(),
-  blMakeLookupTable<BLCompOpSimplifyInfo, BL_COMP_OP_SIMPLIFY_RECORD_SIZE, BLSimplifyInfoRecordSetGen<BLInternalFormat(1)>>(),
-  blMakeLookupTable<BLCompOpSimplifyInfo, BL_COMP_OP_SIMPLIFY_RECORD_SIZE, BLSimplifyInfoRecordSetGen<BLInternalFormat(2)>>(),
-  blMakeLookupTable<BLCompOpSimplifyInfo, BL_COMP_OP_SIMPLIFY_RECORD_SIZE, BLSimplifyInfoRecordSetGen<BLInternalFormat(3)>>()
-}};
-const BLCompOpSimplifyInfoTable blCompOpSimplifyInfoTable = blCompOpSimplifyInfoTable_;
+//! \}
+//! \endcond
+
+#endif // BLEND2D_COMPOPSIMPLIFYIMPL_P_H_INCLUDED

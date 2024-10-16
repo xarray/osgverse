@@ -4,8 +4,27 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../api-build_p.h"
-
 #ifdef BL_BUILD_OPT_AVX2
-  #define getGlyphOutlines_SIMD getGlyphOutlines_AVX2
-  #include "../opentype/otglyf_sse4_2.cpp"
-#endif
+
+#include "../opentype/otglyfsimdimpl_p.h"
+
+namespace bl {
+namespace OpenType {
+namespace GlyfImpl {
+
+BLResult BL_CDECL getGlyphOutlines_AVX2(
+  const BLFontFaceImpl* faceI_,
+  BLGlyphId glyphId,
+  const BLMatrix2D* transform,
+  BLPath* out,
+  size_t* contourCountOut,
+  ScopedBuffer* tmpBuffer) noexcept {
+
+  return getGlyphOutlinesSimdImpl(faceI_, glyphId, transform, out, contourCountOut, tmpBuffer);
+}
+
+} // {GlyfImpl}
+} // {OpenType}
+} // {bl}
+
+#endif // BL_BUILD_OPT_AVX2

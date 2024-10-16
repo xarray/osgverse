@@ -91,7 +91,7 @@ BLResult bl_convert_copy_or_8888_avx2(
   srcStride -= uintptr_t(w) * 4;
 
   Vec32xU8 fillMask = make256_u32<Vec32xU8>(blPixelConverterGetData(self)->memCopyData.fillMask);
-  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(blCommonTable.loadstore16_lo8_msk8() + (w & 7u));
+  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(bl::commonTable.loadstore16_lo8_msk8() + (w & 7u));
 
   for (uint32_t y = h; y != 0; y--) {
     uint32_t i = w;
@@ -160,7 +160,7 @@ BLResult bl_convert_copy_shufb_8888_avx2(
 
   Vec32xU8 fillMask = make256_u32<Vec32xU8>(blPixelConverterGetData(self)->memCopyData.fillMask);
   Vec32xU8 predicate = broadcast_i128<Vec32xU8>(loadu<Vec16xU8>(d.shufbPredicate));
-  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(blCommonTable.loadstore16_lo8_msk8() + (w & 7u));
+  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(bl::commonTable.loadstore16_lo8_msk8() + (w & 7u));
 
   for (uint32_t y = h; y != 0; y--) {
     uint32_t i = w;
@@ -229,7 +229,7 @@ BLResult bl_convert_rgb32_from_rgb24_shufb_avx2(
 
   Vec32xU8 fillMask = make256_u32<Vec32xU8>(blPixelConverterGetData(self)->memCopyData.fillMask);
   Vec32xU8 predicate = broadcast_i128<Vec32xU8>(loadu<Vec16xU8>(d.shufbPredicate));
-  Vec16xU8 loadStoreMask = loada_32_i8_i32<Vec16xU8>(blCommonTable.loadstore16_lo8_msk8() + (w & 3u));
+  Vec16xU8 loadStoreMask = loada_32_i8_i32<Vec16xU8>(bl::commonTable.loadstore16_lo8_msk8() + (w & 3u));
 
   for (uint32_t y = h; y != 0; y--) {
     uint32_t i = w;
@@ -352,8 +352,8 @@ static BL_INLINE BLResult bl_convert_premultiply_8888_template_avx2(
   if (UseShufB)
     predicate = broadcast_i128<Vec32xU8>(loadu<Vec16xU8>(d.shufbPredicate));
 
-  Vec32xU8 loadStoreMaskLo = loada_64_i8_i32<Vec32xU8>(&blCommonTable.loadstore16_lo8_msk8()[w & 15]);
-  Vec32xU8 loadStoreMaskHi = loada_64_i8_i32<Vec32xU8>(&blCommonTable.loadstore16_hi8_msk8()[w & 15]);
+  Vec32xU8 loadStoreMaskLo = loada_64_i8_i32<Vec32xU8>(&bl::commonTable.loadstore16_lo8_msk8()[w & 15]);
+  Vec32xU8 loadStoreMaskHi = loada_64_i8_i32<Vec32xU8>(&bl::commonTable.loadstore16_hi8_msk8()[w & 15]);
 
   // Alpha byte-index that can be used by instructions that perform shuffling.
   constexpr uint32_t AI = A_Shift / 8u;
@@ -366,8 +366,10 @@ static BL_INLINE BLResult bl_convert_premultiply_8888_template_avx2(
       Vec32xU8 packed0 = loadu<Vec32xU8>(srcData +  0);
       Vec32xU8 packed1 = loadu<Vec32xU8>(srcData + 32);
 
-      if (UseShufB) packed0 = swizzlev_u8(packed0, predicate);
-      if (UseShufB) packed1 = swizzlev_u8(packed1, predicate);
+      if (UseShufB) {
+        packed0 = swizzlev_u8(packed0, predicate);
+        packed1 = swizzlev_u8(packed1, predicate);
+      }
 
       Vec16xU16 p1 = vec_u16(interleave_hi_u8(packed0, zero));
       Vec16xU16 p0 = vec_u16(interleave_lo_u8(packed0, zero));
@@ -391,8 +393,10 @@ static BL_INLINE BLResult bl_convert_premultiply_8888_template_avx2(
       Vec32xU8 packed0 = loadu_256_mask32<Vec32xU8>(srcData +  0, loadStoreMaskLo);
       Vec32xU8 packed1 = loadu_256_mask32<Vec32xU8>(srcData + 32, loadStoreMaskHi);
 
-      if (UseShufB) packed0 = swizzlev_u8(packed0, predicate);
-      if (UseShufB) packed1 = swizzlev_u8(packed1, predicate);
+      if (UseShufB) {
+        packed0 = swizzlev_u8(packed0, predicate);
+        packed1 = swizzlev_u8(packed1, predicate);
+      }
 
       Vec16xU16 p1 = vec_u16(interleave_hi_u8(packed0, zero));
       Vec16xU16 p0 = vec_u16(interleave_lo_u8(packed0, zero));
@@ -471,12 +475,12 @@ static BL_INLINE BLResult bl_convert_unpremultiply_8888_pmulld_template_avx2(
   dstStride -= uintptr_t(w) * 4u + gap;
   srcStride -= uintptr_t(w) * 4u;
 
-  const uint32_t* rcpTable = blCommonTable.unpremultiplyRcp;
+  const uint32_t* rcpTable = bl::commonTable.unpremultiplyRcp;
 
   Vec8xU32 half = make256_u32(0x8000u);
   Vec32xU8 alphaMask = make256_u32<Vec32xU8>(0xFFu << A_Shift);
   Vec8xU32 componentMask = make256_u32<Vec8xU32>(0xFFu);
-  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(blCommonTable.loadstore16_lo8_msk8() + (w & 7));
+  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(bl::commonTable.loadstore16_lo8_msk8() + (w & 7));
 
   // Alpha byte-index that can be used by instructions that perform shuffling.
   constexpr uint32_t AI = A_Shift / 8u;
@@ -605,7 +609,7 @@ static BL_INLINE BLResult bl_convert_unpremultiply_8888_float_template_avx2(
 
   Vec32xU8 alphaMask = make256_u32<Vec32xU8>(0xFFu << A_Shift);
   Vec8xU32 componentMask = make256_u32(0xFFu);
-  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(blCommonTable.loadstore16_lo8_msk8() + (w & 7u));
+  Vec32xU8 loadStoreMask = loada_64_i8_i32<Vec32xU8>(bl::commonTable.loadstore16_lo8_msk8() + (w & 7u));
 
   Vec8xF32 f32_255 = make256_f32(255.0001f);
   Vec8xF32 f32_lessThanOne = make256_f32(0.1f);

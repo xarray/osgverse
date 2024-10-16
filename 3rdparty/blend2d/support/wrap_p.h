@@ -12,9 +12,11 @@
 //! \addtogroup blend2d_internal
 //! \{
 
+namespace bl {
+
 //! Wrapper to control construction & destruction of `T`.
 template<typename T>
-struct alignas(alignof(T)) BLWrap {
+struct alignas(alignof(T)) Wrap {
   //! Storage required to instantiate `T`.
   char _data[sizeof(T)];
 
@@ -25,7 +27,7 @@ struct alignas(alignof(T)) BLWrap {
   template<typename... Args>
   BL_INLINE T* init(Args&&... args) noexcept {
     T* instance = static_cast<T*>(static_cast<void*>(_data));
-    blCallCtor(*instance, std::forward<Args>(args)...);
+    blCallCtor(*instance, BLInternal::forward<Args>(args)...);
     return instance;
   }
 
@@ -57,6 +59,8 @@ struct alignas(alignof(T)) BLWrap {
 
   //! \}
 };
+
+} // {bl}
 
 //! \}
 //! \endcond

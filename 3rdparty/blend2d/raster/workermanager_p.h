@@ -30,7 +30,8 @@
 //! \addtogroup blend2d_raster_engine_impl
 //! \{
 
-namespace BLRasterEngine {
+namespace bl {
+namespace RasterEngine {
 
 template<typename T>
 struct PreallocatedStructPool {
@@ -57,7 +58,7 @@ struct PreallocatedStructPool {
     ptr += n;
   }
 
-  BL_INLINE BLResult preallocate(BLArenaAllocator& allocator, uint32_t count) noexcept {
+  BL_INLINE BLResult preallocate(ArenaAllocator& allocator, uint32_t count) noexcept {
     constexpr uint32_t kAlignment = uint32_t(alignof(T));
     constexpr uint32_t kItemSize = uint32_t(sizeof(T));
 
@@ -117,7 +118,7 @@ struct PreallocatedBytePool {
     return p;
   }
 
-  BL_INLINE BLResult preallocate(BLArenaAllocator& allocator, uint32_t minimumSize, uint32_t defaultSize, uint32_t extraSize, uint32_t alignment) noexcept {
+  BL_INLINE BLResult preallocate(ArenaAllocator& allocator, uint32_t minimumSize, uint32_t defaultSize, uint32_t extraSize, uint32_t alignment) noexcept {
     allocator.align(alignment);
 
     size_t remaining = allocator.remainingSize();
@@ -152,7 +153,7 @@ public:
   //! \{
 
   //! Zone allocator used to allocate commands, jobs, and related data.
-  BLArenaAllocator _allocator;
+  ArenaAllocator _allocator;
 
   //! Current batch where objects are appended to.
   RenderBatch* _currentBatch;
@@ -198,7 +199,7 @@ public:
   //! \{
 
   BL_INLINE WorkerManager() noexcept
-    : _allocator(131072 - BLArenaAllocator::kBlockOverhead, kAllocatorAlignment),
+    : _allocator(131072 - ArenaAllocator::kBlockOverhead, kAllocatorAlignment),
       _currentBatch{},
       _commandAppender{},
       _jobAppender{},
@@ -232,7 +233,7 @@ public:
   BLResult initWorkMemory(size_t zeroedMemorySize) noexcept;
 
   BL_INLINE void initFirstBatch() noexcept {
-    RenderBatch* batch = _allocator.newT<RenderBatch>();
+    RenderBatch* batch = _allocator.allocZeroedT<RenderBatch>();
 
     // We have preallocated enough, cannot happen.
     BL_ASSERT(batch != nullptr);
@@ -281,6 +282,8 @@ public:
   //! \name Command Data
   //! \{
 
+  BL_INLINE_NODEBUG RenderCommandAppender& commandAppender() noexcept { return _commandAppender; }
+
   BL_INLINE_NODEBUG RenderCommand* currentCommand() noexcept { return _commandAppender.currentCommand(); }
   BL_INLINE_NODEBUG uint32_t nextStateSlotIndex() noexcept { return _stateSlotCount++; }
 
@@ -294,7 +297,7 @@ public:
   }
 
   BL_INLINE RenderCommandQueue* newCommandQueue() noexcept {
-    RenderCommandQueue* p = _allocator.allocNoAlignT<RenderCommandQueue>(BLIntOps::alignUp(RenderCommandQueue::sizeOf(), kAllocatorAlignment));
+    RenderCommandQueue* p = _allocator.allocNoAlignT<RenderCommandQueue>(IntOps::alignUp(RenderCommandQueue::sizeOf(), kAllocatorAlignment));
     if (BL_UNLIKELY(!p))
       return nullptr;
     return new(BLInternal::PlacementNew{p}) RenderCommandQueue();
@@ -330,7 +333,7 @@ public:
   BL_INLINE_NODEBUG bool isJobQueueFull() const noexcept { return _jobAppender.full(); }
 
   BL_INLINE RenderJobQueue* newJobQueue() noexcept {
-    RenderJobQueue* p = _allocator.allocNoAlignT<RenderJobQueue>(BLIntOps::alignUp(RenderJobQueue::sizeOf(), kAllocatorAlignment));
+    RenderJobQueue* p = _allocator.allocNoAlignT<RenderJobQueue>(IntOps::alignUp(RenderJobQueue::sizeOf(), kAllocatorAlignment));
     if (BL_UNLIKELY(!p))
       return nullptr;
     p->reset();
@@ -419,7 +422,7 @@ public:
     _currentBatch->_commandCount += uint32_t(lastCommandQueue->size());
     _currentBatch->_stateSlotCount = _stateSlotCount;
     _currentBatch->_bandCount = _bandCount;
-    // TODO: Not used. the idea is that after the batch is processed we can reuse the blocks of the allocator (basically move it after the current block).
+    // TODO: [Rendering Context] Not used. the idea is that after the batch is processed we can reuse the blocks of the allocator (basically move it after the current block).
     // _currentBatch->_pastBlock = _allocator.pastBlock();
 
     if (++_batchId == 0)
@@ -432,7 +435,8 @@ public:
   //! \}
 };
 
-} // {BLRasterEngine}
+} // {RasterEngine}
+} // {bl}
 
 //! \}
 //! \endcond

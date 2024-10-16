@@ -12,20 +12,24 @@
 //! \addtogroup blend2d_pipeline_jit
 //! \{
 
-namespace BLPipeline {
+namespace bl {
+namespace Pipeline {
 namespace JIT {
 
 //! Pipeline solid-fetch part.
 class FetchSolidPart : public FetchPart {
 public:
+  //! Pointer to fetch data, which is needed in `initSolidFlags()` - initially retrieved from \ref PipeFunction.
+  Gp _fetchData;
+
   //! Source pixel, expanded to the whole register if necessary.
   Pixel _pixel;
 
-  FetchSolidPart(PipeCompiler* pc, BLInternalFormat format) noexcept;
+  FetchSolidPart(PipeCompiler* pc, FormatExt format) noexcept;
 
   void preparePart() noexcept override;
 
-  void _initPart(x86::Gp& x, x86::Gp& y) noexcept override;
+  void _initPart(const PipeFunction& fn, Gp& x, Gp& y) noexcept override;
   void _finiPart() noexcept override;
 
   //! Injects code at the beginning of the pipeline that is required to prepare the requested variables that will
@@ -41,7 +45,8 @@ public:
 };
 
 } // {JIT}
-} // {BLPipeline}
+} // {Pipeline}
+} // {bl}
 
 //! \}
 //! \endcond

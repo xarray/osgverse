@@ -12,34 +12,38 @@
 //! \addtogroup blend2d_pipeline_jit
 //! \{
 
-namespace BLPipeline {
+namespace bl {
+namespace Pipeline {
 namespace JIT {
 
 //! Pipeline fetch pixel-pointer part.
 class FetchPixelPtrPart : public FetchPart {
 public:
   //! Pixel pointer.
-  x86::Gp _ptr;
+  Gp _ptr;
   //! Pixel pointer alignment (updated by FillPart|CompOpPart).
-  Alignment _alignment {};
+  Alignment _alignment{1};
 
-  FetchPixelPtrPart(PipeCompiler* pc, FetchType fetchType, BLInternalFormat format) noexcept;
+  FetchPixelPtrPart(PipeCompiler* pc, FetchType fetchType, FormatExt format) noexcept;
 
   //! Initializes the pixel pointer to `p`.
-  BL_INLINE void initPtr(const x86::Gp& p) noexcept { _ptr = p; }
+  BL_INLINE_NODEBUG void initPtr(const Gp& p) noexcept { _ptr = p; }
   //! Returns the pixel-pointer.
-  BL_INLINE x86::Gp& ptr() noexcept { return _ptr; }
+  BL_INLINE_NODEBUG Gp& ptr() noexcept { return _ptr; }
 
   //! Returns the pixel-pointer alignment.
-  BL_INLINE Alignment alignment() const noexcept { return _alignment; }
-  //! Sets the pixel-pointer alignment.
-  BL_INLINE void setAlignment(Alignment alignment) noexcept { _alignment = alignment; }
+  BL_INLINE_NODEBUG Alignment alignment() const noexcept { return _alignment; }
+  //! Sets the pixel-pointer alignment to `alignment`.
+  BL_INLINE_NODEBUG void setAlignment(Alignment alignment) noexcept { _alignment = alignment; }
+  //! Resets the pixel-pointer alignment to 1 (no alignment)
+  BL_INLINE_NODEBUG void resetAlignment() noexcept { _alignment = 1; }
 
   void fetch(Pixel& p, PixelCount n, PixelFlags flags, PixelPredicate& predicate) noexcept override;
 };
 
 } // {JIT}
-} // {BLPipeline}
+} // {Pipeline}
+} // {bl}
 
 //! \}
 //! \endcond

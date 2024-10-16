@@ -4,36 +4,36 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../../api-build_p.h"
-#if BL_TARGET_ARCH_X86 && !defined(BL_BUILD_NO_JIT)
+#if !defined(BL_BUILD_NO_JIT)
 
 #include "../../pipeline/jit/fetchpixelptrpart_p.h"
+#include "../../pipeline/jit/fetchutilspixelaccess_p.h"
 #include "../../pipeline/jit/pipecompiler_p.h"
 
-namespace BLPipeline {
+namespace bl {
+namespace Pipeline {
 namespace JIT {
 
-// BLPipeline::JIT::FetchPixelPtrPart - Construction & Destruction
-// ===============================================================
+// bl::Pipeline::JIT::FetchPixelPtrPart - Construction & Destruction
+// =================================================================
 
-FetchPixelPtrPart::FetchPixelPtrPart(PipeCompiler* pc, FetchType fetchType, BLInternalFormat format) noexcept
+FetchPixelPtrPart::FetchPixelPtrPart(PipeCompiler* pc, FetchType fetchType, FormatExt format) noexcept
   : FetchPart(pc, fetchType, format) {
 
-  _partFlags |= PipePartFlags::kAdvanceXIsSimple;
-  _maxSimdWidthSupported = SimdWidth::k512;
+  _partFlags |= PipePartFlags::kMaskedAccess | PipePartFlags::kAdvanceXIsSimple;
+  _maxVecWidthSupported = VecWidth::kMaxPlatformWidth;
   _maxPixels = kUnlimitedMaxPixels;
-
-  if (pc->hasMaskedAccessOf(bpp()))
-    _partFlags |= PipePartFlags::kMaskedAccess;
 }
 
-// BLPipeline::JIT::FetchPixelPtrPart - Fetch
-// ==========================================
+// bl::Pipeline::JIT::FetchPixelPtrPart - Fetch
+// ============================================
 
 void FetchPixelPtrPart::fetch(Pixel& p, PixelCount n, PixelFlags flags, PixelPredicate& predicate) noexcept {
-  pc->x_fetch_pixel(p, n, flags, format(), x86::ptr(_ptr), _alignment, predicate);
+  FetchUtils::fetchPixels(pc, p, n, flags, format(), _ptr, _alignment, AdvanceMode::kNoAdvance, predicate);
 }
 
 } // {JIT}
-} // {BLPipeline}
+} // {Pipeline}
+} // {bl}
 
-#endif
+#endif // !BL_BUILD_NO_JIT

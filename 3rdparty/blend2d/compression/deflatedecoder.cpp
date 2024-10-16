@@ -12,11 +12,12 @@
 #include "../compression/deflatedecoder_p.h"
 #include "../support/intops_p.h"
 
-namespace BLCompression {
+namespace bl {
+namespace Compression {
 namespace Deflate {
 
-// BLCompression::Deflate - Constants
-// ==================================
+// bl::Compression::Deflate - Constants
+// ====================================
 
 static const uint16_t sizeBaseTable[31] = {
   3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67,
@@ -62,8 +63,8 @@ static const uint8_t fixedZDistTable[32] = {
   5, 5, 5, 5, 5, 5
 };
 
-// BLCompression::Deflate - Utilities
-// ==================================
+// bl::Compression::Deflate - Utilities
+// ====================================
 
 template<typename T>
 static BL_INLINE T bitRev16Internal(T v) noexcept {
@@ -81,8 +82,8 @@ static BL_INLINE T bitRev(T v, uint32_t n) noexcept {
   return bitRev16Internal(v) >> (16 - n);
 }
 
-// BLCompression::Deflate - DeflateTable
-// =====================================
+// bl::Compression::Deflate - DeflateTable
+// =======================================
 
 // Huffman table used by `DeflateDecoder`.
 struct DeflateTable {
@@ -144,7 +145,7 @@ static BLResult blDeflateBuildTable(DeflateTable* table, const uint8_t* sizeList
 
     if (s) {
       uint32_t code = uint32_t(int32_t(nextCode[s]) + table->delta[s]);
-      uint32_t fast = ((s << 9) | i);
+      uint32_t fast = ((s << DeflateTable::kFastBits) | i);
 
       table->size[code] = uint8_t(s);
       table->value[code] = uint16_t(i);
@@ -164,8 +165,8 @@ static BLResult blDeflateBuildTable(DeflateTable* table, const uint8_t* sizeList
   return BL_SUCCESS;
 }
 
-// BLCompression::Deflate - DeflateState
-// =====================================
+// bl::Compression::Deflate - DeflateState
+// =======================================
 
 enum DeflateState {
   kDeflateStateZLibHeader        = 0,    // The decoder will process ZLIB's header.
@@ -174,36 +175,36 @@ enum DeflateState {
   kDeflateStateBlockCompressed   = 3     // The decoder will process a compressed block.
 };
 
-// BLCompression::Deflate - DeflateDecoder
-// =======================================
+// bl::Compression::Deflate - DeflateDecoder
+// =========================================
 
 // In-memory DEFLATE decoder.
 struct DeflateDecoder {
   //! Read context - passed to `_readFunc`.
-  void* _readCtx;
+  void* _readCtx {};
   //! Read function - Callback that provides next input chunk.
-  ReadFunc _readFunc;
+  ReadFunc _readFunc {};
 
   //! Destination buffer reference.
   BLArray<uint8_t>& _dstBuffer;
   //! The start of `_dstBuffer`.
-  uint8_t* _dstStart;
+  uint8_t* _dstStart {};
   //! The current position in `_dstBuffer`.
-  uint8_t* _dstPtr;
+  uint8_t* _dstPtr {};
   //! The end of `_dstBuffer` (the first invalid byte).
-  uint8_t* _dstEnd;
+  uint8_t* _dstEnd {};
 
   //! The current position in the last chunk retrieved by calling `_readFunc`.
-  const uint8_t* _srcPtr;
+  const uint8_t* _srcPtr {};
   //! The end of the last chunk retrieved by calling `_readFunc`.
-  const uint8_t* _srcEnd;
+  const uint8_t* _srcEnd {};
 
   //! The current code data (bits).
-  BLBitWord _codeData;
+  BLBitWord _codeData {};
   //! The current code size in bits.
-  uint32_t _codeSize;
+  uint32_t _codeSize {};
   //! The current decoder state.
-  uint32_t _state;
+  uint32_t _state {};
 
   DeflateTable _zSize;
   DeflateTable _zDist;
@@ -215,7 +216,7 @@ struct DeflateDecoder {
     size_t remain = (size_t)(_dstEnd - _dstPtr);
     if (BL_UNLIKELY(remain < maxLen)) {
       size_t pos = (size_t)(_dstPtr - _dstStart);
-      BLArrayPrivate::setSize(&_dstBuffer, pos);
+      bl::ArrayInternal::setSize(&_dstBuffer, pos);
       BL_PROPAGATE(_dstBuffer.modifyOp(BL_MODIFY_OP_APPEND_GROW, maxLen, &_dstPtr));
 
       _dstStart = _dstPtr - pos;
@@ -228,25 +229,18 @@ struct DeflateDecoder {
   BLResult _decode() noexcept;
 };
 
-// BLCompression::Deflate::DeflateContext - Construction & Destruction
-// ===================================================================
+// bl::Compression::Deflate::DeflateContext - Construction & Destruction
+// =====================================================================
 
 DeflateDecoder::DeflateDecoder(BLArray<uint8_t>& output, void* readCtx, ReadFunc readFunc) noexcept
   : _readCtx(readCtx),
     _readFunc(readFunc),
     _dstBuffer(output),
-    _dstStart(nullptr),
-    _dstPtr(nullptr),
-    _dstEnd(nullptr),
-    _srcPtr(nullptr),
-    _srcEnd(nullptr),
-    _codeData(0),
-    _codeSize(0),
     _state(kDeflateStateZLibHeader) {}
 DeflateDecoder::~DeflateDecoder() noexcept {}
 
-// BLCompression::Deflate::DeflateContext - Decode
-// ===============================================
+// bl::Compression::Deflate::DeflateContext - Decode
+// =================================================
 
 #define BL_DEFLATE_INIT(SELF)                                   \
   BLResult err = BL_SUCCESS;                                    \
@@ -272,7 +266,7 @@ DeflateOnReturn:                                                \
   SELF->_srcPtr = dflPtr;                                       \
   SELF->_srcEnd = dflEnd;                                       \
                                                                 \
-  BLArrayPrivate::setSize(&(SELF->_dstBuffer),                  \
+  bl::ArrayInternal::setSize(&(SELF->_dstBuffer),               \
     ((size_t)(_dstPtr - _dstStart)));                           \
                                                                 \
   return err
@@ -301,7 +295,7 @@ DeflateOnReturn:                                                \
 
 #define BL_DEFLATE_FILL_BITS()                                  \
   do {                                                          \
-    while (dflSize <= BLIntOps::bitSizeOf<BLBitWord>() - 8) {   \
+    while (dflSize <= IntOps::bitSizeOf<BLBitWord>() - 8) {     \
       if (BL_UNLIKELY(dflPtr == dflEnd) &&                      \
           !_readFunc(_readCtx, &dflPtr, &dflEnd))               \
         break;                                                  \
@@ -328,7 +322,7 @@ DeflateOnReturn:                                                \
     uint32_t tmpSize;                                           \
                                                                 \
     if (tmpCode) {                                              \
-      tmpSize = tmpCode >> 9;                                   \
+      tmpSize = tmpCode >> DeflateTable::kFastBits;             \
       tmpCode &= DeflateTable::kFastMask;                       \
     }                                                           \
     else {                                                      \
@@ -382,7 +376,7 @@ BLResult DeflateDecoder::_decode() noexcept {
       if ((cmf & 0xF) != 8)
         BL_DEFLATE_PROPAGATE(blTraceError(BL_ERROR_INVALID_DATA));
 
-      // TODO: Fix this, we can be ZLIB compliant here and make this configurable.
+      // TODO: [Compression] Fix this, we can be ZLIB compliant here and make this configurable.
       // Preset dictionary not allowed in PNG.
       if ((flg & 0x20) != 0)
         BL_DEFLATE_PROPAGATE(blTraceError(BL_ERROR_INVALID_DATA));
@@ -446,7 +440,7 @@ BLResult DeflateDecoder::_decode() noexcept {
 
           // After FillBits the minimum bits we would have is either 25 or 57 (BitWordSize - 7) if there is enough
           // input data. So we can process either 8 or 19 loop iterations.
-          uint32_t iEnd = blMin<uint32_t>(i + (BLIntOps::bitSizeOf<BLBitWord>() - 7u) / 3u, hclen);
+          uint32_t iEnd = blMin<uint32_t>(i + (IntOps::bitSizeOf<BLBitWord>() - 7u) / 3u, hclen);
           BL_DEFLATE_NEED_BITS((iEnd - i) * 3);
 
           do {
@@ -528,7 +522,7 @@ BLResult DeflateDecoder::_decode() noexcept {
 
       // First read bytes from `dflData` if running on 64-bit (otherwise we have already consumed all 32-bits
       // from the entropy buffer).
-      if (BLIntOps::bitSizeOf<BLBitWord>() > 32) {
+      if (IntOps::bitSizeOf<BLBitWord>() > 32) {
         while (dflSize != 0 && uLen) {
           *_dstPtr++ = uint8_t(BL_DEFLATE_PEEK(8));
           BL_DEFLATE_CONSUME(8);
@@ -587,7 +581,7 @@ BLResult DeflateDecoder::_decode() noexcept {
           }
           size += sizeBaseTable[code];
 
-          if (BLIntOps::bitSizeOf<BLBitWord>() <= 32)
+          if (IntOps::bitSizeOf<BLBitWord>() <= 32)
             BL_DEFLATE_FILL_BITS();
 
           BL_DEFLATE_READ_CODE(code, &_zDist);
@@ -628,8 +622,8 @@ BLResult DeflateDecoder::_decode() noexcept {
   BL_DEFLATE_FINI(this);
 }
 
-// BLCompression::Deflate - API
-// ============================
+// bl::Compression::Deflate - API
+// ==============================
 
 BLResult deflate(BLArray<uint8_t>& dst, void* readCtx, ReadFunc readFunc, bool hasHeader) noexcept {
   DeflateDecoder decoder(dst, readCtx, readFunc);
@@ -639,4 +633,5 @@ BLResult deflate(BLArray<uint8_t>& dst, void* readCtx, ReadFunc readFunc, bool h
 }
 
 } // {Deflate}
-} // {BLCompression}
+} // {Compression}
+} // {bl}

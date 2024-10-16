@@ -18,11 +18,12 @@
 //! \addtogroup blend2d_raster_engine_impl
 //! \{
 
-namespace BLRasterEngine {
+namespace bl {
+namespace RasterEngine {
 namespace JobProc {
 
-// BLRasterEngine - Job Processor - State Accessor
-// ===============================================
+// bl::RasterEngine - Job Processor - State Accessor
+// =================================================
 
 namespace {
 
@@ -76,13 +77,13 @@ public:
 
 } // {anonymous}
 
-// BLRasterEngine - Job Processor - Utilities
-// ==========================================
+// bl::RasterEngine - Job Processor - Utilities
+// ============================================
 
 static BL_INLINE void prepareEdgeBuilder(WorkData* workData, const SharedFillState* fillState) noexcept {
   workData->saveState();
   workData->edgeBuilder.setClipBox(fillState->finalClipBoxFixedD);
-  workData->edgeBuilder.setFlattenToleranceSq(blSquare(fillState->toleranceFixedD));
+  workData->edgeBuilder.setFlattenToleranceSq(Math::square(fillState->toleranceFixedD));
 }
 
 static BL_INLINE BLPath* getGeometryAsPath(WorkData* workData, RenderJob_GeometryOp* job) noexcept {
@@ -110,8 +111,21 @@ static BL_INLINE void finalizeGeometryData(WorkData* workData, RenderJob_Geometr
     job->geometryData<BLPath>()->~BLPath();
 }
 
-// BLRasterEngine - Job Processor - Fill Geometry Job
-// ==================================================
+template<typename Job>
+static BL_INLINE void assignEdges(WorkData* workData, Job* job, EdgeStorage<int>* edgeStorage) noexcept {
+  if (!edgeStorage->empty()) {
+    RenderCommandQueue* commandQueue = job->commandQueue();
+    size_t commandIndex = job->commandIndex();
+    uint8_t qy0 = uint8_t((edgeStorage->boundingBox().y0) >> workData->commandQuantizationShiftFp());
+
+    commandQueue->initQuantizedY0(commandIndex, qy0);
+    commandQueue->at(commandIndex).setAnalyticEdges(edgeStorage);
+    edgeStorage->resetBoundingBox();
+  }
+}
+
+// bl::RasterEngine - Job Processor - Fill Geometry Job
+// ====================================================
 
 static void processFillGeometryJob(WorkData* workData, RenderJob_GeometryOp* job) noexcept {
   BLPath* path = getGeometryAsPath(workData, job);
@@ -123,20 +137,14 @@ static void processFillGeometryJob(WorkData* workData, RenderJob_GeometryOp* job
   BLResult result = addFilledPathEdges(workData, path->view(), accessor.finalTransformFixed(job->originFixed()), accessor.finalTransformFixedType());
 
   if (result == BL_SUCCESS) {
-    EdgeStorage<int>* edgeStorage = &workData->edgeStorage;
-    RenderCommand& command = job->command();
-
-    if (!edgeStorage->empty()) {
-      command.setAnalyticEdges(edgeStorage);
-      edgeStorage->resetBoundingBox();
-    }
+    assignEdges(workData, job, &workData->edgeStorage);
   }
 
   finalizeGeometryData(workData, job);
 }
 
-// BLRasterEngine - Job Processor - Fill Text Job
-// ==============================================
+// bl::RasterEngine - Job Processor - Fill Text Job
+// ================================================
 
 static void processFillTextJob(WorkData* workData, RenderJob_TextOp* job) noexcept {
   BLResult result = BL_SUCCESS;
@@ -167,24 +175,18 @@ static void processFillTextJob(WorkData* workData, RenderJob_TextOp* job) noexce
   if (result == BL_SUCCESS) {
     JobStateAccessor accessor(job);
     prepareEdgeBuilder(workData, accessor.fillState());
+
     result = addFilledGlyphRunEdges(workData, accessor, originFixed, &font, glyphRun);
-  }
-
-  if (result == BL_SUCCESS) {
-    EdgeStorage<int>* edgeStorage = &workData->edgeStorage;
-    RenderCommand& command = job->command();
-
-    if (!edgeStorage->empty()) {
-      command.setAnalyticEdges(edgeStorage);
-      edgeStorage->resetBoundingBox();
+    if (result == BL_SUCCESS) {
+      assignEdges(workData, job, &workData->edgeStorage);
     }
   }
 
   job->destroy();
 }
 
-// BLRasterEngine - Job Processor - Stroke Geometry Job
-// ====================================================
+// bl::RasterEngine - Job Processor - Stroke Geometry Job
+// ======================================================
 
 static void processStrokeGeometryJob(WorkData* workData, RenderJob_GeometryOp* job) noexcept {
   BLPath* path = getGeometryAsPath(workData, job);
@@ -195,20 +197,14 @@ static void processStrokeGeometryJob(WorkData* workData, RenderJob_GeometryOp* j
   prepareEdgeBuilder(workData, accessor.fillState());
 
   if (addStrokedPathEdges(workData, accessor, job->originFixed(), path) == BL_SUCCESS) {
-    EdgeStorage<int>* edgeStorage = &workData->edgeStorage;
-    RenderCommand& command = job->command();
-
-    if (!edgeStorage->empty()) {
-      command.setAnalyticEdges(edgeStorage);
-      edgeStorage->resetBoundingBox();
-    }
+    assignEdges(workData, job, &workData->edgeStorage);
   }
 
   finalizeGeometryData(workData, job);
 }
 
-// BLRasterEngine - Job Processor - Stroke Text Job
-// ================================================
+// bl::RasterEngine - Job Processor - Stroke Text Job
+// ==================================================
 
 static void processStrokeTextJob(WorkData* workData, RenderJob_TextOp* job) noexcept {
   BLResult result = BL_SUCCESS;
@@ -239,24 +235,18 @@ static void processStrokeTextJob(WorkData* workData, RenderJob_TextOp* job) noex
   if (result == BL_SUCCESS) {
     JobStateAccessor accessor(job);
     prepareEdgeBuilder(workData, accessor.fillState());
+
     result = addStrokedGlyphRunEdges(workData, accessor, originFixed, &font, glyphRun);
-  }
-
-  if (result == BL_SUCCESS) {
-    EdgeStorage<int>* edgeStorage = &workData->edgeStorage;
-    RenderCommand& command = job->command();
-
-    if (!edgeStorage->empty()) {
-      command.setAnalyticEdges(edgeStorage);
-      edgeStorage->resetBoundingBox();
+    if (result == BL_SUCCESS) {
+      assignEdges(workData, job, &workData->edgeStorage);
     }
   }
 
   job->destroy();
 }
 
-// BLRasterEngine - Job Processor - Dispatch
-// =========================================
+// bl::RasterEngine - Job Processor - Dispatch
+// ===========================================
 
 static void processJob(WorkData* workData, RenderJob* job) noexcept {
   if (job->hasJobFlag(RenderJobFlags::kComputePendingFetchData)) {
@@ -287,7 +277,8 @@ static void processJob(WorkData* workData, RenderJob* job) noexcept {
 }
 
 } // {JobProc}
-} // {BLRasterEngine}
+} // {RasterEngine}
+} // {bl}
 
 //! \}
 //! \endcond

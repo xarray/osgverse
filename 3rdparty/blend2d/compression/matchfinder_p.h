@@ -17,7 +17,8 @@
 
 //! \cond INTERNAL
 
-namespace BLCompression {
+namespace bl {
+namespace Compression {
 namespace Deflate {
 
 #ifndef MATCHFINDER_WINDOW_ORDER
@@ -31,9 +32,9 @@ typedef int16_t mf_pos_t;
 
 static BL_INLINE BLBitWord load_word_unaligned(const void* p) noexcept {
   if (sizeof(BLBitWord) == 4)
-    return BLBitWord(BLMemOps::readU32u(p));
+    return BLBitWord(MemOps::readU32u(p));
   else
-    return BLBitWord(BLMemOps::readU64u(p));
+    return BLBitWord(MemOps::readU64u(p));
 }
 
 /*
@@ -179,7 +180,7 @@ static BL_INLINE uint32_t lz_extend(const uint8_t* strptr, const uint8_t* matchp
   uint32_t len = start_len;
   BLBitWord v_word;
 
-  if (BLMemOps::kUnalignedMem) {
+  if (MemOps::kUnalignedMem) {
     if (BL_LIKELY(max_len - len >= uint32_t(4 * sizeof(BLBitWord)))) {
     #define COMPARE_WORD_STEP                                                           \
       v_word = load_word_unaligned(&matchptr[len]) ^ load_word_unaligned(&strptr[len]); \
@@ -208,13 +209,11 @@ static BL_INLINE uint32_t lz_extend(const uint8_t* strptr, const uint8_t* matchp
 
 word_differs:
   if (BL_BYTE_ORDER == 1234)
-    len += BLIntOps::ctz(v_word) >> 3;
+    len += IntOps::ctz(v_word) >> 3;
   else
-    len += BLIntOps::clz(v_word) >> 3;
+    len += IntOps::clz(v_word) >> 3;
   return len;
 }
-
-
 
 /*
  * Lempel-Ziv matchfinding with a hash table of binary trees
@@ -338,7 +337,7 @@ static BL_INLINE lz_match* bt_matchfinder_advance_one_byte(bt_matchfinder* BL_RE
   uint32_t len;
   uint32_t best_len = 3;
 
-  next_seq4 = BLMemOps::readU32u(in_next + 1);
+  next_seq4 = MemOps::readU32u(in_next + 1);
   next_seq3 = loaded_u32_to_u24(next_seq4);
 
   hash3 = next_hashes[0];
@@ -356,14 +355,14 @@ static BL_INLINE lz_match* bt_matchfinder_advance_one_byte(bt_matchfinder* BL_RE
   mf->hash3_tab[hash3][1] = mf_pos_t(cur_node);
 #endif
   if (record_matches && cur_node > cutoff) {
-    uint32_t seq3 = BLMemOps::readU24u(in_next);
-    if (seq3 == BLMemOps::readU24u(&in_base[cur_node])) {
+    uint32_t seq3 = MemOps::readU24u(in_next);
+    if (seq3 == MemOps::readU24u(&in_base[cur_node])) {
       lz_matchptr->length = 3;
       lz_matchptr->offset = uint16_t(in_next - &in_base[cur_node]);
       lz_matchptr++;
     }
   #if BT_MATCHFINDER_HASH3_WAYS >= 2
-    else if (cur_node_2 > cutoff && seq3 == BLMemOps::readU24u(&in_base[cur_node_2]))
+    else if (cur_node_2 > cutoff && seq3 == MemOps::readU24u(&in_base[cur_node_2]))
     {
       lz_matchptr->length = 3;
       lz_matchptr->offset = uint16_t(in_next - &in_base[cur_node_2]);
@@ -689,28 +688,29 @@ hc_matchfinder_longest_match(
   in_base = *in_base_p;
   cutoff = mf_pos_t(cur_pos - MATCHFINDER_WINDOW_SIZE);
 
-  if (BL_UNLIKELY(max_len < 5)) /* can we read 4 bytes from 'in_next + 1'? */
+  // Can we read 4 bytes from 'in_next + 1'?
+  if (BL_UNLIKELY(max_len < 5))
     goto out;
 
-  /* Get the precomputed hash codes.  */
+  // Get the precomputed hash codes.
   hash3 = next_hashes[0];
   hash4 = next_hashes[1];
 
-  /* From the hash buckets, get the first node of each linked list.  */
+  // From the hash buckets, get the first node of each linked list.
   cur_node3 = mf->hash3_tab[hash3];
   cur_node4 = mf->hash4_tab[hash4];
 
-  /* Update for length 3 matches.  This replaces the singleton node in the
-   * 'hash3' bucket with the node for the current sequence.  */
+  // Update for length 3 matches.  This replaces the singleton node in the 'hash3' bucket with the node
+  // for the current sequence.
   mf->hash3_tab[hash3] = mf_pos_t(cur_pos);
 
-  /* Update for length 4 matches.  This prepends the node for the current
-   * sequence to the linked list in the 'hash4' bucket.  */
+  // Update for length 4 matches.  This prepends the node for the current sequence to the linked list
+  // in the 'hash4' bucket.
   mf->hash4_tab[hash4] = mf_pos_t(cur_pos);
   mf->next_tab[cur_pos] = mf_pos_t(cur_node4);
 
-  /* Compute the next hash codes.  */
-  next_seq4 = BLMemOps::readU32u(in_next + 1);
+  // Compute the next hash codes.
+  next_seq4 = MemOps::readU32u(in_next + 1);
   next_seq3 = loaded_u32_to_u24(next_seq4);
   next_hashes[0] = lz_hash(next_seq3, HC_MATCHFINDER_HASH3_ORDER);
   next_hashes[1] = lz_hash(next_seq4, HC_MATCHFINDER_HASH4_ORDER);
@@ -718,38 +718,38 @@ hc_matchfinder_longest_match(
   blPrefetchW(&mf->hash4_tab[next_hashes[1]]);
 
   if (best_len < 4) {
-    /* No match of length >= 4 found yet?  */
+    // No match of length >= 4 found yet?
 
-    /* Check for a length 3 match if needed.  */
+    // Check for a length 3 match if needed.
     if (cur_node3 <= cutoff)
       goto out;
 
-    seq4 = BLMemOps::readU32u(in_next);
+    seq4 = MemOps::readU32u(in_next);
     if (best_len < 3) {
       matchptr = &in_base[cur_node3];
-      if (BLMemOps::readU24u(matchptr) == loaded_u32_to_u24(seq4)) {
+      if (MemOps::readU24u(matchptr) == loaded_u32_to_u24(seq4)) {
         best_len = 3;
         best_matchptr = matchptr;
       }
     }
 
-    /* Check for a length 4 match.  */
+    // Check for a length 4 match.
     if (cur_node4 <= cutoff)
       goto out;
 
     for (;;) {
-      /* No length 4 match found yet.  Check the first 4 bytes.  */
+      // No length 4 match found yet.  Check the first 4 bytes.
       matchptr = &in_base[cur_node4];
-      if (BLMemOps::readU32u(matchptr) == seq4)
+      if (MemOps::readU32u(matchptr) == seq4)
         break;
 
-      /* The first 4 bytes did not match.  Keep trying.  */
+      // The first 4 bytes did not match; keep trying...
       cur_node4 = mf->next_tab[cur_node4 & (MATCHFINDER_WINDOW_SIZE - 1)];
       if (cur_node4 <= cutoff || !--depth_remaining)
         goto out;
     }
 
-    /* Found a match of length >= 4.  Extend it to its full length.  */
+    // Found a match of length >= 4. Extend it to its full length.
     best_matchptr = matchptr;
     best_len = lz_extend(in_next, best_matchptr, 4, max_len);
     if (best_len >= nice_len)
@@ -763,26 +763,23 @@ hc_matchfinder_longest_match(
       goto out;
   }
 
-  /* Check for matches of length >= 5.  */
-
+  // Check for matches of length >= 5.
   for (;;) {
     for (;;) {
       matchptr = &in_base[cur_node4];
 
-      /* Already found a length 4 match.  Try for a longer
-       * match; start by checking either the last 4 bytes and
-       * the first 4 bytes, or the last byte.  (The last byte,
-       * the one which would extend the match length by 1, is
-       * the most important.)  */
+      // Already found a length 4 match.  Try for a longer match; start by checking either the last 4 bytes and
+      // the first 4 bytes, or the last byte.  (The last byte, the one which would extend the match length by 1,
+      // is the most important.)
 #if UNALIGNED_ACCESS_IS_FAST
-      if ((BLMemOps::readU32u(matchptr + best_len - 3) == BLMemOps::readU32u(in_next + best_len - 3)) && (BLMemOps::readU32u(matchptr) == BLMemOps::readU32u(in_next)))
+      if ((MemOps::readU32u(matchptr + best_len - 3) == MemOps::readU32u(in_next + best_len - 3)) && (MemOps::readU32u(matchptr) == MemOps::readU32u(in_next)))
         break;
 #else
       if (matchptr[best_len] == in_next[best_len])
         break;
 #endif
 
-      /* Continue to the next node in the list.  */
+      // Continue to the next node in the list.
       cur_node4 = mf->next_tab[cur_node4 & (MATCHFINDER_WINDOW_SIZE - 1)];
       if (cur_node4 <= cutoff || !--depth_remaining)
         goto out;
@@ -795,14 +792,14 @@ hc_matchfinder_longest_match(
   #endif
     len = lz_extend(in_next, matchptr, len, max_len);
     if (len > best_len) {
-      /* This is the new longest match.  */
+      // This is the new longest match.
       best_len = len;
       best_matchptr = matchptr;
       if (best_len >= nice_len)
         goto out;
     }
 
-    /* Continue to the next node in the list.  */
+    // Continue to the next node in the list.
     cur_node4 = mf->next_tab[cur_node4 & (MATCHFINDER_WINDOW_SIZE - 1)];
     if (cur_node4 <= cutoff || !--depth_remaining)
       goto out;
@@ -812,28 +809,26 @@ out:
   return best_len;
 }
 
-/*
- * Advance the matchfinder, but don't search for matches.
- *
- * @mf
- *  The matchfinder structure.
- * @in_base_p
- *  Location of a pointer which points to the place in the input data the
- *  matchfinder currently stores positions relative to.  This may be updated
- *  by this function.
- * @cur_pos
- *  The current position in the input buffer relative to @in_base.
- * @end_pos
- *  The end position of the input buffer, relative to @in_base.
- * @next_hashes
- *  The precomputed hash codes for the sequence beginning at @in_next.
- *  These will be used and then updated with the precomputed hashcodes for
- *  the sequence beginning at @in_next + @count.
- * @count
- *  The number of bytes to advance.  Must be > 0.
- *
- * Returns @in_next + @count.
- */
+// Advance the matchfinder, but don't search for matches.
+//
+// @mf
+//  The matchfinder structure.
+// @in_base_p
+//  Location of a pointer which points to the place in the input data the
+//  matchfinder currently stores positions relative to.  This may be updated
+//  by this function.
+// @cur_pos
+//  The current position in the input buffer relative to @in_base.
+// @end_pos
+//  The end position of the input buffer, relative to @in_base.
+// @next_hashes
+//  The precomputed hash codes for the sequence beginning at @in_next.
+//  These will be used and then updated with the precomputed hashcodes for
+//  the sequence beginning at @in_next + @count.
+// @count
+//  The number of bytes to advance.  Must be > 0.
+//
+// Returns @in_next + @count.
 static BL_INLINE const uint8_t* hc_matchfinder_skip_positions(
   hc_matchfinder* BL_RESTRICT mf,
   const uint8_t** BL_RESTRICT in_base_p,
@@ -864,7 +859,7 @@ static BL_INLINE const uint8_t* hc_matchfinder_skip_positions(
     mf->next_tab[cur_pos] = mf->hash4_tab[hash4];
     mf->hash4_tab[hash4] = mf_pos_t(cur_pos);
 
-    next_seq4 = BLMemOps::readU32u(++in_next);
+    next_seq4 = MemOps::readU32u(++in_next);
     next_seq3 = loaded_u32_to_u24(next_seq4);
     hash3 = lz_hash(next_seq3, HC_MATCHFINDER_HASH3_ORDER);
     hash4 = lz_hash(next_seq4, HC_MATCHFINDER_HASH4_ORDER);
@@ -881,6 +876,7 @@ static BL_INLINE const uint8_t* hc_matchfinder_skip_positions(
 }
 
 } // {Deflate}
-} // {BLCompression}
+} // {Compression}
+} // {bl}
 
 //! \endcond

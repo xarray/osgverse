@@ -13,7 +13,8 @@
 //! \addtogroup blend2d_opentype_impl
 //! \{
 
-namespace BLOpenType {
+namespace bl {
+namespace OpenType {
 
 //! A context used for OpenType glyph substitution (GSUB) processing.
 struct GSubContext {
@@ -55,6 +56,8 @@ struct GSubContext {
 
   BL_INLINE BLGlyphId* glyphData() const noexcept { return _workBuffer.glyphData; }
   BL_INLINE BLGlyphInfo* infoData() const noexcept { return _workBuffer.infoData; }
+
+  BL_INLINE bool empty() const noexcept { return _workBuffer.size == 0u; }
   BL_INLINE size_t size() const noexcept { return _workBuffer.size; }
   BL_INLINE size_t capacity() const noexcept { return _workBuffer.capacity; }
 
@@ -243,10 +246,13 @@ struct GPosContext {
   BL_INLINE BLGlyphId* glyphData() const noexcept { return _workBuffer.glyphData; }
   BL_INLINE BLGlyphInfo* infoData() const noexcept { return _workBuffer.infoData; }
   BL_INLINE BLGlyphPlacement* placementData() const noexcept { return _workBuffer.placementData; }
+
+  BL_INLINE bool empty() const noexcept { return _workBuffer.size == 0u; }
   BL_INLINE size_t size() const noexcept { return _workBuffer.size; }
 };
 
-} // {BLOpenType}
+} // {OpenType}
+} // {bl}
 
 //! \}
 //! \endcond

@@ -36,14 +36,9 @@
 //
 // NOTE: This is a last resort check as this should be enabled/disabled by the build, not in the source code.
 #if !(defined(BL_BUILD_NO_JIT)) && \
-    !(defined(_M_X64)     || \
-      defined(__amd64)    || \
-      defined(__amd64__)  || \
-      defined(__x86_64)   || \
-      defined(__x86_64__) || \
-      defined(_M_IX86)    || \
-      defined(__i386)     || \
-      defined(__i386__))
+    !(defined(_M_X64)   || defined(__x86_64)  || defined(__x86_64__) || defined(__amd64) || defined(__amd64__) || \
+      defined(_M_IX86)  || defined(__i386)    || defined(__i386__)   || \
+      defined(__arm64)  || defined(__arm64__) || defined(__aarch64__))
   #define BL_BUILD_NO_JIT
 #endif
 //! \endcond
@@ -85,6 +80,32 @@
 // Blend2D provides traces that can be enabled during development. Traces can help to understand how certain
 // things work and can be used to track bugs.
 
+// Build - Sanitizers
+// ==================
+
+#if defined(__clang__)
+  #if __has_feature(memory_sanitizer) || defined(__SANITIZE_MEMORY__)
+    #define BL_SANITIZE_MEMORY
+  #endif
+
+  #if __has_feature(thread_sanitizer) || defined(__SANITIZE_THREAD__)
+    #define BL_SANITIZE_THREAD
+  #endif
+#elif defined(__GNUC__)
+  #if defined(__SANITIZE_MEMORY__)
+    #define BL_SANITIZE_MEMORY
+  #endif
+
+  #if defined(__SANITIZE_THREAD__)
+    #define BL_SANITIZE_THREAD
+  #endif
+#endif
+
+#if defined(BL_SANITIZE_THREAD)
+extern "C" void __tsan_acquire(void *addr);
+extern "C" void __tsan_release(void *addr);
+#endif
+
 // Build - Requirements
 // ====================
 
@@ -103,13 +124,39 @@
 #endif
 
 #if defined(_WIN32) && !defined(_WIN32_WINNT)
-  #define _WIN32_WINNT 0x0600
+  #if !defined(BL_PLATFORM_UWP) && defined(WINAPI_FAMILY) && defined(__has_include)
+    #if __has_include(<winapifamily.h>)
+      #include <winapifamily.h>
+      #if WINAPI_FAMILY == WINAPI_FAMILY_PC_APP
+        #define BL_PLATFORM_UWP
+      #endif
+    #endif
+  #endif
+
+  #if defined(BL_PLATFORM_UWP)
+    #define _WIN32_WINNT 0x0602 // Windows 8+ (CreateFile2, CreateFileMappingFromApp, ...)
+  #else
+    #define _WIN32_WINNT 0x0600 // Windows Vista+ (CONDITION_VARIABLE, ...)
+  #endif
 #endif
 
 // The FileSystem API works fully with 64-bit file sizes and offsets, however, this feature must be enabled before
 // including any header.
 #if !defined(_WIN32) && !defined(_LARGEFILE64_SOURCE)
   #define _LARGEFILE64_SOURCE 1
+
+  // These OSes use 64-bit offsets by default.
+  #if defined(__APPLE__    ) || \
+      defined(__HAIKU__    ) || \
+      defined(__bsdi__     ) || \
+      defined(__DragonFly__) || \
+      defined(__FreeBSD__  ) || \
+      defined(__NetBSD__   ) || \
+      defined(__OpenBSD__  )
+    #define BL_FILE64_API(NAME) NAME
+  #else
+    #define BL_FILE64_API(NAME) NAME##64
+  #endif
 #endif
 
 // The FileSystem API supports extensions offered by Linux.
@@ -124,7 +171,21 @@
 
 //! \cond NEVER
 
-#if defined(_MSC_VER)
+#if defined(__clang__)
+  #pragma clang diagnostic warning "-Wattributes"
+  #pragma clang diagnostic ignored "-Wunnamed-type-template-args"
+  #pragma clang diagnostic ignored "-Wunused-function"
+#elif defined(__GNUC__)
+  #pragma GCC diagnostic warning "-Wattributes"
+  #pragma GCC diagnostic ignored "-Wmaybe-uninitialized" // Unfortunately GCC emits lots of false positives.
+  #pragma GCC diagnostic ignored "-Wunused-function"
+  #if __GNUC__ >= 7
+  #pragma GCC diagnostic ignored "-Wnoexcept-type"       // Hits when compiling in C++11 mode with a function pointer having noexcept
+  #endif
+  #if __GNUC__ <= 8
+  #pragma GCC diagnostic ignored "-Wstrict-aliasing"     // Reports some cases that are perfectly fine.
+  #endif
+#elif defined(_MSC_VER)
   #pragma warning(disable: 4102) // Unreferenced label.
   #pragma warning(disable: 4127) // Conditional expression is constant.
   #pragma warning(disable: 4201) // Nameless struct/union.
@@ -138,17 +199,6 @@
   #pragma warning(disable: 4800) // Forcing value to bool true or false.
   #pragma warning(disable: 4582) // Constructor is not implicitly called.
   #pragma warning(disable: 4583) // Destructor is not implicitly called.
-#elif defined(__clang__)
-  #pragma clang diagnostic ignored "-Wconstant-logical-operand"
-  #pragma clang diagnostic ignored "-Wunnamed-type-template-args"
-  #pragma clang diagnostic ignored "-Wunused-function"
-  #pragma clang diagnostic ignored "-Wswitch"
-  #pragma clang diagnostic warning "-Wattributes"
-#elif defined(__GNUC__)
-  #pragma GCC diagnostic ignored "-Wenum-compare"
-  #pragma GCC diagnostic ignored "-Wunused-function"
-  #pragma GCC diagnostic ignored "-Wswitch"
-  #pragma GCC diagnostic warning "-Wattributes"
 #endif
 
 //! \endcond

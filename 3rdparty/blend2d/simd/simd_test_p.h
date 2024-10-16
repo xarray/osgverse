@@ -20,6 +20,34 @@ namespace {
 static constexpr uint64_t kRandomSeed = 0x1234u;
 static constexpr uint32_t kTestIterCount = 1000u;
 
+// SIMD - Tests - Costs
+// ====================
+
+static void print_cost_matrix(const char* ext) noexcept {
+  INFO("%s Cost Matrix:", ext);
+  INFO("  abs_i8=%u"        , BL_SIMD_COST_ABS_I8);
+  INFO("  abs_i16=%u"       , BL_SIMD_COST_ABS_I16);
+  INFO("  abs_i32=%u"       , BL_SIMD_COST_ABS_I32);
+  INFO("  abs_i64=%u"       , BL_SIMD_COST_ABS_I64);
+  INFO("  alignr_u8=%u"     , BL_SIMD_COST_ALIGNR_U8);
+  INFO("  cmp_eq_i64=%u"    , BL_SIMD_COST_CMP_EQ_I64);
+  INFO("  cmp_lt_gt_i64=%u" , BL_SIMD_COST_CMP_LT_GT_I64);
+  INFO("  cmp_le_ge_i64=%u" , BL_SIMD_COST_CMP_LE_GE_I64);
+  INFO("  cmp_lt_gt_u64=%u" , BL_SIMD_COST_CMP_LT_GT_U64);
+  INFO("  cmp_le_ge_u64=%u" , BL_SIMD_COST_CMP_LE_GE_U64);
+  INFO("  min_max_i8=%u"    , BL_SIMD_COST_MIN_MAX_I8);
+  INFO("  min_max_u8=%u"    , BL_SIMD_COST_MIN_MAX_U8);
+  INFO("  min_max_i16=%u"   , BL_SIMD_COST_MIN_MAX_I16);
+  INFO("  min_max_u16=%u"   , BL_SIMD_COST_MIN_MAX_U16);
+  INFO("  min_max_i32=%u"   , BL_SIMD_COST_MIN_MAX_I32);
+  INFO("  min_max_u32=%u"   , BL_SIMD_COST_MIN_MAX_U32);
+  INFO("  min_max_i64=%u"   , BL_SIMD_COST_MIN_MAX_I64);
+  INFO("  min_max_u64=%u"   , BL_SIMD_COST_MIN_MAX_U64);
+  INFO("  mul_i16=%u"       , BL_SIMD_COST_MUL_I16);
+  INFO("  mul_i32=%u"       , BL_SIMD_COST_MUL_I32);
+  INFO("  mul_i64=%u"       , BL_SIMD_COST_MUL_I64);
+}
+
 // SIMD - Tests - Vector Overlay
 // =============================
 
@@ -134,7 +162,7 @@ static BL_INLINE_NODEBUG typename std::make_signed<T>::type cast_int(const T& x)
 template<typename T, typename Derived> struct op_base_1 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t i = 0; i < kW / sizeof(T); i++)
       out.items[i] = Derived::apply_one(a.items[i]);
     return out;
@@ -144,7 +172,7 @@ template<typename T, typename Derived> struct op_base_1 {
 template<typename T, typename Derived> struct op_base_2 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t i = 0; i < kW / sizeof(T); i++)
       out.items[i] = Derived::apply_one(a.items[i], b.items[i]);
     return out;
@@ -154,7 +182,7 @@ template<typename T, typename Derived> struct op_base_2 {
 template<typename T, typename Derived> struct op_base_3 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b, const VecOverlay<kW, T>& c) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t i = 0; i < kW / sizeof(T); i++)
       out.items[i] = Derived::apply_one(a.items[i], b.items[i], c.items[i]);
     return out;
@@ -195,16 +223,16 @@ template<typename T> struct iop_add : public op_base_2<T, iop_add<T>> {
 
 template<typename T> struct iop_adds : public op_base_2<T, iop_adds<T>> {
   static BL_INLINE T apply_one(const T& a, const T& b) noexcept {
-    BLOverflowFlag of {};
-    T result = BLIntOps::addOverflow(a, b, &of);
+    bl::OverflowFlag of{};
+    T result = bl::IntOps::addOverflow(a, b, &of);
 
     if (!of)
       return result;
 
-    if (BLIntOps::isUnsigned<T>() || b > 0)
-      return BLTraits::maxValue<T>();
+    if (bl::Traits::isUnsigned<T>() || b > 0)
+      return bl::Traits::maxValue<T>();
     else
-      return BLTraits::minValue<T>();
+      return bl::Traits::minValue<T>();
   }
 };
 
@@ -214,16 +242,16 @@ template<typename T> struct iop_sub : public op_base_2<T, iop_sub<T>> {
 
 template<typename T> struct iop_subs : public op_base_2<T, iop_subs<T>> {
   static BL_INLINE T apply_one(const T& a, const T& b) noexcept {
-    BLOverflowFlag of {};
-    T result = BLIntOps::subOverflow(a, b, &of);
+    bl::OverflowFlag of{};
+    T result = bl::IntOps::subOverflow(a, b, &of);
 
     if (!of)
       return result;
 
-    if (BLIntOps::isUnsigned<T>() || b > 0)
-      return BLTraits::minValue<T>();
+    if (bl::Traits::isUnsigned<T>() || b > 0)
+      return bl::Traits::minValue<T>();
     else
-      return BLTraits::maxValue<T>();
+      return bl::Traits::maxValue<T>();
   }
 };
 
@@ -259,33 +287,33 @@ template<typename T, uint32_t kN> struct iop_srai : public op_base_1<T, iop_srai
 };
 
 template<typename T> struct iop_cmp_eq : public op_base_2<T, iop_cmp_eq<T>> {
-  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a == b ? BLIntOps::allOnes<T>() : T(0); }
+  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a == b ? bl::IntOps::allOnes<T>() : T(0); }
 };
 
 template<typename T> struct iop_cmp_ne : public op_base_2<T, iop_cmp_ne<T>> {
-  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a != b ? BLIntOps::allOnes<T>() : T(0); }
+  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a != b ? bl::IntOps::allOnes<T>() : T(0); }
 };
 
 template<typename T> struct iop_cmp_gt : public op_base_2<T, iop_cmp_gt<T>> {
-  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a >  b ? BLIntOps::allOnes<T>() : T(0); }
+  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a >  b ? bl::IntOps::allOnes<T>() : T(0); }
 };
 
 template<typename T> struct iop_cmp_ge : public op_base_2<T, iop_cmp_ge<T>> {
-  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a >= b ? BLIntOps::allOnes<T>() : T(0); }
+  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a >= b ? bl::IntOps::allOnes<T>() : T(0); }
 };
 
 template<typename T> struct iop_cmp_lt : public op_base_2<T, iop_cmp_lt<T>> {
-  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a <  b ? BLIntOps::allOnes<T>() : T(0); }
+  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a <  b ? bl::IntOps::allOnes<T>() : T(0); }
 };
 
 template<typename T> struct iop_cmp_le : public op_base_2<T, iop_cmp_le<T>> {
-  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a <= b ? BLIntOps::allOnes<T>() : T(0); }
+  static BL_INLINE_NODEBUG T apply_one(const T& a, const T& b) noexcept { return a <= b ? bl::IntOps::allOnes<T>() : T(0); }
 };
 
 template<typename T, uint32_t kN> struct iop_sllb_u128 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 16; i++) {
         out.data_u8[off + i] = i < kN ? uint8_t(0) : a.data_u8[off + i - kN];
@@ -298,7 +326,7 @@ template<typename T, uint32_t kN> struct iop_sllb_u128 {
 template<typename T, uint32_t kN> struct iop_srlb_u128 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 16; i++) {
         out.data_u8[off + i] = i + kN < 16u ? a.data_u8[off + i + kN] : uint8_t(0);
@@ -311,7 +339,7 @@ template<typename T, uint32_t kN> struct iop_srlb_u128 {
 template<typename T, uint32_t kN> struct iop_alignr_u128 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 16; i++) {
         out.data_u8[off + i] = i + kN < 16 ? b.data_u8[off + i + kN] : a.data_u8[off + i + kN - 16];
@@ -324,7 +352,7 @@ template<typename T, uint32_t kN> struct iop_alignr_u128 {
 template<typename T> struct iop_broadcast_u8 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t i = 0; i < kW; i++)
       out.data_u8[i] = a.data_u8[0];
     return out;
@@ -334,7 +362,7 @@ template<typename T> struct iop_broadcast_u8 {
 template<typename T> struct iop_broadcast_u16 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t i = 0; i < kW / 2u; i++)
       out.data_u16[i] = a.data_u16[0];
     return out;
@@ -344,7 +372,7 @@ template<typename T> struct iop_broadcast_u16 {
 template<typename T> struct iop_broadcast_u32 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t i = 0; i < kW / 4u; i++)
       out.data_u32[i] = a.data_u32[0];
     return out;
@@ -354,7 +382,7 @@ template<typename T> struct iop_broadcast_u32 {
 template<typename T> struct iop_broadcast_u64 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t i = 0; i < kW / 8u; i++)
       out.data_u64[i] = a.data_u64[0];
     return out;
@@ -364,7 +392,7 @@ template<typename T> struct iop_broadcast_u64 {
 template<typename T> struct iop_swizzlev_u8 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 16; i++) {
         size_t sel = b.data_u8[off + i] & (0x8F); // 3 bits ignored.
@@ -378,7 +406,7 @@ template<typename T> struct iop_swizzlev_u8 {
 template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swizzle_u16 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       out.data_u16[off / 2 + 0] = a.data_u16[off / 2 + 0 + A];
       out.data_u16[off / 2 + 1] = a.data_u16[off / 2 + 0 + B];
@@ -396,7 +424,7 @@ template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swiz
 template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swizzle_lo_u16 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       out.data_u16[off / 2 + 0] = a.data_u16[off / 2 + A];
       out.data_u16[off / 2 + 1] = a.data_u16[off / 2 + B];
@@ -411,7 +439,7 @@ template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swiz
 template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swizzle_hi_u16 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       memcpy(out.data_u8 + off, a.data_u8 + off, 8);
       out.data_u16[off / 2 + 4] = a.data_u16[off / 2 + 4 + A];
@@ -426,7 +454,7 @@ template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swiz
 template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swizzle_u32 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       out.data_u32[off / 4 + 0] = a.data_u32[off / 4 + A];
       out.data_u32[off / 4 + 1] = a.data_u32[off / 4 + B];
@@ -440,7 +468,7 @@ template<typename T, uint8_t D, uint8_t C, uint8_t B, uint8_t A> struct iop_swiz
 template<typename T, uint8_t B, uint8_t A> struct iop_swizzle_u64 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       out.data_u64[off / 8 + 0] = a.data_u64[off / 8 + A];
       out.data_u64[off / 8 + 1] = a.data_u64[off / 8 + B];
@@ -452,7 +480,7 @@ template<typename T, uint8_t B, uint8_t A> struct iop_swizzle_u64 {
 template<typename T> struct iop_interleave_lo_u8 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 8; i++) {
         out.data_u8[off + i * 2 + 0] = a.data_u8[off + i];
@@ -466,7 +494,7 @@ template<typename T> struct iop_interleave_lo_u8 {
 template<typename T> struct iop_interleave_hi_u8 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 8; i++) {
         out.data_u8[off + i * 2 + 0] = a.data_u8[off + 8 + i];
@@ -480,7 +508,7 @@ template<typename T> struct iop_interleave_hi_u8 {
 template<typename T> struct iop_interleave_lo_u16 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 4; i++) {
         out.data_u16[off / 2 + i * 2 + 0] = a.data_u16[off / 2 + i];
@@ -494,7 +522,7 @@ template<typename T> struct iop_interleave_lo_u16 {
 template<typename T> struct iop_interleave_hi_u16 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 4; i++) {
         out.data_u16[off / 2 + i * 2 + 0] = a.data_u16[off / 2 + 4 + i];
@@ -508,7 +536,7 @@ template<typename T> struct iop_interleave_hi_u16 {
 template<typename T> struct iop_interleave_lo_u32 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 2; i++) {
         out.data_u32[off / 4 + i * 2 + 0] = a.data_u32[off / 4 + i];
@@ -522,7 +550,7 @@ template<typename T> struct iop_interleave_lo_u32 {
 template<typename T> struct iop_interleave_hi_u32 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       for (uint32_t i = 0; i < 2; i++) {
         out.data_u32[off / 4 + i * 2 + 0] = a.data_u32[off / 4 + 2 + i];
@@ -536,7 +564,7 @@ template<typename T> struct iop_interleave_hi_u32 {
 template<typename T> struct iop_interleave_lo_u64 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       out.data_u64[off / 8 + 0] = a.data_u64[off / 8 + 0];
       out.data_u64[off / 8 + 1] = b.data_u64[off / 8 + 0];
@@ -548,7 +576,7 @@ template<typename T> struct iop_interleave_lo_u64 {
 template<typename T> struct iop_interleave_hi_u64 {
   template<uint32_t kW>
   static BL_INLINE VecOverlay<kW, T> apply(const VecOverlay<kW, T>& a, const VecOverlay<kW, T>& b) noexcept {
-    VecOverlay<kW, T> out;
+    VecOverlay<kW, T> out{};
     for (uint32_t off = 0; off < kW; off += 16) {
       out.data_u64[off / 8 + 0] = a.data_u64[off / 8 + 1];
       out.data_u64[off / 8 + 1] = b.data_u64[off / 8 + 1];
@@ -591,7 +619,7 @@ static BL_NOINLINE BLString format_items(const T* items, uint32_t count) noexcep
   BLString s;
   s.append('{');
   for (uint32_t i = 0; i < count; i++)
-    s.appendFormat("%s%llu", i == 0 ? "" : ", ", (unsigned long long)items[i] & BLIntOps::allOnes<typename std::make_unsigned<T>::type>());
+    s.appendFormat("%s%llu", i == 0 ? "" : ", ", (unsigned long long)items[i] & bl::IntOps::allOnes<typename std::make_unsigned<T>::type>());
   s.append('}');
   return s;
 }
@@ -695,8 +723,8 @@ static void fill_val(T* arr, T v, uint32_t count, uint32_t repeat = 1) noexcept 
   }
 }
 
-// SIMD - Tests - Integer Operations - 2 Operands
-// ==============================================
+// SIMD - Tests - Integer Operations - 1 Source Operand
+// ====================================================
 
 template<typename V, typename GenericOp, typename Constraint, typename VecOp>
 static BL_NOINLINE void test_iop1_constraint(VecOp&& vecOp) noexcept {
@@ -725,8 +753,11 @@ static BL_NOINLINE void test_iop1_constraint(VecOp&& vecOp) noexcept {
 
 template<typename V, typename GenericOp, typename VecOp>
 static void test_iop1(VecOp&& vecOp) noexcept {
-  return test_iop1_constraint<V, GenericOp, ConstraintNone, VecOp>(std::forward<VecOp>(vecOp));
+  return test_iop1_constraint<V, GenericOp, ConstraintNone, VecOp>(BLInternal::forward<VecOp>(vecOp));
 }
+
+// SIMD - Tests - Integer Operations - 2 Source Operands
+// =====================================================
 
 template<typename V, typename GenericOp, typename Constraint, typename VecOp>
 static BL_NOINLINE void test_iop2_constraint(VecOp&& vecOp) noexcept {
@@ -759,8 +790,11 @@ static BL_NOINLINE void test_iop2_constraint(VecOp&& vecOp) noexcept {
 
 template<typename V, typename GenericOp, typename VecOp>
 static void test_iop2(VecOp&& vecOp) noexcept {
-  return test_iop2_constraint<V, GenericOp, ConstraintNone, VecOp>(std::forward<VecOp>(vecOp));
+  return test_iop2_constraint<V, GenericOp, ConstraintNone, VecOp>(BLInternal::forward<VecOp>(vecOp));
 }
+
+// SIMD - Tests - Integer Operations - 3 Source Operands
+// =====================================================
 
 template<typename V, typename GenericOp, typename Constraint, typename VecOp>
 static BL_NOINLINE void test_iop3_constraint(VecOp&& vecOp) noexcept {
@@ -797,7 +831,7 @@ static BL_NOINLINE void test_iop3_constraint(VecOp&& vecOp) noexcept {
 
 template<typename V, typename GenericOp, typename VecOp>
 static void test_iop3(VecOp&& vecOp) noexcept {
-  return test_iop3_constraint<V, GenericOp, ConstraintNone, VecOp>(std::forward<VecOp>(vecOp));
+  return test_iop3_constraint<V, GenericOp, ConstraintNone, VecOp>(BLInternal::forward<VecOp>(vecOp));
 }
 
 // SIMD - Tests - Integer Operations - Dispatcher
@@ -1027,13 +1061,17 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
   {
     test_iop2<V_I16, iop_mul<int16_t>>([](const V_I16& a, const V_I16& b) { return mul(a, b); });
     test_iop2<V_I32, iop_mul<int32_t>>([](const V_I32& a, const V_I32& b) { return mul(a, b); });
+    test_iop2<V_I64, iop_mul<int64_t>>([](const V_I64& a, const V_I64& b) { return mul(a, b); });
     test_iop2<V_U16, iop_mul<uint16_t>>([](const V_U16& a, const V_U16& b) { return mul(a, b); });
     test_iop2<V_U32, iop_mul<uint32_t>>([](const V_U32& a, const V_U32& b) { return mul(a, b); });
+    test_iop2<V_U64, iop_mul<uint64_t>>([](const V_U64& a, const V_U64& b) { return mul(a, b); });
 
     test_iop2<V_I16, iop_mul<int16_t>>([](const V_I16& a, const V_I16& b) { return mul_i16(a, b); });
     test_iop2<V_I32, iop_mul<int32_t>>([](const V_I32& a, const V_I32& b) { return mul_i32(a, b); });
+    test_iop2<V_I64, iop_mul<int64_t>>([](const V_I64& a, const V_I64& b) { return mul_i64(a, b); });
     test_iop2<V_U16, iop_mul<uint16_t>>([](const V_U16& a, const V_U16& b) { return mul_u16(a, b); });
     test_iop2<V_U32, iop_mul<uint32_t>>([](const V_U32& a, const V_U32& b) { return mul_u32(a, b); });
+    test_iop2<V_U64, iop_mul<uint64_t>>([](const V_U64& a, const V_U64& b) { return mul_u64(a, b); });
   }
 
   INFO("Testing %d-bit %s vector ops - cmp", kW*8, ext);
@@ -1086,6 +1124,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_gt<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_gt(a, b); });
     test_iop2<V_U16, iop_cmp_gt<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_gt(a, b); });
     test_iop2<V_U32, iop_cmp_gt<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_gt(a, b); });
+    test_iop2<V_U64, iop_cmp_gt<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_gt(a, b); });
 
     test_iop2<V_I8, iop_cmp_gt<int8_t>>([](const V_I8& a, const V_I8& b) { return cmp_gt_i8(a, b); });
     test_iop2<V_I16, iop_cmp_gt<int16_t>>([](const V_I16& a, const V_I16& b) { return cmp_gt_i16(a, b); });
@@ -1095,6 +1134,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_gt<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_gt_u8(a, b); });
     test_iop2<V_U16, iop_cmp_gt<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_gt_u16(a, b); });
     test_iop2<V_U32, iop_cmp_gt<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_gt_u32(a, b); });
+    test_iop2<V_U64, iop_cmp_gt<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_gt_u64(a, b); });
 
     test_iop2<V_I8, iop_cmp_ge<int8_t>>([](const V_I8& a, const V_I8& b) { return cmp_ge(a, b); });
     test_iop2<V_I16, iop_cmp_ge<int16_t>>([](const V_I16& a, const V_I16& b) { return cmp_ge(a, b); });
@@ -1104,6 +1144,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_ge<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_ge(a, b); });
     test_iop2<V_U16, iop_cmp_ge<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_ge(a, b); });
     test_iop2<V_U32, iop_cmp_ge<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_ge(a, b); });
+    test_iop2<V_U64, iop_cmp_ge<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_ge(a, b); });
 
     test_iop2<V_I8, iop_cmp_ge<int8_t>>([](const V_I8& a, const V_I8& b) { return cmp_ge_i8(a, b); });
     test_iop2<V_I16, iop_cmp_ge<int16_t>>([](const V_I16& a, const V_I16& b) { return cmp_ge_i16(a, b); });
@@ -1113,6 +1154,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_ge<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_ge_u8(a, b); });
     test_iop2<V_U16, iop_cmp_ge<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_ge_u16(a, b); });
     test_iop2<V_U32, iop_cmp_ge<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_ge_u32(a, b); });
+    test_iop2<V_U64, iop_cmp_ge<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_ge_u64(a, b); });
 
     test_iop2<V_I8, iop_cmp_lt<int8_t>>([](const V_I8& a, const V_I8& b) { return cmp_lt(a, b); });
     test_iop2<V_I16, iop_cmp_lt<int16_t>>([](const V_I16& a, const V_I16& b) { return cmp_lt(a, b); });
@@ -1122,6 +1164,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_lt<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_lt(a, b); });
     test_iop2<V_U16, iop_cmp_lt<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_lt(a, b); });
     test_iop2<V_U32, iop_cmp_lt<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_lt(a, b); });
+    test_iop2<V_U64, iop_cmp_lt<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_lt(a, b); });
 
     test_iop2<V_I8, iop_cmp_lt<int8_t>>([](const V_I8& a, const V_I8& b) { return cmp_lt_i8(a, b); });
     test_iop2<V_I16, iop_cmp_lt<int16_t>>([](const V_I16& a, const V_I16& b) { return cmp_lt_i16(a, b); });
@@ -1131,6 +1174,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_lt<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_lt_u8(a, b); });
     test_iop2<V_U16, iop_cmp_lt<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_lt_u16(a, b); });
     test_iop2<V_U32, iop_cmp_lt<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_lt_u32(a, b); });
+    test_iop2<V_U64, iop_cmp_lt<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_lt_u64(a, b); });
 
     test_iop2<V_I8, iop_cmp_le<int8_t>>([](const V_I8& a, const V_I8& b) { return cmp_le(a, b); });
     test_iop2<V_I16, iop_cmp_le<int16_t>>([](const V_I16& a, const V_I16& b) { return cmp_le(a, b); });
@@ -1140,6 +1184,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_le<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_le(a, b); });
     test_iop2<V_U16, iop_cmp_le<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_le(a, b); });
     test_iop2<V_U32, iop_cmp_le<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_le(a, b); });
+    test_iop2<V_U64, iop_cmp_le<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_le(a, b); });
 
     test_iop2<V_I8, iop_cmp_le<int8_t>>([](const V_I8& a, const V_I8& b) { return cmp_le_i8(a, b); });
     test_iop2<V_I16, iop_cmp_le<int16_t>>([](const V_I16& a, const V_I16& b) { return cmp_le_i16(a, b); });
@@ -1149,6 +1194,7 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     test_iop2<V_U8, iop_cmp_le<uint8_t>>([](const V_U8& a, const V_U8& b) { return cmp_le_u8(a, b); });
     test_iop2<V_U16, iop_cmp_le<uint16_t>>([](const V_U16& a, const V_U16& b) { return cmp_le_u16(a, b); });
     test_iop2<V_U32, iop_cmp_le<uint32_t>>([](const V_U32& a, const V_U32& b) { return cmp_le_u32(a, b); });
+    test_iop2<V_U64, iop_cmp_le<uint64_t>>([](const V_U64& a, const V_U64& b) { return cmp_le_u64(a, b); });
   }
 
   INFO("Testing %d-bit %s vector ops - min / max", kW*8, ext);
@@ -1583,33 +1629,33 @@ static BL_NOINLINE void test_integer(const char* ext) noexcept {
     alignas(16) uint32_t arr[16] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     {
-      auto mi = array_lookup_u32_aligned16<4>(arr, 255);
+      auto mi = array_lookup_u32_eq_aligned16<4>(arr, 255);
       EXPECT_FALSE(mi.matched());
 
       for (uint32_t i = 0; i < 4; i++) {
-        auto m = array_lookup_u32_aligned16<4>(arr, i + 1);
+        auto m = array_lookup_u32_eq_aligned16<4>(arr, i + 1);
         EXPECT_TRUE(m.matched());
         EXPECT_EQ(m.index(), i);
       }
     }
 
     {
-      auto mi = array_lookup_u32_aligned16<8>(arr, 255);
+      auto mi = array_lookup_u32_eq_aligned16<8>(arr, 255);
       EXPECT_FALSE(mi.matched());
 
       for (uint32_t i = 0; i < 8; i++) {
-        auto m = array_lookup_u32_aligned16<8>(arr, i + 1);
+        auto m = array_lookup_u32_eq_aligned16<8>(arr, i + 1);
         EXPECT_TRUE(m.matched());
         EXPECT_EQ(m.index(), i);
       }
     }
 
     {
-      auto mi = array_lookup_u32_aligned16<16>(arr, 255);
+      auto mi = array_lookup_u32_eq_aligned16<16>(arr, 255);
       EXPECT_FALSE(mi.matched());
 
       for (uint32_t i = 0; i < 16; i++) {
-        auto m = array_lookup_u32_aligned16<16>(arr, i + 1);
+        auto m = array_lookup_u32_eq_aligned16<16>(arr, i + 1);
         EXPECT_TRUE(m.matched());
         EXPECT_EQ(m.index(), i);
       }

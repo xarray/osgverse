@@ -11,7 +11,7 @@
 | osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/gwaldron/osgearth |
 | Qt               | Depended | > 5.5     | App                | LGPL         | |
 | ApproxMVBB       | Embedded |           | Modeling           | MPL2         | https://github.com/gabyx/ApproxMVBB |
-| blend2d          | Embedded |           | Pipeline           | Zlib         | https://github.com/blend2d/blend2d |
+| blend2d          | Embedded | 0.11.4    | Pipeline           | Zlib         | https://github.com/blend2d/blend2d |
 | CDT              | Embedded | 1.4.0     | Modeling           | MPL2         | https://github.com/artem-ogre/CDT |
 | Clipper2         | Embedded | 1.3.0     | Modeling           | Boost        | https://github.com/collmot/Clipper2/tree/feat/cpp11-support |
 | Eigen            | Embedded |           | -                  | MPL2         | https://gitlab.com/libeigen/eigen |

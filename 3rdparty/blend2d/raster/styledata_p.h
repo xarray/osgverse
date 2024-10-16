@@ -13,7 +13,8 @@
 //! \addtogroup blend2d_raster_engine_impl
 //! \{
 
-namespace BLRasterEngine {
+namespace bl {
+namespace RasterEngine {
 
 //! Style data holds a copy of user-provided style with additional members that allow to create a `RenderFetchData`
 //! from it. When a style is assigned to the rendering context it has to calculate the style transformation matrix
@@ -23,7 +24,7 @@ struct StyleData {
   //! \{
 
   //! Pointer to a fetch data - it points to either a separate `RenderFetchData` data or to `&solid` data in this
-  //! struct. Use \ref hasImplicitFetchData() to check whether fetch data points to external fetch data or to &solid.
+  //! struct. Use `hasImplicitFetchData()` to check whether fetch data points to external fetch data or to &solid.
   RenderFetchDataHeader* fetchData;
 
   struct SolidData : public RenderFetchDataSolid {
@@ -68,7 +69,7 @@ struct StyleData {
     bool thisImplicit = hasImplicitFetchData();
     bool otherImplicit = other.hasImplicitFetchData();
 
-    std::swap(*this, other);
+    BLInternal::swap(*this, other);
 
     if (thisImplicit)
       other.makeFetchDataImplicit();
@@ -86,7 +87,8 @@ struct StyleData {
   //! \}
 };
 
-} // {BLRasterEngine}
+} // {RasterEngine}
+} // {bl}
 
 //! \}
 //! \endcond

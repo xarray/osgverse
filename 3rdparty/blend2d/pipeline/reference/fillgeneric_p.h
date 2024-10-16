@@ -16,8 +16,10 @@
 //! \addtogroup blend2d_pipeline_reference
 //! \{
 
-namespace BLPipeline {
+namespace bl {
+namespace Pipeline {
 namespace Reference {
+namespace {
 
 template<typename CompOp>
 struct FillBoxA_Base {
@@ -79,7 +81,7 @@ struct FillMask_Base {
     compOp.spanInitY(ctxData, fetchData_, y0);
 
     uint32_t alpha = fillData->alpha.u;
-    BLPipeline::MaskCommand* cmdPtr = fillData->maskCommandData;
+    MaskCommand* cmdPtr = fillData->maskCommandData;
 
     uint32_t h = uint32_t(fillData->box.y1) - y0;
 
@@ -87,7 +89,7 @@ struct FillMask_Base {
       uint32_t x1AndType = cmdPtr->_x1AndType;
       uint32_t x = cmdPtr->x0();
 
-      BLPipeline::MaskCommand* cmdBegin = cmdPtr;
+      MaskCommand* cmdBegin = cmdPtr;
 
       // This is not really common to not be true, however, it's possible to skip entire scanlines
       // with kEndOrRepeat command, which is zero.
@@ -95,8 +97,8 @@ struct FillMask_Base {
         compOp.spanStartX(x);
         dstPtr += size_t(x) * CompOp::kDstBPP;
 
-        uint32_t i = x1AndType >> BLPipeline::MaskCommand::kTypeBits;
-        BLPipeline::MaskCommandType cmdType = BLPipeline::MaskCommandType(x1AndType & BLPipeline::MaskCommand::kTypeMask);
+        uint32_t i = x1AndType >> MaskCommand::kTypeBits;
+        MaskCommandType cmdType = MaskCommandType(x1AndType & MaskCommand::kTypeMask);
 
         i -= x;
         x += i;
@@ -105,14 +107,14 @@ struct FillMask_Base {
         cmdPtr++;
 
         for (;;) {
-          if (cmdType == BLPipeline::MaskCommandType::kCMask) {
+          if (cmdType == MaskCommandType::kCMask) {
             BL_ASSUME(maskValue <= 255);
             dstPtr = compOp.compositeCSpan(dstPtr, i, uint32_t(maskValue));
           }
           else {
             // Increments the advance in the mask command in case it would be repeated.
             cmdPtr[-1]._value.data = maskValue + uintptr_t(cmdPtr[-1].maskAdvance());
-            if (cmdType == BLPipeline::MaskCommandType::kVMaskA8WithoutGA) {
+            if (cmdType == MaskCommandType::kVMaskA8WithoutGA) {
               dstPtr = compOp.compositeVSpanWithoutGA(dstPtr, reinterpret_cast<const uint8_t*>(maskValue), alpha, i);
             }
             else {
@@ -132,9 +134,9 @@ struct FillMask_Base {
             x = x0;
           }
 
-          i = (x1AndType >> BLPipeline::MaskCommand::kTypeBits) - x;
+          i = (x1AndType >> MaskCommand::kTypeBits) - x;
           x += i;
-          cmdType = BLPipeline::MaskCommandType(x1AndType & BLPipeline::MaskCommand::kTypeMask);
+          cmdType = MaskCommandType(x1AndType & MaskCommand::kTypeMask);
 
           maskValue = cmdPtr->_value.data;
           cmdPtr++;
@@ -166,10 +168,10 @@ struct FillAnalytic_Base {
   enum : uint32_t {
     kDstBPP = CompOp::kDstBPP,
     kPixelsPerOneBit = 4,
-    kPixelsPerBitWord = kPixelsPerOneBit * BLIntOps::bitSizeOf<BLBitWord>()
+    kPixelsPerBitWord = kPixelsPerOneBit * IntOps::bitSizeOf<BLBitWord>()
   };
 
-  typedef BLPrivateBitWordOps BitOps;
+  typedef PrivateBitWordOps BitOps;
 
   static void BL_CDECL fillFunc(ContextData* ctxData, const void* fillData_, const void* fetchData_) noexcept {
     const FillData::Analytic* fillData = static_cast<const FillData::Analytic*>(fillData_);
@@ -185,7 +187,7 @@ struct FillAnalytic_Base {
     size_t bitStride = fillData->bitStride;
     size_t cellStride = fillData->cellStride;
 
-    uint32_t globalAlpha = fillData->alpha.u << 7;
+    uint32_t globalAlpha = fillData->alpha.u;
     uint32_t fillRuleMask = fillData->fillRuleMask;
 
     CompOp compOp;
@@ -360,13 +362,13 @@ L_Scanline_Done1:
     bitPtr = bitPtrEnd;
     do {
       dstPtr += dstStride;
-      cellPtr = BLPtrOps::offset(cellPtr, cellStride);
+      cellPtr = PtrOps::offset(cellPtr, cellStride);
       compOp.advanceY();
 
 L_Scanline_Init:
       xOff = 0;
       bitWord = 0;
-      bitPtrEnd = BLPtrOps::offset(bitPtr, bitStride);
+      bitPtrEnd = PtrOps::offset(bitPtr, bitStride);
 
       do {
         bitWord |= *bitPtr++;
@@ -379,16 +381,30 @@ L_Scanline_Init:
   }
 
   static BL_INLINE uint32_t calcMask(uint32_t cov, uint32_t fillRuleMask, uint32_t globalAlpha) noexcept {
-    uint32_t c = A8Info::kScale << 1;
-    uint32_t m = (BLIntOps::sar(cov, A8Info::kShift) & fillRuleMask) - c;
+    uint32_t c = A8Info::kScale;
+    uint32_t m = (IntOps::sar(cov, A8Info::kShift + 1u) & fillRuleMask) - c;
     m = blMin<uint32_t>(uint32_t(blAbs(int32_t(m))), c);
 
-    return (m * globalAlpha) >> 16;
+    return (m * globalAlpha) >> 8;
   }
 };
 
+template<FillType kFillType, typename CompOp>
+struct FillDispatch {};
+
+template<typename CompOp>
+struct FillDispatch<FillType::kBoxA, CompOp> { using Fill = FillBoxA_Base<CompOp>; };
+
+template<typename CompOp>
+struct FillDispatch<FillType::kMask, CompOp> { using Fill = FillMask_Base<CompOp>; };
+
+template<typename CompOp>
+struct FillDispatch<FillType::kAnalytic, CompOp> { using Fill = FillAnalytic_Base<CompOp>; };
+
+} // {anonymous}
 } // {Reference}
-} // {BLPipeline}
+} // {Pipeline}
+} // {bl}
 
 //! \}
 //! \endcond

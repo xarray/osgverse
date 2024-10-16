@@ -12,23 +12,25 @@
 //! \addtogroup blend2d_internal
 //! \{
 
+namespace bl {
+
 //! Table, which provides bit count for 8-bit quantities.
-BL_HIDDEN extern const BLLookupTable<uint8_t, 256> blBitCountByteTable;
+BL_HIDDEN extern const LookupTable<uint8_t, 256> bitCountByteTable;
 
 //! Table that contains precomputed `{1..16} % N`.
-struct BL_ALIGN_TYPE(BLModuloTable, 16) {
+struct BL_ALIGN_TYPE(ModuloTable, 16) {
   uint8_t x1_16[16];
 };
 
-BL_HIDDEN extern const BLModuloTable blModuloTable[18];
+BL_HIDDEN extern const ModuloTable moduloTable[18];
 
 template<typename T>
-struct BL_MAY_ALIAS BL_ALIGN_TYPE(BLVecConst64, 8) {
+struct BL_MAY_ALIAS BL_ALIGN_TYPE(VecConst64, 8) {
   T data[8 / sizeof(T)];
 };
 
 template<typename T>
-struct BL_MAY_ALIAS BL_ALIGN_TYPE(BLVecConst128, 16) {
+struct BL_MAY_ALIAS BL_ALIGN_TYPE(VecConst128, 16) {
   T data[16 / sizeof(T)];
 
   template<typename VecType>
@@ -36,7 +38,7 @@ struct BL_MAY_ALIAS BL_ALIGN_TYPE(BLVecConst128, 16) {
 };
 
 template<typename T>
-struct BL_MAY_ALIAS BL_ALIGN_TYPE(BLVecConst256, 32) {
+struct BL_MAY_ALIAS BL_ALIGN_TYPE(VecConst256, 32) {
   T data[32 / sizeof(T)];
 
   template<typename VecType>
@@ -44,7 +46,7 @@ struct BL_MAY_ALIAS BL_ALIGN_TYPE(BLVecConst256, 32) {
 };
 
 template<typename T>
-struct BL_MAY_ALIAS BL_ALIGN_TYPE(BLVecConst512, 64) {
+struct BL_MAY_ALIAS BL_ALIGN_TYPE(VecConst512, 64) {
   T data[64 / sizeof(T)];
 
   template<typename VecType>
@@ -53,10 +55,10 @@ struct BL_MAY_ALIAS BL_ALIGN_TYPE(BLVecConst512, 64) {
 
 #if BL_TARGET_ARCH_X86
 template<typename T>
-using BLVecConstNative = BLVecConst256<T>;
+using VecConstNative = VecConst256<T>;
 #else
 template<typename T>
-using BLVecConstNative = BLVecConst128<T>;
+using VecConstNative = VecConst128<T>;
 #endif
 
 #define REPEAT_2X(...) __VA_ARGS__, __VA_ARGS__
@@ -77,7 +79,7 @@ using BLVecConstNative = BLVecConst128<T>;
 //! Common table that contains constants used across Blend2D library, but most importantly in pipelines (either static
 //! or dynamic. The advantage of this table is that it contains all constants that SIMD code (or also a generic code)
 //! requires so only one register (pointer) is required to address all of them in either static or generated pipelines.
-struct BL_ALIGN_TYPE(BLCommonTable, 64) {
+struct BL_ALIGN_TYPE(CommonTable, 64) {
   //! \name Dithering Constants
   //! \{
 
@@ -116,10 +118,10 @@ struct BL_ALIGN_TYPE(BLCommonTable, 64) {
   //!
   //! \{
 
-  BLVecConst128<uint64_t> i128_0000000000000000 {{ REPEAT_2X(0x0000000000000000u) }};
-  BLVecConst128<uint64_t> i128_0080008000800080 {{ REPEAT_2X(0x0080008000800080u) }};
-  BLVecConst128<uint64_t> i128_0101010101010101 {{ REPEAT_2X(0x0101010101010101u) }};
-  BLVecConst128<uint64_t> i128_FF000000FF000000 {{ REPEAT_2X(0xFF000000FF000000u) }};
+  VecConst128<uint64_t> i128_0000000000000000 {{ REPEAT_2X(0x0000000000000000u) }};
+  VecConst128<uint64_t> i128_0080008000800080 {{ REPEAT_2X(0x0080008000800080u) }};
+  VecConst128<uint64_t> i128_0101010101010101 {{ REPEAT_2X(0x0101010101010101u) }};
+  VecConst128<uint64_t> i128_FF000000FF000000 {{ REPEAT_2X(0xFF000000FF000000u) }};
 
   //! \}
 
@@ -129,138 +131,191 @@ struct BL_ALIGN_TYPE(BLCommonTable, 64) {
   //!
   //! \{
 
-  BLVecConstNative<uint64_t> i_0000000000000000 {{ REPEAT_64B(0x0000000000000000u) }};
-  BLVecConstNative<uint64_t> i_3030303030303030 {{ REPEAT_64B(0x3030303030303030u) }};
-  BLVecConstNative<uint64_t> i_0F0F0F0F0F0F0F0F {{ REPEAT_64B(0x0F0F0F0F0F0F0F0Fu) }};
-  BLVecConstNative<uint64_t> i_8080808080808080 {{ REPEAT_64B(0x8080808080808080u) }};
-  BLVecConstNative<uint64_t> i_FFFFFFFFFFFFFFFF {{ REPEAT_64B(0xFFFFFFFFFFFFFFFFu) }};
+  VecConstNative<uint64_t> i_0000000000000000 {{ REPEAT_64B(0x0000000000000000u) }};
+  VecConstNative<uint64_t> i_3030303030303030 {{ REPEAT_64B(0x3030303030303030u) }};
+  VecConstNative<uint64_t> i_0F0F0F0F0F0F0F0F {{ REPEAT_64B(0x0F0F0F0F0F0F0F0Fu) }};
+  VecConstNative<uint64_t> i_1010101010101010 {{ REPEAT_64B(0x1010101010101010u) }};
+  VecConstNative<uint64_t> i_8080808080808080 {{ REPEAT_64B(0x8080808080808080u) }};
+  VecConstNative<uint64_t> i_FFFFFFFFFFFFFFFF {{ REPEAT_64B(0xFFFFFFFFFFFFFFFFu) }};
 
-  BLVecConstNative<uint64_t> i_007F007F007F007F {{ REPEAT_64B(0x007F007F007F007Fu) }};
-  BLVecConstNative<uint64_t> i_0080008000800080 {{ REPEAT_64B(0x0080008000800080u) }};
-  BLVecConstNative<uint64_t> i_00FF00FF00FF00FF {{ REPEAT_64B(0x00FF00FF00FF00FFu) }};
-  BLVecConstNative<uint64_t> i_0100010001000100 {{ REPEAT_64B(0x0100010001000100u) }};
-  BLVecConstNative<uint64_t> i_0101010101010101 {{ REPEAT_64B(0x0101010101010101u) }};
-  BLVecConstNative<uint64_t> i_01FF01FF01FF01FF {{ REPEAT_64B(0x01FF01FF01FF01FFu) }};
-  BLVecConstNative<uint64_t> i_0200020002000200 {{ REPEAT_64B(0x0200020002000200u) }};
-  BLVecConstNative<uint64_t> i_8000800080008000 {{ REPEAT_64B(0x8000800080008000u) }};
+  VecConstNative<uint64_t> i_007F007F007F007F {{ REPEAT_64B(0x007F007F007F007Fu) }};
+  VecConstNative<uint64_t> i_0080008000800080 {{ REPEAT_64B(0x0080008000800080u) }};
+  VecConstNative<uint64_t> i_00FF00FF00FF00FF {{ REPEAT_64B(0x00FF00FF00FF00FFu) }};
+  VecConstNative<uint64_t> i_0100010001000100 {{ REPEAT_64B(0x0100010001000100u) }};
+  VecConstNative<uint64_t> i_0101010101010101 {{ REPEAT_64B(0x0101010101010101u) }};
+  VecConstNative<uint64_t> i_01FF01FF01FF01FF {{ REPEAT_64B(0x01FF01FF01FF01FFu) }};
+  VecConstNative<uint64_t> i_0200020002000200 {{ REPEAT_64B(0x0200020002000200u) }};
+  VecConstNative<uint64_t> i_8000800080008000 {{ REPEAT_64B(0x8000800080008000u) }};
 
-  BLVecConstNative<uint64_t> i_000000FF000000FF {{ REPEAT_64B(0x000000FF000000FFu) }};
-  BLVecConstNative<uint64_t> i_0000010000000100 {{ REPEAT_64B(0x0000010000000100u) }};
-  BLVecConstNative<uint64_t> i_000001FF000001FF {{ REPEAT_64B(0x000001FF000001FFu) }};
-  BLVecConstNative<uint64_t> i_0000020000000200 {{ REPEAT_64B(0x0000020000000200u) }};
-  BLVecConstNative<uint64_t> i_0000FFFF0000FFFF {{ REPEAT_64B(0x0000FFFF0000FFFFu) }};
-  BLVecConstNative<uint64_t> i_0002000000020000 {{ REPEAT_64B(0x0002000000020000u) }}; // 256 << 9
-  BLVecConstNative<uint64_t> i_00FFFFFF00FFFFFF {{ REPEAT_64B(0x00FFFFFF00FFFFFFu) }};
-  BLVecConstNative<uint64_t> i_0101000001010000 {{ REPEAT_64B(0x0101000001010000u) }};
-  BLVecConstNative<uint64_t> i_FF000000FF000000 {{ REPEAT_64B(0xFF000000FF000000u) }};
-  BLVecConstNative<uint64_t> i_FFFF0000FFFF0000 {{ REPEAT_64B(0xFFFF0000FFFF0000u) }};
+  VecConstNative<uint64_t> i_000000FF000000FF {{ REPEAT_64B(0x000000FF000000FFu) }};
+  VecConstNative<uint64_t> i_0000010000000100 {{ REPEAT_64B(0x0000010000000100u) }};
+  VecConstNative<uint64_t> i_000001FF000001FF {{ REPEAT_64B(0x000001FF000001FFu) }};
+  VecConstNative<uint64_t> i_0000020000000200 {{ REPEAT_64B(0x0000020000000200u) }};
+  VecConstNative<uint64_t> i_0000FFFF0000FFFF {{ REPEAT_64B(0x0000FFFF0000FFFFu) }};
+  VecConstNative<uint64_t> i_0002000000020000 {{ REPEAT_64B(0x0002000000020000u) }}; // 256 << 9
+  VecConstNative<uint64_t> i_00FFFFFF00FFFFFF {{ REPEAT_64B(0x00FFFFFF00FFFFFFu) }};
+  VecConstNative<uint64_t> i_0101000001010000 {{ REPEAT_64B(0x0101000001010000u) }};
+  VecConstNative<uint64_t> i_FF000000FF000000 {{ REPEAT_64B(0xFF000000FF000000u) }};
+  VecConstNative<uint64_t> i_FFFF0000FFFF0000 {{ REPEAT_64B(0xFFFF0000FFFF0000u) }};
 
-  BLVecConstNative<uint64_t> i_000000FF00FF00FF {{ REPEAT_64B(0x000000FF00FF00FFu) }};
-  BLVecConstNative<uint64_t> i_0000010001000100 {{ REPEAT_64B(0x0000010001000100u) }};
-  BLVecConstNative<uint64_t> i_0000080000000800 {{ REPEAT_64B(0x0000080000000800u) }};
-  BLVecConstNative<uint64_t> i_0000800000008000 {{ REPEAT_64B(0x0000800000008000u) }};
-  BLVecConstNative<uint64_t> i_0000FFFFFFFFFFFF {{ REPEAT_64B(0x0000FFFFFFFFFFFFu) }};
-  BLVecConstNative<uint64_t> i_00FF000000000000 {{ REPEAT_64B(0x00FF000000000000u) }};
-  BLVecConstNative<uint64_t> i_0100000000000000 {{ REPEAT_64B(0x0100000000000000u) }};
-  BLVecConstNative<uint64_t> i_0101010100000000 {{ REPEAT_64B(0x0101010100000000u) }};
-  BLVecConstNative<uint64_t> i_FFFF000000000000 {{ REPEAT_64B(0xFFFF000000000000u) }};
-  BLVecConstNative<uint64_t> i_FFFFFFFF00000000 {{ REPEAT_64B(0xFFFFFFFF00000000u) }};
+  VecConstNative<uint64_t> i_000000FF00FF00FF {{ REPEAT_64B(0x000000FF00FF00FFu) }};
+  VecConstNative<uint64_t> i_0000010001000100 {{ REPEAT_64B(0x0000010001000100u) }};
+  VecConstNative<uint64_t> i_0000080000000800 {{ REPEAT_64B(0x0000080000000800u) }};
+  VecConstNative<uint64_t> i_0000800000000000 {{ REPEAT_64B(0x0000800000000000u) }};
+  VecConstNative<uint64_t> i_0000800000008000 {{ REPEAT_64B(0x0000800000008000u) }};
+  VecConstNative<uint64_t> i_0000FFFFFFFFFFFF {{ REPEAT_64B(0x0000FFFFFFFFFFFFu) }};
+  VecConstNative<uint64_t> i_00FF000000000000 {{ REPEAT_64B(0x00FF000000000000u) }};
+  VecConstNative<uint64_t> i_0100000000000000 {{ REPEAT_64B(0x0100000000000000u) }};
+  VecConstNative<uint64_t> i_0101010100000000 {{ REPEAT_64B(0x0101010100000000u) }};
+  VecConstNative<uint64_t> i_FFFF000000000000 {{ REPEAT_64B(0xFFFF000000000000u) }};
+  VecConstNative<uint64_t> i_FFFFFFFF00000000 {{ REPEAT_64B(0xFFFFFFFF00000000u) }};
 
-  BLVecConstNative<uint32_t> i_0000FFFF_0_0_0 {{ REPEAT_128B(0x0000FFFFu, 0, 0, 0) }};
-  BLVecConstNative<uint32_t> i_FFFFFFFF_FFFFFFFF_FFFFFFFF_0 {{ REPEAT_128B(0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0) }};
+  VecConstNative<uint32_t> i_0000FFFF_0_0_0 {{ REPEAT_128B(0x0000FFFFu, 0, 0, 0) }};
+  VecConstNative<uint32_t> i_FFFFFFFF_FFFFFFFF_FFFFFFFF_0 {{ REPEAT_128B(0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0) }};
 
-  BLVecConstNative<uint32_t> u32_0_1_2_3 {{ REPEAT_128B(0, 1, 2, 3) }};
-  BLVecConstNative<uint32_t> u32_4_4_4_4 {{ REPEAT_128B(4, 4, 4, 4) }};
+  VecConstNative<uint32_t> u32_0_1_2_3 {{ REPEAT_128B(0, 1, 2, 3) }};
+  VecConstNative<uint32_t> u32_4_4_4_4 {{ REPEAT_128B(4, 4, 4, 4) }};
+
+  VecConst128<uint32_t> f32_sgn_scalar {{ 0x80000000u, 0, 0, 0 }};
+  VecConst128<uint64_t> f64_sgn_scalar {{ 0x8000000000000000u, 0}};
 
   // Mask of all `float` bits containing a sign.
-  BLVecConstNative<uint32_t> f32_sgn {{ REPEAT_32B(0x80000000u) }};
+  VecConstNative<uint32_t> f32_sgn {{ REPEAT_32B(0x80000000u) }};
   // Mask of all `float` bits without a sign.
-  BLVecConstNative<uint32_t> f32_abs {{ REPEAT_32B(0x7FFFFFFFu) }};
+  VecConstNative<uint32_t> f32_abs {{ REPEAT_32B(0x7FFFFFFFu) }};
   // Mask of all LO `float` bits without a sign.
-  BLVecConstNative<uint32_t> f32_abs_lo {{ REPEAT_128B(0x7FFFFFFFu, 0xFFFFFFFFu, 0x7FFFFFFFu, 0xFFFFFFFFu) }};
-  BLVecConstNative<uint32_t> f32_abs_hi {{ REPEAT_128B(0xFFFFFFFFu, 0x7FFFFFFFu, 0xFFFFFFFFu, 0x7FFFFFFFu) }};
+  VecConstNative<uint32_t> f32_abs_lo {{ REPEAT_128B(0x7FFFFFFFu, 0xFFFFFFFFu, 0x7FFFFFFFu, 0xFFFFFFFFu) }};
   // Mask of all HI `float` bits without a sign.
+  VecConstNative<uint32_t> f32_abs_hi {{ REPEAT_128B(0xFFFFFFFFu, 0x7FFFFFFFu, 0xFFFFFFFFu, 0x7FFFFFFFu) }};
   // Maximum float value to round (8388608).
-  BLVecConstNative<float> f32_round_max {{ REPEAT_32B(8388608.0f) }};
-  // Magic float used by round (12582912).
-  BLVecConstNative<float> f32_round_magic {{ REPEAT_32B(12582912.0f) }};
+  VecConstNative<float> f32_round_max {{ REPEAT_32B(8388608.0f) }};
 
   // Vector of `1.0f`.
-  BLVecConstNative<float> f32_1 {{ REPEAT_32B(1.0f) }};
+  VecConstNative<float> f32_1 {{ REPEAT_32B(1.0f) }};
   // Vector of `4.0f`.
-  BLVecConstNative<float> f32_4 {{ REPEAT_32B(4.0f) }};
+  VecConstNative<float> f32_4 {{ REPEAT_32B(4.0f) }};
+  // Vector of `8.0f`.
+  VecConstNative<float> f32_8 {{ REPEAT_32B(8.0f) }};
+  // Vector of `16.0f`.
+  VecConstNative<float> f32_16 {{ REPEAT_32B(16.0f) }};
   // Vector of `255.0f`.
-  BLVecConstNative<float> f32_255 {{ REPEAT_32B(255.0f) }};
+  VecConstNative<float> f32_255 {{ REPEAT_32B(255.0f) }};
   // Vector of `1e-3`.
-  BLVecConstNative<float> f32_1e_m3 {{ REPEAT_32B(1e-3f) }};
+  VecConstNative<float> f32_1e_m3 {{ REPEAT_32B(1e-3f) }};
   // Vector of `1e-20`.
-  BLVecConstNative<float> f32_1e_m20 {{ REPEAT_32B(1e-20f) }};
+  VecConstNative<float> f32_1e_m20 {{ REPEAT_32B(1e-20f) }};
   // Vector of `1.0f / 255.0f`.
-  BLVecConstNative<float> f32_1div255 {{ REPEAT_32B(1.0f / 255.0f) }};
+  VecConstNative<float> f32_1div255 {{ REPEAT_32B(1.0f / 255.0f) }};
   // Vector of `[15f, 14f, 13f, 12f, 11f, 10f, 9f, 8f, 7f, 6f, 5f, 4f, 3f, 2f, 1f, 0f]`.
-  BLVecConst512<float> f32_increments {{ 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f }};
+  VecConst512<float> f32_increments {{ 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f }};
 
   // Mask of all `double` bits containing a sign.
-  BLVecConstNative<uint64_t> f64_sgn {{ REPEAT_64B(0x8000000000000000u) }};
+  VecConstNative<uint64_t> f64_sgn {{ REPEAT_64B(0x8000000000000000u) }};
   // Mask of all `double` bits without a sign.
-  BLVecConstNative<uint64_t> f64_abs {{ REPEAT_64B(0x7FFFFFFFFFFFFFFFu) }};
+  VecConstNative<uint64_t> f64_abs {{ REPEAT_64B(0x7FFFFFFFFFFFFFFFu) }};
   // Mask of LO `double` bits without a sign.
-  BLVecConstNative<uint64_t> f64_abs_lo {{ REPEAT_128B(0x7FFFFFFFFFFFFFFFu, 0xFFFFFFFFFFFFFFFFu) }};
+  VecConstNative<uint64_t> f64_abs_lo {{ REPEAT_128B(0x7FFFFFFFFFFFFFFFu, 0xFFFFFFFFFFFFFFFFu) }};
   // Mask of HI `double` bits without a sign.
-  BLVecConstNative<uint64_t> f64_abs_hi {{ REPEAT_128B(0xFFFFFFFFFFFFFFFFu, 0x7FFFFFFFFFFFFFFFu) }};
+  VecConstNative<uint64_t> f64_abs_hi {{ REPEAT_128B(0xFFFFFFFFFFFFFFFFu, 0x7FFFFFFFFFFFFFFFu) }};
   // Maximum double value to round (4503599627370496).
-  BLVecConstNative<double> f64_round_max {{ REPEAT_64B(4503599627370496.0) }};
-  // Magic double used by round (6755399441055744).
-  BLVecConstNative<double> f64_round_magic {{ REPEAT_64B(6755399441055744.0) }};
+  VecConstNative<double> f64_round_max {{ REPEAT_64B(4503599627370496.0) }};
 
   // Vector of `1.0`.
-  BLVecConstNative<double> f64_1 {{ REPEAT_64B(1.0) }};
-  // Vector of `1e-20`.
-  BLVecConstNative<double> f64_1e_m20 {{ REPEAT_64B(1e-20) }};
+  VecConstNative<double> f64_1 {{ REPEAT_64B(1.0) }};
   // Vector of `4.0`.
-  BLVecConstNative<double> f64_4 {{ REPEAT_64B(4.0) }};
+  VecConstNative<double> f64_4 {{ REPEAT_64B(4.0) }};
+  // Vector of `1e-20`.
+  VecConstNative<double> f64_1e_m20 {{ REPEAT_64B(1e-20) }};
   // Vector of `-1.0`.
-  BLVecConstNative<double> f64_m1 {{ REPEAT_64B(-1.0) }};
+  VecConstNative<double> f64_m1 {{ REPEAT_64B(-1.0) }};
 
   // Vector of `[4.0, 8.0]`.
-  BLVecConstNative<double> f64_4_8 {{ REPEAT_128B(4.0, 8.0) }};
+  VecConstNative<double> f64_4_8 {{ REPEAT_128B(4.0, 8.0) }};
   // Vector of `[8.0, 4.0]`.
-  BLVecConstNative<double> f64_8_4 {{ REPEAT_128B(8.0, 4.0) }};
+  VecConstNative<double> f64_8_4 {{ REPEAT_128B(8.0, 4.0) }};
 
   //! \}
 
-  //! \name 128-bit and 256-bit VPSHUFB Predicates (X86 specific)
+  //! \name 128-bit and 256-bit VPSHUFB (X86) and TBL (ARM) predicates.
   //! \{
+
+  VecConstNative<uint64_t> swizu8_xxxxxxxx1xxx0xxx_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff03ff03ff03ff03u, 0xff07ff07ff07ff07u) }};
+  VecConstNative<uint64_t> swizu8_xxxxxxx1xxxxxxx0_to_zzzzzzzz11110000 {{ REPEAT_128B(0x0808080800000000u, 0xffffffffffffffffu) }};
+  VecConstNative<uint64_t> swizu8_xxxxxxx1xxxxxxx0_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff00ff00ff00ff00u, 0xff08ff08ff08ff08u) }};
+  VecConstNative<uint64_t> swizu8_xxx3xxx2xxx1xxx0_to_3210321032103210 {{ REPEAT_128B(0x0C0804000C080400u, 0x0C0804000C080400u) }};
+  VecConstNative<uint64_t> swizu8_xxx3xxx2xxx1xxx0_to_3333222211110000 {{ REPEAT_128B(0x0404040400000000u, 0x0C0C0C0C08080808u) }};
+  VecConstNative<uint64_t> swizu8_xxx3xxx2xxx1xxx0_to_z3z3z2z2z1z1z0z0 {{ REPEAT_128B(0xff04ff04ff00ff00u, 0xff0Cff0Cff08ff08u) }};
+  VecConstNative<uint64_t> swizu8_xxxxxxxxx3x2x1x0_to_3333222211110000 {{ REPEAT_128B(0x0202020200000000u, 0x0606060604040404u) }};
+  VecConstNative<uint64_t> swizu8_xxxxxxxxxxxxxx10_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff00ff00ff00ff00u, 0xff01ff01ff01ff01u) }};
+  VecConstNative<uint64_t> swizu8_xx76xx54xx32xx10_to_7654321076543210 {{ REPEAT_128B(0x0D0C090805040100u, 0x0D0C090805040100u) }};
+  VecConstNative<uint64_t> swizu8_1xxx0xxxxxxxxxxx_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff0Bff0Bff0Bff0Bu, 0xff0ffF0ffF0ffF0Fu) }};
+  VecConstNative<uint64_t> swizu8_3xxx2xxx1xxx0xxx_to_zzzzzzzzzzzz3210 {{ REPEAT_128B(0xffffffff0F0B0703u, 0xffffffffffffffffu) }};
+  VecConstNative<uint64_t> swizu8_3xxx2xxx1xxx0xxx_to_3333222211110000 {{ REPEAT_128B(0x0707070703030303u, 0x0F0F0F0F0B0B0B0Bu) }};
+  VecConstNative<uint64_t> swizu8_32xxxxxx10xxxxxx_to_3232323210101010 {{ REPEAT_128B(0x0706070607060706u, 0x0F0E0F0E0F0E0F0Eu) }};
+  VecConstNative<uint64_t> swizu8_x1xxxxxxx0xxxxxx_to_1111000011110000 {{ REPEAT_128B(0x0E0E0E0E06060606u, 0x0E0E0E0E06060606u) }};
+  VecConstNative<uint64_t> swizu8_76543210xxxxxxxx_to_z7z6z5z4z3z2z1z0 {{ REPEAT_128B(0xff0Bff0Aff09ff08u, 0xff0ffF0Eff0Dff0Cu) }};
+
+  VecConstNative<uint64_t> swizu8_xxxxxxxxxxxx3210_to_3333222211110000 {{ REPEAT_128B(0x0101010100000000u, 0x0303030302020202u) }};
+  VecConstNative<uint64_t> swizu8_xxxxxxxx3210xxxx_to_3333222211110000 {{ REPEAT_128B(0x0505050504040404u, 0x0707070706060606u) }};
+  VecConstNative<uint64_t> swizu8_xxxx3210xxxxxxxx_to_3333222211110000 {{ REPEAT_128B(0x0909090908080808u, 0x0B0B0B0B0A0A0A0Au) }};
+  VecConstNative<uint64_t> swizu8_3210xxxxxxxxxxxx_to_3333222211110000 {{ REPEAT_128B(0x0D0D0D0D0C0C0C0Cu, 0x0F0F0F0F0E0E0E0Eu) }};
+
+  VecConstNative<uint64_t> swizu8_xxxx1xxxxxxx0xxx_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff03ff03ff03ff03u, 0xff0Bff0Bff0Bff0Bu) }};
 
 #if BL_TARGET_ARCH_X86
 
-  BLVecConstNative<uint64_t> pshufb_xxxxxxxxxxxx3210_to_3333222211110000 {{ REPEAT_128B(0x0101010100000000u, 0x0303030302020202u) }};
-  BLVecConstNative<uint64_t> pshufb_xxxxxxxx1xxx0xxx_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff03ff03ff03ff03u, 0xff07ff07ff07ff07u) }};
-  BLVecConstNative<uint64_t> pshufb_xxxxxxx1xxxxxxx0_to_zzzzzzzz11110000 {{ REPEAT_128B(0x0808080800000000u, 0xffffffffffffffffu) }};
-  BLVecConstNative<uint64_t> pshufb_xxxxxxx1xxxxxxx0_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff00ff00ff00ff00u, 0xff08ff08ff08ff08u) }};
-  BLVecConstNative<uint64_t> pshufb_xxx3xxx2xxx1xxx0_to_3210321032103210 {{ REPEAT_128B(0x0C0804000C080400u, 0x0C0804000C080400u) }};
-  BLVecConstNative<uint64_t> pshufb_xxx3xxx2xxx1xxx0_to_3333222211110000 {{ REPEAT_128B(0x0404040400000000u, 0x0C0C0C0C08080808u) }};
-  BLVecConstNative<uint64_t> pshufb_xx76xx54xx32xx10_to_7654321076543210 {{ REPEAT_128B(0x0D0C090805040100u, 0x0D0C090805040100u) }};
-  BLVecConstNative<uint64_t> pshufb_1xxx0xxxxxxxxxxx_to_z1z1z1z1z0z0z0z0 {{ REPEAT_128B(0xff0Bff0Bff0Bff0Bu, 0xff0ffF0ffF0ffF0Fu) }};
-  BLVecConstNative<uint64_t> pshufb_3xxx2xxx1xxx0xxx_to_zzzzzzzzzzzz3210 {{ REPEAT_128B(0xffffffffffffffffu, 0xffffffff0F0B0703u) }};
-  BLVecConstNative<uint64_t> pshufb_32xxxxxx10xxxxxx_to_3232323210101010 {{ REPEAT_128B(0x0706070607060706u, 0x0F0E0F0E0F0E0F0Eu) }};
-  BLVecConstNative<uint64_t> pshufb_76543210xxxxxxxx_to_z7z6z5z4z3z2z1z0 {{ REPEAT_128B(0xff0Bff0Aff09ff08u, 0xff0ffF0Eff0Dff0Cu) }};
+  VecConst512<uint64_t> permu8_a8_to_rgba32_uc {{
+    0xff00ff00ff00ff00u, 0xff01ff01ff01ff01u,
+    0xff02ff02ff02ff02u, 0xff03ff03ff03ff03u,
+    0xff04ff04ff04ff04u, 0xff05ff05ff05ff05u,
+    0xff06ff06ff06ff06u, 0xff07ff07ff07ff07u
+  }};
 
-  BLVecConst512<uint64_t> pshufb_dither_rgba64_lo {{
+  VecConst512<uint64_t> permu8_4xa8_lo_to_rgba32_uc {{
+    0x0100010001000100u, 0x0302030203020302u,
+    0x0504050405040504u, 0x0706070607060706u,
+    0x1110111011101110u, 0x1312131213121312u,
+    0x1514151415141514u, 0x1716171617161716u
+  }};
+
+  VecConst512<uint64_t> permu8_4xu8_lo_to_rgba32_uc {{
+    0x0100010001000100u, 0x0302030203020302u,
+    0x0504050405040504u, 0x0706070607060706u,
+    0x0908090809080908u, 0x0B0A0B0A0B0A0B0Au,
+    0x0D0C0D0C0D0C0D0Cu, 0x0F0E0F0E0F0E0F0Eu
+  }};
+
+  VecConst512<uint64_t> swizu8_dither_rgba64_lo {{
     0xffffff00ff00ff00u, 0xffffff01ff01ff01u,
     0xffffff02ff02ff02u, 0xffffff03ff03ff03u,
     0xffffff04ff04ff04u, 0xffffff05ff05ff05u,
     0xffffff06ff06ff06u, 0xffffff07ff07ff07u
   }};
 
-  BLVecConst512<uint64_t> pshufb_dither_rgba64_hi {{
+  VecConst512<uint64_t> swizu8_dither_rgba64_hi {{
     0xffffff08ff08ff08u, 0xffffff09ff09ff09u,
     0xffffff0Aff0Aff0Au, 0xffffff0Bff0Bff0Bu,
     0xffffff0Cff0Cff0Cu, 0xffffff0Dff0Dff0Du,
-    0xffffff0Eff0Eff0Eu, 0xffffff0ffF0ffF0Fu
+    0xffffff0Eff0Eff0Eu, 0xffffff0Fff0Fff0Fu
   }};
 
+#else
+
+  VecConst128<uint64_t> swizu8_dither_rgba64_lo {{ 0xffffff00ff00ff00u, 0xffffff01ff01ff01u }};
+  VecConst128<uint64_t> swizu8_dither_rgba64_hi {{ 0xffffff08ff08ff08u, 0xffffff09ff09ff09u }};
+
 #endif // BL_TARGET_ARCH_X86
+
+  VecConst128<uint64_t> swizu8_rotate_right[8] {
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }}
+  };
 
   //! \}
 
@@ -273,30 +328,30 @@ struct BL_ALIGN_TYPE(BLCommonTable, 64) {
   //
   // NOTE: It's better to calculate the mask if the number of elements is greater than 16.
 
-  uint16_t k_msk16_data[16 + 16 + 16 + 16 + 1] = {
-    0x0000u,
-    0x0001u, 0x0003u, 0x0007u, 0x000Fu,
-    0x001Fu, 0x003Fu, 0x007Fu, 0x00FFu,
-    0x01FFu, 0x03FFu, 0x07FFu, 0x0FFFu,
-    0x1FFFu, 0x3FFFu, 0x7FFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu,
-    0xFFFFu, 0xFFFFu, 0xFFFFu, 0xFFFFu
+  uint64_t k_msk64_data[64 + 1] = {
+    0x0000000000000000u,
+    0x0000000000000001u, 0x0000000000000003u, 0x0000000000000007u, 0x000000000000000Fu,
+    0x000000000000001Fu, 0x000000000000003Fu, 0x000000000000007Fu, 0x00000000000000FFu,
+    0x00000000000001FFu, 0x00000000000003FFu, 0x00000000000007FFu, 0x0000000000000FFFu,
+    0x0000000000001FFFu, 0x0000000000003FFFu, 0x0000000000007FFFu, 0x000000000000FFFFu,
+    0x000000000001FFFFu, 0x000000000003FFFFu, 0x000000000007FFFFu, 0x00000000000FFFFFu,
+    0x00000000001FFFFFu, 0x00000000003FFFFFu, 0x00000000007FFFFFu, 0x0000000000FFFFFFu,
+    0x0000000001FFFFFFu, 0x0000000003FFFFFFu, 0x0000000007FFFFFFu, 0x000000000FFFFFFFu,
+    0x000000001FFFFFFFu, 0x000000003FFFFFFFu, 0x000000007FFFFFFFu, 0x00000000FFFFFFFFu,
+    0x00000001FFFFFFFFu, 0x00000003FFFFFFFFu, 0x00000007FFFFFFFFu, 0x0000000FFFFFFFFFu,
+    0x0000001FFFFFFFFFu, 0x0000003FFFFFFFFFu, 0x0000007FFFFFFFFFu, 0x000000FFFFFFFFFFu,
+    0x000001FFFFFFFFFFu, 0x000003FFFFFFFFFFu, 0x000007FFFFFFFFFFu, 0x00000FFFFFFFFFFFu,
+    0x00001FFFFFFFFFFFu, 0x00003FFFFFFFFFFFu, 0x00007FFFFFFFFFFFu, 0x0000FFFFFFFFFFFFu,
+    0x0001FFFFFFFFFFFFu, 0x0003FFFFFFFFFFFFu, 0x0007FFFFFFFFFFFFu, 0x000FFFFFFFFFFFFFu,
+    0x001FFFFFFFFFFFFFu, 0x003FFFFFFFFFFFFFu, 0x007FFFFFFFFFFFFFu, 0x00FFFFFFFFFFFFFFu,
+    0x01FFFFFFFFFFFFFFu, 0x03FFFFFFFFFFFFFFu, 0x07FFFFFFFFFFFFFFu, 0x0FFFFFFFFFFFFFFFu,
+    0x1FFFFFFFFFFFFFFFu, 0x3FFFFFFFFFFFFFFFu, 0x7FFFFFFFFFFFFFFFu, 0xFFFFFFFFFFFFFFFFu
   };
 
   // NOTE: Use VPMOVSXBD to extend BYTEs to DWORDs or VPMOVSXBQ to extend BYTEs to QWORDs to
   // extend the mask into the correct data size. VPMOVSX?? is not an expensive instruction.
 
-  BLVecConst64<uint64_t> loadstore_msk8_data[32 + 8 + 32 + 1] = {
+  VecConst64<uint64_t> loadstore_msk8_data[32 + 8 + 32 + 1] = {
     {{ 0x0000000000000000u }}, // [0]
     {{ 0x0000000000000000u }},
     {{ 0x0000000000000000u }},
@@ -372,82 +427,38 @@ struct BL_ALIGN_TYPE(BLCommonTable, 64) {
     {{ 0xFFFFFFFFFFFFFFFFu }}  // [72]
   };
 
-  BL_INLINE const BLVecConst64<uint64_t>* loadstore16_lo8_msk8() const noexcept { return loadstore_msk8_data + 32; }
-  BL_INLINE const BLVecConst64<uint64_t>* loadstore16_hi8_msk8() const noexcept { return loadstore_msk8_data + 24; }
+  BL_INLINE const VecConst64<uint64_t>* loadstore16_lo8_msk8() const noexcept { return loadstore_msk8_data + 32; }
+  BL_INLINE const VecConst64<uint64_t>* loadstore16_hi8_msk8() const noexcept { return loadstore_msk8_data + 24; }
 
 #endif // BL_TARGET_ARCH_X86
 
-  //! \}
-
-  //! \name Conic Gradient Tables
-  //! \{
-
-  // Polynomial to approximate `atan(x) * N / 2PI`:
-  //   `x * (Q0 + x^2 * (Q1 + x^2 * (Q2 + x^2 * Q3)))`
-  //
-  // The following numbers were obtained by `lolremez` - minmax tool for approx.:
-  //
-  // Atan is an odd function, so we take advantage of it (see lolremez docs):
-  //   1. E=|atan(x) * N / 2PI - P(x)                  | <- subs. `P(x)` by `x*Q(x^2))`
-  //   2. E=|atan(x) * N / 2PI - x*Q(x^2)              | <- subs. `x^2` by `y`
-  //   3. E=|atan(sqrt(y)) * N / 2PI - sqrt(y) * Q(y)  | <- eliminate `y` from Q side - div by `y`
-  //   4. E=|atan(sqrt(y)) * N / (2PI * sqrt(y)) - Q(y)|
-  //
-  // LolRemez C++ code:
-  // ```
-  //   real f(real const& x) {
-  //     real y = sqrt(x);
-  //     return atan(y) * real(N) / (real(2) * real::R_PI * y);
-  //   }
-  //   real g(real const& x) {
-  //     return re(sqrt(x));
-  //   }
-  //   int main(int argc, char **argv) {
-  //     RemezSolver<3, real> solver;
-  //     solver.Run("1e-1000", 1, f, g, 40);
-  //     return 0;
-  //   }
-  // ```
-  enum TableId {
-    kTable256   = 0,
-    kTable512   = 1,
-    kTable1024  = 2,
-    kTable2048  = 3,
-    kTable4096  = 4,
-    kTableCount = 5
+/*
+  VecConst128<uint64_t> swizu8_load4x32_tail_predicate[5] {
+    {{ 0xffffffffffffffffu, 0xffffffffffffffffu }},
+    {{ 0xffffffff0F0E0D0Cu, 0xffffffffffffffffu }},
+    {{ 0x0F0E0D0C0B0A0908u, 0xffffffffffffffffu }},
+    {{ 0x0B0A090807060504u, 0xffffffff0F0E0D0Cu }},
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }} // This should never be hit during 3-element load/store.
   };
-
-  struct alignas(64) Conic {
-    float n_div_1[16];
-    float n_div_2[16];
-    float n_div_4[16];
-    float n_extra[16];
-
-    // Polynomial to approximate `atan(x) * N / 2PI`:
-    //   `x * (Q0 + x*x * (Q1 + x*x * (Q2 + x*x * Q3)))`
-    // Where:
-    //   `x >= 0 && x <= 1`
-    float q0[16];
-    float q1[16];
-    float q2[16];
-    float q3[16];
-  } xmm_f_con[kTableCount] = {
-    #define ROW(N, Q0, Q1, Q2, Q3) {    \
-      { float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ), float(N  ) }, \
-      { float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2), float(N/2) }, \
-      { float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4), float(N/4) }, \
-      { float(N/2), float(N  ), float(N/2), float(N  ), float(N/2), float(N  ), float(N/2), float(N  ), float(N/2), float(N  ), float(N/2), float(N  ), float(N/2), float(N  ), float(N/2), float(N  ) }, \
-      { float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ), float(Q0 ) }, \
-      { float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ), float(Q1 ) }, \
-      { float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ), float(Q2 ) }, \
-      { float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ), float(Q3 ) }  \
-    }
-    ROW(256 , 4.071421038552e+1, -1.311160794048e+1, 6.017670215625   , -1.623253505085   ),
-    ROW(512 , 8.142842077104e+1, -2.622321588095e+1, 1.203534043125e+1, -3.246507010170   ),
-    ROW(1024, 1.628568415421e+2, -5.244643176191e+1, 2.407068086250e+1, -6.493014020340   ),
-    ROW(2048, 3.257136830841e+2, -1.048928635238e+2, 4.814136172500e+1, -1.298602804068e+1),
-    ROW(4096, 6.514273661683e+2, -2.097857270476e+2, 9.628272344999e+1, -2.597205608136e+1)
-    #undef ROW
+*/
+  VecConst128<uint64_t> swizu8_load_tail_0_to_16[17] {
+    {{ 0xffffffffffffffffu, 0xffffffffffffffffu }}, // [00] The memory layout shown here describes how the 32-bit elements
+    {{ 0xffffffffffffff00u, 0xffffffffffffffffu }}, // [01] were loaded to the vector register. We don't have to describe
+    {{ 0xffffffffffff0100u, 0xffffffffffffffffu }}, // [02] 00-03 as that would be out of bounds access, which we don't do.
+    {{ 0xffffffffff020100u, 0xffffffffffffffffu }}, // [03]
+    {{ 0xffffffff03020100u, 0xffffffffffffffffu }}, // [04]
+    {{ 0xffffff0703020100u, 0xffffffffffffffffu }}, // [05] [ __ __ __ __ | __ __ __ __ | 04 03 02 01 | 03 02 01 00 ]
+    {{ 0xffff070603020100u, 0xffffffffffffffffu }}, // [06] [ __ __ __ __ | __ __ __ __ | 05 04 03 02 | 03 02 01 00 ]
+    {{ 0xff07060503020100u, 0xffffffffffffffffu }}, // [07] [ __ __ __ __ | __ __ __ __ | 06 05 04 03 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xffffffffffffffffu }}, // [08] [ __ __ __ __ | __ __ __ __ | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xffffffffffffff0Bu }}, // [09] [ __ __ __ __ | 08 07 06 05 | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xffffffffffff0B0Au }}, // [10] [ __ __ __ __ | 09 08 07 06 | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xffffffffff0B0A09u }}, // [11] [ __ __ __ __ | 10 09 08 07 | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xffffffff0B0A0908u }}, // [12] [ __ __ __ __ | 11 10 09 08 | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xffffff0F0B0A0908u }}, // [13] [ 12 11 10 09 | 11 10 09 08 | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xffff0F0E0B0A0908u }}, // [14] [ 13 12 11 10 | 11 10 09 08 | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0xff0F0E0D0B0A0908u }}, // [15] [ 14 13 12 11 | 11 10 09 08 | 07 06 05 04 | 03 02 01 00 ]
+    {{ 0x0706050403020100u, 0x0F0E0D0C0B0A0908u }}  // [16] [ 15 14 13 12 | 11 10 09 08 | 07 06 05 04 | 03 02 01 00 ]
   };
 
   //! \}
@@ -470,7 +481,7 @@ struct BL_ALIGN_TYPE(BLCommonTable, 64) {
     // Could be also generated by:
     //
     // struct BLUnpremultiplyTableGen {
-    //   //! Calculates the reciprocal for `BLCommonTable::unpremultiply` table.
+    //   //! Calculates the reciprocal for `CommonTable::unpremultiply` table.
     //   static constexpr uint32_t value(size_t i) noexcept {
     //     return i ? uint32_t(0xFF00FF / i) : uint32_t(0);
     //   }
@@ -611,7 +622,9 @@ struct BL_ALIGN_TYPE(BLCommonTable, 64) {
 #undef REPEAT_4X
 #undef REPEAT_2X
 
-BL_HIDDEN extern const BLCommonTable blCommonTable;
+BL_HIDDEN extern const CommonTable commonTable;
+
+} // {bl}
 
 //! \}
 //! \endcond

@@ -13,7 +13,8 @@
 //! \addtogroup blend2d_pipeline_jit
 //! \{
 
-namespace BLPipeline {
+namespace bl {
+namespace Pipeline {
 namespace JIT {
 
 //! Base class for all pattern fetch parts.
@@ -26,12 +27,12 @@ public:
   //! Extend in X direction, used only by `FetchSimplePatternPart`.
   ExtendMode _extendX {};
 
-  FetchPatternPart(PipeCompiler* pc, FetchType fetchType, BLInternalFormat format) noexcept;
+  FetchPatternPart(PipeCompiler* pc, FetchType fetchType, FormatExt format) noexcept;
 
   //! Tests whether the fetch-type is simple pattern {axis-aligned or axis-unaligned}.
-  BL_INLINE bool isSimple() const noexcept { return isFetchType(FetchType::kPatternSimpleFirst, FetchType::kPatternSimpleLast); }
+  BL_INLINE_NODEBUG bool isSimple() const noexcept { return isFetchType(FetchType::kPatternSimpleFirst, FetchType::kPatternSimpleLast); }
   //! Tests whether the fetch-type is an affine pattern style.
-  BL_INLINE bool isAffine() const noexcept { return isFetchType(FetchType::kPatternAffineFirst, FetchType::kPatternAffineLast); }
+  BL_INLINE_NODEBUG bool isAffine() const noexcept { return isFetchType(FetchType::kPatternAffineFirst, FetchType::kPatternAffineLast); }
 };
 
 //! Simple pattern fetch part.
@@ -43,96 +44,96 @@ public:
   //! Aligned and fractional blits.
   struct SimpleRegs {
     //! Pointer to the previous scanline and/or pixel (fractional).
-    x86::Gp srcp0;
+    Gp srcp0;
     //! Pointer to the current scanline and/or pixel (aligned).
-    x86::Gp srcp1;
+    Gp srcp1;
     //! Pattern stride, used only by aligned blits.
-    x86::Gp stride;
+    Gp stride;
 
     //! Vertical extend data.
-    x86::Mem vExtendData;
+    Mem vExtendData;
 
     //! X position.
-    x86::Gp x;
+    Gp x;
     //! Y position (counter, decreases to zero).
-    x86::Gp y;
+    Gp y;
 
     //! Pattern width (32-bit).
-    x86::Gp w;
+    Gp w;
     //! Pattern height (32-bit).
-    x86::Gp h;
+    Gp h;
 
     //! X repeat/reflect.
-    x86::Gp rx;
+    Gp rx;
     //! Y repeat/reflect.
-    x86::Gp ry;
+    Gp ry;
 
     //! X padded to [0-W) range.
-    x86::Gp xPadded;
+    Gp xPadded;
     //! X origin, assigned to `x` at the beginning of each scanline.
-    x86::Gp xOrigin;
+    Gp xOrigin;
     //! X restart (used by scalar implementation, points to either -W or 0).
-    x86::Gp xRestart;
+    Gp xRestart;
 
     //! Last loaded pixel (or combined pixel) of the first (srcp0) scanline.
-    x86::Xmm pixL;
+    Vec pixL;
 
     // Weights used in RGBA mode.
-    x86::Xmm wb_wb;
-    x86::Xmm wd_wd;
-    x86::Xmm wa_wb;
-    x86::Xmm wc_wd;
+    Vec wa, wb, wc, wd;
+
+    Vec wa_wb;
+    Vec wc_wd;
 
     // Weights used in alpha-only mode.
-    x86::Xmm wd_wb;
-    x86::Xmm wa_wc;
-    x86::Xmm wb_wd;
+    Vec wd_wb;
+    Vec wa_wc;
+    Vec wb_wd;
 
     //! X position vector  `[  x, x+1, x+2, x+3]`.
-    x86::Xmm xVec4;
+    Vec xVec4;
     //! X setup vector     `[  0,   1,   2,   3]`.
-    x86::Xmm xSet4;
+    Vec xSet4;
     //! X increment vector `[  4,   4,   4,   4]`.
-    x86::Xmm xInc4;
+    Vec xInc4;
     //! X normalize vector.
-    x86::Xmm xNrm4;
+    Vec xNrm4;
     //! X maximum vector   `[max, max, max, max]`.
-    x86::Xmm xMax4;
+    Vec xMax4;
   };
 
-  BLWrap<SimpleRegs> f;
+  Wrap<SimpleRegs> f;
 
-  FetchSimplePatternPart(PipeCompiler* pc, FetchType fetchType, BLInternalFormat format) noexcept;
+  FetchSimplePatternPart(PipeCompiler* pc, FetchType fetchType, FormatExt format) noexcept;
 
   //! Tests whether the fetch-type is axis-aligned blit (no extend modes, no overflows)
-  BL_INLINE bool isAlignedBlit() const noexcept { return isFetchType(FetchType::kPatternAlignedBlit); }
+  BL_INLINE_NODEBUG bool isAlignedBlit() const noexcept { return isFetchType(FetchType::kPatternAlignedBlit); }
   //! Tests whether the fetch-type is axis-aligned pattern.
-  BL_INLINE bool isPatternAligned() const noexcept { return isFetchType(FetchType::kPatternAlignedFirst, FetchType::kPatternAlignedLast); }
+  BL_INLINE_NODEBUG bool isPatternAligned() const noexcept { return isFetchType(FetchType::kPatternAlignedFirst, FetchType::kPatternAlignedLast); }
   //! Tests whether the fetch-type is a "FracBi" pattern style.
-  BL_INLINE bool isPatternUnaligned() const noexcept { return isFetchType(FetchType::kPatternUnalignedFirst, FetchType::kPatternUnalignedLast); }
+  BL_INLINE_NODEBUG bool isPatternUnaligned() const noexcept { return isFetchType(FetchType::kPatternUnalignedFirst, FetchType::kPatternUnalignedLast); }
   //! Tests whether the fetch-type is a "FracBiX" pattern style.
-  BL_INLINE bool isPatternFx() const noexcept { return isFetchType(FetchType::kPatternFxFirst, FetchType::kPatternFxLast); }
+  BL_INLINE_NODEBUG bool isPatternFx() const noexcept { return isFetchType(FetchType::kPatternFxFirst, FetchType::kPatternFxLast); }
   //! Tests whether the fetch-type is a "FracBiY" pattern style.
-  BL_INLINE bool isPatternFy() const noexcept { return isFetchType(FetchType::kPatternFyFirst, FetchType::kPatternFyLast); }
+  BL_INLINE_NODEBUG bool isPatternFy() const noexcept { return isFetchType(FetchType::kPatternFyFirst, FetchType::kPatternFyLast); }
   //! Tests whether the fetch-type is a "FracBiXY" pattern style.
-  BL_INLINE bool isPatternFxFy() const noexcept { return isFetchType(FetchType::kPatternFxFyFirst, FetchType::kPatternFxFyLast); }
+  BL_INLINE_NODEBUG bool isPatternFxFy() const noexcept { return isFetchType(FetchType::kPatternFxFyFirst, FetchType::kPatternFxFyLast); }
 
   //! Tests whether the fetch is pattern style that has fractional `x` or `x & y`.
-  BL_INLINE bool hasFracX() const noexcept { return isPatternFx() || isPatternFxFy(); }
+  BL_INLINE_NODEBUG bool hasFracX() const noexcept { return isPatternFx() || isPatternFxFy(); }
   //! Tests whether the fetch is pattern style that has fractional `y` or `x & y`.
-  BL_INLINE bool hasFracY() const noexcept { return isPatternFy() || isPatternFxFy(); }
+  BL_INLINE_NODEBUG bool hasFracY() const noexcept { return isPatternFy() || isPatternFxFy(); }
 
   //! Returns the extend-x mode.
-  BL_INLINE ExtendMode extendX() const noexcept { return _extendX; }
+  BL_INLINE_NODEBUG ExtendMode extendX() const noexcept { return _extendX; }
 
-  void _initPart(x86::Gp& x, x86::Gp& y) noexcept override;
+  void _initPart(const PipeFunction& fn, Gp& x, Gp& y) noexcept override;
   void _finiPart() noexcept override;
 
   void swapStrideStopData(VecArray& v) noexcept;
 
   void advanceY() noexcept override;
-  void startAtX(const x86::Gp& x) noexcept override;
-  void advanceX(const x86::Gp& x, const x86::Gp& diff) noexcept override;
+  void startAtX(const Gp& x) noexcept override;
+  void advanceX(const Gp& x, const Gp& diff) noexcept override;
 
   void advanceXByOne() noexcept;
   void repeatOrReflectX() noexcept;
@@ -151,37 +152,37 @@ class FetchAffinePatternPart : public FetchPatternPart {
 public:
   struct AffineRegs {
     //! Pattern pixels (pointer to the first scanline).
-    x86::Gp srctop;
+    Gp srctop;
     //! Pattern stride.
-    x86::Gp stride;
+    Gp stride;
 
     //! Horizontal X/Y increments.
-    x86::Xmm xx_xy;
+    Vec xx_xy;
     //! Vertical X/Y increments.
-    x86::Xmm yx_yy;
-    x86::Xmm tx_ty;
-    x86::Xmm px_py;
-    x86::Xmm ox_oy;
+    Vec yx_yy;
+    Vec tx_ty;
+    Vec px_py;
+    Vec ox_oy;
     //! Normalization after `px_py` gets out of bounds.
-    x86::Xmm rx_ry;
+    Vec rx_ry;
     //! Like `px_py` but one pixel ahead [fetch4].
-    x86::Xmm qx_qy;
+    Vec qx_qy;
     //! Advance twice (like `xx_xy`, but doubled) [fetch4].
-    x86::Xmm xx2_xy2;
+    Vec xx2_xy2;
 
     //! Pad minimum coords.
-    x86::Xmm minx_miny;
+    Vec minx_miny;
     //! Pad maximum coords.
-    x86::Xmm maxx_maxy;
+    Vec maxx_maxy;
     //! Correction values (bilinear only).
-    x86::Xmm corx_cory;
+    Vec corx_cory;
     //! Pattern width and height as doubles.
-    x86::Xmm tw_th;
+    Vec tw_th;
 
     //! Vector of pattern indexes.
-    x86::Xmm vIdx;
+    Vec vIdx;
     //! Vector containing multipliers for Y/X pairs.
-    x86::Xmm vAddrMul;
+    Vec vAddrMul;
   };
 
   enum ClampStep : uint32_t {
@@ -195,26 +196,25 @@ public:
     kClampStepC_BI
   };
 
-  BLWrap<AffineRegs> f;
+  Wrap<AffineRegs> f;
 
-  FetchAffinePatternPart(PipeCompiler* pc, FetchType fetchType, BLInternalFormat format) noexcept;
+  FetchAffinePatternPart(PipeCompiler* pc, FetchType fetchType, FormatExt format) noexcept;
 
-  BL_INLINE bool isAffineNn() const noexcept { return isFetchType(FetchType::kPatternAffineNNAny) || isFetchType(FetchType::kPatternAffineNNOpt); }
-  BL_INLINE bool isAffineBi() const noexcept { return isFetchType(FetchType::kPatternAffineBIAny) || isFetchType(FetchType::kPatternAffineBIOpt); }
-  BL_INLINE bool isOptimized() const noexcept { return isFetchType(FetchType::kPatternAffineNNOpt) || isFetchType(FetchType::kPatternAffineBIOpt); }
+  BL_INLINE_NODEBUG bool isAffineNN() const noexcept { return isFetchType(FetchType::kPatternAffineNNAny) || isFetchType(FetchType::kPatternAffineNNOpt); }
+  BL_INLINE_NODEBUG bool isAffineBI() const noexcept { return isFetchType(FetchType::kPatternAffineBIAny) || isFetchType(FetchType::kPatternAffineBIOpt); }
+  BL_INLINE_NODEBUG bool isOptimized() const noexcept { return isFetchType(FetchType::kPatternAffineNNOpt) || isFetchType(FetchType::kPatternAffineBIOpt); }
 
-  void _initPart(x86::Gp& x, x86::Gp& y) noexcept override;
+  void _initPart(const PipeFunction& fn, Gp& x, Gp& y) noexcept override;
   void _finiPart() noexcept override;
 
   void advanceY() noexcept override;
-  void startAtX(const x86::Gp& x) noexcept override;
-  void advanceX(const x86::Gp& x, const x86::Gp& diff) noexcept override;
+  void startAtX(const Gp& x) noexcept override;
+  void advanceX(const Gp& x, const Gp& diff) noexcept override;
 
-  void advancePxPy(x86::Xmm& px_py, const x86::Gp& i) noexcept;
-  void normalizePxPy(x86::Xmm& px_py) noexcept;
-  void clampVIdx32(x86::Xmm& dst, const x86::Xmm& src, ClampStep step) noexcept;
+  void advancePxPy(Vec& px_py, const Gp& i) noexcept;
+  void normalizePxPy(Vec& px_py) noexcept;
+  void clampVIdx32(Vec& dst, const Vec& src, ClampStep step) noexcept;
 
-  void prefetch1() noexcept override;
   void enterN() noexcept override;
   void leaveN() noexcept override;
   void prefetchN() noexcept override;
@@ -224,7 +224,8 @@ public:
 };
 
 } // {JIT}
-} // {BLPipeline}
+} // {Pipeline}
+} // {bl}
 
 //! \}
 //! \endcond

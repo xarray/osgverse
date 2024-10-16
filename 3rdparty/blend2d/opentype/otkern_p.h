@@ -14,7 +14,8 @@
 //! \addtogroup blend2d_opentype_impl
 //! \{
 
-namespace BLOpenType {
+namespace bl {
+namespace OpenType {
 
 //! OpenType 'kern' table.
 //!
@@ -83,7 +84,7 @@ struct KernTable {
     Pair pairArray[pairCount];
     */
 
-    BL_INLINE const Pair* pairArray() const noexcept { return BLPtrOps::offset<const Pair>(this, 8); }
+    BL_INLINE const Pair* pairArray() const noexcept { return PtrOps::offset<const Pair>(this, 8); }
   };
 
   struct Format1 {
@@ -112,7 +113,7 @@ struct KernTable {
       Offset16 offsetArray[glyphCount];
       */
 
-      BL_INLINE const Offset16* offsetArray() const noexcept { return BLPtrOps::offset<const Offset16>(this, 4); }
+      BL_INLINE const Offset16* offsetArray() const noexcept { return PtrOps::offset<const Offset16>(this, 4); }
     };
 
     UInt16 rowWidth;
@@ -190,7 +191,7 @@ public:
 
   BLArray<KernGroup> groups;
 
-  BL_INLINE KernCollection() noexcept {}
+  BL_INLINE KernCollection() noexcept = default;
   BL_INLINE ~KernCollection() noexcept { releaseData(); }
 
   BL_INLINE bool empty() const noexcept { return groups.empty(); }
@@ -216,24 +217,25 @@ public:
   BL_NONCOPYABLE(KernData)
 
   enum HeaderType : uint32_t {
-    kHeaderWindows   = 0,
-    kHeaderMac       = 1
+    kHeaderWindows = 0,
+    kHeaderMac = 1
   };
 
-  RawTable table;
-  uint8_t headerType;
-  uint8_t headerSize;
-  uint8_t reserved[6];
+  RawTable table {};
+  uint8_t headerType {};
+  uint8_t headerSize {};
+  uint8_t reserved[6] {};
   KernCollection collection[2];
 
-  BL_INLINE KernData() noexcept {}
+  BL_INLINE KernData() noexcept = default;
 };
 
 namespace KernImpl {
 BLResult init(OTFaceImpl* faceI, OTFaceTables& tables) noexcept;
 } // {KernImpl}
 
-} // {BLOpenType}
+} // {OpenType}
+} // {bl}
 
 //! \}
 //! \endcond

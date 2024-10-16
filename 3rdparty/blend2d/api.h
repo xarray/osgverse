@@ -18,10 +18,7 @@
 #include <string.h>
 
 #ifdef __cplusplus
-  #include <cmath>
-  #include <limits>
   #include <type_traits>
-  #include <utility>
 #else
   #include <stdbool.h>
 #endif
@@ -55,7 +52,7 @@
 //! $$DOCS_GROUP_OVERVIEW$$
 
 //! \defgroup blend2d_api_globals Global API
-//! \brief Global functions, constants,  and classes used universally across
+//! \brief Global functions, constants, and classes used universally across
 //! the library.
 
 //! \defgroup blend2d_api_geometry Geometry API
@@ -216,7 +213,7 @@
 #define BL_MAKE_VERSION(MAJOR, MINOR, PATCH) (((MAJOR) << 16) | ((MINOR) << 8) | (PATCH))
 
 //! Blend2D library version.
-#define BL_VERSION BL_MAKE_VERSION(0, 10, 5)
+#define BL_VERSION BL_MAKE_VERSION(0, 11, 4)
 
 //! \}
 //! \}
@@ -375,6 +372,15 @@
   #define BL_NOEXCEPT noexcept
 #else
   #define BL_NOEXCEPT
+#endif
+
+//! \def BL_CONSTEXPR
+//!
+//! Evaluates to constexpr in C++17 mode.
+#if __cplusplus >= 201703L
+  #define BL_CONSTEXPR constexpr
+#else
+  #define BL_CONSTEXPR
 #endif
 
 //! \def BL_NOEXCEPT_C
@@ -601,7 +607,9 @@
 BL_FORWARD_DECLARE_STRUCT(BLRange);
 BL_FORWARD_DECLARE_STRUCT(BLRandom);
 BL_FORWARD_DECLARE_STRUCT(BLFileCore);
+BL_FORWARD_DECLARE_STRUCT(BLFileInfo);
 
+BL_FORWARD_DECLARE_STRUCT(BLRuntimeScopeCore);
 BL_FORWARD_DECLARE_STRUCT(BLRuntimeBuildInfo);
 BL_FORWARD_DECLARE_STRUCT(BLRuntimeSystemInfo);
 BL_FORWARD_DECLARE_STRUCT(BLRuntimeResourceInfo);
@@ -659,7 +667,6 @@ BL_FORWARD_DECLARE_STRUCT(BLPathView);
 
 BL_FORWARD_DECLARE_STRUCT(BLImageData);
 BL_FORWARD_DECLARE_STRUCT(BLImageInfo);
-BL_FORWARD_DECLARE_STRUCT(BLImageScaleOptions);
 
 BL_FORWARD_DECLARE_STRUCT(BLImageCore);
 BL_FORWARD_DECLARE_STRUCT(BLImageImpl);
@@ -749,6 +756,7 @@ BL_FORWARD_DECLARE_STRUCT(BLVarCore);
 // C++ API.
 #ifdef __cplusplus
 class BLFile;
+class BLRuntimeScope;
 template<typename T> class BLArray;
 class BLBitArray;
 class BLBitSet;
@@ -1119,21 +1127,45 @@ BL_DEFINE_ENUM(BLTextEncoding) {
 //! There should never be functionality that is not used by public headers, that should always be hidden.
 namespace BLInternal {
 
-//! StdInt provides an integer defined by <stdint.h> by size and signedness.
-//!
-//! This struct is visible to Blend2D users, because it's required by the `BLArray<>` template. However, it's
-//! still considered internal and should not be used outside of Blend2D source code.
-template<size_t Size, unsigned Unsigned>
-struct StdInt {};
+template<typename T>
+BL_INLINE_NODEBUG typename std::remove_reference<T>::type&& move(T&& v) noexcept { return static_cast<typename std::remove_reference<T>::type&&>(v); }
 
-template<> struct StdInt<1, 0> { typedef int8_t   Type; };
-template<> struct StdInt<1, 1> { typedef uint8_t  Type; };
-template<> struct StdInt<2, 0> { typedef int16_t  Type; };
-template<> struct StdInt<2, 1> { typedef uint16_t Type; };
-template<> struct StdInt<4, 0> { typedef int32_t  Type; };
-template<> struct StdInt<4, 1> { typedef uint32_t Type; };
-template<> struct StdInt<8, 0> { typedef int64_t  Type; };
-template<> struct StdInt<8, 1> { typedef uint64_t Type; };
+template<typename T>
+BL_INLINE_NODEBUG T&& forward(typename std::remove_reference<T>::type& v) noexcept { return static_cast<T&&>(v); }
+
+template<typename T>
+BL_INLINE_NODEBUG T&& forward(typename std::remove_reference<T>::type&& v) noexcept { return static_cast<T&&>(v); }
+
+template<typename T>
+BL_INLINE void swap(T& t1, T& t2) noexcept {
+  T temp(move(t1));
+  t1 = move(t2);
+  t2 = move(temp);
+}
+
+//! StdIntT provides a signed integer type as defined by <stdint.h> by size.
+template<size_t kSize, bool kUnsigned = false> struct StdIntT;
+
+template<> struct StdIntT<1, false> { typedef int8_t Type; };
+template<> struct StdIntT<2, false> { typedef int16_t Type; };
+template<> struct StdIntT<4, false> { typedef int32_t Type; };
+template<> struct StdIntT<8, false> { typedef int64_t Type; };
+template<> struct StdIntT<1, true> { typedef uint8_t Type; };
+template<> struct StdIntT<2, true> { typedef uint16_t Type; };
+template<> struct StdIntT<4, true> { typedef uint32_t Type; };
+template<> struct StdIntT<8, true> { typedef uint64_t Type; };
+
+template<size_t kSize, bool kUnsigned = false>
+using IntBySize = typename StdIntT<kSize, kUnsigned>::Type;
+
+template<size_t kSize>
+using UIntBySize = typename StdIntT<kSize, true>::Type;
+
+template<typename T, bool kUnsigned = false>
+using IntByType = typename StdIntT<sizeof(T), kUnsigned>::Type;
+
+template<typename T>
+using UIntByType = typename StdIntT<sizeof(T), 1>::Type;
 
 template<uint64_t kInput>
 struct ConstCTZ {
@@ -1300,7 +1332,7 @@ struct PlacementNew { void* ptr; };
 } // {BLInternal}
 
 //! Implementation of a placement new so we don't have to depend on `<new>`.
-BL_INLINE_NODEBUG void* operator new(std::size_t, const BLInternal::PlacementNew& p) {
+BL_INLINE_NODEBUG void* operator new(size_t, const BLInternal::PlacementNew& p) {
 #if defined(_MSC_VER) && !defined(__clang__)
   BL_ASSUME(p.ptr != nullptr); // Otherwise MSVC would emit a nullptr check.
 #endif
@@ -1364,7 +1396,7 @@ static BL_INLINE void blCallCtor(T& instance, Args&&... args) noexcept {
   BL_ASSUME(&instance != nullptr);
 #endif
 
-  new(BLInternal::PlacementNew{&instance}) T(std::forward<Args>(args)...);
+  new(BLInternal::PlacementNew{&instance}) T(BLInternal::forward<Args>(args)...);
 }
 
 //! Destroys an instance in place (calls its destructor).
@@ -1401,7 +1433,7 @@ static BL_INLINE_NODEBUG Out blBitCast(const In& x) noexcept {
 //! Returns an absolute value of `a`.
 template<typename T>
 BL_NODISCARD
-BL_INLINE_NODEBUG constexpr T blAbs(const T& a) noexcept { return T(a < 0 ? -a : a); }
+BL_INLINE_NODEBUG constexpr T blAbs(const T& a) noexcept { return T(a < T(0) ? -a : a); }
 
 //! Returns a minimum value of `a` and `b`.
 template<typename T>
@@ -1421,12 +1453,12 @@ BL_INLINE_NODEBUG constexpr T blClamp(const T& a, const T& b, const T& c) noexce
 //! Returns a minimum value of all arguments passed.
 template<typename T, typename... Args>
 BL_NODISCARD
-BL_INLINE_NODEBUG constexpr T blMin(const T& a, const T& b, Args&&... args) noexcept { return blMin(blMin(a, b), std::forward<Args>(args)...); }
+BL_INLINE_NODEBUG constexpr T blMin(const T& a, const T& b, Args&&... args) noexcept { return blMin(blMin(a, b), BLInternal::forward<Args>(args)...); }
 
 //! Returns a maximum value of all arguments passed.
 template<typename T, typename... Args>
 BL_NODISCARD
-BL_INLINE_NODEBUG constexpr T blMax(const T& a, const T& b, Args&&... args) noexcept { return blMax(blMax(a, b), std::forward<Args>(args)...); }
+BL_INLINE_NODEBUG constexpr T blMax(const T& a, const T& b, Args&&... args) noexcept { return blMax(blMax(a, b), BLInternal::forward<Args>(args)...); }
 
 //! Returns `true` if `a` and `b` equals at binary level.
 //!

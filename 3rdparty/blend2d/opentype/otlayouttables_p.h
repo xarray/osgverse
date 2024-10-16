@@ -13,7 +13,8 @@
 //! \addtogroup blend2d_opentype_impl
 //! \{
 
-namespace BLOpenType {
+namespace bl {
+namespace OpenType {
 
 enum class LookupFlags : uint32_t {
   //! Relates only to the correct processing of the cursive attachment lookup type (GPOS lookup type 3).
@@ -63,11 +64,11 @@ struct CoverageTable {
   UInt16 format;
   Array16<void> array;
 
-  BL_INLINE const Format1* format1() const noexcept { return BLPtrOps::offset<const Format1>(this, 0); }
-  BL_INLINE const Format2* format2() const noexcept { return BLPtrOps::offset<const Format2>(this, 0); }
+  BL_INLINE_NODEBUG const Format1* format1() const noexcept { return PtrOps::offset<const Format1>(this, 0); }
+  BL_INLINE_NODEBUG const Format2* format2() const noexcept { return PtrOps::offset<const Format2>(this, 0); }
 
   // Format 1 has 2 byte entries, format 2 has 6 byte entries - other formats don't exist.
-  static BL_INLINE uint32_t entrySizeByFormat(uint32_t format) noexcept { return format * 4u - 2u; }
+  static BL_INLINE_NODEBUG uint32_t entrySizeByFormat(uint32_t format) noexcept { return format * 4u - 2u; }
 };
 
 class CoverageTableIterator {
@@ -77,7 +78,7 @@ public:
   const void* _array;
   size_t _size;
 
-  BL_INLINE uint32_t init(RawTable table) noexcept {
+  BL_INLINE_IF_NOT_DEBUG uint32_t init(RawTable table) noexcept {
     BL_ASSERT_VALIDATED(table.fits(CoverageTable::kBaseSize));
 
     uint32_t format = table.dataAs<CoverageTable>()->format();
@@ -92,7 +93,7 @@ public:
   }
 
   template<typename T>
-  BL_INLINE const T& at(size_t index) const noexcept {
+  BL_INLINE_NODEBUG const T& at(size_t index) const noexcept {
     return static_cast<const T*>(_array)[index];
   }
 
@@ -113,7 +114,7 @@ public:
   }
 
   template<uint32_t Format>
-  BL_INLINE GlyphRange glyphRange() const noexcept {
+  BL_INLINE_NODEBUG GlyphRange glyphRange() const noexcept {
     return GlyphRange{minGlyphId<Format>(), maxGlyphId<Format>()};
   }
 
@@ -126,7 +127,7 @@ public:
   }
 
   template<uint32_t Format>
-  BL_INLINE bool find(BLGlyphId glyphId, uint32_t& coverageIndex) const noexcept {
+  BL_INLINE_IF_NOT_DEBUG bool find(BLGlyphId glyphId, uint32_t& coverageIndex) const noexcept {
     if (Format == 1) {
       const UInt16* base = static_cast<const UInt16*>(_array);
       size_t size = _size;
@@ -196,8 +197,8 @@ struct ClassDefTable {
 
   UInt16 format;
 
-  BL_INLINE const Format1* format1() const noexcept { return BLPtrOps::offset<const Format1>(this, 0); }
-  BL_INLINE const Format2* format2() const noexcept { return BLPtrOps::offset<const Format2>(this, 0); }
+  BL_INLINE_NODEBUG const Format1* format1() const noexcept { return PtrOps::offset<const Format1>(this, 0); }
+  BL_INLINE_NODEBUG const Format2* format2() const noexcept { return PtrOps::offset<const Format2>(this, 0); }
 };
 
 class ClassDefTableIterator {
@@ -208,7 +209,7 @@ public:
   uint32_t _size;
   uint32_t _firstGlyph;
 
-  BL_INLINE uint32_t init(RawTable table) noexcept {
+  BL_INLINE_IF_NOT_DEBUG uint32_t init(RawTable table) noexcept {
     const void* array = nullptr;
     uint32_t size = 0;
     uint32_t format = 0;
@@ -257,10 +258,10 @@ public:
   }
 
   template<typename T>
-  BL_INLINE const T& at(size_t index) const noexcept { return static_cast<const T*>(_array)[index]; }
+  BL_INLINE_NODEBUG const T& at(size_t index) const noexcept { return static_cast<const T*>(_array)[index]; }
 
   template<uint32_t Format>
-  BL_INLINE uint32_t minGlyphId() const noexcept {
+  BL_INLINE_NODEBUG uint32_t minGlyphId() const noexcept {
     return _firstGlyph;
   }
 
@@ -273,7 +274,7 @@ public:
   }
 
   template<uint32_t Format>
-  BL_INLINE uint32_t classOfGlyph(BLGlyphId glyphId) const noexcept {
+  BL_INLINE_IF_NOT_DEBUG uint32_t classOfGlyph(BLGlyphId glyphId) const noexcept {
     if (Format == 1) {
       uint32_t index = glyphId - _firstGlyph;
       uint32_t fixedIndex = blMin(index, _size - 1);
@@ -328,7 +329,7 @@ struct ConditionTable {
 
   UInt16 format;
 
-  BL_INLINE const Format1* format1() const noexcept { return BLPtrOps::offset<const Format1>(this, 0); }
+  BL_INLINE_NODEBUG const Format1* format1() const noexcept { return PtrOps::offset<const Format1>(this, 0); }
 };
 
 //! OpenType 'GDEF' table.
@@ -362,19 +363,17 @@ struct GDefTable {
 
   HeaderV1_0 header;
 
-  BL_INLINE const HeaderV1_0* v1_0() const noexcept { return &header; }
-  BL_INLINE const HeaderV1_2* v1_2() const noexcept { return BLPtrOps::offset<const HeaderV1_2>(this, 0); }
-  BL_INLINE const HeaderV1_3* v1_3() const noexcept { return BLPtrOps::offset<const HeaderV1_3>(this, 0); }
+  BL_INLINE_NODEBUG const HeaderV1_0* v1_0() const noexcept { return &header; }
+  BL_INLINE_NODEBUG const HeaderV1_2* v1_2() const noexcept { return PtrOps::offset<const HeaderV1_2>(this, 0); }
+  BL_INLINE_NODEBUG const HeaderV1_3* v1_3() const noexcept { return PtrOps::offset<const HeaderV1_3>(this, 0); }
 };
 
 //! Base class for 'GSUB' and 'GPOS' tables.
 struct GSubGPosTable {
   enum : uint32_t { kBaseSize = 10 };
 
-  enum : uint16_t {
-    //! No feature required, possibly stored in `LangSysTable::requiredFeatureIndex`.
-    kFeatureNotRequired = 0xFFFFu
-  };
+  //! No feature required, possibly stored in `LangSysTable::requiredFeatureIndex`.
+  static constexpr uint16_t kFeatureNotRequired = 0xFFFFu;
 
   //! \name GPOS & GSUB - Core Tables
   //! \{
@@ -479,12 +478,12 @@ struct GSubGPosTable {
     SequenceLookupRecord lookupRecords[lookupCount];
     */
 
-    BL_INLINE const UInt16* inputSequence() const noexcept {
-      return BLPtrOps::offset<const UInt16>(this, 4);
+    BL_INLINE_NODEBUG const UInt16* inputSequence() const noexcept {
+      return PtrOps::offset<const UInt16>(this, 4);
     }
 
-    BL_INLINE const SequenceLookupRecord* lookupRecordArray(uint32_t glyphCount_) const noexcept {
-      return BLPtrOps::offset<const SequenceLookupRecord>(this, kBaseSize + glyphCount_ * 2u - 2u);
+    BL_INLINE_NODEBUG const SequenceLookupRecord* lookupRecordArray(uint32_t glyphCount_) const noexcept {
+      return PtrOps::offset<const SequenceLookupRecord>(this, kBaseSize + glyphCount_ * 2u - 2u);
     }
   };
 
@@ -511,8 +510,8 @@ struct GSubGPosTable {
     SequenceLookupRecord lookupRecords[lookupRecordCount];
     */
 
-    BL_INLINE const UInt16* coverageOffsetArray() const noexcept { return BLPtrOps::offset<const UInt16>(this, kBaseSize); }
-    BL_INLINE const SequenceLookupRecord* lookupRecordArray(size_t glyphCount_) const noexcept { return BLPtrOps::offset<const SequenceLookupRecord>(this, kBaseSize + glyphCount_ * 2u); }
+    BL_INLINE_NODEBUG const UInt16* coverageOffsetArray() const noexcept { return PtrOps::offset<const UInt16>(this, kBaseSize); }
+    BL_INLINE_NODEBUG const SequenceLookupRecord* lookupRecordArray(size_t glyphCount_) const noexcept { return PtrOps::offset<const SequenceLookupRecord>(this, kBaseSize + glyphCount_ * 2u); }
   };
 
   //! \}
@@ -534,7 +533,7 @@ struct GSubGPosTable {
     SequenceLookupRecord lookupRecords[lookupRecordCount];
     */
 
-    BL_INLINE const UInt16* backtrackSequence() const noexcept { return BLPtrOps::offset<const UInt16>(this, 2); }
+    BL_INLINE const UInt16* backtrackSequence() const noexcept { return PtrOps::offset<const UInt16>(this, 2); }
   };
 
   typedef Array16<UInt16> ChainedSequenceRuleSet;
@@ -568,7 +567,7 @@ struct GSubGPosTable {
     SequenceLookupRecord lookupRecords[substCount];
     */
 
-    BL_INLINE const UInt16* backtrackCoverageOffsets() const noexcept { return BLPtrOps::offset<const UInt16>(this, 4); }
+    BL_INLINE_NODEBUG const UInt16* backtrackCoverageOffsets() const noexcept { return PtrOps::offset<const UInt16>(this, 4); }
   };
 
   //! \}
@@ -583,8 +582,8 @@ struct GSubGPosTable {
   //! \name Accessors
   //! \{
 
-  BL_INLINE const HeaderV1_0* v1_0() const noexcept { return &header; }
-  BL_INLINE const HeaderV1_1* v1_1() const noexcept { return BLPtrOps::offset<const HeaderV1_1>(this, 0); }
+  BL_INLINE_NODEBUG const HeaderV1_0* v1_0() const noexcept { return &header; }
+  BL_INLINE_NODEBUG const HeaderV1_1* v1_1() const noexcept { return PtrOps::offset<const HeaderV1_1>(this, 0); }
 
   //! \}
 };
@@ -692,7 +691,7 @@ struct GSubTable : public GSubGPosTable {
     UInt16 substGlyphArray[substGlyphCount];
     */
 
-    BL_INLINE const UInt16* backtrackCoverageOffsets() const noexcept { return BLPtrOps::offset<const UInt16>(this, 6); }
+    BL_INLINE_NODEBUG const UInt16* backtrackCoverageOffsets() const noexcept { return PtrOps::offset<const UInt16>(this, 6); }
   };
 };
 
@@ -783,7 +782,7 @@ struct GPosTable : public GSubGPosTable {
 
     UInt16 valueFormat;
 
-    BL_INLINE const UInt16* valueRecords() const noexcept { return BLPtrOps::offset<const UInt16>(this, 6u); }
+    BL_INLINE_NODEBUG const UInt16* valueRecords() const noexcept { return PtrOps::offset<const UInt16>(this, 6u); }
   };
 
   struct SingleAdjustment2 : public LookupHeaderWithCoverage {
@@ -792,7 +791,7 @@ struct GPosTable : public GSubGPosTable {
     UInt16 valueFormat;
     UInt16 valueCount;
 
-    BL_INLINE const UInt16* valueRecords() const noexcept { return BLPtrOps::offset<const UInt16>(this, 8u); }
+    BL_INLINE_NODEBUG const UInt16* valueRecords() const noexcept { return PtrOps::offset<const UInt16>(this, 8u); }
   };
 
   // Lookup Type 2 - Pair Adjustment
@@ -801,13 +800,13 @@ struct GPosTable : public GSubGPosTable {
   struct PairSet {
     UInt16 pairValueCount;
 
-    BL_INLINE const UInt16* pairValueRecords() const noexcept { return BLPtrOps::offset<const UInt16>(this, 2); }
+    BL_INLINE_NODEBUG const UInt16* pairValueRecords() const noexcept { return PtrOps::offset<const UInt16>(this, 2); }
   };
 
   struct PairValueRecord {
     UInt16 secondGlyph;
 
-    BL_INLINE const UInt16* valueRecords() const noexcept { return BLPtrOps::offset<const UInt16>(this, 2); }
+    BL_INLINE_NODEBUG const UInt16* valueRecords() const noexcept { return PtrOps::offset<const UInt16>(this, 2); }
   };
 
   struct PairAdjustment1 : public LookupHeaderWithCoverage {
@@ -907,7 +906,8 @@ struct GPosTable : public GSubGPosTable {
   // Use `ExtensionLookup` to handle this lookup type.
 };
 
-} // {BLOpenType}
+} // {OpenType}
+} // {bl}
 
 //! \}
 //! \endcond

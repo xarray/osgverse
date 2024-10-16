@@ -15,7 +15,8 @@
 //! \addtogroup blend2d_internal
 //! \{
 
-namespace BLPixelOps {
+namespace bl {
+namespace PixelOps {
 namespace Scalar {
 
 //! \name Scalar Pixel Utilities
@@ -35,8 +36,17 @@ static BL_INLINE uint32_t udiv255(uint32_t x) noexcept { return ((x + 0x80u) * 0
 BL_NODISCARD
 static BL_INLINE uint32_t udiv65535(uint32_t x) noexcept { return ((x + 0x8000u) + ((x + 0x8000u) >> 16)) >> 16; }
 
+BL_NODISCARD
+static BL_INLINE uint64_t udiv65535_packed(uint64_t x) noexcept {
+  constexpr uint64_t kHalfPacked = 0x0000800000008000u;
+  constexpr uint64_t kMaskPacked = 0x0000FFFF0000FFFFu;
+
+  x += kHalfPacked;
+  return ((x + ((x >> 16) & kMaskPacked)) >> 16) & kMaskPacked;
+}
+
 static BL_INLINE void unpremultiply_rgb_8bit(uint32_t& r, uint32_t& g, uint32_t& b, uint32_t a) noexcept {
-  uint32_t recip = blCommonTable.unpremultiplyRcp[a];
+  uint32_t recip = commonTable.unpremultiplyRcp[a];
   r = (r * recip + 0x8000u) >> 16;
   g = (g * recip + 0x8000u) >> 16;
   b = (b * recip + 0x8000u) >> 16;
@@ -140,7 +150,7 @@ static BL_INLINE uint32_t cvt_prgb32_8888_from_argb32_8888(uint32_t val32) noexc
   Vec8xU16 p0 = unpack_lo64_u8_u16(cast_from_u32<Vec8xU16>(val32));
   Vec8xU16 a0 = swizzle_lo_u16<3, 3, 3, 3>(p0);
 
-  return cast_to_u32(packz_128_u16_u8(div255_u16((p0 | blCommonTable.i_00FF000000000000.as<Vec8xU16>()) * a0)));
+  return cast_to_u32(packz_128_u16_u8(div255_u16((p0 | commonTable.i_00FF000000000000.as<Vec8xU16>()) * a0)));
 #else
   return cvt_prgb32_8888_from_argb32_8888(val32, val32 >> 24);
 #endif
@@ -167,7 +177,7 @@ static BL_INLINE uint32_t cvt_abgr32_8888_from_prgb32_8888(uint32_t val32) noexc
 }
 
 static BL_INLINE uint64_t cvt_prgb64_8888_from_argb64_8888(uint64_t val64, uint32_t _a) noexcept {
-#if BL_TARGET_ARCH_X86 && !defined(BL_BUILD_NO_SIMD)
+#if BL_TARGET_ARCH_X86
   using namespace SIMD;
 
   Vec8xU16 v0 = cast_from_u64<Vec8xU16>(val64 | 0xFFFF000000000000u);
@@ -180,28 +190,26 @@ static BL_INLINE uint64_t cvt_prgb64_8888_from_argb64_8888(uint64_t val64, uint3
   return cast_to_u64(packz_128_u32_u16(p0));
 #else
   if BL_CONSTEXPR (BL_TARGET_ARCH_BITS >= 64) {
-    uint64_t rb = (val64 & 0x0000FFFF0000FFFFu) * _a;
-    rb += 0x8000000080000000u;
-    rb += (rb >> 16) & 0x0000FFFF0000FFFF;
+    uint64_t rb = udiv65535_packed((val64 & 0x0000FFFF0000FFFFu) * _a);
     uint32_t g = udiv65535(uint32_t((val64 >> 16) & 0xFFFFu) * _a);
-    return (uint64_t(_a) << 48) | ((rb >> 16) & 0x0000FFFF0000FFFF) | (g << 16);
+    return (uint64_t(_a) << 48) | rb | (g << 16);
   }
   else {
-    uint32_t r = udiv65535(uint32_t((val64      ) & 0xFFFFu) * _a);
+    uint32_t r = udiv65535(uint32_t((val64 >> 32) & 0xFFFFu) * _a);
     uint32_t g = udiv65535(uint32_t((val64 >> 16) & 0xFFFFu) * _a);
-    uint32_t b = udiv65535(uint32_t((val64 >> 32) & 0xFFFFu) * _a);
+    uint32_t b = udiv65535(uint32_t((val64      ) & 0xFFFFu) * _a);
     return (uint64_t(_a) << 48) | (uint64_t(r) << 32) | (g << 16) | b;
   }
 #endif
 }
 
 static BL_INLINE uint64_t cvt_prgb64_8888_from_argb64_8888(uint64_t val64) noexcept {
-#if BL_TARGET_ARCH_X86 && !defined(BL_BUILD_NO_SIMD)
+#if BL_TARGET_ARCH_X86
   using namespace SIMD;
 
   Vec8xU16 v0 = cast_from_u64<Vec8xU16>(val64);
   Vec8xU16 a0 = swizzle_u16<3, 3, 3, 3>(v0);
-  v0 |= blCommonTable.i_FFFF000000000000.as<Vec8xU16>();
+  v0 |= commonTable.i_FFFF000000000000.as<Vec8xU16>();
 
   Vec8xU16 vLo = mul_u16(v0, a0);
   Vec8xU16 vHi = mulh_u16(v0, a0);
@@ -216,7 +224,8 @@ static BL_INLINE uint64_t cvt_prgb64_8888_from_argb64_8888(uint64_t val64) noexc
 //! \}
 
 } // {Scalar}
-} // {BLPixelOps}
+} // {PixelOps}
+} // {bl}
 
 //! \}
 //! \endcond

@@ -11,10 +11,11 @@
 #include "../threading/mutex_p.h"
 #include "../threading/threadpool_p.h"
 
-// BLThreadPool - Tests
-// ====================
+// bl::ThreadPool - Tests
+// ======================
 
-namespace BLThreadPoolTests {
+namespace bl {
+namespace Tests {
 
 struct ThreadTestData {
   uint32_t iter;
@@ -31,11 +32,14 @@ struct ThreadTestData {
 
 static void BL_CDECL test_thread_entry(BLThread* thread, void* data_) noexcept {
   ThreadTestData* data = static_cast<ThreadTestData*>(data_);
-  INFO("[#%u] Thread %p running\n", data->iter, thread);
+  uint32_t iter = blAtomicFetchStrong(&data->iter);
+
+  INFO("[#%u] Thread %p running\n", iter, thread);
 
   if (blAtomicFetchSubStrong(&data->counter) == 1) {
-    if (data->mutex.protect([&]() { return data->waiting; })) {
-      INFO("[#%u] Thread %p signaling to main thread\n", data->iter, thread);
+    BLLockGuard<BLMutex> guard(data->mutex);
+    if (data->waiting) {
+      INFO("[#%u] Thread %p signaling to main thread\n", iter, thread);
       data->condition.signal();
     }
   }
@@ -60,7 +64,7 @@ UNIT(thread_pool, BL_TEST_GROUP_THREADING) {
 
   INFO("Repeatedly acquiring / releasing %u threads with a simple task", kThreadCount);
   for (uint32_t i = 0; i < 10; i++) {
-    data.iter = i;
+    blAtomicFetchAddStrong(&data.iter);
 
     INFO("[#%u] Acquiring %u threads from thread-pool", i, kThreadCount);
     BLResult reason;
@@ -94,6 +98,7 @@ UNIT(thread_pool, BL_TEST_GROUP_THREADING) {
   INFO("Done");
 }
 
-} // {BLThreadPoolTests}
+} // {Tests}
+} // {bl}
 
 #endif // BL_TEST
