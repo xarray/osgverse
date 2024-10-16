@@ -89,7 +89,9 @@ int main(int argc, char** argv)
     traits->alpha = 8; traits->depth = 24; traits->stencil = 8;
     traits->windowDecoration = true; traits->doubleBuffer = true;
     traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
+#if OSG_VERSION_GREATER_THAN(3, 4, 0)
     traits->windowingSystemPreference = "SDL";
+#endif
 
     osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
     viewer.getCamera()->setGraphicsContext(gc.get());

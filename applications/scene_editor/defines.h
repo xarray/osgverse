@@ -21,6 +21,7 @@
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
+#include <chrono>
 
 USE_SERIALIZER_INTERFACE(USER)
 USE_SERIALIZER_INTERFACE(OBJECT)

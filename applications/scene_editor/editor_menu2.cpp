@@ -7,9 +7,6 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include <modeling/Utilities.h>
-#include "hierarchy.h"
-#include "properties.h"
-#include "scenelogic.h"
 #include "defines.h"
 
 void EditorContentHandler::createEditorMenu2()

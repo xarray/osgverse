@@ -16,7 +16,7 @@ SceneNavigation::SceneNavigation()
     _navigationImage->size = osg::Vec2(96, 96);
 
     const std::string btnNames[4] = { "T", "R", "S", "U" };
-    const static ImVec4 normalBtnColor(0.26f, 0.59f, 0.98f, 0.40f);
+    const static ImColor normalBtnColor(0.26f, 0.59f, 0.98f, 0.40f);
     for (int i = 0; i < 4; ++i)
     {
         const std::string& name = btnNames[i];

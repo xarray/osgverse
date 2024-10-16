@@ -48,11 +48,15 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 
-#if defined(__FreeBSD__) || defined(EMSCRIPTEN)
+#if defined(linux) || defined(__linux) || defined(__linux__)
+#   define OS_LINUX
+#endif
+
+#if defined(__FreeBSD__) || defined(OS_LINUX) || defined(EMSCRIPTEN)
 extern char **environ;
 #endif
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(EMSCRIPTEN)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(OS_LINUX) || defined(EMSCRIPTEN)
 typedef sig_t sighandler_t;
 #endif
 

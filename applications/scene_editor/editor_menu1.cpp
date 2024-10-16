@@ -4,9 +4,6 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#include "hierarchy.h"
-#include "properties.h"
-#include "scenelogic.h"
 #include "defines.h"
 
 void EditorContentHandler::createEditorMenu1()

@@ -77,13 +77,14 @@ public:
                          : osgDB::convertStringFromCurrentCodePageToUTF8(f);
         return osgDB::ReadFileCallback::readShader(file, opt);
     }
-
+#if OSG_VERSION_GREATER_THAN(3, 5, 0)
     virtual osgDB::ReaderWriter::ReadResult readScript(const std::string& f, const osgDB::Options* opt)
     {
         std::string file = osgVerse::Utf8StringValidator::check(f) ? f
                          : osgDB::convertStringFromCurrentCodePageToUTF8(f);
         return osgDB::ReadFileCallback::readScript(file, opt);
     }
+#endif
 
 protected:
     virtual ~MyReadFileCallback() {}

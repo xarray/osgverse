@@ -370,9 +370,13 @@ void SceneHierarchy::updateStateInformation(TreeView::TreeData* item, osg::Objec
     if (parentMask == 0) { item->color = 0xFF666666; fixedColor = true; }
     item->name = (obj->getName().empty() ? obj->className() : obj->getName()) + item->id;
 
-    if (obj->asDrawable())
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+    osg::Drawable* drawable = obj->asDrawable(); 
+#else
+    osg::Drawable* drawable = dynamic_cast<osg::Drawable*>(obj);
+#endif
+    if (drawable)
     {
-        osg::Drawable* drawable = obj->asDrawable();
         if (!fixedColor) item->color = 0xFF00FFFF;
 
         switch (_stateFlags)
@@ -382,9 +386,15 @@ void SceneHierarchy::updateStateInformation(TreeView::TreeData* item, osg::Objec
         default: item->state = std::to_string(drawable->referenceCount()); break;
         }
     }
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
     else if (obj->asNode())
     {
         osg::Node* node = obj->asNode();
+#else
+    else
+    {
+        osg::Node* node = dynamic_cast<osg::Node*>(obj); if (!node) return;
+#endif
         if (node->asGeode())
             { if (!fixedColor) item->color = 0xFFAAFFAA; }
         else if (node->asGroup())

@@ -49,9 +49,7 @@ IF(SDL2_FOUND)
                                       debug SDL2${VERSE_DEBUG_POSTFIX} optimized SDL2)
 ENDIF(SDL2_FOUND)
 
-IF(NOT UNIX)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
-ENDIF()
+TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
