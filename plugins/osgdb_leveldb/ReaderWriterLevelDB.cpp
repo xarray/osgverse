@@ -188,17 +188,21 @@ public:
             ext = osgDB::getFileExtension(fileName);
         }
 
-        if (scheme != "leveldb")
+        if (!acceptsProtocol(scheme))
         {
             if (options && !options->getDatabasePathList().empty())
             {
                 if (osgDB::containsServerAddress(options->getDatabasePathList().front()))
                 {
-                    std::string newFileName = options->getDatabasePathList().front() + "/" + fileName;
-                    return readFile(objectType, newFileName, options);
+                    scheme = osgDB::getServerProtocol(options->getDatabasePathList().front());
+                    if (acceptsProtocol(scheme))
+                    {
+                        std::string newFileName = options->getDatabasePathList().front() + "/" + fileName;
+                        return readFile(objectType, newFileName, options);
+                    }
                 }
             }
-            if (!usePseudo) return ReadResult::FILE_NOT_HANDLED;
+            return ReadResult::FILE_NOT_HANDLED;
         }
 
         osgDB::ReaderWriter* reader =

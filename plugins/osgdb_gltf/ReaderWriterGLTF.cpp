@@ -57,6 +57,14 @@ public:
         std::string dir = "", mode; bool isBinary = false;
         if (options)
         {
+            std::string fileName = options->getPluginStringData("filename");
+            if (!fileName.empty())
+            {
+                std::string ext = osgDB::getFileExtension(fileName);
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                if (ext != "gltf") isBinary = true;
+            }
+
             dir = options->getPluginStringData("Directory");
             mode = options->getPluginStringData("Mode");
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);

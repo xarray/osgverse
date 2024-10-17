@@ -331,36 +331,6 @@ SET(RECAST_SOURCE_FILES
     recastnavigation/Recast/Recast.cpp recastnavigation/Recast/Recast.h
 )
 
-SET(LIBSPATIALINDEX_SOURCE_FILES
-    spatialindex/capi/BoundsQuery.cc spatialindex/capi/CountVisitor.cc
-    spatialindex/capi/CustomStorage.cc spatialindex/capi/DataStream.cc
-    spatialindex/capi/Error.cc spatialindex/capi/IdVisitor.cc
-    spatialindex/capi/Index.cc spatialindex/capi/LeafQuery.cc
-    spatialindex/capi/ObjVisitor.cc spatialindex/capi/sidx_api.cc
-    spatialindex/capi/Utility.cc spatialindex/spatialindex/Ball.cc
-    spatialindex/spatialindex/LineSegment.cc spatialindex/spatialindex/MovingPoint.cc
-    spatialindex/spatialindex/MovingRegion.cc spatialindex/spatialindex/Point.cc
-    spatialindex/spatialindex/Region.cc spatialindex/spatialindex/SpatialIndexImpl.cc
-    spatialindex/spatialindex/TimePoint.cc spatialindex/spatialindex/TimeRegion.cc
-    spatialindex/mvrtree/Index.cc spatialindex/mvrtree/Index.h
-    spatialindex/mvrtree/Leaf.cc spatialindex/mvrtree/Leaf.h
-    spatialindex/mvrtree/MVRTree.cc spatialindex/mvrtree/MVRTree.h
-    spatialindex/mvrtree/Node.cc spatialindex/mvrtree/Node.h spatialindex/mvrtree/PointerPoolNode.h
-    spatialindex/mvrtree/Statistics.cc spatialindex/mvrtree/Statistics.h
-    spatialindex/rtree/BulkLoader.cc spatialindex/rtree/BulkLoader.h
-    spatialindex/rtree/Index.cc spatialindex/rtree/Index.h
-    spatialindex/rtree/Leaf.cc spatialindex/rtree/Leaf.h spatialindex/rtree/RTree.cc spatialindex/rtree/RTree.h
-    spatialindex/rtree/Node.cc spatialindex/rtree/Node.h spatialindex/rtree/PointerPoolNode.h
-    spatialindex/rtree/Statistics.cc spatialindex/rtree/Statistics.h
-    spatialindex/storagemanager/DiskStorageManager.cc spatialindex/storagemanager/DiskStorageManager.h
-    spatialindex/storagemanager/MemoryStorageManager.cc spatialindex/storagemanager/MemoryStorageManager.h
-    spatialindex/storagemanager/RandomEvictionsBuffer.cc spatialindex/storagemanager/RandomEvictionsBuffer.h
-    spatialindex/storagemanager/Buffer.cc spatialindex/Ball.h spatialindex/LineSegment.h
-    spatialindex/MovingPoint.h spatialindex/MVRTree.h spatialindex/Point.h spatialindex/Region.h
-    spatialindex/RTree.h spatialindex/SpatialIndex.h spatialindex/TimePoint.h spatialindex/TimeRegion.h
-    spatialindex/TPRTree.h spatialindex/Version.h spatialindex/tools/rand48.cc spatialindex/tools/Tools.cc
-)
-
 SET(BLEND2D_SOURCE_FILES
     blend2d/blend2d.h blend2d/blend2d-debug.h blend2d/blend2d-impl.h blend2d/api.h blend2d/api-build_p.h
     blend2d/api-build_test_p.h blend2d/api-globals.cpp blend2d/api-impl.h blend2d/api-internal_p.h
@@ -545,7 +515,6 @@ SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
 SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
 SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
-SOURCE_GROUP("libSpatialIndex Files" FILES ${LIBSPATIALINDEX_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
@@ -571,8 +540,7 @@ SET(LIBRARY_FILES
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
-    ${LIBSPATIALINDEX_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
-    ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${QUICKJS_SOURCE_FILES}
+    ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES} ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${QUICKJS_SOURCE_FILES}
 )
 
 IF(LIBIGL_FOUND)

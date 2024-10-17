@@ -48,7 +48,7 @@ SceneNavigation::SceneNavigation()
         osgVerse::ComboBox* cb = static_cast<osgVerse::ComboBox*>(me);
         switch (cb->index)
         {
-        case 0: _gizmoMode = ImGuizmo::LOCAL; break;
+        case 1: _gizmoMode = ImGuizmo::LOCAL; break;
         default: _gizmoMode = ImGuizmo::WORLD; break;
         }
     };
@@ -68,16 +68,22 @@ bool SceneNavigation::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 
     if (_camera.valid() && _transform.valid())
     {
-        osg::Matrixf matrix; osg::Matrix matrixD;
+        osg::Matrix matrixD, matrixParent;
         _transform->computeLocalToWorldMatrix(matrixD, NULL);
-        matrix = osg::Matrixf(matrixD);
+        if (_transform->getNumParents() > 0)
+        {
+            osg::MatrixList matrices = _transform->getParent(0)->getWorldMatrices();
+            if (!matrices.empty()) matrixParent = matrices[0];
+        }
 
+        osg::Matrixf matrix = osg::Matrixf(matrixD * matrixParent);
         osg::Matrixf view(_camera->getViewMatrix()), proj(_camera->getProjectionMatrix());
         ImGuiIO& io = ImGui::GetIO(); ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
         done = ImGuizmo::Manipulate(view.ptr(), proj.ptr(), (ImGuizmo::OPERATION)_operation,
                                     (ImGuizmo::MODE)_gizmoMode, matrix.ptr());  // TODO: snap, local/world
         if (done)
         {
+            matrix = matrix * osg::Matrix::inverse(matrixParent);
             if (_transform->asMatrixTransform())
                 _transform->asMatrixTransform()->setMatrix(matrix);
             else if (_transform->asPositionAttitudeTransform())

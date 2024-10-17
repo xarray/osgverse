@@ -59,8 +59,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 5.6 OpenVDB 10.0 or later, for VDB point cloud and 3D image reader/writer plugin. (https://github.com/AcademySoftwareFoundation/openvdb)
   - 5.7 libDraco 1.5 or later, for Draco mesh compression support in osgVerseReaderWriter library. (https://github.com/google/draco)
   - 5.8 libIGL 2.5 or later, for Quadriflow, ManifoldPlus and other functionalities in osgModeling library. (https://github.com/libigl/libigl)
-  - 5.9 libCEF 127.0 or later, for HTML5 support in osgUI library. (https://cef-builds.spotifycdn.com/index.html)
-  - 5.10 Vulkan 1.3 or later, for Vulkan extensions based on Google Angle's cross-Graphics API. (https://vulkan.lunarg.com/sdk/home)
+  - 5.9 Vulkan 1.3 or later, for Vulkan extensions based on Google Angle's cross-Graphics API. (https://vulkan.lunarg.com/sdk/home)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.

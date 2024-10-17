@@ -28,6 +28,20 @@ static void EGLAPIENTRY eglErrorCallback(EGLenum error, const char* command, EGL
 }
 #endif
 
+static int getModKey()
+{
+    SDL_Keymod modstates = SDL_GetModState();
+    if (modstates & KMOD_CAPS) return osgGA::GUIEventAdapter::MODKEY_CAPS_LOCK;
+    else if (modstates & KMOD_NUM) return osgGA::GUIEventAdapter::MODKEY_NUM_LOCK;
+    else if (modstates & KMOD_LCTRL) return osgGA::GUIEventAdapter::MODKEY_LEFT_CTRL;
+    else if (modstates & KMOD_RCTRL) return osgGA::GUIEventAdapter::MODKEY_RIGHT_CTRL;
+    else if (modstates & KMOD_LALT) return osgGA::GUIEventAdapter::MODKEY_LEFT_ALT;
+    else if (modstates & KMOD_RALT) return osgGA::GUIEventAdapter::MODKEY_RIGHT_ALT;
+    else if (modstates & KMOD_LSHIFT) return osgGA::GUIEventAdapter::MODKEY_LEFT_SHIFT;
+    else if (modstates & KMOD_RSHIFT) return osgGA::GUIEventAdapter::MODKEY_RIGHT_SHIFT;
+    else return 0;
+}
+
 static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
 {
     switch (key)
@@ -444,9 +458,9 @@ void GraphicsWindowSDL::checkEvents()
             if (event.wheel.y < 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN);
             else if (event.wheel.y > 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP); break;
         case SDL_KEYUP:
-            eq->keyRelease(getKey(event.key.keysym.sym)); break;
+            eq->keyRelease(getKey(event.key.keysym.sym), getModKey()); break;
         case SDL_KEYDOWN:
-            eq->keyPress(getKey(event.key.keysym.sym)); break;
+            eq->keyPress(getKey(event.key.keysym.sym), getModKey()); break;
         case SDL_WINDOWEVENT:
             if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
             {

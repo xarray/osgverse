@@ -1069,7 +1069,8 @@ namespace osgVerse
     osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary)
     {
         std::string workDir = osgDB::getFilePath(file), http = osgDB::getServerProtocol(file);
-        if (!http.empty()) return NULL;
+        if (!http.empty() && http.find("file") == std::string::npos) return NULL;
+
         std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
         if (!in)
         {

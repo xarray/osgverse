@@ -3,7 +3,6 @@
 #include <osg/ProxyNode>
 #include <osgDB/ConvertUTF>
 #include <osgDB/WriteFile>
-#include <3rdparty/spatialindex/SpatialIndex.h>
 #include <3rdparty/dkm_parallel.hpp>
 #include "SymbolManager.h"
 

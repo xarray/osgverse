@@ -133,17 +133,20 @@ public:
             ext = osgDB::getLowerCaseFileExtension(fileName);
         }
 
-        if (!osgDB::containsServerAddress(fileName))
+        std::cout << scheme << " (WEB); " << fileName << "\n";
+        if (!acceptsProtocol(scheme))
         {
             if (options && !options->getDatabasePathList().empty())
             {
-                if (osgDB::containsServerAddress(options->getDatabasePathList().front()))
+                scheme = osgDB::getServerProtocol(options->getDatabasePathList().front());
+                if (acceptsProtocol(scheme))
                 {
-                    std::string newFileName = options->getDatabasePathList().front() + "/" + fileName;
+                    std::string newFileName = options->getDatabasePathList().front() + "/"
+                                            + osgDB::getSimpleFileName(fileName);
                     return readFile(objectType, newFileName, options);
                 }
             }
-            if (!usePseudo) return ReadResult::FILE_NOT_HANDLED;
+            return ReadResult::FILE_NOT_HANDLED;
         }
 
         osgDB::ReaderWriter* reader =
@@ -179,6 +182,12 @@ public:
         if (result != 0)
         {
             OSG_WARN << "[libhv] Failed getting " << fileName << ": " << result << std::endl;
+            return ReadResult::ERROR_IN_READING_FILE;
+        }
+        else if (response.status_code > 200 || response.body.empty())
+        {
+            OSG_WARN << "[libhv] Failed getting " << fileName << ": Code = "
+                     << response.status_code << ", Size = " << response.body.size() << std::endl;
             return ReadResult::ERROR_IN_READING_FILE;
         }
 
