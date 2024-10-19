@@ -4,8 +4,6 @@
 
 #include "pmp/surface_mesh.h"
 
-#include <cmath>
-
 namespace pmp {
 
 SurfaceMesh::SurfaceMesh()
@@ -142,31 +140,6 @@ void SurfaceMesh::reserve(size_t nvertices, size_t nedges, size_t nfaces)
     hprops_.reserve(2 * nedges);
     eprops_.reserve(nedges);
     fprops_.reserve(nfaces);
-}
-
-void SurfaceMesh::property_stats() const
-{
-    std::vector<std::string> props;
-
-    std::cout << "point properties:\n";
-    props = vertex_properties();
-    for (const auto& prop : props)
-        std::cout << "\t" << prop << std::endl;
-
-    std::cout << "halfedge properties:\n";
-    props = halfedge_properties();
-    for (const auto& prop : props)
-        std::cout << "\t" << prop << std::endl;
-
-    std::cout << "edge properties:\n";
-    props = edge_properties();
-    for (const auto& prop : props)
-        std::cout << "\t" << prop << std::endl;
-
-    std::cout << "face properties:\n";
-    props = face_properties();
-    for (const auto& prop : props)
-        std::cout << "\t" << prop << std::endl;
 }
 
 Halfedge SurfaceMesh::find_halfedge(Vertex start, Vertex end) const
@@ -1160,8 +1133,8 @@ void SurfaceMesh::garbage_collection()
     // remove deleted vertices
     if (nV > 0)
     {
-        int i0 = 0;
-        int i1 = nV - 1;
+        size_t i0 = 0;
+        size_t i1 = nV - 1;
 
         while (true)
         {
@@ -1184,8 +1157,8 @@ void SurfaceMesh::garbage_collection()
     // remove deleted edges
     if (nE > 0)
     {
-        int i0 = 0;
-        int i1 = nE - 1;
+        size_t i0 = 0;
+        size_t i1 = nE - 1;
 
         while (true)
         {
@@ -1211,8 +1184,8 @@ void SurfaceMesh::garbage_collection()
     // remove deleted faces
     if (nF > 0)
     {
-        int i0 = 0;
-        int i1 = nF - 1;
+        size_t i0 = 0;
+        size_t i1 = nF - 1;
 
         while (true)
         {

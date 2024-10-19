@@ -4,10 +4,9 @@
 #include "pmp/algorithms/parameterization.h"
 #include "pmp/algorithms/laplace.h"
 
-#include <cmath>
+#define M_PI 3.14159265358979323846
 
 #include "pmp/surface_mesh.h"
-#include "pmp/algorithms/differential_geometry.h"
 
 namespace pmp {
 namespace {
@@ -252,7 +251,6 @@ void lscm_parameterization(SurfaceMesh& mesh)
     const unsigned int nv = mesh.n_vertices();
     const unsigned int n = free_vertices.size();
     Vertex vi, vj;
-    Halfedge hh;
     double si, sj0, sj1, sign;
     int row(0), c0, c1;
 

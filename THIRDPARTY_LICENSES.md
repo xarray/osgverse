@@ -36,6 +36,7 @@
 | leveldb          | Embedded |           | verse_db           | BSD3         | https://github.com/google/leveldb |
 | libhv            | Embedded |           | verse_web          | BSD3         | https://github.com/ithewei/libhv |
 | lightmapper      | Embedded |           | -                  | -            | https://github.com/ands/lightmapper |
+| litehtml         | Embedded |           | UI                 | BSD3         | https://github.com/litehtml/litehtml |
 | marl             | Embedded |           | -                  | Apache2      | https://github.com/google/marl |
 | MeshOptimizer    | Embedded | 0.26      | Modeling           | MIT          | https://github.com/zeux/meshoptimizer |
 | mikktspace       | Embedded |           | Pipeline           | Public       | https://github.com/mmikk/MikkTSpace |

@@ -4,9 +4,12 @@
 #include "pmp/algorithms/subdivision.h"
 #include "pmp/algorithms/differential_geometry.h"
 
+#define M_PI 3.14159265358979323846
+
 namespace pmp {
 
-void catmull_clark_subdivision(SurfaceMesh& mesh)
+void catmull_clark_subdivision(SurfaceMesh& mesh,
+                               BoundaryHandling boundary_handling)
 {
     auto points_ = mesh.vertex_property<Point>("v:point");
     auto vfeature_ = mesh.get_vertex_property<bool>("v:feature");
@@ -64,16 +67,23 @@ void catmull_clark_subdivision(SurfaceMesh& mesh)
         // boundary vertex?
         else if (mesh.is_boundary(v))
         {
-            auto h1 = mesh.halfedge(v);
-            auto h0 = mesh.prev_halfedge(h1);
+            if (boundary_handling == BoundaryHandling::Preserve)
+            {
+                vpoint[v] = points_[v];
+            }
+            else
+            {
+                auto h1 = mesh.halfedge(v);
+                auto h0 = mesh.prev_halfedge(h1);
 
-            Point p = points_[v];
-            p *= 6.0;
-            p += points_[mesh.to_vertex(h1)];
-            p += points_[mesh.from_vertex(h0)];
-            p *= 0.125;
+                Point p = points_[v];
+                p *= 6.0;
+                p += points_[mesh.to_vertex(h1)];
+                p += points_[mesh.from_vertex(h0)];
+                p *= 0.125;
 
-            vpoint[v] = p;
+                vpoint[v] = p;
+            }
         }
 
         // interior feature vertex?
@@ -177,7 +187,7 @@ void catmull_clark_subdivision(SurfaceMesh& mesh)
     mesh.remove_face_property(fpoint);
 }
 
-void loop_subdivision(SurfaceMesh& mesh)
+void loop_subdivision(SurfaceMesh& mesh, BoundaryHandling boundary_handling)
 {
     auto points_ = mesh.vertex_property<Point>("v:point");
     auto vfeature_ = mesh.get_vertex_property<bool>("v:feature");
@@ -211,15 +221,22 @@ void loop_subdivision(SurfaceMesh& mesh)
         // boundary vertex?
         else if (mesh.is_boundary(v))
         {
-            auto h1 = mesh.halfedge(v);
-            auto h0 = mesh.prev_halfedge(h1);
+            if (boundary_handling == BoundaryHandling::Preserve)
+            {
+                vpoint[v] = points_[v];
+            }
+            else
+            {
+                auto h1 = mesh.halfedge(v);
+                auto h0 = mesh.prev_halfedge(h1);
 
-            Point p = points_[v];
-            p *= 6.0;
-            p += points_[mesh.to_vertex(h1)];
-            p += points_[mesh.from_vertex(h0)];
-            p *= 0.125;
-            vpoint[v] = p;
+                Point p = points_[v];
+                p *= 6.0;
+                p += points_[mesh.to_vertex(h1)];
+                p += points_[mesh.from_vertex(h0)];
+                p *= 0.125;
+                vpoint[v] = p;
+            }
         }
 
         // interior feature vertex?
@@ -263,7 +280,8 @@ void loop_subdivision(SurfaceMesh& mesh)
             p /= k;
 
             Scalar beta =
-                (0.625 - pow(0.375 + 0.25 * std::cos(2.0 * M_PI / k), 2.0));
+                (0.625 -
+                 pow(0.375 + 0.25 * std::cos(2.0 * M_PI / k), 2.0));
 
             vpoint[v] = points_[v] * (Scalar)(1.0 - beta) + beta * p;
         }
@@ -341,7 +359,7 @@ void loop_subdivision(SurfaceMesh& mesh)
     mesh.remove_edge_property(epoint);
 }
 
-void quad_tri_subdivision(SurfaceMesh& mesh)
+void quad_tri_subdivision(SurfaceMesh& mesh, BoundaryHandling boundary_handling)
 {
     auto points_ = mesh.vertex_property<Point>("v:point");
 
@@ -399,14 +417,21 @@ void quad_tri_subdivision(SurfaceMesh& mesh)
     {
         if (mesh.is_boundary(v))
         {
-            new_pos[v] = 0.5 * points_[v];
-
-            // add neighboring vertices on boundary
-            for (auto vv : mesh.vertices(v))
+            if (boundary_handling == BoundaryHandling::Preserve)
             {
-                if (mesh.is_boundary(vv))
+                new_pos[v] = points_[v];
+            }
+            else
+            {
+                new_pos[v] = 0.5 * points_[v];
+
+                // add neighboring vertices on boundary
+                for (auto vv : mesh.vertices(v))
                 {
-                    new_pos[v] += 0.25 * points_[vv];
+                    if (mesh.is_boundary(vv))
+                    {
+                        new_pos[v] += 0.25 * points_[vv];
+                    }
                 }
             }
         }
@@ -426,9 +451,11 @@ void quad_tri_subdivision(SurfaceMesh& mesh)
             {
                 // vertex is surrounded only by triangles
                 double a =
-                    2.0 * pow(3.0 / 8.0 +
-                                  (std::cos(2.0 * M_PI / n_faces) - 1.0) / 4.0,
-                              2.0);
+                    2.0 *
+                    pow(3.0 / 8.0 +
+                            (std::cos(2.0 * M_PI / n_faces) - 1.0) /
+                                4.0,
+                        2.0);
                 double b = (1.0 - a) / n_faces;
 
                 new_pos[v] = a * points_[v];
@@ -481,6 +508,58 @@ void quad_tri_subdivision(SurfaceMesh& mesh)
     }
 
     mesh.remove_vertex_property(new_pos);
+}
+
+void linear_subdivision(SurfaceMesh& mesh)
+{
+    auto points_ = mesh.vertex_property<Point>("v:point");
+
+    // linear subdivision of edges
+    for (auto e : mesh.edges())
+    {
+        mesh.insert_vertex(e, 0.5f * (points_[mesh.vertex(e, 0)] +
+                                      points_[mesh.vertex(e, 1)]));
+    }
+
+    // subdivide faces
+    for (auto f : mesh.faces())
+    {
+        size_t f_val = mesh.valence(f) / 2;
+
+        if (f_val == 3) // triangle
+        {
+            Halfedge h0 = mesh.halfedge(f);
+            Halfedge h1 = mesh.next_halfedge(mesh.next_halfedge(h0));
+            mesh.insert_edge(h0, h1);
+
+            h0 = mesh.next_halfedge(h0);
+            h1 = mesh.next_halfedge(mesh.next_halfedge(h0));
+            mesh.insert_edge(h0, h1);
+
+            h0 = mesh.next_halfedge(h0);
+            h1 = mesh.next_halfedge(mesh.next_halfedge(h0));
+            mesh.insert_edge(h0, h1);
+        }
+        else // quadrangulate other faces
+        {
+            Halfedge h0 = mesh.halfedge(f);
+            Halfedge h1 = mesh.next_halfedge(mesh.next_halfedge(h0));
+
+            // NOTE: It's important to calculate the centroid before inserting the new edge
+            auto cen = centroid(mesh, f);
+            h1 = mesh.insert_edge(h0, h1);
+            mesh.insert_vertex(mesh.edge(h1), cen);
+
+            auto h =
+                mesh.next_halfedge(mesh.next_halfedge(mesh.next_halfedge(h1)));
+            while (h != h0)
+            {
+                mesh.insert_edge(h1, h);
+                h = mesh.next_halfedge(
+                    mesh.next_halfedge(mesh.next_halfedge(h1)));
+            }
+        }
+    }
 }
 
 } // namespace pmp

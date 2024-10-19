@@ -388,7 +388,9 @@ static bool writeCompressedData(osgDB::OutputStream& os, const osgVerse::DracoGe
     return false;
 }
 
-#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+#ifdef VERSE_USE_DRACO
+
+#   if OSG_VERSION_GREATER_THAN(3, 4, 1)
 REGISTER_OBJECT_WRAPPER(DracoGeometry,
     new osgVerse::DracoGeometry,
     osgVerse::DracoGeometry,  // ignore osg::Geometry to NOT serialize vertices and primitives
@@ -401,7 +403,7 @@ REGISTER_OBJECT_WRAPPER(DracoGeometry,
     ADD_USER_SERIALIZER(CompressedData);
     wrapper->addFinishedObjectReadCallback(new GeometryFinishedObjectReadCallback());
 }
-#else
+#   else
 REGISTER_OBJECT_WRAPPER(DracoGeometry,
     new osgVerse::DracoGeometry,
     osgVerse::DracoGeometry,  // ignore osg::Geometry to NOT serialize vertices and primitives
@@ -410,4 +412,30 @@ REGISTER_OBJECT_WRAPPER(DracoGeometry,
     ADD_USER_SERIALIZER(CompressedData);
     wrapper->addFinishedObjectReadCallback(new GeometryFinishedObjectReadCallback());
 }
-#endif
+#   endif
+
+#else  // VERSE_USE_DRACO
+
+#   if OSG_VERSION_GREATER_THAN(3, 4, 1)
+REGISTER_OBJECT_WRAPPER(DracoGeometry,
+    new osgVerse::DracoGeometry,
+    osgVerse::DracoGeometry,
+    "osg::Object osg::Node osg::Drawable osg::Geometry osgVerse::DracoGeometry")
+{
+    {
+        UPDATE_TO_VERSION_SCOPED(154)
+            ADDED_ASSOCIATE("osg::Node")
+    }
+    wrapper->addFinishedObjectReadCallback(new GeometryFinishedObjectReadCallback());
+}
+#   else
+REGISTER_OBJECT_WRAPPER(DracoGeometry,
+    new osgVerse::DracoGeometry,
+    osgVerse::DracoGeometry,
+    "osg::Object osg::Drawable osg::Geometry osgVerse::DracoGeometry")
+{
+    wrapper->addFinishedObjectReadCallback(new GeometryFinishedObjectReadCallback());
+}
+#   endif
+
+#endif  // VERSE_USE_DRACO

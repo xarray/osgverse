@@ -11,6 +11,7 @@
 #include <iostream>
 #include <limits>
 #include <initializer_list>
+#define M_PI 3.14159265358979323846
 
 #include <Eigen/Dense>
 
@@ -21,32 +22,34 @@ namespace pmp {
 //! \addtogroup core
 //!@{
 
-//! Base class for MxN matrix
+//! Generic class for \f$ M \times N \f$ matrices.
 template <typename Scalar, int M, int N>
 class Matrix
 {
 public:
-    //! the scalar type of the vector
+    //! The scalar type of the matrix.
     using value_type = Scalar;
 
-    //! returns number of rows of the matrix
+    //! Return the number of rows of the matrix.
     static constexpr int rows() { return M; }
-    //! returns number of columns of the matrix
+
+    //! Return the number of columns of the matrix.
     static constexpr int cols() { return N; }
-    //! returns the dimension of the vector (or size of the matrix, rows*cols)
+
+    //! Return the size (rows*cols) of the matrix.
     static constexpr int size() { return M * N; }
 
-    //! default constructor
+    //! Default constructor
     Matrix() = default;
 
-    //! construct with all entries being a given scalar (matrix and vector)
+    //! Construct with all entries initialized to Scalar \p s.
     explicit Matrix(Scalar s)
     {
         for (int i = 0; i < size(); ++i)
             data_[i] = s;
     }
 
-    //! constructor with row-wise initializer list of M*N entries
+    //! Construct from row-wise initializer list of M*N entries.
     explicit Matrix(const std::initializer_list<Scalar>&& values)
     {
         assert(values.size() == M * N);
@@ -268,7 +271,7 @@ public:
         return *this;
     }
 
-    //! multply matrix by scalar
+    //! multiply matrix by scalar
     Matrix<Scalar, M, N>& operator*=(const Scalar s)
     {
         for (int i = 0; i < size(); ++i)
@@ -376,7 +379,7 @@ using mat4 = Mat4<float>;
 //! template specialization for a 4x4 matrix of double values
 using dmat4 = Mat4<double>;
 
-//! output a matrix by printing its space-separated compontens
+//! output a matrix by printing its space-separated components
 template <typename Scalar, int M, int N>
 inline std::ostream& operator<<(std::ostream& os, const Matrix<Scalar, M, N>& m)
 {
@@ -384,7 +387,7 @@ inline std::ostream& operator<<(std::ostream& os, const Matrix<Scalar, M, N>& m)
     {
         for (int j = 0; j < N; ++j)
             os << m(i, j) << " ";
-        os << std::endl;
+        os << '\n';
     }
     return os;
 }
@@ -892,63 +895,62 @@ Vector<Scalar, 3> linear_transform(const Mat4<Scalar>& m,
 template <typename Scalar>
 Mat4<Scalar> inverse(const Mat4<Scalar>& m)
 {
-    Scalar Coef00 = m(2, 2) * m(3, 3) - m(2, 3) * m(3, 2);
-    Scalar Coef02 = m(2, 1) * m(3, 3) - m(2, 3) * m(3, 1);
-    Scalar Coef03 = m(2, 1) * m(3, 2) - m(2, 2) * m(3, 1);
+    Scalar coef00 = m(2, 2) * m(3, 3) - m(2, 3) * m(3, 2);
+    Scalar coef02 = m(2, 1) * m(3, 3) - m(2, 3) * m(3, 1);
+    Scalar coef03 = m(2, 1) * m(3, 2) - m(2, 2) * m(3, 1);
 
-    Scalar Coef04 = m(1, 2) * m(3, 3) - m(1, 3) * m(3, 2);
-    Scalar Coef06 = m(1, 1) * m(3, 3) - m(1, 3) * m(3, 1);
-    Scalar Coef07 = m(1, 1) * m(3, 2) - m(1, 2) * m(3, 1);
+    Scalar coef04 = m(1, 2) * m(3, 3) - m(1, 3) * m(3, 2);
+    Scalar coef06 = m(1, 1) * m(3, 3) - m(1, 3) * m(3, 1);
+    Scalar coef07 = m(1, 1) * m(3, 2) - m(1, 2) * m(3, 1);
 
-    Scalar Coef08 = m(1, 2) * m(2, 3) - m(1, 3) * m(2, 2);
-    Scalar Coef10 = m(1, 1) * m(2, 3) - m(1, 3) * m(2, 1);
-    Scalar Coef11 = m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1);
+    Scalar coef08 = m(1, 2) * m(2, 3) - m(1, 3) * m(2, 2);
+    Scalar coef10 = m(1, 1) * m(2, 3) - m(1, 3) * m(2, 1);
+    Scalar coef11 = m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1);
 
-    Scalar Coef12 = m(0, 2) * m(3, 3) - m(0, 3) * m(3, 2);
-    Scalar Coef14 = m(0, 1) * m(3, 3) - m(0, 3) * m(3, 1);
-    Scalar Coef15 = m(0, 1) * m(3, 2) - m(0, 2) * m(3, 1);
+    Scalar coef12 = m(0, 2) * m(3, 3) - m(0, 3) * m(3, 2);
+    Scalar coef14 = m(0, 1) * m(3, 3) - m(0, 3) * m(3, 1);
+    Scalar coef15 = m(0, 1) * m(3, 2) - m(0, 2) * m(3, 1);
 
-    Scalar Coef16 = m(0, 2) * m(2, 3) - m(0, 3) * m(2, 2);
-    Scalar Coef18 = m(0, 1) * m(2, 3) - m(0, 3) * m(2, 1);
-    Scalar Coef19 = m(0, 1) * m(2, 2) - m(0, 2) * m(2, 1);
+    Scalar coef16 = m(0, 2) * m(2, 3) - m(0, 3) * m(2, 2);
+    Scalar coef18 = m(0, 1) * m(2, 3) - m(0, 3) * m(2, 1);
+    Scalar coef19 = m(0, 1) * m(2, 2) - m(0, 2) * m(2, 1);
 
-    Scalar Coef20 = m(0, 2) * m(1, 3) - m(0, 3) * m(1, 2);
-    Scalar Coef22 = m(0, 1) * m(1, 3) - m(0, 3) * m(1, 1);
-    Scalar Coef23 = m(0, 1) * m(1, 2) - m(0, 2) * m(1, 1);
+    Scalar coef20 = m(0, 2) * m(1, 3) - m(0, 3) * m(1, 2);
+    Scalar coef22 = m(0, 1) * m(1, 3) - m(0, 3) * m(1, 1);
+    Scalar coef23 = m(0, 1) * m(1, 2) - m(0, 2) * m(1, 1);
 
-    Vector<Scalar, 4> const SignA(+1, -1, +1, -1);
-    Vector<Scalar, 4> const SignB(-1, +1, -1, +1);
+    Vector<Scalar, 4> const sign_a(+1, -1, +1, -1);
+    Vector<Scalar, 4> const sign_b(-1, +1, -1, +1);
 
-    Vector<Scalar, 4> Fac0(Coef00, Coef00, Coef02, Coef03);
-    Vector<Scalar, 4> Fac1(Coef04, Coef04, Coef06, Coef07);
-    Vector<Scalar, 4> Fac2(Coef08, Coef08, Coef10, Coef11);
-    Vector<Scalar, 4> Fac3(Coef12, Coef12, Coef14, Coef15);
-    Vector<Scalar, 4> Fac4(Coef16, Coef16, Coef18, Coef19);
-    Vector<Scalar, 4> Fac5(Coef20, Coef20, Coef22, Coef23);
+    Vector<Scalar, 4> fac0(coef00, coef00, coef02, coef03);
+    Vector<Scalar, 4> fac1(coef04, coef04, coef06, coef07);
+    Vector<Scalar, 4> fac2(coef08, coef08, coef10, coef11);
+    Vector<Scalar, 4> fac3(coef12, coef12, coef14, coef15);
+    Vector<Scalar, 4> fac4(coef16, coef16, coef18, coef19);
+    Vector<Scalar, 4> fac5(coef20, coef20, coef22, coef23);
 
-    Vector<Scalar, 4> Vec0(m(0, 1), m(0, 0), m(0, 0), m(0, 0));
-    Vector<Scalar, 4> Vec1(m(1, 1), m(1, 0), m(1, 0), m(1, 0));
-    Vector<Scalar, 4> Vec2(m(2, 1), m(2, 0), m(2, 0), m(2, 0));
-    Vector<Scalar, 4> Vec3(m(3, 1), m(3, 0), m(3, 0), m(3, 0));
+    Vector<Scalar, 4> v0(m(0, 1), m(0, 0), m(0, 0), m(0, 0));
+    Vector<Scalar, 4> v1(m(1, 1), m(1, 0), m(1, 0), m(1, 0));
+    Vector<Scalar, 4> v2(m(2, 1), m(2, 0), m(2, 0), m(2, 0));
+    Vector<Scalar, 4> v3(m(3, 1), m(3, 0), m(3, 0), m(3, 0));
 
     // clang-format off
-    Vector<Scalar, 4> Inv0 = cmult(SignA, (cmult(Vec1, Fac0) - cmult(Vec2, Fac1) + cmult(Vec3, Fac2)));
-    Vector<Scalar, 4> Inv1 = cmult(SignB, (cmult(Vec0, Fac0) - cmult(Vec2, Fac3) + cmult(Vec3, Fac4)));
-    Vector<Scalar, 4> Inv2 = cmult(SignA, (cmult(Vec0, Fac1) - cmult(Vec1, Fac3) + cmult(Vec3, Fac5)));
-    Vector<Scalar, 4> Inv3 = cmult(SignB, (cmult(Vec0, Fac2) - cmult(Vec1, Fac4) + cmult(Vec2, Fac5)));
+    Vector<Scalar, 4> inv0 = cmult(sign_a, (cmult(v1, fac0) - cmult(v2, fac1) + cmult(v3, fac2)));
+    Vector<Scalar, 4> inv1 = cmult(sign_b, (cmult(v0, fac0) - cmult(v2, fac3) + cmult(v3, fac4)));
+    Vector<Scalar, 4> inv2 = cmult(sign_a, (cmult(v0, fac1) - cmult(v1, fac3) + cmult(v3, fac5)));
+    Vector<Scalar, 4> inv3 = cmult(sign_b, (cmult(v0, fac2) - cmult(v1, fac4) + cmult(v2, fac5)));
     // clang-format on
 
-    Mat4<Scalar> Inverse(Inv0, Inv1, Inv2, Inv3);
+    Mat4<Scalar> inv(inv0, inv1, inv2, inv3);
 
-    Vector<Scalar, 4> Row0(Inverse(0, 0), Inverse(1, 0), Inverse(2, 0),
-                           Inverse(3, 0));
-    Vector<Scalar, 4> Col0(m(0, 0), m(0, 1), m(0, 2), m(0, 3));
+    Vector<Scalar, 4> row0(inv(0, 0), inv(1, 0), inv(2, 0), inv(3, 0));
+    Vector<Scalar, 4> col0(m(0, 0), m(0, 1), m(0, 2), m(0, 3));
 
-    Scalar Determinant = dot(Col0, Row0);
+    Scalar det = dot(col0, row0);
 
-    Inverse /= Determinant;
+    inv /= det;
 
-    return Inverse;
+    return inv;
 }
 
 //! return determinant of 3x3 matrix
@@ -997,12 +999,12 @@ bool symmetric_eigendecomposition(const Mat3<Scalar>& m, Scalar& eval1,
     Mat3<Scalar> V = Mat3<Scalar>::identity();
     Mat3<Scalar> R;
     Mat3<Scalar> A = m;
-    const Scalar eps = 1e-10; //0.000001;
+    const Scalar eps = 1e-10;
 
     int iterations = 100;
     while (iterations--)
     {
-        // find largest off-diagonal elem
+        // find largest off-diagonal element
         if (fabs(A(0, 1)) < fabs(A(0, 2)))
         {
             if (fabs(A(0, 2)) < fabs(A(1, 2)))
@@ -1116,7 +1118,7 @@ inline std::istream& operator>>(std::istream& is, Vector<Scalar, N>& vec)
     return is;
 }
 
-//! output a vector by printing its space-separated compontens
+//! output a vector by printing its space-separated components
 template <typename Scalar, int N>
 inline std::ostream& operator<<(std::ostream& os, const Vector<Scalar, N>& vec)
 {

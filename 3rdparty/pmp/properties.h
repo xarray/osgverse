@@ -6,19 +6,16 @@
 
 #include <algorithm>
 #include <cassert>
-#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
+#include "pmp/exceptions.h"
 
 namespace pmp {
 
 class BasePropertyArray
 {
 public:
-    //! Default constructor
-    explicit BasePropertyArray(std::string name) : name_(std::move(name)) {}
-
     //! Destructor.
     virtual ~BasePropertyArray() = default;
 
@@ -41,10 +38,7 @@ public:
     virtual BasePropertyArray* clone() const = 0;
 
     //! Return the name of the property
-    const std::string& name() const { return name_; }
-
-protected:
-    std::string name_;
+    virtual const std::string& name() const = 0;
 };
 
 template <class T>
@@ -57,7 +51,7 @@ public:
     using const_reference = typename VectorType::const_reference;
 
     PropertyArray(std::string name, T t = T())
-        : BasePropertyArray(std::move(name)), value_(std::move(t))
+        : name_(std::move(name)), value_(std::move(t))
     {
     }
 
@@ -103,7 +97,11 @@ public:
         return data_[idx];
     }
 
+    //! Return the name of the property
+    const std::string& name() const override { return name_; }
+
 private:
+    std::string name_;
     VectorType data_;
     ValueType value_;
 };
@@ -208,8 +206,9 @@ public:
     std::vector<std::string> properties() const
     {
         std::vector<std::string> names;
-        for (auto parray : parrays_)
-            names.push_back(parray->name());
+        names.reserve(parrays_.size());
+        for (const auto* array : parrays_)
+            names.emplace_back(array->name());
         return names;
     }
 
@@ -217,15 +216,14 @@ public:
     template <class T>
     Property<T> add(const std::string& name, const T t = T())
     {
-        // if a property with this name already exists, return an invalid property
-        for (auto& parray : parrays_)
+        // throw exception if a property with this name already exists
+        for (const auto* parray : parrays_)
         {
             if (parray->name() == name)
             {
-                std::cerr << "[PropertyContainer] A property with name \""
-                          << name
-                          << "\" already exists. Returning invalid property.\n";
-                return Property<T>();
+                const auto msg = "[PropertyContainer] A property with name \"" +
+                                 name + "\" already exists.\n";
+                throw InvalidInputException(msg);
             }
         }
 

@@ -7,6 +7,8 @@
 #include "pmp/algorithms/differential_geometry.h"
 #include "pmp/algorithms/laplace.h"
 
+#define M_PI 3.14159265358979323846
+
 namespace pmp {
 
 class CurvatureAnalyzer

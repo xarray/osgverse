@@ -6,9 +6,9 @@
 #include <cmath>
 
 #include <algorithm>
-#include <stdexcept>
 #include <memory>
 #include <limits>
+#define M_PI 3.14159265358979323846
 
 #include "pmp/algorithms/curvature.h"
 #include "pmp/algorithms/normals.h"
@@ -193,7 +193,7 @@ void TriangleKdTree::build_recurse(Node* node, unsigned int max_faces,
         node->left_child = left;
         node->right_child = right;
 
-        // recurse to childen
+        // recurse to children
         build_recurse(node->left_child, max_faces, depth - 1);
         build_recurse(node->right_child, max_faces, depth - 1);
     }
@@ -640,8 +640,7 @@ void Remeshing::project_to_reference(Vertex v)
 void Remeshing::split_long_edges()
 {
     Vertex vnew, v0, v1;
-    Edge enew, e0, e1;
-    Face f0, f1, f2, f3;
+    Edge enew;
     bool ok, is_feature, is_boundary;
     int i;
 
@@ -920,8 +919,7 @@ void Remeshing::flip_edges()
 
 void Remeshing::tangential_smoothing(unsigned int iterations)
 {
-    Vertex v1, v2, v3, vv;
-    Edge e;
+    Vertex vv;
     Scalar w, ww;
     Point u, n, t, b;
 
@@ -1045,7 +1043,6 @@ void Remeshing::remove_caps()
 {
     Halfedge h;
     Vertex v, vb, vd;
-    Face fb, fd;
     Scalar a0, a1, amin, aa(::cos(170.0 * M_PI / 180.0));
     Point a, b, c, d;
 
