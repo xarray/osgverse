@@ -11,6 +11,15 @@
 #include "threading/atomic_p.h"
 #include "unicode/unicode_p.h"
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   define stat64 stat
+#   define fstat64 fstat
+#   define ftruncate64 ftruncate
+#   define seek64 seek
+#   define lseek64 lseek
+#   define open64 open
+#endif
+
 #if !defined(_WIN32)
   #include <errno.h>
   #include <fcntl.h>

@@ -126,8 +126,8 @@ SET(IMGUI_SOURCE_FILES
     imgui/ImGradient.cpp imgui/ImGradient.h
     imgui/ImSequencer.cpp imgui/ImSequencer.h
     imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h
-    imgui/ImGuiFileDialog.cpp imgui/ImGuiFileDialog.h imgui/ImGuiFileDialogConfig.h
-    imgui/imgui_dock.cpp imgui/imgui_dock.h imgui/ImFileDialog.cpp imgui/ImFileDialog.h
+    #imgui/ImGuiFileDialog.cpp imgui/ImGuiFileDialog.h imgui/ImGuiFileDialogConfig.h
+    imgui/imgui_dock.cpp imgui/imgui_dock.h
 
 	imgui/node-editor/imgui_bezier_math.h imgui/node-editor/imgui_extra_math.h
 	imgui/node-editor/crude_json.cpp imgui/node-editor/crude_json.h

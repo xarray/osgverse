@@ -46,11 +46,11 @@ struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatr
             // Work with near/far values to implement depth-partition here
             if (_stage.valid() && _stage->depthPartition.x() > 0.0)
             {
-                double near = _stage->depthPartition.y(); if (near <= 0.0) near = 0.1;
+                double nearData = _stage->depthPartition.y(); if (nearData <= 0.0) nearData = 0.1;
                 if ((int)_stage->depthPartition.x() == 1)  // front frustum
-                    nearFar.set(near, sqrt(near * nearFar[1]));
+                    nearFar.set(nearData, sqrt(nearData * nearFar[1]));
                 else
-                    nearFar.set(sqrt(near * nearFar[1]), nearFar[1]);
+                    nearFar.set(sqrt(nearData * nearFar[1]), nearFar[1]);
             }
 
             if (fabs(proj(0, 3)) < epsilon  && fabs(proj(1, 3)) < epsilon  && fabs(proj(2, 3)) < epsilon)

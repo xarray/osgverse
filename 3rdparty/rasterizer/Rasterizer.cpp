@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include <cmath>
 
 static constexpr float floatCompressionBias = 2.5237386e-29f; // 0xFFFF << 12 reinterpreted as float
@@ -105,9 +106,9 @@ void Rasterizer::setModelViewProjection(const float* matrix)
 
 void Rasterizer::clear()
 {
-  // Mark blocks as cleared by setting Hi Z to 1 (one unit separated from far plane). 
+  // Mark blocks as cleared by setting Hi Z to 1 (one unit separated from far plane).
   // This value is extremely unlikely to occur during normal rendering, so we don't
-  // need to guard against a HiZ of 1 occuring naturally. This is different from a value of 0, 
+  // need to guard against a HiZ of 1 occuring naturally. This is different from a value of 0,
   // which will occur every time a block is partially covered for the first time.
   __m128i clearValue = _mm_set1_epi16(1);
   uint32_t count = static_cast<uint32_t>(m_hiZ.size()) / 8;
@@ -1085,7 +1086,11 @@ void Rasterizer::rasterize(const Occluder& occluder)
     __m128i* pDepthBuffer = &*m_depthBuffer.begin();
 
     // Loop over set bits
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+    unsigned int primitiveIdx;
+#else
     unsigned long primitiveIdx;
+#endif
     while (_BitScanForward(&primitiveIdx, validMask))
     {
       // Clear lowest set bit in mask
@@ -1252,7 +1257,7 @@ void Rasterizer::rasterize(const Occluder& occluder)
           __m256i d1 = _mm256_avg_epu16(d0, d2);
           __m256i d3 = _mm256_avg_epu16(d2, d4);
 
-          // Not all pixels covered - mask depth 
+          // Not all pixels covered - mask depth
           if (blockMask != -1)
           {
             __m128i A = _mm_cvtsi64x_si128(blockMask);

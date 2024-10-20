@@ -230,7 +230,7 @@ OZZ_INLINE SimdFloat4 SplatW(_SimdFloat4 _v);
 
 // Swizzle x, y, z and w components based on compile time arguments _X, _Y, _Z
 // and _W. Arguments can vary from 0 (x), to 3 (w).
-template <size_t _X, size_t _Y, size_t _Z, size_t _W>
+template <size_t V_X, size_t V_Y, size_t V_Z, size_t V_W>
 OZZ_INLINE SimdFloat4 Swizzle(_SimdFloat4 _v);
 
 // Transposes the x components of the 4 SimdFloat4 of _in into the 1
@@ -922,7 +922,7 @@ OZZ_INLINE SimdInt4 SplatW(_SimdInt4 _v);
 
 // Swizzle x, y, z and w components based on compile time arguments _X, _Y, _Z
 // and _W. Arguments can vary from 0 (x), to 3 (w).
-template <size_t _X, size_t _Y, size_t _Z, size_t _W>
+template <size_t V_X, size_t V_Y, size_t V_Z, size_t V_W>
 OZZ_INLINE SimdInt4 Swizzle(_SimdInt4 _v);
 
 // Creates a 4-bit mask from the most significant bits of each component of _v.

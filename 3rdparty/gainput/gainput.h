@@ -8,6 +8,12 @@
 #ifndef GAINPUT_H_
 #define GAINPUT_H_
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   if !defined(_WIN32)
+#      define _WIN32
+#   endif
+#endif
+
 #if defined(__ANDROID__) || defined(ANDROID)
 	#define GAINPUT_PLATFORM_ANDROID
 	#define GAINPUT_LIBEXPORT
@@ -85,6 +91,15 @@ typedef _XEvent XEvent;
 
 typedef struct tagMSG MSG;
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+namespace gainput
+{
+	typedef unsigned char uint8_t;
+	typedef char int8_t;
+	typedef unsigned int uint32_t;
+	typedef unsigned long long uint64_t;
+}
+#else
 namespace gainput
 {
 	typedef unsigned __int8 uint8_t;
@@ -92,6 +107,7 @@ namespace gainput
 	typedef unsigned __int32 uint32_t;
 	typedef unsigned __int64 uint64_t;
 }
+#endif
 
 #elif defined(GAINPUT_PLATFORM_ANDROID)
 

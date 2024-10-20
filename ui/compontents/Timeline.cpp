@@ -1,7 +1,6 @@
 #include "../ImGuiComponents.h"
 #include <imgui/imgui_internal.h>
 #include <imgui/imgui-knobs.h>
-#include <imgui/ImGuiFileDialog.h>
 #include <imgui/ImSequencer.h>
 #include <imgui/ImCurveEdit.h>
 using namespace osgVerse;

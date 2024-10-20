@@ -19,9 +19,14 @@
 #include "marl/trace.h"
 
 #include <algorithm>  // std::sort
-
 #include <cstdarg>
 #include <cstdio>
+
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   if !defined(_WIN32)
+#      define _WIN32
+#   endif
+#endif
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN 1

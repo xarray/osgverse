@@ -19,7 +19,7 @@
 #define WINDOWS 0
 #define IOS 0
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__)
 #undef WINDOWS
 #define WINDOWS 1
 #endif

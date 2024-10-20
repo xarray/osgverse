@@ -9,6 +9,33 @@
 #endif  // ifndef NOMINMAX
 #include <windows.h>
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   define _MAX_FNAME 256
+#   define _MAX_EXT 256
+#   define SLASH_CHAR	'\\'
+int _splitpath_s(const char *path, char *drive, int nDrive, char *dir, int nDir,
+                 char *fname, int nName, char *ext, int nExt)
+{
+    if (!path) return -1; char *slash = strrchr((char *)path, SLASH_CHAR);
+    char *dot = strrchr((char *)path, '.'); if (drive) *drive = '\0';
+    if (dot && slash && dot < slash) dot = 0;
+    if (!slash)
+    {
+        if (dir) *dir = '\0'; if (fname) strcpy(fname, path);
+        if (dot) { if (fname) fname[dot - path] = '\0'; if (ext) strcpy(ext, dot + 1); }
+        else if (ext) *ext = '\0';
+    }
+    else
+    {
+        if (dir) { strcpy(dir, path); dir[slash - path] = '\0'; }
+        if (fname) strcpy(fname, slash + 1);
+        if (dot) { if (fname) fname[(dot - slash) - 1] = '\0'; if (ext) strcpy(ext, dot + 1); }
+        else if (ext) *ext = '\0';
+    }
+    return 0;
+}
+#endif
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>

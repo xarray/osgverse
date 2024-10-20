@@ -1,7 +1,6 @@
 #include "ImGuiComponents.h"
 #include <imgui/imgui_internal.h>
 #include <imgui/imgui-knobs.h>
-#include <imgui/ImGuiFileDialog.h>
 using namespace osgVerse;
 
 std::string ImGuiComponentBase::TR(const std::string& s)
@@ -49,16 +48,16 @@ void ImGuiComponentBase::registerFileDialog(
     FileDialogCallback cb, const std::string& name, const std::string& title, bool modal,
     const std::string& dir, const std::string& filters)
 {
-    ImGuiFileDialogFlags flags = (modal ? ImGuiFileDialogFlags_Modal : 0);
+    /*ImGuiFileDialogFlags flags = (modal ? ImGuiFileDialogFlags_Modal : 0);
     ImGuiFileDialog::Instance()->OpenDialog(  // FIXME: more options
         name, title, filters.c_str(), dir, 1, NULL,
         flags | ImGuiFileDialogFlags_DisableCreateDirectoryButton);
-    s_fileDialogRunner.name = name; s_fileDialogRunner.callback = cb;
+    s_fileDialogRunner.name = name; s_fileDialogRunner.callback = cb;*/
 }
 
 bool ImGuiComponentBase::showFileDialog(std::string& result)
 {
-    if (s_fileDialogRunner.name.empty()) return false;
+    /*if (s_fileDialogRunner.name.empty()) return false;
     if (ImGuiFileDialog::Instance()->Display(s_fileDialogRunner.name))
     {
         if (ImGuiFileDialog::Instance()->IsOk())
@@ -67,7 +66,7 @@ bool ImGuiComponentBase::showFileDialog(std::string& result)
         if (!result.empty() && s_fileDialogRunner.callback)
             s_fileDialogRunner.callback(result);
         s_fileDialogRunner.name = ""; return true;
-    }
+    }*/
     return false;
 }
 

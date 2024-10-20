@@ -96,7 +96,7 @@ struct Error
 
 	// Format a message with printf-style arguments.
 	template <typename... Args>
-	Error(const char* fmt, Args... args) 
+	Error(const char* fmt, Args... args)
 	{
 		char buf[1024];
 		std::snprintf(buf, sizeof(buf), fmt, args...);
@@ -874,7 +874,7 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor, Allocator& allo
 
 	if (*cursor->current == ',') {
 		// https://github.com/nem0/OpenFBX/issues/85
-		prop->type = IElementProperty::VOID;
+		prop->type = IElementProperty::VOIDTYPE;
 		prop->value.begin = cursor->current;
 		prop->value.end = cursor->current;
 		return prop;
@@ -1698,12 +1698,12 @@ struct CameraImpl : public Camera
 	double nearPlane = 0.1;
 	double farPlane = 1000.0;
 	bool autoComputeClipPanes = true;
-	
+
 	GateFit gateFit = GateFit::HORIZONTAL;
 	double filmAspectRatio = 1.0;
 	double focalLength = 50.0;
 	double focusDistance = 50.0;
-	
+
 	Vec3 backgroundColor = {0, 0, 0};
 	Vec3 interestPosition = {0, 0, 0};
 
@@ -2047,7 +2047,7 @@ struct AnimationLayerImpl : AnimationLayer
 /*
 	DEBUGGING ONLY (but im not your boss so do what you want)
 	- maps the contents of the given node for viewing in the debugger
-	
+
 	std::map<std::string, ofbx::IElementProperty*, std::less<>> allProperties;
 	mapProperties(element, allProperties);
 */

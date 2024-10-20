@@ -8,6 +8,12 @@ terms of the MIT license. A copy of the license can be found in the file
 #define _DEFAULT_SOURCE   // ensure mmap flags are defined
 #endif
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   if !defined(_WIN32)
+#      define _WIN32 1
+#   endif
+#endif
+
 #if defined(__sun)
 // illumos provides new mman.h api when any of these are defined
 // otherwise the old api based on caddr_t which predates the void pointers one.
@@ -395,7 +401,7 @@ static bool mi_os_mem_free(void* addr, size_t size, bool was_committed, mi_stats
 -------------------------------------------------------------- */
 
 #ifdef _WIN32
- 
+
 #define MEM_COMMIT_RESERVE  (MEM_COMMIT|MEM_RESERVE)
 
 static void* mi_win_virtual_allocx(void* addr, size_t size, size_t try_alignment, DWORD flags) {
@@ -608,7 +614,7 @@ static void* mi_unix_mmap(void* addr, size_t size, size_t try_alignment, int pro
   }
   #if defined(PROT_MAX)
   protect_flags |= PROT_MAX(PROT_READ | PROT_WRITE); // BSD
-  #endif    
+  #endif
   // huge page allocation
   if ((large_only || use_large_os_page(size, try_alignment)) && allow_large) {
     static _Atomic(size_t) large_page_try_ok; // = 0;
@@ -1008,7 +1014,7 @@ bool _mi_os_decommit(void* addr, size_t size, mi_stats_t* tld_stats) {
 }
 
 /*
-static bool mi_os_commit_unreset(void* addr, size_t size, bool* is_zero, mi_stats_t* stats) {  
+static bool mi_os_commit_unreset(void* addr, size_t size, bool* is_zero, mi_stats_t* stats) {
   return mi_os_commitx(addr, size, true, true // conservative
                       , is_zero, stats);
 }

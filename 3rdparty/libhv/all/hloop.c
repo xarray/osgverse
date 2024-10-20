@@ -10,7 +10,9 @@
 #include "hsocket.h"
 #include "hthread.h"
 
-#if defined(OS_UNIX) && HAVE_EVENTFD
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+//
+#elif defined(OS_UNIX) && HAVE_EVENTFD
 #include "sys/eventfd.h"
 #endif
 

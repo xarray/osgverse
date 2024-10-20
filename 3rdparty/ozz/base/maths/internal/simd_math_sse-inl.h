@@ -327,11 +327,11 @@ OZZ_INLINE SimdFloat4 SplatZ(_SimdFloat4 _v) { return OZZ_SSE_SPLAT_F(_v, 2); }
 
 OZZ_INLINE SimdFloat4 SplatW(_SimdFloat4 _v) { return OZZ_SSE_SPLAT_F(_v, 3); }
 
-template <size_t _X, size_t _Y, size_t _Z, size_t _W>
+template <size_t V_X, size_t V_Y, size_t V_Z, size_t V_W>
 OZZ_INLINE SimdFloat4 Swizzle(_SimdFloat4 _v) {
-  static_assert(_X <= 3 && _Y <= 3 && _Z <= 3 && _W <= 3,
+  static_assert(V_X <= 3 && V_Y <= 3 && V_Z <= 3 && V_W <= 3,
                 "Indices must be between 0 and 3");
-  return OZZ_SHUFFLE_PS1(_v, _MM_SHUFFLE(_W, _Z, _Y, _X));
+  return OZZ_SHUFFLE_PS1(_v, _MM_SHUFFLE(V_W, V_Z, V_Y, V_X));
 }
 
 template <>
@@ -1208,11 +1208,11 @@ OZZ_INLINE SimdInt4 SplatZ(_SimdInt4 _a) { return OZZ_SSE_SPLAT_I(_a, 2); }
 
 OZZ_INLINE SimdInt4 SplatW(_SimdInt4 _a) { return OZZ_SSE_SPLAT_I(_a, 3); }
 
-template <size_t _X, size_t _Y, size_t _Z, size_t _W>
+template <size_t V_X, size_t V_Y, size_t V_Z, size_t V_W>
 OZZ_INLINE SimdInt4 Swizzle(_SimdInt4 _v) {
-  static_assert(_X <= 3 && _Y <= 3 && _Z <= 3 && _W <= 3,
+  static_assert(V_X <= 3 && V_Y <= 3 && V_Z <= 3 && V_W <= 3,
                 "Indices must be between 0 and 3");
-  return _mm_shuffle_epi32(_v, _MM_SHUFFLE(_W, _Z, _Y, _X));
+  return _mm_shuffle_epi32(_v, _MM_SHUFFLE(V_W, V_Z, V_Y, V_X));
 }
 
 template <>

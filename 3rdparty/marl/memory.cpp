@@ -92,7 +92,7 @@ inline void protectPage(void* addr) {
   MARL_ASSERT(status == ZX_OK, "Failed to protect page at %p", addr);
 }
 }  // anonymous namespace
-#elif defined(_WIN32)
+#elif defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__)
 #define WIN32_LEAN_AND_MEAN 1
 #include <Windows.h>
 namespace {

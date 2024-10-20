@@ -138,7 +138,7 @@ void SkyBox::setSkyColor(const osg::Vec4ub& color)
     osg::ref_ptr<osg::Image> image = new osg::Image;
     image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
     image->setInternalTextureFormat(4);  // for WASM
-    
+
     osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
     (*ptr) = color; setEnvironmentMap(image.get());
 }
@@ -217,12 +217,12 @@ bool SkyBox::computeLocalToWorldMatrix(osg::Matrix& matrix, osg::NodeVisitor* nv
         const osg::RefMatrix* proj = cv->getProjectionMatrix();
 
         osg::Vec3d eye = osg::Matrix::inverse(*modelView).getTrans();
-        double far = (*proj)(3, 2) / (1.0 + (*proj)(2, 2));
-        matrix.preMult(osg::Matrix::scale(far, far, far) * osg::Matrix::translate(eye));
+        double far0 = (*proj)(3, 2) / (1.0 + (*proj)(2, 2));
+        matrix.preMult(osg::Matrix::scale(far0, far0, far0) * osg::Matrix::translate(eye));
 #else
         const osg::RefMatrix* proj = cv->getProjectionMatrix();
-        double far = (*proj)(3, 2) / (1.0 + (*proj)(2, 2)); far -= 10.0;
-        matrix.preMult(osg::Matrix::scale(far, far, far) * osg::Matrix::translate(cv->getEyeLocal()));
+        double far0 = (*proj)(3, 2) / (1.0 + (*proj)(2, 2)); far0 -= 10.0;
+        matrix.preMult(osg::Matrix::scale(far0, far0, far0) * osg::Matrix::translate(cv->getEyeLocal()));
 #endif
         return true;
     }

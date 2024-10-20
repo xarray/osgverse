@@ -40,7 +40,7 @@ public:
         bool found = false; const std::string& name = geom.getName();
         for (std::set<std::string>::iterator itr = _whitelist.begin(); itr != _whitelist.end(); ++itr)
         { if (name.find(*itr) != std::string::npos) { found = true; break; } }
-        
+
         osgVerse::BoundingVolumeVisitor bvv; bvv.apply(geom);
         found |= _whitelist.empty();
         if (_sceneBoundThreshold > 0.0f)
@@ -294,14 +294,14 @@ namespace osgVerse
                                  osg::absolute(entireShadowBB.zMax()));
 
         static double splitSchemeBias = 0.66;
-        double far = entireShadowBB.xMax(), near = entireShadowBB.xMin();
+        double far0 = entireShadowBB.xMax(), near0 = entireShadowBB.xMin();
         for (size_t i = 0; i < numCameras; ++i)
         {
             // exponential: Ci = (f - n) * (i / numsplits) ^ (bias + 1) + n;
             double IDM0 = (double)(i) / numCameras, IDM1 = (double)(i + 1) / numCameras;
             shadowBBs[i] = entireShadowBB;
-            shadowBBs[i]._min.x() = (far - near) * (pow(IDM0, splitSchemeBias + 1.0)) + near;
-            shadowBBs[i]._max.x() = (far - near) * (pow(IDM1, splitSchemeBias + 1.0)) + near;
+            shadowBBs[i]._min.x() = (far0 - near0) * (pow(IDM0, splitSchemeBias + 1.0)) + near0;
+            shadowBBs[i]._max.x() = (far0 - near0) * (pow(IDM1, splitSchemeBias + 1.0)) + near0;
         }
 #endif
 

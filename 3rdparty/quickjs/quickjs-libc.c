@@ -52,11 +52,11 @@
 #   define OS_LINUX
 #endif
 
-#if defined(__FreeBSD__) || defined(OS_LINUX) || defined(EMSCRIPTEN)
+#if defined(__FreeBSD__) || defined(OS_LINUX) || defined(EMSCRIPTEN) || defined(__CYGWIN__) || defined(__MINGW32__)
 extern char **environ;
 #endif
 
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(OS_LINUX) || defined(EMSCRIPTEN)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(OS_LINUX) || defined(EMSCRIPTEN) || defined(__CYGWIN__) || defined(__MINGW32__)
 typedef sig_t sighandler_t;
 #endif
 
