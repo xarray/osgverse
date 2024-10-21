@@ -152,6 +152,7 @@ int main(int argc, char** argv)
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
             "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 
+#if false
         // Optional, add another custom input pass, which may use forward pipeline to render
         // transparent objects and third party nodekits.
         osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
@@ -162,14 +163,28 @@ int main(int argc, char** argv)
                 "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
         viewer.getCamera()->addUpdateCallback(inModule);
+#endif
 
         // 4. Add a custom middle stage
         osgVerse::Pipeline::Stage* testStage = pipeline->addWorkStage("TestStage", 1.0f,
             osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "std_common_quad.vert.glsl"),
             new osg::Shader(osg::Shader::FRAGMENT, middleFragmentShaderCode), 1,
             "MiddleBuffer", osgVerse::Pipeline::RGB_INT8);
-        testStage->applyBuffer("ColorBuffer", 0, pipeline.get());  // get last buffer
-        //testStage->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 0);
+        //testStage->applyBuffer("ColorBuffer", 0, pipeline.get());  // get last buffer
+        testStage->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 0);
+
+#if true
+        // Optional, add another custom input pass, which may use forward pipeline to render
+        // transparent objects and third party nodekits.
+        osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
+        {
+            osgVerse::Pipeline::Stage* customIn = inModule->createStages(
+                CUSTOM_INPUT_MASK, NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                "ColorBuffer", testStage->getBufferTexture("MiddleBuffer"),
+                "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+        }
+        viewer.getCamera()->addUpdateCallback(inModule);
+#endif
 
         // 5. Add a custom display stage
         osgVerse::Pipeline::Stage* output = pipeline->addDisplayStage("Final",

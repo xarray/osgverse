@@ -296,7 +296,9 @@ namespace osgVerse
     {
         enum UserInputOccasion
         {
-            BEFORE_POSTEFFECTS
+            BEFORE_DEFERRED_PASSES,  // After GBuffer, will be affected by PBR lighting
+            BEFORE_POSTEFFECTS,      // After shadow composition, will have light reflections
+            BEFORE_FINAL_STAGE       // After post-effects, before final display pass
         };
 
         enum UserInputType

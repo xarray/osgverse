@@ -45,6 +45,12 @@
 #ifndef GHC_FILESYSTEM_H
 #define GHC_FILESYSTEM_H
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   define _S_IFDIR S_IFDIR
+#   define _S_IFREG S_IFREG
+#   define _S_IFCHR S_IFCHR
+#endif
+
 // #define BSD manifest constant only in
 // sys/param.h
 #ifndef _WIN32

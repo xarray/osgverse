@@ -31,7 +31,6 @@ static void EGLAPIENTRY eglErrorCallback(EGLenum error, const char* command, EGL
 static int getModKey()
 {
     SDL_Keymod modstates = SDL_GetModState();
-
     if (modstates & KMOD_LCTRL) return osgGA::GUIEventAdapter::KEY_Control_L;
     else if (modstates & KMOD_RCTRL) return osgGA::GUIEventAdapter::KEY_Control_R;
     else if (modstates & KMOD_LALT) return osgGA::GUIEventAdapter::KEY_Alt_L;

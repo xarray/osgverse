@@ -156,11 +156,15 @@
     #ifndef _WINSOCK_DEPRECATED_NO_WARNINGS
     #define _WINSOCK_DEPRECATED_NO_WARNINGS
     #endif
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+    #include <dirent/dirent.h>
+#else
     #include <winsock2.h>
     #include <ws2tcpip.h>   // for inet_pton,inet_ntop
+    #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
+#endif
     #include <windows.h>
     #include <process.h>    // for getpid,exec
-    #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
     #include <io.h>         // for open,close,read,write,lseek,tell
 
     #define hv_sleep(s)     Sleep((s) * 1000)
@@ -192,7 +196,11 @@
     #endif
 #else
     #include <unistd.h>
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+    #include <dirent/dirent.h>
+#else
     #include <dirent.h>     // for mkdir,rmdir,chdir,getcwd
+#endif
 
     // socket
     #include <sys/socket.h>

@@ -130,7 +130,7 @@ ELSE(OSG_ROOT)
         /usr/local/include
     )
 
-    FIND_PATH(OSG_LIB_DIR libosg.a libosg.so osg.lib
+    FIND_PATH(OSG_LIB_DIR libosg.a libosg.dll.a libosg.so osg.lib
         PATHS ${THIRDPARTY_ROOT}/lib
         $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
         $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}

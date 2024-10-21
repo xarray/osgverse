@@ -133,7 +133,6 @@ public:
             ext = osgDB::getLowerCaseFileExtension(fileName);
         }
 
-        std::cout << scheme << " (WEB); " << fileName << "\n";
         if (!acceptsProtocol(scheme))
         {
             if (options && !options->getDatabasePathList().empty())

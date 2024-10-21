@@ -67,6 +67,13 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES2 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_USE_UTF8_FILENAME=ON -DOSG_WINDOWING_SYSTEM="None" -D_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE=0 "%osg_root_path%"</em>
   * Run <em>Solution File</em> and build
 
+#### OSG for MinGW (MSYS)
+* Install OSG:
+  * <em>pacman -S mingw-w64-x86_64-OpenSceneGraph</em>
+* Command-line example: (MSYS)
+  * <em>cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release "%osg_root_path%"</em>
+  * <em>make</em>
+
 #### OSG for Android (Cross-compiling)
 * CMake options: (not in cmake-gui)
   * CMAKE_TOOLCHAIN_FILE: android.toolchain.cmake

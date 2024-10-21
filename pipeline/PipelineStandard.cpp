@@ -310,6 +310,15 @@ namespace osgVerse
         if (gbuffer && spp.enableDepthPartition)  // GBuffer is always depth-partition front
             gbuffer->depthPartition.set(1.0, spp.depthPartitionNearValue);
 
+        // User input module before any deferred passes
+        occasion = StandardPipelineParameters::BEFORE_DEFERRED_PASSES;
+        if (spp.enableUserInput && spp.userInputs.find(occasion) != spp.userInputs.end())
+        {
+            spp.applyUserInputStages(mainCam, p, occasion,
+                gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
+                gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+        }
+
         // Shadow module initialization
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =
             new osgVerse::ShadowModule("Shadow", p, spp.debugShadowModule);
@@ -495,14 +504,15 @@ namespace osgVerse
                                      gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
 
+        osgVerse::Pipeline::Stage* lastPostStage = shadowing;
         if (spp.enablePostEffects)
         {
             // Bloom stages: Brightness -> Downscaling x N -> Combine -> Bloom
             osgVerse::Pipeline::Stage* brighting = p->addDeferredStage("Brighting", 1.0f, false,
                 spp.shaders.quadVS, spp.shaders.brightnessFS, 1,
                 "BrightnessBuffer0", osgVerse::Pipeline::RGB_INT8);
-            brighting->applyBuffer("ColorBuffer", 0, p);
-            //brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
+            //brighting->applyBuffer("ColorBuffer", 0, p);
+            brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
             brighting->applyUniform(new osg::Uniform("BrightnessThreshold", 0.7f));
 
             std::vector<osgVerse::Pipeline::Stage*> downsamples;
@@ -560,6 +570,16 @@ namespace osgVerse
                 spp.shaders.quadVS, spp.shaders.antiAliasingFS, 1,
                 "AntiAliasedBuffer", osgVerse::Pipeline::RGB_INT8);
             antiAliasing->applyBuffer(*tonemapping, "ToneMappedBuffer", "ColorBuffer", 0);
+            lastPostStage = antiAliasing;
+        }
+
+        // User input module before final stage
+        occasion = StandardPipelineParameters::BEFORE_FINAL_STAGE;
+        if (spp.enableUserInput && spp.userInputs.find(occasion) != spp.userInputs.end())
+        {
+            spp.applyUserInputStages(mainCam, p, occasion,
+                lastPostStage->getBufferTexture(osg::Camera::COLOR_BUFFER),
+                gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
 
         // Final stage (color grading)

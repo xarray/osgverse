@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/BlendFunc>
 #include <osg/ComputeBoundsVisitor>
 #include <osgDB/ReadFile>
 #include <iostream>
@@ -25,7 +26,7 @@ namespace osgVerse
         {
             Pipeline::BufferDescriptions buffers;
             {
-                Pipeline::BufferDescription desc0(cName, osgVerse::Pipeline::RGBA_INT8);
+                Pipeline::BufferDescription desc0(cName, osgVerse::Pipeline::RGB_INT8);
 #ifdef VERSE_WASM
                 Pipeline::BufferDescription desc1(dName, osgVerse::Pipeline::DEPTH32);
 #else
@@ -45,7 +46,7 @@ namespace osgVerse
         else
         {
             Pipeline::Stage* stage = _pipeline->addInputStage(
-                getName(), cullMask, 0, vs, fs, 2, cName.c_str(), osgVerse::Pipeline::RGBA_INT8,
+                getName(), cullMask, 0, vs, fs, 2, cName.c_str(), osgVerse::Pipeline::RGB_INT8,
 #ifdef VERSE_WASM
                 dName.c_str(), osgVerse::Pipeline::DEPTH32);
 #else
