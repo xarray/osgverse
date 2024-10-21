@@ -31,14 +31,15 @@ static void EGLAPIENTRY eglErrorCallback(EGLenum error, const char* command, EGL
 static int getModKey()
 {
     SDL_Keymod modstates = SDL_GetModState();
-    if (modstates & KMOD_CAPS) return osgGA::GUIEventAdapter::MODKEY_CAPS_LOCK;
-    else if (modstates & KMOD_NUM) return osgGA::GUIEventAdapter::MODKEY_NUM_LOCK;
-    else if (modstates & KMOD_LCTRL) return osgGA::GUIEventAdapter::MODKEY_LEFT_CTRL;
-    else if (modstates & KMOD_RCTRL) return osgGA::GUIEventAdapter::MODKEY_RIGHT_CTRL;
-    else if (modstates & KMOD_LALT) return osgGA::GUIEventAdapter::MODKEY_LEFT_ALT;
-    else if (modstates & KMOD_RALT) return osgGA::GUIEventAdapter::MODKEY_RIGHT_ALT;
-    else if (modstates & KMOD_LSHIFT) return osgGA::GUIEventAdapter::MODKEY_LEFT_SHIFT;
-    else if (modstates & KMOD_RSHIFT) return osgGA::GUIEventAdapter::MODKEY_RIGHT_SHIFT;
+
+    if (modstates & KMOD_LCTRL) return osgGA::GUIEventAdapter::KEY_Control_L;
+    else if (modstates & KMOD_RCTRL) return osgGA::GUIEventAdapter::KEY_Control_R;
+    else if (modstates & KMOD_LALT) return osgGA::GUIEventAdapter::KEY_Alt_L;
+    else if (modstates & KMOD_RALT) return osgGA::GUIEventAdapter::KEY_Alt_R;
+    else if (modstates & KMOD_LSHIFT) return osgGA::GUIEventAdapter::KEY_Shift_L;
+    else if (modstates & KMOD_RSHIFT) return osgGA::GUIEventAdapter::KEY_Shift_R;
+    else if (modstates & KMOD_CAPS) return osgGA::GUIEventAdapter::KEY_Caps_Lock;
+    else if (modstates & KMOD_NUM) return osgGA::GUIEventAdapter::KEY_Num_Lock;
     else return 0;
 }
 
