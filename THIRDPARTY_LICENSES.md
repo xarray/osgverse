@@ -36,7 +36,6 @@
 | leveldb          | Embedded |           | verse_db           | BSD3         | https://github.com/google/leveldb |
 | libhv            | Embedded |           | verse_web          | BSD3         | https://github.com/ithewei/libhv |
 | lightmapper      | Embedded |           | -                  | -            | https://github.com/ands/lightmapper |
-| litehtml         | Embedded |           | UI                 | BSD3         | https://github.com/litehtml/litehtml |
 | marl             | Embedded |           | -                  | Apache2      | https://github.com/google/marl |
 | MeshOptimizer    | Embedded | 0.26      | Modeling           | MIT          | https://github.com/zeux/meshoptimizer |
 | mikktspace       | Embedded |           | Pipeline           | Public       | https://github.com/mmikk/MikkTSpace |
@@ -57,6 +56,7 @@
 | rapidxml         | Embedded |           | -                  | Boost / MIT  | https://rapidxml.sourceforge.net/ |
 | rasterizer       | Embedded |           | Pipeline           | -            | https://github.com/rawrunprotected/rasterizer |
 | recastnavigation | Embedded |           | AI                 | Zlib         | https://github.com/recastnavigation/recastnavigation |
+| rLottie          | Embedded | 0.2       | AI                 | MIT (+)      | https://github.com/Samsung/rlottie |
 | span             | Embedded |           | -                  | Boost        | https://github.com/tcbrindle/span |
 | sqlite3          | Embedded |           | -                  | Public       | https://www.sqlite.org/index.html |
 | stb              | Embedded |           | -                  | MIT / Public | https://github.com/nothings/stb |

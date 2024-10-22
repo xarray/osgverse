@@ -234,8 +234,18 @@ int main(int argc, char** argv)
     // Setup the pipeline
     osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "sunset.png");
     spp.enableUserInput = true;
+#   if false
+    spp.addUserInputStage("Forward2", EARTH_INPUT_MASK,
+                          osgVerse::StandardPipelineParameters::BEFORE_FINAL_STAGE,
+                          osgVerse::StandardPipelineParameters::DEPTH_PARTITION_BACK);
     spp.addUserInputStage("Forward", EARTH_INPUT_MASK,
-                          osgVerse::StandardPipelineParameters::BEFORE_POSTEFFECTS);
+                          osgVerse::StandardPipelineParameters::BEFORE_FINAL_STAGE,
+                          osgVerse::StandardPipelineParameters::DEPTH_PARTITION_FRONT);
+#   else
+    spp.addUserInputStage("Forward", EARTH_INPUT_MASK,
+                          osgVerse::StandardPipelineParameters::BEFORE_FINAL_STAGE);
+#   endif
+
 #   ifdef VERSE_GLES_DESKTOP
     spp.withEmbeddedViewer = true;
 #   endif

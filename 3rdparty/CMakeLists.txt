@@ -390,26 +390,18 @@ SET(BLEND2D_SOURCE_FILES
     blend2d/unicode/unicode.cpp blend2d/unicode/unicode_test.cpp
 )
 
-SET(LITEHTML_SOURCE_FILES
-    litehtml.h litehtml/html.h litehtml/document.h litehtml/html_tag.h litehtml/stylesheet.h litehtml/element.h
-    litehtml/utf8_strings.h litehtml/codepoint.cpp litehtml/css_length.cpp litehtml/css_selector.cpp
-	litehtml/css_tokenizer.cpp litehtml/css_parser.cpp litehtml/document.cpp litehtml/document_container.cpp
-	litehtml/el_anchor.cpp litehtml/el_base.cpp litehtml/el_before_after.cpp litehtml/el_body.cpp
-	litehtml/el_break.cpp litehtml/el_cdata.cpp litehtml/el_comment.cpp litehtml/el_div.cpp litehtml/element.cpp
-	litehtml/el_font.cpp litehtml/el_image.cpp litehtml/el_link.cpp litehtml/el_para.cpp litehtml/el_script.cpp
-	litehtml/el_space.cpp litehtml/el_style.cpp litehtml/el_table.cpp litehtml/el_td.cpp litehtml/el_text.cpp
-	litehtml/el_title.cpp litehtml/el_tr.cpp litehtml/encodings.cpp litehtml/html.cpp litehtml/html_tag.cpp
-	litehtml/html_microsyntaxes.cpp litehtml/iterators.cpp litehtml/media_query.cpp litehtml/style.cpp
-	litehtml/stylesheet.cpp litehtml/table.cpp litehtml/tstring_view.cpp litehtml/url.cpp litehtml/url_path.cpp
-	litehtml/utf8_strings.cpp litehtml/web_color.cpp litehtml/num_cvt.cpp litehtml/strtod.cpp litehtml/string_id.cpp
-	litehtml/css_properties.cpp litehtml/line_box.cpp litehtml/css_borders.cpp litehtml/render_item.cpp
-	litehtml/render_block_context.cpp litehtml/render_block.cpp litehtml/render_inline_context.cpp litehtml/render_table.cpp
-	litehtml/render_flex.cpp litehtml/render_image.cpp litehtml/formatting_context.cpp litehtml/flex_item.cpp
-	litehtml/flex_line.cpp litehtml/background.cpp litehtml/gradient.cpp
-
-    litehtml/gumbo/attribute.c litehtml/gumbo/char_ref.c litehtml/gumbo/error.c litehtml/gumbo/parser.c
-    litehtml/gumbo/string_buffer.c litehtml/gumbo/string_piece.c litehtml/gumbo/tag.c litehtml/gumbo/tokenizer.c
-    litehtml/gumbo/utf8.c litehtml/gumbo/util.c litehtml/gumbo/vector.c
+SET(RLOTTIE_SOURCE_FILES
+    rlottie/rlottie.h rlottie/rlottie_capi.h rlottie/rlottiecommon.h rlottie/lottieanimation_capi.cpp
+    rlottie/vector/vrect.cpp rlottie/vector/vdasher.cpp rlottie/vector/vbrush.cpp rlottie/vector/vbitmap.cpp
+    rlottie/vector/vpainter.cpp rlottie/vector/vdrawhelper_common.cpp rlottie/vector/vdrawhelper.cpp
+    rlottie/vector/vdrawhelper_sse2.cpp rlottie/vector/vdrawhelper_neon.cpp rlottie/vector/vrle.cpp
+    rlottie/vector/vpath.cpp rlottie/vector/vpathmesure.cpp rlottie/vector/vmatrix.cpp rlottie/vector/velapsedtimer.cpp
+    rlottie/vector/vdebug.cpp rlottie/vector/vinterpolator.cpp rlottie/vector/vbezier.cpp rlottie/vector/vraster.cpp
+    rlottie/vector/vdrawable.cpp rlottie/vector/vimageloader.cpp rlottie/vector/varenaalloc.cpp
+    rlottie/vector/v_ft_math.cpp rlottie/vector/v_ft_raster.cpp rlottie/vector/v_ft_stroker.cpp
+    rlottie/lottie/lottieitem.cpp rlottie/lottie/lottieitem_capi.cpp rlottie/lottie/lottieloader.cpp
+    rlottie/lottie/lottiemodel.cpp rlottie/lottie/lottieproxymodel.cpp rlottie/lottie/lottieparser.cpp
+    rlottie/lottie/lottieanimation.cpp rlottie/lottie/lottiekeypath.cpp rlottie/lottie/zip/zip.cpp
 )
 
 SET(TWEENY_SOURCE_FILES
@@ -467,7 +459,6 @@ SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
 SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
-SOURCE_GROUP("LiteHTML Files" FILES ${LITEHTML_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
 SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
@@ -476,6 +467,7 @@ SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
 SOURCE_GROUP("Rasterizer Files" FILES ${RASTERIZER_SOURCE_FILES})
+SOURCE_GROUP("RLottie Files" FILES ${RLOTTIE_SOURCE_FILES})
 SOURCE_GROUP("QuickJS Files" FILES ${QUICKJS_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
@@ -486,7 +478,7 @@ SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp VHACD.h
     backward.hpp strtk.hpp ghc/filesystem.hpp rapidxml/rapidxml.hpp rapidjson/rapidjson.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h
-    sqlite3.c sqlite3.h miniz.c miniz.h ofbx.cpp ofbx.h tinyexr.cc tinyexr.h dkm_parallel.hpp
+    sqlite3.c sqlite3.h miniz.h ofbx.cpp ofbx.h tinyexr.cc tinyexr.h dkm_parallel.hpp
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp
 	mimalloc/static.c mimalloc/mimalloc.h mimalloc/mimalloc-new-delete.h lsqcpp.hpp
 	lightmapper.h xatlas.cpp xatlas.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp
@@ -496,7 +488,7 @@ SET(LIBRARY_FILES
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
-    ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${LITEHTML_SOURCE_FILES}
+    ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES}
     ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES} ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${QUICKJS_SOURCE_FILES}
 )
 
@@ -505,7 +497,7 @@ IF(LIBIGL_FOUND)
 ENDIF(LIBIGL_FOUND)
 
 IF(USE_WASM_OPTIONS)
-    #
+    SET(LIBRARY_FILES ${LIBRARY_FILES} rlottie/rlottiewasm.cpp)
 ELSEIF(ANDROID)
     #
 ELSEIF(IOS)
@@ -515,7 +507,7 @@ ELSE()
 ENDIF()
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS -DBL_STATIC -DBL_BUILD_NO_JIT
-                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS -DRLOTTIE_BUILD=0
                 -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0
 				-DIMGUI_IMPL_OPENGL_LOADER_GLEW -DUNORDERED -DHAVE_UNORDERED_MAP=1)
@@ -567,9 +559,6 @@ ENDIF(NOT USE_WASM_OPTIONS)
 
 IF(WIN32)
     ADD_DEFINITIONS(-DLEVELDB_PLATFORM_WINDOWS)
-    IF(MSVC)
-        INCLUDE_DIRECTORIES(litehtml/gumbo/visualc)
-    ENDIF(MSVC)
 ELSE()
     ADD_DEFINITIONS(-DLEVELDB_PLATFORM_POSIX)
 ENDIF()
@@ -581,7 +570,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    quadriflow recastnavigation/Detour litehtml quickjs
+                    quadriflow recastnavigation/Detour rlottie rlottie/vector quickjs
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
