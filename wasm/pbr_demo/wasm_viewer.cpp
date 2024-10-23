@@ -1,4 +1,3 @@
-#include <emscripten.h>
 #include <SDL2/SDL.h>
 #include "wasm_viewer.h"
 
@@ -138,6 +137,10 @@ int main(int argc, char** argv)
     // Start the main loop
     atexit(SDL_Quit);
     g_app->setViewer(viewer);
+    emscripten_set_fullscreenchange_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, g_app.get(), 1, Application::fullScreenCallback);
+    emscripten_set_webglcontextlost_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, g_app.get(), 1, &Application::contextLostCallback);
+    emscripten_set_webglcontextrestored_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, g_app.get(), 1, &Application::contextRestoredCallback);
+    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, g_app.get(), 1, &Application::canvasWindowResized);
     emscripten_set_main_loop(loop, -1, 0);
     return 0;
 }

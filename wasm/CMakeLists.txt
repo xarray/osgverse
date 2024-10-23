@@ -47,9 +47,9 @@ SET(WASM_FLAGS1 "-s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL
 
 # https://developer.chrome.com/blog/faster-wasm-debugging
 IF(VERSE_WASM_OPTIMIZE_SIZE)
-    SET(WASM_FLAGS2 "-s ALLOW_MEMORY_GROWTH=1 -Oz")
+    SET(WASM_FLAGS2 "-s INITIAL_MEMORY=2GB -Oz")
 ELSE(VERSE_WASM_OPTIMIZE_SIZE)
-    SET(WASM_FLAGS2 "-fsanitize=address -gsource-map -s ALLOW_MEMORY_GROWTH=1 -s ASYNCIFY_STACK_SIZE=24576 -O0")
+    SET(WASM_FLAGS2 "-fsanitize=address -gsource-map -s INITIAL_MEMORY=2GB -s ASYNCIFY_STACK_SIZE=24576 -O0")
 ENDIF(VERSE_WASM_OPTIMIZE_SIZE)
 
 ADD_SUBDIRECTORY(pbr_demo)

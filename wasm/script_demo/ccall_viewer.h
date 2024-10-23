@@ -1,6 +1,9 @@
 #ifndef MANA_APP_JSCALLERWASM_HPP
 #define MANA_APP_JSCALLERWASM_HPP
 
+#include <emscripten.h>
+#include <emscripten/html5.h>
+
 #include <osg/io_utils>
 #include <osg/Material>
 #include <osg/Texture2D>
@@ -59,6 +62,37 @@ public:
     {
         osg::setNotifyHandler(NULL);
         _viewer = NULL; _logger = NULL; _scripter = NULL;
+    }
+
+    static EM_BOOL canvasWindowResized(int eventType, const EmscriptenUiEvent* event, void* userData)
+    {
+        // FIXME: affected by fullScreenCallback?
+        return EMSCRIPTEN_RESULT_SUCCESS;
+    }
+
+    static EM_BOOL fullScreenCallback(int eventType, const EmscriptenFullscreenChangeEvent* event, void* userData)
+    {
+        Application* app = (Application*)userData;
+        int width = event->isFullscreen ? event->screenWidth : 800;
+        int height = event->isFullscreen ? event->screenHeight : 600;
+        app->_viewer->getCamera()->getGraphicsContext()->resized(0, 0, width, height);
+        app->_viewer->getEventQueue()->windowResize(0, 0, width, height);
+        std::cout << "fullScreenCallback: " << width << "x" << height << std::endl;
+        return EMSCRIPTEN_RESULT_SUCCESS;
+    }
+
+    static EM_BOOL contextLostCallback(int eventType, const void* reserved, void* userData)
+    {
+        // TODO
+        std::cout << "contextLostCallback: " << eventType << std::endl;
+        return EMSCRIPTEN_RESULT_SUCCESS;
+    }
+
+    static EM_BOOL contextRestoredCallback(int eventType, const void* reserved, void* userData)
+    {
+        // TODO
+        std::cout << "contextRestoredCallback: " << eventType << std::endl;
+        return EMSCRIPTEN_RESULT_SUCCESS;
     }
 
     osgVerse::JsonScript* scripter() { return _scripter.get(); }

@@ -23,7 +23,6 @@
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr |
 | gainput          | Embedded |           | -                  | MIT          | https://github.com/jkuhlmann/gainput |
 | ghc_filesystem   | Embedded |           | -                  | MIT          | https://github.com/gulrak/filesystem |
-| ImFileDialog     | Embedded |           | UI                 | MIT          | https://github.com/dfranx/ImFileDialog |
 | imgui            | Embedded | 1.83      | UI, App            | MIT          | https://github.com/ocornut/imgui |
 | ImGuizmo         | Embedded |           | UI                 | MIT          | https://github.com/CedricGuillemet/ImGuizmo |
 | imnode-editor    | Embedded |           | UI                 | MIT          | https://github.com/thedmd/imgui-node-editor |
