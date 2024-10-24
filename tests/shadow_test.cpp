@@ -22,22 +22,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <microprofile.h>
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
-
-class MyViewer : public osgViewer::Viewer
-{
-public:
-    MyViewer(osgVerse::Pipeline* p) : osgViewer::Viewer(), _pipeline(p) {}
-    osg::ref_ptr<osgVerse::Pipeline> _pipeline;
-
-protected:
-    virtual osg::GraphicsOperation* createRenderer(osg::Camera* camera)
-    {
-        if (_pipeline.valid()) return _pipeline->createRenderer(camera);
-        else return osgViewer::Viewer::createRenderer(camera);
-    }
-};
 
 int main(int argc, char** argv)
 {
@@ -131,6 +118,7 @@ int main(int argc, char** argv)
         }
         light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
         viewer.frame();
+        MicroProfileFlip(NULL);  // see localhost:1338
     }
     return 0;
 }

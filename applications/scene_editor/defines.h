@@ -85,12 +85,11 @@ USE_SERIALIZER_INTERFACE(VECTOR)
 class EditorContentHandler : public osgVerse::ImGuiContentHandler
 {
 public:
-    EditorContentHandler(osgViewer::View* view, osg::Group* root);
+    EditorContentHandler();
     osgVerse::Window* getHierarchy() { return _hierarchy.get(); }
     osgVerse::Window* getProperties() { return _properties.get(); }
     osgVerse::MainMenuBar* getMainMenu() { return _mainMenu.get(); }
 
-    void handleCommands();
     virtual void runInternal(osgVerse::ImGuiManager* mgr);
 
 protected:

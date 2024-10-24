@@ -137,12 +137,6 @@ SceneHierarchy::SceneHierarchy()
     {
         MenuBar::MenuItemData newItem = createPopupMenu("Add Child");
         {
-            newItem.subItems.push_back(createPopupMenu("Group",
-                [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
-            {
-                if (!addOperation(_selectedItem.get(), "osg::Group"))
-                    OSG_WARN << "[SceneHierarchy] Failed adding group: " << _selectedItem->name << std::endl;
-            }));
             newItem.subItems.push_back(createPopupMenu("Transform",
                 [&](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase* me)
             {

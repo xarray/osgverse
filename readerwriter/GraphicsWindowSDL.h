@@ -53,6 +53,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Referenced> _vulkanObjects;
         SDL_Window* _sdlWindow;
         void *_glContext, * _glDisplay, *_glSurface;
+        int _lastKey, _lastModKey;
         bool _valid, _realized;
     };
 }

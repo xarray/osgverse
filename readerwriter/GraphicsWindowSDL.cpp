@@ -138,7 +138,8 @@ protected:
 };
 
 GraphicsWindowSDL::GraphicsWindowSDL(osg::GraphicsContext::Traits* traits)
-:   _glContext(NULL), _glDisplay(NULL), _glSurface(NULL), _valid(false), _realized(false)
+:   _glContext(NULL), _glDisplay(NULL), _glSurface(NULL),
+    _lastKey(0), _lastModKey(0), _valid(false), _realized(false)
 {
     _traits = traits; initialize();
     if (valid())
@@ -458,9 +459,21 @@ void GraphicsWindowSDL::checkEvents()
             if (event.wheel.y < 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN);
             else if (event.wheel.y > 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP); break;
         case SDL_KEYUP:
-            eq->keyRelease(getKey(event.key.keysym.sym), getModKey()); break;
+            {
+                int key = getKey(event.key.keysym.sym), state = event.key.keysym.mod;
+                if (state > 0) eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)key, 0);  // keep mod-key
+                else if (state == 0) eq->getCurrentEventState()->setModKeyMask(0);
+                _lastKey = 0; _lastModKey = 0;
+            } break;
         case SDL_KEYDOWN:
-            eq->keyPress(getKey(event.key.keysym.sym), getModKey()); break;
+            {
+                int key = getKey(event.key.keysym.sym), mod = getModKey();
+                if (key != _lastKey || mod != _lastModKey)
+                {
+                    eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)key, mod);
+                    _lastKey = key; _lastModKey = mod;
+                }
+            } break;
         case SDL_WINDOWEVENT:
             if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
             {

@@ -87,10 +87,11 @@ public:
     }
 };
 
-EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* root)
+EditorContentHandler::EditorContentHandler()
     : _uiFrameNumber(0)
 {
     osgVerse::SerializerFactory* factory = osgVerse::SerializerFactory::instance();
+    factory->registerBlacklist("DataVariance", NULL);
     factory->registerBlacklist("UserDataContainer", NULL);
     factory->registerBlacklist("ComputeBoundingSphereCallback", NULL);
     factory->registerBlacklist("ComputeBoundingBoxCallback", NULL);
@@ -100,16 +101,14 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
     factory->registerBlacklist("UseDisplayList", NULL);
     factory->registerBlacklist("UseVertexBufferObjects", NULL);
 
-#ifdef ORIGIN_CODE
     _mainMenu = new osgVerse::MainMenuBar;
     _mainMenu->userData = this;
     createEditorMenu1();
     createEditorMenu2();
     createEditorMenu3();
-#endif
 
     _navigationData = new osgVerse::SceneNavigation;
-    _navigationData->setCamera(view->getCamera());
+    _navigationData->setCamera(g_data.view->getCamera());
     _navigationData->setTransformAction([this](osgVerse::SceneNavigation* nav, osg::Transform* t)
     {
         // Notify properties
@@ -117,15 +116,17 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
     });
 
     _hierarchyData = new osgVerse::SceneHierarchy;
-    _hierarchyData->setViewer(view, root);
+    _hierarchyData->setViewer(g_data.view.get(), g_data.sceneRoot.get());
     _hierarchyData->setItemClickAction(
         [this](osgVerse::TreeView* tree, osgVerse::TreeView::TreeData* item) {
             osg::Object* obj = osgVerse::SceneDataProxy::get<osg::Object*>(item->userData.get());
+            g_data.selector->clearAllSelectedNodes();
             if (obj != NULL)
             {
                 _entry = osgVerse::SerializerFactory::instance()
                        ->createInterfaces(obj, NULL, _interfaces);
                 _navigationData->setSelection(dynamic_cast<osg::Transform*>(obj));
+                g_data.selector->addSelectedNode(dynamic_cast<osg::Node*>(obj));
             }
             else
                 _interfaces.clear();
@@ -137,29 +138,29 @@ EditorContentHandler::EditorContentHandler(osgViewer::View* view, osg::Group* ro
         });
 
     _hierarchy = new osgVerse::Window(TR0("Hierarchy") + "##editor");
-    _hierarchy->pos = osg::Vec2(0.0f, 0.0f);
+    _hierarchy->pos = osg::Vec2(0.0f, 0.02f);
     _hierarchy->size = osg::Vec2(0.15f, 0.75f);
     _hierarchy->alpha = 0.9f;
     _hierarchy->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _hierarchy->userData = this;
 
     _navigation = new osgVerse::Window(TR0("Navigation") + "##editor");
-    _navigation->pos = osg::Vec2(0.2f, 0.0f);
+    _navigation->pos = osg::Vec2(0.2f, 0.02f);
     _navigation->size = osg::Vec2(0.55f, 0.1f);
     _navigation->alpha = 0.0f; _navigation->withBorder = false;
     _navigation->flags = ImGuiWindowFlags_NoDecoration;
     _navigation->userData = this;
 
     _properties = new osgVerse::Window(TR0("Properties") + "##editor");
-    _properties->pos = osg::Vec2(0.75f, 0.0f);
+    _properties->pos = osg::Vec2(0.75f, 0.02f);
     _properties->size = osg::Vec2(0.25f, 0.75f);
     _properties->alpha = 0.9f;
     _properties->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _properties->userData = this;
 
     // TEST
-    root->addChild(osgDB::readNodeFile("cessna.osg"));
-    _hierarchyData->addItem(NULL, root);
+    g_data.sceneRoot->addChild(osgDB::readNodeFile("cessna.osg"));
+    _hierarchyData->addItem(NULL, g_data.sceneRoot.get());
 }
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
@@ -192,38 +193,9 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
         _properties->showEnd();
     }
 
+    _mainMenu->show(mgr, this);
     ImGui::PopFont();
     _uiFrameNumber++;
-}
-
-void EditorContentHandler::handleCommands()
-{
-#ifdef ORIGIN_CODE
-    osgVerse::CommandData cmd;
-    while (osgVerse::CommandBuffer::instance()->take(cmd, false))
-    {
-        switch (cmd.type)
-        {
-        case osgVerse::ResizeEditor:
-            if (_hierarchy.valid()) _hierarchy->getWindow()->sizeApplied = false;
-            if (_properties.valid()) _properties->getWindow()->sizeApplied = false;
-            if (_sceneLogic.valid()) _sceneLogic->getWindow()->sizeApplied = false;
-            break;
-        case osgVerse::RefreshHierarchy:
-            if (!_hierarchy->handleCommand(&cmd))
-                OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy" << std::endl;
-            break;
-        case osgVerse::RefreshHierarchyItem:
-            if (!_hierarchy->handleItemCommand(&cmd))
-                OSG_WARN << "[EditorContentHandler] Failed to refresh hierarchy item" << std::endl;
-            break;
-        case osgVerse::RefreshProperties:
-            if (!_properties->handleCommand(&cmd))
-                OSG_WARN << "[EditorContentHandler] Failed to refresh properties" << std::endl;
-            break;
-        }
-    }
-#endif
 }
 
 int main(int argc, char** argv)
@@ -321,7 +293,7 @@ int main(int argc, char** argv)
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
-    imgui->initialize(new EditorContentHandler(&viewer, sceneRoot.get()));
+    imgui->initialize(new EditorContentHandler());
     imgui->addToView(&viewer, postCamera.get());
     return viewer.run();
 }

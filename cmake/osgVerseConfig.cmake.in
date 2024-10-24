@@ -87,6 +87,6 @@ IF(osgVerse_INCLUDE_DIR AND osgVerse_LIB_DIR)
 
     SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES} ${OPENGL_gl_LIBRARY})
     IF(WIN32)
-        SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES} imm32 Ole32 OleAut32)
+        SET(osgVerse_LIBRARIES ${osgVerse_LIBRARIES} Ws2_32 imm32 Ole32 OleAut32)
     ENDIF(WIN32)
 ENDIF(osgVerse_INCLUDE_DIR AND osgVerse_LIB_DIR)
