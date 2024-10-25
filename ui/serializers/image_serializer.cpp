@@ -9,6 +9,8 @@ public:
     {
     }
 
+    virtual ItemType getType() const { return ObjectType; };
+
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         if (isDirty())

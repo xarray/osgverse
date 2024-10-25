@@ -13,6 +13,8 @@ public:
         { if (_entry->setProperty(_object.get(), _property.name, _input->value)) doneEditing(); };
     }
 
+    virtual ItemType getType() const { return StringType; };
+
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         if (isDirty()) _entry->getProperty(_object.get(), _property.name, _input->value);

@@ -315,14 +315,23 @@ namespace osgVerse
             image->setInternalTextureFormat(tex->glInternalformat);
         }
         memcpy(image->data(), imgData, imgDataSize);
+
+        // Update custom mipmaps
+        unsigned int numLevels = texture->numLevels;
+        for (unsigned int i = 1; i < numLevels; ++i)
+        {
+            ktxTexture_GetImageOffset(texture, i, layer, face, &offset);
+            imgData = ktxTexture_GetData(texture) + offset;
+            imgDataSize = ktxTexture_GetImageSize(texture, i);
+            // TODO
+        }
         return image;
     }
 
     static std::vector<osg::ref_ptr<osg::Image>> loadKtxFromObject(
             ktxTexture* texture, const osgDB::Options* opt)
     {
-        std::vector<osg::ref_ptr<osg::Image>> resultArray;
-        ktx_uint32_t numLevels = texture->numLevels; ktx_size_t imgSize = 0;
+        std::vector<osg::ref_ptr<osg::Image>> resultArray; ktx_size_t imgSize = 0;
         if (texture->classId == ktxTexture2_c)
             imgSize = ktxTexture_calcImageSize(texture, 0, KTX_FORMAT_VERSION_TWO);
         else
@@ -363,7 +372,7 @@ namespace osgVerse
             file.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture);
         if (result != KTX_SUCCESS)
         {
-            OSG_WARN << "[LoaderKTX] Unable to read from KTX file: " << file << "\n";
+            OSG_WARN << "[LoaderKTX] Unable to read from: " << file << ": " << result << "\n";
             return std::vector<osg::ref_ptr<osg::Image>>();
         }
         return loadKtxFromObject(texture, opt);
@@ -381,13 +390,13 @@ namespace osgVerse
             KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture);
         if (result != KTX_SUCCESS)
         {
-            OSG_WARN << "[LoaderKTX] Unable to read from KTX stream\n";
+            OSG_WARN << "[LoaderKTX] Unable to read from stream: " << result << "\n";
             return std::vector<osg::ref_ptr<osg::Image>>();
         }
         return loadKtxFromObject(texture, opt);
     }
 
-    static ktxTexture* saveImageToKtx(const std::vector<osg::Image*>& images, bool asCubeMap,
+    static ktxTexture* saveImageToKtx(const std::vector<osg::Image*>& images, bool mipmaps, bool asCubeMap,
                                       bool useBASISU, bool useUASTC = false, int basisuThreadCount = 1,
                                       int basisuCompressLv = 2, int basisuQualityLv = 128)
     {
@@ -404,11 +413,11 @@ namespace osgVerse
         createInfo.baseHeight = image0->t();
         createInfo.baseDepth = image0->r();
         createInfo.numDimensions = (image0->r() > 1) ? 3 : ((image0->t() > 1) ? 2 : 1);
-        createInfo.numLevels = 1;  // FIXME: always omit mipmaps?
+        createInfo.numLevels = 1;
         createInfo.numLayers = asCubeMap ? 1 : images.size();
         createInfo.numFaces = asCubeMap ? images.size() : 1;
         createInfo.isArray = (images.size() > 1) ? KTX_TRUE : KTX_FALSE;
-        createInfo.generateMipmaps = KTX_FALSE;
+        createInfo.generateMipmaps = mipmaps ? KTX_TRUE : KTX_FALSE;
         if (createInfo.vkFormat == 0)
         {
             OSG_WARN << "[LoaderKTX] No VkFormat for GL internal format: "
@@ -451,9 +460,9 @@ namespace osgVerse
             ktxBasisParams params = { 0 };
             params.structSize = sizeof(params);
             params.uastc = useUASTC ? KTX_TRUE : KTX_FALSE;
-            params.compressionLevel = basisuCompressLv;
-            params.qualityLevel = basisuQualityLv;
-            params.threadCount = basisuThreadCount;
+            params.compressionLevel = basisuCompressLv > 0 ? basisuCompressLv : 128;
+            params.qualityLevel = basisuQualityLv > 0 ? basisuQualityLv : 1;
+            params.threadCount = basisuThreadCount > 0 ? basisuThreadCount : 1;
             result = ktxTexture2_CompressBasisEx((ktxTexture2*)texture, &params);
             if (result != KTX_SUCCESS)
             {
@@ -469,17 +478,19 @@ namespace osgVerse
     {
         if (opt != NULL)
         {
+            std::string useMipmaps = opt->getPluginStringData("UseMipmaps");
             std::string useBASISU = opt->getPluginStringData("UseBASISU");
             std::string useUASTC = opt->getPluginStringData("UseUASTC");
             std::string threadCount = opt->getPluginStringData("ThreadCount");
             std::string compressLv = opt->getPluginStringData("CompressLevel");
             std::string qualityLv = opt->getPluginStringData("QualityLevel");
-            return saveImageToKtx(images, asCubeMap, atoi(useBASISU.c_str()) > 0,
+            return saveImageToKtx(images, atoi(useMipmaps.c_str()) > 0,
+                                  asCubeMap, atoi(useBASISU.c_str()) > 0,
                                   atoi(useUASTC.c_str()) > 0, atoi(threadCount.c_str()),
                                   atoi(compressLv.c_str()), atoi(qualityLv.c_str()));
         }
         else
-            return saveImageToKtx(images, asCubeMap, false, false);
+            return saveImageToKtx(images, false, asCubeMap, false, false);
     }
 
     bool saveKtx(const std::string& file, bool asCubeMap, const osgDB::Options* opt,

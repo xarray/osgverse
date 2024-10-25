@@ -12,7 +12,14 @@ namespace osgVerse
     class SerializerBaseItem : public ImGuiComponentBase
     {
     public:
+        enum ItemType
+        {
+            GenericType = 0, ObjectType, StringType,
+            VectorType, ListType
+        };
         SerializerBaseItem(osg::Object* obj, bool composited);
+
+        virtual ItemType getType() const { return GenericType; };
         virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual int createSpiderNode(SpiderEditor* spider, bool getter, bool setter) = 0;
 
@@ -26,6 +33,7 @@ namespace osgVerse
 
     protected:
         virtual bool showInternal(ImGuiManager* mgr, ImGuiContentHandler* content, const std::string& title);
+        virtual void showMenuItems(ImGuiManager* mgr, ImGuiContentHandler* content);
         std::string tooltip(const LibraryEntry::Property& prop, const std::string& postfix = "") const;
 
         osg::observer_ptr<osg::Object> _object;

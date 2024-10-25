@@ -9,6 +9,8 @@ public:
     {
     }
 
+    virtual ItemType getType() const { return ObjectType; };
+
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         if (isDirty())
@@ -32,6 +34,15 @@ public:
     }
 
 protected:
+    virtual void showMenuItems(ImGuiManager* mgr, ImGuiContentHandler* content)
+    {
+        if (ImGui::MenuItem(TR(_valueObject.valid() ? "Delete" : "Create").c_str()))
+        {
+            // TODO
+        }
+        SerializerInterface::showMenuItems(mgr, content);
+    }
+
     osg::observer_ptr<osg::Object> _valueObject;
     osg::ref_ptr<LibraryEntry> _valueEntry;
     std::vector<osg::ref_ptr<SerializerBaseItem>> _serializerUIs;

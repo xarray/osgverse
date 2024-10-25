@@ -18,6 +18,8 @@ public:
         };
     }
 
+    virtual ItemType getType() const { return VectorType; };
+
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         if (isDirty())

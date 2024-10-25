@@ -30,12 +30,8 @@ bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* co
 
     if (ImGui::BeginPopup((title + "_Popup").c_str()))
     {
-        // TODO: up/down/edit/delete for custom interface
-        int selection = 0;
-        if (ImGui::MenuItem(TR(_selected ? "Unselect" : "Select").c_str())) selection = 1;
+        showMenuItems(mgr, content);
         ImGui::EndPopup();
-
-        if (selection) _selected = !_selected;  // FIXME: just for test
     }
 
     const static float popUpButtonIndent = 30.0f; ImGui::Indent(popUpButtonIndent);
@@ -46,6 +42,15 @@ bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* co
         if (_composited) ImGui::Unindent(_indent);
     }
     ImGui::Unindent(popUpButtonIndent); return toOpen;
+}
+
+void SerializerBaseItem::showMenuItems(ImGuiManager* mgr, ImGuiContentHandler* content)
+{
+    if (ImGui::MenuItem(TR(_selected ? "Unselect" : "Select").c_str()))
+    {
+        // FIXME: just for test
+        _selected = !_selected;
+    }
 }
 
 std::string SerializerBaseItem::tooltip(const LibraryEntry::Property& prop,

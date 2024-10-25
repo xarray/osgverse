@@ -13,6 +13,8 @@ public:
         //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
     }
 
+    virtual ItemType getType() const { return ListType; };
+
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         //if (isDirty()) _entry->getProperty(_object.get(), _property.name, _check->value);
