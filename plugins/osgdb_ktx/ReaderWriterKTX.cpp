@@ -17,7 +17,6 @@ public:
         supportsOption("SavingCubeMap", "Save KTX cubemap data: default=0");
         supportsOption("UseBASISU", "Save with BASISU encoder: default=0");
         supportsOption("UseUASTC", "Save with UASTC (1), or ETC1S (0): default=0");
-        supportsOption("UseMipmaps", "Save mipmaps: default=0");
         supportsOption("ThreadCount", "Number of threads used for compression: default=1");
         supportsOption("CompressLevel", "Encoding speed vs. quality tradeoff [0-5]: default=1");
         supportsOption("QualityLevel", "Compression quality [1,255]: default=128");

@@ -1,10 +1,14 @@
+#include <osg/StateSet>
+#include <osg/Texture1D>
+#include <osg/Texture2D>
+#include <osg/Texture3D>
 #include "../SerializerInterface.h"
 using namespace osgVerse;
 
-class ObjectSerializerInterface : public SerializerInterface
+class StateSetSerializerInterface : public SerializerInterface
 {
 public:
-    ObjectSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
+    StateSetSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
         : SerializerInterface(obj, entry, prop, true)
     {
     }
@@ -17,7 +21,7 @@ public:
         {
             osg::Object* newValue = NULL;
             _entry->getProperty(_object.get(), _property.name, newValue);
-            _valueObject = newValue;
+            _valueObject = newValue; _serializerUIs.clear();
 
             SerializerFactory* factory = SerializerFactory::instance();
             if (_valueObject.valid())
@@ -35,7 +39,14 @@ public:
 protected:
     virtual void showMenuItems(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        /*if (ImGui::MenuItem(TR(_valueObject.valid() ? "Delete" : "Create").c_str())) {}*/
+        if (ImGui::MenuItem(TR(_valueObject.valid() ? "Delete" : "Create").c_str()))
+        {
+            if (!_valueObject)
+                _valueObject = _entry->callMethod(_object.get(), "getOrCreateStateSet");
+            else
+                _entry->setProperty(_object.get(), _property.name, (osg::Object*)NULL);
+            dirty();
+        }
         SerializerInterface::showMenuItems(mgr, content);
     }
 
@@ -44,4 +55,4 @@ protected:
     std::vector<osg::ref_ptr<SerializerBaseItem>> _serializerUIs;
 };
 
-REGISTER_SERIALIZER_INTERFACE(OBJECT, ObjectSerializerInterface)
+REGISTER_SERIALIZER_INTERFACE2(StateSet, NULL, StateSetSerializerInterface)

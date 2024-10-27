@@ -10,6 +10,7 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     serializers/enum_serializer.cpp serializers/matrix_serializer.cpp
     serializers/quat_serializer.cpp serializers/bound_serializer.cpp
     serializers/list_serializer.cpp serializers/empty_serializer.cpp
+    serializers/stateset_serializer.cpp
 	compontents/SpiderEditor.cpp compontents/Timeline.cpp
 	compontents/VirtualKeyboard.cpp
 )

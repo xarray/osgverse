@@ -55,10 +55,10 @@ namespace osgVerse
         virtual void apply(osg::Drawable& drawable);
         virtual void apply(osg::Geode& geode);
         virtual void apply(osg::Node& node);
+        void applyTextureAttributes(osg::StateSet* ssPtr);
 
     protected:
-        void applyTextureAttributes(osg::StateSet* ssPtr);
-        void applyTexture(osg::Texture* tex, unsigned int unit);
+        virtual void applyTexture(osg::Texture* tex, unsigned int unit);
         osg::Image* compressImage(osg::Texture* tex, osg::Image* img, bool toLoad);
 
         osg::ref_ptr<osgDB::Options> _ktxOptions;

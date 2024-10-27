@@ -313,8 +313,7 @@ void TextureOptimizer::applyTexture(osg::Texture* tex, unsigned int unit)
     {
         // Copy to original image as it may be shared by other textures
         osg::ref_ptr<osg::Image> image0 = tex2D->getImage();
-        osg::ref_ptr<osg::Image> image1 = compressImage(
-                tex, image0.get(), !_preparingForInlineFile);
+        osg::ref_ptr<osg::Image> image1 = compressImage(tex, image0.get(), !_preparingForInlineFile);
         if (!image1 || (image1.valid() && !image1->valid())) return;
         image0->allocateImage(image1->s(), image1->t(), image1->r(),
                               image1->getPixelFormat(), image1->getDataType(),

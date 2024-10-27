@@ -260,9 +260,17 @@ namespace osgVerse
             transcoded = (result == KTX_SUCCESS);
         }
 
-        ktx_size_t offset = 0; ktxTexture_GetImageOffset(texture, 0, layer, face, &offset);
-        ktx_uint8_t* imgData = ktxTexture_GetData(texture) + offset;
+        // Compute mipmap level offsets and total size
+        osg::Image::MipmapDataType mipmapData;
+        ktx_size_t numLevels = texture->numLevels, totalImageSize = 0;
+        for (ktx_size_t i = 0; i < numLevels; ++i)
+        {
+            ktx_size_t offset = 0; ktxTexture_GetImageOffset(texture, i, layer, face, &offset);
+            totalImageSize += ktxTexture_GetImageSize(texture, i);
+            if (i > 0) mipmapData.push_back(offset);
+        }
 
+        // Allocate image
         osg::ref_ptr<osg::Image> image = new osg::Image;
         if (texture->classId == ktxTexture2_c)
         {
@@ -297,8 +305,8 @@ namespace osgVerse
                 imgDataSize = ktxTexture_GetImageSize(texture, 0);
             }
 
-            image->allocateImage(w, h, d, glFormat, glType, 4);
-            image->setInternalTextureFormat(glInternalformat);
+            image->setImage(w, h, d, glInternalformat, glFormat, glType,
+                            new unsigned char[totalImageSize], osg::Image::USE_NEW_DELETE, 4);
             if (image->getTotalSizeInBytes() < imgDataSize)
             {
                 OSG_WARN << "[LoaderKTX] Failed to copy image data, size mismatched: "
@@ -311,19 +319,17 @@ namespace osgVerse
         else
         {
             ktxTexture1* tex = (ktxTexture1*)texture;
-            image->allocateImage(w, h, d, tex->glFormat, tex->glType, 4);
-            image->setInternalTextureFormat(tex->glInternalformat);
+            image->setImage(w, h, d, tex->glInternalformat, tex->glFormat, tex->glType,
+                             new unsigned char[totalImageSize], osg::Image::USE_NEW_DELETE, 4);
         }
-        memcpy(image->data(), imgData, imgDataSize);
 
-        // Update custom mipmaps
-        unsigned int numLevels = texture->numLevels;
-        for (unsigned int i = 1; i < numLevels; ++i)
+        // Update data and mipmaps
+        image->setMipmapLevels(mipmapData);
+        for (unsigned int i = 0; i < numLevels; ++i)
         {
-            ktxTexture_GetImageOffset(texture, i, layer, face, &offset);
-            imgData = ktxTexture_GetData(texture) + offset;
-            imgDataSize = ktxTexture_GetImageSize(texture, i);
-            // TODO
+            ktx_size_t offset = 0; ktxTexture_GetImageOffset(texture, i, layer, face, &offset);
+            ktx_uint8_t* imgData = ktxTexture_GetData(texture) + offset;
+            memcpy(image->getMipmapData(i), imgData, ktxTexture_GetImageSize(texture, i));
         }
         return image;
     }
@@ -396,7 +402,7 @@ namespace osgVerse
         return loadKtxFromObject(texture, opt);
     }
 
-    static ktxTexture* saveImageToKtx(const std::vector<osg::Image*>& images, bool mipmaps, bool asCubeMap,
+    static ktxTexture* saveImageToKtx(const std::vector<osg::Image*>& images, bool asCubeMap,
                                       bool useBASISU, bool useUASTC = false, int basisuThreadCount = 1,
                                       int basisuCompressLv = 2, int basisuQualityLv = 128)
     {
@@ -405,6 +411,7 @@ namespace osgVerse
         if (asCubeMap && images.size() < 6) return NULL;
 
         osg::Image* image0 = images[0];
+        int numMipmaps = image0->computeNumberOfMipmapLevels(image0->s(), image0->t(), image0->r());
         ktxTextureCreateInfo createInfo;
 
         createInfo.glInternalformat = image0->getInternalTextureFormat();
@@ -413,11 +420,11 @@ namespace osgVerse
         createInfo.baseHeight = image0->t();
         createInfo.baseDepth = image0->r();
         createInfo.numDimensions = (image0->r() > 1) ? 3 : ((image0->t() > 1) ? 2 : 1);
-        createInfo.numLevels = 1;
+        createInfo.numLevels = image0->isMipmap() ? numMipmaps : 1;
         createInfo.numLayers = asCubeMap ? 1 : images.size();
         createInfo.numFaces = asCubeMap ? images.size() : 1;
         createInfo.isArray = (images.size() > 1) ? KTX_TRUE : KTX_FALSE;
-        createInfo.generateMipmaps = mipmaps ? KTX_TRUE : KTX_FALSE;
+        createInfo.generateMipmaps = KTX_FALSE;  // only affects glloader, so no use for us
         if (createInfo.vkFormat == 0)
         {
             OSG_WARN << "[LoaderKTX] No VkFormat for GL internal format: "
@@ -444,14 +451,29 @@ namespace osgVerse
             }
 
             ktx_uint8_t* src = (ktx_uint8_t*)img->data();
+            unsigned int imageSize = img->getTotalSizeInBytes();
             result = ktxTexture_SetImageFromMemory(
-                texture, 0, (asCubeMap ? 0 : i), (asCubeMap ? i : 0),
-                src, img->getTotalSizeInBytes());
+                texture, 0, (asCubeMap ? 0 : i), (asCubeMap ? i : 0), src, imageSize);
             if (result != KTX_SUCCESS)
             {
                 OSG_WARN << "[LoaderKTX] Unable to save image " << i
                          << " to KTX texture: " << ktxErrorString(result) << std::endl;
                 ktxTexture_Destroy(texture); return NULL;
+            }
+
+            unsigned int mipmapsSize = img->getTotalDataSize() - imageSize;
+            unsigned int numMipmaps = img->getNumMipmapLevels();
+            for (int j = 1; j < numMipmaps; ++j)
+            {
+                unsigned int size = (j < numMipmaps - 1 ? img->getMipmapOffset(j + 1) : mipmapsSize)
+                                  - img->getMipmapOffset(j);
+                result = ktxTexture_SetImageFromMemory(
+                    texture, j, (asCubeMap ? 0 : i), (asCubeMap ? i : 0), img->getMipmapData(j), size);
+                if (result != KTX_SUCCESS)
+                {
+                    OSG_WARN << "[LoaderKTX] Unable to save mipmap level " << j << " of image " << i
+                             << " to KTX texture: " << ktxErrorString(result) << std::endl; break;
+                }
             }
         }
 
@@ -478,19 +500,17 @@ namespace osgVerse
     {
         if (opt != NULL)
         {
-            std::string useMipmaps = opt->getPluginStringData("UseMipmaps");
             std::string useBASISU = opt->getPluginStringData("UseBASISU");
             std::string useUASTC = opt->getPluginStringData("UseUASTC");
             std::string threadCount = opt->getPluginStringData("ThreadCount");
             std::string compressLv = opt->getPluginStringData("CompressLevel");
             std::string qualityLv = opt->getPluginStringData("QualityLevel");
-            return saveImageToKtx(images, atoi(useMipmaps.c_str()) > 0,
-                                  asCubeMap, atoi(useBASISU.c_str()) > 0,
+            return saveImageToKtx(images, asCubeMap, atoi(useBASISU.c_str()) > 0,
                                   atoi(useUASTC.c_str()) > 0, atoi(threadCount.c_str()),
                                   atoi(compressLv.c_str()), atoi(qualityLv.c_str()));
         }
         else
-            return saveImageToKtx(images, false, asCubeMap, false, false);
+            return saveImageToKtx(images, asCubeMap, false, false);
     }
 
     bool saveKtx(const std::string& file, bool asCubeMap, const osgDB::Options* opt,

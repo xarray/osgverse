@@ -213,16 +213,26 @@ namespace osgVerse
                 if (rw == NULL) rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_" + ext);
                 if (rw != NULL)
                 {
-                    image->image.resize(size); image->extensions_json_string = ext;
-                    std::copy(bytes, bytes + size, image->image.begin());
-                    return true;  // parsing by plugin later
+                    std::stringstream dataIn(std::ios::in | std::ios::out | std::ios::binary);
+                    dataIn.write((char*)bytes, size);
+
+                    osg::ref_ptr<osg::Image> img = rw->readImage(dataIn).getImage();
+                    if (img.valid())
+                    {
+                        size_t s = img->getTotalSizeInBytes(); w = img->s(); h = img->t();
+                        comp = osg::Image::computeNumComponents(img->getPixelFormat());
+                        data = (unsigned char*)stbi__malloc(s);
+                        std::copy(img->data(), img->data() + s, data);
+                    }
                 }
             }
 
-            if (err) (*err) += "Unknown image format. STB cannot decode image data for image[" +
-                               std::to_string(image_idx) + "] name = \"" + image->name + "\", type = " +
-                               image->mimeType + ".\n";
-            return false;
+            if (!data)
+            {
+                if (err) (*err) += "Unknown image format. Failed to decode image: " + image->name +
+                                   " [" + std::to_string(image_idx) + "], " + image->mimeType + "\n";
+                return false;
+            }
         }
 
         if ((w < 1) || (h < 1))
@@ -811,13 +821,6 @@ namespace osgVerse
                 {
                     std::vector<osg::ref_ptr<osg::Image>> imageList = loadKtx2(dataIn, NULL);
                     if (!imageList.empty()) image = imageList[0];
-                }
-                else if (!imageSrc.extensions_json_string.empty())
-                {
-                    std::string ext = imageSrc.extensions_json_string;
-                    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
-                    if (!rw) rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_" + ext);
-                    if (rw) image = rw->readImage(dataIn).getImage();
                 }
                 if (!image) return;
             }

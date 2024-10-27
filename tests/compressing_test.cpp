@@ -11,6 +11,8 @@
 #include <iostream>
 #include <sstream>
 
+#include <pipeline/Global.h>
+#include <readerwriter/Utilities.h>
 #include <readerwriter/DracoProcessor.h>
 #ifdef OSG_LIBRARY_STATIC
 USE_SERIALIZER_WRAPPER(DracoGeometry)
@@ -19,90 +21,43 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-#define COMPRESSING_GEOMETRY 0
-#define COMPRESSING_TEXTURE 1
+class SceneDataOptimizer : public osgVerse::TextureOptimizer
+{
+public:
+    SceneDataOptimizer() : osgVerse::TextureOptimizer() {}
+
+protected:
+    virtual void applyTexture(osg::Texture* tex, unsigned int unit)
+    {
+        osgVerse::TextureOptimizer::applyTexture(tex, unit);
+        tex->setClientStorageHint(false);
+        tex->setUnRefImageDataAfterApply(true);
+    }
+};
 
 int main(int argc, char** argv)
 {
-    osgViewer::Viewer viewer;
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osgVerse::updateOsgBinaryWrappers();
+
+    std::string outFile = "result.osgb";
+    if (arguments.read("--out"))
+    {
+        osg::ref_ptr<osg::Node> node = osgDB::readNodeFiles(arguments);
+        if (node)
+        {
+            SceneDataOptimizer sdo; node->accept(sdo);
+            arguments.read("--filename", outFile);
+            osgDB::writeNodeFile(
+                *node, outFile, new osgDB::Options("WriteImageHint=IncludeFile"));
+        }
+        return 0;
+    }
+
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    root->addChild(osgDB::readNodeFiles(arguments));
 
-#if COMPRESSING_GEOMETRY
-    {
-        osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile("cow.osg");
-        if (!scene.valid()) return 1;
-
-        osg::Geode* parent = scene->asGroup()->getChild(0)->asGeode();
-        osg::Geometry* geom = parent->getDrawable(0)->asGeometry();
-        if (geom)
-        {
-#if 1
-            // Without Draco: cow.osgb = 297kb
-            // With Draco   : cow.osgb = 81kb
-            osg::ref_ptr<osgVerse::DracoGeometry> geom2 = new osgVerse::DracoGeometry(*geom);
-            parent->replaceDrawable(geom, geom2.get());
-            osgDB::writeNodeFile(*scene, "draco_cow.osgb");
-
-            scene = osgDB::readNodeFile("draco_cow.osgb");
-            root->addChild(scene.get());
-#else
-            osgVerse::DracoProcessor dp;
-            std::ofstream out("draco_geom.bin", std::ios::out | std::ios::binary);
-            if (dp.encodeDracoData(out, geom))
-            {
-                out.close();
-                std::ifstream in("draco_geom.bin", std::ios::in | std::ios::binary);
-                osg::ref_ptr<osg::Geometry> new_geom = dp.decodeDracoData(in);
-                if (new_geom.valid())
-                {
-                    osg::Geode* geode = new osg::Geode;
-                    geode->addDrawable(new_geom.get());
-                    root->addChild(geode);
-                    std::cout << "Draco data added\n";
-                }
-            }
-            else return 1;
-#endif
-        }
-    }
-
-#elif COMPRESSING_TEXTURE
-    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ktx");
-    if (rw)
-    {
-        osg::ref_ptr<osg::Image> image0 = osgDB::readImageFile("Images/clockface.jpg");
-        osgDB::ReaderWriter::WriteResult result =
-            rw->writeImage(*image0, "clockface.ktx", new osgDB::Options("UseBASISU=1 UseMipmaps=1"));
-        OSG_NOTICE << "KTX file saving state: " << result.status() << "!\n";
-    }
-    else
-    {
-        OSG_WARN << "No KTX plugin!\n";
-        return 1;
-    }
-
-    // No compressed RGBA32: CPU memory = 1.06GB, GPU memory = 1.4GB
-    // DXT BC1 / BC3: CPU memory = 207MB, GPU memory = 0.6GB
-    // KTX ETC1 / ETC2: CPU memory = 209MB, GPU memory = 1.4GB (NV drivers may not support it)
-    for (int i = 0; i < 1; ++i)
-    {
-        osg::ref_ptr<osg::Image> image = rw->readImage("clockface.ktx").getImage();
-        if (image.valid())
-        {
-            osg::Geode* geode = osg::createGeodeForImage(image.get());
-            root->addChild(geode);
-        }
-    }
-#else
-    osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/clockface.jpg");
-    osg::Geode* geode = osg::createGeodeForImage(image.get());
-
-    osg::Texture* tex = static_cast<osg::Texture*>(
-        geode->getDrawable(0)->getStateSet()->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
-    if (tex) tex->setInternalFormatMode(osg::Texture::USE_S3TC_DXT1_COMPRESSION);
-    root->addChild(geode);
-#endif
-
+    osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);

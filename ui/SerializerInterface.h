@@ -120,6 +120,9 @@ namespace osgVerse
     {
         SerializerInterfaceProxy(osgDB::BaseSerializer::Type t, SerializerFactory::InterfaceFunction func)
         { SerializerFactory::instance()->registerInterface(t, func); }
+
+        SerializerInterfaceProxy(const std::string& p, osg::Object* r, SerializerFactory::InterfaceFunction f)
+        { osg::ref_ptr<osg::Object> ref(r); SerializerFactory::instance()->registerInterface(p, r, f); }
     };
 }
 
@@ -130,6 +133,14 @@ namespace osgVerse
     extern "C" void serializerInterfaceFuncCaller_##t () {} \
     static osgVerse::SerializerInterfaceProxy proxy_##t##clsName \
     (osgDB::BaseSerializer::RW_##t, serializerInterfaceFunc_##t##clsName );
+
+#define REGISTER_SERIALIZER_INTERFACE2(t, refInstance, clsName) \
+    osgVerse::SerializerInterface* serializerInterfaceFunc_##t##clsName (osg::Object* obj, \
+        osgVerse::LibraryEntry* entry, const osgVerse::LibraryEntry::Property& prop) \
+        { return new clsName (obj, entry, prop); } \
+    extern "C" void serializerInterfaceFuncCaller_##t () {} \
+    static osgVerse::SerializerInterfaceProxy proxy_##t##clsName \
+    (#t, refInstance, serializerInterfaceFunc_##t##clsName );
 
 #define USE_SERIALIZER_INTERFACE(t) \
     extern "C" void serializerInterfaceFuncCaller_##t (); \
