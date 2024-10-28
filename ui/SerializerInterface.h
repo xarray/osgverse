@@ -55,6 +55,20 @@ namespace osgVerse
         LibraryEntry::Property _property;
     };
 
+    class ObjectSerializerInterface : public SerializerInterface
+    {
+    public:
+        ObjectSerializerInterface(osg::Object* obj, LibraryEntry* entry,
+                                  const LibraryEntry::Property& prop);
+        virtual ItemType getType() const { return ObjectType; };
+        virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content);
+
+    protected:
+        osg::observer_ptr<osg::Object> _valueObject;
+        osg::ref_ptr<LibraryEntry> _valueEntry;
+        std::vector<osg::ref_ptr<SerializerBaseItem>> _serializerUIs;
+    };
+
     class SerializerFactory : public osg::Referenced
     {
     public:

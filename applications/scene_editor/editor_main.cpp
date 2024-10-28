@@ -159,7 +159,7 @@ EditorContentHandler::EditorContentHandler()
     _properties->userData = this;
 
     // TEST
-    g_data.sceneRoot->addChild(osgDB::readNodeFile("cessna.osg"));
+    g_data.sceneRoot->addChild(osgDB::readNodeFile("lz.osgt"));
     _hierarchyData->addItem(NULL, g_data.sceneRoot.get());
 }
 

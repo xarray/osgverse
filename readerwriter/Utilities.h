@@ -142,6 +142,9 @@ namespace osgVerse
     };
 #endif
 
+    /** Generate mipmaps of given image */
+    OSGVERSE_RW_EXPORT bool generateMipmaps(osg::Image& image, bool useKaiser);
+
     /** Add necessary methods to OSG class wrappers */
     OSGVERSE_RW_EXPORT bool updateOsgBinaryWrappers(const std::string& libName = "osg");
 

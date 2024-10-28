@@ -24,11 +24,16 @@ namespace backward { backward::SignalHandling sh; }
 class SceneDataOptimizer : public osgVerse::TextureOptimizer
 {
 public:
-    SceneDataOptimizer() : osgVerse::TextureOptimizer() {}
+    SceneDataOptimizer()
+        : osgVerse::TextureOptimizer(true, "optimize_tex_compress_test") {}
 
 protected:
     virtual void applyTexture(osg::Texture* tex, unsigned int unit)
     {
+        osg::Image* image = tex->getImage(0);
+        if (image && image->valid() && !image->isMipmap())
+            osgVerse::generateMipmaps(*image, false);
+
         osgVerse::TextureOptimizer::applyTexture(tex, unit);
         tex->setClientStorageHint(false);
         tex->setUnRefImageDataAfterApply(true);
@@ -41,6 +46,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     std::string outFile = "result.osgb";
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     if (arguments.read("--out"))
     {
         osg::ref_ptr<osg::Node> node = osgDB::readNodeFiles(arguments);
@@ -50,12 +56,11 @@ int main(int argc, char** argv)
             arguments.read("--filename", outFile);
             osgDB::writeNodeFile(
                 *node, outFile, new osgDB::Options("WriteImageHint=IncludeFile"));
+            root->addChild(node.get());
         }
-        return 0;
     }
-
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->addChild(osgDB::readNodeFiles(arguments));
+    else
+        root->addChild(osgDB::readNodeFiles(arguments));
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

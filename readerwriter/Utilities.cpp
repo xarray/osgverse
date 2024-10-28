@@ -367,12 +367,213 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     }
 }
 
+struct MipmapHelpers
+{
+    static inline float log2(float x) { static float inv2 = 1.f / logf(2.f); return logf(x) * inv2; }
+    static inline int log2Int(float v) { return (int)floorf(log2(v)); }
+    static inline bool isPowerOf2(int x) { return (x & (x - 1)) == 0; }
+
+    static inline int roundUpPow2(int v)
+    {
+        v--; v |= v >> 1; v |= v >> 2; v |= v >> 4;
+        v |= v >> 8; v |= v >> 16; return v + 1;
+    }
+
+    static inline float sincf(float x)
+    {
+        if (fabsf(x) >= 0.0001f) return sinf(x) / x;
+        else return 1.0f + x * x * (-1.0f / 6.0f + x * x * 1.0f / 120.0f);
+    }
+
+    struct Box
+    {
+        static constexpr float width = 0.5f;
+        static float eval(float x) { if (fabsf(x) <= width) return 1.0f; else return 0.0f; }
+    };
+
+    struct Lanczos
+    {
+        static constexpr float width = 3.0f;
+        static float eval(float x)
+        {
+            if (fabsf(x) >= width) return 0.0f;
+            return sincf(osg::PI * x) * sincf(osg::PI * x / width);
+        }
+    };
+
+    struct Kaiser
+    {
+        static constexpr float width = 7.0f, alpha = 4.0f, stretch = 1.0f;
+        static float eval(float x)
+        {
+            float t = x / width; float t2 = t * t; if (t2 >= 1.0f) return 0.0f;
+            return sincf(osg::PI * x * stretch) * bessel_0(alpha * sqrtf(1.0f - t2)) / bessel_0(alpha);
+        }
+
+        static inline constexpr float bessel_0(float x)
+        {
+            constexpr float EPSILON = 1e-6f;
+            float xh = 0.5f * x, sum = 1.0f, pow = 1.0f, ds = 1.0f, k = 0.0f;
+            while (ds > sum * EPSILON)
+            { k += 1.0f; pow = pow * (xh / k); ds = pow * pow; sum = sum + ds; } return sum;
+        }
+    };
+
+    template<typename Filter>
+    static float filter_sample(float x, float scale)
+    {
+        constexpr int SAMPLE_COUNT = 32;
+        constexpr float SAMPLE_COUNT_INV = 1.0f / float(SAMPLE_COUNT);
+        float sample = 0.5f, sum = 0.0f;
+        for (int i = 0; i < SAMPLE_COUNT; i++, sample += 1.0f)
+            sum += Filter::eval((x + sample * SAMPLE_COUNT_INV) * scale);
+        return sum * SAMPLE_COUNT_INV;
+    }
+
+    template<typename Filter>
+    static void downsample(const std::vector<osg::Vec4>& source, int w0, int h0,
+                           std::vector<osg::Vec4>& target, int w1, int h1, std::vector<osg::Vec4>& temp)
+    {
+        float scale_x = float(w1) / float(w0), scale_y = float(h1) / float(h0);
+        float inv_scale_x = 1.0f / scale_x, inv_scale_y = 1.0f / scale_y;
+        float filter_width_x = Filter::width * inv_scale_x, sum_x = 0.0f;
+        float filter_width_y = Filter::width * inv_scale_y, sum_y = 0.0f;
+        int window_size_x = int(ceilf(filter_width_x * 2.0f)) + 1;
+        int window_size_y = int(ceilf(filter_width_y * 2.0f)) + 1;
+
+        std::vector<float> kernel_x(window_size_x), kernel_y(window_size_y);
+        memset(kernel_x.data(), 0, window_size_x * sizeof(float));
+        memset(kernel_y.data(), 0, window_size_y * sizeof(float));
+        for (int x = 0; x < window_size_x; x++)  // Fill horizontal kernel
+        {
+            float sample = filter_sample<Filter>(float(x - window_size_x / 2), scale_x);
+            kernel_x[x] = sample; sum_x += sample;
+        }
+        for (int y = 0; y < window_size_y; y++)  // Fill vertical kernel
+        {
+            float sample = filter_sample<Filter>(float(y - window_size_y / 2), scale_y);
+            kernel_y[y] = sample; sum_y += sample;
+        }
+        for (int x = 0; x < window_size_x; x++) kernel_x[x] /= sum_x;
+        for (int y = 0; y < window_size_y; y++) kernel_y[y] /= sum_y;
+
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int y = 0; y < h0; y++)  // Apply horizontal kernel
+        {
+            for (int x = 0; x < w1; x++)
+            {
+                float center = (float(x) + 0.5f) * inv_scale_x;
+                int ll = int(floorf(center - filter_width_x));
+                osg::Vec4 sum(0.0f, 0.0f, 0.0f, 0.0f);
+                for (int i = 0; i < window_size_x; i++)
+                    sum += source[osg::clampBetween(ll + i, 0, w0 - 1) + y * w0] * kernel_x[i];
+                temp[x * h0 + y] = sum;
+            }
+        }
+
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int x = 0; x < w1; x++)  // Apply vertical kernel
+        {
+            for (int y = 0; y < h1; y++)
+            {
+                float center = (float(y) + 0.5f) * inv_scale_y;
+                int tt = int(floorf(center - filter_width_y));
+                osg::Vec4 sum(0.0f, 0.0f, 0.0f, 0.0f);
+                for (int i = 0; i < window_size_y; i++)
+                    sum += temp[x * h0 + osg::clampBetween(tt + i, 0, h0 - 1)] * kernel_y[i];
+                target[x + y * w1] = sum;
+            }
+        }
+    }
+};
+
 namespace osgVerse
 {
 #if OSG_VERSION_LESS_THAN(3, 5, 0)
     bool updateOsgBinaryWrappers(const std::string& libName) { return false; }
     bool fixOsgBinaryWrappers(const std::string& libName) { return false; }
 #endif
+
+    bool generateMipmaps(osg::Image& image, bool useKaiser)
+    {
+        int w0 = image.s(), h0 = image.t(); int w = w0, h = h0;
+        if (!image.valid() || image.isCompressed()) return false;
+        if ((w0 < 2 && h0 < 2) || image.r() > 1) return false;
+
+        std::vector<osg::Vec4> source(w0 * h0), temp(w0 * h0 / 2), level0;
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int i = 0; i < h0; ++i)
+            for (int j = 0; j < w0; ++j) source[i * w0 + j] = image.getColor(j, i);
+
+        typedef std::pair<osg::Vec2, std::vector<osg::Vec4>> MipmapData;
+        std::vector<MipmapData> mipmapDataList(1); bool hasLevel0 = false;
+        if (!(MipmapHelpers::isPowerOf2(w0) && MipmapHelpers::isPowerOf2(h0)))
+        {
+            w = MipmapHelpers::roundUpPow2(w0); h = MipmapHelpers::roundUpPow2(h0);
+            level0.resize(w * h); hasLevel0 = true;
+            if (useKaiser)
+                MipmapHelpers::downsample<MipmapHelpers::Kaiser>(source, w0, h0, level0, w, h, temp);
+            else
+                MipmapHelpers::downsample<MipmapHelpers::Box>(source, w0, h0, level0, w, h, temp);
+        }
+        else level0 = source;
+
+        std::vector<osg::Vec4>& data0 = level0;
+        int numLevels = MipmapHelpers::log2Int(w > h ? w : h) + 1; mipmapDataList.resize(numLevels);
+        mipmapDataList[0] = MipmapData(osg::Vec2(w, h), level0);
+        for (int i = 1; i < numLevels; ++i)
+        {
+            int prevW = (int)mipmapDataList[i - 1].first[0];
+            int prevH = (int)mipmapDataList[i - 1].first[1];
+            int ww = (w >> i); ww = ww > 1 ? ww : 1;
+            int hh = (h >> i); hh = hh > 1 ? hh : 1;
+            mipmapDataList[i] = MipmapData(osg::Vec2(ww, hh), std::vector<osg::Vec4>(ww * hh));
+
+            std::vector<osg::Vec4>& data = mipmapDataList[i].second;
+            if (useKaiser)
+                MipmapHelpers::downsample<MipmapHelpers::Kaiser>(data0, prevW, prevH, data, ww, hh, temp);
+            else
+                MipmapHelpers::downsample<MipmapHelpers::Box>(data0, prevW, prevH, data, ww, hh, temp);
+            data0 = mipmapDataList[i].second;
+        }
+
+        std::vector<unsigned char> totalData;
+        osg::Image::MipmapDataType mipmapInfo;
+        if (!hasLevel0) mipmapDataList.erase(mipmapDataList.begin());
+
+        GLenum pf = image.getPixelFormat(), dt = image.getDataType();
+        totalData.insert(totalData.begin(), image.data(), image.data() + image.getTotalSizeInBytes());
+        for (size_t i = 0; i < mipmapDataList.size(); ++i)
+        {
+            std::vector<osg::Vec4>& data = mipmapDataList[i].second;
+            int ww = (int)mipmapDataList[i].first[0], hh = (int)mipmapDataList[i].first[1];
+            if (i > 0)
+            {
+                int ww0 = (int)mipmapDataList[i - 1].first[0];
+                int hh0 = (int)mipmapDataList[i - 1].first[1];
+                size_t rowSize = osg::Image::computeRowWidthInBytes(ww0, pf, dt, image.getPacking());
+                mipmapInfo.push_back(mipmapInfo.back() + rowSize * hh0);
+            }
+            else
+                mipmapInfo.push_back(image.getTotalSizeInBytes());
+
+            osg::ref_ptr<osg::Image> subImage = new osg::Image;
+            subImage->allocateImage(ww, hh, 1, pf, dt, image.getPacking());
+            subImage->setInternalTextureFormat(image.getInternalTextureFormat());
+#pragma omp parallel for schedule(dynamic, 1)
+            for (int j = 0; j < hh; ++j)
+                for (int k = 0; k < ww; ++k) subImage->setColor(data[j * ww + k], k, j);
+            totalData.insert(totalData.end(), subImage->data(),
+                             subImage->data() + subImage->getTotalSizeInBytes());
+        }
+
+        unsigned char* totalData1 = new unsigned char[totalData.size()];
+        memcpy(totalData1, &totalData[0], totalData.size());
+        image.setImage(w0, h0, 1, image.getInternalTextureFormat(), pf, dt, totalData1,
+                       osg::Image::USE_NEW_DELETE, image.getPacking());
+        image.setMipmapLevels(mipmapInfo);
+        return true;
+    }
 
     std::string encodeBase64(const std::vector<unsigned char>& buffer)
     { return buffer.empty() ? "" : hv::Base64Encode(&buffer[0], buffer.size()); }

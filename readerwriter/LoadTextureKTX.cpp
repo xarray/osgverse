@@ -265,9 +265,8 @@ namespace osgVerse
         ktx_size_t numLevels = texture->numLevels, totalImageSize = 0;
         for (ktx_size_t i = 0; i < numLevels; ++i)
         {
-            ktx_size_t offset = 0; ktxTexture_GetImageOffset(texture, i, layer, face, &offset);
+            if (i > 0) mipmapData.push_back(totalImageSize);
             totalImageSize += ktxTexture_GetImageSize(texture, i);
-            if (i > 0) mipmapData.push_back(offset);
         }
 
         // Allocate image
@@ -324,12 +323,12 @@ namespace osgVerse
         }
 
         // Update data and mipmaps
+        ktx_uint8_t* ktxData = ktxTexture_GetData(texture);
         image->setMipmapLevels(mipmapData);
         for (unsigned int i = 0; i < numLevels; ++i)
         {
             ktx_size_t offset = 0; ktxTexture_GetImageOffset(texture, i, layer, face, &offset);
-            ktx_uint8_t* imgData = ktxTexture_GetData(texture) + offset;
-            memcpy(image->getMipmapData(i), imgData, ktxTexture_GetImageSize(texture, i));
+            memcpy(image->getMipmapData(i), ktxData + offset, ktxTexture_GetImageSize(texture, i));
         }
         return image;
     }
@@ -411,7 +410,7 @@ namespace osgVerse
         if (asCubeMap && images.size() < 6) return NULL;
 
         osg::Image* image0 = images[0];
-        int numMipmaps = image0->computeNumberOfMipmapLevels(image0->s(), image0->t(), image0->r());
+        int numMipmaps0 = image0->getNumMipmapLevels();
         ktxTextureCreateInfo createInfo;
 
         createInfo.glInternalformat = image0->getInternalTextureFormat();
@@ -420,7 +419,7 @@ namespace osgVerse
         createInfo.baseHeight = image0->t();
         createInfo.baseDepth = image0->r();
         createInfo.numDimensions = (image0->r() > 1) ? 3 : ((image0->t() > 1) ? 2 : 1);
-        createInfo.numLevels = image0->isMipmap() ? numMipmaps : 1;
+        createInfo.numLevels = image0->isMipmap() ? numMipmaps0 : 1;
         createInfo.numLayers = asCubeMap ? 1 : images.size();
         createInfo.numFaces = asCubeMap ? images.size() : 1;
         createInfo.isArray = (images.size() > 1) ? KTX_TRUE : KTX_FALSE;
@@ -436,8 +435,8 @@ namespace osgVerse
             &createInfo, KTX_TEXTURE_CREATE_ALLOC_STORAGE, (ktxTexture2**)&texture);
         if (result != KTX_SUCCESS)
         {
-            OSG_WARN << "[LoaderKTX] Unable to create KTX for saving" << std::endl;
-            return NULL;
+            OSG_WARN << "[LoaderKTX] Unable to create KTX for saving: "
+                     << ktxErrorString(result) << std::endl; return NULL;
         }
 
         for (size_t i = 0; i < images.size(); ++i)
@@ -451,9 +450,8 @@ namespace osgVerse
             }
 
             ktx_uint8_t* src = (ktx_uint8_t*)img->data();
-            unsigned int imageSize = img->getTotalSizeInBytes();
             result = ktxTexture_SetImageFromMemory(
-                texture, 0, (asCubeMap ? 0 : i), (asCubeMap ? i : 0), src, imageSize);
+                texture, 0, (asCubeMap ? 0 : i), (asCubeMap ? i : 0), src, img->getTotalSizeInBytes());
             if (result != KTX_SUCCESS)
             {
                 OSG_WARN << "[LoaderKTX] Unable to save image " << i
@@ -461,11 +459,10 @@ namespace osgVerse
                 ktxTexture_Destroy(texture); return NULL;
             }
 
-            unsigned int mipmapsSize = img->getTotalDataSize() - imageSize;
-            unsigned int numMipmaps = img->getNumMipmapLevels();
-            for (int j = 1; j < numMipmaps; ++j)
+            unsigned int allSize = img->getTotalDataSize(), numMipmaps = img->getNumMipmapLevels();
+            for (unsigned int j = 1; j < numMipmaps; ++j)
             {
-                unsigned int size = (j < numMipmaps - 1 ? img->getMipmapOffset(j + 1) : mipmapsSize)
+                unsigned int size = (j < numMipmaps - 1 ? img->getMipmapOffset(j + 1) : allSize)
                                   - img->getMipmapOffset(j);
                 result = ktxTexture_SetImageFromMemory(
                     texture, j, (asCubeMap ? 0 : i), (asCubeMap ? i : 0), img->getMipmapData(j), size);
