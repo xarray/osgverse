@@ -38,7 +38,7 @@ namespace Clipper2Lib {
 	enum class PathType { Subject, Clip };
 	enum class JoinWith { None, Left, Right };
 
-	enum class VertexFlags : uint32_t {
+	enum VertexFlags : uint32_t {
 		None = 0, OpenStart = 1, OpenEnd = 2, LocalMax = 4, LocalMin = 8
 	};
 

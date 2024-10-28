@@ -18,6 +18,12 @@
 #define PATH_MAX MAX_PATH
 #define CONFIG_VERSION "quickjs"
 
+#if _MSC_VER <= 1900
+#   define INT64_MAX_BIN 9e18
+#else
+#   define INT64_MAX_BIN 0x1p63
+#endif
+
 int  __inline pclose(FILE* h) {
     return _pclose(h);
 }

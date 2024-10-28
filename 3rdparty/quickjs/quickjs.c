@@ -10796,7 +10796,7 @@ static int JS_ToInt64SatFree(JSContext *ctx, int64_t *pres, JSValue val)
             } else {
                 if (d < INT64_MIN)
                     *pres = INT64_MIN;
-                else if (d >= 0x1p63) /* must use INT64_MAX + 1 because INT64_MAX cannot be exactly represented as a double */
+                else if (d >= INT64_MAX_BIN) /* must use INT64_MAX + 1 because INT64_MAX cannot be exactly represented as a double */
                     *pres = INT64_MAX;
                 else
                     *pres = (int64_t)d;
@@ -49722,7 +49722,7 @@ static double set_date_fields(double fields[minimum_length(7)], int is_local) {
 
     /* adjust for local time and clip */
     if (is_local) {
-        int64_t ti = tv < INT64_MIN ? INT64_MIN : tv >= 0x1p63 ? INT64_MAX : (int64_t)tv;
+        int64_t ti = tv < INT64_MIN ? INT64_MIN : tv >= INT64_MAX_BIN ? INT64_MAX : (int64_t)tv;
         tv += getTimezoneOffset(ti) * 60000;
     }
     return time_clip(tv);
@@ -54149,7 +54149,7 @@ static JSValue js_typed_array_indexOf(JSContext *ctx, JSValueConst this_val,
     } else
     if (tag == JS_TAG_FLOAT64) {
         d = JS_VALUE_GET_FLOAT64(argv[0]);
-        if (d >= INT64_MIN && d < 0x1p63) {
+        if (d >= INT64_MIN && d < INT64_MAX_BIN) {
             v64 = d;
             is_int = (v64 == d);
         }
@@ -55802,7 +55802,7 @@ static JSValue js_atomics_wait(JSContext *ctx,
     if (JS_ToFloat64(ctx, &d, argv[3]))
         return JS_EXCEPTION;
     /* must use INT64_MAX + 1 because INT64_MAX cannot be exactly represented as a double */
-    if (isnan(d) || d >= 0x1p63)
+    if (isnan(d) || d >= INT64_MAX_BIN)
         timeout = INT64_MAX;
     else if (d < 0)
         timeout = 0;

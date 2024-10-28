@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <type_traits>
 #include <vector>
+#include <iterator>
 
 #include "clipper2/clipper.core.h"
 #include "clipper2/clipper.engine.h"

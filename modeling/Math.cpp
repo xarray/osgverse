@@ -8,7 +8,9 @@
 #include "3rdparty/nanoflann.hpp"
 #include "3rdparty/cdt/CDT.h"
 #include "3rdparty/mapbox/polylabel.hpp"
-#include "3rdparty/mapbox/supercluster.hpp"
+#ifndef VERSE_MSVC14
+#   include "3rdparty/mapbox/supercluster.hpp"
+#endif
 #include "3rdparty/clipper2/clipper.h"
 #include "Math.h"
 const float ZERO_TOLERANCE = float(1e-5);

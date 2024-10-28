@@ -139,7 +139,7 @@ std::shared_ptr<model::Composition> model::loadFromFile(const std::string &path,
 
         f.close();
 
-        if (fsize == 0) return {};
+        if (fsize == (std::streampos)0) return {};
 
         auto obj = internal::model::parse(const_cast<char *>(content.c_str()), fsize,
                                           dirname(path));

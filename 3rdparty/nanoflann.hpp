@@ -886,9 +886,18 @@ class KDTreeBaseClass
      *  Array of indices to vectors in the dataset.
      */
     std::vector<AccessorType> vAcc;
-
+#ifdef _MSC_VER
+#   if _MSC_VER <= 1900
+    using Offset = typename std::vector<AccessorType>::size_type;
+    using Size = typename std::vector<AccessorType>::size_type;
+#   else
+    using Offset = typename decltype(vAcc)::size_type;
+    using Size = typename decltype(vAcc)::size_type;
+#   endif
+#else
     using Offset    = typename decltype(vAcc)::size_type;
     using Size      = typename decltype(vAcc)::size_type;
+#endif
     using Dimension = int32_t;
 
     /*--------------------- Internal Data Structures
