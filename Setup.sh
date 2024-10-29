@@ -50,7 +50,7 @@ case "$BuildMode" in
         BuildResultChecker=build/sdk_core/bin/osgviewer
         CMakeResultChecker=build/osg_core/CMakeCache.txt
         ;;
-    2)  echo "Google Angle."
+    2)  echo "Google Angle. (NOT IMPLEMENTED)"
         BuildResultChecker=build/sdk_es/lib/libosgviewer.a
         CMakeResultChecker=build/osg_es/CMakeCache.txt
         ;;
@@ -212,11 +212,13 @@ ThirdDepOptions="
     -DZLIB_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/zlib
     -DZLIB_LIBRARY_RELEASE=$ThirdPartyBuildDir/zlib/libzlib.a
     -DVERSE_BUILD_3RDPARTIES=OFF"
-if [ -e "$CurrentDir/../Dependencies/wasm/lib/libtiff.a" ]; then
-    ThirdDepOptions="
-        $ThirdDepOptions
-        -DTIFF_INCLUDE_DIR=$CurrentDir/../Dependencies/wasm/include
-        -DTIFF_LIBRARY_RELEASE=$CurrentDir/../Dependencies/wasm/lib/libtiff.a"
+if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
+    if [ -e "$CurrentDir/../Dependencies/wasm/lib/libtiff.a" ]; then
+        ThirdDepOptions="
+            $ThirdDepOptions
+            -DTIFF_INCLUDE_DIR=$CurrentDir/../Dependencies/wasm/include
+            -DTIFF_LIBRARY_RELEASE=$CurrentDir/../Dependencies/wasm/lib/libtiff.a"
+    fi
 fi
 
 # Fix some OpenSceneGraph compile errors

@@ -32,7 +32,10 @@ protected:
     {
         osg::Image* image = tex->getImage(0);
         if (image && image->valid() && !image->isMipmap())
+        {
+            image->ensureValidSizeForTexturing(2048);
             osgVerse::generateMipmaps(*image, false);
+        }
 
         osgVerse::TextureOptimizer::applyTexture(tex, unit);
         tex->setClientStorageHint(false);
@@ -53,6 +56,8 @@ int main(int argc, char** argv)
         if (node)
         {
             SceneDataOptimizer sdo; node->accept(sdo);
+            sdo.deleteSavedTextures();
+
             arguments.read("--filename", outFile);
             osgDB::writeNodeFile(
                 *node, outFile, new osgDB::Options("WriteImageHint=IncludeFile"));

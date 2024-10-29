@@ -254,9 +254,9 @@ void TextureOptimizer::deleteSavedTextures()
         for (size_t i = 0; i < _savedTextures.size(); ++i)
         {
             ghc::filesystem::path path = _savedTextures[i];
-            ghc::filesystem::remove(path);
+            ghc::filesystem::remove_all(path);
         }
-        ghc::filesystem::remove(_textureFolder);
+        ghc::filesystem::remove_all(_textureFolder);
     }
     catch (std::runtime_error& err)
     {
@@ -372,12 +372,6 @@ struct MipmapHelpers
     static inline float log2(float x) { static float inv2 = 1.f / logf(2.f); return logf(x) * inv2; }
     static inline int log2Int(float v) { return (int)floorf(log2(v)); }
     static inline bool isPowerOf2(int x) { return (x & (x - 1)) == 0; }
-
-    static inline int roundUpPow2(int v)
-    {
-        v--; v |= v >> 1; v |= v >> 2; v |= v >> 4;
-        v |= v >> 8; v |= v >> 16; return v + 1;
-    }
 
     static inline float sincf(float x)
     {
@@ -509,7 +503,8 @@ namespace osgVerse
         std::vector<MipmapData> mipmapDataList(1); bool hasLevel0 = false;
         if (!(MipmapHelpers::isPowerOf2(w0) && MipmapHelpers::isPowerOf2(h0)))
         {
-            w = MipmapHelpers::roundUpPow2(w0); h = MipmapHelpers::roundUpPow2(h0);
+            w = osg::Image::computeNearestPowerOfTwo(w0); if (w > w0) w >> 2;
+            h = osg::Image::computeNearestPowerOfTwo(h0); if (h > h0) h >> 2;
             level0.resize(w * h); hasLevel0 = true;
             if (useKaiser)
                 MipmapHelpers::downsample<MipmapHelpers::Kaiser>(source, w0, h0, level0, w, h, temp);

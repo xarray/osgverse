@@ -164,5 +164,6 @@ typedef long ssize_t;
 #else
 
 #define CONFIG_VERSION "quickjs"
+#define INT64_MAX_BIN 0x1p63
 
 #endif
