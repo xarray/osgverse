@@ -219,11 +219,20 @@ Our project is already tested on graphics cards listed as below:
       - $ pnpm run build
       - Copy bin/include/lib from gdal3.js\build\native\usr to <osgverse_folder>/../Dependencies/wasm
   - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph
-  - Start a UNIX ternimal (under Windows, please install WSL v1 and start it).
-  - Run commands below in terminal:
-    - $ cd <osgverse_folder>
-    - $ ./Setup.sh <emsdk_folder>
-  - Select "3. WASM / OpenGL ES2" and starting building WASM at <osgverse_folder>/build/verse_wasm.
+  - (Optional) Download osgEarth-WASM source code and extract it to <osgverse_folder>/../osgearth-wasm
+    - Repository: https://gitee.com/xarray/osgearth-wasm
+    - osgEarth-WASM can only be built with WebGL 2.0
+  - Under Windows with Ninja:
+    - Run commands below in terminal:
+      - $ <emsdk_folder>/emsdk_env.bat
+      - $ cd <osgverse_folder>
+      - $ ./Setup.bat
+  - Under Linux or WSL (Windows Sub-System for Linux):
+    - Start a UNIX ternimal (under Windows, please install WSL v1 and start it).
+    - Run commands below in terminal:
+        - $ cd <osgverse_folder>
+        - $ ./Setup.sh <emsdk_folder>
+  - Select "3. WASM / WebGL 1.0" or "4. WASM / WebGL 2.0" and starting building WASM at <osgverse_folder>/build/verse_wasm.
   - Start an HTTPS server at <osgverse_folder>/build/verse_wasm/bin. See <osgverse_folder>/wasm/run_webserver.py as an example.
   - Copy <osgverse_folder>/assets to the same root folder of the server, and enjoy our WebGL examples.
 

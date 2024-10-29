@@ -168,13 +168,12 @@ if "%BuildMode%"=="4" (
         echo *** Building osgEarth 2.10...
         if not exist %CurrentDir%\build\osgearth_wasm2\ mkdir %CurrentDir%\build\osgearth_wasm2
         set ExtraOptions2=-DOSG_DIR=%CurrentDir%\build\sdk_wasm2 ^
-            -DTHIRDPARTY_ROOT=%CurrentDir%\.\Dependencies\wasm ^
+            -DTHIRDPARTY_ROOT=%CurrentDir%\..\Dependencies\wasm ^
             -DOSGEARTH_SOURCE_DIR=%CurrentDir%\..\osgearth-wasm ^
             -DOSGEARTH_BUILD_DIR=%CurrentDir%\build\osgearth_wasm2\osgearth
         cd %CurrentDir%\build\osgearth_wasm2
         cmake %BasicCmakeOptions% !ExtraOptions! !ExtraOptions2! %CurrentDir%\helpers\osg_builder\wasm2_oe
         cmake --build . --target install --config Release
-        if not %errorlevel%==0 goto exit
         set WithOsgEarth=1
     ) else (
         echo osgEarth-WASM not found. Please download it and unzip in ..\osgearth-wasm if you wish.
