@@ -34,35 +34,35 @@ echo 5. Android / OpenGL ES2
 echo q. Quit
 echo -----------------------------------
 set /p BuildMode="Enter selection [0-5] > "
-if "%BuildMode%"=="0" (
+if "!BuildMode!"=="0" (
     :: TODO
     goto todo
 )
-if "%BuildMode%"=="1" (
+if "!BuildMode!"=="1" (
     :: TODO
     goto todo
 )
-if "%BuildMode%"=="2" (
+if "!BuildMode!"=="2" (
     :: TODO
     goto todo
 )
-if "%BuildMode%"=="3" (
+if "!BuildMode!"=="3" (
     set BuildResultChecker=build\sdk_wasm\lib\libosgviewer.a
     set CMakeResultChecker=build\osg_wasm\CMakeCache.txt
     set BuildModeWasm=1
     goto precheck
 )
-if "%BuildMode%"=="4" (
+if "!BuildMode!"=="4" (
     set BuildResultChecker=build\sdk_wasm2\lib\libosgviewer.a
     set CMakeResultChecker=build\osg_wasm2\CMakeCache.txt
     set BuildModeWasm=1
     goto precheck
 )
-if "%BuildMode%"=="5" (
+if "!BuildMode!"=="5" (
     :: TODO
     goto todo
 )
-if "%BuildMode%"=="q" (
+if "!BuildMode!"=="q" (
     goto exit
 )
 echo Invalid option selected.
@@ -75,11 +75,11 @@ set SkipOsgBuild="0"
 if exist %CurrentDir%\%BuildResultChecker% (
     set SkipOsgBuild="1"
     set /p RebuildFlag="Would you like to use current OSG built? (y/n) > "
-    if "%RebuildFlag%"=="n" set SkipOsgBuild="0"
+    if "!RebuildFlag!"=="n" set SkipOsgBuild="0"
 )
 
 set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
-if %BuildModeWasm%==1 (
+if !BuildModeWasm!==1 (
     :: WASM (WebGL 1 and WebGL 2)
     if not defined EMSDK (
         echo EMSDK variable not found. Please download Emscripten and run 'emsdk_env.bat' before current work.
@@ -99,8 +99,8 @@ if not exist %ThirdPartyBuildDir%\ mkdir %ThirdPartyBuildDir%
 echo *** Building 3rdparty libraries...
 set ExtraOptions=""
 set ExtraOptions2=""
-if %BuildModeWasm%==1 (
-    if not %SkipOsgBuild%=="1" (
+if !BuildModeWasm!==1 (
+    if not !SkipOsgBuild!=="1" (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% -DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" -DUSE_WASM_OPTIONS=1 "%CurrentDir%\helpers\toolchain_builder"
         cmake --build .
@@ -119,7 +119,7 @@ set ThirdDepOptions=%BasicCmakeOptions% ^
     -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
     -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\libzlib.a ^
     -DVERSE_BUILD_3RDPARTIES=OFF
-if %BuildModeWasm%==1 (
+if !BuildModeWasm!==1 (
     if exist "%CurrentDir%\..\Dependencies\wasm\lib\libtiff.a" (
         set ThirdDepOptions=!ThirdDepOptions! ^
             -DTIFF_INCLUDE_DIR=%CurrentDir%\..\Dependencies\wasm\include ^
@@ -132,28 +132,28 @@ if %BuildModeWasm%==1 (
 
 :: Compile OpenSceneGraph
 echo *** Building OpenSceneGraph...
-if "%BuildMode%"=="3" (
+if "!BuildMode!"=="3" (
     if not exist %CurrentDir%\build\osg_wasm\ mkdir %CurrentDir%\build\osg_wasm
     set ExtraOptions=-DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" ^
         -DCMAKE_INCLUDE_PATH=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_wasm ^
         -DOSG_SOURCE_DIR=%OpenSceneGraphRoot% ^
         -DOSG_BUILD_DIR=%CurrentDir%\build\osg_wasm\osg
-    if not %SkipOsgBuild%=="1" (
+    if not !SkipOsgBuild!=="1" (
         cd %CurrentDir%\build\osg_wasm
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm
         cmake --build . --target install --config Release
         if not %errorlevel%==0 goto exit
     )
 )
-if "%BuildMode%"=="4" (
+if "!BuildMode!"=="4" (
     if not exist %CurrentDir%\build\osg_wasm2\ mkdir %CurrentDir%\build\osg_wasm2
     set ExtraOptions=-DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" ^
         -DCMAKE_INCLUDE_PATH=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_wasm2 ^
         -DOSG_SOURCE_DIR=%OpenSceneGraphRoot% ^
         -DOSG_BUILD_DIR=%CurrentDir%\build\osg_wasm2\osg
-    if not %SkipOsgBuild%=="1" (
+    if not !SkipOsgBuild!=="1" (
         cd %CurrentDir%\build\osg_wasm2
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm2
         cmake --build . --target install --config Release
@@ -163,7 +163,7 @@ if "%BuildMode%"=="4" (
 
 :: Build osgEarth (Optional)
 set WithOsgEarth=0
-if "%BuildMode%"=="4" (
+if "!BuildMode!"=="4" (
     if exist %CurrentDir%\..\osgearth-wasm\ (
         echo *** Building osgEarth 2.10...
         if not exist %CurrentDir%\build\osgearth_wasm2\ mkdir %CurrentDir%\build\osgearth_wasm2
@@ -183,7 +183,7 @@ if "%BuildMode%"=="4" (
 :: Build osgVerse
 echo *** Building osgVerse...
 set OsgRootLocation=""
-if "%BuildMode%"=="3" (
+if "!BuildMode!"=="3" (
     if not exist %CurrentDir%\build\verse_wasm\ mkdir %CurrentDir%\build\verse_wasm
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm
     cd %CurrentDir%\build\verse_wasm
@@ -191,7 +191,7 @@ if "%BuildMode%"=="3" (
     cmake --build . --target install --config Release
     if not %errorlevel%==0 goto exit
 )
-if "%BuildMode%"=="4" (
+if "!BuildMode!"=="4" (
     if not exist %CurrentDir%\build\verse_wasm2\ mkdir %CurrentDir%\build\verse_wasm2
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm2
     cd %CurrentDir%\build\verse_wasm2

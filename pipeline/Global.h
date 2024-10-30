@@ -22,7 +22,7 @@
 #       define BASE_DIR ".."
 #   endif
 #elif defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
-#   define BASE_DIR "assets"
+#   define BASE_DIR "/assets"
 #else
 #   define BASE_DIR ".."
 #endif

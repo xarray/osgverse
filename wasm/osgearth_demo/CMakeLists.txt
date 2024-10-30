@@ -16,7 +16,7 @@ IF(USE_WASM_OSGEARTH)
 
     CONFIGURE_FILE(shell_earth.html.in "${CMAKE_CURRENT_BINARY_DIR}/shell_earth.html" @ONLY)
     FILE(COPY "${CMAKE_SOURCE_DIR}/assets/shaders" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/assets")
-    SET(WASM_FLAGS0 "--preload-file ${CMAKE_CURRENT_BINARY_DIR}/assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell_earth.html")
+    SET(WASM_FLAGS0 "--preload-file ${CMAKE_CURRENT_BINARY_DIR}/assets@assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell_earth.html")
     SET(WASM_FLAGS_GDAL "--preload-file ${THIRDPARTY_ROOT}/share/gdal@/usr/share/gdal")
     SET(WASM_FLAGS_PROJ "--preload-file ${THIRDPARTY_ROOT}/share/proj@/usr/share/proj")
     SET(WASM_FLAGS3 "-s EXPORTED_RUNTIME_METHODS=\"['cwrap','ENV','FS','MEMFS']\"")

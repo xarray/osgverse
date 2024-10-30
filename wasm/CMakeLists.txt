@@ -43,7 +43,7 @@ ENDIF()
 
 CONFIGURE_FILE(shell.html.in "${CMAKE_CURRENT_BINARY_DIR}/shell.html" @ONLY)
 FILE(COPY "${CMAKE_SOURCE_DIR}/assets/shaders" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/assets")
-SET(WASM_FLAGS0 "--preload-file ${CMAKE_CURRENT_BINARY_DIR}/assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell.html")
+SET(WASM_FLAGS0 "--preload-file ${CMAKE_CURRENT_BINARY_DIR}/assets@assets --shell-file ${CMAKE_CURRENT_BINARY_DIR}/shell.html")
 SET(WASM_FLAGS1 "-s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL=2 -s FETCH=1 -s WASM=1 -s ASYNCIFY=1")
 
 # https://developer.chrome.com/blog/faster-wasm-debugging
