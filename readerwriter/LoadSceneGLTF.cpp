@@ -292,6 +292,7 @@ namespace osgVerse
         if (data.empty()) { OSG_WARN << "[LoaderGLTF] Unable to read from stream\n"; return; }
 
         tinygltf::TinyGLTF loader;
+        loader.SetStoreOriginalJSONForExtrasAndExtensions(true);
         loader.SetImageLoader(&LoadImageDataEx, this);
         loader.SetFsCallbacks(fs);
         if (isBinary)
@@ -803,7 +804,25 @@ namespace osgVerse
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,
                                    const std::string& name, tinygltf::Texture& tex)
     {
-        if (tex.source < 0) tex.source = 0; if (tex.source >= _modelDef.images.size()) return;
+        if (tex.source < 0 || tex.source >= _modelDef.images.size())
+        {
+            const std::string& ext = tex.extensions_json_string;
+            if (!ext.empty())
+            {
+                size_t pos0 = ext.find("\"source\":");
+                if (pos0 != std::string::npos)
+                {
+                    size_t pos1 = ext.find_first_of("},", pos0 + 9);
+                    tex.source = atoi(ext.substr(pos0 + 9, pos1 - pos0 - 9).c_str());
+                }
+            }
+            if (tex.source < 0 || tex.source >= _modelDef.images.size())
+            {
+                OSG_WARN << "[LoaderGLTF] Invalid texture source index: " << tex.source
+                         << " for " << name << ", ext = " << ext << std::endl; return;
+            }
+        }
+
         tinygltf::Image& imageSrc = _modelDef.images[tex.source];
         if (imageSrc.image.empty()) return;
 

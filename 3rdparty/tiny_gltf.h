@@ -4354,7 +4354,7 @@ static bool ParseTexture(Texture *texture, std::string *err,
 
   ParseExtrasAndExtensions(texture, err, o,
                            store_original_json_for_extras_and_extensions);
-
+  
   ParseStringProperty(&texture->name, err, o, "name", false);
 
   return true;
