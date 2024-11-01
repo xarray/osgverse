@@ -239,7 +239,8 @@ TextureOptimizer::TextureOptimizer(bool inlineFile, const std::string& newTexFol
 {
     if (inlineFile) osgDB::makeDirectory(newTexFolder);
     _textureFolder = newTexFolder;
-    _preparingForInlineFile = inlineFile;
+    _saveAsInlineFile = inlineFile;
+    _generateMipmaps = false;
     _ktxOptions = new osgDB::Options("UseBASISU=1");
 }
 
@@ -313,7 +314,7 @@ void TextureOptimizer::applyTexture(osg::Texture* tex, unsigned int unit)
     {
         // Copy to original image as it may be shared by other textures
         osg::ref_ptr<osg::Image> image0 = tex2D->getImage();
-        osg::ref_ptr<osg::Image> image1 = compressImage(tex, image0.get(), !_preparingForInlineFile);
+        osg::ref_ptr<osg::Image> image1 = compressImage(tex, image0.get(), !_saveAsInlineFile);
         if (!image1 || (image1.valid() && !image1->valid())) return;
         image0->allocateImage(image1->s(), image1->t(), image1->r(),
                               image1->getPixelFormat(), image1->getDataType(),
@@ -329,6 +330,12 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     if (img->isCompressed()) return NULL;
     if (img->getFileName().find("verse_ktx") != std::string::npos) return NULL;
     if (img->s() < 4 || img->t() < 4) return NULL;
+
+    if (_generateMipmaps && !img->isMipmap())
+    {
+        img->ensureValidSizeForTexturing(2048);
+        osgVerse::generateMipmaps(*img, false);
+    }
 
     int w = osg::Image::computeNearestPowerOfTwo(img->s());
     int h = osg::Image::computeNearestPowerOfTwo(img->t());
@@ -503,8 +510,8 @@ namespace osgVerse
         std::vector<MipmapData> mipmapDataList(1); bool hasLevel0 = false;
         if (!(MipmapHelpers::isPowerOf2(w0) && MipmapHelpers::isPowerOf2(h0)))
         {
-            w = osg::Image::computeNearestPowerOfTwo(w0); if (w > w0) w >> 2;
-            h = osg::Image::computeNearestPowerOfTwo(h0); if (h > h0) h >> 2;
+            w = osg::Image::computeNearestPowerOfTwo(w0); if (w > w0) w >>= 2;
+            h = osg::Image::computeNearestPowerOfTwo(h0); if (h > h0) h >>= 2;
             level0.resize(w * h); hasLevel0 = true;
             if (useKaiser)
                 MipmapHelpers::downsample<MipmapHelpers::Kaiser>(source, w0, h0, level0, w, h, temp);

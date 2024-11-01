@@ -507,7 +507,7 @@ namespace osgVerse
                                   atoi(compressLv.c_str()), atoi(qualityLv.c_str()));
         }
         else
-            return saveImageToKtx(images, asCubeMap, false, false);
+            return saveImageToKtx(images, asCubeMap, true, false);
     }
 
     bool saveKtx(const std::string& file, bool asCubeMap, const osgDB::Options* opt,

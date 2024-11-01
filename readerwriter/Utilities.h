@@ -44,13 +44,15 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT TextureOptimizer : public osg::NodeVisitor
     {
     public:
-        TextureOptimizer(bool preparingForInlineFile = false,
+        TextureOptimizer(bool saveAsInlineFile = false,
                          const std::string& newTexFolder = "optimized_tex");
         virtual ~TextureOptimizer();
         void deleteSavedTextures();
 
         void setOptions(osgDB::Options* op) { _ktxOptions = op; }
         osgDB::Options* getOptions() { return _ktxOptions.get(); }
+
+        void setGeneratingMipmaps(bool b) { _generateMipmaps = b; }
 
         virtual void apply(osg::Drawable& drawable);
         virtual void apply(osg::Geode& geode);
@@ -64,7 +66,7 @@ namespace osgVerse
         osg::ref_ptr<osgDB::Options> _ktxOptions;
         std::vector<std::string> _savedTextures;
         std::string _textureFolder;
-        bool _preparingForInlineFile;
+        bool _saveAsInlineFile, _generateMipmaps;
     };
 
 #ifdef __EMSCRIPTEN__

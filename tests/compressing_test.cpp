@@ -58,9 +58,10 @@ int main(int argc, char** argv)
             SceneDataOptimizer sdo; node->accept(sdo);
             sdo.deleteSavedTextures();
 
+            osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
+            options->setPluginStringData("UseBASISU", "1");
             arguments.read("--filename", outFile);
-            osgDB::writeNodeFile(
-                *node, outFile, new osgDB::Options("WriteImageHint=IncludeFile"));
+            osgDB::writeNodeFile(*node, outFile, options.get());
             root->addChild(node.get());
         }
     }

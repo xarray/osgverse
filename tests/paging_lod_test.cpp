@@ -142,6 +142,7 @@ void processFile(const std::string& prefix, const std::string& dirName,
         node->accept(rdp);
 
         osgVerse::TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
+        opt.setGeneratingMipmaps(true);
         node->accept(opt);
 
         std::string dbFileName = dbBase + dirName + "/" + fileName;
