@@ -1,6 +1,4 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 
 android {
     compileSdkVersion = gradle.sdkVersion
@@ -8,24 +6,8 @@ android {
         applicationId = 'com.osgverse.demoapp'
         minSdkVersion gradle.minSdkVersion
         targetSdkVersion gradle.targetSdkVersion
+        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64' }
     }
-
-    productFlavors {
-        flavorDimensions 'abi'
-        arm {
-            ndk { abiFilter 'armeabi-v7a' }
-        }
-        arm64 {
-            ndk { abiFilter 'arm64-v8a' }
-        }
-        x86 {
-            ndk { abiFilter 'x86' }
-        }
-        x86_64 {
-            ndk { abiFilter 'x86_64' }
-        }
-    }
-
     signingConfigs {
         release {
             storeFile file("keystore-path")
@@ -38,20 +20,17 @@ android {
             v2SigningEnabled true
         }
     }
-
     buildTypes {
         release {
             minifyEnabled = false
             proguardFiles.add(file('proguard-rules.txt'))
-            // Uncomment to enable apk signing (and also fill details in signingConfigs Block)
-            //signingConfig signingConfigs.release
+            signingConfig signingConfigs.release
         }
     }
-
     externalNativeBuild {
         cmake {
             path "../main/CMakeLists.txt"
-            version "3.10.2"
+            version "3.25.2"
         }
     }
 }
@@ -59,10 +38,5 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'com.android.support.constraint:constraint-layout:+'
-    implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation 'com.android.support.constraint:constraint-layout:1.1.3'
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }

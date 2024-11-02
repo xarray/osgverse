@@ -31,6 +31,12 @@
 *.out
 *.app
 
+# Android related
+local.properties
+.gradle/
+.cxx/
+.idea/
+
 # User-defined
 *.meta
 .vscode*/
