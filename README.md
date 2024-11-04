@@ -268,7 +268,7 @@ Our project is already tested on graphics cards listed as below:
 | Qt6_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt6 |
 | VERSE_3RDPARTY_PATH         | Path    |               | Set to path of third-party libraries |
 | VERSE_INSTALL_PDB_FILES     | Boolean | ON            | Enable to install PDB files along with executables and dynamic libraries |
-| VERSE_BUILD_GPL             | Boolean | OFF           | Enable build of GPL dependencies, which will makes osgVerse a GPL library |
+| VERSE_BUILD_EXPORTERS       | Boolean | OFF           | Enable build of exporters of other software (e.g., 3dsmax) |
 | VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg and PNG |
 | VERSE_BUILD_WITH_QT         | Boolean | OFF           | Enable build of Qt based applications and tests |
 | VERSE_BUILD_DEPRECATED_TESTS| Boolean | OFF           | Enable build of deprecated tests |

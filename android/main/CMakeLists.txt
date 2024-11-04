@@ -5,14 +5,42 @@ SET(CMAKE_CXX_EXTENSIONS OFF)
 
 GET_FILENAME_COMPONENT(OSG_3RDPARTY_SOURCE_DIR ../../helpers/toolchain_builder ABSOLUTE)
 GET_FILENAME_COMPONENT(OSG_SOURCE_DIR ../../../OpenSceneGraph ABSOLUTE)
+GET_FILENAME_COMPONENT(SDL2_SOURCE_DIR ../../../SDL2 ABSOLUTE)
 SET(OSG_3RDPARTY_BUILD_DIR ../../build/3rdparty_android)
 SET(OSG_BUILD_DIR ../../build/osg_android)
+SET(SDL2_BUILD_DIR ../../build/sdl2_android)
 FILE(MAKE_DIRECTORY ${OSG_3RDPARTY_BUILD_DIR})
 FILE(MAKE_DIRECTORY ${OSG_BUILD_DIR})
+FILE(MAKE_DIRECTORY ${SDL2_BUILD_DIR})
+
+
+# Specify critical OpenSceneGraph build variables.
+SET(BUILD_OSG_APPLICATIONS NO CACHE BOOL "Do not build applications")
+SET(EGL_LIBRARY "GL" CACHE STRING "Suppress linkage error")
+SET(OPENGL_PROFILE "GLES2" CACHE STRING "OpenGL Profile to use")
+SET(OSG_GL1_AVAILABLE OFF CACHE BOOL "Unavailable under Android")
+SET(OSG_GL2_AVAILABLE OFF CACHE BOOL "Unavailable under Android")
+SET(OSG_GLES2_AVAILABLE ON CACHE BOOL "GLES2 is what Android uses")
+SET(OSG_WINDOWING_SYSTEM "None" CACHE STRING "Unavailable under Android")
+SET(OSG_FIND_3RD_PARTY_DEPS OFF CACHE BOOL "Disable for searching dependencies in ./3rdparty")
+SET(DYNAMIC_OPENTHREADS OFF CACHE BOOL "Link OpenThreads statically")
+SET(DYNAMIC_OPENSCENEGRAPH OFF CACHE BOOL "Link OpenSceneGraph statically")
+SET(_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE "0" CACHE STRING "Prevent cfg error")
 
 # Build 3rd-parties and OSG core libraries
+ADD_DEFINITIONS(-DFREETYPE_INCLUDE_DIR_freetype2=../../helpers/toolchain_builder/freetype/include
+                -DFREETYPE_INCLUDE_DIR_ft2build=../../helpers/toolchain_builder/freetype/include
+                -DFREETYPE_LIBRARY_RELEASE=${OSG_3RDPARTY_BUILD_DIR}/freetype/libfreetype.a
+                -DJPEG_INCLUDE_DIR=../../helpers/toolchain_builder/jpeg
+                -DJPEG_LIBRARY_RELEASE=${OSG_3RDPARTY_BUILD_DIR}/jpeg/libjpeg.a
+                -DPNG_PNG_INCLUDE_DIR=../../helpers/toolchain_builder/png
+                -DPNG_LIBRARY_RELEASE=${OSG_3RDPARTY_BUILD_DIR}/png/libpng.a
+                -DZLIB_INCLUDE_DIR=../../helpers/toolchain_builder/zlib
+                -DZLIB_LIBRARY_RELEASE=${OSG_3RDPARTY_BUILD_DIR}/zlib/libzlib.a)
+
 ADD_SUBDIRECTORY(${OSG_3RDPARTY_SOURCE_DIR} ${OSG_3RDPARTY_BUILD_DIR})
 ADD_SUBDIRECTORY(${OSG_SOURCE_DIR} ${OSG_BUILD_DIR})
+ADD_SUBDIRECTORY(${SDL2_SOURCE_DIR} ${SDL2_BUILD_DIR})
 
 # Build main bridge library
 ADD_LIBRARY(osgVerseAndroid SHARED

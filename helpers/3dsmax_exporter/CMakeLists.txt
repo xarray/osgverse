@@ -1,0 +1,9 @@
+SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_MODULE_PATH}")
+FIND_PACKAGE(MaxSDK)
+
+IF(MAXSDK_FOUND)
+    ADD_SUBDIRECTORY(importer)
+    ADD_SUBDIRECTORY(exporter)
+ELSE(MAXSDK_FOUND)
+    MESSAGE("[osgVerse] 3dsmax SDK is not found. 3dsmax exporter will be ignored.")
+ENDIF(MAXSDK_FOUND)

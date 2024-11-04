@@ -189,7 +189,7 @@ ENDIF(OPENMP_FOUND)
 
 ######################################### Global Options
 SET(VERSE_INSTALL_PDB_FILES ON CACHE BOOL "Enable to install PDB files along with executables and dynamic libraries")
-SET(VERSE_BUILD_GPL OFF CACHE BOOL "Enable build of GPL dependencies (e.g., mcut), which will makes osgVerse a GPL3 library")
+SET(VERSE_BUILD_EXPORTERS OFF CACHE BOOL "Enable build of exporters of other software (e.g., 3dsmax)")
 SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg and PNG")
 SET(VERSE_BUILD_WITH_QT OFF CACHE BOOL "Enable build of Qt based applications and tests")
 SET(VERSE_BUILD_DEPRECATED_TESTS OFF CACHE BOOL "Enable build of deprecated tests")
@@ -469,6 +469,10 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ADD_SUBDIRECTORY(script)
     ADD_SUBDIRECTORY(ui)
     ADD_SUBDIRECTORY(plugins)
+
+    IF(VERSE_BUILD_EXPORTERS)
+        ADD_SUBDIRECTORY(helpers/3dsmax_exporter)
+    ENDIF(VERSE_BUILD_EXPORTERS)
 
     IF(USE_WASM_OPTIONS)
         MESSAGE(STATUS "[osgVerse] Emscripten / WebAssembly toolchain is used. (WebGL2 = ${VERSE_USE_EXTERNAL_GLES3})")
