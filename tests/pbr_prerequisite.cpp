@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 
         osg::ref_ptr<osg::Program> prog = new osg::Program;
         prog->addShader(vs); prog->addShader(fs);
-        cam0 = createRTTCameraForImage(osg::Camera::COLOR_BUFFER, img0.get(), true);
+        cam0 = createRTTCameraForImage(osg::Camera::COLOR_BUFFER0, img0.get(), true);
         cam0->getOrCreateStateSet()->setAttributeAndModes(
             prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
     }
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
 
         osg::ref_ptr<osg::Program> prog = new osg::Program;
         prog->addShader(vs); prog->addShader(fs);
-        cam1 = createRTTCameraForImage(osg::Camera::COLOR_BUFFER, img1.get(), true);
+        cam1 = createRTTCameraForImage(osg::Camera::COLOR_BUFFER0, img1.get(), true);
         cam1->getOrCreateStateSet()->setAttributeAndModes(
             prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         cam1->getOrCreateStateSet()->setTextureAttributeAndModes(0, hdrMap.get());
@@ -99,7 +99,7 @@ int main(int argc, char** argv)
 
         osg::ref_ptr<osg::Program> prog = new osg::Program;
         prog->addShader(vs); prog->addShader(fs);
-        cam2 = createRTTCameraForImage(osg::Camera::COLOR_BUFFER, img2.get(), true);
+        cam2 = createRTTCameraForImage(osg::Camera::COLOR_BUFFER0, img2.get(), true);
         cam2->getOrCreateStateSet()->setAttributeAndModes(
             prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         cam2->getOrCreateStateSet()->setTextureAttributeAndModes(0, hdrMap.get());

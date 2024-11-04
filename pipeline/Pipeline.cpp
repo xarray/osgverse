@@ -1078,7 +1078,7 @@ namespace osgVerse
         {
             std::string bufName = buffers[i].bufferName;
             BufferType type = buffers[i].type; int ms = 0;
-            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER
+            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER0
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
@@ -1116,7 +1116,7 @@ namespace osgVerse
         {
             std::string bufName = buffers[i].bufferName;
             BufferType type = buffers[i].type;
-            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER
+            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER0
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
@@ -1155,7 +1155,7 @@ namespace osgVerse
         {
             std::string bufName = buffers[i].bufferName;
             BufferType type = buffers[i].type;
-            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER
+            osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER0
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;

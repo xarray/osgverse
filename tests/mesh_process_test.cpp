@@ -124,7 +124,7 @@ int main(int argc, char** argv)
 
     /*osg::Image* image = new osg::Image;
     image->allocateImage(1024, 512, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    osg::Camera* camera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER, image, scene);
+    osg::Camera* camera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, image, scene);
     osgVerse::alignCameraToBox(camera, bvv.getBoundingBox(), 1024, 512);
     root->addChild(camera);*/
 

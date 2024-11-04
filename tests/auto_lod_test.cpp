@@ -62,9 +62,9 @@ public:
             image1->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
 
             osg::ref_ptr<osg::Camera> camera0 =
-                osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER, image0.get(), NULL);
+                osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, image0.get(), NULL);
             osg::ref_ptr<osg::Camera> camera1 =
-                osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER, image1.get(), NULL);
+                osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, image1.get(), NULL);
             root->removeChildren(0, root->getNumChildren());
             root->addChild(camera0.get()); root->addChild(camera1.get());
 

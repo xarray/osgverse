@@ -620,7 +620,7 @@ namespace osgVerse
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         camera->setRenderOrder(osg::Camera::PRE_RENDER);
         camera->setViewport(0, 0, image->s(), image->t());
-        camera->attach(osg::Camera::COLOR_BUFFER, image.get());
+        camera->attach(osg::Camera::COLOR_BUFFER0, image.get());
 
         osg::Vec3 center = bbox.center(); center.z() = bbox.zMax();
         camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);

@@ -116,7 +116,7 @@ osg::Texture* ImGuiManager::addToTexture(osg::Group* parentOfRtt, int w, int h)
 {
     osg::Texture* rttTex = Pipeline::createTexture(Pipeline::RGBA_INT8, w, h);
     osg::ref_ptr<osg::Camera> rttCamera = createRTTCamera(
-        osg::Camera::COLOR_BUFFER, rttTex, NULL, false);
+        osg::Camera::COLOR_BUFFER0, rttTex, NULL, false);
     rttCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
     rttCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
     rttCamera->setViewMatrix(osg::Matrix::identity());

@@ -277,7 +277,7 @@ namespace osgVerse
             case osg::Camera::DEPTH_BUFFER: usage |= 2; break;
             case osg::Camera::STENCIL_BUFFER: usage |= 4; break;
             case osg::Camera::PACKED_DEPTH_STENCIL_BUFFER: usage |= 6; break;
-            case osg::Camera::COLOR_BUFFER: usage |= 1; break;
+            case osg::Camera::COLOR_BUFFER: case osg::Camera::COLOR_BUFFER0: usage |= 1; break;
             default: continue;  // not valid attachment
             }
             fbo->setAttachment(itr->first, osg::FrameBufferAttachment(itr->second));
