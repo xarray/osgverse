@@ -18,6 +18,11 @@ SET(_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE__TRYRUN_OUTPUT "0" CACHE STRIN
 # Set special build flags:
 # * -O3: make compact binary, critical for web
 # * -s USE_SDL=2: provide SDL2
+IF(USE_WASM_OPTIONS EQUAL 2)
+    SET(BUILD_FLAGS "-O3 -s MEMORY64=1 -s USE_SDL=2 -pthread")
+ELSE()
+    SET(BUILD_FLAGS "-O3 -s USE_SDL=2 -pthread")
+ENDIF()
 SET(BUILD_FLAGS "-O3 -s USE_SDL=2 -pthread")
 ADD_DEFINITIONS(${BUILD_FLAGS})
 INCLUDE_DIRECTORIES(${OSG_SOURCE_DIR}/include)

@@ -92,7 +92,11 @@ ENDIF()
 
 #########################################
 IF(USE_WASM_OPTIONS)
-    SET(BUILD_FLAGS "-O3 -pthread")
+    IF(USE_WASM_OPTIONS EQUAL 2)
+        SET(BUILD_FLAGS "-O3 -pthread -s MEMORY64=1")
+    ELSE()
+        SET(BUILD_FLAGS "-O3 -pthread")
+    ENDIF()
     ADD_DEFINITIONS(${BUILD_FLAGS})
 ENDIF()
 

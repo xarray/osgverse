@@ -30,10 +30,9 @@ echo 1. Desktop / OpenGL Core Mode
 echo 2. Desktop / Google Angle
 echo 3. WASM / WebGL 1.0
 echo 4. WASM / WebGL 2.0 (optional with osgEarth)
-echo 5. Android / OpenGL ES2
 echo q. Quit
 echo -----------------------------------
-set /p BuildMode="Enter selection [0-5] > "
+set /p BuildMode="Enter selection [0-4] > "
 if "!BuildMode!"=="0" (
     :: TODO
     goto todo
@@ -58,10 +57,6 @@ if "!BuildMode!"=="4" (
     set BuildModeWasm=1
     goto precheck
 )
-if "!BuildMode!"=="5" (
-    :: TODO
-    goto todo
-)
 if "!BuildMode!"=="q" (
     goto exit
 )
@@ -72,6 +67,7 @@ goto exit
 :: Check if CMake is already configured, or OSG is already built
 :precheck
 set SkipOsgBuild="0"
+set UseWasmOption=1
 if exist %CurrentDir%\%BuildResultChecker% (
     set SkipOsgBuild="1"
     set /p RebuildFlag="Would you like to use current OSG built? (y/n) > "
@@ -90,6 +86,9 @@ if !BuildModeWasm!==1 (
         goto exit
     )
 
+    set /p Wasm64Flag="Would you like to use WASM 64bit (experimental)? (y/n) > "
+    if "!Wasm64Flag!"=="y" set UseWasmOption=2
+
     set EmsdkToolchain="%EMSDK%\upstream\emscripten\cmake\Modules\Platform\Emscripten.cmake"
     set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty_wasm"
 )
@@ -102,7 +101,7 @@ set ExtraOptions2=""
 if !BuildModeWasm!==1 (
     if not !SkipOsgBuild!=="1" (
         cd %ThirdPartyBuildDir%
-        cmake %BasicCmakeOptions% -DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" -DUSE_WASM_OPTIONS=1 "%CurrentDir%\helpers\toolchain_builder"
+        cmake %BasicCmakeOptions% -DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" -DUSE_WASM_OPTIONS=!UseWasmOption! "%CurrentDir%\helpers\toolchain_builder"
         cmake --build .
         if not %errorlevel%==0 goto exit
     )
@@ -128,7 +127,12 @@ if !BuildModeWasm!==1 (
 )
 
 :: Fix some OpenSceneGraph compile errors
-:: TODO
+call :replaceInFile "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" "FileUtils.cpp.tmp" "if defined(__ANDROID__)" "if defined(__EMSCRIPTEN__) || defined(__ANDROID__)"
+call :replaceInFile "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" "graph_array.h.tmp" "std::mem_fun_ref" "std::mem_fn"
+call :replaceInFile "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" "CMakeLists.txt.tmp" "ADD_PLUGIN_DIRECTORY(cfg)" "#ADD_PLUGIN_DIRECTORY(#cfg)"
+call :replaceInFile "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" "CMakeLists.txt.tmp" "ADD_PLUGIN_DIRECTORY(obj)" "#ADD_PLUGIN_DIRECTORY(#obj)"
+call :replaceInFile "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" "CMakeLists.txt.tmp" "TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE" "TIFF_FOUND"
+call :replaceInFile "%OpenSceneGraphRoot%\CMakeLists.txt" "CMakeLists.txt.tmp" "ANDROID_3RD_PARTY()" "#ANDROID_3RD_PARTY(#)"
 
 :: Compile OpenSceneGraph
 echo *** Building OpenSceneGraph...
@@ -137,6 +141,7 @@ if "!BuildMode!"=="3" (
     set ExtraOptions=-DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" ^
         -DCMAKE_INCLUDE_PATH=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_wasm ^
+        -DUSE_WASM_OPTIONS=!UseWasmOption! ^
         -DOSG_SOURCE_DIR=%OpenSceneGraphRoot% ^
         -DOSG_BUILD_DIR=%CurrentDir%\build\osg_wasm\osg
     if not !SkipOsgBuild!=="1" (
@@ -151,6 +156,7 @@ if "!BuildMode!"=="4" (
     set ExtraOptions=-DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" ^
         -DCMAKE_INCLUDE_PATH=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_wasm2 ^
+        -DUSE_WASM_OPTIONS=!UseWasmOption! ^
         -DOSG_SOURCE_DIR=%OpenSceneGraphRoot% ^
         -DOSG_BUILD_DIR=%CurrentDir%\build\osg_wasm2\osg
     if not !SkipOsgBuild!=="1" (
@@ -169,6 +175,7 @@ if "!BuildMode!"=="4" (
         if not exist %CurrentDir%\build\osgearth_wasm2\ mkdir %CurrentDir%\build\osgearth_wasm2
         set ExtraOptions2=-DOSG_DIR=%CurrentDir%\build\sdk_wasm2 ^
             -DTHIRDPARTY_ROOT=%CurrentDir%\..\Dependencies\wasm ^
+            -DUSE_WASM_OPTIONS=!UseWasmOption! ^
             -DOSGEARTH_SOURCE_DIR=%CurrentDir%\..\osgearth-wasm ^
             -DOSGEARTH_BUILD_DIR=%CurrentDir%\build\osgearth_wasm2\osgearth
         cd %CurrentDir%\build\osgearth_wasm2
@@ -187,7 +194,7 @@ if "!BuildMode!"=="3" (
     if not exist %CurrentDir%\build\verse_wasm\ mkdir %CurrentDir%\build\verse_wasm
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm
     cd %CurrentDir%\build\verse_wasm
-    cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
+    cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=!UseWasmOption! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
     cmake --build . --target install --config Release
     if not %errorlevel%==0 goto exit
 )
@@ -195,11 +202,30 @@ if "!BuildMode!"=="4" (
     if not exist %CurrentDir%\build\verse_wasm2\ mkdir %CurrentDir%\build\verse_wasm2
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm2
     cd %CurrentDir%\build\verse_wasm2
-    cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=1 -DUSE_WASM_OSGEARTH=!WithOsgEarth! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
+    cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=!UseWasmOption! -DUSE_WASM_OSGEARTH=!WithOsgEarth! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
     cmake --build . --target install --config Release
     if not %errorlevel%==0 goto exit
 )
 goto exit
+
+:replaceInFile
+set "source_file=%~1"
+set "dest_file=%~2"
+set "search_string=%~3"
+set "replace_string=%~4"
+if not exist "!source_file!" goto :eof
+if exist "!dest_file!" del /f "!dest_file!"
+for /f "delims=" %%a in ('type "!source_file!"') do (
+    set "line=%%a"
+    set "modified=!line:%search_string%=%replace_string%!"
+    if "!line!" neq "!modified!" (
+        echo !modified! >> "!dest_file!"
+    ) else (
+        echo !line! >> "!dest_file!"
+    )
+)
+xcopy /y "!dest_file!" "%~1"
+goto :eof
 
 :: TODO and exit process
 :todo

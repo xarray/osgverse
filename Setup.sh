@@ -5,6 +5,7 @@ CurrentKernel=$(uname -r)
 CheckCmakeExe=$(command -v cmake)
 CMakeExe=$(printf "cmake -DCMAKE_BUILD_TYPE=Release")
 UsingWSL=0
+UseWasmOption=1
 SkipCMakeConfig=0
 SkipOsgBuild=0
 
@@ -41,10 +42,9 @@ Please Select:
 2. Desktop / Google Angle
 3. WASM / WebGL 1.0
 4. WASM / WebGL 2.0 (optional with osgEarth)
-5. Android / OpenGL ES2
 q. Quit
 -----------------------------------"
-read -p "Enter selection [0-5] > " BuildMode
+read -p "Enter selection [0-4] > " BuildMode
 case "$BuildMode" in
     1)  echo "OpenGL Core Mode."
         BuildResultChecker=build/sdk_core/bin/osgviewer
@@ -152,6 +152,10 @@ fi
 
 ThirdPartyBuildDir="$CurrentDir/build/3rdparty_def"
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
+    read -p "Would you like to use WASM 64bit (experimental)? (y/n) > " Wasm64Flag
+    if [ "$Wasm64Flag" = 'y' ]; then
+        UseWasmOption=2
+    fi
 
     # WASM toolchain
     ThirdPartyBuildDir="$CurrentDir/build/3rdparty_wasm"
@@ -162,7 +166,7 @@ if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $ThirdPartyBuildDir
         if [ "$SkipCMakeConfig" = 0 ]; then
-            $CMakeExe -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain" -DUSE_WASM_OPTIONS=1 $CurrentDir/helpers/toolchain_builder
+            $CMakeExe -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain" -DUSE_WASM_OPTIONS=$UseWasmOption $CurrentDir/helpers/toolchain_builder
         fi
         cmake --build . || exit 1
     fi
@@ -285,6 +289,7 @@ elif [ "$BuildMode" = '3' ]; then
         -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain"
         -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_wasm
+        -DUSE_WASM_OPTIONS=$UseWasmOption
         -DOSG_SOURCE_DIR=$OpenSceneGraphRoot
         -DOSG_BUILD_DIR=$CurrentDir/build/osg_wasm/osg"
     if [ "$SkipOsgBuild" = 0 ]; then
@@ -306,6 +311,7 @@ elif [ "$BuildMode" = '4' ]; then
         -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain"
         -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_wasm2
+        -DUSE_WASM_OPTIONS=$UseWasmOption
         -DOSG_SOURCE_DIR=$OpenSceneGraphRoot
         -DOSG_BUILD_DIR=$CurrentDir/build/osg_wasm2/osg"
     if [ "$SkipOsgBuild" = 0 ]; then
@@ -368,6 +374,7 @@ if [ "$BuildMode" = '4' ]; then
         ExtraOptions2="
             -DOSG_DIR=$CurrentDir/build/sdk_wasm2
             -DTHIRDPARTY_ROOT=$CurrentDir/../Dependencies/wasm
+            -DUSE_WASM_OPTIONS=$UseWasmOption
             -DOSGEARTH_SOURCE_DIR=$CurrentDir/../osgearth-wasm
             -DOSGEARTH_BUILD_DIR=$CurrentDir/build/osgearth_wasm2/osgearth"
         cd $CurrentDir/build/osgearth_wasm2
@@ -392,7 +399,7 @@ if [ "$BuildMode" = '3' ]; then
 
     OsgRootLocation="$CurrentDir/build/sdk_wasm"
     cd $CurrentDir/build/verse_wasm
-    $CMakeExe -DUSE_WASM_OPTIONS=1 -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
+    $CMakeExe -DUSE_WASM_OPTIONS=$UseWasmOption -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
     cmake --build . --target install --config Release || exit 1
 
 elif [ "$BuildMode" = '4' ]; then
@@ -404,7 +411,7 @@ elif [ "$BuildMode" = '4' ]; then
 
     OsgRootLocation="$CurrentDir/build/sdk_wasm2"
     cd $CurrentDir/build/verse_wasm2
-    $CMakeExe -DUSE_WASM_OPTIONS=1 -DUSE_WASM_OSGEARTH=$WithOsgEarth -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
+    $CMakeExe -DUSE_WASM_OPTIONS=$UseWasmOption -DUSE_WASM_OSGEARTH=$WithOsgEarth -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
     cmake --build . --target install --config Release || exit 1
 
 elif [ "$BuildMode" = '5' ]; then

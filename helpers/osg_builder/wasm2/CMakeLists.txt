@@ -5,7 +5,7 @@ SET(BUILD_OSG_APPLICATIONS NO CACHE BOOL "Do not build applications")
 SET(EGL_LIBRARY "GL" CACHE STRING "Suppress linkage error")
 SET(OSG_GL1_AVAILABLE OFF CACHE BOOL "Unavailable under Emscripten")
 SET(OSG_GL2_AVAILABLE OFF CACHE BOOL "Unavailable under Emscripten")
-SET(OSG_GLES2_AVAILABLE OFF CACHE BOOL "GLES2 is what Emscripten uses")
+SET(OSG_GLES2_AVAILABLE OFF CACHE BOOL "GLES3 is what Emscripten uses")
 SET(OSG_GLES3_AVAILABLE ON CACHE BOOL "GLES3 is what Emscripten uses")
 SET(OSG_WINDOWING_SYSTEM "None" CACHE STRING "Unavailable under Emscripten")
 SET(DYNAMIC_OPENTHREADS OFF CACHE BOOL "Link OpenThreads statically")
@@ -18,7 +18,11 @@ SET(_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE__TRYRUN_OUTPUT "0" CACHE STRIN
 # Set special build flags:
 # * -O3: make compact binary, critical for web
 # * -s USE_SDL=2: provide SDL2
-SET(BUILD_FLAGS "-O3 -s USE_SDL=2 -pthread")
+IF(USE_WASM_OPTIONS EQUAL 2)
+    SET(BUILD_FLAGS "-O3 -s MEMORY64=1 -s USE_SDL=2 -pthread")
+ELSE()
+    SET(BUILD_FLAGS "-O3 -s USE_SDL=2 -pthread")
+ENDIF()
 ADD_DEFINITIONS(${BUILD_FLAGS})
 INCLUDE_DIRECTORIES(${OSG_SOURCE_DIR}/include)
 INCLUDE_DIRECTORIES(${OSG_BUILD_DIR}/include)
