@@ -238,7 +238,7 @@ namespace osgVerse
         std::string pathID = obj.getName();
         osg::Node* parent = NULL;
 
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
         osg::Drawable* d = obj.asDrawable();
 #else
         osg::Drawable* d = dynamic_cast<osg::Drawable*>(&obj);

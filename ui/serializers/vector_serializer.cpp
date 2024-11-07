@@ -138,7 +138,7 @@ REGISTER_SERIALIZER_INTERFACE(VEC2D, Vec2dSerializerInterface)
 REGISTER_SERIALIZER_INTERFACE(VEC3D, Vec3dSerializerInterface)
 REGISTER_SERIALIZER_INTERFACE(VEC4D, Vec4dSerializerInterface)
 
-#if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
 typedef CharVecSerializerInterface<osg::Vec2b> Vec2bSerializerInterface;
 typedef CharVecSerializerInterface<osg::Vec3b> Vec3bSerializerInterface;
 typedef CharVecSerializerInterface<osg::Vec4b> Vec4bSerializerInterface;

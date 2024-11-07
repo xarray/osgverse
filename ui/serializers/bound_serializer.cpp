@@ -87,7 +87,7 @@ protected:
     T _bsphere;
 };
 
-#if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
 typedef BBoxSerializerInterface<osg::BoundingBoxf> BBoxfSerializerInterface;
 typedef BBoxSerializerInterface<osg::BoundingBoxd> BBoxdSerializerInterface;
 typedef BSphereSerializerInterface<osg::BoundingSpheref> BSpherefSerializerInterface;

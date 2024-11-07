@@ -20,10 +20,12 @@
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
 
+#include <pipeline/Utilities.h>
 #include <readerwriter/DatabasePager.h>
 #include <readerwriter/Utilities.h>
 #include <readerwriter/OsgbTileOptimizer.h>
 #include <readerwriter/DracoProcessor.h>
+
 #ifdef OSG_LIBRARY_STATIC
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()

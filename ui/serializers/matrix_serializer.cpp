@@ -220,7 +220,7 @@ protected:
 typedef MatrixSerializerInterface<osg::Matrix> Matrix0SerializerInterface;
 REGISTER_SERIALIZER_INTERFACE(MATRIX, Matrix0SerializerInterface)
 
-#if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
 typedef MatrixSerializerInterface<osg::Matrixf> MatrixfSerializerInterface;
 typedef MatrixSerializerInterface<osg::Matrixd> MatrixdSerializerInterface;
 

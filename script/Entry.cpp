@@ -45,7 +45,7 @@ std::vector<LibraryEntry::Property> LibraryEntry::getPropertyNames(const std::st
     if (ow != NULL)
     {
 #if OSGVERSE_COMPLETED_SCRIPT
-#   if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#   if OSG_VERSION_GREATER_THAN(3, 4, 1)
         const osgDB::ObjectWrapper::RevisionAssociateList& associates = ow->getAssociates();
         for (osgDB::ObjectWrapper::RevisionAssociateList::const_iterator aitr = associates.begin();
              aitr != associates.end(); ++aitr)
@@ -105,7 +105,7 @@ std::vector<LibraryEntry::Method> LibraryEntry::getMethodNames(const std::string
     if (ow != NULL)
     {
 #if OSGVERSE_COMPLETED_SCRIPT
-#   if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#   if OSG_VERSION_GREATER_THAN(3, 4, 1)
         const osgDB::ObjectWrapper::RevisionAssociateList& associates = ow->getAssociates();
         for (osgDB::ObjectWrapper::RevisionAssociateList::const_iterator aitr = associates.begin();
              aitr != associates.end(); ++aitr)

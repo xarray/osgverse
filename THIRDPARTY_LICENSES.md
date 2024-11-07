@@ -71,3 +71,20 @@
 | VHACD            | Embedded | 4.1       | Modeling           | BSD3         | https://github.com/kmammou/v-hacd |
 | xatlas           | Embedded |           | -                  | MIT          | https://github.com/jpcy/xatlas |
 | xxYUV            | Embedded |           | -                  | MIT          | https://github.com/metarutaiga/xxYUV |
+
+### OpenSceneGraph version history
+| Version | Release Date | Critical Changes | Related osgVerse Functionalities |
+| master  |              |                  | |
+| 3.6.5   | 2020.2.1     |                  | |
+| 3.6.4   | 2019.7.26    |                  | |
+| 3.6.3   | 2018.9.14    |                  | |
+| 3.6.2   | 2018.6.29    |                  | |
+| 3.6.1   | 2018.5.28    |                  | |
+| 3.6.0   | 2018.4.8     |                  | |
+| 3.4.1   | 2017.8.29    |                  | |
+| 3.4.0   | 2015.11.16   |                  | |
+| 3.2.3   | 2018.2.3     |                  | |
+| 3.2.2   | 2015.8.5     |                  | |
+| 3.2.1   | 2014.6.5     |                  | |
+| 3.2.0   | 2013.6.25    |                  | |
+| 3.1.1   | 2012.3.9     |                  | |

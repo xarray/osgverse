@@ -35,6 +35,12 @@ public:
         delete _client;
     }
 
+    bool acceptsProtocol(const std::string& protocol) const
+    {
+        std::string lowercase_protocol = osgDB::convertToLowerCase(protocol);
+        return (_supportedProtocols.count(lowercase_protocol) != 0);
+    }
+
     virtual const char* className() const
     { return "[osgVerse] Scene reader/writer from web protocols"; }
 

@@ -364,7 +364,7 @@ void SceneHierarchy::updateStateInformation(TreeView::TreeData* item, osg::Objec
     if (parentMask == 0) { item->color = 0xFF666666; fixedColor = true; }
     item->name = (obj->getName().empty() ? obj->className() : obj->getName()) + item->id;
 
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
     osg::Drawable* drawable = obj->asDrawable(); 
 #else
     osg::Drawable* drawable = dynamic_cast<osg::Drawable*>(obj);

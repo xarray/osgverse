@@ -345,7 +345,7 @@ FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulle
 FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib" "")
 FIND_DEPENDENCE(LIBIGL "igl/igl_inline.h" "" "")
 IF(NOT USE_WASM_OPTIONS)
-    FIND_DEPENDENCE(SDL2 "SDL.h" "libSDL2.so;libSDL2.a;SDL2.lib" "")
+    FIND_DEPENDENCE(SDL2 "SDL/SDL.h" "libSDL2.so;libSDL2.a;SDL2.lib" "")
     IF(VERSE_USE_EXTERNAL_GLES)
         FIND_DEPENDENCE(VULKAN "vulkan/vulkan.h" "" "")
     ENDIF(VERSE_USE_EXTERNAL_GLES)

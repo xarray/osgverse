@@ -89,7 +89,7 @@ int main(int argc, char** argv)
     traits->alpha = 8; traits->depth = 24; traits->stencil = 8;
     traits->windowDecoration = true; traits->doubleBuffer = true;
     traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
-#if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
     traits->windowingSystemPreference = "SDL";
 #endif
 

@@ -85,7 +85,7 @@ void endImGuiFrame(osg::RenderInfo& renderInfo, ImGuiManager* manager,
                  itr != tList.end(); ++itr)
             {
                 osg::Texture2D* tex2D = itr->second.get();
-#if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
                 if (tex2D->isDirty(renderInfo.getContextID())) tex2D->apply(*renderInfo.getState());
 #else
                 if (tex2D->getTextureParameterDirty(renderInfo.getContextID()) > 0)

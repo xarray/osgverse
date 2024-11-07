@@ -390,7 +390,7 @@ SET(BLEND2D_SOURCE_FILES
 )
 
 SET(RLOTTIE_SOURCE_FILES
-    rlottie/rlottie.h rlottie/rlottie_capi.h rlottie/rlottiecommon.h rlottie/lottieanimation_capi.cpp
+    rlottie/rlottie.h rlottie/rlottie_capi.h rlottie/rlottiecommon.h
     rlottie/vector/vrect.cpp rlottie/vector/vdasher.cpp rlottie/vector/vbrush.cpp rlottie/vector/vbitmap.cpp
     rlottie/vector/vpainter.cpp rlottie/vector/vdrawhelper_common.cpp rlottie/vector/vdrawhelper.cpp
     rlottie/vector/vdrawhelper_sse2.cpp rlottie/vector/vdrawhelper_neon.cpp rlottie/vector/vrle.cpp
@@ -401,6 +401,7 @@ SET(RLOTTIE_SOURCE_FILES
     rlottie/lottie/lottieitem.cpp rlottie/lottie/lottieitem_capi.cpp rlottie/lottie/lottieloader.cpp
     rlottie/lottie/lottiemodel.cpp rlottie/lottie/lottieproxymodel.cpp rlottie/lottie/lottieparser.cpp
     rlottie/lottie/lottieanimation.cpp rlottie/lottie/lottiekeypath.cpp rlottie/lottie/zip/zip.cpp
+    rlottie/lottieanimation_capi.cpp rlottie/stb_lottie_image.cpp
 )
 
 SET(TWEENY_SOURCE_FILES

@@ -330,7 +330,7 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
             return entry->setProperty(object, key, getVecValue<osg::Vec3d>(value));
         case osgDB::BaseSerializer::RW_VEC4D:
             return entry->setProperty(object, key, getVecValue<osg::Vec4d>(value));
-#if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
         case osgDB::BaseSerializer::RW_VEC2B:
             return entry->setProperty(object, key, getVecValue<osg::Vec2b>(value));
         case osgDB::BaseSerializer::RW_VEC3B:
@@ -485,7 +485,7 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
         case osgDB::BaseSerializer::RW_VEC2D: GET_PROP_VALUE(osg::Vec2d, setVecValue);
         case osgDB::BaseSerializer::RW_VEC3D: GET_PROP_VALUE(osg::Vec3d, setVecValue);
         case osgDB::BaseSerializer::RW_VEC4D: GET_PROP_VALUE(osg::Vec4d, setVecValue);
-#if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
         case osgDB::BaseSerializer::RW_VEC2B: GET_PROP_VALUE(osg::Vec2b, setVecValue);
         case osgDB::BaseSerializer::RW_VEC3B: GET_PROP_VALUE(osg::Vec3b, setVecValue);
         case osgDB::BaseSerializer::RW_VEC4B: GET_PROP_VALUE(osg::Vec4b, setVecValue);

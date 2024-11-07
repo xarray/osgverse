@@ -1,8 +1,8 @@
 #include "GraphicsWindowSDL.h"
 #include <osg/DeleteHandler>
 #include <iostream>
-#include <SDL.h>
-#include <SDL_syswm.h>
+#include <SDL/SDL.h>
+#include <SDL/SDL_syswm.h>
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
 #       include <EGL/egl.h>
