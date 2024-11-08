@@ -27,7 +27,7 @@ static osg::Group* loadBasicScene(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
+        argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (!scene) scene = new osg::Group;
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -72,7 +72,7 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
     _viewer->getCamera()->setGraphicsContext(_graphicsWindow.get());
 
     // Setup the pipeline
-    _params = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "sunset.png");
+    _params = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR + "sunset.png");
 #if true
     setupStandardPipeline(pipeline.get(), _viewer, _params);
 #else
@@ -97,8 +97,8 @@ osg::Group* OsgSceneWidget::initializeScene(int argc, char** argv, osg::Group* s
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
-        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
+                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(_params.skyboxMap.get(), false);
         postCamera->addChild(skybox.get());
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);

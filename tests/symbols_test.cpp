@@ -24,7 +24,7 @@ int main(int argc, char** argv)
     drawer->allocateImage(640, 480, 1, GL_RGBA, GL_UNSIGNED_BYTE);
     drawer->start(true);
     drawer->loadFont("default", MISC_DIR + "/LXGWFasmartGothic.otf");
-    drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.5f));
+    drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
     drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f, osgVerse::DrawerStyleData(
             osgDB::readImageFile(MISC_DIR + "poi_icons.png"), osgVerse::DrawerStyleData::PAD));
     

@@ -232,7 +232,7 @@ int main(int argc, char** argv)
 
 #if TEST_PIPELINE
     // Setup the pipeline
-    osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR "sunset.png");
+    osgVerse::StandardPipelineParameters spp(SHADER_DIR, SKYBOX_DIR + "sunset.png");
     spp.enableUserInput = true;
 #   if false
     spp.addUserInputStage("Forward2", EARTH_INPUT_MASK,
@@ -315,7 +315,7 @@ int main(int argc, char** argv)
 #if TEST_PIPELINE
         // Create places
         osgEarth::Viewpoint vp0 = createPlaceOnEarth(
-            sceneRoot.get(), mapNode.get(), BASE_DIR "/models/Sponza/Sponza.gltf",
+            sceneRoot.get(), mapNode.get(), BASE_DIR + "/models/Sponza/Sponza.gltf",
             osg::Matrix::scale(1.0, 1.0, 1.0) * osg::Matrix::rotate(0.1, osg::Z_AXIS),
             119.008f, 25.9f, 15.0f, -40.0f);
 

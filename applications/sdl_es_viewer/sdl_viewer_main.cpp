@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
+        argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
@@ -91,7 +91,7 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Create the pipeline
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR + "barcelona.hdr");
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     
     // Create the viewer
@@ -171,8 +171,8 @@ int main(int argc, char** argv)
     // Post-HUD display
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
-        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
         postCamera->addChild(skybox.get());

@@ -245,7 +245,8 @@ public:
                         std::string lasFile = osgDB::findDataFile(eptPath, options);
                         if (lasFile.empty()) return ReadResult::FILE_NOT_FOUND;
 
-                        osg::Referenced* userData = const_cast<osg::Referenced*>(options->getUserData());
+                        osg::Referenced* userData = const_cast<osg::Referenced*>(
+                            (options != NULL) ? options->getUserData() : NULL);
                         osg::ref_ptr<ReadEptSettings> settings = dynamic_cast<ReadEptSettings*>(userData);
                         if (!settings) settings = new ReadEptSettings;
                         return readNodeFromLaz(lasFile, *settings);
