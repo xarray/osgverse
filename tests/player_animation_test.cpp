@@ -65,7 +65,7 @@ int main(int argc, char** argv)
     player->addUpdateCallback(animManager.get());
 #else
     osg::ref_ptr<osg::Node> player = (argc > 1) ? osgDB::readNodeFile(argv[1])
-                                   : osgDB::readNodeFile(BASE_DIR "/models/Characters/girl.glb");
+                                   : osgDB::readNodeFile(BASE_DIR + "/models/Characters/girl.glb");
     if (player.valid()) playerRoot->addChild(player.get());
     animManager = findAnimationManager(player.get());
 #endif

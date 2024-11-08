@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf");
+        argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping

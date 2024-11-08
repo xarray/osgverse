@@ -43,8 +43,8 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox;
     {
-        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
+                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(osgDB::readImageFile("Images/osg256.png"));
         postCamera->addChild(skybox.get());
     }

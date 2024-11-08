@@ -29,7 +29,32 @@
 #include "ShaderLibrary.h"
 #include "Pipeline.h"
 #include "Utilities.h"
+
+#if defined(VERSE_MSVC)
+#   if defined(INSTALL_PATH_PREFIX)
+std::string BASE_DIR(INSTALL_PATH_PREFIX);
+#   else
+std::string BASE_DIR("..");
+#   endif
+#elif defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
+std::string BASE_DIR("/assets");
+#else
+std::string BASE_DIR("..");
+#endif
+
+std::string SHADER_DIR(BASE_DIR + "/shaders/");
+std::string SKYBOX_DIR(BASE_DIR + "/skyboxes/");
+std::string MISC_DIR(BASE_DIR + "/misc/");
 static int g_argumentCount = 0;
+
+static std::string refreshGlobalDirectories(const std::string& base)
+{
+    BASE_DIR = base;
+    SHADER_DIR = BASE_DIR + "/shaders/";
+    SKYBOX_DIR = BASE_DIR + "/skyboxes/";
+    MISC_DIR = BASE_DIR + "/misc/";
+    return base + std::string("/bin/");
+}
 
 class MyReadFileCallback : public osgDB::ReadFileCallback
 {
@@ -92,7 +117,7 @@ protected:
 
 namespace osgVerse
 {
-    osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir)
+    osg::ArgumentParser globalInitialize(int argc, char** argv)
     {
         setlocale(LC_ALL, ".UTF8");
         osg::setNotifyLevel(osg::NOTICE);
@@ -107,15 +132,20 @@ namespace osgVerse
         // anything to do here?
         OSG_NOTICE << "[osgVerse] WebAssembly pipeline initialization." << std::endl;
 #else
-        std::string workingPath = baseDir + std::string("/bin/");
+        std::string workingPath = BASE_DIR + std::string("/bin/");
         if (!osgDB::fileExists(workingPath))
+            workingPath = refreshGlobalDirectories("..");
+
+        if (!osgDB::fileExists(workingPath))
+        {
             OSG_FATAL << "[osgVerse] Working directory " << workingPath
                       << " not found. Following work may fail." << std::endl;
+        }
         else
             OSG_NOTICE << "[osgVerse] Working directory: " << workingPath << std::endl;
         osgDB::getDataFilePathList().push_back(workingPath);
 #endif
-        ShaderLibrary::instance()->refreshModules(baseDir + std::string("/shaders/"));
+        ShaderLibrary::instance()->refreshModules(BASE_DIR + std::string("/shaders/"));
 
         osgDB::Registry* regObject = osgDB::Registry::instance();
 #ifdef VERSE_STATIC_BUILD

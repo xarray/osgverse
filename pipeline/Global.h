@@ -1,7 +1,6 @@
 #ifndef MANA_PP_GLOBAL_HPP
 #define MANA_PP_GLOBAL_HPP
 
-#include <algorithm>
 #include <osg/Version>
 #include <osg/ArgumentParser>
 #include <osg/Polytope>
@@ -9,26 +8,18 @@
 #include <osg/Texture2D>
 #include <osg/Camera>
 #include <osgDB/Registry>
+#include <algorithm>
+#include <string>
 
 #define INITIAL_DRAW 0
 #define PRE_DRAW 1
 #define POST_DRAW 2
 #define FINAL_DRAW 3
 
-#if defined(VERSE_MSVC)
-#   if defined(INSTALL_PATH_PREFIX)
-#       define BASE_DIR INSTALL_PATH_PREFIX
-#   else
-#       define BASE_DIR ".."
-#   endif
-#elif defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
-#   define BASE_DIR "/assets"
-#else
-#   define BASE_DIR ".."
-#endif
-#define SHADER_DIR BASE_DIR "/shaders/"
-#define SKYBOX_DIR BASE_DIR "/skyboxes/"
-#define MISC_DIR BASE_DIR "/misc/"
+extern std::string BASE_DIR;
+extern std::string SHADER_DIR;
+extern std::string SKYBOX_DIR;
+extern std::string MISC_DIR;
 
 namespace osgVerse
 {
@@ -327,7 +318,7 @@ namespace osgVerse
     };
 
     /** Suggest run this function once to initialize some plugins & environments */
-    extern osg::ArgumentParser globalInitialize(int argc, char** argv, const std::string& baseDir = BASE_DIR);
+    extern osg::ArgumentParser globalInitialize(int argc, char** argv);
 }
 
 namespace osg

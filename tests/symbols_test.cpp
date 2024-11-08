@@ -19,22 +19,27 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
-    //osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
-    /*osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
-
+#if true
+    osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
+    drawer->allocateImage(640, 480, 1, GL_RGBA, GL_UNSIGNED_BYTE);
     drawer->start(true);
+    drawer->loadFont("default", MISC_DIR + "/LXGWFasmartGothic.otf");
     drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.5f));
-    drawer->loadFont("default", MISC_DIR "/LXGWFasmartGothic.otf");
-    //drawer->drawText(osg::Vec2(100, 100), 40.0f, L"Hello World");
-    drawer->drawUtf8Text(osg::Vec2(100, 100), 40.0f, "Hello World");
-    drawer->finish();
-    osgDB::writeImageFile(*drawer, "drawer.png");*/
+    drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f, osgVerse::DrawerStyleData(
+            osgDB::readImageFile(MISC_DIR + "poi_icons.png"), osgVerse::DrawerStyleData::PAD));
+    
+    osg::Vec4 bbox = drawer->getUtf8TextBoundingBox("Hello World", 40.0f);
+    drawer->drawRectangle(bbox, 1.0f, 1.0f, osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
+    drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, "Hello World");
+    drawer->finish(); drawer->flipVertical();
+    osgDB::writeImageFile(*drawer, "drawer.png");
+#endif
 
-    osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(MISC_DIR "poi_icons.png");
-    osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(MISC_DIR "poi_textbg.png");
+    osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(MISC_DIR + "poi_icons.png");
+    osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(MISC_DIR + "poi_textbg.png");
 
     osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
-    symManager->setFontFileName(MISC_DIR "/LXGWFasmartGothic.otf");
+    symManager->setFontFileName(MISC_DIR + "/LXGWFasmartGothic.otf");
     symManager->setIconAtlasImage(iconAtlas.get());
     symManager->setTextBackgroundAtlasImage(textBgAtlas.get());
     symManager->setMidDistanceTextOffset(osg::Vec3(2.0f, 0.0f, -0.001f));

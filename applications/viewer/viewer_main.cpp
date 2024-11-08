@@ -127,7 +127,7 @@ public:
                 OSG_NOTICE << "*** Changing to standard pipeline" << std::endl;
                 _pipeline->clearStagesFromView(view);
 
-                osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+                osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR + "barcelona.hdr");
                 setupStandardPipeline(_pipeline.get(), view, params);
 
                 osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(_pipeline->getModule("Light"));
@@ -166,7 +166,7 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments)
-                                  : osgDB::readNodeFile(BASE_DIR "/models/Sponza.osgb");
+                                  : osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
     if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -217,7 +217,7 @@ int main(int argc, char** argv)
     root->addChild(lightGeode.get());
 
     // Create the pipeline
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR + "barcelona.hdr");
 #if true
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
 #else  // Set different Context and GLSL version on you own risk
@@ -230,8 +230,8 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
-        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
+                              osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
         postCamera->addChild(skybox.get());

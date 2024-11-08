@@ -85,7 +85,7 @@ int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR "/models/Sponza/Sponza.gltf.125,125,125.scale");
+        argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -144,8 +144,8 @@ int main(int argc, char** argv)
         // 3. Add gbuffer stage: this will require the hardware to support MRT
         osgVerse::Pipeline::Stage* gbuffer = pipeline->addInputStage(
             "GBuffer", DEFERRED_SCENE_MASK, 0,
-            osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "std_gbuffer.vert.glsl"),
-            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "std_gbuffer.frag.glsl"), 5,
+            osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "std_gbuffer.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "std_gbuffer.frag.glsl"), 5,
             "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
             "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
             "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 
         // 4. Add a custom middle stage
         osgVerse::Pipeline::Stage* testStage = pipeline->addWorkStage("TestStage", 1.0f,
-            osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "std_common_quad.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "std_common_quad.vert.glsl"),
             new osg::Shader(osg::Shader::FRAGMENT, middleFragmentShaderCode), 1,
             "MiddleBuffer", osgVerse::Pipeline::RGB_INT8);
         //testStage->applyBuffer("ColorBuffer", 0, pipeline.get());  // get last buffer
@@ -188,7 +188,7 @@ int main(int argc, char** argv)
 
         // 5. Add a custom display stage
         osgVerse::Pipeline::Stage* output = pipeline->addDisplayStage("Final",
-            osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "std_common_quad.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "std_common_quad.vert.glsl"),
             new osg::Shader(osg::Shader::FRAGMENT, displayFragmentShaderCode),
             osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
         output->applyBuffer(*testStage, "MiddleBuffer", "ColorBuffer", 0);

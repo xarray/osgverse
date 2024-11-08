@@ -1,3 +1,4 @@
+#extension GL_EXT_gpu_shader4: enable
 #define M_PI 3.1415926535897932384626433832795
 uniform sampler2D EnvironmentMap;
 VERSE_FS_IN vec4 texCoord0;

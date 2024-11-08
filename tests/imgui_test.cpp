@@ -243,7 +243,7 @@ int main(int argc, char** argv)
 
     // The ImGui setup
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
+    imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
     imgui->setGuiTexture("icon", "Images/osg128.png");
 
 #if USE_COMPOSITE_VIEWER

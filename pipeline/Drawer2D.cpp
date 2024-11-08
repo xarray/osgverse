@@ -185,6 +185,16 @@ namespace osgVerse_Drawer
     }
 
     template<typename T>
+    void drawTextBuffer(BLContext* context, const osg::Vec2f pos, BLFont& font,
+                        const BLGlyphBuffer& textBuffer, bool filled, const T& style)
+    {
+        if (filled)
+            context->fillGlyphRun(BLPoint(pos[0], pos[1]), font, textBuffer.glyphRun(), style);
+        else
+            context->strokeGlyphRun(BLPoint(pos[0], pos[1]), font, textBuffer.glyphRun(), style);
+    }
+
+    template<typename T>
     void drawPolyline(BLContext* context, const std::vector<BLPoint>& blPts,
                       bool filled, bool closed, const T& style)
     {
@@ -263,9 +273,12 @@ namespace osgVerse_Drawer
                     if (core && core->context && _drawing)
 #define STYLE_CASES(func, ...) switch (sd.type) { \
         case StyleData::COLOR: func ( __VA_ARGS__, asColor(sd)); break; \
-        case StyleData::IMAGE: func ( __VA_ARGS__, asPattern(sd)); break; \
+        case StyleData::IMAGE: func ( __VA_ARGS__, asPattern(sd, bbox)); break; \
         case StyleData::LINEAR_GRADIENT: func ( __VA_ARGS__, asLinearGradient(sd)); break; \
+        case StyleData::RADIAL_GRADIENT: func ( __VA_ARGS__, asRadialGradient(sd)); break; \
         default: OSG_WARN << "[Drawer2D] Unknown style: " << sd.type << std::endl; break; }
+#define BL_MATRIX(m) BLMatrix2D(m(0,0), m(0,1), m(1,0), m(1,1), m(2,0), m(2,1))
+
 
 static BLRgba32 asColor(const Drawer2D::StyleData& sd)
 {
@@ -273,32 +286,54 @@ static BLRgba32 asColor(const Drawer2D::StyleData& sd)
                     sd.color[2] * 255, sd.color[3] * 255);
 }
 
-static BLPattern asPattern(const Drawer2D::StyleData& sd)
+static BLPattern asPattern(const Drawer2D::StyleData& sd, const osg::Vec4& bbox)
 {
-    BLImage texture; int format = BLFormat::BL_FORMAT_PRGB32, components = 0;
+    BLImage texture; if (!sd.image) return BLPattern(texture);
+    int format = BLFormat::BL_FORMAT_PRGB32, components = 0;
+    float ww = (bbox[2] > 0.5f) ? bbox[2] : sd.image->s();
+    float hh = (bbox[2] > 0.5f) ? bbox[3] : sd.image->t();
     unsigned char* pixels = Drawer2D::convertImage(sd.image.get(), format, components);
     texture.createFromData(sd.image->s(), sd.image->t(), (BLFormat)format,
                            pixels, sd.image->s() * components);
-    return BLPattern(texture, BL_EXTEND_MODE_REPEAT);
+
+    BLPattern pattern(texture, (BLExtendMode)sd.extending); BLMatrix2D m;
+    m.resetToScaling(ww / (float)sd.image->s(), -hh / (float)sd.image->t());
+    m.postTranslate(bbox[0], bbox[1] + hh); m.postTransform(BL_MATRIX(sd.transform));
+    pattern.setTransform(m); return pattern;
 }
 
 static BLGradient asLinearGradient(const Drawer2D::StyleData& sd)
 {
     BLGradient gradient(BLLinearGradientValues(
-        sd.linearGradient[0], sd.linearGradient[1], sd.linearGradient[2], sd.linearGradient[3]));
+        sd.gradient[0], sd.gradient[1], sd.gradient[2], sd.gradient[3]));
     for (std::map<float, osg::Vec4f>::const_iterator itr = sd.gradientStops.begin();
          itr != sd.gradientStops.end(); ++itr)
     {
         const osg::Vec4f& c = itr->second;
         gradient.addStop(itr->first, BLRgba32(c[0] * 255, c[1] * 255, c[2] * 255, c[3] * 255));
     }
-    return gradient;
+    gradient.setExtendMode((BLExtendMode)sd.extending);
+    gradient.setTransform(BL_MATRIX(sd.transform)); return gradient;
+}
+
+static BLGradient asRadialGradient(const Drawer2D::StyleData& sd)
+{
+    BLGradient gradient(BLRadialGradientValues(
+        sd.gradient[0], sd.gradient[1], sd.gradient[2], sd.gradient[3], sd.gradient2[0], sd.gradient2[1]));
+    for (std::map<float, osg::Vec4f>::const_iterator itr = sd.gradientStops.begin();
+         itr != sd.gradientStops.end(); ++itr)
+    {
+        const osg::Vec4f& c = itr->second;
+        gradient.addStop(itr->first, BLRgba32(c[0] * 255, c[1] * 255, c[2] * 255, c[3] * 255));
+    }
+    gradient.setExtendMode((BLExtendMode)sd.extending);
+    gradient.setTransform(BL_MATRIX(sd.transform)); return gradient;
 }
 
 void Drawer2D::drawText(const osg::Vec2f pos, float size, const std::wstring& text,
                         const std::string& fontName, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox; VALID_B2D()
     {
         if (core->fonts.empty())
         {
@@ -311,14 +346,24 @@ void Drawer2D::drawText(const osg::Vec2f pos, float size, const std::wstring& te
             fontFace = core->fonts[fontName];
 
         BLFont font; font.createFromFace(fontFace, size);
+#if false
+        bbox.set(pos[0], pos[1] - size, size * text.size(), size);
         STYLE_CASES(osgVerse_Drawer::drawText, core->context, pos, font, text, sd.filled);
+#else
+        BLGlyphBuffer gb; gb.setUtf16Text((uint16_t*)text.data(), text.size());
+        BLTextMetrics tm; BLFontMetrics fm = font.metrics(); font.shape(gb);
+        font.getTextMetrics(gb, tm); float xx = fm.ascent, yy = fm.lineGap + size;
+        const BLBox& bb = tm.boundingBox; bbox.set(bb.x0, bb.y0, bb.x1 - bb.x0 + xx, bb.y1 - bb.y0 + yy);
+        bbox[0] += pos[0]; bbox[1] += pos[1];
+        STYLE_CASES(osgVerse_Drawer::drawTextBuffer, core->context, pos, font, gb, sd.filled);
+#endif
     }
 }
 
 void Drawer2D::drawUtf8Text(const osg::Vec2f pos, float size, const std::string& text,
                             const std::string& fontName, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox; VALID_B2D()
     {
         if (core->fonts.empty())
         {
@@ -331,13 +376,57 @@ void Drawer2D::drawUtf8Text(const osg::Vec2f pos, float size, const std::string&
             fontFace = core->fonts[fontName];
 
         BLFont font; font.createFromFace(fontFace, size);
+#if false
+        bbox.set(pos[0], pos[1] - size, size * text.size(), size);
         STYLE_CASES(osgVerse_Drawer::drawText, core->context, pos, font, text, sd.filled);
+#else
+        BLGlyphBuffer gb; gb.setUtf8Text(text.data(), text.size());
+        BLTextMetrics tm; BLFontMetrics fm = font.metrics(); font.shape(gb);
+        font.getTextMetrics(gb, tm); float xx = fm.ascent, yy = fm.lineGap + size;
+        const BLBox& bb = tm.boundingBox; bbox.set(bb.x0, bb.y0, bb.x1 - bb.x0 + xx, bb.y1 - bb.y0 + yy);
+        bbox[0] += pos[0]; bbox[1] += pos[1];
+        STYLE_CASES(osgVerse_Drawer::drawTextBuffer, core->context, pos, font, gb, sd.filled);
+#endif
     }
+}
+
+osg::Vec4 Drawer2D::getTextBoundingBox(const std::wstring& text, float size, const std::string& fontName)
+{
+    osg::Vec4 bbox; VALID_B2D()
+    {
+        if (core->fonts.empty()) return bbox;
+        BLFontFace& fontFace = core->fonts.begin()->second;
+        if (core->fonts.find(fontName) != core->fonts.end()) fontFace = core->fonts[fontName];
+
+        BLFont font; font.createFromFace(fontFace, size);
+        BLGlyphBuffer gb; gb.setUtf16Text((uint16_t*)text.data(), text.size());
+        BLTextMetrics tm; BLFontMetrics fm = font.metrics(); font.shape(gb);
+        font.getTextMetrics(gb, tm); float xx = fm.ascent, yy = fm.lineGap + size;
+        const BLBox& bb = tm.boundingBox; bbox.set(bb.x0, bb.y0, bb.x1 - bb.x0 + xx, bb.y1 - bb.y0 + yy);
+    }
+    return bbox;
+}
+
+osg::Vec4 Drawer2D::getUtf8TextBoundingBox(const std::string& text, float size, const std::string& fontName)
+{
+    osg::Vec4 bbox; VALID_B2D()
+    {
+        if (core->fonts.empty()) return bbox;
+        BLFontFace& fontFace = core->fonts.begin()->second;
+        if (core->fonts.find(fontName) != core->fonts.end()) fontFace = core->fonts[fontName];
+
+        BLFont font; font.createFromFace(fontFace, size);
+        BLGlyphBuffer gb; gb.setUtf8Text(text.data(), text.size());
+        BLTextMetrics tm; BLFontMetrics fm = font.metrics(); font.shape(gb);
+        font.getTextMetrics(gb, tm); float xx = fm.ascent, yy = fm.lineGap + size;
+        const BLBox& bb = tm.boundingBox; bbox.set(bb.x0, bb.y0, bb.x1 - bb.x0 + xx, bb.y1 - bb.y0 + yy);
+    }
+    return bbox;
 }
 
 void Drawer2D::drawLine(const osg::Vec2f p0, const osg::Vec2f p1, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox; VALID_B2D()
     {
         STYLE_CASES(core->context->strokeLine, BLPoint(p0[0], p0[1]), BLPoint(p1[0], p1[1]));
     }
@@ -346,7 +435,7 @@ void Drawer2D::drawLine(const osg::Vec2f p0, const osg::Vec2f p1, const StyleDat
 void Drawer2D::drawPolyline(const std::vector<osg::Vec2f>& points,
                             bool closed, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox; VALID_B2D()
     {
         if (points.size() < 2)
         {
@@ -362,27 +451,29 @@ void Drawer2D::drawPolyline(const std::vector<osg::Vec2f>& points,
     }
 }
 
-void Drawer2D::drawCircle(const osg::Vec2f pos0, float r1, float r2, const StyleData& sd)
+void Drawer2D::drawCircle(const osg::Vec2f pos, float r1, float r2, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox; VALID_B2D()
     {
-        STYLE_CASES(osgVerse_Drawer::drawCircle, core->context, pos0, r1, r2, sd.filled);
+        bbox.set(pos[0] - r1, pos[1] - r2, r1 * 2.0f, r2 * 2.0f);
+        STYLE_CASES(osgVerse_Drawer::drawCircle, core->context, pos, r1, r2, sd.filled);
     }
 }
 
-void Drawer2D::drawArc(const osg::Vec2f pos0, float r1, float r2, float start, float sweep,
+void Drawer2D::drawArc(const osg::Vec2f pos, float r1, float r2, float start, float sweep,
                        int asChordOrPie, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox; VALID_B2D()
     {
-        BLArc arc(pos0[0], pos0[1], r1, r2, start, sweep);
+        BLArc arc(pos[0], pos[1], r1, r2, start, sweep);
+        bbox.set(pos[0] - r1, pos[1] - r2, r1 * 2.0f, r2 * 2.0f);
         STYLE_CASES(osgVerse_Drawer::drawArc, core->context, arc, asChordOrPie, sd.filled);
     }
 }
 
 void Drawer2D::drawRectangle(const osg::Vec4f r, float rx, float ry, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox(r); VALID_B2D()
     {
         STYLE_CASES(osgVerse_Drawer::drawRectangle, core->context, r, rx, ry, sd.filled);
     }
@@ -390,7 +481,7 @@ void Drawer2D::drawRectangle(const osg::Vec4f r, float rx, float ry, const Style
 
 void Drawer2D::drawPath(const std::vector<PathData>& path, const StyleData& sd)
 {
-    VALID_B2D()
+    osg::Vec4 bbox; VALID_B2D()
     {
         if (path.size() < 2)
         {
@@ -437,19 +528,47 @@ void Drawer2D::setStrokeOption(StrokeOption opt, int v)
     }
 }
 
-void Drawer2D::translate(const osg::Vec2& pos)
+void Drawer2D::translate(const osg::Vec2& pos, bool postMult)
 {
-    VALID_B2D() { core->context->translate(pos[0], pos[1]); }
+    VALID_B2D()
+    {
+        if (postMult) core->context->postTranslate(pos[0], pos[1]);
+        else core->context->translate(pos[0], pos[1]);
+    }
 }
 
-void Drawer2D::scale(const osg::Vec2& scale)
+void Drawer2D::scale(const osg::Vec2& scale, bool postMult)
 {
-    VALID_B2D() { core->context->scale(scale[0], scale[1]); }
+    VALID_B2D()
+    {
+        if (postMult) core->context->postScale(scale[0], scale[1]);
+        else core->context->scale(scale[0], scale[1]);
+    }
 }
 
-void Drawer2D::rotate(float angle)
+void Drawer2D::rotate(float angle, bool postMult)
 {
-    VALID_B2D() { core->context->rotate(angle); }
+    VALID_B2D()
+    {
+        if (postMult) core->context->postRotate(angle);
+        else core->context->rotate(angle);
+    }
+}
+
+void Drawer2D::setTransform(const osg::Matrix3& transform)
+{
+    VALID_B2D() { core->context->applyTransform(BL_MATRIX(transform)); }
+}
+
+osg::Matrix3 Drawer2D::getTransform() const
+{
+    osg::Matrix3 matrix;
+    VALID_B2D()
+    {
+        BLMatrix2D m = core->context->finalTransform();
+        matrix.set(m.m00, m.m01, 0.0f, m.m10, m.m11, 0.0f, m.m20, m.m21, 1.0f);
+    }
+    return matrix;
 }
 
 void Drawer2D::clear(const osg::Vec4f& r)

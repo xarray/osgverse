@@ -241,7 +241,7 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setUpViewOnSingleScreen(0);
 
-    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR "sunset.png");
+    osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR + "sunset.png");
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
@@ -263,8 +263,8 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
-        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+        skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skyCamera->addChild(skybox.get());
     }
@@ -292,7 +292,7 @@ int main(int argc, char** argv)
 
     // UI settings
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
-    imgui->setChineseSimplifiedFont(MISC_DIR "LXGWFasmartGothic.otf");
+    imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
     imgui->initialize(new EditorContentHandler());
     imgui->addToView(&viewer, postCamera.get());
     return viewer.run();

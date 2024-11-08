@@ -655,7 +655,7 @@ namespace osgVerse
                     text = new osgText::Text;
                     text->setPosition(osg::Vec3(10.0f, 1060.0f, 0.0f));
                     text->setCharacterSize(20.0f, 1.0f);
-                    text->setFont(MISC_DIR "LXGWFasmartGothic.ttf");
+                    text->setFont(MISC_DIR + "LXGWFasmartGothic.ttf");
                     _textGeode->addDrawable(text);
                 }
                 else
@@ -676,7 +676,7 @@ namespace osgVerse
     StandardPipelineViewer::StandardPipelineViewer(bool withSky, bool withSelector, bool withDebugShadow)
         : osgViewer::Viewer(), _withSky(withSky), _withSelector(withSelector)
     {
-        _parameters = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR "barcelona.hdr");
+        _parameters = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR + "barcelona.hdr");
         _parameters.enablePostEffects = true; _parameters.enableAO = true;
         _parameters.debugShadowModule = withDebugShadow;
         _lightGeode = new osg::Geode; _textGeode = new osg::Geode; _root = new osg::Group;
@@ -743,8 +743,8 @@ namespace osgVerse
             _root->addChild(postCamera.get());
 
             osg::ref_ptr<SkyBox> skybox = new SkyBox(_pipeline.get());
-            skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR "skybox.vert.glsl"),
-                osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR "skybox.frag.glsl"));
+            skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
+                osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
             skybox->setEnvironmentMap(spp.skyboxMap.get(), false);
             Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
             postCamera->addChild(skybox.get());
