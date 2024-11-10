@@ -404,6 +404,16 @@ SET(RLOTTIE_SOURCE_FILES
     rlottie/lottieanimation_capi.cpp rlottie/stb_lottie_image.cpp
 )
 
+SET(LLAMA_SOURCE_FILES
+    llama/llama.cpp llama/llama.h llama/llama-grammar.cpp
+    llama/llama-vocab.cpp llama/llama-sampling.cpp
+    llama/unicode.h llama/unicode.cpp llama/unicode-data.cpp
+    llama/ggml.h llama/ggml-cpu.h llama/ggml-alloc.h llama/ggml-backend.h llama/ggml-cpp.h
+    llama/ggml.c llama/ggml-cpu.c llama/ggml-alloc.c llama/ggml-backend.cpp
+    llama/ggml-quants.c llama/ggml-quants.h llama/ggml-aarch64.c llama/ggml-aarch64.h
+    llama/llamafile/sgemm.h llama/llamafile/sgemm.cpp
+)
+
 SET(TWEENY_SOURCE_FILES
     tweeny/tween.h tweeny/tween.tcc tweeny/tweeny.h tweeny/tweeny.tcc
     tweeny/tweenone.tcc tweeny/tweenpoint.tcc
@@ -459,6 +469,7 @@ SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
 SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
+SOURCE_GROUP("Llama.cpp Files" FILES ${LLAMA_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
 SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
@@ -485,7 +496,7 @@ SET(LIBRARY_FILES
     GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp
-    ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
+    ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${LLAMA_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES}
@@ -508,15 +519,15 @@ ENDIF()
 
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS -DBL_STATIC -DBL_BUILD_NO_JIT
                 -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS -DRLOTTIE_BUILD=0
-                -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1
-                -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0
-				-DIMGUI_IMPL_OPENGL_LOADER_GLEW -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+                -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1 -DUNORDERED
+                -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0 -DHAVE_UNORDERED_MAP=1
+                -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4 -DIMGUI_IMPL_OPENGL_LOADER_GLEW)
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # disable use of json.hpp in VS2015 or lower
 ENDIF(MSVC_VERSION LESS 1910)
 
 IF(OPENMP_FOUND)
-    ADD_DEFINITIONS(-DWITH_OMP)
+    ADD_DEFINITIONS(-DWITH_OMP -DGGML_USE_OPENMP)
 ENDIF(OPENMP_FOUND)
 
 IF("sse4.2" IN_LIST VERSE_SIMD_FEATURES)
@@ -570,7 +581,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    quadriflow recastnavigation/Detour rlottie rlottie/vector quickjs
+                    quadriflow recastnavigation/Detour rlottie rlottie/vector quickjs llama
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)

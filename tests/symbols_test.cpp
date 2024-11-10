@@ -19,7 +19,7 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
-#if true
+#if false
     osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
     drawer->allocateImage(640, 480, 1, GL_RGBA, GL_UNSIGNED_BYTE);
     drawer->start(true);

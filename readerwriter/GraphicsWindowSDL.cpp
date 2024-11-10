@@ -167,11 +167,11 @@ void GraphicsWindowSDL::initialize()
     { OSG_WARN << "[GraphicsWindowSDL] Failed: " << SDL_GetError() << std::endl; return; }
 
 #if defined(VERSE_WEBGL1)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #elif defined(VERSE_WEBGL2)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #elif defined(VERSE_GLES_DESKTOP)
@@ -504,10 +504,18 @@ void GraphicsWindowSDL::checkEvents()
 }
 
 void GraphicsWindowSDL::grabFocus()
-{ if (_valid) SDL_SetWindowInputFocus(_sdlWindow); }
+{
+#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+    if (_valid) SDL_SetWindowInputFocus(_sdlWindow);
+#endif
+}
 
 void GraphicsWindowSDL::grabFocusIfPointerInWindow()
-{ if (_valid) SDL_SetWindowInputFocus(_sdlWindow); }
+{
+#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+    if (_valid) SDL_SetWindowInputFocus(_sdlWindow);
+#endif
+}
 
 void GraphicsWindowSDL::raiseWindow()
 { if (_valid) SDL_RaiseWindow(_sdlWindow); }
@@ -518,7 +526,11 @@ void GraphicsWindowSDL::requestWarpPointer(float x, float y)
 bool GraphicsWindowSDL::setWindowDecorationImplementation(bool flag)
 {
     if (!_valid) return false;
+#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
     SDL_SetWindowBordered(_sdlWindow, flag ? SDL_TRUE : SDL_FALSE); return true;
+#else
+    return false;
+#endif
 }
 
 bool GraphicsWindowSDL::setWindowRectangleImplementation(int x, int y, int width, int height)
@@ -533,6 +545,7 @@ void GraphicsWindowSDL::setWindowName(const std::string& name)
 
 void GraphicsWindowSDL::setCursor(osgViewer::GraphicsWindow::MouseCursor cursor)
 {
+#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
     SDL_Cursor* sdlCursor = NULL;
     switch (cursor)
     {
@@ -546,6 +559,7 @@ void GraphicsWindowSDL::setCursor(osgViewer::GraphicsWindow::MouseCursor cursor)
     default: sdlCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW); break;
     }
     SDL_SetCursor(sdlCursor); SDL_SetCursor(NULL);
+#endif
 }
 
 void GraphicsWindowSDL::setSyncToVBlank(bool on)
