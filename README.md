@@ -60,6 +60,8 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 5.7 libDraco 1.5 or later, for Draco mesh compression support in osgVerseReaderWriter library. (https://github.com/google/draco)
   - 5.8 libIGL 2.5 or later, for Quadriflow, ManifoldPlus and other functionalities in osgModeling library. (https://github.com/libigl/libigl)
   - 5.9 Vulkan 1.3 or later, for Vulkan extensions based on Google Angle's cross-Graphics API. (https://vulkan.lunarg.com/sdk/home)
+  - 5.10 Effekseer 1.70 or later, for particle support in osgVerseAnimation module and related examples. Remember to check the USE_MSVC_RUNTIME_LIBRARY_DLL option while compiling. (https://github.com/effekseer/Effekseer)
+  - 5.11 libCEF 127.3 or later, for HTML5/CSS page rendering support in osgVerseAnimation module and related examples. (Binaries download: https://cef-builds.spotifycdn.com/index.html)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.

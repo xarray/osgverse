@@ -343,6 +343,8 @@ ENDIF()
 
 FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulletDynamics.a;BulletDynamics.lib" "bullet")
 FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib" "")
+FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effekseer.lib" "")
+FIND_DEPENDENCE(LIBCEF "cef_browser.h" "libcef.so;libcef.a;libcef.lib" "libcef")
 FIND_DEPENDENCE(LIBIGL "igl/igl_inline.h" "" "")
 IF(NOT USE_WASM_OPTIONS)
     FIND_DEPENDENCE(SDL2 "SDL/SDL.h" "libSDL2.so;libSDL2.a;SDL2.lib" "")

@@ -4,8 +4,10 @@
 | OpenSceneGraph   | Depended | > 3.1.1   | All                | LGPL (+)     | https://github.com/openscenegraph/OpenSceneGraph |
 | SDL2             | Depended |           | App, Android, WASM | Zlib         | https://github.com/libsdl-org/SDL |
 | Bullet           | Depended | > 3.17    | Animation          | Zlib (+)     | https://github.com/bulletphysics/bullet3 |
+| Effekseer        | Depended | > 1.70e   | Animation          | MIT          | https://github.com/effekseer/Effekseer |
 | ZLMediaKit       | Depended |           | verse_ms           | MIT          | https://github.com/ZLMediaKit/ZLMediaKit |
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | https://github.com/google/draco |
+| libCEF           | Depended | > 127.3   | Animation          | BSD          | https://github.com/chromiumembedded/cef |
 | libIGL           | Depended | > 2.5     | Modeling           | MPL2         | https://github.com/libigl/libigl |
 | OpenVDB          | Depended | > 10.0    | verse_vdb          | MPL2         | https://github.com/AcademySoftwareFoundation/openvdb |
 | osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/gwaldron/osgearth |
