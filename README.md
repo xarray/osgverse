@@ -83,14 +83,26 @@ Our project is already tested on graphics cards listed as below:
 | VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | osgVerse_Test_Pipeline can work; standard can't |
 
 #### Modules
-1. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.
-2. osgVerseReaderWriter: full featured reader-writer support for FBX, GLTF and KTX formats, and for more later.
-3. osgVerseAnimation: physics and character animation supports.
-4. osgVerseModeling: model simplification pipeline, modeling operators, and computational geometry utilities
-5. osgVerseUI: IMGUI based quick UI support, HTML based UI solution, and related utilities.
-6. osgVerseScript: Scripting support based on OSG serialization functionalities.
-7. osgVerseAI: Artificial-Intelligence related classes, including navigation-mesh and so on.
-8. TBD...
+1. osgVerseDependency: contains all embedded 3rdparty dependencies.
+2. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.
+3. osgVerseReaderWriter: full featured reader-writer support for FBX, GLTF and KTX formats, and for more later.
+4. osgVerseAnimation: physics and character animation supports.
+5. osgVerseModeling: model simplification pipeline, modeling operators, and computational geometry utilities
+6. osgVerseUI: IMGUI based quick UI support, HTML based UI solution, and related utilities.
+7. osgVerseScript: Scripting support based on OSG serialization functionalities.
+8. osgVerseAI: Artificial-Intelligence related classes, including navigation-mesh and so on.
+9. TBD...
+
+##### Module dependency chain
+|     Name     |               Depended Module             | Optional External Dependency |
+|--------------|-------------------------------------------|------------------------------|
+| Modeling     | Dependency                                | libIGL                       |
+| Pipeline     | Dependency, Modeling                      |                              |
+| Script       | Dependency, Pipeline                      |                              |
+| AI           | Dependency, Modeling                      |                              |
+| Animation    | Dependency, Pipeline, Modeling            | Bullet, Effekseer            |
+| UI           | Dependency, Modeling, Script              | libCEF                       |
+| ReaderWriter | Dependency, Animation, Modeling, Pipeline | libDraco, SDL                |
 
 #### Applications
 1. osgVerse_SceneEditor: a forward-looking scene editor for osgVerse scene & components.

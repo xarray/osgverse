@@ -219,9 +219,9 @@ for /f "delims=" %%a in ('type "!source_file!"') do (
     set "line=%%a"
     set "modified=!line:%search_string%=%replace_string%!"
     if "!line!" neq "!modified!" (
-        echo !modified! >> "!dest_file!"
+        @echo !modified! >> "!dest_file!"
     ) else (
-        echo !line! >> "!dest_file!"
+        @echo !line! >> "!dest_file!"
     )
 )
 xcopy /y "!dest_file!" "%~1"

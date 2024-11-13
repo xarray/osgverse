@@ -117,6 +117,18 @@ protected:
 
 namespace osgVerse
 {
+    std::string Utf8StringValidator::convert(const std::string& s)
+    {
+        return osgVerse::Utf8StringValidator::check(s) ? s :
+               osgDB::convertStringFromCurrentCodePageToUTF8(s);
+    }
+
+    std::wstring Utf8StringValidator::convertW(const std::string& s)
+    {
+        return osgVerse::Utf8StringValidator::check(s) ? osgDB::convertUTF8toUTF16(s) :
+               osgDB::convertUTF8toUTF16(osgDB::convertStringFromCurrentCodePageToUTF8(s));
+    }
+
     osg::ArgumentParser globalInitialize(int argc, char** argv)
     {
         setlocale(LC_ALL, ".UTF8");

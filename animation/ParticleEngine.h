@@ -9,6 +9,7 @@
 namespace Effekseer
 {
     class Manager;
+    class Effect;
 }
 
 namespace osgVerse
@@ -20,6 +21,15 @@ namespace osgVerse
         ParticleDrawable(int maxInstances = 8000);
         ParticleDrawable(const ParticleDrawable& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
 
+        enum PlayingState
+        { INVALID = -1, STOPPED = 0, PLAYING = 1, PAUSED = 2 };
+
+        Effekseer::Effect* createEffect(const std::string& name, const std::string& fileName);
+        void destroyEffect(const std::string& name);
+        bool playEffect(const std::string& name, PlayingState state);
+
+        PlayingState getEffectState(const std::string& name) const;
+        Effekseer::Effect* getEffect(const std::string& name) const;
         Effekseer::Manager* getManager() const;
 
 #if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
@@ -29,6 +39,7 @@ namespace osgVerse
         virtual osg::BoundingBox computeBound() const;
 #endif
         virtual void drawImplementation(osg::RenderInfo& renderInfo) const;
+        virtual void releaseGLObjects(osg::State* state) const;
 
     protected:
         virtual ~ParticleDrawable();

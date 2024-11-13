@@ -49,9 +49,9 @@ SET(WASM_FLAGS1 "-s ASYNCIFY_IMPORTS=[\"emscripten_sleep_using_raf\"] -s USE_SDL
 # https://developer.chrome.com/blog/faster-wasm-debugging
 IF(BUILD_WASM_64)
     IF(VERSE_WASM_OPTIMIZE_SIZE)
-        SET(WASM_FLAGS2 "-s MEMORY64=1 -s INITIAL_MEMORY=8GB -Oz")
+        SET(WASM_FLAGS2 "-fsanitize=undefined -s MEMORY64=1 -s INITIAL_MEMORY=8GB -Oz")
     ELSE(VERSE_WASM_OPTIMIZE_SIZE)
-        SET(WASM_FLAGS2 "-fsanitize=address -gsource-map -s MEMORY64=1 -s INITIAL_MEMORY=8GB -s ASYNCIFY_STACK_SIZE=24576 -O0")
+        SET(WASM_FLAGS2 "-fsanitize=undefined -gsource-map -s MEMORY64=1 -s INITIAL_MEMORY=8GB -s ASYNCIFY_STACK_SIZE=24576 -O0")
     ENDIF(VERSE_WASM_OPTIMIZE_SIZE)
 ELSE()
     IF(VERSE_WASM_OPTIMIZE_SIZE)

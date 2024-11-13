@@ -1,4 +1,4 @@
-#include <osg/io_utils>
+﻿#include <osg/io_utils>
 #include <osg/Texture2D>
 #include <osg/PagedLOD>
 #include <osg/MatrixTransform>

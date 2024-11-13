@@ -315,6 +315,9 @@ namespace osgVerse
 
         static inline bool check(const std::string& s)
         { return check((unsigned char*)s.data(), s.length()); }
+
+        static std::string convert(const std::string& s);
+        static std::wstring convertW(const std::string& s);
     };
 
     /** Suggest run this function once to initialize some plugins & environments */

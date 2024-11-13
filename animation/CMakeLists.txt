@@ -15,7 +15,7 @@ IF(EFFEKSEER_FOUND)
 ENDIF(EFFEKSEER_FOUND)
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
-TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseModeling)
+TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVersePipeline osgVerseModeling)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 IF(BULLET_FOUND)
     TARGET_LINK_LIBRARIES(${LIB_NAME} debug BulletDynamics${VERSE_DEBUG_POSTFIX} optimized BulletDynamics)
@@ -25,9 +25,12 @@ ENDIF(BULLET_FOUND)
 
 IF(EFFEKSEER_FOUND)
     TARGET_LINK_LIBRARIES(${LIB_NAME} debug Effekseer${VERSE_DEBUG_POSTFIX} optimized Effekseer)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug EffekseerRendererCommon${VERSE_DEBUG_POSTFIX} optimized EffekseerRendererCommon)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug EffekseerRendererGL${VERSE_DEBUG_POSTFIX} optimized EffekseerRendererGL)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug EffekseerSoundDSound${VERSE_DEBUG_POSTFIX} optimized EffekseerSoundDSound)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug EffekseerRendererCommon${VERSE_DEBUG_POSTFIX}
+                                      optimized EffekseerRendererCommon)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug EffekseerRendererGL${VERSE_DEBUG_POSTFIX}
+                                      optimized EffekseerRendererGL)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug EffekseerSoundDSound${VERSE_DEBUG_POSTFIX}
+                                      optimized EffekseerSoundDSound)
 ENDIF(EFFEKSEER_FOUND)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
