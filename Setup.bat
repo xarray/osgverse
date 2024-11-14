@@ -127,12 +127,19 @@ if !BuildModeWasm!==1 (
 )
 
 :: Fix some OpenSceneGraph compile errors
-call :replaceInFile "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" "FileUtils.cpp.tmp" "if defined(__ANDROID__)" "if defined(__EMSCRIPTEN__) || defined(__ANDROID__)"
-call :replaceInFile "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" "graph_array.h.tmp" "std::mem_fun_ref" "std::mem_fn"
-call :replaceInFile "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" "CMakeLists.txt.tmp" "ADD_PLUGIN_DIRECTORY(cfg)" "#ADD_PLUGIN_DIRECTORY(#cfg)"
-call :replaceInFile "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" "CMakeLists.txt.tmp" "ADD_PLUGIN_DIRECTORY(obj)" "#ADD_PLUGIN_DIRECTORY(#obj)"
-call :replaceInFile "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" "CMakeLists.txt.tmp" "TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE" "TIFF_FOUND"
-call :replaceInFile "%OpenSceneGraphRoot%\CMakeLists.txt" "CMakeLists.txt.tmp" "ANDROID_3RD_PARTY()" "#ANDROID_3RD_PARTY(#)"
+set SED_EXE="%CurrentDir%\wasm\sed.exe"
+%SED_EXE% "s/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g" "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" > FileUtils.cpp.tmp
+xcopy /y FileUtils.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp"
+%SED_EXE% "s/std::mem_fun_ref/std::mem_fn/g" "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" > graph_array.h.tmp
+xcopy /y graph_array.h.tmp "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h"
+%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+%SED_EXE% "s/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+%SED_EXE% "s/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
 
 :: Compile OpenSceneGraph
 echo *** Building OpenSceneGraph...
@@ -207,25 +214,6 @@ if "!BuildMode!"=="4" (
     if not %errorlevel%==0 goto exit
 )
 goto exit
-
-:replaceInFile
-set "source_file=%~1"
-set "dest_file=%~2"
-set "search_string=%~3"
-set "replace_string=%~4"
-if not exist "!source_file!" goto :eof
-if exist "!dest_file!" del /f "!dest_file!"
-for /f "delims=" %%a in ('type "!source_file!"') do (
-    set "line=%%a"
-    set "modified=!line:%search_string%=%replace_string%!"
-    if "!line!" neq "!modified!" (
-        @echo !modified! >> "!dest_file!"
-    ) else (
-        @echo !line! >> "!dest_file!"
-    )
-)
-xcopy /y "!dest_file!" "%~1"
-goto :eof
 
 :: TODO and exit process
 :todo

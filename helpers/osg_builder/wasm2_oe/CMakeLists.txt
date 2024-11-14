@@ -9,12 +9,14 @@ SET(DYNAMIC_OSGEARTH OFF CACHE BOOL "Use static build")
 # Set special build flags:
 # * -O3: make compact binary, critical for web
 # * -s USE_SDL=2: provide SDL2
-IF(USE_WASM_OPTIONS EQUAL 2)
-    SET(BUILD_FLAGS "-O3 -s MEMORY64=1 -s USE_SDL=2 -pthread")
-ELSE()
-    SET(BUILD_FLAGS "-O3 -s USE_SDL=2 -pthread")
+IF(USE_WASM_OPTIONS)
+    IF(USE_WASM_OPTIONS EQUAL 2)
+        SET(BUILD_FLAGS "-O3 -s MEMORY64=1 -s USE_SDL=2 -pthread")
+    ELSE()
+        SET(BUILD_FLAGS "-O3 -s USE_SDL=2 -pthread")
+    ENDIF()
+    ADD_DEFINITIONS(${BUILD_FLAGS})
 ENDIF()
-ADD_DEFINITIONS(${BUILD_FLAGS})
 
 # Set dependencies
 SET(USE_EXTERNAL_WASM_DEPENDS ON CACHE BOOL "Use external roots instead of finding them")
