@@ -160,8 +160,8 @@ public:
         efkRenderer->SetCameraMatrix(efkView);
 
         Effekseer::Manager::DrawParameter drawParam;
-        drawParam.ZNear = 0.0f;
-        drawParam.ZFar = 1.0f;
+        drawParam.ZNear = 0.0f; drawParam.ZFar = 1.0f;
+        drawParam.IsSortingEffectsEnabled = false;
         drawParam.ViewProjectionMatrix = efkRenderer->GetCameraProjectionMatrix();
 
         efkRenderer->BeginRendering();

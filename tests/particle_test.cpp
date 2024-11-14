@@ -43,7 +43,11 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Geode> particleNode = new osg::Geode;
     particleNode->addDrawable(particle.get());
-    root->addChild(particleNode.get());
+
+    osg::ref_ptr<osg::MatrixTransform> particleMT = new osg::MatrixTransform;
+    particleMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 10.0f));
+    particleMT->addChild(particleNode.get());
+    root->addChild(particleMT.get());
 
     // Start the main loop
     osgViewer::Viewer viewer;

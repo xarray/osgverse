@@ -193,6 +193,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     std::stringstream ss;
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
     ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
+    ss << "#extension GL_OES_standard_derivatives: enable" << std::endl;
     ss << "#define VERSE_GLES2 1" << std::endl;
 #elif defined(OSG_GLES3_AVAILABLE)
     ss << "#version " << osg::maximum(glslVer, 300) << " es" << std::endl;

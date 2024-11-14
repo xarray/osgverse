@@ -77,7 +77,9 @@ static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
     case SDLK_LEFT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Left;
     case SDLK_DOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Down;
     case SDLK_UP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Up;
-    default: return (osgGA::GUIEventAdapter::KeySymbol)key;
+    default:
+        OSG_NOTICE << "[GraphicsWindowSDL] Unknown input key: " << key << std::endl;
+        return (osgGA::GUIEventAdapter::KeySymbol)key;
     }
 }
 
@@ -461,8 +463,8 @@ void GraphicsWindowSDL::checkEvents()
         case SDL_KEYUP:
             {
                 int key = getKey(event.key.keysym.sym), state = event.key.keysym.mod;
-                if (state > 0) eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)key, 0);  // keep mod-key
-                else if (state == 0) eq->getCurrentEventState()->setModKeyMask(0);
+                if (state == 0) eq->getCurrentEventState()->setModKeyMask(0);
+                eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)key, 0);  // modkey state will be kept if passed 0
                 _lastKey = 0; _lastModKey = 0;
             } break;
         case SDL_KEYDOWN:
