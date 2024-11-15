@@ -36,6 +36,21 @@ namespace osgVerse
             osg::RadiansToDegrees(heading), osg::RadiansToDegrees(pitch), osg::RadiansToDegrees(roll));
     }
 
+    osg::Vec3d computeHPRFromDirection(const osg::Vec3& dir, const osg::Vec3& up)
+    {
+        // From: https://stackoverflow.com/questions/21622956/how-to-convert-direction-vector-to-euler-angles
+        double angle_H = 0.0, angle_P = asin(dir.z());
+        if (dir.y() != 0.0 || dir.x() != 0.0) angle_H = atan2(dir.y(), dir.x());
+
+        // If the plane flies straight towards Dir, the Wings point perpendicular to Dir and parallel to ground
+        // This would be a bank angle of 0, with a new expected Up Vector 'up0'
+        osg::Vec3 up0, wing0(-dir.y(), dir.x(), 0.0f); wing0.normalize(); up0 = wing0 ^ dir;
+        float bankY = wing0 * up, bankX = up0 * up;
+        double angle_B = (bankY != 0.0 || bankX != 0.0) ? atan2(bankY, bankX) : 0.0;
+        return osg::Vec3d(
+            osg::RadiansToDegrees(angle_H), osg::RadiansToDegrees(angle_P), osg::RadiansToDegrees(angle_B));
+    }
+
     int computePowerOfTwo(int s, bool findNearest)
     {
         int powerOfTwo = 1;
@@ -219,6 +234,69 @@ namespace osgVerse
 }
 
 using namespace osgVerse;
+
+/* Coordinate */
+
+osg::Vec3d Coordinate::convertLLAtoECEF(const osg::Vec3d& lla, double radiusEquator,
+                                        double radiusPolar, double eccentricitySq)
+{
+    if (eccentricitySq == 0.0)
+    {
+        double flattening = (radiusEquator - radiusPolar) / radiusEquator;
+        eccentricitySq = 2 * flattening - flattening * flattening;
+    }
+
+    // for details on maths see https://en.wikipedia.org/wiki/ECEF
+    const double latitude = lla[0], longitude = lla[1], height = lla[2];
+    double sin_latitude = sin(latitude), cos_latitude = cos(latitude);
+    double N = radiusEquator / sqrt(1.0 - eccentricitySq * sin_latitude * sin_latitude);
+    return osg::Vec3d((N + height) * cos_latitude * cos(longitude),
+                      (N + height) * cos_latitude * sin(longitude),
+                      (N * (1 - eccentricitySq) + height) * sin_latitude);
+}
+
+osg::Vec3d Coordinate::convertECEFtoLLA(const osg::Vec3d& ecef, double radiusEquator,
+                                        double radiusPolar, double eccentricitySq)
+{
+    if (eccentricitySq == 0.0)
+    {
+        double flattening = (radiusEquator - radiusPolar) / radiusEquator;
+        eccentricitySq = 2 * flattening - flattening * flattening;
+    }
+
+    double latitude = 0.0, longitude = 0.0, height = 0.0;
+    if (ecef.x() != 0.0)
+        longitude = atan2(ecef.y(), ecef.x());
+    else
+    {
+        if (ecef.y() > 0.0) longitude = osg::PI_2;
+        else if (ecef.y() < 0.0) longitude = -osg::PI_2;
+        else
+        {   // at pole or at center of the earth
+            longitude = 0.0;
+            if (ecef.z() > 0.0)
+                { latitude = osg::PI_2; height = ecef.z() - radiusPolar; }  // north pole.
+            else if (ecef.z() < 0.0)
+                { latitude = -osg::PI_2; height = -ecef.z() - radiusPolar; }   // south pole.
+            else
+                { latitude = osg::PI_2; height = -radiusPolar; }  // center of earth.
+            return osg::Vec3d(latitude, longitude, height);
+        }
+    }
+
+    // http://www.colorado.edu/geography/gcraft/notes/datum/gif/xyzllh.gif
+    double p = sqrt(ecef.x() * ecef.x() + ecef.y() * ecef.y());
+    double theta = atan2(ecef.z() * radiusEquator, (p * radiusPolar));
+    double eDashSquared = (radiusEquator * radiusEquator - radiusPolar * radiusPolar) /
+                          (radiusPolar * radiusPolar);
+    double sin_theta = sin(theta), cos_theta = cos(theta);
+    latitude = atan((ecef.z() + eDashSquared * radiusPolar * sin_theta * sin_theta * sin_theta) /
+               (p - eccentricitySq * radiusEquator * cos_theta * cos_theta * cos_theta));
+
+    double sin_latitude = sin(latitude);
+    double N = radiusEquator / sqrt(1.0 - eccentricitySq * sin_latitude * sin_latitude);
+    height = p / cos(latitude) - N; return osg::Vec3d(latitude, longitude, height);
+}
 
 /* MathExpression */
 

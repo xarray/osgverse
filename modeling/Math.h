@@ -17,6 +17,7 @@
 #include <osg/Matrix>
 #include <osg/Node>
 #include <osg/Shape>
+#include <osg/CoordinateSystemNode>
 
 namespace osgVerse
 {
@@ -37,6 +38,9 @@ namespace osgVerse
 
     /** Get euler angles in HPR order from a quaternion */
     extern osg::Vec3d computeHPRFromQuat(const osg::Quat& quat);
+
+    /** Get euler angles in HPR order from direction and up vectors */
+    extern osg::Vec3d computeHPRFromDirection(const osg::Vec3& dir, const osg::Vec3& up);
 
     /** Compute a power-of-two value according to current one */
     extern int computePowerOfTwo(int s, bool findNearest);
@@ -120,6 +124,27 @@ namespace osgVerse
     protected:
         void* _queryData;
         void* _index;
+    };
+
+    /** A set of transformation functions between coordinate systems */
+    struct Coordinate
+    {
+        inline osg::Vec3d translateRHtoLH(const osg::Vec3d& v) { return osg::Vec3d(-v[1], v[2], v[0]); }
+        inline osg::Vec3d translateLHtoRH(const osg::Vec3d& v) { return osg::Vec3d(v[2], -v[0], v[1]); }
+        inline osg::Vec3d scaleRHtoLH(const osg::Vec3d& v) { return osg::Vec3d(v[1], v[2], v[0]); }
+        inline osg::Vec3d scaleLHtoRH(const osg::Vec3d& v) { return osg::Vec3d(v[2], v[0], v[1]); }
+        inline osg::Quat rotateRHtoLH(const osg::Quat& q) { return osg::Quat(q[1], -q[2], -q[0], q[3]); }
+        inline osg::Quat rotateLHtoRH(const osg::Quat& q) { return osg::Quat(-q[2], q[0], -q[1], q[3]); }
+
+        /// latitude and longitude in radius, altitude in metres, ECEF coords in metres
+        static osg::Vec3d convertLLAtoECEF(
+            const osg::Vec3d& llaInRadius, double radiusEquator = osg::WGS_84_RADIUS_EQUATOR,
+            double radiusPolar = osg::WGS_84_RADIUS_POLAR, double eccentricitySq = 0.0);
+
+        /// latitude and longitude in radius, altitude in metres, ECEF coords in metres
+        static osg::Vec3d convertECEFtoLLA(
+            const osg::Vec3d& ecef, double radiusEquator = osg::WGS_84_RADIUS_EQUATOR,
+            double radiusPolar = osg::WGS_84_RADIUS_POLAR, double eccentricitySq = 0.0);
     };
 
     /** Computational geometry helpers struct */
