@@ -237,33 +237,112 @@ using namespace osgVerse;
 
 /* Coordinate */
 
-osg::Vec3d Coordinate::convertLLAtoECEF(const osg::Vec3d& lla, double radiusEquator,
-                                        double radiusPolar, double eccentricitySq)
+Coordinate::WGS84::WGS84(double radiusE, double radiusP)
 {
-    if (eccentricitySq == 0.0)
+    double flattening = (radiusE - radiusP) / radiusE;
+    eccentricitySq = 2 * flattening - flattening * flattening;
+    radiusEquator = radiusE; radiusPolar = radiusP;
+}
+
+double Coordinate::UTM::clenshaw(const double* a, int size, double real)
+{
+    // Compute the real clenshaw summation.
+    // Also computes Gaussian latitude for some B as clens(a, len(a), 2 * B) + B
+    const double* p; double hr, hr1, hr2;
+    for (p = a + size, hr2 = 0., hr1 = *(--p), hr = 0.; a - p;
+         hr2 = hr1, hr1 = hr) { hr = -hr2 + (2. * hr1 * std::cos(real)) + *(--p); }
+    return std::sin(real) * hr;
+}
+
+double Coordinate::UTM::clenshaw2(const double* a, int size, double real, double imag, double& R, double& I)
+{
+    // Compute the complex clenshaw summation.
+    const double* p; double hr, hr1, hr2, hi, hi1, hi2;
+    for (p = a + size, hr2 = 0., hi2 = 0., hi1 = 0., hr1 = *(--p), hi1 = 0.,
+         hr = 0., hi = 0.; a - p; hr2 = hr1, hi2 = hi1, hr1 = hr, hi1 = hi)
     {
-        double flattening = (radiusEquator - radiusPolar) / radiusEquator;
-        eccentricitySq = 2 * flattening - flattening * flattening;
+        hr = -hr2 + (2. * hr1 * std::cos(real) * std::cosh(imag)) -
+            (-2. * hi1 * std::sin(real) * std::sinh(imag)) + *(--p);
+        hi = -hi2 + (-2. * hr1 * std::sin(real) * std::sinh(imag)) +
+            (2. * hi1 * std::cos(real) * std::cosh(imag));
     }
 
+    // Bad practice - Should *either* modify R in-place *or* return R, not both.
+    // I is modified, but not returned. Since R and I are tied, we should either
+    // return a pair<,>(,) or modify in-place, not mix the strategies
+    R = (std::sin(real) * std::cosh(imag) * hr) - (std::cos(real) * std::sinh(imag) * hi);
+    I = (std::sin(real) * std::cosh(imag) * hi) + (std::cos(real) * std::sinh(imag) * hr);
+    return R;
+}
+
+Coordinate::UTM::UTM(int code, const WGS84& wgs84)
+{
+    if ((code > 32600) && (code <= 32660)) { zone = code - 32600; isNorth = true; }
+    else if ((code > 32700) && (code <= 32760)) { zone = code - 32700; isNorth = false; }
+    else throw std::invalid_argument("Invalid EPSG Code for UTM Projection");
+    lon0 = ((zone - 0.5) * (osg::PI / 30.)) - osg::PI;
+
+    // We have fixed k0 = 0.9996 here. This is standard for WGS84 zones.
+    double f = wgs84.eccentricitySq / (1.0 + std::sqrt(1.0 - wgs84.eccentricitySq)); double n = f / (2.0 - f);
+    Qn = (0.9996 / (1. + n)) * (1. + n * n * ((1. / 4.) + n * n * ((1. / 64.) + ((n * n) / 256.))));
+
+    // Gaussian -> Geodetic == cgb; Geodetic -> Gaussian == cbg
+    cgb[0] = n * (2 + n * ((-2. / 3.) + n * (-2 + n * ((116. / 45.) +
+             n * ((26. / 45.) + n * (-2854. / 675.))))));
+    cbg[0] = n * (-2 + n * ((2. / 3.) + n * ((4. / 3.) + n * ((-82. / 45.) +
+             n * ((32. / 45.) + n * (4642. / 4725.))))));
+    cgb[1] = std::pow(n, 2) * ((7. / 3.) + n * ((-8. / 5.) +
+             n * ((-227. / 45.) + n * ((2704. / 315.) + n * (2323. / 945.)))));
+    cbg[1] = std::pow(n, 2) * ((5. / 3.) + n * ((-16. / 15.) +
+             n * ((-13. / 9.) + n * ((904. / 315.) + n * (-1522. / 945.)))));
+    cgb[2] = std::pow(n, 3) * ((56. / 15.) + n * ((-136. / 35.) +
+             n * ((-1262. / 105.) + n * (73814. / 2835.))));
+    cbg[2] = std::pow(n, 3) * ((-26. / 15.) + n * ((34. / 21.) +
+             n * ((8. / 5.) + n * (-12686. / 2835.))));
+    cgb[3] = std::pow(n, 4) * ((4279. / 630.) + n * ((-332. / 35.) + n * (-399572 / 14175.)));
+    cbg[3] = std::pow(n, 4) * ((1237. / 630.) + n * ((-12. / 5.) + n * (-24832. / 14175.)));
+    cgb[4] = std::pow(n, 5) * ((4174. / 315.) + n * (-144838. / 6237.));
+    cbg[4] = std::pow(n, 5) * ((-734. / 315.) + n * (109598. / 31185.));
+    cgb[5] = std::pow(n, 6) * (601676. / 22275.);
+    cbg[5] = std::pow(n, 6) * (444337. / 155925.);
+
+    // Elliptical N,E -> Spherical N,E == utg; Spherical N,E -> Elliptical N,E == gtu
+    utg[0] = n * (-.5 + n * ((2. / 3.) + n * ((-37. / 96.) + n * ((1. / 360.) +
+             n * ((81. / 512.) + n * (-96199. / 604800.))))));
+    gtu[0] = n * (.5 + n * ((-2. / 3.) + n * ((5. / 16.) + n * ((41. / 180.) +
+             n * ((-127. / 288.) + n * (7891. / 37800.))))));
+    utg[1] = std::pow(n, 2) * ((-1. / 48.) + n * ((-1. / 15.) + n * ((437. / 1440.) +
+             n * ((-46. / 105.) + n * (1118711. / 3870720.)))));
+    gtu[1] = std::pow(n, 2) * ((13. / 48.) + n * ((-3. / 5.) + n * ((557. / 1440.) +
+             n * ((281. / 630.) + n * (-1983433. / 1935360.)))));
+    utg[2] = std::pow(n, 3) * ((-17. / 480.) + n * ((37. / 840.) +
+             n * ((209. / 4480.) + n * (-5569. / 90720.))));
+    gtu[2] = std::pow(n, 3) * ((61. / 240.) + n * ((-103. / 140.) +
+             n * ((15061. / 26880.) + n * (167603. / 181440.))));
+    utg[3] = std::pow(n, 4) * ((-4397. / 161280.) + n * ((11. / 504.) + n * (830251. / 7257600.)));
+    gtu[3] = std::pow(n, 4) * ((49561. / 161280.) + n * ((-179. / 168.) + n * (6601661. / 7257600.)));
+    utg[4] = std::pow(n, 5) * ((-4583. / 161280.) + n * (108847. / 3991680.));
+    gtu[4] = std::pow(n, 5) * ((34729. / 80640.) + n * (-3418889. / 1995840.));
+    utg[5] = std::pow(n, 6) * (-20648693. / 638668800.);
+    gtu[5] = std::pow(n, 6) * (212378941. / 319334400.);
+
+    // Gaussian latitude of origin latitude
+    double Z = clenshaw(cbg, 6, 0.); Zb = -Qn * (Z + clenshaw(gtu, 6, 2 * Z));
+}
+
+osg::Vec3d Coordinate::convertLLAtoECEF(const osg::Vec3d& lla, const WGS84& wgs84)
+{
     // for details on maths see https://en.wikipedia.org/wiki/ECEF
     const double latitude = lla[0], longitude = lla[1], height = lla[2];
     double sin_latitude = sin(latitude), cos_latitude = cos(latitude);
-    double N = radiusEquator / sqrt(1.0 - eccentricitySq * sin_latitude * sin_latitude);
+    double N = wgs84.radiusEquator / sqrt(1.0 - wgs84.eccentricitySq * sin_latitude * sin_latitude);
     return osg::Vec3d((N + height) * cos_latitude * cos(longitude),
                       (N + height) * cos_latitude * sin(longitude),
-                      (N * (1 - eccentricitySq) + height) * sin_latitude);
+                      (N * (1 - wgs84.eccentricitySq) + height) * sin_latitude);
 }
 
-osg::Vec3d Coordinate::convertECEFtoLLA(const osg::Vec3d& ecef, double radiusEquator,
-                                        double radiusPolar, double eccentricitySq)
+osg::Vec3d Coordinate::convertECEFtoLLA(const osg::Vec3d& ecef, const WGS84& wgs84)
 {
-    if (eccentricitySq == 0.0)
-    {
-        double flattening = (radiusEquator - radiusPolar) / radiusEquator;
-        eccentricitySq = 2 * flattening - flattening * flattening;
-    }
-
     double latitude = 0.0, longitude = 0.0, height = 0.0;
     if (ecef.x() != 0.0)
         longitude = atan2(ecef.y(), ecef.x());
@@ -273,29 +352,99 @@ osg::Vec3d Coordinate::convertECEFtoLLA(const osg::Vec3d& ecef, double radiusEqu
         else if (ecef.y() < 0.0) longitude = -osg::PI_2;
         else
         {   // at pole or at center of the earth
-            longitude = 0.0;
             if (ecef.z() > 0.0)
-                { latitude = osg::PI_2; height = ecef.z() - radiusPolar; }  // north pole.
+                { latitude = osg::PI_2; height = ecef.z() - wgs84.radiusPolar; }  // north pole.
             else if (ecef.z() < 0.0)
-                { latitude = -osg::PI_2; height = -ecef.z() - radiusPolar; }   // south pole.
+                { latitude = -osg::PI_2; height = -ecef.z() - wgs84.radiusPolar; }   // south pole.
             else
-                { latitude = osg::PI_2; height = -radiusPolar; }  // center of earth.
-            return osg::Vec3d(latitude, longitude, height);
+                { latitude = osg::PI_2; height = -wgs84.radiusPolar; }  // center of earth.
+            longitude = 0.0; return osg::Vec3d(latitude, longitude, height);
         }
     }
 
     // http://www.colorado.edu/geography/gcraft/notes/datum/gif/xyzllh.gif
     double p = sqrt(ecef.x() * ecef.x() + ecef.y() * ecef.y());
-    double theta = atan2(ecef.z() * radiusEquator, (p * radiusPolar));
-    double eDashSquared = (radiusEquator * radiusEquator - radiusPolar * radiusPolar) /
-                          (radiusPolar * radiusPolar);
-    double sin_theta = sin(theta), cos_theta = cos(theta);
-    latitude = atan((ecef.z() + eDashSquared * radiusPolar * sin_theta * sin_theta * sin_theta) /
-               (p - eccentricitySq * radiusEquator * cos_theta * cos_theta * cos_theta));
+    double re2 = wgs84.radiusEquator* wgs84.radiusEquator, rp2 = wgs84.radiusPolar * wgs84.radiusPolar;
+    double theta = atan2(ecef.z() * wgs84.radiusEquator, (p * wgs84.radiusPolar));
+    double eDashSquared = (re2 - rp2) / rp2, sin_theta = sin(theta), cos_theta = cos(theta);
+    latitude = atan((ecef.z() + eDashSquared * wgs84.radiusPolar * sin_theta * sin_theta * sin_theta) /
+               (p - wgs84.eccentricitySq * wgs84.radiusEquator * cos_theta * cos_theta * cos_theta));
 
     double sin_latitude = sin(latitude);
-    double N = radiusEquator / sqrt(1.0 - eccentricitySq * sin_latitude * sin_latitude);
+    double N = wgs84.radiusEquator / sqrt(1.0 - wgs84.eccentricitySq * sin_latitude * sin_latitude);
     height = p / cos(latitude) - N; return osg::Vec3d(latitude, longitude, height);
+}
+
+osg::Vec3d Coordinate::convertLLAtoWebMercator(const osg::Vec3d& lla, const WGS84& wgs84)
+{
+    double norm = wgs84.radiusEquator * 1.0;
+    return osg::Vec3d(std::log(std::tan(osg::PI_4 + lla[0] / 2.0)) * norm, lla[1] * norm, lla[2]);
+}
+
+osg::Vec3d Coordinate::convertWebMercatorToLLA(const osg::Vec3d& yxz, const WGS84& wgs84)
+{
+    double norm = wgs84.radiusEquator * 1.0;
+    return osg::Vec3d(2.0 * std::atan(std::exp(yxz[0] / norm)) - osg::PI_2, yxz[1] / norm, yxz[2]);
+}
+
+osg::Vec3d Coordinate::convertLLAtoUTM(const osg::Vec3d& lla, const UTM& utm, const WGS84& wgs84)
+{
+    // Elliptical Lat, Lon -> Gaussian Lat, Lon
+    double gauss = UTM::clenshaw(utm.cbg, 6, 2. * lla[1]) + lla[1];
+    double lam = lla[0] - utm.lon0;  // Adjust longitude for zone offset
+
+    // Account for longitude and get Spherical N,E
+    double Cn = std::atan2(std::sin(gauss), std::cos(lam) * std::cos(gauss));
+    double Ce = std::atan2(std::sin(lam) * std::cos(gauss),
+                           std::hypot(std::sin(gauss), std::cos(gauss) * std::cos(lam)));
+
+    // Spherical N,E to Elliptical N,E
+    double dCn = 0.0, dCe = 0.0; Ce = asinh(tan(Ce));
+    Cn += UTM::clenshaw2(utm.gtu, 6, 2 * Cn, 2 * Ce, dCn, dCe); Ce += dCe;
+    if (std::fabs(Ce) <= 2.623395162778)
+        return osg::Vec3d((utm.Qn * Ce * wgs84.radiusEquator) + 500000.0,
+                          (((utm.Qn * Cn) + utm.Zb) * wgs84.radiusEquator) +
+                          (utm.isNorth ? 0. : 10000000.), lla[2]);
+    return osg::Vec3d();
+}
+
+osg::Vec3d Coordinate::convertUTMtoLLA(const osg::Vec3d& coord, const UTM& utm, const WGS84& wgs84)
+{
+    double Cn = (coord[1] - (utm.isNorth ? 0. : 10000000.0)) / wgs84.radiusEquator;
+    double Ce = (coord[0] - 500000.0) / wgs84.radiusEquator;
+    Cn = (Cn - utm.Zb) / utm.Qn; Ce /= utm.Qn;  // Normalize N,E to Spherical N,E
+    if (std::fabs(Ce) <= 2.623395162778)
+    {   // N,E to Spherical Lat, Lon
+        double dCn, dCe; Cn += UTM::clenshaw2(utm.utg, 6, 2 * Cn, 2 * Ce, dCn, dCe);
+        Ce = std::atan(std::sinh(Ce + dCe));
+
+        // Spherical Lat, Lon to Gaussian Lat, Lon
+        double sinCe = std::sin(Ce), cosCe = std::cos(Ce);
+        Ce = std::atan2(sinCe, cosCe * std::cos(Cn));
+        Cn = std::atan2(std::sin(Cn) * cosCe, std::hypot(sinCe, cosCe * std::cos(Cn)));
+        return osg::Vec3d(Ce + utm.lon0, UTM::clenshaw(utm.cgb, 6, 2 * Cn) + Cn, coord[2]);
+    }
+    return osg::Vec3d();
+}
+
+osg::Matrix Coordinate::convertLLAtoENU(const osg::Vec3d& lla, const WGS84& wgs84)
+{
+    const double latitude = lla[0], longitude = lla[1];
+    osg::Vec3d up(cos(longitude) * cos(latitude), sin(longitude) * cos(latitude), sin(latitude));
+    osg::Vec3d east(-sin(longitude), cos(longitude), 0.0); osg::Vec3d north = up ^ east;
+    osg::Matrix m; for (int i = 0; i < 3; ++i)
+    { m(0, i) = east[i]; m(1, i) = north[i]; m(2, i) = up[i]; }
+    m.setTrans(convertLLAtoECEF(lla, wgs84)); return m;
+}
+
+osg::Matrix Coordinate::convertLLAtoNED(const osg::Vec3d& lla, const WGS84& wgs84)
+{
+    const double latitude = lla[0], longitude = lla[1];
+    osg::Vec3d up(cos(longitude) * cos(latitude), sin(longitude) * cos(latitude), sin(latitude));
+    osg::Vec3d east(-sin(longitude), cos(longitude), 0.0); osg::Vec3d north = up ^ east;
+    osg::Matrix m; for (int i = 0; i < 3; ++i)
+    { m(0, i) = north[i]; m(1, i) = east[i]; m(2, i) = -up[i]; }
+    m.setTrans(convertLLAtoECEF(lla, wgs84)); return m;
 }
 
 /* MathExpression */

@@ -126,7 +126,13 @@ namespace osgVerse
         void* _index;
     };
 
-    /** A set of transformation functions between coordinate systems */
+    /** A set of transformation functions between coordinate systems
+        Information about spatial reference systems
+        - [EPSG:4326] Geographic coordinate system (LLA / geodetic)
+        - [EPSG:4978] Geocentric coordinate system (Earth-centered Earth-fixed, ECEF)
+        - [EPSG:3857] Web Mercator / Spherical Mercator
+        - [EPSG:32601-32660] for UTM Northern, [EPSG:32701-32760] for UTM Southern
+    */
     struct Coordinate
     {
         inline osg::Vec3d translateRHtoLH(const osg::Vec3d& v) { return osg::Vec3d(-v[1], v[2], v[0]); }
@@ -136,15 +142,46 @@ namespace osgVerse
         inline osg::Quat rotateRHtoLH(const osg::Quat& q) { return osg::Quat(q[1], -q[2], -q[0], q[3]); }
         inline osg::Quat rotateLHtoRH(const osg::Quat& q) { return osg::Quat(-q[2], q[0], -q[1], q[3]); }
 
-        /// latitude and longitude in radius, altitude in metres, ECEF coords in metres
-        static osg::Vec3d convertLLAtoECEF(
-            const osg::Vec3d& llaInRadius, double radiusEquator = osg::WGS_84_RADIUS_EQUATOR,
-            double radiusPolar = osg::WGS_84_RADIUS_POLAR, double eccentricitySq = 0.0);
+        struct WGS84
+        {
+            double radiusEquator, radiusPolar, eccentricitySq;
+            WGS84(double radiusE = osg::WGS_84_RADIUS_EQUATOR, double radiusP = osg::WGS_84_RADIUS_POLAR);
+        };
 
-        /// latitude and longitude in radius, altitude in metres, ECEF coords in metres
-        static osg::Vec3d convertECEFtoLLA(
-            const osg::Vec3d& ecef, double radiusEquator = osg::WGS_84_RADIUS_EQUATOR,
-            double radiusPolar = osg::WGS_84_RADIUS_POLAR, double eccentricitySq = 0.0);
+        struct UTM
+        {
+            // https://github.com/isce-framework/isce3/blob/develop/cxx/isce3/core/Projections.cpp
+            double cgb[6], cbg[6], utg[6], gtu[6], lon0, Qn, Zb;
+            int zone; bool isNorth; UTM(int code, const WGS84& wgs84 = WGS84());
+            static double clenshaw(const double* a, int size, double real);
+            static double clenshaw2(const double* a, int size, double real, double imag, double& R, double& I);
+        };
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; ECEF: coords in metres
+        static osg::Vec3d convertLLAtoECEF(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; ECEF: coords in metres
+        static osg::Vec3d convertECEFtoLLA(const osg::Vec3d& ecef, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; Web Mercator: coords in metres
+        static osg::Vec3d convertLLAtoWebMercator(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; Web Mercator: coords in metres
+        static osg::Vec3d convertWebMercatorToLLA(const osg::Vec3d& yxz, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; UTM: coords in metres
+        static osg::Vec3d convertLLAtoUTM(const osg::Vec3d& lla,
+                                          const UTM& utm, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; UTM: coords in metres
+        static osg::Vec3d convertUTMtoLLA(const osg::Vec3d& coord,
+                                          const UTM& utm, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; ENU: east-north-up
+        static osg::Matrix convertLLAtoENU(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; NED: north-east-down
+        static osg::Matrix convertLLAtoNED(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());
     };
 
     /** Computational geometry helpers struct */
