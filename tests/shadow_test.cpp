@@ -29,6 +29,8 @@ namespace backward { backward::SignalHandling sh; }
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
+
     osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments)
                                   : osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }

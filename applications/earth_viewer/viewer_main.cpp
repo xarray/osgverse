@@ -168,8 +168,8 @@ int main(int argc, char** argv)
 #if OSGEARTH_VERSION_GREATER_THAN(2, 10, 2)
     osgEarth::initialize();
 #endif
-    osgVerse::globalInitialize(argc, argv);
-    osg::ArgumentParser arguments(&argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     osgEarth::setNotifyLevel(osg::INFO);
     osgEarth::Registry::instance()->getCapabilities();

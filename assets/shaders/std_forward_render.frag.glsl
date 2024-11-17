@@ -9,8 +9,10 @@ VERSE_FS_IN vec4 texCoord0, texCoord1, color, eyeVertex;
 VERSE_FS_IN vec3 eyeNormal, eyeTangent, eyeBinormal;
 VERSE_FS_OUT vec4 fragData;
 
-/// PBR functions
 const vec2 invAtan = vec2(0.1591, 0.3183);
+const int maxLights = 1024;
+
+/// PBR functions
 vec2 sphericalUV(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
@@ -95,6 +97,8 @@ void main()
         }
     }
 
-    fragData = vec4(radianceOut * pow(ao, 2.2), diffuse.a);
+    vec3 ambient = vec3(0.25) * albedo;
+    ao = 1.0;  // FIXME: sponza seems to have a negative AO?
+    fragData = vec4(ambient + radianceOut * pow(ao, 2.2), diffuse.a);
     VERSE_FS_FINAL(fragData);
 }

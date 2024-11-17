@@ -35,6 +35,7 @@ protected:
 int main(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(SERVER_ADDR "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {

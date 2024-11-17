@@ -13,33 +13,6 @@ USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 GlobalData g_data;
 
-class ConsoleHandler : public osg::NotifyHandler
-{
-public:
-    ConsoleHandler() {}
-
-    virtual void notify(osg::NotifySeverity severity, const char* message)
-    {
-        // TODO
-        std::cout << "Lv-" << severity << ": " << message;
-    }
-
-    std::string getDateTimeTick()
-    {
-        auto tick = std::chrono::system_clock::now();
-        std::time_t posix = std::chrono::system_clock::to_time_t(tick);
-        uint64_t millseconds =
-            std::chrono::duration_cast<std::chrono::milliseconds>(tick.time_since_epoch()).count() -
-            std::chrono::duration_cast<std::chrono::seconds>(tick.time_since_epoch()).count() * 1000;
-
-        char buf[20], buf2[5];
-        std::tm tp = *std::localtime(&posix);
-        std::string dateTime{ buf, std::strftime(buf, sizeof(buf), "%F %T", &tp) };
-        snprintf(buf2, 5, ".%03d", (int)millseconds);
-        return dateTime + std::string(buf2);
-    }
-};
-
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -200,7 +173,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 
 int main(int argc, char** argv)
 {
-    osg::setNotifyHandler(new ConsoleHandler);
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 

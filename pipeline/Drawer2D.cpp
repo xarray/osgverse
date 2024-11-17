@@ -55,13 +55,13 @@ unsigned char* Drawer2D::convertImage(osg::Image* image, int& format, int& compo
     return pixels;
 }
 
-bool Drawer2D::start(bool useCurrentPixels)
+bool Drawer2D::start(bool useCurrentPixels, int threads)
 {
     int format = BLFormat::BL_FORMAT_PRGB32, numComponents = 0;
     int w = 1024; if (s() > 1) w = s();
     int h = 1024; if (t() > 1) h = t();
 
-    unsigned char* pixels = NULL;
+    unsigned char* pixels = NULL; bool createdFromData = false;
     if (useCurrentPixels) pixels = convertImage(this, format, numComponents);
     if (!_b2dData) _b2dData = new BlendCore;
 
@@ -75,12 +75,14 @@ bool Drawer2D::start(bool useCurrentPixels)
             OSG_WARN << "[Drawer2D] Failed to use current data: " << r << std::endl;
             core->image.create(w, h, (BLFormat)format);
         }
+        else createdFromData = true;
     }
     else
         core->image.create(w, h, (BLFormat)format);
 
-    BLContextCreateInfo info; info.threadCount = 0;
+    BLContextCreateInfo info; info.threadCount = threads;
     core->context = new BLContext(core->image, &info);
+    if (!createdFromData) core->context->clearAll();
     _drawing = true; return true;
 }
 

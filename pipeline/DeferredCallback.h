@@ -18,9 +18,6 @@ namespace osgVerse
         DeferredRenderCallback(bool inPipeline);
         virtual void operator()(osg::RenderInfo& renderInfo) const;
 
-        void setForwardStateSet(osg::StateSet* ss) { _forwardStateSet = ss; }
-        osg::StateSet* getForwardStateSet() { return _forwardStateSet.get(); }
-
         void setForwardMask(unsigned int m1) { _forwardMask = m1; }
         unsigned int getForwardMask() const { return _forwardMask; }
 
@@ -92,7 +89,6 @@ namespace osgVerse
         std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> _depthFboMap;
         std::set<osg::observer_ptr<osg::Camera>> _depthBlitList;
         std::vector<osg::ref_ptr<RttRunner>> _runners;
-        osg::ref_ptr<osg::StateSet> _forwardStateSet;
         osg::ref_ptr<osg::CullSettings::ClampProjectionMatrixCallback> _userClamperCallback;
         osg::ref_ptr<osg::Uniform> _nearFarUniform;
         GLenum _drawBuffer, _readBuffer, _clearMask;

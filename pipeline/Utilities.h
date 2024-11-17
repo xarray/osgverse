@@ -141,6 +141,23 @@ namespace osgVerse
         std::map<int, KeyCallback> _keyCallbacks0, _keyCallbacks1;
     };
 
+    /** Colorized LOG handler that can help display shader information */
+    class ConsoleHandler : public osg::NotifyHandler
+    {
+    public:
+        ConsoleHandler();
+        virtual void notifyLevel0(osg::NotifySeverity severity, const std::string& message);
+        virtual void notifyLevel1(osg::NotifySeverity severity, const std::string& message);
+        virtual void notifyLevel2(osg::NotifySeverity severity, const std::string& message);
+        virtual void notifyLevel3(osg::NotifySeverity severity, const std::string& message) {}
+
+    protected:
+        virtual void notify(osg::NotifySeverity severity, const char* message);
+        std::string convertInformation(const std::string& msg);
+        std::string getDateTimeTick();
+        void* _handle;
+    };
+
     /** Handle IME events under Windows */
 #ifdef VERSE_WINDOWS
     class TextInputMethodManager : public osg::Referenced

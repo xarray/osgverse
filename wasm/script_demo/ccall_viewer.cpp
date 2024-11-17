@@ -85,6 +85,8 @@ extern "C"
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
+
     osg::ref_ptr<osg::Group> root = new osg::Group;
     g_app->scripter()->setRootNode(root.get());
 

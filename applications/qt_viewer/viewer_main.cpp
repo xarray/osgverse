@@ -26,6 +26,7 @@ USE_VERSE_PLUGINS()
 static osg::Group* loadBasicScene(int argc, char** argv)
 {
     osgVerse::globalInitialize(argc, argv);
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (!scene) scene = new osg::Group;

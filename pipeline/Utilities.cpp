@@ -14,6 +14,7 @@
 #include <osgDB/ConvertUTF>
 #include <osgViewer/GraphicsWindow>
 #include <osgViewer/Viewer>
+#include <chrono>
 #include <codecvt>
 #include <iostream>
 #include <array>
@@ -925,7 +926,7 @@ namespace osgVerse
         if (lightSpaceBB1._max[2] < lightSpaceBB0._max[2]) lightSpaceBB0._max[2] = lightSpaceBB1._max[2];
         return AABB(lightSpaceBB0._min, lightSpaceBB0._max);
     }
-
+    
     bool QuickEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
         if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH)
@@ -954,5 +955,98 @@ namespace osgVerse
             if (_keyCallbacks1.find(key) != _keyCallbacks1.end()) _keyCallbacks1[key](key);
         }
         return false;
+    }
+
+    /** ConsoleHandler **/
+
+    ConsoleHandler::ConsoleHandler() : _handle(NULL)
+    {
+#ifdef VERSE_WINDOWS
+        // https://learn.microsoft.com/en-us/windows/console/console-screen-buffers
+        _handle = GetStdHandle(STD_OUTPUT_HANDLE);
+#else
+        // https://stackoverflow.com/questions/4053837/colorizing-text-in-the-console-with-c
+#endif
+    }
+
+    void ConsoleHandler::notifyLevel0(osg::NotifySeverity severity, const std::string& message)
+    {
+        std::string header = message.length() < 5 ? "" : "[FATAL   " + getDateTimeTick() + "] ";
+#ifdef VERSE_WINDOWS
+        SetConsoleTextAttribute(_handle, FOREGROUND_RED);
+        std::cout << header << message;
+        SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+#elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+        std::cout << header << message;
+#else
+        std::cout << "\033[91m" << header << message << "\033[0m";
+#endif
+    }
+
+    void ConsoleHandler::notifyLevel1(osg::NotifySeverity severity, const std::string& message)
+    {
+        std::string header = message.length() < 5 ? "" : "[WARNING " + getDateTimeTick() + "] ";
+#ifdef VERSE_WINDOWS
+        SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN);
+        std::cout << header << getDateTimeTick() << "] " << message;
+        SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+#elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+        std::cout << header << getDateTimeTick() << "] " << message;
+#else
+        std::cout << "\033[33m" << header << message << "\033[0m";
+#endif
+    }
+
+    void ConsoleHandler::notifyLevel2(osg::NotifySeverity severity, const std::string& message)
+    {
+        std::string header = message.length() < 5 ? "" : "[NOTICE  " + getDateTimeTick() + "] ";
+#ifdef VERSE_WINDOWS
+        std::cout << header << getDateTimeTick() << "] " << message;
+#elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+        std::cout << header << getDateTimeTick() << "] " << message;
+#else
+        std::cout << "\033[37m" << header << message << "\033[0m";
+#endif
+    }
+
+    void ConsoleHandler::notify(osg::NotifySeverity severity, const char* message)
+    {
+        std::string msg(message);
+        switch (severity)
+        {
+        case osg::NotifySeverity::ALWAYS: notifyLevel0(severity, msg); break;
+        case osg::NotifySeverity::FATAL: notifyLevel0(severity, msg); break;
+        case osg::NotifySeverity::WARN: notifyLevel1(severity, convertInformation(msg)); break;
+        case osg::NotifySeverity::NOTICE: notifyLevel2(severity, msg); break;
+        case osg::NotifySeverity::INFO: notifyLevel2(severity, msg); break;
+        case osg::NotifySeverity::DEBUG_INFO: notifyLevel3(severity, msg); break;
+        case osg::NotifySeverity::DEBUG_FP: notifyLevel3(severity, msg); break;
+        default: notifyLevel3(severity, msg); break;
+        }
+    }
+
+    std::string ConsoleHandler::convertInformation(const std::string& msg)
+    {
+        size_t pos0 = msg.find("Shader"), pos1 = msg.find("infolog:\n");
+        if (pos0 != std::string::npos && pos1 != std::string::npos)
+        {
+            // TODO
+        }
+        return msg;
+    }
+
+    std::string ConsoleHandler::getDateTimeTick()
+    {
+        auto tick = std::chrono::system_clock::now();
+        std::time_t posix = std::chrono::system_clock::to_time_t(tick);
+        uint64_t millseconds =
+            std::chrono::duration_cast<std::chrono::milliseconds>(tick.time_since_epoch()).count() -
+            std::chrono::duration_cast<std::chrono::seconds>(tick.time_since_epoch()).count() * 1000;
+
+        char buf[20], buf2[5];
+        std::tm tp = *std::localtime(&posix);
+        std::string dateTime{ buf, std::strftime(buf, sizeof(buf), "%F %T", &tp) };
+        snprintf(buf2, 5, ".%03d", (int)millseconds);
+        return dateTime + std::string(buf2);
     }
 }

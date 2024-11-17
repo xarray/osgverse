@@ -1264,7 +1264,6 @@ namespace osgVerse
     {
         osg::ref_ptr<osg::Program> program = new osg::Program;
         program->setName("Forward_PROGRAM");
-
         if (vs)
         {
             vs->setName("Forward_SHADER_VS"); program->addShader(vs);
@@ -1280,8 +1279,7 @@ namespace osgVerse
         osg::ref_ptr<osg::StateSet> ss = new osg::StateSet;
         ss->setAttributeAndModes(program, osg::StateAttribute::ON);
         applyDefaultInputStateSet(*ss, true, false);
-        _deferredCallback->setForwardStateSet(ss.get());
-        return ss.get();
+        return ss.release();
     }
 
     void Pipeline::createShaderDefinitions(osg::Shader* s, int glVer, int glslVer,
