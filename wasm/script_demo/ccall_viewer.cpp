@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <pipeline/ShaderLibrary.h>
 #include <pipeline/Predefines.h>
 #include "ccall_viewer.h"

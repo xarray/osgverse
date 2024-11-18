@@ -18,37 +18,41 @@ const float ZERO_TOLERANCE = float(1e-5);
 namespace osgVerse
 {
 
-    osg::Vec3d computeHPRFromQuat(const osg::Quat& quat)
+    osg::Vec3d computeHPRFromQuat(const osg::Quat& q)
     {
-        // From: http://guardian.curtin.edu.au/cga/faq/angles.html 
-        // Except OSG exchanges pitch & roll from what is listed on that page 
-        double qx = quat.x(), qy = quat.y(), qz = quat.z(), qw = quat.w();
-        double sqx = qx * qx, sqy = qy * qy, sqz = qz * qz, sqw = qw * qw;
-
-        double term1 = 2.0 * (qx * qy + qw * qz);
-        double term2 = sqw + sqx - sqy - sqz;
-        double term3 = -2.0 * (qx * qz - qw * qy);
-        double term4 = 2.0 * (qw * qx + qy * qz);
-        double term5 = sqw - sqx - sqy + sqz;
-
-        double heading = atan2(term1, term2), pitch = atan2(term4, term5), roll = asin(term3);
-        return osg::Vec3d(
-            osg::RadiansToDegrees(heading), osg::RadiansToDegrees(pitch), osg::RadiansToDegrees(roll));
+        // https://github.com/brztitouan/euler-angles-quaternions-library-conversion/blob/master/src/euler.cpp
+        const double w2 = q.w() * q.w(), x2 = q.x() * q.x();
+        const double y2 = q.y() * q.y(), z2 = q.z() * q.z();
+        const double unitLength = w2 + x2 + y2 + z2;  // Normalised == 1, otherwise correction divisor.
+        const double abcd = q.w() * q.x() + q.y() * q.z(), eps = 1e-7;
+        if (abcd > (0.5 - eps) * unitLength)
+            return osg::Vec3d(osg::RadiansToDegrees(2.0 * std::atan2(q.y(), q.w())), 180.0, 0.0);
+        else if (abcd < (-0.5 + eps) * unitLength)
+            return osg::Vec3d(osg::RadiansToDegrees(-2.0 * std::atan2(q.y(), q.w())), -180.0, 0.0);
+        else
+        {
+            const double adbc = q.w() * q.z() - q.x() * q.y();
+            const double acbd = q.w() * q.y() - q.x() * q.z();
+            return osg::Vec3d(osg::RadiansToDegrees(std::atan2(2.0 * adbc, 1.0 - (z2 + x2) * 2.0)),
+                              osg::RadiansToDegrees(std::asin(2.0 * abcd / unitLength)),
+                              osg::RadiansToDegrees(std::atan2(2.0 * acbd, 1.0 - (y2 + x2) * 2.0)));
+        }
     }
 
-    osg::Vec3d computeHPRFromDirection(const osg::Vec3& dir, const osg::Vec3& up)
+    osg::Vec3d computeHPRFromMatrix(const osg::Matrix& rotation)
     {
-        // From: https://stackoverflow.com/questions/21622956/how-to-convert-direction-vector-to-euler-angles
-        double angle_H = 0.0, angle_P = asin(dir.z());
-        if (dir.y() != 0.0 || dir.x() != 0.0) angle_H = atan2(dir.y(), dir.x());
-
-        // If the plane flies straight towards Dir, the Wings point perpendicular to Dir and parallel to ground
-        // This would be a bank angle of 0, with a new expected Up Vector 'up0'
-        osg::Vec3 up0, wing0(-dir.y(), dir.x(), 0.0f); wing0.normalize(); up0 = wing0 ^ dir;
-        float bankY = wing0 * up, bankX = up0 * up;
-        double angle_B = (bankY != 0.0 || bankX != 0.0) ? atan2(bankY, bankX) : 0.0;
-        return osg::Vec3d(
-            osg::RadiansToDegrees(angle_H), osg::RadiansToDegrees(angle_P), osg::RadiansToDegrees(angle_B));
+        double sy = sqrt(rotation(0, 0) * rotation(0, 0) + rotation(1, 0) * rotation(1, 0));
+        if (!(sy < 1e-6))  // singular
+        {
+            return osg::Vec3d(osg::RadiansToDegrees(std::atan2(rotation(2, 1), rotation(2, 2))),
+                              osg::RadiansToDegrees(std::atan2(-rotation(2, 0), sy)),
+                              osg::RadiansToDegrees(std::atan2(rotation(1, 0), rotation(0, 0))));
+        }
+        else
+        {
+            return osg::Vec3d(osg::RadiansToDegrees(std::atan2(-rotation(1, 2), rotation(1, 1))),
+                              osg::RadiansToDegrees(std::atan2(-rotation(2, 0), sy)), 0.0);
+        }
     }
 
     int computePowerOfTwo(int s, bool findNearest)

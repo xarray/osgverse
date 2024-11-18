@@ -359,7 +359,7 @@ FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effeksee
 FIND_DEPENDENCE(LIBCEF "cef_browser.h" "libcef.so;libcef.a;libcef.lib" "libcef")
 FIND_DEPENDENCE(LIBIGL "igl/igl_inline.h" "" "")
 IF(NOT USE_WASM_OPTIONS)
-    FIND_DEPENDENCE(SDL2 "SDL/SDL.h" "libSDL2.so;libSDL2.a;SDL2.lib" "")
+    FIND_DEPENDENCE(SDL2 "SDL.h" "libSDL2.so;libSDL2.a;SDL2.lib" "SDL")
     IF(VERSE_USE_EXTERNAL_GLES)
         FIND_DEPENDENCE(VULKAN "vulkan/vulkan.h" "" "")
     ENDIF(VERSE_USE_EXTERNAL_GLES)

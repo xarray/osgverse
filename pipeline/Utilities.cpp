@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include <osg/Version>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/FrameBufferObject>
@@ -47,6 +48,31 @@ std::string SHADER_DIR(BASE_DIR + "/shaders/");
 std::string SKYBOX_DIR(BASE_DIR + "/skyboxes/");
 std::string MISC_DIR(BASE_DIR + "/misc/");
 static int g_argumentCount = 0;
+
+static std::string getCurrentShaderSource(GLenum type)
+{
+    GLint progID = 0, numShaders = 0; glGetIntegerv(GL_CURRENT_PROGRAM, &progID);
+    if (progID > 0 && glGetProgramiv != NULL && type != GL_NONE)
+    {
+        glGetProgramiv(progID, GL_ATTACHED_SHADERS, &numShaders);
+        if (numShaders > 0)
+        {
+            std::string shaderSrc; std::vector<GLuint> shaderObjs(numShaders);
+            glGetAttachedShaders(progID, numShaders, NULL, &shaderObjs[0]);
+            for (GLint i = 0; i < numShaders; ++i)
+            {
+                GLint id = shaderObjs[i], shType = 0, length = 0;
+                glGetShaderiv(id, GL_SHADER_TYPE, &shType);
+                if (shType != type) continue;
+
+                glGetShaderiv(id, GL_SHADER_SOURCE_LENGTH, &length); shaderSrc.resize(length);
+                if (length > 0) glGetShaderSource(id, length, NULL, shaderSrc.data());
+            }
+            return shaderSrc;
+        }
+    }
+    return std::string();
+}
 
 static std::string refreshGlobalDirectories(const std::string& base)
 {
@@ -958,6 +984,16 @@ namespace osgVerse
     }
 
     /** ConsoleHandler **/
+    static std::mutex g_syncout_mutex;
+    struct SyncConsoleOut
+    {
+        std::unique_lock<std::mutex> _lock;
+        SyncConsoleOut() : _lock(std::unique_lock<std::mutex>(g_syncout_mutex)) {}
+        template<typename T> SyncConsoleOut& operator<<(const T& _t)
+        { std::cout << _t; return *this; }
+        SyncConsoleOut& operator<<(std::ostream& (*fp)(std::ostream&))
+        { std::cout << fp; return *this; }
+    };
 
     ConsoleHandler::ConsoleHandler() : _handle(NULL)
     {
@@ -974,12 +1010,12 @@ namespace osgVerse
         std::string header = message.length() < 5 ? "" : "[FATAL   " + getDateTimeTick() + "] ";
 #ifdef VERSE_WINDOWS
         SetConsoleTextAttribute(_handle, FOREGROUND_RED);
-        std::cout << header << message;
+        SyncConsoleOut() << header << message;
         SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
-        std::cout << header << message;
+        SyncConsoleOut() << header << message;
 #else
-        std::cout << "\033[91m" << header << message << "\033[0m";
+        SyncConsoleOut() << "\033[91m" << header << message << "\033[0m";
 #endif
     }
 
@@ -988,12 +1024,12 @@ namespace osgVerse
         std::string header = message.length() < 5 ? "" : "[WARNING " + getDateTimeTick() + "] ";
 #ifdef VERSE_WINDOWS
         SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN);
-        std::cout << header << getDateTimeTick() << "] " << message;
+        SyncConsoleOut() << header << message;
         SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
-        std::cout << header << getDateTimeTick() << "] " << message;
+        SyncConsoleOut() << header << message;
 #else
-        std::cout << "\033[33m" << header << message << "\033[0m";
+        SyncConsoleOut() << "\033[33m" << header << message << "\033[0m";
 #endif
     }
 
@@ -1001,11 +1037,11 @@ namespace osgVerse
     {
         std::string header = message.length() < 5 ? "" : "[NOTICE  " + getDateTimeTick() + "] ";
 #ifdef VERSE_WINDOWS
-        std::cout << header << getDateTimeTick() << "] " << message;
+        SyncConsoleOut() << header << message;
 #elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
-        std::cout << header << getDateTimeTick() << "] " << message;
+        SyncConsoleOut() << header << message;
 #else
-        std::cout << "\033[37m" << header << message << "\033[0m";
+        SyncConsoleOut() << "\033[37m" << header << message << "\033[0m";
 #endif
     }
 
@@ -1030,7 +1066,16 @@ namespace osgVerse
         size_t pos0 = msg.find("Shader"), pos1 = msg.find("infolog:\n");
         if (pos0 != std::string::npos && pos1 != std::string::npos)
         {
-            // TODO
+            GLenum errorShaderType = GL_NONE;
+            if (msg.find("FRAGMENT") != std::string::npos) errorShaderType = GL_FRAGMENT_SHADER;
+            else if (msg.find("VERTEX") != std::string::npos) errorShaderType = GL_VERTEX_SHADER;
+            else if (msg.find("GEOMETRY") != std::string::npos) errorShaderType = GL_GEOMETRY_SHADER;
+
+            std::string source = getCurrentShaderSource(errorShaderType);
+            if (!source.empty())
+            {
+                // TODO
+            }
         }
         return msg;
     }

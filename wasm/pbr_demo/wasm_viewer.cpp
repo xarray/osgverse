@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include "wasm_viewer.h"
 
 #define TEST_PIPELINE 1

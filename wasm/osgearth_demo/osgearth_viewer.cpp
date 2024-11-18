@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <osgEarth/Registry>
 #include <osgEarth/MapNode>
 #include <osgEarthUtil/Sky>

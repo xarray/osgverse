@@ -40,7 +40,7 @@ namespace osgVerse
     extern osg::Vec3d computeHPRFromQuat(const osg::Quat& quat);
 
     /** Get euler angles in HPR order from direction and up vectors */
-    extern osg::Vec3d computeHPRFromDirection(const osg::Vec3& dir, const osg::Vec3& up);
+    extern osg::Vec3d computeHPRFromMatrix(const osg::Matrix& rotation);
 
     /** Compute a power-of-two value according to current one */
     extern int computePowerOfTwo(int s, bool findNearest);

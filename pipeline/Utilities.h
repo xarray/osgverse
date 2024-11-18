@@ -12,6 +12,7 @@
 #include <osgGA/GUIEventHandler>
 #include "Global.h"
 #include <functional>
+#include <mutex>
 struct SMikkTSpaceContext;
 
 namespace osgVerse
