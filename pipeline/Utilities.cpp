@@ -1,4 +1,3 @@
-#include <GL/glew.h>
 #include <osg/Version>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/FrameBufferObject>
@@ -48,31 +47,6 @@ std::string SHADER_DIR(BASE_DIR + "/shaders/");
 std::string SKYBOX_DIR(BASE_DIR + "/skyboxes/");
 std::string MISC_DIR(BASE_DIR + "/misc/");
 static int g_argumentCount = 0;
-
-static std::string getCurrentShaderSource(GLenum type)
-{
-    GLint progID = 0, numShaders = 0; glGetIntegerv(GL_CURRENT_PROGRAM, &progID);
-    if (progID > 0 && glGetProgramiv != NULL && type != GL_NONE)
-    {
-        glGetProgramiv(progID, GL_ATTACHED_SHADERS, &numShaders);
-        if (numShaders > 0)
-        {
-            std::string shaderSrc; std::vector<GLuint> shaderObjs(numShaders);
-            glGetAttachedShaders(progID, numShaders, NULL, &shaderObjs[0]);
-            for (GLint i = 0; i < numShaders; ++i)
-            {
-                GLint id = shaderObjs[i], shType = 0, length = 0;
-                glGetShaderiv(id, GL_SHADER_TYPE, &shType);
-                if (shType != type) continue;
-
-                glGetShaderiv(id, GL_SHADER_SOURCE_LENGTH, &length); shaderSrc.resize(length);
-                if (length > 0) glGetShaderSource(id, length, NULL, shaderSrc.data());
-            }
-            return shaderSrc;
-        }
-    }
-    return std::string();
-}
 
 static std::string refreshGlobalDirectories(const std::string& base)
 {
@@ -1045,6 +1019,17 @@ namespace osgVerse
 #endif
     }
 
+    std::string ConsoleHandler::notifyShaderLog(GLenum t, const std::string& name, const std::string& msg)
+    {
+        std::vector<std::string> errorLines;
+        osgDB::split(msg, errorLines, '\n');
+        return "[Shader infolog] " + name + " (" +
+               std::to_string(errorLines.size()) + " errors):\n" + msg;
+    }
+
+    std::string ConsoleHandler::notifyProgramLog(const std::string& name, const std::string& msg)
+    { return "[Program infolog] " + name + ": " + msg; }
+
     void ConsoleHandler::notify(osg::NotifySeverity severity, const char* message)
     {
         std::string msg(message);
@@ -1053,7 +1038,7 @@ namespace osgVerse
         case osg::NotifySeverity::ALWAYS: notifyLevel0(severity, msg); break;
         case osg::NotifySeverity::FATAL: notifyLevel0(severity, msg); break;
         case osg::NotifySeverity::WARN: notifyLevel1(severity, convertInformation(msg)); break;
-        case osg::NotifySeverity::NOTICE: notifyLevel2(severity, msg); break;
+        case osg::NotifySeverity::NOTICE: notifyLevel2(severity, convertInformation(msg)); break;
         case osg::NotifySeverity::INFO: notifyLevel2(severity, msg); break;
         case osg::NotifySeverity::DEBUG_INFO: notifyLevel3(severity, msg); break;
         case osg::NotifySeverity::DEBUG_FP: notifyLevel3(severity, msg); break;
@@ -1071,11 +1056,17 @@ namespace osgVerse
             else if (msg.find("VERTEX") != std::string::npos) errorShaderType = GL_VERTEX_SHADER;
             else if (msg.find("GEOMETRY") != std::string::npos) errorShaderType = GL_GEOMETRY_SHADER;
 
-            std::string source = getCurrentShaderSource(errorShaderType);
-            if (!source.empty())
-            {
-                // TODO
-            }
+            size_t nStart = msg.find("\"", pos0); size_t nEnd = msg.find("\"", nStart + 1);
+            if (nStart != std::string::npos) return notifyShaderLog(
+                errorShaderType, msg.substr(nStart + 1, nEnd - nStart - 1), msg.substr(pos1 + 8));
+        }
+
+        pos0 = msg.find("Program");
+        if (pos0 != std::string::npos && pos1 != std::string::npos)
+        {
+            size_t nStart = msg.find("\"", pos0); size_t nEnd = msg.find("\"", nStart + 1);
+            if (nStart != std::string::npos)
+                return notifyProgramLog(msg.substr(nStart + 1, nEnd - nStart - 1), msg.substr(pos1 + 8));
         }
         return msg;
     }
