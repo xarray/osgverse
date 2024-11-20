@@ -18,6 +18,7 @@
 #include <osg/Node>
 #include <osg/Shape>
 #include <osg/CoordinateSystemNode>
+#include "Octree.h"
 
 namespace osgVerse
 {

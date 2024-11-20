@@ -152,13 +152,19 @@ namespace osgVerse
         virtual void notifyLevel2(osg::NotifySeverity severity, const std::string& message);
         virtual void notifyLevel3(osg::NotifySeverity severity, const std::string& message) {}
 
-        virtual std::string notifyShaderLog(GLenum t, const std::string& name, const std::string& msg);
-        virtual std::string notifyProgramLog(const std::string& name, const std::string& msg);
+        typedef std::function<std::string(GLenum, const std::string&, const std::string&)> ShaderLogCallback;
+        typedef std::function<std::string(const std::string&, const std::string&)> ProgramLogCallback;
+
+        void setShaderLogCallback(ShaderLogCallback cb) { _shaderCallback = cb; }
+        void setProgramLogCallback(ProgramLogCallback cb) { _programCallback = cb; }
 
     protected:
         virtual void notify(osg::NotifySeverity severity, const char* message);
         std::string convertInformation(const std::string& msg);
         std::string getDateTimeTick();
+
+        ShaderLogCallback _shaderCallback;
+        ProgramLogCallback _programCallback;
         void* _handle;
     };
 

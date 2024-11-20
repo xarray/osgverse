@@ -969,7 +969,7 @@ namespace osgVerse
         { std::cout << fp; return *this; }
     };
 
-    ConsoleHandler::ConsoleHandler() : _handle(NULL)
+    ConsoleHandler::ConsoleHandler() : _shaderCallback(NULL), _programCallback(NULL), _handle(NULL)
     {
 #ifdef VERSE_WINDOWS
         // https://learn.microsoft.com/en-us/windows/console/console-screen-buffers
@@ -1019,17 +1019,6 @@ namespace osgVerse
 #endif
     }
 
-    std::string ConsoleHandler::notifyShaderLog(GLenum t, const std::string& name, const std::string& msg)
-    {
-        std::vector<std::string> errorLines;
-        osgDB::split(msg, errorLines, '\n');
-        return "[Shader infolog] " + name + " (" +
-               std::to_string(errorLines.size()) + " errors):\n" + msg;
-    }
-
-    std::string ConsoleHandler::notifyProgramLog(const std::string& name, const std::string& msg)
-    { return "[Program infolog] " + name + ": " + msg; }
-
     void ConsoleHandler::notify(osg::NotifySeverity severity, const char* message)
     {
         std::string msg(message);
@@ -1051,22 +1040,28 @@ namespace osgVerse
         size_t pos0 = msg.find("Shader"), pos1 = msg.find("infolog:\n");
         if (pos0 != std::string::npos && pos1 != std::string::npos)
         {
-            GLenum errorShaderType = GL_NONE;
-            if (msg.find("FRAGMENT") != std::string::npos) errorShaderType = GL_FRAGMENT_SHADER;
-            else if (msg.find("VERTEX") != std::string::npos) errorShaderType = GL_VERTEX_SHADER;
-            else if (msg.find("GEOMETRY") != std::string::npos) errorShaderType = GL_GEOMETRY_SHADER;
+            if (_shaderCallback != NULL)
+            {
+                GLenum errorShaderType = GL_NONE;
+                if (msg.find("FRAGMENT") != std::string::npos) errorShaderType = GL_FRAGMENT_SHADER;
+                else if (msg.find("VERTEX") != std::string::npos) errorShaderType = GL_VERTEX_SHADER;
+                else if (msg.find("GEOMETRY") != std::string::npos) errorShaderType = GL_GEOMETRY_SHADER;
 
-            size_t nStart = msg.find("\"", pos0); size_t nEnd = msg.find("\"", nStart + 1);
-            if (nStart != std::string::npos) return notifyShaderLog(
-                errorShaderType, msg.substr(nStart + 1, nEnd - nStart - 1), msg.substr(pos1 + 8));
+                size_t nStart = msg.find("\"", pos0); size_t nEnd = msg.find("\"", nStart + 1);
+                if (nStart != std::string::npos) return _shaderCallback(
+                    errorShaderType, msg.substr(nStart + 1, nEnd - nStart - 1), msg.substr(pos1 + 8));
+            }
         }
 
         pos0 = msg.find("Program");
         if (pos0 != std::string::npos && pos1 != std::string::npos)
         {
-            size_t nStart = msg.find("\"", pos0); size_t nEnd = msg.find("\"", nStart + 1);
-            if (nStart != std::string::npos)
-                return notifyProgramLog(msg.substr(nStart + 1, nEnd - nStart - 1), msg.substr(pos1 + 8));
+            if (_programCallback != NULL)
+            {
+                size_t nStart = msg.find("\"", pos0); size_t nEnd = msg.find("\"", nStart + 1);
+                if (nStart != std::string::npos)
+                    return _programCallback(msg.substr(nStart + 1, nEnd - nStart - 1), msg.substr(pos1 + 8));
+            }
         }
         return msg;
     }
