@@ -17,14 +17,18 @@ namespace feature {
 struct equal_comp_shared_ptr
 {
 
+#ifndef _WIN32
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
     template <typename T>
     bool operator()(T const& lhs, T const& rhs) const
     {
         return lhs == rhs;
     }
+#ifndef _WIN32
 #pragma GCC diagnostic pop
+#endif
 
     template <typename T>
     bool operator()(std::shared_ptr<T> const& lhs, std::shared_ptr<T> const& rhs) const

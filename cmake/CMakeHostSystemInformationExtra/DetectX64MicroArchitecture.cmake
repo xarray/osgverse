@@ -121,7 +121,7 @@ function(DETECT_X64_MICRO_ARCHITECTURE out_vendor out_arch)
       else()
         # https://en.wikichip.org/wiki/intel/cpuid#Family_6
         set(architecture_lookup_hash
-            183 "raptorlake"   186 "raptorlake"
+            183 "raptorlake"   186 "raptorlake"    165 "cometlake"
             167 "rocketlake"   151 "alderlake"     154 "alderlake"
             87  "knl"          133 "knm"            92  "goldmont"
             90  "silvermont"    76 "silvermont"    102 "cannonlake"

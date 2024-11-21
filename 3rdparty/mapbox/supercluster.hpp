@@ -179,7 +179,7 @@ public:
         assert(zoom_iter != zooms.end());
         const auto &zoom = zoom_iter->second;
 
-        std::uint32_t z2 = std::pow(2, z);
+        std::uint32_t z2 = (std::uint32_t)std::pow(2, z);
         const double r = static_cast<double>(options.radius) / options.extent;
         std::int32_t x = x_;
 

@@ -5,6 +5,7 @@
 #include <osgDB/WriteFile>
 #include "GeometryMerger.h"
 #include "Utilities.h"
+#include "Octree.h"
 using namespace osgVerse;
 
 struct ResetTrianglesOperator
@@ -26,7 +27,7 @@ GeometryMerger::GeometryMerger()
 GeometryMerger::~GeometryMerger()
 {}
 
-osg::Geometry* GeometryMerger::process(const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList,
+osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList,
                                        size_t offset, size_t size, int maxTextureSize)
 {
     if (size == 0) size = geomList.size() - offset;
@@ -145,4 +146,11 @@ osg::Geometry* GeometryMerger::process(const std::vector<std::pair<osg::Geometry
         resultGeom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2D.get());
     }
     return resultGeom.release();
+}
+
+osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geomList)
+{
+    BoundsOctree<osg::Geometry> octree(osg::Vec3d(), 50.0f, 1.0f, 1.0f);
+    // TODO
+    return NULL;
 }
