@@ -89,6 +89,7 @@ IF(VERSE_BUILD_DEPRECATED_TESTS)
         NEW_TEST_EXECUTABLE(osgVerse_Test_FastRtt deprecated/fast_rtt_test.cpp)
         NEW_TEST_EXECUTABLE(osgVerse_Test_CubeRtt deprecated/render_to_cube_test.cpp)
         NEW_TEST_EXECUTABLE(osgVerse_Test_Obb_KDop deprecated/obb_kdop_test.cpp)
+        NEW_TEST_EXECUTABLE(osgVerse_Test_Auto_Imposter auto_imposter_test.cpp)
 
         IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
             NEW_TEST_EXECUTABLE(osgVerse_Test_Indirect_Draw deprecated/indirect_drawing_test.cpp)

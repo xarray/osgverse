@@ -10,19 +10,23 @@ using namespace osgVerse;
 
 struct ResetTrianglesOperator
 {
-    ResetTrianglesOperator() : _start(0) {}
+    ResetTrianglesOperator() : _start(0), _count(0) {}
     osg::observer_ptr<osg::DrawElementsUInt> _de;
-    unsigned int _start;
+    osg::observer_ptr<osg::DrawElementsIndirectUInt> _mde;
+    unsigned int _start, _count;
 
     void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
     {
-        if (i1 == i2 || i2 == i3 || i1 == i3) return;
-        _de->push_back(i1 + _start); _de->push_back(i2 + _start); _de->push_back(i3 + _start);
+        if (i1 == i2 || i2 == i3 || i1 == i3) return; else _count += 3;
+        if (_de.valid())
+        { _de->push_back(i1 + _start); _de->push_back(i2 + _start); _de->push_back(i3 + _start); }
+        if (_mde.valid())
+        { _mde->push_back(i1 + _start); _mde->push_back(i2 + _start); _mde->push_back(i3 + _start); }
     }
 };
 
-GeometryMerger::GeometryMerger()
-{}
+GeometryMerger::GeometryMerger(Method m)
+{ _method = m; }
 
 GeometryMerger::~GeometryMerger()
 {}
@@ -39,7 +43,7 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
     std::vector<size_t> gIndices;
 
     std::map<size_t, size_t> geometryIdMap;
-    std::string imageName; size_t numImages = 0;
+    std::string imageName; int atlasW = 0, atlasH = 0;
     size_t end = osg::minimum(offset + size, geomList.size());
     for (size_t i = offset; i < end; ++i)
     {
@@ -57,13 +61,14 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
         size_t id = gIndices[i]; geometryIdMap[id] = packer->addElement(images[i].get());
         imageName += osgDB::getStrippedName(images[i]->getFileName()) + ",";
     }
+    ext = ".jpg";  // packed image should always be saved to JPG at current time...
 
-    // Recompute texture coords
-    osg::ref_ptr<osg::Image> atlas = packer->pack(numImages, true);
-    if (!atlas) { packer->setMaxSize(8192, 8192); atlas = packer->pack(numImages, true); }
+    osg::ref_ptr<osg::Image> atlas = createTextureAtlas(
+        packer.get(), imageName + "_all." + ext, maxTextureSize, atlasW, atlasH);
     if (atlas.valid())
     {
-        float totalW = atlas->s(), totalH = atlas->t();
+        // Recompute texture coords
+        float totalW = (float)atlasW, totalH = (float)atlasH;
         for (size_t i = offset; i < end; ++i)
         {
             osg::Geometry* geom = geomList[i].first;
@@ -81,20 +86,39 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
                 (*ta)[j] = osg::Vec2(t[0] * tw + tx0, t[1] * th + ty0);
             }
         }
-
-        int totalW1 = osg::Image::computeNearestPowerOfTwo(totalW);
-        int totalH1 = osg::Image::computeNearestPowerOfTwo(totalH);
-        if (totalW1 > (totalW * 1.5)) totalW1 = totalW1 / 2;
-        if (totalH1 > (totalH * 1.5)) totalH1 = totalH1 / 2;
-        if (totalW1 > maxTextureSize) totalW1 = maxTextureSize;
-        if (totalH1 > maxTextureSize) totalH1 = maxTextureSize;
-        if (totalW1 != totalW || totalH1 != totalH) atlas->scaleImage(totalW1, totalH1, 1);
-
-        ext = ".jpg";  // packed image should always be saved to JPG at current time...
-        atlas->setFileName(imageName + "_all." + ext);
     }
 
     // Concatenate arrays and primitive-sets
+    osg::ref_ptr<osg::Geometry> resultGeom;
+    switch (_method)
+    {
+    case INDIRECT_COMMANDS:
+        resultGeom = createIndirect(geomList, offset, end); break;
+    default:
+        resultGeom = createCombined(geomList, offset, end); break;
+    }
+
+    if (resultGeom.valid() && atlas.valid())
+    {
+        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+        tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+        tex2D->setResizeNonPowerOfTwoHint(true); tex2D->setImage(atlas.get());
+        resultGeom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2D.get());
+    }
+    return resultGeom.release();
+}
+
+osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geomList)
+{
+    BoundsOctree<osg::Geometry> octree(osg::Vec3d(), 50.0f, 1.0f, 1.0f);
+    // TODO
+    return NULL;
+}
+
+osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& geomList,
+                                              size_t offset, size_t end)
+{
     osg::ref_ptr<osg::Vec3Array> vaAll = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec3Array> naAll = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec2Array> taAll = new osg::Vec2Array;
@@ -133,24 +157,86 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
         resultGeom->setNormalArray(naAll.get());
         resultGeom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
     }
-    if (taAll->size() == vaAll->size())
-        resultGeom->setTexCoordArray(0, taAll.get());
+    if (taAll->size() == vaAll->size()) resultGeom->setTexCoordArray(0, taAll.get());
     resultGeom->addPrimitiveSet(de.get());
-
-    if (atlas.valid())
-    {
-        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
-        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
-        tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
-        tex2D->setResizeNonPowerOfTwoHint(true); tex2D->setImage(atlas.get());
-        resultGeom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2D.get());
-    }
     return resultGeom.release();
 }
 
-osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geomList)
+osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& geomList,
+                                              size_t offset, size_t end)
 {
-    BoundsOctree<osg::Geometry> octree(osg::Vec3d(), 50.0f, 1.0f, 1.0f);
-    // TODO
-    return NULL;
+    osg::ref_ptr<osg::Vec3Array> vaAll = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> naAll = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec2Array> taAll = new osg::Vec2Array;
+    osg::ref_ptr<osg::MultiDrawElementsIndirectUInt> mde = new osg::MultiDrawElementsIndirectUInt(GL_TRIANGLES);
+    osg::ref_ptr<IndirectCommandDrawElements> icde = new IndirectCommandDrawElements;
+    mde->setIndirectCommandArray(icde.get());
+
+    osg::ref_ptr<osg::Geometry> resultGeom = new osg::Geometry; osg::BoundingBoxd bbox;
+    for (size_t i = offset; i < end; ++i)
+    {
+        osg::Geometry* geom = geomList[i].first;
+        osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+        osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
+        osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
+        if (!va || geom->getNumPrimitiveSets() == 0) continue;
+
+        if (!resultGeom->getStateSet() && geom->getStateSet() != NULL)
+        {
+            resultGeom->setStateSet(static_cast<osg::StateSet*>(
+                geom->getStateSet()->clone(osg::CopyOp::DEEP_COPY_ALL)));
+        }
+
+        osg::DrawElementsIndirectCommand cmd;
+        cmd.firstIndex = mde->size();
+        cmd.baseVertex = vaAll->size();
+
+        osg::TriangleIndexFunctor<ResetTrianglesOperator> functor;
+        functor._mde = mde.get(); geom->accept(functor);
+        cmd.count = functor._count; cmd.instanceCount = 1;
+        icde->push_back(cmd); icde->pushUserData(geom->getUserDataContainer());
+
+        osg::Matrix matrix = geomList[i].second;
+        for (size_t v = 0; v < va->size(); ++v)
+        {
+            vaAll->push_back((*va)[v] * matrix);
+            bbox.expandBy(vaAll->back());
+        }
+        if (na) naAll->insert(naAll->end(), na->begin(), na->end());
+        if (ta) taAll->insert(taAll->end(), ta->begin(), ta->end());
+    }
+
+    resultGeom->setInitialBound(bbox);
+    resultGeom->setUseDisplayList(false);
+    resultGeom->setUseVertexBufferObjects(true);
+    resultGeom->setVertexArray(vaAll.get());
+    if (naAll->size() == vaAll->size())
+    {
+        resultGeom->setNormalArray(naAll.get());
+        resultGeom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+    if (taAll->size() == vaAll->size()) resultGeom->setTexCoordArray(0, taAll.get());
+    resultGeom->addPrimitiveSet(mde.get());
+    return resultGeom.release();
+}
+
+osg::Image* GeometryMerger::createTextureAtlas(TexturePacker* packer, const std::string& fileName,
+                                               int maxTextureSize, int& originW, int& originH)
+{
+    size_t numImages = 0;
+    osg::ref_ptr<osg::Image> atlas = packer->pack(numImages, true);
+    if (!atlas) { packer->setMaxSize(8192, 8192); atlas = packer->pack(numImages, true); }
+    if (atlas.valid())
+    {
+        originW = atlas->s(); originH = atlas->t();
+        int totalW1 = osg::Image::computeNearestPowerOfTwo(originW);
+        int totalH1 = osg::Image::computeNearestPowerOfTwo(originH);
+        if (totalW1 > (originW * 1.5)) totalW1 = totalW1 / 2;
+        if (totalH1 > (originH * 1.5)) totalH1 = totalH1 / 2;
+        if (totalW1 > maxTextureSize) totalW1 = maxTextureSize;
+        if (totalH1 > maxTextureSize) totalH1 = maxTextureSize;
+        if (totalW1 != originW || totalH1 != originH) atlas->scaleImage(totalW1, totalH1, 1);
+        atlas->setFileName(fileName);
+    }
+    return atlas.release();
 }

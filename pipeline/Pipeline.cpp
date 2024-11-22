@@ -12,6 +12,7 @@
 #include "Pipeline.h"
 #include "ShadowModule.h"
 #include "UserInputModule.h"
+#include "ImageCheck.h"
 #include "Utilities.h"
 
 #define VERBOSE_CREATING 0
@@ -102,6 +103,13 @@ public:
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
     osgVerse::DeferredRenderCallback* getDeferredCallback() { return _callback.get(); }
 
+    struct PassableData
+    {
+        PassableData() : maskSet(0) {}
+        osg::ref_ptr<osg::StateSet> stateSet;
+        int maskSet;
+    };
+
     virtual void reset()
     {
         _cullMask = 0xffffffff; _pipelineMaskPath.clear(); _shadowData = NULL;
@@ -135,9 +143,9 @@ public:
         osgUtil::CullVisitor::reset();
     }
 
-    bool passable(osg::Node& node, int& maskSet)
+    bool passable(osg::Node& node, PassableData& pdata)
     {
-        maskSet = 0;
+        pdata.maskSet = 0; pushM(node, pdata);
         if (this->getUserData() != NULL) return true;  // computing near/far mode
         if (node.getUserDataContainer() != NULL)
         {
@@ -158,14 +166,7 @@ public:
 
                 if (flags & osg::StateAttribute::ON)
                 {
-                    osg::StateSet* ss = NULL;
-                    if (_defaultMask & nodePipMask)
-                    {
-                        //if (_callback.valid()) ss = _callback->getForwardStateSet();
-                        if (ss != NULL) maskSet |= 2;
-                    }
-
-                    pushM(nodePipMask, flags, ss); maskSet |= 1;
+                    pushMaskPath(nodePipMask, flags); pdata.maskSet |= 1;
                     if ((_cullMask & nodePipMask) != 0)
                         return !checkSmallPixelSizeCulling(node.getBound());
                     return false;
@@ -182,9 +183,10 @@ public:
         return true;
     }
 
-    bool passable(osg::Drawable& node)
+    bool passable(osg::Drawable& node, PassableData& pdata)
     {
         unsigned int nodePipMask = 0xffffffff, flags = 0;
+        pdata.maskSet = 0; pushM(node, pdata);
         if (this->getUserData() != NULL) return true;  // computing near/far mode
         if (node.getUserValue("PipelineMask", nodePipMask))
         {
@@ -219,97 +221,100 @@ public:
     }
 
     virtual void apply(osg::Node& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
     virtual void apply(osg::Group& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
     virtual void apply(osg::Transform& node)
     {
-        int s = 0;
+        PassableData s;
         if (passable(node, s))
         {
             pushModelViewMatrixInShadow(node);
             osgUtil::CullVisitor::apply(node);
             popModelViewMatrixInShadow();
         }
-        popM(s);
+        popM(node, s);
     }
 
     virtual void apply(osg::Projection& node)
     {
-        int s = 0;
+        PassableData s;
         if (passable(node, s))
         {
             pushProjectionMatrixInShadow(node);
             osgUtil::CullVisitor::apply(node);
             popProjectionMatrixInShadow();
         }
-        popM(s);
+        popM(node, s);
     }
 
     virtual void apply(osg::Switch& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
     virtual void apply(osg::LOD& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
     virtual void apply(osg::ClearNode& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
     virtual void apply(osg::Camera& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
 #if OSG_VERSION_GREATER_THAN(3, 2, 3)
     virtual void apply(osg::Geode& node)
-    { int s = 0; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(s); }
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
     virtual void apply(osg::Drawable& drawable)
     {
-        if (!passable(drawable)) return;
-
+        PassableData s;
+        if (passable(drawable, s))
+        {
 #   if OSG_VERSION_GREATER_THAN(3, 5, 9)
-        osg::RefMatrix& matrix = *getModelViewMatrix();
-        const osg::BoundingBox& bb = drawable.getBoundingBox();
-        if (drawable.getCullCallback())
-        {
-            osg::DrawableCullCallback* dcb = drawable.getCullCallback()->asDrawableCullCallback();
-            if (dcb) { if (dcb->cull(this, &drawable, &_renderInfo) == true) return; }
-            else drawable.getCullCallback()->run(&drawable, this);
-        }
-
-        if (drawable.isCullingActive() && isCulled(bb)) return;
-        if (_computeNearFar && bb.valid()) { if (!updateCalculatedNearFar(matrix, drawable, false)) return; }
-
-        // push the geoset's state on the geostate stack.
-        unsigned int numPopStateSetRequired = 0;
-        osg::StateSet* stateset = drawable.getStateSet();
-        if (stateset) { ++numPopStateSetRequired; pushStateSet(stateset); }
-
-        osg::CullingSet& cs = getCurrentCullingSet();
-        if (!cs.getStateFrustumList().empty())
-        {
-            osg::CullingSet::StateFrustumList& sfl = cs.getStateFrustumList();
-            for (osg::CullingSet::StateFrustumList::iterator itr = sfl.begin(); itr != sfl.end(); ++itr)
+            osg::RefMatrix& matrix = *getModelViewMatrix();
+            const osg::BoundingBox& bb = drawable.getBoundingBox();
+            if (drawable.getCullCallback())
             {
-                if (itr->second.contains(bb))
-                { ++numPopStateSetRequired; pushStateSet(itr->first.get()); }
+                osg::DrawableCullCallback* dcb = drawable.getCullCallback()->asDrawableCullCallback();
+                if (dcb) { if (dcb->cull(this, &drawable, &_renderInfo) == true) return; }
+                else drawable.getCullCallback()->run(&drawable, this);
             }
-        }
 
-        float depth = bb.valid() ? distance(bb.center(), matrix) : 0.0f;
-        if (osg::isNaN(depth))
-        {
-            OSG_NOTICE << "[CullVisitorEx] " << drawable.getName() << " detected NaN..."
-                       << " Camera: " << getCurrentCamera()->getName() << ", Center: " << bb.center().valid()
-                       << ", Matrix: " << matrix.valid() << std::endl;
-        }
-        else
-            addDrawableAndDepth(&drawable, &matrix, depth);
-        for (unsigned int i = 0; i < numPopStateSetRequired; ++i) { popStateSet(); }
+            if (drawable.isCullingActive() && isCulled(bb)) return;
+            if (_computeNearFar && bb.valid()) { if (!updateCalculatedNearFar(matrix, drawable, false)) return; }
+
+            // push the geoset's state on the geostate stack.
+            unsigned int numPopStateSetRequired = 0;
+            osg::StateSet* stateset = drawable.getStateSet();
+            if (stateset) { ++numPopStateSetRequired; pushStateSet(stateset); }
+
+            osg::CullingSet& cs = getCurrentCullingSet();
+            if (!cs.getStateFrustumList().empty())
+            {
+                osg::CullingSet::StateFrustumList& sfl = cs.getStateFrustumList();
+                for (osg::CullingSet::StateFrustumList::iterator itr = sfl.begin(); itr != sfl.end(); ++itr)
+                {
+                    if (itr->second.contains(bb))
+                    { ++numPopStateSetRequired; pushStateSet(itr->first.get()); }
+                }
+            }
+
+            float depth = bb.valid() ? distance(bb.center(), matrix) : 0.0f;
+            if (osg::isNaN(depth))
+            {
+                OSG_NOTICE << "[CullVisitorEx] " << drawable.getName() << " detected NaN..."
+                           << " Camera: " << getCurrentCamera()->getName() << ", ValidCenter: " << bb.center().valid()
+                           << ", ValidModelView: " << matrix.valid() << std::endl;
+            }
+            else
+                addDrawableAndDepth(&drawable, &matrix, depth);
+            for (unsigned int i = 0; i < numPopStateSetRequired; ++i) { popStateSet(); }
 #   else
-        osgUtil::CullVisitor::apply(drawable);
+            osgUtil::CullVisitor::apply(drawable);
 #   endif
+        }
+        popM(drawable, s);
     }
 #else
     virtual void apply(osg::Geode& node)
@@ -321,7 +326,7 @@ public:
             { return true; }
         };
 
-        int pipelineMaskSet = 0;
+        PassableData pipelineMaskSet;
         if (passable(node, pipelineMaskSet))
         {
             typedef std::pair<osg::observer_ptr<osg::Drawable>,
@@ -329,12 +334,14 @@ public:
             std::vector<DrawablePair> drawablesToHide;
             for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
             {
+                PassableData drawMaskSet;
                 osg::Drawable* drawable = node.getDrawable(i);
-                if (!passable(*drawable))
+                if (!passable(*drawable, drawMaskSet))
                 {
                     drawablesToHide.push_back(DrawablePair(drawable, drawable->getCullCallback()));
                     drawable->setCullCallback(new DisableDrawableCallbackInternal);
                 }
+                popM(*drawable, drawMaskSet);
             }
 
             osgUtil::CullVisitor::apply(node);
@@ -347,7 +354,7 @@ public:
                 }
             }
         }
-        popM(pipelineMaskSet);
+        popM(node, pipelineMaskSet);
     }
 #endif
 
@@ -401,16 +408,50 @@ protected:
                  (value_type)coord[2] * (value_type)matrix(2, 2) + matrix(3, 2));
     }
 
-    inline void pushM(unsigned int m, unsigned int f, osg::StateSet* ss)
+    inline void pushMaskPath(unsigned int m, unsigned int f)
+    { _pipelineMaskPath.push_back(std::pair<unsigned int, unsigned int>(m, f)); }
+
+    template<typename T>
+    inline void pushM(T& node, PassableData& pdata)
     {
-        _pipelineMaskPath.push_back(std::pair<unsigned int, unsigned int>(m, f));
-        if (ss) pushStateSet(ss);
+        if (_shadowData.valid() && node.getStateSet())
+        {
+            if (!canDisableStateSet(*node.getStateSet())) return;
+            pdata.stateSet = node.getStateSet(); node.setStateSet(NULL);
+        }
     }
 
-    inline void popM(int maskSet)
+    template<typename T>
+    inline void popM(T& node, PassableData& pdata)
     {
-        if (maskSet == 0) return; else if (maskSet & 2) popStateSet();
+        if (_shadowData.valid() && pdata.stateSet.valid())
+        { node.setStateSet(pdata.stateSet.get()); pdata.stateSet = NULL; }
+
+        if (pdata.maskSet == 0) return;
         if (!_pipelineMaskPath.empty()) _pipelineMaskPath.pop_back();
+    }
+
+    bool canDisableStateSet(const osg::StateSet& ss) const
+    {
+        const osg::StateSet::TextureAttributeList& texAttrList = ss.getTextureAttributeList();
+        for (size_t i = 0; i < texAttrList.size(); ++i)
+        {
+            const osg::StateSet::AttributeList& attr = texAttrList[i];
+            for (osg::StateSet::AttributeList::const_iterator itr = attr.begin();
+                 itr != attr.end(); ++itr)
+            {
+                osg::StateAttribute::Type t = itr->first.first;
+                if (t != osg::StateAttribute::TEXTURE) continue;
+                
+                osg::Texture* tex = static_cast<osg::Texture*>(itr->second.first.get());
+                if (tex && tex->getNumImages() > 0)
+                {
+                    for (size_t j = 0; j < tex->getNumImages(); ++j)
+                    { if (osgVerse::ImageHelper::hasAlpha(*tex->getImage(j))) return false; }
+                }
+            }
+        }
+        return true;
     }
 
     osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;

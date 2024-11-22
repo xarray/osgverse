@@ -10,8 +10,10 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#include <readerwriter/Utilities.h>
+#include <modeling/Octree.h>
+#include <modeling/GeometryMerger.h>
 #include <modeling/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
@@ -25,97 +27,37 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
-class CrossTreeVisitor : public osg::NodeVisitor
+class FindGeometryVisitor : public osg::NodeVisitor
 {
 public:
-    CrossTreeVisitor::CrossTreeVisitor()
-        : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    FindGeometryVisitor(bool applyM)
+        : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), appliedMatrix(applyM) {}
+    inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
+    inline void popMatrix() { _matrixStack.pop_back(); }
+
+    std::vector<osg::Matrix> _matrixStack;
+    std::vector<std::pair<osg::Geometry*, osg::Matrix>> geomList;
+    bool appliedMatrix;
+
+    virtual void apply(osg::Transform& node)
+    {
+        osg::Matrix matrix;
+        if (!_matrixStack.empty()) matrix = _matrixStack.back();
+        node.computeLocalToWorldMatrix(matrix, this);
+        pushMatrix(matrix); traverse(node); popMatrix();
+    }
 
     virtual void apply(osg::Geode& node)
     {
-        if (_toHandleNodes.find(&node) == _toHandleNodes.end())
-            _toHandleNodes.insert(&node);
+        osg::Matrix matrix;
+        if (appliedMatrix && _matrixStack.size() > 0) matrix = _matrixStack.back();
+        for (size_t i = 0; i < node.getNumDrawables(); ++i)
+        {
+            osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+            if (geom) geomList.push_back(std::pair<osg::Geometry*, osg::Matrix>(geom, matrix));
+        }
         traverse(node);
     }
-
-    void handleCrossTrees(int w, int h, float lodValue)
-    {
-        osg::ref_ptr<osg::Group> root = new osg::Group;
-        osgViewer::Viewer rttViewer;
-        rttViewer.setSceneData(root.get());
-        rttViewer.setUpViewInWindow(0, 0, 10, 10);
-
-        for (std::set<osg::Geode*>::iterator itr = _toHandleNodes.begin();
-             itr != _toHandleNodes.end(); ++itr)
-        {
-            osg::ref_ptr<osg::Geode> geode = *itr;
-            osgVerse::MeshCollector mc; geode->accept(mc);
-            std::cout << osgVerse::getNodePathID(*geode) << ": " << geode->referenceCount() << "\n";
-
-            osg::BoundingBoxd bb = mc.getBoundingBox(); osg::Vec3 halfExtent = (bb._max - bb._min) * 0.5f;
-            osg::Vec3 axis0 = osg::X_AXIS * halfExtent.x(), axis1 = osg::Y_AXIS * halfExtent.y();
-            osg::Vec3 axis2 = osg::Z_AXIS * halfExtent.z();
-
-            osg::ref_ptr<osg::Image> image0 = new osg::Image;
-            osg::ref_ptr<osg::Image> image1 = new osg::Image;
-            image0->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-            image1->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-
-            osg::ref_ptr<osg::Camera> camera0 =
-                osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, image0.get(), NULL);
-            osg::ref_ptr<osg::Camera> camera1 =
-                osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, image1.get(), NULL);
-            root->removeChildren(0, root->getNumChildren());
-            root->addChild(camera0.get()); root->addChild(camera1.get());
-
-            // Align RTT cameras to XOZ and YOZ planes
-            // A new geode with deep-copied resource is used with rttViewer separately
-            osg::ref_ptr<osg::Geode> geodeNew = new osg::Geode(*geode, osg::CopyOp::DEEP_COPY_ALL);
-            geodeNew->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-
-            osgVerse::alignCameraToBox(camera0.get(), bb, w, h, osg::TextureCubeMap::POSITIVE_X);
-            osgVerse::alignCameraToBox(camera1.get(), bb, w, h, osg::TextureCubeMap::POSITIVE_Y);
-            camera0->addChild(geodeNew.get()); camera1->addChild(geodeNew.get());
-            for (unsigned int i = 0; i < 2; ++i) rttViewer.frame();
-
-            // Create result cross-quad tree geode (with 4 parts to avoid wrong transparent sorting)
-            osg::ref_ptr<osg::Texture> tex0 = osgVerse::createTexture2D(image0.get());
-            osg::ref_ptr<osg::Texture> tex1 = osgVerse::createTexture2D(image1.get());
-            osg::ref_ptr<osg::Geode> rough = new osg::Geode;
-            rough->addDrawable(osg::createTexturedQuadGeometry(
-                bb.center() - axis0 - axis2, axis0, axis2 * 2.0f, 0.5f, 1.0f));
-            rough->addDrawable(osg::createTexturedQuadGeometry(
-                bb.center() - axis2, axis0, axis2 * 2.0f, 0.5f, 0.0f, 1.0f, 1.0f));
-            rough->addDrawable(osg::createTexturedQuadGeometry(
-                bb.center() - axis1 - axis2, axis1, axis2 * 2.0f, 0.5f, 1.0f));
-            rough->addDrawable(osg::createTexturedQuadGeometry(
-                bb.center() - axis2, axis1, axis2 * 2.0f, 0.5f, 0.0f, 1.0f, 1.0f));
-            for (unsigned int i = 0; i < rough->getNumDrawables(); ++i)
-            {
-                osg::StateSet* ss = rough->getDrawable(i)->getOrCreateStateSet();
-                ss->setTextureAttributeAndModes(0, (i < 2) ? tex0.get() : tex1.get());
-                ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-                ss->setMode(GL_BLEND, osg::StateAttribute::ON);
-            }
-            rough->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-
-            // Create a LOD node and replace current geode
-            osg::ref_ptr<osg::LOD> lod = new osg::LOD;
-            lod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
-            while (geode->getNumParents() > 0)
-            {
-                osg::Group* parent = geode->getParent(0);
-                parent->replaceChild(geode, lod.get());
-            }
-            lod->addChild(rough.get(), lodValue, FLT_MAX);
-            lod->addChild(geode.get(), 0.0f, lodValue);  // addChild() later to avoid being parent
-        }
-        rttViewer.setDone(true);
-        _toHandleNodes.clear();
-    }
-
-protected:
-    std::set<osg::Geode*> _toHandleNodes;
 };
 
 int main(int argc, char** argv)
@@ -123,19 +65,65 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 
-    std::string treeFileName; arguments.read("--tree", treeFileName);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(treeFileName);
-    if (!scene) { OSG_WARN << "Failed to load tree file" << treeFileName; return 1; }
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
+    if (!scene)
+    {
+        osg::ref_ptr<osg::Group> group = new osg::Group; scene = group;
+        for (int z = 0; z < 40; ++z)
+            for (int y = 0; y < 40; ++y)
+            {
+                osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+                mt->setMatrix(osg::Matrix::translate(10.0f * y * (float)rand() / (float)RAND_MAX,
+                                                     10.0f * z * (float)rand() / (float)RAND_MAX, 0.0f));
+                group->addChild(mt.get());
 
-    CrossTreeVisitor ctv;
-    scene->accept(ctv);
-    ctv.handleCrossTrees(1024, 1024, 80.0f);
-    osgDB::writeNodeFile(*scene, treeFileName + "_crossed.ive");
+                for (int x = 0; x < 40; ++x)
+                {
+                    osg::Vec3 center(x * (float)rand() / (float)RAND_MAX,
+                                     y * (float)rand() / (float)RAND_MAX,
+                                     z * (float)rand() / (float)RAND_MAX);
+                    float height = (float)rand() / (float)RAND_MAX;
 
+                    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+                    geode->addDrawable(osgVerse::createPrism(center, 1.0f, 1.0f, height));
+                    mt->addChild(geode.get());
+                }
+            }
+    }
+
+    // Find all geometries and merge them
+    FindGeometryVisitor fgv(true);
+    scene->accept(fgv);
+
+    osg::ref_ptr<osg::Geometry> newGeom;
+    if (arguments.read("--original")) {}  // do nothing
+    else if (arguments.read("--combine"))
+    {
+        osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::COMBINED_GEOMETRY);
+        newGeom = merger.process(fgv.geomList, 0);
+    }
+    else if (arguments.read("--indirect"))
+    {
+        osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
+        newGeom = merger.process(fgv.geomList, 0);
+    }
+    else  // octree mode
+    {
+
+    }
+
+    if (newGeom.valid())
+    {
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        geode->addDrawable(newGeom.get()); scene = geode;
+    }
+
+    // Start the viewer
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(scene.get());
+    viewer.setUpViewOnSingleScreen(0);
     return viewer.run();
 }

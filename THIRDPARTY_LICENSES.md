@@ -64,6 +64,7 @@
 | stb              | Embedded |           | -                  | MIT / Public | https://github.com/nothings/stb |
 | strtk            | Embedded |           | -                  | MIT          | https://github.com/ArashPartow/strtk |
 | supercluster     | Embedded |           | Pipeline           | ISC          | https://github.com/mapbox/supercluster.hpp |
+| timeout          | Embedded |           | -                  | -            | https://25thandclement.com/~william/projects/timeout.c.html |
 | tiny_gltf        | Embedded |           | verse_gltf         | MIT          | https://github.com/syoyo/tinygltf |
 | tiny_gltf_loader | Embedded |           | verse_gltf         | MIT          | https://github.com/syoyo/tinygltfloader |
 | tiny_obj_loader  | Embedded |           | -                  | MIT          | https://github.com/tinyobjloader/tinyobjloader |

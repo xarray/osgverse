@@ -508,6 +508,7 @@ namespace osgVerse
             }
 
             // Fill weight-list with <bone, weight> pair for every vertex
+            if (sd.joints.empty()) return;
             for (size_t j = 0; j < sd.joints.size(); ++j)
             {
                 osg::Transform* boneT = sd.joints[j]; ofbx::Object* fbxNode = boneMapper2[boneT];
