@@ -42,26 +42,26 @@ namespace osgVerse
             _adjLength = rhs._adjLength; return *this;
         }
 
-        void setValues(float baseLength, float minSizeVal, float lVal, const osg::Vec3d& centerVal)
+        void setValues(float baseLen, float minSizeVal, float lVal, const osg::Vec3d& centerVal)
         {
-            center = centerVal; baseLength = baseLength;
+            center = centerVal; baseLength = baseLen;
             _minSize = minSizeVal; _looseness = lVal;
             _adjLength = _looseness * baseLength;
 
             // Create the bounding box
             osg::Vec3d size = osg::Vec3d(_adjLength, _adjLength, _adjLength);
-            _bounds = osg::BoundingBoxd(center, size); _childBounds.resize(8);
+            setBoundData(_bounds, center, size); _childBounds.resize(8);
 
             float quarter = baseLength / 4.f, actualLength = (baseLength / 2.f) * _looseness;
             osg::Vec3d childActualSize = osg::Vec3d(actualLength, actualLength, actualLength);
-            _childBounds[0].set(center + osg::Vec3d(-quarter, quarter, -quarter), childActualSize);
-            _childBounds[1].set(center + osg::Vec3d(quarter, quarter, -quarter), childActualSize);
-            _childBounds[2].set(center + osg::Vec3d(-quarter, quarter, quarter), childActualSize);
-            _childBounds[3].set(center + osg::Vec3d(quarter, quarter, quarter), childActualSize);
-            _childBounds[4].set(center + osg::Vec3d(-quarter, -quarter, -quarter), childActualSize);
-            _childBounds[5].set(center + osg::Vec3d(quarter, -quarter, -quarter), childActualSize);
-            _childBounds[6].set(center + osg::Vec3d(-quarter, -quarter, quarter), childActualSize);
-            _childBounds[7].set(center + osg::Vec3d(quarter, -quarter, quarter), childActualSize);
+            setBoundData(_childBounds[0], center + osg::Vec3d(-quarter, quarter, -quarter), childActualSize);
+            setBoundData(_childBounds[1], center + osg::Vec3d(quarter, quarter, -quarter), childActualSize);
+            setBoundData(_childBounds[2], center + osg::Vec3d(-quarter, quarter, quarter), childActualSize);
+            setBoundData(_childBounds[3], center + osg::Vec3d(quarter, quarter, quarter), childActualSize);
+            setBoundData(_childBounds[4], center + osg::Vec3d(-quarter, -quarter, -quarter), childActualSize);
+            setBoundData(_childBounds[5], center + osg::Vec3d(quarter, -quarter, -quarter), childActualSize);
+            setBoundData(_childBounds[6], center + osg::Vec3d(-quarter, -quarter, quarter), childActualSize);
+            setBoundData(_childBounds[7], center + osg::Vec3d(quarter, -quarter, quarter), childActualSize);
         }
 
         void getChildBounds(std::vector<osg::BoundingBoxd>& bounds) const
@@ -199,11 +199,11 @@ namespace osgVerse
         void subAdd(T* obj, const osg::BoundingBoxd& objBounds)
         {   // We always put things in the deepest possible child
             // So we can skip some checks if there are children already
-            if (!hasChildren)
+            if (!hasChildren())
             {   // Just add if few objects are here, or children would be below min size
-                if (_objects.size() < _numObjectsAllowed || (baseLength / 2f) < _minSize)
+                if (_objects.size() < _numObjectsAllowed || (baseLength / 2.f) < _minSize)
                 {
-                    OctreeObject newObj; newObj.object = obj, newObj.bounds = objBounds
+                    OctreeObject newObj; newObj.object = obj, newObj.bounds = objBounds;
                     _objects.push_back(newObj); return;
                 }
 
@@ -217,10 +217,10 @@ namespace osgVerse
 
                         // Find which child the object is closest to based on where the
                         // object's center is located in relation to the octree's center
-                        int bestFitChild = bestFitChild(existingObj.bounds.center());
-                        if (encapsulates(_children[bestFitChild]._bounds, existingObj.bounds))
+                        int bestFitID = bestFitChild(existingObj.bounds.center());
+                        if (encapsulates(_children[bestFitID]._bounds, existingObj.bounds))
                         {
-                            _children[bestFitChild].subAdd(existingObj.object, existingObj.bounds);					
+                            _children[bestFitID].subAdd(existingObj.object, existingObj.bounds);
                             _objects.erase(_objects.begin() + i); // Remove from here
                         }
                     }
@@ -228,7 +228,7 @@ namespace osgVerse
             }
 
             // Handle the new object we're adding now
-            int bestFit = bestFitChild(objBounds.center);
+            int bestFit = bestFitChild(objBounds.center());
             if (encapsulates(_children[bestFit]._bounds, objBounds))
                 _children[bestFit].subAdd(obj, objBounds);
             else
@@ -252,8 +252,8 @@ namespace osgVerse
 
             if (!removed && !_children.empty())
             {
-                int bestFitChild = bestFitChild(objBounds.center);
-                removed = _children[bestFitChild].subRemove(obj, objBounds);
+                int bestFitID = bestFitChild(objBounds.center());
+                removed = _children[bestFitID].subRemove(obj, objBounds);
             }
 
             if (removed && !_children.empty())
@@ -265,8 +265,8 @@ namespace osgVerse
 
         void split()
         {
-            float quarter = baseLength / 4f;
-            float newLength = baseLength / 2;
+            float quarter = baseLength / 4.f;
+            float newLength = baseLength / 2.f;
             _children.resize(8);
             _children[0] = BoundsOctreeNode<T>(
                 newLength, _minSize, _looseness,
@@ -298,7 +298,7 @@ namespace osgVerse
         {   // Note: We know children != null or we wouldn't be merging
             for (size_t i = 0; i < _children.size(); ++i)
             {
-                BoundsOctreeNode<T> curChild = _children[i];
+                BoundsOctreeNode<T>& curChild = _children[i];
                 int numObjects = (int)curChild._objects.size();
                 for (int j = numObjects - 1; j >= 0; j--)
                 {
@@ -314,6 +314,7 @@ namespace osgVerse
             size_t totalObjects = _objects.size();
             for (size_t i = 0; i < _children.size(); ++i)
             {
+                BoundsOctreeNode<T>& child = _children[i];
                 if (!child._children.empty())
                 {
                     // If any of the *children* have children, there are definitely too many to merge,
@@ -324,10 +325,13 @@ namespace osgVerse
             }
             return totalObjects <= _numObjectsAllowed;
         }
+        
+        void setBoundData(osg::BoundingBoxd& bb, const osg::Vec3d& c, const osg::Vec3d& s)
+        { osg::Vec3d half = s * 0.5; bb._min = c - half; bb._max = c + half; }
 
-        bool encapsulates(const osg::BoundingBoxd& outerBounds,
-                          const osg::BoundingBoxd& innerBounds) const
-        { return outerBounds.contains(innerBounds); }
+        bool encapsulates(const osg::BoundingBoxd& outBounds,
+                          const osg::BoundingBoxd& inBounds) const
+        { return outBounds.contains(inBounds._min) && outBounds.contains(inBounds._max); }
 
         bool hasChildren() const
         { return !_children.empty(); }
@@ -383,7 +387,7 @@ namespace osgVerse
         }
 
         bool isColliding(const osg::BoundingBoxd& checkBounds) const
-        { return _rootNode.isColliding(ref checkBounds); }
+        { return _rootNode.isColliding(checkBounds); }
 
         std::vector<osg::ref_ptr<T>> getColliding(const osg::BoundingBoxd& checkBounds) const
         {
@@ -392,9 +396,10 @@ namespace osgVerse
             return colliding;
         }
 
-        const BoundsOctreeNode<T> getRoot() const { return _rootNode; }
+        const BoundsOctreeNode<T>& getRoot() const { return _rootNode; }
+        BoundsOctreeNode<T>& getRoot() { return _rootNode; }
         osg::BoundingBoxd getMaxBounds() const { return _rootNode.bound; }
-        int getMaxCount() const { return count; }
+        int getMaxCount() const { return _count; }
 
         std::vector<osg::BoundingBoxd> getChildBounds() const
         {
@@ -428,7 +433,7 @@ namespace osgVerse
                         xDirection = i % 2 == 0 ? -1 : 1;
                         yDirection = i > 3 ? -1 : 1;
                         zDirection = (i < 2 || (i > 3 && i < 6)) ? -1 : 1;
-                        children[i].setValues(oldRoot.BaseLength, _minSize, _looseness,
+                        children[i].setValues(oldRoot.baseLength, _minSize, _looseness,
                             newCenter + osg::Vec3d(xDirection * half, yDirection * half, zDirection * half));
                     }
                 }

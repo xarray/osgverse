@@ -109,7 +109,8 @@ int main(int argc, char** argv)
     }
     else  // octree mode
     {
-
+        osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
+        scene = merger.processAsOctree(fgv.geomList);
     }
 
     if (newGeom.valid())

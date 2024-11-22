@@ -8,6 +8,27 @@
 #include "Octree.h"
 using namespace osgVerse;
 
+static void addOctreeNodeToGeometry(const BoundsOctreeNode<osg::Geometry>& node,
+                                    osg::Vec3Array& va, osg::Vec4Array& ca, osg::DrawElementsUInt& de)
+{
+    osg::BoundingBoxd bb; double half = node.baseLength * 0.5;
+    bb._min = node.center - osg::Vec3d(half, half, half);
+    bb._max = node.center + osg::Vec3d(half, half, half);
+
+    size_t v0 = va.size(); for (int i = 0; i < 8; ++i)
+    { va.push_back(bb.corner(i)); ca.push_back(osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f)); }
+    de.push_back(v0 + 0); de.push_back(v0 + 1); de.push_back(v0 + 1); de.push_back(v0 + 2);
+    de.push_back(v0 + 2); de.push_back(v0 + 3); de.push_back(v0 + 3); de.push_back(v0 + 0);
+    de.push_back(v0 + 4); de.push_back(v0 + 5); de.push_back(v0 + 5); de.push_back(v0 + 6);
+    de.push_back(v0 + 6); de.push_back(v0 + 7); de.push_back(v0 + 7); de.push_back(v0 + 4);
+    de.push_back(v0 + 0); de.push_back(v0 + 4); de.push_back(v0 + 1); de.push_back(v0 + 5);
+    de.push_back(v0 + 2); de.push_back(v0 + 6); de.push_back(v0 + 3); de.push_back(v0 + 7);
+
+    const std::vector<BoundsOctreeNode<osg::Geometry>>& children = node.getChildren();
+    for (size_t i = 0; i < children.size(); ++i)
+        addOctreeNodeToGeometry(children[i], va, ca, de);
+}
+
 struct ResetTrianglesOperator
 {
     ResetTrianglesOperator() : _start(0), _count(0) {}
@@ -112,7 +133,37 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
 osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geomList)
 {
     BoundsOctree<osg::Geometry> octree(osg::Vec3d(), 50.0f, 1.0f, 1.0f);
-    // TODO
+    for (size_t i = 0; i < geomList.size(); ++i)
+    {
+        osg::Geometry* geom = geomList[i].first;
+        const osg::Matrix& matrix = geomList[i].second;
+
+        osg::BoundingBoxd bbox1, bbox0 = geom->getBoundingBox();
+        for (int j = 0; j < 8; ++j) bbox1.expandBy(bbox0.corner(j) * matrix);
+        octree.add(geom, bbox1);
+    }
+
+#if true
+    osg::ref_ptr<osg::Geometry> octreeGeom = new osg::Geometry;
+    octreeGeom->setUseDisplayList(false);
+    octreeGeom->setUseVertexBufferObjects(true);
+
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
+    osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_LINES);
+    addOctreeNodeToGeometry(octree.getRoot(), *va, *ca, *de);
+    octreeGeom->setVertexArray(va.get());
+    octreeGeom->setColorArray(ca.get());
+    octreeGeom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    octreeGeom->addPrimitiveSet(de.get());
+
+    osg::ref_ptr<osg::Geode> octreeGeode = new osg::Geode;
+    octreeGeode->addDrawable(octreeGeom.get());
+    octreeGeode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    return octreeGeode.release();
+#else
+    // TODo
+#endif
     return NULL;
 }
 
