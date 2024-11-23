@@ -1,3 +1,4 @@
+#include <osg/io_utils>
 #include <osg/Version>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geode>

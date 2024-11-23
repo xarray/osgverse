@@ -23,9 +23,17 @@ namespace osgVerse
         GeometryMerger(Method m = COMBINED_GEOMETRY);
         ~GeometryMerger();
 
+        void setMethod(Method m) { _method = m; }
+        void setForceColorArray(bool b) { _forceColorArray = b; }
+
         osg::Geometry* process(const std::vector<GeometryPair>& geomList, size_t offset,
                                size_t size = 0, int maxTextureSize = 4096);
-        osg::Node* processAsOctree(const std::vector<GeometryPair>& geomList);
+        osg::Node* processAsOctree(const std::vector<GeometryPair>& geomList, size_t offset,
+                                   size_t size = 0, int maxTextureSize = 4096,
+                                   int maxObjectsInCell = 8, float minSizeInCell = 1.0f);
+
+        osg::Image* processAtlas(const std::vector<GeometryPair>& geomList, size_t offset,
+                                 size_t size = 0, int maxTextureSize = 4096);
 
     protected:
         osg::Geometry* createCombined(const std::vector<GeometryPair>& geomList,
@@ -37,6 +45,7 @@ namespace osgVerse
                                        int maxTextureSize, int& originW, int& originH);
 
         Method _method;
+        bool _forceColorArray;
     };
 
     class IndirectCommandDrawElements : public osg::IndirectCommandDrawElements,
@@ -73,6 +82,27 @@ namespace osgVerse
     protected:
         std::vector<osg::ref_ptr<osg::UserDataContainer>> _userDataList;
     };
+
+#define MULTI_DRAW_ELEMENTS_INDIRECT(t, glType) \
+    class MultiDrawElementsIndirect##t : public osg::MultiDrawElementsIndirect##t { \
+    public: \
+        MultiDrawElementsIndirect##t (GLenum mode = 0) : osg::MultiDrawElementsIndirect##t (mode) {} \
+        MultiDrawElementsIndirect##t (const MultiDrawElementsIndirect##t & mdi, \
+            const osg::CopyOp& op=osg::CopyOp::SHALLOW_COPY) : osg::MultiDrawElementsIndirect##t (mdi, op) {} \
+        MultiDrawElementsIndirect##t (GLenum m, unsigned int no, const glType * p) : osg::MultiDrawElementsIndirect##t (m, no, p) {} \
+        MultiDrawElementsIndirect##t (GLenum m, unsigned int no) : osg::MultiDrawElementsIndirect##t (m, no) {} \
+        template <class IT> MultiDrawElementsIndirect##t (GLenum m, IT f, IT l) : osg::MultiDrawElementsIndirect##t (m, f, l) {} \
+        virtual osg::Object* cloneType() const { return new MultiDrawElementsIndirect##t (); } \
+        virtual osg::Object* clone(const osg::CopyOp& copyop) const { \
+            return new MultiDrawElementsIndirect##t (*this, copyop); } \
+        virtual bool isSameKindAs(const osg::Object* obj) const { \
+            return dynamic_cast<const MultiDrawElementsIndirect##t *>(obj) != NULL; } \
+        virtual void accept(osg::PrimitiveFunctor& functor) const; \
+        virtual void accept(osg::PrimitiveIndexFunctor& functor) const; };
+
+    MULTI_DRAW_ELEMENTS_INDIRECT(UByte, GLubyte)
+    MULTI_DRAW_ELEMENTS_INDIRECT(UShort, GLushort)
+    MULTI_DRAW_ELEMENTS_INDIRECT(UInt, GLuint)
 }
 
 #endif

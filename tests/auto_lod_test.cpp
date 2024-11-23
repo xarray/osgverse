@@ -4,16 +4,19 @@
 #include <osg/LOD>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
-#include <osgDB/WriteFile>
+#include <osgDB/ConvertUTF>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+#include <osgText/Font>
+#include <osgText/Text>
 
 #include <modeling/Octree.h>
 #include <modeling/GeometryMerger.h>
 #include <modeling/Utilities.h>
 #include <readerwriter/Utilities.h>
+#include <pipeline/IntersectionManager.h>
 #include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
@@ -26,6 +29,65 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+
+class SelectSceneHandler : public osgGA::GUIEventHandler
+{
+public:
+    SelectSceneHandler(osg::Geode* tNode) : _textGeode(tNode)
+    { _condition.nodesToIgnore.insert(_textGeode.get()); }
+
+    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+        if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE &&
+            (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL))
+        {
+            osgVerse::IntersectionResult result = osgVerse::findNearestIntersection(
+                view->getCamera(), ea.getXnormalized(), ea.getYnormalized(), &_condition);
+            if (!result.drawable) return false;
+
+            osgText::Text* text = NULL;
+            if (_textGeode->getNumDrawables() == 0)
+            {
+                text = new osgText::Text;
+                text->setPosition(osg::Vec3(10.0f, 40.0f, 0.0f));
+                text->setCharacterSize(20.0f, 1.0f);
+                text->setFont(MISC_DIR + "LXGWFasmartGothic.ttf");
+                _textGeode->addDrawable(text);
+            }
+            else
+                text = static_cast<osgText::Text*>(_textGeode->getDrawable(0));
+
+            std::wstring t = osgDB::convertUTF8toUTF16("HIT: " + result.drawable->getName());
+            if (result.drawable->getUserDataContainer())
+                t += getUserString(result.drawable->getUserDataContainer());
+            else if (!result.intersectIndirectData.empty())
+            {
+                osgVerse::IntersectionResult::IndirectData& id = result.intersectIndirectData[0];
+                t += getUserString(id.first->getUserData(id.second));
+            }
+            text->setText(t.c_str());
+        }
+        return false;
+    }
+
+    std::wstring getUserString(osg::UserDataContainer* udc)
+    {
+        std::wstring text;
+        if (udc != NULL)
+        {
+            osg::StringValueObject* svo =
+                dynamic_cast<osg::StringValueObject*>(udc->getUserObject("Index"));
+            text += osgDB::convertUTF8toUTF16("; DATA: " + udc->getName());
+            if (svo) text += osgDB::convertUTF8toUTF16(", " + svo->getValue());
+        }
+        return text;
+    }
+
+protected:
+    osg::observer_ptr<osg::Geode> _textGeode;
+    osgVerse::IntersectionCondition _condition;
+};
 
 class FindGeometryVisitor : public osg::NodeVisitor
 {
@@ -84,33 +146,41 @@ int main(int argc, char** argv)
                                      z * (float)rand() / (float)RAND_MAX);
                     float height = (float)rand() / (float)RAND_MAX;
 
+                    osg::Geometry* geom = osgVerse::createPrism(center, 1.0f, 1.0f, height);
+                    geom->setName("Prism_" + std::to_string(group->getNumChildren()) +
+                                  "_" + std::to_string(mt->getNumChildren()));
+                    geom->setUserValue("Index",
+                        std::to_string(x) + "_" + std::to_string(y) + "_" + std::to_string(z));
+
                     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-                    geode->addDrawable(osgVerse::createPrism(center, 1.0f, 1.0f, height));
-                    mt->addChild(geode.get());
+                    geode->addDrawable(geom); mt->addChild(geode.get());
                 }
             }
     }
 
     // Find all geometries and merge them
-    FindGeometryVisitor fgv(true);
-    scene->accept(fgv);
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    FindGeometryVisitor fgv(true); scene->accept(fgv);
 
     osg::ref_ptr<osg::Geometry> newGeom;
     if (arguments.read("--original")) {}  // do nothing
     else if (arguments.read("--combine"))
     {
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::COMBINED_GEOMETRY);
+        merger.setForceColorArray(true);
         newGeom = merger.process(fgv.geomList, 0);
     }
     else if (arguments.read("--indirect"))
     {
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
+        merger.setForceColorArray(true);
         newGeom = merger.process(fgv.geomList, 0);
     }
     else  // octree mode
     {
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
-        scene = merger.processAsOctree(fgv.geomList);
+        merger.setForceColorArray(true);
+        scene = merger.processAsOctree(fgv.geomList, 0, 0, 4096, 2000, 100.0f);
     }
 
     if (newGeom.valid())
@@ -120,11 +190,20 @@ int main(int argc, char** argv)
     }
 
     // Start the viewer
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    root->addChild(scene.get());
+
+    osg::ref_ptr<osg::Geode> textGeode = new osg::Geode;
+    osg::ref_ptr<osg::Camera> postCamera = osgVerse::createHUDCamera(NULL, 1920, 1080);
+    postCamera->addChild(textGeode.get());
+    root->addChild(postCamera.get());
+
     osgViewer::Viewer viewer;
+    viewer.addEventHandler(new SelectSceneHandler(textGeode.get()));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(scene.get());
+    viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
     return viewer.run();
 }

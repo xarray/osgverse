@@ -1,4 +1,5 @@
 #include "IntersectionManager.h"
+#include "modeling/GeometryMerger.h"
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -297,6 +298,34 @@ static void saveLinesegmentIntersectionResult(
     result.intersectPoints.push_back(intersection.localIntersectionPoint);
     result.intersectNormals.push_back(intersection.localIntersectionNormal);
     result.ratioList.push_back(intersection.ratio);
+
+    osg::Geometry* geom = intersection.drawable.valid() ? intersection.drawable->asGeometry() : NULL;
+    if (geom && geom->getNumPrimitiveSets() > 0)
+    {
+        osg::DrawElementsIndirect* mde =
+            dynamic_cast<osg::DrawElementsIndirect*>(geom->getPrimitiveSet(0));
+        if (mde != NULL)
+        {
+            IndirectCommandDrawElements* icde =
+                dynamic_cast<IndirectCommandDrawElements*>(mde->getIndirectCommandArray());
+            if (icde != NULL)
+                for (size_t i = 0; i < intersection.indexList.size(); i += 3)
+                {
+                    size_t i0 = intersection.indexList[i + 0], i1 = intersection.indexList[i + 1];
+                    size_t i2 = intersection.indexList[i + 2], index = icde->size();
+
+                    for (size_t c = 0; c < icde->size(); ++c)
+                    {
+                        size_t vStart = icde->baseVertex(c);
+                        size_t vEnd = vStart + icde->count(c);
+                        if ((vStart <= i0 && i0 < vEnd) || (vStart <= i1 && i1 < vEnd) ||
+                            (vStart <= i2 && i2 < vEnd)) { index = c; break; }
+                    }
+                    if (index < icde->size()) result.intersectIndirectData.push_back(
+                        IntersectionResult::IndirectData(icde, index));
+                }
+        }
+    }
 
     IntersectionResult::IntersectTextureData tdata;
     tdata.first = getTextureLookUp(intersection, tdata.second);

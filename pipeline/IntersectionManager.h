@@ -7,6 +7,8 @@
 
 namespace osgVerse
 {
+    class IndirectCommandDrawElements;
+
     /** The intersection condition for defining a more detailed intersection test */
     struct IntersectionCondition
     {
@@ -33,6 +35,9 @@ namespace osgVerse
         std::vector<double> ratioList;
         double distanceToReference;
         unsigned int primitiveIndex;
+
+        typedef std::pair<IndirectCommandDrawElements*, int> IndirectData;
+        std::vector<IndirectData> intersectIndirectData;
 
         typedef std::pair<osg::Texture*, osg::Vec3> IntersectTextureData;
         std::vector<IntersectTextureData> intersectTextureData;  // only available for line intersections

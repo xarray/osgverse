@@ -8,6 +8,34 @@
 #include "Octree.h"
 using namespace osgVerse;
 
+template<typename CLS, typename FUNC>
+static void acceptMultDrawElementsIndirect(CLS* drawer, FUNC& functor)
+{
+    osg::IndirectCommandDrawElements* icd =
+        const_cast<osg::IndirectCommandDrawElements*>(drawer->getIndirectCommandArray());
+    unsigned int firsCmd = drawer->getFirstCommandToDraw(), count = drawer->getNumCommandsToDraw();
+    unsigned int maxIndex = (count > 0) ? (firsCmd + count) : (icd->getNumElements() - firsCmd);
+    for (unsigned int i = firsCmd; i < maxIndex; ++i)
+    {
+        unsigned int baseVertex = icd->baseVertex(i);
+        unsigned int firstIndex = icd->firstIndex(i), count = icd->count(i);
+        CLS::vector_type::pointer ptr = (CLS::vector_type::pointer)&(*drawer)[firstIndex];
+
+        std::vector<CLS::value_type> tmpIndices(count);
+        for (unsigned int n = 0; n < count; ++n) tmpIndices[n] = *(ptr + n) + baseVertex;
+        functor.drawElements(drawer->getMode(), count, &tmpIndices[0]);
+    }
+}
+
+#define MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(t) \
+    void MultiDrawElementsIndirect##t ::accept(osg::PrimitiveFunctor& functor) const \
+    { if (!empty()) acceptMultDrawElementsIndirect(this, functor); } \
+    void MultiDrawElementsIndirect##t ::accept(osg::PrimitiveIndexFunctor& functor) const \
+    { if (!empty()) acceptMultDrawElementsIndirect(this, functor); }
+MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UByte)
+MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UShort)
+MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UInt)
+
 static void addOctreeNodeToGeometry(const BoundsOctreeNode<osg::Geometry>& node,
                                     osg::Vec3Array& va, osg::Vec4Array& ca, osg::DrawElementsUInt& de)
 {
@@ -15,14 +43,20 @@ static void addOctreeNodeToGeometry(const BoundsOctreeNode<osg::Geometry>& node,
     bb._min = node.center - osg::Vec3d(half, half, half);
     bb._max = node.center + osg::Vec3d(half, half, half);
 
-    size_t v0 = va.size(); for (int i = 0; i < 8; ++i)
-    { va.push_back(bb.corner(i)); ca.push_back(osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f)); }
-    de.push_back(v0 + 0); de.push_back(v0 + 1); de.push_back(v0 + 1); de.push_back(v0 + 2);
-    de.push_back(v0 + 2); de.push_back(v0 + 3); de.push_back(v0 + 3); de.push_back(v0 + 0);
-    de.push_back(v0 + 4); de.push_back(v0 + 5); de.push_back(v0 + 5); de.push_back(v0 + 6);
-    de.push_back(v0 + 6); de.push_back(v0 + 7); de.push_back(v0 + 7); de.push_back(v0 + 4);
+    size_t v0 = va.size(), numObj = node.getObjects().size();
+    osg::Vec4 color(1.0f, 1.0f, 1.0f, 1.0f);
+    if (numObj < 1) color.set(0.0f, 0.0f, 0.0f, 1.0f);
+    else if (numObj < 2) color.set(0.0f, 0.0f, 1.0f, 1.0f);
+    else if (numObj < 5) color.set(1.0f, 1.0f, 0.0f, 1.0f);
+    else if (numObj < node.getNumObjectsAllowed()) color.set(1.0f, 0.0f, 0.0f, 1.0f);
+
+    for (int i = 0; i < 8; ++i) { va.push_back(bb.corner(i)); ca.push_back(color); }
+    de.push_back(v0 + 0); de.push_back(v0 + 1); de.push_back(v0 + 1); de.push_back(v0 + 3);
+    de.push_back(v0 + 3); de.push_back(v0 + 2); de.push_back(v0 + 2); de.push_back(v0 + 0);
+    de.push_back(v0 + 4); de.push_back(v0 + 5); de.push_back(v0 + 5); de.push_back(v0 + 7);
+    de.push_back(v0 + 7); de.push_back(v0 + 6); de.push_back(v0 + 6); de.push_back(v0 + 4);
     de.push_back(v0 + 0); de.push_back(v0 + 4); de.push_back(v0 + 1); de.push_back(v0 + 5);
-    de.push_back(v0 + 2); de.push_back(v0 + 6); de.push_back(v0 + 3); de.push_back(v0 + 7);
+    de.push_back(v0 + 3); de.push_back(v0 + 7); de.push_back(v0 + 2); de.push_back(v0 + 6);
 
     const std::vector<BoundsOctreeNode<osg::Geometry>>& children = node.getChildren();
     for (size_t i = 0; i < children.size(); ++i)
@@ -47,13 +81,13 @@ struct ResetTrianglesOperator
 };
 
 GeometryMerger::GeometryMerger(Method m)
-{ _method = m; }
+{ _method = m; _forceColorArray = false; }
 
 GeometryMerger::~GeometryMerger()
 {}
 
-osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList,
-                                       size_t offset, size_t size, int maxTextureSize)
+osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomList,
+                                         size_t offset, size_t size, int maxTextureSize)
 {
     if (size == 0) size = geomList.size() - offset;
     if (geomList.empty()) return NULL;
@@ -83,6 +117,7 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
         imageName += osgDB::getStrippedName(images[i]->getFileName()) + ",";
     }
     ext = ".jpg";  // packed image should always be saved to JPG at current time...
+    if (images.empty()) return NULL;
 
     osg::ref_ptr<osg::Image> atlas = createTextureAtlas(
         packer.get(), imageName + "_all." + ext, maxTextureSize, atlasW, atlasH);
@@ -108,8 +143,14 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
             }
         }
     }
+    return atlas.release();
+}
 
-    // Concatenate arrays and primitive-sets
+osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList,
+                                       size_t offset, size_t size, int maxTextureSize)
+{
+    if (size == 0) size = geomList.size() - offset;
+    size_t end = osg::minimum(offset + size, geomList.size());
     osg::ref_ptr<osg::Geometry> resultGeom;
     switch (_method)
     {
@@ -119,6 +160,7 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
         resultGeom = createCombined(geomList, offset, end); break;
     }
 
+    osg::ref_ptr<osg::Image> atlas = processAtlas(geomList, offset, size, maxTextureSize);
     if (resultGeom.valid() && atlas.valid())
     {
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
@@ -130,10 +172,15 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
     return resultGeom.release();
 }
 
-osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geomList)
+osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geomList,
+                                           size_t offset, size_t size, int maxTextureSize,
+                                           int numAllowed, float minSizeInCell)
 {
-    BoundsOctree<osg::Geometry> octree(osg::Vec3d(), 50.0f, 1.0f, 1.0f);
-    for (size_t i = 0; i < geomList.size(); ++i)
+    BoundsOctree<osg::Geometry> octree(
+        osg::Vec3d(), osg::maximum(50.0f, minSizeInCell), minSizeInCell, 1.0f, numAllowed);
+    if (size == 0) size = geomList.size() - offset;
+    size_t end = osg::minimum(offset + size, geomList.size());
+    for (size_t i = offset; i < end; ++i)
     {
         osg::Geometry* geom = geomList[i].first;
         const osg::Matrix& matrix = geomList[i].second;
@@ -161,10 +208,21 @@ osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geom
     octreeGeode->addDrawable(octreeGeom.get());
     octreeGeode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     return octreeGeode.release();
-#else
-    // TODo
 #endif
-    return NULL;
+
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    // TODO
+
+    osg::ref_ptr<osg::Image> atlas = processAtlas(geomList, offset, size, maxTextureSize);
+    if (root.valid() && atlas.valid())
+    {
+        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+        tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+        tex2D->setResizeNonPowerOfTwoHint(true); tex2D->setImage(atlas.get());
+        root->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2D.get());
+    }
+    return root.release();
 }
 
 osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& geomList,
@@ -172,6 +230,7 @@ osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& g
 {
     osg::ref_ptr<osg::Vec3Array> vaAll = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec3Array> naAll = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> caAll = new osg::Vec4Array;
     osg::ref_ptr<osg::Vec2Array> taAll = new osg::Vec2Array;
     osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
 
@@ -181,6 +240,7 @@ osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& g
         osg::Geometry* geom = geomList[i].first;
         osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
         osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
+        osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getColorArray());
         osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
         if (!va || geom->getNumPrimitiveSets() == 0) continue;
 
@@ -194,10 +254,21 @@ osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& g
         functor._de = de.get(); functor._start = vaAll->size();
         geom->accept(functor);
 
-        osg::Matrix matrix = geomList[i].second;
+        osg::Matrix matrix = geomList[i].second; size_t vS = va->size();
         for (size_t v = 0; v < va->size(); ++v) vaAll->push_back((*va)[v] * matrix);
-        if (na) naAll->insert(naAll->end(), na->begin(), na->end());
         if (ta) taAll->insert(taAll->end(), ta->begin(), ta->end());
+        if (na)
+        {
+            if (na->size() < vS) naAll->insert(naAll->end(), vS, na->front());
+            else naAll->insert(naAll->end(), na->begin(), na->end());
+        }
+        if (ca)
+        {
+            if (ca->size() < vS) caAll->insert(caAll->end(), vS, ca->front());
+            else caAll->insert(caAll->end(), ca->begin(), ca->end());
+        }
+        else if (_forceColorArray)
+            caAll->insert(caAll->end(), vS, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
     }
 
     resultGeom->setUseDisplayList(false);
@@ -207,6 +278,11 @@ osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& g
     {
         resultGeom->setNormalArray(naAll.get());
         resultGeom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+    if (caAll->size() == vaAll->size())
+    {
+        resultGeom->setColorArray(caAll.get());
+        resultGeom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
     }
     if (taAll->size() == vaAll->size()) resultGeom->setTexCoordArray(0, taAll.get());
     resultGeom->addPrimitiveSet(de.get());
@@ -218,8 +294,9 @@ osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& g
 {
     osg::ref_ptr<osg::Vec3Array> vaAll = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec3Array> naAll = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> caAll = new osg::Vec4Array;
     osg::ref_ptr<osg::Vec2Array> taAll = new osg::Vec2Array;
-    osg::ref_ptr<osg::MultiDrawElementsIndirectUInt> mde = new osg::MultiDrawElementsIndirectUInt(GL_TRIANGLES);
+    osg::ref_ptr<MultiDrawElementsIndirectUInt> mde = new MultiDrawElementsIndirectUInt(GL_TRIANGLES);
     osg::ref_ptr<IndirectCommandDrawElements> icde = new IndirectCommandDrawElements;
     mde->setIndirectCommandArray(icde.get());
 
@@ -229,8 +306,13 @@ osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& g
         osg::Geometry* geom = geomList[i].first;
         osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
         osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
+        osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getColorArray());
         osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
         if (!va || geom->getNumPrimitiveSets() == 0) continue;
+
+        osg::ref_ptr<osg::UserDataContainer> udc = geom->getUserDataContainer();
+        if (!udc && !geom->getName().empty()) udc = new osg::DefaultUserDataContainer;
+        if (udc.valid()) udc->setName(geom->getName());
 
         if (!resultGeom->getStateSet() && geom->getStateSet() != NULL)
         {
@@ -245,16 +327,28 @@ osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& g
         osg::TriangleIndexFunctor<ResetTrianglesOperator> functor;
         functor._mde = mde.get(); geom->accept(functor);
         cmd.count = functor._count; cmd.instanceCount = 1;
-        icde->push_back(cmd); icde->pushUserData(geom->getUserDataContainer());
+        icde->push_back(cmd); icde->pushUserData(udc.get());
 
-        osg::Matrix matrix = geomList[i].second;
-        for (size_t v = 0; v < va->size(); ++v)
+        osg::Matrix matrix = geomList[i].second; size_t vS = va->size();
+        for (size_t v = 0; v < vS; ++v)
         {
             vaAll->push_back((*va)[v] * matrix);
             bbox.expandBy(vaAll->back());
         }
-        if (na) naAll->insert(naAll->end(), na->begin(), na->end());
+
         if (ta) taAll->insert(taAll->end(), ta->begin(), ta->end());
+        if (na)
+        {
+            if (na->size() < vS) naAll->insert(naAll->end(), vS, na->front());
+            else naAll->insert(naAll->end(), na->begin(), na->end());
+        }
+        if (ca)
+        {
+            if (ca->size() < vS) caAll->insert(caAll->end(), vS, ca->front());
+            else caAll->insert(caAll->end(), ca->begin(), ca->end());
+        }
+        else if (_forceColorArray)
+            caAll->insert(caAll->end(), vS, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
     }
 
     resultGeom->setInitialBound(bbox);
@@ -266,6 +360,11 @@ osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& g
         resultGeom->setNormalArray(naAll.get());
         resultGeom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
     }
+    if (caAll->size() == vaAll->size())
+    {
+        resultGeom->setColorArray(caAll.get());
+        resultGeom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
     if (taAll->size() == vaAll->size()) resultGeom->setTexCoordArray(0, taAll.get());
     resultGeom->addPrimitiveSet(mde.get());
     return resultGeom.release();
@@ -274,9 +373,9 @@ osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& g
 osg::Image* GeometryMerger::createTextureAtlas(TexturePacker* packer, const std::string& fileName,
                                                int maxTextureSize, int& originW, int& originH)
 {
-    size_t numImages = 0;
-    osg::ref_ptr<osg::Image> atlas = packer->pack(numImages, true);
+    size_t numImages = 0; osg::ref_ptr<osg::Image> atlas = packer->pack(numImages, true);
     if (!atlas) { packer->setMaxSize(8192, 8192); atlas = packer->pack(numImages, true); }
+
     if (atlas.valid())
     {
         originW = atlas->s(); originH = atlas->t();

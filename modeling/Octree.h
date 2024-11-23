@@ -27,15 +27,16 @@ namespace osgVerse
 
     public:
         BoundsOctreeNode(float bLength = 1.0f, float mSize = 1.0f, float lVal = 1.0f,
-                         const osg::Vec3d& cVal = osg::Vec3d())
+                         const osg::Vec3d& cVal = osg::Vec3d(), int numAllowed = 8)
         {
-            _numObjectsAllowed = 8;
+            _numObjectsAllowed = numAllowed;
             setValues(bLength, mSize, lVal, cVal);
         }
 
         BoundsOctreeNode& operator=(const BoundsOctreeNode& rhs)
         {
             center = rhs.center; baseLength = rhs.baseLength;
+            _numObjectsAllowed = rhs._numObjectsAllowed;
             _objects = rhs._objects; _children = rhs._children;
             _childBounds = rhs._childBounds; _bounds = rhs._bounds;
             _looseness = rhs._looseness; _minSize = rhs._minSize;
@@ -190,10 +191,12 @@ namespace osgVerse
             return false;
         }
 
+        void setNumObjectsAllowed(int allowed) { _numObjectsAllowed = allowed; }
+        int getNumObjectsAllowed() const { return _numObjectsAllowed; }
+
         const std::vector<BoundsOctreeNode<T>>& getChildren() const { return _children; }
-        std::vector<OctreeObject>& getObjects() { return _objects; }
-        osg::Vec3d center;
-        float baseLength;
+        const std::vector<OctreeObject>& getObjects() const { return _objects; }
+        osg::Vec3d center; float baseLength;
 
     private:
         void subAdd(T* obj, const osg::BoundingBoxd& objBounds)
@@ -349,7 +352,7 @@ namespace osgVerse
     {
     public:
         BoundsOctree(const osg::Vec3d& initialWorldPos = osg::Vec3d(), float initialWorldSize = 50.0f,
-                     float minNodeSize = 1.0f, float loosenessVal = 1.0f)
+                     float minNodeSize = 1.0f, float loosenessVal = 1.0f, int numAllowed = 8)
         {
             if (minNodeSize > initialWorldSize)
             {
@@ -358,7 +361,9 @@ namespace osgVerse
             }
             _count = 0; _initialSize = initialWorldSize; _minSize = minNodeSize;
             _looseness = osg::clampBetween(loosenessVal, 1.0f, 2.0f);
-            _rootNode = BoundsOctreeNode<T>(_initialSize, _minSize, _looseness, initialWorldPos);
+            _numObjectsAllowed = numAllowed;
+            _rootNode = BoundsOctreeNode<T>(
+                _initialSize, _minSize, _looseness, initialWorldPos, _numObjectsAllowed);
         }
 
         void add(T* obj, const osg::BoundingBoxd& objBounds)
@@ -419,7 +424,8 @@ namespace osgVerse
             osg::Vec3d newCenter = _rootNode.center + osg::Vec3d(
                 xDirection * half, yDirection * half, zDirection * half);
 
-            _rootNode = BoundsOctreeNode<T>(newLength, _minSize, _looseness, newCenter);
+            _rootNode = BoundsOctreeNode<T>(
+                newLength, _minSize, _looseness, newCenter, _numObjectsAllowed);
             if (oldRoot.hasAnyObjects())
             {   // Create 7 new octree children to go with the old root as children of the new root
                 int rootPos = _rootNode.bestFitChild(oldRoot.center);
@@ -433,6 +439,7 @@ namespace osgVerse
                         xDirection = i % 2 == 0 ? -1 : 1;
                         yDirection = i > 3 ? -1 : 1;
                         zDirection = (i < 2 || (i > 3 && i < 6)) ? -1 : 1;
+                        children[i].setNumObjectsAllowed(_numObjectsAllowed);
                         children[i].setValues(oldRoot.baseLength, _minSize, _looseness,
                             newCenter + osg::Vec3d(xDirection * half, yDirection * half, zDirection * half));
                     }
@@ -444,7 +451,7 @@ namespace osgVerse
         void shrink() { _rootNode = _rootNode.shrinkIfPossible(_initialSize); }
         BoundsOctreeNode<T> _rootNode;
         float _looseness, _initialSize, _minSize;
-        int _count;
+        int _count, _numObjectsAllowed;
     };
 }
 
