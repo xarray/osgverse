@@ -16,16 +16,15 @@
 
 namespace osgVerse
 {
-    template<typename T>
-    class BoundsOctreeNode
+    template<typename T> class BoundsOctreeNode
     {
+    public:
         struct OctreeObject
         {
             osg::ref_ptr<T> object;
             osg::BoundingBoxd bounds;
         };
 
-    public:
         BoundsOctreeNode(float bLength = 1.0f, float mSize = 1.0f, float lVal = 1.0f,
                          const osg::Vec3d& cVal = osg::Vec3d(), int numAllowed = 8)
         {
@@ -403,7 +402,6 @@ namespace osgVerse
 
         const BoundsOctreeNode<T>& getRoot() const { return _rootNode; }
         BoundsOctreeNode<T>& getRoot() { return _rootNode; }
-        osg::BoundingBoxd getMaxBounds() const { return _rootNode.bound; }
         int getMaxCount() const { return _count; }
 
         std::vector<osg::BoundingBoxd> getChildBounds() const

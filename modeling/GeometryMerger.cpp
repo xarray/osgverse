@@ -1,12 +1,19 @@
 #include <osg/io_utils>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Texture2D>
+#include <osg/LOD>
 #include <osgDB/FileNameUtils>
 #include <osgDB/WriteFile>
 #include "GeometryMerger.h"
 #include "Utilities.h"
 #include "Octree.h"
 using namespace osgVerse;
+
+struct GeometryMergeData : public osg::Referenced
+{
+    osg::ref_ptr<osg::Geometry> geometry;
+    osg::Matrix matrix;
+};
 
 template<typename CLS, typename FUNC>
 static void acceptMultDrawElementsIndirect(CLS* drawer, FUNC& functor)
@@ -36,31 +43,86 @@ MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UByte)
 MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UShort)
 MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UInt)
 
-static void addOctreeNodeToGeometry(const BoundsOctreeNode<osg::Geometry>& node,
+static void addOctreeNodeToGeometry(const BoundsOctreeNode<GeometryMergeData>& node,
                                     osg::Vec3Array& va, osg::Vec4Array& ca, osg::DrawElementsUInt& de)
 {
-    osg::BoundingBoxd bb; double half = node.baseLength * 0.5;
-    bb._min = node.center - osg::Vec3d(half, half, half);
-    bb._max = node.center + osg::Vec3d(half, half, half);
+    if (node.hasAnyObjects())
+    {
+        osg::BoundingBoxd bb; double half = node.baseLength * 0.5;
+        bb._min = node.center - osg::Vec3d(half, half, half);
+        bb._max = node.center + osg::Vec3d(half, half, half);
 
-    size_t v0 = va.size(), numObj = node.getObjects().size();
-    osg::Vec4 color(1.0f, 1.0f, 1.0f, 1.0f);
-    if (numObj < 1) color.set(0.0f, 0.0f, 0.0f, 1.0f);
-    else if (numObj < 2) color.set(0.0f, 0.0f, 1.0f, 1.0f);
-    else if (numObj < 5) color.set(1.0f, 1.0f, 0.0f, 1.0f);
-    else if (numObj < node.getNumObjectsAllowed()) color.set(1.0f, 0.0f, 0.0f, 1.0f);
+        int maxNum = node.getNumObjectsAllowed();
+        size_t v0 = va.size(), numObj = node.getObjects().size();
+        osg::Vec4 color(1.0f, 0.0f, 0.0f, 0.4f);
+        if (numObj < 1) color.set(0.0f, 0.0f, 0.0f, 0.4f);
+        else if (numObj < 2) color.set(0.0f, 0.0f, 0.6f, 0.4f);
+        else if (numObj < maxNum / 2) color.set(0.0f, 0.6f, 0.0f, 0.4f);
+        else if (numObj < maxNum) color.set(0.6f, 0.6f, 0.0f, 0.4f);
 
-    for (int i = 0; i < 8; ++i) { va.push_back(bb.corner(i)); ca.push_back(color); }
-    de.push_back(v0 + 0); de.push_back(v0 + 1); de.push_back(v0 + 1); de.push_back(v0 + 3);
-    de.push_back(v0 + 3); de.push_back(v0 + 2); de.push_back(v0 + 2); de.push_back(v0 + 0);
-    de.push_back(v0 + 4); de.push_back(v0 + 5); de.push_back(v0 + 5); de.push_back(v0 + 7);
-    de.push_back(v0 + 7); de.push_back(v0 + 6); de.push_back(v0 + 6); de.push_back(v0 + 4);
-    de.push_back(v0 + 0); de.push_back(v0 + 4); de.push_back(v0 + 1); de.push_back(v0 + 5);
-    de.push_back(v0 + 3); de.push_back(v0 + 7); de.push_back(v0 + 2); de.push_back(v0 + 6);
+        for (int i = 0; i < 8; ++i) { va.push_back(bb.corner(i)); ca.push_back(color); }
+        de.push_back(v0 + 0); de.push_back(v0 + 1); de.push_back(v0 + 1); de.push_back(v0 + 3);
+        de.push_back(v0 + 3); de.push_back(v0 + 2); de.push_back(v0 + 2); de.push_back(v0 + 0);
+        de.push_back(v0 + 4); de.push_back(v0 + 5); de.push_back(v0 + 5); de.push_back(v0 + 7);
+        de.push_back(v0 + 7); de.push_back(v0 + 6); de.push_back(v0 + 6); de.push_back(v0 + 4);
+        de.push_back(v0 + 0); de.push_back(v0 + 4); de.push_back(v0 + 1); de.push_back(v0 + 5);
+        de.push_back(v0 + 3); de.push_back(v0 + 7); de.push_back(v0 + 2); de.push_back(v0 + 6);
+    }
 
-    const std::vector<BoundsOctreeNode<osg::Geometry>>& children = node.getChildren();
+    const std::vector<BoundsOctreeNode<GeometryMergeData>>& children = node.getChildren();
     for (size_t i = 0; i < children.size(); ++i)
         addOctreeNodeToGeometry(children[i], va, ca, de);
+}
+
+static void applyOctreeNode(GeometryMerger* merger, osg::Group* group,
+                            const BoundsOctreeNode<GeometryMergeData>& node)
+{
+    const std::vector<BoundsOctreeNode<GeometryMergeData>>& children = node.getChildren();
+    osg::ref_ptr<osg::Group> fineGroup = new osg::Group;
+    for (size_t i = 0; i < children.size(); ++i)
+    {
+        const BoundsOctreeNode<GeometryMergeData>& child = children[i];
+        if (!child.getChildren().empty())
+        {
+            osg::ref_ptr<osg::LOD> childLOD = new osg::LOD;
+            childLOD->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
+            childLOD->setCenter(child.center); childLOD->setRadius(child.baseLength * 0.5);
+            applyOctreeNode(merger, childLOD.get(), child);
+            fineGroup->addChild(childLOD.get());
+            
+        }
+        else if (child.hasAnyObjects())
+        {
+            osg::ref_ptr<osg::Group> childGroup = new osg::Group;
+            applyOctreeNode(merger, childGroup.get(), child);
+            fineGroup->addChild(childGroup.get());
+        }
+    }
+
+    // Create rough level child
+    std::vector<BoundsOctreeNode<GeometryMergeData>::OctreeObject> objects = node.getObjects();
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+    if (!objects.empty())
+    {
+        std::vector<GeometryMerger::GeometryPair> geomList;
+        for (size_t i = 0; i < objects.size(); ++i) geomList.push_back(
+            GeometryMerger::GeometryPair(objects[i].object->geometry, objects[i].object->matrix));
+        osg::ref_ptr<osg::Geometry> roughGeom = merger->process(geomList, 0);
+        geode->addDrawable(roughGeom.get());
+    }
+
+    // Add LOD/group children
+    osg::LOD* lodGroup = dynamic_cast<osg::LOD*>(group);
+    if (lodGroup)
+    {
+        if (geode->getNumDrawables() > 0) lodGroup->addChild(geode.get(), 0.0f, FLT_MAX);
+        lodGroup->addChild(fineGroup.get(), 0.0f, node.baseLength * 10.0f);
+    }
+    else
+    {
+        if (geode->getNumDrawables() > 0) group->addChild(geode.get());
+        if (fineGroup->getNumChildren() > 0) group->addChild(fineGroup.get());
+    }
 }
 
 struct ResetTrianglesOperator
@@ -174,44 +236,46 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
 
 osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geomList,
                                            size_t offset, size_t size, int maxTextureSize,
-                                           int numAllowed, float minSizeInCell)
+                                           osg::Geode* octRoot, int numAllowed, float minSizeInCell)
 {
-    BoundsOctree<osg::Geometry> octree(
+    BoundsOctree<GeometryMergeData> octree(
         osg::Vec3d(), osg::maximum(50.0f, minSizeInCell), minSizeInCell, 1.0f, numAllowed);
     if (size == 0) size = geomList.size() - offset;
     size_t end = osg::minimum(offset + size, geomList.size());
     for (size_t i = offset; i < end; ++i)
     {
-        osg::Geometry* geom = geomList[i].first;
-        const osg::Matrix& matrix = geomList[i].second;
+        GeometryMergeData* gd = new GeometryMergeData;
+        gd->geometry = geomList[i].first;
+        gd->matrix = geomList[i].second;
 
-        osg::BoundingBoxd bbox1, bbox0 = geom->getBoundingBox();
-        for (int j = 0; j < 8; ++j) bbox1.expandBy(bbox0.corner(j) * matrix);
-        octree.add(geom, bbox1);
+        osg::BoundingBoxd bbox1, bbox0 = gd->geometry->getBoundingBox();
+        for (int j = 0; j < 8; ++j) bbox1.expandBy(bbox0.corner(j) * gd->matrix);
+        octree.add(gd, bbox1);
     }
 
-#if true
-    osg::ref_ptr<osg::Geometry> octreeGeom = new osg::Geometry;
-    octreeGeom->setUseDisplayList(false);
-    octreeGeom->setUseVertexBufferObjects(true);
+    if (octRoot != NULL)
+    {
+        osg::ref_ptr<osg::Geometry> octreeGeom = new osg::Geometry;
+        octreeGeom->setName("GeometryMerger.Octree");
+        octreeGeom->setUseDisplayList(false);
+        octreeGeom->setUseVertexBufferObjects(true);
 
-    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
-    osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_LINES);
-    addOctreeNodeToGeometry(octree.getRoot(), *va, *ca, *de);
-    octreeGeom->setVertexArray(va.get());
-    octreeGeom->setColorArray(ca.get());
-    octreeGeom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-    octreeGeom->addPrimitiveSet(de.get());
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+        osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_LINES);
+        addOctreeNodeToGeometry(octree.getRoot(), *va, *ca, *de);
+        octreeGeom->setVertexArray(va.get());
+        octreeGeom->setColorArray(ca.get());
+        octreeGeom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        octreeGeom->addPrimitiveSet(de.get());
+        octRoot->addDrawable(octreeGeom.get());
+    }
 
-    osg::ref_ptr<osg::Geode> octreeGeode = new osg::Geode;
-    octreeGeode->addDrawable(octreeGeom.get());
-    octreeGeode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-    return octreeGeode.release();
-#endif
-
-    osg::ref_ptr<osg::Group> root = new osg::Group;
-    // TODO
+    osg::ref_ptr<osg::LOD> root = new osg::LOD;
+    root->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
+    root->setCenter(octree.getRoot().center);
+    root->setRadius(octree.getRoot().baseLength * 0.5);
+    applyOctreeNode(this, root.get(), octree.getRoot());
 
     osg::ref_ptr<osg::Image> atlas = processAtlas(geomList, offset, size, maxTextureSize);
     if (root.valid() && atlas.valid())

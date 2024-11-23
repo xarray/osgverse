@@ -29,7 +29,7 @@ namespace osgVerse
         osg::Geometry* process(const std::vector<GeometryPair>& geomList, size_t offset,
                                size_t size = 0, int maxTextureSize = 4096);
         osg::Node* processAsOctree(const std::vector<GeometryPair>& geomList, size_t offset,
-                                   size_t size = 0, int maxTextureSize = 4096,
+                                   size_t size = 0, int maxTextureSize = 4096, osg::Geode* octRoot = NULL,
                                    int maxObjectsInCell = 8, float minSizeInCell = 1.0f);
 
         osg::Image* processAtlas(const std::vector<GeometryPair>& geomList, size_t offset,

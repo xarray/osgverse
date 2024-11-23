@@ -126,6 +126,7 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
+    osg::ref_ptr<osg::Group> root = new osg::Group;
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
     if (!scene)
@@ -178,9 +179,16 @@ int main(int argc, char** argv)
     }
     else  // octree mode
     {
+        osg::ref_ptr<osg::Geode> octRoot = new osg::Geode;
+        octRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        octRoot->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+        octRoot->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        root->addChild(octRoot.get());
+
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
         merger.setForceColorArray(true);
-        scene = merger.processAsOctree(fgv.geomList, 0, 0, 4096, 2000, 100.0f);
+        scene = merger.processAsOctree(fgv.geomList, 0, 0, 4096, octRoot.get(),
+                                       100, scene->getBound().radius() * 0.1f);
     }
 
     if (newGeom.valid())
@@ -190,13 +198,11 @@ int main(int argc, char** argv)
     }
 
     // Start the viewer
-    osg::ref_ptr<osg::Group> root = new osg::Group;
-    root->addChild(scene.get());
-
     osg::ref_ptr<osg::Geode> textGeode = new osg::Geode;
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::createHUDCamera(NULL, 1920, 1080);
     postCamera->addChild(textGeode.get());
     root->addChild(postCamera.get());
+    root->addChild(scene.get());
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new SelectSceneHandler(textGeode.get()));
