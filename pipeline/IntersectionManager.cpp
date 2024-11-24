@@ -302,6 +302,7 @@ static void saveLinesegmentIntersectionResult(
     osg::Geometry* geom = intersection.drawable.valid() ? intersection.drawable->asGeometry() : NULL;
     if (geom && geom->getNumPrimitiveSets() > 0)
     {
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
         osg::DrawElementsIndirect* mde =
             dynamic_cast<osg::DrawElementsIndirect*>(geom->getPrimitiveSet(0));
         if (mde != NULL)
@@ -325,6 +326,7 @@ static void saveLinesegmentIntersectionResult(
                         IntersectionResult::IndirectData(icde, index));
                 }
         }
+#endif
     }
 
     IntersectionResult::IntersectTextureData tdata;

@@ -1,12 +1,11 @@
 #include <osg/io_utils>
-#include <osg/Multisample>
+#include <osg/ValueObject>
 #include <osg/Texture2D>
 #include <osg/LOD>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/ConvertUTF>
 #include <osgGA/TrackballManipulator>
-#include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <osgText/Font>
@@ -59,6 +58,7 @@ public:
                 text = static_cast<osgText::Text*>(_textGeode->getDrawable(0));
 
             std::wstring t = osgDB::convertUTF8toUTF16("HIT: " + result.drawable->getName());
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
             if (result.drawable->getUserDataContainer())
                 t += getUserString(result.drawable->getUserDataContainer());
             else if (!result.intersectIndirectData.empty())
@@ -66,11 +66,13 @@ public:
                 osgVerse::IntersectionResult::IndirectData& id = result.intersectIndirectData[0];
                 t += getUserString(id.first->getUserData(id.second));
             }
+#endif
             text->setText(t.c_str());
         }
         return false;
     }
 
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
     std::wstring getUserString(osg::UserDataContainer* udc)
     {
         std::wstring text;
@@ -83,6 +85,7 @@ public:
         }
         return text;
     }
+#endif
 
 protected:
     osg::observer_ptr<osg::Geode> _textGeode;
@@ -187,8 +190,8 @@ int main(int argc, char** argv)
 
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
         merger.setForceColorArray(true);
-        scene = merger.processAsOctree(fgv.geomList, 0, 0, 4096, octRoot.get(),
-                                       100, scene->getBound().radius() * 0.1f);
+        scene = merger.processAsOctree(fgv.geomList, 0, 0, 4096, octRoot.get(), 100,
+                                       osg::maximum(50.0f, scene->getBound().radius() * 0.02f));
     }
 
     if (newGeom.valid())

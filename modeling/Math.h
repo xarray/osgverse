@@ -129,7 +129,8 @@ namespace osgVerse
     /** A set of transformation functions between coordinate systems
         Information about spatial reference systems
         - [EPSG:4326] Geographic coordinate system (LLA / geodetic)
-        - [EPSG:4978] Geocentric coordinate system (Earth-centered Earth-fixed, ECEF)
+        - [EPSG:4978] Geocentric coordinate system (Earth-centered Earth-fixed, ECEF / WGS84)
+        - [EPSG:4479] China Geodetic Coordinate System 2000 (CGCS2000)
         - [EPSG:3857] Web Mercator / Spherical Mercator
         - [EPSG:32601-32660] for UTM Northern, [EPSG:32701-32760] for UTM Southern
     */
@@ -148,6 +149,14 @@ namespace osgVerse
             WGS84(double radiusE = osg::WGS_84_RADIUS_EQUATOR, double radiusP = osg::WGS_84_RADIUS_POLAR);
         };
 
+        struct CGCS2000
+        {
+            double paramT[3], paramR[3] /* deg */, paramK;
+            CGCS2000(const osg::Vec3d& T = osg::Vec3d(-0.9919, -1.6975, 2.9427),
+                     const osg::Vec3d& R = osg::Vec3d(0.00089055, -0.00001853, 0.00001250),
+                     double K = 1.0000000675);
+        };
+
         struct UTM
         {
             // https://github.com/isce-framework/isce3/blob/develop/cxx/isce3/core/Projections.cpp
@@ -162,6 +171,12 @@ namespace osgVerse
 
         /// Geodetic: latitude and longitude in radius, altitude in metres; ECEF: coords in metres
         static osg::Vec3d convertECEFtoLLA(const osg::Vec3d& ecef, const WGS84& wgs84 = WGS84());
+
+        /// ECEF: coords in metres; CGCS2000: coords in metres
+        static osg::Vec3d convertECEFtoCGCS2000(const osg::Vec3d& ecef, const CGCS2000& c2k = CGCS2000());
+
+        /// ECEF: coords in metres; CGCS2000: coords in metres
+        static osg::Vec3d convertCGCS2000toECEF(const osg::Vec3d& coord, const CGCS2000& c2k = CGCS2000());
 
         /// Geodetic: latitude and longitude in radius, altitude in metres; Web Mercator: coords in metres
         static osg::Vec3d convertLLAtoWebMercator(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());

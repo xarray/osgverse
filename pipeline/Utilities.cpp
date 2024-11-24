@@ -31,6 +31,10 @@
 #include "Pipeline.h"
 #include "Utilities.h"
 
+#ifndef GL_GEOMETRY_SHADER
+#   define GL_GEOMETRY_SHADER  0x8DD9
+#endif
+
 #if defined(VERSE_MSVC)
 #   if defined(INSTALL_PATH_PREFIX)
 std::string BASE_DIR(INSTALL_PATH_PREFIX);

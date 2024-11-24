@@ -50,7 +50,7 @@ public:
             if (_selectedAgent != NULL)
             {
                 osg::Node* agent = result.findNode([](osg::Node* node)
-                { if (node->getName() == "RecastAgent") return true; return false; });
+                { if (node->getName() == "RecastAgent") return true; else return false; });
                 if (agent != NULL) return false;  // nothing to do
 
                 // Select a new target for position current agent
@@ -59,7 +59,8 @@ public:
                 if (aData != NULL)
                 {
                     aData->target = result.getWorldIntersectPoint(); _recast->updateAgent(aData);
-                    std::cout << "Set new position of " << _selectedAgent.get() << std::endl;
+                    std::cout << "Set new position of " << _selectedAgent.get() << " at "
+                              << result.nodePath.back()->getName() << std::endl;
                 }
             }
             else  // click on ground to create new agent
@@ -138,7 +139,7 @@ int main(int argc, char** argv)
     //    osgVerse::createHeightField(terrain.get(), 4096, 4096)));
     //root->addChild(geode);
 
-#if true
+#if false
     osgVerse::StandardPipelineViewer viewer;
 #else
     osgViewer::Viewer viewer;

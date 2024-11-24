@@ -20,6 +20,13 @@ namespace osgVerse
     public:
         ParticleDrawable(int maxInstances = 8000);
         ParticleDrawable(const ParticleDrawable& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
+        virtual const char* libraryName() const { return "osgVerse"; }
+        virtual const char* className() const { return "ParticleDrawable"; }
+
+        virtual Object* cloneType() const { return new ParticleDrawable; }
+        virtual Object* clone(const osg::CopyOp& copyop) const { return new ParticleDrawable(*this, copyop); }
+        virtual bool isSameKindAs(const osg::Object* obj) const
+        { return dynamic_cast<const ParticleDrawable*>(obj) != NULL; }
 
         enum PlayingState
         { INVALID = -1, STOPPED = 0, PLAYING = 1, PAUSED = 2 };

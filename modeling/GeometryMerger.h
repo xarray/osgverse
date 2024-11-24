@@ -6,9 +6,12 @@
 #include <map>
 #include <vector>
 #include <iostream>
+#include <osg/Version>
 #include <osg/Image>
 #include <osg/Geometry>
-#include <osg/PrimitiveSetIndirect>
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+#   include <osg/PrimitiveSetIndirect>
+#endif
 
 namespace osgVerse
 {
@@ -24,7 +27,13 @@ namespace osgVerse
         ~GeometryMerger();
 
         void setMethod(Method m) { _method = m; }
+        Method getMethod() const { return _method; }
+
+        void setSimplifierRatio(float r) { _autoSimplifierRatio = r; }
+        float getSimplifierRatio() const { return _autoSimplifierRatio; }
+
         void setForceColorArray(bool b) { _forceColorArray = b; }
+        bool getForceColorArray() const { return _forceColorArray; }
 
         osg::Geometry* process(const std::vector<GeometryPair>& geomList, size_t offset,
                                size_t size = 0, int maxTextureSize = 4096);
@@ -45,9 +54,11 @@ namespace osgVerse
                                        int maxTextureSize, int& originW, int& originH);
 
         Method _method;
+        float _autoSimplifierRatio;
         bool _forceColorArray;
     };
 
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
     class IndirectCommandDrawElements : public osg::IndirectCommandDrawElements,
                                         public osg::MixinVector<osg::DrawElementsIndirectCommand>
     {
@@ -103,6 +114,7 @@ namespace osgVerse
     MULTI_DRAW_ELEMENTS_INDIRECT(UByte, GLubyte)
     MULTI_DRAW_ELEMENTS_INDIRECT(UShort, GLushort)
     MULTI_DRAW_ELEMENTS_INDIRECT(UInt, GLuint)
+#endif
 }
 
 #endif

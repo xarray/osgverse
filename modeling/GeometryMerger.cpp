@@ -2,6 +2,7 @@
 #include <osg/TriangleIndexFunctor>
 #include <osg/Texture2D>
 #include <osg/LOD>
+#include <osgUtil/Simplifier>
 #include <osgDB/FileNameUtils>
 #include <osgDB/WriteFile>
 #include "GeometryMerger.h"
@@ -15,6 +16,7 @@ struct GeometryMergeData : public osg::Referenced
     osg::Matrix matrix;
 };
 
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
 template<typename CLS, typename FUNC>
 static void acceptMultDrawElementsIndirect(CLS* drawer, FUNC& functor)
 {
@@ -26,9 +28,9 @@ static void acceptMultDrawElementsIndirect(CLS* drawer, FUNC& functor)
     {
         unsigned int baseVertex = icd->baseVertex(i);
         unsigned int firstIndex = icd->firstIndex(i), count = icd->count(i);
-        CLS::vector_type::pointer ptr = (CLS::vector_type::pointer)&(*drawer)[firstIndex];
+        typename CLS::vector_type::pointer ptr = (typename CLS::vector_type::pointer)&(*drawer)[firstIndex];
 
-        std::vector<CLS::value_type> tmpIndices(count);
+        std::vector<typename CLS::value_type> tmpIndices(count);
         for (unsigned int n = 0; n < count; ++n) tmpIndices[n] = *(ptr + n) + baseVertex;
         functor.drawElements(drawer->getMode(), count, &tmpIndices[0]);
     }
@@ -42,6 +44,7 @@ static void acceptMultDrawElementsIndirect(CLS* drawer, FUNC& functor)
 MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UByte)
 MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UShort)
 MULTI_DRAW_ELEMENTS_INDIRECT_ACCEPT(UInt)
+#endif
 
 static void addOctreeNodeToGeometry(const BoundsOctreeNode<GeometryMergeData>& node,
                                     osg::Vec3Array& va, osg::Vec4Array& ca, osg::DrawElementsUInt& de)
@@ -109,6 +112,12 @@ static void applyOctreeNode(GeometryMerger* merger, osg::Group* group,
             GeometryMerger::GeometryPair(objects[i].object->geometry, objects[i].object->matrix));
         osg::ref_ptr<osg::Geometry> roughGeom = merger->process(geomList, 0);
         geode->addDrawable(roughGeom.get());
+
+        if (merger->getSimplifierRatio() > 0.0f)
+        {
+            osgUtil::Simplifier simplifier(merger->getSimplifierRatio());
+            geode->accept(simplifier);
+        }
     }
 
     // Add LOD/group children
@@ -116,7 +125,7 @@ static void applyOctreeNode(GeometryMerger* merger, osg::Group* group,
     if (lodGroup)
     {
         if (geode->getNumDrawables() > 0) lodGroup->addChild(geode.get(), 0.0f, FLT_MAX);
-        lodGroup->addChild(fineGroup.get(), 0.0f, node.baseLength * 10.0f);
+        lodGroup->addChild(fineGroup.get(), 0.0f, node.baseLength * 5.0f);
     }
     else
     {
@@ -129,7 +138,9 @@ struct ResetTrianglesOperator
 {
     ResetTrianglesOperator() : _start(0), _count(0) {}
     osg::observer_ptr<osg::DrawElementsUInt> _de;
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
     osg::observer_ptr<osg::DrawElementsIndirectUInt> _mde;
+#endif
     unsigned int _start, _count;
 
     void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
@@ -137,13 +148,15 @@ struct ResetTrianglesOperator
         if (i1 == i2 || i2 == i3 || i1 == i3) return; else _count += 3;
         if (_de.valid())
         { _de->push_back(i1 + _start); _de->push_back(i2 + _start); _de->push_back(i3 + _start); }
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
         if (_mde.valid())
         { _mde->push_back(i1 + _start); _mde->push_back(i2 + _start); _mde->push_back(i3 + _start); }
+#endif
     }
 };
 
 GeometryMerger::GeometryMerger(Method m)
-{ _method = m; _forceColorArray = false; }
+{ _method = m; _autoSimplifierRatio = 0.0f; _forceColorArray = false; }
 
 GeometryMerger::~GeometryMerger()
 {}
@@ -248,7 +261,12 @@ osg::Node* GeometryMerger::processAsOctree(const std::vector<GeometryPair>& geom
         gd->geometry = geomList[i].first;
         gd->matrix = geomList[i].second;
 
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
         osg::BoundingBoxd bbox1, bbox0 = gd->geometry->getBoundingBox();
+#else
+        osg::BoundingBoxd bbox1, bbox0 = osg::BoundingBoxd(
+            gd->geometry->getBound()._min, gd->geometry->getBound()._max);
+#endif
         for (int j = 0; j < 8; ++j) bbox1.expandBy(bbox0.corner(j) * gd->matrix);
         octree.add(gd, bbox1);
     }
@@ -356,6 +374,7 @@ osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& g
 osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& geomList,
                                               size_t offset, size_t end)
 {
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
     osg::ref_ptr<osg::Vec3Array> vaAll = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec3Array> naAll = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec4Array> caAll = new osg::Vec4Array;
@@ -432,6 +451,10 @@ osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& g
     if (taAll->size() == vaAll->size()) resultGeom->setTexCoordArray(0, taAll.get());
     resultGeom->addPrimitiveSet(mde.get());
     return resultGeom.release();
+#else
+    OSG_FATAL << "[GeometryMerger] createIndirect() not supported" << std::endl;
+    return NULL;
+#endif
 }
 
 osg::Image* GeometryMerger::createTextureAtlas(TexturePacker* packer, const std::string& fileName,

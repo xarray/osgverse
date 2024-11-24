@@ -248,6 +248,9 @@ Coordinate::WGS84::WGS84(double radiusE, double radiusP)
     radiusEquator = radiusE; radiusPolar = radiusP;
 }
 
+Coordinate::CGCS2000::CGCS2000(const osg::Vec3d& T, const osg::Vec3d& R, double K)
+{ for (int i = 0; i < 3; ++i) {paramT[i] = T[i]; paramR[i] = R[i];} paramK = K; }
+
 double Coordinate::UTM::clenshaw(const double* a, int size, double real)
 {
     // Compute the real clenshaw summation.
@@ -377,6 +380,48 @@ osg::Vec3d Coordinate::convertECEFtoLLA(const osg::Vec3d& ecef, const WGS84& wgs
     double sin_latitude = sin(latitude);
     double N = wgs84.radiusEquator / sqrt(1.0 - wgs84.eccentricitySq * sin_latitude * sin_latitude);
     height = p / cos(latitude) - N; return osg::Vec3d(latitude, longitude, height);
+}
+
+osg::Vec3d Coordinate::convertECEFtoCGCS2000(const osg::Vec3d& ecef, const CGCS2000& c2k)
+{
+    double rx = c2k.paramR[0] * osg::PI / 180.0;
+    double ry = c2k.paramR[1] * osg::PI / 180.0;
+    double rz = c2k.paramR[2] * osg::PI / 180.0;
+    double cos_rx = std::cos(rx), sin_rx = std::sin(rx);
+    double cos_ry = std::cos(ry), sin_ry = std::sin(ry);
+    double cos_rz = std::cos(rz), sin_rz = std::sin(rz);
+
+    double r11 = cos_ry * cos_rz, r12 = cos_rx * sin_rz + sin_rx * sin_ry * cos_rz,
+           r13 = sin_rx * sin_rz - cos_rx * sin_ry * cos_rz;
+    double r21 = -cos_ry * sin_rz, r22 = cos_rx * cos_rz - sin_rx * sin_ry * sin_rz,
+           r23 = sin_rx * cos_rz + cos_rx * sin_ry * sin_rz;
+    double r31 = sin_ry, r32 = -sin_rx * cos_ry, r33 = cos_rx * cos_ry;
+    double x_rot = r11 * ecef.x() + r12 * ecef.y() + r13 * ecef.z();
+    double y_rot = r21 * ecef.x() + r22 * ecef.y() + r23 * ecef.z();
+    double z_rot = r31 * ecef.x() + r32 * ecef.y() + r33 * ecef.z();
+    return osg::Vec3d(c2k.paramK * x_rot + c2k.paramT[0], c2k.paramK * y_rot + c2k.paramT[1],
+                      c2k.paramK * z_rot + c2k.paramT[2]);
+}
+
+osg::Vec3d Coordinate::convertCGCS2000toECEF(const osg::Vec3d& coord, const CGCS2000& c2k)
+{
+    double rx = -c2k.paramR[0] * osg::PI / 180.0;
+    double ry = -c2k.paramR[1] * osg::PI / 180.0;
+    double rz = -c2k.paramR[2] * osg::PI / 180.0;
+    double cos_rx = std::cos(rx), sin_rx = std::sin(rx);
+    double cos_ry = std::cos(ry), sin_ry = std::sin(ry);
+    double cos_rz = std::cos(rz), sin_rz = std::sin(rz);
+
+    double r11 = cos_ry * cos_rz, r12 = -cos_rx * sin_rz + sin_rx * sin_ry * cos_rz,
+           r13 = sin_rx * sin_rz + cos_rx * sin_ry * cos_rz;
+    double r21 = cos_ry * sin_rz, r22 = cos_rx * cos_rz + sin_rx * sin_ry * sin_rz,
+           r23 = -sin_rx * cos_rz + cos_rx * sin_ry * sin_rz;
+    double r31 = -sin_ry, r32 = sin_rx * cos_ry, r33 = cos_rx * cos_ry;
+    double x_rot = r11 * coord.x() + r21 * coord.y() + r31 * coord.z();
+    double y_rot = r12 * coord.x() + r22 * coord.y() + r32 * coord.z();
+    double z_rot = r13 * coord.x() + r23 * coord.y() + r33 * coord.z();
+    return osg::Vec3d(c2k.paramK * x_rot + c2k.paramT[0], c2k.paramK * y_rot + c2k.paramT[1],
+                      c2k.paramK * z_rot + c2k.paramT[2]);
 }
 
 osg::Vec3d Coordinate::convertLLAtoWebMercator(const osg::Vec3d& lla, const WGS84& wgs84)

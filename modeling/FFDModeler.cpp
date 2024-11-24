@@ -305,7 +305,7 @@ void ApplyUserNodeVisitor::start(ApplyMode mode, osg::Node* node)
 
 void ApplyUserNodeVisitor::computeBoundBox(osg::Geometry* geometry)
 {
-#if OSG_MIN_VERSION_REQUIRED(3,3,2)
+#if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
     const osg::BoundingBox& dbb = geometry->getBoundingBox();
 #else
     const osg::BoundingBox& dbb = geometry->getBound();

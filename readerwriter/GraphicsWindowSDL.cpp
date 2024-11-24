@@ -569,6 +569,6 @@ void GraphicsWindowSDL::setSyncToVBlank(bool on)
 { SDL_GL_SetSwapInterval(on ? 1 : 0); }
 
 extern "C" OSGVERSE_RW_EXPORT void graphicswindow_SDL(void) {}
-#if OSG_VERSION_GREATER_THAN(3, 5, 0)
+#if OSG_VERSION_GREATER_THAN(3, 5, 1)
 static osg::WindowingSystemInterfaceProxy<SDLWindowingSystem> s_proxy_SDLWindowingSystem("SDL");
 #endif
