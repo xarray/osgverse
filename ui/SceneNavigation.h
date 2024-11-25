@@ -13,7 +13,7 @@ namespace osgVerse
     public:
         SceneNavigation();
         void setCamera(osg::Camera* camera) { _camera = camera; }
-        void setSelection(osg::Transform* t) { _transform = t; }
+        void setSelection(osg::Node* n) { _selection = n; _transform = dynamic_cast<osg::Transform*>(n); }
 
         typedef std::function<void(SceneNavigation*, osg::Transform*)> TransformCallback;
         void setTransformAction(TransformCallback cb) { _transformCallback = cb; }
@@ -22,6 +22,7 @@ namespace osgVerse
 
     protected:
         osg::observer_ptr<osg::Camera> _camera;
+        osg::observer_ptr<osg::Node> _selection;
         osg::observer_ptr<osg::Transform> _transform;
         osg::ref_ptr<osgVerse::Button> _transformOp[4];
         osg::ref_ptr<osgVerse::ComboBox> _transformCoord, _manipulator;

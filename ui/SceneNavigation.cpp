@@ -66,13 +66,21 @@ bool SceneNavigation::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     for (int i = 0; i < 4; ++i) { done |= _transformOp[i]->show(mgr, content); ImGui::SameLine(); }
     done |= _navigationImage->show(mgr, content);
 
-    if (_camera.valid() && _transform.valid())
+    if (_camera.valid() && _selection.valid())
     {
         osg::Matrix matrixD, matrixParent;
-        _transform->computeLocalToWorldMatrix(matrixD, NULL);
-        if (_transform->getNumParents() > 0)
+        if (_transform.valid())
         {
-            osg::MatrixList matrices = _transform->getParent(0)->getWorldMatrices();
+            _transform->computeLocalToWorldMatrix(matrixD, NULL);
+            if (_transform->getNumParents() > 0)
+            {
+                osg::MatrixList matrices = _transform->getParent(0)->getWorldMatrices();
+                if (!matrices.empty()) matrixParent = matrices[0];
+            }
+        }
+        else
+        {
+            osg::MatrixList matrices = _selection->getWorldMatrices();
             if (!matrices.empty()) matrixParent = matrices[0];
         }
 
@@ -81,7 +89,7 @@ bool SceneNavigation::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         ImGuiIO& io = ImGui::GetIO(); ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
         done = ImGuizmo::Manipulate(view.ptr(), proj.ptr(), (ImGuizmo::OPERATION)_operation,
                                     (ImGuizmo::MODE)_gizmoMode, matrix.ptr());  // TODO: snap, local/world
-        if (done)
+        if (done && _transform.valid())
         {
             matrix = matrix * osg::Matrix::inverse(matrixParent);
             if (_transform->asMatrixTransform())

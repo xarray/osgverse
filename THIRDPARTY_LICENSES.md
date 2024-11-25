@@ -50,9 +50,10 @@
 | ozz-animation    | Embedded |           | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
 | picojson         | Embedded |           | -                  | BSD2         | https://github.com/kazuho/picojson |
 | pinyin           | Embedded |           | UI                 |              | |
+| pmp-library      | Embedded |           | Modeling           | MIT          | https://github.com/pmp-library/pmp-library |
 | PoissonGenerator | Embedded |           | Pipeline           | -            | |
 | polylabel        | Embedded | 2.0.1     | Modeling           | ISC          | https://github.com/mapbox/polylabel |
-| pmp-library      | Embedded |           | Modeling           | MIT          | https://github.com/pmp-library/pmp-library |
+| protozero        | EMbedded | 1.7.1     | verse_mvt          | BSD2         |_https://github.com/mapbox/protozero |
 | quickjs          | Embedded |           | Script             | MIT          | https://github.com/bellard/quickjs |
 | rapidjson        | Embedded |           | -                  | MIT (+)      | https://github.com/Tencent/rapidjson |
 | rapidxml         | Embedded |           | -                  | Boost / MIT  | https://rapidxml.sourceforge.net/ |
@@ -73,6 +74,7 @@
 | tinyspline       | Embedded |           | -                  | MIT          | https://github.com/msteinbeck/tinyspline |
 | tweeny           | Embedded |           | Animation          | MIT          | https://github.com/mobius3/tweeny |
 | VHACD            | Embedded | 4.1       | Modeling           | BSD3         | https://github.com/kmammou/v-hacd |
+| vtzero           | Embedded | 1.1.0     | verse_mvt          | BSD2         |_https://github.com/mapbox/vtzero |
 | xatlas           | Embedded |           | -                  | MIT          | https://github.com/jpcy/xatlas |
 | xxYUV            | Embedded |           | -                  | MIT          | https://github.com/metarutaiga/xxYUV |
 

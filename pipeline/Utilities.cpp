@@ -177,6 +177,7 @@ namespace osgVerse
         regObject->addFileExtensionAlias("fbx", "verse_fbx");
         regObject->addFileExtensionAlias("ktx", "verse_ktx");
         regObject->addFileExtensionAlias("vdb", "verse_vdb");
+        regObject->addFileExtensionAlias("mvt", "verse_mvt");
         regObject->addFileExtensionAlias("gltf", "verse_gltf");
         regObject->addFileExtensionAlias("glb", "verse_gltf");
         //regObject->addFileExtensionAlias("tiff", "verse_tiff");

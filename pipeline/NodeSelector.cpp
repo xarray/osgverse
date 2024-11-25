@@ -44,7 +44,7 @@ void NodeSelector::BoundUpdater::operator()(osg::Node* node, osg::NodeVisitor* n
                 {
                     // Set the matrix to [-1, 1] for HUD billboards
                     worldMatrix = worldMatrix * mainCamera->getViewMatrix() *
-                        mainCamera->getProjectionMatrix();
+                                  mainCamera->getProjectionMatrix();
                 }
                 break;
             default: break;

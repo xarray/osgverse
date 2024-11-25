@@ -132,7 +132,8 @@ EditorContentHandler::EditorContentHandler()
     _properties->userData = this;
 
     // TEST
-    g_data.sceneRoot->addChild(osgDB::readNodeFile("lz.osgt"));
+    g_data.sceneRoot->addChild(osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb.90,0,0.rot"));
+    g_data.view->getCameraManipulator()->home(0.0);
     _hierarchyData->addItem(NULL, g_data.sceneRoot.get());
 }
 
