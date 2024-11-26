@@ -26,7 +26,7 @@ JNIEXPORT int JNICALL Java_rocks_georgik_sdlapp_SDLActivity_nativeInit(JNIEnv* e
     char** argv;
 
     /* This interface could expand with ABI negotiation, callbacks, etc. */
-    SDL_Android_Init(env, cls);
+    //SDL_Android_Init(env, cls);
     SDL_SetMainReady();
 
     /* Prepare the arguments. */

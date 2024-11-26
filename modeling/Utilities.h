@@ -145,6 +145,21 @@ namespace osgVerse
         int _maxWidth, _maxHeight, _dictIndex;
     };
 
+    /** Create a spline sampler */
+    class BSplineSampler : public osg::Referenced
+    {
+    public:
+        BSplineSampler() : _spline(NULL) {}
+        BSplineSampler(const std::vector<osg::Vec3d>& ctrlPoints, int dim = 3);
+
+        bool set(const std::vector<osg::Vec3d>& ctrlPoints, int dim = 3);
+        osg::Vec3d evaluate(float ratio) const;
+
+    protected:
+        virtual ~BSplineSampler();
+        void* _spline;
+    };
+
     /** Create a geometry with specified arrays */
     extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, osg::Vec2Array* ta,
                                          osg::PrimitiveSet* p, bool autoNormals = true, bool useVBO = true);
@@ -183,6 +198,19 @@ namespace osgVerse
     /** Create a bounding volume geometry */
     extern osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb);
     extern osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs);
+
+    /** Create a 'lathe' geometry by rotating a shape or NURBS curve about an axis */
+    extern osg::Geometry* createLatheGeometry(const std::vector<osg::Vec3>& ctrlPoints, const osg::Vec3& axis,
+                                              bool withBSplinePoints = false, bool withCaps = true);
+
+    /** Create a 'extrusion' geometry */
+    extern osg::Geometry* createExtrusionGeometry(const std::vector<osg::Vec3>& walls, float height,
+                                                  bool withBSplinePoints = false, bool withCaps = true);
+
+    /** Create a 'loft' geometry */
+    extern osg::Geometry* createLoftGeometry(const std::vector<osg::Vec3>& path,
+                                             const std::vector<std::vector<osg::Vec3>, float>& sections,
+                                             bool withBSplineSections = false, bool withCaps = true);
 
     /** Change primitives to triangles for GL-Core use */
     extern bool optimizeIndices(osg::Geometry& geom);

@@ -54,7 +54,7 @@ protected:
         {
             ca = new osg::Vec4Array;
             ca->push_back(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-            setColorArray(ca); setColorBinding(BIND_PER_PRIMITIVE_SET);
+            setColorArray(ca); setColorBinding(BIND_OVERALL);
         }
         return ca;
     }
@@ -65,9 +65,7 @@ protected:
         if (num > 0)
         {
             ca->resize(num); ca->at(num - 1) = ca->front();
-#ifdef OSG_USE_DEPRECATED_API
-            if (getUseDisplayList()) dirtyDisplayList(); else ca->dirty();
-#endif
+            ca->dirty();
         }
     }
 

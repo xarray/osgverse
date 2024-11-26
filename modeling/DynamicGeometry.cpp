@@ -150,17 +150,13 @@ void DynamicGeometry::edit()
 void DynamicGeometry::finish()
 {
     _editing = false;
-    //setUseDisplayList(true);
-    //setUseVertexBufferObjects(false);
 }
 
 void DynamicGeometry::setColor(const osg::Vec4& color, unsigned int index)
 {
     osg::Vec4Array* ca = getOrCreateColorArray();
     if (index < ca->size()) ca->at(index) = color;
-#ifdef OSG_USE_DEPRECATED_API
-    if (getUseDisplayList()) dirtyDisplayList(); else ca->dirty();
-#endif
+    ca->dirty();
 }
 
 osg::Vec4 DynamicGeometry::getColor(unsigned int index) const

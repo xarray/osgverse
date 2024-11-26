@@ -360,12 +360,7 @@ void ApplyUserNodeVisitor::computeNewVertex(osg::Geometry* geometry)
         const osg::Vec3& param = list[i];
         (*va)[i] = _volume->getPosition(param[0], param[1], param[2]) * invMatrix;
     }
-
-    if (geometry->getUseVertexBufferObjects()) { va->dirty(); }
-#ifdef OSG_USE_DEPRECATED_API
-    if (geometry->getUseDisplayList()) { geometry->dirtyDisplayList(); }
-#endif
-    geometry->dirtyBound();
+    va->dirty(); geometry->dirtyBound();
 }
 
 /* FFDModeler */

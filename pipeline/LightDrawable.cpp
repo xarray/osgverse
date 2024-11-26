@@ -33,6 +33,7 @@ bool LightCullCallback::cull(osg::NodeVisitor* nv, osg::Drawable* drawable, osg:
 LightDrawable::LightDrawable()
 :   osg::ShapeDrawable(), _eyeSpace(false), _debugShow(false)
 {
+    setUseDisplayList(false); setUseVertexBufferObjects(true);
     setCullCallback(LightGlobalManager::instance()->getCallback());
     _lightColor.set(1.0f, 1.0f, 1.0f);
     _position.set(0.0f, 0.0f, 1.0f);
@@ -101,7 +102,4 @@ void LightDrawable::recreate()
     setComputeBoundingBoxCallback(
         unlimited ? new osgVerse::DisableBoundingBoxCallback : NULL);
     dirtyBound();
-#ifdef OSG_USE_DEPRECATED_API
-    dirtyDisplayList();
-#endif
 }
