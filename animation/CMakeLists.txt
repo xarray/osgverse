@@ -4,10 +4,11 @@ SET(LIBRARY_INCLUDE_FILES
     PhysicsEngine.h ParticleEngine.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp
-    TweenAnimation.cpp BlendShapeAnimation.cpp)
+    TweenAnimation.cpp BlendShapeAnimation.cpp Utilities.cpp)
 
 IF(BULLET_FOUND)
-	SET(LIBRARY_FILES ${LIBRARY_FILES} PhysicsEngine.cpp Utilities.cpp)
+    ADD_DEFINITIONS(-DVERSE_WITH_BULLET)
+	SET(LIBRARY_FILES ${LIBRARY_FILES} PhysicsEngine.cpp)
 ENDIF(BULLET_FOUND)
 
 IF(EFFEKSEER_FOUND)

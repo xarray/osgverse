@@ -5,6 +5,8 @@
 #include <osg/Texture2D>
 #include <osg/Shape>
 #include <osg/Geometry>
+#include <thread>
+#include <functional>
 #include "PhysicsEngine.h"
 
 class btCollisionShape;
@@ -47,10 +49,11 @@ namespace osgVerse
                                                   btRigidBody* bodyB, const osg::Vec3& pivotB,
                                                   const ConstraintSetting* setting = NULL);
 
-    /** Vector smoothing filter */
+    /** Vector smoothing filter base */
     struct FilterBase : public osg::Referenced
     { virtual double filter(double input) = 0; };
 
+    /** Vector smoother */
     class VectorSmoother : public osg::Referenced
     {
     public:
@@ -64,6 +67,30 @@ namespace osgVerse
 
     protected:
         osg::ref_ptr<FilterBase> _filter[3];
+    };
+
+    /** Time-out trigger */
+    class TimeOut : public osg::Referenced
+    {
+    public:
+        TimeOut();
+        void* getTimeWheel() { return _timeWheel; }
+        std::chrono::steady_clock::time_point getStart() { return _start; }
+        bool running() const { return _running; }
+
+        typedef void TimeOutCallback(osg::Referenced*);
+        void set(osg::Referenced* sender, TimeOutCallback cb, double seconds, bool repeated);
+        void set(osg::Referenced* sender, TimeOutCallback cb,
+                 std::chrono::steady_clock::time_point time);
+        bool checkTimeouts();
+
+    protected:
+        virtual ~TimeOut();
+
+        void* _timeWheel;
+        std::chrono::steady_clock::time_point _start;
+        std::thread _thread;
+        bool _running;
     };
 
 }

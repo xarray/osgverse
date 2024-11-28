@@ -184,8 +184,8 @@ namespace osgVerse
         PointList3D normals; std::vector<float> distances;
         for (size_t j = 0; j < pSize; ++j)
         {
-            osg::Vec3 dir0 = (j > 0) ? (pathEx[j] - pathEx[j - 1]) : osg::Vec3();
-            osg::Vec3 dir1 = (j < pSize - 1) ? (pathEx[j + 1] - pathEx[j]) : osg::Vec3();
+            osg::Vec3 dir0 = (j > 0) ? osg::Vec3(pathEx[j] - pathEx[j - 1]) : osg::Vec3();
+            osg::Vec3 dir1 = (j < pSize - 1) ? osg::Vec3(pathEx[j + 1] - pathEx[j]) : osg::Vec3();
             osg::Vec3 N = dir0 + dir1; N.normalize(); normals.push_back(N);
 
             if (j > 0) distances.push_back(distances.back() + dir0.length());
