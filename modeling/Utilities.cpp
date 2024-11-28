@@ -15,7 +15,6 @@
 #include <stb/stb_rect_pack.h>
 #include "3rdparty/VHACD.h"
 #include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
-#include "3rdparty/tinyspline/tinyspline.h"
 #include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;
@@ -512,40 +511,6 @@ bool TexturePacker::getPackingData(size_t id, int& x, int& y, int& w, int& h)
         return true;
     }
     return false;
-}
-
-/// BSplineSampler ///
-BSplineSampler::BSplineSampler(const std::vector<osg::Vec3d>& ctrlPoints, int dim)
-{ set(ctrlPoints, dim); }
-
-BSplineSampler::~BSplineSampler()
-{ if (_spline != NULL) delete _spline; }
-
-bool BSplineSampler::set(const std::vector<osg::Vec3d>& ctrlPoints, int dim)
-{
-    if (ctrlPoints.empty()) return false; if (_spline != NULL) delete _spline;
-    tsBSpline* tb = new tsBSpline; _spline = tb;
-
-    std::vector<tsReal> points;
-    for (size_t i = 0; i < ctrlPoints.size(); ++i)
-    {
-        const osg::Vec3& v = ctrlPoints[i];
-        for (int d = 0; d < dim; ++d) points.push_back(v[d]);
-    }
-    tsError err = ts_bspline_interpolate_cubic_natural(&points[0], points.size(), dim, tb, NULL);
-    if (err != TS_SUCCESS) return false; else return true;
-}
-
-osg::Vec3d BSplineSampler::evaluate(float ratio) const
-{
-    osg::Vec3d v; if (!_spline) return v;
-    tsDeBoorNet net = ts_deboornet_init();
-    tsError err = ts_bspline_eval((tsBSpline*)_spline, ratio, &net, NULL);
-
-    size_t dim = ts_deboornet_dimension(&net);
-    const tsReal* ptr = ts_deboornet_points_ptr(&net);
-    for (size_t i = 0; i < dim; ++i) v[i] = *(ptr + i);
-    ts_deboornet_free(&net); return v;
 }
 
 namespace osgVerse

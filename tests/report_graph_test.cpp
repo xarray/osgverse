@@ -33,7 +33,7 @@ class Reporter : public osg::NodeVisitor
 public:
     Reporter::Reporter()
     :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
-        _geomReporter(NULL), _indent(0) {}
+        _geomReporter(NULL), _indent(0) { setNodeMaskOverride(0xffffffff); }
 
     Reporter::~Reporter()
     { if (_geomReporter) delete _geomReporter; }
@@ -47,14 +47,14 @@ public:
 
     virtual void apply(osg::Node& node)
     {
-        outputBasic(node); pushIndent();
+        outputBasic(node, node.getNodeMask()); pushIndent();
         if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
         traverse(node); popIndent();
     }
 
     virtual void apply(osg::PagedLOD& node)
     {
-        outputBasic(node); pushIndent();
+        outputBasic(node, node.getNodeMask()); pushIndent();
         if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
         std::cout << std::string(_indent, ' ') << "<Strategy> "
                   << (node.getCenterMode() == osg::LOD::USE_BOUNDING_SPHERE_CENTER ? "Child / " : "User / ")
@@ -73,7 +73,7 @@ public:
             osg::ref_ptr<osg::Node> child = osgDB::readNodeFile(fileName);
             if (child.valid())
             {
-                pushIndent(); outputBasic(*child);
+                pushIndent(); outputBasic(*child, child->getNodeMask());
                 std::cout << std::string(_indent, ' ') << "<Bound> " << child->getBound().center()
                           << ", R = " << child->getBound().radius() << std::endl;;
                 popIndent();
@@ -84,7 +84,7 @@ public:
 
     virtual void apply(osg::ProxyNode& node)
     {
-        outputBasic(node); pushIndent();
+        outputBasic(node, node.getNodeMask()); pushIndent();
         if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
 
         unsigned int maxChild = node.getNumFileNames() - 1; traverse(node);
@@ -101,7 +101,7 @@ public:
     {
         osg::Matrix matrix, matrixL;
         if (!_matrixStack.empty()) matrix = _matrixStack.back();
-        outputBasic(node); pushIndent();
+        outputBasic(node, node.getNodeMask()); pushIndent();
         node.computeLocalToWorldMatrix(matrix, this);
         node.computeLocalToWorldMatrix(matrixL, this);
         if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
@@ -132,7 +132,7 @@ public:
 
     virtual void apply(osg::Geode& node)
     {
-        outputBasic(node); pushIndent();
+        outputBasic(node, node.getNodeMask()); pushIndent();
         if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
 #if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
@@ -148,7 +148,7 @@ public:
     {
         osg::Matrix matrix;
         if (_matrixStack.size() > 0) matrix = _matrixStack.back();
-        outputBasic(geom); pushIndent(); _imageMap.clear();
+        outputBasic(geom, 1); pushIndent(); _imageMap.clear();
 
         osg::StateSet* ss = geom.getStateSet();
         if (ss) apply(geom.getNumParents() > 0 ? geom.getParent(0) : NULL, &geom, *ss);
@@ -254,10 +254,10 @@ protected:
     inline void pushMatrix(const osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
     inline void popMatrix() { _matrixStack.pop_back(); }
 
-    inline void outputBasic(osg::Object& obj)
+    inline void outputBasic(osg::Object& obj, unsigned int mask)
     {
-        std::cout << std::string(_indent, ' ') << "[" << obj.libraryName() << "::"
-                  << obj.className() << "] " << osgVerse::getNodePathID(obj) << ": ";
+        std::cout << std::string(_indent, ' ') << (mask == 0 ? "**HIDED**[" : "[") << obj.libraryName()
+                  << "::" << obj.className() << "] " << osgVerse::getNodePathID(obj) << ": ";
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         osg::Geode* geode = (obj.asNode() != NULL) ? obj.asNode()->asGeode() : NULL;
 #else

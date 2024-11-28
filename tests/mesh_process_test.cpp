@@ -18,6 +18,8 @@
 #include <sstream>
 
 #define TEST_MAPPING_TO_VHACD 1
+#define TEST_MODELING_FUNCTIONS 1
+
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
@@ -89,11 +91,14 @@ int main(int argc, char** argv)
     lines->addPoint(osg::Vec3(-5.0f, 5.0f, 0.0f));
 #endif
 
-    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-    geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    //root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+
 #if TEST_MAPPING_TO_VHACD
     osgVerse::BoundingVolumeVisitor bvv; scene->accept(bvv);
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     geode->addDrawable(bvv.computeVHACD());
+    root->addChild(geode.get());
     osgUtil::SmoothingVisitor smv; geode->accept(smv);
 
     osgVerse::GeometryMapper mapper;
@@ -103,23 +108,77 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> sceneMT = new osg::MatrixTransform;
     sceneMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 20.0f));
     sceneMT->addChild(scene.get());
-
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(sceneMT.get());
-    root->addChild(geode.get());
 #else
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     geode->getOrCreateStateSet()->setAttributeAndModes(
         new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE));
     geode->addDrawable(lines.get());
+    root->addChild(geode.get());
 
     // Test VHACD
     osgVerse::BoundingVolumeVisitor bvv; scene->accept(bvv);
     geode->addDrawable(bvv.computeVHACD());
-
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->addChild(scene.get());
     root->addChild(topoMT.get());
-    root->addChild(geode.get());
+#endif
+
+#if TEST_MODELING_FUNCTIONS
+    {
+        std::vector<osg::Vec3d> pathL;
+        pathL.push_back(osg::Vec3(1.0f, 0.0f, 5.0f));
+        pathL.push_back(osg::Vec3(4.0f, 0.0f, 4.0f));
+        pathL.push_back(osg::Vec3(6.0f, 0.0f, 2.0f));
+        pathL.push_back(osg::Vec3(7.0f, 0.0f, 0.0f));
+        osg::ref_ptr<osg::Geometry> geomL =
+            osgVerse::createLatheGeometry(pathL, osg::Z_AXIS, 16, true);
+
+        std::vector<osg::Vec3d> pathE;
+        std::vector<std::vector<osg::Vec3d>> pathEinner;
+        pathE.push_back(osg::Vec3(10.0f, 0.0f, 0.0f));
+        pathE.push_back(osg::Vec3(15.0f, 0.0f, 0.0f));
+        pathE.push_back(osg::Vec3(15.0f, 5.0f, 0.0f));
+        pathE.push_back(osg::Vec3(10.0f, 5.0f, 0.0f));
+        {
+            std::vector<osg::Vec3d> pathI0;
+            pathI0.push_back(osg::Vec3(11.0f, 1.0f, 0.0f));
+            pathI0.push_back(osg::Vec3(14.0f, 1.0f, 0.0f));
+            pathI0.push_back(osg::Vec3(14.0f, 4.0f, 0.0f));
+            pathI0.push_back(osg::Vec3(12.0f, 4.0f, 0.0f));
+            pathEinner.push_back(pathI0);
+        }
+        osg::ref_ptr<osg::Geometry> geomE =
+            osgVerse::createExtrusionGeometry(pathE, pathEinner, osg::Z_AXIS * 5.0f, true);
+
+        std::vector<osg::Vec3d> pathLo;
+        std::vector<osgVerse::SectionAndLength> sectionsLo;
+        pathLo.push_back(osg::Vec3(20.0f, 0.0f, 0.0f));
+        pathLo.push_back(osg::Vec3(25.0f, 10.0f, 0.0f));
+        pathLo.push_back(osg::Vec3(25.0f, 10.0f, 10.0f));
+        pathLo.push_back(osg::Vec3(30.0f, 5.0f, 5.0f));
+        {
+            osgVerse::SectionAndLength sec0; sec0.second = 10.0;
+            sec0.first.push_back(osg::Vec3(-1.0f, -1.0f, 0.0f));
+            sec0.first.push_back(osg::Vec3(1.0f, -1.0f, 0.0f));
+            sec0.first.push_back(osg::Vec3(1.0f, 1.0f, 0.0f));
+            sec0.first.push_back(osg::Vec3(-1.0f, 1.0f, 0.0f));
+            sectionsLo.push_back(sec0);
+        }
+        osg::ref_ptr<osg::Geometry> geomLo =
+            osgVerse::createLoftGeometry(pathLo, sectionsLo, false);
+
+        osg::ref_ptr<osg::Geode> geode1 = new osg::Geode;
+        geode1->getOrCreateStateSet()->setTextureAttributeAndModes(
+            0, osgVerse::createTexture2D(osgDB::readImageFile(BASE_DIR + "/textures/uv.jpg")));
+        geode1->addDrawable(geomL.get());
+        geode1->addDrawable(geomE.get());
+        geode1->addDrawable(geomLo.get());
+        //osgDB::writeNodeFile(*geode1, "test_mesh.osg");
+
+        osg::ref_ptr<osg::MatrixTransform> mt1 = new osg::MatrixTransform;
+        mt1->setMatrix(osg::Matrix::translate(20.0f, 0.0f, 0.0f));
+        mt1->addChild(geode1.get());
+        root->addChild(mt1.get());
+    }
 #endif
 
     /*osg::Image* image = new osg::Image;

@@ -1,5 +1,8 @@
 #pragma once
 
+// WangRui: don't know why but some compilers failed with it
+#define restrict
+
 //
 // GGML Tensor Library
 //

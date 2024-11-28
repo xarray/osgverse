@@ -9,6 +9,8 @@
 
 namespace osgVerse
 {
+    typedef std::vector<osg::Vec3d> PointList3D;
+    typedef std::pair<PointList3D, float> SectionAndLength;
     class MeshTopology;
 
     struct ConvexHull
@@ -146,19 +148,7 @@ namespace osgVerse
     };
 
     /** Create a spline sampler */
-    class BSplineSampler : public osg::Referenced
-    {
-    public:
-        BSplineSampler() : _spline(NULL) {}
-        BSplineSampler(const std::vector<osg::Vec3d>& ctrlPoints, int dim = 3);
-
-        bool set(const std::vector<osg::Vec3d>& ctrlPoints, int dim = 3);
-        osg::Vec3d evaluate(float ratio) const;
-
-    protected:
-        virtual ~BSplineSampler();
-        void* _spline;
-    };
+    extern PointList3D createBSpline(const PointList3D& ctrlPoints, int numToCreate, int dim = 3);
 
     /** Create a geometry with specified arrays */
     extern osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, osg::Vec2Array* ta,
@@ -199,18 +189,21 @@ namespace osgVerse
     extern osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb);
     extern osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs);
 
-    /** Create a 'lathe' geometry by rotating a shape or NURBS curve about an axis */
-    extern osg::Geometry* createLatheGeometry(const std::vector<osg::Vec3>& ctrlPoints, const osg::Vec3& axis,
-                                              bool withBSplinePoints = false, bool withCaps = true);
+    /** Create a 'lathe' geometry by rotating a path about an axis */
+    extern osg::Geometry* createLatheGeometry(const PointList3D& ctrlPoints,
+                                              const osg::Vec3& axis, int segments = 16,
+                                              bool withSplinePoints = false, bool withCaps = true);
 
     /** Create a 'extrusion' geometry */
-    extern osg::Geometry* createExtrusionGeometry(const std::vector<osg::Vec3>& walls, float height,
-                                                  bool withBSplinePoints = false, bool withCaps = true);
+    extern osg::Geometry* createExtrusionGeometry(const PointList3D& contours,
+                                                  const std::vector<PointList3D>& inners,
+                                                  const osg::Vec3& height, bool withSplinePoints = false,
+                                                  bool withCaps = true);
 
     /** Create a 'loft' geometry */
-    extern osg::Geometry* createLoftGeometry(const std::vector<osg::Vec3>& path,
-                                             const std::vector<std::vector<osg::Vec3>, float>& sections,
-                                             bool withBSplineSections = false, bool withCaps = true);
+    extern osg::Geometry* createLoftGeometry(const PointList3D& path,
+                                             const std::vector<SectionAndLength>& sections,
+                                             bool withSplinePoints = false, bool withCaps = true);
 
     /** Change primitives to triangles for GL-Core use */
     extern bool optimizeIndices(osg::Geometry& geom);
