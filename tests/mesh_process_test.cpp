@@ -150,21 +150,21 @@ int main(int argc, char** argv)
             osgVerse::createExtrusionGeometry(pathE, pathEinner, osg::Z_AXIS * 5.0f, true);
 
         std::vector<osg::Vec3d> pathLo;
-        std::vector<osgVerse::SectionAndLength> sectionsLo;
+        std::vector<std::vector<osg::Vec3d>> sectionsLo;
         pathLo.push_back(osg::Vec3(20.0f, 0.0f, 0.0f));
         pathLo.push_back(osg::Vec3(25.0f, 10.0f, 0.0f));
         pathLo.push_back(osg::Vec3(25.0f, 10.0f, 10.0f));
         pathLo.push_back(osg::Vec3(30.0f, 5.0f, 5.0f));
         {
-            osgVerse::SectionAndLength sec0; sec0.second = 10.0;
-            sec0.first.push_back(osg::Vec3(-1.0f, -1.0f, 0.0f));
-            sec0.first.push_back(osg::Vec3(1.0f, -1.0f, 0.0f));
-            sec0.first.push_back(osg::Vec3(1.0f, 1.0f, 0.0f));
-            sec0.first.push_back(osg::Vec3(-1.0f, 1.0f, 0.0f));
+            std::vector<osg::Vec3d> sec0;
+            sec0.push_back(osg::Vec3(-1.0f, -1.0f, 0.0f));
+            sec0.push_back(osg::Vec3(1.0f, -1.0f, 0.0f));
+            sec0.push_back(osg::Vec3(1.0f, 1.0f, 0.0f));
+            sec0.push_back(osg::Vec3(-1.0f, 1.0f, 0.0f));
             sectionsLo.push_back(sec0);
         }
         osg::ref_ptr<osg::Geometry> geomLo =
-            osgVerse::createLoftGeometry(pathLo, sectionsLo, false);
+            osgVerse::createLoftGeometry(pathLo, sectionsLo, true, true);
 
         osg::ref_ptr<osg::Geode> geode1 = new osg::Geode;
         geode1->getOrCreateStateSet()->setTextureAttributeAndModes(

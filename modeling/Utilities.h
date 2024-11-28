@@ -10,7 +10,6 @@
 namespace osgVerse
 {
     typedef std::vector<osg::Vec3d> PointList3D;
-    typedef std::pair<PointList3D, float> SectionAndLength;
     class MeshTopology;
 
     struct ConvexHull
@@ -202,7 +201,7 @@ namespace osgVerse
 
     /** Create a 'loft' geometry */
     extern osg::Geometry* createLoftGeometry(const PointList3D& path,
-                                             const std::vector<SectionAndLength>& sections,
+                                             const std::vector<PointList3D>& sections, bool closed = true,
                                              bool withSplinePoints = false, bool withCaps = true);
 
     /** Change primitives to triangles for GL-Core use */

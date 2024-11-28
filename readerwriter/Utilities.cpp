@@ -329,8 +329,9 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
 {
     std::stringstream ss; if (!img->valid()) return NULL;
     if (img->isCompressed()) return NULL;
+    if (img->getFileName().empty()) img->setFileName(nanoid::generate(8) + ".png");
     if (img->getFileName().find("verse_ktx") != std::string::npos) return NULL;
-    if (img->s() < 4 || img->t() < 4) return NULL;
+    if ((img->s() < 4 || img->t() < 4)) return NULL;
 
     if (_generateMipmaps && !img->isMipmap())
     {

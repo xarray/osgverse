@@ -21,7 +21,8 @@ static void tessellateGeometry(osg::Geometry& geom, const osg::Vec3& axis)
     osg::ref_ptr<osgUtil::Tessellator> tscx = new osgUtil::Tessellator;
     tscx->setWindingType(osgUtil::Tessellator::TESS_WINDING_ODD);
     tscx->setTessellationType(osgUtil::Tessellator::TESS_TYPE_POLYGONS);
-    tscx->setTessellationNormal(axis); tscx->retessellatePolygons(geom);
+    if (axis.length2() > 0.1f) tscx->setTessellationNormal(axis);
+    tscx->retessellatePolygons(geom);
 }
 
 namespace osgVerse
@@ -98,13 +99,12 @@ namespace osgVerse
         return geom.release();
     }
 
-    osg::Geometry* createExtrusionGeometry(const PointList3D& contours, const std::vector<PointList3D>& inners,
+    osg::Geometry* createExtrusionGeometry(const PointList3D& outer, const std::vector<PointList3D>& inners,
                                            const osg::Vec3& height, bool withSplinePoints, bool withCaps)
     {
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
-        PointList3D pathEx =
-            withSplinePoints ? osgVerse::createBSpline(contours, contours.size() * 4) : contours;
+        PointList3D pathEx = withSplinePoints ? osgVerse::createBSpline(outer, outer.size() * 4) : outer;
         std::vector<PointList3D> pathIn = inners;
         if (withSplinePoints)
             for (size_t i = 0; i < pathIn.size(); ++i)
@@ -170,15 +170,69 @@ namespace osgVerse
         return geom.release();
     }
 
-    osg::Geometry* createLoftGeometry(const PointList3D& path, const std::vector<SectionAndLength>& sections,
-                                      bool withSplinePoints, bool withCaps)
+    osg::Geometry* createLoftGeometry(const PointList3D& path, const std::vector<PointList3D>& sections,
+                                      bool closed, bool withSplinePoints, bool withCaps)
     {
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
-        PointList3D pathEx =
-            withSplinePoints ? osgVerse::createBSpline(path, path.size() * 4) : path;
+        PointList3D pathEx = withSplinePoints ? osgVerse::createBSpline(path, path.size() * 4) : path;
 
-        osg::ref_ptr<osg::Geometry> geom;// = createGeometry(va.get(), NULL, ta.get(), deWall.get());
+        size_t pSize = pathEx.size(), secSize = sections.size(), numInSection = 0;
+        for (size_t j = 0; j < secSize; ++j)
+        { size_t num = sections[j].size(); if (numInSection < num) numInSection = num; }
+
+        PointList3D normals; std::vector<float> distances;
+        for (size_t j = 0; j < pSize; ++j)
+        {
+            osg::Vec3 dir0 = (j > 0) ? (pathEx[j] - pathEx[j - 1]) : osg::Vec3();
+            osg::Vec3 dir1 = (j < pSize - 1) ? (pathEx[j + 1] - pathEx[j]) : osg::Vec3();
+            osg::Vec3 N = dir0 + dir1; N.normalize(); normals.push_back(N);
+
+            if (j > 0) distances.push_back(distances.back() + dir0.length());
+            else distances.push_back(0.0f);
+        }
+
+        for (size_t j = 0; j < pSize; ++j)
+        {
+            const PointList3D& sec = sections[osg::minimum(j, secSize - 1)];
+            const osg::Vec3d& pt = pathEx[j]; float step = 1.0f / (float)(sec.size() - 1);
+            osg::Quat quat; quat.makeRotate(osg::Vec3d(osg::Z_AXIS), normals[j]);
+            for (size_t i = 0; i < sec.size(); ++i)
+            {
+                va->push_back(pt + quat * sec[i]);
+                ta->push_back(osg::Vec2((float)i * step, distances[j] / distances.back()));
+            }
+            if (sec.size() < numInSection)
+            {
+                va->insert(va->end(), numInSection - sec.size(), va->back());
+                ta->insert(ta->end(), numInSection - sec.size(), ta->back());
+            }
+        }
+
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_QUADS);
+        for (size_t j = 1; j < pSize; ++j)
+        {
+            for (size_t i = 0; i < numInSection; ++i)
+            {
+                if (i == 0 && !closed) continue; size_t i0 = (i - 1) % numInSection;
+                de->push_back((j - 1) * numInSection + i0); de->push_back((j - 1) * numInSection + i);
+                de->push_back(j * numInSection + i); de->push_back(j * numInSection + i0);
+            }
+        }
+
+        osg::ref_ptr<osg::Geometry> geom = createGeometry(va.get(), NULL, ta.get(), de.get());
+        if (withCaps)
+        {
+            osg::ref_ptr<osg::DrawElementsUInt> deCap0 = new osg::DrawElementsUInt(GL_POLYGON);
+            osg::ref_ptr<osg::DrawElementsUInt> deCap1 = new osg::DrawElementsUInt(GL_POLYGON);
+            for (size_t i = 0; i < numInSection; ++i)
+            {
+                deCap0->push_back(0 * numInSection + i);
+                deCap1->push_back((pSize - 1) * numInSection + i);
+            }
+            geom->addPrimitiveSet(deCap0.get()); geom->addPrimitiveSet(deCap1.get());
+            tessellateGeometry(*geom, osg::Vec3());
+        }
         return geom.release();
     }
 
