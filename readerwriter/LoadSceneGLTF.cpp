@@ -383,6 +383,7 @@ namespace osgVerse
         }
 
         // Read and construct scene graph
+		if (_modelDef.defaultScene < 0) _modelDef.defaultScene = 0;
         const tinygltf::Scene& defScene = _modelDef.scenes[_modelDef.defaultScene];
         for (size_t i = 0; i < defScene.nodes.size(); ++i)
         {
