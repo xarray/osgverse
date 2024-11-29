@@ -1936,6 +1936,25 @@ inline static __m512 ggml_v_silu(__m512 x) {
 // numbers above 88.38 will flush to infinity
 // numbers beneath -103.97 will flush to zero
 inline static __m256 ggml_v_expf(__m256 x) {
+#ifdef VERSE_MSVC14
+    const __m256 r = _mm256_set1_ps(1.5 * pow(2.0, 150.0));
+    const __m256 z = _mm256_fmadd_ps(x, _mm256_set1_ps(1.549755859375 * pow(2.0, 127.0)), r);
+    const __m256 n = _mm256_sub_ps(z, r);
+    const __m256 b = _mm256_fnmadd_ps(n, _mm256_set1_ps(1.5360107421875 * pow(2.0, 107.0)),
+                                      _mm256_fnmadd_ps(n, _mm256_set1_ps(1.378928571428571 * pow(2.0, 126.0)), x));
+    const __m256i e = _mm256_slli_epi32(_mm256_castps_si256(z), 23);
+    const __m256 k = _mm256_castsi256_ps(
+        _mm256_add_epi32(e, _mm256_castps_si256(_mm256_set1_ps(1))));
+    const __m256i c = _mm256_castps_si256(
+        _mm256_cmp_ps(_mm256_andnot_ps(_mm256_set1_ps(-0.f), n),
+                      _mm256_set1_ps(126), _CMP_GT_OQ));
+    const __m256 u = _mm256_mul_ps(b, b);
+    const __m256 j = _mm256_fmadd_ps(_mm256_fmadd_ps(_mm256_fmadd_ps(_mm256_set1_ps(1.00024462890625 * pow(2.0, 120.0)), b,
+                                                                     _mm256_set1_ps(1.3580223083496094 * pow(2.0, 122.0))), u,
+                                                     _mm256_fmadd_ps(_mm256_set1_ps(1.3455944061279297 * pow(2.0, 124.0)), b,
+                                                                     _mm256_set1_ps(1.999969482421875 * pow(2.0, 125.0)))),
+                                     u, _mm256_mul_ps(_mm256_set1_ps(1.9999998807907104 * pow(2.0, 126.0)), b));
+#else
   const __m256 r = _mm256_set1_ps(0x1.8p23f);
   const __m256 z = _mm256_fmadd_ps(x, _mm256_set1_ps(0x1.715476p+0f), r);
   const __m256 n = _mm256_sub_ps(z, r);
@@ -1953,6 +1972,7 @@ inline static __m256 ggml_v_expf(__m256 x) {
                                                    _mm256_fmadd_ps(_mm256_set1_ps(0x1.555e66p-3f), b,
                                                                    _mm256_set1_ps(0x1.fffdb6p-2f))),
                                    u, _mm256_mul_ps(_mm256_set1_ps(0x1.ffffecp-1f), b));
+#endif
   if (!_mm256_movemask_ps(_mm256_castsi256_ps(c)))
     return _mm256_fmadd_ps(j, k, k);
   const __m256i g = _mm256_and_si256(

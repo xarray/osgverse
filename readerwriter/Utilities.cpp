@@ -413,9 +413,8 @@ struct MipmapHelpers
             return sincf(osg::PI * x * stretch) * bessel_0(alpha * sqrtf(1.0f - t2)) / bessel_0(alpha);
         }
 
-        static inline constexpr float bessel_0(float x)
+        static inline float bessel_0(float x, float EPSILON = 1e-6f)
         {
-            constexpr float EPSILON = 1e-6f;
             float xh = 0.5f * x, sum = 1.0f, pow = 1.0f, ds = 1.0f, k = 0.0f;
             while (ds > sum * EPSILON)
             { k += 1.0f; pow = pow * (xh / k); ds = pow * pow; sum = sum + ds; } return sum;

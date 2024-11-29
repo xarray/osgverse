@@ -19,7 +19,7 @@
 #define CONFIG_VERSION "quickjs"
 
 #if _MSC_VER <= 1900
-#   define INT64_MAX_BIN 9e18
+#   define INT64_MAX_BIN pow(2.0, 190.0)
 #else
 #   define INT64_MAX_BIN 0x1p63
 #endif
