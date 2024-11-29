@@ -421,7 +421,7 @@ osg::Vec4 Drawer2D::getUtf8TextBoundingBox(const std::string& text, float size, 
         BLGlyphBuffer gb; gb.setUtf8Text(text.data(), text.size());
         BLTextMetrics tm; BLFontMetrics fm = font.metrics(); font.shape(gb);
         font.getTextMetrics(gb, tm); float xx = fm.ascent, yy = fm.lineGap + size;
-        const BLBox& bb = tm.boundingBox; bbox.set(bb.x0, bb.y0, bb.x1 - bb.x0 + xx, bb.y1 - bb.y0 + yy);
+        const BLBox& bb = tm.boundingBox; bbox.set(bb.x0, bb.y0 + fm.descent, bb.x1 - bb.x0, bb.y1 - bb.y0 + yy);
     }
     return bbox;
 }
