@@ -491,8 +491,8 @@ static bool applyTransform(osg::Transform& node, const ozz::math::Float4x4& m, c
     return false;
 }
 
-bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot,
-                                      bool createIfMissing, bool createWithShape)
+bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createIfMissing,
+                                      bool createWithShape, osg::Node* customNode)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
@@ -500,16 +500,38 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot,
     const ozz::vector<ozz::math::Float4x4>& matrices = ozz->_models;
     if (parents.empty() || joints.size() != matrices.size()) return false;
 
-    std::vector<osg::Group*> createdNodes; osg::ref_ptr<osg::Geode> geode;
-    createdNodes.push_back(&skeletonRoot); skeletonRoot.setName(joints[0]);
-    applyTransform(skeletonRoot, matrices[0], osg::Matrix());
+    // Create joint shape if required
+    osg::ref_ptr<osg::Node> shapeNode = customNode;
+    if (createWithShape && !shapeNode)
+    {
+        osg::Geode* geode = new osg::Geode; shapeNode = geode;
+        geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 0.05f)));
+    }
+
+    // Get root transform matrix above current skeleton root
+    osg::Matrix rootMatrixInv, skeletonW2L;
+    if (_skeletonRoot.valid() && _skeletonRoot->getNumParents() > 0)
+    {
+        osg::MatrixList mList = _skeletonRoot->getParent(0)->getWorldMatrices(_modelRoot.get());
+        if (!mList.empty()) rootMatrixInv = osg::Matrix::inverse(mList[0]);
+    }
+
+    // Apply transform and shape to skeleton root
+    std::vector<osg::Group*> createdNodes; createdNodes.push_back(&skeletonRoot); 
+    applyTransform(skeletonRoot, matrices[0], rootMatrixInv); // root is transformed first
+    if (skeletonRoot.getNumChildren() == 0 && createWithShape && shapeNode.valid())
+    { skeletonRoot.addChild(shapeNode.get()); skeletonRoot.setName(joints[0]); }
+    
+    // Apply transform and shape to other sub-joints
+    skeletonRoot.computeWorldToLocalMatrix(skeletonW2L, NULL);
     for (size_t i = 0; i < parents.size(); ++i)
     {
         std::string jointName = joints[i];
-        int16_t idx = parents[i]; if (idx < 0) continue;
-        if (createdNodes.size() <= idx) continue;  // FIXME: will this happen?
+        int16_t idx = parents[i]; bool found = false;
+        if (idx < 0) continue;  // ID 0 is skeleton root, ignore it
+        else if (createdNodes.size() <= idx) continue;  // FIXME: will this happen?
 
-        osg::Group* parent = createdNodes[idx]; bool found = false;
+        osg::Group* parent = createdNodes[idx];
         for (size_t j = 0; j < parent->getNumChildren(); ++j)
         {
             osg::Group* child = parent->getChild(j)->asGroup();
@@ -517,29 +539,23 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot,
             { createdNodes.push_back(child); found = true; break; }
         }
 
-        // Display a sphere of bone joint
-        if (createIfMissing && createWithShape && !geode)
-        {
-            geode = new osg::Geode;
-            geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 0.05f)));
-        }
-
-        if (found)
+        osg::MatrixList parentMatrices = parent->getWorldMatrices(&skeletonRoot);
+        if (found)  // current joint is found from its parent node's children, re-transform only
         {
             osg::Transform* childT = createdNodes.back()->asTransform();
-            applyTransform(*childT, matrices[i], parent->getWorldMatrices(&skeletonRoot)[0]);
+            applyTransform(*childT, matrices[i], parentMatrices[0] * skeletonW2L);
         }
-        else if (createIfMissing)
+        else if (createIfMissing)  // current joint not added to parent, create shape and add it
         {
             osg::MatrixTransform* newT = new osg::MatrixTransform;
-            if (geode.valid()) newT->addChild(geode.get());
+            if (shapeNode.valid()) newT->addChild(shapeNode.get());
             newT->setName(jointName); parent->addChild(newT); createdNodes.push_back(newT);
-            applyTransform(*newT, matrices[i], parent->getWorldMatrices(&skeletonRoot)[0]);
+            applyTransform(*newT, matrices[i], parentMatrices[0] * skeletonW2L);
         }
         else
         {
-            OSG_WARN << "[PlayerAnimation] Joint node not found: " << jointName
-                     << ", while applying transforms to scene graph" << std::endl;
+            OSG_NOTICE << "[PlayerAnimation] Joint node not found: " << jointName
+                       << ", while applying transforms to scene graph" << std::endl;
             return false;
         }
     }

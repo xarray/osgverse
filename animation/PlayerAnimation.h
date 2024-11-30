@@ -49,6 +49,10 @@ namespace osgVerse
                         const std::vector<osg::Geometry*>& meshList,
                         const std::map<osg::Geometry*, GeometryJointData>& jointDataMap);
 
+        void setModelRoot(osg::Node* node) { _modelRoot = node; }
+        osg::Node* getModelRoot() const { return _modelRoot.get(); }
+        osg::Node* getSkeletonRootInModel() const { return _skeletonRoot.get(); }
+
         /// Initialize the player from ozz skeleton and mesh files
         bool initialize(const std::string& skeleton, const std::string& mesh);
 
@@ -63,7 +67,8 @@ namespace osgVerse
         /* Update functions */
         bool update(const osg::FrameStamp& fs, bool paused);
         bool applyMeshes(osg::Geode& meshDataRoot, bool withSkinning);
-        bool applyTransforms(osg::Transform& root, bool createIfMissing, bool withShape = false);
+        bool applyTransforms(osg::Transform& root, bool createIfMissing, bool withShape = false,
+                             osg::Node* shapeNode = NULL);
 
         /* Update IK functions */
         struct JointIkData { int joint; float weight; osg::Vec3 localUp; osg::Vec3 localForward; };
@@ -113,6 +118,7 @@ namespace osgVerse
 
         std::vector<osg::ref_ptr<BlendShapeAnimation>> _blendshapes;
         std::vector<osg::ref_ptr<osg::StateSet>> _meshStateSetList;
+        osg::observer_ptr<osg::Node> _modelRoot, _skeletonRoot;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;
         bool _animated, _drawSkeleton, _restPose;

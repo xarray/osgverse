@@ -441,6 +441,7 @@ namespace osgVerse
     {
         std::map<ofbx::Object*, osg::MatrixTransform*> boneMapper;
         std::map<osg::Transform*, ofbx::Object*> boneMapper2;
+        std::map<osg::MatrixTransform*, osg::Matrix> globalMatrixMapper2;
         std::map<osg::Geode*, std::set<osg::Node*>> boneToGeodeMap;
         for (std::map<osg::Geode*, MeshSkinningData>::iterator itr = _meshBoneMap.begin();
              itr != _meshBoneMap.end(); ++itr)
@@ -463,7 +464,7 @@ namespace osgVerse
                 }
 
                 childMT = boneMapper[child]; parentMT = boneMapper[parent];
-                childMT->setMatrix(itr2->second.second);
+                globalMatrixMapper2[childMT] = itr2->second.second;
                 if (!parentMT->containsNode(childMT)) parentMT->addChild(childMT);
                 boneToGeodeMap[itr->first].insert(childMT);
                 boneToGeodeMap[itr->first].insert(parentMT);
@@ -478,6 +479,23 @@ namespace osgVerse
             if (itr->second->getNumParents() > 0) continue;
             FindTransformVisitor ftv; itr->second->accept(ftv);
             skeletonList.push_back(ftv.bones);
+
+            // Apply matrices after converted them to local space
+            osg::Transform* rootBone = ftv.bones.front();
+            for (size_t i = 0; i < ftv.bones.size(); ++i)
+            {
+                osg::MatrixTransform* bone = ftv.bones[i]->asMatrixTransform();
+                if (globalMatrixMapper2.find(bone) == globalMatrixMapper2.end())
+                {
+                    OSG_NOTICE << "[LoaderFBX] Unable to apply matrix to bone: "
+                               << bone->getName() << std::endl; continue;
+                }
+
+                osg::MatrixList parentMatrices = bone->getWorldMatrices(rootBone);
+                osg::Matrix parentInv = parentMatrices.empty() ? osg::Matrix()
+                                      : osg::Matrix::inverse(parentMatrices[0]);
+                bone->setMatrix(globalMatrixMapper2[bone] * parentInv);
+            }
         }
 
         // Fill skinning data with bones and geometry-related data
@@ -554,6 +572,7 @@ namespace osgVerse
 
 #if !DISABLE_SKINNING_DATA
             sd.player = new PlayerAnimation;
+            sd.player->setModelRoot(_root.get());
             sd.player->initialize(sd.joints, sd.meshList, sd.jointData);
             sd.meshRoot->addUpdateCallback(sd.player.get());
 #endif

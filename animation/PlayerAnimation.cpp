@@ -1,11 +1,13 @@
 #include "PlayerAnimation.h"
 #include "PlayerAnimationInternal.h"
 #include "BlendShapeAnimation.h"
+#include "modeling/Math.h"
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/TriangleIndexFunctor>
 #include <osgDB/ReadFile>
 #include <nanoid/nanoid.h>
+#include <iomanip>
 using namespace osgVerse;
 
 static std::string& trim(std::string& s)
@@ -587,31 +589,41 @@ static void printPlayerData(OzzAnimation* ozz)
         std::cout << "B" << i << ": " << names[i] << ", Parent = "
                   << (pid >= 0 ? names[pid] : "(null)") << std::endl;
 
-        osg::Vec3 pos, scale;
+        osg::Vec3 pos, scale; osg::Quat rot;
         switch (soaID)
         {
         case 0:
             scale[0] = ozz::math::GetX(soaT.scale.x); scale[1] = ozz::math::GetX(soaT.scale.y);
             scale[2] = ozz::math::GetX(soaT.scale.z);
+            rot[0] = ozz::math::GetX(soaT.rotation.x); rot[1] = ozz::math::GetX(soaT.rotation.y);
+            rot[2] = ozz::math::GetX(soaT.rotation.z); rot[3] = ozz::math::GetX(soaT.rotation.w);
             pos[0] = ozz::math::GetX(soaT.translation.x); pos[1] = ozz::math::GetX(soaT.translation.y);
             pos[2] = ozz::math::GetX(soaT.translation.z); break;
         case 1:
             scale[0] = ozz::math::GetY(soaT.scale.x); scale[1] = ozz::math::GetY(soaT.scale.y);
             scale[2] = ozz::math::GetY(soaT.scale.z);
+            rot[0] = ozz::math::GetY(soaT.rotation.x); rot[1] = ozz::math::GetY(soaT.rotation.y);
+            rot[2] = ozz::math::GetY(soaT.rotation.z); rot[3] = ozz::math::GetY(soaT.rotation.w);
             pos[0] = ozz::math::GetY(soaT.translation.x); pos[1] = ozz::math::GetY(soaT.translation.y);
             pos[2] = ozz::math::GetY(soaT.translation.z); break;
         case 2:
             scale[0] = ozz::math::GetZ(soaT.scale.x); scale[1] = ozz::math::GetZ(soaT.scale.y);
             scale[2] = ozz::math::GetZ(soaT.scale.z);
+            rot[0] = ozz::math::GetZ(soaT.rotation.x); rot[1] = ozz::math::GetZ(soaT.rotation.y);
+            rot[2] = ozz::math::GetZ(soaT.rotation.z); rot[3] = ozz::math::GetZ(soaT.rotation.w);
             pos[0] = ozz::math::GetZ(soaT.translation.x); pos[1] = ozz::math::GetZ(soaT.translation.y);
             pos[2] = ozz::math::GetZ(soaT.translation.z); break;
         case 3:
             scale[0] = ozz::math::GetW(soaT.scale.x); scale[1] = ozz::math::GetW(soaT.scale.y);
             scale[2] = ozz::math::GetW(soaT.scale.z);
+            rot[0] = ozz::math::GetW(soaT.rotation.x); rot[1] = ozz::math::GetW(soaT.rotation.y);
+            rot[2] = ozz::math::GetW(soaT.rotation.z); rot[3] = ozz::math::GetW(soaT.rotation.w);
             pos[0] = ozz::math::GetW(soaT.translation.x); pos[1] = ozz::math::GetW(soaT.translation.y);
             pos[2] = ozz::math::GetW(soaT.translation.z); break;
         }
-        std::cout << "  Position = " << pos << ", Scale = " << scale << std::endl;
+        std::cout.setf(std::ios_base::fixed);
+        std::cout << std::setprecision(2) << "  Position = " << pos << ", Scale = " << scale
+                  << ", Rotation = " << computeHPRFromQuat(rot) << std::endl;
     }
     std::cout << std::endl;
 
@@ -678,6 +690,7 @@ bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
     // Load skeleton data from 'skeletonRoot'
     ozz::animation::CreateSkeletonVisitor csv;
     skeletonRoot.accept(csv); csv.build(ozz->_skeleton);
+    _skeletonRoot = csv.getSkeletonNodes().front();
 
     // Load mesh data from 'meshRoot' and 'jointDataMap'
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
@@ -696,6 +709,7 @@ bool PlayerAnimation::initialize(const std::vector<osg::Transform*>& nodes,
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz::animation::CreateSkeletonVisitor csv;
     csv.initialize(nodes); csv.build(ozz->_skeleton);
+    _skeletonRoot = csv.getSkeletonNodes().front();
 
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
     cmv.initialize(meshList); ozz->_meshes = cmv.getMeshes();

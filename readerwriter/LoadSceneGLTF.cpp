@@ -378,6 +378,7 @@ namespace osgVerse
             SkinningData sd; sd.skeletonBaseIndex = skin.skeleton;
             sd.invBindPoseAccessor = skin.inverseBindMatrices;
             sd.player = new PlayerAnimation; sd.player->setName(skin.name);
+            sd.player->setModelRoot(_root.get());
             sd.joints.assign(skin.joints.begin(), skin.joints.end());
             _skinningDataList.push_back(sd);
         }
