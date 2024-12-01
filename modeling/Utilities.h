@@ -9,6 +9,10 @@
 
 namespace osgVerse
 {
+
+    typedef std::pair<osg::Vec2d, size_t> PointType2D;
+    typedef std::pair<size_t, size_t> EdgeType;
+    typedef std::vector<PointType2D> PointList2D;
     typedef std::vector<osg::Vec3d> PointList3D;
     class MeshTopology;
 
@@ -184,6 +188,10 @@ namespace osgVerse
     /** Create a textured icosahedron for panorama use */
     extern osg::Geometry* createPanoramaSphere(int subdivs = 2);
 
+    /** Create a line-strip/polygon geometry of PointList2D */
+    extern osg::Geometry* createPointListGeometry(const PointList2D& points, bool asPolygon,
+                                                  const std::vector<EdgeType>& edges = {});
+
     /** Create a bounding volume geometry */
     extern osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb);
     extern osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs);
@@ -206,6 +214,7 @@ namespace osgVerse
 
     /** Change primitives to triangles for GL-Core use */
     extern bool optimizeIndices(osg::Geometry& geom);
+
 }
 
 #endif

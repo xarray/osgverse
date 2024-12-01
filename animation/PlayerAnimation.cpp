@@ -644,11 +644,16 @@ static void printPlayerData(OzzAnimation* ozz)
             for (size_t n = 0; n < numVertices; ++n)
             {
                 size_t n0 = n * 4, n1 = n * 3;
+                std::cout << "    Vec-" << n << ": ";
+
                 float w = jointWeights[n1] + jointWeights[n1 + 1] + jointWeights[n1 + 2];
-                //std::cout << "    Vec-" << n << ": B" << jointIds[n0] << " / " << jointWeights[n1]
-                //          << ", B" << jointIds[n0 + 1] << " / " << jointWeights[n1 + 1]
-                //          << ", B" << jointIds[n0 + 2] << " / " << jointWeights[n1 + 2]
-                //          << ", B" << jointIds[n0 + 3] << " / " << (1.0f - w) << std::endl;
+                for (int k = 0; k < 4; ++k)
+                {
+                    float weight = jointWeights[n1 + k];
+                    if (k == 3) weight = 1.0f - w; if (weight == 0.0f) continue;
+                    std::cout << "B" << jointIds[n0 + k] << " / " << jointWeights[n1 + k];
+                }
+                std::cout << std::endl;
             }
         }
         std::cout << std::endl;

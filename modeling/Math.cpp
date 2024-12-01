@@ -989,8 +989,9 @@ bool GeometryAlgorithm::reorderPointsInPlane(PointList2D& proj, bool usePoleOfIn
         if (itr0 == edges.end()) return false; else edges.erase(itr0);
 
         // Find all other vertices along the edges, instead of finding by centroid and angles
+        PointType2D &vertex0 = idMap[pt0], &vertex1 = idMap[pt1];
         PointList2D projNew; bool canContinue = true;
-        projNew.push_back(idMap[pt0]); projNew.push_back(idMap[pt1]);
+        projNew.push_back(vertex0); projNew.push_back(vertex1);
         while (canContinue)
         {
             std::vector<osgVerse::EdgeType>::iterator itr1 = edges.end(); canContinue = false;
@@ -1059,7 +1060,8 @@ std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
         }
         catch (const CDT::IntersectingConstraintsError& err)
         {
-            OSG_WARN << "[GeometryAlgorithm] Exception: " << err.description() << std::endl;
+            // Try osgUtil::DelaunayTriangulator instead
+            OSG_NOTICE << "[GeometryAlgorithm] " << err.description() << std::endl;
             return std::vector<size_t>();
         }
     }

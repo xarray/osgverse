@@ -234,7 +234,7 @@ namespace osgVerse
 
         /** Reorder a list of 2D hull points on a plane */
         static bool reorderPointsInPlane(PointList2D& points, bool usePoleOfInaccessibility = true,
-                                         const std::vector<osgVerse::EdgeType>& edges = {});
+                                         const std::vector<EdgeType>& edges = {});
 
         /** Delaunay triangulation (with/without auto-detected boundaries and holes) */
         static std::vector<size_t> delaunayTriangulation(
