@@ -13,6 +13,7 @@
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Utilities.h>
+#include <modeling/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
@@ -61,17 +62,22 @@ int main(int argc, char** argv)
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
 
+    std::cout << ".... Phase 0: system init\n";
     osg::Timer_t t0 = osg::Timer::instance()->tick();
     for (int i = 0; i < 10; ++i) viewer.frame();
+
+    std::cout << ".... Phase 1: data loading\n";
     osg::Timer_t t1 = osg::Timer::instance()->tick();
     while (viewer.getDatabasePager()->getRequestsInProgress() ||
            viewer.getDatabasePager()->getDataToMergeListSize() > 0) viewer.frame();
     viewer.getCameraManipulator()->home(0.0);
+
+    std::cout << ".... Phase 2: data merging\n";
     osg::Timer_t t2 = osg::Timer::instance()->tick();
     for (int i = 0; i < 10; ++i) viewer.frame();
-    osg::Timer_t t3 = osg::Timer::instance()->tick();
 
-    std::cout << "...........................................\n";
+    osg::Timer_t t3 = osg::Timer::instance()->tick();
+    std::cout << ".... P0 .... P1 .... P2 ....\n ";
     std::cout << osg::Timer::instance()->delta_m(t0, t1) << ", "
               << osg::Timer::instance()->delta_m(t1, t2) << ", "
               << osg::Timer::instance()->delta_m(t2, t3) << "\n";

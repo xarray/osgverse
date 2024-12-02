@@ -53,6 +53,7 @@ namespace osgVerse
         osgDB::Options* getOptions() { return _ktxOptions.get(); }
 
         void setGeneratingMipmaps(bool b) { _generateMipmaps = b; }
+        bool getGeneratingMipmaps() const { return _generateMipmaps; }
 
         virtual void apply(osg::Drawable& drawable);
         virtual void apply(osg::Geode& geode);

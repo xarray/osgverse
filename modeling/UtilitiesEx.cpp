@@ -521,8 +521,8 @@ namespace osgVerse
         return createGeometry(va.get(), NULL, ta.get(), de.get());
     }
 
-    osg::Geometry* createPointListGeometry(const PointList2D& points, bool asPolygon,
-                                           const std::vector<EdgeType>& edges)
+    osg::Geometry* createPointListGeometry(const PointList2D& points, const osg::Vec4& color, bool asPolygon,
+                                           bool closed, const std::vector<EdgeType>& edges)
     {
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
         for (size_t i = 0; i < points.size(); ++i)
@@ -531,20 +531,21 @@ namespace osgVerse
         if (asPolygon)
         {
             osg::ref_ptr<osg::DrawArrays> da = new osg::DrawArrays(GL_POLYGON, 0, va->size());
-            osg::ref_ptr<osg::Geometry> geom = createGeometry(va.get(), NULL, NULL, da.get());
+            osg::ref_ptr<osg::Geometry> geom = createGeometry(va.get(), NULL, color, da.get());
             tessellateGeometry(*geom, osg::Z_AXIS); return geom.release();
         }
         else if (edges.empty())
         {
-            osg::ref_ptr<osg::DrawArrays> da = new osg::DrawArrays(GL_LINE_STRIP, 0, va->size());
-            return createGeometry(va.get(), NULL, NULL, da.get());
+            osg::ref_ptr<osg::DrawArrays> da =
+                new osg::DrawArrays(closed ? GL_LINE_LOOP : GL_LINE_STRIP, 0, va->size());
+            return createGeometry(va.get(), NULL, color, da.get());
         }
         else
         {
             osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_LINES);
             for (size_t i = 0; i < edges.size(); ++i)
                 { de->push_back(edges[i].first); de->push_back(edges[i].second); }
-            return createGeometry(va.get(), NULL, NULL, de.get());
+            return createGeometry(va.get(), NULL, color, de.get());
         }
     }
 

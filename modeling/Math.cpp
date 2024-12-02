@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <climits>
 
+//#define USINGZ 1
 #include "3rdparty/exprtk.hpp"
 #include "3rdparty/nanoflann.hpp"
 #include "3rdparty/cdt/CDT.h"
@@ -918,6 +919,35 @@ bool GeometryAlgorithm::clockwise2D(const PointList2D& points)
         else if (z > 0.0) count++;
     }
     return count < 0;
+}
+
+std::vector<PointList2D> GeometryAlgorithm::expandPolygon2D(const PointList2D& polygon, double offset, double scale)
+{
+    Clipper2Lib::Path64 path; double invScale = 1.0 / scale;
+    for (size_t i = 0; i < polygon.size(); ++i)
+    {
+        const PointType2D& v = polygon[i];
+        path.push_back(Clipper2Lib::Point64(
+            (int64_t)(v.first[0] * scale), (int64_t)(v.first[1] * scale)));// , v.second));
+    }
+
+    Clipper2Lib::ClipperOffset offseter; Clipper2Lib::Paths64 pathsOut;
+    offseter.AddPath(path, Clipper2Lib::JoinType::Round, Clipper2Lib::EndType::Polygon);
+    offseter.Execute(offset * scale, pathsOut);
+
+    std::vector<PointList2D> result;
+    for (size_t i = 0; i < pathsOut.size(); ++i)
+    {
+        const Clipper2Lib::Path64& pathOut = pathsOut[i]; PointList2D rData;
+        for (size_t j = 0; j < pathOut.size(); ++j)
+        {
+            const Clipper2Lib::Point64& pt = pathOut[j];
+            double v0 = (double)pt.x, v1 = (double)pt.y;
+            rData.push_back(PointType2D(osg::Vec2d(v0 * invScale, v1 * invScale), 0));// , pt.z));
+        }
+        result.push_back(rData);
+    }
+    return result;
 }
 
 struct ResortHelper

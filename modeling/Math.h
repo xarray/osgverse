@@ -222,6 +222,9 @@ namespace osgVerse
         /** Decompose a concave polygon into multiple convex polygons and return splitting edges */
         static std::vector<LineType2D> decomposePolygon2D(const PointList2D& polygon);
 
+        /** Expand/shrink a polygon by the offset parameter */
+        static std::vector<PointList2D> expandPolygon2D(const PointList2D& polygon, double offset, double scale = 10e6);
+
         /** Compute the pole of inaccessibility coordinate of a polygon.
             It is the most distant internal point from the polygon outline (not centroid) */
         static osg::Vec2d getPoleOfInaccessibility(const PointList2D& polygon, double precision = 1.0);

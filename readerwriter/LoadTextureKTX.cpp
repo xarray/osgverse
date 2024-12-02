@@ -319,7 +319,7 @@ namespace osgVerse
         {
             ktxTexture1* tex = (ktxTexture1*)texture;
             image->setImage(w, h, d, tex->glInternalformat, tex->glFormat, tex->glType,
-                             new unsigned char[totalImageSize], osg::Image::USE_NEW_DELETE, 4);
+                            new unsigned char[totalImageSize], osg::Image::USE_NEW_DELETE, 4);
         }
 
         // Update data and mipmaps

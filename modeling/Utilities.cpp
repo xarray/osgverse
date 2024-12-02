@@ -509,8 +509,7 @@ namespace osgVerse
     {
         osg::Geometry* geom = createGeometry(va, na, NULL, p, autoNormals, useVBO);
         osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getColorArray());
-        if (ca && ca->size() > 0) ca->front() = color;
-        return geom;
+        if (ca) ca->assign(ca->size(), color); return geom;
     }
 
     osg::Geometry* createEllipsoid(const osg::Vec3& center, float radius1, float radius2,

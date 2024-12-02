@@ -189,7 +189,8 @@ namespace osgVerse
     extern osg::Geometry* createPanoramaSphere(int subdivs = 2);
 
     /** Create a line-strip/polygon geometry of PointList2D */
-    extern osg::Geometry* createPointListGeometry(const PointList2D& points, bool asPolygon,
+    extern osg::Geometry* createPointListGeometry(const PointList2D& points, const osg::Vec4& color,
+                                                  bool asPolygon = false, bool closed = false,
                                                   const std::vector<EdgeType>& edges = {});
 
     /** Create a bounding volume geometry */
