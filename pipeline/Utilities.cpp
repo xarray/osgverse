@@ -61,6 +61,25 @@ static std::string refreshGlobalDirectories(const std::string& base)
     return base + std::string("/bin/");
 }
 
+static osg::Camera* createImageCamera(osg::Image* image, const osg::BoundingBox& bbox)
+{
+    osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+    camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+    camera->setRenderOrder(osg::Camera::PRE_RENDER);
+    camera->setViewport(0, 0, image->s(), image->t());
+    camera->attach(osg::Camera::COLOR_BUFFER0, image);
+
+    osg::Vec3 center = bbox.center(); center.z() = bbox.zMax();
+    camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+    camera->setProjectionMatrix(osg::Matrix::ortho(
+        bbox.xMin() - center.x(), bbox.xMax() - center.x(),
+        bbox.yMin() - center.y(), bbox.yMax() - center.y(), bbox.zMin(), bbox.zMax()));
+    camera->setViewMatrix(osg::Matrix::lookAt(center, bbox.center(), osg::Y_AXIS));
+    return camera.release();
+}
+
 class MyReadFileCallback : public osgDB::ReadFileCallback
 {
 public:
@@ -662,21 +681,7 @@ namespace osgVerse
         image->allocateImage(resX, resY, 1, GL_LUMINANCE, GL_FLOAT);
         image->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
 
-        osg::ref_ptr<osg::Camera> camera = new osg::Camera;
-        camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-        camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-        camera->setRenderOrder(osg::Camera::PRE_RENDER);
-        camera->setViewport(0, 0, image->s(), image->t());
-        camera->attach(osg::Camera::COLOR_BUFFER0, image.get());
-
-        osg::Vec3 center = bbox.center(); center.z() = bbox.zMax();
-        camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-        camera->setProjectionMatrix(osg::Matrix::ortho(
-            bbox.xMin() - center.x(), bbox.xMax() - center.x(),
-            bbox.yMin() - center.y(), bbox.yMax() - center.y(), bbox.zMin(), bbox.zMax()));
-        camera->setViewMatrix(osg::Matrix::lookAt(center, bbox.center(), osg::Y_AXIS));
-
+        osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox);
         osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
         if (!viewer) viewer = new osgViewer::Viewer;
         viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
@@ -725,6 +730,28 @@ namespace osgVerse
             else hf->setHeight(x, y, bbox.zMin() + zRange - eyeZ);
         }
         return hf.release();
+    }
+
+    osg::Image* createSnapshot(osg::Node* node, int resX, int resY, osg::View* userViewer)
+    {
+        osg::ComputeBoundsVisitor cbv; node->accept(cbv);
+        osg::BoundingBox bbox = cbv.getBoundingBox();
+        osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(resX, resY, 1, GL_RGB, GL_UNSIGNED_BYTE);
+        image->setInternalTextureFormat(GL_RGB8);
+
+        osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox);
+        osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
+        if (!viewer) viewer = new osgViewer::Viewer;
+        viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+        viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        {
+            osg::ref_ptr<osg::Group> root = new osg::Group;
+            root->addChild(camera.get()); camera->addChild(node);
+            viewer->setSceneData(root.get());
+            for (int i = 0; i < 2; ++i) viewer->frame();
+        }
+        return image.release();
     }
 
     TangentSpaceVisitor::TangentSpaceVisitor(const float threshold)

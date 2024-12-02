@@ -1,7 +1,8 @@
 #include <osg/io_utils>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Texture2D>
-#include <osg/LOD>
+#include <osg/MatrixTransform>
+#include <osg/Camera>
 #include <osgUtil/Simplifier>
 #include <osgDB/FileNameUtils>
 #include <osgDB/WriteFile>
@@ -155,8 +156,11 @@ struct ResetTrianglesOperator
     }
 };
 
-GeometryMerger::GeometryMerger(Method m)
-{ _method = m; _autoSimplifierRatio = 0.0f; _forceColorArray = false; }
+GeometryMerger::GeometryMerger(Method m, GpuBaker* baker)
+{
+    _method = m; _baker = baker;
+    _autoSimplifierRatio = 0.0f; _forceColorArray = false;
+}
 
 GeometryMerger::~GeometryMerger()
 {}
@@ -226,16 +230,19 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
 {
     if (size == 0) size = geomList.size() - offset;
     size_t end = osg::minimum(offset + size, geomList.size());
+    osg::ref_ptr<osg::Image> atlas = processAtlas(geomList, offset, size, maxTextureSize);
+
     osg::ref_ptr<osg::Geometry> resultGeom;
     switch (_method)
     {
     case INDIRECT_COMMANDS:
         resultGeom = createIndirect(geomList, offset, end); break;
+    case GPU_BAKING:
+        resultGeom = createGpuBaking(geomList, offset, end); break;
     default:
         resultGeom = createCombined(geomList, offset, end); break;
     }
 
-    osg::ref_ptr<osg::Image> atlas = processAtlas(geomList, offset, size, maxTextureSize);
     if (resultGeom.valid() && atlas.valid())
     {
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
@@ -455,6 +462,42 @@ osg::Geometry* GeometryMerger::createIndirect(const std::vector<GeometryPair>& g
     OSG_FATAL << "[GeometryMerger] createIndirect() not supported" << std::endl;
     return NULL;
 #endif
+}
+
+osg::Geometry* GeometryMerger::createGpuBaking(const std::vector<GeometryPair>& geomList,
+                                               size_t offset, size_t end)
+{
+    if (!_baker)
+    {
+        OSG_FATAL << "[GeometryMerger] Please call setBaker() before"
+                  << " using GPU baking to merge geometries" << std::endl;
+        return NULL;
+    }
+
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    for (size_t i = offset; i < end; ++i)
+    {
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        geode->addDrawable(geomList[i].first);
+
+        osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+        mt->setMatrix(geomList[i].second); mt->addChild(geode.get());
+        root->addChild(mt.get());
+    }
+
+    osg::ref_ptr<osg::Geometry> geom = _baker->bakeGeometry(root.get());
+    if (geom.valid())
+    {
+        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+        tex2D->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+        tex2D->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        tex2D->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
+        tex2D->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
+
+        osg::ref_ptr<osg::Image> image = _baker->bakeTextureImage(root.get());
+        if (image.valid()) tex2D->setImage(image.get());
+    }
+    return geom.release();
 }
 
 osg::Image* GeometryMerger::createTextureAtlas(TexturePacker* packer, const std::string& fileName,

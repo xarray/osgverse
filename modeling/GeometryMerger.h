@@ -21,10 +21,19 @@ namespace osgVerse
     {
     public:
         typedef std::pair<osg::Geometry*, osg::Matrix> GeometryPair;
-        enum Method { COMBINED_GEOMETRY = 0, INDIRECT_COMMANDS };
+        enum Method { COMBINED_GEOMETRY = 0, INDIRECT_COMMANDS, GPU_BAKING };
 
-        GeometryMerger(Method m = COMBINED_GEOMETRY);
+        struct GpuBaker : public osg::Referenced
+        {
+            virtual osg::Image* bakeTextureImage(osg::Node* node) = 0;
+            virtual osg::Geometry* bakeGeometry(osg::Node* node) = 0;
+        };
+
+        GeometryMerger(Method m = COMBINED_GEOMETRY, GpuBaker* baker = NULL);
         ~GeometryMerger();
+
+        void setGpkBaker(GpuBaker* baker) { _baker = baker; }
+        GpuBaker* getGpuBaker() { return _baker.get(); }
 
         void setMethod(Method m) { _method = m; }
         Method getMethod() const { return _method; }
@@ -49,10 +58,13 @@ namespace osgVerse
                                       size_t offset, size_t end);
         osg::Geometry* createIndirect(const std::vector<GeometryPair>& geomList,
                                       size_t offset, size_t end);
+        osg::Geometry* createGpuBaking(const std::vector<GeometryPair>& geomList,
+                                       size_t offset, size_t end);
 
         osg::Image* createTextureAtlas(TexturePacker* packer, const std::string& fileName,
                                        int maxTextureSize, int& originW, int& originH);
 
+        osg::ref_ptr<GpuBaker> _baker;
         Method _method;
         float _autoSimplifierRatio;
         bool _forceColorArray;

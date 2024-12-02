@@ -65,6 +65,9 @@ namespace osgVerse
     /** Create heightmap from given scene graph */
     extern osg::HeightField* createHeightField(osg::Node* node, int resX, int resY, osg::View* viewer = NULL);
 
+    /** Create snapshot from given scene graph, may work as texture part of createHeightField() */
+    extern osg::Image* createSnapshot(osg::Node* node, int resX, int resY, osg::View* viewer = NULL);
+
     /** The tangent/binormal computing visitor */
     class TangentSpaceVisitor : public osg::NodeVisitor
     {

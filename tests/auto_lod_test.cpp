@@ -4,6 +4,7 @@
 #include <osg/LOD>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 #include <osgDB/ConvertUTF>
 #include <osgGA/TrackballManipulator>
 #include <osgViewer/Viewer>
@@ -130,6 +131,32 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
     osg::ref_ptr<osg::Group> root = new osg::Group;
+
+#if true
+    osg::Geometry* g0 = osg::createTexturedQuadGeometry(osg::Vec3(0.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
+    osg::Geometry* g1 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
+    osg::Geometry* g2 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 1.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
+    osg::Geometry* g3 = osg::createTexturedQuadGeometry(osg::Vec3(0.0f, 1.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
+
+    g0->getOrCreateStateSet()->setTextureAttributeAndModes(
+        0, osgVerse::createTexture2D(osgDB::readImageFile("Images/blueFlowers.png")));
+    g1->getOrCreateStateSet()->setTextureAttributeAndModes(
+        0, osgVerse::createTexture2D(osgDB::readImageFile("Images/forestRoof.png")));
+    g2->getOrCreateStateSet()->setTextureAttributeAndModes(
+        0, osgVerse::createTexture2D(osgDB::readImageFile("Images/osgshaders1.png")));
+    g3->getOrCreateStateSet()->setTextureAttributeAndModes(
+        0, osgVerse::createTexture2D(osgDB::readImageFile("Images/skymap.jpg")));
+
+    std::vector<std::pair<osg::Geometry*, osg::Matrix>> testList;
+    testList.push_back(std::pair<osg::Geometry*, osg::Matrix>(g0, osg::Matrix()));
+    testList.push_back(std::pair<osg::Geometry*, osg::Matrix>(g1, osg::Matrix()));
+    testList.push_back(std::pair<osg::Geometry*, osg::Matrix>(g2, osg::Matrix()));
+    testList.push_back(std::pair<osg::Geometry*, osg::Matrix>(g3, osg::Matrix()));
+
+    osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::COMBINED_GEOMETRY);
+    osg::ref_ptr<osg::Geometry> merged = merger.process(testList, 0);
+    osgDB::writeNodeFile(*merged, "test_merging.osgb");
+#endif
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
     if (!scene)
