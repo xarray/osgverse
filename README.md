@@ -62,6 +62,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 5.9 Vulkan 1.3 or later, for Vulkan extensions based on Google Angle's cross-Graphics API. (https://vulkan.lunarg.com/sdk/home)
   - 5.10 Effekseer 1.70 or later, for particle support in osgVerseAnimation module and related examples. Remember to check the USE_MSVC_RUNTIME_LIBRARY_DLL option while compiling. (https://github.com/effekseer/Effekseer)
   - 5.11 libCEF 127.3 or later, for HTML5/CSS page rendering support in osgVerseAnimation module and related examples. (Binaries download: https://cef-builds.spotifycdn.com/index.html)
+  - 5.12 mimalloc 2.17 or later, for general purpose memory allocator with excellent performance. (https://github.com/microsoft/mimalloc)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -292,6 +293,7 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
 | VERSE_USE_DWARF             | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |
 | VERSE_USE_GLIBCXX11_ABI     | Boolean | ON            | Enable to use libraries built with GCC compiler newer than 4.9 |
+| VERSE_USE_MIMALLOC          | Boolean | ON            | If mimalloc is found, this option is used for improving memory allocation |
 | VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
 | VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |

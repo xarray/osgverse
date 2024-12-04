@@ -1,3 +1,4 @@
+#include ALLOCATOR_HEADER
 #include <osg/io_utils>
 #include <osg/ValueObject>
 #include <osg/Texture2D>

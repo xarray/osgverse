@@ -358,6 +358,7 @@ FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib
 FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effekseer.lib" "")
 FIND_DEPENDENCE(LIBCEF "cef_browser.h" "libcef.so;libcef.a;libcef.lib" "libcef")
 FIND_DEPENDENCE(LIBIGL "igl/igl_inline.h" "" "")
+FIND_DEPENDENCE(MIMALLOC "mimalloc.h" "libmimalloc.so;mimalloc.lib" "mimalloc")
 IF(NOT USE_WASM_OPTIONS)
     FIND_DEPENDENCE(SDL2 "SDL.h" "libSDL2.so;libSDL2.a;SDL2.lib" "SDL")
     IF(VERSE_USE_EXTERNAL_GLES)
@@ -365,7 +366,20 @@ IF(NOT USE_WASM_OPTIONS)
     ENDIF(VERSE_USE_EXTERNAL_GLES)
 ENDIF(NOT USE_WASM_OPTIONS)
 
+IF(MIMALLOC_FOUND)
+    SET(VERSE_USE_MIMALLOC ON CACHE BOOL "Enable use of mi-malloc to improve memory allocating" FORCE)
+ENDIF(MIMALLOC_FOUND)
+
 ######################################### Platform Definintions
+IF(VERSE_USE_MIMALLOC)
+    # TODO: static building support?
+    SET(EXTERNAL_LIBRARIES mimalloc ${EXTERNAL_LIBRARIES})
+    INCLUDE_DIRECTORIES(${MIMALLOC_INCLUDE_DIR}/mimalloc)
+    ADD_DEFINITIONS(-DVERSE_USE_MIMALLOC -DALLOCATOR_HEADER="pipeline/Allocator.h")
+ELSE(VERSE_USE_MIMALLOC)
+    ADD_DEFINITIONS(-DALLOCATOR_HEADER="stdio.h")
+ENDIF(VERSE_USE_MIMALLOC)
+
 IF(ANDROID)
     ADD_DEFINITIONS(-DVERSE_ANDROID)
     SET(VERSE_PLATFORM "Android")

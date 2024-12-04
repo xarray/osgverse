@@ -9,6 +9,7 @@
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | https://github.com/google/draco |
 | libCEF           | Depended | > 127.3   | Animation          | BSD          | https://github.com/chromiumembedded/cef |
 | libIGL           | Depended | > 2.5     | Modeling           | MPL2         | https://github.com/libigl/libigl |
+| mimalloc         | Depended | > 2.17    | All                | MIT          | https://github.com/microsoft/mimalloc |
 | OpenVDB          | Depended | > 10.0    | verse_vdb          | MPL2         | https://github.com/AcademySoftwareFoundation/openvdb |
 | osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/gwaldron/osgearth |
 | Qt               | Depended | > 5.5     | App                | LGPL         | |
