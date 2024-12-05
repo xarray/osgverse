@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <climits>
 
-//#define USINGZ 1
 #include "3rdparty/exprtk.hpp"
 #include "3rdparty/nanoflann.hpp"
 #include "3rdparty/cdt/CDT.h"
@@ -789,10 +788,17 @@ struct IntersectionHelper2D
 PointList2D GeometryAlgorithm::intersectionWithLine2D(const LineType2D& l0, const LineType2D& l1)
 {
     PointList2D result; osg::Vec2d s = l0.first, e = l0.second, p0 = l1.first, p1 = l1.second;
+#ifdef CLIPPER2_VERSION
+    Clipper2Lib::PointD rr, l0A(s[0], s[1]), l0B(e[0], e[1]), l1A(p0[0], p0[1]), l1B(p1[0], p1[1]);
+    if (Clipper2Lib::GetSegmentIntersectPt(l1A, l1B, l0A, l0B, rr))
+    { result.push_back(PointType2D(osg::Vec2d(rr.x, rr.y), 0)); }
+#else
     osg::Vec2d intersection = IntersectionHelper2D::intersect(p0, p1, s, e);
     if (IntersectionHelper2D::isWithinSegment(intersection, p0, p1) &&
         IntersectionHelper2D::isWithinSegment(intersection, s, e))
-    { result.push_back(PointType2D(intersection, 0)); } return result;
+    { result.push_back(PointType2D(intersection, 0)); }
+#endif
+    return result;
 }
 
 PointList2D GeometryAlgorithm::intersectionWithPolygon2D(const LineType2D& line, const PointList2D& polygon)
@@ -802,10 +808,16 @@ PointList2D GeometryAlgorithm::intersectionWithPolygon2D(const LineType2D& line,
     for (size_t i = 0; i < num; ++i)
     {
         osg::Vec2d p0 = polygon[i].first, p1 = polygon[(i + 1) % num].first;
+#ifdef CLIPPER2_VERSION
+        Clipper2Lib::PointD rr, l0A(s[0], s[1]), l0B(e[0], e[1]), l1A(p0[0], p0[1]), l1B(p1[0], p1[1]);
+        if (Clipper2Lib::GetSegmentIntersectPt(l1A, l1B, l0A, l0B, rr))
+        { result.push_back(PointType2D(osg::Vec2d(rr.x, rr.y), i)); }
+#else
         osg::Vec2d intersection = IntersectionHelper2D::intersect(p0, p1, s, e);
         if (IntersectionHelper2D::isWithinSegment(intersection, p0, p1) &&
             IntersectionHelper2D::isWithinSegment(intersection, s, e))
         { result.push_back(PointType2D(intersection, i)); }
+#endif
     }
     return result;
 }
@@ -928,7 +940,7 @@ std::vector<PointList2D> GeometryAlgorithm::expandPolygon2D(const PointList2D& p
     {
         const PointType2D& v = polygon[i];
         path.push_back(Clipper2Lib::Point64(
-            (int64_t)(v.first[0] * scale), (int64_t)(v.first[1] * scale)));// , v.second));
+            (int64_t)(v.first[0] * scale), (int64_t)(v.first[1] * scale), v.second));
     }
 
     Clipper2Lib::ClipperOffset offseter; Clipper2Lib::Paths64 pathsOut;
@@ -943,7 +955,7 @@ std::vector<PointList2D> GeometryAlgorithm::expandPolygon2D(const PointList2D& p
         {
             const Clipper2Lib::Point64& pt = pathOut[j];
             double v0 = (double)pt.x, v1 = (double)pt.y;
-            rData.push_back(PointType2D(osg::Vec2d(v0 * invScale, v1 * invScale), 0));// , pt.z));
+            rData.push_back(PointType2D(osg::Vec2d(v0 * invScale, v1 * invScale), pt.z));
         }
         result.push_back(rData);
     }

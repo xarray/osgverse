@@ -277,12 +277,13 @@ public:
             if (drawable.getCullCallback())
             {
                 osg::DrawableCullCallback* dcb = drawable.getCullCallback()->asDrawableCullCallback();
-                if (dcb) { if (dcb->cull(this, &drawable, &_renderInfo) == true) return; }
+                if (dcb) { if (dcb->cull(this, &drawable, &_renderInfo) == true) {popM(drawable, s); return;} }
                 else drawable.getCullCallback()->run(&drawable, this);
             }
 
-            if (drawable.isCullingActive() && isCulled(bb)) return;
-            if (_computeNearFar && bb.valid()) { if (!updateCalculatedNearFar(matrix, drawable, false)) return; }
+            if (drawable.isCullingActive() && isCulled(bb)) { popM(drawable, s); return; }
+            if (_computeNearFar && bb.valid())
+                { if (!updateCalculatedNearFar(matrix, drawable, false)) {popM(drawable, s); return;} }
 
             // push the geoset's state on the geostate stack.
             unsigned int numPopStateSetRequired = 0;

@@ -516,13 +516,22 @@ ELSE()
     SET(LIBRARY_FILES ${LIBRARY_FILES} tinyfiledialogs.c tinyfiledialogs.h microprofile.cpp)
 ENDIF()
 
-ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY -DGLEW_STATIC -DGLEW_NO_GLU -DLASZIPDLL_EXPORTS -DBL_STATIC -DBL_BUILD_NO_JIT
-                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1 -DHV_STATICLIB -DWITH_MBEDTLS -DRLOTTIE_BUILD=0
-                -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1 -DUNORDERED
-                -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0 -DHAVE_UNORDERED_MAP=1
-                -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4 -DIMGUI_IMPL_OPENGL_LOADER_GLEW)
+ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # ApproxMVBB
+                -DGLEW_STATIC -DGLEW_NO_GLU                               # GLEW
+                -DIMGUI_IMPL_OPENGL_LOADER_GLEW                           # imgui
+                -DLASZIPDLL_EXPORTS                                       # laszip
+                -DBL_STATIC -DBL_BUILD_NO_JIT                             # Blend2D
+                -DLEVELDB_COMPILE_LIBRARY -DLEVELDB_HAS_PORT_CONFIG_H=1   # LevelDB
+                -DHV_STATICLIB -DWITH_MBEDTLS                             # libhv / mbedtls
+                -DRLOTTIE_BUILD=0                                         # Rlottie
+                -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1  # libKTX
+                -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0          # libKTX: BasisU
+                -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4            # Llama.cpp / libGGML
+                -DUSINGZ                                                  # clipper2
+                -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+                
 IF(MSVC_VERSION LESS 1910)
-    ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # disable use of json.hpp in VS2015 or lower
+    ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # libhv: disable use of json.hpp in VS2015
 ENDIF(MSVC_VERSION LESS 1910)
 
 IF(OPENMP_FOUND)
