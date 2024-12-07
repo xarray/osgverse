@@ -1,3 +1,4 @@
+#include PREPENDED_HEADER
 #include <osg/io_utils>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
@@ -37,9 +38,6 @@
 #include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
-
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
 
 //#define VERSE_FORCE_SDL 1
 #define TEST_PIPELINE 1

@@ -1,3 +1,4 @@
+#include PREPENDED_HEADER
 #include <osg/io_utils>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
@@ -25,9 +26,6 @@ USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 #if TEST_VULKAN_IMPLEMENTATION
 // TODO
 #endif
-
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>

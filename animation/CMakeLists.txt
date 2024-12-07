@@ -4,7 +4,7 @@ SET(LIBRARY_INCLUDE_FILES
     PhysicsEngine.h ParticleEngine.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp
-    TweenAnimation.cpp BlendShapeAnimation.cpp Utilities.cpp)
+    TweenAnimation.cpp BlendShapeAnimation.cpp ParticleEngineU3D.cpp Utilities.cpp)
 
 IF(BULLET_FOUND)
     ADD_DEFINITIONS(-DVERSE_WITH_BULLET)

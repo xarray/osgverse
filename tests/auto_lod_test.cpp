@@ -1,4 +1,4 @@
-#include ALLOCATOR_HEADER
+#include PREPENDED_HEADER
 #include <osg/io_utils>
 #include <osg/ValueObject>
 #include <osg/Texture2D>
@@ -27,9 +27,6 @@ USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
-
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
 
 class SelectSceneHandler : public osgGA::GUIEventHandler
 {

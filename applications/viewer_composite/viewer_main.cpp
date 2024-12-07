@@ -1,3 +1,4 @@
+#include PREPENDED_HEADER
 #include <osg/io_utils>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
@@ -10,9 +11,6 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
-
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
 
 // Change the macro to switch between composite viewer / viewer with slaves
 #define USE_COMPOSITE_VIEWER 1

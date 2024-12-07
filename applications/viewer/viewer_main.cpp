@@ -1,3 +1,4 @@
+#include PREPENDED_HEADER
 #include <osg/io_utils>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
@@ -9,9 +10,6 @@
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
 
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>

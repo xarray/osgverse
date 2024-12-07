@@ -1,12 +1,10 @@
+#include PREPENDED_HEADER
 #include <osgDB/ReadFile>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osg/Fog>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
 
 #include "defines.h"
 USE_OSG_PLUGINS()

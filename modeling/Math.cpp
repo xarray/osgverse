@@ -788,7 +788,7 @@ struct IntersectionHelper2D
 PointList2D GeometryAlgorithm::intersectionWithLine2D(const LineType2D& l0, const LineType2D& l1)
 {
     PointList2D result; osg::Vec2d s = l0.first, e = l0.second, p0 = l1.first, p1 = l1.second;
-#ifdef CLIPPER2_VERSION
+#ifdef false
     Clipper2Lib::PointD rr, l0A(s[0], s[1]), l0B(e[0], e[1]), l1A(p0[0], p0[1]), l1B(p1[0], p1[1]);
     if (Clipper2Lib::GetSegmentIntersectPt(l1A, l1B, l0A, l0B, rr))
     { result.push_back(PointType2D(osg::Vec2d(rr.x, rr.y), 0)); }
@@ -808,7 +808,7 @@ PointList2D GeometryAlgorithm::intersectionWithPolygon2D(const LineType2D& line,
     for (size_t i = 0; i < num; ++i)
     {
         osg::Vec2d p0 = polygon[i].first, p1 = polygon[(i + 1) % num].first;
-#ifdef CLIPPER2_VERSION
+#ifdef false
         Clipper2Lib::PointD rr, l0A(s[0], s[1]), l0B(e[0], e[1]), l1A(p0[0], p0[1]), l1B(p1[0], p1[1]);
         if (Clipper2Lib::GetSegmentIntersectPt(l1A, l1B, l0A, l0B, rr))
         { result.push_back(PointType2D(osg::Vec2d(rr.x, rr.y), i)); }
@@ -820,6 +820,62 @@ PointList2D GeometryAlgorithm::intersectionWithPolygon2D(const LineType2D& line,
 #endif
     }
     return result;
+}
+
+std::vector<PointList2D> GeometryAlgorithm::clipPolygon2D(const std::vector<PointList2D>& subjects,
+                                                          const std::vector<PointList2D>& clips,
+                                                          BooleanOperator op, bool evenOdd)
+{
+    Clipper2Lib::PathsD subsD, clipsD, resultsD;
+    Clipper2Lib::ClipType type = Clipper2Lib::ClipType::None;
+    switch (op)
+    {
+    case BooleanOperator::BOOL_Intersection: type = Clipper2Lib::ClipType::Intersection; break;
+    case BooleanOperator::BOOL_Union: type = Clipper2Lib::ClipType::Union; break;
+    case BooleanOperator::BOOL_Difference: type = Clipper2Lib::ClipType::Difference; break;
+    case BooleanOperator::BOOL_Xor: type = Clipper2Lib::ClipType::Xor; break;
+    default: break;
+    }
+
+    for (size_t i = 0; i < subjects.size(); ++i)
+    {
+        Clipper2Lib::PathD pathD; const PointList2D& path = subjects[i];
+        for (size_t j = 0; j < path.size(); ++j)
+        {
+            const PointType2D& v = path[j];
+            pathD.push_back(Clipper2Lib::PointD(v.first[0], v.first[1], v.second));
+        }
+        subsD.push_back(pathD);
+    }
+
+    for (size_t i = 0; i < clips.size(); ++i)
+    {
+        Clipper2Lib::PathD pathD; const PointList2D& path = clips[i];
+        for (size_t j = 0; j < path.size(); ++j)
+        {
+            const PointType2D& v = path[j];
+            pathD.push_back(Clipper2Lib::PointD(v.first[0], v.first[1], v.second));
+        }
+        clipsD.push_back(pathD);
+    }
+
+    Clipper2Lib::ClipperD clipper; std::vector<PointList2D> results;
+    clipper.AddSubject(subsD); clipper.AddClip(clipsD);
+    if (clipper.Execute(type,
+        evenOdd ? Clipper2Lib::FillRule::EvenOdd : Clipper2Lib::FillRule::NonZero, resultsD))
+    {
+        for (size_t i = 0; i < resultsD.size(); ++i)
+        {
+            const Clipper2Lib::PathD& pathD = resultsD[i]; PointList2D path;
+            for (size_t j = 0; j < pathD.size(); ++j)
+            {
+                const Clipper2Lib::PointD& pt = pathD[j];
+                path.push_back(PointType2D(osg::Vec2d(pt.x, pt.y), pt.z));
+            }
+            results.push_back(path);
+        }
+    }
+    return results;
 }
 
 std::vector<LineType2D> GeometryAlgorithm::decomposePolygon2D(const PointList2D& polygon)

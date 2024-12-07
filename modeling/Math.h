@@ -202,6 +202,12 @@ namespace osgVerse
     /** Computational geometry helpers struct */
     struct GeometryAlgorithm
     {
+        enum BooleanOperator
+        {
+            BOOL_None = 0, BOOL_Intersection, BOOL_Union,
+            BOOL_Difference, BOOL_Xor
+        };
+
         /** Project a list of 3D points on a plane to 2D and return the transform matrix */
         static osg::Matrix project(const PointList3D& points, const osg::Vec3d& planeNormal,
                                    const osg::Vec3d& planeUp, PointList2D& pointsOut);
@@ -223,7 +229,13 @@ namespace osgVerse
         static std::vector<LineType2D> decomposePolygon2D(const PointList2D& polygon);
 
         /** Expand/shrink a polygon by the offset parameter */
-        static std::vector<PointList2D> expandPolygon2D(const PointList2D& polygon, double offset, double scale = 10e6);
+        static std::vector<PointList2D> expandPolygon2D(const PointList2D& polygon,
+                                                        double offset, double scale = 10e6);
+
+        /** Clip a polygon with another one: intersection/union/difference */
+        static std::vector<PointList2D> clipPolygon2D(const std::vector<PointList2D>& subjects,
+                                                      const std::vector<PointList2D>& clips,
+                                                      BooleanOperator op, bool evenOdd = true);
 
         /** Compute the pole of inaccessibility coordinate of a polygon.
             It is the most distant internal point from the polygon outline (not centroid) */
