@@ -19,24 +19,28 @@ namespace osgVerse
     class ParticleSystemU3D : public osg::NodeCallback
     {
     public:
-        ParticleSystemU3D();
+        enum UpdateMethod { CPU_ONLY, FRAME_RT };
+        ParticleSystemU3D(UpdateMethod method);
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
+
+        // Link this particle system to a geode to make it work
+        void linkTo(osg::Geode* geode);
 
         enum EmissionShape { EMIT_Point, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
         enum EmissionSurface { EMIT_Volume, EMIT_Shell };
         enum ParticleType { PARTICLE_Billboard, PARTICLE_Line, PARTICLE_Mesh };
 
         // Basic properties
-        void setGeometry(osg::Geometry* g) { _geometry = g; }
-        void setTexture(osg::Texture2D* t) { _texture = t; }
+        void setGeometry(osg::Geometry* g) { _geometry = g; _dirty = true; }
+        void setTexture(osg::Texture2D* t) { _texture = t; _dirty = true; }
         void setStartLifeRange(const osg::Vec2& v) { _startLifeRange = v; }
         void setStartSizeRange(const osg::Vec2& v) { _startSizeRange = v; }
         void setStartSpeedRange(const osg::Vec2& v) { _startSpeedRange = v; }
         void setMaxParticles(double v) { _maxParticles = v; }
         void setStartDelay(double v) { _startDelay = v; }
         void setGravityScale(double v) { _gravityScale = v; }
-        void setParticleType(ParticleType t) { _particleType = t; }
+        void setParticleType(ParticleType t) { _particleType = t; _dirty = true; }
 
         osg::Geometry* getGeometry() { return _geometry.get(); }
         osg::Texture2D* getTexture() { return _texture.get(); }
@@ -84,32 +88,34 @@ namespace osgVerse
         // Timeline based operators
         void setColorPerTime(const std::map<float, osg::Vec4>& m) { _colorPerTime = m; }
         void setColorPerSpeed(const std::map<float, osg::Vec4>& m) { _colorPerSpeed = m; }
-        void setScalePerTime(const std::map<float, osg::Vec3>& m) { _scalePerTime = m; }
-        void setScalePerSpeed(const std::map<float, osg::Vec3>& m) { _scalePerSpeed = m; }
         void setEulersPerTime(const std::map<float, osg::Vec3>& m) { _eulersPerTime = m; }
         void setEulersPerSpeed(const std::map<float, osg::Vec3>& m) { _eulersPerSpeed = m; }
         void setVelocityPerTime(const std::map<float, osg::Vec3>& m) { _velocityOffsets = m; }
         void setForcePerTime(const std::map<float, osg::Vec3>& m) { _forceOffsets = m; }
+        void setScalePerTime(const std::map<float, float>& m) { _scalePerTime = m; }
+        void setScalePerSpeed(const std::map<float, float>& m) { _scalePerSpeed = m; }
 
         std::map<float, osg::Vec4>& getColorPerTime() { return _colorPerTime; }
         std::map<float, osg::Vec4>& getColorPerSpeed() { return _colorPerSpeed; }
-        std::map<float, osg::Vec3>& getScalePerTime() { return _scalePerTime; }
-        std::map<float, osg::Vec3>& getScalePerSpeed() { return _scalePerSpeed; }
         std::map<float, osg::Vec3>& getEulersPerTime() { return _eulersPerTime; }
         std::map<float, osg::Vec3>& getEulersPerSpeed() { return _eulersPerSpeed; }
         std::map<float, osg::Vec3>& getVelocityPerTime() { return _velocityOffsets; }
         std::map<float, osg::Vec3>& getForcePerTime() { return _forceOffsets; }
+        std::map<float, float>& getScalePerTime() { return _scalePerTime; }
+        std::map<float, float>& getScalePerSpeed() { return _scalePerSpeed; }
 
     protected:
+        void recreate();
+
         std::map<float, osg::Vec4> _emissionBursts;  // [time]: count, cycles, interval, probability (0-1)
         std::map<float, osg::Vec4> _colorPerTime, _colorPerSpeed;  // [time/speed]: color
-        std::map<float, osg::Vec3> _scalePerTime, _scalePerSpeed;  // [time/speed]: scale value
         std::map<float, osg::Vec3> _eulersPerTime, _eulersPerSpeed;  // [time/speed]: euler value
         std::map<float, osg::Vec3> _velocityOffsets, _forceOffsets;  // [time]: offset
+        std::map<float, float> _scalePerTime, _scalePerSpeed;  // [time/speed]: scale value
         std::vector<osg::Plane> _collisionPlanes;
 
         osg::ref_ptr<osg::Texture2D> _texture;
-        osg::ref_ptr<osg::Geometry> _geometry;
+        osg::ref_ptr<osg::Geometry> _geometry, _geometry2;
         osg::Vec4 _collisionValues;      // dampen, bounce scale, lifetime loss, min kill speed
         osg::Vec4 _textureSheetRange;    // Sheet X0, Y0, W, H
         osg::Vec4 _textureSheetValues;   // playing speed by lifetime, by velocity, by FPS, and cycles
@@ -122,6 +128,7 @@ namespace osgVerse
         EmissionShape _emissionShape;
         EmissionSurface _emissionSurface;
         ParticleType _particleType;
+        bool _dirty;
     };
 
     class ParticleDrawable : public osg::Drawable
