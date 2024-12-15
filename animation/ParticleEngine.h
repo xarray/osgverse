@@ -20,12 +20,15 @@ namespace osgVerse
     {
     public:
         enum UpdateMethod { CPU_ONLY, FRAME_RT };
-        ParticleSystemU3D(UpdateMethod method);
+        ParticleSystemU3D();
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         // Link this particle system to a geode to make it work
         void linkTo(osg::Geode* geode);
+
+        // Update parameters in CPU mode
+        void updateCPU(osg::Vec4* ptr0, osg::Vec4* ptr1, unsigned int size);
 
         enum EmissionShape { EMIT_Point, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
         enum EmissionSurface { EMIT_Volume, EMIT_Shell };
@@ -105,6 +108,7 @@ namespace osgVerse
         std::map<float, float>& getScalePerSpeed() { return _scalePerSpeed; }
 
     protected:
+        virtual ~ParticleSystemU3D();
         void recreate();
 
         std::map<float, osg::Vec4> _emissionBursts;  // [time]: count, cycles, interval, probability (0-1)

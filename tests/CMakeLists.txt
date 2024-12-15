@@ -68,9 +68,10 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
 	    NEW_TEST_EXECUTABLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)
 	    # TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test
     ENDIF(BULLET_FOUND)
-    
+
+    NEW_TEST_EXECUTABLE(osgVerse_Test_Particle_U3D particle_u3d_test.cpp)
     IF(EFFEKSEER_FOUND)
-        NEW_TEST_EXECUTABLE(osgVerse_Test_Particle particle_test.cpp)
+        NEW_TEST_EXECUTABLE(osgVerse_Test_Particle_Effekseer particle_effekseer_test.cpp)
     ENDIF(EFFEKSEER_FOUND)
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
