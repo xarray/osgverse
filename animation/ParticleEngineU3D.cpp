@@ -1,6 +1,10 @@
 #include <osgDB/FileNameUtils>
 #include "pipeline/Global.h"
+#include "pipeline/Utilities.h"
 #include "ParticleEngine.h"
+
+#define RAND_VALUE(m, n) ((n - m) * (float)rand() / (float)RAND_MAX + m)
+#define RAND_RANGE(vec) ((vec[1] - vec[0]) * (float)rand() / (float)RAND_MAX + vec[0])
 using namespace osgVerse;
 
 class ParticleTexturePoolU3D : public osg::Referenced
@@ -22,7 +26,8 @@ public:
                  it = _rangeMap.begin(); it != _rangeMap.end(); ++it)
             {
                 unsigned int size = (unsigned int)it->first->getMaxParticles();
-                it->second->set(osg::Vec2(index, index + size)); index += size;
+                bool bb = (it->first->getParticleType() == ParticleSystemU3D::PARTICLE_Billboard);
+                it->second->set(osg::Vec3(index, index + size, bb ? 1.0f : 0.0f)); index += size;
                 if (maxSize < index + size)
                     OSG_NOTICE << "[ParticleSystemU3D] Total particle size exceeds maximum number "
                                << maxSize << ", some particles may fail to render." << std::endl;
@@ -39,7 +44,7 @@ public:
         std::map<ParticleSystemU3D*, osg::ref_ptr<osg::Uniform>>::iterator it = _rangeMap.find(obj);
         if (it != _rangeMap.end())
         {
-            osg::Vec2 range; it->second->get(range);
+            osg::Vec3 range; it->second->get(range);
             unsigned int r0 = range[0], r1 = (unsigned int)range[1];
             if (r1 < r0 || maxSize < r1) return;
 
@@ -49,7 +54,8 @@ public:
             {
                 osg::Vec4* ptr0 = (osg::Vec4*)_positionSizeAndColor->getImage()->data();
                 osg::Vec4* ptr1 = (osg::Vec4*)_velocityAndEuler->getImage()->data();
-                obj->updateCPU(ptr0 + r0, ptr1 + r0, r1 - r0);
+                obj->updateCPU(fs->getSimulationTime(), r1 - r0, ptr0 + r0, ptr0 + maxSize + r0,
+                               ptr1 + r0, ptr1 + maxSize + r0);
             }
         }
     }
@@ -57,7 +63,7 @@ public:
     osg::Uniform* reallocate(ParticleSystemU3D* obj, size_t size)
     {
         if (_rangeMap.find(obj) == _rangeMap.end())
-            _rangeMap[obj] = new osg::Uniform("DataRange", osg::Vec2());
+            _rangeMap[obj] = new osg::Uniform("DataRange", osg::Vec3());
         return _rangeMap[obj].get();
     }
 
@@ -86,6 +92,7 @@ public:
                 osg::ref_ptr<osg::Image> image = new osg::Image;
                 image->allocateImage(_maxTextureSize, _maxTextureSize, 1, GL_RGBA, GL_FLOAT);
                 image->setInternalTextureFormat(GL_RGBA32F_ARB);
+                memset(image->data(), 0, image->getTotalSizeInBytes());
                 tex->setImage(image.get());
             }
             break;
@@ -103,7 +110,14 @@ public:
     }
 
 protected:
-    ParticleTexturePoolU3D() { _maxTextureSize = 4096; _frameNumber = (unsigned int)-1; }
+    ParticleTexturePoolU3D()
+    {
+        srand(osg::Timer::instance()->tick());
+        _maxTextureSize = 2048; _frameNumber = (unsigned int)-1;
+        createParameterTexture(0, ParticleSystemU3D::CPU_ONLY);
+        createParameterTexture(1, ParticleSystemU3D::CPU_ONLY);  // FIXME
+    }
+
     std::map<ParticleSystemU3D*, osg::ref_ptr<osg::Uniform>> _rangeMap;
     osg::ref_ptr<osg::Texture2D> _positionSizeAndColor;  // [Half0] pos x, y, z, size
                                                          // [Half1] color r, g, b, a
@@ -115,13 +129,10 @@ protected:
 ParticleSystemU3D::ParticleSystemU3D()
 :   _collisionValues(0.0f, 1.0f, 0.0f, 0.0f), _emissionShapeValues(1.0f, 1.0f, 1.0f),
     _textureSheetTiles(1.0f, 1.0f), _emissionCount(100.0f, 0.0f), _startLifeRange(1.0f, 5.0f),
-    _startSizeRange(0.1f, 1.0f), _startSpeedRange(0.1f, 1.0f), _maxParticles(10000.0),
+    _startSizeRange(0.1f, 1.0f), _startSpeedRange(0.1f, 1.0f), _maxParticles(1000.0),
     _startDelay(0.0), _gravityScale(1.0), _emissionShape(EMIT_Point),
-    _emissionSurface(EMIT_Volume), _particleType(PARTICLE_Billboard), _dirty(true)
+    _emissionSurface(EMIT_Volume), _particleType(PARTICLE_Billboard), _lastSimulationTime(0.0), _dirty(true)
 {
-    ParticleTexturePoolU3D* pool = ParticleTexturePoolU3D::instance();
-    pool->createParameterTexture(0, CPU_ONLY);
-    pool->createParameterTexture(1, CPU_ONLY);  // FIXME
 }
 
 ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop)
@@ -138,12 +149,11 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _startLifeRange(copy._startLifeRange), _startSizeRange(copy._startSizeRange),
     _startSpeedRange(copy._startSpeedRange), _maxParticles(copy._maxParticles),
     _startDelay(copy._startDelay), _gravityScale(copy._gravityScale), _emissionShape(copy._emissionShape),
-    _emissionSurface(copy._emissionSurface), _particleType(copy._particleType), _dirty(copy._dirty) {}
+    _emissionSurface(copy._emissionSurface), _particleType(copy._particleType),
+    _lastSimulationTime(copy._lastSimulationTime), _dirty(copy._dirty) {}
 
 ParticleSystemU3D::~ParticleSystemU3D()
-{
-    ParticleTexturePoolU3D::instance()->deallocate(this);
-}
+{ ParticleTexturePoolU3D::instance()->deallocate(this); }
 
 void ParticleSystemU3D::operator()(osg::Node* node, osg::NodeVisitor* nv)
 {
@@ -164,13 +174,47 @@ void ParticleSystemU3D::operator()(osg::Node* node, osg::NodeVisitor* nv)
 void ParticleSystemU3D::linkTo(osg::Geode* geode)
 {
     if (!_geometry) recreate();
-    geode->addDrawable(_geometry.get());
+    if (!geode->containsDrawable(_geometry.get()))
+        geode->addDrawable(_geometry.get());
     geode->addUpdateCallback(this);
 }
 
-void ParticleSystemU3D::updateCPU(osg::Vec4* ptr0, osg::Vec4* ptr1, unsigned int size)
+void ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
+                                  osg::Vec4* ptr2, osg::Vec4* ptr3)
 {
-    // TODO
+    double dt = time - _lastSimulationTime;
+    int numToAdd = osg::maximum((int)(_emissionCount[0] * dt), (_emissionCount[0] > 0.0f) ? 1 : 0);
+
+    // Remove and create particles
+    for (unsigned int i = 0; i < size; ++i)
+    {
+        osg::Vec4& posSize = *(ptr0 + i); osg::Vec4& color = *(ptr1 + i);
+        osg::Vec4& velLife = *(ptr2 + i); osg::Vec4& eulerAnim = *(ptr3 + i);
+
+        // TODO: many attributes to set...
+        if (velLife.a() == 0.0f && numToAdd > 0)
+        {
+            osg::Vec3 dir = osg::X_AXIS * osg::Matrix::rotate(RAND_VALUE(0.0f, osg::PI_2), osg::Y_AXIS)
+                                        * osg::Matrix::rotate(RAND_VALUE(0.0f, osg::PI * 2.0f), osg::Z_AXIS);
+            dir = dir * RAND_RANGE(_startSpeedRange) + osg::Vec3(0.0f, 0.0f, -9.8f) * _gravityScale;
+            velLife.set(dir[0], dir[1], dir[2], RAND_RANGE(_startLifeRange));
+            posSize.set(_emissionShapeCenter[0], _emissionShapeCenter[1], _emissionShapeCenter[2],
+                        RAND_RANGE(_startSizeRange));
+            color.set(1.0f, 1.0f, 1.0f, 1.0f);
+            numToAdd--;
+        }
+        else
+        {
+            velLife.a() -= (float)dt;
+            if (velLife.a() > 0.0f)
+            {
+                osg::Vec3 vel(velLife[0] * dt, velLife[1] * dt, velLife[2] * dt);
+                for (int k = 0; k < 3; ++k) posSize[k] += vel[k];
+            }
+            else velLife.a() = 0.0f;
+        }
+    }
+    _lastSimulationTime = time;
 }
 
 void ParticleSystemU3D::recreate()
@@ -180,6 +224,7 @@ void ParticleSystemU3D::recreate()
     _geometry->setName("ParticleGeometry");
     _geometry->setUseDisplayList(false);
     _geometry->setUseVertexBufferObjects(true);
+    _geometry->setComputeBoundingBoxCallback(new osgVerse::DisableBoundingBoxCallback);
     switch (_particleType)
     {
     case PARTICLE_Billboard:
@@ -187,10 +232,10 @@ void ParticleSystemU3D::recreate()
             osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(4);
             osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(4);
             osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(4);
-            (*va)[0].set(-0.5f, -0.5f, 0.0f); (*ta)[0].set(0.0f, 0.0f);
-            (*va)[1].set(0.5f, -0.5f, 0.0f); (*ta)[1].set(1.0f, 0.0f);
-            (*va)[2].set(0.5f, 0.5f, 0.0f); (*ta)[2].set(1.0f, 1.0f);
-            (*va)[3].set(-0.5f, 0.5f, 0.0f); (*ta)[3].set(0.0f, 1.0f);
+            (*va)[0].set(-0.005f, -0.005f, 0.0f); (*ta)[0].set(0.0f, 0.0f);
+            (*va)[1].set(0.005f, -0.005f, 0.0f); (*ta)[1].set(1.0f, 0.0f);
+            (*va)[2].set(0.005f, 0.005f, 0.0f); (*ta)[2].set(1.0f, 1.0f);
+            (*va)[3].set(-0.005f, 0.005f, 0.0f); (*ta)[3].set(0.0f, 1.0f);
             for (int i = 0; i < 4; ++i) (*na)[i] = osg::Z_AXIS;
             _geometry->setVertexArray(va.get()); _geometry->setNormalArray(na.get());
             _geometry->setTexCoordArray(0, ta.get());

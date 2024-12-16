@@ -19,7 +19,7 @@ namespace osgVerse
     class ParticleSystemU3D : public osg::NodeCallback
     {
     public:
-        enum UpdateMethod { CPU_ONLY, FRAME_RT };
+        enum UpdateMethod { CPU_ONLY, FRAME_RT };  // TODO
         ParticleSystemU3D();
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
@@ -27,15 +27,18 @@ namespace osgVerse
         // Link this particle system to a geode to make it work
         void linkTo(osg::Geode* geode);
 
-        // Update parameters in CPU mode
-        void updateCPU(osg::Vec4* ptr0, osg::Vec4* ptr1, unsigned int size);
+        // Update parameters in CPU mode:
+        // - ptr0: pos x, y, z, size; ptr1: color r, g, b, a
+        // - ptr2: velocity x, y, z, life; ptr3: euler x, y, z, anim id
+        void updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
+                       osg::Vec4* ptr2, osg::Vec4* ptr3);
 
         enum EmissionShape { EMIT_Point, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
         enum EmissionSurface { EMIT_Volume, EMIT_Shell };
         enum ParticleType { PARTICLE_Billboard, PARTICLE_Line, PARTICLE_Mesh };
 
         // Basic properties
-        void setGeometry(osg::Geometry* g) { _geometry = g; _dirty = true; }
+        void setGeometry(osg::Geometry* g) { _geometry2 = g; _dirty = true; }
         void setTexture(osg::Texture2D* t) { _texture = t; _dirty = true; }
         void setStartLifeRange(const osg::Vec2& v) { _startLifeRange = v; }
         void setStartSizeRange(const osg::Vec2& v) { _startSizeRange = v; }
@@ -45,7 +48,7 @@ namespace osgVerse
         void setGravityScale(double v) { _gravityScale = v; }
         void setParticleType(ParticleType t) { _particleType = t; _dirty = true; }
 
-        osg::Geometry* getGeometry() { return _geometry.get(); }
+        osg::Geometry* getGeometry() { return _geometry2.get(); }
         osg::Texture2D* getTexture() { return _texture.get(); }
         const osg::Vec2& getStartLifeRange() const { return _startLifeRange; }
         const osg::Vec2& getStartSizeRange() const { return _startSizeRange; }
@@ -132,6 +135,7 @@ namespace osgVerse
         EmissionShape _emissionShape;
         EmissionSurface _emissionSurface;
         ParticleType _particleType;
+        double _lastSimulationTime;
         bool _dirty;
     };
 

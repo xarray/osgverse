@@ -12,6 +12,7 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include <animation/ParticleEngine.h>
+#include <pipeline/Pipeline.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <iostream>
@@ -36,7 +37,23 @@ int main(int argc, char** argv)
     root->addChild(scene.get());
 
     osg::ref_ptr<osg::Geode> particleNode = new osg::Geode;
-    // TODO
+    {
+        osg::ref_ptr<osgVerse::ParticleSystemU3D> ps = new osgVerse::ParticleSystemU3D;
+        ps->setTexture(osgVerse::createTexture2D(osgDB::readImageFile("Images/smoke.rgb")));
+        ps->setGravityScale(0.1);
+        ps->linkTo(particleNode.get());
+
+        osg::Program* program = new osg::Program;
+        program->setName("Particle_PROGRAM");
+        program->addShader(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "particles.vert.glsl"));
+        program->addShader(osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "particles.frag.glsl"));
+        osgVerse::Pipeline::createShaderDefinitions(program->getShader(0), 100, 130);
+        osgVerse::Pipeline::createShaderDefinitions(program->getShader(1), 100, 130);
+
+        particleNode->getOrCreateStateSet()->setAttribute(program);
+        particleNode->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+        particleNode->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    }
 
     osg::ref_ptr<osg::MatrixTransform> particleMT = new osg::MatrixTransform;
     particleMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 10.0f));
@@ -45,6 +62,7 @@ int main(int argc, char** argv)
 
     // Start the main loop
     osgViewer::Viewer viewer;
+    viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
