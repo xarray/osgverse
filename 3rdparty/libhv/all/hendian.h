@@ -1,5 +1,8 @@
 #ifndef HV_ENDIAN_H_
 #define HV_ENDIAN_H_
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   include <winsock.h>
+#endif
 
 #include "hplatform.h"
 #if defined(OS_MAC)

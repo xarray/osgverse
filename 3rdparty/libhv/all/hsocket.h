@@ -1,5 +1,9 @@
 #ifndef HV_SOCKET_H_
 #define HV_SOCKET_H_
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   include <winsock2.h>
+#   include <ws2tcpip.h>
+#endif
 
 #include "hexport.h"
 #include "hplatform.h"

@@ -49,6 +49,9 @@
 #include <cassert>
 #include <cmath>  // for abs()
 #include <cstdlib>  // for abs()
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   include <cstdint>
+#endif
 #include <functional>
 #include <istream>
 #include <limits>  // std::reference_wrapper

@@ -154,15 +154,8 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        osgDB::ReaderWriter* reader =
-            osgDB::Registry::instance()->getReaderWriterForExtension(ext);
-        if (!reader)
-        {
-            OSG_WARN << "[libhv] No reader/writer plugin for " << fileName << std::endl;
-            return ReadResult::FILE_NOT_HANDLED;
-        }
-
         // TODO: get connection parameters from options
+        std::string contentType = "image/jpeg";
 #ifdef __EMSCRIPTEN__
         osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
         bool succeed = wf->httpGet(fileName);
@@ -174,13 +167,16 @@ public:
 
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
         buffer.write((char*)&wf->buffer[0], wf->buffer.size());
+        for (size_t i = 0; i < wf->resHeaders.size(); i += 2)
+        {
+            const std::string& key = wf->resHeaders[i];
+            if (key.find("content-type") != std::string::npos)
+                contentType = trimString(wf->resHeaders[i + 1]);
+        }
 #else
-        HttpRequest req;
-
-        // Read data from web
+        HttpRequest req;  // Read data from web
         req.method = HTTP_GET;
-        req.url = fileName;
-        req.scheme = scheme;
+        req.url = fileName; req.scheme = scheme;
 
         HttpResponse response;
         int result = _client->send(&req, &response);
@@ -198,6 +194,7 @@ public:
 
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
         buffer.write((char*)response.body.data(), response.body.size());
+        contentType = http_content_type_str(response.content_type);
 #endif
 
         // Load by other readerwriter
@@ -206,6 +203,16 @@ public:
         lOptions->getDatabasePathList().push_front(osgDB::getFilePath(fileName));
         lOptions->setPluginStringData("STREAM_FILENAME", osgDB::getSimpleFileName(fileName));
         lOptions->setPluginStringData("filename", fileName);
+
+        osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        if (!reader)
+            reader = osgDB::Registry::instance()->getReaderWriterForMimeType(contentType);
+        if (!reader)
+        {
+            OSG_WARN << "[libhv] No reader/writer plugin for " << fileName
+                     << " (content-type: " << contentType << ")" << std::endl;
+            return ReadResult::FILE_NOT_HANDLED;
+        }
 
         // TODO: uncompress remote osgz/ivez/gz?
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
@@ -272,6 +279,15 @@ public:
     }
 
 protected:
+    static std::string trimString(const std::string& str)
+    {
+        if (!str.size()) return str;
+        std::string::size_type first = str.find_first_not_of(" \t");
+        std::string::size_type last = str.find_last_not_of("  \t\r\n");
+        if ((first == str.npos) || (last == str.npos)) return std::string("");
+        return str.substr(first, last - first + 1);
+    }
+
     hv::HttpClient* _client;
 };
 

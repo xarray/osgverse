@@ -69,6 +69,11 @@ typedef sig_t sighandler_t;
 
 #endif
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   include <sys/time.h>
+#   include <direct.h>
+#endif
+
 #if !defined(_WIN32)
 /* enable the os.Worker API. IT relies on POSIX threads */
 #define USE_WORKER

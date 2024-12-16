@@ -16,6 +16,9 @@
 #include <string.h> // for memset,memmove
 
 #include "hbase.h"  // for HV_ALLOC, HV_FREE
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   include <winsock2.h>
+#endif
 
 #define ARRAY_INIT_SIZE     16
 

@@ -13,8 +13,8 @@
 #   define _MAX_FNAME 256
 #   define _MAX_EXT 256
 #   define SLASH_CHAR	'\\'
-int _splitpath_s(const char *path, char *drive, int nDrive, char *dir, int nDir,
-                 char *fname, int nName, char *ext, int nExt)
+errno_t _splitpath_s(const char *path, char *drive, size_t nDrive, char *dir, size_t nDir,
+                     char *fname, size_t nName, char *ext, size_t nExt)
 {
     if (!path) return -1; char *slash = strrchr((char *)path, SLASH_CHAR);
     char *dot = strrchr((char *)path, '.'); if (drive) *drive = '\0';

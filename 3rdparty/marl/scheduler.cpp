@@ -60,7 +60,9 @@ inline uint64_t threadID() {
 #endif
 
 inline void nop() {
-#if defined(_WIN32)
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+  __asm__ __volatile__("nop");
+#elif defined(_WIN32)
   __nop();
 #else
   __asm__ __volatile__("nop");

@@ -1,6 +1,9 @@
 #include "hssl.h"
 
 #ifdef WITH_MBEDTLS
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   include <winsock.h>
+#endif
 
 #include "mbedtls/version.h"
 #include "mbedtls/entropy.h"

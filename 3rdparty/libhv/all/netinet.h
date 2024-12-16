@@ -2,6 +2,9 @@
 #define HV_NETINET_H_
 
 #include "hplatform.h"
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   include <winsock.h>
+#endif
 
 /*
 #ifdef OS_UNIX
