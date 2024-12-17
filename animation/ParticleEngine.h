@@ -4,6 +4,7 @@
 #include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/Geometry>
+#include <osg/Geode>
 #include <osg/MatrixTransform>
 #include <map>
 
@@ -25,17 +26,19 @@ namespace osgVerse
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         // Link this particle system to a geode to make it work
-        void linkTo(osg::Geode* geode);
+        void linkTo(osg::Geode* geode, bool applyStates, osg::Shader* vert = NULL, osg::Shader* frag = NULL);
+        void unlinkFrom(osg::Geode* geode);
 
         // Update parameters in CPU mode:
         // - ptr0: pos x, y, z, size; ptr1: color r, g, b, a
         // - ptr2: velocity x, y, z, life; ptr3: euler x, y, z, anim id
         void updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
-                       osg::Vec4* ptr2, osg::Vec4* ptr3);
+            osg::Vec4* ptr2, osg::Vec4* ptr3);
 
         enum EmissionShape { EMIT_Point, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
         enum EmissionSurface { EMIT_Volume, EMIT_Shell };
-        enum ParticleType { PARTICLE_Billboard, PARTICLE_Line, PARTICLE_Mesh };
+        enum ParticleType { PARTICLE_Billboard, PARTICLE_BillboardNoScale, PARTICLE_Line, PARTICLE_Mesh };
+        enum BlendingType { BLEND_None, BLEND_Modulate, BLEND_Additive };
 
         // Basic properties
         void setGeometry(osg::Geometry* g) { _geometry2 = g; _dirty = true; }
@@ -46,7 +49,10 @@ namespace osgVerse
         void setMaxParticles(double v) { _maxParticles = v; }
         void setStartDelay(double v) { _startDelay = v; }
         void setGravityScale(double v) { _gravityScale = v; }
+        void setDuration(double v) { _duration = v; }
+        void setAspectRatio(double v) { _aspectRatio = v; }
         void setParticleType(ParticleType t) { _particleType = t; _dirty = true; }
+        void setBlendingType(BlendingType t) { _blendingType = t; _dirty = true; }
 
         osg::Geometry* getGeometry() { return _geometry2.get(); }
         osg::Texture2D* getTexture() { return _texture.get(); }
@@ -56,7 +62,10 @@ namespace osgVerse
         double getMaxParticles() const { return _maxParticles; }
         double getStartDelay() const { return _startDelay; }
         double getGravityScale() const { return _gravityScale; }
+        double getDuration() const { return _duration; }
+        double getAspectRatio() const { return _aspectRatio; }
         ParticleType getParticleType() const { return _particleType; }
+        BlendingType getBlendingType() const { return _blendingType; }
 
         /// Emission properties
         void setEmissionBursts(const std::map<float, osg::Vec4>& m) { _emissionBursts = m; }
@@ -72,7 +81,7 @@ namespace osgVerse
         const osg::Vec3& getEmissionShapeEulers() const { return _emissionShapeEulers; }
         const osg::Vec3& getEmissionShapeValues() const { return _emissionShapeValues; }
         const osg::Vec2& getEmissionCount() const { return _emissionCount; }
-        EmissionShape getEmissionShape() const  { return _emissionShape; }
+        EmissionShape getEmissionShape() const { return _emissionShape; }
         EmissionSurface getEmissionSurface() const { return _emissionSurface; }
 
         // Collision properties
@@ -83,9 +92,9 @@ namespace osgVerse
         const osg::Vec4& getCollisionValues() const { return _collisionValues; }
 
         /// Texture sheet animation properties
-        void setTextureSheetRange(const osg::Vec4& v) { _textureSheetRange = v; }
+        void setTextureSheetRange(const osg::Vec4& v) { _textureSheetRange = v; _dirty = true; }
         void setTextureSheetValues(const osg::Vec4& v) { _textureSheetValues = v; }
-        void setTextureSheetTiles(const osg::Vec2& v) { _textureSheetTiles = v; }
+        void setTextureSheetTiles(const osg::Vec2& v) { _textureSheetTiles = v; _dirty = true; }
 
         const osg::Vec4& getTextureSheetRange() const { return _textureSheetRange; }
         const osg::Vec4& getTextureSheetValues() const { return _textureSheetValues; }
@@ -113,6 +122,11 @@ namespace osgVerse
     protected:
         virtual ~ParticleSystemU3D();
         void recreate();
+        void emitParticle(osg::Vec4& vel, osg::Vec4& pos);
+        void changeColor(osg::Vec4& color, float time, float speed);
+        void changeSize(osg::Vec4& posSize, float time, float speed);
+        void changeVelocity(osg::Vec4& vel, float time);
+        void changeEulers(osg::Vec4& euler, float time, float speed);
 
         std::map<float, osg::Vec4> _emissionBursts;  // [time]: count, cycles, interval, probability (0-1)
         std::map<float, osg::Vec4> _colorPerTime, _colorPerSpeed;  // [time/speed]: color
@@ -132,10 +146,11 @@ namespace osgVerse
         osg::Vec2 _emissionCount;        // count per time, count per distance
         osg::Vec2 _startLifeRange, _startSizeRange, _startSpeedRange;
         double _maxParticles, _startDelay, _gravityScale;
+        double _startTime, _lastSimulationTime, _duration, _aspectRatio;
         EmissionShape _emissionShape;
         EmissionSurface _emissionSurface;
         ParticleType _particleType;
-        double _lastSimulationTime;
+        BlendingType _blendingType;
         bool _dirty;
     };
 
@@ -150,10 +165,14 @@ namespace osgVerse
         virtual Object* cloneType() const { return new ParticleDrawable; }
         virtual Object* clone(const osg::CopyOp& copyop) const { return new ParticleDrawable(*this, copyop); }
         virtual bool isSameKindAs(const osg::Object* obj) const
-        { return dynamic_cast<const ParticleDrawable*>(obj) != NULL; }
+        {
+            return dynamic_cast<const ParticleDrawable*>(obj) != NULL;
+        }
 
         enum PlayingState
-        { INVALID = -1, STOPPED = 0, PLAYING = 1, PAUSED = 2 };
+        {
+            INVALID = -1, STOPPED = 0, PLAYING = 1, PAUSED = 2
+        };
 
         Effekseer::Effect* createEffect(const std::string& name, const std::string& fileName);
         void destroyEffect(const std::string& name);

@@ -1,8 +1,7 @@
 #include <osg/io_utils>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Texture2D>
-#include <osg/PagedLOD>
-#include <osg/ProxyNode>
+#include <osg/Depth>
 #include <osg/MatrixTransform>
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
@@ -39,20 +38,27 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Geode> particleNode = new osg::Geode;
     {
         osg::ref_ptr<osgVerse::ParticleSystemU3D> ps = new osgVerse::ParticleSystemU3D;
-        ps->setTexture(osgVerse::createTexture2D(osgDB::readImageFile("Images/smoke.rgb")));
-        ps->setGravityScale(0.1);
-        ps->linkTo(particleNode.get());
-
-        osg::Program* program = new osg::Program;
-        program->setName("Particle_PROGRAM");
-        program->addShader(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "particles.vert.glsl"));
-        program->addShader(osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "particles.frag.glsl"));
-        osgVerse::Pipeline::createShaderDefinitions(program->getShader(0), 100, 130);
-        osgVerse::Pipeline::createShaderDefinitions(program->getShader(1), 100, 130);
-
-        particleNode->getOrCreateStateSet()->setAttribute(program);
-        particleNode->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
-        particleNode->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        ps->setTexture(osgVerse::createTexture2D(
+            osgDB::readImageFile(BASE_DIR + "/textures/foam_texture_sheet.png")));
+        ps->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
+        ps->setGravityScale(0.0); ps->setMaxParticles(1200);
+        ps->setDuration(3.0); ps->setAspectRatio(16.0 / 9.0);
+        ps->setStartLifeRange(osg::Vec2(1.0f, 2.0f));
+        ps->setStartSizeRange(osg::Vec2(2.0f, 5.0f));
+        ps->setStartSpeedRange(osg::Vec2(0.0f, 0.0f));
+        ps->setEmissionCount(osg::Vec2(100.0f, 0.0f));
+        ps->setEmissionShape(osgVerse::ParticleSystemU3D::EMIT_Box);
+        ps->setEmissionShapeCenter(osg::Vec3(0.0f, 6.85f, -2.5f));
+        ps->setEmissionShapeValues(osg::Vec3(12.0f, 6.0f, 6.0f));
+        ps->getColorPerTime()[0.0f] = osg::Vec4(0.4, 0.4, 0.4f, 0.0f);
+        ps->getColorPerTime()[0.5f] = osg::Vec4(0.4, 0.4, 0.4f, 0.1f);
+        ps->getColorPerTime()[1.0f] = osg::Vec4(0.4, 0.4, 0.4f, 0.0f);
+        ps->setTextureSheetTiles(osg::Vec2(8.0f, 8.0f));
+        ps->setTextureSheetValues(osg::Vec4(32.0f, 0.0f, 0.0f, 0.0f));
+        ps->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
+        ps->linkTo(particleNode.get(), true,
+                   osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "particles.vert.glsl"),
+                   osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "particles.frag.glsl"));
     }
 
     osg::ref_ptr<osg::MatrixTransform> particleMT = new osg::MatrixTransform;
