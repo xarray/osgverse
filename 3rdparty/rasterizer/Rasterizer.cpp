@@ -1086,11 +1086,7 @@ void Rasterizer::rasterize(const Occluder& occluder)
     __m128i* pDepthBuffer = &*m_depthBuffer.begin();
 
     // Loop over set bits
-#if defined(__CYGWIN__) || defined(__MINGW32__)
-    unsigned int primitiveIdx;
-#else
     unsigned long primitiveIdx;
-#endif
     while (_BitScanForward(&primitiveIdx, validMask))
     {
       // Clear lowest set bit in mask

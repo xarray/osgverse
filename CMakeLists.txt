@@ -148,10 +148,12 @@ ELSE(OSG_ROOT)
         /usr/local/include
     )
 
-    FIND_PATH(OSG_LIB_DIR libosg.a libosg.dll.a libosg.so osg.lib
+    FIND_PATH(OSG_LIB_DIR
+        NAMES libosg.a libosg.dll.a libosg.so osg.lib
         PATHS ${THIRDPARTY_ROOT}/lib
         $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
         $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
+        ${OSG_BUILD_INCLUDE_DIR}/../lib
         /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
         /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
     )
@@ -397,7 +399,7 @@ ELSEIF(WIN32 OR MINGW OR CYGWIN)
         ADD_DEFINITIONS(-DVERSE_MINGW -DWIN32_HAS_PTHREADS)
     ENDIF()
 
-    SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} Ws2_32 imm32 Ole32 OleAut32)
+    SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} Ws2_32 Winmm imm32 Ole32 OleAut32 Dbghelp)
     ADD_DEFINITIONS(-DVERSE_WINDOWS)
     SET(VERSE_PLATFORM "Windows")
 ELSEIF(APPLE)
@@ -516,7 +518,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         # Add demo project here?
     ELSE()
         MESSAGE(STATUS "[osgVerse] Desktop toolchain is used. (API = ${VERSE_GRAPHICS_API})")
-        ADD_SUBDIRECTORY(applications)
+        #ADD_SUBDIRECTORY(applications)
         ADD_SUBDIRECTORY(tests)
         ADD_SUBDIRECTORY(assets)
     ENDIF()

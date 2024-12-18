@@ -165,8 +165,11 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
-    osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments)
-                                  : osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
+    osg::ref_ptr<osgDB::Options> options; std::string optString;
+    if (arguments.read("-O", optString)) options = new osgDB::Options(optString);
+
+    osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments, options.get())
+                                  : osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get());
     if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -177,6 +180,8 @@ int main(int argc, char** argv)
     {
         osg::ref_ptr<osgDB::Options> options = new osgDB::Options;
         options->setPluginStringData("TargetFileVersion", "91");  // the first version
+        options->setPluginStringData("WriteImageHint", "IncludeFile");
+        options->setPluginStringData("UseBASISU", "1");
 
         // Compress and optimize textures (it may take a while)
         // With op: CPU memory = 167.5MB, GPU memory = 0.8GB

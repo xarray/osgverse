@@ -71,7 +71,9 @@ typedef sig_t sighandler_t;
 
 #if defined(__CYGWIN__) || defined(__MINGW32__)
 #   include <sys/time.h>
-#   include <direct.h>
+#   include <dirent.h>
+#   define USE_WORKER
+#   define pipe(fds) _pipe((fds), 4096, _O_BINARY)
 #endif
 
 #if !defined(_WIN32)

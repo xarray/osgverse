@@ -448,7 +448,10 @@ protected:
                 if (tex && tex->getNumImages() > 0)
                 {
                     for (size_t j = 0; j < tex->getNumImages(); ++j)
-                    { if (osgVerse::ImageHelper::hasAlpha(*tex->getImage(j))) return false; }
+                    {
+                        osg::Image* img = tex->getImage(j);
+                        if (img && osgVerse::ImageHelper::hasAlpha(*img)) return false;
+                    }
                 }
             }
         }
@@ -965,7 +968,7 @@ namespace osgVerse
              itr != _modules.end(); ++itr)
         { mainCam->removeUpdateCallback(itr->second.get()); }
 
-#ifdef VERSE_WINDOWS
+#ifdef VERSE_MSVC
         TextInputMethodManager::instance()->unbind();
 #endif
     }
@@ -1040,7 +1043,7 @@ namespace osgVerse
         mainCam->setProjectionMatrixAsPerspective(
             mainFov, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), mainNear, mainFar);
 
-#ifdef VERSE_WINDOWS
+#ifdef VERSE_MSVC
         TextInputMethodManager::instance()->disable(_stageContext.get());
 #endif
     }

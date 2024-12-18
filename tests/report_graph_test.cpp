@@ -31,11 +31,11 @@ namespace backward { backward::SignalHandling sh; }
 class Reporter : public osg::NodeVisitor
 {
 public:
-    Reporter::Reporter()
+    Reporter()
     :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
         _geomReporter(NULL), _indent(0) { setNodeMaskOverride(0xffffffff); }
 
-    Reporter::~Reporter()
+    virtual ~Reporter()
     { if (_geomReporter) delete _geomReporter; }
 
     void setGeometryReport(const std::string& file)

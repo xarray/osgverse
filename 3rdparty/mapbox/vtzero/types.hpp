@@ -12,6 +12,7 @@ documentation.
 
 #include <protozero/pbf_reader.hpp>
 
+#include <limits>
 #include <array>
 #include <cassert>
 

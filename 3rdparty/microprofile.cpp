@@ -1344,7 +1344,7 @@ DWORD _stdcall ThreadTrampoline(void* pFunc)
 
 void MicroProfileThreadStart(MicroProfileThread* pThread, MicroProfileThreadFunc Func)
 {
-	*pThread = CreateThread(0, 0, ThreadTrampoline, Func, 0, 0);
+	*pThread = CreateThread(0, 0, ThreadTrampoline, (LPVOID)Func, 0, 0);
 }
 void MicroProfileThreadJoin(MicroProfileThread* pThread)
 {

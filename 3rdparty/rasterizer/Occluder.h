@@ -6,10 +6,6 @@
 
 #include "Rasterizer.h"
 #if defined(_MSC_VER) || defined(__CYGWIN__) || defined(__MINGW32__)
-#   if defined(__CYGWIN__) || defined(__MINGW32__)
-#       define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
-#       define _aligned_free(ptr) free(ptr)
-#   endif
 #   include <intrin.h>
 #else
 #   define __forceinline inline

@@ -201,6 +201,11 @@ Our project is already tested on graphics cards listed as below:
     - $ cmake ..
     - $ cmake --build .
   - You may also choose to use cmake-gui and set OSG related options in GUI mode.
+  - For MinGW build (UCRT64):
+    - First download OpenSceneGraph prebuilt libraries:
+      - $ pacman -S mingw-w64-ucrt-x86_64-OpenSceneGraph
+    - Run commands below in terminal:
+      - $ cmake -G "MSYS Makefiles" <osgverse_folder>
   - For UWP build:
     - First download Windows Store SDK or latest Windows 11 SDK (with VS2022).
     - Download Angle for UWP: https://www.nuget.org/packages/ANGLE.WindowsStore

@@ -163,6 +163,10 @@ typedef long ssize_t;
 
 #else
 
+#if defined(__CYGWIN__) || defined(__MINGW32__)
+#   define gettimeofday mingw_gettimeofday
+#endif
+
 #define CONFIG_VERSION "quickjs"
 #define INT64_MAX_BIN 0x1p63
 
