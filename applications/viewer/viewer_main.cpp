@@ -163,14 +163,14 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    std::string optString, optAll;
+    while (arguments.read("-O", optString)) optAll += optString + " ";
+
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
-
-    osg::ref_ptr<osgDB::Options> options; std::string optString;
-    if (arguments.read("-O", optString)) options = new osgDB::Options(optString);
-
+    osg::ref_ptr<osgDB::Options> options = optAll.empty() ? NULL : new osgDB::Options(optAll);
     osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments, options.get())
                                   : osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get());
-    if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
+    if (!scene) { OSG_WARN << "Failed to load scene model" << std::endl; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
     osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);

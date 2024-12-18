@@ -518,7 +518,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         # Add demo project here?
     ELSE()
         MESSAGE(STATUS "[osgVerse] Desktop toolchain is used. (API = ${VERSE_GRAPHICS_API})")
-        #ADD_SUBDIRECTORY(applications)
+        ADD_SUBDIRECTORY(applications)
         ADD_SUBDIRECTORY(tests)
         ADD_SUBDIRECTORY(assets)
     ENDIF()

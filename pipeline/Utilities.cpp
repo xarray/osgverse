@@ -20,6 +20,7 @@
 #include <array>
 #include <random>
 
+#include <backward.hpp>
 #include <mikktspace.h>
 #include <PoissonGenerator.h>
 #include <normalmap/normalmapgenerator.h>
@@ -30,6 +31,11 @@
 #include "ShaderLibrary.h"
 #include "Pipeline.h"
 #include "Utilities.h"
+
+#define BACKWARD_MESSAGE(msg, n) \
+    { backward::Printer printer; backward::StackTrace st; st.load_here(n); st.skip_n_firsts(2); \
+      std::stringstream ss; ss << std::string(15, '#') << "\n"; printer.print(st, ss); \
+      msg += ss.str() + std::string(15, '#') + "\n"; }
 
 #ifndef GL_GEOMETRY_SHADER
 #   define GL_GEOMETRY_SHADER  0x8DD9
@@ -1054,6 +1060,8 @@ namespace osgVerse
     void ConsoleHandler::notify(osg::NotifySeverity severity, const char* message)
     {
         std::string msg(message);
+        if (severity >= osg::NotifySeverity::WARN) BACKWARD_MESSAGE(msg, 16);
+
         switch (severity)
         {
         case osg::NotifySeverity::ALWAYS: notifyLevel0(severity, msg); break;

@@ -15,6 +15,7 @@ public:
     ReaderWriterTMS()
     {
         supportsExtension("verse_tms", "osgVerse pseudo-loader");
+        supportsExtension("tms", "TMS tile indices");
         supportsOption("URL", "The TMS server URL with wildcards");
         supportsOption("UseWebMercator", "Use Web Mercator (Level-0 has 4 tiles): default=0");
         supportsOption("OriginBottomLeft", "Use bottom-left as every tile's origin point: default=0");
@@ -70,6 +71,7 @@ public:
                 for (int xx = 0; xx < 2; ++xx)
                 {
                     osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
+                    plod->setDatabaseOptions(options->cloneOptions());
                     plod->addChild(createTile(pseudoAddr, x + xx, y + yy, z, extentMin, extentMax, options));
                     plod->setFileName(1, std::to_string(x + xx) + "-" + std::to_string(y + yy) +
                                          "-" + std::to_string(z) + ".verse_tms");
