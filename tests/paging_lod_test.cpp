@@ -20,9 +20,8 @@
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
 
-#include <pipeline/Utilities.h>
+#include <VerseCommon.h>
 #include <readerwriter/DatabasePager.h>
-#include <readerwriter/Utilities.h>
 #include <readerwriter/OsgbTileOptimizer.h>
 #include <readerwriter/DracoProcessor.h>
 

@@ -148,22 +148,11 @@ namespace osgVerse
     /** Generate mipmaps of given image */
     OSGVERSE_RW_EXPORT bool generateMipmaps(osg::Image& image, bool useKaiser);
 
-    /** Add necessary methods to OSG class wrappers */
-    OSGVERSE_RW_EXPORT bool updateOsgBinaryWrappers(const std::string& libName = "osg");
-
-    /** A quick function to help fix .osgb dead lock problem */
-    OSGVERSE_RW_EXPORT bool fixOsgBinaryWrappers(const std::string& libName = "osg");
-
     /** Encode data to base64 */
     OSGVERSE_RW_EXPORT std::string encodeBase64(const std::vector<unsigned char>& buffer);
 
     /** Decode base64 to data */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> decodeBase64(const std::string& data);
-
-    /** Setup draco encoding parameters */
-    enum EncodingDracoFlag { COMPRESS_LEVEL = 0, POSITION_QUANTIZATION = 1,
-                             UV_QUANTIZATION = 2, NORMAL_QUANTIZATION = 3 };
-    OSGVERSE_RW_EXPORT void setEncodingDracoFlag(EncodingDracoFlag flag, int value);
 
     /** Setup KTX trancoding flags */
     enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };

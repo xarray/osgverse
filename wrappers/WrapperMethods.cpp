@@ -5,7 +5,8 @@
 #include <osgDB/ObjectWrapper>
 #include <osgDB/InputStream>
 #include <osgDB/OutputStream>
-#include "Utilities.h"
+#include <readerwriter/Utilities.h>
+#include "Export.h"
 
 /////////////////////////////// STATESET
 struct StateSet_GetAttribute : public osgDB::MethodObject
@@ -351,7 +352,7 @@ void addCameraMethods(osgDB::ObjectWrapper* wrapper)
 ///////////////////////////////
 namespace osgVerse
 {
-    bool updateOsgBinaryWrappers(const std::string& libName)
+    OSGVERSE_WRAPPERS_EXPORT bool updateOsgBinaryWrappers(const std::string& libName)
     {
         osgDB::Registry* registry = osgDB::Registry::instance();
         std::string pluginLib = registry->createLibraryNameForExtension("serializers_" + libName);

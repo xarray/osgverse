@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ValueObject>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geometry>
 #include <osg/MatrixTransform>

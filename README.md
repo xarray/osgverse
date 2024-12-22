@@ -92,7 +92,8 @@ Our project is already tested on graphics cards listed as below:
 6. osgVerseUI: IMGUI based quick UI support, HTML based UI solution, and related utilities.
 7. osgVerseScript: Scripting support based on OSG serialization functionalities.
 8. osgVerseAI: Artificial-Intelligence related classes, including navigation-mesh and so on.
-9. TBD...
+9. osgVerseWrappers: All serialzier wrappers of osgVerse and extended OSG classes.
+10. TBD...
 
 ##### Module dependency chain
 |     Name     |               Depended Module             | Optional External Dependency |
@@ -104,6 +105,7 @@ Our project is already tested on graphics cards listed as below:
 | Animation    | Dependency, Pipeline, Modeling            | Bullet, Effekseer            |
 | UI           | Dependency, Modeling, Script              | libCEF                       |
 | ReaderWriter | Dependency, Animation, Modeling, Pipeline | libDraco, SDL                |
+| Wrappers     | ALL                                       |                              |
 
 #### Applications
 1. osgVerse_SceneEditor: a forward-looking scene editor for osgVerse scene & components.

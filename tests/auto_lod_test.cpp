@@ -13,12 +13,10 @@
 #include <osgText/Font>
 #include <osgText/Text>
 
+#include <VerseCommon.h>
 #include <modeling/Octree.h>
 #include <modeling/GeometryMerger.h>
-#include <modeling/Utilities.h>
-#include <readerwriter/Utilities.h>
 #include <pipeline/IntersectionManager.h>
-#include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -130,7 +128,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
     osg::ref_ptr<osg::Group> root = new osg::Group;
 
-#if true
+#if false
     osg::Geometry* g0 = osg::createTexturedQuadGeometry(osg::Vec3(0.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
     osg::Geometry* g1 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
     osg::Geometry* g2 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 1.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
@@ -153,7 +151,7 @@ int main(int argc, char** argv)
 
     osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::COMBINED_GEOMETRY);
     osg::ref_ptr<osg::Geometry> merged = merger.process(testList, 0);
-    osgDB::writeNodeFile(*merged, "test_merging.osgb");
+    //osgDB::writeNodeFile(*merged, "test_merging.osgb");
 #endif
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);

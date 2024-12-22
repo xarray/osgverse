@@ -11,8 +11,7 @@
 #include <iostream>
 #include <sstream>
 
-#include <pipeline/Global.h>
-#include <readerwriter/Utilities.h>
+#include <VerseCommon.h>
 #include <readerwriter/DracoProcessor.h>
 #ifdef OSG_LIBRARY_STATIC
 USE_SERIALIZER_WRAPPER(DracoGeometry)

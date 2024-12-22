@@ -497,6 +497,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ADD_SUBDIRECTORY(ai)
     ADD_SUBDIRECTORY(script)
     ADD_SUBDIRECTORY(ui)
+    ADD_SUBDIRECTORY(wrappers)
     ADD_SUBDIRECTORY(plugins)
 
     IF(VERSE_BUILD_EXPORTERS)
@@ -528,6 +529,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
                    "; osgVerse version: ${VERSE_VERSION} (${VERSE_PLATFORM})")
     MESSAGE(STATUS "[osgVerse] Dependency libraries: ${VERSE_DEPENDENCIES_TO_SHOW}")
     CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/osgVerse/osgVerseConfig.cmake" @ONLY)
+    INSTALL(FILES VerseCommon.h DESTINATION ${INSTALL_INCDIR}/osgVerse COMPONENT libosgverse-dev)
 
 ELSE(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
 

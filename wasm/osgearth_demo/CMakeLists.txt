@@ -27,7 +27,8 @@ IF(USE_WASM_OSGEARTH)
                           "${WASM_FLAGS0} ${WASM_FLAGS1} ${WASM_FLAGS2} ${WASM_FLAGS3} ${WASM_FLAGS_EX} ${WASM_FLAGS_GDAL} ${WASM_FLAGS_PROJ}")
 
     SET_PROPERTY(TARGET ${EXE_NAME} PROPERTY FOLDER "APPLICATIONS")
-    TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseDependency osgVerseAnimation osgVerseReaderWriter osgVersePipeline osgVerseScript)
+    TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseDependency osgVerseAnimation osgVerseReaderWriter
+                          osgVersePipeline osgVerseScript osgVerseWrappers)
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgShadow osgViewer)
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 

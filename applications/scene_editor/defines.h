@@ -6,19 +6,18 @@
 #include <osg/NodeVisitor>
 #include <osgDB/ConvertUTF>
 
+#include <VerseCommon.h>
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
 #include <ui/SceneHierarchy.h>
 #include <ui/SceneNavigation.h>
 #include <ui/SerializerInterface.h>
-#include <readerwriter/Utilities.h>
 #include <pipeline/SkyBox.h>
 #include <pipeline/NodeSelector.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/IntersectionManager.h>
-#include <pipeline/Utilities.h>
 #include <iostream>
 #include <sstream>
 #include <chrono>

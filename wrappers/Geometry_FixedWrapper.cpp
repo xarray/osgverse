@@ -208,7 +208,7 @@ namespace osgVerse
 #endif
     }
 
-    OSGVERSE_RW_EXPORT bool fixOsgBinaryWrappers(const std::string& libName)
+    OSGVERSE_WRAPPERS_EXPORT bool fixOsgBinaryWrappers(const std::string& libName)
     {
         osgDB::Registry* registry = osgDB::Registry::instance();
         std::string pluginLib = registry->createLibraryNameForExtension("serializers_" + libName);

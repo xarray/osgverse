@@ -95,10 +95,8 @@ int main(int argc, char** argv)
     
     // Create the viewer
 #if TEST_PIPELINE
-    //osg::setNotifyLevel(osg::INFO);
     MyViewer viewer(pipeline.get());
 #else
-    //osg::setNotifyLevel(osg::INFO);
     root = new osg::Group;
     root->addChild(postCamera.get());
     root->addChild(sceneRoot.get());

@@ -491,11 +491,6 @@ struct MipmapHelpers
 
 namespace osgVerse
 {
-#if OSG_VERSION_LESS_THAN(3, 5, 0)
-    bool updateOsgBinaryWrappers(const std::string& libName) { return false; }
-    bool fixOsgBinaryWrappers(const std::string& libName) { return false; }
-#endif
-
     bool generateMipmaps(osg::Image& image, bool useKaiser)
     {
         int w0 = image.s(), h0 = image.t(); int w = w0, h = h0;

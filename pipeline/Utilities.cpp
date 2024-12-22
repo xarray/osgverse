@@ -1060,7 +1060,7 @@ namespace osgVerse
     void ConsoleHandler::notify(osg::NotifySeverity severity, const char* message)
     {
         std::string msg(message);
-        if (severity >= osg::NotifySeverity::WARN) BACKWARD_MESSAGE(msg, 16);
+        if (severity <= osg::NotifySeverity::WARN) BACKWARD_MESSAGE(msg, 16);
 
         switch (severity)
         {

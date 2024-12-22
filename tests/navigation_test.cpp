@@ -11,10 +11,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <VerseCommon.h>
 #include <pipeline/IntersectionManager.h>
-#include <pipeline/Utilities.h>
 #include <pipeline/Pipeline.h>
-#include <readerwriter/Utilities.h>
 #include <ai/RecastManager.h>
 
 #include <backward.hpp>  // for better debug info

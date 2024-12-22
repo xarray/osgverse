@@ -11,10 +11,8 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#include <VerseCommon.h>
 #include <pipeline/SkyBox.h>
-#include <pipeline/Utilities.h>
-#include <modeling/Utilities.h>
-#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
