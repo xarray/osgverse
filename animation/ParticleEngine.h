@@ -73,18 +73,20 @@ namespace osgVerse
         void setEmissionBursts(const std::map<float, osg::Vec4>& m) { _emissionBursts = m; }
         void setEmissionShapeCenter(const osg::Vec3& v) { _emissionShapeCenter = v; }
         void setEmissionShapeEulers(const osg::Vec3& v) { _emissionShapeEulers = v; }
-        void setEmissionShapeValues(const osg::Vec3& v) { _emissionShapeValues = v; }
+        void setEmissionShapeValues(const osg::Vec4& v) { _emissionShapeValues = v; }
         void setEmissionCount(const osg::Vec2& v) { _emissionCount = v; }
         void setEmissionShape(EmissionShape s) { _emissionShape = s; }
         void setEmissionSurface(EmissionSurface s) { _emissionSurface = s; }
+        void setEmissionTarget(osg::Node* node) { _emissionTarget = node; }
 
         std::map<float, osg::Vec4>& getEmissionBursts() { return _emissionBursts; }
         const osg::Vec3& getEmissionShapeCenter() const { return _emissionShapeCenter; }
         const osg::Vec3& getEmissionShapeEulers() const { return _emissionShapeEulers; }
-        const osg::Vec3& getEmissionShapeValues() const { return _emissionShapeValues; }
+        const osg::Vec4& getEmissionShapeValues() const { return _emissionShapeValues; }
         const osg::Vec2& getEmissionCount() const { return _emissionCount; }
         EmissionShape getEmissionShape() const { return _emissionShape; }
         EmissionSurface getEmissionSurface() const { return _emissionSurface; }
+        osg::Node* getEmissionTarget() { return _emissionTarget.get(); }
 
         // Collision properties
         void setCollisionPlanes(const std::vector<osg::Plane>& v) { _collisionPlanes = v; }
@@ -138,13 +140,15 @@ namespace osgVerse
         std::map<float, float> _scalePerTime, _scalePerSpeed;  // [time/speed]: scale value
         std::vector<osg::Plane> _collisionPlanes;
 
+        osg::observer_ptr<osg::Node> _emissionTarget;
         osg::ref_ptr<osg::Texture2D> _texture;
         osg::ref_ptr<osg::Geometry> _geometry, _geometry2;
+        osg::Matrix _localToWorld, _worldToLocal;
         osg::Vec4 _collisionValues;      // dampen, bounce scale, lifetime loss, min kill speed
         osg::Vec4 _textureSheetRange;    // Sheet X0, Y0, W, H
         osg::Vec4 _textureSheetValues;   // playing speed by lifetime, by velocity, by FPS, and cycles
+        osg::Vec4 _emissionShapeValues;  // Plane: normal + size; Sphere: radii, Box: sizes
         osg::Vec3 _emissionShapeCenter, _emissionShapeEulers;
-        osg::Vec3 _emissionShapeValues;  // Plane: normal; Sphere: radii, Box: sizes
         osg::Vec3 _startDirection;
         osg::Vec2 _textureSheetTiles;    // texture sheet X, Y
         osg::Vec2 _emissionCount;        // count per time, count per distance
@@ -158,20 +162,20 @@ namespace osgVerse
         bool _dirty;
     };
 
-    class ParticleDrawable : public osg::Drawable
+    class ParticleDrawableEffekseer : public osg::Drawable
     {
     public:
-        ParticleDrawable(int maxInstances = 8000);
-        ParticleDrawable(const ParticleDrawable& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
+        ParticleDrawableEffekseer(int maxInstances = 8000);
+        ParticleDrawableEffekseer(
+            const ParticleDrawableEffekseer& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual const char* libraryName() const { return "osgVerse"; }
-        virtual const char* className() const { return "ParticleDrawable"; }
+        virtual const char* className() const { return "ParticleDrawableEffekseer"; }
 
-        virtual Object* cloneType() const { return new ParticleDrawable; }
-        virtual Object* clone(const osg::CopyOp& copyop) const { return new ParticleDrawable(*this, copyop); }
+        virtual Object* cloneType() const { return new ParticleDrawableEffekseer; }
+        virtual Object* clone(const osg::CopyOp& copyop) const
+        { return new ParticleDrawableEffekseer(*this, copyop); }
         virtual bool isSameKindAs(const osg::Object* obj) const
-        {
-            return dynamic_cast<const ParticleDrawable*>(obj) != NULL;
-        }
+        { return dynamic_cast<const ParticleDrawableEffekseer*>(obj) != NULL; }
 
         enum PlayingState
         {
@@ -196,8 +200,7 @@ namespace osgVerse
         virtual void releaseGLObjects(osg::State* state) const;
 
     protected:
-        virtual ~ParticleDrawable();
-
+        virtual ~ParticleDrawableEffekseer();
         osg::ref_ptr<osg::Referenced> _data;
     };
 

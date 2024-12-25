@@ -82,8 +82,8 @@ public:
 
     void deallocate(ParticleSystemU3D* obj)
     {
-        if (!obj || !this) return;
-        if (_rangeMap.find(obj) != _rangeMap.end()) _rangeMap.erase(_rangeMap.find(obj));
+        if (_rangeMap.find(obj) != _rangeMap.end())
+            _rangeMap.erase(_rangeMap.find(obj));
     }
 
     osg::Texture2D* createParameterTexture(int index, ParticleSystemU3D::UpdateMethod method)
@@ -142,7 +142,7 @@ protected:
 };
 
 ParticleSystemU3D::ParticleSystemU3D()
-:   _collisionValues(0.0f, 1.0f, 0.0f, 0.0f), _emissionShapeValues(1.0f, 1.0f, 1.0f),
+:   _collisionValues(0.0f, 1.0f, 0.0f, 0.0f), _emissionShapeValues(1.0f, 1.0f, 1.0f, 1.0f),
     _startDirection(0.0f, 0.0f, 1.0f), _textureSheetTiles(1.0f, 1.0f), _emissionCount(100.0f, 0.0f),
     _startLifeRange(1.0f, 5.0f), _startSizeRange(0.1f, 1.0f), _startSpeedRange(0.1f, 1.0f),
     _maxParticles(1000.0), _startDelay(0.0), _gravityScale(1.0), _startTime(0.0),
@@ -156,10 +156,11 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _eulersPerTime(copy._eulersPerTime), _eulersPerSpeed(copy._eulersPerSpeed),
     _velocityOffsets(copy._velocityOffsets), _forceOffsets(copy._forceOffsets),
     _scalePerTime(copy._scalePerTime), _scalePerSpeed(copy._scalePerSpeed),
-    _collisionPlanes(copy._collisionPlanes), _texture(copy._texture), _geometry(copy._geometry),
+    _collisionPlanes(copy._collisionPlanes), _emissionTarget(copy._emissionTarget),
+    _texture(copy._texture), _geometry(copy._geometry),
     _collisionValues(copy._collisionValues), _textureSheetRange(copy._textureSheetRange),
-    _textureSheetValues(copy._textureSheetValues), _emissionShapeCenter(copy._emissionShapeCenter),
-    _emissionShapeEulers(copy._emissionShapeEulers), _emissionShapeValues(copy._emissionShapeValues),
+    _textureSheetValues(copy._textureSheetValues), _emissionShapeValues(copy._emissionShapeValues),
+    _emissionShapeCenter(copy._emissionShapeCenter), _emissionShapeEulers(copy._emissionShapeEulers), 
     _startDirection(copy._startDirection), _textureSheetTiles(copy._textureSheetTiles),
     _emissionCount(copy._emissionCount), _startLifeRange(copy._startLifeRange),
     _startSizeRange(copy._startSizeRange), _startSpeedRange(copy._startSpeedRange),
@@ -184,7 +185,11 @@ void ParticleSystemU3D::operator()(osg::Node* node, osg::NodeVisitor* nv)
     }
 
     if (nv && nv->getFrameStamp())
-    ParticleTexturePoolU3D::instance()->apply(nv->getFrameStamp(), this);
+    {
+        _localToWorld = osg::computeLocalToWorld(nv->getNodePath());
+        _worldToLocal = osg::Matrix::inverse(_localToWorld);
+        ParticleTexturePoolU3D::instance()->apply(nv->getFrameStamp(), this);
+    }
     traverse(node, nv);
 }
 
@@ -223,7 +228,7 @@ void ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
 
     // Remove and create particles
     float maxTexSheet = _textureSheetTiles.x() * _textureSheetTiles.y();
-    osg::Vec3 force = osg::Vec3(0.0f, 0.0f, -9.8f) * _gravityScale;
+    osg::Vec3 force = (osg::Vec3(0.0f, 0.0f, -9.8f) * _worldToLocal) * _gravityScale;
 #pragma omp parallel for
     for (int i = 0; i < sizeInt; ++i)
     {
@@ -331,27 +336,67 @@ void ParticleSystemU3D::recreate()
 
 void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
 {
-    // TODO: plane, sphere, mesh... volume, shell
-    // TODO: consider parent matrix?
+    osg::Matrix matrix; osg::Vec3 pos3;
+    if (_emissionTarget.valid())
+    {
+        osg::MatrixList mList = _emissionTarget->getWorldMatrices();
+        if (!mList.empty()) matrix = mList[0] * _worldToLocal;
+    }
+
+    // TODO: emission eulers
+    pos3.set(_emissionShapeCenter[0], _emissionShapeCenter[1], _emissionShapeCenter[2]);
     switch (_emissionShape)
     {
     case EMIT_Box:
-        pos.set(_emissionShapeCenter[0] + RAND_RANGE1(_emissionShapeValues[0]),
-                _emissionShapeCenter[1] + RAND_RANGE1(_emissionShapeValues[1]),
-                _emissionShapeCenter[2] + RAND_RANGE1(_emissionShapeValues[2]), 0.0f);
+        if (_emissionSurface == EMIT_Volume)
+        {
+            pos3 = osg::Vec3(RAND_RANGE1(_emissionShapeValues[0]),
+                             RAND_RANGE1(_emissionShapeValues[1]),
+                             RAND_RANGE1(_emissionShapeValues[2]));
+        }
+        else
+        {}  // TODO
         break;
-    default:  // EMIT_Point
-        pos.set(_emissionShapeCenter[0], _emissionShapeCenter[1], _emissionShapeCenter[2], 0.0f);
+    case EMIT_Sphere:
+        if (_emissionSurface == EMIT_Volume)
+        {
+            osg::Vec3 pt;
+            do
+            {
+                pt = osg::Vec3(RAND_RANGE1(2.0f), RAND_RANGE1(2.0f), RAND_RANGE1(2.0f));
+            } while (pt.length2() > 1.0f);
+            pos3 = osg::Vec3(pt[0] * _emissionShapeValues[0], pt[1] * _emissionShapeValues[1],
+                             pt[2] * _emissionShapeValues[2]);
+        }
+        else
+        {}  // TODO
         break;
+    case EMIT_Plane:
+        {
+            osg::Vec3 pt, N = osg::Vec3(_emissionShapeValues[0],
+                                        _emissionShapeValues[1], _emissionShapeValues[2]);
+            if (N.length2() < 0.1f) break;
+            do
+            {
+                pt = osg::Vec3(RAND_RANGE1(1.0f), RAND_RANGE1(1.0f), RAND_RANGE1(1.0f));
+                pt.normalize(); pt = pt ^ N;
+            } while (pt.length2() < 0.1f);
+            pos3 += osg::Vec3(pt * RAND_RANGE1(_emissionShapeValues[3]));
+        }
+        break;
+    case EMIT_Mesh:
+        // TODO: to vhacd and emit particles
+        break;
+    default: break;  // EMIT_Point
     }
 
     osg::Vec3 dir = _startDirection * RAND_RANGE2(_startSpeedRange);  // FIXME: some turbulence?
-    vel.set(dir[0], dir[1], dir[2], 0.0f);
+    vel.set(dir[0], dir[1], dir[2], 0.0f); pos = osg::Vec4(pos3 * matrix, 0.0f);
 }
 
 template<typename T> void getValueFromMap(std::map<float, T>& dataMap, T& value, float t)
 {
-    std::map<float, T>::iterator it = dataMap.upper_bound(t);
+    typename std::map<float, T>::iterator it = dataMap.upper_bound(t);
     if (it != dataMap.end())
     {
         float t1 = it->first; T c1 = it->second; it--;

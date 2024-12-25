@@ -35,9 +35,9 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
     root->addChild(scene.get());
 
-    osg::ref_ptr<osgVerse::ParticleDrawable> particle = new osgVerse::ParticleDrawable;
+    osg::ref_ptr<osgVerse::ParticleDrawableEffekseer> particle = new osgVerse::ParticleDrawableEffekseer;
     particle->createEffect("test", BASE_DIR + "/models/Particles/Fireworks.efkefc");
-    particle->playEffect("test", osgVerse::ParticleDrawable::PLAYING);
+    particle->playEffect("test", osgVerse::ParticleDrawableEffekseer::PLAYING);
     particle->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     particle->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 

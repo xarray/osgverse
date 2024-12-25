@@ -193,7 +193,7 @@ public:
     size_t maxInstances;
 };
 
-ParticleDrawable::ParticleDrawable(int maxInstances)
+ParticleDrawableEffekseer::ParticleDrawableEffekseer(int maxInstances)
 {
     _data = new EffekseerData(maxInstances);
     setDataVariance(osg::Object::DYNAMIC);
@@ -204,23 +204,23 @@ ParticleDrawable::ParticleDrawable(int maxInstances)
 #endif
 }
 
-ParticleDrawable::ParticleDrawable(const ParticleDrawable& copy, const osg::CopyOp& copyop)
+ParticleDrawableEffekseer::ParticleDrawableEffekseer(const ParticleDrawableEffekseer& copy, const osg::CopyOp& copyop)
     : osg::Drawable(copy, copyop), _data(copy._data)
 {}
 
-ParticleDrawable::~ParticleDrawable()
+ParticleDrawableEffekseer::~ParticleDrawableEffekseer()
 {
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     ed->release(true);
 }
 
-void ParticleDrawable::releaseGLObjects(osg::State* state) const
+void ParticleDrawableEffekseer::releaseGLObjects(osg::State* state) const
 {
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     ed->release(false);
 }
 
-Effekseer::Effect* ParticleDrawable::createEffect(const std::string& name, const std::string& fileName)
+Effekseer::Effect* ParticleDrawableEffekseer::createEffect(const std::string& name, const std::string& fileName)
 {
     std::ifstream in(fileName, std::ios::in | std::ios::binary);
     std::istreambuf_iterator<char> eos;
@@ -232,21 +232,21 @@ Effekseer::Effect* ParticleDrawable::createEffect(const std::string& name, const
     return ed->createEffect(name, data, Utf8StringValidator::convertW(dir));
 }
 
-void ParticleDrawable::destroyEffect(const std::string& name)
+void ParticleDrawableEffekseer::destroyEffect(const std::string& name)
 {
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     if (ed->effects.find(name) != ed->effects.end())
         ed->effects.erase(ed->effects.find(name));
 }
 
-bool ParticleDrawable::playEffect(const std::string& name, PlayingState state)
+bool ParticleDrawableEffekseer::playEffect(const std::string& name, PlayingState state)
 {
     // TODO: location?
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     return ed->playEffect(name, osg::Vec3d(), (int)state);
 }
 
-ParticleDrawable::PlayingState ParticleDrawable::getEffectState(const std::string& name) const
+ParticleDrawableEffekseer::PlayingState ParticleDrawableEffekseer::getEffectState(const std::string& name) const
 {
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     if (ed->effects.find(name) == ed->effects.end()) return INVALID;
@@ -257,7 +257,7 @@ ParticleDrawable::PlayingState ParticleDrawable::getEffectState(const std::strin
     else return PLAYING;
 }
 
-Effekseer::Effect* ParticleDrawable::getEffect(const std::string& name) const
+Effekseer::Effect* ParticleDrawableEffekseer::getEffect(const std::string& name) const
 {
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     if (ed->effects.find(name) == ed->effects.end()) return NULL;
@@ -265,33 +265,33 @@ Effekseer::Effect* ParticleDrawable::getEffect(const std::string& name) const
     
 }
 
-Effekseer::Manager* ParticleDrawable::getManager() const
+Effekseer::Manager* ParticleDrawableEffekseer::getManager() const
 {
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     return ed->efkManager.Get();
 }
 
 #if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
-osg::BoundingBox ParticleDrawable::computeBoundingBox() const
+osg::BoundingBox ParticleDrawableEffekseer::computeBoundingBox() const
 {
     osg::BoundingBox bb;
     return bb;  // TODO
 }
 
-osg::BoundingSphere ParticleDrawable::computeBound() const
+osg::BoundingSphere ParticleDrawableEffekseer::computeBound() const
 {
     osg::BoundingSphere bs(computeBoundingBox());
     return bs;
 }
 #else
-osg::BoundingBox ParticleDrawable::computeBound() const
+osg::BoundingBox ParticleDrawableEffekseer::computeBound() const
 {
     osg::BoundingBox bb;
     return bb;  // TODO
 }
 #endif
 
-void ParticleDrawable::drawImplementation(osg::RenderInfo& renderInfo) const
+void ParticleDrawableEffekseer::drawImplementation(osg::RenderInfo& renderInfo) const
 {
     EffekseerData* ed = static_cast<EffekseerData*>(_data.get());
     ed->update(renderInfo.getCurrentCamera());

@@ -48,8 +48,8 @@ int main(int argc, char** argv)
         ps->setStartSpeedRange(osg::Vec2(0.0f, 0.0f));
         ps->setEmissionCount(osg::Vec2(100.0f, 0.0f));
         ps->setEmissionShape(osgVerse::ParticleSystemU3D::EMIT_Box);
-        ps->setEmissionShapeCenter(osg::Vec3(0.0f, 6.85f, -2.5f));
-        ps->setEmissionShapeValues(osg::Vec3(12.0f, 6.0f, 6.0f));
+        ps->setEmissionShapeCenter(osg::Vec3(0.0f, 6.0f, -2.5f));
+        ps->setEmissionShapeValues(osg::Vec4(12.0f, 6.0f, 6.0f, 0.0f));
         ps->getColorPerTime()[0.0f] = osg::Vec4(0.4, 0.4, 0.4f, 0.0f);
         ps->getColorPerTime()[0.5f] = osg::Vec4(0.4, 0.4, 0.4f, 0.1f);
         ps->getColorPerTime()[1.0f] = osg::Vec4(0.4, 0.4, 0.4f, 0.0f);
@@ -62,7 +62,8 @@ int main(int argc, char** argv)
     }
 
     osg::ref_ptr<osg::MatrixTransform> particleMT = new osg::MatrixTransform;
-    particleMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 10.0f));
+    particleMT->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::Z_AXIS) *
+                          osg::Matrix::translate(0.0f, 0.0f, 10.0f));
     particleMT->addChild(particleNode.get());
     root->addChild(particleMT.get());
 
