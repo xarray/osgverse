@@ -792,10 +792,27 @@ namespace osgVerse
             if (tex2D) ss->setTextureAttributeAndModes(0, tex2D);
         }
 
+        if (roughnessID >= 0 && roughnessID < _modelDef.textures.size())
+            createTexture(ss, 3, uniformNames[3], _modelDef.textures[roughnessID]);
+        else
+        {
+            osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
+                1.0f, material.pbrMetallicRoughness.roughnessFactor,
+                material.pbrMetallicRoughness.metallicFactor, 1.0f));
+            if (tex2D) ss->setTextureAttributeAndModes(3, tex2D);
+        }
+
+        if (emissiveID >= 0)
+            createTexture(ss, 5, uniformNames[5], _modelDef.textures[emissiveID]);
+        else
+        {
+            osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
+                material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2], 1.0f));
+            if (tex2D) ss->setTextureAttributeAndModes(5, tex2D);
+        }
+
         if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
-        if (roughnessID >= 0) createTexture(ss, 3, uniformNames[3], _modelDef.textures[roughnessID]);
-        if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);
-        if (emissiveID >= 0) createTexture(ss, 5, uniformNames[5], _modelDef.textures[emissiveID]);
+        if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);  // FIXME: should be ORM
 
         if (material.alphaMode.compare("BLEND") == 0)
             ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);

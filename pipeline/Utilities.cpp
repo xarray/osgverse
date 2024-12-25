@@ -1007,7 +1007,8 @@ namespace osgVerse
         { std::cout << fp; return *this; }
     };
 
-    ConsoleHandler::ConsoleHandler() : _shaderCallback(NULL), _programCallback(NULL), _handle(NULL)
+    ConsoleHandler::ConsoleHandler()
+        : _shaderCallback(NULL), _programCallback(NULL), _handle(NULL), _showStackTrace(false)
     {
 #ifdef VERSE_WINDOWS
         // https://learn.microsoft.com/en-us/windows/console/console-screen-buffers
@@ -1060,7 +1061,8 @@ namespace osgVerse
     void ConsoleHandler::notify(osg::NotifySeverity severity, const char* message)
     {
         std::string msg(message);
-        if (severity <= osg::NotifySeverity::WARN) BACKWARD_MESSAGE(msg, 16);
+        if (severity <= osg::NotifySeverity::WARN && _showStackTrace)
+            BACKWARD_MESSAGE(msg, 16);
 
         switch (severity)
         {

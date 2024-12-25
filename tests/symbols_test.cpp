@@ -17,24 +17,46 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 
+#define TEST_DRAWER 1
+
 int main(int argc, char** argv)
 {
-#if false
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    osgViewer::Viewer viewer;
+
+    viewer.addEventHandler(new osgViewer::StatsHandler);
+    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+    viewer.setSceneData(root.get());
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+
+#if TEST_DRAWER
     osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
     drawer->allocateImage(640, 480, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    drawer->start(true);
     drawer->loadFont("default", MISC_DIR + "/LXGWFasmartGothic.otf");
-    drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-    drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f, osgVerse::DrawerStyleData(
-            osgDB::readImageFile(MISC_DIR + "poi_icons.png"), osgVerse::DrawerStyleData::PAD));
-    
-    osg::Vec4 bbox = drawer->getUtf8TextBoundingBox("Hello World", 40.0f);
-    drawer->drawRectangle(bbox, 1.0f, 1.0f, osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
-    drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, "Hello World");
-    drawer->finish(); drawer->flipVertical();
-    osgDB::writeImageFile(*drawer, "drawer.png");
-#endif
 
+    osg::ref_ptr<osg::Image> img = osgDB::readImageFile(MISC_DIR + "poi_icons.png");
+    //drawer->flipVertical();
+    //osgDB::writeImageFile(*drawer, "drawer.png");
+
+    osg::Geode* geode = osg::createGeodeForImage(drawer.get());
+    root->addChild(geode);
+    while (!viewer.done())
+    {
+        drawer->start(false);
+        drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f,
+                              osgVerse::DrawerStyleData(img.get(), osgVerse::DrawerStyleData::PAD));
+
+        std::string text = "Hello World: " + std::to_string(viewer.getFrameStamp()->getFrameNumber());
+        osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 40.0f);
+        drawer->drawRectangle(bbox, 1.0f, 1.0f, osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
+        drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, text);
+        drawer->finish();
+
+        viewer.frame();
+    }
+#else
     osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(MISC_DIR + "poi_icons.png");
     osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(MISC_DIR + "poi_textbg.png");
 
@@ -82,19 +104,11 @@ int main(int argc, char** argv)
         symbolLines->addDrawable(geom);
     }
 
-    osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(symbols.get());
     root->addChild(symbolLines.get());
     root->addChild(osgDB::readNodeFile("axes.osgt"));
-
-    osgViewer::Viewer viewer;
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-
     symManager->setMainCamera(viewer.getCamera());
+
     while (!viewer.done())
     {
         const std::map<int, osg::ref_ptr<osgVerse::Symbol>>& symbols = symManager->getSymols();
@@ -119,5 +133,6 @@ int main(int argc, char** argv)
         va->dirty(); symbolLines->getDrawable(0)->dirtyBound();
         viewer.frame();
     }
+#endif
     return 0;
 }

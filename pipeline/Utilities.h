@@ -155,6 +155,9 @@ namespace osgVerse
         virtual void notifyLevel2(osg::NotifySeverity severity, const std::string& message);
         virtual void notifyLevel3(osg::NotifySeverity severity, const std::string& message) {}
 
+        void setShowStackTrace(bool b) { _showStackTrace = b; }
+        bool getShowStackTrace() const { return _showStackTrace; }
+
         typedef std::function<std::string(GLenum, const std::string&, const std::string&)> ShaderLogCallback;
         typedef std::function<std::string(const std::string&, const std::string&)> ProgramLogCallback;
 
@@ -168,7 +171,7 @@ namespace osgVerse
 
         ShaderLogCallback _shaderCallback;
         ProgramLogCallback _programCallback;
-        void* _handle;
+        void* _handle; bool _showStackTrace;
     };
 
     /** Handle IME events under Windows */

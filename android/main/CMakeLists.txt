@@ -16,8 +16,11 @@ FILE(MAKE_DIRECTORY ${OSG_3RDPARTY_BUILD_DIR})
 FILE(MAKE_DIRECTORY ${OSG_BUILD_DIR})
 FILE(MAKE_DIRECTORY ${OSGVERSE_BUILD_DIR})
 
-# Specify critical OpenSceneGraph build variables.
-SET(BUILD_OSG_APPLICATIONS NO CACHE BOOL "Do not build applications")
+# Specify critical SDL & OpenSceneGraph build variables.
+SET(SDL2_DISABLE_INSTALL ON CACHE BOOL "Disable installation of SDL2")
+SET(SDL2_DISABLE_UNINSTALL ON CACHE BOOL "Disable uninstallation of SDL2")
+
+SET(BUILD_OSG_APPLICATIONS OFF CACHE BOOL "Do not build applications")
 SET(EGL_LIBRARY "GL" CACHE STRING "Suppress linkage error")
 SET(OPENGL_PROFILE "GLES2" CACHE STRING "OpenGL Profile to use")
 SET(OSG_GL1_AVAILABLE OFF CACHE BOOL "Unavailable under Android")

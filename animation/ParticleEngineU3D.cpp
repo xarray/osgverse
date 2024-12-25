@@ -143,10 +143,10 @@ protected:
 
 ParticleSystemU3D::ParticleSystemU3D()
 :   _collisionValues(0.0f, 1.0f, 0.0f, 0.0f), _emissionShapeValues(1.0f, 1.0f, 1.0f),
-    _textureSheetTiles(1.0f, 1.0f), _emissionCount(100.0f, 0.0f), _startLifeRange(1.0f, 5.0f),
-    _startSizeRange(0.1f, 1.0f), _startSpeedRange(0.1f, 1.0f), _maxParticles(1000.0),
-    _startDelay(0.0), _gravityScale(1.0), _startTime(0.0), _lastSimulationTime(0.0),
-    _duration(1.0), _aspectRatio(16.0 / 9.0), _emissionShape(EMIT_Point),
+    _startDirection(0.0f, 0.0f, 1.0f), _textureSheetTiles(1.0f, 1.0f), _emissionCount(100.0f, 0.0f),
+    _startLifeRange(1.0f, 5.0f), _startSizeRange(0.1f, 1.0f), _startSpeedRange(0.1f, 1.0f),
+    _maxParticles(1000.0), _startDelay(0.0), _gravityScale(1.0), _startTime(0.0),
+    _lastSimulationTime(0.0), _duration(1.0), _aspectRatio(16.0 / 9.0), _emissionShape(EMIT_Point),
     _emissionSurface(EMIT_Volume), _particleType(PARTICLE_Billboard),
     _blendingType(BLEND_Modulate), _dirty(true) {}
 
@@ -160,11 +160,11 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _collisionValues(copy._collisionValues), _textureSheetRange(copy._textureSheetRange),
     _textureSheetValues(copy._textureSheetValues), _emissionShapeCenter(copy._emissionShapeCenter),
     _emissionShapeEulers(copy._emissionShapeEulers), _emissionShapeValues(copy._emissionShapeValues),
-    _textureSheetTiles(copy._textureSheetTiles), _emissionCount(copy._emissionCount),
-    _startLifeRange(copy._startLifeRange), _startSizeRange(copy._startSizeRange),
-    _startSpeedRange(copy._startSpeedRange), _maxParticles(copy._maxParticles),
-    _startDelay(copy._startDelay), _gravityScale(copy._gravityScale), _startTime(copy._startTime),
-    _lastSimulationTime(copy._lastSimulationTime), _duration(copy._duration),
+    _startDirection(copy._startDirection), _textureSheetTiles(copy._textureSheetTiles),
+    _emissionCount(copy._emissionCount), _startLifeRange(copy._startLifeRange),
+    _startSizeRange(copy._startSizeRange), _startSpeedRange(copy._startSpeedRange),
+    _maxParticles(copy._maxParticles), _startDelay(copy._startDelay), _gravityScale(copy._gravityScale),
+    _startTime(copy._startTime), _lastSimulationTime(copy._lastSimulationTime), _duration(copy._duration),
     _aspectRatio(copy._aspectRatio), _emissionShape(copy._emissionShape),
     _emissionSurface(copy._emissionSurface), _particleType(copy._particleType),
     _blendingType(copy._blendingType), _dirty(copy._dirty) {}
@@ -218,11 +218,14 @@ void ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
                                   osg::Vec4* ptr2, osg::Vec4* ptr3)
 {
     osg::BoundingBox bounds; double dt = time - _lastSimulationTime;
-    int numToAdd = osg::maximum((int)(_emissionCount[0] * dt), (_emissionCount[0] > 0.0f) ? 1 : 0);
+    int numToAdd = osg::maximum((int)(_emissionCount[0] * dt), (_emissionCount[0] > 0.0f) ? 1 : 0),
+        sizeInt = (int)size;
 
     // Remove and create particles
     float maxTexSheet = _textureSheetTiles.x() * _textureSheetTiles.y();
-    for (unsigned int i = 0; i < size; ++i)
+    osg::Vec3 force = osg::Vec3(0.0f, 0.0f, -9.8f) * _gravityScale;
+#pragma omp parallel for
+    for (int i = 0; i < sizeInt; ++i)
     {
         osg::Vec4& posSize = *(ptr0 + i); osg::Vec4& color = *(ptr1 + i);
         osg::Vec4& velLife = *(ptr2 + i); osg::Vec4& eulerAnim = *(ptr3 + i);
@@ -230,10 +233,12 @@ void ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
         velLife.a() -= (float)dt;
         if (velLife.a() > 0.0f)  // update existing particles
         {
-            osg::Vec3 vel(velLife[0] * dt, velLife[1] * dt, velLife[2] * dt);
-            float tRatio = 1.0f - velLife.a() / _duration, speed = vel.length();
+            float tRatio = 1.0f - velLife.a() / _duration;
+            osg::Vec3 vel = osg::Vec3(velLife[0], velLife[1], velLife[2])
+                          + changeForce(force, dt, tRatio);
             for (int k = 0; k < 3; ++k) posSize[k] += vel[k];
 
+            float speed = vel.length();
             changeSize(posSize, tRatio, speed); changeColor(color, tRatio, speed);
             changeVelocity(velLife, tRatio); changeEulers(eulerAnim, tRatio, speed);
             eulerAnim.a() += _textureSheetValues[0] * dt;
@@ -326,7 +331,9 @@ void ParticleSystemU3D::recreate()
 
 void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
 {
-    switch (_emissionShape)  // TODO: plane, sphere, mesh... volume, shell
+    // TODO: plane, sphere, mesh... volume, shell
+    // TODO: consider parent matrix?
+    switch (_emissionShape)
     {
     case EMIT_Box:
         pos.set(_emissionShapeCenter[0] + RAND_RANGE1(_emissionShapeValues[0]),
@@ -338,37 +345,57 @@ void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
         break;
     }
 
-    osg::Vec3 dir = osg::Z_AXIS;
-    //osg::Vec3 dir = osg::X_AXIS * osg::Matrix::rotate(RAND_VALUE(osg::PI_4, osg::PI_2), osg::Y_AXIS)
-    //              * osg::Matrix::rotate(RAND_VALUE(0.0f, osg::PI * 2.0f), osg::Z_AXIS);
-    dir = dir * RAND_RANGE2(_startSpeedRange) + osg::Vec3(0.0f, 0.0f, -9.8f) * _gravityScale;
+    osg::Vec3 dir = _startDirection * RAND_RANGE2(_startSpeedRange);  // FIXME: some turbulence?
     vel.set(dir[0], dir[1], dir[2], 0.0f);
+}
+
+template<typename T> void getValueFromMap(std::map<float, T>& dataMap, T& value, float t)
+{
+    std::map<float, T>::iterator it = dataMap.upper_bound(t);
+    if (it != dataMap.end())
+    {
+        float t1 = it->first; T c1 = it->second; it--;
+        if (it != dataMap.end())
+        {
+            float t0 = it->first; T c0 = it->second;
+            float r = (t - t0) / (t1 - t0); value = c0 * (1.0f - r) + c1 * r;
+        }
+        else value = c1;
+    }
 }
 
 void ParticleSystemU3D::changeColor(osg::Vec4& color, float time, float speed)
 {
-    if (!_colorPerTime.empty())
-    {
-        std::map<float, osg::Vec4>::iterator it = _colorPerTime.upper_bound(time);
-        if (it != _colorPerTime.end())
-        {
-            float t1 = it->first; osg::Vec4 c1 = it->second; it--;
-            if (it != _colorPerTime.end())
-            {
-                float t0 = it->first; osg::Vec4 c0 = it->second;
-                float r = (time - t0) / (t1 - t0); color = c0 * (1.0f - r) + c1 * r;
-            }
-            else color = c1;
-        }
-    }
-    // TODO: _colorPerSpeed
+    if (!_colorPerTime.empty()) getValueFromMap(_colorPerTime, color, time);
+    if (!_colorPerSpeed.empty()) getValueFromMap(_colorPerSpeed, color, speed);
 }
 
 void ParticleSystemU3D::changeSize(osg::Vec4& posSize, float time, float speed)
-{}
+{
+    float size = posSize[3];
+    if (!_scalePerTime.empty()) getValueFromMap(_scalePerTime, size, time);
+    if (!_scalePerSpeed.empty()) getValueFromMap(_scalePerSpeed, size, speed);
+    posSize[3] = size;
+}
 
 void ParticleSystemU3D::changeVelocity(osg::Vec4& vel, float time)
-{}
+{
+    osg::Vec3 vec(vel[0], vel[1], vel[2]);
+    if (!_velocityOffsets.empty()) getValueFromMap(_velocityOffsets, vec, time);
+    vel.set(vec[0], vec[1], vec[2], vel[3]);
+}
 
 void ParticleSystemU3D::changeEulers(osg::Vec4& euler, float time, float speed)
-{}
+{
+    osg::Vec3 vec(euler[0], euler[1], euler[2]);
+    if (!_eulersPerTime.empty()) getValueFromMap(_eulersPerTime, vec, time);
+    if (!_eulersPerSpeed.empty()) getValueFromMap(_eulersPerSpeed, vec, speed);
+    euler.set(vec[0], vec[1], vec[2], euler[3]);
+}
+
+osg::Vec3 ParticleSystemU3D::changeForce(const osg::Vec3& initForce, float delta, float time)
+{
+    osg::Vec3 force(0.0f, 0.0f, 0.0f);
+    if (!_forceOffsets.empty()) getValueFromMap(_forceOffsets, force, time);
+    return (initForce + force) * delta;
+}

@@ -70,16 +70,21 @@ public:
             for (int yy = 0; yy < countY; ++yy)
                 for (int xx = 0; xx < 2; ++xx)
                 {
+                    osg::ref_ptr<osg::Node> node = createTile(
+                        pseudoAddr, x + xx, y + yy, z, extentMin, extentMax, options);
+                    if (!node) continue;
+
                     osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
                     plod->setDatabaseOptions(options->cloneOptions());
-                    plod->addChild(createTile(pseudoAddr, x + xx, y + yy, z, extentMin, extentMax, options));
+                    plod->addChild(node.get());
                     plod->setFileName(1, std::to_string(x + xx) + "-" + std::to_string(y + yy) +
                                          "-" + std::to_string(z) + ".verse_tms");
                     plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
                     plod->setRange(0, 0.0f, 500.0f); plod->setRange(1, 500.0f, FLT_MAX);
                     group->addChild(plod.get());
                 }
-            group->setName(fileName); return group.get();
+            group->setName(fileName);
+            return (group->getNumChildren() > 0) ? group.get() : NULL;
         }
         return ReadResult::FILE_NOT_FOUND;
     }
@@ -106,13 +111,18 @@ protected:
             tileMax = extentMin + osg::Vec3d(double(x + 1) * tileWidth, double(y + 1) * tileHeight, 1.0);
         }
 
-        osg::ref_ptr<osg::Geometry> geom =
-            osg::createTexturedQuadGeometry(tileMin, osg::X_AXIS * tileWidth, osg::Y_AXIS * tileHeight);
-        geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, osgVerse::createTexture2D(
-            osgDB::readImageFile(createPath(pseudoPath, x, y, z) + ".verse_web"), osg::Texture::MIRROR));
+        osg::ref_ptr<osg::Image> image = osgDB::readImageFile(createPath(pseudoPath, x, y, z) + ".verse_web");
+        if (image.valid())
+        {
+            osg::ref_ptr<osg::Geometry> geom =
+                osg::createTexturedQuadGeometry(tileMin, osg::X_AXIS * tileWidth, osg::Y_AXIS * tileHeight);
+            geom->getOrCreateStateSet()->setTextureAttributeAndModes(
+                0, osgVerse::createTexture2D(image.get(), osg::Texture::MIRROR));
 
-        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-        geode->addDrawable(geom.get()); return geode.release();
+            osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+            geode->addDrawable(geom.get()); return geode.release();
+        }
+        else return NULL;
     }
 
     std::string createPath(const std::string& pseudoPath, int x, int y, int z) const

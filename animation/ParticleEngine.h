@@ -43,6 +43,7 @@ namespace osgVerse
         // Basic properties
         void setGeometry(osg::Geometry* g) { _geometry2 = g; _dirty = true; }
         void setTexture(osg::Texture2D* t) { _texture = t; _dirty = true; }
+        void setStartDirection(const osg::Vec3& v) { _startDirection = v; }
         void setStartLifeRange(const osg::Vec2& v) { _startLifeRange = v; }
         void setStartSizeRange(const osg::Vec2& v) { _startSizeRange = v; }
         void setStartSpeedRange(const osg::Vec2& v) { _startSpeedRange = v; }
@@ -56,6 +57,7 @@ namespace osgVerse
 
         osg::Geometry* getGeometry() { return _geometry2.get(); }
         osg::Texture2D* getTexture() { return _texture.get(); }
+        const osg::Vec3& getStartDirection() const { return _startDirection; }
         const osg::Vec2& getStartLifeRange() const { return _startLifeRange; }
         const osg::Vec2& getStartSizeRange() const { return _startSizeRange; }
         const osg::Vec2& getStartSpeedRange() const { return _startSpeedRange; }
@@ -127,6 +129,7 @@ namespace osgVerse
         void changeSize(osg::Vec4& posSize, float time, float speed);
         void changeVelocity(osg::Vec4& vel, float time);
         void changeEulers(osg::Vec4& euler, float time, float speed);
+        osg::Vec3 changeForce(const osg::Vec3& initForce, float delta, float time);
 
         std::map<float, osg::Vec4> _emissionBursts;  // [time]: count, cycles, interval, probability (0-1)
         std::map<float, osg::Vec4> _colorPerTime, _colorPerSpeed;  // [time/speed]: color
@@ -142,6 +145,7 @@ namespace osgVerse
         osg::Vec4 _textureSheetValues;   // playing speed by lifetime, by velocity, by FPS, and cycles
         osg::Vec3 _emissionShapeCenter, _emissionShapeEulers;
         osg::Vec3 _emissionShapeValues;  // Plane: normal; Sphere: radii, Box: sizes
+        osg::Vec3 _startDirection;
         osg::Vec2 _textureSheetTiles;    // texture sheet X, Y
         osg::Vec2 _emissionCount;        // count per time, count per distance
         osg::Vec2 _startLifeRange, _startSizeRange, _startSpeedRange;

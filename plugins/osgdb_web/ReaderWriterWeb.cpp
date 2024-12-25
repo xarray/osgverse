@@ -98,7 +98,7 @@ public:
             }
         default: break;
         }
-        return ReadResult::FILE_NOT_HANDLED;
+        return ReadResult::NOT_IMPLEMENTED;
     }
 
     WriteResult writeFile(const osg::Object& obj, osgDB::ReaderWriter* rw,
