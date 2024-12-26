@@ -350,9 +350,9 @@ void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
     case EMIT_Box:
         if (_emissionSurface == EMIT_Volume)
         {
-            pos3 = osg::Vec3(RAND_RANGE1(_emissionShapeValues[0]),
-                             RAND_RANGE1(_emissionShapeValues[1]),
-                             RAND_RANGE1(_emissionShapeValues[2]));
+            pos3 += osg::Vec3(RAND_RANGE1(_emissionShapeValues[0]),
+                              RAND_RANGE1(_emissionShapeValues[1]),
+                              RAND_RANGE1(_emissionShapeValues[2]));
         }
         else
         {}  // TODO
@@ -365,8 +365,8 @@ void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
             {
                 pt = osg::Vec3(RAND_RANGE1(2.0f), RAND_RANGE1(2.0f), RAND_RANGE1(2.0f));
             } while (pt.length2() > 1.0f);
-            pos3 = osg::Vec3(pt[0] * _emissionShapeValues[0], pt[1] * _emissionShapeValues[1],
-                             pt[2] * _emissionShapeValues[2]);
+            pos3 += osg::Vec3(pt[0] * _emissionShapeValues[0], pt[1] * _emissionShapeValues[1],
+                              pt[2] * _emissionShapeValues[2]);
         }
         else
         {}  // TODO

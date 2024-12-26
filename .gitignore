@@ -36,6 +36,7 @@ local.properties
 .gradle/
 .cxx/
 .idea/
+.libs/
 
 # User-defined
 *.meta

@@ -31,29 +31,48 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
 #if TEST_DRAWER
-    osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
-    drawer->allocateImage(640, 480, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    drawer->loadFont("default", MISC_DIR + "/LXGWFasmartGothic.otf");
-
     osg::ref_ptr<osg::Image> img = osgDB::readImageFile(MISC_DIR + "poi_icons.png");
-    //drawer->flipVertical();
-    //osgDB::writeImageFile(*drawer, "drawer.png");
+    std::vector<osgVerse::Drawer2D*> drawerList;
+    for (size_t i = 0; i < 10; ++i)
+    {
+        osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
+        drawer->allocateImage(1024, 1024, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+        drawer->loadFont("default", MISC_DIR + "/LXGWFasmartGothic.otf");
+        drawer->setPixelBufferObject(new osg::PixelBufferObject(drawer.get()));
 
-    osg::Geode* geode = osg::createGeodeForImage(drawer.get());
-    root->addChild(geode);
+        osg::Geode* geode = osg::createGeodeForImage(drawer.get());
+        drawerList.push_back(drawer.get());
+
+        osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+        mt->setMatrix(osg::Matrix::translate((float)(i % 5) * 4.0f, 0.0f, (float)(i / 5) * 2.0f));
+        mt->addChild(geode); root->addChild(mt.get());
+    }
     while (!viewer.done())
     {
-        drawer->start(false);
-        drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-        drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f,
-                              osgVerse::DrawerStyleData(img.get(), osgVerse::DrawerStyleData::PAD));
+        double total = 0.0f;
+        for (size_t i = 0; i < drawerList.size(); ++i)
+        {
+            osgVerse::Drawer2D* drawer = drawerList[i];
+            osg::Timer_t t0 = osg::Timer::instance()->tick();
 
-        std::string text = "Hello World: " + std::to_string(viewer.getFrameStamp()->getFrameNumber());
-        osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 40.0f);
-        drawer->drawRectangle(bbox, 1.0f, 1.0f, osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
-        drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, text);
-        drawer->finish();
+            drawer->start(false);
+            drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+            drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f,
+                osgVerse::DrawerStyleData(img.get(), osgVerse::DrawerStyleData::PAD));
 
+            std::string text = "Hello " + std::to_string(i)
+                             + ": " + std::to_string(viewer.getFrameStamp()->getFrameNumber());
+            osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 40.0f);
+            drawer->drawRectangle(bbox, 1.0f, 1.0f,
+                                  osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
+            drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, text);
+            drawer->finish();
+
+            osg::Timer_t t1 = osg::Timer::instance()->tick();
+            total += osg::Timer::instance()->delta_m(t0, t1);
+        }
+
+        printf("DRAW TIME: %lg\n", total);
         viewer.frame();
     }
 #else

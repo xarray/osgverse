@@ -4,4 +4,7 @@ gradle.ext.minSdkVersion = 21
 gradle.ext.targetSdkVersion = 28
 gradle.ext.libDistributionRoot = '../build'
 
+include ':thirdparty'
+include ':osg'
+include ':sdl2'
 include ':app'

@@ -7,6 +7,13 @@ android {
         minSdkVersion gradle.minSdkVersion
         targetSdkVersion gradle.targetSdkVersion
         ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64' }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags "-frtti -fexceptions"
+                abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+            }
+        }
     }
     signingConfigs {
         release {
@@ -34,7 +41,12 @@ android {
     }
 }
 
+preBuild.dependsOn ":sdl2:build", ":osg:build"
+
 dependencies {
+    api project(path:':sdl2', configuration:'default')
+    api project(path:':thirdparty', configuration:'default')
+    api project(path:':osg', configuration:'default')
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'com.android.support.constraint:constraint-layout:+'
     implementation 'com.android.support:appcompat-v7:28.0.0'

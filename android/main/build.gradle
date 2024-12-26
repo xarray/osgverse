@@ -39,8 +39,6 @@ model {
                     }
                     source {
                         srcDirs 'src/'
-
-                        // The code from this directory contains bridge between Java and C for SDL2
                         srcDirs '../SDL2/src/main/android/'
                     }
                 }
