@@ -8,13 +8,21 @@ GET_FILENAME_COMPONENT(SDL2_SOURCE_DIR ../../../SDL2 ABSOLUTE)
 GET_FILENAME_COMPONENT(OSG_3RDPARTY_SOURCE_DIR ../../helpers/toolchain_builder ABSOLUTE)
 GET_FILENAME_COMPONENT(OSG_SOURCE_DIR ../../../OpenSceneGraph ABSOLUTE)
 GET_FILENAME_COMPONENT(OSGVERSE_SOURCE_DIR ../.. ABSOLUTE)
-SET(SDL2_BUILD_DIR ../../build/sdl2_android)
-SET(OSG_3RDPARTY_BUILD_DIR ../../build/3rdparty_android)
-SET(OSG_BUILD_DIR ../../build/osg_android)
-SET(OSGVERSE_BUILD_DIR ../../build/verse_android)
+
+GET_FILENAME_COMPONENT(SDL2_BUILD_DIR ../../build/sdl2_android ABSOLUTE)
+GET_FILENAME_COMPONENT(OSG_3RDPARTY_BUILD_DIR ../../build/3rdparty_android ABSOLUTE)
+GET_FILENAME_COMPONENT(OSG_BUILD_DIR ../../build/osg_android ABSOLUTE)
+GET_FILENAME_COMPONENT(OSGVERSE_BUILD_DIR ../../build/verse_android ABSOLUTE)
 
 # Build main bridge library
-FIND_LIBRARY(ANDROID_LOG_LIB log)
-INCLUDE_DIRECTORIES(${SDL2_SOURCE_DIR}/include)
+INCLUDE_DIRECTORIES("${SDL2_SOURCE_DIR}/include"
+                    "${OSG_BUILD_DIR}/include"
+                    "${OSG_SOURCE_DIR}/include"
+                    ${OSGVERSE_SOURCE_DIR})
+LINK_DIRECTORIES("${SDL2_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}"
+                 "${OSG_3RDPARTY_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}"
+                 "${OSG_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}" "${OSG_BUILD_DIR}/lib"
+                 "${OSGVERSE_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}")
 ADD_LIBRARY(osgVerseAndroid SHARED src/SDL_android_main.c src/main.cpp)
-TARGET_LINK_LIBRARIES(osgVerseAndroid SDL2 OpenThreads osg osgDB osgUtil ${ANDROID_LOG_LIB})
+TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2
+                      SDL2 OpenThreads osg osgDB osgUtil)

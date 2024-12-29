@@ -41,13 +41,14 @@ android {
     }
 }
 
-preBuild.dependsOn ":sdl2:build", ":osg:build"
+preBuild.dependsOn ":sdl2:build", ":osgverse:build"
 
 dependencies {
     api project(path:':sdl2', configuration:'default')
     api project(path:':thirdparty', configuration:'default')
     api project(path:':osg', configuration:'default')
+    api project(path:':osgverse', configuration:'default')
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'com.android.support.constraint:constraint-layout:+'
+    implementation 'com.android.support.constraint:constraint-layout:2.0.4'
     implementation 'com.android.support:appcompat-v7:28.0.0'
 }

@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "org.sdl2"
+    namespace "org.osgverse"
     compileSdkVersion = gradle.sdkVersion
     defaultConfig {
         minSdkVersion gradle.minSdkVersion
@@ -12,7 +12,11 @@ android {
             cmake {
                 cppFlags "-frtti -fexceptions"
                 abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
-                targets 'SDL2-static'
+                targets 'osgVerseDependency', 'osgVerseModeling', 'osgVerseUI', 'osgVerseScript',
+                        'osgVerseReaderWriter', 'osgVersePipeline', 'osgVerseAnimation', 'osgVerseAI',
+                        'osgVerseWrappers', 'osgdb_verse_tiles', 'osgdb_verse_ept', 'osgdb_verse_fbx',
+                        'osgdb_verse_gltf', 'osgdb_verse_image', 'osgdb_verse_ktx', 'osgdb_verse_leveldb',
+                        'osgdb_verse_ms', 'osgdb_verse_mvt', 'osgdb_verse_tms', 'osgdb_verse_web'
             }
         }
     }
@@ -29,5 +33,8 @@ android {
     }
 }
 
+preBuild.dependsOn ":osg:build"
+
 dependencies {
+    api project(path:':osg', configuration:'default')
 }
