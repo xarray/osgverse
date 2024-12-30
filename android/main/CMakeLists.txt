@@ -24,5 +24,5 @@ LINK_DIRECTORIES("${SDL2_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH
                  "${OSG_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}" "${OSG_BUILD_DIR}/lib"
                  "${OSGVERSE_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}")
 ADD_LIBRARY(osgVerseAndroid SHARED src/SDL_android_main.c src/main.cpp)
-TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2
+TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2 OpenSLES
                       SDL2 OpenThreads osg osgDB osgUtil)

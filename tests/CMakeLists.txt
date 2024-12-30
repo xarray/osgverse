@@ -34,7 +34,7 @@ MACRO(NEW_TEST_EXECUTABLE EXECUTABLE_NAME SOURCE_FILE)
 
 ENDMACRO(NEW_TEST_EXECUTABLE)
 
-INCLUDE_DIRECTORIES(. ${CMAKE_SOURCE_DIR}/3rdparty/libhv ${CMAKE_SOURCE_DIR}/3rdparty/libhv/all)
+INCLUDE_DIRECTORIES(. ../3rdparty/libhv ../3rdparty/libhv/all)
 ADD_DEFINITIONS(-DHV_STATICLIB)
 
 NEW_TEST_EXECUTABLE(osgVerse_Test_Plugins plugins_test.cpp)
@@ -60,6 +60,7 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Polygon2D polygon2d_test.cpp)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Auto_LOD auto_lod_test.cpp)
     NEW_TEST_EXECUTABLE(osgVerse_Test_Sky_Box sky_box_test.cpp)
+    NEW_TEST_EXECUTABLE(osgVerse_Test_Instance_Param instance_param_test.cpp)
 
 	IF(MSVC_VERSION GREATER 1900)
         NEW_TEST_EXECUTABLE(osgVerse_Test_Restful_Server restful_server_test.cpp)

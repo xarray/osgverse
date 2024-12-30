@@ -648,8 +648,10 @@ namespace bl { using namespace BLInternal; }
   #undef BL_TARGET_OPT_SSE2
   #undef BL_TARGET_OPT_SSE
   #undef BL_TARGET_ARCH_X86
+  #undef BL_TARGET_ARCH_ARM
   #undef BL_STATIC_ASSERT
   #define BL_TARGET_ARCH_X86 0
+  #define BL_TARGET_ARCH_ARM 0
   #define BL_STATIC_ASSERT(...) \
       static_assert((BL_TARGET_ARCH_X86 == 0) || __VA_ARGS__, "Failed BL_STATIC_ASSERT(" #__VA_ARGS__ ")")
 #endif

@@ -5,7 +5,7 @@
 #include <iostream>
 
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-#   if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+#   if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2) && !defined(__ANDROID__)
 #       include <EGL/egl.h>
 #       include <EGL/eglext.h>
 #       include <EGL/eglext_angle.h>

@@ -8,7 +8,7 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     JsonScript.cpp
 )
 
-INCLUDE_DIRECTORIES(. ${CMAKE_SOURCE_DIR}/3rdparty/libhv ${CMAKE_SOURCE_DIR}/3rdparty/libhv/all)
+INCLUDE_DIRECTORIES(. ../3rdparty/libhv ../3rdparty/libhv/all)
 ADD_DEFINITIONS(-DHV_STATICLIB)
 NEW_LIBRARY(${LIB_NAME} STATIC)
 

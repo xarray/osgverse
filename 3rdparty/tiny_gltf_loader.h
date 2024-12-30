@@ -251,7 +251,7 @@ class Value {
   int pad0;
 
  private:
-  static Value null_value_; 
+  static Value null_value_;
 };
 
 #define TINYGLTF_VALUE_GET(ctype, var)            \
@@ -607,7 +607,7 @@ class TinyGLTFLoader {
 
 #ifdef _WIN32
 #include <Windows.h>
-#elif defined(__EMSCRIPTEN__)
+#elif defined(__EMSCRIPTEN__) || defined(__ANDROID__)
 // FIXME?
 #else
 #include <wordexp.h>
@@ -672,7 +672,7 @@ static std::string ExpandFilePath(const std::string &filepath) {
   return s;
 #else
 
-#if defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(__EMSCRIPTEN__)
+#if defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(__EMSCRIPTEN__) || defined(__ANDROID__)
   // no expansion
   std::string s = filepath;
 #else

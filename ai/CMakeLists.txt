@@ -4,7 +4,7 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     RecastManager.cpp RecastManager_Private.h
     RecastManager_Builder.cpp RecastManager_Builder.h)
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3rdparty/recastnavigation/Detour)
+INCLUDE_DIRECTORIES(../3rdparty/recastnavigation/Detour)
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseModeling)
