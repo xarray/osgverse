@@ -16,7 +16,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: | Set VERSE_FIND_LEGACY_OPENGL to ON |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | Mac OS X         |                          | :soon:             |       |
-| Android          | WSL + NDK r20e (Clang)   | :heavy_check_mark: |       |
+| Android          | Android Studio 2022+     | :heavy_check_mark: |       |
 | IOS              |                          | :soon:             |       |
 | WebAssmebly      | WSL + Emscripten 3.1.64  | :heavy_check_mark: | Supports GLES2 (WebGL1) and GLES3 (WebGL2) |
 

@@ -29,5 +29,5 @@ void main()
         gl_Position = viewPos + vec4(osg_Vertex.xy * (scale * size * SCALE_FACTOR), 0.0, 0.0);
     }
     else  // mesh etc.
-        gl_Position = VERSE_MATRIX_MVP * (gl_Vertex + vec4(posSize.xyz, 0.0));
+        gl_Position = VERSE_MATRIX_MVP * (osg_Vertex + vec4(posSize.xyz, 0.0));
 }
