@@ -91,6 +91,17 @@ namespace osgVerse
                                     Including: world-to-view, view-to-world, view-to-proj, proj-to-view
         - vec2 NearFarPlanes: calculated near/far values of entire scene
         - vec2 InvScreenResolution: (1.0 / view-width, 1.0 / view-height)
+
+        Vertex attribute mapping suggestions:
+        - osg_Vertex: 0
+        - osg_BoneWeight (Custom): 1
+        - osg_Normal: 2
+        - osg_Color: 3
+        - osg_SecondaryColor: 4
+        - osg_FogCoord: 5
+        - osg_Tangent (Custom): 6
+        - osg_Binormal (Custom): 7
+        - osg_MultiTexCoord0 - osg_MultiTexCoord7: 8-15
     */
     class Pipeline : public osg::Referenced
     {

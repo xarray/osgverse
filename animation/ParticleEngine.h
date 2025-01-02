@@ -20,8 +20,8 @@ namespace osgVerse
     class ParticleSystemU3D : public osg::NodeCallback
     {
     public:
-        enum UpdateMethod { CPU_ONLY, FRAME_RT };  // TODO
-        ParticleSystemU3D();
+        enum UpdateMethod { CPU_TEXTURE_LUT, CPU_VERTEX_ATTRIB, GPU_COMPUTE };  // TODO
+        ParticleSystemU3D(UpdateMethod up = CPU_VERTEX_ATTRIB);
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
@@ -29,11 +29,11 @@ namespace osgVerse
         void linkTo(osg::Geode* geode, bool applyStates, osg::Shader* vert = NULL, osg::Shader* frag = NULL);
         void unlinkFrom(osg::Geode* geode);
 
-        // Update parameters in CPU mode:
+        // Update parameters in CPU_* mode:
         // - ptr0: pos x, y, z, size; ptr1: color r, g, b, a
         // - ptr2: velocity x, y, z, life; ptr3: euler x, y, z, anim id
         void updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
-            osg::Vec4* ptr2, osg::Vec4* ptr3);
+                       osg::Vec4* ptr2, osg::Vec4* ptr3);
 
         enum EmissionShape { EMIT_Point, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
         enum EmissionSurface { EMIT_Volume, EMIT_Shell };
@@ -55,6 +55,7 @@ namespace osgVerse
         void setParticleType(ParticleType t) { _particleType = t; _dirty = true; }
         void setBlendingType(BlendingType t) { _blendingType = t; _dirty = true; }
 
+        osg::Geometry* getInternalGeometry() { return _geometry.get(); }
         osg::Geometry* getGeometry() { return _geometry2.get(); }
         osg::Texture2D* getTexture() { return _texture.get(); }
         const osg::Vec3& getStartDirection() const { return _startDirection; }
@@ -159,6 +160,7 @@ namespace osgVerse
         EmissionSurface _emissionSurface;
         ParticleType _particleType;
         BlendingType _blendingType;
+        UpdateMethod _updateMethod;
         bool _dirty;
     };
 

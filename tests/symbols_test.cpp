@@ -18,6 +18,7 @@
 namespace backward { backward::SignalHandling sh; }
 
 #define TEST_DRAWER 1
+#define TEST_DRAWER_THREAD 1
 
 int main(int argc, char** argv)
 {
@@ -47,6 +48,7 @@ int main(int argc, char** argv)
         mt->setMatrix(osg::Matrix::translate((float)(i % 5) * 4.0f, 0.0f, (float)(i / 5) * 2.0f));
         mt->addChild(geode); root->addChild(mt.get());
     }
+
     while (!viewer.done())
     {
         double total = 0.0f;
@@ -55,6 +57,21 @@ int main(int argc, char** argv)
             osgVerse::Drawer2D* drawer = drawerList[i];
             osg::Timer_t t0 = osg::Timer::instance()->tick();
 
+#if TEST_DRAWER_THREAD
+            size_t id = i, frames = viewer.getFrameStamp()->getFrameNumber();
+            drawer->startInThread([img, id, frames](osgVerse::Drawer2D* drawer) {
+                drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+                drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f,
+                    osgVerse::DrawerStyleData(img.get(), osgVerse::DrawerStyleData::PAD));
+
+                std::string text = "Hello " + std::to_string(id)
+                                 + ": " + std::to_string(frames);
+                osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 40.0f);
+                drawer->drawRectangle(bbox, 1.0f, 1.0f,
+                                      osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
+                drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, text);
+            }, false);
+#else
             drawer->start(false);
             drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
             drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f,
@@ -66,6 +83,7 @@ int main(int argc, char** argv)
             drawer->drawRectangle(bbox, 1.0f, 1.0f,
                                   osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
             drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, text);
+#endif
             drawer->finish();
 
             osg::Timer_t t1 = osg::Timer::instance()->tick();

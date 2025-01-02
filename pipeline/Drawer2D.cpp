@@ -1,3 +1,4 @@
+#include <OpenThreads/ScopedLock>
 #include <osg/Version>
 #include <osg/io_utils>
 #include <osg/ImageUtils>
@@ -15,15 +16,17 @@ struct BlendCore : public osg::Referenced
     std::map<std::string, BLFontFace> fonts;
 };
 
-Drawer2D::Drawer2D() : _drawing(false)
-{ _b2dData = new BlendCore; }
+Drawer2D::Drawer2D() : _drawingInThread(0), _drawing(false)
+{ _b2dData = new BlendCore; _thread = NULL; }
 
 Drawer2D::Drawer2D(const Drawer2D& img, const osg::CopyOp& op)
-    : osg::Image(img, op), _b2dData(img._b2dData), _drawing(img._drawing)
+:   osg::Image(img, op), _b2dData(img._b2dData), _thread(img._thread),
+    _drawingInThread(img._drawingInThread), _drawing(img._drawing)
 {}
 
 Drawer2D::Drawer2D(const osg::Image& img, const osg::CopyOp& op)
-    : osg::Image(img, op), _drawing(false) { _b2dData = new BlendCore; }
+:   osg::Image(img, op), _drawingInThread(0), _drawing(false)
+{ _b2dData = new BlendCore; _thread = NULL; }
 
 unsigned char* Drawer2D::convertImage(osg::Image* image, int& format, int& components)
 {
@@ -55,11 +58,74 @@ unsigned char* Drawer2D::convertImage(osg::Image* image, int& format, int& compo
     return pixels;
 }
 
+class DrawerThread : public OpenThreads::Thread
+{
+public:
+    DrawerThread(Drawer2D* d, Drawer2D::DrawerCallback cb)
+    : _drawer(d), _callback(cb), _running(true) {}
+
+    virtual void run()
+    {
+        while (_drawer.valid() && _running)
+        {
+            _callback(_drawer.get());
+            _running = false; microSleep(15000);
+        }
+        _drawer->setDrawingInThread(2);
+    }
+
+    virtual int cancel()
+    {
+        _running = false;
+        return OpenThreads::Thread::cancel();
+    }
+
+protected:
+    osg::observer_ptr<Drawer2D> _drawer;
+    Drawer2D::DrawerCallback _callback;
+    bool _running;
+};
+
+void Drawer2D::setDrawingInThread(int b)
+{
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+    _drawingInThread = b;  // 0: not drawing, 1: before draw, 2: after draw
+}
+
+bool Drawer2D::testDrawingInThread(int b)
+{
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+    return (_drawingInThread == b);
+}
+
+bool Drawer2D::startInThread(DrawerCallback cb, bool useCurrentPixels)
+{
+    bool started = start(useCurrentPixels, 0);
+    if (started)
+    {
+        destroyDrawingThread();
+        _thread = new DrawerThread(this, cb);
+        setDrawingInThread(1); _thread->start();
+    }
+    return started;
+}
+
+void Drawer2D::destroyDrawingThread()
+{
+    setDrawingInThread(0);
+    if (_thread != NULL)
+    {
+        _thread->cancel(); _thread->join();
+        delete _thread; _thread = NULL;
+    }
+}
+
 bool Drawer2D::start(bool useCurrentPixels, int threads)
 {
     int format = BLFormat::BL_FORMAT_PRGB32, numComponents = 0;
     int w = 1024; if (s() > 1) w = s();
     int h = 1024; if (t() > 1) h = t();
+    if (!testDrawingInThread(0)) return false;
 
     unsigned char* pixels = NULL; bool createdFromData = false;
     if (useCurrentPixels) pixels = convertImage(this, format, numComponents);
@@ -89,6 +155,9 @@ bool Drawer2D::start(bool useCurrentPixels, int threads)
 bool Drawer2D::finish()
 {
     BlendCore* core = (BlendCore*)_b2dData.get();
+    if (!testDrawingInThread(2)) return false;
+    else if (_thread != NULL) destroyDrawingThread();
+
     bool contextClosed = false; _drawing = false;
     if (core && core->context != NULL)
     {

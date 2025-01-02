@@ -4,6 +4,7 @@
 #include <osg/Version>
 #include <osg/Image>
 #include <osg/Texture2D>
+#include <functional>
 
 namespace osgVerse
 {
@@ -40,13 +41,17 @@ namespace osgVerse
     {
     public:
         using StyleData = DrawerStyleData;
+        typedef std::function<void(Drawer2D*)> DrawerCallback;
 
         Drawer2D();
         Drawer2D(const Drawer2D& img, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
         Drawer2D(const osg::Image& img, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
 
         /** Initialize the image as usual, and start as a drawer here */
-        bool start(bool useCurrentPixels, int threads = 0);
+        bool start(bool useCurrentPixels, int helpThreads = 0);
+
+        /** Initialize the image and draw elements in thread, will automatically finish the work */
+        bool startInThread(DrawerCallback cb, bool useCurrentPixels);
 
         /** Finish drawing work and copy back to the image itself */
         bool finish();
@@ -98,9 +103,16 @@ namespace osgVerse
         void fillBackground(const osg::Vec4f& color);
 
         static unsigned char* convertImage(osg::Image* image, int& format, int& components);
+        void setDrawingInThread(int b);
 
     protected:
+        bool testDrawingInThread(int b);
+        void destroyDrawingThread();
+
         osg::ref_ptr<osg::Referenced> _b2dData;
+        OpenThreads::Thread* _thread;
+        OpenThreads::Mutex _mutex;
+        int _drawingInThread;
         bool _drawing;
     };
 }

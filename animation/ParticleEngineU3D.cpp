@@ -1,6 +1,7 @@
 #include <osg/io_utils>
 #include <osg/Depth>
 #include <osg/BlendFunc>
+#include <osg/VertexAttribDivisor>
 #include <osgDB/FileNameUtils>
 #include <iostream>
 #include "pipeline/Global.h"
@@ -13,12 +14,12 @@
 #define RAND_RANGE2(vec) ((vec[1] - vec[0]) * (float)rand() / (float)RAND_MAX + vec[0])
 using namespace osgVerse;
 
-class ParticleTexturePoolU3D : public osg::Referenced
+class ParticleSystemPoolU3D : public osg::Referenced
 {
 public:
-    static ParticleTexturePoolU3D* instance()
+    static ParticleSystemPoolU3D* instance()
     {
-        static osg::ref_ptr<ParticleTexturePoolU3D> s_instance = new ParticleTexturePoolU3D;
+        static osg::ref_ptr<ParticleSystemPoolU3D> s_instance = new ParticleSystemPoolU3D;
         return s_instance.get();
     }
 
@@ -61,7 +62,8 @@ public:
             unsigned int r0 = range[0], r1 = (unsigned int)range[1];
             if (r1 < r0 || maxSize < r1) return;
 
-            // If in CPU_ONLY mode, update every particle system's parameters
+            // If in CPU_* mode, update every particle system's parameters
+            osg::Geometry* g = obj->getInternalGeometry();
             if (_positionSizeAndColor.valid() && _positionSizeAndColor->getImage() &&
                 _velocityAndEuler.valid() && _velocityAndEuler->getImage())
             {
@@ -69,6 +71,16 @@ public:
                 osg::Vec4* ptr1 = (osg::Vec4*)_velocityAndEuler->getImage()->data();
                 obj->updateCPU(fs->getSimulationTime(), r1 - r0, ptr0 + r0, ptr0 + maxSize + r0,
                                ptr1 + r0, ptr1 + maxSize + r0);
+            }
+            else if (g != NULL)
+            {
+                osg::Vec4Array* pData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(4));
+                osg::Vec4Array* cData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(5));
+                osg::Vec4Array* vData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(6));
+                osg::Vec4Array* eData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(7));
+                obj->updateCPU(fs->getSimulationTime(), r1 - r0, &(*pData)[0], &(*cData)[0],
+                               &(*vData)[0], &(*eData)[0]);
+                pData->dirty(); cData->dirty(); vData->dirty(); eData->dirty();
             }
         }
     }
@@ -95,11 +107,13 @@ public:
         tex->setWrap(osg::Texture::WRAP_T, osg::Texture::MIRROR);
         switch (method)
         {
-        case ParticleSystemU3D::FRAME_RT:
+        case ParticleSystemU3D::GPU_COMPUTE:
             tex->setTextureSize(_maxTextureSize, _maxTextureSize);
             tex->setInternalFormat(GL_RGBA32F_ARB);
             tex->setSourceFormat(GL_RGBA);
             tex->setSourceType(GL_FLOAT); break;
+        case ParticleSystemU3D::CPU_VERTEX_ATTRIB:
+            return NULL;
         default:
             {
                 osg::ref_ptr<osg::Image> image = new osg::Image;
@@ -125,12 +139,10 @@ public:
     }
 
 protected:
-    ParticleTexturePoolU3D()
+    ParticleSystemPoolU3D()
     {
         srand(osg::Timer::instance()->tick());
         _maxTextureSize = 2048; _frameNumber = (unsigned int)-1;
-        createParameterTexture(0, ParticleSystemU3D::CPU_ONLY);
-        createParameterTexture(1, ParticleSystemU3D::CPU_ONLY);  // FIXME
     }
 
     std::map<ParticleSystemU3D*, osg::ref_ptr<osg::Uniform>> _rangeMap;
@@ -141,14 +153,18 @@ protected:
     unsigned int _maxTextureSize, _frameNumber;
 };
 
-ParticleSystemU3D::ParticleSystemU3D()
+ParticleSystemU3D::ParticleSystemU3D(UpdateMethod upMode)
 :   _collisionValues(0.0f, 1.0f, 0.0f, 0.0f), _emissionShapeValues(1.0f, 1.0f, 1.0f, 1.0f),
     _startDirection(0.0f, 0.0f, 1.0f), _textureSheetTiles(1.0f, 1.0f), _emissionCount(100.0f, 0.0f),
     _startLifeRange(1.0f, 5.0f), _startSizeRange(0.1f, 1.0f), _startSpeedRange(0.1f, 1.0f),
     _maxParticles(1000.0), _startDelay(0.0), _gravityScale(1.0), _startTime(0.0),
     _lastSimulationTime(0.0), _duration(1.0), _aspectRatio(16.0 / 9.0), _emissionShape(EMIT_Point),
     _emissionSurface(EMIT_Volume), _particleType(PARTICLE_Billboard),
-    _blendingType(BLEND_Modulate), _dirty(true) {}
+    _blendingType(BLEND_Modulate), _updateMethod(upMode), _dirty(true)
+{
+    ParticleSystemPoolU3D::instance()->createParameterTexture(0, upMode);
+    ParticleSystemPoolU3D::instance()->createParameterTexture(1, upMode);
+}
 
 ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop)
 :   osg::NodeCallback(copy, copyop), _emissionBursts(copy._emissionBursts),
@@ -160,7 +176,7 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _texture(copy._texture), _geometry(copy._geometry),
     _collisionValues(copy._collisionValues), _textureSheetRange(copy._textureSheetRange),
     _textureSheetValues(copy._textureSheetValues), _emissionShapeValues(copy._emissionShapeValues),
-    _emissionShapeCenter(copy._emissionShapeCenter), _emissionShapeEulers(copy._emissionShapeEulers), 
+    _emissionShapeCenter(copy._emissionShapeCenter), _emissionShapeEulers(copy._emissionShapeEulers),
     _startDirection(copy._startDirection), _textureSheetTiles(copy._textureSheetTiles),
     _emissionCount(copy._emissionCount), _startLifeRange(copy._startLifeRange),
     _startSizeRange(copy._startSizeRange), _startSpeedRange(copy._startSpeedRange),
@@ -168,10 +184,10 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _startTime(copy._startTime), _lastSimulationTime(copy._lastSimulationTime), _duration(copy._duration),
     _aspectRatio(copy._aspectRatio), _emissionShape(copy._emissionShape),
     _emissionSurface(copy._emissionSurface), _particleType(copy._particleType),
-    _blendingType(copy._blendingType), _dirty(copy._dirty) {}
+    _blendingType(copy._blendingType), _updateMethod(copy._updateMethod), _dirty(copy._dirty) {}
 
 ParticleSystemU3D::~ParticleSystemU3D()
-{ ParticleTexturePoolU3D::instance()->deallocate(this); }
+{ ParticleSystemPoolU3D::instance()->deallocate(this); }
 
 void ParticleSystemU3D::operator()(osg::Node* node, osg::NodeVisitor* nv)
 {
@@ -188,7 +204,7 @@ void ParticleSystemU3D::operator()(osg::Node* node, osg::NodeVisitor* nv)
     {
         _localToWorld = osg::computeLocalToWorld(nv->getNodePath());
         _worldToLocal = osg::Matrix::inverse(_localToWorld);
-        ParticleTexturePoolU3D::instance()->apply(nv->getFrameStamp(), this);
+        ParticleSystemPoolU3D::instance()->apply(nv->getFrameStamp(), this);
     }
     traverse(node, nv);
 }
@@ -204,9 +220,17 @@ void ParticleSystemU3D::linkTo(osg::Geode* geode, bool applyStates,
 
     osg::Program* program = new osg::Program;
     program->setName("Particle_PROGRAM");
+    if (_updateMethod == CPU_VERTEX_ATTRIB)
+    {
+        program->addBindAttribLocation("osg_UserPosition", 4);
+        program->addBindAttribLocation("osg_UserColor", 5);
+        program->addBindAttribLocation("osg_UserVelocity", 6);
+        program->addBindAttribLocation("osg_UserEulers", 7);
+        vert->setShaderSource("#define USE_VERTEX_ATTRIB 1\n" + vert->getShaderSource());
+    }
     program->addShader(vert); Pipeline::createShaderDefinitions(vert, 100, 130);
     program->addShader(frag); Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
-    
+
     osg::StateSet* ss = geode->getOrCreateStateSet();
     ss->setAttributeAndModes(program);
     ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
@@ -302,20 +326,38 @@ void ParticleSystemU3D::recreate()
         break;
     }
 
-    ParticleTexturePoolU3D* pool = ParticleTexturePoolU3D::instance();
+    osg::StateSet* ss = _geometry->getOrCreateStateSet();
+    if (_updateMethod == CPU_VERTEX_ATTRIB)
+    {
+        for (int k = 4; k < 8; ++k)
+        {
+            osg::ref_ptr<osg::Vec4Array> pData = new osg::Vec4Array(_maxParticles);
+            _geometry->setVertexAttribArray(k, pData.get());
+            _geometry->setVertexAttribBinding(k, osg::Geometry::BIND_PER_VERTEX);
+            _geometry->setVertexAttribNormalize(k, GL_FALSE);
+            ss->setAttributeAndModes(new osg::VertexAttribDivisor(k, 1));
+        }
+    }
+
+    ParticleSystemPoolU3D* pool = ParticleSystemPoolU3D::instance();
     for (size_t i = 0; i < _geometry->getNumPrimitiveSets(); ++i)
     {
         osg::PrimitiveSet* p = _geometry->getPrimitiveSet(i);
         p->setNumInstances(_maxParticles); p->dirty();
     }
 
-    osg::StateSet* ss = _geometry->getOrCreateStateSet();
     ss->setTextureAttributeAndModes(0, _texture.get());
-    ss->setTextureAttributeAndModes(1, pool->getParameterTexture(0));
-    ss->setTextureAttributeAndModes(2, pool->getParameterTexture(1));
+    if (pool->getParameterTexture(0))
+    {
+        ss->setTextureAttributeAndModes(1, pool->getParameterTexture(0));
+        ss->addUniform(new osg::Uniform("PosColorTexture", (int)1));
+    }
+    if (pool->getParameterTexture(1))
+    {
+        ss->setTextureAttributeAndModes(2, pool->getParameterTexture(1));
+        ss->addUniform(new osg::Uniform("VelocityTexture", (int)2));
+    }
     ss->addUniform(new osg::Uniform("BaseTexture", (int)0));
-    ss->addUniform(new osg::Uniform("PosColorTexture", (int)1));
-    ss->addUniform(new osg::Uniform("VelocityTexture", (int)2));
     ss->addUniform(new osg::Uniform("TextureSheetRange", _textureSheetRange));
     ss->addUniform(new osg::Uniform("TextureSheetTiles", _textureSheetTiles));
     ss->addUniform(pool->reallocate(this, _maxParticles));

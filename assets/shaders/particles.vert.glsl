@@ -1,5 +1,9 @@
 #extension GL_EXT_draw_instanced : enable
+#ifdef USE_VERTEX_ATTRIB
+VERSE_VS_IN vec4 osg_UserPosition, osg_UserColor, osg_UserVelocity, osg_UserEulers;
+#else
 uniform sampler2D PosColorTexture, VelocityTexture;
+#endif
 uniform vec4 DataRange;
 VERSE_VS_OUT vec4 color, texCoord;
 VERSE_VS_OUT float animationID, lifeTime;
@@ -7,12 +11,19 @@ const float RES = 2048.0, SCALE_FACTOR = 100.0;
 
 void main()
 {
+#ifdef USE_VERTEX_ATTRIB
+    vec4 posSize = osg_UserPosition;
+    vec4 velocityLife = osg_UserVelocity;
+    vec4 eulerAnim = osg_UserEulers;
+    color = osg_UserColor;
+#else
     float r = float(gl_InstanceID + int(DataRange.x)) / RES;
     float c = floor(r) / RES; r = fract(r);
     vec4 posSize = VERSE_TEX2D(PosColorTexture, vec2(r, c));
     vec4 velocityLife = VERSE_TEX2D(VelocityTexture, vec2(r, c));
     vec4 eulerAnim = VERSE_TEX2D(VelocityTexture, vec2(r, c + 0.5));
     color = VERSE_TEX2D(PosColorTexture, vec2(r, c + 0.5));
+#endif
     animationID = eulerAnim.a; lifeTime = velocityLife.a;
 
     float size = posSize.w; texCoord = osg_MultiTexCoord0;
