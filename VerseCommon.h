@@ -7,3 +7,11 @@
 #include "animation/Utilities.h"
 #include "readerwriter/Utilities.h"
 #include "wrappers/Export.h"
+
+/*#if defined(_WIN32) || defined(WIN32)
+extern "C"
+{
+    _declspec(dllexport) unsigned long NvOptimusEnablement = 1;
+    _declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif*/

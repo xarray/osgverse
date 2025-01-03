@@ -95,7 +95,7 @@ void Drawer2D::setDrawingInThread(int b)
 bool Drawer2D::testDrawingInThread(int b)
 {
     OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
-    return (_drawingInThread == b);
+    return (_drawingInThread == b) || (_drawingInThread <= 0);
 }
 
 bool Drawer2D::startInThread(DrawerCallback cb, bool useCurrentPixels)
