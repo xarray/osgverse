@@ -41,6 +41,7 @@
 | llama.cpp        | Embedded |           | AI                 | -            | https://github.com/ggerganov/llama.cpp |
 | marl             | Embedded |           | -                  | Apache2      | https://github.com/google/marl |
 | MeshOptimizer    | Embedded | 0.26      | Modeling           | MIT          | https://github.com/zeux/meshoptimizer |
+| METIS            | Embedded | 5.2.1     | Modeling           | Apache2      | https://github.com/KarypisLab/METIS |
 | mikktspace       | Embedded |           | Pipeline           | Public       | https://github.com/mmikk/MikkTSpace |
 | miniz            | Embedded |           | -                  | MIT          | https://github.com/richgel999/miniz |
 | mio              | Embedded |           | -                  | MIT          | https://github.com/vimpunk/mio |

@@ -161,6 +161,26 @@ SET(TINYSPLINE_SOURCE_FILES
     tinyspline/tinysplinecxx.cxx tinyspline/tinysplinecxx.h
 )
 
+SET(METIS_SOURCE_FILES
+    metis/metis.h metis/auxapi.c metis/balance.c metis/bucketsort.c metis/checkgraph.c
+    metis/coarsen.c metis/compress.c metis/contig.c metis/debug.c metis/fm.c
+    metis/fortran.c metis/frename.c metis/gklib.c metis/graph.c metis/initpart.c
+    metis/kmetis.c metis/kwayfm.c metis/kwayrefine.c metis/mcutil.c metis/mesh.c
+    metis/meshpart.c metis/minconn.c metis/mincover.c metis/mmd.c metis/ometis.c
+    metis/options.c metis/parmetis.c metis/pmetis.c metis/refine.c metis/separator.c
+    metis/sfm.c metis/srefine.c metis/stat.c metis/timing.c metis/util.c metis/wspace.c
+
+    metis/gklib/b64.c metis/gklib/blas.c metis/gklib/cache.c metis/gklib/csr.c
+    metis/gklib/error.c metis/gklib/evaluate.c metis/gklib/fkvkselect.c metis/gklib/fs.c
+    metis/gklib/getopt.c metis/gklib/gkregex.c metis/gklib/gk_util.c metis/gklib/graph.c
+    metis/gklib/htable.c metis/gklib/io.c metis/gklib/itemsets.c metis/gklib/mcore.c
+    metis/gklib/memory.c metis/gklib/pqueue.c metis/gklib/random.c metis/gklib/rw.c
+    metis/gklib/seq.c metis/gklib/sort.c metis/gklib/string.c metis/gklib/timers.c metis/gklib/tokenizer.c
+)
+IF(MSVC)
+    SET(METIS_SOURCE_FILES ${METIS_SOURCE_FILES} metis/gklib/win32/adapt.c)
+ENDIF(MSVC)
+
 SET(MBEDTLS_SOURCE_FILES
     libhv/everest/everest.c libhv/everest/x25519.c libhv/everest/Hacl_Curve25519_joined.c
     libhv/mbedtls/aes.c libhv/mbedtls/aesni.c libhv/mbedtls/aria.c
@@ -468,6 +488,7 @@ SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
+SOURCE_GROUP("libMETIS Files" FILES ${METIS_SOURCE_FILES})
 SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
 SOURCE_GROUP("Llama.cpp Files" FILES ${LLAMA_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
@@ -496,7 +517,7 @@ SET(LIBRARY_FILES
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${QUICKJS_SOURCE_FILES}
-    ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
+    ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${METIS_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES}
     ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES} ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES}
@@ -534,6 +555,7 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0          # libKTX: BasisU
                 -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4            # Llama.cpp / libGGML
                 -DUSINGZ                                                  # clipper2
+                -DIDXTYPEWIDTH=64 -DREALTYPEWIDTH=64                      # METIS
                 -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 
 IF(MSVC_VERSION LESS 1910)
@@ -541,7 +563,8 @@ IF(MSVC_VERSION LESS 1910)
 ENDIF(MSVC_VERSION LESS 1910)
 
 IF(OPENMP_FOUND)
-    ADD_DEFINITIONS(-DWITH_OMP -DGGML_USE_OPENMP -DApproxMVBB_OPENMP_SUPPORT)
+    ADD_DEFINITIONS(-D__OPENMP__ -DWITH_OMP -DENABLE_OPENMP -DGGML_USE_OPENMP
+                    -DApproxMVBB_OPENMP_SUPPORT)
 ENDIF(OPENMP_FOUND)
 
 IF("sse4.2" IN_LIST VERSE_SIMD_FEATURES)
@@ -583,7 +606,8 @@ IF(NOT USE_WASM_OPTIONS)
 ENDIF(NOT USE_WASM_OPTIONS)
 
 IF(WIN32)
-    ADD_DEFINITIONS(-DLEVELDB_PLATFORM_WINDOWS)
+    ADD_DEFINITIONS(-DUSE_GKREGEX                    # METIS
+                    -DLEVELDB_PLATFORM_WINDOWS)
 ELSE()
     ADD_DEFINITIONS(-DLEVELDB_PLATFORM_POSIX)
 ENDIF()
@@ -595,7 +619,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    quadriflow recastnavigation/Detour rlottie rlottie/vector quickjs llama
+                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector quickjs llama
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
