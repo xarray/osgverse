@@ -1,9 +1,6 @@
 #include "GraphicsWindowWin32NV.h"
 #include <osg/DeleteHandler>
 #include <osgViewer/View>
-#if OSG_VERSION_GREATER_THAN(3, 6, 4)
-#   include <osgViewer/api/Win32/Win32GWUtils>
-#endif
 #include <windowsx.h>
 #include <iostream>
 #include <sstream>

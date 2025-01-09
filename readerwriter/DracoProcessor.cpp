@@ -9,6 +9,7 @@
 #include <mutex>
 using namespace osgVerse;
 
+#include <meshoptimizer/meshoptimizer.h>
 #ifdef VERSE_USE_DRACO
 #   include <draco/mesh/mesh.h>
 #   include <draco/compression/encode.h>
@@ -24,6 +25,92 @@ struct CollectFaceOperator
     }
     std::vector<osg::Vec3i> triangles;
 };
+
+bool MeshOptimizer::decodeData(std::istream& in, osg::Geometry* geom)
+{
+    return false;
+}
+
+bool MeshOptimizer::encodeData(std::ostream& out, osg::Geometry* geom)
+{
+    osg::TriangleIndexFunctor<CollectFaceOperator> functor;
+    if (geom) geom->accept(functor);
+    osg::Vec3Array* va = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
+    osg::Vec3Array* na = dynamic_cast<osg::Vec3Array*>(geom->getNormalArray());
+    osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geom->getColorArray());
+    osg::Vec2Array* ta = dynamic_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
+
+    std::vector<meshopt_Stream> streams;
+    bool validN = (na && na->size() == va->size());
+    bool validC = (ca && ca->size() == va->size());
+    bool validT = (ta && ta->size() == va->size());
+    if (va && !va->empty())
+    {
+        meshopt_Stream ms; ms.data = &(*va)[0];
+        ms.size = sizeof(float) * 3; ms.stride = ms.size;
+        streams.push_back(ms);
+
+        if (validN)
+        {
+            meshopt_Stream ms; ms.data = &(*na)[0];
+            ms.size = sizeof(float) * 3; ms.stride = ms.size;
+            streams.push_back(ms);
+        }
+        if (validC)
+        {
+            meshopt_Stream ms; ms.data = &(*ca)[0];
+            ms.size = sizeof(float) * 4; ms.stride = ms.size;
+            streams.push_back(ms);
+        }
+        if (validT)
+        {
+            meshopt_Stream ms; ms.data = &(*ta)[0];
+            ms.size = sizeof(float) * 2; ms.stride = ms.size;
+            streams.push_back(ms);
+        }
+    }
+
+    if (streams.empty() || functor.triangles.empty())
+    { OSG_WARN << "[MeshOptimizer] No enough data to encode\n"; return false; }
+
+    unsigned int totalIndices = functor.triangles.size() * 3;
+    std::vector<unsigned int> indices(totalIndices);
+    memcpy(&indices[0], &functor.triangles[0], totalIndices * sizeof(int));
+
+    std::vector<unsigned int> remap(totalIndices);
+    size_t totalVertices = meshopt_generateVertexRemapMulti(
+        &remap[0], &indices[0], totalIndices, va->size() * 3, &streams[0], streams.size());
+
+    std::vector<osg::Vec3> newP(totalVertices), newN(totalVertices);
+    std::vector<osg::Vec4> newC(totalVertices); std::vector<osg::Vec2> newT(totalVertices);
+
+    meshopt_remapIndexBuffer(&indices[0], &indices[0], totalIndices, remap.data());
+    meshopt_remapVertexBuffer(&newP[0], &(*va)[0], va->size(), sizeof(osg::Vec3), remap.data());
+    if (validN)
+        meshopt_remapVertexBuffer(&newN[0], &(*na)[0], va->size(), sizeof(osg::Vec3), remap.data());
+    if (validC)
+        meshopt_remapVertexBuffer(&newC[0], &(*ca)[0], va->size(), sizeof(osg::Vec4), remap.data());
+    if (validT)
+        meshopt_remapVertexBuffer(&newT[0], &(*ta)[0], va->size(), sizeof(osg::Vec2), remap.data());
+
+    meshopt_optimizeVertexCache(&indices[0], &indices[0], totalIndices, totalIndices);
+    meshopt_optimizeOverdraw(&indices[0], &indices[0], totalIndices, (float*)&newP[0],
+                             totalVertices, sizeof(osg::Vec3), 1.05f);
+    meshopt_optimizeVertexFetch(&newP[0], &indices[0], totalIndices, &newP[0],
+                                totalVertices, sizeof(osg::Vec3));
+
+    meshopt_optimizeVertexFetchRemap(&remap[0], &indices[0], totalIndices, totalVertices);
+    meshopt_remapVertexBuffer(&newP[0], &newP[0], totalVertices, sizeof(osg::Vec3), remap.data());
+    if (validN)
+        meshopt_remapVertexBuffer(&newN[0], &newN[0], totalVertices, sizeof(osg::Vec3), remap.data());
+    if (validC)
+        meshopt_remapVertexBuffer(&newC[0], &newC[0], totalVertices, sizeof(osg::Vec4), remap.data());
+    if (validT)
+        meshopt_remapVertexBuffer(&newT[0], &newT[0], totalVertices, sizeof(osg::Vec2), remap.data());
+
+    // TODO
+    return false;
+}
 
 #ifdef VERSE_USE_DRACO
 static osg::Array* createDataArray(draco::Mesh* mesh, const draco::PointAttribute* attr)

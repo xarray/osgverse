@@ -100,6 +100,69 @@ public:
     }
 };
 
+class TextureChecker : public osg::NodeVisitor
+{
+public:
+    virtual void apply(osg::PagedLOD& node)
+    {
+        if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+        node.setDatabasePath(""); traverse(node);
+    }
+
+    virtual void apply(osg::Geode& geode)
+    {
+        if (geode.getStateSet()) apply(&geode, NULL, *geode.getStateSet());
+        for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
+        {
+            osg::Geometry* geom = geode.getDrawable(i)->asGeometry();
+            if (geom && geom->getStateSet()) apply(&geode, geom, *geom->getStateSet());
+        }
+        traverse(geode);
+    }
+
+    void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
+    {
+        osg::StateSet::TextureAttributeList& texAttrList = ss.getTextureAttributeList();
+        for (size_t i = 0; i < texAttrList.size(); ++i)
+        {
+            osg::StateSet::AttributeList& attr = texAttrList[i];
+            for (osg::StateSet::AttributeList::iterator itr = attr.begin();
+                itr != attr.end(); ++itr)
+            {
+                osg::StateAttribute::Type t = itr->first.first;
+                if (t == osg::StateAttribute::TEXTURE)
+                    apply(n, d, static_cast<osg::Texture*>(itr->second.first.get()), i);
+            }
+        }
+    }
+
+    void apply(osg::Node* n, osg::Drawable* d, osg::Texture* tex, int u)
+    {
+        if (beBetter)
+        {
+            tex->setResizeNonPowerOfTwoHint(false);
+            tex->setUnRefImageDataAfterApply(true);
+        }
+        else
+        {
+            for (int i = 0; i < tex->getNumImages(); ++i)
+            {
+                osg::Image* img = tex->getImage(i);
+                if (img && img->valid())
+                {
+                    int s = osg::minimum(img->s() * 4, 8192);
+                    int t = osg::minimum(img->t() * 4, 8192);
+                    img->scaleImage(s - 20, t - 15, 1);
+                }
+            }
+            tex->setResizeNonPowerOfTwoHint(true);
+        }
+    }
+
+    TextureChecker(bool b) : beBetter(b) {}
+    bool beBetter;
+};
+
 struct DataMergeCallback : public osgVerse::DatabasePager::DataMergeCallback
 {
     virtual FilterResult filter(osg::PagedLOD* parent, const std::string& name, osg::Node*)
@@ -138,6 +201,16 @@ void processFile(const std::string& prefix, const std::string& dirName,
     osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(tileName);
     if (node.valid())
     {
+        std::string dbFileName = dbBase + dirName + "/" + fileName;
+        if (!savingToDB) osgDB::makeDirectoryForFile(dbFileName);
+
+#if false
+        TextureChecker texChecker(true);
+        texChecker.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
+        node->accept(texChecker);
+        osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
+        osgDB::writeNodeFile(*node, dbFileName, options.get());
+#else
         GeomCompressor rdp;
         rdp.setTraversalMode(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
         node->accept(rdp);
@@ -145,13 +218,11 @@ void processFile(const std::string& prefix, const std::string& dirName,
         osgVerse::TextureOptimizer opt(true, "optimize_tex_" + nanoid::generate(8));
         opt.setGeneratingMipmaps(true); node->accept(opt);
 
-        std::string dbFileName = dbBase + dirName + "/" + fileName;
-        if (!savingToDB) osgDB::makeDirectoryForFile(dbFileName);
-
         osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
         options->setPluginStringData("UseBASISU", "1");
         osgDB::writeNodeFile(*node, dbFileName, options.get());
         opt.deleteSavedTextures();
+#endif
         std::cout << "Re-saving " << fileName << "\n";
     }
 }

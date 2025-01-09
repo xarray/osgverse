@@ -8,6 +8,17 @@
 
 namespace osgVerse
 {
+    class OSGVERSE_RW_EXPORT MeshOptimizer : public osg::Referenced
+    {
+    public:
+        MeshOptimizer()
+        {}
+
+        bool decodeData(std::istream& in, osg::Geometry* geom);
+        bool encodeData(std::ostream& out, osg::Geometry* geom);
+        bool optimize(osg::Geometry* geom);
+    };
+
     class OSGVERSE_RW_EXPORT DracoProcessor : public osg::Referenced
     {
     public:
