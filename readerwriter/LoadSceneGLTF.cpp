@@ -818,6 +818,11 @@ namespace osgVerse
             ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
         else
             ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+
+        if (material.doubleSided)
+            ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+        else
+            ss->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
     }
 
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,
