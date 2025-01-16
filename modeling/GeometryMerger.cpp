@@ -496,6 +496,7 @@ osg::Geometry* GeometryMerger::createGpuBaking(const std::vector<GeometryPair>& 
 
         osg::ref_ptr<osg::Image> image = _baker->bakeTextureImage(root.get());
         if (image.valid()) tex2D->setImage(image.get());
+        geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2D.get());
     }
     return geom.release();
 }

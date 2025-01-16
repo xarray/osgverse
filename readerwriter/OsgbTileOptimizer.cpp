@@ -4,6 +4,7 @@
 #include "LoadTextureKTX.h"
 #include "modeling/GeometryMerger.h"
 #include "modeling/Utilities.h"
+#include "pipeline/Utilities.h"
 #include "nanoid/nanoid.h"
 
 #include <osg/io_utils>
@@ -19,6 +20,25 @@
 #include <limits>
 #include <iomanip>
 using namespace osgVerse;
+
+struct DefaultGpuBaker : public GeometryMerger::GpuBaker
+{
+    virtual osg::Image* bakeTextureImage(osg::Node* node)
+    {
+        return createSnapshot(node, 1024, 1024);
+    }
+
+    virtual osg::Geometry* bakeGeometry(osg::Node* node)
+    {
+        osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+        geom->setUseDisplayList(false);
+        geom->setUseVertexBufferObjects(true);
+
+        osg::BuildShapeGeometryVisitor bsgv(geom.get(), NULL);
+        osg::ref_ptr<osg::HeightField> hf = createHeightField(node, 128, 128);
+        hf->accept(bsgv); return geom.release();
+    }
+};
 
 class ProcessThread : public OpenThreads::Thread
 {
@@ -122,9 +142,10 @@ TileOptimizer::~TileOptimizer()
 {}
 
 bool TileOptimizer::prepare(const std::string& inputFolder, const std::string& inRegex,
-                            bool withDraco, bool withBasisuTex)
+                            bool withDraco, bool withBasisuTex, bool withGpuMerger)
 {
-    _inFolder = inputFolder; _withDraco = withDraco; _withBasisu = withBasisuTex;
+    _inFolder = inputFolder; _withDraco = withDraco;
+    _withBasisu = withBasisuTex; _withGpuBaker = withGpuMerger;
     if (!_inFolder.empty() && !inRegex.empty())
     {
         char endChar = *_inFolder.rbegin();
@@ -660,7 +681,9 @@ osg::Node* TileOptimizer::mergeGeometries(const std::vector<std::pair<osg::Geome
 #if true
     for (size_t i = 0; i < geomList.size(); i += 16)
     {
-        GeometryMerger merger;
+        GeometryMerger merger(_withGpuBaker ? GeometryMerger::GPU_BAKING : GeometryMerger::COMBINED_GEOMETRY);
+        if (_withGpuBaker) merger.setGpkBaker(new DefaultGpuBaker);
+
         osg::ref_ptr<osg::Geometry> result = merger.process(geomList, i, 16, highestRes);
         if (result.valid())
         {
