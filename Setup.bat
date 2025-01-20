@@ -141,6 +141,20 @@ xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
 %SED_EXE% "s/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
 
+:: Fix WebGL running errors
+if "!BuildMode!"=="3" (
+    sed "s#dlopen(#NULL;\/\/dlopen\/\/(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+    xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
+)
+if "!BuildMode!"=="4" (
+    sed "s#dlopen(#NULL;\/\/dlopen\/\/(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+    xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
+)
+%SED_EXE% "s#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
+xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
+%SED_EXE% "s#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g" "%OpenSceneGraphRoot%\src\osg\Image.cpp" > Image.cpp.tmp
+xcopy /y Image.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Image.cpp"
+
 :: Compile OpenSceneGraph
 echo *** Building OpenSceneGraph...
 if "!BuildMode!"=="3" (
@@ -222,6 +236,19 @@ echo Current option is not implemented yet. Be patient :-)
 :exit
 if not %errorlevel%==0 echo Last error = %errorlevel%
 endlocal
+
+:: Reset some OpenSceneGraph source code
+%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+%SED_EXE% "s/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
+%SED_EXE% "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
+%SED_EXE% "s#\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#;glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
+xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
+
 cd %CurrentDir%
 echo Quited.
 pause
