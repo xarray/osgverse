@@ -22,7 +22,7 @@ namespace osgVerse
         }
 
         bool prepare(const std::string& inputFolder, const std::string& inRegex = "([+-]?\\d+)",
-                     bool withDraco = true, bool withBasisuTex = true);
+                     bool withDraco = true, bool withBasisuTex = true, bool withGpuMerger = false);
         bool processAdjacency(int adjacentX = 2, int adjacentY = 2);
         bool processGroundLevel(int combinedX = 2, int combinedY = 2, const std::string& subDir = "0");
 
@@ -55,7 +55,7 @@ namespace osgVerse
         osg::ref_ptr<FilterNodeCallback> _filterNodeCallback;
         std::string _inFolder, _outFolder, _inFormat, _outFormat;
         float _lodScaleAdjacency, _lodScaleTopLevels, _mulForDistanceMode, _simplifyRatio;
-        int _numThreads; bool _withDraco, _withBasisu, _withThreads;
+        int _numThreads; bool _withDraco, _withBasisu, _withThreads, _withGpuBaker;
     };
 
 }

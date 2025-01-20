@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include <VerseCommon.h>
+#include <modeling/Utilities.h>
 #include <readerwriter/DracoProcessor.h>
 #ifdef OSG_LIBRARY_STATIC
 USE_SERIALIZER_WRAPPER(DracoGeometry)
@@ -45,10 +46,27 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osgVerse::updateOsgBinaryWrappers();
 
+#if true
+    osg::ref_ptr<osg::Node> node = osgDB::readNodeFiles(arguments);
+    if (node)
+    {
+        osgVerse::MeshCollector mc; node->accept(mc);
+        std::vector<osg::ref_ptr<osg::Geometry>> geomList = mc.output();
+
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        for (size_t i = 0; i < geomList.size(); ++i)
+        {
+            osgVerse::MeshOptimizer optimizer;
+            optimizer.optimize(geomList[i].get());
+            geode->addDrawable(geomList[i].get());
+        }
+        root->addChild(geode.get());
+    }
+#else
     std::string outFile = "result.osgb";
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     if (arguments.read("--out"))
     {
         osg::ref_ptr<osg::Node> node = osgDB::readNodeFiles(arguments);
@@ -66,6 +84,7 @@ int main(int argc, char** argv)
     }
     else
         root->addChild(osgDB::readNodeFiles(arguments));
+#endif
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);

@@ -111,6 +111,75 @@ MeshCollector::NonManifoldType MeshCollector::isManifold() const
     return NonManifoldType::UNDEFINED;
 }
 
+std::vector<osg::ref_ptr<osg::Geometry>> MeshCollector::output(bool mergeAllStateSets)
+{
+    std::vector<osg::ref_ptr<osg::Geometry>> geomList;
+    if (_vertices.empty() || _indices.empty()) return geomList;
+
+    if (mergeAllStateSets)
+    {
+        std::vector<osg::Vec4>& naList = _attributes[NormalAttr];
+        std::vector<osg::Vec4>& caList = _attributes[ColorAttr];
+        std::vector<osg::Vec4>& taList = _attributes[UvAttr];
+
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(_vertices.size());
+        osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(naList.size());
+        osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(caList.size());
+        osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(taList.size());
+        memcpy(&(*va)[0], _vertices.data(), sizeof(osg::Vec3) * va->size());
+
+        osg::Geometry* geom = new osg::Geometry;
+        geom->setUseDisplayList(false);
+        geom->setUseVertexBufferObjects(true);
+        geom->setVertexArray(va.get());
+        if (na->size() == va->size())
+        {
+            for (size_t i = 0; i < na->size(); ++i)
+                (*na)[i] = osg::Vec3(naList[i][0], naList[i][1], naList[i][2]);
+            geom->setNormalArray(na.get());
+            geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        }
+        if (ca->size() == va->size())
+        {
+            memcpy(&(*ca)[0], caList.data(), sizeof(osg::Vec4) * ca->size());
+            geom->setColorArray(ca.get());
+            geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        }
+        if (ta->size() == va->size())
+        {
+            for (size_t i = 0; i < ta->size(); ++i)
+                (*ta)[i] = osg::Vec2(taList[i][0], taList[i][1]);
+            geom->setTexCoordArray(0, ta.get());
+        }
+
+        if (_indices.size() < 65535)
+        {
+            osg::DrawElementsUShort* de = new osg::DrawElementsUShort(GL_TRIANGLES);
+            de->resize(_indices.size()); geom->addPrimitiveSet(de);
+            for (size_t i = 0; i < _indices.size(); ++i) (*de)[i] = _indices[i];
+        }
+        else
+        {
+            osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_TRIANGLES);
+            de->resize(_indices.size()); geom->addPrimitiveSet(de);
+            memcpy(&(*de)[0], _indices.data(), sizeof(unsigned int) * _indices.size());
+        }
+
+        if (_vertexOfStateSetMap.size() > 0)
+        {
+            osg::StateSet* ss = geom->getOrCreateStateSet();
+            for (StateToVerticesMap::iterator itr = _vertexOfStateSetMap.begin();
+                 itr != _vertexOfStateSetMap.end(); ++itr) ss->merge(*itr->first);
+        }
+        geomList.push_back(geom);
+    }
+    else
+    {
+        // TODO
+    }
+    return geomList;
+}
+
 void MeshCollector::reset()
 {
     _matrixStack.clear(); _boundingBox.init();

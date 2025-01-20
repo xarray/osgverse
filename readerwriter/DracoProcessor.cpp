@@ -33,8 +33,13 @@ bool MeshOptimizer::decodeData(std::istream& in, osg::Geometry* geom)
 
 bool MeshOptimizer::encodeData(std::ostream& out, osg::Geometry* geom)
 {
+    return false;
+}
+
+bool MeshOptimizer::optimize(osg::Geometry* geom)
+{
     osg::TriangleIndexFunctor<CollectFaceOperator> functor;
-    if (geom) geom->accept(functor);
+    if (geom) geom->accept(functor); else return false;
     osg::Vec3Array* va = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
     osg::Vec3Array* na = dynamic_cast<osg::Vec3Array*>(geom->getNormalArray());
     osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geom->getColorArray());
@@ -71,7 +76,7 @@ bool MeshOptimizer::encodeData(std::ostream& out, osg::Geometry* geom)
     }
 
     if (streams.empty() || functor.triangles.empty())
-    { OSG_WARN << "[MeshOptimizer] No enough data to encode\n"; return false; }
+    { OSG_WARN << "[MeshOptimizer] No enough data to optimize\n"; return false; }
 
     unsigned int totalIndices = functor.triangles.size() * 3;
     std::vector<unsigned int> indices(totalIndices);
@@ -79,8 +84,7 @@ bool MeshOptimizer::encodeData(std::ostream& out, osg::Geometry* geom)
 
     std::vector<unsigned int> remap(totalIndices);
     size_t totalVertices = meshopt_generateVertexRemapMulti(
-        &remap[0], &indices[0], totalIndices, va->size() * 3, &streams[0], streams.size());
-
+        &remap[0], &indices[0], totalIndices, va->size(), &streams[0], streams.size());
     std::vector<osg::Vec3> newP(totalVertices), newN(totalVertices);
     std::vector<osg::Vec4> newC(totalVertices); std::vector<osg::Vec2> newT(totalVertices);
 
@@ -108,8 +112,34 @@ bool MeshOptimizer::encodeData(std::ostream& out, osg::Geometry* geom)
     if (validT)
         meshopt_remapVertexBuffer(&newT[0], &newT[0], totalVertices, sizeof(osg::Vec2), remap.data());
 
-    // TODO
-    return false;
+    // Recreate the geometry
+    geom->setVertexArray(new osg::Vec3Array(newP.begin(), newP.end()));
+    if (validT) geom->setTexCoordArray(0, new osg::Vec2Array(newT.begin(), newT.end()));
+    if (validN)
+    {
+        geom->setNormalArray(new osg::Vec3Array(newN.begin(), newN.end()));
+        geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+    if (validC)
+    {
+        geom->setColorArray(new osg::Vec4Array(newC.begin(), newC.end()));
+        geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    }
+
+    geom->removePrimitiveSet(0, geom->getNumPrimitiveSets());
+    if (indices.size() < 65535)
+    {
+        osg::DrawElementsUShort* de = new osg::DrawElementsUShort(GL_TRIANGLES);
+        de->resize(indices.size()); geom->addPrimitiveSet(de);
+        for (size_t i = 0; i < indices.size(); ++i) (*de)[i] = indices[i];
+    }
+    else
+    {
+        osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_TRIANGLES);
+        de->resize(indices.size()); geom->addPrimitiveSet(de);
+        memcpy(&(*de)[0], indices.data(), sizeof(unsigned int) * indices.size());
+    }
+    return true;
 }
 
 #ifdef VERSE_USE_DRACO

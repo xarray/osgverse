@@ -70,8 +70,9 @@ namespace osgVerse
         const std::vector<unsigned int>& getTriangles() const { return _indices; }
         const osg::BoundingBoxd& getBoundingBox() const { return _boundingBox; }
 
-        std::map<osg::StateSet*, std::vector<size_t>>& getVerticesOfStateSets()
-        { return _vertexOfStateSetMap; }
+        typedef std::map<osg::StateSet*, std::vector<size_t>> StateToVerticesMap;
+        StateToVerticesMap& getVerticesOfStateSets() { return _vertexOfStateSetMap; }
+        std::vector<osg::ref_ptr<osg::Geometry>> output(bool mergeAllStateSets = true);
         
         enum NonManifoldType
         {
@@ -88,7 +89,7 @@ namespace osgVerse
 
         std::map<osg::Vec3, unsigned int, Vec3MapComparer> _vertexMap;
         std::map<VertexAttribute, std::vector<osg::Vec4>> _attributes;
-        std::map<osg::StateSet*, std::vector<size_t>> _vertexOfStateSetMap;
+        StateToVerticesMap _vertexOfStateSetMap;
         std::vector<osg::Vec3> _vertices;
         std::vector<unsigned int> _indices;
         osg::BoundingBoxd _boundingBox;
