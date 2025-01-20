@@ -355,7 +355,7 @@ IF(OSG_BUILD_INCLUDE_DIR)
 ENDIF(OSG_BUILD_INCLUDE_DIR)
 
 ######################################### Optional Dependencies
-MESSAGE("[osgVerse] Automatically Search for Dependencies in ${THIRDPARTY_ROOT}...")
+MESSAGE(STATUS "[osgVerse] Automatically Search for Dependencies in ${THIRDPARTY_ROOT}...")
 
 FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulletDynamics.a;BulletDynamics.lib" "bullet")
 FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib" "")
