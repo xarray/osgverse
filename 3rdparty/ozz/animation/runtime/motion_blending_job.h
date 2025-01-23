@@ -25,28 +25,56 @@
 //                                                                            //
 //----------------------------------------------------------------------------//
 
-#ifndef OZZ_OZZ_BASE_CONTAINERS_UNORDERED_SET_H_
-#define OZZ_OZZ_BASE_CONTAINERS_UNORDERED_SET_H_
+#ifndef OZZ_OZZ_ANIMATION_RUNTIME_MOTION_BLENDING_JOB_H_
+#define OZZ_OZZ_ANIMATION_RUNTIME_MOTION_BLENDING_JOB_H_
 
-#include <unordered_set>
-
-#include "ozz/base/containers/std_allocator.h"
+#include "ozz/animation/runtime/export.h"
+#include "ozz/base/span.h"
 
 namespace ozz {
-// Redirects std::unordered_set to ozz::UnorderedSet in order to replace std
-// default allocator by ozz::StdAllocator.
-template <class _Key, class _Hash = std::hash<_Key>,
-          class _KeyEqual = std::equal_to<_Key>,
-          class _Allocator = ozz::StdAllocator<_Key> >
-using unordered_set =
-    std::unordered_set<_Key, _Hash, _KeyEqual, _Allocator>;
 
-// Redirects std::unordered_multiset to ozz::UnorderedMultiSet in order to
-// replace std default allocator by ozz::StdAllocator.
-template <class _Key, class _Hash = std::hash<_Key>,
-          class _KeyEqual = std::equal_to<_Key>,
-          class _Allocator = ozz::StdAllocator<_Key> >
-using unordered_multiset =
-    std::unordered_multiset<_Key, _Hash, _KeyEqual, _Allocator>;
+// Forward declaration of math structures.
+namespace math {
+struct Transform;
+}
+
+namespace animation {
+
+// ozz::animation::MotionBlendingJob is in charge of blending delta motions
+// according to their respective weight. MotionBlendingJob is usually done to
+// blend the motion resulting from the motion extraction process, in parallel to
+// blending animations.
+struct OZZ_ANIMATION_DLL MotionBlendingJob {
+  // Validates job parameters.
+  // Returns true for a valid job, false otherwise:
+  // -if a layer transform pointer is null.
+  // -if output transform pointer is null.
+  bool Validate() const;
+
+  // Runs job's blending task.
+  // The job is validated before any operation is performed, see Validate() for
+  // more details.
+  // Returns false if *this job is not valid.
+  bool Run() const;
+
+  // Defines a layer of blending input data and its weight.
+  struct OZZ_ANIMATION_DLL Layer {
+    // Blending weight of this layer. Negative values are considered as 0.
+    // Normalization is performed at the end of the blending stage, so weight
+    // can be in any range, even though range [0:1] is optimal.
+    float weight = 0.f;
+
+    // The motion delta transform to be blended.
+    const math::Transform* delta = nullptr;
+  };
+
+  // Job input layers, can be empty or nullptr.
+  // The range of layers that must be blended.
+  span<const Layer> layers;
+
+  // Job output.
+  ozz::math::Transform* output = nullptr;
+};
+}  // namespace animation
 }  // namespace ozz
-#endif  // OZZ_OZZ_BASE_CONTAINERS_UNORDERED_SET_H_
+#endif  // OZZ_OZZ_ANIMATION_RUNTIME_MOTION_BLENDING_JOB_H_

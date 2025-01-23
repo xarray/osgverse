@@ -18,6 +18,7 @@
 #include "3rdparty/ozz/base/containers/vector.h"
 #include "3rdparty/ozz/base/platform.h"
 #include "3rdparty/ozz/base/span.h"
+#include "3rdparty/ozz/base/encode/group_varint.h"
 #include "3rdparty/ozz/base/io/archive.h"
 #include "3rdparty/ozz/base/io/stream.h"
 #include "3rdparty/ozz/base/maths/box.h"

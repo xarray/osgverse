@@ -49,7 +49,7 @@
 | nanoid           | Embedded |           | -                  | MIT          | https://github.com/mcmikecreations/nanoid_cpp |
 | NormalGenerator  | Embedded |           | Pipeline           |              | |
 | OpenFBX          | Embedded |           | verse_fbx          | MIT          | https://github.com/nem0/OpenFBX |
-| ozz-animation    | Embedded |           | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
+| ozz-animation    | Embedded | 0.16.0    | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
 | picojson         | Embedded |           | -                  | BSD2         | https://github.com/kazuho/picojson |
 | pinyin           | Embedded |           | UI                 |              | |
 | pmp-library      | Embedded |           | Modeling           | MIT          | https://github.com/pmp-library/pmp-library |

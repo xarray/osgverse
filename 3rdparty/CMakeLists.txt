@@ -84,13 +84,14 @@ SET(OZZ_SOURCE_FILES
     ozz/base/containers/string_archive.cc ozz/base/io/archive.cc ozz/base/io/stream.cc
     ozz/base/maths/box.cc ozz/base/maths/simd_math.cc ozz/base/maths/math_archive.cc
     ozz/base/maths/soa_math_archive.cc ozz/base/maths/simd_math_archive.cc
+    ozz/base/encode/group_varint.cc ozz/geometry/runtime/skinning_job.cc
     ozz/animation/runtime/animation.cc ozz/animation/runtime/animation_keyframe.h
     ozz/animation/runtime/animation_utils.cc ozz/animation/runtime/blending_job.cc
     ozz/animation/runtime/ik_aim_job.cc ozz/animation/runtime/ik_two_bone_job.cc
     ozz/animation/runtime/local_to_model_job.cc ozz/animation/runtime/sampling_job.cc
     ozz/animation/runtime/skeleton.cc ozz/animation/runtime/skeleton_utils.cc
     ozz/animation/runtime/track.cc ozz/animation/runtime/track_sampling_job.cc
-    ozz/animation/runtime/track_triggering_job.cc ozz/geometry/runtime/skinning_job.cc
+    ozz/animation/runtime/track_triggering_job.cc ozz/animation/runtime/motion_blending_job.cc
     ozz/options/options.cc ozz/mesh.cc
 )
 

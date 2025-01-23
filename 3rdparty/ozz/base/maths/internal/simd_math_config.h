@@ -30,12 +30,12 @@
 
 #include "ozz/base/platform.h"
 
+// Avoid SIMD instruction detection if reference (aka scalar) implementation is
+// forced.
 #ifdef __EMSCRIPTEN__
 #include <wasm_simd128.h>
 #elif !defined(OZZ_BUILD_SIMD_REF)
-// Avoid SIMD instruction detection if reference (aka scalar) implementation is
-// forced.
-// 
+
 // Try to match a SSE2+ version.
 #if defined(__AVX2__) || defined(OZZ_SIMD_AVX2)
 #include <immintrin.h>
@@ -85,6 +85,12 @@
 #include <emmintrin.h>
 #define OZZ_SIMD_SSE2
 #define OZZ_SIMD_SSEx  // OZZ_SIMD_SSEx is the generic flag for SSE support
+#endif
+
+// Try to match a Arm NEON
+#if defined(__ARM_NEON) || defined(OZZ_SIMD_ARM_NEON)
+// #include <arm_neon.h>
+// #define OZZ_SIMD_ARM_NEON
 #endif
 
 // End of SIMD instruction detection

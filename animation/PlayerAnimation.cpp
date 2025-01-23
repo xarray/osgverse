@@ -8,7 +8,9 @@
 #include <osgDB/ReadFile>
 #include <nanoid/nanoid.h>
 #include <iomanip>
+
 using namespace osgVerse;
+using namespace ozz::animation::internal;
 
 static std::string& trim(std::string& s)
 {
@@ -329,8 +331,9 @@ namespace ozz
             std::vector<osg::ref_ptr<osgVerse::BlendShapeAnimation>> _blendshapes;
         };
 
-        struct AnimationConverter
+        class AnimationConverter
         {
+        public:
             typedef std::map<osg::Transform*, PlayerAnimation::AnimationData> AnimationMap;
             void build(OzzAnimation::AnimationSampler& sampler,
                        std::vector<osg::Transform*> nodes, const AnimationMap& dataMap)
@@ -384,7 +387,8 @@ namespace ozz
 
                 // Record T/R/S keyframes
                 float invD = 1.0f / maxTime; osg::Vec3 defScale(1.0f, 1.0f, 1.0f);
-                std::vector<Float3Key> positions, scales; std::vector<QuaternionKey> rotations;
+                std::vector<SortingFloat3Key> positions, scales;
+                std::vector<SortingQuaternionKey> rotations;
                 for (AnimationMap::const_iterator itr = dataMap.begin(); itr != dataMap.end(); ++itr)
                 {
                     const PlayerAnimation::AnimationData& ad = itr->second;
@@ -417,24 +421,78 @@ namespace ozz
                     sampleData(scales, "LINEAR", 0, j, defScaleTracks[tr0], 1.0f, true, defScale);
                 }
 
+                // Build time points and controls
+                ozz::vector<float> timePoints;
+                for (size_t i = 0; i < positions.size(); ++i) timePoints.push_back(positions[i].ratio);
+                for (size_t i = 0; i < rotations.size(); ++i) timePoints.push_back(rotations[i].ratio);
+                for (size_t i = 0; i < scales.size(); ++i) timePoints.push_back(scales[i].ratio);
+                std::sort(timePoints.begin(), timePoints.end());
+                timePoints.erase(std::unique(timePoints.begin(), timePoints.end()), timePoints.end());
+
+                float interval = 10.0f, D = maxTime;
+                BuilderIFrames t_ss = buildIFrames(ozz::make_span(positions), interval, D, numSoaTracks);
+                BuilderIFrames r_ss = buildIFrames(ozz::make_span(rotations), interval, D, numSoaTracks);
+                BuilderIFrames s_ss = buildIFrames(ozz::make_span(scales), interval, D, numSoaTracks);
+
                 // Allocate animation buffer
-                int tCount = (int)positions.size(), rCount = (int)rotations.size(),
-                    sCount = (int)scales.size();
-                size_t bufferSize = tCount * sizeof(Float3Key) + rCount * sizeof(QuaternionKey) +
-                                    sCount * sizeof(Float3Key);
+                int pCount = (int)positions.size(), rCount = (int)rotations.size(),
+                    sCount = (int)scales.size(), tCount = (int)timePoints.size();
+                size_t ctrl_entries = t_ss.entries.size() + r_ss.entries.size() + s_ss.entries.size();
+                size_t ctrl_offsets = t_ss.desc.size() + r_ss.desc.size() + s_ss.desc.size();
+                size_t bufferSize = pCount * sizeof(Float3Key) + rCount * sizeof(QuaternionKey) +
+                                    sCount * sizeof(Float3Key) + tCount * sizeof(float);
+                bufferSize += (pCount + rCount + sCount) * (sizeof(uint16_t) + sizeof(uint16_t)) +
+                              ctrl_entries * sizeof(byte) + ctrl_offsets * sizeof(uint32_t);
+
                 span<byte> buffer = { static_cast<byte*>(memory::default_allocator()->Allocate
-                                      (bufferSize, alignof(Float3Key))), bufferSize };
-                anim.translations_ = ozz::fill_span<Float3Key>(buffer, tCount);
-                anim.rotations_ = ozz::fill_span<QuaternionKey>(buffer, rCount);
-                anim.scales_ = ozz::fill_span<Float3Key>(buffer, sCount);
+                                      (bufferSize, alignof(float))), bufferSize };
+                anim.translations_values_ = ozz::fill_span<Float3Key>(buffer, pCount);
+                anim.rotations_values_ = ozz::fill_span<QuaternionKey>(buffer, rCount);
+                anim.scales_values_ = ozz::fill_span<Float3Key>(buffer, sCount);
+                anim.timepoints_ = ozz::fill_span<float>(buffer, tCount);
                 anim.duration_ = maxTime;
 
                 // Sort by ratio/track and fill the animation data
+                allocateAndCopyIFrames(t_ss, anim.translations_ctrl_, buffer, pCount);
+                allocateAndCopyIFrames(r_ss, anim.rotations_ctrl_, buffer, rCount);
+                allocateAndCopyIFrames(s_ss, anim.scales_ctrl_, buffer, sCount);
+
                 sortData(positions, rotations, scales);
-                if (tCount > 0) memcpy(anim.translations_.data(), &positions[0], tCount * sizeof(Float3Key));
-                if (rCount > 0) memcpy(anim.rotations_.data(), &rotations[0], rCount * sizeof(QuaternionKey));
-                if (sCount > 0) memcpy(anim.scales_.data(), &scales[0], sCount * sizeof(Float3Key));
+                for (int i = 0; i < pCount; ++i) anim.translations_values_[i] = positions[i].key;
+                for (int i = 0; i < rCount; ++i) anim.rotations_values_[i] = rotations[i].key;
+                for (int i = 0; i < sCount; ++i) anim.scales_values_[i] = scales[i].key;
+                if (tCount > 0) memcpy(anim.timepoints_.data(), &timePoints[0], tCount * sizeof(float));
+
+                compressData(timePoints, positions, numSoaTracks, anim.translations_ctrl_);
+                compressData(timePoints, rotations, numSoaTracks, anim.rotations_ctrl_);
+                compressData(timePoints, scales, numSoaTracks, anim.scales_ctrl_);
             }
+
+        protected:
+            struct SortingFloat3Key
+            {
+                int track; float ratio;
+                Float3Key key;
+            };
+
+            struct SortingQuaternionKey
+            {
+                int track; float ratio;
+                QuaternionKey key;
+            };
+
+            struct BuilderIFrame
+            {
+                ozz::vector<byte> entries;
+                size_t last;
+            };
+
+            struct BuilderIFrames
+            {
+                ozz::vector<byte> entries;
+                ozz::vector<uint32_t> desc;
+                float interval;
+            };
 
             template<typename T1, typename T2>
             void fillTracksPerFrame(T1& inputs, T2& defTrackValues,
@@ -466,29 +524,30 @@ namespace ozz
                 }
             }
 
-            void sortData(std::vector<Float3Key>& positions, std::vector<QuaternionKey>& rotations,
-                          std::vector<Float3Key>& scales)
+            void sortData(std::vector<SortingFloat3Key>& positions,
+                          std::vector<SortingQuaternionKey>& rotations,
+                          std::vector<SortingFloat3Key>& scales)
             {
-                std::sort(positions.begin(), positions.end(), [](Float3Key& l, Float3Key& r)
+                std::sort(positions.begin(), positions.end(), [](SortingFloat3Key& l, SortingFloat3Key& r)
                 { if (osg::equivalent(l.ratio, r.ratio)) return l.track < r.track; return l.ratio < r.ratio; });
-                std::sort(rotations.begin(), rotations.end(), [](QuaternionKey& l, QuaternionKey& r)
+                std::sort(rotations.begin(), rotations.end(), [](SortingQuaternionKey& l, SortingQuaternionKey& r)
                 { if (osg::equivalent(l.ratio, r.ratio)) return l.track < r.track; return l.ratio < r.ratio; });
-                std::sort(scales.begin(), scales.end(), [](Float3Key& l, Float3Key& r)
+                std::sort(scales.begin(), scales.end(), [](SortingFloat3Key& l, SortingFloat3Key& r)
                 { if (osg::equivalent(l.ratio, r.ratio)) return l.track < r.track; return l.ratio < r.ratio; });
             }
 
-            void sampleData(std::vector<Float3Key>& values, const std::string& interpo, int type,
+            void sampleData(std::vector<SortingFloat3Key>& values, const std::string& interpo, int type,
                             int track, const std::vector<std::pair<float, osg::Vec3>>& frames, float invD,
                             bool autoFill01 = true, const osg::Vec3& def01 = osg::Vec3())
             {
                 if (frames.empty() && autoFill01)
                 {
-                    Float3Key k0; k0.ratio = 0.0f; k0.track = track;
-                    Float3Key k1; k1.ratio = 1.0f; k1.track = track;
+                    SortingFloat3Key k0; k0.ratio = 0.0f; k0.track = track;
+                    SortingFloat3Key k1; k1.ratio = 1.0f; k1.track = track;
                     for (int k = 0; k < 3; ++k)
                     {
-                        k0.value[k] = ozz::math::FloatToHalf(def01[k]);
-                        k1.value[k] = ozz::math::FloatToHalf(def01[k]);
+                        k0.key.values[k] = ozz::math::FloatToHalf(def01[k]);
+                        k1.key.values[k] = ozz::math::FloatToHalf(def01[k]);
                     }
                     values.push_back(k0); values.push_back(k1); return;
                 }
@@ -498,14 +557,14 @@ namespace ozz
                 {
                     float t = frames[i].first * invD;
                     const osg::Vec3& v = frames[i].second;
-                    Float3Key key; key.ratio = t; key.track = track;
-                    key.value[0] = ozz::math::FloatToHalf(v[0]);
-                    key.value[1] = ozz::math::FloatToHalf(v[1]);
-                    key.value[2] = ozz::math::FloatToHalf(v[2]);
+                    SortingFloat3Key key; key.ratio = t; key.track = track;
+                    key.key.values[0] = ozz::math::FloatToHalf(v[0]);
+                    key.key.values[1] = ozz::math::FloatToHalf(v[1]);
+                    key.key.values[2] = ozz::math::FloatToHalf(v[2]);
 
                     if (i == 0 && t > 0.0f && autoFill01)
                     {
-                        Float3Key key0 = key; key0.ratio = 0.0f;
+                        SortingFloat3Key key0 = key; key0.ratio = 0.0f;
                         values.push_back(key0);
                     }
                     values.push_back(key);
@@ -513,20 +572,20 @@ namespace ozz
 
                 if (values.back().ratio < 1.0f && autoFill01)
                 {
-                    Float3Key key1 = values.back(); key1.ratio = 1.0f;
+                    SortingFloat3Key key1 = values.back(); key1.ratio = 1.0f;
                     values.push_back(key1);
                 }
             }
 
-            void sampleData(std::vector<QuaternionKey>& values, const std::string& interpo, int type,
+            void sampleData(std::vector<SortingQuaternionKey>& values, const std::string& interpo, int type,
                             int track, const std::vector<std::pair<float, osg::Vec4>>& frames, float invD,
                             bool autoFill01 = true, const osg::Vec4& def01 = osg::Vec4())
             {
                 if (frames.empty() && autoFill01)
                 {
-                    QuaternionKey k0; k0.ratio = 0.0f; k0.track = track;
-                    QuaternionKey k1; k1.ratio = 1.0f; k1.track = track;
-                    compressQuat(def01, &k0); compressQuat(def01, &k1);
+                    SortingQuaternionKey k0; k0.ratio = 0.0f; k0.track = track;
+                    SortingQuaternionKey k1; k1.ratio = 1.0f; k1.track = track;
+                    compressQuat(def01, &(k0.key)); compressQuat(def01, &(k1.key));
                     values.push_back(k0); values.push_back(k1); return;
                 }
 
@@ -534,12 +593,12 @@ namespace ozz
                 for (size_t i = 0; i < frames.size(); ++i)
                 {
                     float t = frames[i].first * invD;
-                    QuaternionKey key; key.ratio = t; key.track = track;
-                    compressQuat(frames[i].second, &key);
+                    SortingQuaternionKey key; key.ratio = t; key.track = track;
+                    compressQuat(frames[i].second, &(key.key));
 
                     if (i == 0 && t > 0.0f && autoFill01)
                     {
-                        QuaternionKey key0 = key; key0.ratio = 0.0f;
+                        SortingQuaternionKey key0 = key; key0.ratio = 0.0f;
                         values.push_back(key0);
                     }
                     values.push_back(key);
@@ -547,9 +606,84 @@ namespace ozz
 
                 if (values.back().ratio < 1.0f && autoFill01)
                 {
-                    QuaternionKey key1 = values.back(); key1.ratio = 1.0f;
+                    SortingQuaternionKey key1 = values.back(); key1.ratio = 1.0f;
                     values.push_back(key1);
                 }
+            }
+
+            template<typename T>
+            void compressData(const ozz::vector<float>& timePoints, const std::vector<T>& src,
+                              int numSoaTracks, Animation::KeyframesCtrl& dest)
+            {
+                ozz::vector<const T*> previouses(numSoaTracks);
+                for (size_t i = 0; i < src.size(); ++i)
+                {
+                    const T& key = src[i];
+                    ozz::vector<float>::const_iterator found =
+                        std::lower_bound(timePoints.begin(), timePoints.end(), key.ratio);
+                    dest.ratios[i] = static_cast<uint16_t>(found - timePoints.begin());
+
+                    const long long diff = previouses[key.track] ? (&key) - previouses[key.track] : 0;
+                    if (diff < ozz::animation::internal::kMaxPreviousOffset)
+                        dest.previouses[i] = static_cast<uint16_t>(diff);
+                    previouses[key.track] = &key;
+                }
+            }
+
+            template<typename T>
+            BuilderIFrame buildIFrame(const ozz::span<T>& src, float ratio, int numSoaTracks)
+            {
+                BuilderIFrame iframe;
+                ozz::vector<uint32_t> entries(numSoaTracks);
+                for (size_t i = 0, end = src.size(); i < end && src[i].ratio <= ratio; ++i)
+                {   // Stores the last key found for this track.
+                    entries[src[i].track] = static_cast<uint32_t>(i); iframe.last = i;
+                }
+
+                // Entries is a multiple of 4 (number os soa tracks).
+                iframe.entries.resize(ozz::ComputeGV4WorstBufferSize(ozz::make_span(entries)));
+                ozz::span<ozz::byte> remain =
+                    ozz::EncodeGV4Stream(ozz::make_span(entries), ozz::make_span(iframe.entries));
+                iframe.entries.resize(iframe.entries.size() - remain.size_bytes()); return iframe;
+            }
+
+            template<typename T>
+            BuilderIFrames buildIFrames(const ozz::span<T>& src, float interval,
+                                        float duration, int numSoaTracks)
+            {
+                BuilderIFrames iframes; iframes.interval = 1.0f;
+                size_t iframes_divs = static_cast<size_t>(math::Max(1.0f, duration / interval));
+                for (size_t i = 0; i < iframes_divs; ++i)
+                {
+                    float time = (float)(i + 1) / iframes_divs;
+                    BuilderIFrame f = buildIFrame(src, time, numSoaTracks);
+
+                    // Don't need to add an iframe for the first set of keyframes
+                    if (f.last <= numSoaTracks * 2 - 1) continue;
+                    if (!iframes.desc.empty() && f.last <= iframes.desc.back()) continue;
+
+                    // Pushes offset and compressed data
+                    iframes.desc.push_back(static_cast<uint32_t>(iframes.entries.size()));
+                    iframes.desc.push_back(static_cast<uint32_t>(f.last));
+                    iframes.entries.insert(iframes.entries.end(), f.entries.begin(), f.entries.end());
+                }
+
+                // Computes actual interval (duration ratio) between iframes
+                if (!iframes.entries.empty()) iframes.interval = (2.0f / iframes.desc.size());
+                return iframes;
+            }
+
+            void allocateAndCopyIFrames(const BuilderIFrames& src, Animation::KeyframesCtrl& dest,
+                                        span<byte>& buffer, int frameCount)
+            {
+                dest.previouses = ozz::fill_span<uint16_t>(buffer, frameCount);
+                dest.ratios = ozz::fill_span<byte>(buffer, frameCount);
+                dest.iframe_entries = ozz::fill_span<byte>(buffer, src.entries.size());
+                dest.iframe_desc = ozz::fill_span<uint32_t>(buffer, src.desc.size());
+
+                std::copy(src.entries.begin(), src.entries.end(), dest.iframe_entries.begin());
+                std::copy(src.desc.begin(), src.desc.end(), dest.iframe_desc.begin());
+                dest.iframe_interval = src.interval;
             }
 
             static void compressQuat(const osg::Vec4& src, QuaternionKey* dest)
@@ -557,18 +691,20 @@ namespace ozz
                 // Finds the largest quaternion component.
                 const float quat[4] = { src.x(), src.y(), src.z(), src.w() };
                 const long long largest = std::max_element(quat, quat + 4, lessAbs) - quat;
-                dest->largest = largest & 0x3; dest->sign = quat[largest] < 0.f;
-
+                
                 // Quantize the 3 smallest components on 16 bits signed integers.
-                const float kFloat2Int = 32767.f * ozz::math::kSqrt2;
+                // Quantize the 3 smallest components on x bits signed integers.
+                const float kScale = QuaternionKey::kfScale / math::kSqrt2, kOffset = -math::kSqrt2_2;
                 const int kMapping[4][3] = { {1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2} };
                 const int* map = kMapping[largest];
-                const int a = static_cast<int>(floor(quat[map[0]] * kFloat2Int + .5f));
-                const int b = static_cast<int>(floor(quat[map[1]] * kFloat2Int + .5f));
-                const int c = static_cast<int>(floor(quat[map[2]] * kFloat2Int + .5f));
-                dest->value[0] = ozz::math::Clamp(-32767, a, 32767) & 0xffff;
-                dest->value[1] = ozz::math::Clamp(-32767, b, 32767) & 0xffff;
-                dest->value[2] = ozz::math::Clamp(-32767, c, 32767) & 0xffff;
+                const int cpnt[3] = {
+                    math::Min(static_cast<int>((quat[map[0]] - kOffset) * kScale + 0.5f),
+                              internal::QuaternionKey::kiScale),
+                    math::Min(static_cast<int>((quat[map[1]] - kOffset) * kScale + 0.5f),
+                              internal::QuaternionKey::kiScale),
+                    math::Min(static_cast<int>((quat[map[2]] - kOffset) * kScale + 0.5f),
+                              internal::QuaternionKey::kiScale) };
+                ozz::animation::internal::pack(static_cast<int>(largest), quat[largest] < 0.f, cpnt, dest);
             }
 
             static bool lessAbs(float _left, float _right)
@@ -627,6 +763,7 @@ static void printPlayerData(OzzAnimation* ozz)
     }
     std::cout << std::endl;
 
+#if false
     for (size_t i = 0; i < ozz->_meshes.size(); ++i)
     {
         OzzMesh& mesh = ozz->_meshes[i];
@@ -658,6 +795,7 @@ static void printPlayerData(OzzAnimation* ozz)
         }
         std::cout << std::endl;
     }
+#endif
 }
 
 static void printAnimationData(OzzAnimation* ozz, const std::string& key)
@@ -666,19 +804,21 @@ static void printAnimationData(OzzAnimation* ozz, const std::string& key)
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     ozz::animation::Animation& animation = sampler.animation;
 
-    ozz::span<const ozz::animation::Float3Key> posList = sampler.animation.translations();
-    ozz::span<const ozz::animation::QuaternionKey> rotList = sampler.animation.rotations();
-    ozz::span<const ozz::animation::Float3Key> scaleList = sampler.animation.scales();
-    std::cout << "Anim " << key << ": Duration = " << sampler.animation.duration() << ", T/R/S = "
-              << posList.size() << "/" << rotList.size() << "/" << scaleList.size() << std::endl;
+    ozz::span<const float> timeList = sampler.animation.timepoints();
+    ozz::span<const Float3Key> posList = sampler.animation.translations_values();
+    ozz::span<const QuaternionKey> rotList = sampler.animation.rotations_values();
+    ozz::span<const Float3Key> scaleList = sampler.animation.scales_values();
+    std::cout << "Anim " << key << ": Duration = " << sampler.animation.duration() << ", Frames = "
+              << timeList.size() << ", T/R/S = " << posList.size() << "/" << rotList.size()
+              << "/" << scaleList.size() << std::endl;
 
-    for (size_t i = 0; i < posList.size(); ++i)
+    /*for (size_t i = 0; i < posList.size(); ++i)
     {
-        const ozz::animation::Float3Key& value = posList[i];
+        const Float3Key& value = posList[i];
         std::cout << "  T-" << i << " (" << value.ratio << "): Track = " << value.track << ", Vec = "
-                  << ozz::math::HalfToFloat(value.value[0]) << ", " << ozz::math::HalfToFloat(value.value[1])
-                  << ", " << ozz::math::HalfToFloat(value.value[2]) << std::endl;
-    }
+                  << ozz::math::HalfToFloat(value.values[0]) << ", " << ozz::math::HalfToFloat(value.values[1])
+                  << ", " << ozz::math::HalfToFloat(value.values[2]) << std::endl;
+    }*/
 }
 
 PlayerAnimation::PlayerAnimation()
@@ -991,8 +1131,8 @@ bool PlayerAnimation::loadAnimationInternal(const std::string& key)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
-    if (sampler.animation.translations().empty() && sampler.animation.rotations().empty() &&
-        sampler.animation.scales().empty())
+    if (sampler.animation.translations_values().empty() &&
+        sampler.animation.rotations_values().empty() && sampler.animation.scales_values().empty())
     {
         OSG_WARN << "[PlayerAnimation] Invalid animation data: " << key << std::endl;
         ozz->_animations.erase(ozz->_animations.find(key)); return false;
@@ -1012,7 +1152,7 @@ bool PlayerAnimation::loadAnimationInternal(const std::string& key)
     if (ozz->_animations.size() > 1) sampler.weight = 0.0f;
     else sampler.weight = 1.0f;  // by default only the first animation is full weighted
 
-#if 0
+#if true
     printAnimationData(ozz, key);
 #endif
     return true;

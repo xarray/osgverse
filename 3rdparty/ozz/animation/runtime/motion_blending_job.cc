@@ -25,28 +25,72 @@
 //                                                                            //
 //----------------------------------------------------------------------------//
 
-#ifndef OZZ_OZZ_BASE_CONTAINERS_UNORDERED_SET_H_
-#define OZZ_OZZ_BASE_CONTAINERS_UNORDERED_SET_H_
+#include "ozz/animation/runtime/motion_blending_job.h"
 
-#include <unordered_set>
-
-#include "ozz/base/containers/std_allocator.h"
+#include "ozz/base/maths/transform.h"
 
 namespace ozz {
-// Redirects std::unordered_set to ozz::UnorderedSet in order to replace std
-// default allocator by ozz::StdAllocator.
-template <class _Key, class _Hash = std::hash<_Key>,
-          class _KeyEqual = std::equal_to<_Key>,
-          class _Allocator = ozz::StdAllocator<_Key> >
-using unordered_set =
-    std::unordered_set<_Key, _Hash, _KeyEqual, _Allocator>;
+namespace animation {
 
-// Redirects std::unordered_multiset to ozz::UnorderedMultiSet in order to
-// replace std default allocator by ozz::StdAllocator.
-template <class _Key, class _Hash = std::hash<_Key>,
-          class _KeyEqual = std::equal_to<_Key>,
-          class _Allocator = ozz::StdAllocator<_Key> >
-using unordered_multiset =
-    std::unordered_multiset<_Key, _Hash, _KeyEqual, _Allocator>;
+bool MotionBlendingJob::Validate() const {
+  bool valid = true;
+
+  valid &= output != nullptr;
+
+  // Validates layers.
+  for (const Layer& layer : layers) {
+    valid &= layer.delta != nullptr;
+  }
+
+  return valid;
+}
+
+bool MotionBlendingJob::Run() const {
+  if (!Validate()) {
+    return false;
+  }
+
+  // Lerp each layer's transform according to its weight.
+  float acc_weight = 0.f;  // Accumulates weights for normalization.
+  float dl = 0.f;          // Weighted translation lengths.
+  ozz::math::Float3 dt = {0.f, 0.f, 0.f};  // Weighted translations directions.
+  ozz::math::Quaternion dr = {0.f, 0.f, 0.f, 0.f};  // Weighted rotations.
+
+  for (const auto& layer : layers) {
+    const float weight = layer.weight;
+    if (weight <= 0.f) {  // Negative weights are considered O.
+      continue;
+    }
+    acc_weight += weight;
+
+    // Decomposes translation into a normalized vector and a length, to limit
+    // lerp error while interpolating vector length.
+    const float len = Length(layer.delta->translation);
+    dl = dl + len * weight;
+    const float denom = (len == 0.f) ? 0.f : weight / len;
+    dt = dt + layer.delta->translation * denom;
+
+    // Accumulates weighted rotation (NLerp). Makes sure quaternions are on the
+    // same hemisphere to lerp the shortest arc (using -Q otherwise).
+    const float signed_weight =
+        std::copysign(weight, Dot(dr, layer.delta->rotation));
+    dr = dr + layer.delta->rotation * signed_weight;
+  }
+
+  // Normalizes (weights) and fills output.
+
+  // Normalizes translation and re-applies interpolated length.
+  const float denom = Length(dt) * acc_weight;
+  const float norm = (denom == 0.f) ? 0.f : dl / denom;
+  output->translation = dt * norm;
+
+  // Normalizes rotation (doesn't need acc_weight).
+  output->rotation = NormalizeSafe(dr, ozz::math::Quaternion::identity());
+
+  // No scale.
+  output->scale = {1.f, 1.f, 1.f};
+
+  return true;
+}
+}  // namespace animation
 }  // namespace ozz
-#endif  // OZZ_OZZ_BASE_CONTAINERS_UNORDERED_SET_H_
