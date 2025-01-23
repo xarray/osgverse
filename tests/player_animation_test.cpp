@@ -63,8 +63,9 @@ int main(int argc, char** argv)
     animManager->seek("idle", 0.0f);
     player->addUpdateCallback(animManager.get());
 #else
-    osg::ref_ptr<osg::Node> player = (argc > 1) ? osgDB::readNodeFile(argv[1])
-                                   : osgDB::readNodeFile(BASE_DIR + "/models/Characters/girl.glb");
+    osg::ref_ptr<osgDB::Options> opt = new osgDB::Options("DisabledPBR=1");
+    osg::ref_ptr<osg::Node> player = (argc > 1) ? osgDB::readNodeFile(argv[1], opt.get())
+                                   : osgDB::readNodeFile(BASE_DIR + "/models/Characters/girl.glb", opt.get());
     if (player.valid()) playerRoot->addChild(player.get());
     animManager = findAnimationManager(player.get());
 #endif

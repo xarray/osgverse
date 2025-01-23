@@ -275,7 +275,8 @@ namespace osgVerse
         stbi_image_free(data); return true;
     }
 
-    LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary)
+    LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary, bool pbr)
+        : _usingMaterialPBR(pbr)
     {
         std::string protocol = osgDB::getServerProtocol(d);
         osgDB::ReaderWriter* rwWeb = (protocol.empty()) ? NULL
@@ -794,7 +795,7 @@ namespace osgVerse
 
         if (roughnessID >= 0 && roughnessID < _modelDef.textures.size())
             createTexture(ss, 3, uniformNames[3], _modelDef.textures[roughnessID]);
-        else
+        else if (_usingMaterialPBR)
         {
             osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
                 1.0f, material.pbrMetallicRoughness.roughnessFactor,
@@ -806,14 +807,20 @@ namespace osgVerse
             createTexture(ss, 5, uniformNames[5], _modelDef.textures[emissiveID]);
         else
         {
-            osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
-                material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2], 1.0f));
-            if (tex2D) ss->setTextureAttributeAndModes(5, tex2D);
+            osg::Vec3 emission(material.emissiveFactor[0], material.emissiveFactor[1],
+                               material.emissiveFactor[2]);
+            if (emission.length2() > 0.0f)
+            {
+                osg::Texture2D* tex2D = createDefaultTextureForColor(
+                    osg::Vec4(emission[0], emission[1], emission[2], 1.0f));
+                if (tex2D) ss->setTextureAttributeAndModes(5, tex2D);
+            }
         }
 
-        if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
-        if (occlusionID >= 0) createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);  // FIXME: should be ORM
+        if (occlusionID >= 0 && _usingMaterialPBR)
+            createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);  // FIXME: should be ORM
 
+        if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
         if (material.alphaMode.compare("BLEND") == 0)
             ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
         else
@@ -1112,7 +1119,7 @@ namespace osgVerse
         }
     }
 
-    osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary)
+    osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary, bool usingPBR)
     {
         std::string workDir = osgDB::getFilePath(file), http = osgDB::getServerProtocol(file);
         if (!http.empty() && http.find("file") == std::string::npos) return NULL;
@@ -1124,14 +1131,15 @@ namespace osgVerse
             return NULL;
         }
 
-        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, workDir, isBinary);
+        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, workDir, isBinary, usingPBR);
         if (loader->getRoot()) loader->getRoot()->setName(file);
         return loader->getRoot();
     }
 
-    osg::ref_ptr<osg::Group> loadGltf2(std::istream& in, const std::string& dir, bool isBinary)
+    osg::ref_ptr<osg::Group> loadGltf2(std::istream& in, const std::string& dir,
+                                       bool isBinary, bool usingPBR)
     {
-        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, dir, isBinary);
+        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, dir, isBinary, usingPBR);
         return loader->getRoot();
     }
 }

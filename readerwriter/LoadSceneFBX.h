@@ -21,7 +21,7 @@ namespace osgVerse
 
     protected:
         virtual ~LoaderFBX() {}
-        osg::Geode* createGeometry(const ofbx::Mesh& mesh, const ofbx::Geometry& gData);
+        osg::Geode* createGeometry(const ofbx::Mesh& mesh, const ofbx::GeometryData& gData);
         void createAnimation(const ofbx::AnimationCurveNode* curveNode);
         void createMaterial(const ofbx::Material* mtlData, osg::StateSet* ss);
 

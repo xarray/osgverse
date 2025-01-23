@@ -21,6 +21,7 @@ public:
         supportsExtension("cmpt", "Cesium cmposite tiles");
         supportsOption("Directory", "Setting the working directory");
         supportsOption("Mode", "Set to 'ascii/binary' to read specific GLTF data");
+        supportsOption("DisabledPBR", "Use PBR materials or not");
     }
 
     virtual const char* className() const
@@ -42,19 +43,21 @@ public:
         }
 
         osg::ref_ptr<osg::Node> group;
+        int noPBR = atoi(options->getPluginStringData("DisabledPBR").c_str());
+
         if (ext == "cmpt")
             group = readCesiumFormatCmpt(fileName, osgDB::getFilePath(fileName));
         else if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
-            group = osgVerse::loadGltf(fileName, true).get();
+            group = osgVerse::loadGltf(fileName, true, noPBR == 0).get();
         else
-            group = osgVerse::loadGltf(fileName, false).get();
+            group = osgVerse::loadGltf(fileName, false, noPBR == 0).get();
         if (!group) OSG_WARN << "[ReaderWriterGLTF] Failed to load " << fileName << std::endl;
         return group.get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
-        std::string dir = "", mode; bool isBinary = false;
+        std::string dir = "", mode; bool noPBR = false, isBinary = false;
         if (options)
         {
             std::string fileName = options->getPluginStringData("filename");
@@ -65,6 +68,7 @@ public:
                 if (ext != "gltf") isBinary = true;
             }
 
+            noPBR = (atoi(options->getPluginStringData("DisabledPBR").c_str()) != 0);
             dir = options->getPluginStringData("Directory");
             mode = options->getPluginStringData("Mode");
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
@@ -73,7 +77,7 @@ public:
 
         if (dir.empty() && options && !options->getDatabasePathList().empty())
             dir = options->getDatabasePathList().front();
-        return osgVerse::loadGltf2(fin, dir, isBinary).get();
+        return osgVerse::loadGltf2(fin, dir, isBinary, !noPBR).get();
     }
 
 protected:

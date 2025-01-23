@@ -14,7 +14,7 @@
 
 #include "pipeline/Utilities.h"
 #include "LoadSceneFBX.h"
-#define DISABLE_SKINNING_DATA 0
+#define DISABLE_SKINNING_DATA 1
 
 namespace osgVerse
 {
@@ -25,7 +25,7 @@ namespace osgVerse
         std::vector<char> data(std::istreambuf_iterator<char>(in), eos);
         if (data.empty()) { OSG_WARN << "[LoaderFBX] Unable to read from stream\n"; return; }
 
-        _scene = ofbx::load((ofbx::u8*)&data[0], data.size(), (ofbx::u64)ofbx::LoadFlags::TRIANGULATE);
+        _scene = ofbx::load((ofbx::u8*)&data[0], data.size(), (ofbx::u64)ofbx::LoadFlags::NONE);
         if (!_scene) { OSG_WARN << "[LoaderFBX] Unable to parse FBX scene\n"; return; }
 
         //const ofbx::Object* const* objects = _scene->getAllObjects();
@@ -54,10 +54,10 @@ namespace osgVerse
                 //OSG_NOTICE << "[LoaderFBX] <POSE> " << pData->name << " not implemented\n";
             }
 
-            const ofbx::Geometry* gData = mesh.getGeometry();
-            if (gData != NULL)
+            const ofbx::GeometryData& gData = mesh.getGeometryData();
+            if (gData.hasVertices())
             {
-                geode = createGeometry(mesh, *gData);
+                geode = createGeometry(mesh, gData);
                 geode->setName(meshName);
                 _root->addChild(geode.get());
             }
@@ -95,85 +95,83 @@ namespace osgVerse
         }
     }
 
-    osg::Geode* LoaderFBX::createGeometry(const ofbx::Mesh& mesh, const ofbx::Geometry& gData)
+    osg::Geode* LoaderFBX::createGeometry(const ofbx::Mesh& mesh, const ofbx::GeometryData& gData)
     {
         osg::Matrix matrix = osg::Matrix(mesh.getGeometricMatrix().m)*
                              osg::Matrix(mesh.getGlobalTransform().m);
         osg::Matrix invMatrix = osg::Matrix::inverse(matrix);
-        int vCount = gData.getVertexCount(), iCount = gData.getIndexCount();
-        const ofbx::Vec3* vData = gData.getVertices();
-        const ofbx::Vec3* nData = gData.getNormals();
-        const ofbx::Vec3* tData = gData.getTangents();
-        const ofbx::Vec4* cData = gData.getColors();
-        const ofbx::Vec2* uvData0 = gData.getUVs(0);
-        const ofbx::Vec2* uvData1 = gData.getUVs(1);
-        const int* iData = gData.getFaceIndices();
-        const int* mData = gData.getMaterials();
+        ofbx::Vec3Attributes vData = gData.getPositions();
+        ofbx::Vec3Attributes nData = gData.getNormals();
+        ofbx::Vec3Attributes tData = gData.getTangents();
+        ofbx::Vec4Attributes cData = gData.getColors();
+        ofbx::Vec2Attributes uvData0 = gData.getUVs(0);
+        ofbx::Vec2Attributes uvData1 = gData.getUVs(1);
 
-        if (vCount <= 0 || iCount <= 0) return NULL;
-        if (vCount != iCount)
-            OSG_WARN << "[LoaderFBX] Unknown geometry layout: " << vCount << " / " << iCount << "\n";
+        int vCount = vData.count, pCount = gData.getPartitionCount();
+        if (vCount <= 0 || pCount <= 0) return NULL;
 
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(vCount);
-        osg::ref_ptr<osg::Vec3Array> na = nData ? new osg::Vec3Array(vCount) : NULL;
-        osg::ref_ptr<osg::Vec4Array> ta = tData ? new osg::Vec4Array(vCount) : NULL;
-        osg::ref_ptr<osg::Vec4Array> ca = cData ? new osg::Vec4Array(vCount) : NULL;
-        osg::ref_ptr<osg::Vec2Array> uv0 = uvData0 ? new osg::Vec2Array(vCount) : NULL;
-        osg::ref_ptr<osg::Vec2Array> uv1 = uvData1 ? new osg::Vec2Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec3Array> na = nData.values != NULL ? new osg::Vec3Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec4Array> ta = tData.values != NULL ? new osg::Vec4Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec4Array> ca = cData.values != NULL ? new osg::Vec4Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec2Array> uv0 = uvData0.values != NULL ? new osg::Vec2Array(vCount) : NULL;
+        osg::ref_ptr<osg::Vec2Array> uv1 = uvData1.values != NULL ? new osg::Vec2Array(vCount) : NULL;
         for (int i = 0; i < vCount; ++i)
         {
-            (*va)[i] = osg::Vec3(vData[i].x, vData[i].y, vData[i].z) * matrix;
-            if (nData) (*na)[i] = osg::Matrix::transform3x3(
-                invMatrix, osg::Vec3(nData[i].x, nData[i].y, nData[i].z));
-            if (tData) (*ta)[i] = osg::Vec4(tData[i].x, tData[i].y, tData[i].z, 1.0f);
-            if (cData) (*ca)[i] = osg::Vec4(cData[i].x, cData[i].y, cData[i].z, cData[i].w);
-            if (uvData0) (*uv0)[i] = osg::Vec2(uvData0[i].x, uvData0[i].y);
-            if (uvData1) (*uv1)[i] = osg::Vec2(uvData1[i].x, uvData1[i].y);
-        }
-
-        std::map<int, osg::ref_ptr<osg::DrawElementsUInt>> primitivesByMtl;
-        if (mData != NULL)
-        {
-            for (int i = 0; i < iCount; i += 3)
+            ofbx::Vec3 vec = vData.get(i); (*va)[i] = osg::Vec3(vec.x, vec.y, vec.z) * matrix;
+            if (nData.values != NULL)
             {
-                int mtlIndex = mData[i / 3], index = 0;
-                osg::ref_ptr<osg::DrawElementsUInt>& de = primitivesByMtl[mtlIndex];
-                if (!de) de = new osg::DrawElementsUInt(GL_TRIANGLES);
-
-                index = iData[i + 0]; de->push_back(index < 0 ? ((-index) - 1) : index);
-                index = iData[i + 1]; de->push_back(index < 0 ? ((-index) - 1) : index);
-                index = iData[i + 2]; de->push_back(index < 0 ? ((-index) - 1) : index);
+                vec = (i < nData.count) ? nData.get(i) : nData.get(0);
+                (*na)[i] = osg::Matrix::transform3x3(invMatrix, osg::Vec3(vec.x, vec.y, vec.z));
             }
-        }
-        else
-        {
-            osg::ref_ptr<osg::DrawElementsUInt>& de = primitivesByMtl[0];
-            de = new osg::DrawElementsUInt(GL_TRIANGLES);
-            for (int i = 0; i < iCount; ++i)
+            if (tData.values != NULL)
             {
-                int index = iData[i];
-                de->push_back(index < 0 ? ((-index) - 1) : index);
+                vec = (i < tData.count) ? tData.get(i) : tData.get(0);
+                (*ta)[i] = osg::Vec4(vec.x, vec.y, vec.z, 1.0f);
+            }
+            if (cData.values != NULL)
+            {
+                ofbx::Vec4 color = (i < cData.count) ? cData.get(i) : cData.get(0);
+                (*ca)[i] = osg::Vec4(color.x, color.y, color.z, color.w);
+            }
+            if (uvData0.values != NULL)
+            {
+                ofbx::Vec2 tex = (i < uvData0.count) ? uvData0.get(i) : uvData0.get(0);
+                (*uv0)[i] = osg::Vec2(tex.x, tex.y);
+            }
+            if (uvData1.values != NULL)
+            {
+                ofbx::Vec2 tex = (i < uvData1.count) ? uvData1.get(i) : uvData1.get(0);
+                (*uv1)[i] = osg::Vec2(tex.x, tex.y);
             }
         }
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         std::map<int, std::pair<osg::Geometry*, int>> globalIndexMap;
-        for (std::map<int, osg::ref_ptr<osg::DrawElementsUInt>>::iterator itr = primitivesByMtl.begin();
-             itr != primitivesByMtl.end(); ++itr)
-        {
+        for (int i = 0; i < pCount; ++i)
+        {   // each ofbx::Mesh can have several materials == partitions
+            const ofbx::GeometryPartition& partition = gData.getPartition(i);
+            osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+            for (int p = 0; p < partition.polygon_count; ++p)
+            {
+                const ofbx::GeometryPartition::Polygon& polygon = partition.polygons[p];
+                std::vector<int> indices(3 * (polygon.vertex_count - 2));
+                if (ofbx::triangulate(gData, polygon, &indices[0]) > 0)
+                    de->insert(de->end(), indices.begin(), indices.end());
+            }
+
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
             osg::ref_ptr<osg::Vec3Array> subVA = new osg::Vec3Array;
-            osg::ref_ptr<osg::Vec3Array> subNA = nData ? new osg::Vec3Array : NULL;
-            osg::ref_ptr<osg::Vec4Array> subTA = tData ? new osg::Vec4Array : NULL;
-            osg::ref_ptr<osg::Vec4Array> subCA = cData ? new osg::Vec4Array : NULL;
-            osg::ref_ptr<osg::Vec2Array> subUV0 = uvData0 ? new osg::Vec2Array : NULL;
-            osg::ref_ptr<osg::Vec2Array> subUV1 = uvData1 ? new osg::Vec2Array : NULL;
+            osg::ref_ptr<osg::Vec3Array> subNA = nData.values ? new osg::Vec3Array : NULL;
+            osg::ref_ptr<osg::Vec4Array> subTA = tData.values ? new osg::Vec4Array : NULL;
+            osg::ref_ptr<osg::Vec4Array> subCA = cData.values ? new osg::Vec4Array : NULL;
+            osg::ref_ptr<osg::Vec2Array> subUV0 = uvData0.values ? new osg::Vec2Array : NULL;
+            osg::ref_ptr<osg::Vec2Array> subUV1 = uvData1.values ? new osg::Vec2Array : NULL;
 
-            osg::DrawElementsUInt* de = itr->second.get();
             std::map<unsigned int, unsigned int> globalToLocalMap;
-            for (size_t i = 0; i < de->size(); ++i)
+            for (size_t j = 0; j < de->size(); ++j)
             {
-                unsigned int idx = (*de)[i];
+                unsigned int idx = (*de)[j];
                 if (globalToLocalMap.find(idx) == globalToLocalMap.end())
                 {
                     globalToLocalMap[idx] = subVA->size();
@@ -184,43 +182,40 @@ namespace osgVerse
                     }
                     globalIndexMap[idx] = std::pair<osg::Geometry*, int>(geom.get(), subVA->size());
 
-                    subVA->push_back((*va)[idx]); if (nData) subNA->push_back((*na)[idx]);
-                    if (tData) subTA->push_back((*ta)[idx]); if (cData) subCA->push_back((*ca)[idx]);
-                    if (uvData0) subUV0->push_back((*uv0)[idx]);
-                    if (uvData1) subUV1->push_back((*uv1)[idx]);
+                    subVA->push_back((*va)[idx]);
+                    if (nData.values) subNA->push_back((*na)[idx]);
+                    if (tData.values) subTA->push_back((*ta)[idx]);
+                    if (cData.values) subCA->push_back((*ca)[idx]);
+                    if (uvData0.values) subUV0->push_back((*uv0)[idx]);
+                    if (uvData1.values) subUV1->push_back((*uv1)[idx]);
                 }
-                (*de)[i] = globalToLocalMap[idx];
+                (*de)[j] = globalToLocalMap[idx];
             }
 
-            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
             geom->setVertexArray(subVA.get());
-#if OSG_VERSION_GREATER_THAN(3, 1, 8)
-            if (nData) geom->setNormalArray(subNA.get(), osg::Array::BIND_PER_VERTEX);
-            if (tData) geom->setVertexAttribArray(6, subTA.get(), osg::Array::BIND_PER_VERTEX);
-            if (cData) geom->setColorArray(subCA.get(), osg::Array::BIND_PER_VERTEX);
-            if (uvData0) geom->setTexCoordArray(0, subUV0.get(), osg::Array::BIND_PER_VERTEX);
-            if (uvData1) geom->setTexCoordArray(1, subUV1.get(), osg::Array::BIND_PER_VERTEX);
-#else
-            if (nData) { geom->setNormalArray(subNA.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
-            if (tData) { geom->setVertexAttribArray(6, subTA.get()); geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX); }
-            if (cData) { geom->setColorArray(subCA.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
-            if (uvData0) { geom->setTexCoordArray(0, subUV0.get()); }
-            if (uvData1) { geom->setTexCoordArray(1, subUV1.get()); }
-#endif
-            geom->addPrimitiveSet(de);
+            if (nData.values)
+            { geom->setNormalArray(subNA.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX); }
+            if (tData.values)
+            { geom->setVertexAttribArray(6, subTA.get()); geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX); }
+            if (cData.values)
+            { geom->setColorArray(subCA.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX); }
+            if (uvData0.values) { geom->setTexCoordArray(0, subUV0.get()); }
+            if (uvData1.values) { geom->setTexCoordArray(1, subUV1.get()); }
+            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+            geom->addPrimitiveSet(de.get());
             geode->addDrawable(geom.get());
-            if (!nData) osgUtil::SmoothingVisitor::smooth(*geom);
+            if (!nData.values) osgUtil::SmoothingVisitor::smooth(*geom);
 
-            if (itr->first < mesh.getMaterialCount())
+            if (i >= 0 && i < mesh.getMaterialCount())
             {
-                const ofbx::Material* mtl = mesh.getMaterial(itr->first);
+                const ofbx::Material* mtl = mesh.getMaterial(i);
                 _geometriesByMtl[mtl].push_back(geom.get());
             }
             else
-                OSG_NOTICE << "[LoaderFBX] No material on this geometry\n";
+                OSG_NOTICE << "[LoaderFBX] No material on geometry: " << i << "\n";
         }
 
-        const ofbx::Skin* skin = gData.getSkin();
+        const ofbx::Skin* skin = mesh.getSkin();
         if (skin != NULL)
         {
             MeshSkinningData& msd = _meshBoneMap[geode.get()];
@@ -246,7 +241,7 @@ namespace osgVerse
             }
         }
 
-        const ofbx::BlendShape* bs = gData.getBlendShape();
+        const ofbx::BlendShape* bs = mesh.getBlendShape();
         if (bs != NULL)
         {
             OSG_NOTICE << "[LoaderFBX] <BLENDSHAPE> " << bs->name << " not implemented\n";
@@ -259,7 +254,7 @@ namespace osgVerse
     void LoaderFBX::createAnimation(const ofbx::AnimationCurveNode* curveNode)
     {
         const ofbx::Object* bone = curveNode->getBone();
-        ofbx::Vec3 pivot = bone->getRotationPivot();
+        ofbx::DVec3 pivot = bone->getRotationPivot();
         ofbx::RotationOrder order = bone->getRotationOrder();  // FIXME: always xyz...
 
         osg::observer_ptr<osg::MatrixTransform> mt; std::string boneName(bone->name);
@@ -353,13 +348,14 @@ namespace osgVerse
             osg::Texture2D* tex2D = _textureMap[tData].get();
             if (!tex2D)
             {
-                const ofbx::DataView& name = tData->getFileName();
-                const ofbx::DataView& content = tData->getEmbeddedData();
+                ofbx::DataView name = tData->getFileName();
+                ofbx::DataView content = tData->getEmbeddedData();
                 if (!name.begin || !name.end) continue;
 
                 std::string originalName(name.begin, name.end);
                 std::string ext = osgDB::getFileExtension(originalName);
                 std::string fileName = osgDB::convertStringFromCurrentCodePageToUTF8(originalName);
+                std::string simpleFileName = osgDB::getSimpleFileName(originalName);
 
                 tex2D = new osg::Texture2D;
                 tex2D->setResizeNonPowerOfTwoHint(false);
@@ -369,6 +365,18 @@ namespace osgVerse
                 tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
 
                 osg::ref_ptr<osg::Image> image;
+                if (content.begin == NULL)
+                {
+                    for (int k = 0; k < _scene->getEmbeddedDataCount(); ++k)
+                    {
+                        ofbx::DataView embeddedView = _scene->getEmbeddedFilename(k);
+                        std::string embeddedName = osgDB::getSimpleFileName(
+                            std::string(embeddedView.begin, embeddedView.end));
+                        if (simpleFileName == embeddedName)
+                        { content = _scene->getEmbeddedData(k); break; }
+                    }
+                }
+
                 if (content.begin != NULL && content.begin != content.end)
                 {
                     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
@@ -381,9 +389,8 @@ namespace osgVerse
                         std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
                         ss.write((char*)&buffer[0], buffer.size());
                         image = rw->readImage(ss).getImage();
-                        if (image.valid()) image->setFileName(originalName);
+                        if (image.valid()) image->setFileName(simpleFileName);
                     }
-
                 }
 
                 if (!image)
@@ -394,15 +401,13 @@ namespace osgVerse
 
                 if (!image)
                 {
-                    fileName = osgDB::getSimpleFileName(originalName);
-                    image = osgDB::readImageFile(_workingDir + fileName);
-                    originalName = _workingDir + fileName;
+                    image = osgDB::readImageFile(_workingDir + simpleFileName);
+                    originalName = _workingDir + simpleFileName;
                 }
 
                 if (!image) continue;
                 if (ext == "dds" || ext == "DDS") image->flipVertical();  // FIXME: optional?
-                tex2D->setImage(image.get());
-                tex2D->setName(originalName);
+                tex2D->setImage(image.get()); tex2D->setName(originalName);
 
                 _textureMap[tData] = tex2D;
                 OSG_NOTICE << "[LoaderFBX] " << originalName << " loaded for "
