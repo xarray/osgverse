@@ -43,7 +43,7 @@ public:
         }
 
         osg::ref_ptr<osg::Node> group;
-        int noPBR = atoi(options->getPluginStringData("DisabledPBR").c_str());
+        int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
 
         if (ext == "cmpt")
             group = readCesiumFormatCmpt(fileName, osgDB::getFilePath(fileName));

@@ -14,7 +14,7 @@
 
 #include "pipeline/Utilities.h"
 #include "LoadSceneFBX.h"
-#define DISABLE_SKINNING_DATA 1
+#define DISABLE_SKINNING_DATA 0
 
 namespace osgVerse
 {
@@ -88,7 +88,12 @@ namespace osgVerse
                 for (int k = 0; layer->getCurveNode(k); ++k)
                 {
                     const ofbx::AnimationCurveNode* curveNode = layer->getCurveNode(k);
-                    if (curveNode->getCurve(0)) createAnimation(curveNode);  // FIXME: rigid animation only
+                    if (curveNode->getBone())
+                    {
+                        // TODO: bone animation
+                    }
+                    else if (curveNode->getCurve(0))
+                        createAnimation(layer, curveNode);  // rigid animation
                 }
             }
             // TODO: more than 1 animations?
@@ -251,7 +256,8 @@ namespace osgVerse
         return geode.release();
     }
 
-    void LoaderFBX::createAnimation(const ofbx::AnimationCurveNode* curveNode)
+    void LoaderFBX::createAnimation(const ofbx::AnimationLayer* layer,
+                                    const ofbx::AnimationCurveNode* curveNode)
     {
         const ofbx::Object* bone = curveNode->getBone();
         ofbx::DVec3 pivot = bone->getRotationPivot();
@@ -273,7 +279,7 @@ namespace osgVerse
         if (!mt)
         {
             OSG_NOTICE << "[LoaderFBX] Unable to find bone node " << boneName << " matching animation "
-                       << propertyName << std::endl; return;
+                       << propertyName << ", in layer " << layer->name << std::endl; return;
         }
 
         osg::ref_ptr<osg::AnimationPath> animationPath;
@@ -323,10 +329,8 @@ namespace osgVerse
         }
 
         for (std::map<float, osg::Vec3d>::iterator itr = tempPositionMap.begin();
-            itr != tempPositionMap.end(); ++itr)
-        {
-            cpMap[itr->first].setPosition(itr->second + pivotOffset);
-        }
+             itr != tempPositionMap.end(); ++itr)
+        { cpMap[itr->first].setPosition(itr->second + pivotOffset); }
 
         for (std::map<float, osg::Vec3d>::iterator itr = tempEulerMap.begin();
             itr != tempEulerMap.end(); ++itr)

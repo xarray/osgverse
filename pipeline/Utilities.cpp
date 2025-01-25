@@ -185,7 +185,12 @@ namespace osgVerse
         }
         else
             OSG_NOTICE << "[osgVerse] Working directory: " << workingPath << std::endl;
-        osgDB::getDataFilePathList().push_back(workingPath);
+
+        osgDB::FilePathList& filePaths = osgDB::getLibraryFilePathList();
+#   ifdef OSGPLUGIN_PREFIX
+        filePaths.push_back(BASE_DIR + "/" + OSGPLUGIN_PREFIX);
+#   endif
+        filePaths.push_back(workingPath);
 #endif
         ShaderLibrary::instance()->refreshModules(BASE_DIR + std::string("/shaders/"));
 

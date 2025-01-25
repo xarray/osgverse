@@ -31,8 +31,10 @@ USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 class ThreadPool
 {
@@ -145,7 +147,7 @@ public:
         }
         else
         {
-            for (int i = 0; i < tex->getNumImages(); ++i)
+            for (unsigned int i = 0; i < tex->getNumImages(); ++i)
             {
                 osg::Image* img = tex->getImage(i);
                 if (img && img->valid())

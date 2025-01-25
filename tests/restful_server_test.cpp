@@ -21,8 +21,10 @@
 
 #include <libhv/all/server/HttpService.h>
 #include <libhv/all/server/HttpServer.h>
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 class Handler
 {

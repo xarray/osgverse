@@ -23,8 +23,10 @@
 #include <sstream>
 
 #include <microprofile.h>
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 int main(int argc, char** argv)
 {

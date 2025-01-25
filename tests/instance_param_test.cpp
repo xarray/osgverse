@@ -14,8 +14,10 @@
 #include <iostream>
 #include <sstream>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 #define RAND_VALUE(m, n) ((n - m) * (float)rand() / (float)RAND_MAX + m)
 #define RES 2048

@@ -13,8 +13,10 @@
 #include <iostream>
 #include <sstream>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 osg::AnimationPath* createPath(const osg::Vec3d& pivot, const osg::Vec3d& axis, float angularVelocity)
 {

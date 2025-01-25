@@ -19,7 +19,9 @@ struct AllocatorProxy
 static AllocatorProxy s_allocator;
 #endif
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { static backward::SignalHandling sh; }
+#endif
 
 #endif

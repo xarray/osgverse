@@ -6,6 +6,7 @@
 
 #define OZZ_INCLUDE_PRIVATE_HEADER
 #include "3rdparty/ozz/animation/runtime/animation_keyframe.h"
+#include "3rdparty/ozz/animation/runtime/animation_utils.h"
 #include "3rdparty/ozz/animation/runtime/animation.h"
 #include "3rdparty/ozz/animation/runtime/sampling_job.h"
 #include "3rdparty/ozz/animation/runtime/blending_job.h"

@@ -18,8 +18,10 @@
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 class SceneDataOptimizer : public osgVerse::TextureOptimizer
 {

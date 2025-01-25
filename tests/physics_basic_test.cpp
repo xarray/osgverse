@@ -11,8 +11,10 @@
 #include <iostream>
 #include <sstream>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 class ShootSphereHandler : public osgGA::GUIEventHandler
 {

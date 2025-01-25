@@ -14,11 +14,14 @@
 #include <sstream>
 
 #include <libhv/all/server/WebSocketServer.h>
-#include <backward.hpp>  // for better debug info
-namespace backward { backward::SignalHandling sh; }
 #define MEDIA_PUSHER 0
 #define MEDIA_SERVER 0
 #define MEDIA_WEBRTC_COMMANDS 1
+
+#ifndef _DEBUG
+#include <backward.hpp>  // for better debug info
+namespace backward { backward::SignalHandling sh; }
+#endif
 
 class HttpApiCallback : public osgVerse::UserCallback
 {

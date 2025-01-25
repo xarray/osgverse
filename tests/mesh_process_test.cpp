@@ -20,8 +20,10 @@
 #define TEST_MAPPING_TO_VHACD 1
 #define TEST_MODELING_FUNCTIONS 1
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 int main(int argc, char** argv)
 {

@@ -16,8 +16,10 @@
 #include <pipeline/Global.h>
 #include <pipeline/ShaderLibrary.h>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 const char* vertCode = {
     "VERSE_VS_OUT vec3 viewInEye, normalInEye;\n"

@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/Point>
 #include <osg/MatrixTransform>
 #include <osg/Geometry>
 #include <osgDB/ReadFile>
@@ -13,8 +14,10 @@
 #include <iostream>
 #include <sstream>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 class FindAnimationVisitor : public osg::NodeVisitor
 {
@@ -41,7 +44,8 @@ osgVerse::PlayerAnimation* findAnimationManager(osg::Node* node)
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    int jointToOutput = -1; arguments.read("--joint-skinning", jointToOutput);
 
     osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
@@ -64,7 +68,7 @@ int main(int argc, char** argv)
     player->addUpdateCallback(animManager.get());
 #else
     osg::ref_ptr<osgDB::Options> opt = new osgDB::Options("DisabledPBR=1");
-    osg::ref_ptr<osg::Node> player = (argc > 1) ? osgDB::readNodeFile(argv[1], opt.get())
+    osg::ref_ptr<osg::Node> player = (argc > 1) ? osgDB::readNodeFiles(arguments, opt.get())
                                    : osgDB::readNodeFile(BASE_DIR + "/models/Characters/girl.glb", opt.get());
     if (player.valid()) playerRoot->addChild(player.get());
     animManager = findAnimationManager(player.get());
@@ -106,6 +110,45 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);
+
+#if true
+    if (animManager.valid() && jointToOutput >= 0)
+    {
+        std::vector<osgVerse::PlayerAnimation::ThisAndParent> joints = animManager->getSkeletonIndices();
+        osgVerse::PlayerAnimation::VertexWeights weights = animManager->getSkeletonVertexWeights();
+        for (size_t i = 0; i < joints.size(); ++i)
+        {
+            osgVerse::PlayerAnimation::ThisAndParent p = joints[i];
+            std::string jointName = animManager->getSkeletonJointName(p.first);
+            if (jointToOutput != p.first) continue;
+
+            osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+            osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
+            for (osgVerse::PlayerAnimation::VertexWeights::iterator itr = weights.begin();
+                 itr != weights.end(); ++itr)
+            {
+                const std::vector<osgVerse::PlayerAnimation::JointAndWeight>& jointList = itr->second;
+                for (size_t j = 0; j < jointList.size(); ++j)
+                {
+                    if (jointList[j].first != p.first) continue;
+                    float w = jointList[j].second; va->push_back(itr->first);
+                    ca->push_back(osg::Vec4(1.0f, 0.0f, w, 1.0f));
+                }
+            }
+
+            osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+            geom->setVertexArray(va.get());
+            geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, va->size()));
+            geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+            geom->getOrCreateStateSet()->setAttributeAndModes(new osg::Point(5.0f));
+
+            osg::ref_ptr<osg::Geode> jointGeode = new osg::Geode;
+            jointGeode->addDrawable(geom.get());
+            playerRoot->addChild(jointGeode.get());
+        }
+    }
+#endif
 
     osg::ref_ptr<osg::Node> axis = osgDB::readNodeFile("axes.osgt.(0.1,0.1,0.1).scale");
     while (!viewer.done())

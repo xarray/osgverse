@@ -84,6 +84,10 @@ namespace osgVerse
         std::string getSkeletonJointName(int joint) const;
         int getSkeletonJointIndex(const std::string& joint) const;
 
+        typedef std::pair<int, float> JointAndWeight;
+        typedef std::map<osg::Vec3, std::vector<JointAndWeight>> VertexWeights;
+        VertexWeights getSkeletonVertexWeights() const;
+
         void setModelSpaceJointMatrix(int joint, const osg::Matrix& m);
         osg::Matrix getModelSpaceJointMatrix(int joint) const;
         osg::BoundingBox computeSkeletonBounds() const;

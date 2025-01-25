@@ -417,8 +417,8 @@ namespace ozz
                 for (int j = anim.num_tracks_; j < numSoaTracks; ++j)
                 {
                     sampleData(positions, "LINEAR", 0, j, defPosTracks[tr0], 1.0f);
-                    sampleData(rotations, "LINEAR", 0, j, defRotTracks[tr0], 1.0f);
-                    sampleData(scales, "LINEAR", 0, j, defScaleTracks[tr0], 1.0f, true, defScale);
+                    sampleData(rotations, "LINEAR", 1, j, defRotTracks[tr0], 1.0f);
+                    sampleData(scales, "LINEAR", 2, j, defScaleTracks[tr0], 1.0f, true, defScale);
                 }
 
                 // Build time points and controls
@@ -437,25 +437,44 @@ namespace ozz
                 // Allocate animation buffer
                 int pCount = (int)positions.size(), rCount = (int)rotations.size(),
                     sCount = (int)scales.size(), tCount = (int)timePoints.size();
+                const size_t sizeOfRatio = (timePoints.size() <= std::numeric_limits<uint8_t>::max())
+                                         ? sizeof(uint8_t) : sizeof(uint16_t);
                 size_t ctrl_entries = t_ss.entries.size() + r_ss.entries.size() + s_ss.entries.size();
                 size_t ctrl_offsets = t_ss.desc.size() + r_ss.desc.size() + s_ss.desc.size();
                 size_t bufferSize = pCount * sizeof(Float3Key) + rCount * sizeof(QuaternionKey) +
                                     sCount * sizeof(Float3Key) + tCount * sizeof(float);
-                bufferSize += (pCount + rCount + sCount) * (sizeof(uint16_t) + sizeof(uint16_t)) +
-                              ctrl_entries * sizeof(byte) + ctrl_offsets * sizeof(uint32_t);
-
-                span<byte> buffer = { static_cast<byte*>(memory::default_allocator()->Allocate
+                bufferSize += (pCount + rCount + sCount) * (sizeOfRatio + sizeof(uint16_t)) +
+                              ctrl_entries * sizeof(ozz::byte) + ctrl_offsets * sizeof(uint32_t);
+                span<byte> buffer = { static_cast<ozz::byte*>(memory::default_allocator()->Allocate
                                       (bufferSize, alignof(float))), bufferSize };
+                anim.duration_ = maxTime;
+
+                // 32b alignment
+                anim.timepoints_ = ozz::fill_span<float>(buffer, tCount);
+                anim.translations_ctrl_.iframe_desc = ozz::fill_span<uint32_t>(buffer, t_ss.desc.size());
+                anim.rotations_ctrl_.iframe_desc = ozz::fill_span<uint32_t>(buffer, r_ss.desc.size());
+                anim.scales_ctrl_.iframe_desc = ozz::fill_span<uint32_t>(buffer, s_ss.desc.size());
+
+                // 16b alignment
+                anim.translations_ctrl_.previouses = ozz::fill_span<uint16_t>(buffer, pCount);
+                anim.rotations_ctrl_.previouses = ozz::fill_span<uint16_t>(buffer, rCount);
+                anim.scales_ctrl_.previouses = ozz::fill_span<uint16_t>(buffer, sCount);
                 anim.translations_values_ = ozz::fill_span<Float3Key>(buffer, pCount);
                 anim.rotations_values_ = ozz::fill_span<QuaternionKey>(buffer, rCount);
                 anim.scales_values_ = ozz::fill_span<Float3Key>(buffer, sCount);
-                anim.timepoints_ = ozz::fill_span<float>(buffer, tCount);
-                anim.duration_ = maxTime;
+
+                // 16b / 8b alignment
+                anim.translations_ctrl_.ratios = ozz::fill_span<ozz::byte>(buffer, pCount * sizeOfRatio);
+                anim.rotations_ctrl_.ratios = ozz::fill_span<ozz::byte>(buffer, rCount * sizeOfRatio);
+                anim.scales_ctrl_.ratios = ozz::fill_span<ozz::byte>(buffer, sCount * sizeOfRatio);
+                anim.translations_ctrl_.iframe_entries = ozz::fill_span<ozz::byte>(buffer, t_ss.entries.size());
+                anim.rotations_ctrl_.iframe_entries = ozz::fill_span<ozz::byte>(buffer, r_ss.entries.size());
+                anim.scales_ctrl_.iframe_entries = ozz::fill_span<ozz::byte>(buffer, s_ss.entries.size());
 
                 // Sort by ratio/track and fill the animation data
-                allocateAndCopyIFrames(t_ss, anim.translations_ctrl_, buffer, pCount);
-                allocateAndCopyIFrames(r_ss, anim.rotations_ctrl_, buffer, rCount);
-                allocateAndCopyIFrames(s_ss, anim.scales_ctrl_, buffer, sCount);
+                copyIFrames(t_ss, anim.translations_ctrl_);
+                copyIFrames(r_ss, anim.rotations_ctrl_);
+                copyIFrames(s_ss, anim.scales_ctrl_);
 
                 sortData(positions, rotations, scales);
                 for (int i = 0; i < pCount; ++i) anim.translations_values_[i] = positions[i].key;
@@ -483,13 +502,13 @@ namespace ozz
 
             struct BuilderIFrame
             {
-                ozz::vector<byte> entries;
+                ozz::vector<ozz::byte> entries;
                 size_t last;
             };
 
             struct BuilderIFrames
             {
-                ozz::vector<byte> entries;
+                ozz::vector<ozz::byte> entries;
                 ozz::vector<uint32_t> desc;
                 float interval;
             };
@@ -616,12 +635,17 @@ namespace ozz
                               int numSoaTracks, Animation::KeyframesCtrl& dest)
             {
                 ozz::vector<const T*> previouses(numSoaTracks);
+                bool use8Bit = (timePoints.size() <= std::numeric_limits<uint8_t>::max());
                 for (size_t i = 0; i < src.size(); ++i)
                 {
                     const T& key = src[i];
                     ozz::vector<float>::const_iterator found =
                         std::lower_bound(timePoints.begin(), timePoints.end(), key.ratio);
-                    dest.ratios[i] = static_cast<uint16_t>(found - timePoints.begin());
+                    const uint16_t ratio = static_cast<uint16_t>(found - timePoints.begin());
+                    if (use8Bit)
+                        ozz::reinterpret_span<uint8_t>(dest.ratios)[i] = static_cast<uint8_t>(ratio);
+                    else
+                        ozz::reinterpret_span<uint16_t>(dest.ratios)[i] = ratio;
 
                     const long long diff = previouses[key.track] ? (&key) - previouses[key.track] : 0;
                     if (diff < ozz::animation::internal::kMaxPreviousOffset)
@@ -653,6 +677,7 @@ namespace ozz
             {
                 BuilderIFrames iframes; iframes.interval = 1.0f;
                 size_t iframes_divs = static_cast<size_t>(math::Max(1.0f, duration / interval));
+                printf("%lg => %zd;\n", duration / interval, iframes_divs);
                 for (size_t i = 0; i < iframes_divs; ++i)
                 {
                     float time = (float)(i + 1) / iframes_divs;
@@ -673,14 +698,8 @@ namespace ozz
                 return iframes;
             }
 
-            void allocateAndCopyIFrames(const BuilderIFrames& src, Animation::KeyframesCtrl& dest,
-                                        span<byte>& buffer, int frameCount)
+            void copyIFrames(const BuilderIFrames& src, Animation::KeyframesCtrl& dest)
             {
-                dest.previouses = ozz::fill_span<uint16_t>(buffer, frameCount);
-                dest.ratios = ozz::fill_span<byte>(buffer, frameCount);
-                dest.iframe_entries = ozz::fill_span<byte>(buffer, src.entries.size());
-                dest.iframe_desc = ozz::fill_span<uint32_t>(buffer, src.desc.size());
-
                 std::copy(src.entries.begin(), src.entries.end(), dest.iframe_entries.begin());
                 std::copy(src.desc.begin(), src.desc.end(), dest.iframe_desc.begin());
                 dest.iframe_interval = src.interval;
@@ -798,6 +817,15 @@ static void printPlayerData(OzzAnimation* ozz)
 #endif
 }
 
+static float keyRatio(const ozz::span<const float>& timepoints,
+                      const ozz::span<const ozz::byte>& ratios, size_t at)
+{
+    if (timepoints.size() <= std::numeric_limits<uint8_t>::max())
+        return timepoints[ozz::reinterpret_span<const uint8_t>(ratios)[at]];
+    else
+        return timepoints[ozz::reinterpret_span<const uint16_t>(ratios)[at]];
+}
+
 static void printAnimationData(OzzAnimation* ozz, const std::string& key)
 {
     ozz::span<const char* const> names = ozz->_skeleton.joint_names();
@@ -808,17 +836,29 @@ static void printAnimationData(OzzAnimation* ozz, const std::string& key)
     ozz::span<const Float3Key> posList = sampler.animation.translations_values();
     ozz::span<const QuaternionKey> rotList = sampler.animation.rotations_values();
     ozz::span<const Float3Key> scaleList = sampler.animation.scales_values();
-    std::cout << "Anim " << key << ": Duration = " << sampler.animation.duration() << ", Frames = "
-              << timeList.size() << ", T/R/S = " << posList.size() << "/" << rotList.size()
-              << "/" << scaleList.size() << std::endl;
+    std::cout << "Anim " << key << ": Duration = " << sampler.animation.duration()
+              << ", Frames = " << timeList.size() << ", T/R/S = " << posList.size()
+              << "/" << rotList.size() << "/" << scaleList.size() << std::endl;
 
-    /*for (size_t i = 0; i < posList.size(); ++i)
+    const ozz::span<const ozz::byte>& ratiosT = sampler.animation.translations_ctrl().ratios;
+    std::cout << "  Translation Ratios (" << ratiosT.size() << "): " << keyRatio(timeList, ratiosT, 0)
+              << " --> " << keyRatio(timeList, ratiosT, ratiosT.size() - 1) << std::endl;
+    const ozz::span<const ozz::byte>& ratiosR = sampler.animation.rotations_ctrl().ratios;
+    std::cout << "  Rotation Ratios (" << ratiosR.size() << "): " << keyRatio(timeList, ratiosR, 0)
+        << " --> " << keyRatio(timeList, ratiosR, ratiosR.size() - 1) << std::endl;
+    const ozz::span<const ozz::byte>& ratiosS = sampler.animation.scales_ctrl().ratios;
+    std::cout << "  Scale Ratios (" << ratiosS.size() << "): " << keyRatio(timeList, ratiosS, 0)
+        << " --> " << keyRatio(timeList, ratiosS, ratiosS.size() - 1) << std::endl;
+
+    for (size_t i = 0; i < names.size(); ++i)
     {
-        const Float3Key& value = posList[i];
-        std::cout << "  T-" << i << " (" << value.ratio << "): Track = " << value.track << ", Vec = "
-                  << ozz::math::HalfToFloat(value.values[0]) << ", " << ozz::math::HalfToFloat(value.values[1])
-                  << ", " << ozz::math::HalfToFloat(value.values[2]) << std::endl;
-    }*/
+        int tFrames = ozz::animation::CountTranslationKeyframes(sampler.animation, i);
+        int rFrames = ozz::animation::CountRotationKeyframes(sampler.animation, i);
+        int sFrames = ozz::animation::CountScaleKeyframes(sampler.animation, i);
+        std::cout << "  T-" << i << " (" << names[i] << "): TranslationKey = " << tFrames
+                  << ", RotationKey = " << rFrames << ", ScaleKey = " << sFrames << std::endl;
+    }
+    std::cout << std::endl;
 }
 
 PlayerAnimation::PlayerAnimation()
@@ -1156,4 +1196,35 @@ bool PlayerAnimation::loadAnimationInternal(const std::string& key)
     printAnimationData(ozz, key);
 #endif
     return true;
+}
+
+PlayerAnimation::VertexWeights PlayerAnimation::getSkeletonVertexWeights() const
+{
+    VertexWeights weights;
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    for (size_t i = 0; i < ozz->_meshes.size(); ++i)
+    {
+        const OzzMesh& mesh = ozz->_meshes[i];
+        for (size_t j = 0; j < mesh.parts.size(); ++j)
+        {
+            const OzzMesh::Part& part = mesh.parts[j];
+            const ozz::vector<uint16_t>& jointIds = part.joint_indices;
+            const ozz::vector<float>& jointWeights = part.joint_weights;
+            for (size_t n = 0; n < part.vertex_count(); ++n)
+            {
+                size_t n0 = n * 4, n1 = n * 3;
+                osg::Vec3 vec(part.positions[n1], part.positions[n1 + 1], part.positions[n1 + 2]);
+                std::vector<JointAndWeight>& weightList = weights[vec];
+
+                float w = jointWeights[n1] + jointWeights[n1 + 1] + jointWeights[n1 + 2];
+                for (int k = 0; k < 4; ++k)
+                {
+                    float weight = (k < 3) ? jointWeights[n1 + k] : (1.0f - w);
+                    if (weight > 0.0f) weightList.push_back(
+                        JointAndWeight(jointIds[n0 + k], jointWeights[n1 + k]));
+                }
+            }
+        }
+    }
+    return weights;
 }

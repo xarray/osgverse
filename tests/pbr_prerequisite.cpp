@@ -14,8 +14,10 @@
 #include <iostream>
 #include <sstream>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 osg::Camera* createRTTCameraForImage(osg::Camera::BufferComponent buffer, osg::Image* image, bool screenSpaced)
 {

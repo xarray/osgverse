@@ -14,8 +14,10 @@
 #include <pipeline/SymbolManager.h>
 #include <pipeline/Drawer2D.h>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 
 #define TEST_DRAWER 1
 #define TEST_DRAWER_THREAD 1

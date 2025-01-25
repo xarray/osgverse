@@ -19,8 +19,10 @@
 #include <iostream>
 #include <sstream>
 
+#ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
+#endif
 #define USE_COMPOSITE_VIEWER 0
 
 struct MyContentHandler : public osgVerse::ImGuiContentHandler
