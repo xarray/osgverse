@@ -15,12 +15,15 @@ namespace osgVerse
     public:
         typedef float (*SetJointWeightFunc)(int, int, void*);
         PlayerAnimation();
+        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         void setPlaying(bool b, bool rp = false) { _animated = b; _restPose = rp; }
         void setDrawingSkeleton(bool b) { _drawSkeleton = b; }
+        void setDrawingSkinning(bool b) { _drawSkinning = b; }
+
         bool getPlaying(bool* rp = NULL) const { if (rp) *rp = _restPose; return _animated; }
         bool getDrawingSkeleton() const { return _drawSkeleton; }
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
+        bool getDrawingSkinning() const { return _drawSkinning; }
 
         struct GeometryJointData
         {
@@ -126,7 +129,7 @@ namespace osgVerse
         osg::observer_ptr<osg::Node> _modelRoot, _skeletonRoot;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;
-        bool _animated, _drawSkeleton, _restPose;
+        bool _animated, _drawSkeleton, _drawSkinning, _restPose;
     };
 
 }

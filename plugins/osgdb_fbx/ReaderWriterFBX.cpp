@@ -15,6 +15,7 @@ public:
         supportsExtension("verse_fbx", "osgVerse pseudo-loader");
         supportsExtension("fbx", "FBX scene file");
         supportsOption("Directory", "Setting the working directory");
+        supportsOption("DisabledPBR", "Use PBR materials or not");
     }
 
     virtual const char* className() const
@@ -34,7 +35,9 @@ public:
             fileName = osgDB::getNameLessExtension(path);
             ext = osgDB::getFileExtension(fileName);
         }
-        return osgVerse::loadFbx(fileName).get();
+
+        int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
+        return osgVerse::loadFbx(fileName, noPBR == 0).get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
@@ -43,7 +46,9 @@ public:
         if (options) dir = options->getPluginStringData("Directory");
         if (dir.empty() && options && !options->getDatabasePathList().empty())
             dir = options->getDatabasePathList().front();
-        return osgVerse::loadFbx2(fin, dir).get();
+
+        int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
+        return osgVerse::loadFbx2(fin, dir, noPBR == 0).get();
     }
 };
 

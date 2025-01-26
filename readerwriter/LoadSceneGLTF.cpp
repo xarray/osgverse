@@ -819,8 +819,9 @@ namespace osgVerse
 
         if (occlusionID >= 0 && _usingMaterialPBR)
             createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);  // FIXME: should be ORM
+        if (normalID >= 0 && _usingMaterialPBR)
+            createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
 
-        if (normalID >= 0) createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
         if (material.alphaMode.compare("BLEND") == 0)
             ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
         else

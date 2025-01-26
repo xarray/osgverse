@@ -46,6 +46,7 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     int jointToOutput = -1; arguments.read("--joint-skinning", jointToOutput);
+    bool withSkinning = !arguments.read("--disable-skinning");
 
     osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
@@ -101,6 +102,7 @@ int main(int argc, char** argv)
 
         // To play/pause animation, or show only rest pose
         //animManager->setPlaying(false, true);
+        animManager->setDrawingSkinning(withSkinning);
     }
 
     osgViewer::Viewer viewer;
@@ -145,7 +147,8 @@ int main(int argc, char** argv)
 
             osg::ref_ptr<osg::Geode> jointGeode = new osg::Geode;
             jointGeode->addDrawable(geom.get());
-            playerRoot->addChild(jointGeode.get());
+            skeleton->addChild(jointGeode.get());
+            //osgDB::writeNodeFile(*jointGeode, "joint_skinning.osg");
         }
     }
 #endif

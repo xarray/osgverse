@@ -461,6 +461,7 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
         {
             ozz->_skinning_matrices[j] =
                 ozz->_models[mesh.joint_remaps[j]] * mesh.inverse_bind_poses[j];
+            ozz::math::SimdFloat4 c0 = ozz->_skinning_matrices[j].cols[0];
         }
         if (!ozz->applySkinningMesh(*geom, mesh)) return false;
     }

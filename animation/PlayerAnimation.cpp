@@ -284,9 +284,27 @@ namespace ozz
 
                     // Recompute and remove last weight as computed at runtime
                     for (size_t j = 0; j < weightValues.size() - 1; ++j)
-                        meshPart.joint_weights.push_back(weightValues[j] / weightSum);
+                    {
+                        meshPart.joint_weights.push_back(
+                            (weightSum > 0.0f) ? (weightValues[j] / weightSum) : 0.0f);
+                    }
                     count = 0;
                 }
+
+#if false
+                int step0 = numJointsToWeight, step1 = (numJointsToWeight - 1), id0 = 0, id1 = 0;
+                for (; id0 < meshPart.joint_indices.size(), id1 < meshPart.joint_weights.size();
+                       id0 += step0, id1 += step1)
+                {
+                    std::cout << "ID-" << (id0 / step0) << ": ";
+                    for (int k = 0; k < step1; ++k)
+                        std::cout << "J" << meshPart.joint_indices[id0 + k]
+                                  << " = " << meshPart.joint_weights[id1 + k] << "; ";
+                    std::cout << "J" << meshPart.joint_indices[id0 + step1] << std::endl;
+                }
+                std::cout << "... VERTICES " << wCount << ", J = " << meshPart.joint_indices.size()
+                          << ", W = " << meshPart.joint_weights.size() << std::endl;
+#endif
 
                 // Handle blendshapes
                 BlendShapeAnimation* bsa =
@@ -900,7 +918,8 @@ static void printAnimationData(OzzAnimation* ozz, const std::string& key)
 
 PlayerAnimation::PlayerAnimation()
 {
-    _internal = new OzzAnimation; _animated = true; _drawSkeleton = true; _restPose = false;
+    _internal = new OzzAnimation; _animated = true;
+    _drawSkeleton = true; _drawSkinning = true; _restPose = false;
     _blendingThreshold = ozz::animation::BlendingJob().threshold;
 }
 
@@ -943,7 +962,8 @@ bool PlayerAnimation::initialize(const std::vector<osg::Transform*>& nodes,
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
     cmv.initialize(meshList); ozz->_meshes = cmv.getMeshes();
     _meshStateSetList = cmv.getStateSets(); _blendshapes = cmv.getBS();
-#if 1
+#if 0
+    // TODO: girl.fbx have multiple players? It will call initialize() multiple times!
     printPlayerData(ozz);
 #endif
     return initializeInternal();

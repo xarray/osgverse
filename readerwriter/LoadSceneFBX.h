@@ -14,7 +14,7 @@ namespace osgVerse
     class LoaderFBX : public osg::Referenced
     {
     public:
-        LoaderFBX(std::istream& in, const std::string& d);
+        LoaderFBX(std::istream& in, const std::string& d, bool usingPBR = true);
 
         osg::MatrixTransform* getRoot() { return _root.get(); }
         ofbx::IScene* getFbxScene() { return _scene; }
@@ -29,6 +29,7 @@ namespace osgVerse
         {
             typedef std::pair<ofbx::Object*, osg::Matrix> ParentAndBindPose;
             std::map<ofbx::Object*, ParentAndBindPose> boneLinks;
+            std::map<ofbx::Object*, osg::Matrix> boneInvBindPoses;
             std::map<ofbx::Object*, std::vector<int>> boneIndices;
             std::map<ofbx::Object*, std::vector<double>> boneWeights;
             std::map<int, std::pair<osg::Geometry*, int>> globalIndexMap;
@@ -51,8 +52,10 @@ namespace osgVerse
         osg::ref_ptr<osg::MatrixTransform> _root;
         ofbx::IScene* _scene;
         std::string _workingDir;
+        bool _usingMaterialPBR;
     };
 
-    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx(const std::string& file);
-    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir);
+    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx(const std::string& file, bool usingPBR = true);
+    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir,
+                                                         bool usingPBR = true);
 }
