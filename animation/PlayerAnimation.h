@@ -116,6 +116,7 @@ namespace osgVerse
         unsigned int getNumBlendShapeCallbacks() const { return _blendshapes.size(); }
 
     protected:
+        virtual ~PlayerAnimation();
         bool initializeInternal();
         bool loadAnimationInternal(const std::string& key);
         void updateSkeletonMesh(osg::Geometry& geom);

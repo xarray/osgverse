@@ -334,6 +334,9 @@ namespace ozz
         class AnimationConverter
         {
         public:
+            AnimationConverter() : allocatedBuffer(NULL) {}
+            void* allocatedBuffer;
+
             typedef std::map<osg::Transform*, PlayerAnimation::AnimationData> AnimationMap;
             void build(OzzAnimation::AnimationSampler& sampler,
                        std::vector<osg::Transform*> nodes, const AnimationMap& dataMap)
@@ -404,7 +407,7 @@ namespace ozz
                                true, defScaleTracks[tr].front().second);
                 }
 
-                // Fill empty tracks of each frame
+                // Fill missed tracks of each frame
                 sortData(positions, rotations, scales);
                 fillTracksPerFrame(positions, defPosTracks, candicates0);
                 fillTracksPerFrame(rotations, defRotTracks, candicates0);
@@ -412,6 +415,7 @@ namespace ozz
 
                 // Record extra tracks for SoaTransform use
                 int numSoaTracks = ozz::Align(anim.num_tracks_, 4);
+#if false
                 osg::Transform* tr0 = nodes[0];  // clear default to generate empty keyframes for extra
                 defPosTracks[tr0].clear(); defRotTracks[tr0].clear(); defScaleTracks[tr0].clear();
                 for (int j = anim.num_tracks_; j < numSoaTracks; ++j)
@@ -420,6 +424,12 @@ namespace ozz
                     sampleData(rotations, "LINEAR", 1, j, defRotTracks[tr0], 1.0f);
                     sampleData(scales, "LINEAR", 2, j, defScaleTracks[tr0], 1.0f, true, defScale);
                 }
+#else
+                sortData(positions, rotations, scales);
+                copySamplingData(positions, anim.num_tracks_, numSoaTracks);
+                copySamplingData(rotations, anim.num_tracks_, numSoaTracks);
+                copySamplingData(scales, anim.num_tracks_, numSoaTracks);
+#endif
 
                 // Build time points and controls
                 ozz::vector<float> timePoints;
@@ -445,8 +455,9 @@ namespace ozz
                                     sCount * sizeof(Float3Key) + tCount * sizeof(float);
                 bufferSize += (pCount + rCount + sCount) * (sizeOfRatio + sizeof(uint16_t)) +
                               ctrl_entries * sizeof(ozz::byte) + ctrl_offsets * sizeof(uint32_t);
-                span<byte> buffer = { static_cast<ozz::byte*>(memory::default_allocator()->Allocate
-                                      (bufferSize, alignof(float))), bufferSize };
+                allocatedBuffer = memory::default_allocator()->Allocate(bufferSize, alignof(float));
+
+                ozz::span<ozz::byte> buffer = { static_cast<ozz::byte*>(allocatedBuffer), bufferSize };
                 anim.duration_ = maxTime;
 
                 // 32b alignment
@@ -482,9 +493,12 @@ namespace ozz
                 for (int i = 0; i < sCount; ++i) anim.scales_values_[i] = scales[i].key;
                 if (tCount > 0) memcpy(anim.timepoints_.data(), &timePoints[0], tCount * sizeof(float));
 
-                compressData(timePoints, positions, numSoaTracks, anim.translations_ctrl_);
-                compressData(timePoints, rotations, numSoaTracks, anim.rotations_ctrl_);
-                compressData(timePoints, scales, numSoaTracks, anim.scales_ctrl_);
+                compressData(timePoints, positions, ozz::make_span(anim.translations_values_),
+                             numSoaTracks, anim.translations_ctrl_);
+                compressData(timePoints, rotations, ozz::make_span(anim.rotations_values_),
+                             numSoaTracks, anim.rotations_ctrl_);
+                compressData(timePoints, scales, ozz::make_span(anim.scales_values_),
+                             numSoaTracks, anim.scales_ctrl_);
             }
 
         protected:
@@ -631,26 +645,44 @@ namespace ozz
             }
 
             template<typename T>
-            void compressData(const ozz::vector<float>& timePoints, const std::vector<T>& src,
-                              int numSoaTracks, Animation::KeyframesCtrl& dest)
+            void copySamplingData(std::vector<T>& srcData, int numTracks, int numSoaTracks)
             {
-                ozz::vector<const T*> previouses(numSoaTracks);
+                std::vector<T> tempData(srcData); srcData.clear();
+                size_t dataSize = tempData.size();
+                for (size_t i = 0; i < dataSize; i += numTracks)
+                {
+                    std::vector<T>::iterator it = tempData.begin() + i;
+                    if ((i + numTracks) >= dataSize) srcData.insert(srcData.end(), it, tempData.end());
+                    else srcData.insert(srcData.end(), it, it + numTracks);
+
+                    T v0 = *it;
+                    for (size_t j = numTracks; j < numSoaTracks; ++j)
+                        { v0.track = j; srcData.push_back(v0); }
+                }
+            }
+
+            template<typename T1, typename T2>
+            void compressData(const ozz::vector<float>& timePoints, const std::vector<T1>& srcData,
+                              const ozz::span<T2>& src, int numSoaTracks, Animation::KeyframesCtrl& dest)
+            {
+                ozz::vector<const T2*> previouses(numSoaTracks);
                 bool use8Bit = (timePoints.size() <= std::numeric_limits<uint8_t>::max());
                 for (size_t i = 0; i < src.size(); ++i)
                 {
-                    const T& key = src[i];
+                    const T1& srcKey = srcData[i]; const T2& key = src[i];
                     ozz::vector<float>::const_iterator found =
-                        std::lower_bound(timePoints.begin(), timePoints.end(), key.ratio);
+                        std::lower_bound(timePoints.begin(), timePoints.end(), srcKey.ratio);
                     const uint16_t ratio = static_cast<uint16_t>(found - timePoints.begin());
                     if (use8Bit)
                         ozz::reinterpret_span<uint8_t>(dest.ratios)[i] = static_cast<uint8_t>(ratio);
                     else
                         ozz::reinterpret_span<uint16_t>(dest.ratios)[i] = ratio;
 
-                    const long long diff = previouses[key.track] ? (&key) - previouses[key.track] : 0;
+                    const long long diff = (previouses[srcKey.track] != NULL)
+                                         ? (&key) - previouses[srcKey.track] : 0;
                     if (diff < ozz::animation::internal::kMaxPreviousOffset)
                         dest.previouses[i] = static_cast<uint16_t>(diff);
-                    previouses[key.track] = &key;
+                    previouses[srcKey.track] = &key;
                 }
             }
 
@@ -677,7 +709,6 @@ namespace ozz
             {
                 BuilderIFrames iframes; iframes.interval = 1.0f;
                 size_t iframes_divs = static_cast<size_t>(math::Max(1.0f, duration / interval));
-                printf("%lg => %zd;\n", duration / interval, iframes_divs);
                 for (size_t i = 0; i < iframes_divs; ++i)
                 {
                     float time = (float)(i + 1) / iframes_divs;
@@ -842,13 +873,19 @@ static void printAnimationData(OzzAnimation* ozz, const std::string& key)
 
     const ozz::span<const ozz::byte>& ratiosT = sampler.animation.translations_ctrl().ratios;
     std::cout << "  Translation Ratios (" << ratiosT.size() << "): " << keyRatio(timeList, ratiosT, 0)
-              << " --> " << keyRatio(timeList, ratiosT, ratiosT.size() - 1) << std::endl;
+              << " --> " << keyRatio(timeList, ratiosT, ratiosT.size() - 1) << ", IFrame Entries = "
+              << sampler.animation.translations_ctrl().iframe_entries.size() << ", Desc = "
+              << sampler.animation.translations_ctrl().iframe_desc.size() << std::endl;
     const ozz::span<const ozz::byte>& ratiosR = sampler.animation.rotations_ctrl().ratios;
     std::cout << "  Rotation Ratios (" << ratiosR.size() << "): " << keyRatio(timeList, ratiosR, 0)
-        << " --> " << keyRatio(timeList, ratiosR, ratiosR.size() - 1) << std::endl;
+              << " --> " << keyRatio(timeList, ratiosR, ratiosR.size() - 1) << ", IFrame Entries = "
+              << sampler.animation.rotations_ctrl().iframe_entries.size()  << ", Desc = "
+              << sampler.animation.rotations_ctrl().iframe_desc.size() << std::endl;
     const ozz::span<const ozz::byte>& ratiosS = sampler.animation.scales_ctrl().ratios;
     std::cout << "  Scale Ratios (" << ratiosS.size() << "): " << keyRatio(timeList, ratiosS, 0)
-        << " --> " << keyRatio(timeList, ratiosS, ratiosS.size() - 1) << std::endl;
+              << " --> " << keyRatio(timeList, ratiosS, ratiosS.size() - 1) << ", IFrame Entries = "
+              << sampler.animation.scales_ctrl().iframe_entries.size()  << ", Desc = "
+              << sampler.animation.scales_ctrl().iframe_desc.size() << std::endl;
 
     for (size_t i = 0; i < names.size(); ++i)
     {
@@ -865,6 +902,13 @@ PlayerAnimation::PlayerAnimation()
 {
     _internal = new OzzAnimation; _animated = true; _drawSkeleton = true; _restPose = false;
     _blendingThreshold = ozz::animation::BlendingJob().threshold;
+}
+
+PlayerAnimation::~PlayerAnimation()
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_allocatedBuffer != NULL)
+        ozz::memory::default_allocator()->Deallocate(ozz->_allocatedBuffer);
 }
 
 bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
@@ -932,6 +976,7 @@ bool PlayerAnimation::loadAnimation(const std::string& key, const std::vector<os
 
     ozz::animation::AnimationConverter ac;
     ac.build(sampler, nodes, animDataMap); sampler.looping = true;
+    ozz->_allocatedBuffer = ac.allocatedBuffer;
     return loadAnimationInternal(key);
 }
 
