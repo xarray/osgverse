@@ -7,6 +7,7 @@
 #include <osg/TriangleIndexFunctor>
 #include <osgDB/ReadFile>
 #include <nanoid/nanoid.h>
+#include <algorithm>
 #include <iomanip>
 
 using namespace osgVerse;
@@ -240,7 +241,12 @@ namespace ozz
                 if (ca && ca->size() == vCount)
                 {
                     meshPart.colors.resize(vCount * 4);
-                    memcpy(&meshPart.colors[0], &(*ca)[0], vCount * sizeof(float) * 4);
+                    for (size_t c = 0; c < vCount; ++c)
+                    {
+                        const osg::Vec4& color = (*ca)[c]; size_t idx = c * 4;
+                        for (size_t k = 0; k < 4; ++k)
+                            meshPart.colors[idx + k] = (uint8_t)(color[k] * 255.0f);
+                    }
                 }
                 if (uv && uv->size() == vCount)
                 {

@@ -61,8 +61,13 @@ void BlendShapeAnimation::handleBlending(osg::Geometry* geom, osg::NodeVisitor* 
     osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
     osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
     osg::Vec4Array* ta = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(6));
-    size_t vCount = va->size();
-    if (vCount != _originalData->vertices->size()) { _originalData = NULL; return; }
+    size_t vCount = va->size(), oriCount = _originalData->vertices->size();
+    if (vCount != oriCount)
+    {
+        OSG_WARN << "[BlendShapeAnimation] Blendshape vertices count (" << vCount
+                 << ") must equal to original ones (" << oriCount << ")" << std::endl;
+        _originalData = NULL; return;
+    }
     if (na && na->size() != vCount) na = NULL;
     if (ta && ta->size() != vCount) ta = NULL;
 

@@ -26,6 +26,9 @@ namespace osgVerse
         };
 
         void addBlendShapeData(BlendShapeData* bd) { _blendshapes.push_back(bd); }
+        void registerBlendShape(const std::string& name, BlendShapeData* bd)
+        { bd->name = name; _blendshapeMap[name] = bd; }
+
         BlendShapeData* getBlendShapeData(unsigned int i) { return _blendshapes[i].get(); }
         unsigned int getNumBlendShapes() const { return _blendshapes.size(); }
 

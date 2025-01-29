@@ -13,6 +13,7 @@
 #include <osgUtil/SmoothingVisitor>
 
 #include "pipeline/Utilities.h"
+#include "animation/BlendShapeAnimation.h"
 #include "LoadSceneFBX.h"
 #define DISABLE_SKINNING_DATA 0
 
@@ -51,7 +52,8 @@ namespace osgVerse
             const ofbx::Pose* pData = mesh.getPose();
             if (pData != NULL)
             {
-                //OSG_NOTICE << "[LoaderFBX] <POSE> " << pData->name << " not implemented\n";
+                //OSG_NOTICE << "[LoaderFBX] <POSE> " << pData->name << " (Node = "
+                //           << pData->getNode()->name << ") not implemented\n";
             }
 
             const ofbx::GeometryData& gData = mesh.getGeometryData();
@@ -179,13 +181,13 @@ namespace osgVerse
                 unsigned int idx = (*de)[j];  // Index value to be set to vData.indices
                 if (globalToLocalMap.find(idx) == globalToLocalMap.end())
                 {
-                    globalToLocalMap[idx] = subVA->size();
+                    int lastVecIndex = (int)subVA->size(); globalToLocalMap[idx] = lastVecIndex;
                     if (globalIndexMap.find(idx) != globalIndexMap.end())
                     {
                         OSG_NOTICE << "[LoaderFBX] global vertex index (in an FBX mesh) " << idx
                                    << " seems to be reused by multiple geometries" << std::endl;
                     }
-                    globalIndexMap[idx] = std::pair<osg::Geometry*, int>(geom.get(), subVA->size());
+                    globalIndexMap[idx] = std::pair<osg::Geometry*, int>(geom.get(), lastVecIndex);
 
                     subVA->push_back((*va)[idx]);
                     if (nData.values) subNA->push_back((*na)[idx]);
@@ -255,7 +257,7 @@ namespace osgVerse
                     for (int m = 0; m < vData.count; ++m)
                     {
                         if (vData.indices[m] != idx) continue;
-                        boneIndices.push_back(m); boneWeights.push_back(weight);
+                        boneIndices.push_back(m); boneWeights.push_back(weight); break;
                     }
                 }
 #else
@@ -270,10 +272,67 @@ namespace osgVerse
         const ofbx::BlendShape* bs = mesh.getBlendShape();
         if (bs != NULL)
         {
-            OSG_NOTICE << "[LoaderFBX] <BLENDSHAPE> " << bs->name << " not implemented\n";
-            MeshSkinningData& msd = _meshBoneMap[geode.get()];
-            // TODO
-        }
+            for (int i = 0; i < bs->getBlendShapeChannelCount(); ++i)
+            {
+                const ofbx::BlendShapeChannel* bsChannel = bs->getBlendShapeChannel(i);
+                osg::Geometry* geom = geode->getDrawable(0)->asGeometry();
+
+                typedef std::map<osg::Geometry*, osg::ref_ptr<BlendShapeAnimation::BlendShapeData>>
+                        BlendShapeMap; BlendShapeMap bsdMap;
+                for (int j = 0; j < bsChannel->getShapeCount(); ++j)
+                {
+                    const ofbx::Shape* bsShape = bsChannel->getShape(j);
+                    for (int k = 0; k < bsShape->getIndexCount(); ++k)
+                    {
+                        // Shape::getIndices stores the original index of vertices to be set to vData.values.
+                        const int idx = *(bsShape->getIndices() + k); int idx2 = 0;
+                        for (int m = 0; m < vData.count; ++m)
+                        {
+                            if (vData.indices[m] != idx) continue;
+                            std::pair<osg::Geometry*, int>& pair = globalIndexMap[m];
+                            geom = pair.first; idx2 = pair.second; break;
+                        }
+
+                        BlendShapeAnimation::BlendShapeData* bsd = bsdMap[geom];
+                        osg::ref_ptr<osg::Vec3Array> bsV, bsN;
+                        if (!bsd)
+                        {
+                            bsV = new osg::Vec3Array; bsN = new osg::Vec3Array;
+                            bsd = new BlendShapeAnimation::BlendShapeData;
+                            bsd->vertices = bsV; bsd->normals = bsN;
+                            bsd->weight = bsChannel->getDeformPercent();
+                            bsdMap[geom] = bsd;
+                        }
+                        else
+                            { bsV = bsd->vertices; bsN = bsd->normals; }
+
+                        osg::Vec3Array* subVA = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+                        osg::Vec3Array* subNA = static_cast<osg::Vec3Array*>(geom->getNormalArray());
+                        if (subVA && bsV->size() != subVA->size()) bsV->assign(subVA->begin(), subVA->end());
+                        if (subNA && bsN->size() != subNA->size()) bsN->assign(subNA->begin(), subNA->end());
+
+                        const ofbx::Vec3& v = *(bsShape->getVertices() + idx);
+                        const ofbx::Vec3& n = *(bsShape->getNormals() + idx);
+                        if (subVA) (*bsV)[idx2] = osg::Vec3(v.x, v.y, v.z);
+                        if (subNA) (*bsN)[idx2] = osg::Vec3(n.x, n.y, n.z);
+                    }
+                }
+
+                for (BlendShapeMap::iterator itr = bsdMap.begin(); itr != bsdMap.end(); ++itr)
+                {
+                    osg::Geometry* geom = itr->first;
+                    BlendShapeAnimation::BlendShapeData* bsd = itr->second.get();
+
+                    BlendShapeAnimation* bsa = dynamic_cast<BlendShapeAnimation*>(geom->getUpdateCallback());
+                    if (!bsa)
+                    {
+                        bsa = new BlendShapeAnimation; bsa->setName(geom->getName() + "BsCallback");
+                        geom->setUpdateCallback(bsa);
+                    }
+                    bsa->addBlendShapeData(bsd); bsa->registerBlendShape(bsChannel->name, bsd);
+                }
+            }
+        }  // if (bs != NULL)
         return geode.release();
     }
 
