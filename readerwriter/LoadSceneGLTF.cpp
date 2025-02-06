@@ -9,6 +9,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
+#include "animation/TweenAnimation.h"
 #include "animation/BlendShapeAnimation.h"
 #include "pipeline/Utilities.h"
 #include "LoadTextureKTX.h"
@@ -471,14 +472,17 @@ namespace osgVerse
                     createAnimationSampler(playerAnim, pathList[j].first,
                             _modelDef.accessors[sp.input], _modelDef.accessors[sp.output]);
                 }
-
+                
+                osg::Group* g = (itr->first) ? itr->first->asGroup() : NULL;
+                osg::Transform* t = g ? g->asTransform() : NULL; if (!t) continue;
                 if (belongsToSkeleton >= 0)
-                {
-                    osg::Group* g = (itr->first) ? itr->first->asGroup() : NULL;
-                    osg::Transform* t = g ? g->asTransform() : NULL;
-                    if (t) skeletonAnimMap[t] = playerAnim;
+                    skeletonAnimMap[t] = playerAnim;
+                else
+                {   // non-skeleton animations
+                    TweenAnimation* tween = dynamic_cast<TweenAnimation*>(t->getUpdateCallback());
+                    if (!tween) { tween = new TweenAnimation; t->addUpdateCallback(tween); }
+                    tween->addAnimation(animName, playerAnim.toAnimationPath());
                 }
-                else {}  // TODO: non-skeleton animations
             }
 
             if (belongsToSkeleton >= 0 && !skeletonAnimMap.empty())

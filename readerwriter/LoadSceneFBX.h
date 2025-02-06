@@ -20,11 +20,6 @@ namespace osgVerse
         ofbx::IScene* getFbxScene() { return _scene; }
 
     protected:
-        virtual ~LoaderFBX() {}
-        osg::Geode* createGeometry(const ofbx::Mesh& mesh, const ofbx::GeometryData& gData);
-        void createAnimation(const ofbx::AnimationLayer* layer, const ofbx::AnimationCurveNode* curveNode);
-        void createMaterial(const ofbx::Material* mtlData, osg::StateSet* ss);
-
         struct MeshSkinningData
         {
             typedef std::pair<ofbx::Object*, osg::Matrix> ParentAndBindPose;
@@ -43,10 +38,19 @@ namespace osgVerse
             std::vector<osg::Geometry*> meshList;
             std::vector<osg::Transform*> joints;
         };
+
+        virtual ~LoaderFBX() {}
+        osg::Geode* createGeometry(const ofbx::Mesh& mesh, const ofbx::GeometryData& gData);
+        void createMaterial(const ofbx::Material* mtlData, osg::StateSet* ss);
+
+        void createAnimation(std::vector<SkinningData>& skinningList,
+                             const ofbx::AnimationLayer* layer, const ofbx::AnimationCurveNode* curveNode);
         void mergeMeshBones(std::vector<SkinningData>& skinningList);
         void createPlayers(std::vector<SkinningData>& skinningList);
 
         std::map<osg::Geode*, MeshSkinningData> _meshBoneMap;
+        std::map<osg::Transform*, PlayerAnimation::AnimationData> _animations;
+        std::map<osg::Transform*, std::pair<int, osg::Vec3d>> _animationStates;
         std::map<const ofbx::Material*, std::vector<osg::Geometry*>> _geometriesByMtl;
         std::map<const ofbx::Texture*, osg::ref_ptr<osg::Texture2D>> _textureMap;
         osg::ref_ptr<osg::MatrixTransform> _root;

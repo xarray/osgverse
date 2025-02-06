@@ -4,6 +4,7 @@
 #include <osg/Version>
 #include <osg/Texture2D>
 #include <osg/Geometry>
+#include <osg/AnimationPath>
 
 namespace osgVerse
 {
@@ -39,6 +40,9 @@ namespace osgVerse
             std::vector<std::pair<float, float>> _morphFrames;
             std::vector<std::pair<float, osg::Vec3>> _positionFrames, _scaleFrames;
             std::vector<std::pair<float, osg::Vec4>> _rotationFrames;
+
+            osg::AnimationPath* toAnimationPath() const;
+            void fromAnimationPath(const osg::AnimationPath* path);
         };
 
         /** Initialize the player skeleton and mesh from OSG scene graph
@@ -65,6 +69,8 @@ namespace osgVerse
         /// Load animation data from structure
         bool loadAnimation(const std::string& key, const std::vector<osg::Transform*>& nodes,
                            const std::map<osg::Transform*, AnimationData>& animDataMap);
+        bool loadAnimation(const std::string& key, const std::vector<osg::Transform*>& nodes,
+                           const std::map<osg::Transform*, osg::ref_ptr<osg::AnimationPath>>& animDataMap);
         void unloadAnimation(const std::string& key);
 
         /* Update functions */

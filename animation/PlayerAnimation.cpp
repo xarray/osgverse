@@ -393,6 +393,10 @@ namespace ozz
                         minTime = osg::minimum(ad._scaleFrames.front().first, minTime);
                         maxTime = osg::maximum(ad._scaleFrames.back().first, maxTime);
                     }
+
+                    //if (ad._positionFrames.empty()) continue;
+                    //std::cout << itr->first->getName() << ": " << ad._positionFrames.front().second
+                    //          << " -> " << ad._positionFrames.back().second << "\n";
                 }
                 if (osg::equivalent(maxTime, 0.0f)) return;
 
@@ -922,6 +926,53 @@ static void printAnimationData(OzzAnimation* ozz, const std::string& key)
     std::cout << std::endl;
 }
 
+osg::AnimationPath* PlayerAnimation::AnimationData::toAnimationPath() const
+{
+    osg::AnimationPath::TimeControlPointMap ctrlMap; std::map<float, int> timePoints;
+    for (size_t i = 0; i < _scaleFrames.size(); ++i)
+    {
+        const std::pair<float, osg::Vec3>& v = _scaleFrames[i];
+        ctrlMap[v.first].setScale(v.second); timePoints[v.first] += 1;
+    }
+    for (size_t i = 0; i < _positionFrames.size(); ++i)
+    {
+        const std::pair<float, osg::Vec3>& v = _positionFrames[i];
+        ctrlMap[v.first].setPosition(v.second); timePoints[v.first] += 2;
+    }
+    for (size_t i = 0; i < _rotationFrames.size(); ++i)
+    {
+        const std::pair<float, osg::Vec4>& v = _rotationFrames[i];
+        ctrlMap[v.first].setRotation(osg::Quat(v.second)); timePoints[v.first] += 4;
+    }
+
+    for (std::map<float, int>::iterator itr = timePoints.begin(); itr != timePoints.end(); ++itr)
+    {
+        if (!(itr->second & 1)) ctrlMap[itr->first].setScale(
+            _scaleFrames.empty() ? osg::Vec3(1.0f, 1.0f, 1.0f) : _scaleFrames.front().second);
+        if (!(itr->second & 2)) ctrlMap[itr->first].setPosition(
+            _positionFrames.empty() ? osg::Vec3() : _positionFrames.front().second);
+        if (!(itr->second & 4)) ctrlMap[itr->first].setRotation(
+            _rotationFrames.empty() ? osg::Quat() : osg::Quat(_rotationFrames.front().second));
+    }
+
+    osg::AnimationPath* path = new osg::AnimationPath;
+    path->setLoopMode(osg::AnimationPath::LOOP);
+    path->setTimeControlPointMap(ctrlMap); return path;
+}
+
+void PlayerAnimation::AnimationData::fromAnimationPath(const osg::AnimationPath* path)
+{
+    const osg::AnimationPath::TimeControlPointMap& ctrlMap = path->getTimeControlPointMap();
+    for (std::map<double, osg::AnimationPath::ControlPoint>::const_iterator itr2 = ctrlMap.begin();
+        itr2 != ctrlMap.end(); ++itr2)
+    {
+        const osg::AnimationPath::ControlPoint& cp = itr2->second; float t = itr2->first;
+        _scaleFrames.push_back(std::pair<float, osg::Vec3>(t, cp.getScale()));
+        _positionFrames.push_back(std::pair<float, osg::Vec3>(t, cp.getPosition()));
+        _rotationFrames.push_back(std::pair<float, osg::Vec4>(t, cp.getRotation().asVec4()));
+    }
+}
+
 PlayerAnimation::PlayerAnimation()
 {
     _internal = new OzzAnimation; _animated = true;
@@ -1004,6 +1055,22 @@ bool PlayerAnimation::loadAnimation(const std::string& key, const std::vector<os
     ac.build(sampler, nodes, animDataMap); sampler.looping = true;
     ozz->_allocatedBuffer = ac.allocatedBuffer;
     return loadAnimationInternal(key);
+}
+
+bool PlayerAnimation::loadAnimation(const std::string& key, const std::vector<osg::Transform*>& nodes,
+                                    const std::map<osg::Transform*, osg::ref_ptr<osg::AnimationPath>>& pathMap)
+{
+    std::map<osg::Transform*, AnimationData> animDataMap;
+    for (std::map<osg::Transform*, osg::ref_ptr<osg::AnimationPath>>::const_iterator itr = pathMap.begin();
+         itr != pathMap.end(); ++itr)
+    {
+        const osg::Transform* trans = itr->first; const osg::AnimationPath* path = itr->second.get();
+        if (std::find(nodes.begin(), nodes.end(), trans) == nodes.end()) continue;
+
+        AnimationData animData; animData.fromAnimationPath(path);
+        animDataMap[itr->first] = animData;
+    }
+    return loadAnimation(key, nodes, animDataMap);
 }
 
 void PlayerAnimation::unloadAnimation(const std::string& key)
@@ -1263,7 +1330,7 @@ bool PlayerAnimation::loadAnimationInternal(const std::string& key)
     if (ozz->_animations.size() > 1) sampler.weight = 0.0f;
     else sampler.weight = 1.0f;  // by default only the first animation is full weighted
 
-#if true
+#if false
     printAnimationData(ozz, key);
 #endif
     return true;

@@ -13,6 +13,7 @@
 #include <osgUtil/SmoothingVisitor>
 
 #include "pipeline/Utilities.h"
+#include "animation/TweenAnimation.h"
 #include "animation/BlendShapeAnimation.h"
 #include "LoadSceneFBX.h"
 #define DISABLE_SKINNING_DATA 0
@@ -90,16 +91,37 @@ namespace osgVerse
                 for (int k = 0; layer->getCurveNode(k); ++k)
                 {
                     const ofbx::AnimationCurveNode* curveNode = layer->getCurveNode(k);
-                    if (curveNode->getBone())
-                    {
-                        // TODO: bone animation
-                    }
-                    else if (curveNode->getCurve(0))
-                        createAnimation(layer, curveNode);  // rigid animation
+                    if (curveNode->getCurve(0))
+                        createAnimation(skinningList, layer, curveNode);  // rigid animation
                 }
             }
-            // TODO: more than 1 animations?
-        }
+
+            for (size_t i = 0; i < skinningList.size(); ++i)
+            {
+                SkinningData& skinningData = skinningList[i];
+                if (skinningData.player.valid() && !_animations.empty())
+                {
+                    // TODO: still has problems???
+#if false
+                    skinningData.player->loadAnimation(
+                        animStack->name, skinningData.joints, _animations);
+#endif
+                }
+            }
+
+            // Handle normal animations
+            for (std::map<osg::Transform*, std::pair<int, osg::Vec3d>>::iterator
+                 itr = _animationStates.begin(); itr != _animationStates.end(); ++itr)
+            {
+                if (itr->second.first > 0) continue;
+                const PlayerAnimation::AnimationData& animData = _animations[itr->first];
+
+                TweenAnimation* tween = dynamic_cast<TweenAnimation*>(itr->first->getUpdateCallback());
+                if (!tween) { tween = new TweenAnimation; itr->first->addUpdateCallback(tween); }
+                tween->addAnimation(animStack->name, animData.toAnimationPath());
+            }
+            _animations.clear(); _animationStates.clear();
+        }  // for (int i = 0; i < animCount; ++i)
     }
 
     osg::Geode* LoaderFBX::createGeometry(const ofbx::Mesh& mesh, const ofbx::GeometryData& gData)
@@ -336,14 +358,15 @@ namespace osgVerse
         return geode.release();
     }
 
-    void LoaderFBX::createAnimation(const ofbx::AnimationLayer* layer,
+    void LoaderFBX::createAnimation(std::vector<SkinningData>& skinningList, const ofbx::AnimationLayer* layer,
                                     const ofbx::AnimationCurveNode* curveNode)
     {
         const ofbx::Object* bone = curveNode->getBone();
         ofbx::DVec3 pivot = bone->getRotationPivot();
         ofbx::RotationOrder order = bone->getRotationOrder();  // FIXME: always xyz...
 
-        osg::observer_ptr<osg::MatrixTransform> mt; std::string boneName(bone->name);
+        std::string propertyName = curveNode->name, boneName(bone->name);
+        osg::observer_ptr<osg::MatrixTransform> mt;
         for (unsigned int i = 0; i < _root->getNumChildren(); ++i)
         {
             osg::MatrixTransform* child = dynamic_cast<osg::MatrixTransform*>(_root->getChild(i));
@@ -354,27 +377,31 @@ namespace osgVerse
             }
         }
 
-        std::string propertyName = curveNode->name;
         osg::Vec3d pivotOffset(pivot.x, pivot.y, pivot.z);
+        size_t skinningIndex = 0; bool asSkeletonAnimation = false;
+        if (!mt && !skinningList.empty())
+        {
+            for (size_t i = 0; i < skinningList.size(); ++i)
+            {
+                std::vector<osg::Transform*>& joints = skinningList[i].joints;
+                std::vector<osg::Transform*>::iterator it = std::find_if(
+                    joints.begin(), joints.end(), [&boneName](osg::Transform* t)
+                { return (t->getName() == boneName); });
+
+                if (it != joints.end())
+                { mt = (*it)->asMatrixTransform(); skinningIndex = i; }
+            }
+            asSkeletonAnimation = true;
+        }
+
         if (!mt)
         {
             OSG_NOTICE << "[LoaderFBX] Unable to find bone node " << boneName << " matching animation "
                        << propertyName << ", in layer " << layer->name << std::endl; return;
         }
 
-        osg::ref_ptr<osg::AnimationPath> animationPath;
-        osg::observer_ptr<osg::AnimationPathCallback> apcb;
-        apcb = dynamic_cast<osg::AnimationPathCallback*>(mt->getUpdateCallback());
-        if (apcb.valid())
-            animationPath = apcb->getAnimationPath();
-        else
-        {
-            animationPath = new osg::AnimationPath;
-            animationPath->setLoopMode(osg::AnimationPath::LOOP);
-            apcb = new osg::AnimationPathCallback(animationPath.get());
-            apcb->setPivotPoint(pivotOffset);
-            mt->setUpdateCallback(apcb.get());
-        }
+        PlayerAnimation::AnimationData& animationData = _animations[mt.get()];
+        _animationStates[mt.get()] = std::pair<int, osg::Vec3d>(asSkeletonAnimation ? 1 : 0, pivotOffset);
 
         int type = -1;  // 0: T, 1: R, 2: S
         if (propertyName == "T") type = 0;
@@ -383,12 +410,10 @@ namespace osgVerse
         else
         {
             OSG_NOTICE << "[LoaderFBX] Unsupported animation property <" << propertyName
-                       << "> on node " << boneName << std::endl;
-            return;
+                       << "> on node " << boneName << std::endl; return;
         }
 
-        osg::AnimationPath::TimeControlPointMap& cpMap = animationPath->getTimeControlPointMap();
-        std::map<float, osg::Vec3d> tempPositionMap, tempEulerMap;
+        std::map<float, osg::Vec3d> tempPositionMap, tempEulerMap, tempScaleMap;
         for (int n = 0; n < 3 && curveNode->getCurve(n); ++n)
         {
             const ofbx::AnimationCurve* curve = curveNode->getCurve(n);
@@ -398,27 +423,35 @@ namespace osgVerse
             for (int k = 0; k < curve->getKeyCount(); ++k)
             {
                 float t = (float)ofbx::fbxTimeToSeconds(timePtr[k]), v = valuePtr[k];
-                osg::AnimationPath::ControlPoint& cp = cpMap[t];
                 switch (type)
                 {
                 case 0: tempPositionMap[t][n] = v; break;
                 case 1: tempEulerMap[t][n] = osg::inDegrees(v); break;
-                case 2: { osg::Vec3d p = cp.getScale(); p[n] = v; cp.setScale(p); break; }
+                case 2: tempScaleMap[t][n] = v; break;
                 }
             }
         }
 
+        for (std::map<float, osg::Vec3d>::iterator itr = tempScaleMap.begin();
+             itr != tempScaleMap.end(); ++itr)
+        {
+            animationData._scaleFrames.push_back(
+                std::pair<float, osg::Vec3>(itr->first, itr->second));
+        }
         for (std::map<float, osg::Vec3d>::iterator itr = tempPositionMap.begin();
              itr != tempPositionMap.end(); ++itr)
-        { cpMap[itr->first].setPosition(itr->second + pivotOffset); }
-
+        {
+            animationData._positionFrames.push_back(
+                std::pair<float, osg::Vec3>(itr->first, itr->second + pivotOffset));
+        }
         for (std::map<float, osg::Vec3d>::iterator itr = tempEulerMap.begin();
             itr != tempEulerMap.end(); ++itr)
         {
             osg::Matrix m = osg::Matrix::rotate(itr->second[0], osg::X_AXIS)
-                * osg::Matrix::rotate(itr->second[1], osg::Y_AXIS)
-                * osg::Matrix::rotate(itr->second[2], osg::Z_AXIS);
-            cpMap[itr->first].setRotation(m.getRotate());
+                          * osg::Matrix::rotate(itr->second[1], osg::Y_AXIS)
+                          * osg::Matrix::rotate(itr->second[2], osg::Z_AXIS);
+            animationData._rotationFrames.push_back(
+                std::pair<float, osg::Vec4>(itr->first, m.getRotate().asVec4()));
         }
     }
 
