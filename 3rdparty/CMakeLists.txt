@@ -556,7 +556,7 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0          # libKTX: BasisU
                 -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4            # Llama.cpp / libGGML
                 -DUSINGZ                                                  # clipper2
-                -DIDXTYPEWIDTH=64 -DREALTYPEWIDTH=64                      # METIS
+                -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32                      # METIS
                 -DUNORDERED -DHAVE_UNORDERED_MAP=1)
 
 IF(MSVC_VERSION LESS 1910)

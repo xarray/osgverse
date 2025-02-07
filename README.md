@@ -118,27 +118,44 @@ Our project is already tested on graphics cards listed as below:
 8. osgVerse_JsCallerWASM (wasm/script_demo): an example of WASM, demostrating how to use OSGB scripts with JS.
 9. TBD...
 
-#### Tests and Examples
-1. osgVerse_Test_ImGui: a quick test for demostrating the use of IMGUI in osg scene.
-2. osgVerse_Test_Mesh_Process: a mesh process and topology builder example.
-3. osgVerse_Test_Physics_Basic: a physics world example supporting rigid bodies & kinematics, requiring Bullet3.
-4. osgVerse_Test_Shadow: a test for shadow algorithm debugging and optimizing.
-5. osgVerse_Test_Pipeline: a program for simple cases and compatiblity tests of osgVerse pipeline.
-6. osgVerse_Test_Pbr_Prerequisite: a quick utility to pre-compute global PBR textures and save them to IBL osgb files.
-7. osgVerse_Test_Paging_Lod: a test for paged LOD file combination, optimization and transferring to levelDB.
-8. osgVerse_Test_Point_Cloud: a test for point cloud viewing and manipulating.
-9. osgVerse_Test_Media_Stream: a test for media streaming / pixel streaming, including server and pusher implementation.
-10. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.
-11. osgVerse_Test_Scripting: a test for scripting implementation based on OSGB serialization format.
-12. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
-13. osgVerse_Test_Thread: a test for using the Marl thread task scheduler along with osgViewer.
-14. osgVerse_Test_Volume_Rendering: a test for different methods to implement volume rendering.
-15. osgVerse_Test_Symbols: a test for displaying massive symbols with icons and texts.
-16. osgVerse_Test_Tween_Animation: a test for tween animations, like path and data-driven animations.
-17. Deprecated tests:
+#### Examples and Tests
+1. osgVerse_Test_Plugins: a quick utility to show dependencies of a plugin library. (TBD: show depended and missing dlls)
+2. osgVerse_Test_Pipeline: an example program for simple cases and compatiblity tests of osgVerse pipeline.
+3. osgVerse_Test_Report_Graph: a quick utility to show scene graph information in details.
+4. osgVerse_Test_Shader_Library: an example to make use of the shader library with OSG programs.
+5. osgVerse_Test_Shadow: an example for shadow algorithm debugging and optimizing.
+6. osgVerse_Test_Forward_Pbr: an example demostrating PBR rendering in single forwarded pass.
+7. osgVerse_Test_ImGui: an example demostrating the use of IMGUI in osg scene. (TBD: multi-view IMGUI usage)
+8. osgVerse_Test_Media_Stream: an example for media streaming / pixel streaming, including server and pusher implementation. (TBD: switch puller/player)
+9. osgVerse_Test_Pbr_Prerequisite: a quick utility to pre-compute global PBR textures and save them to IBL osgb files.
+10. osgVerse_Test_Paging_Lod: a quick utility for paged LOD file combination, optimization and transferring to levelDB.
+11. osgVerse_Test_Point_Cloud: an example for point cloud viewing and manipulating. (TBD: eye-dome rendering)
+12. osgVerse_Test_Player_Animation: an example of character animation loading and playing. (TBD: simple UI)
+13. osgVerse_Test_Symbols: an example for drawing with Blend2D and displaying massive symbols with icons and texts.
+14. osgVerse_Test_Tween_Animation: an example for tween animations, like path and data-driven animations. (TBD: time-out events)
+15. osgVerse_Test_Polygon2D: an eample of 2D polygon operations. (TBD: labeling, spline usage, loading MVT)
+16. osgVerse_Test_Mesh_Process: an example of 3D mesh operations. (TBD: labeling, topology, NURBS, common shapes)
+17. osgVerse_Test_Navigation: an example of navmesh based navigation. (TBD: simple UI)
+18. osgVerse_Test_Physics_Basic: a physics world example supporting rigid bodies & kinematics, requiring Bullet3.
+19. osgVerse_Test_Particle_U3D: a Unity-like particle system example. (TBD: better fire/explosion example)
+20. osgVerse_Test_Particle_Effekseer: another particle system example with Effekseer. (TBD: Effekseer scripting)
+21. osgVerse_Test_Scripting: an example for scripting implementation based on OSGB serialization format.
+
+##### Tests for specified goals
+1. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
+2. osgVerse_Test_Thread: a test for using the Marl thread task scheduler along with osgViewer.
+3. osgVerse_Test_Volume_Rendering: a test for different methods to implement volume rendering.
+4. osgVerse_Test_Instance_Param: a test of comparing texture LUT and vertex-attrib divisor usages.
+5. osgVerse_Test_Auto_LOD: a test of GeometryMerger usage: combination / indirect / octree.
+6. osgVerse_Test_Sky_Box: a test of changable skybox and atmospheric scattering.
+7. osgVerse_Test_Restful_Server: a test for restful HTTP API, which is based on libhv.
+8. Deprecated tests:
   - osgVerse_Test_FastRtt: a quick test for using newly-introduced RTT draw callback.
   - osgVerse_Test_Obb_KDop: a quick test for creating a model's obb/kdop bounding volume.
   - osgVerse_Test_CubeRtt: a quick test for render-to-cubemap (6 faces) demonstaration.
+  - osgVerse_Test_Mesh_Boolean: a quick test of mesh cutting with self-defined method.
+  - osgVerse_Test_Auto_Imposter: a quick test to change models to crossed billboards
+  - osgVerse_Test_Texture_Mapping: a test for GLSL texture tri-mapping implementation.
   - osgVerse_Test_Indirect_Draw: a demo program to demonstrate how to use indirect drawing of OpenGL 4.x.
   - osgVerse_Test_Tesselation: a demo program to demonstrate how to use tessellation shaders of OpenGL 4.x.
   - osgVerse_Test_MultiView_Shader: a test for using geometry shader to implement multi-view rendering.

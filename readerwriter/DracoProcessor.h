@@ -17,6 +17,20 @@ namespace osgVerse
         bool decodeData(std::istream& in, osg::Geometry* geom);
         bool encodeData(std::ostream& out, osg::Geometry* geom);
         bool optimize(osg::Geometry* geom);
+
+    protected:
+        struct Cluster
+        {
+            std::vector<unsigned int> indices;
+            osg::BoundingSpheref self, parent;
+            float selfError, parentError;
+        };
+
+        std::vector<Cluster> clusterize(osg::Geometry* geom, const std::vector<unsigned int>& indices,
+                                        size_t kClusterSize = 128, int kMetisSlop = 2);
+        std::vector<std::vector<int>> partition(const std::vector<Cluster>& clusters,
+                                                const std::vector<int>& pending,
+                                                const std::vector<int>& remap, size_t kGroupSize = 8);
     };
 
     class OSGVERSE_RW_EXPORT DracoProcessor : public osg::Referenced
