@@ -26,7 +26,7 @@
 #include <normalmap/normalmapgenerator.h>
 #include <normalmap/specularmapgenerator.h>
 #ifdef VERSE_WINDOWS
-    #include <windows.h>
+#   include <windows.h>
 #endif
 #include "ShaderLibrary.h"
 #include "Pipeline.h"

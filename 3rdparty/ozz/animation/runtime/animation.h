@@ -103,7 +103,10 @@ class OZZ_ANIMATION_DLL Animation {
 
     // Implicit conversion to const.
     operator TKeyframesCtrl<true>() const {
-      return {ratios, previouses, iframe_entries, iframe_desc, iframe_interval};
+      //return {ratios, previouses, iframe_entries, iframe_desc, iframe_interval};
+        TKeyframesCtrl<true> ctrl;
+        ctrl.ratios = ratios; ctrl.previouses = previouses; ctrl.iframe_entries = iframe_entries;
+        ctrl.iframe_desc = iframe_desc; ctrl.iframe_interval = iframe_interval; return ctrl;
     }
 
     template <typename _Ty, bool>

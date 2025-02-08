@@ -20,9 +20,9 @@
      - Add to the last of variable 'supported_egl_extensions':
        "EGL_VERSE_vulkan_objects",
    - RUN: python scripts/run_code_generation.py
-   - EDIT src/libANGLE/Display.h:
+   - EDIT src/libANGLE/Display.h: (namespace egl)
         void *GetVkObjectsFromDisplayVERSE(Display* display, Surface *surface);
-   - EDIT src/libANGLE/Display.cpp:
+   - EDIT src/libANGLE/Display.cpp: (namespace egl)
         void* GetVkObjectsFromDisplayVERSE(Display* display, Surface *surface) {
         #if defined(ANGLE_ENABLE_VULKAN)
             return rx::GetVulkanObjectsVERSE(display, surface);
@@ -30,12 +30,12 @@
             return nullptr;
         #endif
         }
-   - EDIT src/libANGLE/renderer/vulkan/DisplayVk_api.h:
+   - EDIT src/libANGLE/renderer/vulkan/DisplayVk_api.h: (namespace rx)
         void *GetVulkanObjectsVERSE(egl::Display *display, egl::Surface *surface);
-   - EDIT src/libANGLE/renderer/vulkan/SurfaceVk.h, add to WindowSurfaceVk:
+   - EDIT src/libANGLE/renderer/vulkan/SurfaceVk.h: (add to class WindowSurfaceVk)
         VkSurfaceKHR getSurface() const { return mSurface; }
         VkSwapchainKHR getSwapChain() const { return mSwapchain; }
-   - EDIT src/libANGLE/renderer/vulkan/SurfaceVk.cpp:
+   - EDIT src/libANGLE/renderer/vulkan/SurfaceVk.cpp: (namespace rx)
         struct VulkanObjectInfo { ... };  // must be same with declaration here
         void *GetVulkanObjectsVERSE(egl::Display *display, egl::Surface *surface) {
             DisplayVk *displayVk = vk::GetImpl(display);
@@ -43,6 +43,14 @@
             const WindowSurfaceVk *windowSurface = GetImplAs<WindowSurfaceVk>(surface);
             VulkanObjectInfo* info = new VulkanObjectInfo();
             ...
+            ///////// REFERENCE:
+            info->instance = renderer->getInstance();
+            info->physicsDevice = renderer->getPhysicalDevice();
+            info->device = renderer->getDevice();
+            for (int i = 0; i < 3; ++i) info->queues[i] = renderer->getQueue((egl::ContextPriority)i);
+            info->surface = windowSurface->getSurface();
+            info->swapChain = windowSurface->getSwapChain();
+            /////////
             return info;
        }
    - EDIT include/EGL/eglext_angle.h:
@@ -55,11 +63,11 @@
        #endif // EGL_VERSE_vulkan_objects
    - EDIT src/libGLESv2/egl_ext_stubs.cpp:
        void *GetVkObjectsVERSE(Thread *thread, egl::Display *display, SurfaceID surfaceID) {
-           Surface *surface = display->getSurface(surfaceID);
-           ANGLE_EGL_TRY_RETURN(thread, display->prepareForCall(), "eglGetVkObjectsVERSE",
-                                GetDisplayIfValid(display), EGL_FALSE);
-           void *returnValue = GetVkObjectsFromDisplayVERSE(display, surface);
-           thread->setSuccess(); return returnValue;
+           ANGLE_EGL_TRY_PREPARE_FOR_CALL_RETURN(thread, display->prepareForCall(),
+                                                "eglGetVkObjectsVERSE", GetDisplayIfValid(display), nullptr);
+            Surface *surface = display->getSurface(surfaceID);
+            void *returnValue = GetVkObjectsFromDisplayVERSE(display, surface);
+            thread->setSuccess(); return returnValue;
        }
    - EDIT libANGLE/validationEGL.cpp:
        bool ValidateGetVkObjectsVERSE(const ValidationContext *val, const egl::Display *dpy, SurfaceID sID) {

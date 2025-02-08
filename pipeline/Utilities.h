@@ -229,12 +229,12 @@ namespace osgVerse
 //  USE_OSGPLUGIN(jpg)
 //  USE_OSGPLUGIN(png)
 //  USE_OSGPLUGIN(freetype)
-#   ifdef VERSE_WASM
+#   if defined(VERSE_WASM) || defined(VERSE_NO_NATIVE_WINDOW)
 #       define USE_OSG_PLUGINS() USE_OSG_PLUGINS_ONLY()
 #   else
 #       define USE_OSG_PLUGINS() \
-        USE_OSG_PLUGINS_ONLY() \
-        USE_GRAPHICSWINDOW()
+            USE_OSG_PLUGINS_ONLY() \
+            USE_GRAPHICSWINDOW()
 #   endif
 #else
 #   define USE_OSG_PLUGINS()

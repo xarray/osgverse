@@ -193,7 +193,7 @@ std::vector<MeshOptimizer::Cluster> MeshOptimizer::clusterize(
     {   // not sure why this is a special case that we need to handle but okay metis
         int r = METIS_PartGraphRecursive(&nvtxs, &ncon, &xadj[0], &adjncy[0], NULL, NULL,
                                          &adjwgt[0], &nparts, NULL, NULL, options, &edgecut, &part[0]);
-        if (r != METIS_OK);
+        if (r != METIS_OK)
         {
             OSG_NOTICE << "[MeshOptimizer] Failed to clusterize with METIS: " << r << std::endl;
             return clusters;
@@ -274,7 +274,7 @@ std::vector<std::vector<int>> MeshOptimizer::partition(
     {
         int r = METIS_PartGraphRecursive(&nvtxs, &ncon, &xadj[0], &adjncy[0], NULL, NULL,
                                          &adjwgt[0], &nparts, NULL, NULL, options, &edgecut, &part[0]);
-        if (r != METIS_OK);
+        if (r != METIS_OK)
         {
             OSG_NOTICE << "[MeshOptimizer] Failed to partition with METIS: " << r << std::endl;
             return result;

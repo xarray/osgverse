@@ -9,7 +9,8 @@ IF(VERSE_STATIC_BUILD)
             osgdb_deprecated_osgviewer osgdb_deprecated_osgterrain)
         SET(OSGPLUGIN_LIBRARIES ${OSGPLUGIN_LIBRARIES}
             osgdb_serializers_osg osgdb_serializers_osgtext osgdb_serializers_osgterrain osgdb_serializers_osgsim)
-        SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${OSGPLUGIN_LIBRARIES})
+        RELINK_OSGPLUGINS(OSGPLUGIN_LIBRARIES2 ${OSGPLUGIN_LIBRARIES})
+        SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${OSGPLUGIN_LIBRARIES2})
     ENDIF(VERSE_USE_OSG_STATIC)
 ENDIF(VERSE_STATIC_BUILD)
 

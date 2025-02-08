@@ -56,7 +56,6 @@
 | PoissonGenerator | Embedded |           | Pipeline           | -            | |
 | polylabel        | Embedded | 2.0.1     | Modeling           | ISC          | https://github.com/mapbox/polylabel |
 | protozero        | EMbedded | 1.7.1     | verse_mvt          | BSD2         |_https://github.com/mapbox/protozero |
-| quickjs          | Embedded |           | Script             | MIT          | https://github.com/bellard/quickjs |
 | rapidjson        | Embedded |           | -                  | MIT (+)      | https://github.com/Tencent/rapidjson |
 | rapidxml         | Embedded |           | -                  | Boost / MIT  | https://rapidxml.sourceforge.net/ |
 | rasterizer       | Embedded |           | Pipeline           | -            | https://github.com/rawrunprotected/rasterizer |

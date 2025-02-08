@@ -453,11 +453,6 @@ SET(RASTERIZER_SOURCE_FILES
     rasterizer/Occluder.cpp rasterizer/Occluder.h rasterizer/VectorMath.h
 )
 
-SET(QUICKJS_SOURCE_FILES
-    quickjs/cutils.c quickjs/libbf.c quickjs/libregexp.c quickjs/quickjs.h
-    quickjs/libunicode.c quickjs/quickjs.c quickjs/quickjs-libc.c
-)
-
 SET(MESHOPTIMIZER_SOURCE_FILES
     meshoptimizer/meshoptimizer.h
     meshoptimizer/allocator.cpp meshoptimizer/clusterizer.cpp
@@ -501,7 +496,6 @@ SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
 SOURCE_GROUP("Rasterizer Files" FILES ${RASTERIZER_SOURCE_FILES})
 SOURCE_GROUP("RLottie Files" FILES ${RLOTTIE_SOURCE_FILES})
-SOURCE_GROUP("QuickJS Files" FILES ${QUICKJS_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
@@ -517,7 +511,7 @@ SET(LIBRARY_FILES
     GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp timeout.c timeout.h
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp
-    ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${QUICKJS_SOURCE_FILES}
+    ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${METIS_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES}
@@ -620,7 +614,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector quickjs llama
+                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector llama
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)

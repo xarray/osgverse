@@ -968,7 +968,7 @@ namespace osgVerse
              itr != _modules.end(); ++itr)
         { mainCam->removeUpdateCallback(itr->second.get()); }
 
-#ifdef VERSE_MSVC
+#if defined(VERSE_MSVC) && !defined(VERSE_NO_NATIVE_WINDOW)
         TextInputMethodManager::instance()->unbind();
 #endif
     }
@@ -1043,7 +1043,7 @@ namespace osgVerse
         mainCam->setProjectionMatrixAsPerspective(
             mainFov, static_cast<double>(_stageSize.x()) / static_cast<double>(_stageSize.y()), mainNear, mainFar);
 
-#ifdef VERSE_MSVC
+#if defined(VERSE_MSVC) && !defined(VERSE_NO_NATIVE_WINDOW)
         TextInputMethodManager::instance()->disable(_stageContext.get());
 #endif
     }

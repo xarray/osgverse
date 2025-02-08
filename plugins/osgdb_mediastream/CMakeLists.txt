@@ -4,7 +4,7 @@ SET(LIBRARY_FILES
 )
 
 #########################################
-FIND_DEPENDENCE(ZLMEDIAKIT "ZLMediaKit/Common/MediaSource.h" "libzlmediakit.so;zlmediakit.lib" "ZLMediaKit")
+FIND_DEPENDENCE(ZLMEDIAKIT "mk_mediakit.h" "libmk_api.so;mk_api.lib" "")
 IF(ZLMEDIAKIT_FOUND)
 
     SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
@@ -16,7 +16,7 @@ IF(ZLMEDIAKIT_FOUND)
 
     SET_PROPERTY(TARGET ${LIB_NAME} PROPERTY FOLDER "PLUGINS")
     TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency zltoolkit zlmediakit mk_api)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency mk_api)
     LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)
 
     INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
