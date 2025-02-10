@@ -48,6 +48,7 @@ namespace osgVerse
     class LightModule;
     class ShadowModule;
     class UserInputModule;
+    class ScriptableProgram;
 
     /** OpenGL version data for graphics hardware adpation.
         OpenGL Version: GLSL Version
@@ -144,6 +145,9 @@ namespace osgVerse
             void applyUniform(osg::Uniform* u);
             void applyTexture(osg::Texture* tex, const std::string& buffer, int u);
             void applyDefaultTexture(const osg::Vec4& color, const std::string& buffer, int u);
+
+            ScriptableProgram* getProgram();
+            const ScriptableProgram* getProgram() const;
 
             osg::StateSet::UniformList getUniforms() const;
             osg::Uniform* getUniform(const std::string& name) const;

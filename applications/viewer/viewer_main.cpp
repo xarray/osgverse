@@ -12,6 +12,7 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include <pipeline/SkyBox.h>
+#include <pipeline/ShaderLibrary.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
@@ -291,8 +292,10 @@ int main(int argc, char** argv)
 #endif
 
     // How to use clear color instead of skybox...
-    //postCamera->removeChild(skybox.get());
-    //pipeline->getStage("GBuffer")->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+#if false
+    postCamera->removeChild(skybox.get());
+    pipeline->getStage("GBuffer")->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+#endif
 
     // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
@@ -304,6 +307,13 @@ int main(int argc, char** argv)
 
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
+
+    // How to add custom code to ScriptableProgram
+#if false
+    osgVerse::ScriptableProgram* display = pipeline->getStage("Final")->getProgram();
+    if (display) display->addSegment(osg::Shader::FRAGMENT, 0,
+                                     "if (gl_FragCoord.x < 960) fragData = vec4(depthValue);");
+#endif
 
     // Start the main loop
     while (!viewer.done())

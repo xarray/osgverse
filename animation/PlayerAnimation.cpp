@@ -679,7 +679,7 @@ namespace ozz
                 size_t dataSize = tempData.size();
                 for (size_t i = 0; i < dataSize; i += numTracks)
                 {
-                    std::vector<T>::iterator it = tempData.begin() + i;
+                    typename std::vector<T>::iterator it = tempData.begin() + i;
                     if ((i + numTracks) >= dataSize) srcData.insert(srcData.end(), it, tempData.end());
                     else srcData.insert(srcData.end(), it, it + numTracks);
 
@@ -769,7 +769,7 @@ namespace ozz
                 // Finds the largest quaternion component.
                 const float quat[4] = { src.x(), src.y(), src.z(), src.w() };
                 const long long largest = std::max_element(quat, quat + 4, lessAbs) - quat;
-                
+
                 // Quantize the 3 smallest components on 16 bits signed integers.
                 // Quantize the 3 smallest components on x bits signed integers.
                 const float kScale = QuaternionKey::kfScale / math::kSqrt2, kOffset = -math::kSqrt2_2;

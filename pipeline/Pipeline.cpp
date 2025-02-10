@@ -857,6 +857,20 @@ namespace osgVerse
         return attMap->at(bc)._texture.get();
     }
 
+    ScriptableProgram* Pipeline::Stage::getProgram()
+    {
+        if (!camera->getStateSet()) return NULL;
+        return static_cast<ScriptableProgram*>(
+            camera->getStateSet()->getAttribute(osg::StateAttribute::PROGRAM));
+    }
+
+    const ScriptableProgram* Pipeline::Stage::getProgram() const
+    {
+        if (!camera->getStateSet()) return NULL;
+        return static_cast<ScriptableProgram*>(
+            camera->getStateSet()->getAttribute(osg::StateAttribute::PROGRAM));
+    }
+
     Pipeline::Stage* Pipeline::getStage(const std::string& name)
     {
         for (size_t i = 0; i < _stages.size(); ++i)
@@ -1257,7 +1271,7 @@ namespace osgVerse
             s.runner->geometry->getOrCreateStateSet() : s.camera->getOrCreateStateSet();
         if (vs || fs)
         {
-            osg::ref_ptr<osg::Program> prog = new osg::Program;
+            osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
             prog->setName(name + "_PROGRAM");
             if (vs)
             {
@@ -1307,7 +1321,7 @@ namespace osgVerse
 
     osg::StateSet* Pipeline::createForwardStateSet(osg::Shader* vs, osg::Shader* fs)
     {
-        osg::ref_ptr<osg::Program> program = new osg::Program;
+        osg::ref_ptr<ScriptableProgram> program = new ScriptableProgram;
         program->setName("Forward_PROGRAM");
         if (vs)
         {

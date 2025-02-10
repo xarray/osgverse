@@ -9,6 +9,7 @@ uniform float VignetteRadius;
 uniform float VignetteDarkness;
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
+VERSE_SRCIPT_DEF;
 
 // Color balance copied from gimp/app/base/color-balance.c
 float oneColorBalanceFunc(float v, float factor, int mode)
@@ -83,6 +84,8 @@ void main()
         float fogFactor = (FogDistance.y - abs(eyeVertex.z / eyeVertex.w)) / (FogDistance.y - FogDistance.x);
         colorRGB = mix(FogColor, colorRGB, clamp(fogFactor, 0.0, 1.0));
     }
+
     fragData = vec4(colorRGB, 1.0);
+    VERSE_SCRIPT_FUNC(0);
     VERSE_FS_FINAL(fragData);
 }

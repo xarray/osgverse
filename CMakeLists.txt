@@ -13,6 +13,10 @@ SET_PROPERTY(GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES "")
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 INCLUDE(VerseMacros)
 
+IF(POLICY CMP0146)
+    CMAKE_POLICY(SET CMP0146 OLD)
+ENDIF()
+
 ######################################### Install Configurations
 SET(VERSE_3RDPARTY_PATH "${CMAKE_SOURCE_DIR}/../Dependencies" CACHE STRING "Dependency root path")
 IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -213,10 +217,14 @@ ENDIF(VERSE_FIND_LEGACY_OPENGL)
 
 FIND_PACKAGE(OpenGL)
 FIND_PACKAGE(OpenMP)
+FIND_PACKAGE(CUDA)
+
 IF(OPENMP_FOUND)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 ENDIF()
+SET(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_50,code=\"sm_50,compute_50\")
 
 IF(USE_WASM_OPTIONS OR ANDROID OR APPLE)
     # do nothing
@@ -390,6 +398,7 @@ MESSAGE(STATUS "[osgVerse] Automatically Search for Dependencies in ${THIRDPARTY
 FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulletDynamics.a;BulletDynamics.lib" "bullet")
 FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib" "")
 FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effekseer.lib" "")
+FIND_DEPENDENCE(FFMPEG "libavcodec/avcodec.h" "libavcodec.so;avcodec.lib" "")
 FIND_DEPENDENCE(LIBCEF "cef_browser.h" "libcef.so;libcef.a;libcef.lib" "libcef")
 FIND_DEPENDENCE(LIBIGL "igl/igl_inline.h" "" "")
 FIND_DEPENDENCE(MIMALLOC "mimalloc.h" "libmimalloc.so;mimalloc.lib" "mimalloc")
@@ -401,7 +410,7 @@ IF(NOT USE_WASM_OPTIONS)
 ENDIF(NOT USE_WASM_OPTIONS)
 
 IF(MIMALLOC_FOUND)
-    SET(VERSE_USE_MIMALLOC ON CACHE BOOL "Enable use of mi-malloc to improve memory allocating" FORCE)
+    SET(VERSE_USE_MIMALLOC OFF CACHE BOOL "Enable use of mi-malloc to improve memory allocating" FORCE)
 ENDIF(MIMALLOC_FOUND)
 
 ######################################### Platform Definintions
@@ -560,6 +569,9 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: ${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}"
                    "; osgVerse version: ${VERSE_VERSION} (${VERSE_PLATFORM})")
     MESSAGE(STATUS "[osgVerse] Dependency libraries: ${VERSE_DEPENDENCIES_TO_SHOW}")
+    IF(CUDA_FOUND)
+        MESSAGE(STATUS "[osgVerse] NVIDIA CUDA found: ${CUDA_VERSION}")
+    ENDIF(CUDA_FOUND)
     CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/osgVerse/osgVerseConfig.cmake" @ONLY)
     INSTALL(FILES VerseCommon.h DESTINATION ${INSTALL_INCDIR}/osgVerse COMPONENT libosgverse-dev)
 

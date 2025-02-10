@@ -5,6 +5,7 @@
 #include <osg/Shader>
 #include <osg/Program>
 #include <osgDB/Registry>
+#include <vector>
 #include <map>
 
 namespace osgVerse
@@ -36,6 +37,7 @@ namespace osgVerse
 
         /** Add necessaray definitions for GLSL shaders
             Special macros:
+            - osg_Vertex/osg_Color/osg_MultiTexCoord0/osg_MultiTexCoord1/osg_Normal: attributes in vertex shader
             - VERSE_GLES2: for GLES2 shaders, set to 1
             - VERSE_GLES3: for GLES3 and GLCore shaders, set to 1
             - VERSE_MATRIX_MVP: model-view-projection matrix in vertex shader
@@ -47,7 +49,8 @@ namespace osgVerse
             - VERSE_FS_FINAL: final frag-color for GLCompatible / GLES2 shaders in fragment shader
             - VERSE_MAX_SHADOWS: maximum number of shadows in fragment shader
             - VERSE_TEX1D/VERSE_TEX2D/VERSE_TEX3D/VERSE_TEXCUBE: texture sampling function
-            - osg_Vertex/osg_Color/osg_MultiTexCoord0/osg_MultiTexCoord1/osg_Normal: attributes in vertex shader
+            - VERSE_SCRIPT_DEF(): definitions of all script segments, used by ScriptableProgram
+            - VERSE_SCRIPT_FUNC(num): input position <num> of script segments, used by ScriptableProgram
         */
         void createShaderDefinitions(osg::Shader& s, int glVer, int glslVer,
                                      const std::vector<std::string>& userDefs = std::vector<std::string>(),
@@ -62,6 +65,36 @@ namespace osgVerse
 
         std::map<PreDefinedModule, std::string> _moduleHeaders;
         std::map<PreDefinedModule, osg::ref_ptr<osg::Shader>> _moduleShaders;
+    };
+
+    /** Scriptable program that can insert script segments to internal shaders
+        - VERSE_SCRIPT_DEF(): definitions of all script segments
+        - VERSE_SCRIPT_FUNC(num): input position <num> of script segments
+    */
+    class ScriptableProgram : public osg::Program
+    {
+    public:
+        ScriptableProgram();
+        ScriptableProgram(const ScriptableProgram& rhs, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
+
+        void addDefinitions(osg::Shader::Type t, const std::string& code);
+        void addSegment(osg::Shader::Type t, int pos, const std::string& code);
+        void dirty() { _dirty = true; }
+
+        typedef std::vector<std::string> CodeSegmentList;
+        std::map<int, CodeSegmentList>& getSegments(osg::Shader::Type t) { return _segments[t]; }
+        void getSegments(osg::Shader::Type t, std::map<int, CodeSegmentList>& segments) const;
+
+        CodeSegmentList& getDefinitions(osg::Shader::Type t) { return _definitions[t]; }
+        void getDefinitions(osg::Shader::Type t, CodeSegmentList& defs) const;
+
+    protected:
+        virtual void compileGLObjects(osg::State& state) const;
+
+        std::map<osg::Shader::Type, std::map<int, CodeSegmentList>> _segments;
+        std::map<osg::Shader::Type, CodeSegmentList> _definitions;
+        mutable std::map<osg::Shader::Type, std::string> _originalShaderCodes;
+        mutable bool _dirty;
     };
 }
 
