@@ -1,4 +1,4 @@
-SET(LIB_NAME osgdb_verse_ffmpeg)
+SET(LIB_NAME osgdb_codec_ffmpeg)
 SET(LIBRARY_FILES
     ReaderWriterFFmpeg.cpp
     FFmpegClocks.cpp FFmpegClocks.hpp
@@ -13,7 +13,6 @@ SET(LIBRARY_FILES
 )
 
 #########################################
-FIND_DEPENDENCE(FFMPEG "libavcodec/avcodec.h" "libavcodec.so;avcodec.lib" "")
 IF(FFMPEG_FOUND)
 
     SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")

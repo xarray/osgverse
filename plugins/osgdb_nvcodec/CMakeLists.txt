@@ -1,0 +1,35 @@
+SET(LIB_NAME osgdb_codec_nv)
+SET(LIBRARY_FILES
+    ReaderWriterCodecNV.cpp NvDecoder/NvDecoder.cpp
+    NvDecoder/NvDecoder.h Utils/NvCodecUtils.h Utils/FFmpegDemuxer.h
+    Common/AppDecUtils.h Common/FramePresenter.h
+)
+
+#########################################
+FIND_DEPENDENCE(NV_DECODER "nvcuvid.h" "libnvcuvid.so;nvcuvid.lib" "")
+IF(CUDA_FOUND AND FFMPEG_FOUND AND NV_DECODER_FOUND)
+
+    SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
+    IF(VERSE_STATIC_BUILD)
+        NEW_CUDA_PLUGIN(${LIB_NAME} STATIC)
+    ELSE()
+        NEW_CUDA_PLUGIN(${LIB_NAME} SHARED)
+    ENDIF()
+
+    SET_PROPERTY(TARGET ${LIB_NAME} PROPERTY FOLDER "PLUGINS")
+    TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVersePipeline nvencodeapi nvcuvid
+                          ${CUDA_CUDA_LIBRARY} avcodec avformat avdevice avutil swscale swresample)
+    LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)
+
+    INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
+            RUNTIME DESTINATION ${INSTALL_PLUGINDIR} COMPONENT libosgverse
+            LIBRARY DESTINATION ${INSTALL_LIBDIR} COMPONENT libosgverse
+            ARCHIVE DESTINATION ${INSTALL_ARCHIVEDIR} COMPONENT libosgverse-dev)
+    IF(NOT VERSE_STATIC_BUILD)
+        IF(MSVC AND VERSE_INSTALL_PDB_FILES)
+            INSTALL(FILES $<TARGET_PDB_FILE:${LIB_NAME}> DESTINATION ${INSTALL_PLUGINDIR} OPTIONAL)
+        ENDIF()
+    ENDIF()
+
+ENDIF(CUDA_FOUND AND FFMPEG_FOUND AND NV_DECODER_FOUND)

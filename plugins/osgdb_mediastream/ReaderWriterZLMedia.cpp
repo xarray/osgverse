@@ -647,7 +647,7 @@ protected:
     static void API_CALL onMkTrackFrameOut(void* userData, mk_frame frame)
     {
         PlayerContext* ctx = (PlayerContext*)userData;
-        mk_decoder_decode(ctx->decoder, frame, 1, 1);
+        mk_decoder_decode(ctx->decoder, frame, 1, 1);  // FIXME: can be push to a NVDEC-based streamer
     }
 
     static void API_CALL onMkFrameDecoded(void* userData, mk_frame_pix frame)

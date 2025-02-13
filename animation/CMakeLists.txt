@@ -12,6 +12,7 @@ IF(BULLET_FOUND)
 	SET(LIBRARY_FILES ${LIBRARY_FILES} PhysicsEngine.cpp)
 ENDIF(BULLET_FOUND)
 
+FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effekseer.lib" "")
 IF(NOT VERSE_SUPPORT_CPP17)
     MESSAGE("[osgVerse] C++ 17 standard is disabled at present. Effekseer will be ignored.")
 ELSEIF(EFFEKSEER_FOUND)

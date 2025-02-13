@@ -56,7 +56,7 @@ public:
         supportsProtocol("rtp",  "Read video/audio from rtp using ffmpeg.");
         supportsProtocol("tcp",  "Read video/audio from tcp using ffmpeg.");
 
-        supportsExtension("verse_ffmpeg", "");
+        supportsExtension("codec_ffmpeg", "");
         supportsExtension("ffmpeg", "");
         supportsExtension("avi",    "");
         supportsExtension("flv",    "Flash video");
@@ -101,7 +101,7 @@ public:
 
     virtual const char * className() const
     {
-        return "ReaderWriterFFmpeg";
+        return "[osgVerse] Video codec plugin depending on FFmpeg";
     }
 
     virtual ReadResult readObject(const std::string& file, const osgDB::ReaderWriter::Options* options =NULL) const
@@ -112,7 +112,7 @@ public:
         const std::string ext = osgDB::getLowerCaseFileExtension(filename);
         const std::string pro = osgDB::getServerProtocol(filename);
         if (!acceptsExtension(ext) && !acceptsProtocol(pro)) return ReadResult::FILE_NOT_HANDLED;
-        if (ext == "ffmpeg" || ext == "verse_ffmpeg")
+        if (ext == "ffmpeg" || ext == "codec_ffmpeg")
             return readImage(osgDB::getNameLessExtension(filename),options);
 
         osg::ref_ptr<osgFFmpeg::FFmpegParameters> parameters(new osgFFmpeg::FFmpegParameters);
@@ -170,4 +170,4 @@ private:
     }
 };
 
-REGISTER_OSGPLUGIN(verse_ffmpeg, ReaderWriterFFmpeg)
+REGISTER_OSGPLUGIN(codec_ffmpeg, ReaderWriterFFmpeg)

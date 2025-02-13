@@ -3,6 +3,7 @@
 #include <osg/GLExtensions>
 
 #include "CudaTexture2D.h"
+#include <cuda.h>
 #include <cudaGL.h>
 using namespace osgVerse;
 
@@ -17,19 +18,19 @@ inline bool check(int e, int iLine, const char* szFile)
 }
 #define ck(call) check(call, __LINE__, __FILE__)
 
-CuvidManageCallback::CuvidManageCallback(CudaTexture2D* tex, CUcontext cu)
-:   osg::Texture2D::SubloadCallback(), _owner(tex), _deviceFrame(NULL),
+CudaResourceReaderBase::CudaResourceReaderBase(CUcontext cu)
+:   osg::Texture2D::SubloadCallback(), _deviceFrame(NULL), _state(INVALID),
     _width(0), _height(0), _pbo(0), _textureID(0), _vendorStatus(false)
 { _cuContext = (CUcontext)cu; }
 
-void CuvidManageCallback::releaseCuda()
+void CudaResourceReaderBase::releaseCuda()
 {
     _mutex.lock();
     ck(cuMemFree(_deviceFrame)); _pbo = 0;
     _mutex.unlock();
 }
 
-void CuvidManageCallback::releaseGLObjects(osg::State* state) const
+void CudaResourceReaderBase::releaseGLObjects(osg::State* state) const
 {
     if (!state) { _pbo = 0; return; }
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
@@ -40,7 +41,7 @@ void CuvidManageCallback::releaseGLObjects(osg::State* state) const
     if (ext) ext->glDeleteBuffers(1, &_pbo); _pbo = 0;
 }
 
-osg::ref_ptr<osg::Texture::TextureObject> CuvidManageCallback::generateTextureObject(
+osg::ref_ptr<osg::Texture::TextureObject> CudaResourceReaderBase::generateTextureObject(
             const osg::Texture2D& texture, osg::State& state) const
 {
     osg::ref_ptr<osg::Texture::TextureObject> obj =
@@ -48,7 +49,7 @@ osg::ref_ptr<osg::Texture::TextureObject> CuvidManageCallback::generateTextureOb
     _textureID = obj->id(); return obj;
 }
 
-void CuvidManageCallback::load(const osg::Texture2D& texture, osg::State& state) const
+void CudaResourceReaderBase::load(const osg::Texture2D& texture, osg::State& state) const
 {
     char* vendor = (char*)glGetString(GL_VENDOR);
     if (std::string(vendor).find("NVIDIA") != std::string::npos) _vendorStatus = true;
@@ -76,7 +77,7 @@ void CuvidManageCallback::load(const osg::Texture2D& texture, osg::State& state)
     ck(cuMemsetD8(_deviceFrame, 0, _width * _height * 4));
 }
 
-void CuvidManageCallback::subload(const osg::Texture2D& texture, osg::State& state) const
+void CudaResourceReaderBase::subload(const osg::Texture2D& texture, osg::State& state) const
 {
     if (_width == 0 || _height == 0 || _pbo == 0) return;
     _mutex.lock();
@@ -111,7 +112,7 @@ void CuvidManageCallback::subload(const osg::Texture2D& texture, osg::State& sta
     if (ext) ext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 }
 
-bool CuvidManageCallback::getDeviceFrameBuffer(CUdeviceptr* devFrameOut, int* pitchOut)
+bool CudaResourceReaderBase::getDeviceFrameBuffer(CUdeviceptr* devFrameOut, int* pitchOut)
 {
     if (!_deviceFrame) return false;
     *devFrameOut = (CUdeviceptr)_deviceFrame;
@@ -119,26 +120,44 @@ bool CuvidManageCallback::getDeviceFrameBuffer(CUdeviceptr* devFrameOut, int* pi
     return true;
 }
 
-CudaTexture2D::CudaTexture2D(void* cu)
-:   osg::Texture2D(), _cuContext(cu)
+class CudaResourceUpdateCallback : public osg::StateAttribute::Callback
 {
-    CuvidManageCallback* callback = new CuvidManageCallback(this, (CUcontext)_cuContext);
-    setSubloadCallback(callback);
-}
+public:
+    CudaResourceUpdateCallback(CudaResourceReaderBase* cb) : _manager(cb) {}
+
+    virtual void operator()(osg::StateAttribute* sa, osg::NodeVisitor* nv)
+    { if (_manager.valid()) (*_manager)(sa, nv); }
+
+protected:
+    osg::observer_ptr<CudaResourceReaderBase> _manager;
+};
+
+CudaTexture2D::CudaTexture2D(void* cu) : osg::Texture2D(), _cuContext(cu)
+{}
 
 CudaTexture2D::CudaTexture2D(const CudaTexture2D& copy, osg::CopyOp op)
 :   osg::Texture2D(copy, op), _cuContext(copy._cuContext)
 {}
 
+void CudaTexture2D::setResourceReader(CudaResourceReaderBase* reader)
+{
+    CudaResourceUpdateCallback* cb = NULL;
+    if (reader) cb = new CudaResourceUpdateCallback(reader);
+    setSubloadCallback(reader); setUpdateCallback(cb);
+}
+
+const CudaResourceReaderBase* CudaTexture2D::getResourceReader() const
+{ return dynamic_cast<const CudaResourceReaderBase*>(getSubloadCallback()); }
+
 void CudaTexture2D::releaseGLObjects(osg::State* state) const
 {
-    const CuvidManageCallback* callback = static_cast<const CuvidManageCallback*>(getSubloadCallback());
+    const CudaResourceReaderBase* callback = static_cast<const CudaResourceReaderBase*>(getSubloadCallback());
     if (callback) callback->releaseGLObjects(state);
     osg::Texture2D::releaseGLObjects(state);
 }
 
 void CudaTexture2D::releaseCudaData()
 {
-    CuvidManageCallback* callback = static_cast<CuvidManageCallback*>(getSubloadCallback());
+    CudaResourceReaderBase* callback = static_cast<CudaResourceReaderBase*>(getSubloadCallback());
     if (callback) callback->releaseCuda();
 }
