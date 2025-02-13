@@ -84,18 +84,17 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
 	    # TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test
     ENDIF(BULLET_FOUND)
 
-    NEW_EXAMPLE(osgVerse_Test_Particle_U3D particle_u3d_test.cpp)
-    IF(EFFEKSEER_FOUND)
-        NEW_EXAMPLE(osgVerse_Test_Particle_Effekseer particle_effekseer_test.cpp)
-    ENDIF(EFFEKSEER_FOUND)
-
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
         NEW_EXAMPLE(osgVerse_Test_Scripting scripting_test.cpp)
     ENDIF()
+    NEW_EXAMPLE(osgVerse_Test_Particle_U3D particle_u3d_test.cpp)
 
     IF(VERSE_SUPPORT_CPP17)
         SET(CMAKE_CXX_STANDARD 17)
-        ##
+        
+        IF(EFFEKSEER_FOUND)
+            NEW_EXAMPLE(osgVerse_Test_Particle_Effekseer particle_effekseer_test.cpp)
+        ENDIF(EFFEKSEER_FOUND)
     ENDIF(VERSE_SUPPORT_CPP17)
 ENDIF(NOT VERSE_USE_EXTERNAL_GLES)
 

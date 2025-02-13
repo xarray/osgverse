@@ -398,7 +398,6 @@ MESSAGE(STATUS "[osgVerse] Automatically Search for Dependencies in ${THIRDPARTY
 FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulletDynamics.a;BulletDynamics.lib" "bullet")
 FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib" "")
 FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effekseer.lib" "")
-FIND_DEPENDENCE(FFMPEG "libavcodec/avcodec.h" "libavcodec.so;avcodec.lib" "")
 FIND_DEPENDENCE(LIBCEF "cef_browser.h" "libcef.so;libcef.a;libcef.lib" "libcef")
 FIND_DEPENDENCE(LIBIGL "igl/igl_inline.h" "" "")
 FIND_DEPENDENCE(MIMALLOC "mimalloc.h" "libmimalloc.so;mimalloc.lib" "mimalloc")
@@ -410,7 +409,7 @@ IF(NOT USE_WASM_OPTIONS)
 ENDIF(NOT USE_WASM_OPTIONS)
 
 IF(MIMALLOC_FOUND)
-    SET(VERSE_USE_MIMALLOC OFF CACHE BOOL "Enable use of mi-malloc to improve memory allocating" FORCE)
+    SET(VERSE_USE_MIMALLOC OFF CACHE BOOL "Enable use of mi-malloc to improve memory allocating")
 ENDIF(MIMALLOC_FOUND)
 
 ######################################### Platform Definintions

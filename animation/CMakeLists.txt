@@ -12,9 +12,11 @@ IF(BULLET_FOUND)
 	SET(LIBRARY_FILES ${LIBRARY_FILES} PhysicsEngine.cpp)
 ENDIF(BULLET_FOUND)
 
-IF(EFFEKSEER_FOUND)
+IF(NOT VERSE_SUPPORT_CPP17)
+    MESSAGE("[osgVerse] C++ 17 standard is disabled at present. Effekseer will be ignored.")
+ELSEIF(EFFEKSEER_FOUND)
     SET(LIBRARY_FILES ${LIBRARY_FILES} ParticleEngine.cpp)
-ENDIF(EFFEKSEER_FOUND)
+ENDIF()
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVersePipeline osgVerseModeling)
