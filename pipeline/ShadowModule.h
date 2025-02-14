@@ -30,8 +30,8 @@ namespace osgVerse
         void createCasterGeometries(osg::Node* scene, unsigned int casterMask, float boundRatio = 0.1f,
                                     const std::set<std::string>& whitelist = std::set<std::string>());
         
-        void createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
-                          unsigned int casterMask);
+        std::vector<Pipeline::Stage*> createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
+                                                   unsigned int casterMask);
         void setLightState(const osg::Vec3& pos, const osg::Vec3& dir, double maxDistance = -1.0,
                            bool retainLightPos = false);
 

@@ -165,7 +165,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
         extraDefs.push_back("vec4 textureLod(sampler2D t, vec2 uv, float l) { return texture2D(t, uv); }");
     }
 
-    if (shader.getType() == osg::Shader::VERTEX)
+    if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)
     {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
         if (glVer >= 300 || glslVer >= 140)
@@ -221,7 +221,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
     ss << "precision highp float;" << std::endl;
 #endif
-    if (shader.getType() == osg::Shader::VERTEX)
+    if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)
     {
         ss << "#define VERSE_MATRIX_MVP " << m_mvp << std::endl;
         ss << "#define VERSE_MATRIX_MV " << m_mv << std::endl;

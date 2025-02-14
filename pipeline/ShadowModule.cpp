@@ -6,6 +6,7 @@
 #include <iostream>
 #include "../modeling/Utilities.h"
 #include "Utilities.h"
+#include "ShaderLibrary.h"
 #include "ShadowModule.h"
 
 #ifndef GL_DEPTH_CLAMP
@@ -164,8 +165,8 @@ namespace osgVerse
         scene->accept(cvv); cvv.updateGeometries(~casterMask, casterMask);
     }
 
-    void ShadowModule::createStages(int shadowSize, int shadowNum, osg::Shader* vs, osg::Shader* fs,
-                                    unsigned int casterMask)
+    std::vector<Pipeline::Stage*> ShadowModule::createStages(int shadowSize, int shadowNum,
+                                                             osg::Shader* vs, osg::Shader* fs, unsigned int casterMask)
     {
         _shadowCameras.clear();
         _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
@@ -190,12 +191,16 @@ namespace osgVerse
             _shadowMaps[i]->setBorderColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
         }
 
+        std::vector<Pipeline::Stage*> stages;
         if (_pipeline.valid())
         {
-            osg::ref_ptr<osg::Program> prog = new osg::Program;
+            osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
             prog->setName("ShadowCaster_PROGRAM");
             for (int i = 0; i < _shadowNumber; ++i)
-                _pipeline->addStage(createShadowCaster(i, prog.get(), casterMask));
+            {
+                Pipeline::Stage* stage = createShadowCaster(i, prog.get(), casterMask);
+                _pipeline->addStage(stage); stages.push_back(stage);
+            }
 
             int gl = _pipeline->getContextTargetVersion(), glsl = _pipeline->getGlslTargetVersion();
             if (vs)
@@ -210,6 +215,7 @@ namespace osgVerse
                 Pipeline::createShaderDefinitions(fs, gl, glsl);
             }
         }
+        return stages;
     }
 
     void ShadowModule::addReferencePoints(const std::vector<osg::Vec3d>& pt, bool toReset)

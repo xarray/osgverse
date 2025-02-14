@@ -291,8 +291,17 @@ int main(int argc, char** argv)
     pipeline->load(ppConfig, &viewer);
 #endif
 
-    // How to use clear color instead of skybox...
 #if false
+    // How to inherit and set own GBuffer shaders
+    osg::ref_ptr<osgVerse::ScriptableProgram> gbufferProg = static_cast<osgVerse::ScriptableProgram*>(
+        pipeline->getStage("GBuffer")->getProgram()->clone(osg::CopyOp::DEEP_COPY_ALL));
+    gbufferProg->setName("Custom_GBuffer_PROGRAM");
+    gbufferProg->addSegment(osg::Shader::FRAGMENT, 1, "diffuse.rgb = vec3(1.0, 0.0, 0.0);");
+    scene->getOrCreateStateSet()->setAttribute(gbufferProg.get(), osg::StateAttribute::ON | osg::StateAttribute::PROTECTED);
+#endif
+
+#if false
+    // How to use clear color instead of skybox...
     postCamera->removeChild(skybox.get());
     pipeline->getStage("GBuffer")->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
 #endif
@@ -308,8 +317,8 @@ int main(int argc, char** argv)
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 
-    // How to add custom code to ScriptableProgram
 #if false
+    // How to add custom code to ScriptableProgram
     osgVerse::ScriptableProgram* display = pipeline->getStage("Final")->getProgram();
     if (display) display->addSegment(osg::Shader::FRAGMENT, 0,
                                      "if (gl_FragCoord.x < 960) fragData = vec4(depthValue);");

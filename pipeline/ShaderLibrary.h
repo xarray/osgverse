@@ -76,6 +76,7 @@ namespace osgVerse
     public:
         ScriptableProgram();
         ScriptableProgram(const ScriptableProgram& rhs, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
+        META_Object(osgVerse, ScriptableProgram)
 
         void addDefinitions(osg::Shader::Type t, const std::string& code);
         void addSegment(osg::Shader::Type t, int pos, const std::string& code);

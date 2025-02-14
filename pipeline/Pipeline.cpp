@@ -2,6 +2,7 @@
 #include <osg/Version>
 #include <osg/ValueObject>
 #include <osg/Depth>
+#include <osg/Billboard>
 #include <osgDB/ReadFile>
 #include <osgUtil/RenderStage>
 #include <osgViewer/Renderer>
@@ -260,6 +261,9 @@ public:
     { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
     virtual void apply(osg::Camera& node)
+    { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
+
+    virtual void apply(osg::Billboard& node)
     { PassableData s; if (passable(node, s)) osgUtil::CullVisitor::apply(node); popM(node, s); }
 
 #if OSG_VERSION_GREATER_THAN(3, 2, 3)
@@ -1317,6 +1321,35 @@ namespace osgVerse
             //prog->addBindAttribLocation(attributeNames[7], 7);
         }
         return applyDefTextures ? 7 : 0;
+    }
+
+    void Pipeline::updateStageForStereoVR(Stage* s, osg::Shader* geomShader, double eyeSep, bool useClip)
+    {
+        int glslVer = osg::maximum(_glslTargetVersion, 130);
+        createShaderDefinitions(geomShader, _glContextVersion, glslVer);
+
+        ScriptableProgram* stageProg = s->getProgram();
+        if (stageProg && stageProg->getParameter(GL_GEOMETRY_VERTICES_OUT_EXT) <= 3)
+        {
+            stageProg->addDefinitions(osg::Shader::VERTEX, "#define VERSE_VRMODE 1");
+            stageProg->addShader(geomShader);
+            stageProg->setParameter(GL_GEOMETRY_VERTICES_OUT_EXT, 2 * 3);  // Left/Right
+            stageProg->setParameter(GL_GEOMETRY_INPUT_TYPE_EXT, GL_TRIANGLES);
+            stageProg->setParameter(GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLES);
+        }
+
+        osg::StateSet* stageSS = s->camera->getOrCreateStateSet();
+        if (useClip)
+        {
+            stageSS->setMode(GL_CLIP_PLANE0, osg::StateAttribute::ON);
+            stageSS->setMode(GL_CLIP_PLANE1, osg::StateAttribute::ON);
+            stageSS->setMode(GL_CLIP_PLANE2, osg::StateAttribute::ON);
+            stageSS->setMode(GL_CLIP_PLANE3, osg::StateAttribute::ON);
+        }
+
+        osg::Uniform* eyeUniform = stageSS->getOrCreateUniform("eyeSep", osg::Uniform::FLOAT, 2);
+        eyeUniform->setElement(0, -(float)eyeSep * 0.5f);
+        eyeUniform->setElement(1, (float)eyeSep * 0.5f);
     }
 
     osg::StateSet* Pipeline::createForwardStateSet(osg::Shader* vs, osg::Shader* fs)

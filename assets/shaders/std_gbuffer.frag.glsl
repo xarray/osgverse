@@ -3,6 +3,7 @@ uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
 uniform float ModelIndicator;
 VERSE_FS_IN vec4 texCoord0, texCoord1, color;
 VERSE_FS_IN vec3 eyeNormal, eyeTangent, eyeBinormal;
+VERSE_SRCIPT_DEF;
 
 #ifdef VERSE_GLES3
 layout(location = 0) VERSE_FS_OUT vec4 fragData0;
@@ -19,6 +20,8 @@ void main()
     vec3 specular = VERSE_TEX2D(SpecularMap, uv0).rgb;
     vec3 emission = VERSE_TEX2D(EmissiveMap, uv1).rgb;
     vec3 metalRough = VERSE_TEX2D(ShininessMap, uv0).rgb;
+
+    VERSE_SCRIPT_FUNC(0);
     if (diffuse.a < 0.1) discard;
 
     // Compute eye-space normal
@@ -30,6 +33,7 @@ void main()
     }
 
     // MRT output
+    VERSE_SCRIPT_FUNC(1);
 #ifdef VERSE_GLES3
     fragData0/*NormalBuffer*/ = vec4(eyeNormal2.xyz, ModelIndicator * 0.1);
     fragData1/*DiffuseMetallicBuffer*/ = vec4(diffuse.rgb, metalRough.b);

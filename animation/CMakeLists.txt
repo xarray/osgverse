@@ -16,7 +16,7 @@ FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effeksee
 IF(NOT VERSE_SUPPORT_CPP17)
     MESSAGE("[osgVerse] C++ 17 standard is disabled at present. Effekseer will be ignored.")
 ELSEIF(EFFEKSEER_FOUND)
-    SET(LIBRARY_FILES ${LIBRARY_FILES} ParticleEngine.cpp)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ParticleEngineEffekseer.cpp)
 ENDIF()
 
 NEW_LIBRARY(${LIB_NAME} STATIC)

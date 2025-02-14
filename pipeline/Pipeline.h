@@ -209,6 +209,9 @@ namespace osgVerse
         /** Remove all stages and reset the viewer to default (clear all slaves) */
         void clearStagesFromView(osgViewer::View* view, osg::Camera* mainCam = NULL);
 
+        /** Apply attributes for VR mode geometry shader */
+        void updateStageForStereoVR(Stage* s, osg::Shader* geomShader, double eyeSep, bool useClip);
+
         /** Require depth buffer of specific stage to blit to default forward pass */
         void requireDepthBlit(Stage* s, bool addToList)
         { _deferredCallback->requireDepthBlit(s->camera, addToList); }
@@ -338,13 +341,13 @@ namespace osgVerse
         /** Shader configuations */
         struct ShaderParameters
         {
-            osg::ref_ptr<osg::Shader> gbufferVS, shadowCastVS, quadVS;
+            osg::ref_ptr<osg::Shader> gbufferVS, gbufferGS, shadowCastVS, shadowCastGS;
             osg::ref_ptr<osg::Shader> gbufferFS, shadowCastFS, ssaoFS, ssaoBlurFS;
             osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, downsampleFS;
             osg::ref_ptr<osg::Shader> brightnessFS, brightnessCombineFS, bloomFS;
             osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, displayFS, quadFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
-            osg::ref_ptr<osg::Shader> forwardVS, forwardFS;
+            osg::ref_ptr<osg::Shader> forwardVS, forwardFS, quadVS;
         };
 
         typedef std::vector<UserInputStageData> UserInputStageList;
@@ -355,9 +358,9 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight, deferredMask, forwardMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution;
-        double depthPartitionNearValue;
+        double depthPartitionNearValue, eyeSeparationVR;
         bool withEmbeddedViewer, debugShadowModule, enableVSync, enableMRT;
-        bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition;
+        bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);

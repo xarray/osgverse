@@ -1,5 +1,6 @@
 #include "Pipeline.h"
 #include "SkyBox.h"
+#include "ShaderLibrary.h"
 #include "UserInputModule.h"
 #include "ShadowModule.h"
 #include "LightModule.h"
@@ -97,9 +98,9 @@ namespace osgVerse
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
-        depthPartitionNearValue(0.1), withEmbeddedViewer(false), debugShadowModule(false),
-        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
-        enableUserInput(false), enableDepthPartition(false)
+        depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
+        debugShadowModule(false), enableVSync(true), enableMRT(true), enableAO(true),
+        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -108,9 +109,9 @@ namespace osgVerse
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
-        depthPartitionNearValue(0.1), withEmbeddedViewer(false), debugShadowModule(false),
-        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
-        enableUserInput(false), enableDepthPartition(false)
+        depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
+        debugShadowModule(false), enableVSync(true), enableMRT(true), enableAO(true),
+        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -123,8 +124,9 @@ namespace osgVerse
     if (var != NULL) var->setType(type);
 
             READ_SHADER(shaders.gbufferVS, VERT, dir + "std_gbuffer.vert.glsl");
+            READ_SHADER(shaders.gbufferGS, GEOM, dir + "std_gbuffer.geom.glsl");
             READ_SHADER(shaders.shadowCastVS, VERT, dir + "std_shadow_cast.vert.glsl");
-            READ_SHADER(shaders.quadVS, VERT, dir + "std_common_quad.vert.glsl");
+            READ_SHADER(shaders.shadowCastGS, GEOM, dir + "std_shadow_cast.geom.glsl");
 
             READ_SHADER(shaders.gbufferFS, FRAG, dir + "std_gbuffer.frag.glsl");
             READ_SHADER(shaders.shadowCastFS, FRAG, dir + "std_shadow_cast.frag.glsl");
@@ -146,6 +148,7 @@ namespace osgVerse
 
             READ_SHADER(shaders.forwardVS, VERT, dir + "std_forward_render.vert.glsl");
             READ_SHADER(shaders.forwardFS, FRAG, dir + "std_forward_render.frag.glsl");
+            READ_SHADER(shaders.quadVS, VERT, dir + "std_common_quad.vert.glsl");
         }
 
         std::string iblFile = osgDB::getNameLessExtension(sky) + ".ibl.rseq";
@@ -304,11 +307,15 @@ namespace osgVerse
 #endif
 
             // TODO: more gbuffers
-            OSG_WARN << "[StandardPipeline] DrawBuffersMRT doesn't work here. It may cause "
-                     << "unexpected problems at present." << std::endl;
+            OSG_FATAL << "[StandardPipeline] DrawBuffersMRT doesn't work here. Current "
+                      << "pipeline requires MRT; otherwise it will fail." << std::endl;
+            return false;
         }
+
         if (gbuffer && spp.enableDepthPartition)  // GBuffer is always depth-partition front
             gbuffer->depthPartition.set(1.0, spp.depthPartitionNearValue);
+        if (gbuffer && spp.shaders.gbufferGS.valid() && spp.enableVR)
+            p->updateStageForStereoVR(gbuffer, spp.shaders.gbufferGS, spp.eyeSeparationVR, true);
 
         // User input module before any deferred passes
         occasion = StandardPipelineParameters::BEFORE_DEFERRED_PASSES;
@@ -322,8 +329,14 @@ namespace osgVerse
         // Shadow module initialization
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =
             new osgVerse::ShadowModule("Shadow", p, spp.debugShadowModule);
-        shadowModule->createStages(spp.shadowResolution, spp.shadowNumber,
+        std::vector<Pipeline::Stage*> shadowStages = shadowModule->createStages(
+            spp.shadowResolution, spp.shadowNumber,
             spp.shaders.shadowCastVS, spp.shaders.shadowCastFS, spp.shadowCastMask);
+        if (spp.shaders.shadowCastGS.valid() && spp.enableVR)
+        {
+            for (size_t i = 0; i < shadowStages.size(); ++i)
+                p->updateStageForStereoVR(shadowStages[i], spp.shaders.shadowCastGS, spp.eyeSeparationVR, false);
+        }
 
         // Update shadow matrices at the end of g-buffer (when near/far planes are sync-ed)
         osg::ref_ptr<osgVerse::ShadowDrawCallback> shadowCallback =
