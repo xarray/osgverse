@@ -155,12 +155,12 @@ protected:
 
 ParticleSystemU3D::ParticleSystemU3D(UpdateMethod upMode)
 :   _collisionValues(0.0f, 1.0f, 0.0f, 0.0f), _emissionShapeValues(1.0f, 1.0f, 1.0f, 1.0f),
-    _startDirection(0.0f, 0.0f, 1.0f), _textureSheetTiles(1.0f, 1.0f), _emissionCount(100.0f, 0.0f),
+    _startDirection(0.0f, 0.0f, 0.0f), _textureSheetTiles(1.0f, 1.0f), _emissionCount(100.0f, 0.0f),
     _startLifeRange(1.0f, 5.0f), _startSizeRange(0.1f, 1.0f), _startSpeedRange(0.1f, 1.0f),
     _maxParticles(1000.0), _startDelay(0.0), _gravityScale(1.0), _startTime(0.0),
     _lastSimulationTime(0.0), _duration(1.0), _aspectRatio(16.0 / 9.0), _emissionShape(EMIT_Point),
     _emissionSurface(EMIT_Volume), _particleType(PARTICLE_Billboard),
-    _blendingType(BLEND_Modulate), _updateMethod(upMode), _dirty(true)
+    _blendingType(BLEND_Modulate), _updateMethod(upMode), _dirty(true), _started(true)
 {
     ParticleSystemPoolU3D::instance()->createParameterTexture(0, upMode);
     ParticleSystemPoolU3D::instance()->createParameterTexture(1, upMode);
@@ -184,7 +184,8 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _startTime(copy._startTime), _lastSimulationTime(copy._lastSimulationTime), _duration(copy._duration),
     _aspectRatio(copy._aspectRatio), _emissionShape(copy._emissionShape),
     _emissionSurface(copy._emissionSurface), _particleType(copy._particleType),
-    _blendingType(copy._blendingType), _updateMethod(copy._updateMethod), _dirty(copy._dirty) {}
+    _blendingType(copy._blendingType), _updateMethod(copy._updateMethod),
+    _dirty(copy._dirty), _started(copy._started) {}
 
 ParticleSystemU3D::~ParticleSystemU3D()
 { ParticleSystemPoolU3D::instance()->deallocate(this); }
@@ -226,7 +227,9 @@ void ParticleSystemU3D::linkTo(osg::Geode* geode, bool applyStates,
         program->addBindAttribLocation("osg_UserColor", 5);
         program->addBindAttribLocation("osg_UserVelocity", 6);
         program->addBindAttribLocation("osg_UserEulers", 7);
-        vert->setShaderSource("#define USE_VERTEX_ATTRIB 1\n" + vert->getShaderSource());
+
+        if (vert->getShaderSource().find("#define USE_VERTEX_ATTRIB") == std::string::npos)
+            vert->setShaderSource("#define USE_VERTEX_ATTRIB 1\n" + vert->getShaderSource());
     }
     program->addShader(vert); Pipeline::createShaderDefinitions(vert, 100, 130);
     program->addShader(frag); Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
@@ -243,17 +246,17 @@ void ParticleSystemU3D::unlinkFrom(osg::Geode* geode)
     geode->removeUpdateCallback(this);
 }
 
-void ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
+bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
                                   osg::Vec4* ptr2, osg::Vec4* ptr3)
 {
     osg::BoundingBox bounds; double dt = time - _lastSimulationTime;
     int numToAdd = osg::maximum((int)(_emissionCount[0] * dt), (_emissionCount[0] > 0.0f) ? 1 : 0),
-        sizeInt = (int)size;
+        sizeInt = (int)size; if (!_started) numToAdd = 0;
 
     // Remove and create particles
     float maxTexSheet = _textureSheetTiles.x() * _textureSheetTiles.y();
     osg::Vec3 force = (osg::Vec3(0.0f, 0.0f, -9.8f) * _worldToLocal) * _gravityScale;
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < sizeInt; ++i)
     {
         osg::Vec4& posSize = *(ptr0 + i); osg::Vec4& color = *(ptr1 + i);
@@ -288,7 +291,7 @@ void ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
 
     if (_geometry2.valid()) bounds.expandBy(_geometry2->getBound());
     if (_geometry.valid()) _geometry->setInitialBound(bounds);
-    _lastSimulationTime = time;
+    _lastSimulationTime = time; return bounds.valid();
 }
 
 void ParticleSystemU3D::recreate()
@@ -378,7 +381,7 @@ void ParticleSystemU3D::recreate()
 
 void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
 {
-    osg::Matrix matrix; osg::Vec3 pos3;
+    osg::Matrix matrix; osg::Vec3 pos3, vel3 = _startDirection;
     if (_emissionTarget.valid())
     {
         osg::MatrixList mList = _emissionTarget->getWorldMatrices();
@@ -386,38 +389,42 @@ void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
     }
 
     // TODO: emission eulers
+    bool useDefVelocity = osg::equivalent(vel3.length2(), 0.0f);
     pos3.set(_emissionShapeCenter[0], _emissionShapeCenter[1], _emissionShapeCenter[2]);
     switch (_emissionShape)
     {
     case EMIT_Box:
-        if (_emissionSurface == EMIT_Volume)
+        if (useDefVelocity) vel3 = osg::Z_AXIS;
         {
-            pos3 += osg::Vec3(RAND_RANGE1(_emissionShapeValues[0]),
-                              RAND_RANGE1(_emissionShapeValues[1]),
-                              RAND_RANGE1(_emissionShapeValues[2]));
-        }
-        else
-        {}  // TODO
-        break;
-    case EMIT_Sphere:
-        if (_emissionSurface == EMIT_Volume)
-        {
-            osg::Vec3 pt;
-            do
+            osg::Vec3 pt(RAND_RANGE1(_emissionShapeValues[0]),
+                         RAND_RANGE1(_emissionShapeValues[1]),
+                         RAND_RANGE1(_emissionShapeValues[2]));
+            if (_emissionSurface != EMIT_Volume)
             {
-                pt = osg::Vec3(RAND_RANGE1(2.0f), RAND_RANGE1(2.0f), RAND_RANGE1(2.0f));
-            } while (pt.length2() > 1.0f);
-            pos3 += osg::Vec3(pt[0] * _emissionShapeValues[0], pt[1] * _emissionShapeValues[1],
-                              pt[2] * _emissionShapeValues[2]);
+                // TODO
+            }
+            pos3 += pt;
         }
-        else
-        {}  // TODO
+        break;
+    case EMIT_Circle: case EMIT_Sphere:
+        {
+            osg::Vec3 pt; float emissionValue2 = (_emissionShape == EMIT_Circle)
+                                               ? 0.0f : _emissionShapeValues[2];
+            do {
+                pt = (_emissionShape == EMIT_Circle) ? osg::Vec3(RAND_RANGE1(2.0f), RAND_RANGE1(2.0f), 0.0f)
+                   : osg::Vec3(RAND_RANGE1(2.0f), RAND_RANGE1(2.0f), RAND_RANGE1(2.0f));
+            } while (pt.length2() > 1.0f);
+            if (_emissionSurface != EMIT_Volume) pt.normalize();
+            pos3 += osg::Vec3(pt[0] * _emissionShapeValues[0],
+                              pt[1] * _emissionShapeValues[1], pt[2] * emissionValue2);
+            if (useDefVelocity) vel3 = pt; if (vel3.length2() == 0.f) vel3 = osg::Z_AXIS;
+        }
         break;
     case EMIT_Plane:
         {
             osg::Vec3 pt, N = osg::Vec3(_emissionShapeValues[0],
                                         _emissionShapeValues[1], _emissionShapeValues[2]);
-            if (N.length2() < 0.1f) break;
+            if (N.length2() < 0.1f) break; else if (useDefVelocity) vel3 = N;
             do
             {
                 pt = osg::Vec3(RAND_RANGE1(1.0f), RAND_RANGE1(1.0f), RAND_RANGE1(1.0f));
@@ -429,11 +436,14 @@ void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
     case EMIT_Mesh:
         // TODO: to vhacd and emit particles
         break;
-    default: break;  // EMIT_Point
+    default:
+        if (useDefVelocity) vel3 = osg::Vec3(RAND_RANGE1(2.0f), RAND_RANGE1(2.0f), RAND_RANGE1(2.0f));
+        break;  // EMIT_Point
     }
 
-    osg::Vec3 dir = _startDirection * RAND_RANGE2(_startSpeedRange);  // FIXME: some turbulence?
-    vel.set(dir[0], dir[1], dir[2], 0.0f); pos = osg::Vec4(pos3 * matrix, 0.0f);
+    vel3.normalize(); vel3 = osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), vel3);
+    vel3 = vel3 * RAND_RANGE2(_startSpeedRange); vel.set(vel3[0], vel3[1], vel3[2], 0.0f);
+    pos = osg::Vec4(pos3 * matrix, 0.0f);
 }
 
 template<typename T> void getValueFromMap(std::map<float, T>& dataMap, T& value, float t)

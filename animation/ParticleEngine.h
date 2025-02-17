@@ -25,6 +25,10 @@ namespace osgVerse
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
+        void play() { _started = true; }
+        void stop() { _started = false; }
+        bool isPlaying() const { return _started; }
+
         // Link this particle system to a geode to make it work
         void linkTo(osg::Geode* geode, bool applyStates, osg::Shader* vert = NULL, osg::Shader* frag = NULL);
         void unlinkFrom(osg::Geode* geode);
@@ -32,10 +36,10 @@ namespace osgVerse
         // Update parameters in CPU_* mode:
         // - ptr0: pos x, y, z, size; ptr1: color r, g, b, a
         // - ptr2: velocity x, y, z, life; ptr3: euler x, y, z, anim id
-        void updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
+        bool updateCPU(double time, unsigned int size, osg::Vec4* ptr0, osg::Vec4* ptr1,
                        osg::Vec4* ptr2, osg::Vec4* ptr3);
 
-        enum EmissionShape { EMIT_Point, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
+        enum EmissionShape { EMIT_Point, EMIT_Circle, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
         enum EmissionSurface { EMIT_Volume, EMIT_Shell };
         enum ParticleType { PARTICLE_Billboard, PARTICLE_BillboardNoScale, PARTICLE_Line, PARTICLE_Mesh };
         enum BlendingType { BLEND_None, BLEND_Modulate, BLEND_Additive };
@@ -148,7 +152,7 @@ namespace osgVerse
         osg::Vec4 _collisionValues;      // dampen, bounce scale, lifetime loss, min kill speed
         osg::Vec4 _textureSheetRange;    // Sheet X0, Y0, W, H
         osg::Vec4 _textureSheetValues;   // playing speed by lifetime, by velocity, by FPS, and cycles
-        osg::Vec4 _emissionShapeValues;  // Plane: normal + size; Sphere: radii, Box: sizes
+        osg::Vec4 _emissionShapeValues;  // Plane: normal + size (4); Circle/Sphere: radii (2/3), Box: sizes (3)
         osg::Vec3 _emissionShapeCenter, _emissionShapeEulers;
         osg::Vec3 _startDirection;
         osg::Vec2 _textureSheetTiles;    // texture sheet X, Y
@@ -161,7 +165,7 @@ namespace osgVerse
         ParticleType _particleType;
         BlendingType _blendingType;
         UpdateMethod _updateMethod;
-        bool _dirty;
+        bool _dirty, _started;
     };
 
     class ParticleDrawableEffekseer : public osg::Drawable
