@@ -1,13 +1,13 @@
 SET(LIB_NAME osgdb_codec_nv)
 SET(LIBRARY_FILES
     ReaderWriterCodecNV.cpp NvDecoder/NvDecoder.cpp
-    NvDecoder/NvDecoder.h Utils/NvCodecUtils.h Utils/FFmpegDemuxer.h
+    NvDecoder/NvDecoder.h Utils/NvCodecUtils.h
     Common/AppDecUtils.h Common/FramePresenter.h
 )
 
 #########################################
 FIND_DEPENDENCE(NV_DECODER "nvcuvid.h" "libnvcuvid.so;nvcuvid.lib" "")
-IF(CUDA_FOUND AND FFMPEG_FOUND AND NV_DECODER_FOUND)
+IF(CUDA_FOUND AND NV_DECODER_FOUND)
 
     SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
     IF(VERSE_STATIC_BUILD)
@@ -18,8 +18,8 @@ IF(CUDA_FOUND AND FFMPEG_FOUND AND NV_DECODER_FOUND)
 
     SET_PROPERTY(TARGET ${LIB_NAME} PROPERTY FOLDER "PLUGINS")
     TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVersePipeline nvencodeapi nvcuvid
-                          ${CUDA_CUDA_LIBRARY} avcodec avformat avdevice avutil swscale swresample)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVersePipeline
+                          ${CUDA_CUDA_LIBRARY} nvencodeapi nvcuvid)
     LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil)
 
     INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
@@ -32,4 +32,4 @@ IF(CUDA_FOUND AND FFMPEG_FOUND AND NV_DECODER_FOUND)
         ENDIF()
     ENDIF()
 
-ENDIF(CUDA_FOUND AND FFMPEG_FOUND AND NV_DECODER_FOUND)
+ENDIF(CUDA_FOUND AND NV_DECODER_FOUND)

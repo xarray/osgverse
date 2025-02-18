@@ -35,7 +35,8 @@ extern "C" {
 #include <libavcodec/bsf.h>
 #endif
 }
-#include "NvCodecUtils.h"
+
+#include <iostream>
 
 //---------------------------------------------------------------------------
 //! \file FFmpegDemuxer.h 
@@ -81,7 +82,7 @@ private:
     */
     FFmpegDemuxer(AVFormatContext *fmtc, int64_t timeScale = 1000 /*Hz*/) : fmtc(fmtc) {
         if (!fmtc) {
-            LOG(ERROR) << "No AVFormatContext provided.";
+            std::cerr << "No AVFormatContext provided.";
             return;
         }
 
@@ -89,16 +90,16 @@ private:
         pkt = av_packet_alloc();
         pktFiltered = av_packet_alloc();
         if (!pkt || !pktFiltered) {
-            LOG(ERROR) << "AVPacket allocation failed";
+            std::cerr << "AVPacket allocation failed";
             return;
         }
 
-        LOG(INFO) << "Media format: " << fmtc->iformat->long_name << " (" << fmtc->iformat->name << ")";
+        //LOG(INFO) << "Media format: " << fmtc->iformat->long_name << " (" << fmtc->iformat->name << ")";
 
-        ck(avformat_find_stream_info(fmtc, NULL));
+        avformat_find_stream_info(fmtc, NULL);
         iVideoStream = av_find_best_stream(fmtc, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
         if (iVideoStream < 0) {
-            LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "Could not find stream in input file";
+            std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "Could not find stream in input file";
             av_packet_free(&pkt);
             av_packet_free(&pktFiltered);
             return;
@@ -152,7 +153,7 @@ private:
             nBPP = 1;
             break;
         default:
-            LOG(WARNING) << "ChromaFormat not recognized. Assuming 420";
+            std::cerr << "ChromaFormat not recognized. Assuming 420";
             eChromaFormat = AV_PIX_FMT_YUV420P;
             nBitDepth = 8;
             nChromaHeight = (nHeight + 1) >> 1;
@@ -180,26 +181,26 @@ private:
         if (bMp4H264) {
             const AVBitStreamFilter *bsf = av_bsf_get_by_name("h264_mp4toannexb");
             if (!bsf) {
-                LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "av_bsf_get_by_name() failed";
+                std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "av_bsf_get_by_name() failed";
                 av_packet_free(&pkt);
                 av_packet_free(&pktFiltered);
                 return;
             }
-            ck(av_bsf_alloc(bsf, &bsfc));
+            av_bsf_alloc(bsf, &bsfc);
             avcodec_parameters_copy(bsfc->par_in, fmtc->streams[iVideoStream]->codecpar);
-            ck(av_bsf_init(bsfc));
+            av_bsf_init(bsfc);
         }
         if (bMp4HEVC) {
             const AVBitStreamFilter *bsf = av_bsf_get_by_name("hevc_mp4toannexb");
             if (!bsf) {
-                LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "av_bsf_get_by_name() failed";
+                std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "av_bsf_get_by_name() failed";
                 av_packet_free(&pkt);
                 av_packet_free(&pktFiltered);
                 return;
             }
-            ck(av_bsf_alloc(bsf, &bsfc));
+            av_bsf_alloc(bsf, &bsfc);
             avcodec_parameters_copy(bsfc->par_in, fmtc->streams[iVideoStream]->codecpar);
-            ck(av_bsf_init(bsfc));
+            av_bsf_init(bsfc);
         }
     }
 
@@ -207,7 +208,7 @@ private:
 
         AVFormatContext *ctx = NULL;
         if (!(ctx = avformat_alloc_context())) {
-            LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+            std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
             return NULL;
         }
 
@@ -215,18 +216,18 @@ private:
         int avioc_buffer_size = 8 * 1024 * 1024;
         avioc_buffer = (uint8_t *)av_malloc(avioc_buffer_size);
         if (!avioc_buffer) {
-            LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+            std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
             return NULL;
         }
         avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size,
             0, pDataProvider, &ReadPacket, NULL, NULL);
         if (!avioc) {
-            LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+            std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
             return NULL;
         }
         ctx->pb = avioc;
 
-        ck(avformat_open_input(&ctx, NULL, NULL, NULL));
+        avformat_open_input(&ctx, NULL, NULL, NULL);
         return ctx;
     }
 
@@ -239,7 +240,7 @@ private:
         avformat_network_init();
 
         AVFormatContext *ctx = NULL;
-        ck(avformat_open_input(&ctx, szFilePath, NULL, NULL));
+        avformat_open_input(&ctx, szFilePath, NULL, NULL);
         return ctx;
     }
 
@@ -315,8 +316,8 @@ public:
             if (pktFiltered->data) {
                 av_packet_unref(pktFiltered);
             }
-            ck(av_bsf_send_packet(bsfc, pkt));
-            ck(av_bsf_receive_packet(bsfc, pktFiltered));
+            av_bsf_send_packet(bsfc, pkt);
+            av_bsf_receive_packet(bsfc, pktFiltered);
             *ppVideo = pktFiltered->data;
             *pnVideoBytes = pktFiltered->size;
             if (pts)
@@ -333,7 +334,7 @@ public:
                     pDataWithHeader = (uint8_t *)av_malloc(extraDataSize + pkt->size - 3*sizeof(uint8_t));
 
                     if (!pDataWithHeader) {
-                        LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+                        std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
                         return false;
                     }
 
@@ -362,7 +363,7 @@ public:
         return ((DataProvider *)opaque)->GetData(pBuf, nBuf);
     }
 };
-
+/*
 inline cudaVideoCodec FFmpeg2NvCodecId(AVCodecID id) {
     switch (id) {
     case AV_CODEC_ID_MPEG1VIDEO : return cudaVideoCodec_MPEG1;
@@ -379,5 +380,5 @@ inline cudaVideoCodec FFmpeg2NvCodecId(AVCodecID id) {
     default                     : return cudaVideoCodec_NumCodecs;
     }
 }
-
+*/
 

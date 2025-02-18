@@ -1,6 +1,7 @@
 #include "FFmpegHeaders.hpp"
 #include "FFmpegImageStream.hpp"
 #include "FFmpegParameters.hpp"
+#include "ResourceDemuxer.h"
 
 #include <osgDB/Registry>
 #include <osgDB/FileNameUtils>
@@ -56,7 +57,7 @@ public:
         supportsProtocol("rtp",  "Read video/audio from rtp using ffmpeg.");
         supportsProtocol("tcp",  "Read video/audio from tcp using ffmpeg.");
 
-        supportsExtension("codec_ffmpeg", "");
+        supportsExtension("verse_ffmpeg", "");
         supportsExtension("ffmpeg", "");
         supportsExtension("avi",    "");
         supportsExtension("flv",    "Flash video");
@@ -101,19 +102,34 @@ public:
 
     virtual const char * className() const
     {
-        return "[osgVerse] Video codec plugin depending on FFmpeg";
+        return "[osgVerse] Video plugin depending on FFmpeg";
     }
 
     virtual ReadResult readObject(const std::string& file, const osgDB::ReaderWriter::Options* options =NULL) const
-    { return readImage(file, options); }
+    {
+        const std::string ext = osgDB::getLowerCaseFileExtension(file);
+        const std::string pro = osgDB::getServerProtocol(file);
+        if (!acceptsExtension(ext) && !acceptsProtocol(pro)) return ReadResult::FILE_NOT_HANDLED;
+        if (ext == "ffmpeg" || ext == "verse_ffmpeg")
+            return readObject(osgDB::getNameLessExtension(file), options);
+
+        osg::ref_ptr<osgVerse::FFmpegResourceDemuxer> demuxer = new osgVerse::FFmpegResourceDemuxer(file);
+        if (demuxer->getWidth() > 0 && demuxer->getHeight() > 0)
+        {
+            osgVerse::CudaResourceDemuxerMuxerContainer* container =
+                new osgVerse::CudaResourceDemuxerMuxerContainer;
+            container->setDemuxer(demuxer.get()); return container;
+        }
+        return ReadResult::ERROR_IN_READING_FILE;
+    }
 
     virtual ReadResult readImage(const std::string & filename, const osgDB::ReaderWriter::Options* options) const
     {
         const std::string ext = osgDB::getLowerCaseFileExtension(filename);
         const std::string pro = osgDB::getServerProtocol(filename);
         if (!acceptsExtension(ext) && !acceptsProtocol(pro)) return ReadResult::FILE_NOT_HANDLED;
-        if (ext == "ffmpeg" || ext == "codec_ffmpeg")
-            return readImage(osgDB::getNameLessExtension(filename),options);
+        if (ext == "ffmpeg" || ext == "verse_ffmpeg")
+            return readImage(osgDB::getNameLessExtension(filename), options);
 
         osg::ref_ptr<osgFFmpeg::FFmpegParameters> parameters(new osgFFmpeg::FFmpegParameters);
         parseOptions(parameters.get(), options);
@@ -170,4 +186,4 @@ private:
     }
 };
 
-REGISTER_OSGPLUGIN(codec_ffmpeg, ReaderWriterFFmpeg)
+REGISTER_OSGPLUGIN(verse_ffmpeg, ReaderWriterFFmpeg)

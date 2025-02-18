@@ -1,6 +1,6 @@
-SET(LIB_NAME osgdb_codec_ffmpeg)
+SET(LIB_NAME osgdb_verse_ffmpeg)
 SET(LIBRARY_FILES
-    ReaderWriterFFmpeg.cpp
+    ReaderWriterFFmpeg.cpp ResourceDemuxer.h
     FFmpegClocks.cpp FFmpegClocks.hpp
     FFmpegDecoderAudio.cpp FFmpegDecoderAudio.hpp
     FFmpegDecoder.cpp FFmpegDecoder.hpp

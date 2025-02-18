@@ -26,7 +26,8 @@ CudaResourceReaderBase::CudaResourceReaderBase(CUcontext cu)
 void CudaResourceReaderBase::releaseCuda()
 {
     _mutex.lock();
-    ck(cuMemFree(_deviceFrame)); _pbo = 0;
+    ck(cuMemFree(_deviceFrame));
+    _pbo = 0; _demuxer = NULL;
     _mutex.unlock();
 }
 

@@ -12,7 +12,6 @@
 #include "pipeline/CudaTexture2D.h"
 #include "NvDecoder/NvDecoder.h"
 #include "Utils/NvCodecUtils.h"
-#include "Utils/FFmpegDemuxer.h"
 #include "Common/AppDecUtils.h"
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
@@ -21,31 +20,27 @@ class CuvidResourceReader : public osgVerse::CudaResourceReaderBase
 public:
     CuvidResourceReader(CUcontext cu)
         : osgVerse::CudaResourceReaderBase(cu), _numFrames(0)
-    { _demuxer = NULL; _decoder = NULL; }
+    { _decoder = NULL; }
 
     virtual ~CuvidResourceReader()
-    {
-        if (_decoder != NULL) delete _decoder;
-        if (_demuxer != NULL) delete _demuxer;
-    }
+    { if (_decoder != NULL) delete _decoder; }
 
-    virtual bool openResource(const std::string& name)
+    virtual bool openResource(Demuxer* demuxer)
     {
+        _demuxer = demuxer; if (!demuxer) return false;
+        if (_demuxer->getVideoCodec() == osgVerse::CODEC_INVALID) return false;
         if (_decoder != NULL) delete _decoder;
-        if (_demuxer != NULL) delete _demuxer;
         
-        _demuxer = new FFmpegDemuxer(name.c_str(), 1000i64);
-        _decoder = new NvDecoder(_cuContext, true, FFmpeg2NvCodecId(_demuxer->GetVideoCodec()));
-        _width = (_demuxer->GetWidth() + 1) & ~1; _height = _demuxer->GetHeight();
+        _decoder = new NvDecoder(_cuContext, true, (cudaVideoCodec)_demuxer->getVideoCodec());
+        _width = (_demuxer->getWidth() + 1) & ~1; _height = _demuxer->getHeight();
         _numFrames = 0; return true;
     }
 
     virtual void releaseCuda()
     {
         _mutex.lock();
-        ck(cuMemFree(_deviceFrame)); _pbo = 0;
+        ck(cuMemFree(_deviceFrame)); _pbo = 0; _demuxer = NULL;
         if (_decoder != NULL) delete _decoder; _decoder = NULL;
-        if (_demuxer != NULL) delete _demuxer; _demuxer = NULL;
         _mutex.unlock();
     }
 
@@ -55,8 +50,8 @@ public:
         uint8_t* video = NULL, * frame = NULL;
         int videoBytes = 0, frameReturned = 0, matrixData = 0, pitch = _width * 4;
         if (!_demuxer || !_decoder || !_vendorStatus) { setState(INVALID); return; }
+        if (!_demuxer->demux(&video, &videoBytes, NULL)) { setState(PENDING); return; }
 
-        _demuxer->Demux(&video, &videoBytes);
         frameReturned = _decoder->Decode(video, videoBytes);
         if (!_numFrames && frameReturned)
             OSG_NOTICE << "[CuvidResourceReader] " << _decoder->GetVideoInfo() << std::endl;
@@ -93,28 +88,10 @@ public:
     }
 
 protected:
-    FFmpegDemuxer* _demuxer;
     NvDecoder* _decoder;
     int _numFrames;
 };
 
-/** How to use the codec plugin:
-    - int numGpu = 0, idGpu = 0; cuInit(0)); cuDeviceGetCount(&numGpu);
-      if (idGpu < 0 || idGpu >= numGpu) return 1;
-      CUcontext cuContext = NULL; createCudaContext(&cuContext, idGpu, CU_CTX_SCHED_BLOCKING_SYNC);
-
-    - osgDB::Options* opt = new osgDB::Options; opt->setPluginData("Context", cuContext);
-      osg::ref_ptr<osgVerse::CudaTexture2D> tex = new osgVerse::CudaTexture2D(cuContext);
-      tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-      tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
-
-    - osgVerse::CudaResourceReaderContainer* container =
-          dynamic_cast<osgVerse::CudaResourceReaderContainer*>(osgDB::readObject("movie.codec_nv", opt));
-      tex->setResourceReader(container->getResourceReader());
-      ......
-
-    - tex->releaseCudaData(); cuCtxDestroy(cuContext);
-*/
 class ReaderWriterCodecNV : public osgDB::ReaderWriter
 {
 public:
@@ -137,23 +114,13 @@ public:
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
-        bool usePseudo = (ext == "codec_nv");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
         const void* context = (options ? options->getPluginData("Context") : NULL);
         if (context != NULL)
         {
-            osg::ref_ptr<CuvidResourceReader> reader = new CuvidResourceReader((CUcontext)context);
-            if (reader->openResource(fileName))
-            {
-                osgVerse::CudaResourceReaderContainer* container =
-                    new osgVerse::CudaResourceReaderContainer;
-                container->setResourceReader(reader.get()); return container;
-            }
+            osgVerse::CudaResourceReaderWriterContainer* container =
+                new osgVerse::CudaResourceReaderWriterContainer;
+            container->setReader(new CuvidResourceReader((CUcontext)context));
+            return container;
         }
         return ReadResult::FILE_NOT_FOUND;
     }
