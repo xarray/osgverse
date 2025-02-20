@@ -80,7 +80,8 @@ void CudaResourceReaderBase::load(const osg::Texture2D& texture, osg::State& sta
 
 void CudaResourceReaderBase::subload(const osg::Texture2D& texture, osg::State& state) const
 {
-    if (_width == 0 || _height == 0 || _pbo == 0) return;
+    if (_width == 0 || _height == 0) return;
+    if (_pbo == 0) { load(texture, state); if (_pbo == 0) return; }
     _mutex.lock();
 
     CUgraphicsResource cuResource;

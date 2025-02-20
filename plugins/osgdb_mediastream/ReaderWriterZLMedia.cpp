@@ -9,9 +9,11 @@
 #include <osgDB/Archive>
 
 #include "pipeline/Global.h"
+#include "pipeline/CudaTexture2D.h"
 #include "3rdparty/xxYUV/rgb2yuv.h"
 #include <mk_mediakit.h>
 #include <chrono>
+#include <queue>
 #define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))
 
 // for webrtc answer sdp
@@ -47,6 +49,65 @@ static char* escape_string(const char* ptr)
 
 class ZLMediaServerArchive;
 osg::observer_ptr<ZLMediaServerArchive> g_server;
+
+class ZLMediaResourceDemuxer : public osgVerse::CudaResourceReaderBase::Demuxer
+{
+public:
+    ZLMediaResourceDemuxer() : _width(0), _height(0), _type(osgVerse::CODEC_INVALID) {}
+
+    void setTrackInfo(int codec, int w, int h)
+    {
+        if (codec == MKCodecH264) _type = osgVerse::CODEC_H264;
+        else if (codec == MKCodecH265) _type = osgVerse::CODEC_HEVC;
+        else if (codec == MKCodecVP8) _type = osgVerse::CODEC_VP8;
+        else if (codec == MKCodecVP9) _type = osgVerse::CODEC_VP9;
+        else if (codec == MKCodecAV1) _type = osgVerse::CODEC_AV1;
+        else if (codec == MKCodecJPEG) _type = osgVerse::CODEC_JPEG;
+        _width = w; _height = h;
+    }
+
+    void addFrame(mk_frame frame)
+    {
+        const char* data = mk_frame_get_data(frame);
+        size_t prefix = mk_frame_get_data_prefix_size(frame);
+        size_t size = mk_frame_get_data_size(frame);
+        long long pts = mk_frame_get_pts(frame);
+
+        _mutex.lock();
+        _frames.push(std::vector<unsigned char>(data, data + size));
+        _frameTimes.push(pts);
+        _mutex.unlock();
+    }
+
+    virtual osgVerse::VideoCodecType getVideoCodec() { return _type; }
+    virtual int getWidth() { return _width; }
+    virtual int getHeight() { return _height; }
+
+    virtual bool demux(unsigned char** videoData, int* videoBytes, long long* pts)
+    {
+        bool hasData = false;
+        _mutex.lock();
+        hasData = !_frames.empty();
+        if (hasData)
+        {
+            if (pts) *pts = _frameTimes.front(); _frameTimes.pop();
+            _lastFrame = _frames.front(); _frames.pop();
+        }
+        _mutex.unlock();
+
+        *videoData = _lastFrame.data(); *videoBytes = (int)_lastFrame.size();
+        return hasData;
+    }
+
+protected:
+    std::queue<std::vector<unsigned char>> _frames;
+    std::queue<long long> _frameTimes;
+    std::vector<unsigned char> _lastFrame;
+
+    int _width, _height;
+    osgVerse::VideoCodecType _type;
+    std::mutex _mutex;
+};
 
 class ZLMediaServerArchive : public osgDB::Archive
 {
@@ -384,6 +445,41 @@ public:
         return new ZLMediaServerArchive(options);
     }
 
+    virtual ReadResult readObject(const std::string& fullFileName, const Options* options = NULL) const
+    {
+        std::string fileName(fullFileName);
+        std::string ext = osgDB::getFileExtension(fullFileName);
+        std::string scheme = osgDB::getServerProtocol(fullFileName);
+        bool usePseudo = (ext == "verse_ms");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(fullFileName);
+            ext = osgDB::getFileExtension(fileName);
+        }
+
+        PlayerContext* ctx = NULL;
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+        if (!acceptsProtocol(scheme)) return ReadResult::FILE_NOT_HANDLED;
+#endif
+        if (!_mkEnvCreated) initialize(options);
+
+        ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
+        if (_players.find(fileName) == _players.end())
+        {
+            ctx = PlayerContext::create();
+            mk_player_play(ctx->player, fileName.c_str());
+            nonconst->_players[fileName] = ctx;
+        }
+        else
+            ctx = nonconst->_players[fileName];
+        osg::ref_ptr<ZLMediaResourceDemuxer> demuxer = new ZLMediaResourceDemuxer;
+        ctx->setDemuxer(demuxer.get());
+
+        osgVerse::CudaResourceDemuxerMuxerContainer* container =
+            new osgVerse::CudaResourceDemuxerMuxerContainer;
+        container->setDemuxer(demuxer.get()); return container;
+    }
+
     virtual ReadResult readImage(const std::string& fullFileName, const Options* options) const
     {
         std::string fileName(fullFileName);
@@ -562,6 +658,9 @@ protected:
     {
     public:
         PlayerContext() : BaseContext() {}
+        void setDemuxer(ZLMediaResourceDemuxer* d) { _demuxer = d; }
+        ZLMediaResourceDemuxer* getDemuxer() { return _demuxer.get(); }
+
         mk_player player;
         mk_decoder decoder;
         mk_swscale swscale;
@@ -582,6 +681,9 @@ protected:
             if (decoder) mk_decoder_release(decoder, 1);
             if (swscale) mk_swscale_release(swscale);
         }
+
+    protected:
+        osg::observer_ptr<ZLMediaResourceDemuxer> _demuxer;
     };
 
     static void API_CALL onMkRegisterMediaSource(void* userData, mk_media_source sender, int regist)
@@ -636,10 +738,19 @@ protected:
             {
                 if (mk_track_is_video(tracks[i]) == 0) continue;
                 if (ctx->decoder) mk_decoder_release(ctx->decoder, 1);
-                ctx->decoder = mk_decoder_create(tracks[i], 0);
 
-                mk_decoder_set_cb(ctx->decoder, ReaderWriterZLMedia::onMkFrameDecoded, userData);
-                mk_track_add_delegate(tracks[i], ReaderWriterZLMedia::onMkTrackFrameOut, userData);
+                mk_track& track = tracks[i];
+                if (ctx->getDemuxer())
+                {
+                    ctx->getDemuxer()->setTrackInfo(
+                        mk_track_codec_id(track), mk_track_video_width(track), mk_track_video_height(track));
+                }
+                else
+                {
+                    ctx->decoder = mk_decoder_create(track, 0);
+                    mk_decoder_set_cb(ctx->decoder, ReaderWriterZLMedia::onMkFrameDecoded, userData);
+                }
+                mk_track_add_delegate(track, ReaderWriterZLMedia::onMkTrackFrameOut, userData);
             }
         }
     }
@@ -647,7 +758,10 @@ protected:
     static void API_CALL onMkTrackFrameOut(void* userData, mk_frame frame)
     {
         PlayerContext* ctx = (PlayerContext*)userData;
-        mk_decoder_decode(ctx->decoder, frame, 1, 1);  // FIXME: can be push to a NVDEC-based streamer
+        if (ctx->getDemuxer())
+            ctx->getDemuxer()->addFrame(frame);
+        else
+            mk_decoder_decode(ctx->decoder, frame, 1, 1);
     }
 
     static void API_CALL onMkFrameDecoded(void* userData, mk_frame_pix frame)

@@ -33,7 +33,11 @@ static void createCudaContext(CUcontext* cuContext, int iGpu, unsigned int flags
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    std::string file(argc > 1 ? argv[1] : "test.mp4");
+    std::string file; if (!arguments.read("--file", file))
+    {
+        std::cout << "Please specify a movie file name or stream URL."
+                  << std::endl; return 1;
+    }
 
     int numGpu = 0, idGpu = 0;
     cuInit(0); cuDeviceGetCount(&numGpu);
@@ -52,7 +56,7 @@ int main(int argc, char** argv)
     }
 
     osgVerse::CudaResourceDemuxerMuxerContainer* container2 =
-        dynamic_cast<osgVerse::CudaResourceDemuxerMuxerContainer*>(osgDB::readObjectFile(file + ".verse_ffmpeg"));
+        dynamic_cast<osgVerse::CudaResourceDemuxerMuxerContainer*>(osgDB::readObjectFile(file));
     if (!container2)
     {
         OSG_WARN << "No demuxer found for video file: " << file << std::endl;
@@ -60,15 +64,16 @@ int main(int argc, char** argv)
     }
     
     osg::ref_ptr<osgVerse::CudaTexture2D> tex = new osgVerse::CudaTexture2D(cuContext);
-    tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
-    tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+    tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+    tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     tex->setResourceReader(container1->getReader());
     container1->getReader()->openResource(container2->getDemuxer());
 
     // Scene graph and simulation loop
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     {
-        osg::Geometry* quad = osg::createTexturedQuadGeometry(osg::Vec3(), osg::X_AXIS, osg::Z_AXIS);
+        osg::Geometry* quad = osg::createTexturedQuadGeometry(
+            osg::Vec3(), osg::X_AXIS * 1.6f, osg::Z_AXIS * 0.9f, 0.0f, 1.0f, 1.0f, 0.0f);
         quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex.get());
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;

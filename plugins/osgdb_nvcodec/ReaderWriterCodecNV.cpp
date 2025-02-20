@@ -27,12 +27,13 @@ public:
 
     virtual bool openResource(Demuxer* demuxer)
     {
+        if (_decoder != NULL) delete _decoder; _decoder = NULL;
         _demuxer = demuxer; if (!demuxer) return false;
-        if (_demuxer->getVideoCodec() == osgVerse::CODEC_INVALID) return false;
-        if (_decoder != NULL) delete _decoder;
-        
-        _decoder = new NvDecoder(_cuContext, true, (cudaVideoCodec)_demuxer->getVideoCodec());
-        _width = (_demuxer->getWidth() + 1) & ~1; _height = _demuxer->getHeight();
+        if (_demuxer->getVideoCodec() != osgVerse::CODEC_INVALID)
+        {
+            _decoder = new NvDecoder(_cuContext, true, (cudaVideoCodec)_demuxer->getVideoCodec());
+            _width = (_demuxer->getWidth() + 1) & ~1; _height = _demuxer->getHeight();
+        }
         _numFrames = 0; return true;
     }
 
@@ -46,6 +47,13 @@ public:
 
     virtual void operator()(osg::StateAttribute* sa, osg::NodeVisitor* nv)
     {
+        if (_demuxer && !_decoder)
+        {
+            if (_demuxer->getVideoCodec() == osgVerse::CODEC_INVALID) return;
+            _decoder = new NvDecoder(_cuContext, true, (cudaVideoCodec)_demuxer->getVideoCodec());
+            _width = (_demuxer->getWidth() + 1) & ~1; _height = _demuxer->getHeight();
+        }
+
         CUdeviceptr deviceFrame = NULL;
         uint8_t* video = NULL, * frame = NULL;
         int videoBytes = 0, frameReturned = 0, matrixData = 0, pitch = _width * 4;
@@ -55,6 +63,11 @@ public:
         frameReturned = _decoder->Decode(video, videoBytes);
         if (!_numFrames && frameReturned)
             OSG_NOTICE << "[CuvidResourceReader] " << _decoder->GetVideoInfo() << std::endl;
+        if (videoBytes > 0 && !frameReturned)
+        {
+            OSG_INFO << "[CuvidResourceReader] Failed to decode frame (" << _width << "x"
+                     << _height << "), bytes = " << videoBytes << std::endl;
+        }
 
         for (int i = 0; i < frameReturned; i++)
         {
