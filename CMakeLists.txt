@@ -223,8 +223,15 @@ IF(OPENMP_FOUND)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 ENDIF()
+
+SET(INTERNAL_CUDA_ARCH_STRING compute_50)
+SET(INTERNAL_CUDA_CODE_STRING sm_50,compute_50)
+IF(CUDA_FOUND)
+    SET(VERSE_NVCC_FLAGS "-gencode arch=\"compute_50\",code=\"sm_50,compute_50\""
+        CACHE STRING "NVCC Flags (See https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-architecture-arch")
+ENDIF(CUDA_FOUND)
 SET(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
-SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_50,code=\"sm_50,compute_50\")
+SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};${VERSE_NVCC_FLAGS})
 
 IF(USE_WASM_OPTIONS OR ANDROID OR APPLE)
     # do nothing
@@ -248,6 +255,7 @@ SET(VERSE_INSTALL_PDB_FILES ON CACHE BOOL "Enable to install PDB files along wit
 SET(VERSE_BUILD_EXPORTERS OFF CACHE BOOL "Enable build of exporters of other software (e.g., 3dsmax)")
 SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg and PNG")
 SET(VERSE_BUILD_WITH_QT OFF CACHE BOOL "Enable build of Qt based applications and tests")
+SET(VERSE_BUILD_WITH_CUDA ON CACHE BOOL "Enable build of NVIDIA CUDA based libraries and tests")
 SET(VERSE_BUILD_DEPRECATED_TESTS OFF CACHE BOOL "Enable build of deprecated tests")
 SET(VERSE_SUPPORT_CPP17 OFF CACHE BOOL "Enable build of libraries using C++ 17 standard")
 SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse libraries")
@@ -568,9 +576,9 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: ${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}"
                    "; osgVerse version: ${VERSE_VERSION} (${VERSE_PLATFORM})")
     MESSAGE(STATUS "[osgVerse] Dependency libraries: ${VERSE_DEPENDENCIES_TO_SHOW}")
-    IF(CUDA_FOUND)
+    IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
         MESSAGE(STATUS "[osgVerse] NVIDIA CUDA found: ${CUDA_VERSION}")
-    ENDIF(CUDA_FOUND)
+    ENDIF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
     CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/osgVerse/osgVerseConfig.cmake" @ONLY)
     INSTALL(FILES VerseCommon.h DESTINATION ${INSTALL_INCDIR}/osgVerse COMPONENT libosgverse-dev)
 

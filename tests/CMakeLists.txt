@@ -84,9 +84,9 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Mesh_Process mesh_process_test.cpp)
     NEW_EXAMPLE(osgVerse_Test_Navigation navigation_test.cpp)
 
-    IF(CUDA_FOUND)
+    IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
         NEW_CUDA_EXAMPLE(osgVerse_Test_Video video_test.cpp)
-    ENDIF(CUDA_FOUND)
+    ENDIF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
 
 	IF(MSVC_VERSION GREATER 1900)
         NEW_TEST(osgVerse_Test_Restful_Server restful_server_test.cpp)
