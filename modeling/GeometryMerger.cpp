@@ -5,6 +5,7 @@
 #include <osg/Camera>
 #include <osgUtil/Simplifier>
 #include <osgDB/FileNameUtils>
+#include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include "GeometryMerger.h"
 #include "Utilities.h"

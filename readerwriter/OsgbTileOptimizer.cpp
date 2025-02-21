@@ -25,7 +25,8 @@ struct DefaultGpuBaker : public GeometryMerger::GpuBaker
 {
     virtual osg::Image* bakeTextureImage(osg::Node* node)
     {
-        return createSnapshot(node, 1024, 1024);
+        osg::ref_ptr<osg::Image> image = createSnapshot(node, 1024, 1024);
+        return image.release();
     }
 
     virtual osg::Geometry* bakeGeometry(osg::Node* node)
@@ -34,9 +35,11 @@ struct DefaultGpuBaker : public GeometryMerger::GpuBaker
         geom->setUseDisplayList(false);
         geom->setUseVertexBufferObjects(true);
 
-        osg::BuildShapeGeometryVisitor bsgv(geom.get(), NULL);
         osg::ref_ptr<osg::HeightField> hf = createHeightField(node, 128, 128);
-        hf->accept(bsgv); return geom.release();
+        osg::BuildShapeGeometryVisitor bsgv(geom.get(), NULL); hf->accept(bsgv);
+
+        osgUtil::Simplifier simplifier(0.2f);
+        simplifier.simplify(*geom); return geom.release();
     }
 };
 
@@ -237,6 +240,7 @@ bool TileOptimizer::processGroundLevel(int combinedX0, int combinedY0, const std
                 srcTiles2.push_back(NameAndRoughLevel(srcTiles[n], NULL));
 
             std::string outFileName = subDir + "/" + outSubName + ".osgb";
+            OSG_NOTICE << "[TileOptimizer] Processing combination: " << outSubName << std::endl;
             osg::ref_ptr<osg::Node> rough = processTopTileFiles(outFileName, false, srcTiles2);
             combination[itr2->first] = NameAndRoughLevel(outFileName, rough);
         }
@@ -277,6 +281,7 @@ bool TileOptimizer::processGroundLevel(int combinedX0, int combinedY0, const std
                 //std::string outFileName = isRootNode ? (tilePrefix + "root.osgb")
                 //                        : (subDir + "/" + outSubName + ".osgb");
                 std::string outFileName = subDir + "/" + outSubName + ".osgb";
+                OSG_NOTICE << "[TileOptimizer] Processing combination: " << outSubName << std::endl;
                 osg::ref_ptr<osg::Node> rough = processTopTileFiles(outFileName, isRootNode, srcTiles);
                 combination[itr2->first] = NameAndRoughLevel(outFileName, rough);
                 if (isRootNode) rootFileNames.push_back(outFileName);

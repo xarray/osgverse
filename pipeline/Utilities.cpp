@@ -737,8 +737,8 @@ namespace osgVerse
         for (int y = 0; y < resY; ++y) for (int x = 0; x < resX; ++x)
         {
             float eyeZ = *(ptr + (y * resX) + x);
-            if (eyeZ <= 0.0f) hf->setHeight(x, y, bbox.zMin());
-            else hf->setHeight(x, y, bbox.zMin() + zRange - eyeZ);
+            if (eyeZ <= 0.0f) hf->setHeight(x, y, 0.0f);
+            else hf->setHeight(x, y, zRange - eyeZ);
         }
         return hf.release();
     }
@@ -762,6 +762,7 @@ namespace osgVerse
             viewer->setSceneData(root.get());
             for (int i = 0; i < 2; ++i) viewer->frame();
         }
+        viewer->setSceneData(NULL); camera = NULL; viewer = NULL;
         return image.release();
     }
 

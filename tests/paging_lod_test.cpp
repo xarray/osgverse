@@ -233,20 +233,23 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments(&argc, argv);
     std::string output; arguments.read("--output", output);
+    bool withDraco = arguments.read("--enable-draco");
+    bool withKtx = !arguments.read("--disable-ktx");
+    bool gpuMerge = !arguments.read("--cpu-merge");
 
     osgVerse::fixOsgBinaryWrappers();
     if (argc > 3 && std::string(argv[1]) == "adj")
     {
         std::string srcDir = std::string(argv[2]), dstDir = std::string(argv[3]);
         osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer(dstDir);
-        if (!opt->prepare(srcDir)) { printf("Can't prepare for tiles\n"); return 1; }
+        if (!opt->prepare(srcDir, "([+-]?\\d+)", withDraco, withKtx, gpuMerge)) return 1;
         opt->setUseThreads(10); opt->processAdjacency(2, 2); return 0;
     }
     else if (argc > 3 && std::string(argv[1]) == "top")
     {
         std::string srcDir = std::string(argv[2]), dstDir = std::string(argv[3]);
         osg::ref_ptr<osgVerse::TileOptimizer> opt = new osgVerse::TileOptimizer(dstDir);
-        if (!opt->prepare(srcDir)) { printf("Can't prepare for tiles\n"); return 1; }
+        if (!opt->prepare(srcDir, "([+-]?\\d+)", withDraco, withKtx, gpuMerge)) return 1;
         opt->setUseThreads(10); opt->processGroundLevel(2, 2); return 0;
     }
 
@@ -346,7 +349,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        std::cout << "Usage: " << argv[0] << " 'adj/opt' <input_osgb_path> <output_path> <total_file>\n";
+        std::cout << "Usage: " << argv[0] << " 'adj/top/opt' <input_osgb_path> <output_path> <total_file>\n";
         std::cout << "      To save to database, set <output_path> to 'leveldb://factory.db/'";
         return 1;
     }

@@ -8,7 +8,7 @@
 #include <pipeline/Utilities.h>
 
 // osgviewer 0-0-0.verse_tms -O "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
-// osgviewer 0-0-x.verse_tms -O "URL=http://192.168.2.7:8088/freexserver/htc/service/tms/1.0.0/YTH_DT@EPSG%3A4326@png/{z}/{x}/{y}.png OriginBottomLeft=1"
+// osgviewer 0-0-x.verse_tms -O "URL=E:\testTMS\{z}\{x}\{y}.png OriginBottomLeft=1"
 class ReaderWriterTMS : public osgDB::ReaderWriter
 {
 public:
@@ -111,7 +111,9 @@ protected:
             tileMax = extentMin + osg::Vec3d(double(x + 1) * tileWidth, double(y + 1) * tileHeight, 1.0);
         }
 
-        osg::ref_ptr<osg::Image> image = osgDB::readImageFile(createPath(pseudoPath, x, y, z) + ".verse_web");
+        std::string url = createPath(pseudoPath, x, y, z);
+        std::string postfix = osgDB::getServerProtocol(url).empty() ? "" : ".verse_web";
+        osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url + postfix);
         if (image.valid())
         {
             osg::ref_ptr<osg::Geometry> geom =
