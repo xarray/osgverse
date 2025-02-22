@@ -216,7 +216,17 @@ void GraphicsWindowSDL::initialize()
         };
 
         EGLDisplay display = EGL_NO_DISPLAY;
+#   if defined(SDL_VIDEO_DRIVER_WINDOWS)
         EGLNativeWindowType hWnd = sdlInfo.info.win.window;
+#   elif defined(SDL_VIDEO_DRIVER_X11)
+        EGLNativeWindowType hWnd = sdlInfo.info.x11.window;
+#   elif defined(SDL_VIDEO_DRIVER_COCOA)
+        EGLNativeWindowType hWnd = sdlInfo.info.cocoa.window;
+#   elif defined(SDL_VIDEO_DRIVER_ANDROID)
+        EGLNativeWindowType hWnd = sdlInfo.info.android.window;
+#   else
+#       error "[GraphicsWindowSDL] Unsupported platform?"
+#   endif
         PFNEGLDEBUGMESSAGECONTROLKHRPROC eglDebugMessageControlKHR =
             (PFNEGLDEBUGMESSAGECONTROLKHRPROC)(eglGetProcAddress("eglDebugMessageControlKHR"));
         PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT =
@@ -248,7 +258,7 @@ void GraphicsWindowSDL::initialize()
                 EGL_NONE, EGL_NONE
             };
             display = eglGetPlatformDisplayEXT(
-                EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attrNewBackend);
+                EGL_PLATFORM_ANGLE_ANGLE, (void*)EGL_DEFAULT_DISPLAY, attrNewBackend);
         }
         else
             OSG_WARN << "[GraphicsWindowSDL] eglGetPlatformDisplayEXT() not found" << std::endl;

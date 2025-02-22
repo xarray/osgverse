@@ -63,8 +63,7 @@
 
 #include <stddef.h>  /* For size_t */
 
-#if defined(GLEW_EGL)
-#elif defined(GLEW_REGAL)
+#if defined(GLEW_REGAL)
 
 /* In GLEW_REGAL mode we call direcly into the linked
    libRegal.so glGetProcAddressREGAL for looking up

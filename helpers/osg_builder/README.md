@@ -17,8 +17,8 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * EGL_LIBRARY: <GoogleAngle_SDK>/lib/libEGL.lib
   * OPENGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
   * OPENGL_gl_LIBRARY: <GoogleAngle_SDK>/lib/libGLESv2.lib
-* You will have to find include-files and libraries from PowerVR / GoogleAngel SDK. Only support OSG 3.7.0 or later.
-  * A quick guild to compile GoogleAngel on Windows/MacOSX
+* You will have to find include-files and libraries from PowerVR / GoogleAngle SDK. Only support OSG 3.7.0 or later.
+  * A quick guild to compile GoogleAngle on Windows/MacOSX
     * Prepare Ninja, Python3 and CMake first. (from Homebrew on MacOSX)
     * <em>git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git</em>
     * <em>git clone https://chromium.googlesource.com/angle/angle</em>
@@ -32,6 +32,24 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
     * Don't forget to copy vulkan-1.dll as well as libEGL.dll and libGLESv2.dll to executable folder.
 * Command-line example: (Windows only)
   * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib "%osg_root_path%"</em>
+  * <em>cmake --build .</em>
+
+#### OSG for GLES2/GLES3 (MacOSX > 14 / GoogleAngle)
+* CMake options: (not in cmake-gui)
+  * OPENGL_PROFILE: GLES2/GLES3
+  * EGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
+  * EGL_LIBRARY: <GoogleAngle_SDK>/lib/libEGL.dylib
+  * OPENGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
+  * OPENGL_gl_LIBRARY: <GoogleAngle_SDK>/lib/libGLESv2.dylib
+  * OPENGL_HEADER2: "#include <GLES3/gl3.h>"
+* You will have to find include-files and libraries from GoogleAngle 
+  * args.gn for compiling GoogleAngle on MacOSX:
+    angle_enable_metal = true
+    angle_enable_glsl = true
+  * Copy Angle include folders to %osg_build_path%/include
+  * Remove avfoundation plugin in osgPlugins/CMakeLsits.txt
+* Command-line example:
+  * <em>cmake -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_HEADER2="#include <GLES3/gl3.h>" -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
   * <em>cmake --build .</em>
 
 #### OSG for GLES2/GLES3 (UWP / GoogleAngle)

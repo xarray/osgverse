@@ -172,7 +172,7 @@ ELSE(OSG_ROOT)
     )
 
     FIND_PATH(OSG_LIB_DIR
-        NAMES libosg.a libosg.dll.a libosg.so osg.lib
+        NAMES libosg.a libosg.dll.a libosg.dylib libosg.so osg.lib
         PATHS ${THIRDPARTY_ROOT}/lib
         $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
         $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
@@ -241,13 +241,6 @@ ELSEIF(NOT OPENGL_gl_LIBRARY)
     ENDIF(OPENGL_opengl_LIBRARY)
 ENDIF()
 
-SET(THIRDPARTY_INCLUDE_DIRS "")
-SET(THIRDPARTY_LIBRARIES "")
-SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${OPENGL_gl_LIBRARY})
-IF(OPENMP_FOUND)
-    SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} OpenMP::OpenMP_CXX)
-ENDIF(OPENMP_FOUND)
-
 ######################################### Global Options
 SET(VERSE_INSTALL_PDB_FILES ON CACHE BOOL "Enable to install PDB files along with executables and dynamic libraries")
 SET(VERSE_BUILD_EXPORTERS OFF CACHE BOOL "Enable build of exporters of other software (e.g., 3dsmax)")
@@ -314,20 +307,20 @@ IF(OSG_BUILD_INCLUDE_DIR)
 
     IF(OSG_GLES3_INDEX GREATER -1)
         MESSAGE(STATUS "[osgVerse] OSG is built with GLES3 support. Make sure to configure osgVerse to use GLES3, too.")
-        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES3/gl3.h PATHS /usr/include /usr/local/include)
-        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.lib
-                     HINTS /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
-        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.lib
-                     HINTS /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
+        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES3/gl3.h PATHS ${THIRDPARTY_ROOT}/include /usr/include /usr/local/include)
+        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.dylib libGLESv2.lib
+                     HINTS ${THIRDPARTY_ROOT}/lib /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
+        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.dylib libEGL.lib
+                     HINTS ${THIRDPARTY_ROOT}/lib /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
         SET(VERSE_USE_EXTERNAL_GLES3 ON)
         SET(VERSE_GRAPHICS_API "GLES3")
     ELSEIF(OSG_GLES2_INDEX GREATER -1)
         MESSAGE(STATUS "[osgVerse] OSG is built with GLES2 support. Make sure to configure osgVerse to use GLES2, too.")
-        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES2/gl2.h PATHS /usr/include /usr/local/include)
-        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.lib
-                     HINTS /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
-        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.lib
-                     HINTS /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
+        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES2/gl2.h PATHS ${THIRDPARTY_ROOT}/include /usr/include /usr/local/include)
+        FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.dylib libGLESv2.lib
+                     HINTS ${THIRDPARTY_ROOT}/lib /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
+        FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.dylib libEGL.lib
+                     HINTS ${THIRDPARTY_ROOT}/lib /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
         SET(VERSE_USE_EXTERNAL_GLES2 ON)
         SET(VERSE_GRAPHICS_API "GLES2")
     ENDIF()
@@ -342,6 +335,13 @@ IF(OSG_BUILD_INCLUDE_DIR)
         ENDIF()
     ENDIF(VERSE_USE_EXTERNAL_GLES2 OR VERSE_USE_EXTERNAL_GLES3)
 ENDIF(OSG_BUILD_INCLUDE_DIR)
+
+SET(THIRDPARTY_INCLUDE_DIRS "")
+SET(THIRDPARTY_LIBRARIES "")
+SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} ${OPENGL_gl_LIBRARY})
+IF(OPENMP_FOUND)
+    SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES} OpenMP::OpenMP_CXX)
+ENDIF(OPENMP_FOUND)
 
 SET(VERSE_USE_EXTERNAL_GLES OFF)
 IF(VERSE_USE_EXTERNAL_GLES2 OR VERSE_USE_EXTERNAL_GLES3)

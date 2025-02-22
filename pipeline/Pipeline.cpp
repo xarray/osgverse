@@ -1341,10 +1341,12 @@ namespace osgVerse
         osg::StateSet* stageSS = s->camera->getOrCreateStateSet();
         if (useClip)
         {
+#if !defined(OSG_GL3_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             stageSS->setMode(GL_CLIP_PLANE0, osg::StateAttribute::ON);
             stageSS->setMode(GL_CLIP_PLANE1, osg::StateAttribute::ON);
             stageSS->setMode(GL_CLIP_PLANE2, osg::StateAttribute::ON);
             stageSS->setMode(GL_CLIP_PLANE3, osg::StateAttribute::ON);
+#endif
         }
 
         osg::Uniform* eyeUniform = stageSS->getOrCreateUniform("eyeSep", osg::Uniform::FLOAT, 2);

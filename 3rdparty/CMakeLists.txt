@@ -551,11 +551,11 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4            # Llama.cpp / libGGML
                 -DUSINGZ                                                  # clipper2
                 -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32                      # METIS
-                -DUNORDERED -DHAVE_UNORDERED_MAP=1)
+                -DHAVE_UNORDERED_MAP=1)
 
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # libhv: disable use of json.hpp in VS2015
-ENDIF(MSVC_VERSION LESS 1910)
+ENDIF()
 
 IF(OPENMP_FOUND)
     ADD_DEFINITIONS(-D__OPENMP__ -DWITH_OMP -DENABLE_OPENMP -DGGML_USE_OPENMP
@@ -611,6 +611,9 @@ IF(VERSE_USE_EXTERNAL_GLES2)
     ADD_DEFINITIONS(-DGLEW_EGL -DIMGUI_IMPL_OPENGL_ES2)
 ELSEIF(VERSE_USE_EXTERNAL_GLES3)
     ADD_DEFINITIONS(-DGLEW_EGL -DIMGUI_IMPL_OPENGL_ES3)
+    IF(APPLE)
+        ADD_DEFINITIONS(-DGLEW_APPLE_GLX)
+    ENDIF(APPLE)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils

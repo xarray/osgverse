@@ -82,7 +82,7 @@
 #endif
 
 #ifndef HAVE_EVENTFD
-#if !defined(__EMSCRIPTEN__)
+#if !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
 #   define HAVE_EVENTFD 1
 #endif
 #endif
