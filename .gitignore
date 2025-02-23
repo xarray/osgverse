@@ -40,6 +40,7 @@ local.properties
 
 # User-defined
 *.meta
+.DS_Store
 .vscode*/
 build*/
 sdk*/
