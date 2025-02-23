@@ -4,6 +4,10 @@
 #include <SDL_syswm.h>
 #include <iostream>
 
+#if defined(SDL_VIDEO_DRIVER_COCOA)
+extern "C" void* getViewFromWindow(NSWindow* window);
+#endif
+
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
 #   if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2) && !defined(__ANDROID__)
 #       include <EGL/egl.h>
@@ -186,6 +190,9 @@ void GraphicsWindowSDL::initialize()
     if (_traits.valid())
     {
         unsigned int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
+#if defined(SDL_VIDEO_DRIVER_COCOA)
+        flags &= (~SDL_WINDOW_OPENGL); flags |= SDL_WINDOW_METAL;
+#endif
         if (_traits->supportsResize) flags |= SDL_WINDOW_RESIZABLE;
         if (!_traits->windowDecoration) flags |= SDL_WINDOW_BORDERLESS;
         winX = _traits->x; winY = _traits->y;
@@ -221,7 +228,7 @@ void GraphicsWindowSDL::initialize()
 #   elif defined(SDL_VIDEO_DRIVER_X11)
         EGLNativeWindowType hWnd = sdlInfo.info.x11.window;
 #   elif defined(SDL_VIDEO_DRIVER_COCOA)
-        EGLNativeWindowType hWnd = sdlInfo.info.cocoa.window;
+        EGLNativeWindowType hWnd = getViewFromWindow(sdlInfo.info.cocoa.window);
 #   elif defined(SDL_VIDEO_DRIVER_ANDROID)
         EGLNativeWindowType hWnd = sdlInfo.info.android.window;
 #   else
@@ -252,7 +259,11 @@ void GraphicsWindowSDL::initialize()
         if (eglGetPlatformDisplayEXT != NULL)
         {
             const EGLint attrNewBackend[] = {
+#   if defined(SDL_VIDEO_DRIVER_COCOA)
+                EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+#   else
                 EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE,
+#   endif
                 //EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE,
                 //EGL_PLATFORM_ANGLE_ENABLE_AUTOMATIC_TRIM_ANGLE, EGL_TRUE,  // for D3D11
                 EGL_NONE, EGL_NONE
@@ -288,8 +299,14 @@ void GraphicsWindowSDL::initialize()
         EGLint surfaceAttribList[] = { EGL_NONE, EGL_NONE };
         EGLSurface surface = eglCreateWindowSurface(
             display, config, (EGLNativeWindowType)hWnd, surfaceAttribList);
-        if (surface != EGL_NO_SURFACE) { _glSurface = (void*)surface; _glDisplay = (void*)display; }
-        else { OSG_WARN << "[GraphicsWindowSDL] Failed to create EGL surface" << std::endl; return; }
+        
+        if (surface != EGL_NO_SURFACE)
+            { _glSurface = (void*)surface; _glDisplay = (void*)display; }
+        else
+        {
+            OSG_WARN << "[GraphicsWindowSDL] Failed to create EGL surface: " << std::hex
+                     << eglGetError() << std::dec << std::endl; return;
+        }
 #else
         SDL_GL_SetAttribute(SDL_GL_RED_SIZE, _traits->red);
         SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, _traits->green);
@@ -319,7 +336,7 @@ void GraphicsWindowSDL::initialize()
 #   if defined(OSG_GLES3_AVAILABLE)
     EGLint contextAttribList[] = {
         EGL_CONTEXT_CLIENT_VERSION, 3,
-        EGL_CONTEXT_MINOR_VERSION, 1,
+        EGL_CONTEXT_MINOR_VERSION, 0,
         EGL_NONE, EGL_NONE
     };
 #   else

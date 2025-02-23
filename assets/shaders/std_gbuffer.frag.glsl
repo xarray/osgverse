@@ -3,7 +3,7 @@ uniform sampler2D AmbientMap, EmissiveMap, ReflectionMap;
 uniform float ModelIndicator;
 VERSE_FS_IN vec4 texCoord0, texCoord1, color;
 VERSE_FS_IN vec3 eyeNormal, eyeTangent, eyeBinormal;
-VERSE_SRCIPT_DEF;
+VERSE_SRCIPT_DEF
 
 #ifdef VERSE_GLES3
 layout(location = 0) VERSE_FS_OUT vec4 fragData0;

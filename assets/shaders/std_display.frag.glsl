@@ -9,7 +9,7 @@ uniform float VignetteRadius;
 uniform float VignetteDarkness;
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
-VERSE_SRCIPT_DEF;
+VERSE_SRCIPT_DEF
 
 // Color balance copied from gimp/app/base/color-balance.c
 float oneColorBalanceFunc(float v, float factor, int mode)

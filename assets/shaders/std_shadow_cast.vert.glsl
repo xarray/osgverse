@@ -1,4 +1,4 @@
-VERSE_SRCIPT_DEF;
+VERSE_SRCIPT_DEF
 #ifdef VERSE_VRMODE
 VERSE_VS_OUT vec4 texCoord0_gs, lightProjVec_gs;
 #else

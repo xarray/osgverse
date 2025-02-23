@@ -48,6 +48,9 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
     angle_enable_glsl = true
   * Copy Angle include folders to %osg_build_path%/include
   * Remove avfoundation plugin in osgPlugins/CMakeLsits.txt
+  * <cm>FIXME: Current OSG cmake has some Apple-related code that force setting OpenGL libraries and include paths.
+        (Satrting from line 240 in <osg_root_path>/CMakeLists.txt) Will have to modify or remove them manually to
+        make Googla Angle (GLES) work. Make these modifications automatically later?</cm>
 * Command-line example:
   * <em>cmake -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_HEADER2="#include <GLES3/gl3.h>" -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
   * <em>cmake --build .</em>

@@ -1,5 +1,5 @@
 VERSE_VS_IN vec4 osg_Tangent;
-VERSE_SRCIPT_DEF;
+VERSE_SRCIPT_DEF
 #ifdef VERSE_VRMODE
 VERSE_VS_OUT vec4 texCoord0_gs, texCoord1_gs, color_gs;
 VERSE_VS_OUT vec3 eyeNormal_gs, eyeTangent_gs, eyeBinormal_gs;
