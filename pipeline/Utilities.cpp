@@ -1,3 +1,4 @@
+#include <osg/io_utils>
 #include <osg/Version>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/FrameBufferObject>
@@ -28,6 +29,8 @@
 #ifdef VERSE_WINDOWS
 #   include <windows.h>
 #endif
+
+#include <modeling/Utilities.h>
 #include "ShaderLibrary.h"
 #include "Pipeline.h"
 #include "Utilities.h"
@@ -77,11 +80,12 @@ static osg::Camera* createImageCamera(osg::Image* image, const osg::BoundingBox&
     camera->setViewport(0, 0, image->s(), image->t());
     camera->attach(osg::Camera::COLOR_BUFFER0, image);
 
-    osg::Vec3 center = bbox.center(); center.z() = bbox.zMax();
+    float zn = bbox.zMin(), zf = bbox.zMax(); if (zf <= zn) zf = zn + 10.0f;
+    osg::Vec3 center = bbox.center(); center.z() = zf;
     camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
     camera->setProjectionMatrix(osg::Matrix::ortho(
         bbox.xMin() - center.x(), bbox.xMax() - center.x(),
-        bbox.yMin() - center.y(), bbox.yMax() - center.y(), bbox.zMin(), bbox.zMax()));
+        bbox.yMin() - center.y(), bbox.yMax() - center.y(), zn, zf));
     camera->setViewMatrix(osg::Matrix::lookAt(center, bbox.center(), osg::Y_AXIS));
     return camera.release();
 }
@@ -725,7 +729,9 @@ namespace osgVerse
             osg::ref_ptr<osg::Group> root = new osg::Group;
             root->addChild(camera.get()); camera->addChild(node);
             viewer->setSceneData(root.get());
-            for (int i = 0; i < 2; ++i) viewer->frame();
+
+            HostTextureReserver reserver; root->accept(reserver); reserver.set(true);
+            for (int i = 0; i < 2; ++i) viewer->frame(); reserver.set(false);
         }
 
         osg::ref_ptr<osg::HeightField> hf = new osg::HeightField;
@@ -757,10 +763,40 @@ namespace osgVerse
         viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
         viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         {
+            const char* vsCode = {
+                "VERSE_VS_OUT vec2 uv;\n"
+                "void main() {\n"
+                "    uv = osg_MultiTexCoord0.st;\n"
+                "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n"
+                "}\n"
+            };
+            const char* fsCode = {
+                "uniform sampler2D BaseTexture;\n"
+                "VERSE_FS_IN vec2 uv;\n"
+                "VERSE_FS_OUT vec4 fragData;\n"
+                "void main() {\n"
+                "    fragData = VERSE_TEX2D(BaseTexture, uv);\n"
+                "    VERSE_FS_FINAL(fragData);\n"
+                "}\n"
+            };
+            osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode);
+            osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode);
+            int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
+
+            osg::ref_ptr<osg::Program> prog = new osg::Program;
+            Pipeline::createShaderDefinitions(vs, glVer, glslVer); prog->addShader(vs);
+            Pipeline::createShaderDefinitions(fs, glVer, glslVer); prog->addShader(fs);
+            camera->getOrCreateStateSet()->setAttributeAndModes(prog.get());
+            camera->getOrCreateStateSet()->setTextureAttributeAndModes(
+                0, createDefaultTexture(osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f)));
+            camera->getOrCreateStateSet()->addUniform(new osg::Uniform("BaseTexture", (int)0));
+
             osg::ref_ptr<osg::Group> root = new osg::Group;
             root->addChild(camera.get()); camera->addChild(node);
             viewer->setSceneData(root.get());
-            for (int i = 0; i < 2; ++i) viewer->frame();
+
+            HostTextureReserver reserver; root->accept(reserver); reserver.set(true);
+            for (int i = 0; i < 2; ++i) viewer->frame(); reserver.set(false);
         }
         viewer->setSceneData(NULL); camera = NULL; viewer = NULL;
         return image.release();

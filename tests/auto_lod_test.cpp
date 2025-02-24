@@ -2,6 +2,7 @@
 #include <osg/io_utils>
 #include <osg/ValueObject>
 #include <osg/Texture2D>
+#include <osg/Shape>
 #include <osg/LOD>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -25,6 +26,26 @@ USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
+
+struct DefaultGpuBaker : public osgVerse::GeometryMerger::GpuBaker
+{
+    virtual osg::Image* bakeTextureImage(osg::Node* node)
+    {
+        osg::ref_ptr<osg::Image> image = osgVerse::createSnapshot(node, 1024, 1024);
+        return image.release();
+    }
+
+    virtual osg::Geometry* bakeGeometry(osg::Node* node)
+    {
+        osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+        geom->setUseDisplayList(false);
+        geom->setUseVertexBufferObjects(true);
+
+        osg::ref_ptr<osg::HeightField> hf = osgVerse::createHeightField(node, 128, 128);
+        osg::BuildShapeGeometryVisitor bsgv(geom.get(), NULL); hf->accept(bsgv);
+        return geom.release();
+    }
+};
 
 class SelectSceneHandler : public osgGA::GUIEventHandler
 {
@@ -128,7 +149,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
     osg::ref_ptr<osg::Group> root = new osg::Group;
 
-#if false
+#if true
     osg::Geometry* g0 = osg::createTexturedQuadGeometry(osg::Vec3(0.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
     osg::Geometry* g1 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
     osg::Geometry* g2 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 1.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
@@ -149,9 +170,11 @@ int main(int argc, char** argv)
     testList.push_back(std::pair<osg::Geometry*, osg::Matrix>(g2, osg::Matrix()));
     testList.push_back(std::pair<osg::Geometry*, osg::Matrix>(g3, osg::Matrix()));
 
-    osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::COMBINED_GEOMETRY);
+    osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::GPU_BAKING);
+    merger.setGpkBaker(new DefaultGpuBaker);
+
     osg::ref_ptr<osg::Geometry> merged = merger.process(testList, 0);
-    //osgDB::writeNodeFile(*merged, "test_merging.osgb");
+    osgDB::writeNodeFile(*merged, "test_merging.osgb"); return 0;
 #endif
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);

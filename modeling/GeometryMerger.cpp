@@ -7,6 +7,8 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+
+#include <3rdparty/nanoid/nanoid.h>
 #include "GeometryMerger.h"
 #include "Utilities.h"
 #include "Octree.h"
@@ -231,7 +233,8 @@ osg::Geometry* GeometryMerger::process(const std::vector<GeometryPair>& geomList
 {
     if (size == 0) size = geomList.size() - offset;
     size_t end = osg::minimum(offset + size, geomList.size());
-    osg::ref_ptr<osg::Image> atlas = processAtlas(geomList, offset, size, maxTextureSize);
+    osg::ref_ptr<osg::Image> atlas = (_method == GPU_BAKING) ? NULL
+                                   : processAtlas(geomList, offset, size, maxTextureSize);
 
     osg::ref_ptr<osg::Geometry> resultGeom;
     switch (_method)
@@ -496,7 +499,11 @@ osg::Geometry* GeometryMerger::createGpuBaking(const std::vector<GeometryPair>& 
         tex2D->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
 
         osg::ref_ptr<osg::Image> image = _baker->bakeTextureImage(root.get());
-        if (image.valid()) tex2D->setImage(image.get());
+        if (image.valid())
+        {
+            image->setFileName(nanoid::generate(8) + ".jpg");
+            tex2D->setImage(image.get());
+        }
         geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2D.get());
     }
     return geom.release();

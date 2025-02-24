@@ -430,6 +430,32 @@ MeshTopology* MeshTopologyVisitor::generate()
     mesh->generate(this); return mesh.release();
 }
 
+void HostTextureReserver::apply(osg::Node* n, osg::Drawable* d, osg::Texture* tex, int u)
+{
+    bool toUnref = tex->getUnRefImageDataAfterApply();
+    bool storageHint = tex->getClientStorageHint();
+    _reservedMap[tex] = std::pair<bool, bool>(toUnref, storageHint);
+}
+
+void HostTextureReserver::set(bool toKeepHostTextures)
+{
+    if (toKeepHostTextures)
+    {
+        for (std::map<osg::Texture*, std::pair<bool, bool>>::iterator itr = _reservedMap.begin();
+             itr != _reservedMap.end(); ++itr)
+        { itr->first->setUnRefImageDataAfterApply(false); }
+    }
+    else
+    {
+        for (std::map<osg::Texture*, std::pair<bool, bool>>::iterator itr = _reservedMap.begin();
+             itr != _reservedMap.end(); ++itr)
+        {
+            itr->first->setUnRefImageDataAfterApply(itr->second.first);
+            itr->first->setClientStorageHint(itr->second.second);
+        }
+    }
+}
+
 /// TexturePacker ///
 
 void TexturePacker::clear()

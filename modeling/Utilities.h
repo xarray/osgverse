@@ -97,6 +97,7 @@ namespace osgVerse
         bool _loadedFineLevels, _onlyVertexAndIndices;
     };
 
+    /** Compute OBB or VHACD bound volumes */
     class BoundingVolumeVisitor : public MeshCollector
     {
     public:
@@ -115,7 +116,8 @@ namespace osgVerse
         /** Return value is in OBB coordinates, using rotation to convert it */
         osg::BoundingBox computeOBB(osg::Quat& rotation, float relativeExtent = 0.1f, int numSamples = 500);
     };
-    
+
+    /** Collect mesh data and create topology object */
     class MeshTopologyVisitor : public MeshCollector
     {
     public:
@@ -128,6 +130,19 @@ namespace osgVerse
 
     protected:
         osg::ref_ptr<osg::StateSet> _stateset;
+    };
+
+
+    /** Temporarily keep the textures on cpu side from being unref-ed */
+    class HostTextureReserver : public MeshCollector
+    {
+    public:
+        HostTextureReserver() : MeshCollector() {}
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::Texture* ss, int u);
+        void set(bool toKeepHostTextures);
+
+    protected:
+        std::map<osg::Texture*, std::pair<bool, bool>> _reservedMap;
     };
 
     /** The 2D texture atlaser */
