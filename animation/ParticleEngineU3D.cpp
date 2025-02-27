@@ -64,7 +64,9 @@ public:
 
             // If in CPU_* mode, update every particle system's parameters
             osg::Geometry* g = obj->getInternalGeometry();
-            if (_positionSizeAndColor.valid() && _positionSizeAndColor->getImage() &&
+            ParticleSystemU3D::UpdateMethod method = obj->getUpdateMethod();
+            if (method == ParticleSystemU3D::CPU_TEXTURE_LUT &&
+                _positionSizeAndColor.valid() && _positionSizeAndColor->getImage() &&
                 _velocityAndEuler.valid() && _velocityAndEuler->getImage())
             {
                 osg::Vec4* ptr0 = (osg::Vec4*)_positionSizeAndColor->getImage()->data();
@@ -72,12 +74,22 @@ public:
                 obj->updateCPU(fs->getSimulationTime(), r1 - r0, ptr0 + r0, ptr0 + maxSize + r0,
                                ptr1 + r0, ptr1 + maxSize + r0);
             }
-            else if (g != NULL)
+            else if (method == ParticleSystemU3D::CPU_VERTEX_ATTRIB && g != NULL)
             {
                 osg::Vec4Array* pData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(4));
                 osg::Vec4Array* cData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(5));
                 osg::Vec4Array* vData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(6));
                 osg::Vec4Array* eData = static_cast<osg::Vec4Array*>(g->getVertexAttribArray(7));
+                obj->updateCPU(fs->getSimulationTime(), r1 - r0, &(*pData)[0], &(*cData)[0],
+                               &(*vData)[0], &(*eData)[0]);
+                pData->dirty(); cData->dirty(); vData->dirty(); eData->dirty();
+            }
+            else if (method == ParticleSystemU3D::GPU_GEOMETRY && g != NULL)
+            {
+                osg::Vec4Array* pData = static_cast<osg::Vec4Array*>(g->getVertexArray());
+                osg::Vec4Array* cData = static_cast<osg::Vec4Array*>(g->getColorArray());
+                osg::Vec4Array* vData = static_cast<osg::Vec4Array*>(g->getTexCoordArray(0));
+                osg::Vec4Array* eData = static_cast<osg::Vec4Array*>(g->getTexCoordArray(1));
                 obj->updateCPU(fs->getSimulationTime(), r1 - r0, &(*pData)[0], &(*cData)[0],
                                &(*vData)[0], &(*eData)[0]);
                 pData->dirty(); cData->dirty(); vData->dirty(); eData->dirty();
@@ -107,11 +119,7 @@ public:
         tex->setWrap(osg::Texture::WRAP_T, osg::Texture::MIRROR);
         switch (method)
         {
-        case ParticleSystemU3D::GPU_COMPUTE:
-            tex->setTextureSize(_maxTextureSize, _maxTextureSize);
-            tex->setInternalFormat(GL_RGBA32F_ARB);
-            tex->setSourceFormat(GL_RGBA);
-            tex->setSourceType(GL_FLOAT); break;
+        case ParticleSystemU3D::GPU_GEOMETRY:
         case ParticleSystemU3D::CPU_VERTEX_ATTRIB:
             return NULL;
         default:
@@ -211,17 +219,20 @@ void ParticleSystemU3D::operator()(osg::Node* node, osg::NodeVisitor* nv)
 }
 
 void ParticleSystemU3D::linkTo(osg::Geode* geode, bool applyStates,
-                               osg::Shader* vert, osg::Shader* frag)
+                               osg::Shader* vert, osg::Shader* frag, osg::Shader* geom)
 {
     if (!geode) return; else if (!_geometry) recreate();
-    if (!geode->containsDrawable(_geometry.get()))
-        geode->addDrawable(_geometry.get());
-    geode->addUpdateCallback(this);
-    if (!applyStates) return;
+    if (!geode->containsDrawable(_geometry.get())) geode->addDrawable(_geometry.get());
+    geode->addUpdateCallback(this); if (!applyStates) return;
 
     osg::Program* program = new osg::Program;
     program->setName("Particle_PROGRAM");
-    if (_updateMethod == CPU_VERTEX_ATTRIB)
+    if (_updateMethod == GPU_GEOMETRY)
+    {
+        if (vert->getShaderSource().find("#define USE_GEOM_SHADER") == std::string::npos)
+            vert->setShaderSource("#define USE_GEOM_SHADER 1\n" + vert->getShaderSource());
+    }
+    else if (_updateMethod == CPU_VERTEX_ATTRIB)
     {
         program->addBindAttribLocation("osg_UserPosition", 4);
         program->addBindAttribLocation("osg_UserColor", 5);
@@ -231,8 +242,16 @@ void ParticleSystemU3D::linkTo(osg::Geode* geode, bool applyStates,
         if (vert->getShaderSource().find("#define USE_VERTEX_ATTRIB") == std::string::npos)
             vert->setShaderSource("#define USE_VERTEX_ATTRIB 1\n" + vert->getShaderSource());
     }
+
     program->addShader(vert); Pipeline::createShaderDefinitions(vert, 100, 130);
     program->addShader(frag); Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
+    if (_updateMethod == GPU_GEOMETRY && geom)
+    {
+        program->setParameter(GL_GEOMETRY_VERTICES_OUT_EXT, 6);  // FIXME: only billboard?
+        program->setParameter(GL_GEOMETRY_INPUT_TYPE_EXT, GL_POINTS);
+        program->setParameter(GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLES);
+        program->addShader(geom); Pipeline::createShaderDefinitions(geom, 100, 130);
+    }
 
     osg::StateSet* ss = geode->getOrCreateStateSet();
     ss->setAttributeAndModes(program);
@@ -304,6 +323,21 @@ void ParticleSystemU3D::recreate()
     switch (_particleType)
     {
     case PARTICLE_Billboard:
+        if (_updateMethod == GPU_GEOMETRY)
+        {
+            osg::ref_ptr<osg::Vec4Array> va = new osg::Vec4Array(_maxParticles);
+            osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(_maxParticles);
+            osg::ref_ptr<osg::Vec4Array> ta0 = new osg::Vec4Array(_maxParticles);
+            osg::ref_ptr<osg::Vec4Array> ta1 = new osg::Vec4Array(_maxParticles);
+            _geometry->setVertexArray(va.get()); _geometry->setColorArray(ca.get());
+            _geometry->setTexCoordArray(0, ta0.get()); _geometry->setTexCoordArray(1, ta1.get());
+            _geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+            
+            osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_POINTS);
+            for (size_t i = 0; i < va->size(); ++i) de->push_back(i);
+            _geometry->addPrimitiveSet(de.get());
+        }
+        else
         {
             osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(4);
             osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(4);
@@ -343,10 +377,13 @@ void ParticleSystemU3D::recreate()
     }
 
     ParticleSystemPoolU3D* pool = ParticleSystemPoolU3D::instance();
-    for (size_t i = 0; i < _geometry->getNumPrimitiveSets(); ++i)
+    if (_updateMethod != GPU_GEOMETRY)
     {
-        osg::PrimitiveSet* p = _geometry->getPrimitiveSet(i);
-        p->setNumInstances(_maxParticles); p->dirty();
+        for (size_t i = 0; i < _geometry->getNumPrimitiveSets(); ++i)
+        {
+            osg::PrimitiveSet* p = _geometry->getPrimitiveSet(i);
+            p->setNumInstances(_maxParticles); p->dirty();
+        }
     }
 
     ss->setTextureAttributeAndModes(0, _texture.get());

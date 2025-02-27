@@ -20,7 +20,7 @@ namespace osgVerse
     class ParticleSystemU3D : public osg::NodeCallback
     {
     public:
-        enum UpdateMethod { CPU_TEXTURE_LUT, CPU_VERTEX_ATTRIB, GPU_COMPUTE };  // TODO
+        enum UpdateMethod { CPU_TEXTURE_LUT, CPU_VERTEX_ATTRIB, GPU_GEOMETRY };  // TODO
         ParticleSystemU3D(UpdateMethod up = CPU_VERTEX_ATTRIB);
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
@@ -28,9 +28,11 @@ namespace osgVerse
         void play() { _started = true; }
         void stop() { _started = false; }
         bool isPlaying() const { return _started; }
+        UpdateMethod getUpdateMethod() const { return _updateMethod; }
 
         // Link this particle system to a geode to make it work
-        void linkTo(osg::Geode* geode, bool applyStates, osg::Shader* vert = NULL, osg::Shader* frag = NULL);
+        void linkTo(osg::Geode* geode, bool applyStates, osg::Shader* vert = NULL,
+                    osg::Shader* frag = NULL, osg::Shader* geom = NULL);
         void unlinkFrom(osg::Geode* geode);
 
         // Update parameters in CPU_* mode:

@@ -1,17 +1,29 @@
 #extension GL_EXT_draw_instanced : enable
-#ifdef USE_VERTEX_ATTRIB
+#if defined(USE_GEOM_SHADER)
+//
+#elif defined(USE_VERTEX_ATTRIB)
 VERSE_VS_IN vec4 osg_UserPosition, osg_UserColor, osg_UserVelocity, osg_UserEulers;
 #else
 uniform sampler2D PosColorTexture, VelocityTexture;
 #endif
 uniform vec4 DataRange;
+#if defined(USE_GEOM_SHADER)
+VERSE_VS_OUT vec4 color_gs, texCoord_gs;
+VERSE_VS_OUT float animationID_gs, lifeTime_gs;
+#else
 VERSE_VS_OUT vec4 color, texCoord;
 VERSE_VS_OUT float animationID, lifeTime;
+#endif
 const float RES = 2048.0, SCALE_FACTOR = 100.0;
 
 void main()
 {
-#ifdef USE_VERTEX_ATTRIB
+#if defined(USE_GEOM_SHADER)
+    vec4 posSize = osg_Vertex;
+    vec4 velocityLife = osg_MultiTexCoord0;
+    vec4 eulerAnim = osg_MultiTexCoord1;
+    color_gs = osg_Color;
+#elif defined(USE_VERTEX_ATTRIB)
     vec4 posSize = osg_UserPosition;
     vec4 velocityLife = osg_UserVelocity;
     vec4 eulerAnim = osg_UserEulers;
@@ -24,9 +36,13 @@ void main()
     vec4 eulerAnim = VERSE_TEX2D(VelocityTexture, vec2(r, c + 0.5));
     color = VERSE_TEX2D(PosColorTexture, vec2(r, c + 0.5));
 #endif
-    animationID = eulerAnim.a; lifeTime = velocityLife.a;
 
+#if defined(USE_GEOM_SHADER)
+    float size = posSize.w; //texCoord = osg_MultiTexCoord0;
+    animationID_gs = eulerAnim.a; lifeTime_gs = velocityLife.a;
+#else
     float size = posSize.w; texCoord = osg_MultiTexCoord0;
+    animationID = eulerAnim.a; lifeTime = velocityLife.a;
     if (DataRange.z > 1.5)  // billboard (no-scale)
     {
         vec4 viewPos = VERSE_MATRIX_MV * vec4(posSize.xyz, 1.0);
@@ -41,4 +57,5 @@ void main()
     }
     else  // mesh etc.
         gl_Position = VERSE_MATRIX_MVP * (osg_Vertex + vec4(posSize.xyz, 0.0));
+#endif
 }
