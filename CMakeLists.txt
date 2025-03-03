@@ -222,15 +222,42 @@ ENDIF(VERSE_FIND_LEGACY_OPENGL)
 FIND_PACKAGE(OpenGL)
 FIND_PACKAGE(OpenMP)
 FIND_PACKAGE(CUDA)
-
 IF(OPENMP_FOUND)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 ENDIF()
 
 IF(CUDA_FOUND)
-    SET(VERSE_NVCC_FLAGS "-gencode arch=compute_52,code=\"sm_52,compute_52\""
-        CACHE STRING "NVCC Flags. See https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-architecture-arch")
+    # Check CUDA / Compiler compatibility
+    IF(MSVC)
+        # https://quasar.ugent.be/files/doc/cuda-msvc-compatibility.html
+        IF(CUDA_VERSION VERSION_GREATER_EQUAL 12.0)
+            MATH(EXPR CUDA_CHECKVER "${MSVC_VERSION} - 1910")  # >= VS2017
+        ELSEIF(CUDA_VERSION VERSION_GREATER_EQUAL 11.6)
+            MATH(EXPR CUDA_CHECKVER "${MSVC_VERSION} - 1800")  # >= VS2013
+        ELSEIF(CUDA_VERSION VERSION_GREATER_EQUAL 10.1)
+            MATH(EXPR CUDA_CHECKVER "1919 - ${MSVC_VERSION}")  # <= VS2017
+        ELSE()
+            MATH(EXPR CUDA_CHECKVER "1919 - ${MSVC_VERSION}")  # <= VS2017
+        ENDIF()
+    ELSEIF(CMAKE_COMPILER_IS_GNUCC)
+        # https://gist.github.com/ax3l/9489132
+        IF(CUDA_VERSION VERSION_GREATER 11.8 AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 12)
+            SET(CUDA_CHECKVER -1)
+        ELSEIF(CUDA_VERSION VERSION_GREATER 11.3 AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 11)
+            SET(CUDA_CHECKVER -1)
+        ELSEIF(CUDA_VERSION VERSION_LESS_EQUAL 11.3 AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 10)
+            SET(CUDA_CHECKVER -1)
+        ENDIF()
+    ENDIF()
+
+    IF(CUDA_CHECKVER LESS 0)
+        MESSAGE("[osgVerse] NVIDIA CUDA found: ${CUDA_VERSION}, But incompatible with MSVC version ${MSVC_VERSION}")
+        SET(CUDA_FOUND FALSE)
+    ELSE()
+        SET(VERSE_NVCC_FLAGS "-gencode arch=compute_52,code=\"sm_52,compute_52\""
+            CACHE STRING "NVCC Flags. See https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-architecture-arch")
+    ENDIF()
 ENDIF(CUDA_FOUND)
 SET(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
 SET(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};${VERSE_NVCC_FLAGS})
