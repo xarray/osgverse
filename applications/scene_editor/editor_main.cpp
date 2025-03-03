@@ -7,8 +7,11 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include "defines.h"
+#ifdef OSG_LIBRARY_STATIC
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
+USE_SERIALIZER_WRAPPER(DracoGeometry)
+#endif
 GlobalData g_data;
 
 class MyViewer : public osgViewer::Viewer

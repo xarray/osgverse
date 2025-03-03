@@ -18,6 +18,7 @@
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/IntersectionManager.h>
+#include <wrappers/Export.h>
 #include <iostream>
 #include <sstream>
 #include <chrono>

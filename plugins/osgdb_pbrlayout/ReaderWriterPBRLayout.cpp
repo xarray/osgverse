@@ -12,7 +12,8 @@
 class TexLayoutVisitor : public osg::NodeVisitor
 {
 public:
-    TexLayoutVisitor(const osgDB::StringList& params) { parse(params); }
+    TexLayoutVisitor(const osgDB::StringList& params)
+    : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) { parse(params); }
 
     virtual void apply(osg::Drawable& drawable)
     {
@@ -89,8 +90,11 @@ public:
         for (std::map<PbrType, TextureAndRange>::iterator itr = sourceTexMap.begin();
              itr != sourceTexMap.end(); ++itr)
         {
-            osg::Texture2D* tex2D = itr->second.first;
+            osg::Texture2D* tex2D = itr->second.first.get();
             osg::Vec3i range = itr->second.second;
+            OSG_NOTICE << "[TexLayoutVisitor] Ready to change tex from unit-" << range[2]
+                       << " to PBR channel " << (char)itr->first << std::endl;
+
             switch (itr->first)
             {
             case 'D': ss.setTextureAttributeAndModes(0, getTexture(tex2D, range)); break;
@@ -191,6 +195,8 @@ protected:
                 if (num <= 0 || num > 4) continue;
 
                 _sourceMap[u].push_back(TypeAndComponent(type, num));
+
+                std::cout << u << ": WITH " << (char)type << "\n";
                 maxComponents -= num; if (maxComponents <= 0) break;
             }
         }

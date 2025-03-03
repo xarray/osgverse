@@ -18,11 +18,15 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
+#include <wrappers/Export.h>
 #include <iostream>
 #include <sstream>
 
+#ifdef OSG_LIBRARY_STATIC
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
+USE_SERIALIZER_WRAPPER(DracoGeometry)
+#endif
 
 #ifdef false  // GLDebug requires OpenGL 4.3, enable it by yourselves
 class GLDebugOperation : public osg::GraphicsOperation
@@ -166,6 +170,7 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     std::string optString, optAll;
     while (arguments.read("-O", optString)) optAll += optString + " ";
+    osgVerse::updateOsgBinaryWrappers();
 
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osg::ref_ptr<osgDB::Options> options = optAll.empty() ? NULL : new osgDB::Options(optAll);
