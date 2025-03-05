@@ -47,8 +47,8 @@ void main()
     vec2 uv0 = texCoord0.xy, uv1 = texCoord1.xy;
     vec4 diffuse = VERSE_TEX2D(DiffuseMap, uv0) * color;
     vec4 normalValue = VERSE_TEX2D(NormalMap, uv0);
+    vec4 emission = VERSE_TEX2D(EmissiveMap, uv1);
     vec3 specular = VERSE_TEX2D(SpecularMap, uv0).rgb;
-    vec3 emission = VERSE_TEX2D(EmissiveMap, uv1).rgb;
     vec3 metalRough = VERSE_TEX2D(ShininessMap, uv0).rgb;
 
     // Compute eye-space normal
@@ -98,6 +98,7 @@ void main()
     }
 
     vec3 ambient = vec3(0.25) * albedo;
+    radianceOut = mix(radianceOut, radianceOut * emission.rgb, emission.a);
     ao = 1.0;  // FIXME: sponza seems to have a negative AO?
     fragData = vec4(ambient + radianceOut * pow(ao, 2.2), diffuse.a);
     VERSE_FS_FINAL(fragData);

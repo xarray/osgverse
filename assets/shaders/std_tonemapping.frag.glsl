@@ -1,5 +1,5 @@
 uniform sampler2D ColorBuffer, LuminanceBuffer;
-uniform sampler2D BloomBuffer, IblAmbientBuffer;
+uniform sampler2D BloomBuffer, EmissionBuffer, IblAmbientBuffer;
 uniform vec2 LuminanceFactor;
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
@@ -39,12 +39,12 @@ vec3 ACESToneMapping(vec3 color, float adapted_lum)
 void main()
 {
     vec2 uv0 = texCoord0.xy;
-    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);
-    vec4 colorBloom = VERSE_TEX2D(BloomBuffer, uv0);
-    vec4 iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);
+    vec4 color = VERSE_TEX2D(ColorBuffer, uv0), colorBloom = VERSE_TEX2D(BloomBuffer, uv0);
+    vec4 emission = VERSE_TEX2D(EmissionBuffer, uv0), iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);
     float lumAvg = VERSE_TEX2D(LuminanceBuffer, vec2(0.5, 0.5)).r;
 
     color.rgb = color.rgb + iblColor.rgb + colorBloom.rgb;
+    color.rgb = mix(color.rgb, color.rgb * emission.rgb, emission.a);
     if (true)
         color.rgb = ACESToneMapping(color.rgb, LuminanceFactor.x + lumAvg * LuminanceFactor.y);
     fragData = vec4(color.rgb, 1.0);

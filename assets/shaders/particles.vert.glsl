@@ -38,8 +38,21 @@ void main()
 #endif
 
 #if defined(USE_GEOM_SHADER)
-    float size = posSize.w; //texCoord = osg_MultiTexCoord0;
     animationID_gs = eulerAnim.a; lifeTime_gs = velocityLife.a;
+    if (DataRange.z > 1.5)  // billboard (no-scale)
+    {
+        vec4 viewPos = VERSE_MATRIX_MV * vec4(posSize.xyz, 1.0);
+        texCoord_gs.x = (-viewPos.z * posSize.w);
+        gl_Position = viewPos;
+    }
+    else if (DataRange.z > 0.5)  // billboard (with-scale)
+    {
+        texCoord_gs.xy = vec2(length(VERSE_MATRIX_MV[0]) / DataRange.a, length(VERSE_MATRIX_MV[1]))
+                       * posSize.w * SCALE_FACTOR;
+        gl_Position = vec4(posSize.xyz, 1.0);
+    }
+    else
+        gl_Position = vec4(posSize.xyz, 1.0);
 #else
     float size = posSize.w; texCoord = osg_MultiTexCoord0;
     animationID = eulerAnim.a; lifeTime = velocityLife.a;

@@ -4,6 +4,7 @@
 #include <osg/VertexAttribDivisor>
 #include <osgDB/FileNameUtils>
 #include <iostream>
+#include "modeling/Math.h"
 #include "pipeline/Global.h"
 #include "pipeline/Utilities.h"
 #include "pipeline/Pipeline.h"
@@ -193,7 +194,11 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _aspectRatio(copy._aspectRatio), _emissionShape(copy._emissionShape),
     _emissionSurface(copy._emissionSurface), _particleType(copy._particleType),
     _blendingType(copy._blendingType), _updateMethod(copy._updateMethod),
-    _dirty(copy._dirty), _started(copy._started) {}
+    _dirty(copy._dirty), _started(copy._started)
+{
+    _startRotationRange[0] = copy._startRotationRange[0];
+    _startRotationRange[1] = copy._startRotationRange[1];
+}
 
 ParticleSystemU3D::~ParticleSystemU3D()
 { ParticleSystemPoolU3D::instance()->deallocate(this); }
@@ -229,6 +234,8 @@ void ParticleSystemU3D::linkTo(osg::Geode* geode, bool applyStates,
     program->setName("Particle_PROGRAM");
     if (_updateMethod == GPU_GEOMETRY)
     {
+        if (!geom || (geom && geom->getType() != osg::Shader::GEOMETRY))
+            OSG_WARN << "[ParticleSystemU3D] GPU_GEOMETRY mode must have a geometry shader attached!\n";
         if (vert->getShaderSource().find("#define USE_GEOM_SHADER") == std::string::npos)
             vert->setShaderSource("#define USE_GEOM_SHADER 1\n" + vert->getShaderSource());
     }
@@ -478,7 +485,13 @@ void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
         break;  // EMIT_Point
     }
 
-    vel3.normalize(); vel3 = osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), vel3);
+    vel3.normalize();
+    if (!_startRotationRange[0].zeroRotation() && !_startRotationRange[1].zeroRotation())
+    {
+        osg::Quat q; q.slerp(RAND_VALUE(0.0, 1.0), _startRotationRange[0], _startRotationRange[1]);
+        vel3 = computeParentRotation(vel3, q) * vel3;  // FIXME: not correct...
+    }
+    vel3 = osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), vel3);
     vel3 = vel3 * RAND_RANGE2(_startSpeedRange); vel.set(vel3[0], vel3[1], vel3[2], 0.0f);
     pos = osg::Vec4(pos3 * matrix, 0.0f);
 }

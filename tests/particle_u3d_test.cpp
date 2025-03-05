@@ -32,9 +32,10 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Group> root = new osg::Group;
+    bool useGeomShader = arguments.read("--with-geometry-shader");
 
-    osg::ref_ptr<osg::Node> scene = (argc < 2) ?
-        osgDB::readNodeFile("cessna.osgt.0,0,-10.trans") : osgDB::readNodeFiles(arguments);
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
+    if (!scene) scene = osgDB::readNodeFile("cessna.osgt.0,0,-10.trans");
     if (!scene) { OSG_WARN << "Failed to load scene model " << (argc < 2) ? "" : argv[1]; }
 
     std::map<std::string, osgVerse::ParticleSystemU3D*> particleSystems;
@@ -47,8 +48,11 @@ int main(int argc, char** argv)
 
         osg::ref_ptr<osg::Shader> vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "particles.vert.glsl");
         osg::ref_ptr<osg::Shader> fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "particles.frag.glsl");
+        osg::ref_ptr<osg::Shader> gs = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "particles.geom.glsl");
+        osgVerse::ParticleSystemU3D::UpdateMethod method = useGeomShader ?
+            osgVerse::ParticleSystemU3D::GPU_GEOMETRY : osgVerse::ParticleSystemU3D::CPU_VERTEX_ATTRIB;
 
-        osg::ref_ptr<osgVerse::ParticleSystemU3D> turbulenceSmoke = new osgVerse::ParticleSystemU3D;
+        osg::ref_ptr<osgVerse::ParticleSystemU3D> turbulenceSmoke = new osgVerse::ParticleSystemU3D(method);
         turbulenceSmoke->setTexture(osgVerse::createTexture2D(imgTurbulence.get()));
         turbulenceSmoke->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
         turbulenceSmoke->setGravityScale(-1.0); turbulenceSmoke->setMaxParticles(2000);
@@ -67,10 +71,10 @@ int main(int argc, char** argv)
         turbulenceSmoke->setTextureSheetTiles(osg::Vec2(8.0f, 8.0f));
         turbulenceSmoke->setTextureSheetValues(osg::Vec4(32.0f, 0.0f, 0.0f, 0.0f));
         turbulenceSmoke->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Modulate);
-        turbulenceSmoke->linkTo(particleNodeB.get(), false, vs.get(), fs.get());
+        turbulenceSmoke->linkTo(particleNodeB.get(), false, vs.get(), fs.get(), gs.get());
         particleSystems["turbulenceSmoke"] = turbulenceSmoke.get();
 
-        osg::ref_ptr<osgVerse::ParticleSystemU3D> flamesA = new osgVerse::ParticleSystemU3D;
+        osg::ref_ptr<osgVerse::ParticleSystemU3D> flamesA = new osgVerse::ParticleSystemU3D(method);
         flamesA->setTexture(osgVerse::createTexture2D(imgFlames.get()));
         flamesA->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
         flamesA->setGravityScale(-0.01); flamesA->setMaxParticles(2000);
@@ -89,10 +93,10 @@ int main(int argc, char** argv)
         flamesA->setTextureSheetTiles(osg::Vec2(6.0f, 5.0f));
         flamesA->setTextureSheetValues(osg::Vec4(15.0f, 0.0f, 0.0f, 0.0f));
         flamesA->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
-        flamesA->linkTo(particleNodeB.get(), false, vs.get(), fs.get());
+        flamesA->linkTo(particleNodeB.get(), false, vs.get(), fs.get(), gs.get());
         particleSystems["flamesA"] = flamesA.get();
 
-        osg::ref_ptr<osgVerse::ParticleSystemU3D> flamesB = new osgVerse::ParticleSystemU3D;
+        osg::ref_ptr<osgVerse::ParticleSystemU3D> flamesB = new osgVerse::ParticleSystemU3D(method);
         flamesB->setTexture(osgVerse::createTexture2D(imgFlames.get()));
         flamesB->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
         flamesB->setGravityScale(-0.01); flamesB->setMaxParticles(2000);
@@ -111,17 +115,19 @@ int main(int argc, char** argv)
         flamesB->setTextureSheetTiles(osg::Vec2(6.0f, 5.0f));
         flamesB->setTextureSheetValues(osg::Vec4(15.0f, 0.0f, 0.0f, 0.0f));
         flamesB->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
-        flamesB->linkTo(particleNodeB.get(), false, vs.get(), fs.get());
+        flamesB->linkTo(particleNodeB.get(), false, vs.get(), fs.get(), gs.get());
         particleSystems["flamesB"] = flamesB.get();
 
-        osg::ref_ptr<osgVerse::ParticleSystemU3D> takeOffSmoke = new osgVerse::ParticleSystemU3D;
+        osg::ref_ptr<osgVerse::ParticleSystemU3D> takeOffSmoke = new osgVerse::ParticleSystemU3D(method);
         takeOffSmoke->setTexture(osgVerse::createTexture2D(imgTakeoff.get()));
         takeOffSmoke->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
-        takeOffSmoke->setGravityScale(-0.1); takeOffSmoke->setMaxParticles(2000);
+        takeOffSmoke->setGravityScale(0.0); takeOffSmoke->setMaxParticles(2000);
         takeOffSmoke->setDuration(6.0); takeOffSmoke->setAspectRatio(16.0 / 9.0);
         takeOffSmoke->setStartLifeRange(osg::Vec2(4.0f, 6.0f));
         takeOffSmoke->setStartSizeRange(osg::Vec2(132.0f, 248.0f));
         takeOffSmoke->setStartSpeedRange(osg::Vec2(0.01f, 0.03f));
+        takeOffSmoke->setStartRotation0(osg::Quat(osg::PI_4, osg::X_AXIS));
+        takeOffSmoke->setStartRotation1(osg::Quat(osg::PI_4, osg::X_AXIS));
         takeOffSmoke->setEmissionCount(osg::Vec2(40.0f, 0.0f));
         takeOffSmoke->setEmissionShape(osgVerse::ParticleSystemU3D::EMIT_Circle);
         takeOffSmoke->setEmissionShapeCenter(osg::Vec3(0.0f, 0.0f, -0.5f));
@@ -133,7 +139,7 @@ int main(int argc, char** argv)
         takeOffSmoke->setTextureSheetTiles(osg::Vec2(8.0f, 8.0f));
         takeOffSmoke->setTextureSheetValues(osg::Vec4(32.0f, 0.0f, 0.0f, 0.0f));
         takeOffSmoke->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Modulate);
-        takeOffSmoke->linkTo(particleNodeB.get(), true, vs.get(), fs.get());
+        takeOffSmoke->linkTo(particleNodeB.get(), true, vs.get(), fs.get(), gs.get());
         particleSystems["takeOffSmoke"] = takeOffSmoke.get();
     }
 

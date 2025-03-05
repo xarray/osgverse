@@ -20,7 +20,7 @@ ELSEIF(EFFEKSEER_FOUND)
 ENDIF()
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
-TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVersePipeline osgVerseModeling)
+TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseModeling osgVersePipeline)
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 IF(BULLET_FOUND)

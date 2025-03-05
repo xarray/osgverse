@@ -20,7 +20,7 @@ namespace osgVerse
     class ParticleSystemU3D : public osg::NodeCallback
     {
     public:
-        enum UpdateMethod { CPU_TEXTURE_LUT, CPU_VERTEX_ATTRIB, GPU_GEOMETRY };  // TODO
+        enum UpdateMethod { CPU_TEXTURE_LUT, CPU_VERTEX_ATTRIB, GPU_GEOMETRY };
         ParticleSystemU3D(UpdateMethod up = CPU_VERTEX_ATTRIB);
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
@@ -52,6 +52,8 @@ namespace osgVerse
         void setStartDirection(const osg::Vec3& v) { _startDirection = v; }
         void setStartLifeRange(const osg::Vec2& v) { _startLifeRange = v; }
         void setStartSizeRange(const osg::Vec2& v) { _startSizeRange = v; }
+        void setStartRotation0(const osg::Quat& q) { _startRotationRange[0] = q; }
+        void setStartRotation1(const osg::Quat& q) { _startRotationRange[1] = q; }
         void setStartSpeedRange(const osg::Vec2& v) { _startSpeedRange = v; }
         void setMaxParticles(double v) { _maxParticles = v; }
         void setStartDelay(double v) { _startDelay = v; }
@@ -67,6 +69,8 @@ namespace osgVerse
         const osg::Vec3& getStartDirection() const { return _startDirection; }
         const osg::Vec2& getStartLifeRange() const { return _startLifeRange; }
         const osg::Vec2& getStartSizeRange() const { return _startSizeRange; }
+        const osg::Quat& getStartRotation0() { return _startRotationRange[0]; }
+        const osg::Quat& getStartRotation1() { return _startRotationRange[1]; }
         const osg::Vec2& getStartSpeedRange() const { return _startSpeedRange; }
         double getMaxParticles() const { return _maxParticles; }
         double getStartDelay() const { return _startDelay; }
@@ -151,6 +155,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> _texture;
         osg::ref_ptr<osg::Geometry> _geometry, _geometry2;
         osg::Matrix _localToWorld, _worldToLocal;
+        osg::Quat _startRotationRange[2];
         osg::Vec4 _collisionValues;      // dampen, bounce scale, lifetime loss, min kill speed
         osg::Vec4 _textureSheetRange;    // Sheet X0, Y0, W, H
         osg::Vec4 _textureSheetValues;   // playing speed by lifetime, by velocity, by FPS, and cycles

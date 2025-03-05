@@ -281,13 +281,13 @@ namespace osgVerse
                 "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
-                "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_INT8,
+                "EmissionBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #else
                 "NormalBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
-                "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
+                "EmissionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
 #   ifdef VERSE_WASM
                 "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #   else
@@ -426,8 +426,7 @@ namespace osgVerse
         lighting->applyBuffer(*gbuffer, "NormalBuffer", 0);
         lighting->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 1);
         lighting->applyBuffer(*gbuffer, "SpecularRoughnessBuffer", 2);
-        lighting->applyBuffer(*gbuffer, "EmissionOcclusionBuffer", 3);
-        lighting->applyBuffer(*gbuffer, "DepthBuffer", 4);
+        lighting->applyBuffer(*gbuffer, "DepthBuffer", 3);
         if (!spp.skyboxIBL)
         {
             lighting->applyBuffer(*brdfLut, "BrdfLutBuffer", 5, osg::Texture::MIRROR);
@@ -575,7 +574,8 @@ namespace osgVerse
             tonemapping->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
             tonemapping->applyBuffer(*downsamples.back(), "BrightnessBuffer" + lastDs, "LuminanceBuffer", 1);
             tonemapping->applyBuffer(*blooming, "BloomBuffer", 2);
-            tonemapping->applyBuffer(*lighting, "IblAmbientBuffer", 3);
+            tonemapping->applyBuffer(*gbuffer, "EmissionBuffer", 3);
+            tonemapping->applyBuffer(*lighting, "IblAmbientBuffer", 4);
             tonemapping->applyUniform(new osg::Uniform("LuminanceFactor", osg::Vec2(1.0f, 10.0f)));
 
             // Anti-aliasing

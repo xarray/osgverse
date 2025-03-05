@@ -184,6 +184,19 @@ namespace osgVerse
         return sqrt(deviation / sizeF);
     }
 
+    osg::Quat computeParentRotation(const osg::Vec3& parentDirection, const osg::Quat& localRot)
+    {
+        osg::Vec3 forward(parentDirection), up(osg::Z_AXIS);
+        osg::Vec3 right = up ^ forward;
+        if (right.normalize() == 0.0f) right = osg::Y_AXIS;
+        up = forward ^ right;
+
+        osg::Matrix w2l(right[0], up[0], forward[0], 0.0f, right[1], up[1], forward[1], 0.0f,
+                        right[2], up[2], forward[2], 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+        osg::Quat parentQuat = w2l.getRotate();
+        return parentQuat.inverse() * localRot * parentQuat;
+    }
+
     osg::Matrix computePerspectiveMatrix(double hfov, double vfov, double zn, double zf)
     {
         double fov1 = osg::DegreesToRadians(hfov) * 0.5;

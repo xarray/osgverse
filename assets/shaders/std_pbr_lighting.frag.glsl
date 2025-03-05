@@ -1,8 +1,7 @@
 #include "module_lighting.glsl"
 
 uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
-uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer;
-uniform sampler2D SpecularRoughnessBuffer, EmissionOcclusionBuffer;
+uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer, SpecularRoughnessBuffer;
 uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+att1, r2: dir+att0, r3: spotProp)
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)
@@ -51,7 +50,6 @@ void main()
     vec2 uv0 = texCoord0.xy;
     vec4 diffuseMetallic = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);
     vec4 specularRoughness = VERSE_TEX2D(SpecularRoughnessBuffer, uv0);
-    vec4 emissionOcclusion = VERSE_TEX2D(EmissionOcclusionBuffer, uv0);
     vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
     float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
 
@@ -63,9 +61,8 @@ void main()
     // Components common to all light types
     vec3 viewDir = -normalize(eyeVertex.xyz / eyeVertex.w);
     vec3 R = reflect(-viewDir, eyeNormal);
-    vec3 albedo = pow(diffuseMetallic.rgb, vec3(2.2));
-    vec3 specular = specularRoughness.rgb, emission = emissionOcclusion.rgb;
-    float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = emissionOcclusion.a;
+    vec3 albedo = pow(diffuseMetallic.rgb, vec3(2.2)), specular = specularRoughness.rgb;
+    float metallic = diffuseMetallic.a, roughness = specularRoughness.a, ao = normalAlpha.a;
     float nDotV = max(dot(eyeNormal, viewDir), 0.0);
 
     // Calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 of 0.04;
@@ -119,9 +116,9 @@ void main()
     ao = 1.0;  // FIXME: sponza seems to have a negative AO?
 #ifdef VERSE_GLES3
     fragData0/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
-    fragData1/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
+    fragData1/*IblAmbientBuffer*/ = vec4(ambient, 1.0);
 #else
     gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
-    gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient + emission, 1.0);
+    gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient, 1.0);
 #endif
 }

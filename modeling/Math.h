@@ -62,6 +62,9 @@ namespace osgVerse
     /** Compute standard deviation */
     extern float computeStandardDeviation(const std::vector<float>& values);
 
+    /** Compute parent rotation from a parent direction vector and a local rotation quat */
+    extern osg::Quat computeParentRotation(const osg::Vec3& parentDirection, const osg::Quat& localRot);
+
     /** Compute perspective matrix from horizontal and vertical FOVs */
     extern osg::Matrix computePerspectiveMatrix(double hfov, double vfov, double zn, double zf);
 
