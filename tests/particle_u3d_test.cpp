@@ -121,13 +121,13 @@ int main(int argc, char** argv)
         osg::ref_ptr<osgVerse::ParticleSystemU3D> takeOffSmoke = new osgVerse::ParticleSystemU3D(method);
         takeOffSmoke->setTexture(osgVerse::createTexture2D(imgTakeoff.get()));
         takeOffSmoke->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
-        takeOffSmoke->setGravityScale(0.0); takeOffSmoke->setMaxParticles(2000);
+        takeOffSmoke->setGravityScale(0.1); takeOffSmoke->setMaxParticles(2000);
         takeOffSmoke->setDuration(6.0); takeOffSmoke->setAspectRatio(16.0 / 9.0);
         takeOffSmoke->setStartLifeRange(osg::Vec2(4.0f, 6.0f));
         takeOffSmoke->setStartSizeRange(osg::Vec2(132.0f, 248.0f));
-        takeOffSmoke->setStartSpeedRange(osg::Vec2(0.01f, 0.03f));
-        takeOffSmoke->setStartRotation0(osg::Quat(osg::PI_4, osg::X_AXIS));
-        takeOffSmoke->setStartRotation1(osg::Quat(osg::PI_4, osg::X_AXIS));
+        takeOffSmoke->setStartSpeedRange(osg::Vec2(0.01f, 0.02f));
+        takeOffSmoke->setStartAttitude0(osg::Quat(-osg::PI_4, osg::X_AXIS));
+        takeOffSmoke->setStartAttitude1(osg::Quat(-osg::PI_2, osg::X_AXIS));
         takeOffSmoke->setEmissionCount(osg::Vec2(40.0f, 0.0f));
         takeOffSmoke->setEmissionShape(osgVerse::ParticleSystemU3D::EMIT_Circle);
         takeOffSmoke->setEmissionShapeCenter(osg::Vec3(0.0f, 0.0f, -0.5f));

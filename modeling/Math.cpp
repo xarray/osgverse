@@ -194,7 +194,7 @@ namespace osgVerse
         osg::Matrix w2l(right[0], up[0], forward[0], 0.0f, right[1], up[1], forward[1], 0.0f,
                         right[2], up[2], forward[2], 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
         osg::Quat parentQuat = w2l.getRotate();
-        return parentQuat.inverse() * localRot * parentQuat;
+        return parentQuat * localRot * parentQuat.inverse();
     }
 
     osg::Matrix computePerspectiveMatrix(double hfov, double vfov, double zn, double zf)

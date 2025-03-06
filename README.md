@@ -46,10 +46,11 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
 2. Please use a C++ compiler supporting C++ 14 at least.
 3. OpenSceneGraph is always required for building osgVerse. (https://github.com/openscenegraph/OpenSceneGraph) Current project mainly depends on OSG 3.7.0, but can compile on OSG 3.1.1 or later versions.
-4. Important dependencies:
+4. Important (but optional) dependencies:
   - 4.1 SDL2 (https://github.com/libsdl-org/SDL): for windowing system supports on Android, IOS and WebAssembly builds.
   - 4.2 Google Angle (https://github.com/google/angle): for cross-Graphics API uses and Vulkan integrations.
   - 4.3 Emscripten SDK (https://emscripten.org/docs/getting_started/downloads.html): for WebAssembly builds.
+  - 4.4 NVIDIA CUDA (https://developer.nvidia.com/cuda-downloads): for CUDA related functionalities.
 5. Optional dependencies:
   - 5.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
   - 5.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable INSTALL_LIBS (for correct installation) and USE_MSVC_RUNTIME_LIBRARY_DLL (for /MD flag) while compiling Bullet.
@@ -63,6 +64,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 5.10 Effekseer 1.70 or later, for particle support in osgVerseAnimation module and related examples. Remember to check the USE_MSVC_RUNTIME_LIBRARY_DLL option while compiling. (https://github.com/effekseer/Effekseer)
   - 5.11 libCEF 127.3 or later, for HTML5/CSS page rendering support in osgVerseAnimation module and related examples. (Binaries download: https://cef-builds.spotifycdn.com/index.html)
   - 5.12 mimalloc 2.17 or later, for general purpose memory allocator with excellent performance. (https://github.com/microsoft/mimalloc)
+  - 5.13 NVIDIA Video Codec SDK 12 or later, for video decoding/encoding based on codec_nv plugin. (https://developer.nvidia.com/video-codec-sdk)_
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
@@ -74,7 +76,7 @@ Our project is already tested on graphics cards listed as below:
 | NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | Display has broken problems with Nouveau driver |
 | NVIDIA GT720              | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 12fps |
 | NVIDIA Quadro K2200       | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| AMD Radeon RX5500         |                | :soon:             |       |
+| AMD Radeon RX5500         | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 15fps |
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
 | MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
@@ -99,7 +101,7 @@ Our project is already tested on graphics cards listed as below:
 |     Name     |               Depended Module             | Optional External Dependency |
 |--------------|-------------------------------------------|------------------------------|
 | Modeling     | Dependency                                | libIGL                       |
-| Pipeline     | Dependency, Modeling                      |                              |
+| Pipeline     | Dependency, Modeling                      | CUDA                         |
 | Script       | Dependency, Pipeline                      |                              |
 | AI           | Dependency, Modeling                      |                              |
 | Animation    | Dependency, Pipeline, Modeling            | Bullet, Effekseer            |
@@ -140,6 +142,7 @@ Our project is already tested on graphics cards listed as below:
 19. osgVerse_Test_Particle_U3D: a Unity-like particle system example. (TBD: better fire/explosion example)
 20. osgVerse_Test_Particle_Effekseer: another particle system example with Effekseer. (TBD: Effekseer scripting)
 21. osgVerse_Test_Scripting: an example for scripting implementation based on OSGB serialization format.
+22. osgVerse_Test_Video: an example for video demuxing, decoding and playing with multiple plugins.
 
 ##### Tests for specified goals
 1. osgVerse_Test_Compressing: a test for KTX texture compression (DXT / ETC) and Draco geometry compressing.
@@ -168,14 +171,16 @@ Our project is already tested on graphics cards listed as below:
 5. osgdb_verse_image: a plugin for reading common image formats like JPEG and PNG. It mainly works for WASM case.
 6. osgdb_verse_webp: a plugin for reading WEBP formats. It mainly works for 3dtiles scene.
 7. osgdb_verse_leveldb: a plugin for reading/writing from LevelDB database.
-8. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
-9. osgdb_vese_tiles: a plugin for reading Cesium 3dtiles (.json) and Osgb files (metadata.xml, or just the root folder).
-10. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
+8. osgdb_vese_tiles: a plugin for reading Cesium 3dtiles (.json) and Osgb files (metadata.xml, or just the root folder).
+9. osgdb_verse_ms: a plugin for reading/writing from media streaming protocols like RTSP/RTMP/WebRTC.
+10. osgdb_verse_ffmpeg: a plugin for video decoding/encoding with FFmpeg (enhanced to connect with codec_nv).
+11. osgdb_codec_nv: a plugin for CUDA based video decoding/encoding support and connecting with demuxers/muxers and players.
+12. osgdb_pbrlayout: a pseudo-plugin to change PBR textures' layout to osgVerse standard. It supports following options:
   - Diffuse (D), Specular (S), Normal (N), Metallic (M), Roughness (R), Occlusion (O), Emissive (E), Ambient (A), Omitted (X)
   - Every source texture is defined by a option character and a channel number (1-4), and separated with a ','.
   - Example input: model.fbx.D4,M1R1X2,N3.pbrlayout (Tex0 = Diffuse x 4, Tex1 = Metallic+Roughness, Tex2 = Normal)
   - All layouts will be converted to osgVerse standard: D4,N3,S4,O1R1M1,A3,E3
-11. TBD...
+13. TBD...
 
 #### Assets
 1. models: 3D models for test use, mainly in GLTF format.

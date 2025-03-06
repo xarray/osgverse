@@ -196,8 +196,8 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _blendingType(copy._blendingType), _updateMethod(copy._updateMethod),
     _dirty(copy._dirty), _started(copy._started)
 {
-    _startRotationRange[0] = copy._startRotationRange[0];
-    _startRotationRange[1] = copy._startRotationRange[1];
+    _startAttitudeRange[0] = copy._startAttitudeRange[0];
+    _startAttitudeRange[1] = copy._startAttitudeRange[1];
 }
 
 ParticleSystemU3D::~ParticleSystemU3D()
@@ -486,10 +486,10 @@ void ParticleSystemU3D::emitParticle(osg::Vec4& vel, osg::Vec4& pos)
     }
 
     vel3.normalize();
-    if (!_startRotationRange[0].zeroRotation() && !_startRotationRange[1].zeroRotation())
+    if (!_startAttitudeRange[0].zeroRotation() && !_startAttitudeRange[1].zeroRotation())
     {
-        osg::Quat q; q.slerp(RAND_VALUE(0.0, 1.0), _startRotationRange[0], _startRotationRange[1]);
-        vel3 = computeParentRotation(vel3, q) * vel3;  // FIXME: not correct...
+        osg::Quat q; q.slerp(RAND_VALUE(0.0, 1.0), _startAttitudeRange[0], _startAttitudeRange[1]);
+        vel3 = computeParentRotation(vel3, q) * vel3;
     }
     vel3 = osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), vel3);
     vel3 = vel3 * RAND_RANGE2(_startSpeedRange); vel.set(vel3[0], vel3[1], vel3[2], 0.0f);

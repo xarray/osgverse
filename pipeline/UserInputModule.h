@@ -12,10 +12,17 @@ namespace osgVerse
     class UserInputModule : public RenderingModuleBase
     {
     public:
+        struct CustomData : public osg::Referenced  // will be set to camera's user-data
+        {
+            bool sharingBuffers;
+            osg::observer_ptr<osg::Camera> bypassCamera;
+            CustomData(bool sh) : sharingBuffers(sh) {}
+        };
+
         UserInputModule(const std::string& name, Pipeline* pipeline);
         virtual UserInputModule* asUserInputModule() { return this; }
 
-        Pipeline::Stage* createStages(unsigned int cullMask, osg::Shader* vs, osg::Shader* fs,
+        Pipeline::Stage* createStages(osg::Shader* vs, osg::Shader* fs, Pipeline::Stage* bypass, unsigned int cullMask,
                                       const std::string& cName = "ColorBuffer", osg::Texture* colorBuffer = NULL,
                                       const std::string& dName = "DepthBuffer", osg::Texture* depthBuffer = NULL);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);

@@ -367,7 +367,7 @@ namespace osgVerse
         void addUserInputStage(const std::string& name, unsigned int mask,
                                UserInputOccasion occasion, UserInputType t = DEFAULT_INPUT);
         void applyUserInputStages(osg::Camera* mainCam, Pipeline* pipeline, UserInputOccasion occ,
-                                  osg::Texture* colorBuffer, osg::Texture* depthBuffer) const;
+                                  bool sameStage, osg::Texture* colorBuffer, osg::Texture* depthBuffer) const;
     };
 
     /** Create standard pipeline */

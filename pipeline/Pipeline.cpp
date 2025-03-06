@@ -626,15 +626,17 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
             bool rtt = (camera->getRenderTargetImplementation() == osg::Camera::FRAME_BUFFER_OBJECT);
             bool inputCam = (slave ? slave->_useMastersSceneData : false);
 
-            // Check if camera is for shadowing
+            // Check if camera is for shadowing or custom use
+            osgVerse::UserInputModule::CustomData* cData =
+                dynamic_cast<osgVerse::UserInputModule::CustomData*>(camera->getUserData());
             osgVerse::ShadowModule::ShadowData* sData =
                 dynamic_cast<osgVerse::ShadowModule::ShadowData*>(camera->getUserData());
-            bool isShadowCam = (sData != NULL);
+            bool isCustomCam = (cData != NULL), isShadowCam = (sData != NULL);
 
             osg::Viewport* viewport = camera->getViewport();
             if (viewport && (!rtt || inputCam) && !isShadowCam)
-            {   // avoid processing a shared viewport twice
-                if (processedViewports.count(viewport) == 0)
+            {
+                if (processedViewports.count(viewport) == 0)  // avoid processing a shared viewport twice
                 {
                     processedViewports.insert(viewport);
                     if (viewport->x() == 0 && viewport->y() == 0 &&
@@ -650,15 +652,19 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                 }
             }
 
+            if (isCustomCam && cData->bypassCamera.valid())
+            {
+                cData->bypassCamera->setViewport(0, 0, w, h);
+                cData->bypassCamera->dirtyAttachmentMap();
+            }
+
             // if aspect ratio adjusted change the project matrix to suit.
             //if (aspectRatioChange == 1.0) continue;
             if (slave)
             {
                 if (camera->getReferenceFrame() == osg::Transform::RELATIVE_RF)
                 {
-#if OSG_VERSION_GREATER_THAN(3, 3, 2)
-                    if (rtt) camera->resizeAttachments(w, h);
-#endif
+                    if (rtt) resizeAttachments(camera, w, h);
                     switch (view->getCamera()->getProjectionResizePolicy())
                     {
                     case (osg::Camera::HORIZONTAL):
@@ -716,10 +722,76 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                     }
                 }
             }
-        }
+        }  // for (osg::GraphicsContext::Cameras::iterator itr ...
 
+#if false
+        std::cout << "Resizing graphics context to: " << w << "x" << h << "..." << std::endl;
+        for (osg::GraphicsContext::Cameras::iterator itr = cameras.begin(); itr != cameras.end(); ++itr)
+        {
+            osg::Camera* camera = (*itr); osg::View* view = camera->getView();
+            osg::View::Slave* slave = view ? view->findSlaveForCamera(camera) : 0;
+            
+            osg::Matrix proj = camera->getProjectionMatrix(); if (slave) proj *= slave->_projectionOffset;
+            double fov, aspect, zn, zf; proj.getPerspective(fov, aspect, zn, zf);
+            std::cout << "    " << camera->getName() << ": " << camera->getViewport()->width() << "x"
+                      << camera->getViewport()->height() << "; FOV = " << fov << ", AspectRatio = " << aspect << std::endl;
+        }
+#endif
+        
         osg::GraphicsContext::Traits* ncTraits = const_cast<osg::GraphicsContext::Traits*>(traits);
         ncTraits->x = x; ncTraits->y = y; ncTraits->width = w; ncTraits->height = h;
+    }
+
+    void resizeAttachments(osg::Camera* camera, int width, int height)
+    {
+        bool modified = false;
+        osg::Camera::BufferAttachmentMap& bufferAttachments = camera->getBufferAttachmentMap();
+        for (osg::Camera::BufferAttachmentMap::iterator itr = bufferAttachments.begin();
+             itr != bufferAttachments.end(); ++itr)
+        {
+            osg::Camera::Attachment& attachment = itr->second;
+            if (attachment._texture.valid())
+            {
+                {
+                    osg::Texture1D* tex = dynamic_cast<osg::Texture1D*>(attachment._texture.get());
+                    if (tex && (tex->getTextureWidth() != width))
+                    { modified = true; tex->setTextureWidth(width); tex->dirtyTextureObject(); }
+                }
+
+                {
+                    osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(attachment._texture.get());
+                    if (tex && ((tex->getTextureWidth() != width) || (tex->getTextureHeight() != height)))
+                    { modified = true; tex->setTextureSize(width, height); tex->dirtyTextureObject(); }
+                }
+
+                {
+                    osg::Texture3D* tex = dynamic_cast<osg::Texture3D*>(attachment._texture.get());
+                    if (tex && ((tex->getTextureWidth() != width) || (tex->getTextureHeight() != height)))
+                    {
+                        tex->setTextureSize(width, height, tex->getTextureDepth());
+                        tex->dirtyTextureObject(); modified = true;
+                    }
+                }
+
+                {
+                    osg::Texture2DArray* tex = dynamic_cast<osg::Texture2DArray*>(attachment._texture.get());
+                    if (tex && ((tex->getTextureWidth() != width) || (tex->getTextureHeight() != height)))
+                    {
+                        tex->setTextureSize(width, height, tex->getTextureDepth());
+                        tex->dirtyTextureObject(); modified = true;
+                    }
+                }
+            }
+
+            if (attachment._image.valid() && (attachment._image->s() != width || attachment._image->s() != height))
+            {
+                osg::Image* image = attachment._image.get(); modified = true;
+                image->allocateImage(width, height, image->r(),
+                                     image->getPixelFormat(), image->getDataType(), image->getPacking());
+            }
+        }
+        if (modified)
+            camera->dirtyAttachmentMap();
     }
 };
 

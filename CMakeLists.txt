@@ -274,6 +274,7 @@ ENDIF()
 
 ######################################### Global Options
 SET(VERSE_INSTALL_PDB_FILES ON CACHE BOOL "Enable to install PDB files along with executables and dynamic libraries")
+SET(VERSE_BUILD_EXAMPLES ON CACHE BOOL "Enable build of examples and tests")
 SET(VERSE_BUILD_EXPORTERS OFF CACHE BOOL "Enable build of exporters of other software (e.g., 3dsmax)")
 SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg and PNG")
 SET(VERSE_BUILD_WITH_QT OFF CACHE BOOL "Enable build of Qt based applications and tests")
@@ -594,8 +595,10 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         # Add demo project here?
     ELSE()
         MESSAGE(STATUS "[osgVerse] Desktop toolchain is used. (API = ${VERSE_GRAPHICS_API})")
+        IF(VERSE_BUILD_EXAMPLES)
+            ADD_SUBDIRECTORY(tests)
+        ENDIF(VERSE_BUILD_EXAMPLES)
         ADD_SUBDIRECTORY(applications)
-        ADD_SUBDIRECTORY(tests)
         ADD_SUBDIRECTORY(assets)
     ENDIF()
 

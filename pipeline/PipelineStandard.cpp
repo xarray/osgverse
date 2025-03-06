@@ -174,17 +174,30 @@ namespace osgVerse
     }
 
     void StandardPipelineParameters::applyUserInputStages(
-            osg::Camera* mainCam, Pipeline* p, UserInputOccasion occasion,
+            osg::Camera* mainCam, Pipeline* p, UserInputOccasion occasion, bool sameStage,
             osg::Texture* colorBuffer, osg::Texture* depthBuffer) const
     {
         std::map<UserInputOccasion, UserInputStageList>::const_iterator itr = userInputs.find(occasion);
         const StandardPipelineParameters::UserInputStageList& userStages = itr->second;
+        osgVerse::Pipeline::Stage* bypass = NULL;
+        if (!sameStage && !userStages.empty())
+        {
+            // If input color and depth are not from the same stage, they may be reset to different
+            // sizes when graphics context is resizing, which makes the result incorrect.
+            // We have to create a bypass stage to copy color buffer first
+            std::string stageName = "Bypass" + std::to_string((int)occasion);
+            bypass = p->addWorkStage(stageName, 1.0f, shaders.quadVS, shaders.quadFS, 1,
+                                     "CopiedColorBuffer", osgVerse::Pipeline::RGB_INT8);
+            bypass->applyTexture(colorBuffer, "ColorBuffer", 0);
+            colorBuffer = bypass->getBufferTexture("CopiedColorBuffer");
+        }
+
         for (size_t u = 0; u < userStages.size(); ++u)
         {
             const StandardPipelineParameters::UserInputStageData usd = userStages[u];
             osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule(usd.stageName, p);
             Pipeline::Stage* stage = inModule->createStages(
-                usd.mask, NULL, NULL, "ColorBuffer", colorBuffer, "DepthBuffer", depthBuffer);
+                NULL, NULL, bypass, usd.mask, "ColorBuffer", colorBuffer, "DepthBuffer", depthBuffer);
 
             switch (usd.type)
             {
@@ -321,7 +334,7 @@ namespace osgVerse
         occasion = StandardPipelineParameters::BEFORE_DEFERRED_PASSES;
         if (spp.enableUserInput && spp.userInputs.find(occasion) != spp.userInputs.end())
         {
-            spp.applyUserInputStages(mainCam, p, occasion,
+            spp.applyUserInputStages(mainCam, p, occasion, true,
                 gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
                 gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
@@ -511,7 +524,7 @@ namespace osgVerse
         occasion = StandardPipelineParameters::BEFORE_POSTEFFECTS;
         if (spp.enableUserInput && spp.userInputs.find(occasion) != spp.userInputs.end())
         {
-            spp.applyUserInputStages(mainCam, p, occasion,
+            spp.applyUserInputStages(mainCam, p, occasion, false,
                                      shadowing->getBufferTexture("CombinedBuffer"),
                                      gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
@@ -590,7 +603,7 @@ namespace osgVerse
         occasion = StandardPipelineParameters::BEFORE_FINAL_STAGE;
         if (spp.enableUserInput && spp.userInputs.find(occasion) != spp.userInputs.end())
         {
-            spp.applyUserInputStages(mainCam, p, occasion,
+            spp.applyUserInputStages(mainCam, p, occasion, false,
                 lastPostStage->getBufferTexture(osg::Camera::COLOR_BUFFER),
                 gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }

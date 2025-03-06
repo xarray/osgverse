@@ -52,8 +52,8 @@ namespace osgVerse
         void setStartDirection(const osg::Vec3& v) { _startDirection = v; }
         void setStartLifeRange(const osg::Vec2& v) { _startLifeRange = v; }
         void setStartSizeRange(const osg::Vec2& v) { _startSizeRange = v; }
-        void setStartRotation0(const osg::Quat& q) { _startRotationRange[0] = q; }
-        void setStartRotation1(const osg::Quat& q) { _startRotationRange[1] = q; }
+        void setStartAttitude0(const osg::Quat& q) { _startAttitudeRange[0] = q; }
+        void setStartAttitude1(const osg::Quat& q) { _startAttitudeRange[1] = q; }
         void setStartSpeedRange(const osg::Vec2& v) { _startSpeedRange = v; }
         void setMaxParticles(double v) { _maxParticles = v; }
         void setStartDelay(double v) { _startDelay = v; }
@@ -69,8 +69,8 @@ namespace osgVerse
         const osg::Vec3& getStartDirection() const { return _startDirection; }
         const osg::Vec2& getStartLifeRange() const { return _startLifeRange; }
         const osg::Vec2& getStartSizeRange() const { return _startSizeRange; }
-        const osg::Quat& getStartRotation0() { return _startRotationRange[0]; }
-        const osg::Quat& getStartRotation1() { return _startRotationRange[1]; }
+        const osg::Quat& getStartAttitude0() { return _startAttitudeRange[0]; }
+        const osg::Quat& getStartAttitude1() { return _startAttitudeRange[1]; }
         const osg::Vec2& getStartSpeedRange() const { return _startSpeedRange; }
         double getMaxParticles() const { return _maxParticles; }
         double getStartDelay() const { return _startDelay; }
@@ -155,15 +155,15 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> _texture;
         osg::ref_ptr<osg::Geometry> _geometry, _geometry2;
         osg::Matrix _localToWorld, _worldToLocal;
-        osg::Quat _startRotationRange[2];
-        osg::Vec4 _collisionValues;      // dampen, bounce scale, lifetime loss, min kill speed
-        osg::Vec4 _textureSheetRange;    // Sheet X0, Y0, W, H
-        osg::Vec4 _textureSheetValues;   // playing speed by lifetime, by velocity, by FPS, and cycles
-        osg::Vec4 _emissionShapeValues;  // Plane: normal + size (4); Circle/Sphere: radii (2/3), Box: sizes (3)
+        osg::Quat _startAttitudeRange[2];  // Local attitudes based on start direction
+        osg::Vec4 _collisionValues;        // dampen, bounce scale, lifetime loss, min kill speed
+        osg::Vec4 _textureSheetRange;      // Sheet X0, Y0, W, H
+        osg::Vec4 _textureSheetValues;     // playing speed by lifetime, by velocity, by FPS, and cycles
+        osg::Vec4 _emissionShapeValues;    // Plane: normal + size (4); Circle/Sphere: radii (2/3), Box: sizes (3)
         osg::Vec3 _emissionShapeCenter, _emissionShapeEulers;
-        osg::Vec3 _startDirection;
-        osg::Vec2 _textureSheetTiles;    // texture sheet X, Y
-        osg::Vec2 _emissionCount;        // count per time, count per distance
+        osg::Vec3 _startDirection;        // Start direction of each particle, or set to 0 to use shape predefines
+        osg::Vec2 _textureSheetTiles;     // texture sheet X, Y numbers
+        osg::Vec2 _emissionCount;         // count per time, count per distance
         osg::Vec2 _startLifeRange, _startSizeRange, _startSpeedRange;
         double _maxParticles, _startDelay, _gravityScale;
         double _startTime, _lastSimulationTime, _duration, _aspectRatio;

@@ -18,7 +18,8 @@ namespace osgVerse
     UserInputModule::~UserInputModule()
     {}
 
-    Pipeline::Stage* UserInputModule::createStages(unsigned int cullMask, osg::Shader* vs, osg::Shader* fs,
+    Pipeline::Stage* UserInputModule::createStages(osg::Shader* vs, osg::Shader* fs,
+                                                   Pipeline::Stage* bypass, unsigned int cullMask,
                                                    const std::string& cName, osg::Texture* colorBuffer,
                                                    const std::string& dName, osg::Texture* depthBuffer)
     {
@@ -37,11 +38,14 @@ namespace osgVerse
                 buffers.push_back(desc0); buffers.push_back(desc1);
             }
 
-            // Draw on existing buffers, no clear masks
-            // This requires single-threaded only!!
+            // Draw on existing buffers, no clear masks... This requires single-threaded only!!
             int flags = Pipeline::NO_DEFAULT_TEXTURES;
             Pipeline::Stage* stage = _pipeline->addInputStage(getName(), cullMask, flags, vs, fs, buffers);
-            stage->camera->setClearMask(0); stage->parentModule = this; return stage;
+
+            CustomData* customData = new CustomData(true);
+            if (bypass != NULL) customData->bypassCamera = bypass->camera.get();
+            stage->camera->setUserData(customData); stage->camera->setClearMask(0);
+            stage->parentModule = this; return stage;
         }
         else
         {
