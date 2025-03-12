@@ -182,7 +182,8 @@ int main(int argc, char** argv)
         osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
         {
             osgVerse::Pipeline::Stage* customIn = inModule->createStages(
-                CUSTOM_INPUT_MASK, NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                NULL, CUSTOM_INPUT_MASK,
                 "ColorBuffer", testStage->getBufferTexture("MiddleBuffer"),
                 "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
