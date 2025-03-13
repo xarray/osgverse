@@ -21,6 +21,12 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
+#ifdef OSG_LIBRARY_STATIC
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+#endif
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+
 const char* vertCode = {
     "VERSE_VS_OUT vec3 viewInEye, normalInEye;\n"
     "VERSE_VS_OUT vec4 vertexColor, texCoord;\n"

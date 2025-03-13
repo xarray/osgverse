@@ -198,7 +198,7 @@ namespace osgVerse
 #endif
         ShaderLibrary::instance()->refreshModules(BASE_DIR + std::string("/shaders/"));
 
-        osgDB::Registry* regObject = osgDB::Registry::instance();
+        osg::ref_ptr<osgDB::Registry> regObject = osgDB::Registry::instance();
 #ifdef VERSE_STATIC_BUILD
         // anything to do here?
 #else

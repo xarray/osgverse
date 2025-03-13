@@ -1102,7 +1102,10 @@ namespace osgVerse
         for (unsigned int i = 0; i < _stages.size(); ++i)
         {
             bool useMainScene = _stages[i]->inputStage;
-            if (_stages[i]->deferred || !_stages[i]->camera) continue;
+            osg::Camera* camera = _stages[i]->camera.get();
+            if (camera) camera->setRenderOrder(camera->getRenderOrder(), i);
+            if (_stages[i]->deferred || !camera) continue;
+
             view->addSlave(_stages[i]->camera.get(), projOffset * _stages[i]->projectionOffset,
                            viewOffset * _stages[i]->viewOffset, useMainScene);
 #if false  // TEST ONLY
@@ -1115,6 +1118,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Camera> forwardCam = (mainCam != NULL)
                                              ? new osg::Camera(*mainCam) : new osg::Camera;
         forwardCam->setName("DefaultFixed");
+        forwardCam->setRenderOrder(forwardCam->getRenderOrder(), _stages.size());
         forwardCam->setUserValue("NeedNearFarCalculation", true);
         forwardCam->setUserValue("PipelineCullMask", defForwardMask);  // replacing setCullMask()
         forwardCam->setClampProjectionMatrixCallback(customClamper.get());

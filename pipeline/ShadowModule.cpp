@@ -395,7 +395,9 @@ namespace osgVerse
         camera->getOrCreateStateSet()->setAttributeAndModes(_cullFace.get(), value);
         camera->getOrCreateStateSet()->setAttribute(_polygonOffset.get(), value);
         camera->getOrCreateStateSet()->setMode(GL_POLYGON_OFFSET_FILL, value);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
         camera->getOrCreateStateSet()->setMode(GL_DEPTH_CLAMP, value);
+#endif
         _shadowCameras.push_back(camera.get());
 
         Pipeline::Stage* stage = new Pipeline::Stage;

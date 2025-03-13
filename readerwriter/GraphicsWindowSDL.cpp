@@ -91,7 +91,11 @@ static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
 class SDLWindowingSystem : public osg::GraphicsContext::WindowingSystemInterface
 {
 public:
-    SDLWindowingSystem() {}
+    SDLWindowingSystem()
+    {
+        if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        { OSG_WARN << "[GraphicsWindowSDL] Failed: " << SDL_GetError() << std::endl; return; }
+    }
 
     virtual unsigned int getNumScreens(const osg::GraphicsContext::ScreenIdentifier& screenIdentifier =
                                        osg::GraphicsContext::ScreenIdentifier())
@@ -106,6 +110,8 @@ public:
             resolution.width = mode.w; resolution.height = mode.h;
             resolution.refreshRate = mode.refresh_rate;
         }
+        else
+            OSG_WARN << "[SDLWindowingSystem] getScreenSettings() failed: " << SDL_GetError() << std::endl;
     }
 
     virtual bool setScreenSettings(const osg::GraphicsContext::ScreenIdentifier& identifier,
@@ -141,6 +147,7 @@ protected:
             osg::Referenced::getDeleteHandler()->setNumFramesToRetainObjects(0);
             osg::Referenced::getDeleteHandler()->flushAll();
         }
+        SDL_Quit();
     }
 };
 
@@ -170,9 +177,6 @@ GraphicsWindowSDL::~GraphicsWindowSDL()
 
 void GraphicsWindowSDL::initialize()
 {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    { OSG_WARN << "[GraphicsWindowSDL] Failed: " << SDL_GetError() << std::endl; return; }
-
 #if defined(VERSE_WEBGL1)
     //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -418,7 +422,6 @@ void GraphicsWindowSDL::closeImplementation()
     SDL_GL_DeleteContext(context);
 #endif
     SDL_DestroyWindow(_sdlWindow);
-    SDL_Quit();
 }
 
 bool GraphicsWindowSDL::makeCurrentImplementation()

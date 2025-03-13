@@ -216,9 +216,16 @@ namespace osgVerse
         osgViewer::Viewer tempViewer;
         GLExtensionTester* tester = new GLExtensionTester(p);
         tempViewer.getCamera()->setPreDrawCallback(tester);
-
         tempViewer.setSceneData(new osg::Node);
-        if (asEmbedded && embeddedGC) embeddedGC->makeCurrent();
+        if (asEmbedded && embeddedGC)
+        {
+            if (!embeddedGC->makeCurrent())
+            {
+                if (!embeddedGC->isRealized()) embeddedGC->realize();
+                if (!embeddedGC->makeCurrent()) asEmbedded = false;
+            }
+        }
+
         if (asEmbedded) tempViewer.setUpViewerAsEmbeddedInWindow(0, 0, 1, 1);
         else tempViewer.setUpViewInWindow(0, 0, 1, 1);
         for (int i = 0; i < 5; ++i) tempViewer.frame();

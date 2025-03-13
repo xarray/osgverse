@@ -183,9 +183,10 @@ namespace osgVerse
         if (forwardCam->getNumChildren() == 0)
         { if (_subCallback.valid()) _subCallback.get()->run(renderInfo); return; }
 
-#if defined(VERSE_WASM)
-        // blitFramebuffer() not work for WebGL1...
-        // And it said 'invalid op on multisampled framebuffer' for WebGL2
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        // blitFramebuffer() not work for GLES2/WebGL1...
+        // And 'invalid op on multisampled framebuffer' for WebGL2
+        // And 'Depth/stencil buffer format combination not allowed for blit' for GLES3
 #else
         if (!_depthBlitList.empty())
         {
@@ -200,7 +201,7 @@ namespace osgVerse
             // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
             typedef std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> CamFboMap;
             for (std::set<osg::observer_ptr<osg::Camera>>::iterator itr = _depthBlitList.begin();
-                itr != _depthBlitList.end(); ++itr)
+                 itr != _depthBlitList.end(); ++itr)
             {
                 osg::Camera* cam = itr->get();
                 CamFboMap::const_iterator fboItr = _depthFboMap.find(cam);

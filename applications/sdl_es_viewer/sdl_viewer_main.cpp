@@ -38,8 +38,10 @@ USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 #include <iostream>
 #include <sstream>
 
+#ifdef OSG_LIBRARY_STATIC
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
+#endif
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -79,7 +81,7 @@ int main(int argc, char** argv)
     root->addChild(sceneRoot.get());
 
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
-    root->addChild(postCamera.get());
+    //root->addChild(postCamera.get());
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
@@ -118,7 +120,9 @@ int main(int argc, char** argv)
     traits->alpha = 8; traits->depth = 24; traits->stencil = 8;
     traits->windowDecoration = true; traits->doubleBuffer = true;
     traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
     traits->windowingSystemPreference = "SDL";
+#endif
 
     osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
     viewer.getCamera()->setGraphicsContext(gc.get());

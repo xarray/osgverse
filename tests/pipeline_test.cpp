@@ -25,6 +25,12 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
+#ifdef OSG_LIBRARY_STATIC
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+#endif
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -69,7 +75,7 @@ static const char* displayFragmentShaderCode =
     "    vec2 uv0 = texCoord0.xy;\n"
     "    vec4 color = VERSE_TEX2D(ColorBuffer, uv0);\n"
     "    vec4 depth = VERSE_TEX2D(DepthBuffer, uv0);\n"
-    "    fragData = gl_FragCoord.y < 500 ? depth : color;\n"
+    "    fragData = gl_FragCoord.y < 500.0 ? depth : color;\n"
     "    VERSE_FS_FINAL(fragData);\n"
     "}\n"
 };
@@ -108,6 +114,7 @@ int main(int argc, char** argv)
                               osg::Matrix::translate(0.0f, 3000.0f, 0.0f));*/
     if (otherSceneRoot.valid())
     {
+        osgVerse::FixedFunctionOptimizer ffo2; otherSceneRoot->accept(ffo2);
         otherSceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("DiffuseMap", 0));
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, CUSTOM_INPUT_MASK);
     }
@@ -130,10 +137,12 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
     viewer.setUpViewOnSingleScreen(0);
-    
+
+    osg::GraphicsContext* gc = viewer.getCamera()->getGraphicsContext();
+    if (gc != NULL)
     {
         // 1. Checking GL version is always a good start
-        osgVerse::GLVersionData* glData = osgVerse::queryOpenGLVersion(pipeline.get(), false);
+        osgVerse::GLVersionData* glData = osgVerse::queryOpenGLVersion(pipeline.get(), true, gc);
         if (glData && (!glData->glslSupported || !glData->fboSupported))
         {
             OSG_FATAL << "[SimplePipeline] Necessary OpenGL features missing. The pipeline "
@@ -142,7 +151,7 @@ int main(int argc, char** argv)
         }
 
         // 2. Start configuring stages: its resolution and graphics context
-        pipeline->startStages(1920, 1080, viewer.getCamera()->getGraphicsContext());
+        pipeline->startStages(1920, 1080, gc);
 
         // 3. Add gbuffer stage: this will require the hardware to support MRT
         osgVerse::Pipeline::Stage* gbuffer = pipeline->addInputStage(
@@ -161,7 +170,8 @@ int main(int argc, char** argv)
         osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
         {
             osgVerse::Pipeline::Stage* customIn = inModule->createStages(
-                CUSTOM_INPUT_MASK, NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                NULL, CUSTOM_INPUT_MASK,
                 "ColorBuffer", gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
                 "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }
@@ -182,7 +192,8 @@ int main(int argc, char** argv)
         osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
         {
             osgVerse::Pipeline::Stage* customIn = inModule->createStages(
-                CUSTOM_INPUT_MASK, NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                NULL, CUSTOM_INPUT_MASK,
                 "ColorBuffer", testStage->getBufferTexture("MiddleBuffer"),
                 "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
         }

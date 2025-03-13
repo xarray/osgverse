@@ -25,6 +25,12 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
+#ifdef OSG_LIBRARY_STATIC
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+#endif
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+
 osg::StateSet* createPbrStateSet(osgVerse::Pipeline* pipeline)
 {
     osg::ref_ptr<osg::StateSet> forwardSS = pipeline->createForwardStateSet(
