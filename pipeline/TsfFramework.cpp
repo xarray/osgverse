@@ -165,6 +165,7 @@ bool TsfTextInputMethodSystem::Initialize()
     }
 
     // Query TSF-based input methods first, which will include physical keyboards and TSF-based IMEs
+    std::map<LANGID, std::wstring> inputMethodNames;
     std::vector<std::wstring> availableInputMethods;
     std::set<HKL> processedKeyboardLayouts;
     ComPtr<IEnumTfInputProcessorProfiles> tsfEnumInputProcessorProfiles;
@@ -180,14 +181,15 @@ bool TsfTextInputMethodSystem::Initialize()
                 const TF_INPUTPROCESSORPROFILE& tsfProfile = tsfProfiles[index];
                 if (tsfProfile.dwProfileType == TF_PROFILETYPE_KEYBOARDLAYOUT)
                     processedKeyboardLayouts.insert(tsfProfile.hkl);
+
+                LCID lcid = MAKELCID(tsfProfile.langid, SORT_DEFAULT);
+                const int32 neededSize = ::GetLocaleInfoW(lcid, LOCALE_SLANGUAGE, nullptr, 0);
+                std::vector<wchar_t> lcidInfo(neededSize);
+                ::GetLocaleInfoW(lcid, LOCALE_SLANGUAGE, lcidInfo.data(), neededSize);
+
+                std::wstring inputMethodDesc(lcidInfo.begin(), lcidInfo.end());
                 if (tsfProfile.dwFlags & TF_IPP_FLAG_ENABLED)
                 {
-                    LCID lcid = MAKELCID(tsfProfile.langid, SORT_DEFAULT);
-                    const int32 neededSize = ::GetLocaleInfoW(lcid, LOCALE_SLANGUAGE, nullptr, 0);
-                    std::vector<wchar_t> lcidInfo(neededSize);
-                    ::GetLocaleInfoW(lcid, LOCALE_SLANGUAGE, lcidInfo.data(), neededSize);
-
-                    std::wstring inputMethodDesc(lcidInfo.begin(), lcidInfo.end());
                     if (tsfProfile.dwProfileType == TF_PROFILETYPE_KEYBOARDLAYOUT)
                         inputMethodDesc += L" (Keyboard)";
                     else if (tsfProfile.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR)
@@ -203,6 +205,7 @@ bool TsfTextInputMethodSystem::Initialize()
                     }
                     availableInputMethods.push_back(inputMethodDesc);
                 }
+                inputMethodNames[tsfProfile.langid] = inputMethodDesc;
             }
         }
     }
@@ -211,13 +214,18 @@ bool TsfTextInputMethodSystem::Initialize()
     TF_INPUTPROCESSORPROFILE tsfProfile;
     if (SUCCEEDED(_tsfInputProcessorProfileManager->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &tsfProfile))
         && tsfProfile.dwProfileType == TF_PROFILETYPE_INPUTPROCESSOR)
-    { _tsfActivated = true; std::cout << "[TsfTextInputMethodSystem] TSF activated." << std::endl; }
+    {
+        std::wstring activeMethod = inputMethodNames[tsfProfile.langid]; _tsfActivated = true;
+        std::wcout << L"[TsfTextInputMethodSystem] TSF initialized: " << activeMethod << std::endl;
+    }
 
-    std::wcout << L"[TsfTextInputMethodSystem] Available Input Methods: " << std::endl;
-    for (size_t i = 0; i < availableInputMethods.size(); ++i)
-        std::wcout << L"    " << availableInputMethods[i] << std::endl;
-    _immContext = ::ImmCreateContext();
-    return true;
+    if (availableInputMethods.size() > 1)
+    {
+        std::wcout << L"[TsfTextInputMethodSystem] Available Input Methods: " << std::endl;
+        for (size_t i = 0; i < availableInputMethods.size(); ++i)
+            std::wcout << L"    " << availableInputMethods[i] << std::endl;
+    }
+    _immContext = ::ImmCreateContext(); return true;
 }
 
 void TsfTextInputMethodSystem::Terminate()
@@ -254,13 +262,17 @@ void TextInputMethodChangeNotifier::NotifyLayoutChanged(const LayoutChangeType c
 {
     TsLayoutCode layoutCode = TS_LC_CHANGE;
     if (_textStore->_adviseSinkObject._textStoreACPSink == nullptr) return;
-    OSG_NOTICE << "[TextInputMethodChangeNotifier] Notify layout changed" << std::endl;
-
     switch (changeType)
     {
-    case LayoutChangeType::Created: { layoutCode = TS_LC_CREATE; } break;
-    case LayoutChangeType::Changed: { layoutCode = TS_LC_CHANGE; } break;
-    case LayoutChangeType::Destroyed: { layoutCode = TS_LC_DESTROY; } break;
+    case LayoutChangeType::Created:
+        OSG_NOTICE << "[TextInputMethodChangeNotifier] Layout created" << std::endl;
+        { layoutCode = TS_LC_CREATE; } break;
+    case LayoutChangeType::Changed:
+        OSG_NOTICE << "[TextInputMethodChangeNotifier] Layout changed" << std::endl;
+        { layoutCode = TS_LC_CHANGE; } break;
+    case LayoutChangeType::Destroyed:
+        OSG_NOTICE << "[TextInputMethodChangeNotifier] Layout destroyed" << std::endl;
+        { layoutCode = TS_LC_DESTROY; } break;
     }
     _textStore->_adviseSinkObject._textStoreACPSink->OnLayoutChange(layoutCode, 0);
 }

@@ -339,7 +339,7 @@ public:
                     }
 
                     memcpy(pDataWithHeader, fmtc->streams[iVideoStream]->codecpar->extradata, extraDataSize);
-                    memcpy(pDataWithHeader+extraDataSize, pkt->data+3, pkt->size - 3*sizeof(uint8_t));
+                    memcpy(pDataWithHeader+extraDataSize, pkt->data+3, pkt->size - 3 * sizeof(uint8_t));
 
                     *ppVideo = pDataWithHeader;
                     *pnVideoBytes = extraDataSize + pkt->size - 3*sizeof(uint8_t);
