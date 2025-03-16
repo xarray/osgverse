@@ -78,7 +78,7 @@ public:
         osg::ref_ptr<Options> localOptions = NULL;
         if (options) localOptions = options->cloneOptions();
         else localOptions = new osgDB::Options();
-        localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
+
         if (ext == "children" && options)
         {
             picojson::value children;

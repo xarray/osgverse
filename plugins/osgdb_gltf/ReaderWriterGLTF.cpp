@@ -19,6 +19,7 @@ public:
         supportsExtension("b3dm", "Cesium batch 3D model");
         supportsExtension("i3dm", "Cesium instanced 3D model");
         supportsExtension("cmpt", "Cesium cmposite tiles");
+        supportsExtension("pnts", "Cesium point-cloud tiles");
         supportsOption("Directory", "Setting the working directory");
         supportsOption("Mode", "Set to 'ascii/binary' to read specific GLTF data");
         supportsOption("DisabledPBR", "Use PBR materials or not");
@@ -46,7 +47,15 @@ public:
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
 
         if (ext == "cmpt")
-            group = readCesiumFormatCmpt(fileName, osgDB::getFilePath(fileName));
+        {
+            std::ifstream fin(fileName, std::ios::in | std::ios::binary);
+            group = readCesiumFormatCmpt(fin, osgDB::getFilePath(fileName));
+        }
+        else if (ext == "pnts")
+        {
+            std::ifstream fin(fileName, std::ios::in | std::ios::binary);
+            group = readCesiumFormatPnts(fin, osgDB::getFilePath(fileName));
+        }
         else if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
             group = osgVerse::loadGltf(fileName, true, noPBR == 0).get();
         else
@@ -61,15 +70,19 @@ public:
         if (options)
         {
             std::string fileName = options->getPluginStringData("filename");
+            dir = options->getPluginStringData("Directory");
             if (!fileName.empty())
             {
                 std::string ext = osgDB::getFileExtension(fileName);
                 std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                if (ext != "gltf") isBinary = true;
+                if (dir.empty()) dir = osgDB::getFilePath(fileName);
+
+                if (ext == "cmpt") return readCesiumFormatCmpt(fin, dir);
+                else if (ext == "pnts") return readCesiumFormatPnts(fin, dir);
+                else if (ext != "gltf") isBinary = true;
             }
 
             noPBR = (atoi(options->getPluginStringData("DisabledPBR").c_str()) != 0);
-            dir = options->getPluginStringData("Directory");
             mode = options->getPluginStringData("Mode");
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
             if (mode == "binary") isBinary = true;
@@ -81,11 +94,8 @@ public:
     }
 
 protected:
-    osg::Group* readCesiumFormatCmpt(const std::string& fileName, const std::string& dir) const
+    osg::Group* readCesiumFormatCmpt(std::istream& fin, const std::string& dir) const
     {
-        std::ifstream fin(fileName, std::ios::in | std::ios::binary);
-        if (!fin) return NULL;
-
         unsigned char magic[4]; unsigned int version = 0, bytes = 0, tiles = 0;
         fin.read((char*)magic, sizeof(char) * 4); fin.read((char*)&version, sizeof(int));
         fin.read((char*)&bytes, sizeof(int)); fin.read((char*)&tiles, sizeof(int));
@@ -115,10 +125,16 @@ protected:
             else
             {
                 OSG_NOTICE << "[ReaderWriterGLTF] Unknown format: " << std::string(magic, magic + 4)
-                           << ", found in " << fileName << std::endl;
+                           << ", found in " << dir << std::endl;
             }
         }
-        group->setName(fileName); return group.release();
+        return group.release();
+    }
+
+    osg::Node* readCesiumFormatPnts(std::istream& fin, const std::string& dir) const
+    {
+        // TODO
+        return new osg::Node;
     }
 };
 

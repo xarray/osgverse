@@ -28,6 +28,7 @@ public:
         // osgviewer --image ftp://ftp.techtrade.si/SLIKE/0002133.jpg.verse_web
         supportsExtension("verse_web", "Pseudo file extension, used to select libhv plugin.");
         supportsExtension("*", "Passes all read files to other plugins to handle actual model loading.");
+        supportsOption("Extension", "Set another pseudo extension for loaded file");
     }
 
     virtual ~ReaderWriterWeb()
@@ -129,7 +130,7 @@ public:
     virtual ReadResult readFile(ObjectType objectType, const std::string& fullFileName,
                                 const osgDB::Options* options) const
     {
-        std::string fileName(fullFileName);
+        std::string fileName(fullFileName), ext2;
         std::string ext = osgDB::getLowerCaseFileExtension(fullFileName);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
         bool usePseudo = (ext == "verse_web");
@@ -137,6 +138,11 @@ public:
         {
             fileName = osgDB::getNameLessExtension(fullFileName);
             ext = osgDB::getLowerCaseFileExtension(fileName);
+        }
+        else if (ext.find("verse_") != std::string::npos)
+        {
+            fileName = osgDB::getNameLessExtension(fullFileName);
+            ext2 = ext; ext = osgDB::getLowerCaseFileExtension(fileName);
         }
 
         if (!acceptsProtocol(scheme))
@@ -152,6 +158,17 @@ public:
                 }
             }
             return ReadResult::FILE_NOT_HANDLED;
+        }
+
+        osg::ref_ptr<Options> lOptions = options ?
+            static_cast<Options*>(options->clone(osg::CopyOp::SHALLOW_COPY)) : new Options;
+        lOptions->setPluginStringData("STREAM_FILENAME", osgDB::getSimpleFileName(fileName));
+        lOptions->setPluginStringData("prefix", osgDB::getFilePath(fileName));
+        lOptions->setPluginStringData("filename", fileName);
+        if (ext2 == "verse_tiles" && ext == "children")
+        {
+            osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext2);
+            if (reader) return reader->readNode(fileName, lOptions.get());
         }
 
         // TODO: get connection parameters from options
@@ -198,13 +215,13 @@ public:
 #endif
 
         // Load by other readerwriter
-        osg::ref_ptr<Options> lOptions = options ?
-            static_cast<Options*>(options->clone(osg::CopyOp::SHALLOW_COPY)) : new Options;
-        lOptions->getDatabasePathList().push_front(osgDB::getFilePath(fileName));
-        lOptions->setPluginStringData("STREAM_FILENAME", osgDB::getSimpleFileName(fileName));
-        lOptions->setPluginStringData("filename", fileName);
-
         osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        lOptions->getDatabasePathList().push_front(osgDB::getFilePath(fileName));
+        if (!reader && options)
+        {
+            if (ext2.empty()) ext2 = options->getPluginStringData("Extension");
+            if (!ext2.empty()) reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext2);
+        }
         if (!reader)
             reader = osgDB::Registry::instance()->getReaderWriterForMimeType(contentType);
         if (!reader)
