@@ -6,7 +6,9 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 #include <osgDB/ConvertUTF>
-#include <readerwriter/LoadSceneGLTF.h>
+
+#include "readerwriter/LoadSceneGLTF.h"
+#include "3rdparty/picojson.h"
 
 class ReaderWriterGLTF : public osgDB::ReaderWriter
 {
@@ -45,7 +47,6 @@ public:
 
         osg::ref_ptr<osg::Node> group;
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
-
         if (ext == "cmpt")
         {
             std::ifstream fin(fileName, std::ios::in | std::ios::binary);
@@ -133,8 +134,89 @@ protected:
 
     osg::Node* readCesiumFormatPnts(std::istream& fin, const std::string& dir) const
     {
-        // TODO
-        return new osg::Node;
+        std::istreambuf_iterator<char> eos;
+        std::vector<char> data(std::istreambuf_iterator<char>(fin), eos);
+        if (data.empty()) return NULL;
+
+        unsigned int magic = *reinterpret_cast<unsigned int*>(&data[0]);
+        unsigned int version = *reinterpret_cast<unsigned int*>(&data[4]);
+        unsigned int byteLength = *reinterpret_cast<unsigned int*>(&data[8]);
+        unsigned int featureTableJsonByteLength = *reinterpret_cast<unsigned int*>(&data[12]);
+        unsigned int featureTableBinaryByteLength = *reinterpret_cast<unsigned int*>(&data[16]);
+
+        std::string json(data.begin() + 28, data.begin() + 28 + featureTableJsonByteLength);
+        picojson::value featureTable; std::string err = picojson::parse(featureTable, json);
+        if (err.empty())
+        {
+            int byteOffset = 0, numPoints = featureTable.contains("POINTS_LENGTH")
+                                          ? (int)featureTable.get("POINTS_LENGTH").get<double>() : 0;
+            osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numPoints);
+            osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numPoints);
+            osg::ref_ptr<osg::Vec4ubArray> ca = new osg::Vec4ubArray(numPoints);
+            if (numPoints < 2) return NULL;  // FIXME: to make LOD continue traversing
+
+            if (featureTable.contains("POSITION"))
+            {
+                byteOffset = (int)featureTable.get("POSITION").get("byteOffset").get<double>();
+                for (int i = 0; i < numPoints; ++i) (*va)[i].set(
+                    *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 0]),
+                    *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 4]),
+                    *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 8]));
+            }
+            else if (featureTable.contains("POSITION_QUANTIZED"))
+            {
+                osg::Vec3 offset, scale(1.0f, 1.0f, 1.0f);
+                picojson::array of = featureTable.get("QUANTIZED_VOLUME_OFFSET").get<picojson::array>();
+                picojson::array sc = featureTable.get("QUANTIZED_VOLUME_SCALE").get<picojson::array>();
+                if (of.size() == 3) offset.set(of[0].get<double>(), of[1].get<double>(), of[2].get<double>());
+                if (sc.size() == 3) scale.set(sc[0].get<double>(), sc[1].get<double>(), sc[2].get<double>());
+
+                byteOffset = (int)featureTable.get("POSITION_QUANTIZED").get("byteOffset").get<double>();
+                for (int i = 0; i < numPoints; ++i)
+                {
+                    unsigned short x = *reinterpret_cast<unsigned short*>(&data[byteOffset + i * 6 + 0]);
+                    unsigned short y = *reinterpret_cast<unsigned short*>(&data[byteOffset + i * 6 + 2]);
+                    unsigned short z = *reinterpret_cast<unsigned short*>(&data[byteOffset + i * 6 + 4]);
+                    (*va)[i].set(osg::Vec3(x * scale[0] / 65535.0f, y * scale[1] / 65535.0f,
+                                           z * scale[2] / 65535.0f) + offset);
+                }
+            }
+
+            if (featureTable.contains("RGB"))
+            {
+                byteOffset = (int)featureTable.get("RGB").get("byteOffset").get<double>();
+                for (int i = 0; i < numPoints; ++i) (*ca)[i].set(
+                    (unsigned char)data[byteOffset + i * 3 + 0], (unsigned char)data[byteOffset + i * 3 + 1],
+                    (unsigned char)data[byteOffset + i * 3 + 2], 255);
+            }
+            else if (featureTable.contains("RGBA"))
+            {
+                byteOffset = (int)featureTable.get("RGBA").get("byteOffset").get<double>();
+                for (int i = 0; i < numPoints; ++i) (*ca)[i].set(
+                    (unsigned char)data[byteOffset + i * 4 + 0], (unsigned char)data[byteOffset + i * 4 + 1],
+                    (unsigned char)data[byteOffset + i * 4 + 2], (unsigned char)data[byteOffset + i * 4 + 3]);
+            }
+
+            if (featureTable.contains("NORMAL"))
+            {
+                byteOffset = (int)featureTable.get("NORMAL").get("byteOffset").get<double>();
+                for (int i = 0; i < numPoints; ++i) (*na)[i].set(
+                    *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 0]),
+                    *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 4]),
+                    *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 8]));
+            }
+
+            osg::Geometry* geom = new osg::Geometry;
+            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+            geom->setName("PNTS"); geom->setVertexArray(va.get());
+            geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom->setColorArray(na.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, va->size()));
+
+            osg::Geode* geode = new osg::Geode;
+            geode->addDrawable(geom); return geode;
+        }
+        return NULL;
     }
 };
 

@@ -42,6 +42,11 @@ static std::vector<std::string> split(const std::string& src, const char* sepera
     return slist;
 }
 
+// OSGB:    osgviewer G:\OsgData\metadata.xml.verse_tiles
+// OSGB:    osgviewer G:\OsgData\Data.verse_tiles
+// 3DTILES: osgviewer G:\3DTilesData\tileset.json.verse_tiles
+// 3DTILES: osgviewer https://earthsdk.com/v/last/Apps/assets/dayanta/tileset.json.verse_web -O "Extension=verse_tiles"
+// Folder:  osgviewer G:\FolderOfIVEs.verse_tiles
 class ReaderWriter3dtiles : public osgDB::ReaderWriter
 {
 public:
