@@ -7,7 +7,7 @@
 #include <osgDB/WriteFile>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
-#include <osgUtil/CullVisitor>
+#include <osgGA/EventVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
@@ -165,17 +165,93 @@ protected:
     }
 };
 
+class DebugEventCallback : public osg::NodeCallback
+{
+public:
+    DebugEventCallback(osgVerse::Pipeline* p, osg::StateSet* ss, osgText::Text* t)
+        : _pipeline(p), _stateset(ss), _text(t) { applyStageWindow(0); }
+
+    virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+    {
+        osgGA::EventVisitor* ev = static_cast<osgGA::EventVisitor*>(nv);
+        if (!ev) { traverse(node, nv); return; }
+        
+        osgGA::EventQueue::Events& events = ev->getEvents();
+        for (osgGA::EventQueue::Events::iterator itr = events.begin(); itr != events.end(); ++itr)
+        {
+            osgGA::GUIEventAdapter* ea = dynamic_cast<osgGA::GUIEventAdapter*>(itr->get());
+            if (!ea || (ea && ea->getEventType() != osgGA::GUIEventAdapter::RELEASE)) continue;
+
+            float xx = ea->getXnormalized() * 0.5f + 0.5f;
+            float yy = ea->getYnormalized() * 0.5f + 0.5f;
+            if (xx > 0.2f || yy > 0.2f) continue;
+
+            if (xx < 0.05f) applyStageWindow(_currentStage - 1, 0);
+            else if (xx > 0.15f) applyStageWindow(_currentStage + 1, 0);
+            else applyStageWindow(_currentStage, _currentOutput + 1);
+        }
+        traverse(node, nv);
+    }
+
+    void applyStageWindow(int stage, int output = 0)
+    {
+        int numStages = (int)_pipeline->getNumStages();
+        if (stage < 0) stage = numStages - 1;
+        else if (numStages <= stage) stage = 0;
+
+        osgVerse::Pipeline::Stage* s = _pipeline->getStage(stage);
+        int numOutputs = (int)s->outputs.size(), ptr = 0;
+        if (output < 0) output = numOutputs - 1;
+        else if (numOutputs <= output) output = 0;
+
+        for (std::map<std::string, osg::observer_ptr<osg::Texture>>::iterator
+             it = s->outputs.begin(); it != s->outputs.end(); ++it, ++ptr)
+        {
+            if (ptr != output) continue;
+            _stateset->setTextureAttributeAndModes(0, it->second.get());
+            _text->setText(s->name + "::" + it->first); break;
+        }
+        _currentStage = stage;
+        _currentOutput = output;
+    }
+
+protected:
+    osg::observer_ptr<osgVerse::Pipeline> _pipeline;
+    osg::observer_ptr<osg::StateSet> _stateset;
+    osg::observer_ptr<osgText::Text> _text;
+    int _currentStage, _currentOutput;
+};
+
+void addStagesToHUD(osgVerse::Pipeline* pipeline, osg::Camera* camera)
+{
+    osgText::Text* text = new osgText::Text;
+    text->setPosition(osg::Vec3(0.1f, 0.205f, 0.01f));
+    text->setAlignment(osgText::Text::CENTER_BOTTOM);
+    text->setCharacterSize(0.01f, 1.0f);
+    text->setFont(MISC_DIR + "LXGWFasmartGothic.ttf");
+
+    osg::Geode* textGeode = new osg::Geode;
+    textGeode->addDrawable(text);
+    camera->addChild(textGeode);
+
+    osg::Node* quad = osgVerse::createScreenQuad(
+        osg::Vec3(0.0f, 0.0f, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    camera->setEventCallback(new DebugEventCallback(pipeline, quad->getOrCreateStateSet(), text));
+    camera->addChild(quad);
+}
+
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    std::string optString, optAll;
-    while (arguments.read("-O", optString)) optAll += optString + " ";
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::updateOsgBinaryWrappers();
 
-    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
+    std::string optString, optAll;
+    while (arguments.read("-O", optString)) optAll += optString + " ";
     osg::ref_ptr<osgDB::Options> options = optAll.empty() ? NULL : new osgDB::Options(optAll);
-    osg::ref_ptr<osg::Node> scene = (argc > 1) ? osgDB::readNodeFiles(arguments, options.get())
-                                  : osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get());
+
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments, options.get());
+    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get());
     if (!scene) { OSG_WARN << "Failed to load scene model" << std::endl; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -296,20 +372,22 @@ int main(int argc, char** argv)
     pipeline->load(ppConfig, &viewer);
 #endif
 
-#if false
-    // How to inherit and set own GBuffer shaders
-    osg::ref_ptr<osgVerse::ScriptableProgram> gbufferProg = static_cast<osgVerse::ScriptableProgram*>(
-        pipeline->getStage("GBuffer")->getProgram()->clone(osg::CopyOp::DEEP_COPY_ALL));
-    gbufferProg->setName("Custom_GBuffer_PROGRAM");
-    gbufferProg->addSegment(osg::Shader::FRAGMENT, 1, "diffuse.rgb = vec3(1.0, 0.0, 0.0);");
-    scene->getOrCreateStateSet()->setAttribute(gbufferProg.get(), osg::StateAttribute::ON | osg::StateAttribute::PROTECTED);
-#endif
+    if (arguments.read("--gbuffer-variant"))
+    {   // How to inherit and set vustom GBuffer shaders to specified object
+        osg::ref_ptr<osgVerse::ScriptableProgram> gbufferProg = static_cast<osgVerse::ScriptableProgram*>(
+            pipeline->getStage("GBuffer")->getProgram()->clone(osg::CopyOp::DEEP_COPY_ALL));
+        gbufferProg->setName("Custom_GBuffer_PROGRAM");
+        gbufferProg->addSegment(osg::Shader::FRAGMENT, 1, "diffuse.rgb = vec3(1.0, 0.0, 0.0);");
+        scene->getOrCreateStateSet()->setAttribute(
+            gbufferProg.get(), osg::StateAttribute::ON | osg::StateAttribute::PROTECTED);
+    }
 
-#if false
-    // How to use clear color instead of skybox...
-    postCamera->removeChild(skybox.get());
-    pipeline->getStage("GBuffer")->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
-#endif
+    osg::Vec3 bkColor(0.2f, 0.2f, 0.4f);
+    if (arguments.read("--background-color", bkColor[0], bkColor[1], bkColor[2]))
+    {   // How to use clear color instead of skybox...
+        postCamera->removeChild(skybox.get());
+        pipeline->getStage("GBuffer")->camera->setClearColor(osg::Vec4(bkColor, 1.0f));
+    }
 
     // Post pipeline settings
     osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
@@ -322,12 +400,27 @@ int main(int argc, char** argv)
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 
-#if false
-    // How to add custom code to ScriptableProgram
-    osgVerse::ScriptableProgram* display = pipeline->getStage("Final")->getProgram();
-    if (display) display->addSegment(osg::Shader::FRAGMENT, 0,
-                                     "if (gl_FragCoord.x < 960) fragData = vec4(depthValue);");
-#endif
+    if (arguments.read("--display-variant"))
+    {   // How to add custom code to ScriptableProgram
+        osgVerse::ScriptableProgram* display = pipeline->getStage("Final")->getProgram();
+        if (display) display->addSegment(osg::Shader::FRAGMENT, 0,
+                                         "if (gl_FragCoord.x < 960.0) fragData = vec4(depthValue);");
+    }
+
+    if (arguments.read("--debug-window"))
+    {
+        osg::ref_ptr<osg::Camera> debugCamera = new osg::Camera;
+        debugCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+        debugCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+        debugCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
+        debugCamera->setViewMatrix(osg::Matrix::identity());
+        debugCamera->setRenderOrder(osg::Camera::POST_RENDER, 10001);
+        debugCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+        osgVerse::Pipeline::setPipelineMask(*debugCamera, FORWARD_SCENE_MASK);
+
+        addStagesToHUD(pipeline.get(), debugCamera.get());
+        root->addChild(debugCamera.get());
+    }
 
     // Start the main loop
     while (!viewer.done())
