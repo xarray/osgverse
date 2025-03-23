@@ -18,10 +18,24 @@ inline bool check(int e, int iLine, const char* szFile)
 }
 #define ck(call) check(call, __LINE__, __FILE__)
 
+CudaResourceWriterBase::CudaResourceWriterBase(CUcontext cu)
+:   osg::Camera::DrawCallback(), _muxerParent(NULL)
+{ _cuContext = (CUcontext)cu; }
+
+bool CudaResourceWriterBase::openResource(CudaResourceDemuxerMuxerContainer* c)
+{
+    _muxerParent = NULL; if (!c) return false;
+    if (c->getMuxer()) return openResource(c->getMuxer());
+    else { _muxerParent = c; return true; }
+}
+
 CudaResourceReaderBase::CudaResourceReaderBase(CUcontext cu)
 :   osg::Texture2D::SubloadCallback(), _deviceFrame(NULL), _state(INVALID),
     _width(0), _height(0), _pbo(0), _textureID(0), _vendorStatus(false)
 { _cuContext = (CUcontext)cu; }
+
+bool CudaResourceReaderBase::openResource(CudaResourceDemuxerMuxerContainer* c)
+{ return (c && c->getDemuxer()) ? openResource(c->getDemuxer()) : false; }
 
 void CudaResourceReaderBase::releaseCuda()
 {

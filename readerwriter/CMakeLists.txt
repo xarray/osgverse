@@ -29,6 +29,8 @@ IF(SDL2_FOUND OR USE_WASM_OPTIONS)
     IF(APPLE AND NOT USE_WASM_OPTIONS)
         SET(LIBRARY_FILES ${LIBRARY_FILES} GraphicsWindowSDL_Utils.mm)
     ENDIF()
+ELSE()
+    SET(LIBRARY_FILES ${LIBRARY_FILES} GraphicsWindowSDL_Fallback.cpp)
 ENDIF()
 
 INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all

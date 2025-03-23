@@ -10,11 +10,18 @@
 
 #include "pipeline/CudaUtils/ColorSpace.h"
 #include "pipeline/CudaTexture2D.h"
-#include "NvDecoder/NvDecoder.h"
 #include "Utils/NvCodecUtils.h"
-#include "Common/AppDecUtils.h"
+#if defined(NV_DECODER)
+#   include "NvDecoder/NvDecoder.h"
+#   include "Common/AppDecUtils.h"
+#endif
+#if defined(NV_ENCODER)
+#   include "NvEncoder/NvEncoder.h"
+#   include "NvEncoder/NvEncoderCuda.h"
+#endif
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
+#if defined(NV_DECODER)
 class CuvidResourceReader : public osgVerse::CudaResourceReaderBase
 {
 public:
@@ -104,6 +111,7 @@ protected:
     NvDecoder* _decoder;
     int _numFrames;
 };
+#endif
 
 class ReaderWriterCodecNV : public osgDB::ReaderWriter
 {
@@ -130,10 +138,28 @@ public:
         const void* context = (options ? options->getPluginData("Context") : NULL);
         if (context != NULL)
         {
-            osgVerse::CudaResourceReaderWriterContainer* container =
+            osg::ref_ptr<osgVerse::CudaResourceReaderWriterContainer> container =
                 new osgVerse::CudaResourceReaderWriterContainer;
-            container->setReader(new CuvidResourceReader((CUcontext)context));
-            return container;
+            std::transform(fileName.begin(), fileName.end(), fileName.begin(), tolower);
+            if (fileName.find("encode") != std::string::npos)
+            {
+#if defined(NV_ENCODER)
+                // TODO: container->setReader(new CuvidResourceWriter((CUcontext)context));
+#else
+                OSG_FATAL << "[ReaderWriterCodecNV] NvEncoder dependency not found" << std::endl;
+                return ReadResult::ERROR_IN_READING_FILE;
+#endif
+            }
+            else
+            {
+#if defined(NV_DECODER)
+                container->setReader(new CuvidResourceReader((CUcontext)context));
+#else
+                OSG_FATAL << "[ReaderWriterCodecNV] NvDecoder dependency not found" << std::endl;
+                return ReadResult::ERROR_IN_READING_FILE;
+#endif
+            }
+            return container.get();
         }
         return ReadResult::FILE_NOT_FOUND;
     }

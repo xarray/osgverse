@@ -3,6 +3,7 @@
 
 #include <osg/State>
 #include <osg/Texture2D>
+#include <osg/Camera>
 #include <mutex>
 
 #if defined(_WIN64) || defined(__LP64__)
@@ -16,6 +17,7 @@ typedef struct CUctx_st* CUcontext;
 namespace osgVerse
 {
     class CudaResourceReaderBase;
+    class CudaResourceDemuxerMuxerContainer;
 
     enum VideoCodecType
     {
@@ -75,6 +77,7 @@ namespace osgVerse
         CudaResourceReaderBase(CUcontext cu);
         virtual void operator()(osg::StateAttribute* sa, osg::NodeVisitor* nv) {}
 
+        bool openResource(CudaResourceDemuxerMuxerContainer* c);
         virtual bool openResource(Demuxer* demuxer) = 0;
         virtual void closeResource() { _demuxer = NULL; }
 
@@ -104,6 +107,37 @@ namespace osgVerse
         mutable std::mutex _mutex;
     };
 
+    // Cuda resource writer: load texture and encode to H264 frames, then send to Muxer
+    class CudaResourceWriterBase : public osg::Camera::DrawCallback
+    {
+    public:
+        class Muxer : public osg::Referenced
+        {
+        public:
+            virtual VideoCodecType getVideoCodec() { return CODEC_INVALID; }
+            virtual int getWidth() { return 0; }
+            virtual int getHeight() { return 0; }
+        };
+
+        CudaResourceWriterBase(CUcontext cu);
+        virtual void operator()(osg::RenderInfo& renderInfo) const {}
+
+        bool openResource(CudaResourceDemuxerMuxerContainer* c);
+        virtual bool openResource(Muxer* muxer) = 0;
+        virtual void closeResource() { _muxer = NULL; }
+
+        enum ResourceState { INVALID = 0, RECORDING, STOPPED, PAUSED };
+        //void setState(ResourceState s) { _state = s; }
+        //ResourceState getState() const { return _state; }
+
+    protected:
+        virtual ~CudaResourceWriterBase() {}
+
+        osg::ref_ptr<Muxer> _muxer;
+        CudaResourceDemuxerMuxerContainer* _muxerParent;
+        CUcontext _cuContext;
+    };
+
     // The Cuda demuxer/muxer container
     class CudaResourceDemuxerMuxerContainer : public osg::Object
     {
@@ -111,15 +145,20 @@ namespace osgVerse
         CudaResourceDemuxerMuxerContainer() {}
         CudaResourceDemuxerMuxerContainer(const CudaResourceDemuxerMuxerContainer& copy,
                                           const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY)
-        : osg::Object(copy, op), _demuxer(copy._demuxer) {}
+        : osg::Object(copy, op), _demuxer(copy._demuxer), _muxer(copy._muxer) {}
         META_Object(osgVerse, CudaResourceDemuxerMuxerContainer)
 
         void setDemuxer(CudaResourceReaderBase::Demuxer* r) { _demuxer = r; }
         CudaResourceReaderBase::Demuxer* getDemuxer() { return _demuxer.get(); }
         const CudaResourceReaderBase::Demuxer* getDemuxer() const { return _demuxer.get(); }
 
+        void setMuxer(CudaResourceWriterBase::Muxer* r) { _muxer = r; }
+        CudaResourceWriterBase::Muxer* getMuxer() { return _muxer.get(); }
+        const CudaResourceWriterBase::Muxer* getMuxer() const { return _muxer.get(); }
+
     protected:
         osg::ref_ptr<CudaResourceReaderBase::Demuxer> _demuxer;
+        osg::ref_ptr<CudaResourceWriterBase::Muxer> _muxer;
     };
 
     // The Cuda reader/writer container
@@ -129,15 +168,20 @@ namespace osgVerse
         CudaResourceReaderWriterContainer() {}
         CudaResourceReaderWriterContainer(const CudaResourceReaderWriterContainer& copy,
                                           const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY)
-        : osg::Object(copy, op), _reader(copy._reader) {}
+        : osg::Object(copy, op), _reader(copy._reader), _writer(copy._writer) {}
         META_Object(osgVerse, CudaResourceReaderWriterContainer)
 
         void setReader(CudaResourceReaderBase* r) { _reader = r; }
         CudaResourceReaderBase* getReader() { return _reader.get(); }
         const CudaResourceReaderBase* getReader() const { return _reader.get(); }
 
+        void setWriter(CudaResourceWriterBase* w) { _writer = w; }
+        CudaResourceWriterBase* getWriter() { return _writer.get(); }
+        const CudaResourceWriterBase* getWriter() const { return _writer.get(); }
+
     protected:
         osg::ref_ptr<CudaResourceReaderBase> _reader;
+        osg::ref_ptr<CudaResourceWriterBase> _writer;
     };
 }
 
