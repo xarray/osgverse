@@ -23,11 +23,11 @@ FFmpegImageStream::FFmpegImageStream() :
 {
     setOrigin(osg::Image::TOP_LEFT);
 
-    std::auto_ptr<FFmpegDecoder> decoder(new FFmpegDecoder);
-    std::auto_ptr<CommandQueue> commands(new CommandQueue);
+    FFmpegDecoder* decoder(new FFmpegDecoder);
+    CommandQueue* commands(new CommandQueue);
 
-    m_decoder = decoder.release();
-    m_commands = commands.release();
+    m_decoder = decoder;
+    m_commands = commands;
 }
 
 

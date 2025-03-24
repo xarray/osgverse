@@ -510,7 +510,7 @@ SET(LIBRARY_FILES
 	lightmapper.h xatlas.cpp xatlas.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp
     GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp timeout.c timeout.h
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
-    clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp
+    clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp pybind11/pybind11.h
     ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${METIS_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
@@ -617,7 +617,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector llama
+                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector llama nanobind
                     "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)

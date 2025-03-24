@@ -92,8 +92,8 @@ public:
         {
             osg::Texture2D* tex2D = itr->second.first.get();
             osg::Vec3i range = itr->second.second;
-            OSG_NOTICE << "[TexLayoutVisitor] Ready to change tex from unit-" << range[2]
-                       << " to PBR channel " << (char)itr->first << std::endl;
+            OSG_INFO << "[TexLayoutVisitor] Ready to change tex from unit-" << range[2]
+                     << " to PBR channel " << (char)itr->first << std::endl;
 
             switch (itr->first)
             {
@@ -195,8 +195,6 @@ protected:
                 if (num <= 0 || num > 4) continue;
 
                 _sourceMap[u].push_back(TypeAndComponent(type, num));
-
-                std::cout << u << ": WITH " << (char)type << "\n";
                 maxComponents -= num; if (maxComponents <= 0) break;
             }
         }

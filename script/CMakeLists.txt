@@ -1,15 +1,18 @@
 SET(LIB_NAME osgVerseScript)
 SET(LIBRARY_INCLUDE_FILES
     Entry.h ScriptBase.h
-    JsonScript.h
+    JsonScript.h PythonScript.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Entry.cpp ScriptBase.cpp
-    JsonScript.cpp
+    JsonScript.cpp PythonScript.cpp
 )
 
 INCLUDE_DIRECTORIES(. ../3rdparty/libhv ../3rdparty/libhv/all)
 ADD_DEFINITIONS(-DHV_STATICLIB)
+IF(PYTHON_FOUND)
+    ADD_DEFINITIONS(-DWITH_PYTHON)
+ENDIF(PYTHON_FOUND)
 NEW_LIBRARY(${LIB_NAME} STATIC)
 
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVersePipeline)
