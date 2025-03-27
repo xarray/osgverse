@@ -90,6 +90,20 @@ static osg::Camera* createImageCamera(osg::Image* image, const osg::BoundingBox&
     return camera.release();
 }
 
+static void setupOffscreenCamera(osg::Camera* camera, osg::Image* image)
+{
+    camera->setViewport(0, 0, image->s(), image->t());
+    osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+    traits->x = 0;
+    traits->y = 0;
+    traits->width = image->s();
+    traits->height = image->t();
+    traits->doubleBuffer = false;
+    traits->pbuffer = true;
+    osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+    camera->setGraphicsContext(gc);
+}
+
 class MyReadFileCallback : public osgDB::ReadFileCallback
 {
 public:
@@ -699,6 +713,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox);
         osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
         if (!viewer) viewer = new osgViewer::Viewer;
+        setupOffscreenCamera(viewer->getCamera(), image);
         viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
         viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         {
@@ -760,6 +775,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox);
         osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
         if (!viewer) viewer = new osgViewer::Viewer;
+        setupOffscreenCamera(viewer->getCamera(), image);
         viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
         viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         {
@@ -793,6 +809,7 @@ namespace osgVerse
 
             osg::ref_ptr<osg::Group> root = new osg::Group;
             root->addChild(camera.get()); camera->addChild(node);
+
             viewer->setSceneData(root.get());
 
             HostTextureReserver reserver; root->accept(reserver); reserver.set(true);
