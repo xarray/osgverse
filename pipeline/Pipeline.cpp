@@ -1216,7 +1216,7 @@ namespace osgVerse
         for (size_t i = 0; i < buffers.size(); i ++)
         {
             std::string bufName = buffers[i].bufferName;
-            BufferType type = buffers[i].type; int ms = 0;
+            BufferType type = buffers[i].type;
             osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER0
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
             if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
@@ -1224,9 +1224,21 @@ namespace osgVerse
 
             osg::ref_ptr<osg::Texture> tex = buffers[i].bufferToShare;
             if (!tex) tex = createTexture(type, _stageSize[0], _stageSize[1], _glVersion);
-            if (i > 0) s->camera->attach(comp, tex.get(), 0, 0, false, ms);
+            if (i > 0) s->camera->attach(comp, tex.get(), 0, 0, false, 0);
             else s->camera = createRTTCamera(comp, tex.get(), _stageContext.get(), false);
             s->outputs[bufName] = tex.get();
+        }
+
+        if ((flags & USE_COVERAGE_SAMPLES) != 0)
+        {
+            int samples = (flags & 0x000F); int colorSamples = osg::minimum(samples / 2, 4);
+            osg::Camera::BufferAttachmentMap& attachments = s->camera->getBufferAttachmentMap();
+            for (osg::Camera::BufferAttachmentMap::iterator it = attachments.begin(); it != attachments.end(); ++it)
+            {
+                if (it->first < osg::Camera::COLOR_BUFFER) continue;
+                it->second._multisampleSamples = samples;
+                it->second._multisampleColorSamples = colorSamples;
+            }
         }
 
         applyDefaultStageData(*s, name, vs, fs);

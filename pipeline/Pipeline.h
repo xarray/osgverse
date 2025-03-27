@@ -120,7 +120,12 @@ namespace osgVerse
 
         enum InputFlag
         {
-            NO_DEFAULT_TEXTURES = 0xf0
+            NO_DEFAULT_TEXTURES  = 0x0010,
+            USE_COVERAGE_SAMPLES = 0x0020,
+            COVERAGE_SAMPLES_2X  = 0x0021,
+            COVERAGE_SAMPLES_4X  = 0x0024,
+            COVERAGE_SAMPLES_8X  = 0x0028,
+            COVERAGE_SAMPLES_16X = 0x002F
         };
         
         struct Stage : public osg::Referenced
@@ -357,7 +362,7 @@ namespace osgVerse
         osg::ref_ptr<osg::ImageSequence> skyboxIBL;
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight, deferredMask, forwardMask;
-        unsigned int shadowCastMask, shadowNumber, shadowResolution;
+        unsigned int shadowCastMask, shadowNumber, shadowResolution, coverageSamples;
         double depthPartitionNearValue, eyeSeparationVR;
         bool withEmbeddedViewer, debugShadowModule, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR;

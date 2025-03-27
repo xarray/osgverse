@@ -97,7 +97,7 @@ namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096), coverageSamples(0),
         depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
         debugShadowModule(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
@@ -108,7 +108,7 @@ namespace osgVerse
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096), coverageSamples(0),
         depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
         debugShadowModule(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
@@ -291,7 +291,7 @@ namespace osgVerse
 
         // GBuffer should always be first because it also computes the scene near/far planes
         // for following stages to use
-        int msaa = 0;  // FIXME: seems to cause some more flickers
+        int msaa = spp.coverageSamples;
         osgVerse::Pipeline::Stage* gbuffer = NULL;
         if (supportDrawBuffersMRT)
         {

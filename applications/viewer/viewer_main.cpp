@@ -363,6 +363,8 @@ int main(int argc, char** argv)
 
     // Setup the pipeline
 #if true
+    if (arguments.read("--msaa-4x")) params.coverageSamples = osgVerse::Pipeline::COVERAGE_SAMPLES_4X;
+    else if (arguments.read("--msaa-16x")) params.coverageSamples = osgVerse::Pipeline::COVERAGE_SAMPLES_16X;
     params.enablePostEffects = true; params.enableAO = true; params.enableUserInput = true;
     params.addUserInputStage("Forward", CUSTOM_INPUT_MASK,
                              osgVerse::StandardPipelineParameters::BEFORE_FINAL_STAGE);
@@ -372,8 +374,8 @@ int main(int argc, char** argv)
     pipeline->load(ppConfig, &viewer);
 #endif
 
-    if (arguments.read("--gbuffer-variant"))
-    {   // How to inherit and set vustom GBuffer shaders to specified object
+    if (arguments.read("--gbuffer-variant-test"))
+    {   // How to inherit and set custom GBuffer shaders to specified object
         osg::ref_ptr<osgVerse::ScriptableProgram> gbufferProg = static_cast<osgVerse::ScriptableProgram*>(
             pipeline->getStage("GBuffer")->getProgram()->clone(osg::CopyOp::DEEP_COPY_ALL));
         gbufferProg->setName("Custom_GBuffer_PROGRAM");
@@ -400,7 +402,7 @@ int main(int argc, char** argv)
     osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
     if (light) light->setMainLight(light0.get(), "Shadow");
 
-    if (arguments.read("--display-variant"))
+    if (arguments.read("--display-variant-test"))
     {   // How to add custom code to ScriptableProgram
         osgVerse::ScriptableProgram* display = pipeline->getStage("Final")->getProgram();
         if (display) display->addSegment(osg::Shader::FRAGMENT, 0,

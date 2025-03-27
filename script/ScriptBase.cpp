@@ -127,7 +127,7 @@ ScriptBase::Result ScriptBase::call(const std::string& nodePath, const std::stri
 
         osg::Parameters inArgs, outArgs;
         for (size_t i = 0; i < params.size(); ++i)
-            inArgs.push_back(getFromPath(params[i]));
+            inArgs.push_back(getFromPath(params[i]));  // FIXME: need a method param checker
         if (!entry->callMethod(obj, key, inArgs, outArgs))
         { result.code = -8; result.msg += "Can't call method: " + key; }
 

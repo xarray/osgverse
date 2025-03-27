@@ -433,7 +433,7 @@ ENDIF(OSG_BUILD_INCLUDE_DIR)
 ######################################### Optional Dependencies
 MESSAGE(STATUS "[osgVerse] Automatically Search for Dependencies in ${THIRDPARTY_ROOT}...")
 
-FIND_DEPENDENCE(PYTHON "Python.h" "" "")
+FIND_DEPENDENCE(PYTHON "Python.h" "libpython.so;libpython3.so;python.lib;python3.lib" "")
 FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulletDynamics.a;BulletDynamics.lib" "bullet")
 FIND_DEPENDENCE(DRACO "draco/draco_features.h" "libdraco.so;libdraco.a;draco.lib" "")
 FIND_DEPENDENCE(FFMPEG "libavcodec/avcodec.h" "libavcodec.so;avcodec.lib" "")

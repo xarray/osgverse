@@ -8,6 +8,10 @@ namespace osgVerse
     class PythonScript : public ScriptBase
     {
     public:
+        PythonScript();
+
+    protected:
+        osg::ref_ptr<osg::Referenced> _pythonObject;
     };
 }
 
