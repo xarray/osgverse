@@ -195,7 +195,8 @@ namespace osgVerse
         for (size_t u = 0; u < userStages.size(); ++u)
         {
             const StandardPipelineParameters::UserInputStageData usd = userStages[u];
-            osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule(usd.stageName, p);
+            osgVerse::UserInputModule* inModule =
+                new osgVerse::UserInputModule(usd.stageName, p, coverageSamples);
             Pipeline::Stage* stage = inModule->createStages(
                 NULL, NULL, bypass, usd.mask, "ColorBuffer", colorBuffer, "DepthBuffer", depthBuffer);
 

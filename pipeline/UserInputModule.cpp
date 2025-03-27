@@ -8,8 +8,8 @@
 
 namespace osgVerse
 {
-    UserInputModule::UserInputModule(const std::string& name, Pipeline* pipeline)
-    :   _pipeline(pipeline)
+    UserInputModule::UserInputModule(const std::string& name, Pipeline* pipeline, int samples)
+    :   _pipeline(pipeline), _coverageSamples(0)  // FIXME
     {
         setName(name);
         if (pipeline) pipeline->addModule(name, this);
@@ -39,7 +39,7 @@ namespace osgVerse
             }
 
             // Draw on existing buffers, no clear masks... This requires single-threaded only!!
-            int flags = Pipeline::NO_DEFAULT_TEXTURES;
+            int flags = Pipeline::NO_DEFAULT_TEXTURES | _coverageSamples;
             Pipeline::Stage* stage = _pipeline->addInputStage(getName(), cullMask, flags, vs, fs, buffers);
 
             CustomData* customData = new CustomData(true);
@@ -50,7 +50,7 @@ namespace osgVerse
         else
         {
             Pipeline::Stage* stage = _pipeline->addInputStage(
-                getName(), cullMask, 0, vs, fs, 2, cName.c_str(), osgVerse::Pipeline::RGB_INT8,
+                getName(), cullMask, _coverageSamples, vs, fs, 2, cName.c_str(), osgVerse::Pipeline::RGB_INT8,
 #ifdef VERSE_WASM
                 dName.c_str(), osgVerse::Pipeline::DEPTH32);
 #else

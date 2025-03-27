@@ -19,7 +19,7 @@ namespace osgVerse
             CustomData(bool sh) : sharingBuffers(sh) {}
         };
 
-        UserInputModule(const std::string& name, Pipeline* pipeline);
+        UserInputModule(const std::string& name, Pipeline* pipeline, int samples = 0);
         virtual UserInputModule* asUserInputModule() { return this; }
 
         Pipeline::Stage* createStages(osg::Shader* vs, osg::Shader* fs, Pipeline::Stage* bypass, unsigned int cullMask,
@@ -31,6 +31,7 @@ namespace osgVerse
         virtual ~UserInputModule();
 
         osg::observer_ptr<Pipeline> _pipeline;
+        int _coverageSamples;
     };
 }
 

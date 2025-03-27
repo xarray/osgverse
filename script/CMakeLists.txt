@@ -6,6 +6,7 @@ SET(LIBRARY_INCLUDE_FILES
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Entry.cpp ScriptBase.cpp
     JsonScript.cpp PythonScript.cpp
+    PythonWrapper_osg.cpp
 )
 
 INCLUDE_DIRECTORIES(. ../3rdparty/libhv ../3rdparty/libhv/all)

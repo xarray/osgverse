@@ -11,6 +11,7 @@ namespace osgVerse
         PythonScript();
 
     protected:
+        virtual ~PythonScript();
         osg::ref_ptr<osg::Referenced> _pythonObject;
     };
 }
