@@ -32,7 +32,9 @@ struct PythonObject : public osg::Referenced
 };
 #else
 struct PythonObject : public osg::Referenced
-{};
+{
+    std::map<std::string, std::string> modules;
+};
 #endif
 
 PythonScript::PythonScript()

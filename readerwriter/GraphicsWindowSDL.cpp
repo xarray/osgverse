@@ -9,7 +9,7 @@ extern "C" void* getViewFromWindow(NSWindow* window);
 #endif
 
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-#   if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2) && !defined(__ANDROID__)
+#   if !defined(VERSE_EMBEDDED) && !defined(__ANDROID__)
 #       include <EGL/egl.h>
 #       include <EGL/eglext.h>
 #       include <EGL/eglext_angle.h>
@@ -177,12 +177,13 @@ GraphicsWindowSDL::~GraphicsWindowSDL()
 
 void GraphicsWindowSDL::initialize()
 {
-#if defined(VERSE_WEBGL1)
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#if defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_WASM)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#endif
+#if defined(VERSE_EMBEDDED_GLES2)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#elif defined(VERSE_WEBGL2)
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#elif defined(VERSE_EMBEDDED_GLES3)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #elif defined(VERSE_GLES_DESKTOP)
@@ -538,14 +539,14 @@ void GraphicsWindowSDL::checkEvents()
 
 void GraphicsWindowSDL::grabFocus()
 {
-#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+#if !defined(VERSE_WASM)
     if (_valid) SDL_SetWindowInputFocus(_sdlWindow);
 #endif
 }
 
 void GraphicsWindowSDL::grabFocusIfPointerInWindow()
 {
-#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+#if !defined(VERSE_WASM)
     if (_valid) SDL_SetWindowInputFocus(_sdlWindow);
 #endif
 }
@@ -559,7 +560,7 @@ void GraphicsWindowSDL::requestWarpPointer(float x, float y)
 bool GraphicsWindowSDL::setWindowDecorationImplementation(bool flag)
 {
     if (!_valid) return false;
-#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+#if !defined(VERSE_WASM)
     SDL_SetWindowBordered(_sdlWindow, flag ? SDL_TRUE : SDL_FALSE); return true;
 #else
     return false;
@@ -578,7 +579,7 @@ void GraphicsWindowSDL::setWindowName(const std::string& name)
 
 void GraphicsWindowSDL::setCursor(osgViewer::GraphicsWindow::MouseCursor cursor)
 {
-#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+#if !defined(VERSE_WASM)
     SDL_Cursor* sdlCursor = NULL;
     switch (cursor)
     {

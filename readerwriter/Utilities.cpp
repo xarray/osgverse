@@ -99,7 +99,7 @@ protected:
         modeSet.insert(GL_STENCIL_TEST);
         // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/enable
         modeSet.insert(GL_RASTERIZER_DISCARD);
-#  if !defined(VERSE_WEBGL2)
+#  if !defined(VERSE_EMBEDDED_GLES3)
         //modeSet.insert(GL_PRIMITIVE_RESTART_FIXED_INDEX);
         //modeSet.insert(GL_SAMPLE_MASK);
 #  endif
@@ -202,7 +202,7 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
             // Try to fix some old and wrong internal formats
             for (size_t j = 0; j < tex->getNumImages(); ++j)
             {
-#  if !defined(VERSE_WEBGL1)
+#  if !defined(VERSE_EMBEDDED_GLES2)
                 GLenum internalFmt = tex->getImage(j)->getInternalTextureFormat();
                 switch (internalFmt)
                 {

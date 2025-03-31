@@ -28,7 +28,7 @@ namespace osgVerse
             Pipeline::BufferDescriptions buffers;
             {
                 Pipeline::BufferDescription desc0(cName, osgVerse::Pipeline::RGB_INT8);
-#ifdef VERSE_WASM
+#ifdef VERSE_EMBEDDED
                 Pipeline::BufferDescription desc1(dName, osgVerse::Pipeline::DEPTH32);
 #else
                 Pipeline::BufferDescription desc1(dName, osgVerse::Pipeline::DEPTH24_STENCIL8);
@@ -51,7 +51,7 @@ namespace osgVerse
         {
             Pipeline::Stage* stage = _pipeline->addInputStage(
                 getName(), cullMask, _coverageSamples, vs, fs, 2, cName.c_str(), osgVerse::Pipeline::RGB_INT8,
-#ifdef VERSE_WASM
+#ifdef VERSE_EMBEDDED
                 dName.c_str(), osgVerse::Pipeline::DEPTH32);
 #else
                 dName.c_str(), osgVerse::Pipeline::DEPTH24_STENCIL8);

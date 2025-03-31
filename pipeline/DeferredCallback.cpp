@@ -224,7 +224,7 @@ namespace osgVerse
             OSG_NOTICE << "[DeferredRenderCallback] No previous depth buffer is going to blit with "
                        << "current camera. Should not happen in deferred rendering mode" << std::endl;
         }
-#endif  // #if !defined(VERSE_WASM)
+#endif
         if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
     }
 
@@ -402,6 +402,8 @@ namespace osgVerse
     {
         geometry = osg::createTexturedQuadGeometry(
             osg::Vec3(), osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(0.0f, 1.0, 0.0f));
+        geometry->setUseDisplayList(false); geometry->setUseVertexBufferObjects(true);
+
         if (texIn) geometry->getOrCreateStateSet()->setTextureAttributeAndModes(unit, texIn);
         geometry->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
         projection = osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0);

@@ -175,7 +175,7 @@ namespace osgVerse
             // As WebGL requires, shadow map value should be encoded from float to RGBA8
             // https://registry.khronos.org/webgl/specs/latest/1.0/#6.6
             _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
-#if defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)  // FIXME: not for webgl2
+#if defined(VERSE_EMBEDDED_GLES2) || defined(VERSE_EMBEDDED_GLES3)  // FIXME: not for webgl2
             _shadowMaps[i]->setInternalFormat(GL_RGBA);
             _shadowMaps[i]->setSourceFormat(GL_RGBA);
             _shadowMaps[i]->setSourceType(GL_UNSIGNED_BYTE);
@@ -381,7 +381,7 @@ namespace osgVerse
         if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps[id]->getTextureWidth(), _shadowMaps[id]->getTextureHeight());
         camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps[id].get());
-#if defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+#if defined(VERSE_EMBEDDED_GLES2) || defined(VERSE_EMBEDDED_GLES3)
         // FBO without depth attachment will not enable depth test
         // By default OSG use "ImplicitBufferAttachmentMask" to handle this,
         // but the internal format should be reset for WebGL cases

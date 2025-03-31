@@ -13,7 +13,7 @@ namespace osgVerse
     {
         _parameterImage = new osg::Image;
         _parameterImage->allocateImage(1024, 4, 1, GL_RGB, GL_FLOAT);
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
         _parameterImage->setInternalTextureFormat(GL_RGB);
 #else
         _parameterImage->setInternalTextureFormat(GL_RGB32F_ARB);

@@ -211,9 +211,9 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     }
 #endif
 
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
     ss << "#define VERSE_WEBGL1 1" << std::endl;
-#elif defined(VERSE_WEBGL2)
+#elif defined(VERSE_EMBEDDED_GLES3)
     ss << "#define VERSE_WEBGL2 1" << std::endl;
 #endif
     ss << "//! osgVerse generated shader: " << glslVer << std::endl;

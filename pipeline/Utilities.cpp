@@ -427,7 +427,7 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
         image->allocateImage(numCols, numRows, 1, GL_RGB, GL_FLOAT);
-#ifdef VERSE_WEBGL1
+#ifdef VERSE_EMBEDDED_GLES2
         image->setInternalTextureFormat(GL_RGB);
 #else
         image->setInternalTextureFormat(GL_RGB32F_ARB);
@@ -459,7 +459,7 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Image> image = new osg::Image;
         image->allocateImage(numSamples, numRows, 1, GL_RGB, GL_FLOAT);
-#ifdef VERSE_WEBGL1
+#ifdef VERSE_EMBEDDED_GLES2
         image->setInternalTextureFormat(GL_RGB);
 #else
         image->setInternalTextureFormat(GL_RGB32F_ARB);
@@ -509,6 +509,7 @@ namespace osgVerse
         osg::Geometry* geom = osg::createTexturedQuadGeometry(
             corner, osg::Vec3(width, 0.0f, 0.0f), osg::Vec3(0.0f, height, 0.0f),
             uvRange[0], uvRange[1], uvRange[2], uvRange[3]);
+        geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
         osg::ref_ptr<osg::Geode> quad = new osg::Geode;
         quad->addDrawable(geom);
 
@@ -1067,7 +1068,7 @@ namespace osgVerse
         SetConsoleTextAttribute(_handle, FOREGROUND_RED);
         SyncConsoleOut() << header << message;
         SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-#elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+#elif defined(VERSE_WASM)
         SyncConsoleOut() << header << message;
 #else
         SyncConsoleOut() << "\033[91m" << header << message << "\033[0m";
@@ -1081,7 +1082,7 @@ namespace osgVerse
         SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN);
         SyncConsoleOut() << header << message;
         SetConsoleTextAttribute(_handle, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-#elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+#elif defined(VERSE_WASM)
         SyncConsoleOut() << header << message;
 #else
         SyncConsoleOut() << "\033[33m" << header << message << "\033[0m";
@@ -1093,7 +1094,7 @@ namespace osgVerse
         std::string header = message.length() < 5 ? "" : "[NOTICE  " + getDateTimeTick() + "] ";
 #ifdef VERSE_WINDOWS
         SyncConsoleOut() << header << message;
-#elif defined(VERSE_WEBGL1) || defined(VERSE_WEBGL2)
+#elif defined(VERSE_WASM)
         SyncConsoleOut() << header << message;
 #else
         SyncConsoleOut() << "\033[37m" << header << message << "\033[0m";

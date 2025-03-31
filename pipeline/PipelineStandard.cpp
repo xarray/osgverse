@@ -298,7 +298,7 @@ namespace osgVerse
         {
             gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
                 spp.shaders.gbufferVS, spp.shaders.gbufferFS, 5,
-#ifdef VERSE_WEBGL1
+#if defined(VERSE_EMBEDDED_GLES2)
                 "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
@@ -309,7 +309,7 @@ namespace osgVerse
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "EmissionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
-#   ifdef VERSE_WASM
+#   if defined(VERSE_EMBEDDED)
                 "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #   else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
@@ -321,7 +321,7 @@ namespace osgVerse
             gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
                 spp.shaders.gbufferVS, spp.shaders.gbufferFS, 2,
                 "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
-#ifdef VERSE_WASM
+#if defined(VERSE_EMBEDDED)
                 "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
@@ -398,7 +398,7 @@ namespace osgVerse
 #endif
             if (imgCount > 0)
             {
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
                 osg::ref_ptr<osg::Image> brdfImg = spp.skyboxIBL->getImage(0);
                 unsigned char* data = new unsigned char[brdfImg->getTotalSizeInBytes()];
                 memcpy(data, brdfImg->data(), brdfImg->getTotalSizeInBytes());
@@ -416,7 +416,7 @@ namespace osgVerse
 
             if (imgCount > 1)
             {
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
                 spp.skyboxIBL->getImage(1)->setInternalTextureFormat(GL_RGB);
 #endif
                 prefilteringTex = createTexture2D(spp.skyboxIBL->getImage(1), osg::Texture::MIRROR);
@@ -426,7 +426,7 @@ namespace osgVerse
 
             if (imgCount > 2)
             {
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
                 spp.skyboxIBL->getImage(2)->setInternalTextureFormat(GL_RGB);
 #endif
                 convolutionTex = createTexture2D(spp.skyboxIBL->getImage(2), osg::Texture::MIRROR);
@@ -438,7 +438,7 @@ namespace osgVerse
         // Deferred lighting stage
         osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting", 1.0f,
             spp.shaders.quadVS, spp.shaders.pbrLightingFS, 2,
-#if defined(VERSE_WASM)
+#if defined(VERSE_EMBEDDED)
             "ColorBuffer", osgVerse::Pipeline::RGB_INT8,
 #else
             "ColorBuffer", osgVerse::Pipeline::RGB_FLOAT16,
@@ -456,7 +456,7 @@ namespace osgVerse
         }
         else
         {
-#   if defined(VERSE_WEBGL1)  // FIXME???
+#   if defined(VERSE_EMBEDDED_GLES2)  // FIXME???
             lighting->applyTexture(createDefaultTexture(
                 osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f)), "BrdfLutBuffer", 5);
             lighting->applyTexture(createDefaultTexture(
@@ -477,7 +477,7 @@ namespace osgVerse
             // SSAO stages: AO -> BlurH -> BlurV
             osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoFS, 1,
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
                 "SsaoBuffer", osgVerse::Pipeline::RGB_INT8);
 #else
                 "SsaoBuffer", osgVerse::Pipeline::R_INT8);
@@ -491,7 +491,7 @@ namespace osgVerse
 
             osgVerse::Pipeline::Stage* ssaoBlur1 = p->addWorkStage("SsaoBlur1", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
                 "SsaoBlurredBuffer0", osgVerse::Pipeline::RGB_INT8);
 #else
                 "SsaoBlurredBuffer0", osgVerse::Pipeline::R_INT8);
@@ -502,7 +502,7 @@ namespace osgVerse
 
             osgVerse::Pipeline::Stage* ssaoBlur2 = p->addWorkStage("SsaoBlur2", 1.0f,
                 spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
-#if defined(VERSE_WEBGL1)
+#if defined(VERSE_EMBEDDED_GLES2)
                 "SsaoBlurredBuffer", osgVerse::Pipeline::RGB_INT8);
 #else
                 "SsaoBlurredBuffer", osgVerse::Pipeline::R_INT8);
@@ -635,7 +635,7 @@ namespace osgVerse
         {
             osgViewer::GraphicsWindow* gw =
                 dynamic_cast<osgViewer::GraphicsWindow*>(p->getContext());
-#if !defined(VERSE_WEBGL1) && !defined(VERSE_WEBGL2)
+#if !defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_EMBEDDED_GLES3)
             if (gw != NULL) gw->setSyncToVBlank(spp.enableVSync);
 #endif
         }
