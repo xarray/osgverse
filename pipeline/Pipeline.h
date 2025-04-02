@@ -280,6 +280,9 @@ namespace osgVerse
         int getGlslTargetVersion() const { return _glslTargetVersion; }
         int getGlCurrentVersion() const { return _glVersion; }
 
+        void setOverridePrograms(bool b) { _overridePrograms = b; }
+        bool getOverridePrograms() const { return _overridePrograms; }
+
         /** Check if a camera is created by this pipeline (stage or forward) */
         bool isValidCamera(osg::Camera* cam) const
         { return getStage(cam) != NULL || (_forwardCamera == cam); }
@@ -312,6 +315,7 @@ namespace osgVerse
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;
         int _glContextVersion, _glVersion, _glslTargetVersion;
+        bool _overridePrograms;
     };
 
     /** Standard pipeline parameters */

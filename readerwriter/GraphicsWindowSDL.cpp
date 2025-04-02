@@ -177,7 +177,7 @@ GraphicsWindowSDL::~GraphicsWindowSDL()
 
 void GraphicsWindowSDL::initialize()
 {
-#if defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_WASM)
+#if defined(VERSE_EMBEDDED) && !defined(VERSE_WASM)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #endif
 #if defined(VERSE_EMBEDDED_GLES2)

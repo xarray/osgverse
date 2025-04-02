@@ -804,7 +804,7 @@ namespace osgVerse
         _invScreenResolution = new osg::Uniform(
             "InvScreenResolution", osg::Vec2(1.0f / 1920.0f, 1.0f / 1080.0f));
         _glContextVersion = glContextVer; _glVersion = 0;
-        _glslTargetVersion = glslVer;
+        _glslTargetVersion = glslVer; _overridePrograms = true;
     }
 
     osg::GraphicsContext* Pipeline::createGraphicsContext(int w, int h, const std::string& glContext,
@@ -1377,7 +1377,8 @@ namespace osgVerse
                 createShaderDefinitions(fs, _glContextVersion, _glslTargetVersion);
             }
 
-            ss->setAttributeAndModes(prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+            int values = _overridePrograms ? osg::StateAttribute::OVERRIDE : 0;
+            ss->setAttributeAndModes(prog.get(), osg::StateAttribute::ON | values);
             ss->addUniform(_deferredCallback->getNearFarUniform());
             ss->addUniform(_invScreenResolution.get());
         }
@@ -1389,7 +1390,9 @@ namespace osgVerse
         osg::Vec4 color0 = osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f);
         osg::Vec4 color1 = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
         osg::Vec4 colorORM = osg::Vec4(1.0f, 1.0f, 0.0f, 0.0f);
-        if (blendOff) ss.setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+        int values = _overridePrograms ? osg::StateAttribute::OVERRIDE : 0;
+        if (blendOff) ss.setMode(GL_BLEND, osg::StateAttribute::OFF | values);
+
         if (applyDefTextures)
         {
             ss.setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap

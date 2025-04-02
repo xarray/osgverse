@@ -412,10 +412,8 @@ void Drawer2D::drawText(const osg::Vec2f pos, float size, const std::wstring& te
             return;
         }
 
-        BLFontFace& fontFace = core->fonts.begin()->second;
-        if (core->fonts.find(fontName) != core->fonts.end())
-            fontFace = core->fonts[fontName];
-
+        BLFontFace& fontFace = (core->fonts.find(fontName) != core->fonts.end())
+                             ? core->fonts[fontName] : core->fonts.begin()->second;
         BLFont font; font.createFromFace(fontFace, size);
 #if false
         bbox.set(pos[0], pos[1] - size, size * text.size(), size);
@@ -442,10 +440,8 @@ void Drawer2D::drawUtf8Text(const osg::Vec2f pos, float size, const std::string&
             return;
         }
 
-        BLFontFace& fontFace = core->fonts.begin()->second;
-        if (core->fonts.find(fontName) != core->fonts.end())
-            fontFace = core->fonts[fontName];
-
+        BLFontFace& fontFace = (core->fonts.find(fontName) != core->fonts.end())
+                             ? core->fonts[fontName] : core->fonts.begin()->second;
         BLFont font; font.createFromFace(fontFace, size);
 #if false
         bbox.set(pos[0], pos[1] - size, size * text.size(), size);
@@ -466,8 +462,8 @@ osg::Vec4 Drawer2D::getTextBoundingBox(const std::wstring& text, float size, con
     osg::Vec4 bbox; VALID_B2D()
     {
         if (core->fonts.empty()) return bbox;
-        BLFontFace& fontFace = core->fonts.begin()->second;
-        if (core->fonts.find(fontName) != core->fonts.end()) fontFace = core->fonts[fontName];
+        BLFontFace& fontFace = (core->fonts.find(fontName) != core->fonts.end())
+                             ? core->fonts[fontName] : core->fonts.begin()->second;
 
         BLFont font; font.createFromFace(fontFace, size);
         BLGlyphBuffer gb; gb.setUtf16Text((uint16_t*)text.data(), text.size());
@@ -483,8 +479,8 @@ osg::Vec4 Drawer2D::getUtf8TextBoundingBox(const std::string& text, float size, 
     osg::Vec4 bbox; VALID_B2D()
     {
         if (core->fonts.empty()) return bbox;
-        BLFontFace& fontFace = core->fonts.begin()->second;
-        if (core->fonts.find(fontName) != core->fonts.end()) fontFace = core->fonts[fontName];
+        BLFontFace& fontFace = (core->fonts.find(fontName) != core->fonts.end())
+                             ? core->fonts[fontName] : core->fonts.begin()->second;
 
         BLFont font; font.createFromFace(fontFace, size);
         BLGlyphBuffer gb; gb.setUtf8Text(text.data(), text.size());
