@@ -84,6 +84,7 @@ public:
         if (options) localOptions = options->cloneOptions();
         else localOptions = new osgDB::Options();
 
+        localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
         if (ext == "children" && options)
         {
             picojson::value children;
@@ -280,7 +281,10 @@ protected:
 
         std::string ext = osgDB::getFileExtension(uri);
         if (!uri.empty() && !osgDB::isAbsolutePath(uri))
-            uri = prefix + osgDB::getNativePathSeparator() + uri;
+        {
+            if (osgDB::getServerProtocol(prefix) != "") uri = prefix + "/" + uri;
+            else uri = prefix + osgDB::getNativePathSeparator() + uri;
+        }
 
         bool additive = (st == "ADD" || st == "add");
         if (children.is<picojson::array>())
