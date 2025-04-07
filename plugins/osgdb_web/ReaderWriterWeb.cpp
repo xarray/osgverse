@@ -8,15 +8,11 @@
 
 #include "3rdparty/libhv/all/client/requests.h"
 #include <readerwriter/Utilities.h>
-
-#if false
-#   include "3rdparty/miniz.h"
-#else
-#   include "zlib.h"
-#endif
+#ifdef WITH_ZLIB
+#   include <zlib.h>
 static size_t readGZip(const char* in, size_t in_size, char* out, size_t out_size)
 {
-    z_stream zs = {};
+    z_stream zs = {}; memset(&zs, 0, sizeof(zs));
     inflateInit2(&zs, 16 + MAX_WBITS);
     zs.next_in = (Bytef*)in;
     zs.avail_in = in_size;
@@ -32,6 +28,10 @@ static size_t readGZip(const char* in, size_t in_size, char* out, size_t out_siz
     memcpy(out, result.data(), result.size());
     return result.size();
 }
+#else
+static size_t readGZip(const char* in, size_t in_size, char* out, size_t out_size)
+{ return 0; }
+#endif
 
 static std::string normalizeUrl(const std::string& url)
 {
@@ -272,7 +272,8 @@ public:
         if (encoding.find("gzip") != std::string::npos)
         {
             size_t bufferSize = buffer.str().size();
-            std::vector<char> inData(bufferSize), outData(bufferSize * 4);
+            std::vector<char> inData(bufferSize), outData(bufferSize * 10);
+
             buffer.read((char*)&inData[0], bufferSize); buffer.str("");
             bufferSize = readGZip(inData.data(), bufferSize, outData.data(), outData.size());
             if (bufferSize > 0) buffer.write(outData.data(), bufferSize);
