@@ -9,6 +9,55 @@
 #include "3rdparty/libhv/all/client/requests.h"
 #include <readerwriter/Utilities.h>
 
+#if false
+#   include "3rdparty/miniz.h"
+#else
+#   include "zlib.h"
+#endif
+static size_t readGZip(const char* in, size_t in_size, char* out, size_t out_size)
+{
+    z_stream zs = {};
+    inflateInit2(&zs, 16 + MAX_WBITS);
+    zs.next_in = (Bytef*)in;
+    zs.avail_in = in_size;
+    char buffer[16384];
+    std::string result;
+    do {
+        zs.next_out = reinterpret_cast<Bytef*>(buffer);
+        zs.avail_out = sizeof(buffer);
+        inflate(&zs, Z_NO_FLUSH);
+        result.append(buffer, sizeof(buffer) - zs.avail_out);
+    } while (zs.avail_out == 0);
+    inflateEnd(&zs);
+    memcpy(out, result.data(), result.size());
+    return result.size();
+}
+
+static std::string normalizeUrl(const std::string& url)
+{
+    size_t pathStart = url.find("://");
+    if (pathStart == std::string::npos) pathStart = 0;
+    else pathStart += 3;
+
+    std::string path = url.substr(pathStart), part;
+    std::istringstream iss(path);
+    std::vector<std::string> parts;
+    while (std::getline(iss, part, '/'))
+    { if (!part.empty()) parts.push_back(part); }
+
+    std::vector<std::string> normalizedParts;
+    for (const auto& p : parts)
+    {
+        if (p == "..") { if (!normalizedParts.empty()) normalizedParts.pop_back(); }
+        else if (p != ".") normalizedParts.push_back(p);
+    }
+
+    std::ostringstream oss;
+    for (size_t i = 0; i < normalizedParts.size(); ++i)
+    { if (i > 0) oss << "/"; oss << normalizedParts[i]; }
+    return url.substr(0, pathStart) + oss.str();
+}
+
 class ReaderWriterWeb : public osgDB::ReaderWriter
 {
 public:
@@ -172,7 +221,7 @@ public:
         }
 
         // TODO: get connection parameters from options
-        std::string contentType = "image/jpeg";
+        std::string contentType = "image/jpeg", encoding = "";
 #ifdef __EMSCRIPTEN__
         osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
         bool succeed = wf->httpGet(fileName);
@@ -187,13 +236,13 @@ public:
         for (size_t i = 0; i < wf->resHeaders.size(); i += 2)
         {
             const std::string& key = wf->resHeaders[i];
-            if (key.find("content-type") != std::string::npos)
-                contentType = trimString(wf->resHeaders[i + 1]);
+            if (key.find("content-type") != std::string::npos) contentType = trimString(wf->resHeaders[i + 1]);
+            else if (key.find("content-encoding") != std::string::npos) encoding = trimString(wf->resHeaders[i + 1]);
         }
 #else
         HttpRequest req;  // Read data from web
         req.method = HTTP_GET;
-        req.url = fileName; req.scheme = scheme;
+        req.url = normalizeUrl(fileName); req.scheme = scheme;
 
         HttpResponse response;
         int result = _client->send(&req, &response);
@@ -211,8 +260,23 @@ public:
 
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
         buffer.write((char*)response.body.data(), response.body.size());
-        contentType = http_content_type_str(response.content_type);
+        //contentType = http_content_type_str(response.content_type);
+        for (http_headers::iterator itr = response.headers.begin(); itr != response.headers.end(); ++itr)
+        {
+            const std::string& key = itr->first;
+            if (key.find("content-type") != std::string::npos) contentType = trimString(itr->second);
+            else if (key.find("content-encoding") != std::string::npos) encoding = trimString(itr->second);
+        }
 #endif
+
+        if (encoding.find("gzip") != std::string::npos)
+        {
+            size_t bufferSize = buffer.str().size();
+            std::vector<char> inData(bufferSize), outData(bufferSize * 4);
+            buffer.read((char*)&inData[0], bufferSize); buffer.str("");
+            bufferSize = readGZip(inData.data(), bufferSize, outData.data(), outData.size());
+            if (bufferSize > 0) buffer.write(outData.data(), bufferSize);
+        }
 
         // Load by other readerwriter
         osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
@@ -275,8 +339,7 @@ public:
 
         // Post data to web
         req.method = HTTP_POST;
-        req.url = fileName;
-        req.scheme = scheme;
+        req.url = normalizeUrl(fileName); req.scheme = scheme;
         req.body = std::string((std::istreambuf_iterator<char>(requestBuffer)),
                                std::istreambuf_iterator<char>());
         
