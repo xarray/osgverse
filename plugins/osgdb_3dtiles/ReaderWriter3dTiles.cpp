@@ -138,10 +138,27 @@ public:
             {
                 std::string name = options ? options->getPluginStringData("simple_name") : "";
                 osg::ref_ptr<osg::Node> node = createTile(root, prefix, name, "", options);
+                if (node.valid())
+                {
+                    picojson::value& asset = document.get("asset"); bool yAxisUp = true;
+                    if (asset.is<picojson::object>() && asset.contains("gltfUpAxis"))
+                    {
+                        picojson::value& upAxis = asset.get("gltfUpAxis");
+                        std::string val = upAxis.is<std::string>() ? upAxis.get<std::string>() : "";
+                        if (val == "Z" || val == "z") yAxisUp = false;
+                    }
+
+                    if (yAxisUp && name == "tileset")
+                    {
+                        osg::MatrixTransform* mt = new osg::MatrixTransform;
+                        mt->setMatrix(osg::Matrix::rotate(-osg::PI_2, osg::X_AXIS));
+                        mt->addChild(node.get()); node = mt;
+                    }
 #if WRITE_TO_OSG
-                osgDB::writeNodeFile(*node, prefix + "/root.osgt");
+                    osgDB::writeNodeFile(*node, prefix + "/root.osgt");
 #endif
-                if (node.valid()) return node.get();
+                    return node.get();
+                }
             }
             else
                 OSG_WARN << "[ReaderWriter3dtiles] Bad <root> type" << std::endl;

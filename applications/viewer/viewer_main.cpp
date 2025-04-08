@@ -333,6 +333,10 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
 
+    float lodScale = 1.0f;
+    if (arguments.read("--lod-scale", lodScale))
+        viewer.getCamera()->setLODScale(lodScale);
+
     // FIXME: how to avoid shadow problem...
     // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
