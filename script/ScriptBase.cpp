@@ -59,7 +59,7 @@ ScriptBase::Result ScriptBase::create(const std::string& type, const std::string
         }
     }
 
-    osg::Object* obj = NULL; std::string t;
+    osg::Object* obj = NULL; std::string t(type);
     std::transform(type.begin(), type.end(), t.begin(), tolower);
     if (t == "image")
     {
@@ -296,7 +296,7 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
         case osgDB::BaseSerializer::RW_IMAGE:
             return entry->setProperty(object, key, getFromPath(value));
         case osgDB::BaseSerializer::RW_BOOL:
-            std::transform(value.begin(), value.end(), value2.begin(), tolower);
+            value2 = value; std::transform(value.begin(), value.end(), value2.begin(), tolower);
             if (value2 == "true") return entry->setProperty(object, key, true);
             else return entry->setProperty(object, key, atoi(value2.c_str()) > 0);
         case osgDB::BaseSerializer::RW_CHAR:
@@ -395,8 +395,24 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
                 return entry->setVecProperty(object, key, getVecVector<osg::Vec3d>(value, sep));
             else if (clsName == "Vec4dArray")
                 return entry->setVecProperty(object, key, getVecVector<osg::Vec4d>(value, sep));
+            else if (clsName == "DrawElementsUByte")
+                return entry->setProperty(object, key, getVector<unsigned char>(value));
+            else if (clsName == "DrawElementsUShort")
+                return entry->setProperty(object, key, getVector<unsigned short>(value));
+            else if (clsName == "DrawElementsUInt")
+                return entry->setProperty(object, key, getVector<unsigned int>(value));
+            else  // treat as ObjectVector
+            {
+                osgDB::StringList slist; osgDB::split(value, slist, sep);
+                std::vector<osg::Object*> objList(slist.size());
+                for (size_t o = 0; o < slist.size(); ++o) objList[o] = getFromPath(slist[o]);
+                return entry->setProperty(object, key, objList);
+            }
             break;
-        //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
+        default:
+            //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
+            OSG_NOTICE << "[ScriptBase] Unsupported setter serializer " << prop.name << std::endl;
+            break;
         }
 #else
         OSG_WARN << "[ScriptBase] setProperty() not implemented" << std::endl;
@@ -466,7 +482,7 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
 #if OSGVERSE_COMPLETED_SCRIPT
         switch (prop.type)
         {
-        //case osgDB::BaseSerializer::RW_OBJECT:
+        //case osgDB::BaseSerializer::RW_OBJECT:  // FIXME: apply string?
         //case osgDB::BaseSerializer::RW_IMAGE:
         //case osgDB::BaseSerializer::RW_BOOL:
         case osgDB::BaseSerializer::RW_CHAR: GET_PROP_VALUE(char, std::to_string);
@@ -529,8 +545,24 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
                 GET_PROP_VALUE2(std::vector<osg::Vec3d>, setVecVector, sep)
             else if (clsName == "Vec4dArray")
                 GET_PROP_VALUE2(std::vector<osg::Vec4d>, setVecVector, sep)
+            else if (clsName == "DrawElementsUByte")
+                GET_PROP_VALUE(std::vector<unsigned char>, setVector)
+            else if (clsName == "DrawElementsUShort")
+                GET_PROP_VALUE(std::vector<unsigned short>, setVector)
+            else if (clsName == "DrawElementsUInt")
+                GET_PROP_VALUE(std::vector<unsigned int>, setVector)
+            else  // treat as ObjectVector
+            {
+                std::vector<osg::Object*> objList;
+                if (!entry->getProperty(object, key, objList)) return false;
+                //for (size_t o = 0; o < objList.size(); ++o)
+                return false;  // FIXME: apply string?
+            }
             break;
+        default:
             //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
+            OSG_NOTICE << "[ScriptBase] Unsupported getter serializer " << prop.name << std::endl;
+            break;
         }
 #else
         OSG_WARN << "[ScriptBase] getProperty() not implemented" << std::endl;

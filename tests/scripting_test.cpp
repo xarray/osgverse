@@ -100,14 +100,17 @@ int main(int argc, char** argv)
         std::cout << "Exe4 (List properties): " << ret4.serialize(true);
         std::cout << "Exe5 (Invalid command): " << ret5.serialize(true);
 
-        std::string s6_1 = "{\"class\": \"osg::Vec3Array\", \"properties\": [";
+#if true  // Demonstrate how to create a geometry in runtime
+        std::string s6_1 = "{\"class\": \"osg::Vec3Array\", \"properties\": ["
                            "{\"vector\": \"0 0 0, 10 0 0, 10 10 0, 0 10 0\"}]}";
-        std::string s6_2 = "{\"class\": \"osg::Vec3Array\", \"properties\": [";
+        std::string s6_2 = "{\"class\": \"osg::Vec3Array\", \"properties\": ["
                            "{\"vector\": \"0 0 1, 0 0 1, 0 0 1, 0 0 1\"}]}";
-        std::string s6_3 = "{\"class\": \"osg::Vec4Array\", \"properties\": [";
+        std::string s6_3 = "{\"class\": \"osg::Vec4Array\", \"properties\": ["
                            "{\"vector\": \"1 0 0 1, 1 1 0 1, 0 1 0 1, 0 0 1 1\"}]}";
-        std::string s6_4 = "{\"class\": \"osg::DrawArrays\", \"properties\": "
-                            "[{\"First\": 0}, {\"Count\": 4}]}";
+        //std::string s6_4 = "{\"class\": \"osg::DrawArrays\", \"properties\": "
+        //                    "[{\"Mode\": \"QUADS\"}, {\"First\": 0}, {\"Count\": 4}]}";
+        std::string s6_4 = "{\"class\": \"osg::DrawElementsUShort\", \"properties\": "
+                            "[{\"Mode\": \"QUADS\"}, {\"vector\": \"0 1 2 3\"}]}";
         picojson::parse(exe, s6_1); ret1 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
         picojson::parse(exe, s6_2); ret2 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
         picojson::parse(exe, s6_3); ret3 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
@@ -121,36 +124,46 @@ int main(int argc, char** argv)
                              "{\"ColorArray\": \"" + ret3.get("object").to_str() + "\"},"
                              "{\"PrimitiveSetList\": \"" + ret4.get("object").to_str() + "\"}"
                          "]}";
-        std::string s8 = "{\"class\": \"osg::Geode\"}";
         picojson::parse(exe, s7); ret5 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
+        std::cout << "Exe6 (Create geometry): " << ret5.serialize(true);
+
+        std::string s7_1 = "{\"object\": \"" + ret2.get("object").to_str() + "\", \"properties\": "
+                           "{\"Binding\": \"BIND_PER_VERTEX\"}}";
+        std::string s7_2 = "{\"object\": \"" + ret3.get("object").to_str() + "\", \"properties\": "
+                           "{\"Binding\": \"BIND_PER_VERTEX\"}}";
+        picojson::parse(exe, s7_1); scripter1->execute(osgVerse::JsonScript::EXE_Set, exe);
+        picojson::parse(exe, s7_2); scripter1->execute(osgVerse::JsonScript::EXE_Set, exe);
+
+        std::string s8 = "{\"class\": \"osg::Geode\"}";
         picojson::parse(exe, s8); ret1 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
+        std::cout << "Exe7 (Create geode): " << ret1.serialize(true);
 
         std::string s9 = "{\"object\": \"root\", \"method\": \"addChild\", \"properties\": "
                           "[\"" + ret1.get("object").to_str() + "\"]}";
         std::string s10 = "{\"object\": \"" + ret1.get("object").to_str() + "\", \"method\": \"addDrawable\", "
                           "\"properties\": [\"" + ret5.get("object").to_str() + "\"]}";
-        picojson::parse(exe, s9); ret2 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
-        picojson::parse(exe, s10); ret3 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
-        std::cout << "Exe6 (Create geometry): " << ret5.serialize(true);
-        std::cout << "Exe7 (Create geode): " << ret1.serialize(true);
+        picojson::parse(exe, s9); ret2 = scripter1->execute(osgVerse::JsonScript::EXE_Set, exe);
+        picojson::parse(exe, s10); ret3 = scripter1->execute(osgVerse::JsonScript::EXE_Set, exe);
         std::cout << "Exe8 (Add geode to root): " << ret2.serialize(true);
         std::cout << "Exe9 (Add geometry to geode): " << ret3.serialize(true);
+#endif
 
         osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
-        handler->addKeyUpCallback('t', [&](int key) {
-            s1 = "{\"class\": \"osg::MatrixTransform\"}";
-            s2 = "{\"type\": \"node\", \"uri\": \"dumptruck.osgt\"}";
+        handler->addKeyUpCallback('t', [scripter1](int key) {
+            picojson::value exe, ret1, ret2, ret3, ret4, ret5;
+            std::string s1 = "{\"class\": \"osg::MatrixTransform\"}";
+            std::string s2 = "{\"type\": \"node\", \"uri\": \"dumptruck.osgt\"}";
             picojson::parse(exe, s1); ret1 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
             picojson::parse(exe, s2); ret2 = scripter1->execute(osgVerse::JsonScript::EXE_Creation, exe);
             std::cout << "Exe10 (Create transform node): " << ret1.serialize(true);
             std::cout << "Exe11 (Load model): " << ret2.serialize(true);
 
-            s3 = "{\"object\": \"root\", \"method\": \"addChild\", \"properties\": [\""
-                + ret1.get("object").to_str() + "\"]}";
-            s4 = "{\"object\": \"" + ret1.get("object").to_str() + "\", \"method\": \"addChild\", "
-                + "\"properties\": [\"" + ret2.get("object").to_str() + "\"]}";
-            s5 = "{\"object\": \"" + ret1.get("object").to_str() + "\", \"properties\": "
-                 "{\"Matrix\": \"1 0 0 0 0 1 0 0 0 0 1 0 -30 0 0 1\"}}";
+            std::string s3 = "{\"object\": \"root\", \"method\": \"addChild\", \"properties\": "
+                             "[\"" + ret1.get("object").to_str() + "\"]}";
+            std::string s4 = "{\"object\": \"" + ret1.get("object").to_str() + "\", \"method\": \"addChild\", "
+                             "\"properties\": [\"" + ret2.get("object").to_str() + "\"]}";
+            std::string s5 = "{\"object\": \"" + ret1.get("object").to_str() + "\", \"properties\": "
+                             "{\"Matrix\": \"1 0 0 0 0 1 0 0 0 0 1 0 -30 0 0 1\"}}";
             picojson::parse(exe, s3); ret3 = scripter1->execute(osgVerse::JsonScript::EXE_Set, exe);
             picojson::parse(exe, s4); ret4 = scripter1->execute(osgVerse::JsonScript::EXE_Set, exe);
             picojson::parse(exe, s5); ret5 = scripter1->execute(osgVerse::JsonScript::EXE_Set, exe);
@@ -158,6 +171,9 @@ int main(int argc, char** argv)
             std::cout << "Exe12 (Add transform to root): " << ret3.serialize(true);
             std::cout << "Exe13 (Add model to transform): " << ret4.serialize(true);
             std::cout << "Exe14 (Set matrix): " << ret5.serialize(true);
+        });
+        handler->addKeyUpCallback(osgGA::GUIEventAdapter::KEY_F1, [root](int key) {
+            osgDB::writeNodeFile(*root, "scripting_test.osg");
         });
         viewer.addEventHandler(handler);
     }
