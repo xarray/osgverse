@@ -21,6 +21,7 @@
 #include <pipeline/LightModule.h>
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 

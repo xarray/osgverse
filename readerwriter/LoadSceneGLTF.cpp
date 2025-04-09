@@ -105,6 +105,14 @@ namespace osgVerse
         return tinygltf::ReadWholeFile(out, err, filepath, userData);
     }
 
+    static bool GetFileSizeInBytes(size_t* filesize_out, std::string* err,
+                                   const std::string& filepath, void* userData)
+    {
+        osgDB::ReaderWriter* rw = (osgDB::ReaderWriter*)userData;
+        if (rw) { filesize_out = 0; return true; }
+        return tinygltf::GetFileSizeInBytes(filesize_out, err, filepath, userData);
+    }
+
     /*class RTCCenterCallback : public osg::NodeCallback
     {
     public:
@@ -285,7 +293,7 @@ namespace osgVerse
         tinygltf::FsCallbacks fs = {
             &osgVerse::FileExists, &tinygltf::ExpandFilePath,
             &osgVerse::ReadWholeFile, &tinygltf::WriteWholeFile,
-            (rwWeb ? NULL : &tinygltf::GetFileSizeInBytes), rwWeb };
+            &osgVerse::GetFileSizeInBytes, rwWeb };
         //_rtcCenterCallback = new RTCCenterCallback;
 
         std::string err, warn; bool loaded = false;
@@ -296,7 +304,9 @@ namespace osgVerse
         tinygltf::TinyGLTF loader;
         loader.SetStoreOriginalJSONForExtrasAndExtensions(true);
         loader.SetImageLoader(&LoadImageDataEx, this);
-        loader.SetFsCallbacks(fs);
+        loader.SetFsCallbacks(fs, &err);
+        if (!err.empty()) OSG_WARN << "[LoaderGLTF] SetFsCallbacks: " << err << std::endl;
+
         if (isBinary)
         {
             unsigned int version = 2, offset = 0, format = 0;  // 0: url, 1: raw GLTF

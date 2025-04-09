@@ -41,16 +41,11 @@ int main(int argc, char** argv)
 
     // Load earth data
     std::stringstream ss;
-#if 0
-    ss << "<map name=\"OpenStreetMap\" type=\"geocentric\" version=\"2\">\n"
-       << "  <image name=\"osm_mapnik\" driver=\"xyz\">\n"
-       << "    <url>http://[abc].tile.openstreetmap.org/{z}/{x}/{y}.png</url>\n"
-       << "    <profile>spherical-mercator</profile><cache_policy usage=\"none\"/>\n"
-       << "    <attribution>OpenStreetMap contributors</attribution>\n"
-       << "  </image><options>\n"
-       << "    <lighting>false</lighting>\n"
-       << "    <terrain><min_tile_range_factor>8</min_tile_range_factor></terrain>\n"
-       << "  </options></map>";
+#if 1
+    ss << "<map version=\"2\">\n"
+       << "<image driver=\"tms\" enabled=\"true\" name=\"readymap\""
+       << "    url=\"http://readymap.org/readymap/tiles/1.0.0/22/\">"
+       << "    <cache_policy min_time=\"0\" usage=\"no_cache\"/></image></map>";
 #else
     ss << "<map version=\"2\">\n"
        << "<elevation driver=\"tms\" name=\"test_elevation\""

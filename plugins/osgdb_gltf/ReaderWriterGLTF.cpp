@@ -72,6 +72,8 @@ public:
         {
             std::string fileName = options->getPluginStringData("filename");
             dir = options->getPluginStringData("Directory");
+            if (dir.empty()) dir = options->getPluginStringData("prefix");
+
             if (!fileName.empty())
             {
                 std::string ext = osgDB::getFileExtension(fileName);

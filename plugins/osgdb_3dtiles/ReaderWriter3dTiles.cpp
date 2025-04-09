@@ -150,9 +150,10 @@ public:
 
                     if (yAxisUp && name == "tileset")
                     {
-                        osg::MatrixTransform* mt = new osg::MatrixTransform;
-                        mt->setMatrix(osg::Matrix::rotate(-osg::PI_2, osg::X_AXIS));
-                        mt->addChild(node.get()); node = mt;
+                        osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(node.get());
+                        if (mt) mt->setMatrix(
+                            osg::Matrix(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                                        0.0,-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0) * mt->getMatrix());
                     }
 #if WRITE_TO_OSG
                     osgDB::writeNodeFile(*node, prefix + "/root.osgt");

@@ -212,6 +212,7 @@ public:
         osg::ref_ptr<Options> lOptions = options ?
             static_cast<Options*>(options->clone(osg::CopyOp::SHALLOW_COPY)) : new Options;
         lOptions->setPluginStringData("STREAM_FILENAME", osgDB::getSimpleFileName(fileName));
+        lOptions->setPluginStringData("simple_name", osgDB::getStrippedName(fileName));
         lOptions->setPluginStringData("prefix", osgDB::getFilePath(fileName));
         lOptions->setPluginStringData("filename", fileName);
         if (ext2 == "verse_tiles" && ext == "children")

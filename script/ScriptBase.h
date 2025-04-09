@@ -12,6 +12,7 @@ namespace osgVerse
     public:
         typedef std::map<std::string, std::string> PropertyMap;
         typedef std::vector<std::string> ParameterList;
+        ScriptBase() : _vecSeparator(',') {}
 
         struct Result
         {

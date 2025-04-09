@@ -40,8 +40,8 @@ int main(int argc, char** argv)
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
-        osgVerse::TangentSpaceVisitor tsv;
-        scene->accept(tsv);
+        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
     }
 
     // The scene graph
