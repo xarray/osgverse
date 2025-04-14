@@ -39,6 +39,7 @@ namespace osgVerse
 
         /** Get node path: idXXX, idA/idB, idA/0 (first child), or empty for root node */
         osg::Object* getFromPath(const std::string& nodePath);
+        std::string getFromObject(osg::Object* obj);
 
         void setRootNode(osg::Group* root) { _rootNode = root; }
         osg::Group* getRootNode() { return _rootNode.get(); }

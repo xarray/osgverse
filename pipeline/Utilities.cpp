@@ -94,8 +94,7 @@ static void setupOffscreenCamera(osg::Camera* camera, osg::Image* image)
 {
     camera->setViewport(0, 0, image->s(), image->t());
     osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
-    traits->x = 0;
-    traits->y = 0;
+    traits->x = 0; traits->y = 0;
     traits->width = image->s();
     traits->height = image->t();
     traits->doubleBuffer = false;

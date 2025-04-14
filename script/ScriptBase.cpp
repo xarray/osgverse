@@ -1,6 +1,7 @@
 #include <osg/ProxyNode>
 #include <osgDB/Serializer>
 #include "3rdparty/nanoid/nanoid.h"
+#include "pipeline/Utilities.h"
 #include "ScriptBase.h"
 using namespace osgVerse;
 
@@ -184,52 +185,18 @@ ScriptBase::Result ScriptBase::remove(const std::string& nodePath)
 osg::Object* ScriptBase::getFromPath(const std::string& nodePath)
 {
     osg::Object* obj = _rootNode.get();
-    if (nodePath.empty() || nodePath == "root")
-        return obj;
-    else if (_objects.find(nodePath) != _objects.end())
+    if (nodePath.empty() || nodePath == "root") return obj;
+
+    if (_objects.find(nodePath) != _objects.end())
         return _objects[nodePath].get();
+    return getFromPathID(nodePath, obj, '/');
+}
 
-    osgDB::StringList path;
-    osgDB::split(nodePath, path, '/');
-    if (_objects.find(path[0]) != _objects.end())
-        obj = _objects[path[0]].get();
-
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
-    osg::Node* node = obj ? obj->asNode() : NULL;
-#else
-    osg::Node* node = dynamic_cast<osg::Node*>(obj);
-#endif
-    if (node != NULL)
-    {
-        for (size_t i = 1; i < path.size(); ++i)
-        {
-            const std::string& name = path[i];
-            osg::Group* parent = node ? node->asGroup() : NULL;
-            if (parent == NULL) return NULL; node = NULL;
-
-            if (name == "0")
-            {
-                if (parent->getNumChildren() > 0)
-                    node = parent->getChild(0);
-            }
-            else
-            {
-                int index = atoi(name.c_str());
-                if (index > 0 && index < (int)parent->getNumChildren())
-                    node = parent->getChild(index);
-                else
-                {
-                    for (size_t j = 0; j < parent->getNumChildren(); ++j)
-                    {
-                        if (parent->getChild(j)->getName() == name)
-                        { node = parent->getChild(j); break; }
-                    }
-                }
-            }
-        }
-        obj = node;
-    }
-    return obj;
+std::string ScriptBase::getFromObject(osg::Object* obj)
+{
+    osg::Object* root = _rootNode.get();
+    if (!obj) return ""; else if (root == obj) return "root";
+    return getNodePathID(*obj, _rootNode.get(), '/');
 }
 
 template<typename T> static T getVecValue(const std::string& v)
@@ -482,9 +449,17 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
 #if OSGVERSE_COMPLETED_SCRIPT
         switch (prop.type)
         {
-        //case osgDB::BaseSerializer::RW_OBJECT:  // FIXME: apply string?
-        //case osgDB::BaseSerializer::RW_IMAGE:
-        //case osgDB::BaseSerializer::RW_BOOL:
+        case osgDB::BaseSerializer::RW_OBJECT:
+        case osgDB::BaseSerializer::RW_IMAGE:
+            {
+                osg::Object* v = NULL; if (!entry->getProperty(object, key, v)) return false;
+                value = getFromObject(v); return true;
+            }
+        case osgDB::BaseSerializer::RW_BOOL:
+            {
+                bool v = false; if (!entry->getProperty(object, key, v)) return false;
+                value = v ? "true" : "false"; return true;
+            }
         case osgDB::BaseSerializer::RW_CHAR: GET_PROP_VALUE(char, std::to_string);
         case osgDB::BaseSerializer::RW_UCHAR: GET_PROP_VALUE(unsigned char, std::to_string);
         case osgDB::BaseSerializer::RW_SHORT: GET_PROP_VALUE(short, std::to_string);
@@ -555,8 +530,10 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
             {
                 std::vector<osg::Object*> objList;
                 if (!entry->getProperty(object, key, objList)) return false;
-                //for (size_t o = 0; o < objList.size(); ++o)
-                return false;  // FIXME: apply string?
+                if (!objList.empty()) value = getFromObject(objList[0]);
+                for (size_t o = 1; o < objList.size(); ++o)
+                    value += sep + getFromObject(objList[o]);
+                return true;
             }
             break;
         default:
