@@ -1,6 +1,7 @@
 #ifndef MANA_AI_MCPSERVER_HPP
 #define MANA_AI_MCPSERVER_HPP
 
+#include <osg/ref_ptr>
 #include <osg/Referenced>
 #include <picojson.h>
 #include <vector>
@@ -46,7 +47,8 @@ namespace osgVerse
         void registerResource(const std::string& path, McpResource* resource);
 
     protected:
-
+        virtual ~McpServer();
+        osg::ref_ptr<osg::Referenced> _core;
     };
 
 }
