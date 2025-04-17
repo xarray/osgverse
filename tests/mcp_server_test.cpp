@@ -24,7 +24,8 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
-    osg::ref_ptr<osgVerse::McpServer> server = new osgVerse::McpServer("127.0.0.1", 1280);
+    osg::ref_ptr<osgVerse::McpServer> server = new osgVerse::McpServer;
+    server->start("0.0.0.0", 1280);
 
     // Scene root
     osg::ref_ptr<osg::Group> root = new osg::Group;
@@ -36,5 +37,8 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setSceneData(root.get());
-    return viewer.run();
+
+    int code = viewer.run();
+    server->stop();
+    return code;
 }
