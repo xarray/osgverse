@@ -189,9 +189,9 @@ protected:
         }
 
         if (!initialized)
-            result = simpleJson("id", req.id, "error", "Session not initialized");
+            result = simpleJson("code", InvalidRequest, "message", "Session not initialized");
         else if (handler == NULL)
-            result = simpleJson("id", req.id, "error", "Method " + req.method + " not found");
+            result = simpleJson("code", MethodNotFound, "message", "Method " + req.method + " not found");
         else
             result = handler(req.params, sessionID);
         return result;
@@ -294,11 +294,12 @@ public:
     std::map<std::string, std::queue<std::string>> sseMessages;
     std::map<std::string, bool> sseInitialized;
 
+    typedef std::pair<osg::ref_ptr<McpTool>, McpServer::MethodHandler> ToolData;
     std::map<std::string, McpServer::MethodHandler> methods;
     std::map<std::string, McpServer::NotificationHandler> notifications;
     std::map<std::string, McpServer::SessionCleanupHandler> sessionCleanups;
     std::map<std::string, osg::ref_ptr<McpResource>> resources;
-    std::map<std::string, std::pair<osg::ref_ptr<McpTool>, McpServer::MethodHandler>> tools;
+    std::map<std::string, ToolData> tools;
     McpServer::AuthenticationHandler authentication;
 
     ThreadPool* threadPool;
@@ -361,26 +362,32 @@ void McpServer::registerTool(const std::string& name, McpTool* tool, MethodHandl
     if (server->methods.find("tools/list") == server->methods.end())
         server->methods["tools/list"] = [&](const picojson::value& params, const std::string& id) -> picojson::value
         {
-            // TODO: list tools
-            return picojson::value();
+            picojson::array toolsData;
+            for (std::map<std::string, JsonRpcServer::ToolData>::iterator it = server->tools.begin();
+                 it != server->tools.end(); ++it) toolsData.push_back(it->second.first->json());
+
+            picojson::object toolsRoot; toolsRoot["tools"] = picojson::value(toolsData);
+            return picojson::value(toolsRoot);
         };
     if (server->methods.find("tools/call") == server->methods.end())
         server->methods["tools/call"] = [&](const picojson::value& params, const std::string& id) -> picojson::value
         {
-            if (!params.contains("name")) return simpleJson("id", -1, "error", "Missing 'name' parameter");
+            if (!params.contains("name")) return simpleJson("code", InvalidParams, "message", "Missing 'name' parameter");
             std::string name = params.get("name").get<std::string>(); auto it = server->tools.find(name);
-            if (it == server->tools.end()) return simpleJson("id", -1, "error", "Tool " + name + " not found");
+            if (it == server->tools.end()) return simpleJson("code", InvalidParams, "message", "Tool " + name + " not found");
 
-            picojson::object result;
+            picojson::object result; picojson::array content;
             try
             {
                 picojson::value args = params.contains("arguments") ? params.get("arguments") : picojson::value();
-                result["content"] = it->second.second(args, id); result["isError"] = picojson::value(false);
+                content.push_back(it->second.second(args, id));  // { 'type': 'text', 'text': '...' }
+                result["content"] = picojson::value(content);
             }
             catch (const std::exception& e)
             {
-                result["content"] = picojson::value(e.what());
-                result["isError"] = picojson::value(true);
+                picojson::object errorData; errorData["type"] = picojson::value("text");
+                errorData["text"] = picojson::value(e.what()); content.push_back(picojson::value(errorData));
+                result["content"] = picojson::value(content); result["isError"] = picojson::value(true);
             }
             return picojson::value(result);
         };
@@ -402,9 +409,10 @@ void McpServer::registerResource(const std::string& path, McpResource* resource)
     if (server->methods.find("resources/read") == server->methods.end())
         server->methods["resources/read"] = [&](const picojson::value& params, const std::string& id) -> picojson::value
         {
-            if (!params.contains("uri")) return simpleJson("id", -1, "error", "Missing 'uri' parameter");
+            if (!params.contains("uri")) return simpleJson("code", InvalidParams, "message", "Missing 'uri' parameter");
             std::string name = params.get("uri").get<std::string>(); auto it = server->resources.find(name);
-            if (it == server->resources.end()) return simpleJson("id", -1, "error", "Resource " + name + " not found");
+            if (it == server->resources.end())
+                return simpleJson("code", InvalidParams, "message", "Resource " + name + " not found");
 
             // TODO: read from resource
             return picojson::value();

@@ -15,6 +15,15 @@
 namespace osgVerse
 {
 
+    enum ErrorCode
+    {   // Standard JSON-RPC error codes
+        ParseError = -32700,
+        InvalidRequest = -32600,
+        MethodNotFound = -32601,
+        InvalidParams = -32602,
+        InternalError = -32603
+    };
+
     class ThreadPool
     {
     public:
@@ -60,8 +69,60 @@ namespace osgVerse
 
     struct McpTool : public osg::Referenced
     {
-        std::string name, description;
-        picojson::value parameters;
+        enum PropertyType
+        { StringType, NumberType, BoolType, StringArrayType, NumberArrayType, BoolArrayType };
+        typedef std::pair<PropertyType, bool> PropertyData;
+
+        std::string name, title, description;
+        std::map<std::string, PropertyData> properties;
+        bool readOnly, destructive, idempotent, openWorld;
+
+        McpTool() : readOnly(false), destructive(false), idempotent(false), openWorld(false) {}
+        void addProperty(const std::string& name, PropertyType type, bool required)
+        { properties[name] = PropertyData(type, required); }
+
+        picojson::value json() const
+        {
+            picojson::object prop; picojson::array required;
+            for (std::map<std::string, PropertyData>::const_iterator it = properties.begin();
+                 it != properties.end(); it++)
+            {
+                picojson::object arg, item;
+                switch (it->second.first)
+                {
+                case BoolArrayType:
+                    item["type"] = picojson::value("boolean"); arg["type"] = picojson::value("array");
+                    arg["items"] = picojson::value(item); break;
+                case NumberArrayType:
+                    item["type"] = picojson::value("number"); arg["type"] = picojson::value("array");
+                    arg["items"] = picojson::value(item); break;
+                case StringArrayType:
+                    item["type"] = picojson::value("string"); arg["type"] = picojson::value("array");
+                    arg["items"] = picojson::value(item); break;
+                case BoolType: arg["type"] = picojson::value("boolean"); break;
+                case NumberType: arg["type"] = picojson::value("number"); break;
+                default: arg["type"] = picojson::value("string"); break;
+                }
+                prop[it->first] = picojson::value(arg);
+                if (it->second.second) required.push_back(picojson::value(it->first));
+            }
+
+            picojson::object inputSchema, extra;
+            inputSchema["type"] = picojson::value("object");
+            inputSchema["properties"] = picojson::value(prop);
+            inputSchema["required"] = picojson::value(required);
+
+            if (!title.empty()) extra["title"] = picojson::value(title);
+            extra["readOnlyHint"] = picojson::value(readOnly);
+            extra["destructiveHint"] = picojson::value(destructive);
+            extra["idempotentHint"] = picojson::value(idempotent);
+            extra["openWorldHint"] = picojson::value(openWorld);
+
+            picojson::object toolData; toolData["name"] = picojson::value(name);
+            toolData["description"] = picojson::value(description);
+            toolData["inputSchema"] = picojson::value(inputSchema);
+            toolData["annotations"] = picojson::value(extra); return picojson::value(toolData);
+        }
     };
 
     class McpResource : public osg::Referenced
