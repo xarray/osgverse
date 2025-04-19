@@ -79,9 +79,9 @@ namespace osgVerse
 
     struct McpTool : public osg::Referenced
     {
-        enum PropertyType { StringType, NumberType, BoolType,
-                            StringArrayType, NumberArrayType, BoolArrayType };
-        typedef std::pair<PropertyType, bool> PropertyData;
+        enum PropertyType { StringType = 0x0001, NumberType = 0x0002, BoolType = 0x0004,
+                            ArrayType = 0x0100, RequiredType = 0x1000 };
+        typedef std::pair<std::string, int> PropertyData;
 
         std::string name, title, description;
         std::map<std::string, PropertyData> properties;
@@ -89,8 +89,8 @@ namespace osgVerse
 
         McpTool(const std::string& n, const std::string& d = "")
             : name(n), description(d), readOnly(false), destructive(false), idempotent(false), openWorld(false) {}
-        void addProperty(const std::string& name, PropertyType type, bool required)
-        { properties[name] = PropertyData(type, required); }
+        void addProperty(const std::string& name, const std::string& description, int propertyType)
+        { properties[name] = PropertyData(description, propertyType); }
 
         picojson::value json() const
         {
@@ -98,41 +98,51 @@ namespace osgVerse
             for (std::map<std::string, PropertyData>::const_iterator it = properties.begin();
                  it != properties.end(); it++)
             {
-                picojson::object arg, item;
-                switch (it->second.first)
+                picojson::object arg, item; int value = it->second.second;
+                bool isArray = (value & ArrayType) > 0, isRequired = (value & RequiredType) > 0;
+                switch (value & 0x00ff)
                 {
-                case BoolArrayType:
-                    item["type"] = picojson::value("boolean"); arg["type"] = picojson::value("array");
-                    arg["items"] = picojson::value(item); break;
-                case NumberArrayType:
-                    item["type"] = picojson::value("number"); arg["type"] = picojson::value("array");
-                    arg["items"] = picojson::value(item); break;
-                case StringArrayType:
-                    item["type"] = picojson::value("string"); arg["type"] = picojson::value("array");
-                    arg["items"] = picojson::value(item); break;
-                case BoolType: arg["type"] = picojson::value("boolean"); break;
-                case NumberType: arg["type"] = picojson::value("number"); break;
-                default: arg["type"] = picojson::value("string"); break;
+                case BoolType:
+                    arg["type"] = picojson::value("boolean"); arg["description"] = picojson::value(it->second.first);
+                    if (isArray)
+                    {
+                        item["type"] = picojson::value("boolean"); arg["items"] = picojson::value(item);
+                        arg["type"] = picojson::value("array");
+                    } break;
+                case NumberType:
+                    arg["type"] = picojson::value("number"); arg["description"] = picojson::value(it->second.first);
+                    if (isArray)
+                    {
+                        item["type"] = picojson::value("number"); arg["items"] = picojson::value(item);
+                        arg["type"] = picojson::value("array");
+                    } break;
+                default:
+                    arg["type"] = picojson::value("string"); arg["description"] = picojson::value(it->second.first);
+                    if (isArray)
+                    {
+                        item["type"] = picojson::value("string"); arg["items"] = picojson::value(item);
+                        arg["type"] = picojson::value("array");
+                    } break;
                 }
                 prop[it->first] = picojson::value(arg);
-                if (it->second.second) required.push_back(picojson::value(it->first));
+                if (isRequired) required.push_back(picojson::value(it->first));
             }
 
-            picojson::object inputSchema, extra;
+            picojson::object inputSchema, extra; bool hasExtra = false;
             inputSchema["type"] = picojson::value("object");
             inputSchema["properties"] = picojson::value(prop);
             inputSchema["required"] = picojson::value(required);
 
-            if (!title.empty()) extra["title"] = picojson::value(title);
-            extra["readOnlyHint"] = picojson::value(readOnly);
-            extra["destructiveHint"] = picojson::value(destructive);
-            extra["idempotentHint"] = picojson::value(idempotent);
-            extra["openWorldHint"] = picojson::value(openWorld);
+            if (!title.empty()) { extra["title"] = picojson::value(title); hasExtra = true; }
+            if (readOnly) { extra["readOnlyHint"] = picojson::value(readOnly); hasExtra = true; }
+            if (destructive) { extra["destructiveHint"] = picojson::value(destructive); hasExtra = true; }
+            if (idempotent) { extra["idempotentHint"] = picojson::value(idempotent); hasExtra = true; }
+            if (openWorld) { extra["openWorldHint"] = picojson::value(openWorld); hasExtra = true; }
 
             picojson::object toolData; toolData["name"] = picojson::value(name);
             toolData["description"] = picojson::value(description);
             if (!properties.empty()) toolData["inputSchema"] = picojson::value(inputSchema);
-            /*toolData["annotations"] = picojson::value(extra); */ return picojson::value(toolData);
+            if (hasExtra) toolData["annotations"] = picojson::value(extra); return picojson::value(toolData);
         }
     };
 
