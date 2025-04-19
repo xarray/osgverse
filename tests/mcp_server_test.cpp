@@ -24,7 +24,25 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
+    osg::ref_ptr<osgVerse::McpTool> tool0 = new osgVerse::McpTool("build_wall", "Build a wall in 3D world");
+    tool0->addProperty("center", osgVerse::McpTool::NumberArrayType, true);
+    tool0->addProperty("extent", osgVerse::McpTool::NumberArrayType, true);
+
+    osg::ref_ptr<osgVerse::McpTool> tool1 = new osgVerse::McpTool("build_roof", "Build a roof in 3D world");
+    tool1->addProperty("center", osgVerse::McpTool::NumberArrayType, true);
+    tool1->addProperty("extent", osgVerse::McpTool::NumberArrayType, true);
+
     osg::ref_ptr<osgVerse::McpServer> server = new osgVerse::McpServer;
+    server->registerTool(tool0.get(), [](const picojson::value& params, const std::string& id)
+    {
+        OSG_NOTICE << "build_wall: " << params.serialize(false) << std::endl;
+        return osgVerse::McpServer::methodResult("OK");
+    });
+    server->registerTool(tool1.get(), [](const picojson::value& params, const std::string& id)
+    {
+        OSG_NOTICE << "build_roof: " << params.serialize(false) << std::endl;
+        return osgVerse::McpServer::methodResult("OK");
+    });
     server->start("0.0.0.0", 1280);
 
     // Scene root

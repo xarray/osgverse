@@ -15,6 +15,10 @@
 namespace osgVerse
 {
 
+#define MCP_VERSION "2024-11-05"
+#define MCP_SERVER_NAME "osgverse_mcp"
+#define MCP_SERVER_VERSION "1.0.0"
+
     enum ErrorCode
     {   // Standard JSON-RPC error codes
         ParseError = -32700,
@@ -67,17 +71,24 @@ namespace osgVerse
         std::mutex _mutex; bool _stopped;
     };
 
+    struct McpClientInfo : public osg::Referenced
+    {
+        std::string name, version;
+        std::string protocolVersion;
+    };
+
     struct McpTool : public osg::Referenced
     {
-        enum PropertyType
-        { StringType, NumberType, BoolType, StringArrayType, NumberArrayType, BoolArrayType };
+        enum PropertyType { StringType, NumberType, BoolType,
+                            StringArrayType, NumberArrayType, BoolArrayType };
         typedef std::pair<PropertyType, bool> PropertyData;
 
         std::string name, title, description;
         std::map<std::string, PropertyData> properties;
         bool readOnly, destructive, idempotent, openWorld;
 
-        McpTool() : readOnly(false), destructive(false), idempotent(false), openWorld(false) {}
+        McpTool(const std::string& n, const std::string& d = "")
+            : name(n), description(d), readOnly(false), destructive(false), idempotent(false), openWorld(false) {}
         void addProperty(const std::string& name, PropertyType type, bool required)
         { properties[name] = PropertyData(type, required); }
 
@@ -120,8 +131,8 @@ namespace osgVerse
 
             picojson::object toolData; toolData["name"] = picojson::value(name);
             toolData["description"] = picojson::value(description);
-            toolData["inputSchema"] = picojson::value(inputSchema);
-            toolData["annotations"] = picojson::value(extra); return picojson::value(toolData);
+            if (!properties.empty()) toolData["inputSchema"] = picojson::value(inputSchema);
+            /*toolData["annotations"] = picojson::value(extra); */ return picojson::value(toolData);
         }
     };
 
@@ -143,17 +154,24 @@ namespace osgVerse
         typedef std::function<bool(const std::string&, const std::string&)> AuthenticationHandler;
         typedef std::function<void(const std::string&, const std::string&)> SessionCleanupHandler;
 
+        static picojson::value methodResult(const std::string& data)
+        {
+            picojson::object result; result["type"] = picojson::value("text");
+            result["text"] = picojson::value(data); return picojson::value(result);
+        }
+
         McpServer(const std::string& sse_endpoint = "/sse",
                   const std::string& msg_endpoint = "/jsonrpc");
 
         void start(const std::string& host, int port);
         void stop();
+        std::map<std::string, McpClientInfo> getClients() const;
 
         void setAuthenticationHandler(AuthenticationHandler handler);
         void registerSessionCleanup(const std::string& key, SessionCleanupHandler handler);
 
         void registerMethod(const std::string& method, MethodHandler handler);
-        void registerTool(const std::string& name, McpTool* tool, MethodHandler handler);
+        void registerTool(McpTool* tool, MethodHandler handler);
         void registerNotification(const std::string& notify, NotificationHandler handler);
         void registerResource(const std::string& path, McpResource* resource);
 
