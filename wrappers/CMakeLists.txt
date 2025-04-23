@@ -1,9 +1,12 @@
 SET(LIB_NAME osgVerseWrappers)
+FILE(GLOB GENERIC_OSG_FILES generic_osg/*.cpp)
+
 SET(LIBRARY_INCLUDE_FILES
-    Export.h
+    Export.h GenericReserializer.h GenericInputStream.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    DracoWrapper.cpp
+    DracoWrapper.cpp GenericReserializer.cpp GenericInputStream.cpp
+    ${GENERIC_OSG_FILES}
 )
 
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
@@ -11,6 +14,7 @@ IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
         WrapperMethods.cpp Geometry_FixedWrapper.cpp)
 ENDIF()
 
+INCLUDE_DIRECTORIES(.)
 ADD_DEFINITIONS(-DVERSE_WRAPPERS_LIBRARY)
 IF(DRACO_FOUND)
     ADD_DEFINITIONS(-DVERSE_USE_DRACO)
