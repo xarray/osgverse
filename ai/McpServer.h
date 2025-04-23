@@ -141,7 +141,7 @@ namespace osgVerse
 
             picojson::object toolData; toolData["name"] = picojson::value(name);
             toolData["description"] = picojson::value(description);
-            if (!properties.empty()) toolData["inputSchema"] = picojson::value(inputSchema);
+            toolData["inputSchema"] = picojson::value(inputSchema);
             if (hasExtra) toolData["annotations"] = picojson::value(extra); return picojson::value(toolData);
         }
     };

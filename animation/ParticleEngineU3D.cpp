@@ -176,8 +176,8 @@ ParticleSystemU3D::ParticleSystemU3D(UpdateMethod upMode)
 }
 
 ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop)
-:   osg::NodeCallback(copy, copyop), _emissionBursts(copy._emissionBursts),
-    _colorPerTime(copy._colorPerTime), _colorPerSpeed(copy._colorPerSpeed),
+:   osg::NodeCallback(copy, copyop), _velocityCallback(copy._velocityCallback),
+    _emissionBursts(copy._emissionBursts), _colorPerTime(copy._colorPerTime), _colorPerSpeed(copy._colorPerSpeed),
     _eulersPerTime(copy._eulersPerTime), _eulersPerSpeed(copy._eulersPerSpeed),
     _velocityOffsets(copy._velocityOffsets), _forceOffsets(copy._forceOffsets),
     _scalePerTime(copy._scalePerTime), _scalePerSpeed(copy._scalePerSpeed),
@@ -280,6 +280,7 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
         sizeInt = (int)size; if (!_started) numToAdd = 0;
 
     // Remove and create particles
+    bool withVelCB = (_velocityCallback != NULL);
     float maxTexSheet = _textureSheetTiles.x() * _textureSheetTiles.y();
     osg::Vec3 force = (osg::Vec3(0.0f, 0.0f, -9.8f) * _worldToLocal) * _gravityScale;
 //#pragma omp parallel for
@@ -292,8 +293,9 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
         if (velLife.a() > 0.0f)  // update existing particles
         {
             float tRatio = 1.0f - velLife.a() / _duration;
-            osg::Vec3 vel = osg::Vec3(velLife[0], velLife[1], velLife[2])
-                          + changeForce(force, dt, tRatio);
+            osg::Vec3 vel = withVelCB ? _velocityCallback(velLife, posSize, _worldToLocal)
+                          : osg::Vec3(velLife[0], velLife[1], velLife[2]);
+            vel += changeForce(force, dt, tRatio);
             for (int k = 0; k < 3; ++k) posSize[k] += vel[k];
 
             float speed = vel.length();
