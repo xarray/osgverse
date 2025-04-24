@@ -1,7 +1,7 @@
 #include <GenericReserializer.h>
 using namespace osgVerse;
 
-static bool readTimeControlPointMap( InputStream& is, InputUserData& ud )
+static bool readTimeControlPointMap(InputStream& is, InputUserData& ud)
 {
     unsigned int size = is.readSize();
     if ( size>0 )
