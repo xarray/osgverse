@@ -42,7 +42,7 @@ struct DefaultGpuBaker : public osgVerse::GeometryMerger::GpuBaker
         geom->setUseVertexBufferObjects(true);
 
         osg::ref_ptr<osg::HeightField> hf = osgVerse::createHeightField(node, 128, 128);
-        osg::BuildShapeGeometryVisitor bsgv(geom.get(), NULL); hf->accept(bsgv);
+        osgVerse::ShapeGeometryVisitor bsgv(geom.get(), NULL); hf->accept(bsgv);
         return geom.release();
     }
 };

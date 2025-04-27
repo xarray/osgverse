@@ -4,6 +4,7 @@
 #include <osg/ProxyNode>
 #include <osg/PagedLOD>
 #include <osg/Transform>
+#include <osg/Shape>
 #include <osg/Geometry>
 #include <osg/Camera>
 
@@ -132,7 +133,6 @@ namespace osgVerse
         osg::ref_ptr<osg::StateSet> _stateset;
     };
 
-
     /** Temporarily keep the textures on cpu side from being unref-ed */
     class HostTextureReserver : public MeshCollector
     {
@@ -143,6 +143,50 @@ namespace osgVerse
 
     protected:
         std::map<osg::Texture*, std::pair<bool, bool>> _reservedMap;
+    };
+
+    class ShapeGeometryVisitor : public osg::ConstShapeVisitor
+    {
+    public:
+        ShapeGeometryVisitor(osg::Geometry* geometry, const osg::TessellationHints* hints);
+        virtual void apply(const osg::Sphere&);
+        virtual void apply(const osg::Box&);
+        virtual void apply(const osg::Cone&);
+        virtual void apply(const osg::Cylinder&);
+        virtual void apply(const osg::Capsule&);
+        virtual void apply(const osg::InfinitePlane&);
+        virtual void apply(const osg::TriangleMesh&);
+        virtual void apply(const osg::ConvexHull&);
+        virtual void apply(const osg::HeightField&);
+        virtual void apply(const osg::CompositeShape&);
+
+        void Normal(const osg::Vec3f& v) { _normals->push_back(v); }
+        void Normal3f(float x, float y, float z) { Normal(osg::Vec3(x, y, z)); }
+        void TexCoord(const osg::Vec2f& tc) { _texcoords->push_back(tc); }
+        void TexCoord2f(float x, float y) { TexCoord(osg::Vec2(x, y)); }
+        void Vertex(const osg::Vec3f& v);
+        void Vertex3f(float x, float y, float z) { Vertex(osg::Vec3(x, y, z)); }
+        void setMatrix(const osg::Matrixd& m);
+        void Begin(GLenum mode);
+        void End();
+
+    protected:
+        ShapeGeometryVisitor& operator = (const ShapeGeometryVisitor&) { return *this; }
+        enum SphereHalf { SphereTopHalf, SphereBottomHalf };
+
+        // helpers for apply( Cylinder | Sphere | Capsule )
+        void drawCylinderBody(unsigned int numSegments, float radius, float height);
+        void drawHalfSphere(unsigned int numSegments, unsigned int numRows, float radius, SphereHalf which, float zOffset = 0.0f);
+
+        osg::Geometry* _geometry;
+        const osg::TessellationHints* _hints;
+        osg::ref_ptr<osg::Vec3Array>  _vertices;
+        osg::ref_ptr<osg::Vec3Array>  _normals;
+        osg::ref_ptr<osg::Vec2Array>  _texcoords;
+        GLenum          _mode;
+        unsigned int    _start_index;
+        osg::Matrixd    _matrix;
+        osg::Matrixd    _inverse;
     };
 
     /** The 2D texture atlaser */

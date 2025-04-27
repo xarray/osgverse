@@ -2,18 +2,22 @@ SET(LIB_NAME osgVersePipeline)
 SET(LIBRARY_INCLUDE_FILES
     Pipeline.h DeferredCallback.h UserInputModule.h ShadowModule.h
 	LightModule.h LightDrawable.h SkyBox.h NodeSelector.h
-    SymbolManager.h Drawer2D.h IntersectionManager.h
+    SymbolManager.h Drawer2D.h IntersectionManager.h Rasterizer.h
     ShaderLibrary.h Utilities.h Global.h Allocator.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp PipelineLoader.cpp DeferredCallback.cpp
     UserInputModule.cpp ShadowModule.cpp LightModule.cpp LightDrawable.cpp
     SkyBox.cpp NodeSelector.cpp SymbolManager.cpp Drawer2D.cpp
-    IntersectionManager.cpp ShaderLibrary.cpp Utilities.cpp
+    IntersectionManager.cpp Rasterizer.cpp ShaderLibrary.cpp Utilities.cpp
 )
 
 IF(MSVC AND NOT VERSE_USE_EXTERNAL_GLES)
     SET(LIBRARY_FILES ${LIBRARY_FILES} TsfFramework.cpp TsfFramework.h)
+ENDIF()
+
+IF("avx2" IN_LIST VERSE_SIMD_FEATURES)
+    ADD_DEFINITIONS(-DVERSE_ENABLE_RASTERIZER)
 ENDIF()
 
 IF(VERSE_USE_MTT_DRIVER)
