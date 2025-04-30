@@ -2,6 +2,7 @@
 #define MANA_WRAPPERS_GENERICINPUTSTREAM_HPP
 
 #include <osgDB/InputStream>
+#include <memory>
 #include <string>
 
 namespace osgVerse

@@ -3,8 +3,8 @@
 
 #include <osg/Texture2D>
 #include <osg/Geometry>
+#include <memory>
 #include <set>
-struct Occluder;
 
 namespace osgVerse
 {
@@ -13,7 +13,7 @@ namespace osgVerse
     public:
         UserOccluder(const std::string& name, const std::vector<osg::Vec3> vertices,
                      const osg::BoundingBoxf& refBound);
-        Occluder* getOccluder() { return _privateData.get(); }
+        void* getOccluder() { return _privateData; }
 
         osg::BoundingBoxf getBound() const;
         osg::Vec3 getCenter() const;
@@ -21,7 +21,7 @@ namespace osgVerse
 
     protected:
         virtual ~UserOccluder();
-        std::unique_ptr<Occluder> _privateData;
+        void* _privateData;
         std::string _name;
     };
 

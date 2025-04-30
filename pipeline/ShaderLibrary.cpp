@@ -279,7 +279,7 @@ void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWrit
             pos = code.find_first_not_of(" \t", pos + 7);
             if (pos == std::string::npos) break;
 
-            // check for include part of #pragma imclude usage
+            // check for include part of #pragma include usage
             if (code.compare(pos, 7, "include") != 0) { pos = end_of_line; continue; }
 
             // found include entry so skip to next non white space

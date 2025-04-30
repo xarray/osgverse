@@ -20,6 +20,11 @@ namespace osgVerse
     static osg::Vec3 convertToVec3(__m128 vec)
     { osg::Vec4 v = convertToVec4(vec); return osg::Vec3(v[0], v[1], v[2]); }
 
+    struct UserOccluderData
+    {
+        std::unique_ptr<Occluder> data;
+    }
+
     UserOccluder::UserOccluder(const std::string& name, const std::vector<osg::Vec3> vertices,
                                const osg::BoundingBoxf& refBound) : _name(name)
     {
@@ -28,9 +33,14 @@ namespace osgVerse
             vList.push_back(convertFromVec3(vertices[i]));
         __m128 refMin = convertFromVec3(refBound._min);
         __m128 refMax = convertFromVec3(refBound._max);
-        _privateData = Occluder::bake(vList, refMin, refMax);
+
+        UserOccluderData* od = new UserOccluderData;
+        od->data = Occluder::bake(vList, refMin, refMax);
+        _privateData = od;
     }
-    UserOccluder::~UserOccluder() {}
+
+    UserOccluder::~UserOccluder()
+    { UserOccluderData* od = (UserOccluderData*)_privateData; delete od; }
 
     osg::BoundingBoxf UserOccluder::getBound() const
     {
@@ -45,7 +55,7 @@ namespace osgVerse
     // TODO
 #else
     UserOccluder::UserOccluder(const std::string& name, const std::vector<osg::Vec3> vertices,
-                               const osg::BoundingBoxf& refBound) : _name(name) {}
+                               const osg::BoundingBoxf& refBound) : _privateData(NULL), _name(name) {}
     UserOccluder::~UserOccluder() {}
     osg::BoundingBoxf UserOccluder::getBound() const { osg::BoundingBoxf bb; return bb; }
     osg::Vec3 UserOccluder::getCenter() const { osg::Vec3 vv; return vv; }

@@ -8,6 +8,8 @@
 #include <functional>
 #include <typeindex>
 #include <typeinfo>
+#include <memory>
+#include <climits>
 #include "GenericInputStream.h"
 
 namespace osgVerse
