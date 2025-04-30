@@ -45,6 +45,14 @@ namespace osgVerse
         typedef std::function<osg::Vec3(const osg::Vec4&, const osg::Vec4&, const osg::Matrix&)> VelocityCallback;
         void setVelocityCallback(VelocityCallback cb) { _velocityCallback = cb; }
 
+        // Function: CB(velocity_and_life, pos_and_size, world_to_local)
+        typedef std::function<void(osg::Vec4&, osg::Vec4&, const osg::Matrix&)> DeathCallback;
+        void setDeathCallback(DeathCallback cb) { _deathCallback = cb; }
+
+        // Function: CB(velocity_and_life, pos_and_size, color, world_to_local)
+        typedef std::function<void(osg::Vec4&, osg::Vec4&, osg::Vec4&, const osg::Matrix&)> BirthCallback;
+        void setBirthCallback(BirthCallback cb) { _birthCallback = cb; }
+
         enum EmissionShape { EMIT_Point, EMIT_Circle, EMIT_Plane, EMIT_Sphere, EMIT_Box, EMIT_Mesh };
         enum EmissionSurface { EMIT_Volume, EMIT_Shell };
         enum ParticleType { PARTICLE_Billboard, PARTICLE_BillboardNoScale, PARTICLE_Line, PARTICLE_Mesh };
@@ -149,6 +157,8 @@ namespace osgVerse
         osg::Vec3 changeForce(const osg::Vec3& initForce, float delta, float time);
 
         VelocityCallback _velocityCallback;
+        DeathCallback _deathCallback;
+        BirthCallback _birthCallback;
 
         std::map<float, osg::Vec4> _emissionBursts;  // [time]: count, cycles, interval, probability (0-1)
         std::map<float, osg::Vec4> _colorPerTime, _colorPerSpeed;  // [time/speed]: color

@@ -23,7 +23,7 @@ namespace osgVerse
     struct UserOccluderData
     {
         std::unique_ptr<Occluder> data;
-    }
+    };
 
     UserOccluder::UserOccluder(const std::string& name, const std::vector<osg::Vec3> vertices,
                                const osg::BoundingBoxf& refBound) : _name(name)
@@ -44,13 +44,16 @@ namespace osgVerse
 
     osg::BoundingBoxf UserOccluder::getBound() const
     {
-        osg::BoundingBoxf bb(convertToVec3(_privateData->m_boundsMin),
-                             convertToVec3(_privateData->m_boundsMax));
-        return bb;
+        UserOccluderData* od = (UserOccluderData*)_privateData;
+        osg::BoundingBoxf bb(convertToVec3(od->data->m_boundsMin),
+                             convertToVec3(od->data->m_boundsMax)); return bb;
     }
 
     osg::Vec3 UserOccluder::getCenter() const
-    { return convertToVec3(_privateData->m_center); }
+    {
+        UserOccluderData* od = (UserOccluderData*)_privateData;
+        return convertToVec3(od->data->m_center);
+    }
 
     // TODO
 #else

@@ -177,6 +177,7 @@ ParticleSystemU3D::ParticleSystemU3D(UpdateMethod upMode)
 
 ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop)
 :   osg::NodeCallback(copy, copyop), _velocityCallback(copy._velocityCallback),
+    _deathCallback(copy._deathCallback), _birthCallback(copy._birthCallback),
     _emissionBursts(copy._emissionBursts), _colorPerTime(copy._colorPerTime), _colorPerSpeed(copy._colorPerSpeed),
     _eulersPerTime(copy._eulersPerTime), _eulersPerSpeed(copy._eulersPerSpeed),
     _velocityOffsets(copy._velocityOffsets), _forceOffsets(copy._forceOffsets),
@@ -280,7 +281,8 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
         sizeInt = (int)size; if (!_started) numToAdd = 0;
 
     // Remove and create particles
-    bool withVelCB = (_velocityCallback != NULL);
+    bool withVelCB = (_velocityCallback != NULL), withDeathCB = (_deathCallback != NULL);
+    bool withBirthCB = (_birthCallback != NULL);
     float maxTexSheet = _textureSheetTiles.x() * _textureSheetTiles.y();
     osg::Vec3 force = (osg::Vec3(0.0f, 0.0f, -9.8f) * _worldToLocal) * _gravityScale;
 //#pragma omp parallel for
@@ -304,7 +306,11 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
             eulerAnim.a() += _textureSheetValues[0] * dt;
             if (eulerAnim.a() > maxTexSheet) eulerAnim.a() = 0.0f;
         }
-        else velLife.a() = 0.0f;
+        else
+        {
+            velLife.a() = 0.0f;
+            if (withDeathCB) _deathCallback(velLife, posSize, _worldToLocal);
+        }
 
         if (velLife.a() == 0.0f && numToAdd > 0)  // new particle
         {
@@ -312,6 +318,8 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
             velLife.a() = RAND_RANGE2(_startLifeRange);
             posSize.a() = RAND_RANGE2(_startSizeRange);
             color.set(1.0f, 1.0f, 1.0f, 1.0f); changeColor(color, 0.0f, 0.0f);
+
+            if (withBirthCB) _birthCallback(velLife, posSize, color, _worldToLocal);
             eulerAnim.a() = 0.0f; numToAdd--;
         }
         bounds.expandBy(osg::Vec3(posSize[0], posSize[1], posSize[2]));
@@ -331,7 +339,7 @@ void ParticleSystemU3D::recreate()
     _geometry->setUseVertexBufferObjects(true);
     switch (_particleType)
     {
-    case PARTICLE_Billboard:
+    case PARTICLE_Billboard: case PARTICLE_BillboardNoScale:
         if (_updateMethod == GPU_GEOMETRY)
         {
             osg::ref_ptr<osg::Vec4Array> va = new osg::Vec4Array(_maxParticles);
