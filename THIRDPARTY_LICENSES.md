@@ -63,6 +63,7 @@
 | recastnavigation | Embedded |           | AI                 | Zlib         | https://github.com/recastnavigation/recastnavigation |
 | rLottie          | Embedded | 0.2       | AI                 | MIT (+)      | https://github.com/Samsung/rlottie |
 | span             | Embedded |           | -                  | Boost        | https://github.com/tcbrindle/span |
+| spz              | Embedded |           | AI                 | MIT          | https://github.com/nianticlabs/spz |
 | sqlite3          | Embedded |           | -                  | Public       | https://www.sqlite.org/index.html |
 | stb              | Embedded |           | -                  | MIT / Public | https://github.com/nothings/stb |
 | strtk            | Embedded |           | -                  | MIT          | https://github.com/ArashPartow/strtk |

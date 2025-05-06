@@ -24,6 +24,8 @@ public:
 	bool query2D(uint32_t minX, uint32_t maxX, uint32_t minY, uint32_t maxY, uint32_t maxZ) const;
 
 	void readBackDepth(void* target) const;
+    std::vector<__m128i>& getDepthBuffer() { return m_depthBuffer; }
+    std::vector<uint16_t>& getHiZ() { return m_hiZ; }
 
 private:
 	static float decompressFloat(uint16_t depth);

@@ -453,6 +453,11 @@ SET(RASTERIZER_SOURCE_FILES
     rasterizer/Occluder.cpp rasterizer/Occluder.h rasterizer/VectorMath.h
 )
 
+SET(SPZ_SOURCE_FILES
+    spz/load-spz.cc spz/load-spz.h spz/splat-c-types.cc spz/splat-c-types.h
+    spz/splat-types.cc spz/splat-types.h
+)
+
 SET(MESHOPTIMIZER_SOURCE_FILES
     meshoptimizer/meshoptimizer.h
     meshoptimizer/allocator.cpp meshoptimizer/clusterizer.cpp
@@ -496,6 +501,7 @@ SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
 SOURCE_GROUP("Rasterizer Files" FILES ${RASTERIZER_SOURCE_FILES})
 SOURCE_GROUP("RLottie Files" FILES ${RLOTTIE_SOURCE_FILES})
+SOURCE_GROUP("Niantic SPZ Files" FILES ${SPZ_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
@@ -511,7 +517,7 @@ SET(LIBRARY_FILES
     GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp timeout.c timeout.h
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp pybind11/pybind11.h
-    ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
+    ${LEVELDB_SOURCE_FILES} ${APPROXMVBB_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${SPZ_SOURCE_FILES}
     ${PMP_MCUT_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${METIS_SOURCE_FILES}
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${GAINPUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES}
