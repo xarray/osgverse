@@ -46,14 +46,14 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::UserRasterizer> rasterizer = new osgVerse::UserRasterizer(1280, 720);
     rasterizer->addOccluder(occ1.get()); rasterizer->addOccluder(occ2.get());
 
-    std::vector<float> depthData;
+    std::vector<float> depthData; std::vector<unsigned short> hizData;
     while (!viewer.done())
     {
         osg::Matrix mvp = viewer.getCamera()->getViewMatrix()
                         * viewer.getCamera()->getProjectionMatrix();
         osg::Vec3 cameraPos = osg::Vec3() * viewer.getCamera()->getInverseViewMatrix();
         rasterizer->setModelViewProjection(mvp);
-        rasterizer->render(cameraPos, depthData);
+        rasterizer->render(cameraPos, &depthData, &hizData);
 
         viewer.frame();
     }
@@ -65,8 +65,13 @@ int main(int argc, char** argv)
         for (int y = 0; y < image->t(); ++y)
             for (int x = 0; x < image->s(); ++x)
             {
-                unsigned char value = (unsigned char)(255.0f * depthData[y * image->s() + x]);
-                *(ptr + y * image->s() + x) = osg::Vec4ub(value, value, value, 255);
+                unsigned char mid = 0, value = 0, alpha = 255;
+                float depth = depthData[y * image->s() + x] * 100.0f;
+                if (depth > 1.0f) { mid = (unsigned char)(floor(depth) * 2.55f); depth *= 0.01f; }
+                else if (depth < 0.0f) { alpha = 0; depth = 0.0f; }
+
+                value = (unsigned char)(255.0f * depth);
+                *(ptr + y * image->s() + x) = osg::Vec4ub(value, mid, 0, alpha);
             }
     }
     osgDB::writeImageFile(*image, "test_occlusion.png");

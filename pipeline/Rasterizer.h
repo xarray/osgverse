@@ -15,7 +15,7 @@ namespace osgVerse
         BatchOccluder(UserOccluder* u, const std::vector<osg::Vec3> vertices,
                       const osg::BoundingBoxf& refBound);
         BatchOccluder(UserOccluder* u, void* verticesInternal, const osg::BoundingBoxf& refBound);
-        void* getOccluder() { return _privateData; }
+        void* getOccluder() const { return _privateData; }
         UserOccluder* getOwner() { return _owner; }
 
         osg::BoundingBoxf getBound() const;
@@ -51,7 +51,8 @@ namespace osgVerse
     public:
         UserRasterizer(unsigned int width, unsigned int height);
         void setModelViewProjection(const osg::Matrixf& matrix);
-        void render(const osg::Vec3& cameraPos, std::vector<float>& depthData);
+        void render(const osg::Vec3& cameraPos, std::vector<float>* depthData,
+                    std::vector<unsigned short>* hizData);
 
         void addOccluder(UserOccluder* o) { _occluders.insert(o); }
         void removeOccluder(UserOccluder* o);

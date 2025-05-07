@@ -148,7 +148,8 @@ namespace osgVerse
         rd->data->setModelViewProjection(m.ptr());
     }
 
-    void UserRasterizer::render(const osg::Vec3& cameraPos, std::vector<float>& depthData)
+    void UserRasterizer::render(const osg::Vec3& cameraPos, std::vector<float>* depthData,
+                                std::vector<unsigned short>* hizData)
     {
         std::vector<BatchOccluder*> globalOccluders;
         for (std::set<osg::ref_ptr<UserOccluder>>::iterator it = _occluders.begin();
@@ -165,8 +166,8 @@ namespace osgVerse
         __m128 camPos = convertFromVec3(cameraPos);
         std::sort(globalOccluders.begin(), globalOccluders.end(), [&](const BatchOccluder* o1, const BatchOccluder* o2)
             {
-                __m128 dist1 = _mm_sub_ps(convertFromVec3(o1->getCenter()), camPos);
-                __m128 dist2 = _mm_sub_ps(convertFromVec3(o2->getCenter()), camPos);
+                __m128 dist1 = _mm_sub_ps(((BatchOccluderData*)o1->getOccluder())->data->m_center, camPos);
+                __m128 dist2 = _mm_sub_ps(((BatchOccluderData*)o2->getOccluder())->data->m_center, camPos);
                 return _mm_comilt_ss(_mm_dp_ps(dist1, dist1, 0x7f), _mm_dp_ps(dist2, dist2, 0x7f));
             });
 
@@ -186,7 +187,7 @@ namespace osgVerse
              it != _occluders.end(); ++it)
         {
             std::set<osg::ref_ptr<BatchOccluder>>& batches = (*it)->getBatches();
-            size_t count = 0, maxCount = batches.size();
+            size_t count = 0, count2 = 0, maxCount = batches.size();
 
             for (std::set<osg::ref_ptr<BatchOccluder>>::iterator it2 = batches.begin();
                  it2 != batches.end(); ++it2)
@@ -194,41 +195,52 @@ namespace osgVerse
                 BatchOccluder* bo = (*it2).get(); bool needsClipping = false;
                 BatchOccluderData* od = (BatchOccluderData*)bo->getOccluder();
                 if (rd->data->queryVisibility(od->data->m_boundsMin, od->data->m_boundsMax, needsClipping))
-                    count++;
+                { count++; if (needsClipping) count2++; }
             }
-            std::cout << (*it)->getName() << "; " << count << " / " << maxCount << "\n";
+            std::cout << (*it)->getName() << "; " << count << " (" << count2 << ") / " << maxCount << "\n";
         }
 
         // Get result depth image
         std::vector<__m128i>& depthBuffer = rd->data->getDepthBuffer();
         std::vector<uint16_t>& hizBuffer = rd->data->getHiZ();
-        depthData.resize(_blockNumX * _blockNumY * 64, 1.0f);
-
-        const float bias = 3.9623753e+28f; // 1.0f / floatCompressionBias
-        for (uint32_t y = 0; y < _blockNumY; ++y)
+        if (depthData)
         {
-            for (uint32_t x = 0; x < _blockNumX; ++x)
+            const float bias = 3.9623753e+28f; // 1.0f / floatCompressionBias
+            depthData->resize(_blockNumX * _blockNumY * 64);
+            for (uint32_t y = 0; y < _blockNumY; ++y)
             {
-                uint32_t index = y * _blockNumX + x;
-                if (hizBuffer[index] == 1) continue;
-
-                const __m128i* source = &depthBuffer[8 * index];
-                for (uint32_t subY = 0; subY < 8; ++subY)
+                for (uint32_t x = 0; x < _blockNumX; ++x)
                 {
-                    __m128i depthI = _mm_load_si128(source++);
-                    __m256i depthI256 = _mm256_slli_epi32(_mm256_cvtepu16_epi32(depthI), 12);
-                    __m256 depth = _mm256_mul_ps(_mm256_castsi256_ps(depthI256), _mm256_set1_ps(bias));
-                    __m256 linDepth = _mm256_div_ps(_mm256_set1_ps(2 * 0.25f),
-                                                    _mm256_sub_ps(_mm256_set1_ps(0.25f + 1000.0f),
-                                                                  _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(1.0f), depth),
-                                                                                _mm256_set1_ps(1000.0f - 0.25f))));
-                    float linDepthA[16]; _mm256_storeu_ps(linDepthA, linDepth);
+                    uint32_t index = y * _blockNumX + x;
+                    if (hizBuffer[index] == 1)
+                    {
+                        for (uint32_t subY = 0; subY < 8; ++subY)
+                        {
+                            std::vector<float>::iterator it = depthData->begin() + ((8 * _blockNumX) * (8 * y + subY) + 8 * x);
+                            for (uint32_t subX = 0; subX < 8; ++subX, ++it) *it = -1.0f;
+                        }
+                        continue;
+                    }
 
-                    std::vector<float>::iterator it = depthData.begin() + ((8 * _blockNumX) * (8 * y + subY) + 8 * x);
-                    for (uint32_t subX = 0; subX < 8; ++subX, ++it) *it = linDepthA[subX];
+                    const __m128i* source = &depthBuffer[8 * index];
+                    for (uint32_t subY = 0; subY < 8; ++subY)
+                    {
+                        __m128i depthI = _mm_load_si128(source++);
+                        __m256i depthI256 = _mm256_slli_epi32(_mm256_cvtepu16_epi32(depthI), 12);
+                        __m256 depth = _mm256_mul_ps(_mm256_castsi256_ps(depthI256), _mm256_set1_ps(bias));
+                        __m256 linDepth = _mm256_div_ps(_mm256_set1_ps(2 * 0.25f),
+                                                        _mm256_sub_ps(_mm256_set1_ps(0.25f + 1000.0f),
+                                                                      _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(1.0f), depth),
+                                                                                    _mm256_set1_ps(1000.0f - 0.25f))));
+                        float linDepthA[16]; _mm256_storeu_ps(linDepthA, linDepth);
+
+                        std::vector<float>::iterator it = depthData->begin() + ((8 * _blockNumX) * (8 * y + subY) + 8 * x);
+                        for (uint32_t subX = 0; subX < 8; ++subX, ++it) *it = linDepthA[subX];
+                    }
                 }
             }
         }
+        if (hizData) hizData->assign(hizBuffer.begin(), hizBuffer.end());
 
 #   if false
         std::vector<char> rawData(_blockNumX * _blockNumY * 256);
