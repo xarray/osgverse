@@ -15,6 +15,13 @@
 #define RAND_RANGE2(vec) ((vec[1] - vec[0]) * (float)rand() / (float)RAND_MAX + vec[0])
 using namespace osgVerse;
 
+class ParticleBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
+{
+public:
+    osg::BoundingBox bounds;
+    virtual osg::BoundingBox computeBound(const osg::Drawable&) const { return bounds; }
+};
+
 class ParticleSystemPoolU3D : public osg::Referenced
 {
 public:
@@ -326,7 +333,18 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
     }
 
     if (_geometry2.valid()) bounds.expandBy(_geometry2->getBound());
-    if (_geometry.valid()) _geometry->setInitialBound(bounds);
+    if (_geometry.valid())
+    {
+        ParticleBoundingBoxCallback* cb =
+            static_cast<ParticleBoundingBoxCallback*>(_geometry->getComputeBoundingBoxCallback());
+        if (!cb)
+        {
+            cb = new ParticleBoundingBoxCallback;
+            _geometry->setComputeBoundingBoxCallback(cb);
+        }
+        osg::Vec3 extent = bounds._max - bounds._min;
+        cb->bounds = osg::BoundingBox(bounds._min - extent, bounds._max + extent);
+    }
     _lastSimulationTime = time; return bounds.valid();
 }
 

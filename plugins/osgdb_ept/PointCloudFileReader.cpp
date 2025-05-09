@@ -7,6 +7,7 @@
 
 #include "ReaderWriterEPT_Setting.h"
 #include "3rdparty/laszip/laszip_api.h"
+#include "pipeline/Global.h"
 #include <iostream>
 
 osg::Node* readNodeFromUnityPoint(const std::string& file, const ReadEptSettings& settings)
@@ -63,7 +64,7 @@ osg::Node* readNodeFromLaz(const std::string& file, const ReadEptSettings& setti
     }
 
     laszip_BOOL isCompressed = 0;
-    std::string fileUtf8 = osgDB::convertStringFromCurrentCodePageToUTF8(file);
+    std::string fileUtf8 = osgVerse::Utf8StringValidator::convert(file);
     if (laszip_open_reader(laszipReader, fileUtf8.c_str(), &isCompressed))
     {
         char* msg = NULL; laszip_get_error(laszipReader, &msg);

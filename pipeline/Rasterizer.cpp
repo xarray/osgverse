@@ -270,7 +270,7 @@ namespace osgVerse
     UserRasterizer::UserRasterizer(unsigned int, unsigned int) {}
     UserRasterizer::~UserRasterizer() {}
     void UserRasterizer::setModelViewProjection(const osg::Matrixf&) {}
-    void UserRasterizer::render(std::vector<float>& depthData)
+    void UserRasterizer::render(const osg::Vec3&, std::vector<float>*, std::vector<unsigned short>*)
     { OSG_WARN << "[UserRasterizer] No AVX support, Rasterizer is not implemented" << std::endl; }
 #endif
 

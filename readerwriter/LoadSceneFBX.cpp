@@ -471,7 +471,7 @@ namespace osgVerse
 
                 std::string originalName(name.begin, name.end);
                 std::string ext = osgDB::getFileExtension(originalName);
-                std::string fileName = osgDB::convertStringFromCurrentCodePageToUTF8(originalName);
+                std::string fileName = Utf8StringValidator::convert(originalName);
                 std::string simpleFileName = osgDB::getSimpleFileName(originalName);
 
                 tex2D = new osg::Texture2D;
