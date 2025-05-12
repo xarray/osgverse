@@ -39,7 +39,7 @@ namespace osgVerse
 
         BatchOccluderData* od = new BatchOccluderData;
         od->data = Occluder::bake(vList, refMin, refMax);
-        _privateData = od;
+        _privateData = od; _numVertices = vertices.size();
     }
 
     BatchOccluder::BatchOccluder(UserOccluder* u, void* verticesInternal,
@@ -51,7 +51,7 @@ namespace osgVerse
 
         BatchOccluderData* od = new BatchOccluderData;
         od->data = Occluder::bake(*vList, refMin, refMax);
-        _privateData = od;
+        _privateData = od; _numVertices = vList->size();
     }
 
     BatchOccluder::~BatchOccluder()
@@ -91,6 +91,45 @@ namespace osgVerse
     UserOccluder::UserOccluder(const std::string& name, const std::vector<osg::Vec3> vertices,
                                const std::vector<unsigned int>& indices) : _name(name)
     { set(vertices, indices); }
+
+#ifdef WITH_SIMD_INPUT
+    UserOccluder::UserOccluder(const std::string& name, const std::vector<__m128> vertices,
+                               const std::vector<unsigned int>& indices0) : _name(name)
+    {
+        std::vector<unsigned int> indices(indices0);
+        indices = QuadDecomposition::decompose(indices, vertices);
+        while (indices.size() % 32 != 0) indices.push_back(indices.back());  // Pad to a multiple of 8 quads
+
+        std::vector<Aabb> quadAabbs;
+        for (size_t j = 0; j < indices.size() / 4; ++j)
+        {
+            Aabb aabb; size_t q = j * 4;
+            aabb.include(vertices[indices[q + 0]]);
+            aabb.include(vertices[indices[q + 1]]);
+            aabb.include(vertices[indices[q + 2]]);
+            aabb.include(vertices[indices[q + 3]]);
+            quadAabbs.push_back(aabb);
+        }
+
+        std::vector<std::vector<uint32_t>> batches = SurfaceAreaHeuristic::generateBatches(quadAabbs, 512, 8);
+        osg::BoundingBoxf bb; for (size_t i = 0; i < vertices.size(); ++i) bb.expandBy(convertToVec3(vertices[i]));
+        for (size_t i = 0; i < batches.size(); ++i)
+        {
+            std::vector<uint32_t>& batch = batches[i];
+            std::vector<__m128> batchVertices;
+            for (size_t j = 0; j < batch.size(); ++j)
+            {
+                uint32_t q = batch[j] * 4;
+                batchVertices.push_back(vertices[indices[q + 0]]);
+                batchVertices.push_back(vertices[indices[q + 1]]);
+                batchVertices.push_back(vertices[indices[q + 2]]);
+                batchVertices.push_back(vertices[indices[q + 3]]);
+            }
+            _batches.insert(new BatchOccluder(this, &batchVertices, bb));
+            std::cout << "BATCH = " << batchVertices.size() << "\n";
+        }
+    }
+#endif
 
     void UserOccluder::set(const std::vector<osg::Vec3> vertices0, const std::vector<unsigned int>& indices0)
     {
@@ -142,10 +181,17 @@ namespace osgVerse
     UserRasterizer::~UserRasterizer()
     { UserRasterizerData* rd = (UserRasterizerData*)_privateData; delete rd; }
 
-    void UserRasterizer::setModelViewProjection(const osg::Matrixf& m)
+    void UserRasterizer::setModelViewProjection(const osg::Matrix& view0, const osg::Matrix& proj0)
     {
+        osg::Matrix convV(-1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                          0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+        osg::Matrix convP(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                          0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, -0.5f, 1.0f);
+        osg::Matrix view = view0 * convV, proj = proj0 * convP;  // FIXME: not consider non-perspective matrix
+        proj(2, 3) = -proj(2, 3); proj(3, 2) = -proj(3, 2);      // http://perry.cz/articles/ProjectionMatrix.xhtml
+
         UserRasterizerData* rd = (UserRasterizerData*)_privateData;
-        rd->data->setModelViewProjection(m.ptr());
+        rd->data->setModelViewProjection(osg::Matrixf(view * proj).ptr());
     }
 
     void UserRasterizer::render(const osg::Vec3& cameraPos, std::vector<float>* depthData,
@@ -181,23 +227,6 @@ namespace osgVerse
                 if (needsClipping) rd->data->rasterize<true>(*od->data);
                 else rd->data->rasterize<false>(*od->data);
             }   
-        }
-
-        for (std::set<osg::ref_ptr<UserOccluder>>::iterator it = _occluders.begin();
-             it != _occluders.end(); ++it)
-        {
-            std::set<osg::ref_ptr<BatchOccluder>>& batches = (*it)->getBatches();
-            size_t count = 0, count2 = 0, maxCount = batches.size();
-
-            for (std::set<osg::ref_ptr<BatchOccluder>>::iterator it2 = batches.begin();
-                 it2 != batches.end(); ++it2)
-            {
-                BatchOccluder* bo = (*it2).get(); bool needsClipping = false;
-                BatchOccluderData* od = (BatchOccluderData*)bo->getOccluder();
-                if (rd->data->queryVisibility(od->data->m_boundsMin, od->data->m_boundsMax, needsClipping))
-                { count++; if (needsClipping) count2++; }
-            }
-            std::cout << (*it)->getName() << "; " << count << " (" << count2 << ") / " << maxCount << "\n";
         }
 
         // Get result depth image
@@ -252,6 +281,27 @@ namespace osgVerse
         osgDB::writeImageFile(*image, "test_occlusion_depth.png");
 #   endif
     }
+
+    float UserRasterizer::queryVisibility(UserOccluder* occluder, int* numVisible)
+    {
+        if (!occluder || (occluder && occluder->getBatches().empty())) return 0.0f;
+        std::set<osg::ref_ptr<BatchOccluder>>& batches = occluder->getBatches();
+        size_t occCount = 0, count = 0, maxCount = 0;
+
+        UserRasterizerData* rd = (UserRasterizerData*)_privateData;
+        for (std::set<osg::ref_ptr<BatchOccluder>>::iterator it2 = batches.begin();
+             it2 != batches.end(); ++it2)
+        {
+            BatchOccluder* bo = (*it2).get(); bool needsClipping = false;
+            size_t numVertices = bo->getNumVertices();
+
+            BatchOccluderData* od = (BatchOccluderData*)bo->getOccluder();
+            if (rd->data->queryVisibility(od->data->m_boundsMin, od->data->m_boundsMax, needsClipping))
+            { occCount++; count += numVertices; } maxCount += numVertices;
+        }
+        if (numVisible) *numVisible = occCount;
+        return (float)count / (float)maxCount;
+    }
 #else
     UserOccluder::UserOccluder(const std::string& name, const std::vector<osg::Vec3> vertices,
                                const std::vector<unsigned int>& indices) : _name(name) {}
@@ -269,7 +319,8 @@ namespace osgVerse
 
     UserRasterizer::UserRasterizer(unsigned int, unsigned int) {}
     UserRasterizer::~UserRasterizer() {}
-    void UserRasterizer::setModelViewProjection(const osg::Matrixf&) {}
+    float UserRasterizer::queryVisibility(UserOccluder*, int*) { return 0.0f; }
+    void UserRasterizer::setModelViewProjection(const osg::Matrix&, const osg::Matrix&) {}
     void UserRasterizer::render(const osg::Vec3&, std::vector<float>*, std::vector<unsigned short>*)
     { OSG_WARN << "[UserRasterizer] No AVX support, Rasterizer is not implemented" << std::endl; }
 #endif

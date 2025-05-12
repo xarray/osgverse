@@ -6,6 +6,11 @@
 #include <memory>
 #include <set>
 
+//#define WITH_SIMD_INPUT 1
+#ifdef WITH_SIMD_INPUT
+#   include <smmintrin.h>
+#endif
+
 namespace osgVerse
 {
     class UserOccluder;
@@ -20,11 +25,13 @@ namespace osgVerse
 
         osg::BoundingBoxf getBound() const;
         osg::Vec3 getCenter() const;
+        unsigned int getNumVertices() const { return _numVertices; }
 
     protected:
         virtual ~BatchOccluder();
         void* _privateData;
         UserOccluder* _owner;
+        unsigned int _numVertices;
     };
 
     class UserOccluder : public osg::Referenced
@@ -32,6 +39,10 @@ namespace osgVerse
     public:
         UserOccluder(const std::string& name, const std::vector<osg::Vec3> vertices,
                      const std::vector<unsigned int>& indices);
+#ifdef WITH_SIMD_INPUT
+        UserOccluder(const std::string& name, const std::vector<__m128> vertices,
+                     const std::vector<unsigned int>& indices);
+#endif
         UserOccluder(osg::Geometry& geom);
         UserOccluder(osg::Node& node);
 
@@ -50,9 +61,10 @@ namespace osgVerse
     {
     public:
         UserRasterizer(unsigned int width, unsigned int height);
-        void setModelViewProjection(const osg::Matrixf& matrix);
+        void setModelViewProjection(const osg::Matrix& view, const osg::Matrix& proj);
         void render(const osg::Vec3& cameraPos, std::vector<float>* depthData,
-                    std::vector<unsigned short>* hizData);
+                    std::vector<unsigned short>* hizData = NULL);
+        float queryVisibility(UserOccluder* occluder, int* numVisible = NULL);
 
         void addOccluder(UserOccluder* o) { _occluders.insert(o); }
         void removeOccluder(UserOccluder* o);

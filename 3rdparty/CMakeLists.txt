@@ -624,8 +624,9 @@ ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
                     metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector llama nanobind
-                    "${CMAKE_BINARY_DIR}/3rdparty/leveldb")
+                    "${CMAKE_BINARY_DIR}/3rdparty/leveldb" ${THIRDPARTY_INCLUDE_DIRS})
 NEW_LIBRARY(${LIB_NAME} STATIC)
+TARGET_LINK_LIBRARIES(${LIB_NAME} ${THIRDPARTY_LIBRARIES})
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 
 SET(THIRDPARTY_INCLUDE_FILES any.hpp picojson.h strtk.hpp backward.hpp)

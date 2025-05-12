@@ -43,7 +43,7 @@ struct CoordinateConverter {
     {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 };
 
-constexpr std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) {
+std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) {
   auto aNum = static_cast<int>(a) - 1;
   auto bNum = static_cast<int>(b) - 1;
   if (aNum < 0 || bNum < 0) {
@@ -55,7 +55,7 @@ constexpr std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) 
     ((aNum >> 2) & 1) == ((bNum >> 2) & 1)};
 }
 
-constexpr CoordinateConverter coordinateConverter(CoordinateSystem from, CoordinateSystem to) {
+CoordinateConverter coordinateConverter(CoordinateSystem from, CoordinateSystem to) {
   std::array<bool, 3> matches = axesMatch(from, to);
   float x = matches[0] ? 1.0f : -1.0f;
   float y = matches[1] ? 1.0f : -1.0f;
@@ -214,7 +214,7 @@ constexpr float squaredNorm(const Vec3f &v) { return dot(v, v); }
 
 constexpr Quat4f quat4f(const float *data) { return {data[0], data[1], data[2], data[3]}; }
 
-constexpr Vec3f times(const Quat4f &q, const Vec3f &p) {
+Vec3f times(const Quat4f &q, const Vec3f &p) {
   float w = q[0], x = q[1], y = q[2], z = q[3];
   float vx = p[0], vy = p[1], vz = p[2];
   auto x2 = x + x;
