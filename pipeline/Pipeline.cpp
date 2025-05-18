@@ -655,7 +655,9 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
             if (isCustomCam && cData->bypassCamera.valid())
             {
                 cData->bypassCamera->setViewport(0, 0, w, h);
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
                 cData->bypassCamera->dirtyAttachmentMap();
+#endif
             }
 
             // if aspect ratio adjusted change the project matrix to suit.
@@ -790,8 +792,9 @@ struct MyResizedCallback : public osg::GraphicsContext::ResizedCallback
                                      image->getPixelFormat(), image->getDataType(), image->getPacking());
             }
         }
-        if (modified)
-            camera->dirtyAttachmentMap();
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
+        if (modified) camera->dirtyAttachmentMap();
+#endif
     }
 };
 

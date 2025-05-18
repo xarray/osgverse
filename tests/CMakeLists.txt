@@ -60,9 +60,12 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST(osgVerse_Test_Compressing compressing_test.cpp)
     NEW_TEST(osgVerse_Test_Thread hybrid_thread_test.cpp)
     NEW_TEST(osgVerse_Test_Volume_Rendering volume_rendering_test.cpp)
-    NEW_TEST(osgVerse_Test_Instance_Param instance_param_test.cpp)
     NEW_TEST(osgVerse_Test_Auto_LOD auto_lod_test.cpp)
     NEW_TEST(osgVerse_Test_Sky_Box sky_box_test.cpp)
+
+    IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 3)
+        NEW_TEST(osgVerse_Test_Instance_Param instance_param_test.cpp)
+    ENDIF()
 ENDIF(NOT VERSE_USE_EXTERNAL_GLES)
 
 NEW_EXAMPLE(osgVerse_Test_Plugins plugins_test.cpp)

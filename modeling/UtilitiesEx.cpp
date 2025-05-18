@@ -112,7 +112,7 @@ void ShapeGeometryVisitor::End()
         osg::Vec3& n = (*_normals)[i]; n = _inverse * n; n.normalize();
     }
     _vertices->dirty(); _normals->dirty(); _texcoords->dirty();
-    _geometry->dirtyGLObjects(); _start_index = _vertices->size();
+    _geometry->dirtyBound(); _start_index = _vertices->size();
 }
 
 void ShapeGeometryVisitor::drawCylinderBody(unsigned int numSegments, float radius, float height)

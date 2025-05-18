@@ -558,7 +558,7 @@ namespace osgVerse
             osg::ref_ptr<osg::Image> subImage = new osg::Image;
             subImage->allocateImage(ww, hh, 1, pf, dt, image.getPacking());
             subImage->setInternalTextureFormat(image.getInternalTextureFormat());
-#if OSG_VERSION_GREATER_THAN(3, 2, 2)
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
 #pragma omp parallel for schedule(dynamic, 1)
             for (int j = 0; j < hh; ++j)
                 for (int k = 0; k < ww; ++k) subImage->setColor(data[j * ww + k], k, j);

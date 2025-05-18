@@ -24,7 +24,7 @@ FIND_PATH(OSGEARTH_LIB_DIR libosgEarth.so osgEarth.lib
     PATHS ${THIRDPARTY_ROOT}/lib
     $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
     $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
-    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
+    /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/${FIND_SUBLIB_POSTFIX}
     /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
 )
 #########################################

@@ -489,7 +489,7 @@ public:
     virtual ReadResult readImage(std::istream& fin, const Options* options) const
     {
         osg::ref_ptr<osg::ImageSequence> seq = tiffLoad(fin, options);
-#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 2)
         osg::ImageSequence::ImageDataList images = seq->getImageDataList();
         return images.empty() ? NULL : ((images.size() == 1) ?
                                         images[0]._image.get() : static_cast<osg::Image*>(seq.get()));

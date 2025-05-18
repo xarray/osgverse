@@ -174,7 +174,7 @@ int main(int argc, char** argv)
     merger.setGpkBaker(new DefaultGpuBaker);
 
     osg::ref_ptr<osg::Geometry> merged = merger.process(testList, 0);
-    osgDB::writeNodeFile(*merged, "test_merging.osgb"); return 0;
+    osgDB::writeObjectFile(*merged, "test_merging.osgb"); return 0;
 #endif
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
