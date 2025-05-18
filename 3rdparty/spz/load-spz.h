@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-
+#include <iostream>
 #include "splat-types.h"
 
 namespace spz {
@@ -90,6 +90,7 @@ bool saveSplatToPly(
 
 // Loads Gaussian splat data in .ply format
 GaussianCloud loadSplatFromPly(const std::string &filename, const UnpackOptions &options);
+GaussianCloud loadSplatFromPly(std::istream& in, const std::string& filename, const UnpackOptions& options);
 
 void serializePackedGaussians(const PackedGaussians &packed, std::ostream *out);
 
