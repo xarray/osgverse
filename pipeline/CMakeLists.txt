@@ -33,7 +33,8 @@ ENDIF()
 
 IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
     SET(LIBRARY_FILES ${LIBRARY_FILES} CudaTexture2D.cpp CudaTexture2D.h
-        CudaUtils/BitDepth.cu CudaUtils/ColorSpace.cu CudaUtils/ColorSpace.h)
+        CudaUtils/BitDepth.cu CudaUtils/ColorSpace.cu CudaUtils/ColorSpace.h
+        CudaUtils/RadixSort.cu CudaUtils/RadixSort.h)
     NEW_CUDA_LIBRARY(${LIB_NAME} STATIC)
     TARGET_LINK_LIBRARIES(${LIB_NAME} ${CUDA_CUDA_LIBRARY})
 ELSE(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
