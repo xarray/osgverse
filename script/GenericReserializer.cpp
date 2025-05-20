@@ -33,11 +33,7 @@ void Rewrapper::add(const std::string& n, BaseSerializer* s)
 }
 
 void Rewrapper::clear()
-{
-    for (std::vector<SerializerPair>::iterator itr = _serializers.begin();
-         itr != _serializers.end(); ++itr) delete itr->second;
-    _serializers.clear();
-}
+{ _serializers.clear(); }
 
 void Rewrapper::markSerializerAsRemoved(const std::string& name)
 {
@@ -93,20 +89,17 @@ std::shared_ptr<RewrapperManager> RewrapperManager::instance()
 
 RewrapperManager::~RewrapperManager()
 {
-    for (RewrapperMap::iterator itr = _rewrappers.begin();
-         itr != _rewrappers.end(); ++itr) delete itr->second;
 }
 
 void RewrapperManager::addRewrapper(const std::string& name, Rewrapper* r)
 {
-    RewrapperMap::iterator itr = _rewrappers.find(name);
-    if (itr != _rewrappers.end()) delete itr->second; _rewrappers[name] = r;
+    RewrapperMap::iterator itr = _rewrappers.find(name); _rewrappers[name] = r;
 }
 
 void RewrapperManager::removeRewrapper(const std::string& name)
 {
     RewrapperMap::iterator itr = _rewrappers.find(name);
-    if (itr != _rewrappers.end()) { delete itr->second; _rewrappers.erase(itr); }
+    if (itr != _rewrappers.end()) { _rewrappers.erase(itr); }
 }
 
 Rewrapper* RewrapperManager::getRewrapper(const std::string& name)

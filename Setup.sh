@@ -251,6 +251,10 @@ sed 's#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParamete
 mv Texture.cpp.tmp "$OpenSceneGraphRoot/src/osg/Texture.cpp"
 sed 's#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g' "$OpenSceneGraphRoot/src/osg/Image.cpp" > Image.cpp.tmp
 mv Image.cpp.tmp "$OpenSceneGraphRoot/src/osg/Image.cpp"
+if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
+    sed 's#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp" > GLExtensions.cpp.tmp
+    mv GLExtensions.cpp.tmp "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"
+fi
 
 # Compile OpenSceneGraph
 echo "*** Building OpenSceneGraph..."
@@ -455,3 +459,5 @@ sed 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLib
 mv DynamicLibrary.cpp.tmp "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
 sed 's#\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#;glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp" > Texture.cpp.tmp
 mv Texture.cpp.tmp "$OpenSceneGraphRoot/src/osg/Texture.cpp"
+sed 's#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g' "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp" > GLExtensions.cpp.tmp
+mv GLExtensions.cpp.tmp "$OpenSceneGraphRoot/src/osg/GLExtensions.cpp"

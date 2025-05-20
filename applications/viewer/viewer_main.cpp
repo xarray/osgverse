@@ -289,7 +289,7 @@ int main(int argc, char** argv)
     }
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    if (argc == 1) root->addChild(otherSceneRoot.get());
+    if (otherSceneRoot.valid()) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
     root->setName("Root");
 
@@ -313,6 +313,7 @@ int main(int argc, char** argv)
 
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
+    osgVerse::Pipeline::setPipelineMask(*postCamera, FORWARD_SCENE_MASK);
     root->addChild(postCamera.get());
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
@@ -320,7 +321,6 @@ int main(int argc, char** argv)
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
                               osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
-        osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
         postCamera->addChild(skybox.get());
     }
 
@@ -426,6 +426,9 @@ int main(int argc, char** argv)
 
         addStagesToHUD(pipeline.get(), debugCamera.get());
         root->addChild(debugCamera.get());
+
+        postCamera->setName("PostSkyCamera");
+        debugCamera->setName("DebugCamera");
     }
 
     // Start the main loop

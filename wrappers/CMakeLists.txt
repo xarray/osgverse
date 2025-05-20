@@ -2,11 +2,10 @@ SET(LIB_NAME osgVerseWrappers)
 FILE(GLOB GENERIC_OSG_FILES generic_osg/*.cpp)
 
 SET(LIBRARY_INCLUDE_FILES
-    Export.h GenericReserializer.h GenericInputStream.h
+    Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    DracoWrapper.cpp GenericReserializer.cpp GenericInputStream.cpp
-    ${GENERIC_OSG_FILES}
+    DracoWrapper.cpp ${GENERIC_OSG_FILES}
 )
 
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
@@ -14,7 +13,7 @@ IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
         WrapperMethods.cpp Geometry_FixedWrapper.cpp)
 ENDIF()
 
-INCLUDE_DIRECTORIES(.)
+INCLUDE_DIRECTORIES(. ../script)
 ADD_DEFINITIONS(-DVERSE_WRAPPERS_LIBRARY)
 IF(DRACO_FOUND)
     ADD_DEFINITIONS(-DVERSE_USE_DRACO)
@@ -27,8 +26,8 @@ ELSE()
 ENDIF()
 
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling
-                      osgVersePipeline osgVerseReaderWriter)
+TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseModeling osgVerseScript
+                      osgVerseAnimation osgVersePipeline osgVerseAI osgVerseReaderWriter)
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}

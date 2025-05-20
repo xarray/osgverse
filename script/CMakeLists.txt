@@ -1,12 +1,12 @@
 SET(LIB_NAME osgVerseScript)
 SET(LIBRARY_INCLUDE_FILES
-    Entry.h ScriptBase.h
-    JsonScript.h PythonScript.h
+    Entry.h ScriptBase.h JsonScript.h PythonScript.h
+    GenericReserializer.h GenericInputStream.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Entry.cpp ScriptBase.cpp
-    JsonScript.cpp PythonScript.cpp
-    PythonWrapper_osg.cpp
+    JsonScript.cpp PythonScript.cpp PythonWrapper_osg.cpp
+    GenericReserializer.cpp GenericInputStream.cpp
 )
 
 INCLUDE_DIRECTORIES(. ../3rdparty/libhv ../3rdparty/libhv/all)

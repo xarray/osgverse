@@ -1,5 +1,5 @@
-#ifndef MANA_WRAPPERS_GENERICRESERIALIZER_HPP
-#define MANA_WRAPPERS_GENERICRESERIALIZER_HPP
+#ifndef MANA_SCRIPT_GENERICRESERIALIZER_HPP
+#define MANA_SCRIPT_GENERICRESERIALIZER_HPP
 
 #include <vector>
 #include <map>
@@ -10,6 +10,8 @@
 #include <typeinfo>
 #include <memory>
 #include <climits>
+#include <osg/ref_ptr>
+#include <osg/Referenced>
 #include "GenericInputStream.h"
 
 namespace osgVerse
@@ -50,7 +52,7 @@ namespace osgVerse
     };
 #define META_VISITOR() virtual void accept(SerializerVisitor& v) { v.apply(*this); }
 
-    struct BaseSerializer
+    struct BaseSerializer : public osg::Referenced
     {
         typedef std::function<void(InputStream& is, InputUserData& ud)> ReadFunc;
         BaseSerializer() : _firstVersion(0), _lastVersion(INT_MAX) {}
@@ -76,7 +78,7 @@ namespace osgVerse
     template<typename T> void SerializerVisitor::apply(ValueSerializer<T>& obj)
     { static_cast<BaseSerializer&>(obj).accept(*this); }
 
-    class Rewrapper
+    class Rewrapper : public osg::Referenced
     {
     public:
         template<typename T> void addValueSerializer(const std::string& prop, T def, bool hex = false)
@@ -127,9 +129,10 @@ namespace osgVerse
         void accept(SerializerVisitor& v, int inputVersion, bool includingAssociates);
 
     protected:
+        virtual ~Rewrapper() {}
         void splitAssociates(const std::string& associates);
 
-        typedef std::pair<std::string, BaseSerializer*> SerializerPair;
+        typedef std::pair<std::string, osg::ref_ptr<BaseSerializer>> SerializerPair;
         std::vector<SerializerPair> _serializers;
         std::vector<WrapperAssociate> _associates;
         EnumSerializer* _lastEnum; int _version;
@@ -145,7 +148,7 @@ namespace osgVerse
         void removeRewrapper(const std::string& name);
         Rewrapper* getRewrapper(const std::string& name);
 
-        typedef std::map<std::string, Rewrapper*> RewrapperMap;
+        typedef std::map<std::string, osg::ref_ptr<Rewrapper>> RewrapperMap;
         const RewrapperMap& getRewrappers() const { return _rewrappers; }
 
     protected:

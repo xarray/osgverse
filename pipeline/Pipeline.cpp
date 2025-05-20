@@ -93,12 +93,13 @@ class MyCullVisitor : public osgUtil::CullVisitor
 {
 public:
     MyCullVisitor()
-    :   osgUtil::CullVisitor(), _cullMask(0xffffffff), _defaultMask(0xffffffff) {}
+    :   osgUtil::CullVisitor(), _cullMask(0xffffffff), _defaultMask(0xffffffff), _valid(0) {}
     MyCullVisitor(const MyCullVisitor& v)
     :   osgUtil::CullVisitor(v), _callback(v._callback), _shadowData(v._shadowData),
         _shadowViewport(v._shadowViewport), _pipelineMaskPath(v._pipelineMaskPath),
         _shadowModelViews(v._shadowModelViews), _shadowProjections(v._shadowProjections),
-        _pixelSizeVectorList(v._pixelSizeVectorList), _cullMask(v._cullMask), _defaultMask(v._defaultMask) {}
+        _pixelSizeVectorList(v._pixelSizeVectorList), _cullMask(v._cullMask),
+        _defaultMask(v._defaultMask), _valid(v._valid) {}
 
     virtual CullVisitor* clone() const { return new MyCullVisitor(*this); }
     void setDeferredCallback(osgVerse::DeferredRenderCallback* cb) { _callback = cb; }
@@ -141,12 +142,14 @@ public:
                    << (getUserData() != NULL ? " (COMPUTING NEAR/FAR): " : ": ")
                    << "Stage = " << (cam != NULL ? cam->getName() : "(null)") << std::endl;
 #endif
+        _valid = (cam != NULL) ? 1 : 0;
         osgUtil::CullVisitor::reset();
     }
 
     bool passable(osg::Node& node, PassableData& pdata)
     {
         pdata.maskSet = 0; pushM(node, pdata);
+        if (!_valid) return false;  // The visitor is not ready...
         if (this->getUserData() != NULL) return true;  // computing near/far mode
         if (node.getUserDataContainer() != NULL)
         {
@@ -188,6 +191,7 @@ public:
     {
         unsigned int nodePipMask = 0xffffffff, flags = 0;
         pdata.maskSet = 0; pushM(node, pdata);
+        if (!_valid) return false;  // The visitor is not ready...
         if (this->getUserData() != NULL) return true;  // computing near/far mode
         if (node.getUserValue("PipelineMask", nodePipMask))
         {
@@ -470,7 +474,7 @@ protected:
     typedef std::vector<osg::Matrix> MatrixValueStack;
     MatrixValueStack _shadowModelViews, _shadowProjections;
     std::vector<osg::Vec4> _pixelSizeVectorList;
-    unsigned int _cullMask, _defaultMask;
+    unsigned int _cullMask, _defaultMask, _valid;
 };
 
 class MySceneView : public osgUtil::SceneView
@@ -587,6 +591,7 @@ protected:
 
 #if true
         MyCullVisitor* cullVisitor = new MyCullVisitor;
+        cullVisitor->setName("CullVisitor" + std::to_string(i));
         cullVisitor->setDeferredCallback(cb);
         cullVisitor->setStateGraph(_sceneView[i]->getStateGraph());
         cullVisitor->setRenderStage(_sceneView[i]->getRenderStage());
@@ -1524,6 +1529,7 @@ namespace osgVerse
         //   https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/texImage2D
         //   https://developer.mozilla.org/en-US/docs/Web/API/OES_texture_float
         //   https://developer.mozilla.org/en-US/docs/Web/API/OES_texture_half_float
+        //   https://webgl2fundamentals.org/webgl/lessons/zh_cn/webgl-data-textures.html
         switch (type)
         {
         case RGB_INT8:
