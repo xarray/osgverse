@@ -1528,6 +1528,9 @@ namespace osgVerse
 
     void Pipeline::setTextureBuffer(osg::Texture* tex, BufferType type, int glVer)
     {
+        tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+        tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
         // WebGL texture formats:
         //   https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/texImage2D
         //   https://developer.mozilla.org/en-US/docs/Web/API/OES_texture_float
@@ -1753,6 +1756,11 @@ namespace osgVerse
         case DEPTH16:
 #if defined(VERSE_EMBEDDED_GLES2)
             tex->setInternalFormat(GL_DEPTH_COMPONENT);
+#elif defined(VERSE_EMBEDDED_GLES3)
+            // https://github.com/KhronosGroup/OpenGL-API/issues/84
+            tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+            tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+            tex->setInternalFormat(GL_DEPTH_COMPONENT16);
 #else
             tex->setInternalFormat(GL_DEPTH_COMPONENT16);
 #endif
@@ -1762,6 +1770,11 @@ namespace osgVerse
         case DEPTH24_STENCIL8:
 #if defined(VERSE_EMBEDDED_GLES2)
             tex->setInternalFormat(GL_DEPTH_STENCIL_EXT);
+#elif defined(VERSE_EMBEDDED_GLES3)
+            // https://github.com/KhronosGroup/OpenGL-API/issues/84
+            tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+            tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+            tex->setInternalFormat(GL_DEPTH24_STENCIL8_EXT);
 #else
             tex->setInternalFormat(GL_DEPTH24_STENCIL8_EXT);
 #endif
@@ -1773,6 +1786,9 @@ namespace osgVerse
             tex->setInternalFormat(GL_DEPTH_COMPONENT);
             tex->setSourceType(GL_UNSIGNED_INT);
 #elif defined(VERSE_EMBEDDED_GLES3)
+            // https://github.com/KhronosGroup/OpenGL-API/issues/84
+            tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+            tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
             tex->setInternalFormat(GL_DEPTH_COMPONENT32F);
             tex->setSourceType(GL_FLOAT);
 #else
@@ -1781,8 +1797,7 @@ namespace osgVerse
 #endif
             tex->setSourceFormat(GL_DEPTH_COMPONENT);
             break;
+        default: break;
         }
-        tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-        tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     }
 }
