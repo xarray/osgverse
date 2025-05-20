@@ -73,8 +73,11 @@ ENDMACRO(APPLY_SIMD_FLAGS)
 SET(VERSE_SYSTEM_ARCHITECT "X86")
 IF("${CMAKE_HOST_SYSTEM_PROCESSOR}" MATCHES "(ARM|aarch64)")
     SET(VERSE_SYSTEM_ARCHITECT "ARM")
+    SET(FIND_SUBLIB_POSTFIX aarch64-linux-gnu)
 ELSEIF("${CMAKE_HOST_SYSTEM_PROCESSOR}" MATCHES "(PPC|PPC64)")
     SET(VERSE_SYSTEM_ARCHITECT "PowerPC")
+ELSE()
+    SET(FIND_SUBLIB_POSTFIX x86_64-linux-gnu)
 ENDIF()
 
 SET(VERSE_NO_SIMD_FEATURES OFF CACHE BOOL "Enable to ignore all SIMD features (when struggling with compile errors)")
@@ -194,14 +197,14 @@ ELSE(OSG_ROOT)
         /usr/include
         /usr/local/include
     )
-
+message(".............................................. ${FIND_SUBLIB_POSTFIX}")
     FIND_PATH(OSG_LIB_DIR
         NAMES libosg.a libosg.dll.a libosg.dylib libosg.so osg.lib
         PATHS ${THIRDPARTY_ROOT}/lib
         $ENV{OSG_ROOT}/lib $ENV{OSG_ROOT}/${FIND_LIB_POSTFIX}
         $ENV{OSG_DIR}/lib $ENV{OSG_DIR}/${FIND_LIB_POSTFIX}
         ${OSG_BUILD_INCLUDE_DIR}/../lib
-        /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
+        /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/${FIND_SUBLIB_POSTFIX}
         /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
     )
 ENDIF(OSG_ROOT)

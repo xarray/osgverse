@@ -139,7 +139,7 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
     IF(NOT "${LIB_NAMES}" STREQUAL "")
         FIND_PATH(${DEP_NAME}_LIB_DIR ${LIB_NAMES}
             PATHS ${THIRDPARTY_ROOT}/lib
-            /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/x86_64-linux-gnu
+            /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/${FIND_SUBLIB_POSTFIX}
             /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
             NO_CMAKE_FIND_ROOT_PATH
         )

@@ -4,7 +4,7 @@
 #include <osg/ProxyNode>
 #include <osg/PagedLOD>
 #include <osg/Transform>
-#include <osg/Shape>
+#include <osg/ShapeDrawable>
 #include <osg/Geometry>
 #include <osg/Camera>
 

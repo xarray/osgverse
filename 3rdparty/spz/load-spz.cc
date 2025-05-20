@@ -588,37 +588,41 @@ GaussianCloud loadSpz(const std::string &filename, const UnpackOptions &o) {
   return loadSpz(data, o);
 }
 
-GaussianCloud loadSplatFromPly(const std::string &filename, const UnpackOptions &o) {
+GaussianCloud loadSplatFromPly(const std::string& filename, const UnpackOptions& o) {
   SpzLog("[SPZ] Loading: %s", filename.c_str());
   std::ifstream in(filename, std::ios::binary);
+  return loadSplatFromPly(in, filename, o);
+}
+
+GaussianCloud loadSplatFromPly(std::istream& in, const std::string& filename, const UnpackOptions& o) {
   if (!in.good()) {
     SpzLog("[SPZ ERROR] Unable to open: %s", filename.c_str());
-    in.close();
+    //in.close();
     return {};
   }
   std::string line;
   std::getline(in, line);
   if (line != "ply") {
     SpzLog("[SPZ ERROR] %s: not a .ply file", filename.c_str());
-    in.close();
+    //in.close();
     return {};
   }
   std::getline(in, line);
   if (line != "format binary_little_endian 1.0") {
     SpzLog("[SPZ ERROR] %s: unsupported .ply format", filename.c_str());
-    in.close();
+    //in.close();
     return {};
   }
   std::getline(in, line);
   if (line.find("element vertex ") != 0) {
     SpzLog("[SPZ ERROR] %s: missing vertex count", filename.c_str());
-    in.close();
+    //in.close();
     return {};
   }
   int32_t numPoints = std::stoi(line.substr(std::strlen("element vertex ")));
   if (numPoints <= 0 || numPoints > 10 * 1024 * 1024) {
     SpzLog("[SPZ ERROR] %s: invalid vertex count: %d", filename.c_str(), numPoints);
-    in.close();
+    //in.close();
     return {};
   }
 
@@ -631,7 +635,7 @@ GaussianCloud loadSplatFromPly(const std::string &filename, const UnpackOptions 
 
     if (line.find("property float ") != 0) {
       SpzLog("[SPZ ERROR] %s: unsupported property data type: %s", filename.c_str(), line.c_str());
-      in.close();
+      //in.close();
       return {};
     }
     std::string name = line.substr(std::strlen("property float "));
@@ -657,31 +661,31 @@ GaussianCloud loadSplatFromPly(const std::string &filename, const UnpackOptions 
   // Check that only valid indices were returned.
   for (auto idx : positionIdx) {
     if (idx < 0) {
-      in.close();
+      //in.close();
       return {};
     }
   }
   for (auto idx : scaleIdx) {
     if (idx < 0) {
-      in.close();
+      //in.close();
       return {};
     }
   }
   for (auto idx : rotIdx) {
     if (idx < 0) {
-      in.close();
+      //in.close();
       return {};
     }
   }
   for (auto idx : alphaIdx) {
     if (idx < 0) {
-      in.close();
+      //in.close();
       return {};
     }
   }
   for (auto idx : colorIdx) {
     if (idx < 0) {
-      in.close();
+      //in.close();
       return {};
     }
   }
@@ -700,10 +704,10 @@ GaussianCloud loadSplatFromPly(const std::string &filename, const UnpackOptions 
   in.read(reinterpret_cast<char *>(values.data()), values.size() * sizeof(float));
   if (!in.good()) {
     SpzLog("[SPZ ERROR] Unable to load data from: %s", filename.c_str());
-    in.close();
+    //in.close();
     return {};
   }
-  in.close();
+  //in.close();
 
   GaussianCloud result;
   result.numPoints = numPoints;

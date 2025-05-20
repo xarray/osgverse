@@ -1,7 +1,10 @@
 #include <osg/io_utils>
+#include <osg/Version>
 #include <osg/Depth>
 #include <osg/BlendFunc>
-#include <osg/VertexAttribDivisor>
+#if OSG_VERSION_GREATER_THAN(3, 3, 3)
+#   include <osg/VertexAttribDivisor>
+#endif
 #include <osgDB/FileNameUtils>
 #include <iostream>
 #include "modeling/Math.h"
@@ -401,6 +404,7 @@ void ParticleSystemU3D::recreate()
     osg::StateSet* ss = _geometry->getOrCreateStateSet();
     if (_updateMethod == CPU_VERTEX_ATTRIB)
     {
+#if OSG_VERSION_GREATER_THAN(3, 3, 3)
         for (int k = 4; k < 8; ++k)
         {
             osg::ref_ptr<osg::Vec4Array> pData = new osg::Vec4Array(_maxParticles);
@@ -409,6 +413,9 @@ void ParticleSystemU3D::recreate()
             _geometry->setVertexAttribNormalize(k, GL_FALSE);
             ss->setAttributeAndModes(new osg::VertexAttribDivisor(k, 1));
         }
+#else
+        OSG_WARN << "[ParticleSystemU3D] VERTEX_ATTRIB is not supported" << std::endl;
+#endif
     }
 
     ParticleSystemPoolU3D* pool = ParticleSystemPoolU3D::instance();

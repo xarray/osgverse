@@ -43,7 +43,7 @@ struct CoordinateConverter {
     {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 };
 
-std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) {
+inline std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) {
   auto aNum = static_cast<int>(a) - 1;
   auto bNum = static_cast<int>(b) - 1;
   if (aNum < 0 || bNum < 0) {
@@ -55,7 +55,7 @@ std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) {
     ((aNum >> 2) & 1) == ((bNum >> 2) & 1)};
 }
 
-CoordinateConverter coordinateConverter(CoordinateSystem from, CoordinateSystem to) {
+inline CoordinateConverter coordinateConverter(CoordinateSystem from, CoordinateSystem to) {
   std::array<bool, 3> matches = axesMatch(from, to);
   float x = matches[0] ? 1.0f : -1.0f;
   float y = matches[1] ? 1.0f : -1.0f;
@@ -204,17 +204,17 @@ Quat4f normalized(const Quat4f &v);
 Quat4f axisAngleQuat(const Vec3f &scaledAxis);
 
 // Constexpr helpers.
-constexpr Vec3f vec3f(const float *data) { return {data[0], data[1], data[2]}; }
+inline Vec3f vec3f(const float *data) { return {data[0], data[1], data[2]}; }
 
-constexpr float dot(const Vec3f &a, const Vec3f &b) {
+inline float dot(const Vec3f &a, const Vec3f &b) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-constexpr float squaredNorm(const Vec3f &v) { return dot(v, v); }
+inline float squaredNorm(const Vec3f &v) { return dot(v, v); }
 
-constexpr Quat4f quat4f(const float *data) { return {data[0], data[1], data[2], data[3]}; }
+inline Quat4f quat4f(const float *data) { return {data[0], data[1], data[2], data[3]}; }
 
-Vec3f times(const Quat4f &q, const Vec3f &p) {
+inline Vec3f times(const Quat4f &q, const Vec3f &p) {
   float w = q[0], x = q[1], y = q[2], z = q[3];
   float vx = p[0], vy = p[1], vz = p[2];
   auto x2 = x + x;
@@ -235,7 +235,7 @@ Vec3f times(const Quat4f &q, const Vec3f &p) {
     vx * (xz2 - wy2) + vy * (yz2 + wx2) + vz * (1.0f - (xx2 + yy2))};
 }
 
-Quat4f times(const Quat4f &a, const Quat4f &b) {
+inline Quat4f times(const Quat4f &a, const Quat4f &b) {
   float w = a[0], x = a[1], y = a[2], z = a[3];
   float qw = b[0], qx = b[1], qy = b[2], qz = b[3];
   return normalized(std::array<float, 4>{
@@ -245,21 +245,21 @@ Quat4f times(const Quat4f &a, const Quat4f &b) {
     w * qz + x * qy - y * qx + z * qw});
 }
 
-constexpr Quat4f times(const Quat4f &a, float s) {
+inline Quat4f times(const Quat4f &a, float s) {
   return {a[0] * s, a[1] * s, a[2] * s, a[3] * s};
 }
 
-constexpr Quat4f plus(const Quat4f &a, const Quat4f &b) {
+inline Quat4f plus(const Quat4f &a, const Quat4f &b) {
   return {a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]};
 }
 
-constexpr Vec3f times(const Vec3f &v, float s) { return {v[0] * s, v[1] * s, v[2] * s}; }
+inline Vec3f times(const Vec3f &v, float s) { return {v[0] * s, v[1] * s, v[2] * s}; }
 
-constexpr Vec3f plus(const Vec3f &a, const Vec3f &b) {
+inline Vec3f plus(const Vec3f &a, const Vec3f &b) {
   return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
 }
 
-constexpr Vec3f times(const Vec3f &a, const Vec3f &b) {
+inline Vec3f times(const Vec3f &a, const Vec3f &b) {
   return {a[0] * b[0], a[1] * b[1], a[2] * b[2]};
 }
 
