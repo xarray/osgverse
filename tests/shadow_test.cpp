@@ -108,12 +108,21 @@ int main(int argc, char** argv)
         }
 
         float quadY = 0.0f;
+        osgVerse::Pipeline::Stage* shadowCombine = pipeline->getStage("Shadowing");
+        if (shadowCombine)
+        {
+            osg::Node* quad = osgVerse::createScreenQuad(
+                osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+            quad->getOrCreateStateSet()->setTextureAttributeAndModes(
+                0, shadowCombine->getBufferTexture("DebugDepthBuffer"));
+            postCamera->addChild(quad); quadY += 0.201f;
+        }
         for (int i = 0; i < shadow->getShadowNumber(); ++i)
         {
             osg::Node* quad = osgVerse::createScreenQuad(
                 osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
             quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
-            postCamera->addChild(quad); quadY += 0.21f;
+            postCamera->addChild(quad); quadY += 0.201f;
         }
     }
 

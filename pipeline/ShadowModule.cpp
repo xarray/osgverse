@@ -172,10 +172,10 @@ namespace osgVerse
         _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
         for (int i = 0; i < _shadowNumber; ++i)
         {
+            _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
+#if defined(VERSE_EMBEDDED_GLES2)
             // As WebGL requires, shadow map value should be encoded from float to RGBA8
             // https://registry.khronos.org/webgl/specs/latest/1.0/#6.6
-            _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
-#if defined(VERSE_EMBEDDED_GLES2) || defined(VERSE_EMBEDDED_GLES3)  // FIXME: not for webgl2
             _shadowMaps[i]->setInternalFormat(GL_RGBA);
             _shadowMaps[i]->setSourceFormat(GL_RGBA);
             _shadowMaps[i]->setSourceType(GL_UNSIGNED_BYTE);
@@ -366,8 +366,7 @@ namespace osgVerse
     Pipeline::Stage* ShadowModule::createShadowCaster(int id, osg::Program* prog, unsigned int casterMask)
     {
         osg::ref_ptr<osg::Camera> camera = new osg::Camera;
-        camera->setDrawBuffer(GL_FRONT);
-        camera->setReadBuffer(GL_FRONT);
+        camera->setDrawBuffer(GL_FRONT); camera->setReadBuffer(GL_FRONT);
         camera->setAllowEventFocus(false);
         camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
         camera->setClearColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -381,10 +380,10 @@ namespace osgVerse
         if (_pipeline.valid()) camera->setGraphicsContext(_pipeline->getContext());
         camera->setViewport(0, 0, _shadowMaps[id]->getTextureWidth(), _shadowMaps[id]->getTextureHeight());
         camera->attach(osg::Camera::COLOR_BUFFER0, _shadowMaps[id].get());
-#if defined(VERSE_EMBEDDED_GLES2) || defined(VERSE_EMBEDDED_GLES3)
+#if defined(VERSE_EMBEDDED_GLES2)
         // FBO without depth attachment will not enable depth test
-        // By default OSG use "ImplicitBufferAttachmentMask" to handle this,
-        // but the internal format should be reset for WebGL cases
+        // By default OSG use "ImplicitBufferAttachmentMask" to handle this (attached DEPTH_COMPONENT24 in RenderStage.cpp),
+        // but the internal format should be reset directly for WebGL1 cases
         // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
         camera->attach(osg::Camera::DEPTH_BUFFER, GL_DEPTH_COMPONENT16);
         camera->setImplicitBufferAttachmentMask(0, 0);
@@ -435,8 +434,15 @@ namespace osgVerse
             de->push_back(3); de->push_back(0); de->push_back(0); de->push_back(4);
             de->push_back(4); de->push_back(7);
 
-            osg::DrawElementsUByte* de2 = new osg::DrawElementsUByte(GL_QUADS);
-            de2->push_back(4); de2->push_back(5); de2->push_back(6); de2->push_back(7);
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+            osg::DrawElementsUByte* de2 = new osg::DrawElementsUByte(GL_LINES);
+            de2->push_back(4); de2->push_back(5); de2->push_back(5); de2->push_back(6);
+            de2->push_back(6); de2->push_back(7); de2->push_back(7); de2->push_back(4);
+#else
+            osg::DrawElementsUByte* de2 = new osg::DrawElementsUByte(GL_TRIANGLES);
+            de2->push_back(4); de2->push_back(5); de2->push_back(6);
+            de2->push_back(4); de2->push_back(6); de2->push_back(7);
+#endif
             osg::Vec4Array* ca = new osg::Vec4Array; ca->push_back(dbgColor[id]);
 
             geom = new osg::Geometry;

@@ -115,7 +115,8 @@ namespace osgVerse
             RGBA_FLOAT16/*64bit*/, RGBA_FLOAT32/*128bit*/, SRGBA_INT8/*24bit*/,
             R_INT8/*8bit*/, R_FLOAT16/*16bit*/, R_FLOAT32/*32bit*/,
             RG_INT8/*16bit*/, RG_FLOAT16/*32bit*/, RG_FLOAT32/*64bit*/,
-            DEPTH16/*16bit*/, DEPTH24_STENCIL8/*32bit*/, DEPTH32/*32bit*/
+            DEPTH16/*16bit*/, DEPTH24_STENCIL8/*32bit*/, DEPTH32/*32bit*/,
+            DEPTH32_STENCIL8/*32bit*/
         };
 
         enum InputFlag
@@ -352,8 +353,8 @@ namespace osgVerse
         {
             osg::ref_ptr<osg::Shader> gbufferVS, gbufferGS, shadowCastVS, shadowCastGS;
             osg::ref_ptr<osg::Shader> gbufferFS, shadowCastFS, ssaoFS, ssaoBlurFS;
-            osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, downsampleFS;
-            osg::ref_ptr<osg::Shader> brightnessFS, brightnessCombineFS, bloomFS;
+            osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, shadowDebugCombineFS;
+            osg::ref_ptr<osg::Shader> downsampleFS, brightnessFS, brightnessCombineFS, bloomFS;
             osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, displayFS, quadFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
             osg::ref_ptr<osg::Shader> forwardVS, forwardFS, quadVS;
@@ -368,7 +369,7 @@ namespace osgVerse
         unsigned int originWidth, originHeight, deferredMask, forwardMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution, coverageSamples;
         double depthPartitionNearValue, eyeSeparationVR;
-        bool withEmbeddedViewer, debugShadowModule, enableVSync, enableMRT;
+        bool withEmbeddedViewer, debugShadowModule, debugShadowCombination, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR;
 
         StandardPipelineParameters();

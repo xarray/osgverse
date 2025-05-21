@@ -74,18 +74,6 @@ protected:
         modeSet.insert(GL_STENCIL_TEST);
         modeSet.insert(GL_TEXTURE_CUBE_MAP_SEAMLESS);
         modeSet.insert(GL_PROGRAM_POINT_SIZE);
-#elif defined(OSG_GLES2_AVAILABLE)
-        // https://docs.gl/es2/glEnable
-        // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/enable
-        modeSet.insert(GL_BLEND);
-        modeSet.insert(GL_CULL_FACE);
-        modeSet.insert(GL_DEPTH_TEST);
-        modeSet.insert(GL_DITHER);
-        modeSet.insert(GL_POLYGON_OFFSET_FILL);
-        modeSet.insert(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB);
-        modeSet.insert(GL_SAMPLE_COVERAGE_ARB);
-        modeSet.insert(GL_SCISSOR_TEST);
-        modeSet.insert(GL_STENCIL_TEST);
 #elif defined(OSG_GLES3_AVAILABLE)
         // https://docs.gl/es3/glEnable
         modeSet.insert(GL_BLEND);
@@ -103,6 +91,18 @@ protected:
         //modeSet.insert(GL_PRIMITIVE_RESTART_FIXED_INDEX);
         //modeSet.insert(GL_SAMPLE_MASK);
 #  endif
+#elif defined(OSG_GLES2_AVAILABLE)
+        // https://docs.gl/es2/glEnable
+        // https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/enable
+        modeSet.insert(GL_BLEND);
+        modeSet.insert(GL_CULL_FACE);
+        modeSet.insert(GL_DEPTH_TEST);
+        modeSet.insert(GL_DITHER);
+        modeSet.insert(GL_POLYGON_OFFSET_FILL);
+        modeSet.insert(GL_SAMPLE_ALPHA_TO_COVERAGE_ARB);
+        modeSet.insert(GL_SAMPLE_COVERAGE_ARB);
+        modeSet.insert(GL_SCISSOR_TEST);
+        modeSet.insert(GL_STENCIL_TEST);
 #endif
     }
 
@@ -196,20 +196,37 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     for (size_t i = 0; i < texAttrs.size(); ++i)
     {
         osg::Texture* tex = static_cast<osg::Texture*>(
-            ss.getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+            ss.getTextureAttribute(i, osg::StateAttribute::TEXTURE));
         if (tex && tex->getNumImages() > 0)
         {
             // Try to fix some old and wrong internal formats
             for (size_t j = 0; j < tex->getNumImages(); ++j)
             {
+                osg::Image* img = tex->getImage(j); if (!img) continue;
+                if (img->isCompressed() && !img->isMipmap())
+                {
+#  if defined(VERSE_EMBEDDED_GLES2) || defined(VERSE_EMBEDDED_GLES3)
+                    // No mipmapping for compressed format
+                    switch (tex->getFilter(osg::Texture::MIN_FILTER))
+                    {
+                    case osg::Texture::NEAREST_MIPMAP_LINEAR: case osg::Texture::NEAREST_MIPMAP_NEAREST:
+                        tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST); break;
+                    case osg::Texture::LINEAR_MIPMAP_LINEAR: case osg::Texture::LINEAR_MIPMAP_NEAREST:
+                        tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR); break;
+                    default: break;
+                    }
+                    tex->setUseHardwareMipMapGeneration(false);
+#  endif
+                }
+
 #  if !defined(VERSE_EMBEDDED_GLES2)
-                GLenum internalFmt = tex->getImage(j)->getInternalTextureFormat();
+                GLenum internalFmt = img->getInternalTextureFormat();
                 switch (internalFmt)
                 {
-                case GL_ALPHA: tex->getImage(j)->setInternalTextureFormat(GL_ALPHA8); break;
-                case GL_LUMINANCE: tex->getImage(j)->setInternalTextureFormat(GL_LUMINANCE8); break;
-                case GL_RGB: tex->getImage(j)->setInternalTextureFormat(GL_RGB8); break;
-                case GL_RGBA: tex->getImage(j)->setInternalTextureFormat(GL_RGBA8); break;
+                case GL_ALPHA: img->setInternalTextureFormat(GL_ALPHA8); break;
+                case GL_LUMINANCE: img->setInternalTextureFormat(GL_LUMINANCE8); break;
+                case GL_RGB: img->setInternalTextureFormat(GL_RGB8); break;
+                case GL_RGBA: img->setInternalTextureFormat(GL_RGBA8); break;
                 }
 #  endif
             }

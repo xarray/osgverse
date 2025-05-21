@@ -30,7 +30,7 @@ namespace osgVerse
     extern osg::Texture* generatePoissonDiscDistribution(int numCols, int numRows = 1);
 
     /** Create default texture for untextured model */
-    extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color);
+    extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
     /** Create 2D texture from an input image */
     extern osg::Texture2D* createTexture2D(osg::Image* img, osg::Texture::WrapMode m = osg::Texture::REPEAT);

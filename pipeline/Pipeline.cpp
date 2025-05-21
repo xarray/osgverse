@@ -16,6 +16,11 @@
 #include "ImageCheck.h"
 #include "Utilities.h"
 
+#ifndef GL_DEPTH32F_STENCIL8
+#   define GL_DEPTH32F_STENCIL8              0x8CAD
+#   define GL_FLOAT_32_UNSIGNED_INT_24_8_REV 0x8DAD
+#endif
+
 #define VERBOSE_CREATING 0
 static osg::Camera::ComputeNearFarMode g_nearFarMode =
         osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES;
@@ -1796,6 +1801,16 @@ namespace osgVerse
             tex->setSourceType(GL_UNSIGNED_INT);
 #endif
             tex->setSourceFormat(GL_DEPTH_COMPONENT);
+            break;
+        case DEPTH32_STENCIL8:
+#if defined(VERSE_EMBEDDED_GLES3)
+            // https://github.com/KhronosGroup/OpenGL-API/issues/84
+            tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+            tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+#endif
+            tex->setInternalFormat(GL_DEPTH32F_STENCIL8);
+            tex->setSourceType(GL_FLOAT_32_UNSIGNED_INT_24_8_REV);
+            tex->setSourceFormat(GL_DEPTH_STENCIL_EXT);
             break;
         default: break;
         }

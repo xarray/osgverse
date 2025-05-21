@@ -33,7 +33,7 @@ const MCHAR* SceneExportOSG::Ext( int n )
     case 0: return _M("OSG");
     case 1: return _M("OSGT");
     case 2: return _M("OSGB");
-    case 3: return _M("OSGX");
+    case 3: return _M("OBJ");
     case 4: return _M("IVE");
     default: return _M("");
     }

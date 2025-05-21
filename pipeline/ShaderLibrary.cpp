@@ -151,7 +151,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     std::string m_p = "gl_ProjectionMatrix", m_n = "gl_NormalMatrix";
     std::string tex1d = "texture", tex2d = "texture", tex3d = "texture", texCube = "texture";
     std::string vin = "in", vout = "out", fin = "in", fout = "out", finalColor = "//";
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
+#if !defined(VERSE_EMBEDDED_GLES2)
     if (glslVer <= 120)
 #endif
     {
@@ -167,7 +167,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
 
     if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)
     {
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
+#if !defined(VERSE_EMBEDDED_GLES2)
         if (glVer >= 300 || glslVer >= 140)
         {
             m_mvp = "osg_ModelViewProjectionMatrix"; m_mv = "osg_ModelViewMatrix";
@@ -193,16 +193,16 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     extraDefs.push_back("void VERSE_SCRIPT_FUNC(int pos) {}");
 
     std::stringstream ss;
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
-    ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
-    ss << "#extension GL_OES_standard_derivatives: enable" << std::endl;
-    ss << "#define VERSE_GLES2 1" << std::endl;
+#if defined(OSG_GL3_AVAILABLE)
+    ss << "#version " << osg::maximum(glslVer, 330) << " core" << std::endl;
+    ss << "#define VERSE_GLES3 1" << std::endl;
 #elif defined(OSG_GLES3_AVAILABLE)
     ss << "#version " << osg::maximum(glslVer, 300) << " es" << std::endl;
     ss << "#define VERSE_GLES3 1" << std::endl;
-#elif defined(OSG_GL3_AVAILABLE)
-    ss << "#version " << osg::maximum(glslVer, 330) << " core" << std::endl;
-    ss << "#define VERSE_GLES3 1" << std::endl;
+#elif defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
+    ss << "#extension GL_EXT_draw_buffers: enable" << std::endl;
+    ss << "#extension GL_OES_standard_derivatives: enable" << std::endl;
+    ss << "#define VERSE_GLES2 1" << std::endl;
 #else
     if (glslVer > 0)
     {
@@ -219,7 +219,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     ss << "//! osgVerse generated shader: " << glslVer << std::endl;
 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-    ss << "precision highp float;" << std::endl;
+    ss << "precision highp float;" << std::endl << "precision highp sampler2D;" << std::endl;
 #endif
     if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)
     {

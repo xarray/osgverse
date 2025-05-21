@@ -99,7 +99,7 @@ namespace osgVerse
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096), coverageSamples(0),
         depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
-        debugShadowModule(false), enableVSync(true), enableMRT(true), enableAO(true),
+        debugShadowModule(false), debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
         obtainScreenResolution(originWidth, originHeight);
@@ -110,7 +110,7 @@ namespace osgVerse
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096), coverageSamples(0),
         depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
-        debugShadowModule(false), enableVSync(true), enableMRT(true), enableAO(true),
+        debugShadowModule(false), debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
         obtainScreenResolution(originWidth, originHeight);
@@ -134,6 +134,7 @@ namespace osgVerse
             READ_SHADER(shaders.ssaoBlurFS, FRAG, dir + "std_ssao_blur.frag.glsl");
             READ_SHADER(shaders.pbrLightingFS, FRAG, dir + "std_pbr_lighting.frag.glsl");
             READ_SHADER(shaders.shadowCombineFS, FRAG, dir + "std_shadow_combine.frag.glsl");
+            READ_SHADER(shaders.shadowDebugCombineFS, FRAG, dir + "std_shadow_debug_combine.frag.glsl");
             READ_SHADER(shaders.downsampleFS, FRAG, dir + "std_luminance_downsample.frag.glsl");
             READ_SHADER(shaders.brightnessFS, FRAG, dir + "std_brightness_extraction.frag.glsl");
             READ_SHADER(shaders.brightnessCombineFS, FRAG, dir + "std_brightness_combine.frag.glsl");
@@ -309,11 +310,7 @@ namespace osgVerse
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "EmissionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
-#   if defined(VERSE_EMBEDDED)
-                "DepthBuffer", osgVerse::Pipeline::DEPTH32);
-#   else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
-#   endif
 #endif
         }
         else
@@ -514,15 +511,23 @@ namespace osgVerse
         }
 
         // Shadow & AO combining stage
-        osgVerse::Pipeline::Stage* shadowing = p->addWorkStage("Shadowing", 1.0f,
+        osgVerse::Pipeline::Stage* shadowing = NULL;
+        if (spp.debugShadowCombination)
+        {
+            shadowing = p->addWorkStage("Shadowing", 1.0f,
+                spp.shaders.quadVS, spp.shaders.shadowDebugCombineFS, 2,
+                "CombinedBuffer", osgVerse::Pipeline::RGB_INT8,
+                "DebugDepthBuffer", osgVerse::Pipeline::RGB_INT8);
+        }
+        else
+        {
+            shadowing = p->addWorkStage("Shadowing", 1.0f,
                 spp.shaders.quadVS, spp.shaders.shadowCombineFS, 1,
                 "CombinedBuffer", osgVerse::Pipeline::RGB_INT8);
+        }
         shadowing->applyBuffer(*lighting, "ColorBuffer", 0);
-        if (lastAoStage != NULL)
-            shadowing->applyBuffer(*lastAoStage, "SsaoBlurredBuffer", 1);
-        else
-            shadowing->applyTexture(createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)),
-                                    "SsaoBlurredBuffer", 1);
+        if (lastAoStage != NULL) shadowing->applyBuffer(*lastAoStage, "SsaoBlurredBuffer", 1);
+        else shadowing->applyTexture(createDefaultTexture(), "SsaoBlurredBuffer", 1);
         shadowing->applyBuffer(*gbuffer, "NormalBuffer", 2);
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
         shadowing->applyTexture(generatePoissonDiscDistribution(16, 2), "RandomTexture", 4);
@@ -712,7 +717,7 @@ namespace osgVerse
     {
         _parameters = osgVerse::StandardPipelineParameters(SHADER_DIR, SKYBOX_DIR + "barcelona.hdr");
         _parameters.enablePostEffects = true; _parameters.enableAO = true;
-        _parameters.debugShadowModule = withDebugShadow;
+        _parameters.debugShadowModule = withDebugShadow; _parameters.debugShadowCombination = withDebugShadow;
         _lightGeode = new osg::Geode; _textGeode = new osg::Geode; _root = new osg::Group;
     }
 
