@@ -76,6 +76,7 @@ int main(int argc, char** argv)
     viewer->getCamera()->setViewport(0, 0, traits->width, traits->height);
     viewer->getCamera()->setDrawBuffer(GL_BACK);
     viewer->getCamera()->setReadBuffer(GL_BACK);
+    viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
     // Start the main loop
     atexit(SDL_Quit);

@@ -67,7 +67,7 @@ namespace osgVerse
         std::string version, renderer;
         int glVersion, glslVersion;
         bool glslSupported, fboSupported;
-        bool drawBuffersSupported;
+        bool drawBuffersSupported, depthStencilSupported;
     };
 
     /** Module to be used in pipeline */

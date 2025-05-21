@@ -42,6 +42,7 @@ public:
         d->glslSupported = ext->isGlslSupported;
         d->fboSupported = ext->isFrameBufferObjectSupported;
         d->drawBuffersSupported = (ext->glDrawBuffers != NULL);
+        d->depthStencilSupported = ext->isPackedDepthStencilSupported;
 #else
         osg::GL2Extensions* ext = osg::GL2Extensions::Get(renderInfo.getContextID(), true);
         d->glVersion = ext->getGlVersion() * 100;
@@ -52,6 +53,7 @@ public:
         DrawBuffersProc glDrawBuffersTemp = NULL;
         osg::setGLExtensionFuncPtr(glDrawBuffersTemp, "glDrawBuffers", "glDrawBuffersARB");
         d->drawBuffersSupported = (glDrawBuffersTemp != NULL);
+        d->depthStencilSupported = false;  // TODO
 
         osg::FBOExtensions* ext2 = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
         d->fboSupported = ext2->isSupported();
@@ -310,7 +312,11 @@ namespace osgVerse
                 "DiffuseMetallicBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "SpecularRoughnessBuffer", osgVerse::Pipeline::RGBA_INT8,
                 "EmissionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
+#   if defined(VERSE_EMBEDDED_GLES3)
+                "DepthBuffer", osgVerse::Pipeline::DEPTH32);
+#   else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
+#   endif
 #endif
         }
         else
@@ -318,7 +324,7 @@ namespace osgVerse
             gbuffer = p->addInputStage("GBuffer", spp.deferredMask, msaa,
                 spp.shaders.gbufferVS, spp.shaders.gbufferFS, 2,
                 "NormalBuffer", osgVerse::Pipeline::RGBA_INT8,
-#if defined(VERSE_EMBEDDED)
+#if defined(VERSE_EMBEDDED_GLES2) || defined(VERSE_EMBEDDED_GLES3)
                 "DepthBuffer", osgVerse::Pipeline::DEPTH32);
 #else
                 "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);

@@ -1233,7 +1233,7 @@ namespace osgVerse
             BufferType type = buffers[i].type;
             osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER0
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
-            if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
+            if (type == DEPTH24_STENCIL8 || type == DEPTH32_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             osg::ref_ptr<osg::Texture> tex = buffers[i].bufferToShare;
@@ -1283,7 +1283,7 @@ namespace osgVerse
             BufferType type = buffers[i].type;
             osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER0
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
-            if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
+            if (type == DEPTH24_STENCIL8 || type == DEPTH32_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             float ww = _stageSize[0] * sizeScale, hh = _stageSize[1] * sizeScale;
@@ -1322,7 +1322,7 @@ namespace osgVerse
             BufferType type = buffers[i].type;
             osg::Camera::BufferComponent comp = useColorBuf ? osg::Camera::COLOR_BUFFER0
                                               : (osg::Camera::BufferComponent)(osg::Camera::COLOR_BUFFER0 + i);
-            if (type == DEPTH24_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
+            if (type == DEPTH24_STENCIL8 || type == DEPTH32_STENCIL8) comp = osg::Camera::PACKED_DEPTH_STENCIL_BUFFER;
             else if (type >= DEPTH16) comp = osg::Camera::DEPTH_BUFFER;
 
             float ww = _stageSize[0] * sizeScale, hh = _stageSize[1] * sizeScale;
