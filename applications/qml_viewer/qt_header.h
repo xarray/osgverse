@@ -57,7 +57,11 @@ public:
     osgViewer::Viewer* getViewer() const { return _viewer.get(); }
 
 protected:
+#ifdef USE_QT6
+    virtual void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry);
+#else
     virtual void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry);
+#endif
     virtual void mousePressEvent(QMouseEvent* event);
     virtual void mouseDoubleClickEvent(QMouseEvent* event);
     virtual void mouseMoveEvent(QMouseEvent* event);

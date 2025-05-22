@@ -9,7 +9,7 @@ namespace osgVerse
     class FFmpegResourceDemuxer : public osgVerse::CudaResourceReaderBase::Demuxer
     {
     public:
-        FFmpegResourceDemuxer(const std::string& fileName, long long timeScale = 1000i64)
+        FFmpegResourceDemuxer(const std::string& fileName, long long timeScale = 1000ll)
         { _subDemuxer = new FFmpegDemuxer(fileName.c_str(), timeScale); }
 
         virtual osgVerse::VideoCodecType getVideoCodec()

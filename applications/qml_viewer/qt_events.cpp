@@ -27,7 +27,11 @@ void OsgFramebufferObjectRenderer::render()
     {
         osgViewer::Viewer* viewer = fboItem->getViewer();
         if (!viewer->done()) viewer->frame();
+#ifdef USE_QT6
+        QQuickOpenGLUtils::resetOpenGLState();
+#else
         fboItem->window()->resetOpenGLState();
+#endif
     }
 }
 
@@ -45,7 +49,11 @@ OsgFramebufferObject::OsgFramebufferObject(QQuickItem* parent)
     connect(&_updateTimer, &QTimer::timeout, this, [this]() { update(); });
 }
 
+#ifdef USE_QT6
+void OsgFramebufferObject::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry)
+#else
 void OsgFramebufferObject::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
+#endif
 {
     if (newGeometry.width() > 0 && newGeometry.height() > 0)
     {
@@ -56,7 +64,11 @@ void OsgFramebufferObject::geometryChanged(const QRectF& newGeometry, const QRec
         _graphicsWindow->getEventQueue()->windowResize(newGeometry.x(), newGeometry.y(), w, h);
         _graphicsWindow->resized(newGeometry.x(), newGeometry.y(), w, h);
     }
+#ifdef USE_QT6
+    QQuickFramebufferObject::geometryChange(newGeometry, oldGeometry);
+#else
     QQuickFramebufferObject::geometryChanged(newGeometry, oldGeometry);
+#endif
     update();
 }
 
