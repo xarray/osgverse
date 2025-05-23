@@ -3,8 +3,10 @@ using namespace osgVerse;
 
 void SerializerVisitor::apply(BaseSerializer& obj)
 {
-    SerializerMap::iterator it = _registry.find(std::type_index(typeid(obj)));
+    std::type_index typeID(typeid(obj));
+    SerializerMap::iterator it = _registry.find(typeID);
     if (it != _registry.end()) it->second(obj);
+    else OSG_WARN << "[SerializerVisitor] No callback for " << typeID.name() << std::endl;
 }
 
 void Rewrapper::splitAssociates(const std::string& src)

@@ -1,6 +1,6 @@
 #include <osg/Version>
 #include <iostream>
-
+#include "GenericReserializer.h"
 #include "PythonScript.h"
 using namespace osgVerse;
 

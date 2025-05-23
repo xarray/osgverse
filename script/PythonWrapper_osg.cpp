@@ -12,14 +12,12 @@
 
 using namespace osgVerse;
 void pythonWrapperOsg() {}
-#define MAX_OSG_CLASSES 250
 
-template <int N> struct OsgBase
+/*struct OsgBase
 {
-    int getBindNumber() const { return N; }
     osg::observer_ptr<LibraryEntry> entry;
     osg::ref_ptr<osg::Object> object;
-};
+};*/
 
 #ifdef WITH_PYTHON
 
@@ -128,23 +126,6 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
     }
 }
 
-template<int N> struct OsgBaseGenerator
-{
-    static void create(pybind11::module_& m, LibraryEntry* e, const std::vector<std::string>& classes)
-    {
-        createPythonClass<N>(m, e, classes[N - 1]);
-        OsgBaseGenerator<N - 1>::create(m, e, classes);
-    }
-};
-
-template<> struct OsgBaseGenerator<1>
-{
-    static void create(pybind11::module_& m, LibraryEntry* e, const std::vector<std::string>& classes)
-    {
-        if (!classes.empty()) createPythonClass<1>(m, e, classes[0]);
-    }
-};
-
 PYBIND11_EMBEDDED_MODULE(osg, module)
 {
     pybind11::class_<osg::Vec2f>(module, "Vec2f")
@@ -168,13 +149,8 @@ PYBIND11_EMBEDDED_MODULE(osg, module)
 
     osg::ref_ptr<LibraryEntry> entry = new LibraryEntry("osg");
     const std::set<std::string>& classes = entry->getClasses();
-    if (MAX_OSG_CLASSES < classes.size())
-    {
-        OSG_NOTICE << "[PythonScript] Number of classes to import is too large: "
-            << classes.size() << ", some will be ignored unexceptly" << std::endl;
-    }
 
     std::vector<std::string> classList(classes.begin(), classes.end());
-    OsgBaseGenerator<MAX_OSG_CLASSES>::create(module, entry.get(), classList);
+    ////
 }
 #endif

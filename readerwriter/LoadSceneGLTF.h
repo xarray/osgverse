@@ -15,7 +15,7 @@ namespace osgVerse
     class LoaderGLTF : public osg::Referenced
     {
     public:
-        LoaderGLTF(std::istream& in, const std::string& d, bool isBinary, bool usingPBR = true);
+        LoaderGLTF(std::istream& in, const std::string& d, bool isBinary, bool usingPBR = true, bool yUp = true);
 
         osg::Group* getRoot() { return _root.get(); }
         tinygltf::Model& getModelData() { return _modelDef; }
@@ -71,15 +71,14 @@ namespace osgVerse
         std::map<int, osg::Node*> _nodeCreationMap;
         std::vector<DeferredMeshData> _deferredMeshList;
         std::vector<SkinningData> _skinningDataList;
-        osg::ref_ptr<osg::Group> _root;
-        osg::ref_ptr<osg::NodeCallback> _rtcCenterCallback;
+        osg::ref_ptr<osg::MatrixTransform> _root;
         tinygltf::Model _modelDef;
         std::string _workingDir;
         bool _usingMaterialPBR;
     };
 
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadGltf(
-        const std::string& file, bool isBinary, bool usingPBR = true);
+        const std::string& file, bool isBinary, bool usingPBR = true, bool yUp = true);
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadGltf2(
-        std::istream& in, const std::string& dir, bool isBinary, bool usingPBR = true);
+        std::istream& in, const std::string& dir, bool isBinary, bool usingPBR = true, bool yUp = true);
 }

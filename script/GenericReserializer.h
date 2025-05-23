@@ -29,7 +29,7 @@ namespace osgVerse
     class SerializerVisitor
     {
     public:
-        virtual void apply(BaseSerializer& obj);
+        void apply(BaseSerializer& obj);
         template<typename T> void apply(ValueSerializer<T>& obj);
         virtual void apply(ObjectSerializer& obj) {}
         virtual void apply(ImageSerializer& obj) {}

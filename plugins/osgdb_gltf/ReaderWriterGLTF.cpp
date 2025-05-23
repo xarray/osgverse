@@ -38,7 +38,7 @@ public:
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
-        bool usePseudo = (ext == "verse_gltf");
+        bool usePseudo = (ext == "verse_gltf"), yUp = true;  // FIXME: z-up?
         if (usePseudo)
         {
             fileName = osgDB::getNameLessExtension(path);
@@ -50,7 +50,7 @@ public:
         if (ext == "cmpt")
         {
             std::ifstream fin(fileName, std::ios::in | std::ios::binary);
-            group = readCesiumFormatCmpt(fin, osgDB::getFilePath(fileName));
+            group = readCesiumFormatCmpt(fin, osgDB::getFilePath(fileName), yUp);
         }
         else if (ext == "pnts")
         {
@@ -58,16 +58,16 @@ public:
             group = readCesiumFormatPnts(fin, osgDB::getFilePath(fileName));
         }
         else if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
-            group = osgVerse::loadGltf(fileName, true, noPBR == 0).get();
+            group = osgVerse::loadGltf(fileName, true, noPBR == 0, yUp).get();
         else
-            group = osgVerse::loadGltf(fileName, false, noPBR == 0).get();
+            group = osgVerse::loadGltf(fileName, false, noPBR == 0, yUp).get();
         if (!group) OSG_WARN << "[ReaderWriterGLTF] Failed to load " << fileName << std::endl;
         return group.get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
-        std::string dir = "", mode; bool noPBR = false, isBinary = false;
+        std::string dir = "", mode; bool noPBR = false, isBinary = false, yUp = true;  // FIXME: z-up?
         if (options)
         {
             std::string fileName = options->getPluginStringData("filename");
@@ -80,7 +80,7 @@ public:
                 std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
                 if (dir.empty()) dir = osgDB::getFilePath(fileName);
 
-                if (ext == "cmpt") return readCesiumFormatCmpt(fin, dir);
+                if (ext == "cmpt") return readCesiumFormatCmpt(fin, dir, yUp);
                 else if (ext == "pnts") return readCesiumFormatPnts(fin, dir);
                 else if (ext != "gltf") isBinary = true;
             }
@@ -93,11 +93,11 @@ public:
 
         if (dir.empty() && options && !options->getDatabasePathList().empty())
             dir = options->getDatabasePathList().front();
-        return osgVerse::loadGltf2(fin, dir, isBinary, !noPBR).get();
+        return osgVerse::loadGltf2(fin, dir, isBinary, !noPBR, yUp).get();
     }
 
 protected:
-    osg::Group* readCesiumFormatCmpt(std::istream& fin, const std::string& dir) const
+    osg::Group* readCesiumFormatCmpt(std::istream& fin, const std::string& dir, bool yUp) const
     {
         unsigned char magic[4]; unsigned int version = 0, bytes = 0, tiles = 0;
         fin.read((char*)magic, sizeof(char) * 4); fin.read((char*)&version, sizeof(int));
@@ -122,7 +122,7 @@ protected:
             if ((magic[0] == 'b' && magic[1] == '3' && magic[2] == 'd' && magic[3] == 'm') ||
                 (magic[0] == 'i' && magic[1] == '3' && magic[2] == 'd' && magic[3] == 'm'))
             {
-                osg::ref_ptr<osg::Node> child = osgVerse::loadGltf2(binaryData, dir, true);
+                osg::ref_ptr<osg::Node> child = osgVerse::loadGltf2(binaryData, dir, true, yUp);
                 if (child.valid()) group->addChild(child.get());
             }
             else

@@ -278,7 +278,7 @@ protected:
                 picojson::value& v = tArray.at(i);
                 if (v.is<double>()) m[i] = v.get<double>();
             }
-            mt->setMatrix(osg::Matrix(m));
+            mt->setMatrix(osg::Matrix::rotate(osg::Z_AXIS, osg::Y_AXIS) * osg::Matrix(m));
             mt->addChild(tile.get()); return mt;
         }
         else return tile.release();

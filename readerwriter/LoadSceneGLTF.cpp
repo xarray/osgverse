@@ -113,38 +113,6 @@ namespace osgVerse
         return tinygltf::GetFileSizeInBytes(filesize_out, err, filepath, userData);
     }
 
-    /*class RTCCenterCallback : public osg::NodeCallback
-    {
-    public:
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
-        {
-            osg::Transform* transform = node->asGroup()->asTransform();
-            if (transform != NULL && transform->asMatrixTransform())
-            {
-                osg::Vec3d rtcCenter;
-                if (node->getUserValue("RTC_CENTER", rtcCenter))
-                {
-                    osg::MatrixList matrices = node->getWorldMatrices(getRtcRoot(node));
-                    if (!matrices.empty())
-                    {
-                        osg::Vec3d offset = rtcCenter - matrices[0].getTrans();
-                        if (!osg::equivalent(offset.length2(), 0.0))
-                            transform->asMatrixTransform()->setMatrix(osg::Matrix::translate(offset));
-                    }
-                }
-            }
-            traverse(node, nv);
-        }
-
-        osg::Node* getRtcRoot(osg::Node* node)
-        {
-            bool rtcRoot = false;
-            if (node->getUserValue("RTC_ROOT", rtcRoot)) { if (rtcRoot) return node; }
-            if (node->getNumParents() == 0) return NULL;
-            return getRtcRoot(node->getParent(0));
-        }
-    };*/
-
     static osg::Vec3d ReadRtcCenterFeatureTable(std::vector<char>& data, int offset, int size)
     {
         std::string json; json.assign(data.begin() + offset, data.begin() + size + offset);
@@ -156,7 +124,7 @@ namespace osgVerse
             {
                 picojson::array cValues = center.get<picojson::array>();
                 if (cValues.size() > 2) return osg::Vec3d(
-                    cValues[0].get<double>(), cValues[2].get<double>(), -cValues[1].get<double>());
+                    cValues[0].get<double>(), cValues[1].get<double>(), cValues[2].get<double>());
             }
         }
         return osg::Vec3d();
@@ -165,8 +133,8 @@ namespace osgVerse
     unsigned int ReadB3dmHeader(std::vector<char>& data, osg::Vec3d* rtcCenter = NULL)
     {
         // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Batched3DModel/README.adoc#tileformats-batched3dmodel-batched-3d-model
-        // magic + version + length + featureTableJsonLength + featureTableBinLength +
-        // batchTableJsonLength + batchTableBinLength + <Real feature table> + <Real batch table> + GLTF body
+        // magic(h0) + version(h1) + length(h2) + featureTableJsonLength(h3) + featureTableBinLength(h4) +
+        // batchTableJsonLength(h5) + batchTableBinLength(h6) + <Real feature table> + <Real batch table> + GLTF body
         int header[7], hSize = 7 * sizeof(int); memcpy(header, data.data(), hSize);
         if (rtcCenter && header[3] > 0) *rtcCenter = ReadRtcCenterFeatureTable(data, hSize, header[3]);
         return hSize + header[3] + header[4] + header[5] + header[6];
@@ -175,8 +143,8 @@ namespace osgVerse
     unsigned int ReadI3dmHeader(std::vector<char>& data, unsigned int& format)
     {
         // https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Instanced3DModel/README.adoc#tileformats-instanced3dmodel-instanced-3d-model
-        // magic + version + length + featureTableJsonLength + featureTableBinLength +
-        // batchTableJsonLength + batchTableBinLength + gltfFormat +
+        // magic(h0) + version(h1) + length(h2) + featureTableJsonLength(h3) + featureTableBinLength(h4) +
+        // batchTableJsonLength(h5) + batchTableBinLength(h6) + gltfFormat(h7) +
         // <Real feature table> + <Real batch table> + GLTF body
         int header[8]; memcpy(header, data.data(), 8 * sizeof(int)); format = header[7];
         return 8 * sizeof(int) + header[3] + header[4] + header[5] + header[6];
@@ -284,8 +252,8 @@ namespace osgVerse
         stbi_image_free(data); return true;
     }
 
-    LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary, bool pbr)
-        : _usingMaterialPBR(pbr)
+    LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary,
+                           bool pbr, bool yUp) : _usingMaterialPBR(pbr)
     {
         std::string protocol = osgDB::getServerProtocol(d);
         osgDB::ReaderWriter* rwWeb = (protocol.empty()) ? NULL
@@ -294,7 +262,6 @@ namespace osgVerse
             &osgVerse::FileExists, &tinygltf::ExpandFilePath,
             &osgVerse::ReadWholeFile, &tinygltf::WriteWholeFile,
             &osgVerse::GetFileSizeInBytes, rwWeb };
-        //_rtcCenterCallback = new RTCCenterCallback;
 
         std::string err, warn; bool loaded = false;
         std::istreambuf_iterator<char> eos; osg::Vec3d rtcCenter;
@@ -352,36 +319,7 @@ namespace osgVerse
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
         if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << std::endl;
         if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; return; }
-
-        if (rtcCenter.length2() > 0.0)
-        {
-            osg::MatrixTransform* mt = new osg::MatrixTransform;
-            mt->setMatrix(osg::Matrix::translate(rtcCenter));
-            _root = mt;  //_root->setUserValue("RTC_CENTER", rtcCenter);
-        }
-        else
-        {
-            if (!_modelDef.extensions.empty() &&
-                _modelDef.extensions.find("CESIUM_RTC") != _modelDef.extensions.end())
-            {
-                if (_modelDef.extensions["CESIUM_RTC"].Has("center"))
-                {
-                    const tinygltf::Value& center = _modelDef.extensions["CESIUM_RTC"].Get("center");
-                    if (center.IsArray())
-                    {
-                        const tinygltf::Value::Array& centerData = center.Get<tinygltf::Value::Array>();
-                        if (centerData.size() > 2) rtcCenter.set(
-                            centerData[0].GetNumberAsDouble(), centerData[2].GetNumberAsDouble(),
-                            -centerData[1].GetNumberAsDouble());
-
-                        osg::MatrixTransform* mt = new osg::MatrixTransform;
-                        mt->setMatrix(osg::Matrix::translate(rtcCenter));
-                        _root = mt;  //_root->setUserValue("RTC_CENTER", rtcCenter);
-                    }
-                }
-            }
-            if (!_root) _root = new osg::Group;
-        }
+        _root = new osg::MatrixTransform;
 
         // Preload skin data
         for (size_t i = 0; i < _modelDef.skins.size(); ++i)
@@ -440,6 +378,27 @@ namespace osgVerse
             if (sd.skeletonRoot.valid()) sd.skeletonRoot->addChild(sd.meshRoot.get());
             else _root->addChild(sd.meshRoot.get());
 #endif
+        }
+
+        // Update Y-to-Z and RTC center transformations
+        if (yUp) _root->setMatrix(osg::Matrix::rotate(osg::Y_AXIS, osg::Z_AXIS));
+        if (rtcCenter.length2() > 0.0)
+            _root->setMatrix(_root->getMatrix() * osg::Matrix::translate(rtcCenter));
+        else if (!_modelDef.extensions.empty() &&
+                 _modelDef.extensions.find("CESIUM_RTC") != _modelDef.extensions.end())
+        {
+            if (_modelDef.extensions["CESIUM_RTC"].Has("center"))
+            {
+                const tinygltf::Value& center = _modelDef.extensions["CESIUM_RTC"].Get("center");
+                if (center.IsArray())
+                {
+                    const tinygltf::Value::Array& centerData = center.Get<tinygltf::Value::Array>();
+                    if (centerData.size() > 2) rtcCenter.set(
+                        centerData[0].GetNumberAsDouble(), centerData[2].GetNumberAsDouble(),
+                        -centerData[1].GetNumberAsDouble());
+                    _root->setMatrix(_root->getMatrix() * osg::Matrix::translate(rtcCenter));
+                }
+            }
         }
 
         // Configure animations
@@ -1134,7 +1093,7 @@ namespace osgVerse
         }
     }
 
-    osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary, bool usingPBR)
+    osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary, bool usingPBR, bool yUp)
     {
         std::string workDir = osgDB::getFilePath(file), http = osgDB::getServerProtocol(file);
         if (!http.empty() && http.find("file") == std::string::npos) return NULL;
@@ -1146,15 +1105,15 @@ namespace osgVerse
             return NULL;
         }
 
-        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, workDir, isBinary, usingPBR);
+        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, workDir, isBinary, usingPBR, yUp);
         if (loader->getRoot()) loader->getRoot()->setName(file);
         return loader->getRoot();
     }
 
     osg::ref_ptr<osg::Group> loadGltf2(std::istream& in, const std::string& dir,
-                                       bool isBinary, bool usingPBR)
+                                       bool isBinary, bool usingPBR, bool yUp)
     {
-        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, dir, isBinary, usingPBR);
+        osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, dir, isBinary, usingPBR, yUp);
         return loader->getRoot();
     }
 }
