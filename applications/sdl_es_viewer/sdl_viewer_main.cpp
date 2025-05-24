@@ -73,8 +73,7 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     if (scene.valid()) sceneRoot->addChild(scene.get());
-    sceneRoot->setMatrix(osg::Matrix::scale(125.0f, 125.0f, 125.0f) *
-                         osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
+    sceneRoot->setMatrix(osg::Matrix::scale(125.0f, 125.0f, 125.0f));
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;

@@ -63,7 +63,6 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->addChild(scene.get());
-    sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
     light0->setColor(osg::Vec3(1.5f, 1.5f, 1.2f));

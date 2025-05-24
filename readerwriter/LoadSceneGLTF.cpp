@@ -381,9 +381,12 @@ namespace osgVerse
         }
 
         // Update Y-to-Z and RTC center transformations
-        if (yUp) _root->setMatrix(osg::Matrix::rotate(osg::Y_AXIS, osg::Z_AXIS));
+        osg::ref_ptr<osg::MatrixTransform> rtcRoot;
         if (rtcCenter.length2() > 0.0)
-            _root->setMatrix(_root->getMatrix() * osg::Matrix::translate(rtcCenter));
+        {
+            rtcRoot = new osg::MatrixTransform;
+            rtcRoot->setMatrix(osg::Matrix::translate(rtcCenter));
+        }
         else if (!_modelDef.extensions.empty() &&
                  _modelDef.extensions.find("CESIUM_RTC") != _modelDef.extensions.end())
         {
@@ -392,14 +395,17 @@ namespace osgVerse
                 const tinygltf::Value& center = _modelDef.extensions["CESIUM_RTC"].Get("center");
                 if (center.IsArray())
                 {
-                    const tinygltf::Value::Array& centerData = center.Get<tinygltf::Value::Array>();
-                    if (centerData.size() > 2) rtcCenter.set(
-                        centerData[0].GetNumberAsDouble(), centerData[2].GetNumberAsDouble(),
-                        -centerData[1].GetNumberAsDouble());
-                    _root->setMatrix(_root->getMatrix() * osg::Matrix::translate(rtcCenter));
+                    const tinygltf::Value::Array& cData = center.Get<tinygltf::Value::Array>();
+                    if (cData.size() > 2) rtcCenter.set(
+                        cData[0].GetNumberAsDouble(), cData[1].GetNumberAsDouble(), cData[2].GetNumberAsDouble());
+                    rtcRoot = new osg::MatrixTransform;
+                    rtcRoot->setMatrix(osg::Matrix::translate(rtcCenter));
                 }
             }
         }
+
+        if (yUp) _root->setMatrix(osg::Matrix::rotate(osg::Y_AXIS, osg::Z_AXIS));
+        if (rtcRoot.valid()) { rtcRoot->addChild(_root.get()); _root = rtcRoot; }
 
         // Configure animations
         for (size_t i = 0; i < _modelDef.animations.size(); ++i)

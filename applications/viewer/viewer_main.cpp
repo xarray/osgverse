@@ -268,8 +268,13 @@ int main(int argc, char** argv)
         // Compress and optimize textures (it may take a while)
         // With op: CPU memory = 167.5MB, GPU memory = 0.8GB
         // Without: CPU memory = 401.8MB, GPU memory = 2.1GB
-        osgVerse::TextureOptimizer texOp; scene->accept(texOp);
-        osgDB::writeNodeFile(*scene, "pbr_scene.osgb", options.get());
+        scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
+        if (scene.valid())
+        {
+            osgVerse::TextureOptimizer texOp(true);
+            texOp.setGeneratingMipmaps(true); scene->accept(texOp);
+            osgDB::writeNodeFile(*scene, "pbr_scene.osgb", options.get());
+        }
         return 0;
     }
 
@@ -277,7 +282,6 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->setName("PbrSceneRoot");
     sceneRoot->addChild(scene.get());
-    sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");

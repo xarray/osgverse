@@ -117,18 +117,17 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
         {
             osg::Matrix w = static_cast<osg::MatrixTransform*>(node)->getWorldMatrices()[0];
-            if (_rotated) w = osg::Matrix::rotate(osg::PI_2, osg::X_AXIS) * w;
             if (_scene.valid()) _scene->setMatrix(w); traverse(node, nv);
         }
 
-        UpdatePlacerCallback(osg::MatrixTransform* s, bool r) : _scene(s), _rotated(r) {}
-        osg::observer_ptr<osg::MatrixTransform> _scene; bool _rotated;
+        UpdatePlacerCallback(osg::MatrixTransform* s) : _scene(s) {}
+        osg::observer_ptr<osg::MatrixTransform> _scene;
     };
 
     // Create a scene and a placer on earth for sceneRoot to copy
     osg::ref_ptr<osg::MatrixTransform> scene = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> placer = new osg::MatrixTransform;
-    placer->setUpdateCallback(new UpdatePlacerCallback(scene.get(), true));
+    placer->setUpdateCallback(new UpdatePlacerCallback(scene.get()));
 
     osg::ref_ptr<osg::MatrixTransform> baseScene = new osg::MatrixTransform;
     {

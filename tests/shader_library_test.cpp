@@ -79,7 +79,6 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     if (scene.valid()) sceneRoot->addChild(scene.get());
-    sceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());

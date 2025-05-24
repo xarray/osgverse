@@ -50,7 +50,6 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
-    playerRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(playerRoot.get());
