@@ -23,7 +23,8 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", new osgDB::Options(
-            "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1 UseEarth3D=1"));
+            //"URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1 UseEarth3D=1"));
+            "URL=https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1 UseEarth3D=1"));
     osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFile("G:/OsgData/3dtilesoutfile/tileset.json.verse_tiles");
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

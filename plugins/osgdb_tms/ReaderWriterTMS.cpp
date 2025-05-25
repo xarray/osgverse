@@ -10,6 +10,19 @@
 
 // osgviewer 0-0-0.verse_tms -O "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
 // osgviewer 0-0-x.verse_tms -O "URL=E:\testTMS\{z}\{x}\{y}.png OriginBottomLeft=1"
+/* More tile map servers:
+     TengXun Map: (https://blog.csdn.net/mygisforum/article/details/22997879)
+     - http://p0.map.gtimg.com/demTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
+     - http://p0.map.gtimg.com/sateTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
+     Baidu Map: http://shangetu{s}.map.bdimg.com/it/u=x={x};y={y};z={z};v=009;type=sate&fm=46
+     - {s}: 0, 1, 2, 3
+     Google Map: http://{s}.google.com/vt/lyrs={t}&x={x}&y={y}&z={z}
+     - {s}: mt0, mt1, mt2, mt3
+     - {t}: h = roads only, m = standard roadmap, p = terrain, s = satellite only, t = terrain only, y = hybrid
+     Carto Voyager: https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png
+     - {s}: a, b, c; {r}: no set or @2x
+     ArcGIS: https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}
+*/
 class ReaderWriterTMS : public osgDB::ReaderWriter
 {
 public:

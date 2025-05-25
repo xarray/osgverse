@@ -294,7 +294,7 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
     bool withVelCB = (_velocityCallback != NULL), withDeathCB = (_deathCallback != NULL);
     bool withBirthCB = (_birthCallback != NULL);
     float maxTexSheet = _textureSheetTiles.x() * _textureSheetTiles.y();
-    osg::Vec3 force = (osg::Vec3(0.0f, 0.0f, -9.8f) * _worldToLocal) * _gravityScale;
+    osg::Vec3 force = osg::Vec3(0.0f, 0.0f, -9.8f) * _gravityScale;
 //#pragma omp parallel for
     for (int i = 0; i < sizeInt; ++i)
     {

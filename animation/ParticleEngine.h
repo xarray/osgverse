@@ -25,7 +25,7 @@ namespace osgVerse
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
-        void play() { _started = true; }
+        void play() { _started = true; if (_geometry.valid()) _geometry->dirtyBound(); }
         void stop() { _started = false; }
         bool isPlaying() const { return _started; }
         UpdateMethod getUpdateMethod() const { return _updateMethod; }

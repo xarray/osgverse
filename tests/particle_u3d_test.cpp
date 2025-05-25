@@ -71,7 +71,7 @@ int main(int argc, char** argv)
         turbulenceSmoke->setTextureSheetTiles(osg::Vec2(8.0f, 8.0f));
         turbulenceSmoke->setTextureSheetValues(osg::Vec4(32.0f, 0.0f, 0.0f, 0.0f));
         turbulenceSmoke->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Modulate);
-        turbulenceSmoke->linkTo(particleNodeB.get(), false, vs.get(), fs.get(), gs.get());
+        turbulenceSmoke->linkTo(particleNodeA.get(), false, vs.get(), fs.get(), gs.get());
         particleSystems["turbulenceSmoke"] = turbulenceSmoke.get();
 
         osg::ref_ptr<osgVerse::ParticleSystemU3D> flamesA = new osgVerse::ParticleSystemU3D(method);
@@ -93,7 +93,7 @@ int main(int argc, char** argv)
         flamesA->setTextureSheetTiles(osg::Vec2(6.0f, 5.0f));
         flamesA->setTextureSheetValues(osg::Vec4(15.0f, 0.0f, 0.0f, 0.0f));
         flamesA->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
-        flamesA->linkTo(particleNodeB.get(), false, vs.get(), fs.get(), gs.get());
+        flamesA->linkTo(particleNodeA.get(), false, vs.get(), fs.get(), gs.get());
         particleSystems["flamesA"] = flamesA.get();
 
         osg::ref_ptr<osgVerse::ParticleSystemU3D> flamesB = new osgVerse::ParticleSystemU3D(method);
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
         flamesB->setTextureSheetTiles(osg::Vec2(6.0f, 5.0f));
         flamesB->setTextureSheetValues(osg::Vec4(15.0f, 0.0f, 0.0f, 0.0f));
         flamesB->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
-        flamesB->linkTo(particleNodeB.get(), false, vs.get(), fs.get(), gs.get());
+        flamesB->linkTo(particleNodeA.get(), true, vs.get(), fs.get(), gs.get());
         particleSystems["flamesB"] = flamesB.get();
 
         osg::ref_ptr<osgVerse::ParticleSystemU3D> takeOffSmoke = new osgVerse::ParticleSystemU3D(method);
@@ -144,6 +144,7 @@ int main(int argc, char** argv)
     }
 
     osg::ref_ptr<osg::MatrixTransform> particleMT = new osg::MatrixTransform;
+    //particleMT->setMatrix(osg::Matrix::translate(20.0f, 0.0f, 0.0f));
     particleMT->addChild(particleNodeA.get());
     particleMT->addChild(scene.get());
     root->addChild(particleMT.get());
