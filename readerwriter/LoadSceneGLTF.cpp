@@ -269,6 +269,7 @@ namespace osgVerse
         if (data.empty()) { OSG_WARN << "[LoaderGLTF] Unable to read from stream\n"; return; }
 
         tinygltf::TinyGLTF loader;
+        loader.SetParseStrictness(tinygltf::Permissive);
         loader.SetStoreOriginalJSONForExtrasAndExtensions(true);
         loader.SetImageLoader(&LoadImageDataEx, this);
         loader.SetFsCallbacks(fs, &err);

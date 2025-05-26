@@ -263,7 +263,8 @@ protected:
         if (range < 0.0 || range > 99999.0) range = FLT_MAX;  // invalid range
         range = (range * height) / (_maxScreenSpaceError * sseDenominator);
 
-        osg::BoundingSphered bs = getBoundingSphere(bound);
+        bool isAbsoluteBound = false;  // fIXME: how to handle <region>?
+        osg::BoundingSphered bs = getBoundingSphere(bound, isAbsoluteBound);
         std::string st = rangeSt.is<std::string>() ? rangeSt.get<std::string>() : "";
         if (st.empty()) st = parentRefine;
 
@@ -336,13 +337,9 @@ protected:
                 std::cout << uri << ": REGION = " << bound.center() << "; " << bound.radius() << "\n";*/
 
             if (child0.valid())
-            {
-                osg::BoundingSphered bound2;// = bound;  // FIXME: some <boundingVolume> too far away?
-                osg::BoundingSphere bound0 = child0->getBound();
-                bound2.expandBy(osg::BoundingSphered(bound0.center(), bound0.radius()));
-
+            {   // FIXME: some <boundingVolume> too far away?
                 plod->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
-                plod->setCenter(bound2.center()); plod->setRadius(bound2.radius());
+                plod->setCenter(bound.center()); plod->setRadius(bound.radius());
             }
             else if (bound.valid())
             {
@@ -372,9 +369,9 @@ protected:
         }
     }
 
-    osg::BoundingSphered getBoundingSphere(picojson::value& bv) const
+    osg::BoundingSphered getBoundingSphere(picojson::value& bv, bool& absolutely) const
     {
-        osg::BoundingSphered result;
+        osg::BoundingSphered result; absolutely = false;
         if (bv.contains("box"))
         {
             picojson::value& bb = bv.get("box");
@@ -413,7 +410,7 @@ protected:
                 double lng0 = bArray.at(0).get<double>(), lat0 = bArray.at(1).get<double>();
                 double lng1 = bArray.at(2).get<double>(), lat1 = bArray.at(3).get<double>();
                 double h0 = bArray.at(4).get<double>(), h1 = bArray.at(5).get<double>();
-                double x = 0.0, y = 0.0, z = 0.0;
+                double x = 0.0, y = 0.0, z = 0.0; absolutely = true;
                 _ellipsoid->convertLatLongHeightToXYZ(lat0, lng0, h0, x, y, z);
                 result.expandBy(osg::Vec3d(x, z, -y));
                 _ellipsoid->convertLatLongHeightToXYZ(lat0, lng0, h1, x, y, z);

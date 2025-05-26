@@ -509,6 +509,54 @@ osg::Matrix Coordinate::convertLLAtoNED(const osg::Vec3d& lla, const WGS84& wgs8
     m.setTrans(convertLLAtoECEF(lla, wgs84)); return m;
 }
 
+struct GCJ02_Helper_Degrees
+{
+    static bool outOfChina(double lat, double lng)
+    {
+        if (lat > 0.8293 && lat < 55.8271 && lng > 72.004 && lng < 137.8437) return false;
+        return true;
+    }
+
+    static double transformLatitude(double lat, double lng)
+    {
+        double ret = -100 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * sqrt(fabs(lng));
+        ret += (20.0 * sin(6.0 * lng * osg::PI) + 20.0 * sin(2.0 * lng * osg::PI)) * 2.0 / 3.0;
+        ret += (20.0 * sin(lat * osg::PI) + 40.0 * sin(lat / 3.0 * osg::PI)) * 2.0 / 3.0;
+        ret += (160.0 * sin(lat * osg::PI / 12.0) + 320.0 * sin(lat * osg::PI / 30.0)) * 2.0 / 3.0;
+        return ret;
+    }
+
+    static double transformLongitude(double lat, double lng)
+    {
+        double ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * sqrt(fabs(lng));
+        ret += (20.0 * sin(6.0 * lng * osg::PI) + 20.0 * sin(2.0 * lng * osg::PI)) * 2.0 / 3.0;
+        ret += (20.0 * sin(lng * osg::PI) + 40.0 * sin(lng / 3.0 * osg::PI)) * 2.0 / 3.0;
+        ret += (150.0 * sin(lng * osg::PI / 12.0) + 300.0 * sin(lng * osg::PI / 30.0)) * 2.0 / 3.0;
+        return ret;
+    }
+
+    static void WGS84toGCJ02(double lat0, double lng0, double& lat, double& lng, double A, double EE)
+    {
+        lat = lat0; lng = lng0; if (outOfChina(lat0, lng0)) return;
+        double dlat = transformLatitude(lat0 - 35.0, lng0 - 105.0);
+        double dlng = transformLongitude(lat0 - 35.0, lng0 - 105.0);
+        double radlat = lat0 / 180.0 * osg::PI;
+        double magic = sin(radlat); magic = 1.0 - EE * magic * magic;
+        double sqrtmagic = sqrt(magic);
+        dlat = (dlat * 180.0) / ((A * (1.0 - EE)) / (magic * sqrtmagic) * osg::PI);
+        dlng = (dlng * 180.0) / (A / sqrtmagic * cos(radlat) * osg::PI);
+        lat = lat0 + dlat; lng = lng0 + dlng;
+    }
+};
+
+osg::Vec3d Coordinate::convertWGS84toGCJ02(const osg::Vec3d& lla, const WGS84& wgs84)
+{
+    double lat0 = osg::RadiansToDegrees(lla[0]), lat = 0.0;
+    double lng0 = osg::RadiansToDegrees(lla[1]), lng = 0.0;
+    GCJ02_Helper_Degrees::WGS84toGCJ02(lat0, lng0, lat, lng, wgs84.radiusEquator, wgs84.eccentricitySq);
+    return osg::Vec3d(osg::inDegrees(lat), osg::inDegrees(lng), lla[2]);
+}
+
 /* MathExpression */
 
 MathExpression::MathExpression(const std::string& exp)
@@ -591,7 +639,7 @@ PointCloudQuery::PointCloudQuery()
 PointCloudQuery::~PointCloudQuery()
 {
     PointCloudData* pcd = (PointCloudData*)_queryData;
-    pcd->points.clear(); delete _queryData; _queryData = NULL;
+    pcd->points.clear(); delete pcd; _queryData = NULL;
     delete _index; _index = NULL;
 }
 

@@ -200,6 +200,9 @@ namespace osgVerse
 
         /// Geodetic: latitude and longitude in radius, altitude in metres; NED: north-east-down
         static osg::Matrix convertLLAtoNED(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());
+
+        /// Both: latitude and longitude in radius
+        static osg::Vec3d convertWGS84toGCJ02(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());
     };
 
     /** Computational geometry helpers struct */
