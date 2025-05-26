@@ -5,8 +5,10 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
+
 #include <modeling/Math.h>
 #include <pipeline/Utilities.h>
+typedef std::string (*CreatePathFunc)(const std::string&, int, int, int);
 
 // osgviewer 0-0-0.verse_tms -O "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
 // osgviewer 0-0-x.verse_tms -O "URL=E:\testTMS\{z}\{x}\{y}.png OriginBottomLeft=1"
@@ -31,6 +33,7 @@ public:
         supportsExtension("verse_tms", "osgVerse pseudo-loader");
         supportsExtension("tms", "TMS tile indices");
         supportsOption("URL", "The TMS server URL with wildcards");
+        supportsOption("UrlPathFunction", "The custom function from setPluginData() to compute tile URL");
         supportsOption("UseEarth3D", "Display TMS tiles as a real earth: default=0");
         supportsOption("UseWebMercator", "Use Web Mercator (Level-0 has 4 tiles): default=0");
         supportsOption("OriginBottomLeft", "Use bottom-left as every tile's origin point: default=0");
@@ -134,7 +137,8 @@ protected:
             tileMax = extentMin + osg::Vec3d(double(x + 1) * tileWidth, double(y + 1) * tileHeight, 1.0);
         }
 
-        std::string url = createPath(pseudoPath, x, y, z);
+        CreatePathFunc pathFunc = (CreatePathFunc)opt->getPluginData("UrlPathFunction");
+        std::string url = pathFunc ? pathFunc(pseudoPath, x, y, z) : createPath(pseudoPath, x, y, z);
         std::string postfix = osgDB::getServerProtocol(url).empty() ? "" : ".verse_web";
         osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url + postfix);
         if (image.valid())

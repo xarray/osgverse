@@ -74,7 +74,7 @@ namespace osgVerse
         osg::ref_ptr<osg::MatrixTransform> _root;
         tinygltf::Model _modelDef;
         std::string _workingDir;
-        bool _usingMaterialPBR;
+        bool _usingMaterialPBR, _3dtilesFormat;
     };
 
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadGltf(

@@ -50,7 +50,7 @@ static std::vector<std::string> split(const std::string& src, const char* sepera
 class ReaderWriter3dtiles : public osgDB::ReaderWriter
 {
 public:
-    ReaderWriter3dtiles() : _maxScreenSpaceError(16.0 * 0.1)
+    ReaderWriter3dtiles() : _maxScreenSpaceError(16.0)
     {
         _ellipsoid = new osg::EllipsoidModel;
         _subOptions = new osgDB::Options;
@@ -269,7 +269,7 @@ protected:
         if (st.empty()) st = parentRefine;
 
         osg::ref_ptr<osg::Node> tile = createTile(
-            content, children, bs, range, st, prefix, name, opt.get());
+            content, children, bs, range, st, prefix, name, opt.get(), isAbsoluteBound);
         if (trans.is<picojson::array>())
         {
             picojson::array& tArray = trans.get<picojson::array>();
@@ -288,7 +288,7 @@ protected:
     osg::Node* createTile(picojson::value& content, picojson::value& children,
                           const osg::BoundingSphered& bound, double range, const std::string& st,
                           const std::string& prefix, const std::string& name,
-                          const osgDB::Options* options) const
+                          const osgDB::Options* options, bool absBound) const
     {
         std::string uri = (content.is<picojson::object>() && content.contains("uri"))
                          ? content.get("uri").to_str() : "";
@@ -336,6 +336,18 @@ protected:
             else
                 std::cout << uri << ": REGION = " << bound.center() << "; " << bound.radius() << "\n";*/
 
+            if (child0.valid() && bound.valid())
+            {
+                const osg::BoundingSphere& childBs = child0->getBound();
+                float diff = (childBs.center() - bound.center()).length();
+                if (bound.radius() < diff)
+                {
+                    OSG_WARN << "[ReaderWriter3dtiles] Given bounding volume (center = " << bound.center() << ", r = "
+                             << bound.radius() << ") is totally different with current child bound (center = " << childBs.center()
+                             << ", r = " << childBs.radius() << "). Result may be unexpected." << std::endl;
+                }
+            }
+
             if (child0.valid())
             {   // FIXME: some <boundingVolume> too far away?
                 plod->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
@@ -348,17 +360,11 @@ protected:
             }
             else
                 OSG_WARN << "[ReaderWriter3dtiles] Missing <boundingVolume>?" << std::endl;
-#if true
+
             plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
             if (additive) plod->setRange(0, 0.0f, FLT_MAX);
-            else plod->setRange(0, (float)range * 0.25f, FLT_MAX);
-            plod->setRange(1, 0.0f, (float)range * 0.25f);
-#else
-            plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
-            if (additive) plod->setRange(0, 0.0f, FLT_MAX);
-            else plod->setRange(0, 0.0f, 5000.0f / (float)range);
-            plod->setRange(1, 5000.0f / (float)range, FLT_MAX);
-#endif
+            else plod->setRange(0, (float)range, FLT_MAX);
+            plod->setRange(1, 0.0f, (float)range);
             return plod;
         }
         else

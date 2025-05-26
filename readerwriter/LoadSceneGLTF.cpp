@@ -253,7 +253,7 @@ namespace osgVerse
     }
 
     LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary,
-                           bool pbr, bool yUp) : _usingMaterialPBR(pbr)
+                           bool pbr, bool yUp) : _usingMaterialPBR(pbr), _3dtilesFormat(false)
     {
         std::string protocol = osgDB::getServerProtocol(d);
         osgDB::ReaderWriter* rwWeb = (protocol.empty()) ? NULL
@@ -283,12 +283,12 @@ namespace osgVerse
             {
                 if (data[0] == 'b' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
                 {
-                    offset = ReadB3dmHeader(data, &rtcCenter);
+                    offset = ReadB3dmHeader(data, &rtcCenter); _3dtilesFormat = true;
                     memcpy(&version, &data[0] + offset + 4, 4); tinygltf::swap4(&version);
                 }
                 else if (data[0] == 'i' && data[1] == '3' && data[2] == 'd' && data[3] == 'm')
                 {
-                    offset = ReadI3dmHeader(data, format);
+                    offset = ReadI3dmHeader(data, format); _3dtilesFormat = true;
                     if (format == 0)
                     {
                         std::vector<char> uri(data.size() - offset);
@@ -624,8 +624,12 @@ namespace osgVerse
                         copyBufferData(&weightList[0], &buffer.data[offset], copySize, stride, size);
                     }
                 }
+                else if (attrib->first.compare("_BATCHID") == 0 && compSize == 2 && compNum == 1)
+                {
+                    // TODO: read from b3dm batch table?
+                }
                 else
-                    OSG_WARN << "[LoaderGLTF] Unsupported primitive " << attrib->first << " with "
+                    OSG_WARN << "[LoaderGLTF] Unsupported attribute " << attrib->first << " with "
                              << compNum << "-components and dataSize=" << compSize << std::endl;
             }
 
@@ -841,8 +845,6 @@ namespace osgVerse
         osg::ref_ptr<osg::Image> image2D = _imageMap[tex.source].get();
         if (!image2D)
         {
-            //std::cout << name << ": " << imageSrc.uri << ", Size = "
-            //          << imageSrc.width << "x" << imageSrc.height << "\n";
             osg::ref_ptr<osg::Image> image;
             if (imageSrc.width < 1 || imageSrc.height < 1)
             {
@@ -850,8 +852,11 @@ namespace osgVerse
                 dataIn.write((char*)&imageSrc.image[0], imageSrc.image.size());
                 if (imageSrc.mimeType.find("ktx") != std::string::npos)
                 {
+                    //osg::Timer_t t0 = osg::Timer::instance()->tick();  // FIXME: slow?
                     std::vector<osg::ref_ptr<osg::Image>> imageList = loadKtx2(dataIn, NULL);
                     if (!imageList.empty()) image = imageList[0];
+                    //osg::Timer_t t1 = osg::Timer::instance()->tick();
+                    //std::cout << image->s() << "x" << image->t() << ": " << osg::Timer::instance()->delta_m(t0, t1) << "\n";
                 }
                 if (!image) return;
             }
@@ -885,7 +890,8 @@ namespace osgVerse
         tex2D->setResizeNonPowerOfTwoHint(false);
         tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
         tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
-        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+        if (_3dtilesFormat) tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+        else tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
         tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
         tex2D->setImage(image2D.get()); tex2D->setName(imageSrc.uri);
         ss->setTextureAttributeAndModes(u, tex2D.get());

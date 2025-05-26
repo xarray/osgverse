@@ -27,20 +27,41 @@ public:
     {
         unsigned int numPagedLODs = _activePagedLODList->size();
         //std::cout << "removeExpiredSubgraphs " << numPagedLODs << "...\n";
-
         osgVerse::DatabasePager::removeExpiredSubgraphs(fs);
     }
 };
+
+static std::string replace(std::string& src, const std::string& match, const std::string& v, bool& c)
+{
+    size_t levelPos = src.find(match); if (levelPos == std::string::npos) { c = false; return src; }
+    src.replace(levelPos, match.length(), v); c = true; return src;
+}
+
+static std::string createCustomPath(const std::string& prefix, int x, int y, int z)
+{
+    std::string path = prefix; bool changed = false;
+    //path = replace(path, "{x16}", std::to_string(x / 16), changed);
+    //path = replace(path, "{y16}", std::to_string(y / 16), changed);
+    //y = (int)pow((double)z, 2.0) - y - 1;
+    path = replace(path, "{z}", std::to_string(z), changed);
+    path = replace(path, "{x}", std::to_string(x), changed);
+    path = replace(path, "{y}", std::to_string(y), changed); return path;
+}
 
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", new osgDB::Options(
-            "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1 UseEarth3D=1"));
-            //"URL=https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1 UseEarth3D=1"));
-    osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFile("E:/model/b3dm/tileset.json.verse_tiles");
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(
+        "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1 UseEarth3D=1");
+        //"URL=https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1 UseEarth3D=1");
+        //"URL=http://p0.map.gtimg.com/sateTiles/{z}/{x16}/{y16}/{x}_{y}.jpg UseWebMercator=1 UseEarth3D=1");
+    earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);
+
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
+    osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFiles(arguments);
+    if (!earth || !tiles) return 1;
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
@@ -71,7 +92,7 @@ int main(int argc, char** argv)
 
     osgViewer::Viewer viewer;
     viewer.getCamera()->setNearFarRatio(0.00001);
-    //viewer.setDatabasePager(new MyDatabasePager);
+    viewer.setDatabasePager(new MyDatabasePager);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(trackball.get());
