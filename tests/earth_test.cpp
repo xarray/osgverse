@@ -60,7 +60,7 @@ int main(int argc, char** argv)
     earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);
 
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
-    osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFiles(arguments);
+    osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFiles(arguments, new osgDB::Options("DisabledPBR=1"));
     if (!earth || !tiles) return 1;
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

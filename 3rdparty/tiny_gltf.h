@@ -4542,7 +4542,6 @@ static bool ParseBuffer(Buffer *buffer, std::string *err, const detail::json &o,
                              "Buffer")) {
     return false;
   }
-  byteLength = bin_size;  // FIXME by Wang Rui: to fix some weird b3dm, may this bring new problems?
 
   // In glTF 2.0, uri is not mandatory anymore
   buffer->uri.clear();
@@ -4603,6 +4602,7 @@ static bool ParseBuffer(Buffer *buffer, std::string *err, const detail::json &o,
         return false;
       }
 
+      byteLength = bin_size;  // FIXME by Wang Rui: to fix some weird b3dm, may this bring new problems?
       if (byteLength > bin_size) {
         if (err) {
           std::stringstream ss;
