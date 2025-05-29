@@ -239,12 +239,27 @@ Our project is already tested on graphics cards listed as below:
     - Run commands below in terminal:
       - $ cmake -G "Visual Studio 17 2022" -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" <osgverse_folder>
 2. Desktop Mac OSX
-  - TBD...
+  - Prepare Ninja, Python3 and CMake first. (from Homebrew on MacOSX)
+  - Download and compile GoogleAngle as described in helpers/osg_builder/README.md
+  - Configure OpenSceneGraph with -DOPENGL_PROFILE=GLES3
+  - Configure osgverse to use the specified version of OpenSceneGraph and GoogleAngle as bridge
 3. Android
+  - Download OpenJDK 17 from: https://jdk.java.net/archive/
+    - Unzip and set the JAVA_HOME variable to <jdk_folder>
+  - Download Android command-line tools from: https://developer.android.com/studio#command-line-tools-only
+    - Install SDK following the instructions: https://developer.android.com/tools/sdkmanager
+    - $ <commandline_folder>/bin/sdkmanager "platform-tools" "platforms;android-24"
+  - Download Android NDK from: https://developer.android.com/ndk/downloads/
+  - Download Gradle and add <gradle_folder>/bin to PATH: https://gradle.org/releases/
   - TBD...
-4. IOS
+4. HarmonyOS
+  - Download OpenJDK 17 from: https://jdk.java.net/archive/
+    - Unzip and set the JAVA_HOME variable to <jdk_folder>
+  - Download command-line tools from: https://developer.huawei.com/consumer/cn/download/
   - TBD...
-5. WebAssembly
+5. IOS
+  - TBD...
+6. WebAssembly
   - Download emsdk from https://emscripten.org/docs/getting_started/downloads.html, extracting to <emsdk_folder>.
   - Update and activate emsdk as required at the page above.
   - Build dependencies and save to <osgverse_folder>/../Dependencies/wasm

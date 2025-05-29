@@ -30,9 +30,10 @@ echo 1. Desktop / OpenGL Core Mode
 echo 2. Desktop / Google Angle
 echo 3. WASM / WebGL 1.0
 echo 4. WASM / WebGL 2.0 (optional with osgEarth)
+echo 5. Android / GLES3
 echo q. Quit
 echo -----------------------------------
-set /p BuildMode="Enter selection [0-4] > "
+set /p BuildMode="Enter selection [0-5] > "
 if "!BuildMode!"=="0" (
     :: TODO
     goto todo
@@ -56,6 +57,9 @@ if "!BuildMode!"=="4" (
     set CMakeResultChecker=build\osg_wasm2\CMakeCache.txt
     set BuildModeWasm=1
     goto precheck
+)
+if "!BuildMode!"=="5" (
+    goto precheck_android
 )
 if "!BuildMode!"=="q" (
     goto exit
@@ -127,36 +131,36 @@ if !BuildModeWasm!==1 (
 )
 
 :: Fix some OpenSceneGraph compile errors
-set SED_EXE="%CurrentDir%\wasm\sed.exe"
-%SED_EXE% "s/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g" "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" > FileUtils.cpp.tmp
+set SedEXE=%CurrentDir%\wasm\sed.exe
+%SedEXE% "s/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g" "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" > FileUtils.cpp.tmp
 xcopy /y FileUtils.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp"
-%SED_EXE% "s/std::mem_fun_ref/std::mem_fn/g" "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" > graph_array.h.tmp
+%SedEXE% "s/std::mem_fun_ref/std::mem_fn/g" "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" > graph_array.h.tmp
 xcopy /y graph_array.h.tmp "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h"
-%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+%SedEXE% "s/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
-%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+%SedEXE% "s/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
-%SED_EXE% "s/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+%SedEXE% "s/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
-%SED_EXE% "s/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
+%SedEXE% "s/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
 
 :: Fix WebGL running errors
 if "!BuildMode!"=="3" (
-    sed "s#dlopen(#NULL;\/\/dlopen\/\/(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+    %SedEXE% "s#dlopen(#NULL;\/\/dlopen\/\/(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
     xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
-    sed "s#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
+    %SedEXE% "s#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
     xcopy /y GLExtensions.cpp.tmp "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
 )
 if "!BuildMode!"=="4" (
-    sed "s#dlopen(#NULL;\/\/dlopen\/\/(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+    %SedEXE% "s#dlopen(#NULL;\/\/dlopen\/\/(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
     xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
-    sed "s#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
+    %SedEXE% "s#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
     xcopy /y GLExtensions.cpp.tmp "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
 )
-%SED_EXE% "s#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
+%SedEXE% "s#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
 xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
-%SED_EXE% "s#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g" "%OpenSceneGraphRoot%\src\osg\Image.cpp" > Image.cpp.tmp
+%SedEXE% "s#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g" "%OpenSceneGraphRoot%\src\osg\Image.cpp" > Image.cpp.tmp
 xcopy /y Image.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Image.cpp"
 
 :: Compile OpenSceneGraph
@@ -233,28 +237,95 @@ if "!BuildMode!"=="4" (
 )
 goto exit
 
+:: Android / gradle
+:precheck_android
+set SedEXE=%CurrentDir%\wasm\sed.exe
+set Sdl2Root=%CurrentDir%\..\SDL2
+set GradleLocalPropFile=%CurrentDir%\android\local.properties
+set GradleSettingsFile=%CurrentDir%\android\settings.gradle
+
+where gradle -v >nul 2>&1
+if not %errorlevel%==0 (
+    echo Gradle failed. Please make sure it can be found in PATH variable and JDK 1.7 set in JAVA_HOME variable.
+    goto exit
+)
+
+if not exist %Sdl2Root%\ (
+    echo SDL2 source folder not found. Please download and unzip it in ..\SDL2.
+    goto exit
+)
+
+if not exist %GradleLocalPropFile% (
+    if defined ANDROID_SDK (
+        if defined ANDROID_NDK (
+            set "AndroidPathSDK0=!ANDROID_SDK!"
+            set "AndroidPathNDK0=!ANDROID_NDK!"
+            set "AndroidPathSDK=!AndroidPathSDK0:\=/!"
+            set "AndroidPathNDK=!AndroidPathNDK0:\=/!"
+            @echo off
+            (
+                echo sdk.dir=!AndroidPathSDK!
+                echo ndk.dir=!AndroidPathNDK!
+            ) > "%GradleLocalPropFile%"
+        ) else (
+            echo Environment variable ANDROID_NDK not set. Unable to create local.properties.
+            goto exit
+        )
+    ) else (
+        echo Environment variable ANDROID_SDK not set. Unable to create local.properties.
+        goto exit
+    )
+)
+
+set /p AndroidCheckingFlag="Would you like to set a specific SDK version? (y/n) > "
+if "!AndroidCheckingFlag!"=="y" (
+    set /p BuildToolsVersion="Please set build-tools version (e.g. 24.0.0) > "
+    set /p TargetSdkVersion="Please set target SDK version (e.g. 24) > "
+    set /p MinimumSdkVersion="Please set minimum SDK version (e.g. 21) > "
+    @echo off
+    (
+        echo gradle.ext.buildToolsVersion = '!BuildToolsVersion!'
+        echo gradle.ext.sdkVersion = !TargetSdkVersion!
+        echo gradle.ext.minSdkVersion = !MinimumSdkVersion!
+        echo gradle.ext.targetSdkVersion = !TargetSdkVersion!
+        echo gradle.ext.libDistributionRoot = '../build'
+        echo include ':thirdparty'
+        echo include ':sdl2'
+        echo include ':osg'
+        echo include ':osgverse'
+        echo include ':app'
+    ) > "%GradleSettingsFile%"
+)
+
+cd %CurrentDir%\android
+gradle assembleDebug
+
 :: TODO and exit process
 :todo
 echo Current option is not implemented yet. Be patient :-)
 
 :exit
-if not %errorlevel%==0 echo Last error = %errorlevel%
-endlocal
+if not %errorlevel%==0 (
+    echo Last error = %errorlevel%
+    pause
+)
+cd %CurrentDir%
 
 :: Reset some OpenSceneGraph source code
-%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+%SedEXE% "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
-%SED_EXE% "s/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+%SedEXE% "s/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
-%SED_EXE% "s/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
+%SedEXE% "s/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
-%SED_EXE% "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+%SedEXE% "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
 xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
-%SED_EXE% "s#\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#;glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
+%SedEXE% "s#\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#;glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
 xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
-sed "s#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
+%SedEXE% "s#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
 xcopy /y GLExtensions.cpp.tmp "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
+del /Q *.tmp
 
-cd %CurrentDir%
 echo Quited.
+endlocal
 pause

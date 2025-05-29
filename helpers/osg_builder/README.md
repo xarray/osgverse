@@ -27,7 +27,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
     * <em>cd <path>/angle; python.exe scripts/bootstrap.py</em>
     * <em>gclient sync</em>  '''Make sure you can visit the website!
     * <em>gn gen out/Release</em>  '''Generate makefiles
-    * Set options in args.gn</em> (like: angle_enable_vulkan = true, is_debug = false, etc.)
+    * Set options in args.gn</em> (like: angle_enable_vulkan = true, angle_enable_metal = true, is_debug = false, etc.)
     * <em>cd out/Release; ninja -j4 -k1 -C out/Release</em>
     * Don't forget to copy vulkan-1.dll as well as libEGL.dll and libGLESv2.dll to executable folder.
 * Command-line example: (Windows only)
