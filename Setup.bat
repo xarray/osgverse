@@ -279,8 +279,8 @@ if not exist %GradleLocalPropFile% (
 
 set /p AndroidCheckingFlag="Would you like to set a specific SDK version? (y/n) > "
 if "!AndroidCheckingFlag!"=="y" (
-    set /p BuildToolsVersion="Please set build-tools version (e.g. 24.0.0) > "
-    set /p TargetSdkVersion="Please set target SDK version (e.g. 24) > "
+    set /p BuildToolsVersion="Please set build-tools version (e.g. 32.0.0) > "
+    set /p TargetSdkVersion="Please set target SDK version (e.g. 32) > "
     set /p MinimumSdkVersion="Please set minimum SDK version (e.g. 21) > "
     @echo off
     (

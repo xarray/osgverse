@@ -248,7 +248,7 @@ Our project is already tested on graphics cards listed as below:
     - Unzip and set the JAVA_HOME variable to <jdk_folder>
   - Download Android command-line tools from: https://developer.android.com/studio#command-line-tools-only
     - Install SDK following the instructions: https://developer.android.com/tools/sdkmanager
-    - $ <commandline_folder>/bin/sdkmanager "platform-tools" "platforms;android-24"
+    - $ <commandline_folder>/bin/sdkmanager "platform-tools" "platforms;android-32"
   - Download Android NDK from: https://developer.android.com/ndk/downloads/
   - Download Gradle and add <gradle_folder>/bin to PATH: https://gradle.org/releases/
   - TBD...

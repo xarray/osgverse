@@ -9,7 +9,7 @@
         android:label="@string/app_name"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
         <activity
-            android:name=".SDLActivity"
+            android:name="org.libsdl.app.SDLActivity"
             android:configChanges="keyboardHidden|orientation"
             android:label="@string/app_name">
         </activity>
@@ -17,6 +17,7 @@
         <activity
             android:name="com.osgverse.demoapp.MainActivity"
             android:label="@string/title_activity_main"
+            android:exported="true"
             android:configChanges="orientation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

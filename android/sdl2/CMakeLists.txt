@@ -9,8 +9,8 @@ GET_FILENAME_COMPONENT(SDL2_BUILD_DIR ../../build/sdl2_android ABSOLUTE)
 
 SET(SDL2_DISABLE_INSTALL ON CACHE BOOL "Disable installation of SDL2")
 SET(SDL2_DISABLE_UNINSTALL ON CACHE BOOL "Disable uninstallation of SDL2")
-SET(SDL_SHARED OFF CACHE BOOL "Build a shared version of the library")
-SET(SDL_STATIC ON CACHE BOOL "Build a static version of the library")
+SET(SDL_SHARED ON CACHE BOOL "Build a shared version of the library")
+SET(SDL_STATIC OFF CACHE BOOL "Build a static version of the library")
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SDL2_BUILD_DIR}/bin/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}")
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${SDL2_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}")

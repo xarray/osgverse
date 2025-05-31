@@ -1,4 +1,6 @@
 apply plugin: 'com.android.application'
+def ABI_FILTER = rootProject.ext.ABI_FILTER
+def GLES_PROFILE = rootProject.ext.GLES_PROFILE
 
 android {
     namespace "org.osg"
@@ -6,12 +8,12 @@ android {
     defaultConfig {
         minSdkVersion gradle.minSdkVersion
         targetSdkVersion gradle.targetSdkVersion
-        ndk { abiFilters 'arm64-v8a' }
+        ndk { abiFilters ABI_FILTER }
 
         externalNativeBuild {
             cmake {
                 cppFlags "-frtti -fexceptions"
-                abiFilters 'arm64-v8a'
+                abiFilters ABI_FILTER
                 targets 'OpenThreads', 'osg', 'osgDB', 'osgUtil', 'osgGA', 'osgText', 'osgTerrain',
                         'osgSim', 'osgViewer', 'osgdb_dds', 'osgdb_glsl', 'osgdb_trans',
                         'osgdb_rot', 'osgdb_scale', 'osgdb_osg', 'osgdb_rgb', 'osgdb_bmp',
@@ -23,7 +25,19 @@ android {
         }
     }
     buildTypes {
+        debug {
+            externalNativeBuild {
+                cmake {
+                    arguments "-DCMAKE_BUILD_TYPE=Debug", "-DOPENGL_PROFILE=${GLES_PROFILE}"
+                }
+            }
+        }
         release {
+            externalNativeBuild {
+                cmake {
+                    arguments "-DCMAKE_BUILD_TYPE=Release", "-DOPENGL_PROFILE=${GLES_PROFILE}"
+                }
+            }
             minifyEnabled = false
             proguardFiles.add(file('proguard-rules.txt'))
         }
@@ -36,7 +50,3 @@ android {
 }
 
 preBuild.dependsOn ":thirdparty:build"
-
-dependencies {
-    api project(path:':thirdparty', configuration:'default')
-}

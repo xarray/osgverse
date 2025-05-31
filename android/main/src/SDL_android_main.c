@@ -4,6 +4,13 @@
 #ifdef __ANDROID__
 
 #include "SDL_main.h"
+#define SDL_JAVA_PREFIX                               org_libsdl_app
+#define CONCAT1(prefix, class, function)              CONCAT2(prefix, class, function)
+#define CONCAT2(prefix, class, function)              Java_##prefix##_##class##_##function
+#define SDL_JAVA_INTERFACE(function)                  CONCAT1(SDL_JAVA_PREFIX, SDLActivity, function)
+#define SDL_JAVA_AUDIO_INTERFACE(function)            CONCAT1(SDL_JAVA_PREFIX, SDLAudioManager, function)
+#define SDL_JAVA_CONTROLLER_INTERFACE(function)       CONCAT1(SDL_JAVA_PREFIX, SDLControllerManager, function)
+#define SDL_JAVA_INTERFACE_INPUT_CONNECTION(function) CONCAT1(SDL_JAVA_PREFIX, SDLInputConnection, function)
 
 /*******************************************************************************
                  Functions called by JNI
@@ -11,26 +18,30 @@
 #include <jni.h>
 
 /* Called before SDL_main() to initialize JNI bindings in SDL library */
-extern void SDL_Android_Init(JNIEnv* env, jclass cls);
+//JNIEXPORT int Android_JNI_SetupThread(void);
+JNIEXPORT jstring JNICALL SDL_JAVA_INTERFACE(nativeGetVersion)(JNIEnv *env, jclass cls);
+JNIEXPORT void JNICALL SDL_JAVA_INTERFACE(nativeSetupJNI)(JNIEnv *env, jclass cls);
+JNIEXPORT void JNICALL SDL_JAVA_AUDIO_INTERFACE(nativeSetupJNI)(JNIEnv *env, jclass jcls);
+JNIEXPORT void JNICALL SDL_JAVA_CONTROLLER_INTERFACE(nativeSetupJNI)(JNIEnv *env, jclass jcls);
 
 /* This prototype is needed to prevent a warning about the missing prototype for global function below */
-JNIEXPORT int JNICALL Java_rocks_georgik_sdlapp_SDLActivity_nativeInit(JNIEnv* env, jclass cls, jobject array);
+JNIEXPORT int JNICALL Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cls, jobject array);
 
 /* Start up the SDL app */
-JNIEXPORT int JNICALL Java_rocks_georgik_sdlapp_SDLActivity_nativeInit(JNIEnv* env, jclass cls, jobject array)
+JNIEXPORT int JNICALL Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cls, jobject array)
 {
-    int i;
-    int argc;
-    int status;
-    int len;
+    int i, argc, status, len;
     char** argv;
 
     /* This interface could expand with ABI negotiation, callbacks, etc. */
-    //SDL_Android_Init(env, cls);
+    //Android_JNI_SetupThread();
+    SDL_JAVA_INTERFACE(nativeGetVersion)(env, cls);
+    SDL_JAVA_INTERFACE(nativeSetupJNI)(env, cls);
+    SDL_JAVA_AUDIO_INTERFACE(nativeSetupJNI)(env, cls);
+    SDL_JAVA_CONTROLLER_INTERFACE(nativeSetupJNI)(env, cls);
     SDL_SetMainReady();
 
     /* Prepare the arguments. */
-
     len = (*env)->GetArrayLength(env, array);
     argv = SDL_stack_alloc(char*, 1 + len + 1);
     argc = 0;

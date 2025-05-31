@@ -1,4 +1,4 @@
-package com.osgverse.demoapp;
+package org.libsdl.app;
 
 import java.io.IOException;
 import java.io.InputStream;
