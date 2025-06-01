@@ -10,22 +10,22 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Windows 10       | Visual Studio 2015       | :heavy_check_mark: | Requires VS2015 Update-3 |
 | Windows 10       | MSYS2 (GCC 10.2)         | :heavy_check_mark: |       |
 | Windows 10       | Intel Compiler 2023      | :heavy_check_mark: | cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icx -GNinja .. |
-| Windows 10 UWP   |                          | :soon:             |       |
+| Windows 10 UWP   | Visual Studio 2017-2022  | :heavy_check_mark: | Need to compile an example app |
 | Ubuntu 18.04     | GCC 7.5 (or later)       | :heavy_check_mark: |       |
 | Debian 11.7.0    | GCC 10.2 (or later)      | :heavy_check_mark: |       |
 | Kylin v10        | GCC 8.3 (or later)       | :heavy_check_mark: | Set VERSE_FIND_LEGACY_OPENGL to ON |
 | NeoKylin v7      | GCC 8.5 (built manually) | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | UOS v20          | GCC 8.3 (or later)       | :heavy_check_mark: |       |
 | Mac OS X         | 14.4 or later            | :heavy_check_mark: |       |
-| Android          | Android Studio 2022+     | :heavy_check_mark: | Need to compile an example app |
+| Android          | Android SDK 32 & NDK 27c | :heavy_check_mark: | Need to compile an example app |
 | IOS              |                          | :soon:             |       |
-| WebAssmebly      | WSL + Emscripten 3.1.64  | :heavy_check_mark: | Supports GLES2 (WebGL1) and GLES3 (WebGL2) |
+| WebAssmebly      | Emscripten 3.1.64        | :heavy_check_mark: | Supports GLES2 (WebGL1) and GLES3 (WebGL2) |
 
 #### Main Features (ongoing to v1.0)
 - [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
 - [x] (PARTLY) Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
 - [x] (PARTLY) Supports physics simuation based on Bullet3/PhysX library, and character animation based on OZZ library.
-- [ ] Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
+- [ ] (PARTLY) Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
 - [x] Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
 - [x] Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
 - [x] Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
@@ -80,8 +80,8 @@ Our project is already tested on graphics cards listed as below:
 | AMD Radeon RX5500         | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 15fps |
 | Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
-| MooreThreads S80, S2000   | 3.3 / GLSL 3.3 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
-| PhytiumVR AXT-16-512      | 3.0 / GLSL 3.3 | :heavy_check_mark: | Current frame rate < 10fps. Will go blank if GLSL code has '#include'... Why? |
+| MooreThreads S80, S2000   | 4.1 / GLSL 4.1 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
+| PhytiumVR AXT-16-512      | 3.0 / GLSL 3.3 | :heavy_check_mark: | Current frame rate < 10fps. Will go blank if GLSL code has '#include'? |
 | JingJia Micro JM7201      |                | :soon:             |       |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
 | VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | osgVerse_Test_Pipeline can work; standard can't |

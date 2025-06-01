@@ -13,6 +13,7 @@
 
 #include <modeling/Math.h>
 #include <readerwriter/DatabasePager.h>
+#include <pipeline/IncrementalCompiler.h>
 #include <VerseCommon.h>
 
 #ifndef _DEBUG
@@ -90,9 +91,13 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgGA::TrackballManipulator> trackball = new osgGA::TrackballManipulator;
     trackball->setHomePosition(bs.center() + osg::Z_AXIS * r, bs.center(), osg::Y_AXIS);
 
+    osg::ref_ptr<osgVerse::IncrementalCompiler> incrementalCompiler = new osgVerse::IncrementalCompiler;
+    incrementalCompiler->setCompileCallback(new osgVerse::IncrementalCompileCallback);
+
     osgViewer::Viewer viewer;
     viewer.getCamera()->setNearFarRatio(0.00001);
     viewer.setDatabasePager(new MyDatabasePager);
+    viewer.setIncrementalCompileOperation(incrementalCompiler.get());
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(trackball.get());
