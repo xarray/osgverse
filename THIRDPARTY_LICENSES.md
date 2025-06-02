@@ -10,9 +10,10 @@
 | libCEF           | Depended | > 127.3   | Animation          | BSD          | https://github.com/chromiumembedded/cef |
 | libIGL           | Depended | > 2.5     | Modeling           | MPL2         | https://github.com/libigl/libigl |
 | mimalloc         | Depended | > 2.17    | All                | MIT          | https://github.com/microsoft/mimalloc |
+| netCDF-C         | Depended | > 4.9.3   | verse_netcdf       | BSD3         | https://github.com/Unidata/netcdf-c |
 | OpenVDB          | Depended | > 10.0    | verse_vdb          | MPL2         | https://github.com/AcademySoftwareFoundation/openvdb |
 | osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/gwaldron/osgearth |
-| Qt               | Depended | > 5.5     | App                | LGPL         | |
+| Qt               | Depended | > 5.5     | App                | LGPL         | https://download.qt.io/official_releases/ |
 | any              | Embedded |           | -                  | Boost        | https://github.com/thelink2012/any |
 | ApproxMVBB       | Embedded |           | Modeling           | MPL2         | https://github.com/gabyx/ApproxMVBB |
 | backward-cpp     | Embedded |           | -                  | MIT          | https://github.com/bombela/backward-cpp |
