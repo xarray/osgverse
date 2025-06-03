@@ -30,7 +30,8 @@ namespace osgVerse
     {
     public:
         FixedFunctionOptimizer()
-            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _toRemoveShaders(false) {}
+        void setRemovingOriginalShaders(bool b) { _toRemoveShaders = b; }
 
         virtual void apply(osg::Geometry& geom);
         virtual void apply(osg::Geode& geode);
@@ -39,6 +40,7 @@ namespace osgVerse
     protected:
         bool removeUnusedStateAttributes(osg::StateSet* ssPtr);
         std::vector<osg::ref_ptr<osg::StateAttribute>> _materialStack;
+        bool _toRemoveShaders;
     };
 
     class OSGVERSE_RW_EXPORT TextureOptimizer : public osg::NodeVisitor

@@ -53,8 +53,6 @@ public:
     ReaderWriter3dtiles() : _maxScreenSpaceError(16.0)
     {
         _ellipsoid = new osg::EllipsoidModel;
-        _subOptions = new osgDB::Options;
-
         supportsExtension("verse_tiles", "Pseudo file extension");
         supportsExtension("xml", "coordinate file of ContextCapture (metadata.xml)");
         supportsExtension("json", "Decription file of 3dtiles");
@@ -225,7 +223,7 @@ protected:
     osg::Node* createTileChildren(picojson::array& children, const std::string& name,
                                   const osgDB::Options* localOptions) const
     {
-        osg::ref_ptr<osgDB::Options> opt = _subOptions->cloneOptions();
+        osg::ref_ptr<osgDB::Options> opt = localOptions ? localOptions->cloneOptions() : new osgDB::Options;
         std::string refine = localOptions->getPluginStringData("refinement");
         std::string prefix = localOptions->getPluginStringData("prefix");
 
@@ -250,7 +248,7 @@ protected:
     osg::Node* createTile(picojson::value& root, const std::string& prefix, const std::string& name,
                           const std::string& parentRefine, const osgDB::Options* options) const
     {
-        osg::ref_ptr<osgDB::Options> opt = _subOptions->cloneOptions();
+        osg::ref_ptr<osgDB::Options> opt = options ? options->cloneOptions() : new osgDB::Options;
         picojson::value& bound = root.get("boundingVolume");
         picojson::value& content = root.get("content");
         picojson::value& rangeV = root.get("geometricError");
@@ -324,7 +322,8 @@ protected:
 
             // Put <children> to a virtual file with options to fit OSG's LOD structure
             osgDB::StringList parts; osgDB::split(name, parts, '-');
-            osgDB::Options* childOpt = new osgDB::Options(children.serialize());
+            osgDB::Options* childOpt = options ? options->cloneOptions() : new osgDB::Options;
+            childOpt->setOptionString(children.serialize());
             childOpt->setPluginStringData("fallback", uri + (ext == "json" ? ".verse_tiles" : ".verse_gltf"));
             childOpt->setPluginStringData("refinement", st);
             plod->setDatabaseOptions(childOpt);
@@ -433,7 +432,6 @@ protected:
     }
 
     osg::ref_ptr<osg::EllipsoidModel> _ellipsoid;
-    osg::ref_ptr<osgDB::Options> _subOptions;
     double _maxScreenSpaceError;
 };
 

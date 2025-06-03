@@ -363,6 +363,7 @@ int main(int argc, char** argv)
     viewer.setRealizeOperation(new GLDebugOperation);
 
     osgVerse::FixedFunctionOptimizer ffo;
+    if (arguments.read("--no-original-shaders")) ffo.setRemovingOriginalShaders(true);
     root->accept(ffo);
 #else
     // Always call viewer.setUp*() before setupStandardPipeline()!
@@ -392,8 +393,7 @@ int main(int argc, char** argv)
             pipeline->getStage("GBuffer")->getProgram()->clone(osg::CopyOp::DEEP_COPY_ALL));
         gbufferProg->setName("Custom_GBuffer_PROGRAM");
         gbufferProg->addSegment(osg::Shader::FRAGMENT, 1, "diffuse.rgb = vec3(1.0, 0.0, 0.0);");
-        scene->getOrCreateStateSet()->setAttribute(
-            gbufferProg.get(), osg::StateAttribute::ON | osg::StateAttribute::PROTECTED);
+        scene->getOrCreateStateSet()->setAttribute(gbufferProg.get(), osg::StateAttribute::ON);
     }
 
     osg::Vec3 bkColor(0.2f, 0.2f, 0.4f);

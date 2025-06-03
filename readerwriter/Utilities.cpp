@@ -190,6 +190,7 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     ss.removeAttribute(osg::StateAttribute::POINT);
     ss.removeAttribute(osg::StateAttribute::POLYGONSTIPPLE);
     ss.removeAttribute(osg::StateAttribute::SHADEMODEL);
+    if (_toRemoveShaders) ss.removeAttribute(osg::StateAttribute::PROGRAM);
 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     osg::StateSet::TextureAttributeList texAttrs = ss.getTextureAttributeList();

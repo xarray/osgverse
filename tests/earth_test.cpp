@@ -1,6 +1,7 @@
 #include <osg/io_utils>
-#include <osg/LightSource>
 #include <osg/Texture2D>
+#include <osg/BindImageTexture>
+#include <osg/DispatchCompute>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
@@ -20,6 +21,80 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 #endif
+
+static const char* resizeSrc = {
+    "#version 430 core \n"
+    "layout (local_size_x = 16, local_size_y = 16) in; \n"
+    "layout (binding = 0) uniform sampler2D sourceTexture; \n"
+    "layout (binding = 1, rgba8) writeonly uniform image2D targetTexture; \n"
+    "void main() { \n"
+    "    ivec2 targetCoord = ivec2(gl_GlobalInvocationID.xy); \n"
+    "    vec2 sourceCoord = vec2(targetCoord) * 2.0 / vec2(textureSize(sourceTexture, 0)); \n"
+    "    vec4 color = texture(sourceTexture, sourceCoord); \n"
+    "    imageStore(targetTexture, targetCoord, color.bbba); \n"
+    "} \n"
+};
+
+class UserIncrementalCompileCallback : public osgVerse::IncrementalCompileCallback
+{
+public:
+    UserIncrementalCompileCallback() : osgVerse::IncrementalCompileCallback()
+    {
+        osg::ref_ptr<osg::Program> resizeProgram = new osg::Program;
+        resizeProgram->addShader(new osg::Shader(osg::Shader::COMPUTE, resizeSrc));
+
+        _compute = new osg::DispatchCompute;
+        _compute->setDataVariance(osg::Object::DYNAMIC);
+        _compute->getOrCreateStateSet()->setAttributeAndModes(resizeProgram.get());
+        _compute->getOrCreateStateSet()->addUniform(new osg::Uniform("sourceTexture", (int)0));
+        _compute->getOrCreateStateSet()->addUniform(new osg::Uniform("targetTexture", (int)1));
+    }
+
+    virtual bool compile(ICO::CompileTextureOp* op, ICO::CompileInfo& compileInfo)
+    {
+#if false
+        osg::State* state = compileInfo.getState();
+        if (glCopyImageSubData == NULL) osg::setGLExtensionFuncPtr(
+            glCopyImageSubData, "glCopyImageSubData", "glCopyImageSubDataEXT", "glCopyImageSubDataNV", true);
+
+        osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+        if (op->_texture->getImage(0))
+        {
+            osg::Image* img = op->_texture->getImage(0);
+            tex2D->setTextureSize(img->s() / 2, img->t() / 2);
+        }
+        else
+            tex2D->setTextureSize(op->_texture->getTextureWidth() / 2, op->_texture->getTextureHeight() / 2);
+        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+        tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+        tex2D->setInternalFormat(GL_RGBA8); tex2D->setSourceFormat(GL_RGBA);
+        tex2D->setSourceType(GL_UNSIGNED_BYTE);
+        if (tex2D->getTextureWidth() == 0 || tex2D->getTextureHeight() == 0)
+            return osgVerse::IncrementalCompileCallback::compile(op, compileInfo);
+
+        osg::ref_ptr<osg::Texture::TextureObject> tobj =
+            osg::Texture::generateTextureObject(tex2D.get(), state->getContextID(), GL_TEXTURE_2D);
+        tex2D->setTextureObject(state->getContextID(), tobj.get());
+
+        osg::ref_ptr<osg::BindImageTexture> binding = new osg::BindImageTexture(
+            1, tex2D.get(), osg::BindImageTexture::WRITE_ONLY, GL_RGBA8);
+        state->apply(_compute->getStateSet());
+        state->applyTextureMode(0, op->_texture->getTextureTarget(), true);
+        state->applyTextureAttribute(0, op->_texture.get());
+        state->applyTextureMode(1, op->_texture->getTextureTarget(), true);
+        state->applyTextureAttribute(1, tex2D.get());
+        state->applyAttribute(binding.get());
+        _compute->setComputeGroups(
+            (tex2D->getTextureWidth() + 15) / 16, (tex2D->getTextureHeight() + 15) / 16, 1);
+        _compute->draw(compileInfo); return true;
+#else
+        return osgVerse::IncrementalCompileCallback::compile(op, compileInfo);
+#endif
+    }
+
+protected:
+    osg::ref_ptr<osg::DispatchCompute> _compute;
+};
 
 class MyDatabasePager : public osgVerse::DatabasePager
 {
@@ -70,7 +145,7 @@ int main(int argc, char** argv)
     
     osg::Vec3 dir = tiles->getBound().center(); dir.normalize();
     osg::ref_ptr<osg::MatrixTransform> tileMT = new osg::MatrixTransform;
-    tileMT->setMatrix(osg::Matrix::translate(-dir * 380.0f));
+    //tileMT->setMatrix(osg::Matrix::translate(-dir * 380.0f));
     tileMT->addChild(tiles.get());
 
     osg::ref_ptr<osg::EllipsoidModel> em = new osg::EllipsoidModel;
@@ -92,7 +167,7 @@ int main(int argc, char** argv)
     trackball->setHomePosition(bs.center() + osg::Z_AXIS * r, bs.center(), osg::Y_AXIS);
 
     osg::ref_ptr<osgVerse::IncrementalCompiler> incrementalCompiler = new osgVerse::IncrementalCompiler;
-    incrementalCompiler->setCompileCallback(new osgVerse::IncrementalCompileCallback);
+    incrementalCompiler->setCompileCallback(new UserIncrementalCompileCallback);
 
     osgViewer::Viewer viewer;
     viewer.getCamera()->setNearFarRatio(0.00001);

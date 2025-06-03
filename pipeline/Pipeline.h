@@ -138,7 +138,7 @@ namespace osgVerse
             osg::ref_ptr<osg::Camera> camera; std::string name;
             osg::Matrix projectionOffset, viewOffset;
             osg::Vec2d depthPartition;  // x: 0=none, 1=front, 2=back; y: global near
-            bool inputStage, deferred;
+            bool inputStage, deferred, overridedPrograms;
 
             void applyBuffer(Stage& s, const std::string& buffer, int unit,
                              osg::Texture::WrapMode wp = (osg::Texture::WrapMode)0);
@@ -163,11 +163,11 @@ namespace osgVerse
             osg::Texture* getBufferTexture(const std::string& name)
             { return (outputs.find(name) != outputs.end()) ? outputs[name].get() : NULL; }
 
-            Stage() : name("Undefined"), inputStage(false), deferred(false) {}
+            Stage() : name("Undefined"), inputStage(false), deferred(false), overridedPrograms(false) {}
             Stage(const Stage& s)
                 : outputs(s.outputs), uniforms(s.uniforms), runner(s.runner),
                   camera(s.camera), name(s.name), depthPartition(s.depthPartition),
-                  inputStage(s.inputStage), deferred(s.deferred) {}
+                  inputStage(s.inputStage), deferred(s.deferred), overridedPrograms(s.overridedPrograms) {}
         };
 
         Pipeline(int glContextVer = 100, int glslVer = 120);
@@ -281,9 +281,6 @@ namespace osgVerse
         int getGlslTargetVersion() const { return _glslTargetVersion; }
         int getGlCurrentVersion() const { return _glVersion; }
 
-        void setOverridePrograms(bool b) { _overridePrograms = b; }
-        bool getOverridePrograms() const { return _overridePrograms; }
-
         /** Check if a camera is created by this pipeline (stage or forward) */
         bool isValidCamera(osg::Camera* cam) const
         { return getStage(cam) != NULL || (_forwardCamera == cam); }
@@ -316,7 +313,6 @@ namespace osgVerse
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;
         int _glContextVersion, _glVersion, _glslTargetVersion;
-        bool _overridePrograms;
     };
 
     /** Standard pipeline parameters */

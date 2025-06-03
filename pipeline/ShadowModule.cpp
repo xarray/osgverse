@@ -406,6 +406,7 @@ namespace osgVerse
         stage->camera->setUserValue("PipelineCullMask", casterMask);  // replacing setCullMask()
         stage->camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
         stage->outputs["ShadowOutput"] = _shadowMaps[id].get();
+        stage->overridedPrograms = true;  // all child shaders must be disabled
         stage->parentModule = this; return stage;
     }
 
