@@ -1,4 +1,6 @@
 #include <picojson.h>
+#include <iostream>
+#include <sstream>
 #include "MaterialGraph.h"
 using namespace osgVerse;
 
@@ -16,10 +18,31 @@ static std::vector<double> readFromValues(picojson::value& value)
     return values;
 }
 
+static std::string setFromValues(const std::vector<double>& values, unsigned int num = 3)
+{
+    unsigned int size = values.size();
+    std::stringstream ss; if (size == 0) return "0.0";
+    for (unsigned int i = 0; i < num; ++i)
+    { if (i > 0) ss << ","; ss << (i < size ? values[i] : values[0]); }
+    return ss.str();
+}
+
 MaterialGraph* MaterialGraph::instance()
 {
     static osg::ref_ptr<MaterialGraph> s_instance = new MaterialGraph;
     return s_instance.get();
+}
+
+MaterialGraph::MaterialLink* MaterialGraph::findLink(MaterialLinkList& links, MaterialNode* node,
+                                                     MaterialPin* pin, bool findFrom)
+{
+    for (size_t i = 0; i < links.size(); ++i)
+    {
+        MaterialLink* link = links[i].get();
+        if (findFrom) { if (link->nodeTo == node && link->pinTo == pin) return link; }
+        else { if (link->nodeFrom == node && link->pinFrom == pin) return link; }
+    }
+    return NULL;
 }
 
 bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
@@ -32,6 +55,7 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
                  << err << std::endl; return false;
     }
 
+    unsigned int idCount = 0;
     if (dataRoot.contains("VERSE_material_graph"))
     {
         std::string graphString = dataRoot.get("VERSE_material_graph").get<std::string>();
@@ -42,7 +66,7 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
                      << err << std::endl; return false;
         }
 
-        std::map<std::string, osg::ref_ptr<MaterialNode>> nodes;
+        MaterialNodeMap nodes;
         if (graphRoot.contains("nodes"))
         {
             picojson::value nodesJson = graphRoot.get("nodes");
@@ -60,7 +84,7 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
                     if (name.empty() || type.empty()) continue;
 
                     MaterialNode* node = new MaterialNode;
-                    node->name = name; node->type = type;
+                    node->name = name; node->type = type; node->id = idCount++;
                     if (!imgJson.is<picojson::null>() && imgJson.contains("filepath"))
                         node->imagePath = imgJson.get("filepath").get<std::string>();
 
@@ -74,8 +98,9 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
                             std::string type = p.contains("type") ? p.get("type").get<std::string>() : "";
                             picojson::value def = p.contains("default_value") ? p.get("default_value") : picojson::value();
 
-                            MaterialPin* pin = new MaterialPin; node->inputs[name] = pin;
+                            MaterialPin* pin = new MaterialPin;
                             pin->name = name; pin->type = type; pin->values = readFromValues(def);
+                            pin->id = idCount++; node->inputs[name] = pin;
                         }
                     }
 
@@ -89,8 +114,9 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
                             std::string type = p.contains("type") ? p.get("type").get<std::string>() : "";
                             picojson::value def = p.contains("default_value") ? p.get("default_value") : picojson::value();
 
-                            MaterialPin* pin = new MaterialPin; node->outputs[name] = pin;
+                            MaterialPin* pin = new MaterialPin;
                             pin->name = name; pin->type = type; pin->values = readFromValues(def);
+                            pin->id = idCount++; node->outputs[name] = pin;
                         }
                     }
                     nodes[name] = node;
@@ -98,7 +124,7 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
             }
         }
 
-        std::vector<osg::ref_ptr<MaterialLink>> links;
+        MaterialLinkList links;
         if (graphRoot.contains("links"))
         {
             picojson::value linksJson = graphRoot.get("links");
@@ -125,8 +151,82 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
             }
         }
 
-        std::cout << graphRoot.serialize(true) << std::endl;  // TODO
+        processBlenderLinks(nodes, links, ss);
+        //std::cout << graphRoot.serialize(true) << std::endl;
         return true;
     }
     return false;
+}
+
+void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList& links, osg::StateSet& ss)
+{
+    std::vector<MaterialLink*> endLinks;
+    for (size_t i = 0; i < links.size(); ++i)
+    {
+        if (links[i]->nodeTo->name.find("BSDF") != std::string::npos)
+            endLinks.push_back(links[i].get());
+    }
+
+    std::string glslCode, glslVars, glslGlobal;
+    for (size_t i = 0; i < links.size(); ++i)
+    {
+        MaterialLink* eL = links[i]; std::stringstream str, gShader;
+        str << "var_" << eL->nodeFrom->id << "_" << eL->pinFrom->id;
+
+        glslGlobal = "VERSE_FS_IN vec2 uv;\nVERSE_FS_OUT vec4 fragData;\n";
+        glslVars = "vec3 " + str.str() + " = vec3(" + setFromValues(eL->pinFrom->values) + ");\n";
+        glslCode = "fragData = vec3(" + str.str() + ", 1.0);\nVERSE_FS_FINAL(fragData);\n";
+        processBlenderLink(glslCode, glslVars, glslGlobal, links, ss, eL->nodeFrom.get(), eL->pinFrom.get());
+
+        gShader << glslGlobal << "void main() {\n" << glslVars << glslCode << "}\n";
+        std::cout << "[" << eL->pinTo->name << "]\n" << gShader.str() << std::endl;  // TODO
+    }
+}
+
+void MaterialGraph::processBlenderLink(std::string& glslCode, std::string& glslVars, std::string& glslGlobal,
+                                       MaterialLinkList& links, osg::StateSet& ss,
+                                       MaterialNode* lastNode, MaterialPin* lastOutPin)
+{
+    std::stringstream dst; dst << "var_" << lastNode->id << "_" << lastOutPin->id;
+    if (lastNode->type == "TEX_IMAGE")
+    {
+        std::stringstream vTex, sTex; vTex << "var_tex" << lastNode->id; sTex << "tex" << lastNode->id;
+        glslGlobal = "uniform sampler2D " + sTex.str() + ";\n" + glslGlobal;
+        glslVars = "vec4 " + vTex.str() + " = VERSE_TEX2D(" + sTex.str() + ", uv);\n" + glslVars;
+        glslCode = dst.str() + " = vec3(" + vTex.str() + ");\n" + glslCode;
+        // TODO: continue find prior nodes?
+    }
+    else if (lastNode->type == "NORMAL_MAP")
+    {
+
+    }
+    else if (lastNode->type == "BRIGHTCONTRAST")
+    {
+        MaterialPin* bright = lastNode->inputs["Bright"].get();
+        MaterialPin* contrast = lastNode->inputs["Contrast"].get();
+        MaterialPin* inColor = lastNode->inputs["Color"].get();
+
+        std::stringstream brightV, contrastV, colorV;
+        brightV << "var_" << lastNode->id << "_" << bright->id;
+        contrastV << "var_" << lastNode->id << "_" << contrast->id;
+        colorV << "var_" << lastNode->id << "_" << inColor->id;
+
+        glslVars = "vec3 " + brightV.str() + " = vec3(" + setFromValues(bright->values) + ");\n"
+                 + "vec3 " + contrastV.str() + " = vec3(" + setFromValues(contrast->values) + ");\n"
+                 + "vec3 " + colorV.str() + " = vec3(" + setFromValues(inColor->values) + ");\n" + glslVars;
+        glslCode = dst.str() + " = vec3(" + colorV.str() + ");\n" + glslCode;  // TODO
+
+        MaterialLink* linkToBright = findLink(links, lastNode, bright, true);
+        MaterialLink* linkToContrast = findLink(links, lastNode, contrast, true);
+        MaterialLink* linkToColor = findLink(links, lastNode, inColor, true);
+
+        if (linkToBright) processBlenderLink(
+            glslCode, glslVars, glslGlobal, links, ss, linkToBright->nodeFrom.get(), linkToBright->pinFrom.get());
+        if (linkToContrast) processBlenderLink(
+            glslCode, glslVars, glslGlobal, links, ss, linkToContrast->nodeFrom.get(), linkToContrast->pinFrom.get());
+        if (linkToColor) processBlenderLink(
+            glslCode, glslVars, glslGlobal, links, ss, linkToColor->nodeFrom.get(), linkToColor->pinFrom.get());
+    }
+    else
+        OSG_WARN << "[MaterialGraph] Unsupported link node type: " << lastNode->type << std::endl;
 }
