@@ -836,7 +836,8 @@ namespace osgVerse
     {
         osg::StateSet* ss = deferred ?
             runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
-        if (ss->getUniform(u->getName()) == NULL) ss->addUniform(u);
+        osg::Uniform* u0 = ss->getUniform(u->getName());
+        if (u0 != NULL) ss->removeUniform(u0); ss->addUniform(u);
 #if VERBOSE_CREATING
         OSG_NOTICE << "  Uniform: " << u->getName() << std::endl;
 #endif

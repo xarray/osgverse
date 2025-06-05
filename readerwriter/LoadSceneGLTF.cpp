@@ -12,6 +12,7 @@
 #include "animation/TweenAnimation.h"
 #include "animation/BlendShapeAnimation.h"
 #include "pipeline/Utilities.h"
+#include "MaterialGraph.h"
 #include "LoadTextureKTX.h"
 #include <libhv/all/client/requests.h>
 #include <picojson.h>
@@ -806,15 +807,14 @@ namespace osgVerse
         if (normalID >= 0 && _usingMaterialPBR)
             createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
 
-        if (material.alphaMode.compare("BLEND") == 0)
-            ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-        else
-            ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+        if (material.alphaMode.compare("BLEND") == 0) ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        else ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
 
-        if (material.doubleSided)
-            ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-        else
-            ss->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
+        if (material.doubleSided) ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+        else ss->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
+
+        if (!material.extras_json_string.empty())
+            MaterialGraph::instance()->readFromBlender(material.extras_json_string, *ss);
     }
 
     void LoaderGLTF::createTexture(osg::StateSet* ss, int u,

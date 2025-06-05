@@ -15,6 +15,7 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Pipeline.h>
 #include <pipeline/UserInputModule.h>
+#include <pipeline/HistoryBufferCallback.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <iostream>
@@ -55,11 +56,17 @@ protected:
 static const char* middleFragmentShaderCode =
 {
     "uniform sampler2D DiffuseMetallicBuffer;\n"
+    "uniform sampler2D HistoryBuffer;\n"
+    "uniform bool UseHistory;"
     "VERSE_FS_IN vec4 texCoord0;\n"
     "VERSE_FS_OUT vec4 fragData;\n"
     "void main() {\n"
     "    vec2 uv0 = texCoord0.xy;\n"
     "    vec4 color = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);\n"
+    "    if (UseHistory) {\n"
+    "        vec4 history = VERSE_TEX2D(HistoryBuffer, uv0);\n"
+    "        color = (color + history) * 0.5;\n"
+    "    }\n"
     "    fragData = color.bgra;\n"  // some very simple trick...
     "    VERSE_FS_FINAL(fragData);\n"
     "}\n"
@@ -91,11 +98,12 @@ static const char* inputFragmentShaderCode =
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
-    if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
+
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
+    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
+    if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
     osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
@@ -163,19 +171,20 @@ int main(int argc, char** argv)
             "EmissionOcclusionBuffer", osgVerse::Pipeline::RGBA_FLOAT16,
             "DepthBuffer", osgVerse::Pipeline::DEPTH24_STENCIL8);
 
-#if false
-        // Optional, add another custom input pass, which may use forward pipeline to render
-        // transparent objects and third party nodekits.
-        osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
+        if (arguments.read("--user-module-pre"))
         {
-            osgVerse::Pipeline::Stage* customIn = inModule->createStages(
-                NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
-                NULL, CUSTOM_INPUT_MASK,
-                "ColorBuffer", gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
-                "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+            // Optional, add another custom input pass, which may use forward pipeline to render
+            // transparent objects and third party nodekits.
+            osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
+            {
+                osgVerse::Pipeline::Stage* customIn = inModule->createStages(
+                    NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                    NULL, CUSTOM_INPUT_MASK,
+                    "ColorBuffer", gbuffer->getBufferTexture("DiffuseMetallicBuffer"),
+                    "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+            }
+            viewer.getCamera()->addUpdateCallback(inModule);
         }
-        viewer.getCamera()->addUpdateCallback(inModule);
-#endif
 
         // 4. Add a custom middle stage
         osgVerse::Pipeline::Stage* testStage = pipeline->addWorkStage("TestStage", 1.0f,
@@ -185,19 +194,32 @@ int main(int argc, char** argv)
         //testStage->applyBuffer("ColorBuffer", 0, pipeline.get());  // get last buffer
         testStage->applyBuffer(*gbuffer, "DiffuseMetallicBuffer", 0);
 
-#if true
-        // Optional, add another custom input pass, which may use forward pipeline to render
-        // transparent objects and third party nodekits.
-        osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
+        if (arguments.read("--with-history"))
         {
-            osgVerse::Pipeline::Stage* customIn = inModule->createStages(
-                NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
-                NULL, CUSTOM_INPUT_MASK,
-                "ColorBuffer", testStage->getBufferTexture("MiddleBuffer"),
-                "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+            // Optional, a stage can record its history buffer data and re-use it at any time.
+            // The history buffer is always helpful for post effects like motion-blur or TAA.
+            osg::ref_ptr<osgVerse::HistoryBufferCallback> history = new osgVerse::HistoryBufferCallback;
+            history->setup(testStage, "MiddleBuffer");
+            history->applyStageTexture("HistoryBuffer", 1);
+            testStage->applyUniform(new osg::Uniform("UseHistory", true));
         }
-        viewer.getCamera()->addUpdateCallback(inModule);
-#endif
+        else
+            testStage->applyUniform(new osg::Uniform("UseHistory", false));
+
+        if (arguments.read("--user-module-post"))
+        {
+            // Optional, add another custom input pass, which may use forward pipeline to render
+            // transparent objects and third party nodekits.
+            osgVerse::UserInputModule* inModule = new osgVerse::UserInputModule("Forward", pipeline.get());
+            {
+                osgVerse::Pipeline::Stage* customIn = inModule->createStages(
+                    NULL, NULL,//new osg::Shader(osg::Shader::FRAGMENT, inputFragmentShaderCode),
+                    NULL, CUSTOM_INPUT_MASK,
+                    "ColorBuffer", testStage->getBufferTexture("MiddleBuffer"),
+                    "DepthBuffer", gbuffer->getBufferTexture(osg::Camera::DEPTH_BUFFER));
+            }
+            viewer.getCamera()->addUpdateCallback(inModule);
+        }
 
         // 5. Add a custom display stage
         osgVerse::Pipeline::Stage* output = pipeline->addDisplayStage("Final",

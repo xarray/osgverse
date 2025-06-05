@@ -64,7 +64,7 @@ def get_material_node_tree_VERSE(material, blender_material):
                     input_info["default_value"] = input.default_value
                 inputs_info.append(input_info)
             node_info["inputs"] = inputs_info
-        
+
         if hasattr(node, 'outputs') and node.outputs:
             outputs_info = []
             for output in node.outputs:
@@ -85,10 +85,10 @@ def get_material_node_tree_VERSE(material, blender_material):
             "to_node": link.to_node.name, "to_socket": link.to_socket.name
         }
         node_tree_info["links"].append(link_info)
-    
-    if "VERSE_material_graph" not in material.extensions:
-        material.extensions["VERSE_material_graph"] = {}
-    material.extensions['VERSE_material_graph'] = node_tree_info
+
+    if not material.extras: material.extras = {}
+    if "VERSE_material_graph" not in material.extras: material.extras["VERSE_material_graph"] = {}
+    material.extras['VERSE_material_graph'] = json.dumps(node_tree_info, cls=BlenderJSONEncoder)
     print(json.dumps(node_tree_info, indent=2, cls=BlenderJSONEncoder))
 
 

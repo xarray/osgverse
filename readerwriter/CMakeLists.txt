@@ -1,14 +1,13 @@
 SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_INCLUDE_FILES
     OsgbTileOptimizer.h Utilities.h DatabasePager.h
-    NamedObjectFinder.h Export.h
+    MaterialGraph.h NamedObjectFinder.h Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h
     LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
-    LoadTextureKTX.cpp LoadTextureKTX.h
-    DracoProcessor.cpp DracoProcessor.h
-    OsgbTileOptimizer.cpp Utilities.cpp
+    LoadTextureKTX.cpp LoadTextureKTX.h DracoProcessor.cpp DracoProcessor.h
+    MaterialGraph.cpp OsgbTileOptimizer.cpp Utilities.cpp
 )
 
 IF(WIN32 AND NOT VERSE_USE_EXTERNAL_GLES)
