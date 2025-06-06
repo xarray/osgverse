@@ -293,7 +293,7 @@ int main(int argc, char** argv)
     }
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    if (otherSceneRoot.valid()) root->addChild(otherSceneRoot.get());
+    if (!arguments.read("--no-ref") && otherSceneRoot.valid()) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
     root->setName("Root");
 

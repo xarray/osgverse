@@ -4,6 +4,8 @@
 #include <osg/Transform>
 #include <osg/Geometry>
 #include <osgDB/ReaderWriter>
+#include <sstream>
+#include <iostream>
 #include "Export.h"
 
 namespace osgVerse
@@ -24,7 +26,7 @@ namespace osgVerse
         struct MaterialNode : public osg::Referenced
         {
             unsigned int id;
-            std::string name, type, imagePath;
+            std::string name, type, imageName, imagePath;
             osg::ref_ptr<osg::Texture> texture;
             std::map<std::string, osg::ref_ptr<MaterialPin>> inputs, outputs;
         };
@@ -43,10 +45,29 @@ namespace osgVerse
         MaterialGraph() {}
         MaterialLink* findLink(MaterialLinkList& links, MaterialNode* node, MaterialPin* pin, bool findFrom);
 
+        struct BlenderComposition
+        {
+            inline std::string variable(MaterialNode* n, MaterialPin* p)
+            { std::stringstream var; var << "var_" << n->id << "_" << p->id; return var.str(); }
+            inline std::string textureVariable(MaterialNode* n)
+            { std::stringstream var; var << "var_tex_" << n->id; return var.str(); }
+            inline std::string sampler(MaterialNode* n)
+            { std::stringstream var; var << "tex_" << n->id; return var.str(); }
+
+            inline void prependCode(const std::string& v1) { glslCode = v1 + glslCode; }
+            inline void prependVariables(const std::string& v1) { glslVars = v1 + glslVars; }
+            inline void prependGlobal(const std::string& v1) { glslGlobal = v1 + glslGlobal; }
+
+            std::string glslCode, glslVars, glslFuncs, glslGlobal, bsdfChannelName;
+            osg::ref_ptr<osg::StateSet> stateset; MaterialLinkList links;
+        };
         void processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList& links, osg::StateSet& ss);
-        void processBlenderLink(std::string& glslCode, std::string& glslVars, std::string& glslGlobal,
-                                MaterialLinkList& links, osg::StateSet& ss,
+        void processBlenderLink(BlenderComposition& comp, osg::StateSet& ss,
                                 MaterialNode* lastNode, MaterialPin* lastOutPin);
+        void findAndProcessBlenderLink(BlenderComposition& comp, osg::StateSet& ss,
+                                       MaterialNode* node, MaterialPin* pin, bool findFrom);
+        void applyBlenderTexture(BlenderComposition& comp, osg::StateSet& ss, const std::string& samplerName);
+        unsigned int getBlenderTextureUnit(BlenderComposition& comp);
     };
 }
 

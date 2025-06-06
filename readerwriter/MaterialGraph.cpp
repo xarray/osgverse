@@ -1,6 +1,9 @@
 #include <picojson.h>
-#include <iostream>
-#include <sstream>
+#include <osg/io_utils>
+#include <osgDB/WriteFile>
+#include "pipeline/Utilities.h"
+#include "pipeline/ShaderLibrary.h"
+#include "pipeline/Pipeline.h"
 #include "MaterialGraph.h"
 using namespace osgVerse;
 
@@ -55,7 +58,7 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
                  << err << std::endl; return false;
     }
 
-    unsigned int idCount = 0;
+    unsigned int idCount = 0, idPinCount = 0;
     if (dataRoot.contains("VERSE_material_graph"))
     {
         std::string graphString = dataRoot.get("VERSE_material_graph").get<std::string>();
@@ -85,8 +88,11 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
 
                     MaterialNode* node = new MaterialNode;
                     node->name = name; node->type = type; node->id = idCount++;
-                    if (!imgJson.is<picojson::null>() && imgJson.contains("filepath"))
-                        node->imagePath = imgJson.get("filepath").get<std::string>();
+                    if (!imgJson.is<picojson::null>())
+                    {
+                        if (imgJson.contains("name")) node->imageName = imgJson.get("name").get<std::string>();
+                        if (imgJson.contains("filepath")) node->imagePath = imgJson.get("filepath").get<std::string>();
+                    }
 
                     if (inJson.is<picojson::array>())
                     {
@@ -100,7 +106,7 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
 
                             MaterialPin* pin = new MaterialPin;
                             pin->name = name; pin->type = type; pin->values = readFromValues(def);
-                            pin->id = idCount++; node->inputs[name] = pin;
+                            pin->id = idPinCount++; node->inputs[name] = pin;
                         }
                     }
 
@@ -116,7 +122,7 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
 
                             MaterialPin* pin = new MaterialPin;
                             pin->name = name; pin->type = type; pin->values = readFromValues(def);
-                            pin->id = idCount++; node->outputs[name] = pin;
+                            pin->id = idPinCount++; node->outputs[name] = pin;
                         }
                     }
                     nodes[name] = node;
@@ -150,10 +156,8 @@ bool MaterialGraph::readFromBlender(const std::string& data, osg::StateSet& ss)
                 }
             }
         }
-
-        processBlenderLinks(nodes, links, ss);
         //std::cout << graphRoot.serialize(true) << std::endl;
-        return true;
+        processBlenderLinks(nodes, links, ss); return true;
     }
     return false;
 }
@@ -167,66 +171,168 @@ void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList
             endLinks.push_back(links[i].get());
     }
 
-    std::string glslCode, glslVars, glslGlobal;
-    for (size_t i = 0; i < links.size(); ++i)
+    BlenderComposition comp; comp.links = links;
+    comp.glslFuncs = std::string("///////////////////\n") +
+                     "vec3 mixColor(vec3 col0, vec3 col1, vec3 f) { return mix(col0, col1, f); }\n" +
+                     "vec3 lightFalloff(vec3 power, vec3 sm) { return smoothstep(vec3(0.0), power, sm); }\n" +
+                     "vec3 normalStrength(vec3 col, vec3 s) { return pow(col, s); }\n" +
+                     "vec3 brightnessContrast(vec3 col, vec3 b, vec3 c) { return mix(vec3(0.5), col * (b + vec3(1.0)), c + vec3(1.0)); }\n";
+
+    int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
+    std::string vsCode = "VERSE_VS_OUT vec2 uv;\nvoid main() {\n"
+                         "  uv = osg_MultiTexCoord0.st;\n  gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n}\n";
+    osg::ref_ptr<osg::Shader> vs = new osg::Shader(osg::Shader::VERTEX, vsCode);
+    Pipeline::createShaderDefinitions(vs.get(), glVer, glslVer);
+
+    for (size_t i = 0; i < endLinks.size(); ++i)
     {
-        MaterialLink* eL = links[i]; std::stringstream str, gShader;
-        str << "var_" << eL->nodeFrom->id << "_" << eL->pinFrom->id;
+        MaterialLink* eL = endLinks[i]; std::stringstream fsShader;
+        std::string str = comp.variable(eL->nodeFrom.get(), eL->pinFrom.get());
+        if (eL->pinTo->name == "Normal" || eL->pinTo->name == "Metallic" || eL->pinTo->name == "Roughness") continue;  // TODO
 
-        glslGlobal = "VERSE_FS_IN vec2 uv;\nVERSE_FS_OUT vec4 fragData;\n";
-        glslVars = "vec3 " + str.str() + " = vec3(" + setFromValues(eL->pinFrom->values) + ");\n";
-        glslCode = "fragData = vec3(" + str.str() + ", 1.0);\nVERSE_FS_FINAL(fragData);\n";
-        processBlenderLink(glslCode, glslVars, glslGlobal, links, ss, eL->nodeFrom.get(), eL->pinFrom.get());
+        comp.glslGlobal = "VERSE_FS_IN vec2 uv;\nVERSE_FS_OUT vec4 fragData;\n";
+        comp.glslVars = "vec4 texColorBridge = vec4(0.0);\n";
+        comp.glslCode = "fragData = vec4(" + str + ", texColorBridge.a);\nVERSE_FS_FINAL(fragData);\n";
+        comp.bsdfChannelName = eL->pinTo->name;
 
-        gShader << glslGlobal << "void main() {\n" << glslVars << glslCode << "}\n";
-        std::cout << "[" << eL->pinTo->name << "]\n" << gShader.str() << std::endl;  // TODO
+        comp.stateset = new osg::StateSet;
+        comp.stateset->setTextureAttributeAndModes(0, createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)));
+        processBlenderLink(comp, ss, eL->nodeFrom.get(), eL->pinFrom.get());
+        fsShader << comp.glslGlobal << comp.glslFuncs << std::string("///////////////////\n")
+                 << "void main() {\n" << comp.glslVars << comp.glslCode << "}\n";
+        std::cout << "{{{" << eL->pinTo->name << "}}}\n" << fsShader.str() << std::endl;
+
+        // Render a new image using shaders generated by given material graph
+        osg::ref_ptr<osg::Shader> fs = new osg::Shader(osg::Shader::FRAGMENT, fsShader.str());
+        osg::ref_ptr<osg::Program> prog = new osg::Program;
+        prog->addShader(vs.get()); prog->addShader(fs.get());
+        Pipeline::createShaderDefinitions(fs.get(), glVer, glslVer);
+        comp.stateset->setAttributeAndModes(prog.get());
+
+        unsigned int s = 1024, t = 1024, texUnit = getBlenderTextureUnit(comp);
+        osg::Texture* tex = static_cast<osg::Texture*>(ss.getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
+        if (tex && tex->getImage(0)) { s = tex->getImage(0)->s(); t = tex->getImage(0)->t(); }
+
+        osg::ref_ptr<osg::Image> result = createShadingResult(*comp.stateset, (s < 16) ? 16 : s, (t < 16) ? 16 : t);
+        if (s < 16 || t < 16) result->scaleImage(s, t, 1);
+        if (tex) tex->setImage(0, new osg::Image(*result));
     }
 }
 
-void MaterialGraph::processBlenderLink(std::string& glslCode, std::string& glslVars, std::string& glslGlobal,
-                                       MaterialLinkList& links, osg::StateSet& ss,
+void MaterialGraph::processBlenderLink(BlenderComposition& comp, osg::StateSet& ss,
                                        MaterialNode* lastNode, MaterialPin* lastOutPin)
 {
-    std::stringstream dst; dst << "var_" << lastNode->id << "_" << lastOutPin->id;
-    if (lastNode->type == "TEX_IMAGE")
+    std::string dst = comp.variable(lastNode, lastOutPin);
+    comp.prependVariables("vec3 " + dst + " = vec3(" + setFromValues(lastOutPin->values) + ");\n");
+
+    if (lastNode->type == "BSDF_PRINCIPLED") {}
+    else if (lastNode->type == "TEX_IMAGE")
     {
-        std::stringstream vTex, sTex; vTex << "var_tex" << lastNode->id; sTex << "tex" << lastNode->id;
-        glslGlobal = "uniform sampler2D " + sTex.str() + ";\n" + glslGlobal;
-        glslVars = "vec4 " + vTex.str() + " = VERSE_TEX2D(" + sTex.str() + ", uv);\n" + glslVars;
-        glslCode = dst.str() + " = vec3(" + vTex.str() + ");\n" + glslCode;
+        std::string vTex = comp.textureVariable(lastNode), sTex = comp.sampler(lastNode);
+        comp.prependGlobal("uniform sampler2D " + sTex + ";  // " +
+                           comp.bsdfChannelName + ": " + lastNode->imageName + "\n");
+        comp.prependCode("texColorBridge = VERSE_TEX2D(" + sTex + ", uv);\n" + dst + " = texColorBridge.rgb;\n");
+        applyBlenderTexture(comp, ss, sTex);
         // TODO: continue find prior nodes?
+    }
+    else if (lastNode->type == "MIX")
+    {
+        MaterialPin* factor = lastNode->inputs["Factor"].get();
+        MaterialPin* inColorA = lastNode->inputs["A"].get();
+        MaterialPin* inColorB = lastNode->inputs["B"].get();
+        std::string factorV = comp.variable(lastNode, factor),
+                    color0V = comp.variable(lastNode, inColorA), color1V = comp.variable(lastNode, inColorB);
+
+        comp.prependVariables("vec3 " + factorV + " = vec3(" + setFromValues(factor->values) + ");\n" +
+                              "vec3 " + color0V + " = vec3(" + setFromValues(inColorA->values) + ");\n" +
+                              "vec3 " + color1V + " = vec3(" + setFromValues(inColorB->values) + ");\n");
+        comp.prependCode(dst + " = mixColor(" + color0V + ", " + color1V + ", " + factorV + ");\n");
+        findAndProcessBlenderLink(comp, ss, lastNode, factor, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, inColorA, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, inColorB, true);
     }
     else if (lastNode->type == "NORMAL_MAP")
     {
+        MaterialPin* strength = lastNode->inputs["Strength"].get();
+        MaterialPin* inColor = lastNode->inputs["Color"].get();
+        std::string strV = comp.variable(lastNode, strength), colorV = comp.variable(lastNode, inColor);
 
+        comp.prependVariables("vec3 " + strV + " = vec3(" + setFromValues(strength->values) + ");\n" +
+                              "vec3 " + colorV + " = vec3(" + setFromValues(inColor->values) + ");\n");
+        comp.prependCode(dst + " = normalStrength(" + colorV + ", " + strV + ");\n");
+        findAndProcessBlenderLink(comp, ss, lastNode, strength, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, inColor, true);
+    }
+    else if (lastNode->type == "LIGHT_FALLOFF")
+    {
+        MaterialPin* strength = lastNode->inputs["Strength"].get();
+        MaterialPin* smooth = lastNode->inputs["Smooth"].get();
+        std::string strV = comp.variable(lastNode, strength), smV = comp.variable(lastNode, smooth);
+
+        comp.prependVariables("vec3 " + strV + " = vec3(" + setFromValues(strength->values) + ");\n" +
+                              "vec3 " + smV + " = vec3(" + setFromValues(smooth->values) + ");\n");
+        comp.prependCode(dst + " = lightFalloff(" + strV + ", " + smV + ");\n");
+        findAndProcessBlenderLink(comp, ss, lastNode, strength, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, smooth, true);
     }
     else if (lastNode->type == "BRIGHTCONTRAST")
     {
         MaterialPin* bright = lastNode->inputs["Bright"].get();
         MaterialPin* contrast = lastNode->inputs["Contrast"].get();
         MaterialPin* inColor = lastNode->inputs["Color"].get();
+        std::string brightV = comp.variable(lastNode, bright), contrastV = comp.variable(lastNode, contrast),
+                    colorV = comp.variable(lastNode, inColor);
 
-        std::stringstream brightV, contrastV, colorV;
-        brightV << "var_" << lastNode->id << "_" << bright->id;
-        contrastV << "var_" << lastNode->id << "_" << contrast->id;
-        colorV << "var_" << lastNode->id << "_" << inColor->id;
-
-        glslVars = "vec3 " + brightV.str() + " = vec3(" + setFromValues(bright->values) + ");\n"
-                 + "vec3 " + contrastV.str() + " = vec3(" + setFromValues(contrast->values) + ");\n"
-                 + "vec3 " + colorV.str() + " = vec3(" + setFromValues(inColor->values) + ");\n" + glslVars;
-        glslCode = dst.str() + " = vec3(" + colorV.str() + ");\n" + glslCode;  // TODO
-
-        MaterialLink* linkToBright = findLink(links, lastNode, bright, true);
-        MaterialLink* linkToContrast = findLink(links, lastNode, contrast, true);
-        MaterialLink* linkToColor = findLink(links, lastNode, inColor, true);
-
-        if (linkToBright) processBlenderLink(
-            glslCode, glslVars, glslGlobal, links, ss, linkToBright->nodeFrom.get(), linkToBright->pinFrom.get());
-        if (linkToContrast) processBlenderLink(
-            glslCode, glslVars, glslGlobal, links, ss, linkToContrast->nodeFrom.get(), linkToContrast->pinFrom.get());
-        if (linkToColor) processBlenderLink(
-            glslCode, glslVars, glslGlobal, links, ss, linkToColor->nodeFrom.get(), linkToColor->pinFrom.get());
+        comp.prependVariables("vec3 " + brightV + " = vec3(" + setFromValues(bright->values) + ");\n" +
+                              "vec3 " + contrastV + " = vec3(" + setFromValues(contrast->values) + ");\n" +
+                              "vec3 " + colorV + " = vec3(" + setFromValues(inColor->values) + ");\n");
+        comp.prependCode(dst + " = brightnessContrast(" + colorV + ", " + brightV + ", " + contrastV + ");\n");
+        findAndProcessBlenderLink(comp, ss, lastNode, bright, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, contrast, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, inColor, true);
     }
     else
-        OSG_WARN << "[MaterialGraph] Unsupported link node type: " << lastNode->type << std::endl;
+    {
+        OSG_NOTICE << "[MaterialGraph] Unsupported link node type: " << lastNode->type << std::endl;
+        for (MaterialPinMap::iterator itr = lastNode->inputs.begin(); itr != lastNode->inputs.end(); ++itr)
+            OSG_NOTICE << "\tInput pin: " << itr->first << ": " << itr->second->type << std::endl;
+    }
+}
+
+void MaterialGraph::findAndProcessBlenderLink(BlenderComposition& comp, osg::StateSet& ss,
+                                              MaterialNode* node, MaterialPin* pin, bool findFrom)
+{
+    MaterialLink* link = findLink(comp.links, node, pin, findFrom); if (!link) return;
+    if (findFrom)
+    {
+        std::string varFrom = comp.variable(link->nodeFrom.get(), link->pinFrom.get());
+        std::string varTo = comp.variable(node, pin);
+        comp.prependCode(varTo + " = " + varFrom + ";\n");
+        processBlenderLink(comp, ss, link->nodeFrom.get(), link->pinFrom.get());
+    }
+    else
+    {
+        std::string varFrom = comp.variable(node, pin);
+        std::string varTo = comp.variable(link->nodeTo.get(), link->pinTo.get());
+        comp.prependCode(varTo + " = " + varFrom + ";\n");
+        processBlenderLink(comp, ss, link->nodeTo.get(), link->pinTo.get());
+    }
+}
+
+void MaterialGraph::applyBlenderTexture(BlenderComposition& comp, osg::StateSet& ss, const std::string& samplerName)
+{
+    unsigned int texUnit = getBlenderTextureUnit(comp);
+    comp.stateset->setTextureAttributeAndModes(0, ss.getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
+    comp.stateset->getOrCreateUniform(samplerName, osg::Uniform::INT)->set((int)0);
+}
+
+unsigned int MaterialGraph::getBlenderTextureUnit(BlenderComposition& comp)
+{
+    unsigned int texUnit = 0;  // default: base color
+    if (comp.bsdfChannelName == "Normal") texUnit = 1;
+    else if (comp.bsdfChannelName == "Specular") texUnit = 2;
+    else if (comp.bsdfChannelName == "Metallic") texUnit = 3;
+    else if (comp.bsdfChannelName == "Roughness") texUnit = 4;  // FIXME
+    else if (comp.bsdfChannelName == "Emission") texUnit = 5;
+    return texUnit;
 }
