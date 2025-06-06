@@ -1,5 +1,6 @@
 #include "IncrementalCompiler.h"
 #include <iostream>
+#include <algorithm>
 using namespace osgVerse;
 
 bool IncrementalCompileCallback::compile(ICO::CompileDrawableOp* op, ICO::CompileInfo& compileInfo)
