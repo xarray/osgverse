@@ -8,6 +8,7 @@
 
 #include <modeling/Math.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 typedef std::string (*CreatePathFunc)(const std::string&, int, int, int);
 
 // osgviewer 0-0-0.verse_tms -O "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
@@ -66,8 +67,8 @@ public:
         {
             int x = atoi(values[0].c_str()) * 2, y = atoi(values[1].c_str()) * 2,
                 z = (values[2] == "x") ? 0 : atoi(values[2].c_str()) + 1, countY = 2;
-            std::string pseudoAddr = options->getPluginStringData("URL"); bool changed = true;
-            while (changed) pseudoAddr = replace(pseudoAddr, "%3d", "=", changed);
+            std::string pseudoAddr = options->getPluginStringData("URL");
+            pseudoAddr = osgVerse::urlDecode(pseudoAddr);
 
             osg::Vec3d extentMin = osg::Vec3d(-180.0, -90.0, 0.0), extentMax = osg::Vec3d(180.0, 90.0, 0.0);
             std::string strX = options->getPluginStringData("FlatExtentMinX"),

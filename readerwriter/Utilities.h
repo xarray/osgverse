@@ -156,6 +156,12 @@ namespace osgVerse
     /** Decode base64 to data */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> decodeBase64(const std::string& data);
 
+    /** Encode string to URL style (e.g., '+' to %2B) */
+    OSGVERSE_RW_EXPORT std::string urlEncode(const std::string& str);
+
+    /** Decode string from URL style */
+    OSGVERSE_RW_EXPORT std::string urlDecode(const std::string& str);
+
     /** Setup KTX trancoding flags */
     enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
     OSGVERSE_RW_EXPORT void setReadingKtxFlag(ReadingKtxFlag flag, int value);

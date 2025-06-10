@@ -13,6 +13,7 @@
 #include "3rdparty/rapidxml/rapidxml.hpp"
 #include "3rdparty/picojson.h"
 #include "pipeline/Global.h"
+#include "readerwriter/Utilities.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -295,6 +296,7 @@ protected:
             uri = (content.is<picojson::object>() && content.contains("url"))
                 ? content.get("url").to_str() : "";
         }
+        uri = osgVerse::urlDecode(uri);  // some data converted from CesiumLab may have encoded characters...
 
         std::string ext = osgDB::getFileExtension(uri);
         if (!uri.empty() && !osgDB::isAbsolutePath(uri))

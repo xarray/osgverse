@@ -12,11 +12,20 @@
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
 #include <libhv/all/base64.h>
+#include <sstream>
+#include <iomanip>
+#include <cctype>
 
 #include "modeling/Utilities.h"
 #include "LoadTextureKTX.h"
 #include "Utilities.h"
 using namespace osgVerse;
+
+static int char_from_hex(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return 10 + c - 'A'; return 0;
+}
 
 class ModeChecker : public osg::Referenced
 {
@@ -603,5 +612,47 @@ namespace osgVerse
         std::string result = hv::Base64Decode(data.data(), data.size());
         std::vector<unsigned char> out(result.size()); if (result.empty()) return out;
         memcpy(&out[0], result.data(), result.size()); return out;
+    }
+
+    std::string urlEncode(const std::string& str)
+    {
+        std::ostringstream oss;
+        for (size_t i = 0; i < str.length(); ++i)
+        {
+            char c = str[i];
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~')
+            { oss << c; }
+            else
+            {
+                oss << std::uppercase << '%' << std::setw(2) << std::setfill('0')
+                    << std::hex << static_cast<int>(static_cast<unsigned char>(c));
+            }
+        }
+        return oss.str();
+    }
+
+    std::string urlDecode(const std::string& str)
+    {
+        std::string decoded;
+        for (size_t i = 0; i < str.length(); ++i)
+        {
+            char c = str[i];
+            if (c == '+') decoded += ' ';
+            else if (c == '%' && i + 2 < str.length())
+            {
+                char hex1 = std::toupper(str[i + 1]);
+                char hex2 = std::toupper(str[i + 2]);
+                if ((hex1 >= '0' && hex1 <= '9') || (hex1 >= 'A' && hex1 <= 'F') &&
+                    (hex2 >= '0' && hex2 <= '9') || (hex2 >= 'A' && hex2 <= 'F'))
+                {
+                    char code = char_from_hex(hex1) * 16 + char_from_hex(hex2);
+                    decoded += code; i += 2;
+                }
+                else decoded += c;
+            }
+            else decoded += c;
+        }
+        return decoded;
     }
 }
