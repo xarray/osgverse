@@ -147,6 +147,13 @@ namespace osgVerse
     };
 #endif
 
+    /** Copy certain channel of an image to another image */
+    OSGVERSE_RW_EXPORT bool copyImageChannel(osg::Image& src, int srcChannel, osg::Image& dst, int dstChannel);
+
+    /** Handle ORM (Occlusion-Roughness-Metallic) texture creation */
+    OSGVERSE_RW_EXPORT osg::Texture* constrctOcclusionRoughnessMetallic(osg::Texture* origin, osg::Texture* input,
+                                                                        int chO, int chR, int chM);
+
     /** Generate mipmaps of given image */
     OSGVERSE_RW_EXPORT bool generateMipmaps(osg::Image& image, bool useKaiser);
 

@@ -769,7 +769,7 @@ namespace osgVerse
         int occlusionID = material.occlusionTexture.index;
 
         if (baseID >= 0 && baseID < _modelDef.textures.size())
-            createTexture(ss, 0, uniformNames[0], _modelDef.textures[baseID]);
+            ss->setTextureAttributeAndModes(0, createTexture(uniformNames[0], _modelDef.textures[baseID]));
         else
         {
             osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
@@ -778,34 +778,45 @@ namespace osgVerse
             if (tex2D) ss->setTextureAttributeAndModes(0, tex2D);
         }
 
-        if (roughnessID >= 0 && roughnessID < _modelDef.textures.size())
-            createTexture(ss, 3, uniformNames[3], _modelDef.textures[roughnessID]);
-        else if (_usingMaterialPBR)
+        if (_usingMaterialPBR)
         {
-            osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
-                1.0f, material.pbrMetallicRoughness.roughnessFactor,
-                material.pbrMetallicRoughness.metallicFactor, 1.0f));
-            if (tex2D) ss->setTextureAttributeAndModes(3, tex2D);
-        }
-
-        if (emissiveID >= 0)
-            createTexture(ss, 5, uniformNames[5], _modelDef.textures[emissiveID]);
-        else
-        {
-            osg::Vec3 emission(material.emissiveFactor[0], material.emissiveFactor[1],
-                               material.emissiveFactor[2]);
-            if (emission.length2() > 0.0f)
+            osg::ref_ptr<osg::Texture> ormNewInput;
+            if (occlusionID >= 0)
+                ormNewInput = createTexture(uniformNames[4], _modelDef.textures[occlusionID]);
+            if (ormNewInput.valid())
             {
-                osg::Texture2D* tex2D = createDefaultTextureForColor(
-                    osg::Vec4(emission[0], emission[1], emission[2], 1.0f));
-                if (tex2D) ss->setTextureAttributeAndModes(5, tex2D);
+                osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
+                ss->setTextureAttributeAndModes(3, constrctOcclusionRoughnessMetallic(t, ormNewInput.get(), 0, -1, -1));
             }
-        }
 
-        if (occlusionID >= 0 && _usingMaterialPBR)
-            createTexture(ss, 4, uniformNames[4], _modelDef.textures[occlusionID]);  // FIXME: should be ORM
-        if (normalID >= 0 && _usingMaterialPBR)
-            createTexture(ss, 1, uniformNames[1], _modelDef.textures[normalID]);
+            if (roughnessID >= 0 && roughnessID < _modelDef.textures.size())
+                ormNewInput = createTexture(uniformNames[3], _modelDef.textures[roughnessID]);
+            else
+                ormNewInput = createDefaultTextureForColor(osg::Vec4(
+                    1.0f, material.pbrMetallicRoughness.roughnessFactor, material.pbrMetallicRoughness.metallicFactor, 1.0f));
+            if (ormNewInput.valid())
+            {
+                osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
+                ss->setTextureAttributeAndModes(3, constrctOcclusionRoughnessMetallic(t, ormNewInput.get(), -1, 1, 2));
+            }
+
+            if (emissiveID >= 0)
+                ss->setTextureAttributeAndModes(5, createTexture(uniformNames[5], _modelDef.textures[emissiveID]));
+            else
+            {
+                osg::Vec3 emission(material.emissiveFactor[0], material.emissiveFactor[1],
+                                   material.emissiveFactor[2]);
+                if (emission.length2() > 0.0f)
+                {
+                    osg::Texture2D* tex2D = createDefaultTextureForColor(
+                        osg::Vec4(emission[0], emission[1], emission[2], emission.length()));
+                    if (tex2D) ss->setTextureAttributeAndModes(5, tex2D);
+                }
+            }
+
+            if (normalID >= 0)
+                ss->setTextureAttributeAndModes(1, createTexture(uniformNames[1], _modelDef.textures[normalID]));
+        }
 
         if (material.alphaMode.compare("BLEND") == 0) ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
         else ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
@@ -817,8 +828,7 @@ namespace osgVerse
             MaterialGraph::instance()->readFromBlender(material.extras_json_string, *ss);
     }
 
-    void LoaderGLTF::createTexture(osg::StateSet* ss, int u,
-                                   const std::string& name, tinygltf::Texture& tex)
+    osg::Texture* LoaderGLTF::createTexture(const std::string& name, tinygltf::Texture& tex)
     {
         if (tex.source < 0 || tex.source >= _modelDef.images.size())
         {
@@ -835,12 +845,12 @@ namespace osgVerse
             if (tex.source < 0 || tex.source >= _modelDef.images.size())
             {
                 OSG_WARN << "[LoaderGLTF] Invalid texture source index: " << tex.source
-                         << " for " << name << ", ext = " << ext << std::endl; return;
+                         << " for " << name << ", ext = " << ext << std::endl; return NULL;
             }
         }
 
         tinygltf::Image& imageSrc = _modelDef.images[tex.source];
-        if (imageSrc.image.empty()) return;
+        if (imageSrc.image.empty()) return NULL;
 
         osg::ref_ptr<osg::Image> image2D = _imageMap[tex.source].get();
         if (!image2D)
@@ -852,13 +862,10 @@ namespace osgVerse
                 dataIn.write((char*)&imageSrc.image[0], imageSrc.image.size());
                 if (imageSrc.mimeType.find("ktx") != std::string::npos)
                 {
-                    //osg::Timer_t t0 = osg::Timer::instance()->tick();  // FIXME: slow?
                     std::vector<osg::ref_ptr<osg::Image>> imageList = loadKtx2(dataIn, NULL);
                     if (!imageList.empty()) image = imageList[0];
-                    //osg::Timer_t t1 = osg::Timer::instance()->tick();
-                    //std::cout << image->s() << "x" << image->t() << ": " << osg::Timer::instance()->delta_m(t0, t1) << "\n";
                 }
-                if (!image) return;
+                if (!image) return NULL;
             }
             else
             {
@@ -890,12 +897,9 @@ namespace osgVerse
         tex2D->setResizeNonPowerOfTwoHint(false);
         tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
         tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
-        if (_3dtilesFormat) tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
-        else tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+        tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
         tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
-        tex2D->setImage(image2D.get()); tex2D->setName(imageSrc.uri);
-        ss->setTextureAttributeAndModes(u, tex2D.get());
-        //ss->addUniform(new osg::Uniform(name.c_str(), u));
+        tex2D->setImage(image2D.get()); tex2D->setName(imageSrc.uri); return tex2D.release();
     }
 
     void LoaderGLTF::createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,

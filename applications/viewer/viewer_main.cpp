@@ -246,12 +246,12 @@ int main(int argc, char** argv)
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::updateOsgBinaryWrappers();
 
-    std::string optString, optAll;
+    std::string optString, optAll; bool defScene = false;
     while (arguments.read("-O", optString)) optAll += optString + " ";
     osg::ref_ptr<osgDB::Options> options = optAll.empty() ? NULL : new osgDB::Options(optAll);
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments, options.get());
-    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get());
+    if (!scene) { scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get()); defScene = true; }
     if (!scene) { OSG_WARN << "Failed to load scene model" << std::endl; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
@@ -285,7 +285,6 @@ int main(int argc, char** argv)
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
-    //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
     if (otherSceneRoot.valid())
     {
         osgVerse::FixedFunctionOptimizer ffo; otherSceneRoot->accept(ffo);
@@ -293,7 +292,7 @@ int main(int argc, char** argv)
     }
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    if (!arguments.read("--no-ref") && otherSceneRoot.valid()) root->addChild(otherSceneRoot.get());
+    if (defScene && otherSceneRoot.valid()) root->addChild(otherSceneRoot.get());
     root->addChild(sceneRoot.get());
     root->setName("Root");
 

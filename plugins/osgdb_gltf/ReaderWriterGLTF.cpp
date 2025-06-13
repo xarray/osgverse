@@ -25,6 +25,7 @@ public:
         supportsOption("Directory", "Setting the working directory");
         supportsOption("Mode", "Set to 'ascii/binary' to read specific GLTF data");
         supportsOption("DisabledPBR", "Use PBR materials or not");
+        supportsOption("UpAxis", "Set up axis to Y (0) or Z (1) (default = 0)");
     }
 
     virtual const char* className() const
@@ -38,7 +39,7 @@ public:
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
-        bool usePseudo = (ext == "verse_gltf"), yUp = true;  // FIXME: z-up?
+        bool usePseudo = (ext == "verse_gltf");
         if (usePseudo)
         {
             fileName = osgDB::getNameLessExtension(path);
@@ -47,10 +48,11 @@ public:
 
         osg::ref_ptr<osg::Node> group;
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
+        int yUp = options ? atoi(options->getPluginStringData("UpAxis").c_str()) : 0;
         if (ext == "cmpt")
         {
             std::ifstream fin(fileName, std::ios::in | std::ios::binary);
-            group = readCesiumFormatCmpt(fin, osgDB::getFilePath(fileName), yUp);
+            group = readCesiumFormatCmpt(fin, osgDB::getFilePath(fileName), yUp == 0);
         }
         else if (ext == "pnts")
         {
@@ -58,22 +60,23 @@ public:
             group = readCesiumFormatPnts(fin, osgDB::getFilePath(fileName));
         }
         else if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
-            group = osgVerse::loadGltf(fileName, true, noPBR == 0, yUp).get();
+            group = osgVerse::loadGltf(fileName, true, noPBR == 0, yUp == 0).get();
         else
-            group = osgVerse::loadGltf(fileName, false, noPBR == 0, yUp).get();
+            group = osgVerse::loadGltf(fileName, false, noPBR == 0, yUp == 0).get();
         if (!group) OSG_WARN << "[ReaderWriterGLTF] Failed to load " << fileName << std::endl;
         return group.get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
-        std::string dir = "", mode; bool noPBR = false, isBinary = false, yUp = true;  // FIXME: z-up?
+        std::string dir = "", mode; bool noPBR = false, isBinary = false, yUp = true;
         if (options)
         {
             std::string fileName = options->getPluginStringData("filename");
             dir = options->getPluginStringData("Directory");
             if (dir.empty()) dir = options->getPluginStringData("prefix");
 
+            yUp = (options ? atoi(options->getPluginStringData("UpAxis").c_str()) : 0) == 0;
             if (!fileName.empty())
             {
                 std::string ext = osgDB::getFileExtension(fileName);

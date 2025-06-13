@@ -986,6 +986,63 @@ namespace osgVerse
         OSG_NOTICE << "Normal-map generation for " << fileName << " finished" << std::endl;
     }
 
+    float ActiveNodeVisitor::getDistanceToEyePoint(const osg::Vec3& pos, bool useLODScale) const
+    {
+        if (useLODScale) return (pos - getEyeLocal()).length() * getLODScale();
+        else return (pos - getEyeLocal()).length();
+    }
+
+    float ActiveNodeVisitor::getDistanceFromEyePoint(const osg::Vec3& pos, bool useLODScale) const
+    {
+        if (useLODScale) return (pos - getViewPointLocal()).length() * getLODScale();
+        else return (pos - getViewPointLocal()).length();
+    }
+
+    float ActiveNodeVisitor::getDistanceToViewPoint(const osg::Vec3& pos, bool useLODScale) const
+    {
+        const osg::Matrix& matrix = *_modelviewStack.back();
+        float dist = -(pos[0] * matrix(0, 2) + pos[1] * matrix(1, 2) + pos[2] * matrix(2, 2) + matrix(3, 2));
+        if (useLODScale) return dist * getLODScale(); else return dist;
+    }
+
+    void ActiveNodeVisitor::setViewParameters(const osg::Matrix& mvMat, const osg::Matrix& projMat,
+                                              osg::Viewport* vp, int refFrame, int refOrder, bool toReset)
+    {
+        if (toReset) osg::CullStack::reset();
+        if (vp) pushViewport(vp);
+
+        osg::RefMatrix* projection = 0;
+        osg::RefMatrix* modelview = 0;
+        if (refFrame == osg::Transform::RELATIVE_RF)
+        {
+            if (refOrder == osg::Camera::POST_MULTIPLY)
+            {
+                projection = createOrReuseMatrix(*getProjectionMatrix() * projMat);
+                modelview = createOrReuseMatrix(*getModelViewMatrix() * mvMat);
+            }
+            else   // pre multiply
+            {
+                projection = createOrReuseMatrix(projMat * (*getProjectionMatrix()));
+                modelview = createOrReuseMatrix(mvMat * (*getModelViewMatrix()));
+            }
+        }
+        else
+        {
+            projection = createOrReuseMatrix(projMat);
+            modelview = createOrReuseMatrix(mvMat);
+        }
+        pushProjectionMatrix(projection);
+        pushModelViewMatrix(modelview, (osg::Transform::ReferenceFrame)refFrame);
+    }
+
+    void ActiveNodeVisitor::apply(osg::Camera& node)
+    {
+        setViewParameters(node.getViewMatrix(), node.getProjectionMatrix(), node.getViewport(),
+                          node.getReferenceFrame(), node.getTransformOrder(), false);
+        traverse(node);
+        if (node.getViewport()) popViewport();
+    }
+
     void Frustum::create(const osg::Matrix& modelview, const osg::Matrix& originProj,
                          double preferredNear, double preferredFar)
     {

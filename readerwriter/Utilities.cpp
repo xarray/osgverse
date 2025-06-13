@@ -518,6 +518,66 @@ struct MipmapHelpers
 
 namespace osgVerse
 {
+    bool copyImageChannel(osg::Image& src, int srcChannel, osg::Image& dst, int dstChannel)
+    {
+        if (src.isCompressed() || dst.isCompressed()) return false;
+        if (src.s() != dst.s() || src.t() != dst.t()) return false;
+
+#if OSG_VERSION_GREATER_THAN(3, 2, 3)
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int y = 0; y < src.t(); ++y)
+            for (int x = 0; x < src.s(); ++x)
+            {
+                osg::Vec4 c0 = src.getColor(x, y), c1 = dst.getColor(x, y);
+                c1[dstChannel] = c0[srcChannel]; dst.setColor(c1, x, y);
+            }
+#else
+        OSG_WARN << "[copyImageChannel] Image::setColor() not implemented." << std::endl;
+#endif
+        return true;
+    }
+
+    osg::Texture* constrctOcclusionRoughnessMetallic(osg::Texture* origin, osg::Texture* input,
+                                                     int chO, int chR, int chM)
+    {
+        osg::Texture2D* texO = static_cast<osg::Texture2D*>(origin);
+        osg::Texture2D* texI = static_cast<osg::Texture2D*>(input);
+        if (!texI || (texI && !texI->getImage())) return texO;
+
+        osg::Image* imgI = texI->getImage(); int s = imgI->s(), t = imgI->t();
+        if (!texO)  // no origin texture, create one referring to current input
+        {
+            osg::Image* imgO = new osg::Image;
+            imgO->allocateImage(s, t, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+            imgO->setInternalTextureFormat(GL_RGBA8);
+
+            texO = new osg::Texture2D; texO->setName("OcclusionRoughnessMetallic_" + texI->getName());
+            texO->setResizeNonPowerOfTwoHint(false); texO->setImage(imgO);
+            texO->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
+            texO->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
+            texO->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+            texO->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+        }
+        else
+        {
+            osg::Image* imgO = texO->getImage();
+            imgO->scaleImage(s, t, 1);
+        }
+
+        osg::Vec4ub* ptr = (osg::Vec4ub*)texO->getImage()->data();
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int y = 0; y < t; ++y)
+            for (int x = 0; x < s; ++x)
+            {
+                osg::Vec4 c0 = imgI->getColor(x, y);
+                unsigned char valO = (chO < 0) ? 255 : (unsigned char)(c0[chO] * 255.0f);
+                unsigned char valR = (chR < 0) ? 255 : (unsigned char)(c0[chR] * 255.0f);
+                unsigned char valM = (chM < 0) ? 0 : (unsigned char)(c0[chM] * 255.0f);
+                *(ptr + x + y * s) = osg::Vec4ub(valO, valR, valM, 255);
+            }
+        return texO;
+    }
+
     bool generateMipmaps(osg::Image& image, bool useKaiser)
     {
         int w0 = image.s(), h0 = image.t(); int w = w0, h = h0;

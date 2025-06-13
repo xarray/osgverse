@@ -44,7 +44,7 @@ void main()
     float lumAvg = VERSE_TEX2D(LuminanceBuffer, vec2(0.5, 0.5)).r;
 
     color.rgb = color.rgb + iblColor.rgb + colorBloom.rgb;
-    color.rgb = mix(color.rgb, color.rgb * emission.rgb, emission.a);
+    color.rgb += mix(vec3(0.0), emission.rgb, emission.a);
     if (true)
         color.rgb = ACESToneMapping(color.rgb, LuminanceFactor.x + lumAvg * LuminanceFactor.y);
     fragData = vec4(color.rgb, 1.0);

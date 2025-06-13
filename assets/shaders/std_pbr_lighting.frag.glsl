@@ -113,7 +113,6 @@ void main()
         ambient = kD * diffuse + envSpecular;
     }
 
-    ao = 1.0;  // FIXME: sponza seems to have a negative AO?
 #ifdef VERSE_GLES3
     fragData0/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
     fragData1/*IblAmbientBuffer*/ = vec4(ambient, 1.0);

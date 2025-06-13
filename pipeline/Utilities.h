@@ -4,6 +4,7 @@
 #include <osg/Polytope>
 #include <osg/Geometry>
 #include <osg/ShapeDrawable>
+#include <osg/CullStack>
 #include <osg/Texture1D>
 #include <osg/Texture2D>
 #include <osg/Texture3D>
@@ -104,6 +105,26 @@ namespace osgVerse
         double _nStrength, _spScale, _spContrast;
         int _normalMapUnit, _specMapUnit;
         bool _nInvert;
+    };
+
+    /** The node visitor needs view/projection matrix inputs and can traverse only active nodes */
+    class ActiveNodeVisitor : public osg::NodeVisitor, public osg::CullStack
+    {
+    public:
+        ActiveNodeVisitor() : osg::NodeVisitor(TRAVERSE_ACTIVE_CHILDREN) {}
+        virtual osg::CullStack* asCullStack() { return this; }
+        virtual const osg::CullStack* asCullStack() const { return this; }
+
+        virtual osg::Vec3 getEyePoint() const { return getEyeLocal(); }
+        virtual osg::Vec3 getViewPoint() const { return getViewPointLocal(); }
+        virtual float getDistanceToEyePoint(const osg::Vec3& pos, bool useLODScale) const;
+        virtual float getDistanceFromEyePoint(const osg::Vec3& pos, bool useLODScale) const;
+        virtual float getDistanceToViewPoint(const osg::Vec3& pos, bool useLODScale) const;
+
+        void setViewParameters(const osg::Matrix& modelView, const osg::Matrix& projection, osg::Viewport* vp,
+                               int refFrame = (int)osg::Camera::RELATIVE_RF,
+                               int refOrder = (int)osg::Camera::POST_MULTIPLY, bool toReset = true);
+        virtual void apply(osg::Camera& node);
     };
 
     /** The frustum geometry which is used by shadow computation */

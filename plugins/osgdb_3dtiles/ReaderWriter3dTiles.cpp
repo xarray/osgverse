@@ -128,32 +128,29 @@ public:
                 return ReadResult::ERROR_IN_READING_FILE;
         }
 
-        picojson::value document;
+        picojson::value document; osg::ref_ptr<osgDB::Options> opt = const_cast<osgDB::Options*>(options);
         std::string err = picojson::parse(document, fin);
         if (err.empty())
         {
+            picojson::value& asset = document.get("asset");
+            if (asset.is<picojson::object>() && asset.contains("gltfUpAxis"))
+            {
+                picojson::value& upAxis = asset.get("gltfUpAxis");
+                std::string val = upAxis.is<std::string>() ? upAxis.get<std::string>() : "";
+                if (val == "Z" || val == "z")
+                {
+                    if (!opt) opt = new osgDB::Options;
+                    opt->setPluginStringData("UpAxis", "1");
+                }
+            }
+
             picojson::value& root = document.get("root");
             if (root.is<picojson::object>())
             {
-                std::string name = options ? options->getPluginStringData("simple_name") : "";
-                osg::ref_ptr<osg::Node> node = createTile(root, prefix, name, "", options);
+                std::string name = opt.valid() ? opt->getPluginStringData("simple_name") : "";
+                osg::ref_ptr<osg::Node> node = createTile(root, prefix, name, "", opt.get());
                 if (node.valid())
                 {
-                    picojson::value& asset = document.get("asset"); bool yAxisUp = true;
-                    if (asset.is<picojson::object>() && asset.contains("gltfUpAxis"))
-                    {
-                        picojson::value& upAxis = asset.get("gltfUpAxis");
-                        std::string val = upAxis.is<std::string>() ? upAxis.get<std::string>() : "";
-                        if (val == "Z" || val == "z") yAxisUp = false;
-                    }
-
-                    if (yAxisUp && name == "tileset")
-                    {
-                        osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(node.get());
-                        if (mt) mt->setMatrix(
-                            osg::Matrix(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                        0.0,-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0) * mt->getMatrix());
-                    }
 #if WRITE_TO_OSG
                     osgDB::writeNodeFile(*node, prefix + "/root.osgt");
 #endif

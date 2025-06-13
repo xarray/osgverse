@@ -43,9 +43,9 @@ namespace osgVerse
 
         virtual ~LoaderGLTF() {}
         osg::Node* createNode(int id, tinygltf::Node& node);
+        osg::Texture* createTexture(const std::string& name, tinygltf::Texture& tex);
         bool createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex);
         void createMaterial(osg::StateSet* ss, tinygltf::Material mat);
-        void createTexture(osg::StateSet* ss, int u, const std::string& name, tinygltf::Texture& tex);
         void createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,
                                    tinygltf::Accessor& accessor);
         void createAnimationSampler(PlayerAnimation::AnimationData& anim, const std::string& p,
