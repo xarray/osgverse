@@ -204,7 +204,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     ss << "#extension GL_OES_standard_derivatives: enable" << std::endl;
     ss << "#define VERSE_GLES2 1" << std::endl;
 #else
-    if (glslVer > 0)
+    if (glslVer > 120)
     {
         if (glslVer < 300) ss << "#version " << glslVer << std::endl;
         else ss << "#version " << glslVer << " compatibility" << std::endl;

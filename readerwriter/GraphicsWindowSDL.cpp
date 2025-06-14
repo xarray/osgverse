@@ -179,7 +179,10 @@ void GraphicsWindowSDL::initialize()
 {
 #if defined(VERSE_EMBEDDED) && !defined(VERSE_WASM)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#elif !defined(VERSE_GLES_DESKTOP)
+    // do something?
 #endif
+
 #if defined(VERSE_GLES_DESKTOP)
     EGLConfig config;
 #elif defined(VERSE_EMBEDDED_GLES2)
