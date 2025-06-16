@@ -160,7 +160,7 @@ void sum_scan_blelloch(unsigned int* const d_out,
     const size_t numElems)
 {
     // Zero out d_out
-    checkCudaErrors(cudaMemset(d_out, 0, numElems * sizeof(unsigned int)));
+    checkCudaErrors(musaMemset(d_out, 0, numElems * sizeof(unsigned int)));
 
     // Set up number of threads and blocks
     unsigned int block_sz = MAX_BLOCK_SZ / 2;
@@ -182,8 +182,8 @@ void sum_scan_blelloch(unsigned int* const d_out,
     // Allocate memory for array of total sums produced by each block
     // Array length must be the same as number of blocks
     unsigned int* d_block_sums;
-    checkCudaErrors(cudaMalloc(&d_block_sums, sizeof(unsigned int) * grid_sz));
-    checkCudaErrors(cudaMemset(d_block_sums, 0, sizeof(unsigned int) * grid_sz));
+    checkCudaErrors(musaMalloc(&d_block_sums, sizeof(unsigned int) * grid_sz));
+    checkCudaErrors(musaMemset(d_block_sums, 0, sizeof(unsigned int) * grid_sz));
 
     // Sum scan data allocated to each block
     //gpu_sum_scan_blelloch<<<grid_sz, block_sz, sizeof(unsigned int) * max_elems_per_block >>>(d_out, d_in, d_block_sums, numElems);
@@ -200,8 +200,8 @@ void sum_scan_blelloch(unsigned int* const d_out,
     if (grid_sz <= max_elems_per_block)
     {
         unsigned int* d_dummy_blocks_sums;
-        checkCudaErrors(cudaMalloc(&d_dummy_blocks_sums, sizeof(unsigned int)));
-        checkCudaErrors(cudaMemset(d_dummy_blocks_sums, 0, sizeof(unsigned int)));
+        checkCudaErrors(musaMalloc(&d_dummy_blocks_sums, sizeof(unsigned int)));
+        checkCudaErrors(musaMemset(d_dummy_blocks_sums, 0, sizeof(unsigned int)));
         //gpu_sum_scan_blelloch<<<1, block_sz, sizeof(unsigned int) * max_elems_per_block>>>(d_block_sums, d_block_sums, d_dummy_blocks_sums, grid_sz);
         gpu_prescan <<<1, block_sz, sizeof(unsigned int)* shmem_sz >>> (d_block_sums,
             d_block_sums,
@@ -209,22 +209,22 @@ void sum_scan_blelloch(unsigned int* const d_out,
             grid_sz,
             shmem_sz,
             max_elems_per_block);
-        checkCudaErrors(cudaFree(d_dummy_blocks_sums));
+        checkCudaErrors(musaFree(d_dummy_blocks_sums));
     }
     // Else, recurse on this same function as you'll need the full-blown scan
     //  for the block sums
     else
     {
         unsigned int* d_in_block_sums;
-        checkCudaErrors(cudaMalloc(&d_in_block_sums, sizeof(unsigned int) * grid_sz));
-        checkCudaErrors(cudaMemcpy(d_in_block_sums, d_block_sums, sizeof(unsigned int) * grid_sz, cudaMemcpyDeviceToDevice));
+        checkCudaErrors(musaMalloc(&d_in_block_sums, sizeof(unsigned int) * grid_sz));
+        checkCudaErrors(musaMemcpy(d_in_block_sums, d_block_sums, sizeof(unsigned int) * grid_sz, musaMemcpyDeviceToDevice));
         sum_scan_blelloch(d_block_sums, d_in_block_sums, grid_sz);
-        checkCudaErrors(cudaFree(d_in_block_sums));
+        checkCudaErrors(musaFree(d_in_block_sums));
     }
 
     //// Uncomment to examine block sums
     //unsigned int* h_block_sums = new unsigned int[grid_sz];
-    //checkCudaErrors(cudaMemcpy(h_block_sums, d_block_sums, sizeof(unsigned int) * grid_sz, cudaMemcpyDeviceToHost));
+    //checkCudaErrors(musaMemcpy(h_block_sums, d_block_sums, sizeof(unsigned int) * grid_sz, musaMemcpyDeviceToHost));
     //std::cout << "Block sums: ";
     //for (int i = 0; i < grid_sz; ++i)
     //{
@@ -237,7 +237,7 @@ void sum_scan_blelloch(unsigned int* const d_out,
     // Add each block's total sum to its scan output
     // in order to get the final, global scanned array
     gpu_add_block_sums <<<grid_sz, block_sz >>> (d_out, d_out, d_block_sums, numElems);
-    checkCudaErrors(cudaFree(d_block_sums));
+    checkCudaErrors(musaFree(d_block_sums));
 }
 
 __global__ void gpu_radix_sort_local(unsigned int* d_out_sorted,
@@ -427,17 +427,17 @@ void radix_sort(unsigned int* const d_out,
 
     unsigned int* d_prefix_sums;
     unsigned int d_prefix_sums_len = d_in_len;
-    checkCudaErrors(cudaMalloc(&d_prefix_sums, sizeof(unsigned int) * d_prefix_sums_len));
-    checkCudaErrors(cudaMemset(d_prefix_sums, 0, sizeof(unsigned int) * d_prefix_sums_len));
+    checkCudaErrors(musaMalloc(&d_prefix_sums, sizeof(unsigned int) * d_prefix_sums_len));
+    checkCudaErrors(musaMemset(d_prefix_sums, 0, sizeof(unsigned int) * d_prefix_sums_len));
 
     unsigned int* d_block_sums;
     unsigned int d_block_sums_len = 4 * grid_sz; // 4-way split
-    checkCudaErrors(cudaMalloc(&d_block_sums, sizeof(unsigned int) * d_block_sums_len));
-    checkCudaErrors(cudaMemset(d_block_sums, 0, sizeof(unsigned int) * d_block_sums_len));
+    checkCudaErrors(musaMalloc(&d_block_sums, sizeof(unsigned int) * d_block_sums_len));
+    checkCudaErrors(musaMemset(d_block_sums, 0, sizeof(unsigned int) * d_block_sums_len));
 
     unsigned int* d_scan_block_sums;
-    checkCudaErrors(cudaMalloc(&d_scan_block_sums, sizeof(unsigned int) * d_block_sums_len));
-    checkCudaErrors(cudaMemset(d_scan_block_sums, 0, sizeof(unsigned int) * d_block_sums_len));
+    checkCudaErrors(musaMalloc(&d_scan_block_sums, sizeof(unsigned int) * d_block_sums_len));
+    checkCudaErrors(musaMemset(d_scan_block_sums, 0, sizeof(unsigned int) * d_block_sums_len));
 
     // shared memory consists of 3 arrays the size of the block-wise input
     //  and 2 arrays the size of n in the current n-way split (4)
@@ -466,7 +466,7 @@ void radix_sort(unsigned int* const d_out,
             max_elems_per_block);
 
         //unsigned int* h_test = new unsigned int[d_in_len];
-        //checkCudaErrors(cudaMemcpy(h_test, d_in, sizeof(unsigned int) * d_in_len, cudaMemcpyDeviceToHost));
+        //checkCudaErrors(musaMemcpy(h_test, d_in, sizeof(unsigned int) * d_in_len, musaMemcpyDeviceToHost));
         //for (unsigned int i = 0; i < d_in_len; ++i)
         //    std::cout << h_test[i] << " ";
         //std::cout << std::endl;
@@ -484,8 +484,8 @@ void radix_sort(unsigned int* const d_out,
             d_in_len,
             max_elems_per_block);
     }
-    checkCudaErrors(cudaMemcpy(d_out, d_in, sizeof(unsigned int) * d_in_len, cudaMemcpyDeviceToDevice));
-    checkCudaErrors(cudaFree(d_scan_block_sums));
-    checkCudaErrors(cudaFree(d_block_sums));
-    checkCudaErrors(cudaFree(d_prefix_sums));
+    checkCudaErrors(musaMemcpy(d_out, d_in, sizeof(unsigned int) * d_in_len, musaMemcpyDeviceToDevice));
+    checkCudaErrors(musaFree(d_scan_block_sums));
+    checkCudaErrors(musaFree(d_block_sums));
+    checkCudaErrors(musaFree(d_prefix_sums));
 }

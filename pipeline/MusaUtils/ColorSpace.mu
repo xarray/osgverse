@@ -79,7 +79,7 @@ void SetMatYuv2Rgb(int iMatrix) {
             mat[i][j] = (float)(1.0 * max / (white - black) * mat[i][j]);
         }
     }
-    cudaMemcpyToSymbol(matYuv2Rgb, mat, sizeof(mat));
+    musaMemcpyToSymbol(matYuv2Rgb, mat, sizeof(mat));
 }
 
 void SetMatRgb2Yuv(int iMatrix) {
@@ -96,7 +96,7 @@ void SetMatRgb2Yuv(int iMatrix) {
             mat[i][j] = (float)(1.0 * (white - black) / max * mat[i][j]);
         }
     }
-    cudaMemcpyToSymbol(matRgb2Yuv, mat, sizeof(mat));
+    musaMemcpyToSymbol(matRgb2Yuv, mat, sizeof(mat));
 }
 
 template<class T>

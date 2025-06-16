@@ -12,7 +12,12 @@ typedef unsigned long long CUdeviceptr_v2;
 typedef unsigned int CUdeviceptr_v2;
 #endif
 typedef CUdeviceptr_v2 CUdeviceptr;
+
+#ifdef VERSE_ENABLE_MTT
+typedef struct MUctx_st* CUcontext;
+#else
 typedef struct CUctx_st* CUcontext;
+#endif
 
 namespace osgVerse
 {

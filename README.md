@@ -209,14 +209,21 @@ Our project is already tested on graphics cards listed as below:
     - For MacOSX/IOS build: <platform> is 'apple/ios'.
     - For WebAssembly (WASM) build: <platform> is 'wasm'.
     - For Windows UWP build: <platform> is 'uwp'.
+    - For ARM64 build: <platform> is 'aarch64'.
 2. Build Draco:
   - For WebAssembly (WASM):
     - export EMSCRIPTEN=<emsdk_folder>/upstream/emscripten
     - cmake -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
             -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/wasm <draco_folder>
+    - $ make install
   - See https://github.com/google/draco/blob/master/BUILDING.md for other platforms.
-3. Build ZLMediaKit: TBD...
-4. TBD...
+3. Build ZLMediaKit:
+  - TBD...
+4. Build Bullet3:
+  - TBD...
+5. Build netCDF:
+  - TBD...
+5. TBD...
 
 #### Build from Source
 0. Assume that osgVerse source code is already at <osgverse_folder>.
@@ -259,6 +266,10 @@ Our project is already tested on graphics cards listed as below:
     - $ <commandline_folder>/bin/sdkmanager "platform-tools" "platforms;android-32"
   - Download Android NDK from: https://developer.android.com/ndk/downloads/
   - Download Gradle and add <gradle_folder>/bin to PATH: https://gradle.org/releases/
+  - Under Windows, run commands below in terminal:
+    - $ cd <osgverse_folder>
+    - $ ./Setup.bat
+    - Select "5. Android / GLES3" and start building. Note: local.properties and settings.gradle will be regenerated if necessary.
   - TBD...
 4. HarmonyOS
   - Download OpenJDK 17 from: https://jdk.java.net/archive/
@@ -270,12 +281,10 @@ Our project is already tested on graphics cards listed as below:
 6. WebAssembly
   - Download emsdk from https://emscripten.org/docs/getting_started/downloads.html, extracting to <emsdk_folder>.
   - Update and activate emsdk as required at the page above.
-  - Build dependencies and save to <osgverse_folder>/../Dependencies/wasm
-    - Build Draco (https://github.com/google/draco/blob/master/BUILDING.md)
-      - $ export EMSCRIPTEN=<emsdk_folder>/upstream/emscripten
-      - $ cmake ../ -DCMAKE_TOOLCHAIN_FILE=<emsdk_folder>/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
-                    -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<osgverse_folder>/../Dependencies/wasm
-      - $ make install
+  - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph
+  - (Optional) Download osgEarth-WASM source code and extract it to <osgverse_folder>/../osgearth-wasm
+    - Repository: https://gitee.com/xarray/osgearth-wasm
+    - osgEarth-WASM can only be built with WebGL 2.0
     - Build GDAL, GEOS, etc. (https://github.com/bugra9/gdal3.js)
       - Modify GDAL_EMCC_FLAGS.mk to add '-pthread' to flags
       - $ sudo apt install automake sqlite3
@@ -286,10 +295,6 @@ Our project is already tested on graphics cards listed as below:
       - $ pnpm install
       - $ pnpm run build
       - Copy bin/include/lib from gdal3.js\build\native\usr to <osgverse_folder>/../Dependencies/wasm
-  - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph
-  - (Optional) Download osgEarth-WASM source code and extract it to <osgverse_folder>/../osgearth-wasm
-    - Repository: https://gitee.com/xarray/osgearth-wasm
-    - osgEarth-WASM can only be built with WebGL 2.0
   - Under Windows with Ninja:
     - Run commands below in terminal:
       - $ <emsdk_folder>/emsdk_env.bat
@@ -300,7 +305,7 @@ Our project is already tested on graphics cards listed as below:
     - Run commands below in terminal:
         - $ cd <osgverse_folder>
         - $ ./Setup.sh <emsdk_folder>
-  - Select "3. WASM / WebGL 1.0" or "4. WASM / WebGL 2.0" and starting building WASM at <osgverse_folder>/build/verse_wasm.
+  - Select "3. WASM / WebGL 1.0" or "4. WASM / WebGL 2.0" and start building WASM at <osgverse_folder>/build/verse_wasm.
   - Start an HTTPS server at <osgverse_folder>/build/verse_wasm/bin. See <osgverse_folder>/wasm/run_webserver.py as an example.
   - Copy <osgverse_folder>/assets to the same root folder of the server, and enjoy our WebGL examples.
 

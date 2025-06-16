@@ -38,9 +38,9 @@ IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
     NEW_CUDA_LIBRARY(${LIB_NAME} STATIC)
     TARGET_LINK_LIBRARIES(${LIB_NAME} ${CUDA_CUDA_LIBRARY})
 ELSEIF(MUSA_FOUND AND VERSE_BUILD_WITH_MUSA)
-    #SET(LIBRARY_FILES ${LIBRARY_FILES} CudaTexture2D.cpp CudaTexture2D.h
-    #    CudaUtils/BitDepth.cu CudaUtils/ColorSpace.cu CudaUtils/ColorSpace.h
-    #    CudaUtils/RadixSort.cu CudaUtils/RadixSort.h)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} CudaTexture2D.cpp CudaTexture2D.h
+        MusaUtils/BitDepth.mu MusaUtils/ColorSpace.mu MusaUtils/ColorSpace.h
+        MusaUtils/RadixSort.mu MusaUtils/RadixSort.h)
     NEW_CUDA_LIBRARY(${LIB_NAME} STATIC)
     TARGET_LINK_LIBRARIES(${LIB_NAME} ${MUSA_MUSA_LIBRARY})
 ELSE()

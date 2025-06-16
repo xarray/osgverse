@@ -3,8 +3,13 @@
 #include <osg/GLExtensions>
 
 #include "CudaTexture2D.h"
-#include <cuda.h>
-#include <cudaGL.h>
+#ifdef VERSE_ENABLE_MTT
+#   include <musa.h>
+#   include <musaGL.h>
+#else
+#   include <cuda.h>
+#   include <cudaGL.h>
+#endif
 using namespace osgVerse;
 
 inline bool check(int e, int iLine, const char* szFile)
@@ -40,7 +45,11 @@ bool CudaResourceReaderBase::openResource(CudaResourceDemuxerMuxerContainer* c)
 void CudaResourceReaderBase::releaseCuda()
 {
     _mutex.lock();
+#ifdef VERSE_ENABLE_MTT
+    ck(muMemFree(_deviceFrame));
+#else
     ck(cuMemFree(_deviceFrame));
+#endif
     _pbo = 0; _demuxer = NULL;
     _mutex.unlock();
 }
@@ -87,9 +96,15 @@ void CudaResourceReaderBase::load(const osg::Texture2D& texture, osg::State& sta
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, _width, _height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
+#ifdef VERSE_ENABLE_MTT
+    ck(muCtxSetCurrent(_cuContext));
+    ck(muMemAlloc(&_deviceFrame, _width * _height * 4));
+    ck(muMemsetD8(_deviceFrame, 0, _width * _height * 4));
+#else
     ck(cuCtxSetCurrent(_cuContext));
     ck(cuMemAlloc(&_deviceFrame, _width * _height * 4));
     ck(cuMemsetD8(_deviceFrame, 0, _width * _height * 4));
+#endif
 }
 
 void CudaResourceReaderBase::subload(const osg::Texture2D& texture, osg::State& state) const
@@ -98,6 +113,25 @@ void CudaResourceReaderBase::subload(const osg::Texture2D& texture, osg::State& 
     if (_pbo == 0) { load(texture, state); if (_pbo == 0) return; }
     _mutex.lock();
 
+#ifdef VERSE_ENABLE_MTT
+    MUgraphicsResource cuResource;
+    ck(muGraphicsGLRegisterBuffer(&cuResource, _pbo, MU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
+    ck(muGraphicsMapResources(1, &cuResource, 0));
+
+    CUdeviceptr devBackBuffer; size_t size = 0;
+    ck(muGraphicsResourceGetMappedPointer(&devBackBuffer, &size, cuResource));
+
+    MUSA_MEMCPY2D m = { 0 };
+    m.srcMemoryType = MU_MEMORYTYPE_DEVICE;
+    m.srcDevice = _deviceFrame; m.srcPitch = _width * 4;
+    m.dstMemoryType = MU_MEMORYTYPE_DEVICE;
+    m.dstDevice = devBackBuffer; m.dstPitch = size / _height;
+    m.WidthInBytes = _width * 4; m.Height = _height;
+    ck(muMemcpy2DAsync(&m, 0));
+
+    ck(muGraphicsUnmapResources(1, &cuResource, 0));
+    ck(muGraphicsUnregisterResource(cuResource));
+#else
     CUgraphicsResource cuResource;
     ck(cuGraphicsGLRegisterBuffer(&cuResource, _pbo, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
     ck(cuGraphicsMapResources(1, &cuResource, 0));
@@ -115,6 +149,7 @@ void CudaResourceReaderBase::subload(const osg::Texture2D& texture, osg::State& 
 
     ck(cuGraphicsUnmapResources(1, &cuResource, 0));
     ck(cuGraphicsUnregisterResource(cuResource));
+#endif
     _mutex.unlock();
 
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
