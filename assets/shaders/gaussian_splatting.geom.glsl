@@ -47,6 +47,7 @@ void main()
         vec2 offset = offsets[i];
         offset.x *= (2.0 * InvScreenResolution.x) * w;
         offset.y *= (2.0 * InvScreenResolution.y) * w;
+        //offset.x = (i == 1 || i == 3) ? -0.01 : 0.01; offset.y = (i == 2 || i == 3) ? -0.01 : 0.01;
 
         gl_Position = gl_PositionIn[0] + vec4(offset.x, offset.y, 0.0, 0.0);
         color = color_gs[0]; center2D = center2D_gs[0];

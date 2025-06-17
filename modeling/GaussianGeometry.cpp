@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <iostream>
+#include <osgUtil/CullVisitor>
 #include "Eigen/Dense"
 #include "Eigen/Geometry"
 #include "GaussianGeometry.h"
@@ -40,21 +42,39 @@ osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, 
     return program;
 }
 
-void GaussianGeometry::setPositionAndAlpha(osg::Vec3Array* v, osg::FloatArray* a)
+class GaussianUniformCallback : public osg::NodeCallback
 {
-    if (!v || !a) return; if (v->size() != a->size()) return;
-    std::vector<osg::Vec4> result; result.reserve(v->size());
-    std::transform(v->begin(), v->end(), a->begin(), std::back_inserter(result),
-        [](const osg::Vec3& vN, float aN) { return osg::Vec4(vN[0], vN[1], vN[2], aN); });
-    setVertexArray(new osg::Vec4Array(result.begin(), result.end()));
-}
+public:
+    virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+    {
+        osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
+        if (cv && cv->getCurrentCamera())
+        {
+            osg::StateSet* ss = node->getOrCreateStateSet();
+            osg::Uniform* invScreen = ss->getOrCreateUniform("InvScreenResolution", osg::Uniform::FLOAT_VEC2);
+            osg::Uniform* nearFar = ss->getOrCreateUniform("NearFarPlanes", osg::Uniform::FLOAT_VEC2);
 
-void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArray* qArray)
+            const osg::Viewport* vp = cv->getCurrentCamera()->getViewport();
+            if (vp) invScreen->set(osg::Vec2(1.0f / vp->width(), 1.0f / vp->height()));
+
+            double fov = 0.0, aspect = 0.0, znear = 0.0, zfar = 0.0;
+            cv->getCurrentCamera()->getProjectionMatrixAsPerspective(fov, aspect, znear, zfar);
+            nearFar->set(osg::Vec2(znear, zfar));
+        }
+        traverse(node, nv);
+    }
+};
+
+osg::NodeCallback* GaussianGeometry::createUniformCallback()
+{ return new GaussianUniformCallback; }
+
+void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArray* qArray,
+                                           osg::FloatArray* alphas)
 {
     if (!vArray || !qArray) return; if (vArray->size() != qArray->size()) return;
-    osg::Vec3Array* cov0 = new osg::Vec3Array(vArray->size());
-    osg::Vec3Array* cov1 = new osg::Vec3Array(vArray->size());
-    osg::Vec3Array* cov2 = new osg::Vec3Array(vArray->size());
+    osg::Vec4Array* cov0 = new osg::Vec4Array(vArray->size());
+    osg::Vec4Array* cov1 = new osg::Vec4Array(vArray->size());
+    osg::Vec4Array* cov2 = new osg::Vec4Array(vArray->size());
 
     for (size_t i = 0; i < vArray->size(); ++i)
     {
@@ -65,9 +85,10 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArra
         Eigen::Matrix3f S; S.diagonal() << scale[0], scale[1], scale[2];
         Eigen::Matrix3f cov = R * S * S.transpose() * R.transpose();
 
-        (*cov0)[i] = osg::Vec3(cov(0, 0), cov(1, 0), cov(2, 0));
-        (*cov1)[i] = osg::Vec3(cov(0, 1), cov(1, 1), cov(2, 1));
-        (*cov2)[i] = osg::Vec3(cov(0, 2), cov(1, 2), cov(2, 2));
+        float a = (alphas == NULL) ? 1.0f : alphas->at(i);
+        (*cov0)[i] = osg::Vec4(cov(0, 0), cov(1, 0), cov(2, 0), a);
+        (*cov1)[i] = osg::Vec4(cov(0, 1), cov(1, 1), cov(2, 1), 1.0f);
+        (*cov2)[i] = osg::Vec4(cov(0, 2), cov(1, 2), cov(2, 2), 1.0f);
     }
     setVertexAttribArray(1, cov0); setVertexAttribBinding(1, BIND_PER_VERTEX);
     setVertexAttribArray(2, cov1); setVertexAttribBinding(2, BIND_PER_VERTEX);

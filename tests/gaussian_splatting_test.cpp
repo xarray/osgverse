@@ -1,6 +1,6 @@
 #include <osg/io_utils>
 #include <osg/Texture2D>
-#include <osg/BindImageTexture>
+#include <osg/BlendFunc>
 #include <osg/DispatchCompute>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -61,14 +61,18 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 
-    osg::ref_ptr<osg::Node> gs = osgDB::readNodeFile("D:/BaiduNetdiskDownload/zdb2.ply.verse_3dgs");
+    osg::ref_ptr<osg::Node> gs = osgDB::readNodeFile("../test.ply.verse_3dgs");
     if (!gs) return 1;
 
     GaussianShaderVisitor gsv; gs->accept(gsv);
+    gs->setCullCallback(osgVerse::GaussianGeometry::createUniformCallback());
+    gs->getOrCreateStateSet()->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(gs.get());
 
     osgViewer::Viewer viewer;
+    viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setSceneData(root.get());

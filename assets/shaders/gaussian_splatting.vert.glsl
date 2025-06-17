@@ -1,4 +1,4 @@
-uniform vec3 ViewDirection;
+uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
 
 VERSE_VS_IN vec4 osg_Covariance0, osg_Covariance1, osg_Covariance2;
@@ -74,7 +74,7 @@ vec3 computeRadianceFromSH(const vec3 v)
 void main()
 {
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(osg_Vertex.xyz, 1.0);
-    float alpha = osg_Vertex.w, FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x;
+    float alpha = osg_Covariance0.w, FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x;
     float WIDTH = 1.0 / InvScreenResolution.x, HEIGHT = 1.0 / InvScreenResolution.y;
 
     // J is the jacobian of the projection and viewport transformations.
@@ -106,6 +106,8 @@ void main()
     center2D_gs.y = 0.5f * (HEIGHT + (center2D_gs.y * HEIGHT) + (2.0f * Y0));
 
     // compute radiance from SH
-    color_gs = vec4(computeRadianceFromSH(ViewDirection), alpha);
+    vec3 eyeDirection = normalize(eyeVertex.xyz / eyeVertex.w);
+    vec3 direction = transpose(mat3(osg_ViewMatrixInverse)) * eyeDirection;
+    color_gs = vec4(computeRadianceFromSH(direction), alpha);
     gl_Position = proj;
 }

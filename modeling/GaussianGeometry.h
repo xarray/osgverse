@@ -25,17 +25,18 @@ public:
     GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
 
     static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs);
+    static osg::NodeCallback* createUniformCallback();
 
     void setShDegrees(int d) { _degrees = d; }
     int getShDegrees() const { return _degrees; }
 
-    void setPositionAndAlpha(osg::Vec3Array* v, osg::FloatArray* a);
-    void setScaleAndRotation(osg::Vec3Array* v, osg::QuatArray* q);
+    void setPosition(osg::Vec3Array* v) { setVertexArray(v); }
+    void setScaleAndRotation(osg::Vec3Array* v, osg::QuatArray* q, osg::FloatArray* a);
     void setShRed(int i, osg::Vec4Array* v) { setVertexAttribArray(4 + i * 3, v); setVertexAttribBinding(4 + i * 3, BIND_PER_VERTEX); }
     void setShGreen(int i, osg::Vec4Array* v) { setVertexAttribArray(5 + i * 3, v); setVertexAttribBinding(5 + i * 3, BIND_PER_VERTEX); }
     void setShBlue(int i, osg::Vec4Array* v) { setVertexAttribArray(6 + i * 3, v); setVertexAttribBinding(6 + i * 3, BIND_PER_VERTEX); }
 
-    osg::Vec4Array* getPositionAlpha() { return static_cast<osg::Vec4Array*>(getVertexArray()); }
+    osg::Vec3Array* getPosition() { return static_cast<osg::Vec3Array*>(getVertexArray()); }
     osg::Vec3Array* getCovariance0() { return static_cast<osg::Vec3Array*>(getVertexAttribArray(1)); }
     osg::Vec3Array* getCovariance1() { return static_cast<osg::Vec3Array*>(getVertexAttribArray(2)); }
     osg::Vec3Array* getCovariance2() { return static_cast<osg::Vec3Array*>(getVertexAttribArray(3)); }

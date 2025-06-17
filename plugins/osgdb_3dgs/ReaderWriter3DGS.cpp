@@ -108,7 +108,7 @@ protected:
 
         osg::ref_ptr<osg::QuatArray> rot = new osg::QuatArray;
         for (size_t i = 0; i < c.rotations.size(); i += 4)
-            rot->push_back(osg::Quat(c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3], c.rotations[i]));
+            rot->push_back(osg::Quat(c.rotations[i], c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3]));
 
         osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
@@ -154,9 +154,8 @@ protected:
         }
 
         osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
-        geom->setShDegrees(c.shDegree);
-        geom->setPositionAndAlpha(pos.get(), alpha.get());
-        geom->setScaleAndRotation(scale.get(), rot.get());
+        geom->setShDegrees(c.shDegree); geom->setPosition(pos.get());
+        geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
         if (numShCoff >= 24)
         {
