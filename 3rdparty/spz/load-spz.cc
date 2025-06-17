@@ -620,18 +620,18 @@ GaussianCloud loadSplatFromPly(std::istream& in, const std::string& filename, co
     return {};
   }
   int32_t numPoints = std::stoi(line.substr(std::strlen("element vertex ")));
-  if (numPoints <= 0 || numPoints > 10 * 1024 * 1024) {
+  /*if (numPoints <= 0 || numPoints > 10 * 1024 * 1024) {
     SpzLog("[SPZ ERROR] %s: invalid vertex count: %d", filename.c_str(), numPoints);
     //in.close();
     return {};
-  }
+  }*/
 
   SpzLog("[SPZ] Loading %d points", numPoints);
   std::unordered_map<std::string, int> fields;  // name -> index
   for (int32_t i = 0;; i++) {
     std::getline(in, line);
-    if (line == "end_header")
-      break;
+    if (line == "end_header") break;
+    if (line.find("comment") != std::string::npos) continue;
 
     if (line.find("property float ") != 0) {
       SpzLog("[SPZ ERROR] %s: unsupported property data type: %s", filename.c_str(), line.c_str());

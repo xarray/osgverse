@@ -54,6 +54,7 @@ public:
 
     virtual ReadResult readNode(std::istream& fin, const Options* options) const
     {
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         spz::UnpackOptions unpackOpt;  // TODO: convert coordinates
         if (options)
         {
@@ -65,7 +66,7 @@ public:
             if (ext == "ply")
             {
                 cloud = spz::loadSplatFromPly(fin, prefix, unpackOpt);
-                if (cloud.numPoints > 0) return fromSpz(cloud);
+                if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
             }
             else
             {
@@ -77,7 +78,7 @@ public:
                 {
                     std::vector<uint8_t> dataSrc(buffer.begin(), buffer.end());
                     cloud = spz::loadSpz(dataSrc, unpackOpt);
-                    if (cloud.numPoints > 0) return fromSpz(cloud);
+                    if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
                 }
                 else if (ext == "splat")
                 {
@@ -91,7 +92,9 @@ public:
                 }
             }
         }
-        return NULL;
+
+        if (geode->getNumDrawables() > 0) return geode.get();
+        else return ReadResult::FILE_NOT_HANDLED;
     }
 
 protected:
@@ -103,11 +106,14 @@ protected:
         for (size_t i = 0; i < c.scales.size(); i += 3)
             scale->push_back(osg::Vec3(c.scales[i], c.scales[i + 1], c.scales[i + 2]));
 
-        osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array, color = new osg::Vec4Array;
+        osg::ref_ptr<osg::QuatArray> rot = new osg::QuatArray;
         for (size_t i = 0; i < c.rotations.size(); i += 4)
-            rot->push_back(osg::Vec4(c.rotations[i], c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3]));
+            rot->push_back(osg::Quat(c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3], c.rotations[i]));
+
+        osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
         for (size_t i = 0; i < c.alphas.size(); i++)
-            color->push_back(osg::Vec4(1.0f, 1.0f, 1.0f, c.alphas[i]));
+            { alpha->push_back(c.alphas[i]); de->push_back(i); }
 
         osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
         osg::ref_ptr<osg::Vec4Array> rD1 = new osg::Vec4Array, gD1 = new osg::Vec4Array, bD1 = new osg::Vec4Array;
@@ -149,8 +155,8 @@ protected:
 
         osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
         geom->setShDegrees(c.shDegree);
-        geom->setPosition(pos.get()); geom->setScale(scale.get());
-        geom->setRotation(rot.get()); geom->setColorAndAlpha(color.get());
+        geom->setPositionAndAlpha(pos.get(), alpha.get());
+        geom->setScaleAndRotation(scale.get(), rot.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
         if (numShCoff >= 24)
         {
@@ -159,7 +165,7 @@ protected:
             if (numShCoff >= 45)
                 { geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get()); }
         }
-        geom->addPrimitiveSet(new osg::DrawElementsUInt(GL_POINTS));
+        geom->addPrimitiveSet(de.get());
         return geom.release();
     }
 };
