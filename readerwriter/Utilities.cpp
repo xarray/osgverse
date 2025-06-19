@@ -698,8 +698,7 @@ namespace osgVerse
         for (size_t i = 0; i < str.length(); ++i)
         {
             char c = str[i];
-            if (c == '+') decoded += ' ';
-            else if (c == '%' && i + 2 < str.length())
+            if (c == '%' && i + 2 < str.length())
             {
                 char hex1 = std::toupper(str[i + 1]);
                 char hex2 = std::toupper(str[i + 2]);

@@ -128,11 +128,11 @@ public:
                 return ReadResult::ERROR_IN_READING_FILE;
         }
 
-        picojson::value document; osg::ref_ptr<osgDB::Options> opt = const_cast<osgDB::Options*>(options);
-        std::string err = picojson::parse(document, fin);
+        picojson::value document; std::string err = picojson::parse(document, fin);
+        osg::ref_ptr<osgDB::Options> opt = const_cast<osgDB::Options*>(options);
         if (err.empty())
         {
-            picojson::value& asset = document.get("asset");
+            picojson::value& asset = document.get("asset"); bool yAxisUp = true;
             if (asset.is<picojson::object>() && asset.contains("gltfUpAxis"))
             {
                 picojson::value& upAxis = asset.get("gltfUpAxis");
@@ -140,7 +140,7 @@ public:
                 if (val == "Z" || val == "z")
                 {
                     if (!opt) opt = new osgDB::Options;
-                    opt->setPluginStringData("UpAxis", "1");
+                    opt->setPluginStringData("UpAxis", "1"); yAxisUp = false;
                 }
             }
 
@@ -151,6 +151,11 @@ public:
                 osg::ref_ptr<osg::Node> node = createTile(root, prefix, name, "", opt.get());
                 if (node.valid())
                 {
+                    std::string sub_tile = opt.valid() ? opt->getPluginStringData("sub_tile") : "";
+                    if (yAxisUp && sub_tile.empty())  // no sub_tile, it should be root
+                    {
+                        // FIXME: any more transformations?
+                    }
 #if WRITE_TO_OSG
                     osgDB::writeNodeFile(*node, prefix + "/root.osgt");
 #endif
@@ -225,10 +230,11 @@ protected:
         std::string refine = localOptions->getPluginStringData("refinement");
         std::string prefix = localOptions->getPluginStringData("prefix");
 
-        osg::Group* group = new osg::Group;
+        osg::Group* group = new osg::Group; group->setName("TileGroup:" + name);
         for (size_t i = 0; i < children.size(); ++i)
         {
-            osg::ref_ptr<osg::Node> child = createTile(children[i], prefix, name, refine, opt.get());
+            osg::ref_ptr<osg::Node> child = createTile(
+                children[i], prefix, name + "," + std::to_string(i), refine, opt.get());
             if (child.valid()) group->addChild(child.get());
         }
 
@@ -246,20 +252,21 @@ protected:
     osg::Node* createTile(picojson::value& root, const std::string& prefix, const std::string& name,
                           const std::string& parentRefine, const osgDB::Options* options) const
     {
-        osg::ref_ptr<osgDB::Options> opt = options ? options->cloneOptions() : new osgDB::Options;
         picojson::value& bound = root.get("boundingVolume");
         picojson::value& content = root.get("content");
         picojson::value& rangeV = root.get("geometricError");
         picojson::value& rangeSt = root.get("refine");
         picojson::value& children = root.get("children");
         picojson::value& trans = root.get("transform");
+        osg::ref_ptr<osgDB::Options> opt = options ? options->cloneOptions() : new osgDB::Options;
+        opt->setPluginStringData("sub_tile", name);
 
         double range = rangeV.is<double>() ? rangeV.get<double>() : 0.0;
         double sseDenominator = 0.5629, height = 1080.0; // FIXME
         if (range < 0.0 || range > 99999.0) range = FLT_MAX;  // invalid range
         range = (range * height) / (_maxScreenSpaceError * sseDenominator);
 
-        bool isAbsoluteBound = false;  // fIXME: how to handle <region>?
+        bool isAbsoluteBound = false;  // FIXME: how to handle <region>?
         osg::BoundingSphered bs = getBoundingSphere(bound, isAbsoluteBound);
         std::string st = rangeSt.is<std::string>() ? rangeSt.get<std::string>() : "";
         if (st.empty()) st = parentRefine;
@@ -275,7 +282,7 @@ protected:
                 picojson::value& v = tArray.at(i);
                 if (v.is<double>()) m[i] = v.get<double>();
             }
-            mt->setMatrix(osg::Matrix::rotate(osg::Z_AXIS, osg::Y_AXIS) * osg::Matrix(m));
+            mt->setMatrix(osg::Matrix(m)); mt->setName("TileTransform");
             mt->addChild(tile.get()); return mt;
         }
         else return tile.release();
@@ -310,7 +317,7 @@ protected:
             else if (!ext.empty()) child0 = osgDB::readNodeFile(uri + ".verse_gltf", options);
 
             osg::PagedLOD* plod = new osg::PagedLOD;
-            plod->setDatabasePath(prefix);
+            plod->setName("TileLod:" + name); plod->setDatabasePath(prefix);
             plod->addChild(child0.valid() ? child0.get() : new osg::Node);
             if (!child0 && !uri.empty())
             {

@@ -99,7 +99,7 @@ public:
 
                     osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
                     plod->setDatabaseOptions(options->cloneOptions());
-                    plod->addChild(node.get());
+                    plod->addChild(node.get()); plod->setName("TMSLod:" + fileName);
                     plod->setFileName(1, std::to_string(x + xx) + "-" + std::to_string(y + yy) +
                                          "-" + std::to_string(z) + ".verse_tms");
                     plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
@@ -109,7 +109,7 @@ public:
                         { plod->setRange(0, 0.0f, 1000.0f); plod->setRange(1, 1000.0f, FLT_MAX); }
                     group->addChild(plod.get());
                 }
-            group->setName(fileName);
+            group->setName("TMSGroup:" + fileName);
             return (group->getNumChildren() > 0) ? group.get() : NULL;
         }
         return ReadResult::FILE_NOT_FOUND;
