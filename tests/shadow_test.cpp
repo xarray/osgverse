@@ -67,21 +67,45 @@ int main(int argc, char** argv)
     root->addChild(postCamera.get());
 
     // Start the viewer
-    osgVerse::StandardPipelineViewer viewer(false, true, true);
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
-    viewer.setUpViewOnSingleScreen(0);
-    viewer.realize();
+    osg::ref_ptr<osgViewer::Viewer> viewer;
+    bool useForwardShadow = arguments.read("--forward");
+    if (useForwardShadow)
+    {
+        viewer = new osgViewer::Viewer;
+    }
+    else
+    {
+        osgVerse::StandardPipelineViewer* plViewer = new osgVerse::StandardPipelineViewer(false, true, true);
+        if (arguments.read("--eyespace-depth"))
+            plViewer->getParameters().shadowTechnique = osgVerse::ShadowModule::EyeSpaceDepthSM;
+        viewer = plViewer;
+    }
+
+    viewer->addEventHandler(new osgViewer::StatsHandler);
+    viewer->addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer->addEventHandler(new osgGA::StateSetManipulator(viewer->getCamera()->getOrCreateStateSet()));
+    viewer->setCameraManipulator(new osgGA::TrackballManipulator);
+    viewer->setSceneData(root.get());
+    viewer->setUpViewOnSingleScreen(0);
+    viewer->realize();
+
+    osgVerse::Pipeline::Stage* shadowCombine = NULL;
+    osg::ref_ptr<osgVerse::ShadowModule> shadow;
+    osg::ref_ptr<osgVerse::LightDrawable> light0;
+    if (useForwardShadow)
+    {
+
+    }
+    else
+    {
+        osgVerse::StandardPipelineViewer* plViewer = static_cast<osgVerse::StandardPipelineViewer*>(viewer.get());
+        osgVerse::Pipeline* pipeline = plViewer->getPipeline();
+        shadowCombine = pipeline->getStage("Shadowing");
+        light0 = static_cast<osgVerse::LightDrawable*>(plViewer->getLightRoot()->getDrawable(0));
+        shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+    }
 
     // Config shadow settings
-    osgVerse::Pipeline* pipeline = viewer.getPipeline();
-    osgVerse::LightDrawable* light0 =
-        static_cast<osgVerse::LightDrawable*>(viewer.getLightRoot()->getDrawable(0));
-
-    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
     if (shadow)
     {
         if (arguments.read("--vhacd"))
@@ -107,7 +131,6 @@ int main(int argc, char** argv)
         }
 
         float quadY = 0.0f;
-        osgVerse::Pipeline::Stage* shadowCombine = pipeline->getStage("Shadowing");
         if (shadowCombine)
         {
             osg::Node* quad = osgVerse::createScreenQuad(
@@ -127,15 +150,15 @@ int main(int argc, char** argv)
 
     float lightX = 0.02f; bool lightD = true, animated = arguments.read("--animated");
     std::cout << "Shadow testing started..." << std::endl;
-    while (!viewer.done())
+    while (!viewer->done())
     {
         if (animated)
         {
             if (lightD) { if (lightX > 0.8f) lightD = false; else lightX += 0.001f; }
             else { if (lightX < -0.8f) lightD = true; else lightX -= 0.001f; }
         }
-        light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
-        viewer.frame();
+        if (light0.valid()) light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
+        viewer->frame();
         MicroProfileFlip(NULL);  // see localhost:1338
     }
     return 0;

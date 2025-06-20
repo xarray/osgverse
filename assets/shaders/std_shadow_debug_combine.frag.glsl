@@ -1,4 +1,4 @@
-#define DEBUG_SHADOW_COLOR 0
+#pragma import_defines(VERSE_SHADOW_EYESPACE, VERSE_SHADOW_DEBUGCOLOR)
 uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler2D RandomTexture;
@@ -29,7 +29,7 @@ float DecodeFloatRGBA(vec4 v)
 }
 #endif
 
-float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
+vec3 getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
 {
     vec4 lightProjVec0 = VERSE_TEX2D(shadowMap, lightProjUV.xy);
 #ifdef VERSE_WEBGL1
@@ -38,7 +38,12 @@ float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth
 #else
     float depth0 = lightProjVec0.z;
 #endif
-    return (depth > depth0) ? 0.0 : 1.0;
+
+#ifdef VERSE_SHADOW_EYESPACE
+    return vec3(depth0, depth, (depth < depth0) ? 0.0 : 1.0);
+#else
+    return vec3(depth0, depth, (depth > depth0) ? 0.0 : 1.0);
+#endif
 }
 
 float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float uvRadius)
@@ -47,7 +52,7 @@ float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV,
     for (int i = 0; i < 16; i++)
     {
         vec2 dir = VERSE_TEX2D(RandomTexture, vec2(float(i) / 16.0, 0.25)).xy * 2.0 - vec2(1.0);
-        sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth);
+        sum += getShadowValue(shadowMap, lightProjUV.xy + dir * uvRadius, depth).z;
     }
     return sum / 16.0;
 }
@@ -66,7 +71,7 @@ void main()
     vec3 eyeNormal = normalAlpha.rgb;
     
     // Compute shadow and combine with color
-#if DEBUG_SHADOW_COLOR
+#ifdef VERSE_SHADOW_DEBUGCOLOR
     vec3 shadowColors[VERSE_MAX_SHADOWS], debugShadowColor = vec3(1, 1, 1);
     shadowColors[0] = vec3(1, 0, 0); shadowColors[1] = vec3(0, 1, 0);
     shadowColors[2] = vec3(0, 0, 1); shadowColors[3] = vec3(1, 1, 0);
@@ -79,20 +84,21 @@ void main()
         if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0)))) continue;
         
         float depth = lightProjVec.z / lightProjVec.w;  // real depth in light space
-        float shadowValue = 1.0, pcfRadius = 0.0012;
-        if (length(debugValue) == 0.0) debugValue = vec3(lightProjUV, depth * 0.5 + 0.5);
-        
-        if (i == 0) shadowValue = getShadowPCF_DirectionalLight(ShadowMap0, lightProjUV.xy, depth, pcfRadius);
-        else if (i == 1) shadowValue = getShadowPCF_DirectionalLight(ShadowMap1, lightProjUV.xy, depth, pcfRadius);
-        else if (i == 2) shadowValue = getShadowPCF_DirectionalLight(ShadowMap2, lightProjUV.xy, depth, pcfRadius);
-        else if (i == 3) shadowValue = getShadowPCF_DirectionalLight(ShadowMap3, lightProjUV.xy, depth, pcfRadius);
-        shadow *= shadowValue;
-#if DEBUG_SHADOW_COLOR
-        if (shadowValue < 0.5) debugShadowColor = shadowColors[i];
+        vec3 shadowValue = vec3(1.0);
+        if (i == 0) shadowValue = getShadowValue(ShadowMap0, lightProjUV.xy, depth);
+        else if (i == 1) shadowValue = getShadowValue(ShadowMap1, lightProjUV.xy, depth);
+        else if (i == 2) shadowValue = getShadowValue(ShadowMap2, lightProjUV.xy, depth);
+        else if (i == 3) shadowValue = getShadowValue(ShadowMap3, lightProjUV.xy, depth);
+
+        if (length(debugValue) == 0.0) debugValue = vec3(
+            (shadowValue.x - shadowValue.y) * 10.0, (abs(shadowValue.x - shadowValue.y) < 0.01) ? 1.0 : 0.0, 0.0);
+        shadow *= shadowValue.z;
+#ifdef VERSE_SHADOW_DEBUGCOLOR
+        if (shadowValue.z < 0.5) debugShadowColor = shadowColors[i];
 #endif
     }
     
-#if DEBUG_SHADOW_COLOR
+#ifdef VERSE_SHADOW_DEBUGCOLOR
     colorData.rgb *= debugShadowColor * ao;
 #else
     colorData.rgb *= shadow * ao;

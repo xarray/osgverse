@@ -1,4 +1,4 @@
-#define DEBUG_SHADOW_COLOR 0
+#pragma import_defines(VERSE_SHADOW_EYESPACE)
 uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler2D RandomTexture;
@@ -34,7 +34,12 @@ float getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth
 #else
     float depth0 = lightProjVec0.z;
 #endif
+
+#ifdef VERSE_SHADOW_EYESPACE
+    return (depth < depth0) ? 0.0 : 1.0;
+#else
     return (depth > depth0) ? 0.0 : 1.0;
+#endif
 }
 
 float getShadowPCF_DirectionalLight(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float uvRadius)
@@ -62,11 +67,6 @@ void main()
     vec3 eyeNormal = normalAlpha.rgb;
     
     // Compute shadow and combine with color
-#if DEBUG_SHADOW_COLOR
-    vec3 shadowColors[VERSE_MAX_SHADOWS], debugShadowColor = vec3(1, 1, 1);
-    shadowColors[0] = vec3(1, 0, 0); shadowColors[1] = vec3(0, 1, 0);
-    shadowColors[2] = vec3(0, 0, 1); shadowColors[3] = vec3(0, 1, 1);
-#endif
     float shadow = 1.0;
     for (int i = 0; i < VERSE_MAX_SHADOWS; ++i)
     {
@@ -82,16 +82,9 @@ void main()
         else if (i == 2) shadowValue = getShadowPCF_DirectionalLight(ShadowMap2, lightProjUV.xy, depth, pcfRadius);
         else if (i == 3) shadowValue = getShadowPCF_DirectionalLight(ShadowMap3, lightProjUV.xy, depth, pcfRadius);
         shadow *= shadowValue;
-#if DEBUG_SHADOW_COLOR
-        if (shadowValue < 0.5) debugShadowColor = shadowColors[i];
-#endif
     }
     
-#if DEBUG_SHADOW_COLOR
-    colorData.rgb *= debugShadowColor * ao;
-#else
     colorData.rgb *= shadow * ao;
-#endif
     fragData = colorData;
     VERSE_FS_FINAL(fragData);
 }

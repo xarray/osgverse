@@ -155,6 +155,9 @@ namespace osgVerse
             ScriptableProgram* getProgram();
             const ScriptableProgram* getProgram() const;
 
+            osg::StateSet* getOrCreateStateSet()
+            { return deferred ? runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet(); }
+
             osg::StateSet::UniformList getUniforms() const;
             osg::Uniform* getUniform(const std::string& name) const;
             osg::Texture* getTexture(const std::string& name) const;
@@ -363,7 +366,7 @@ namespace osgVerse
         osg::ref_ptr<osg::ImageSequence> skyboxIBL;
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight, deferredMask, forwardMask;
-        unsigned int shadowCastMask, shadowNumber, shadowResolution, coverageSamples;
+        unsigned int shadowCastMask, shadowNumber, shadowResolution, shadowTechnique, coverageSamples;
         double depthPartitionNearValue, eyeSeparationVR;
         bool withEmbeddedViewer, debugShadowModule, debugShadowCombination, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR;

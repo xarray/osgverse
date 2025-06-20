@@ -23,6 +23,17 @@ namespace osgVerse
         ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom);
         virtual ShadowModule* asShadowModule() { return this; }
 
+        /** Technique can only be set and applied before createStages() */
+        enum Technique
+        {
+            DefaultSM = 0, EyeSpaceDepthSM
+        };
+        void setTechnique(Technique t) { _technique = t; }
+        Technique getTechnique() const { return _technique; }
+
+        /** Apply definition macros to shadow related shaders */
+        void applyTechniqueDefines(osg::StateSet* ss) const;
+
         /** Set small-pixels-culling-feature of shadow cameras after createStages() */
         void setSmallPixelsToCull(int cameraNum, int smallPixels);
 
@@ -72,6 +83,7 @@ namespace osgVerse
 
         osg::Matrix _lightMatrix, _lightInputMatrix;
         std::vector<osg::Vec3d> _referencePoints;
+        Technique _technique;
         double _shadowMaxDistance; int _shadowNumber;
         bool _retainLightPos, _dirtyReference;
     };

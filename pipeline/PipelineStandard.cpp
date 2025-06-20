@@ -99,8 +99,8 @@ namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096), coverageSamples(0),
-        depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096), shadowTechnique(0),
+        coverageSamples(0), depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
         debugShadowModule(false), debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
@@ -110,8 +110,8 @@ namespace osgVerse
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096), coverageSamples(0),
-        depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096), shadowTechnique(0),
+        coverageSamples(0), depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
         debugShadowModule(false), debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
@@ -353,6 +353,7 @@ namespace osgVerse
         // Shadow module initialization
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =
             new osgVerse::ShadowModule("Shadow", p, spp.debugShadowModule);
+        shadowModule->setTechnique((osgVerse::ShadowModule::Technique)spp.shadowTechnique);
         std::vector<Pipeline::Stage*> shadowStages = shadowModule->createStages(
             spp.shadowResolution, spp.shadowNumber,
             spp.shaders.shadowCastVS, spp.shaders.shadowCastFS, spp.shadowCastMask);
@@ -538,6 +539,7 @@ namespace osgVerse
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
         shadowing->applyTexture(generatePoissonDiscDistribution(16, 2), "RandomTexture", 4);
         shadowModule->applyTextureAndUniforms(shadowing, "ShadowMap", 5);
+        shadowModule->applyTechniqueDefines(shadowing->getOrCreateStateSet());
 
         // User input module before post-effects
         occasion = StandardPipelineParameters::BEFORE_POSTEFFECTS;

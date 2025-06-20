@@ -110,7 +110,7 @@ protected:
 namespace osgVerse
 {
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
-    :   _pipeline(pipeline), _shadowMaxDistance(-1.0), _shadowNumber(0),
+    :   _pipeline(pipeline), _technique(DefaultSM), _shadowMaxDistance(-1.0), _shadowNumber(0),
         _retainLightPos(false), _dirtyReference(false)
     {
         for (int i = 0; i < MAX_SHADOWS; ++i) _shadowMaps[i] = new osg::Texture2D;
@@ -126,6 +126,15 @@ namespace osgVerse
     ShadowModule::~ShadowModule()
     {
         if (_pipeline.valid()) _pipeline->removeModule(this);
+    }
+
+    void ShadowModule::applyTechniqueDefines(osg::StateSet* ss) const
+    {
+        switch (_technique)
+        {
+        case EyeSpaceDepthSM: ss->setDefine("VERSE_SHADOW_EYESPACE"); break;
+        default: break;
+        }
     }
 
     void ShadowModule::setSmallPixelsToCull(int cameraNum, int smallPixels)
@@ -191,29 +200,32 @@ namespace osgVerse
             _shadowMaps[i]->setBorderColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
         }
 
+        int glVer = 100, glslVer = 130;  // FIXME
         std::vector<Pipeline::Stage*> stages;
+        osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
+        prog->setName("ShadowCaster_PROGRAM");
+
         if (_pipeline.valid())
         {
-            osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
-            prog->setName("ShadowCaster_PROGRAM");
+            glVer = _pipeline->getContextTargetVersion(); glslVer = _pipeline->getGlslTargetVersion();
             for (int i = 0; i < _shadowNumber; ++i)
             {
                 Pipeline::Stage* stage = createShadowCaster(i, prog.get(), casterMask);
+                applyTechniqueDefines(stage->getOrCreateStateSet());
                 _pipeline->addStage(stage); stages.push_back(stage);
             }
+        }
 
-            int gl = _pipeline->getContextTargetVersion(), glsl = _pipeline->getGlslTargetVersion();
-            if (vs)
-            {
-                vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);
-                Pipeline::createShaderDefinitions(vs, gl, glsl);
-            }
+        if (vs)
+        {
+            vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);
+            Pipeline::createShaderDefinitions(vs, glVer, glslVer);
+        }
 
-            if (fs)
-            {
-                fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs);
-                Pipeline::createShaderDefinitions(fs, gl, glsl);
-            }
+        if (fs)
+        {
+            fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs);
+            Pipeline::createShaderDefinitions(fs, glVer, glslVer);
         }
         return stages;
     }
@@ -328,8 +340,18 @@ namespace osgVerse
             osg::Camera* shadowCam = _shadowCameras[i].get();
             shadowCam->setViewMatrix(_lightMatrix);
             shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax, 0.0, zMaxTotal);
-            _lightMatrices->setElement(i, osg::Matrixf(viewInv *
-                shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
+            if (_technique == EyeSpaceDepthSM)
+            {
+                osg::Matrix proj = shadowCam->getProjectionMatrix(), projKeepZ;
+                //projKeepZ(2, 2) = proj(0, 0); projKeepZ(1, 1) = proj(1, 1);  // consider perspective
+                projKeepZ = proj; projKeepZ(2, 2) = 1.0f; projKeepZ(3, 2) = 0.0f;  // consider ortho
+                _lightMatrices->setElement(i, osg::Matrixf(viewInv * shadowCam->getViewMatrix() * projKeepZ));
+            }
+            else
+            {
+                _lightMatrices->setElement(i, osg::Matrixf(viewInv *
+                    shadowCam->getViewMatrix() * shadowCam->getProjectionMatrix()));
+            }
 
             ShadowData* sData = static_cast<ShadowData*>(shadowCam->getUserData());
             if (sData != NULL)
@@ -435,15 +457,10 @@ namespace osgVerse
             de->push_back(3); de->push_back(0); de->push_back(0); de->push_back(4);
             de->push_back(4); de->push_back(7);
 
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
             osg::DrawElementsUByte* de2 = new osg::DrawElementsUByte(GL_LINES);
             de2->push_back(4); de2->push_back(5); de2->push_back(5); de2->push_back(6);
             de2->push_back(6); de2->push_back(7); de2->push_back(7); de2->push_back(4);
-#else
-            osg::DrawElementsUByte* de2 = new osg::DrawElementsUByte(GL_TRIANGLES);
-            de2->push_back(4); de2->push_back(5); de2->push_back(6);
-            de2->push_back(4); de2->push_back(6); de2->push_back(7);
-#endif
+            de2->push_back(4); de2->push_back(6); de2->push_back(5); de2->push_back(7);
             osg::Vec4Array* ca = new osg::Vec4Array; ca->push_back(dbgColor[id]);
 
             geom = new osg::Geometry;
