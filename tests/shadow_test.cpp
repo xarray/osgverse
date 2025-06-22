@@ -94,7 +94,24 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::LightDrawable> light0;
     if (useForwardShadow)
     {
+        shadow = new osgVerse::ShadowModule("Shadow", NULL, true);
+        std::vector<osgVerse::Pipeline::Stage*> stages = shadow->createStages(2048, 3,
+            osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "std_shadow_cast.vert.glsl"),
+            osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "std_shadow_cast.frag.glsl"), SHADOW_CASTER_MASK);
+        std::vector<osg::ref_ptr<osgVerse::Pipeline::Stage>> refStages(stages.begin(), stages.end());
 
+        osg::ref_ptr<osg::Group> shadowRoot = new osg::Group;
+        for (size_t i = 0; i < refStages.size(); ++i)
+        {
+            refStages[i]->camera->setCullMask(SHADOW_CASTER_MASK);
+            refStages[i]->camera->addChild(sceneRoot.get());
+            shadowRoot->addChild(refStages[i]->camera.get());
+        }
+        root->addChild(shadowRoot.get());
+
+        osg::ref_ptr<osgVerse::ShadowDrawCallback> shadowCallback =new osgVerse::ShadowDrawCallback(shadow.get());
+        shadowCallback->setup(viewer->getCamera(), PRE_DRAW);
+        viewer->getCamera()->addUpdateCallback(shadow.get());
     }
     else
     {
@@ -157,9 +174,10 @@ int main(int argc, char** argv)
             if (lightD) { if (lightX > 0.8f) lightD = false; else lightX += 0.001f; }
             else { if (lightX < -0.8f) lightD = true; else lightX -= 0.001f; }
         }
+
         if (light0.valid()) light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
-        viewer->frame();
-        MicroProfileFlip(NULL);  // see localhost:1338
+        else if (shadow.valid()) shadow->setLightState(osg::Vec3(0.0f, 0.0f, 1.0f), osg::Vec3(lightX, 0.1f, -1.0f));
+        viewer->frame(); MicroProfileFlip(NULL);  // see localhost:1338
     }
     return 0;
 }

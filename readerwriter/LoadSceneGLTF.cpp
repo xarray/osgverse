@@ -258,7 +258,7 @@ namespace osgVerse
     {
         std::string protocol = osgDB::getServerProtocol(d);
         osgDB::ReaderWriter* rwWeb = (protocol.empty()) ? NULL
-                : osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
+                                   : osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
         tinygltf::FsCallbacks fs = {
             &osgVerse::FileExists, &tinygltf::ExpandFilePath,
             &osgVerse::ReadWholeFile, &tinygltf::WriteWholeFile,
@@ -469,6 +469,7 @@ namespace osgVerse
                     animName, boneList, skeletonAnimMap);
             }
         }  // end of for (animations)
+        loader.RemoveImageLoader();
     }
 
     osg::Node* LoaderGLTF::createNode(int id, tinygltf::Node& node)

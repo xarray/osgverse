@@ -6,6 +6,7 @@
 #include <iostream>
 
 #define TINYGLTF_USE_RAPIDJSON 1
+#define TINYGLTF_USE_RAPIDJSON_CRTALLOCATOR 1
 #include "3rdparty/tiny_gltf.h"
 #include "animation/PlayerAnimation.h"
 #include "Export.h"

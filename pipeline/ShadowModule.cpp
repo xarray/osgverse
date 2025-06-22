@@ -200,20 +200,22 @@ namespace osgVerse
             _shadowMaps[i]->setBorderColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
         }
 
-        int glVer = 100, glslVer = 130;  // FIXME
         std::vector<Pipeline::Stage*> stages;
         osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
         prog->setName("ShadowCaster_PROGRAM");
 
+        int glVer = 100, glslVer = 130;  // FIXME
         if (_pipeline.valid())
         {
-            glVer = _pipeline->getContextTargetVersion(); glslVer = _pipeline->getGlslTargetVersion();
-            for (int i = 0; i < _shadowNumber; ++i)
-            {
-                Pipeline::Stage* stage = createShadowCaster(i, prog.get(), casterMask);
-                applyTechniqueDefines(stage->getOrCreateStateSet());
-                _pipeline->addStage(stage); stages.push_back(stage);
-            }
+            glVer = _pipeline->getContextTargetVersion();
+            glslVer = _pipeline->getGlslTargetVersion();
+        }
+
+        for (int i = 0; i < _shadowNumber; ++i)
+        {
+            Pipeline::Stage* stage = createShadowCaster(i, prog.get(), casterMask);
+            applyTechniqueDefines(stage->getOrCreateStateSet());
+            stages.push_back(stage); if (_pipeline.valid()) _pipeline->addStage(stage);
         }
 
         if (vs)

@@ -6131,7 +6131,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
                  store_original_json_for_extras_and_extensions_);
     }
   }
-
+  
   using detail::ForEachInArray;
 
   // 2. Parse extensionUsed
@@ -6152,7 +6152,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
       return true;
     });
   }
-
+  
   // 3. Parse Buffer
   {
     bool success = ForEachInArray(v, "buffers", [&](const detail::json &o) {
@@ -6201,7 +6201,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
       return false;
     }
   }
-
+  
   // 5. Parse Accessor
   {
     bool success = ForEachInArray(v, "accessors", [&](const detail::json &o) {
@@ -6250,7 +6250,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
       return false;
     }
   }
-
+  
   // Assign missing bufferView target types
   // - Look for missing Mesh indices
   // - Look for missing Mesh attributes
@@ -6336,7 +6336,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
       return false;
     }
   }
-
+  
   // 8. Parse scenes.
   {
     bool success = ForEachInArray(v, "scenes", [&](const detail::json &o) {
@@ -6371,7 +6371,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
       model->defaultScene = iVal;
     }
   }
-
+  
   // 10. Parse Material
   {
     bool success = ForEachInArray(v, "materials", [&](const detail::json &o) {
@@ -6403,7 +6403,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
   void *load_image_user_data{nullptr};
 
   LoadImageDataOption load_image_option;
-
+  
   if (user_image_loader_) {
     // Use user supplied pointer
     load_image_user_data = load_image_user_data_;
@@ -6488,7 +6488,7 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
       return false;
     }
   }
-
+  
   // 12. Parse Texture
   {
     bool success = ForEachInArray(v, "textures", [&](const detail::json &o) {

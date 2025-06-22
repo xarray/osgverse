@@ -58,7 +58,7 @@ public:
         image->allocateImage(width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE);
         image->setInternalTextureFormat(GL_RGBA8);
         memcpy(image->data(), rgba, image->getTotalSizeInBytes());
-        return image.get();
+        WebPFree(rgba); return image.get();
     }
 
     virtual WriteResult writeImage(const osg::Image& image, const std::string& path,
