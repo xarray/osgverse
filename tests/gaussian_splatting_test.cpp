@@ -1,7 +1,8 @@
 #include <osg/io_utils>
 #include <osg/Texture2D>
 #include <osg/BlendFunc>
-#include <osg/DispatchCompute>
+#include <osg/BlendEquation>
+#include <osg/Depth>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
@@ -22,10 +23,10 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
-class GaussianShaderVisitor : public osg::NodeVisitor
+class GaussianStateVisitor : public osg::NodeVisitor
 {
 public:
-    GaussianShaderVisitor() : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
+    GaussianStateVisitor(osgVerse::GaussianSorter* s) : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), _sorter(s)
     {
         osg::Shader* vert = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "gaussian_splatting.vert.glsl");
         osg::Shader* geom = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "gaussian_splatting.geom.glsl");
@@ -40,20 +41,33 @@ public:
         osgVerse::Pipeline::createShaderDefinitions(geom, 100, 130);
         osgVerse::Pipeline::createShaderDefinitions(frag, 100, 130);
         _program = osgVerse::GaussianGeometry::createProgram(vert, geom, frag);
+        _callback = osgVerse::GaussianGeometry::createUniformCallback();
     }
 
     virtual void apply(osg::Geode& node)
     {
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
         {
-            osgVerse::GaussianGeometry* gg = dynamic_cast<osgVerse::GaussianGeometry*>(node.getDrawable(i));
-            if (gg) gg->getOrCreateStateSet()->setAttribute(_program.get());
+            osgVerse::GaussianGeometry* gs = dynamic_cast<osgVerse::GaussianGeometry*>(node.getDrawable(i));
+            if (gs)
+            {
+                osg::StateSet* ss = gs->getOrCreateStateSet();
+                ss->setAttribute(_program.get());
+                ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+                ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
+                ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
+                ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);  // to sort geometries by depth
+                gs->setCullCallback(_callback.get());
+                if (_sorter.valid()) _sorter->addGeometry(gs);
+            }
         }
         traverse(node);
     }
 
 protected:
     osg::ref_ptr<osg::Program> _program;
+    osg::ref_ptr<osg::NodeCallback> _callback;
+    osg::observer_ptr<osgVerse::GaussianSorter> _sorter;
 };
 
 int main(int argc, char** argv)
@@ -61,20 +75,30 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 
-    osg::ref_ptr<osg::Node> gs = osgDB::readNodeFile("../test.ply.verse_3dgs");
-    if (!gs) return 1;
-
-    GaussianShaderVisitor gsv; gs->accept(gsv);
-    gs->setCullCallback(osgVerse::GaussianGeometry::createUniformCallback());
-    gs->getOrCreateStateSet()->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+    osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments);
+    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_axes.ply.verse_3dgs");
+    if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(gs.get());
 
     osgViewer::Viewer viewer;
-    viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
-    return viewer.run();
+
+    osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;
+    GaussianStateVisitor gsv(sorter.get()); gs->accept(gsv);
+    while (!viewer.done())
+    {
+        if (!(viewer.getFrameStamp()->getFrameNumber() % 100))
+        {
+            // TODO: too slow! need GPU implementation!
+            sorter->cull(viewer.getCamera()->getViewMatrix());
+        }
+        viewer.frame();
+    }
+    return 0;
 }

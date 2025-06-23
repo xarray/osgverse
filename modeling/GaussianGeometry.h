@@ -3,11 +3,12 @@
 
 #include <osg/Version>
 #include <osg/Geometry>
+#include <set>
 
 namespace osgVerse
 {
 
-/* Gaussian Data:
+/** Gaussian Data:
    - Position (vec3): getVertexArray()
    - Scale (vec3): getNormalArray()
    - Rotation (vec4): getVertexAttribArray(2)
@@ -47,6 +48,32 @@ public:
 protected:
     virtual ~GaussianGeometry() {}
     int _degrees;
+};
+
+/** Gaussian sorter */
+class GaussianSorter : public osg::Referenced
+{
+public:
+    GaussianSorter() : _method(CPU_SORT) {}
+    void cull(const osg::Matrix& view);
+
+    enum Method
+    {
+        CPU_SORT
+    };
+    void setMethod(Method m) { _method = m; }
+    Method getMethod() const { return _method; }
+
+    void addGeometry(GaussianGeometry* geom);
+    void removeGeometry(GaussianGeometry* geom);
+    void clear() { _geometries.clear(); }
+
+protected:
+    virtual ~GaussianSorter() {}
+    virtual void cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view);
+
+    std::set<osg::ref_ptr<GaussianGeometry>> _geometries;
+    Method _method;
 };
 
 }

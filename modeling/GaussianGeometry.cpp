@@ -1,8 +1,6 @@
 #include <algorithm>
 #include <iostream>
 #include <osgUtil/CullVisitor>
-#include "Eigen/Dense"
-#include "Eigen/Geometry"
 #include "GaussianGeometry.h"
 using namespace osgVerse;
 
@@ -68,6 +66,12 @@ public:
 osg::NodeCallback* GaussianGeometry::createUniformCallback()
 { return new GaussianUniformCallback; }
 
+static osg::Matrix transpose(const osg::Matrix& m)
+{
+    return osg::Matrix(m(0, 0), m(1, 0), m(2, 0), m(3, 0), m(0, 1), m(1, 1), m(2, 1), m(3, 1),
+                       m(0, 2), m(1, 2), m(2, 2), m(3, 2), m(0, 3), m(1, 3), m(2, 3), m(3, 3));
+}
+
 void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArray* qArray,
                                            osg::FloatArray* alphas)
 {
@@ -78,14 +82,12 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArra
 
     for (size_t i = 0; i < vArray->size(); ++i)
     {
-        const osg::Vec3& scale = (*vArray)[i];
-        const osg::Quat& quat = (*qArray)[i];
-        Eigen::Quaternionf q(quat[3], quat[0], quat[1], quat[2]);
-        Eigen::Matrix3f R = q.normalized().toRotationMatrix();
-        Eigen::Matrix3f S; S.diagonal() << scale[0], scale[1], scale[2];
-        Eigen::Matrix3f cov = R * S * S.transpose() * R.transpose();
-
         float a = (alphas == NULL) ? 1.0f : alphas->at(i);
+        const osg::Vec3& scale = (*vArray)[i]; osg::Quat quat = (*qArray)[i];
+        if (!quat.zeroRotation()) { double l = quat.length(); if (l > 0.0) quat = quat / l; }
+
+        osg::Matrix R(quat), S = osg::Matrix::scale(scale);
+        osg::Matrix cov = R * S * transpose(S) * transpose(R);
         (*cov0)[i] = osg::Vec4(cov(0, 0), cov(1, 0), cov(2, 0), a);
         (*cov1)[i] = osg::Vec4(cov(0, 1), cov(1, 1), cov(2, 1), 1.0f);
         (*cov2)[i] = osg::Vec4(cov(0, 2), cov(1, 2), cov(2, 2), 1.0f);
@@ -93,4 +95,57 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArra
     setVertexAttribArray(1, cov0); setVertexAttribBinding(1, BIND_PER_VERTEX);
     setVertexAttribArray(2, cov1); setVertexAttribBinding(2, BIND_PER_VERTEX);
     setVertexAttribArray(3, cov2); setVertexAttribBinding(3, BIND_PER_VERTEX);
+}
+
+///////////////////////// GaussianSorter /////////////////////////
+
+void GaussianSorter::addGeometry(GaussianGeometry* geom)
+{ _geometries.insert(geom); }
+
+void GaussianSorter::removeGeometry(GaussianGeometry* geom)
+{
+    std::set<osg::ref_ptr<GaussianGeometry>>::iterator it = _geometries.find(geom);
+    if (it != _geometries.end()) _geometries.erase(it);
+}
+
+void GaussianSorter::cull(const osg::Matrix& view)
+{
+    std::vector<osg::ref_ptr<GaussianGeometry>> _geometriesToSort;
+    for (std::set<osg::ref_ptr<GaussianGeometry>>::iterator it = _geometries.begin();
+         it != _geometries.end();)
+    {
+        GaussianGeometry* gs = (*it).get();  // remove those only ref-ed by the sorter
+        if (!gs || (gs && gs->referenceCount() < 2)) { it = _geometries.erase(it); continue; }
+
+        osg::MatrixList matrices = gs->getWorldMatrices();
+        if (matrices.empty()) { it = _geometries.erase(it); continue; }
+        cull(gs, matrices[0], view); ++it;
+    }
+}
+
+void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view)
+{
+    osg::Vec3Array* pos = geom->getPosition(); if (!pos) return;
+    osg::DrawElementsUInt* indices = (geom->getNumPrimitiveSets() > 0)
+                                   ? static_cast<osg::DrawElementsUInt*>(geom->getPrimitiveSet(0)) : NULL;
+    if (!indices)
+    {
+        indices = new osg::DrawElementsUInt(GL_POINTS);
+        indices->resize(pos->size()); geom->addPrimitiveSet(indices);
+        for (unsigned int i = 0; i < pos->size(); ++i) (*indices)[i] = i;
+    }
+    else indices->dirty();
+
+    osg::Matrix localToEye = model * view;
+    switch (_method)
+    {
+    case CPU_SORT:
+        std::sort(indices->begin(), indices->end(), [&pos, &localToEye](unsigned int lhs, unsigned int rhs)
+            {
+                const osg::Vec3 &v0 = (*pos)[lhs] * localToEye, &v1 = (*pos)[rhs] * localToEye;
+                return v0.z() < v1.z();  // sort primitive indices
+            });
+        break;
+    default: break;
+    }
 }

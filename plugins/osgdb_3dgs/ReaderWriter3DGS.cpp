@@ -104,7 +104,10 @@ protected:
         for (size_t i = 0; i < c.positions.size(); i += 3)
             pos->push_back(osg::Vec3(c.positions[i], c.positions[i + 1], c.positions[i + 2]));
         for (size_t i = 0; i < c.scales.size(); i += 3)
-            scale->push_back(osg::Vec3(c.scales[i], c.scales[i + 1], c.scales[i + 2]));
+        {
+            // scale is stored in logarithmic scale in plyFile
+            scale->push_back(osg::Vec3(expf(c.scales[i]), expf(c.scales[i + 1]), expf(c.scales[i + 2])));
+        }
 
         osg::ref_ptr<osg::QuatArray> rot = new osg::QuatArray;
         for (size_t i = 0; i < c.rotations.size(); i += 4)
@@ -113,7 +116,10 @@ protected:
         osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
         for (size_t i = 0; i < c.alphas.size(); i++)
-            { alpha->push_back(c.alphas[i]); de->push_back(i); }
+        {
+            float opacity = c.alphas[i]; de->push_back(i);
+            alpha->push_back(1.0f / (1.0f + expf(-opacity)));
+        }
 
         osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
         osg::ref_ptr<osg::Vec4Array> rD1 = new osg::Vec4Array, gD1 = new osg::Vec4Array, bD1 = new osg::Vec4Array;
