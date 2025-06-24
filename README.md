@@ -52,6 +52,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 4.2 Google Angle (https://github.com/google/angle): for cross-Graphics API uses and Vulkan integrations.
   - 4.3 Emscripten SDK (https://emscripten.org/docs/getting_started/downloads.html): for WebAssembly builds.
   - 4.4 NVIDIA CUDA (https://developer.nvidia.com/cuda-downloads): for CUDA related functionalities.
+    - With MooreThreads devices and VERSE_USE_MTT_DRIVER=ON, CUDA can be replaced with MUSA without extra operations.
 5. Optional external dependencies:
   - 5.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
   - 5.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable INSTALL_LIBS (for correct installation) and USE_MSVC_RUNTIME_LIBRARY_DLL (for /MD flag) while compiling Bullet.
@@ -204,28 +205,52 @@ Our project is already tested on graphics cards listed as below:
   - OpenSceneGraph: from environment variable $OSG_ROOT.
   - SDL, Draco, Bullet, etc.: from CMake variable ${VERSE_3RDPARTY_PATH}, which is <osgverse_folder>/../Dependencies by default.
     - Actually path to find includes and libraries will be automatically set to '${VERSE_3RDPARTY_PATH}/<platform>'.
-    - For x86/x64 build: <platform> is 'x86/x64'.
+    - For x86/x64 build: <platform> is 'x86' or 'x64'.
     - For Android build: <platform> is 'android'.
-    - For MacOSX/IOS build: <platform> is 'apple/ios'.
+    - For MacOSX/IOS build: <platform> is 'apple' or 'ios'.
     - For WebAssembly (WASM) build: <platform> is 'wasm'.
     - For Windows UWP build: <platform> is 'uwp'.
     - For ARM64 build: <platform> is 'aarch64'.
 2. Build Draco:
+  - Clone from https://github.com/google/draco.git
   - For WebAssembly (WASM):
-    - export EMSCRIPTEN=<emsdk_folder>/upstream/emscripten
-    - cmake -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
-            -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/wasm <draco_folder>
+    - $ export EMSCRIPTEN=<emsdk_folder>/upstream/emscripten
+    - $ cmake -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
+              -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/wasm <draco_folder>
     - $ make install
-  - See https://github.com/google/draco/blob/master/BUILDING.md for other platforms.
+  - For common platforms:
+    - (Windows) $ make -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/<arch> <draco_folder> & make install
+    - (Linux)   $ apt-get install libdraco-dev
 3. Build ZLMediaKit:
-  - TBD...
+  - Prepare related dependencies:
+    - FFmpeg/x264:
+      - (Windows) Download from https://github.com/ShiftMediaProject/FFmpeg/releases
+                            and https://github.com/ShiftMediaProject/x264/releases
+      - (Linux)   $ apt-get install libavdevice-dev libavformat-dev libavutil-dev libavcodec-dev
+                                    libswscale-dev libswresample-dev libx264-dev
+    - OpenSSL: (Linux) $ apt-get install libcrypto++-dev libssl-dev
+    - libFAAC: (Linux) $ apt-get install libfaac-dev
+    - libSCTP: (Linux) $ apt-get install libsctp-dev
+    - libSRTP:
+      - (Linux) $ apt-get install libscrtp2-dev
+      - Or build from source:
+        - Clone from https://github.com/cisco/libsrtp.git
+        - $ cmake -DENABLE_OPENSSL=ON <srtp_folder> & make install
+  - Clone recursively from https://github.com/ZLMediaKit/ZLMediaKit.git
+  - $ cmake -DENABLE_FFMPEG=ON -DENABLE_X264=ON -DENABLE_WEBRTC=ON
+            -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/<arch> <zlmediakit_folder>
+    - You may have to manually specify some library paths in cmake-gui
+  - $ make install
 4. Build Bullet3:
-  - TBD...
+  - Clone from https://github.com/bulletphysics/bullet3.git
+  - $ cmake -DINSTALL_LIBS=ON -DUSE_DOUBLE_PRECISION=ON
+            -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/<arch> <bullet_folder>
+  - $ make install
 5. Build netCDF:
   - TBD...
 5. TBD...
 
-#### Build from Source
+#### Build osgverse from Source
 0. Assume that osgVerse source code is already at <osgverse_folder>.
 1. Desktop Windows / Linux
   - Make sure you have a compiler environment (e.g., Visual Studio).

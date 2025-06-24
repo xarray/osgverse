@@ -47,9 +47,8 @@ ELSE()
 ENDIF()
 
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-IF(DRACO_FOUND)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug draco${VERSE_DEBUG_POSTFIX} optimized draco)
-ENDIF(DRACO_FOUND)
+TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
+LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 
 IF(SDL2_FOUND)
     TARGET_LINK_LIBRARIES(${LIB_NAME} debug SDL2main${VERSE_DEBUG_POSTFIX} optimized SDL2main
@@ -60,8 +59,9 @@ IF(SDL2_FOUND)
     ENDIF(APPLE)
 ENDIF(SDL2_FOUND)
 
-TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
-LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
+IF(DRACO_FOUND)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} debug draco${VERSE_DEBUG_POSTFIX} optimized draco)
+ENDIF(DRACO_FOUND)
 
 INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}
         RUNTIME DESTINATION ${INSTALL_BINDIR} COMPONENT libosgverse

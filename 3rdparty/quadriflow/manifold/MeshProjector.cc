@@ -14,7 +14,7 @@
 #include <igl/point_mesh_squared_distance.h>
 
 #include "Intersection.h"
-#include "IO.h"
+//#include "IO.h"
 
 #if true
 #include <random>
