@@ -39,7 +39,7 @@ namespace osgVerse
         DracoProcessor()
         {
             _posQuantizationBits = 24;
-            _uvQuantizationBits = 12;
+            _uvQuantizationBits = 16;
             _normalQuantizationBits = 8;
             _compressionLevel = 7;
         }

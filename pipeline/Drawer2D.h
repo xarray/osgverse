@@ -18,10 +18,10 @@ namespace osgVerse
         : color(c), filled(f), extending(PAD), type(COLOR) { transform.makeIdentity(); }
 
         DrawerStyleData(osg::Image* im, ExtendMode e = PAD)
-        : image(im), filled(true), extending(e), type(IMAGE) { transform.makeIdentity(); }
+        : image(im), filled(true), extending(e), type(IMAGE) { optimizeImage(); transform.makeIdentity(); }
 
         DrawerStyleData(const osg::Vec2f& s, const osg::Vec2f& e,
-                    const std::map<float, osg::Vec4f>& stops, bool f = false)
+                        const std::map<float, osg::Vec4f>& stops, bool f = false)
         : gradientStops(stops), filled(f), extending(PAD), type(LINEAR_GRADIENT)
         { gradient.set(s[0], s[1], e[0], e[1]); transform.makeIdentity(); }
 
@@ -30,6 +30,7 @@ namespace osgVerse
         : gradientStops(stops), filled(f), extending(PAD), type(RADIAL_GRADIENT)
         { gradient.set(s[0], s[1], e[0], e[1]); gradient2.set(r0, r1, 0.0f, 0.0f); transform.makeIdentity(); }
 
+        void optimizeImage();
         osg::ref_ptr<osg::Image> image;
         std::map<float, osg::Vec4f> gradientStops;
         osg::Vec4f color, gradient, gradient2;
@@ -101,6 +102,17 @@ namespace osgVerse
 
         void clear(const osg::Vec4f& rect = osg::Vec4());
         void fillBackground(const osg::Vec4f& color);
+
+        enum BlendMode
+        {
+            SourceOver = 0, SourceCopy = 1, // SrcIn, SrcOut, SrcAtop,
+            DestinationOver = 5, DestinationCopy = 6,  // DstIn, DstOut, DstAtop
+            XOR = 10, Clear = 11, Plus = 12, Minus = 13, Modulate = 14, Multiply = 15,
+            Screen = 16, Overlay = 17, Darken = 18, Lighten = 19,
+            // ColorDodge, ColorBurn, LinearDodge, LinearBurn, PinLight
+            HardLight = 25, SoftLight = 26, Difference = 27, Exclusion = 28
+        };
+        void setBlendOperator(BlendMode value);
 
         static unsigned char* convertImage(osg::Image* image, int& format, int& components);
         void setDrawingInThread(int b);

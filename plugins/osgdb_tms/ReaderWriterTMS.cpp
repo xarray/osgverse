@@ -6,13 +6,12 @@
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
 
-#include <modeling/Math.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
-typedef std::string (*CreatePathFunc)(const std::string&, int, int, int);
+#include <readerwriter/TileCallback.h>
 
-// osgviewer 0-0-0.verse_tms -O "URL=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
-// osgviewer 0-0-x.verse_tms -O "URL=E:\testTMS\{z}\{x}\{y}.png OriginBottomLeft=1"
+// osgviewer 0-0-0.verse_tms -O "Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
+// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\testTMS\{z}\{x}\{y}.png OriginBottomLeft=1"
 /* More tile map servers:
      TengXun Map: (https://blog.csdn.net/mygisforum/article/details/22997879)
      - http://p0.map.gtimg.com/demTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
@@ -21,7 +20,7 @@ typedef std::string (*CreatePathFunc)(const std::string&, int, int, int);
      - {s}: 0, 1, 2, 3
      Google Map: http://{s}.google.com/vt/lyrs={t}&x={x}&y={y}&z={z}
      - {s}: mt0, mt1, mt2, mt3
-     - {t}: h = roads only, m = standard roadmap, p = terrain, s = satellite only, t = terrain only, y = hybrid
+     - {t}: h = roads only, m = standard roadmap, p = colored terrain, s = satellite only, t = terrain only, y = hybrid
      Carto Voyager: https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png
      - {s}: a, b, c; {r}: no set or @2x
      ArcGIS: https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}
@@ -33,7 +32,10 @@ public:
     {
         supportsExtension("verse_tms", "osgVerse pseudo-loader");
         supportsExtension("tms", "TMS tile indices");
-        supportsOption("URL", "The TMS server URL with wildcards");
+        supportsOption("URL", "The TMS server URL with wildcards, applied as orthophoto layer");
+        supportsOption("Orthophoto", "The TMS server URL with wildcards, applied as orthophoto layer");
+        supportsOption("Elevation", "The TMS server URL with wildcards, applied as elevation layer");
+        supportsOption("Vector", "The TMS server URL with wildcards, applied as line graph layer");
         supportsOption("UrlPathFunction", "The custom function from setPluginData() to compute tile URL");
         supportsOption("UseEarth3D", "Display TMS tiles as a real earth: default=0");
         supportsOption("UseWebMercator", "Use Web Mercator (Level-0 has 4 tiles): default=0");
@@ -67,8 +69,10 @@ public:
         {
             int x = atoi(values[0].c_str()) * 2, y = atoi(values[1].c_str()) * 2,
                 z = (values[2] == "x") ? 0 : atoi(values[2].c_str()) + 1, countY = 2;
-            std::string pseudoAddr = options->getPluginStringData("URL");
-            pseudoAddr = osgVerse::urlDecode(pseudoAddr);
+            std::string vectAddr = osgVerse::urlDecode(options->getPluginStringData("Vector"));
+            std::string elevAddr = osgVerse::urlDecode(options->getPluginStringData("Elevation"));
+            std::string orthoAddr = osgVerse::urlDecode(options->getPluginStringData("Orthophoto"));
+            if (orthoAddr.empty()) orthoAddr = osgVerse::urlDecode(options->getPluginStringData("URL"));
 
             osg::Vec3d extentMin = osg::Vec3d(-180.0, -90.0, 0.0), extentMax = osg::Vec3d(180.0, 90.0, 0.0);
             std::string strX = options->getPluginStringData("FlatExtentMinX"),
@@ -94,7 +98,7 @@ public:
                 for (int xx = 0; xx < 2; ++xx)
                 {
                     osg::ref_ptr<osg::Node> node = createTile(
-                        pseudoAddr, x + xx, y + yy, z, extentMin, extentMax, options, flatten);
+                        elevAddr, orthoAddr, vectAddr, x + xx, y + yy, z, extentMin, extentMax, options, flatten);
                     if (!node) continue;
 
                     osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
@@ -116,131 +120,53 @@ public:
     }
 
 protected:
-    osg::Node* createTile(const std::string& pseudoPath, int x, int y, int z,
+    osg::Node* createTile(const std::string& elevPath, const std::string& orthPath,
+                          const std::string& vectPath, int x, int y, int z,
                           const osg::Vec3d& extentMin, const osg::Vec3d& extentMax,
                           const Options* opt, bool flatten) const
     {
-        std::string botLeft = opt->getPluginStringData("OriginBottomLeft");
+        CreatePathFunc pathFunc = (CreatePathFunc)opt->getPluginData("UrlPathFunction");
+        std::string name = "TMS_" + std::to_string(z) + "_" + std::to_string(x) + "_" + std::to_string(y),
+                    botLeft = opt->getPluginStringData("OriginBottomLeft");
         if (!botLeft.empty()) std::transform(botLeft.begin(), botLeft.end(), botLeft.begin(), tolower);
 
-        osg::Vec3d tileMin, tileMax; double multiplier = pow(0.5, double(z));
-        double tileWidth = multiplier * (extentMax.x() - extentMin.x());
-        double tileHeight = multiplier * (extentMax.y() - extentMin.y());
-        if (botLeft == "false" || atoi(botLeft.c_str()) <= 0)
-        {
-            osg::Vec3d origin(extentMin.x(), extentMax.y(), extentMin.z());
-            tileMin = origin + osg::Vec3d(double(x) * tileWidth, -double(y + 1) * tileHeight, 0.0);
-            tileMax = origin + osg::Vec3d(double(x + 1) * tileWidth, -double(y) * tileHeight, 1.0);
-        }
-        else
-        {
-            tileMin = extentMin + osg::Vec3d(double(x) * tileWidth, double(y) * tileHeight, 0.0);
-            tileMax = extentMin + osg::Vec3d(double(x + 1) * tileWidth, double(y + 1) * tileHeight, 1.0);
-        }
+        osg::ref_ptr<osgVerse::TileCallback> tileCB = new osgVerse::TileCallback;
+        tileCB->setLayerPath(osgVerse::TileCallback::ELEVATION, elevPath);
+        tileCB->setLayerPath(osgVerse::TileCallback::ORTHOPHOTO, orthPath);
+        tileCB->setLayerPath(osgVerse::TileCallback::VECTOR, vectPath);
+        tileCB->setTotalExtent(extentMin, extentMax); tileCB->setTileNumber(x, y, z);
+        tileCB->setBottomLeft(botLeft == "true" || atoi(botLeft.c_str()) > 0);
+        tileCB->setFlatten(flatten); tileCB->setCreatePathFunction(pathFunc);
 
-        CreatePathFunc pathFunc = (CreatePathFunc)opt->getPluginData("UrlPathFunction");
-        std::string url = pathFunc ? pathFunc(pseudoPath, x, y, z) : createPath(pseudoPath, x, y, z);
-        std::string postfix = osgDB::getServerProtocol(url).empty() ? "" : ".verse_web";
-        osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url + postfix);
-        if (image.valid())
+        osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
+        tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
+
+        osg::Matrix localMatrix;
+        osg::ref_ptr<osg::Image> elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION);
+        osg::ref_ptr<osg::Image> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO);
+        osg::ref_ptr<osg::Image> vectImage = tileCB->createLayerImage(osgVerse::TileCallback::VECTOR);
+
+        osg::ref_ptr<osg::Geometry> geom = tileCB->createTileGeometry(
+            localMatrix, elevImage.get(), tileMin, tileMax, tileWidth, tileHeight);
+        geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+        if (orthImage.valid())
         {
-            osg::Matrix localMatrix;
-            osg::ref_ptr<osg::Geometry> geom = createTileGeometry(
-                localMatrix, tileMin, tileMax, tileWidth, tileHeight, flatten);
             geom->getOrCreateStateSet()->setTextureAttributeAndModes(
-                0, osgVerse::createTexture2D(image.get(), osg::Texture::MIRROR));
-            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
-
-            osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-            geode->addDrawable(geom.get());
-            if (!flatten)
-            {
-                osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
-                mt->setMatrix(localMatrix); mt->setName(url);
-                mt->addChild(geode.get()); return mt.release();
-            }
-            else
-                { geode->setName(url); return geode.release(); }
+                0, osgVerse::createTexture2D(orthImage.get(), osg::Texture::CLAMP_TO_EDGE));
         }
-        else return NULL;
-    }
-
-    osg::Geometry* createTileGeometry(osg::Matrix& outMatrix,
-                                      const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
-                                      double width, double height, bool flatten) const
-    {
-        if (!flatten)
+        if (vectImage.valid())
         {
-            osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, true);
-            osg::Matrix localToWorld = osgVerse::Coordinate::convertLLAtoENU(center);
-            osg::Matrix worldToLocal = osg::Matrix::inverse(localToWorld);
-            osg::Matrix normalMatrix(localToWorld(0, 0), localToWorld(0, 1), localToWorld(0, 2), 0.0,
-                                     localToWorld(1, 0), localToWorld(1, 1), localToWorld(1, 2), 0.0,
-                                     localToWorld(2, 0), localToWorld(2, 1), localToWorld(2, 2), 0.0,
-                                     0.0, 0.0, 0.0, 1.0);
-            unsigned int numRows = 16, numCols = 16;
-            outMatrix = localToWorld;
-
-            osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numCols * numRows);
-            osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numCols * numRows);
-            osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numCols * numRows);
-            double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1);
-            for (unsigned int y = 0; y < numRows; ++y)
-                for (unsigned int x = 0; x < numCols; ++x)
-                {
-                    unsigned int vi = x + y * numCols;
-                    osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
-                        tileMin + osg::Vec3d((double)x * invW, (double)y * invH, 0.0), true);
-                    osg::Vec3d ecef = osgVerse::Coordinate::convertLLAtoECEF(lla);
-                    (*va)[vi] = osg::Vec3(ecef * worldToLocal);
-                    (*na)[vi] = osg::Vec3(ecef * normalMatrix);
-                    (*ta)[vi] = osg::Vec2((double)x * invW / width, (double)y * invH / height);
-                }
-
-            osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
-            for (unsigned int y = 0; y < numRows - 1; ++y)
-                for (unsigned int x = 0; x < numCols - 1; ++x)
-                {
-                    unsigned int vi = x + y * numCols;
-                    de->push_back(vi); de->push_back(vi + 1); de->push_back(vi + numCols);
-                    de->push_back(vi + numCols); de->push_back(vi + 1); de->push_back(vi + numCols + 1);
-                    //de->push_back(vi); de->push_back(vi + 1);
-                    //de->push_back(vi + numCols + 1); de->push_back(vi + numCols);
-                }
-
-            osg::Geometry* geom = new osg::Geometry;
-            geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
-            geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-            geom->addPrimitiveSet(de.get()); return geom;
+            geom->getOrCreateStateSet()->setTextureAttributeAndModes(
+                1, osgVerse::createTexture2D(vectImage.get(), osg::Texture::CLAMP_TO_EDGE));
         }
-        else
-            return osg::createTexturedQuadGeometry(tileMin, osg::X_AXIS * width, osg::Y_AXIS * height);
-    }
 
-    osg::Vec3d adjustLatitudeLongitudeAltitude(const osg::Vec3d& extent, bool useSphericalMercator) const
-    {
-        osg::Vec3d lla(osg::inDegrees(extent[1]), osg::inDegrees(extent[0]), 0.0);
-        if (useSphericalMercator)
-        {
-            double n = 2.0 * lla.x();
-            double adjustedLatitude = atan(0.5 * (exp(n) - exp(-n)));
-            return osg::Vec3d(adjustedLatitude, lla.y(), lla.z());
-        }
-        return lla;
-    }
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        geode->addDrawable(geom.get());
 
-    std::string createPath(const std::string& pseudoPath, int x, int y, int z) const
-    {
-        std::string path = pseudoPath; bool changed = false;
-        path = replace(path, "{z}", std::to_string(z), changed);
-        path = replace(path, "{x}", std::to_string(x), changed);
-        path = replace(path, "{y}", std::to_string(y), changed); return path;
-    }
-
-    std::string replace(std::string& src, const std::string& match, const std::string& v, bool& c) const
-    {
-        size_t levelPos = src.find(match); if (levelPos == std::string::npos) { c = false; return src; }
-        src.replace(levelPos, match.length(), v); c = true; return src;
+        osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+        mt->setUpdateCallback(tileCB.get());
+        mt->setName(name); mt->addChild(geode.get());
+        mt->setMatrix(localMatrix); return mt.release();
     }
 };
 

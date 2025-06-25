@@ -469,7 +469,6 @@ namespace osgVerse
                     animName, boneList, skeletonAnimMap);
             }
         }  // end of for (animations)
-        loader.RemoveImageLoader();
     }
 
     osg::Node* LoaderGLTF::createNode(int id, tinygltf::Node& node)
@@ -779,7 +778,9 @@ namespace osgVerse
             if (tex2D) ss->setTextureAttributeAndModes(0, tex2D);
         }
 
-        if (_usingMaterialPBR)
+        if (normalID >= 0)
+            ss->setTextureAttributeAndModes(1, createTexture(uniformNames[1], _modelDef.textures[normalID]));
+        if (normalID >= 0 && _usingMaterialPBR)  // without normal, there's no reason to support PBR...
         {
             osg::ref_ptr<osg::Texture> ormNewInput;
             if (occlusionID >= 0)
@@ -814,9 +815,6 @@ namespace osgVerse
                     if (tex2D) ss->setTextureAttributeAndModes(5, tex2D);
                 }
             }
-
-            if (normalID >= 0)
-                ss->setTextureAttributeAndModes(1, createTexture(uniformNames[1], _modelDef.textures[normalID]));
         }
 
         if (material.alphaMode.compare("BLEND") == 0) ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);

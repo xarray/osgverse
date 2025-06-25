@@ -21,9 +21,10 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    osgViewer::Viewer viewer;
 
+    osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
@@ -31,16 +32,17 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setUpViewOnSingleScreen(0);
 
-    osg::ArgumentParser arguments(&argc, argv);
     if (arguments.read("--test-drawer"))
     {
         osg::ref_ptr<osg::Image> img = osgDB::readImageFile(MISC_DIR + "poi_icons.png");
+        osgVerse::DrawerStyleData imgStyle(img.get(), osgVerse::DrawerStyleData::PAD);
+
         std::vector<osgVerse::Drawer2D*> drawerList;
         for (size_t i = 0; i < 10; ++i)
         {
             osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
             drawer->allocateImage(1024, 1024, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-            drawer->loadFont("default", MISC_DIR + "/LXGWFasmartGothic.otf");
+            drawer->loadFont("default", MISC_DIR + "LXGWFasmartGothic.otf");
             drawer->setPixelBufferObject(new osg::PixelBufferObject(drawer.get()));
 
             osg::Geode* geode = osg::createGeodeForImage(drawer.get());
@@ -62,28 +64,27 @@ int main(int argc, char** argv)
                 if (drawerInThreads)
                 {
                     size_t id = i, frames = viewer.getFrameStamp()->getFrameNumber();
-                    drawer->startInThread([img, id, frames](osgVerse::Drawer2D* drawer) {
-                        drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-                        drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f,
-                            osgVerse::DrawerStyleData(img.get(), osgVerse::DrawerStyleData::PAD));
+                    drawer->startInThread([imgStyle, id, frames](osgVerse::Drawer2D* drawer)
+                        {
+                            drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+                            drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f, imgStyle);
 
-                        std::string text = "Hello " + std::to_string(id)
-                            + ": " + std::to_string(frames);
-                        osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 40.0f);
-                        drawer->drawRectangle(bbox, 1.0f, 1.0f,
-                            osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
-                        drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, text);
+                            std::string text = "Hello " + std::to_string(id)
+                                             + ": " + std::to_string(frames);
+                            osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 40.0f);
+                            drawer->drawRectangle(bbox, 1.0f, 1.0f,
+                                osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));
+                            drawer->drawUtf8Text(osg::Vec2(bbox[0], bbox[1] + bbox[3]), 40.0f, text);
                         }, false);
                 }
                 else
                 {
                     drawer->start(false);
                     drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-                    drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f,
-                        osgVerse::DrawerStyleData(img.get(), osgVerse::DrawerStyleData::PAD));
+                    drawer->drawRectangle(osg::Vec4(40, 40, 560, 400), 0.0f, 0.0f, imgStyle);
 
                     std::string text = "Hello " + std::to_string(i)
-                        + ": " + std::to_string(viewer.getFrameStamp()->getFrameNumber());
+                                     + ": " + std::to_string(viewer.getFrameStamp()->getFrameNumber());
                     osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 40.0f);
                     drawer->drawRectangle(bbox, 1.0f, 1.0f,
                         osgVerse::DrawerStyleData(osg::Vec4(0.8f, 0.8f, 0.0f, 1.0f), true));

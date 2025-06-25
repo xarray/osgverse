@@ -16,6 +16,38 @@ struct BlendCore : public osg::Referenced
     std::map<std::string, BLFontFace> fonts;
 };
 
+void DrawerStyleData::optimizeImage()
+{
+    unsigned char* pixels = NULL; if (!image) return;
+    if (image->getDataType() != GL_UNSIGNED_BYTE) return;
+
+    unsigned char* srcPixels = image->data();
+    int pixelCount = image->s() * image->t();
+    switch (image->getPixelFormat())
+    {
+    case GL_RGBA:  // Convert from ARGB to PRGB
+        pixels = new unsigned char[pixelCount * 4];
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int i = 0; i < pixelCount; ++i)
+        {
+            unsigned char* src = srcPixels + i * 4;
+            unsigned char* dst = pixels + i * 4;
+            float a = (float)src[3] / 255.0f; dst[3] = src[3];
+            dst[0] = src[0] * a; dst[1] = src[1] * a; dst[2] = src[2] * a;
+        }
+        break;
+    default: break;
+    }
+
+    if (pixels != NULL)
+    {
+        osg::Image* newImage = new osg::Image;
+        newImage->setImage(image->s(), image->t(), 1, GL_RGBA8, image->getPixelFormat(),
+                           image->getDataType(), pixels, osg::Image::USE_NEW_DELETE);
+        newImage->setName(image->getName()); image = newImage;
+    }
+}
+
 Drawer2D::Drawer2D() : _drawingInThread(0), _drawing(false)
 { _b2dData = new BlendCore; _thread = NULL; }
 
@@ -37,12 +69,14 @@ unsigned char* Drawer2D::convertImage(osg::Image* image, int& format, int& compo
         return NULL;
     }
 
+    unsigned char* srcPixels = image->data();
+    int pixelCount = image->s() * image->t();
     switch (image->getPixelFormat())
     {
     case GL_LUMINANCE: case GL_ALPHA: case GL_RED:
-        format = BLFormat::BL_FORMAT_A8; components = 1; pixels = image->data(); break;
+        format = BLFormat::BL_FORMAT_A8; components = 1; pixels = srcPixels; break;
     case GL_RGBA:
-        format = BLFormat::BL_FORMAT_PRGB32; components = 4; pixels = image->data(); break;
+        format = BLFormat::BL_FORMAT_PRGB32; components = 4; pixels = srcPixels; break;
     case GL_RGB:
         {
             osg::ref_ptr<osg::Image> dst = new osg::Image;
@@ -148,6 +182,7 @@ bool Drawer2D::start(bool useCurrentPixels, int threads)
 
     BLContextCreateInfo info; info.threadCount = threads;
     core->context = new BLContext(core->image, &info);
+    core->context->setRenderingQuality(BL_RENDERING_QUALITY_ANTIALIAS);
     if (!createdFromData) core->context->clearAll();
     _drawing = true; return true;
 }
@@ -655,5 +690,14 @@ void Drawer2D::fillBackground(const osg::Vec4f& c)
     {
         BLRgba32 bg(c[0] * 255, c[1] * 255, c[2] * 255, c[3] * 255);
         core->context->fillAll(bg);
+    }
+}
+
+void Drawer2D::setBlendOperator(BlendMode value)
+{
+    VALID_B2D()
+    {
+        BLCompOp op = (BLCompOp)(BL_COMP_OP_SRC_OVER + (int)value);
+        core->context->setCompOp(op);
     }
 }
