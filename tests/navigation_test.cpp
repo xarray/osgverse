@@ -113,7 +113,7 @@ int main(int argc, char** argv)
     }
 
     std::ifstream dataIn(recastData, std::ios::in | std::ios::binary);
-    if (!dataIn)
+    if (arguments.read("--no-preload") || !dataIn)
     {
         std::ofstream dataOut(recastData, std::ios::out | std::ios::binary);
         if (recast->build(terrain.get(), true)) recast->save(dataOut);

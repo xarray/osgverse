@@ -28,22 +28,25 @@ namespace osgVerse
             unsigned int id;
             std::string name, type, imageName, imagePath;
             osg::ref_ptr<osg::Texture> texture;
-            std::map<std::string, osg::ref_ptr<MaterialPin>> inputs, outputs;
+            std::map<std::string, std::string> attributes;
+            std::map<std::string, std::map<int, osg::ref_ptr<MaterialPin>>> inputs, outputs;
         };
 
         struct MaterialLink : public osg::Referenced
         {
+            int idFrom, idTo;
             osg::ref_ptr<MaterialNode> nodeFrom, nodeTo;
             osg::observer_ptr<MaterialPin> pinFrom, pinTo;
         };
 
         typedef std::map<std::string, osg::ref_ptr<MaterialNode>> MaterialNodeMap;
-        typedef std::map<std::string, osg::ref_ptr<MaterialPin>> MaterialPinMap;
+        typedef std::map<int, osg::ref_ptr<MaterialPin>> MaterialPinIndices;
+        typedef std::map<std::string, MaterialPinIndices> MaterialPinMap;
         typedef std::vector<osg::ref_ptr<MaterialLink>> MaterialLinkList;
 
     protected:
         MaterialGraph() {}
-        MaterialLink* findLink(MaterialLinkList& links, MaterialNode* node, MaterialPin* pin, bool findFrom);
+        MaterialLink* findLink(MaterialLinkList& links, MaterialNode* node, MaterialPin* pin, int id, bool findFrom);
 
         struct BlenderComposition
         {
@@ -62,11 +65,11 @@ namespace osgVerse
             osg::ref_ptr<osg::StateSet> stateset; MaterialLinkList links;
         };
         void processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList& links, osg::StateSet& ss);
-        void processBlenderLink(BlenderComposition& comp, osg::StateSet& ss,
-                                MaterialNode* lastNode, MaterialPin* lastOutPin);
-        void findAndProcessBlenderLink(BlenderComposition& comp, osg::StateSet& ss,
-                                       MaterialNode* node, MaterialPin* pin, bool findFrom);
-        void applyBlenderTexture(BlenderComposition& comp, osg::StateSet& ss, const std::string& samplerName);
+        void processBlenderLink(BlenderComposition& comp, const osg::StateSet& ss,
+                                MaterialNode* lastNode, MaterialPin* lastOutPin, int lastOutID);
+        void findAndProcessBlenderLink(BlenderComposition& comp, const osg::StateSet& ss,
+                                       MaterialNode* node, MaterialPin* pin, int id, bool findFrom);
+        void applyBlenderTexture(BlenderComposition& comp, const osg::StateSet& ss, const std::string& samplerName);
         unsigned int getBlenderTextureUnit(BlenderComposition& comp);
     };
 }

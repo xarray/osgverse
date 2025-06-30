@@ -1,4 +1,4 @@
-#include "module_lighting.glsl"
+#include "basic_lighting.module.glsl"
 
 uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer, SpecularRoughnessBuffer;

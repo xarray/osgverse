@@ -1,4 +1,5 @@
 #include <osgDB/ReadFile>
+#include <osgDB/FileUtils>
 #include "Pipeline.h"
 #include "ShadowModule.h"
 #include "ShaderLibrary.h"
@@ -310,7 +311,9 @@ void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWrit
                    (code.size() - start_of_pragma_line) : (end_of_line - start_of_pragma_line));
         pos = start_of_pragma_line;
 
-        osg::ref_ptr<osg::Shader> innerShader = osgDB::readRefShaderFile(filename, options);
+        osg::ref_ptr<osg::Shader> innerShader; std::string realFilename = osgDB::findDataFile(filename);
+        if (!realFilename.empty()) innerShader = osgDB::readRefShaderFile(realFilename, options);
+        if (!innerShader) innerShader = osgDB::readRefShaderFile(SHADER_DIR + filename, options);
         if (innerShader.valid())
         {
             if (!startOfIncludeMarker.empty())
@@ -337,6 +340,7 @@ void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWrit
                 code.insert(pos, filename); pos += filename.size();
                 code.insert(pos, endOfLine); pos += endOfLine.size();
             }
+            OSG_WARN << "[ShaderLibrary] Failed to include " << filename << std::endl;
         }
     }
     shader.setShaderSource(code);

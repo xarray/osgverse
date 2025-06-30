@@ -58,8 +58,8 @@ def get_material_node_tree_VERSE(material, blender_material):
 
         if hasattr(node, 'inputs') and node.inputs:
             inputs_info = []
-            for input in node.inputs:
-                input_info = { "name": input.name, "type": input.type }
+            for idx, input in enumerate(node.inputs):
+                input_info = { "id": idx, "name": input.name, "type": input.type }
                 if not isinstance(input, bpy.types.NodeSocketShader):
                     input_info["default_value"] = input.default_value
                 inputs_info.append(input_info)
@@ -67,22 +67,32 @@ def get_material_node_tree_VERSE(material, blender_material):
 
         if hasattr(node, 'outputs') and node.outputs:
             outputs_info = []
-            for output in node.outputs:
-                output_info = { "name": output.name, "type": output.type }
+            for idx, output in enumerate(node.outputs):
+                output_info = { "id": idx, "name": output.name, "type": output.type }
                 if not isinstance(output, bpy.types.NodeSocketShader):
                     output_info["default_value"] = output.default_value
                 outputs_info.append(output_info)
             node_info["outputs"] = outputs_info
 
-        if node.type == 'TEX_IMAGE':
+        if node.type == 'MATH':
+            node_info["operation"] = node.operation
+            node_info["attributes"] = "operation";
+        elif node.type == 'MIX':
+            node_info["blend_type"] = node.blend_type
+            node_info["data_type"] = node.data_type
+            node_info["attributes"] = "blend_type;data_type";
+        elif node.type == 'TEX_IMAGE':
             if node.image:
                 node_info["image"] = { "name": node.image.name, "filepath": node.image.filepath }
+                node_info["attributes"] = "image";
         node_tree_info["nodes"].append(node_info)
 
     for link in blender_material.node_tree.links:
+        from_socket_index = next((idx for idx, output in enumerate(link.from_node.outputs) if output == link.from_socket), None)
+        to_socket_index = next((idx for idx, input in enumerate(link.to_node.inputs) if input == link.to_socket), None)
         link_info = {
-            "from_node": link.from_node.name, "from_socket": link.from_socket.name,
-            "to_node": link.to_node.name, "to_socket": link.to_socket.name
+            "from_node": link.from_node.name, "from_socket": link.from_socket.name, "from_id": from_socket_index,
+            "to_node": link.to_node.name, "to_socket": link.to_socket.name, "to_id": to_socket_index
         }
         node_tree_info["links"].append(link_info)
 
