@@ -74,6 +74,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                                                 const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                                 double width, double height) const
 {
+    double tileRefSize = osg::inDegrees(tileMax.y() - tileMin.y()) * osg::WGS_84_RADIUS_EQUATOR;
     if (!_flatten)
     {
         osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, true);
@@ -84,12 +85,14 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                                  localToWorld(2, 0), localToWorld(2, 1), localToWorld(2, 2), 0.0,
                                  0.0, 0.0, 0.0, 1.0);
         unsigned int numRows = 16, numCols = 16;
+        unsigned int numVertices = numCols * numRows;
+        if (_skirtRatio > 0.0f) numVertices += 2 * (numCols + numRows);
         outMatrix = localToWorld;
 
         // FIXME: support compute elevation in shaders?
-        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numCols * numRows);
-        osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numCols * numRows);
-        osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numCols * numRows);
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numVertices);
+        osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numVertices);
+        osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numVertices);
         double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1);
         for (unsigned int y = 0; y < numRows; ++y)
             for (unsigned int x = 0; x < numCols; ++x)
@@ -101,9 +104,8 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), true);
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
-                (*va)[vi] = osg::Vec3(ecef * worldToLocal);
-                (*na)[vi] = osg::Vec3(ecef * normalMatrix);
-                (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
+                (*va)[vi] = osg::Vec3(ecef * worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
+                (*na)[vi] = osg::Vec3(ecef * normalMatrix); (*na)[vi].normalize();
             }
 
         osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
@@ -114,6 +116,64 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 de->push_back(vi); de->push_back(vi + 1); de->push_back(vi + numCols);
                 de->push_back(vi + numCols); de->push_back(vi + 1); de->push_back(vi + numCols + 1);
             }
+
+        if (_skirtRatio > 0.0f)
+        {
+            float skirtHeight = (float)(tileRefSize * _skirtRatio);
+            unsigned int vi = numRows * numCols;
+            // row[0]
+            unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;
+            for (unsigned int c = 0; c < numCols; ++c, ++vi)
+            {
+                unsigned int si = tile_bottom_row + c; const osg::Vec3& N = na->at(si);
+                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
+            }
+            for (unsigned int c = 0; c < numCols - 1; ++c)
+            {
+                unsigned int tile_i = tile_bottom_row + c, skirt_i = skirt_bottom_row + c;
+                de->push_back(tile_i); de->push_back(skirt_i); de->push_back(skirt_i + 1);
+                de->push_back(skirt_i + 1); de->push_back(tile_i + 1); de->push_back(tile_i);
+            }
+            // row[numRows-1]
+            unsigned int tile_top_row = (numRows - 1) * numCols, base_top_row = vi;
+            for (unsigned int c = 0; c < numCols; ++c, ++vi)
+            {
+                unsigned int si = tile_top_row + c; const osg::Vec3& N = na->at(si);
+                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
+            }
+            for (unsigned int c = 0; c < numCols - 1; ++c)
+            {
+                unsigned int tile_i = tile_top_row + c, skirt_i = base_top_row + c;
+                de->push_back(tile_i); de->push_back(skirt_i + 1); de->push_back(skirt_i);
+                de->push_back(skirt_i + 1); de->push_back(tile_i); de->push_back(tile_i + 1);
+            }
+            // column[0]
+            unsigned int tile_left_column = 0, skirt_left_column = vi;
+            for (unsigned int r = 0; r < numRows; ++r, ++vi)
+            {
+                unsigned int si = tile_left_column + r * numCols; const osg::Vec3& N = na->at(si);
+                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
+            }
+            for (unsigned int r = 0; r < numRows - 1; ++r)
+            {
+                unsigned int tile_i = tile_left_column + r * numCols, skirt_i = skirt_left_column + r;
+                de->push_back(tile_i); de->push_back(skirt_i + 1); de->push_back(skirt_i);
+                de->push_back(skirt_i + 1); de->push_back(tile_i); de->push_back(tile_i + numCols);
+            }
+            // column[numColums-1]
+            unsigned int tile_right_column = numCols - 1, skirt_right_column = vi;
+            for (unsigned int r = 0; r < numRows; ++r, ++vi)
+            {
+                unsigned int si = tile_right_column + r * numCols; const osg::Vec3& N = na->at(si);
+                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
+            }
+            for (unsigned int r = 0; r < numRows - 1; ++r)
+            {
+                unsigned int tile_i = tile_right_column + r * numCols, skirt_i = skirt_right_column + r;
+                de->push_back(tile_i); de->push_back(skirt_i); de->push_back(skirt_i + 1);
+                de->push_back(skirt_i + 1); de->push_back(tile_i + numCols); de->push_back(tile_i);
+            }
+        }  // if (_skirtRatio > 0.0f)
 
         osg::Geometry* geom = new osg::Geometry;
         geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
