@@ -30,6 +30,17 @@ namespace osgVerse
             osg::ref_ptr<osg::Texture> texture;
             std::map<std::string, std::string> attributes;
             std::map<std::string, std::map<int, osg::ref_ptr<MaterialPin>>> inputs, outputs;
+
+            std::map<int, osg::ref_ptr<MaterialPin>>::iterator findPin(
+                    bool out, const std::string& name, const std::string& type = "")
+            {
+                std::map<int, osg::ref_ptr<MaterialPin>>& pinIndices = out ? outputs[name] : inputs[name];
+                if (type.empty()) return pinIndices.empty() ? pinIndices.end() : pinIndices.begin();
+
+                for (std::map<int, osg::ref_ptr<MaterialPin>>::iterator it = pinIndices.begin();
+                     it != pinIndices.end(); ++it) { if (it->second->type == type) return it; }
+                return pinIndices.end();
+            }
         };
 
         struct MaterialLink : public osg::Referenced

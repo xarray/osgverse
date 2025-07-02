@@ -188,7 +188,7 @@ void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList
 
     BlenderComposition comp; comp.links = links;
     comp.glslFuncs = "#include \"material_nodes.module.glsl\"\n";
-    /* MIX: vec3 mixColor(vec3 col0, vec3 col1, vec3 f);
+    /* MIX: vec3 mixColor/..(vec3 col0, vec3 col1, vec3 f);
      * NORMAL_MAP: vec3 normalStrength(vec3 col, vec3 s);
      * LIGHT_FALLOFF: vec3 lightFalloff(vec3 power, vec3 sm);
      * BRIGHTCONTRAST: vec3 brightnessContrast(vec3 col, vec3 b, vec3 c);
@@ -196,6 +196,7 @@ void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList
      * RGBTOBW: vec3 setBlackWhite(vec3 col);
      * INVERT: vec3 invert(vec3 col, vec3 fac);
      * GAMMA: vec3 gamma(vec3 col, vec3 g);
+     * MATH: vec3 mathAdd/..(vec3 v0, vec3 v1, vec3 v2);
      */
 
     int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
@@ -244,7 +245,8 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
                                        MaterialNode* lastNode, MaterialPin* lastOutPin, int lastOutID)
 {
     std::string dst = comp.variable(lastNode, lastOutPin);
-    comp.prependVariables("vec3 " + dst + " = vec3(" + setFromValues(lastOutPin->values) + ");\n");
+    if (comp.glslVars.find("vec3 " + dst) == std::string::npos)
+        comp.prependVariables("vec3 " + dst + " = vec3(" + setFromValues(lastOutPin->values) + ");\n");
 
     typedef MaterialPinIndices::iterator MaterialPinIt;
     if (lastNode->type == "BSDF_PRINCIPLED") {}
@@ -254,9 +256,14 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
         "outputs": [ { "id": 0, "name": "Color", "type": "RGBA", "default_value": [0.8, 0.8, 0.8, 1.0] },
                      { "id": 1, "name": "Alpha", "type": "VALUE", "default_value": 0.0 } ]*/
         std::string vTex = comp.textureVariable(lastNode), sTex = comp.sampler(lastNode);
-        comp.prependGlobal("uniform sampler2D " + sTex + ";  // " +
-                           comp.bsdfChannelName + ": " + lastNode->imageName + "\n");
-        comp.prependCode("texColorBridge = VERSE_TEX2D(" + sTex + ", uv);\n" + dst + " = texColorBridge.rgb;\n");
+        if (comp.glslGlobal.find("uniform sampler2D " + sTex) == std::string::npos)
+        {
+            comp.prependGlobal("uniform sampler2D " + sTex + ";  // " +
+                               comp.bsdfChannelName + ": " + lastNode->imageName + "\n");
+        }
+
+        std::string texSetter = (lastOutPin->name == "Alpha") ? "texColorBridge.aaa;\n" : "texColorBridge.rgb;\n";
+        comp.prependCode("texColorBridge = VERSE_TEX2D(" + sTex + ", uv);\n" + dst + "=" + texSetter);
         applyBlenderTexture(comp, ss, sTex);
         // TODO: continue find prior nodes?
     }
@@ -267,24 +274,29 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
                       { "id": 2/4/6/8, "name": "A", "type": "VALUE/VECTOR/RGBA/ROTATION" },
                       { "id": 3/5/7/9, "name": "B", "type": "VALUE/VECTOR/RGBA/ROTATION" } ],
         "outputs": [ { "id": 0/1/2/3, "name": "Result", "type": "VALUE/VECTOR/RGBA/ROTATION" } ]*/
-        MaterialPinIt fItr = lastNode->inputs["Factor"].begin(); MaterialPin* factor = fItr->second.get();
-        MaterialPinIt aItr = lastNode->inputs["A"].begin(); MaterialPin* inColorA = aItr->second.get();
-        MaterialPinIt bItr = lastNode->inputs["B"].begin(); MaterialPin* inColorB = bItr->second.get();
+        std::string dataType = lastNode->attributes["data_type"], blendType = lastNode->attributes["blend_type"];
+        MaterialPinIt fItr = lastNode->findPin(false, "Factor", (dataType == "VECTOR" ? dataType : "VALUE"));
+        MaterialPinIt aItr = lastNode->findPin(false, "A", dataType);
+        MaterialPinIt bItr = lastNode->findPin(false, "B", dataType);
+        MaterialPin *factor = fItr->second.get(), *inColorA = aItr->second.get(), *inColorB = bItr->second.get();
         std::string factorV = comp.variable(lastNode, factor),
                     color0V = comp.variable(lastNode, inColorA), color1V = comp.variable(lastNode, inColorB);
 
         comp.prependVariables("vec3 " + factorV + " = vec3(" + setFromValues(factor->values) + ");\n" +
                               "vec3 " + color0V + " = vec3(" + setFromValues(inColorA->values) + ");\n" +
                               "vec3 " + color1V + " = vec3(" + setFromValues(inColorB->values) + ");\n");
-        comp.prependCode(dst + " = mixColor(" + color0V + ", " + color1V + ", " + factorV + ");\n");
+        if (blendType == "MIX")
+            comp.prependCode(dst + " = mixColor(" + color0V + ", " + color1V + ", " + factorV + ");\n");
+        else
+            OSG_NOTICE << "[MaterialGraph] Unsupported blending type: " << blendType << std::endl;
         findAndProcessBlenderLink(comp, ss, lastNode, factor, fItr->first, true);
         findAndProcessBlenderLink(comp, ss, lastNode, inColorA, aItr->first, true);
         findAndProcessBlenderLink(comp, ss, lastNode, inColorB, bItr->first, true);
     }
     else if (lastNode->type == "NORMAL_MAP")
     {
-        MaterialPinIt sItr = lastNode->inputs["Strength"].begin(); MaterialPin* strength = sItr->second.get();
-        MaterialPinIt cItr = lastNode->inputs["Color"].begin(); MaterialPin* inColor = cItr->second.get();
+        MaterialPinIt sItr = lastNode->findPin(false, "Strength"); MaterialPin* strength = sItr->second.get();
+        MaterialPinIt cItr = lastNode->findPin(false, "Color"); MaterialPin* inColor = cItr->second.get();
         std::string strV = comp.variable(lastNode, strength), colorV = comp.variable(lastNode, inColor);
 
         comp.prependVariables("vec3 " + strV + " = vec3(" + setFromValues(strength->values) + ");\n" +
@@ -295,8 +307,8 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
     }
     else if (lastNode->type == "LIGHT_FALLOFF")
     {
-        MaterialPinIt sItr = lastNode->inputs["Strength"].begin(); MaterialPin* strength = sItr->second.get();
-        MaterialPinIt mItr = lastNode->inputs["Smooth"].begin(); MaterialPin* smooth = mItr->second.get();
+        MaterialPinIt sItr = lastNode->findPin(false, "Strength"); MaterialPin* strength = sItr->second.get();
+        MaterialPinIt mItr = lastNode->findPin(false, "Smooth"); MaterialPin* smooth = mItr->second.get();
         std::string strV = comp.variable(lastNode, strength), smV = comp.variable(lastNode, smooth);
 
         comp.prependVariables("vec3 " + strV + " = vec3(" + setFromValues(strength->values) + ");\n" +
@@ -307,9 +319,9 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
     }
     else if (lastNode->type == "BRIGHTCONTRAST")
     {
-        MaterialPinIt bItr = lastNode->inputs["Bright"].begin(); MaterialPin* bright = bItr->second.get();
-        MaterialPinIt tItr = lastNode->inputs["Contrast"].begin(); MaterialPin* contrast = tItr->second.get();
-        MaterialPinIt cItr = lastNode->inputs["Color"].begin(); MaterialPin* inColor = cItr->second.get();
+        MaterialPinIt bItr = lastNode->findPin(false, "Bright"); MaterialPin* bright = bItr->second.get();
+        MaterialPinIt tItr = lastNode->findPin(false, "Contrast"); MaterialPin* contrast = tItr->second.get();
+        MaterialPinIt cItr = lastNode->findPin(false, "Color"); MaterialPin* inColor = cItr->second.get();
         std::string brightV = comp.variable(lastNode, bright), contrastV = comp.variable(lastNode, contrast),
                     colorV = comp.variable(lastNode, inColor);
 
@@ -323,11 +335,11 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
     }
     else if (lastNode->type == "HUE_SAT")
     {
-        MaterialPinIt fItr = lastNode->inputs["Fac"].begin(); MaterialPin* fac = fItr->second.get();
-        MaterialPinIt hItr = lastNode->inputs["Hue"].begin(); MaterialPin* hue = hItr->second.get();
-        MaterialPinIt sItr = lastNode->inputs["Saturation"].begin(); MaterialPin* sat = sItr->second.get();
-        MaterialPinIt vItr = lastNode->inputs["Value"].begin(); MaterialPin* value = vItr->second.get();
-        MaterialPinIt cItr = lastNode->inputs["Color"].begin(); MaterialPin* inColor = cItr->second.get();
+        MaterialPinIt fItr = lastNode->findPin(false, "Fac"); MaterialPin* fac = fItr->second.get();
+        MaterialPinIt hItr = lastNode->findPin(false, "Hue"); MaterialPin* hue = hItr->second.get();
+        MaterialPinIt sItr = lastNode->findPin(false, "Saturation"); MaterialPin* sat = sItr->second.get();
+        MaterialPinIt vItr = lastNode->findPin(false, "Value"); MaterialPin* value = vItr->second.get();
+        MaterialPinIt cItr = lastNode->findPin(false, "Color"); MaterialPin* inColor = cItr->second.get();
         std::string facV = comp.variable(lastNode, fac), hueV = comp.variable(lastNode, hue), satV = comp.variable(lastNode, sat),
                     valV = comp.variable(lastNode, value), colorV = comp.variable(lastNode, inColor);
 
@@ -345,7 +357,7 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
     }
     else if (lastNode->type == "RGBTOBW")
     {
-        MaterialPinIt cItr = lastNode->inputs["Color"].begin(); MaterialPin* inColor = cItr->second.get();
+        MaterialPinIt cItr = lastNode->findPin(false, "Color"); MaterialPin* inColor = cItr->second.get();
         std::string colorV = comp.variable(lastNode, inColor);
         comp.prependVariables("vec3 " + colorV + " = vec3(" + setFromValues(inColor->values) + ");\n");
         comp.prependCode(dst + " = setBlackWhite(" + colorV + ");\n");
@@ -353,8 +365,8 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
     }
     else if (lastNode->type == "INVERT")
     {
-        MaterialPinIt fItr = lastNode->inputs["Fac"].begin(); MaterialPin* fac = fItr->second.get();
-        MaterialPinIt cItr = lastNode->inputs["Color"].begin(); MaterialPin* inColor = cItr->second.get();
+        MaterialPinIt fItr = lastNode->findPin(false, "Fac"); MaterialPin* fac = fItr->second.get();
+        MaterialPinIt cItr = lastNode->findPin(false, "Color"); MaterialPin* inColor = cItr->second.get();
         std::string facV = comp.variable(lastNode, fac), colorV = comp.variable(lastNode, inColor);
 
         comp.prependVariables("vec3 " + facV + " = vec3(" + setFromValues(fac->values) + ");\n" +
@@ -365,8 +377,8 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
     }
     else if (lastNode->type == "GAMMA")
     {
-        MaterialPinIt gItr = lastNode->inputs["Gamma"].begin(); MaterialPin* gamma = gItr->second.get();
-        MaterialPinIt cItr = lastNode->inputs["Color"].begin(); MaterialPin* inColor = cItr->second.get();
+        MaterialPinIt gItr = lastNode->findPin(false, "Gamma"); MaterialPin* gamma = gItr->second.get();
+        MaterialPinIt cItr = lastNode->findPin(false, "Color"); MaterialPin* inColor = cItr->second.get();
         std::string gammaV = comp.variable(lastNode, gamma), colorV = comp.variable(lastNode, inColor);
 
         comp.prependVariables("vec3 " + gammaV + " = vec3(" + setFromValues(gamma->values) + ");\n" +
@@ -374,6 +386,29 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
         comp.prependCode(dst + " = gamma(" + colorV + ", " + gammaV + ");\n");
         findAndProcessBlenderLink(comp, ss, lastNode, gamma, gItr->first, true);
         findAndProcessBlenderLink(comp, ss, lastNode, inColor, cItr->first, true);
+    }
+    else if (lastNode->type == "MATH")
+    {
+        std::string operation = lastNode->attributes["operation"];
+        MaterialPinIt it = lastNode->inputs["Value"].begin();
+        MaterialPinIt vItr0 = it++; MaterialPinIt vItr1 = it++; MaterialPinIt vItr2 = it++;
+        MaterialPin *v0 = vItr0->second.get(), *v1 = vItr1->second.get(), *v2 = vItr2->second.get();
+
+        std::string val0 = comp.variable(lastNode, v0), val1 = comp.variable(lastNode, v1), val2 = comp.variable(lastNode, v2);
+        comp.prependVariables("vec3 " + val0 + " = vec3(" + setFromValues(v0->values) + ");\n" +
+                              "vec3 " + val1 + " = vec3(" + setFromValues(v1->values) + ");\n" +
+                              "vec3 " + val2 + " = vec3(" + setFromValues(v2->values) + ");\n");
+        if (operation == "ADD")
+            comp.prependCode(dst + " = mathAdd(" + val0 + ", " + val1 + ", " + val2 + ");\n");
+        else if (operation == "SUBTRACT")
+            comp.prependCode(dst + " = mathSub(" + val0 + ", " + val1 + ", " + val2 + ");\n");
+        else if (operation == "MULTIPLY")
+            comp.prependCode(dst + " = mathMult(" + val0 + ", " + val1 + ", " + val2 + ");\n");
+        else
+            OSG_NOTICE << "[MaterialGraph] Unsupported math-operation: " << operation << std::endl;
+        findAndProcessBlenderLink(comp, ss, lastNode, v0, vItr0->first, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, v1, vItr1->first, true);
+        findAndProcessBlenderLink(comp, ss, lastNode, v2, vItr2->first, true);
     }
     else
     {
