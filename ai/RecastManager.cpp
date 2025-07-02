@@ -1,14 +1,13 @@
 #include <osg/io_utils>
 #include <osg/PositionAttitudeTransform>
 #include <iostream>
-
 #include "RecastManager.h"
 #include "RecastManager_Private.h"
 using namespace osgVerse;
 
 RecastManager::RecastManager()
 {
-    _recastData = new NavData;
+    _recastData = new NavData; _alwaysUseChunkyMesh = true;
     _obstacleAvoidingType = -1; _lastSimulationTime = -1.0f;
 }
 
@@ -67,6 +66,8 @@ bool RecastManager::build(osg::Node* node, bool loadingFineLevels)
         worldBounds, tStart, tEnd, _settings.tileSize, _settings.cellSize);
     float tileWidth = _settings.tileSize * _settings.cellSize;
     int maxPolys = 1u << (22 - navData->logBaseTwo(maxTiles));
+
+    //osg::Vec3 orig(worldBounds._min[0], worldBounds._min[2], -worldBounds._max[1]);  // FIXME: orig?
     if (!initializeNavMesh(osg::Vec3(), tileWidth, tileWidth, maxPolys, maxTiles)) return false;
     return buildTiles(collector.getVertices(), collector.getTriangles(), worldBounds, tStart, tEnd);
 }

@@ -422,6 +422,7 @@ void MeshTopologyVisitor::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& s
     if (_stateset->getName().empty()) _stateset->setName(ss.getName());
     else _stateset->setName(_stateset->getName() + "+" + ss.getName());
     _stateset->merge(ss);
+    MeshCollector::apply(n, d, ss);
 }
 
 MeshTopology* MeshTopologyVisitor::generate()
@@ -435,6 +436,7 @@ void HostTextureReserver::apply(osg::Node* n, osg::Drawable* d, osg::Texture* te
     bool toUnref = tex->getUnRefImageDataAfterApply();
     bool storageHint = tex->getClientStorageHint();
     _reservedMap[tex] = std::pair<bool, bool>(toUnref, storageHint);
+    MeshCollector::apply(n, d, tex, u);
 }
 
 void HostTextureReserver::set(bool toKeepHostTextures)

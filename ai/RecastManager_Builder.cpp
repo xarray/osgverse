@@ -1,6 +1,7 @@
 #include <osg/io_utils>
 #include <osg/Geode>
 #include <osgUtil/SmoothingVisitor>
+#include <iostream>
 #include "RecastManager.h"
 #include "RecastManager_Private.h"
 #include "RecastManager_Builder.h"
@@ -199,15 +200,16 @@ std::vector<int> rcChunkyTriMesh::getChunksOverlappingSegment(const rcChunkyTriM
 }
 
 bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vector<unsigned int>& indices,
-                               const osg::BoundingBoxd& worldBounds, const osg::Vec2d& tileStart,
-                               const osg::Vec2d& tileEnd)
+                               const osg::BoundingBoxd& worldBounds, const osg::Vec2d& tileStart0,
+                               const osg::Vec2d& tileEnd0)
 {
     std::vector<osg::Vec3> va1(va.size()); if (va.empty() || indices.empty()) return false;
     for (size_t i = 0; i < va.size(); ++i) { const osg::Vec3& v = va[i]; va1[i] = osg::Vec3(v[0], v[2], -v[1]); }
+    osg::Vec2d tileStart(tileStart0[0], -tileEnd0[1]), tileEnd(tileEnd0[0], -tileStart0[1]);
 
     rcChunkyTriMesh* chunkyMesh = new rcChunkyTriMesh; std::vector<int> chunkyIdList;
-    if (!rcChunkyTriMesh::createChunkyTriMesh((float*)&va1[0], (int*)&indices[0],
-                                              indices.size() / 3, 256, chunkyMesh))
+    if (_alwaysUseChunkyMesh &&
+        !rcChunkyTriMesh::createChunkyTriMesh((float*)&va1[0], (int*)&indices[0], indices.size() / 3, 256, chunkyMesh))
     {
         OSG_WARN << "[RecastManager] Failed to build chunky tri-mesh" << std::endl;
         delete chunkyMesh; chunkyMesh = NULL;
@@ -242,13 +244,13 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
             cfg.bmin[0] -= cfg.borderSize * cfg.cs; cfg.bmax[0] += cfg.borderSize * cfg.cs;
             cfg.bmin[1] -= _settings.padding; cfg.bmax[1] += _settings.padding;
             cfg.bmin[2] -= cfg.borderSize * cfg.cs; cfg.bmax[2] += cfg.borderSize * cfg.cs;
-            
+
             // Fill build data
             SimpleBuildData build(navData->context); osg::BoundingBox cfgBounds(minBB, maxBB);
             navData->navMesh->removeTile(navData->navMesh->getTileRefAt(x, y, 0), NULL, NULL);
 
             // TODO: how to add off-mesh connections and nav-areas?
-            if (chunkyMesh == NULL)
+            if (!_alwaysUseChunkyMesh || chunkyMesh == NULL)
             {
                 build.vertices.assign(va1.begin(), va1.end());
                 for (size_t i = 0; i < indices.size(); i += 3)
@@ -258,14 +260,22 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
                         cfgBounds.contains(build.vertices[id2]))
                     { build.indices.push_back(id0); build.indices.push_back(id1); build.indices.push_back(id2); }
                 }
-                if (build.vertices.empty() || build.indices.empty()) continue;
+                if (build.vertices.empty() || build.indices.empty())
+                {
+                    OSG_INFO << "[RecastManager] No any data inside tile: "
+                             << x << ", " << y << std::endl; continue;
+                }
             }
             else
             {
                 float tbmin[2]; tbmin[0] = cfg.bmin[0]; tbmin[1] = cfg.bmin[2];
                 float tbmax[2]; tbmax[0] = cfg.bmax[0]; tbmax[1] = cfg.bmax[2];
                 chunkyIdList = rcChunkyTriMesh::getChunksOverlappingRect(chunkyMesh, tbmin, tbmax);
-                if (chunkyIdList.empty()) continue;
+                if (chunkyIdList.empty())
+                {
+                    OSG_INFO << "[RecastManager] No any chunky data inside tile: "
+                             << x << ", " << y << std::endl; continue;
+                }
             }
 
             // Create and config height-field
@@ -278,7 +288,7 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
             }
             else
             {
-                if (chunkyMesh == NULL)
+                if (!_alwaysUseChunkyMesh || chunkyMesh == NULL)
                 {
                     unsigned int numTriangles = build.indices.size() / 3;
                     std::vector<unsigned char> triAreas(numTriangles); memset(&triAreas[0], 0, numTriangles);
@@ -435,12 +445,20 @@ bool RecastManager::buildTiles(const std::vector<osg::Vec3>& va, const std::vect
                 params.offMeshConDir = &build.offMeshDir[0];
             }
 
-            unsigned char* resultData = NULL;
-            int resultDataSize = 0;
+            unsigned char* resultData = NULL; int resultDataSize = 0;
             if (!dtCreateNavMeshData(&params, &resultData, &resultDataSize))
             {
+                std::string errorString = "Unknown";
+                if (params.nvp > DT_VERTS_PER_POLYGON)
+                    errorString = "Verts/Poly too large: " + std::to_string(params.nvp);
+                if (params.vertCount >= 0xffff)
+                    errorString = "Verts count too large: " + std::to_string(params.vertCount);
+                if (!params.vertCount || !params.verts)
+                    errorString = "Verts are empty: " + std::to_string(params.vertCount);
+                if (!params.polyCount || !params.polys)
+                    errorString = "Polys are empty: " + std::to_string(params.polyCount);
                 OSG_WARN << "[RecastManager] Failed to build navigation mesh of tile: "
-                         << x << ", " << y << std::endl; continue;
+                         << x << ", " << y << "; Err = " << errorString << std::endl; continue;
             }
             else if (dtStatusFailed(navData->navMesh->addTile(resultData, resultDataSize,
                                                               DT_TILE_FREE_DATA, 0, NULL)))

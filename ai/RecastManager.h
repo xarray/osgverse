@@ -68,6 +68,9 @@ namespace osgVerse
         void setSettings(const RecastSettings& s) { _settings = s; }
         const RecastSettings& getSettings() const { return _settings; }
 
+        void setAlwaysUseChunkyMesh(bool b) { _alwaysUseChunkyMesh = b; }
+        bool getAlwaysUseChunkyMesh() const { return _alwaysUseChunkyMesh; }
+
         /** Get debug nav-mesh of all current tiles */
         osg::Node* getDebugMesh() const;
 
@@ -132,8 +135,7 @@ namespace osgVerse
         bool initializeNavMesh(const osg::Vec3& o, float tileW, float tileH, int maxPolys, int maxTiles);
         bool initializeQuery();
         bool buildTiles(const std::vector<osg::Vec3>& va, const std::vector<unsigned int>& indices,
-                        const osg::BoundingBoxd& worldBounds, const osg::Vec2d& tileStart,
-                        const osg::Vec2d& tileEnd);
+                        const osg::BoundingBoxd& worldBB, const osg::Vec2d& tileStart, const osg::Vec2d& tileEnd);
 
         std::map<osg::Node*, osg::observer_ptr<Agent>> _agentFinderMap;
         std::set<osg::ref_ptr<Agent>> _agents;
@@ -141,6 +143,7 @@ namespace osgVerse
         RecastSettings _settings;
         int _obstacleAvoidingType;
         float _lastSimulationTime;
+        bool _alwaysUseChunkyMesh;
     };
 
 }

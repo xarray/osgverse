@@ -1,4 +1,4 @@
-#include "module_lighting.glsl"
+#include "basic_lighting.module.glsl"
 
 #define M_PI 3.1415926535897932384626433832795
 uniform sampler2D DiffuseMap, NormalMap, SpecularMap, ShininessMap;
