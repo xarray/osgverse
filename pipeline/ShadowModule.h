@@ -23,11 +23,14 @@ namespace osgVerse
         ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom);
         virtual ShadowModule* asShadowModule() { return this; }
 
-        /** Technique can only be set and applied before createStages() */
-        enum Technique
+        enum TechniqueItem
         {
-            DefaultSM = 0, EyeSpaceDepthSM
+            DefaultSM = 0, EyeSpaceDepthSM = 0x1,
+            BandPCF = 0x2, PossionPCF = 0x4,
         };
+        typedef int Technique; // TechniqueItems
+
+        /** Technique can only be set and applied before createStages() */
         void setTechnique(Technique t) { _technique = t; }
         Technique getTechnique() const { return _technique; }
 
@@ -79,6 +82,7 @@ namespace osgVerse
         osg::ref_ptr<osg::PolygonOffset> _polygonOffset;
         osg::ref_ptr<osg::Texture2D> _shadowMaps[MAX_SHADOWS];
         osg::ref_ptr<osg::Uniform> _lightMatrices;  // matrixf[]
+        osg::ref_ptr<osg::Uniform> _invTextureSize;  // vec2
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix, _lightInputMatrix;

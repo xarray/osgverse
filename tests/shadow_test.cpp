@@ -77,7 +77,11 @@ int main(int argc, char** argv)
     {
         osgVerse::StandardPipelineViewer* plViewer = new osgVerse::StandardPipelineViewer(false, true, true);
         if (arguments.read("--eyespace-depth"))
-            plViewer->getParameters().shadowTechnique = osgVerse::ShadowModule::EyeSpaceDepthSM;
+            plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::EyeSpaceDepthSM;
+        if (arguments.read("--band-pcf"))
+            plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::BandPCF;
+        if (arguments.read("--no-pcf"))
+            plViewer->getParameters().shadowTechnique &= ~osgVerse::ShadowModule::PossionPCF;
         viewer = plViewer;
     }
 

@@ -46,6 +46,15 @@ osg::Image* TileCallback::createLayerImage(LayerType id)
     return osgDB::readImageFile(url);
 }
 
+TileGeometryHandler* TileCallback::createLayerHandler(LayerType id)
+{
+    std::string inputAddr = _layerPaths[(int)id]; if (inputAddr.empty()) return NULL;
+    std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
+                    : TileCallback::createPath(inputAddr, _x, _y, _z);
+    if (!osgDB::getServerProtocol(url).empty()) url += ".verse_web";
+    return dynamic_cast<TileGeometryHandler*>(osgDB::readObjectFile(url));
+}
+
 double TileCallback::mapAltitude(const osg::Vec4& color) const
 {
     return color[0] * 8900.0;  // Highest on earth?
@@ -68,6 +77,19 @@ void TileCallback::computeTileExtent(osg::Vec3d& tileMin, osg::Vec3d& tileMax,
         tileMin = _extentMin + osg::Vec3d(double(_x) * tileWidth, double(_y) * tileHeight, 0.0);
         tileMax = _extentMin + osg::Vec3d(double(_x + 1) * tileWidth, double(_y + 1) * tileHeight, 1.0);
     }
+}
+
+osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, TileGeometryHandler* handler,
+                                                const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
+                                                double width, double height) const
+{
+    if (!_flatten)
+    {
+        osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, true);
+        osg::Matrix localToWorld = Coordinate::convertLLAtoENU(center);
+        outMatrix = localToWorld;
+    }
+    return handler ? handler->create(this, tileMin, tileMax, width, height) : NULL;
 }
 
 osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Image* elevation,
@@ -209,6 +231,7 @@ TileManager* TileManager::instance()
 
 TileManager::TileManager()
 {
+    _acceptTileHandlers.insert("terrain"); _acceptTileHandlers.insert("verse_terrain");
 }
 
 bool TileManager::check(const std::map<int, std::string>& paths, std::vector<int>& updated)
@@ -224,3 +247,6 @@ bool TileManager::check(const std::map<int, std::string>& paths, std::vector<int
     }
     return !updated.empty();
 }
+
+bool TileManager::isHandlerExtension(const std::string& ext) const
+{ return _acceptTileHandlers.find(ext) != _acceptTileHandlers.end(); }

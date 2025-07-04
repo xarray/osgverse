@@ -99,9 +99,10 @@ namespace osgVerse
 {
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096), shadowTechnique(0),
-        coverageSamples(0), depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
-        debugShadowModule(false), debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
+        shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
+        eyeSeparationVR(0.05), withEmbeddedViewer(false), debugShadowModule(false),
+        debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
         obtainScreenResolution(originWidth, originHeight);
@@ -110,9 +111,10 @@ namespace osgVerse
 
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
-        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096), shadowTechnique(0),
-        coverageSamples(0), depthPartitionNearValue(0.1), eyeSeparationVR(0.05), withEmbeddedViewer(false),
-        debugShadowModule(false), debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
+        shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
+        shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
+        eyeSeparationVR(0.05), withEmbeddedViewer(false), debugShadowModule(false),
+        debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
         enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
     {
         obtainScreenResolution(originWidth, originHeight);

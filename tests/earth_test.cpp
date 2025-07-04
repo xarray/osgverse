@@ -5,7 +5,6 @@
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
-#include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
@@ -165,7 +164,6 @@ int main(int argc, char** argv)
     osgViewer::Viewer viewer;
     viewer.getCamera()->setNearFarRatio(0.00001);
     //viewer.setIncrementalCompileOperation(incrementalCompiler.get());
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(trackball.get());

@@ -142,12 +142,19 @@ protected:
         tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
 
         osg::Matrix localMatrix;
-        osg::ref_ptr<osg::Image> elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION);
+        osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+        bool elevH = mgr->isHandlerExtension(osgDB::getFileExtension(elevPath));
+
+        osg::ref_ptr<osg::Image> elevImage; osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler;
+        if (elevH) elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION);
+        else elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION);
+
         osg::ref_ptr<osg::Image> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO);
         osg::ref_ptr<osg::Image> vectImage = tileCB->createLayerImage(osgVerse::TileCallback::VECTOR);
 
-        osg::ref_ptr<osg::Geometry> geom = tileCB->createTileGeometry(
-            localMatrix, elevImage.get(), tileMin, tileMax, tileWidth, tileHeight);
+        osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?
+            tileCB->createTileGeometry(localMatrix, elevHandler.get(), tileMin, tileMax, tileWidth, tileHeight) :
+            tileCB->createTileGeometry(localMatrix, elevImage.get(), tileMin, tileMax, tileWidth, tileHeight);
         geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
         if (orthImage.valid())
         {

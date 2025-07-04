@@ -110,7 +110,7 @@ protected:
 namespace osgVerse
 {
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
-    :   _pipeline(pipeline), _technique(DefaultSM), _shadowMaxDistance(-1.0), _shadowNumber(0),
+    :   _pipeline(pipeline), _technique(PossionPCF), _shadowMaxDistance(-1.0), _shadowNumber(0),
         _retainLightPos(false), _dirtyReference(false)
     {
         for (int i = 0; i < MAX_SHADOWS; ++i) _shadowMaps[i] = new osg::Texture2D;
@@ -130,11 +130,9 @@ namespace osgVerse
 
     void ShadowModule::applyTechniqueDefines(osg::StateSet* ss) const
     {
-        switch (_technique)
-        {
-        case EyeSpaceDepthSM: ss->setDefine("VERSE_SHADOW_EYESPACE"); break;
-        default: break;
-        }
+        if (_technique & EyeSpaceDepthSM) ss->setDefine("VERSE_SHADOW_EYESPACE");
+        if (_technique & BandPCF) ss->setDefine("VERSE_SHADOW_BAND_PCF");
+        if (_technique & PossionPCF) ss->setDefine("VERSE_SHADOW_POSSION_PCF");
     }
 
     void ShadowModule::setSmallPixelsToCull(int cameraNum, int smallPixels)
@@ -177,8 +175,8 @@ namespace osgVerse
     std::vector<Pipeline::Stage*> ShadowModule::createStages(int shadowSize, int shadowNum,
                                                              osg::Shader* vs, osg::Shader* fs, unsigned int casterMask)
     {
-        _shadowCameras.clear();
-        _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
+        _shadowCameras.clear(); _shadowNumber = osg::minimum(shadowNum, MAX_SHADOWS);
+        _invTextureSize = new osg::Uniform("InvShadowMapSize", osg::Vec2(1.0f / shadowSize, 1.0f / shadowSize));
         for (int i = 0; i < _shadowNumber; ++i)
         {
             _shadowMaps[i]->setTextureSize(shadowSize, shadowSize);
@@ -259,6 +257,7 @@ namespace osgVerse
             stage->applyTexture(_shadowMaps[i].get(), name, unit++);
         }
         stage->applyUniform(getLightMatrices());
+        stage->applyUniform(_invTextureSize.get());
         return unit;
     }
 

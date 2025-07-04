@@ -5,11 +5,25 @@
 #include <osg/Geometry>
 #include <osgDB/ReaderWriter>
 #include <functional>
+#include <set>
 #include "Export.h"
 typedef std::string (*CreatePathFunc)(int, const std::string&, int, int, int);
 
 namespace osgVerse
 {
+    class TileCallback;
+    struct TileGeometryHandler : public osg::Object
+    {
+        TileGeometryHandler() {}
+        TileGeometryHandler(const TileGeometryHandler& c, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY)
+            : osg::Object(c, op) {}
+        META_Object(osgVerse, TileGeometryHandler)
+
+        virtual osg::Geometry* create(const TileCallback* cb,
+                                      const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
+                                      double width, double height) const { return NULL; }
+    };
+
     class OSGVERSE_RW_EXPORT TileCallback : public osg::NodeCallback
     {
     public:
@@ -21,9 +35,13 @@ namespace osgVerse
         virtual osg::Geometry* createTileGeometry(osg::Matrix& outMatrix, osg::Image* elevation,
                                                   const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                                   double width, double height) const;
+        virtual osg::Geometry* createTileGeometry(osg::Matrix& outMatrix, TileGeometryHandler* handler,
+                                                  const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
+                                                  double width, double height) const;
 
         enum LayerType { ELEVATION = 0, ORTHOPHOTO, VECTOR, USER };
         osg::Image* createLayerImage(LayerType id);
+        TileGeometryHandler* createLayerHandler(LayerType id);
 
         void setLayerPath(LayerType id, const std::string& p) { _layerPaths[id] = p; }
         void setTotalExtent(const osg::Vec3d& e0, const osg::Vec3d& e1) { _extentMin = e0; _extentMax = e1; }
@@ -54,6 +72,7 @@ namespace osgVerse
     public:
         static TileManager* instance();
         bool check(const std::map<int, std::string>& paths, std::vector<int>& updated);
+        bool isHandlerExtension(const std::string& ext) const;
 
         void setLayerPath(TileCallback::LayerType id, const std::string& p) { _layerPaths[id] = p; }
         std::string getLayerPath(TileCallback::LayerType id) { return _layerPaths[id]; }
@@ -63,6 +82,7 @@ namespace osgVerse
         virtual ~TileManager() {}
 
         std::map<int, std::string> _layerPaths;
+        std::set<std::string> _acceptTileHandlers;
     };
 }
 
