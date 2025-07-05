@@ -1,4 +1,5 @@
 #pragma import_defines(VERSE_SHADOW_EYESPACE, VERSE_SHADOW_BAND_PCF, VERSE_SHADOW_POSSION_PCF)
+#pragma import_defines(VERSE_SHADOW_VSM, VERSE_SHADOW_ESM, VERSE_SHADOW_EVSM)
 #include "shadowing.module.glsl"
 
 uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
@@ -14,11 +15,22 @@ VERSE_FS_OUT vec4 fragData;
 #ifdef VERSE_SHADOW_POSSION_PCF
 #   undef GET_SHADOW
 #   define GET_SHADOW(map, uv, z) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize)
-#else
-#   ifdef VERSE_SHADOW_BAND_PCF
-#       undef GET_SHADOW
-#       define GET_SHADOW(map, uv, z) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize)
-#   endif
+#endif
+#ifdef VERSE_SHADOW_BAND_PCF
+#   undef GET_SHADOW
+#   define GET_SHADOW(map, uv, z) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize)
+#endif
+#ifdef VERSE_SHADOW_VSM
+#   undef GET_SHADOW
+#   define GET_SHADOW(map, uv, z) getShadowValue_VSM(map, uv, z, 0.0008)
+#endif
+#ifdef VERSE_SHADOW_ESM
+#   undef GET_SHADOW
+#   define GET_SHADOW(map, uv, z) getShadowValue_ESM(map, uv, z, 0.33, 15.0)
+#endif
+#ifdef VERSE_SHADOW_EVSM
+#   undef GET_SHADOW
+#   define GET_SHADOW(map, uv, z) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008)
 #endif
 
 void main()

@@ -130,9 +130,31 @@ namespace osgVerse
 
     void ShadowModule::applyTechniqueDefines(osg::StateSet* ss) const
     {
-        if (_technique & EyeSpaceDepthSM) ss->setDefine("VERSE_SHADOW_EYESPACE");
+        if (_technique & EyeSpaceDepthSM)
+        {
+            ss->setDefine("VERSE_SHADOW_EYESPACE");
+            if ((_technique & VarianceSM) > 0 || (_technique & ExponentialSM) > 0 ||
+                (_technique & ExponentialVarianceSM) > 0)
+            {
+                OSG_NOTICE << "[ShadowModule] Current shadow technique " << std::hex << _technique
+                           << std::dec << " is unsupported with eye-space depth" << std::endl; return;
+            }
+        }
+
         if (_technique & BandPCF) ss->setDefine("VERSE_SHADOW_BAND_PCF");
         if (_technique & PossionPCF) ss->setDefine("VERSE_SHADOW_POSSION_PCF");
+#if defined(VERSE_EMBEDDED_GLES2)
+        if ((_technique & VarianceSM) > 0 || (_technique & ExponentialSM) > 0 ||
+            (_technique & ExponentialVarianceSM) > 0)
+        {
+            OSG_NOTICE << "[ShadowModule] Current shadow technique " << std::hex << _technique
+                       << std::dec << " is unsupported in GLES2/WebGL1" << std::endl;
+        }
+#else
+        if (_technique & VarianceSM) ss->setDefine("VERSE_SHADOW_VSM");
+        if (_technique & ExponentialSM) ss->setDefine("VERSE_SHADOW_ESM");
+        if (_technique & ExponentialVarianceSM) ss->setDefine("VERSE_SHADOW_EVSM");
+#endif
     }
 
     void ShadowModule::setSmallPixelsToCull(int cameraNum, int smallPixels)

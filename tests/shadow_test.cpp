@@ -78,6 +78,12 @@ int main(int argc, char** argv)
         osgVerse::StandardPipelineViewer* plViewer = new osgVerse::StandardPipelineViewer(false, true, true);
         if (arguments.read("--eyespace-depth"))
             plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::EyeSpaceDepthSM;
+        if (arguments.read("--vsm"))
+            plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::VarianceSM;
+        if (arguments.read("--esm"))
+            plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::ExponentialSM;
+        if (arguments.read("--evsm"))
+            plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::ExponentialVarianceSM;
         if (arguments.read("--band-pcf"))
             plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::BandPCF;
         if (arguments.read("--no-pcf"))

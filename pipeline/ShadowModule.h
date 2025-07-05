@@ -25,8 +25,8 @@ namespace osgVerse
 
         enum TechniqueItem
         {
-            DefaultSM = 0, EyeSpaceDepthSM = 0x1,
-            BandPCF = 0x2, PossionPCF = 0x4,
+            DefaultSM = 0, EyeSpaceDepthSM = 0x1, BandPCF = 0x2, PossionPCF = 0x4,
+            VarianceSM = 0x8, ExponentialSM = 0x10, ExponentialVarianceSM = 0x20
         };
         typedef int Technique; // TechniqueItems
 
