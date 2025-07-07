@@ -4,6 +4,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgUtil/SmoothingVisitor>
+#include <modeling/Math.h>
 #include <readerwriter/TileCallback.h>
 
 struct QuantizedMesh
@@ -113,11 +114,12 @@ struct QuantizedMesh
 
 struct TerrainGeometryHandler : public osgVerse::TileGeometryHandler
 {
-    virtual osg::Geometry* create(const osgVerse::TileCallback* cb,
+    virtual osg::Geometry* create(const osgVerse::TileCallback* cb, const osg::Matrix& localToWorld,
                                   const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                   double width, double height) const
     {
         const float INV_SHORT_MAX = 1.0f / 32767.0f;
+        osg::Matrix worldToLocal = osg::Matrix::inverse(localToWorld);
         osg::Vec3 extentMin(tileMin[0], tileMin[1], meshData.header.minimumHeight);
         osg::Vec3 extentMax(tileMax[0], tileMax[1], meshData.header.maximumHeight);
         osg::Vec3 extent = extentMax - extentMin;
@@ -128,7 +130,12 @@ struct TerrainGeometryHandler : public osgVerse::TileGeometryHandler
         {
             osg::Vec3f code(meshData.vertices.u[i], meshData.vertices.v[i], meshData.vertices.h[i]);
             for (int c = 0; c < 3; ++c) (*va)[i][c] = extentMin[c] + extent[c] * code[c] * INV_SHORT_MAX;
+            if (cb->getFlatten()) (*va)[i][2] *= 0.0002f;  // show on 2D map
             (*ta)[i] = osg::Vec2(code[0], code[1]) * INV_SHORT_MAX;
+
+            osg::Vec3d lla = cb->adjustLatitudeLongitudeAltitude((*va)[i], cb->getUseWebMercator());
+            osg::Vec3d ecef = osgVerse::Coordinate::convertLLAtoECEF(lla);
+            (*va)[i] = osg::Vec3(ecef * worldToLocal);
         }
 
         osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
@@ -234,7 +241,8 @@ public:
         int z = opt ? atoi(opt->getPluginStringData("Z").c_str()) : 0;
         computeTileExtent(x, y, z, tileMin, tileMax, tileWidth, tileHeight);
 
-        osg::ref_ptr<osg::Geometry> geom = tile->create(NULL, tileMin, tileMax, tileWidth, tileHeight);
+        osg::ref_ptr<osg::Geometry> geom = tile->create(
+            NULL, osg::Matrix(), tileMin, tileMax, tileWidth, tileHeight);
         if (geom.valid())
         {
             osg::Geode* geode = new osg::Geode;

@@ -11,18 +11,6 @@
 #include "TileCallback.h"
 using namespace osgVerse;
 
-osg::Vec3d TileCallback::adjustLatitudeLongitudeAltitude(const osg::Vec3d& extent, bool useSphericalMercator)
-{
-    osg::Vec3d lla(osg::inDegrees(extent[1]), osg::inDegrees(extent[0]), extent[2]);
-    if (useSphericalMercator)
-    {
-        double n = 2.0 * lla.x();
-        double adjustedLatitude = atan(0.5 * (exp(n) - exp(-n)));
-        return osg::Vec3d(adjustedLatitude, lla.y(), lla.z());
-    }
-    return lla;
-}
-
 std::string TileCallback::createPath(const std::string& pseudoPath, int x, int y, int z)
 {
     std::string path = pseudoPath; bool changed = false;
@@ -55,9 +43,22 @@ TileGeometryHandler* TileCallback::createLayerHandler(LayerType id)
     return dynamic_cast<TileGeometryHandler*>(osgDB::readObjectFile(url));
 }
 
-double TileCallback::mapAltitude(const osg::Vec4& color) const
+double TileCallback::mapAltitude(const osg::Vec4& color, double minH, double maxH) const
 {
-    return color[0] * 8900.0;  // Highest on earth?
+    double value = minH + (double)color[0] * (maxH - minH);
+    return _flatten ? (value * 0.0002) : value;
+}
+
+osg::Vec3d TileCallback::adjustLatitudeLongitudeAltitude(const osg::Vec3d& extent, bool useSphericalMercator) const
+{
+    osg::Vec3d lla(osg::inDegrees(extent[1]), osg::inDegrees(extent[0]), extent[2]);
+    if (useSphericalMercator)
+    {
+        double n = 2.0 * lla.x();
+        double adjustedLatitude = atan(0.5 * (exp(n) - exp(-n)));
+        return osg::Vec3d(adjustedLatitude, lla.y(), lla.z());
+    }
+    return lla;
 }
 
 void TileCallback::computeTileExtent(osg::Vec3d& tileMin, osg::Vec3d& tileMax,
@@ -85,11 +86,11 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, TileGeom
 {
     if (!_flatten)
     {
-        osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, true);
+        osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, _useWebMercator);
         osg::Matrix localToWorld = Coordinate::convertLLAtoENU(center);
         outMatrix = localToWorld;
     }
-    return handler ? handler->create(this, tileMin, tileMax, width, height) : NULL;
+    return handler ? handler->create(this, outMatrix, tileMin, tileMax, width, height) : NULL;
 }
 
 osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Image* elevation,
@@ -99,7 +100,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
     double tileRefSize = osg::inDegrees(tileMax.y() - tileMin.y()) * osg::WGS_84_RADIUS_EQUATOR;
     if (!_flatten)
     {
-        osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, true);
+        osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, _useWebMercator);
         osg::Matrix localToWorld = Coordinate::convertLLAtoENU(center);
         osg::Matrix worldToLocal = osg::Matrix::inverse(localToWorld);
         osg::Matrix normalMatrix(localToWorld(0, 0), localToWorld(0, 1), localToWorld(0, 2), 0.0,
@@ -124,7 +125,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 if (elevation) altitude = mapAltitude(elevation->getColor(uv));
 
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
-                    tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), true);
+                    tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
                 (*va)[vi] = osg::Vec3(ecef * worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
                 (*na)[vi] = osg::Vec3(ecef * normalMatrix); (*na)[vi].normalize();
@@ -147,7 +148,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;
             for (unsigned int c = 0; c < numCols; ++c, ++vi)
             {
-                unsigned int si = tile_bottom_row + c; const osg::Vec3& N = na->at(si);
+                unsigned int si = tile_bottom_row + c; osg::Vec3 N = va->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int c = 0; c < numCols - 1; ++c)
@@ -160,7 +161,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_top_row = (numRows - 1) * numCols, base_top_row = vi;
             for (unsigned int c = 0; c < numCols; ++c, ++vi)
             {
-                unsigned int si = tile_top_row + c; const osg::Vec3& N = na->at(si);
+                unsigned int si = tile_top_row + c; osg::Vec3 N = va->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int c = 0; c < numCols - 1; ++c)
@@ -173,7 +174,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_left_column = 0, skirt_left_column = vi;
             for (unsigned int r = 0; r < numRows; ++r, ++vi)
             {
-                unsigned int si = tile_left_column + r * numCols; const osg::Vec3& N = na->at(si);
+                unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = va->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int r = 0; r < numRows - 1; ++r)
@@ -186,7 +187,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_right_column = numCols - 1, skirt_right_column = vi;
             for (unsigned int r = 0; r < numRows; ++r, ++vi)
             {
-                unsigned int si = tile_right_column + r * numCols; const osg::Vec3& N = na->at(si);
+                unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = va->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int r = 0; r < numRows - 1; ++r)
@@ -231,7 +232,8 @@ TileManager* TileManager::instance()
 
 TileManager::TileManager()
 {
-    _acceptTileHandlers.insert("terrain"); _acceptTileHandlers.insert("verse_terrain");
+    _acceptHandlerExts[".terrain"] = ".terrain.verse_terrain";
+    _acceptHandlerExts[".verse_terrain"] = "";
 }
 
 bool TileManager::check(const std::map<int, std::string>& paths, std::vector<int>& updated)
@@ -248,5 +250,8 @@ bool TileManager::check(const std::map<int, std::string>& paths, std::vector<int
     return !updated.empty();
 }
 
-bool TileManager::isHandlerExtension(const std::string& ext) const
-{ return _acceptTileHandlers.find(ext) != _acceptTileHandlers.end(); }
+bool TileManager::isHandlerExtension(const std::string& ext, std::string& suggested) const
+{
+    std::map<std::string, std::string>::const_iterator itr = _acceptHandlerExts.find(ext);
+    if (itr != _acceptHandlerExts.end()) { suggested = itr->second; return true; } else return false;
+}

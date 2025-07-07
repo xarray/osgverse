@@ -10,9 +10,14 @@
 #include <readerwriter/Utilities.h>
 #include <readerwriter/TileCallback.h>
 
-// osgviewer 0-0-0.verse_tms -O "Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
+// WebMercatorTiles: (0-0-0) Lv1 = 00,01,10,11, ...; (0-0-x) Lv0 = 00,01,10,11, ...
+// WGS84Tiles: (0-0-0) Lv1 = 00,10, Lv2 = 00,01,10,11,20,21,30,31, ...; (0-0-x) Lv0 = 00,10, ...
+
+// osgviewer 0-0-0.verse_tms -O "Orthophoto=https://xxxx.com/xxxx?x=x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
 // osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\testTMS\{z}\{x}\{y}.png OriginBottomLeft=1"
-/* More tile map servers:
+
+/* Tile map servers:
+     GapDe Map: https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}
      TengXun Map: (https://blog.csdn.net/mygisforum/article/details/22997879)
      - http://p0.map.gtimg.com/demTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
      - http://p0.map.gtimg.com/sateTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
@@ -57,7 +62,7 @@ public:
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
-        bool usePseudo = (ext == "verse_tms");
+        bool usePseudo = (ext == "verse_tms"), useWM = true;
         if (usePseudo)
         {
             fileName = osgDB::getNameLessExtension(path);
@@ -86,7 +91,7 @@ public:
             if (use4T == "false" || atoi(use4T.c_str()) <= 0)
             {
                 extentMax[0] = (extentMax[0] + extentMin[0]) * 0.5;
-                if (z == 0) countY = 1;
+                if (z == 0) countY = 1; useWM = false;
             }
             
             std::string useEarth = options->getPluginStringData("UseEarth3D");
@@ -98,7 +103,7 @@ public:
                 for (int xx = 0; xx < 2; ++xx)
                 {
                     osg::ref_ptr<osg::Node> node = createTile(
-                        elevAddr, orthoAddr, vectAddr, x + xx, y + yy, z, extentMin, extentMax, options, flatten);
+                        elevAddr, orthoAddr, vectAddr, x + xx, y + yy, z, extentMin, extentMax, options, useWM, flatten);
                     if (!node) continue;
 
                     osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
@@ -123,34 +128,38 @@ protected:
     osg::Node* createTile(const std::string& elevPath, const std::string& orthPath,
                           const std::string& vectPath, int x, int y, int z,
                           const osg::Vec3d& extentMin, const osg::Vec3d& extentMax,
-                          const Options* opt, bool flatten) const
+                          const Options* opt, bool useWM, bool flatten) const
     {
         CreatePathFunc pathFunc = (CreatePathFunc)opt->getPluginData("UrlPathFunction");
         std::string name = "TMS_" + std::to_string(z) + "_" + std::to_string(x) + "_" + std::to_string(y),
                     botLeft = opt->getPluginStringData("OriginBottomLeft");
         if (!botLeft.empty()) std::transform(botLeft.begin(), botLeft.end(), botLeft.begin(), tolower);
 
+        std::string elevPath1 = elevPath, ext = osgDB::getFileExtensionIncludingDot(elevPath), extToUse;
+        osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+        bool elevH = mgr->isHandlerExtension(ext, extToUse), changed = false;
+        if (!extToUse.empty()) osgVerse::TileCallback::replace(elevPath1, ext, extToUse, changed);
+
         osg::ref_ptr<osgVerse::TileCallback> tileCB = new osgVerse::TileCallback;
-        tileCB->setLayerPath(osgVerse::TileCallback::ELEVATION, elevPath);
+        tileCB->setLayerPath(osgVerse::TileCallback::ELEVATION, elevPath1);
         tileCB->setLayerPath(osgVerse::TileCallback::ORTHOPHOTO, orthPath);
         tileCB->setLayerPath(osgVerse::TileCallback::VECTOR, vectPath);
         tileCB->setTotalExtent(extentMin, extentMax); tileCB->setTileNumber(x, y, z);
         tileCB->setBottomLeft(botLeft == "true" || atoi(botLeft.c_str()) > 0);
-        tileCB->setFlatten(flatten); tileCB->setCreatePathFunction(pathFunc);
+        tileCB->setUseWebMercator(useWM); tileCB->setFlatten(flatten);
+        tileCB->setCreatePathFunction(pathFunc);
 
         osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
         tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
 
-        osg::Matrix localMatrix;
-        osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
-        bool elevH = mgr->isHandlerExtension(osgDB::getFileExtension(elevPath));
-
-        osg::ref_ptr<osg::Image> elevImage; osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler;
+        osg::Matrix localMatrix; osg::ref_ptr<osg::Image> elevImage;
+        osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler;
         if (elevH) elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION);
         else elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION);
 
         osg::ref_ptr<osg::Image> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO);
         osg::ref_ptr<osg::Image> vectImage = tileCB->createLayerImage(osgVerse::TileCallback::VECTOR);
+        if (!orthImage) return NULL;
 
         osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?
             tileCB->createTileGeometry(localMatrix, elevHandler.get(), tileMin, tileMax, tileWidth, tileHeight) :
