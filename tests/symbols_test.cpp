@@ -106,6 +106,8 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(MISC_DIR + "poi_textbg.png");
 
         osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
+        symManager->setShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "poi_symbols.vert.glsl"),
+                               osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "poi_symbols.frag.glsl"));
         symManager->setFontFileName(MISC_DIR + "/LXGWFasmartGothic.otf");
         symManager->setIconAtlasImage(iconAtlas.get());
         symManager->setTextBackgroundAtlasImage(textBgAtlas.get());

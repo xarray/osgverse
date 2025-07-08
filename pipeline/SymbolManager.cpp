@@ -4,10 +4,10 @@
 #include <osgDB/ConvertUTF>
 #include <osgDB/WriteFile>
 #include <3rdparty/dkm_parallel.hpp>
+#include "Pipeline.h"
 #include "SymbolManager.h"
 
 #define RES 512
-#define RESV "512"
 using namespace osgVerse;
 
 static osg::Texture2D* createParameterTable(osg::Image* image)
@@ -189,6 +189,16 @@ std::vector<Symbol*> SymbolManager::querySymbols(const osg::Vec2d& proj, double 
     return result;
 }
 
+void SymbolManager::setShaders(osg::Shader* vs, osg::Shader* fs)
+{
+    _farDistanceProgram = new osg::Program; _farDistanceProgram->setName("FarDistanceProgram");
+    _midDistanceProgram = new osg::Program; _midDistanceProgram->setName("MidDistanceProgram");
+    _farDistanceProgram->addShader(vs); _farDistanceProgram->addShader(fs);
+    _midDistanceProgram->addShader(vs); _midDistanceProgram->addShader(fs);
+    if (vs) Pipeline::createShaderDefinitions(vs, 100, 130);
+    if (fs) Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+}
+
 void SymbolManager::initialize(osg::Group* group)
 {
     if (!_instanceGeom)
@@ -218,52 +228,8 @@ void SymbolManager::initialize(osg::Group* group)
 
         // Apply instancing shader
         osg::StateSet* ss = _instanceGeom->getOrCreateStateSet();
-        {
-            const char* instanceVertShader = {
-                "#version 120\n"
-                "#extension GL_EXT_draw_instanced : enable\n"
-                "uniform sampler2D PosTexture, DirTexture, ColorTexture;\n"
-                "varying vec4 Color; uniform vec3 Offset;\n"
-                "varying vec2 TexCoord;\n"
-                "mat4 rotationMatrix(vec3 axis0, float angle) {\n"
-                "    float s = sin(angle), c = cos(angle);\n"
-                "    float oc = 1.0 - c; vec3 a = normalize(axis0);\n"
-                "    return mat4(oc * a.x * a.x + c, oc * a.x * a.y - a.z * s, oc * a.z * a.x + a.y * s, 0.0,\n"
-                "                oc * a.x * a.y + a.z * s, oc * a.y * a.y + c, oc * a.y * a.z - a.x * s, 0.0,\n"
-                "                oc * a.z * a.x - a.y * s, oc * a.y * a.z + a.x * s, oc * a.z * a.z + c, 0.0,\n"
-                "                0.0, 0.0, 0.0, 1.0);\n"
-                "}\n"
-
-                "void main() {\n"
-                "    float r = float(gl_InstanceID) / " RESV ".0;\n"
-                "    float c = floor(r) / " RESV ".0; r = fract(r);\n"
-                "    vec4 pos = texture2D(PosTexture, vec2(r, c));\n"
-                "    vec4 dir = texture2D(DirTexture, vec2(r, c));\n"
-                "    Color = texture2D(ColorTexture, vec2(r, c));\n"
-                "    mat4 proj = gl_ProjectionMatrix; float ar = proj[0][0] / proj[1][1];\n"
-
-                "    TexCoord = gl_MultiTexCoord0.xy * dir.z + dir.xy;\n"
-                "    vec4 v0 = vec4(gl_Vertex.xyz * pos.w, 1.0), projP = proj * vec4(pos.xyz, 1.0);\n"
-                "    vec4 v1 = rotationMatrix(vec3(0.0, 0.0, 1.0), dir.w) * v0;\n"
-                "    gl_Position = vec4(vec3(v1.x * ar, v1.yz) / v1.w + projP.xyz / projP.w, 1.0);\n"
-                "}"
-            };
-
-            const char* instanceFragShader = {
-                "uniform sampler2D IconTexture;\n"
-                "varying vec2 TexCoord;\n"
-                "varying vec4 Color;\n"
-                "void main() {\n"
-                "    vec4 baseColor = texture2D(IconTexture, TexCoord);\n"
-                "    gl_FragColor = baseColor * Color;\n"
-                "}"
-            };
-
-            osg::Program* program = new osg::Program; program->setName("FarDistanceIconProgram");
-            program->addShader(new osg::Shader(osg::Shader::VERTEX, instanceVertShader));
-            program->addShader(new osg::Shader(osg::Shader::FRAGMENT, instanceFragShader));
-            ss->setAttributeAndModes(program);
-        }
+        ss->setAttributeAndModes(_farDistanceProgram.get());
+        ss->setDefine("FAR_DISTANCE");
 
         // Apply default parameter textures
         ss->setTextureAttributeAndModes(0, _posTexture.get());
@@ -274,6 +240,7 @@ void SymbolManager::initialize(osg::Group* group)
         ss->addUniform(new osg::Uniform("DirTexture", (int)1));
         ss->addUniform(new osg::Uniform("ColorTexture", (int)2));
         ss->addUniform(new osg::Uniform("IconTexture", (int)3));
+        ss->addUniform(new osg::Uniform("InvResolution", 1.0f / (float)RES));
     }
 
     if (!_instanceBoard)
@@ -303,52 +270,8 @@ void SymbolManager::initialize(osg::Group* group)
 
         // Apply instancing shader
         osg::StateSet* ss = _instanceBoard->getOrCreateStateSet();
-        {
-            const char* instanceVertShader2 = {
-                "#version 120\n"
-                "#extension GL_EXT_draw_instanced : enable\n"
-                "uniform sampler2D PosTexture, DirTexture, ColorTexture;\n"
-                "uniform vec3 Offset, Scale;\n"
-                "varying vec2 TexCoord, TexCoordBG;\n"
-                "varying vec4 Color;\n"
-                "void main() {\n"
-                "    float r = float(gl_InstanceID) / " RESV ".0;\n"
-                "    float c = floor(r) / " RESV ".0; r = fract(r);\n"
-                "    vec4 pos = texture2D(PosTexture, vec2(r, c));\n"
-                "    vec4 dir = texture2D(DirTexture, vec2(r, c));\n"
-                "    Color = texture2D(ColorTexture, vec2(r, c));\n"
-                "    mat4 proj = gl_ProjectionMatrix; float ar = proj[0][0] / proj[1][1];\n"
-
-                "    float tx = float(gl_InstanceID) * Scale.z;\n"
-                "    float ty = floor(tx) * Scale.z; tx = fract(tx);\n"
-                "    TexCoord = vec2(tx, ty) + gl_MultiTexCoord0.xy * Scale.z;\n"
-                "    TexCoordBG = gl_MultiTexCoord0.xy * dir.z + dir.xy;\n"
-
-                "    vec4 v0 = vec4((gl_Vertex.xyz + Offset) * pos.w, 1.0);\n"
-                "    vec4 v1 = proj * vec4(pos.xyz, 1.0); v1 = v1 / v1.w;\n"
-                "    gl_Position = vec4(vec3(v0.x * Scale.x * ar, v0.y * Scale.y, v0.z) / v0.w"
-                "                     + v1.xyz, 1.0);\n"
-                "}"
-            };
-
-            const char* instanceFragShader2 = {
-                "uniform sampler2D TextTexture;\n"
-                "uniform sampler2D BackgroundTexture;\n"
-                "varying vec2 TexCoord, TexCoordBG;\n"
-                "varying vec4 Color;\n"
-                "void main() {\n"
-                "    vec4 textColor = texture2D(TextTexture, TexCoord);\n"
-                "    vec4 bgColor = texture2D(BackgroundTexture, TexCoordBG);\n"
-                "    textColor = mix(bgColor * Color, textColor, textColor.a);"
-                "    gl_FragColor = textColor;\n"
-                "}"
-            };
-
-            osg::Program* program = new osg::Program; program->setName("MidDistanceTextProgram");
-            program->addShader(new osg::Shader(osg::Shader::VERTEX, instanceVertShader2));
-            program->addShader(new osg::Shader(osg::Shader::FRAGMENT, instanceFragShader2));
-            ss->setAttributeAndModes(program);
-        }
+        ss->setAttributeAndModes(_midDistanceProgram.get());
+        ss->setDefine("MID_DISTANCE");
 
         // Apply default parameter textures
         ss->setTextureAttributeAndModes(0, _posTexture2.get());
@@ -361,6 +284,7 @@ void SymbolManager::initialize(osg::Group* group)
         ss->addUniform(new osg::Uniform("ColorTexture", (int)2));
         ss->addUniform(new osg::Uniform("TextTexture", (int)3));
         ss->addUniform(new osg::Uniform("BackgroundTexture", (int)4));
+        ss->addUniform(new osg::Uniform("InvResolution", 1.0f / (float)RES));
         ss->addUniform(_midDistanceOffset.get());
         ss->addUniform(_midDistanceScale.get());
     }
@@ -396,7 +320,7 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
     frustum.setToUnitFrustum(false, false);
     frustum.transformProvidingInverse(viewMatrix * projMatrix);
 
-    // Use RTree to query symbols and find visible ones
+    // Use octree / RTree to query symbols and find visible ones
     // TODO
 
     // Traverse all symbols
@@ -582,26 +506,6 @@ void SymbolManager::updateNearDistance(Symbol* sym, osg::Group* group)
 
         osg::ref_ptr<osg::ProxyNode> proxy = new osg::ProxyNode;
         proxy->setFileName(0, sym->fileName); mt->addChild(proxy.get());
-
-        osg::ref_ptr<osg::Billboard> billboard = new osg::Billboard;
-        billboard->setMode(osg::Billboard::POINT_ROT_EYE);
-        billboard->addDrawable(osg::createTexturedQuadGeometry(
-            osg::Vec3(1000.0f, 1000.0f, 0.0f), osg::X_AXIS * 2000.0f, osg::Z_AXIS * 3000.0f,
-            0.0f, 1.0f, 1.0f, 0.0f));
-        {
-            osg::Texture2D* tex2d = new osg::Texture2D;
-            tex2d->setImage(createLabel(
-                512, 1024, sym->desciption, osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f)));
-            tex2d->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
-            tex2d->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-
-            billboard->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex2d);
-            billboard->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-            billboard->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
-            billboard->getOrCreateStateSet()->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
-            sym->loadedModelBoard = tex2d;
-        }
-        mt->addChild(billboard.get());
     }
     else
     {
@@ -610,22 +514,6 @@ void SymbolManager::updateNearDistance(Symbol* sym, osg::Group* group)
         osg::Quat q; q.makeRotate(osg::Z_AXIS, osg::Vec3(dir));
         mt->setMatrix(osg::Matrix::rotate(osg::PI - sym->rotateAngle, osg::Z_AXIS) *
                       osg::Matrix::rotate(q) * osg::Matrix::translate(sym->position));
-        if (sym->dirtyDesc)
-        {
-            for (int i = mt->getNumChildren() - 1; i >= 0; --i)
-            {
-                osg::Billboard* billboard = dynamic_cast<osg::Billboard*>(mt->getChild(i));
-                if (billboard)
-                {
-                    osg::Texture2D* tex2d = static_cast<osg::Texture2D*>(
-                        billboard->getOrCreateStateSet()->getTextureAttribute(
-                            0, osg::StateAttribute::TEXTURE));
-                    if (tex2d) tex2d->setImage(createLabel(
-                        512, 1024, sym->desciption, osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f)));
-                }
-            }
-            sym->dirtyDesc = false;
-        }
         sym->loadedModel->setNodeMask(0xffffffff);
     }
 }

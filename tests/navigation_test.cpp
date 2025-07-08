@@ -98,18 +98,27 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 
-    std::string agentPath = "dumptruck.osgt"; arguments.read("--agent", agentPath);
+    std::string agentPath; arguments.read("--agent", agentPath);
     std::string recastData = "recast_terrain.bin"; arguments.read("--recast", recastData);
-    osg::ref_ptr<osg::Node> agentNode = osgDB::readNodeFile(agentPath);
     osg::ref_ptr<osg::Node> terrain = osgDB::readNodeFiles(arguments);
     if (!terrain) terrain = osgDB::readNodeFile("lz.osg");
 
     osg::ref_ptr<osgVerse::RecastManager> recast = new osgVerse::RecastManager;
+    osgVerse::RecastSettings settings = recast->getSettings();
+
+    osg::ref_ptr<osg::Node> agentNode = agentPath.empty() ? NULL : osgDB::readNodeFile(agentPath);
     if (agentNode.valid())
     {
-        osgVerse::RecastSettings settings = recast->getSettings();
         settings.agentRadius = agentNode->getBound().radius();
+        settings.agentHeight = settings.agentRadius * 2.0f;
         recast->setSettings(settings);
+    }
+    else
+    {
+        osg::ShapeDrawable* shape = new osg::ShapeDrawable(new osg::Cylinder(
+            osg::Z_AXIS * settings.agentHeight, settings.agentRadius, settings.agentHeight));
+        osg::Geode* geode = new osg::Geode; agentNode = geode;
+        shape->setColor(osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f)); geode->addDrawable(shape);
     }
 
     std::ifstream dataIn(recastData, std::ios::in | std::ios::binary);

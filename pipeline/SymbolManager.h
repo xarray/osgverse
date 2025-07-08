@@ -21,16 +21,12 @@ namespace osgVerse
             tiling2 = osg::Vec3(0.0f, 0.0f, 1.0f);
             color = osg::Vec4f(1.0f, 1.0f, 1.0f, 1.0f);
             textColor = osg::Vec4f(1.0f, 1.0f, 1.0f, 1.0f);
-            rotateAngle = 0.0f; scale = 0.1f; dirtyDesc = false;
+            rotateAngle = 0.0f; scale = 0.1f;
         }
 
         osg::Vec3 getCorner2D(SymbolManager* mgr, int index) const;  // 0-3: corners, -1: origin
-        void setDesciption(const std::string& d) { desciption = d; dirtyDesc = true; }
-
-        osg::observer_ptr<osg::Node> loadedModel;            // (output) Loaded model for 'near' mode
-        osg::observer_ptr<osg::Texture2D> loadedModelBoard;  // (output) Description texture for 'near' mode
-        std::string name;                                    // Name text for 'mid' mode
-        std::string desciption, fileName;                    // Description text and file name for 'near' mode
+        osg::observer_ptr<osg::Node> loadedModel;            // (output) Loaded model and text board for 'near' mode
+        std::string name, fileName;                          // Name text for 'mid' mode and file name for 'near' mode
         osg::Vec3d position;                                 // Position of the symbol
         osg::Vec3f tiling, tiling2;                          // Tiling parameter for atlas texture, for 'far/mid'
         osg::Vec4f color, textColor;                         // Background color scale and text color scale
@@ -38,7 +34,6 @@ namespace osgVerse
         State state;                                         // (output) State of the symbol
         int id, modelFrame0;                                 // (output) Unique ID, and frame info for 'near'
         float rotateAngle, scale;                            // Rotation and scale of the symbol
-        bool dirtyDesc;                                      // Whether to update description text for 'near' mode
     };
 
     /** The symbol manager. */
@@ -111,6 +106,9 @@ namespace osgVerse
         void setShowIconsInMidDistance(bool b) { _showIconsInMidDistance = b; }
         bool getShowIconsInMidDistance() const { return _showIconsInMidDistance; }
 
+        /** Set symbols rendering shaders */
+        void setShaders(osg::Shader* vs, osg::Shader* fs);
+
         /** Add or update symbol data to manager */
         int updateSymbol(Symbol* sym);
 
@@ -141,7 +139,7 @@ namespace osgVerse
         virtual ~SymbolManager() {}
         void initialize(osg::Group* group);
         void update(osg::Group* group, unsigned int frameNo);
-        void updateNearDistance(Symbol* sym, osg::Group* group);
+        virtual void updateNearDistance(Symbol* sym, osg::Group* group);
 
         osg::Image* createLabel(int w, int h, const std::string& text,
                                 const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f));
@@ -153,6 +151,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> _posTexture2, _dirTexture2, _colorTexture2;
         osg::ref_ptr<osg::Texture2D> _iconTexture, _bgIconTexture, _textTexture;
         osg::ref_ptr<osg::Uniform> _midDistanceOffset, _midDistanceScale;
+        osg::ref_ptr<osg::Program> _farDistanceProgram, _midDistanceProgram;
         osg::ref_ptr<DrawTextGridCallback> _drawGridCallback;
         osg::ref_ptr<Drawer2D> _drawer;
         osg::observer_ptr<osg::Camera> _camera;
