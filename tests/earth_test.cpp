@@ -14,6 +14,7 @@
 #include <sstream>
 
 #include <modeling/Math.h>
+#include <readerwriter/EarthManipulator.h>
 #include <readerwriter/DatabasePager.h>
 #include <pipeline/IncrementalCompiler.h>
 #include <VerseCommon.h>
@@ -116,17 +117,27 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 
+#if false
     std::string earthURLs = "Orthophoto=G:/DOM_DEM/dom/{z}/{x}/{y}.jpg OriginBottomLeft=1 "
                             "Elevation=F:/DEM-China-wgs84-Mesh-12.5m/{z}/{x}/{y}.terrain ";
-    //std::string earthURLs = "Orthophoto=https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z} "
-    //                        "Elevation=https://mt1.google.com/vt/lyrs%3dt&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1";
-    //std::string earthURLs = "Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1";
-    //std::string earthURLs = "Orthophoto=http://p0.map.gtimg.com/sateTiles/{z}/{x16}/{y16}/{x}_{y}.jpg UseWebMercator=1";
-
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");
-    //earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);  // for map.gtimg.com
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
+#elif false
+    std::string earthURLs = "Orthophoto=https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z} "
+                            "Elevation=https://mt1.google.com/vt/lyrs%3dt&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1";
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
+#elif false
+    std::string earthURLs = "Orthophoto=http://p0.map.gtimg.com/sateTiles/{z}/{x16}/{y16}/{x}_{y}.jpg UseWebMercator=1";
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");
+    earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
+#else
+    std::string earthURLs = "Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1";
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
+#endif
 
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());  // for .terrain
     //osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFiles(arguments, new osgDB::Options("DisabledPBR=1"));
     if (!earth) return 1;
@@ -136,6 +147,7 @@ int main(int argc, char** argv)
     root->addChild(earth.get());
 
     osg::ref_ptr<osgGA::TrackballManipulator> trackball = new osgGA::TrackballManipulator;
+    //osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
     if (tiles.valid())
     {
         osg::Vec3 dir = tiles->getBound().center(); dir.normalize();
@@ -171,6 +183,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(trackball.get());
+    //viewer.setCameraManipulator(earthManipulator.get());
     viewer.setSceneData(root.get());
 
     viewer.run();

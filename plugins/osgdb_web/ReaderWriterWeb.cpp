@@ -5,6 +5,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
+#include <algorithm>
 
 #include "3rdparty/libhv/all/client/requests.h"
 #include <readerwriter/Utilities.h>
@@ -236,7 +237,7 @@ public:
         buffer.write((char*)&wf->buffer[0], wf->buffer.size());
         for (size_t i = 0; i < wf->resHeaders.size(); i += 2)
         {
-            const std::string& key = wf->resHeaders[i];
+            std::string key = wf->resHeaders[i]; std::transform(key.begin(), key.end(), key.begin(), tolower);
             if (key.find("content-type") != std::string::npos) contentType = trimString(wf->resHeaders[i + 1]);
             else if (key.find("content-encoding") != std::string::npos) encoding = trimString(wf->resHeaders[i + 1]);
         }
@@ -264,7 +265,7 @@ public:
         //contentType = http_content_type_str(response.content_type);
         for (http_headers::iterator itr = response.headers.begin(); itr != response.headers.end(); ++itr)
         {
-            const std::string& key = itr->first;
+            std::string key = itr->first; std::transform(key.begin(), key.end(), key.begin(), tolower);
             if (key.find("content-type") != std::string::npos) contentType = trimString(itr->second);
             else if (key.find("content-encoding") != std::string::npos) encoding = trimString(itr->second);
         }

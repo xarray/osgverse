@@ -13,11 +13,19 @@
 // WebMercatorTiles: (0-0-0) Lv1 = 00,01,10,11, ...; (0-0-x) Lv0 = 00,01,10,11, ...
 // WGS84Tiles: (0-0-0) Lv1 = 00,10, Lv2 = 00,01,10,11,20,21,30,31, ...; (0-0-x) Lv0 = 00,10, ...
 
-// osgviewer 0-0-0.verse_tms -O "Orthophoto=https://xxxx.com/xxxx?x=x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1"
-// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\testTMS\{z}\{x}\{y}.png OriginBottomLeft=1"
+// osgviewer 0-0-0.verse_tms -O "Orthophoto=https://xxxx.com/tile/{z}/{y}/{x} ..."
+// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\testTMS\{z}\{x}\{y}.png ..."
+// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\testTMS\all_in_pack.mbtiles ..."
 
 /* Tile map servers:
-     GapDe Map: https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}
+     Arcgis Map:
+     - Satellite: https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}
+     - Roadmap: https://server.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}
+     - Terrain: https://server.arcgisonline.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer/tile/{z}/{y}/{x}
+       - ArcGIS Terrain 3D format (application/octet-stream, gzip)
+       - Info: https://server.arcgisonline.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer
+     GapDe Map: https://webst01.is.autonavi.com/appmaptile?style%3d{s}&x%3d{x}&y%3d{y}&z%3d{z}
+     - {s}: 6 = satellite, 7 = roadmap
      TengXun Map: (https://blog.csdn.net/mygisforum/article/details/22997879)
      - http://p0.map.gtimg.com/demTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
      - http://p0.map.gtimg.com/sateTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
@@ -38,9 +46,9 @@ public:
         supportsExtension("verse_tms", "osgVerse pseudo-loader");
         supportsExtension("tms", "TMS tile indices");
         supportsOption("URL", "The TMS server URL with wildcards, applied as orthophoto layer");
-        supportsOption("Orthophoto", "The TMS server URL with wildcards, applied as orthophoto layer");
-        supportsOption("Elevation", "The TMS server URL with wildcards, applied as elevation layer");
-        supportsOption("Vector", "The TMS server URL with wildcards, applied as line graph layer");
+        supportsOption("Orthophoto", "TMS server URL with wildcards or .mbtiles, applied as orthophoto layer");
+        supportsOption("Elevation", "TMS server URL with wildcards or .mbtiles, applied as elevation layer");
+        supportsOption("Vector", "TMS server URL with wildcards or .mbtiles, applied as line graph layer");
         supportsOption("UrlPathFunction", "The custom function from setPluginData() to compute tile URL");
         supportsOption("UseEarth3D", "Display TMS tiles as a real earth: default=0");
         supportsOption("UseWebMercator", "Use Web Mercator (Level-0 has 4 tiles): default=0");
