@@ -93,6 +93,7 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Navigation navigation_test.cpp)
     NEW_EXAMPLE(osgVerse_Test_Occlusion_Cull occlusion_cull_test.cpp)
     NEW_EXAMPLE(osgVerse_Test_Particle_U3D particle_u3d_test.cpp)
+    NEW_EXAMPLE(osgVerse_Test_Particle_Cloud particle_cloud_test.cpp)
 
     IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
         NEW_CUDA_EXAMPLE(osgVerse_Test_Video video_test.cpp)

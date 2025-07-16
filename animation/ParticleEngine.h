@@ -6,6 +6,7 @@
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <osg/MatrixTransform>
+#include <functional>
 #include <map>
 
 namespace Effekseer
@@ -17,6 +18,36 @@ namespace Effekseer
 namespace osgVerse
 {
 
+    class ParticleCloud : public osg::Referenced
+    {
+    public:
+        ParticleCloud();
+        ParticleCloud(const ParticleCloud& pc, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
+
+        typedef std::function<bool (ParticleCloud&, unsigned int, std::map<std::string, std::string>&)> Getter;
+        bool loadFromCsv(std::istream& in, Getter getter, char sep = ',');
+
+        bool load(std::istream& in);
+        bool save(std::ostream& out);
+
+        void add(const osg::Vec3& p, const osg::Vec4& c, const osg::Vec3& v = osg::Vec3(),
+                 const osg::Vec4& attr = osg::Vec4(), float size = 1.0f);
+        void insert(unsigned int index, const osg::Vec3& p, const osg::Vec4& c,
+                    const osg::Vec3& v = osg::Vec3(), const osg::Vec4& attr = osg::Vec4(), float size = 1.0f);
+        void clear();
+
+        osg::Vec4Array* getData(int id);
+        osg::Vec4Array* getPositions() { return _positions.get(); }
+        osg::Vec4Array* getVelocities() { return _velocities.get(); }
+        osg::Vec4Array* getColors() { return _colors.get(); }
+        osg::Vec4Array* getAttributes() { return _attributes.get(); }
+        unsigned int size() const { return _positions->size(); }
+
+    protected:
+        osg::ref_ptr<osg::Vec4Array> _positions, _velocities;
+        osg::ref_ptr<osg::Vec4Array> _colors, _attributes;
+    };
+
     class ParticleSystemU3D : public osg::NodeCallback
     {
     public:
@@ -25,9 +56,16 @@ namespace osgVerse
         ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
+        void setPointCloud(ParticleCloud* cloud, bool immutable)
+        {
+            _pointCloud = cloud; _immutable = immutable;
+            _maxParticles = (double)cloud->size(); _dirty = true;
+        }
+
         void play() { _started = true; if (_geometry.valid()) _geometry->dirtyBound(); }
         void stop() { _started = false; }
         bool isPlaying() const { return _started; }
+        bool isImmutable() const { return _immutable; }
         UpdateMethod getUpdateMethod() const { return _updateMethod; }
 
         // Link this particle system to a geode to make it work
@@ -148,13 +186,13 @@ namespace osgVerse
 
     protected:
         virtual ~ParticleSystemU3D();
-        void recreate();
-        void emitParticle(osg::Vec4& vel, osg::Vec4& pos);
-        void changeColor(osg::Vec4& color, float time, float speed);
-        void changeSize(osg::Vec4& posSize, float time, float speed);
-        void changeVelocity(osg::Vec4& vel, float time);
-        void changeEulers(osg::Vec4& euler, float time, float speed);
-        osg::Vec3 changeForce(const osg::Vec3& initForce, float delta, float time);
+        virtual void recreate();
+        virtual void emitParticle(osg::Vec4& vel, osg::Vec4& pos);
+        virtual void changeColor(osg::Vec4& color, float time, float speed);
+        virtual void changeSize(osg::Vec4& posSize, float time, float speed);
+        virtual void changeVelocity(osg::Vec4& vel, float time);
+        virtual void changeEulers(osg::Vec4& euler, float time, float speed);
+        virtual osg::Vec3 changeForce(const osg::Vec3& initForce, float delta, float time);
 
         VelocityCallback _velocityCallback;
         DeathCallback _deathCallback;
@@ -168,6 +206,7 @@ namespace osgVerse
         std::vector<osg::Plane> _collisionPlanes;
 
         osg::observer_ptr<osg::Node> _emissionTarget;
+        osg::ref_ptr<ParticleCloud> _pointCloud;
         osg::ref_ptr<osg::Texture2D> _texture;
         osg::ref_ptr<osg::Geometry> _geometry, _geometry2;
         osg::Matrix _localToWorld, _worldToLocal;
@@ -188,7 +227,7 @@ namespace osgVerse
         ParticleType _particleType;
         BlendingType _blendingType;
         UpdateMethod _updateMethod;
-        bool _dirty, _started;
+        bool _dirty, _started, _immutable;
     };
 
     class ParticleDrawableEffekseer : public osg::Drawable

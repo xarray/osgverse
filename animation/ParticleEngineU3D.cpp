@@ -18,6 +18,123 @@
 #define RAND_RANGE2(vec) ((vec[1] - vec[0]) * (float)rand() / (float)RAND_MAX + vec[0])
 using namespace osgVerse;
 
+/// ParticleCloud ///
+static std::string trim(const std::string& str)
+{
+    if (!str.size()) return str;
+    std::string::size_type first = str.find_first_not_of(" \t");
+    std::string::size_type last = str.find_last_not_of("  \t\r\n");
+    if ((first == str.npos) || (last == str.npos)) return std::string("");
+    return str.substr(first, last - first + 1);
+}
+
+ParticleCloud::ParticleCloud()
+{
+    _positions = new osg::Vec4Array; _velocities = new osg::Vec4Array;
+    _colors = new osg::Vec4Array; _attributes = new osg::Vec4Array;
+}
+
+ParticleCloud::ParticleCloud(const ParticleCloud& p, const osg::CopyOp& op)
+    : _positions(p._positions), _velocities(p._velocities), _colors(p._colors),
+      _attributes(p._attributes) {}
+
+bool ParticleCloud::loadFromCsv(std::istream& in, Getter getter, char sep)
+{
+    std::map<size_t, std::string> indexMap;
+    std::map<std::string, std::string> valueMap;
+    std::string line0; unsigned int rowID = 0; clear();
+    while (std::getline(in, line0))
+    {
+        std::string line = trim(line0); rowID++;
+        if (line.empty()) continue;
+        if (line[0] == '#') continue;
+
+        std::vector<std::string> values;
+        osgDB::split(line, values, sep);
+        if (!valueMap.empty())
+        {
+            size_t numColumns = valueMap.size();
+            if (numColumns != values.size())
+            {
+                OSG_NOTICE << "[ParticleCloud] CSV line " << rowID << " has different values than "
+                           << numColumns  << " header columns" << std::endl; continue;
+            }
+
+            for (size_t i = 0; i < values.size(); ++i) valueMap[indexMap[i]] = values[i];
+            if (!getter(*this, rowID, valueMap)) return _positions->size() > 0;
+        }
+        else
+        {
+            for (size_t i = 0; i < values.size(); ++i)
+            { indexMap[i] = values[i]; valueMap[values[i]] = ""; }
+        }
+    }
+    return _positions->size() > 0;
+}
+
+bool ParticleCloud::load(std::istream& in)
+{
+    unsigned int size = 0; clear();
+    in.read((char*)&size, sizeof(unsigned int));
+    if (size > 0)
+    {
+        _positions->resize(size); _velocities->resize(size);
+        _colors->resize(size); _attributes->resize(size);
+        in.read((char*)_positions->getDataPointer(), sizeof(osg::Vec4) * size);
+        in.read((char*)_velocities->getDataPointer(), sizeof(osg::Vec4) * size);
+        in.read((char*)_colors->getDataPointer(), sizeof(osg::Vec4) * size);
+        in.read((char*)_attributes->getDataPointer(), sizeof(osg::Vec4) * size);
+    }
+    return size > 0;
+}
+
+bool ParticleCloud::save(std::ostream& out)
+{
+    unsigned int size = _positions->size();
+    out.write((char*)&size, sizeof(unsigned int));
+    out.write((char*)_positions->getDataPointer(), sizeof(osg::Vec4) * size);
+    out.write((char*)_velocities->getDataPointer(), sizeof(osg::Vec4) * size);
+    out.write((char*)_colors->getDataPointer(), sizeof(osg::Vec4) * size);
+    out.write((char*)_attributes->getDataPointer(), sizeof(osg::Vec4) * size);
+    return size > 0;
+}
+
+void ParticleCloud::add(const osg::Vec3& p, const osg::Vec4& c, const osg::Vec3& v,
+                        const osg::Vec4& attr, float size)
+{
+    _positions->push_back(osg::Vec4(p, size)); _velocities->push_back(osg::Vec4(v, 1.0f));
+    _colors->push_back(c); _attributes->push_back(attr);
+}
+
+void ParticleCloud::insert(unsigned int id, const osg::Vec3& p, const osg::Vec4& c,
+                           const osg::Vec3& v, const osg::Vec4& attr, float size)
+{
+    if (id < _positions->size())
+    {
+        _positions->insert(_positions->begin() + id, osg::Vec4(p, size));
+        _velocities->insert(_velocities->begin() + id, osg::Vec4(v, 1.0f));
+        _colors->insert(_colors->begin() + id, c); _attributes->insert(_attributes->begin() + id, attr);
+    }
+    else add(p, c, v, attr, size);
+}
+
+void ParticleCloud::clear()
+{ _positions->clear(); _velocities->clear(); _colors->clear(); _attributes->clear(); }
+
+osg::Vec4Array* ParticleCloud::getData(int id)
+{
+    switch (id)
+    {
+    case 0: return _positions.get();
+    case 1: return _colors.get();
+    case 2: return _velocities.get();
+    default: break;
+    }
+    return _attributes.get();
+}
+
+/// ParticleSystemU3D ///
+
 class ParticleBoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
 {
 public:
@@ -37,6 +154,7 @@ public:
     void apply(const osg::FrameStamp* fs, ParticleSystemU3D* obj)
     {
         unsigned int index = 0, maxSize = _maxTextureSize * _maxTextureSize / 2;
+        ParticleSystemU3D::UpdateMethod method = obj->getUpdateMethod();
         if (fs->getFrameNumber() != _frameNumber)
         {
             // New frame arrived, update range uniforms
@@ -49,7 +167,7 @@ public:
                 if (bbType == ParticleSystemU3D::PARTICLE_BillboardNoScale) bbValue = 2.0f;
                 else if (bbType == ParticleSystemU3D::PARTICLE_Billboard) bbValue = 1.0f;
 
-                if (maxSize < index + size)
+                if (method == ParticleSystemU3D::CPU_TEXTURE_LUT && maxSize < index + size)
                 {
                     OSG_NOTICE << "[ParticleSystemU3D] Total particle size exceeds maximum number "
                                << maxSize << ", some particles may fail to render." << std::endl;
@@ -71,11 +189,10 @@ public:
         {
             osg::Vec4 range; it->second->get(range);
             unsigned int r0 = range[0], r1 = (unsigned int)range[1];
-            if (r1 < r0 || maxSize < r1) return;
+            if (r1 < r0 /*|| maxSize < r1*/) return;
 
             // If in CPU_* mode, update every particle system's parameters
             osg::Geometry* g = obj->getInternalGeometry();
-            ParticleSystemU3D::UpdateMethod method = obj->getUpdateMethod();
             if (method == ParticleSystemU3D::CPU_TEXTURE_LUT &&
                 _positionSizeAndColor.valid() && _positionSizeAndColor->getImage() &&
                 _velocityAndEuler.valid() && _velocityAndEuler->getImage())
@@ -179,7 +296,8 @@ ParticleSystemU3D::ParticleSystemU3D(UpdateMethod upMode)
     _maxParticles(1000.0), _startDelay(0.0), _gravityScale(1.0), _startTime(0.0),
     _lastSimulationTime(0.0), _duration(1.0), _aspectRatio(16.0 / 9.0), _emissionShape(EMIT_Point),
     _emissionSurface(EMIT_Volume), _particleType(PARTICLE_Billboard),
-    _blendingType(BLEND_Modulate), _updateMethod(upMode), _dirty(true), _started(true)
+    _blendingType(BLEND_Modulate), _updateMethod(upMode),
+    _dirty(true), _started(true), _immutable(false)
 {
     ParticleSystemPoolU3D::instance()->createParameterTexture(0, upMode);
     ParticleSystemPoolU3D::instance()->createParameterTexture(1, upMode);
@@ -193,7 +311,7 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _velocityOffsets(copy._velocityOffsets), _forceOffsets(copy._forceOffsets),
     _scalePerTime(copy._scalePerTime), _scalePerSpeed(copy._scalePerSpeed),
     _collisionPlanes(copy._collisionPlanes), _emissionTarget(copy._emissionTarget),
-    _texture(copy._texture), _geometry(copy._geometry),
+    _pointCloud(copy._pointCloud), _texture(copy._texture), _geometry(copy._geometry),
     _collisionValues(copy._collisionValues), _textureSheetRange(copy._textureSheetRange),
     _textureSheetValues(copy._textureSheetValues), _emissionShapeValues(copy._emissionShapeValues),
     _emissionShapeCenter(copy._emissionShapeCenter), _emissionShapeEulers(copy._emissionShapeEulers),
@@ -205,7 +323,7 @@ ParticleSystemU3D::ParticleSystemU3D(const ParticleSystemU3D& copy, const osg::C
     _aspectRatio(copy._aspectRatio), _emissionShape(copy._emissionShape),
     _emissionSurface(copy._emissionSurface), _particleType(copy._particleType),
     _blendingType(copy._blendingType), _updateMethod(copy._updateMethod),
-    _dirty(copy._dirty), _started(copy._started)
+    _dirty(copy._dirty), _started(copy._started), _immutable(copy._immutable)
 {
     _startAttitudeRange[0] = copy._startAttitudeRange[0];
     _startAttitudeRange[1] = copy._startAttitudeRange[1];
@@ -318,11 +436,12 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
         }
         else
         {
-            velLife.a() = 0.0f;
+            if (_immutable) velLife.a() = RAND_RANGE2(_startLifeRange); else velLife.a() = 0.0f;
             if (withDeathCB) _deathCallback(velLife, posSize, _worldToLocal);
         }
 
-        if (velLife.a() == 0.0f && numToAdd > 0)  // new particle
+        if (_immutable) {}
+        else if (velLife.a() == 0.0f && numToAdd > 0)  // new particle
         {
             emitParticle(velLife, posSize);
             velLife.a() = RAND_RANGE2(_startLifeRange);
@@ -363,10 +482,11 @@ void ParticleSystemU3D::recreate()
     case PARTICLE_Billboard: case PARTICLE_BillboardNoScale:
         if (_updateMethod == GPU_GEOMETRY)
         {
-            osg::ref_ptr<osg::Vec4Array> va = new osg::Vec4Array(_maxParticles);
-            osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(_maxParticles);
-            osg::ref_ptr<osg::Vec4Array> ta0 = new osg::Vec4Array(_maxParticles);
-            osg::ref_ptr<osg::Vec4Array> ta1 = new osg::Vec4Array(_maxParticles);
+            osg::ref_ptr<osg::Vec4Array> va, ca, ta0, ta1;
+            va = _pointCloud.valid() ? _pointCloud->getPositions() : new osg::Vec4Array(_maxParticles);
+            ca = _pointCloud.valid() ? _pointCloud->getColors() : new osg::Vec4Array(_maxParticles);
+            ta0 = _pointCloud.valid() ? _pointCloud->getVelocities() : new osg::Vec4Array(_maxParticles);
+            ta1 = new osg::Vec4Array(_maxParticles);
             _geometry->setVertexArray(va.get()); _geometry->setColorArray(ca.get());
             _geometry->setTexCoordArray(0, ta0.get()); _geometry->setTexCoordArray(1, ta1.get());
             _geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
@@ -407,7 +527,10 @@ void ParticleSystemU3D::recreate()
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
         for (int k = 4; k < 8; ++k)
         {
-            osg::ref_ptr<osg::Vec4Array> pData = new osg::Vec4Array(_maxParticles);
+            osg::ref_ptr<osg::Vec4Array> pData;
+            if (k < 7 && _pointCloud.valid()) pData = _pointCloud->getData(k - 4);
+            else pData = new osg::Vec4Array(_maxParticles);
+
             _geometry->setVertexAttribArray(k, pData.get());
             _geometry->setVertexAttribBinding(k, osg::Geometry::BIND_PER_VERTEX);
             _geometry->setVertexAttribNormalize(k, GL_FALSE);
@@ -416,6 +539,11 @@ void ParticleSystemU3D::recreate()
 #else
         OSG_WARN << "[ParticleSystemU3D] VERTEX_ATTRIB is not supported" << std::endl;
 #endif
+    }
+    else if (_updateMethod == CPU_TEXTURE_LUT)
+    {
+        if (_pointCloud.valid())
+            OSG_WARN << "[ParticleSystemU3D] TEXTURE_LUT cannot use point cloud input" << std::endl;
     }
 
     ParticleSystemPoolU3D* pool = ParticleSystemPoolU3D::instance();
