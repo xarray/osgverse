@@ -123,7 +123,7 @@ osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth)
     ss->addUniform(new osg::Uniform("transmittanceSampler", (int)2));
     ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)3));
     ss->addUniform(new osg::Uniform("inscatterSampler", (int)4));
-    ss->addUniform(new osg::Uniform("hdrExposure", 0.15f));
+    ss->addUniform(new osg::Uniform("hdrExposure", 0.25f));
     ss->addUniform(new osg::Uniform("origin", osg::Vec3(0.0f, 0.0f, 0.0f)));
     ss->addUniform(new osg::Uniform("useNormalRenderer", false));
 

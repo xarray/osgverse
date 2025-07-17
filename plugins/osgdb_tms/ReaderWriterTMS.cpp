@@ -143,10 +143,14 @@ protected:
                     botLeft = opt->getPluginStringData("OriginBottomLeft");
         if (!botLeft.empty()) std::transform(botLeft.begin(), botLeft.end(), botLeft.begin(), tolower);
 
-        std::string elevPath1 = elevPath, ext = osgDB::getFileExtensionIncludingDot(elevPath), extToUse;
+        std::string elevPath1 = elevPath, ext = osgDB::getFileExtensionIncludingDot(elevPath), extWithVerse;
+        size_t queryInExt = ext.find("?");  // remove query string if mixed with extension
+        if (queryInExt != std::string::npos) ext = ext.substr(0, queryInExt);
+
         osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
-        bool elevH = mgr->isHandlerExtension(ext, extToUse), changed = false;
-        if (!extToUse.empty()) osgVerse::TileCallback::replace(elevPath1, ext, extToUse, changed);
+        bool elevH = mgr->isHandlerExtension(ext, extWithVerse), changed = false;
+        if (!extWithVerse.empty() && osgDB::getServerProtocol(elevPath1).empty())  // auto-change local file ext
+            osgVerse::TileCallback::replace(elevPath1, ext, extWithVerse, changed);
 
         osg::ref_ptr<osgVerse::TileCallback> tileCB = new osgVerse::TileCallback;
         tileCB->setLayerPath(osgVerse::TileCallback::ELEVATION, elevPath1);

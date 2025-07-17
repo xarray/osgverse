@@ -8,7 +8,7 @@ uniform vec3 worldSunDir;
 uniform vec3 origin;
 uniform float hdrExposure;
 
-//VERSE_FS_IN vec3 normalInWorld;
+VERSE_FS_IN vec3 normalInWorld;
 VERSE_FS_IN vec3 vertexInWorld;
 VERSE_FS_IN vec4 texCoord;
 VERSE_FS_OUT vec4 fragColor;
@@ -30,7 +30,7 @@ vec3 hdr(vec3 L)
 void main()
 {
     vec3 WSD = worldSunDir, WCP = worldCameraPos;
-    vec3 P = vertexInWorld, N = normalize(P);
+    vec3 P = vertexInWorld, N = normalInWorld;// normalize(P);
     float cTheta = dot(N, WSD);
     P = N * (length(P) * 0.99);  // FIXME
     

@@ -4,6 +4,7 @@
 #include <osgDB/WriteFile>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
+#include <osgUtil/SmoothingVisitor>
 
 #include <modeling/Math.h>
 #include <pipeline/Utilities.h>
@@ -98,6 +99,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                                                 double width, double height) const
 {
     double tileRefSize = osg::inDegrees(tileMax.y() - tileMin.y()) * osg::WGS_84_RADIUS_EQUATOR;
+    bool useRealElevation = elevation ? (elevation->getDataType() == GL_FLOAT) : false;
     if (!_flatten)
     {
         osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, _useWebMercator);
@@ -122,13 +124,29 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             {
                 unsigned int vi = x + y * numCols; double altitude = 0.0;
                 osg::Vec2 uv((double)x * invW / width, (double)y * invH / height);
-                if (elevation) altitude = mapAltitude(elevation->getColor(uv));
+                if (elevation)
+                {
+                    osg::Vec4 elevColor = elevation->getColor(uv);  // FIXME: scale?...
+                    altitude = useRealElevation ? elevColor[0] * 2.0f : mapAltitude(elevColor);
+                }
 
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
                 (*va)[vi] = osg::Vec3(ecef * worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
-                (*na)[vi] = osg::Vec3(ecef * normalMatrix); (*na)[vi].normalize();
+                (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
+            }
+
+        for (unsigned int y = 1; y < numRows - 1; ++y)
+            for (unsigned int x = 1; x < numCols - 1; ++x)
+            {
+                // Recompute non-boundary normals
+                unsigned int vi = x + y * numCols; const osg::Vec3& v0 = (*va)[vi];
+                osg::Plane p0(v0, (*va)[x - 1 + y * numCols], (*va)[x + (y - 1) * numCols]);
+                osg::Plane p1(v0, (*va)[x + 1 + y * numCols], (*va)[x + (y + 1) * numCols]);
+                osg::Plane p2(v0, (*va)[x + (y - 1) * numCols], (*va)[x + 1 + y * numCols]);
+                osg::Plane p3(v0, (*va)[x + (y + 1) * numCols], (*va)[x - 1 + y * numCols]);
+                (*na)[vi] = p0.getNormal() + p1.getNormal() + p2.getNormal() + p3.getNormal(); (*na)[vi].normalize();
             }
 
         osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
@@ -148,7 +166,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;
             for (unsigned int c = 0; c < numCols; ++c, ++vi)
             {
-                unsigned int si = tile_bottom_row + c; osg::Vec3 N = va->at(si); N.normalize();
+                unsigned int si = tile_bottom_row + c; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int c = 0; c < numCols - 1; ++c)
@@ -161,7 +179,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_top_row = (numRows - 1) * numCols, base_top_row = vi;
             for (unsigned int c = 0; c < numCols; ++c, ++vi)
             {
-                unsigned int si = tile_top_row + c; osg::Vec3 N = va->at(si); N.normalize();
+                unsigned int si = tile_top_row + c; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int c = 0; c < numCols - 1; ++c)
@@ -174,7 +192,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_left_column = 0, skirt_left_column = vi;
             for (unsigned int r = 0; r < numRows; ++r, ++vi)
             {
-                unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = va->at(si); N.normalize();
+                unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int r = 0; r < numRows - 1; ++r)
@@ -187,7 +205,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             unsigned int tile_right_column = numCols - 1, skirt_right_column = vi;
             for (unsigned int r = 0; r < numRows; ++r, ++vi)
             {
-                unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = va->at(si); N.normalize();
+                unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
             }
             for (unsigned int r = 0; r < numRows - 1; ++r)
@@ -201,7 +219,8 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
         osg::Geometry* geom = new osg::Geometry;
         geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
         geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-        geom->addPrimitiveSet(de.get()); return geom;
+        geom->addPrimitiveSet(de.get());
+        return geom;
     }
     else if (elevation)
     {

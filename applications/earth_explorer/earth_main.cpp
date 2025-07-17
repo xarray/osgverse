@@ -27,6 +27,7 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
 extern osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth);
+extern void configureParticleCloud(osg::Group* root, unsigned int mask);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -98,19 +99,19 @@ int main(int argc, char** argv)
 {
     osgViewer::Viewer viewer;
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    osg::setNotifyHandler(new osgVerse::ConsoleHandler);
+    osg::setNotifyHandler(new osgVerse::ConsoleHandler(false));
     osgVerse::updateOsgBinaryWrappers();
 
     // Create earth
-    std::string earthURLs = "Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} "
-                            //"Elevation=https://mt1.google.com/vt/lyrs%3dt&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1";
-                            "UseWebMercator=1";
+    std::string earthURLs = "Orthophoto=G:/DOM_DEM/dom/{z}/{x}/{y}.jpg OriginBottomLeft=1 "
+                            "Elevation=G:/DOM_DEM/EarthDEM/{z}/{x}/{y}.tif UseWebMercator=0";
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
 
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
     osg::ref_ptr<osg::Camera> sceneCamera = configureEarthAndAtmosphere(root.get(), earth.get());
+    configureParticleCloud(sceneCamera.get(), ~EARTH_INTERSECTION_MASK);
 
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =
         new osgVerse::EarthProjectionMatrixCallback(viewer.getCamera(), earth->getBound().center());

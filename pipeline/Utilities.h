@@ -173,7 +173,7 @@ namespace osgVerse
     class ConsoleHandler : public osg::NotifyHandler
     {
     public:
-        ConsoleHandler();
+        ConsoleHandler(bool showStack = false);
         virtual void notifyLevel0(osg::NotifySeverity severity, const std::string& message);
         virtual void notifyLevel1(osg::NotifySeverity severity, const std::string& message);
         virtual void notifyLevel2(osg::NotifySeverity severity, const std::string& message);
@@ -275,6 +275,7 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_image) \
     USE_OSGPLUGIN(verse_leveldb) \
     USE_OSGPLUGIN(verse_tiles) \
+    USE_OSGPLUGIN(verse_terrain) \
     USE_OSGPLUGIN(pbrlayout)
 // Note: plugins depending on external libraries should be called manually
 //  USE_OSGPLUGIN(verse_webp)

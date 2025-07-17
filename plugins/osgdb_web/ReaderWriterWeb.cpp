@@ -66,7 +66,7 @@ public:
     
     ReaderWriterWeb()
     {
-        _client = new hv::HttpClient;
+        //_client = new hv::HttpClient;
 
         supportsProtocol("http", "Read from http port using libhv.");
         supportsProtocol("https", "Read from https port using libhv.");
@@ -83,7 +83,7 @@ public:
 
     virtual ~ReaderWriterWeb()
     {
-        delete _client;
+        //delete _client;
     }
 
     bool acceptsProtocol(const std::string& protocol) const
@@ -248,17 +248,18 @@ public:
         req.url = normalizeUrl(fileName); req.scheme = scheme;
         
         HttpResponse response;
+        hv::HttpClient* _client = new hv::HttpClient;
         int result = _client->send(&req, &response);
         if (result != 0)
         {
             OSG_WARN << "[libhv] Failed getting " << fileName << ": " << result << std::endl;
-            return ReadResult::ERROR_IN_READING_FILE;
+            delete _client; return ReadResult::ERROR_IN_READING_FILE;
         }
         else if (response.status_code > 200 || response.body.empty())
         {
             OSG_WARN << "[libhv] Failed getting " << fileName << ": Code = "
                      << response.status_code << ", Size = " << response.body.size() << std::endl;
-            return ReadResult::ERROR_IN_READING_FILE;
+            delete _client; return ReadResult::ERROR_IN_READING_FILE;
         }
 
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
@@ -271,8 +272,11 @@ public:
             if (key == "content-type") contentType = trimString(itr->second);
             else if (key == "content-encoding") encoding = trimString(itr->second);
         }
+        delete _client;
 #endif
 
+        size_t queryInExt = ext.find("?");  // remove query string if mixed with extension
+        if (queryInExt != std::string::npos) ext = ext.substr(0, queryInExt);
         if (encoding.find("gzip") != std::string::npos)
         {
             size_t bufferSize = buffer.str().size();
@@ -281,6 +285,10 @@ public:
             buffer.read((char*)&inData[0], bufferSize); buffer.str("");
             bufferSize = readGZip(inData.data(), bufferSize, outData.data(), outData.size());
             if (bufferSize > 0) buffer.write(outData.data(), bufferSize);
+        }
+        else if (!encoding.empty())
+        {
+            OSG_WARN << "[ReaderWriterWeb] Encoding method " << encoding << " not supported" << std::endl;
         }
 
         // Load by other readerwriter
@@ -295,7 +303,7 @@ public:
             reader = osgDB::Registry::instance()->getReaderWriterForMimeType(contentType);
         if (!reader)
         {
-            OSG_WARN << "[libhv] No reader/writer plugin for " << fileName
+            OSG_WARN << "[ReaderWriterWeb] No reader/writer plugin for " << fileName
                      << " (content-type: " << contentType << ")" << std::endl;
             return ReadResult::FILE_NOT_HANDLED;
         }
@@ -303,7 +311,7 @@ public:
         // TODO: uncompress remote osgz/ivez/gz?
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
-        _client->close(); return readResult;
+        return readResult;
     }
 
     virtual WriteResult writeFile(const osg::Object& obj, const std::string& fullFileName,
@@ -341,6 +349,7 @@ public:
 
         // TODO: get connection parameters from options
         HttpRequest req;
+        hv::HttpClient* _client = new hv::HttpClient;
 
         // Post data to web
         req.method = HTTP_POST;
@@ -359,7 +368,7 @@ public:
         req.headers["Connection"] = connection;
         req.headers["Content-Type"] = mimeType;
 
-        HttpResponse response; int code = _client->send(&req, &response); _client->close();
+        HttpResponse response; int code = _client->send(&req, &response); delete _client;
         return (code != 0) ? WriteResult::ERROR_IN_WRITING_FILE : WriteResult::FILE_SAVED;
     }
 
@@ -373,7 +382,7 @@ protected:
         return str.substr(first, last - first + 1);
     }
 
-    hv::HttpClient* _client;
+    //hv::HttpClient* _client;
 };
 
 // Now register with Registry to instantiate the above reader/writer.

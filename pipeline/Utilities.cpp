@@ -229,6 +229,7 @@ namespace osgVerse
         regObject->addFileExtensionAlias("rseq", "verse_image");
         regObject->addFileExtensionAlias("json", "verse_tiles");
         regObject->addFileExtensionAlias("s3c", "verse_tiles");
+        regObject->addFileExtensionAlias("terrain", "verse_terrain");
 #if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
         regObject->addFileExtensionAlias("jpg", "verse_image");
         regObject->addFileExtensionAlias("jpeg", "verse_image");
@@ -1142,8 +1143,8 @@ namespace osgVerse
         { std::cout << fp; return *this; }
     };
 
-    ConsoleHandler::ConsoleHandler()
-        : _shaderCallback(NULL), _programCallback(NULL), _handle(NULL), _showStackTrace(false)
+    ConsoleHandler::ConsoleHandler(bool showStack)
+        : _shaderCallback(NULL), _programCallback(NULL), _handle(NULL), _showStackTrace(showStack)
     {
 #ifdef VERSE_WINDOWS
         // https://learn.microsoft.com/en-us/windows/console/console-screen-buffers
