@@ -3,10 +3,8 @@ uniform sampler2D glareSampler;
 uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
-uniform vec3 worldCameraPos;
-uniform vec3 worldSunDir;
-uniform vec3 origin;
-uniform float hdrExposure;
+uniform vec3 worldCameraPos, worldSunDir, origin;
+uniform float hdrExposure, opaque;
 
 VERSE_FS_IN vec3 dir;
 VERSE_FS_IN vec3 relativeDir;
@@ -33,6 +31,7 @@ void main()
     vec3 WCP = worldCameraPos;
     vec3 d = normalize(dir);
     vec3 sunColor = outerSunRadiance(relativeDir);
+    fragColor.a = 1.0;
     
     vec3 extinction = vec3(1.0);
     vec3 inscatter = skyRadiance(WCP + origin, d, WSD, extinction, 0.0);
@@ -40,6 +39,6 @@ void main()
     
     vec4 scene = VERSE_TEX2D(sceneSampler, texCoord.st);
     fragColor.rgb = mix(hdr(finalColor), scene.rgb, scene.a);
-    fragColor.a = 1.0;
+    fragColor.rgb = mix(scene.rgb, fragColor.rgb, clamp(opaque, 0.0, 1.0));
     VERSE_FS_FINAL(fragColor);
 }

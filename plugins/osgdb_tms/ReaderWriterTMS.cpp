@@ -57,6 +57,7 @@ public:
         supportsOption("FlatExtentMinY", "Flat earth extent Y0: default -90");
         supportsOption("FlatExtentMaxX", "Flat earth extent X1: default 180");
         supportsOption("FlatExtentMaxY", "Flat earth extent Y1: default 90");
+        supportsOption("TileSkirtRatio", "Create skirts for every tile: default 0.02");
     }
 
     virtual const char* className() const
@@ -160,6 +161,11 @@ protected:
         tileCB->setBottomLeft(botLeft == "true" || atoi(botLeft.c_str()) > 0);
         tileCB->setUseWebMercator(useWM); tileCB->setFlatten(flatten);
         tileCB->setCreatePathFunction(pathFunc);
+        if (opt)
+        {
+            std::string skirt = opt->getPluginStringData("TileSkirtRatio");
+            if (!skirt.empty()) tileCB->setSkirtRatio((float)atof(skirt.c_str()));
+        }
 
         osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
         tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);

@@ -45,12 +45,19 @@ int main(int argc, char** argv)
             // x,y,z,amp,lat,lon
             double lat = atof(values["lat"].c_str()), lon = atof(values["lon"].c_str());
             double z = -atof(values["z"].c_str()), amp = atof(values["amp"].c_str());
+            if (!(id % 100000)) std::cout << "ID = " << id << ": Saving " << cloud.size() << " points\n";
+
             osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
-                osg::Vec3d(osg::inDegrees(lat), osg::inDegrees(lon), z));
-            //osg::Vec3d pos((lat + 40.0) * 1000.0, (lon - 174.23) * 10000.0, z * 0.1);
-            if (z > -10.0)
-                cloud.add(pos, osg::Vec4(1.0f, 1.0f, 1.0f, 0.2f), osg::Vec3(), osg::Vec4(amp, 0.0f, 0.0f, 0.0f), 10.0f);
-            if (!(id % 100000)) std::cout << "Saving " << id << " points\n";
+                    osg::Vec3d(osg::inDegrees(lat), osg::inDegrees(lon), z));
+            if (amp <= 0.0) return true;
+
+            static std::map<osg::Vec2i, int> s_hashMap;
+            osg::Vec2i key(int(lat * 10000000.0f), int(lon * 10000000.0f));
+            if (s_hashMap.find(key) != s_hashMap.end()) return true;
+            else s_hashMap[key] = 1;
+
+            cloud.add(pos, osg::Vec4(1.0f, 1.0f, 1.0f, 0.2f), osg::Vec3(),
+                      osg::Vec4(amp, 0.0f, 0.0f, 0.0f), 10000.0f);
             return true;
         });
         pc->save(out); out.close(); return 0;

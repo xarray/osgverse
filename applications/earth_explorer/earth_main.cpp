@@ -27,13 +27,13 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
 extern osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth);
-extern void configureParticleCloud(osg::Group* root, unsigned int mask);
+extern void configureParticleCloud(osg::Group* root, const std::string& cloudFile, unsigned int mask);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
 public:
     EnvironmentHandler(osg::Camera* c, osg::StateSet* ss, osg::EllipsoidModel* em)
-        : _rttCamera(c), _mainStateSets(ss), _ellipsoidModel(em), _sunAngle(0.1f)
+        : _rttCamera(c), _mainStateSets(ss), _ellipsoidModel(em), _sunAngle(0.1f), _pressingKey(0)
     {
         osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
         worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
@@ -57,33 +57,28 @@ public:
                 screenToCamera->set(osg::Matrixf::inverse(mainCamera->getProjectionMatrix()));
                 worldCameraPos->set(osg::Vec3(invViewMatrix.getTrans()));
             }
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP) _pressingKey = 0;
 
+        if (_pressingKey > 0)
+        {
+            osg::StateSet* ss = _mainStateSets.get();
             osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
-            osg::Uniform* hdrExposure = ss->getOrCreateUniform("hdrExposure", osg::Uniform::FLOAT);
-            /*if (inputManager->getNumKeyboards() > 0)
+            osg::Uniform* opaqueValue = ss->getOrCreateUniform("opaque", osg::Uniform::FLOAT);
+
+            osg::Vec3 originDir(-1.0f, 0.0f, 0.0f); float opaque = 1.0f;
+            switch (_pressingKey)
             {
-                osg::Vec3 originDir(-1.0f, 0.0f, 0.0f);
-                if (inputManager->isKeyDown('-'))
-                {
-                    _sunAngle -= 0.01f;
-                    worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
-                }
-                if (inputManager->isKeyDown('='))
-                {
-                    _sunAngle += 0.01f;
-                    worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
-                }
-                if (inputManager->isKeyDown('['))
-                {
-                    float value = 0.0f; hdrExposure->get(value);
-                    hdrExposure->set(value - 0.01f);
-                }
-                if (inputManager->isKeyDown(']'))
-                {
-                    float value = 0.0f; hdrExposure->get(value);
-                    hdrExposure->set(value + 0.01f);
-                }
-            }*/
+            case '-':
+                _sunAngle -= 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
+            case '=':
+                _sunAngle += 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
+            case '[':
+                opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
+            case ']':
+                opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
+            }
         }
         return false;
     }
@@ -93,6 +88,7 @@ protected:
     osg::EllipsoidModel* _ellipsoidModel;
     osg::Camera* _rttCamera;
     float _sunAngle;
+    int _pressingKey;
 };
 
 int main(int argc, char** argv)
@@ -105,13 +101,19 @@ int main(int argc, char** argv)
     // Create earth
     std::string earthURLs = "Orthophoto=G:/DOM_DEM/dom/{z}/{x}/{y}.jpg OriginBottomLeft=1 "
                             "Elevation=G:/DOM_DEM/EarthDEM/{z}/{x}/{y}.tif UseWebMercator=0";
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1 TileSkirtRatio=0");
+
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
+    earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    earth->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
     osg::ref_ptr<osg::Camera> sceneCamera = configureEarthAndAtmosphere(root.get(), earth.get());
-    configureParticleCloud(sceneCamera.get(), ~EARTH_INTERSECTION_MASK);
+
+    std::string cloudFile;
+    if (arguments.read("--cloud", cloudFile))
+        configureParticleCloud(sceneCamera.get(), cloudFile, ~EARTH_INTERSECTION_MASK);
 
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =
         new osgVerse::EarthProjectionMatrixCallback(viewer.getCamera(), earth->getBound().center());

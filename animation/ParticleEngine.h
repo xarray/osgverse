@@ -18,15 +18,21 @@ namespace Effekseer
 namespace osgVerse
 {
 
+    class ParticleSystemU3D;
     class ParticleCloud : public osg::Referenced
     {
     public:
         ParticleCloud();
         ParticleCloud(const ParticleCloud& pc, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
 
-        typedef std::function<bool (ParticleCloud&, unsigned int, std::map<std::string, std::string>&)> Getter;
-        bool loadFromCsv(std::istream& in, Getter getter, char sep = ',');
+        typedef std::function<bool(ParticleCloud&, unsigned int, std::map<std::string, std::string>&)> Getter;
+        typedef std::function<void(ParticleSystemU3D&, ParticleCloud&)> Injector;
 
+        /** Injector is called by ParticleSystemU3D::recreate() to prepare data for assigning to particle system */
+        void setInjector(Injector injector) { _injector = injector; }
+        Injector getInjector() { return _injector; }
+
+        bool loadFromCsv(std::istream& in, Getter getter, char sep = ',');
         bool load(std::istream& in);
         bool save(std::ostream& out);
 
@@ -36,7 +42,15 @@ namespace osgVerse
                     const osg::Vec3& v = osg::Vec3(), const osg::Vec4& attr = osg::Vec4(), float size = 1.0f);
         void clear();
 
+        /** Save copies of current positions, velocities and colors manually */
+        void backup();
+
+        /** Retrieve copies of current positions, velocities and colors back manually */
+        void retrieve();
+
         osg::Vec4Array* getData(int id);
+        osg::Vec4Array* getBackupData(int id);
+
         osg::Vec4Array* getPositions() { return _positions.get(); }
         osg::Vec4Array* getVelocities() { return _velocities.get(); }
         osg::Vec4Array* getColors() { return _colors.get(); }
@@ -46,6 +60,8 @@ namespace osgVerse
     protected:
         osg::ref_ptr<osg::Vec4Array> _positions, _velocities;
         osg::ref_ptr<osg::Vec4Array> _colors, _attributes;
+        osg::ref_ptr<osg::Vec4Array> _positions0, _velocities0, _colors0;
+        Injector _injector;
     };
 
     class ParticleSystemU3D : public osg::NodeCallback

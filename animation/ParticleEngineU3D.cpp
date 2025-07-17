@@ -99,6 +99,20 @@ bool ParticleCloud::save(std::ostream& out)
     return size > 0;
 }
 
+void ParticleCloud::backup()
+{
+    _positions0 = new osg::Vec4Array(_positions->begin(), _positions->end());
+    _velocities0 = new osg::Vec4Array(_velocities->begin(), _velocities->end());
+    _colors0 = new osg::Vec4Array(_colors->begin(), _colors->end());
+}
+
+void ParticleCloud::retrieve()
+{
+    if (_positions0.valid()) _positions = new osg::Vec4Array(_positions0->begin(), _positions0->end());
+    if (_velocities0.valid()) _velocities = new osg::Vec4Array(_velocities0->begin(), _velocities0->end());
+    if (_colors0.valid()) _colors = new osg::Vec4Array(_colors0->begin(), _colors0->end());
+}
+
 void ParticleCloud::add(const osg::Vec3& p, const osg::Vec4& c, const osg::Vec3& v,
                         const osg::Vec4& attr, float size)
 {
@@ -128,6 +142,18 @@ osg::Vec4Array* ParticleCloud::getData(int id)
     case 0: return _positions.get();
     case 1: return _colors.get();
     case 2: return _velocities.get();
+    default: break;
+    }
+    return _attributes.get();
+}
+
+osg::Vec4Array* ParticleCloud::getBackupData(int id)
+{
+    switch (id)
+    {
+    case 0: return _positions0.get();
+    case 1: return _colors0.get();
+    case 2: return _velocities0.get();
     default: break;
     }
     return _attributes.get();
@@ -413,7 +439,7 @@ bool ParticleSystemU3D::updateCPU(double time, unsigned int size, osg::Vec4* ptr
     bool withBirthCB = (_birthCallback != NULL);
     float maxTexSheet = _textureSheetTiles.x() * _textureSheetTiles.y();
     osg::Vec3 force = osg::Vec3(0.0f, 0.0f, -9.8f) * _gravityScale;
-//#pragma omp parallel for
+#pragma omp parallel for
     for (int i = 0; i < sizeInt; ++i)
     {
         osg::Vec4& posSize = *(ptr0 + i); osg::Vec4& color = *(ptr1 + i);
@@ -474,9 +500,11 @@ void ParticleSystemU3D::recreate()
 {
     _geometry = (_particleType != PARTICLE_Mesh) ? new osg::Geometry
               : static_cast<osg::Geometry*>(_geometry2->clone(osg::CopyOp::DEEP_COPY_ALL));
+    _geometry->setUseDisplayList(false); _geometry->setUseVertexBufferObjects(true);
     _geometry->setName("ParticleGeometry");
-    _geometry->setUseDisplayList(false);
-    _geometry->setUseVertexBufferObjects(true);
+    if (_pointCloud.valid() && _pointCloud->getInjector())
+        _pointCloud->getInjector()(*this, *_pointCloud);
+
     switch (_particleType)
     {
     case PARTICLE_Billboard: case PARTICLE_BillboardNoScale:

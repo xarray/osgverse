@@ -3,14 +3,12 @@ uniform sampler2D glareSampler;
 uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
-uniform vec3 worldCameraPos;
-uniform vec3 worldSunDir;
-uniform vec3 origin;
-uniform float hdrExposure;
+uniform vec3 worldCameraPos, worldSunDir, origin;
+uniform float hdrExposure, opaque;
 
 VERSE_FS_IN vec3 normalInWorld;
 VERSE_FS_IN vec3 vertexInWorld;
-VERSE_FS_IN vec4 texCoord;
+VERSE_FS_IN vec4 texCoord, baseColor;
 VERSE_FS_OUT vec4 fragColor;
 
 #define SUN_INTENSITY 100.0
@@ -37,8 +35,9 @@ void main()
     vec3 sunL, skyE;
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
     
-    vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st);
+    vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st) * baseColor;
     groundColor.rgb *= max((sunL * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
+    groundColor.a *= clamp(opaque, 0.0, 1.0);
     
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);

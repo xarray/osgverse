@@ -89,7 +89,7 @@ osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth)
     osg::Camera* rttCamera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, NULL, NULL, false);
     rttCamera->setViewport(0, 0, rttBuffer->getTextureWidth(), rttBuffer->getTextureHeight());
     rttCamera->attach(osg::Camera::COLOR_BUFFER0, rttBuffer.get(), 0, 0, false, 16, 4);
-    rttCamera->getOrCreateStateSet()->setAttributeAndModes(program1.get());
+    earth->getOrCreateStateSet()->setAttributeAndModes(program1.get());
 
     // Create the atmosphere HUD
     osg::Shader* vs2 = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "scattering_sky.vert.glsl");
@@ -123,9 +123,9 @@ osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth)
     ss->addUniform(new osg::Uniform("transmittanceSampler", (int)2));
     ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)3));
     ss->addUniform(new osg::Uniform("inscatterSampler", (int)4));
-    ss->addUniform(new osg::Uniform("hdrExposure", 0.25f));
     ss->addUniform(new osg::Uniform("origin", osg::Vec3(0.0f, 0.0f, 0.0f)));
-    ss->addUniform(new osg::Uniform("useNormalRenderer", false));
+    ss->addUniform(new osg::Uniform("hdrExposure", 0.25f));
+    ss->addUniform(new osg::Uniform("opaque", 1.0f));
 
     // Finish configuration
     rttCamera->addChild(earth);
