@@ -1,4 +1,4 @@
-SET(EXE_NAME osgVerse_EarthViewer)
+SET(EXE_NAME osgVerse_Viewer_OE)
 SET(EXECUTABLE_FILES
     viewer_main.cpp
 )

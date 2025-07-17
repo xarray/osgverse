@@ -1,6 +1,7 @@
-SET(EXE_NAME osgVerse_Viewer_Composite)
+SET(EXE_NAME osgVerse_EarthExplorer)
 SET(EXECUTABLE_FILES
-    viewer_main.cpp
+    earth_main.cpp
+    render_effects.cpp
 )
 
 NEW_EXECUTABLE(${EXE_NAME} SHARED)

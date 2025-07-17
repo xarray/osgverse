@@ -1,4 +1,4 @@
-SET(EXE_NAME osgVerse_QtViewer)
+SET(EXE_NAME osgVerse_Viewer_Qt)
 SET(EXECUTABLE_FILES
     viewer_main.cpp
 )

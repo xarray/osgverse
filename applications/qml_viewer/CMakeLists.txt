@@ -1,4 +1,4 @@
-SET(EXE_NAME osgVerse_QmlViewer)
+SET(EXE_NAME osgVerse_Viewer_Qml)
 SET(EXECUTABLE_FILES
     viewer_main.cpp
 )

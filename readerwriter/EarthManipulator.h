@@ -9,7 +9,7 @@
 
 namespace osgVerse
 {
-    class EarthManipulator : public osgGA::CameraManipulator
+    class OSGVERSE_RW_EXPORT EarthManipulator : public osgGA::CameraManipulator
     {
     public:
         EarthManipulator();
@@ -256,8 +256,7 @@ namespace osgVerse
 
             osg::Quat _rotation;
             double _distance;
-            float _tilt;
-            float _time;
+            float _tilt, _time;
         };
 
         struct ControlPointByEye : public ControlPoint
@@ -364,7 +363,7 @@ namespace osgVerse
         float _animationTilt;
     };
 
-    class EarthProjectionMatrixCallback : public osg::CullSettings::ClampProjectionMatrixCallback
+    class OSGVERSE_RW_EXPORT EarthProjectionMatrixCallback : public osg::CullSettings::ClampProjectionMatrixCallback
     {
     public:
         EarthProjectionMatrixCallback(osg::Camera* camera = 0, const osg::Vec3d& center = osg::Vec3d(),

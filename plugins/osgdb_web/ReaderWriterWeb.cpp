@@ -237,15 +237,16 @@ public:
         buffer.write((char*)&wf->buffer[0], wf->buffer.size());
         for (size_t i = 0; i < wf->resHeaders.size(); i += 2)
         {
-            std::string key = wf->resHeaders[i]; std::transform(key.begin(), key.end(), key.begin(), tolower);
-            if (key.find("content-type") != std::string::npos) contentType = trimString(wf->resHeaders[i + 1]);
-            else if (key.find("content-encoding") != std::string::npos) encoding = trimString(wf->resHeaders[i + 1]);
+            std::string key = trimString(wf->resHeaders[i]);
+            std::transform(key.begin(), key.end(), key.begin(), tolower);
+            if (key == "content-type") contentType = trimString(wf->resHeaders[i + 1]);
+            else if (key == "content-encoding") encoding = trimString(wf->resHeaders[i + 1]);
         }
 #else
         HttpRequest req;  // Read data from web
         req.method = HTTP_GET;
         req.url = normalizeUrl(fileName); req.scheme = scheme;
-
+        
         HttpResponse response;
         int result = _client->send(&req, &response);
         if (result != 0)
@@ -265,9 +266,10 @@ public:
         //contentType = http_content_type_str(response.content_type);
         for (http_headers::iterator itr = response.headers.begin(); itr != response.headers.end(); ++itr)
         {
-            std::string key = itr->first; std::transform(key.begin(), key.end(), key.begin(), tolower);
-            if (key.find("content-type") != std::string::npos) contentType = trimString(itr->second);
-            else if (key.find("content-encoding") != std::string::npos) encoding = trimString(itr->second);
+            std::string key = trimString(itr->first);
+            std::transform(key.begin(), key.end(), key.begin(), tolower);
+            if (key == "content-type") contentType = trimString(itr->second);
+            else if (key == "content-encoding") encoding = trimString(itr->second);
         }
 #endif
 
@@ -301,7 +303,7 @@ public:
         // TODO: uncompress remote osgz/ivez/gz?
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
-        return readResult;
+        _client->close(); return readResult;
     }
 
     virtual WriteResult writeFile(const osg::Object& obj, const std::string& fullFileName,
@@ -357,7 +359,7 @@ public:
         req.headers["Connection"] = connection;
         req.headers["Content-Type"] = mimeType;
 
-        HttpResponse response; int code = _client->send(&req, &response);
+        HttpResponse response; int code = _client->send(&req, &response); _client->close();
         return (code != 0) ? WriteResult::ERROR_IN_WRITING_FILE : WriteResult::FILE_SAVED;
     }
 

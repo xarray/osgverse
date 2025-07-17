@@ -1,4 +1,4 @@
-SET(EXE_NAME osgVerse_ViewerGLES)
+SET(EXE_NAME osgVerse_Viewer_SDL)
 SET(EXECUTABLE_FILES
     sdl_viewer_main.cpp
 )
