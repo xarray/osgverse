@@ -18,7 +18,7 @@
 #include <iostream>
 #include <sstream>
 
-void configureParticleCloud(osg::Group* root, const std::string& mainFolder, unsigned int mask)
+void configureParticleCloud(osg::Group* root, const std::string& mainFolder, unsigned int mask, bool withGeomShader)
 {
     osg::ref_ptr<osg::Geode> particleNode = new osg::Geode;
     particleNode->setNodeMask(mask);
@@ -29,7 +29,6 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
     osg::ref_ptr<osg::Shader> vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "particles.vert.glsl");
     osg::ref_ptr<osg::Shader> fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "particles.frag.glsl");
     osg::ref_ptr<osg::Shader> gs = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "particles.geom.glsl");
-    osgVerse::ParticleSystemU3D::UpdateMethod method = osgVerse::ParticleSystemU3D::GPU_GEOMETRY;
 
     std::ifstream in1(mainFolder + "/newzealand.particle", std::ios::in | std::ios::binary);
     if (!!in1)
@@ -49,7 +48,8 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
         });
         pointCloud->load(in1); in1.close();
 
-        osg::ref_ptr<osgVerse::ParticleSystemU3D> cloud = new osgVerse::ParticleSystemU3D(method);
+        osg::ref_ptr<osgVerse::ParticleSystemU3D> cloud = new osgVerse::ParticleSystemU3D(
+            withGeomShader ? osgVerse::ParticleSystemU3D::GPU_GEOMETRY : osgVerse::ParticleSystemU3D::CPU_VERTEX_ATTRIB);
         cloud->setTexture(osgVerse::createTexture2D(img1.get()));
         cloud->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
         cloud->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
@@ -62,7 +62,7 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
     if (!!in2)
     {
         osg::ref_ptr<osgVerse::ParticleCloud> pointCloud = new osgVerse::ParticleCloud;
-        pointCloud->setInjector([](osgVerse::ParticleSystemU3D& ps, osgVerse::ParticleCloud& cloud)
+        pointCloud->setInjector([withGeomShader](osgVerse::ParticleSystemU3D& ps, osgVerse::ParticleCloud& cloud)
         {
             osg::Vec4Array* pos = cloud.getPositions(); pos->dirty();
             osg::Vec4Array* color = cloud.getColors(); color->dirty();
@@ -72,14 +72,15 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
                 float value = osg::clampBetween((*attr)[i].x() * 0.1f, 0.0f, 1.0f);
                 tinycolormap::Color c = tinycolormap::GetColor(value, tinycolormap::ColormapType::Jet);
                 (*color)[i] = osg::Vec4(c.r(), c.g(), c.b(), 0.5f);
-                (*pos)[i].a() = 1000.0f;
+                if (withGeomShader) (*pos)[i].a() = 1000.0f;
             }
         });
         pointCloud->load(in2); in2.close();
 
-        osg::ref_ptr<osgVerse::ParticleSystemU3D> cloud = new osgVerse::ParticleSystemU3D(method);
-        cloud->setTexture(osgVerse::createTexture2D(img2.get()));
-        cloud->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Line);
+        osg::ref_ptr<osgVerse::ParticleSystemU3D> cloud = new osgVerse::ParticleSystemU3D(
+            withGeomShader ? osgVerse::ParticleSystemU3D::GPU_GEOMETRY : osgVerse::ParticleSystemU3D::CPU_VERTEX_ATTRIB);
+        cloud->setTexture(osgVerse::createTexture2D(withGeomShader ? img2.get() : img1.get()));
+        cloud->setParticleType(withGeomShader ? osgVerse::ParticleSystemU3D::PARTICLE_Line : osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
         cloud->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
         cloud->setPointCloud(pointCloud.get(), true);
         cloud->setGravityScale(0.0f); cloud->setAspectRatio(16.0 / 9.0);

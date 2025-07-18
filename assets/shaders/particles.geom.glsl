@@ -1,4 +1,4 @@
-#extension GL_EXT_geometry_shader4 : enable
+#extension GL_EXT_geometry_shader4: enable
 uniform vec4 DataRange;
 VERSE_VS_IN vec4 color_gs[], texCoord_gs[];
 VERSE_VS_IN float animationID_gs[], lifeTime_gs[];

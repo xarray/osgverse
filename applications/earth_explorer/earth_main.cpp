@@ -27,7 +27,7 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
 extern osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth, int width, int height);
-extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder, unsigned int mask);
+extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder, unsigned int mask, bool withGeomShader);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -101,6 +101,7 @@ int main(int argc, char** argv)
     std::string mainFolder = "G:/DOM_DEM"; arguments.read("--folder", mainFolder);
     std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
     int w = 1920, h = 1080; arguments.read("--resolution", w, h);
+    bool withGeomShader = true; if (arguments.read("--no-geometry-shader")) withGeomShader = false;
 
     // Create earth
     std::string earthURLs = " Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg OriginBottomLeft=1"
@@ -115,7 +116,7 @@ int main(int argc, char** argv)
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
     osg::ref_ptr<osg::Camera> sceneCamera = configureEarthAndAtmosphere(root.get(), earth.get(), w, h);
-    configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK);
+    configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =
         new osgVerse::EarthProjectionMatrixCallback(viewer.getCamera(), earth->getBound().center());
