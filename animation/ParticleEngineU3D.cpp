@@ -211,8 +211,12 @@ public:
                 unsigned int size = (unsigned int)ceil(it->first->getMaxParticles()),
                              bbType = (int)it->first->getParticleType();
                 float bbValue = 0.0f, aspect = (float)it->first->getAspectRatio();
-                if (bbType == ParticleSystemU3D::PARTICLE_BillboardNoScale) bbValue = 2.0f;
-                else if (bbType == ParticleSystemU3D::PARTICLE_Billboard) bbValue = 1.0f;
+                switch (bbType)
+                {
+                case ParticleSystemU3D::PARTICLE_Line: bbValue = 3.0f; break;
+                case ParticleSystemU3D::PARTICLE_BillboardNoScale: bbValue = 2.0f; break;
+                default: bbValue = 1.0f; break;  // PARTICLE_Billboard
+                }
 
                 if (method == ParticleSystemU3D::CPU_TEXTURE_LUT && maxSize < index + size)
                 {
@@ -528,7 +532,7 @@ void ParticleSystemU3D::recreate()
 
     switch (_particleType)
     {
-    case PARTICLE_Billboard: case PARTICLE_BillboardNoScale:
+    case PARTICLE_Billboard: case PARTICLE_BillboardNoScale: case PARTICLE_Line:
         if (_updateMethod == GPU_GEOMETRY)
         {
             osg::ref_ptr<osg::Vec4Array> va, ca, ta0, ta1;
@@ -564,8 +568,6 @@ void ParticleSystemU3D::recreate()
             _geometry->addPrimitiveSet(de.get());
         }
         break;
-    case PARTICLE_Line:
-        break;  // TODO
     default:
         break;
     }

@@ -24,7 +24,8 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
     particleNode->setNodeMask(mask);
     root->addChild(particleNode.get());
 
-    osg::ref_ptr<osg::Image> img = osgDB::readImageFile(BASE_DIR + "/textures/water_drop.png");
+    osg::ref_ptr<osg::Image> img1 = osgDB::readImageFile(BASE_DIR + "/textures/water_drop.png");
+    osg::ref_ptr<osg::Image> img2 = osgDB::readImageFile(BASE_DIR + "/textures/strip.png");
     osg::ref_ptr<osg::Shader> vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "particles.vert.glsl");
     osg::ref_ptr<osg::Shader> fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "particles.frag.glsl");
     osg::ref_ptr<osg::Shader> gs = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "particles.geom.glsl");
@@ -49,7 +50,7 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
         pointCloud->load(in1); in1.close();
 
         osg::ref_ptr<osgVerse::ParticleSystemU3D> cloud = new osgVerse::ParticleSystemU3D(method);
-        cloud->setTexture(osgVerse::createTexture2D(img.get()));
+        cloud->setTexture(osgVerse::createTexture2D(img1.get()));
         cloud->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
         cloud->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
         cloud->setPointCloud(pointCloud.get(), true);
@@ -71,13 +72,14 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
                 float value = osg::clampBetween((*attr)[i].x() * 0.1f, 0.0f, 1.0f);
                 tinycolormap::Color c = tinycolormap::GetColor(value, tinycolormap::ColormapType::Jet);
                 (*color)[i] = osg::Vec4(c.r(), c.g(), c.b(), 0.5f);
+                (*pos)[i].a() = 1000.0f;
             }
         });
         pointCloud->load(in2); in2.close();
 
         osg::ref_ptr<osgVerse::ParticleSystemU3D> cloud = new osgVerse::ParticleSystemU3D(method);
-        cloud->setTexture(osgVerse::createTexture2D(img.get()));
-        cloud->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
+        cloud->setTexture(osgVerse::createTexture2D(img2.get()));
+        cloud->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Line);
         cloud->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
         cloud->setPointCloud(pointCloud.get(), true);
         cloud->setGravityScale(0.0f); cloud->setAspectRatio(16.0 / 9.0);

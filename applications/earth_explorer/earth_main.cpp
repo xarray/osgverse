@@ -26,7 +26,7 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
-extern osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth);
+extern osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth, int width, int height);
 extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder, unsigned int mask);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
@@ -98,11 +98,15 @@ int main(int argc, char** argv)
     osg::setNotifyHandler(new osgVerse::ConsoleHandler(false));
     osgVerse::updateOsgBinaryWrappers();
 
-    // Create earth
     std::string mainFolder = "G:/DOM_DEM"; arguments.read("--folder", mainFolder);
-    std::string earthURLs = "Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg OriginBottomLeft=1 "
-                            "Elevation=" + mainFolder + "EarthDEM/{z}/{x}/{y}.tif UseWebMercator=0";
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1 TileSkirtRatio=0.05");
+    std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
+    int w = 1920, h = 1080; arguments.read("--resolution", w, h);
+
+    // Create earth
+    std::string earthURLs = " Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg OriginBottomLeft=1"
+                            " Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif UseWebMercator=0"
+                            " UseEarth3D=1 TileSkirtRatio=" + skirtRatio;
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
 
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
     earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
@@ -110,7 +114,7 @@ int main(int argc, char** argv)
 
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    osg::ref_ptr<osg::Camera> sceneCamera = configureEarthAndAtmosphere(root.get(), earth.get());
+    osg::ref_ptr<osg::Camera> sceneCamera = configureEarthAndAtmosphere(root.get(), earth.get(), w, h);
     configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK);
 
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =

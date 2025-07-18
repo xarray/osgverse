@@ -68,7 +68,7 @@ static osg::Texture* createRawTexture3D(unsigned char* data, int w, int h, int d
     return tex3D.release();
 }
 
-osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth)
+osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth, int width, int height)
 {
     // Create RTT camera to render the globe
     osg::Shader* vs1 = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "scattering_globe.vert.glsl");
@@ -80,7 +80,8 @@ osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth)
     osgVerse::Pipeline::createShaderDefinitions(vs1, 100, 130);
     osgVerse::Pipeline::createShaderDefinitions(fs1, 100, 130);  // FIXME
 
-    osg::ref_ptr<osg::Texture> rttBuffer = osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, 1920, 1080);
+    osg::ref_ptr<osg::Texture> rttBuffer =
+        osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, width, height);
     rttBuffer->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
     rttBuffer->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
     rttBuffer->setWrap(osg::Texture2D::WRAP_S, osg::Texture::CLAMP);
@@ -101,7 +102,7 @@ osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth)
     osgVerse::Pipeline::createShaderDefinitions(vs2, 100, 130);
     osgVerse::Pipeline::createShaderDefinitions(fs2, 100, 130);  // FIXME
 
-    osg::Camera* hudCamera = osgVerse::createHUDCamera(NULL, 1920, 1080, osg::Vec3(), 1.0f, 1.0f, true);
+    osg::Camera* hudCamera = osgVerse::createHUDCamera(NULL, width, height, osg::Vec3(), 1.0f, 1.0f, true);
     hudCamera->getOrCreateStateSet()->setAttributeAndModes(program2.get());
     hudCamera->getOrCreateStateSet()->setTextureAttributeAndModes(0, rttBuffer.get());
 

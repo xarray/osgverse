@@ -39,7 +39,13 @@ void main()
 
 #if defined(USE_GEOM_SHADER)
     animationID_gs = eulerAnim.a; lifeTime_gs = velocityLife.a;
-    if (DataRange.z > 1.5)  // billboard (no-scale)
+    if (DataRange.z > 2.5)  // ray
+    {
+        texCoord_gs.yzw = -normalize(posSize.xyz) * 250000.0;  // FIXME: customize direction?
+        texCoord_gs.x = (length(VERSE_MATRIX_MV[0]) / DataRange.a) * posSize.w * SCALE_FACTOR;
+        gl_Position = vec4(posSize.xyz, 1.0);
+    }
+    else if (DataRange.z > 1.5)  // billboard (no-scale)
     {
         vec4 viewPos = VERSE_MATRIX_MV * vec4(posSize.xyz, 1.0);
         texCoord_gs.x = (-viewPos.z * posSize.w);
