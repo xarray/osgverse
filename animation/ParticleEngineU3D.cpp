@@ -28,6 +28,27 @@ static std::string trim(const std::string& str)
     return str.substr(first, last - first + 1);
 }
 
+static void splitString(const std::string& src, std::vector<std::string>& slist, char sep, bool ignoreEmpty)
+{
+    if (src.empty()) return;
+    std::string::size_type start = src.find_first_not_of(sep);
+    while (start != std::string::npos)
+    {
+        std::string::size_type end = src.find_first_of(sep, start);
+        if (end != std::string::npos)
+        {
+            slist.push_back(std::string(src, start, end - start));
+            if (ignoreEmpty) start = src.find_first_not_of(sep, end);
+            else start = end + 1;
+        }
+        else
+        {
+            slist.push_back(std::string(src, start, src.size() - start));
+            start = end;
+        }
+    }
+}
+
 ParticleCloud::ParticleCloud()
 {
     _positions = new osg::Vec4Array; _velocities = new osg::Vec4Array;
@@ -50,14 +71,14 @@ bool ParticleCloud::loadFromCsv(std::istream& in, Getter getter, char sep)
         if (line[0] == '#') continue;
 
         std::vector<std::string> values;
-        osgDB::split(line, values, sep);
+        splitString(line, values, sep, false);
         if (!valueMap.empty())
         {
             size_t numColumns = valueMap.size();
             if (numColumns != values.size())
             {
-                OSG_NOTICE << "[ParticleCloud] CSV line " << rowID << " has different values than "
-                           << numColumns  << " header columns" << std::endl; continue;
+                OSG_NOTICE << "[ParticleCloud] CSV line " << rowID << " has different values (" << values.size()
+                           << ") than " << numColumns  << " header columns" << std::endl; continue;
             }
 
             for (size_t i = 0; i < values.size(); ++i) valueMap[indexMap[i]] = values[i];

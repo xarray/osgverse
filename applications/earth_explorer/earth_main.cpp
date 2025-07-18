@@ -27,7 +27,7 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
 extern osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth);
-extern void configureParticleCloud(osg::Group* root, const std::string& cloudFile, unsigned int mask);
+extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder, unsigned int mask);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -99,9 +99,10 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     // Create earth
-    std::string earthURLs = "Orthophoto=G:/DOM_DEM/dom/{z}/{x}/{y}.jpg OriginBottomLeft=1 "
-                            "Elevation=G:/DOM_DEM/EarthDEM/{z}/{x}/{y}.tif UseWebMercator=0";
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1 TileSkirtRatio=0");
+    std::string mainFolder = "G:/DOM_DEM"; arguments.read("--folder", mainFolder);
+    std::string earthURLs = "Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg OriginBottomLeft=1 "
+                            "Elevation=" + mainFolder + "EarthDEM/{z}/{x}/{y}.tif UseWebMercator=0";
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1 TileSkirtRatio=0.05");
 
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
     earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
@@ -110,10 +111,7 @@ int main(int argc, char** argv)
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
     osg::ref_ptr<osg::Camera> sceneCamera = configureEarthAndAtmosphere(root.get(), earth.get());
-
-    std::string cloudFile;
-    if (arguments.read("--cloud", cloudFile))
-        configureParticleCloud(sceneCamera.get(), cloudFile, ~EARTH_INTERSECTION_MASK);
+    configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK);
 
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =
         new osgVerse::EarthProjectionMatrixCallback(viewer.getCamera(), earth->getBound().center());
@@ -123,6 +121,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
     earthManipulator->setIntersectionMask(EARTH_INTERSECTION_MASK);
     earthManipulator->setWorldNode(earth.get());
+    earthManipulator->setThrowAllowed(false);
 
     // Realize the viewer
     viewer.addEventHandler(new EnvironmentHandler(

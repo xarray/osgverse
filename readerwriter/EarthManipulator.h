@@ -70,6 +70,10 @@ namespace osgVerse
         void setLocked(bool locked) { _locked = locked; }
         bool getLocked() const { return _locked; }
 
+        /** Set if throwing is allowed */
+        void setThrowAllowed(bool allowed) { _throwAllowed = allowed; }
+        bool getThrowAllowed() const { return _throwAllowed; }
+
         /** Set the manipulator matrix by eye point */
         void setByEye(const osg::Vec3d& eye, float doa = 0.0f);
         void setByEye(double latitude, double longitude, double height, float doa = 0.0f);
@@ -238,8 +242,7 @@ namespace osgVerse
         float _tilt;  // Vertical angle to the horizon
 
         unsigned int _intersectionMask;  // Mask for intersection with the earth
-        bool _thrown;
-        bool _locked;
+        bool _throwAllowed, _thrown, _locked;
 
     public:
         struct ControlPoint : public osg::Referenced

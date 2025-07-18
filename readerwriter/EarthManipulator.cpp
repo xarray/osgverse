@@ -8,7 +8,7 @@ using namespace osgVerse;
 static double g_distanceToCenter = 0.0;
 
 EarthManipulator::EarthManipulator()
-:   _viewer(NULL), _tilt(0.0f), _thrown(false), _locked(false)
+:   _viewer(NULL), _tilt(0.0f), _throwAllowed(true), _thrown(false), _locked(false)
 {
     _tiltCenter.set(0.0, 0.0, -DBL_MAX);
     _rotateAxis.set(0.0, 0.0, -DBL_MAX);
@@ -226,7 +226,7 @@ bool EarthManipulator::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIAction
                 {
                     us.requestRedraw();
                     us.requestContinuousUpdate(true);
-                    _thrown = true;
+                    _thrown = _throwAllowed;
                 }
             }
             else

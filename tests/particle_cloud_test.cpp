@@ -42,22 +42,27 @@ int main(int argc, char** argv)
         pc->loadFromCsv(in, [](osgVerse::ParticleCloud& cloud, unsigned int id,
                                std::map<std::string, std::string>& values)
         {
+#if false
             // x,y,z,amp,lat,lon
             double lat = atof(values["lat"].c_str()), lon = atof(values["lon"].c_str());
-            double z = -atof(values["z"].c_str()), amp = atof(values["amp"].c_str());
+            double z = -atof(values["z"].c_str()), power = atof(values["amp"].c_str());
             if (!(id % 100000)) std::cout << "ID = " << id << ": Saving " << cloud.size() << " points\n";
-
-            osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
-                    osg::Vec3d(osg::inDegrees(lat), osg::inDegrees(lon), z));
-            if (amp <= 0.0) return true;
+            if (power <= 0.0) return true;
 
             static std::map<osg::Vec2i, int> s_hashMap;
             osg::Vec2i key(int(lat * 10000000.0f), int(lon * 10000000.0f));
             if (s_hashMap.find(key) != s_hashMap.end()) return true;
             else s_hashMap[key] = 1;
+#else
+            // ...,latitude,longitude,depth,mag,...
+            double lat = atof(values["latitude"].c_str()), lon = atof(values["longitude"].c_str());
+            double z = -1000.0 * atof(values["depth"].c_str()), power = atof(values["mag"].c_str());
+#endif
 
+            osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
+                osg::Vec3d(osg::inDegrees(lat), osg::inDegrees(lon), z));
             cloud.add(pos, osg::Vec4(1.0f, 1.0f, 1.0f, 0.2f), osg::Vec3(),
-                      osg::Vec4(amp, 0.0f, 0.0f, 0.0f), 10000.0f);
+                      osg::Vec4(power, 0.0f, 0.0f, 0.0f), 10000.0f);
             return true;
         });
         pc->save(out); out.close(); return 0;
