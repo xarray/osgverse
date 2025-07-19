@@ -138,7 +138,10 @@ namespace osgVerse
         // batchTableJsonLength(h5) + batchTableBinLength(h6) + <Real feature table> + <Real batch table> + GLTF body
         int header[7], hSize = 7 * sizeof(int); memcpy(header, data.data(), hSize);
         if (rtcCenter && header[3] > 0) *rtcCenter = ReadRtcCenterFeatureTable(data, hSize, header[3]);
-        return hSize + header[3] + header[4] + header[5] + header[6];
+
+        int extraSize = header[3] + header[4] + header[5] + header[6];
+        if (hSize + extraSize >= header[2]) extraSize = 0;  // unexpected behaviour
+        return hSize + extraSize;
     }
 
     unsigned int ReadI3dmHeader(std::vector<char>& data, unsigned int& format)

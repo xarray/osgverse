@@ -62,6 +62,7 @@ public:
     {
         supportsExtension("verse_mvt", "osgVerse pseudo-loader");
         supportsExtension("mvt", "MVT vector tile file");
+        supportsExtension("pbf", "PBF vector tile file");
     }
 
     virtual const char* className() const
