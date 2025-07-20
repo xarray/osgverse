@@ -76,10 +76,12 @@ public:
         supportsOption("TileDataType", "Set tile set data type. Default: Image");
         supportsOption("TileSetDescription", "Set tile set description");
         supportsOption("TileDataFormat", "Set tile data format. Default: geotiff");
+        supportsOption("PrintMetaData", "Print meta data or not. Default: 0");
+        supportsOption("PrintTileList", "Print all tile names or not. Default: 0");
 
         // Examples:
-        // - Writing: osgconv cessna.osg mbtiles://test.mbtiles/cessna.osg.verse_mbtiles
-        // - Reading: osgviewer mbtiles://test.mbtiles/cessna.osg.verse_mbtiles
+        // - Writing: <ImgConv> image.jpg mbtiles://test.mbtiles/0-0-0.jpg
+        // - Reading: osgviewer --image mbtiles://test.mbtiles/0-0-0.jpg
         supportsExtension("verse_mbtiles", "Pseudo file extension, used to select DB plugin.");
         supportsExtension("*", "Passes all read files to other plugins to handle actual model loading.");
     }
@@ -103,7 +105,8 @@ public:
                                    unsigned int, const Options* options) const
     {
         // Create archive from DB
-        std::string dbName = osgDB::getServerAddress(fullFileName);
+        size_t protoEnd = fullFileName.find("//") + 1, addrEnd = fullFileName.find(".mbtiles") + 7;
+        std::string dbName = fullFileName.substr(protoEnd + 1, addrEnd - protoEnd);
         return new MbArchive(this, status, dbName, options);
     }
 
@@ -175,8 +178,9 @@ public:
         std::string scheme = osgDB::getServerProtocol(filename);
         if (scheme == "mbtiles")
         {
-            std::string dbName = osgDB::getServerAddress(filename);
-            std::string keyName = osgDB::getServerFileName(filename);
+            size_t protoEnd = filename.find("//") + 1, addrEnd = filename.find(".mbtiles") + 7;
+            std::string dbName = filename.substr(protoEnd + 1, addrEnd - protoEnd);
+            std::string keyName = osgDB::getStrippedName(filename.substr(addrEnd + 2));
             sqlite3* db = getOrCreateDatabase(dbName, options, false);
             if (!db) return false;
 
@@ -228,13 +232,15 @@ public:
             osgDB::Registry::instance()->getReaderWriterForExtension(ext);
         if (!reader)
         {
-            OSG_WARN << "[mbtiles] No reader/writer plugin for " << fileName << std::endl;
+            OSG_WARN << "[mbtiles] No reader/writer plugin for " << ext << std::endl;
             return ReadResult::FILE_NOT_HANDLED;
         }
 
         // Read data from DB
-        std::string dbName = osgDB::getServerAddress(fullFileName);
-        std::string keyName = osgDB::getServerFileName(fullFileName);
+        size_t protoEnd = fullFileName.find("//") + 1, addrEnd = fullFileName.find(".mbtiles") + 7;
+        std::string dbName = fullFileName.substr(protoEnd + 1, addrEnd - protoEnd);
+        std::string keyName = osgDB::getStrippedName(fullFileName.substr(addrEnd + 2));
+
         sqlite3* db = getOrCreateDatabase(dbName, options, false);
         if (!db) return ReadResult::ERROR_IN_READING_FILE;
         else return read(db, fileName, keyName, objectType, reader, options);
@@ -293,8 +299,9 @@ public:
             return WriteResult::FILE_NOT_HANDLED;
         }
 
-        std::string dbName = osgDB::getServerAddress(fullFileName);
-        std::string keyName = osgDB::getServerFileName(fullFileName);
+        size_t protoEnd = fullFileName.find("//") + 1, addrEnd = fullFileName.find(".mbtiles") + 7;
+        std::string dbName = fullFileName.substr(protoEnd + 1, addrEnd - protoEnd);
+        std::string keyName = osgDB::getStrippedName(fullFileName.substr(addrEnd + 2));
         sqlite3* db = getOrCreateDatabase(dbName, options, true);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
@@ -334,7 +341,29 @@ public:
 
             int rc = sqlite3_open(name.c_str(), &db);
             if (rc != SQLITE_OK) return NULL; else dbMap[name] = db;
-            if (!realFileName.empty()) return db;  // no need to create initial tables
+            if (!realFileName.empty())
+            {
+                if (opt)
+                {
+                    std::string printedStr1 = opt->getPluginStringData("PrintMetaData");
+                    if (printedStr1 == "true" || atoi(printedStr1.c_str()) > 0)
+                    {
+                        std::map<std::string, std::string> md = listMetaData(db);
+                        for (std::map<std::string, std::string>::iterator i = md.begin(); i != md.end(); ++i)
+                        { std::cout << "Mbtiles value: " << i->first << " = " << i->second << "\n"; }
+                    }
+
+                    std::string printedStr2 = opt->getPluginStringData("PrintTileList");
+                    if (printedStr2 == "true" || atoi(printedStr2.c_str()) > 0)
+                    {
+                        std::vector<std::string> tiles = listTiles(db);
+                        for (size_t i = 0; i < tiles.size(); ++i)
+                            std::cout << "Mbtiles tile " << (i + 1) << "/" << tiles.size()
+                                      << ": " << tiles[i] << "\n";
+                    }
+                }
+                return db;  // no need to create initial tables
+            }
 
             // Create necessary tables
             rc = sqlite3_exec(
@@ -443,6 +472,39 @@ public:
         rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
         if (rc != SQLITE_OK) return WriteResult::ERROR_IN_WRITING_FILE;
         return WriteResult::FILE_SAVED;
+    }
+
+    static int listTilesCallback(void* rawPtr, int argc, char** argv, char** colName)
+    {
+        std::vector<std::string>* result = (std::vector<std::string>*)rawPtr;
+        std::string sep("-"); if (argc < 3) return 0;
+        if (argv[0] == NULL || argv[1] == NULL || argv[2] == NULL) return 0;
+        result->push_back(argv[0] + sep + argv[1] + sep + argv[2]); return 0;
+    }
+
+    static std::vector<std::string> listTiles(sqlite3* db)
+    {
+        std::vector<std::string> result;
+        int rc = sqlite3_exec(
+            db, "SELECT zoom_level, tile_column, tile_row FROM tiles;",
+            ReaderWriterMb::listTilesCallback, &result, NULL);
+        return result;
+    }
+
+    static int listMetaDataCallback(void* rawPtr, int argc, char** argv, char** colName)
+    {
+        std::map<std::string, std::string>* result = (std::map<std::string, std::string>*)rawPtr;
+        if (argc < 2) return 0; else if (argv[0] == NULL || argv[1] == NULL) return 0;
+        (*result)[argv[0]] = argv[1]; return 0;
+    }
+
+    static std::map<std::string, std::string> listMetaData(sqlite3* db)
+    {
+        std::map<std::string, std::string> result;
+        int rc = sqlite3_exec(
+            db, "SELECT name, value FROM metadata;",
+            ReaderWriterMb::listMetaDataCallback, &result, NULL);
+        return result;
     }
 
 protected:
