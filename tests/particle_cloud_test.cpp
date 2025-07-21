@@ -42,15 +42,15 @@ int main(int argc, char** argv)
         pc->loadFromCsv(in, [](osgVerse::ParticleCloud& cloud, unsigned int id,
                                std::map<std::string, std::string>& values)
         {
-#if false
+#if true
             // x,y,z,amp,lat,lon
             double lat = atof(values["lat"].c_str()), lon = atof(values["lon"].c_str());
             double z = -atof(values["z"].c_str()), power = atof(values["amp"].c_str());
             if (!(id % 100000)) std::cout << "ID = " << id << ": Saving " << cloud.size() << " points\n";
             if (power <= 0.0) return true;
 
-            static std::map<osg::Vec2i, int> s_hashMap;
-            osg::Vec2i key(int(lat * 10000000.0f), int(lon * 10000000.0f));
+            static std::map<osg::Vec3i, int> s_hashMap;
+            osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 100));
             if (s_hashMap.find(key) != s_hashMap.end()) return true;
             else s_hashMap[key] = 1;
 #else

@@ -10,13 +10,130 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
+#include <picojson.h>
 #include <modeling/Math.h>
 #include <readerwriter/EarthManipulator.h>
 #include <readerwriter/DatabasePager.h>
 #include <pipeline/Pipeline.h>
+#include <ui/ImGui.h>
+#include <ui/ImGuiComponents.h>
 #include <VerseCommon.h>
 #include <iostream>
 #include <sstream>
+
+#define UI_ARGS osgVerse::ImGuiManager* mgr, osgVerse::ImGuiContentHandler* handler, osgVerse::ImGuiComponentBase* ctrl
+#define SETUP_SLIDER_V1(uniform) \
+    osgVerse::Slider* s = static_cast<osgVerse::Slider*>(ctrl); uniform->set((float)s->value);
+#define SETUP_SLIDER_V3(uniform, num) \
+    osgVerse::Slider* s = static_cast<osgVerse::Slider*>(ctrl); \
+    osg::Vec3 ori; uniform->get(ori); ori[num] = s->value; uniform->set(ori);
+static osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
+
+class AdjusterHandler : public osgVerse::ImGuiContentHandler
+{
+public:
+    AdjusterHandler(std::map<std::string, osg::Uniform*>& uniforms, const std::string& jsonFile)
+    {
+        std::ifstream json(jsonFile.c_str(), std::ios::in); _jsonFile = jsonFile;
+        picojson::value root; std::string err = picojson::parse(root, json);
+        float exp = 0.25f, sun = 100.0f;
+        float bri = 1.0f, sat = 1.0f, con = 1.0f, cr = 0.0f, mg = 0.0f, yb = 0.0f;
+        if (err.empty())
+        {
+            exp = (float)root.get("exposure").get<double>();
+            sun = (float)root.get("sun_intensity").get<double>();
+            bri = (float)root.get("brightness").get<double>();
+            sat = (float)root.get("saturation").get<double>();
+            con = (float)root.get("contrast").get<double>();
+            cr = (float)root.get("cyan_red").get<double>();
+            mg = (float)root.get("magenta_green").get<double>();
+            yb = (float)root.get("yellow_blue").get<double>();
+        }
+
+        _exposure = new osgVerse::Slider("Exposure");
+        _intensity = new osgVerse::Slider("Sun Intensity");
+        _brightness = new osgVerse::Slider("Brightness");
+        _saturation = new osgVerse::Slider("Saturation");
+        _contrast = new osgVerse::Slider("Contrast");
+        _cyanRed = new osgVerse::Slider("Cyan/Red");
+        _magentaGreen = new osgVerse::Slider("Magenta/Green");
+        _yellowBlue = new osgVerse::Slider("Yellow/Blue");
+
+        osg::Uniform* exposure = uniforms["exposure"]; exposure->set(exp);
+        osg::Uniform* intensity = uniforms["sun_intensity"]; intensity->set(sun);
+        osg::Uniform* colorAttr = uniforms["color_attributes"]; colorAttr->set(osg::Vec3(bri, sat, con));
+        osg::Uniform* colorBal = uniforms["color_balance"]; colorBal->set(osg::Vec3(cr, mg, yb));
+
+        setupSlider(*_exposure, exp, 0.0f, 1.0f, [exposure](UI_ARGS) { SETUP_SLIDER_V1(exposure) });
+        setupSlider(*_intensity, sun, 0.0f, 1000.0f, [intensity](UI_ARGS) { SETUP_SLIDER_V1(intensity) });
+        setupSlider(*_brightness, bri, 0.0f, 3.0f, [colorAttr](UI_ARGS) { SETUP_SLIDER_V3(colorAttr, 0) });
+        setupSlider(*_saturation, sat, 0.0f, 3.0f, [colorAttr](UI_ARGS) { SETUP_SLIDER_V3(colorAttr, 1) });
+        setupSlider(*_contrast, con, 0.0f, 3.0f, [colorAttr](UI_ARGS) { SETUP_SLIDER_V3(colorAttr, 2) });
+        setupSlider(*_cyanRed, cr, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 0) });
+        setupSlider(*_magentaGreen, mg, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 1) });
+        setupSlider(*_yellowBlue, yb, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 2) });
+
+        _save = new osgVerse::Button("Save Config");
+        _save->callback = [jsonFile, uniforms](UI_ARGS)
+        {
+            std::map<std::string, osg::Uniform*> un = uniforms;
+            float exp = 0.0f; un["exposure"]->get(exp);
+            float sun = 0.0f; un["sun_intensity"]->get(sun);
+            osg::Vec3 colorAttr; un["color_attributes"]->get(colorAttr);
+            osg::Vec3 colorBal; un["color_balance"]->get(colorBal);
+
+            picojson::object root;
+            root["exposure"] = picojson::value((double)exp);
+            root["sun_intensity"] = picojson::value((double)sun);
+            root["brightness"] = picojson::value((double)colorAttr[0]);
+            root["saturation"] = picojson::value((double)colorAttr[1]);
+            root["contrast"] = picojson::value((double)colorAttr[2]);
+            root["cyan_red"] = picojson::value((double)colorBal[0]);
+            root["magenta_green"] = picojson::value((double)colorBal[1]);
+            root["yellow_blue"] = picojson::value((double)colorBal[2]);
+
+            std::string jsonData = picojson::value(root).serialize(true);
+            std::ofstream json(jsonFile.c_str(), std::ios::out);
+            json.write(jsonData.data(), jsonData.size()); json.close();
+        };
+
+        _uniformWindow = new osgVerse::Window("Uniforms##adjuster");
+        _uniformWindow->pos = osg::Vec2(0.0f, 0.02f);
+        _uniformWindow->size = osg::Vec2(0.15f, 0.96f);
+        _uniformWindow->alpha = 0.9f;
+        _uniformWindow->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
+        _uniformWindow->userData = this;
+    }
+
+    virtual void runInternal(osgVerse::ImGuiManager* mgr)
+    {
+        ImGui::PushFont(ImGuiFonts["LXGWFasmartGothic"]);
+        bool done = _uniformWindow->show(mgr, this);
+        if (done)
+        {
+            _exposure->show(mgr, this); _intensity->show(mgr, this);
+            _brightness->show(mgr, this); _saturation->show(mgr, this); _contrast->show(mgr, this);
+            _cyanRed->show(mgr, this); _magentaGreen->show(mgr, this); _yellowBlue->show(mgr, this);
+            _save->show(mgr, this); _uniformWindow->showEnd();
+        }
+        ImGui::PopFont();
+    }
+
+protected:
+    void setupSlider(osgVerse::Slider& s, float v, float v0, float v1,
+        osgVerse::Slider::ActionCallback cb)
+    {
+        s.type = osgVerse::Slider::FloatValue; s.value = v;
+        s.minValue = v0; s.maxValue = v1; s.callback = cb;
+    }
+
+    osg::ref_ptr<osgVerse::Window> _uniformWindow;
+    osg::ref_ptr<osgVerse::Slider> _exposure, _intensity;
+    osg::ref_ptr<osgVerse::Slider> _brightness, _saturation, _contrast;
+    osg::ref_ptr<osgVerse::Slider> _cyanRed, _magentaGreen, _yellowBlue;
+    osg::ref_ptr<osgVerse::Button> _save;
+    std::string _jsonFile;
+};
 
 static unsigned char* loadAllData(const std::string& file, unsigned int& size, unsigned int offset)
 {
@@ -68,7 +185,8 @@ static osg::Texture* createRawTexture3D(unsigned char* data, int w, int h, int d
     return tex3D.release();
 }
 
-osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth, int width, int height)
+osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
+                                         const std::string& mainFolder, int width, int height)
 {
     // Create RTT camera to render the globe
     osg::Shader* vs1 = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "scattering_globe.vert.glsl");
@@ -125,10 +243,28 @@ osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth, int
     ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)3));
     ss->addUniform(new osg::Uniform("inscatterSampler", (int)4));
     ss->addUniform(new osg::Uniform("origin", osg::Vec3(0.0f, 0.0f, 0.0f)));
-    ss->addUniform(new osg::Uniform("hdrExposure", 0.25f));
     ss->addUniform(new osg::Uniform("opaque", 1.0f));
+    ss->addUniform(new osg::Uniform("ColorBalanceMode", (int)0));
+
+    std::map<std::string, osg::Uniform*> uniforms;
+    uniforms["exposure"] = new osg::Uniform("hdrExposure", 0.25f);
+    uniforms["sun_intensity"] = new osg::Uniform("sunIntensity", 100.0f);
+    uniforms["color_attributes"] = new osg::Uniform("ColorAttribute", osg::Vec3(1.0f, 1.0f, 1.0f));
+    uniforms["color_balance"] = new osg::Uniform("ColorBalance", osg::Vec3(0.0f, 0.0f, 0.0f));  // [-1, 1]
+    for (std::map<std::string, osg::Uniform*>::iterator i = uniforms.begin();
+         i != uniforms.end(); ++i) ss->addUniform(i->second);
 
     // Finish configuration
+    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+    postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 20001);
+    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    root->addChild(postCamera.get());
+
+    imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
+    imgui->initialize(new AdjusterHandler(uniforms, mainFolder + "/uniforms.json"));
+    imgui->addToView(&viewer, postCamera.get());
+
     rttCamera->addChild(earth);
     root->addChild(rttCamera);
     root->addChild(hudCamera);

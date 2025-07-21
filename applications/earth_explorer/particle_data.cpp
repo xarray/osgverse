@@ -42,7 +42,7 @@ void configureParticleCloud(osg::Group* root, const std::string& mainFolder, uns
             for (size_t i = 0; i < pos->size(); ++i)
             {
                 tinycolormap::Color c = tinycolormap::GetColor((*attr)[i].x(), tinycolormap::ColormapType::Viridis);
-                (*color)[i] = osg::Vec4(c.r(), c.g(), c.b(), 0.5f);
+                (*color)[i] = osg::Vec4(c.r(), c.g(), c.b(), 0.01f);
                 (*pos)[i].a() = 100.0f;
             }
         });

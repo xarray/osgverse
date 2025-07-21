@@ -26,8 +26,10 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
-extern osg::Camera* configureEarthAndAtmosphere(osg::Group* root, osg::Node* earth, int width, int height);
-extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder, unsigned int mask, bool withGeomShader);
+extern osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
+                                                const std::string& mainFolder, int width, int height);
+extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder,
+                                   unsigned int mask, bool withGeomShader);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -115,7 +117,8 @@ int main(int argc, char** argv)
 
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    osg::ref_ptr<osg::Camera> sceneCamera = configureEarthAndAtmosphere(root.get(), earth.get(), w, h);
+    osg::ref_ptr<osg::Camera> sceneCamera =
+        configureEarthAndAtmosphere(viewer, root.get(), earth.get(), mainFolder, w, h);
     configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =

@@ -4,14 +4,18 @@ uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
 uniform vec3 worldCameraPos, worldSunDir, origin;
-uniform float hdrExposure, opaque;
+uniform float hdrExposure, sunIntensity, opaque;
+
+uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
+uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
+uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 
 VERSE_FS_IN vec3 normalInWorld;
 VERSE_FS_IN vec3 vertexInWorld;
 VERSE_FS_IN vec4 texCoord, baseColor;
 VERSE_FS_OUT vec4 fragColor;
 
-#define SUN_INTENSITY 100.0
+#define SUN_INTENSITY sunIntensity
 #define PLANET_RADIUS 6360000.0
 
 #include "scattering.module.glsl"
@@ -43,5 +47,9 @@ void main()
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
     vec3 finalColor = groundColor.rgb * extinction + inscatter;
     fragColor = vec4(hdr(finalColor), groundColor.a);
+
+    // Color grading work
+    fragColor.rgb = colorBalanceFunc(fragColor.rgb, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
+    fragColor.rgb = colorAdjustmentFunc(fragColor.rgb, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
     VERSE_FS_FINAL(fragColor);
 }

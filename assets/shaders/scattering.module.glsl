@@ -586,3 +586,48 @@ vec3 inScattering(vec3 camera, vec3 point, vec3 sundir, out vec3 extinction, flo
     return vec3(0.0);
 #endif
 }
+
+// Color balance copied from gimp/app/base/color-balance.c
+float oneColorBalanceFunc(float v, float factor, int mode)
+{
+    if (factor == 0.0) return v;
+    else if (mode == 0)
+    {
+        float lowValue = 1.075 - 1.0 / ((factor > 0.0 ? v : 1.0 - v) * 16.0 + 1.0);
+        return clamp(v + factor * lowValue, 0.0, 1.0);
+    }
+    else if (mode == 1)
+    {
+        float midValue = 0.667 * (1.0 - pow((v - 0.5) * 2.0, 2.0));
+        return clamp(v + factor * midValue, 0.0, 1.0);
+    }
+    else if (mode == 2)
+    {
+        float lowValue = 1.075 - 1.0 / ((factor > 0.0 ? 1.0 - v : v) * 16.0 + 1.0);
+        return clamp(v + factor * lowValue, 0.0, 1.0);
+    }
+}
+
+vec3 colorBalanceFunc(vec3 color, float cyan_red, float magenta_green, float yellow_blue, int mode)
+{
+    return vec3(oneColorBalanceFunc(color.r, cyan_red, mode),
+        oneColorBalanceFunc(color.g, magenta_green, mode),
+        oneColorBalanceFunc(color.b, yellow_blue, mode));
+}
+
+// Brightness, saturation, and contrast
+vec3 colorAdjustmentFunc(vec3 color, float brt, float sat, float con)
+{
+    // Increase or decrease theese values to adjust r, g and b color channels seperately
+    const float avgLumR = 0.5;
+    const float avgLumG = 0.5;
+    const float avgLumB = 0.5;
+    const vec3 lumCoeff = vec3(0.2125, 0.7154, 0.0721);
+
+    vec3 avgLumin = vec3(avgLumR, avgLumG, avgLumB);
+    vec3 brtColor = color * brt;
+    vec3 intensity = vec3(dot(brtColor, lumCoeff));
+    vec3 satColor = mix(intensity, brtColor, sat);
+    vec3 conColor = mix(avgLumin, satColor, con);
+    return conColor;
+}

@@ -155,17 +155,7 @@ public:
 
     virtual ReadResult readImage(const std::string& path, const Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_vdb");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream ifile(fileName, std::ios_base::in | std::ios_base::binary);
         if (!ifile) return ReadResult::FILE_NOT_FOUND;
         return readImage(ifile, options);
@@ -236,17 +226,7 @@ public:
     virtual WriteResult writeImage(const osg::Image& image, const std::string& path,
                                    const Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_vdb");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ofstream ofile(fileName, std::ios_base::out | std::ios_base::binary);
         if (!ofile) return WriteResult::ERROR_IN_WRITING_FILE;
         return writeImage(image, ofile, options);
@@ -260,8 +240,7 @@ public:
 
         GLenum dataType = osg::Image::computeFormatDataType(image.getPixelFormat());
         unsigned int numComponents = osg::Image::computeNumComponents(image.getPixelFormat());
-        unsigned int pixelSize = osg::Image::computePixelSizeInBits(
-            image.getPixelFormat(), image.getDataType());
+        unsigned int pixelSize = osg::Image::computePixelSizeInBits(image.getPixelFormat(), image.getDataType());
         pixelSize = pixelSize / numComponents;
 
 #define TRAVERSE_COORD(gridType, name) \
@@ -356,6 +335,20 @@ public:
     }
 
 protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_vdb");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
+
     template<typename T> struct ValueRange
     {
         ValueRange() : _min(std::numeric_limits<T>::max()), _max(std::numeric_limits<T>::min()) {}
