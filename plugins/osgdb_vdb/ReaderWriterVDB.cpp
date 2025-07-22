@@ -9,6 +9,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
+#include <animation/ParticleEngine.h>
 #include <pipeline/Global.h>
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
@@ -168,7 +169,7 @@ public:
         if (!grids) return ReadResult::ERROR_IN_READING_FILE;
 
         std::vector<osg::ref_ptr<osg::Image>> images;
-        std::string hintStr = options ? options->getPluginStringData("DimensionScale") : "1";
+        std::string hintStr = options ? options->getPluginStringData("DimensionScale") : "0.1";
         float scale = atof(hintStr.c_str()); if (scale <= 0.0f) scale = 1.0f;
         for (size_t i = 0; i < grids->size(); ++i)
         {
@@ -230,6 +231,15 @@ public:
         std::ofstream ofile(fileName, std::ios_base::out | std::ios_base::binary);
         if (!ofile) return WriteResult::ERROR_IN_WRITING_FILE;
         return writeImage(image, ofile, options);
+    }
+    
+    virtual WriteResult writeObject(const osg::Object& obj, const std::string& path,
+                                    const Options* options) const
+    {
+        std::string ext; std::string fileName = getRealFileName(path, ext);
+        std::ofstream ofile(fileName, std::ios_base::out | std::ios_base::binary);
+        if (!ofile) return WriteResult::ERROR_IN_WRITING_FILE;
+        return writeObject(obj, ofile, options);
     }
 
     virtual WriteResult writeImage(const osg::Image& image, std::ostream& fout,
@@ -328,6 +338,34 @@ public:
             }
         }
 #undef TRAVERSE_COORD
+
+        if (grids->empty()) return WriteResult::NOT_IMPLEMENTED;
+        openvdb::io::Stream(fout).write(*grids);
+        return WriteResult::FILE_SAVED;
+    }
+
+    virtual WriteResult writeObject(const osg::Object& obj, std::ostream& fout,
+                                    const Options* options) const
+    {
+        const osgVerse::ParticleCloud* cloud = dynamic_cast<const osgVerse::ParticleCloud*>(&obj);
+        if (!cloud) return WriteResult::NOT_IMPLEMENTED;
+
+        const osg::Vec4Array* positions = cloud->getData(0);
+        const osg::Vec4Array* attributes = cloud->getData(3);
+        openvdb::GridPtrVecPtr grids(new openvdb::GridPtrVec);
+        openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
+        openvdb::FloatGrid::Accessor accessor = grid->getAccessor();
+
+        openvdb::Coord coord; grid->setName("CloudValue");
+        unsigned int size = positions->size();
+        for (unsigned int i = 0; i < size; ++i)
+        {
+            const osg::Vec4& pos = positions->at(i);
+            const osg::Vec4& attr = attributes->at(i);
+            coord.reset(pos[0], pos[1], pos[2]);
+            accessor.setValue(coord, attr[0]);  // FIXME: only for Zhijiang csv...
+        }
+        grids->push_back(grid);
 
         if (grids->empty()) return WriteResult::NOT_IMPLEMENTED;
         openvdb::io::Stream(fout).write(*grids);

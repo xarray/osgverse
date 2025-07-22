@@ -4,6 +4,7 @@ uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
 uniform vec3 worldCameraPos, worldSunDir, origin;
+uniform vec3 sunColorScale, skyColorScale;
 uniform float hdrExposure, sunIntensity, opaque;
 
 uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
@@ -40,12 +41,12 @@ void main()
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
     
     vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st) * baseColor;
-    groundColor.rgb *= max((sunL * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
+    groundColor.rgb *= max((sunL * sunColorScale * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
     groundColor.a *= clamp(opaque, 0.0, 1.0);
     
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
-    vec3 finalColor = groundColor.rgb * extinction + inscatter;
+    vec3 finalColor = groundColor.rgb * extinction + inscatter * skyColorScale;
     fragColor = vec4(hdr(finalColor), groundColor.a);
 
     // Color grading work

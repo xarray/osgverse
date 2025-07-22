@@ -19,11 +19,12 @@ namespace osgVerse
 {
 
     class ParticleSystemU3D;
-    class ParticleCloud : public osg::Referenced
+    class ParticleCloud : public osg::Object
     {
     public:
         ParticleCloud();
         ParticleCloud(const ParticleCloud& pc, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
+        META_Object(osgVerse, ParticleCloud)
 
         typedef std::function<bool(ParticleCloud&, unsigned int, std::map<std::string, std::string>&)> Getter;
         typedef std::function<void(ParticleSystemU3D&, ParticleCloud&)> Injector;
@@ -48,6 +49,7 @@ namespace osgVerse
         /** Retrieve copies of current positions, velocities and colors back manually */
         void retrieve();
 
+        const osg::Vec4Array* getData(int id) const;
         osg::Vec4Array* getData(int id);
         osg::Vec4Array* getBackupData(int id);
 

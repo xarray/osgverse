@@ -630,13 +630,14 @@ bool EarthManipulator::calcIntersectPoint(float x, float y, osg::Vec3d& point, b
         if (intersector.valid() && intersector->containsIntersections())
         {
             osgUtil::LineSegmentIntersector::Intersection hit = intersector->getFirstIntersection();
-            point = hit.getWorldIntersectPoint();
-            /*
+            point = hit.getWorldIntersectPoint(); result = true;
+
+#if true
             double lat, lon, height;
             _ellipsoid->convertXYZToLatLongHeight( point.x(), point.y(), point.z(), lat, lon, height );
-            printf( "%lg, %lg, %lg\n", osg::RadiansToDegrees(lat), osg::RadiansToDegrees(lon), height );*/
-            //printf( "%lg, %lg, %lg\n", point.x(), point.y(), point.z() );
-            result = true;
+            std::cout << hit.nodePath.back()->getName() << ": Lat = " << osg::RadiansToDegrees(lat)
+                      << ", Lon = " << osg::RadiansToDegrees(lon) << ", H = " << height << std::endl;
+#endif
         }
     }
 

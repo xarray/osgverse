@@ -140,7 +140,7 @@ protected:
                           const Options* opt, bool useWM, bool flatten) const
     {
         CreatePathFunc pathFunc = (CreatePathFunc)opt->getPluginData("UrlPathFunction");
-        std::string name = "TMS_" + std::to_string(z) + "_" + std::to_string(x) + "_" + std::to_string(y),
+        std::string name = "TMS_" + std::to_string(x) + "_" + std::to_string(y) + "_" + std::to_string(z),
                     botLeft = opt->getPluginStringData("OriginBottomLeft");
         if (!botLeft.empty()) std::transform(botLeft.begin(), botLeft.end(), botLeft.begin(), tolower);
 
@@ -182,7 +182,7 @@ protected:
         osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?
             tileCB->createTileGeometry(localMatrix, elevHandler.get(), tileMin, tileMax, tileWidth, tileHeight) :
             tileCB->createTileGeometry(localMatrix, elevImage.get(), tileMin, tileMax, tileWidth, tileHeight);
-        geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+        geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true); geom->setName(name + "_Geom");
         if (orthImage.valid())
         {
             geom->getOrCreateStateSet()->setTextureAttributeAndModes(
@@ -195,7 +195,7 @@ protected:
         }
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-        geode->addDrawable(geom.get());
+        geode->addDrawable(geom.get()); geode->setName(name + "_Geode");
 
         osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
         mt->setUpdateCallback(tileCB.get());

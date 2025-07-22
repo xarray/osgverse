@@ -30,6 +30,8 @@ extern osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Gr
                                                 const std::string& mainFolder, int width, int height);
 extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
+extern osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, double lat, double lon,
+                                             double z, unsigned int mask);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -120,6 +122,10 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Camera> sceneCamera =
         configureEarthAndAtmosphere(viewer, root.get(), earth.get(), mainFolder, w, h);
     configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
+
+    //osg::MatrixTransform* vdb = createVolumeBox(
+    //    mainFolder + "/test.vdb.verse_vdb", 0.0, 0.0, 0.0, ~EARTH_INTERSECTION_MASK);
+    //if (vdb) sceneCamera->addChild(vdb);
 
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =
         new osgVerse::EarthProjectionMatrixCallback(viewer.getCamera(), earth->getBound().center());

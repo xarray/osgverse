@@ -36,12 +36,19 @@ public:
     {
         std::ifstream json(jsonFile.c_str(), std::ios::in); _jsonFile = jsonFile;
         picojson::value root; std::string err = picojson::parse(root, json);
-        float exp = 0.25f, sun = 100.0f;
-        float bri = 1.0f, sat = 1.0f, con = 1.0f, cr = 0.0f, mg = 0.0f, yb = 0.0f;
+        float exp = 0.25f, scale0[3] = { 1.0f, 1.0f, 1.0f }, scale1[3] = { 1.0f, 1.0f, 1.0f };
+        float sun = 100.0f, bri = 1.0f, sat = 1.0f, con = 1.0f, cr = 0.0f, mg = 0.0f, yb = 0.0f;
         if (err.empty())
         {
             exp = (float)root.get("exposure").get<double>();
             sun = (float)root.get("sun_intensity").get<double>();
+            scale0[0] = (float)root.get("sun_scale_r").get<double>();
+            scale0[1] = (float)root.get("sun_scale_g").get<double>();
+            scale0[2] = (float)root.get("sun_scale_b").get<double>();
+            scale1[0] = (float)root.get("sky_scale_r").get<double>();
+            scale1[1] = (float)root.get("sky_scale_g").get<double>();
+            scale1[2] = (float)root.get("sky_scale_b").get<double>();
+
             bri = (float)root.get("brightness").get<double>();
             sat = (float)root.get("saturation").get<double>();
             con = (float)root.get("contrast").get<double>();
@@ -58,11 +65,15 @@ public:
         _cyanRed = new osgVerse::Slider("Cyan/Red");
         _magentaGreen = new osgVerse::Slider("Magenta/Green");
         _yellowBlue = new osgVerse::Slider("Yellow/Blue");
+        _sunColor = new osgVerse::InputVectorField("Light Scale");
+        _skyColor = new osgVerse::InputVectorField("Shadow Scale");
 
         osg::Uniform* exposure = uniforms["exposure"]; exposure->set(exp);
         osg::Uniform* intensity = uniforms["sun_intensity"]; intensity->set(sun);
         osg::Uniform* colorAttr = uniforms["color_attributes"]; colorAttr->set(osg::Vec3(bri, sat, con));
         osg::Uniform* colorBal = uniforms["color_balance"]; colorBal->set(osg::Vec3(cr, mg, yb));
+        osg::Uniform* sunScale = uniforms["sun_color_scale"]; sunScale->set(osg::Vec3(scale0[0], scale0[1], scale0[2]));
+        osg::Uniform* skyScale = uniforms["sky_color_scale"]; skyScale->set(osg::Vec3(scale1[0], scale1[1], scale1[2]));
 
         setupSlider(*_exposure, exp, 0.0f, 1.0f, [exposure](UI_ARGS) { SETUP_SLIDER_V1(exposure) });
         setupSlider(*_intensity, sun, 0.0f, 1000.0f, [intensity](UI_ARGS) { SETUP_SLIDER_V1(intensity) });
@@ -73,6 +84,17 @@ public:
         setupSlider(*_magentaGreen, mg, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 1) });
         setupSlider(*_yellowBlue, yb, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 2) });
 
+        setupColorEditor(*_sunColor, osg::Vec3(scale0[0], scale0[1], scale0[2]), [sunScale](UI_ARGS)
+        {
+            osg::Vec3 ori; osgVerse::InputVectorField* v = static_cast<osgVerse::InputVectorField*>(ctrl);
+            sunScale->get(ori); ori.set(v->vecValue[0], v->vecValue[1], v->vecValue[2]); sunScale->set(ori);
+        });
+        setupColorEditor(*_skyColor, osg::Vec3(scale1[0], scale1[1], scale1[2]), [skyScale](UI_ARGS)
+        {
+            osg::Vec3 ori; osgVerse::InputVectorField* v = static_cast<osgVerse::InputVectorField*>(ctrl);
+            skyScale->get(ori); ori.set(v->vecValue[0], v->vecValue[1], v->vecValue[2]); skyScale->set(ori);
+        });
+
         _save = new osgVerse::Button("Save Config");
         _save->callback = [jsonFile, uniforms](UI_ARGS)
         {
@@ -81,10 +103,19 @@ public:
             float sun = 0.0f; un["sun_intensity"]->get(sun);
             osg::Vec3 colorAttr; un["color_attributes"]->get(colorAttr);
             osg::Vec3 colorBal; un["color_balance"]->get(colorBal);
+            osg::Vec3 scale0; un["sun_color_scale"]->get(scale0);
+            osg::Vec3 scale1; un["sky_color_scale"]->get(scale1);
 
             picojson::object root;
             root["exposure"] = picojson::value((double)exp);
             root["sun_intensity"] = picojson::value((double)sun);
+            root["sun_scale_r"] = picojson::value((double)scale0[0]);
+            root["sun_scale_g"] = picojson::value((double)scale0[1]);
+            root["sun_scale_b"] = picojson::value((double)scale0[2]);
+            root["sky_scale_r"] = picojson::value((double)scale1[0]);
+            root["sky_scale_g"] = picojson::value((double)scale1[1]);
+            root["sky_scale_b"] = picojson::value((double)scale1[2]);
+
             root["brightness"] = picojson::value((double)colorAttr[0]);
             root["saturation"] = picojson::value((double)colorAttr[1]);
             root["contrast"] = picojson::value((double)colorAttr[2]);
@@ -114,6 +145,7 @@ public:
             _exposure->show(mgr, this); _intensity->show(mgr, this);
             _brightness->show(mgr, this); _saturation->show(mgr, this); _contrast->show(mgr, this);
             _cyanRed->show(mgr, this); _magentaGreen->show(mgr, this); _yellowBlue->show(mgr, this);
+            _sunColor->show(mgr, this); _skyColor->show(mgr, this);
             _save->show(mgr, this); _uniformWindow->showEnd();
         }
         ImGui::PopFont();
@@ -121,16 +153,24 @@ public:
 
 protected:
     void setupSlider(osgVerse::Slider& s, float v, float v0, float v1,
-        osgVerse::Slider::ActionCallback cb)
+                     osgVerse::Slider::ActionCallback cb)
     {
         s.type = osgVerse::Slider::FloatValue; s.value = v;
         s.minValue = v0; s.maxValue = v1; s.callback = cb;
+    }
+
+    void setupColorEditor(osgVerse::InputVectorField& f, const osg::Vec3& v,
+                          osgVerse::Slider::ActionCallback cb)
+    {
+        f.callback = cb; f.asColor = true; f.vecNumber = 3;
+        f.vecValue = osg::Vec4d(v[0], v[1], v[2], 1.0);
     }
 
     osg::ref_ptr<osgVerse::Window> _uniformWindow;
     osg::ref_ptr<osgVerse::Slider> _exposure, _intensity;
     osg::ref_ptr<osgVerse::Slider> _brightness, _saturation, _contrast;
     osg::ref_ptr<osgVerse::Slider> _cyanRed, _magentaGreen, _yellowBlue;
+    osg::ref_ptr<osgVerse::InputVectorField> _sunColor, _skyColor;
     osg::ref_ptr<osgVerse::Button> _save;
     std::string _jsonFile;
 };
@@ -249,6 +289,8 @@ osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* ro
     std::map<std::string, osg::Uniform*> uniforms;
     uniforms["exposure"] = new osg::Uniform("hdrExposure", 0.25f);
     uniforms["sun_intensity"] = new osg::Uniform("sunIntensity", 100.0f);
+    uniforms["sun_color_scale"] = new osg::Uniform("sunColorScale", osg::Vec3(1.0f, 1.0f, 1.0f));
+    uniforms["sky_color_scale"] = new osg::Uniform("skyColorScale", osg::Vec3(1.0f, 1.0f, 1.0f));
     uniforms["color_attributes"] = new osg::Uniform("ColorAttribute", osg::Vec3(1.0f, 1.0f, 1.0f));
     uniforms["color_balance"] = new osg::Uniform("ColorBalance", osg::Vec3(0.0f, 0.0f, 0.0f));  // [-1, 1]
     for (std::map<std::string, osg::Uniform*>::iterator i = uniforms.begin();

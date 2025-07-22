@@ -30,10 +30,10 @@ namespace backward { backward::SignalHandling sh; }
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    if (arguments.read("--convert"))
+    if (arguments.read("--csv"))
     {
         std::string csvFile, outFile("result.particle");
-        arguments.read("--csv", csvFile); arguments.read("--out", outFile);
+        arguments.read("--in", csvFile); arguments.read("--out", outFile);
         if (csvFile.empty() || outFile.empty()) return 1;
 
         std::ifstream in(csvFile.c_str(), std::ios::in);
@@ -50,7 +50,7 @@ int main(int argc, char** argv)
             if (power <= 0.0) return true;
 
             static std::map<osg::Vec3i, int> s_hashMap;
-            osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 100));
+            osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 250));
             if (s_hashMap.find(key) != s_hashMap.end()) return true;
             else s_hashMap[key] = 1;
 #else
@@ -66,6 +66,17 @@ int main(int argc, char** argv)
             return true;
         });
         pc->save(out); out.close(); return 0;
+    }
+    else if (arguments.read("--vdb"))
+    {
+        std::string inFile("in.particle"), vdbFile;
+        arguments.read("--in", inFile); arguments.read("--out", vdbFile);
+        if (inFile.empty() || vdbFile.empty()) return 1;
+
+        std::ifstream in(inFile.c_str(), std::ios::in | std::ios::binary);
+        osg::ref_ptr<osgVerse::ParticleCloud> pc = new osgVerse::ParticleCloud;
+        pc->load(in); in.close();
+        osgDB::writeObjectFile(*pc, vdbFile); return 0;
     }
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);

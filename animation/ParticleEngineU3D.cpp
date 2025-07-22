@@ -156,6 +156,18 @@ void ParticleCloud::insert(unsigned int id, const osg::Vec3& p, const osg::Vec4&
 void ParticleCloud::clear()
 { _positions->clear(); _velocities->clear(); _colors->clear(); _attributes->clear(); }
 
+const osg::Vec4Array* ParticleCloud::getData(int id) const
+{
+    switch (id)
+    {
+    case 0: return _positions.get();
+    case 1: return _colors.get();
+    case 2: return _velocities.get();
+    default: break;
+    }
+    return _attributes.get();
+}
+
 osg::Vec4Array* ParticleCloud::getData(int id)
 {
     switch (id)

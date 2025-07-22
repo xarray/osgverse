@@ -13,86 +13,12 @@
 #include <iostream>
 #include <sstream>
 #include <pipeline/Utilities.h>
+#include <pipeline/Pipeline.h>
 
 #ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 #endif
-
-const char* vertCode = {
-    "varying vec4 EyeVertex, TexCoord;\n"
-    "void main() {\n"
-    "    EyeVertex = gl_ModelViewMatrix * gl_Vertex;\n"
-    "    TexCoord = gl_MultiTexCoord0;\n"
-    "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
-    "}\n"
-};
-
-const char* fragCode = {
-    "uniform mat4 osg_ViewMatrix;\n"
-    "uniform sampler3D VolumeTexture;\n"
-    "uniform sampler1D TransferTexture;\n"
-    "uniform vec3 BoundingMin, BoundingMax;\n"
-    "uniform vec3 SliceMin, SliceMax;\n"
-    "uniform vec2 ValueRange;\n"
-    "uniform int RayMarchingSamples, TransferMode;\n"
-    "uniform float DensityFactor, DensityPower;\n"
-    "varying vec4 EyeVertex, TexCoord;\n"
-
-    "const int maxSamples = 256;\n"
-    "vec2 rayIntersectBox(vec3 rayDirection, vec3 rayOrigin) {  //Intersect ray with bounding box\n"
-    "    vec3 rayInvDirection = 1.0 / rayDirection;\n"
-    "    vec3 bbMinDiff = (BoundingMin - rayOrigin) * rayInvDirection;\n"
-    "    vec3 bbMaxDiff = (BoundingMax - rayOrigin) * rayInvDirection;\n"
-    "    vec3 imax = max(bbMaxDiff, bbMinDiff);\n"
-    "    vec3 imin = min(bbMaxDiff, bbMinDiff);\n"
-    "    float back = min(imax.x, min(imax.y, imax.z));\n"
-    "    float front = max(max(imin.x, 0.0), max(imin.y, imin.z));\n"
-    "    return vec2(back, front);\n"
-    "}\n"
-
-    "void main() {\n"
-    "    // Get object-space ray origin & direction of each fragment \n"
-    "    mat4 invModelView = transpose(osg_ViewMatrix);\n"
-    "    vec4 camPos = -vec4(osg_ViewMatrix[3]);\n"
-    "    vec3 rayDirection = normalize((invModelView * EyeVertex).xyz);\n"
-    "    vec3 rayOrigin = (invModelView * camPos).xyz;\n"
-
-    "    // Intersect ray with the volume's bounding box\n"
-    "    // - subtract small increment to avoid errors on front boundary\n"
-    "    // - discard points outside the box (no intersection)\n"
-    "    vec2 intersection = rayIntersectBox(rayDirection, rayOrigin);\n"
-    "    intersection.y -= 0.000001;\n"
-    "    if (intersection.x <= intersection.y) discard;\n"
-
-    "    float stepSize = 1.732 / float(RayMarchingSamples);\n"
-    "    vec3 rayStart = rayOrigin + rayDirection * intersection.y;\n"
-    "    vec3 rayStop = rayOrigin + rayDirection * intersection.x;\n"
-    "    vec3 step = (rayStop - rayStart) * stepSize;\n"
-    "    vec3 pos = rayStart, invBoundingDiff = 1.0 / (BoundingMax - BoundingMin);\n"
-
-    "    // Raymarch, front to back\n"
-    "    float T = 1.0, travel = distance(rayStop, rayStart) / stepSize;\n"
-    "    float factor = DensityFactor * stepSize;\n"
-    "    int samples = int(ceil(travel));\n"
-    "    vec4 resultColor = vec4(0.0);\n"
-    "    for (int i = 0; i < maxSamples; ++i) {\n"
-    "        vec3 uv = (pos - BoundingMin) * invBoundingDiff;\n"
-    "        float density = texture(VolumeTexture, uv).r;\n"
-    "        if (any(lessThan(uv, SliceMin)) || any(greaterThan(uv, SliceMax))) density = 0.0;\n"
-    "        density = (density - ValueRange.x) / ValueRange.y;\n"
-    "        density = pow(clamp(density, 0.0, 1.0), DensityPower);\n"
-
-    "        vec4 value = vec4(0.0);\n"
-    "        if (TransferMode == 1) value = texture(TransferTexture, density);\n"
-    "        else value = vec4(density); value.a = density;\n"
-    "        value *= factor; resultColor += T * value;\n"
-    "        T *= 1.0 - value.a;\n"
-    "        pos += step; if (i == samples - 1 || T < 0.01) break;\n"
-    "    }\n"
-    "    gl_FragColor = vec4(resultColor.rgb, 1.0 - T);\n"
-    "}\n"
-};
 
 class VolumeHandler : public osgGA::GUIEventHandler
 {
@@ -174,6 +100,7 @@ public:
                 size[0] /= _scale[0]; size[1] /= _scale[1]; size[2] /= _scale[2];
                 _stateset->getUniform("BoundingMin")->set(_origin);
                 _stateset->getUniform("BoundingMax")->set(_origin + size);
+                _stateset->getUniform("RotationOffset")->set(osg::Matrixf::rotate(rot));
                 _origin = pos; //_scale = s;
             }
         }
@@ -188,7 +115,6 @@ protected:
 typedef std::pair<osg::MatrixTransform*, osg::StateSet*> ResultPair;
 ResultPair createVolumeData(
     osg::Image* image3D, osg::Image* transferImage1D,
-    const std::string& vertCode, const std::string& fragCode,
     const osg::Vec3& origin, const osg::Vec3& spacing, float minValue, float maxValue)
 {
     osg::ref_ptr<osg::Texture3D> tex3D = new osg::Texture3D;
@@ -256,9 +182,14 @@ ResultPair createVolumeData(
         geode->addDrawable(geom.get());
     }
 
+    osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "fast_volume.vert");
+    osg::Shader* fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "fast_volume.frag");
+    osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
+    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+
     osg::ref_ptr<osg::Program> program = new osg::Program;
-    program->addShader(new osg::Shader(osg::Shader::VERTEX, vertCode));
-    program->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
+    vs->setName("Volume_VS"); program->addShader(vs);
+    fs->setName("Volume_FS"); program->addShader(fs);
 
     osg::StateSet* ss = geode->getOrCreateStateSet();
     ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
@@ -275,6 +206,8 @@ ResultPair createVolumeData(
     }
     else
         ss->addUniform(new osg::Uniform("TransferMode", (int)0));
+    ss->addUniform(new osg::Uniform("RotationOffset", osg::Matrixf()));
+    ss->addUniform(new osg::Uniform("Color", osg::Vec3(1.0f, 1.0f, 1.0f)));
     ss->addUniform(new osg::Uniform("BoundingMin", origin));
     ss->addUniform(new osg::Uniform("BoundingMax", origin + size));
     ss->addUniform(new osg::Uniform("ValueRange", osg::Vec2(minValue, maxValue - minValue)));
@@ -345,7 +278,7 @@ int main(int argc, char** argv)
     image1D = createTransferFunction(colors);
 #endif
     ResultPair pair = createVolumeData(
-        image.get(), image1D.get(), vertCode, fragCode, origin, spacing, 0.0f, 1.0f);
+        image.get(), image1D.get(), origin, spacing, 0.0f, 1.0f);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(pair.first);
