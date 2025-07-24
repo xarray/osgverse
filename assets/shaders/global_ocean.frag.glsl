@@ -31,8 +31,6 @@ uniform vec4 lods;  // grid cell size in pixels, angle under which a grid cell i
 const float PI = 3.141592657;
 const float g = 9.81;
 
-VERSE_FS_IN vec3 debugData;
-
 VERSE_FS_IN vec2 oceanUv; // coordinates in wind space used to compute P(u)
 VERSE_FS_IN vec3 oceanP; // wave point P(u) in ocean space
 VERSE_FS_IN vec3 oceanDPdu; // dPdu in wind space, used to compute N
@@ -181,7 +179,5 @@ void main()
     vec3 inscatter = inScattering(earthCamera, earthP, oceanSunDir, extinction, 0.0);
     vec3 finalColor = surfaceColor * extinction + inscatter;
     fragData.rgb = hdr(finalColor); fragData.a = 1.0;
-
-    fragData = vec4(debugData, 1.0);
     VERSE_FS_FINAL(fragData);
 }

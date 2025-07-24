@@ -25,8 +25,6 @@ VERSE_VS_OUT vec3 oceanDPdv; // dPdv in wind space, used to compute N
 VERSE_VS_OUT float oceanSigmaSq; // variance of unresolved waves in wind space
 VERSE_VS_OUT float oceanLod;
 
-VERSE_VS_OUT vec3 debugData;
-
 vec2 oceanPos(vec3 vertex, out float t, out vec3 cameraDir, out vec3 oceanDir)
 {
     float horizon = horizon1.x + horizon1.y * vertex.x -
@@ -68,7 +66,7 @@ void main()
     if (duv.x != 0.0 || duv.y != 0.0)
     {
         float iMin = max(floor((log2(NYQUIST_MIN * lod) - lods.z) * lods.w), 0.0);
-        for (float i = iMin; i < nbWaves; ++i)
+        for (float i = iMin; i < int(nbWaves); ++i)
         {
             vec4 wt = VERSE_TEX1D(wavesSampler, (i + 0.5) / nbWaves);
             //vec4 wt = textureLod(wavesSampler, (i + 0.5) / nbWaves, 0.0);
@@ -97,8 +95,6 @@ void main()
 
     oceanLod = lod; oceanUv = uv; oceanP = p;
     oceanDPdu = dPdu; oceanDPdv = dPdv; oceanSigmaSq = sigmaSq;
-    gl_Position = cameraToScreen *
-                  vec4(t * cameraDir + (oceanToCamera * vec4(dP, 1.0)).xyz, 1.0);
-
-    debugData = vec3(1.0, 0.0, 0.0);
+    vec4 pos = cameraToScreen * vec4(t * cameraDir + (oceanToCamera * vec4(dP, 1.0)).xyz, 1.0);
+    gl_Position = pos / pos.w; gl_Position.z = 0.0;
 }

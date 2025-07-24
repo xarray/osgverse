@@ -113,7 +113,7 @@ int main(int argc, char** argv)
     // Create earth
     std::string earthURLs = " Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
                             //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
-                            " Elevation=F:/GoogleElevation/{z}/{x}/{y}.tif"
+                            //" Elevation=F:/GoogleElevation/{z}/{x}/{y}.tif"
                             " MaximumLevel=7 UseWebMercator=0 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
