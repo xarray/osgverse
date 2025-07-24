@@ -13,7 +13,7 @@
 
 #include <modeling/Math.h>
 #include <readerwriter/EarthManipulator.h>
-#include <readerwriter/DatabasePager.h>
+#include <readerwriter/TileCallback.h>
 #include <pipeline/IncrementalCompiler.h>
 #include <VerseCommon.h>
 #include <iostream>
@@ -28,6 +28,8 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #define EARTH_INTERSECTION_MASK 0xf0000000
 extern osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
                                                 const std::string& mainFolder, int width, int height);
+extern osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root,
+                                 const std::string& mainFolder, int width, int height, unsigned int mask);
 extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
 extern osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, double lat, double lon,
@@ -101,6 +103,7 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::setNotifyHandler(new osgVerse::ConsoleHandler(false));
     osgVerse::updateOsgBinaryWrappers();
+    //osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
 
     std::string mainFolder = "G:/DOM_DEM"; arguments.read("--folder", mainFolder);
     std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
@@ -108,9 +111,11 @@ int main(int argc, char** argv)
     bool withGeomShader = true; if (arguments.read("--no-geometry-shader")) withGeomShader = false;
 
     // Create earth
-    std::string earthURLs = " Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg OriginBottomLeft=1"
-                            " Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif UseWebMercator=0"
-                            " UseEarth3D=1 TileSkirtRatio=" + skirtRatio;
+    std::string earthURLs = " Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
+                            //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
+                            " Elevation=F:/GoogleElevation/{z}/{x}/{y}.tif"
+                            " MaximumLevel=7 UseWebMercator=0 UseEarth3D=1 OriginBottomLeft=1"
+                            " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
 
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
@@ -121,6 +126,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Group> root = new osg::Group;
     osg::ref_ptr<osg::Camera> sceneCamera =
         configureEarthAndAtmosphere(viewer, root.get(), earth.get(), mainFolder, w, h);
+    configureOcean(viewer, root.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
     configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
     //osg::MatrixTransform* vdb = createVolumeBox(

@@ -29,6 +29,13 @@
      TengXun Map: (https://blog.csdn.net/mygisforum/article/details/22997879)
      - http://p0.map.gtimg.com/demTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
      - http://p0.map.gtimg.com/sateTiles/{z}/{x/16}/{y/16}/{x}_{y}.jpg
+     - options->setPluginData("UrlPathFunction", (void*)createTengXunPath);
+     - Custom function:
+       static std::string createTengXunPath(int type, const std::string& prefix, int x, int y, int z) {
+           std::string path = prefix; bool changed = false;
+           path = replace(path, "{x16}", std::to_string(x / 16), changed);
+           path = replace(path, "{y16}", std::to_string(y / 16), changed);
+           y = (int)pow((double)z, 2.0) - y - 1; }
      Baidu Map: http://shangetu{s}.map.bdimg.com/it/u=x={x};y={y};z={z};v=009;type=sate&fm=46
      - {s}: 0, 1, 2, 3
      Google Map: http://{s}.google.com/vt/lyrs={t}&x={x}&y={y}&z={z}
@@ -36,7 +43,13 @@
      - {t}: h = roads only, m = standard roadmap, p = colored terrain, s = satellite only, t = terrain only, y = hybrid
      Carto Voyager: https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png
      - {s}: a, b, c; {r}: no set or @2x
-     ArcGIS: https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}
+     Custom TMS from GlobalMapper:
+     - options->setPluginData("UrlPathFunction", (void*)createGlobalMapperPath);
+     - Custom function:
+       static std::string createGlobalMapperPath(int type, const std::string& prefix, int x, int y, int z) {
+           int newY = pow(2, z) + y, newZ = z + 1;  // if "OriginBottomLeft=1"
+           //int newY = pow(2, z + 1) - y, newZ = z + 1;  // if "OriginBottomLeft=0"
+           return osgVerse::TileCallback::createPath(prefix, x, newY, newZ); }
 */
 class ReaderWriterTMS : public osgDB::ReaderWriter
 {
@@ -57,7 +70,9 @@ public:
         supportsOption("FlatExtentMinY", "Flat earth extent Y0: default -90");
         supportsOption("FlatExtentMaxX", "Flat earth extent X1: default 180");
         supportsOption("FlatExtentMaxY", "Flat earth extent Y1: default 90");
+        supportsOption("MaximumLevel", "Set maximum level (Z) to load: default 0 (infinite)");
         supportsOption("TileSkirtRatio", "Create skirts for every tile: default 0.02");
+        supportsOption("TileElevationScale", "Set elevation scale for every tile: default 1.0");
     }
 
     virtual const char* className() const
@@ -83,6 +98,11 @@ public:
         {
             int x = atoi(values[0].c_str()) * 2, y = atoi(values[1].c_str()) * 2,
                 z = (values[2] == "x") ? 0 : atoi(values[2].c_str()) + 1, countY = 2;
+
+            std::string maxLvStr = options->getPluginStringData("MaximumLevel");
+            int maxZ = atoi(maxLvStr.c_str());  // return OK but not loading anything
+            if (maxZ > 0 && maxZ < z) return ReadResult::FILE_LOADED;
+
             std::string vectAddr = osgVerse::urlDecode(options->getPluginStringData("Vector"));
             std::string elevAddr = osgVerse::urlDecode(options->getPluginStringData("Elevation"));
             std::string orthoAddr = osgVerse::urlDecode(options->getPluginStringData("Orthophoto"));
@@ -102,7 +122,7 @@ public:
                 extentMax[0] = (extentMax[0] + extentMin[0]) * 0.5;
                 if (z == 0) countY = 1; useWM = false;
             }
-            
+
             std::string useEarth = options->getPluginStringData("UseEarth3D");
             if (!useEarth.empty()) std::transform(useEarth.begin(), useEarth.end(), useEarth.begin(), tolower);
             bool flatten = (useEarth == "false" || atoi(useEarth.c_str()) <= 0);
@@ -165,6 +185,9 @@ protected:
         {
             std::string skirt = opt->getPluginStringData("TileSkirtRatio");
             if (!skirt.empty()) tileCB->setSkirtRatio((float)atof(skirt.c_str()));
+
+            std::string scale = opt->getPluginStringData("TileElevationScale");
+            if (!scale.empty()) tileCB->setElevationScale((float)atof(scale.c_str()));
         }
 
         osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;

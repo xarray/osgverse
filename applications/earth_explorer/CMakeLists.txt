@@ -1,9 +1,8 @@
 SET(EXE_NAME osgVerse_EarthExplorer)
 SET(EXECUTABLE_FILES
-    earth_main.cpp
-    render_effects.cpp
-    particle_data.cpp
-    volume_data.cpp
+    earth_main.cpp render_effects.cpp
+    particle_data.cpp volume_data.cpp
+    ocean.cpp
 )
 
 NEW_EXECUTABLE(${EXE_NAME} SHARED)

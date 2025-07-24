@@ -28,7 +28,7 @@ namespace osgVerse
     {
     public:
         TileCallback()
-        :   _x(-1), _y(-1), _z(-1), _skirtRatio(0.02f), _flatten(true),
+        :   _x(-1), _y(-1), _z(-1), _skirtRatio(0.02f), _elevationScale(1.0f), _flatten(true),
             _bottomLeft(false), _useWebMercator(false) {}
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
@@ -53,6 +53,7 @@ namespace osgVerse
         void setTileNumber(int x, int y, int z) { _x = x; _y = y; _z = z; }
 
         void setSkirtRatio(float s) { _skirtRatio = s; }
+        void setElevationScale(float s) { _elevationScale = s; }
         void setFlatten(bool b) { _flatten = b; }
         void setBottomLeft(bool b) { _bottomLeft = b; }
         void setUseWebMercator(bool b) { _useWebMercator = b; }
@@ -71,7 +72,7 @@ namespace osgVerse
         std::map<int, std::string> _layerPaths;
         osg::Vec3d _extentMin, _extentMax;
         CreatePathFunc _createPathFunc;
-        int _x, _y, _z; float _skirtRatio;
+        int _x, _y, _z; float _skirtRatio, _elevationScale;
         bool _flatten, _bottomLeft, _useWebMercator;
     };
 

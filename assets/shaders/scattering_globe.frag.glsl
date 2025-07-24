@@ -5,7 +5,7 @@ uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
 uniform vec3 worldCameraPos, worldSunDir, origin;
 uniform vec3 sunColorScale, skyColorScale;
-uniform float hdrExposure, sunIntensity, opaque;
+uniform float hdrExposure, opaque;
 
 uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
 uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
@@ -16,7 +16,7 @@ VERSE_FS_IN vec3 vertexInWorld;
 VERSE_FS_IN vec4 texCoord, baseColor;
 VERSE_FS_OUT vec4 fragColor;
 
-#define SUN_INTENSITY sunIntensity
+#define SUN_INTENSITY 100.0
 #define PLANET_RADIUS 6360000.0
 
 #include "scattering.module.glsl"

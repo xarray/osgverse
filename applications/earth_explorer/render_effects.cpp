@@ -37,11 +37,10 @@ public:
         std::ifstream json(jsonFile.c_str(), std::ios::in); _jsonFile = jsonFile;
         picojson::value root; std::string err = picojson::parse(root, json);
         float exp = 0.25f, scale0[3] = { 1.0f, 1.0f, 1.0f }, scale1[3] = { 1.0f, 1.0f, 1.0f };
-        float sun = 100.0f, bri = 1.0f, sat = 1.0f, con = 1.0f, cr = 0.0f, mg = 0.0f, yb = 0.0f;
+        float bri = 1.0f, sat = 1.0f, con = 1.0f, cr = 0.0f, mg = 0.0f, yb = 0.0f;
         if (err.empty())
         {
             exp = (float)root.get("exposure").get<double>();
-            sun = (float)root.get("sun_intensity").get<double>();
             scale0[0] = (float)root.get("sun_scale_r").get<double>();
             scale0[1] = (float)root.get("sun_scale_g").get<double>();
             scale0[2] = (float)root.get("sun_scale_b").get<double>();
@@ -58,7 +57,6 @@ public:
         }
 
         _exposure = new osgVerse::Slider("Exposure");
-        _intensity = new osgVerse::Slider("Sun Intensity");
         _brightness = new osgVerse::Slider("Brightness");
         _saturation = new osgVerse::Slider("Saturation");
         _contrast = new osgVerse::Slider("Contrast");
@@ -69,14 +67,12 @@ public:
         _skyColor = new osgVerse::InputVectorField("Shadow Scale");
 
         osg::Uniform* exposure = uniforms["exposure"]; exposure->set(exp);
-        osg::Uniform* intensity = uniforms["sun_intensity"]; intensity->set(sun);
         osg::Uniform* colorAttr = uniforms["color_attributes"]; colorAttr->set(osg::Vec3(bri, sat, con));
         osg::Uniform* colorBal = uniforms["color_balance"]; colorBal->set(osg::Vec3(cr, mg, yb));
         osg::Uniform* sunScale = uniforms["sun_color_scale"]; sunScale->set(osg::Vec3(scale0[0], scale0[1], scale0[2]));
         osg::Uniform* skyScale = uniforms["sky_color_scale"]; skyScale->set(osg::Vec3(scale1[0], scale1[1], scale1[2]));
 
         setupSlider(*_exposure, exp, 0.0f, 1.0f, [exposure](UI_ARGS) { SETUP_SLIDER_V1(exposure) });
-        setupSlider(*_intensity, sun, 0.0f, 1000.0f, [intensity](UI_ARGS) { SETUP_SLIDER_V1(intensity) });
         setupSlider(*_brightness, bri, 0.0f, 3.0f, [colorAttr](UI_ARGS) { SETUP_SLIDER_V3(colorAttr, 0) });
         setupSlider(*_saturation, sat, 0.0f, 3.0f, [colorAttr](UI_ARGS) { SETUP_SLIDER_V3(colorAttr, 1) });
         setupSlider(*_contrast, con, 0.0f, 3.0f, [colorAttr](UI_ARGS) { SETUP_SLIDER_V3(colorAttr, 2) });
@@ -100,7 +96,6 @@ public:
         {
             std::map<std::string, osg::Uniform*> un = uniforms;
             float exp = 0.0f; un["exposure"]->get(exp);
-            float sun = 0.0f; un["sun_intensity"]->get(sun);
             osg::Vec3 colorAttr; un["color_attributes"]->get(colorAttr);
             osg::Vec3 colorBal; un["color_balance"]->get(colorBal);
             osg::Vec3 scale0; un["sun_color_scale"]->get(scale0);
@@ -108,7 +103,6 @@ public:
 
             picojson::object root;
             root["exposure"] = picojson::value((double)exp);
-            root["sun_intensity"] = picojson::value((double)sun);
             root["sun_scale_r"] = picojson::value((double)scale0[0]);
             root["sun_scale_g"] = picojson::value((double)scale0[1]);
             root["sun_scale_b"] = picojson::value((double)scale0[2]);
@@ -142,7 +136,7 @@ public:
         bool done = _uniformWindow->show(mgr, this);
         if (done)
         {
-            _exposure->show(mgr, this); _intensity->show(mgr, this);
+            _exposure->show(mgr, this);
             _brightness->show(mgr, this); _saturation->show(mgr, this); _contrast->show(mgr, this);
             _cyanRed->show(mgr, this); _magentaGreen->show(mgr, this); _yellowBlue->show(mgr, this);
             _sunColor->show(mgr, this); _skyColor->show(mgr, this);
@@ -167,7 +161,7 @@ protected:
     }
 
     osg::ref_ptr<osgVerse::Window> _uniformWindow;
-    osg::ref_ptr<osgVerse::Slider> _exposure, _intensity;
+    osg::ref_ptr<osgVerse::Slider> _exposure;
     osg::ref_ptr<osgVerse::Slider> _brightness, _saturation, _contrast;
     osg::ref_ptr<osgVerse::Slider> _cyanRed, _magentaGreen, _yellowBlue;
     osg::ref_ptr<osgVerse::InputVectorField> _sunColor, _skyColor;

@@ -259,6 +259,125 @@ static unsigned int computeInternalFormat(unsigned int pixelFormat, unsigned int
 #define CVT(x)      (((x) * 255L) / ((1L << 16) - 1))
 #define PACK(a, b)  ((a) << 8 | (b))
 
+static bool updateTiledBuffer(TIFF* in, unsigned char* buffer, uint32_t w, uint32_t h, uint32_t d,
+                              int format, uint16_t photometric, uint16_t config,
+                              uint16_t bitspersample, uint16_t samplesperpixel)
+{
+    uint32_t tileWidth = 0, tileHeight = 0, tileSize = 0;
+    TIFFGetField(in, TIFFTAG_TILEWIDTH, &tileWidth);
+    TIFFGetField(in, TIFFTAG_TILELENGTH, &tileHeight);
+
+    unsigned char* tileBuffer = new unsigned char[TIFFTileSize(in)];
+    uint32_t bytesPerPixel = (bitspersample * samplesperpixel + 7) / 8;
+    uint32_t bytesPerRow = w * bytesPerPixel;
+
+    // FIXME: consider photometric, config?
+    for (uint32_t y = 0; y < h; y += tileHeight)
+    {
+        for (uint32_t x = 0; x < w; x += tileWidth)
+        {
+            uint32_t actualTileWidth = (x + tileWidth <= w) ? tileWidth : (w - x);
+            uint32_t actualTileHeight = (y + tileHeight <= h) ? tileHeight : (h - y);
+            TIFFReadTile(in, tileBuffer, x, y, 0, 0);
+
+            for (uint32_t ty = 0; ty < actualTileHeight; ty++)
+            {
+                uint8_t* srcRow = (uint8_t*)tileBuffer + (ty * tileWidth * bytesPerPixel);
+                uint8_t* destRow = buffer + ((y + ty) * bytesPerRow) + (x * bytesPerPixel);
+                memcpy(destRow, srcRow, actualTileWidth * bytesPerPixel);
+            }
+        }
+    }
+
+    delete[] tileBuffer;
+    return true;
+}
+
+static bool updateScanlineBuffer(TIFF* in, unsigned char* buffer, uint32_t w, uint32_t h, uint32_t d,
+                                 int format, uint16_t photometric, uint16_t config,
+                                 uint16_t bitspersample, uint16_t samplesperpixel)
+{
+    unsigned char* inBuffer = NULL; bool hasError = false;
+    unsigned char* currPtr = buffer + (h - 1) * w * format;
+    uint16_t* red = NULL, * green = NULL, * blue = NULL;
+    size_t rowSize = TIFFScanlineSize(in);
+    switch (PACK(photometric, config))
+    {
+    case PACK(PHOTOMETRIC_MINISWHITE, PLANARCONFIG_CONTIG):
+    case PACK(PHOTOMETRIC_MINISBLACK, PLANARCONFIG_CONTIG):
+    case PACK(PHOTOMETRIC_MINISWHITE, PLANARCONFIG_SEPARATE):
+    case PACK(PHOTOMETRIC_MINISBLACK, PLANARCONFIG_SEPARATE):
+        inBuffer = new unsigned char[rowSize];
+        for (uint32_t row = 0; row < h; row++)
+        {
+            if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
+            invertRow(currPtr, inBuffer, samplesperpixel * w,
+                      photometric == PHOTOMETRIC_MINISWHITE, bitspersample);
+            currPtr -= format * w;
+        }
+        break;
+
+    case PACK(PHOTOMETRIC_PALETTE, PLANARCONFIG_CONTIG):
+    case PACK(PHOTOMETRIC_PALETTE, PLANARCONFIG_SEPARATE):
+        if (TIFFGetField(in, TIFFTAG_COLORMAP, &red, &green, &blue) != 1)
+            { hasError = true; break; }
+        else if (!hasError && bitspersample != 32 && checkColormap(1 << bitspersample, red, green, blue) == 16)
+        {
+            for (int i = (1 << bitspersample) - 1; i >= 0; --i)
+            { red[i] = CVT(red[i]); green[i] = CVT(green[i]); blue[i] = CVT(blue[i]); }
+        }
+
+        inBuffer = new unsigned char[rowSize];
+        for (uint32_t row = 0; row < h; row++)
+        {
+            if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
+            remapRow(currPtr, inBuffer, w, red, green, blue); currPtr -= format * w;
+        }
+        break;
+
+    case PACK(PHOTOMETRIC_RGB, PLANARCONFIG_CONTIG):
+        inBuffer = new unsigned char[rowSize];
+        for (uint32_t row = 0; row < h; row++)
+        {
+            if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
+            memcpy(currPtr, inBuffer, format * w); currPtr -= format * w;
+        }
+        break;
+
+    case PACK(PHOTOMETRIC_RGB, PLANARCONFIG_SEPARATE):
+        inBuffer = new unsigned char[format * rowSize];
+        for (uint32_t row = 0; !hasError && row < h; row++)
+        {
+            for (int s = 0; s < format; s++)
+            {
+                if (TIFFReadScanline(in, (tdata_t)(inBuffer + s * rowSize), (uint32_t)row, (tsample_t)s) < 0)
+                { hasError = true; break; }
+            }
+
+            if (!hasError)
+            {
+                unsigned char* inBuffer2 = inBuffer + rowSize, * inBuffer3 = inBuffer + 2 * rowSize,
+                    * inBuffer4 = inBuffer + 3 * rowSize;
+                if (format == 4) interleaveRow(currPtr, inBuffer, inBuffer2, inBuffer3, inBuffer4, w, format, bitspersample);
+                else if (format == 3) interleaveRow(currPtr, inBuffer, inBuffer2, inBuffer3, w, format, bitspersample);
+                currPtr -= format * w;
+            }
+        }
+        break;
+    default:
+        OSG_WARN << "[ReaderWriterTiff] Unsupported Packing: " << photometric << ", " << config << std::endl;
+        hasError = true; break;
+    }
+
+    if (inBuffer) delete[] inBuffer;
+    if (hasError)
+    {
+        OSG_WARN << "[ReaderWriterTiff] Failed to read with packing: " << photometric << ", " << config << std::endl;
+        if (buffer) delete[] buffer;
+    }
+    return !hasError;
+}
+
 static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* options)
 {
     TIFFSetErrorHandler(tiffError);
@@ -331,6 +450,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
     TIFFGetField(in, TIFFTAG_DATATYPE, &dataType);
     TIFFGetField(in, TIFFTAG_IMAGEDEPTH, &d);
 
+    bool isTiling = TIFFIsTiled(in);
     osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
     if (d > 1)
     {
@@ -342,87 +462,15 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
         int dirCount = 0, imgSize = w * h * format;
         do
         {
-            unsigned char* inBuffer = NULL; bool hasError = false;
             unsigned char* buffer = new unsigned char[imgSize];
             memset(buffer, 0, imgSize); dirCount++;
-
-            unsigned char* currPtr = buffer + (h - 1) * w * format;
-            uint16_t *red = NULL, *green = NULL, *blue = NULL;
-            size_t rowSize = TIFFScanlineSize(in);
-            switch (PACK(photometric, config))
+            if (isTiling)
             {
-            case PACK(PHOTOMETRIC_MINISWHITE, PLANARCONFIG_CONTIG):
-            case PACK(PHOTOMETRIC_MINISBLACK, PLANARCONFIG_CONTIG):
-            case PACK(PHOTOMETRIC_MINISWHITE, PLANARCONFIG_SEPARATE):
-            case PACK(PHOTOMETRIC_MINISBLACK, PLANARCONFIG_SEPARATE):
-                inBuffer = new unsigned char[rowSize];
-                for (uint32_t row = 0; row < h; row++)
-                {
-                    if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
-                    invertRow(currPtr, inBuffer, samplesperpixel * w,
-                              photometric == PHOTOMETRIC_MINISWHITE, bitspersample);
-                    currPtr -= format * w;
-                }
-                break;
-
-            case PACK(PHOTOMETRIC_PALETTE, PLANARCONFIG_CONTIG):
-            case PACK(PHOTOMETRIC_PALETTE, PLANARCONFIG_SEPARATE):
-                if (TIFFGetField(in, TIFFTAG_COLORMAP, &red, &green, &blue) != 1)
-                { hasError = true; break; }
-                else if (!hasError && bitspersample != 32 && checkColormap(1<<bitspersample, red, green, blue) == 16)
-                {
-                    for (int i = (1 << bitspersample) - 1; i >= 0; --i)
-                    { red[i] = CVT(red[i]); green[i] = CVT(green[i]); blue[i] = CVT(blue[i]); }
-                }
-
-                inBuffer = new unsigned char[rowSize];
-                for (uint32_t row = 0; row < h; row++)
-                {
-                    if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
-                    remapRow(currPtr, inBuffer, w, red, green, blue); currPtr -= format * w;
-                }
-                break;
-
-            case PACK(PHOTOMETRIC_RGB, PLANARCONFIG_CONTIG):
-                inBuffer = new unsigned char[rowSize];
-                for (uint32_t row = 0; row < h; row++)
-                {
-                    if (TIFFReadScanline(in, inBuffer, row, 0) < 0) { hasError = true; break; }
-                    memcpy(currPtr, inBuffer, format * w); currPtr -= format * w;
-                }
-                break;
-
-            case PACK(PHOTOMETRIC_RGB, PLANARCONFIG_SEPARATE):
-                inBuffer = new unsigned char[format * rowSize];
-                for (uint32_t row = 0; !hasError && row < h; row++)
-                {
-                    for (int s = 0; s < format; s++)
-                    {
-                        if (TIFFReadScanline(in, (tdata_t)(inBuffer + s * rowSize), (uint32_t)row, (tsample_t)s) < 0)
-                        { hasError = true; break; }
-                    }
-
-                    if (!hasError)
-                    {
-                        unsigned char *inBuffer2 = inBuffer + rowSize, *inBuffer3 = inBuffer + 2 * rowSize,
-                                      *inBuffer4 = inBuffer + 3 * rowSize;
-                        if (format == 4) interleaveRow(currPtr, inBuffer, inBuffer2, inBuffer3, inBuffer4, w, format, bitspersample);
-                        else if (format == 3) interleaveRow(currPtr, inBuffer, inBuffer2, inBuffer3, w, format, bitspersample);
-                        currPtr -= format * w;
-                    }
-                }
-                break;
-            default:
-                OSG_WARN << "[ReaderWriterTiff] Unsupported Packing: " << photometric << ", " << config << std::endl;
-                hasError = true; break;
+                if (!updateTiledBuffer(in, buffer, w, h, d, format, photometric,
+                                       config, bitspersample, samplesperpixel)) continue;
             }
-
-            if (inBuffer) delete[] inBuffer;
-            if (hasError)
-            {
-                OSG_WARN << "[ReaderWriterTiff] Failed to read with packing: " << photometric << ", " << config << std::endl;
-                if (buffer) delete[] buffer; continue;
-            }
+            else if (!updateScanlineBuffer(in, buffer, w, h, d, format, photometric,
+                                           config, bitspersample, samplesperpixel)) continue;
 
             int numComponents = (photometric == PHOTOMETRIC_PALETTE) ? format : samplesperpixel;
             unsigned int pixelFormat =
@@ -444,7 +492,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
             osg::Image* image = new osg::Image;
             image->setImage(w, h, d, internalFormat, pixelFormat, dataType,
                             buffer, osg::Image::USE_NEW_DELETE);
-            seq->addImage(image);
+            seq->addImage(image); if (isTiling) image->flipVertical();  // FIXME: oriention?
         } while (TIFFReadDirectory(in));
     }
     TIFFClose(in);
@@ -489,6 +537,8 @@ public:
     virtual ReadResult readImage(std::istream& fin, const Options* options) const
     {
         osg::ref_ptr<osg::ImageSequence> seq = tiffLoad(fin, options);
+        if (!seq) return ReadResult::FILE_NOT_FOUND;
+
 #if OSG_VERSION_GREATER_THAN(3, 2, 2)
         osg::ImageSequence::ImageDataList images = seq->getImageDataList();
         return images.empty() ? NULL : ((images.size() == 1) ?

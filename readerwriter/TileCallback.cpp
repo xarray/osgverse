@@ -128,7 +128,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 if (elevation)
                 {
                     osg::Vec4 elevColor = elevation->getColor(uv);  // FIXME: scale?...
-                    altitude = useRealElevation ? elevColor[0] * 2.0f : mapAltitude(elevColor);
+                    altitude = (useRealElevation ? elevColor[0] : mapAltitude(elevColor)) * _elevationScale;
                 }
 
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
@@ -138,19 +138,21 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
                 (*ca)[vi] = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
             }
-
+#if false
         for (unsigned int y = 1; y < numRows - 1; ++y)
             for (unsigned int x = 1; x < numCols - 1; ++x)
-            {
-                // Recompute non-boundary normals
+            {   // Recompute non-boundary normals
                 unsigned int vi = x + y * numCols; const osg::Vec3& v0 = (*va)[vi];
-                osg::Plane p0(v0, (*va)[x - 1 + y * numCols], (*va)[x + (y - 1) * numCols]);
-                osg::Plane p1(v0, (*va)[x + 1 + y * numCols], (*va)[x + (y + 1) * numCols]);
-                osg::Plane p2(v0, (*va)[x + (y - 1) * numCols], (*va)[x + 1 + y * numCols]);
-                osg::Plane p3(v0, (*va)[x + (y + 1) * numCols], (*va)[x - 1 + y * numCols]);
+                unsigned int vx0 = (x > 0 ? (x - 1) : x) + y * numCols;
+                unsigned int vx1 = (x < numCols - 1 ? (x + 1) : x) + y * numCols;
+                unsigned int vy0 = x + (y > 0 ? (y - 1) : y) * numCols;
+                unsigned int vy1 = x + (y < numCols - 1 ? (y + 1) : y) * numCols;
+
+                osg::Plane p0(v0, (*va)[vx0], (*va)[vy0]), p1(v0, (*va)[vx1], (*va)[vy1]);
+                osg::Plane p2(v0, (*va)[vy0], (*va)[vx1]), p3(v0, (*va)[vy1], (*va)[vx0]);
                 (*na)[vi] = p0.getNormal() + p1.getNormal() + p2.getNormal() + p3.getNormal(); (*na)[vi].normalize();
             }
-
+#endif
         osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
         for (unsigned int y = 0; y < numRows - 1; ++y)
             for (unsigned int x = 0; x < numCols - 1; ++x)
