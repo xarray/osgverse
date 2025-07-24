@@ -43,7 +43,7 @@ namespace osgVerse
                                                   const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                                   double width, double height) const;
 
-        enum LayerType { ELEVATION = 0, ORTHOPHOTO, VECTOR, USER };
+        enum LayerType { ELEVATION = 0, ORTHOPHOTO, OCEAN_MASK, USER };
         osg::Image* createLayerImage(LayerType id);
         TileGeometryHandler* createLayerHandler(LayerType id);
 

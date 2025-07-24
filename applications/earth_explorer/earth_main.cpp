@@ -26,9 +26,10 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
-extern osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
-                                                const std::string& mainFolder, int width, int height);
-extern osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root,
+typedef std::pair<osg::Camera*, osg::Texture*> CameraTexturePair;
+extern CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
+                                                     const std::string& mainFolder, int width, int height);
+extern osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Texture* sceneMaskTex,
                                  const std::string& mainFolder, int width, int height, unsigned int mask);
 extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
@@ -112,8 +113,9 @@ int main(int argc, char** argv)
 
     // Create earth
     std::string earthURLs = " Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
-                            //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
+                            " Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
                             //" Elevation=F:/GoogleElevation/{z}/{x}/{y}.tif"
+                            " OceanMask=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
                             " MaximumLevel=7 UseWebMercator=0 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
@@ -124,9 +126,11 @@ int main(int argc, char** argv)
 
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    osg::ref_ptr<osg::Camera> sceneCamera =
-        configureEarthAndAtmosphere(viewer, root.get(), earth.get(), mainFolder, w, h);
-    configureOcean(viewer, root.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
+    CameraTexturePair camTexPair = configureEarthAndAtmosphere(viewer, root.get(), earth.get(), mainFolder, w, h);
+
+    osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
+    osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
+    configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
     configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
     //osg::MatrixTransform* vdb = createVolumeBox(

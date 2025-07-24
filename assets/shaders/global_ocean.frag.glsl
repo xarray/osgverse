@@ -7,6 +7,7 @@ uniform sampler3D inscatterSampler;
 
 uniform vec3 worldCameraPos;
 uniform vec3 worldSunDir;
+uniform vec2 screenSize;
 uniform float hdrExposure;
 
 uniform mat4 cameraToOcean, oceanToCamera, oceanToWorld;
@@ -15,6 +16,7 @@ uniform vec3 oceanCameraPos, oceanSunDir;
 uniform vec3 horizon1, horizon2;
 uniform float radius;
 
+uniform sampler2D earthMaskSampler;  // original earth scene
 uniform sampler1D wavesSampler; // waves parameters (h, omega, kx, ky) in wind space
 uniform float nbWaves; // number of waves
 uniform float heightOffset; // so that surface height is centered around z = 0
@@ -31,7 +33,7 @@ uniform vec4 lods;  // grid cell size in pixels, angle under which a grid cell i
 const float PI = 3.141592657;
 const float g = 9.81;
 
-VERSE_FS_IN vec2 oceanUv; // coordinates in wind space used to compute P(u)
+VERSE_FS_IN vec3 oceanUv; // coordinates in wind space used to compute P(u)
 VERSE_FS_IN vec3 oceanP; // wave point P(u) in ocean space
 VERSE_FS_IN vec3 oceanDPdu; // dPdu in wind space, used to compute N
 VERSE_FS_IN vec3 oceanDPdv; // dPdv in wind space, used to compute N
@@ -121,9 +123,7 @@ float wardReflectedSunRadiance(vec3 L, vec3 V, vec3 N, float sigmaSq)
 }
 
 float meanFresnel(float cosThetaV, float sigmaV)
-{
-    return pow(1.0 - cosThetaV, 5.0 * exp(-2.69 * sigmaV)) / (1.0 + 22.7 * pow(sigmaV, 1.5));
-}
+{ return pow(1.0 - cosThetaV, 5.0 * exp(-2.69 * sigmaV)) / (1.0 + 22.7 * pow(sigmaV, 1.5)); }
 
 float meanFresnel(vec3 V, vec3 N, float sigmaSq)
 { return meanFresnel(dot(V, N), sqrt(sigmaSq)); }
@@ -133,8 +133,12 @@ float refractedSeaRadiance(vec3 V, vec3 N, float sigmaSq)
 
 void main()
 {
+    vec2 quadUV = vec2(gl_FragCoord.x / screenSize.x, gl_FragCoord.y / screenSize.y);
+    vec4 sceneColor = VERSE_TEX2D(earthMaskSampler, quadUV);
+    if (oceanUv.z < 0.5 || sceneColor.a < 0.1) discard;
+
     vec3 WSD = getWorldSunDir(), WCP = getWorldCameraPos();
-    vec3 dPdu = oceanDPdu, dPdv = oceanDPdv; vec2 uv = oceanUv;
+    vec3 dPdu = oceanDPdu, dPdv = oceanDPdv; vec2 uv = oceanUv.xy;
     float lod = oceanLod, sigmaSq = oceanSigmaSq;
 
     float iMAX = min(ceil((log2(NYQUIST_MAX * lod) - lods.z) * lods.w), nbWaves - 1.0);
@@ -178,6 +182,9 @@ void main()
     // aerial perspective
     vec3 inscatter = inScattering(earthCamera, earthP, oceanSunDir, extinction, 0.0);
     vec3 finalColor = surfaceColor * extinction + inscatter;
-    fragData.rgb = hdr(finalColor); fragData.a = 1.0;
+    fragData.rgb = hdr(finalColor);
+
+    // Input sceneColor should be a black/white image to show where ocean is...
+    fragData.a = 1.0 - length(clamp(sceneColor.r, 0.0, 1.0));
     VERSE_FS_FINAL(fragData);
 }

@@ -18,7 +18,7 @@ uniform vec4 lods;  // grid cell size in pixels, angle under which a grid cell i
 const float PI = 3.141592657;
 const float g = 9.81;
 
-VERSE_VS_OUT vec2 oceanUv; // coordinates in wind space used to compute P(u)
+VERSE_VS_OUT vec3 oceanUv; // coordinates in wind space used to compute P(u); z: can render or not
 VERSE_VS_OUT vec3 oceanP; // wave point P(u) in ocean space
 VERSE_VS_OUT vec3 oceanDPdu; // dPdu in wind space, used to compute N
 VERSE_VS_OUT vec3 oceanDPdv; // dPdv in wind space, used to compute N
@@ -55,6 +55,7 @@ vec2 oceanPos(vec3 vertex)
 void main()
 {
     float t = 0.0; vec3 cameraDir, oceanDir;
+    oceanUv.z = (oceanCameraPos.z > 0.0) ? 1.0 : 0.0;
     vec2 uv = oceanPos(osg_Vertex.xyz, t, cameraDir, oceanDir);
 
     float lod = -t / oceanDir.z * lods.y; // size in meters of one grid cell, projected on the sea surface
@@ -93,7 +94,7 @@ void main()
         dPdv += vec3(0.0, 0.0, -p.y / (radius + p.z));
     }
 
-    oceanLod = lod; oceanUv = uv; oceanP = p;
+    oceanLod = lod; oceanUv.xy = uv; oceanP = p;
     oceanDPdu = dPdu; oceanDPdv = dPdv; oceanSigmaSq = sigmaSq;
     vec4 pos = cameraToScreen * vec4(t * cameraDir + (oceanToCamera * vec4(dP, 1.0)).xyz, 1.0);
     gl_Position = pos / pos.w; gl_Position.z = 0.0;

@@ -61,7 +61,7 @@ public:
         supportsOption("URL", "The TMS server URL with wildcards, applied as orthophoto layer");
         supportsOption("Orthophoto", "TMS server URL with wildcards or .mbtiles, applied as orthophoto layer");
         supportsOption("Elevation", "TMS server URL with wildcards or .mbtiles, applied as elevation layer");
-        supportsOption("Vector", "TMS server URL with wildcards or .mbtiles, applied as line graph layer");
+        supportsOption("OceanMask", "TMS server URL with wildcards or .mbtiles, applied as ocean mask layer");
         supportsOption("UrlPathFunction", "The custom function from setPluginData() to compute tile URL");
         supportsOption("UseEarth3D", "Display TMS tiles as a real earth: default=0");
         supportsOption("UseWebMercator", "Use Web Mercator (Level-0 has 4 tiles): default=0");
@@ -103,7 +103,7 @@ public:
             int maxZ = atoi(maxLvStr.c_str());  // return OK but not loading anything
             if (maxZ > 0 && maxZ < z) return ReadResult::FILE_LOADED;
 
-            std::string vectAddr = osgVerse::urlDecode(options->getPluginStringData("Vector"));
+            std::string maskAddr = osgVerse::urlDecode(options->getPluginStringData("OceanMask"));
             std::string elevAddr = osgVerse::urlDecode(options->getPluginStringData("Elevation"));
             std::string orthoAddr = osgVerse::urlDecode(options->getPluginStringData("Orthophoto"));
             if (orthoAddr.empty()) orthoAddr = osgVerse::urlDecode(options->getPluginStringData("URL"));
@@ -132,7 +132,7 @@ public:
                 for (int xx = 0; xx < 2; ++xx)
                 {
                     osg::ref_ptr<osg::Node> node = createTile(
-                        elevAddr, orthoAddr, vectAddr, x + xx, y + yy, z, extentMin, extentMax, options, useWM, flatten);
+                        elevAddr, orthoAddr, maskAddr, x + xx, y + yy, z, extentMin, extentMax, options, useWM, flatten);
                     if (!node) continue;
 
                     osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
@@ -155,7 +155,7 @@ public:
 
 protected:
     osg::Node* createTile(const std::string& elevPath, const std::string& orthPath,
-                          const std::string& vectPath, int x, int y, int z,
+                          const std::string& maskPath, int x, int y, int z,
                           const osg::Vec3d& extentMin, const osg::Vec3d& extentMax,
                           const Options* opt, bool useWM, bool flatten) const
     {
@@ -176,7 +176,7 @@ protected:
         osg::ref_ptr<osgVerse::TileCallback> tileCB = new osgVerse::TileCallback;
         tileCB->setLayerPath(osgVerse::TileCallback::ELEVATION, elevPath1);
         tileCB->setLayerPath(osgVerse::TileCallback::ORTHOPHOTO, orthPath);
-        tileCB->setLayerPath(osgVerse::TileCallback::VECTOR, vectPath);
+        tileCB->setLayerPath(osgVerse::TileCallback::OCEAN_MASK, maskPath);
         tileCB->setTotalExtent(extentMin, extentMax); tileCB->setTileNumber(x, y, z);
         tileCB->setBottomLeft(botLeft == "true" || atoi(botLeft.c_str()) > 0);
         tileCB->setUseWebMercator(useWM); tileCB->setFlatten(flatten);
@@ -199,7 +199,7 @@ protected:
         else elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION);
 
         osg::ref_ptr<osg::Image> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO);
-        osg::ref_ptr<osg::Image> vectImage = tileCB->createLayerImage(osgVerse::TileCallback::VECTOR);
+        osg::ref_ptr<osg::Image> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK);
         if (!orthImage) return NULL;
 
         osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?
@@ -211,11 +211,13 @@ protected:
             geom->getOrCreateStateSet()->setTextureAttributeAndModes(
                 0, osgVerse::createTexture2D(orthImage.get(), osg::Texture::CLAMP_TO_EDGE));
         }
-        if (vectImage.valid())
+
+        if (maskImage.valid())
         {
             geom->getOrCreateStateSet()->setTextureAttributeAndModes(
-                1, osgVerse::createTexture2D(vectImage.get(), osg::Texture::CLAMP_TO_EDGE));
+                1, osgVerse::createTexture2D(maskImage.get(), osg::Texture::CLAMP_TO_EDGE));
         }
+        // FIXME: handle more layers? using tex2d array?
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         geode->addDrawable(geom.get()); geode->setName(name + "_Geode");

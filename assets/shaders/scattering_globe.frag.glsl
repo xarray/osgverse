@@ -1,4 +1,4 @@
-uniform sampler2D sceneSampler;
+uniform sampler2D sceneSampler, maskSampler;
 uniform sampler2D glareSampler;
 uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
@@ -14,7 +14,11 @@ uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 VERSE_FS_IN vec3 normalInWorld;
 VERSE_FS_IN vec3 vertexInWorld;
 VERSE_FS_IN vec4 texCoord, baseColor;
-VERSE_FS_OUT vec4 fragColor;
+
+#ifdef VERSE_GLES3
+layout(location = 0) VERSE_FS_OUT vec4 fragColor;
+layout(location = 1) VERSE_FS_OUT vec4 fragOrigin;
+#endif
 
 #define SUN_INTENSITY 100.0
 #define PLANET_RADIUS 6360000.0
@@ -41,16 +45,24 @@ void main()
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
     
     vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st) * baseColor;
+    vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
     groundColor.rgb *= max((sunL * sunColorScale * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
     groundColor.a *= clamp(opaque, 0.0, 1.0);
     
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
-    vec3 finalColor = groundColor.rgb * extinction + inscatter * skyColorScale;
-    fragColor = vec4(hdr(finalColor), groundColor.a);
+    vec3 compositeColor = groundColor.rgb * extinction + inscatter * skyColorScale;
+    vec4 finalColor = vec4(hdr(compositeColor), groundColor.a);
 
     // Color grading work
-    fragColor.rgb = colorBalanceFunc(fragColor.rgb, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
-    fragColor.rgb = colorAdjustmentFunc(fragColor.rgb, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
-    VERSE_FS_FINAL(fragColor);
+    finalColor.rgb = colorBalanceFunc(finalColor.rgb, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
+    finalColor.rgb = colorAdjustmentFunc(finalColor.rgb, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
+
+#ifdef VERSE_GLES3
+    fragColor/*Atmospheric Color*/ = finalColor;
+    fragOrigin/*Mask Color*/ = maskColor;
+#else
+    gl_FragData[0]/*Atmospheric Color*/ = finalColor;
+    gl_FragData[1]/*Mask Color*/ = maskColor;
+#endif
 }

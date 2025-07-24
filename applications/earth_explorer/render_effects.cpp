@@ -219,8 +219,9 @@ static osg::Texture* createRawTexture3D(unsigned char* data, int w, int h, int d
     return tex3D.release();
 }
 
-osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
-                                         const std::string& mainFolder, int width, int height)
+typedef std::pair<osg::Camera*, osg::Texture*> CameraTexturePair;
+CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
+                                              const std::string& mainFolder, int width, int height)
 {
     // Create RTT camera to render the globe
     osg::Shader* vs1 = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "scattering_globe.vert.glsl");
@@ -239,9 +240,17 @@ osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* ro
     rttBuffer->setWrap(osg::Texture2D::WRAP_S, osg::Texture::CLAMP);
     rttBuffer->setWrap(osg::Texture2D::WRAP_T, osg::Texture::CLAMP);
 
+    osg::ref_ptr<osg::Texture> rttBuffer2 =
+        osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, width, height);
+    rttBuffer2->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+    rttBuffer2->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+    rttBuffer2->setWrap(osg::Texture2D::WRAP_S, osg::Texture::CLAMP);
+    rttBuffer2->setWrap(osg::Texture2D::WRAP_T, osg::Texture::CLAMP);
+
     osg::Camera* rttCamera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, NULL, NULL, false);
     rttCamera->setViewport(0, 0, rttBuffer->getTextureWidth(), rttBuffer->getTextureHeight());
     rttCamera->attach(osg::Camera::COLOR_BUFFER0, rttBuffer.get(), 0, 0, false, 16, 4);
+    rttCamera->attach(osg::Camera::COLOR_BUFFER1, rttBuffer2.get());
     earth->getOrCreateStateSet()->setAttributeAndModes(program1.get());
 
     // Create the atmosphere HUD
@@ -266,16 +275,18 @@ osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* ro
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     ss->setTextureAttributeAndModes(0, osgVerse::createDefaultTexture());
-    ss->setTextureAttributeAndModes(1, osgVerse::createTexture2D(
+    ss->setTextureAttributeAndModes(1, osgVerse::createDefaultTexture());
+    ss->setTextureAttributeAndModes(2, osgVerse::createTexture2D(
         osgDB::readImageFile(BASE_DIR + "/textures/sunglare.png"), osg::Texture::CLAMP));
-    ss->setTextureAttributeAndModes(2, createRawTexture2D(transmittance, 256, 64, true));
-    ss->setTextureAttributeAndModes(3, createRawTexture2D(irradiance, 64, 16, true));
-    ss->setTextureAttributeAndModes(4, createRawTexture3D(inscatter, 256, 128, 32, false));
+    ss->setTextureAttributeAndModes(3, createRawTexture2D(transmittance, 256, 64, true));
+    ss->setTextureAttributeAndModes(4, createRawTexture2D(irradiance, 64, 16, true));
+    ss->setTextureAttributeAndModes(5, createRawTexture3D(inscatter, 256, 128, 32, false));
     ss->addUniform(new osg::Uniform("sceneSampler", (int)0));
-    ss->addUniform(new osg::Uniform("glareSampler", (int)1));
-    ss->addUniform(new osg::Uniform("transmittanceSampler", (int)2));
-    ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)3));
-    ss->addUniform(new osg::Uniform("inscatterSampler", (int)4));
+    ss->addUniform(new osg::Uniform("maskSampler", (int)1));
+    ss->addUniform(new osg::Uniform("glareSampler", (int)2));
+    ss->addUniform(new osg::Uniform("transmittanceSampler", (int)3));
+    ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)4));
+    ss->addUniform(new osg::Uniform("inscatterSampler", (int)5));
     ss->addUniform(new osg::Uniform("origin", osg::Vec3(0.0f, 0.0f, 0.0f)));
     ss->addUniform(new osg::Uniform("opaque", 1.0f));
     ss->addUniform(new osg::Uniform("ColorBalanceMode", (int)0));
@@ -302,7 +313,6 @@ osg::Camera* configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* ro
     imgui->addToView(&viewer, postCamera.get());
 
     rttCamera->addChild(earth);
-    root->addChild(rttCamera);
-    root->addChild(hudCamera);
-    return rttCamera;
+    root->addChild(rttCamera); root->addChild(hudCamera);
+    return CameraTexturePair(rttCamera, rttBuffer2.get());
 }

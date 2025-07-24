@@ -159,7 +159,7 @@ static float grandom(float mean, float stdDeviation, long* seed)
     return mean + y1 * stdDeviation;
 }
 
-void generateWaves(osg::StateSet* ss)
+osg::Texture* generateWaves(osg::StateSet* ss)
 {
     long seed = 1234567;
     float min = log(lambdaMin) / log(2.0f);
@@ -250,8 +250,7 @@ void generateWaves(osg::StateSet* ss)
     ss->addUniform(new osg::Uniform("seaColor", seaColor));
     ss->addUniform(new osg::Uniform("seaRoughness", sigmaXsq));
     ss->addUniform(new osg::Uniform("nbWaves", (float)nbWaves));
-    ss->addUniform(new osg::Uniform("wavesSampler", (int)5));
-    ss->setTextureAttributeAndModes(5, tex.get());
+    return tex.release();
 }
 
 osg::Geometry* createGrid(int w, int h)
@@ -330,23 +329,24 @@ public:
         osg::Matrix ctos = _camera->getProjectionMatrix();
         osg::Matrix stoc = osg::Matrix::inverse(ctos);
         osg::Matrix otoc = osg::Matrix::inverse(ctoo);
-        osg::Vec3d oc = osg::Vec3d() * ctoo;
-        osg::Vec3 wDir, oDir; otoc.setTrans(osg::Vec3());
+        otoc.setTrans(osg::Vec3());
 
+        osg::Vec3 wDir, oDir;
         osg::StateSet* ss = node->getOrCreateStateSet();
         osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
         osg::Uniform* oceanSunDir = ss->getOrCreateUniform("oceanSunDir", osg::Uniform::FLOAT_VEC3);
         worldSunDir->get(wDir); oceanSunDir->set(osg::Matrixf::transform3x3(wDir, ltoo));
 
+        osg::Vec3d oc = osg::Vec3d() * ctoo; float h = oc.z();  // if h < 0, we are under the ocean...
         ss->getOrCreateUniform("cameraToOcean", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctoo));
         ss->getOrCreateUniform("screenToCamera", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(stoc));
         ss->getOrCreateUniform("cameraToScreen", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctos));
         ss->getOrCreateUniform("oceanToCamera", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(otoc));
         ss->getOrCreateUniform("oceanToWorld", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf::inverse(ltoo));
         ss->getOrCreateUniform("oceanCameraPos", osg::Uniform::FLOAT_VEC3)
-          ->set(osg::Vec3(-offset.x(), -offset.y(), oc.z()));
+          ->set(osg::Vec3(-offset.x(), -offset.y(), h));
 
-        float h = oc.z(); osg::Vec4d temp;
+        osg::Vec4d temp;
         temp = osg::Vec4d(0.0, 0.0, 0.0, 1.0) * stoc;
         temp = osg::Vec4d(temp[0], temp[1], temp[2], 0.0) * ctoo;
         osg::Vec3d A0(temp[0], temp[1], temp[2]);
@@ -381,10 +381,13 @@ public:
 
         // angle under which a screen pixel is viewed from the camera
         float fov, aspectRatio, znear, zfar;
+        float width = _camera->getViewport() ? _camera->getViewport()->width() : 1920;
         float height = _camera->getViewport() ? _camera->getViewport()->height() : 1080;
         _camera->getProjectionMatrix().getPerspective(fov, aspectRatio, znear, zfar);
 
+        // FIXME: pixelSize affects wave tiling, should be treated carefully
         float pixelSize = atan(tan(osg::inDegrees(fov * aspectRatio * 1.2f)) / (height / 2.0f));
+        ss->getOrCreateUniform("screenSize", osg::Uniform::FLOAT_VEC2)->set(osg::Vec2(width, height));
         ss->getOrCreateUniform("radius", osg::Uniform::FLOAT)->set((float)radius);
         ss->getOrCreateUniform("heightOffset", osg::Uniform::FLOAT)->set(-meanHeight);
         ss->getOrCreateUniform("lods", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(
@@ -422,7 +425,7 @@ protected:
     osg::Vec3d offset;
 };
 
-osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root,
+osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Texture* sceneMaskTex,
                           const std::string& mainFolder, int width, int height, unsigned int mask)
 {
     osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "global_ocean.vert.glsl");
@@ -442,13 +445,18 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root,
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     ss->setAttributeAndModes(program.get());
-    generateWaves(ss);
+    ss->addUniform(new osg::Uniform("wavesSampler", (int)6));
+    ss->addUniform(new osg::Uniform("earthMaskSampler", (int)7));
+    ss->setTextureAttributeAndModes(6, generateWaves(ss));
+    ss->setTextureAttributeAndModes(7, sceneMaskTex);
 
     osg::Geometry* grid = createGrid(width, height);
     osg::Geode* grideGeode = new osg::Geode;
     grideGeode->addDrawable(grid);
     hudCamera->addChild(grideGeode);
     hudCamera->setNodeMask(mask);
+    hudCamera->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    hudCamera->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
     root->addChild(hudCamera);
     root->addUpdateCallback(new OceanCallback(viewer.getCamera(), grid));
