@@ -31,22 +31,22 @@ static std::string trim(const std::string& str)
 static void splitString(const std::string& src, std::vector<std::string>& slist, char sep, bool ignoreEmpty)
 {
     if (src.empty()) return;
-    std::string::size_type start = src.find_first_not_of(sep);
-    while (start != std::string::npos)
+    std::string::size_type start = 0;
+    bool inQuotes = false;
+
+    for (std::string::size_type i = 0; i < src.size(); ++i)
     {
-        std::string::size_type end = src.find_first_of(sep, start);
-        if (end != std::string::npos)
+        if (src[i] == '"')
+            inQuotes = !inQuotes;
+        else if (src[i] == sep && !inQuotes)
         {
-            slist.push_back(std::string(src, start, end - start));
-            if (ignoreEmpty) start = src.find_first_not_of(sep, end);
-            else start = end + 1;
-        }
-        else
-        {
-            slist.push_back(std::string(src, start, src.size() - start));
-            start = end;
+            if (!ignoreEmpty || (i - start) > 0)
+                slist.push_back(src.substr(start, i - start));
+            start = i + 1;
         }
     }
+    if (!ignoreEmpty || (src.size() - start) > 0)
+        slist.push_back(src.substr(start, src.size() - start));
 }
 
 ParticleCloud::ParticleCloud()
@@ -77,6 +77,7 @@ bool ParticleCloud::loadFromCsv(std::istream& in, Getter getter, char sep)
             size_t numColumns = valueMap.size();
             if (numColumns != values.size())
             {
+                std::cout << line << "\n";
                 OSG_NOTICE << "[ParticleCloud] CSV line " << rowID << " has different values (" << values.size()
                            << ") than " << numColumns  << " header columns" << std::endl; continue;
             }

@@ -4,7 +4,7 @@ uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
 uniform vec3 worldCameraPos, worldSunDir, origin;
-uniform float hdrExposure, opaque;
+uniform float hdrExposure, globalOpaque;
 
 uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
 uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
@@ -47,6 +47,6 @@ void main()
     
     vec4 scene = VERSE_TEX2D(sceneSampler, texCoord.st);
     fragColor.rgb = mix(hdr(finalColor), scene.rgb, scene.a);
-    fragColor.rgb = mix(scene.rgb, fragColor.rgb, clamp(opaque, 0.0, 1.0));
+    fragColor.rgb = mix(scene.rgb, fragColor.rgb, clamp(globalOpaque, 0.0, 1.0));
     VERSE_FS_FINAL(fragColor);
 }

@@ -169,7 +169,7 @@ public:
         if (!grids) return ReadResult::ERROR_IN_READING_FILE;
 
         std::vector<osg::ref_ptr<osg::Image>> images;
-        std::string hintStr = options ? options->getPluginStringData("DimensionScale") : "0.1";
+        std::string hintStr = options ? options->getPluginStringData("DimensionScale") : "1";
         float scale = atof(hintStr.c_str()); if (scale <= 0.0f) scale = 1.0f;
         for (size_t i = 0; i < grids->size(); ++i)
         {
@@ -182,27 +182,27 @@ public:
             openvdb::FloatGrid::Ptr g0 = openvdb::gridPtrCast<openvdb::FloatGrid>((*grids)[i]);
             if (g0)
             {
-                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_UNSIGNED_BYTE);
-                img->setInternalTextureFormat(GL_LUMINANCE8);
-                createImage<openvdb::FloatGrid, float>(*g0, img.get(), res, 1);
+                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_FLOAT);
+                img->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
+                createImage<openvdb::FloatGrid, float, float>(*g0, img.get(), res, 1);
                 if (img->valid()) images.push_back(img);
             }
 
             openvdb::Int32Grid::Ptr g1 = openvdb::gridPtrCast<openvdb::Int32Grid>((*grids)[i]);
             if (g1)
             {
-                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_UNSIGNED_BYTE);
-                img->setInternalTextureFormat(GL_LUMINANCE8);
-                createImage<openvdb::Int32Grid, int32_t>(*g1, img.get(), res, 1);
+                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_FLOAT);
+                img->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
+                createImage<openvdb::Int32Grid, int32_t, float>(*g1, img.get(), res, 1);
                 if (img->valid()) images.push_back(img);
             }
 
             openvdb::DoubleGrid::Ptr g2 = openvdb::gridPtrCast<openvdb::DoubleGrid>((*grids)[i]);
             if (g2)
             {
-                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_UNSIGNED_BYTE);
-                img->setInternalTextureFormat(GL_LUMINANCE8);
-                createImage<openvdb::DoubleGrid, double>(*g2, img.get(), res, 1);
+                img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_FLOAT);
+                img->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
+                createImage<openvdb::DoubleGrid, double, float>(*g2, img.get(), res, 1);
                 if (img->valid()) images.push_back(img);
             }
 
@@ -362,7 +362,7 @@ public:
         {
             const osg::Vec4& pos = positions->at(i);
             const osg::Vec4& attr = attributes->at(i);
-            coord.reset(pos[0], pos[1], pos[2]);
+            coord.reset(pos[0] * 10000.0, pos[1] * 10000.0, pos[2] * 0.5);
             accessor.setValue(coord, attr[0]);  // FIXME: only for Zhijiang csv...
         }
         grids->push_back(grid);
@@ -395,7 +395,7 @@ protected:
         T _min, _max;
     };
 
-    template<typename GridType, typename T>
+    template<typename GridType, typename T, typename T_OUT>
     void createImage(GridType& grid, osg::Image* image, const osg::Vec3d& res, int comp) const
     {
         openvdb::tools::GridSampler<GridType, openvdb::tools::BoxSampler> sampler(grid);
@@ -435,16 +435,15 @@ protected:
             out_value_range.addValue(per_thread_range._max);
         }
 
-        // Remap sample values to [0, 1]
-        unsigned char* ptr = (unsigned char*)image->data();
+        T_OUT* ptr = (T_OUT*)image->data();
         tbb::parallel_for(tbb::blocked_range<size_t>(0, num_voxels * comp),
             [&ptr, &dataArray, &out_value_range](const tbb::blocked_range<size_t>& range)
         {
-            double inv = 1.0 / (double)(out_value_range._max - out_value_range._min);
+            //double inv = 1.0 / (double)(out_value_range._max - out_value_range._min);
             for (size_t i = range.begin(); i < range.end(); ++i)
             {
-                double v = (double)(dataArray[i] - out_value_range._min) * inv;
-                *(ptr + i) = (unsigned char)(v * 255.0);
+                //double v = (double)(dataArray[i] - out_value_range._min) * inv;  // FIXME: how to remap?
+                *(ptr + i) = (T_OUT)dataArray[i];
             }
         });
     }

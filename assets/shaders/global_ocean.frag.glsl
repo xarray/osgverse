@@ -21,7 +21,7 @@ uniform sampler1D wavesSampler; // waves parameters (h, omega, kx, ky) in wind s
 uniform float nbWaves; // number of waves
 uniform float heightOffset; // so that surface height is centered around z = 0
 uniform float seaRoughness; // total variance
-uniform float time; // current time
+uniform float time, oceanOpaque;
 uniform vec3 seaColor; // sea bottom color
 uniform vec4 lods;  // grid cell size in pixels, angle under which a grid cell is seen,
                     // and parameters of the geometric series used for wavelengths
@@ -182,9 +182,9 @@ void main()
     // aerial perspective
     vec3 inscatter = inScattering(earthCamera, earthP, oceanSunDir, extinction, 0.0);
     vec3 finalColor = surfaceColor * extinction + inscatter;
-    fragData.rgb = hdr(finalColor);
+    fragData.rgb = hdr(finalColor); fragData.a = clamp(oceanOpaque, 0.0, 1.0);
 
     // Input sceneColor should be a black/white image to show where ocean is...
-    fragData.a = 1.0 - length(clamp(sceneColor.r, 0.0, 1.0));
+    fragData.a *= 1.0 - length(clamp(sceneColor.r, 0.0, 1.0));
     VERSE_FS_FINAL(fragData);
 }

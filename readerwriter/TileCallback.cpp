@@ -31,7 +31,8 @@ osg::Image* TileCallback::createLayerImage(LayerType id)
     std::string inputAddr = _layerPaths[(int)id]; if (inputAddr.empty()) return NULL;
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
-    if (!osgDB::getServerProtocol(url).empty()) url += ".verse_web";
+    std::string protocol = osgDB::getServerProtocol(url);
+    if (protocol.find("http") != std::string::npos) url += ".verse_web";  // FIXME: only http?
     return osgDB::readImageFile(url);
 }
 
@@ -40,7 +41,8 @@ TileGeometryHandler* TileCallback::createLayerHandler(LayerType id)
     std::string inputAddr = _layerPaths[(int)id]; if (inputAddr.empty()) return NULL;
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
-    if (!osgDB::getServerProtocol(url).empty()) url += ".verse_web";
+    std::string protocol = osgDB::getServerProtocol(url);
+    if (protocol.find("http") != std::string::npos) url += ".verse_web";  // FIXME: only http?
     return dynamic_cast<TileGeometryHandler*>(osgDB::readObjectFile(url));
 }
 
@@ -119,7 +121,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
         osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numVertices);
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numVertices);
         osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(numVertices);
-        double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1);
+        double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1), lastAlt = 0.0;
         for (unsigned int y = 0; y < numRows; ++y)
             for (unsigned int x = 0; x < numCols; ++x)
             {
@@ -128,7 +130,8 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 if (elevation)
                 {
                     osg::Vec4 elevColor = elevation->getColor(uv);  // FIXME: scale?...
-                    altitude = (useRealElevation ? elevColor[0] : mapAltitude(elevColor)) * _elevationScale;
+                    if (elevColor[0] > 10e6 || elevColor[0] < -10e6) { altitude = lastAlt; }
+                    else altitude = (useRealElevation ? elevColor[0] : mapAltitude(elevColor)) * _elevationScale;
                 }
 
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
@@ -136,9 +139,9 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
                 (*va)[vi] = osg::Vec3(ecef * worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
-                (*ca)[vi] = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                (*ca)[vi] = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f); lastAlt = altitude;
             }
-#if false
+#if true
         for (unsigned int y = 1; y < numRows - 1; ++y)
             for (unsigned int x = 1; x < numCols - 1; ++x)
             {   // Recompute non-boundary normals
@@ -150,7 +153,8 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
 
                 osg::Plane p0(v0, (*va)[vx0], (*va)[vy0]), p1(v0, (*va)[vx1], (*va)[vy1]);
                 osg::Plane p2(v0, (*va)[vy0], (*va)[vx1]), p3(v0, (*va)[vy1], (*va)[vx0]);
-                (*na)[vi] = p0.getNormal() + p1.getNormal() + p2.getNormal() + p3.getNormal(); (*na)[vi].normalize();
+                osg::Vec3 N = p0.getNormal() + p1.getNormal() + p2.getNormal() + p3.getNormal(); N.normalize();
+                (*na)[vi] = (*na)[vi] * 0.7f + N * 0.3f; (*na)[vi].normalize();
             }
 #endif
         osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
@@ -164,7 +168,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
 
         if (_skirtRatio > 0.0f)
         {
-            float skirtHeight = (float)(tileRefSize * _skirtRatio);
+            float skirtHeight = (float)fabs(tileRefSize * _skirtRatio);
             unsigned int vi = numRows * numCols;
             // row[0]
             unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;

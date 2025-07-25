@@ -24,7 +24,7 @@ float lambdaMin = 0.02f, lambdaMax = 30.0f;
 float meanHeight = 0.0f, heightMax = 0.4f;//0.5;
 osg::Vec3 seaColor = osg::Vec3(10.f / 255.f, 40.f / 255.f, 120.f / 255.f) * 0.1f;
 
-#define SIMULATE_VERTEX 1
+#define SIMULATE_VERTEX 0
 #if SIMULATE_VERTEX
 namespace
 {
@@ -386,7 +386,7 @@ public:
         _camera->getProjectionMatrix().getPerspective(fov, aspectRatio, znear, zfar);
 
         // FIXME: pixelSize affects wave tiling, should be treated carefully
-        float pixelSize = atan(tan(osg::inDegrees(fov * aspectRatio * 1.2f)) / (height / 2.0f));
+        float pixelSize = atan(tan(osg::inDegrees(fov * aspectRatio * 0.5f)) / (height / 2.0f));
         ss->getOrCreateUniform("screenSize", osg::Uniform::FLOAT_VEC2)->set(osg::Vec2(width, height));
         ss->getOrCreateUniform("radius", osg::Uniform::FLOAT)->set((float)radius);
         ss->getOrCreateUniform("heightOffset", osg::Uniform::FLOAT)->set(-meanHeight);
@@ -445,6 +445,7 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     ss->setAttributeAndModes(program.get());
+    ss->addUniform(new osg::Uniform("oceanOpaque", 1.0f));
     ss->addUniform(new osg::Uniform("wavesSampler", (int)6));
     ss->addUniform(new osg::Uniform("earthMaskSampler", (int)7));
     ss->setTextureAttributeAndModes(6, generateWaves(ss));

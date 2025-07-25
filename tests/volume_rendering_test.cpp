@@ -213,7 +213,7 @@ ResultPair createVolumeData(
     ss->addUniform(new osg::Uniform("ValueRange", osg::Vec2(minValue, maxValue - minValue)));
     ss->addUniform(new osg::Uniform("RayMarchingSamples", (int)128));
     ss->addUniform(new osg::Uniform("DensityFactor", 2.0f));
-    ss->addUniform(new osg::Uniform("DensityPower", 2.0f));
+    ss->addUniform(new osg::Uniform("DensityPower", 1.0f));
     ss->addUniform(new osg::Uniform("SliceMin", osg::Vec3(0.0f, 0.0f, 0.0f)));
     ss->addUniform(new osg::Uniform("SliceMax", osg::Vec3(1.0f, 1.0f, 1.0f)));
 #if 0
@@ -259,16 +259,22 @@ osg::Image* createTransferFunction(const std::vector<std::pair<float, osg::Vec4u
 
 int main(int argc, char** argv)
 {
+    osg::ArgumentParser arguments(&argc, argv);
     if (argc < 2)
     {
         std::cout << "Usage: " << argv[0] << " <image/image_seq file>" << std::endl;
         return 1;
     }
-    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(argv[1]);
-    if (!image) return 1;
 
-    osg::Vec3d origin, spacing(0.1, 0.1, 0.1); osg::ref_ptr<osg::Image> image1D;
-#if 0
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(arguments[1], new osgDB::Options("DimensionScale=1"));
+    if (!image) return 1; else std::cout << image->s() << "x" << image->t() << "x" << image->r() << std::endl;
+
+    float rangeMin = 0.0f, rangeMax = 1.0f, spX = 0.1f, spY = 0.1f, spZ = 0.1f;
+    arguments.read("--range", rangeMin, rangeMax);
+    arguments.read("--spacing", spX, spY, spZ);
+
+    osg::Vec3d origin, spacing(spX, spY, spZ); osg::ref_ptr<osg::Image> image1D;
+#if 1
     std::vector<std::pair<float, osg::Vec4ub>> colors;
     colors.push_back(std::pair<float, osg::Vec4ub>(0.0f, osg::Vec4ub(0, 0, 0, 255)));
     colors.push_back(std::pair<float, osg::Vec4ub>(0.2f, osg::Vec4ub(0, 0, 255, 255)));
@@ -278,14 +284,14 @@ int main(int argc, char** argv)
     image1D = createTransferFunction(colors);
 #endif
     ResultPair pair = createVolumeData(
-        image.get(), image1D.get(), origin, spacing, 0.0f, 1.0f);
+        image.get(), image1D.get(), origin, spacing, rangeMin, rangeMax);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(pair.first);
     root->addChild(osgDB::readNodeFile("axes.osgt"));
 
     osgViewer::Viewer viewer;
-    //viewer.getCamera()->setClearColor(osg::Vec4());
+    viewer.getCamera()->setClearColor(osg::Vec4());
     viewer.addEventHandler(new VolumeHandler(pair.first, pair.second));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

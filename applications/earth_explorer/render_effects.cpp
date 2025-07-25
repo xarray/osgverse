@@ -288,7 +288,7 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)4));
     ss->addUniform(new osg::Uniform("inscatterSampler", (int)5));
     ss->addUniform(new osg::Uniform("origin", osg::Vec3(0.0f, 0.0f, 0.0f)));
-    ss->addUniform(new osg::Uniform("opaque", 1.0f));
+    ss->addUniform(new osg::Uniform("globalOpaque", 1.0f));
     ss->addUniform(new osg::Uniform("ColorBalanceMode", (int)0));
 
     std::map<std::string, osg::Uniform*> uniforms;

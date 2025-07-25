@@ -42,27 +42,34 @@ int main(int argc, char** argv)
         pc->loadFromCsv(in, [](osgVerse::ParticleCloud& cloud, unsigned int id,
                                std::map<std::string, std::string>& values)
         {
-#if true
+#if false
             // x,y,z,amp,lat,lon
             double lat = atof(values["lat"].c_str()), lon = atof(values["lon"].c_str());
             double z = -atof(values["z"].c_str()), power = atof(values["amp"].c_str());
             if (!(id % 100000)) std::cout << "ID = " << id << ": Saving " << cloud.size() << " points\n";
-            if (power <= 0.0) return true;
+            if (power == 0.0) return true;
 
-            static std::map<osg::Vec3i, int> s_hashMap;
-            osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 250));
-            if (s_hashMap.find(key) != s_hashMap.end()) return true;
-            else s_hashMap[key] = 1;
+            //static std::map<osg::Vec3i, int> s_hashMap;
+            //osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 250));
+            //if (s_hashMap.find(key) != s_hashMap.end()) return true;
+            //else s_hashMap[key] = 1;
+            static osg::BoundingBoxd bb; bb.expandBy(osg::Vec3d(lat, lon, z));
+            static double pMin = FLT_MAX, pMax = -FLT_MAX;
+            if (power < pMin) pMin = power; if (power > pMax) pMax = power;
+            if (!(id % 100000))
+                std::cout << bb._min << " -- " << bb._max << "; Power [" << pMin << ", " << pMax << "]\n";
+            cloud.add(osg::Vec3(lat, lon, z), osg::Vec4(1.0f, 1.0f, 1.0f, 0.2f), osg::Vec3(),
+                      osg::Vec4(power, 0.0f, 0.0f, 0.0f), 10000.0f);
 #else
             // ...,latitude,longitude,depth,mag,...
             double lat = atof(values["latitude"].c_str()), lon = atof(values["longitude"].c_str());
             double z = -1000.0 * atof(values["depth"].c_str()), power = atof(values["mag"].c_str());
-#endif
 
             osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
                 osg::Vec3d(osg::inDegrees(lat), osg::inDegrees(lon), z));
             cloud.add(pos, osg::Vec4(1.0f, 1.0f, 1.0f, 0.2f), osg::Vec3(),
                       osg::Vec4(power, 0.0f, 0.0f, 0.0f), 10000.0f);
+#endif
             return true;
         });
         pc->save(out); out.close(); return 0;
@@ -75,8 +82,17 @@ int main(int argc, char** argv)
 
         std::ifstream in(inFile.c_str(), std::ios::in | std::ios::binary);
         osg::ref_ptr<osgVerse::ParticleCloud> pc = new osgVerse::ParticleCloud;
-        pc->load(in); in.close();
-        osgDB::writeObjectFile(*pc, vdbFile); return 0;
+        pc->load(in); in.close(); std::cout << "Loaded " << pc->size() << " particles\n";
+
+        float scale = 1.0f; arguments.read("--scale", scale);
+        if (!osgDB::writeObjectFile(*pc, vdbFile)) std::cout << "Failed to save VDB cloud!\n";
+        else std::cout << "Saved particle cloud as VDB!\n"; pc = NULL;
+
+        osg::ref_ptr<osg::Image> image = osgDB::readImageFile(
+            vdbFile, new osgDB::Options("DimensionScale=" + std::to_string(scale)));
+        if (!image) { std::cout << "Failed to read VDB image!\n"; return 1; }
+        std::cout << image->s() << 'x' << image->t() << "x" << image->r() << "\n";
+        osgDB::writeImageFile(*image, vdbFile + "_img3d.vdb"); return 0;
     }
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);

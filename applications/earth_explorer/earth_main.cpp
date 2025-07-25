@@ -31,7 +31,7 @@ extern CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, os
                                                      const std::string& mainFolder, int width, int height);
 extern osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Texture* sceneMaskTex,
                                  const std::string& mainFolder, int width, int height, unsigned int mask);
-extern void configureParticleCloud(osg::Group* root, const std::string& mainFolder,
+extern void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
 extern osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, double lat, double lon,
                                              double z, unsigned int mask);
@@ -72,19 +72,24 @@ public:
         {
             osg::StateSet* ss = _mainStateSets.get();
             osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
-            osg::Uniform* opaqueValue = ss->getOrCreateUniform("opaque", osg::Uniform::FLOAT);
+            osg::Uniform* opaqueValue = ss->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT);
+            osg::Uniform* opaqueValue2 = ss->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT);
 
             osg::Vec3 originDir(-1.0f, 0.0f, 0.0f); float opaque = 1.0f;
             switch (_pressingKey)
             {
-            case '-':
+            case osgGA::GUIEventAdapter::KEY_Left:
                 _sunAngle -= 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
-            case '=':
+            case osgGA::GUIEventAdapter::KEY_Right:
                 _sunAngle += 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
             case '[':
                 opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
             case ']':
                 opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
+            case '-':
+                opaqueValue2->get(opaque); opaqueValue2->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
+            case '=':
+                opaqueValue2->get(opaque); opaqueValue2->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
             }
         }
         return false;
@@ -112,15 +117,16 @@ int main(int argc, char** argv)
     bool withGeomShader = true; if (arguments.read("--no-geometry-shader")) withGeomShader = false;
 
     // Create earth
-    std::string earthURLs = " Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
-                            " Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
-                            //" Elevation=F:/GoogleElevation/{z}/{x}/{y}.tif"
-                            " OceanMask=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
-                            " MaximumLevel=7 UseWebMercator=0 UseEarth3D=1 OriginBottomLeft=1"
+    std::string earthURLs = " Orthophoto=mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
+                            " Elevation=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
+                            //" Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
+                            //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
+                            " OceanMask=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
+                            " MaximumLevel=8 UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
 
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     earth->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
@@ -131,7 +137,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
     osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
-    configureParticleCloud(sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
+    configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
     //osg::MatrixTransform* vdb = createVolumeBox(
     //    mainFolder + "/test.vdb.verse_vdb", 0.0, 0.0, 0.0, ~EARTH_INTERSECTION_MASK);

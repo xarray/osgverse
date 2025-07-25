@@ -423,8 +423,8 @@ public:
         return true;
     }
 
-    static bool readTile(sqlite3* db, const std::string& x, const std::string& y,
-                         const std::string& z, std::string& value)
+    static bool readTile(sqlite3* db, const std::string& z, const std::string& x,
+                         const std::string& y, std::string& value)
     {
         sqlite3_stmt* stmt = NULL;
         int rc = sqlite3_prepare(
@@ -456,8 +456,8 @@ public:
         sqlite3_finalize(stmt); return false;
     }
 
-    static WriteResult writeTile(sqlite3* db, const std::string& x, const std::string& y,
-                                 const std::string& z, const std::string& value)
+    static WriteResult writeTile(sqlite3* db, const std::string& z, const std::string& x,
+                                 const std::string& y, const std::string& value)
     {
         sqlite3_stmt* stmt = NULL;
         int rc = sqlite3_prepare_v2(

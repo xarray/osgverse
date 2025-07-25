@@ -53,9 +53,13 @@ void main()
     {
         vec3 uv = (pos - BoundingMin) * invBoundingDiff;
         float density = VERSE_TEX3D(VolumeTexture, uv).r;
-        if (any(lessThan(uv, SliceMin)) || any(greaterThan(uv, SliceMax))) density = 0.0;
-        density = (density - ValueRange.x) / ValueRange.y;
-        density = pow(clamp(density, 0.0, 1.0), DensityPower);
+        if (any(lessThan(uv, SliceMin)) || any(greaterThan(uv, SliceMax)))
+            density = 0.0;
+        else
+        {
+            density = (density - ValueRange.x) / ValueRange.y;
+            density = pow(clamp(density, 0.0, 1.0), DensityPower);
+        }
 
         vec4 value = vec4(0.0);
         if (TransferMode == 1) value = VERSE_TEX1D(TransferTexture, density);

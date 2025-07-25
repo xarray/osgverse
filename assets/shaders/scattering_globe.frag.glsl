@@ -5,7 +5,7 @@ uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
 uniform vec3 worldCameraPos, worldSunDir, origin;
 uniform vec3 sunColorScale, skyColorScale;
-uniform float hdrExposure, opaque;
+uniform float hdrExposure, globalOpaque;
 
 uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
 uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
@@ -38,16 +38,15 @@ void main()
 {
     vec3 WSD = worldSunDir, WCP = worldCameraPos;
     vec3 P = vertexInWorld, N = normalInWorld;// normalize(P);
-    float cTheta = dot(N, WSD);
     P = N * (length(P) * 0.99);  // FIXME
-    
-    vec3 sunL, skyE;
+
+    float cTheta = dot(N, WSD); vec3 sunL, skyE;
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
     
     vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st) * baseColor;
     vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
     groundColor.rgb *= max((sunL * sunColorScale * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
-    groundColor.a *= clamp(opaque, 0.0, 1.0);
+    groundColor.a *= clamp(globalOpaque, 0.0, 1.0);
     
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
