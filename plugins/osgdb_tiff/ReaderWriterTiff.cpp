@@ -33,7 +33,7 @@ static void tiffError(const char*, const char* fmt, va_list ap)
 { OSG_WARN << "[ReaderWriterTiff] Error: " << formattedErrorMessage(fmt, ap) << std::endl; }
 
 static void tiffWarn(const char*, const char* fmt, va_list ap)
-{ OSG_NOTICE << "[ReaderWriterTiff] Warn: " << formattedErrorMessage(fmt, ap) << std::endl; }
+{ OSG_INFO << "[ReaderWriterTiff] Warn: " << formattedErrorMessage(fmt, ap) << std::endl; }
 
 static tsize_t tiffStreamReadProc(thandle_t fd, tdata_t buf, tsize_t size)
 {
@@ -301,6 +301,7 @@ static bool updateScanlineBuffer(TIFF* in, unsigned char* buffer, uint32_t w, ui
     unsigned char* currPtr = buffer + (h - 1) * w * format;
     uint16_t* red = NULL, * green = NULL, * blue = NULL;
     size_t rowSize = TIFFScanlineSize(in);
+
     switch (PACK(photometric, config))
     {
     case PACK(PHOTOMETRIC_MINISWHITE, PLANARCONFIG_CONTIG):
@@ -483,6 +484,7 @@ static osg::ImageSequence* tiffLoad(std::istream& fin, const osgDB::Options* opt
                 (bitspersample == 16) ? GL_UNSIGNED_SHORT :
                 (bitspersample == 32) ? GL_FLOAT : (GLenum)-1;
             unsigned int internalFormat = computeInternalFormat(pixelFormat, dataType);
+
             if (internalFormat <= 0)
             {
                 OSG_WARN << "[ReaderWriterTiff] Unsupported image format" << std::endl;

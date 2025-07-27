@@ -141,7 +141,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
                 (*ca)[vi] = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f); lastAlt = altitude;
             }
-#if true
+#if false
         for (unsigned int y = 1; y < numRows - 1; ++y)
             for (unsigned int x = 1; x < numCols - 1; ++x)
             {   // Recompute non-boundary normals

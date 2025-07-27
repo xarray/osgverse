@@ -109,7 +109,7 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::setNotifyHandler(new osgVerse::ConsoleHandler(false));
     osgVerse::updateOsgBinaryWrappers();
-    //osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
+    osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
 
     std::string mainFolder = "G:/DOM_DEM"; arguments.read("--folder", mainFolder);
     std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
@@ -119,9 +119,10 @@ int main(int argc, char** argv)
     // Create earth
     std::string earthURLs = " Orthophoto=mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
                             " Elevation=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
+                            //" Elevation=mbtiles://F:/elevation_test.mbtiles/{z}-{x}-{y}.tif"
+                            " OceanMask=mbtiles://F:/aspect_slope_tif_z8.mbtiles/{z}-{x}-{y}.tif"
                             //" Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
                             //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
-                            " OceanMask=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             " MaximumLevel=8 UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
