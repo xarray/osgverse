@@ -356,16 +356,20 @@ public:
         openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
         openvdb::FloatGrid::Accessor accessor = grid->getAccessor();
 
+        double vMin = FLT_MAX, vMax = -FLT_MAX;
         openvdb::Coord coord; grid->setName("CloudValue");
         unsigned int size = positions->size();
         for (unsigned int i = 0; i < size; ++i)
         {
             const osg::Vec4& pos = positions->at(i);
             const osg::Vec4& attr = attributes->at(i);
-            coord.reset(pos[0] * 10000.0, pos[1] * 10000.0, pos[2] * 0.5);
+            coord.reset(pos[0], pos[1], pos[2]);
             accessor.setValue(coord, attr[0]);  // FIXME: only for Zhijiang csv...
+            if (attr[0] < vMin) vMin = attr[0];
+            if (attr[0] > vMax) vMax = attr[0];
         }
         grids->push_back(grid);
+        OSG_NOTICE << "[ReaderWriterVDB] Updated grid data: [" << vMin << ", " << vMax << "]\n";
 
         if (grids->empty()) return WriteResult::NOT_IMPLEMENTED;
         openvdb::io::Stream(fout).write(*grids);
