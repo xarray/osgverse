@@ -363,6 +363,16 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
         comp.prependCode(dst + " = setBlackWhite(" + colorV + ");\n");
         findAndProcessBlenderLink(comp, ss, lastNode, inColor, cItr->first, true);
     }
+    else if (lastNode->type == "SEPARATE_COLOR")
+    {
+        MaterialPinIt cItr = lastNode->findPin(false, "Color"); MaterialPin* inColor = cItr->second.get();
+        std::string colorV = comp.variable(lastNode, inColor);
+        std::string setter = (lastOutPin->name == "Red") ? ".rrr" : (lastOutPin->name == "Green" ? ".ggg" : ".bbb");
+
+        comp.prependVariables("vec3 " + colorV + " = vec3(" + setFromValues(inColor->values) + ");\n");
+        comp.prependCode(dst + " = " + colorV + setter + ";\n");
+        findAndProcessBlenderLink(comp, ss, lastNode, inColor, cItr->first, true);
+    }
     else if (lastNode->type == "INVERT")
     {
         MaterialPinIt fItr = lastNode->findPin(false, "Fac"); MaterialPin* fac = fItr->second.get();

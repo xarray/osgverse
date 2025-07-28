@@ -49,12 +49,12 @@ osg::StateSet* createPbrStateSet(osgVerse::Pipeline* pipeline)
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
-    if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
+    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
+    if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
     osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
@@ -65,12 +65,12 @@ int main(int argc, char** argv)
     sceneRoot->addChild(scene.get());
 
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
-    light0->setColor(osg::Vec3(1.5f, 1.5f, 1.2f));
+    light0->setColor(osg::Vec3(1.0f, 1.0f, 1.0f));
     light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
     light0->setDirectional(true);
 
     osg::ref_ptr<osgVerse::LightDrawable> light1 = new osgVerse::LightDrawable;
-    light1->setColor(osg::Vec3(0.9f, 0.9f, 1.1f));
+    light1->setColor(osg::Vec3(1.0f, 1.0f, 1.0f));
     light1->setDirection(osg::Vec3(-0.4f, 0.6f, 0.1f));
     light1->setDirectional(true);
 
@@ -90,6 +90,7 @@ int main(int argc, char** argv)
 
     // Start the viewer
     osgViewer::Viewer viewer;
+    viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
     viewer.getCamera()->addUpdateCallback(lightModule.get());
     viewer.setUpViewOnSingleScreen(0);
     viewer.addEventHandler(new osgViewer::StatsHandler);

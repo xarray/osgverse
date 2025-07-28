@@ -99,7 +99,6 @@ void main()
 
     vec3 ambient = vec3(0.25) * albedo;
     radianceOut = mix(radianceOut, radianceOut * emission.rgb, emission.a);
-    ao = 1.0;  // FIXME: sponza seems to have a negative AO?
-    fragData = vec4(ambient + radianceOut * pow(ao, 2.2), diffuse.a);
+    fragData = vec4(ambient + radianceOut, diffuse.a);
     VERSE_FS_FINAL(fragData);
 }
