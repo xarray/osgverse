@@ -27,17 +27,24 @@
 #define SETUP_SLIDER_V3(uniform, num) \
     osgVerse::Slider* s = static_cast<osgVerse::Slider*>(ctrl); \
     osg::Vec3 ori; uniform->get(ori); ori[num] = s->value; uniform->set(ori);
+
 static osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
+std::map<std::string, osg::Uniform*> uniforms;
+float oceanPixelScale = 0.5f;
 
 class AdjusterHandler : public osgVerse::ImGuiContentHandler
 {
 public:
-    AdjusterHandler(std::map<std::string, osg::Uniform*>& uniforms, const std::string& jsonFile)
+    AdjusterHandler(const std::string& jsonFile)
+        : _jsonFile(jsonFile), _firstRun(true) {}
+
+    void initialize()
     {
-        std::ifstream json(jsonFile.c_str(), std::ios::in); _jsonFile = jsonFile;
+        std::ifstream json(_jsonFile.c_str(), std::ios::in);
         picojson::value root; std::string err = picojson::parse(root, json);
         float exp = 0.25f, scale0[3] = { 1.0f, 1.0f, 1.0f }, scale1[3] = { 1.0f, 1.0f, 1.0f };
         float bri = 1.0f, sat = 1.0f, con = 1.0f, cr = 0.0f, mg = 0.0f, yb = 0.0f;
+        float ore = 0.0f, og = 0.0f, ob = 0.0f;
         if (err.empty())
         {
             exp = (float)root.get("exposure").get<double>();
@@ -54,6 +61,11 @@ public:
             cr = (float)root.get("cyan_red").get<double>();
             mg = (float)root.get("magenta_green").get<double>();
             yb = (float)root.get("yellow_blue").get<double>();
+
+            ore = (float)root.get("ocean_red").get<double>();
+            og = (float)root.get("ocean_green").get<double>();
+            ob = (float)root.get("ocean_blue").get<double>();
+            oceanPixelScale = (float)root.get("ocean_pixel_scale").get<double>();
         }
 
         _exposure = new osgVerse::Slider("Exposure");
@@ -65,12 +77,15 @@ public:
         _yellowBlue = new osgVerse::Slider("Yellow/Blue");
         _sunColor = new osgVerse::InputVectorField("Light Scale");
         _skyColor = new osgVerse::InputVectorField("Shadow Scale");
+        _oceanColor = new osgVerse::InputVectorField("Ocean Color");
+        _oceanPixelScale = new osgVerse::Slider("Ocean Scale");
 
         osg::Uniform* exposure = uniforms["exposure"]; exposure->set(exp);
         osg::Uniform* colorAttr = uniforms["color_attributes"]; colorAttr->set(osg::Vec3(bri, sat, con));
         osg::Uniform* colorBal = uniforms["color_balance"]; colorBal->set(osg::Vec3(cr, mg, yb));
         osg::Uniform* sunScale = uniforms["sun_color_scale"]; sunScale->set(osg::Vec3(scale0[0], scale0[1], scale0[2]));
         osg::Uniform* skyScale = uniforms["sky_color_scale"]; skyScale->set(osg::Vec3(scale1[0], scale1[1], scale1[2]));
+        osg::Uniform* seaColor = uniforms["seaColor"]; seaColor->set(osg::Vec3(ore, og, ob));
 
         setupSlider(*_exposure, exp, 0.0f, 1.0f, [exposure](UI_ARGS) { SETUP_SLIDER_V1(exposure) });
         setupSlider(*_brightness, bri, 0.0f, 3.0f, [colorAttr](UI_ARGS) { SETUP_SLIDER_V3(colorAttr, 0) });
@@ -79,6 +94,9 @@ public:
         setupSlider(*_cyanRed, cr, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 0) });
         setupSlider(*_magentaGreen, mg, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 1) });
         setupSlider(*_yellowBlue, yb, -1.0f, 1.0f, [colorBal](UI_ARGS) { SETUP_SLIDER_V3(colorBal, 2) });
+
+        setupSlider(*_oceanPixelScale, oceanPixelScale, 0.0f, 3.0f, [=](UI_ARGS)
+        { osgVerse::Slider* s = static_cast<osgVerse::Slider*>(ctrl); oceanPixelScale = (float)s->value; });
 
         setupColorEditor(*_sunColor, osg::Vec3(scale0[0], scale0[1], scale0[2]), [sunScale](UI_ARGS)
         {
@@ -90,16 +108,24 @@ public:
             osg::Vec3 ori; osgVerse::InputVectorField* v = static_cast<osgVerse::InputVectorField*>(ctrl);
             skyScale->get(ori); ori.set(v->vecValue[0], v->vecValue[1], v->vecValue[2]); skyScale->set(ori);
         });
-
-        _save = new osgVerse::Button("Save Config");
-        _save->callback = [jsonFile, uniforms](UI_ARGS)
+        setupColorEditor(*_oceanColor, osg::Vec3(ore, og, ob), [seaColor](UI_ARGS)
         {
-            std::map<std::string, osg::Uniform*> un = uniforms;
+            osg::Vec3 ori; osgVerse::InputVectorField* v = static_cast<osgVerse::InputVectorField*>(ctrl);
+            seaColor->get(ori); ori.set(v->vecValue[0], v->vecValue[1], v->vecValue[2]); seaColor->set(ori);
+        });
+
+        std::string jsonFile = _jsonFile;
+        std::map<std::string, osg::Uniform*>& uniforms0 = uniforms;
+        _save = new osgVerse::Button("Save Config");
+        _save->callback = [jsonFile, uniforms0](UI_ARGS)
+        {
+            std::map<std::string, osg::Uniform*> un = uniforms0;
             float exp = 0.0f; un["exposure"]->get(exp);
             osg::Vec3 colorAttr; un["color_attributes"]->get(colorAttr);
             osg::Vec3 colorBal; un["color_balance"]->get(colorBal);
             osg::Vec3 scale0; un["sun_color_scale"]->get(scale0);
             osg::Vec3 scale1; un["sky_color_scale"]->get(scale1);
+            osg::Vec3 seaColor; un["seaColor"]->get(seaColor);
 
             picojson::object root;
             root["exposure"] = picojson::value((double)exp);
@@ -117,6 +143,11 @@ public:
             root["magenta_green"] = picojson::value((double)colorBal[1]);
             root["yellow_blue"] = picojson::value((double)colorBal[2]);
 
+            root["ocean_red"] = picojson::value((double)seaColor[0]);
+            root["ocean_green"] = picojson::value((double)seaColor[1]);
+            root["ocean_blue"] = picojson::value((double)seaColor[2]);
+            root["ocean_pixel_scale"] = picojson::value((double)oceanPixelScale);
+
             std::string jsonData = picojson::value(root).serialize(true);
             std::ofstream json(jsonFile.c_str(), std::ios::out);
             json.write(jsonData.data(), jsonData.size()); json.close();
@@ -132,14 +163,17 @@ public:
 
     virtual void runInternal(osgVerse::ImGuiManager* mgr)
     {
+        if (_firstRun) { initialize(); _firstRun = false; }
         ImGui::PushFont(ImGuiFonts["LXGWFasmartGothic"]);
+
         bool done = _uniformWindow->show(mgr, this);
         if (done)
         {
             _exposure->show(mgr, this);
             _brightness->show(mgr, this); _saturation->show(mgr, this); _contrast->show(mgr, this);
             _cyanRed->show(mgr, this); _magentaGreen->show(mgr, this); _yellowBlue->show(mgr, this);
-            _sunColor->show(mgr, this); _skyColor->show(mgr, this);
+            _sunColor->show(mgr, this); _skyColor->show(mgr, this); _oceanColor->show(mgr, this);
+            _oceanPixelScale->show(mgr, this);
             _save->show(mgr, this); _uniformWindow->showEnd();
         }
         ImGui::PopFont();
@@ -164,9 +198,10 @@ protected:
     osg::ref_ptr<osgVerse::Slider> _exposure;
     osg::ref_ptr<osgVerse::Slider> _brightness, _saturation, _contrast;
     osg::ref_ptr<osgVerse::Slider> _cyanRed, _magentaGreen, _yellowBlue;
-    osg::ref_ptr<osgVerse::InputVectorField> _sunColor, _skyColor;
+    osg::ref_ptr<osgVerse::Slider> _oceanPixelScale;
+    osg::ref_ptr<osgVerse::InputVectorField> _sunColor, _skyColor, _oceanColor;
     osg::ref_ptr<osgVerse::Button> _save;
-    std::string _jsonFile;
+    std::string _jsonFile; bool _firstRun;
 };
 
 static unsigned char* loadAllData(const std::string& file, unsigned int& size, unsigned int offset)
@@ -228,6 +263,7 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     osg::Shader* fs1 = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "scattering_globe.frag.glsl");
 
     osg::ref_ptr<osg::Program> program1 = new osg::Program;
+    program1->addBindAttribLocation("osg_GlobeData", 1);  // for computing ocean plane
     vs1->setName("Scattering_Globe_VS"); program1->addShader(vs1);
     fs1->setName("Scattering_Globe_FS"); program1->addShader(fs1);
     osgVerse::Pipeline::createShaderDefinitions(vs1, 100, 130);
@@ -291,7 +327,6 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     ss->addUniform(new osg::Uniform("globalOpaque", 1.0f));
     ss->addUniform(new osg::Uniform("ColorBalanceMode", (int)0));
 
-    std::map<std::string, osg::Uniform*> uniforms;
     uniforms["exposure"] = new osg::Uniform("hdrExposure", 0.25f);
     uniforms["sun_intensity"] = new osg::Uniform("sunIntensity", 100.0f);
     uniforms["sun_color_scale"] = new osg::Uniform("sunColorScale", osg::Vec3(1.0f, 1.0f, 1.0f));
@@ -309,7 +344,7 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     root->addChild(postCamera.get());
 
     imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
-    imgui->initialize(new AdjusterHandler(uniforms, mainFolder + "/uniforms.json"));
+    imgui->initialize(new AdjusterHandler(mainFolder + "/uniforms.json"));
     imgui->addToView(&viewer, postCamera.get());
 
     rttCamera->addChild(earth);

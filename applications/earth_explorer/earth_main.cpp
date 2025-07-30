@@ -120,7 +120,7 @@ int main(int argc, char** argv)
     std::string earthURLs = " Orthophoto=mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
                             " Elevation=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             //" Elevation=mbtiles://F:/elevation_test.mbtiles/{z}-{x}-{y}.tif"
-                            " OceanMask=mbtiles://F:/aspect_slope_tif_z8.mbtiles/{z}-{x}-{y}.tif"
+                            " OceanMask=mbtiles://F:/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             //" Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
                             //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
                             " MaximumLevel=8 UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"

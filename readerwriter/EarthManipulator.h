@@ -66,6 +66,10 @@ namespace osgVerse
         void setIntersectionMask(unsigned int mask) { _intersectionMask = mask; }
         unsigned int getIntersectionMask() const { return _intersectionMask; }
 
+        /** Set zoom-in/out factor (default = 1, 1) */
+        void setZoomFactor(const osg::Vec2& zoom) { _zoomFactor.set(zoom); }
+        const osg::Vec2& getZoomFactor() const { return _zoomFactor; }
+
         /** Set if all user operations are locked */
         void setLocked(bool locked) { _locked = locked; }
         bool getLocked() const { return _locked; }
@@ -168,8 +172,9 @@ namespace osgVerse
         void performHRotate(double x0, double y0, double dx, double dy);
         void performVRotate(double x0, double y0, double dx, double dy);
         void performRotateAxis(double x0, double y0);
-        void performScale(double x0, double y0, double dx, double dy) { _distance *= (1.0 + dy); }
         void performScale(osgGA::GUIEventAdapter::ScrollingMotion scrollMotion) { calcScrollingMotion(scrollMotion); }
+        void performScale(double x0, double y0, double dx, double dy)
+        { if (dy < 0.0) _distance *= (1.0 + dy * _zoomFactor[0]); else _distance *= (1.0 + dy * _zoomFactor[1]); }
 
     protected:
         virtual ~EarthManipulator();
@@ -238,6 +243,7 @@ namespace osgVerse
         osg::Quat _worldRotation;
         osg::Quat _tiltRotation;
 
+        osg::Vec2 _zoomFactor;  // Zoom-in/out factor to control scaling speed
         double _distance;  // Distance between eye and view point
         float _tilt;  // Vertical angle to the horizon
 

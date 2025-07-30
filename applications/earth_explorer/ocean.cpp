@@ -13,6 +13,7 @@
 #include <modeling/Math.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/IncrementalCompiler.h>
+#include <readerwriter/EarthManipulator.h>
 #include <VerseCommon.h>
 #include <iostream>
 #include <sstream>
@@ -22,7 +23,9 @@ double radius = osg::WGS_84_RADIUS_EQUATOR, zmin = 20000.0;
 int nbWaves = 60, resolution = 8;
 float lambdaMin = 0.02f, lambdaMax = 30.0f;
 float meanHeight = 0.0f, heightMax = 0.4f;//0.5;
-osg::Vec3 seaColor = osg::Vec3(10.f / 255.f, 40.f / 255.f, 120.f / 255.f) * 0.1f;
+
+extern std::map<std::string, osg::Uniform*> uniforms;
+extern float oceanPixelScale;
 
 #define SIMULATE_VERTEX 0
 #if SIMULATE_VERTEX
@@ -247,7 +250,7 @@ osg::Texture* generateWaves(osg::StateSet* ss)
     tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
     tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
 
-    ss->addUniform(new osg::Uniform("seaColor", seaColor));
+    ss->addUniform(new osg::Uniform("seaColor", osg::Vec3(10.f / 255.f, 40.f / 255.f, 120.f / 255.f) * 0.1f));
     ss->addUniform(new osg::Uniform("seaRoughness", sigmaXsq));
     ss->addUniform(new osg::Uniform("nbWaves", (float)nbWaves));
     return tex.release();
@@ -288,7 +291,12 @@ class OceanCallback : public osg::NodeCallback
 public:
     virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
     {
-        osg::Matrix ctol = _camera->getInverseViewMatrix();
+        if (!_view) return;
+        osg::Camera* camera = _view->getCamera();
+        osgVerse::EarthManipulator* manipulator =
+            static_cast<osgVerse::EarthManipulator*>(_view->getCameraManipulator());
+
+        osg::Matrix ctol = camera->getInverseViewMatrix();
         osg::Vec3d cl = osg::Vec3() * ctol;
         if ((radius == 0.0 && cl.z() > zmin) || (radius > 0.0 && cl.length() > radius + zmin))
         { oldLtoo = osg::Matrix(); offset = osg::Vec3(); }
@@ -326,7 +334,7 @@ public:
         oldLtoo = ltoo;
 
         // get sun dir
-        osg::Matrix ctos = _camera->getProjectionMatrix();
+        osg::Matrix ctos = camera->getProjectionMatrix();
         osg::Matrix stoc = osg::Matrix::inverse(ctos);
         osg::Matrix otoc = osg::Matrix::inverse(ctoo);
         otoc.setTrans(osg::Vec3());
@@ -338,6 +346,9 @@ public:
         worldSunDir->get(wDir); oceanSunDir->set(osg::Matrixf::transform3x3(wDir, ltoo));
 
         osg::Vec3d oc = osg::Vec3d() * ctoo; float h = oc.z();  // if h < 0, we are under the ocean...
+        manipulator->setZoomFactor(osg::Vec2(osg::clampBetween(h / 5000.0f, 0.1f, 1.0f), 1.0f));
+
+        ss->getOrCreateUniform("underOcean", osg::Uniform::FLOAT)->set(h);
         ss->getOrCreateUniform("cameraToOcean", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctoo));
         ss->getOrCreateUniform("screenToCamera", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(stoc));
         ss->getOrCreateUniform("cameraToScreen", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctos));
@@ -381,12 +392,12 @@ public:
 
         // angle under which a screen pixel is viewed from the camera
         float fov, aspectRatio, znear, zfar;
-        float width = _camera->getViewport() ? _camera->getViewport()->width() : 1920;
-        float height = _camera->getViewport() ? _camera->getViewport()->height() : 1080;
-        _camera->getProjectionMatrix().getPerspective(fov, aspectRatio, znear, zfar);
+        float width = camera->getViewport() ? camera->getViewport()->width() : 1920;
+        float height = camera->getViewport() ? camera->getViewport()->height() : 1080;
+        camera->getProjectionMatrix().getPerspective(fov, aspectRatio, znear, zfar);
 
         // FIXME: pixelSize affects wave tiling, should be treated carefully
-        float pixelSize = atan(tan(osg::inDegrees(fov * aspectRatio * 0.5f)) / (height / 2.0f));
+        float pixelSize = atan(tan(osg::inDegrees(fov * aspectRatio * oceanPixelScale)) / (height / 2.0f));
         ss->getOrCreateUniform("screenSize", osg::Uniform::FLOAT_VEC2)->set(osg::Vec2(width, height));
         ss->getOrCreateUniform("radius", osg::Uniform::FLOAT)->set((float)radius);
         ss->getOrCreateUniform("heightOffset", osg::Uniform::FLOAT)->set(-meanHeight);
@@ -415,11 +426,11 @@ public:
         traverse(node, nv);
     }
     
-    OceanCallback(osg::Camera* cam, osg::Geometry* grid)
-        : _camera(cam), _grid(grid) {}
+    OceanCallback(osgViewer::View* view, osg::Geometry* grid)
+        : _view(view), _grid(grid) {}
 
 protected:
-    osg::observer_ptr<osg::Camera> _camera;
+    osg::observer_ptr<osgViewer::View> _view;
     osg::observer_ptr<osg::Geometry> _grid;
     osg::Matrix oldLtoo;
     osg::Vec3d offset;
@@ -451,6 +462,8 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
     ss->setTextureAttributeAndModes(6, generateWaves(ss));
     ss->setTextureAttributeAndModes(7, sceneMaskTex);
 
+    uniforms["seaColor"] = ss->getUniform("seaColor");
+
     osg::Geometry* grid = createGrid(width, height);
     osg::Geode* grideGeode = new osg::Geode;
     grideGeode->addDrawable(grid);
@@ -460,6 +473,6 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
     hudCamera->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
     root->addChild(hudCamera);
-    root->addUpdateCallback(new OceanCallback(viewer.getCamera(), grid));
+    root->addUpdateCallback(new OceanCallback(&viewer, grid));
     return hudCamera;
 }

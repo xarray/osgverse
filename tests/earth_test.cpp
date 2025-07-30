@@ -151,8 +151,9 @@ int main(int argc, char** argv)
     root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     root->addChild(earth.get());
 
-    osg::ref_ptr<osgGA::TrackballManipulator> trackball = new osgGA::TrackballManipulator;
-    //osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
+    //osg::ref_ptr<osgGA::TrackballManipulator> manipulator = new osgGA::TrackballManipulator;
+    osg::ref_ptr<osgVerse::EarthManipulator> manipulator = new osgVerse::EarthManipulator;
+    manipulator->setWorldNode(earth.get());
     if (tiles.valid())
     {
         osg::Vec3 dir = tiles->getBound().center(); dir.normalize();
@@ -175,7 +176,7 @@ int main(int argc, char** argv)
         root->addChild(tileOffset.get());
 
         osg::BoundingSphere bs = tiles->getBound(); double r = bs.radius() * 10.0;
-        trackball->setHomePosition(bs.center() + osg::Z_AXIS * r, bs.center(), osg::Y_AXIS);
+        manipulator->osgGA::CameraManipulator::setHomePosition(bs.center() + osg::Z_AXIS * r, bs.center(), osg::Y_AXIS);
     }
 
     osg::ref_ptr<osgVerse::IncrementalCompiler> incrementalCompiler = new osgVerse::IncrementalCompiler;
@@ -187,8 +188,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(trackball.get());
-    //viewer.setCameraManipulator(earthManipulator.get());
+    viewer.setCameraManipulator(manipulator.get());
     viewer.setSceneData(root.get());
 
     viewer.run();

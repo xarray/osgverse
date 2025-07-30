@@ -13,7 +13,7 @@ uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 
 VERSE_FS_IN vec3 normalInWorld;
 VERSE_FS_IN vec3 vertexInWorld;
-VERSE_FS_IN vec4 texCoord, baseColor;
+VERSE_FS_IN vec4 texCoord;
 
 #ifdef VERSE_GLES3
 layout(location = 0) VERSE_FS_OUT vec4 fragColor;
@@ -22,7 +22,6 @@ layout(location = 1) VERSE_FS_OUT vec4 fragOrigin;
 
 #define SUN_INTENSITY 100.0
 #define PLANET_RADIUS 6360000.0
-
 #include "scattering.module.glsl"
 
 vec3 hdr(vec3 L)
@@ -37,8 +36,17 @@ vec3 hdr(vec3 L)
 void main()
 {
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
-    vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st) * baseColor;
-    vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
+    vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st);
+    vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st); float off = 0.002;
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, 0.0));
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, 0.0));
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(0.0, -off));
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(0.0, off));
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, -off));
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, -off));
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, off));
+    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, off));
+    maskColor *= 1.0 / 9.0;
 
     vec3 WSD = worldSunDir, WCP = worldCameraPos;
     vec3 P = vertexInWorld, N = normalize(P);// normalInWorld
@@ -49,17 +57,17 @@ void main()
     vec3 east = normalize(cross(vec3(0, 1, 0), N));
     vec3 north = normalize(cross(N, east));
 
-    float terrainDetails = 0.1;
+    float terrainDetails = 0.0;
     N = mix(N, mat3(east, north, N) * localN, terrainDetails);
 
     float cTheta = dot(N, WSD); vec3 sunL, skyE;
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
-    groundColor.rgb *= max((sunL * sunColorScale * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
+    groundColor.rgb *= max((sunL * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
     groundColor.a *= clamp(globalOpaque, 0.0, 1.0);
     
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
-    vec3 compositeColor = groundColor.rgb * extinction + inscatter * skyColorScale;
+    vec3 compositeColor = groundColor.rgb * extinction * sunColorScale + inscatter * skyColorScale;
     vec4 finalColor = vec4(hdr(compositeColor), groundColor.a);
 
     // Color grading work

@@ -120,7 +120,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numVertices);
         osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numVertices);
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numVertices);
-        osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(numVertices);
+        osg::ref_ptr<osg::Vec2Array> ca = new osg::Vec2Array(numVertices);
         double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1), lastAlt = 0.0;
         for (unsigned int y = 0; y < numRows; ++y)
             for (unsigned int x = 0; x < numCols; ++x)
@@ -139,7 +139,12 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
                 (*va)[vi] = osg::Vec3(ecef * worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
-                (*ca)[vi] = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f); lastAlt = altitude;
+
+                // For ocean plane, save distance to earth center when ALTITUDE = 0
+                lla = adjustLatitudeLongitudeAltitude(
+                    tileMin + osg::Vec3d((double)x * invW, (double)y * invH, 0.0), _useWebMercator);
+                osg::Vec3 v0 = Coordinate::convertLLAtoECEF(lla); lastAlt = altitude;
+                (*ca)[vi] = osg::Vec2(v0.length() - osg::WGS_84_RADIUS_EQUATOR, 0.0f);
             }
 #if false
         for (unsigned int y = 1; y < numRows - 1; ++y)
@@ -176,7 +181,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             {
                 unsigned int si = tile_bottom_row + c; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).a() = 0.0f;
+                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
             }
             for (unsigned int c = 0; c < numCols - 1; ++c)
             {
@@ -190,7 +195,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             {
                 unsigned int si = tile_top_row + c; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).a() = 0.0f;
+                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
             }
             for (unsigned int c = 0; c < numCols - 1; ++c)
             {
@@ -204,7 +209,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             {
                 unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).a() = 0.0f;
+                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
             }
             for (unsigned int r = 0; r < numRows - 1; ++r)
             {
@@ -218,7 +223,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
             {
                 unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
                 va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).a() = 0.0f;
+                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
             }
             for (unsigned int r = 0; r < numRows - 1; ++r)
             {
@@ -231,7 +236,8 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
         osg::Geometry* geom = new osg::Geometry;
         geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
         geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-        geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        geom->setVertexAttribArray(1, ca.get()); geom->setVertexAttribNormalize(1, GL_FALSE);
+        geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
         geom->addPrimitiveSet(de.get()); return geom;
     }
     else if (elevation)

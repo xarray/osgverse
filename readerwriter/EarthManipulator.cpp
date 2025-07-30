@@ -13,6 +13,7 @@ EarthManipulator::EarthManipulator()
     _tiltCenter.set(0.0, 0.0, -DBL_MAX);
     _rotateAxis.set(0.0, 0.0, -DBL_MAX);
     _intersectionMask = 0xffffffff;
+    _zoomFactor = osg::Vec2(1.0f, 1.0f);
     setEllipsoid(new osg::EllipsoidModel);
 
     // Animation controllers
@@ -581,10 +582,10 @@ bool EarthManipulator::calcScrollingMotion(osgGA::GUIEventAdapter::ScrollingMoti
     switch (scrollMotion)
     {
     case osgGA::GUIEventAdapter::SCROLL_UP:
-        _distance /= scrollScale;
+        _distance /= scrollScale * _zoomFactor[0];
         return true;
     case osgGA::GUIEventAdapter::SCROLL_DOWN:
-        _distance *= scrollScale;
+        _distance *= scrollScale * _zoomFactor[1];
         return true;
     default:
         return false;
@@ -654,7 +655,7 @@ bool EarthManipulator::calcIntersectPoint(float x, float y, osg::Vec3d& point, b
 
 bool EarthManipulator::calcTiltCenter(bool useCameraMatrix)
 {
-    if (_viewer)
+    if (_viewer && _world.valid())
     {
         osg::Matrix matrix(_viewer->getCamera()->getProjectionMatrix());
         if (useCameraMatrix)

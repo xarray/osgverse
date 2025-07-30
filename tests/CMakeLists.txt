@@ -64,6 +64,7 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST(osgVerse_Test_Sky_Box sky_box_test.cpp)
     NEW_TEST(osgVerse_Test_Earth earth_test.cpp)
     NEW_TEST(osgVerse_Test_3DGS gaussian_splatting_test.cpp)
+    NEW_TEST(osgVerse_Test_CSG csg_stencil_test.cpp)
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 3)
         NEW_TEST(osgVerse_Test_Instance_Param instance_param_test.cpp)
