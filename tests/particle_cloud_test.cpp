@@ -49,10 +49,11 @@ int main(int argc, char** argv)
             if (!(id % 100000)) std::cout << "ID = " << id << ": Saving " << cloud.size() << " points\n";
             if (power == 0.0) return true;
 
-            //static std::map<osg::Vec3i, int> s_hashMap;
-            //osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 250));
-            //if (s_hashMap.find(key) != s_hashMap.end()) return true;
-            //else s_hashMap[key] = 1;
+            static std::map<osg::Vec3i, int> s_hashMap;
+            osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 5));
+            if (s_hashMap.find(key) != s_hashMap.end()) return true;
+            else s_hashMap[key] = 1;
+
             static std::map<int, int> ampValues; ampValues[(int)(power / 5.0)]++;
             static osg::BoundingBoxd bb; bb.expandBy(osg::Vec3d(lat, lon, z));
             static double pMin = FLT_MAX, pMax = -FLT_MAX;

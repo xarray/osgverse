@@ -37,7 +37,8 @@ void main()
 {
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st);
-    vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st); float off = 0.002;
+    vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
+    vec4 maskValue = maskColor.zzza; float off = 0.002;
     maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, 0.0));
     maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, 0.0));
     maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(0.0, -off));
@@ -57,7 +58,7 @@ void main()
     vec3 east = normalize(cross(vec3(0, 1, 0), N));
     vec3 north = normalize(cross(N, east));
 
-    float terrainDetails = 0.0;
+    float terrainDetails = 1.0;
     N = mix(N, mat3(east, north, N) * localN, terrainDetails);
 
     float cTheta = dot(N, WSD); vec3 sunL, skyE;
@@ -76,9 +77,9 @@ void main()
 
 #ifdef VERSE_GLES3
     fragColor/*Atmospheric Color*/ = finalColor;
-    fragOrigin/*Mask Color*/ = maskColor.zzza;
+    fragOrigin/*Mask Color*/ = maskValue;
 #else
     gl_FragData[0]/*Atmospheric Color*/ = finalColor;
-    gl_FragData[1]/*Mask Color*/ = maskColor.zzza;
+    gl_FragData[1]/*Mask Color*/ = maskValue;
 #endif
 }
