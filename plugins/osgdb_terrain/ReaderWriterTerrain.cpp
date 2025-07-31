@@ -194,17 +194,7 @@ public:
 
     virtual ReadResult readNode(const std::string& path, const Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_terrain");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getLowerCaseFileExtension(fileName);
-        }
-
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
         if (!in) return ReadResult::FILE_NOT_FOUND;
         return readNode(in, options);
@@ -212,17 +202,7 @@ public:
 
     virtual ReadResult readObject(const std::string& path, const Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_terrain");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getLowerCaseFileExtension(fileName);
-        }
-
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
         if (!in) return ReadResult::FILE_NOT_FOUND;
         return readObject(in, options);
@@ -261,6 +241,20 @@ public:
     }
 
 protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_terrain");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
+
     void computeTileExtent(int x, int y, int z, osg::Vec3d& tileMin, osg::Vec3d& tileMax,
                            double& tileWidth, double& tileHeight, bool bottomLeft = false) const
     {

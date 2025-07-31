@@ -35,20 +35,11 @@ public:
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_gltf");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
-        osg::ref_ptr<osg::Node> group;
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
         int yUp = options ? atoi(options->getPluginStringData("UpAxis").c_str()) : 0;
+        
+        osg::ref_ptr<osg::Node> group;
         if (ext == "cmpt")
         {
             std::ifstream fin(fileName, std::ios::in | std::ios::binary);
@@ -100,6 +91,20 @@ public:
     }
 
 protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_gltf");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
+
     osg::Group* readCesiumFormatCmpt(std::istream& fin, const std::string& dir, bool yUp) const
     {
         unsigned char magic[4]; unsigned int version = 0, bytes = 0, tiles = 0;

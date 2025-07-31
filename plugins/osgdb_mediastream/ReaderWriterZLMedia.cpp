@@ -482,16 +482,8 @@ public:
 
     virtual ReadResult readImage(const std::string& fullFileName, const Options* options) const
     {
-        std::string fileName(fullFileName);
-        std::string ext = osgDB::getFileExtension(fullFileName);
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
-        bool usePseudo = (ext == "verse_ms");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(fullFileName);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         if (!acceptsProtocol(scheme)) return ReadResult::FILE_NOT_HANDLED;
 #endif
@@ -513,16 +505,8 @@ public:
     virtual WriteResult writeImage(const osg::Image& image, const std::string& fullFileName,
                                    const Options* options) const
     {
-        std::string fileName(fullFileName);
-        std::string ext = osgDB::getFileExtension(fullFileName);
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
-        bool usePseudo = (ext == "verse_ms");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(fullFileName);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         if (!acceptsProtocol(scheme)) return WriteResult::FILE_NOT_HANDLED;
 #endif
@@ -548,6 +532,20 @@ public:
     }
 
 protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_ms");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
+
     class BaseContext
     {
     protected:

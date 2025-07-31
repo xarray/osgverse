@@ -67,16 +67,7 @@ public:
 
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_tiles");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getFileExtension(fileName);
-        }
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         if (ext.empty()) return createFromFolder(fileName);
 
         osg::ref_ptr<Options> localOptions = NULL;
@@ -171,6 +162,20 @@ public:
     }
 
 protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_tiles");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
+
     osg::Node* createFromMetadata(const std::string& prefix, char* srs, char* origin) const
     {
         std::string dataFolder = prefix + "/Data/";

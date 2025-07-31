@@ -16,7 +16,8 @@ static size_t readGZip(const char* in, size_t in_size, char* out, size_t out_siz
     z_stream zs = {}; memset(&zs, 0, sizeof(zs));
     inflateInit2(&zs, 16 + MAX_WBITS);
     zs.next_in = (Bytef*)in;
-    zs.avail_in = in_size;
+    zs.avail_in = in_size;
+
     char buffer[16384];
     std::string result;
     do {
@@ -317,16 +318,8 @@ public:
     virtual WriteResult writeFile(const osg::Object& obj, const std::string& fullFileName,
                                   const osgDB::Options* options) const
     {
-        std::string fileName(fullFileName);
-        std::string ext = osgDB::getFileExtension(fullFileName);
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
-        bool usePseudo = (ext == "verse_web");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(fullFileName);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
         if (!osgDB::containsServerAddress(fileName))
         {
             if (options && !options->getDatabasePathList().empty())
@@ -373,6 +366,20 @@ public:
     }
 
 protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_web");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
+
     static std::string trimString(const std::string& str)
     {
         if (!str.size()) return str;

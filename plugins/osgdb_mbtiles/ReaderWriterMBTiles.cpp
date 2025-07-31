@@ -201,16 +201,8 @@ public:
     ReadResult readFile(MbObjectType objectType, const std::string& fullFileName,
                         const osgDB::Options* options) const
     {
-        std::string fileName(fullFileName);
-        std::string ext = osgDB::getFileExtension(fullFileName);
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
-        bool usePseudo = (ext == "verse_mbtiles");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(fullFileName);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
         if (!acceptsProtocol(scheme))
         {
             if (options && !options->getDatabasePathList().empty())
@@ -276,16 +268,8 @@ public:
     virtual WriteResult writeFile(const osg::Object& obj, const std::string& fullFileName,
                                   const osgDB::Options* options) const
     {
-        std::string fileName(fullFileName);
-        std::string ext = osgDB::getFileExtension(fullFileName);
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
         std::string scheme = osgDB::getServerProtocol(fullFileName);
-        bool usePseudo = (ext == "verse_mbtiles");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(fullFileName);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
         if (scheme != "mbtiles")
         {
             if (options && !options->getDatabasePathList().empty())
@@ -508,6 +492,20 @@ public:
     }
 
 protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_mbtiles");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
+
     typedef std::map<std::string, sqlite3*> DatabaseMap;
     DatabaseMap _dbMap;
 };

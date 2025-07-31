@@ -72,17 +72,7 @@ public:
 
     virtual ReadResult readNode(const std::string& path, const Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_mvt");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getLowerCaseFileExtension(fileName);
-        }
-
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
         if (!in) return ReadResult::FILE_NOT_FOUND;
         return readNode(in, options);
@@ -168,6 +158,20 @@ protected:
         void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
         { triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3); }
     };
+
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_mvt");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
+    }
 
     osg::PrimitiveSet* createDelaunayTriangulation(
             osg::Geometry& geom, const std::vector<osg::ref_ptr<osg::DrawArrays>>& primitives) const

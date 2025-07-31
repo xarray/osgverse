@@ -29,17 +29,7 @@ public:
 
     virtual ReadResult readImage(const std::string& path, const Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_ktx");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         std::vector<osg::ref_ptr<osg::Image>> images = osgVerse::loadKtx(fileName, options);
         if (images.size() > 1)
         {
@@ -65,17 +55,7 @@ public:
     virtual WriteResult writeImage(const osg::Image& image, const std::string& path,
                                    const Options* options) const
     {
-        std::string fileName(path);
-        std::string ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
-
-        bool usePseudo = (ext == "verse_ktx");
-        if (usePseudo)
-        {
-            fileName = osgDB::getNameLessExtension(path);
-            ext = osgDB::getFileExtension(fileName);
-        }
-
+        std::string ext; std::string fileName = getRealFileName(path, ext);
         osg::Image* imagePtr = const_cast<osg::Image*>(&image);
         osg::ImageSequence* seq = dynamic_cast<osg::ImageSequence*>(imagePtr);
         std::vector<osg::Image*> imageList;
@@ -135,6 +115,21 @@ public:
 
         bool result = osgVerse::saveKtx2(fout, false, options, imageList);
         return result ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
+    }
+
+protected:
+    std::string getRealFileName(const std::string& path, std::string& ext) const
+    {
+        std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
+        if (!acceptsExtension(ext)) return fileName;
+
+        bool usePseudo = (ext == "verse_ktx");
+        if (usePseudo)
+        {
+            fileName = osgDB::getNameLessExtension(path);
+            ext = osgDB::getFileExtension(fileName);
+        }
+        return fileName;
     }
 };
 
