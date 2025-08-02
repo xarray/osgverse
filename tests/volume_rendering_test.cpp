@@ -66,11 +66,21 @@ public:
                     { if (valueMin.y() < 1.0f) valueMin.y() += 0.01f; sliceMin->set(valueMin); }
                 break;
             case osgGA::GUIEventAdapter::KEY_Page_Down:
-                scale.z() *= 0.95;
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix::translate(pos)); break;
+                if (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT)
+                    { if (valueMax.z() > 0.0f) valueMax.z() -= 0.01f; sliceMax->set(valueMax); }
+                else
+                    { if (valueMin.z() > 0.0f) valueMin.z() -= 0.01f; sliceMin->set(valueMin); }
+                break;
             case osgGA::GUIEventAdapter::KEY_Page_Up:
-                scale.z() *= 1.05;
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix::translate(pos)); break;
+                if (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT)
+                    { if (valueMax.z() < 1.0f) valueMax.z() += 0.01f; sliceMax->set(valueMax); }
+                else
+                    { if (valueMin.z() < 1.0f) valueMin.z() += 0.01f; sliceMin->set(valueMin); }
+                break;
+            case '[':
+                scale.z() *= 0.95; _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix::translate(pos)); break;
+            case ']':
+                scale.z() *= 1.05; _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix::translate(pos)); break;
             default: return false;
             }
         }
@@ -114,8 +124,8 @@ protected:
 
 typedef std::pair<osg::MatrixTransform*, osg::StateSet*> ResultPair;
 ResultPair createVolumeData(
-    osg::Image* image3D, osg::Image* transferImage1D,
-    const osg::Vec3& origin, const osg::Vec3& spacing, float minValue, float maxValue)
+    osg::Image* image3D, osg::Image* transferImage1D, const osg::Vec3& origin, const osg::Vec3& spacing,
+    float factor, float power, float minValue, float maxValue, float invalid)
 {
     osg::ref_ptr<osg::Texture3D> tex3D = new osg::Texture3D;
     tex3D->setFilter(osg::Texture3D::MIN_FILTER, osg::Texture3D::LINEAR);
@@ -210,10 +220,10 @@ ResultPair createVolumeData(
     ss->addUniform(new osg::Uniform("Color", osg::Vec3(1.0f, 1.0f, 1.0f)));
     ss->addUniform(new osg::Uniform("BoundingMin", origin));
     ss->addUniform(new osg::Uniform("BoundingMax", origin + size));
-    ss->addUniform(new osg::Uniform("ValueRange", osg::Vec2(minValue, maxValue - minValue)));
+    ss->addUniform(new osg::Uniform("ValueRange", osg::Vec3(minValue, maxValue - minValue, invalid)));
     ss->addUniform(new osg::Uniform("RayMarchingSamples", (int)128));
-    ss->addUniform(new osg::Uniform("DensityFactor", 2.0f));
-    ss->addUniform(new osg::Uniform("DensityPower", 1.0f));
+    ss->addUniform(new osg::Uniform("DensityFactor", factor));
+    ss->addUniform(new osg::Uniform("DensityPower", power));
     ss->addUniform(new osg::Uniform("SliceMin", osg::Vec3(0.0f, 0.0f, 0.0f)));
     ss->addUniform(new osg::Uniform("SliceMax", osg::Vec3(1.0f, 1.0f, 1.0f)));
 #if 0
@@ -269,22 +279,28 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile(arguments[1], new osgDB::Options("DimensionScale=1"));
     if (!image) return 1; else std::cout << image->s() << "x" << image->t() << "x" << image->r() << std::endl;
 
+    float vMin = FLT_MAX, vMax = -FLT_MAX;
+    float* ptr = (float*)image->data();
+    for (int z = 0; z < image->r(); ++z)
+        for (int y = 0; y < image->t(); ++y)
+            for (int x = 0; x < image->s(); ++x)
+            {
+                float v = *(ptr + x + y * image->s() + z * image->t() * image->s());
+                if (v < vMin) vMin = v; if (v > vMax) vMax = v;
+            }
+    std::cout << "Min/Max: " << vMin << ", " << vMax << "\n";
+
     float rangeMin = 0.0f, rangeMax = 1.0f, spX = 0.1f, spY = 0.1f, spZ = 0.1f;
+    float power = 1.0f, factor = 2.0f, invalid = 0.0f;
     arguments.read("--range", rangeMin, rangeMax);
     arguments.read("--spacing", spX, spY, spZ);
+    arguments.read("--factor", factor, power);
+    arguments.read("--invalid", invalid);
 
-    osg::Vec3d origin, spacing(spX, spY, spZ); osg::ref_ptr<osg::Image> image1D;
-#if 1
-    std::vector<std::pair<float, osg::Vec4ub>> colors;
-    colors.push_back(std::pair<float, osg::Vec4ub>(0.0f, osg::Vec4ub(0, 0, 0, 255)));
-    colors.push_back(std::pair<float, osg::Vec4ub>(0.2f, osg::Vec4ub(0, 0, 255, 255)));
-    colors.push_back(std::pair<float, osg::Vec4ub>(0.5f, osg::Vec4ub(0, 255, 0, 255)));
-    colors.push_back(std::pair<float, osg::Vec4ub>(0.8f, osg::Vec4ub(255, 255, 0, 255)));
-    colors.push_back(std::pair<float, osg::Vec4ub>(1.0f, osg::Vec4ub(255, 0, 0, 255)));
-    image1D = createTransferFunction(colors);
-#endif
+    osg::Vec3d origin, spacing(spX, spY, spZ);
+    osg::ref_ptr<osg::Image> image1D = osgVerse::generateTransferFunction(2);
     ResultPair pair = createVolumeData(
-        image.get(), image1D.get(), origin, spacing, rangeMin, rangeMax);
+        image.get(), image1D.get(), origin, spacing, factor, power, rangeMin, rangeMax, invalid);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(pair.first);

@@ -31,6 +31,13 @@ namespace osgVerse
     /** Create poisson noises. e.g. for PCF shadow use */
     extern osg::Texture* generatePoissonDiscDistribution(int numCols, int numRows = 1);
 
+    /** Generate 1D transfer function texture for volume rendering
+    *   Type = tinycolormap::ColormapType
+    *     Parula = 0, Heat = 1, Jet = 2, Turbo = 3, Hot = 4, Gray = 5, Magma = 6, Inferno = 7,
+    *     Plasma = 8, Viridis = 9, Cividis = 10, Github = 11, Cubehelix = 12, HSV = 13
+    */
+    extern osg::Image* generateTransferFunction(int type, int resolution = 64, int alpha = 255);
+
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 

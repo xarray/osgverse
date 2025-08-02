@@ -49,12 +49,12 @@ int main(int argc, char** argv)
             if (!(id % 100000)) std::cout << "ID = " << id << ": Saving " << cloud.size() << " points\n";
             if (power == 0.0) return true;
 
-            static std::map<osg::Vec3i, int> s_hashMap;
+            /*static std::map<osg::Vec3i, int> s_hashMap;
             osg::Vec3i key(int(lat * 10000000.0f), int(lon * 10000000.0f), int(z / 5));
             if (s_hashMap.find(key) != s_hashMap.end()) return true;
-            else s_hashMap[key] = 1;
+            else s_hashMap[key] = 1;*/
 
-            static std::map<int, int> ampValues; ampValues[(int)(power / 5.0)]++;
+            static std::map<int, int> ampValues; ampValues[(int)(power / 500.0)]++;
             static osg::BoundingBoxd bb; bb.expandBy(osg::Vec3d(lat, lon, z));
             static double pMin = FLT_MAX, pMax = -FLT_MAX;
             if (power < pMin) pMin = power; if (power > pMax) pMax = power;
@@ -63,7 +63,7 @@ int main(int argc, char** argv)
                 if (!(id % 10000000))
                 {
                     for (std::map<int, int>::iterator itr = ampValues.begin(); itr != ampValues.end(); ++itr)
-                        std::cout << "    " << (itr->first * 5) << ": Count = " << itr->second << "\n";
+                        std::cout << "    " << (itr->first * 500) << ": Count = " << itr->second << "\n";
                 }
                 std::cout << bb._min << " -- " << bb._max << "; Power [" << pMin << ", " << pMax << "]\n";
             }

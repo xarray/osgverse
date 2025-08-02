@@ -22,6 +22,7 @@
 #include <random>
 
 #include <backward.hpp>
+#include <tinycolormap.hpp>
 #include <mikktspace.h>
 #include <PoissonGenerator.h>
 #include <normalmap/normalmapgenerator.h>
@@ -487,6 +488,23 @@ namespace osgVerse
         noiseTex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
         noiseTex->setImage(0, image.get());
         return noiseTex.release();
+    }
+
+    osg::Image* generateTransferFunction(int type, int resolution, int alpha)
+    {
+        osg::Vec4ub* values = new osg::Vec4ub[resolution];
+        for (int i = 0; i < resolution; ++i)
+        {
+            float value = (float)i / (float)(resolution - 1);
+            tinycolormap::Color c = tinycolormap::GetColor(value, (tinycolormap::ColormapType)type);
+            values[i] = osg::Vec4ub((unsigned char)(c.r() * 255.0f), (unsigned char)(c.g() * 255.0f),
+                (unsigned char)(c.b() * 255.0f), (unsigned char)alpha);
+        }
+
+        osg::ref_ptr<osg::Image> image1D = new osg::Image;
+        image1D->setImage(resolution, 1, 1, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE,
+            (unsigned char*)values, osg::Image::USE_NEW_DELETE);
+        return image1D.release();
     }
 
     osg::Texture2D* createDefaultTexture(const osg::Vec4& color)

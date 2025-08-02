@@ -194,12 +194,12 @@ protected:
         tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
 
         osg::Matrix localMatrix; osg::ref_ptr<osg::Image> elevImage;
-        osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler;
-        if (elevH) elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION);
-        else elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION);
+        osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler; bool emptyPath = false;
+        if (elevH) elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION, emptyPath);
+        else elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION, emptyPath);
 
-        osg::ref_ptr<osg::Image> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO);
-        osg::ref_ptr<osg::Image> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK);
+        osg::ref_ptr<osg::Image> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath);
+        osg::ref_ptr<osg::Image> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath);
         if (!orthImage) return NULL;
 
         osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?

@@ -116,6 +116,17 @@ protected:
     int _pressingKey;
 };
 
+static std::string createCustomPath(int type, const std::string& prefix, int x, int y, int z)
+{
+    if (type >= osgVerse::TileCallback::USER)  // FIXME: for Zhijiang data...
+    {
+        int newY = pow(2, z) - y - 1;
+        return osgVerse::TileCallback::createPath(prefix, x, newY, z);
+    }
+    else
+        return osgVerse::TileCallback::createPath(prefix, x, y, z);
+}
+
 int main(int argc, char** argv)
 {
     osgViewer::Viewer viewer;
@@ -132,13 +143,12 @@ int main(int argc, char** argv)
     // Create earth
     std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
                             " Elevation=mbtiles://" + mainFolder + "/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
-                            //" Elevation=mbtiles://" + mainFolder + "/elevation_test.mbtiles/{z}-{x}-{y}.tif"
                             " OceanMask=mbtiles://" + mainFolder + "/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
-                            //" Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
-                            //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
+                            //" Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}"
                             " MaximumLevel=8 UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
+    earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);
 
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);

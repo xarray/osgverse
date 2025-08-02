@@ -3,7 +3,7 @@ uniform sampler3D VolumeTexture;
 uniform sampler1D TransferTexture;
 uniform vec3 Color, BoundingMin, BoundingMax;
 uniform vec3 SliceMin, SliceMax;
-uniform vec2 ValueRange;
+uniform vec3 ValueRange;  // (min, max-min, invalid)
 uniform int RayMarchingSamples, TransferMode;
 uniform float DensityFactor, DensityPower;
 VERSE_FS_IN vec4 eyeVertex, texCoord;
@@ -53,8 +53,9 @@ void main()
     {
         vec3 uv = (pos - BoundingMin) * invBoundingDiff;
         float density = VERSE_TEX3D(VolumeTexture, uv).r;
-        if (any(lessThan(uv, SliceMin)) || any(greaterThan(uv, SliceMax)))
-            density = 0.0;
+        if ((T > 0.99 && density == ValueRange.z) ||
+            any(lessThan(uv, SliceMin)) || any(greaterThan(uv, SliceMax)))
+        { density = 0.0; }
         else
         {
             density = (density - ValueRange.x) / ValueRange.y;
@@ -65,8 +66,8 @@ void main()
         if (TransferMode == 1) value = VERSE_TEX1D(TransferTexture, density);
         else value = vec4(density); value.a = density;
         value *= factor; resultColor += T * value;
-        T *= 1.0 - value.a;
-        pos += step; if (i == samples - 1 || T < 0.01) break;
+        T *= 1.0 - value.a; pos += step;
+        if (i == samples - 1 || T < 0.01) break;
     }
     fragData = vec4(Color * resultColor.rgb, 1.0 - T);
     VERSE_FS_FINAL(fragData);

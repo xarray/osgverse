@@ -122,7 +122,7 @@ int main(int argc, char** argv)
                             "Elevation=F:/DEM-China-wgs84-Mesh-12.5m/{z}/{x}/{y}.terrain ";
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
-#elif true
+#elif false
     std::string earthURLs = "Orthophoto=mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg OriginBottomLeft=1 "
                             "Elevation=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif UseWebMercator=1";
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " UseEarth3D=1");

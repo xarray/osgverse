@@ -28,6 +28,9 @@ public:
         supportsExtension("vdb", "VDB point cloud and texture file");
         supportsOption("ReadDataType=<hint>", "Read option: <Mesh/Points>");
         supportsOption("DimensionScale=<hint>", "Read option: volume image size scale, default is 1.0");
+        supportsOption("ResolutionX=<hint>", "Write option: output image resolution X, default = 256");
+        supportsOption("ResolutionY=<hint>", "Write option: output image resolution Y, default = 256");
+        supportsOption("ResolutionZ=<hint>", "Write option: output image resolution Z, default = 256");
         openvdb::initialize();
     }
 
@@ -182,6 +185,11 @@ public:
             openvdb::FloatGrid::Ptr g0 = openvdb::gridPtrCast<openvdb::FloatGrid>((*grids)[i]);
             if (g0)
             {
+#if false
+                auto minMax = openvdb::tools::minMax(g0->tree());
+                std::cout << "Original data range: [" << minMax.min() << ", " << minMax.max() << "]" << std::endl;
+#endif
+
                 img->allocateImage(res[0], res[1], res[2], GL_LUMINANCE, GL_FLOAT);
                 img->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
                 createImage<openvdb::FloatGrid, float, float>(*g0, img.get(), res, 1);
@@ -248,9 +256,9 @@ public:
         openvdb::GridPtrVecPtr grids(new openvdb::GridPtrVec);
         openvdb::Coord coord;
 
-        GLenum dataType = osg::Image::computeFormatDataType(image.getPixelFormat());
+        GLenum dataType = image.getDataType();
         unsigned int numComponents = osg::Image::computeNumComponents(image.getPixelFormat());
-        unsigned int pixelSize = osg::Image::computePixelSizeInBits(image.getPixelFormat(), image.getDataType());
+        unsigned int pixelSize = osg::Image::computePixelSizeInBits(image.getPixelFormat(), dataType);
         pixelSize = pixelSize / numComponents;
 
 #define TRAVERSE_COORD(gridType, name) \
@@ -355,21 +363,54 @@ public:
         openvdb::GridPtrVecPtr grids(new openvdb::GridPtrVec);
         openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
         openvdb::FloatGrid::Accessor accessor = grid->getAccessor();
+        grid->setName("CloudValue");
 
-        double vMin = FLT_MAX, vMax = -FLT_MAX;
-        openvdb::Coord coord; grid->setName("CloudValue");
+        double vMin = FLT_MAX, vMax = -FLT_MAX; osg::BoundingBoxd bound;
         unsigned int size = positions->size();
         for (unsigned int i = 0; i < size; ++i)
         {
             const osg::Vec4& pos = positions->at(i);
             const osg::Vec4& attr = attributes->at(i);
-            coord.reset(pos[0], pos[1], pos[2]);
-            accessor.setValue(coord, attr[0]);  // FIXME: only for Zhijiang csv...
+            bound.expandBy(osg::Vec3d(pos[0], pos[1], pos[2]));
             if (attr[0] < vMin) vMin = attr[0];
             if (attr[0] > vMax) vMax = attr[0];
         }
+
+#if false
+        std::cout << "Grid boud: " << bound._min << "; " << bound._max << "\n";
+        std::cout << "Updated grid data: [" << vMin << ", " << vMax << "]\n";
+#endif
+        osg::Vec3d invRange(bound._max - bound._min);
+        invRange.set(1.0 / invRange[0], 1.0 / invRange[1], 1.0 / invRange[2]);
+
+        int resX = 255, resY = 255, resZ = 255;
+        if (options)
+        {
+            std::string str = options->getPluginStringData("ResolutionX");
+            if (!str.empty()) resX = atoi(str.c_str()) - 1; if (resX < 1) resX = 255;
+            str = options->getPluginStringData("ResolutionY");
+            if (!str.empty()) resY = atoi(str.c_str()) - 1; if (resY < 1) resY = 255;
+            str = options->getPluginStringData("ResolutionZ");
+            if (!str.empty()) resZ = atoi(str.c_str()) - 1; if (resZ < 1) resZ = 255;
+        }
+
+        std::map<openvdb::Coord, osg::Vec2d> coordMap;
+        for (unsigned int i = 0; i < size; ++i)
+        {
+            const osg::Vec4& pos = positions->at(i);
+            const osg::Vec4& attr = attributes->at(i);  // FIXME: only for Zhijiang csv at present...
+            int x = (int)round(resX * (pos[0] - bound._min[0]) * invRange[0]);
+            int y = (int)round(resY * (pos[1] - bound._min[1]) * invRange[1]);
+            int z = (int)round(resZ * (pos[2] - bound._min[2]) * invRange[2]);
+            coordMap[openvdb::Coord(x, y, z)] += osg::Vec2d(attr[0], 1.0);
+        }
+        for (int z = 0; z < resZ; ++z) for (int y = 0; y < resY; ++y) for (int x = 0; x < resX; ++x)
+        { openvdb::Coord c(x, y, z); if (coordMap.find(c) == coordMap.end()) coordMap[c] = osg::Vec2d(0.0, 1.0); }
+
+        for (std::map<openvdb::Coord, osg::Vec2d>::iterator it = coordMap.begin();
+             it != coordMap.end(); ++it)
+        { osg::Vec2d& v = it->second; accessor.setValue(it->first, v[0] / v[1]); }
         grids->push_back(grid);
-        OSG_NOTICE << "[ReaderWriterVDB] Updated grid data: [" << vMin << ", " << vMax << "]\n";
 
         if (grids->empty()) return WriteResult::NOT_IMPLEMENTED;
         openvdb::io::Stream(fout).write(*grids);
@@ -407,6 +448,8 @@ protected:
         openvdb::CoordBBox domain(
             openvdb::Coord(0, 0, 0), openvdb::Coord(res[0] - 1, res[1] - 1, res[2] - 1));
         const openvdb::Vec3i stride = { 1, (int)res[0], (int)(res[0] * res[1]) };
+        //std::cout << "VDB world box: (" << worldBox.min().x() << ", " << worldBox.min().y() << ", " << worldBox.min().z()
+        //          << ") - (" << worldBox.max().x() << ", " << worldBox.max().y() << ", " << worldBox.max().z() << ")\n";
 
         long long num_voxels = domain.volume();
         std::vector<T> dataArray(num_voxels * comp);
@@ -438,6 +481,9 @@ protected:
             out_value_range.addValue(per_thread_range._min);
             out_value_range.addValue(per_thread_range._max);
         }
+#if false
+        std::cout << "Output image range: [" << out_value_range._min << ", " << out_value_range._max << "]\n";
+#endif
 
         T_OUT* ptr = (T_OUT*)image->data();
         tbb::parallel_for(tbb::blocked_range<size_t>(0, num_voxels * comp),

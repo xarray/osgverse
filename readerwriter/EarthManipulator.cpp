@@ -633,7 +633,7 @@ bool EarthManipulator::calcIntersectPoint(float x, float y, osg::Vec3d& point, b
             osgUtil::LineSegmentIntersector::Intersection hit = intersector->getFirstIntersection();
             point = hit.getWorldIntersectPoint(); result = true;
 
-#if true
+#if false
             double lat, lon, height;
             _ellipsoid->convertXYZToLatLongHeight( point.x(), point.y(), point.z(), lat, lon, height );
             std::cout << hit.nodePath.back()->getName() << ": Lat = " << osg::RadiansToDegrees(lat)

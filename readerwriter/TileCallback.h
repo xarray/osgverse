@@ -44,8 +44,8 @@ namespace osgVerse
                                                   double width, double height) const;
 
         enum LayerType { ELEVATION = 0, ORTHOPHOTO, OCEAN_MASK, USER };
-        osg::Image* createLayerImage(LayerType id);
-        TileGeometryHandler* createLayerHandler(LayerType id);
+        osg::Image* createLayerImage(LayerType id, bool& emptyPath);
+        TileGeometryHandler* createLayerHandler(LayerType id, bool& emptyPath);
 
         /** Set layer data path with wildcards */
         void setLayerPath(LayerType id, const std::string& p) { _layerPaths[id] = p; }

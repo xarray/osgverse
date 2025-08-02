@@ -46,9 +46,11 @@ std::string TileCallback::replace(std::string& src, const std::string& match, co
     src.replace(levelPos, match.length(), v); c = true; return src;
 }
 
-osg::Image* TileCallback::createLayerImage(LayerType id)
+osg::Image* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
 {
-    std::string inputAddr = _layerPaths[(int)id]; if (inputAddr.empty()) return NULL;
+    std::string inputAddr = _layerPaths[(int)id];
+    emptyPath = inputAddr.empty(); if (emptyPath) return NULL;
+
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
     std::string protocol = osgDB::getServerProtocol(url);
@@ -56,9 +58,11 @@ osg::Image* TileCallback::createLayerImage(LayerType id)
     return osgDB::readImageFile(url);
 }
 
-TileGeometryHandler* TileCallback::createLayerHandler(LayerType id)
+TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyPath)
 {
-    std::string inputAddr = _layerPaths[(int)id]; if (inputAddr.empty()) return NULL;
+    std::string inputAddr = _layerPaths[(int)id];
+    emptyPath = inputAddr.empty(); if (emptyPath) return NULL;
+
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
     std::string protocol = osgDB::getServerProtocol(url);
@@ -274,36 +278,37 @@ void TileCallback::updateLayerData(osg::Node* node, LayerType id)
     FindTileGeometry ftg; node->accept(ftg);
     if (!ftg.geometry) return;
 
-    osg::ref_ptr<osg::Image> image; osg::Texture* tex = NULL;
-    osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
+    osg::ref_ptr<osg::Image> image; osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
+    int texUnit = 0; bool emptyPath = false;
     switch (id)
     {
     case ELEVATION:
         OSG_NOTICE << "[TileCallback] Elevation layer reloading not implemented at present" << std::endl;
         break;  // FIXME: alter elevation data on the fly?
     case ORTHOPHOTO:
-        image = createLayerImage(osgVerse::TileCallback::ORTHOPHOTO); if (!image) break;
-        tex = static_cast<osg::Texture*>(ss->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
-        if (!tex) ss->setTextureAttributeAndModes(
-            0, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
-        else tex->setImage(0, image.get()); break;
+        image = createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath);
+        texUnit = 0; break;
     case OCEAN_MASK:
-        image = createLayerImage(osgVerse::TileCallback::OCEAN_MASK); if (!image) break;
-        tex = static_cast<osg::Texture*>(ss->getTextureAttribute(1, osg::StateAttribute::TEXTURE));
-        if (!tex) ss->setTextureAttributeAndModes(
-            1, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
-        else tex->setImage(0, image.get()); break;
+        image = createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath); if (!image) break;
+        texUnit = 1; break;
     default:  // USER
-        image = createLayerImage(id); if (!image) break;
-        tex = static_cast<osg::Texture*>(ss->getTextureAttribute(2, osg::StateAttribute::TEXTURE));
-        if (!tex)
-        {
-            // FIXME: use tex2d array to handle multiple layers?
-            ss->setTextureAttributeAndModes(
-                2, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
-        }
-        else tex->setImage(id - USER, image.get()); break;
+        image = createLayerImage(id, emptyPath); if (!image) break;
+        texUnit = 2; break;
         break;
+    }
+
+    osg::Texture* tex = static_cast<osg::Texture*>(
+        ss->getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
+    if (image.valid())
+    {
+        if (!tex) ss->setTextureAttributeAndModes(
+            texUnit, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+        else tex->setImage(0, image.get());  // FIXME: for USER layers, use tex2d array instead?
+    }
+    else if (emptyPath && tex)
+    {
+        ss->removeAssociatedModes(tex);
+        ss->removeTextureAttribute(texUnit, tex);
     }
 }
 
