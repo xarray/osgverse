@@ -12,6 +12,26 @@
 #include "TileCallback.h"
 using namespace osgVerse;
 
+class FindTileGeometry : public osg::NodeVisitor
+{
+public:
+    FindTileGeometry() : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN) {}
+    osg::observer_ptr<osg::Geometry> geometry;
+
+    virtual void apply(osg::Geode& node)
+    {
+        for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+        {
+            osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+            if (geom) apply(*geom);
+        }
+        traverse(node);
+    }
+
+    virtual void apply(osg::Geometry& geom)
+    { geometry = &geom; traverse(geom); }
+};
+
 std::string TileCallback::createPath(const std::string& pseudoPath, int x, int y, int z)
 {
     std::string path = pseudoPath; bool changed = false;
@@ -249,12 +269,55 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
         return osg::createTexturedQuadGeometry(tileMin, osg::X_AXIS * width, osg::Y_AXIS * height);
 }
 
+void TileCallback::updateLayerData(osg::Node* node, LayerType id)
+{
+    FindTileGeometry ftg; node->accept(ftg);
+    if (!ftg.geometry) return;
+
+    osg::ref_ptr<osg::Image> image; osg::Texture* tex = NULL;
+    osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
+    switch (id)
+    {
+    case ELEVATION:
+        OSG_NOTICE << "[TileCallback] Elevation layer reloading not implemented at present" << std::endl;
+        break;  // FIXME: alter elevation data on the fly?
+    case ORTHOPHOTO:
+        image = createLayerImage(osgVerse::TileCallback::ORTHOPHOTO); if (!image) break;
+        tex = static_cast<osg::Texture*>(ss->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+        if (!tex) ss->setTextureAttributeAndModes(
+            0, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+        else tex->setImage(0, image.get()); break;
+    case OCEAN_MASK:
+        image = createLayerImage(osgVerse::TileCallback::OCEAN_MASK); if (!image) break;
+        tex = static_cast<osg::Texture*>(ss->getTextureAttribute(1, osg::StateAttribute::TEXTURE));
+        if (!tex) ss->setTextureAttributeAndModes(
+            1, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+        else tex->setImage(0, image.get()); break;
+    default:  // USER
+        image = createLayerImage(id); if (!image) break;
+        tex = static_cast<osg::Texture*>(ss->getTextureAttribute(2, osg::StateAttribute::TEXTURE));
+        if (!tex)
+        {
+            // FIXME: use tex2d array to handle multiple layers?
+            ss->setTextureAttributeAndModes(
+                2, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+        }
+        else tex->setImage(id - USER, image.get()); break;
+        break;
+    }
+}
+
 void TileCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
 {
     std::vector<int> updatedID;
     if (TileManager::instance()->check(_layerPaths, updatedID))
     {
-        //
+        for (size_t i = 0; i < updatedID.size(); ++i)
+        {
+            LayerType id = (LayerType)updatedID[i];
+            _layerPaths[id] = TileManager::instance()->getLayerPath(id);
+            updateLayerData(node, id);  // load or update layer image
+        }
     }
     traverse(node, nv);
 }

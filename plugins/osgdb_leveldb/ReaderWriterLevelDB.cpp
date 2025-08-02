@@ -202,6 +202,7 @@ public:
             }
             return ReadResult::FILE_NOT_HANDLED;
         }
+        else if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
 
         osgDB::ReaderWriter* reader =
             osgDB::Registry::instance()->getReaderWriterForExtension(ext);
@@ -256,6 +257,7 @@ public:
             }
             return WriteResult::FILE_NOT_HANDLED;
         }
+        else if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
 
         std::string dbName = osgDB::getServerAddress(fullFileName);
         std::string keyName = osgDB::getServerFileName(fullFileName);

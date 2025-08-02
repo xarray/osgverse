@@ -26,8 +26,8 @@ T convert(const value &);
 
 template <>
 point convert<point>(const value &val) {
-    assert(val.is<value::array_type>());
-    if (!val.is<value::array_type>()) {
+    assert(val.is<value::array_ptr_type>());
+    if (!val.is<value::array_ptr_type>()) {
         throw error("coordinates must be of an Array type");
     }
 
@@ -41,8 +41,8 @@ point convert<point>(const value &val) {
 
 template <typename Container>
 Container convert(const value &val) {
-    assert(val.is<value::array_type>());
-    if (!val.is<value::array_type>()) {
+    assert(val.is<value::array_ptr_type>());
+    if (!val.is<value::array_ptr_type>()) {
         throw error("coordinates must be of an Array type");
     }
 
@@ -57,7 +57,7 @@ Container convert(const value &val) {
 
 template <>
 geometry convert<geometry>(const value &val) {
-    auto *valueObject = val.getObject();
+    value::const_object_ptr_type valueObject = val.getObject();
     if (!valueObject) {
         throw error("GeoJSON must be an object");
     }
@@ -80,7 +80,7 @@ geometry convert<geometry>(const value &val) {
             throw error("GeometryCollection must have a geometries property");
         }
 
-        const auto *geometryArray = geometriesIt->second.getArray();
+        value::const_array_ptr_type geometryArray = geometriesIt->second.getArray();
         if (!geometryArray) {
             throw error("GeometryCollection geometries property must be an array");
         }
@@ -93,7 +93,7 @@ geometry convert<geometry>(const value &val) {
         throw error(typeString + " geometry must have a coordinates property");
     }
 
-    const auto *coordinateArray = coordinatesIt->second.getArray();
+    value::const_array_ptr_type coordinateArray = coordinatesIt->second.getArray();
     if (!coordinateArray) {
         throw error("coordinates property must be an array");
     }
@@ -116,7 +116,7 @@ geometry convert<geometry>(const value &val) {
 
 template <>
 feature convert<feature>(const value &val) {
-    auto *valueObject = val.getObject();
+    value::const_object_ptr_type valueObject = val.getObject();
     if (!valueObject) {
         throw error("GeoJSON must be an object");
     }
@@ -156,7 +156,7 @@ feature convert<feature>(const value &val) {
     auto propertiesIt = valueObject->find("properties");
     if (propertiesIt != valueObject->end() &&
         !propertiesIt->second.is<mapbox::geojson::null_value_t>()) {
-        if (!propertiesIt->second.is<value::object_type>()) {
+        if (!propertiesIt->second.is<value::object_ptr_type>()) {
             throw error("properties must be an object");
         }
         result.properties = *propertiesIt->second.getObject();
@@ -167,7 +167,7 @@ feature convert<feature>(const value &val) {
 
 template <>
 geojson convert<geojson>(const value &val) {
-    auto *valueObject = val.getObject();
+    value::const_object_ptr_type valueObject = val.getObject();
     if (!valueObject) {
         throw error("GeoJSON must be an object");
     }
@@ -189,7 +189,7 @@ geojson convert<geojson>(const value &val) {
             throw error("FeatureCollection must have features property");
         }
 
-        const auto *featureArray = featuresIt->second.getArray();
+        value::const_array_ptr_type featureArray = featuresIt->second.getArray();
         if (!featureArray) {
             throw error("FeatureCollection features property must be an array");
         }

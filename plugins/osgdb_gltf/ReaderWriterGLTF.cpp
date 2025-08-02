@@ -36,6 +36,7 @@ public:
     virtual ReadResult readNode(const std::string& path, const osgDB::Options* options) const
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
         int yUp = options ? atoi(options->getPluginStringData("UpAxis").c_str()) : 0;
         
@@ -94,7 +95,7 @@ protected:
     std::string getRealFileName(const std::string& path, std::string& ext) const
     {
         std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return fileName;
+        if (!acceptsExtension(ext)) return "";
 
         bool usePseudo = (ext == "verse_gltf");
         if (usePseudo)

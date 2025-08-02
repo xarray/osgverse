@@ -31,6 +31,8 @@ extern CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, os
                                                      const std::string& mainFolder, int width, int height);
 extern osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Texture* sceneMaskTex,
                                  const std::string& mainFolder, int width, int height, unsigned int mask);
+extern osg::Node* configureCityData(osgViewer::View& viewer, osg::Node* earth,
+                                    const std::string& mainFolder, unsigned int mask);
 extern void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
 extern osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, double lat, double lon,
@@ -39,8 +41,9 @@ extern osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, double 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
 public:
-    EnvironmentHandler(osg::Camera* c, osg::StateSet* ss, osg::EllipsoidModel* em)
-        : _rttCamera(c), _mainStateSets(ss), _ellipsoidModel(em), _sunAngle(0.1f), _pressingKey(0)
+    EnvironmentHandler(osg::Camera* c, osg::StateSet* ss, osg::EllipsoidModel* em, const std::string& folder)
+    :   _rttCamera(c), _mainStateSets(ss), _ellipsoidModel(em),
+        _mainFolder(folder), _sunAngle(0.1f), _pressingKey(0)
     {
         osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
         worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
@@ -90,6 +93,15 @@ public:
                 opaqueValue2->get(opaque); opaqueValue2->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
             case '=':
                 opaqueValue2->get(opaque); opaqueValue2->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
+
+            case osgGA::GUIEventAdapter::KEY_F1:
+                static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator())->setByEye(
+                    osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(osg::inDegrees(39.925), osg::inDegrees(116.408), 1000.0)));
+                break;
+            case '1':
+                osgVerse::TileManager::instance()->setLayerPath(
+                    osgVerse::TileCallback::USER, _mainFolder + "/layers/Night_Lighting/{z}/{x}/{y}.png");
+                break;
             }
         }
         return false;
@@ -99,6 +111,7 @@ protected:
     osg::observer_ptr<osg::StateSet> _mainStateSets;
     osg::EllipsoidModel* _ellipsoidModel;
     osg::Camera* _rttCamera;
+    std::string _mainFolder;
     float _sunAngle;
     int _pressingKey;
 };
@@ -111,16 +124,16 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
     osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
 
-    std::string mainFolder = "G:/DOM_DEM"; arguments.read("--folder", mainFolder);
+    std::string mainFolder = "F:"; arguments.read("--folder", mainFolder);
     std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
     int w = 1920, h = 1080; arguments.read("--resolution", w, h);
     bool withGeomShader = true; if (arguments.read("--no-geometry-shader")) withGeomShader = false;
 
     // Create earth
-    std::string earthURLs = " Orthophoto=mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
-                            " Elevation=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
-                            //" Elevation=mbtiles://F:/elevation_test.mbtiles/{z}-{x}-{y}.tif"
-                            " OceanMask=mbtiles://F:/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
+    std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
+                            " Elevation=mbtiles://" + mainFolder + "/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
+                            //" Elevation=mbtiles://" + mainFolder + "/elevation_test.mbtiles/{z}-{x}-{y}.tif"
+                            " OceanMask=mbtiles://" + mainFolder + "/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             //" Orthophoto=" + mainFolder + "/EarthDOM/{z}/{x}/{y}.jpg"
                             //" Elevation=" + mainFolder + "/EarthDEM/{z}/{x}/{y}.tif"
                             " MaximumLevel=8 UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
@@ -137,8 +150,9 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
     osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
+    sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
-    configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
+    //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
     //osg::MatrixTransform* vdb = createVolumeBox(
     //    mainFolder + "/test.vdb.verse_vdb", 0.0, 0.0, 0.0, ~EARTH_INTERSECTION_MASK);
@@ -156,7 +170,7 @@ int main(int argc, char** argv)
 
     // Realize the viewer
     viewer.addEventHandler(new EnvironmentHandler(
-        sceneCamera.get(), root->getOrCreateStateSet(), earthManipulator->getEllipsoid()));
+        sceneCamera.get(), root->getOrCreateStateSet(), earthManipulator->getEllipsoid(), mainFolder));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));

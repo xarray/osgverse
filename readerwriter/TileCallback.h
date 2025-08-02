@@ -47,19 +47,45 @@ namespace osgVerse
         osg::Image* createLayerImage(LayerType id);
         TileGeometryHandler* createLayerHandler(LayerType id);
 
+        /** Set layer data path with wildcards */
         void setLayerPath(LayerType id, const std::string& p) { _layerPaths[id] = p; }
+        std::string getLayerPath(LayerType id) { return _layerPaths[id]; }
+
+        /** Set global extent size: default is (-180, -90) to (180, 90) */
         void setTotalExtent(const osg::Vec3d& e0, const osg::Vec3d& e1) { _extentMin = e0; _extentMax = e1; }
-        void setCreatePathFunction(CreatePathFunc f) { _createPathFunc = f; }
+        void setMinExtent(const osg::Vec3d& e) { _extentMin = e; }
+        void setMaxExtent(const osg::Vec3d& e) { _extentMax = e; }
+        const osg::Vec3d& getMinExtent() const { return _extentMin; }
+        const osg::Vec3d& getMaxExtent() const { return _extentMax; }
+
+        /** Set tile column (x), tile row (y) and tile level (z) */
         void setTileNumber(int x, int y, int z) { _x = x; _y = y; _z = z; }
+        void setTileX(int v) { _x = v; } int getTileX() const { return _x; }
+        void setTileY(int v) { _y = v; } int getTileY() const { return _y; }
+        void setTileZ(int v) { _z = v; } int getTileZ() const { return _z; }
 
+        /** Set a custom function to construct tile path string */
+        void setCreatePathFunction(CreatePathFunc f) { _createPathFunc = f; }
+        CreatePathFunc getCreatePathFunction() const { return _createPathFunc; }
+
+        /** Set tile skirt length ratio */
         void setSkirtRatio(float s) { _skirtRatio = s; }
-        void setElevationScale(float s) { _elevationScale = s; }
-        void setFlatten(bool b) { _flatten = b; }
-        void setBottomLeft(bool b) { _bottomLeft = b; }
-        void setUseWebMercator(bool b) { _useWebMercator = b; }
+        float getSkirtRatio() const { return _skirtRatio; }
 
+        /** Set evevation scale */
+        void setElevationScale(float s) { _elevationScale = s; }
+        float getElevationScale() const { return _elevationScale; }
+
+        /** Set if the tile is flatten 2D or earth 3D */
+        void setFlatten(bool b) { _flatten = b; }
         bool getFlatten() const { return _flatten; }
+
+        /** Set image origin (bottom-left or top-left) */
+        void setBottomLeft(bool b) { _bottomLeft = b; }
         bool getBottomLeft() const { return _bottomLeft; }
+
+        /** Set use web-mercator (square tile) or not (2:1 rectangle tile) */
+        void setUseWebMercator(bool b) { _useWebMercator = b; }
         bool getUseWebMercator() const { return _useWebMercator; }
 
         osg::Vec3d adjustLatitudeLongitudeAltitude(const osg::Vec3d& extent, bool useSphericalMercator) const;
@@ -68,6 +94,7 @@ namespace osgVerse
 
     protected:
         virtual ~TileCallback() {}
+        virtual void updateLayerData(osg::Node* node, LayerType id);
 
         std::map<int, std::string> _layerPaths;
         osg::Vec3d _extentMin, _extentMax;

@@ -40,7 +40,7 @@ public:
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
-        if (!in) return ReadResult::FILE_NOT_FOUND;
+        if (!in) return ReadResult::FILE_NOT_HANDLED;
         return (ext == "rseq") ? readRaw(in, options) : readImage(in, options);
     }
 
@@ -48,6 +48,8 @@ public:
                                    const Options* options) const
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
+
         std::ofstream out(fileName, std::ios::out | std::ios::binary);
         if (ext == "rseq") return writeRaw(out, image, options);
         // TODO
@@ -91,7 +93,7 @@ protected:
     std::string getRealFileName(const std::string& path, std::string& ext) const
     {
         std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return fileName;
+        if (!acceptsExtension(ext)) return "";
 
         bool usePseudo = (ext == "verse_image");
         if (usePseudo)

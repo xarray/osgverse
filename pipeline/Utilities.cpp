@@ -506,6 +506,26 @@ namespace osgVerse
         tex2D->setImage(image.get()); return tex2D.release();
     }
 
+    osg::Texture2DArray* createDefaultTextureArray(const osg::Vec4& color, int layers)
+    {
+        osg::ref_ptr<osg::Texture2DArray> texArray = new osg::Texture2DArray;
+        texArray->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+        texArray->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+        texArray->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
+        texArray->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
+        for (int i = 0; i < layers; ++i)
+        {
+            osg::ref_ptr<osg::Image> image = new osg::Image;
+            image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+            image->setInternalTextureFormat(GL_RGBA);
+
+            osg::Vec4ub* ptr = (osg::Vec4ub*)image->data();
+            *ptr = osg::Vec4ub(color[0] * 255, color[1] * 255, color[2] * 255, color[3] * 255);
+            texArray->setImage(i, image.get());
+        }
+        return texArray.release();
+    }
+
     osg::Texture2D* createTexture2D(osg::Image* image, osg::Texture::WrapMode mode)
     {
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;

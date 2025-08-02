@@ -308,23 +308,28 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     unsigned char* transmittance = loadAllData(BASE_DIR + "/textures/transmittance.raw", size, 0);
     unsigned char* irradiance = loadAllData(BASE_DIR + "/textures/irradiance.raw", size, 0);
     unsigned char* inscatter = loadAllData(BASE_DIR + "/textures/inscatter.raw", size, 0);
+    osg::Texture* defTex0 = osgVerse::createDefaultTexture(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    osg::Texture* defTex1 = osgVerse::createDefaultTexture(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
     osg::StateSet* ss = root->getOrCreateStateSet();
-    ss->setTextureAttributeAndModes(0, osgVerse::createDefaultTexture());
-    ss->setTextureAttributeAndModes(1, osgVerse::createDefaultTexture());
-    ss->setTextureAttributeAndModes(2, osgVerse::createTexture2D(
-        osgDB::readImageFile(BASE_DIR + "/textures/sunglare.png"), osg::Texture::CLAMP));
+    ss->setTextureAttributeAndModes(0, defTex0);  // tile image
+    ss->setTextureAttributeAndModes(1, defTex0);  // tile slope/mask
+    ss->setTextureAttributeAndModes(2, defTex1);  // tile extra layer
     ss->setTextureAttributeAndModes(3, createRawTexture2D(transmittance, 256, 64, true));
     ss->setTextureAttributeAndModes(4, createRawTexture2D(irradiance, 64, 16, true));
     ss->setTextureAttributeAndModes(5, createRawTexture3D(inscatter, 256, 128, 32, false));
+    ss->setTextureAttributeAndModes(6, osgVerse::createTexture2D(
+        osgDB::readImageFile(BASE_DIR + "/textures/sunglare.png"), osg::Texture::CLAMP));
     ss->addUniform(new osg::Uniform("sceneSampler", (int)0));
     ss->addUniform(new osg::Uniform("maskSampler", (int)1));
-    ss->addUniform(new osg::Uniform("glareSampler", (int)2));
+    ss->addUniform(new osg::Uniform("extraLayerSampler", (int)2));
     ss->addUniform(new osg::Uniform("transmittanceSampler", (int)3));
     ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)4));
     ss->addUniform(new osg::Uniform("inscatterSampler", (int)5));
+    ss->addUniform(new osg::Uniform("glareSampler", (int)6));
     ss->addUniform(new osg::Uniform("origin", osg::Vec3(0.0f, 0.0f, 0.0f)));
     ss->addUniform(new osg::Uniform("globalOpaque", 1.0f));
+    ss->addUniform(new osg::Uniform("underOcean", 1.0f));
     ss->addUniform(new osg::Uniform("ColorBalanceMode", (int)0));
 
     uniforms["exposure"] = new osg::Uniform("hdrExposure", 0.25f);

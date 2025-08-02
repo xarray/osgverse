@@ -196,7 +196,7 @@ public:
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
-        if (!in) return ReadResult::FILE_NOT_FOUND;
+        if (!in) return ReadResult::FILE_NOT_HANDLED;
         return readNode(in, options);
     }
 
@@ -204,7 +204,7 @@ public:
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
-        if (!in) return ReadResult::FILE_NOT_FOUND;
+        if (!in) return ReadResult::FILE_NOT_HANDLED;
         return readObject(in, options);
     }
 
@@ -244,7 +244,7 @@ protected:
     std::string getRealFileName(const std::string& path, std::string& ext) const
     {
         std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return fileName;
+        if (!acceptsExtension(ext)) return "";
 
         bool usePseudo = (ext == "verse_terrain");
         if (usePseudo)

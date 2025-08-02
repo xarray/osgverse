@@ -30,6 +30,8 @@ public:
     virtual ReadResult readImage(const std::string& path, const Options* options) const
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
+
         std::vector<osg::ref_ptr<osg::Image>> images = osgVerse::loadKtx(fileName, options);
         if (images.size() > 1)
         {
@@ -56,6 +58,8 @@ public:
                                    const Options* options) const
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
+
         osg::Image* imagePtr = const_cast<osg::Image*>(&image);
         osg::ImageSequence* seq = dynamic_cast<osg::ImageSequence*>(imagePtr);
         std::vector<osg::Image*> imageList;
@@ -121,7 +125,7 @@ protected:
     std::string getRealFileName(const std::string& path, std::string& ext) const
     {
         std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return fileName;
+        if (!acceptsExtension(ext)) return "";
 
         bool usePseudo = (ext == "verse_ktx");
         if (usePseudo)

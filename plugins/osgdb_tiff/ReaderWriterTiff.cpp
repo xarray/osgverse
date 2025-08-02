@@ -523,7 +523,7 @@ public:
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
-        return readImage(in, options);
+        return (!in) ? ReadResult::FILE_NOT_FOUND : ReadResult(readImage(in, options));
     }
 
     virtual ReadResult readImage(std::istream& fin, const Options* options) const
@@ -555,7 +555,7 @@ protected:
     std::string getRealFileName(const std::string& path, std::string& ext) const
     {
         std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return fileName;
+        if (!acceptsExtension(ext)) return "";
 
         bool usePseudo = (ext == "verse_tiff");
         if (usePseudo)

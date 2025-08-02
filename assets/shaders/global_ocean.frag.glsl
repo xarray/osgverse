@@ -185,6 +185,6 @@ void main()
     fragData.rgb = hdr(finalColor); fragData.a = clamp(oceanOpaque, 0.0, 1.0);
 
     // Input sceneColor should be a gray image to show where ocean is...
-    fragData.a *= 1.0 - length(clamp(sceneColor.r, 0.0, 1.0));
+    fragData.a *= 1.0 - clamp(sceneColor.r * 2.0, 0.0, 1.0);
     VERSE_FS_FINAL(fragData);
 }

@@ -64,14 +64,14 @@ public:
     {
         std::string fileName, ext; fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
-        if (!in) return ReadResult::FILE_NOT_FOUND; return readObject(in, options);
+        if (!in) return ReadResult::FILE_NOT_HANDLED; return readObject(in, options);
     }
 
     virtual ReadResult readImage(const std::string& path, const Options* options) const
     {
         std::string fileName, ext; fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
-        if (!in) return ReadResult::FILE_NOT_FOUND; return readImage(in, options);
+        if (!in) return ReadResult::FILE_NOT_HANDLED; return readImage(in, options);
     }
 
     virtual ReadResult readObject(std::istream& fin, const Options* options) const
@@ -94,7 +94,7 @@ protected:
     std::string getRealFileName(const std::string& path, std::string& ext) const
     {
         std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return fileName;
+        if (!acceptsExtension(ext)) return "";
 
         bool usePseudo = (ext == "verse_netcdf");
         if (usePseudo)

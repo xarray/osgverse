@@ -332,6 +332,7 @@ public:
             }
             return WriteResult::FILE_NOT_HANDLED;
         }
+        else if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
 
         osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
         if (!writer) return WriteResult::FILE_NOT_HANDLED;

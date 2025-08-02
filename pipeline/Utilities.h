@@ -7,6 +7,7 @@
 #include <osg/CullStack>
 #include <osg/Texture1D>
 #include <osg/Texture2D>
+#include <osg/Texture2DArray>
 #include <osg/Texture3D>
 #include <osg/TextureCubeMap>
 #include <osg/Camera>
@@ -32,6 +33,10 @@ namespace osgVerse
 
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+    /** Create default texture array for untextured model */
+    extern osg::Texture2DArray* createDefaultTextureArray(
+        const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f), int layers = 1);
 
     /** Create 2D texture from an input image */
     extern osg::Texture2D* createTexture2D(osg::Image* img, osg::Texture::WrapMode m = osg::Texture::REPEAT);

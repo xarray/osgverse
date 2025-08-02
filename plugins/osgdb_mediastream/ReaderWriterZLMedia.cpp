@@ -487,6 +487,7 @@ public:
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         if (!acceptsProtocol(scheme)) return ReadResult::FILE_NOT_HANDLED;
 #endif
+        if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
         if (!_mkEnvCreated) initialize(options);
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
@@ -510,6 +511,7 @@ public:
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         if (!acceptsProtocol(scheme)) return WriteResult::FILE_NOT_HANDLED;
 #endif
+        if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
         if (!_mkEnvCreated) initialize(options);
 
         ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);

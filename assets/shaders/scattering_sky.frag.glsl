@@ -1,8 +1,8 @@
 uniform sampler2D sceneSampler;
-uniform sampler2D glareSampler;
 uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
+uniform sampler2D glareSampler;
 uniform vec3 worldCameraPos, worldSunDir, origin;
 uniform float hdrExposure, globalOpaque;
 
@@ -31,10 +31,8 @@ vec3 hdr(vec3 L)
 
 void main()
 {
-    vec3 WSD = worldSunDir;
-    vec3 WCP = worldCameraPos;
-    vec3 d = normalize(dir);
-    vec3 sunColor = outerSunRadiance(relativeDir);
+    vec3 WSD = worldSunDir, WCP = worldCameraPos;
+    vec3 d = normalize(dir), sunColor = outerSunRadiance(relativeDir);
     fragColor.a = 1.0;
     
     vec3 extinction = vec3(1.0);

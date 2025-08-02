@@ -69,6 +69,7 @@ public:
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
         if (ext.empty()) return createFromFolder(fileName);
+        else if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
 
         osg::ref_ptr<Options> localOptions = NULL;
         if (options) localOptions = options->cloneOptions();
@@ -165,7 +166,7 @@ protected:
     std::string getRealFileName(const std::string& path, std::string& ext) const
     {
         std::string fileName(path); ext = osgDB::getLowerCaseFileExtension(path);
-        if (!acceptsExtension(ext)) return fileName;
+        if (!acceptsExtension(ext)) return "";
 
         bool usePseudo = (ext == "verse_tiles");
         if (usePseudo)

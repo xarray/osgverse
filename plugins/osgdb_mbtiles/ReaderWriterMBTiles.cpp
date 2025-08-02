@@ -282,6 +282,7 @@ public:
             }
             return WriteResult::FILE_NOT_HANDLED;
         }
+        else if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
 
         size_t protoEnd = fullFileName.find("//") + 1, addrEnd = fullFileName.find(".mbtiles") + 7;
         std::string dbName = fullFileName.substr(protoEnd + 1, addrEnd - protoEnd);

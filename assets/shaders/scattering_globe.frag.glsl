@@ -1,8 +1,8 @@
-uniform sampler2D sceneSampler, maskSampler;
-uniform sampler2D glareSampler;
+uniform sampler2D sceneSampler, maskSampler, extraLayerSampler;
 uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
+uniform sampler2D glareSampler;
 uniform vec3 worldCameraPos, worldSunDir, origin;
 uniform vec3 sunColorScale, skyColorScale;
 uniform float hdrExposure, globalOpaque;
@@ -35,8 +35,14 @@ vec3 hdr(vec3 L)
 
 void main()
 {
-    // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
+    //if (vertexInWorld.x > 0.0 && vertexInWorld.y > 0.0 && vertexInWorld.z > 0.0)
+    //    discard;
+    
     vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st);
+    vec4 layerColor = VERSE_TEX2D(extraLayerSampler, texCoord.st);
+    groundColor.rgb = mix(groundColor.rgb, layerColor.rgb, layerColor.a);
+
+    // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
     vec4 maskValue = maskColor.zzza; float off = 0.002;
     maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, 0.0));

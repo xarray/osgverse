@@ -457,10 +457,11 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
     osg::StateSet* ss = root->getOrCreateStateSet();
     ss->setAttributeAndModes(program.get());
     ss->addUniform(new osg::Uniform("oceanOpaque", 1.0f));
-    ss->addUniform(new osg::Uniform("wavesSampler", (int)6));
-    ss->addUniform(new osg::Uniform("earthMaskSampler", (int)7));
-    ss->setTextureAttributeAndModes(6, generateWaves(ss));
-    ss->setTextureAttributeAndModes(7, sceneMaskTex);
+    ss->addUniform(new osg::Uniform("wavesSampler", (int)7));
+    ss->addUniform(new osg::Uniform("earthMaskSampler", (int)8));
+    ss->setTextureAttributeAndModes(7, generateWaves(ss));
+    ss->setTextureAttributeAndModes(8, sceneMaskTex);  // FIXME: no need to merge with root stateset and make big tex-units
+                                                       // A shared stateset should be maintained for ocean, sky and ground..
 
     uniforms["seaColor"] = ss->getUniform("seaColor");
 
