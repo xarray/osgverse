@@ -17,7 +17,6 @@ VERSE_FS_OUT vec4 fragColor;
 
 #define SUN_INTENSITY 100.0
 #define PLANET_RADIUS 6360000.0
-
 #include "scattering.module.glsl"
 
 vec3 hdr(vec3 L)
@@ -42,7 +41,7 @@ void main()
     // Color grading work
     finalColor = colorBalanceFunc(finalColor, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
     finalColor = colorAdjustmentFunc(finalColor, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
-    
+
     vec4 scene = VERSE_TEX2D(sceneSampler, texCoord.st);
     fragColor.rgb = mix(hdr(finalColor), scene.rgb, scene.a);
     fragColor.rgb = mix(scene.rgb, fragColor.rgb, clamp(globalOpaque, 0.0, 1.0));

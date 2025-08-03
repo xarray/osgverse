@@ -79,19 +79,36 @@ public:
             osg::Uniform* opaqueValue = ss->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT);
             osg::Uniform* opaqueValue2 = ss->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT);
 
-            osg::Vec3 originDir(-1.0f, 0.0f, 0.0f); float opaque = 1.0f;
+            osg::Vec3 originDir(-1.0f, 0.0f, 0.0f); osg::Vec4 clipPlane; float opaque = 1.0f;
             switch (_pressingKey)
             {
             case osgGA::GUIEventAdapter::KEY_Left:
                 _sunAngle -= 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
             case osgGA::GUIEventAdapter::KEY_Right:
                 _sunAngle += 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
-            case '[':
-                opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
-            case ']':
-                opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
+            case '[': opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
+            case ']': opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
             case '-': opaqueValue2->set(0.0f); break;
             case '=': opaqueValue2->set(1.0f); break;
+
+            case 'n':
+                ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+                ss->getOrCreateUniform("clipPlane1", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+                ss->getOrCreateUniform("clipPlane2", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+                break;
+            case 'm':
+                ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(1.0f, 0.0f, 0.0f, 0.0f));
+                ss->getOrCreateUniform("clipPlane1", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(0.0f, 1.0f, 0.0f, 0.0f));
+                ss->getOrCreateUniform("clipPlane2", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(0.0f, 0.0f, 1.0f, 0.0f));
+                break;
+            case ',':
+                ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->get(clipPlane);
+                clipPlane = clipPlane * osg::Matrix::rotate(-0.01f, osg::Z_AXIS);
+                ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->set(clipPlane); break;
+            case '.':
+                ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->get(clipPlane);
+                clipPlane = clipPlane * osg::Matrix::rotate(0.01f, osg::Z_AXIS);
+                ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->set(clipPlane); break;
 
             case '1': updateUserLayer("layers/Night_Lighting"); break;
             case '2': updateUserLayer("layers/Population_Distribution"); break;
@@ -99,16 +116,6 @@ public:
             case '4': updateUserLayer("layers/ERA5_Lake_Total_Temperature"); break;
             case '5': updateUserLayer("layers/ERA5_Lake_Ice_Temperature"); break;
             case '0': updateUserLayer(""); break;
-
-            case 'z':
-                osg::Vec3d from = osgVerse::Coordinate::convertLLAtoECEF(
-                    osg::Vec3d(osg::inDegrees(-39.9978), osg::inDegrees(174.047), -1250));
-                osg::Vec3d to = osgVerse::Coordinate::convertLLAtoECEF(
-                    osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3));
-                osg::Vec3d center = (from + to) * 0.5f;
-                osgVerse::EarthManipulator* manipulator =
-                    static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
-                manipulator->setByEye(center);
             }
         }
         return false;
@@ -187,10 +194,10 @@ int main(int argc, char** argv)
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
     //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
-    osg::StateSet* ss = earth->getOrCreateStateSet();
-    osg::ref_ptr<osg::Uniform> clip0 = new osg::Uniform("clipPlane0", osg::Vec4(1.0f, 0.0f, 0.0f, 0.0f));
-    osg::ref_ptr<osg::Uniform> clip1 = new osg::Uniform("clipPlane1", osg::Vec4(0.0f, 1.0f, 0.0f, 0.0f));
-    osg::ref_ptr<osg::Uniform> clip2 = new osg::Uniform("clipPlane2", osg::Vec4(0.0f, 0.0f, 1.0f, 0.0f));
+    osg::StateSet* ss = root->getOrCreateStateSet();
+    osg::ref_ptr<osg::Uniform> clip0 = new osg::Uniform("clipPlane0", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    osg::ref_ptr<osg::Uniform> clip1 = new osg::Uniform("clipPlane1", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    osg::ref_ptr<osg::Uniform> clip2 = new osg::Uniform("clipPlane2", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
     ss->addUniform(clip0.get()); ss->addUniform(clip1.get()); ss->addUniform(clip2.get());
 
     // Realize the viewer

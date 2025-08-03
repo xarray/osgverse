@@ -3,6 +3,8 @@
 #include <osg/Texture1D>
 #include <osg/Texture3D>
 #include <osg/MatrixTransform>
+#include <osg/ProxyNode>
+#include <osg/LOD>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgGA/StateSetManipulator>
@@ -143,67 +145,89 @@ ResultPair createVolumeData(osg::Image* image3D, osg::Image* transferImage1D, co
     return ResultPair(sceneItem.release(), ss);
 }
 
-osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, const osg::Vec3d& fromLLA,
-                                      const osg::Vec3d& toLLA, float minV, float maxV)
+typedef std::pair<osg::Node*, osg::Vec3d> ResultPair2;
+typedef std::pair<ResultPair, ResultPair2> VolumeTotalResult;
+VolumeTotalResult createVolumeBox(const std::string& vdbFile, const osg::Vec3d& fromLLA,
+                                  const osg::Vec3d& toLLA, float minV, float maxV)
 {
-    osg::Vec3d from = osgVerse::Coordinate::convertLLAtoECEF(fromLLA);
-    osg::Vec3d to = osgVerse::Coordinate::convertLLAtoECEF(toLLA);
-    osg::Vec3 center = from, size = to - from;
-    osg::Matrix enu = osgVerse::Coordinate::convertLLAtoNED(fromLLA);
+    osg::Matrix enu = osgVerse::Coordinate::convertLLAtoNED(osg::Vec3d(fromLLA[0], fromLLA[1], 0.0));
+    osg::Vec3 center = enu.getTrans(), from, to, size; enu.setTrans(osg::Vec3());
 
-    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(vdbFile); if (!image) return NULL;
-    osg::Vec3d spacing(fabs(size[0]) / image->s(), fabs(size[1]) / image->t(), fabs(size[2]) / image->r());
-    enu.setTrans(osg::Vec3());
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(vdbFile);
+    if (!image) { OSG_FATAL << "Failed to load volume data: " << vdbFile << "\n"; return VolumeTotalResult(); }
 
+    from = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(fromLLA[0], fromLLA[1], 0.0));
+    to = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(toLLA[0], fromLLA[1], 0.0)); size[0] = (from - to).length();
+    from = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(fromLLA[0], fromLLA[1], 0.0));
+    to = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(fromLLA[0], toLLA[1], 0.0)); size[1] = (from - to).length();
+    from = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(toLLA[0], toLLA[1], fromLLA[2]));
+    to = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(toLLA[0], toLLA[1], toLLA[2])); size[2] = (from - to).length();
+    
     // Extent = (spacing[0] * image->s(), spacing[1] * image->t(), spacing[2] * image->r())
+    osg::Vec3d spacing(fabs(size[0]) / image->s(), fabs(size[1]) / image->t(), fabs(size[2]) / image->r());
     osg::ref_ptr<osg::Image> image1D = osgVerse::generateTransferFunction(2);
     ResultPair pair = createVolumeData(image.get(), image1D.get(), enu, center, spacing, minV, maxV);
-    //std::cout << "VDB: " << center << ", " << spacing << "\n";
-    return pair.first;
+    std::cout << vdbFile << ": " << center << ", R = " << center.length() << "; Spacing = " << spacing << "\n";
+
+#if false
+    osg::LOD* lod = new osg::LOD;
+    lod->setCenterMode(osg::LOD::CenterMode::USER_DEFINED_CENTER);
+    lod->setCenter(pair.first->getBound().center());
+    lod->setRadius(pair.first->getBound().radius());
+    lod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
+    lod->addChild(new osg::Node, osg::WGS_84_RADIUS_POLAR * 0.2f, FLT_MAX);
+    lod->addChild(pair.first, 0.0f, osg::WGS_84_RADIUS_POLAR * 0.2f);
+#else
+    osg::Group* lod = new osg::Group; lod->addChild(pair.first);
+#endif
+    return VolumeTotalResult(pair, ResultPair2(lod, (fromLLA + toLLA) * 0.5));
 }
 
 class VolumeHandler : public osgGA::GUIEventHandler
 {
 public:
-    VolumeHandler(osg::MatrixTransform* mt) : _transform(mt) {}
-    osg::observer_ptr<osg::MatrixTransform> _transform;
+    VolumeHandler() : _index(0) {}
+    std::vector<VolumeTotalResult> vdbList;
 
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
-        /*if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN)
+        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
         {
-            osg::Vec3 pos, scale; osg::Quat rot, so;
-            _transform->getMatrix().decompose(pos, rot, scale, so);
+            osgVerse::EarthManipulator* manipulator =
+                static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
+            VolumeTotalResult vdb = vdbList[_index];
             switch (ea.getKey())
             {
-            case 'q':
-                rot = rot * osg::Quat(-0.1f, osg::X_AXIS);
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
-                break;
-            case 'e':
-                rot = rot * osg::Quat(0.1f, osg::X_AXIS);
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
-                break;
-            case 'a':
-                rot = rot * osg::Quat(-0.1f, osg::Y_AXIS);
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
-                break;
-            case 'd':
-                rot = rot * osg::Quat(0.1f, osg::Y_AXIS);
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
-                break;
+            case 'z':
+                _index--; if (_index < 0) _index = 0; vdb = vdbList[_index];
+                manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(
+                    osg::Vec3d(vdb.second.second[0], vdb.second.second[1], 0.0))); break;
             case 'x':
-                rot = rot * osg::Quat(-0.1f, osg::Z_AXIS);
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
-                break;
-            case 'w':
-                rot = rot * osg::Quat(0.1f, osg::Z_AXIS);
-                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
-                break;
+                _index++; if (_index > vdbList.size() - 1) _index = vdbList.size() - 1; vdb = vdbList[_index];
+                manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(
+                    osg::Vec3d(vdb.second.second[0], vdb.second.second[1], 0.0))); break;
             }
-        }*/
+        }
+
+        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN)
+        {
+            VolumeTotalResult& vdb = vdbList[_index];
+            osg::MatrixTransform* transform = vdb.first.first;
+            osg::StateSet* ss = vdb.first.second;
+
+            /*osg::Vec3 pos, scale; osg::Quat rot, so;
+            transform->getMatrix().decompose(pos, rot, scale, so);
+            switch (ea.getKey())
+            {
+            
+            }*/
+        }
         return false;
     }
+
+protected:
+    int _index;
 };
 
 osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
@@ -224,9 +248,18 @@ osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
     //vdbRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
     vdbRoot->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 
-    vdbRoot->addChild(createVolumeBox(mainFolder + "/vdb/kerry_img3d.vdb.verse_vdb",
+    VolumeHandler* handler = new VolumeHandler;
+    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/kerry_img3d.vdb.verse_vdb",
         osg::Vec3d(osg::inDegrees(-39.9978), osg::inDegrees(174.047), -1250.0),
-        osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3.0), -12.0f, 12.0f));
-    viewer.addEventHandler(new VolumeHandler(static_cast<osg::MatrixTransform*>(vdbRoot->getChild(0))));
-    return vdbRoot.release();
+        osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3.0), -4.0f, 4.0f));
+    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/parihaka_img3d.vdb.verse_vdb",
+        osg::Vec3d(osg::inDegrees(-51.0129), osg::inDegrees(-144.937), -1165.0),
+        osg::Vec3d(osg::inDegrees(-50.977), osg::inDegrees(-144.856), -6.0), -2000.0f, 2000.0f));
+    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/waihapa_img3d.vdb.verse_vdb",
+        osg::Vec3d(osg::inDegrees(-51.0208), osg::inDegrees(-145.185), -2500.0),
+        osg::Vec3d(osg::inDegrees(-51.0016), osg::inDegrees(-145.154), -0.0), -30000.0f, 30000.0f));
+
+    for (size_t i = 0; i < handler->vdbList.size(); ++i)
+        vdbRoot->addChild(handler->vdbList[i].second.first);
+    viewer.addEventHandler(handler); return vdbRoot.release();
 }

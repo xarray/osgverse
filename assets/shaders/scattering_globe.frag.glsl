@@ -13,8 +13,7 @@ uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
 uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
 uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 
-VERSE_FS_IN vec3 normalInWorld;
-VERSE_FS_IN vec3 vertexInWorld;
+VERSE_FS_IN vec3 vertexInWorld, normalInWorld;
 VERSE_FS_IN vec4 texCoord;
 
 #ifdef VERSE_GLES3
@@ -35,66 +34,18 @@ vec3 hdr(vec3 L)
     return L;
 }
 
-vec4 linePlaneIntersection(vec3 linePoint, vec3 lineDir, vec4 plane)
-{
-    float denominator = dot(plane.xyz, lineDir);
-    if (abs(denominator) < 1e-6)
-    {
-        float distance = dot(plane.xyz, linePoint) + plane.w;
-        if (abs(distance) < 1e-6) return vec4(linePoint, 1.0);
-        else return vec4(0.0, 0.0, 0.0, 0.0);
-    }
-
-    float t = -(dot(plane.xyz, linePoint) + plane.w) / denominator;
-    vec3 intersection = linePoint + t * lineDir;
-    return vec4(intersection, t);
-}
-
 void main()
 {
     vec4 worldPos = vec4(vertexInWorld, 1.0);
     float clipD0 = dot(worldPos, clipPlane0), clipD1 = dot(worldPos, clipPlane1), clipD2 = dot(worldPos, clipPlane2);
     if (clipD0 > 0.0 && clipD1 > 0.0 && clipD2 > 0.0)
-    {   // Just for test inner rendering...
-        vec4 innerColor = vec4(0.0);
-        vec3 dir = normalize(vertexInWorld - worldCameraPos);
-        vec4 ip0 = linePlaneIntersection(vertexInWorld, dir, clipPlane0);
-        vec4 ip1 = linePlaneIntersection(vertexInWorld, dir, clipPlane1);
-        vec4 ip2 = linePlaneIntersection(vertexInWorld, dir, clipPlane2);
-        if (ip0.w > 0.0 && ip1.w > 0.0 && ip2.w > 0.0)
-        {
-            if (length(ip0.xyz - ip1.xyz) < 1.0) innerColor = vec4(1.0, 1.0, 1.0, 0.5);
-            else if (length(ip0.xyz - ip2.xyz) < 1.0) innerColor = vec4(1.0, 1.0, 1.0, 0.5);
-            else if (length(ip1.xyz - ip2.xyz) < 1.0) innerColor = vec4(1.0, 1.0, 1.0, 0.5);
-            else if (ip0.w < ip1.w && ip0.w < ip2.w) innerColor = vec4(1.0, 0.0, 0.0, 0.5);
-            else if (ip1.w < ip0.w && ip1.w < ip2.w) innerColor = vec4(0.0, 1.0, 0.0, 0.5);
-            else innerColor = vec4(0.0, 0.0, 1.0, 0.5);
-        }
-        else if (ip0.w > 0.0 && ip1.w > 0.0)
-        {
-            if (length(ip0.xyz - ip1.xyz) < 1.0) innerColor = vec4(1.0, 1.0, 1.0, 0.5);
-            else innerColor = (ip0.w < ip1.w) ? vec4(1.0, 0.0, 0.0, 0.5) : vec4(0.0, 1.0, 0.0, 0.5);
-        }
-        else if (ip0.w > 0.0 && ip2.w > 0.0)
-        {
-            if (length(ip0.xyz - ip2.xyz) < 1.0) innerColor = vec4(1.0, 1.0, 1.0, 0.5);
-            else innerColor = (ip0.w < ip2.w) ? vec4(1.0, 0.0, 0.0, 0.5) : vec4(0.0, 0.0, 1.0, 0.5);
-        }
-        else if (ip1.w > 0.0 && ip2.w > 0.0)
-        {
-            if (length(ip1.xyz - ip2.xyz) < 1.0) innerColor = vec4(1.0, 1.0, 1.0, 0.5);
-            else innerColor = (ip1.w < ip2.w) ? vec4(0.0, 1.0, 0.0, 0.5) : vec4(0.0, 0.0, 1.0, 0.5);
-        }
-        else if (ip0.w > 0.0) innerColor = vec4(1.0, 0.0, 0.0, 0.5);
-        else if (ip1.w > 0.0) innerColor = vec4(0.0, 1.0, 0.0, 0.5);
-        else if (ip2.w > 0.0) innerColor = vec4(0.0, 0.0, 1.0, 0.5);
-
+    {
 #ifdef VERSE_GLES3
-        fragColor/*Atmospheric Color*/ = innerColor;
-        fragOrigin/*Mask Color*/ = vec4(1.0);
+        fragColor/*Atmospheric Color*/ = vec4(0.0);
+        fragOrigin/*Mask Color*/ = vec4(0.0, 0.0, 1.0, 1.0);
 #else
-        gl_FragData[0]/*Atmospheric Color*/ = innerColor;
-        gl_FragData[1]/*Mask Color*/ = vec4(1.0);
+        gl_FragData[0]/*Atmospheric Color*/ = vec4(0.0);
+        gl_FragData[1]/*Mask Color*/ = vec4(0.0, 0.0, 1.0, 1.0);
 #endif
         return;
     }
@@ -105,7 +56,7 @@ void main()
 
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
-    vec4 maskValue = maskColor.zzza; float off = 0.002;
+    vec4 maskValue = vec4(maskColor.zzza); float off = 0.002;
     maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, 0.0));
     maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, 0.0));
     maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(0.0, -off));

@@ -2,8 +2,7 @@ uniform mat4 osg_ViewMatrix, osg_ViewMatrixInverse;
 uniform sampler2D maskSampler;
 uniform float oceanOpaque, underOcean;
 VERSE_VS_IN vec2 osg_GlobeData;
-VERSE_VS_OUT vec3 normalInWorld;
-VERSE_VS_OUT vec3 vertexInWorld;
+VERSE_VS_OUT vec3 vertexInWorld, normalInWorld;
 VERSE_VS_OUT vec4 texCoord;
 
 const float WGS84_EQUATOR = 6378137.0;
