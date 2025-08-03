@@ -78,9 +78,20 @@ public:
                     { if (valueMin.z() < 1.0f) valueMin.z() += 0.01f; sliceMin->set(valueMin); }
                 break;
             case '[':
-                scale.z() *= 0.95; _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix::translate(pos)); break;
+                scale.z() *= 0.95; _transform->setMatrix(
+                    osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos)); break;
             case ']':
-                scale.z() *= 1.05; _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix::translate(pos)); break;
+                scale.z() *= 1.05; _transform->setMatrix(
+                    osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos)); break;
+
+            case 'a':
+                rot = rot * osg::Quat(-0.01f, osg::Z_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
+            case 'd':
+                rot = rot * osg::Quat(0.01f, osg::Z_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
             default: return false;
             }
         }
@@ -110,9 +121,10 @@ public:
                 size[0] /= _scale[0]; size[1] /= _scale[1]; size[2] /= _scale[2];
                 _stateset->getUniform("BoundingMin")->set(_origin);
                 _stateset->getUniform("BoundingMax")->set(_origin + size);
-                _stateset->getUniform("RotationOffset")->set(osg::Matrixf::rotate(rot));
                 _origin = pos; //_scale = s;
             }
+            _stateset->getUniform("RotationOffset")->set(
+                osg::Matrixf::translate(-pos) * osg::Matrixf::rotate(rot) * osg::Matrixf::translate(pos));
         }
         traverse(node, nv);
     }
@@ -297,7 +309,7 @@ int main(int argc, char** argv)
     arguments.read("--factor", factor, power);
     arguments.read("--invalid", invalid);
 
-    osg::Vec3d origin, spacing(spX, spY, spZ);
+    osg::Vec3d origin(0.0f, 0.0f, 0.0f), spacing(spX, spY, spZ);
     osg::ref_ptr<osg::Image> image1D = osgVerse::generateTransferFunction(2);
     ResultPair pair = createVolumeData(
         image.get(), image1D.get(), origin, spacing, factor, power, rangeMin, rangeMax, invalid);

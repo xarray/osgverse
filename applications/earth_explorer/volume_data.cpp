@@ -13,6 +13,7 @@
 
 #include <modeling/Math.h>
 #include <pipeline/Pipeline.h>
+#include <readerwriter/EarthManipulator.h>
 #include <VerseCommon.h>
 #include <iostream>
 #include <sstream>
@@ -39,7 +40,8 @@ public:
                 size[0] /= _scale[0]; size[1] /= _scale[1]; size[2] /= _scale[2];
                 _stateset->getUniform("BoundingMin")->set(_origin);
                 _stateset->getUniform("BoundingMax")->set(_origin + size);
-                _stateset->getUniform("RotationOffset")->set(osg::Matrixf::rotate(rot));
+                _stateset->getUniform("RotationOffset")->set(
+                    osg::Matrix::translate(-pos) * osg::Matrixf::rotate(rot) * osg::Matrix::translate(pos));
                 _origin = pos; _rotate = rot;
             }
         }
@@ -53,8 +55,8 @@ protected:
 };
 
 typedef std::pair<osg::MatrixTransform*, osg::StateSet*> ResultPair;
-ResultPair createVolumeData(osg::Image* image3D, osg::Image* transferImage1D, const osg::Vec3& origin,
-                            const osg::Vec3& spacing, float minValue, float maxValue)
+ResultPair createVolumeData(osg::Image* image3D, osg::Image* transferImage1D, const osg::Matrixf& matrix,
+                            const osg::Vec3& origin, const osg::Vec3& spacing, float minValue, float maxValue)
 {
     // Create geometry & stateset
     osg::Vec3d size(image3D->s() * spacing[0], image3D->t() * spacing[1], image3D->r() * spacing[2]);
@@ -108,20 +110,8 @@ ResultPair createVolumeData(osg::Image* image3D, osg::Image* transferImage1D, co
         tex1D->setImage(transferImage1D);
     }
 
-    osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "fast_volume.vert");
-    osg::Shader* fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "fast_volume.frag");
-    osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
-    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
-
-    osg::ref_ptr<osg::Program> program = new osg::Program;
-    vs->setName("Volume_VS"); program->addShader(vs);
-    fs->setName("Volume_FS"); program->addShader(fs);
-
     osg::StateSet* ss = geode->getOrCreateStateSet();
-    ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-    ss->setAttributeAndModes(program.get());
-    ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    //ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     ss->setTextureAttributeAndModes(0, tex3D.get());
     ss->addUniform(new osg::Uniform("VolumeTexture", (int)0));
     if (transferImage1D != NULL)
@@ -132,11 +122,12 @@ ResultPair createVolumeData(osg::Image* image3D, osg::Image* transferImage1D, co
     }
     else
         ss->addUniform(new osg::Uniform("TransferMode", (int)0));
-    ss->addUniform(new osg::Uniform("RotationOffset", osg::Matrixf()));
+    ss->addUniform(new osg::Uniform("RotationOffset",
+        osg::Matrixf::translate(-origin) * matrix * osg::Matrixf::translate(origin)));
     ss->addUniform(new osg::Uniform("Color", osg::Vec3(1.0f, 1.0f, 1.0f)));
     ss->addUniform(new osg::Uniform("BoundingMin", origin));
     ss->addUniform(new osg::Uniform("BoundingMax", origin + size));
-    ss->addUniform(new osg::Uniform("ValueRange", osg::Vec2(minValue, maxValue - minValue)));
+    ss->addUniform(new osg::Uniform("ValueRange", osg::Vec3(minValue, maxValue - minValue, 0.0f)));
     ss->addUniform(new osg::Uniform("RayMarchingSamples", (int)128));
     ss->addUniform(new osg::Uniform("DensityFactor", 2.0f));
     ss->addUniform(new osg::Uniform("DensityPower", 2.0f));
@@ -145,56 +136,97 @@ ResultPair createVolumeData(osg::Image* image3D, osg::Image* transferImage1D, co
 
     // Create scene nodes
     osg::ref_ptr<osg::MatrixTransform> sceneItem = new osg::MatrixTransform;
+    sceneItem->setInitialBound(osg::BoundingSphere(osg::Vec3(), spacing[2] * 5.0f));
     sceneItem->addUpdateCallback(new MatrixVolumeCallback(ss, origin, size));
-    sceneItem->setMatrix(osg::Matrix::translate(origin));
+    sceneItem->setMatrix(matrix * osg::Matrix::translate(origin));
     sceneItem->addChild(geode.get());
     return ResultPair(sceneItem.release(), ss);
 }
 
-osg::Image* createTransferFunction(const std::vector<std::pair<float, osg::Vec4ub>>& colors)
+osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, const osg::Vec3d& fromLLA,
+                                      const osg::Vec3d& toLLA, float minV, float maxV)
 {
-    int tfSize = 101, tfPtr = 0;
-    osg::Vec4ub* tfValues = new osg::Vec4ub[tfSize];
-    for (size_t i = 1; i < colors.size(); ++i)
-    {
-        int index0 = osg::minimum(tfSize - 1, (int)(colors[i - 1].first * 100.0f));
-        int index1 = osg::minimum(tfSize - 1, (int)(colors[i].first * 100.0f));
-        osg::Vec4ub color0 = colors[i - 1].second, color1 = colors[i].second;
-        for (int j = tfPtr; j < index0; ++j) tfValues[tfPtr++] = color0;
+    osg::Vec3d from = osgVerse::Coordinate::convertLLAtoECEF(fromLLA);
+    osg::Vec3d to = osgVerse::Coordinate::convertLLAtoECEF(toLLA);
+    osg::Vec3 center = from, size = to - from;
+    osg::Matrix enu = osgVerse::Coordinate::convertLLAtoNED(fromLLA);
 
-        for (int j = index0; j < index1; ++j)
-        {
-            float k = float(j - index0) / float(index1 - index0);
-            tfValues[tfPtr++] = osg::Vec4ub(color1[0] * k + color0[0] * (1.0f - k),
-                color1[1] * k + color0[1] * (1.0f - k),
-                color1[2] * k + color0[2] * (1.0f - k),
-                color1[3] * k + color0[3] * (1.0f - k));
-        }
-    }
-    tfValues[tfSize - 1] = colors.back().second;
-
-    osg::ref_ptr<osg::Image> image1D = new osg::Image;
-    image1D->setImage(tfSize, 1, 1, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE,
-        (unsigned char*)tfValues, osg::Image::USE_NEW_DELETE);
-    return image1D.release();
-}
-
-osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, double lat, double lon,
-                                      double z, unsigned int mask)
-{
-    osg::Matrix pose = osgVerse::Coordinate::convertLLAtoENU(
-        osg::Vec3d(osg::inDegrees(lat), osg::inDegrees(lon), z));
-
-    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(vdbFile);
-    osg::Vec3d origin(pose.getTrans()), spacing(1000.0, 1000.0, 1000.0);
-    if (!image) return NULL;
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(vdbFile); if (!image) return NULL;
+    osg::Vec3d spacing(fabs(size[0]) / image->s(), fabs(size[1]) / image->t(), fabs(size[2]) / image->r());
+    enu.setTrans(osg::Vec3());
 
     // Extent = (spacing[0] * image->s(), spacing[1] * image->t(), spacing[2] * image->r())
-    ResultPair pair = createVolumeData(image.get(), NULL, origin, spacing, 0.0f, 1.0f);
-    std::cout << image->s() << "x" << image->t() << "x" << image->r() << "\n";
+    osg::ref_ptr<osg::Image> image1D = osgVerse::generateTransferFunction(2);
+    ResultPair pair = createVolumeData(image.get(), image1D.get(), enu, center, spacing, minV, maxV);
+    //std::cout << "VDB: " << center << ", " << spacing << "\n";
+    return pair.first;
+}
 
-    osg::ref_ptr<osg::MatrixTransform> cloudRoot = new osg::MatrixTransform;
-    cloudRoot->setMatrix(osg::Matrix::rotate(pose.getRotate()));
-    cloudRoot->addChild(pair.first); cloudRoot->setNodeMask(mask);
-    return cloudRoot.release();
+class VolumeHandler : public osgGA::GUIEventHandler
+{
+public:
+    VolumeHandler(osg::MatrixTransform* mt) : _transform(mt) {}
+    osg::observer_ptr<osg::MatrixTransform> _transform;
+
+    virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        /*if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN)
+        {
+            osg::Vec3 pos, scale; osg::Quat rot, so;
+            _transform->getMatrix().decompose(pos, rot, scale, so);
+            switch (ea.getKey())
+            {
+            case 'q':
+                rot = rot * osg::Quat(-0.1f, osg::X_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
+            case 'e':
+                rot = rot * osg::Quat(0.1f, osg::X_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
+            case 'a':
+                rot = rot * osg::Quat(-0.1f, osg::Y_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
+            case 'd':
+                rot = rot * osg::Quat(0.1f, osg::Y_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
+            case 'x':
+                rot = rot * osg::Quat(-0.1f, osg::Z_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
+            case 'w':
+                rot = rot * osg::Quat(0.1f, osg::Z_AXIS);
+                _transform->setMatrix(osg::Matrix::scale(scale) * osg::Matrix(rot) * osg::Matrix::translate(pos));
+                break;
+            }
+        }*/
+        return false;
+    }
+};
+
+osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
+                               const std::string& mainFolder, unsigned int mask)
+{
+    osg::ref_ptr<osg::Group> vdbRoot = new osg::Group;
+    vdbRoot->setNodeMask(mask);
+
+    osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "fast_volume.vert");
+    osg::Shader* fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "fast_volume.frag");
+    osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
+    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+
+    osg::ref_ptr<osg::Program> program = new osg::Program;
+    vs->setName("Volume_VS"); program->addShader(vs);
+    fs->setName("Volume_FS"); program->addShader(fs);
+    vdbRoot->getOrCreateStateSet()->setAttributeAndModes(program.get());
+    //vdbRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    vdbRoot->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+
+    vdbRoot->addChild(createVolumeBox(mainFolder + "/vdb/kerry_img3d.vdb.verse_vdb",
+        osg::Vec3d(osg::inDegrees(-39.9978), osg::inDegrees(174.047), -1250.0),
+        osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3.0), -12.0f, 12.0f));
+    viewer.addEventHandler(new VolumeHandler(static_cast<osg::MatrixTransform*>(vdbRoot->getChild(0))));
+    return vdbRoot.release();
 }

@@ -208,14 +208,24 @@ protected:
         geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true); geom->setName(name + "_Geom");
         if (orthImage.valid())
         {
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+            geom->getOrCreateStateSet()->setTextureAttribute(
+                0, osgVerse::createTexture2D(orthImage.get(), osg::Texture::CLAMP_TO_EDGE));
+#else
             geom->getOrCreateStateSet()->setTextureAttributeAndModes(
                 0, osgVerse::createTexture2D(orthImage.get(), osg::Texture::CLAMP_TO_EDGE));
+#endif
         }
 
         if (maskImage.valid())
         {
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+            geom->getOrCreateStateSet()->setTextureAttribute(
+                1, osgVerse::createTexture2D(maskImage.get(), osg::Texture::CLAMP_TO_EDGE));
+#else
             geom->getOrCreateStateSet()->setTextureAttributeAndModes(
                 1, osgVerse::createTexture2D(maskImage.get(), osg::Texture::CLAMP_TO_EDGE));
+#endif
         }
         // FIXME: handle more layers? using tex2d array?
 

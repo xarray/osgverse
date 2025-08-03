@@ -33,10 +33,11 @@ extern osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg:
                                  const std::string& mainFolder, int width, int height, unsigned int mask);
 extern osg::Node* configureCityData(osgViewer::View& viewer, osg::Node* earth,
                                     const std::string& mainFolder, unsigned int mask);
+extern osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth, unsigned int mask);
+extern osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
+                                      const std::string& mainFolder, unsigned int mask);
 extern void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
-extern osg::MatrixTransform* createVolumeBox(const std::string& vdbFile, double lat, double lon,
-                                             double z, unsigned int mask);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -89,22 +90,35 @@ public:
                 opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
             case ']':
                 opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
-            case '-':
-                opaqueValue2->get(opaque); opaqueValue2->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
-            case '=':
-                opaqueValue2->get(opaque); opaqueValue2->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
+            case '-': opaqueValue2->set(0.0f); break;
+            case '=': opaqueValue2->set(1.0f); break;
 
-            case osgGA::GUIEventAdapter::KEY_F1:
-                static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator())->setByEye(
-                    osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(osg::inDegrees(39.925), osg::inDegrees(116.408), 1000.0)));
-                break;
-            case '1':
-                osgVerse::TileManager::instance()->setLayerPath(
-                    osgVerse::TileCallback::USER, _mainFolder + "/layers/Night_Lighting/{z}/{x}/{y}.png");
-                break;
+            case '1': updateUserLayer("layers/Night_Lighting"); break;
+            case '2': updateUserLayer("layers/Population_Distribution"); break;
+            case '3': updateUserLayer("layers/ERA5_Land_2m_Temperature"); break;
+            case '4': updateUserLayer("layers/ERA5_Lake_Total_Temperature"); break;
+            case '5': updateUserLayer("layers/ERA5_Lake_Ice_Temperature"); break;
+            case '0': updateUserLayer(""); break;
+
+            case 'z':
+                osg::Vec3d from = osgVerse::Coordinate::convertLLAtoECEF(
+                    osg::Vec3d(osg::inDegrees(-39.9978), osg::inDegrees(174.047), -1250));
+                osg::Vec3d to = osgVerse::Coordinate::convertLLAtoECEF(
+                    osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3));
+                osg::Vec3d center = (from + to) * 0.5f;
+                osgVerse::EarthManipulator* manipulator =
+                    static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
+                manipulator->setByEye(center);
             }
         }
         return false;
+    }
+
+    void updateUserLayer(const std::string& name)
+    {
+        osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+        if (name.empty()) mgr->setLayerPath(osgVerse::TileCallback::USER, "");
+        else mgr->setLayerPath(osgVerse::TileCallback::USER, _mainFolder + "/" + name + "/{z}/{x}/{y}.png");
     }
 
 protected:
@@ -154,6 +168,13 @@ int main(int argc, char** argv)
     earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     earth->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
+    // Create manipulator
+    osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
+    earthManipulator->setIntersectionMask(EARTH_INTERSECTION_MASK);
+    earthManipulator->setWorldNode(earth.get());
+    earthManipulator->setThrowAllowed(false);
+    viewer.setCameraManipulator(earthManipulator.get());
+
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
     CameraTexturePair camTexPair = configureEarthAndAtmosphere(viewer, root.get(), earth.get(), mainFolder, w, h);
@@ -161,30 +182,28 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
     osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
     sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    sceneCamera->addChild(configureInternal(viewer, earth.get(), ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
     //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
 
-    //osg::MatrixTransform* vdb = createVolumeBox(
-    //    mainFolder + "/test.vdb.verse_vdb", 0.0, 0.0, 0.0, ~EARTH_INTERSECTION_MASK);
-    //if (vdb) sceneCamera->addChild(vdb);
+    osg::StateSet* ss = earth->getOrCreateStateSet();
+    osg::ref_ptr<osg::Uniform> clip0 = new osg::Uniform("clipPlane0", osg::Vec4(1.0f, 0.0f, 0.0f, 0.0f));
+    osg::ref_ptr<osg::Uniform> clip1 = new osg::Uniform("clipPlane1", osg::Vec4(0.0f, 1.0f, 0.0f, 0.0f));
+    osg::ref_ptr<osg::Uniform> clip2 = new osg::Uniform("clipPlane2", osg::Vec4(0.0f, 0.0f, 1.0f, 0.0f));
+    ss->addUniform(clip0.get()); ss->addUniform(clip1.get()); ss->addUniform(clip2.get());
 
+    // Realize the viewer
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =
         new osgVerse::EarthProjectionMatrixCallback(viewer.getCamera(), earth->getBound().center());
     epmcb->setNearFirstModeThreshold(2000.0);
     sceneCamera->setClampProjectionMatrixCallback(epmcb.get());
 
-    osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
-    earthManipulator->setIntersectionMask(EARTH_INTERSECTION_MASK);
-    earthManipulator->setWorldNode(earth.get());
-    earthManipulator->setThrowAllowed(false);
-
-    // Realize the viewer
     viewer.addEventHandler(new EnvironmentHandler(
         sceneCamera.get(), root->getOrCreateStateSet(), earthManipulator->getEllipsoid(), mainFolder));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(earthManipulator.get());
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setUpViewOnSingleScreen(0);

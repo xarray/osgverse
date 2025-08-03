@@ -49,7 +49,7 @@ std::string TileCallback::replace(std::string& src, const std::string& match, co
 osg::Image* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
 {
     std::string inputAddr = _layerPaths[(int)id];
-    emptyPath = inputAddr.empty(); if (emptyPath) return NULL;
+    emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
 
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
@@ -61,7 +61,7 @@ osg::Image* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
 TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyPath)
 {
     std::string inputAddr = _layerPaths[(int)id];
-    emptyPath = inputAddr.empty(); if (emptyPath) return NULL;
+    emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
 
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
@@ -279,35 +279,37 @@ void TileCallback::updateLayerData(osg::Node* node, LayerType id)
     if (!ftg.geometry) return;
 
     osg::ref_ptr<osg::Image> image; osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
-    int texUnit = 0; bool emptyPath = false;
+    int texUnit = -1; bool emptyPath = false;
     switch (id)
     {
     case ELEVATION:
         OSG_NOTICE << "[TileCallback] Elevation layer reloading not implemented at present" << std::endl;
         break;  // FIXME: alter elevation data on the fly?
     case ORTHOPHOTO:
-        image = createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath);
-        texUnit = 0; break;
+        image = createLayerImage(id, emptyPath); texUnit = 0; break;
     case OCEAN_MASK:
-        image = createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath); if (!image) break;
-        texUnit = 1; break;
+        image = createLayerImage(id, emptyPath); texUnit = 1; break;
     default:  // USER
-        image = createLayerImage(id, emptyPath); if (!image) break;
-        texUnit = 2; break;
-        break;
+        image = createLayerImage(id, emptyPath); texUnit = 2; break;
     }
 
+    if (texUnit < 0) return;
     osg::Texture* tex = static_cast<osg::Texture*>(
         ss->getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
     if (image.valid())
     {
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+        if (!tex) ss->setTextureAttribute(
+            texUnit, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+#else
         if (!tex) ss->setTextureAttributeAndModes(
             texUnit, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+#endif
         else tex->setImage(0, image.get());  // FIXME: for USER layers, use tex2d array instead?
     }
     else if (emptyPath && tex)
     {
-        ss->removeAssociatedModes(tex);
+        ss->removeTextureMode(texUnit, tex->getTextureTarget());
         ss->removeTextureAttribute(texUnit, tex);
     }
 }
@@ -346,10 +348,8 @@ bool TileManager::check(const std::map<int, std::string>& paths, std::vector<int
     for (std::map<int, std::string>::iterator it = _layerPaths.begin();
          it != _layerPaths.end(); ++it)
     {
-        if (it->second.empty()) continue;
         std::map<int, std::string>::const_iterator it2 = paths.find(it->first);
-
-        if (it2 == paths.end()) updated.push_back(it->first);
+        if (it2 == paths.end() && !it->second.empty()) updated.push_back(it->first);
         else if (it2->second != it->second) updated.push_back(it->first);
     }
     return !updated.empty();
