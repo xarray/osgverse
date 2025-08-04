@@ -210,7 +210,7 @@ int main(int argc, char** argv)
         sceneCamera.get(), root->getOrCreateStateSet(), earthManipulator->getEllipsoid(), mainFolder));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setUpViewOnSingleScreen(0);

@@ -46,7 +46,7 @@ std::string TileCallback::replace(std::string& src, const std::string& match, co
     src.replace(levelPos, match.length(), v); c = true; return src;
 }
 
-osg::Image* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
+osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
 {
     std::string inputAddr = _layerPaths[(int)id];
     emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
@@ -55,7 +55,9 @@ osg::Image* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
     std::string protocol = osgDB::getServerProtocol(url);
     if (protocol.find("http") != std::string::npos) url += ".verse_web";  // FIXME: only http?
-    return osgDB::readImageFile(url);
+
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url);
+    return !image ? NULL : createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE);
 }
 
 TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyPath)
@@ -120,10 +122,11 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, TileGeom
     return handler ? handler->create(this, outMatrix, tileMin, tileMax, width, height) : NULL;
 }
 
-osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Image* elevation,
+osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Texture* elevationTex,
                                                 const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                                 double width, double height) const
 {
+    osg::Image* elevation = (elevationTex ? elevationTex->getImage(0) : NULL);
     double tileRefSize = osg::inDegrees(tileMax.y() - tileMin.y()) * osg::WGS_84_RADIUS_EQUATOR;
     bool useRealElevation = elevation ? (elevation->getDataType() == GL_FLOAT) : false;
     if (!_flatten)
@@ -273,12 +276,71 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Ima
         return osg::createTexturedQuadGeometry(tileMin, osg::X_AXIS * width, osg::Y_AXIS * height);
 }
 
-void TileCallback::updateLayerData(osg::Node* node, LayerType id)
+osg::Texture* TileCallback::findAndUseParentData(LayerType id, osg::Group* parent)
+{
+    // Structure:
+    /* PLOD_Z0 - Tile_Z0 - Geom (with maps)
+               - File_Z0 - PLOD_Z1_00 - Tile_Z1_00 - Geom (current without maps)
+                            (parent)  - File_Z1
+                         - PLOD_Z1_10 - Tile_Z1_10
+                                      - File_Z1
+                         - ...
+    */
+    osg::observer_ptr<osg::Node> lastLvTileNode;
+    osg::observer_ptr<osg::Geometry> lastLvTile;
+    if (parent && parent->getNumParents() > 0)
+    {
+        osg::Group* siblingTileGroup = parent->getParent(0);
+        if (siblingTileGroup->getNumParents() > 0)
+        {
+            osg::Group* lastLvPagingNode = siblingTileGroup->getParent(0);
+            FindTileGeometry ftg; lastLvTileNode = lastLvPagingNode->getChild(0);
+            lastLvTileNode->accept(ftg); lastLvTile = ftg.geometry;
+        }
+    }
+
+    if (lastLvTileNode.valid() && lastLvTile.valid())
+    {
+        TileCallback* lastLvCallback = dynamic_cast<TileCallback*>(lastLvTileNode->getUpdateCallback());
+        osg::StateSet* ss = lastLvTile->getOrCreateStateSet();
+        if (lastLvCallback)
+        {
+            // Set UV scale value
+            // FIXME: should assume _z + 1 = parentZ... And not suitable for no-shader cases
+            std::string uvRangeName = "UvOffset" + std::to_string((int)id);
+            osg::Uniform* lastUvUniform = ss->getUniform(uvRangeName);
+            osg::Vec4 uvRange((float)(_x - lastLvCallback->getTileX() * 2) * 0.5f,
+                              (float)(_y - lastLvCallback->getTileY() * 2) * 0.5f, 0.5f, 0.5f);
+            if (lastUvUniform != NULL)
+            {
+                osg::Vec4 lastRange; lastUvUniform->get(lastRange);
+                uvRange.set(uvRange[0] * lastRange[2] + lastRange[0],
+                            uvRange[1] * lastRange[3] + lastRange[1],
+                            uvRange[2] * lastRange[2], uvRange[3] * lastRange[3]);
+            }
+            _uvRangesToSet[uvRangeName] = uvRange;
+
+            // Share parent tile's texture data
+            int texUnit = -1;
+            switch (id)
+            {
+            case ORTHOPHOTO: texUnit = 0; break;
+            case OCEAN_MASK: texUnit = 1; break;
+            default: texUnit = 2; break;
+            }
+            if (texUnit < 0) return NULL;  // TODO: elevation?
+            return static_cast<osg::Texture*>(ss->getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
+        }
+    }
+    return NULL;
+}
+
+bool TileCallback::updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerType id)
 {
     FindTileGeometry ftg; node->accept(ftg);
-    if (!ftg.geometry) return;
+    if (!ftg.geometry) return false;
 
-    osg::ref_ptr<osg::Image> image; osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
+    osg::ref_ptr<osg::Texture> tex; osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
     int texUnit = -1; bool emptyPath = false;
     switch (id)
     {
@@ -286,45 +348,66 @@ void TileCallback::updateLayerData(osg::Node* node, LayerType id)
         OSG_NOTICE << "[TileCallback] Elevation layer reloading not implemented at present" << std::endl;
         break;  // FIXME: alter elevation data on the fly?
     case ORTHOPHOTO:
-        image = createLayerImage(id, emptyPath); texUnit = 0; break;
+        tex = createLayerImage(id, emptyPath); texUnit = 0; break;
     case OCEAN_MASK:
-        image = createLayerImage(id, emptyPath); texUnit = 1; break;
+        tex = createLayerImage(id, emptyPath); texUnit = 1; break;
     default:  // USER
-        image = createLayerImage(id, emptyPath); texUnit = 2; break;
+        tex = createLayerImage(id, emptyPath); texUnit = 2; break;
     }
 
-    if (texUnit < 0) return;
-    osg::Texture* tex = static_cast<osg::Texture*>(
-        ss->getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
-    if (image.valid())
+    if (texUnit < 0) return false;
+    if (!tex && !emptyPath && node->getNumParents() > 0)
+        tex = findAndUseParentData(id, node->getParent(0));
+    if (tex.valid())
     {
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-        if (!tex) ss->setTextureAttribute(
-            texUnit, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+        ss->setTextureAttribute(texUnit, tex.get());
 #else
-        if (!tex) ss->setTextureAttributeAndModes(
-            texUnit, osgVerse::createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE));
+        ss->setTextureAttributeAndModes(texUnit, tex.get());
 #endif
-        else tex->setImage(0, image.get());  // FIXME: for USER layers, use tex2d array instead?
+
+        std::string uvRangeName = "UvOffset" + std::to_string((int)id);
+        if (!ss->getUniform(uvRangeName))
+            ss->getOrCreateUniform(uvRangeName, osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        return true;  // FIXME: for USER layers, use tex2d array instead?
     }
-    else if (emptyPath && tex)
+    else if (emptyPath)
     {
-        ss->removeTextureMode(texUnit, tex->getTextureTarget());
-        ss->removeTextureAttribute(texUnit, tex);
+        tex = static_cast<osg::Texture*>(ss->getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
+        if (tex) ss->removeTextureMode(texUnit, tex->getTextureTarget());
+        if (tex) ss->removeTextureAttribute(texUnit, tex); return true;
     }
+    return false;
 }
 
 void TileCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
 {
-    std::vector<int> updatedID;
+    std::vector<int> updatedID; std::string lastPath;
     if (TileManager::instance()->check(_layerPaths, updatedID))
     {
         for (size_t i = 0; i < updatedID.size(); ++i)
         {
-            LayerType id = (LayerType)updatedID[i];
+            // load or update layer image, but undo this operation if failed
+            LayerType id = (LayerType)updatedID[i]; lastPath = _layerPaths[id];
             _layerPaths[id] = TileManager::instance()->getLayerPath(id);
-            updateLayerData(node, id);  // load or update layer image
+            if (!updateLayerData(nv, node, id)) _layerPaths[id] = lastPath;
         }
+    }
+
+    if (!_uvRangesToSet.empty())
+    {
+        FindTileGeometry ftg; node->accept(ftg);
+        osg::StateSet* ss = ftg.geometry.valid() ? ftg.geometry->getOrCreateStateSet() : NULL;
+        if (ss)
+        {
+            for (std::map<std::string, osg::Vec4>::iterator it = _uvRangesToSet.begin();
+                 it != _uvRangesToSet.end(); ++it)
+            {
+                osg::Uniform* u = ss->getUniform(it->first); if (u) u->set(it->second);
+                if (!u) ss->getOrCreateUniform(it->first, osg::Uniform::FLOAT_VEC4)->set(it->second);
+            }
+        }
+        _uvRangesToSet.clear();
     }
     traverse(node, nv);
 }

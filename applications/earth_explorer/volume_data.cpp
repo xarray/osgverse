@@ -150,7 +150,7 @@ typedef std::pair<ResultPair, ResultPair2> VolumeTotalResult;
 VolumeTotalResult createVolumeBox(const std::string& vdbFile, const osg::Vec3d& fromLLA,
                                   const osg::Vec3d& toLLA, float minV, float maxV)
 {
-    osg::Matrix enu = osgVerse::Coordinate::convertLLAtoNED(osg::Vec3d(fromLLA[0], fromLLA[1], 0.0));
+    osg::Matrix enu = osgVerse::Coordinate::convertLLAtoNED(fromLLA);
     osg::Vec3 center = enu.getTrans(), from, to, size; enu.setTrans(osg::Vec3());
 
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile(vdbFile);
@@ -161,7 +161,8 @@ VolumeTotalResult createVolumeBox(const std::string& vdbFile, const osg::Vec3d& 
     from = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(fromLLA[0], fromLLA[1], 0.0));
     to = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(fromLLA[0], toLLA[1], 0.0)); size[1] = (from - to).length();
     from = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(toLLA[0], toLLA[1], fromLLA[2]));
-    to = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(toLLA[0], toLLA[1], toLLA[2])); size[2] = (from - to).length();
+    to = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(toLLA[0], toLLA[1], toLLA[2]));
+    size[2] = (from - to).length() * 10.0;  // FIXME: for zhijiang depth...
     
     // Extent = (spacing[0] * image->s(), spacing[1] * image->t(), spacing[2] * image->r())
     osg::Vec3d spacing(fabs(size[0]) / image->s(), fabs(size[1]) / image->t(), fabs(size[2]) / image->r());
@@ -216,12 +217,37 @@ public:
             osg::MatrixTransform* transform = vdb.first.first;
             osg::StateSet* ss = vdb.first.second;
 
-            /*osg::Vec3 pos, scale; osg::Quat rot, so;
-            transform->getMatrix().decompose(pos, rot, scale, so);
+            //osg::Vec3 pos, scale; osg::Quat rot, so;
+            //transform->getMatrix().decompose(pos, rot, scale, so);
+            osg::Vec3 valueMin, valueMax, valueRange; float dFactor = 0.0f, dPower = 0.0f;
+            osg::Uniform* range = ss->getUniform("ValueRange"); range->get(valueRange);
+            osg::Uniform *sliceMin = ss->getUniform("SliceMin"), *sliceMax = ss->getUniform("SliceMax");
+            osg::Uniform *factor = ss->getUniform("DensityFactor"), *power = ss->getUniform("DensityPower");
+            sliceMin->get(valueMin); sliceMax->get(valueMax); factor->get(dFactor); power->get(dPower);
+
             switch (ea.getKey())
             {
-            
-            }*/
+            case 'H': { if (valueMax.x() > 0.0f) valueMax.x() -= 0.01f; sliceMax->set(valueMax); } break;
+            case 'h': { if (valueMin.x() > 0.0f) valueMin.x() -= 0.01f; sliceMin->set(valueMin); } break;
+            case 'K': { if (valueMax.x() < 1.0f) valueMax.x() += 0.01f; sliceMax->set(valueMax); } break;
+            case 'k': { if (valueMin.x() < 1.0f) valueMin.x() += 0.01f; sliceMin->set(valueMin); } break;
+            case 'J': { if (valueMax.z() > 0.0f) valueMax.z() -= 0.01f; sliceMax->set(valueMax); } break;
+            case 'j': { if (valueMin.z() > 0.0f) valueMin.z() -= 0.01f; sliceMin->set(valueMin); } break;
+            case 'U': { if (valueMax.z() < 1.0f) valueMax.z() += 0.01f; sliceMax->set(valueMax); } break;
+            case 'u': { if (valueMin.z() < 1.0f) valueMin.z() += 0.01f; sliceMin->set(valueMin); } break;
+            case 'Y': { if (valueMax.y() > 0.0f) valueMax.y() -= 0.01f; sliceMax->set(valueMax); } break;
+            case 'y': { if (valueMin.y() > 0.0f) valueMin.y() -= 0.01f; sliceMin->set(valueMin); } break;
+            case 'I': { if (valueMax.y() < 1.0f) valueMax.y() += 0.01f; sliceMax->set(valueMax); } break;
+            case 'i': { if (valueMin.y() < 1.0f) valueMin.y() += 0.01f; sliceMin->set(valueMin); } break;
+            case 'T': { if (dFactor > 0.0f) dFactor -= 0.01f; factor->set(dFactor); } break;
+            case 't': { if (dFactor < 5.0f) dFactor += 0.01f; factor->set(dFactor); } break;
+            case 'G': { if (dPower > 0.0f) dPower -= 0.01f; power->set(dPower); } break;
+            case 'g': { if (dPower < 5.0f) dPower += 0.01f; power->set(dPower); } break;
+            case 'O': { valueRange[0] += 0.1f; valueRange[1] -= 0.1f; range->set(valueRange); } break;
+            case 'o': { valueRange[0] -= 0.1f; valueRange[1] += 0.1f; range->set(valueRange); } break;
+            case 'L': { valueRange[0] -= 0.1f; valueRange[1] -= 0.1f; range->set(valueRange); } break;
+            case 'l': { valueRange[0] += 0.1f; valueRange[1] += 0.1f; range->set(valueRange); } break;
+            }
         }
         return false;
     }
@@ -248,16 +274,16 @@ osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
     //vdbRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
     vdbRoot->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 
-    VolumeHandler* handler = new VolumeHandler;
+    VolumeHandler* handler = new VolumeHandler; float underOffset = 6000.0;
     handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/kerry_img3d.vdb.verse_vdb",
         osg::Vec3d(osg::inDegrees(-39.9978), osg::inDegrees(174.047), -1250.0),
         osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3.0), -4.0f, 4.0f));
     handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/parihaka_img3d.vdb.verse_vdb",
-        osg::Vec3d(osg::inDegrees(-51.0129), osg::inDegrees(-144.937), -1165.0),
-        osg::Vec3d(osg::inDegrees(-50.977), osg::inDegrees(-144.856), -6.0), -2000.0f, 2000.0f));
+        osg::Vec3d(osg::inDegrees(-51.0129), osg::inDegrees(-144.937), -1165.0 - underOffset),
+        osg::Vec3d(osg::inDegrees(-50.977), osg::inDegrees(-144.856), -6.0 - underOffset), -2000.0f, 2000.0f));
     handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/waihapa_img3d.vdb.verse_vdb",
-        osg::Vec3d(osg::inDegrees(-51.0208), osg::inDegrees(-145.185), -2500.0),
-        osg::Vec3d(osg::inDegrees(-51.0016), osg::inDegrees(-145.154), -0.0), -30000.0f, 30000.0f));
+        osg::Vec3d(osg::inDegrees(-51.0208), osg::inDegrees(-145.185), -2500.0 - underOffset),
+        osg::Vec3d(osg::inDegrees(-51.0016), osg::inDegrees(-145.154), -0.0 - underOffset), -30000.0f, 30000.0f));
 
     for (size_t i = 0; i < handler->vdbList.size(); ++i)
         vdbRoot->addChild(handler->vdbList[i].second.first);

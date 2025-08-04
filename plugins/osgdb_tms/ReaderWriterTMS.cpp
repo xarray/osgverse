@@ -131,11 +131,12 @@ public:
             for (int yy = 0; yy < countY; ++yy)
                 for (int xx = 0; xx < 2; ++xx)
                 {
+                    osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
                     osg::ref_ptr<osg::Node> node = createTile(
-                        elevAddr, orthoAddr, maskAddr, x + xx, y + yy, z, extentMin, extentMax, options, useWM, flatten);
+                        plod.get(), elevAddr, orthoAddr, maskAddr, x + xx, y + yy, z,
+                        extentMin, extentMax, options, useWM, flatten);
                     if (!node) continue;
 
-                    osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
                     plod->setDatabaseOptions(options->cloneOptions());
                     plod->addChild(node.get()); plod->setName("TMSLod:" + fileName);
                     plod->setFileName(1, std::to_string(x + xx) + "-" + std::to_string(y + yy) +
@@ -154,7 +155,7 @@ public:
     }
 
 protected:
-    osg::Node* createTile(const std::string& elevPath, const std::string& orthPath,
+    osg::Node* createTile(osg::LOD* parent, const std::string& elevPath, const std::string& orthPath,
                           const std::string& maskPath, int x, int y, int z,
                           const osg::Vec3d& extentMin, const osg::Vec3d& extentMax,
                           const Options* opt, bool useWM, bool flatten) const
@@ -193,13 +194,26 @@ protected:
         osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
         tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
 
-        osg::Matrix localMatrix; osg::ref_ptr<osg::Image> elevImage;
-        osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler; bool emptyPath = false;
-        if (elevH) elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION, emptyPath);
-        else elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION, emptyPath);
+        osg::Matrix localMatrix; osg::ref_ptr<osg::Texture> elevImage;
+        osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler; bool emptyPath0 = false, emptyPath1 = false;
+        if (elevH)
+        {
+            elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION, emptyPath0);
+            // FIXME: what to do if handler not found for detailed tile
+        }
+        else
+        {
+            elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION, emptyPath0);
+            if (!elevImage && !emptyPath0)
+                elevImage = tileCB->findAndUseParentData(osgVerse::TileCallback::ELEVATION, parent);
+        }
 
-        osg::ref_ptr<osg::Image> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath);
-        osg::ref_ptr<osg::Image> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath);
+        osg::ref_ptr<osg::Texture> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath0);
+        osg::ref_ptr<osg::Texture> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath1);
+        if (!orthImage && !emptyPath0)
+            orthImage = tileCB->findAndUseParentData(osgVerse::TileCallback::ORTHOPHOTO, parent);
+        if (!maskImage && !emptyPath1)
+            maskImage = tileCB->findAndUseParentData(osgVerse::TileCallback::OCEAN_MASK, parent);
         if (!orthImage) return NULL;
 
         osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?
@@ -209,23 +223,23 @@ protected:
         if (orthImage.valid())
         {
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-            geom->getOrCreateStateSet()->setTextureAttribute(
-                0, osgVerse::createTexture2D(orthImage.get(), osg::Texture::CLAMP_TO_EDGE));
+            geom->getOrCreateStateSet()->setTextureAttribute(0, orthImage.get());
 #else
-            geom->getOrCreateStateSet()->setTextureAttributeAndModes(
-                0, osgVerse::createTexture2D(orthImage.get(), osg::Texture::CLAMP_TO_EDGE));
+            geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, orthImage.get());
 #endif
+            geom->getOrCreateStateSet()->getOrCreateUniform("UvOffset1", osg::Uniform::FLOAT_VEC4)
+                                       ->set(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
         }
 
         if (maskImage.valid())
         {
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-            geom->getOrCreateStateSet()->setTextureAttribute(
-                1, osgVerse::createTexture2D(maskImage.get(), osg::Texture::CLAMP_TO_EDGE));
+            geom->getOrCreateStateSet()->setTextureAttribute(1, maskImage.get());
 #else
-            geom->getOrCreateStateSet()->setTextureAttributeAndModes(
-                1, osgVerse::createTexture2D(maskImage.get(), osg::Texture::CLAMP_TO_EDGE));
+            geom->getOrCreateStateSet()->setTextureAttributeAndModes(1, maskImage.get());
 #endif
+            geom->getOrCreateStateSet()->getOrCreateUniform("UvOffset2", osg::Uniform::FLOAT_VEC4)
+                                       ->set(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
         }
         // FIXME: handle more layers? using tex2d array?
 

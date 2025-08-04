@@ -7,6 +7,7 @@
 #include <functional>
 #include <set>
 #include "Export.h"
+
 typedef std::string (*CreatePathFunc)(int, const std::string&, int, int, int);
 
 namespace osgVerse
@@ -36,7 +37,7 @@ namespace osgVerse
                                        double& tileWidth, double& tileHeight) const;
         virtual double mapAltitude(const osg::Vec4& color, double minH = 0.0, double maxH = 20000.0) const;
 
-        virtual osg::Geometry* createTileGeometry(osg::Matrix& outMatrix, osg::Image* elevation,
+        virtual osg::Geometry* createTileGeometry(osg::Matrix& outMatrix, osg::Texture* elevation,
                                                   const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                                   double width, double height) const;
         virtual osg::Geometry* createTileGeometry(osg::Matrix& outMatrix, TileGeometryHandler* handler,
@@ -44,7 +45,8 @@ namespace osgVerse
                                                   double width, double height) const;
 
         enum LayerType { ELEVATION = 0, ORTHOPHOTO, OCEAN_MASK, USER };
-        osg::Image* createLayerImage(LayerType id, bool& emptyPath);
+        virtual osg::Texture* findAndUseParentData(LayerType id, osg::Group* parent);
+        osg::Texture* createLayerImage(LayerType id, bool& emptyPath);
         TileGeometryHandler* createLayerHandler(LayerType id, bool& emptyPath);
 
         /** Set layer data path with wildcards */
@@ -94,8 +96,9 @@ namespace osgVerse
 
     protected:
         virtual ~TileCallback() {}
-        virtual void updateLayerData(osg::Node* node, LayerType id);
+        virtual bool updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerType id);
 
+        std::map<std::string, osg::Vec4> _uvRangesToSet;
         std::map<int, std::string> _layerPaths;
         osg::Vec3d _extentMin, _extentMax;
         CreatePathFunc _createPathFunc;
@@ -108,6 +111,7 @@ namespace osgVerse
     public:
         static TileManager* instance();
         bool check(const std::map<int, std::string>& paths, std::vector<int>& updated);
+        //bool shouldMorph(TileCallback* cb) const
         bool isHandlerExtension(const std::string& ext, std::string& suggested) const;
 
         void setLayerPath(TileCallback::LayerType id, const std::string& p) { _layerPaths[id] = p; }

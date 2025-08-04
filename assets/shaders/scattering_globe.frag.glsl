@@ -3,6 +3,7 @@ uniform sampler2D transmittanceSampler;
 uniform sampler2D skyIrradianceSampler;
 uniform sampler3D inscatterSampler;
 uniform sampler2D glareSampler;
+uniform vec4 UvOffset1, UvOffset2, UvOffset3;
 uniform vec3 worldCameraPos, worldSunDir, origin;
 uniform vec3 sunColorScale, skyColorScale;
 uniform float hdrExposure, globalOpaque;
@@ -49,22 +50,23 @@ void main()
 #endif
         return;
     }
-    
-    vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st);
-    vec4 layerColor = VERSE_TEX2D(extraLayerSampler, texCoord.st);
+
+    vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st * UvOffset1.zw + UvOffset1.xy);
+    vec4 layerColor = VERSE_TEX2D(extraLayerSampler, texCoord.st * UvOffset3.zw + UvOffset3.xy);
     groundColor.rgb = mix(groundColor.rgb, layerColor.rgb, layerColor.a);
 
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
-    vec4 maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
+    vec2 uv = texCoord.xy * UvOffset2.zw + UvOffset2.xy;
+    vec4 maskColor = VERSE_TEX2D(maskSampler, uv.st);
     vec4 maskValue = vec4(maskColor.zzza); float off = 0.002;
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, 0.0));
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, 0.0));
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(0.0, -off));
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(0.0, off));
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, -off));
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, -off));
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(off, off));
-    maskColor += VERSE_TEX2D(maskSampler, texCoord.st + vec2(-off, off));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(-off, 0.0));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(off, 0.0));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(0.0, -off));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(0.0, off));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(-off, -off));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(off, -off));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(off, off));
+    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(-off, off));
     maskColor *= 1.0 / 9.0;
 
     vec3 WSD = worldSunDir, WCP = worldCameraPos;
