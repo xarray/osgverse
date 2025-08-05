@@ -91,6 +91,8 @@ namespace osgVerse
         bool getUseWebMercator() const { return _useWebMercator; }
 
         osg::Vec3d adjustLatitudeLongitudeAltitude(const osg::Vec3d& extent, bool useSphericalMercator) const;
+        const osg::Matrix& getTileWorldToLocalMatrix() const { return _worldToLocal; }
+
         static std::string createPath(const std::string& pseudoPath, int x, int y, int z);
         static std::string replace(std::string& src, const std::string& match, const std::string& v, bool& c);
 
@@ -100,6 +102,7 @@ namespace osgVerse
 
         std::map<std::string, osg::Vec4> _uvRangesToSet;
         std::map<int, std::string> _layerPaths;
+        osg::Matrix _worldToLocal;
         osg::Vec3d _extentMin, _extentMax;
         CreatePathFunc _createPathFunc;
         int _x, _y, _z; float _skirtRatio, _elevationScale;
@@ -111,11 +114,16 @@ namespace osgVerse
     public:
         static TileManager* instance();
         bool check(const std::map<int, std::string>& paths, std::vector<int>& updated);
-        //bool shouldMorph(TileCallback* cb) const
         bool isHandlerExtension(const std::string& ext, std::string& suggested) const;
 
         void setLayerPath(TileCallback::LayerType id, const std::string& p) { _layerPaths[id] = p; }
         std::string getLayerPath(TileCallback::LayerType id) { return _layerPaths[id]; }
+
+#if false  // test only
+        bool shouldMorph(TileCallback& cb) const;
+        void setAllMorphing(bool b);
+        void updateTileGeometry(TileCallback& cb, osg::Geometry* geom);
+#endif
 
     protected:
         TileManager();

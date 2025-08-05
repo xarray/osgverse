@@ -133,7 +133,8 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
     {
         osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, _useWebMercator);
         osg::Matrix localToWorld = Coordinate::convertLLAtoENU(center);
-        osg::Matrix worldToLocal = osg::Matrix::inverse(localToWorld);
+        const_cast<TileCallback*>(this)->_worldToLocal = osg::Matrix::inverse(localToWorld);
+
         osg::Matrix normalMatrix(localToWorld(0, 0), localToWorld(0, 1), localToWorld(0, 2), 0.0,
                                  localToWorld(1, 0), localToWorld(1, 1), localToWorld(1, 2), 0.0,
                                  localToWorld(2, 0), localToWorld(2, 1), localToWorld(2, 2), 0.0,
@@ -164,7 +165,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
-                (*va)[vi] = osg::Vec3(ecef * worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
+                (*va)[vi] = osg::Vec3(ecef * _worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
 
                 // For ocean plane, save distance to earth center when ALTITUDE = 0
@@ -303,6 +304,11 @@ osg::Texture* TileCallback::findAndUseParentData(LayerType id, osg::Group* paren
     {
         TileCallback* lastLvCallback = dynamic_cast<TileCallback*>(lastLvTileNode->getUpdateCallback());
         osg::StateSet* ss = lastLvTile->getOrCreateStateSet();
+        if (id == ELEVATION && lastLvCallback)
+        {
+            // Get parent geometry and generate a float image from it
+            // TODO
+        }
         if (lastLvCallback)
         {
             // Set UV scale value
@@ -346,7 +352,7 @@ bool TileCallback::updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerT
     {
     case ELEVATION:
         OSG_NOTICE << "[TileCallback] Elevation layer reloading not implemented at present" << std::endl;
-        break;  // FIXME: alter elevation data on the fly?
+        break;  // TODO: use input image or find-back'ed image to alter elevation data on the fly
     case ORTHOPHOTO:
         tex = createLayerImage(id, emptyPath); texUnit = 0; break;
     case OCEAN_MASK:
@@ -409,6 +415,14 @@ void TileCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
         }
         _uvRangesToSet.clear();
     }
+#if false
+    if (TileManager::instance()->shouldMorph(*this))
+    {
+        FindTileGeometry ftg; node->accept(ftg);
+        if (ftg.geometry.valid())
+            TileManager::instance()->updateTileGeometry(*this, ftg.geometry.get());
+    }
+#endif
     traverse(node, nv);
 }
 
@@ -443,3 +457,45 @@ bool TileManager::isHandlerExtension(const std::string& ext, std::string& sugges
     std::map<std::string, std::string>::const_iterator itr = _acceptHandlerExts.find(ext);
     if (itr != _acceptHandlerExts.end()) { suggested = itr->second; return true; } else return false;
 }
+
+/// TEST ONLY
+#if false
+static bool g_allMorph = false;
+static osg::Timer_t _startTime;
+
+bool TileManager::shouldMorph(TileCallback& cb) const
+{
+    return g_allMorph;
+}
+
+void TileManager::setAllMorphing(bool b)
+{
+    _startTime = osg::Timer::instance()->tick();
+    g_allMorph = b;
+}
+
+void TileManager::updateTileGeometry(TileCallback& tileCB, osg::Geometry* geom)
+{
+    osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray()); va->dirty();
+    float time = osg::Timer::instance()->delta_s(_startTime, osg::Timer::instance()->tick());
+
+    osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
+    tileCB.computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
+
+    unsigned int numRows = 16, numCols = 16;
+    double invW = tileWidth / (float)(numCols - 1), invH = tileHeight / (float)(numRows - 1);
+    const osg::Matrix& worldToLocal = tileCB.getTileWorldToLocalMatrix();
+    for (unsigned int y = 0; y < numRows; ++y)
+        for (unsigned int x = 0; x < numCols; ++x)
+        {
+            unsigned int vi = x + y * numCols; double altitude = 0.0;
+            osg::Vec3d lla = tileCB.adjustLatitudeLongitudeAltitude(
+                tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), tileCB.getUseWebMercator());
+            lla[2] = sin(lla[0] * time) * 20000.0 + cos(lla[1] * time) * 20000.0;
+
+            osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
+            (*va)[vi] = osg::Vec3(ecef * worldToLocal);
+        }
+}
+#endif
+////////////////

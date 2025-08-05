@@ -570,17 +570,6 @@ namespace osgVerse
                     geom->setNormalArray(na); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 #endif
                 }
-                else if (attrib->first.compare("COLOR") == 0 && compNum == 4 && compSize == 4)
-                {
-                    osg::Vec4Array* ca = new osg::Vec4Array(size);
-                    copyBufferData(&(*ca)[0], &buffer.data[offset], copySize, stride, size);
-#if OSG_VERSION_GREATER_THAN(3, 1, 8)
-                    ca->setNormalize(attrAccessor.normalized);
-                    geom->setColorArray(ca, osg::Array::BIND_PER_VERTEX);
-#else
-                    geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-#endif
-                }
                 else if (attrib->first.compare("TANGENT") == 0 && compSize == 4 && compNum == 4)
                 {
                     osg::Vec4Array* ta = new osg::Vec4Array(size);
@@ -591,6 +580,30 @@ namespace osgVerse
 #endif
                     geom->setVertexAttribArray(6, ta);
                     geom->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
+                }
+                else if (attrib->first.find("COLOR") == 0 && compNum == 4)
+                {
+                    osg::Array* ca = NULL;
+                    if (compSize == 1)
+                    {
+                        osg::Vec4ubArray* ca4ub = new osg::Vec4ubArray(size); ca = ca4ub;
+                        copyBufferData(&(*ca4ub)[0], &buffer.data[offset], copySize, stride, size);
+                    }
+                    else if (compSize == 4)
+                    {
+                        osg::Vec4Array* ca4f = new osg::Vec4Array(size); ca = ca4f;
+                        copyBufferData(&(*ca4f)[0], &buffer.data[offset], copySize, stride, size);
+                    }
+
+                    if (ca)
+                    {
+#if OSG_VERSION_GREATER_THAN(3, 1, 8)
+                        ca->setNormalize(attrAccessor.normalized);
+                        geom->setColorArray(ca, osg::Array::BIND_PER_VERTEX);
+#else
+                        geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+#endif
+                    }
                 }
                 else if (attrib->first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
                 {
@@ -637,46 +650,50 @@ namespace osgVerse
                              << compNum << "-components and dataSize=" << compSize << std::endl;
             }
 
-            // Configure primitive index array
-            tinygltf::Accessor indexAccessor = _modelDef.accessors[primitive.indices];
-            const tinygltf::BufferView& indexView = _modelDef.bufferViews[indexAccessor.bufferView];
             osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
             if (!va || (va && va->empty())) continue;
 
+            // Configure primitive index array
             osg::ref_ptr<osg::PrimitiveSet> p;
-            if (indexView.target == 0)
+            if (primitive.indices < 0)
                 p = new osg::DrawArrays(GL_POINTS, 0, va->size());
-            else  // ELEMENT_ARRAY_BUFFER = 34963
+            else
             {
-                const tinygltf::Buffer& indexBuffer = _modelDef.buffers[indexView.buffer];
-                int compSize = tinygltf::GetComponentSizeInBytes(indexAccessor.componentType);
-                int size = indexAccessor.count; if (!size) continue;
-                size_t stride = (indexView.byteStride > 0 && indexView.byteStride != compSize)
-                              ? indexView.byteStride : 0;
-
-                size_t offset = indexView.byteOffset + indexAccessor.byteOffset;
-                switch (compSize)
+                tinygltf::Accessor indexAccessor = _modelDef.accessors[primitive.indices];
+                const tinygltf::BufferView& indexView = _modelDef.bufferViews[indexAccessor.bufferView];
+                if (indexView.target == 0)
+                    p = new osg::DrawArrays(GL_POINTS, 0, va->size());
+                else  // ELEMENT_ARRAY_BUFFER = 34963
                 {
-                case 1:
+                    const tinygltf::Buffer& indexBuffer = _modelDef.buffers[indexView.buffer];
+                    int compSize = tinygltf::GetComponentSizeInBytes(indexAccessor.componentType);
+                    int size = indexAccessor.count; if (!size) continue;
+                    size_t stride = (indexView.byteStride > 0 && indexView.byteStride != compSize)
+                                  ? indexView.byteStride : 0;
+                    size_t offset = indexView.byteOffset + indexAccessor.byteOffset;
+                    switch (compSize)
                     {
-                        osg::DrawElementsUByte* de = new osg::DrawElementsUByte(GL_POINTS, size); p = de;
-                        copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
+                    case 1:
+                        {
+                            osg::DrawElementsUByte* de = new osg::DrawElementsUByte(GL_POINTS, size); p = de;
+                            copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
+                        }
+                        break;
+                    case 2:
+                        {
+                            osg::DrawElementsUShort* de = new osg::DrawElementsUShort(GL_POINTS, size); p = de;
+                            copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
+                        }
+                        break;
+                    case 4:
+                        {
+                            osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_POINTS, size); p = de;
+                            copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
+                        }
+                        break;
+                    default:
+                        OSG_WARN << "[LoaderGLTF] Unknown size " << compSize << std::endl; break;
                     }
-                    break;
-                case 2:
-                    {
-                        osg::DrawElementsUShort* de = new osg::DrawElementsUShort(GL_POINTS, size); p = de;
-                        copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
-                    }
-                    break;
-                case 4:
-                    {
-                        osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_POINTS, size); p = de;
-                        copyBufferData(&(*de)[0], &indexBuffer.data[offset], size * compSize, stride, size);
-                    }
-                    break;
-                default:
-                    OSG_WARN << "[LoaderGLTF] Unknown size " << compSize << std::endl; break;
                 }
             }
 

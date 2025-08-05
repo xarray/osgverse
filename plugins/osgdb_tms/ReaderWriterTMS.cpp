@@ -197,22 +197,17 @@ protected:
         osg::Matrix localMatrix; osg::ref_ptr<osg::Texture> elevImage;
         osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler; bool emptyPath0 = false, emptyPath1 = false;
         if (elevH)
-        {
             elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION, emptyPath0);
-            // FIXME: what to do if handler not found for detailed tile
-        }
         else
-        {
             elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION, emptyPath0);
-            if (!elevImage && !emptyPath0)
-                elevImage = tileCB->findAndUseParentData(osgVerse::TileCallback::ELEVATION, parent);
-        }
+        if (!elevHandler && !elevImage && !emptyPath0)  // try to find parent data
+            elevImage = tileCB->findAndUseParentData(osgVerse::TileCallback::ELEVATION, parent);
 
         osg::ref_ptr<osg::Texture> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath0);
         osg::ref_ptr<osg::Texture> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath1);
-        if (!orthImage && !emptyPath0)
+        if (!orthImage && !emptyPath0)  // try to find parent data
             orthImage = tileCB->findAndUseParentData(osgVerse::TileCallback::ORTHOPHOTO, parent);
-        if (!maskImage && !emptyPath1)
+        if (!maskImage && !emptyPath1)  // try to find parent data
             maskImage = tileCB->findAndUseParentData(osgVerse::TileCallback::OCEAN_MASK, parent);
         if (!orthImage) return NULL;
 
