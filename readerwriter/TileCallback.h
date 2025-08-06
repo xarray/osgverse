@@ -30,7 +30,7 @@ namespace osgVerse
     public:
         TileCallback()
         :   _x(-1), _y(-1), _z(-1), _skirtRatio(0.02f), _elevationScale(1.0f), _flatten(true),
-            _bottomLeft(false), _useWebMercator(false), _layersDone(false) {}
+            _bottomLeft(false), _useWebMercator(false), _layersDone(false) { _createPathFunc = NULL; }
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         virtual void computeTileExtent(osg::Vec3d& tileMin, osg::Vec3d& tileMax,

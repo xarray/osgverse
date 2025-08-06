@@ -212,7 +212,9 @@ protected:
         if (!maskImage && !emptyPath1)
             { tileCB->setLayerPathState(osgVerse::TileCallback::OCEAN_MASK, failState); allLayersDone = false; }
         tileCB->setLayersDone(allLayersDone);
-        if (!orthImage) return NULL;  // FIXME: this makes no future tiles... consider a better way?
+
+        // FIXME: this makes no future tiles... consider a better way?
+        if (!orthImage) { OSG_NOTICE << "[ReaderWriterTMS] No imagery for tile " << name << "\n"; return NULL; }
 
         osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?
             tileCB->createTileGeometry(localMatrix, elevHandler.get(), tileMin, tileMax, tileWidth, tileHeight) :
