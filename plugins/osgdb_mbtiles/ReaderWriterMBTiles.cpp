@@ -67,6 +67,7 @@ protected:
 
 class ReaderWriterMb : public osgDB::ReaderWriter
 {
+    friend class MbArchive;
 public:
     ReaderWriterMb()
     {
@@ -220,8 +221,7 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        osgDB::ReaderWriter* reader =
-            osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        osgDB::ReaderWriter* reader = getReaderWriter(ext, true);
         if (!reader)
         {
             OSG_WARN << "[mbtiles] No reader/writer plugin for " << ext << std::endl;
@@ -290,7 +290,7 @@ public:
         sqlite3* db = getOrCreateDatabase(dbName, options, true);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
-        osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        osgDB::ReaderWriter* writer = getReaderWriter(ext, true);
         if (!writer) return WriteResult::FILE_NOT_HANDLED;
         else return write(db, obj, keyName, writer, options);
     }
@@ -507,8 +507,19 @@ protected:
         return fileName;
     }
 
-    typedef std::map<std::string, sqlite3*> DatabaseMap;
-    DatabaseMap _dbMap;
+    osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
+    {
+        std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
+            it = _cachedReaderWriters.find(extOrMime);
+        if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
+
+        osgDB::ReaderWriter* rw = isExt ? osgDB::Registry::instance()->getReaderWriterForExtension(extOrMime)
+            : osgDB::Registry::instance()->getReaderWriterForMimeType(extOrMime);
+        if (rw) const_cast<ReaderWriterMb*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
+    }
+
+    typedef std::map<std::string, sqlite3*> DatabaseMap; DatabaseMap _dbMap;
+    std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
 };
 
 MbArchive::MbArchive(const osgDB::ReaderWriter* rw, ArchiveStatus status,
@@ -533,7 +544,7 @@ osgDB::ReaderWriter::ReadResult MbArchive::readFile(
     MbObjectType type, const std::string& fileName, const osgDB::Options* op) const
 {
     std::string ext = osgDB::getFileExtension(fileName);
-    osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+    osgDB::ReaderWriter* reader = static_cast<ReaderWriterMb*>(_readerWriter.get())->getReaderWriter(ext, true);
     if (!reader) return ReadResult::FILE_NOT_HANDLED;
 
     ReaderWriterMb* rwdb = static_cast<ReaderWriterMb*>(_readerWriter.get());
@@ -545,7 +556,7 @@ osgDB::ReaderWriter::WriteResult MbArchive::writeFile(const osg::Object& obj,
     MbObjectType type, const std::string& fileName, const osgDB::Options* op) const
 {
     std::string ext = osgDB::getFileExtension(fileName);
-    osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+    osgDB::ReaderWriter* writer = static_cast<ReaderWriterMb*>(_readerWriter.get())->getReaderWriter(ext, true);
     if (!writer) return WriteResult::FILE_NOT_HANDLED;
 
     ReaderWriterMb* rwdb = static_cast<ReaderWriterMb*>(_readerWriter.get());

@@ -166,7 +166,7 @@ int main(int argc, char** argv)
                             " Elevation=mbtiles://" + mainFolder + "/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             " OceanMask=mbtiles://" + mainFolder + "/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             //" Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}"
-                            " MaximumLevel=8 UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
+                            /*" MaximumLevel=8"*/" UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
     earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);
@@ -189,7 +189,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
     osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
     sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
-    sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    //sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
     sceneCamera->addChild(configureInternal(viewer, earth.get(), ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
     //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);

@@ -30,7 +30,7 @@ namespace osgVerse
     public:
         TileCallback()
         :   _x(-1), _y(-1), _z(-1), _skirtRatio(0.02f), _elevationScale(1.0f), _flatten(true),
-            _bottomLeft(false), _useWebMercator(false) {}
+            _bottomLeft(false), _useWebMercator(false), _layersDone(false) {}
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         virtual void computeTileExtent(osg::Vec3d& tileMin, osg::Vec3d& tileMax,
@@ -43,15 +43,25 @@ namespace osgVerse
         virtual osg::Geometry* createTileGeometry(osg::Matrix& outMatrix, TileGeometryHandler* handler,
                                                   const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                                   double width, double height) const;
+        virtual void updateTileGeometry(osg::Geometry* geometry, osg::Texture* elevation, const std::string& range,
+                                        const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
+                                        double width, double height) const;
 
         enum LayerType { ELEVATION = 0, ORTHOPHOTO, OCEAN_MASK, USER };
+        enum LayerState { DONE = 0, DEFERRED, FAILED };
+        typedef std::pair<std::string, LayerState> DataPathPair;
+
         virtual osg::Texture* findAndUseParentData(LayerType id, osg::Group* parent);
         osg::Texture* createLayerImage(LayerType id, bool& emptyPath);
         TileGeometryHandler* createLayerHandler(LayerType id, bool& emptyPath);
 
         /** Set layer data path with wildcards */
-        void setLayerPath(LayerType id, const std::string& p) { _layerPaths[id] = p; }
-        std::string getLayerPath(LayerType id) { return _layerPaths[id]; }
+        void setLayerPath(LayerType id, const std::string& p) { _layerPaths[id] = DataPathPair(p, DONE); }
+        std::string getLayerPath(LayerType id) { return _layerPaths[id].first; }
+
+        /** Set layer data path state */
+        void setLayerPathState(LayerType id, LayerState s) { _layerPaths[id].second = s; }
+        LayerState getLayerPathState(LayerType id) { return _layerPaths[id].second; }
 
         /** Set global extent size: default is (-180, -90) to (180, 90) */
         void setTotalExtent(const osg::Vec3d& e0, const osg::Vec3d& e1) { _extentMin = e0; _extentMax = e1; }
@@ -90,34 +100,42 @@ namespace osgVerse
         void setUseWebMercator(bool b) { _useWebMercator = b; }
         bool getUseWebMercator() const { return _useWebMercator; }
 
+        /** Set if all layers are loaded or not */
+        void setLayersDone(bool b) { _layersDone = b; }
+        bool getLayersDone() const { return _layersDone; }
+
         osg::Vec3d adjustLatitudeLongitudeAltitude(const osg::Vec3d& extent, bool useSphericalMercator) const;
         const osg::Matrix& getTileWorldToLocalMatrix() const { return _worldToLocal; }
 
         static std::string createPath(const std::string& pseudoPath, int x, int y, int z);
         static std::string replace(std::string& src, const std::string& match, const std::string& v, bool& c);
+        static std::pair<osg::Geometry*, TileCallback*> findParentTile(osg::Group* parentLOD);
 
     protected:
         virtual ~TileCallback() {}
         virtual bool updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerType id);
 
+        std::map<int, DataPathPair> _layerPaths;
         std::map<std::string, osg::Vec4> _uvRangesToSet;
-        std::map<int, std::string> _layerPaths;
+        osg::ref_ptr<osg::Texture> _elevationRef;
         osg::Matrix _worldToLocal;
         osg::Vec3d _extentMin, _extentMax;
         CreatePathFunc _createPathFunc;
         int _x, _y, _z; float _skirtRatio, _elevationScale;
-        bool _flatten, _bottomLeft, _useWebMercator;
+        bool _flatten, _bottomLeft, _useWebMercator, _layersDone;
     };
 
     class OSGVERSE_RW_EXPORT TileManager : public osg::Referenced
     {
     public:
         static TileManager* instance();
-        bool check(const std::map<int, std::string>& paths, std::vector<int>& updated);
+        bool check(const std::map<int, TileCallback::DataPathPair>& paths, std::vector<int>& updated);
         bool isHandlerExtension(const std::string& ext, std::string& suggested) const;
 
         void setLayerPath(TileCallback::LayerType id, const std::string& p) { _layerPaths[id] = p; }
         std::string getLayerPath(TileCallback::LayerType id) { return _layerPaths[id]; }
+
+        osgDB::ReaderWriter* getReaderWriter(const std::string& protocol, const std::string& url);
 
 #if false  // test only
         bool shouldMorph(TileCallback& cb) const;
@@ -131,6 +149,7 @@ namespace osgVerse
 
         std::map<int, std::string> _layerPaths;
         std::map<std::string, std::string> _acceptHandlerExts;
+        std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
     };
 }
 

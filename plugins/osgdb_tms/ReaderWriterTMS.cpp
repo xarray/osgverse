@@ -128,15 +128,16 @@ public:
             bool flatten = (useEarth == "false" || atoi(useEarth.c_str()) <= 0);
 
             osg::ref_ptr<osg::Group> group = new osg::Group;
+            group->setName("TMSGroup:" + fileName);
             for (int yy = 0; yy < countY; ++yy)
                 for (int xx = 0; xx < 2; ++xx)
                 {
-                    osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
                     osg::ref_ptr<osg::Node> node = createTile(
-                        plod.get(), elevAddr, orthoAddr, maskAddr, x + xx, y + yy, z,
+                        elevAddr, orthoAddr, maskAddr, x + xx, y + yy, z,
                         extentMin, extentMax, options, useWM, flatten);
                     if (!node) continue;
 
+                    osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
                     plod->setDatabaseOptions(options->cloneOptions());
                     plod->addChild(node.get()); plod->setName("TMSLod:" + fileName);
                     plod->setFileName(1, std::to_string(x + xx) + "-" + std::to_string(y + yy) +
@@ -148,14 +149,13 @@ public:
                         { plod->setRange(0, 0.0f, 1000.0f); plod->setRange(1, 1000.0f, FLT_MAX); }
                     group->addChild(plod.get());
                 }
-            group->setName("TMSGroup:" + fileName);
             return (group->getNumChildren() > 0) ? group.get() : NULL;
         }
         return ReadResult::FILE_NOT_FOUND;
     }
 
 protected:
-    osg::Node* createTile(osg::LOD* parent, const std::string& elevPath, const std::string& orthPath,
+    osg::Node* createTile(const std::string& elevPath, const std::string& orthPath,
                           const std::string& maskPath, int x, int y, int z,
                           const osg::Vec3d& extentMin, const osg::Vec3d& extentMax,
                           const Options* opt, bool useWM, bool flatten) const
@@ -181,7 +181,7 @@ protected:
         tileCB->setTotalExtent(extentMin, extentMax); tileCB->setTileNumber(x, y, z);
         tileCB->setBottomLeft(botLeft == "true" || atoi(botLeft.c_str()) > 0);
         tileCB->setUseWebMercator(useWM); tileCB->setFlatten(flatten);
-        tileCB->setCreatePathFunction(pathFunc);
+        tileCB->setCreatePathFunction(pathFunc); tileCB->setName(name + "_Callback");
         if (opt)
         {
             std::string skirt = opt->getPluginStringData("TileSkirtRatio");
@@ -191,25 +191,28 @@ protected:
             if (!scale.empty()) tileCB->setElevationScale((float)atof(scale.c_str()));
         }
 
-        osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
+        osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight = 0.0;
         tileCB->computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
 
         osg::Matrix localMatrix; osg::ref_ptr<osg::Texture> elevImage;
-        osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler; bool emptyPath0 = false, emptyPath1 = false;
+        osg::ref_ptr<osgVerse::TileGeometryHandler> elevHandler;
+        bool emptyPath0 = false, emptyPath1 = false, allLayersDone = true;
+        osgVerse::TileCallback::LayerState failState = osgVerse::TileCallback::DEFERRED;
         if (elevH)
             elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION, emptyPath0);
         else
             elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION, emptyPath0);
-        if (!elevHandler && !elevImage && !emptyPath0)  // try to find parent data
-            elevImage = tileCB->findAndUseParentData(osgVerse::TileCallback::ELEVATION, parent);
+        if (!elevHandler && !elevImage && !emptyPath0)
+            { tileCB->setLayerPathState(osgVerse::TileCallback::ELEVATION, failState); allLayersDone = false; }
 
         osg::ref_ptr<osg::Texture> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath0);
         osg::ref_ptr<osg::Texture> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath1);
-        if (!orthImage && !emptyPath0)  // try to find parent data
-            orthImage = tileCB->findAndUseParentData(osgVerse::TileCallback::ORTHOPHOTO, parent);
-        if (!maskImage && !emptyPath1)  // try to find parent data
-            maskImage = tileCB->findAndUseParentData(osgVerse::TileCallback::OCEAN_MASK, parent);
-        if (!orthImage) return NULL;
+        if (!orthImage && !emptyPath0)
+            { tileCB->setLayerPathState(osgVerse::TileCallback::ORTHOPHOTO, failState); allLayersDone = false; }
+        if (!maskImage && !emptyPath1)
+            { tileCB->setLayerPathState(osgVerse::TileCallback::OCEAN_MASK, failState); allLayersDone = false; }
+        tileCB->setLayersDone(allLayersDone);
+        if (!orthImage) return NULL;  // FIXME: this makes no future tiles... consider a better way?
 
         osg::ref_ptr<osg::Geometry> geom = elevHandler.valid() ?
             tileCB->createTileGeometry(localMatrix, elevHandler.get(), tileMin, tileMax, tileWidth, tileHeight) :
@@ -217,6 +220,8 @@ protected:
         geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true); geom->setName(name + "_Geom");
         if (orthImage.valid())
         {
+            orthImage->setClientStorageHint(false);
+            orthImage->setUnRefImageDataAfterApply(true);
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
             geom->getOrCreateStateSet()->setTextureAttribute(0, orthImage.get());
 #else
@@ -228,6 +233,8 @@ protected:
 
         if (maskImage.valid())
         {
+            maskImage->setClientStorageHint(false);
+            maskImage->setUnRefImageDataAfterApply(true);
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
             geom->getOrCreateStateSet()->setTextureAttribute(1, maskImage.get());
 #else

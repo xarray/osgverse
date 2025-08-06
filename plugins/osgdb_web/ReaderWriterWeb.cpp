@@ -219,7 +219,7 @@ public:
         lOptions->setPluginStringData("filename", fileName);
         if (ext2 == "verse_tiles" && ext == "children")
         {
-            osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext2);
+            osgDB::ReaderWriter* reader = getReaderWriter(ext2, true);
             if (reader) return reader->readNode(fileName, lOptions.get());
         }
 
@@ -293,15 +293,15 @@ public:
         }
 
         // Load by other readerwriter
-        osgDB::ReaderWriter* reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        osgDB::ReaderWriter* reader = getReaderWriter(ext, true);
         lOptions->getDatabasePathList().push_front(osgDB::getFilePath(fileName));
         if (!reader && options)
         {
             if (ext2.empty()) ext2 = options->getPluginStringData("Extension");
-            if (!ext2.empty()) reader = osgDB::Registry::instance()->getReaderWriterForExtension(ext2);
+            if (!ext2.empty()) reader = getReaderWriter(ext2, true);
         }
-        if (!reader)
-            reader = osgDB::Registry::instance()->getReaderWriterForMimeType(contentType);
+
+        if (!reader) reader = getReaderWriter(contentType, false);
         if (!reader)
         {
             OSG_WARN << "[ReaderWriterWeb] No reader/writer plugin for " << fileName
@@ -334,7 +334,7 @@ public:
         }
         else if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
 
-        osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        osgDB::ReaderWriter* writer = getReaderWriter(ext, true);
         if (!writer) return WriteResult::FILE_NOT_HANDLED;
 
         std::stringstream requestBuffer;
@@ -381,6 +381,17 @@ protected:
         return fileName;
     }
 
+    osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
+    {
+        std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
+            it = _cachedReaderWriters.find(extOrMime);
+        if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
+
+        osgDB::ReaderWriter* rw = isExt ? osgDB::Registry::instance()->getReaderWriterForExtension(extOrMime)
+                                        : osgDB::Registry::instance()->getReaderWriterForMimeType(extOrMime);
+        if (rw) const_cast<ReaderWriterWeb*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
+    }
+
     static std::string trimString(const std::string& str)
     {
         if (!str.size()) return str;
@@ -390,6 +401,7 @@ protected:
         return str.substr(first, last - first + 1);
     }
 
+    std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
     //hv::HttpClient* _client;
 };
 
