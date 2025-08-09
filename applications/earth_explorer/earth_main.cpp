@@ -38,6 +38,7 @@ extern osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthR
                                       const std::string& mainFolder, unsigned int mask);
 extern void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
+extern void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder, int w, int h);
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -59,6 +60,7 @@ public:
             osg::Uniform* cameraToWorld = ss->getOrCreateUniform("cameraToWorld", osg::Uniform::FLOAT_MAT4);
             osg::Uniform* screenToCamera = ss->getOrCreateUniform("screenToCamera", osg::Uniform::FLOAT_MAT4);
             osg::Uniform* worldCameraPos = ss->getOrCreateUniform("worldCameraPos", osg::Uniform::FLOAT_VEC3);
+            osg::Uniform* worldCameraLLA = ss->getOrCreateUniform("worldCameraLLA", osg::Uniform::FLOAT_VEC3);
 
             osg::Camera* mainCamera = view->getCamera();
             if (mainCamera)
@@ -66,7 +68,11 @@ public:
                 osg::Matrixf invViewMatrix = mainCamera->getInverseViewMatrix();
                 cameraToWorld->set(invViewMatrix);
                 screenToCamera->set(osg::Matrixf::inverse(mainCamera->getProjectionMatrix()));
-                worldCameraPos->set(osg::Vec3(invViewMatrix.getTrans()));
+
+                osg::Vec3d worldCam = invViewMatrix.getTrans();
+                osg::Vec3d worldLLA = osgVerse::Coordinate::convertECEFtoLLA(worldCam);
+                worldCameraPos->set(osg::Vec3(worldCam));
+                worldCameraLLA->set(osg::Vec3(worldLLA));
             }
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
@@ -193,6 +199,7 @@ int main(int argc, char** argv)
     sceneCamera->addChild(configureInternal(viewer, earth.get(), ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
     //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
+    configureUI(viewer, root.get(), mainFolder, w, h);
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     osg::ref_ptr<osg::Uniform> clip0 = new osg::Uniform("clipPlane0", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
