@@ -23,6 +23,11 @@ vec2 rayIntersectBox(vec3 rayDirection, vec3 rayOrigin)
     return vec2(back, front);
 }
 
+float remap(float x, float deadZone, float outerScale, float k)
+{
+    return outerScale * tanh((x - deadZone * sign(x)) * k);
+}
+
 void main()
 {
     // Get object-space ray origin & direction of each fragment
@@ -46,7 +51,7 @@ void main()
 
     // Raymarch, front to back
     float T = 1.0, travel = distance(rayStop, rayStart) / stepSize;
-    float factor = DensityFactor * stepSize;
+    float factor = DensityFactor * stepSize, totalDensity = 0.0;
     int samples = int(ceil(travel));
     vec4 resultColor = vec4(0.0);
     for (int i = 0; i < maxSamples; ++i)
@@ -58,17 +63,20 @@ void main()
         { density = 0.0; }
         else
         {
+            density = remap(density, 1.0, ValueRange.y * 0.5, DensityPower);
             density = (density - ValueRange.x) / ValueRange.y;
-            density = pow(clamp(density, 0.0, 1.0), DensityPower);
+            density = clamp(density, 0.0, 1.0);
         }
 
-        vec4 value = vec4(0.0);
+        vec4 value = vec4(0.0); totalDensity += density;
         if (TransferMode == 1) value = VERSE_TEX1D(TransferTexture, density);
         else value = vec4(density); value.a = density;
         value *= factor; resultColor += T * value;
         T *= 1.0 - value.a; pos += step;
         if (i == samples - 1 || T < 0.01) break;
     }
+
+    if (totalDensity < 0.01) discard;
     fragData = vec4(Color * resultColor.rgb, 1.0 - T);
     VERSE_FS_FINAL(fragData);
 }

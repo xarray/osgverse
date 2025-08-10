@@ -35,6 +35,7 @@ const char* innerVertCode = {
 };
 
 const char* innerFragCode = {
+    "uniform sampler2D earthMaskSampler;\n"
     "uniform float osg_SimulationTime; \n"
     "uniform float globalOpaque;\n"
     "VERSE_FS_IN vec3 normalInWorld; \n"
@@ -110,8 +111,10 @@ const char* innerFragCode = {
     /////////////////////
 
     "void main() {\n"
-    "    vec4 finalColor = mainImage((vertexInProj.xy / vertexInProj.w) * 0.5 + 0.5);\n"
-    "    finalColor.a = globalOpaque;\n"
+    "    vec2 uv = (vertexInProj.xy / vertexInProj.w) * 0.5 + 0.5;\n"
+    "    vec4 maskColor = VERSE_TEX2D(earthMaskSampler, uv);\n"
+    "    vec4 finalColor = mainImage(uv);\n"
+    "    finalColor.a = maskColor.r * globalOpaque;\n"
     "#ifdef VERSE_GLES3\n"
     "    fragColor = finalColor; \n"
     "    fragOrigin = vec4(1.0); \n"
@@ -122,7 +125,7 @@ const char* innerFragCode = {
     "}\n"
 };
 
-osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth, unsigned int mask)
+osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth, osg::Texture* sceneMaskTex, unsigned int mask)
 {
     osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, innerVertCode);
     osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, innerFragCode);
@@ -134,7 +137,11 @@ osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth, unsigned
 
     osg::ref_ptr<osg::Geode> innerRoot = new osg::Geode;
     //innerRoot->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    innerRoot->getOrCreateStateSet()->setTextureAttributeAndModes(0, sceneMaskTex);
+    innerRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("earthMaskSampler", (int)0));
     innerRoot->getOrCreateStateSet()->setAttributeAndModes(program.get());
+    //innerRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::CullFace(osg::CullFace::FRONT));
+    innerRoot->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     innerRoot->setNodeMask(mask);
 
     double d = osg::WGS_84_RADIUS_EQUATOR * 0.9;

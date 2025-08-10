@@ -135,7 +135,7 @@ void main()
 {
     vec2 quadUV = vec2(gl_FragCoord.x / screenSize.x, gl_FragCoord.y / screenSize.y);
     vec4 sceneColor = VERSE_TEX2D(earthMaskSampler, quadUV);
-    if (oceanUv.z < 0.5 || sceneColor.a < 0.1) discard;
+    if (/*oceanUv.z < 0.5 || */sceneColor.a < 0.01) discard;
 
     vec3 WSD = getWorldSunDir(), WCP = getWorldCameraPos();
     vec3 dPdu = oceanDPdu, dPdv = oceanDPdv; vec2 uv = oceanUv.xy;

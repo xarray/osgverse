@@ -152,6 +152,10 @@ namespace osgVerse
         const osg::Quat& getWorldRotation() const { return _worldRotation; }
         const osg::Quat& getAnimationRotation() const { return _animationRotation; }
 
+        /** Get latest clicked position on earth */
+        osg::Vec3d getLatestPosition() const
+        { return osg::Vec3d(_latestLatitude, _latestLongitude, _latestAltitude); }
+
         /** Get the tilt value */
         float getTilt() const
         { return (_animationRunning ? _animationTilt : _tilt); }
@@ -244,6 +248,7 @@ namespace osgVerse
         osg::Quat _tiltRotation;
 
         osg::Vec2 _zoomFactor;  // Zoom-in/out factor to control scaling speed
+        double _latestLatitude, _latestLongitude, _latestAltitude;
         double _distance;  // Distance between eye and view point
         float _tilt;  // Vertical angle to the horizon
 

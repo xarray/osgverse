@@ -24,6 +24,7 @@ int nbWaves = 60, resolution = 8;
 float lambdaMin = 0.02f, lambdaMax = 30.0f;
 float meanHeight = 0.0f, heightMax = 0.4f;//0.5;
 
+extern osg::ref_ptr<osg::Texture> finalBuffer1;
 extern std::map<std::string, osg::Uniform*> uniforms;
 extern float oceanPixelScale;
 
@@ -346,7 +347,7 @@ public:
         worldSunDir->get(wDir); oceanSunDir->set(osg::Matrixf::transform3x3(wDir, ltoo));
 
         osg::Vec3d oc = osg::Vec3d() * ctoo; float h = oc.z();  // if h < 0, we are under the ocean...
-        manipulator->setZoomFactor(osg::Vec2(osg::clampBetween(h / 5000.0f, 0.1f, 1.0f), 1.0f));
+        //manipulator->setZoomFactor(osg::Vec2(osg::clampBetween(h / 5000.0f, 0.1f, 1.0f), 1.0f));
 
         ss->getOrCreateUniform("underOcean", osg::Uniform::FLOAT)->set(h);
         ss->getOrCreateUniform("cameraToOcean", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctoo));
@@ -448,8 +449,22 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
     osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
     osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
 
+#if 0
     osg::Camera* hudCamera = osgVerse::createHUDCamera(NULL, width, height, osg::Vec3(), 1.0f, 1.0f, false);
+    hudCamera->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    hudCamera->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+#else
+    finalBuffer1 = osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, width, height);
+    finalBuffer1->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+    finalBuffer1->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+    finalBuffer1->setWrap(osg::Texture2D::WRAP_S, osg::Texture::CLAMP);
+    finalBuffer1->setWrap(osg::Texture2D::WRAP_T, osg::Texture::CLAMP);
+
+    osg::Camera* hudCamera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, NULL, NULL, false);
+    hudCamera->setViewport(0, 0, finalBuffer1->getTextureWidth(), finalBuffer1->getTextureHeight());
+    hudCamera->attach(osg::Camera::COLOR_BUFFER0, finalBuffer1.get());
+#endif
     hudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
     hudCamera->setProjectionMatrix(osg::Matrix::ortho2D(-1.0, 1.0, -1.0, 1.0));
     hudCamera->setViewMatrix(osg::Matrix::identity());
@@ -470,8 +485,6 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
     grideGeode->addDrawable(grid);
     hudCamera->addChild(grideGeode);
     hudCamera->setNodeMask(mask);
-    hudCamera->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
-    hudCamera->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
     root->addChild(hudCamera);
     root->addUpdateCallback(new OceanCallback(&viewer, grid));

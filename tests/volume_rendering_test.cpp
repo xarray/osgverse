@@ -140,8 +140,8 @@ ResultPair createVolumeData(
     float factor, float power, float minValue, float maxValue, float invalid)
 {
     osg::ref_ptr<osg::Texture3D> tex3D = new osg::Texture3D;
-    tex3D->setFilter(osg::Texture3D::MIN_FILTER, osg::Texture3D::LINEAR);
-    tex3D->setFilter(osg::Texture3D::MAG_FILTER, osg::Texture3D::LINEAR);
+    tex3D->setFilter(osg::Texture3D::MIN_FILTER, osg::Texture3D::NEAREST);
+    tex3D->setFilter(osg::Texture3D::MAG_FILTER, osg::Texture3D::NEAREST);
     tex3D->setWrap(osg::Texture3D::WRAP_S, osg::Texture3D::CLAMP);
     tex3D->setWrap(osg::Texture3D::WRAP_T, osg::Texture3D::CLAMP);
     tex3D->setWrap(osg::Texture3D::WRAP_R, osg::Texture3D::CLAMP);
@@ -151,8 +151,8 @@ ResultPair createVolumeData(
     osg::ref_ptr<osg::Texture1D> tex1D = new osg::Texture1D;
     if (transferImage1D != NULL)
     {
-        tex1D->setFilter(osg::Texture3D::MIN_FILTER, osg::Texture3D::LINEAR);
-        tex1D->setFilter(osg::Texture3D::MAG_FILTER, osg::Texture3D::LINEAR);
+        tex1D->setFilter(osg::Texture3D::MIN_FILTER, osg::Texture3D::NEAREST);
+        tex1D->setFilter(osg::Texture3D::MAG_FILTER, osg::Texture3D::NEAREST);
         tex1D->setWrap(osg::Texture3D::WRAP_S, osg::Texture3D::CLAMP);
         tex1D->setResizeNonPowerOfTwoHint(false);
         tex1D->setImage(transferImage1D);
@@ -216,8 +216,8 @@ ResultPair createVolumeData(
     osg::StateSet* ss = geode->getOrCreateStateSet();
     ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
     ss->setAttributeAndModes(program.get());
-    ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    //ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    //ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     ss->setTextureAttributeAndModes(0, tex3D.get());
     ss->addUniform(new osg::Uniform("VolumeTexture", (int)0));
     if (transferImage1D != NULL)
@@ -303,14 +303,15 @@ int main(int argc, char** argv)
     std::cout << "Min/Max: " << vMin << ", " << vMax << "\n";
 
     float rangeMin = 0.0f, rangeMax = 1.0f, spX = 0.1f, spY = 0.1f, spZ = 0.1f;
-    float power = 1.0f, factor = 2.0f, invalid = 0.0f;
+    float power = 2.0f, factor = 2.0f, invalid = 0.0f; int mode = 2;
     arguments.read("--range", rangeMin, rangeMax);
     arguments.read("--spacing", spX, spY, spZ);
     arguments.read("--factor", factor, power);
     arguments.read("--invalid", invalid);
+    arguments.read("--mode", mode);
 
     osg::Vec3d origin(0.0f, 0.0f, 0.0f), spacing(spX, spY, spZ);
-    osg::ref_ptr<osg::Image> image1D = osgVerse::generateTransferFunction(2);
+    osg::ref_ptr<osg::Image> image1D = osgVerse::generateTransferFunction(mode);
     ResultPair pair = createVolumeData(
         image.get(), image1D.get(), origin, spacing, factor, power, rangeMin, rangeMax, invalid);
 

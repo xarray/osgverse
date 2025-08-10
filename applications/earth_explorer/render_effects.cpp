@@ -29,6 +29,7 @@
     osg::Vec3 ori; uniform->get(ori); ori[num] = s->value; uniform->set(ori);
 
 static osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
+extern osg::ref_ptr<osg::Texture> finalBuffer0;
 std::map<std::string, osg::Uniform*> uniforms;
 float oceanPixelScale = 0.5f;
 
@@ -256,7 +257,7 @@ static osg::Texture* createRawTexture3D(unsigned char* data, int w, int h, int d
 
 typedef std::pair<osg::Camera*, osg::Texture*> CameraTexturePair;
 CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
-                                              const std::string& mainFolder, int width, int height)
+                                              const std::string& mainFolder, int width, int height, bool showIM)
 {
     // Create RTT camera to render the globe
     osg::Shader* vs1 = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "scattering_globe.vert.glsl");
@@ -299,7 +300,19 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     osgVerse::Pipeline::createShaderDefinitions(vs2, 100, 130);
     osgVerse::Pipeline::createShaderDefinitions(fs2, 100, 130);  // FIXME
 
+#if 0
     osg::Camera* hudCamera = osgVerse::createHUDCamera(NULL, width, height, osg::Vec3(), 1.0f, 1.0f, true);
+#else
+    finalBuffer0 = osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, width, height);
+    finalBuffer0->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+    finalBuffer0->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+    finalBuffer0->setWrap(osg::Texture2D::WRAP_S, osg::Texture::CLAMP);
+    finalBuffer0->setWrap(osg::Texture2D::WRAP_T, osg::Texture::CLAMP);
+
+    osg::Camera* hudCamera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, NULL, NULL, true);
+    hudCamera->setViewport(0, 0, finalBuffer0->getTextureWidth(), finalBuffer0->getTextureHeight());
+    hudCamera->attach(osg::Camera::COLOR_BUFFER0, finalBuffer0.get());
+#endif
     hudCamera->getOrCreateStateSet()->setAttributeAndModes(program2.get());
     hudCamera->getOrCreateStateSet()->setTextureAttributeAndModes(0, rttBuffer.get());
 
@@ -342,16 +355,18 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
          i != uniforms.end(); ++i) ss->addUniform(i->second);
 
     // Finish configuration
-    osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
-    postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
-    postCamera->setRenderOrder(osg::Camera::POST_RENDER, 20001);
-    postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-    root->addChild(postCamera.get());
+    if (showIM)
+    {
+        osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
+        postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+        postCamera->setRenderOrder(osg::Camera::POST_RENDER, 20001);
+        postCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+        root->addChild(postCamera.get());
 
-    imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
-    imgui->initialize(new AdjusterHandler(mainFolder + "/uniforms.json"));
-    imgui->addToView(&viewer, postCamera.get());
-
+        imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
+        imgui->initialize(new AdjusterHandler(mainFolder + "/uniforms.json"));
+        imgui->addToView(&viewer, postCamera.get());
+    }
     rttCamera->addChild(earth);
     root->addChild(rttCamera); root->addChild(hudCamera);
     return CameraTexturePair(rttCamera, rttBuffer2.get());

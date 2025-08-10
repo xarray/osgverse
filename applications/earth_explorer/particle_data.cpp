@@ -94,34 +94,6 @@ void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std
     osg::ref_ptr<osg::Shader> fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "particles.frag.glsl");
     osg::ref_ptr<osg::Shader> gs = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "particles.geom.glsl");
 
-    std::ifstream in1(mainFolder + "/newzealand.particle", std::ios::in | std::ios::binary);
-    if (!!in1)
-    {
-        osg::ref_ptr<osgVerse::ParticleCloud> pointCloud = new osgVerse::ParticleCloud;
-        pointCloud->setInjector([](osgVerse::ParticleSystemU3D& ps, osgVerse::ParticleCloud& cloud)
-        {
-            osg::Vec4Array* pos = cloud.getPositions(); pos->dirty();
-            osg::Vec4Array* color = cloud.getColors(); color->dirty();
-            osg::Vec4Array* attr = cloud.getAttributes();
-            for (size_t i = 0; i < pos->size(); ++i)
-            {
-                tinycolormap::Color c = tinycolormap::GetColor((*attr)[i].x(), tinycolormap::ColormapType::Jet);
-                (*color)[i] = osg::Vec4(c.r(), c.g(), c.b(), 0.2f);
-                (*pos)[i].a() = 100.0f;
-            }
-        });
-        pointCloud->load(in1); in1.close();
-
-        osg::ref_ptr<osgVerse::ParticleSystemU3D> cloud = new osgVerse::ParticleSystemU3D(
-            withGeomShader ? osgVerse::ParticleSystemU3D::GPU_GEOMETRY : osgVerse::ParticleSystemU3D::CPU_VERTEX_ATTRIB);
-        cloud->setTexture(osgVerse::createTexture2D(img1.get()));
-        cloud->setParticleType(osgVerse::ParticleSystemU3D::PARTICLE_Billboard);
-        cloud->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Modulate);
-        cloud->setPointCloud(pointCloud.get(), true);
-        cloud->setGravityScale(0.0f); cloud->setAspectRatio(16.0 / 9.0);
-        cloud->linkTo(particleNode.get(), true, vs.get(), fs.get(), gs.get());
-    }
-
     osg::ref_ptr<osgVerse::ParticleSystemU3D> cloudAll = new osgVerse::ParticleSystemU3D(
         withGeomShader ? osgVerse::ParticleSystemU3D::GPU_GEOMETRY : osgVerse::ParticleSystemU3D::CPU_VERTEX_ATTRIB);
     cloudAll->setTexture(osgVerse::createTexture2D(img1.get()));

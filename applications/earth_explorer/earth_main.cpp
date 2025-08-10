@@ -1,8 +1,9 @@
 #include PREPENDED_HEADER
 #include <osg/io_utils>
-#include <osg/ComputeBoundsVisitor>
+#include <osg/CullFace>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
+#include <osgDB/Archive>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgGA/StateSetManipulator>
@@ -14,7 +15,7 @@
 #include <modeling/Math.h>
 #include <readerwriter/EarthManipulator.h>
 #include <readerwriter/TileCallback.h>
-#include <pipeline/IncrementalCompiler.h>
+#include <pipeline/Pipeline.h>
 #include <VerseCommon.h>
 #include <iostream>
 #include <sstream>
@@ -26,19 +27,78 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
+osg::ref_ptr<osg::Texture> finalBuffer0, finalBuffer1, finalBuffer2;
+
 typedef std::pair<osg::Camera*, osg::Texture*> CameraTexturePair;
 extern CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
-                                                     const std::string& mainFolder, int width, int height);
+                                                     const std::string& mainFolder, int width, int height, bool showIM);
 extern osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Texture* sceneMaskTex,
                                  const std::string& mainFolder, int width, int height, unsigned int mask);
 extern osg::Node* configureCityData(osgViewer::View& viewer, osg::Node* earth,
                                     const std::string& mainFolder, unsigned int mask);
-extern osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth, unsigned int mask);
+extern osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth,
+                                    osg::Texture* sceneMaskTex, unsigned int mask);
 extern osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
                                       const std::string& mainFolder, unsigned int mask);
 extern void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder,
                                    unsigned int mask, bool withGeomShader);
 extern void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder, int w, int h);
+
+const char* finalVertCode = {
+    "VERSE_VS_OUT vec4 texCoord; \n"
+    "void main() {\n"
+    "    texCoord = osg_MultiTexCoord0; \n"
+    "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex; \n"
+    "}\n"
+};
+
+const char* finalFragCode = {
+    "uniform sampler2D sceneTexture, oceanTexture, uiTexture;\n"
+    "VERSE_FS_IN vec4 texCoord; \n"
+    "VERSE_FS_OUT vec4 fragColor;\n"
+
+    "void main() {\n"
+    "    vec4 sceneColor = VERSE_TEX2D(sceneTexture, texCoord.st);\n"
+    "    vec4 oceanColor = VERSE_TEX2D(oceanTexture, texCoord.st);\n"
+    "    vec4 uiColor = VERSE_TEX2D(uiTexture, texCoord.st);\n"
+    "    fragColor = mix(sceneColor, oceanColor, oceanColor.a); \n"
+    "    fragColor = mix(fragColor, uiColor, uiColor.a); \n"
+    "    VERSE_FS_FINAL(fragColor);\n"
+    "}\n"
+};
+
+class CaptureCallback : public osg::Camera::DrawCallback
+{
+public:
+    CaptureCallback(const std::string& url, int w, int h)
+        : _streamURL(url), _width(w), _height(h), _frameNumber(0)
+    {
+        _msWriter = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ms");
+    }
+
+    virtual void operator()(osg::RenderInfo& renderInfo) const
+    {
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
+        glReadBuffer(GL_BACK);  // read from back buffer (gc must be double-buffered)
+#endif
+        if (_msWriter.valid() && _frameNumber > 1)
+        {
+            osg::ref_ptr<osg::Image> image = new osg::Image;
+            image->readPixels(0, 0, _width, _height, GL_RGB, GL_UNSIGNED_BYTE);
+            image->flipVertical();  // low-performance, just for example here
+            _msWriter->writeImage(*image, _streamURL);
+        }
+        else
+            OSG_WARN << "Invalid readerwriter verse_ms?\n";
+        _frameNumber++;
+    }
+
+protected:
+    osg::ref_ptr<osgDB::ReaderWriter> _msWriter;
+    std::string _streamURL;
+    int _width, _height;
+    mutable int _frameNumber;
+};
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
 {
@@ -121,10 +181,18 @@ public:
             case '3': updateUserLayer("layers/ERA5_Land_2m_Temperature"); break;
             case '4': updateUserLayer("layers/ERA5_Lake_Total_Temperature"); break;
             case '5': updateUserLayer("layers/ERA5_Lake_Ice_Temperature"); break;
+            case '6': updateStreetLayer(); break;
             case '0': updateUserLayer(""); break;
             }
         }
         return false;
+    }
+
+    void updateStreetLayer()
+    {
+        osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+        mgr->setLayerPath(osgVerse::TileCallback::USER,
+            "mbtiles://" + _mainFolder + "/" + "carto-png.mbtiles/{z}-{x}-{y}.png");
     }
 
     void updateUserLayer(const std::string& name)
@@ -145,7 +213,8 @@ protected:
 
 static std::string createCustomPath(int type, const std::string& prefix, int x, int y, int z)
 {
-    if (type >= osgVerse::TileCallback::USER)  // FIXME: for Zhijiang data...
+    if (type >= osgVerse::TileCallback::USER &&
+        prefix.find("mbtiles") == std::string::npos)  // FIXME: for Zhijiang data...
     {
         int newY = pow(2, z) - y - 1;
         return osgVerse::TileCallback::createPath(prefix, x, newY, z);
@@ -180,6 +249,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     earth->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    earth->getOrCreateStateSet()->setAttributeAndModes(new osg::CullFace(osg::CullFace::BACK));
 
     // Create manipulator
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
@@ -190,13 +260,14 @@ int main(int argc, char** argv)
 
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
-    CameraTexturePair camTexPair = configureEarthAndAtmosphere(viewer, root.get(), earth.get(), mainFolder, w, h);
+    CameraTexturePair camTexPair = configureEarthAndAtmosphere(
+        viewer, root.get(), earth.get(), mainFolder, w, h, arguments.read("--adjuster"));
 
     osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
     osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
     sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
-    //sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
-    sceneCamera->addChild(configureInternal(viewer, earth.get(), ~EARTH_INTERSECTION_MASK));
+    sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    sceneCamera->addChild(configureInternal(viewer, earth.get(), sceneTexture.get(), ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
     //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
     configureUI(viewer, root.get(), mainFolder, w, h);
@@ -206,6 +277,35 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Uniform> clip1 = new osg::Uniform("clipPlane1", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
     osg::ref_ptr<osg::Uniform> clip2 = new osg::Uniform("clipPlane2", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
     ss->addUniform(clip0.get()); ss->addUniform(clip1.get()); ss->addUniform(clip2.get());
+
+    // Final HUD for scene rendering and streaming
+    osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, finalVertCode);
+    osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, finalFragCode);
+    osg::ref_ptr<osg::Program> program = new osg::Program;
+    vs->setName("Final_VS"); program->addShader(vs);
+    fs->setName("Final_FS"); program->addShader(fs);
+    osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
+    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+
+#if 1
+    osg::Camera* finalCamera = osgVerse::createHUDCamera(NULL, w, h, osg::Vec3(), 1.0f, 1.0f, true);
+    finalCamera->getOrCreateStateSet()->setTextureAttributeAndModes(0, finalBuffer0.get());
+    finalCamera->getOrCreateStateSet()->setTextureAttributeAndModes(1, finalBuffer1.get());
+    finalCamera->getOrCreateStateSet()->setTextureAttributeAndModes(2, finalBuffer2.get());
+    finalCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("sceneTexture", (int)0));
+    finalCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("oceanTexture", (int)1));
+    finalCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("uiTexture", (int)2));
+    finalCamera->getOrCreateStateSet()->setAttributeAndModes(program.get());
+    root->addChild(finalCamera);
+
+    std::string streamURL = "rtmp://127.0.0.1:1935/live/stream";
+    if (arguments.read("--streaming", streamURL))
+    {
+        osgDB::Registry::instance()->loadLibrary(
+            osgDB::Registry::instance()->createLibraryNameForExtension("verse_ms"));
+        viewer.getCamera()->setFinalDrawCallback(new CaptureCallback(streamURL, w, h));
+    }
+#endif
 
     // Realize the viewer
     osg::ref_ptr<osgVerse::EarthProjectionMatrixCallback> epmcb =

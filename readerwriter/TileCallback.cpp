@@ -189,7 +189,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numVertices);
         osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numVertices);
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numVertices);
-        osg::ref_ptr<osg::Vec2Array> ca = new osg::Vec2Array(numVertices);
+        osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(numVertices);
         double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1), lastAlt = 0.0;
         for (unsigned int y = 0; y < numRows; ++y)
             for (unsigned int x = 0; x < numCols; ++x)
@@ -213,7 +213,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                 lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, 0.0), _useWebMercator);
                 osg::Vec3 v0 = Coordinate::convertLLAtoECEF(lla); lastAlt = altitude;
-                (*ca)[vi] = osg::Vec2(v0.length() - osg::WGS_84_RADIUS_EQUATOR, 0.0f);
+                (*ca)[vi] = osg::Vec4(v0.length() - osg::WGS_84_RADIUS_EQUATOR, 0.0f, lla[0], lla[1]);
             }
 #if false
         for (unsigned int y = 1; y < numRows - 1; ++y)

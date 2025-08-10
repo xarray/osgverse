@@ -498,7 +498,7 @@ namespace osgVerse
             float value = (float)i / (float)(resolution - 1);
             tinycolormap::Color c = tinycolormap::GetColor(value, (tinycolormap::ColormapType)type);
             values[i] = osg::Vec4ub((unsigned char)(c.r() * 255.0f), (unsigned char)(c.g() * 255.0f),
-                (unsigned char)(c.b() * 255.0f), (unsigned char)alpha);
+                                    (unsigned char)(c.b() * 255.0f), (unsigned char)alpha);
         }
 
         osg::ref_ptr<osg::Image> image1D = new osg::Image;

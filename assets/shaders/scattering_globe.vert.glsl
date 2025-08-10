@@ -1,7 +1,7 @@
 uniform mat4 osg_ViewMatrix, osg_ViewMatrixInverse;
 uniform sampler2D maskSampler;
 uniform float oceanOpaque, underOcean;
-VERSE_VS_IN vec2 osg_GlobeData;
+VERSE_VS_IN vec4 osg_GlobeData;  // (default height, skirt flag, lat in rad, lon in rad)
 VERSE_VS_OUT vec3 vertexInWorld, normalInWorld;
 VERSE_VS_OUT vec4 texCoord;
 
@@ -11,7 +11,7 @@ void main()
     mat4 modelMatrix = osg_ViewMatrixInverse * VERSE_MATRIX_MV;
     vertexInWorld = vec3(modelMatrix * osg_Vertex);
     normalInWorld = normalize(vec3(osg_ViewMatrixInverse * vec4(VERSE_MATRIX_N * gl_Normal, 0.0)));
-    texCoord = osg_MultiTexCoord0;
+    texCoord = osg_MultiTexCoord0; texCoord.zw = osg_GlobeData.zw;
 
     vec4 vertex = osg_Vertex, maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
     if (maskColor.z < 0.5 && oceanOpaque > 0.5 && underOcean > 0.0)

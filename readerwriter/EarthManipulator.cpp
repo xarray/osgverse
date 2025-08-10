@@ -8,7 +8,8 @@ using namespace osgVerse;
 static double g_distanceToCenter = 0.0;
 
 EarthManipulator::EarthManipulator()
-:   _viewer(NULL), _tilt(0.0f), _throwAllowed(true), _thrown(false), _locked(false)
+:   _viewer(NULL), _latestLatitude(0.0), _latestLongitude(0.0), _latestAltitude(0.0),
+    _tilt(0.0f), _throwAllowed(true), _thrown(false), _locked(false)
 {
     _tiltCenter.set(0.0, 0.0, -DBL_MAX);
     _rotateAxis.set(0.0, 0.0, -DBL_MAX);
@@ -452,7 +453,7 @@ bool EarthManipulator::calcMovement(bool throwing)
 void EarthManipulator::performPan(double x0, double y0, double dx, double dy)
 {
     osg::Vec3d rotateAxis0, rotateAxis1;
-    bool ok0 = calcIntersectPoint(x0, y0, rotateAxis0);
+    bool ok0 = calcIntersectPoint(x0, y0, rotateAxis0, false);
     bool ok1 = calcIntersectPoint(x0 - dx, y0 - dy, rotateAxis1);
     if (ok0 && ok1)  // Trackball-like rotation on the earth
     {
@@ -633,9 +634,14 @@ bool EarthManipulator::calcIntersectPoint(float x, float y, osg::Vec3d& point, b
             osgUtil::LineSegmentIntersector::Intersection hit = intersector->getFirstIntersection();
             point = hit.getWorldIntersectPoint(); result = true;
 
+            if (showPoint)
+            {
+                _ellipsoid->convertXYZToLatLongHeight(
+                    point.x(), point.y(), point.z(), _latestLatitude, _latestLongitude, _latestAltitude);
+            }
 #if false
             double lat, lon, height;
-            _ellipsoid->convertXYZToLatLongHeight( point.x(), point.y(), point.z(), lat, lon, height );
+            _ellipsoid->convertXYZToLatLongHeight(point.x(), point.y(), point.z(), lat, lon, height);
             std::cout << hit.nodePath.back()->getName() << ": Lat = " << osg::RadiansToDegrees(lat)
                       << ", Lon = " << osg::RadiansToDegrees(lon) << ", H = " << height << std::endl;
 #endif
