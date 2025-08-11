@@ -244,9 +244,10 @@ public:
             else if (key == "content-encoding") encoding = trimString(wf->resHeaders[i + 1]);
         }
 #else
-        HttpRequest req;  // Read data from web
-        req.method = HTTP_GET;
+        HttpRequest req; req.method = HTTP_GET;
         req.url = normalizeUrl(fileName); req.scheme = scheme;
+        req.headers["User-Agent"] = "Mozilla/5.0";
+        req.headers["Accept"] = "*/*";
         
         HttpResponse response;
         hv::HttpClient* _client = new hv::HttpClient;

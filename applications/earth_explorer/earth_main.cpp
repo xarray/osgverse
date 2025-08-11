@@ -27,6 +27,8 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
+std::set<std::string> commandList; std::mutex commandMutex;
+std::string global_cityToCreate, global_volumeToLoad;
 osg::ref_ptr<osg::Texture> finalBuffer0, finalBuffer1, finalBuffer2;
 
 typedef std::pair<osg::Camera*, osg::Texture*> CameraTexturePair;
@@ -134,6 +136,12 @@ public:
                 worldCameraPos->set(osg::Vec3(worldCam));
                 worldCameraLLA->set(osg::Vec3(worldLLA));
             }
+
+            std::set<std::string> localCommandList;
+            commandMutex.lock();
+            commandList.swap(localCommandList);
+            commandMutex.unlock();
+            handleCommands(view, localCommandList);
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP) _pressingKey = 0;
@@ -175,38 +183,91 @@ public:
                 ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->get(clipPlane);
                 clipPlane = clipPlane * osg::Matrix::rotate(0.01f, osg::Z_AXIS);
                 ss->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4)->set(clipPlane); break;
-
-            case '1': updateUserLayer("layers/Night_Lighting"); break;
-            case '2': updateUserLayer("layers/Population_Distribution"); break;
-            case '3': updateUserLayer("layers/ERA5_Land_2m_Temperature"); break;
-            case '4': updateUserLayer("layers/ERA5_Lake_Total_Temperature"); break;
-            case '5': updateUserLayer("layers/ERA5_Lake_Ice_Temperature"); break;
-            case '6': updateStreetLayer(); break;
-            case '0': updateUserLayer(""); break;
             }
         }
         return false;
     }
 
+    void handleCommands(osgViewer::View* view, const std::set<std::string>& localCommandList)
+    {
+        for (std::set<std::string>::const_iterator it = localCommandList.begin();
+             it != localCommandList.end(); ++it)
+        {
+            const std::string& cmdName = *it;
+            if (cmdName.find("layers/") != std::string::npos) updateUserLayer(cmdName);
+            else if (cmdName.find("vdb/") != std::string::npos) updateVolumeData(cmdName);
+            else if (cmdName.find("cities/") != std::string::npos) updateCityData(cmdName);
+            else if (cmdName.find("button/") != std::string::npos) updateButtonAction(view, cmdName);
+        }
+    }
+
     void updateStreetLayer()
     {
-        osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+        osgVerse::TileManager* mgr = osgVerse::TileManager::instance(); _currentLayer = "street";
         mgr->setLayerPath(osgVerse::TileCallback::USER,
-            "mbtiles://" + _mainFolder + "/" + "carto-png.mbtiles/{z}-{x}-{y}.png");
+            "mbtiles://" + _mainFolder + "/" + "carto-png-lv9.mbtiles/{z}-{x}-{y}.png");
+    }
+
+    void updateCloudLayer()
+    {
+        osgVerse::TileManager* mgr = osgVerse::TileManager::instance(); _currentLayer = "cloud";
+        mgr->setLayerPath(osgVerse::TileCallback::USER,
+            "mbtiles://" + _mainFolder + "/" + "openweathermap-png-lv9.mbtiles/{z}-{x}-{y}.png");
     }
 
     void updateUserLayer(const std::string& name)
     {
-        osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+        osgVerse::TileManager* mgr = osgVerse::TileManager::instance(); _currentLayer = name;
         if (name.empty()) mgr->setLayerPath(osgVerse::TileCallback::USER, "");
         else mgr->setLayerPath(osgVerse::TileCallback::USER, _mainFolder + "/" + name + "/{z}/{x}/{y}.png");
+        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(1.0f);
+    }
+
+    void updateVolumeData(const std::string& name)
+    {
+        global_volumeToLoad = name;
+        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.1f);
+        _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
+    }
+
+    void updateCityData(const std::string& name)
+    {
+        global_cityToCreate = name;
+        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(1.0f);
+        _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(1.0f);
+    }
+
+    void updateButtonAction(osgViewer::View* view, const std::string& name)
+    {
+        if (name.find("layers") != std::string::npos)
+        {
+            if (_currentLayer == "") updateStreetLayer();
+            else if (_currentLayer == "street") updateCloudLayer();
+            else updateUserLayer("");
+        }
+        else if (name.find("show_globe") != std::string::npos)
+        {
+            float v; _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->get(v);
+            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(v > 0.5f ? 0.0f : 1.0f);
+        }
+        else if (name.find("show_ocean") != std::string::npos)
+        {
+            float v; _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->get(v);
+            _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(v > 0.5f ? 0.0f : 1.0f);
+        }
+        else if (name.find("home") != std::string::npos)
+        {
+            osgVerse::EarthManipulator* manipulator =
+                static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
+            if (manipulator) manipulator->home(0.0f);
+        }
     }
 
 protected:
     osg::observer_ptr<osg::StateSet> _mainStateSets;
     osg::EllipsoidModel* _ellipsoidModel;
     osg::Camera* _rttCamera;
-    std::string _mainFolder;
+    std::string _mainFolder, _currentLayer;
     float _sunAngle;
     int _pressingKey;
 };
@@ -299,7 +360,7 @@ int main(int argc, char** argv)
     root->addChild(finalCamera);
 
     std::string streamURL = "rtmp://127.0.0.1:1935/live/stream";
-    if (arguments.read("--streaming", streamURL))
+    if (arguments.read("--streaming") || arguments.read("--streaming-url", streamURL))
     {
         osgDB::Registry::instance()->loadLibrary(
             osgDB::Registry::instance()->createLibraryNameForExtension("verse_ms"));

@@ -21,6 +21,8 @@
 #include <iostream>
 #include <sstream>
 
+extern std::string global_cityToCreate;
+
 const char* cityVertCode = {
     "uniform mat4 osg_ViewMatrix, osg_ViewMatrixInverse; \n"
     "VERSE_VS_OUT vec3 normalInWorld; \n"
@@ -106,24 +108,7 @@ public:
         osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
         osgVerse::EarthManipulator* manipulator =
             static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
-        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
-        {
-            switch (ea.getKey())
-            {
-            case osgGA::GUIEventAdapter::KEY_F1: _cityToCreate = "beijing.json"; _cityPosition.set(39.9, 116.3); break;
-            case osgGA::GUIEventAdapter::KEY_F2: _cityToCreate = "capetown.json"; _cityPosition.set(-33.9, 18.4); break;
-            case osgGA::GUIEventAdapter::KEY_F3: _cityToCreate = "hangzhou.json"; _cityPosition.set(30.0, 119.0); break;
-            case osgGA::GUIEventAdapter::KEY_F4: _cityToCreate = "london.json"; _cityPosition.set(51.5, 0.0); break;
-            case osgGA::GUIEventAdapter::KEY_F5: _cityToCreate = "nanjing.json"; _cityPosition.set(31.9, 118.8); break;
-            case osgGA::GUIEventAdapter::KEY_F6: _cityToCreate = "newyork.json";  _cityPosition.set(40.8, -74.0); break;
-            case osgGA::GUIEventAdapter::KEY_F7: _cityToCreate = "paris.json";  _cityPosition.set(48.5, 2.2); break;
-            case osgGA::GUIEventAdapter::KEY_F8: _cityToCreate = "riodejaneiro.json"; _cityPosition.set(-22.9, -43.2); break;
-            case osgGA::GUIEventAdapter::KEY_F9: _cityToCreate = "shanghai.json";  _cityPosition.set(31.0, 121.0); break;
-            case osgGA::GUIEventAdapter::KEY_F10: _cityToCreate = "sydney.json"; _cityPosition.set(-33.8, 151.1); break;
-            default: break;
-            }
-        }
-        else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+        if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
         {
             if (_cityPosition.length2() > 0.0 && _cityMap.find(_cityToCreate) == _cityMap.end())
             {
@@ -137,6 +122,30 @@ public:
             {
                 if (!view->getDatabasePager()->getRequestsInProgress())
                 { createNewCity(manipulator, _cityToCreate); _cityToCreate = ""; }
+            }
+            else if (!global_cityToCreate.empty())
+            {
+                if (global_cityToCreate.find("beijing") != std::string::npos)
+                    { _cityToCreate = "beijing.json"; _cityPosition.set(39.9, 116.3); }
+                else if (global_cityToCreate.find("capetown") != std::string::npos)
+                    { _cityToCreate = "capetown.json"; _cityPosition.set(-33.9, 18.4); }
+                else if (global_cityToCreate.find("hangzhou") != std::string::npos)
+                    { _cityToCreate = "hangzhou.json"; _cityPosition.set(30.0, 119.0); }
+                else if (global_cityToCreate.find("london") != std::string::npos)
+                    { _cityToCreate = "london.json"; _cityPosition.set(51.5, 0.0); }
+                else if (global_cityToCreate.find("nanjing") != std::string::npos)
+                    { _cityToCreate = "nanjing.json"; _cityPosition.set(31.9, 118.8); }
+                else if (global_cityToCreate.find("newyork") != std::string::npos)
+                    { _cityToCreate = "newyork.json";  _cityPosition.set(40.8, -74.0); }
+                else if (global_cityToCreate.find("paris") != std::string::npos)
+                    { _cityToCreate = "paris.json";  _cityPosition.set(48.5, 2.2); }
+                else if (global_cityToCreate.find("riodejaneiro") != std::string::npos)
+                    { _cityToCreate = "riodejaneiro.json"; _cityPosition.set(-22.9, -43.2); }
+                else if (global_cityToCreate.find("shanghai") != std::string::npos)
+                    { _cityToCreate = "shanghai.json";  _cityPosition.set(31.0, 121.0); }
+                else if (global_cityToCreate.find("sydney") != std::string::npos)
+                    { _cityToCreate = "sydney.json"; _cityPosition.set(-33.8, 151.1); }
+                global_cityToCreate = "";
             }
         }
         return false;

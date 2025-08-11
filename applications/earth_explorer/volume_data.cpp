@@ -20,6 +20,8 @@
 #include <iostream>
 #include <sstream>
 
+extern std::string global_volumeToLoad;
+
 class MatrixVolumeCallback : public osg::NodeCallback
 {
 public:
@@ -193,21 +195,20 @@ public:
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
         osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
-        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
         {
-            osgVerse::EarthManipulator* manipulator =
-                static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
-            VolumeTotalResult vdb = vdbList[_index];
-            switch (ea.getKey())
+            if (!global_volumeToLoad.empty())
             {
-            case 'z':
-                _index--; if (_index < 0) _index = 0; vdb = vdbList[_index];
+                if (global_volumeToLoad.find("kerry") != std::string::npos) _index = 0;
+                else if (global_volumeToLoad.find("parhaka") != std::string::npos) _index = 1;
+                else if (global_volumeToLoad.find("waipuku") != std::string::npos) _index = 2;
+
+                VolumeTotalResult vdb = vdbList[_index];
+                osgVerse::EarthManipulator* manipulator =
+                    static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
                 manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(
-                    osg::Vec3d(vdb.second.second[0], vdb.second.second[1], 0.0))); break;
-            case 'x':
-                _index++; if (_index > vdbList.size() - 1) _index = vdbList.size() - 1; vdb = vdbList[_index];
-                manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(
-                    osg::Vec3d(vdb.second.second[0], vdb.second.second[1], 0.0))); break;
+                    osg::Vec3d(vdb.second.second[0], vdb.second.second[1], 1000.0)));
+                global_volumeToLoad = "";
             }
         }
 

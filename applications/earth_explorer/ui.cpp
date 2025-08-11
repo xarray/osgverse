@@ -20,6 +20,8 @@
 #include <iomanip>
 #include <iostream>
 
+extern std::mutex commandMutex;
+extern std::set<std::string> commandList;
 extern osg::ref_ptr<osg::Texture> finalBuffer2;
 
 const char* uiVertCode = {
@@ -72,18 +74,16 @@ public:
         if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE ||
             ea.getEventType() == osgGA::GUIEventAdapter::DRAG ||
             ea.getEventType() == osgGA::GUIEventAdapter::SCROLL)
-        { updateOverlay(view->getCamera(), manipulator, ea.getXnormalized(), ea.getYnormalized(), 0); }
+        {
+            updateOverlay(view->getCamera(), manipulator, ea.getXnormalized(), ea.getYnormalized());
+        }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH &&
-                 ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
-        { updateOverlay(view->getCamera(), manipulator, ea.getXnormalized(), ea.getYnormalized(), 1); }
-        else if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE &&
-                 ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON)
-        { updateOverlay(view->getCamera(), manipulator, ea.getXnormalized(), ea.getYnormalized(), 2); }
+                 ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) _buttonState = 1;
         return false;
     }
 
     void updateOverlay(osg::Camera* camera, osgVerse::EarthManipulator* manipulator,
-                       float xx, float yy, int buttonState)
+                       float xx, float yy)
     {
         //_drawer->start(false);
         _drawer->startInThread([=](osgVerse::Drawer2D* drawer)
@@ -126,9 +126,9 @@ public:
             DRAW_TEXT("Parhaka Volume Data", 1.5f, 15.0f);
             DRAW_TEXT("Waipuku Volume Data", 1.5f, 16.0f);
 
-            ITEM_RECT(1.5f, 14.0f, 7.5f, 15.0f) = "vdb/Kerry";
-            ITEM_RECT(1.5f, 15.0f, 7.5f, 16.0f) = "vdb/Parhaka";
-            ITEM_RECT(1.5f, 16.0f, 7.5f, 17.0f) = "vdb/Waipuku";
+            ITEM_RECT(1.5f, 14.0f, 7.5f, 15.0f) = "vdb/kerry";
+            ITEM_RECT(1.5f, 15.0f, 7.5f, 16.0f) = "vdb/parhaka";
+            ITEM_RECT(1.5f, 16.0f, 7.5f, 17.0f) = "vdb/waipuku";
 
             DRAW_TEXT("CITIES", 1.4f, 17.8f);
             DRAW_TEXT("Beijing", 1.5f, 19.0f); DRAW_TEXT("New York", 5.0f, 19.0f);
@@ -156,21 +156,21 @@ public:
             ITEM_RECT(1.5f, 27.0f, 7.5f, 28.0f) = "timeline/GPlates";
 
             // Selected item / button
-            ITEM_RECT(28.4f, 3.0f, 29.0f, 4.0f) = "button_a";
-            ITEM_RECT(29.4f, 3.0f, 30.0f, 4.0f) = "button_b";
+            ITEM_RECT(28.4f, 3.0f, 29.0f, 4.0f) = "button/about?";
+            ITEM_RECT(29.4f, 3.0f, 30.0f, 4.0f) = "button/ch_en";
             DRAW_TEXT("En", 29.5f, 3.0f);
 
-            ITEM_RECT(30.5f, 6.0f, 31.5f, 7.9f) = "button0";
-            ITEM_RECT(30.5f, 8.0f, 31.5f, 9.9f) = "button1";
-            ITEM_RECT(30.5f, 10.0f, 31.5f, 11.9f) = "button2";
-            ITEM_RECT(30.5f, 12.0f, 31.5f, 13.9f) = "button3";
-            ITEM_RECT(30.5f, 14.0f, 31.5f, 15.9f) = "button4";
-            ITEM_RECT(30.5f, 16.0f, 31.5f, 17.9f) = "button5";
-            ITEM_RECT(30.5f, 18.0f, 31.5f, 19.9f) = "button6";
-            ITEM_RECT(30.5f, 20.0f, 31.5f, 21.9f) = "button7";
-            ITEM_RECT(30.5f, 22.0f, 31.5f, 23.9f) = "button8";
-            ITEM_RECT(30.5f, 24.0f, 31.5f, 25.9f) = "button9";
-            ITEM_RECT(30.5f, 26.0f, 31.5f, 27.9f) = "button10";
+            ITEM_RECT(30.5f, 6.0f, 31.5f, 7.9f) = "button/layers";
+            ITEM_RECT(30.5f, 8.0f, 31.5f, 9.9f) = "button/locate?";
+            ITEM_RECT(30.5f, 10.0f, 31.5f, 11.9f) = "button/show_globe";
+            ITEM_RECT(30.5f, 12.0f, 31.5f, 13.9f) = "button/show_ocean";
+            ITEM_RECT(30.5f, 14.0f, 31.5f, 15.9f) = "button/home";
+            ITEM_RECT(30.5f, 16.0f, 31.5f, 17.9f) = "button/list?";
+            ITEM_RECT(30.5f, 18.0f, 31.5f, 19.9f) = "button/one_n?";
+            ITEM_RECT(30.5f, 20.0f, 31.5f, 21.9f) = "button/table?";
+            ITEM_RECT(30.5f, 22.0f, 31.5f, 23.9f) = "button/coordinate";
+            ITEM_RECT(30.5f, 24.0f, 31.5f, 25.9f) = "button/auto_rotate";
+            ITEM_RECT(30.5f, 26.0f, 31.5f, 27.9f) = "button/time";
 
             float x = (xx * 0.5f + 0.5f) * _width, y = (-yy * 0.5f + 0.5f) * _height;
             for (std::map<osg::Vec4, std::string>::iterator it = hoverableItems.begin();
@@ -179,9 +179,18 @@ public:
                 if (!IN_ITEM(x, y, it->first)) continue;
                 osg::Vec4 rect(it->first.x(), it->first.y(),
                                it->first.z() - it->first.x(), it->first.w() - it->first.y());
-                drawer->drawRectangle(rect, 1.0f, 1.0f, buttonState > 0 ? pushed : selected); break;
-                // TODO: run command when clicked (buttonState = 2)
+                drawer->drawRectangle(rect, 1.0f, 1.0f, _buttonState > 0 ? pushed : selected);
+
+                // Run command when clicked (buttonState = 1)
+                if (_buttonState == 1)
+                {
+                    commandMutex.lock();
+                    commandList.insert(it->second);
+                    commandMutex.unlock();
+                }
+                break;
             }
+            if (_buttonState > 0) _buttonState = 0;
 
             // LLA, compass and scale display
             double northRadians = 0.0, widthScale = 0.0;
@@ -270,7 +279,7 @@ protected:
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
     osg::ref_ptr<osg::Image> _selected;
     osg::ref_ptr<osg::Image> _compass0, _compass1;
-    int _width, _height;
+    int _width, _height, _buttonState;
 };
 
 void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder, int w, int h)

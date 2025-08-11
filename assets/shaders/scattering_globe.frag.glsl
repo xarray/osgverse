@@ -57,8 +57,8 @@ void main()
 
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec2 uv = texCoord.xy * UvOffset2.zw + UvOffset2.xy;
-    vec4 maskColor = VERSE_TEX2D(maskSampler, uv.st);
-    vec4 maskValue = vec4(maskColor.zzza); float off = 0.002;
+    vec4 maskColor = VERSE_TEX2D(maskSampler, uv.st); float off = 0.002;
+    vec4 maskValue = vec4(maskColor.z, maskColor.z, maskColor.z, maskColor.a);
     maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(-off, 0.0));
     maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(off, 0.0));
     maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(0.0, -off));
