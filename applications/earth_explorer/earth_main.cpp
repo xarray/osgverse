@@ -17,6 +17,7 @@
 #include <readerwriter/TileCallback.h>
 #include <pipeline/Pipeline.h>
 #include <VerseCommon.h>
+#include "capture_callback.h"
 #include <iostream>
 #include <sstream>
 
@@ -67,39 +68,6 @@ const char* finalFragCode = {
     "    fragColor = mix(fragColor, uiColor, uiColor.a); \n"
     "    VERSE_FS_FINAL(fragColor);\n"
     "}\n"
-};
-
-class CaptureCallback : public osg::Camera::DrawCallback
-{
-public:
-    CaptureCallback(const std::string& url, int w, int h)
-        : _streamURL(url), _width(w), _height(h), _frameNumber(0)
-    {
-        _msWriter = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ms");
-    }
-
-    virtual void operator()(osg::RenderInfo& renderInfo) const
-    {
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
-        glReadBuffer(GL_BACK);  // read from back buffer (gc must be double-buffered)
-#endif
-        if (_msWriter.valid() && _frameNumber > 1)
-        {
-            osg::ref_ptr<osg::Image> image = new osg::Image;
-            image->readPixels(0, 0, _width, _height, GL_RGB, GL_UNSIGNED_BYTE);
-            image->flipVertical();  // low-performance, just for example here
-            _msWriter->writeImage(*image, _streamURL);
-        }
-        else
-            OSG_WARN << "Invalid readerwriter verse_ms?\n";
-        _frameNumber++;
-    }
-
-protected:
-    osg::ref_ptr<osgDB::ReaderWriter> _msWriter;
-    std::string _streamURL;
-    int _width, _height;
-    mutable int _frameNumber;
 };
 
 class EnvironmentHandler : public osgGA::GUIEventHandler
@@ -280,6 +248,15 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
         int newY = pow(2, z) - y - 1;
         return osgVerse::TileCallback::createPath(prefix, x, newY, z);
     }
+    else if (type == osgVerse::TileCallback::ORTHOPHOTO)
+    {
+        if (z > 13)
+        {
+            std::string prefix2 = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+            return osgVerse::TileCallback::createPath(prefix2, x, pow(2, z) - y - 1, z);
+        }
+        else return osgVerse::TileCallback::createPath(prefix, x, y, z);
+    }
     else
         return osgVerse::TileCallback::createPath(prefix, x, y, z);
 }
@@ -381,9 +358,10 @@ int main(int argc, char** argv)
     //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-    viewer.setUpViewOnSingleScreen(0);
 
     // Start the main loop
+    int screenNo = 0; arguments.read("--screen", screenNo);
+    viewer.setUpViewOnSingleScreen(screenNo);
     while (!viewer.done())
     {
         viewer.frame();

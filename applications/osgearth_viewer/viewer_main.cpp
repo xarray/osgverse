@@ -222,7 +222,8 @@ int main(int argc, char** argv)
     viewer.getCamera()->setProjectionMatrixAsPerspective(
         30.0f, static_cast<double>(traits->width) / static_cast<double>(traits->height), 1.0f, 10000.0f);
 #else
-    viewer.setUpViewOnSingleScreen(0);  // Always call viewer.setUp*() before setupStandardPipeline()
+    int screenNo = 0; arguments.read("--screen", screenNo);
+    viewer.setUpViewOnSingleScreen(screenNo);  // Always call viewer.setUp*() before setupStandardPipeline()
 #endif
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.realize();

@@ -92,12 +92,14 @@ int main(int argc, char** argv)
     osgViewer::Viewer viewer;
     viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
     viewer.getCamera()->addUpdateCallback(lightModule.get());
-    viewer.setUpViewOnSingleScreen(0);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+
+    int screenNo = 0; arguments.read("--screen", screenNo);
+    viewer.setUpViewOnSingleScreen(screenNo);
     return viewer.run();
 }

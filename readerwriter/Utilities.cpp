@@ -13,6 +13,7 @@
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
 #include <libhv/all/base64.h>
+#include <xxYUV/rgb2yuv.h>
 #include <sstream>
 #include <iomanip>
 #include <cctype>
@@ -21,6 +22,7 @@
 #include "LoadTextureKTX.h"
 #include "Utilities.h"
 using namespace osgVerse;
+#define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))
 
 static int char_from_hex(char c)
 {
@@ -663,6 +665,57 @@ namespace osgVerse
                        osg::Image::USE_NEW_DELETE, image.getPacking());
         image.setMipmapLevels(mipmapInfo);
         return true;
+    }
+
+    std::vector<std::vector<unsigned char>> convertRGBtoYUV(osg::Image* image, YUVFormat format)
+    {
+        std::vector<std::vector<unsigned char>> yuvData;
+        if (!image) return yuvData;
+        if (image->getPixelFormat() != GL_RGB || image->getDataType() != GL_UNSIGNED_BYTE)
+        { OSG_NOTICE << "Invalid source format for convertRGBtoYUV()\n"; return yuvData; }
+
+        rgb2yuv_parameter rgb2yuv; std::vector<char> yuvBuffer;
+        memset(&rgb2yuv, 0, sizeof(rgb2yuv_parameter));
+        rgb2yuv.width = image->s(); rgb2yuv.height = image->t();
+        rgb2yuv.rgb = image->data(); rgb2yuv.componentRGB = 3;
+        rgb2yuv.strideRGB = 0; rgb2yuv.swizzleRGB = true;
+        rgb2yuv.alignWidth = 16; rgb2yuv.alignHeight = 1;
+        rgb2yuv.alignSize = 1; rgb2yuv.videoRange = false;
+
+        int strideY = ALIGN(rgb2yuv.width, rgb2yuv.alignWidth);
+        int strideU = strideY / 2, strideV = strideY / 2;
+        int sizeY = ALIGN(strideY * ALIGN(rgb2yuv.height, rgb2yuv.alignHeight), rgb2yuv.alignSize);
+        int sizeU = ALIGN(strideU * ALIGN(rgb2yuv.height, rgb2yuv.alignHeight) / 2, rgb2yuv.alignSize);
+        size_t yuvSize = sizeY + sizeU + sizeU, lastSize = yuvBuffer.size();
+        if (yuvSize != lastSize) yuvBuffer.resize(yuvSize);
+        if (yuvSize == 0) { OSG_NOTICE << "Failed to execute convertRGBtoYUV()\n"; return yuvData; }
+
+        char* ptr = &yuvBuffer[0]; rgb2yuv.y = ptr;
+        rgb2yuv.u = ptr + sizeY; rgb2yuv.v = ptr + sizeY + sizeU;
+        switch (format)
+        {
+        case YU12:
+            rgb2yuv_yu12(&rgb2yuv); yuvData.resize(3);
+            yuvData[0].resize(sizeY); memcpy(yuvData[0].data(), rgb2yuv.y, sizeY);
+            yuvData[1].resize(sizeU); memcpy(yuvData[1].data(), rgb2yuv.u, sizeU);
+            yuvData[2].resize(sizeU); memcpy(yuvData[2].data(), rgb2yuv.v, sizeU); break;
+        case YV12:
+            rgb2yuv_yv12(&rgb2yuv); yuvData.resize(3);
+            yuvData[0].resize(sizeY); memcpy(yuvData[0].data(), rgb2yuv.y, sizeY);
+            yuvData[1].resize(sizeU); memcpy(yuvData[1].data(), rgb2yuv.v, sizeU);
+            yuvData[2].resize(sizeU); memcpy(yuvData[2].data(), rgb2yuv.u, sizeU); break;
+        case NV12:
+            rgb2yuv_nv12(&rgb2yuv); yuvData.resize(2);
+            yuvData[0].resize(sizeY); memcpy(yuvData[0].data(), rgb2yuv.y, sizeY);
+            yuvData[1].resize(sizeU * 2); memcpy(yuvData[1].data(), rgb2yuv.u, sizeU * 2); break;
+            break;
+        case NV21:
+            rgb2yuv_nv21(&rgb2yuv); yuvData.resize(2);
+            yuvData[0].resize(sizeY); memcpy(yuvData[0].data(), rgb2yuv.y, sizeY);
+            yuvData[1].resize(sizeU * 2); memcpy(yuvData[1].data(), rgb2yuv.v, sizeU * 2); break;
+        default: OSG_NOTICE << "Unsupported for convertRGBtoYUV()\n"; return yuvData;
+        }
+        return yuvData;
     }
 
     std::string encodeBase64(const std::vector<unsigned char>& buffer)

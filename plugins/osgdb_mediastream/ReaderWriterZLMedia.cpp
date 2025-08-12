@@ -10,11 +10,10 @@
 
 #include "pipeline/Global.h"
 #include "pipeline/CudaTexture2D.h"
-#include "3rdparty/xxYUV/rgb2yuv.h"
+#include "readerwriter/Utilities.h"
 #include <mk_mediakit.h>
 #include <chrono>
 #include <queue>
-#define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))
 
 // for webrtc answer sdp
 static char* escape_string(const char* ptr)
@@ -589,7 +588,6 @@ protected:
         mk_media media;
         mk_pusher pusher;
         std::string pushUrl;
-        std::vector<char> yuvBuffer;
 
         static PusherContext* create(const std::string& url, int w, int h, int fps = 25, int bitRate = 0,
                                      const char* app = "live", const char* stream = "stream")
@@ -625,30 +623,14 @@ protected:
                     return WriteResult::NOT_IMPLEMENTED;
                 }
 
-                rgb2yuv_parameter rgb2yuv;
-                memset(&rgb2yuv, 0, sizeof(rgb2yuv_parameter));
-                rgb2yuv.width = image->s(); rgb2yuv.height = image->t();
-                rgb2yuv.rgb = image->data(); rgb2yuv.componentRGB = 3;
-                rgb2yuv.strideRGB = 0; rgb2yuv.swizzleRGB = true;
-                rgb2yuv.alignWidth = 16; rgb2yuv.alignHeight = 1;
-                rgb2yuv.alignSize = 1; rgb2yuv.videoRange = false;
-
-                int strideY = ALIGN(rgb2yuv.width, rgb2yuv.alignWidth);
-                int strideU = strideY / 2, strideV = strideY / 2;
-                int sizeY = ALIGN(strideY * ALIGN(rgb2yuv.height, rgb2yuv.alignHeight), rgb2yuv.alignSize);
-                int sizeU = ALIGN(strideU * ALIGN(rgb2yuv.height, rgb2yuv.alignHeight) / 2, rgb2yuv.alignSize);
-                size_t yuvSize = sizeY + sizeU + sizeU, lastSize = yuvBuffer.size();
-                if (yuvSize != lastSize) yuvBuffer.resize(yuvSize);
-                if (yuvSize == 0) return WriteResult::ERROR_IN_WRITING_FILE;
-                
-                char* ptr = &yuvBuffer[0]; rgb2yuv.y = ptr;
-                rgb2yuv.u = ptr + sizeY; rgb2yuv.v = ptr + sizeY + sizeU;
-                rgb2yuv_yv12(&rgb2yuv);
-                
-                char* yuvData[3] = { (char*)rgb2yuv.y, (char*)rgb2yuv.u, (char*)rgb2yuv.v };
-                int linesize[3] = { rgb2yuv.width, rgb2yuv.width / 2, rgb2yuv.width / 2 };
-                mk_media_input_yuv(media, (const char**)yuvData, linesize, pts);
-                return WriteResult::FILE_SAVED;
+                std::vector<std::vector<unsigned char>> yuvResult = osgVerse::convertRGBtoYUV(image.get(), osgVerse::YV12);
+                if (yuvResult.size() == 3)
+                {
+                    char* yuvData[3] = { (char*)yuvResult[0].data(), (char*)yuvResult[1].data(), (char*)yuvResult[2].data() };
+                    int linesize[3] = { image->s(), image->s() / 2, image->s() / 2 };
+                    mk_media_input_yuv(media, (const char**)yuvData, linesize, pts);
+                    return WriteResult::FILE_SAVED;
+                }
             }
             return WriteResult::ERROR_IN_WRITING_FILE;
         }

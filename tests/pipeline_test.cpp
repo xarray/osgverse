@@ -143,7 +143,9 @@ int main(int argc, char** argv)
     // Create the pipeline and the viewer
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     MyViewer viewer(pipeline.get());
-    viewer.setUpViewOnSingleScreen(0);
+
+    int screenNo = 0; arguments.read("--screen", screenNo);
+    viewer.setUpViewOnSingleScreen(screenNo);
 
     osg::GraphicsContext* gc = viewer.getCamera()->getGraphicsContext();
     if (gc != NULL)

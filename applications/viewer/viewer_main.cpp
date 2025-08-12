@@ -366,7 +366,8 @@ int main(int argc, char** argv)
     root->accept(ffo);
 #else
     // Always call viewer.setUp*() before setupStandardPipeline()!
-    viewer.setUpViewOnSingleScreen(0);
+    int screenNo = 0; arguments.read("--screen", screenNo);
+    viewer.setUpViewOnSingleScreen(screenNo);
 #endif
 
     // Setup the pipeline

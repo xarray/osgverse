@@ -279,6 +279,19 @@ osg::Image* createTransferFunction(const std::vector<std::pair<float, osg::Vec4u
     return image1D.release();
 }
 
+static unsigned char* loadAllData(const std::string& file, unsigned int& size, unsigned int offset)
+{
+    std::ifstream ifs(file.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+    if (!ifs) return NULL;
+
+    size = (int)ifs.tellg() - offset;
+    ifs.seekg(offset, std::ios::beg); ifs.clear();
+
+    unsigned char* imageData = new unsigned char[size];
+    ifs.read((char*)imageData, size); ifs.close();
+    return imageData;
+}
+
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments(&argc, argv);
@@ -288,8 +301,21 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(arguments[1], new osgDB::Options("DimensionScale=1"));
+    osg::ref_ptr<osg::Image> image; std::string rawFile; unsigned int size = 0;
+    if (arguments.read("--load", rawFile))
+    {
+        unsigned char* data = loadAllData(rawFile, size, 0); image = new osg::Image;
+        image->setImage(256, 256, 256, GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT, data, osg::Image::USE_NEW_DELETE);
+    }
+    else
+        image = osgDB::readImageFile(arguments[1], new osgDB::Options("DimensionScale=1"));
     if (!image) return 1; else std::cout << image->s() << "x" << image->t() << "x" << image->r() << std::endl;
+
+    if (arguments.read("--save", rawFile))
+    {
+        std::ofstream out(rawFile.c_str(), std::ios::out | std::ios::binary);
+        out.write((char*)image->data(), image->getTotalSizeInBytes()); out.close();
+    }
 
     float vMin = FLT_MAX, vMax = -FLT_MAX;
     float* ptr = (float*)image->data();

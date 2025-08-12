@@ -147,6 +147,19 @@ ResultPair createVolumeData(osg::Image* image3D, osg::Image* transferImage1D, co
     return ResultPair(sceneItem.release(), ss);
 }
 
+static unsigned char* loadAllData(const std::string& file, unsigned int& size, unsigned int offset)
+{
+    std::ifstream ifs(file.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+    if (!ifs) return NULL;
+
+    size = (int)ifs.tellg() - offset;
+    ifs.seekg(offset, std::ios::beg); ifs.clear();
+
+    unsigned char* imageData = new unsigned char[size];
+    ifs.read((char*)imageData, size); ifs.close();
+    return imageData;
+}
+
 typedef std::pair<osg::Node*, osg::Vec3d> ResultPair2;
 typedef std::pair<ResultPair, ResultPair2> VolumeTotalResult;
 VolumeTotalResult createVolumeBox(const std::string& vdbFile, const osg::Vec3d& fromLLA,
@@ -155,7 +168,10 @@ VolumeTotalResult createVolumeBox(const std::string& vdbFile, const osg::Vec3d& 
     osg::Matrix enu = osgVerse::Coordinate::convertLLAtoNED(fromLLA);
     osg::Vec3 center = enu.getTrans(), from, to, size; enu.setTrans(osg::Vec3());
 
-    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(vdbFile);
+    //osg::ref_ptr<osg::Image> image = osgDB::readImageFile(vdbFile);
+    osg::ref_ptr<osg::Image> image = new osg::Image; unsigned int fileLength = 0;
+    unsigned char* data = loadAllData(vdbFile, fileLength, 0); if (!data) return VolumeTotalResult();
+    image->setImage(256, 256, 256, GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT, data, osg::Image::USE_NEW_DELETE);
     if (!image) { OSG_FATAL << "Failed to load volume data: " << vdbFile << "\n"; return VolumeTotalResult(); }
 
     from = osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3(fromLLA[0], fromLLA[1], 0.0));
@@ -276,13 +292,13 @@ osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
     vdbRoot->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 
     VolumeHandler* handler = new VolumeHandler; float underOffset = 6000.0;
-    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/kerry_img3d.vdb.verse_vdb",
+    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/kerry.vdb.raw",
         osg::Vec3d(osg::inDegrees(-39.9978), osg::inDegrees(174.047), -1250.0),
         osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3.0), -4.0f, 4.0f));
-    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/parihaka_img3d.vdb.verse_vdb",
+    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/parhaka.vdb.raw",
         osg::Vec3d(osg::inDegrees(-51.0129), osg::inDegrees(-144.937), -1165.0 - underOffset),
         osg::Vec3d(osg::inDegrees(-50.977), osg::inDegrees(-144.856), -6.0 - underOffset), -2000.0f, 2000.0f));
-    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/waihapa_img3d.vdb.verse_vdb",
+    handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/waihapa.vdb.raw",
         osg::Vec3d(osg::inDegrees(-51.0208), osg::inDegrees(-145.185), -2500.0 - underOffset),
         osg::Vec3d(osg::inDegrees(-51.0016), osg::inDegrees(-145.154), -0.0 - underOffset), -30000.0f, 30000.0f));
 

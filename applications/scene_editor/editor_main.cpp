@@ -176,7 +176,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 int main(int argc, char** argv)
 {
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
-    osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
 
     // Core scene graph
@@ -204,6 +204,7 @@ int main(int argc, char** argv)
 
     // Pipeline initialization
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
+    int screenNo = 0; arguments.read("--screen", screenNo);
 
     // Set-up the viewer
     MyViewer viewer(pipeline.get());
@@ -214,7 +215,7 @@ int main(int argc, char** argv)
     viewer.setSceneData(root.get());
     //viewer.setKeyEventSetsDone(0);
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-    viewer.setUpViewOnSingleScreen(0);
+    viewer.setUpViewOnSingleScreen(screenNo);
 
     osgVerse::StandardPipelineParameters params(SHADER_DIR, SKYBOX_DIR + "sunset.png");
     setupStandardPipeline(pipeline.get(), &viewer, params);

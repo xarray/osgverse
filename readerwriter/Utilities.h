@@ -157,6 +157,10 @@ namespace osgVerse
     /** Generate mipmaps of given image */
     OSGVERSE_RW_EXPORT bool generateMipmaps(osg::Image& image, bool useKaiser);
 
+    /** Convert RGB image to YUV */
+    enum YUVFormat { YU12 = 0/*IYUV*/, YV12, NV12, NV21 };
+    OSGVERSE_RW_EXPORT std::vector<std::vector<unsigned char>> convertRGBtoYUV(osg::Image* image, YUVFormat f = YV12);
+
     /** Encode data to base64 */
     OSGVERSE_RW_EXPORT std::string encodeBase64(const std::vector<unsigned char>& buffer);
 

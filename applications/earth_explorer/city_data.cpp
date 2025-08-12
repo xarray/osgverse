@@ -7,6 +7,7 @@
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgUtil/SmoothingVisitor>
+#include <osgUtil/Tessellator>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
@@ -22,6 +23,56 @@
 #include <sstream>
 
 extern std::string global_cityToCreate;
+
+static void tessellateGeometry(osg::Geometry& geom, const osg::Vec3& axis)
+{
+    osg::ref_ptr<osgUtil::Tessellator> tscx = new osgUtil::Tessellator;
+    tscx->setWindingType(osgUtil::Tessellator::TESS_WINDING_ODD);
+    tscx->setTessellationType(osgUtil::Tessellator::TESS_TYPE_POLYGONS);
+    if (axis.length2() > 0.1f) tscx->setTessellationNormal(axis);
+    tscx->retessellatePolygons(geom);
+}
+
+static osg::Geometry* createExtrusionGeometry(const osgVerse::PointList3D& outer, const osg::Vec3& height)
+{
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array, vaCap = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
+    osgVerse::PointList3D pathEx = outer;
+
+    osg::ref_ptr<osg::DrawElementsUInt> deWall = new osg::DrawElementsUInt(GL_QUADS);
+    bool closed = (pathEx.front() == pathEx.back());
+    if (closed && pathEx.front() == pathEx.back()) pathEx.pop_back();
+
+    size_t eSize = pathEx.size(); float eStep = 1.0f / (float)eSize;
+    for (size_t i = 0; i <= eSize; ++i)
+    {   // outer walls
+        if (!closed && i == eSize) continue; size_t start = va->size();
+        va->push_back(pathEx[i % eSize]); ta->push_back(osg::Vec2((float)i * eStep, 0.0f));
+        va->push_back(pathEx[i % eSize] + height); ta->push_back(osg::Vec2((float)i * eStep, 1.0f));
+        vaCap->push_back(va->back());
+        va->push_back(pathEx[(i + 1) % eSize]); ta->push_back(osg::Vec2((float)(i + 1) * eStep, 0.0f));
+        va->push_back(pathEx[(i + 1) % eSize] + height); ta->push_back(osg::Vec2((float)(i + 1) * eStep, 1.0f));
+        vaCap->push_back(va->back());
+
+        osg::Plane plane(va->at(start), va->at(start + 1), va->at(start + 2));
+        osg::Vec3 N = plane.getNormal(); na->push_back(N); na->push_back(N); na->push_back(N); na->push_back(N);
+        deWall->push_back(start + 1); deWall->push_back(start);
+        deWall->push_back(start + 2); deWall->push_back(start + 3);
+    }
+
+    size_t startCap = va->size(); osg::Vec3 hNormal = height; hNormal.normalize();
+    osg::ref_ptr<osg::DrawElementsUShort> deCap = new osg::DrawElementsUShort(GL_POLYGON);
+    va->insert(va->end(), vaCap->begin(), vaCap->end());
+    for (size_t i = startCap; i < va->size(); ++i)
+    {
+        ta->push_back(osg::Vec2(0.5f, 0.5f));
+        na->push_back(hNormal); deCap->push_back(i);
+    }
+
+    osg::ref_ptr<osg::Geometry> geom = osgVerse::createGeometry(va.get(), na.get(), ta.get(), deWall.get());
+    geom->addPrimitiveSet(deCap.get()); tessellateGeometry(*geom, hNormal); return geom.release();
+}
 
 const char* cityVertCode = {
     "uniform mat4 osg_ViewMatrix, osg_ViewMatrixInverse; \n"
@@ -218,9 +269,9 @@ protected:
                     else OSG_NOTICE << "No intersection for building " << i << ", at file " << jsonFile << "\n";
 
                     std::vector<osgVerse::PointList3D> inner;
-                    osg::Geometry* geom = osgVerse::createExtrusionGeometry(polygon, inner, osg::Z_AXIS * height);
+                    osg::Geometry* geom = createExtrusionGeometry(polygon, osg::Z_AXIS * height);
                     geomList.push_back(osgVerse::GeometryMerger::GeometryPair(geom, localToWorld));
-                    geomRefList.push_back(geom); osgUtil::SmoothingVisitor::smooth(*geom);
+                    geomRefList.push_back(geom); //osgUtil::SmoothingVisitor::smooth(*geom);
 
                     osg::Vec3Array* va = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
                     osg::Vec4Array* ca = new osg::Vec4Array; ca->assign(va->size(), hexColorToRGB(color));
@@ -230,13 +281,21 @@ protected:
                 osg::Matrix l2w = geomList[0].second; osg::Matrix w2l = osg::Matrix::inverse(l2w);
                 for (size_t i = 0; i < geomList.size(); ++i) geomList[i].second = geomList[i].second * w2l;
 
-                osgVerse::GeometryMerger merger;
-                osg::ref_ptr<osg::Geometry> mergedGeom = merger.process(geomList, 0);
-                osg::Geode* geode = new osg::Geode; geode->addDrawable(mergedGeom.get());
-
                 osg::MatrixTransform* mt = new osg::MatrixTransform;
-                mt->setMatrix(l2w); mt->addChild(geode);
-                city->addChild(mt); //osgDB::writeNodeFile(*geode, "../beijing.osgb");
+#if 1
+                osgVerse::GeometryMerger merger; osg::Geode* geode = new osg::Geode;
+                osg::ref_ptr<osg::Geometry> mergedGeom = merger.process(geomList, 0);
+                geode->addDrawable(mergedGeom.get()); mt->addChild(geode);
+#else
+                for (size_t i = 0; i < geomList.size(); ++i)
+                {
+                    osg::Geode* geode = new osg::Geode; geode->addDrawable(geomList[i].first);
+                    osg::MatrixTransform* child = new osg::MatrixTransform; mt->addChild(child);
+                    child->setMatrix(geomList[i].second); child->addChild(geode);
+                }
+#endif
+                mt->setMatrix(l2w); city->addChild(mt);
+                //osgDB::writeNodeFile(*geode, "../beijing.osgb");
             }
             catch (std::exception& e)
             { OSG_WARN << "Failed with json: " << e.what() << "\n"; }
