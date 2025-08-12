@@ -15,6 +15,24 @@
 #include <chrono>
 #include <queue>
 
+/* To make MediaServer forward messages from the RCTP data channel to pushers, we have to modify ZLMediaKit source code
+*  See https://github.com/ZLMediaKit/ZLMediaKit/issues/3963 for details:
+*  webrtc/WebRtcPusher.h
+     #ifdef ENABLE_SCTP
+     void OnSctpAssociationMessageReceived(RTC::SctpAssociation *sctpAssociation, uint16_t streamId, uint32_t ppid,
+                                           const uint8_t *msg, size_t len) override;
+     #endif
+* webrtc/WebRtcPusher.cpp
+     #ifdef ENABLE_SCTP
+     void WebRtcPusher::OnSctpAssociationMessageReceived(RTC::SctpAssociation *sctpAssociation, uint16_t streamId,
+                                                         uint32_t ppid, const uint8_t *msg, size_t len) {
+        if (_push_src) {
+           toolkit::Any any; Buffer::Ptr buffer = std::make_shared<BufferLikeString>(std::string((char *)msg, len));
+           any.set(std::move(buffer)); _push_src->getRing()->sendMessage(any); }
+     }
+     #endif
+*/
+
 // for webrtc answer sdp
 static char* escape_string(const char* ptr)
 {
@@ -349,6 +367,15 @@ public:
         OSG_NOTICE << "[ZLMediaServerArchive] Flow report: " << app << "/" << stream
                    << ", Total bytes = " << total_bytes << ", Total seconds = " << total_seconds
                    << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+    }
+
+    static void API_CALL onMkGetSCTP(mk_rtc_transport rtc_transport, uint16_t streamId,
+                                     uint32_t ppid, const uint8_t* msg, size_t len)
+    {
+        // Use mk_rtc_send_datachannel() to send messages in data channel
+        OSG_NOTICE << "[ZLMediaServerArchive] SCTP Data: stream-" << streamId << ":"
+                   << std::string((char*)msg, (char*)msg + len) << std::endl;
+        // TODO
     }
 
 protected:
@@ -835,7 +862,7 @@ protected:
         config.ini = NULL,
         config.ini_is_path = 1;
         config.log_level = 0;
-        config.log_mask = LOG_CONSOLE;
+        config.log_mask = LOG_FILE;
         config.ssl = NULL;
         config.ssl_is_path = 1;
         config.ssl_pwd = NULL;
@@ -888,7 +915,7 @@ ZLMediaServerArchive::ZLMediaServerArchive(const osgDB::Options* options)
     }
     g_server = this;
 
-    mk_events events;
+    mk_events events = { 0 };
     events.on_mk_media_changed = ZLMediaServerArchive::onMkMediaChanged;
     events.on_mk_media_publish = ZLMediaServerArchive::onMkMediaPublish;
     events.on_mk_media_play = ZLMediaServerArchive::onMkMediaPlay;
@@ -902,6 +929,7 @@ ZLMediaServerArchive::ZLMediaServerArchive(const osgDB::Options* options)
     events.on_mk_record_mp4 = ZLMediaServerArchive::onMkRecordVideo;
     events.on_mk_shell_login = ZLMediaServerArchive::onMkShellLogin;
     events.on_mk_flow_report = ZLMediaServerArchive::onMkFlowReport;
+    events.on_mk_rtc_sctp_received = ZLMediaServerArchive::onMkGetSCTP;
     mk_events_listen(&events);
 }
 

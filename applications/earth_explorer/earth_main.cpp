@@ -210,8 +210,9 @@ public:
         if (name.find("layers") != std::string::npos)
         {
             if (_currentLayer == "") updateStreetLayer();
-            else if (_currentLayer == "street") updateCloudLayer();
-            else updateUserLayer("");
+            //else if (_currentLayer == "street") updateCloudLayer();
+            //else updateUserLayer("");
+            else if (_currentLayer == "street") updateUserLayer("");
         }
         else if (name.find("show_globe") != std::string::npos)
         {
@@ -248,6 +249,15 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
         int newY = pow(2, z) - y - 1;
         return osgVerse::TileCallback::createPath(prefix, x, newY, z);
     }
+    /*else if (type >= osgVerse::TileCallback::USER)
+    {
+        int newY = pow(2, z) - y - 1;
+        if (z > 9 && prefix.find("carto-png") != std::string::npos)
+        {
+            std::string prefix2 = "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
+            return osgVerse::TileCallback::createPath(prefix2, x, newY, z);
+        }
+    }*/
     else if (type == osgVerse::TileCallback::ORTHOPHOTO)
     {
         if (z > 13)
@@ -257,8 +267,7 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
         }
         else return osgVerse::TileCallback::createPath(prefix, x, y, z);
     }
-    else
-        return osgVerse::TileCallback::createPath(prefix, x, y, z);
+    return osgVerse::TileCallback::createPath(prefix, x, y, z);
 }
 
 int main(int argc, char** argv)

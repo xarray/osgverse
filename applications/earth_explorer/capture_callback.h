@@ -1,5 +1,6 @@
 #include <osg/io_utils>
 #include <osg/Texture2D>
+#include <osgDB/Archive>
 #include <osgViewer/View>
 #include <iostream>
 #include <fstream>
@@ -9,6 +10,25 @@
 #   include <cuda.h>
 #endif
 #define RECORD_FILE 0
+#define MEDIA_SERVER 0
+
+#if MEDIA_SERVER
+class HttpApiCallback : public osgVerse::UserCallback
+{
+public:
+    HttpApiCallback(const std::string& name) : osgVerse::UserCallback(name) {}
+    virtual bool run(osg::Object* object, Parameters& in, Parameters& out) const
+    {
+        if (in.empty()) return false;
+        osgVerse::StringObject* so = static_cast<osgVerse::StringObject*>(in[0].get());
+        if (!so || (so && so->values.size() < 2)) return false;
+
+        // TODO
+        std::cout << so->values[0] << ", " << so->values[1] << "\n";
+        return true;
+    }
+};
+#endif
 
 class CaptureCallback : public osg::Camera::DrawCallback
 {
@@ -49,6 +69,17 @@ public:
 #endif
         _msWriter = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ms");
 
+#if MEDIA_SERVER
+        osg::ref_ptr<osgDB::Options> options = new osgDB::Options;
+        options->setPluginStringData("http", "80");
+        options->setPluginStringData("rtsp", "554");
+        options->setPluginStringData("rtmp", "1935");
+        options->setPluginStringData("rtc", "8000");  // set RTC port: 8000
+        _msServer = _msWriter->openArchive(
+            "TestServer", osgDB::ReaderWriter::CREATE, 4096, options.get()).getArchive();
+        _msServer->getOrCreateUserDataContainer()->addUserObject(new HttpApiCallback("HttpAPI"));
+#endif
+
 #if RECORD_FILE
         _streamFile = new std::ofstream("../record.h265", std::ios::out | std::ios::binary);
 #endif
@@ -65,6 +96,10 @@ public:
         if (_outputBuffer) _encodingManager->nvEncDestroyBitstreamBuffer(_encoder, _outputBuffer);
         _encodingManager->nvEncDestroyEncoder(_encoder);
         delete _encodingManager; cuCtxDestroy(_cuContext);
+#endif
+
+#if MEDIA_SERVER
+        if (_msServer.valid()) _msServer->close();
 #endif
     }
 
@@ -266,6 +301,10 @@ protected:
     NV_ENC_OUTPUT_PTR _outputBuffer;
     void* _encoder;
     CUcontext _cuContext;
+#endif
+
+#if MEDIA_SERVER
+    osg::ref_ptr<osgDB::Archive> _msServer;
 #endif
     osg::ref_ptr<osgDB::ReaderWriter> _msWriter;
     std::ofstream* _streamFile;

@@ -80,16 +80,18 @@ void main()
 
     float terrainDetails = 1.0;
     N = mix(N, mat3(east, north, N) * localN, terrainDetails);
+    vec3 originalGroundColor = groundColor.rgb;
 
-    float cTheta = dot(N, WSD); vec3 sunL, skyE;
+    float cTheta = max(dot(N, WSD), 0.0); vec3 sunL, skyE;
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
-    groundColor.rgb *= max((sunL * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1));
+    groundColor.rgb *= max((sunL * cTheta + skyE) / 3.14159265, vec3(0.1));
     groundColor.a *= clamp(globalOpaque, 0.0, 1.0);
     
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
     vec3 compositeColor = groundColor.rgb * extinction * sunColorScale + inscatter * skyColorScale;
-    vec4 finalColor = vec4(hdr(compositeColor), groundColor.a);
+    //vec4 finalColor = vec4(hdr(compositeColor), groundColor.a);
+    vec4 finalColor = vec4(mix(hdr(compositeColor), originalGroundColor, cTheta), groundColor.a);
 
     // Color grading work
     finalColor.rgb = colorBalanceFunc(finalColor.rgb, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);

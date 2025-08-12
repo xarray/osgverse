@@ -256,8 +256,12 @@ protected:
                             osg::Vec3d(ptNode[0].get<double>(), ptNode[1].get<double>(), 0.0));
                     }
                     if (polygon.size() > 2) polygon.push_back(polygon.front());
-                    if (centerNode.size() > 1) center.set(  // lat lon
-                        osg::inDegrees(centerNode[1].get<double>()), osg::inDegrees(centerNode[0].get<double>()), 100.0);
+                    if (centerNode.size() > 1)
+                    {
+                        center.set(osg::inDegrees(centerNode[1].get<double>()),
+                                   osg::inDegrees(centerNode[0].get<double>()), 100.0);
+                        //center = osgVerse::Coordinate::convertWGS84toGCJ02(center);
+                    }
 
                     osg::Matrix localToWorld = osgVerse::Coordinate::convertLLAtoENU(center);
                     osg::Vec3d ecef = osgVerse::Coordinate::convertLLAtoECEF(center);
