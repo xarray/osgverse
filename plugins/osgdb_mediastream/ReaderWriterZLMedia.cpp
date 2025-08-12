@@ -502,6 +502,34 @@ public:
         return player;
     }
 
+    virtual WriteResult writeObject(const osg::Object& obj, const std::string& fullFileName,
+                                    const Options* options) const
+    {
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
+        std::string scheme = osgDB::getServerProtocol(fullFileName);
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
+        if (!acceptsProtocol(scheme)) return WriteResult::FILE_NOT_HANDLED;
+#endif
+        if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
+        if (!_mkEnvCreated) initialize(options);
+
+        ReaderWriterZLMedia* nonconst = const_cast<ReaderWriterZLMedia*>(this);
+        const osgVerse::EncodedFrameObject* frame = static_cast<const osgVerse::EncodedFrameObject*>(&obj);
+        if (!frame) return WriteResult::NOT_IMPLEMENTED;
+        if (_pushers.find(fileName) == _pushers.end())
+        {
+            PusherContext* ctx = NULL;
+            if (frame->getImageType() == osgVerse::EncodedFrameObject::FRAME_H264)
+                ctx = PusherContext::create(fileName, frame->getFrameWidth(), frame->getFrameHeight());
+            else if (frame->getImageType() == osgVerse::EncodedFrameObject::FRAME_H265)
+                ctx = PusherContext::createHEVC(fileName, frame->getFrameWidth(), frame->getFrameHeight());
+            if (!ctx) return WriteResult::NOT_IMPLEMENTED; else nonconst->_pushers[fileName] = ctx;
+        }
+
+        PusherContext* ctx = nonconst->_pushers[fileName];
+        return ctx->pushNewFrame(const_cast<osgVerse::EncodedFrameObject*>(frame));
+    }
+
     virtual WriteResult writeImage(const osg::Image& image, const std::string& fullFileName,
                                    const Options* options) const
     {
@@ -592,10 +620,19 @@ protected:
         static PusherContext* create(const std::string& url, int w, int h, int fps = 25, int bitRate = 0,
                                      const char* app = "live", const char* stream = "stream")
         {
-            PusherContext* ctx = new PusherContext;
-            ctx->pusher = NULL; ctx->pushUrl = url;
+            PusherContext* ctx = new PusherContext; ctx->pusher = NULL; ctx->pushUrl = url;
             ctx->media = mk_media_create("__defaultVhost__", app, stream, 0, 0, 0);
             mk_media_init_video(ctx->media, MKCodecH264, w, h, fps, bitRate);
+            mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, ctx);
+            ctx->clear(1); return ctx;
+        }
+
+        static PusherContext* createHEVC(const std::string& url, int w, int h, int fps = 25, int bitRate = 0,
+                                         const char* app = "live", const char* stream = "stream")
+        {
+            PusherContext* ctx = new PusherContext; ctx->pusher = NULL; ctx->pushUrl = url;
+            ctx->media = mk_media_create("__defaultVhost__", app, stream, 0, 0, 0);
+            mk_media_init_video(ctx->media, MKCodecH265, w, h, fps, bitRate);
             mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, ctx);
             ctx->clear(1); return ctx;
         }
@@ -604,6 +641,26 @@ protected:
         {
             if (pusher) mk_pusher_release(pusher);
             if (media) mk_media_release(media);
+        }
+
+        WriteResult pushNewFrame(osgVerse::EncodedFrameObject* frame)
+        {
+            if (!media) return WriteResult::FILE_SAVED;  // not prepared
+            long long pts = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            long long dts = frame->getFrameStamp(); if (!dts) dts = pts;
+
+            static unsigned char header[4] = { 0, 0, 0, 1 };
+            if (frame->getFrameWidth() > 0 && frame->getFrameHeight() > 0)
+            {
+                std::vector<unsigned char>& data = frame->getData();
+                data.insert(data.begin(), header, header + 4);
+                if (frame->getImageType() == osgVerse::EncodedFrameObject::FRAME_H264)
+                { mk_media_input_h264(media, data.data(), data.size(), dts, pts); return WriteResult::FILE_SAVED; }
+                else if (frame->getImageType() == osgVerse::EncodedFrameObject::FRAME_H265)
+                { mk_media_input_h265(media, data.data(), data.size(), dts, pts); return WriteResult::FILE_SAVED; }
+            }
+            return WriteResult::ERROR_IN_WRITING_FILE;
         }
 
         WriteResult pushNewFrame(const osg::Image* img)

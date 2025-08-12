@@ -128,10 +128,17 @@ public:
             if (status != NV_ENC_SUCCESS) { OSG_WARN << "Failed to lock bitstream" << std::endl; return; }
 
             // Handle encoded data
+            unsigned char* ptr = (unsigned char*)lockBitstreamParams.bitstreamBufferPtr;
+            if (_msWriter.valid())
+            {
+                osg::ref_ptr<osgVerse::EncodedFrameObject> frame = new osgVerse::EncodedFrameObject(
+                    osgVerse::EncodedFrameObject::FRAME_H264, _width, _height, lockBitstreamParams.outputTimeStamp);
+                frame->getData().assign(ptr, ptr + lockBitstreamParams.bitstreamSizeInBytes);
+                _msWriter->writeObject(*frame, _streamURL);
+            }
 #if RECORD_FILE
-            std::cout << "Encoded frame: " << lockBitstreamParams.bitstreamSizeInBytes << " bytes, PTR = "
-                      << lockBitstreamParams.bitstreamBufferPtr << std::endl;
-            _streamFile->write((char*)lockBitstreamParams.bitstreamBufferPtr, lockBitstreamParams.bitstreamSizeInBytes);
+            std::cout << "Encoded frame: " << lockBitstreamParams.bitstreamSizeInBytes << " bytes" << std::endl;
+            _streamFile->write((char*)ptr, lockBitstreamParams.bitstreamSizeInBytes);
 #endif
             status = _encodingManager->nvEncUnlockBitstream(_encoder, _outputBuffer);
             if (status != NV_ENC_SUCCESS) { OSG_WARN << "Failed to unlock bitstream" << std::endl; return; }
@@ -167,7 +174,7 @@ public:
     {
         NV_ENC_INITIALIZE_PARAMS initParams = { 0 };
         initParams.version = NV_ENC_INITIALIZE_PARAMS_VER;
-        initParams.encodeGUID = NV_ENC_CODEC_HEVC_GUID;
+        initParams.encodeGUID = NV_ENC_CODEC_H264_GUID;
         initParams.presetGUID = NV_ENC_PRESET_P3_GUID;
         initParams.bufferFormat = NV_ENC_BUFFER_FORMAT_ABGR;
         initParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
@@ -199,7 +206,7 @@ public:
         NV_ENC_CONFIG encodeConfig = { 0 };
         encodeConfig.version = NV_ENC_CONFIG_VER;
         memcpy(&encodeConfig, &presetConfig.presetCfg, sizeof(NV_ENC_CONFIG));
-        encodeConfig.profileGUID = NV_ENC_HEVC_PROFILE_MAIN_GUID;
+        encodeConfig.profileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
         encodeConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
         encodeConfig.encodeCodecConfig.h264Config.chromaFormatIDC = 3;
         encodeConfig.encodeCodecConfig.h264Config.idrPeriod = encodeConfig.gopLength;

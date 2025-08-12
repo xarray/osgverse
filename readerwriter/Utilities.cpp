@@ -406,6 +406,16 @@ osg::Image* TextureOptimizer::compressImage(osg::Texture* tex, osg::Image* img, 
     }
 }
 
+EncodedFrameObject::EncodedFrameObject()
+:   _framestamp(0), _duration(0), _width(0), _height(0), _type(FRAME_CUSTOMIZED) {}
+
+EncodedFrameObject::EncodedFrameObject(ImageType t, int w, int h, unsigned long long dts)
+:   _framestamp(dts), _duration(0), _width(w), _height(h), _type(t) {}
+
+EncodedFrameObject::EncodedFrameObject(const EncodedFrameObject& obj, const osg::CopyOp& op)
+:   osg::Object(obj, op), _data(obj._data), _framestamp(obj._framestamp), _duration(obj._duration),
+    _width(obj._width), _height(obj._height), _type(obj._type) {}
+
 struct MipmapHelpers
 {
     static inline float log2(float x) { static float inv2 = 1.f / logf(2.f); return logf(x) * inv2; }

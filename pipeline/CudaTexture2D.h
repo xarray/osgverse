@@ -52,7 +52,7 @@ namespace osgVerse
     {
     public:
         CudaTexture2D(void* cuContext);
-        CudaTexture2D(const CudaTexture2D& copy, osg::CopyOp op = osg::CopyOp::SHALLOW_COPY);
+        CudaTexture2D(const CudaTexture2D& copy, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
 
         void setResourceReader(CudaResourceReaderBase* reader);
         const CudaResourceReaderBase* getResourceReader() const;

@@ -26,6 +26,40 @@ extern void emscripten_advance();
 
 namespace osgVerse
 {
+    class OSGVERSE_RW_EXPORT EncodedFrameObject : public osg::Object
+    {
+    public:
+        enum ImageType { FRAME_CUSTOMIZED = 0, FRAME_H264, FRAME_H265 };
+
+        EncodedFrameObject();
+        EncodedFrameObject(ImageType t, int w, int h, unsigned long long dts);
+        EncodedFrameObject(const EncodedFrameObject& obj, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
+        META_Object(osgVerse, EncodedFrameObject)
+
+        void setImageType(ImageType t) { _type = t; }
+        ImageType getImageType() const { return _type; }
+
+        void setData(const std::vector<unsigned char>& d) { _data = d; }
+        const std::vector<unsigned char>& getData() const { return _data; }
+        std::vector<unsigned char>& getData() { return _data; }
+
+        void setFrameWidth(unsigned int w) { _width = w; }
+        void setFrameHeight(unsigned int h) { _height = h; }
+        unsigned int getFrameWidth() const { return _width; }
+        unsigned int getFrameHeight() const { return _height; }
+
+        void setFrameStamp(unsigned long long s) { _framestamp = s; }
+        void setDuration(unsigned long long s) { _duration = s; }
+        unsigned long long getFrameStamp() const { return _framestamp; }
+        unsigned long long getDuration() const { return _duration; }
+
+    protected:
+        std::vector<unsigned char> _data;
+        unsigned long long _framestamp, _duration;
+        unsigned int _width, _height;
+        ImageType _type;
+    };
+
     class OSGVERSE_RW_EXPORT FixedFunctionOptimizer : public osg::NodeVisitor
     {
     public:
@@ -73,7 +107,7 @@ namespace osgVerse
     };
 
 #ifdef __EMSCRIPTEN__
-    struct WebFetcher : public osg::Referenced
+    struct OSGVERSE_RW_EXPORT WebFetcher : public osg::Referenced
     {
         WebFetcher() : status(0), done(false) {}
         std::vector<std::string> resHeaders;

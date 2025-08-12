@@ -186,7 +186,7 @@ protected:
 CudaTexture2D::CudaTexture2D(void* cu) : osg::Texture2D(), _cuContext(cu)
 {}
 
-CudaTexture2D::CudaTexture2D(const CudaTexture2D& copy, osg::CopyOp op)
+CudaTexture2D::CudaTexture2D(const CudaTexture2D& copy, const osg::CopyOp& op)
 :   osg::Texture2D(copy, op), _cuContext(copy._cuContext)
 {}
 
