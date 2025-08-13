@@ -294,6 +294,7 @@ int main(int argc, char** argv)
     earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);
 
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
+    if (!earth) { OSG_FATAL << "Main earth scene is missing!\n"; return 1; }
     earth->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     earth->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     earth->getOrCreateStateSet()->setAttributeAndModes(new osg::CullFace(osg::CullFace::BACK));

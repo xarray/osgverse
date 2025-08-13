@@ -5,12 +5,14 @@
 #include <iostream>
 #include <fstream>
 
-#ifdef NV_ENCODER
+#if defined(NV_ENCODER)
 #   include <nvEncodeAPI.h>
 #   include <cuda.h>
+#elif defined(MUSA_ENCODER)
+#   include <mtEncodeAPI.h>
 #endif
 #define RECORD_FILE 0
-#define MEDIA_SERVER 0
+#define MEDIA_SERVER 1
 
 #if MEDIA_SERVER
 class HttpApiCallback : public osgVerse::UserCallback
@@ -30,19 +32,31 @@ public:
 };
 #endif
 
+#ifdef MUSA_ENCODER
+struct MTEncInputFrame
+{
+    void* inputPtr = nullptr;
+    uint32_t chromaOffsets[2];
+    uint32_t numChromaPlanes;
+    uint32_t pitch, chromaPitch;
+    MT_ENC_BUFFER_FORMAT bufferFormat;
+    MT_ENC_INPUT_RESOURCE_TYPE resourceType;
+};
+#endif
+
 class CaptureCallback : public osg::Camera::DrawCallback
 {
 public:
     CaptureCallback(const std::string& url, int w, int h)
-        : _encoder(NULL), _streamURL(url), _width(w), _height(h), _frameNumber(0)
+        : _streamURL(url), _width(w), _height(h), _frameNumber(0)
     {
-#ifdef NV_ENCODER
+#if defined(NV_ENCODER)
         int numGpu = 0, idGpu = 0; _cuContext = NULL;
         cuInit(0); cuDeviceGetCount(&numGpu);
         if (idGpu < 0 || idGpu >= numGpu) return;
         createCudaContext(&_cuContext, idGpu, CU_CTX_SCHED_BLOCKING_SYNC);
 
-        _encodingManager = initializeNVENC();
+        _encodingManager = initializeNVENC(); _encoder = NULL;
         _initParams = setupEncoder(_encodingManager, w, h);
 
         NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams = { 0 };
@@ -66,6 +80,22 @@ public:
 
         _inputBuffer = createInputBufferParams.inputBuffer;
         _outputBuffer = createBitstreamBufferParams.bitstreamBuffer;
+#elif defined(MUSA_ENCODER)
+        _encodingManager = initializeMTENC(); _encoder = NULL;
+        _initParams = setupEncoder(_encodingManager, w, h);
+
+        memset(&_inputFrame, 0, sizeof(MTEncInputFrame));
+        _inputFrame.inputPtr = malloc(4 * w * h);  // frame size of RGBA
+        _inputFrame.chromaOffsets[0] = 0; _inputFrame.chromaOffsets[1] = 0;
+        _inputFrame.numChromaPlanes = 0; _inputFrame.chromaPitch = 0; _inputFrame.pitch = 0;
+        _inputFrame.bufferFormat = MT_ENC_BUFFER_FORMAT_RGBA;
+        _inputFrame.resourceType = MT_ENC_INPUT_RESOURCE_TYPE_OPENGL_TEX;
+        
+        MT_ENC_CREATE_OUTPUT_BUFFER createOutputBufferParams = { 0 };
+        createOutputBufferParams.version = MTENCAPI_VERSION;
+        if (_encodingManager->mtEncCreateOutputBuffer(_encoder, &createOutputBufferParams) != MT_ENC_SUCCESS)
+        { OSG_WARN << "Failed to create output" << std::endl; }
+        else _outputBuffer = createOutputBufferParams.outputBuffer;
 #endif
         _msWriter = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ms");
 
@@ -79,7 +109,6 @@ public:
             "TestServer", osgDB::ReaderWriter::CREATE, 4096, options.get()).getArchive();
         _msServer->getOrCreateUserDataContainer()->addUserObject(new HttpApiCallback("HttpAPI"));
 #endif
-
 #if RECORD_FILE
         _streamFile = new std::ofstream("../record.h265", std::ios::out | std::ios::binary);
 #endif
@@ -91,11 +120,16 @@ public:
         _streamFile->close(); delete _streamFile;
 #endif
 
-#ifdef NV_ENCODER
+#if defined(NV_ENCODER)
         if (_inputBuffer) _encodingManager->nvEncDestroyInputBuffer(_encoder, _inputBuffer);
         if (_outputBuffer) _encodingManager->nvEncDestroyBitstreamBuffer(_encoder, _outputBuffer);
         _encodingManager->nvEncDestroyEncoder(_encoder);
         delete _encodingManager; cuCtxDestroy(_cuContext);
+#elif defined(MUSA_ENCODER)
+        if (_inputFrame.inputPtr != nullptr) free(_inputFrame.inputPtr);
+        if (_outputBuffer) _encodingManager->mtEncReleaseOutputBuffer(_encoder, _outputBuffer);
+        _encodingManager->mtEncReleaseEncoder(_encoder);
+        delete _encodingManager;
 #endif
 
 #if MEDIA_SERVER
@@ -110,12 +144,12 @@ public:
 #endif
         _frameNumber++;
 
-#ifdef NV_ENCODER
         if (_encoder)
         {
             osg::ref_ptr<osg::Image> image = new osg::Image;
             image->readPixels(0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE);
 
+#if defined(NV_ENCODER)
             //std::vector<std::vector<unsigned char>> yuvResult = osgVerse::convertRGBtoYUV(image.get());
             //if (yuvResult.size() != 3) return;
 
@@ -177,21 +211,59 @@ public:
 #endif
             status = _encodingManager->nvEncUnlockBitstream(_encoder, _outputBuffer);
             if (status != NV_ENC_SUCCESS) { OSG_WARN << "Failed to unlock bitstream" << std::endl; return; }
-        }
+#elif defined(MUSA_ENCODER)
+            // Copy to input buffer
+            memcpy(_inputFrame.inputPtr, image->data(), image->getTotalSizeInBytes());
+
+            MT_ENC_MAP_RESOURCE mapInputResource = { 0 };
+            mapInputResource.version = MTENCAPI_VERSION;
+            mapInputResource.resourceType = _inputFrame.resourceType;
+            mapInputResource.resourceToMap = _inputFrame.inputPtr;
+            _encodingManager->mtEncMapResource(_encoder, &mapInputResource);
+            
+            MT_ENC_INPUT_PTR inputBuffer = mapInputResource.mappedResource;
+            MT_ENC_PIC_PARAMS picParams = { 0 };
+            picParams.version = MTENCAPI_VERSION;
+            picParams.bufferFmt = MT_ENC_BUFFER_FORMAT_RGBA;
+            picParams.inputWidth = _width; picParams.inputHeight = _height;
+            picParams.inputPitch = picParams.inputWidth;
+            picParams.inputBufferType = MT_ENC_BUFFER_TYPE_SYSTEM_MEMORY;
+            picParams.inputBuffer = inputBuffer;
+            picParams.outputBuffer = _outputBuffer;
+            picParams.completionEvent = 0;
+
+            MTENCSTATUS status = _encodingManager->mtEncEncodeFrame(_encoder, &picParams);
+            if (status != MT_ENC_SUCCESS) { OSG_WARN << "Failed to encode image" << std::endl; }
+
+            MT_ENC_LOCK_BUFFER lockBuffer = { 0 };
+            lockBuffer.version = MTENCAPI_VERSION;
+            _encodingManager->mtEncLockOutputBuffer(_encoder, &lockBuffer);
+
+            uint8_t* ptr = (uint8_t*)lockBuffer.outputBufferPtr;
+            if (_msWriter.valid())
+            {
+                osg::ref_ptr<osgVerse::EncodedFrameObject> frame = new osgVerse::EncodedFrameObject(
+                    osgVerse::EncodedFrameObject::FRAME_H264, _width, _height, 0);
+                frame->getData().assign(ptr, ptr + lockBuffer.outputBufferSizeInBytes);
+                _msWriter->writeObject(*frame, _streamURL);
+            }
+            _encodingManager->mtEncUnlockOutputBuffer(_encoder, lockBuffer.lockedOutputBuffer);
+            _encodingManager->mtEncUnmapResource(_encoder, inputBuffer);
 #else
-        if (_msWriter.valid() && _frameNumber > 1)
-        {
-            osg::ref_ptr<osg::Image> image = new osg::Image;
-            image->readPixels(0, 0, _width, _height, GL_RGB, GL_UNSIGNED_BYTE);
-            image->flipVertical();  // low-performance, just for example here
-            _msWriter->writeImage(*image, _streamURL);
-        }
-        else
-            OSG_WARN << "Invalid readerwriter verse_ms?\n";
+            if (_msWriter.valid() && _frameNumber > 1)
+            {
+                osg::ref_ptr<osg::Image> image = new osg::Image;
+                image->readPixels(0, 0, _width, _height, GL_RGB, GL_UNSIGNED_BYTE);
+                image->flipVertical();  // low-performance, just for example here
+                _msWriter->writeImage(*image, _streamURL);
+            }
+            else
+                OSG_WARN << "Invalid readerwriter verse_ms?\n";
 #endif
+        }
     }
 
-#ifdef NV_ENCODER
+#if defined(NV_ENCODER)
     static NV_ENCODE_API_FUNCTION_LIST* initializeNVENC()
     {
         NV_ENCODE_API_FUNCTION_LIST* pNvEnc = new NV_ENCODE_API_FUNCTION_LIST;
@@ -266,10 +338,92 @@ public:
         cuCtxCreate(cuContext, flags, cuDevice);
         OSG_NOTICE << "GPU in use: " << deviceName << std::endl;
     }
+#elif defined(MUSA_ENCODER)
+    static MT_ENCODE_API_FUNCTION_LIST* initializeMTENC()
+    {
+#if defined(_WIN64)
+        HMODULE hModule = LoadLibrary(TEXT("mtencodeapi64.dll"));
+#elif defined(_WIN32)
+        HMODULE hModule = LoadLibrary(TEXT("mtencodeapi32.dll"));
+#else
+        void* hModule = dlopen("libencode_musa.so", RTLD_LAZY);
+#endif
+        if (hModule == NULL)
+        {
+            OSG_FATAL << "Failed to find MTENC library" << std::endl;
+            return nullptr;
+        }
+#if defined(_WIN32)
+        typedef MTENCSTATUS(MTENCAPI* MTEncodeAPICreateInstance_Type)(MT_ENCODE_API_FUNCTION_LIST*);
+        MTEncodeAPICreateInstance_Type pfCreateInstance =
+            (MTEncodeAPICreateInstance_Type)GetProcAddress(hModule, "MTEncodeAPICreateInstance");
+#else
+        typedef MTENCSTATUS(MTENCAPI* MTEncodeAPICreateInstance_Type)(MT_ENCODE_API_FUNCTION_LIST*);
+        MTEncodeAPICreateInstance_Type pfCreateInstance =
+            (MTEncodeAPICreateInstance_Type)dlsym(hModule, "MTEncodeAPICreateInstance");
+#endif
+        if (!pfCreateInstance)
+        {
+            OSG_FATAL << "Failed to create MTENC instance" << std::endl;
+            return nullptr;
+        }
+
+        MT_ENCODE_API_FUNCTION_LIST* pMtEnc = new MT_ENCODE_API_FUNCTION_LIST;
+        memset(pMtEnc, 0, sizeof(MT_ENCODE_API_FUNCTION_LIST));
+        pMtEnc->version = MTENCAPI_VERSION;
+        if (pfCreateInstance(pMtEnc) != MT_ENC_SUCCESS)
+        {
+            OSG_FATAL << "Failed to create MTENC instance" << std::endl;
+            delete pMtEnc; return nullptr;
+        }
+        return pMtEnc;
+    }
+
+    MT_ENC_INIT_PARAMS setupEncoder(MT_ENCODE_API_FUNCTION_LIST* pMtEnc, int width, int height)
+    {
+        MT_ENC_INIT_PARAMS initParams = { 0 };
+        initParams.version = MTENCAPI_VERSION;
+        initParams.encodeID = MT_ENC_CODEC_ID_H264;
+        initParams.presetID = MT_ENC_PRESET_ID_DEFAULT;
+        initParams.encodeWidth = width; initParams.encodeHeight = height;
+        initParams.maxEncodeWidth = width; initParams.maxEncodeHeight = height;
+        initParams.frameRateNum = 30; initParams.frameRateDen = 1;
+
+        MT_ENC_CREATE_ENCODER_PARAMS sessionParams = { 0 };
+        sessionParams.version = MTENCAPI_VERSION;
+        sessionParams.deviceType = MT_ENC_DEVICE_TYPE_OPENGL;
+        sessionParams.device = NULL;
+
+        MTENCSTATUS status = pMtEnc->mtEncCreateEncoder(&sessionParams, &_encoder);
+        if (status != MT_ENC_SUCCESS)
+        {
+            OSG_WARN << "Failed to open encode session: " << status << std::endl;
+            return initParams;
+        }
+
+        MT_ENC_PRESET_CONFIG presetConfig = { 0 };
+        presetConfig.version = MTENCAPI_VERSION;
+        presetConfig.presetCfg.version = MTENCAPI_VERSION;
+        pMtEnc->mtEncGetPresetConfig(
+            _encoder, initParams.encodeID, initParams.presetID, &presetConfig);
+
+        MT_ENC_CONFIG encodeConfig = { 0 };
+        encodeConfig.version = MTENCAPI_VERSION;
+        memcpy(&encodeConfig, &presetConfig.presetCfg, sizeof(MT_ENC_CONFIG));
+        encodeConfig.profileID = MT_ENC_CODEC_PROFILE_ID_BASELINE_H264;
+        encodeConfig.rcParams.rateControlMode = MT_ENC_PARAMS_RC_CONSTQP;
+        encodeConfig.encodeCodecConfig.h264Config.idrPeriod = encodeConfig.gopLength;
+        encodeConfig.encodeCodecConfig.hevcConfig.idrPeriod = encodeConfig.gopLength;
+        initParams.encodeConfig = &encodeConfig;
+
+        status = pMtEnc->mtEncInitEncoder(_encoder, &initParams);
+        if (status != MT_ENC_SUCCESS) { OSG_WARN << "Failed to initialize encoder: " << status << std::endl; }
+        return initParams;
+    }
 #endif
 
 protected:
-#ifdef NV_ENCODER
+#if defined(NV_ENCODER)
     static uint8_t bilinear_interpolate(const uint8_t* src, int src_w, int src_h, float x, float y)
     {
         int x1 = static_cast<int>(x), y1 = static_cast<int>(y);
@@ -301,6 +455,12 @@ protected:
     NV_ENC_OUTPUT_PTR _outputBuffer;
     void* _encoder;
     CUcontext _cuContext;
+#elif defined(MUSA_ENCODER)
+    MT_ENCODE_API_FUNCTION_LIST* _encodingManager;
+    MT_ENC_INIT_PARAMS _initParams;
+    MT_ENC_OUTPUT_PTR _outputBuffer;
+    MTEncInputFrame _inputFrame;
+    void* _encoder;
 #endif
 
 #if MEDIA_SERVER

@@ -235,7 +235,14 @@ public:
 
         sqlite3* db = getOrCreateDatabase(dbName, options, false);
         if (!db) return ReadResult::ERROR_IN_READING_FILE;
-        else return read(db, fileName, keyName, objectType, reader, options);
+        
+        ReadResult result = read(db, fileName, keyName, objectType, reader, options);
+        if (objectType == IMAGE && !result.validImage())
+        {
+            reader = getReaderWriter("verse_image", true);  // fallback reader
+            if (reader) result = read(db, fileName, keyName, objectType, reader, options);
+        }
+        return result;
     }
 
     ReadResult read(sqlite3* db, const std::string& fileName, const std::string& keyName,
@@ -514,7 +521,7 @@ protected:
         if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
 
         osgDB::ReaderWriter* rw = isExt ? osgDB::Registry::instance()->getReaderWriterForExtension(extOrMime)
-            : osgDB::Registry::instance()->getReaderWriterForMimeType(extOrMime);
+                                        : osgDB::Registry::instance()->getReaderWriterForMimeType(extOrMime);
         if (rw) const_cast<ReaderWriterMb*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
     }
 

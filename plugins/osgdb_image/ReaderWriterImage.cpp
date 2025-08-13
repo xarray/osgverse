@@ -72,6 +72,7 @@ public:
         int x = 0, y = 0, channels = 0;
         stbi_uc* data = stbi_load_from_memory(
             (const unsigned char*)&buffer[0], buffer.size(), &x, &y, &channels, 0);
+        if (!data || x == 0 || y == 0) return ReadResult::ERROR_IN_READING_FILE;
 
         GLenum format = GL_RGBA;
         switch (channels)
