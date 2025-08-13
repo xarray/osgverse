@@ -242,7 +242,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
 
         if (_skirtRatio > 0.0f)
         {
-            float skirtHeight = (float)fabs(tileRefSize * _skirtRatio);
+            float skirtHeight = (float)(tileRefSize * _skirtRatio);
             unsigned int vi = numRows * numCols;
             // row[0]
             unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;

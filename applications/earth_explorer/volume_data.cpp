@@ -21,6 +21,7 @@
 #include <sstream>
 
 extern std::string global_volumeToLoad;
+osg::Vec2 global_volumeRange;
 
 class MatrixVolumeCallback : public osg::NodeCallback
 {
@@ -161,7 +162,7 @@ static unsigned char* loadAllData(const std::string& file, unsigned int& size, u
 }
 
 typedef std::pair<osg::Node*, osg::Vec3d> ResultPair2;
-typedef std::pair<ResultPair, ResultPair2> VolumeTotalResult;
+typedef std::tuple<ResultPair, ResultPair2, osg::Vec2d> VolumeTotalResult;
 VolumeTotalResult createVolumeBox(const std::string& vdbFile, const osg::Vec3d& fromLLA,
                                   const osg::Vec3d& toLLA, float minV, float maxV)
 {
@@ -199,7 +200,7 @@ VolumeTotalResult createVolumeBox(const std::string& vdbFile, const osg::Vec3d& 
 #else
     osg::Group* lod = new osg::Group; lod->addChild(pair.first);
 #endif
-    return VolumeTotalResult(pair, ResultPair2(lod, (fromLLA + toLLA) * 0.5));
+    return VolumeTotalResult(pair, ResultPair2(lod, (fromLLA + toLLA) * 0.5), osg::Vec2d(minV, maxV));
 }
 
 class VolumeHandler : public osgGA::GUIEventHandler
@@ -223,16 +224,16 @@ public:
                 osgVerse::EarthManipulator* manipulator =
                     static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
                 manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(
-                    osg::Vec3d(vdb.second.second[0], vdb.second.second[1], 1000.0)));
-                global_volumeToLoad = "";
+                    osg::Vec3d(std::get<1>(vdb).second[0], std::get<1>(vdb).second[1], 2000.0)));
+                global_volumeToLoad = ""; global_volumeRange.set(std::get<2>(vdb));
             }
         }
 
         if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN)
         {
             VolumeTotalResult& vdb = vdbList[_index];
-            osg::MatrixTransform* transform = vdb.first.first;
-            osg::StateSet* ss = vdb.first.second;
+            osg::MatrixTransform* transform = std::get<0>(vdb).first;
+            osg::StateSet* ss = std::get<0>(vdb).second;
 
             //osg::Vec3 pos, scale; osg::Quat rot, so;
             //transform->getMatrix().decompose(pos, rot, scale, so);
@@ -291,7 +292,7 @@ osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
     //vdbRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
     vdbRoot->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 
-    VolumeHandler* handler = new VolumeHandler; float underOffset = 6000.0;
+    VolumeHandler* handler = new VolumeHandler; float underOffset = 12500.0;
     handler->vdbList.push_back(createVolumeBox(mainFolder + "/vdb/kerry.vdb.raw",
         osg::Vec3d(osg::inDegrees(-39.9978), osg::inDegrees(174.047), -1250.0),
         osg::Vec3d(osg::inDegrees(-39.6696), osg::inDegrees(174.214), -3.0), -4.0f, 4.0f));
@@ -303,6 +304,6 @@ osg::Node* configureVolumeData(osgViewer::View& viewer, osg::Node* earthRoot,
         osg::Vec3d(osg::inDegrees(-51.0016), osg::inDegrees(-145.154), -0.0 - underOffset), -30000.0f, 30000.0f));
 
     for (size_t i = 0; i < handler->vdbList.size(); ++i)
-        vdbRoot->addChild(handler->vdbList[i].second.first);
+        vdbRoot->addChild(std::get<1>(handler->vdbList[i]).first);
     viewer.addEventHandler(handler); return vdbRoot.release();
 }

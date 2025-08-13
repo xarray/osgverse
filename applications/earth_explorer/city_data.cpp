@@ -23,6 +23,7 @@
 #include <sstream>
 
 extern std::string global_cityToCreate;
+extern float global_TargetSunAngle;
 
 static void tessellateGeometry(osg::Geometry& geom, const osg::Vec3& axis)
 {
@@ -177,25 +178,25 @@ public:
             else if (!global_cityToCreate.empty())
             {
                 if (global_cityToCreate.find("beijing") != std::string::npos)
-                    { _cityToCreate = "beijing.json"; _cityPosition.set(39.9, 116.3); }
+                    { _cityToCreate = "beijing.json"; _cityPosition.set(39.9, 116.3); global_TargetSunAngle = -0.6f; }
                 else if (global_cityToCreate.find("capetown") != std::string::npos)
-                    { _cityToCreate = "capetown.json"; _cityPosition.set(-33.9, 18.4); }
+                    { _cityToCreate = "capetown.json"; _cityPosition.set(-33.9, 18.4); global_TargetSunAngle = 2.5f; }
                 else if (global_cityToCreate.find("hangzhou") != std::string::npos)
-                    { _cityToCreate = "hangzhou.json"; _cityPosition.set(30.0, 119.0); }
+                    { _cityToCreate = "hangzhou.json"; _cityPosition.set(30.0, 119.0); global_TargetSunAngle = -0.6f; }
                 else if (global_cityToCreate.find("london") != std::string::npos)
-                    { _cityToCreate = "london.json"; _cityPosition.set(51.5, 0.0); }
+                    { _cityToCreate = "london.json"; _cityPosition.set(51.5, 0.0); global_TargetSunAngle = 3.0f; }
                 else if (global_cityToCreate.find("nanjing") != std::string::npos)
-                    { _cityToCreate = "nanjing.json"; _cityPosition.set(31.9, 118.8); }
+                    { _cityToCreate = "nanjing.json"; _cityPosition.set(31.9, 118.8); global_TargetSunAngle = -0.6f; }
                 else if (global_cityToCreate.find("newyork") != std::string::npos)
-                    { _cityToCreate = "newyork.json";  _cityPosition.set(40.8, -74.0); }
+                    { _cityToCreate = "newyork.json";  _cityPosition.set(40.8, -74.0); global_TargetSunAngle = 1.6f; }
                 else if (global_cityToCreate.find("paris") != std::string::npos)
-                    { _cityToCreate = "paris.json";  _cityPosition.set(48.5, 2.2); }
+                    { _cityToCreate = "paris.json";  _cityPosition.set(48.5, 2.2); global_TargetSunAngle = 3.8f; }
                 else if (global_cityToCreate.find("riodejaneiro") != std::string::npos)
-                    { _cityToCreate = "riodejaneiro.json"; _cityPosition.set(-22.9, -43.2); }
+                    { _cityToCreate = "riodejaneiro.json"; _cityPosition.set(-22.9, -43.2); global_TargetSunAngle = 1.5f; }
                 else if (global_cityToCreate.find("shanghai") != std::string::npos)
-                    { _cityToCreate = "shanghai.json";  _cityPosition.set(31.0, 121.0); }
+                    { _cityToCreate = "shanghai.json";  _cityPosition.set(31.0, 121.0); global_TargetSunAngle = -0.6f; }
                 else if (global_cityToCreate.find("sydney") != std::string::npos)
-                    { _cityToCreate = "sydney.json"; _cityPosition.set(-33.8, 151.1); }
+                    { _cityToCreate = "sydney.json"; _cityPosition.set(-33.8, 151.1); global_TargetSunAngle = -2.0f; }
                 global_cityToCreate = "";
             }
         }
@@ -246,7 +247,7 @@ protected:
                     picojson::array centerNode = dataList[i].get("center").get<picojson::array>();
                     picojson::array polygonNode = dataList[i].get("polygon").get<picojson::array>();
                     std::string color = dataList[i].get("color").get<std::string>();
-                    double height = dataList[i].get("height").get<double>();
+                    double height = dataList[i].get("height").get<double>() * 4.0;
 
                     std::vector<osg::Vec3d> polygon; osg::Vec3d center;
                     for (size_t j = 0; j < polygonNode.size(); ++j)

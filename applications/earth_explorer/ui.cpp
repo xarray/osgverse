@@ -23,6 +23,8 @@
 extern std::mutex commandMutex;
 extern std::set<std::string> commandList;
 extern osg::ref_ptr<osg::Texture> finalBuffer2;
+extern osg::Vec2 global_volumeRange;
+extern int global_particleIndex;
 
 const char* uiVertCode = {
     "VERSE_VS_OUT vec4 texCoord, color; \n"
@@ -59,9 +61,10 @@ class UIHandler : public osgGA::GUIEventHandler
 {
 public:
     UIHandler(osgVerse::Drawer2D* d, const std::string& mainFolder, int w, int h)
-        : _drawer(d), _width(w), _height(h)
+        : _drawer(d), _width(w), _height(h), _volumeMode(0)
     {
         _selected = osgDB::readImageFile(mainFolder + "/ui/selected.png");
+        _volume = osgDB::readImageFile(mainFolder + "/ui/colormap-jet.png");
         _compass0 = osgDB::readImageFile(mainFolder + "/ui/compass0.png");
         _compass1 = osgDB::readImageFile(mainFolder + "/ui/compass1.png");
     }
@@ -150,10 +153,10 @@ public:
 
             DRAW_TEXT("TIMELINE", 1.4f, 24.8f);
             DRAW_TEXT("USGS Earthquake", 1.5f, 26.0f);
-            DRAW_TEXT("GPlates Motion", 1.5f, 27.0f);
+            //DRAW_TEXT("GPlates Motion", 1.5f, 27.0f);
 
             ITEM_RECT(1.5f, 26.0f, 7.5f, 27.0f) = "timeline/USGS_Earthquake";
-            ITEM_RECT(1.5f, 27.0f, 7.5f, 28.0f) = "timeline/GPlates";
+            //ITEM_RECT(1.5f, 27.0f, 7.5f, 28.0f) = "timeline/GPlates";
 
             // Selected item / button
             ITEM_RECT(28.4f, 3.0f, 29.0f, 4.0f) = "button/about?";
@@ -184,6 +187,8 @@ public:
                 // Run command when clicked (buttonState = 1)
                 if (_buttonState == 1)
                 {
+                    if (it->second.find("vdb/") != std::string::npos) _volumeMode = 1;
+                    else _volumeMode = 0;
                     commandMutex.lock();
                     commandList.insert(it->second);
                     commandMutex.unlock();
@@ -191,6 +196,36 @@ public:
                 break;
             }
             if (_buttonState > 0) _buttonState = 0;
+
+            // Volume data display
+            if (_volumeMode > 0)
+            {
+                osg::Vec2 pos(wCell * 28.75f, hCell * 14.0f);
+                drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 0.5f, hCell * 10.0f),
+                                      0.0f, 0.0f, osgVerse::DrawerStyleData(_volume.get()));
+
+                std::ostringstream oss1, oss2;
+                oss1 << std::fixed << std::setprecision(2) << global_volumeRange[1]; DRAW_TEXT_MID(oss1.str(), 29.0f, 13.0f);
+                oss2 << std::fixed << std::setprecision(2) << global_volumeRange[0]; DRAW_TEXT_MID(oss2.str(), 29.0f, 24.5f);
+            }
+
+            if (global_particleIndex >= 0)
+            {
+                switch (global_particleIndex)
+                {
+                case 0: DRAW_TEXT("Earthquakes in the First Half of Year 2020", 1.5f, 28.0f); break;
+                case 1: DRAW_TEXT("Earthquakes in the Second Half of Year 2020", 1.5f, 28.0f); break;
+                case 2: DRAW_TEXT("Earthquakes in the First Half of Year 2021", 1.5f, 28.0f); break;
+                case 3: DRAW_TEXT("Earthquakes in the Second Half of Year 2021", 1.5f, 28.0f); break;
+                case 4: DRAW_TEXT("Earthquakes in the First Half of Year 2022", 1.5f, 28.0f); break;
+                case 5: DRAW_TEXT("Earthquakes in the Second Half of Year 2022", 1.5f, 28.0f); break;
+                case 6: DRAW_TEXT("Earthquakes in the First Half of Year 2023", 1.5f, 28.0f); break;
+                case 7: DRAW_TEXT("Earthquakes in the Second Half of Year 2023", 1.5f, 28.0f); break;
+                case 8: DRAW_TEXT("Earthquakes in the First Half of Year 2024", 1.5f, 28.0f); break;
+                case 9: DRAW_TEXT("Earthquakes in the Second Half of Year 2024", 1.5f, 28.0f); break;
+                case 10: DRAW_TEXT("Earthquakes in the First Half of Year 2025", 1.5f, 28.0f); break;
+                }
+            }
 
             // LLA, compass and scale display
             double northRadians = 0.0, widthScale = 0.0;
@@ -277,9 +312,9 @@ public:
 
 protected:
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
-    osg::ref_ptr<osg::Image> _selected;
+    osg::ref_ptr<osg::Image> _selected, _volume;
     osg::ref_ptr<osg::Image> _compass0, _compass1;
-    int _width, _height, _buttonState;
+    int _width, _height, _buttonState, _volumeMode;
 };
 
 void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder, int w, int h)

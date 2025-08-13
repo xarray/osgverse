@@ -86,7 +86,7 @@ void main()
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
     groundColor.rgb *= max((sunL * cTheta + skyE) / 3.14159265, vec3(0.1));
     groundColor.a *= clamp(globalOpaque, 0.0, 1.0);
-    
+
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
     vec3 compositeColor = groundColor.rgb * extinction * sunColorScale + inscatter * skyColorScale;

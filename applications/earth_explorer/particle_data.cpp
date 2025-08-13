@@ -33,12 +33,18 @@ static std::string s_dataList[] = {
 };
 static int s_dataListCount = 11;
 
+extern std::string global_particleToLoad;
+int global_particleIndex = -1;
+
 class TimelineParticleHandler : public osgGA::GUIEventHandler
 {
 public:
-    TimelineParticleHandler(osgVerse::ParticleSystemU3D* cloud, const std::string& mainFolder)
-        : _cloud(cloud), _mainFolder(mainFolder), _dataIndex(0)
-    { updateParticleCloud(_mainFolder + "/" + s_dataList[0]); }
+    TimelineParticleHandler(osg::Geode* node, osgVerse::ParticleSystemU3D* cloud, const std::string& mainFolder)
+        : _particleNode(node), _cloud(cloud), _mainFolder(mainFolder), _dataIndex(0)
+    {
+        updateParticleCloud(_mainFolder + "/" + s_dataList[0]); global_particleIndex = -1;
+        _nodeMask = node->getNodeMask(); node->setNodeMask(0);  // hide at first
+    }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
@@ -48,6 +54,26 @@ public:
         {
             if (_dataIndex >= s_dataListCount - 1) _dataIndex = 0; else _dataIndex++;
             updateParticleCloud(_mainFolder + "/" + s_dataList[_dataIndex]);
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+        {
+            if (!global_particleToLoad.empty())
+            {
+                if (global_particleToLoad == "next")
+                {
+                    if (_dataIndex >= s_dataListCount - 1) _dataIndex = 0; else _dataIndex++;
+                    updateParticleCloud(_mainFolder + "/" + s_dataList[_dataIndex]);
+                    global_particleIndex = _dataIndex;
+                }
+                else if (_particleNode->getNodeMask() == 0)
+                {
+                    updateParticleCloud(_mainFolder + "/" + s_dataList[_dataIndex]);
+                    _particleNode->setNodeMask(_nodeMask); global_particleIndex = _dataIndex;
+                }
+                else
+                    { _particleNode->setNodeMask(0); global_particleIndex = -1; }
+                global_particleToLoad = "";
+            }
         }
         return false;
     }
@@ -76,8 +102,9 @@ protected:
         _cloud->setPointCloud(pointCloud.get(), true);
     }
 
+    osg::observer_ptr<osg::Geode> _particleNode;
     osg::observer_ptr<osgVerse::ParticleSystemU3D> _cloud;
-    std::string _mainFolder; int _dataIndex;
+    std::string _mainFolder; unsigned int _dataIndex, _nodeMask;
 };
 
 void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder,
@@ -101,5 +128,5 @@ void configureParticleCloud(osgViewer::View& viewer, osg::Group* root, const std
     cloudAll->setBlendingType(osgVerse::ParticleSystemU3D::BLEND_Additive);
     cloudAll->setGravityScale(0.0f); cloudAll->setAspectRatio(16.0 / 9.0);
     cloudAll->linkTo(particleNode.get(), true, vs.get(), fs.get(), gs.get());
-    viewer.addEventHandler(new TimelineParticleHandler(cloudAll.get(), mainFolder));
+    viewer.addEventHandler(new TimelineParticleHandler(particleNode.get(), cloudAll.get(), mainFolder));
 }

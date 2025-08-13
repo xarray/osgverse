@@ -29,8 +29,10 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
 std::set<std::string> commandList; std::mutex commandMutex;
-std::string global_cityToCreate, global_volumeToLoad;
+std::string global_cityToCreate, global_volumeToLoad, global_particleToLoad;
 osg::ref_ptr<osg::Texture> finalBuffer0, finalBuffer1, finalBuffer2;
+float global_TargetSunAngle = -0.6f;
+extern int global_particleIndex;
 
 typedef std::pair<osg::Camera*, osg::Texture*> CameraTexturePair;
 extern CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Group* root, osg::Node* earth,
@@ -75,7 +77,7 @@ class EnvironmentHandler : public osgGA::GUIEventHandler
 public:
     EnvironmentHandler(osg::Camera* c, osg::StateSet* ss, osg::EllipsoidModel* em, const std::string& folder)
     :   _rttCamera(c), _mainStateSets(ss), _ellipsoidModel(em),
-        _mainFolder(folder), _sunAngle(0.1f), _pressingKey(0)
+        _mainFolder(folder), _sunAngle(-0.6f), _pressingKey(0)
     {
         osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
         worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
@@ -114,9 +116,22 @@ public:
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP) _pressingKey = 0;
 
+        osg::StateSet* ss = _mainStateSets.get();
+        if (global_TargetSunAngle < _sunAngle)
+        {
+            osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
+            if (_sunAngle - global_TargetSunAngle < 0.02f) _sunAngle = global_TargetSunAngle; else _sunAngle -= 0.02f;
+            worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+        }
+        else if (global_TargetSunAngle > _sunAngle)
+        {
+            osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
+            if (global_TargetSunAngle - _sunAngle < 0.02f) _sunAngle = global_TargetSunAngle; else _sunAngle += 0.02f;
+            worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+        }
+
         if (_pressingKey > 0)
         {
-            osg::StateSet* ss = _mainStateSets.get();
             osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
             osg::Uniform* opaqueValue = ss->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT);
             osg::Uniform* opaqueValue2 = ss->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT);
@@ -125,9 +140,11 @@ public:
             switch (_pressingKey)
             {
             case osgGA::GUIEventAdapter::KEY_Left:
-                _sunAngle -= 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
+                _sunAngle -= 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                global_TargetSunAngle = _sunAngle; break;
             case osgGA::GUIEventAdapter::KEY_Right:
-                _sunAngle += 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS)); break;
+                _sunAngle += 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                global_TargetSunAngle = _sunAngle; break;
             case '[': opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
             case ']': opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
             case '-': opaqueValue2->set(0.0f); break;
@@ -165,6 +182,7 @@ public:
             if (cmdName.find("layers/") != std::string::npos) updateUserLayer(cmdName);
             else if (cmdName.find("vdb/") != std::string::npos) updateVolumeData(cmdName);
             else if (cmdName.find("cities/") != std::string::npos) updateCityData(cmdName);
+            else if (cmdName.find("timeline/") != std::string::npos) updateTimelineData(cmdName);
             else if (cmdName.find("button/") != std::string::npos) updateButtonAction(view, cmdName);
         }
     }
@@ -205,14 +223,33 @@ public:
         _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(1.0f);
     }
 
+    void updateTimelineData(const std::string& name)
+    {
+        global_particleToLoad = name;
+        if (global_particleIndex < 0)
+        {
+            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.1f);
+            _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
+        }
+        else
+        {
+            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(1.0f);
+            _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(1.0f);
+        }
+    }
+
     void updateButtonAction(osgViewer::View* view, const std::string& name)
     {
-        if (name.find("layers") != std::string::npos)
+        if (name.find("table") != std::string::npos)
+        {
+            if (global_particleIndex >= 0) global_particleToLoad = "next";
+        }
+        else if (name.find("layers") != std::string::npos)
         {
             if (_currentLayer == "") updateStreetLayer();
             //else if (_currentLayer == "street") updateCloudLayer();
-            //else updateUserLayer("");
             else if (_currentLayer == "street") updateUserLayer("");
+            else updateUserLayer("");
         }
         else if (name.find("show_globe") != std::string::npos)
         {
@@ -306,6 +343,10 @@ int main(int argc, char** argv)
     earthManipulator->setThrowAllowed(false);
     viewer.setCameraManipulator(earthManipulator.get());
 
+    osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
+        osg::Vec3d(osg::inDegrees(0.0), osg::inDegrees(120.0), 10000.0));
+    earthManipulator->moveTo(pos, 0.0, 120.0);
+
     // Create the scene graph
     osg::ref_ptr<osg::Group> root = new osg::Group;
     CameraTexturePair camTexPair = configureEarthAndAtmosphere(
@@ -317,7 +358,7 @@ int main(int argc, char** argv)
     sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
     sceneCamera->addChild(configureInternal(viewer, earth.get(), sceneTexture.get(), ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
-    //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
+    configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
     configureUI(viewer, root.get(), mainFolder, w, h);
 
     osg::StateSet* ss = root->getOrCreateStateSet();
@@ -365,7 +406,7 @@ int main(int argc, char** argv)
         sceneCamera.get(), root->getOrCreateStateSet(), earthManipulator->getEllipsoid(), mainFolder));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
+    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
