@@ -38,7 +38,7 @@ VERSE_FS_IN vec3 oceanP; // wave point P(u) in ocean space
 VERSE_FS_IN vec3 oceanDPdu; // dPdu in wind space, used to compute N
 VERSE_FS_IN vec3 oceanDPdv; // dPdv in wind space, used to compute N
 VERSE_FS_IN float oceanSigmaSq; // variance of unresolved waves in wind space
-VERSE_FS_IN float oceanLod;
+VERSE_FS_IN float oceanLod, oceanValid;
 VERSE_FS_OUT vec4 fragData;
 
 #include "scattering.module.glsl"
@@ -135,7 +135,8 @@ void main()
 {
     vec2 quadUV = vec2(gl_FragCoord.x / screenSize.x, gl_FragCoord.y / screenSize.y);
     vec4 sceneColor = VERSE_TEX2D(earthMaskSampler, quadUV);
-    if (/*oceanUv.z < 0.5 || */sceneColor.a < 0.01) discard;
+    if (oceanUv.z < 0.5) discard;  // FIXME: render in undersea mode?
+    if (sceneColor.a < 0.1 && oceanValid < 0.0) discard;
 
     vec3 WSD = getWorldSunDir(), WCP = getWorldCameraPos();
     vec3 dPdu = oceanDPdu, dPdv = oceanDPdv; vec2 uv = oceanUv.xy;

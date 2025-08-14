@@ -18,14 +18,14 @@ uniform vec4 lods;  // grid cell size in pixels, angle under which a grid cell i
 const float PI = 3.141592657;
 const float g = 9.81;
 
-VERSE_VS_OUT vec3 oceanUv; // coordinates in wind space used to compute P(u); z: can render or not
+VERSE_VS_OUT vec3 oceanUv; // coordinates in wind space used to compute P(u); z: undersea flag
 VERSE_VS_OUT vec3 oceanP; // wave point P(u) in ocean space
 VERSE_VS_OUT vec3 oceanDPdu; // dPdu in wind space, used to compute N
 VERSE_VS_OUT vec3 oceanDPdv; // dPdv in wind space, used to compute N
 VERSE_VS_OUT float oceanSigmaSq; // variance of unresolved waves in wind space
-VERSE_VS_OUT float oceanLod;
+VERSE_VS_OUT float oceanLod, oceanValid;
 
-vec2 oceanPos(vec3 vertex, out float t, out vec3 cameraDir, out vec3 oceanDir)
+vec2 oceanPos(vec3 vertex, bool checkValid, out float t, out vec3 cameraDir, out vec3 oceanDir)
 {
     float horizon = horizon1.x + horizon1.y * vertex.x -
                     sqrt(horizon2.x + (horizon2.y + horizon2.z * vertex.x) * vertex.x);
@@ -37,11 +37,13 @@ vec2 oceanPos(vec3 vertex, out float t, out vec3 cameraDir, out vec3 oceanDir)
         t = (heightOffset + 5.0 - cz) / dz;
     else
     {
-        float b = dz * (cz + radius);
-        float c = cz * (cz + 2.0 * radius);
+        float b = dz * (cz + radius), c = cz * (cz + 2.0 * radius);
         float tSphere = -b - sqrt(max(b * b - c, 0.0));
         float tApprox = -cz / dz * (1.0 + cz / (2.0 * radius) * (1.0 - dz * dz));
         t = abs((tApprox - tSphere) * dz) < 1.0 ? tApprox : tSphere;
+
+        // Approx. check if camera-dir intersects with sphere
+        if (checkValid) oceanValid = (b * b - c < 1000.0) ? -1.0 : 1.0;
     }
     return oceanCameraPos.xy + t * oceanDir.xy;
 }
@@ -49,21 +51,22 @@ vec2 oceanPos(vec3 vertex, out float t, out vec3 cameraDir, out vec3 oceanDir)
 vec2 oceanPos(vec3 vertex)
 {
     float t = 0.0; vec3 cameraDir, oceanDir;
-    return oceanPos(vertex, t, cameraDir, oceanDir);
+    return oceanPos(vertex, false, t, cameraDir, oceanDir);
 }
 
 void main()
 {
-    float t = 0.0; vec3 cameraDir, oceanDir;
-    oceanUv.z = (oceanCameraPos.z > 0.0) ? 1.0 : 0.0;
-    vec2 uv = oceanPos(osg_Vertex.xyz, t, cameraDir, oceanDir);
+    float t = 0.0; vec3 cameraDir, oceanDir; oceanValid = 1.0;
+    oceanUv.z = (oceanCameraPos.z > 0.0) ? 1.0 : 0.0;  // 'over the sea' or 'under-sea'
+    vec2 uv = oceanPos(osg_Vertex.xyz, true, t, cameraDir, oceanDir);
+    if (oceanCameraPos.z > 100000.0) oceanValid = -1.0;  // no need to check if far enough
 
     float lod = -t / oceanDir.z * lods.y; // size in meters of one grid cell, projected on the sea surface
     vec2 duv = oceanPos(osg_Vertex.xyz + vec3(0.0, 0.01, 0.0)) - uv;
     vec3 dP = vec3(0.0, 0.0, heightOffset + (radius > 0.0 ? 0.0 : 5.0));
     vec3 dPdu = vec3(1.0, 0.0, 0.0), dPdv = vec3(0.0, 1.0, 0.0);
-    float sigmaSq = seaRoughness;
 
+    float sigmaSq = seaRoughness;
     if (duv.x != 0.0 || duv.y != 0.0)
     {
         float iMin = max(floor((log2(NYQUIST_MIN * lod) - lods.z) * lods.w), 0.0);

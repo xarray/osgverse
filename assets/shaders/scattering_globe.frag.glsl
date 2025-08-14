@@ -16,6 +16,7 @@ uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 
 VERSE_FS_IN vec3 vertexInWorld, normalInWorld;
 VERSE_FS_IN vec4 texCoord;
+VERSE_FS_IN float isSkirt;
 
 #ifdef VERSE_GLES3
 layout(location = 0) VERSE_FS_OUT vec4 fragColor;
@@ -54,6 +55,7 @@ void main()
     vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st * UvOffset1.zw + UvOffset1.xy);
     vec4 layerColor = VERSE_TEX2D(extraLayerSampler, texCoord.st * UvOffset3.zw + UvOffset3.xy);
     groundColor.rgb = mix(groundColor.rgb, layerColor.rgb, layerColor.a);
+    if (isSkirt < -0.1 && globalOpaque < 0.9) discard;  // hide skirt if transparent
 
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec2 uv = texCoord.xy * UvOffset2.zw + UvOffset2.xy;

@@ -1,3 +1,4 @@
+#include <osg/CullFace>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
@@ -83,7 +84,7 @@ std::pair<osg::Geometry*, TileCallback*> TileCallback::findParentTile(osg::Group
     return std::pair<osg::Geometry*, TileCallback*>();
 }
 
-osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
+osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, osg::NodeVisitor::ImageRequestHandler* irh)
 {
     std::string inputAddr = _layerPaths[(int)id].first;
     emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
@@ -92,10 +93,17 @@ osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
     std::string protocol = osgDB::getServerProtocol(url);
 
-    osgDB::ReaderWriter* rw = TileManager::instance()->getReaderWriter(protocol, url);
-    osg::ref_ptr<osg::Image> image = rw ? rw->readImage(url).takeImage() : NULL;
-    //osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url);
-    return !image ? NULL : createTexture2D(image.get(), osg::Texture::CLAMP_TO_EDGE);
+    osg::ref_ptr<osg::Texture2D> tex2D = createTexture2D(NULL, osg::Texture::CLAMP_TO_EDGE);
+    if (irh != NULL)
+        irh->requestImageFile(url, tex2D.get(), 0, 0.0, NULL, _imageRequests[url]);
+    else
+    {
+        osgDB::ReaderWriter* rw = TileManager::instance()->getReaderWriter(protocol, url);
+        osg::ref_ptr<osg::Image> image = rw ? rw->readImage(url).takeImage() : NULL;
+        //osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url);
+        if (!image) return NULL; else tex2D->setImage(image.get());
+    }
+    return tex2D.release();
 }
 
 TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyPath)
@@ -167,7 +175,6 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                                                 double width, double height) const
 {
     osg::Image* elevation = (elevationTex ? elevationTex->getImage(0) : NULL);
-    double tileRefSize = osg::inDegrees(tileMax.y() - tileMin.y()) * osg::WGS_84_RADIUS_EQUATOR;
     bool useRealElevation = elevation ? (elevation->getDataType() == GL_FLOAT) : false;
     if (!_flatten)
     {
@@ -208,7 +215,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
                 (*va)[vi] = osg::Vec3(ecef * _worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
-
+                
                 // For ocean plane, save distance to earth center when ALTITUDE = 0
                 lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, 0.0), _useWebMercator);
@@ -240,74 +247,17 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                 de->push_back(vi + numCols); de->push_back(vi + 1); de->push_back(vi + numCols + 1);
             }
 
-        if (_skirtRatio > 0.0f)
-        {
-            float skirtHeight = (float)(tileRefSize * _skirtRatio);
-            unsigned int vi = numRows * numCols;
-            // row[0]
-            unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;
-            for (unsigned int c = 0; c < numCols; ++c, ++vi)
-            {
-                unsigned int si = tile_bottom_row + c; osg::Vec3 N = na->at(si); N.normalize();
-                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
-            }
-            for (unsigned int c = 0; c < numCols - 1; ++c)
-            {
-                unsigned int tile_i = tile_bottom_row + c, skirt_i = skirt_bottom_row + c;
-                de->push_back(tile_i); de->push_back(skirt_i); de->push_back(skirt_i + 1);
-                de->push_back(skirt_i + 1); de->push_back(tile_i + 1); de->push_back(tile_i);
-            }
-            // row[numRows-1]
-            unsigned int tile_top_row = (numRows - 1) * numCols, base_top_row = vi;
-            for (unsigned int c = 0; c < numCols; ++c, ++vi)
-            {
-                unsigned int si = tile_top_row + c; osg::Vec3 N = na->at(si); N.normalize();
-                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
-            }
-            for (unsigned int c = 0; c < numCols - 1; ++c)
-            {
-                unsigned int tile_i = tile_top_row + c, skirt_i = base_top_row + c;
-                de->push_back(tile_i); de->push_back(skirt_i + 1); de->push_back(skirt_i);
-                de->push_back(skirt_i + 1); de->push_back(tile_i); de->push_back(tile_i + 1);
-            }
-            // column[0]
-            unsigned int tile_left_column = 0, skirt_left_column = vi;
-            for (unsigned int r = 0; r < numRows; ++r, ++vi)
-            {
-                unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
-                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
-            }
-            for (unsigned int r = 0; r < numRows - 1; ++r)
-            {
-                unsigned int tile_i = tile_left_column + r * numCols, skirt_i = skirt_left_column + r;
-                de->push_back(tile_i); de->push_back(skirt_i + 1); de->push_back(skirt_i);
-                de->push_back(skirt_i + 1); de->push_back(tile_i); de->push_back(tile_i + numCols);
-            }
-            // column[numColums-1]
-            unsigned int tile_right_column = numCols - 1, skirt_right_column = vi;
-            for (unsigned int r = 0; r < numRows; ++r, ++vi)
-            {
-                unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
-                va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N; ta->at(vi) = ta->at(si);
-                ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
-            }
-            for (unsigned int r = 0; r < numRows - 1; ++r)
-            {
-                unsigned int tile_i = tile_right_column + r * numCols, skirt_i = skirt_right_column + r;
-                de->push_back(tile_i); de->push_back(skirt_i); de->push_back(skirt_i + 1);
-                de->push_back(skirt_i + 1); de->push_back(tile_i + numCols); de->push_back(tile_i);
-            }
-        }  // if (_skirtRatio > 0.0f)
 
         osg::Geometry* geom = new osg::Geometry;
         geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
         geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
         geom->setVertexAttribArray(1, ca.get()); geom->setVertexAttribNormalize(1, GL_FALSE);
         geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
-        geom->addPrimitiveSet(de.get()); return geom;
+        geom->addPrimitiveSet(de.get());
+
+        if (_skirtRatio > 0.0f)
+            updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), true);
+        return geom;
     }
     else if (elevation)
     {   // FIXME: support altitude on flatten map?
@@ -361,7 +311,95 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
                 (*va)[vi] = osg::Vec3(ecef * _worldToLocal);
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
             }
+
+        if (_skirtRatio > 0.0f)
+            updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), false);
         va->dirty(); na->dirty(); geom->dirtyBound();
+    }
+}
+
+void TileCallback::updateSkirtData(osg::Geometry* geom, double tileRefSize, bool addingTriangles) const
+{
+    double skirtHeight = osg::WGS_84_RADIUS_POLAR * tileRefSize * _skirtRatio;
+    unsigned int numRows = TILE_ROWS, numCols = TILE_COLS;
+    unsigned int vi = numRows * numCols;
+    if (!geom) return; else if (!geom->getVertexArray() || geom->getNumPrimitiveSets() == 0) return;
+
+    osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+    osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
+    osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
+    osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(1));
+    osg::DrawElementsUShort* de = static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0));
+    va->dirty(); na->dirty(); ta->dirty(); ca->dirty(); geom->dirtyBound();
+    if (addingTriangles) { de->dirty(); }
+
+    // row[0]
+    unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;
+    for (unsigned int c = 0; c < numCols; ++c, ++vi)
+    {
+        unsigned int si = tile_bottom_row + c; osg::Vec3 N = na->at(si); N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        ta->at(vi) = ta->at(si); ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
+    }
+    if (addingTriangles)
+    {
+        for (unsigned int c = 0; c < numCols - 1; ++c)
+        {
+            unsigned int tile_i = tile_bottom_row + c, skirt_i = skirt_bottom_row + c;
+            de->push_back(tile_i); de->push_back(skirt_i); de->push_back(skirt_i + 1);
+            de->push_back(skirt_i + 1); de->push_back(tile_i + 1); de->push_back(tile_i);
+        }
+    }
+    // row[numRows-1]
+    unsigned int tile_top_row = (numRows - 1) * numCols, base_top_row = vi;
+    for (unsigned int c = 0; c < numCols; ++c, ++vi)
+    {
+        unsigned int si = tile_top_row + c; osg::Vec3 N = na->at(si); N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        ta->at(vi) = ta->at(si); ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
+    }
+    if (addingTriangles)
+    {
+        for (unsigned int c = 0; c < numCols - 1; ++c)
+        {
+            unsigned int tile_i = tile_top_row + c, skirt_i = base_top_row + c;
+            de->push_back(tile_i); de->push_back(skirt_i + 1); de->push_back(skirt_i);
+            de->push_back(skirt_i + 1); de->push_back(tile_i); de->push_back(tile_i + 1);
+        }
+    }
+    // column[0]
+    unsigned int tile_left_column = 0, skirt_left_column = vi;
+    for (unsigned int r = 0; r < numRows; ++r, ++vi)
+    {
+        unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        ta->at(vi) = ta->at(si); ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
+    }
+    if (addingTriangles)
+    {
+        for (unsigned int r = 0; r < numRows - 1; ++r)
+        {
+            unsigned int tile_i = tile_left_column + r * numCols, skirt_i = skirt_left_column + r;
+            de->push_back(tile_i); de->push_back(skirt_i + 1); de->push_back(skirt_i);
+            de->push_back(skirt_i + 1); de->push_back(tile_i); de->push_back(tile_i + numCols);
+        }
+    }
+    // column[numColums-1]
+    unsigned int tile_right_column = numCols - 1, skirt_right_column = vi;
+    for (unsigned int r = 0; r < numRows; ++r, ++vi)
+    {
+        unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        ta->at(vi) = ta->at(si); ca->at(vi) = ca->at(si); ca->at(vi).y() = -1.0f;
+    }
+    if (addingTriangles)
+    {
+        for (unsigned int r = 0; r < numRows - 1; ++r)
+        {
+            unsigned int tile_i = tile_right_column + r * numCols, skirt_i = skirt_right_column + r;
+            de->push_back(tile_i); de->push_back(skirt_i); de->push_back(skirt_i + 1);
+            de->push_back(skirt_i + 1); de->push_back(tile_i + numCols); de->push_back(tile_i);
+        }
     }
 }
 
@@ -426,6 +464,8 @@ bool TileCallback::updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerT
     case OCEAN_MASK:
         tex = createLayerImage(id, emptyPath); texUnit = 1; break;
     default:  // USER
+        // FIXME: use own ImageRequestHandler if we need to check and reuse parent tile...
+        //tex = createLayerImage(id, emptyPath, nv->getImageRequestHandler()); texUnit = 2; break;
         tex = createLayerImage(id, emptyPath); texUnit = 2; break;
     }
 

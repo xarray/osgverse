@@ -52,7 +52,7 @@ namespace osgVerse
         typedef std::pair<std::string, LayerState> DataPathPair;
 
         virtual osg::Texture* findAndUseParentData(LayerType id, osg::Group* parent);
-        osg::Texture* createLayerImage(LayerType id, bool& emptyPath);
+        osg::Texture* createLayerImage(LayerType id, bool& emptyPath, osg::NodeVisitor::ImageRequestHandler* irh = NULL);
         TileGeometryHandler* createLayerHandler(LayerType id, bool& emptyPath);
 
         /** Set layer data path with wildcards */
@@ -114,9 +114,11 @@ namespace osgVerse
     protected:
         virtual ~TileCallback() {}
         virtual bool updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerType id);
+        virtual void updateSkirtData(osg::Geometry* geometry, double tileRefSize, bool addingTriangles) const;
 
         std::map<int, DataPathPair> _layerPaths;
         std::map<std::string, osg::Vec4> _uvRangesToSet;
+        std::map<std::string, osg::ref_ptr<osg::Referenced>> _imageRequests;
         osg::ref_ptr<osg::Texture> _elevationRef;
         osg::Matrix _worldToLocal;
         osg::Vec3d _extentMin, _extentMax;
