@@ -59,13 +59,15 @@ const char* finalVertCode = {
 
 const char* finalFragCode = {
     "uniform sampler2D sceneTexture, oceanTexture, uiTexture;\n"
+    "uniform float flipForStreaming; \n"
     "VERSE_FS_IN vec4 texCoord; \n"
     "VERSE_FS_OUT vec4 fragColor;\n"
 
     "void main() {\n"
-    "    vec4 sceneColor = VERSE_TEX2D(sceneTexture, texCoord.st);\n"
-    "    vec4 oceanColor = VERSE_TEX2D(oceanTexture, texCoord.st);\n"
-    "    vec4 uiColor = VERSE_TEX2D(uiTexture, texCoord.st);\n"
+    "    vec2 uv = (flipForStreaming > 0.5) ? vec2(texCoord.s, 1.0 - texCoord.t) : texCoord.st; \n"
+    "    vec4 sceneColor = VERSE_TEX2D(sceneTexture, uv.st);\n"
+    "    vec4 oceanColor = VERSE_TEX2D(oceanTexture, uv.st);\n"
+    "    vec4 uiColor = VERSE_TEX2D(uiTexture, uv.st);\n"
     "    fragColor = mix(sceneColor, oceanColor, oceanColor.a); \n"
     "    fragColor = mix(fragColor, uiColor, uiColor.a); \n"
     "    VERSE_FS_FINAL(fragColor);\n"
@@ -392,8 +394,11 @@ int main(int argc, char** argv)
     {
         osgDB::Registry::instance()->loadLibrary(
             osgDB::Registry::instance()->createLibraryNameForExtension("verse_ms"));
-        viewer.getCamera()->setFinalDrawCallback(new CaptureCallback(streamURL, w, h));
+        viewer.getCamera()->setFinalDrawCallback(new CaptureCallback(streamURL, mainFolder, w, h));
+        finalCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("flipForStreaming", 1.0f));
     }
+    else
+        finalCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("flipForStreaming", 0.0f));
 #endif
 
     // Realize the viewer

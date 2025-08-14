@@ -4,7 +4,7 @@
     <title>ZLM RTC demo</title>
     <script src="./ZLMRTCClient.js"></script>
   </head>
-    
+
   <body>
     <div style="text-align: center;">
         <div>
@@ -81,13 +81,13 @@
         var yy = 1.0 - event.y / videoItem.clientHeight;
         mouseDown = false; ws.send("release," + xx + "," + yy);
       }
-      
+
       videoItem.onmousemove = function(event) {
         var xx = event.x / videoItem.clientWidth;
         var yy = 1.0 - event.y / videoItem.clientHeight;
         ws.send("move," + xx + "," + yy);
       }
-      
+
       var recvOnly = true;
       if (!isHttps && !isLocal) {
           //alert('本demo需要在https的网站访问 ,如果你要推流的话');

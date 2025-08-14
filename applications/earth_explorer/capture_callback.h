@@ -1,6 +1,7 @@
 #include <osg/io_utils>
 #include <osg/Texture2D>
 #include <osgDB/Archive>
+#include <osgDB/FileNameUtils>
 #include <osgViewer/View>
 #include <iostream>
 #include <fstream>
@@ -18,17 +19,29 @@
 class HttpApiCallback : public osgVerse::UserCallback
 {
 public:
-    HttpApiCallback(const std::string& name) : osgVerse::UserCallback(name) {}
+    HttpApiCallback(const std::string& name, const std::string& htmlFile) : osgVerse::UserCallback(name)
+    { _htmlFolder = osgDB::getFilePath(htmlFile); _htmlFile = osgDB::getSimpleFileName(htmlFile); }
+
     virtual bool run(osg::Object* object, Parameters& in, Parameters& out) const
     {
         if (in.empty()) return false;
         osgVerse::StringObject* so = static_cast<osgVerse::StringObject*>(in[0].get());
         if (!so || (so && so->values.size() < 2)) return false;
 
-        // TODO
-        std::cout << so->values[0] << ", " << so->values[1] << "\n";
+        osg::ref_ptr<osgVerse::StringObject> result = new osgVerse::StringObject;
+        if (so->values[1].empty())
+        {
+            if (so->values[0] == "/") result->values.push_back(_htmlFile);
+            else  result->values.push_back(so->values[0]);
+            result->values.push_back(_htmlFolder); out.push_back(result.get());
+        }
+        else
+            { }  // handle query string?
         return true;
     }
+
+protected:
+    std::string _htmlFile, _htmlFolder;
 };
 #endif
 
@@ -47,7 +60,7 @@ struct MTEncInputFrame
 class CaptureCallback : public osg::Camera::DrawCallback
 {
 public:
-    CaptureCallback(const std::string& url, int w, int h)
+    CaptureCallback(const std::string& url, const std::string& mainFolder, int w, int h)
         : _streamURL(url), _width(w), _height(h), _frameNumber(0)
     {
 #if defined(NV_ENCODER)
@@ -107,7 +120,8 @@ public:
         options->setPluginStringData("rtc", "8000");  // set RTC port: 8000
         _msServer = _msWriter->openArchive(
             "TestServer", osgDB::ReaderWriter::CREATE, 4096, options.get()).getArchive();
-        _msServer->getOrCreateUserDataContainer()->addUserObject(new HttpApiCallback("HttpAPI"));
+        _msServer->getOrCreateUserDataContainer()->addUserObject(
+            new HttpApiCallback("HttpAPI", mainFolder + "/webrtc/index.html"));
 #endif
 #if RECORD_FILE
         _streamFile = new std::ofstream("../record.h265", std::ios::out | std::ios::binary);
@@ -143,6 +157,18 @@ public:
         glReadBuffer(GL_BACK);  // read from back buffer (gc must be double-buffered)
 #endif
         _frameNumber++;
+
+        if (_msServer.valid())
+        {
+            osg::ref_ptr<osgVerse::StringObject> cmd = static_cast<osgVerse::StringObject*>(
+                _msServer->readObject("rtcp").takeObject());
+            if (cmd.valid())
+            {
+                osgGA::EventQueue* eq = static_cast<osgViewer::View*>(renderInfo.getView())->getEventQueue();
+                for (size_t i = 0; i < cmd->values.size(); ++i)
+                    handleUserEvent(eq, cmd->values[i]);
+            }
+        }
 
         if (_encoder)
         {
@@ -421,6 +447,31 @@ public:
         return initParams;
     }
 #endif
+
+    void handleUserEvent(osgGA::EventQueue* eq, const std::string& cmd) const
+    {
+        osgDB::StringList idAndMsg, values;
+        osgDB::split(cmd, idAndMsg, ':');  // sID/pID : move,btn,x,y
+        osgDB::split(idAndMsg.back(), values, ',');
+        if (values.size() < 4) return;  // cmd,btn,x,y
+
+        osgGA::GUIEventAdapter::MouseButtonMask btn = osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON;
+        int button = atoi(values[1].c_str());
+        switch (button)
+        {
+        case 0: btn = osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON; break;
+        case 1: btn = osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON; break;
+        case 2: btn = osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON; break;
+        }
+
+        float x = atof(values[2].c_str()) * _width;
+        float y = atof(values[3].c_str()) * _height;
+        if (values[0] == "wheel") eq->mouseScroll(button > 0 ?
+            osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP : osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_DOWN);
+        else if (values[0] == "move") eq->mouseMotion(x, y);
+        else if (values[0] == "press") eq->mouseButtonPress(x, y, btn);
+        else if (values[0] == "release") eq->mouseButtonRelease(x, y, btn);
+    }
 
 protected:
 #if defined(NV_ENCODER)

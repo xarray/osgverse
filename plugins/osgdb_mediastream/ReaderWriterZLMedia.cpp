@@ -145,16 +145,34 @@ public:
     virtual bool getFileNames(osgDB::DirectoryContents& fileNames) const { return false; }
     //virtual osgDB::DirectoryContents getDirectoryContents(const std::string& dirName) const;
 
-    virtual ReadResult readObject(
-        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+    virtual ReadResult readObject(const std::string& file, const osgDB::Options* o = NULL) const
+    {
+        std::vector<std::string> messages;
+        if (file == "rtcp")
+        {
+            g_server->_rtcpMutex.lock();
+            g_server->_rtcpMessages.swap(messages);
+            g_server->_rtcpMutex.unlock();
+        }
+
+        if (!messages.empty())
+        {
+            osg::ref_ptr<osgVerse::StringObject> msgObject = new osgVerse::StringObject;
+            msgObject->values.swap(messages); return msgObject;
+        }
+        return ReadResult::FILE_NOT_FOUND;
+    }
+
     virtual ReadResult readImage(
-        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+        const std::string& f, const osgDB::Options* o = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
     virtual ReadResult readHeightField(
-        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+        const std::string& f, const osgDB::Options* o = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
     virtual ReadResult readNode(
-        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+        const std::string& f, const osgDB::Options* o = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
     virtual ReadResult readShader(
-        const std::string& f, const osgDB::Options* o  = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+        const std::string& f, const osgDB::Options* o = NULL) const { return ReadResult::NOT_IMPLEMENTED; }
+
+    // Use mk_rtc_send_datachannel() to send messages in data channel?
     virtual WriteResult writeObject(const osg::Object& obj,
         const std::string& f, const osgDB::Options* o = NULL) const { return WriteResult::NOT_IMPLEMENTED; }
     virtual WriteResult writeImage(const osg::Image& obj,
@@ -270,7 +288,7 @@ public:
                 mk_http_response_invoker_clone(invoker), ZLMediaServerArchive::onMkWebrtcGetAnswerSdp,
                 mk_parser_get_url_param(parser, "type"), mk_parser_get_content(parser, NULL), rtc_url);
         }
-        else
+        else if (g_server.valid())
         {
             osg::ref_ptr<osgVerse::StringObject> so = new osgVerse::StringObject;
             so->values.push_back(urlString); so->values.push_back(paramsString);
@@ -282,15 +300,19 @@ public:
                 std::string reply;
                 osgVerse::StringObject* so = out.empty() ? NULL
                                            : static_cast<osgVerse::StringObject*>(out[0].get());
-                if (so) for (size_t i = 0; i < so->values.size(); ++i) reply += so->values[i];
-                else reply = "ok"; *consumed = 1;
-
-                const char* response_header[] = { "Content-Type", "text/plain", NULL };
-                mk_http_body body = mk_http_body_from_string(reply.c_str(), 0);
-                mk_http_response_invoker_do(invoker, 200, response_header, body);
-                mk_http_body_release(body);
+                if (so && so->values.size() > 1)
+                {
+                    reply = so->values[1] + "/" + so->values[0];
+                    if (!osgDB::findDataFile(reply).empty())
+                    {
+                        const char* response_header[] = { "Content-Type", "text/html", NULL };
+                        mk_http_body body = mk_http_body_from_file(reply.c_str());
+                        mk_http_response_invoker_do(invoker, 200, response_header, body);
+                        mk_http_body_release(body); *consumed = 1; return;
+                    }
+                }
             }
-            else *consumed = 0;
+            *consumed = 0;
         }
     }
 
@@ -372,10 +394,16 @@ public:
     static void API_CALL onMkGetSCTP(mk_rtc_transport rtc_transport, uint16_t streamId,
                                      uint32_t ppid, const uint8_t* msg, size_t len)
     {
-        // Use mk_rtc_send_datachannel() to send messages in data channel
-        OSG_NOTICE << "[ZLMediaServerArchive] SCTP Data: stream-" << streamId << ":"
-                   << std::string((char*)msg, (char*)msg + len) << std::endl;
-        // TODO
+        //OSG_NOTICE << "[ZLMediaServerArchive] SCTP Data: stream-" << streamId << ":"
+        //           << std::string((char*)msg, (char*)msg + len) << std::endl;
+        if (g_server.valid())
+        {
+            std::stringstream ss; ss << streamId << "/" << ppid << ":";
+            ss << std::string((char*)msg, (char*)msg + len) << std::endl;
+            g_server->_rtcpMutex.lock();
+            g_server->_rtcpMessages.push_back(ss.str());
+            g_server->_rtcpMutex.unlock();
+        }
     }
 
 protected:
@@ -388,7 +416,10 @@ protected:
         }
         return _httpApiCallback.get();
     }
+
     osg::observer_ptr<osgVerse::UserCallback> _httpApiCallback;
+    std::vector<std::string> _rtcpMessages;
+    std::mutex _rtcpMutex;
 };
 
 class ZLMediaPlayer : public osg::ImageStream, public OpenThreads::Thread
