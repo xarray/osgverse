@@ -12,8 +12,10 @@
 #elif defined(MUSA_ENCODER)
 #   include <mtEncodeAPI.h>
 #endif
+
 #define RECORD_FILE 0
 #define MEDIA_SERVER 1
+#define HARDWARE_ENCODER 1
 
 #if MEDIA_SERVER
 class HttpApiCallback : public osgVerse::UserCallback
@@ -61,9 +63,9 @@ class CaptureCallback : public osg::Camera::DrawCallback
 {
 public:
     CaptureCallback(const std::string& url, const std::string& mainFolder, int w, int h)
-        : _streamURL(url), _width(w), _height(h), _frameNumber(0)
+        : _streamURL(url), _width(w), _height(h)
     {
-#if defined(NV_ENCODER)
+#if defined(NV_ENCODER) && defined(HARDWARE_ENCODER)
         int numGpu = 0, idGpu = 0; _cuContext = NULL;
         cuInit(0); cuDeviceGetCount(&numGpu);
         if (idGpu < 0 || idGpu >= numGpu) return;
@@ -78,22 +80,18 @@ public:
         createInputBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
         createInputBufferParams.bufferFmt = NV_ENC_BUFFER_FORMAT_ABGR;
         if (_encodingManager->nvEncCreateInputBuffer(_encoder, &createInputBufferParams) != NV_ENC_SUCCESS)
-        {
-            OSG_WARN << "Failed to create input: " << _encodingManager->nvEncGetLastErrorString(_encoder) << std::endl;
-        }
+        { OSG_WARN << "Failed to create input: " << _encodingManager->nvEncGetLastErrorString(_encoder) << std::endl; }
 
         NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams = { 0 };
         createBitstreamBufferParams.version = NV_ENC_CREATE_BITSTREAM_BUFFER_VER;
         createBitstreamBufferParams.size = 2 * 2048 * 1024;
         createBitstreamBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
         if (_encodingManager->nvEncCreateBitstreamBuffer(_encoder, &createBitstreamBufferParams) != NV_ENC_SUCCESS)
-        {
-            OSG_WARN << "Failed to create output: " << _encodingManager->nvEncGetLastErrorString(_encoder) << std::endl;
-        }
+        { OSG_WARN << "Failed to create output: " << _encodingManager->nvEncGetLastErrorString(_encoder) << std::endl; }
 
         _inputBuffer = createInputBufferParams.inputBuffer;
         _outputBuffer = createBitstreamBufferParams.bitstreamBuffer;
-#elif defined(MUSA_ENCODER)
+#elif defined(MUSA_ENCODER) && defined(HARDWARE_ENCODER)
         _encodingManager = initializeMTENC(); _encoder = NULL;
         _initParams = setupEncoder(_encodingManager, w, h);
 
@@ -109,6 +107,8 @@ public:
         if (_encodingManager->mtEncCreateOutputBuffer(_encoder, &createOutputBufferParams) != MT_ENC_SUCCESS)
         { OSG_WARN << "Failed to create output" << std::endl; }
         else _outputBuffer = createOutputBufferParams.outputBuffer;
+#else
+        _encoder = (void*)1;  // make sure it is not NULL
 #endif
         _msWriter = osgDB::Registry::instance()->getReaderWriterForExtension("verse_ms");
 
@@ -124,7 +124,7 @@ public:
             new HttpApiCallback("HttpAPI", mainFolder + "/webrtc/index.html"));
 #endif
 #if RECORD_FILE
-        _streamFile = new std::ofstream("../record.h265", std::ios::out | std::ios::binary);
+        _streamFile = new std::ofstream("../record.h264", std::ios::out | std::ios::binary);
 #endif
     }
 
@@ -134,12 +134,12 @@ public:
         _streamFile->close(); delete _streamFile;
 #endif
 
-#if defined(NV_ENCODER)
+#if defined(NV_ENCODER) && defined(HARDWARE_ENCODER)
         if (_inputBuffer) _encodingManager->nvEncDestroyInputBuffer(_encoder, _inputBuffer);
         if (_outputBuffer) _encodingManager->nvEncDestroyBitstreamBuffer(_encoder, _outputBuffer);
         _encodingManager->nvEncDestroyEncoder(_encoder);
         delete _encodingManager; cuCtxDestroy(_cuContext);
-#elif defined(MUSA_ENCODER)
+#elif defined(MUSA_ENCODER) && defined(HARDWARE_ENCODER)
         if (_inputFrame.inputPtr != nullptr) free(_inputFrame.inputPtr);
         if (_outputBuffer) _encodingManager->mtEncReleaseOutputBuffer(_encoder, _outputBuffer);
         _encodingManager->mtEncReleaseEncoder(_encoder);
@@ -156,8 +156,6 @@ public:
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
         glReadBuffer(GL_BACK);  // read from back buffer (gc must be double-buffered)
 #endif
-        _frameNumber++;
-
         if (_msServer.valid())
         {
             osg::ref_ptr<osgVerse::StringObject> cmd = static_cast<osgVerse::StringObject*>(
@@ -175,7 +173,7 @@ public:
             osg::ref_ptr<osg::Image> image = new osg::Image;
             image->readPixels(0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE);
 
-#if defined(NV_ENCODER)
+#if defined(NV_ENCODER) && defined(HARDWARE_ENCODER)
             //std::vector<std::vector<unsigned char>> yuvResult = osgVerse::convertRGBtoYUV(image.get());
             //if (yuvResult.size() != 3) return;
 
@@ -237,7 +235,7 @@ public:
 #endif
             status = _encodingManager->nvEncUnlockBitstream(_encoder, _outputBuffer);
             if (status != NV_ENC_SUCCESS) { OSG_WARN << "Failed to unlock bitstream" << std::endl; return; }
-#elif defined(MUSA_ENCODER)
+#elif defined(MUSA_ENCODER) && defined(HARDWARE_ENCODER)
             // Copy to input buffer
             memcpy(_inputFrame.inputPtr, image->data(), image->getTotalSizeInBytes());
 
@@ -276,20 +274,15 @@ public:
             _encodingManager->mtEncUnlockOutputBuffer(_encoder, lockBuffer.lockedOutputBuffer);
             _encodingManager->mtEncUnmapResource(_encoder, inputBuffer);
 #else
-            if (_msWriter.valid() && _frameNumber > 1)
-            {
-                osg::ref_ptr<osg::Image> image = new osg::Image;
-                image->readPixels(0, 0, _width, _height, GL_RGB, GL_UNSIGNED_BYTE);
-                image->flipVertical();  // low-performance, just for example here
+            if (_msWriter.valid())
                 _msWriter->writeImage(*image, _streamURL);
-            }
             else
                 OSG_WARN << "Invalid readerwriter verse_ms?\n";
 #endif
         }
     }
 
-#if defined(NV_ENCODER)
+#if defined(NV_ENCODER) && defined(HARDWARE_ENCODER)
     static NV_ENCODE_API_FUNCTION_LIST* initializeNVENC()
     {
         NV_ENCODE_API_FUNCTION_LIST* pNvEnc = new NV_ENCODE_API_FUNCTION_LIST;
@@ -305,7 +298,22 @@ public:
 
     NV_ENC_INITIALIZE_PARAMS setupEncoder(NV_ENCODE_API_FUNCTION_LIST* pNvEnc, int width, int height)
     {
+        // Create the encoder
+        NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS sessionParams = { 0 };
+        sessionParams.version = NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER;
+        sessionParams.apiVersion = NVENCAPI_VERSION;
+        sessionParams.deviceType = NV_ENC_DEVICE_TYPE_CUDA;
+        sessionParams.device = _cuContext;
+
         NV_ENC_INITIALIZE_PARAMS initParams = { 0 };
+        NVENCSTATUS status = pNvEnc->nvEncOpenEncodeSessionEx(&sessionParams, &_encoder);
+        if (status != NV_ENC_SUCCESS)
+        {
+            OSG_WARN << "Failed to open encode session: " << status << std::endl;
+            return initParams;
+        }
+
+        // Initialize parameters
         initParams.version = NV_ENC_INITIALIZE_PARAMS_VER;
         initParams.encodeGUID = NV_ENC_CODEC_H264_GUID;
         initParams.presetGUID = NV_ENC_PRESET_P3_GUID;
@@ -317,25 +325,13 @@ public:
         initParams.frameRateNum = 30; initParams.frameRateDen = 1;
         initParams.enableOutputInVidmem = 0; initParams.enablePTD = 1;
 
-        NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS sessionParams = { 0 };
-        sessionParams.version = NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER;
-        sessionParams.apiVersion = NVENCAPI_VERSION;
-        sessionParams.deviceType = NV_ENC_DEVICE_TYPE_CUDA;
-        sessionParams.device = _cuContext;
-
-        NVENCSTATUS status = pNvEnc->nvEncOpenEncodeSessionEx(&sessionParams, &_encoder);
-        if (status != NV_ENC_SUCCESS)
-        {
-            OSG_WARN << "Failed to open encode session: " << status << std::endl;
-            return initParams;
-        }
-
         NV_ENC_PRESET_CONFIG presetConfig = { 0 };
         presetConfig.version = NV_ENC_PRESET_CONFIG_VER;
         presetConfig.presetCfg.version = NV_ENC_CONFIG_VER;
         pNvEnc->nvEncGetEncodePresetConfigEx(
             _encoder, initParams.encodeGUID, initParams.presetGUID, initParams.tuningInfo, &presetConfig);
 
+        // Setup encoder configuation data in details and setup the encoder
         NV_ENC_CONFIG encodeConfig = { 0 };
         encodeConfig.version = NV_ENC_CONFIG_VER;
         memcpy(&encodeConfig, &presetConfig.presetCfg, sizeof(NV_ENC_CONFIG));
@@ -364,7 +360,7 @@ public:
         cuCtxCreate(cuContext, flags, cuDevice);
         OSG_NOTICE << "GPU in use: " << deviceName << std::endl;
     }
-#elif defined(MUSA_ENCODER)
+#elif defined(MUSA_ENCODER) && defined(HARDWARE_ENCODER)
     static MT_ENCODE_API_FUNCTION_LIST* initializeMTENC()
     {
 #if defined(_WIN64)
@@ -474,7 +470,7 @@ public:
     }
 
 protected:
-#if defined(NV_ENCODER)
+#if defined(NV_ENCODER) && defined(HARDWARE_ENCODER)
     static uint8_t bilinear_interpolate(const uint8_t* src, int src_w, int src_h, float x, float y)
     {
         int x1 = static_cast<int>(x), y1 = static_cast<int>(y);
@@ -504,16 +500,15 @@ protected:
     NV_ENC_INITIALIZE_PARAMS _initParams;
     NV_ENC_INPUT_PTR _inputBuffer;
     NV_ENC_OUTPUT_PTR _outputBuffer;
-    void* _encoder;
     CUcontext _cuContext;
-#elif defined(MUSA_ENCODER)
+#elif defined(MUSA_ENCODER) && defined(HARDWARE_ENCODER)
     MT_ENCODE_API_FUNCTION_LIST* _encodingManager;
     MT_ENC_INIT_PARAMS _initParams;
     MT_ENC_OUTPUT_PTR _outputBuffer;
     MTEncInputFrame _inputFrame;
-    void* _encoder;
 #endif
 
+    void* _encoder;
 #if MEDIA_SERVER
     osg::ref_ptr<osgDB::Archive> _msServer;
 #endif
@@ -521,5 +516,4 @@ protected:
     std::ofstream* _streamFile;
     std::string _streamURL;
     int _width, _height;
-    mutable int _frameNumber;
 };

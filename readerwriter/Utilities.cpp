@@ -681,13 +681,13 @@ namespace osgVerse
     {
         std::vector<std::vector<unsigned char>> yuvData;
         if (!image) return yuvData;
-        if (image->getPixelFormat() != GL_RGB || image->getDataType() != GL_UNSIGNED_BYTE)
+        if (image->getDataType() != GL_UNSIGNED_BYTE)
         { OSG_NOTICE << "Invalid source format for convertRGBtoYUV()\n"; return yuvData; }
 
         rgb2yuv_parameter rgb2yuv; std::vector<char> yuvBuffer;
         memset(&rgb2yuv, 0, sizeof(rgb2yuv_parameter));
-        rgb2yuv.width = image->s(); rgb2yuv.height = image->t();
-        rgb2yuv.rgb = image->data(); rgb2yuv.componentRGB = 3;
+        rgb2yuv.width = image->s(); rgb2yuv.height = image->t(); rgb2yuv.rgb = image->data();
+        rgb2yuv.componentRGB = osg::Image::computeNumComponents(image->getPixelFormat());
         rgb2yuv.strideRGB = 0; rgb2yuv.swizzleRGB = true;
         rgb2yuv.alignWidth = 16; rgb2yuv.alignHeight = 1;
         rgb2yuv.alignSize = 1; rgb2yuv.videoRange = false;

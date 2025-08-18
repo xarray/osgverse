@@ -43,7 +43,7 @@ vec2 oceanPos(vec3 vertex, bool checkValid, out float t, out vec3 cameraDir, out
         t = abs((tApprox - tSphere) * dz) < 1.0 ? tApprox : tSphere;
 
         // Approx. check if camera-dir intersects with sphere
-        if (checkValid) oceanValid = (b * b - c < 1000.0) ? -1.0 : 1.0;
+        if (checkValid) oceanValid = (b * b - c < 0.0) ? -1.0 : 1.0;
     }
     return oceanCameraPos.xy + t * oceanDir.xy;
 }
@@ -59,8 +59,7 @@ void main()
     float t = 0.0; vec3 cameraDir, oceanDir; oceanValid = 1.0;
     oceanUv.z = (oceanCameraPos.z > 0.0) ? 1.0 : 0.0;  // 'over the sea' or 'under-sea'
     vec2 uv = oceanPos(osg_Vertex.xyz, true, t, cameraDir, oceanDir);
-    //if (oceanCameraPos.z > 100000.0) oceanValid = -1.0;  // no need to check if far enough
-    oceanValid = -1.0;  // FIXME
+    if (oceanCameraPos.z > 500000.0) oceanValid = -1.0;  // no need to check if far enough
 
     float lod = -t / oceanDir.z * lods.y; // size in meters of one grid cell, projected on the sea surface
     vec2 duv = oceanPos(osg_Vertex.xyz + vec3(0.0, 0.01, 0.0)) - uv;

@@ -15,7 +15,8 @@
 #include <chrono>
 #include <queue>
 
-/* To make MediaServer forward messages from the RCTP data channel to pushers, we have to modify ZLMediaKit source code
+/* To make MediaServer automatically forward messages from the RCTP data channel to pushers,
+*  we can also try to modify ZLMediaKit source code:
 *  See https://github.com/ZLMediaKit/ZLMediaKit/issues/3963 for details:
 *  webrtc/WebRtcPusher.h
      #ifdef ENABLE_SCTP
@@ -186,22 +187,26 @@ public:
 
     static void API_CALL onMkMediaChanged(int regist, const mk_media_source sender)
     {
+        const char* schema = mk_media_source_get_schema(sender);
+        const char* vhost = mk_media_source_get_vhost(sender);
         const char* app = mk_media_source_get_app(sender);
         const char* stream = mk_media_source_get_stream(sender);
-        OSG_NOTICE << "[ZLMediaServerArchive] Media registry changed: " << app << "/" << stream
-                   << ", Registered to " << regist << std::endl;
+        OSG_NOTICE << "[ZLMediaServerArchive] Media registry changed: " << schema << "://" << vhost
+                   << "/"  << app << "/" << stream << ", registered to " << regist << std::endl;
     }
 
     static void API_CALL onMkMediaPublish(const mk_media_info url_info,
                                           const mk_publish_auth_invoker invoker, const mk_sock_info sender)
     {
         char ip[64];
+        const char* schema = mk_media_info_get_schema(url_info);
+        const char* vhost = mk_media_info_get_vhost(url_info);
         const char* app = mk_media_info_get_app(url_info);
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[ZLMediaServerArchive] Media publishing: " << app << "/" << stream
-                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        OSG_NOTICE << "[ZLMediaServerArchive] Media publishing: " << schema << "://" << vhost
+                   << "/" <<  app << "/" << stream << "; Local:" << localIP << ", Peer:" << peerIP << std::endl;
         mk_publish_auth_invoker_do(invoker, NULL, 1, 1);
     }
 
@@ -209,33 +214,39 @@ public:
                                        const mk_auth_invoker invoker, const mk_sock_info sender)
     {
         char ip[64];
+        const char* schema = mk_media_info_get_schema(url_info);
+        const char* vhost = mk_media_info_get_vhost(url_info);
         const char* app = mk_media_info_get_app(url_info);
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[ZLMediaServerArchive] Media playing: " << app << "/" << stream
-                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        OSG_NOTICE << "[ZLMediaServerArchive] Media playing: "  << schema << "://" << vhost
+                   << "/" <<  app << "/" << stream << "; Local:" << localIP << ", Peer:" << peerIP << std::endl;
         mk_auth_invoker_do(invoker, NULL);
     }
 
     static int API_CALL onMkMediaNotFound(const mk_media_info url_info, const mk_sock_info sender)
     {
         char ip[64];
+        const char* schema = mk_media_info_get_schema(url_info);
+        const char* vhost = mk_media_info_get_vhost(url_info);
         const char* app = mk_media_info_get_app(url_info);
         const char* stream = mk_media_info_get_stream(url_info);
         const char* localIP = mk_sock_info_local_ip(sender, ip);
         const char* peerIP = mk_sock_info_peer_ip(sender, ip + 32);
-        OSG_NOTICE << "[ZLMediaServerArchive] Media not found: " << app << "/" << stream
-                   << ", Local IP:" << localIP << ", Peer IP:" << peerIP << std::endl;
+        OSG_NOTICE << "[ZLMediaServerArchive] Media not found: " << schema << "://" << vhost
+                   << "/" << app << "/" << stream << "; Local:" << localIP << ", Peer:" << peerIP << std::endl;
         return 0;  // 0: wait for registry; 1: close now
     }
 
     static void API_CALL onMkMediaNoReader(const mk_media_source sender)
     {
+        const char* schema = mk_media_source_get_schema(sender);
+        const char* vhost = mk_media_source_get_vhost(sender);
         const char* app = mk_media_source_get_app(sender);
         const char* stream = mk_media_source_get_stream(sender);
-        OSG_NOTICE << "[ZLMediaServerArchive] Media registry changed: " << app << "/" << stream
-                   << ", Currently has no readers "<< std::endl;
+        OSG_NOTICE << "[ZLMediaServerArchive] Media registry status: " << schema << "://" << vhost
+                   << "/" << app << "/" << stream << ", currently has no readers "<< std::endl;
     }
 
     static void onMkWebrtcGetAnswerSdp(void* userData, const char* answer, const char* err)
@@ -682,6 +693,7 @@ protected:
             ctx->media = mk_media_create("__defaultVhost__", app, stream, 0, 0, 0);
             mk_media_init_video(ctx->media, MKCodecH264, w, h, fps, bitRate);
             mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, ctx);
+            OSG_NOTICE << "[ReaderWriterZLMedia] Created H264 media source: " << url << "\n";
             ctx->clear(1); return ctx;
         }
 
@@ -692,6 +704,7 @@ protected:
             ctx->media = mk_media_create("__defaultVhost__", app, stream, 0, 0, 0);
             mk_media_init_video(ctx->media, MKCodecH265, w, h, fps, bitRate);
             mk_media_set_on_regist(ctx->media, ReaderWriterZLMedia::onMkRegisterMediaSource, ctx);
+            OSG_NOTICE << "[ReaderWriterZLMedia] Created H265 media source: " << url << "\n";
             ctx->clear(1); return ctx;
         }
 
@@ -731,7 +744,7 @@ protected:
             osg::ref_ptr<osg::Image> image = pullFromImageList(&pts);
             if (image.valid() && image->s() > 0 && image->t() > 0)
             {
-                if (osg::Image::computeNumComponents(image->getPixelFormat()) != 3 ||
+                if (osg::Image::computeNumComponents(image->getPixelFormat()) < 3 ||
                     image->getDataType() != GL_UNSIGNED_BYTE)
                 {
                     OSG_NOTICE << "[ReaderWriterZLMedia] Unsupported image type" << std::endl;
@@ -810,12 +823,11 @@ protected:
         PusherContext* ctx = (PusherContext*)userData;
         if (errCode == 0)
         {
-            OSG_NOTICE << "[ReaderWriterZLMedia] pusher is running successfully" << std::endl;
+            OSG_NOTICE << "[ReaderWriterZLMedia] Pusher is running successfully" << std::endl;
         }
         else
         {
-            OSG_WARN << "[ReaderWriterZLMedia] pusher error: ("
-                     << errCode << ") " << errMsg << std::endl;
+            OSG_WARN << "[ReaderWriterZLMedia] Pusher error: (" << errCode << ") " << errMsg << std::endl;
             if (ctx->pusher) { mk_pusher_release(ctx->pusher); ctx->pusher = NULL; }
         }
     }
@@ -825,8 +837,7 @@ protected:
     {
         if (errCode != 0)
         {
-            OSG_WARN << "[ReaderWriterZLMedia] player error: ("
-                     << errCode << ") " << errMsg << std::endl;
+            OSG_WARN << "[ReaderWriterZLMedia] Player error: (" << errCode << ") " << errMsg << std::endl;
         }
         else
         {
@@ -882,7 +893,7 @@ protected:
     {
         if (errCode != 0)
         {
-            OSG_WARN << "[ReaderWriterZLMedia] player interrupted: ("
+            OSG_WARN << "[ReaderWriterZLMedia] Player interrupted: ("
                      << errCode << ") " << errMsg << std::endl;
         }
     }
@@ -929,13 +940,18 @@ ZLMediaServerArchive::ZLMediaServerArchive(const osgDB::Options* options)
         const std::string rtc = options->getPluginStringData("rtc");
         const std::string srt = options->getPluginStringData("srt");
 
-        if (!http.empty()) { mk_http_server_start(atoi(http.c_str()), 0); createdServer++; }
-        if (!rtsp.empty()) { mk_rtsp_server_start(atoi(rtsp.c_str()), 0); createdServer++; }
-        if (!rtmp.empty()) { mk_rtmp_server_start(atoi(rtmp.c_str()), 0); createdServer++; }
-        if (!shell.empty()) { mk_shell_server_start(atoi(shell.c_str())); createdServer++; }
-        if (!rtp.empty()) { mk_rtp_server_start(atoi(rtp.c_str())); createdServer++; }
-        if (!rtc.empty()) { mk_rtc_server_start(atoi(rtc.c_str())); createdServer++; }
-        if (!srt.empty()) { mk_srt_server_start(atoi(srt.c_str())); createdServer++; }
+#define MK_SRV(p, t) \
+    if (p == 0) { result << "[ZLMediaServerArchive] Failed to start " << t << " server\n"; } \
+    else { result << "[ZLMediaServerArchive] " << t << " server started at " << p << "\n"; createdServer++; }
+        std::stringstream result; uint16_t p = 0;
+        if (!http.empty()) { p = mk_http_server_start(atoi(http.c_str()), 0); MK_SRV(p, "HTTP"); }
+        if (!rtsp.empty()) { p = mk_rtsp_server_start(atoi(rtsp.c_str()), 0); MK_SRV(p, "RTSP"); }
+        if (!rtmp.empty()) { p = mk_rtmp_server_start(atoi(rtmp.c_str()), 0); MK_SRV(p, "RTMP"); }
+        if (!shell.empty()) { p = mk_shell_server_start(atoi(shell.c_str())); MK_SRV(p, "Shell"); }
+        if (!rtp.empty()) { p = mk_rtp_server_start(atoi(rtp.c_str())); MK_SRV(p, "RTP"); }
+        if (!rtc.empty()) { p = mk_rtc_server_start(atoi(rtc.c_str())); MK_SRV(p, "RTC"); }
+        if (!srt.empty()) { p = mk_srt_server_start(atoi(srt.c_str())); MK_SRV(p, "SRT"); }
+        OSG_NOTICE << "[ZLMediaServerArchive] Created servers: " << createdServer << "\n" << result.str();
     }
 
     if (createdServer == 0)
