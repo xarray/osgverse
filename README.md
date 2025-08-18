@@ -237,7 +237,8 @@ Our project is already tested on graphics cards listed as below:
         - Clone from https://github.com/cisco/libsrtp.git
         - $ cmake -DENABLE_OPENSSL=ON <srtp_folder> & make install
   - Clone recursively from https://github.com/ZLMediaKit/ZLMediaKit.git
-  - $ cmake -DENABLE_FFMPEG=ON -DENABLE_X264=ON -DENABLE_WEBRTC=ON
+  - $ cmake -DENABLE_API=ON -DENABLE_CXX_API=ON -DENABLE_FFMPEG=ON -DENABLE_OPENSSL=ON -DENABLE_SCTP=ON
+            -DENABLE_SERVER=ON -DENABLE_WEBRTC=ON -DENABLE_X264=ON
             -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/<arch> <zlmediakit_folder>
     - You may have to manually specify some library paths in cmake-gui
   - $ make install

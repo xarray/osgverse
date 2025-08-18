@@ -16,6 +16,7 @@ EarthManipulator::EarthManipulator()
     _intersectionMask = 0xffffffff;
     _zoomFactor = osg::Vec2(1.0f, 1.0f);
     setEllipsoid(new osg::EllipsoidModel);
+    _onAnimationCompleted = NULL;
 
     // Animation controllers
     _playMode = ONCE;
@@ -144,7 +145,7 @@ void EarthManipulator::setByEye(double latitude, double longitude, double height
     setByEye(eye, doa);
 }
 
-void EarthManipulator::moveTo(osg::Vec3d vector, double deltaDistance, double frames)
+void EarthManipulator::moveTo(osg::Vec3d vector, double deltaDistance, double frames, AnimationCompletedFunc func)
 {
     osg::Matrixd matrix = makeRotationMatrix();
     osg::Vec3d negLv = osg::Z_AXIS * matrix; negLv.normalize();
@@ -161,6 +162,7 @@ void EarthManipulator::moveTo(osg::Vec3d vector, double deltaDistance, double fr
     // Compute rotation to fit the tilt
     matrix.postMultRotate(rotation);
     makeBestLookingRotation(rotation, matrix, getInverseMatrix());
+    _onAnimationCompleted = func;
 
     _internalControlPoints.clear();
     _internalControlPoints.insert(new ControlPoint(0.0, osg::Quat(), _distance, 0.0f));
@@ -277,61 +279,6 @@ bool EarthManipulator::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIAction
         {
             std::cout << _worldRotation << "; " << _distance << "; " << _tilt << std::endl;
         }
-        /*else if ( ea.getKey()=='p' )
-        {
-            //if ( isAnimationRunning() ) stopAnimation();
-            //else startAnimation();
-            std::cout << _worldRotation << "; " << _distance << std::endl;
-        }
-        else if ( ea.getKey()=='a' )
-        {
-            stopAnimation();
-            osg::Vec3d vec = osg::Vec3d(-2.72643e+006, 5.12271e+006, 2.63787e+006);
-            moveTo( vec, 6800.0-_distance, 120.0 );
-        }
-        else
-        {
-            switch ( ea.getKey() )
-            {
-            case osgGA::GUIEventAdapter::KEY_Left:
-                performPan( ea.getXnormalized(), ea.getYnormalized(), 0.002, 0.0 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Right:
-                performPan( ea.getXnormalized(), ea.getYnormalized(), -0.002, 0.0 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Up:
-                performPan( ea.getXnormalized(), ea.getYnormalized(), 0.0, -0.002 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Down:
-                performPan( ea.getXnormalized(), ea.getYnormalized(), 0.0, 0.002 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Insert:
-                performScale( ea.getXnormalized(), ea.getYnormalized(), 0.0, -0.01 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Delete:
-                performScale( ea.getXnormalized(), ea.getYnormalized(), 0.0, 0.01 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Home:
-                performRotateAxis( ea.getXnormalized(), ea.getYnormalized() );
-                performHRotate( ea.getXnormalized(), ea.getYnormalized(), 0.05, 0.0 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_End:
-                performRotateAxis( ea.getXnormalized(), ea.getYnormalized() );
-                performHRotate( ea.getXnormalized(), ea.getYnormalized(), -0.05, 0.0 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Page_Up:
-                performRotateAxis( ea.getXnormalized(), ea.getYnormalized() );
-                performVRotate( ea.getXnormalized(), ea.getYnormalized(), 0.0, -0.05 );
-                break;
-            case osgGA::GUIEventAdapter::KEY_Page_Down:
-                performRotateAxis( ea.getXnormalized(), ea.getYnormalized() );
-                performVRotate( ea.getXnormalized(), ea.getYnormalized(), 0.0, 0.05 );
-                break;
-            default: break;
-            }
-            us.requestRedraw();
-            us.requestContinuousUpdate(false);
-        }*/
         return false;
 
     default:
@@ -915,6 +862,12 @@ void EarthManipulator::advanceAnimation(const osg::FrameStamp* fs)
                 _isReversingInLoop = !_isReversingInLoop; return;
             default:
                 break;
+            }
+
+            if (_onAnimationCompleted != NULL)
+            {
+                _onAnimationCompleted(_animationStartTime, currentTime);
+                _onAnimationCompleted = NULL;
             }
         }
         stopAnimation();

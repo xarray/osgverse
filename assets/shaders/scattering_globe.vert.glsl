@@ -15,11 +15,11 @@ void main()
     texCoord = osg_MultiTexCoord0; texCoord.zw = osg_GlobeData.zw; isSkirt = osg_GlobeData.y;
 
     vec4 vertex = osg_Vertex, maskColor = VERSE_TEX2D(maskSampler, texCoord.st);
-    if (maskColor.z < 0.5 && oceanOpaque > 0.5 && underOcean > 0.0)
-    {
-        vec3 vertex0 = normalize(vertexInWorld) * (WGS84_EQUATOR + osg_GlobeData.x + osg_GlobeData.y);
-        gl_Position = VERSE_MATRIX_P * osg_ViewMatrix * vec4(vertex0, 1.0);
-    }
-    else
+    //if (maskColor.z < 0.5 && oceanOpaque > 0.5 && underOcean > 0.0)
+    //{
+    //    vec3 vertex0 = normalize(vertexInWorld) * (WGS84_EQUATOR + osg_GlobeData.x + osg_GlobeData.y);
+    //    gl_Position = VERSE_MATRIX_P * osg_ViewMatrix * vec4(vertex0, 1.0);
+    //}
+    //else
         gl_Position = VERSE_MATRIX_MVP * vertex;
 }

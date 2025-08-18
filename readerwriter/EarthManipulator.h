@@ -12,6 +12,8 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT EarthManipulator : public osgGA::CameraManipulator
     {
     public:
+        typedef std::function<void (float, float)> AnimationCompletedFunc;
+
         EarthManipulator();
         virtual const char* className() const { return "EarthManipulator"; }
         virtual void getUsage(osg::ApplicationUsage& usage) const;
@@ -83,7 +85,8 @@ namespace osgVerse
         void setByEye(double latitude, double longitude, double height, float doa = 0.0f);
 
         /** Start an animation from current position to the given one */
-        void moveTo(osg::Vec3d vector, double deltaDistance, double frames = 60.0);
+        void moveTo(osg::Vec3d vector, double deltaDistance, double frames = 60.0,
+                    AnimationCompletedFunc func = NULL);
 
         /** Get the manipulator matrix */
         osg::Matrixd getManipulatorMatrix(bool withTilt = true) const;
@@ -362,6 +365,8 @@ namespace osgVerse
 
         ControlPointSet _controlPoints;  // Control points for user-defined animation
         ControlPointSet _internalControlPoints;  // Control points for internal animations
+
+        AnimationCompletedFunc _onAnimationCompleted;
 
         PlayMode _playMode;
         float _animationSpeed;

@@ -142,10 +142,12 @@ public:
             switch (_pressingKey)
             {
             case osgGA::GUIEventAdapter::KEY_Left:
-                _sunAngle -= 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                _sunAngle -= (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT) ?  0.01f : 0.001f;
+                worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 global_TargetSunAngle = _sunAngle; break;
             case osgGA::GUIEventAdapter::KEY_Right:
-                _sunAngle += 0.01f; worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                _sunAngle += (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT) ? 0.01f : 0.001f;
+                worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 global_TargetSunAngle = _sunAngle; break;
             case '[': opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
             case ']': opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
@@ -214,7 +216,7 @@ public:
     void updateVolumeData(const std::string& name)
     {
         global_volumeToLoad = name;
-        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.1f);
+        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.2f);
         _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
     }
 
@@ -230,7 +232,7 @@ public:
         global_particleToLoad = name;
         if (global_particleIndex < 0)
         {
-            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.1f);
+            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.2f);
             _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
         }
         else
@@ -342,7 +344,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
     earthManipulator->setIntersectionMask(EARTH_INTERSECTION_MASK);
     earthManipulator->setWorldNode(earth.get());
-    earthManipulator->setThrowAllowed(false);
+    earthManipulator->setThrowAllowed(true);
     viewer.setCameraManipulator(earthManipulator.get());
 
     osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
