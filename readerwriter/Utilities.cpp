@@ -682,15 +682,19 @@ namespace osgVerse
         std::vector<std::vector<unsigned char>> yuvData;
         if (!image) return yuvData;
         if (image->getDataType() != GL_UNSIGNED_BYTE)
-        { OSG_NOTICE << "Invalid source format for convertRGBtoYUV()\n"; return yuvData; }
+        { OSG_WARN << "[convertRGBtoYUV] Invalid data type. Must be GL_UNSIGNED_BYTE\n"; return yuvData; }
+
+        GLenum pixelFormat = image->getPixelFormat();
+        if (pixelFormat != GL_RGB && pixelFormat != GL_RGBA && pixelFormat != GL_BGR && pixelFormat != GL_BGRA)
+        { OSG_WARN << "[convertRGBtoYUV] Invalid pixel format. Must be RGB/RGBA/BGR/BGRA\n"; return yuvData; }
 
         rgb2yuv_parameter rgb2yuv; std::vector<char> yuvBuffer;
         memset(&rgb2yuv, 0, sizeof(rgb2yuv_parameter));
         rgb2yuv.width = image->s(); rgb2yuv.height = image->t(); rgb2yuv.rgb = image->data();
-        rgb2yuv.componentRGB = osg::Image::computeNumComponents(image->getPixelFormat());
-        rgb2yuv.strideRGB = 0; rgb2yuv.swizzleRGB = true;
-        rgb2yuv.alignWidth = 16; rgb2yuv.alignHeight = 1;
-        rgb2yuv.alignSize = 1; rgb2yuv.videoRange = false;
+        rgb2yuv.componentRGB = osg::Image::computeNumComponents(pixelFormat);
+        rgb2yuv.swizzleRGB = (pixelFormat == GL_RGB || pixelFormat == GL_RGBA) ? false : true;
+        rgb2yuv.alignWidth = 16; rgb2yuv.alignHeight = 1; rgb2yuv.alignSize = 1;
+        rgb2yuv.strideRGB = 0; rgb2yuv.videoRange = false;
 
         int strideY = ALIGN(rgb2yuv.width, rgb2yuv.alignWidth);
         int strideU = strideY / 2, strideV = strideY / 2;

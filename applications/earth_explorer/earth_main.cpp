@@ -282,6 +282,7 @@ protected:
     int _pressingKey;
 };
 
+#if false
 static std::string createCustomPath(int type, const std::string& prefix, int x, int y, int z)
 {
     if (type >= osgVerse::TileCallback::USER &&
@@ -290,15 +291,6 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
         int newY = pow(2, z) - y - 1;
         return osgVerse::TileCallback::createPath(prefix, x, newY, z);
     }
-    /*else if (type >= osgVerse::TileCallback::USER)
-    {
-        int newY = pow(2, z) - y - 1;
-        if (z > 9 && prefix.find("carto-png") != std::string::npos)
-        {
-            std::string prefix2 = "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
-            return osgVerse::TileCallback::createPath(prefix2, x, newY, z);
-        }
-    }*/
     else if (type == osgVerse::TileCallback::ORTHOPHOTO)
     {
         if (z > 13)
@@ -310,6 +302,20 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
     }
     return osgVerse::TileCallback::createPath(prefix, x, y, z);
 }
+#else
+static std::string createCustomPath(int type, const std::string& prefix, int x, int y, int z)
+{
+    if (type == osgVerse::TileCallback::ORTHOPHOTO)
+    {
+        if (z > 4)
+        {
+            std::string prefix2 = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+            return osgVerse::TileCallback::createPath(prefix2, x, pow(2, z) - y - 1, z);
+        }
+    }
+    return osgVerse::TileCallback::createPath(prefix, x, y, z);
+}
+#endif
 
 int main(int argc, char** argv)
 {
@@ -319,18 +325,26 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
     osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
 
-    std::string mainFolder = "F:"; arguments.read("--folder", mainFolder);
+    std::string mainFolder = BASE_DIR + "/models/Earth"; arguments.read("--folder", mainFolder);
     std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
     int w = 1920, h = 1080; arguments.read("--resolution", w, h);
     bool withGeomShader = true; if (arguments.read("--no-geometry-shader")) withGeomShader = false;
 
     // Create earth
+#if false
     std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
                             " Elevation=mbtiles://" + mainFolder + "/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             " OceanMask=mbtiles://" + mainFolder + "/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             //" Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}"
                             /*" MaximumLevel=8"*/" UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
+#else
+    std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/DOM_lv4.mbtiles/{z}-{x}-{y}.jpg"
+                            " Elevation=mbtiles://" + mainFolder + "/DEM_lv3.mbtiles/{z}-{x}-{y}.tif"
+                            " OceanMask=mbtiles://" + mainFolder + "/Mask_lv3.mbtiles/{z}-{x}-{y}.tif"
+                            /*" MaximumLevel=8"*/" UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
+                            " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
+#endif
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
     earthOptions->setPluginData("UrlPathFunction", (void*)createCustomPath);
 
@@ -344,7 +358,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
     earthManipulator->setIntersectionMask(EARTH_INTERSECTION_MASK);
     earthManipulator->setWorldNode(earth.get());
-    earthManipulator->setThrowAllowed(true);
+    earthManipulator->setThrowAllowed(false);
     viewer.setCameraManipulator(earthManipulator.get());
 
     osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
@@ -358,12 +372,12 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
     osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
-    sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
-    sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
-    sceneCamera->addChild(configureInternal(viewer, earth.get(), sceneTexture.get(), ~EARTH_INTERSECTION_MASK));
+    //sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    //sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    //sceneCamera->addChild(configureInternal(viewer, earth.get(), sceneTexture.get(), ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
-    configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
-    configureUI(viewer, root.get(), mainFolder, w, h);
+    //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
+    //configureUI(viewer, root.get(), mainFolder, w, h);
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     osg::ref_ptr<osg::Uniform> clip0 = new osg::Uniform("clipPlane0", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -394,9 +408,10 @@ int main(int argc, char** argv)
     std::string streamURL = "rtmp://127.0.0.1:1935/live/stream";
     if (arguments.read("--streaming") || arguments.read("--streaming-url", streamURL))
     {
+        bool softwareEncoding = arguments.read("--encoder-x264");
         osgDB::Registry::instance()->loadLibrary(
             osgDB::Registry::instance()->createLibraryNameForExtension("verse_ms"));
-        viewer.getCamera()->setFinalDrawCallback(new CaptureCallback(streamURL, mainFolder, w, h));
+        viewer.getCamera()->setFinalDrawCallback(new CaptureCallback(streamURL, mainFolder, w, h, softwareEncoding));
         finalCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("flipForStreaming", 1.0f));
     }
     else

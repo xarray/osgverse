@@ -25,6 +25,8 @@ TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseUI osgVersePipeli
                       osgVerseAnimation osgVerseWrappers osgVerseDependency)
 IF(NV_ENCODER_FOUND)
     TARGET_LINK_LIBRARIES(${EXE_NAME} nvencodeapi)
+ELSEIF(MUSA_ENCODER_FOUND)
+    TARGET_LINK_LIBRARIES(${EXE_NAME} encode_musa dl)
 ENDIF()
 LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)

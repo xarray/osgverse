@@ -133,44 +133,47 @@ ENDMACRO(NEW_CUDA_PLUGIN)
 MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
 
     SET(${DEP_NAME}_FOUND FALSE)
-    IF(NOT "${INC_PATH_POSTFIX}" STREQUAL "")
-        FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
-            PATHS ${THIRDPARTY_ROOT}/include/${INC_PATH_POSTFIX}
-            /usr/include/${INC_PATH_POSTFIX}
-            /usr/local/include/${INC_PATH_POSTFIX}
-            NO_CMAKE_FIND_ROOT_PATH
-        )
-    ELSE()
-        FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
-            PATHS ${THIRDPARTY_ROOT}/include
-            /usr/include /usr/local/include
-            NO_CMAKE_FIND_ROOT_PATH
-        )
-    ENDIF()
+    SET(${DEP_NAME}_FEATURE_ENABLED ON CACHE BOOL "Enable to search for ${DEP_NAME} dependencies")
+    IF(${DEP_NAME}_FEATURE_ENABLED)
+        IF(NOT "${INC_PATH_POSTFIX}" STREQUAL "")
+            FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
+                PATHS ${THIRDPARTY_ROOT}/include/${INC_PATH_POSTFIX}
+                /usr/include/${INC_PATH_POSTFIX}
+                /usr/local/include/${INC_PATH_POSTFIX}
+                NO_CMAKE_FIND_ROOT_PATH
+            )
+        ELSE()
+            FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
+                PATHS ${THIRDPARTY_ROOT}/include
+                /usr/include /usr/local/include
+                NO_CMAKE_FIND_ROOT_PATH
+            )
+        ENDIF()
 
-    IF(NOT "${LIB_NAMES}" STREQUAL "")
-        FIND_PATH(${DEP_NAME}_LIB_DIR ${LIB_NAMES}
-            PATHS ${THIRDPARTY_ROOT}/lib
-            /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/${FIND_SUBLIB_POSTFIX}
-            /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
-            NO_CMAKE_FIND_ROOT_PATH
-        )
+        IF(NOT "${LIB_NAMES}" STREQUAL "")
+            FIND_PATH(${DEP_NAME}_LIB_DIR ${LIB_NAMES}
+                PATHS ${THIRDPARTY_ROOT}/lib
+                /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/${FIND_SUBLIB_POSTFIX}
+                /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+                NO_CMAKE_FIND_ROOT_PATH
+            )
 
-        IF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
-            INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
-            LINK_DIRECTORIES(${${DEP_NAME}_LIB_DIR})
-            SET(${DEP_NAME}_FOUND TRUE)
-        ELSE(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
-            MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
-        ENDIF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
-    ELSE()
-        IF(${DEP_NAME}_INCLUDE_DIR)
-            INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
-            SET(${DEP_NAME}_FOUND TRUE)
-        ELSE(${DEP_NAME}_INCLUDE_DIR)
-            MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
-        ENDIF(${DEP_NAME}_INCLUDE_DIR)
-    ENDIF()
+            IF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
+                INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
+                LINK_DIRECTORIES(${${DEP_NAME}_LIB_DIR})
+                SET(${DEP_NAME}_FOUND TRUE)
+            ELSE(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
+                MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
+            ENDIF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
+        ELSE()
+            IF(${DEP_NAME}_INCLUDE_DIR)
+                INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
+                SET(${DEP_NAME}_FOUND TRUE)
+            ELSE(${DEP_NAME}_INCLUDE_DIR)
+                MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
+            ENDIF(${DEP_NAME}_INCLUDE_DIR)
+        ENDIF()
+    ENDIF(${DEP_NAME}_FEATURE_ENABLED)
 
     IF(${DEP_NAME}_FOUND)
         SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_DEPENDENCIES "${DEP_NAME}")

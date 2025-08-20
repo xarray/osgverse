@@ -59,7 +59,7 @@ void main()
     float t = 0.0; vec3 cameraDir, oceanDir; oceanValid = 1.0;
     oceanUv.z = (oceanCameraPos.z > 0.0) ? 1.0 : 0.0;  // 'over the sea' or 'under-sea'
     vec2 uv = oceanPos(osg_Vertex.xyz, true, t, cameraDir, oceanDir);
-    if (oceanCameraPos.z > 500000.0) oceanValid = -1.0;  // no need to check if far enough
+    oceanValid = -1.0; // if (oceanCameraPos.z > 500000.0) oceanValid = -1.0;  // no need to check if far enough
 
     float lod = -t / oceanDir.z * lods.y; // size in meters of one grid cell, projected on the sea surface
     vec2 duv = oceanPos(osg_Vertex.xyz + vec3(0.0, 0.01, 0.0)) - uv;
