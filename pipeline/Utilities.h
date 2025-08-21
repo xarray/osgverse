@@ -156,6 +156,24 @@ namespace osgVerse
         AABB createShadowBound(const std::vector<osg::Vec3d>& refPoints, const osg::Matrix& worldToLocal);
     };
 
+    /** The precomputed atmosphere scattering and global ocean data creator */
+    struct EarthAtmosphereOcean
+    {
+        std::map<std::string, osg::ref_ptr<osg::Uniform>> commonUniforms;
+        osg::ref_ptr<osg::Texture> inscatter, glare;
+        osg::ref_ptr<osg::Texture> transmittance, irradiance;
+
+        /** Create public textures and uniforms (no shaders) */
+        void create(const std::string& transmit, const std::string& irradiance,
+                    const std::string& glare, const std::string& inscatter);
+        void create(osg::Texture* transmit, osg::Texture* irradiance,
+                    osg::Texture* glare, osg::Texture* inscatter);
+
+        /** Helper functions to load raw floating texture data */
+        static osg::Texture* rawFloatingTexture2D(unsigned char* data, int w, int h, bool rgb);
+        static osg::Texture* rawFloatingTexture3D(unsigned char* data, int w, int h, int d, bool rgb);
+    };
+
     /** Quick event handler for testing purpose */
     class QuickEventHandler : public osgGA::GUIEventHandler
     {

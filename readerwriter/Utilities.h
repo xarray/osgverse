@@ -207,6 +207,12 @@ namespace osgVerse
     /** Decode string from URL style */
     OSGVERSE_RW_EXPORT std::string urlDecode(const std::string& str);
 
+    /** Normalize input URL to replace ./ and ../ substrings to absolute paths */
+    OSGVERSE_RW_EXPORT std::string normalizeUrl(const std::string& url);
+
+    /** Load content from local file or network protocol */
+    OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(const std::string& url);
+
     /** Setup KTX trancoding flags */
     enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
     OSGVERSE_RW_EXPORT void setReadingKtxFlag(ReadingKtxFlag flag, int value);

@@ -1,14 +1,14 @@
 #extension GL_EXT_gpu_shader4 : enable
 uniform sampler2D sceneSampler;
-uniform sampler2D glareSampler;
-uniform sampler2D transmittanceSampler;
-uniform sampler2D skyIrradianceSampler;
-uniform sampler3D inscatterSampler;
+uniform sampler2D GlareSampler;
+uniform sampler2D TransmittanceSampler;
+uniform sampler2D SkyIrradianceSampler;
+uniform sampler3D InscatterSampler;
 
 uniform vec3 worldCameraPos;
 uniform vec3 worldSunDir;
 uniform vec2 screenSize;
-uniform float hdrExposure;
+uniform float HdrExposure;
 
 uniform mat4 cameraToOcean, oceanToCamera, oceanToWorld;
 uniform mat4 screenToCamera, cameraToScreen;
@@ -48,11 +48,10 @@ vec3 inScattering(vec3 camera, vec3 point, vec3 sundir, out vec3 extinction, flo
 
 vec3 getWorldCameraPos() { return worldCameraPos; }
 vec3 getWorldSunDir() { return worldSunDir; }
-float getHdrExposure() { return hdrExposure; }
 
 vec3 hdr(vec3 L)
 {
-    L = L * hdrExposure;
+    L = L * HdrExposure;
     L.r = L.r < 1.413 ? pow(L.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.r);
     L.g = L.g < 1.413 ? pow(L.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.g);
     L.b = L.b < 1.413 ? pow(L.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.b);

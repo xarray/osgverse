@@ -58,6 +58,8 @@ namespace osgVerse
         bool finish();
 
         bool loadFont(const std::string& name, const std::string& file);
+        bool loadFont(const std::string& name, std::istream& fin);
+
         void drawText(const osg::Vec2f pos, float size, const std::wstring& text,
                       const std::string& font = std::string(), const StyleData& sd = StyleData());
         void drawUtf8Text(const osg::Vec2f pos, float size, const std::string& text,

@@ -1,3 +1,5 @@
+#include "3rdparty/libhv/all/client/requests.h"
+
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/TriangleIndexFunctor>
@@ -781,5 +783,67 @@ namespace osgVerse
             else decoded += c;
         }
         return decoded;
+    }
+
+    std::string normalizeUrl(const std::string& url)
+    {
+        size_t pathStart = url.find("://");
+        if (pathStart == std::string::npos) pathStart = 0;
+        else pathStart += 3;
+
+        std::string path = url.substr(pathStart), part;
+        std::istringstream iss(path);
+        std::vector<std::string> parts;
+        while (std::getline(iss, part, '/'))
+        { if (!part.empty()) parts.push_back(part); }
+
+        std::vector<std::string> normalizedParts;
+        for (const auto& p : parts)
+        {
+            if (p == "..") { if (!normalizedParts.empty()) normalizedParts.pop_back(); }
+            else if (p != ".") normalizedParts.push_back(p);
+        }
+
+        std::ostringstream oss;
+        for (size_t i = 0; i < normalizedParts.size(); ++i)
+            { if (i > 0) oss << "/"; oss << normalizedParts[i]; }
+        return url.substr(0, pathStart) + oss.str();
+    }
+
+    std::vector<unsigned char> loadFileData(const std::string& url)
+    {
+        std::vector<unsigned char> buffer;
+        std::string scheme = osgDB::getServerProtocol(url);
+        if (!scheme.empty())
+        {
+            HttpRequest req; req.method = HTTP_GET;
+            req.url = osgVerse::normalizeUrl(url); req.scheme = scheme;
+            req.headers["User-Agent"] = "Mozilla/5.0";
+            req.headers["Accept"] = "*/*";
+
+            HttpResponse response; hv::HttpClient client;
+            int result = client.send(&req, &response);
+            if (result != 0)
+                { OSG_WARN << "[loadFileData] Failed getting " << url << ": " << result << std::endl; }
+            else if (response.status_code > 200 || response.body.empty())
+            {
+                OSG_WARN << "[loadFileData] Failed getting " << url << ": Code = "
+                         << response.status_code << ", Size = " << response.body.size() << std::endl;
+            }
+            else
+            {
+                size_t size = response.body.size(); buffer.resize(size);
+                memcpy(buffer.data(), response.body.data(), size);
+            }
+        }
+        else
+        {
+            std::ifstream fin(url.c_str(), std::ios::in | std::ios::binary);
+            std::string str((std::istreambuf_iterator<char>(fin)),
+                            std::istreambuf_iterator<char>());
+            if (!str.empty())
+                { buffer.resize(str.size()); memcpy(buffer.data(), str.data(), str.size()); }
+        }
+        return buffer;
     }
 }

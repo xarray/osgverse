@@ -91,13 +91,13 @@ const char* cityVertCode = {
 };
 
 const char* cityFragCode = {
-    "uniform sampler2D glareSampler;\n"
-    "uniform sampler2D transmittanceSampler;\n"
-    "uniform sampler2D skyIrradianceSampler;\n"
-    "uniform sampler3D inscatterSampler;\n"
+    "uniform sampler2D GlareSampler;\n"
+    "uniform sampler2D TransmittanceSampler;\n"
+    "uniform sampler2D SkyIrradianceSampler;\n"
+    "uniform sampler3D InscatterSampler;\n"
     "uniform vec3 worldCameraPos, worldSunDir, origin;\n"
     "uniform vec3 sunColorScale, skyColorScale;\n"
-    "uniform float hdrExposure, globalOpaque;\n"
+    "uniform float HdrExposure, globalOpaque;\n"
 
     "uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)\n"
     "uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)\n"
@@ -115,7 +115,7 @@ const char* cityFragCode = {
     "#define PLANET_RADIUS 6360000.0\n"
     "#include \"scattering.module.glsl\"\n"
     "vec3 hdr(vec3 L) {\n"
-    "    L = L * hdrExposure; \n"
+    "    L = L * HdrExposure; \n"
     "    L.r = L.r < 1.413 ? pow(L.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.r); \n"
     "    L.g = L.g < 1.413 ? pow(L.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.g); \n"
     "    L.b = L.b < 1.413 ? pow(L.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.b); \n"

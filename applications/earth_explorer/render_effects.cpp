@@ -336,16 +336,16 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     ss->addUniform(new osg::Uniform("sceneSampler", (int)0));
     ss->addUniform(new osg::Uniform("maskSampler", (int)1));
     ss->addUniform(new osg::Uniform("extraLayerSampler", (int)2));
-    ss->addUniform(new osg::Uniform("transmittanceSampler", (int)3));
-    ss->addUniform(new osg::Uniform("skyIrradianceSampler", (int)4));
-    ss->addUniform(new osg::Uniform("inscatterSampler", (int)5));
-    ss->addUniform(new osg::Uniform("glareSampler", (int)6));
-    ss->addUniform(new osg::Uniform("origin", osg::Vec3(0.0f, 0.0f, 0.0f)));
-    ss->addUniform(new osg::Uniform("globalOpaque", 1.0f));
+    ss->addUniform(new osg::Uniform("TransmittanceSampler", (int)3));
+    ss->addUniform(new osg::Uniform("SkyIrradianceSampler", (int)4));
+    ss->addUniform(new osg::Uniform("InscatterSampler", (int)5));
+    ss->addUniform(new osg::Uniform("GlareSampler", (int)6));
+    ss->addUniform(new osg::Uniform("EarthOrigin", osg::Vec3(0.0f, 0.0f, 0.0f)));
+    ss->addUniform(new osg::Uniform("GlobalOpaque", 1.0f));
     ss->addUniform(new osg::Uniform("underOcean", 1.0f));
     ss->addUniform(new osg::Uniform("ColorBalanceMode", (int)0));
 
-    uniforms["exposure"] = new osg::Uniform("hdrExposure", 0.25f);
+    uniforms["exposure"] = new osg::Uniform("HdrExposure", 0.25f);
     uniforms["sun_intensity"] = new osg::Uniform("sunIntensity", 100.0f);
     uniforms["sun_color_scale"] = new osg::Uniform("sunColorScale", osg::Vec3(1.0f, 1.0f, 1.0f));
     uniforms["sky_color_scale"] = new osg::Uniform("skyColorScale", osg::Vec3(1.0f, 1.0f, 1.0f));

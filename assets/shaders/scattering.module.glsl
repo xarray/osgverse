@@ -253,7 +253,7 @@ float opticalDepth(float H, float r, float mu, float d) {
 // (mu=cos(view zenith angle)), intersections with ground ignored
 vec3 transmittance(float r, float mu) {
     vec2 uv = getTransmittanceUV(r, mu);
-    return VERSE_TEX2D(transmittanceSampler, uv).rgb;
+    return VERSE_TEX2D(TransmittanceSampler, uv).rgb;
 }
 
 // transmittance(=transparency) of atmosphere for ray (r,mu) of length d
@@ -334,7 +334,7 @@ float SQRT(float f, float err) {
 // assumes sundir=vec3(0.0, 0.0, 1.0)
 vec3 outerSunRadiance(vec3 viewdir)
 {
-    vec3 data = viewdir.z > 0.0 ? VERSE_TEX2D(glareSampler, vec2(0.5) + viewdir.xy * 4.0).rgb : vec3(0.0);
+    vec3 data = viewdir.z > 0.0 ? VERSE_TEX2D(GlareSampler, vec2(0.5) + viewdir.xy * 4.0).rgb : vec3(0.0);
     return pow(data, vec3(2.2)) * SUN_INTENSITY;
 }
 
@@ -356,7 +356,7 @@ vec3 sunRadiance(float r, float muS) {
 // muS=dot(x,s) / r
 vec3 skyIrradiance(float r, float muS) {
 #if defined(ATMO_SKY_ONLY) || defined(ATMO_FULL)
-    return irradiance(skyIrradianceSampler, r, muS) * SUN_INTENSITY;
+    return irradiance(SkyIrradianceSampler, r, muS) * SUN_INTENSITY;
 #else
     return vec3(0.0);
 #endif
@@ -391,7 +391,7 @@ vec3 skyRadiance(vec3 camera, vec3 viewdir, vec3 sundir, out vec3 extinction, fl
         float nu = dot(viewdir, sundir);
         float muS = dot(camera, sundir) / r;
 
-        vec4 inScatter = texture4D(inscatterSampler, r, rMu / r, muS, nu);
+        vec4 inScatter = texture4D(InscatterSampler, r, rMu / r, muS, nu);
         if (shaftWidth > 0.0) {
             if (mu > 0.0) {
                 inScatter *= min(transmittance(r0, mu0) / transmittance(r, mu), 1.0).rgbr;
@@ -541,26 +541,26 @@ vec3 inScattering(vec3 camera, vec3 point, vec3 sundir, out vec3 extinction, flo
             mu = lim - EPS;
             r1 = sqrt(r * r + d * d + 2.0 * r * d * mu);
             mu1 = (r * mu + d) / r1;
-            vec4 inScatter0 = texture4D(inscatterSampler, r, mu, muS, nu);
-            vec4 inScatter1 = texture4D(inscatterSampler, r1, mu1, muS1, nu);
+            vec4 inScatter0 = texture4D(InscatterSampler, r, mu, muS, nu);
+            vec4 inScatter1 = texture4D(InscatterSampler, r1, mu1, muS1, nu);
             vec4 inScatterA = max(inScatter0 - inScatter1 * extinction.rgbr, 0.0);
 
             mu = lim + EPS;
             r1 = sqrt(r * r + d * d + 2.0 * r * d * mu);
             mu1 = (r * mu + d) / r1;
-            inScatter0 = texture4D(inscatterSampler, r, mu, muS, nu);
-            inScatter1 = texture4D(inscatterSampler, r1, mu1, muS1, nu);
+            inScatter0 = texture4D(InscatterSampler, r, mu, muS, nu);
+            inScatter1 = texture4D(InscatterSampler, r1, mu1, muS1, nu);
             vec4 inScatterB = max(inScatter0 - inScatter1 * extinction.rgbr, 0.0);
 
             inScatter = mix(inScatterA, inScatterB, a);
         } else {
-            vec4 inScatter0 = texture4D(inscatterSampler, r, mu, muS, nu);
-            vec4 inScatter1 = texture4D(inscatterSampler, r1, mu1, muS1, nu);
+            vec4 inScatter0 = texture4D(InscatterSampler, r, mu, muS, nu);
+            vec4 inScatter1 = texture4D(InscatterSampler, r1, mu1, muS1, nu);
             inScatter = max(inScatter0 - inScatter1 * extinction.rgbr, 0.0);
         }
 #else
-        vec4 inScatter0 = texture4D(inscatterSampler, r, mu, muS, nu);
-        vec4 inScatter1 = texture4D(inscatterSampler, r1, mu1, muS1, nu);
+        vec4 inScatter0 = texture4D(InscatterSampler, r, mu, muS, nu);
+        vec4 inScatter1 = texture4D(InscatterSampler, r1, mu1, muS1, nu);
         inScatter = max(inScatter0 - inScatter1 * extinction.rgbr, 0.0);
 #endif
 

@@ -1,11 +1,11 @@
 uniform sampler2D sceneSampler;
-uniform sampler2D transmittanceSampler;
-uniform sampler2D skyIrradianceSampler;
-uniform sampler3D inscatterSampler;
-uniform sampler2D glareSampler;
+uniform sampler2D TransmittanceSampler;
+uniform sampler2D SkyIrradianceSampler;
+uniform sampler3D InscatterSampler;
+uniform sampler2D GlareSampler;
 uniform vec3 worldCameraPos, worldCameraLLA;
-uniform vec3 worldSunDir, origin;
-uniform float hdrExposure, globalOpaque;
+uniform vec3 worldSunDir, EarthOrigin;
+uniform float HdrExposure, GlobalOpaque;
 uniform float osg_SimulationTime;
 
 uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
@@ -80,7 +80,7 @@ vec3 galaxyImage(in vec2 uv, in float time)
 
 vec3 hdr(vec3 L)
 {
-    L = L * hdrExposure;
+    L = L * HdrExposure;
     L.r = L.r < 1.413 ? pow(L.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.r);
     L.g = L.g < 1.413 ? pow(L.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.g);
     L.b = L.b < 1.413 ? pow(L.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.b);
@@ -95,7 +95,7 @@ void main()
     fragColor.a = 1.0;
     
     vec3 extinction = vec3(1.0);
-    vec3 inscatter = skyRadiance(WCP + origin, d, WSD, extinction, 0.0);
+    vec3 inscatter = skyRadiance(WCP + EarthOrigin, d, WSD, extinction, 0.0);
     vec3 finalColor = sunColor * extinction + inscatter;
     if (scene.a < 0.01)
     {
@@ -108,6 +108,6 @@ void main()
     finalColor = colorAdjustmentFunc(finalColor, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
 
     fragColor.rgb = mix(hdr(finalColor), scene.rgb, scene.a);
-    fragColor.rgb = mix(scene.rgb, fragColor.rgb, clamp(globalOpaque, 0.0, 1.0));
+    fragColor.rgb = mix(scene.rgb, fragColor.rgb, clamp(GlobalOpaque, 0.0, 1.0));
     VERSE_FS_FINAL(fragColor);
 }

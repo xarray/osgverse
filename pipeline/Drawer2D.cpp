@@ -2,6 +2,7 @@
 #include <osg/Version>
 #include <osg/io_utils>
 #include <osg/ImageUtils>
+#include <iterator>
 
 #define BL_STATIC
 #include "3rdparty/blend2d/blend2d.h"
@@ -257,9 +258,37 @@ bool Drawer2D::loadFont(const std::string& name, const std::string& file)
                 return true;
             }
             else
-                OSG_WARN << "[Drawer2D] Unable to create font: " << name << std::endl;
+                { OSG_WARN << "[Drawer2D] Unable to create font: " << name << std::endl; }
         }
-        else OSG_WARN << "[Drawer2D] Unable to read font file: " << file << std::endl;
+        else
+            { OSG_WARN << "[Drawer2D] Unable to read font file: " << file << std::endl; }
+    }
+    return false;
+}
+
+bool Drawer2D::loadFont(const std::string& name, std::istream& fin)
+{
+    BlendCore* core = (BlendCore*)_b2dData.get();
+    if (core != NULL)
+    {
+        std::string buffer((std::istreambuf_iterator<char>(fin)),
+                           std::istreambuf_iterator<char>());
+        if (buffer.empty())
+        { OSG_WARN << "[Drawer2D] Unable to read font stream: " << name << std::endl; return false; }
+
+        BLFontFace& fontFace = core->fonts[name];
+        BLArray<uint8_t> dataBuffer; dataBuffer.resize(buffer.size(), 0);
+        memcpy((char*)dataBuffer.data(), buffer.data(), buffer.size());
+        
+        BLFontData fontData;
+        if (fontData.createFromData(dataBuffer) == BL_SUCCESS)
+        {
+            fontFace.reset();
+            fontFace.createFromData(fontData, 0);
+            return true;
+        }
+        else
+            { OSG_WARN << "[Drawer2D] Unable to create font: " << name << std::endl; }
     }
     return false;
 }

@@ -9,7 +9,7 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp PipelineLoader.cpp DeferredCallback.cpp
     UserInputModule.cpp ShadowModule.cpp LightModule.cpp LightDrawable.cpp HistoryBufferCallback.cpp
     SkyBox.cpp NodeSelector.cpp SymbolManager.cpp Drawer2D.cpp IncrementalCompiler.cpp
-    IntersectionManager.cpp Rasterizer.cpp ShaderLibrary.cpp Utilities.cpp
+    IntersectionManager.cpp Rasterizer.cpp ShaderLibrary.cpp Utilities.cpp UtilitiesEx.cpp
 )
 
 IF(MSVC AND NOT VERSE_USE_EXTERNAL_GLES)

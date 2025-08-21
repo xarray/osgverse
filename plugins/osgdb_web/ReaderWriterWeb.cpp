@@ -35,31 +35,6 @@ static size_t readGZip(const char* in, size_t in_size, char* out, size_t out_siz
 { return 0; }
 #endif
 
-static std::string normalizeUrl(const std::string& url)
-{
-    size_t pathStart = url.find("://");
-    if (pathStart == std::string::npos) pathStart = 0;
-    else pathStart += 3;
-
-    std::string path = url.substr(pathStart), part;
-    std::istringstream iss(path);
-    std::vector<std::string> parts;
-    while (std::getline(iss, part, '/'))
-    { if (!part.empty()) parts.push_back(part); }
-
-    std::vector<std::string> normalizedParts;
-    for (const auto& p : parts)
-    {
-        if (p == "..") { if (!normalizedParts.empty()) normalizedParts.pop_back(); }
-        else if (p != ".") normalizedParts.push_back(p);
-    }
-
-    std::ostringstream oss;
-    for (size_t i = 0; i < normalizedParts.size(); ++i)
-    { if (i > 0) oss << "/"; oss << normalizedParts[i]; }
-    return url.substr(0, pathStart) + oss.str();
-}
-
 class ReaderWriterWeb : public osgDB::ReaderWriter
 {
 public:
@@ -245,7 +220,7 @@ public:
         }
 #else
         HttpRequest req; req.method = HTTP_GET;
-        req.url = normalizeUrl(fileName); req.scheme = scheme;
+        req.url = osgVerse::normalizeUrl(fileName); req.scheme = scheme;
         req.headers["User-Agent"] = "Mozilla/5.0";
         req.headers["Accept"] = "*/*";
         
@@ -348,7 +323,7 @@ public:
 
         // Post data to web
         req.method = HTTP_POST;
-        req.url = normalizeUrl(fileName); req.scheme = scheme;
+        req.url = osgVerse::normalizeUrl(fileName); req.scheme = scheme;
         req.body = std::string((std::istreambuf_iterator<char>(requestBuffer)),
                                std::istreambuf_iterator<char>());
         

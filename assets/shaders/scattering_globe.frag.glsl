@@ -1,12 +1,12 @@
 uniform sampler2D sceneSampler, maskSampler, extraLayerSampler;
-uniform sampler2D transmittanceSampler;
-uniform sampler2D skyIrradianceSampler;
-uniform sampler3D inscatterSampler;
-uniform sampler2D glareSampler;
+uniform sampler2D TransmittanceSampler;
+uniform sampler2D SkyIrradianceSampler;
+uniform sampler3D InscatterSampler;
+uniform sampler2D GlareSampler;
 uniform vec4 UvOffset1, UvOffset2, UvOffset3;
-uniform vec3 worldCameraPos, worldSunDir, origin;
+uniform vec3 worldCameraPos, worldSunDir, EarthOrigin;
 uniform vec3 sunColorScale, skyColorScale;
-uniform float hdrExposure, globalOpaque;
+uniform float HdrExposure, GlobalOpaque;
 
 uniform vec4 clipPlane0, clipPlane1, clipPlane2;
 
@@ -29,7 +29,7 @@ layout(location = 1) VERSE_FS_OUT vec4 fragOrigin;
 
 vec3 hdr(vec3 L)
 {
-    L = L * hdrExposure;
+    L = L * HdrExposure;
     L.r = L.r < 1.413 ? pow(L.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.r);
     L.g = L.g < 1.413 ? pow(L.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.g);
     L.b = L.b < 1.413 ? pow(L.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-L.b);
@@ -55,7 +55,7 @@ void main()
     vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st * UvOffset1.zw + UvOffset1.xy);
     vec4 layerColor = VERSE_TEX2D(extraLayerSampler, texCoord.st * UvOffset3.zw + UvOffset3.xy);
     groundColor.rgb = mix(groundColor.rgb, layerColor.rgb, layerColor.a);
-    if (isSkirt < -0.1 && globalOpaque < 0.9) discard;  // hide skirt if transparent
+    if (isSkirt < -0.1 && GlobalOpaque < 0.9) discard;  // hide skirt if transparent
 
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec2 uv = texCoord.xy * UvOffset2.zw + UvOffset2.xy;
@@ -87,7 +87,7 @@ void main()
     float cTheta = max(dot(N, WSD), 0.0); vec3 sunL, skyE;
     sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE);
     groundColor.rgb *= max((sunL * cTheta + skyE) / 3.14159265, vec3(0.1));
-    groundColor.a *= clamp(globalOpaque, 0.0, 1.0);
+    groundColor.a *= clamp(GlobalOpaque, 0.0, 1.0);
 
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
