@@ -81,8 +81,8 @@ public:
     :   _rttCamera(c), _mainStateSets(ss), _ellipsoidModel(em),
         _mainFolder(folder), _sunAngle(-0.6f), _pressingKey(0)
     {
-        osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
-        worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+        osg::Uniform* WorldSunDir = ss->getOrCreateUniform("WorldSunDir", osg::Uniform::FLOAT_VEC3);
+        WorldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -91,10 +91,10 @@ public:
         if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
         {
             osg::StateSet* ss = _mainStateSets.get();
-            osg::Uniform* cameraToWorld = ss->getOrCreateUniform("cameraToWorld", osg::Uniform::FLOAT_MAT4);
-            osg::Uniform* screenToCamera = ss->getOrCreateUniform("screenToCamera", osg::Uniform::FLOAT_MAT4);
-            osg::Uniform* worldCameraPos = ss->getOrCreateUniform("worldCameraPos", osg::Uniform::FLOAT_VEC3);
-            osg::Uniform* worldCameraLLA = ss->getOrCreateUniform("worldCameraLLA", osg::Uniform::FLOAT_VEC3);
+            osg::Uniform* cameraToWorld = ss->getOrCreateUniform("CameraToWorld", osg::Uniform::FLOAT_MAT4);
+            osg::Uniform* screenToCamera = ss->getOrCreateUniform("ScreenToCamera", osg::Uniform::FLOAT_MAT4);
+            osg::Uniform* WorldCameraPos = ss->getOrCreateUniform("WorldCameraPos", osg::Uniform::FLOAT_VEC3);
+            osg::Uniform* WorldCameraLLA = ss->getOrCreateUniform("WorldCameraLLA", osg::Uniform::FLOAT_VEC3);
 
             osg::Camera* mainCamera = view->getCamera();
             if (mainCamera)
@@ -105,8 +105,8 @@ public:
 
                 osg::Vec3d worldCam = invViewMatrix.getTrans();
                 osg::Vec3d worldLLA = osgVerse::Coordinate::convertECEFtoLLA(worldCam);
-                worldCameraPos->set(osg::Vec3(worldCam));
-                worldCameraLLA->set(osg::Vec3(worldLLA));
+                WorldCameraPos->set(osg::Vec3(worldCam));
+                WorldCameraLLA->set(osg::Vec3(worldLLA));
             }
 
             std::set<std::string> localCommandList;
@@ -121,33 +121,33 @@ public:
         osg::StateSet* ss = _mainStateSets.get();
         if (global_TargetSunAngle < _sunAngle)
         {
-            osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
+            osg::Uniform* WorldSunDir = ss->getOrCreateUniform("WorldSunDir", osg::Uniform::FLOAT_VEC3);
             if (_sunAngle - global_TargetSunAngle < 0.02f) _sunAngle = global_TargetSunAngle; else _sunAngle -= 0.02f;
-            worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+            WorldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
         }
         else if (global_TargetSunAngle > _sunAngle)
         {
-            osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
+            osg::Uniform* WorldSunDir = ss->getOrCreateUniform("WorldSunDir", osg::Uniform::FLOAT_VEC3);
             if (global_TargetSunAngle - _sunAngle < 0.02f) _sunAngle = global_TargetSunAngle; else _sunAngle += 0.02f;
-            worldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+            WorldSunDir->set(osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
         }
 
         if (_pressingKey > 0)
         {
-            osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
-            osg::Uniform* opaqueValue = ss->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT);
-            osg::Uniform* opaqueValue2 = ss->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT);
+            osg::Uniform* WorldSunDir = ss->getOrCreateUniform("WorldSunDir", osg::Uniform::FLOAT_VEC3);
+            osg::Uniform* opaqueValue = ss->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT);
+            osg::Uniform* opaqueValue2 = ss->getOrCreateUniform("OceanOpaque", osg::Uniform::FLOAT);
 
             osg::Vec3 originDir(-1.0f, 0.0f, 0.0f); osg::Vec4 clipPlane; float opaque = 1.0f;
             switch (_pressingKey)
             {
             case osgGA::GUIEventAdapter::KEY_Left:
                 _sunAngle -= (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT) ?  0.01f : 0.001f;
-                worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                WorldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 global_TargetSunAngle = _sunAngle; break;
             case osgGA::GUIEventAdapter::KEY_Right:
                 _sunAngle += (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT) ? 0.01f : 0.001f;
-                worldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                WorldSunDir->set(originDir * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 global_TargetSunAngle = _sunAngle; break;
             case '[': opaqueValue->get(opaque); opaqueValue->set(osg::clampAbove(opaque - 0.01f, 0.0f)); break;
             case ']': opaqueValue->get(opaque); opaqueValue->set(osg::clampBelow(opaque + 0.01f, 1.0f)); break;
@@ -210,21 +210,21 @@ public:
         osgVerse::TileManager* mgr = osgVerse::TileManager::instance(); _currentLayer = name;
         if (name.empty()) mgr->setLayerPath(osgVerse::TileCallback::USER, "");
         else mgr->setLayerPath(osgVerse::TileCallback::USER, _mainFolder + "/" + name + "/{z}/{x}/{y}.png");
-        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(1.0f);
+        _mainStateSets->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT)->set(1.0f);
     }
 
     void updateVolumeData(const std::string& name)
     {
         global_volumeToLoad = name;
-        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.2f);
-        _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
+        _mainStateSets->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT)->set(0.2f);
+        _mainStateSets->getOrCreateUniform("OceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
     }
 
     void updateCityData(const std::string& name)
     {
         global_cityToCreate = name;
-        _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(1.0f);
-        _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(1.0f);
+        _mainStateSets->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT)->set(1.0f);
+        _mainStateSets->getOrCreateUniform("OceanOpaque", osg::Uniform::FLOAT)->set(1.0f);
     }
 
     void updateTimelineData(const std::string& name)
@@ -232,13 +232,13 @@ public:
         global_particleToLoad = name;
         if (global_particleIndex < 0)
         {
-            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(0.2f);
-            _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
+            _mainStateSets->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT)->set(0.2f);
+            _mainStateSets->getOrCreateUniform("OceanOpaque", osg::Uniform::FLOAT)->set(0.0f);
         }
         else
         {
-            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(1.0f);
-            _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(1.0f);
+            _mainStateSets->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT)->set(1.0f);
+            _mainStateSets->getOrCreateUniform("OceanOpaque", osg::Uniform::FLOAT)->set(1.0f);
         }
     }
 
@@ -257,13 +257,13 @@ public:
         }
         else if (name.find("show_globe") != std::string::npos)
         {
-            float v; _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->get(v);
-            _mainStateSets->getOrCreateUniform("globalOpaque", osg::Uniform::FLOAT)->set(v > 0.5f ? 0.0f : 1.0f);
+            float v; _mainStateSets->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT)->get(v);
+            _mainStateSets->getOrCreateUniform("GlobalOpaque", osg::Uniform::FLOAT)->set(v > 0.5f ? 0.0f : 1.0f);
         }
         else if (name.find("show_ocean") != std::string::npos)
         {
-            float v; _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->get(v);
-            _mainStateSets->getOrCreateUniform("oceanOpaque", osg::Uniform::FLOAT)->set(v > 0.5f ? 0.0f : 1.0f);
+            float v; _mainStateSets->getOrCreateUniform("OceanOpaque", osg::Uniform::FLOAT)->get(v);
+            _mainStateSets->getOrCreateUniform("OceanOpaque", osg::Uniform::FLOAT)->set(v > 0.5f ? 0.0f : 1.0f);
         }
         else if (name.find("home") != std::string::npos)
         {

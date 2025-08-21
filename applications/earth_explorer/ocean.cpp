@@ -19,8 +19,8 @@
 #include <sstream>
 
 #define srnd() (2*frandom(&seed) - 1)
-double radius = osg::WGS_84_RADIUS_EQUATOR, zmin = 20000.0;
-int nbWaves = 60, resolution = 8;
+double Radius = osg::WGS_84_RADIUS_EQUATOR, zmin = 20000.0;
+int WaveCount = 60, resolution = 8;
 float lambdaMin = 0.02f, lambdaMax = 30.0f;
 float meanHeight = 0.0f, heightMax = 0.4f;//0.5;
 
@@ -45,33 +45,33 @@ namespace
 
     osg::Vec2 oceanPos(osg::StateSet* ss, const osg::Vec3& vertex, float& t, osg::Vec3& cameraDir, osg::Vec3& oceanDir)
     {
-        osg::Matrixf screenToCamera; ss->getUniform("screenToCamera")->get(screenToCamera);
-        osg::Matrixf cameraToOcean; ss->getUniform("cameraToOcean")->get(cameraToOcean);
-        osg::Vec3 horizon1; ss->getUniform("horizon1")->get(horizon1);
-        osg::Vec3 horizon2; ss->getUniform("horizon2")->get(horizon2);
-        osg::Vec3 oceanCameraPos; ss->getUniform("oceanCameraPos")->get(oceanCameraPos);
-        float heightOffset = 0.0f; ss->getUniform("heightOffset")->get(heightOffset);
-        float radius = 0.0f; ss->getUniform("radius")->get(radius);
+        osg::Matrixf ScreenToCamera; ss->getUniform("ScreenToCamera")->get(ScreenToCamera);
+        osg::Matrixf CameraToOcean; ss->getUniform("CameraToOcean")->get(CameraToOcean);
+        osg::Vec3 Horizon1; ss->getUniform("Horizon1")->get(Horizon1);
+        osg::Vec3 Horizon2; ss->getUniform("Horizon2")->get(Horizon2);
+        osg::Vec3 OceanCameraPos; ss->getUniform("OceanCameraPos")->get(OceanCameraPos);
+        float HeightOffset = 0.0f; ss->getUniform("HeightOffset")->get(HeightOffset);
+        float Radius = 0.0f; ss->getUniform("Radius")->get(Radius);
 
-        float horizon = horizon1.x() + horizon1.y() * vertex.x() -
-                        sqrt(horizon2.x() + (horizon2.y() + horizon2.z() * vertex.x()) * vertex.x());
-        osg::Vec4 temp = osg::Vec4(vertex.x(), osg::minimum(vertex.y(), horizon), 0.0f, 1.0f) * screenToCamera;
+        float horizon = Horizon1.x() + Horizon1.y() * vertex.x() -
+                        sqrt(Horizon2.x() + (Horizon2.y() + Horizon2.z() * vertex.x()) * vertex.x());
+        osg::Vec4 temp = osg::Vec4(vertex.x(), osg::minimum(vertex.y(), horizon), 0.0f, 1.0f) * ScreenToCamera;
         cameraDir = osg::Vec3(temp[0], temp[1], temp[2]); cameraDir.normalize();
-        temp = osg::Vec4(cameraDir, 0.0) * cameraToOcean;
+        temp = osg::Vec4(cameraDir, 0.0) * CameraToOcean;
         oceanDir = osg::Vec3(temp[0], temp[1], temp[2]);
 
-        float cz = oceanCameraPos.z(), dz = oceanDir.z();
-        if (radius == 0.0)
-            t = (heightOffset + 5.0 - cz) / dz;
+        float cz = OceanCameraPos.z(), dz = oceanDir.z();
+        if (Radius == 0.0)
+            t = (HeightOffset + 5.0 - cz) / dz;
         else
         {
-            float b = dz * (cz + radius);
-            float c = cz * (cz + 2.0 * radius);
+            float b = dz * (cz + Radius);
+            float c = cz * (cz + 2.0 * Radius);
             float tSphere = -b - sqrt(osg::maximum(b * b - c, 0.0f));
-            float tApprox = -cz / dz * (1.0 + cz / (2.0 * radius) * (1.0 - dz * dz));
+            float tApprox = -cz / dz * (1.0 + cz / (2.0 * Radius) * (1.0 - dz * dz));
             t = abs((tApprox - tSphere) * dz) < 1.0 ? tApprox : tSphere;
         }
-        return osg::Vec2(oceanCameraPos.x() + t * oceanDir.x(), oceanCameraPos.y() + t * oceanDir.y());
+        return osg::Vec2(OceanCameraPos.x() + t * oceanDir.x(), OceanCameraPos.y() + t * oceanDir.y());
     }
 
     osg::Vec2 oceanPos(osg::StateSet* ss, const osg::Vec3& vertex)
@@ -83,27 +83,27 @@ namespace
     osg::Vec4 fakeVertexShader(osg::StateSet* ss, const osg::Vec3& osg_Vertex)
     {
         osg::Texture2D* tex = (osg::Texture2D*)ss->getTextureAttribute(5, osg::StateAttribute::TEXTURE);
-        osg::Matrixf cameraToScreen; ss->getUniform("cameraToScreen")->get(cameraToScreen);
-        osg::Matrixf oceanToCamera; ss->getUniform("oceanToCamera")->get(oceanToCamera);
-        osg::Vec4 lods; ss->getUniform("lods")->get(lods);
-        osg::Vec3 oceanCameraPos; ss->getUniform("oceanCameraPos")->get(oceanCameraPos);
-        float heightOffset = 0.0f; ss->getUniform("heightOffset")->get(heightOffset);
-        float seaRoughness = 0.0f; ss->getUniform("seaRoughness")->get(seaRoughness);
+        osg::Matrixf CameraToScreen; ss->getUniform("CameraToScreen")->get(CameraToScreen);
+        osg::Matrixf OceanToCamera; ss->getUniform("OceanToCamera")->get(OceanToCamera);
+        osg::Vec4 SeaGridLODs; ss->getUniform("SeaGridLODs")->get(SeaGridLODs);
+        osg::Vec3 OceanCameraPos; ss->getUniform("OceanCameraPos")->get(OceanCameraPos);
+        float HeightOffset = 0.0f; ss->getUniform("HeightOffset")->get(HeightOffset);
+        float SeaRoughness = 0.0f; ss->getUniform("SeaRoughness")->get(SeaRoughness);
         float time = 0.0f; ss->getUniform("time")->get(time);
 
         float t = 0.0; osg::Vec3 cameraDir, oceanDir;
         osg::Vec2 uv = oceanPos(ss, osg_Vertex, t, cameraDir, oceanDir);
 
-        float lod = -t / oceanDir.z() * lods.y();
+        float lod = -t / oceanDir.z() * SeaGridLODs.y();
         osg::Vec2 duv = oceanPos(ss, osg_Vertex + osg::Vec3(0.0, 0.01, 0.0)) - uv;
-        osg::Vec3 dP = osg::Vec3(0.0, 0.0, heightOffset + (radius > 0.0 ? 0.0 : 5.0));
+        osg::Vec3 dP = osg::Vec3(0.0, 0.0, HeightOffset + (Radius > 0.0 ? 0.0 : 5.0));
         osg::Vec3 dPdu = osg::Vec3(1.0, 0.0, 0.0), dPdv = osg::Vec3(0.0, 1.0, 0.0);
-        float sigmaSq = seaRoughness;
+        float sigmaSq = SeaRoughness;
 
         if (duv.x() != 0.0 || duv.y() != 0.0)
         {
-            float iMin = osg::maximum(floor((log2(NYQUIST_MIN * lod) - lods.z()) * lods.w()), 0.0);
-            for (float i = iMin; i < int(nbWaves); ++i)
+            float iMin = osg::maximum(floor((log2(NYQUIST_MIN * lod) - SeaGridLODs.z()) * SeaGridLODs.w()), 0.0);
+            for (float i = iMin; i < int(WaveCount); ++i)
             {
                 osg::Vec4 wt = tex->getImage()->getColor(i, 0);
                 float phase = wt.y() * time - osg::Vec2(wt.z(), wt.w()) * uv;
@@ -122,15 +122,15 @@ namespace
             }
         }
 
-        osg::Vec3 p = oceanDir * t + dP + osg::Vec3(0.0, 0.0, oceanCameraPos.z());
-        if (radius > 0.0)
+        osg::Vec3 p = oceanDir * t + dP + osg::Vec3(0.0, 0.0, OceanCameraPos.z());
+        if (Radius > 0.0)
         {
-            dPdu += osg::Vec3(0.0, 0.0, -p.x() / (radius + p.z()));
-            dPdv += osg::Vec3(0.0, 0.0, -p.y() / (radius + p.z()));
+            dPdu += osg::Vec3(0.0, 0.0, -p.x() / (Radius + p.z()));
+            dPdv += osg::Vec3(0.0, 0.0, -p.y() / (Radius + p.z()));
         }
 
-        osg::Vec4 temp = osg::Vec4(dP, 1.0) * oceanToCamera;
-        return osg::Vec4(cameraDir * t + osg::Vec3(temp[0], temp[1], temp[2]), 1.0) * cameraToScreen;
+        osg::Vec4 temp = osg::Vec4(dP, 1.0) * OceanToCamera;
+        return osg::Vec4(cameraDir * t + osg::Vec3(temp[0], temp[1], temp[2]), 1.0) * CameraToScreen;
     }
 }
 #endif
@@ -169,7 +169,7 @@ osg::Texture* generateWaves(osg::StateSet* ss)
     float min = log(lambdaMin) / log(2.0f);
     float max = log(lambdaMax) / log(2.0f);
 
-    std::vector<osg::Vec4> waves(nbWaves);
+    std::vector<osg::Vec4> waves(WaveCount);
     float sigmaXsq = 0.0f;
     float sigmaYsq = 0.0f;
     float heightVariance = 0.0f;
@@ -192,9 +192,9 @@ osg::Texture* generateWaves(osg::StateSet* ss)
     const float waveDispersion = 0.9f;//6;
     const float U0 = 10.0f;
     const int spectrumType = 2;
-    for (int i = 0; i < nbWaves; ++i)
+    for (int i = 0; i < WaveCount; ++i)
     {
-        float x = i / float(nbWaves - 1.0f);
+        float x = i / float(WaveCount - 1.0f);
         float lambda = pow(2.0f, (1.0f - x) * min + x * max);
         float ktheta = grandom(0.0f, 1.0f, &seed) * waveDispersion;
         float knorm = 2.0f * osg::PI / lambda;
@@ -204,7 +204,7 @@ osg::Texture* generateWaves(osg::StateSet* ss)
             amplitude = heightMax * grandom(0.5f, 0.15f, &seed) / (knorm * lambdaMax / (2.0f * osg::PI));
         else if (spectrumType == 2)
         {
-            float step = (max - min) / (nbWaves - 1); // dlambda/di
+            float step = (max - min) / (WaveCount - 1); // dlambda/di
             float omega0 = 9.81f / U0; // 100.0;
             if ((i % (nbAngles)) == 0)
             {   // scramble angle ordre
@@ -241,7 +241,7 @@ osg::Texture* generateWaves(osg::StateSet* ss)
     amplitudeMax = h1 - h0;
 
     osg::ref_ptr<osg::Image> image = new osg::Image;
-    image->allocateImage(nbWaves, 1, 1, GL_RGBA, GL_FLOAT);
+    image->allocateImage(WaveCount, 1, 1, GL_RGBA, GL_FLOAT);
     image->setInternalTextureFormat(GL_RGBA32F_ARB);
     memcpy(image->data(), waves.data(), waves.size() * sizeof(osg::Vec4));
 
@@ -251,9 +251,9 @@ osg::Texture* generateWaves(osg::StateSet* ss)
     tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
     tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
 
-    ss->addUniform(new osg::Uniform("seaColor", osg::Vec3(10.f / 255.f, 40.f / 255.f, 120.f / 255.f) * 0.1f));
-    ss->addUniform(new osg::Uniform("seaRoughness", sigmaXsq));
-    ss->addUniform(new osg::Uniform("nbWaves", (float)nbWaves));
+    ss->addUniform(new osg::Uniform("SeaColor", osg::Vec3(10.f / 255.f, 40.f / 255.f, 120.f / 255.f) * 0.1f));
+    ss->addUniform(new osg::Uniform("SeaRoughness", sigmaXsq));
+    ss->addUniform(new osg::Uniform("WaveCount", (float)WaveCount));
     return tex.release();
 }
 
@@ -299,11 +299,11 @@ public:
 
         osg::Matrix ctol = camera->getInverseViewMatrix();
         osg::Vec3d cl = osg::Vec3() * ctol;
-        if ((radius == 0.0 && cl.z() > zmin) || (radius > 0.0 && cl.length() > radius + zmin))
+        if ((Radius == 0.0 && cl.z() > zmin) || (Radius > 0.0 && cl.length() > Radius + zmin))
         { oldLtoo = osg::Matrix(); offset = osg::Vec3(); }
         
         osg::Vec3d ux, uy, uz, oo;
-        if (radius == 0.0)
+        if (Radius == 0.0)
         {
             ux = osg::X_AXIS; uy = osg::Y_AXIS; uz = osg::Z_AXIS;
             oo = osg::Vec3d(cl.x(), cl.y(), 0.0);
@@ -319,14 +319,14 @@ public:
             else
                 { ux = osg::Z_AXIS; ux = (ux ^ uz); ux.normalize(); }
             uy = (uz ^ ux); // unit y vector
-            oo = uz * radius; // origin of ocean frame, in local space
+            oo = uz * Radius; // origin of ocean frame, in local space
         }
 
         osg::Matrix ltoo(ux.x(), uy.x(), uz.x(), 0.0,
                          ux.y(), uy.y(), uz.y(), 0.0,
                          ux.z(), uy.z(), uz.z(), 0.0,
                         -(ux * oo), -(uy * oo), -(uz * oo), 1.0);
-        osg::Matrix ctoo = ctol * ltoo;  // compute ctoo = cameraToOcean transform
+        osg::Matrix ctoo = ctol * ltoo;  // compute ctoo = CameraToOcean transform
         if (!oldLtoo.isIdentity())
         {
             osg::Vec3d delta = osg::Vec3d() * osg::Matrix::inverse(oldLtoo) * ltoo;
@@ -342,20 +342,20 @@ public:
 
         osg::Vec3 wDir, oDir;
         osg::StateSet* ss = node->getOrCreateStateSet();
-        osg::Uniform* worldSunDir = ss->getOrCreateUniform("worldSunDir", osg::Uniform::FLOAT_VEC3);
-        osg::Uniform* oceanSunDir = ss->getOrCreateUniform("oceanSunDir", osg::Uniform::FLOAT_VEC3);
-        worldSunDir->get(wDir); oceanSunDir->set(osg::Matrixf::transform3x3(wDir, ltoo));
+        osg::Uniform* WorldSunDir = ss->getOrCreateUniform("WorldSunDir", osg::Uniform::FLOAT_VEC3);
+        osg::Uniform* OceanSunDir = ss->getOrCreateUniform("OceanSunDir", osg::Uniform::FLOAT_VEC3);
+        WorldSunDir->get(wDir); OceanSunDir->set(osg::Matrixf::transform3x3(wDir, ltoo));
 
         osg::Vec3d oc = osg::Vec3d() * ctoo; float h = oc.z();  // if h < 0, we are under the ocean...
         //manipulator->setZoomFactor(osg::Vec2(osg::clampBetween(h / 5000.0f, 0.1f, 1.0f), 1.0f));
 
-        ss->getOrCreateUniform("underOcean", osg::Uniform::FLOAT)->set(h);
-        ss->getOrCreateUniform("cameraToOcean", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctoo));
-        ss->getOrCreateUniform("screenToCamera", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(stoc));
-        ss->getOrCreateUniform("cameraToScreen", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctos));
-        ss->getOrCreateUniform("oceanToCamera", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(otoc));
-        ss->getOrCreateUniform("oceanToWorld", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf::inverse(ltoo));
-        ss->getOrCreateUniform("oceanCameraPos", osg::Uniform::FLOAT_VEC3)
+        ss->getOrCreateUniform("UnderOcean", osg::Uniform::FLOAT)->set(h);
+        ss->getOrCreateUniform("CameraToOcean", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctoo));
+        ss->getOrCreateUniform("ScreenToCamera", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(stoc));
+        ss->getOrCreateUniform("CameraToScreen", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(ctos));
+        ss->getOrCreateUniform("OceanToCamera", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf(otoc));
+        ss->getOrCreateUniform("OceanToWorld", osg::Uniform::FLOAT_MAT4)->set(osg::Matrixf::inverse(ltoo));
+        ss->getOrCreateUniform("OceanCameraPos", osg::Uniform::FLOAT_VEC3)
           ->set(osg::Vec3(-offset.x(), -offset.y(), h));
 
         osg::Vec4d temp;
@@ -369,15 +369,15 @@ public:
         temp = osg::Vec4d(temp[0], temp[1], temp[2], 0.0) * ctoo;
         osg::Vec3d B(temp[0], temp[1], temp[2]);
 
-        if (radius == 0.0)
+        if (Radius == 0.0)
         {
-            ss->getOrCreateUniform("horizon1", osg::Uniform::FLOAT_VEC3)->set(
+            ss->getOrCreateUniform("Horizon1", osg::Uniform::FLOAT_VEC3)->set(
                 osg::Vec3(-(h * 1e-6 + A0.z()) / B.z(), -dA.z() / B.z(), 0.0));
-            ss->getOrCreateUniform("horizon2", osg::Uniform::FLOAT_VEC3)->set(osg::Vec3());
+            ss->getOrCreateUniform("Horizon2", osg::Uniform::FLOAT_VEC3)->set(osg::Vec3());
         }
         else
         {
-            double h1 = h * (h + 2.0 * radius), h2 = (h + radius) * (h + radius);
+            double h1 = h * (h + 2.0 * Radius), h2 = (h + Radius) * (h + Radius);
             double alpha = (B * B) * h1 - B.z() * B.z() * h2;
             alpha = -fabs(alpha);  // FIXME: modified from proland to keep ocean always seen, can it work?
 
@@ -386,8 +386,8 @@ public:
             double gamma0 = ((A0 * A0) * h1 - A0.z() * A0.z() * h2) / alpha;
             double gamma1 = ((A0 * dA) * h1 - A0.z() * dA.z() * h2) / alpha;
             double gamma2 = ((dA * dA) * h1 - dA.z() * dA.z() * h2) / alpha;
-            ss->getOrCreateUniform("horizon1", osg::Uniform::FLOAT_VEC3)->set(osg::Vec3(-beta0, -beta1, alpha));
-            ss->getOrCreateUniform("horizon2", osg::Uniform::FLOAT_VEC3)->set(
+            ss->getOrCreateUniform("Horizon1", osg::Uniform::FLOAT_VEC3)->set(osg::Vec3(-beta0, -beta1, alpha));
+            ss->getOrCreateUniform("Horizon2", osg::Uniform::FLOAT_VEC3)->set(
                 osg::Vec3(beta0 * beta0 - gamma0, 2.0 * (beta0 * beta1 - gamma1), beta1 * beta1 - gamma2));
         }
 
@@ -399,12 +399,12 @@ public:
 
         // FIXME: pixelSize affects wave tiling, should be treated carefully
         float pixelSize = atan(tan(osg::inDegrees(fov * aspectRatio * oceanPixelScale)) / (height / 2.0f));
-        ss->getOrCreateUniform("screenSize", osg::Uniform::FLOAT_VEC2)->set(osg::Vec2(width, height));
-        ss->getOrCreateUniform("radius", osg::Uniform::FLOAT)->set((float)radius);
-        ss->getOrCreateUniform("heightOffset", osg::Uniform::FLOAT)->set(-meanHeight);
-        ss->getOrCreateUniform("lods", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(
+        ss->getOrCreateUniform("ScreenSize", osg::Uniform::FLOAT_VEC2)->set(osg::Vec2(width, height));
+        ss->getOrCreateUniform("Radius", osg::Uniform::FLOAT)->set((float)Radius);
+        ss->getOrCreateUniform("HeightOffset", osg::Uniform::FLOAT)->set(-meanHeight);
+        ss->getOrCreateUniform("SeaGridLODs", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(
             resolution, pixelSize * resolution, log(lambdaMin) / log(2.0f),
-            (nbWaves - 1.0f) / (log(lambdaMax) / log(2.0f) - log(lambdaMin) / log(2.0f))));
+            (WaveCount - 1.0f) / (log(lambdaMax) / log(2.0f) - log(lambdaMin) / log(2.0f))));
         if (nv && nv->getFrameStamp())
         {
             float t = nv->getFrameStamp()->getSimulationTime();
@@ -471,14 +471,14 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     ss->setAttributeAndModes(program.get());
-    ss->addUniform(new osg::Uniform("oceanOpaque", 1.0f));
-    ss->addUniform(new osg::Uniform("wavesSampler", (int)7));
-    ss->addUniform(new osg::Uniform("earthMaskSampler", (int)8));
+    ss->addUniform(new osg::Uniform("OceanOpaque", 1.0f));
+    ss->addUniform(new osg::Uniform("WavesSampler", (int)7));
+    ss->addUniform(new osg::Uniform("EarthMaskSampler", (int)8));
     ss->setTextureAttributeAndModes(7, generateWaves(ss));
     ss->setTextureAttributeAndModes(8, sceneMaskTex);  // FIXME: no need to merge with root stateset and make big tex-units
                                                        // A shared stateset should be maintained for ocean, sky and ground..
 
-    uniforms["seaColor"] = ss->getUniform("seaColor");
+    uniforms["SeaColor"] = ss->getUniform("SeaColor");
 
     osg::Geometry* grid = createGrid(width, height);
     osg::Geode* grideGeode = new osg::Geode;

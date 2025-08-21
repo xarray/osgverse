@@ -19,6 +19,8 @@ struct SMikkTSpaceContext;
 
 namespace osgVerse
 {
+    class Pipeline;
+
     /** Get unique node-path like name (e.g. rootName/childA/subChildB/0) */
     extern std::string getNodePathID(osg::Object& obj, osg::Node* root = NULL, char sep = '/');
 
@@ -160,14 +162,48 @@ namespace osgVerse
     struct EarthAtmosphereOcean
     {
         std::map<std::string, osg::ref_ptr<osg::Uniform>> commonUniforms;
-        osg::ref_ptr<osg::Texture> inscatter, glare;
-        osg::ref_ptr<osg::Texture> transmittance, irradiance;
+        std::map<std::string, osg::ref_ptr<osg::Uniform>> oceanUniforms;
+        osg::ref_ptr<osg::Texture> transmittance, irradiance, inscatter, glare;
+        osg::Matrix oceanFromLocal; osg::Vec3d oceanOffset;
+        osg::Vec4 oceanLambdaAndHeight;  // lambdaMin, lambdaMax, heightMean, heightMax
+        double oceanMinZ, oceanPixelScale; int oceanWaveCount, oceanGridResolution;
+
+        EarthAtmosphereOcean()
+        {
+            oceanLambdaAndHeight.set(0.02f, 30.0f, 0.0f, 0.4f);
+            oceanMinZ = 20000.0; oceanPixelScale = 0.5;
+            oceanWaveCount = 60; oceanGridResolution = 8;
+        }
+
+        /** Apply stateset to earth globe to render it with scattering and fog effects */
+        void applyToGlobe(osg::StateSet* ss, osg::Texture* baseTex, osg::Texture* oceanMaskTex,
+                          osg::Texture* extraTex, osg::Shader* vs, osg::Shader* fs, Pipeline* ref = NULL);
+
+        /** Apply stateset to post-process ocean quad to render waves and colors */
+        void applyToOcean(osg::StateSet* ss, osg::Texture* postMaskTex, osg::Texture* waveTex,
+                          osg::Shader* vs, osg::Shader* fs, Pipeline* ref = NULL);
+
+        /** Apply stateset to post-process atmosphere quad to render sky effects */
+        void applyToAtmosphere(osg::StateSet* ss, osg::Texture* postSceneTex,
+                               osg::Shader* vs, osg::Shader* fs, Pipeline* ref = NULL);
+
+        /** Set shared textures and uniforms to stateset, and apply shaders as well */
+        osg::Program* apply(osg::StateSet* ss, osg::Shader* vs, osg::Shader* fs,
+                            unsigned int startTexUnit, Pipeline* refPipeline = NULL);
+
+        /** Update uniforms according to scene camera */
+        void update(osg::Camera* camera);
+        void updateOcean(osg::Camera* camera);
 
         /** Create public textures and uniforms (no shaders) */
         void create(const std::string& transmit, const std::string& irradiance,
                     const std::string& glare, const std::string& inscatter);
         void create(osg::Texture* transmit, osg::Texture* irradiance,
                     osg::Texture* glare, osg::Texture* inscatter);
+
+        /** Create ocean mesh and wave texture */
+        osg::Geometry* createOceanGrid(int width, int height);
+        osg::Texture* createOceanWaves(float& seaRoughness);
 
         /** Helper functions to load raw floating texture data */
         static osg::Texture* rawFloatingTexture2D(unsigned char* data, int w, int h, bool rgb);

@@ -333,24 +333,18 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     ss->setTextureAttributeAndModes(5, createRawTexture3D(inscatter, 256, 128, 32, false));
     ss->setTextureAttributeAndModes(6, osgVerse::createTexture2D(
         osgDB::readImageFile(BASE_DIR + "/textures/sunglare.png"), osg::Texture::CLAMP));
-    ss->addUniform(new osg::Uniform("sceneSampler", (int)0));
-    ss->addUniform(new osg::Uniform("maskSampler", (int)1));
-    ss->addUniform(new osg::Uniform("extraLayerSampler", (int)2));
+    ss->addUniform(new osg::Uniform("SceneSampler", (int)0));
+    ss->addUniform(new osg::Uniform("MaskSampler", (int)1));
+    ss->addUniform(new osg::Uniform("ExtraLayerSampler", (int)2));
     ss->addUniform(new osg::Uniform("TransmittanceSampler", (int)3));
     ss->addUniform(new osg::Uniform("SkyIrradianceSampler", (int)4));
     ss->addUniform(new osg::Uniform("InscatterSampler", (int)5));
     ss->addUniform(new osg::Uniform("GlareSampler", (int)6));
     ss->addUniform(new osg::Uniform("EarthOrigin", osg::Vec3(0.0f, 0.0f, 0.0f)));
     ss->addUniform(new osg::Uniform("GlobalOpaque", 1.0f));
-    ss->addUniform(new osg::Uniform("underOcean", 1.0f));
-    ss->addUniform(new osg::Uniform("ColorBalanceMode", (int)0));
+    ss->addUniform(new osg::Uniform("UnderOcean", 1.0f));
 
     uniforms["exposure"] = new osg::Uniform("HdrExposure", 0.25f);
-    uniforms["sun_intensity"] = new osg::Uniform("sunIntensity", 100.0f);
-    uniforms["sun_color_scale"] = new osg::Uniform("sunColorScale", osg::Vec3(1.0f, 1.0f, 1.0f));
-    uniforms["sky_color_scale"] = new osg::Uniform("skyColorScale", osg::Vec3(1.0f, 1.0f, 1.0f));
-    uniforms["color_attributes"] = new osg::Uniform("ColorAttribute", osg::Vec3(1.0f, 1.0f, 1.0f));
-    uniforms["color_balance"] = new osg::Uniform("ColorBalance", osg::Vec3(0.0f, 0.0f, 0.0f));  // [-1, 1]
     for (std::map<std::string, osg::Uniform*>::iterator i = uniforms.begin();
          i != uniforms.end(); ++i) ss->addUniform(i->second);
 

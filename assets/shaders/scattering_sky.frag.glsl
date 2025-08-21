@@ -1,16 +1,12 @@
-uniform sampler2D sceneSampler;
+uniform sampler2D SceneSampler;
 uniform sampler2D TransmittanceSampler;
 uniform sampler2D SkyIrradianceSampler;
 uniform sampler3D InscatterSampler;
 uniform sampler2D GlareSampler;
-uniform vec3 worldCameraPos, worldCameraLLA;
-uniform vec3 worldSunDir, EarthOrigin;
+uniform vec3 WorldCameraPos, WorldCameraLLA;
+uniform vec3 WorldSunDir, EarthOrigin;
 uniform float HdrExposure, GlobalOpaque;
 uniform float osg_SimulationTime;
-
-uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
-uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
-uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 
 VERSE_FS_IN vec3 dir;
 VERSE_FS_IN vec3 relativeDir;
@@ -65,7 +61,7 @@ vec3 galaxyImage(in vec2 uv, in float time)
     vec2 M = vec2(0);
     //M -= vec2(M.x + sin(time * 0.22), M.y - cos(time * 0.22));
     //M += (iMouse.xy - iResolution.xy * 0.5) / iResolution.y;
-    M += vec2(worldCameraLLA.y, worldCameraLLA.x) * 2.0;
+    M += vec2(WorldCameraLLA.y, WorldCameraLLA.x) * 2.0;
 
     float t = time * Velocity; vec3 col = vec3(0.0);
     for (float i = 0.0; i < 1.0; i += 1.0 / NUM_LAYERS)
@@ -89,8 +85,8 @@ vec3 hdr(vec3 L)
 
 void main()
 {
-    vec4 scene = VERSE_TEX2D(sceneSampler, texCoord.st);
-    vec3 WSD = worldSunDir, WCP = worldCameraPos;
+    vec4 scene = VERSE_TEX2D(SceneSampler, texCoord.st);
+    vec3 WSD = WorldSunDir, WCP = WorldCameraPos;
     vec3 d = normalize(dir), sunColor = outerSunRadiance(relativeDir);
     fragColor.a = 1.0;
     
@@ -102,10 +98,6 @@ void main()
         vec3 galaxy = galaxyImage(texCoord.st - vec2(0.5), osg_SimulationTime * 0.1);
         finalColor.rgb = mix(galaxy, finalColor.rgb, length(finalColor));
     }
-
-    // Color grading work
-    finalColor = colorBalanceFunc(finalColor, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
-    finalColor = colorAdjustmentFunc(finalColor, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
 
     fragColor.rgb = mix(hdr(finalColor), scene.rgb, scene.a);
     fragColor.rgb = mix(scene.rgb, fragColor.rgb, clamp(GlobalOpaque, 0.0, 1.0));

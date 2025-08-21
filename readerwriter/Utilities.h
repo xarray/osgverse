@@ -211,7 +211,8 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT std::string normalizeUrl(const std::string& url);
 
     /** Load content from local file or network protocol */
-    OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(const std::string& url);
+    OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(
+        const std::string& url, std::string& mimeType, std::string& encodingType);
 
     /** Setup KTX trancoding flags */
     enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };

@@ -1,30 +1,28 @@
 #extension GL_EXT_gpu_shader4 : enable
-uniform sampler2D sceneSampler;
+uniform sampler2D EarthMaskSampler;  // original earth scene
+uniform sampler1D WavesSampler; // waves parameters (h, omega, kx, ky) in wind space
 uniform sampler2D GlareSampler;
 uniform sampler2D TransmittanceSampler;
 uniform sampler2D SkyIrradianceSampler;
 uniform sampler3D InscatterSampler;
 
-uniform vec3 worldCameraPos;
-uniform vec3 worldSunDir;
-uniform vec2 screenSize;
+uniform vec3 WorldCameraPos;
+uniform vec3 WorldSunDir;
+uniform vec2 ScreenSize;
 uniform float HdrExposure;
 
-uniform mat4 cameraToOcean, oceanToCamera, oceanToWorld;
-uniform mat4 screenToCamera, cameraToScreen;
-uniform vec3 oceanCameraPos, oceanSunDir;
-uniform vec3 horizon1, horizon2;
-uniform float radius;
-
-uniform sampler2D earthMaskSampler;  // original earth scene
-uniform sampler1D wavesSampler; // waves parameters (h, omega, kx, ky) in wind space
-uniform float nbWaves; // number of waves
-uniform float heightOffset; // so that surface height is centered around z = 0
-uniform float seaRoughness; // total variance
-uniform float time, oceanOpaque;
-uniform vec3 seaColor; // sea bottom color
-uniform vec4 lods;  // grid cell size in pixels, angle under which a grid cell is seen,
-                    // and parameters of the geometric series used for wavelengths
+uniform mat4 CameraToOcean, OceanToCamera, OceanToWorld;
+uniform mat4 ScreenToCamera, CameraToScreen;
+uniform vec4 SeaGridLODs;  // grid cell size in pixels, angle under which a grid cell is seen,
+                           // and parameters of the geometric series used for wavelengths
+uniform vec3 SeaColor; // sea bottom color
+uniform vec3 OceanCameraPos, OceanSunDir;
+uniform vec3 Horizon1, Horizon2;
+uniform float Radius, OceanOpaque;
+uniform float WaveCount; // number of waves
+uniform float HeightOffset; // so that surface height is centered around z = 0
+uniform float SeaRoughness; // total variance
+uniform float osg_SimulationTime;
 
 #define SUN_INTENSITY 100.0
 #define PLANET_RADIUS 6360000.0
@@ -46,8 +44,8 @@ vec3 sunRadiance(float r, float muS);
 vec3 skyIrradiance(float r, float muS);
 vec3 inScattering(vec3 camera, vec3 point, vec3 sundir, out vec3 extinction, float shaftWidth);
 
-vec3 getWorldCameraPos() { return worldCameraPos; }
-vec3 getWorldSunDir() { return worldSunDir; }
+vec3 getWorldCameraPos() { return WorldCameraPos; }
+vec3 getWorldSunDir() { return WorldSunDir; }
 
 vec3 hdr(vec3 L)
 {
@@ -132,28 +130,28 @@ float refractedSeaRadiance(vec3 V, vec3 N, float sigmaSq)
 
 void main()
 {
-    vec2 quadUV = vec2(gl_FragCoord.x / screenSize.x, gl_FragCoord.y / screenSize.y);
-    vec4 sceneColor = VERSE_TEX2D(earthMaskSampler, quadUV);
+    vec2 quadUV = vec2(gl_FragCoord.x / ScreenSize.x, gl_FragCoord.y / ScreenSize.y);
+    vec4 sceneColor = VERSE_TEX2D(EarthMaskSampler, quadUV);
     if (oceanUv.z < 0.5) discard;  // FIXME: render in undersea mode?
     if (sceneColor.a < 0.1 && oceanValid < 0.0) discard;
 
     vec3 WSD = getWorldSunDir(), WCP = getWorldCameraPos();
     vec3 dPdu = oceanDPdu, dPdv = oceanDPdv; vec2 uv = oceanUv.xy;
-    float lod = oceanLod, sigmaSq = oceanSigmaSq;
+    float lod = oceanLod, sigmaSq = oceanSigmaSq, T = osg_SimulationTime * 3.0;
 
-    float iMAX = min(ceil((log2(NYQUIST_MAX * lod) - lods.z) * lods.w), nbWaves - 1.0);
-    float iMax = floor((log2(NYQUIST_MIN * lod) - lods.z) * lods.w);
-    float iMin = max(0.0, floor((log2(NYQUIST_MIN * lod / lods.x) - lods.z) * lods.w));
+    float iMAX = min(ceil((log2(NYQUIST_MAX * lod) - SeaGridLODs.z) * SeaGridLODs.w), WaveCount - 1.0);
+    float iMax = floor((log2(NYQUIST_MIN * lod) - SeaGridLODs.z) * SeaGridLODs.w);
+    float iMin = max(0.0, floor((log2(NYQUIST_MIN * lod / SeaGridLODs.x) - SeaGridLODs.z) * SeaGridLODs.w));
     for (float i = iMin; i <= iMAX; i += 1.0)
     {
-        vec4 wt = VERSE_TEX1D(wavesSampler, (i + 0.5) / nbWaves);
-        //vec4 wt = textureLod(wavesSampler, (i + 0.5) / nbWaves, 0.0);
-        float phase = wt.y * time - dot(wt.zw, uv);
+        vec4 wt = VERSE_TEX1D(WavesSampler, (i + 0.5) / WaveCount);
+        //vec4 wt = textureLod(WavesSampler, (i + 0.5) / WaveCount, 0.0);
+        float phase = wt.y * T - dot(wt.zw, uv);
         float s = sin(phase), c = cos(phase);
         float overk = g / (wt.y * wt.y);
 
         float wm = smoothstep(NYQUIST_MIN, NYQUIST_MAX, (2.0 * PI) * overk / lod);
-        float wn = smoothstep(NYQUIST_MIN, NYQUIST_MAX, (2.0 * PI) * overk / lod * lods.x);
+        float wn = smoothstep(NYQUIST_MIN, NYQUIST_MAX, (2.0 * PI) * overk / lod * SeaGridLODs.x);
         vec3 factor = (1.0 - wm) * wn * wt.x * vec3(wt.zw * overk, 1.0);
         vec3 dPd = factor * vec3(c, c, -s);
         dPdu -= dPd * wt.z; dPdv -= dPd * wt.w;
@@ -164,25 +162,25 @@ void main()
         sigmaSq -= wt.z * wt.z * (sqrt(1.0 - wkh * wkh) - sqrt(1.0 - kh * kh));
     }
     
-    vec3 earthCamera = vec3(0.0, 0.0, oceanCameraPos.z + radius);
-    vec3 earthP = radius > 0.0 ? normalize(oceanP + vec3(0.0, 0.0, radius)) * (radius + 10.0) : oceanP;
-    vec3 oceanCamera = vec3(0.0, 0.0, oceanCameraPos.z);
+    vec3 earthCamera = vec3(0.0, 0.0, OceanCameraPos.z + Radius);
+    vec3 earthP = Radius > 0.0 ? normalize(oceanP + vec3(0.0, 0.0, Radius)) * (Radius + 10.0) : oceanP;
+    vec3 oceanCamera = vec3(0.0, 0.0, OceanCameraPos.z);
     vec3 V = normalize(oceanCamera - oceanP);
     vec3 N = normalize(cross(dPdu, dPdv));
     if (dot(V, N) < 0.0) N = reflect(N, V); // reflects backfacing normals
 
     vec3 sunL, skyE, extinction;
-    sunRadianceAndSkyIrradiance2(earthP, N, oceanSunDir, sunL, skyE);
+    sunRadianceAndSkyIrradiance2(earthP, N, OceanSunDir, sunL, skyE);
 
-    vec3 Lsun = wardReflectedSunRadiance(oceanSunDir, V, N, sigmaSq) * sunL;
+    vec3 Lsun = wardReflectedSunRadiance(OceanSunDir, V, N, sigmaSq) * sunL;
     vec3 Lsky = meanFresnel(V, N, sigmaSq) * skyE / PI;
-    vec3 Lsea = refractedSeaRadiance(V, N, sigmaSq) * seaColor * skyE / PI;
+    vec3 Lsea = refractedSeaRadiance(V, N, sigmaSq) * SeaColor * skyE / PI;
     vec3 surfaceColor = Lsun + Lsky + Lsea;
 
     // aerial perspective
-    vec3 inscatter = inScattering(earthCamera, earthP, oceanSunDir, extinction, 0.0);
+    vec3 inscatter = inScattering(earthCamera, earthP, OceanSunDir, extinction, 0.0);
     vec3 finalColor = surfaceColor * extinction + inscatter;
-    fragData.rgb = hdr(finalColor); fragData.a = clamp(oceanOpaque, 0.0, 1.0);
+    fragData.rgb = hdr(finalColor); fragData.a = clamp(OceanOpaque, 0.0, 1.0);
 
     // Input sceneColor should be a gray image to show where ocean is...
     fragData.a *= 1.0 - clamp(sceneColor.r * 2.0, 0.0, 1.0);

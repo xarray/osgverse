@@ -1,18 +1,13 @@
-uniform sampler2D sceneSampler, maskSampler, extraLayerSampler;
+uniform sampler2D SceneSampler, MaskSampler, ExtraLayerSampler;
 uniform sampler2D TransmittanceSampler;
 uniform sampler2D SkyIrradianceSampler;
 uniform sampler3D InscatterSampler;
 uniform sampler2D GlareSampler;
 uniform vec4 UvOffset1, UvOffset2, UvOffset3;
-uniform vec3 worldCameraPos, worldSunDir, EarthOrigin;
-uniform vec3 sunColorScale, skyColorScale;
+uniform vec3 WorldCameraPos, WorldSunDir, EarthOrigin;
 uniform float HdrExposure, GlobalOpaque;
 
 uniform vec4 clipPlane0, clipPlane1, clipPlane2;
-
-uniform vec3 ColorAttribute;     // (Brightness, Saturation, Contrast)
-uniform vec3 ColorBalance;       // (Cyan-Red, Magenta-Green, Yellow-Blue)
-uniform int ColorBalanceMode;    // 0 - Shadow, 1 - Midtone, 2 - Highlight
 
 VERSE_FS_IN vec3 vertexInWorld, normalInWorld;
 VERSE_FS_IN vec4 texCoord;
@@ -52,26 +47,26 @@ void main()
         return;
     }
 
-    vec4 groundColor = VERSE_TEX2D(sceneSampler, texCoord.st * UvOffset1.zw + UvOffset1.xy);
-    vec4 layerColor = VERSE_TEX2D(extraLayerSampler, texCoord.st * UvOffset3.zw + UvOffset3.xy);
+    vec4 groundColor = VERSE_TEX2D(SceneSampler, texCoord.st * UvOffset1.zw + UvOffset1.xy);
+    vec4 layerColor = VERSE_TEX2D(ExtraLayerSampler, texCoord.st * UvOffset3.zw + UvOffset3.xy);
     groundColor.rgb = mix(groundColor.rgb, layerColor.rgb, layerColor.a);
     if (isSkirt < -0.1 && GlobalOpaque < 0.9) discard;  // hide skirt if transparent
 
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec2 uv = texCoord.xy * UvOffset2.zw + UvOffset2.xy;
-    vec4 maskColor = VERSE_TEX2D(maskSampler, uv.st); float off = 0.002;
+    vec4 maskColor = VERSE_TEX2D(MaskSampler, uv.st); float off = 0.002;
     vec4 maskValue = vec4(maskColor.z, maskColor.z, maskColor.z, maskColor.a);
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(-off, 0.0));
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(off, 0.0));
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(0.0, -off));
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(0.0, off));
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(-off, -off));
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(off, -off));
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(off, off));
-    maskColor += VERSE_TEX2D(maskSampler, uv.st + vec2(-off, off));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(-off, 0.0));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(off, 0.0));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(0.0, -off));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(0.0, off));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(-off, -off));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(off, -off));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(off, off));
+    maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(-off, off));
     maskColor *= 1.0 / 9.0;
 
-    vec3 WSD = worldSunDir, WCP = worldCameraPos;
+    vec3 WSD = WorldSunDir, WCP = WorldCameraPos;
     vec3 P = vertexInWorld, N = normalize(P);// normalInWorld
     P = N * (length(P) * 0.99);  // FIXME
 
@@ -91,13 +86,9 @@ void main()
 
     vec3 extinction = vec3(1.0);
     vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0);
-    vec3 compositeColor = groundColor.rgb * extinction * sunColorScale + inscatter * skyColorScale;
+    vec3 compositeColor = groundColor.rgb * extinction + inscatter;
     //vec4 finalColor = vec4(hdr(compositeColor), groundColor.a);
     vec4 finalColor = vec4(mix(hdr(compositeColor), originalGroundColor, cTheta), groundColor.a);
-
-    // Color grading work
-    finalColor.rgb = colorBalanceFunc(finalColor.rgb, ColorBalance.x, ColorBalance.y, ColorBalance.z, ColorBalanceMode);
-    finalColor.rgb = colorAdjustmentFunc(finalColor.rgb, ColorAttribute.x, ColorAttribute.y, ColorAttribute.z);
 
 #ifdef VERSE_GLES3
     fragColor/*Atmospheric Color*/ = finalColor;

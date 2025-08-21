@@ -35,9 +35,9 @@ const char* innerVertCode = {
 };
 
 const char* innerFragCode = {
-    "uniform sampler2D earthMaskSampler;\n"
+    "uniform sampler2D EarthMaskSampler;\n"
     "uniform float osg_SimulationTime; \n"
-    "uniform float globalOpaque;\n"
+    "uniform float GlobalOpaque;\n"
     "VERSE_FS_IN vec3 normalInWorld; \n"
     "VERSE_FS_IN vec4 vertexInProj, earthCenter; \n"
     "VERSE_FS_IN vec4 texCoord, color; \n"
@@ -113,9 +113,9 @@ const char* innerFragCode = {
 
     "void main() {\n"
     "    vec3 uv = (vertexInProj.xyz / vertexInProj.w) * 0.5 + 0.5;\n"
-    "    vec4 maskColor = VERSE_TEX2D(earthMaskSampler, uv.xy);\n"
+    "    vec4 maskColor = VERSE_TEX2D(EarthMaskSampler, uv.xy);\n"
     "    vec4 finalColor = mainImage(uv.xy, 2.0);\n"
-    "    finalColor.a = maskColor.r * globalOpaque;\n"
+    "    finalColor.a = maskColor.r * GlobalOpaque;\n"
     "#ifdef VERSE_GLES3\n"
     "    fragColor = finalColor; \n"
     "    fragOrigin = vec4(1.0); \n"
@@ -139,7 +139,7 @@ osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth, osg::Tex
     osg::ref_ptr<osg::Geode> innerRoot = new osg::Geode;
     //innerRoot->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     innerRoot->getOrCreateStateSet()->setTextureAttributeAndModes(0, sceneMaskTex);
-    innerRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("earthMaskSampler", (int)0));
+    innerRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("EarthMaskSampler", (int)0));
     innerRoot->getOrCreateStateSet()->setAttributeAndModes(program.get());
     //innerRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::CullFace(osg::CullFace::FRONT));
     innerRoot->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);

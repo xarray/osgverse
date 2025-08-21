@@ -200,57 +200,12 @@ public:
 
         // TODO: get connection parameters from options
         std::string contentType = "image/jpeg", encoding = "";
-#ifdef __EMSCRIPTEN__
-        osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
-        bool succeed = wf->httpGet(fileName);
-        if (!succeed)
-        {
-            OSG_WARN << "[emfetch] Failed getting " << fileName << ": " << wf->status << std::endl;
-            return ReadResult::FILE_NOT_FOUND;
-        }
+        std::vector<unsigned char> content =
+            osgVerse::loadFileData(fileName, contentType, encoding);
+        if (content.empty()) return ReadResult::FILE_NOT_FOUND;
 
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
-        buffer.write((char*)&wf->buffer[0], wf->buffer.size());
-        for (size_t i = 0; i < wf->resHeaders.size(); i += 2)
-        {
-            std::string key = trimString(wf->resHeaders[i]);
-            std::transform(key.begin(), key.end(), key.begin(), tolower);
-            if (key == "content-type") contentType = trimString(wf->resHeaders[i + 1]);
-            else if (key == "content-encoding") encoding = trimString(wf->resHeaders[i + 1]);
-        }
-#else
-        HttpRequest req; req.method = HTTP_GET;
-        req.url = osgVerse::normalizeUrl(fileName); req.scheme = scheme;
-        req.headers["User-Agent"] = "Mozilla/5.0";
-        req.headers["Accept"] = "*/*";
-        
-        HttpResponse response;
-        hv::HttpClient* _client = new hv::HttpClient;
-        int result = _client->send(&req, &response);
-        if (result != 0)
-        {
-            OSG_WARN << "[libhv] Failed getting " << fileName << ": " << result << std::endl;
-            delete _client; return ReadResult::ERROR_IN_READING_FILE;
-        }
-        else if (response.status_code > 200 || response.body.empty())
-        {
-            OSG_WARN << "[libhv] Failed getting " << fileName << ": Code = "
-                     << response.status_code << ", Size = " << response.body.size() << std::endl;
-            delete _client; return ReadResult::ERROR_IN_READING_FILE;
-        }
-
-        std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
-        buffer.write((char*)response.body.data(), response.body.size());
-        //contentType = http_content_type_str(response.content_type);
-        for (http_headers::iterator itr = response.headers.begin(); itr != response.headers.end(); ++itr)
-        {
-            std::string key = trimString(itr->first);
-            std::transform(key.begin(), key.end(), key.begin(), tolower);
-            if (key == "content-type") contentType = trimString(itr->second);
-            else if (key == "content-encoding") encoding = trimString(itr->second);
-        }
-        delete _client;
-#endif
+        buffer.write((char*)content.data(), content.size());
 
         size_t queryInExt = ext.find("?");  // remove query string if mixed with extension
         if (queryInExt != std::string::npos) ext = ext.substr(0, queryInExt);
@@ -366,15 +321,6 @@ protected:
         osgDB::ReaderWriter* rw = isExt ? osgDB::Registry::instance()->getReaderWriterForExtension(extOrMime)
                                         : osgDB::Registry::instance()->getReaderWriterForMimeType(extOrMime);
         if (rw) const_cast<ReaderWriterWeb*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
-    }
-
-    static std::string trimString(const std::string& str)
-    {
-        if (!str.size()) return str;
-        std::string::size_type first = str.find_first_not_of(" \t");
-        std::string::size_type last = str.find_last_not_of("  \t\r\n");
-        if ((first == str.npos) || (last == str.npos)) return std::string("");
-        return str.substr(first, last - first + 1);
     }
 
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;

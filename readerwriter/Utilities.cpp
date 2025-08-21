@@ -26,6 +26,15 @@
 using namespace osgVerse;
 #define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))
 
+static std::string trimString(const std::string& str)
+{
+    if (!str.size()) return str;
+    std::string::size_type first = str.find_first_not_of(" \t");
+    std::string::size_type last = str.find_last_not_of("  \t\r\n");
+    if ((first == str.npos) || (last == str.npos)) return std::string("");
+    return str.substr(first, last - first + 1);
+}
+
 static int char_from_hex(char c)
 {
     if (c >= '0' && c <= '9') return c - '0';
@@ -810,12 +819,31 @@ namespace osgVerse
         return url.substr(0, pathStart) + oss.str();
     }
 
-    std::vector<unsigned char> loadFileData(const std::string& url)
+    std::vector<unsigned char> loadFileData(const std::string& url, std::string& mimeType, std::string& encodingType)
     {
         std::vector<unsigned char> buffer;
         std::string scheme = osgDB::getServerProtocol(url);
         if (!scheme.empty())
         {
+#ifdef __EMSCRIPTEN__
+            osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
+            bool succeed = wf->httpGet(fileName);
+            if (!succeed)
+            {
+                OSG_WARN << "[loadFileData] Failed getting " << fileName << ": "
+                         << wf->status << std::endl; return buffer;
+            }
+
+            size_t size = wf->buffer.size(); buffer.resize(size);
+            memcpy(buffer.data(), wf->buffer.data(), size);
+            for (size_t i = 0; i < wf->resHeaders.size(); i += 2)
+            {
+                std::string key = trimString(wf->resHeaders[i]);
+                std::transform(key.begin(), key.end(), key.begin(), tolower);
+                if (key == "content-type") mimeType = trimString(wf->resHeaders[i + 1]);
+                else if (key == "content-encoding") encodingType = trimString(wf->resHeaders[i + 1]);
+            }
+#else
             HttpRequest req; req.method = HTTP_GET;
             req.url = osgVerse::normalizeUrl(url); req.scheme = scheme;
             req.headers["User-Agent"] = "Mozilla/5.0";
@@ -835,6 +863,15 @@ namespace osgVerse
                 size_t size = response.body.size(); buffer.resize(size);
                 memcpy(buffer.data(), response.body.data(), size);
             }
+
+            for (http_headers::iterator itr = response.headers.begin(); itr != response.headers.end(); ++itr)
+            {
+                std::string key = trimString(itr->first);
+                std::transform(key.begin(), key.end(), key.begin(), tolower);
+                if (key == "content-type") mimeType = trimString(itr->second);
+                else if (key == "content-encoding") encodingType = trimString(itr->second);
+            }
+#endif
         }
         else
         {
