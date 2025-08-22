@@ -281,22 +281,22 @@ void EarthAtmosphereOcean::updateOcean(osg::Camera* camera)
         log(oceanLambdaAndHeight[0]) / log(2.0f), (oceanWaveCount - 1.0f) / k));
 }
 
-void EarthAtmosphereOcean::create(const std::string& tr, const std::string& ir,
+bool EarthAtmosphereOcean::create(const std::string& tr, const std::string& ir,
                                   const std::string& gl, const std::string& in)
 {
-    unsigned int trSize = 0, irSize = 0, glSize = 0, inSize = 0;
+    unsigned int trSize = 0, irSize = 0, inSize = 0;
     unsigned char *trData = loadAllData(tr, trSize, 0), *irData = loadAllData(ir, irSize, 0);
     unsigned char *inData = loadAllData(in, inSize, 0);
-    if (!trData || !irData || !inData) return;
+    if (!trData || !irData || !inData) return false;
 
     osg::ref_ptr<osg::Texture> trTex = rawFloatingTexture2D(trData, 256, 64, true);
     osg::ref_ptr<osg::Texture> irTex = rawFloatingTexture2D(irData, 64, 16, true);
     osg::ref_ptr<osg::Texture> inTex = rawFloatingTexture3D(inData, 256, 128, 32, false);
     osg::ref_ptr<osg::Texture> glTex = createTexture2D(osgDB::readImageFile(gl), osg::Texture::CLAMP);
-    create(trTex.get(), irTex.get(), glTex.get(), inTex.get());
+    return create(trTex.get(), irTex.get(), glTex.get(), inTex.get());
 }
 
-void EarthAtmosphereOcean::create(osg::Texture* tr, osg::Texture* ir, osg::Texture* gl, osg::Texture* in)
+bool EarthAtmosphereOcean::create(osg::Texture* tr, osg::Texture* ir, osg::Texture* gl, osg::Texture* in)
 {
     transmittance = tr; irradiance = ir; glare = gl; inscatter = in;
     commonUniforms["CameraToWorld"] = new osg::Uniform("CameraToWorld", osg::Matrixf());
@@ -325,6 +325,7 @@ void EarthAtmosphereOcean::create(osg::Texture* tr, osg::Texture* ir, osg::Textu
     oceanUniforms["WaveCount"] = new osg::Uniform("WaveCount", (float)oceanWaveCount);
     oceanUniforms["HeightOffset"] = new osg::Uniform("HeightOffset", 0.0f);
     oceanUniforms["SeaRoughness"] = new osg::Uniform("SeaRoughness", 0.0f);
+    return true;
 }
 
 osg::Geometry* EarthAtmosphereOcean::createOceanGrid(int width, int height)

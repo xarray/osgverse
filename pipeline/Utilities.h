@@ -196,9 +196,9 @@ namespace osgVerse
         void updateOcean(osg::Camera* camera);
 
         /** Create public textures and uniforms (no shaders) */
-        void create(const std::string& transmit, const std::string& irradiance,
+        bool create(const std::string& transmit, const std::string& irradiance,
                     const std::string& glare, const std::string& inscatter);
-        void create(osg::Texture* transmit, osg::Texture* irradiance,
+        bool create(osg::Texture* transmit, osg::Texture* irradiance,
                     osg::Texture* glare, osg::Texture* inscatter);
 
         /** Create ocean mesh and wave texture */
