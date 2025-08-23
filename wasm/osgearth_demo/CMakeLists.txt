@@ -1,5 +1,5 @@
 SET(CMAKE_EXECUTABLE_SUFFIX ".html")
-SET(EXE_NAME osgVerse_EarthWASM)
+SET(EXE_NAME osgVerse_EarthWASM_OE)
 SET(EXECUTABLE_FILES
     osgearth_viewer.h osgearth_viewer.cpp
 )

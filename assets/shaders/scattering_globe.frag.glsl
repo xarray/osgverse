@@ -7,7 +7,7 @@ uniform vec4 UvOffset1, UvOffset2, UvOffset3;
 uniform vec3 WorldCameraPos, WorldSunDir, EarthOrigin;
 uniform float HdrExposure, GlobalOpaque;
 
-uniform vec4 clipPlane0, clipPlane1, clipPlane2;
+//uniform vec4 clipPlane0, clipPlane1, clipPlane2;
 
 VERSE_FS_IN vec3 vertexInWorld, normalInWorld;
 VERSE_FS_IN vec4 texCoord;
@@ -34,18 +34,18 @@ vec3 hdr(vec3 L)
 void main()
 {
     vec4 worldPos = vec4(vertexInWorld, 1.0);
-    float clipD0 = dot(worldPos, clipPlane0), clipD1 = dot(worldPos, clipPlane1), clipD2 = dot(worldPos, clipPlane2);
+    /*float clipD0 = dot(worldPos, clipPlane0), clipD1 = dot(worldPos, clipPlane1), clipD2 = dot(worldPos, clipPlane2);
     if (clipD0 > 0.0 && clipD1 > 0.0 && clipD2 > 0.0)
     {
 #ifdef VERSE_GLES3
-        fragColor/*Atmospheric Color*/ = vec4(0.0);
-        fragOrigin/*Mask Color*/ = vec4(0.0, 0.0, 1.0, 1.0);
+        fragColor = vec4(0.0);
+        fragOrigin = vec4(0.0, 0.0, 1.0, 1.0);
 #else
-        gl_FragData[0]/*Atmospheric Color*/ = vec4(0.0);
-        gl_FragData[1]/*Mask Color*/ = vec4(0.0, 0.0, 1.0, 1.0);
+        gl_FragData[0] = vec4(0.0);
+        gl_FragData[1] = vec4(0.0, 0.0, 1.0, 1.0);
 #endif
         return;
-    }
+    }*/
 
     vec4 groundColor = VERSE_TEX2D(SceneSampler, texCoord.st * UvOffset1.zw + UvOffset1.xy);
     vec4 layerColor = VERSE_TEX2D(ExtraLayerSampler, texCoord.st * UvOffset3.zw + UvOffset3.xy);
@@ -54,8 +54,8 @@ void main()
 
     // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
     vec2 uv = texCoord.xy * UvOffset2.zw + UvOffset2.xy;
-    vec4 maskColor = VERSE_TEX2D(MaskSampler, uv.st); float off = 0.002;
-    vec4 maskValue = vec4(maskColor.z, maskColor.z, maskColor.z, maskColor.a);
+    vec4 maskColor = VERSE_TEX2D(MaskSampler, uv.st);
+    float off = 0.002, maskValue = maskColor.z;
     maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(-off, 0.0));
     maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(off, 0.0));
     maskColor += VERSE_TEX2D(MaskSampler, uv.st + vec2(0.0, -off));
@@ -92,9 +92,9 @@ void main()
 
 #ifdef VERSE_GLES3
     fragColor/*Atmospheric Color*/ = finalColor;
-    fragOrigin/*Mask Color*/ = maskValue;
+    fragOrigin/*Mask Color*/ = vec4(1.0 - maskValue);
 #else
     gl_FragData[0]/*Atmospheric Color*/ = finalColor;
-    gl_FragData[1]/*Mask Color*/ = maskValue;
+    gl_FragData[1]/*Mask Color*/ = vec4(1.0 - maskValue);
 #endif
 }

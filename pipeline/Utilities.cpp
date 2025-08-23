@@ -232,6 +232,7 @@ namespace osgVerse
         regObject->addFileExtensionAlias("json", "verse_tiles");
         regObject->addFileExtensionAlias("s3c", "verse_tiles");
         regObject->addFileExtensionAlias("terrain", "verse_terrain");
+        regObject->addFileExtensionAlias("tms", "verse_tms");
 #if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
         regObject->addFileExtensionAlias("jpg", "verse_image");
         regObject->addFileExtensionAlias("jpeg", "verse_image");
@@ -371,7 +372,7 @@ namespace osgVerse
     {
         osgDB::StringList idList; osgDB::split(idData, idList, sep);
         if (root->getName() != idList[0] && idList[0] != "root") return NULL;
-        
+
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         osg::Node* node = root ? root->asNode() : NULL;
 #else
@@ -1139,7 +1140,7 @@ namespace osgVerse
         if (lightSpaceBB1._max[2] < lightSpaceBB0._max[2]) lightSpaceBB0._max[2] = lightSpaceBB1._max[2];
         return AABB(lightSpaceBB0._min, lightSpaceBB0._max);
     }
-    
+
     bool QuickEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
         if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH)

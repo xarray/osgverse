@@ -53,7 +53,7 @@ namespace osgVerse
     /** Create a XOY quad, often for screen-rendering use */
     extern osg::Geode* createScreenQuad(const osg::Vec3& corner, float width, float height,
                                         const osg::Vec4& uvRange);
-    
+
     /** Create a pre-render RTT camera for capturing sub-scene to image */
     extern osg::Camera* createRTTCamera(osg::Camera::BufferComponent buffer, osg::Image* image,
                                         osg::Node* child, osg::GraphicsContext* gc = NULL);
@@ -343,11 +343,11 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_mbtiles) \
     USE_OSGPLUGIN(verse_tiles) \
     USE_OSGPLUGIN(verse_terrain) \
+    USE_OSGPLUGIN(verse_tms) \
     USE_OSGPLUGIN(pbrlayout)
 // Note: plugins depending on external libraries should be called manually
 //  USE_OSGPLUGIN(verse_webp)
 //  USE_OSGPLUGIN(verse_ms)
-//  USE_OSGPLUGIN(verse_cesium)
 //  USE_OSGPLUGIN(verse_vdb)
 #else
 #   define USE_VERSE_PLUGINS()

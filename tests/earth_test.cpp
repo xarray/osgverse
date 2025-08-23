@@ -237,7 +237,7 @@ int main(int argc, char** argv)
             osg::ref_ptr<osg::Texture> earthColorBuffer =
                 osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, w, h);
             osg::ref_ptr<osg::Texture> earthMaskBuffer =
-                osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, w, h);
+                osgVerse::Pipeline::createTexture(osgVerse::Pipeline::R_INT8, w, h);
 
             osg::Camera* earthCamera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, NULL, NULL, false);
             earthCamera->attach(osg::Camera::COLOR_BUFFER0, earthColorBuffer.get(), 0, 0, false, 16, 4);

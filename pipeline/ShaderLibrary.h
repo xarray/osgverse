@@ -34,6 +34,12 @@ namespace osgVerse
         */
         void updateProgram(osg::Program& program, Pipeline* pipeline = NULL,
                            int moduleFlags = COMMON_SHADERS, bool needDefinitions = true);
+        void updateProgram(osg::StateSet& ss, Pipeline* pipeline = NULL,
+                           int moduleFlags = COMMON_SHADERS, bool needDefinitions = true)
+        {
+            osg::Program* prog = static_cast<osg::Program*>(ss.getAttribute(osg::StateAttribute::PROGRAM));
+            if (prog) updateProgram(*prog, pipeline, moduleFlags, needDefinitions);
+        }
 
         /** Add necessaray definitions for GLSL shaders
             Special macros:

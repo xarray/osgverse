@@ -282,7 +282,7 @@ protected:
     int _pressingKey;
 };
 
-#if false
+#if true
 static std::string createCustomPath(int type, const std::string& prefix, int x, int y, int z)
 {
     if (type >= osgVerse::TileCallback::USER &&
@@ -331,7 +331,7 @@ int main(int argc, char** argv)
     bool withGeomShader = true; if (arguments.read("--no-geometry-shader")) withGeomShader = false;
 
     // Create earth
-#if false
+#if true
     std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
                             " Elevation=mbtiles://" + mainFolder + "/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             " OceanMask=mbtiles://" + mainFolder + "/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"

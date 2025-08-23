@@ -827,10 +827,10 @@ namespace osgVerse
         {
 #ifdef __EMSCRIPTEN__
             osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
-            bool succeed = wf->httpGet(fileName);
+            bool succeed = wf->httpGet(url);
             if (!succeed)
             {
-                OSG_WARN << "[loadFileData] Failed getting " << fileName << ": "
+                OSG_WARN << "[loadFileData] Failed getting " << url << ": "
                          << wf->status << std::endl; return buffer;
             }
 

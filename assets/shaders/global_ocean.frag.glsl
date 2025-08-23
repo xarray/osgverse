@@ -133,7 +133,7 @@ void main()
     vec2 quadUV = vec2(gl_FragCoord.x / ScreenSize.x, gl_FragCoord.y / ScreenSize.y);
     vec4 sceneColor = VERSE_TEX2D(EarthMaskSampler, quadUV);
     if (oceanUv.z < 0.5) discard;  // FIXME: render in undersea mode?
-    if (sceneColor.a < 0.1 && oceanValid < 0.0) discard;
+    if (sceneColor.r < 0.1 && oceanValid < 0.0) discard;
 
     vec3 WSD = getWorldSunDir(), WCP = getWorldCameraPos();
     vec3 dPdu = oceanDPdu, dPdv = oceanDPdv; vec2 uv = oceanUv.xy;
@@ -183,6 +183,6 @@ void main()
     fragData.rgb = hdr(finalColor); fragData.a = clamp(OceanOpaque, 0.0, 1.0);
 
     // Input sceneColor should be a gray image to show where ocean is...
-    fragData.a *= 1.0 - clamp(sceneColor.r * 2.0, 0.0, 1.0);
+    fragData.a *= clamp(sceneColor.r * 2.0, 0.0, 1.0);
     VERSE_FS_FINAL(fragData);
 }
