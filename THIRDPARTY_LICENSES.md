@@ -22,7 +22,6 @@
 | CDT              | Embedded | 1.4.0     | Modeling           | MPL2         | https://github.com/artem-ogre/CDT |
 | Clipper2         | Embedded | 1.3.0     | Modeling           | Boost        | https://github.com/collmot/Clipper2/tree/feat/cpp11-support |
 | Eigen            | Embedded |           | -                  | MPL2         | https://gitlab.com/libeigen/eigen |
-| entt             | Embedded |           | -                  | MIT          | https://github.com/skypjack/entt |
 | exprtk           | Embedded |           | Modeling           | MIT          | https://github.com/ArashPartow/exprtk |
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr |
 | gainput          | Embedded |           | -                  | MIT          | https://github.com/jkuhlmann/gainput |
@@ -62,13 +61,14 @@
 | rapidxml         | Embedded |           | -                  | Boost / MIT  | https://rapidxml.sourceforge.net/ |
 | rasterizer       | Embedded |           | Pipeline           | -            | https://github.com/rawrunprotected/rasterizer |
 | recastnavigation | Embedded |           | AI                 | Zlib         | https://github.com/recastnavigation/recastnavigation |
-| rLottie          | Embedded | 0.2       | AI                 | MIT (+)      | https://github.com/Samsung/rlottie |
+| rLottie          | Embedded | 0.2       | -                  | MIT (+)      | https://github.com/Samsung/rlottie |
+| simdb            | Embedded |           | ReaderWriter       | Apache2      | https://github.com/LiveAsynchronousVisualizedArchitecture/simdb |
 | span             | Embedded |           | -                  | Boost        | https://github.com/tcbrindle/span |
-| spz              | Embedded |           | AI                 | MIT          | https://github.com/nianticlabs/spz |
-| sqlite3          | Embedded |           | -                  | Public       | https://www.sqlite.org/index.html |
-| stb              | Embedded |           | -                  | MIT / Public | https://github.com/nothings/stb |
+| spz              | Embedded |           | verse_3dgs_        | MIT          | https://github.com/nianticlabs/spz |
+| sqlite3          | Embedded |           | verse_mbtiles      | Public       | https://www.sqlite.org/index.html |
+| stb              | Embedded |           | verse_image        | MIT / Public | https://github.com/nothings/stb |
 | strtk            | Embedded |           | -                  | MIT          | https://github.com/ArashPartow/strtk |
-| supercluster     | Embedded |           | Pipeline           | ISC          | https://github.com/mapbox/supercluster.hpp |
+| supercluster     | Embedded |           | -                  | ISC          | https://github.com/mapbox/supercluster.hpp |
 | timeout          | Embedded |           | -                  | -            | https://25thandclement.com/~william/projects/timeout.c.html |
 | tiny_gltf        | Embedded |           | verse_gltf         | MIT          | https://github.com/syoyo/tinygltf |
 | tiny_gltf_loader | Embedded |           | verse_gltf         | MIT          | https://github.com/syoyo/tinygltfloader |
@@ -80,7 +80,7 @@
 | VHACD            | Embedded | 4.1       | Modeling           | BSD3         | https://github.com/kmammou/v-hacd |
 | vtzero           | Embedded | 1.1.0     | verse_mvt          | BSD2         |_https://github.com/mapbox/vtzero |
 | xatlas           | Embedded |           | -                  | MIT          | https://github.com/jpcy/xatlas |
-| xxYUV            | Embedded |           | -                  | MIT          | https://github.com/metarutaiga/xxYUV |
+| xxYUV            | Embedded |           | ReaderWriter       | MIT          | https://github.com/metarutaiga/xxYUV |
 
 ### OpenSceneGraph version history
 | Version | Release Date | Critical Changes |

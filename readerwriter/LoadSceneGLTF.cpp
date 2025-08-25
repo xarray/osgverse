@@ -340,12 +340,15 @@ namespace osgVerse
 
         // Read and construct scene graph
 		if (_modelDef.defaultScene < 0) _modelDef.defaultScene = 0;
+        if (_modelDef.scenes.size() <= _modelDef.defaultScene) return;
+
         const tinygltf::Scene& defScene = _modelDef.scenes[_modelDef.defaultScene];
         for (size_t i = 0; i < defScene.nodes.size(); ++i)
         {
             osg::ref_ptr<osg::Node> child = createNode(
                 defScene.nodes[i], _modelDef.nodes[defScene.nodes[i]]);
             if (child.valid()) _root->addChild(child.get());
+            _root->addDescription(defScene.extras_json_string);
         }
 
         // Load geometries to geodes (after all nodes have registered with an ID)
