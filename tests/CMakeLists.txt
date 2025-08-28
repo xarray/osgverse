@@ -63,6 +63,7 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST(osgVerse_Test_Auto_LOD auto_lod_test.cpp)
     NEW_TEST(osgVerse_Test_Sky_Box sky_box_test.cpp)
     NEW_TEST(osgVerse_Test_Earth earth_test.cpp)
+    NEW_TEST(osgVerse_Test_Earth_Plates earth_plates_test.cpp)
     NEW_TEST(osgVerse_Test_3DGS gaussian_splatting_test.cpp)
     NEW_TEST(osgVerse_Test_CSG csg_stencil_test.cpp)
 

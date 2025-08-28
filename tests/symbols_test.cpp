@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 
     if (arguments.read("--test-drawer"))
     {
-        osg::ref_ptr<osg::Image> img = osgDB::readImageFile(MISC_DIR + "poi_icons.png");
+        osg::ref_ptr<osg::Image> img = osgDB::readImageFile(BASE_DIR + "textures/poi_icons.png");
         osgVerse::DrawerStyleData imgStyle(img.get(), osgVerse::DrawerStyleData::PAD);
 
         std::vector<osgVerse::Drawer2D*> drawerList;
@@ -102,8 +102,8 @@ int main(int argc, char** argv)
     }
     else
     {
-        osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(MISC_DIR + "poi_icons.png");
-        osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(MISC_DIR + "poi_textbg.png");
+        osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(BASE_DIR + "textures/poi_icons.png");
+        osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(BASE_DIR + "textures/poi_textbg.png");
 
         osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
         symManager->setShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "poi_symbols.vert.glsl"),

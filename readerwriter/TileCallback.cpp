@@ -176,6 +176,14 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
 {
     osg::Image* elevation = (elevationTex ? elevationTex->getImage(0) : NULL);
     bool useRealElevation = elevation ? (elevation->getDataType() == GL_FLOAT) : false;
+    unsigned int numRows = TILE_ROWS, numCols = TILE_COLS;
+    unsigned int numVertices = numCols * numRows;
+    if (!_flatten && _skirtRatio > 0.0f) numVertices += 2 * (numCols + numRows);
+
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numVertices);
+    osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numVertices);
+    osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numVertices);
+    osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(numVertices);
     if (!_flatten)
     {
         osg::Vec3d center = adjustLatitudeLongitudeAltitude((tileMin + tileMax) * 0.5, _useWebMercator);
@@ -184,19 +192,12 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                                  localToWorld(1, 0), localToWorld(1, 1), localToWorld(1, 2), 0.0,
                                  localToWorld(2, 0), localToWorld(2, 1), localToWorld(2, 2), 0.0,
                                  0.0, 0.0, 0.0, 1.0);
-        unsigned int numRows = TILE_ROWS, numCols = TILE_COLS;
-        unsigned int numVertices = numCols * numRows;
-        if (_skirtRatio > 0.0f) numVertices += 2 * (numCols + numRows);
 
         TileCallback* nonconst = const_cast<TileCallback*>(this);
         nonconst->_worldToLocal = osg::Matrix::inverse(localToWorld);
         nonconst->_elevationRef = (elevation != NULL) ? createTexture2D(new osg::Image(*elevation)) : NULL;
 
         // FIXME: support compute elevation in shaders?
-        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numVertices);
-        osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numVertices);
-        osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(numVertices);
-        osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(numVertices);
         double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1), lastAlt = 0.0;
         for (unsigned int y = 0; y < numRows; ++y)
             for (unsigned int x = 0; x < numCols; ++x)
@@ -238,33 +239,49 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                 (*na)[vi] = (*na)[vi] * 0.7f + N * 0.3f; (*na)[vi].normalize();
             }
 #endif
-        osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
-        for (unsigned int y = 0; y < numRows - 1; ++y)
-            for (unsigned int x = 0; x < numCols - 1; ++x)
-            {
-                unsigned int vi = x + y * numCols;
-                de->push_back(vi); de->push_back(vi + 1); de->push_back(vi + numCols);
-                de->push_back(vi + numCols); de->push_back(vi + 1); de->push_back(vi + numCols + 1);
-            }
-
-
-        osg::Geometry* geom = new osg::Geometry;
-        geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
-        geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-        geom->setVertexAttribArray(1, ca.get()); geom->setVertexAttribNormalize(1, GL_FALSE);
-        geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
-        geom->addPrimitiveSet(de.get());
-
-        if (_skirtRatio > 0.0f)
-            updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), true);
-        return geom;
-    }
-    else if (elevation)
-    {   // FIXME: support altitude on flatten map?
-        return osg::createTexturedQuadGeometry(tileMin, osg::X_AXIS * width, osg::Y_AXIS * height);
     }
     else
-        return osg::createTexturedQuadGeometry(tileMin, osg::X_AXIS * width, osg::Y_AXIS * height);
+    {
+        double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1), lastAlt = 0.0;
+        double elevationScale2D = _elevationScale * 360.0 / 40075017.0;
+        for (unsigned int y = 0; y < numRows; ++y)
+            for (unsigned int x = 0; x < numCols; ++x)
+            {
+                unsigned int vi = x + y * numCols; double altitude = 0.0;
+                osg::Vec2 uv((double)x * invW / width, (double)y * invH / height);
+                if (elevation)
+                {
+                    osg::Vec4 elevColor = elevation->getColor(uv);
+                    if (elevColor[0] > 10e6 || elevColor[0] < -10e6) { altitude = lastAlt; }
+                    else altitude = (useRealElevation ? elevColor[0] : mapAltitude(elevColor)) * elevationScale2D;
+                }
+
+                osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
+                    tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
+                (*va)[vi] = osg::Vec3(osg::RadiansToDegrees(lla[1]), osg::RadiansToDegrees(lla[0]), lla[2]);
+                (*ta)[vi] = osg::Vec2(uv[0], uv[1]); (*na)[vi] = osg::Z_AXIS; lastAlt = altitude;
+                (*ca)[vi] = osg::Vec4((*va)[vi][0], (*va)[vi][1], 0.0f, 0.0f);
+            }
+    }
+
+    osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
+    for (unsigned int y = 0; y < numRows - 1; ++y)
+        for (unsigned int x = 0; x < numCols - 1; ++x)
+        {
+            unsigned int vi = x + y * numCols;
+            de->push_back(vi); de->push_back(vi + 1); de->push_back(vi + numCols);
+            de->push_back(vi + numCols); de->push_back(vi + 1); de->push_back(vi + numCols + 1);
+        }
+
+    osg::Geometry* geom = new osg::Geometry;
+    geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
+    geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    geom->setVertexAttribArray(1, ca.get()); geom->setVertexAttribNormalize(1, GL_FALSE);
+    geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
+    geom->addPrimitiveSet(de.get());
+    if (!_flatten && _skirtRatio > 0.0f)
+        updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), true);
+    return geom;
 }
 
 void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevationTex, const std::string& range,
@@ -273,6 +290,14 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
 {
     osg::Image* elevation = (elevationTex ? elevationTex->getImage(0) : NULL);
     bool useRealElevation = elevation ? (elevation->getDataType() == GL_FLOAT) : false;
+    unsigned int numRows = TILE_ROWS, numCols = TILE_COLS;
+    std::map<std::string, osg::Vec4>::const_iterator itr = _uvRangesToSet.find(range);
+    osg::Vec4 scaleRange = (itr == _uvRangesToSet.end()) ? osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f) : itr->second;
+
+    osg::ref_ptr<osg::Vec3Array> va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+    osg::ref_ptr<osg::Vec3Array> na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
+    osg::ref_ptr<osg::Vec4Array> ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(1));
+    if (va->size() < numCols * numRows) return;
     if (!_flatten)
     {
         osg::Matrix localToWorld = osg::Matrix::inverse(_worldToLocal);
@@ -280,15 +305,6 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
                                  localToWorld(1, 0), localToWorld(1, 1), localToWorld(1, 2), 0.0,
                                  localToWorld(2, 0), localToWorld(2, 1), localToWorld(2, 2), 0.0,
                                  0.0, 0.0, 0.0, 1.0);
-        unsigned int numRows = TILE_ROWS, numCols = TILE_COLS;
-        std::map<std::string, osg::Vec4>::const_iterator itr = _uvRangesToSet.find(range);
-        osg::Vec4 scaleRange = (itr == _uvRangesToSet.end())
-                             ? osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f) : itr->second;
-
-        osg::ref_ptr<osg::Vec3Array> va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
-        osg::ref_ptr<osg::Vec3Array> na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
-        osg::ref_ptr<osg::Vec4Array> ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(1));
-        if (va->size() < numCols * numRows) return;
 
         double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1), lastAlt = 0.0;
         for (unsigned int y = 0; y < numRows; ++y)
@@ -321,8 +337,34 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
 
         if (_skirtRatio > 0.0f)
             updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), false);
-        va->dirty(); na->dirty(); ca->dirty(); geom->dirtyBound();
     }
+    else
+    {
+        double invW = width / (float)(numCols - 1), invH = height / (float)(numRows - 1), lastAlt = 0.0;
+        double elevationScale2D = _elevationScale * 360.0 / 40075017.0;
+        for (unsigned int y = 0; y < numRows; ++y)
+            for (unsigned int x = 0; x < numCols; ++x)
+            {
+                unsigned int vi = x + y * numCols; double altitude = 0.0;
+                if (elevation)
+                {
+                    osg::Vec2 uv((double)x * invW / width, (double)y * invH / height);
+                    uv[0] = uv[0] * scaleRange[2] + scaleRange[0];
+                    uv[1] = uv[1] * scaleRange[3] + scaleRange[1];
+
+                    osg::Vec4 elevColor = elevation->getColor(uv);
+                    if (elevColor[0] > 10e6 || elevColor[0] < -10e6) { altitude = lastAlt; }
+                    else altitude = (useRealElevation ? elevColor[0] : mapAltitude(elevColor)) * elevationScale2D;
+                }
+
+                osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
+                    tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
+                (*va)[vi] = osg::Vec3(osg::RadiansToDegrees(lla[1]), osg::RadiansToDegrees(lla[0]), lla[2]);
+                (*na)[vi] = osg::Z_AXIS; lastAlt = altitude;
+                (*ca)[vi] = osg::Vec4((*va)[vi][0], (*va)[vi][1], 0.0f, 0.0f);
+            }
+    }
+    va->dirty(); na->dirty(); ca->dirty(); geom->dirtyBound();
 }
 
 void TileCallback::updateSkirtData(osg::Geometry* geom, double tileRefSize, bool addingTriangles) const

@@ -29,6 +29,8 @@
 #define srnd() (2 * frandom(&seed) - 1)
 using namespace osgVerse;
 
+/************** EarthAtmosphereOcean **************/
+
 static long lrandom(long* seed)
 {
     *seed = (*seed * 1103515245 + 12345) & 0x7FFFFFFF;
@@ -480,4 +482,46 @@ osg::Texture* EarthAtmosphereOcean::rawFloatingTexture3D(unsigned char* data, in
     image->setImage(w, h, d, tex3D->getInternalFormat(), tex3D->getSourceFormat(),
                     tex3D->getSourceType(), data, osg::Image::USE_NEW_DELETE);
     tex3D->setImage(image.get()); return tex3D.release();
+}
+
+/************** HeadUpDisplayCanvas **************/
+
+#define LAY_IMPLEMENTATION
+#include "3rdparty/layout.h"
+
+HeadUpDisplayCanvas::HeadUpDisplayCanvas()
+{
+    layout = new lay_context;
+    lay_init_context(layout);
+    lay_reserve_items_capacity(layout, 1024);
+}
+
+HeadUpDisplayCanvas::~HeadUpDisplayCanvas()
+{
+    lay_destroy_context(layout); delete layout;
+}
+
+std::string HeadUpDisplayCanvas::createText(const std::string& name, const std::wstring& text, int width, int height,
+                                            const std::string& parent, Direction dir, Anchor anchor,
+                                            const std::string & font)
+{
+    // TODO
+    // https://github.com/randrew/layout
+    return "";
+}
+
+osg::Camera* HeadUpDisplayCanvas::create(int width, int height)
+{
+    layoutItems.clear(); lay_reset_context(layout);
+    unsigned int root = lay_item(layout); layoutItems["root"] = root;
+    lay_set_size_xy(layout, root, width, height);
+    lay_set_contain(layout, root, LAY_ROW);
+
+    textContainer = new osg::Geode;
+    textContainer->setName("Canvas_TextContainer");
+
+    canvasCamera = createHUDCamera(NULL, width, height);
+    canvasCamera->addChild(textContainer.get());
+    canvasCamera->setName("Canvas");
+    return canvasCamera.get();
 }
