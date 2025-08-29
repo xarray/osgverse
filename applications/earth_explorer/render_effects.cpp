@@ -278,7 +278,7 @@ CameraTexturePair configureEarthAndAtmosphere(osgViewer::View& viewer, osg::Grou
     rttBuffer->setWrap(osg::Texture2D::WRAP_T, osg::Texture::CLAMP);
 
     osg::ref_ptr<osg::Texture> rttBuffer2 =
-        osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, width, height);
+        osgVerse::Pipeline::createTexture(osgVerse::Pipeline::R_INT8, width, height);
     rttBuffer2->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
     rttBuffer2->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
     rttBuffer2->setWrap(osg::Texture2D::WRAP_S, osg::Texture::CLAMP);

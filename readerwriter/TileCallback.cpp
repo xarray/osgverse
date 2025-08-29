@@ -598,14 +598,13 @@ void TileCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
         }
         _uvRangesToSet.clear();
     }
-#if false
+
     if (TileManager::instance()->shouldMorph(*this))
     {
         FindTileGeometry ftg; node->accept(ftg);
         if (ftg.geometry.valid())
             TileManager::instance()->updateTileGeometry(*this, ftg.geometry.get());
     }
-#endif
     traverse(node, nv);
 }
 
@@ -661,44 +660,36 @@ osgDB::ReaderWriter* TileManager::getReaderWriter(const std::string& protocol, c
     if (rw) _cachedReaderWriters[ext] = rw; return rw;
 }
 
-/// TEST ONLY
-#if false
-static bool g_allMorph = false;
-static osg::Timer_t _startTime;
-
 bool TileManager::shouldMorph(TileCallback& cb) const
-{
-    return g_allMorph;
-}
-
-void TileManager::setAllMorphing(bool b)
-{
-    _startTime = osg::Timer::instance()->tick();
-    g_allMorph = b;
-}
+{ return _dynamicCallback.valid() ? _dynamicCallback->shouldMorph(cb) : false; }
 
 void TileManager::updateTileGeometry(TileCallback& tileCB, osg::Geometry* geom)
 {
-    osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray()); va->dirty();
-    float time = osg::Timer::instance()->delta_s(_startTime, osg::Timer::instance()->tick());
+    if (!_dynamicCallback || !geom) return;
+    if (!_dynamicCallback->updateEntireTileGeometry(tileCB, geom))
+    {
+        osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
+        osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(1));
+        osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
+        tileCB.computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
 
-    osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
-    tileCB.computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
+        unsigned int numRows = TILE_ROWS, numCols = TILE_COLS;
+        double invW = tileWidth / (float)(numCols - 1), invH = tileHeight / (float)(numRows - 1);
+        const osg::Matrix& worldToLocal = tileCB.getTileWorldToLocalMatrix();
+        for (unsigned int y = 0; y < numRows; ++y)
+            for (unsigned int x = 0; x < numCols; ++x)
+            {
+                unsigned int vi = x + y * numCols; double altitude = 0.0;
+                osg::Vec3d lla = tileCB.adjustLatitudeLongitudeAltitude(
+                    tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), tileCB.getUseWebMercator());
+                osg::Vec3 v0 = Coordinate::convertLLAtoECEF(lla);
 
-    unsigned int numRows = TILE_ROWS, numCols = TILE_COLS;
-    double invW = tileWidth / (float)(numCols - 1), invH = tileHeight / (float)(numRows - 1);
-    const osg::Matrix& worldToLocal = tileCB.getTileWorldToLocalMatrix();
-    for (unsigned int y = 0; y < numRows; ++y)
-        for (unsigned int x = 0; x < numCols; ++x)
-        {
-            unsigned int vi = x + y * numCols; double altitude = 0.0;
-            osg::Vec3d lla = tileCB.adjustLatitudeLongitudeAltitude(
-                tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), tileCB.getUseWebMercator());
-            lla[2] = sin(lla[0] * time) * 20000.0 + cos(lla[1] * time) * 20000.0;
-
-            osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
-            (*va)[vi] = osg::Vec3(ecef * worldToLocal);
-        }
+                osg::Vec3d ecef = _dynamicCallback->updateTileVertex(tileCB, lla[0], lla[1]);
+                (*va)[vi] = osg::Vec3(ecef * worldToLocal);
+                (*ca)[vi] = osg::Vec4(v0 * worldToLocal, 0.0f);
+            }
+        if (!tileCB.getFlatten() && tileCB.getSkirtRatio() > 0.0f)
+            tileCB.updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), false);
+        va->dirty(); ca->dirty(); geom->dirtyBound();
+    }
 }
-#endif
-////////////////

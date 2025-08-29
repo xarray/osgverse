@@ -501,17 +501,38 @@ HeadUpDisplayCanvas::~HeadUpDisplayCanvas()
     lay_destroy_context(layout); delete layout;
 }
 
-std::string HeadUpDisplayCanvas::createText(const std::string& name, const std::wstring& text, int width, int height,
-                                            const std::string& parent, Direction dir, Anchor anchor,
-                                            const std::string & font)
+bool HeadUpDisplayCanvas::createText(const std::string& name, const std::wstring& text, int size,
+                                     int width, int height, const std::string& parent, Direction dir,
+                                     Anchor anchor, const std::string& font)
 {
-    // TODO
-    // https://github.com/randrew/layout
-    return "";
+    if (layoutItems.find(name) != layoutItems.end()) return true;
+    if (layoutItems.find(parent) == layoutItems.end()) return false;
+    unsigned int item = lay_item(layout); layoutItems[name] = item;
+
+    lay_insert(layout, layoutItems[parent], item);
+    lay_set_size_xy(layout, item, width, height);
+    lay_set_behave(layout, item, (unsigned int)anchor);
+    lay_set_contain(layout, item, (unsigned int)dir);
+
+    lay_vec4 rect = lay_get_rect(layout, item);
+    osgText::Text* textObj = new osgText::Text;
+    textObj->setPosition(osg::Vec3(rect[0] + rect[2] * 0.5f, rect[1] + rect[3] * 0.5f, 0.0f));
+    textObj->setAlignment(osgText::Text::CENTER_CENTER);
+    textObj->setCharacterSize(size, 1.0f);
+    textObj->setText(text.c_str());
+    if (!font.empty())
+    {
+        osgText::Font* f = fonts[font].get();
+        if (!f) { f = osgText::readFontFile(font); fonts[font] = f; }
+        textObj->setFont(f);
+    }
+    texts[name] = textObj;
+    return true;
 }
 
 osg::Camera* HeadUpDisplayCanvas::create(int width, int height)
 {
+    // https://github.com/randrew/layout
     layoutItems.clear(); lay_reset_context(layout);
     unsigned int root = lay_item(layout); layoutItems["root"] = root;
     lay_set_size_xy(layout, root, width, height);

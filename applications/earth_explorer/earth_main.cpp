@@ -372,12 +372,12 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Camera> sceneCamera = camTexPair.first;
     osg::ref_ptr<osg::Texture> sceneTexture = camTexPair.second;
-    //sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
-    //sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
-    //sceneCamera->addChild(configureInternal(viewer, earth.get(), sceneTexture.get(), ~EARTH_INTERSECTION_MASK));
+    sceneCamera->addChild(configureCityData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    sceneCamera->addChild(configureVolumeData(viewer, earth.get(), mainFolder, ~EARTH_INTERSECTION_MASK));
+    sceneCamera->addChild(configureInternal(viewer, earth.get(), sceneTexture.get(), ~EARTH_INTERSECTION_MASK));
     configureOcean(viewer, root.get(), sceneTexture.get(), mainFolder, w, h, ~EARTH_INTERSECTION_MASK);
-    //configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
-    //configureUI(viewer, root.get(), mainFolder, w, h);
+    configureParticleCloud(viewer, sceneCamera.get(), mainFolder, ~EARTH_INTERSECTION_MASK, withGeomShader);
+    configureUI(viewer, root.get(), mainFolder, w, h);
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     osg::ref_ptr<osg::Uniform> clip0 = new osg::Uniform("clipPlane0", osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));

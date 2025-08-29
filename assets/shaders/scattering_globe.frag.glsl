@@ -7,8 +7,6 @@ uniform vec4 UvOffset1, UvOffset2, UvOffset3;
 uniform vec3 WorldCameraPos, WorldSunDir, EarthOrigin;
 uniform float HdrExposure, GlobalOpaque;
 
-//uniform vec4 clipPlane0, clipPlane1, clipPlane2;
-
 VERSE_FS_IN vec3 vertexInWorld, normalInWorld;
 VERSE_FS_IN vec4 texCoord;
 VERSE_FS_IN float isSkirt;
@@ -31,6 +29,8 @@ vec3 hdr(vec3 L)
     return L;
 }
 
+//uniform vec4 clipPlane0, clipPlane1, clipPlane2;
+
 void main()
 {
     vec4 worldPos = vec4(vertexInWorld, 1.0);
@@ -52,7 +52,7 @@ void main()
     groundColor.rgb = mix(groundColor.rgb, layerColor.rgb, layerColor.a);
     if (isSkirt < -0.1 && GlobalOpaque < 0.9) discard;  // hide skirt if transparent
 
-    // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: land, 0.5 - 1: ocean)
+    // Mask color: r = aspect, g = slope, b = mask (0 - 0.5: ocean, 0.5 - 1: land)
     vec2 uv = texCoord.xy * UvOffset2.zw + UvOffset2.xy;
     vec4 maskColor = VERSE_TEX2D(MaskSampler, uv.st);
     float off = 0.002, maskValue = maskColor.z;
@@ -92,9 +92,9 @@ void main()
 
 #ifdef VERSE_GLES3
     fragColor/*Atmospheric Color*/ = finalColor;
-    fragOrigin/*Mask Color*/ = vec4(1.0 - maskValue);
+    fragOrigin/*Mask Color*/ = vec4(1.0 - maskValue);  // output: land => 0, ocean => 1
 #else
     gl_FragData[0]/*Atmospheric Color*/ = finalColor;
-    gl_FragData[1]/*Mask Color*/ = vec4(1.0 - maskValue);
+    gl_FragData[1]/*Mask Color*/ = vec4(1.0 - maskValue);  // output: land => 0, ocean => 1
 #endif
 }

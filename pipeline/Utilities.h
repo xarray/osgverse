@@ -234,9 +234,9 @@ namespace osgVerse
         ~HeadUpDisplayCanvas();
 
         /** Create a text object on HUD canvas */
-        ItemID createText(const ItemID& name, const std::wstring& text, int width, int height,
-                          const ItemID& parent = "root", Direction dir = ROW, Anchor anchor = CENTER,
-                          const std::string& font = "");
+        bool createText(const ItemID& name, const std::wstring& text, int size, int width, int height,
+                        const ItemID& parent = "root", Direction dir = ROW, Anchor anchor = CENTER,
+                        const std::string& font = "");
 
         /** Create the HUD camera */
         osg::Camera* create(int width, int height);

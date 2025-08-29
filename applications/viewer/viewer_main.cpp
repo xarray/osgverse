@@ -18,6 +18,7 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
+#include <animation/TweenAnimation.h>
 #include <wrappers/Export.h>
 #include <iostream>
 #include <sstream>
@@ -280,8 +281,7 @@ int main(int argc, char** argv)
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
-    sceneRoot->setName("PbrSceneRoot");
-    sceneRoot->addChild(scene.get());
+    sceneRoot->setName("PbrSceneRoot"); sceneRoot->addChild(scene.get());
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
@@ -293,8 +293,11 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (defScene && otherSceneRoot.valid()) root->addChild(otherSceneRoot.get());
-    root->addChild(sceneRoot.get());
-    root->setName("Root");
+    root->setName("Root"); root->addChild(sceneRoot.get());
+    
+    // Find animations and play default clips
+    std::vector<osgVerse::NodeAnimationPair> animList = osgVerse::obtainAnimations(scene.get());
+    for (size_t i = 0; i < animList.size(); ++i) animList[i].second->play("", osgVerse::TweenAnimation::Looping);
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;

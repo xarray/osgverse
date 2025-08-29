@@ -187,6 +187,8 @@ osg::Geometry* parseGPMLFeature(rapidxml::xml_node<>* featureNode,
 
                 geom->setUserValue("BeginTime", beginValue);
                 geom->setUserValue("EndTime", endValue);
+
+                //if (!(beginValue == "0" && endValue == "0")) return NULL;
             }
         }
     }

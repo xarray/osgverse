@@ -46,6 +46,7 @@ namespace osgVerse
         virtual void updateTileGeometry(osg::Geometry* geometry, osg::Texture* elevation, const std::string& range,
                                         const osg::Vec3d& tileMin, const osg::Vec3d& tileMax,
                                         double width, double height) const;
+        virtual void updateSkirtData(osg::Geometry* geometry, double tileRefSize, bool addingTriangles) const;
 
         enum LayerType { ELEVATION = 0, ORTHOPHOTO, OCEAN_MASK, USER };
         enum LayerState { DONE = 0, DEFERRED, FAILED };
@@ -114,7 +115,6 @@ namespace osgVerse
     protected:
         virtual ~TileCallback() {}
         virtual bool updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerType id);
-        virtual void updateSkirtData(osg::Geometry* geometry, double tileRefSize, bool addingTriangles) const;
 
         std::map<int, DataPathPair> _layerPaths;
         std::map<std::string, osg::Vec4> _uvRangesToSet;
@@ -137,13 +137,18 @@ namespace osgVerse
         void setLayerPath(TileCallback::LayerType id, const std::string& p) { _layerPaths[id] = p; }
         std::string getLayerPath(TileCallback::LayerType id) { return _layerPaths[id]; }
 
+        bool shouldMorph(TileCallback& cb) const;
+        void updateTileGeometry(TileCallback& cb, osg::Geometry* geom);
         osgDB::ReaderWriter* getReaderWriter(const std::string& protocol, const std::string& url);
 
-#if false  // test only
-        bool shouldMorph(TileCallback& cb) const;
-        void setAllMorphing(bool b);
-        void updateTileGeometry(TileCallback& cb, osg::Geometry* geom);
-#endif
+        struct DynamicTileCallback : public osg::Referenced
+        {
+            virtual bool shouldMorph(TileCallback& cb) const { return false; }
+            virtual bool updateEntireTileGeometry(TileCallback& cb, osg::Geometry* geom) = 0;
+            virtual osg::Vec3 updateTileVertex(TileCallback& cb, double lat, double lon) = 0;
+        };
+        void setDynamicCallback(DynamicTileCallback* cb) { _dynamicCallback = cb; }
+        DynamicTileCallback* getDynamicCallback() { return _dynamicCallback.get(); }
 
     protected:
         TileManager();
@@ -152,6 +157,7 @@ namespace osgVerse
         std::map<int, std::string> _layerPaths;
         std::map<std::string, std::string> _acceptHandlerExts;
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
+        osg::ref_ptr<DynamicTileCallback> _dynamicCallback;
     };
 }
 

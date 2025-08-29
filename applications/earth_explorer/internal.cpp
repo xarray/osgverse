@@ -35,7 +35,7 @@ const char* innerVertCode = {
 };
 
 const char* innerFragCode = {
-    "uniform sampler2D EarthMaskSampler;\n"
+    "uniform sampler2D EarthMaskSampler, NoiseSampler;\n"
     "uniform float osg_SimulationTime; \n"
     "uniform float GlobalOpaque;\n"
     "VERSE_FS_IN vec3 normalInWorld; \n"
@@ -97,16 +97,17 @@ const char* innerFragCode = {
     "        vec2 newUv; newUv.x = sp.x * f; newUv.y = sp.y * f; \n"
     "        newUv += vec2(time, 0.0); corona *= pow(dist * invRadius, 24.0); \n"
 
-    "        vec3 texSample = vec3(0.0);// texture(iChannel0, newUv).rgb;\n"
+    "        vec3 texSample = VERSE_TEX2D(NoiseSampler, newUv).rgb;\n"
     "        float uOff = (texSample.g * brightness * 4.5 + time); \n"
     "        vec2 starUV = newUv + vec2(uOff, 0.0); \n"
-    "        starSphere = vec3(0.0);// texture(iChannel0, starUV).rgb;\n"
+    "        starSphere = VERSE_TEX2D(NoiseSampler, starUV).rgb;\n"
     "    }\n"
 
     "    float starGlow = min(max(1.0 - dist * (1.0 - brightness), 0.0), 1.0); \n"
     "    vec4 outColor; outColor.a = 1.0; \n"
     "    outColor.rgb = /*vec3(f * (0.75 + brightness * 0.3) * orange) + */starSphere + \n"
     "                   corona * orange + starGlow * orangeRed; \n"
+    "    if (length(p) > 0.5) outColor.rgb *= vec3(0.5, 0.5, 1.0); \n"
     "    return outColor; \n"
     "}\n"
     /////////////////////
@@ -115,13 +116,13 @@ const char* innerFragCode = {
     "    vec3 uv = (vertexInProj.xyz / vertexInProj.w) * 0.5 + 0.5;\n"
     "    vec4 maskColor = VERSE_TEX2D(EarthMaskSampler, uv.xy);\n"
     "    vec4 finalColor = mainImage(uv.xy, 2.0);\n"
-    "    finalColor.a = maskColor.r * GlobalOpaque;\n"
+    "    finalColor.a = (1.0 - maskColor.r) * GlobalOpaque;\n"
     "#ifdef VERSE_GLES3\n"
     "    fragColor = finalColor; \n"
-    "    fragOrigin = vec4(1.0); \n"
+    "    fragOrigin = vec4(0.0); \n"
     "#else\n"
     "    gl_FragData[0] = finalColor; \n"
-    "    gl_FragData[1] = vec4(1.0); \n"
+    "    gl_FragData[1] = vec4(0.0); \n"
     "#endif\n"
     "}\n"
 };
@@ -139,15 +140,15 @@ osg::Node* configureInternal(osgViewer::View& viewer, osg::Node* earth, osg::Tex
     osg::ref_ptr<osg::Geode> innerRoot = new osg::Geode;
     //innerRoot->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     innerRoot->getOrCreateStateSet()->setTextureAttributeAndModes(0, sceneMaskTex);
+    innerRoot->getOrCreateStateSet()->setTextureAttributeAndModes(1,
+        osgVerse::createTexture2D(osgDB::readImageFile(BASE_DIR + "/textures/noise.jpg")));
     innerRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("EarthMaskSampler", (int)0));
+    innerRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("NoiseSampler", (int)1));
     innerRoot->getOrCreateStateSet()->setAttributeAndModes(program.get());
-    //innerRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::CullFace(osg::CullFace::FRONT));
-    innerRoot->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    innerRoot->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::OFF);
     innerRoot->setNodeMask(mask);
 
     double d = osg::WGS_84_RADIUS_EQUATOR * 0.9;
     innerRoot->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), d)));
-
-    //viewer.addEventHandler(new InternalHandler(clip0.get(), clip1.get(), clip2.get()));
     return innerRoot.release();
 }

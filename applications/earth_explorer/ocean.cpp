@@ -471,7 +471,7 @@ osg::Node* configureOcean(osgViewer::View& viewer, osg::Group* root, osg::Textur
 
     osg::StateSet* ss = root->getOrCreateStateSet();
     ss->setAttributeAndModes(program.get());
-    ss->addUniform(new osg::Uniform("OceanOpaque", 1.0f));
+    ss->addUniform(new osg::Uniform("OceanOpaque", 0.0f));
     ss->addUniform(new osg::Uniform("WavesSampler", (int)7));
     ss->addUniform(new osg::Uniform("EarthMaskSampler", (int)8));
     ss->setTextureAttributeAndModes(7, generateWaves(ss));

@@ -91,6 +91,10 @@ namespace osgVerse
         bool _useInverseMatrix;
     };
 
+    /** Obtain all animations from a scene graph */
+    typedef std::pair<osg::Transform*, TweenAnimation*> NodeAnimationPair;
+    std::vector<NodeAnimationPair> obtainAnimations(osg::Node* node);
+
     /** Convenient methods to quick add and play a tween animation */
     typedef void (*AnimationEndFunction)();
     extern bool doAnimation(osg::Node* n, osg::AnimationPath* anim, AnimationEndFunction f = NULL,

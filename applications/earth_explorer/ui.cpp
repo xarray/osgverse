@@ -2,6 +2,8 @@
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
+#include <osgDB/FileUtils>
+#include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgGA/StateSetManipulator>
@@ -12,6 +14,7 @@
 
 #include <modeling/Math.h>
 #include <readerwriter/EarthManipulator.h>
+#include <readerwriter/TileCallback.h>
 #include <pipeline/Utilities.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/SkyBox.h>
@@ -57,6 +60,35 @@ const char* uiFragCode = {
     "}\n"
 };
 
+struct PaleoCallback : public osgVerse::TileManager::DynamicTileCallback
+{
+    virtual bool shouldMorph(osgVerse::TileCallback& cb) const
+    { return mapImage.valid() ? (morphedTiles.find(cb.getName()) == morphedTiles.end()) : false; }
+
+    virtual bool updateEntireTileGeometry(osgVerse::TileCallback& cb, osg::Geometry* geom)
+    {
+        //std::cout << "Updating " << cb.getName() << "\n";
+        morphedTiles.insert(cb.getName()); return false;
+    }
+
+    virtual osg::Vec3 updateTileVertex(osgVerse::TileCallback& cb, double lat, double lon)
+    {
+        double s = 180.0 * (lat + osg::PI_2) / osg::PI, t = 360.0 * (lon + osg::PI) * 0.5 / osg::PI;
+        double s0 = floor(s), s1 = ceil(s), t0 = floor(t), t1 = ceil(t);
+        osg::Vec4 c00 = mapImage->getColor((int)s0, (int)t0), c10 = mapImage->getColor((int)s1, (int)t0);
+        osg::Vec4 c01 = mapImage->getColor((int)s0, (int)t1), c11 = mapImage->getColor((int)s1, (int)t1);
+
+        float c = c00[0] * (s - s0) * (t - t0) + c10[0] * (s1 - s) * (t - t0) +
+                  c11[0] * (s1 - s) * (t1 - t) + c01[0] * (s - s0) * (t1 - t);
+        c = c * cb.getElevationScale();
+        return osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3d(lat, lon, c));
+    }
+
+    PaleoCallback(osg::Image* img) : mapImage(img) {}
+    osg::ref_ptr<osg::Image> mapImage;
+    std::set<std::string> morphedTiles;
+};
+
 class UIHandler : public osgGA::GUIEventHandler
 {
 public:
@@ -67,6 +99,22 @@ public:
         _volume = osgDB::readImageFile(mainFolder + "/ui/colormap-jet.png");
         _compass0 = osgDB::readImageFile(mainFolder + "/ui/compass0.png");
         _compass1 = osgDB::readImageFile(mainFolder + "/ui/compass1.png");
+
+        osgDB::DirectoryContents contents = osgDB::getDirectoryContents(mainFolder + "/paleo");
+        for (size_t i = 0; i < contents.size(); ++i)
+        {
+            std::string fileName = osgDB::getStrippedName(contents[i]);
+            std::vector<std::string> parts; osgDB::split(fileName, parts, '_');
+            if (parts.empty()) continue;
+
+            size_t index = parts.back().find("Ma");
+            int age = atoi(parts.back().substr(0, index).c_str());
+            _paleoMaps[-age] = mainFolder + "/paleo/" + contents[i];
+            _paleoAgeList.push_back(-age);
+        }
+
+        _paleoCallback = new PaleoCallback(NULL); _paleoIndex = 0;
+        osgVerse::TileManager::instance()->setDynamicCallback(_paleoCallback.get());
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -82,6 +130,25 @@ public:
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH &&
                  ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) _buttonState = 1;
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        {
+            if (ea.getKey() == osgGA::GUIEventAdapter::KEY_F1)
+            {
+                if (_paleoIndex > 0) _paleoIndex--;
+                int age = _paleoAgeList[_paleoIndex]; std::string file = _paleoMaps[age];
+                _paleoCallback->mapImage = createImageFromPaleo(
+                    std::ifstream(file.c_str(), std::ios::in | std::ios::binary));
+                _paleoCallback->morphedTiles.clear();
+            }
+            else if (ea.getKey() == osgGA::GUIEventAdapter::KEY_F2)
+            {
+                if (_paleoIndex < _paleoAgeList.size() - 1) _paleoIndex++;
+                int age = _paleoAgeList[_paleoIndex]; std::string file = _paleoMaps[age];
+                _paleoCallback->mapImage = createImageFromPaleo(
+                    std::ifstream(file.c_str(), std::ios::in | std::ios::binary));
+                _paleoCallback->morphedTiles.clear();
+            }
+        }
         return false;
     }
 
@@ -226,6 +293,7 @@ public:
                 case 10: DRAW_TEXT("Earthquakes in the First Half of Year 2025", 1.5f, 28.0f); break;
                 }
             }
+            DRAW_TEXT("Earth Plates at: " + std::to_string(-_paleoAgeList[_paleoIndex]) + "Ma", 15.5f, 28.0f);
 
             // LLA, compass and scale display
             double northRadians = 0.0, widthScale = 0.0;
@@ -311,10 +379,48 @@ public:
     }
 
 protected:
+    osg::Image* createImageFromPaleo(std::ifstream& fin, char sep = ',')
+    {
+        osg::Image* image = new osg::Image;
+        image->allocateImage(180, 360, 1, GL_LUMINANCE, GL_FLOAT);
+        image->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
+        memset(image->data(), 0, image->getTotalSizeInBytes());
+
+        std::string line0; float* ptr = (float*)image->data();
+        while (std::getline(fin, line0))
+        {
+            std::string line = trim(line0);
+            if (line.empty()) continue; else if (line[0] == '#') continue;
+
+            std::vector<std::string> values; osgDB::split(line, values, sep);
+            if (values.size() > 2)
+            {
+                float lat = atof(values[1].c_str());
+                float lon = atof(values[0].c_str());
+                float ati = atof(values[2].c_str());
+                int xx = (int)(lat + 90.0f), yy = (int)(lon + 180.0f);
+                *(ptr + xx + yy * 180) = ati;
+            }
+        }
+        return image;
+    }
+
+    static std::string trim(const std::string& str)
+    {
+        if (!str.size()) return str;
+        std::string::size_type first = str.find_first_not_of(" \t");
+        std::string::size_type last = str.find_last_not_of("  \t\r\n");
+        if ((first == str.npos) || (last == str.npos)) return std::string("");
+        return str.substr(first, last - first + 1);
+    }
+
+    std::map<int, std::string> _paleoMaps;
+    std::vector<int> _paleoAgeList;
+    osg::ref_ptr<PaleoCallback> _paleoCallback;
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
     osg::ref_ptr<osg::Image> _selected, _volume;
     osg::ref_ptr<osg::Image> _compass0, _compass1;
-    int _width, _height, _buttonState, _volumeMode;
+    int _width, _height, _buttonState, _volumeMode, _paleoIndex;
 };
 
 void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder, int w, int h)

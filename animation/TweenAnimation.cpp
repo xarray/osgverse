@@ -252,9 +252,11 @@ std::vector<std::string> TweenAnimation::getAnimationNames() const
     return names;
 }
 
-bool TweenAnimation::play(const std::string& name, PlayingMode pm, TweenMode tw)
+bool TweenAnimation::play(const std::string& name0, PlayingMode pm, TweenMode tw)
 {
+    std::string name = (name0.empty() && !_animations.empty()) ? _animations.begin()->first : name0;
     if (_animations.find(name) == _animations.end()) return false;
+
     Property& prop = _animations[name].second;
     prop.mode = pm; prop.direction = 0;
     _currentName = name; _playingState = 1; _referenceTime = -1.0;
@@ -332,6 +334,29 @@ bool TweenAnimation::getInterpolatedControlPoint(osg::AnimationPath* path, doubl
 
 namespace osgVerse
 {
+    class FindAnimationVisitor : public osg::NodeVisitor
+    {
+    public:
+        FindAnimationVisitor()
+            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+        std::vector<NodeAnimationPair> animations;
+
+        virtual void apply(osg::Transform& node)
+        {
+            osg::NodeCallback* cb = dynamic_cast<osg::NodeCallback*>(node.getUpdateCallback());
+            while (cb)
+            {
+                TweenAnimation* tween = dynamic_cast<TweenAnimation*>(cb);
+                if (tween) animations.push_back(NodeAnimationPair(&node, tween));
+                cb = dynamic_cast<osg::NodeCallback*>(cb->getNestedCallback());
+            }
+            traverse(node);
+        }
+    };
+
+    std::vector<NodeAnimationPair> obtainAnimations(osg::Node* node)
+    { FindAnimationVisitor fav; if (node) node->accept(fav); return fav.animations; }
+
     struct QuickAnimationCallback : public TweenAnimation::AnimationCallback
     {
         virtual void onStart(TweenAnimation* anim, const std::string& name) {}
