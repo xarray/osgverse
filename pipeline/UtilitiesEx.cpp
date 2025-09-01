@@ -170,10 +170,6 @@ void EarthAtmosphereOcean::update(osg::Camera* camera)
     commonUniforms["ScreenToCamera"]->set(osg::Matrixf::inverse(projMatrix));
     commonUniforms["WorldCameraPos"]->set(osg::Vec3(worldCam));
     commonUniforms["WorldCameraLLA"]->set(osg::Vec3(worldLLA));
-
-    float width = camera->getViewport() ? camera->getViewport()->width() : 1920.0f;
-    float height = camera->getViewport() ? camera->getViewport()->height() : 1080.0f;
-    commonUniforms["ScreenSize"]->set(osg::Vec2(width, height));
 }
 
 void EarthAtmosphereOcean::updateOcean(osg::Camera* camera)
@@ -272,7 +268,6 @@ void EarthAtmosphereOcean::updateOcean(osg::Camera* camera)
     float width = camera->getViewport() ? camera->getViewport()->width() : 1920.0f;
     float height = camera->getViewport() ? camera->getViewport()->height() : 1080.0f;
     camera->getProjectionMatrix().getPerspective(fov, aspectRatio, znear, zfar);
-    commonUniforms["ScreenSize"]->set(osg::Vec2(width, height));
 
     // FIXME: pixelSize affects wave tiling, should be treated carefully
     float pixelSize = atan(tan(osg::inDegrees(fov * aspectRatio * (float)oceanPixelScale)) / (height / 2.0f));
@@ -308,12 +303,12 @@ bool EarthAtmosphereOcean::create(osg::Texture* tr, osg::Texture* ir, osg::Textu
     commonUniforms["WorldCameraPos"] = new osg::Uniform("WorldCameraPos", osg::Vec3(0.0f, 0.0f, 0.0f));
     commonUniforms["WorldCameraLLA"] = new osg::Uniform("WorldCameraLLA", osg::Vec3(0.0f, 0.0f, 0.0f));
     commonUniforms["EarthOrigin"] = new osg::Uniform("EarthOrigin", osg::Vec3(0.0f, 0.0f, 0.0f));
-    commonUniforms["ScreenSize"] = new osg::Uniform("ScreenSize", osg::Vec2(1920.0f, 1080.0f));
     commonUniforms["GlobalOpaque"] = new osg::Uniform("GlobalOpaque", 1.0f);
     commonUniforms["OceanOpaque"] = new osg::Uniform("OceanOpaque", 1.0f);
     commonUniforms["UnderOcean"] = new osg::Uniform("UnderOcean", 1.0f);
     commonUniforms["HdrExposure"] = new osg::Uniform("HdrExposure", 0.25f);
 
+    oceanUniforms["ScreenSize"] = new osg::Uniform("ScreenSize", osg::Vec2(1920.0f, 1080.0f));
     oceanUniforms["CameraToOcean"] = new osg::Uniform("CameraToOcean", osg::Matrixf());
     oceanUniforms["OceanToCamera"] = new osg::Uniform("OceanToCamera", osg::Matrixf());
     oceanUniforms["OceanToWorld"] = new osg::Uniform("OceanToWorld", osg::Matrixf());
@@ -334,6 +329,7 @@ osg::Geometry* EarthAtmosphereOcean::createOceanGrid(int width, int height)
 {
     osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
     osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+    oceanUniforms["ScreenSize"] = new osg::Uniform("ScreenSize", osg::Vec2((float)width, (float)height));
 
     float f = 1.25f;
     int NX = int(f * width / oceanGridResolution);

@@ -512,7 +512,7 @@ int main(int argc, char** argv)
     transmittance->allocateImage(TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 1, GL_RGBA, GL_FLOAT);
     transmittance->setInternalTextureFormat(GL_RGBA32F_ARB);
 
-    std::string header = model._factory({ atmosphere::kLambdaR, atmosphere::kLambdaG, atmosphere::kLambdaB });
+    std::string header = model._factory(osg::Vec3(atmosphere::kLambdaR, atmosphere::kLambdaG, atmosphere::kLambdaB));
     osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "std_common_quad.vert.glsl");
     osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, header + kComputeTransmittanceShader);
     osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
