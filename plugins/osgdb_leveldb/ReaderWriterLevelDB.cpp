@@ -142,6 +142,7 @@ public:
         case (ARCHIVE): return rw->openArchive(fin, options);
         case (IMAGE): return rw->readImage(fin, options);
         case (HEIGHTFIELD): return rw->readHeightField(fin, options);
+        case (SHADER): return rw->readShader(fin, options);
         case (NODE): return rw->readNode(fin, options);
         default: break;
         }

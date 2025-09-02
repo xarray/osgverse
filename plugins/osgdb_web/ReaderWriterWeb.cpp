@@ -38,7 +38,7 @@ static size_t readGZip(const char* in, size_t in_size, char* out, size_t out_siz
 class ReaderWriterWeb : public osgDB::ReaderWriter
 {
 public:
-    enum ObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE };
+    enum ObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE, SHADER };
     
     ReaderWriterWeb()
     {
@@ -90,6 +90,9 @@ public:
     virtual ReadResult readNode(const std::string& fileName, const Options* options) const
     { return readFile(NODE, fileName, options); }
 
+    virtual ReadResult readShader(const std::string& fileName, const Options* options) const
+    { return readFile(SHADER, fileName, options); }
+
     virtual WriteResult writeObject(const osg::Object& obj, const std::string& fileName, const Options* options) const
     { return writeFile(obj, fileName, options); }
 
@@ -102,6 +105,9 @@ public:
     virtual WriteResult writeNode(const osg::Node& node, const std::string& fileName, const Options* options) const
     { return writeFile(node, fileName, options); }
 
+    virtual WriteResult writeShader(const osg::Shader& s, const std::string& fileName, const Options* options) const
+    { return writeFile(s, fileName, options); }
+
     ReadResult readFile(ObjectType objectType, osgDB::ReaderWriter* rw,
                         std::istream& fin, const Options* options) const
     {
@@ -111,6 +117,7 @@ public:
         case (ARCHIVE): return rw->openArchive(fin, options);
         case (IMAGE): return rw->readImage(fin, options);
         case (HEIGHTFIELD): return rw->readHeightField(fin, options);
+        case (SHADER): return rw->readShader(fin, options);
         case (NODE):
             {
                 ReadResult rr = rw->readNode(fin, options);
@@ -133,12 +140,15 @@ public:
     {
         const osg::HeightField* heightField = dynamic_cast<const osg::HeightField*>(&obj);
         if (heightField) return rw->writeHeightField(*heightField, fout, options);
-
+        
         const osg::Node* node = dynamic_cast<const osg::Node*>(&obj);
         if (node) return rw->writeNode(*node, fout, options);
 
         const osg::Image* image = dynamic_cast<const osg::Image*>(&obj);
         if (image) return rw->writeImage(*image, fout, options);
+
+        const osg::Shader* shader = dynamic_cast<const osg::Shader*>(&obj);
+        if (shader) return rw->writeShader(*shader, fout, options);
 
         return rw->writeObject(obj, fout, options);
     }
