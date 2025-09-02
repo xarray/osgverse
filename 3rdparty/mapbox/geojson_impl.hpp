@@ -71,8 +71,9 @@ Cont convert(const rapidjson_value &json) {
 
 template <>
 geometry convert<geometry>(const rapidjson_value &json) {
+    geometry geom;
     if (json.IsNull())
-        return empty{};
+    { geom.set<empty>(); return geom; }
 
     if (!json.IsObject())
         throw error("Geometry must be an object");
@@ -95,7 +96,8 @@ geometry convert<geometry>(const rapidjson_value &json) {
         if (!json_geometries.IsArray())
             throw error("GeometryCollection geometries property must be an array");
 
-        return geometry{ convert<geometry_collection>(json_geometries) };
+        //return geometry{ convert<geometry_collection>(json_geometries) };
+        geom.set<geometry_collection>(convert<geometry_collection>(json_geometries)); return geom;
     }
 
     const auto &coords_itr = json.FindMember("coordinates");
@@ -108,28 +110,22 @@ geometry convert<geometry>(const rapidjson_value &json) {
         throw error("coordinates property must be an array");
 
     if (type == "Point")
-        return geometry{ convert<point>(json_coords) };
+    { geom.set<point>(convert<point>(json_coords)); return geom; }
     if (type == "MultiPoint")
-        return geometry{ convert<multi_point>(json_coords) };
-    if (type == "LineString") {
-        validateLineString(json_coords);
-        return geometry{ convert<line_string>(json_coords) };
-    }
+    { geom.set<multi_point>(convert<multi_point>(json_coords)); return geom; }
+    if (type == "LineString")
+    { validateLineString(json_coords); geom.set<line_string>(convert<line_string>(json_coords)); return geom; }
     if (type == "MultiLineString") {
-        for (auto &element : json_coords.GetArray()) {
-            validateLineString(element);
-        }
-        return geometry{ convert<multi_line_string>(json_coords) };
+        for (auto &element : json_coords.GetArray()) validateLineString(element);
+        geom.set<multi_line_string>(convert<multi_line_string>(json_coords)); return geom;
     }
     if (type == "Polygon") {
         validatePolygon(json_coords);
-        return geometry{ convert<polygon>(json_coords) };
+        geom.set<polygon>(convert<polygon>(json_coords)); return geom;
     }
     if (type == "MultiPolygon") {
-        for (auto &element: json_coords.GetArray()) {
-            validatePolygon(element);
-        }
-        return geometry{ convert<multi_polygon>(json_coords) };
+        for (auto &element: json_coords.GetArray()) validatePolygon(element);
+        geom.set<multi_polygon>(convert<multi_polygon>(json_coords)); return geom;
     }
     throw error(std::string(type.GetString()) + " not yet implemented");
 }

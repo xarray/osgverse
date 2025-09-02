@@ -73,7 +73,7 @@ geometry convert<geometry>(const value &val) {
     }
 
     const auto &typeString = *typeValue.getString();
-
+    geometry geom;
     if (typeString == "GeometryCollection") {
         auto geometriesIt = valueObject->find("geometries");
         if (geometriesIt == valueObject->end()) {
@@ -84,8 +84,7 @@ geometry convert<geometry>(const value &val) {
         if (!geometryArray) {
             throw error("GeometryCollection geometries property must be an array");
         }
-
-        return geometry{ convert<geometry_collection>(*geometryArray) };
+        geom.set<geometry_collection>(convert<geometry_collection>(*geometryArray)); return geom;
     }
 
     auto coordinatesIt = valueObject->find("coordinates");
@@ -99,17 +98,17 @@ geometry convert<geometry>(const value &val) {
     }
 
     if (typeString == "Point")
-        return geometry{ convert<point>(*coordinateArray) };
+    { geom.set<point>(convert<point>(*coordinateArray)); return geom; }
     if (typeString == "MultiPoint")
-        return geometry{ convert<multi_point>(*coordinateArray) };
+    { geom.set<multi_point>(convert<multi_point>(*coordinateArray)); return geom; }
     if (typeString == "LineString")
-        return geometry{ convert<line_string>(*coordinateArray) };
+    { geom.set<line_string>(convert<line_string>(*coordinateArray)); return geom; }
     if (typeString == "MultiLineString")
-        return geometry{ convert<multi_line_string>(*coordinateArray) };
+    { geom.set<multi_line_string>(convert<multi_line_string>(*coordinateArray)); return geom; }
     if (typeString == "Polygon")
-        return geometry{ convert<polygon>(*coordinateArray) };
+    { geom.set<polygon>(convert<polygon>(*coordinateArray)); return geom; }
     if (typeString == "MultiPolygon")
-        return geometry{ convert<multi_polygon>(*coordinateArray) };
+    { geom.set<multi_polygon>(convert<multi_polygon>(*coordinateArray)); return geom; }
 
     throw error(typeString + " not yet implemented");
 }
