@@ -444,8 +444,8 @@ class     CncrLst
 public:
   using     u32  =  uint32_t;
   using     u64  =  uint64_t;
-  using    au32  =  volatile std::atomic<u32>;
-  using    au64  =  volatile std::atomic<u64>;
+  using    au32  =  std::atomic<u32>;
+  using    au64  =  std::atomic<u64>;
   using ListVec  =  lava_vec<u32>;
 
   union Head
@@ -459,7 +459,7 @@ public:
 
 //private:
   ListVec         s_lv;
-  volatile au64*   s_h;
+  au64*   s_h;
 
 public:
   static u64   sizeBytes(u32 size) { return ListVec::sizeBytes(size) + 128; }         // an extra 128 bytes so that Head can be placed (why 128 bytes? so that the head can be aligned on its own cache line to avoid false sharing, since it is a potential bottleneck)
@@ -485,7 +485,7 @@ public:
     }
   }
 
-  bool headCmpEx(u64* expected, au64 desired)
+  bool headCmpEx(u64* expected, const au64& desired)
   {
     using namespace std;
 
@@ -1344,7 +1344,8 @@ public:
   }
 
   template<class FUNC, class T>
-  bool      runMatch(const void *const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(vi))() )       const 
+  //bool      runMatch(const void *const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(vi))() )       const 
+  bool      runMatch(const void *const key, u32 klen, u32 hash, FUNC f, T defaultRet )       const 
   {
     using namespace std;
     

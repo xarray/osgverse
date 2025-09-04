@@ -20,6 +20,7 @@
 #include <pipeline/SkyBox.h>
 #include <pipeline/Drawer2D.h>
 #include <sstream>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 
@@ -136,16 +137,16 @@ public:
             {
                 if (_paleoIndex > 0) _paleoIndex--;
                 int age = _paleoAgeList[_paleoIndex]; std::string file = _paleoMaps[age];
-                _paleoCallback->mapImage = createImageFromPaleo(
-                    std::ifstream(file.c_str(), std::ios::in | std::ios::binary));
+                std::ifstream fin(file.c_str(), std::ios::in | std::ios::binary);
+                _paleoCallback->mapImage = createImageFromPaleo(fin);
                 _paleoCallback->morphedTiles.clear();
             }
             else if (ea.getKey() == osgGA::GUIEventAdapter::KEY_F2)
             {
                 if (_paleoIndex < _paleoAgeList.size() - 1) _paleoIndex++;
                 int age = _paleoAgeList[_paleoIndex]; std::string file = _paleoMaps[age];
-                _paleoCallback->mapImage = createImageFromPaleo(
-                    std::ifstream(file.c_str(), std::ios::in | std::ios::binary));
+                std::ifstream fin(file.c_str(), std::ios::in | std::ios::binary);
+                _paleoCallback->mapImage = createImageFromPaleo(fin);
                 _paleoCallback->morphedTiles.clear();
             }
         }
@@ -379,7 +380,7 @@ public:
     }
 
 protected:
-    osg::Image* createImageFromPaleo(std::ifstream& fin, char sep = ',')
+    osg::Image* createImageFromPaleo(std::istream& fin, char sep = ',')
     {
         osg::Image* image = new osg::Image;
         image->allocateImage(180, 360, 1, GL_LUMINANCE, GL_FLOAT);

@@ -200,7 +200,7 @@ osg::Geometry* parseGPMLFeature(rapidxml::xml_node<>* featureNode,
     return geom.release();
 }
 
-osg::Geode* parseGPML(std::string& gpmlFile)
+osg::Geode* parseGPML(const std::string& gpmlFile)
 {
     std::map<std::string, std::string> xmlns;
     xmlns["gpml"] = "http://www.gplates.org/gplates";
