@@ -444,8 +444,8 @@ class     CncrLst
 public:
   using     u32  =  uint32_t;
   using     u64  =  uint64_t;
-  using    au32  =  std::atomic<u32>;
-  using    au64  =  std::atomic<u64>;
+  using    au32  = volatile std::atomic<u32>;
+  using    au64  = volatile std::atomic<u64>;
   using ListVec  =  lava_vec<u32>;
 
   union Head
@@ -485,9 +485,10 @@ public:
     }
   }
 
-  bool headCmpEx(u64* expected, const au64& desired)
+  bool headCmpEx(u64* expected, u64* desired_ptr)
   {
     using namespace std;
+    au64 desired = au64(*desired_ptr);
 
     //return atomic_compare_exchange_strong_explicit(
     //  s_h, (volatile au64*)&expected, desired,
@@ -514,8 +515,8 @@ public:
 
       nxtHead.idx  =  s_lv[curHead.idx];
       nxtHead.ver  =  curHead.ver==NXT_VER_SPECIAL? 1  :  curHead.ver+1;
-    }while( !headCmpEx( &curHead.asInt, nxtHead.asInt) );
-    //}while( !headCmpEx(curHead.asInt, nxtHead.asInt) );
+    }while( !headCmpEx( &curHead.asInt, &nxtHead.asInt) );
+    //}while( !headCmpEx(curHead.asInt, &nxtHead.asInt) );
     //}while( !s_h->compare_exchange_strong(curHead.asInt, nxtHead.asInt) );
 
     return curHead.idx;
@@ -534,8 +535,8 @@ public:
       prevHead     =  curHead;
       nxtHead.idx  =  s_lv[curHead.idx];
       nxtHead.ver  =  curHead.ver==NXT_VER_SPECIAL? 1  :  curHead.ver+1;
-    }while( !headCmpEx( &curHead.asInt, nxtHead.asInt) );
-    //}while( !headCmpEx(curHead.asInt, nxtHead.asInt) );
+    }while( !headCmpEx( &curHead.asInt, &nxtHead.asInt) );
+    //}while( !headCmpEx(curHead.asInt, &nxtHead.asInt) );
     //}while( !s_h->compare_exchange_strong(curHead.asInt, nxtHead.asInt) );
 
     //s_lv[prev] = curHead.idx;
@@ -551,8 +552,8 @@ public:
       retIdx = s_lv[idx] = curHead.idx;
       nxtHead.idx  =  idx;
       nxtHead.ver  =  curHead.ver + 1;
-    }while( !headCmpEx( &curHead.asInt, nxtHead.asInt) );
-    //}while( !headCmpEx(curHead.asInt, nxtHead.asInt) );
+    }while( !headCmpEx( &curHead.asInt, &nxtHead.asInt) );
+    //}while( !headCmpEx(curHead.asInt, &nxtHead.asInt) );
     //}while( !s_h->compare_exchange_strong(curHead.asInt, nxtHead.asInt) );
 
     return retIdx;
@@ -570,8 +571,8 @@ public:
       //atomic_store( (au32*)&(s_lv[en]), curHead.idx);
       nxtHead.idx  =  st;
       nxtHead.ver  =  curHead.ver + 1;
-    }while( !headCmpEx( &curHead.asInt, nxtHead.asInt) );
-    //}while( !headCmpEx(curHead.asInt, nxtHead.asInt) );
+    }while( !headCmpEx( &curHead.asInt, &nxtHead.asInt) );
+    //}while( !headCmpEx(curHead.asInt, &nxtHead.asInt) );
     //}while( !s_h->compare_exchange_strong(curHead.asInt, nxtHead.asInt) );
 
     return retIdx;

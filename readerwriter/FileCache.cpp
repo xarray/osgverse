@@ -6,11 +6,16 @@
 #include "FileCache.h"
 #include <iostream>
 #include <sstream>
+
 using namespace osgVerse;
+extern std::map<std::string, std::string> createMimeTypeMapper();
 
 FileCache::FileCache(const std::string& path, int blocks, int size)
     : osgDB::FileCache(path)
-{ _dbObject = new simdb(path.c_str(), size, blocks); }
+{
+    _mimeTypes = createMimeTypeMapper();
+    _dbObject = new simdb(path.c_str(), size, blocks);
+}
 
 FileCache::~FileCache()
 {
@@ -20,13 +25,31 @@ FileCache::~FileCache()
 
 osgDB::ReaderWriter* FileCache::getReaderWriter(const std::string& fileName) const
 {
-    std::string ext = osgDB::getFileExtension(fileName);
-    std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::
-        const_iterator it = _cachedReaderWriters.find(ext);
+    std::string ext = osgDB::getFileExtension(fileName); if (ext.empty()) return NULL;
+    std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator it = _cachedReaderWriters.find(ext);
     if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
 
     osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
-    if (rw) const_cast<FileCache*>(this)->_cachedReaderWriters[ext] = rw; return rw;
+    if (!rw) { OSG_WARN << "[FileCache] Failed to find reader/writer for " << fileName << std::endl; }
+    else const_cast<FileCache*>(this)->_cachedReaderWriters[ext] = rw; return rw;
+}
+
+std::string FileCache::createCacheFileName(const std::string& fileName, const osgDB::Options* op) const
+{
+    std::string ext = osgDB::getFileExtension(fileName);
+    if (!ext.empty()) return fileName;
+
+    std::string guessed = ".aliased.", mimeType;
+    if (op) ext = op->getPluginStringData("extension");
+    if (!ext.empty()) return fileName + guessed + ext;
+
+    if (op) mimeType = op->getPluginStringData("mimeType");
+    if (!mimeType.empty())
+    {
+        std::map<std::string, std::string>::const_iterator itr = _mimeTypes.find(mimeType);
+        if (itr != _mimeTypes.end()) return fileName + guessed + itr->second;
+    }
+    return fileName;
 }
 
 bool FileCache::isFileAppropriateForFileCache(const std::string& originalFileName) const
@@ -40,7 +63,7 @@ bool FileCache::isFileAppropriateForFileCache(const std::string& originalFileNam
 bool FileCache::existsInCache(const std::string& fileName) const
 {
     simdb* db = (simdb*)_dbObject;
-    std::string keyName = createCacheFileName(fileName);
+    std::string keyName = createCacheFileName(fileName, _options.get());
 
     long long len = db->len(keyName.data(), keyName.length());
     if (len > 0) return !isCachedFileBlackListed(fileName);
@@ -48,23 +71,26 @@ bool FileCache::existsInCache(const std::string& fileName) const
 }
 
 std::string FileCache::createCacheFileName(const std::string& fileName) const
-{ return fileName; }
+{ return createCacheFileName(fileName, _options.get()); }
 
 #define READ_FUNCTOR(fileName, func) \
-    simdb* db = (simdb*)_dbObject; osgDB::ReaderWriter* rw = getReaderWriter(fileName); \
-    std::string key = createCacheFileName(fileName); long long len = db->len(key.data(), key.length()); \
-    if (rw && len > 0) { \
+    simdb* db = (simdb*)_dbObject; std::string key = createCacheFileName(fileName, options), mt = "alias:" + fileName; \
+    long long len2 = osgDB::getFileExtension(key).empty() ? db->len(mt.data(), mt.length()) : 0; unsigned int realLen = 0; \
+    if (len2 > 0) { key.resize(len2); db->get(mt.data(), mt.length(), (void*)key.data(), key.length(), &realLen); key.resize(realLen); } \
+    osgDB::ReaderWriter* rw = (len2 > 0) ? getReaderWriter(key) : getReaderWriter(fileName); \
+    long long len = db->len(fileName.data(), fileName.length()); if (rw && len > 0) { \
         std::string value(len, '\0'); std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary); \
-        if (db->get(key.data(), key.length(), (void*)value.data(), value.length())) \
-        { ss.write(value.data(), value.length()); return rw-> func (ss, options); } \
-    } return NULL;
+        if (db->get(fileName.data(), fileName.length(), (void*)value.data(), value.length(), &realLen)) \
+        { value.resize(realLen); ss.write(value.data(), value.length()); return rw-> func (ss, options); } \
+    } return FileCache::ReadResult::FILE_NOT_HANDLED;
 
 #define WRITE_FUNCTOR(fileName, func) \
-    std::string key = createCacheFileName(fileName); osgDB::ReaderWriter* rw = getReaderWriter(fileName); if (rw) { \
+    std::string key = createCacheFileName(fileName, options); osgDB::ReaderWriter* rw = getReaderWriter(key); if (rw) { \
         std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary); simdb* db = (simdb*)_dbObject; \
         if (rw-> func (obj, ss, options).success()) { \
-            std::string value((std::istreambuf_iterator<char>(ss)), std::istreambuf_iterator<char>()); \
-            if (db->put(key.data(), key.length(), (void*)value.data(), value.length())) removeFileFromBlackListed(fileName); \
+            std::string value((std::istreambuf_iterator<char>(ss)), std::istreambuf_iterator<char>()), mt = "alias:" + fileName; \
+            if (key != fileName) db->put(mt.data(), mt.length(), (void*)key.data(), key.length()); \
+            if (db->put(fileName.data(), fileName.length(), (void*)value.data(), value.length())) removeFileFromBlackListed(fileName); \
             return FileCache::WriteResult::FILE_SAVED; } \
     } return FileCache::WriteResult::FILE_NOT_HANDLED;
 

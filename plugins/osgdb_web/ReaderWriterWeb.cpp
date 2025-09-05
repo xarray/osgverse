@@ -4,7 +4,7 @@
 #include <osg/PagedLOD>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
-#include <osgDB/Registry>
+#include <osgDB/FileCache>
 #include <algorithm>
 
 #include "3rdparty/libhv/all/client/requests.h"
@@ -42,8 +42,6 @@ public:
     
     ReaderWriterWeb()
     {
-        //_client = new hv::HttpClient;
-
         supportsProtocol("http", "Read from http port using libhv.");
         supportsProtocol("https", "Read from https port using libhv.");
         supportsProtocol("ftp", "Read from ftp port using libhv.");
@@ -59,7 +57,6 @@ public:
 
     virtual ~ReaderWriterWeb()
     {
-        //delete _client;
     }
 
     bool acceptsProtocol(const std::string& protocol) const
@@ -135,6 +132,32 @@ public:
         return ReadResult::NOT_IMPLEMENTED;
     }
 
+    ReadResult readFile(ObjectType objectType, osgDB::FileCache* cache,
+                        const std::string& fileName, const Options* options) const
+    {
+        switch (objectType)
+        {
+        case (OBJECT): return cache->readObject(fileName, options);
+        case (IMAGE): return cache->readImage(fileName, options);
+        case (HEIGHTFIELD): return cache->readHeightField(fileName, options);
+        case (SHADER): return cache->readShader(fileName, options);
+        case (NODE):
+            {
+                ReadResult rr = cache->readNode(fileName, options);
+    #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+                if (rr.validNode())
+                {
+                    osgVerse::FixedFunctionOptimizer ffo;
+                    rr.getNode()->accept(ffo);
+                }
+    #endif
+                return rr;
+            }
+        default: break;
+        }
+        return ReadResult::NOT_IMPLEMENTED;
+    }
+
     WriteResult writeFile(const osg::Object& obj, osgDB::ReaderWriter* rw,
                           std::ostream& fout, const Options* options) const
     {
@@ -151,6 +174,17 @@ public:
         if (shader) return rw->writeShader(*shader, fout, options);
 
         return rw->writeObject(obj, fout, options);
+    }
+
+    WriteResult writeFile(ReadResult result, osgDB::FileCache* cache,
+                          const std::string& fileName, const Options* options) const
+    {
+        if (result.validHeightField()) return cache->writeHeightField(*result.getHeightField(), fileName, options);
+        if (result.validNode()) return cache->writeNode(*result.getNode(), fileName, options);
+        if (result.validImage()) return cache->writeImage(*result.getImage(), fileName, options);
+        if (result.validShader()) return cache->writeShader(*result.getShader(), fileName, options);
+        if (result.validObject()) return cache->writeObject(*result.getObject(), fileName, options);
+        return WriteResult::NOT_IMPLEMENTED;
     }
     
     virtual bool fileExists(const std::string& filename, const osgDB::Options* options) const
@@ -208,6 +242,14 @@ public:
             if (reader) return reader->readNode(fileName, lOptions.get());
         }
 
+        osgDB::FileCache* cache = osgDB::Registry::instance()->getFileCache();
+        if (cache && cache->existsInCache(fileName))
+        {
+            ReadResult cacheResult = readFile(objectType, cache, fileName, lOptions.get());
+            //std::cout << "GET " << fileName << ": " << cacheResult.success() << "\n";
+            if (cacheResult.success()) return cacheResult;
+        }
+
         // TODO: get connection parameters from options
         std::string contentType = "image/jpeg", encoding = "";
         std::vector<unsigned char> content =
@@ -250,9 +292,14 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        // TODO: uncompress remote osgz/ivez/gz?
         ReadResult readResult = readFile(objectType, reader, buffer, lOptions.get());
         lOptions->getDatabasePathList().pop_front();
+        if (cache && readResult.success())
+        {
+            osg::ref_ptr<osgDB::Options> op = new osgDB::Options("mimeType=" + contentType);
+            WriteResult wr = writeFile(readResult, cache, fileName, op.get());
+            //std::cout << "CACHING " << fileName << ": " << wr.success() << "\n";
+        }
         return readResult;
     }
 
@@ -284,7 +331,7 @@ public:
 
         // TODO: get connection parameters from options
         HttpRequest req;
-        hv::HttpClient* _client = new hv::HttpClient;
+        hv::HttpClient* client = new hv::HttpClient;
 
         // Post data to web
         req.method = HTTP_POST;
@@ -303,7 +350,7 @@ public:
         req.headers["Connection"] = connection;
         req.headers["Content-Type"] = mimeType;
 
-        HttpResponse response; int code = _client->send(&req, &response); delete _client;
+        HttpResponse response; int code = client->send(&req, &response); delete client;
         return (code != 0) ? WriteResult::ERROR_IN_WRITING_FILE : WriteResult::FILE_SAVED;
     }
 
@@ -324,6 +371,7 @@ protected:
 
     osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
     {
+        if (extOrMime.empty()) return NULL;
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
             it = _cachedReaderWriters.find(extOrMime);
         if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
@@ -334,7 +382,6 @@ protected:
     }
 
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
-    //hv::HttpClient* _client;
 };
 
 // Now register with Registry to instantiate the above reader/writer.

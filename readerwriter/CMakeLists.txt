@@ -6,7 +6,8 @@ SET(LIBRARY_INCLUDE_FILES
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h DracoProcessor.cpp DracoProcessor.h FileCache.cpp
-    TileCallback.cpp EarthManipulator.cpp MaterialGraph.cpp OsgbTileOptimizer.cpp Utilities.cpp
+    TileCallback.cpp EarthManipulator.cpp MaterialGraph.cpp OsgbTileOptimizer.cpp
+    Utilities.cpp MimeTypes.cpp
 )
 
 IF(WIN32 AND NOT VERSE_USE_EXTERNAL_GLES)

@@ -15,7 +15,10 @@ namespace osgVerse
     public:
         typedef osgDB::ReaderWriter::ReadResult ReadResult;
         typedef osgDB::ReaderWriter::WriteResult WriteResult;
-        FileCache(const std::string& path, int blocks = 4096, int size = 1024 * 1024);
+        FileCache(const std::string& path, int blocks = 4096, int size = 1024);
+
+        void setGlobalOptions(osgDB::Options* op) { _options = op; }
+        osgDB::Options* getGlobalOptions() { return _options.get(); }
 
         virtual bool isFileAppropriateForFileCache(const std::string& fileName) const;
         virtual bool existsInCache(const std::string& fileName) const;
@@ -44,9 +47,12 @@ namespace osgVerse
 
     protected:
         virtual ~FileCache();
+        std::string createCacheFileName(const std::string& fileName, const osgDB::Options* op) const;
         osgDB::ReaderWriter* getReaderWriter(const std::string& fileName) const;
 
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
+        std::map<std::string, std::string> _mimeTypes;
+        osg::ref_ptr<osgDB::Options> _options;
         void* _dbObject;
     };
 }

@@ -15,6 +15,7 @@
 
 #include <modeling/Math.h>
 #include <readerwriter/EarthManipulator.h>
+#include <readerwriter/FileCache.h>
 #include <readerwriter/DatabasePager.h>
 #include <readerwriter/TileCallback.h>
 #include <pipeline/IncrementalCompiler.h>
@@ -345,6 +346,12 @@ int main(int argc, char** argv)
             osg::BoundingSphere bs = tiles->getBound(); double r = bs.radius() * 10.0;
             manipulator->osgGA::CameraManipulator::setHomePosition(bs.center() + osg::Z_AXIS * r, bs.center(), osg::Y_AXIS);
         }
+    }
+
+    if (arguments.read("--cache"))
+    {
+        osg::ref_ptr<osgVerse::FileCache> fileCache = new osgVerse::FileCache("test_cache");
+        osgDB::Registry::instance()->setFileCache(fileCache.get());
     }
 
     //osg::ref_ptr<osgVerse::IncrementalCompiler> incrementalCompiler = new osgVerse::IncrementalCompiler;
