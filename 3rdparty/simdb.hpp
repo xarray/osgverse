@@ -187,9 +187,14 @@
   // MAP_ANONYMOUS | MAP_SHARED for the anonymous shared memory we want
   // mmap is system call 2 on osx, freebsd, and linux
   // the apple docs for mmap say "BSD System Calls" so I guess they haven't changed them around
-  #include <sys/mman.h>
+#if defined(__EMSCRIPTEN__)
+  #include <fcntl.h>
+  #include <errno.h>
+#else
   #include <sys/fcntl.h>
   #include <sys/errno.h>
+#endif
+  #include <sys/mman.h>
   #include <sys/unistd.h>
   #include <sys/file.h>         // for flock (file lock)
   #include <sys/stat.h>
@@ -1589,7 +1594,7 @@ public:
     u64 len = strlen(sm.path) + strlen(name);
     if(len > sizeof(sm.path)-1){
       *error_code = simdb_error::PATH_TOO_LONG;
-      return move(sm);
+      return std::move(sm);
     }else{ strcat(sm.path, name); }
 
     #ifdef _WIN32      // windows
@@ -1637,7 +1642,7 @@ public:
 
         CloseHandle(sm.fileHndl); 
         sm.clear(); 
-        return move(sm); 
+        return std::move(sm);
       }
     #elif defined(__APPLE__) || defined(__MACH__) || defined(__unix__) || defined(__FreeBSD__) || defined(__linux__)  // osx, linux and freebsd
       sm.owner  = true; // todo: have to figure out how to detect which process is the owner
@@ -1658,7 +1663,7 @@ public:
         fcntl(sm.fileHndl, F_GETLK, &flock);
         flock(sm.fileHndl, LOCK_EX);              // exclusive lock  // LOCK_NB
         //fcntl(sm.fileHndl, F_PREALLOCATE);
-        #if defined(__linux__) 
+        #if defined(__linux__) || defined(__EMSCRIPTEN__)
         #else 
           fcntl(sm.fileHndl, F_ALLOCATECONTIG);
         #endif
@@ -1685,7 +1690,7 @@ public:
     //if(alignment!=0){ alignAddr = addr + ((alignment-addr%alignment)%alignment); }          // why was the second modulo needed?
     sm.ptr        = (void*)(alignAddr);
 
-    return move(sm);
+    return std::move(sm);
   }
 
   SharedMem() :
@@ -1784,7 +1789,7 @@ private:
     memcpy(&s_cs, &rval.s_cs, sizeof(s_cs));
     memcpy(&s_ch, &rval.s_ch, sizeof(s_ch));
 
-    m_mem       =  move(rval.m_mem);
+    m_mem       =  std::move(rval.m_mem);
     m_error     =  rval.m_error;
     m_nxtChIdx  =  rval.m_nxtChIdx;
     m_curChIdx  =  rval.m_curChIdx;
