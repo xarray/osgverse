@@ -4,11 +4,10 @@
 #include <osgDB/FileNameUtils>
 #include "3rdparty/simdb.hpp"
 #include "FileCache.h"
+#include "Utilities.h"
 #include <iostream>
 #include <sstream>
-
 using namespace osgVerse;
-extern std::map<std::string, std::string> createMimeTypeMapper();
 
 FileCache::FileCache(const std::string& path, int blocks, int size)
     : osgDB::FileCache(path)

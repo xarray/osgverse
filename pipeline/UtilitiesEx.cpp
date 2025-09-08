@@ -499,7 +499,7 @@ HeadUpDisplayCanvas::~HeadUpDisplayCanvas()
 
 bool HeadUpDisplayCanvas::createText(const std::string& name, const std::wstring& text, int size,
                                      int width, int height, const std::string& parent, Direction dir,
-                                     Anchor anchor, const std::string& font)
+                                     unsigned int anchor, const std::string& font)
 {
     if (layoutItems.find(name) != layoutItems.end()) return true;
     if (layoutItems.find(parent) == layoutItems.end()) return false;
@@ -509,6 +509,7 @@ bool HeadUpDisplayCanvas::createText(const std::string& name, const std::wstring
     lay_set_size_xy(layout, item, width, height);
     lay_set_behave(layout, item, (unsigned int)anchor);
     lay_set_contain(layout, item, (unsigned int)dir);
+    lay_run_context(layout);
 
     lay_vec4 rect = lay_get_rect(layout, item);
     osgText::Text* textObj = new osgText::Text;
@@ -522,8 +523,8 @@ bool HeadUpDisplayCanvas::createText(const std::string& name, const std::wstring
         if (!f) { f = osgText::readFontFile(font); fonts[font] = f; }
         textObj->setFont(f);
     }
-    texts[name] = textObj;
-    return true;
+    textContainer->addDrawable(textObj);
+    texts[name] = textObj; return true;
 }
 
 osg::Camera* HeadUpDisplayCanvas::create(int width, int height)

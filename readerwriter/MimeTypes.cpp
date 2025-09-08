@@ -1,5 +1,8 @@
+#include <osgDB/Options>
+#include "Utilities.h"
 #include <string>
 #include <map>
+using namespace osgVerse;
 
 // Copied from osgDB/MimeTypes.cpp
 const char* osgv_builtinMimeTypeExtMappings[] =
@@ -29,6 +32,7 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "image/g3fax","g3",
     "image/gif","gif",
     "image/ief","ief",
+    "image/jpg","jpg",
     "image/jpeg","jpg",
     "image/jutvision","jut",
     "image/naplps","nap",
@@ -118,13 +122,16 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "" // end of list
 };
 
-std::map<std::string, std::string> createMimeTypeMapper()
+namespace osgVerse
 {
-    std::map<std::string, std::string> mimeTypes;
-    for (int i = 0; ; i += 2)
+    std::map<std::string, std::string> createMimeTypeMapper()
     {
-        std::string t = osgv_builtinMimeTypeExtMappings[i]; if (t.length() == 0) break;
-        mimeTypes[t] = osgv_builtinMimeTypeExtMappings[i + 1];
+        static std::map<std::string, std::string> mimeTypes;
+        for (int i = 0; ; i += 2)
+        {
+            std::string t = osgv_builtinMimeTypeExtMappings[i]; if (t.length() == 0) break;
+            mimeTypes[t] = osgv_builtinMimeTypeExtMappings[i + 1];
+        }
+        return mimeTypes;
     }
-    return mimeTypes;
 }

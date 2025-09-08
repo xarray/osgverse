@@ -212,7 +212,11 @@ namespace osgVerse
 
     /** Load content from local file or network protocol */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(
-        const std::string& url, std::string& mimeType, std::string& encodingType);
+        const std::string& url, std::string& mimeType, std::string& encodingType,
+        const std::vector<std::string>& reqHeaders = std::vector<std::string>());
+
+    /** Get mimetype and extension map data */
+    OSGVERSE_RW_EXPORT std::map<std::string, std::string> createMimeTypeMapper();
 
     /** Setup KTX trancoding flags */
     enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };

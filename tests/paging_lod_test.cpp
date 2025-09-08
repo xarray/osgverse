@@ -2,6 +2,7 @@
 #include <osg/ValueObject>
 #include <osg/MatrixTransform>
 #include <osg/PagedLOD>
+#include <osgDB/Archive>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgDB/FileUtils>
@@ -231,11 +232,34 @@ void processFile(const std::string& prefix, const std::string& dirName,
 
 int main(int argc, char** argv)
 {
+#ifndef OSG_LIBRARY_STATIC
+    osgDB::Registry::instance()->loadLibrary(
+        osgDB::Registry::instance()->createLibraryNameForNodeKit("osgVerseReaderWriter"));
+    osgDB::Registry::instance()->loadLibrary(
+        osgDB::Registry::instance()->createLibraryNameForExtension("verse_leveldb"));
+#endif
+
     osg::ArgumentParser arguments(&argc, argv);
     std::string output; arguments.read("--output", output);
     bool withDraco = arguments.read("--enable-draco");
     bool withKtx = !arguments.read("--disable-ktx");
     bool gpuMerge = !arguments.read("--cpu-merge");
+
+    std::string input("cow.osg"), archiveName;
+    if (arguments.read("--archive", archiveName))
+    {
+        osg::ref_ptr<osgDB::Archive> archive = osgDB::openArchive(archiveName, osgDB::Archive::CREATE, 4096);
+        arguments.read("--source", input);
+        if (archive.valid())
+        {
+            osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(input);
+            if (node.valid()) archive->writeNode(*node, input);
+            archive->close();
+        }
+        else
+            OSG_WARN << "Archive creating failed: " << archiveName << "\n";
+        return 0;
+    }
 
     osgVerse::fixOsgBinaryWrappers();
     if (argc > 3 && std::string(argv[1]) == "adj")
@@ -253,12 +277,6 @@ int main(int argc, char** argv)
         opt->setUseThreads(10); opt->processGroundLevel(2, 2); return 0;
     }
 
-#ifndef OSG_LIBRARY_STATIC
-    osgDB::Registry::instance()->loadLibrary(
-        osgDB::Registry::instance()->createLibraryNameForNodeKit("osgVerseReaderWriter"));
-    osgDB::Registry::instance()->loadLibrary(
-        osgDB::Registry::instance()->createLibraryNameForExtension("verse_leveldb"));
-#endif
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->setName("PlodGridRoot");
 

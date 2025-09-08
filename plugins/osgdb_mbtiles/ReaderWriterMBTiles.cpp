@@ -7,6 +7,7 @@
 #include <osgDB/Registry>
 #include <osgDB/Archive>
 #include "3rdparty/sqlite3.h"
+#include "readerwriter/Utilities.h"
 
 enum MbObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE, SHADER };
 class MbArchive : public osgDB::Archive
@@ -71,6 +72,7 @@ class ReaderWriterMb : public osgDB::ReaderWriter
 public:
     ReaderWriterMb()
     {
+        _mimeTypes = osgVerse::createMimeTypeMapper();
         supportsProtocol("mbtiles", "Read from Sqlite database with mbtiles support.");
         supportsOption("Separator", "Separator of XYZ tile numbers. Default: '-' (x-y-z)");
         supportsOption("TileSetName", "Set tile set name");
@@ -518,17 +520,20 @@ protected:
     osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
     {
         if (extOrMime.empty()) return NULL;
+        std::map<std::string, std::string>::const_iterator m = isExt ? _mimeTypes.end() : _mimeTypes.find(extOrMime);
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
             it = _cachedReaderWriters.find(extOrMime);
         if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
-
-        osgDB::ReaderWriter* rw = isExt ? osgDB::Registry::instance()->getReaderWriterForExtension(extOrMime)
-                                        : osgDB::Registry::instance()->getReaderWriterForMimeType(extOrMime);
+        
+        osgDB::Registry* reg = osgDB::Registry::instance();
+        osgDB::ReaderWriter* rw = isExt ? reg->getReaderWriterForExtension(extOrMime)
+                                : (m == _mimeTypes.end() ? NULL : reg->getReaderWriterForExtension(m->second));
         if (rw) const_cast<ReaderWriterMb*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
     }
 
     typedef std::map<std::string, sqlite3*> DatabaseMap; DatabaseMap _dbMap;
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
+    std::map<std::string, std::string> _mimeTypes;
 };
 
 MbArchive::MbArchive(const osgDB::ReaderWriter* rw, ArchiveStatus status,

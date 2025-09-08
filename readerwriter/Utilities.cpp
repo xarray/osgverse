@@ -819,7 +819,8 @@ namespace osgVerse
         return url.substr(0, pathStart) + oss.str();
     }
 
-    std::vector<unsigned char> loadFileData(const std::string& url, std::string& mimeType, std::string& encodingType)
+    std::vector<unsigned char> loadFileData(const std::string& url, std::string& mimeType, std::string& encodingType,
+                                            const std::vector<std::string>& reqHeaders)
     {
         std::vector<unsigned char> buffer;
         std::string scheme = osgDB::getServerProtocol(url);
@@ -827,7 +828,7 @@ namespace osgVerse
         {
 #ifdef __EMSCRIPTEN__
             osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
-            bool succeed = wf->httpGet(url);
+            bool succeed = wf->httpGet(url, NULL, NULL, NULL, reqHeaders);
             if (!succeed)
             {
                 OSG_WARN << "[loadFileData] Failed getting " << url << ": "
@@ -846,8 +847,12 @@ namespace osgVerse
 #else
             HttpRequest req; req.method = HTTP_GET;
             req.url = osgVerse::normalizeUrl(url); req.scheme = scheme;
-            req.headers["User-Agent"] = "Mozilla/5.0";
-            req.headers["Accept"] = "*/*";
+            req.headers["User-Agent"] = "Mozilla/5.0"; req.headers["Accept"] = "*/*";
+            for (size_t i = 0; i < reqHeaders.size(); i += 2)
+            {
+                if (i == reqHeaders.size() - 1) break;
+                req.headers[reqHeaders[i + 0]] = reqHeaders[i + 1];
+            }
 
             HttpResponse response; hv::HttpClient client;
             int result = client.send(&req, &response);

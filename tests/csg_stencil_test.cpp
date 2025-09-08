@@ -23,8 +23,9 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
-#define MIRROR_EXAMPLE 1
+//#define MIRROR_EXAMPLE 1
 //#define CSG_EXAMPLE 1
+#define EARTH_CROSS_EXAMPLE 1
 
 #ifdef MIRROR_EXAMPLE
 osg::Drawable* createMirrorSurface(float xMin, float xMax, float yMin, float yMax, float z)
@@ -340,12 +341,224 @@ osg::Node* createCsgScene(osg::Node* nodeA, osg::Node* nodeB)
 }
 #endif
 
+#ifdef EARTH_CROSS_EXAMPLE
+const char* commonVertCode = {
+    "uniform mat4 osg_ViewMatrixInverse; \n"
+    "varying vec4 worldPos, texCoord;; \n"
+    "void main() {\n"
+    "    texCoord = gl_MultiTexCoord0; \n"
+    "    worldPos = osg_ViewMatrixInverse * gl_ModelViewMatrix * gl_Vertex; \n"
+    "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex; \n"
+    "}\n"
+};
+
+const char* sphereFragCode = {
+    "uniform sampler2D baseTexture; \n"
+    "uniform vec4 clipPlane0, clipPlane1, clipPlane2; \n"
+    "varying vec4 worldPos, texCoord; \n"
+    "void main() {\n"
+    "    float clipD0 = dot(worldPos, clipPlane0); bool valid0 = any(notEqual(clipPlane0, vec4(0.0))); \n"
+    "    float clipD1 = dot(worldPos, clipPlane1); bool valid1 = any(notEqual(clipPlane1, vec4(0.0))); \n"
+    "    float clipD2 = dot(worldPos, clipPlane2); bool valid2 = any(notEqual(clipPlane2, vec4(0.0))); \n"
+    "    int passed = ((clipD0 <= 0.0) && valid0) ? 1 : 0 + ((clipD1 <= 0.0) && valid1) ? 1 : 0 + \n"
+    "                 ((clipD2 <= 0.0) && valid2) ? 1 : 0; \n"
+    "    if (passed == 0 && (valid0 || valid1 || valid2)) discard; \n"
+    "    gl_FragColor = texture2D(baseTexture, texCoord.st); \n"
+    "}\n"
+};
+
+const char* mentalFragCode = {
+    "uniform sampler2D noiseTexture; \n"
+    "uniform vec3 colorScale; \n"
+    "uniform float osg_SimulationTime; \n"
+
+    "float hash21(in vec2 n) { return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }\n"
+    "mat2 makem2(in float theta) { float c = cos(theta); float s = sin(theta); return mat2(c, -s, s, c); }\n"
+    "float noise(in vec2 x) { return texture2D(noiseTexture, x * .01).x; }\n"
+
+    "vec2 gradn(vec2 p) {\n"
+    "    float ep = .09; \n"
+    "    float gradx = noise(vec2(p.x + ep, p.y)) - noise(vec2(p.x - ep, p.y)); \n"
+    "    float grady = noise(vec2(p.x, p.y + ep)) - noise(vec2(p.x, p.y - ep)); \n"
+    "    return vec2(gradx, grady); \n"
+    "}\n"
+
+    "float flow(in vec2 p, in float time) {\n"
+    "    float z = 2., rz = 0.; vec2 bp = p; \n"
+    "    for (float i = 1.; i < 7.; i++) {\n"
+    "        p += time * .6;  //primary flow speed \n"
+    "        bp += time * 1.9;  //secondary flow speed \n"
+    "        vec2 gr = gradn(i * p * .34 + time * 1.);  //displacement field \n"
+    "        gr *= makem2(time * 6. - (0.05 * p.x + 0.03 * p.y) * 40.); \n"
+    "        p += gr * .5;  //displace the system \n"
+    "        rz += (sin(noise(p) * 7.) * 0.5 + 0.5) / z; \n"
+    "        p = mix(bp, p, .77); bp *= 1.9; \n"
+    "        z *= 1.4; p *= 2.;  //intensity scaling & octave scaling \n"
+    "    }\n"
+    "    return rz; \n"
+    "}\n"
+
+    "void main() {\n"
+    "    vec2 p = gl_TexCoord[0].st; p *= 30.; float rz = flow(p, -osg_SimulationTime * 0.02); \n"
+    "    vec3 col = colorScale / rz; col = pow(col, vec3(1.4)); \n"
+    "    gl_FragColor = gl_Color * vec4(col, 1.0); \n"
+    "}\n"
+};
+
+class EnvironmentHandler : public osgGA::GUIEventHandler
+{
+public:
+    EnvironmentHandler(osg::Geode* box) : _box(box) {}
+    void setUniform(int i, osg::Uniform* u) { _uniform[i] = u; }
+
+    void updateClip(int i, const osg::Vec4& plane)
+    {
+        osg::Vec3 vx, vy, n(plane[0], plane[1], plane[2]); n.normalize();
+        if (abs(n[0]) <= abs(n[1]) && abs(n[0]) <= abs(n[2])) vx = osg::X_AXIS;
+        else if (abs(n[1]) <= abs(n[2])) vx = osg::Y_AXIS;
+        else vx = osg::Z_AXIS; _uniform[i]->set(plane);
+
+        vx = vx - n * (n * vx); vx.normalize(); vy = n ^ vx; vy.normalize();
+        vx = vx * 10.0f; vy = vy * 10.0f;
+        //std::cout << plane << ": " << vx << "; " << vy << "\n";
+
+        osg::ref_ptr<osg::Geometry> geomOfPlane =
+            osg::createTexturedQuadGeometry(osg::Vec3(-vx - vy), vx * 2.0f, vy * 2.0f);
+        if (plane.length2() > 0.0f) _box->setDrawable(i, geomOfPlane.get());
+        else _box->setDrawable(i, new osg::Geometry);
+    }
+
+    bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+        if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        {
+            osg::Vec4 plane0, plane1, plane2;
+            _uniform[0]->get(plane0); _uniform[1]->get(plane1); _uniform[2]->get(plane2);
+            switch (ea.getKey())
+            {
+            case '1':
+                if (plane0.length2() > 0.0f) plane0.set(0.0f, 0.0f, 0.0f, 0.0f);
+                else plane0.set(0.0f, 0.0f, 1.0f, 0.0f); updateClip(0, plane0); break;
+            case '2':
+                if (plane1.length2() > 0.0f) plane1.set(0.0f, 0.0f, 0.0f, 0.0f);
+                else plane1.set(1.0f, 0.0f, 0.0f, 0.0f); updateClip(1, plane1); break;
+            case '3':
+                if (plane2.length2() > 0.0f) plane2.set(0.0f, 0.0f, 0.0f, 0.0f);
+                else plane2.set(0.0f, 1.0f, 0.0f, 0.0f); updateClip(2, plane2); break;
+            }
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN)
+        {
+            osg::Vec4 plane0, plane1, plane2;
+            _uniform[0]->get(plane0); _uniform[1]->get(plane1); _uniform[2]->get(plane2);
+            switch (ea.getKey())
+            {
+            case 'n':
+                plane0 = plane0 * osg::Matrix::rotate(-0.01f, osg::X_AXIS); updateClip(0, plane0); break;
+            case 'm':
+                plane0 = plane0 * osg::Matrix::rotate(0.01f, osg::X_AXIS); updateClip(0, plane0); break;
+            case ',':
+                plane1 = plane1 * osg::Matrix::rotate(-0.01f, osg::Z_AXIS); updateClip(1, plane1); break;
+            case '.':
+                plane1 = plane1 * osg::Matrix::rotate(0.01f, osg::Z_AXIS); updateClip(1, plane1); break;
+            }
+        }
+        return false;
+    }
+
+protected:
+    osg::observer_ptr<osg::Geode> _box;
+    osg::observer_ptr<osg::Uniform> _uniform[3];
+};
+
+osg::Node* createCrossScene(EnvironmentHandler* env, osg::Node* nodeA, osg::Node* nodeB)
+{
+    osg::StateSet* rootStateSet = new osg::StateSet;
+    rootStateSet->setAttributeAndModes(new osg::ColorMask(true, true, true, true));
+    rootStateSet->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, true));
+    rootStateSet->setAttributeAndModes(new osg::CullFace(osg::CullFace::BACK));
+
+    osg::StateSet* statesetBin0 = new osg::StateSet;
+    {
+        osg::Program* prog = new osg::Program;
+        prog->addShader(new osg::Shader(osg::Shader::VERTEX, commonVertCode));
+        prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, sphereFragCode));
+
+        osg::Stencil* stencil = new osg::Stencil;
+        stencil->setFunction(osg::Stencil::ALWAYS, 1, ~0u);
+        stencil->setOperation(osg::Stencil::KEEP, osg::Stencil::KEEP, osg::Stencil::INCR);
+
+        statesetBin0->setAttributeAndModes(prog); statesetBin0->setAttributeAndModes(stencil);
+        statesetBin0->setTextureAttributeAndModes(
+            0, osgVerse::createTexture2D(osgDB::readImageFile("Images/land_shallow_topo_2048.jpg")));
+        osg::Uniform* cp0 = statesetBin0->getOrCreateUniform("clipPlane0", osg::Uniform::FLOAT_VEC4);
+        osg::Uniform* cp1 = statesetBin0->getOrCreateUniform("clipPlane1", osg::Uniform::FLOAT_VEC4);
+        osg::Uniform* cp2 = statesetBin0->getOrCreateUniform("clipPlane2", osg::Uniform::FLOAT_VEC4);
+        statesetBin0->getOrCreateUniform("baseTexture", osg::Uniform::INT)->set((int)0);
+        statesetBin0->setRenderBinDetails(0, "RenderBin");
+
+        cp0->set(osg::Vec4(0.0f, 0.0f, 1.0f, 0.0f)); env->setUniform(0, cp0);  // XOY
+        cp1->set(osg::Vec4(1.0f, 0.0f, 0.0f, 0.0f)); env->setUniform(1, cp1);  // YOZ
+        cp2->set(osg::Vec4(0.0f, 1.0f, 0.0f, 0.0f)); env->setUniform(2, cp2);  // ZOX
+    }
+    osg::Group* groupBin0 = new osg::Group;
+    groupBin0->addChild(nodeA);
+    groupBin0->setStateSet(statesetBin0);
+
+    osg::StateSet* statesetBin1 = new osg::StateSet;
+    {
+        osg::Stencil* stencil = new osg::Stencil;
+        stencil->setFunction(osg::Stencil::ALWAYS, 1, ~0u);
+        stencil->setOperation(osg::Stencil::KEEP, osg::Stencil::KEEP, osg::Stencil::INCR);
+
+        statesetBin1->setAttributeAndModes(stencil);
+        statesetBin1->setAttributeAndModes(new osg::ColorMask(false, false, false, false));
+        statesetBin1->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
+        statesetBin0->setRenderBinDetails(1, "RenderBin");
+    }
+    osg::Group* groupBin1 = new osg::Group;
+    groupBin1->addChild(nodeA);
+    groupBin1->setStateSet(statesetBin1);
+
+    osg::StateSet* statesetBin2 = new osg::StateSet;
+    {
+        osg::Program* prog = new osg::Program;
+        prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, mentalFragCode));
+
+        osg::Stencil* stencil = new osg::Stencil;
+        stencil->setFunction(osg::Stencil::EQUAL, 1, ~0u);
+        stencil->setOperation(osg::Stencil::KEEP, osg::Stencil::KEEP, osg::Stencil::KEEP);
+        statesetBin2->setAttributeAndModes(prog); statesetBin2->setAttributeAndModes(stencil);
+        statesetBin2->setTextureAttributeAndModes(
+            0, osgVerse::createTexture2D(osgDB::readImageFile(BASE_DIR + "/textures/noise.jpg")));
+        statesetBin2->getOrCreateUniform("noiseTexture", osg::Uniform::INT)->set((int)0);
+        statesetBin2->getOrCreateUniform("colorScale", osg::Uniform::FLOAT_VEC3)->set(osg::Vec3(0.2f, 0.07f, 0.01f));
+        statesetBin2->setRenderBinDetails(2, "RenderBin");
+    }
+    osg::Group* groupBin2 = new osg::Group;
+    groupBin2->addChild(nodeB);
+    groupBin2->setStateSet(statesetBin2);
+
+    osg::Group* rootNode = new osg::Group;
+    rootNode->setStateSet(rootStateSet);
+
+    ///////////////////////////////
+    rootNode->addChild(groupBin0);
+    rootNode->addChild(groupBin1);
+    rootNode->addChild(groupBin2);
+    return rootNode;
+}
+#endif
+
 int main(int argc, char** argv)
 {
-    osg::DisplaySettings::instance()->setMinimumNumStencilBits(8);
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osgVerse::updateOsgBinaryWrappers();
+
+    osg::DisplaySettings::instance()->setMinimumNumStencilBits(8);
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    osgViewer::Viewer viewer;
 
     osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("cessna.osgt");
     if (!loadedModel) return 1;
@@ -361,11 +574,37 @@ int main(int argc, char** argv)
     osg::Geode* sphere = new osg::Geode;
     sphere->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 4.0f)));
     osg::ref_ptr<osg::Node> rootNode = createCsgScene(modelTransform.get(), sphere);
+#elif defined(EARTH_CROSS_EXAMPLE)
+    osg::Geode* sphere = new osg::Geode;
+    sphere->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 5.0f)));
+
+    osg::Geode* box = new osg::Geode;
+    osg::Vec3 vx = osg::X_AXIS * 10.0f, vy = osg::Y_AXIS * 10.0f, vz = osg::Z_AXIS * 10.0f;
+    box->addDrawable(osg::createTexturedQuadGeometry(osg::Vec3(-vx - vy), vx * 2.0f, vy * 2.0f));
+    box->addDrawable(osg::createTexturedQuadGeometry(osg::Vec3(-vy - vz), vy * 2.0f, vz * 2.0f));
+    box->addDrawable(osg::createTexturedQuadGeometry(osg::Vec3(-vz - vx), vz * 2.0f, vx * 2.0f));
+
+    osg::Geode* core = new osg::Geode;
+    core->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 2.0f)));
+    {
+        osg::Program* prog = new osg::Program;
+        prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, mentalFragCode));
+        core->getOrCreateStateSet()->setAttributeAndModes(prog);
+        core->getOrCreateStateSet()->setTextureAttributeAndModes(
+            0, osgVerse::createTexture2D(osgDB::readImageFile(BASE_DIR + "/textures/noise.jpg")));
+        core->getOrCreateStateSet()->getOrCreateUniform("noiseTexture", osg::Uniform::INT)->set((int)0);
+        core->getOrCreateStateSet()->getOrCreateUniform("colorScale", osg::Uniform::FLOAT_VEC3)->set(osg::Vec3(0.8f, 0.8f, 0.0f));
+    }
+
+    EnvironmentHandler* env = new EnvironmentHandler(box);
+    viewer.addEventHandler(env);
+
+    osg::ref_ptr<osg::Node> rootNode = createCrossScene(env, sphere, box);
+    rootNode->asGroup()->addChild(core);
 #else
     osg::ref_ptr<osg::Node> rootNode;
 #endif
 
-    osgViewer::Viewer viewer;
     viewer.getCamera()->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

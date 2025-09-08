@@ -42,6 +42,7 @@ public:
     
     ReaderWriterWeb()
     {
+        _mimeTypes = osgVerse::createMimeTypeMapper();
         supportsProtocol("http", "Read from http port using libhv.");
         supportsProtocol("https", "Read from https port using libhv.");
         supportsProtocol("ftp", "Read from ftp port using libhv.");
@@ -53,6 +54,7 @@ public:
         supportsExtension("verse_web", "Pseudo file extension, used to select libhv plugin.");
         supportsExtension("*", "Passes all read files to other plugins to handle actual model loading.");
         supportsOption("Extension", "Set another pseudo extension for loaded file");
+        supportsOption("RequestHeaders", "Set request header list (key1;value1;key2;value2;...) as a string");
     }
 
     virtual ~ReaderWriterWeb()
@@ -250,10 +252,11 @@ public:
             if (cacheResult.success()) return cacheResult;
         }
 
-        // TODO: get connection parameters from options
+        std::string headersData = options ? options->getPluginStringData("RequestHeaders") : "";
         std::string contentType = "image/jpeg", encoding = "";
-        std::vector<unsigned char> content =
-            osgVerse::loadFileData(fileName, contentType, encoding);
+
+        std::vector<std::string> headers; if (!headersData.empty()) osgDB::split(headersData, headers, ';');
+        std::vector<unsigned char> content = osgVerse::loadFileData(fileName, contentType, encoding, headers);
         if (content.empty()) return ReadResult::FILE_NOT_FOUND;
 
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
@@ -372,16 +375,19 @@ protected:
     osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
     {
         if (extOrMime.empty()) return NULL;
+        std::map<std::string, std::string>::const_iterator m = isExt ? _mimeTypes.end() : _mimeTypes.find(extOrMime);
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
             it = _cachedReaderWriters.find(extOrMime);
         if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
 
-        osgDB::ReaderWriter* rw = isExt ? osgDB::Registry::instance()->getReaderWriterForExtension(extOrMime)
-                                        : osgDB::Registry::instance()->getReaderWriterForMimeType(extOrMime);
+        osgDB::Registry* reg = osgDB::Registry::instance();
+        osgDB::ReaderWriter* rw = isExt ? reg->getReaderWriterForExtension(extOrMime)
+                                : (m == _mimeTypes.end() ? NULL : reg->getReaderWriterForExtension(m->second));
         if (rw) const_cast<ReaderWriterWeb*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
     }
 
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
+    std::map<std::string, std::string> _mimeTypes;
 };
 
 // Now register with Registry to instantiate the above reader/writer.

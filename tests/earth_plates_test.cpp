@@ -120,9 +120,6 @@ osg::Geometry* parseGPMLFeature(rapidxml::xml_node<>* featureNode,
         geom->addDescription(XNODE_VALUE("description", "gml"));
         geom->setName(XNODE_VALUE("name", "gml"));
 
-        std::cout << "UnclassifiedFeature " << geom->getName() << ": desc=" << geom->getDescription(0)
-                  << "; left=" << leftPlate << "; right=" << rightPlate << "\n";
-
         rapidxml::xml_node<>* reconIdNode = featureNode->first_node("reconstructionPlateId", XMLNS("gpml"));
         if (reconIdNode != NULL)
         {
@@ -132,9 +129,13 @@ osg::Geometry* parseGPMLFeature(rapidxml::xml_node<>* featureNode,
                 std::string plateType = XNODE_VALUE("valueType", "gpml");
                 std::string plateValue = XNODE_VALUE("value", "gpml");
                 std::string plateDescription = XNODE_VALUE("description", "gml");
-                // TODO
+                geom->setUserValue("PlateID", plateValue);
             }
         }
+
+        std::string id; geom->getUserValue("PlateID", id);
+        std::cout << "UnclassifiedFeature " << geom->getName() << ": desc=" << geom->getDescription(0)
+                  << "; reconstructionPlateId=" << id << "\n";
 
         rapidxml::xml_node<>* shpAttrNode = featureNode->first_node("shapefileAttributes", XMLNS("gpml"));
         if (shpAttrNode != NULL)
@@ -187,21 +188,23 @@ osg::Geometry* parseGPMLFeature(rapidxml::xml_node<>* featureNode,
 
                 geom->setUserValue("BeginTime", beginValue);
                 geom->setUserValue("EndTime", endValue);
-
-                //if (!(beginValue == "0" && endValue == "0")) return NULL;
             }
         }
     }
     else
-    { std::cout << "Unknown feature type: " << featureNode->name() << "\n"; return NULL; }
+        { std::cout << "Unknown feature type: " << featureNode->name() << "\n"; return NULL; }
 
     geom->setUseVertexBufferObjects(true);
     geom->setUseDisplayList(false);
     return geom.release();
 }
 
-osg::Geode* parseGPML(const std::string& gpmlFile)
+typedef std::pair<std::vector<osg::observer_ptr<osg::Geometry>>,
+                  std::map<double, osg::Vec3d>> GeometryAndRots;
+typedef std::map<int, GeometryAndRots> PlateGeometryList;
+osg::Geode* parseGPML(const std::string& gpmlFile, const std::string& rotFile, PlateGeometryList& plates)
 {
+    std::string line, id;
     std::map<std::string, std::string> xmlns;
     xmlns["gpml"] = "http://www.gplates.org/gplates";
     xmlns["gml"] = "http://www.opengis.net/gml";
@@ -223,18 +226,50 @@ osg::Geode* parseGPML(const std::string& gpmlFile)
                  featureNode; featureNode = featureNode->next_sibling())
             {
                 osg::Geometry* geom = parseGPMLFeature(featureNode, xmlns);
+                if (geom && geom->getUserValue("PlateID", id))
+                    { GeometryAndRots& gr = plates[atoi(id.c_str())]; gr.first.push_back(geom); }
                 if (geom) geode->addDrawable(geom);
             }
         }
     }
     catch (const std::exception& e) { std::cerr << "ERROR: " << e.what() << "\n"; return NULL; }
+
+    std::ifstream fin(rotFile.c_str(), std::ios::in);
+    while (std::getline(fin, line))
+    {
+        // ID, age, rotLat, rotLon, rotAngle, refID, !!comment
+        double id, age, rotLat, rotLon, rotAngle, refID;
+        std::stringstream ss; ss << line;
+        ss >> id >> age >> rotLat >> rotLon >> rotAngle >> refID;
+        std::map<double, osg::Vec3d>& rots = plates[id].second;
+        rots[age] = osg::Vec3d(osg::inDegrees(rotLat), osg::inDegrees(rotLon), osg::inDegrees(rotAngle));
+    }
     return geode.release();
 }
 
 class TimelineHandler : public osgGA::GUIEventHandler
 {
 public:
-    TimelineHandler(osg::Geode* g) : _plates(g), _timeValue(0) {}
+    TimelineHandler(osgVerse::HeadUpDisplayCanvas* h, const PlateGeometryList& plist, osg::Geode* g)
+        : _hud(h), _plateDataList(plist), _plates(g), _timeValue(0) { updatePlates(); }
+
+    void updatePlates()
+    {
+        for (PlateGeometryList::iterator it = _plateDataList.begin(); it != _plateDataList.end(); ++it)
+        {
+            const std::map<double, osg::Vec3d>& changes = it->second.second;
+            std::vector<osg::observer_ptr<osg::Geometry>>& geomList = it->second.first;
+            if (geomList.empty()) { std::cout << "No such plate: " << it->first << "\n"; continue; }
+
+            int plateID = it->first;
+            for (size_t i = 0; i < geomList.size(); ++i)
+            {
+                //if (changes.find(_timeValue) == changes.end()) geomList[i]->setNodeMask(0);
+                if (plateID != 101) { geomList[i]->setNodeMask(0); continue; }
+                else geomList[i]->setNodeMask(0xffffffff);
+            }
+        }
+    }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
@@ -248,7 +283,9 @@ public:
     }
 
 protected:
+    PlateGeometryList _plateDataList;
     osg::observer_ptr<osg::Geode> _plates;
+    osgVerse::HeadUpDisplayCanvas* _hud;
     unsigned int _timeValue;
 };
 
@@ -267,7 +304,10 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     if (!earth) return 1;
 
-    osg::ref_ptr<osg::Geode> plates = parseGPML(MISC_DIR + "PALEOMAP_PlatePolygons.gpml");
+    PlateGeometryList plateList;
+    osg::ref_ptr<osg::Geode> plates = parseGPML(
+        MISC_DIR + "PALEOMAP_PlatePolygons.gpml", MISC_DIR + "PALEOMAP_PlateModel.rot", plateList);
+
     osg::ref_ptr<osg::MatrixTransform> platesMT = new osg::MatrixTransform;
     platesMT->addChild(plates.get()); platesMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 0.1f));
 
@@ -275,9 +315,14 @@ int main(int argc, char** argv)
     root->addChild(earth.get());
     root->addChild(platesMT.get());
 
+    osgVerse::HeadUpDisplayCanvas hud;
+    root->addChild(hud.create(1920, 1080));
+    hud.createText("age", L"0Ma", 30.0f, 200, 40, "root", osgVerse::HeadUpDisplayCanvas::ROW,
+                   osgVerse::HeadUpDisplayCanvas::LEFT | osgVerse::HeadUpDisplayCanvas::TOP, MISC_DIR + "LXGWFasmartGothic.ttf");
+
     osgViewer::Viewer viewer;
     viewer.getCamera()->setNearFarRatio(0.00001);
-    viewer.addEventHandler(new TimelineHandler(plates.get()));
+    viewer.addEventHandler(new TimelineHandler(&hud, plateList, plates.get()));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));

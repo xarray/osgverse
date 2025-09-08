@@ -235,7 +235,7 @@ namespace osgVerse
 
         /** Create a text object on HUD canvas */
         bool createText(const ItemID& name, const std::wstring& text, int size, int width, int height,
-                        const ItemID& parent = "root", Direction dir = ROW, Anchor anchor = CENTER,
+                        const ItemID& parent = "root", Direction dir = ROW, unsigned int anchor = CENTER,
                         const std::string& font = "");
 
         /** Create the HUD camera */
