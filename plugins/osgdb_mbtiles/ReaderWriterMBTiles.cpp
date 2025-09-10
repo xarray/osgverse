@@ -72,7 +72,6 @@ class ReaderWriterMb : public osgDB::ReaderWriter
 public:
     ReaderWriterMb()
     {
-        _mimeTypes = osgVerse::createMimeTypeMapper();
         supportsProtocol("mbtiles", "Read from Sqlite database with mbtiles support.");
         supportsOption("Separator", "Separator of XYZ tile numbers. Default: '-' (x-y-z)");
         supportsOption("TileSetName", "Set tile set name");
@@ -224,7 +223,7 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        osgDB::ReaderWriter* reader = getReaderWriter(ext, true);
+        osgDB::ReaderWriter* reader = getReaderWriter(ext);
         if (!reader)
         {
             OSG_WARN << "[mbtiles] No reader/writer plugin for " << ext << std::endl;
@@ -242,7 +241,7 @@ public:
         ReadResult result = read(db, fileName, keyName, objectType, reader, options);
         if (objectType == IMAGE && !result.validImage())
         {
-            reader = getReaderWriter("verse_image", true);  // fallback reader
+            reader = getReaderWriter("verse_image");  // fallback reader
             if (reader) result = read(db, fileName, keyName, objectType, reader, options);
         }
         return result;
@@ -300,7 +299,7 @@ public:
         sqlite3* db = getOrCreateDatabase(dbName, options, true);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
-        osgDB::ReaderWriter* writer = getReaderWriter(ext, true);
+        osgDB::ReaderWriter* writer = getReaderWriter(ext);
         if (!writer) return WriteResult::FILE_NOT_HANDLED;
         else return write(db, obj, keyName, writer, options);
     }
@@ -517,23 +516,19 @@ protected:
         return fileName;
     }
 
-    osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
+    osgDB::ReaderWriter* getReaderWriter(const std::string& ext) const
     {
-        if (extOrMime.empty()) return NULL;
-        std::map<std::string, std::string>::const_iterator m = isExt ? _mimeTypes.end() : _mimeTypes.find(extOrMime);
+        if (ext.empty()) return NULL;
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
-            it = _cachedReaderWriters.find(extOrMime);
+            it = _cachedReaderWriters.find(ext);
         if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
         
-        osgDB::Registry* reg = osgDB::Registry::instance();
-        osgDB::ReaderWriter* rw = isExt ? reg->getReaderWriterForExtension(extOrMime)
-                                : (m == _mimeTypes.end() ? NULL : reg->getReaderWriterForExtension(m->second));
-        if (rw) const_cast<ReaderWriterMb*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
+        osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        if (rw) const_cast<ReaderWriterMb*>(this)->_cachedReaderWriters[ext] = rw; return rw;
     }
 
     typedef std::map<std::string, sqlite3*> DatabaseMap; DatabaseMap _dbMap;
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
-    std::map<std::string, std::string> _mimeTypes;
 };
 
 MbArchive::MbArchive(const osgDB::ReaderWriter* rw, ArchiveStatus status,
@@ -558,7 +553,7 @@ osgDB::ReaderWriter::ReadResult MbArchive::readFile(
     MbObjectType type, const std::string& fileName, const osgDB::Options* op) const
 {
     std::string ext = osgDB::getFileExtension(fileName);
-    osgDB::ReaderWriter* reader = static_cast<ReaderWriterMb*>(_readerWriter.get())->getReaderWriter(ext, true);
+    osgDB::ReaderWriter* reader = static_cast<ReaderWriterMb*>(_readerWriter.get())->getReaderWriter(ext);
     if (!reader) return ReadResult::FILE_NOT_HANDLED;
 
     ReaderWriterMb* rwdb = static_cast<ReaderWriterMb*>(_readerWriter.get());
@@ -570,7 +565,7 @@ osgDB::ReaderWriter::WriteResult MbArchive::writeFile(const osg::Object& obj,
     MbObjectType type, const std::string& fileName, const osgDB::Options* op) const
 {
     std::string ext = osgDB::getFileExtension(fileName);
-    osgDB::ReaderWriter* writer = static_cast<ReaderWriterMb*>(_readerWriter.get())->getReaderWriter(ext, true);
+    osgDB::ReaderWriter* writer = static_cast<ReaderWriterMb*>(_readerWriter.get())->getReaderWriter(ext);
     if (!writer) return WriteResult::FILE_NOT_HANDLED;
 
     ReaderWriterMb* rwdb = static_cast<ReaderWriterMb*>(_readerWriter.get());

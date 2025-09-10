@@ -71,7 +71,6 @@ class ReaderWriterLevelDB : public osgDB::ReaderWriter
 public:
     ReaderWriterLevelDB()
     {
-        _mimeTypes = osgVerse::createMimeTypeMapper();
         supportsProtocol("leveldb", "Read from LevelDB database.");
         supportsOption("WriteBufferSize=<s>", "Size in byte, default is 4Mb");
 
@@ -208,7 +207,7 @@ public:
         }
         else if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
 
-        osgDB::ReaderWriter* reader = getReaderWriter(ext, true);
+        osgDB::ReaderWriter* reader = getReaderWriter(ext);
         if (!reader)
         {
             OSG_WARN << "[leveldb] No reader/writer plugin for " << fileName << std::endl;
@@ -267,7 +266,7 @@ public:
         leveldb::DB* db = getOrCreateDatabase(dbName, true);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
-        osgDB::ReaderWriter* writer = getReaderWriter(ext, true);
+        osgDB::ReaderWriter* writer = getReaderWriter(ext);
         if (!writer) return WriteResult::FILE_NOT_HANDLED;
         else return write(db, obj, keyName, writer, options);
     }
@@ -327,23 +326,19 @@ protected:
         return fileName;
     }
 
-    osgDB::ReaderWriter* getReaderWriter(const std::string& extOrMime, bool isExt) const
+    osgDB::ReaderWriter* getReaderWriter(const std::string& ext) const
     {
-        if (extOrMime.empty()) return NULL;
-        std::map<std::string, std::string>::const_iterator m = isExt ? _mimeTypes.end() : _mimeTypes.find(extOrMime);
+        if (ext.empty()) return NULL;
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>>::const_iterator
-            it = _cachedReaderWriters.find(extOrMime);
+            it = _cachedReaderWriters.find(ext);
         if (it != _cachedReaderWriters.end()) return const_cast<osgDB::ReaderWriter*>(it->second.get());
-        
-        osgDB::Registry* reg = osgDB::Registry::instance();
-        osgDB::ReaderWriter* rw = isExt ? reg->getReaderWriterForExtension(extOrMime)
-                                : (m == _mimeTypes.end() ? NULL : reg->getReaderWriterForExtension(m->second));
-        if (rw) const_cast<ReaderWriterLevelDB*>(this)->_cachedReaderWriters[extOrMime] = rw; return rw;
+
+        osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+        if (rw) const_cast<ReaderWriterLevelDB*>(this)->_cachedReaderWriters[ext] = rw; return rw;
     }
 
     typedef std::map<std::string, leveldb::DB*> DatabaseMap; DatabaseMap _dbMap;
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
-    std::map<std::string, std::string> _mimeTypes;
 };
 
 LevelDBArchive::LevelDBArchive(const osgDB::ReaderWriter* rw, ArchiveStatus status, const std::string& dbName)
@@ -371,7 +366,7 @@ osgDB::ReaderWriter::ReadResult LevelDBArchive::readFile(
     LevelDBObjectType type, const std::string& fileName, const osgDB::Options* op) const
 {
     std::string ext = osgDB::getFileExtension(fileName);
-    osgDB::ReaderWriter* reader = static_cast<ReaderWriterLevelDB*>(_readerWriter.get())->getReaderWriter(ext, true);
+    osgDB::ReaderWriter* reader = static_cast<ReaderWriterLevelDB*>(_readerWriter.get())->getReaderWriter(ext);
     if (!reader) return ReadResult::FILE_NOT_HANDLED;
 
     ReaderWriterLevelDB* rwdb = static_cast<ReaderWriterLevelDB*>(_readerWriter.get());
@@ -383,7 +378,7 @@ osgDB::ReaderWriter::WriteResult LevelDBArchive::writeFile(const osg::Object& ob
     LevelDBObjectType type, const std::string& fileName, const osgDB::Options* op) const
 {
     std::string ext = osgDB::getFileExtension(fileName);
-    osgDB::ReaderWriter* writer = static_cast<ReaderWriterLevelDB*>(_readerWriter.get())->getReaderWriter(ext, true);
+    osgDB::ReaderWriter* writer = static_cast<ReaderWriterLevelDB*>(_readerWriter.get())->getReaderWriter(ext);
     if (!writer) return WriteResult::FILE_NOT_HANDLED;
 
     ReaderWriterLevelDB* rwdb = static_cast<ReaderWriterLevelDB*>(_readerWriter.get());
