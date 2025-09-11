@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <map>
-#include <set>
+#include <stack>
 #include <string>
 #include <functional>
 #include <typeindex>
@@ -14,23 +14,31 @@
 #include <osg/Referenced>
 #include "GenericInputStream.h"
 
+extern "C"
+{
+    typedef void (*WrapperLoadingFunction)(void);
+}
+
 namespace osgVerse
 {
     struct BaseSerializer;
+    struct WrappableSerializer;
     struct ObjectSerializer;
     struct ImageSerializer;
     struct VectorSerializer;
     struct UserSerializer;
     struct BoolSerializer;
+    struct GLenumSerializer;
     struct StringSerializer;
     struct EnumSerializer;
     template<typename T> struct ValueSerializer;
+    class RewrapperManager;
 
     class SerializerVisitor
     {
     public:
-        void apply(BaseSerializer& obj);
         template<typename T> void apply(ValueSerializer<T>& obj);
+        void apply(BaseSerializer& obj) { applyValue(obj); }
         virtual void apply(ObjectSerializer& obj) {}
         virtual void apply(ImageSerializer& obj) {}
         virtual void apply(VectorSerializer& obj) {}
@@ -38,19 +46,32 @@ namespace osgVerse
         virtual void apply(BoolSerializer& obj) {}
         virtual void apply(StringSerializer& obj) {}
         virtual void apply(EnumSerializer& obj) {}
+        virtual void apply(GLenumSerializer& obj) {}
 
         template<typename T>
         void registerType(std::function<void(ValueSerializer<T>&)> func)
         {
-            _registry[std::type_index(typeid(T))] = [func](BaseSerializer& baseObj)
+            _registry[std::type_index(typeid(ValueSerializer<T>))] = [func](BaseSerializer& baseObj)
             { ValueSerializer<T>& obj = static_cast<ValueSerializer<T>&>(baseObj); func(obj); };
         }
 
+        SerializerVisitor() : _manager(NULL), _inputVersion(INT_MAX) {}
+        void setManager(RewrapperManager* m, int v) { _manager = m; _inputVersion = v; }
+
+        void push(const std::string& n) { _propertyList.push(n); }
+        void pop() { _propertyList.pop(); }
+        const std::stack<std::string>& getPropertyList() const { return _propertyList; }
+
     protected:
+        void traverse(WrappableSerializer& obj);
+        void applyValue(BaseSerializer& obj);
+
         typedef std::map<std::type_index, std::function<void(BaseSerializer&)>> SerializerMap;
-        SerializerMap _registry;
+        SerializerMap _registry; RewrapperManager* _manager; int _inputVersion;
+        std::stack<std::string> _propertyList;
     };
-#define META_VISITOR() virtual void accept(SerializerVisitor& v) { v.apply(*this); }
+#define META_VISITOR() virtual void accept(const std::string& n, SerializerVisitor& v) \
+                       { v.push(n); v.apply(*this); v.pop(); }
 
     struct BaseSerializer : public osg::Referenced
     {
@@ -65,18 +86,19 @@ namespace osgVerse
         int _firstVersion, _lastVersion; std::string _name;
     };
 
-    struct ObjectSerializer : public BaseSerializer { std::string _type; META_VISITOR() };
-    struct ImageSerializer : public BaseSerializer { std::string _type; META_VISITOR() };
+    struct WrappableSerializer : public BaseSerializer { std::string _type; };
+    struct ObjectSerializer : public WrappableSerializer { META_VISITOR() };
+    struct ImageSerializer : public WrappableSerializer { META_VISITOR() };
     struct VectorSerializer : public BaseSerializer { std::string _type; META_VISITOR() };
     struct UserSerializer : public BaseSerializer { ReadFunc _reader; META_VISITOR() };
     struct BoolSerializer : public BaseSerializer { bool _v0; META_VISITOR() };
-    struct GLenumSerializer : public BaseSerializer { std::string _type; unsigned int _v0; META_VISITOR() };
     struct StringSerializer : public BaseSerializer { std::string _v0; META_VISITOR() };
+    struct GLenumSerializer : public BaseSerializer { std::string _type; unsigned int _v0; META_VISITOR() };
     struct EnumSerializer : public BaseSerializer { std::string _v0; std::set<std::string> _values; META_VISITOR() };
     template<typename T> struct ValueSerializer : public BaseSerializer { T _v0; bool _hex; META_VISITOR() };
 
     template<typename T> void SerializerVisitor::apply(ValueSerializer<T>& obj)
-    { static_cast<BaseSerializer&>(obj).accept(*this); }
+    { applyValue(static_cast<BaseSerializer&>(obj)); }
 
     class Rewrapper : public osg::Referenced
     {
@@ -126,7 +148,8 @@ namespace osgVerse
         void markAssociateAsAdded(const std::string& name);
 
         Rewrapper() : _lastEnum(NULL), _version(0) {}
-        void accept(SerializerVisitor& v, int inputVersion, bool includingAssociates);
+        void accept(RewrapperManager* manager, SerializerVisitor& v,
+                    int inputVersion, bool includingAssociates = true);
 
     protected:
         virtual ~Rewrapper() {}
@@ -161,6 +184,11 @@ namespace osgVerse
         typedef void (*AddPropFunc)(Rewrapper&);
         RegisterWrapperProxy(const std::string& name, const std::string& associates, AddPropFunc func);
         virtual ~RegisterWrapperProxy(); std::string _className;
+    };
+
+    struct RegisterWrapperFunctionProxy
+    {
+        RegisterWrapperFunctionProxy(WrapperLoadingFunction function) { (function)(); }
     };
 
     struct UpdateWrapperVersionProxy
@@ -242,7 +270,10 @@ namespace osgVerse
 #define REGISTER_OBJECT_WRAPPER(NAME, CREATEINSTANCE, CLASS, ASSOCIATES) \
     extern "C" void rewrapper_serializer_##NAME(void) {} \
     extern void rewrapper_propfunc_##NAME(Rewrapper& wrapper); \
-    static RegisterWrapperProxy rewrapper_proxy_##NAME(#CLASS, ASSOCIATES, &rewrapper_propfunc_##NAME); \
+    static osgVerse::RegisterWrapperProxy rewrapper_proxy_##NAME(#CLASS, ASSOCIATES, &rewrapper_propfunc_##NAME); \
     void rewrapper_propfunc_##NAME(Rewrapper& wrapper)
+#define USE_OBJECT_WRAPPER(NAME) \
+    extern "C" void rewrapper_serializer_##NAME(void); \
+    static osgVerse::RegisterWrapperFunctionProxy rewrapperfunc_proxy_##NAME(rewrapper_serializer_##NAME);
 
 #endif

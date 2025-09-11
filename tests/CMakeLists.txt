@@ -62,63 +62,63 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST(osgVerse_Test_Volume_Rendering volume_rendering_test.cpp)
     NEW_TEST(osgVerse_Test_Auto_LOD auto_lod_test.cpp)
     NEW_TEST(osgVerse_Test_Sky_Box sky_box_test.cpp)
-    NEW_TEST(osgVerse_Test_Earth earth_test.cpp)
     NEW_TEST(osgVerse_Test_Earth_Plates earth_plates_test.cpp)
     NEW_TEST(osgVerse_Test_3DGS gaussian_splatting_test.cpp)
-    NEW_TEST(osgVerse_Test_CSG csg_stencil_test.cpp)
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 3)
         NEW_TEST(osgVerse_Test_Instance_Param instance_param_test.cpp)
+        NEW_TEST(osgVerse_Test_Reserializing reserializing_test.cpp)
     ENDIF()
 ENDIF(NOT VERSE_USE_EXTERNAL_GLES)
 
-NEW_EXAMPLE(osgVerse_Test_Plugins plugins_test.cpp)
-NEW_EXAMPLE(osgVerse_Test_Pipeline pipeline_test.cpp)
-NEW_EXAMPLE(osgVerse_Test_Report_Graph report_graph_test.cpp)
-NEW_EXAMPLE(osgVerse_Test_Shader_Library shader_library_test.cpp)
-NEW_EXAMPLE(osgVerse_Test_Shadow shadow_test.cpp)
-NEW_EXAMPLE(osgVerse_Test_Forward_Pbr forward_pbr_test.cpp)
-NEW_EXAMPLE(osgVerse_Test_MCP_Server mcp_server_test.cpp)
+NEW_EXAMPLE(osgVerse_Test_Forward_Pbr forward_pbr_test.cpp)  # Forward PBR rendering pass example
+NEW_EXAMPLE(osgVerse_Test_Plugins plugins_test.cpp)  # Auto-check dependencies and printing out example // FIXME: implement
+NEW_EXAMPLE(osgVerse_Test_Pipeline pipeline_test.cpp)  # Basic pipeline usage and platform-testing example
+NEW_EXAMPLE(osgVerse_Test_Report_Graph report_graph_test.cpp)  # Scene graph structure printer example
+NEW_EXAMPLE(osgVerse_Test_Shader_Library shader_library_test.cpp)  # Shader library loading and platform-testing example
+NEW_EXAMPLE(osgVerse_Test_Shadow shadow_test.cpp)  # Shadow algorithm and efficiency testing example
 IF(NOT VERSE_USE_EXTERNAL_GLES)
-    NEW_EXAMPLE(osgVerse_Test_Pbr_Prerequisite pbr_prerequisite.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Atmospheric_Scattering atmospheric_scattering.cpp)
-
-    NEW_EXAMPLE(osgVerse_Test_ImGui imgui_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Media_Stream media_stream_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Paging_Lod paging_lod_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Point_Cloud point_cloud_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Player_Animation player_animation_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Symbols symbols_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Polygon2D polygon2d_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Mesh_Process mesh_process_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Navigation navigation_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Occlusion_Cull occlusion_cull_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Particle_U3D particle_u3d_test.cpp)
-    NEW_EXAMPLE(osgVerse_Test_Particle_Cloud particle_cloud_test.cpp)
+    NEW_EXAMPLE(osgVerse_Test_Pbr_Prerequisite pbr_prerequisite.cpp)  # PBR necessary textures creator example
+    NEW_EXAMPLE(osgVerse_Test_Atmospheric atmospheric_scattering.cpp)  # Precomputed atmosphere textures example // FIXME: implement
+    NEW_EXAMPLE(osgVerse_Test_CSG csg_stencil_test.cpp)  # Stencil-based CSG algorithm example  // FIXME: SCS implement, simple hint UI
+    NEW_EXAMPLE(osgVerse_Test_Earth earth_test.cpp)  # Lightweight earth, atmosphere and ocean creation example
+    NEW_EXAMPLE(osgVerse_Test_ImGui imgui_test.cpp)  # Basic IMGUI-based UI example  // FIXME: add Drawer2D usage
+    NEW_EXAMPLE(osgVerse_Test_MCP_Server mcp_server_test.cpp)  # Basic MCP server support example
+    NEW_EXAMPLE(osgVerse_Test_Media_Stream media_stream_test.cpp)  # Media playing/streaming example  // FIXME: use datachannel, remove macro
+    NEW_EXAMPLE(osgVerse_Test_Mesh_Process mesh_process_test.cpp)  # Basic mesh processing example  // FIXME: with simple hint UI
+    NEW_EXAMPLE(osgVerse_Test_Navigation navigation_test.cpp)  # Mesh navigation example  // FIXME: with simple UI to add/set agents
+    NEW_EXAMPLE(osgVerse_Test_Occlusion_Cull occlusion_cull_test.cpp)  # Soft-rasterizer based culling example  // FIXME: with huge data...
+    NEW_EXAMPLE(osgVerse_Test_Paging_Lod paging_lod_test.cpp)  # Paging LOD optimization and creation example  // FIXME: with simple UI
+    NEW_EXAMPLE(osgVerse_Test_Particle_U3D particle_u3d_test.cpp)  # Unity-like particle effect example  // FIXME: more effects
+    NEW_EXAMPLE(osgVerse_Test_Particle_Cloud particle_cloud_test.cpp)  # Convert data to particle example  // FIXME: merge with last example
+    NEW_EXAMPLE(osgVerse_Test_Player_Animation player_animation_test.cpp)  # Player animation example  // FIXME: with simple UI
+    NEW_EXAMPLE(osgVerse_Test_Point_Cloud point_cloud_test.cpp)  # Point cloud with simple picking example  // FIXME: add eye-doming, UI
+    NEW_EXAMPLE(osgVerse_Test_Polygon2D polygon2d_test.cpp)  # 2D polygon processing example  // FIXME: with simple hint UI
+    NEW_EXAMPLE(osgVerse_Test_Symbols symbols_test.cpp)  # Massive symbol/label example  // FIXME: show on earth, with picking and UI
+    NEW_EXAMPLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)  # Tween animation path example  // FIXME: with simple UI
 
     IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
-        NEW_CUDA_EXAMPLE(osgVerse_Test_Video video_test.cpp)
+        NEW_CUDA_EXAMPLE(osgVerse_Test_Video video_test.cpp)  # Hardware video encoding example
     ENDIF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
 
 	IF(MSVC_VERSION GREATER 1900)
-        NEW_TEST(osgVerse_Test_Restful_Server restful_server_test.cpp)
+        NEW_TEST(osgVerse_Test_Restful_Server restful_server_test.cpp)  # Restful server example  // FIXME: merge with script support
 	ENDIF(MSVC_VERSION GREATER 1900)
 
     IF(BULLET_FOUND)
-        NEW_EXAMPLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)
+        NEW_EXAMPLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)  # Basic rigid physics example  // FIXME: with simple hint UI
 	    # TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test
     ENDIF(BULLET_FOUND)
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
-        NEW_EXAMPLE(osgVerse_Test_Scripting scripting_test.cpp)
+        NEW_EXAMPLE(osgVerse_Test_Scripting scripting_test.cpp)  # Script usage example  // FIXME: with simple hint UI
     ENDIF()
 
     IF(VERSE_SUPPORT_CPP17)
         SET(CMAKE_CXX_STANDARD 17)
         
         IF(EFFEKSEER_FOUND)
-            NEW_EXAMPLE(osgVerse_Test_Particle_Effekseer particle_effekseer_test.cpp)
+            NEW_EXAMPLE(osgVerse_Test_Particle_Effekseer particle_effekseer_test.cpp)  # Effekseer particle example  // FIXME: deprecate?
         ENDIF(EFFEKSEER_FOUND)
     ENDIF(VERSE_SUPPORT_CPP17)
 ENDIF(NOT VERSE_USE_EXTERNAL_GLES)

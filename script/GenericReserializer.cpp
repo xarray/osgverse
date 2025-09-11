@@ -1,12 +1,19 @@
 #include "GenericReserializer.h"
 using namespace osgVerse;
 
-void SerializerVisitor::apply(BaseSerializer& obj)
+void SerializerVisitor::traverse(WrappableSerializer& obj)
+{
+    if (_propertyList.empty() || !_manager) return;
+    Rewrapper* r = _manager->getRewrapper(obj._type);
+    if (r != NULL) r->accept(_manager, *this, _inputVersion, true);
+}
+
+void SerializerVisitor::applyValue(BaseSerializer& obj)
 {
     std::type_index typeID(typeid(obj));
     SerializerMap::iterator it = _registry.find(typeID);
     if (it != _registry.end()) it->second(obj);
-    else OSG_WARN << "[SerializerVisitor] No callback for " << typeID.name() << std::endl;
+    else std::cerr << "[SerializerVisitor] No callback for " << typeID.name() << "\n";
 }
 
 void Rewrapper::splitAssociates(const std::string& src)
@@ -58,8 +65,10 @@ void Rewrapper::markAssociateAsAdded(const std::string& name)
     { if (itr->_name == name) {itr->_firstVersion = _version; return;} }
 }
 
-void Rewrapper::accept(SerializerVisitor& v, int inputVersion, bool includingAssociates)
+void Rewrapper::accept(RewrapperManager* manager, SerializerVisitor& v,
+                       int inputVersion, bool includingAssociates)
 {
+    v.setManager(manager, inputVersion);
     if (!includingAssociates)
     {
         for (std::vector<SerializerPair>::iterator itr = _serializers.begin();
@@ -67,7 +76,7 @@ void Rewrapper::accept(SerializerVisitor& v, int inputVersion, bool includingAss
         {
             BaseSerializer* s = itr->second; if (!s) continue;
             if (s->_firstVersion <= inputVersion &&
-                inputVersion <= s->_lastVersion) s->accept(v);
+                inputVersion <= s->_lastVersion) s->accept(itr->first, v);
         }
         return;
     }
@@ -77,8 +86,9 @@ void Rewrapper::accept(SerializerVisitor& v, int inputVersion, bool includingAss
     {
         if (itr->_firstVersion <= inputVersion && inputVersion <= itr->_lastVersion)
         {
-            Rewrapper* r = RewrapperManager::instance()->getRewrapper(itr->_name);
-            if (r != NULL) r->accept(v, inputVersion, false);
+            Rewrapper* r = manager->getRewrapper(itr->_name);
+            if (r != NULL) r->accept(manager, v, inputVersion, false);
+            else { std::cerr << "[Rewrapper] Associated wrapper " << itr->_name << " not found\n"; }
         }
     }
 }

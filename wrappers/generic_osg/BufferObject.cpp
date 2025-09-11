@@ -6,7 +6,7 @@ REGISTER_OBJECT_WRAPPER( BufferObject,
                          osg::BufferObject,
                          "osg::Object osg::BufferObject" )
 {
-    ADD_GLENUM_SERIALIZER( Target,GLenum, GL_ARRAY_BUFFER_ARB);  // _type
-    ADD_GLENUM_SERIALIZER( Usage,GLenum, GL_STATIC_DRAW_ARB);  // _type   setTarget(GL_ARRAY_BUFFER_ARB);
+    ADD_GLENUM_SERIALIZER( Target, GLenum, GL_ARRAY_BUFFER_ARB);  // _type
+    ADD_GLENUM_SERIALIZER( Usage, GLenum, GL_STATIC_DRAW_ARB);  // _type   setTarget(GL_ARRAY_BUFFER_ARB);
     ADD_BOOL_SERIALIZER( CopyDataAndReleaseGLBufferObject, false);
 }

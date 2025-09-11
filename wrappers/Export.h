@@ -18,6 +18,7 @@
 
 namespace osgVerse
 {
+    class RewrapperManager;
 
 #if OSG_VERSION_LESS_THAN(3, 5, 0)
     inline bool updateOsgBinaryWrappers(const std::string& libName = "osg") { return false; }
@@ -28,6 +29,9 @@ namespace osgVerse
 
     /** A quick function to help fix .osgb dead lock problem */
     OSGVERSE_WRAPPERS_EXPORT bool fixOsgBinaryWrappers(const std::string& libName = "osg");
+
+    /** Load library and rewrapper manager instance used in wrapper classes */
+    OSGVERSE_WRAPPERS_EXPORT RewrapperManager* loadRewrappers();
 #endif
 
     /** Setup draco encoding parameters */
