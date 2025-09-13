@@ -8,7 +8,29 @@
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 #include <osgUtil/Tessellator>
+
+#include <pipeline/Drawer2D.h>
 #include <vtzero/vector_tile.hpp>
+
+struct ImageVisitor
+{
+    osg::observer_ptr<osgVerse::Drawer2D> drawer;
+    std::vector<std::pair<std::vector<osg::Vec2>, int>> ringList;
+    std::vector<osg::Vec2> lineStrip; float scale;
+    ImageVisitor(osgVerse::Drawer2D* d, float s) : drawer(d), scale(s) {}
+
+    void points_begin(const uint32_t count) {}
+    void points_point(const vtzero::point point) { drawer->drawCircle(osg::Vec2(point.x, point.y) * scale, 1.0f); }
+    void points_end() {}
+
+    void linestring_begin(const uint32_t count) { lineStrip.clear(); }
+    void linestring_point(const vtzero::point point) { lineStrip.push_back(osg::Vec2(point.x, point.y) * scale); }
+    void linestring_end() { drawer->drawPolyline(lineStrip, false); }
+
+    void ring_begin(const uint32_t count) { lineStrip.clear(); }
+    void ring_point(const vtzero::point point) { lineStrip.push_back(osg::Vec2(point.x, point.y) * scale); }
+    void ring_end(const vtzero::ring_type rt) { ringList.push_back(std::pair<std::vector<osg::Vec2>, int>(lineStrip, (int)rt)); }
+};
 
 struct GeometryVisitor
 {
@@ -63,6 +85,9 @@ public:
         supportsExtension("verse_mvt", "osgVerse pseudo-loader");
         supportsExtension("mvt", "MVT vector tile file");
         supportsExtension("pbf", "PBF vector tile file");
+
+        supportsOption("ImageWidth", "Image resolution. Default 512");
+        supportsOption("ImageHeight", "Image resolution. Default 512");
     }
 
     virtual const char* className() const
@@ -78,6 +103,14 @@ public:
         return readNode(in, options);
     }
 
+    virtual ReadResult readImage(const std::string& path, const Options* options) const
+    {
+        std::string ext; std::string fileName = getRealFileName(path, ext);
+        std::ifstream in(fileName, std::ios::in | std::ios::binary);
+        if (!in) return ReadResult::FILE_NOT_HANDLED;
+        return readImage(in, options);
+    }
+
     virtual ReadResult readNode(std::istream& fin, const Options* options) const
     {
         std::string buffer((std::istreambuf_iterator<char>(fin)),
@@ -90,6 +123,7 @@ public:
             vtzero::vector_tile tile(buffer);
             while (vtzero::layer layer = tile.next_layer())
             {
+                uint32_t extent = layer.extent();  // FIXME: coordinate scale?
                 osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
                 geom->setName(layer.name().to_string());
                 geom->setUseDisplayList(false);
@@ -149,6 +183,56 @@ public:
         catch (const std::exception& e)
             { OSG_WARN << "[ReaderWriterMVT] " << e.what() << std::endl; }
         return geode.get();
+    }
+
+    virtual ReadResult readImage(std::istream& fin, const Options* options) const
+    {
+        std::string buffer((std::istreambuf_iterator<char>(fin)),
+                           std::istreambuf_iterator<char>());
+        if (buffer.empty()) return ReadResult::ERROR_IN_READING_FILE;
+
+        std::string wStr = options ? options->getPluginStringData("ImageWidth") : "512";
+        std::string hStr = options ? options->getPluginStringData("ImageHeight") : "512";
+        int w = atoi(wStr.c_str()), h = atoi(hStr.c_str()); if (w < 1) w = 512; if (h < 1) h = 512;
+
+        osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
+        drawer->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+        drawer->setPixelBufferObject(new osg::PixelBufferObject(drawer.get()));
+        drawer->start(false); drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+        try
+        {
+            vtzero::vector_tile tile(buffer);
+            while (vtzero::layer layer = tile.next_layer())
+            {
+                uint32_t extent = layer.extent(); float scale = (float)extent / (float)w;
+                const std::vector<vtzero::data_view>& keys = layer.key_table();
+                const std::vector<vtzero::property_value>& values = layer.value_table();
+                size_t numKeyValues = osg::minimum(keys.size(), values.size());
+                for (size_t i = 0; i < numKeyValues; ++i) updateProperty(*drawer, "", keys[i], values[i]);
+
+                ImageVisitor iv(drawer.get(), scale);
+                while (vtzero::feature feature = layer.next_feature())
+                {
+                    vtzero::decode_geometry(feature.geometry(), iv);
+                    while (vtzero::property prop = feature.next_property())
+                    {
+                        std::string id = std::to_string(feature.id());
+                        updateProperty(*drawer, id + "_", prop.key(), prop.value());
+                    }
+                }
+
+                if (!iv.ringList.empty())
+                {
+                    std::cout << "ringList " << iv.ringList.size() << "\n";
+                    for (std::vector<std::pair<std::vector<osg::Vec2>, int>>::iterator it = iv.ringList.begin();
+                         it != iv.ringList.end(); ++it) { drawer->drawPolyline(it->first, true); }  // FIXME: use drawTriangles
+                    iv.ringList.clear();
+                }
+            }  // while (vtzero::layer layer = tile.next_layer())
+        }
+        catch (const std::exception& e)
+            { OSG_WARN << "[ReaderWriterMVT] " << e.what() << std::endl; }
+        drawer->finish(); return drawer.get();
     }
 
 protected:

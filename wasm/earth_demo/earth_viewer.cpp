@@ -7,7 +7,7 @@
 
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
-USE_OSGPLUGIN(tiff)
+USE_OSGPLUGIN(verse_tiff)
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 
@@ -206,6 +206,7 @@ osg::Node* createEarthWithSkyAndOcean(osgViewer::Viewer* viewer, osg::Group* roo
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
