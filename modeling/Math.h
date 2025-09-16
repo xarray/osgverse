@@ -257,9 +257,12 @@ namespace osgVerse
         static bool reorderPointsInPlane(PointList2D& points, bool usePoleOfInaccessibility = true,
                                          const std::vector<EdgeType>& edges = {});
 
-        /** Delaunay triangulation (with/without auto-detected boundaries and holes) */
+        /** Delaunay triangulation (with auto-detected boundaries and holes based on CDT) */
         static std::vector<size_t> delaunayTriangulation(
                 const PointList2D& points, const EdgeList& edges, bool allowEdgeIntersection = false);
+
+        /** Delaunay triangulation (classic, need outer-first and correct vertex order) */
+        static std::vector<size_t> delaunayTriangulation(const std::vector<PointList2D>& polygons, PointList2D& addedPoints);
     };
 
 }

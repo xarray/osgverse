@@ -468,7 +468,7 @@ protected:
 };
 
 OdbcArchive::OdbcArchive(const osgDB::ReaderWriter* rw, ArchiveStatus status, const std::string& dbName)
-    : _readerWriter(NULL), _dbName(dbName)
+    : _readerWriter(NULL), _db(NULL), _dbName(dbName)
 {
     ReaderWriterOdbc* rwdb = static_cast<ReaderWriterOdbc*>(const_cast<ReaderWriter*>(rw));
     if (!rwdb) { _db = NULL; return; } else _readerWriter = rwdb;

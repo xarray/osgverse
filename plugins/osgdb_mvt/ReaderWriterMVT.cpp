@@ -9,6 +9,7 @@
 #include <osgDB/Registry>
 #include <osgUtil/Tessellator>
 
+#include <modeling/Utilities.h>
 #include <pipeline/Drawer2D.h>
 #include <vtzero/vector_tile.hpp>
 
@@ -204,7 +205,7 @@ public:
             vtzero::vector_tile tile(buffer);
             while (vtzero::layer layer = tile.next_layer())
             {
-                uint32_t extent = layer.extent(); float scale = (float)extent / (float)w;
+                uint32_t extent = layer.extent(); float scale = (float)w / (float)extent;
                 const std::vector<vtzero::data_view>& keys = layer.key_table();
                 const std::vector<vtzero::property_value>& values = layer.value_table();
                 size_t numKeyValues = osg::minimum(keys.size(), values.size());
@@ -223,9 +224,21 @@ public:
 
                 if (!iv.ringList.empty())
                 {
-                    std::cout << "ringList " << iv.ringList.size() << "\n";
+                    osgVerse::DrawerStyleData fillStyle(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f), true);
+#if false
                     for (std::vector<std::pair<std::vector<osg::Vec2>, int>>::iterator it = iv.ringList.begin();
-                         it != iv.ringList.end(); ++it) { drawer->drawPolyline(it->first, true); }  // FIXME: use drawTriangles
+                         it != iv.ringList.end(); ++it) { drawer->drawPolyline(it->first, true); }
+#else
+                    std::vector<std::vector<osg::Vec2f>> polygon;
+                    for (std::vector<std::pair<std::vector<osg::Vec2>, int>>::iterator it = iv.ringList.begin();
+                         it != iv.ringList.end(); ++it)
+                    {
+                        if (it->second == (int)vtzero::ring_type::outer)
+                            { if (!polygon.empty()) drawer->drawPolygon(polygon, fillStyle); polygon.clear(); }
+                        polygon.push_back(it->first);
+                    }
+                    if (!polygon.empty()) drawer->drawPolygon(polygon, fillStyle);
+#endif
                     iv.ringList.clear();
                 }
             }  // while (vtzero::layer layer = tile.next_layer())

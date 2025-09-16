@@ -236,7 +236,7 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->loadLibrary(
         osgDB::Registry::instance()->createLibraryNameForNodeKit("osgVerseReaderWriter"));
     osgDB::Registry::instance()->loadLibrary(
-        osgDB::Registry::instance()->createLibraryNameForExtension("verse_leveldb"));
+        osgDB::Registry::instance()->createLibraryNameForExtension("verse_odbc"));
 #endif
 
     osg::ArgumentParser arguments(&argc, argv);
@@ -248,11 +248,10 @@ int main(int argc, char** argv)
     std::string input("cow.osg"), archiveName;
     if (arguments.read("--archive", archiveName))
     {
+        arguments.read("--source", input); osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(input);
         osg::ref_ptr<osgDB::Archive> archive = osgDB::openArchive(archiveName, osgDB::Archive::CREATE, 4096);
-        arguments.read("--source", input);
         if (archive.valid())
         {
-            osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(input);
             if (node.valid()) archive->writeNode(*node, input);
             archive->close();
         }

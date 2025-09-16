@@ -6,6 +6,7 @@
 
 #define BL_STATIC
 #include "3rdparty/blend2d/blend2d.h"
+#include "modeling/Math.h"
 #include "Drawer2D.h"
 
 using namespace osgVerse;
@@ -397,10 +398,26 @@ namespace osgVerse_Drawer
     }
 
     template<typename T>
+    void drawTriangles(BLContext* context, const std::vector<BLTriangle>& triangles,
+                       bool filled, const T& style)
+    {
+        if (filled) { context->setStrokeStyle(style); context->setStrokeWidth(1.0); }
+        for (size_t i = 0; i < triangles.size(); ++i)
+        {
+            if (filled) context->fillTriangle(triangles[i], style);
+            context->strokeTriangle(triangles[i], style);
+        }
+    }
+
+    template<typename T>
     void drawPath(BLContext* context, const BLPath& path, bool filled, const T& style)
     {
-        if (filled) context->fillPath(path, style);
-        else context->strokePath(path, style);
+        if (filled)
+        {
+            context->setStrokeStyle(style); context->setStrokeWidth(1.0);
+            context->fillPath(path, style);
+        }
+        context->strokePath(path, style);
     }
 }
 
@@ -610,6 +627,59 @@ void Drawer2D::drawRectangle(const osg::Vec4f r, float rx, float ry, const Style
     }
 }
 
+void Drawer2D::drawPolygon(const std::vector<std::vector<osg::Vec2f>>& polygon, const StyleData& sd)
+{
+    osg::BoundingBox bb; PointList2D points; EdgeList edges;
+    for (size_t i = 0; i < polygon.size(); ++i)
+    {
+        const std::vector<osg::Vec2f>& poly = polygon[i];
+        size_t pStart = points.size(), ringSize = poly.size();
+        for (size_t j = 0; j < ringSize; ++j)
+        {
+            const osg::Vec2& p = poly[j];
+            bb.expandBy(osg::Vec3(p[0], p[1], 0.0f));
+            points.push_back(PointType2D(p, pStart + j));
+        }
+
+        if (poly[0] == points.back().first) points.pop_back();
+        for (size_t j = pStart; j < points.size(); ++j)
+        {
+            if (j == 0) edges.push_back(EdgeType(points.size() - 1, j));
+            else edges.push_back(EdgeType(j - 1, j));
+        }
+    }
+
+    osg::Vec4 bbox(bb.xMin(), bb.yMin(), bb.xMax() - bb.xMin(), bb.yMax() - bb.yMin());
+    std::vector<BLTriangle> triangles; VALID_B2D()
+    {
+        std::vector<size_t> indices = GeometryAlgorithm::delaunayTriangulation(points, edges);
+        if (indices.empty())
+        {
+            std::vector<PointList2D> polygonList; PointList2D added;
+            for (size_t i = 0; i < polygon.size(); ++i)
+            {
+                const std::vector<osg::Vec2f>& poly = polygon[i]; PointList2D pList;
+                for (size_t j = 0; j < poly.size(); ++j) pList.push_back(PointType2D(poly[j], j));
+                polygonList.push_back(pList);
+            }
+
+            indices = GeometryAlgorithm::delaunayTriangulation(polygonList, added);
+            if (!added.empty()) points.insert(points.end(), added.begin(), added.end());
+        }
+
+        size_t pointSize = points.size();
+        if (indices.empty()) { OSG_NOTICE << "[Drawer2D] Failed to triangulate and draw polygon\n"; return; }
+        for (size_t i = 0; i < indices.size(); i += 3)
+        {
+            size_t i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];
+            if (i0 >= pointSize || i1 >= pointSize || i2 >= pointSize) continue;
+            const osg::Vec2f &p0 = points[i0].first, &p1 = points[i1].first, &p2 = points[i2].first;
+            triangles.push_back(BLTriangle(p0[0], p0[1], p1[0], p1[1], p2[0], p2[1]));
+        }
+        STYLE_CASES(osgVerse_Drawer::drawTriangles, core->context, triangles, sd.filled);
+    }
+}
+
 void Drawer2D::drawPath(const std::vector<PathData>& path, const StyleData& sd)
 {
     osg::Vec4 bbox; VALID_B2D()
@@ -637,26 +707,38 @@ void Drawer2D::drawPath(const std::vector<PathData>& path, const StyleData& sd)
     }
 }
 
-void Drawer2D::setStrokeOption(StrokeOption opt, int v)
+void Drawer2D::setStrokeOption(StrokeOption opt, double v)
 {
     VALID_B2D()
     {
         switch (opt)
         {
-        case WIDTH:
-            core->context->setStrokeWidth((double)v); break;
-        case START_CAP:
-            core->context->setStrokeCap(BL_STROKE_CAP_POSITION_START, (BLStrokeCap)v); break;
-        case END_CAP:
-            core->context->setStrokeCap(BL_STROKE_CAP_POSITION_END, (BLStrokeCap)v); break;
-        case JOIN:
-            core->context->setStrokeJoin((BLStrokeJoin)v); break;
-        case DASH_OFFSET:
-            core->context->setStrokeDashOffset((double)v); break;
-        default:
-            OSG_WARN << "[Drawer2D] Unknown stroke option: " << opt << std::endl; break;
+        case WIDTH: core->context->setStrokeWidth(v); break;
+        case COLOR: core->context->setStrokeStyle(BLRgba32((unsigned int)v)); break;
+        case START_CAP: core->context->setStrokeCap(BL_STROKE_CAP_POSITION_START, (BLStrokeCap)(int(v))); break;
+        case END_CAP: core->context->setStrokeCap(BL_STROKE_CAP_POSITION_END, (BLStrokeCap)(int(v))); break;
+        case JOIN: core->context->setStrokeJoin((BLStrokeJoin)(int(v))); break;
+        case DASH_OFFSET: core->context->setStrokeDashOffset(v); break;
+        case AUTO_JOIN_LIMIT: core->context->setStrokeMiterLimit(v); break;
+        default: OSG_WARN << "[Drawer2D] Unsupported stroke option: " << opt << std::endl; break;
         }
     }
+}
+
+double Drawer2D::getStrokeOption(StrokeOption opt) const
+{
+    VALID_B2D()
+    {
+        switch (opt)
+        {
+        case WIDTH: return core->context->strokeWidth();
+        case JOIN: return (double)core->context->strokeJoin();
+        case DASH_OFFSET: return core->context->strokeDashOffset();
+        case AUTO_JOIN_LIMIT: return core->context->strokeMiterLimit();
+        default: OSG_WARN << "[Drawer2D] Unsupported stroke option: " << opt << std::endl; break;
+        }
+    }
+    return -1.0;
 }
 
 void Drawer2D::translate(const osg::Vec2& pos, bool postMult)

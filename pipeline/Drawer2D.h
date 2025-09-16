@@ -77,6 +77,7 @@ namespace osgVerse
                      int asChordOrPie = 0, const StyleData& sd = StyleData());
         void drawRectangle(const osg::Vec4f rect, float rx = 0.0f, float ry = 0.0f,
                            const StyleData& sd = StyleData());
+        void drawPolygon(const std::vector<std::vector<osg::Vec2f>>& polygon, const StyleData& sd = StyleData());
 
         struct PathData
         {
@@ -92,9 +93,13 @@ namespace osgVerse
 
         enum StrokeOption
         {
-            WIDTH, START_CAP, END_CAP, JOIN, DASH_OFFSET
+            WIDTH, COLOR,  // color can be set as 0xFF0000FF, ...
+            START_CAP, END_CAP,  // 0: Butt, 1: Square, 2: Round, 3: Reversed-round, 4: Triangle, 5: Reversed-triangle
+            JOIN,  // 0: Miter-join, 1: Auto-miter-bevel-join, 2: Auto-miter-round-join, 3: Bevel-join, 4: Round-join
+            DASH_OFFSET, AUTO_JOIN_LIMIT
         };
-        void setStrokeOption(StrokeOption opt, int value);
+        void setStrokeOption(StrokeOption opt, double value);
+        double getStrokeOption(StrokeOption opt) const;
 
         void translate(const osg::Vec2& pos, bool postMult);
         void scale(const osg::Vec2& scale, bool postMult);

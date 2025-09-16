@@ -3,6 +3,9 @@
 #include <iostream>
 #include <cstdio>
 #include <climits>
+#include <osg/TriangleIndexFunctor>
+#include <osg/Geometry>
+#include <osgUtil/Tessellator>
 
 #include "3rdparty/exprtk.hpp"
 #include "3rdparty/nanoflann.hpp"
@@ -1205,7 +1208,7 @@ std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
     }
     catch (const CDT::DuplicateVertexError& err)
     {
-        OSG_WARN << "[GeometryAlgorithm] Exception: " << err.description() << std::endl;
+        OSG_WARN << "[GeometryAlgorithm] Duplicated: " << err.description() << std::endl;
         return std::vector<size_t>();
     }
 
@@ -1221,8 +1224,7 @@ std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
         }
         catch (const CDT::IntersectingConstraintsError& err)
         {
-            // Try osgUtil::DelaunayTriangulator instead
-            OSG_NOTICE << "[GeometryAlgorithm] " << err.description() << std::endl;
+            OSG_NOTICE << "[GeometryAlgorithm] Intersected: " << err.description() << std::endl;
             return std::vector<size_t>();
         }
     }
@@ -1236,4 +1238,41 @@ std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
         indices.push_back(idx[0]); indices.push_back(idx[1]); indices.push_back(idx[2]);
     }
     return indices;
+}
+
+struct TriangleCollector
+{
+    std::vector<size_t> triangles;
+    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+    { triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3); }
+};
+
+std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(const std::vector<PointList2D>& polygons,
+                                                             PointList2D& addedPoints)
+{
+    osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+    geom->setVertexArray(va.get());
+
+    for (size_t i = 0; i < polygons.size(); ++i)
+    {
+        const PointList2D& poly = polygons[i]; size_t start = va->size();
+        for (size_t j = 0; j < poly.size(); ++j) va->push_back(osg::Vec3(poly[j].first, 0.0f));
+        geom->addPrimitiveSet(new osg::DrawArrays(GL_POLYGON, start, poly.size()));
+    }
+
+    osg::ref_ptr<osgUtil::Tessellator> tscx = new osgUtil::Tessellator;
+    tscx->setWindingType(osgUtil::Tessellator::TESS_WINDING_ODD);
+    tscx->setTessellationType(osgUtil::Tessellator::TESS_TYPE_POLYGONS);
+    tscx->setTessellationNormal(osg::Z_AXIS);
+
+    size_t vSize0 = va->size(), vSize1 = 0;
+    tscx->retessellatePolygons(*geom); vSize1 = va->size();
+    for (size_t i = vSize0; i < vSize1; ++i)
+    {
+        const osg::Vec3& v = (*va)[i];
+        addedPoints.push_back(PointType2D(osg::Vec2(v[0], v[1]), i));
+    }
+    osg::TriangleIndexFunctor<TriangleCollector> f;
+    geom->accept(f); return f.triangles;
 }
