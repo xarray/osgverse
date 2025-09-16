@@ -409,6 +409,7 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
 
     if (!kmeansPoints.empty())
     {
+#if false  // use kmean to cluster?
         size_t numK = kmeansPoints.size() / 4; if (numK == 0) numK = 1;
         auto result = dkm::kmeans_lloyd_parallel(kmeansPoints, numK);
         std::vector<std::array<float, 2>> centers = std::get<0>(result);
@@ -445,6 +446,28 @@ void SymbolManager::update(osg::Group* group, unsigned int frameNo)
             *(colorHandle + numInstances) = sym->color;
             boundBox.expandBy(sym->position); numInstances++;  // FarDistance
         }
+#else
+        for (size_t n = 0; n < symbolsInOrder2.size(); ++n)
+        {
+            Symbol* sym = symbolsInOrder2[n].first;
+            const osg::Vec4 posAndScale = symbolsInOrder2[n].second;
+
+            // Save to parameter textures
+            if (sym->state == Symbol::MidDistance)
+            {
+                *(posHandle2 + numInstances2) = posAndScale;
+                *(dirHandle2 + numInstances2) = osg::Vec4(sym->tiling2, 1.0f);
+                *(colorHandle2 + numInstances) = sym->color;
+                texts.push_back(sym); numInstances2++;
+                if (!_showIconsInMidDistance) continue;
+            }
+
+            *(posHandle + numInstances) = posAndScale;
+            *(dirHandle + numInstances) = osg::Vec4(sym->tiling, sym->rotateAngle);
+            *(colorHandle + numInstances) = sym->color;
+            boundBox.expandBy(sym->position); numInstances++;  // FarDistance
+        }
+#endif
     }
 
     // If only one symbol left and near enough, select it as NearDistance one

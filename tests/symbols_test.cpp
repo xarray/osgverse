@@ -19,6 +19,45 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
+class PickHandler : public osgGA::GUIEventHandler
+{
+public:
+    PickHandler(osgVerse::SymbolManager* sym) : _manager(sym) {}
+
+    bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+        if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE)
+        {
+            osg::Vec2d proj(ea.getXnormalized(), ea.getYnormalized());
+            std::vector<osgVerse::Symbol*> selected = _manager->querySymbols(proj, 0.08);
+            if (!_lastSelectedSymbols.empty())
+            {
+                for (size_t i = 0; i < _lastSelectedSymbols.size(); ++i)
+                {
+                    _lastSelectedSymbols[i]->color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+                    _lastSelectedSymbols[i]->scale = 0.15f;
+                }
+            }
+
+            if (!selected.empty())
+            {
+                for (size_t i = 0; i < selected.size(); ++i)
+                {
+                    selected[i]->color = osg::Vec4(1.0f, 0.5f, 0.5f, 1.0f);
+                    selected[i]->scale = 0.25f;
+                }
+            }
+            _lastSelectedSymbols.swap(selected);
+        }
+        return false;
+    }
+
+protected:
+    std::vector<osgVerse::Symbol*> _lastSelectedSymbols;
+    osg::observer_ptr<osgVerse::SymbolManager> _manager;
+};
+
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
@@ -32,11 +71,11 @@ int main(int argc, char** argv)
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setUpViewOnSingleScreen(0);
 
+    osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(BASE_DIR + "/textures/poi_icons.png");
+    osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(BASE_DIR + "/textures/poi_textbg.png");
     if (arguments.read("--test-drawer"))
     {
-        osg::ref_ptr<osg::Image> img = osgDB::readImageFile(BASE_DIR + "textures/poi_icons.png");
-        osgVerse::DrawerStyleData imgStyle(img.get(), osgVerse::DrawerStyleData::PAD);
-
+        osgVerse::DrawerStyleData imgStyle(iconAtlas.get(), osgVerse::DrawerStyleData::PAD);
         std::vector<osgVerse::Drawer2D*> drawerList;
         for (size_t i = 0; i < 10; ++i)
         {
@@ -100,10 +139,40 @@ int main(int argc, char** argv)
             viewer.frame();
         }
     }
+    else if (arguments.read("--test-massive"))
+    {
+        osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
+        symManager->setShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "poi_symbols.vert.glsl"),
+                               osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "poi_symbols.frag.glsl"));
+        symManager->setFontFileName(MISC_DIR + "/LXGWFasmartGothic.otf");
+        symManager->setIconAtlasImage(iconAtlas.get());
+        symManager->setLodDistance(osgVerse::SymbolManager::LOD0, 10000.0);
+        symManager->setLodDistance(osgVerse::SymbolManager::LOD1, 0.0);
+        symManager->setLodDistance(osgVerse::SymbolManager::LOD2, 0.0);
+
+        for (int y = 0; y < 100; ++y)
+            for (int x = 0; x < 100; ++x)
+            {
+                osgVerse::Symbol* s = new osgVerse::Symbol;
+                s->position = osg::Vec3d(x - 25, y - 25, y - 5);
+                s->rotateAngle = 0.0f; s->scale = 0.15f;
+                s->tiling = osg::Vec3((x % 5) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
+                s->color = osg::Vec4(1.0f, 1.0f, 1.0f, 0.9f);
+                s->name = u8"ID_" + std::to_string(x + y * 100);
+                symManager->updateSymbol(s);
+            }
+
+        osg::ref_ptr<osg::Group> symbols = new osg::Group;
+        symbols->addUpdateCallback(symManager.get());
+        symManager->setMainCamera(viewer.getCamera());
+
+        root->addChild(symbols.get());
+        root->addChild(osgDB::readNodeFile("axes.osgt"));
+        viewer.addEventHandler(new PickHandler(symManager.get()));
+        viewer.run();
+    }
     else
     {
-        osg::ref_ptr<osg::Image> iconAtlas = osgDB::readImageFile(BASE_DIR + "textures/poi_icons.png");
-        osg::ref_ptr<osg::Image> textBgAtlas = osgDB::readImageFile(BASE_DIR + "textures/poi_textbg.png");
 
         osg::ref_ptr<osgVerse::SymbolManager> symManager = new osgVerse::SymbolManager;
         symManager->setShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "poi_symbols.vert.glsl"),
@@ -151,10 +220,11 @@ int main(int argc, char** argv)
             symbolLines->addDrawable(geom);
         }
 
+        symManager->setMainCamera(viewer.getCamera());
         root->addChild(symbols.get());
         root->addChild(symbolLines.get());
         root->addChild(osgDB::readNodeFile("axes.osgt"));
-        symManager->setMainCamera(viewer.getCamera());
+        viewer.addEventHandler(new PickHandler(symManager.get()));
 
         while (!viewer.done())
         {
