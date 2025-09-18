@@ -215,7 +215,7 @@ ThirdDepOptions="
     -DPNG_LIBRARY_RELEASE=$ThirdPartyBuildDir/png/libpng.a
     -DZLIB_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/zlib
     -DZLIB_LIBRARY_RELEASE=$ThirdPartyBuildDir/zlib/libzlib.a
-    -DVERSE_BUILD_3RDPARTIES=OFF"
+    -DVERSE_BUILD_3RDPARTIES=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     if [ -e "$CurrentDir/../Dependencies/wasm/lib/libtiff.a" ]; then
         ThirdDepOptions="

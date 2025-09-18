@@ -121,7 +121,7 @@ set ThirdDepOptions=%BasicCmakeOptions% ^
     -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\libpng.a ^
     -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
     -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\libzlib.a ^
-    -DVERSE_BUILD_3RDPARTIES=OFF
+    -DVERSE_BUILD_3RDPARTIES=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 if !BuildModeWasm!==1 (
     if exist "%CurrentDir%\..\Dependencies\wasm\lib\libtiff.a" (
         set ThirdDepOptions=!ThirdDepOptions! ^

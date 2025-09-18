@@ -1,4 +1,7 @@
 #define OTL_ODBC
+#if defined(__linux__)
+#   define OTL_ODBC_UNIX
+#endif
 #define OTL_ODBC_MULTI_MODE 1
 #define OTL_ODBC_POSTGRESQL 1
 #define OTL_ODBC_MYSQL 1
