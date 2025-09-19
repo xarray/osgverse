@@ -9,7 +9,6 @@
 #include <osgDB/Registry>
 #include <osgUtil/Tessellator>
 
-#include <modeling/Utilities.h>
 #include <pipeline/Drawer2D.h>
 #include <vtzero/vector_tile.hpp>
 

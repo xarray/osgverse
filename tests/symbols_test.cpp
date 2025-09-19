@@ -22,7 +22,8 @@ namespace backward { backward::SignalHandling sh; }
 class PickHandler : public osgGA::GUIEventHandler
 {
 public:
-    PickHandler(osgVerse::SymbolManager* sym) : _manager(sym) {}
+    PickHandler(osgVerse::SymbolManager* sym)
+        : _manager(sym), _firstFrame(true) {}
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
@@ -30,13 +31,13 @@ public:
         if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE)
         {
             osg::Vec2d proj(ea.getXnormalized(), ea.getYnormalized());
-            std::vector<osgVerse::Symbol*> selected = _manager->querySymbols(proj, 0.08);
+            std::vector<osgVerse::Symbol*> selected = _manager->querySymbols(proj, 0.05);
             if (!_lastSelectedSymbols.empty())
             {
                 for (size_t i = 0; i < _lastSelectedSymbols.size(); ++i)
                 {
                     _lastSelectedSymbols[i]->color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-                    _lastSelectedSymbols[i]->scale = 0.15f;
+                    _lastSelectedSymbols[i]->scale = 0.1f;
                 }
             }
 
@@ -45,10 +46,18 @@ public:
                 for (size_t i = 0; i < selected.size(); ++i)
                 {
                     selected[i]->color = osg::Vec4(1.0f, 0.5f, 0.5f, 1.0f);
-                    selected[i]->scale = 0.25f;
+                    selected[i]->scale = 0.15f;
                 }
             }
             _lastSelectedSymbols.swap(selected);
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+        {
+            if (_firstFrame)
+            {
+                view->getCameraManipulator()->home(ea, aa);
+                _firstFrame = false;
+            }
         }
         return false;
     }
@@ -56,6 +65,7 @@ public:
 protected:
     std::vector<osgVerse::Symbol*> _lastSelectedSymbols;
     osg::observer_ptr<osgVerse::SymbolManager> _manager;
+    bool _firstFrame;
 };
 
 int main(int argc, char** argv)
@@ -155,7 +165,7 @@ int main(int argc, char** argv)
             {
                 osgVerse::Symbol* s = new osgVerse::Symbol;
                 s->position = osg::Vec3d(x - 25, y - 25, y - 5);
-                s->rotateAngle = 0.0f; s->scale = 0.15f;
+                s->rotateAngle = 0.0f; s->scale = 0.1f;
                 s->tiling = osg::Vec3((x % 5) / 8.0f, (y % 8) / 8.0f, 1.0f / 8.0f);
                 s->color = osg::Vec4(1.0f, 1.0f, 1.0f, 0.9f);
                 s->name = u8"ID_" + std::to_string(x + y * 100);
@@ -168,6 +178,7 @@ int main(int argc, char** argv)
 
         root->addChild(symbols.get());
         root->addChild(osgDB::readNodeFile("axes.osgt"));
+        viewer.getCameraManipulator()->setHomePosition(osg::Vec3(0.0f, -100.0f, 0.0f), osg::Vec3(), osg::Z_AXIS);
         viewer.addEventHandler(new PickHandler(symManager.get()));
         viewer.run();
     }
@@ -224,8 +235,9 @@ int main(int argc, char** argv)
         root->addChild(symbols.get());
         root->addChild(symbolLines.get());
         root->addChild(osgDB::readNodeFile("axes.osgt"));
-        viewer.addEventHandler(new PickHandler(symManager.get()));
 
+        viewer.getCameraManipulator()->setHomePosition(osg::Vec3(0.0f, -100.0f, 0.0f), osg::Vec3(), osg::Z_AXIS);
+        viewer.addEventHandler(new PickHandler(symManager.get()));
         while (!viewer.done())
         {
             const std::map<int, osg::ref_ptr<osgVerse::Symbol>>& symbols = symManager->getSymols();

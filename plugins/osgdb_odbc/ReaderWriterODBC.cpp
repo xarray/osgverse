@@ -1,3 +1,4 @@
+#ifdef USE_ODBC_API
 #define OTL_ODBC
 #if defined(__linux__)
 #   define OTL_ODBC_UNIX
@@ -16,6 +17,8 @@
 #define OTL_UNICODE 1
 #define OTL_STL 1
 #include "3rdparty/otlv4.h"
+#endif
+#include "3rdparty/sqlite3.h"
 
 #include <osg/io_utils>
 #include <osg/Geometry>
@@ -27,6 +30,211 @@
 #include <osgDB/Registry>
 #include <osgDB/Archive>
 #include "readerwriter/Utilities.h"
+
+struct DatabaseConnector
+{
+    DatabaseConnector(const std::string& name, bool o = true) : withOdbc(o), base(NULL)
+    {
+#ifdef USE_ODBC_API
+        if (withOdbc) { otl_connect* connect = new otl_connect; base = connect; }
+#else
+        withOdbc = false;
+#endif
+        if (!withOdbc) { sqlite3* connect = NULL; sqlite3_open(name.c_str(), &connect); base = connect; }
+    }
+
+    ~DatabaseConnector()
+    {
+#ifdef USE_ODBC_API
+        if (withOdbc) { otl_connect* connect = (otl_connect*)base; delete connect; }
+#endif
+        if (!withOdbc) { sqlite3* connect = (sqlite3*)base; sqlite3_close(connect); }
+    }
+
+    bool connected() const
+    {
+#ifdef USE_ODBC_API
+        if (withOdbc)
+        {
+            otl_connect* connect = (otl_connect*)base;
+            return connect->connected;
+        }
+#endif
+        return base != NULL;
+    }
+
+    bool login(const std::string& logonStr)
+    {
+#ifdef USE_ODBC_API
+        if (withOdbc)
+        {
+            otl_connect* connect = (otl_connect*)base;
+            try
+            {
+                connect->rlogon(logonStr.c_str());
+                connect->set_max_long_size(20 * 1024 * 1024);  // 20mb
+                return true;
+            }
+            catch (otl_exception& ex)
+            {
+                OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
+                           << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
+            }
+        }
+#endif
+        if (!withOdbc) { return true; }  // Fallback to Sqlite, do nothing
+        return false;
+    }
+
+    bool run(const std::string& cmd)
+    {
+#ifdef USE_ODBC_API
+        if (withOdbc)
+        {
+            otl_connect* connect = (otl_connect*)base;
+            try { if (!cmd.empty()) otl_cursor::direct_exec(*connect, cmd.c_str()); return true; }
+            catch (otl_exception& ex)
+            {
+                OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
+                           << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
+            }
+        }
+#endif
+        if (!withOdbc)
+        {
+            sqlite3* connect = (sqlite3*)base;
+            int rc = sqlite3_exec(connect, cmd.c_str(), NULL, NULL, NULL); if (rc == SQLITE_OK) return true;
+            //else OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << cmd << "' exception: " << rc << "\n";
+        }
+        return false;
+    }
+
+    bool check(const std::string& cmd, const std::string& keyName)
+    {
+#ifdef USE_ODBC_API
+        if (withOdbc)
+        {
+            otl_connect* connect = (otl_connect*)base;
+            std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
+            try
+            {
+                otl_long_unicode_string f0(keyW.data(), otl_short_int_max, (int)keyW.size());
+                otl_stream in(1, cmd.c_str(), *connect); in << f0;
+                int dummy = 0; if (in >> dummy) return true;
+            }
+            catch (otl_exception&) {}
+        }
+#endif
+        if (!withOdbc)
+        {
+            sqlite3* connect = (sqlite3*)base; sqlite3_stmt* stmt = NULL;
+            int rc = sqlite3_prepare_v2(connect, cmd.c_str(), -1, &stmt, NULL);
+            rc = sqlite3_bind_text(stmt, 1, keyName.c_str(), -1, SQLITE_STATIC);
+            rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
+
+            if (rc == SQLITE_ROW) return true;
+            else if (rc == SQLITE_OK || rc == SQLITE_DONE) return false;
+            else OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << cmd << "' exception: " << rc << "\n";
+        }
+        return false;
+    }
+
+    bool read(const std::string& cmd, const std::string& keyName, std::ostream& buffer)
+    {
+#ifdef USE_ODBC_API
+        if (withOdbc)
+        {
+            otl_connect* connect = (otl_connect*)base;
+            std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
+            try
+            {
+                otl_long_unicode_string f0(keyW.data(), otl_short_int_max, (int)keyW.size());
+                otl_stream in(1, cmd.c_str(), *connect); in << f0;
+                if (!in.eof())
+                {
+                    int f1 = 0; in >> f1; if (f1 >= connect->get_max_long_size()) connect->set_max_long_size(f1 + 1);
+                    otl_long_string f2(osg::maximum(otl_short_int_max, f1 + 1)); in >> f2;
+                    if (f2.len() > 0) { buffer.write((char*)f2.v, f2.len()); return true; }
+                }
+            }
+            catch (otl_exception& ex)
+            {
+                OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
+                           << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
+            }
+        }
+#endif
+        if (!withOdbc)
+        {
+            sqlite3* connect = (sqlite3*)base; sqlite3_stmt* stmt = NULL;
+            int rc = sqlite3_prepare(connect, cmd.c_str(), -1, &stmt, 0);
+            if (rc == SQLITE_OK)
+            {
+                sqlite3_bind_text(stmt, 1, keyName.c_str(), -1, SQLITE_STATIC);
+                bool firstRow = true; rc = SQLITE_ROW;
+                while (rc == SQLITE_ROW)
+                {
+                    rc = sqlite3_step(stmt);
+                    if (firstRow && rc == SQLITE_DONE)
+                    { sqlite3_finalize(stmt); return false; }
+
+                    if (rc == SQLITE_ROW)
+                    {
+                        int numBytes = sqlite3_column_bytes(stmt, 0);
+                        const void* blobRaw = sqlite3_column_blob(stmt, 0);
+                        buffer.write((char*)blobRaw, numBytes);
+                        sqlite3_finalize(stmt); return true;
+                    }
+                    firstRow = false;
+                }
+                sqlite3_finalize(stmt);
+            }
+            else OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << cmd << "' exception: " << rc << "\n";
+        }
+        return false;
+    }
+
+    bool write(const std::string& cmd, const std::string& keyName, const std::stringstream& inStream)
+    {
+        std::string buffer = inStream.str(); int bufferSize = (int)buffer.size();
+#ifdef USE_ODBC_API
+        if (withOdbc)
+        {
+            otl_connect* connect = (otl_connect*)base;
+            std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
+            try
+            {
+                if (bufferSize >= connect->get_max_long_size()) connect->set_max_long_size(bufferSize + 1);
+                otl_long_unicode_string f1(keyW.data(), otl_short_int_max, (int)keyW.size());
+                otl_long_string f2(buffer.data(), osg::maximum(otl_short_int_max, bufferSize + 1), bufferSize);
+                otl_stream out(1, cmd.c_str(), *connect); out << f1 << (int)bufferSize << f2; return true;
+            }
+            catch (otl_exception& ex)
+            {
+                OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
+                           << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
+            }
+        }
+#endif
+        if (!withOdbc)
+        {
+            sqlite3* connect = (sqlite3*)base; sqlite3_stmt* stmt = NULL;
+            int rc = sqlite3_prepare(connect, cmd.c_str(), -1, &stmt, 0);
+            if (rc == SQLITE_OK)
+            {
+                sqlite3_bind_text(stmt, 1, keyName.c_str(), -1, SQLITE_STATIC);
+                sqlite3_bind_blob(stmt, 2, buffer.c_str(), bufferSize, SQLITE_STATIC);
+                rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
+            }
+            if (rc == SQLITE_OK) return true;
+            else OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << cmd << "' exception: " << rc << "\n";
+        }
+        return false;
+    }
+
+    void* base;
+    bool withOdbc;
+};
 
 enum OdbcObjectType { OBJECT, ARCHIVE, IMAGE, HEIGHTFIELD, NODE, SHADER };
 class OdbcArchive : public osgDB::Archive
@@ -81,7 +289,7 @@ public:
 
 protected:
     osg::observer_ptr<osgDB::ReaderWriter> _readerWriter;
-    otl_connect* _db; std::string _dbName;
+    DatabaseConnector* _db; std::string _dbName;
 };
 
 class ReaderWriterOdbc : public osgDB::ReaderWriter
@@ -90,8 +298,11 @@ class ReaderWriterOdbc : public osgDB::ReaderWriter
 public:
     ReaderWriterOdbc()
     {
+#ifdef USE_ODBC_API
         otl_connect::otl_initialize();
+#endif
         supportsProtocol("odbc", "Read from ODBC database.");
+        supportsOption("Connector=<t>", "Database connector (odbc or sqlite)");
         supportsOption("Backend=<t>", "Database backend (default: MySQL)");
         supportsOption("DefaultDatabase=<t>", "Working database, can be empty to ignore database selecting (USE DATABASE)");
         supportsOption("DefaultTable=<t>", "Working table name ('verse_table' if not set), will be created with SQL: "
@@ -106,7 +317,7 @@ public:
 
     virtual ~ReaderWriterOdbc()
     {
-        for (std::map<std::string, otl_connect*>::iterator itr = _dbMap.begin();
+        for (std::map<std::string, DatabaseConnector*>::iterator itr = _dbMap.begin();
              itr != _dbMap.end(); ++itr) { delete itr->second; }
     }
     
@@ -198,7 +409,7 @@ public:
         {
             std::string dbName = osgDB::getServerAddress(filename);
             std::string keyName = osgDB::getServerFileName(filename);
-            otl_connect* db = getOrCreateDatabase(dbName, options);
+            DatabaseConnector* db = getOrCreateDatabase(dbName, options);
             if (!db) return false; else return findKey(db, keyName, options);
         }
         return ReaderWriter::fileExists(filename, options);
@@ -237,7 +448,7 @@ public:
         // Read data from DB
         std::string dbName = osgDB::getServerAddress(fullFileName);
         std::string keyName = osgDB::getServerFileName(fullFileName);
-        otl_connect* db = getOrCreateDatabase(dbName, options);
+        DatabaseConnector* db = getOrCreateDatabase(dbName, options);
         if (!db) return ReadResult::ERROR_IN_READING_FILE;
         else return read(db, fileName, keyName, objectType, reader, options);
     }
@@ -263,7 +474,7 @@ public:
 
         std::string dbName = osgDB::getServerAddress(fullFileName);
         std::string keyName = osgDB::getServerFileName(fullFileName);
-        otl_connect* db = getOrCreateDatabase(dbName, options);
+        DatabaseConnector* db = getOrCreateDatabase(dbName, options);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
         osgDB::ReaderWriter* writer = getReaderWriter(ext);
@@ -271,24 +482,16 @@ public:
         else return write(db, obj, keyName, writer, options);
     }
 
-    bool findKey(otl_connect* db, const std::string& keyName, const osgDB::Options* options) const
+    bool findKey(DatabaseConnector* db, const std::string& keyName, const osgDB::Options* options) const
     {
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
         if (table.empty()) table = "verse_table";
 
         std::string cmd = "SELECT 1 FROM " + table + " WHERE name = :name<varchar> LIMIT 1;";
-        std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
-        try
-        {
-            otl_long_unicode_string f0(keyW.data(), otl_short_int_max, (int)keyW.size());
-            otl_stream in(1, cmd.c_str(), *db); in << f0;
-            int dummy = 0; if (in >> dummy) return true; else return false;
-        }
-        catch (otl_exception&) {}
-        return false;
+        return db->check(cmd, keyName);
     }
 
-    ReadResult read(otl_connect* db, const std::string& fileName, const std::string& keyName,
+    ReadResult read(DatabaseConnector* db, const std::string& fileName, const std::string& keyName,
                     OdbcObjectType type, osgDB::ReaderWriter* rw, const osgDB::Options* options) const
     {
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
@@ -296,24 +499,7 @@ public:
         if (table.empty()) table = "verse_table";
 
         std::string cmd = "SELECT size, value FROM " + table + " WHERE name = :name<varchar>;";
-        std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
-        try
-        {
-            otl_long_unicode_string f0(keyW.data(), otl_short_int_max, (int)keyW.size());
-            otl_stream in(1, cmd.c_str(), *db); in << f0;
-            if (!in.eof())
-            {
-                int f1 = 0; in >> f1; if (f1 >= db->get_max_long_size()) db->set_max_long_size(f1 + 1);
-                otl_long_string f2(osg::maximum(otl_short_int_max, f1 + 1)); in >> f2;
-                if (f2.len() > 0) buffer.write((char*)f2.v, f2.len()); else return ReadResult::FILE_NOT_FOUND;
-            }
-        }
-        catch (otl_exception& ex)
-        {
-            OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
-                       << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
-            return ReadResult::FILE_NOT_HANDLED;
-        }
+        if (!db->read(cmd, keyName, buffer)) return ReadResult::FILE_NOT_HANDLED;
 
         // Load by other readerwriter
         osg::ref_ptr<Options> lOptions = options ?
@@ -327,44 +513,32 @@ public:
         return readResult;
     }
 
-    WriteResult write(otl_connect* db, const osg::Object& obj, const std::string& keyName,
+    WriteResult write(DatabaseConnector* db, const osg::Object& obj, const std::string& keyName,
                       osgDB::ReaderWriter* rw, const osgDB::Options* options) const
     {
         std::stringstream requestBuffer;
         osgDB::ReaderWriter::WriteResult result = writeFile(obj, rw, requestBuffer, options);
         if (!result.success()) return result;
 
-        std::string buffer = requestBuffer.str(); int bufferSize = (int)buffer.size();
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
         std::string backend = options ? options->getPluginStringData("Backend") : "";
+        std::string connector = options ? options->getPluginStringData("Connector") : "";
+        std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
         if (table.empty()) table = "verse_table";
 
         std::string items = "(name, size, value) VALUES(:name<varchar>, :size<int>, :value<raw_long>)";
         std::string cmd = "REPLACE INTO " + table + items + ";";
-        if (!backend.empty() && backend != "MySQL")
+        if ((!backend.empty() && backend != "mysql") || connector == "sqlite")
             cmd = "INSERT INTO " + table + items + " ON CONFLICT(name) "
                 + "DO UPDATE SET size = EXCLUDED.size, value = EXCLUDED.value;";
 
-        std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
-        try
-        {
-            if (bufferSize >= db->get_max_long_size()) db->set_max_long_size(bufferSize + 1);
-            otl_long_unicode_string f1(keyW.data(), otl_short_int_max, (int)keyW.size());
-            otl_long_string f2(buffer.data(), osg::maximum(otl_short_int_max, bufferSize + 1), bufferSize);
-            otl_stream out(1, cmd.c_str(), *db); out << f1 << (int)bufferSize << f2;
-            return WriteResult::FILE_SAVED;
-        }
-        catch (otl_exception& ex)
-        {
-            OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
-                       << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
-            return WriteResult::FILE_NOT_HANDLED;
-        }
+        if (db->write(cmd, keyName, requestBuffer)) return WriteResult::FILE_SAVED;
+        else return WriteResult::FILE_NOT_HANDLED;
     }
 
-    otl_connect* getOrCreateDatabase(const std::string& name, const osgDB::Options* opt) const
+    DatabaseConnector* getOrCreateDatabase(const std::string& name, const osgDB::Options* opt) const
     {
-        otl_connect* db = NULL;
+        DatabaseConnector* db = NULL;
         DatabaseMap& dbMap = const_cast<DatabaseMap&>(_dbMap);
         if (dbMap.find(name) != dbMap.end()) db = dbMap[name];
 
@@ -382,49 +556,28 @@ public:
             std::string dbName = opt ? opt->getPluginStringData("DefaultDatabase") : "";
             std::string table = opt ? opt->getPluginStringData("DefaultTable") : "";
             std::string backend = opt ? opt->getPluginStringData("Backend") : "";
+            std::string connector = opt ? opt->getPluginStringData("Connector") : "";
+            std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
             if (table.empty()) table = "verse_table";
 
             std::string cmd0 = dbName.empty() ? "" : ("USE " + dbName + ";");
             std::string cmd1 = "SELECT 1 FROM " + table + " WHERE 1=0;";  // check if table exists
             std::string cmd2 = "CREATE TABLE " + table + "(name VARCHAR(255) PRIMARY KEY, size INT, value LONGBLOB);";
-            if (!backend.empty() && backend != "MySQL")
+            if (!backend.empty() && backend != "mysql")
             {
-                if (backend == "PostgreSQL")
+                if (backend == "postgresql")
                     cmd2 = "CREATE TABLE " + table + "(name VARCHAR(255) PRIMARY KEY, size INT, value BYTEA);";
-                else if (backend == "SQLServer")
+                else if (backend == "sqlserver")
                     cmd2 = "CREATE TABLE " + table + "(name VARCHAR(255) PRIMARY KEY, size INT, value VARBINARY(MAX));";
-                else if (backend == "SQLite")
+                else if (connector == "sqlite" || backend == "sqlite")
                     cmd2 = "CREATE TABLE " + table + "(name VARCHAR(255) PRIMARY KEY, size INT, value BLOB);";
             }
 
-            try
-            {
-                db = new otl_connect; db->rlogon(logonStr.c_str());
-                db->set_max_long_size(20 * 1024 * 1024);  // 20mb
-                if (!cmd0.empty()) otl_cursor::direct_exec(*db, cmd0.c_str());
-            }
-            catch (otl_exception& ex)
-            {
-                OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
-                           << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
-                delete db; return NULL;
-            }
-
-            bool tableExists = true;
-            try { otl_cursor::direct_exec(*db, cmd1.c_str()); }
-            catch (otl_exception&) { tableExists = false; }
-            if (!tableExists)
-            {
-                try
-                    { otl_cursor::direct_exec(*db, cmd2.c_str()); }
-                catch (otl_exception& ex)
-                {
-                    OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << ex.stm_text << "' exception: "
-                               << ex.msg << " (state = " << ex.sqlstate << ", var = " << ex.var_info << ")\n";
-                }
-            }
-
-            if (!db->connected)
+            db = new DatabaseConnector(name, connector != "sqlite");
+            if (!db->login(logonStr.c_str())) { delete db; return NULL; }
+            if (!db->run(cmd0.c_str())) { delete db; return NULL; }
+            if (!db->run(cmd1.c_str())) db->run(cmd2.c_str());
+            if (!db->connected())
             {
                 OSG_WARN << "[ReaderWriterOdbc] Failed to create " << name << "\n";
                 delete db; return NULL;
@@ -466,7 +619,7 @@ protected:
         if (rw) const_cast<ReaderWriterOdbc*>(this)->_cachedReaderWriters[ext] = rw; return rw;
     }
 
-    typedef std::map<std::string, otl_connect*> DatabaseMap; DatabaseMap _dbMap;
+    typedef std::map<std::string, DatabaseConnector*> DatabaseMap; DatabaseMap _dbMap;
     std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
 };
 
