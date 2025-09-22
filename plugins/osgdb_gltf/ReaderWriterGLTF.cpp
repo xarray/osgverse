@@ -25,6 +25,7 @@ public:
         supportsOption("Directory", "Setting the working directory");
         supportsOption("Mode", "Set to 'ascii/binary' to read specific GLTF data");
         supportsOption("DisabledPBR", "Use PBR materials or not");
+        supportsOption("ForcedPBR", "Force using PBR materials or not");
         supportsOption("UpAxis", "Set up axis to Y (0) or Z (1) (default = 0)");
     }
 
@@ -38,6 +39,7 @@ public:
         std::string ext; std::string fileName = getRealFileName(path, ext);
         if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
+        int forcedPBR = options ? atoi(options->getPluginStringData("ForcedPBR").c_str()) : 0;
         int yUp = options ? atoi(options->getPluginStringData("UpAxis").c_str()) : 0;
         
         osg::ref_ptr<osg::Node> group;
@@ -52,16 +54,16 @@ public:
             group = readCesiumFormatPnts(fin, osgDB::getFilePath(fileName));
         }
         else if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
-            group = osgVerse::loadGltf(fileName, true, noPBR == 0, yUp == 0).get();
+            group = osgVerse::loadGltf(fileName, true, (noPBR == 1) ? 0 : (forcedPBR == 0 ? 1 : 2), yUp == 0).get();
         else
-            group = osgVerse::loadGltf(fileName, false, noPBR == 0, yUp == 0).get();
+            group = osgVerse::loadGltf(fileName, false, (noPBR == 1) ? 0 : (forcedPBR == 0 ? 1 : 2), yUp == 0).get();
         if (!group) OSG_WARN << "[ReaderWriterGLTF] Failed to load " << fileName << std::endl;
         return group.get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
     {
-        std::string dir = "", mode; bool noPBR = false, isBinary = false, yUp = true;
+        std::string dir = "", mode; bool isBinary = false, yUp = true; int pbrMode = 1;
         if (options)
         {
             std::string fileName = options->getPluginStringData("filename");
@@ -80,7 +82,9 @@ public:
                 else if (ext != "gltf") isBinary = true;
             }
 
-            noPBR = (atoi(options->getPluginStringData("DisabledPBR").c_str()) != 0);
+            int noPBR = atoi(options->getPluginStringData("DisabledPBR").c_str());
+            int forcedPBR = atoi(options->getPluginStringData("ForcedPBR").c_str());
+            pbrMode = (noPBR == 1) ? 0 : (forcedPBR == 0 ? 1 : 2);
             mode = options->getPluginStringData("Mode");
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
             if (mode == "binary") isBinary = true;
@@ -88,7 +92,7 @@ public:
 
         if (dir.empty() && options && !options->getDatabasePathList().empty())
             dir = options->getDatabasePathList().front();
-        return osgVerse::loadGltf2(fin, dir, isBinary, !noPBR, yUp).get();
+        return osgVerse::loadGltf2(fin, dir, isBinary, pbrMode, yUp).get();
     }
 
 protected:

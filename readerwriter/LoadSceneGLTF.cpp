@@ -45,6 +45,12 @@ namespace osgVerse
 #define GL_RG32F                          0x8230
 #endif
 
+static float linearToSRGB(float x)
+{
+    if (x <= 0.0031308f) return 12.92f * x;
+    else return 1.055f * pow(x, 1.0f / 2.4f) - 0.055f;
+}
+
 static std::string trimString(const std::string& str)
 {
     if (!str.size()) return str;
@@ -257,7 +263,7 @@ namespace osgVerse
     }
 
     LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary,
-                           bool pbr, bool yUp) : _usingMaterialPBR(pbr), _3dtilesFormat(false)
+                           int pbr, bool yUp) : _usingMaterialPBR(pbr), _3dtilesFormat(false)
     {
         std::string protocol = osgDB::getServerProtocol(d);
         osgDB::ReaderWriter* rwWeb = (protocol.empty()) ? NULL
@@ -795,15 +801,17 @@ namespace osgVerse
             ss->setTextureAttributeAndModes(0, createTexture(uniformNames[0], _modelDef.textures[baseID]));
         else
         {
-            osg::Texture2D* tex2D = createDefaultTextureForColor(osg::Vec4(
-                material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1],
-                material.pbrMetallicRoughness.baseColorFactor[2], material.pbrMetallicRoughness.baseColorFactor[3]));
+            osg::Vec4 baseColor(linearToSRGB(material.pbrMetallicRoughness.baseColorFactor[0]),
+                                linearToSRGB(material.pbrMetallicRoughness.baseColorFactor[1]),
+                                linearToSRGB(material.pbrMetallicRoughness.baseColorFactor[2]),
+                                material.pbrMetallicRoughness.baseColorFactor[3]);
+            osg::Texture2D* tex2D = createDefaultTextureForColor(baseColor);
             if (tex2D) ss->setTextureAttributeAndModes(0, tex2D);
         }
 
         if (normalID >= 0)
             ss->setTextureAttributeAndModes(1, createTexture(uniformNames[1], _modelDef.textures[normalID]));
-        if (normalID >= 0 && _usingMaterialPBR)  // without normal, there's no reason to support PBR...
+        if (_usingMaterialPBR > 1 || (normalID >= 0 && _usingMaterialPBR > 0))
         {
             osg::ref_ptr<osg::Texture> ormNewInput;
             if (occlusionID >= 0)
@@ -1132,7 +1140,7 @@ namespace osgVerse
         }
     }
 
-    osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary, bool usingPBR, bool yUp)
+    osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary, int usingPBR, bool yUp)
     {
         std::string workDir = osgDB::getFilePath(file), http = osgDB::getServerProtocol(file);
         if (!http.empty() && http.find("file") == std::string::npos) return NULL;
@@ -1150,7 +1158,7 @@ namespace osgVerse
     }
 
     osg::ref_ptr<osg::Group> loadGltf2(std::istream& in, const std::string& dir,
-                                       bool isBinary, bool usingPBR, bool yUp)
+                                       bool isBinary, int usingPBR, bool yUp)
     {
         osg::ref_ptr<LoaderGLTF> loader = new LoaderGLTF(in, dir, isBinary, usingPBR, yUp);
         return loader->getRoot();

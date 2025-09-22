@@ -711,7 +711,7 @@ namespace osgVerse
         }
     }
 
-    osg::ref_ptr<osg::Group> loadFbx(const std::string& file, bool pbr)
+    osg::ref_ptr<osg::Group> loadFbx(const std::string& file, int pbr)
     {
         std::string workDir = osgDB::getFilePath(file), http = osgDB::getServerProtocol(file);
         if (!http.empty()) return NULL;
@@ -722,14 +722,14 @@ namespace osgVerse
             return NULL;
         }
 
-        osg::ref_ptr<LoaderFBX> loader = new LoaderFBX(in, workDir, pbr);
+        osg::ref_ptr<LoaderFBX> loader = new LoaderFBX(in, workDir, pbr > 0);
         if (loader->getRoot()) loader->getRoot()->setName(file);
         return loader->getRoot();
     }
 
-    osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir, bool pbr)
+    osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir, int pbr)
     {
-        osg::ref_ptr<LoaderFBX> loader = new LoaderFBX(in, dir, pbr);
+        osg::ref_ptr<LoaderFBX> loader = new LoaderFBX(in, dir, pbr > 0);
         return loader->getRoot();
     }
 }

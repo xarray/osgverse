@@ -59,7 +59,6 @@ namespace osgVerse
         bool _usingMaterialPBR;
     };
 
-    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx(const std::string& file, bool usingPBR = true);
-    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir,
-                                                         bool usingPBR = true);
+    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx(const std::string& file, int usingPBR);
+    OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir, int usingPBR);
 }

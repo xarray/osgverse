@@ -13,11 +13,12 @@
 using namespace osgVerse;
 void pythonWrapperOsg() {}
 
-/*struct OsgBase
+template <std::size_t Id>
+struct OsgBase
 {
     osg::observer_ptr<LibraryEntry> entry;
     osg::ref_ptr<osg::Object> object;
-};*/
+};
 
 #ifdef WITH_PYTHON
 
@@ -47,6 +48,7 @@ void pythonWrapperOsg() {}
 template<int N>
 static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const std::string& name)
 {
+    if (!m || !entry || name.empty()) return;
     pybind11::class_<OsgBase<N>> classObj(m, name.c_str());
     classObj.def(pybind11::init([&]()
     {
@@ -55,6 +57,7 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
         dummy->entry = entry; return dummy;
     }));
 
+#if false
     std::vector<LibraryEntry::Property> propNames = entry->getPropertyNames(name);
     for (size_t i = 0; i < propNames.size(); ++i)
     {
@@ -124,7 +127,20 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
             break;
         }
     }
+#endif
 }
+
+template <std::size_t... Is>
+void createPythonClasses(pybind11::module_& m, LibraryEntry* entry,
+                         std::string const* classList, std::index_sequence<Is...>)
+{
+    using expander = int[];
+    (void)expander { 0, (createPythonClass<Is>(m, entry, classList[Is]), 0)... };
+}
+
+template <std::size_t N>
+void createAllPythonClasses(pybind11::module_& m, LibraryEntry* entry, std::string const (&classList)[N])
+{ createPythonClasses(m, entry, classList, std::make_index_sequence<N>{}); }
 
 PYBIND11_EMBEDDED_MODULE(osg, module)
 {
@@ -150,7 +166,11 @@ PYBIND11_EMBEDDED_MODULE(osg, module)
     osg::ref_ptr<LibraryEntry> entry = new LibraryEntry("osg");
     const std::set<std::string>& classes = entry->getClasses();
 
+    std::size_t id = 0;
     std::vector<std::string> classList(classes.begin(), classes.end());
-    ////
+
+    constexpr std::size_t N = 280; std::string ptrs[N] = {};
+    for (std::size_t i = 0; i < classList.size(); ++i) ptrs[i] = classList[i];
+    createAllPythonClasses(module, entry.get(), ptrs);
 }
 #endif

@@ -16,6 +16,7 @@ public:
         supportsExtension("fbx", "FBX scene file");
         supportsOption("Directory", "Setting the working directory");
         supportsOption("DisabledPBR", "Use PBR materials or not");
+        supportsOption("ForcedPBR", "Force using PBR materials or not");
     }
 
     virtual const char* className() const
@@ -28,7 +29,8 @@ public:
         std::string ext; std::string fileName = getRealFileName(path, ext);
         if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
-        return osgVerse::loadFbx(fileName, noPBR == 0).get();
+        int forcedPBR = options ? atoi(options->getPluginStringData("ForcedPBR").c_str()) : 0;
+        return osgVerse::loadFbx(fileName, (noPBR == 1) ? 0 : (forcedPBR == 0 ? 1 : 2)).get();
     }
 
     virtual ReadResult readNode(std::istream& fin, const osgDB::Options* options) const
@@ -39,7 +41,8 @@ public:
             dir = options->getDatabasePathList().front();
 
         int noPBR = options ? atoi(options->getPluginStringData("DisabledPBR").c_str()) : 0;
-        return osgVerse::loadFbx2(fin, dir, noPBR == 0).get();
+        int forcedPBR = options ? atoi(options->getPluginStringData("ForcedPBR").c_str()) : 0;
+        return osgVerse::loadFbx2(fin, dir, (noPBR == 1) ? 0 : (forcedPBR == 0 ? 1 : 2)).get();
     }
 
 protected:

@@ -33,14 +33,16 @@
 
 struct DatabaseConnector
 {
-    DatabaseConnector(const std::string& name, bool o = true) : withOdbc(o), base(NULL)
+    DatabaseConnector(const std::string& name, const std::string& b, bool o = true)
+        : backend(b), withOdbc(o), base(NULL)
     {
 #ifdef USE_ODBC_API
         if (withOdbc) { otl_connect* connect = new otl_connect; base = connect; }
 #else
-        withOdbc = false;
+        withOdbc = false; backend = "sqlite";
 #endif
         if (!withOdbc) { sqlite3* connect = NULL; sqlite3_open(name.c_str(), &connect); base = connect; }
+        if (backend.empty()) backend = withOdbc ? "mysql" : "sqlite";
     }
 
     ~DatabaseConnector()
@@ -168,7 +170,7 @@ struct DatabaseConnector
         {
             sqlite3* connect = (sqlite3*)base; sqlite3_stmt* stmt = NULL;
             int rc = sqlite3_prepare(connect, cmd.c_str(), -1, &stmt, 0);
-            if (rc == SQLITE_OK)
+            if (rc == SQLITE_OK || rc == SQLITE_DONE)
             {
                 sqlite3_bind_text(stmt, 1, keyName.c_str(), -1, SQLITE_STATIC);
                 bool firstRow = true; rc = SQLITE_ROW;
@@ -220,19 +222,19 @@ struct DatabaseConnector
         {
             sqlite3* connect = (sqlite3*)base; sqlite3_stmt* stmt = NULL;
             int rc = sqlite3_prepare(connect, cmd.c_str(), -1, &stmt, 0);
-            if (rc == SQLITE_OK)
+            if (rc == SQLITE_OK || rc == SQLITE_DONE)
             {
                 sqlite3_bind_text(stmt, 1, keyName.c_str(), -1, SQLITE_STATIC);
                 sqlite3_bind_blob(stmt, 2, buffer.c_str(), bufferSize, SQLITE_STATIC);
                 rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
             }
-            if (rc == SQLITE_OK) return true;
+            if (rc == SQLITE_OK || rc == SQLITE_DONE) return true;
             else OSG_NOTICE << "[ReaderWriterOdbc] SQL '" << cmd << "' exception: " << rc << "\n";
         }
         return false;
     }
 
-    void* base;
+    void* base; std::string backend;
     bool withOdbc;
 };
 
@@ -303,7 +305,7 @@ public:
 #endif
         supportsProtocol("odbc", "Read from ODBC database.");
         supportsOption("Connector=<t>", "Database connector (odbc or sqlite)");
-        supportsOption("Backend=<t>", "Database backend (default: MySQL)");
+        supportsOption("Backend=<t>", "Database backend (default: mysql)");
         supportsOption("DefaultDatabase=<t>", "Working database, can be empty to ignore database selecting (USE DATABASE)");
         supportsOption("DefaultTable=<t>", "Working table name ('verse_table' if not set), will be created with SQL: "
                                            "CREATE TABLE verse_table (name TEXT, size INT, value LONGBLOB);");
@@ -487,7 +489,9 @@ public:
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
         if (table.empty()) table = "verse_table";
 
-        std::string cmd = "SELECT 1 FROM " + table + " WHERE name = :name<varchar> LIMIT 1;";
+        std::string cmd = "SELECT 1 FROM " + table;
+        cmd += (db->backend == "mysql") ? " WHERE name = :name<varchar> LIMIT 1;"
+                                        : " WHERE name = ? LIMIT 1;";
         return db->check(cmd, keyName);
     }
 
@@ -498,7 +502,8 @@ public:
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
         if (table.empty()) table = "verse_table";
 
-        std::string cmd = "SELECT size, value FROM " + table + " WHERE name = :name<varchar>;";
+        std::string cmd = "SELECT size, value FROM " + table;
+        cmd += (db->backend == "mysql") ? " WHERE name = :name<varchar>;" : " WHERE name = ?;";
         if (!db->read(cmd, keyName, buffer)) return ReadResult::FILE_NOT_HANDLED;
 
         // Load by other readerwriter
@@ -521,16 +526,16 @@ public:
         if (!result.success()) return result;
 
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
-        std::string backend = options ? options->getPluginStringData("Backend") : "";
-        std::string connector = options ? options->getPluginStringData("Connector") : "";
-        std::transform(backend.begin(), backend.end(), backend.begin(), ::tolower);
         if (table.empty()) table = "verse_table";
 
         std::string items = "(name, size, value) VALUES(:name<varchar>, :size<int>, :value<raw_long>)";
         std::string cmd = "REPLACE INTO " + table + items + ";";
-        if ((!backend.empty() && backend != "mysql") || connector == "sqlite")
+        if (db->backend != "mysql")
+        {
+            items = "(name, size, value) VALUES(?, ?, ?)";
             cmd = "INSERT INTO " + table + items + " ON CONFLICT(name) "
                 + "DO UPDATE SET size = EXCLUDED.size, value = EXCLUDED.value;";
+        }
 
         if (db->write(cmd, keyName, requestBuffer)) return WriteResult::FILE_SAVED;
         else return WriteResult::FILE_NOT_HANDLED;
@@ -573,7 +578,7 @@ public:
                     cmd2 = "CREATE TABLE " + table + "(name VARCHAR(255) PRIMARY KEY, size INT, value BLOB);";
             }
 
-            db = new DatabaseConnector(name, connector != "sqlite");
+            db = new DatabaseConnector(name, backend, connector != "sqlite");
             if (!db->login(logonStr.c_str())) { delete db; return NULL; }
             if (!db->run(cmd0.c_str())) { delete db; return NULL; }
             if (!db->run(cmd1.c_str())) db->run(cmd2.c_str());

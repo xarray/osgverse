@@ -15,7 +15,8 @@ namespace osgVerse
     class LoaderGLTF : public osg::Referenced
     {
     public:
-        LoaderGLTF(std::istream& in, const std::string& d, bool isBinary, bool usingPBR = true, bool yUp = true);
+        // usingPBR: 0 - disabled, 1: enabled, 2: forced
+        LoaderGLTF(std::istream& in, const std::string& d, bool isBinary, int usingPBR, bool yUp = true);
 
         osg::Group* getRoot() { return _root.get(); }
         tinygltf::Model& getModelData() { return _modelDef; }
@@ -74,11 +75,11 @@ namespace osgVerse
         osg::ref_ptr<osg::MatrixTransform> _root;
         tinygltf::Model _modelDef;
         std::string _workingDir;
-        bool _usingMaterialPBR, _3dtilesFormat;
+        int _usingMaterialPBR; bool _3dtilesFormat;
     };
 
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadGltf(
-        const std::string& file, bool isBinary, bool usingPBR = true, bool yUp = true);
+        const std::string& file, bool isBinary, int usingPBR, bool yUp = true);
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadGltf2(
-        std::istream& in, const std::string& dir, bool isBinary, bool usingPBR = true, bool yUp = true);
+        std::istream& in, const std::string& dir, bool isBinary, int usingPBR, bool yUp = true);
 }
