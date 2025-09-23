@@ -794,17 +794,27 @@ namespace osgVerse
         return decoded;
     }
 
-    std::string normalizeUrl(const std::string& url)
+    static std::istream& getline_ex(std::istream& is, std::string& str)
+    {
+        str.clear(); char c = 0;
+        while (is.get(c))
+        {
+            if (c == '\\' || c == '/') break;
+            str += c;
+        }
+        return is;
+    }
+
+    std::string normalizeUrl(const std::string& url, const std::string& sep)
     {
         size_t pathStart = url.find("://");
         if (pathStart == std::string::npos) pathStart = 0;
         else pathStart += 3;
 
         std::string path = url.substr(pathStart), part;
-        std::istringstream iss(path);
-        std::vector<std::string> parts;
-        while (std::getline(iss, part, '/'))
-        { if (!part.empty()) parts.push_back(part); }
+        std::istringstream iss(path); std::vector<std::string> parts;
+        while (getline_ex(iss, part)) { if (!part.empty()) parts.push_back(part); }
+        if (!part.empty()) parts.push_back(part);
 
         std::vector<std::string> normalizedParts;
         for (const auto& p : parts)
@@ -815,7 +825,7 @@ namespace osgVerse
 
         std::ostringstream oss;
         for (size_t i = 0; i < normalizedParts.size(); ++i)
-            { if (i > 0) oss << "/"; oss << normalizedParts[i]; }
+            { if (i > 0) oss << sep; oss << normalizedParts[i]; }
         return url.substr(0, pathStart) + oss.str();
     }
 

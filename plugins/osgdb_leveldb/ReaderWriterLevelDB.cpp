@@ -168,20 +168,21 @@ public:
         return rw->writeObject(obj, fout, options);
     }
     
-    virtual bool fileExists(const std::string& filename, const osgDB::Options* options) const
+    virtual bool fileExists(const std::string& fullFileName, const osgDB::Options* options) const
     {
-        std::string scheme = osgDB::getServerProtocol(filename);
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
+        std::string scheme = osgDB::getServerProtocol(fullFileName);
         if (scheme == "leveldb")
         {
-            std::string dbName = osgDB::getServerAddress(filename);
-            std::string keyName = osgDB::getServerFileName(filename), value;
+            std::string dbName = osgDB::getServerAddress(fileName);
+            std::string keyName = osgDB::getServerFileName(fileName), value;
             leveldb::DB* db = getOrCreateDatabase(dbName, false);
             if (!db) return false;
 
             leveldb::Status status = db->Get(leveldb::ReadOptions(), keyName, &value);
             return status.ok();
         }
-        return ReaderWriter::fileExists(filename, options);
+        return ReaderWriter::fileExists(fullFileName, options);
     }
 
     ReadResult readFile(LevelDBObjectType objectType, const std::string& fullFileName,
@@ -215,8 +216,8 @@ public:
         }
 
         // Read data from DB
-        std::string dbName = osgDB::getServerAddress(fullFileName);
-        std::string keyName = osgDB::getServerFileName(fullFileName);
+        std::string dbName = osgDB::getServerAddress(fileName);
+        std::string keyName = osgDB::getServerFileName(fileName);
         leveldb::DB* db = getOrCreateDatabase(dbName, false);
         if (!db) return ReadResult::ERROR_IN_READING_FILE;
         else return read(db, fileName, keyName, objectType, reader, options);
@@ -261,8 +262,8 @@ public:
         }
         else if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
 
-        std::string dbName = osgDB::getServerAddress(fullFileName);
-        std::string keyName = osgDB::getServerFileName(fullFileName);
+        std::string dbName = osgDB::getServerAddress(fileName);
+        std::string keyName = osgDB::getServerFileName(fileName);
         leveldb::DB* db = getOrCreateDatabase(dbName, true);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 

@@ -182,8 +182,9 @@ struct DatabaseConnector
 
                     if (rc == SQLITE_ROW)
                     {
-                        int numBytes = sqlite3_column_bytes(stmt, 0);
-                        const void* blobRaw = sqlite3_column_blob(stmt, 0);
+                        int numBytes = sqlite3_column_int(stmt, 0);
+                        //int numBytes = sqlite3_column_bytes(stmt, 1);
+                        const void* blobRaw = sqlite3_column_blob(stmt, 1);
                         buffer.write((char*)blobRaw, numBytes);
                         sqlite3_finalize(stmt); return true;
                     }
@@ -225,7 +226,8 @@ struct DatabaseConnector
             if (rc == SQLITE_OK || rc == SQLITE_DONE)
             {
                 sqlite3_bind_text(stmt, 1, keyName.c_str(), -1, SQLITE_STATIC);
-                sqlite3_bind_blob(stmt, 2, buffer.c_str(), bufferSize, SQLITE_STATIC);
+                sqlite3_bind_int(stmt, 2, (int)bufferSize);
+                sqlite3_bind_blob(stmt, 3, buffer.c_str(), bufferSize, SQLITE_STATIC);
                 rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
             }
             if (rc == SQLITE_OK || rc == SQLITE_DONE) return true;
@@ -309,6 +311,7 @@ public:
         supportsOption("DefaultDatabase=<t>", "Working database, can be empty to ignore database selecting (USE DATABASE)");
         supportsOption("DefaultTable=<t>", "Working table name ('verse_table' if not set), will be created with SQL: "
                                            "CREATE TABLE verse_table (name TEXT, size INT, value LONGBLOB);");
+        supportsOption("PathSeparator", "Set path separator used in database. Default is ignored");
 
         // Examples:
         // - Writing: osgconv cessna.osg odbc://usr:pwd@test.db/cessna.osg.verse_odbc
@@ -404,17 +407,18 @@ public:
         return rw->writeObject(obj, fout, options);
     }
     
-    virtual bool fileExists(const std::string& filename, const osgDB::Options* options) const
+    virtual bool fileExists(const std::string& fullFileName, const osgDB::Options* options) const
     {
-        std::string scheme = osgDB::getServerProtocol(filename);
+        std::string ext; std::string fileName = getRealFileName(fullFileName, ext);
+        std::string scheme = osgDB::getServerProtocol(fullFileName);
         if (scheme == "odbc")
         {
-            std::string dbName = osgDB::getServerAddress(filename);
-            std::string keyName = osgDB::getServerFileName(filename);
+            std::string dbName = osgDB::getServerAddress(fileName);
+            std::string keyName = osgDB::getServerFileName(fileName);
             DatabaseConnector* db = getOrCreateDatabase(dbName, options);
             if (!db) return false; else return findKey(db, keyName, options);
         }
-        return ReaderWriter::fileExists(filename, options);
+        return ReaderWriter::fileExists(fullFileName, options);
     }
 
     ReadResult readFile(OdbcObjectType objectType, const std::string& fullFileName,
@@ -448,8 +452,8 @@ public:
         }
 
         // Read data from DB
-        std::string dbName = osgDB::getServerAddress(fullFileName);
-        std::string keyName = osgDB::getServerFileName(fullFileName);
+        std::string dbName = osgDB::getServerAddress(fileName);
+        std::string keyName = osgDB::getServerFileName(fileName);
         DatabaseConnector* db = getOrCreateDatabase(dbName, options);
         if (!db) return ReadResult::ERROR_IN_READING_FILE;
         else return read(db, fileName, keyName, objectType, reader, options);
@@ -474,8 +478,8 @@ public:
         }
         else if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
 
-        std::string dbName = osgDB::getServerAddress(fullFileName);
-        std::string keyName = osgDB::getServerFileName(fullFileName);
+        std::string dbName = osgDB::getServerAddress(fileName);
+        std::string keyName = osgDB::getServerFileName(fileName);
         DatabaseConnector* db = getOrCreateDatabase(dbName, options);
         if (!db) return WriteResult::ERROR_IN_WRITING_FILE;
 
@@ -487,12 +491,14 @@ public:
     bool findKey(DatabaseConnector* db, const std::string& keyName, const osgDB::Options* options) const
     {
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
+        std::string key, sep = options ? options->getPluginStringData("PathSeparator") : "";
         if (table.empty()) table = "verse_table";
 
         std::string cmd = "SELECT 1 FROM " + table;
         cmd += (db->backend == "mysql") ? " WHERE name = :name<varchar> LIMIT 1;"
                                         : " WHERE name = ? LIMIT 1;";
-        return db->check(cmd, keyName);
+        key = sep.empty() ? keyName : osgVerse::normalizeUrl(keyName, sep);
+        return db->check(cmd, key);
     }
 
     ReadResult read(DatabaseConnector* db, const std::string& fileName, const std::string& keyName,
@@ -500,11 +506,17 @@ public:
     {
         std::stringstream buffer(std::ios::in | std::ios::out | std::ios::binary);
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
+        std::string key, sep = options ? options->getPluginStringData("PathSeparator") : "";
         if (table.empty()) table = "verse_table";
 
         std::string cmd = "SELECT size, value FROM " + table;
         cmd += (db->backend == "mysql") ? " WHERE name = :name<varchar>;" : " WHERE name = ?;";
-        if (!db->read(cmd, keyName, buffer)) return ReadResult::FILE_NOT_HANDLED;
+        key = sep.empty() ? keyName : osgVerse::normalizeUrl(keyName, sep);
+        if (!db->read(cmd, key, buffer))
+        {
+            OSG_WARN << "[ReaderWriterOdbc] Unable to read key: " << key << "\n";
+            return ReadResult::FILE_NOT_FOUND;
+        }
 
         // Load by other readerwriter
         osg::ref_ptr<Options> lOptions = options ?
@@ -526,6 +538,7 @@ public:
         if (!result.success()) return result;
 
         std::string table = options ? options->getPluginStringData("DefaultTable") : "";
+        std::string key, sep = options ? options->getPluginStringData("PathSeparator") : "";
         if (table.empty()) table = "verse_table";
 
         std::string items = "(name, size, value) VALUES(:name<varchar>, :size<int>, :value<raw_long>)";
@@ -537,8 +550,10 @@ public:
                 + "DO UPDATE SET size = EXCLUDED.size, value = EXCLUDED.value;";
         }
 
-        if (db->write(cmd, keyName, requestBuffer)) return WriteResult::FILE_SAVED;
-        else return WriteResult::FILE_NOT_HANDLED;
+        key = sep.empty() ? keyName : osgVerse::normalizeUrl(keyName, sep);
+        if (db->write(cmd, key, requestBuffer)) return WriteResult::FILE_SAVED;
+        else { OSG_WARN << "[ReaderWriterOdbc] Unable to write key: " << key << "\n"; }
+        return WriteResult::FILE_NOT_HANDLED;
     }
 
     DatabaseConnector* getOrCreateDatabase(const std::string& name, const osgDB::Options* opt) const
@@ -579,6 +594,7 @@ public:
             }
 
             db = new DatabaseConnector(name, backend, connector != "sqlite");
+            OSG_NOTICE << "[ReaderWriterOdbc] Create database: " << name << ", backend = " << db->backend << "\n";
             if (!db->login(logonStr.c_str())) { delete db; return NULL; }
             if (!db->run(cmd0.c_str())) { delete db; return NULL; }
             if (!db->run(cmd1.c_str())) db->run(cmd2.c_str());

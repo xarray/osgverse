@@ -208,7 +208,7 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT std::string urlDecode(const std::string& str);
 
     /** Normalize input URL to replace ./ and ../ substrings to absolute paths */
-    OSGVERSE_RW_EXPORT std::string normalizeUrl(const std::string& url);
+    OSGVERSE_RW_EXPORT std::string normalizeUrl(const std::string& url, const std::string& sep = "/");
 
     /** Load content from local file or network protocol */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(
