@@ -1,4 +1,5 @@
 #extension GL_EXT_draw_instanced : enable
+
 #if defined(USE_GEOM_SHADER)
 //
 #elif defined(USE_VERTEX_ATTRIB)

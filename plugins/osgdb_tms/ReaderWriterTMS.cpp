@@ -199,14 +199,14 @@ protected:
         bool emptyPath0 = false, emptyPath1 = false, allLayersDone = true;
         osgVerse::TileCallback::LayerState failState = osgVerse::TileCallback::DEFERRED;
         if (elevH)
-            elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION, emptyPath0);
+            elevHandler = tileCB->createLayerHandler(osgVerse::TileCallback::ELEVATION, emptyPath0, opt);
         else
-            elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION, emptyPath0);
+            elevImage = tileCB->createLayerImage(osgVerse::TileCallback::ELEVATION, emptyPath0, opt);
         if (!elevHandler && !elevImage && !emptyPath0)
             { tileCB->setLayerPathState(osgVerse::TileCallback::ELEVATION, failState); allLayersDone = false; }
 
-        osg::ref_ptr<osg::Texture> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath0);
-        osg::ref_ptr<osg::Texture> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath1);
+        osg::ref_ptr<osg::Texture> orthImage = tileCB->createLayerImage(osgVerse::TileCallback::ORTHOPHOTO, emptyPath0, opt);
+        osg::ref_ptr<osg::Texture> maskImage = tileCB->createLayerImage(osgVerse::TileCallback::OCEAN_MASK, emptyPath1, opt);
         if (!orthImage && !emptyPath0)
             { tileCB->setLayerPathState(osgVerse::TileCallback::ORTHOPHOTO, failState); allLayersDone = false; }
         if (!maskImage && !emptyPath1)

@@ -39,7 +39,7 @@ public:
 
         osgVerse::Pipeline::createShaderDefinitions(vert, 100, 130);
         osgVerse::Pipeline::createShaderDefinitions(geom, 100, 130);
-        osgVerse::Pipeline::createShaderDefinitions(frag, 100, 130);
+        osgVerse::Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
         _program = osgVerse::GaussianGeometry::createProgram(vert, geom, frag);
         _callback = osgVerse::GaussianGeometry::createUniformCallback();
     }
@@ -73,10 +73,14 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osgDB::Registry::instance()->addFileExtensionAlias("ply", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("spz", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("splat", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("ksplat", "verse_3dgs");
     osgVerse::updateOsgBinaryWrappers();
 
     osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments);
-    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_axes.ply.verse_3dgs");
+    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_axes.ply");
     if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

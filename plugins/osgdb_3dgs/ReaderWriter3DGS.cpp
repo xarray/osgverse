@@ -72,8 +72,8 @@ public:
                 }
                 else if (ext == "splat")
                 {
-                    // TODO
-                    return ReadResult::NOT_IMPLEMENTED;
+                    osgVerse::GaussianGeometry* geom = fromSplat(buffer);
+                    if (geom) geode->addDrawable(geom);
                 }
                 else if (ext == "ksplat")
                 {
@@ -100,6 +100,43 @@ protected:
             ext = osgDB::getFileExtension(fileName);
         }
         return fileName;
+    }
+
+    osgVerse::GaussianGeometry* fromSplat(const std::string& buffer) const
+    {
+        osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
+        osg::ref_ptr<osg::QuatArray> rot = new osg::QuatArray; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
+        osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
+
+        std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
+        osg::Vec3 posValue, scaleValue, colorValue; osg::Vec4 rotValue;
+        float alphaValue = 0.0f, reserved0 = 0.0f, reserved1 = 0.0f; size_t index = 0;
+        while (ss.good() && !ss.eof())
+        {
+            ss.read((char*)posValue.ptr(), sizeof(float) * 3);
+            ss.read((char*)rotValue.ptr(), sizeof(float) * 4);
+            ss.read((char*)scaleValue.ptr(), sizeof(float) * 3);
+            ss.read((char*)&alphaValue, sizeof(float));
+            ss.read((char*)colorValue.ptr(), sizeof(float) * 3);
+            ss.read((char*)&reserved0, sizeof(float));
+            ss.read((char*)&reserved1, sizeof(float));
+
+            pos->push_back(posValue); rot->push_back(osg::Quat(rotValue)); alpha->push_back(alphaValue);
+            scale->push_back(osg::Vec3(expf(scaleValue[0]), expf(scaleValue[1]), expf(scaleValue[2])));
+            rD0->push_back(osg::Vec4(colorValue[0], 0.0f, 0.0f, 0.0f));
+            gD0->push_back(osg::Vec4(colorValue[1], 0.0f, 0.0f, 0.0f));
+            bD0->push_back(osg::Vec4(colorValue[2], 0.0f, 0.0f, 0.0f));
+            de->push_back(index++);
+        }
+        if (index == 0) return NULL;
+
+        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
+        geom->setShDegrees(1); geom->setPosition(pos.get());
+        geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
+        geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
+        geom->addPrimitiveSet(de.get());
+        return geom.release();
     }
 
     osgVerse::GaussianGeometry* fromSpz(spz::GaussianCloud& c) const

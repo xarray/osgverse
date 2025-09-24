@@ -1,6 +1,4 @@
-#extension GL_EXT_geometry_shader4 : enable
 uniform vec2 InvScreenResolution;
-
 VERSE_VS_IN vec4 color_gs[], covariance_gs[];
 VERSE_VS_IN vec2 center2D_gs[];
 VERSE_VS_OUT vec4 color, invCovariance;

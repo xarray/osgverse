@@ -53,8 +53,9 @@ namespace osgVerse
         typedef std::pair<std::string, LayerState> DataPathPair;
 
         virtual osg::Texture* findAndUseParentData(LayerType id, osg::Group* parent);
-        osg::Texture* createLayerImage(LayerType id, bool& emptyPath, osg::NodeVisitor::ImageRequestHandler* irh = NULL);
-        TileGeometryHandler* createLayerHandler(LayerType id, bool& emptyPath);
+        osg::Texture* createLayerImage(LayerType id, bool& emptyPath, const osgDB::Options* opt,
+                                       osg::NodeVisitor::ImageRequestHandler* irh = NULL);
+        TileGeometryHandler* createLayerHandler(LayerType id, bool& emptyPath, const osgDB::Options* opt);
 
         /** Set layer data path with wildcards */
         void setLayerPath(LayerType id, const std::string& p) { _layerPaths[id] = DataPathPair(p, DONE); }
@@ -137,6 +138,9 @@ namespace osgVerse
         void setLayerPath(TileCallback::LayerType id, const std::string& p) { _layerPaths[id] = p; }
         std::string getLayerPath(TileCallback::LayerType id) { return _layerPaths[id]; }
 
+        void setTileLoadingOptions(osgDB::Options* op) { _options = op; }
+        osgDB::Options* getTileLoadingOptions() { return _options.get(); }
+
         bool shouldMorph(TileCallback& cb) const;
         void updateTileGeometry(TileCallback& cb, osg::Geometry* geom);
         osgDB::ReaderWriter* getReaderWriter(const std::string& protocol, const std::string& url);
@@ -158,6 +162,7 @@ namespace osgVerse
         std::map<std::string, std::string> _acceptHandlerExts;
         std::map<std::string, osg::observer_ptr<osgDB::ReaderWriter>> _cachedReaderWriters;
         osg::ref_ptr<DynamicTileCallback> _dynamicCallback;
+        osg::ref_ptr<osgDB::Options> _options;
     };
 }
 

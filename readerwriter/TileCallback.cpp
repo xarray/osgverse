@@ -84,7 +84,8 @@ std::pair<osg::Geometry*, TileCallback*> TileCallback::findParentTile(osg::Group
     return std::pair<osg::Geometry*, TileCallback*>();
 }
 
-osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, osg::NodeVisitor::ImageRequestHandler* irh)
+osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, const osgDB::Options* opt,
+                                             osg::NodeVisitor::ImageRequestHandler* irh)
 {
     std::string inputAddr = _layerPaths[(int)id].first;
     emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
@@ -99,14 +100,14 @@ osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, osg:
     else
     {
         osgDB::ReaderWriter* rw = TileManager::instance()->getReaderWriter(protocol, url);
-        osg::ref_ptr<osg::Image> image = rw ? rw->readImage(url).takeImage() : NULL;
-        //osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url);
+        osg::ref_ptr<osg::Image> image = rw ? rw->readImage(url, opt).takeImage() : NULL;
+        //osg::ref_ptr<osg::Image> image = osgDB::readImageFile(url, opt);
         if (!image) return NULL; else tex2D->setImage(image.get());
     }
     return tex2D.release();
 }
 
-TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyPath)
+TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyPath, const osgDB::Options* opt)
 {
     std::string inputAddr = _layerPaths[(int)id].first;
     emptyPath = (inputAddr.empty()); if (emptyPath) return NULL;
@@ -116,8 +117,8 @@ TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyP
     std::string protocol = osgDB::getServerProtocol(url);
 
     osgDB::ReaderWriter* rw = TileManager::instance()->getReaderWriter(protocol, url);
-    return rw ? dynamic_cast<TileGeometryHandler*>(rw->readObject(url).takeObject()) : NULL;
-    //return dynamic_cast<TileGeometryHandler*>(osgDB::readObjectFile(url));
+    return rw ? dynamic_cast<TileGeometryHandler*>(rw->readObject(url, opt).takeObject()) : NULL;
+    //return dynamic_cast<TileGeometryHandler*>(osgDB::readObjectFile(url, opt));
 }
 
 double TileCallback::mapAltitude(const osg::Vec4& color, double minH, double maxH) const
@@ -502,20 +503,21 @@ bool TileCallback::updateLayerData(osg::NodeVisitor* nv, osg::Node* node, LayerT
     FindTileGeometry ftg; node->accept(ftg);
     if (!ftg.geometry) return false;
 
-    osg::ref_ptr<osg::Texture> tex; osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
-    int texUnit = -1; bool emptyPath = false;
+    osg::ref_ptr<osg::Texture> tex; int texUnit = -1; bool emptyPath = false;
+    osg::StateSet* ss = ftg.geometry->getOrCreateStateSet();
+    osgDB::Options* opt = TileManager::instance()->getTileLoadingOptions();
     switch (id)
     {
     case ELEVATION:
-        tex = createLayerImage(id, emptyPath); break;
+        tex = createLayerImage(id, emptyPath, opt); break;
     case ORTHOPHOTO:
-        tex = createLayerImage(id, emptyPath); texUnit = 0; break;
+        tex = createLayerImage(id, emptyPath, opt); texUnit = 0; break;
     case OCEAN_MASK:
-        tex = createLayerImage(id, emptyPath); texUnit = 1; break;
+        tex = createLayerImage(id, emptyPath, opt); texUnit = 1; break;
     default:  // USER
         // FIXME: use own ImageRequestHandler if we need to check and reuse parent tile...
         //tex = createLayerImage(id, emptyPath, nv->getImageRequestHandler()); texUnit = 2; break;
-        tex = createLayerImage(id, emptyPath); texUnit = 2; break;
+        tex = createLayerImage(id, emptyPath, opt); texUnit = 2; break;
     }
 
     if (!tex && !emptyPath && node->getNumParents() > 0)
