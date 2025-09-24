@@ -1,25 +1,3 @@
-#ifdef USE_ODBC_API
-#define OTL_ODBC
-#if defined(__linux__)
-#   define OTL_ODBC_UNIX
-#endif
-#define OTL_ODBC_MULTI_MODE 1
-#define OTL_ODBC_POSTGRESQL 1
-#define OTL_ODBC_MYSQL 1
-#define OTL_DESTRUCTORS_DO_NOT_THROW 1
-#define OTL_EXCEPTION_ENABLE_ERROR_OFFSET 1
-#define OTL_EXTENDED_EXCEPTION 1
-#define OTL_TRACE_ENABLE_STREAM_LABELS 1
-#define OTL_UNCAUGHT_EXCEPTION_ON 1
-#define OTL_VALUE_TEMPLATE_ON 1
-#define OTL_DEFAULT_STRING_NULL_TO_VAL ""
-#define OTL_THROWS_EX_OUT_OF_RANGE
-#define OTL_UNICODE 1
-#define OTL_STL 1
-#include "3rdparty/otlv4.h"
-#endif
-#include "3rdparty/sqlite3.h"
-
 #include <osg/io_utils>
 #include <osg/Geometry>
 #include <osg/MatrixTransform>
@@ -30,6 +8,28 @@
 #include <osgDB/Registry>
 #include <osgDB/Archive>
 #include "readerwriter/Utilities.h"
+
+#ifdef USE_ODBC_API
+#   define OTL_ODBC
+#   if defined(__linux__)
+#      define OTL_ODBC_UNIX
+#   endif
+#   define OTL_ODBC_MULTI_MODE 1
+#   define OTL_ODBC_POSTGRESQL 1
+#   define OTL_ODBC_MYSQL 1
+#   define OTL_DESTRUCTORS_DO_NOT_THROW 1
+#   define OTL_EXCEPTION_ENABLE_ERROR_OFFSET 1
+#   define OTL_EXTENDED_EXCEPTION 1
+#   define OTL_TRACE_ENABLE_STREAM_LABELS 1
+#   define OTL_UNCAUGHT_EXCEPTION_ON 1
+#   define OTL_VALUE_TEMPLATE_ON 1
+#   define OTL_DEFAULT_STRING_NULL_TO_VAL ""
+#   define OTL_THROWS_EX_OUT_OF_RANGE
+#   define OTL_UNICODE 1
+#   define OTL_STL 1
+#   include "3rdparty/otlv4.h"
+#endif
+#include "3rdparty/sqlite3.h"
 
 struct DatabaseConnector
 {

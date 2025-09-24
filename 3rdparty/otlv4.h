@@ -16088,7 +16088,7 @@ public:
     connect(nullptr),
     cursor(nullptr),
     temp_buf(nullptr),
-    temp_char_buf(nullptr),
+    //temp_char_buf(nullptr),
     written_to_flag(false),
     closed_flag(false),
     last_read_lob_len(0) {

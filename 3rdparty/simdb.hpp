@@ -449,8 +449,8 @@ class     CncrLst
 public:
   using     u32  =  uint32_t;
   using     u64  =  uint64_t;
-  using    au32  = volatile std::atomic<u32>;
-  using    au64  = volatile std::atomic<u64>;
+  using    au32  =  std::atomic<u32>;
+  using    au64  =  std::atomic<u64>;
   using ListVec  =  lava_vec<u32>;
 
   union Head
@@ -493,7 +493,7 @@ public:
   bool headCmpEx(u64* expected, u64* desired_ptr)
   {
     using namespace std;
-    au64 desired = au64(*desired_ptr);
+    u64 desired = u64(*desired_ptr);
 
     //return atomic_compare_exchange_strong_explicit(
     //  s_h, (volatile au64*)&expected, desired,
@@ -1232,7 +1232,7 @@ private:
   //bool       runIfMatch(VerIdx vi, const void* const buf, u32 len, u32 hash, FUNC f) const 
   //Match       runIfMatch(VerIdx vi, const void* const buf, u32 len, u32 hash, FUNC f) const 
   template<class FUNC, class T>
-  auto       runIfMatch(VerIdx vi, const void* const buf, u32 len, u32 hash, FUNC f, T defaultRet = decltype(f(vi))() ) const -> std::pair<Match, T>   // std::pair<Match, decltype(f(vi))>
+  auto       runIfMatch(VerIdx vi, const void* const buf, u32 len, u32 hash, FUNC f, T defaultRet/* = decltype(f(vi))()*/) const -> std::pair<Match, T>   // std::pair<Match, decltype(f(vi))>
   { 
     Match m;
     T funcRet = defaultRet;                                                                   
