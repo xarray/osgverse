@@ -333,7 +333,11 @@ public:
     }
 
     virtual const char* className() const
+#ifdef USE_ODBC_API
     { return "[osgVerse] Scene reader/writer from ODBC/OTL database"; }
+#else
+    { return "[osgVerse] Scene reader/writer from SQLite database"; }
+#endif
 
     virtual ReadResult openArchive(const std::string& fullFileName, ArchiveStatus status,
                                    unsigned int, const Options* options) const

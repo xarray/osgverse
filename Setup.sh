@@ -247,7 +247,7 @@ else
     sed 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
 fi
 mv DynamicLibrary.cpp.tmp "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
-sed 's#ifndef GL_EXT_texture_compression_s3tc#if !defined(GL_EXT_texture_compression_s3tc) || !defined(GL_EXT_texture_compression_s3tc_srgb)#g' "$OpenSceneGraphRoot/include/osg/Texture" > Texture.tmp
+sed 's/#ifndef GL_EXT_texture_compression_s3tc/#if !defined(GL_EXT_texture_compression_s3tc) || !defined(GL_EXT_texture_compression_s3tc_srgb)/g' "$OpenSceneGraphRoot/include/osg/Texture" > Texture.tmp
 mv Texture.tmp "$OpenSceneGraphRoot/include/osg/Texture"
 sed 's#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp" > Texture.cpp.tmp
 mv Texture.cpp.tmp "$OpenSceneGraphRoot/src/osg/Texture.cpp"

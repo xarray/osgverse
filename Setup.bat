@@ -158,7 +158,7 @@ if "!BuildMode!"=="4" (
     %SedEXE% "s#isTexture2DArraySupported = validContext#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
     xcopy /y GLExtensions.cpp.tmp "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
 )
-%SedEXE% "s#ifndef GL_EXT_texture_compression_s3tc#if !defined(GL_EXT_texture_compression_s3tc) || !defined(GL_EXT_texture_compression_s3tc_srgb)#g" "%OpenSceneGraphRoot%\include/osg/Texture" > Texture.tmp
+%SedEXE% "s#ifndef GL_EXT_texture_compression_s3tc#if defined(GL_EXT_texture_compression_s3tc)==0 || defined(GL_EXT_texture_compression_s3tc_srgb)==0#g" "%OpenSceneGraphRoot%\include/osg/Texture" > Texture.tmp
 xcopy /y Texture.tmp "%OpenSceneGraphRoot%\include\osg\Texture"
 %SedEXE% "s#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
 xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
