@@ -1,4 +1,3 @@
-#extension GL_EXT_gpu_shader4 : enable
 uniform sampler2D EarthMaskSampler;  // original earth scene
 uniform sampler1D WavesSampler; // waves parameters (h, omega, kx, ky) in wind space
 uniform sampler2D GlareSampler;

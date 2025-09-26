@@ -316,6 +316,8 @@ public:
         // Examples:
         // - Writing: osgconv cessna.osg odbc://usr:pwd@test.db/cessna.osg.verse_odbc
         // - Reading: osgviewer odbc://usr:pwd@test.db/cessna.osg.verse_odbc
+        // - Reading tiles from SQLite:
+        //   osgviewer odbc://E:\verse_table.sqlite/Earth.osgb.verse_odbc -O "Connector=sqlite PathSeparator=\\"
         supportsExtension("verse_odbc", "Pseudo file extension, used to select ODBC plugin.");
         supportsExtension("*", "Passes all read files to other plugins to handle actual model loading.");
     }

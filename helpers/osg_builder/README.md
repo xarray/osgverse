@@ -6,7 +6,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 * CMake options: (not in cmake-gui)
   * OPENGL_PROFILE: GL3 or GLCORE
 * You will have to find glcorearb.h from Khronos website. And then set the GLCORE_ROOT environment variable.
-* Command-line example: (Windows only)
+* Command-line example: (Windows)
   * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLCORE "%osg_root_path%"</em>
   * <em>cmake --build .</em>
 
@@ -33,6 +33,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 * Command-line example: (Windows only)
   * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib "%osg_root_path%"</em>
   * <em>cmake --build .</em>
+  * osgVerse must be built with -DVERSE_BUILD_WITH_ANGLE=ON
 
 #### OSG for GLES2/GLES3 (MacOSX > 14 / GoogleAngle)
 * CMake options: (not in cmake-gui)
@@ -54,6 +55,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 * Command-line example:
   * <em>cmake -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_HEADER2="#include <GLES3/gl3.h>" -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
   * <em>cmake --build .</em>
+  * osgVerse must be built with -DVERSE_BUILD_WITH_ANGLE=ON
 
 #### OSG for GLES2/GLES3 (UWP / GoogleAngle)
 * CMake options: (not in cmake-gui)
@@ -87,6 +89,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 * Command-line example: (Windows only)
   * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES2 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_USE_UTF8_FILENAME=ON -DOSG_WINDOWING_SYSTEM="None" -D_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE=0 "%osg_root_path%"</em>
   * Run <em>Solution File</em> and build
+  * osgVerse must be built with -DVERSE_BUILD_WITH_ANGLE=ON
 
 #### OSG for MinGW (UCRT64)
 * Install OSG:

@@ -11,7 +11,7 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Utilities.h>
 #include <script/JsonScript.h>
-#include <script/PythonScript.h>
+//#include <script/PythonScript.h>
 #include <wrappers/Export.h>
 #include <iostream>
 #include <sstream>
@@ -61,8 +61,8 @@ int main(int argc, char** argv)
     osgViewer::Viewer viewer;
     viewer.setSceneData(root.get());
 
-    osg::ref_ptr<osgVerse::PythonScript> scripter0 = new osgVerse::PythonScript;
-    scripter0->setRootNode(root.get());
+    //osg::ref_ptr<osgVerse::PythonScript> scripter0 = new osgVerse::PythonScript;
+    //scripter0->setRootNode(root.get());
     osg::ref_ptr<osgVerse::JsonScript> scripter1 = new osgVerse::JsonScript;
     scripter1->setRootNode(root.get());
     if (arguments.read("--python"))

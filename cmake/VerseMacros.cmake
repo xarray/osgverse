@@ -136,12 +136,32 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
     SET(${DEP_NAME}_FEATURE_ENABLED ON CACHE BOOL "Enable to search for ${DEP_NAME} dependencies")
     IF(${DEP_NAME}_FEATURE_ENABLED)
         IF(NOT "${INC_PATH_POSTFIX}" STREQUAL "")
-            FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
-                PATHS ${THIRDPARTY_ROOT}/include/${INC_PATH_POSTFIX}
-                /usr/include/${INC_PATH_POSTFIX}
-                /usr/local/include/${INC_PATH_POSTFIX}
-                NO_CMAKE_FIND_ROOT_PATH
-            )
+            LIST(LENGTH INC_PATH_POSTFIX INC_LIST_LENGTH)
+            IF(INC_LIST_LENGTH EQUAL 0)
+                FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
+                    PATHS ${THIRDPARTY_ROOT}/include/${INC_PATH_POSTFIX}
+                    /usr/include/${INC_PATH_POSTFIX}
+                    /usr/local/include/${INC_PATH_POSTFIX}
+                    NO_CMAKE_FIND_ROOT_PATH
+                )
+            ELSE(INC_LIST_LENGTH EQUAL 0)
+                SET(${DEP_NAME}_INCLUDE_DIR "")
+                FOREACH(INC_ITEM IN LISTS INC_PATH_POSTFIX)
+                    FIND_PATH(TEMP_RESULT ${INCLUDE_NAMES}
+                        PATHS ${THIRDPARTY_ROOT}/include/${INC_ITEM}
+                        /usr/include/${INC_ITEM}
+                        /usr/local/include/${INC_ITEM}
+                        NO_CMAKE_FIND_ROOT_PATH
+                    )
+
+                    IF(TEMP_RESULT)
+                        SET(${DEP_NAME}_INCLUDE_DIR ${TEMP_RESULT})
+                        UNSET(TEMP_RESULT CACHE)
+                        BREAK()
+                    ENDIF()
+                    UNSET(TEMP_RESULT CACHE)
+                ENDFOREACH()
+            ENDIF(INC_LIST_LENGTH EQUAL 0)
         ELSE()
             FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
                 PATHS ${THIRDPARTY_ROOT}/include
