@@ -416,6 +416,17 @@ namespace osgVerse
         StandardPipelineParameters _parameters;
         bool _withSky, _withSelector;
     };
+
+    /** Realize operation for normal osgViewer::Viewer to check OpenGL states before rendering */
+    class RealizeOperation : public osg::Operation
+    {
+    public:
+        GLVersionData* getVersionData() { return _glVersionData.get(); }
+        virtual void operator()(osg::Object* object);
+
+    protected:
+        osg::ref_ptr<GLVersionData> _glVersionData;
+    };
 }
 
 #endif

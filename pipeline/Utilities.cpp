@@ -241,6 +241,24 @@ namespace osgVerse
         regObject->addFileExtensionAlias("hdr", "verse_image");
 #endif
 
+        osg::GraphicsContext::WindowingSystemInterfaces::Interfaces& interfaces =
+            osg::GraphicsContext::getWindowingSystemInterfaces()->getInterfaces();
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        std::vector<osg::GraphicsContext::WindowingSystemInterface*> wsiToRemove; bool hasSDL = false;
+        for (size_t i = 0; i < interfaces.size(); ++i)
+        {
+            const std::string& name = interfaces[i]->getName();
+            if (name != "SDL") wsiToRemove.push_back(interfaces[i].get()); else hasSDL = true;
+        }
+
+        if (hasSDL && !wsiToRemove.empty())
+        {
+            for (size_t i = 0; i < wsiToRemove.size(); ++i)
+                osg::GraphicsContext::getWindowingSystemInterfaces()->removeWindowingSystemInterface(wsiToRemove[i]);
+        }
+        if (hasSDL) OSG_NOTICE << "[osgVerse] Enable SDL to manage EGL windowing system" << std::endl;
+#endif
+
         g_argumentCount = argc;
         if (argc == 0) return osg::ArgumentParser(NULL, NULL);
         return osg::ArgumentParser(&g_argumentCount, argv);

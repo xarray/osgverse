@@ -98,6 +98,7 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);

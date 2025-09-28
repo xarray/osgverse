@@ -1,7 +1,5 @@
 #include <osg/io_utils>
 #include <osg/Texture2D>
-#include <osg/BindImageTexture>
-#include <osg/DispatchCompute>
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
@@ -366,7 +364,9 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(camManipulator.get());
     viewer.setSceneData(root.get());
-    viewer.run();
-    //osgDB::writeNodeFile(*earth, "../earth.osg");
-    return 0;
+    viewer.setRealizeOperation(new osgVerse::RealizeOperation);
+
+    int screenNo = 0; arguments.read("--screen", screenNo);
+    viewer.setUpViewOnSingleScreen(screenNo);
+    return viewer.run();
 }

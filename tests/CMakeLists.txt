@@ -77,11 +77,11 @@ NEW_EXAMPLE(osgVerse_Test_Pipeline pipeline_test.cpp)  # Basic pipeline usage an
 NEW_EXAMPLE(osgVerse_Test_Report_Graph report_graph_test.cpp)  # Scene graph structure printer example
 NEW_EXAMPLE(osgVerse_Test_Shader_Library shader_library_test.cpp)  # Shader library loading and platform-testing example
 NEW_EXAMPLE(osgVerse_Test_Shadow shadow_test.cpp)  # Shadow algorithm and efficiency testing example
+NEW_EXAMPLE(osgVerse_Test_Earth earth_test.cpp)  # Lightweight earth, atmosphere and ocean creation example
 IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Pbr_Prerequisite pbr_prerequisite.cpp)  # PBR necessary textures creator example
     NEW_EXAMPLE(osgVerse_Test_Atmospheric atmospheric_scattering.cpp)  # Precomputed atmosphere textures example // FIXME: implement
     NEW_EXAMPLE(osgVerse_Test_CSG csg_stencil_test.cpp)  # Stencil-based CSG algorithm example  // FIXME: SCS implement, simple hint UI
-    NEW_EXAMPLE(osgVerse_Test_Earth earth_test.cpp)  # Lightweight earth, atmosphere and ocean creation example
     NEW_EXAMPLE(osgVerse_Test_ImGui imgui_test.cpp)  # Basic IMGUI-based UI example  // FIXME: add Drawer2D usage
     NEW_EXAMPLE(osgVerse_Test_MCP_Server mcp_server_test.cpp)  # Basic MCP server support example
     NEW_EXAMPLE(osgVerse_Test_Media_Stream media_stream_test.cpp)  # Media playing/streaming example  // FIXME: use datachannel, remove macro

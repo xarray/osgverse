@@ -539,14 +539,15 @@ public:
     virtual void compile()
     {
         osgUtil::SceneView* sceneView = _sceneView[0].get();
-#if OSG_VERSION_GREATER_THAN(3, 6, 5)
-        osg::GLExtensions* ext = (sceneView == NULL) ? NULL
-                               : sceneView->getState()->get<osg::GLExtensions>();
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        osg::GLExtensions* ext = (sceneView == NULL) ? NULL : sceneView->getState()->get<osg::GLExtensions>();
         if (ext)
         {
+#   if OSG_VERSION_GREATER_THAN(3, 6, 5)
             // Re-check some extensions as they may fail in GLES and other situations
             ext->isTextureLODBiasSupported = osg::isGLExtensionSupported(
                 sceneView->getState()->getContextID(), "GL_EXT_texture_lod_bias");
+#endif
         }
 #endif
         osgViewer::Renderer::compile();

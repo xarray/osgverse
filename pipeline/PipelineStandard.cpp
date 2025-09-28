@@ -32,11 +32,14 @@ public:
         if (p) p->setVersionData(_data.get());
     }
 
-    virtual void operator()(osg::RenderInfo& renderInfo) const
+    virtual void operator()(osg::RenderInfo& renderInfo) const { check(renderInfo.getState()); }
+    osgVerse::GLVersionData* getVersionData() { return _data.get(); }
+
+    void check(osg::State* state) const
     {
         osgVerse::GLVersionData* d = const_cast<osgVerse::GLVersionData*>(_data.get());
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
-        osg::GLExtensions* ext = renderInfo.getState()->get<osg::GLExtensions>();
+        osg::GLExtensions* ext = state->get<osg::GLExtensions>();
         d->glVersion = ext->glVersion * 100;
         d->glslVersion = ext->glslLanguageVersion * 100;
         d->glslSupported = ext->isGlslSupported;
@@ -44,7 +47,7 @@ public:
         d->drawBuffersSupported = (ext->glDrawBuffers != NULL);
         d->depthStencilSupported = ext->isPackedDepthStencilSupported;
 #else
-        osg::GL2Extensions* ext = osg::GL2Extensions::Get(renderInfo.getContextID(), true);
+        osg::GL2Extensions* ext = osg::GL2Extensions::Get(state->getContextID(), true);
         d->glVersion = ext->getGlVersion() * 100;
         d->glslVersion = ext->getLanguageVersion() * 100;
         d->glslSupported = ext->isGlslSupported();
@@ -97,6 +100,33 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
 
 namespace osgVerse
 {
+    void RealizeOperation::operator()(osg::Object* object)
+    {
+        osg::GraphicsContext* context = dynamic_cast<osg::GraphicsContext*>(object);
+        osg::State* state = (context != NULL) ? context->getState() : NULL;
+        if (!state) { OSG_WARN << "[RealizeOperation] Failed to realize context\n"; return; }
+
+        osg::ref_ptr<GLExtensionTester> tester = new GLExtensionTester(NULL);
+        tester->check(state); _glVersionData = tester->getVersionData();
+        if (_glVersionData.valid())
+        {
+            OSG_NOTICE << "[RealizeOperation] OpenGL Driver: " << _glVersionData->version << "; GLSL: "
+                       << _glVersionData->glslVersion << "; Renderer: " << _glVersionData->renderer << std::endl;
+        }
+
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        osg::GLExtensions* ext = state->get<osg::GLExtensions>();
+        if (ext)
+        {
+#   if OSG_VERSION_GREATER_THAN(3, 6, 5)
+            // Re-check some extensions as they may fail in GLES and other situations
+            ext->isTextureLODBiasSupported =
+                osg::isGLExtensionSupported(state->getContextID(), "GL_EXT_texture_lod_bias");
+#   endif
+        }
+#endif
+    }
+
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),

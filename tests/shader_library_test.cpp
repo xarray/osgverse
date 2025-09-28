@@ -14,6 +14,7 @@
 #include <readerwriter/Utilities.h>
 #include <pipeline/Utilities.h>
 #include <pipeline/Global.h>
+#include <pipeline/Pipeline.h>
 #include <pipeline/ShaderLibrary.h>
 
 #ifndef _DEBUG
@@ -89,6 +90,7 @@ int main(int argc, char** argv)
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
     // Create the graphics window
     osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;

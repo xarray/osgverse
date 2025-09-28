@@ -179,8 +179,13 @@ void GraphicsWindowSDL::initialize()
 {
 #if defined(VERSE_EMBEDDED) && !defined(VERSE_WASM)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#elif !defined(VERSE_GLES_DESKTOP)
-    // do something?
+    OSG_NOTICE << "[GraphicsWindowSDL] Create EGL system for embedded device" << std::endl;
+#elif defined(VERSE_GLES_DESKTOP)
+    OSG_NOTICE << "[GraphicsWindowSDL] Create EGL system for desktop PC" << std::endl;
+#elif defined(VERSE_WASM)
+    OSG_NOTICE << "[GraphicsWindowSDL] Create EGL system for WebAssembly" << std::endl;
+#else
+    OSG_NOTICE << "[GraphicsWindowSDL] Create native windowing system" << std::endl;
 #endif
 
 #if defined(VERSE_GLES_DESKTOP)
