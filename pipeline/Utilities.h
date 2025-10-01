@@ -213,6 +213,7 @@ namespace osgVerse
         static osg::Texture* rawFloatingTexture2D(unsigned char* data, int w, int h, bool rgb);
         static osg::Texture* rawFloatingTexture3D(unsigned char* data, int w, int h, int d, bool rgb);
     };
+#define GLOBE_ATTRIBUTE_INDEX 5
 
     /** A simple HUD text displayer */
     struct HeadUpDisplayCanvas

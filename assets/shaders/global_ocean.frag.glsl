@@ -1,5 +1,9 @@
 uniform sampler2D EarthMaskSampler;  // original earth scene
+#ifdef VERSE_ENABLED_TEX1D
 uniform sampler1D WavesSampler; // waves parameters (h, omega, kx, ky) in wind space
+#else
+uniform sampler2D WavesSampler; // waves parameters (h, omega, kx, ky) in wind space
+#endif
 uniform sampler2D GlareSampler;
 uniform sampler2D TransmittanceSampler;
 uniform sampler2D SkyIrradianceSampler;
@@ -143,7 +147,11 @@ void main()
     float iMin = max(0.0, floor((log2(NYQUIST_MIN * lod / SeaGridLODs.x) - SeaGridLODs.z) * SeaGridLODs.w));
     for (float i = iMin; i <= iMAX; i += 1.0)
     {
+#ifdef VERSE_ENABLED_TEX1D
         vec4 wt = VERSE_TEX1D(WavesSampler, (i + 0.5) / WaveCount);
+#else
+        vec4 wt = VERSE_TEX2D(WavesSampler, vec2((i + 0.5) / WaveCount, 0.5));
+#endif
         //vec4 wt = textureLod(WavesSampler, (i + 0.5) / WaveCount, 0.0);
         float phase = wt.y * T - dot(wt.zw, uv);
         float s = sin(phase), c = cos(phase);

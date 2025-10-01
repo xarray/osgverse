@@ -66,5 +66,5 @@ ENDIF()
 
 ADD_SUBDIRECTORY(pbr_demo)
 ADD_SUBDIRECTORY(script_demo)
-ADD_SUBDIRECTORY(earth_demo)
+#ADD_SUBDIRECTORY(earth_demo)
 ADD_SUBDIRECTORY(osgearth_demo)

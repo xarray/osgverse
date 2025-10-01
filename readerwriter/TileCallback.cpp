@@ -277,8 +277,9 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
     osg::Geometry* geom = new osg::Geometry;
     geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
     geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-    geom->setVertexAttribArray(1, ca.get()); geom->setVertexAttribNormalize(1, GL_FALSE);
-    geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
+    geom->setVertexAttribArray(GLOBE_ATTRIBUTE_INDEX, ca.get());
+    geom->setVertexAttribNormalize(GLOBE_ATTRIBUTE_INDEX, GL_FALSE);
+    geom->setVertexAttribBinding(GLOBE_ATTRIBUTE_INDEX, osg::Geometry::BIND_PER_VERTEX);
     geom->addPrimitiveSet(de.get());
     if (!_flatten && _skirtRatio > 0.0f)
         updateSkirtData(geom, osg::inDegrees(tileMax.y() - tileMin.y()), true);
@@ -297,7 +298,7 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
 
     osg::ref_ptr<osg::Vec3Array> va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
     osg::ref_ptr<osg::Vec3Array> na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
-    osg::ref_ptr<osg::Vec4Array> ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(1));
+    osg::ref_ptr<osg::Vec4Array> ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(GLOBE_ATTRIBUTE_INDEX));
     if (va->size() < numCols * numRows) return;
     if (!_flatten)
     {
@@ -378,7 +379,7 @@ void TileCallback::updateSkirtData(osg::Geometry* geom, double tileRefSize, bool
     osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
     osg::Vec3Array* na = static_cast<osg::Vec3Array*>(geom->getNormalArray());
     osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
-    osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(1));
+    osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(GLOBE_ATTRIBUTE_INDEX));
     osg::DrawElementsUShort* de = static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0));
     va->dirty(); na->dirty(); ta->dirty(); ca->dirty(); geom->dirtyBound();
     if (addingTriangles) { de->dirty(); }
@@ -671,7 +672,7 @@ void TileManager::updateTileGeometry(TileCallback& tileCB, osg::Geometry* geom)
     if (!_dynamicCallback->updateEntireTileGeometry(tileCB, geom))
     {
         osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
-        osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(1));
+        osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(GLOBE_ATTRIBUTE_INDEX));
         osg::Vec3d tileMin, tileMax; double tileWidth = 0.0, tileHeight;
         tileCB.computeTileExtent(tileMin, tileMax, tileWidth, tileHeight);
 

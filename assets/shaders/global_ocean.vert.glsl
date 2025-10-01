@@ -1,4 +1,8 @@
+#ifdef VERSE_ENABLED_TEX1D
 uniform sampler1D WavesSampler; // waves parameters (h, omega, kx, ky) in wind space
+#else
+uniform sampler2D WavesSampler; // waves parameters (h, omega, kx, ky) in wind space
+#endif
 uniform mat4 CameraToOcean, OceanToCamera, OceanToWorld;
 uniform mat4 ScreenToCamera, CameraToScreen;
 uniform vec4 SeaGridLODs;  // grid cell size in pixels, angle under which a grid cell is seen,
@@ -68,9 +72,13 @@ void main()
     if (duv.x != 0.0 || duv.y != 0.0)
     {
         float iMin = max(floor((log2(NYQUIST_MIN * lod) - SeaGridLODs.z) * SeaGridLODs.w), 0.0);
-        for (float i = iMin; i < int(WaveCount); ++i)
+        for (float i = iMin; i < WaveCount; i += 1.0)
         {
+#ifdef VERSE_ENABLED_TEX1D
             vec4 wt = VERSE_TEX1D(WavesSampler, (i + 0.5) / WaveCount);
+#else
+            vec4 wt = VERSE_TEX2D(WavesSampler, vec2((i + 0.5) / WaveCount, 0.5));
+#endif
             //vec4 wt = textureLod(WavesSampler, (i + 0.5) / WaveCount, 0.0);
             float phase = wt.y * T - dot(wt.zw, uv);
             float s = sin(phase), c = cos(phase);

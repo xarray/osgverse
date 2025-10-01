@@ -94,7 +94,7 @@ void EarthAtmosphereOcean::applyToGlobe(osg::StateSet* ss, osg::Texture* baseTex
     ss->getOrCreateUniform("UvOffset3", osg::Uniform::FLOAT_VEC4)->set(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
 
     osg::Program* program = apply(ss, vs, fs, 3, ref);
-    program->addBindAttribLocation("osg_GlobeData", 1);  // for computing ocean plane
+    program->addBindAttribLocation("osg_GlobeData", GLOBE_ATTRIBUTE_INDEX);  // for computing ocean plane
 }
 
 void EarthAtmosphereOcean::applyToOcean(osg::StateSet* ss, osg::Texture* postMaskTex, osg::Texture* waveTex,
@@ -435,7 +435,11 @@ osg::Texture* EarthAtmosphereOcean::createOceanWaves(float& seaRoughness)
     image->setInternalTextureFormat(GL_RGBA32F_ARB);
     memcpy(image->data(), waves.data(), waves.size() * sizeof(osg::Vec4));
 
+#if false
     osg::ref_ptr<osg::Texture1D> tex = new osg::Texture1D;
+#else
+    osg::ref_ptr<osg::Texture2D> tex = new osg::Texture2D;
+#endif
     tex->setImage(image.get()); tex->setResizeNonPowerOfTwoHint(false);
     tex->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_BORDER);
     tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
