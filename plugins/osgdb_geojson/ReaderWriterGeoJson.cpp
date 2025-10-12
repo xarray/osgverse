@@ -8,6 +8,7 @@
 #include <osgDB/Registry>
 #include <osgUtil/Tessellator>
 
+#include <readerwriter/FeatureDefinition.h>
 #include <mapbox/geojson.hpp>
 #include <mapbox/geojson/rapidjson.hpp>
 #include <mapbox/geometry.hpp>

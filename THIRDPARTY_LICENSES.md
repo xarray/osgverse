@@ -64,6 +64,7 @@
 | recastnavigation | Embedded |           | AI                 | Zlib         | https://github.com/recastnavigation/recastnavigation |
 | rLottie          | Embedded | 0.2       | -                  | MIT (+)      | https://github.com/Samsung/rlottie |
 | simdb            | Embedded |           | ReaderWriter       | Apache2      | https://github.com/LiveAsynchronousVisualizedArchitecture/simdb |
+| shapelib         | Embedded | 1.6.2     | verse_shp          | MIT          | https://github.com/OSGeo/shapelib |
 | span             | Embedded |           | -                  | Boost        | https://github.com/tcbrindle/span |
 | spz              | Embedded |           | verse_3dgs_        | MIT          | https://github.com/nianticlabs/spz |
 | sqlite3          | Embedded |           | verse_mbtiles      | Public       | https://www.sqlite.org/index.html |

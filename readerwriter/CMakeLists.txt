@@ -1,7 +1,7 @@
 SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_INCLUDE_FILES
     Utilities.h OsgbTileOptimizer.h FileCache.h DatabasePager.h TileCallback.h
-    EarthManipulator.h MaterialGraph.h NamedObjectFinder.h Export.h
+    EarthManipulator.h MaterialGraph.h NamedObjectFinder.h FeatureDefinition.h Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h

@@ -10,6 +10,7 @@
 #include <osgUtil/Tessellator>
 
 #include <pipeline/Drawer2D.h>
+#include <readerwriter/FeatureDefinition.h>
 #include <vtzero/vector_tile.hpp>
 
 struct ImageVisitor
