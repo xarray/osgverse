@@ -110,23 +110,21 @@ protected:
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
 
         std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
-        osg::Vec3 posValue, scaleValue, colorValue; osg::Vec4 rotValue;
-        float alphaValue = 0.0f, reserved0 = 0.0f, reserved1 = 0.0f; size_t index = 0;
+        osg::Vec3 posValue, scaleValue; osg::Vec4 rotValue; size_t index = 0;
         while (ss.good() && !ss.eof())
         {
+            uint8_t rgba[4], rotation[4];
             ss.read((char*)posValue.ptr(), sizeof(float) * 3);
-            ss.read((char*)rotValue.ptr(), sizeof(float) * 4);
             ss.read((char*)scaleValue.ptr(), sizeof(float) * 3);
-            ss.read((char*)&alphaValue, sizeof(float));
-            ss.read((char*)colorValue.ptr(), sizeof(float) * 3);
-            ss.read((char*)&reserved0, sizeof(float));
-            ss.read((char*)&reserved1, sizeof(float));
+            ss.read((char*)rgba, sizeof(uint8_t) * 4);
+            ss.read((char*)rotation, sizeof(uint8_t) * 4);
 
-            pos->push_back(posValue); rot->push_back(osg::Quat(rotValue)); alpha->push_back(alphaValue);
-            scale->push_back(osg::Vec3(expf(scaleValue[0]), expf(scaleValue[1]), expf(scaleValue[2])));
-            rD0->push_back(osg::Vec4(colorValue[0], 0.0f, 0.0f, 0.0f));
-            gD0->push_back(osg::Vec4(colorValue[1], 0.0f, 0.0f, 0.0f));
-            bD0->push_back(osg::Vec4(colorValue[2], 0.0f, 0.0f, 0.0f));
+            for (int i = 0; i < 4; ++i) rotValue[i] = (rotation[i] / 255.0f) * 2.0f - 1.0f;
+            rotValue.normalize(); rot->push_back(osg::Quat(rotValue));
+            pos->push_back(posValue); scale->push_back(scaleValue); alpha->push_back(rgba[3] / 255.0f);
+            rD0->push_back(osg::Vec4(rgba[0] / 255.0f, 0.0f, 0.0f, 0.0f));
+            gD0->push_back(osg::Vec4(rgba[1] / 255.0f, 0.0f, 0.0f, 0.0f));
+            bD0->push_back(osg::Vec4(rgba[2] / 255.0f, 0.0f, 0.0f, 0.0f));
             de->push_back(index++);
         }
         if (index == 0) return NULL;

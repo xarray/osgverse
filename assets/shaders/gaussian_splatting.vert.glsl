@@ -10,7 +10,7 @@ VERSE_VS_IN vec4 osg_R_SH3, osg_G_SH3, osg_B_SH3;
 VERSE_VS_OUT vec4 color_gs, covariance_gs;
 VERSE_VS_OUT vec2 center2D_gs;
 
-#define FULL_SH 1
+#define FULL_SH 0
 vec3 computeRadianceFromSH(const vec3 v)
 {
 #ifdef FULL_SH

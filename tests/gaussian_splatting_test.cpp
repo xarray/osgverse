@@ -54,8 +54,9 @@ public:
                 osg::StateSet* ss = gs->getOrCreateStateSet();
                 ss->setAttribute(_program.get());
                 ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-                ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
+                //ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
                 ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
+                ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
                 ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);  // to sort geometries by depth
                 gs->setCullCallback(_callback.get());
                 if (_sorter.valid()) _sorter->addGeometry(gs);
@@ -80,7 +81,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments);
-    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_axes.ply");
+    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat");
     if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
@@ -97,11 +98,8 @@ int main(int argc, char** argv)
     GaussianStateVisitor gsv(sorter.get()); gs->accept(gsv);
     while (!viewer.done())
     {
-        if (!(viewer.getFrameStamp()->getFrameNumber() % 100))
-        {
-            // TODO: too slow! need GPU implementation!
-            sorter->cull(viewer.getCamera()->getViewMatrix());
-        }
+        // TODO: too slow! need GPU implementation!
+        sorter->cull(viewer.getCamera()->getViewMatrix());
         viewer.frame();
     }
     return 0;

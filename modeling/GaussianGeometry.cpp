@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <osg/io_utils>
 #include <osgUtil/CullVisitor>
 #include "GaussianGeometry.h"
 using namespace osgVerse;
