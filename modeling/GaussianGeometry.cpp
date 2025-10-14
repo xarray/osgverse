@@ -64,6 +64,20 @@ public:
     }
 };
 
+osg::BoundingSphere GaussianGeometry::computeBound() const
+{
+    osg::BoundingSphere bs = osg::Geometry::computeBound();
+    bs._radius *= 2.0f; return bs;  // FIXME: too simple method to compute bound
+}
+
+osg::BoundingBox GaussianGeometry::computeBoundingBox() const
+{
+    osg::BoundingBox bb = osg::Geometry::computeBoundingBox();
+    osg::Vec3 d = bb._max - bb._min;
+    bb._min -= d; bb._max += d;
+    return bb;  // FIXME: too simple method to compute bound
+}
+
 osg::NodeCallback* GaussianGeometry::createUniformCallback()
 { return new GaussianUniformCallback; }
 

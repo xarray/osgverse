@@ -25,6 +25,9 @@ public:
     GaussianGeometry();
     GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
 
+    virtual osg::BoundingSphere computeBound() const;
+    virtual osg::BoundingBox computeBoundingBox() const;
+
     static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs);
     static osg::NodeCallback* createUniformCallback();
 

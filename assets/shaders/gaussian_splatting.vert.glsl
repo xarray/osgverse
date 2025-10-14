@@ -10,7 +10,7 @@ VERSE_VS_IN vec4 osg_R_SH3, osg_G_SH3, osg_B_SH3;
 VERSE_VS_OUT vec4 color_gs, covariance_gs;
 VERSE_VS_OUT vec2 center2D_gs;
 
-#define FULL_SH 0
+#define FULL_SH 1
 vec3 computeRadianceFromSH(const vec3 v)
 {
 #ifdef FULL_SH
@@ -107,7 +107,7 @@ void main()
 
     // compute radiance from SH
     vec3 eyeDirection = normalize(eyeVertex.xyz / eyeVertex.w);
-    vec3 direction = transpose(mat3(osg_ViewMatrixInverse)) * eyeDirection;
-    color_gs = vec4(computeRadianceFromSH(direction), alpha);
+    //vec3 direction = transpose(mat3(osg_ViewMatrixInverse)) * eyeDirection;
+    color_gs = vec4(computeRadianceFromSH(eyeDirection), alpha);
     gl_Position = proj;
 }

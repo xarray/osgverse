@@ -88,7 +88,6 @@ int main(int argc, char** argv)
     root->addChild(gs.get());
 
     osgViewer::Viewer viewer;
-    viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
