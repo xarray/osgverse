@@ -8,8 +8,7 @@ void main()
     mat2 cov2Dinv = mat2(invCovariance.xy, invCovariance.zw);
     float g = exp(-0.5 * dot(d, cov2Dinv * d));
 
-    float alpha = color.a * g;
-    if (alpha <= (1.0 / 256.0)) discard;
-    fragData = vec4(color.rgb * alpha, alpha);
+    float alpha = color.a * g; if (alpha <= (1.0 / 255.0)) discard;
+    fragData = vec4(color.rgb * alpha, alpha);  // FIXME: tonemapping..
     VERSE_FS_FINAL(fragData);
 }

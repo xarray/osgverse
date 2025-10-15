@@ -1,3 +1,8 @@
+// Prevent GLES2/gl2.h to redefine gl* functions
+#define GL_GLES_PROTOTYPES 0
+#include <GL/glew.h>
+#include <gl_radix_sort/RadixSort.hpp>
+
 #include <algorithm>
 #include <iostream>
 #include <osg/io_utils>
@@ -161,6 +166,21 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
                 return v0.z() < v1.z();  // sort primitive indices
             });
         break;
-    default: break;
+    case GL46_RADIX_SORT:
+        {
+            std::vector<GLuint> keys(indices->begin(), indices->end());
+            std::vector<GLuint> values(keys.size());
+            for (size_t i = 0; i < indices->size(); ++i)
+                values[i] = (GLuint)(((*pos)[(*indices)[i]] * localToEye).z() * 1000.0f);
+
+            glu::ShaderStorageBuffer key_buffer(keys);
+            glu::ShaderStorageBuffer val_buffer(values);
+            glu::RadixSort radix_sort;
+            radix_sort(key_buffer.handle(), val_buffer.handle(), keys.size());
+            key_buffer.write_data(indices->getDataPointer(), indices->size() * sizeof(GLuint));
+        }
+        break;
+    default:
+        if (_sortCallback.valid()) _sortCallback->sort(indices, pos, model, view); break;
     }
 }

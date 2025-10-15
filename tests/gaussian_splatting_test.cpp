@@ -54,7 +54,7 @@ public:
                 osg::StateSet* ss = gs->getOrCreateStateSet();
                 ss->setAttribute(_program.get());
                 ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-                //ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
+                ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
                 ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
                 ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
                 ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);  // to sort geometries by depth
@@ -88,16 +88,19 @@ int main(int argc, char** argv)
     root->addChild(gs.get());
 
     osgViewer::Viewer viewer;
+    viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
 
-    osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;
+    osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;  // TODO: better sort in GL context
+    if (arguments.read("--gl46")) sorter->setMethod(osgVerse::GaussianSorter::GL46_RADIX_SORT);
+
     GaussianStateVisitor gsv(sorter.get()); gs->accept(gsv);
     while (!viewer.done())
     {
-        // TODO: too slow! need GPU implementation!
         sorter->cull(viewer.getCamera()->getViewMatrix());
         viewer.frame();
     }

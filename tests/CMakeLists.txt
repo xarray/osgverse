@@ -98,7 +98,7 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)  # Tween animation path example  // FIXME: with simple UI
 
     IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
-        NEW_CUDA_EXAMPLE(osgVerse_Test_Video video_test.cpp)  # Hardware video encoding example
+        NEW_EXAMPLE(osgVerse_Test_Video video_test.cpp)  # Hardware video encoding example
     ENDIF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
 
 	IF(MSVC_VERSION GREATER 1900)

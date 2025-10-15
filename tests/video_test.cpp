@@ -10,7 +10,6 @@
 
 #include <pipeline/CudaTexture2D.h>
 #include <pipeline/Utilities.h>
-#include <cuda.h>
 #include <iostream>
 #include <sstream>
 
@@ -19,36 +18,19 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
-static void createCudaContext(CUcontext* cuContext, int iGpu, unsigned int flags)
-{
-    CUdevice cuDevice = 0;
-    char deviceName[80];
-
-    cuDeviceGet(&cuDevice, iGpu);
-    cuDeviceGetName(deviceName, sizeof(deviceName), cuDevice);
-    cuCtxCreate(cuContext, flags, cuDevice);
-    OSG_NOTICE << "GPU in use: " << deviceName << std::endl;
-}
-
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     std::string file; bool recordeMode = arguments.read("--record");
     if (!arguments.read("--file", file))
     {
-        std::cout << "Please specify a movie file name or stream URL."
+        std::cout << "Please specify a movie file name or stream URL with --file."
                   << std::endl; return 1;
     }
     if (file.empty())
     { file = "record.mp4.verse_ffmpeg"; recordeMode = true; }
 
-    int numGpu = 0, idGpu = 0;
-    cuInit(0); cuDeviceGetCount(&numGpu);
-    if (idGpu < 0 || idGpu >= numGpu) return 1;
-
-    CUcontext cuContext = NULL;
-    createCudaContext(&cuContext, idGpu, CU_CTX_SCHED_BLOCKING_SYNC);
-
+    osgVerse::CudaAlgorithm::CUcontext cuContext = osgVerse::CudaAlgorithm::initializeContext(0);
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osg::ref_ptr<osgVerse::CudaTexture2D> videoTexture;
     osg::ref_ptr<osgVerse::CudaResourceDemuxerMuxerContainer> videoRecorder;
@@ -117,6 +99,6 @@ int main(int argc, char** argv)
     }
 
     if (videoTexture.valid()) videoTexture->releaseCudaData();
-    cuCtxDestroy(cuContext);
+    osgVerse::CudaAlgorithm::deinitializeContext(cuContext);
     return 0;
 }

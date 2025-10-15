@@ -62,10 +62,18 @@ public:
 
     enum Method
     {
-        CPU_SORT
+        CPU_SORT, GL46_RADIX_SORT, USER_SORT
     };
     void setMethod(Method m) { _method = m; }
     Method getMethod() const { return _method; }
+
+    struct Sorter : public osg::Referenced
+    {
+        virtual void sort(osg::DrawElementsUInt* indices, osg::Vec3Array* pos,
+                          const osg::Matrix& model, const osg::Matrix& view) = 0;
+    };
+    void setSortCallback(Sorter* s) { _sortCallback = s; }
+    Sorter* getSortCallback() { return _sortCallback.get(); }
 
     void addGeometry(GaussianGeometry* geom);
     void removeGeometry(GaussianGeometry* geom);
@@ -76,6 +84,7 @@ protected:
     virtual void cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view);
 
     std::set<osg::ref_ptr<GaussianGeometry>> _geometries;
+    osg::ref_ptr<Sorter> _sortCallback;
     Method _method;
 };
 

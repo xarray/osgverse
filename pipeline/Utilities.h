@@ -331,6 +331,21 @@ namespace osgVerse
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
         { /*traverse(node, nv);*/ }
     };
+
+    /** CUDA/MUSA related algorithm */
+    struct CudaAlgorithm
+    {
+#ifdef VERSE_ENABLE_MTT
+        typedef struct MUctx_st* CUcontext;
+#else
+        typedef struct CUctx_st* CUcontext;
+#endif
+        static CUcontext initializeContext(int gpuID);
+        static void deinitializeContext(CUcontext context);
+
+        static bool radixSort(const std::vector<unsigned int>& inValues, const std::vector<unsigned int>& inIDs,
+                              std::vector<unsigned int>& outIDs);
+    };
 }
 
 #ifdef OSG_LIBRARY_STATIC

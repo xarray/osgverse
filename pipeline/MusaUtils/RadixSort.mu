@@ -384,7 +384,7 @@ __global__ void gpu_radix_sort_local(unsigned int* d_out_sorted,
 }
 
 __global__ void gpu_glbl_shuffle(unsigned int* d_out,
-    unsigned int* d_in,
+    unsigned int* d_in, unsigned int* v_in,
     unsigned int* d_scan_block_sums,
     unsigned int* d_prefix_sums,
     unsigned int input_shift_width,
@@ -402,7 +402,7 @@ __global__ void gpu_glbl_shuffle(unsigned int* d_out,
 
     if (cpy_idx < d_in_len)
     {
-        unsigned int t_data = d_in[cpy_idx];
+        unsigned int t_data = v_in[cpy_idx];
         unsigned int t_2bit_extract = (t_data >> input_shift_width) & 3;
         unsigned int t_prefix_sum = d_prefix_sums[cpy_idx];
         unsigned int data_glbl_pos = d_scan_block_sums[t_2bit_extract * gridDim.x + blockIdx.x]
@@ -415,7 +415,7 @@ __global__ void gpu_glbl_shuffle(unsigned int* d_out,
 // An attempt at the gpu radix sort variant described in this paper:
 // https://vgc.poly.edu/~csilva/papers/cgf.pdf
 void radix_sort(unsigned int* const d_out,
-    unsigned int* const d_in,
+    unsigned int* const d_in, unsigned int* const v_in,
     unsigned int d_in_len)
 {
     unsigned int block_sz = MAX_BLOCK_SZ;
@@ -477,7 +477,7 @@ void radix_sort(unsigned int* const d_out,
 
         // scatter/shuffle block-wise sorted array to final positions
         gpu_glbl_shuffle <<<grid_sz, block_sz >>> (d_in,
-            d_out,
+            d_out, v_in,
             d_scan_block_sums,
             d_prefix_sums,
             shift_width,

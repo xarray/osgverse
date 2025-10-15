@@ -1,4 +1,4 @@
-// See https://github.com/mark-poscablo/gpu-radix-sort/tree/master
+// See https://github.com/mark-poscablo/gpu-radix-sort/
 #pragma once
 
 #include <cmath>
@@ -24,5 +24,5 @@ extern void sum_scan_blelloch(unsigned int* const d_out,
                               const unsigned int* const d_in,
                               const size_t numElems);
 extern void radix_sort(unsigned int* const d_out,
-                       unsigned int* const d_in,
+                       unsigned int* const d_in, unsigned int* const v_in,
                        unsigned int d_in_len);
