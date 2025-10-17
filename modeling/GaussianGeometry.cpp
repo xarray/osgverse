@@ -168,16 +168,26 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
         break;
     case GL46_RADIX_SORT:
         {
+            if (_firstFrame)
+            { glewInit(); _firstFrame = false; }
+
             std::vector<GLuint> keys(indices->begin(), indices->end());
             std::vector<GLuint> values(keys.size());
             for (size_t i = 0; i < indices->size(); ++i)
-                values[i] = (GLuint)(((*pos)[(*indices)[i]] * localToEye).z() * 1000.0f);
+            {
+                float d = ((*pos)[(*indices)[i]] * localToEye).z();
+                union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+                values[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+            }
 
             glu::ShaderStorageBuffer key_buffer(keys);
             glu::ShaderStorageBuffer val_buffer(values);
             glu::RadixSort radix_sort;
-            radix_sort(key_buffer.handle(), val_buffer.handle(), keys.size());
-            key_buffer.write_data(indices->getDataPointer(), indices->size() * sizeof(GLuint));
+            radix_sort(val_buffer.handle(), key_buffer.handle(), keys.size());
+            //key_buffer.write_data(indices->getDataPointer(), indices->size() * sizeof(GLuint));
+
+            std::vector<GLuint> sorted_keys = key_buffer.get_data<GLuint>();
+            indices->assign(sorted_keys.rbegin(), sorted_keys.rend());
         }
         break;
     default:

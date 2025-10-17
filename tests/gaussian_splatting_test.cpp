@@ -71,6 +71,22 @@ protected:
     osg::observer_ptr<osgVerse::GaussianSorter> _sorter;
 };
 
+class SortCallback : public osg::Camera::DrawCallback
+{
+public:
+    SortCallback(osgVerse::GaussianSorter* sorter)
+        : _sorter(sorter) {}
+
+    virtual void operator()(osg::RenderInfo& renderInfo) const
+    {
+        if (renderInfo.getCurrentCamera() != NULL)
+            _sorter->cull(renderInfo.getCurrentCamera()->getViewMatrix());
+    }
+
+protected:
+    osg::ref_ptr<osgVerse::GaussianSorter> _sorter;
+};
+
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
@@ -99,10 +115,6 @@ int main(int argc, char** argv)
     if (arguments.read("--gl46")) sorter->setMethod(osgVerse::GaussianSorter::GL46_RADIX_SORT);
 
     GaussianStateVisitor gsv(sorter.get()); gs->accept(gsv);
-    while (!viewer.done())
-    {
-        sorter->cull(viewer.getCamera()->getViewMatrix());
-        viewer.frame();
-    }
-    return 0;
+    viewer.getCamera()->setPreDrawCallback(new SortCallback(sorter.get()));
+    return viewer.run();
 }

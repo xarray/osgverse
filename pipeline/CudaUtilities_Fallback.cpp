@@ -5,8 +5,8 @@
 #include "Utilities.h"
 using namespace osgVerse;
 
-CUcontext CudaAlgorithm::initializeContext(int gpuID) { return NULL; }
-void CudaAlgorithm::deinitializeContext(CUcontext context) {}
+CudaAlgorithm::CUcontext CudaAlgorithm::initializeContext(int gpuID) { return NULL; }
+void CudaAlgorithm::deinitializeContext(CudaAlgorithm::CUcontext context) {}
 
 bool CudaAlgorithm::radixSort(const std::vector<unsigned int>& inValues, const std::vector<unsigned int>& inIDs,
                               std::vector<unsigned int>& outIDs) { return false; }

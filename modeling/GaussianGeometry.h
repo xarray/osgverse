@@ -57,7 +57,7 @@ protected:
 class GaussianSorter : public osg::Referenced
 {
 public:
-    GaussianSorter() : _method(CPU_SORT) {}
+    GaussianSorter() : _method(CPU_SORT), _firstFrame(true) {}
     void cull(const osg::Matrix& view);
 
     enum Method
@@ -85,7 +85,7 @@ protected:
 
     std::set<osg::ref_ptr<GaussianGeometry>> _geometries;
     osg::ref_ptr<Sorter> _sortCallback;
-    Method _method;
+    Method _method; bool _firstFrame;
 };
 
 }

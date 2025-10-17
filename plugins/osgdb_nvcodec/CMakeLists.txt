@@ -7,7 +7,7 @@ SET(LIBRARY_FILES
 #########################################
 FIND_DEPENDENCE(NV_DECODER "nvcuvid.h" "libnvidia-decode.so;libnvcuvid.so;nvcuvid.lib" "")
 FIND_DEPENDENCE(NV_ENCODER "nvEncodeAPI.h" "libnvidia-encode.so;libnvencodeapi.so;nvencodeapi.lib" "")
-IF(CUDA_FOUND)
+IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
     IF(NV_DECODER_FOUND OR NV_ENCODER_FOUND)
 
         SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
@@ -51,4 +51,4 @@ IF(CUDA_FOUND)
         ENDIF()
 
     ENDIF(NV_DECODER_FOUND OR NV_ENCODER_FOUND)
-ENDIF(CUDA_FOUND)
+ENDIF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
