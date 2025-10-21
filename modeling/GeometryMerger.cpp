@@ -350,12 +350,12 @@ osg::Geometry* GeometryMerger::createCombined(const std::vector<GeometryPair>& g
         osg::Matrix matrix = geomList[i].second; size_t vS = va->size();
         for (size_t v = 0; v < va->size(); ++v) vaAll->push_back((*va)[v] * matrix);
         if (ta) taAll->insert(taAll->end(), ta->begin(), ta->end());
-        if (na)
+        if (na && !na->empty())
         {
             if (na->size() < vS) naAll->insert(naAll->end(), vS, na->front());
             else naAll->insert(naAll->end(), na->begin(), na->end());
         }
-        if (ca)
+        if (ca && !ca->empty())
         {
             if (ca->size() < vS) caAll->insert(caAll->end(), vS, ca->front());
             else caAll->insert(caAll->end(), ca->begin(), ca->end());

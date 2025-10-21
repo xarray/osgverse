@@ -854,8 +854,10 @@ namespace osgVerse
         if (material.doubleSided) ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
         else ss->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
 
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         if (!material.extras_json_string.empty())
             MaterialGraph::instance()->readFromBlender(material.extras_json_string, *ss);
+#endif
     }
 
     osg::Texture* LoaderGLTF::createTexture(const std::string& name, tinygltf::Texture& tex)

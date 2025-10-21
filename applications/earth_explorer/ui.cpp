@@ -24,12 +24,6 @@
 #include <iomanip>
 #include <iostream>
 
-extern std::mutex commandMutex;
-extern std::set<std::string> commandList;
-extern osg::ref_ptr<osg::Texture> finalBuffer2;
-extern osg::Vec2 global_volumeRange;
-extern int global_particleIndex;
-
 const char* uiVertCode = {
     "VERSE_VS_OUT vec4 texCoord, color; \n"
     "void main() {\n"
@@ -61,61 +55,15 @@ const char* uiFragCode = {
     "}\n"
 };
 
-struct PaleoCallback : public osgVerse::TileManager::DynamicTileCallback
-{
-    virtual bool shouldMorph(osgVerse::TileCallback& cb) const
-    { return mapImage.valid() ? (morphedTiles.find(cb.getName()) == morphedTiles.end()) : false; }
-
-    virtual bool updateEntireTileGeometry(osgVerse::TileCallback& cb, osg::Geometry* geom)
-    {
-        //std::cout << "Updating " << cb.getName() << "\n";
-        morphedTiles.insert(cb.getName()); return false;
-    }
-
-    virtual osg::Vec3 updateTileVertex(osgVerse::TileCallback& cb, double lat, double lon)
-    {
-        double s = 180.0 * (lat + osg::PI_2) / osg::PI, t = 360.0 * (lon + osg::PI) * 0.5 / osg::PI;
-        double s0 = floor(s), s1 = ceil(s), t0 = floor(t), t1 = ceil(t);
-        osg::Vec4 c00 = mapImage->getColor((int)s0, (int)t0), c10 = mapImage->getColor((int)s1, (int)t0);
-        osg::Vec4 c01 = mapImage->getColor((int)s0, (int)t1), c11 = mapImage->getColor((int)s1, (int)t1);
-
-        float c = c00[0] * (s - s0) * (t - t0) + c10[0] * (s1 - s) * (t - t0) +
-                  c11[0] * (s1 - s) * (t1 - t) + c01[0] * (s - s0) * (t1 - t);
-        c = c * cb.getElevationScale();
-        return osgVerse::Coordinate::convertLLAtoECEF(osg::Vec3d(lat, lon, c));
-    }
-
-    PaleoCallback(osg::Image* img) : mapImage(img) {}
-    osg::ref_ptr<osg::Image> mapImage;
-    std::set<std::string> morphedTiles;
-};
-
 class UIHandler : public osgGA::GUIEventHandler
 {
 public:
     UIHandler(osgVerse::Drawer2D* d, const std::string& mainFolder, int w, int h)
-        : _drawer(d), _width(w), _height(h), _volumeMode(0)
+        : _drawer(d), _width(w), _height(h)
     {
         _selected = osgDB::readImageFile(mainFolder + "/ui/selected.png");
-        _volume = osgDB::readImageFile(mainFolder + "/ui/colormap-jet.png");
         _compass0 = osgDB::readImageFile(mainFolder + "/ui/compass0.png");
         _compass1 = osgDB::readImageFile(mainFolder + "/ui/compass1.png");
-
-        osgDB::DirectoryContents contents = osgDB::getDirectoryContents(mainFolder + "/paleo");
-        for (size_t i = 0; i < contents.size(); ++i)
-        {
-            std::string fileName = osgDB::getStrippedName(contents[i]);
-            std::vector<std::string> parts; osgDB::split(fileName, parts, '_');
-            if (parts.empty()) continue;
-
-            size_t index = parts.back().find("Ma");
-            int age = atoi(parts.back().substr(0, index).c_str());
-            _paleoMaps[-age] = mainFolder + "/paleo/" + contents[i];
-            _paleoAgeList.push_back(-age);
-        }
-
-        _paleoCallback = new PaleoCallback(NULL); _paleoIndex = 0;
-        osgVerse::TileManager::instance()->setDynamicCallback(_paleoCallback.get());
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -131,25 +79,6 @@ public:
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH &&
                  ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) _buttonState = 1;
-        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
-        {
-            if (ea.getKey() == osgGA::GUIEventAdapter::KEY_F1)
-            {
-                if (_paleoIndex > 0) _paleoIndex--;
-                int age = _paleoAgeList[_paleoIndex]; std::string file = _paleoMaps[age];
-                std::ifstream fin(file.c_str(), std::ios::in | std::ios::binary);
-                _paleoCallback->mapImage = createImageFromPaleo(fin);
-                _paleoCallback->morphedTiles.clear();
-            }
-            else if (ea.getKey() == osgGA::GUIEventAdapter::KEY_F2)
-            {
-                if (_paleoIndex < _paleoAgeList.size() - 1) _paleoIndex++;
-                int age = _paleoAgeList[_paleoIndex]; std::string file = _paleoMaps[age];
-                std::ifstream fin(file.c_str(), std::ios::in | std::ios::binary);
-                _paleoCallback->mapImage = createImageFromPaleo(fin);
-                _paleoCallback->morphedTiles.clear();
-            }
-        }
         return false;
     }
 
@@ -179,7 +108,7 @@ public:
                                  osg::Vec2(bbox[0], bbox[1] + bbox[3]), 20.0f, text, "", style); }
 
             // Data lists
-            DRAW_TEXT("TILES", 1.4f, 5.9f);
+            /*DRAW_TEXT("TILES", 1.4f, 5.9f);
             DRAW_TEXT("Global Night Lighting", 1.5f, 7.0f);
             DRAW_TEXT("Global Population Distribution", 1.5f, 8.0f);
             DRAW_TEXT("ERA5 Land 2m Temperature", 1.5f, 9.0f);
@@ -342,7 +271,7 @@ public:
             drawer->rotate(-northRadians, true);
             drawer->translate(pos + osg::Vec2(wCell, hCell * 16.0f / 9.0f), true);
             drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 2.0f, hCell * 32.0f / 9.0f),
-                                  0.0f, 0.0f, osgVerse::DrawerStyleData(_compass1.get()));
+                                  0.0f, 0.0f, osgVerse::DrawerStyleData(_compass1.get()));*/
         }, false);
         _drawer->finish();
     }
@@ -380,51 +309,14 @@ public:
     }
 
 protected:
-    osg::Image* createImageFromPaleo(std::istream& fin, char sep = ',')
-    {
-        osg::Image* image = new osg::Image;
-        image->allocateImage(180, 360, 1, GL_LUMINANCE, GL_FLOAT);
-        image->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
-        memset(image->data(), 0, image->getTotalSizeInBytes());
-
-        std::string line0; float* ptr = (float*)image->data();
-        while (std::getline(fin, line0))
-        {
-            std::string line = trim(line0);
-            if (line.empty()) continue; else if (line[0] == '#') continue;
-
-            std::vector<std::string> values; osgDB::split(line, values, sep);
-            if (values.size() > 2)
-            {
-                float lat = atof(values[1].c_str());
-                float lon = atof(values[0].c_str());
-                float ati = atof(values[2].c_str());
-                int xx = (int)(lat + 90.0f), yy = (int)(lon + 180.0f);
-                *(ptr + xx + yy * 180) = ati;
-            }
-        }
-        return image;
-    }
-
-    static std::string trim(const std::string& str)
-    {
-        if (!str.size()) return str;
-        std::string::size_type first = str.find_first_not_of(" \t");
-        std::string::size_type last = str.find_last_not_of("  \t\r\n");
-        if ((first == str.npos) || (last == str.npos)) return std::string("");
-        return str.substr(first, last - first + 1);
-    }
-
-    std::map<int, std::string> _paleoMaps;
-    std::vector<int> _paleoAgeList;
-    osg::ref_ptr<PaleoCallback> _paleoCallback;
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
     osg::ref_ptr<osg::Image> _selected, _volume;
     osg::ref_ptr<osg::Image> _compass0, _compass1;
-    int _width, _height, _buttonState, _volumeMode, _paleoIndex;
+    int _width, _height, _buttonState;
 };
 
-void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& mainFolder, int w, int h)
+osg::Camera* configureUI(osgViewer::View& viewer, osg::Group* root,
+                         const std::string& mainFolder, int w, int h)
 {
     osg::ref_ptr<osg::Image> background = osgDB::readImageFile(mainFolder + "/ui/main.png");
     osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
@@ -432,23 +324,11 @@ void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& m
     drawer->loadFont("default", mainFolder + "/ui/pingfang.ttf");
     drawer->setPixelBufferObject(new osg::PixelBufferObject(drawer.get()));
 
-#if 0
     osg::Camera* hudCamera = osgVerse::createHUDCamera(NULL, w, h, osg::Vec3(), 1.0, 1.0, true);
     hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
     hudCamera->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     hudCamera->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     hudCamera->setRenderOrder(osg::Camera::POST_RENDER, 20000);
-#else
-    finalBuffer2 = osgVerse::Pipeline::createTexture(osgVerse::Pipeline::RGBA_INT8, w, h);
-    finalBuffer2->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
-    finalBuffer2->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
-    finalBuffer2->setWrap(osg::Texture2D::WRAP_S, osg::Texture::CLAMP);
-    finalBuffer2->setWrap(osg::Texture2D::WRAP_T, osg::Texture::CLAMP);
-
-    osg::Camera* hudCamera = osgVerse::createRTTCamera(osg::Camera::COLOR_BUFFER0, NULL, NULL, true);
-    hudCamera->setViewport(0, 0, finalBuffer2->getTextureWidth(), finalBuffer2->getTextureHeight());
-    hudCamera->attach(osg::Camera::COLOR_BUFFER0, finalBuffer2.get());
-#endif
     hudCamera->setClearColor(osg::Vec4(1.0, 0.0, 0.0, 1.0));
     hudCamera->getOrCreateStateSet()->setTextureAttributeAndModes(0, osgVerse::createTexture2D(background.get()));
     hudCamera->getOrCreateStateSet()->setTextureAttributeAndModes(1, osgVerse::createTexture2D(drawer.get()));
@@ -459,11 +339,11 @@ void configureUI(osgViewer::View& viewer, osg::Group* root, const std::string& m
     vs->setName("UI_VS"); program->addShader(vs);
     fs->setName("UI_FS"); program->addShader(fs);
     osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
-    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);
     hudCamera->getOrCreateStateSet()->setAttributeAndModes(program.get());
     hudCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("uiTexture", (int)0));
     hudCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("overlayTexture", (int)1));
 
-    root->addChild(hudCamera);
     viewer.addEventHandler(new UIHandler(drawer.get(), mainFolder, w, h));
+    root->addChild(hudCamera); return hudCamera;
 }
