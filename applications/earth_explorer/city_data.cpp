@@ -101,8 +101,8 @@ public:
     CreateCityHandler(osg::Group* root, osg::Group* earth, const std::string& mainFolder)
         : _cityRoot(root), _earthRoot(earth), _mainFolder(mainFolder + "/")
     {
-        _cityRoot->addChild(createBatchData("Batches/shanghai_buildings"));
-        _cityRoot->addChild(createBatchData("Batches/shanghai_vehicles"));
+        _cityRoot->addChild(createBatchData("Batches/shanghai_buildings", false));
+        _cityRoot->addChild(createBatchData("Batches/shanghai_vehicles", true));
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -126,7 +126,7 @@ public:
     }
 
 protected:
-    osg::Group* createBatchData(const std::string& dir)
+    osg::Group* createBatchData(const std::string& dir, bool asVehicles)
     {
         osg::Group* batchRoot = new osg::Group;
         osg::ref_ptr<osgDB::Options> opt = new osgDB::Options("Downsamples=10");
@@ -138,14 +138,19 @@ protected:
             if (f.empty() || f[0] == '.') continue;
             if (f.find("statistics") != std::string::npos) continue;
 
-            osg::PagedLOD* lod = new osg::PagedLOD;
-            lod->addChild(osgDB::readNodeFile(_mainFolder + dir + "/" + f, opt.get()));
-            lod->setFileName(1, _mainFolder + dir + "/" + f);
+            if (asVehicles)
+                batchRoot->addChild(osgDB::readNodeFile(_mainFolder + dir + "/" + f));
+            else
+            {
+                osg::PagedLOD* lod = new osg::PagedLOD;
+                lod->addChild(osgDB::readNodeFile(_mainFolder + dir + "/" + f, opt.get()));
+                lod->setFileName(1, _mainFolder + dir + "/" + f);
 
-            lod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
-            lod->setRange(0, 0.0f, 1000.0f);
-            lod->setRange(1, 1000.0f, FLT_MAX);
-            batchRoot->addChild(lod);
+                lod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
+                lod->setRange(0, 0.0f, 1000.0f);
+                lod->setRange(1, 1000.0f, FLT_MAX);
+                batchRoot->addChild(lod);
+            }
             std::cout << "\rBatch: " << (i + 1) << " / " << contents.size() << "\t\t";
         }
         std::cout << "Loaded " << _mainFolder + dir << "\n";

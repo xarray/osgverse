@@ -39,6 +39,7 @@ public:
         if (!in) { std::cout << "[ReaderWriterCSV] Failed to load " << fileName << "\n"; return NULL; }
 
         std::vector<osgVerse::GeometryMerger::GeometryPair> geomList;
+        std::vector<osgVerse::GeometryMerger::GeometryPair> lineList;
         std::vector<osg::ref_ptr<osg::Geometry>> geomRefList;
         while (std::getline(in, line0))
         {
@@ -86,13 +87,14 @@ public:
                     polygon[j] = pt * worldToLocal;
                 }
 
-                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygon)
-                                                   : createExtrusionGeometry(polygon, osg::Z_AXIS * (height * 5.0));
+                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygon, 100.0f)
+                                    : createExtrusionGeometry(polygon, osg::Z_AXIS * (height * 5.0));
                 osg::Vec4Array* ca = new osg::Vec4Array; geom->setColorArray(ca);
                 geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
                 ca->assign(static_cast<osg::Vec3Array*>(geom->getVertexArray())->size(), heightColor(height));
 
-                geomList.push_back(osgVerse::GeometryMerger::GeometryPair(geom, localToWorld));
+                if (height < 0.0) lineList.push_back(osgVerse::GeometryMerger::GeometryPair(geom, localToWorld));
+                else geomList.push_back(osgVerse::GeometryMerger::GeometryPair(geom, localToWorld));
                 geomRefList.push_back(geom);
             }
             else
@@ -102,31 +104,65 @@ public:
             }
         }
 
-        if (geomList.empty()) { std::cout << "[ReaderWriterCSV] No data?\n"; return NULL; }
-        osg::Matrix l2w = geomList[0].second; osg::Matrix w2l = osg::Matrix::inverse(l2w);
-        for (size_t i = 0; i < geomList.size(); ++i) geomList[i].second = geomList[i].second * w2l;
-
-        if (options)
+        osg::MatrixTransform* root = new osg::MatrixTransform;
+        if (!geomList.empty())
         {
-            const std::string& dsStr = options->getPluginStringData("Downsamples");
-            size_t downsamples = atoi(dsStr.c_str()), new_sz = 0;
-            if (downsamples > 0)
+            osg::Matrix l2w = geomList[0].second; osg::Matrix w2l = osg::Matrix::inverse(l2w);
+            for (size_t i = 0; i < geomList.size(); ++i) geomList[i].second = geomList[i].second * w2l;
+
+            if (options)
             {
-                for (size_t i = 0; i < geomList.size(); ++i)
+                const std::string& dsStr = options->getPluginStringData("Downsamples");
+                size_t downsamples = atoi(dsStr.c_str()), new_sz = 0;
+                if (downsamples > 0)
                 {
-                    if (i % downsamples != 0) continue;
-                    geomList[new_sz++] = std::move(geomList[i]);
+                    for (size_t i = 0; i < geomList.size(); ++i)
+                    {
+                        if (i % downsamples != 0) continue;
+                        geomList[new_sz++] = std::move(geomList[i]);
+                    }
+                    geomList.resize(new_sz);
                 }
-                geomList.resize(new_sz);
             }
+
+            osgVerse::GeometryMerger merger; osg::Geode* geode = new osg::Geode;
+            osg::ref_ptr<osg::Geometry> mergedGeom = merger.process(geomList, 0);
+            geode->addDrawable(mergedGeom.get());
+
+            osg::MatrixTransform* mt = new osg::MatrixTransform;
+            mt->addChild(geode); mt->setMatrix(l2w); root->addChild(mt);
         }
 
-        osgVerse::GeometryMerger merger; osg::Geode* geode = new osg::Geode;
-        osg::ref_ptr<osg::Geometry> mergedGeom = merger.process(geomList, 0);
-        geode->addDrawable(mergedGeom.get());
+        if (!lineList.empty())
+        {
+            osg::Matrix l2w = lineList[0].second; osg::Matrix w2l = osg::Matrix::inverse(l2w);
+            for (size_t i = 0; i < lineList.size(); ++i) lineList[i].second = lineList[i].second * w2l;
 
-        osg::MatrixTransform* mt = new osg::MatrixTransform;
-        mt->addChild(geode); mt->setMatrix(l2w); return mt;
+            osg::Vec3Array* va = new osg::Vec3Array; osg::Vec3Array* na = new osg::Vec3Array;
+            osg::Vec4Array* ca = new osg::Vec4Array; osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_LINES);
+            for (size_t i = 0; i < lineList.size(); ++i)
+            {
+                osg::Geometry* g0 = lineList[i].first; osg::Matrix mat = lineList[i].second;
+                osg::Vec3Array* v0 = static_cast<osg::Vec3Array*>(g0->getVertexArray());
+                osg::Vec4Array* c0 = static_cast<osg::Vec4Array*>(g0->getColorArray());
+                osg::DrawElementsUInt* d0 = static_cast<osg::DrawElementsUInt*>(g0->getPrimitiveSet(0));
+
+                size_t vStart = va->size();
+                for (size_t j = 0; j < v0->size(); ++j) { va->push_back((*v0)[j] * mat); ca->push_back((*c0)[j]); }
+                for (size_t j = 0; j < d0->size(); ++j) de->push_back((*d0)[j] + vStart);
+            }
+
+            osg::Geometry* geom = new osg::Geometry;
+            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+            geom->setVertexArray(va); geom->addPrimitiveSet(de);
+            geom->setNormalArray(na); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+
+            osg::Geode* geode = new osg::Geode; geode->addDrawable(geom);
+            osg::MatrixTransform* mt = new osg::MatrixTransform;
+            mt->addChild(geode); mt->setMatrix(l2w); root->addChild(mt);
+        }
+        return root;
     }
 
 protected:
@@ -219,15 +255,18 @@ protected:
         tscx->retessellatePolygons(geom);
     }
 
-    static osg::Geometry* createLineGeometry(const osgVerse::PointList3D& outer)
+    static osg::Geometry* createLineGeometry(const osgVerse::PointList3D& outer, float offset)
     {
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_LINES);
         for (size_t i = 0; i < outer.size(); ++i)
-        { va->push_back(outer[i]); na->push_back(osg::Z_AXIS); }
+        {
+            va->push_back(outer[i] + osg::Z_AXIS * offset); na->push_back(osg::Z_AXIS);
+            de->push_back(i); de->push_back((i + 1) % outer.size());
+        }
 
-        osg::ref_ptr<osg::DrawArrays> da = new osg::DrawArrays(GL_LINE_STRIP, 0, va->size());
-        osg::ref_ptr<osg::Geometry> geom = osgVerse::createGeometry(va.get(), na.get(), NULL, da.get());
+        osg::ref_ptr<osg::Geometry> geom = osgVerse::createGeometry(va.get(), na.get(), NULL, de.get());
         return geom.release();
     }
 
