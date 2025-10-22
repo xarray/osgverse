@@ -37,7 +37,7 @@ const char* finalFragCode = {
     "void main() {\n"
     "    vec4 sceneColor = VERSE_TEX2D(EarthTexture, texCoord.st);\n"
     "    vec4 oceanColor = VERSE_TEX2D(OceanTexture, texCoord.st);\n"
-    "    fragColor = sceneColor;//mix(sceneColor, oceanColor, oceanColor.a); \n"
+    "    fragColor = mix(sceneColor, oceanColor, oceanColor.a); \n"
     "    VERSE_FS_FINAL(fragColor);\n"
     "}\n"
 };

@@ -41,16 +41,41 @@ class EnvironmentHandler : public osgGA::GUIEventHandler
 {
 public:
     EnvironmentHandler(osgVerse::EarthAtmosphereOcean* eao, const std::string& folder)
-    :   _earthData(eao), _mainFolder(folder), _pressingKey(0)
+    :   _earthData(eao), _mainFolder(folder), _sunAngle(0.0f), _pressingKey(0)
     {
+        _earthData->commonUniforms["OceanOpaque"]->set(0.0f);
+        _earthData->commonUniforms["WorldSunDir"]->set(
+            osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
         osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
-        if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+        if (ea.getEventType() == osgGA::GUIEventAdapter::USER)
         {
-            //
+            const osgDB::Options* ev = dynamic_cast<const osgDB::Options*>(ea.getUserData());
+            std::string command = ev ? ev->getOptionString() : "";
+
+            std::vector<std::string> commmandPair; osgDB::split(command, commmandPair, '/');
+            handleCommand(view, commmandPair.front(), commmandPair.back());
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+        {
+            for (std::map<std::string, bool>::iterator itr = _toggles.begin(); itr != _toggles.end(); ++itr)
+            {
+                const std::string& cmd = itr->first; if (!itr->second) continue;
+                if (cmd == "light")
+                {
+                    _sunAngle += 0.01f;
+                    _earthData->commonUniforms["WorldSunDir"]->set(
+                        osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                    view->getEventQueue()->userEvent(new osgDB::Options("value/" + std::to_string(_sunAngle)));
+                }
+                else if (cmd == "auto_rotate")
+                {
+                    // TODO
+                }
+            }
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP) _pressingKey = 0;
@@ -62,19 +87,45 @@ public:
         return false;
     }
 
+    void handleCommand(osgViewer::View* view, const std::string& type, const std::string& cmd)
+    {
+        if (type == "button")
+        {
+            osgVerse::EarthManipulator* earthMani =
+                static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
+            if (cmd == "light") _toggles[cmd] = !_toggles[cmd];
+            else if (cmd == "auto_rotate") _toggles[cmd] = !_toggles[cmd];
+            else if (cmd == "go_home") earthMani->home(0.0);
+            else if (cmd == "ocean")
+            {
+                bool v = !_toggles[cmd]; _toggles[cmd] = v;
+                _earthData->commonUniforms["OceanOpaque"]->set(v ? 1.0f : 0.0f);
+            }
+            else if (cmd == "globe")
+            {
+                bool v = !_toggles[cmd]; _toggles[cmd] = v;
+                _earthData->commonUniforms["GlobalOpaque"]->set(v ? 0.5f : 1.0f);
+            }
+            else if (cmd == "zoom_in") earthMani->performScale(osgGA::GUIEventAdapter::SCROLL_UP);
+            else if (cmd == "zoom_out") earthMani->performScale(osgGA::GUIEventAdapter::SCROLL_DOWN);
+            else if (cmd == "ch_en") {}  // TODO
+        }
+    }
+
 protected:
     osgVerse::EarthAtmosphereOcean* _earthData;
     std::string _mainFolder;
-    int _pressingKey;
+    float _sunAngle; int _pressingKey;
+    std::map<std::string, bool> _toggles;
 };
 
 static std::string createCustomPath(int type, const std::string& prefix, int x, int y, int z)
 {
     if (type == osgVerse::TileCallback::ORTHOPHOTO)
     {
-        if (z > 4)
+        if (z > 13)
         {
-            std::string prefix2 = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+            std::string prefix2 = "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}";
             return osgVerse::TileCallback::createPath(prefix2, x, pow(2, z) - y - 1, z);
         }
     }
@@ -94,9 +145,15 @@ int main(int argc, char** argv)
     int w = 1920, h = 1080; arguments.read("--resolution", w, h);
 
     // Create earth
+#if true
+    std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/Earth/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
+                            " Elevation=mbtiles://" + mainFolder + "/Earth/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
+                            " OceanMask=mbtiles://" + mainFolder + "/Earth/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
+#else
     std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/Earth/DOM_lv4.mbtiles/{z}-{x}-{y}.jpg"
                             " Elevation=mbtiles://" + mainFolder + "/Earth/DEM_lv3.mbtiles/{z}-{x}-{y}.tif"
                             " OceanMask=mbtiles://" + mainFolder + "/Earth/Mask_lv3.mbtiles/{z}-{x}-{y}.tif"
+#endif
                             /*" MaximumLevel=8"*/" UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1"
                             " TileElevationScale=3 TileSkirtRatio=" + skirtRatio;
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
@@ -115,13 +172,15 @@ int main(int argc, char** argv)
     osg::Camera* sceneCamera = cameras[0];
     //osg::Camera* atmosphereCamera = cameras[1];
     //osg::Camera* oceanCamera = cameras[2];
+    sceneCamera->setLODScale(0.8f);
     sceneCamera->setNearFarRatio(0.00001);
+    sceneCamera->setSmallFeatureCullingPixelSize(10.0f);
     sceneCamera->addChild(configureCityData(
         viewer, earthRoot.get(), earthRenderingUtils, mainFolder, EARTH_INTERSECTION_MASK));
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(earthRoot.get());
-    //root->addChild(configureUI(viewer, earthRoot.get(), mainFolder, w, h));
+    root->addChild(configureUI(viewer, earthRoot.get(), mainFolder, w, h));
 
     // Configure the manipulator
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
@@ -142,12 +201,17 @@ int main(int argc, char** argv)
     //epmcb->setNearFirstModeThreshold(2000.0);
     //sceneCamera->setClampProjectionMatrixCallback(epmcb.get());
 
+    osgDB::DatabasePager* pager = new osgDB::DatabasePager;
+    pager->setDrawablePolicy(osgDB::DatabasePager::USE_VERTEX_BUFFER_OBJECTS);
+    pager->setDoPreCompile(true); pager->setUpThreads(6, 1);
+
     viewer.addEventHandler(new EnvironmentHandler(&earthRenderingUtils, mainFolder));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
     viewer.setCameraManipulator(earthManipulator.get());
+    viewer.setDatabasePager(pager);
     viewer.setSceneData(root.get());
     //viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 

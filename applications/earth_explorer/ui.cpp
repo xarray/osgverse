@@ -61,9 +61,9 @@ public:
     UIHandler(osgVerse::Drawer2D* d, const std::string& mainFolder, int w, int h)
         : _drawer(d), _width(w), _height(h)
     {
-        _selected = osgDB::readImageFile(mainFolder + "/ui/selected.png");
-        _compass0 = osgDB::readImageFile(mainFolder + "/ui/compass0.png");
-        _compass1 = osgDB::readImageFile(mainFolder + "/ui/compass1.png");
+        _selected = osgDB::readImageFile(mainFolder + "/UI/selected.png");
+        _unselected = osgDB::readImageFile(mainFolder + "/UI/unselected.png");
+        _compass = osgDB::readImageFile(mainFolder + "/UI/compass.png");
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -75,15 +75,14 @@ public:
             ea.getEventType() == osgGA::GUIEventAdapter::DRAG ||
             ea.getEventType() == osgGA::GUIEventAdapter::SCROLL)
         {
-            updateOverlay(view->getCamera(), manipulator, ea.getXnormalized(), ea.getYnormalized());
+            updateOverlay(view, manipulator, ea.getXnormalized(), ea.getYnormalized());
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH &&
                  ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) _buttonState = 1;
         return false;
     }
 
-    void updateOverlay(osg::Camera* camera, osgVerse::EarthManipulator* manipulator,
-                       float xx, float yy)
+    void updateOverlay(osgViewer::View* view, osgVerse::EarthManipulator* manipulator, float xx, float yy)
     {
         //_drawer->start(false);
         _drawer->startInThread([=](osgVerse::Drawer2D* drawer)
@@ -98,80 +97,69 @@ public:
 #define ITEM_RECT(x1, y1, x2, y2) hoverableItems[osg::Vec4(wCell * x1, hCell * y1, wCell * x2, hCell * y2)]
 #define IN_ITEM(x, y, r) (x <= (r)[2] && x >= (r)[0] && y <= (r)[3] && y >= (r)[1])
 
-#define DRAW_TEXT(text, x, y) { \
-            osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 20.0f); \
+#define DRAW_TEXT_S(text, x, y, s) { \
+            osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, s); \
             drawer->drawUtf8Text(osg::Vec2(wCell * x, hCell * y) + osg::Vec2(bbox[0], bbox[1] + bbox[3]), \
-                                 20.0f, text, "", style); }
+                                 s, text, "", style); }
+#define DRAW_TEXT(text, x, y) DRAW_TEXT_S(text, x, y, 20.0f)
 #define DRAW_TEXT_MID(text, x, y) { \
             osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 20.0f); \
             drawer->drawUtf8Text(osg::Vec2(wCell * x - bbox[2] * 0.5f, hCell * y) + \
                                  osg::Vec2(bbox[0], bbox[1] + bbox[3]), 20.0f, text, "", style); }
 
             // Data lists
-            /*DRAW_TEXT("TILES", 1.4f, 5.9f);
-            DRAW_TEXT("Global Night Lighting", 1.5f, 7.0f);
-            DRAW_TEXT("Global Population Distribution", 1.5f, 8.0f);
-            DRAW_TEXT("ERA5 Land 2m Temperature", 1.5f, 9.0f);
-            DRAW_TEXT("ERA5 Lake Total Temperature", 1.5f, 10.0f);
-            DRAW_TEXT("ERA5 Lake Ice Temperature", 1.5f, 11.0f);
+            float as = 16.0f / 9.0f;
+            std::string cities[] = {
+                "Beijing Ring-2 Buildings", "Beijing Ring-2 Vehicles",
+                "Bogota Buildings", "Bogota Vehicles",
+                "Captown Buildings", "Captown Vehicles",
+                "Dubai Buildings", "Dubai Vehicles",
+                "Hangzhou Buildings", "Hangzhou Vehicles",
+                "London Buildings", "London Vehicles",
+                "Nairobi Buildings", "Nairobi Vehicles",
+                "Nanjing Buildings", "Nanjing Vehicles",
+                "New York Buildings", "New York Vehicles",
+                "Paris Buildings", "Paris Vehicles",
+                "Rio de Janeiro Buildings", "Rio de Janeiro Vehicles",
+                "Shanghai Buildings", "Shanghai Vehicles"
+            };
+            std::string cityItems[] = {
+                "beijing_buildings", "beijing_vehicles",
+                "bogota_buildings", "bogota_vehicles",
+                "captown_buildings", "captown_vehicles",
+                "dubai_buildings", "dubai_vehicles",
+                "hangzhou_buildings", "hangzhou_vehicles",
+                "london_buildings", "london_vehicles",
+                "nairobi_buildings", "nairobi_vehicles",
+                "nanjing_buildings", "nanjing_vehicles",
+                "newyork_buildings", "newyork_vehicles",
+                "paris_buildings", "paris_vehicles",
+                "rio_buildings", "rio_vehicles",
+                "shanghai_buildings", "shanghai_vehicles"
+            };
 
-            ITEM_RECT(1.5f, 7.0f, 7.5f, 8.0f) = "layers/Night_Lighting";
-            ITEM_RECT(1.5f, 8.0f, 7.5f, 9.0f) = "layers/Population_Distribution";
-            ITEM_RECT(1.5f, 9.0f, 7.5f, 10.0f) = "layers/ERA5_Land_2m_Temperature";
-            ITEM_RECT(1.5f, 10.0f, 7.5f, 11.0f) = "layers/ERA5_Lake_Total_Temperature";
-            ITEM_RECT(1.5f, 11.0f, 7.5f, 12.0f) = "layers/ERA5_Lake_Ice_Temperature";
+            DRAW_TEXT_S("C40 Cities", 1.5f, 2.4f, 40.0f);
+            for (size_t k = 6; k < 30; ++k)
+            {
+                DRAW_TEXT(cities[k - 6], 1.0f, (float)k);
+                ITEM_RECT(1.0f, (float)k, 9.0f, (float)(k + 1)) = "item/" + cityItems[k - 6];
+                osg::Vec2 pos(wCell * 8.2f, hCell * (0.2f + (float)k));
+                drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 0.3f, hCell * 0.3f * as),
+                                      0.0f, 0.0f, osgVerse::DrawerStyleData(_unselected.get()));
+            }
 
-            DRAW_TEXT("VOLUMES", 1.4f, 12.8f);
-            DRAW_TEXT("Kerry Volume Data", 1.5f, 14.0f);
-            DRAW_TEXT("Parhaka Volume Data", 1.5f, 15.0f);
-            DRAW_TEXT("Waipuku Volume Data", 1.5f, 16.0f);
+            ITEM_RECT(30.6f, 18.5f, 31.35f, 19.8f) = "button/light";
+            ITEM_RECT(30.6f, 19.9f, 31.35f, 21.2f) = "button/go_home";
+            ITEM_RECT(30.6f, 21.3f, 31.35f, 22.6f) = "button/auto_rotate";
+            ITEM_RECT(30.6f, 22.7f, 31.35f, 24.0f) = "button/ocean";
+            ITEM_RECT(30.6f, 24.1f, 31.35f, 25.4f) = "button/globe";
+            ITEM_RECT(30.6f, 26.0f, 31.35f, 27.5f) = "button/zoom_in";
+            ITEM_RECT(30.6f, 27.4f, 31.35f, 28.7f) = "button/zoom_out";
 
-            ITEM_RECT(1.5f, 14.0f, 7.5f, 15.0f) = "vdb/kerry";
-            ITEM_RECT(1.5f, 15.0f, 7.5f, 16.0f) = "vdb/parhaka";
-            ITEM_RECT(1.5f, 16.0f, 7.5f, 17.0f) = "vdb/waipuku";
-
-            DRAW_TEXT("CITIES", 1.4f, 17.8f);
-            DRAW_TEXT("Beijing", 1.5f, 19.0f); DRAW_TEXT("New York", 5.0f, 19.0f);
-            DRAW_TEXT("Capetown", 1.5f, 20.0f); DRAW_TEXT("Paris", 5.0f, 20.0f);
-            DRAW_TEXT("Hangzhou", 1.5f, 21.0f); DRAW_TEXT("Rio", 5.0f, 21.0f);
-            DRAW_TEXT("London", 1.5f, 22.0f); DRAW_TEXT("Shanghai", 5.0f, 22.0f);
-            DRAW_TEXT("Nanjing", 1.5f, 23.0f); DRAW_TEXT("Sydney", 5.0f, 23.0f);
-
-            ITEM_RECT(1.5f, 19.0f, 4.0f, 20.0f) = "cities/beijing.json";
-            ITEM_RECT(1.5f, 20.0f, 4.0f, 21.0f) = "cities/capetown.json";
-            ITEM_RECT(1.5f, 21.0f, 4.0f, 22.0f) = "cities/hangzhou.json";
-            ITEM_RECT(1.5f, 22.0f, 4.0f, 23.0f) = "cities/london.json";
-            ITEM_RECT(1.5f, 23.0f, 4.0f, 24.0f) = "cities/nanjing.json";
-            ITEM_RECT(5.0f, 19.0f, 7.5f, 20.0f) = "cities/newyork.json";
-            ITEM_RECT(5.0f, 20.0f, 7.5f, 21.0f) = "cities/paris.json";
-            ITEM_RECT(5.0f, 21.0f, 7.5f, 22.0f) = "cities/riodejaneiro.json";
-            ITEM_RECT(5.0f, 22.0f, 7.5f, 23.0f) = "cities/shanghai.json";
-            ITEM_RECT(5.0f, 23.0f, 7.5f, 24.0f) = "cities/sydney.json";
-
-            DRAW_TEXT("TIMELINE", 1.4f, 24.8f);
-            DRAW_TEXT("USGS Earthquake", 1.5f, 26.0f);
-            //DRAW_TEXT("GPlates Motion", 1.5f, 27.0f);
-
-            ITEM_RECT(1.5f, 26.0f, 7.5f, 27.0f) = "timeline/USGS_Earthquake";
-            //ITEM_RECT(1.5f, 27.0f, 7.5f, 28.0f) = "timeline/GPlates";
-
-            // Selected item / button
             ITEM_RECT(28.4f, 3.0f, 29.0f, 4.0f) = "button/about?";
             ITEM_RECT(29.4f, 3.0f, 30.0f, 4.0f) = "button/ch_en";
             DRAW_TEXT("En", 29.5f, 3.0f);
-
-            ITEM_RECT(30.5f, 6.0f, 31.5f, 7.9f) = "button/layers";
-            ITEM_RECT(30.5f, 8.0f, 31.5f, 9.9f) = "button/locate?";
-            ITEM_RECT(30.5f, 10.0f, 31.5f, 11.9f) = "button/show_globe";
-            ITEM_RECT(30.5f, 12.0f, 31.5f, 13.9f) = "button/show_ocean";
-            ITEM_RECT(30.5f, 14.0f, 31.5f, 15.9f) = "button/home";
-            ITEM_RECT(30.5f, 16.0f, 31.5f, 17.9f) = "button/list?";
-            ITEM_RECT(30.5f, 18.0f, 31.5f, 19.9f) = "button/one_n?";
-            ITEM_RECT(30.5f, 20.0f, 31.5f, 21.9f) = "button/table?";
-            ITEM_RECT(30.5f, 22.0f, 31.5f, 23.9f) = "button/coordinate";
-            ITEM_RECT(30.5f, 24.0f, 31.5f, 25.9f) = "button/auto_rotate";
-            ITEM_RECT(30.5f, 26.0f, 31.5f, 27.9f) = "button/time";
-
+            
             float x = (xx * 0.5f + 0.5f) * _width, y = (-yy * 0.5f + 0.5f) * _height;
             for (std::map<osg::Vec4, std::string>::iterator it = hoverableItems.begin();
                  it != hoverableItems.end(); ++it)
@@ -183,50 +171,14 @@ public:
 
                 // Run command when clicked (buttonState = 1)
                 if (_buttonState == 1)
-                {
-                    if (it->second.find("vdb/") != std::string::npos) _volumeMode = 1;
-                    else _volumeMode = 0;
-                    commandMutex.lock();
-                    commandList.insert(it->second);
-                    commandMutex.unlock();
-                }
+                    view->getEventQueue()->userEvent(new osgDB::Options(it->second));
                 break;
             }
             if (_buttonState > 0) _buttonState = 0;
 
-            // Volume data display
-            if (_volumeMode > 0)
-            {
-                osg::Vec2 pos(wCell * 28.75f, hCell * 14.0f);
-                drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 0.5f, hCell * 10.0f),
-                                      0.0f, 0.0f, osgVerse::DrawerStyleData(_volume.get()));
-
-                std::ostringstream oss1, oss2;
-                oss1 << std::fixed << std::setprecision(2) << global_volumeRange[1]; DRAW_TEXT_MID(oss1.str(), 29.0f, 13.0f);
-                oss2 << std::fixed << std::setprecision(2) << global_volumeRange[0]; DRAW_TEXT_MID(oss2.str(), 29.0f, 24.5f);
-            }
-
-            if (global_particleIndex >= 0)
-            {
-                switch (global_particleIndex)
-                {
-                case 0: DRAW_TEXT("Earthquakes in the First Half of Year 2020", 1.5f, 28.0f); break;
-                case 1: DRAW_TEXT("Earthquakes in the Second Half of Year 2020", 1.5f, 28.0f); break;
-                case 2: DRAW_TEXT("Earthquakes in the First Half of Year 2021", 1.5f, 28.0f); break;
-                case 3: DRAW_TEXT("Earthquakes in the Second Half of Year 2021", 1.5f, 28.0f); break;
-                case 4: DRAW_TEXT("Earthquakes in the First Half of Year 2022", 1.5f, 28.0f); break;
-                case 5: DRAW_TEXT("Earthquakes in the Second Half of Year 2022", 1.5f, 28.0f); break;
-                case 6: DRAW_TEXT("Earthquakes in the First Half of Year 2023", 1.5f, 28.0f); break;
-                case 7: DRAW_TEXT("Earthquakes in the Second Half of Year 2023", 1.5f, 28.0f); break;
-                case 8: DRAW_TEXT("Earthquakes in the First Half of Year 2024", 1.5f, 28.0f); break;
-                case 9: DRAW_TEXT("Earthquakes in the Second Half of Year 2024", 1.5f, 28.0f); break;
-                case 10: DRAW_TEXT("Earthquakes in the First Half of Year 2025", 1.5f, 28.0f); break;
-                }
-            }
-            DRAW_TEXT("Earth Plates at: " + std::to_string(-_paleoAgeList[_paleoIndex]) + "Ma", 15.5f, 28.0f);
-
             // LLA, compass and scale display
             double northRadians = 0.0, widthScale = 0.0;
+            osg::Camera* camera = view->getCamera();
             if (camera && camera->getViewport())
             {
                 osg::Vec3d worldNorth(0.0, 0.0, osg::WGS_84_RADIUS_POLAR);
@@ -234,7 +186,7 @@ public:
                 osg::Vec2d compassDirection(viewNorth.x(), viewNorth.y());
                 compassDirection.normalize();
                 northRadians = std::atan2(compassDirection.y(), compassDirection.x());
-                DRAW_TEXT_MID(radiansToCompassHeading(northRadians), 29.0f, 9.5f);
+                //DRAW_TEXT_MID(radiansToCompassHeading(northRadians), 29.0f, 9.5f);
 
                 double fovy, aspect, nearPlane, farPlane, distance;
                 distance = (osg::Vec3d() * camera->getViewMatrix()).length() - osg::WGS_84_RADIUS_POLAR;
@@ -244,34 +196,32 @@ public:
                 if (widthScale < 1.0)
                 {
                     std::string wStr = std::to_string((int)(widthScale * 100.0) * 0.01f);
-                    DRAW_TEXT_MID("S = " + wStr + "m/pixel", 29.0f, 10.5f);
+                    //DRAW_TEXT_MID("S = " + wStr + "m/pixel", 29.0f, 10.5f);
                 }
                 else
                 {
                     int wValue = (int)widthScale;
                     std::string wStr = (wValue > 1000.0) ? std::to_string((int)(wValue * 0.001)) + "km/pixel"
                                                          : std::to_string((int)wValue) + "m/pixel";
-                    DRAW_TEXT_MID("S = " + wStr, 29.0f, 10.5f);
+                    //DRAW_TEXT_MID("S = " + wStr, 29.0f, 10.5f);
                 }
             }
 
             if (manipulator)
             {
                 osg::Vec3d lla = manipulator->getLatestPosition();
-                DRAW_TEXT(radiansToDMS(lla[1], 'E', 'W'), 25.0f, 28.5f);
-                DRAW_TEXT(radiansToDMS(lla[0], 'N', 'S'), 27.5f, 28.5f);
-                if (widthScale < 10000) DRAW_TEXT(std::to_string((int)lla[2]) + "m", 30.0f, 28.5f);
+                DRAW_TEXT(radiansToDMS(lla[1], 'E', 'W'), 23.5f, 29.5f);
+                DRAW_TEXT(radiansToDMS(lla[0], 'N', 'S'), 26.0f, 29.5f);
+                if (widthScale < 10000) DRAW_TEXT(std::to_string((int)lla[2]) + "m", 28.5f, 29.5f);
             }
 
             // Compass
-            osg::Vec2 pos(wCell * 28.0f, hCell * 6.0f);
-            drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 2.0f, hCell * 32.0f / 9.0f),
-                                  0.0f, 0.0f, osgVerse::DrawerStyleData(_compass0.get()));
-            drawer->translate(-pos - osg::Vec2(wCell, hCell * 16.0f / 9.0f), false);
-            drawer->rotate(-northRadians, true);
-            drawer->translate(pos + osg::Vec2(wCell, hCell * 16.0f / 9.0f), true);
-            drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 2.0f, hCell * 32.0f / 9.0f),
-                                  0.0f, 0.0f, osgVerse::DrawerStyleData(_compass1.get()));*/
+            osg::Vec2 pos(wCell * 30.75f, hCell * 29.0f);
+            drawer->translate(-pos - osg::Vec2(wCell * 0.25f, hCell * 0.25f * as), false);
+            drawer->rotate(osg::PI_2 - northRadians, true);
+            drawer->translate(pos + osg::Vec2(wCell * 0.25f, hCell * 0.25f * as), true);
+            drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 0.5f, hCell * 0.5f * as),
+                                  0.0f, 0.0f, osgVerse::DrawerStyleData(_compass.get()));
         }, false);
         _drawer->finish();
     }
@@ -310,18 +260,18 @@ public:
 
 protected:
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
-    osg::ref_ptr<osg::Image> _selected, _volume;
-    osg::ref_ptr<osg::Image> _compass0, _compass1;
+    osg::ref_ptr<osg::Image> _selected, _unselected;
+    osg::ref_ptr<osg::Image> _compass;
     int _width, _height, _buttonState;
 };
 
 osg::Camera* configureUI(osgViewer::View& viewer, osg::Group* root,
                          const std::string& mainFolder, int w, int h)
 {
-    osg::ref_ptr<osg::Image> background = osgDB::readImageFile(mainFolder + "/ui/main.png");
+    osg::ref_ptr<osg::Image> background = osgDB::readImageFile(mainFolder + "/UI/main.png");
     osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
     drawer->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
-    drawer->loadFont("default", mainFolder + "/ui/pingfang.ttf");
+    drawer->loadFont("default", mainFolder + "/UI/pingfang.ttf");
     drawer->setPixelBufferObject(new osg::PixelBufferObject(drawer.get()));
 
     osg::Camera* hudCamera = osgVerse::createHUDCamera(NULL, w, h, osg::Vec3(), 1.0, 1.0, true);

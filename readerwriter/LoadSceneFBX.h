@@ -1,3 +1,6 @@
+#ifndef MANA_READERWRITER_LOADSCENE_FBX_HPP
+#define MANA_READERWRITER_LOADSCENE_FBX_HPP
+
 #include <osg/Texture2D>
 #include <osg/Geode>
 #include <osg/MatrixTransform>
@@ -62,3 +65,5 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx(const std::string& file, int usingPBR);
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx2(std::istream& in, const std::string& dir, int usingPBR);
 }
+
+#endif

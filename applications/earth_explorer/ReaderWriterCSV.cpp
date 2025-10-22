@@ -41,6 +41,7 @@ public:
         std::vector<osgVerse::GeometryMerger::GeometryPair> geomList;
         std::vector<osgVerse::GeometryMerger::GeometryPair> lineList;
         std::vector<osg::ref_ptr<osg::Geometry>> geomRefList;
+        osg::Node* earth = options ? (osg::Node*)options->getPluginData("EarthRoot") : NULL;
         while (std::getline(in, line0))
         {
             std::string line = trim(line0); rowID++;
@@ -81,13 +82,21 @@ public:
                 osg::Matrix localToWorld = osgVerse::Coordinate::convertLLAtoENU(center);
                 osg::Matrix worldToLocal = osg::Matrix::inverse(localToWorld);
                 osg::Vec3d N = ecef; N.normalize();
+                if (earth != NULL)
+                {
+                    osgVerse::IntersectionResult result =
+                        osgVerse::findNearestIntersection(earth, ecef + N * 1000.0, ecef - N * 1000.0);
+                    if (result.drawable.valid()) localToWorld.setTrans(result.getWorldIntersectPoint());
+                    //else OSG_NOTICE << "No intersection for building: " << line << "\n";
+                }
+
                 for (size_t j = 0; j < polygon.size(); ++j)
                 {
                     osg::Vec3d pt = osgVerse::Coordinate::convertLLAtoECEF(polygon[j]);
                     polygon[j] = pt * worldToLocal;
                 }
 
-                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygon, 100.0f)
+                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygon, 50.0f)
                                     : createExtrusionGeometry(polygon, osg::Z_AXIS * (height * 5.0));
                 osg::Vec4Array* ca = new osg::Vec4Array; geom->setColorArray(ca);
                 geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
@@ -104,25 +113,27 @@ public:
             }
         }
 
+        size_t downsamples = 0, new_sz = 0;
+        if (options)
+        {
+            const std::string& dsStr = options->getPluginStringData("Downsamples");
+            downsamples = atoi(dsStr.c_str());
+        }
+
         osg::MatrixTransform* root = new osg::MatrixTransform;
         if (!geomList.empty())
         {
             osg::Matrix l2w = geomList[0].second; osg::Matrix w2l = osg::Matrix::inverse(l2w);
             for (size_t i = 0; i < geomList.size(); ++i) geomList[i].second = geomList[i].second * w2l;
 
-            if (options)
+            if (downsamples > 0)
             {
-                const std::string& dsStr = options->getPluginStringData("Downsamples");
-                size_t downsamples = atoi(dsStr.c_str()), new_sz = 0;
-                if (downsamples > 0)
-                {
-                    for (size_t i = 0; i < geomList.size(); ++i)
-                    {
-                        if (i % downsamples != 0) continue;
-                        geomList[new_sz++] = std::move(geomList[i]);
-                    }
-                    geomList.resize(new_sz);
-                }
+                std::sort(geomList.begin(), geomList.end(),
+                          [](const osgVerse::GeometryMerger::GeometryPair& lhs, const osgVerse::GeometryMerger::GeometryPair& rhs)
+                { return lhs.first->getBound().radius() < rhs.first->getBound().radius(); });
+
+                float toRemove = 1.0f - (1.0f / (float)downsamples); size_t allSize = geomList.size();
+                geomList.erase(geomList.begin(), geomList.begin() + size_t((float)allSize * toRemove));
             }
 
             osgVerse::GeometryMerger merger; osg::Geode* geode = new osg::Geode;
@@ -137,6 +148,15 @@ public:
         {
             osg::Matrix l2w = lineList[0].second; osg::Matrix w2l = osg::Matrix::inverse(l2w);
             for (size_t i = 0; i < lineList.size(); ++i) lineList[i].second = lineList[i].second * w2l;
+            if (downsamples > 0)
+            {
+                for (size_t i = 0; i < lineList.size(); ++i)
+                {
+                    if (i % downsamples != 0) continue;
+                    lineList[new_sz++] = std::move(lineList[i]);
+                }
+                lineList.resize(new_sz);
+            }
 
             osg::Vec3Array* va = new osg::Vec3Array; osg::Vec3Array* na = new osg::Vec3Array;
             osg::Vec4Array* ca = new osg::Vec4Array; osg::DrawElementsUInt* de = new osg::DrawElementsUInt(GL_LINES);
@@ -231,7 +251,7 @@ protected:
 
     static osg::Vec4 heightColor(float h)
     {
-        if (h <= 0.0f) return hexColorToRGB("#ffffff");
+        if (h <= 0.0f) return hexColorToRGB("#ffff00");
         if (h <= 5.0f) return hexColorToRGB("#e6f4fd");
         else if (h <= 10.0f) return hexColorToRGB("#a7def5");
         else if (h <= 20.0f) return hexColorToRGB("#6fb1df");

@@ -1,3 +1,6 @@
+#ifndef MANA_READERWRITER_LOADSCENE_GLTF_HPP
+#define MANA_READERWRITER_LOADSCENE_GLTF_HPP
+
 #include <osg/Texture2D>
 #include <osg/Geode>
 #include <osg/MatrixTransform>
@@ -83,3 +86,5 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadGltf2(
         std::istream& in, const std::string& dir, bool isBinary, int usingPBR, bool yUp = true);
 }
+
+#endif

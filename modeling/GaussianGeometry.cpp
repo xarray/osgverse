@@ -10,6 +10,25 @@
 #include "GaussianGeometry.h"
 using namespace osgVerse;
 
+class CpuSortThread : public OpenThreads::Thread
+{
+public:
+    virtual void run()
+    {
+        while (!_done)
+        {
+            OpenThreads::Thread::microSleep(15000);
+        }
+        _done = true;
+    }
+
+    virtual int cancel()
+    { _done = true; return OpenThreads::Thread::cancel(); }
+
+protected:
+    bool _done;
+};
+
 GaussianGeometry::GaussianGeometry()
 :   osg::Geometry(), _degrees(0)
 {

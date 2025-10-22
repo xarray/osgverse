@@ -1,3 +1,6 @@
+#ifndef MANA_READERWRITER_LOADSCENE_KTX_HPP
+#define MANA_READERWRITER_LOADSCENE_KTX_HPP
+
 #include <osg/Texture2D>
 #include <osg/Geode>
 #include <osg/MatrixTransform>
@@ -17,3 +20,5 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT bool saveKtx2(std::ostream& out, bool asCubeMap, const osgDB::Options* opt,
                                      const std::vector<osg::Image*>& images);
 }
+
+#endif

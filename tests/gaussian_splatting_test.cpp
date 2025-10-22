@@ -79,6 +79,7 @@ public:
 
     virtual void operator()(osg::RenderInfo& renderInfo) const
     {
+        //if (renderInfo.getView()->getFrameStamp()->getFrameNumber() % 10 != 0) return;
         if (renderInfo.getCurrentCamera() != NULL)
             _sorter->cull(renderInfo.getCurrentCamera()->getViewMatrix());
     }
