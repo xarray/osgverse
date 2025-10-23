@@ -13,11 +13,11 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include <modeling/Math.h>
+#include <readerwriter/Utilities.h>
 #include <readerwriter/EarthManipulator.h>
 #include <readerwriter/TileCallback.h>
 #include <pipeline/Utilities.h>
 #include <pipeline/Pipeline.h>
-#include <pipeline/SkyBox.h>
 #include <pipeline/Drawer2D.h>
 #include <sstream>
 #include <fstream>
@@ -59,11 +59,20 @@ class UIHandler : public osgGA::GUIEventHandler
 {
 public:
     UIHandler(osgVerse::Drawer2D* d, const std::string& mainFolder, int w, int h)
-        : _drawer(d), _width(w), _height(h)
+        : _drawer(d), _mainFolder(mainFolder), _width(w), _height(h)
     {
         _selected = osgDB::readImageFile(mainFolder + "/UI/selected.png");
         _unselected = osgDB::readImageFile(mainFolder + "/UI/unselected.png");
         _compass = osgDB::readImageFile(mainFolder + "/UI/compass.png");
+        _prop0 = osgDB::readImageFile(mainFolder + "/UI/prop0.png");
+        _prop1 = osgDB::readImageFile(mainFolder + "/UI/prop1.png");
+
+        std::string cityString, propString, rev0, rev1;
+        std::vector<unsigned char> result1 = osgVerse::loadFileData(mainFolder + "/UI/cities_cn.txt", rev0, rev1);
+        cityString.assign(result1.begin(), result1.end()); osgDB::split(cityString, _cityContent, '\n');
+
+        std::vector<unsigned char> result2 = osgVerse::loadFileData(mainFolder + "/UI/props_cn.txt", rev0, rev1);
+        propString.assign(result2.begin(), result2.end()); osgDB::split(propString, _propContent, '\n');
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -71,14 +80,41 @@ public:
         osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
         osgVerse::EarthManipulator* manipulator =
             static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
-        if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE ||
-            ea.getEventType() == osgGA::GUIEventAdapter::DRAG ||
-            ea.getEventType() == osgGA::GUIEventAdapter::SCROLL)
+        if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE || ea.getEventType() == osgGA::GUIEventAdapter::DRAG ||
+            ea.getEventType() == osgGA::GUIEventAdapter::SCROLL || ea.getEventType() == osgGA::GUIEventAdapter::RELEASE)
         {
             updateOverlay(view, manipulator, ea.getXnormalized(), ea.getYnormalized());
         }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+        {
+            if (view->getFrameStamp()->getFrameNumber() < 1)
+                updateOverlay(view, manipulator, ea.getXnormalized(), ea.getYnormalized());
+        }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH &&
-                 ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) _buttonState = 1;
+            ea.getButtonMask() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) _buttonState = 1;
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::USER)
+        {
+            const osgDB::Options* ev = dynamic_cast<const osgDB::Options*>(ea.getUserData());
+            std::string command = ev ? ev->getOptionString() : "";
+
+            std::vector<std::string> commmandPair; osgDB::split(command, commmandPair, '/');
+            if (commmandPair.front() == "button" && commmandPair.back() == "info")
+            {
+                if (!_cityInfo)
+                {
+                    for (std::map<std::string, bool>::iterator itr = _itemSelection.begin();
+                         itr != _itemSelection.end(); ++itr)
+                    {
+                        if (!itr->second) continue; if (itr->first.find("item/") == std::string::npos) continue;
+                        size_t pos0 = itr->first.find("item/") + 5, pos1 = itr->first.find("_");
+                        std::string imgName = "info_" + itr->first.substr(pos0, pos1 - pos0) + ".png";
+                        _cityInfo = osgDB::readImageFile(_mainFolder + "/UI/" + imgName); break;
+                    }
+                }
+                else _cityInfo = NULL;
+            }
+            updateOverlay(view, manipulator, ea.getXnormalized(), ea.getYnormalized());
+        }
         return false;
     }
 
@@ -94,71 +130,101 @@ public:
             osgVerse::DrawerStyleData pushed(osg::Vec4(0.2f, 0.2f, 0.4f, 0.9f), true);
             drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-#define ITEM_RECT(x1, y1, x2, y2) hoverableItems[osg::Vec4(wCell * x1, hCell * y1, wCell * x2, hCell * y2)]
-#define IN_ITEM(x, y, r) (x <= (r)[2] && x >= (r)[0] && y <= (r)[3] && y >= (r)[1])
+#define ITEM_RECT(x1, y1, x2, y2) hoverableItems[osg::Vec4(wCell * (x1), hCell * (y1), wCell * (x2), hCell * (y2))]
+#define IN_ITEM(x, y, r) ((x) <= (r)[2] && (x) >= (r)[0] && (y) <= (r)[3] && (y) >= (r)[1])
 
 #define DRAW_TEXT_S(text, x, y, s) { \
             osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, s); \
-            drawer->drawUtf8Text(osg::Vec2(wCell * x, hCell * y) + osg::Vec2(bbox[0], bbox[1] + bbox[3]), \
+            drawer->drawUtf8Text(osg::Vec2(wCell * (x), hCell * (y)) + osg::Vec2(bbox[0], bbox[1] + bbox[3]), \
                                  s, text, "", style); }
 #define DRAW_TEXT(text, x, y) DRAW_TEXT_S(text, x, y, 20.0f)
 #define DRAW_TEXT_MID(text, x, y) { \
             osg::Vec4 bbox = drawer->getUtf8TextBoundingBox(text, 20.0f); \
-            drawer->drawUtf8Text(osg::Vec2(wCell * x - bbox[2] * 0.5f, hCell * y) + \
+            drawer->drawUtf8Text(osg::Vec2(wCell * (x) - bbox[2] * 0.5f, hCell * (y)) + \
                                  osg::Vec2(bbox[0], bbox[1] + bbox[3]), 20.0f, text, "", style); }
 
             // Data lists
-            float as = 16.0f / 9.0f;
-            std::string cities[] = {
-                "Beijing Ring-2 Buildings", "Beijing Ring-2 Vehicles",
-                "Bogota Buildings", "Bogota Vehicles",
-                "Captown Buildings", "Captown Vehicles",
-                "Dubai Buildings", "Dubai Vehicles",
-                "Hangzhou Buildings", "Hangzhou Vehicles",
-                "London Buildings", "London Vehicles",
-                "Nairobi Buildings", "Nairobi Vehicles",
-                "Nanjing Buildings", "Nanjing Vehicles",
-                "New York Buildings", "New York Vehicles",
-                "Paris Buildings", "Paris Vehicles",
-                "Rio de Janeiro Buildings", "Rio de Janeiro Vehicles",
-                "Shanghai Buildings", "Shanghai Vehicles"
-            };
-            std::string cityItems[] = {
-                "beijing_buildings", "beijing_vehicles",
-                "bogota_buildings", "bogota_vehicles",
-                "captown_buildings", "captown_vehicles",
-                "dubai_buildings", "dubai_vehicles",
-                "hangzhou_buildings", "hangzhou_vehicles",
-                "london_buildings", "london_vehicles",
-                "nairobi_buildings", "nairobi_vehicles",
-                "nanjing_buildings", "nanjing_vehicles",
-                "newyork_buildings", "newyork_vehicles",
-                "paris_buildings", "paris_vehicles",
-                "rio_buildings", "rio_vehicles",
-                "shanghai_buildings", "shanghai_vehicles"
-            };
-
-            DRAW_TEXT_S("C40 Cities", 1.5f, 2.4f, 40.0f);
-            for (size_t k = 6; k < 30; ++k)
+            float as = 16.0f / 9.0f; bool bSelected = false, vSelected = false, segSelected = false;
+            if (!_cityContent.empty())
             {
-                DRAW_TEXT(cities[k - 6], 1.0f, (float)k);
-                ITEM_RECT(1.0f, (float)k, 9.0f, (float)(k + 1)) = "item/" + cityItems[k - 6];
-                osg::Vec2 pos(wCell * 8.2f, hCell * (0.2f + (float)k));
-                drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 0.3f, hCell * 0.3f * as),
-                                      0.0f, 0.0f, osgVerse::DrawerStyleData(_unselected.get()));
+                DRAW_TEXT_S(_cityContent[0], 1.5f, 2.4f, 40.0f);
+                for (size_t i = 1; i < _cityContent.size(); ++i)
+                {
+                    std::vector<std::string> cmdAndText; size_t k = i + 5;
+                    osgDB::split(_cityContent[i], cmdAndText, ':');
+                    if (k > 29) break;  // too many items  // TODO: scroll the list?
+
+                    std::string itemName = "item/" + cmdAndText.front();
+                    DRAW_TEXT(cmdAndText.back(), 1.0f, (float)k);
+                    ITEM_RECT(1.0f, (float)k, 9.0f, (float)(k + 1)) = itemName;
+
+                    bool selected = _itemSelection[itemName];
+                    if (selected)
+                    {
+                        if (itemName.find("seg") != std::string::npos) segSelected = true;
+                        else if (itemName.find("vehicles") != std::string::npos) vSelected = true;
+                        else if (itemName.find("buildings") != std::string::npos) bSelected = true;
+                    }
+
+                    osg::Vec2 pos(wCell * 8.2f, hCell * (0.2f + (float)k));
+                    drawer->drawRectangle(osg::Vec4(pos[0], pos[1], wCell * 0.3f, hCell * 0.3f * as), 0.0f, 0.0f,
+                                          osgVerse::DrawerStyleData(selected ? _selected.get() : _unselected.get()));
+                }
             }
 
+            // Property dialogs
+            if (_propContent.size() > 5)
+            {
+                float vStart = 5.0f;
+                if (vSelected)
+                {
+                    int count0 = 1000, count1 = 402, count2 = 598;
+                    drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 3.5f * as),
+                                          0.0f, 0.0f, osgVerse::DrawerStyleData(_prop0.get()));
+                    DRAW_TEXT_S(_propContent[0], 24.2f, vStart, 25.0f);
+                    DRAW_TEXT(_propContent[1], 24.7f, vStart + 1.5f);
+                    DRAW_TEXT(_propContent[2] + std::to_string(count0), 25.2f, vStart + 2.6f);
+                    DRAW_TEXT(_propContent[3] + std::to_string(count1), 25.2f, vStart + 3.6f);
+                    DRAW_TEXT(_propContent[4] + std::to_string(count2), 25.2f, vStart + 4.6f);
+                    vStart += 7.0f;
+                }
+
+                if (bSelected)
+                {
+                    drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 8.0f * as),
+                                          0.0f, 0.0f, osgVerse::DrawerStyleData(_prop1.get()));
+                    DRAW_TEXT_S(_propContent[5], 24.2f, vStart, 25.0f);
+                    for (size_t i = 6; i < _propContent.size(); ++i)
+                    {
+                        std::vector<std::string> textAndColor; osgDB::split(_propContent[i], textAndColor, ':');
+                        osg::Vec4 color = osgVerse::Auxiliary::hexColorToRGB(osgVerse::Auxiliary::trim(textAndColor.back()));
+                        drawer->drawRectangle(osg::Vec4(wCell * 24.5f, hCell * (vStart + 1.5f + 0.35f),
+                                              wCell * 0.3f, hCell * 0.3f * as), 0.0f, 0.0f,
+                                              osgVerse::DrawerStyleData(color, true));
+                        DRAW_TEXT(textAndColor.front(), 25.2f, vStart + 1.5f); vStart += 1.0f;
+                    }
+                }
+            }
+
+            // Info popup dialog
+            if (_cityInfo.valid())
+            {
+                drawer->drawRectangle(osg::Vec4(wCell * 10.0f, hCell * 7.0f, wCell * 12.0f, hCell * 11.0f * as),
+                                      0.0f, 0.0f, osgVerse::DrawerStyleData(_cityInfo.get()));
+            }
+
+            // Buttons
             ITEM_RECT(30.6f, 18.5f, 31.35f, 19.8f) = "button/light";
             ITEM_RECT(30.6f, 19.9f, 31.35f, 21.2f) = "button/go_home";
             ITEM_RECT(30.6f, 21.3f, 31.35f, 22.6f) = "button/auto_rotate";
             ITEM_RECT(30.6f, 22.7f, 31.35f, 24.0f) = "button/ocean";
-            ITEM_RECT(30.6f, 24.1f, 31.35f, 25.4f) = "button/globe";
+            ITEM_RECT(30.6f, 24.1f, 31.35f, 25.4f) = "button/info";
             ITEM_RECT(30.6f, 26.0f, 31.35f, 27.5f) = "button/zoom_in";
             ITEM_RECT(30.6f, 27.4f, 31.35f, 28.7f) = "button/zoom_out";
 
             ITEM_RECT(28.4f, 3.0f, 29.0f, 4.0f) = "button/about?";
             ITEM_RECT(29.4f, 3.0f, 30.0f, 4.0f) = "button/ch_en";
-            DRAW_TEXT("En", 29.5f, 3.0f);
+            DRAW_TEXT("CN", 29.5f, 3.0f);
             
             float x = (xx * 0.5f + 0.5f) * _width, y = (-yy * 0.5f + 0.5f) * _height;
             for (std::map<osg::Vec4, std::string>::iterator it = hoverableItems.begin();
@@ -171,7 +237,10 @@ public:
 
                 // Run command when clicked (buttonState = 1)
                 if (_buttonState == 1)
+                {
+                    _itemSelection[it->second] = !_itemSelection[it->second];
                     view->getEventQueue()->userEvent(new osgDB::Options(it->second));
+                }
                 break;
             }
             if (_buttonState > 0) _buttonState = 0;
@@ -259,10 +328,12 @@ public:
     }
 
 protected:
+    std::map<std::string, bool> _itemSelection;
+    std::vector<std::string> _cityContent, _propContent;
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
-    osg::ref_ptr<osg::Image> _selected, _unselected;
-    osg::ref_ptr<osg::Image> _compass;
-    int _width, _height, _buttonState;
+    osg::ref_ptr<osg::Image> _selected, _unselected, _compass;
+    osg::ref_ptr<osg::Image> _cityInfo, _prop0, _prop1;
+    std::string _mainFolder; int _width, _height, _buttonState;
 };
 
 osg::Camera* configureUI(osgViewer::View& viewer, osg::Group* root,

@@ -11,6 +11,7 @@
 #include <modeling/Math.h>
 #include <modeling/Utilities.h>
 #include <modeling/GeometryMerger.h>
+#include <pipeline/Utilities.h>
 #include <pipeline/IntersectionManager.h>
 
 struct VehicleData : public osg::Referenced
@@ -53,7 +54,7 @@ public:
             if (line[0] == '#') continue;
 
             std::vector<std::string> values, rings;
-            splitString(line, values, ',', false);
+            osgVerse::Auxiliary::splitString(line, values, ',', false);
             if (!valueMap.empty())
             {
                 size_t numColumns = valueMap.size();
@@ -71,9 +72,10 @@ public:
                 double labelCar = (valueMap.find("Label") == valueMap.end()) ? -1.0 : atof(valueMap["Label"].c_str());
                 double roadCar = (valueMap.find("on_road") == valueMap.end()) ? -1.0 : atof(valueMap["on_road"].c_str());
                 const std::string& vData = valueMap["vertices"]; osg::Vec3d center;
-                std::vector<osg::Vec3d> polygon; splitString(vData, rings, '|', true);
+                std::vector<osg::Vec3d> polygon; osgVerse::Auxiliary::splitString(vData, rings, '|', true);
 
-                std::vector<std::string> vertices; splitString(rings[0], vertices, ' ', true);  // FIXME: only consider outer ring?
+                // FIXME: only consider outer ring?
+                std::vector<std::string> vertices; osgVerse::Auxiliary::splitString(rings[0], vertices, ' ', true);
                 for (size_t j = 0; j < vertices.size(); j += 2)
                 {
                     polygon.push_back(osg::Vec3d(osg::inDegrees(atof(vertices[j + 1].c_str())),
@@ -102,11 +104,11 @@ public:
                     polygon[j] = pt * worldToLocal;
                 }
 
-                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygon, 50.0f)
+                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygon, 20.0f)
                                     : createExtrusionGeometry(polygon, osg::Z_AXIS * (height * 5.0));
                 osg::Vec4Array* ca = new osg::Vec4Array; geom->setColorArray(ca);
                 geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-                ca->assign(static_cast<osg::Vec3Array*>(geom->getVertexArray())->size(), heightColor(height));
+                ca->assign(static_cast<osg::Vec3Array*>(geom->getVertexArray())->size(), heightColor(height, roadCar));
 
                 if (height < 0.0) lineList.push_back(osgVerse::GeometryMerger::GeometryPair(geom, localToWorld));
                 else geomList.push_back(osgVerse::GeometryMerger::GeometryPair(geom, localToWorld));
@@ -170,12 +172,14 @@ public:
             {
                 osg::Geometry* g0 = lineList[i].first; osg::Matrix mat = lineList[i].second;
                 osg::Vec3Array* v0 = static_cast<osg::Vec3Array*>(g0->getVertexArray());
+                osg::Vec3Array* n0 = static_cast<osg::Vec3Array*>(g0->getNormalArray());
                 osg::Vec4Array* c0 = static_cast<osg::Vec4Array*>(g0->getColorArray());
                 osg::DrawElementsUInt* d0 = static_cast<osg::DrawElementsUInt*>(g0->getPrimitiveSet(0));
 
-                size_t vStart = va->size();
-                for (size_t j = 0; j < v0->size(); ++j) { va->push_back((*v0)[j] * mat); ca->push_back((*c0)[j]); }
-                for (size_t j = 0; j < d0->size(); ++j) de->push_back((*d0)[j] + vStart);
+                size_t vStart = va->size(); for (size_t j = 0; j < d0->size(); ++j) de->push_back((*d0)[j] + vStart);
+                for (size_t j = 0; j < v0->size(); ++j)
+                { va->push_back((*v0)[j] * mat); na->push_back((*n0)[j]); ca->push_back((*c0)[j]); }
+                
             }
 
             osg::Geometry* geom = new osg::Geometry;
@@ -216,61 +220,22 @@ protected:
         return str.substr(first, last - first + 1);
     }
 
-    static void splitString(const std::string& src, std::vector<std::string>& slist, char sep, bool ignoreEmpty)
+    static osg::Vec4 heightColor(float h, float onRoad)
     {
-        if (src.empty()) return;
-        std::string::size_type start = 0;
-        bool inQuotes = false;
-
-        for (std::string::size_type i = 0; i < src.size(); ++i)
-        {
-            if (src[i] == '"')
-                inQuotes = !inQuotes;
-            else if (src[i] == sep && !inQuotes)
-            {
-                if (!ignoreEmpty || (i - start) > 0)
-                    slist.push_back(src.substr(start, i - start));
-                start = i + 1;
-            }
-        }
-        if (!ignoreEmpty || (src.size() - start) > 0)
-            slist.push_back(src.substr(start, src.size() - start));
-    }
-
-    static osg::Vec4 hexColorToRGB(const std::string& hexColor)
-    {
-        if (hexColor.empty() || hexColor[0] != '#') return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-        std::string colorPart = hexColor.substr(1);
-        unsigned long hexValue = 0;
-        if (colorPart.length() == 3)
-        {   // #abc -> #aabbcc
-            std::string expanded;
-            for (char c : colorPart) expanded += std::string(2, c);
-            colorPart = expanded;
-        }
-        else if (colorPart.length() != 6) return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-
-        std::istringstream iss(colorPart);
-        if (!(iss >> std::hex >> hexValue)) return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-        return osg::Vec4(((hexValue >> 16) & 0xFF) / 255.0f, ((hexValue >> 8) & 0xFF) / 255.0f,
-                         (hexValue & 0xFF) / 255.0f, 1.0f);
-    }
-
-    static osg::Vec4 heightColor(float h)
-    {
-        if (h <= 0.0f) return hexColorToRGB("#ffff00");
-        if (h <= 5.0f) return hexColorToRGB("#e6f4fd");
-        else if (h <= 10.0f) return hexColorToRGB("#a7def5");
-        else if (h <= 20.0f) return hexColorToRGB("#6fb1df");
-        else if (h <= 30.0f) return hexColorToRGB("#4696b2");
-        else if (h <= 40.0f) return hexColorToRGB("#49af5b");
-        else if (h <= 50.0f) return hexColorToRGB("#9fcf51");
-        else if (h <= 60.0f) return hexColorToRGB("#f9da55");
-        else if (h <= 70.0f) return hexColorToRGB("#f58c37");
-        else if (h <= 80.0f) return hexColorToRGB("#e64f29");
-        else if (h <= 90.0f) return hexColorToRGB("#dd3427");
-        else if (h <= 100.0f) return hexColorToRGB("#bb1b23");
-        else return hexColorToRGB("#931519");
+        if (h <= 0.0f) return onRoad > 0.5f ? osgVerse::Auxiliary::hexColorToRGB("#ffff00")
+                                            : osgVerse::Auxiliary::hexColorToRGB("#ff00ff");
+        else if (h <= 5.0f) return osgVerse::Auxiliary::hexColorToRGB("#e6f4fd");
+        else if (h <= 10.0f) return osgVerse::Auxiliary::hexColorToRGB("#a7def5");
+        else if (h <= 20.0f) return osgVerse::Auxiliary::hexColorToRGB("#6fb1df");
+        else if (h <= 30.0f) return osgVerse::Auxiliary::hexColorToRGB("#4696b2");
+        else if (h <= 40.0f) return osgVerse::Auxiliary::hexColorToRGB("#49af5b");
+        else if (h <= 50.0f) return osgVerse::Auxiliary::hexColorToRGB("#9fcf51");
+        else if (h <= 60.0f) return osgVerse::Auxiliary::hexColorToRGB("#f9da55");
+        else if (h <= 70.0f) return osgVerse::Auxiliary::hexColorToRGB("#f58c37");
+        else if (h <= 80.0f) return osgVerse::Auxiliary::hexColorToRGB("#e64f29");
+        else if (h <= 90.0f) return osgVerse::Auxiliary::hexColorToRGB("#dd3427");
+        else if (h <= 100.0f) return osgVerse::Auxiliary::hexColorToRGB("#bb1b23");
+        else return osgVerse::Auxiliary::hexColorToRGB("#931519");
     }
 
     static void tessellateGeometry(osg::Geometry& geom, const osg::Vec3& axis)

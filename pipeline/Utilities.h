@@ -332,7 +332,7 @@ namespace osgVerse
         { /*traverse(node, nv);*/ }
     };
 
-    /** CUDA/MUSA related algorithm */
+    /** CUDA/MUSA related algorithms */
     struct CudaAlgorithm
     {
 #ifdef VERSE_ENABLE_MTT
@@ -345,6 +345,19 @@ namespace osgVerse
 
         static bool radixSort(const std::vector<unsigned int>& inValues, const std::vector<unsigned int>& inIDs,
                               std::vector<unsigned int>& outIDs);
+    };
+
+    /** Some helper functions and algorithms */
+    struct Auxiliary
+    {
+        /** Convert from string like #ff00ff to a color */
+        static osg::Vec4 hexColorToRGB(const std::string& hexColor, bool withAlpha = false);
+
+        /** Split a string into parts */
+        static void splitString(const std::string& src, std::vector<std::string>& slist, char sep, bool ignoreEmpty = true);
+
+        /** Trim leading and trailing spaces of a string */
+        static std::string trim(const std::string& str);
     };
 }
 

@@ -29,6 +29,57 @@
 #define srnd() (2 * frandom(&seed) - 1)
 using namespace osgVerse;
 
+/************** Auxiliary **************/
+
+osg::Vec4 Auxiliary::hexColorToRGB(const std::string& hexColor, bool withAlpha)
+{
+    if (hexColor.empty() || hexColor[0] != '#') return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    std::string colorPart = hexColor.substr(1), ex; unsigned long hexValue = 0;
+    if (!withAlpha)
+    {   // #abc -> #aabbcc
+        if (colorPart.length() == 3) { for (char c : colorPart) ex += std::string(2, c); colorPart = ex; }
+        else if (colorPart.length() != 6) return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+    else if (colorPart.length() != 8)
+        return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    std::istringstream iss(colorPart);
+    if (!(iss >> std::hex >> hexValue)) return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    if (withAlpha) return osg::Vec4(((hexValue >> 24) & 0xFF) / 255.0f, ((hexValue >> 16) & 0xFF) / 255.0f,
+                                    ((hexValue >> 8) & 0xFF) / 255.0f, (hexValue & 0xFF) / 255.0f);
+    else return osg::Vec4(((hexValue >> 16) & 0xFF) / 255.0f, ((hexValue >> 8) & 0xFF) / 255.0f,
+                          (hexValue & 0xFF) / 255.0f, 1.0f);
+}
+
+void Auxiliary::splitString(const std::string& src, std::vector<std::string>& slist,
+                            char sep, bool ignoreEmpty)
+{
+    if (src.empty()) return; bool inQuotes = false;
+    std::string::size_type start = 0;
+    
+    for (std::string::size_type i = 0; i < src.size(); ++i)
+    {
+        if (src[i] == '"') inQuotes = !inQuotes;
+        else if (src[i] == sep && !inQuotes)
+        {
+            if (!ignoreEmpty || (i - start) > 0)
+                slist.push_back(src.substr(start, i - start));
+            start = i + 1;
+        }
+    }
+    if (!ignoreEmpty || (src.size() - start) > 0)
+        slist.push_back(src.substr(start, src.size() - start));
+}
+
+std::string Auxiliary::trim(const std::string& str)
+{
+    if (!str.size()) return str;
+    std::string::size_type first = str.find_first_not_of(" \t");
+    std::string::size_type last = str.find_last_not_of("  \t\r\n");
+    if ((first == str.npos) || (last == str.npos)) return std::string("");
+    return str.substr(first, last - first + 1);
+}
+
 /************** EarthAtmosphereOcean **************/
 
 static long lrandom(long* seed)

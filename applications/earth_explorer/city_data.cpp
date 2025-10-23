@@ -240,7 +240,12 @@ public:
                               << ", Queue = " << view->getDatabasePager()->getFileRequestListSize() << "\t";
                 }
             }
-            else _loadingCityItem = "";
+            else
+            {
+                // switch on/off  // FIXME: better command format?
+                city->setNodeMask(~city->getNodeMask());
+                _loadingCityItem = "";
+            }
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
         {
@@ -263,8 +268,11 @@ public:
 
             osg::Vec3d currentView;
             if (cmd.find("beijing") != std::string::npos) currentView = cityViews[0];
+            else currentView = cityViews[0];
 
-            manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(currentView));
+            osg::Vec3d current = osg::Vec3d() * view->getCamera()->getInverseViewMatrix();
+            osg::Vec3d target = osgVerse::Coordinate::convertLLAtoECEF(currentView);
+            if ((current - target).length() > 10e6) manipulator->setByEye(target);
             _cityRoot->getOrCreateStateSet()->getUniform("CurrentLon")->set((float)currentView[1]);
             _loadingCityItem = cmd; _countBeforeLoadingCity = 3;
         }

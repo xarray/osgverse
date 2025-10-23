@@ -92,7 +92,7 @@ osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, cons
 
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
-    std::string protocol = osgDB::getServerProtocol(url);
+    std::string protocol = osgDB::getServerProtocol(url); if (url.empty()) return NULL;
 
     osg::ref_ptr<osg::Texture2D> tex2D = createTexture2D(NULL, osg::Texture::CLAMP_TO_EDGE);
     if (irh != NULL)
@@ -114,7 +114,7 @@ TileGeometryHandler* TileCallback::createLayerHandler(LayerType id, bool& emptyP
 
     std::string url = _createPathFunc ? _createPathFunc((int)id, inputAddr, _x, _y, _z)
                     : TileCallback::createPath(inputAddr, _x, _y, _z);
-    std::string protocol = osgDB::getServerProtocol(url);
+    std::string protocol = osgDB::getServerProtocol(url); if (url.empty()) return NULL;
 
     osgDB::ReaderWriter* rw = TileManager::instance()->getReaderWriter(protocol, url);
     return rw ? dynamic_cast<TileGeometryHandler*>(rw->readObject(url, opt).takeObject()) : NULL;
@@ -659,8 +659,11 @@ osgDB::ReaderWriter* TileManager::getReaderWriter(const std::string& protocol, c
     }
 
     if (!rw)
+    {
         rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
-    if (rw) _cachedReaderWriters[ext] = rw; return rw;
+        if (rw) _cachedReaderWriters[ext] = rw;
+    }
+    return rw;
 }
 
 bool TileManager::shouldMorph(TileCallback& cb) const

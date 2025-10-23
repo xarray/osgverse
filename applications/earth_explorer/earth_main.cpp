@@ -28,7 +28,7 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
-#define SIMPLE_VERSION 1
+#define SIMPLE_VERSION 0
 
 extern std::vector<osg::Camera*> configureEarthRendering(
         osgViewer::View& viewer, osg::Group* root, osg::Node* earth, osgVerse::EarthAtmosphereOcean& eData,
@@ -80,27 +80,19 @@ public:
             }
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
-        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
-        {
-            if (ea.getKey() == 'p')
-            {
-                osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
-                mgr->setLayerPath(osgVerse::TileCallback::USER, "E:/Zhijiang1026/Tiles/Beijing/{z}/{x}/{y}.png");
-            }
-            _pressingKey = 0;
-        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP) _pressingKey = 0;
 
         if (_pressingKey > 0)
         {
             switch (_pressingKey)
             {
             case ',': case '<':
-                _sunAngle -= 0.002f;
+                _sunAngle -= 0.0002f;
                 _earthData->commonUniforms["WorldSunDir"]->set(
                     osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 view->getEventQueue()->userEvent(new osgDB::Options("value/" + std::to_string(_sunAngle))); break;
             case '.': case '>':
-                _sunAngle += 0.002f;
+                _sunAngle += 0.0002f;
                 _earthData->commonUniforms["WorldSunDir"]->set(
                     osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 view->getEventQueue()->userEvent(new osgDB::Options("value/" + std::to_string(_sunAngle))); break;
@@ -123,14 +115,19 @@ public:
                 bool v = !_toggles[cmd]; _toggles[cmd] = v;
                 _earthData->commonUniforms["OceanOpaque"]->set(v ? 1.0f : 0.0f);
             }
-            else if (cmd == "globe")
+            /*else if (cmd == "globe")
             {
                 bool v = !_toggles[cmd]; _toggles[cmd] = v;
                 _earthData->commonUniforms["GlobalOpaque"]->set(v ? 0.5f : 1.0f);
-            }
+            }*/
             else if (cmd == "zoom_in") earthMani->performScale(osgGA::GUIEventAdapter::SCROLL_UP);
             else if (cmd == "zoom_out") earthMani->performScale(osgGA::GUIEventAdapter::SCROLL_DOWN);
-            else if (cmd == "ch_en") {}  // TODO
+        }
+        else if (type == "item")
+        {
+            osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+            if (cmd.find("seg") != std::string::npos)
+                mgr->setLayerPath(osgVerse::TileCallback::USER, _mainFolder + "/Tiles/" + cmd + "/{z}/{x}/{y}.png");
         }
     }
 
@@ -155,6 +152,13 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
             return osgVerse::TileCallback::createPath(prefix2, x, pow(2, z) - y - 1, z);
         }
     }
+    else if (type == osgVerse::TileCallback::USER)
+        return osgVerse::TileCallback::createPath(prefix, x, pow(2, z) - y - 1, z);
+#if SIMPLE_VERSION
+    else if (z > 3) return "";  // for elevation & ocean-mask, ignore deeper levels
+#else
+    else if (z > 8) return "";  // for elevation & ocean-mask, ignore deeper levels
+#endif
     return osgVerse::TileCallback::createPath(prefix, x, y, z);
 }
 
