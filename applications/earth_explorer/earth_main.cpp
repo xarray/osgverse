@@ -43,7 +43,7 @@ class EnvironmentHandler : public osgGA::GUIEventHandler
 {
 public:
     EnvironmentHandler(osgVerse::EarthAtmosphereOcean* eao, const std::string& folder)
-    :   _earthData(eao), _mainFolder(folder), _sunAngle(0.0f), _pressingKey(0)
+    :   _earthData(eao), _mainFolder(folder), _pressingKey(0), _pathIndex(0), _sunAngle(0.0f)
     {
         _earthData->commonUniforms["OceanOpaque"]->set(0.0f);
         _earthData->commonUniforms["WorldSunDir"]->set(
@@ -80,19 +80,62 @@ public:
             }
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
-        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP) _pressingKey = 0;
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        {
+            osgVerse::EarthManipulator* earthMani =
+                static_cast<osgVerse::EarthManipulator*>(view->getCameraManipulator());
+            if (ea.getKey() == 'o')  // set an animation-path frame
+            {
+                earthMani->insertControlPointFromCurrentView((float)_pathIndex); _pathIndex += 60;
+            }
+            else if (ea.getKey() == 'i')  // save the animation-path
+            {
+                std::ofstream out("../city_path.txt", std::ios::out);
+                const osgVerse::EarthManipulator::ControlPointSet& path = earthMani->getControlPoints();
+                for (osgVerse::EarthManipulator::ControlPointSet::const_iterator it = path.begin();
+                     it != path.end(); ++it)
+                {
+                    osgVerse::EarthManipulator::ControlPoint* cp = (*it).get();
+                    out << cp->_time << "," << cp->_rotation << "," << cp->_tilt << "," << cp->_distance << "\n";
+                }
+            }
+            else if (ea.getKey() == 'p')  // load and play the animation-path
+            {
+                std::ifstream in("../city_path.txt", std::ios::in); std::string line;
+                if (in)
+                {
+                    earthMani->clearControlPoints();
+                    while (std::getline(in, line))
+                    {
+                        if (line.empty()) continue; else if (line[0] == '#') continue;
+                        std::vector<std::string> values; osgDB::split(line, values, ',');
+
+                        if (values.size() < 4) continue;
+                        osg::Quat q; std::stringstream ss(values[1]); ss >> q;
+                        double time = atof(values[0].c_str()), tilt = atof(values[2].c_str());
+                        double distance = atof(values[3].c_str());
+                        earthMani->insertControlPoint(
+                            new osgVerse::EarthManipulator::ControlPoint(time, q, distance, tilt));
+                    }
+
+                    if (earthMani->isAnimationRunning()) earthMani->stopAnimation();
+                    earthMani->startAnimation();
+                }
+            }
+            _pressingKey = 0;
+        }
 
         if (_pressingKey > 0)
         {
             switch (_pressingKey)
             {
             case ',': case '<':
-                _sunAngle -= 0.0002f;
+                _sunAngle -= 0.00005f;
                 _earthData->commonUniforms["WorldSunDir"]->set(
                     osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 view->getEventQueue()->userEvent(new osgDB::Options("value/" + std::to_string(_sunAngle))); break;
             case '.': case '>':
-                _sunAngle += 0.0002f;
+                _sunAngle += 0.00005f;
                 _earthData->commonUniforms["WorldSunDir"]->set(
                     osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
                 view->getEventQueue()->userEvent(new osgDB::Options("value/" + std::to_string(_sunAngle))); break;
@@ -132,10 +175,11 @@ public:
     }
 
 protected:
+    std::map<std::string, bool> _toggles;
     osgVerse::EarthAtmosphereOcean* _earthData;
     std::string _mainFolder;
-    float _sunAngle; int _pressingKey;
-    std::map<std::string, bool> _toggles;
+    int _pressingKey, _pathIndex;
+    float _sunAngle;
 };
 
 static std::string createCustomPath(int type, const std::string& prefix, int x, int y, int z)
@@ -173,7 +217,9 @@ int main(int argc, char** argv)
     std::string mainFolder = BASE_DIR + "/models"; arguments.read("--folder", mainFolder);
     std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
     int w = 1920, h = 1080; arguments.read("--resolution", w, h);
-    bool cityWaitingTiles = true; if (arguments.read("--no-wait")) cityWaitingTiles = false;
+    bool cityWaitingTiles = true, manipulatorCanThrow = false;
+    if (arguments.read("--no-wait")) cityWaitingTiles = false;
+    if (arguments.read("--thrown")) manipulatorCanThrow = true;
 
     // Create earth
 #if !SIMPLE_VERSION
@@ -219,7 +265,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
     earthManipulator->setIntersectionMask(EARTH_INTERSECTION_MASK);
     earthManipulator->setWorldNode(earth.get());
-    earthManipulator->setThrowAllowed(false);
+    earthManipulator->setThrowAllowed(manipulatorCanThrow);
 
     //osg::Vec3d pos = osgVerse::Coordinate::convertLLAtoECEF(
     //    osg::Vec3d(osg::inDegrees(0.0), osg::inDegrees(120.0), 10000.0));

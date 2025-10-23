@@ -113,6 +113,11 @@ public:
                 }
                 else _cityInfo = NULL;
             }
+            else if (commmandPair.front() == "count")
+            {
+                std::vector<std::string> v; osgDB::split(commmandPair.back(), v, ',');
+                if (v.size() > 2) _count.set(atoi(v[0].c_str()), atoi(v[1].c_str()), atoi(v[2].c_str()));
+            }
             updateOverlay(view, manipulator, ea.getXnormalized(), ea.getYnormalized());
         }
         return false;
@@ -178,7 +183,7 @@ public:
                 float vStart = 5.0f;
                 if (vSelected)
                 {
-                    int count0 = 1000, count1 = 402, count2 = 598;
+                    int count0 = _count[0], count1 = _count[2], count2 = _count[0] - _count[2];
                     drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 3.5f * as),
                                           0.0f, 0.0f, osgVerse::DrawerStyleData(_prop0.get()));
                     DRAW_TEXT_S(_propContent[0], 24.2f, vStart, 25.0f);
@@ -224,7 +229,7 @@ public:
 
             ITEM_RECT(28.4f, 3.0f, 29.0f, 4.0f) = "button/about?";
             ITEM_RECT(29.4f, 3.0f, 30.0f, 4.0f) = "button/ch_en";
-            DRAW_TEXT("CN", 29.5f, 3.0f);
+            DRAW_TEXT("CN", 29.45f, 3.0f);
             
             float x = (xx * 0.5f + 0.5f) * _width, y = (-yy * 0.5f + 0.5f) * _height;
             for (std::map<osg::Vec4, std::string>::iterator it = hoverableItems.begin();
@@ -333,7 +338,8 @@ protected:
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
     osg::ref_ptr<osg::Image> _selected, _unselected, _compass;
     osg::ref_ptr<osg::Image> _cityInfo, _prop0, _prop1;
-    std::string _mainFolder; int _width, _height, _buttonState;
+    std::string _mainFolder; osg::Vec3d _count;
+    int _width, _height, _buttonState;
 };
 
 osg::Camera* configureUI(osgViewer::View& viewer, osg::Group* root,

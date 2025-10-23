@@ -195,6 +195,63 @@ const char* cityFragCode = {
     "}\n"
 };
 
+class ProcessThread : public OpenThreads::Thread
+{
+public:
+    ProcessThread() : _done(false) {}
+    bool done() const { return _done; }
+
+    void set(const osg::Matrix& viewMatrix, const osg::Matrix& projMatrix)
+    {
+        osg::Polytope frustum; frustum.setToUnitFrustum(false, false);
+        frustum.transformProvidingInverse(viewMatrix * projMatrix);
+        _mutex1.lock(); _frustum = frustum; _mutex1.unlock();
+    }
+
+    void add(VehicleData* vd) { _mutex2.lock(); _dataList.push_back(vd); _mutex2.unlock(); }
+    void clear() { _mutex2.lock(); _dataList.clear(); _mutex2.unlock(); }
+
+    osg::Vec3d getCount()
+    { if (_mutex2.trylock() == 0) { _count2 = _count; _mutex2.unlock(); } return _count2; }
+
+    virtual void run()
+    {
+        while (!_done)
+        {
+            _mutex2.lock(); _count = osg::Vec3d();
+            for (size_t j = 0; j < _dataList.size(); ++j)
+            {
+                VehicleData* vd = _dataList[j].get();
+                osg::Polytope frustum; _mutex1.lock(); frustum = _frustum; _mutex1.unlock();
+                for (size_t i = 0; i < vd->dataList.size(); ++i)
+                {
+                    const osg::Vec3d& pt = vd->dataList[i].first;
+                    const osg::Vec2& prop = vd->dataList[i].second;
+                    if (frustum.contains(pt))
+                    {
+                        _count[0] += 1.0;
+                        if (prop[0] > 0.5f) _count[1] += 1.0;
+                        if (prop[1] > 0.5f) _count[2] += 1.0;
+                    }
+                }
+                OpenThreads::Thread::microSleep(50);
+            }
+            _mutex2.unlock(); OpenThreads::Thread::microSleep(150000);
+        }
+        _done = true;
+    }
+
+    virtual int cancel()
+    { _done = true; return OpenThreads::Thread::cancel(); }
+
+protected:
+    std::vector<osg::ref_ptr<VehicleData>> _dataList;
+    osg::Polytope _frustum;
+    OpenThreads::Mutex _mutex1, _mutex2;
+    osg::Vec3d _count, _count2;
+    bool _done;
+};
+
 class CreateCityHandler : public osgGA::GUIEventHandler
 {
 public:
@@ -219,9 +276,22 @@ public:
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
         {
+            if (!_countThread.isRunning()) _countThread.startThread();
+            _countThread.set(view->getCamera()->getViewMatrix(), view->getCamera()->getProjectionMatrix());
+            if (!(view->getFrameStamp()->getFrameNumber() % 4))
+            {
+                osg::Vec3d result = _countThread.getCount();
+                if ((_lastCountResult - result).length2() > 0.5)
+                {
+                    view->getEventQueue()->userEvent(new osgDB::Options(
+                        "count/" + std::to_string((int)result[0]) + "," + std::to_string((int)result[1])
+                                 + "," + std::to_string((int)result[2])));
+                    _lastCountResult = result;
+                }
+            }
+
             if (_loadingCityItem.empty() || (_countBeforeLoadingCity--) > 0) return false;
             osg::ref_ptr<osg::Node> city = _cityMap[_loadingCityItem].get();
-
             if (!city)
             {
                 if (!_waitedPagerToFinish || !view->getDatabasePager()->getRequestsInProgress())
@@ -284,9 +354,12 @@ public:
     }
 
 protected:
+    virtual ~CreateCityHandler()
+    { _countThread.cancel(); _countThread.join(); }
+
     osg::Group* createBatchData(const std::string& dir, bool asVehicles)
     {
-        osg::Group* batchRoot = new osg::Group;
+        osg::Group* batchRoot = new osg::Group; if (asVehicles) _countThread.clear();
         osgDB::DirectoryContents contents = osgDB::getDirectoryContents(_mainFolder + dir);
         osg::ref_ptr<osgDB::Options> opt = new osgDB::Options("Downsamples=10"), opt2 = new osgDB::Options;
         if (_waitedPagerToFinish)
@@ -337,7 +410,7 @@ protected:
             {
                 std::ifstream in(fineFile + ".p", std::ios::in | std::ios::binary);
                 osg::ref_ptr<VehicleData> vData = new VehicleData;
-                if (in) vData->load(in);  // TODO: add to collector
+                if (asVehicles && in) { vData->load(in); _countThread.add(vData.get()); }
 
                 // FIXME: read bounding config from file?
                 // TODO
@@ -384,6 +457,7 @@ protected:
 
     std::map<std::string, osg::observer_ptr<osg::Node>> _cityMap;
     osg::observer_ptr<osg::Group> _cityRoot, _earthRoot;
+    ProcessThread _countThread; osg::Vec3d _lastCountResult;
     std::string _mainFolder, _loadingCityItem;
     int _countBeforeLoadingCity;
     bool _waitedPagerToFinish;

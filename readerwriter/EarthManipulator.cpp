@@ -270,7 +270,7 @@ bool EarthManipulator::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIAction
             _thrown = false;
             return true;
         }
-        else if (ea.getKey() == 'p')
+        /*else if (ea.getKey() == 'p')
         {
             if (isAnimationRunning()) stopAnimation();
             else startAnimation();
@@ -278,7 +278,7 @@ bool EarthManipulator::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIAction
         else if (ea.getKey() == 'o')
         {
             std::cout << _worldRotation << "; " << _distance << "; " << _tilt << std::endl;
-        }
+        }*/
         return false;
 
     default:
@@ -893,7 +893,7 @@ bool EarthManipulator::applyAnimation(ControlPointSet& pts, float time)
         _animationRotation.slerp(blend, value0->_rotation, value1->_rotation);
         _animationDistance = value0->_distance * (1.0f - blend) + value1->_distance * blend;
         _animationTilt = value0->_tilt * (1.0f - blend) + value1->_tilt * blend + _tilt;
-        calcTiltCenter(false);
+        if (blend == 0.0f) calcTiltCenter(false);  // FIXME
         makeTiltRotation(_animationTiltRotation, _animationTilt, osg::X_AXIS);
         return true;
     }
