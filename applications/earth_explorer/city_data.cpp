@@ -25,8 +25,34 @@
 #include <readerwriter/EarthManipulator.h>
 #include <VerseCommon.h>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 USE_OSGPLUGIN(verse_csv)
+
+struct VehicleData : public osg::Referenced
+{
+    std::vector<std::pair<osg::Vec3d, osg::Vec2>> dataList;
+
+    void load(std::istream& in)
+    {
+        unsigned int size = 0; in.read((char*)&size, sizeof(unsigned int)); dataList.resize(size);
+        for (unsigned int i = 0; i < size; ++i)
+        {
+            osg::Vec3d pt; in.read((char*)&pt, sizeof(osg::Vec3d)); dataList[i].first = pt;
+            osg::Vec2 v; in.read((char*)&v, sizeof(osg::Vec2)); dataList[i].second = v;
+        }
+    }
+
+    void save(std::ostream& out)
+    {
+        unsigned int size = dataList.size(); out.write((char*)&size, sizeof(unsigned int));
+        for (unsigned int i = 0; i < size; ++i)
+        {
+            const osg::Vec3d& pt = dataList[i].first; out.write((char*)&pt, sizeof(osg::Vec3d));
+            const osg::Vec2& v = dataList[i].second; out.write((char*)&v, sizeof(osg::Vec2));
+        }
+    }
+};
 
 const char* cityVertCode = {
     "uniform mat4 osg_ViewMatrix, osg_ViewMatrixInverse; \n"
@@ -81,8 +107,8 @@ const char* cityFragCode = {
     "    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y; \n"
     "}\n"
 
-    "vec3 residentialWindows(vec2 uv, vec2 gridSize, float timeOfDay) { \n"
-    "    float frameWidth = 0.06; vec3 lightColor; \n"
+    "vec3 residentialWindows(vec2 uv, vec2 gridSize, float timeOfDay, out vec3 glowColor) { \n"
+    "    float frameWidth = 0.06; vec3 lightColor; glowColor = vec3(0.0); \n"
     "    vec2 cellUV = uv * gridSize; vec2 cellID = floor(cellUV); vec2 localUV = fract(cellUV); \n"
     "    vec2 frame = step(vec2(frameWidth), localUV) * step(localUV, vec2(1.0 - frameWidth)); \n"
     "    float isWindow = frame.x * frame.y; \n"
@@ -98,13 +124,13 @@ const char* cityFragCode = {
     "    vec3 color = mix(buildingColor, mix(darkWindowColor, lightColor, isLightOn), isWindow); \n"
     "    if (isLightOn > 0.5 && isWindow > 0.5) {\n"
     "        float glow = (1.0 - length(localUV - 0.5) * 2.0);\n"
-    "        color += lightColor * smoothstep(0.0, 0.5, glow) * 0.2;\n"
+    "        glowColor = lightColor * smoothstep(0.0, 0.5, glow) * 0.2;\n"
     "    }\n"
     "    return color;\n"
     "}\n"
 
-    "vec3 modernOfficeWindows(vec2 uv, vec2 gridSize, float timeOfDay) {\n"
-    "    float outerFrame = 0.08, innerFrame = 0.03; \n"
+    "vec3 modernOfficeWindows(vec2 uv, vec2 gridSize, float timeOfDay, out vec3 glowColor) {\n"
+    "    float outerFrame = 0.08, innerFrame = 0.03; glowColor = vec3(0.0); \n"
     "    vec2 cellUV = uv * gridSize; vec2 cellID = floor(cellUV); vec2 localUV = fract(cellUV); \n"
     "    vec2 outer = step(vec2(outerFrame), localUV) * step(localUV, vec2(1.0 - outerFrame));\n"
     "    float isOuterWindow = outer.x * outer.y; \n"
@@ -123,7 +149,7 @@ const char* cityFragCode = {
     "            color = mix(darkWindowColor, lightWindowColor, isLightOn); \n"
     "            if (isLightOn > 0.5) {\n"
     "                float centerGlow = (1.0 - length(localUV - 0.5) * 1.5); \n"
-    "                color += lightWindowColor * smoothstep(0.0, 1.0, centerGlow) * 0.3; \n"
+    "                glowColor = lightWindowColor * smoothstep(0.0, 1.0, centerGlow) * 0.3; \n"
     "            }\n"
     "        }\n"
     "        else color = buildingColor * 0.7;\n"
@@ -131,20 +157,24 @@ const char* cityFragCode = {
     "    return color; \n"
     "}\n"
 
+    "float smoothBump(float x, float a, float b) \n"
+    "{ float c = (b - a) * 0.2; return smoothstep(a, a + c, x) * (1.0 - smoothstep(b - c, b, x)); }\n"
+
     "void main() {\n"
     "    vec3 WSD = WorldSunDir, WCP = WorldCameraPos; \n"
     "    vec3 P = vertexInWorld, N = normalInWorld; \n"
     "    vec4 groundColor = vec4(color.rgb, 1.0);\n"
     "    float nightStart = -1.5707963 + CurrentLon, nightEnd = 1.5707963 + CurrentLon;\n"
-    "    float sunAngle = mod(SunAngle, 3.1415926 * 2.0);\n"
-    "    float lightIntensity = (sunAngle < nightStart || sunAngle > nightEnd) ? 1.0 : 0.0;\n"
+    "    float sunAngle = mod(SunAngle, 3.1415926 * 2.0); vec3 glowColor = vec3(0.0);\n"
+    "    float lightIntensity = (sunAngle < nightStart || sunAngle > nightEnd) ? 1.0 \n"
+    "                         : (1.0 - smoothBump(sunAngle, nightStart, nightEnd));\n"
 
     "    if (BuildingType > 0.5f)\n"
-    "        groundColor.rgb *= modernOfficeWindows(texCoord.xy, vec2(15.0, 8.0), lightIntensity);\n"
+    "        groundColor.rgb *= modernOfficeWindows(texCoord.xy, vec2(15.0, 8.0), lightIntensity, glowColor);\n"
     "    else if (BuildingType > 0.0f)\n"
-    "        groundColor.rgb *= residentialWindows(texCoord.xy, vec2(8.0, 5.0), lightIntensity);\n"
+    "        groundColor.rgb *= residentialWindows(texCoord.xy, vec2(8.0, 5.0), lightIntensity, glowColor);\n"
     "    if (BuildingType > 0.0f) groundColor.rgb *= mix(vec3(1.0), vec3(3.0), lightIntensity);\n"
-
+    
     "    float cTheta = dot(N, WSD); vec3 sunL, skyE; \n"
     "    sunRadianceAndSkyIrradiance(P, N, WSD, sunL, skyE); \n"
     "    groundColor.rgb *= max((sunL * max(cTheta, 0.0) + skyE) / 3.14159265, vec3(0.1)); \n"
@@ -153,6 +183,7 @@ const char* cityFragCode = {
     "    vec3 extinction = vec3(1.0); \n"
     "    vec3 inscatter = inScattering(WCP, P, WSD, extinction, 0.0); \n"
     "    vec3 compositeColor = groundColor.rgb * extinction + inscatter; \n"
+    "    if (BuildingType > 0.0f) compositeColor.rgb += glowColor * 5.0;\n"
     "    vec4 finalColor = vec4(hdr(compositeColor), groundColor.a); \n"
     "#ifdef VERSE_GLES3\n"
     "    fragColor = finalColor; \n"
@@ -167,12 +198,12 @@ const char* cityFragCode = {
 class CreateCityHandler : public osgGA::GUIEventHandler
 {
 public:
-    CreateCityHandler(osg::Group* root, osg::Group* earth, const std::string& mainFolder)
+    CreateCityHandler(osg::Group* root, osg::Group* earth, const std::string& mainFolder, bool w)
         : _cityRoot(root), _earthRoot(earth), _mainFolder(mainFolder + "/")
     {
         //_cityRoot->addChild(createBatchData("Batches/shanghai_buildings", false));
         //_cityRoot->addChild(createBatchData("Batches/shanghai_vehicles", true));
-        _waitedPagerToFinish = true;
+        _countBeforeLoadingCity = 0; _waitedPagerToFinish = w;
     }
 
     bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -188,7 +219,7 @@ public:
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
         {
-            if (_loadingCityItem.empty()) return false;
+            if (_loadingCityItem.empty() || (_countBeforeLoadingCity--) > 0) return false;
             osg::ref_ptr<osg::Node> city = _cityMap[_loadingCityItem].get();
 
             if (!city)
@@ -201,9 +232,20 @@ public:
                     else if (_loadingCityItem.find("vehicles") != std::string::npos)
                         city = createBatchData("Batches/" + _loadingCityItem, true);
                     _cityRoot->addChild(city.get()); _cityMap[_loadingCityItem] = city;
+                    _loadingCityItem = "";
+                }
+                else
+                {
+                    std::cout << "\rPager Progress: " << view->getDatabasePager()->getRequestsInProgress()
+                              << ", Queue = " << view->getDatabasePager()->getFileRequestListSize() << "\t";
                 }
             }
-            _loadingCityItem = "";
+            else _loadingCityItem = "";
+        }
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        {
+            if (ea.getKey() == '1') view->getEventQueue()->userEvent(new osgDB::Options("item/beijing_buildings"));
+            else if (ea.getKey() == '2') view->getEventQueue()->userEvent(new osgDB::Options("item/beijing_vehicles"));
         }
         return false;
     }
@@ -215,10 +257,16 @@ public:
         if (type == "item")
         {
             // TODO: def center position?
-            manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(
-                osg::Vec3d(osg::inDegrees(31.35), osg::inDegrees(121.34), 20e4)));
-            _cityRoot->getOrCreateStateSet()->getUniform("CurrentLon")->set((float)osg::inDegrees(121.34));
-            _loadingCityItem = cmd;
+            osg::Vec3d cityViews[] = {
+                osg::Vec3d(0.69648374, 2.031417, 6875.2705)
+            };
+
+            osg::Vec3d currentView;
+            if (cmd.find("beijing") != std::string::npos) currentView = cityViews[0];
+
+            manipulator->setByEye(osgVerse::Coordinate::convertLLAtoECEF(currentView));
+            _cityRoot->getOrCreateStateSet()->getUniform("CurrentLon")->set((float)currentView[1]);
+            _loadingCityItem = cmd; _countBeforeLoadingCity = 3;
         }
         else if (type == "value")
         {
@@ -232,10 +280,15 @@ protected:
     {
         osg::Group* batchRoot = new osg::Group;
         osgDB::DirectoryContents contents = osgDB::getDirectoryContents(_mainFolder + dir);
-        osg::ref_ptr<osgDB::Options> opt = new osgDB::Options("Downsamples=10");
-        if (_waitedPagerToFinish) opt->setPluginData("EarthRoot", (void*)_earthRoot.get());
+        osg::ref_ptr<osgDB::Options> opt = new osgDB::Options("Downsamples=10"), opt2 = new osgDB::Options;
+        if (_waitedPagerToFinish)
+        {
+            opt->setPluginData("EarthRoot", (void*)_earthRoot.get());
+            opt2->setPluginData("EarthRoot", (void*)_earthRoot.get());
+        }
 
         float mid = asVehicles ? 1500.0f : 3500.0f, buildingType = 0.0f; osg::BoundingSphere bsAll;
+        std::cout << "Loading " << _mainFolder + dir << ": " << contents.size() << "\n";
         for (size_t i = 0; i < contents.size(); ++i)
         {
             const std::string& f = contents[i];
@@ -249,7 +302,8 @@ protected:
                 fineFile = _mainFolder + dir + "_fine/" + f + ".osgb";
             }
 
-            osg::ref_ptr<osg::Node> rough, fine; bool roughExists = false;
+            osg::ref_ptr<osg::Node> rough, fine;
+            osg::BoundingSphere bsLocal; bool roughExists = false;
 #if true
             if (!roughFile.empty())
             {
@@ -257,25 +311,32 @@ protected:
                 //rough = osgDB::readNodeFile(roughFile);
             }
 
-            osg::BoundingSphere bsLocal;
             if (!roughExists)
             {
                 rough = osgDB::readNodeFile(_mainFolder + dir + "/" + f, opt.get());
                 osgDB::makeDirectoryForFile(roughFile); osgDB::writeNodeFile(*rough, roughFile);
                 if (!fineFile.empty())
                 {
-                    fine = osgDB::readNodeFile(_mainFolder + dir + "/" + f);
+                    fine = osgDB::readNodeFile(_mainFolder + dir + "/" + f, opt2.get());
                     osgDB::makeDirectoryForFile(fineFile); osgDB::writeNodeFile(*fine, fineFile);
+
+                    VehicleData* vData = dynamic_cast<VehicleData*>(fine->getUserData());
+                    if (vData) { std::ofstream out(fineFile + ".p", std::ios::out | std::ios::binary); vData->save(out); }
                 }
                 bsLocal = fine.valid() ? fine->getBound() : rough->getBound();
             }
             else
             {
-                // FIXME: read from file
+                std::ifstream in(fineFile + ".p", std::ios::in | std::ios::binary);
+                osg::ref_ptr<VehicleData> vData = new VehicleData;
+                if (in) vData->load(in);  // TODO: add to collector
+
+                // FIXME: read bounding config from file?
                 // TODO
             }
 #else
-            rough = osgDB::readNodeFile(_mainFolder + dir + "/" + f, opt.get()); fineFile = "";
+            rough = osgDB::readNodeFile(_mainFolder + dir + "/" + f, opt.get());
+            bsAll.expandBy(rough->getBound()); fineFile = "";
 #endif
 
             osg::PagedLOD* lod = new osg::PagedLOD;
@@ -301,8 +362,8 @@ protected:
         }
 
         osg::Vec3d llhFinal = osgVerse::Coordinate::convertECEFtoLLA(bsAll.center());
-        std::cout << "Loaded " << _mainFolder + dir << "\n";
-        if (bsAll.valid()) std::cout << "    " << llhFinal << ", Radius = " << bsAll.radius() << "\n";
+        if (bsAll.valid()) std::cout << "Loaded: LatLon = " << std::setprecision(8)
+                                     << llhFinal << ", Radius = " << bsAll.radius() << "\n";
         return batchRoot;
     }
 
@@ -316,12 +377,13 @@ protected:
     std::map<std::string, osg::observer_ptr<osg::Node>> _cityMap;
     osg::observer_ptr<osg::Group> _cityRoot, _earthRoot;
     std::string _mainFolder, _loadingCityItem;
+    int _countBeforeLoadingCity;
     bool _waitedPagerToFinish;
 };
 
 osg::Node* configureCityData(osgViewer::View& viewer, osg::Node* earthRoot,
                              osgVerse::EarthAtmosphereOcean& earthRenderingUtils,
-                             const std::string& mainFolder, unsigned int mask)
+                             const std::string& mainFolder, unsigned int mask, bool waitingMode)
 {
     osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, cityVertCode);
     osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, cityFragCode);
@@ -338,6 +400,6 @@ osg::Node* configureCityData(osgViewer::View& viewer, osg::Node* earthRoot,
     cityRoot->getOrCreateStateSet()->getOrCreateUniform("CurrentLon", osg::Uniform::FLOAT)->set(0.0f);
     earthRenderingUtils.apply(cityRoot->getOrCreateStateSet(), vs, fs, 1);
 
-    viewer.addEventHandler(new CreateCityHandler(cityRoot.get(), earthRoot->asGroup(), mainFolder));
+    viewer.addEventHandler(new CreateCityHandler(cityRoot.get(), earthRoot->asGroup(), mainFolder, waitingMode));
     return cityRoot.release();
 }

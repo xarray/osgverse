@@ -28,12 +28,14 @@ USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
 #define EARTH_INTERSECTION_MASK 0xf0000000
+#define SIMPLE_VERSION 1
+
 extern std::vector<osg::Camera*> configureEarthRendering(
         osgViewer::View& viewer, osg::Group* root, osg::Node* earth, osgVerse::EarthAtmosphereOcean& eData,
         const std::string& mainFolder, unsigned int mask, int w, int h);
 extern osg::Node* configureCityData(osgViewer::View& viewer, osg::Node* earthRoot,
                                     osgVerse::EarthAtmosphereOcean& earthRenderingUtils,
-                                    const std::string& mainFolder, unsigned int mask);
+                                    const std::string& mainFolder, unsigned int mask, bool waitingMode);
 extern osg::Camera* configureUI(osgViewer::View& viewer, osg::Group* root,
                                 const std::string& mainFolder, int w, int h);
 
@@ -78,11 +80,31 @@ public:
             }
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) _pressingKey = ea.getKey();
-        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP) _pressingKey = 0;
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+        {
+            if (ea.getKey() == 'p')
+            {
+                osgVerse::TileManager* mgr = osgVerse::TileManager::instance();
+                mgr->setLayerPath(osgVerse::TileCallback::USER, "E:/Zhijiang1026/Tiles/Beijing/{z}/{x}/{y}.png");
+            }
+            _pressingKey = 0;
+        }
 
         if (_pressingKey > 0)
         {
-            //
+            switch (_pressingKey)
+            {
+            case ',': case '<':
+                _sunAngle -= 0.002f;
+                _earthData->commonUniforms["WorldSunDir"]->set(
+                    osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                view->getEventQueue()->userEvent(new osgDB::Options("value/" + std::to_string(_sunAngle))); break;
+            case '.': case '>':
+                _sunAngle += 0.002f;
+                _earthData->commonUniforms["WorldSunDir"]->set(
+                    osg::Vec3(-1.0f, 0.0f, 0.0f) * osg::Matrix::rotate(_sunAngle, osg::Z_AXIS));
+                view->getEventQueue()->userEvent(new osgDB::Options("value/" + std::to_string(_sunAngle))); break;
+            }
         }
         return false;
     }
@@ -123,7 +145,11 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
 {
     if (type == osgVerse::TileCallback::ORTHOPHOTO)
     {
+#if SIMPLE_VERSION
+        if (z > 4)
+#else
         if (z > 13)
+#endif
         {
             std::string prefix2 = "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}";
             return osgVerse::TileCallback::createPath(prefix2, x, pow(2, z) - y - 1, z);
@@ -143,9 +169,10 @@ int main(int argc, char** argv)
     std::string mainFolder = BASE_DIR + "/models"; arguments.read("--folder", mainFolder);
     std::string skirtRatio = "0.05"; arguments.read("--skirt", skirtRatio);
     int w = 1920, h = 1080; arguments.read("--resolution", w, h);
+    bool cityWaitingTiles = true; if (arguments.read("--no-wait")) cityWaitingTiles = false;
 
     // Create earth
-#if true
+#if !SIMPLE_VERSION
     std::string earthURLs = " Orthophoto=mbtiles://" + mainFolder + "/Earth/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg"
                             " Elevation=mbtiles://" + mainFolder + "/Earth/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif"
                             " OceanMask=mbtiles://" + mainFolder + "/Earth/aspect-slope-tif-z8.mbtiles/{z}-{x}-{y}.tif"
@@ -176,11 +203,13 @@ int main(int argc, char** argv)
     sceneCamera->setNearFarRatio(0.00001);
     sceneCamera->setSmallFeatureCullingPixelSize(10.0f);
     sceneCamera->addChild(configureCityData(
-        viewer, earthRoot.get(), earthRenderingUtils, mainFolder, EARTH_INTERSECTION_MASK));
+        viewer, earthRoot.get(), earthRenderingUtils, mainFolder, EARTH_INTERSECTION_MASK, cityWaitingTiles));
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(earthRoot.get());
+#if !SIMPLE_VERSION
     root->addChild(configureUI(viewer, earthRoot.get(), mainFolder, w, h));
+#endif
 
     // Configure the manipulator
     osg::ref_ptr<osgVerse::EarthManipulator> earthManipulator = new osgVerse::EarthManipulator;
@@ -203,7 +232,7 @@ int main(int argc, char** argv)
 
     osgDB::DatabasePager* pager = new osgDB::DatabasePager;
     pager->setDrawablePolicy(osgDB::DatabasePager::USE_VERTEX_BUFFER_OBJECTS);
-    pager->setDoPreCompile(true); pager->setUpThreads(6, 1);
+    pager->setDoPreCompile(true); pager->setUpThreads(6, 3);
 
     viewer.addEventHandler(new EnvironmentHandler(&earthRenderingUtils, mainFolder));
     viewer.addEventHandler(new osgViewer::StatsHandler);

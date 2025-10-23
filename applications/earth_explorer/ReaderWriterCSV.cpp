@@ -13,6 +13,9 @@
 #include <modeling/GeometryMerger.h>
 #include <pipeline/IntersectionManager.h>
 
+struct VehicleData : public osg::Referenced
+{ std::vector<std::pair<osg::Vec3d, osg::Vec2>> dataList; };
+
 class ReaderWriterCSV : public osgDB::ReaderWriter
 {
 public:
@@ -34,6 +37,7 @@ public:
 
         std::map<size_t, std::string> indexMap;
         std::map<std::string, std::string> valueMap;
+        osg::ref_ptr<VehicleData> vehicleData = new VehicleData;
         std::string line0; unsigned int rowID = 0;
         std::ifstream in(fileName.c_str()); double z = 0.0;
         if (!in) { std::cout << "[ReaderWriterCSV] Failed to load " << fileName << "\n"; return NULL; }
@@ -64,7 +68,8 @@ public:
                 if (valueMap.find("vertices") == valueMap.end()) continue;
 
                 double height = (valueMap.find("Z") == valueMap.end()) ? -1.0 : atof(valueMap["Z"].c_str());
-                double label = (valueMap.find("Label") == valueMap.end()) ? -1.0 : atof(valueMap["Label"].c_str());
+                double labelCar = (valueMap.find("Label") == valueMap.end()) ? -1.0 : atof(valueMap["Label"].c_str());
+                double roadCar = (valueMap.find("on_road") == valueMap.end()) ? -1.0 : atof(valueMap["on_road"].c_str());
                 const std::string& vData = valueMap["vertices"]; osg::Vec3d center;
                 std::vector<osg::Vec3d> polygon; splitString(vData, rings, '|', true);
 
@@ -85,11 +90,12 @@ public:
                 if (earth != NULL)
                 {
                     osgVerse::IntersectionResult result =
-                        osgVerse::findNearestIntersection(earth, ecef + N * 1000.0, ecef - N * 1000.0);
+                        osgVerse::findNearestIntersection(earth, ecef + N * 10000.0, ecef - N * 10000.0);
                     if (result.drawable.valid()) localToWorld.setTrans(result.getWorldIntersectPoint());
-                    //else OSG_NOTICE << "No intersection for building: " << line << "\n";
+                    else std::cout << "No intersection for building: " << line.substr(0, 10) << "\n";
                 }
 
+                vehicleData->dataList.push_back(std::pair<osg::Vec3d, osg::Vec2>(ecef, osg::Vec2(labelCar, roadCar)));
                 for (size_t j = 0; j < polygon.size(); ++j)
                 {
                     osg::Vec3d pt = osgVerse::Coordinate::convertLLAtoECEF(polygon[j]);
@@ -182,6 +188,7 @@ public:
             osg::MatrixTransform* mt = new osg::MatrixTransform;
             mt->addChild(geode); mt->setMatrix(l2w); root->addChild(mt);
         }
+        root->setUserData(vehicleData.get());
         return root;
     }
 

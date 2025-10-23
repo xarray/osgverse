@@ -55,7 +55,7 @@ bool FileCache::isFileAppropriateForFileCache(const std::string& originalFileNam
 {
     std::string protocol = osgDB::getServerProtocol(originalFileName);
     if (protocol.empty()) return false;
-    else if (protocol.find("db") != std::string::npos) return false;
+    else if (protocol.find("db") != std::string::npos) return false;  // leveldb?
     return true;
 }
 
