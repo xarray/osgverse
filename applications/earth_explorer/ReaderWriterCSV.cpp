@@ -36,10 +36,17 @@ public:
         std::string ext; std::string fileName = getRealFileName(path, ext);
         if (fileName.empty()) return ReadResult::FILE_NOT_HANDLED;
 
+        size_t downsamples = 0, new_sz = 0;
+        if (options)
+        {
+            const std::string& dsStr = options->getPluginStringData("Downsamples");
+            downsamples = atoi(dsStr.c_str());
+        }
+
         std::map<size_t, std::string> indexMap;
         std::map<std::string, std::string> valueMap;
         osg::ref_ptr<VehicleData> vehicleData = new VehicleData;
-        std::string line0; unsigned int rowID = 0;
+        std::string headerLine, line0; unsigned int rowID = 0;
         std::ifstream in(fileName.c_str()); double z = 0.0;
         if (!in) { std::cout << "[ReaderWriterCSV] Failed to load " << fileName << "\n"; return NULL; }
 
@@ -69,43 +76,57 @@ public:
                 if (valueMap.find("vertices") == valueMap.end()) continue;
 
                 double height = (valueMap.find("Z") == valueMap.end()) ? -1.0 : atof(valueMap["Z"].c_str());
+                if (height < 0.0 && valueMap.find("mean_heigh") != valueMap.end()) height = atof(valueMap["mean_heigh"].c_str());
+                if (height < 0.0 && valueMap.find("mean_temp") != valueMap.end()) height = atof(valueMap["mean_temp"].c_str());
+
                 double labelCar = (valueMap.find("Label") == valueMap.end()) ? -1.0 : atof(valueMap["Label"].c_str());
                 double roadCar = (valueMap.find("on_road") == valueMap.end()) ? -1.0 : atof(valueMap["on_road"].c_str());
-                const std::string& vData = valueMap["vertices"]; osg::Vec3d center;
-                std::vector<osg::Vec3d> polygon; osgVerse::Auxiliary::splitString(vData, rings, '|', true);
+                const std::string& vData = valueMap["vertices"]; osg::Vec3d center, ecef, N;
+                std::vector<std::vector<osg::Vec3d>> polygons; osgVerse::Auxiliary::splitString(vData, rings, '|', true);
+                if (height < 0.0 && labelCar < 0.0 && roadCar < 0.0) std::cout << "Unsupported data? " << headerLine << "\n";
 
-                // FIXME: only consider outer ring?
-                std::vector<std::string> vertices; osgVerse::Auxiliary::splitString(rings[0], vertices, ' ', true);
-                for (size_t j = 0; j < vertices.size(); j += 2)
+                osg::Matrix localToWorld, worldToLocal;
+                for (size_t r = 0; r < rings.size(); ++r)
                 {
-                    polygon.push_back(osg::Vec3d(osg::inDegrees(atof(vertices[j + 1].c_str())),
-                                                 osg::inDegrees(atof(vertices[j + 0].c_str())), z));
-                    center += polygon.back();
-                }
-                center *= 1.0 / (double)polygon.size();
-                if (polygon.size() > 2) polygon.push_back(polygon.front());
-            
-                osg::Vec3d ecef = osgVerse::Coordinate::convertLLAtoECEF(center);
-                osg::Matrix localToWorld = osgVerse::Coordinate::convertLLAtoENU(center);
-                osg::Matrix worldToLocal = osg::Matrix::inverse(localToWorld);
-                osg::Vec3d N = ecef; N.normalize();
-                if (earth != NULL)
-                {
-                    osgVerse::IntersectionResult result =
-                        osgVerse::findNearestIntersection(earth, ecef + N * 10000.0, ecef - N * 10000.0);
-                    if (result.drawable.valid()) localToWorld.setTrans(result.getWorldIntersectPoint());
-                    else std::cout << "No intersection for building: " << line.substr(0, 10) << "\n";
-                }
+                    std::vector<osg::Vec3d> polygon; std::vector<std::string> vertices;
+                    osgVerse::Auxiliary::splitString(rings[r], vertices, ' ', true);
+                    for (size_t j = 0; j < vertices.size(); j += 2)
+                    {
+                        polygon.push_back(osg::Vec3d(osg::inDegrees(atof(vertices[j + 1].c_str())),
+                                                     osg::inDegrees(atof(vertices[j + 0].c_str())), z));
+                        if (r == 0) center += polygon.back();
+                    }
+                    if (r == 0) center *= 1.0 / (double)polygon.size();
+                    if (polygon.size() > 2) polygon.push_back(polygon.front());
 
-                vehicleData->dataList.push_back(std::pair<osg::Vec3d, osg::Vec2>(ecef, osg::Vec2(labelCar, roadCar)));
-                for (size_t j = 0; j < polygon.size(); ++j)
-                {
-                    osg::Vec3d pt = osgVerse::Coordinate::convertLLAtoECEF(polygon[j]);
-                    polygon[j] = pt * worldToLocal;
-                }
+                    if (r == 0)
+                    {
+                        ecef = osgVerse::Coordinate::convertLLAtoECEF(center);
+                        localToWorld = osgVerse::Coordinate::convertLLAtoENU(center);
+                        worldToLocal = osg::Matrix::inverse(localToWorld);
+                        N = ecef; N.normalize();
 
-                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygon, 20.0f)
-                                    : createExtrusionGeometry(polygon, osg::Z_AXIS * (height * 5.0));
+                        if (earth != NULL)
+                        {
+                            osgVerse::IntersectionResult result =
+                                osgVerse::findNearestIntersection(earth, ecef + N * 30000.0, ecef - N * 10000.0);
+                            if (result.drawable.valid()) localToWorld.setTrans(result.getWorldIntersectPoint());
+                            else std::cout << "No intersection for building: " << line.substr(0, 10) << "\n";
+                        }
+                        vehicleData->dataList.push_back(std::pair<osg::Vec3d, osg::Vec2>(ecef, osg::Vec2(labelCar, roadCar)));
+                    }
+
+                    for (size_t j = 0; j < polygon.size(); ++j)
+                    {
+                        osg::Vec3d pt = osgVerse::Coordinate::convertLLAtoECEF(polygon[j]);
+                        polygon[j] = pt * worldToLocal;
+                    }
+                    polygons.push_back(polygon);
+                }
+                if (downsamples > 0) polygons.resize(1);  // LOD rough level uses simple geometry
+
+                osg::Geometry* geom = height < 0.0 ? createLineGeometry(polygons.front(), 20.0f)
+                                    : createExtrusionGeometry(polygons, osg::Z_AXIS * osg::clampAbove(height * 5.0, 1.0));
                 osg::Vec4Array* ca = new osg::Vec4Array; geom->setColorArray(ca);
                 geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
                 ca->assign(static_cast<osg::Vec3Array*>(geom->getVertexArray())->size(), heightColor(height, roadCar));
@@ -116,16 +137,10 @@ public:
             }
             else
             {
+                headerLine = line;
                 for (size_t i = 0; i < values.size(); ++i)
                     { indexMap[i] = values[i]; valueMap[values[i]] = ""; }
             }
-        }
-
-        size_t downsamples = 0, new_sz = 0;
-        if (options)
-        {
-            const std::string& dsStr = options->getPluginStringData("Downsamples");
-            downsamples = atoi(dsStr.c_str());
         }
 
         osg::MatrixTransform* root = new osg::MatrixTransform;
@@ -222,8 +237,8 @@ protected:
 
     static osg::Vec4 heightColor(float h, float onRoad)
     {
-        if (h <= 0.0f) return onRoad > 0.5f ? osgVerse::Auxiliary::hexColorToRGB("#ffff00")
-                                            : osgVerse::Auxiliary::hexColorToRGB("#ff00ff");
+        if (h < 0.0f) return onRoad > 0.5f ? osgVerse::Auxiliary::hexColorToRGB("#ffff00")
+                                           : osgVerse::Auxiliary::hexColorToRGB("#ff00ff");
         else if (h <= 5.0f) return osgVerse::Auxiliary::hexColorToRGB("#e6f4fd");
         else if (h <= 10.0f) return osgVerse::Auxiliary::hexColorToRGB("#a7def5");
         else if (h <= 20.0f) return osgVerse::Auxiliary::hexColorToRGB("#6fb1df");
@@ -262,12 +277,12 @@ protected:
         return geom.release();
     }
 
-    static osg::Geometry* createExtrusionGeometry(const osgVerse::PointList3D& outer, const osg::Vec3& height)
+    static osg::Geometry* createExtrusionGeometry(const std::vector<osgVerse::PointList3D>& polys, const osg::Vec3& height)
     {
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array, vaCap = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
-        osgVerse::PointList3D pathEx = outer;
+        osgVerse::PointList3D pathEx = polys.front();
 
         osg::ref_ptr<osg::DrawElementsUInt> deWall = new osg::DrawElementsUInt(GL_QUADS);
         bool closed = (pathEx.front() == pathEx.back());
@@ -294,13 +309,24 @@ protected:
         osg::ref_ptr<osg::DrawElementsUShort> deCap = new osg::DrawElementsUShort(GL_POLYGON);
         va->insert(va->end(), vaCap->begin(), vaCap->end());
         for (size_t i = startCap; i < va->size(); ++i)
-        {
-            ta->push_back(osg::Vec2(0.5f, 0.5f));
-            na->push_back(hNormal); deCap->push_back(i);
-        }
+        { ta->push_back(osg::Vec2(0.5f, 0.5f)); na->push_back(hNormal); deCap->push_back(i); }
 
         osg::ref_ptr<osg::Geometry> geom = osgVerse::createGeometry(va.get(), na.get(), ta.get(), deWall.get());
-        geom->addPrimitiveSet(deCap.get()); tessellateGeometry(*geom, hNormal); return geom.release();
+        std::vector<osg::ref_ptr<osg::DrawElementsUShort>> deCapList; deCapList.push_back(deCap);
+        for (size_t j = 1; j < polys.size(); ++j)
+        {
+            vaCap = new osg::Vec3Array; deCap = new osg::DrawElementsUShort(GL_POLYGON);
+            pathEx = polys[j]; eSize = pathEx.size(); startCap = va->size();
+            for (size_t i = 0; i <= eSize; ++i)
+            { vaCap->push_back(pathEx[i % eSize] + height); vaCap->push_back(pathEx[(i + 1) % eSize] + height); }
+
+            va->insert(va->end(), vaCap->begin(), vaCap->end());
+            for (size_t i = startCap; i < va->size(); ++i)
+            { ta->push_back(osg::Vec2(0.5f, 0.5f)); na->push_back(hNormal); deCap->push_back(i); }
+            deCapList.push_back(deCap);
+        }
+        for (size_t i = 0; i < deCapList.size(); ++i) geom->addPrimitiveSet(deCapList[i].get());
+        tessellateGeometry(*geom, hNormal); return geom.release();
     }
 };
 

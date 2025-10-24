@@ -333,11 +333,35 @@ public:
         {
             // TODO: def center position?
             osg::Vec3d cityViews[] = {
-                osg::Vec3d(0.69648374, 2.031417, 6875.2705)
+                osg::Vec3d(0.69648374, 2.031417, 6875.2705),
+                osg::Vec3d(0.074921161, -1.2950282, 65165.344),
+                osg::Vec3d(-0.59297657, 0.32458047, 61685.645),
+                osg::Vec3d(0.43673455, 0.96484046, 49984.219),
+                osg::Vec3d(0.52811501, 2.09853, 64435.328),
+                osg::Vec3d(0.89965525, -0.0014837991, 37600.641),
+                osg::Vec3d(-0.022260981, 0.6437316, 28955.633),
+                osg::Vec3d(0.55730945, 2.074277, 92872.359),
+                osg::Vec3d(0.70962901, -1.2905111, 32364.516),
+                osg::Vec3d(0.85264056, 0.041016139, 10728.086),
+                osg::Vec3d(-0.39934158, -0.75818134, 40643.203),
+                osg::Vec3d(0.54628949, 2.120832, 87532.984),
+                osg::Vec3d(-0.59145653, 2.6390002, 4855.0669)
             };
 
             osg::Vec3d currentView;
             if (cmd.find("beijing") != std::string::npos) currentView = cityViews[0];
+            else if (cmd.find("bogota") != std::string::npos) currentView = cityViews[1];
+            else if (cmd.find("captown") != std::string::npos) currentView = cityViews[2];
+            else if (cmd.find("dubai") != std::string::npos) currentView = cityViews[3];
+            else if (cmd.find("hangzhou") != std::string::npos) currentView = cityViews[4];
+            else if (cmd.find("london") != std::string::npos) currentView = cityViews[5];
+            else if (cmd.find("nairobi") != std::string::npos) currentView = cityViews[6];
+            else if (cmd.find("nanjing") != std::string::npos) currentView = cityViews[7];
+            else if (cmd.find("newyork") != std::string::npos) currentView = cityViews[8];
+            else if (cmd.find("paris") != std::string::npos) currentView = cityViews[9];
+            else if (cmd.find("rio") != std::string::npos) currentView = cityViews[10];
+            else if (cmd.find("shanghai") != std::string::npos) currentView = cityViews[11];
+            else if (cmd.find("sydney") != std::string::npos) currentView = cityViews[12];
             else currentView = cityViews[0];
 
             osg::Vec3d current = osg::Vec3d() * view->getCamera()->getInverseViewMatrix();

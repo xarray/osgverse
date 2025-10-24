@@ -59,7 +59,7 @@ class UIHandler : public osgGA::GUIEventHandler
 {
 public:
     UIHandler(osgVerse::Drawer2D* d, const std::string& mainFolder, int w, int h)
-        : _drawer(d), _mainFolder(mainFolder), _width(w), _height(h)
+        : _drawer(d), _mainFolder(mainFolder), _width(w), _height(h), _itemListStart(0)
     {
         _selected = osgDB::readImageFile(mainFolder + "/UI/selected.png");
         _unselected = osgDB::readImageFile(mainFolder + "/UI/unselected.png");
@@ -84,6 +84,12 @@ public:
             ea.getEventType() == osgGA::GUIEventAdapter::SCROLL || ea.getEventType() == osgGA::GUIEventAdapter::RELEASE)
         {
             updateOverlay(view, manipulator, ea.getXnormalized(), ea.getYnormalized());
+            if (ea.getEventType() == osgGA::GUIEventAdapter::SCROLL)
+            {
+                _itemListStart += ea.getScrollingMotion() == osgGA::GUIEventAdapter::SCROLL_DOWN ? 1 : -1;
+                if (_itemListStart < 0) _itemListStart = 0;
+                return true;  // FIXME: will affect manipulator?
+            }
         }
         else if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
         {
@@ -149,15 +155,19 @@ public:
                                  osg::Vec2(bbox[0], bbox[1] + bbox[3]), 20.0f, text, "", style); }
 
             // Data lists
-            float as = 16.0f / 9.0f; bool bSelected = false, vSelected = false, segSelected = false;
+            bool bSelected = false, vSelected = false, segSelected = false; std::string segName;
+            float as = 16.0f / 9.0f; int maxList = 30, contentSize = (int)_cityContent.size();
+            _itemListStart = osg::clampBetween(_itemListStart, 0, contentSize - (maxList - 5));
             if (!_cityContent.empty())
             {
                 DRAW_TEXT_S(_cityContent[0], 1.5f, 2.4f, 40.0f);
-                for (size_t i = 1; i < _cityContent.size(); ++i)
+                for (size_t k = 6; k < maxList; ++k)
                 {
-                    std::vector<std::string> cmdAndText; size_t k = i + 5;
+                    size_t i = _itemListStart + k - 5;
+                    if (contentSize <= (int)i) break;
+
+                    std::vector<std::string> cmdAndText;
                     osgDB::split(_cityContent[i], cmdAndText, ':');
-                    if (k > 29) break;  // too many items  // TODO: scroll the list?
 
                     std::string itemName = "item/" + cmdAndText.front();
                     DRAW_TEXT(cmdAndText.back(), 1.0f, (float)k);
@@ -166,7 +176,7 @@ public:
                     bool selected = _itemSelection[itemName];
                     if (selected)
                     {
-                        if (itemName.find("seg") != std::string::npos) segSelected = true;
+                        if (itemName.find("seg") != std::string::npos) { segSelected = true; segName = itemName; }
                         else if (itemName.find("vehicles") != std::string::npos) vSelected = true;
                         else if (itemName.find("buildings") != std::string::npos) bSelected = true;
                     }
@@ -180,34 +190,52 @@ public:
             // Property dialogs
             if (_propContent.size() > 5)
             {
-                float vStart = 5.0f;
+                float vStart = 5.0f, hStart = 0.0f;
                 if (vSelected)
                 {
                     int count0 = _count[0], count1 = _count[2], count2 = _count[0] - _count[2];
-                    drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 3.5f * as),
+                    drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 3.2f * as),
                                           0.0f, 0.0f, osgVerse::DrawerStyleData(_prop0.get()));
                     DRAW_TEXT_S(_propContent[0], 24.2f, vStart, 25.0f);
-                    DRAW_TEXT(_propContent[1], 24.7f, vStart + 1.5f);
-                    DRAW_TEXT(_propContent[2] + std::to_string(count0), 25.2f, vStart + 2.6f);
-                    DRAW_TEXT(_propContent[3] + std::to_string(count1), 25.2f, vStart + 3.6f);
-                    DRAW_TEXT(_propContent[4] + std::to_string(count2), 25.2f, vStart + 4.6f);
-                    vStart += 7.0f;
+                    DRAW_TEXT(_propContent[1], 24.7f, vStart + 1.4f);
+                    DRAW_TEXT(_propContent[2] + std::to_string(count0), 25.2f, vStart + 2.5f);
+                    DRAW_TEXT(_propContent[3] + std::to_string(count1), 25.2f, vStart + 3.5f);
+                    DRAW_TEXT(_propContent[4] + std::to_string(count2), 25.2f, vStart + 4.5f);
+                    vStart += 6.0f;
                 }
 
                 if (bSelected)
                 {
-                    drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 8.0f * as),
+                    drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 5.0f * as),
                                           0.0f, 0.0f, osgVerse::DrawerStyleData(_prop1.get()));
-                    DRAW_TEXT_S(_propContent[5], 24.2f, vStart, 25.0f);
-                    for (size_t i = 6; i < _propContent.size(); ++i)
+                    DRAW_TEXT_S(_propContent[5], 24.2f, vStart, 25.0f); float vStart0 = vStart;
+                    for (size_t i = 6, c = 0; i < _propContent.size() - 1; ++i, ++c)
                     {
                         std::vector<std::string> textAndColor; osgDB::split(_propContent[i], textAndColor, ':');
                         osg::Vec4 color = osgVerse::Auxiliary::hexColorToRGB(osgVerse::Auxiliary::trim(textAndColor.back()));
-                        drawer->drawRectangle(osg::Vec4(wCell * 24.5f, hCell * (vStart + 1.5f + 0.35f),
+                        drawer->drawRectangle(osg::Vec4(wCell * (hStart + 24.5f), hCell * (vStart + 1.5f + 0.35f),
                                               wCell * 0.3f, hCell * 0.3f * as), 0.0f, 0.0f,
                                               osgVerse::DrawerStyleData(color, true));
-                        DRAW_TEXT(textAndColor.front(), 25.2f, vStart + 1.5f); vStart += 1.0f;
+                        DRAW_TEXT(textAndColor.front(), hStart + 25.0f, vStart + 1.5f);
+                        if (c == 6) { hStart = 2.6f; vStart = vStart0; } else vStart += 0.8f;
                     }
+                    vStart = vStart0 + 9.0f;
+                }
+
+                if (segSelected)
+                {
+                    drawer->drawRectangle(osg::Vec4(wCell * 24.0f, hCell * vStart, wCell * 6.0f, hCell * 5.0f * as),
+                                          0.0f, 0.0f, osgVerse::DrawerStyleData(_prop1.get()));
+                    DRAW_TEXT_S(_propContent.back(), 24.2f, vStart, 25.0f); vStart += 1.2f;
+
+                    if (!_segInfo)
+                    {
+                        size_t start = segName.find("item/");
+                        if (start != std::string::npos) segName = segName.substr(start + 5);
+                        _segInfo = osgDB::readImageFile(_mainFolder + "/UI/" + segName + ".png");
+                    }
+                    drawer->drawRectangle(osg::Vec4(wCell * 24.1f, hCell * vStart, wCell * 5.8f, hCell * 3.6f * as),
+                                          0.0f, 0.0f, osgVerse::DrawerStyleData(_segInfo.get()));
                 }
             }
 
@@ -337,9 +365,9 @@ protected:
     std::vector<std::string> _cityContent, _propContent;
     osg::ref_ptr<osgVerse::Drawer2D> _drawer;
     osg::ref_ptr<osg::Image> _selected, _unselected, _compass;
-    osg::ref_ptr<osg::Image> _cityInfo, _prop0, _prop1;
+    osg::ref_ptr<osg::Image> _cityInfo, _segInfo, _prop0, _prop1;
     std::string _mainFolder; osg::Vec3d _count;
-    int _width, _height, _buttonState;
+    int _width, _height, _itemListStart, _buttonState;
 };
 
 osg::Camera* configureUI(osgViewer::View& viewer, osg::Group* root,
