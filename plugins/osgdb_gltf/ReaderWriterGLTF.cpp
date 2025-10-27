@@ -8,6 +8,7 @@
 #include <osgDB/ConvertUTF>
 
 #include "readerwriter/LoadSceneGLTF.h"
+#include "readerwriter/SaveSceneGLTF.h"
 #include "3rdparty/picojson.h"
 
 class ReaderWriterGLTF : public osgDB::ReaderWriter
@@ -93,6 +94,36 @@ public:
         if (dir.empty() && options && !options->getDatabasePathList().empty())
             dir = options->getDatabasePathList().front();
         return osgVerse::loadGltf2(fin, dir, isBinary, pbrMode, yUp).get();
+    }
+
+    virtual WriteResult writeNode(osg::Node& node, const std::string& path, const osgDB::Options* options) const
+    {
+        std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
+
+        bool success = false;
+        if (ext == "glb") success = osgVerse::saveGltf(node, fileName, true);
+        else success = osgVerse::saveGltf(node, fileName, false);
+        return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
+    }
+
+    virtual WriteResult writeNode(osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
+    {
+        std::string dir = "", mode; bool isBinary = false;
+        if (options)
+        {
+            dir = options->getPluginStringData("Directory");
+            if (dir.empty()) dir = options->getPluginStringData("prefix");
+
+            mode = options->getPluginStringData("Mode");
+            std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
+            if (mode == "binary") isBinary = true;
+        }
+
+        if (dir.empty() && options && !options->getDatabasePathList().empty())
+            dir = options->getDatabasePathList().front();
+        bool success = osgVerse::saveGltf2(node, fout, dir, isBinary);
+        return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 
 protected:

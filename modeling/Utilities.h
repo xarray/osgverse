@@ -40,7 +40,31 @@ namespace osgVerse
         }
     };
 
-    class MeshCollector : public osg::NodeVisitor
+    class NodeVisitorEx : public osg::NodeVisitor
+    {
+    public:
+        NodeVisitorEx();
+        inline void pushMatrix(const osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
+        inline void popMatrix() { _matrixStack.pop_back(); }
+        inline void pushStateSet(osg::StateSet& ss) { _stateSetStack.push_back(&ss); }
+        inline void popStateSet() { _stateSetStack.pop_back(); }
+
+        virtual void reset();
+        virtual void apply(osg::Node& node);
+        virtual void apply(osg::Transform& node);
+        virtual void apply(osg::Geode& node);
+        virtual void apply(osg::Geometry& geometry);
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss);
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::Texture* ss, int u) {}
+
+    protected:
+        typedef std::vector<osg::Matrix> MatrixStack;
+        typedef std::vector<osg::StateSet*> StateSetStack;
+        MatrixStack _matrixStack;
+        StateSetStack _stateSetStack;
+    };
+
+    class MeshCollector : public NodeVisitorEx
     {
     public:
         MeshCollector();
@@ -55,15 +79,10 @@ namespace osgVerse
         inline void popStateSet() { _stateSetStack.pop_back(); }
         virtual void reset();
 
-        virtual void apply(osg::Node& node);
         virtual void apply(osg::PagedLOD& node);
         virtual void apply(osg::ProxyNode& node);
-        virtual void apply(osg::Transform& transform);
         virtual void apply(osg::Geode& node);
         virtual void apply(osg::Geometry& geometry);
-
-        virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss);
-        virtual void apply(osg::Node* n, osg::Drawable* d, osg::Texture* ss, int u) {}
         
         enum VertexAttribute { WeightAttr, NormalAttr, ColorAttr, UvAttr };
         std::vector<osg::Vec4>& getAttributes(VertexAttribute a) { return _attributes[a]; }
@@ -83,11 +102,6 @@ namespace osgVerse
         NonManifoldType isManifold() const;
 
     protected:
-        typedef std::vector<osg::Matrix> MatrixStack;
-        typedef std::vector<osg::StateSet*> StateSetStack;
-        MatrixStack _matrixStack;
-        StateSetStack _stateSetStack;
-
         std::map<osg::Vec3, unsigned int, Vec3MapComparer> _vertexMap;
         std::map<VertexAttribute, std::vector<osg::Vec4>> _attributes;
         StateToVerticesMap _vertexOfStateSetMap;

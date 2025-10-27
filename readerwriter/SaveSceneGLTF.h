@@ -20,11 +20,13 @@ namespace osgVerse
     public:
         SaverGLTF(osg::Node& node, std::ostream& out, const std::string& d, bool isBinary);
         tinygltf::Model& getModelData() { return _modelDef; }
+        bool getResult() const { return _done; }
 
     protected:
         virtual ~SaverGLTF() {}
 
         tinygltf::Model _modelDef;
+        bool _done;
     };
 
     OSGVERSE_RW_EXPORT bool saveGltf(osg::Node& node, const std::string& file, bool isBinary);

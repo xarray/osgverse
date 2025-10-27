@@ -101,8 +101,75 @@ struct CollectVertexOperator
     osg::Matrix matrix; unsigned int baseIndex;
 };
 
+////////////// NodeVisitor //////////////
+
+NodeVisitorEx::NodeVisitorEx()
+:   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+
+void NodeVisitorEx::reset()
+{ _matrixStack.clear(); _stateSetStack.clear(); }
+
+void NodeVisitorEx::apply(osg::Node& node)
+{
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+    traverse(node); if (node.getStateSet()) popStateSet();
+}
+
+void NodeVisitorEx::apply(osg::Transform& node)
+{
+    osg::Matrix matrix;
+    if (!_matrixStack.empty()) matrix = _matrixStack.back();
+    node.computeLocalToWorldMatrix(matrix, this);
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+
+    pushMatrix(matrix); traverse(node);
+    popMatrix(); if (node.getStateSet()) popStateSet();
+}
+
+void NodeVisitorEx::apply(osg::Geode& node)
+{
+    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+#if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
+    for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+    {
+        osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+        if (geom != NULL) apply(*geom);
+    }
+#endif
+    traverse(node); if (node.getStateSet()) popStateSet();
+}
+
+void NodeVisitorEx::apply(osg::Geometry& geom)
+{
+    osg::StateSet* ss = geom.getStateSet();
+    if (ss) apply(geom.getNumParents() > 0 ? geom.getParent(0) : NULL, &geom, *ss);
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+    traverse(geom);
+#endif
+    if (ss) popStateSet();
+}
+
+void NodeVisitorEx::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
+{
+    osg::StateSet::TextureAttributeList& texAttrList = ss.getTextureAttributeList();
+    for (size_t i = 0; i < texAttrList.size(); ++i)
+    {
+        osg::StateSet::AttributeList& attr = texAttrList[i];
+        for (osg::StateSet::AttributeList::iterator itr = attr.begin();
+            itr != attr.end(); ++itr)
+        {
+            osg::StateAttribute::Type t = itr->first.first;
+            if (t == osg::StateAttribute::TEXTURE)
+                apply(n, d, static_cast<osg::Texture*>(itr->second.first.get()), i);
+        }
+    }
+    pushStateSet(ss);
+}
+
+////////////// MeshCollector //////////////
+
 MeshCollector::MeshCollector()
-:   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _weldVertices(false), _globalVertices(false),
+:   NodeVisitorEx(), _weldVertices(false), _globalVertices(false),
     _loadedFineLevels(false), _onlyVertexAndIndices(false) {}
 
 MeshCollector::NonManifoldType MeshCollector::isManifold() const
@@ -187,15 +254,9 @@ void MeshCollector::reset()
     _vertices.clear(); _indices.clear();
 }
 
-void MeshCollector::apply(osg::Node& node)
-{
-    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
-    traverse(node); if (node.getStateSet()) popStateSet();
-}
-
 void MeshCollector::apply(osg::PagedLOD& node)
 {
-    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+    if (node.getStateSet()) NodeVisitorEx::apply(&node, NULL, *node.getStateSet());
     if (_loadedFineLevels)
     {
         if (node.getNumFileNames() > 0 && _traversalMode == TRAVERSE_ALL_CHILDREN)
@@ -240,7 +301,7 @@ void MeshCollector::apply(osg::PagedLOD& node)
 
 void MeshCollector::apply(osg::ProxyNode& node)
 {
-    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+    if (node.getStateSet()) NodeVisitorEx::apply(&node, NULL, *node.getStateSet());
     if (_loadedFineLevels && _traversalMode == TRAVERSE_ALL_CHILDREN)
     {
         for (unsigned int i = node.getNumChildren(); i < node.getNumFileNames(); ++i)
@@ -254,20 +315,9 @@ void MeshCollector::apply(osg::ProxyNode& node)
     traverse(node); if (node.getStateSet()) popStateSet();
 }
 
-void MeshCollector::apply(osg::Transform& node)
-{
-    osg::Matrix matrix;
-    if (!_matrixStack.empty()) matrix = _matrixStack.back();
-    node.computeLocalToWorldMatrix(matrix, this);
-    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
-
-    pushMatrix(matrix); traverse(node);
-    popMatrix(); if (node.getStateSet()) popStateSet();
-}
-
 void MeshCollector::apply(osg::Geode& node)
 {
-    if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
+    if (node.getStateSet()) NodeVisitorEx::apply(&node, NULL, *node.getStateSet());
 #if OSG_VERSION_LESS_OR_EQUAL(3, 4, 1)
     for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
     {
@@ -303,7 +353,7 @@ void MeshCollector::apply(osg::Geometry& geom)
     if (_matrixStack.size() > 0) matrix = _matrixStack.back();
 
     osg::StateSet* ss = geom.getStateSet();
-    if (ss) apply(geom.getNumParents() > 0 ? geom.getParent(0) : NULL, &geom, *ss);
+    if (ss) NodeVisitorEx::apply(geom.getNumParents() > 0 ? geom.getParent(0) : NULL, &geom, *ss);
 
     osg::TriangleIndexFunctor<CollectVertexOperator> functor;
     functor.inputV = static_cast<osg::Vec3Array*>(geom.getVertexArray());
@@ -333,23 +383,6 @@ void MeshCollector::apply(osg::Geometry& geom)
     traverse(geom);
 #endif
     if (ss) popStateSet();
-}
-
-void MeshCollector::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
-{
-    osg::StateSet::TextureAttributeList& texAttrList = ss.getTextureAttributeList();
-    for (size_t i = 0; i < texAttrList.size(); ++i)
-    {
-        osg::StateSet::AttributeList& attr = texAttrList[i];
-        for (osg::StateSet::AttributeList::iterator itr = attr.begin();
-             itr != attr.end(); ++itr)
-        {
-            osg::StateAttribute::Type t = itr->first.first;
-            if (t == osg::StateAttribute::TEXTURE)
-                apply(n ,d, static_cast<osg::Texture*>(itr->second.first.get()), i);
-        }
-    }
-    pushStateSet(ss);
 }
 
 osg::Geometry* BoundingVolumeVisitor::computeVHACD(bool findBestPlane, bool shrinkWrap,
@@ -422,7 +455,7 @@ void MeshTopologyVisitor::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& s
     if (_stateset->getName().empty()) _stateset->setName(ss.getName());
     else _stateset->setName(_stateset->getName() + "+" + ss.getName());
     _stateset->merge(ss);
-    MeshCollector::apply(n, d, ss);
+    NodeVisitorEx::apply(n, d, ss);
 }
 
 MeshTopology* MeshTopologyVisitor::generate()
@@ -436,7 +469,7 @@ void HostTextureReserver::apply(osg::Node* n, osg::Drawable* d, osg::Texture* te
     bool toUnref = tex->getUnRefImageDataAfterApply();
     bool storageHint = tex->getClientStorageHint();
     _reservedMap[tex] = std::pair<bool, bool>(toUnref, storageHint);
-    MeshCollector::apply(n, d, tex, u);
+    NodeVisitorEx::apply(n, d, tex, u);
 }
 
 void HostTextureReserver::set(bool toKeepHostTextures)
