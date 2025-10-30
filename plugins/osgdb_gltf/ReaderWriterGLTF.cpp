@@ -96,7 +96,7 @@ public:
         return osgVerse::loadGltf2(fin, dir, isBinary, pbrMode, yUp).get();
     }
 
-    virtual WriteResult writeNode(osg::Node& node, const std::string& path, const osgDB::Options* options) const
+    virtual WriteResult writeNode(const osg::Node& node, const std::string& path, const osgDB::Options* options) const
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
         if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
@@ -107,7 +107,7 @@ public:
         return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 
-    virtual WriteResult writeNode(osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
+    virtual WriteResult writeNode(const osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
     {
         std::string dir = "", mode; bool isBinary = false;
         if (options)

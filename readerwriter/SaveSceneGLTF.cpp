@@ -1,6 +1,7 @@
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/ValueObject>
+#include <osg/TriangleIndexFunctor>
 #include <osg/AnimationPath>
 #include <osg/Texture2D>
 #include <osg/Geometry>
@@ -28,6 +29,13 @@ class GltfSceneWriter : public osgVerse::NodeVisitorEx
 public:
     GltfSceneWriter(tinygltf::Model* m) : osgVerse::NodeVisitorEx(), _model(m) {}
     tinygltf::Scene& scene() { return _scene; }
+
+    struct TriangleCollector
+    {
+        std::vector<unsigned int> triangles;
+        void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+        { triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3); }
+    };
 
     virtual void apply(osg::Geode& node)
     {
@@ -99,6 +107,22 @@ public:
             osg::DrawElementsUByte* de2 = dynamic_cast<osg::DrawElementsUByte*>(p);
             if (de2) { NEW_ELEMENT_BUFFER(indexID, (*de2), unsigned char, 1,
                                           TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) }
+            if (indexID < 0)
+            {
+                osg::TriangleIndexFunctor<TriangleCollector> f; p->accept(f);
+                if (f.triangles.size() < 65535)
+                {
+                    NEW_ELEMENT_BUFFER(indexID, (f.triangles), unsigned short, 1,
+                                       TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+                }
+                else
+                {
+                    NEW_ELEMENT_BUFFER(indexID, (f.triangles), unsigned int, 1,
+                                       TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+                }
+                primitive.mode = TINYGLTF_MODE_TRIANGLES;
+            }
+
             if (posID >= 0) primitive.attributes["POSITION"] = posID;
             if (normID >= 0) primitive.attributes["NORMAL"] = normID;
             if (colID >= 0) primitive.attributes["COLOR"] = colID;
@@ -216,10 +240,10 @@ protected:
 
 namespace osgVerse
 {
-    SaverGLTF::SaverGLTF(osg::Node& node, std::ostream& out, const std::string& d, bool isBinary)
+    SaverGLTF::SaverGLTF(const osg::Node& node, std::ostream& out, const std::string& d, bool isBinary)
     {
         GltfSceneWriter sceneWriter(&_modelDef);
-        node.accept(sceneWriter); _done = true;
+        const_cast<osg::Node&>(node).accept(sceneWriter); _done = true;
 
         sceneWriter.scene().name = "Scene: " + node.getName();
         _modelDef.scenes.push_back(sceneWriter.scene());
@@ -232,7 +256,7 @@ namespace osgVerse
         if (!success) { OSG_WARN << "[SaverGLTF] Unable to write GLTF scene\n"; _done = false; }
     }
 
-    bool saveGltf(osg::Node& node, const std::string& file, bool isBinary)
+    bool saveGltf(const osg::Node& node, const std::string& file, bool isBinary)
     {
         std::string workDir = osgDB::getFilePath(file);
         std::ofstream out(file.c_str(), std::ios::out | std::ios::binary);
@@ -246,7 +270,7 @@ namespace osgVerse
         return saver->getResult();
     }
 
-    bool saveGltf2(osg::Node& node, std::ostream& out, const std::string& dir, bool isBinary)
+    bool saveGltf2(const osg::Node& node, std::ostream& out, const std::string& dir, bool isBinary)
     {
         osg::ref_ptr<SaverGLTF> saver = new SaverGLTF(node, out, dir, isBinary);
         return saver->getResult();
