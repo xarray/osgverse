@@ -2,6 +2,7 @@
 #include "PlayerAnimationInternal.h"
 #include "BlendShapeAnimation.h"
 #include "modeling/Math.h"
+#include "pipeline/Utilities.h"
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/TriangleIndexFunctor>
@@ -12,14 +13,6 @@
 
 using namespace osgVerse;
 using namespace ozz::animation::internal;
-
-static std::string& trim(std::string& s)
-{
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !isspace(ch); }));
-    s.erase(std::find_if(s.rbegin(), s.rend(),
-            [](unsigned char ch) { return !isspace(ch); }).base(), s.end());
-    return s;
-}
 
 static osg::Texture2D* createTexture(const std::string& fileName)
 {

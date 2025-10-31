@@ -61,7 +61,7 @@ public:
             if (line[0] == '#') continue;
 
             std::vector<std::string> values, rings;
-            osgVerse::Auxiliary::splitString(line, values, ',', false);
+            osgVerse::StringAuxiliary::split(line, values, ',', false);
             if (!valueMap.empty())
             {
                 size_t numColumns = valueMap.size();
@@ -82,14 +82,14 @@ public:
                 double labelCar = (valueMap.find("Label") == valueMap.end()) ? -1.0 : atof(valueMap["Label"].c_str());
                 double roadCar = (valueMap.find("on_road") == valueMap.end()) ? -1.0 : atof(valueMap["on_road"].c_str());
                 const std::string& vData = valueMap["vertices"]; osg::Vec3d center, ecef, N;
-                std::vector<std::vector<osg::Vec3d>> polygons; osgVerse::Auxiliary::splitString(vData, rings, '|', true);
+                std::vector<std::vector<osg::Vec3d>> polygons; osgVerse::StringAuxiliary::split(vData, rings, '|', true);
                 if (height < 0.0 && labelCar < 0.0 && roadCar < 0.0) std::cout << "Unsupported data? " << headerLine << "\n";
 
                 osg::Matrix localToWorld, worldToLocal;
                 for (size_t r = 0; r < rings.size(); ++r)
                 {
                     std::vector<osg::Vec3d> polygon; std::vector<std::string> vertices;
-                    osgVerse::Auxiliary::splitString(rings[r], vertices, ' ', true);
+                    osgVerse::StringAuxiliary::split(rings[r], vertices, ' ', true);
                     for (size_t j = 0; j < vertices.size(); j += 2)
                     {
                         polygon.push_back(osg::Vec3d(osg::inDegrees(atof(vertices[j + 1].c_str())),
@@ -237,20 +237,20 @@ protected:
 
     static osg::Vec4 heightColor(float h, float onRoad)
     {
-        if (h < 0.0f) return onRoad > 0.5f ? osgVerse::Auxiliary::hexColorToRGB("#ffff00")
-                                           : osgVerse::Auxiliary::hexColorToRGB("#ff00ff");
-        else if (h <= 5.0f) return osgVerse::Auxiliary::hexColorToRGB("#e6f4fd");
-        else if (h <= 10.0f) return osgVerse::Auxiliary::hexColorToRGB("#a7def5");
-        else if (h <= 20.0f) return osgVerse::Auxiliary::hexColorToRGB("#6fb1df");
-        else if (h <= 30.0f) return osgVerse::Auxiliary::hexColorToRGB("#4696b2");
-        else if (h <= 40.0f) return osgVerse::Auxiliary::hexColorToRGB("#49af5b");
-        else if (h <= 50.0f) return osgVerse::Auxiliary::hexColorToRGB("#9fcf51");
-        else if (h <= 60.0f) return osgVerse::Auxiliary::hexColorToRGB("#f9da55");
-        else if (h <= 70.0f) return osgVerse::Auxiliary::hexColorToRGB("#f58c37");
-        else if (h <= 80.0f) return osgVerse::Auxiliary::hexColorToRGB("#e64f29");
-        else if (h <= 90.0f) return osgVerse::Auxiliary::hexColorToRGB("#dd3427");
-        else if (h <= 100.0f) return osgVerse::Auxiliary::hexColorToRGB("#bb1b23");
-        else return osgVerse::Auxiliary::hexColorToRGB("#931519");
+        if (h < 0.0f) return onRoad > 0.5f ? osgVerse::StringAuxiliary::hexColorToRGB("#ffff00")
+                                           : osgVerse::StringAuxiliary::hexColorToRGB("#ff00ff");
+        else if (h <= 5.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#e6f4fd");
+        else if (h <= 10.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#a7def5");
+        else if (h <= 20.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#6fb1df");
+        else if (h <= 30.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#4696b2");
+        else if (h <= 40.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#49af5b");
+        else if (h <= 50.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#9fcf51");
+        else if (h <= 60.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#f9da55");
+        else if (h <= 70.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#f58c37");
+        else if (h <= 80.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#e64f29");
+        else if (h <= 90.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#dd3427");
+        else if (h <= 100.0f) return osgVerse::StringAuxiliary::hexColorToRGB("#bb1b23");
+        else return osgVerse::StringAuxiliary::hexColorToRGB("#931519");
     }
 
     static void tessellateGeometry(osg::Geometry& geom, const osg::Vec3& axis)

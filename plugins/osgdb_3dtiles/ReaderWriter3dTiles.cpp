@@ -306,7 +306,7 @@ protected:
             uri = (content.is<picojson::object>() && content.contains("url"))
                 ? content.get("url").to_str() : "";
         }
-        uri = osgVerse::urlDecode(uri);  // some data converted from CesiumLab may have encoded characters...
+        uri = osgVerse::WebAuxiliary::urlDecode(uri);  // some data converted from CesiumLab may have encoded characters...
 
         std::string ext = osgDB::getFileExtension(uri);
         if (!uri.empty() && !osgDB::isAbsolutePath(uri))

@@ -212,7 +212,7 @@ public:
                     for (size_t i = 6, c = 0; i < _propContent.size() - 1; ++i, ++c)
                     {
                         std::vector<std::string> textAndColor; osgDB::split(_propContent[i], textAndColor, ':');
-                        osg::Vec4 color = osgVerse::Auxiliary::hexColorToRGB(osgVerse::Auxiliary::trim(textAndColor.back()));
+                        osg::Vec4 color = osgVerse::StringAuxiliary::hexColorToRGB(osgVerse::StringAuxiliary::trim(textAndColor.back()));
                         drawer->drawRectangle(osg::Vec4(wCell * (hStart + 24.5f), hCell * (vStart + 1.5f + 0.35f),
                                               wCell * 0.3f, hCell * 0.3f * as), 0.0f, 0.0f,
                                               osgVerse::DrawerStyleData(color, true));

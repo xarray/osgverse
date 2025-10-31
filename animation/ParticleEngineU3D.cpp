@@ -19,35 +19,6 @@
 using namespace osgVerse;
 
 /// ParticleCloud ///
-static std::string trim(const std::string& str)
-{
-    if (!str.size()) return str;
-    std::string::size_type first = str.find_first_not_of(" \t");
-    std::string::size_type last = str.find_last_not_of("  \t\r\n");
-    if ((first == str.npos) || (last == str.npos)) return std::string("");
-    return str.substr(first, last - first + 1);
-}
-
-static void splitString(const std::string& src, std::vector<std::string>& slist, char sep, bool ignoreEmpty)
-{
-    if (src.empty()) return;
-    std::string::size_type start = 0;
-    bool inQuotes = false;
-
-    for (std::string::size_type i = 0; i < src.size(); ++i)
-    {
-        if (src[i] == '"')
-            inQuotes = !inQuotes;
-        else if (src[i] == sep && !inQuotes)
-        {
-            if (!ignoreEmpty || (i - start) > 0)
-                slist.push_back(src.substr(start, i - start));
-            start = i + 1;
-        }
-    }
-    if (!ignoreEmpty || (src.size() - start) > 0)
-        slist.push_back(src.substr(start, src.size() - start));
-}
 
 ParticleCloud::ParticleCloud()
 {
@@ -66,12 +37,12 @@ bool ParticleCloud::loadFromCsv(std::istream& in, Getter getter, char sep)
     std::string line0; unsigned int rowID = 0; clear();
     while (std::getline(in, line0))
     {
-        std::string line = trim(line0); rowID++;
+        std::string line = StringAuxiliary::trim(line0); rowID++;
         if (line.empty()) continue;
         if (line[0] == '#') continue;
 
         std::vector<std::string> values;
-        splitString(line, values, sep, false);
+        StringAuxiliary::split(line, values, sep, false);
         if (!valueMap.empty())
         {
             size_t numColumns = valueMap.size();

@@ -14,6 +14,7 @@
 #include <osgDB/FileNameUtils>
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
+#include <libhv/all/client/requests.h>
 #include <libhv/all/base64.h>
 #include <xxYUV/rgb2yuv.h>
 #include <sstream>
@@ -743,92 +744,6 @@ namespace osgVerse
         return yuvData;
     }
 
-    std::string encodeBase64(const std::vector<unsigned char>& buffer)
-    { return buffer.empty() ? "" : hv::Base64Encode(&buffer[0], buffer.size()); }
-
-    std::vector<unsigned char> decodeBase64(const std::string& data)
-    {
-        std::string result = hv::Base64Decode(data.data(), data.size());
-        std::vector<unsigned char> out(result.size()); if (result.empty()) return out;
-        memcpy(&out[0], result.data(), result.size()); return out;
-    }
-
-    std::string urlEncode(const std::string& str)
-    {
-        std::ostringstream oss;
-        for (size_t i = 0; i < str.length(); ++i)
-        {
-            char c = str[i];
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-                (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~')
-            { oss << c; }
-            else
-            {
-                oss << std::uppercase << '%' << std::setw(2) << std::setfill('0')
-                    << std::hex << static_cast<int>(static_cast<unsigned char>(c));
-            }
-        }
-        return oss.str();
-    }
-
-    std::string urlDecode(const std::string& str)
-    {
-        std::string decoded;
-        for (size_t i = 0; i < str.length(); ++i)
-        {
-            char c = str[i];
-            if (c == '%' && i + 2 < str.length())
-            {
-                char hex1 = std::toupper(str[i + 1]);
-                char hex2 = std::toupper(str[i + 2]);
-                if ((hex1 >= '0' && hex1 <= '9') || (hex1 >= 'A' && hex1 <= 'F') &&
-                    (hex2 >= '0' && hex2 <= '9') || (hex2 >= 'A' && hex2 <= 'F'))
-                {
-                    char code = char_from_hex(hex1) * 16 + char_from_hex(hex2);
-                    decoded += code; i += 2;
-                }
-                else decoded += c;
-            }
-            else decoded += c;
-        }
-        return decoded;
-    }
-
-    static std::istream& getline_ex(std::istream& is, std::string& str)
-    {
-        str.clear(); char c = 0;
-        while (is.get(c))
-        {
-            if (c == '\\' || c == '/') break;
-            str += c;
-        }
-        return is;
-    }
-
-    std::string normalizeUrl(const std::string& url, const std::string& sep)
-    {
-        size_t pathStart = url.find("://");
-        if (pathStart == std::string::npos) pathStart = 0;
-        else pathStart += 3;
-
-        std::string path = url.substr(pathStart), part;
-        std::istringstream iss(path); std::vector<std::string> parts;
-        while (getline_ex(iss, part)) { if (!part.empty()) parts.push_back(part); }
-        if (!part.empty()) parts.push_back(part);
-
-        std::vector<std::string> normalizedParts;
-        for (const auto& p : parts)
-        {
-            if (p == "..") { if (!normalizedParts.empty()) normalizedParts.pop_back(); }
-            else if (p != ".") normalizedParts.push_back(p);
-        }
-
-        std::ostringstream oss;
-        for (size_t i = 0; i < normalizedParts.size(); ++i)
-            { if (i > 0) oss << sep; oss << normalizedParts[i]; }
-        return url.substr(0, pathStart) + oss.str();
-    }
-
     std::vector<unsigned char> loadFileData(const std::string& url, std::string& mimeType, std::string& encodingType,
                                             const std::vector<std::string>& reqHeaders)
     {
@@ -856,7 +771,7 @@ namespace osgVerse
             }
 #else
             HttpRequest req; req.method = HTTP_GET;
-            req.url = osgVerse::normalizeUrl(url); req.scheme = scheme;
+            req.url = osgVerse::WebAuxiliary::normalizeUrl(url); req.scheme = scheme;
             req.headers["User-Agent"] = "Mozilla/5.0"; req.headers["Accept"] = "*/*";
             for (size_t i = 0; i < reqHeaders.size(); i += 2)
             {
@@ -898,4 +813,108 @@ namespace osgVerse
         }
         return buffer;
     }
+}
+
+/// WebAuxiliary ///
+static std::istream& getline_ex(std::istream& is, std::string& str)
+{
+    str.clear(); char c = 0;
+    while (is.get(c))
+    {
+        if (c == '\\' || c == '/') break;
+        str += c;
+    }
+    return is;
+}
+
+std::string WebAuxiliary::encodeBase64(const std::vector<unsigned char>& buffer)
+{
+    return buffer.empty() ? "" : hv::Base64Encode(&buffer[0], buffer.size());
+}
+
+std::vector<unsigned char> WebAuxiliary::decodeBase64(const std::string& data)
+{
+    std::string result = hv::Base64Decode(data.data(), data.size());
+    std::vector<unsigned char> out(result.size()); if (result.empty()) return out;
+    memcpy(&out[0], result.data(), result.size()); return out;
+}
+
+std::string WebAuxiliary::urlEncode(const std::string& str)
+{
+    std::ostringstream oss;
+    for (size_t i = 0; i < str.length(); ++i)
+    {
+        char c = str[i];
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~')
+        { oss << c; }
+        else
+        {
+            oss << std::uppercase << '%' << std::setw(2) << std::setfill('0')
+                << std::hex << static_cast<int>(static_cast<unsigned char>(c));
+        }
+    }
+    return oss.str();
+}
+
+std::string WebAuxiliary::urlDecode(const std::string& str)
+{
+    std::string decoded;
+    for (size_t i = 0; i < str.length(); ++i)
+    {
+        char c = str[i];
+        if (c == '%' && i + 2 < str.length())
+        {
+            char hex1 = std::toupper(str[i + 1]);
+            char hex2 = std::toupper(str[i + 2]);
+            if ((hex1 >= '0' && hex1 <= '9') || (hex1 >= 'A' && hex1 <= 'F') &&
+                (hex2 >= '0' && hex2 <= '9') || (hex2 >= 'A' && hex2 <= 'F'))
+            {
+                char code = char_from_hex(hex1) * 16 + char_from_hex(hex2);
+                decoded += code; i += 2;
+            }
+            else decoded += c;
+        }
+        else decoded += c;
+    }
+    return decoded;
+}
+
+std::string WebAuxiliary::normalizeUrl(const std::string& url, const std::string& sep)
+{
+    size_t pathStart = url.find("://");
+    if (pathStart == std::string::npos) pathStart = 0;
+    else pathStart += 3;
+
+    std::string path = url.substr(pathStart), part;
+    std::istringstream iss(path); std::vector<std::string> parts;
+    while (getline_ex(iss, part)) { if (!part.empty()) parts.push_back(part); }
+    if (!part.empty()) parts.push_back(part);
+
+    std::vector<std::string> normalizedParts;
+    for (const auto& p : parts)
+    {
+        if (p == "..") { if (!normalizedParts.empty()) normalizedParts.pop_back(); }
+        else if (p != ".") normalizedParts.push_back(p);
+    }
+
+    std::ostringstream oss;
+    for (size_t i = 0; i < normalizedParts.size(); ++i)
+    { if (i > 0) oss << sep; oss << normalizedParts[i]; }
+    return url.substr(0, pathStart) + oss.str();
+}
+
+WebAuxiliary::HttpResponseData WebAuxiliary::httpRequest(const std::string& url, HttpMethod method, const std::string& body,
+                                                         const HttpRequestHeaders& headers, int timeout)
+{
+    HttpRequestPtr req = std::make_shared<HttpRequest>();
+    req->method = (http_method)method; req->url = url;
+    req->body = body; if (timeout > 0) req->timeout = timeout;
+    for (HttpRequestHeaders::const_iterator it = headers.begin(); it != headers.end(); ++it)
+        req->headers[it->first] = it->second;
+
+    hv::HttpClient client; HttpResponse res;
+    int ret = client.send(req.get(), &res);
+    if (ret != 0) return HttpResponseData(-1, "[WebAuxiliary] HTTP request failed");
+    else return HttpResponseData(res.status_code, res.body);
 }

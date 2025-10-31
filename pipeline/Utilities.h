@@ -347,14 +347,14 @@ namespace osgVerse
                               std::vector<unsigned int>& outIDs);
     };
 
-    /** Some helper functions and algorithms */
-    struct Auxiliary
+    /** Some string-related helper functions and algorithms */
+    struct StringAuxiliary
     {
         /** Convert from string like #ff00ff to a color */
         static osg::Vec4 hexColorToRGB(const std::string& hexColor, bool withAlpha = false);
 
         /** Split a string into parts */
-        static void splitString(const std::string& src, std::vector<std::string>& slist, char sep, bool ignoreEmpty = true);
+        static void split(const std::string& src, std::vector<std::string>& slist, char sep, bool ignoreEmpty = true);
 
         /** Trim leading and trailing spaces of a string */
         static std::string trim(const std::string& str);

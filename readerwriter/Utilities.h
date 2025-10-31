@@ -195,20 +195,37 @@ namespace osgVerse
     enum YUVFormat { YU12 = 0/*IYUV*/, YV12, NV12, NV21 };
     OSGVERSE_RW_EXPORT std::vector<std::vector<unsigned char>> convertRGBtoYUV(osg::Image* image, YUVFormat f = YV12);
 
-    /** Encode data to base64 */
-    OSGVERSE_RW_EXPORT std::string encodeBase64(const std::vector<unsigned char>& buffer);
+    /** Some web-related helper functions and algorithms */
+    struct OSGVERSE_RW_EXPORT WebAuxiliary
+    {
+        /** Encode data to base64 */
+        static std::string encodeBase64(const std::vector<unsigned char>& buffer);
 
-    /** Decode base64 to data */
-    OSGVERSE_RW_EXPORT std::vector<unsigned char> decodeBase64(const std::string& data);
+        /** Decode base64 to data */
+        static std::vector<unsigned char> decodeBase64(const std::string& data);
 
-    /** Encode string to URL style (e.g., '+' to %2B) */
-    OSGVERSE_RW_EXPORT std::string urlEncode(const std::string& str);
+        /** Encode string to URL style (e.g., '+' to %2B) */
+        static std::string urlEncode(const std::string& str);
 
-    /** Decode string from URL style */
-    OSGVERSE_RW_EXPORT std::string urlDecode(const std::string& str);
+        /** Decode string from URL style */
+        static std::string urlDecode(const std::string& str);
 
-    /** Normalize input URL to replace ./ and ../ substrings to absolute paths */
-    OSGVERSE_RW_EXPORT std::string normalizeUrl(const std::string& url, const std::string& sep = "/");
+        /** Normalize input URL to replace ./ and ../ substrings to absolute paths */
+        static std::string normalizeUrl(const std::string& url, const std::string& sep = "/");
+
+        enum HttpMethod { HTTP_DELETE = 0, HTTP_GET = 1, HTTP_HEAD = 2, HTTP_POST = 3, HTTP_PUT = 4 };
+        typedef std::map<std::string, std::string> HttpRequestHeaders;
+        typedef std::pair<int, std::string> HttpResponseData;
+        typedef std::function<void (const std::string& /*url*/, const std::string& /*body*/,
+                                    const HttpRequestHeaders&, HttpResponseData&)> HttpCallback;
+
+        /** Set an HTTP client request (e.g., GET / POST) */
+        static HttpResponseData httpRequest(const std::string& url, HttpMethod m, const std::string& body,
+                                            const HttpRequestHeaders& headers = HttpRequestHeaders(), int timeout = 0);
+
+        /** Set an HTTP server */
+        //static osg::Referenced* httpServer(int port, bool allowCORS = true);  // TODO
+    };
 
     /** Load content from local file or network protocol */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(

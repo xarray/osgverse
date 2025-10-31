@@ -103,10 +103,10 @@ public:
             int maxZ = atoi(maxLvStr.c_str());  // return OK but not loading anything
             if (maxZ > 0 && maxZ < z) return ReadResult::FILE_LOADED;
 
-            std::string maskAddr = osgVerse::urlDecode(options->getPluginStringData("OceanMask"));
-            std::string elevAddr = osgVerse::urlDecode(options->getPluginStringData("Elevation"));
-            std::string orthoAddr = osgVerse::urlDecode(options->getPluginStringData("Orthophoto"));
-            if (orthoAddr.empty()) orthoAddr = osgVerse::urlDecode(options->getPluginStringData("URL"));
+            std::string maskAddr = osgVerse::WebAuxiliary::urlDecode(options->getPluginStringData("OceanMask"));
+            std::string elevAddr = osgVerse::WebAuxiliary::urlDecode(options->getPluginStringData("Elevation"));
+            std::string orthoAddr = osgVerse::WebAuxiliary::urlDecode(options->getPluginStringData("Orthophoto"));
+            if (orthoAddr.empty()) orthoAddr = osgVerse::WebAuxiliary::urlDecode(options->getPluginStringData("URL"));
 
             osg::Vec3d extentMin = osg::Vec3d(-180.0, -90.0, 0.0), extentMax = osg::Vec3d(180.0, 90.0, 0.0);
             std::string strX = options->getPluginStringData("FlatExtentMinX"),

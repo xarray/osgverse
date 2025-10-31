@@ -41,10 +41,26 @@ public:
     };
     tinygltf::Scene& scene() { return _scene; }
 
-    virtual void apply(osg::Geode& node)
+    void pushDescriptions(osg::Node& node)
     {
-        osgVerse::NodeVisitorEx::apply(node);
+        const std::vector<std::string>& d = node.getDescriptions();
+        _extraStringList.insert(_extraStringList.end(), _extraStringList.begin(), _extraStringList.end());
     }
+
+    void popDescriptions(osg::Node& node)
+    {
+        const std::vector<std::string>& d = node.getDescriptions();
+        for (size_t i = 0; i < d.size(); ++i) { if (!_extraStringList.empty()) _extraStringList.pop_back(); }
+    }
+
+    virtual void apply(osg::Node& node)
+    { pushDescriptions(node); osgVerse::NodeVisitorEx::apply(node); popDescriptions(node); }
+
+    virtual void apply(osg::Transform& node)
+    { pushDescriptions(node); osgVerse::NodeVisitorEx::apply(node); popDescriptions(node); }
+
+    virtual void apply(osg::Geode& node)
+    { pushDescriptions(node); osgVerse::NodeVisitorEx::apply(node); popDescriptions(node); }
 
     virtual void apply(osg::Geometry& geometry)
     {
@@ -79,6 +95,10 @@ public:
         _scene.nodes.push_back(_model->nodes.size()); _model->nodes.push_back(tinygltf::Node());
         tinygltf::Node& gltfNode = _model->nodes.back(); gltfNode.name = geometry.getName();
         if (geometry.getName().empty()) gltfNode.name = geometry.className();
+
+        std::string extraJsonString = _extraStringList.empty() ? "" : _extraStringList.front();
+        for (size_t i = 1; i < _extraStringList.size(); ++i) extraJsonString += ", " + _extraStringList[i];
+        if (_extraStringList.size() > 1) gltfNode.extras_json_string = "[" + extraJsonString + "]";
 
         osg::Matrix matrix; if (_matrixStack.size() > 0) matrix = _matrixStack.back();
         gltfNode.matrix.assign(matrix.ptr(), matrix.ptr() + 16);
@@ -262,6 +282,7 @@ protected:
     }
 
     std::map<osg::Geometry*, int> _geometries;
+    std::vector<std::string> _extraStringList;
     tinygltf::Model* _model;
     tinygltf::Scene _scene;
 };

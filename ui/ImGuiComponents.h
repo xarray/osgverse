@@ -53,7 +53,7 @@ namespace osgVerse
         typedef std::function<void (ImGuiManager*, ImGuiContentHandler*,
                                     ImGuiComponentBase*, const std::string&)> ActionCallback2;
         typedef std::function<void (const std::string&)> FileDialogCallback;
-        typedef std::function<void(bool)> ConfirmDialogCallback;
+        typedef std::function<void (bool)> ConfirmDialogCallback;
         
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content) = 0;
         virtual void showEnd() { /* nothing to do by default */ }

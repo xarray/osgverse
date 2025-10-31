@@ -503,7 +503,7 @@ public:
         std::string cmd = "SELECT 1 FROM " + table;
         cmd += (db->backend == "mysql") ? " WHERE name = :name<varchar> LIMIT 1;"
                                         : " WHERE name = ? LIMIT 1;";
-        key = sep.empty() ? keyName : osgVerse::normalizeUrl(keyName, sep);
+        key = sep.empty() ? keyName : osgVerse::WebAuxiliary::normalizeUrl(keyName, sep);
         return db->check(cmd, key);
     }
 
@@ -517,7 +517,7 @@ public:
 
         std::string cmd = "SELECT size, value FROM " + table;
         cmd += (db->backend == "mysql") ? " WHERE name = :name<varchar>;" : " WHERE name = ?;";
-        key = sep.empty() ? keyName : osgVerse::normalizeUrl(keyName, sep);
+        key = sep.empty() ? keyName : osgVerse::WebAuxiliary::normalizeUrl(keyName, sep);
         if (!db->read(cmd, key, buffer))
         {
             OSG_WARN << "[ReaderWriterOdbc] Unable to read key: " << key << "\n";
@@ -556,7 +556,7 @@ public:
                 + "DO UPDATE SET size = EXCLUDED.size, value = EXCLUDED.value;";
         }
 
-        key = sep.empty() ? keyName : osgVerse::normalizeUrl(keyName, sep);
+        key = sep.empty() ? keyName : osgVerse::WebAuxiliary::normalizeUrl(keyName, sep);
         if (db->write(cmd, key, requestBuffer)) return WriteResult::FILE_SAVED;
         else { OSG_WARN << "[ReaderWriterOdbc] Unable to write key: " << key << "\n"; }
         return WriteResult::FILE_NOT_HANDLED;

@@ -338,7 +338,7 @@ public:
 
         // Post data to web
         req.method = HTTP_POST;
-        req.url = osgVerse::normalizeUrl(fileName); req.scheme = scheme;
+        req.url = osgVerse::WebAuxiliary::normalizeUrl(fileName); req.scheme = scheme;
         req.body = std::string((std::istreambuf_iterator<char>(requestBuffer)),
                                std::istreambuf_iterator<char>());
         

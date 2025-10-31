@@ -29,9 +29,9 @@
 #define srnd() (2 * frandom(&seed) - 1)
 using namespace osgVerse;
 
-/************** Auxiliary **************/
+/************** StringAuxiliary **************/
 
-osg::Vec4 Auxiliary::hexColorToRGB(const std::string& hexColor, bool withAlpha)
+osg::Vec4 StringAuxiliary::hexColorToRGB(const std::string& hexColor, bool withAlpha)
 {
     if (hexColor.empty() || hexColor[0] != '#') return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     std::string colorPart = hexColor.substr(1), ex; unsigned long hexValue = 0;
@@ -51,7 +51,7 @@ osg::Vec4 Auxiliary::hexColorToRGB(const std::string& hexColor, bool withAlpha)
                           (hexValue & 0xFF) / 255.0f, 1.0f);
 }
 
-void Auxiliary::splitString(const std::string& src, std::vector<std::string>& slist,
+void StringAuxiliary::split(const std::string& src, std::vector<std::string>& slist,
                             char sep, bool ignoreEmpty)
 {
     if (src.empty()) return; bool inQuotes = false;
@@ -71,7 +71,7 @@ void Auxiliary::splitString(const std::string& src, std::vector<std::string>& sl
         slist.push_back(src.substr(start, src.size() - start));
 }
 
-std::string Auxiliary::trim(const std::string& str)
+std::string StringAuxiliary::trim(const std::string& str)
 {
     if (!str.size()) return str;
     std::string::size_type first = str.find_first_not_of(" \t");

@@ -418,6 +418,7 @@ namespace osgVerse
             }
         }
 
+        if (!_modelDef.extras_json_string.empty()) _root->addDescription(_modelDef.extras_json_string);
         if (yUp) _root->setMatrix(osg::Matrix::rotate(osg::Y_AXIS, osg::Z_AXIS));
         if (rtcRoot.valid()) { rtcRoot->addChild(_root.get()); _root = rtcRoot; }
 
@@ -491,6 +492,7 @@ namespace osgVerse
         if (geode.valid())
         {
             geode->setName(node.name + "_Geode");
+            if (!node.extras_json_string.empty()) geode->addDescription(node.extras_json_string);
             _deferredMeshList.push_back(
                 DeferredMeshData(geode.get(), _modelDef.meshes[node.mesh], node.skin));
         }
@@ -543,7 +545,7 @@ namespace osgVerse
 
             tinygltf::Primitive primitive = mesh.primitives[i];
             for (std::map<std::string, int>::iterator attrib = primitive.attributes.begin();
-                attrib != primitive.attributes.end(); ++attrib)
+                 attrib != primitive.attributes.end(); ++attrib)
             {
                 tinygltf::Accessor& attrAccessor = _modelDef.accessors[attrib->second];
                 const tinygltf::BufferView& attrView = _modelDef.bufferViews[attrAccessor.bufferView];
