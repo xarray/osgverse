@@ -11,6 +11,7 @@
 extern void emscripten_advance();
 #endif
 #include "Export.h"
+#include <functional>
 
 #ifndef GL_ARB_texture_rg
 #define GL_RG                             0x8227

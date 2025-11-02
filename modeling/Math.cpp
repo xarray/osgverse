@@ -645,7 +645,7 @@ PointCloudQuery::~PointCloudQuery()
 {
     PointCloudData* pcd = (PointCloudData*)_queryData;
     pcd->points.clear(); delete pcd; _queryData = NULL;
-    delete _index; _index = NULL;
+    KdTreeType* kdtree = (KdTreeType*)_index; delete kdtree; _index = NULL;
 }
 
 void PointCloudQuery::addPoint(const osg::Vec3& pt, osg::Referenced* userData)
