@@ -90,6 +90,10 @@ namespace osgVerse
     /** Create image from given stateset/shaders */
     extern osg::Image* createShadingResult(osg::StateSet& ss, int resX, int resY, osg::View* viewer = NULL);
 
+    /** Create image from given 2D point and attributes */
+    extern osg::Image* createInterpolatedMap(const std::vector<osg::Vec2>& points, const std::vector<osg::Vec4>& values,
+                                             int resX, int resY, int valueComponents, bool toInt8 = false, osg::View* viewer = NULL);
+
     /** The tangent/binormal computing visitor */
     class TangentSpaceVisitor : public osg::NodeVisitor
     {

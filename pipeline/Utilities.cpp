@@ -13,6 +13,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgDB/ConvertUTF>
+#include <osgUtil/DelaunayTriangulator>
 #include <osgViewer/GraphicsWindow>
 #include <osgViewer/Viewer>
 #include <chrono>
@@ -35,6 +36,15 @@
 #include "ShaderLibrary.h"
 #include "Pipeline.h"
 #include "Utilities.h"
+
+#define APPLY_PROGRAM(ss, vsCode, fsCode) { \
+    osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode); \
+    osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode); \
+    int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer); \
+    osg::ref_ptr<osg::Program> prog = new osg::Program; \
+    Pipeline::createShaderDefinitions(vs, glVer, glslVer); prog->addShader(vs); \
+    Pipeline::createShaderDefinitions(fs, glVer, glslVer); prog->addShader(fs); \
+    ss->setAttributeAndModes(prog.get()); }
 
 #define BACKWARD_MESSAGE(msg, n) \
     { backward::Printer printer; backward::StackTrace st; st.load_here(n); st.skip_n_firsts(2); \
@@ -100,6 +110,24 @@ static void setupOffscreenCamera(osg::Camera* camera, osg::Image* image)
     traits->doubleBuffer = false; traits->pbuffer = true;
     osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
     camera->setGraphicsContext(gc);
+}
+
+static void advanceImageViewer(osgViewer::Viewer* viewer0, osg::Node* node, osg::Image* image, bool keepHostTex)
+{
+    osg::ref_ptr<osgViewer::Viewer> viewer = viewer0;
+    if (!viewer) { viewer = new osgViewer::Viewer; setupOffscreenCamera(viewer->getCamera(), image); }
+    viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+    root->addChild(node); viewer->setSceneData(root.get());
+    if (keepHostTex)
+    {
+        osgVerse::HostTextureReserver reserver; root->accept(reserver); reserver.set(true);
+        for (int i = 0; i < 2; ++i) viewer->frame(); reserver.set(false);
+    }
+    else
+        for (int i = 0; i < 2; ++i) viewer->frame();
 }
 
 class MyReadFileCallback : public osgDB::ReadFileCallback
@@ -767,11 +795,8 @@ namespace osgVerse
         image->allocateImage(resX, resY, 1, GL_LUMINANCE, GL_FLOAT);
         image->setInternalTextureFormat(GL_LUMINANCE32F_ARB);
 
-        osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox);
+        osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox); camera->addChild(node);
         osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
-        if (!viewer) { viewer = new osgViewer::Viewer; setupOffscreenCamera(viewer->getCamera(), image); }
-        viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
-        viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         {
             const char* vsCode = {
                 "VERSE_VS_OUT float depth;\n"
@@ -788,21 +813,8 @@ namespace osgVerse
                 "    VERSE_FS_FINAL(fragData);\n"
                 "}\n"
             };
-            osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode);
-            osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode);
-            int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
-
-            osg::ref_ptr<osg::Program> prog = new osg::Program;
-            Pipeline::createShaderDefinitions(vs, glVer, glslVer); prog->addShader(vs);
-            Pipeline::createShaderDefinitions(fs, glVer, glslVer); prog->addShader(fs);
-            camera->getOrCreateStateSet()->setAttributeAndModes(prog.get());
-
-            osg::ref_ptr<osg::Group> root = new osg::Group;
-            root->addChild(camera.get()); camera->addChild(node);
-            viewer->setSceneData(root.get());
-
-            HostTextureReserver reserver; root->accept(reserver); reserver.set(true);
-            for (int i = 0; i < 2; ++i) viewer->frame(); reserver.set(false);
+            APPLY_PROGRAM(camera->getOrCreateStateSet(), vsCode, fsCode);
+            advanceImageViewer(viewer.get(), camera.get(), image.get(), true);
         }
 
         osg::ref_ptr<osg::HeightField> hf = new osg::HeightField;
@@ -828,11 +840,8 @@ namespace osgVerse
         image->allocateImage(resX, resY, 1, GL_RGB, GL_UNSIGNED_BYTE);
         image->setInternalTextureFormat(GL_RGB8);
 
-        osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox);
+        osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox); camera->addChild(node);
         osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
-        if (!viewer) { viewer = new osgViewer::Viewer; setupOffscreenCamera(viewer->getCamera(), image); }
-        viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
-        viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         {
             const char* vsCode = {
                 "VERSE_VS_OUT vec2 uv;\n"
@@ -850,32 +859,19 @@ namespace osgVerse
                 "    VERSE_FS_FINAL(fragData);\n"
                 "}\n"
             };
-            osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode);
-            osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode);
-            int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
-
-            osg::ref_ptr<osg::Program> prog = new osg::Program;
-            Pipeline::createShaderDefinitions(vs, glVer, glslVer); prog->addShader(vs);
-            Pipeline::createShaderDefinitions(fs, glVer, glslVer); prog->addShader(fs);
-            camera->getOrCreateStateSet()->setAttributeAndModes(prog.get());
+            APPLY_PROGRAM(camera->getOrCreateStateSet(), vsCode, fsCode);
             camera->getOrCreateStateSet()->setTextureAttributeAndModes(
                 0, createDefaultTexture(osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f)));
             camera->getOrCreateStateSet()->addUniform(new osg::Uniform("BaseTexture", (int)0));
-
-            osg::ref_ptr<osg::Group> root = new osg::Group;
-            root->addChild(camera.get()); camera->addChild(node);
-            viewer->setSceneData(root.get());
-
-            HostTextureReserver reserver; root->accept(reserver); reserver.set(true);
-            for (int i = 0; i < 2; ++i) viewer->frame(); reserver.set(false);
+            advanceImageViewer(viewer.get(), camera.get(), image.get(), true);
         }
-        viewer->setSceneData(NULL); camera = NULL; viewer = NULL;
-        return image.release();
+        camera = NULL; viewer = NULL; return image.release();
     }
 
     osg::Image* createShadingResult(osg::StateSet& ss, int resX, int resY, osg::View* userViewer)
     {
-        osg::ref_ptr<osg::Geode> node = createScreenQuad(osg::Vec3(), 1.0f, 1.0f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+        osg::ref_ptr<osg::Geode> node = createScreenQuad(
+            osg::Vec3(), 1.0f, 1.0f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
         osg::ComputeBoundsVisitor cbv; node->accept(cbv);
         osg::BoundingBox bbox = cbv.getBoundingBox();
         osg::ref_ptr<osg::Image> image = new osg::Image;
@@ -884,17 +880,68 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox);
         osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
-        if (!viewer) { viewer = new osgViewer::Viewer; setupOffscreenCamera(viewer->getCamera(), image); }
-        viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
-        viewer->getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
         {
-            osg::ref_ptr<osg::Group> root = new osg::Group;
-            root->addChild(camera.get()); camera->addChild(node);
-            viewer->setSceneData(root.get()); node->setStateSet(new osg::StateSet(ss));
-            for (int i = 0; i < 2; ++i) viewer->frame();
+            camera->addChild(node); node->setStateSet(new osg::StateSet(ss));
+            advanceImageViewer(viewer.get(), camera.get(), image.get(), false);
         }
-        viewer->setSceneData(NULL); camera = NULL; viewer = NULL;
-        return image.release();
+        camera = NULL; viewer = NULL; return image.release();
+    }
+
+    osg::Image* createInterpolatedMap(const std::vector<osg::Vec2>& points, const std::vector<osg::Vec4>& values,
+                                      int resX, int resY, int valueComponents, bool toInt8, osg::View* userViewer)
+    {
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(points.size());
+        osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array(values.size());
+        for (size_t i = 0; i < va->size(); ++i) { (*va)[i] = osg::Vec3(points[i], 0.0f); (*ca)[i] = values[i]; }
+
+        osg::ref_ptr<osgUtil::DelaunayTriangulator> dt = new osgUtil::DelaunayTriangulator(va.get());
+        if (!dt->triangulate() || points.size() != values.size()) return NULL;
+        osg::ref_ptr<osg::Geometry> geom = createGeometry(
+            va.get(), dt->getOutputNormalArray(), osg::Vec4(), dt->getTriangles());
+        geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode; geode->addDrawable(geom.get());
+        osg::ComputeBoundsVisitor cbv; geode->accept(cbv);
+        osg::BoundingBox bbox = cbv.getBoundingBox();
+        osg::ref_ptr<osg::Image> image = new osg::Image;
+        switch (valueComponents)
+        {
+        case 1:
+            image->allocateImage(resX, resY, 1, GL_LUMINANCE, toInt8 ? GL_UNSIGNED_BYTE : GL_FLOAT);
+            image->setInternalTextureFormat(toInt8 ? GL_LUMINANCE8 : GL_LUMINANCE32F_ARB); break;
+        case 2:
+            image->allocateImage(resX, resY, 1, GL_RG, toInt8 ? GL_UNSIGNED_BYTE : GL_FLOAT);
+            image->setInternalTextureFormat(toInt8 ? GL_RG8 : GL_RG32F); break;
+        case 3:
+            image->allocateImage(resX, resY, 1, GL_RGB, toInt8 ? GL_UNSIGNED_BYTE : GL_FLOAT);
+            image->setInternalTextureFormat(toInt8 ? GL_RGB8 : GL_RGB32F_ARB); break;
+        default:
+            image->allocateImage(resX, resY, 1, GL_RGBA, toInt8 ? GL_UNSIGNED_BYTE : GL_FLOAT);
+            image->setInternalTextureFormat(toInt8 ? GL_RGBA8 : GL_RGBA32F_ARB); break;
+        }
+
+        osg::ref_ptr<osg::Camera> camera = createImageCamera(image.get(), bbox); camera->addChild(geode.get());
+        osg::ref_ptr<osgViewer::Viewer> viewer = dynamic_cast<osgViewer::Viewer*>(userViewer);
+        {
+            const char* vsCode = {
+                "VERSE_VS_OUT vec4 color;\n"
+                "void main() {\n"
+                "    color = osg_Color;\n"
+                "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n"
+                "}\n"
+            };
+            const char* fsCode = {
+                "VERSE_FS_IN vec4 color;\n"
+                "VERSE_FS_OUT vec4 fragData;\n"
+                "void main() {\n"
+                "    fragData = color;\n"
+                "    VERSE_FS_FINAL(fragData);\n"
+                "}\n"
+            };
+            APPLY_PROGRAM(camera->getOrCreateStateSet(), vsCode, fsCode);
+            advanceImageViewer(viewer.get(), camera.get(), image.get(), false);
+        }
+        camera = NULL; viewer = NULL; return image.release();
     }
 
     TangentSpaceVisitor::TangentSpaceVisitor(const float threshold)

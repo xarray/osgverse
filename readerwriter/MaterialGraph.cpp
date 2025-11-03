@@ -197,6 +197,7 @@ void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList
      * INVERT: vec3 invert(vec3 col, vec3 fac);
      * GAMMA: vec3 gamma(vec3 col, vec3 g);
      * MATH: vec3 mathAdd/..(vec3 v0, vec3 v1, vec3 v2);
+     * VECT_MATH: vec3 mathAdd/..(vec3 v0, vec3 v1, vec3 v2);
      */
 
     int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
@@ -264,8 +265,7 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
 
         std::string texSetter = (lastOutPin->name == "Alpha") ? "texColorBridge.aaa;\n" : "texColorBridge.rgb;\n";
         comp.prependCode("texColorBridge = VERSE_TEX2D(" + sTex + ", uv);\n" + dst + "=" + texSetter);
-        applyBlenderTexture(comp, ss, sTex);
-        // TODO: continue find prior nodes?
+        applyBlenderTexture(comp, ss, sTex);  // TODO: continue find prior nodes?
     }
     else if (lastNode->type == "MIX")
     {
@@ -397,10 +397,11 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
         findAndProcessBlenderLink(comp, ss, lastNode, gamma, gItr->first, true);
         findAndProcessBlenderLink(comp, ss, lastNode, inColor, cItr->first, true);
     }
-    else if (lastNode->type == "MATH")
+    else if (lastNode->type == "MATH" || lastNode->type == "VECT_MATH")
     {
+        bool isVec = (lastNode->type == "VECT_MATH");
         std::string operation = lastNode->attributes["operation"];
-        MaterialPinIt it = lastNode->inputs["Value"].begin();
+        MaterialPinIt it = lastNode->inputs[isVec ? "Vector" : "Value"].begin();
         MaterialPinIt vItr0 = it++; MaterialPinIt vItr1 = it++; MaterialPinIt vItr2 = it++;
         MaterialPin *v0 = vItr0->second.get(), *v1 = vItr1->second.get(), *v2 = vItr2->second.get();
 
@@ -423,11 +424,13 @@ void MaterialGraph::processBlenderLink(BlenderComposition& comp, const osg::Stat
     else
     {
         OSG_WARN << "[MaterialGraph] Unsupported link node type: " << lastNode->type << std::endl;
+        for (auto attr : lastNode->attributes) OSG_WARN << "\tAttribute: " << attr.first << " = " << attr.second << std::endl;
         for (MaterialPinMap::iterator itr = lastNode->inputs.begin(); itr != lastNode->inputs.end(); ++itr)
-        {
             for (MaterialPinIndices::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); ++itr2)
-                OSG_WARN << "\tInput pin: " << itr->first << ": " << itr2->second->type << ", ID = " << itr2->first << std::endl;
-        }
+            { OSG_WARN << "\tInput pin: " << itr->first << ": " << itr2->second->type << ", ID = " << itr2->first << std::endl; }
+        for (MaterialPinMap::iterator itr = lastNode->outputs.begin(); itr != lastNode->outputs.end(); ++itr)
+            for (MaterialPinIndices::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); ++itr2)
+            { OSG_WARN << "\tOutput pin: " << itr->first << ": " << itr2->second->type << ", ID = " << itr2->first << std::endl; }
     }
 }
 

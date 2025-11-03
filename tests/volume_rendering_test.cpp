@@ -301,17 +301,18 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    osg::ref_ptr<osg::Image> image; std::string rawFile; unsigned int size = 0;
-    if (arguments.read("--load", rawFile))
+    osg::ref_ptr<osg::Image> image; std::string rawFile;
+    unsigned int size = 0, rawX = 256, rawY = 256, rawZ = 256;
+    if (arguments.read("--load-raw", rawFile, rawX, rawY, rawZ))
     {
         unsigned char* data = loadAllData(rawFile, size, 0); image = new osg::Image;
-        image->setImage(256, 256, 256, GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT, data, osg::Image::USE_NEW_DELETE);
+        image->setImage(rawX, rawY, rawZ, GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT, data, osg::Image::USE_NEW_DELETE);
     }
     else
         image = osgDB::readImageFile(arguments[1], new osgDB::Options("DimensionScale=1"));
     if (!image) return 1; else std::cout << image->s() << "x" << image->t() << "x" << image->r() << std::endl;
 
-    if (arguments.read("--save", rawFile))
+    if (arguments.read("--save-raw", rawFile))
     {
         std::ofstream out(rawFile.c_str(), std::ios::out | std::ios::binary);
         out.write((char*)image->data(), image->getTotalSizeInBytes()); out.close();
