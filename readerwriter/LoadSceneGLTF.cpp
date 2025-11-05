@@ -24,7 +24,6 @@
 #endif
 #define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "LoadSceneGLTF.h"
 #include "Utilities.h"
 

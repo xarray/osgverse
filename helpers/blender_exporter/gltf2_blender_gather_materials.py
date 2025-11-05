@@ -74,7 +74,7 @@ def get_material_node_tree_VERSE(material, blender_material):
                 outputs_info.append(output_info)
             node_info["outputs"] = outputs_info
 
-        if node.type == 'MATH':
+        if node.type == 'MATH' or node.type == 'VECT_MATH':
             node_info["operation"] = node.operation
             node_info["attributes"] = "operation";
         elif node.type == 'MIX':

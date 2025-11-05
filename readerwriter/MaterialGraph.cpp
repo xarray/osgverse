@@ -188,7 +188,11 @@ void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList
 
     BlenderComposition comp; comp.links = links;
     comp.glslFuncs = "#include \"material_nodes.module.glsl\"\n";
-    /* MIX: vec3 mixColor/..(vec3 col0, vec3 col1, vec3 f);
+    /* Reference:
+       * Documents: https://docs.blender.org/manual/en/latest/compositing/index.html
+       * NameDefinitions: https://github.com/blender/blender/blob/main/source/blender/blenkernel/BKE_node_legacy_types.hh
+       * Implementations:  https://github.com/blender/blender/tree/main/source/blender/nodes/shader/nodes
+     * MIX: vec3 mixColor/..(vec3 col0, vec3 col1, vec3 f);
      * NORMAL_MAP: vec3 normalStrength(vec3 col, vec3 s);
      * LIGHT_FALLOFF: vec3 lightFalloff(vec3 power, vec3 sm);
      * BRIGHTCONTRAST: vec3 brightnessContrast(vec3 col, vec3 b, vec3 c);

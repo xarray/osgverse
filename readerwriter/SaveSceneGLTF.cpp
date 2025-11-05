@@ -14,6 +14,7 @@
 #include "pipeline/Utilities.h"
 #include "LoadTextureKTX.h"
 #include <picojson.h>
+#include <algorithm>
 
 #ifdef VERSE_USE_DRACO
 #   define TINYGLTF_ENABLE_DRACO
@@ -21,6 +22,7 @@
 #define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb/stb_image_write.h"
 #include "SaveSceneGLTF.h"
 #include "Utilities.h"
 
@@ -64,6 +66,8 @@ public:
 
     virtual void apply(osg::Geometry& geometry)
     {
+        osgVerse::NodeVisitorEx::apply(geometry);  // traverse first to generate materials
+
 #define NEW_BUFFER_EX(id, src, srcType, gltfType, gltfComp, gltfTarget) \
     id = (int)_model->accessors.size(); _model->buffers.push_back(tinygltf::Buffer()); tinygltf::Buffer& buf = _model->buffers.back(); \
     _model->bufferViews.push_back(tinygltf::BufferView()); tinygltf::BufferView& view = _model->bufferViews.back(); \
@@ -103,10 +107,7 @@ public:
         osg::Matrix matrix; if (_matrixStack.size() > 0) matrix = _matrixStack.back();
         gltfNode.matrix.assign(matrix.ptr(), matrix.ptr() + 16);
         if (_geometries.find(&geometry) != _geometries.end())
-        {
             gltfNode.mesh = _geometries[&geometry];  // shared geometry
-            osgVerse::NodeVisitorEx::apply(geometry); return;
-        }
         else
         {
             gltfNode.mesh = _model->meshes.size(); _geometries[&geometry] = gltfNode.mesh;
@@ -171,26 +172,32 @@ public:
             if (!_model->materials.empty())
                 primitive.material = (int)_model->materials.size() - 1;
         }
-        osgVerse::NodeVisitorEx::apply(geometry);
     }
 
     virtual void apply(osg::Node* node, osg::Drawable* drawable, osg::StateSet& ss)
     {
-        _model->materials.push_back(tinygltf::Material());
-        tinygltf::Material& material = _model->materials.back(); material.name = ss.getName();
-        if (ss.getRenderingHint() == osg::StateSet::TRANSPARENT_BIN) material.alphaMode = "BLEND";
-        material.doubleSided = true;  // FIXME
         osgVerse::NodeVisitorEx::apply(node, drawable, ss);
     }
 
     virtual void apply(osg::Node* node, osg::Drawable* drawable, osg::Texture* tex, int unit)
     {
-        if (_model->materials.empty()) return;
-        tinygltf::Material& material = _model->materials.back();
-        osg::Referenced* tc = drawable->asGeometry() ? drawable->asGeometry()->getTexCoordArray(unit) : NULL;
+        osg::StateSet* ss = (tex->getNumParents() > 0) ? tex->getParent(0) : NULL;
+        unsigned int mtlIndex = 0; if (!ss || dynamic_cast<osg::Texture2D*>(tex) == NULL) return;
+        if (_statesets.find(ss) == _statesets.end())
+        {
+            mtlIndex = _model->materials.size(); _statesets[ss] = (int)mtlIndex;
+            _model->materials.push_back(tinygltf::Material());
+        }
+        else
+            mtlIndex = (unsigned int)_statesets[ss];
+
+        tinygltf::Material& material = _model->materials[mtlIndex]; material.name = ss->getName();
+        if (ss->getRenderingHint() == osg::StateSet::TRANSPARENT_BIN) material.alphaMode = "BLEND";
+        material.doubleSided = true;  // FIXME
 
         // /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
         // /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap", /*7*/"CustomMap"
+        osg::Referenced* tc = drawable->asGeometry() ? drawable->asGeometry()->getTexCoordArray(unit) : NULL;
         switch (unit)
         {
         case 0:
@@ -209,6 +216,94 @@ public:
         }
     }
 
+    static bool writeImageImplementation(const std::string* basepath, const std::string* filename,
+                                         const tinygltf::Image* image, bool embedImages,
+                                         const tinygltf::FsCallbacks* fs_cb, const tinygltf::URICallbacks* uri_cb,
+                                         std::string* out_uri, void* user_pointer)
+    {
+        GltfSceneWriter* writer = (GltfSceneWriter*)user_pointer;
+        if (image->image.empty()) { *out_uri = *filename; return true; }
+
+        // If the image data is already encoded, take it as is
+        std::vector<unsigned char> data; if (image->as_is) data = image->image;
+
+        const std::string ext = osgDB::getFileExtension(*filename), mimeType = image->mimeType;
+        if (mimeType == "image/png")
+        {
+            if (!image->as_is)
+            {
+                if ((image->bits != 8) || (image->pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE))
+                {
+                    OSG_WARN << "[SaverGLTF] Unsupported pixel format while encoding PNG of "
+                             << *filename << std::endl; return false;
+                }
+                if (!stbi_write_png_to_func(GltfSceneWriter::WriteToMemory_stbi, &data, image->width,
+                                            image->height, image->component, &image->image[0], 0))
+                { OSG_WARN << "[SaverGLTF] Failed writing PNG of " << *filename << std::endl; return false; }
+            }
+        }
+        else if (mimeType == "image/jpeg")
+        {
+            if (!image->as_is)
+            {
+                if (!stbi_write_jpg_to_func(GltfSceneWriter::WriteToMemory_stbi, &data, image->width,
+                                            image->height, image->component, &image->image[0], 100))
+                { OSG_WARN << "[SaverGLTF] Failed writing JPG of " << *filename << std::endl; return false; }
+            }
+        }
+        else if (!embedImages)
+        {
+            // Error: can't output requested format to file
+            OSG_WARN << "[SaverGLTF] Unsupported file format: " << *filename << std::endl; return false;
+        }
+
+        std::string writeError, header = "data:" + mimeType + ";base64,";
+        if (embedImages)
+        {
+            if (data.size())   // Embed base64-encoded image into URI
+                *out_uri = header + osgVerse::WebAuxiliary::encodeBase64(data);
+            else
+                { OSG_WARN << "[SaverGLTF] Empty data while writing file: " << *filename << std::endl; }
+        }
+        else
+        {
+            if ((fs_cb != nullptr) && (fs_cb->WriteWholeFile != nullptr))
+            {   // Write image to disc
+                std::string imageFilepath = *basepath;
+                if (imageFilepath.empty()) imageFilepath = *filename;
+                else
+                {
+                    if (*imageFilepath.rbegin() == '/') imageFilepath += *filename;
+                    else imageFilepath += "/" + *filename;
+                }
+                
+                if (!fs_cb->WriteWholeFile(&writeError, imageFilepath, data, fs_cb->user_data))
+                {
+                    // Could not write image file to disc; Throw error ?
+                    OSG_WARN << "[SaverGLTF] Failed writing file to disk: " << *filename << std::endl;
+                    return false;
+                }
+            }
+            else
+                { OSG_WARN << "[SaverGLTF] No method to write file: " << *filename << std::endl; }
+
+            if (!uri_cb->encode) *out_uri = *filename;
+            else
+            {
+                if (!uri_cb->encode(*filename, "image", out_uri, uri_cb->user_data))
+                { OSG_WARN << "[SaverGLTF] Failed encode uri of: " << *filename << std::endl; return false; }
+            }
+        }
+        return true;
+    }
+
+    static void WriteToMemory_stbi(void* context, void* data, int size)
+    {
+        std::vector<unsigned char>* buffer = reinterpret_cast<std::vector<unsigned char> *>(context);
+        unsigned char* pData = reinterpret_cast<unsigned char*>(data);
+        buffer->insert(buffer->end(), pData, pData + size);
+    }
+
 protected:
     int createGltfTexture(osg::Texture* tex)
     {
@@ -223,7 +318,8 @@ protected:
         tinygltf::Image& gltfImage = _model->images.back(); gltfImage.name = image->getName();
         gltfImage.width = image->s(); gltfImage.height = image->t();
         gltfImage.component = osg::Image::computeNumComponents(image->getPixelFormat());
-        gltfImage.bits = osg::Image::computePixelSizeInBits(image->getPixelFormat(), image->getDataType());
+        gltfImage.bits = osg::Image::computePixelSizeInBits(image->getPixelFormat(), image->getDataType())
+                       / gltfImage.component;  // bits per channel
         switch (gltfImage.bits)
         {
         case 16: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT; break;
@@ -231,19 +327,24 @@ protected:
         default: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE; break;
         }
 
-        gltfImage.uri = image->getFileName();
+        std::string ext = osgDB::getFileExtension(image->getFileName()), newExt;
+        std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
         if (image->valid())
         {
             gltfImage.image.resize(image->getTotalSizeInBytes());
             memcpy(gltfImage.image.data(), image->data(), image->getTotalSizeInBytes());
             if (image->isCompressed())  // FIXME: assumed as DDS?
-                gltfImage.mimeType = "image/dds";
+            {
+                gltfImage.mimeType = "image/dds"; gltfImage.as_is = true;
+                if (ext != "dds") newExt = ".dds";
+            }
             else
             {   // FIXME: consider KTX?
-                if (image->isImageTranslucent()) gltfImage.mimeType = "image/png";
-                else gltfImage.mimeType = "image/jpeg";
+                if (image->isImageTranslucent()) { gltfImage.mimeType = "image/png"; if (ext != "png") newExt = ".png"; }
+                else { gltfImage.mimeType = "image/jpeg"; if (ext != "jpg" && ext != "jpeg") newExt = ".jpg"; }
             }
         }
+        gltfImage.uri = image->getFileName() + newExt;
 
         tinygltf::Texture& gltfTex = _model->textures.back();
         gltfTex.source = _model->images.size() - 1;
@@ -282,6 +383,7 @@ protected:
     }
 
     std::map<osg::Geometry*, int> _geometries;
+    std::map<osg::StateSet*, int> _statesets;
     std::vector<std::string> _extraStringList;
     tinygltf::Model* _model;
     tinygltf::Scene _scene;
@@ -301,6 +403,8 @@ namespace osgVerse
         _modelDef.asset.generator = "osgVerse::SaverGLTF";
 
         tinygltf::TinyGLTF writer;
+        writer.SetImageWriter(GltfSceneWriter::writeImageImplementation, &sceneWriter);
+
         bool success = writer.WriteGltfSceneToStream(&_modelDef, out, true, isBinary);
         if (!success) { OSG_WARN << "[SaverGLTF] Unable to write GLTF scene\n"; _done = false; }
     }

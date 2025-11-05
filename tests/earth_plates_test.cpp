@@ -5,6 +5,7 @@
 #include <osg/MatrixTransform>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
+#include <osgDB/FileUtils>
 #include <osgGA/TrackballManipulator>
 #include <osgGA/StateSetManipulator>
 #include <osgUtil/SmoothingVisitor>
@@ -30,6 +31,51 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 #endif
+
+struct EarthQuakeData
+{
+    double lat, lon, depth, mag;
+    std::string time, place;
+};
+
+void createUsgsData(const std::string& csvFile, std::vector<EarthQuakeData>& earthQuakeData)
+{
+    std::map<size_t, std::string> indexMap;
+    std::map<std::string, std::string> valueMap;
+    std::string line0, header; unsigned int rowID = 0;
+    std::ifstream in(csvFile.c_str());
+
+    while (std::getline(in, line0))
+    {
+        std::string line = osgVerse::StringAuxiliary::trim(line0); rowID++;
+        if (line.empty()) continue;
+        if (line[0] == '#') continue;
+
+        std::vector<std::string> values, vertices;
+        osgVerse::StringAuxiliary::split(line, values, ',', false);
+        if (!valueMap.empty())
+        {
+            size_t numColumns = valueMap.size();
+            if (numColumns != values.size())
+            {
+                std::cout << "CSV line " << rowID << " has different values (" << values.size()
+                          << ") than " << numColumns << " header columns" << std::endl; continue;
+            }
+
+            for (size_t i = 0; i < values.size(); ++i) valueMap[indexMap[i]] = values[i];
+            EarthQuakeData eq; eq.time = valueMap["time"], eq.place = valueMap["place"];
+            eq.lat = atof(valueMap["latitude"].c_str()); eq.lon = atof(valueMap["longitude"].c_str());
+            eq.depth = atof(valueMap["depth"].c_str()); eq.mag = atof(valueMap["mag"].c_str());
+            earthQuakeData.push_back(eq);
+        }
+        else
+        {
+            header = line;
+            for (size_t i = 0; i < values.size(); ++i)
+                { indexMap[i] = values[i]; valueMap[values[i]] = ""; }
+        }
+    }
+}
 
 void createVolumeData(const std::string& csvFile, const std::string& raw3dFile)
 {
@@ -95,6 +141,28 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osgVerse::updateOsgBinaryWrappers();
-    if (argc > 2) createVolumeData(argv[1], argv[2]);
+    if (argc > 1)
+    {
+        std::vector<EarthQuakeData> earthQuakeData;
+        osgDB::DirectoryContents dc = osgDB::getDirectoryContents(argv[1]);
+        for (size_t i = 0; i < dc.size(); ++i)
+        {
+            if (dc[i].empty()) continue; else if (dc[i][0] == '.') continue;
+            std::cout << "FILE: " << (argv[1] + dc[i]) << "\n";
+            createUsgsData(argv[1] + dc[i], earthQuakeData);
+        }
+
+        std::ofstream out("../all_data.bytes", std::ios::out | std::ios::binary);
+        unsigned int strSize = 0, size = earthQuakeData.size(); out.write((char*)&size, sizeof(int));
+        for (unsigned int i = 0; i < size; ++i)
+        {
+            EarthQuakeData& ea = earthQuakeData[i];
+            out.write((char*)&(ea.lat), sizeof(double)); out.write((char*)&(ea.lon), sizeof(double));
+            out.write((char*)&(ea.depth), sizeof(double)); out.write((char*)&(ea.mag), sizeof(double));
+            strSize = ea.time.size(); out.write((char*)&strSize, sizeof(int)); out.write((char*)ea.time.data(), strSize);
+            strSize = ea.place.size(); out.write((char*)&strSize, sizeof(int)); out.write((char*)ea.place.data(), strSize);
+        }
+    }
+    //if (argc > 2) createVolumeData(argv[1], argv[2]);
     return 0;
 }
