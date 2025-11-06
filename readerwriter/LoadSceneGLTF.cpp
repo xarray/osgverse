@@ -617,12 +617,21 @@ namespace osgVerse
                 }
                 else if (attrib->first.find("TEXCOORD_") != std::string::npos && compSize == 4 && compNum == 2)
                 {
-                    osg::Vec2Array* ta = new osg::Vec2Array(size);
-                    copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
+                    int texUnit = atoi(attrib->first.substr(9).c_str());
+                    if (texUnit > 7)
+                    {
+                        OSG_WARN << "[LoaderGLTF] Tex-coord index too large and will be ignored: "
+                                 << attrib->first << std::endl;
+                    }
+                    else
+                    {
+                        osg::Vec2Array* ta = new osg::Vec2Array(size);
+                        copyBufferData(&(*ta)[0], &buffer.data[offset], copySize, stride, size);
 #if OSG_VERSION_GREATER_THAN(3, 1, 8)
-                    ta->setNormalize(attrAccessor.normalized);
+                        ta->setNormalize(attrAccessor.normalized);
 #endif
-                    geom->setTexCoordArray(atoi(attrib->first.substr(9).c_str()), ta);
+                        geom->setTexCoordArray(texUnit, ta);
+                    }
                 }
                 else if (attrib->first.find("JOINTS_") != std::string::npos && compNum == 4)
                 {
@@ -656,8 +665,10 @@ namespace osgVerse
                     // TODO: read from b3dm batch table?
                 }
                 else
+                {
                     OSG_WARN << "[LoaderGLTF] Unsupported attribute " << attrib->first << " with "
                              << compNum << "-components and dataSize=" << compSize << std::endl;
+                }
             }
 
             osg::Vec3Array* va = static_cast<osg::Vec3Array*>(geom->getVertexArray());
@@ -814,32 +825,75 @@ namespace osgVerse
             ss->setTextureAttributeAndModes(1, createTexture(uniformNames[1], _modelDef.textures[normalID]));
         if (_usingMaterialPBR > 1 || (normalID >= 0 && _usingMaterialPBR > 0))
         {
-            osg::ref_ptr<osg::Texture> ormNewInput;
-            if (occlusionID >= 0)
-                ormNewInput = createTexture(uniformNames[4], _modelDef.textures[occlusionID]);
-            if (ormNewInput.valid())
+            // Load or create Occlusion-Roughnes-Metallic texture
+            std::pair<int, int> ormKey(occlusionID, roughnessID);
+            if (_ormImageMap.find(ormKey) != _ormImageMap.end() && (occlusionID >= 0 || roughnessID >= 0))
             {
-                osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
-                ss->setTextureAttributeAndModes(3, constrctOcclusionRoughnessMetallic(t, ormNewInput.get(), 0, -1, -1));
-            }
+                osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
+                tex2D->setResizeNonPowerOfTwoHint(false);
+                tex2D->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::REPEAT);
+                tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
 
-            if (roughnessID >= 0 && roughnessID < _modelDef.textures.size())
-                ormNewInput = createTexture(uniformNames[3], _modelDef.textures[roughnessID]);
+                osg::Image* sharedORM = _ormImageMap[ormKey].get();
+                tex2D->setImage(sharedORM); tex2D->setName(sharedORM->getName());
+                tex2D->setFilter(osg::Texture2D::MIN_FILTER,
+                    sharedORM->isCompressed() ? osg::Texture2D::LINEAR: osg::Texture2D::LINEAR_MIPMAP_LINEAR);
+                tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+                ss->setTextureAttributeAndModes(3, tex2D.get());
+            }
             else
-                ormNewInput = createDefaultTextureForColor(osg::Vec4(
-                    1.0f, material.pbrMetallicRoughness.roughnessFactor, material.pbrMetallicRoughness.metallicFactor, 1.0f));
-            if (ormNewInput.valid())
             {
-                osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
-                ss->setTextureAttributeAndModes(3, constrctOcclusionRoughnessMetallic(t, ormNewInput.get(), -1, 1, 2));
+                // Load occlusion texture and combine ORM
+                osg::ref_ptr<osg::Texture> ormNewInput; bool compressed = false;
+                if (occlusionID >= 0)
+                    ormNewInput = createTexture(uniformNames[4], _modelDef.textures[occlusionID]);
+                if (ormNewInput.valid())
+                {
+                    // https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/schema/material.occlusionTextureInfo.schema.json
+                    osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
+                    ss->setTextureAttributeAndModes(3, constructOcclusionRoughnessMetallic(t, ormNewInput.get(), 0, -1, -1));
+                    if (!compressed && ormNewInput->getNumImages() > 0) compressed = ormNewInput->getImage(0)->isCompressed();
+                }
+
+                // Load metallic-roughness texture and combine ORM
+                if (roughnessID >= 0 && roughnessID < _modelDef.textures.size())
+                    ormNewInput = createTexture(uniformNames[3], _modelDef.textures[roughnessID]);
+                else
+                    ormNewInput = createDefaultTextureForColor(osg::Vec4(
+                        1.0f, material.pbrMetallicRoughness.roughnessFactor, material.pbrMetallicRoughness.metallicFactor, 1.0f));
+                if (ormNewInput.valid())
+                {
+                    // https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/schema/material.pbrMetallicRoughness.schema.json
+                    if (occlusionID < 0)
+                        ss->setTextureAttributeAndModes(3, ormNewInput.get());  // directly use GLTF's XRM texture?
+                    else
+                    {
+                        osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
+                        ss->setTextureAttributeAndModes(3, constructOcclusionRoughnessMetallic(t, ormNewInput.get(), -1, 1, 2));
+                        if (!compressed && ormNewInput->getNumImages() > 0) compressed = ormNewInput->getImage(0)->isCompressed();
+                    }
+                }
+
+                // Compress ORM output if necessary
+                osg::Texture* ormOutput = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
+                if (ormOutput && compressed)
+                {
+#if false
+                    if (ormOutput->getNumImages() > 0) ormOutput->setImage(0, compressImage(*ormOutput->getImage(0)));
+#else
+                    ormOutput->setInternalFormatMode(osg::Texture::USE_S3TC_DXT1_COMPRESSION);
+#endif
+                    ormOutput->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+                }
+                if (ormOutput && ormOutput->getNumImages() > 0) _ormImageMap[ormKey] = ormOutput->getImage(0);
             }
 
+            // Load emission texture
             if (emissiveID >= 0)
                 ss->setTextureAttributeAndModes(5, createTexture(uniformNames[5], _modelDef.textures[emissiveID]));
             else
             {
-                osg::Vec3 emission(material.emissiveFactor[0], material.emissiveFactor[1],
-                                   material.emissiveFactor[2]);
+                osg::Vec3 emission(material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]);
                 if (emission.length2() > 0.0f)
                 {
                     osg::Texture2D* tex2D = createDefaultTextureForColor(
@@ -849,6 +903,7 @@ namespace osgVerse
             }
         }
 
+        // Setup other material attributes
         if (material.alphaMode.compare("BLEND") == 0) ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
         else ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
 
@@ -924,6 +979,7 @@ namespace osgVerse
 
             image2D = image.get(); _imageMap[tex.source] = image2D;
             image2D->setFileName(imageSrc.uri); image2D->setName(imageSrc.name);
+            image2D->setUserValue("Loader", std::string("LoaderGLTF:" + imageSrc.mimeType));
             if (!imageSrc.name.empty())
                 OSG_NOTICE << "[LoaderGLTF] " << imageSrc.name << " loaded for " << name << std::endl;
         }
@@ -934,7 +990,7 @@ namespace osgVerse
         tex2D->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::REPEAT);
         tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
         tex2D->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
-        tex2D->setImage(image2D.get()); tex2D->setName(imageSrc.uri); return tex2D.release();
+        tex2D->setImage(image2D.get()); tex2D->setName(imageSrc.name); return tex2D.release();
     }
 
     void LoaderGLTF::createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,

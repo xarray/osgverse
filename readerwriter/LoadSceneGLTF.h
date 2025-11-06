@@ -71,6 +71,7 @@ namespace osgVerse
                 memcpy(dst, src, size);
         }
 
+        std::map<std::pair<int, int>, osg::observer_ptr<osg::Image>> _ormImageMap;
         std::map<int, osg::observer_ptr<osg::Image>> _imageMap;
         std::map<int, osg::Node*> _nodeCreationMap;
         std::vector<DeferredMeshData> _deferredMeshList;

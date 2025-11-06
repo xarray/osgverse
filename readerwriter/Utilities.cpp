@@ -2,6 +2,7 @@
 
 #include <osg/io_utils>
 #include <osg/Version>
+#include <osg/ValueObject>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geode>
 #include <osg/Texture1D>
@@ -9,7 +10,8 @@
 #include <osg/Multisample>
 #include <osg/Material>
 #include <osg/PolygonOffset>
-#include <osgDB/Registry>
+#include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
 #include <ghc/filesystem.hpp>
@@ -562,8 +564,8 @@ namespace osgVerse
         return true;
     }
 
-    osg::Texture* constrctOcclusionRoughnessMetallic(osg::Texture* origin, osg::Texture* input,
-                                                     int chO, int chR, int chM)
+    osg::Texture* constructOcclusionRoughnessMetallic(osg::Texture* origin, osg::Texture* input,
+                                                      int chO, int chR, int chM)
     {
         osg::Texture2D* texO = static_cast<osg::Texture2D*>(origin);
         osg::Texture2D* texI = static_cast<osg::Texture2D*>(input);
@@ -575,6 +577,7 @@ namespace osgVerse
             osg::Image* imgO = new osg::Image;
             imgO->allocateImage(s, t, 1, GL_RGBA, GL_UNSIGNED_BYTE);
             imgO->setInternalTextureFormat(GL_RGBA8);
+            imgO->setUserValue("Loader", std::string("ConstructORM"));
 
             texO = new osg::Texture2D; texO->setName("OcclusionRoughnessMetallic_" + texI->getName());
             texO->setResizeNonPowerOfTwoHint(false); texO->setImage(imgO);
@@ -588,7 +591,7 @@ namespace osgVerse
             osg::Image* imgO = texO->getImage();
             imgO->scaleImage(s, t, 1);
         }
-
+        
         osg::Vec4ub* ptr = (osg::Vec4ub*)texO->getImage()->data();
 #pragma omp parallel for schedule(dynamic, 1)
         for (int y = 0; y < t; ++y)
@@ -601,6 +604,18 @@ namespace osgVerse
                 *(ptr + x + y * s) = osg::Vec4ub(valO, valR, valM, 255);
             }
         return texO;
+    }
+
+    osg::Image* compressImage(osg::Image& img)
+    {
+        // TODO: need implementation... DDS plugin doesn't convert image to compressed format!
+        osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("dds");
+        if (rw)
+        {
+            std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+            if (rw->writeImage(img, ss).success()) return rw->readImage(ss).takeImage();
+        }
+        return NULL;
     }
 
     bool generateMipmaps(osg::Image& image, bool useKaiser)

@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ValueObject>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Texture2D>
 #include <osg/PagedLOD>
@@ -32,16 +33,26 @@ class Reporter : public osg::NodeVisitor
 public:
     Reporter()
     :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
-        _geomReporter(NULL), _indent(0) { setNodeMaskOverride(0xffffffff); }
+        _geomReporter(NULL), _textureReporter(NULL), _print(&osg::notify(osg::INFO)), _indent(0)
+    { setNodeMaskOverride(0xffffffff); }
 
     virtual ~Reporter()
-    { if (_geomReporter) delete _geomReporter; }
+    { if (_geomReporter) delete _geomReporter; if (_textureReporter) delete _textureReporter; }
+
+    void setVerbose(bool v) { _print = v ? &osg::notify(osg::WARN) : &osg::notify(osg::INFO); }
 
     void setGeometryReport(const std::string& file)
     {
         _geomReporter = new std::ofstream(file);
-        (*_geomReporter) << "Class\tName\tPrimitives\tTriangles\tVertices\tWeldable\tAttributes\t"
-                         << "Tex0\tTex1\tTex2\tTex3\tTex4\tTex5\tTex6\tTex7\tProgram" << std::endl;
+        (*_geomReporter) << "Class,Name,Primitives,Triangles,Vertices,Weldable,Attributes,"
+                         << "Tex0,Tex1,Tex2,Tex3,Tex4,Tex5,Tex6,Tex7,Program" << std::endl;
+    }
+
+    void setTextureReport(const std::string& file)
+    {
+        _textureReporter = new std::ofstream(file);
+        (*_textureReporter) << "TexClass,TexUnit,Loader,Name,Resolution,Bits,"
+                            << "Components,Size(Mb),Compressed,Shared,FileName" << std::endl;
     }
 
     virtual void apply(osg::Node& node)
@@ -55,17 +66,17 @@ public:
     {
         outputBasic(node, node.getNodeMask()); pushIndent();
         if (node.getStateSet()) apply(&node, NULL, *node.getStateSet());
-        std::cout << std::string(_indent, ' ') << "<Strategy> "
+        (*_print) << std::string(_indent, ' ') << "<Strategy> "
                   << (node.getCenterMode() == osg::LOD::USE_BOUNDING_SPHERE_CENTER ? "Child / " : "User / ")
                   << (node.getRangeMode() == osg::LOD::DISTANCE_FROM_EYE_POINT ? "Distance" : "Pixels");
-        if (node.getCenterMode() == osg::LOD::USE_BOUNDING_SPHERE_CENTER) std::cout << std::endl;
-        else std::cout << ", Bound = " << node.getCenter() << ", R = " << node.getRadius() << std::endl;
+        if (node.getCenterMode() == osg::LOD::USE_BOUNDING_SPHERE_CENTER) (*_print) << std::endl;
+        else (*_print) << ", Bound = " << node.getCenter() << ", R = " << node.getRadius() << std::endl;
 
         unsigned int maxChild = node.getNumFileNames() - 1; traverse(node);
         for (unsigned int i = node.getNumChildren(); i <= maxChild; ++i)
         {
             std::string fileName = node.getDatabasePath() + node.getFileName(i);
-            std::cout << std::string(_indent, ' ') << "<File " << i << "/" << maxChild << ">: "
+            (*_print) << std::string(_indent, ' ') << "<File " << i << "/" << maxChild << ">: "
                       << fileName << ", Exist = " << !osgDB::findDataFile(fileName).empty() << "; Min = "
                       << node.getMinRange(i) << ", Max = " << node.getMaxRange(i) << std::endl;
 
@@ -73,7 +84,7 @@ public:
             if (child.valid())
             {
                 pushIndent(); outputBasic(*child, child->getNodeMask());
-                std::cout << std::string(_indent, ' ') << "<Bound> " << child->getBound().center()
+                (*_print) << std::string(_indent, ' ') << "<Bound> " << child->getBound().center()
                           << ", R = " << child->getBound().radius() << std::endl;;
                 popIndent();
             }
@@ -90,7 +101,7 @@ public:
         for (unsigned int i = node.getNumChildren(); i <= maxChild; ++i)
         {
             std::string fileName = node.getDatabasePath() + node.getFileName(i);
-            std::cout << std::string(_indent, ' ') << "<File " << i << "/" << maxChild << ">: "
+            (*_print) << std::string(_indent, ' ') << "<File " << i << "/" << maxChild << ">: "
                       << fileName << ", Exist = " << !osgDB::findDataFile(fileName).empty() << std::endl;
         }
         popIndent();
@@ -109,20 +120,20 @@ public:
         {
             osg::Vec3 pos, scale; osg::Quat rot, so; matrixL.decompose(pos, rot, scale, so);
             osg::Vec3d euler = osgVerse::computeHPRFromQuat(rot);
-            std::cout << std::string(_indent, ' ') << "<Local>: ";
-            if (!osg::equivalent(scale.length2(), 3.0f)) std::cout << "S = " << scale << ", ";
-            if (!rot.zeroRotation()) std::cout << "R = " << euler << " (HPR), ";
-            std::cout << "T = " << pos << std::endl;
+            (*_print) << std::string(_indent, ' ') << "<Local>: ";
+            if (!osg::equivalent(scale.length2(), 3.0f)) (*_print) << "S = " << scale << ", ";
+            if (!rot.zeroRotation()) (*_print) << "R = " << euler << " (HPR), ";
+            (*_print) << "T = " << pos << std::endl;
         }
 
         if (!matrix.isIdentity())
         {
             osg::Vec3 pos, scale; osg::Quat rot, so; matrix.decompose(pos, rot, scale, so);
             osg::Vec3d euler = osgVerse::computeHPRFromQuat(rot);
-            std::cout << std::string(_indent, ' ') << "<World>: ";
-            if (!osg::equivalent(scale.length2(), 3.0f)) std::cout << "S = " << scale << ", ";
-            if (!rot.zeroRotation()) std::cout << "R = " << euler << " (HPR), ";
-            std::cout << "T = " << pos << std::endl;
+            (*_print) << std::string(_indent, ' ') << "<World>: ";
+            if (!osg::equivalent(scale.length2(), 3.0f)) (*_print) << "S = " << scale << ", ";
+            if (!rot.zeroRotation()) (*_print) << "R = " << euler << " (HPR), ";
+            (*_print) << "T = " << pos << std::endl;
         }
 
         pushMatrix(matrix); traverse(node);
@@ -166,30 +177,31 @@ public:
         }
 
         size_t numV = bvv.getVertices().size(), weldedV = bvv1.getVertices().size();
-        std::cout << std::string(_indent, ' ') << "<" << nonManiType << ">: "
+        (*_print) << std::string(_indent, ' ') << "<" << nonManiType << ">: "
                   << "Primitives = " << geom.getNumPrimitiveSets() << ", Triangles = "
                   << (bvv.getTriangles().size() / 3) << "; Vertices = " << numV << ",";
         if (!bvv.getAttributes(osgVerse::MeshCollector::NormalAttr).empty()) attrTypes += " +N";
         if (!bvv.getAttributes(osgVerse::MeshCollector::ColorAttr).empty()) attrTypes += " +C";
         for (size_t u = 0; u < geom.getNumTexCoordArrays(); ++u) attrTypes += " +UV" + std::to_string(u);
-        std::cout << attrTypes << "; Weldable = " << (float)(numV - weldedV) / (float)numV << std::endl;
+        (*_print) << attrTypes << "; Weldable = " << (float)(numV - weldedV) / (float)numV << std::endl;
 
-        if (_geomReporter)
+        if (_geomReporter && _geomSet.find(&geom) == _geomSet.end())
         {
-            (*_geomReporter) << geom.libraryName() << "::" << geom.className() << "\t" << geom.getName()
-                             << "\t" << geom.getNumPrimitiveSets() << "\t" << (bvv.getTriangles().size() / 3)
-                             << "\t" << numV << "\t" << (numV - weldedV) << "\t" << attrTypes << "\t";
+            (*_geomReporter) << geom.libraryName() << "::" << geom.className() << "," << geom.getName()
+                             << "," << geom.getNumPrimitiveSets() << "," << (bvv.getTriangles().size() / 3)
+                             << "," << numV << "," << (numV - weldedV) << "," << attrTypes << ",";
             for (int i = 0; i < 8; ++i)
             {
-                if (_imageMap.find(i) == _imageMap.end()) { (*_geomReporter) << "\t"; continue; }
+                if (_imageMap.find(i) == _imageMap.end()) { (*_geomReporter) << ","; continue; }
                 osg::Image* img = (_imageMap[i]->getNumImages() > 0) ? _imageMap[i]->getImage(0) : NULL;
-                if (img) (*_geomReporter) << img->s() << "x" << img->t(); (*_geomReporter) << "\t";
+                if (img) (*_geomReporter) << img->s() << "x" << img->t(); (*_geomReporter) << ",";
             }
 
             osg::Program* prog = static_cast<osg::Program*>(
                 ss ? ss->getAttribute(osg::StateAttribute::PROGRAM) : NULL);
-            if (prog) (*_geomReporter) << prog->getName() << " (" << prog->getNumShaders() << ")\t";
-            else (*_geomReporter) << "\t"; (*_geomReporter) << std::endl;
+            if (prog) (*_geomReporter) << prog->getName() << " (" << prog->getNumShaders() << "),";
+            else (*_geomReporter) << ","; (*_geomReporter) << std::endl;
+            _geomSet.insert(&geom);
         }
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
         traverse(geom);
@@ -199,9 +211,9 @@ public:
 
     virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
     {
-        std::cout << std::string(_indent, ' ') << "<StateSet> " << ss.getName();
-        if (ss.referenceCount() == 1) std::cout << std::endl;
-        else std::cout << " (SHARED x" << ss.referenceCount() << ")" << std::endl;
+        (*_print) << std::string(_indent, ' ') << "<StateSet> " << ss.getName();
+        if (ss.referenceCount() == 1) (*_print) << std::endl;
+        else (*_print) << " (SHARED x" << ss.referenceCount() << ")" << std::endl;
         pushIndent();
 
         osg::StateSet::AttributeList& attrList = ss.getAttributeList();
@@ -209,7 +221,7 @@ public:
              itr != attrList.end(); ++itr)
         {
             osg::StateAttribute::Type t = itr->first.first;
-            std::cout << std::string(_indent, ' ') << "<" << itr->second.first->className()
+            (*_print) << std::string(_indent, ' ') << "<" << itr->second.first->className()
                       << "> " << itr->second.first->getName() << std::endl;
         }
 
@@ -221,25 +233,38 @@ public:
                 itr != attr.end(); ++itr)
             {
                 osg::StateAttribute::Type t = itr->first.first;
-                std::cout << std::string(_indent, ' ') << "<" << itr->second.first->className()
+                (*_print) << std::string(_indent, ' ') << "<" << itr->second.first->className()
                           << ", Unit-" << i << "> " << itr->second.first->getName();
-                if (t != osg::StateAttribute::TEXTURE) { std::cout << std::endl; continue; }
+                if (t != osg::StateAttribute::TEXTURE) { (*_print) << std::endl; continue; }
                 
                 osg::Texture* tex = static_cast<osg::Texture*>(itr->second.first.get());
-                if (tex->referenceCount() == 1) std::cout << std::endl;
-                else std::cout << " (SHARED x" << tex->referenceCount() << ")" << std::endl;
+                if (tex->referenceCount() == 1) (*_print) << std::endl;
+                else (*_print) << " (SHARED x" << tex->referenceCount() << ")" << std::endl;
 
                 pushIndent();
                 for (size_t k = 0; k < tex->getNumImages(); ++k)
                 {
                     osg::Image* image = tex->getImage(k);
-                    std::cout << std::string(_indent, ' ') << "<" << image->className() <<"> "
+                    (*_print) << std::string(_indent, ' ') << "<" << image->className() <<"> "
                               << image->getName() << ": Resolution = " << image->s() << "x" << image->t()
-                              << "x" << image->r() << ", DDS = " <<image->isCompressed()
+                              << "x" << image->r() << ", DDS = " << image->isCompressed()
                               << ", Translucent = " << image->isImageTranslucent();
-                    if (!image->getFileName().empty()) std::cout << ", " << image->getFileName();
-                    if (image->referenceCount() == 1) std::cout << std::endl;
-                    else std::cout << " (SHARED x" << image->referenceCount() << ")" << std::endl;
+                    if (!image->getFileName().empty()) (*_print) << ", " << image->getFileName();
+                    if (image->referenceCount() == 1) (*_print) << std::endl;
+                    else (*_print) << " (SHARED x" << image->referenceCount() << ")" << std::endl;
+
+                    if (_textureReporter && _imageSet.find(image) == _imageSet.end())
+                    {
+                        std::string loader; image->getUserValue("Loader", loader);
+                        unsigned int comp = osg::Image::computeNumComponents(image->getPixelFormat());
+                        unsigned int bitsAll = osg::Image::computePixelSizeInBits(image->getPixelFormat(), image->getDataType());
+                        float size = image->getTotalSizeInBytes() / 1024.0f / 1024.0f;
+                        (*_textureReporter) << tex->className() << "," << i << "," << loader << "," << image->getName() << ","
+                                            << image->s() << "x" << image->t() << "x" << image->r() << ","
+                                            << (bitsAll / comp) << "," << comp << "," << size << "," << image->isCompressed() << ","
+                                            << (image->referenceCount() - 1) << "," << image->getFileName() << std::endl;
+                        _imageSet.insert(image);
+                    }
                 }
                 _imageMap[i] = tex; popIndent();
             }
@@ -255,7 +280,7 @@ protected:
 
     inline void outputBasic(osg::Object& obj, unsigned int mask)
     {
-        std::cout << std::string(_indent, ' ') << (mask == 0 ? "**HIDED**[" : "[") << obj.libraryName()
+        (*_print) << std::string(_indent, ' ') << (mask == 0 ? "**HIDED**[" : "[") << obj.libraryName()
                   << "::" << obj.className() << "] " << osgVerse::getNodePathID(obj) << ": ";
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
         osg::Geode* geode = (obj.asNode() != NULL) ? obj.asNode()->asGeode() : NULL;
@@ -263,7 +288,7 @@ protected:
         osg::Geode* geode = dynamic_cast<osg::Geode*>(&obj);
 #endif
         if (geode)
-            std::cout << "Drawables = " << geode->getNumDrawables();
+            (*_print) << "Drawables = " << geode->getNumDrawables();
         else
         {
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
@@ -271,16 +296,20 @@ protected:
 #else
             osg::Group* group = dynamic_cast<osg::Group*>(&obj);
 #endif
-            if (group) std::cout << "Children = " << group->getNumChildren();
+            if (group) (*_print) << "Children = " << group->getNumChildren();
         }
-        if (obj.referenceCount() == 1) std::cout << std::endl;
-        else std::cout << " (SHARED x" << obj.referenceCount() << ")" << std::endl;
+        if (obj.referenceCount() == 1) (*_print) << std::endl;
+        else (*_print) << " (SHARED x" << obj.referenceCount() << ")" << std::endl;
     }
 
     typedef std::vector<osg::Matrix> MatrixStack;
     MatrixStack _matrixStack;
     std::map<int, osg::Texture*> _imageMap;
+    std::set<osg::Geometry*> _geomSet;
+    std::set<osg::Image*> _imageSet;
     std::ostream* _geomReporter;
+    std::ostream* _textureReporter;
+    std::ostream* _print;
     int _indent;
 };
 
@@ -294,7 +323,9 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
 
     Reporter reporter;
+    reporter.setVerbose(!arguments.read("--slient"));
     reporter.setGeometryReport("geom_report.csv");
+    reporter.setTextureReport("texture_report.csv");
     scene->accept(reporter);
 
     // Start the main loop

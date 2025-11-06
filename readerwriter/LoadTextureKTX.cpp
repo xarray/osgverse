@@ -240,6 +240,7 @@ namespace osgVerse
             }
 
             ktx_transcode_fmt_e fmt = ktx_transcode_fmt_e::KTX_TTF_RGBA32;
+#if false
             if (w2 != w || h2 != h)
             {
                 if (!noCompress)
@@ -249,6 +250,9 @@ namespace osgVerse
                 }
             }
             else if (!noCompress)
+#else
+            if (!noCompress)
+#endif
             {
                 compressed = true;
                 if (supportsETC) fmt = ktx_transcode_fmt_e::KTX_TTF_ETC;
