@@ -217,24 +217,49 @@ namespace osgVerse
         /** Normalize input URL to replace ./ and ../ substrings to absolute paths */
         static std::string normalizeUrl(const std::string& url, const std::string& sep = "/");
 
+        /* HTTP related enum and typedefs */
         enum HttpMethod { HTTP_DELETE = 0, HTTP_GET = 1, HTTP_HEAD = 2, HTTP_POST = 3, HTTP_PUT = 4 };
+        typedef std::map<std::string, std::string> HttpRequestParams;
         typedef std::map<std::string, std::string> HttpRequestHeaders;
         typedef std::pair<int, std::string> HttpResponseData;
-        typedef std::function<void (const std::string& /*url*/, const std::string& /*body*/,
+        typedef std::function<void (const std::string& /*url*/, const HttpRequestParams& /*paramsOrBody*/,
                                     const HttpRequestHeaders&, HttpResponseData&)> HttpCallback;
+
+        /* TCP/UDP related enum and typedefs */
+        enum SocketMethod { UDP_CLIENT = 0, UDP_SERVER, TCP_CLIENT, TCP_SERVER, WEBSOCKET_CLIENT };
+        enum SocketState { UNCONNECTED = 0, CONNECTED, RECEIVED, WS_CONTINUE, WS_TEXT, WS_BINARY };
+        typedef std::function<void (const std::string& /*ip*/, SocketState /*state*/,
+                                    const std::vector<unsigned char>&)> SocketCallback;
 
         /** Set an HTTP client request (e.g., GET / POST) */
         static HttpResponseData httpRequest(const std::string& url, HttpMethod m, const std::string& body,
                                             const HttpRequestHeaders& headers = HttpRequestHeaders(), int timeout = 0);
 
         /** Set an HTTP server */
-        //static osg::Referenced* httpServer(int port, bool allowCORS = true);  // TODO
+        static osg::Referenced* httpServer(const std::map<std::string, HttpCallback>& getEntries,
+                                           const std::map<std::string, HttpCallback>& postEntries,
+                                           int port, const std::string& rootDir = "./", bool allowCORS = true);
+        
+        /** Set an HTTP + websocket server */
+        static osg::Referenced* httpServerEx(const std::map<std::string, HttpCallback>& getEntries,
+                                             const std::map<std::string, HttpCallback>& postEntries,
+                                             int port, const std::string& rootDir, bool allowCORS, bool withWebsockets,
+                                             SocketCallback readCB, SocketCallback joinCB);
+
+        /** Set a TCP/UDP/WS socket to listen to messages */
+        static osg::Referenced* socketListener(const std::string& host, int port, SocketMethod method,
+                                               SocketCallback readCB, SocketCallback joinCB,
+                                               const HttpRequestHeaders& wsHeaders = HttpRequestHeaders());
+
+        /** Set a TCP/UDP/WS socket or websocket server for sending out messages */
+        static int socketWriter(osg::Referenced* socketListenerOrWsServer, const std::string& target,
+                                const std::vector<unsigned char>& data);
     };
 
     /** Load content from local file or network protocol */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(
-        const std::string& url, std::string& mimeType, std::string& encodingType,
-        const std::vector<std::string>& reqHeaders = std::vector<std::string>());
+            const std::string& url, std::string& mimeType, std::string& encodingType,
+            const std::vector<std::string>& reqHeaders = std::vector<std::string>());
 
     /** Get mimetype and extension map data */
     OSGVERSE_RW_EXPORT std::map<std::string, std::string> createMimeTypeMapper();

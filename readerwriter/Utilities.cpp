@@ -1,4 +1,12 @@
 #include "3rdparty/libhv/all/client/requests.h"
+#include "3rdparty/libhv/all/client/WebSocketClient.h"
+#include "3rdparty/libhv/all/server/HttpServer.h"
+#include "3rdparty/libhv/all/server/WebSocketServer.h"
+#include "3rdparty/libhv/all/TcpClient.h"
+#include "3rdparty/libhv/all/TcpServer.h"
+#include "3rdparty/libhv/all/UdpClient.h"
+#include "3rdparty/libhv/all/UdpServer.h"
+#include "3rdparty/libhv/all/hasync.h"
 
 #include <osg/io_utils>
 #include <osg/Version>
@@ -932,4 +940,257 @@ WebAuxiliary::HttpResponseData WebAuxiliary::httpRequest(const std::string& url,
     int ret = client.send(req.get(), &res);
     if (ret != 0) return HttpResponseData(-1, "[WebAuxiliary] HTTP request failed");
     else return HttpResponseData(res.status_code, res.body);
+}
+
+struct HttpServerInstance : public osg::Referenced
+{
+    bool withWebsockets;
+    hv::HttpServer server;
+    hv::WebSocketServer serverEx;
+    hv::HttpService router;
+    hv::WebSocketService ws;
+    std::map<std::string, WebSocketChannelPtr> wsChannels;
+    HttpServerInstance(bool w) { withWebsockets = w; }
+
+    virtual ~HttpServerInstance()
+    {
+        if (withWebsockets) serverEx.stop(); else server.stop();
+        hv::async::cleanup();
+    }
+};
+
+osg::Referenced* WebAuxiliary::httpServer(const std::map<std::string, WebAuxiliary::HttpCallback>& getEntries,
+                                          const std::map<std::string, WebAuxiliary::HttpCallback>& postEntries,
+                                          int port, const std::string& rootDir, bool allowCORS)
+{ return httpServerEx(getEntries, postEntries, port, rootDir, allowCORS, false, NULL, NULL); }
+
+osg::Referenced* WebAuxiliary::httpServerEx(const std::map<std::string, HttpCallback>& getEntries,
+                                            const std::map<std::string, HttpCallback>& postEntries,
+                                            int port, const std::string& rootDir, bool allowCORS,
+                                            bool withWebsockets, SocketCallback readCB, SocketCallback joinCB)
+{
+    osg::ref_ptr<HttpServerInstance> instance = new HttpServerInstance(withWebsockets);
+    instance->router.Static("/", rootDir.c_str());
+    for (std::map<std::string, WebAuxiliary::HttpCallback>::const_iterator it = getEntries.begin();
+         it != getEntries.end(); ++it)
+    {
+        const std::string& url = it->first; const WebAuxiliary::HttpCallback& cb = it->second;
+        instance->router.GET(url.c_str(), [cb](HttpRequest* req, HttpResponse* res)
+        {
+            HttpResponseData resData; HttpRequestHeaders headers;
+            headers.insert(req->headers.begin(), req->headers.end());
+            cb(req->url, req->query_params, headers, resData); return res->String(resData.second);
+        });
+    }
+
+    for (std::map<std::string, WebAuxiliary::HttpCallback>::const_iterator it = postEntries.begin();
+         it != postEntries.end(); ++it)
+    {
+        const std::string& url = it->first; const WebAuxiliary::HttpCallback& cb = it->second;
+        instance->router.POST(url.c_str(), [cb](HttpRequest* req, HttpResponse* res)
+        {
+            HttpResponseData resData; HttpRequestParams bodyData; HttpRequestHeaders headers;
+            bodyData.insert(req->query_params.begin(), req->query_params.end()); bodyData[""] = req->body;
+            headers.insert(req->headers.begin(), req->headers.end());
+            cb(req->url, bodyData, headers, resData); return res->String(resData.second);
+        });
+    }
+
+    if (withWebsockets)
+    {
+        instance->ws.onopen = [instance, joinCB](const WebSocketChannelPtr& ch, const HttpRequestPtr& req)
+        {
+            std::vector<unsigned char> empty; std::string addr = ch->peeraddr();
+            if (joinCB != NULL) joinCB(addr, UNCONNECTED, empty);
+            instance->wsChannels[addr] = ch;
+        };
+        instance->ws.onclose = [instance, joinCB](const WebSocketChannelPtr& ch)
+        {
+            std::vector<unsigned char> empty; std::string addr = ch->peeraddr();
+            if (joinCB != NULL) joinCB(addr, CONNECTED, empty);
+
+            std::map<std::string, WebSocketChannelPtr>::iterator it = instance->wsChannels.find(addr);
+            if (it != instance->wsChannels.end()) instance->wsChannels.erase(it);
+        };
+        instance->ws.onmessage = [readCB](const WebSocketChannelPtr& ch, const std::string& msg)
+        {
+            const char* s = msg.data(); std::vector<unsigned char> data(s, s + msg.size());
+            if (readCB != NULL) readCB(ch->peeraddr(), SocketState(WS_CONTINUE + ch->opcode), data);
+        };
+
+        instance->serverEx.ws = &(instance->ws);
+        instance->serverEx.service = &(instance->router);
+        instance->serverEx.port = port; instance->serverEx.start();
+    }
+    else
+    {
+        instance->server.service = &(instance->router);
+        instance->server.port = port; instance->server.start();
+    }
+    return instance.release();
+}
+
+struct SocketInstance : public osg::Referenced
+{
+    WebAuxiliary::SocketMethod method;
+    hv::TcpClient tcpClient; hv::TcpServer tcpServer;
+    hv::UdpClient udpClient; hv::UdpServer udpServer;
+    hv::WebSocketClient wsClient;
+    SocketInstance(WebAuxiliary::SocketMethod m) { method = m; }
+
+    virtual ~SocketInstance()
+    {
+        switch (method)
+        {
+        case WebAuxiliary::TCP_CLIENT: tcpClient.stop(); tcpClient.closesocket(); break;
+        case WebAuxiliary::TCP_SERVER: tcpServer.stop(); tcpServer.closesocket(); break;
+        case WebAuxiliary::UDP_CLIENT: udpClient.stop(); udpClient.closesocket(); break;
+        case WebAuxiliary::UDP_SERVER: udpServer.stop(); udpServer.closesocket(); break;
+        case WebAuxiliary::WEBSOCKET_CLIENT: wsClient.stop(); wsClient.closesocket(); break;
+        }
+    }
+};
+
+osg::Referenced* WebAuxiliary::socketListener(const std::string& host, int port, SocketMethod method,
+                                              SocketCallback readCB, SocketCallback joinCB, const HttpRequestHeaders& wsHeaders)
+{
+#define CREATESOCKET(socket, H, P) \
+    int fd = H.empty() ? (socket).createsocket(P) : (socket).createsocket(P, H.c_str()); \
+    if (fd < 0) { OSG_WARN << "[WebAuxiliary] Failed to create socket: " << H << ":" << P << "\n"; return NULL; }
+
+    osg::ref_ptr<SocketInstance> instance = new SocketInstance(method);
+    if (method == TCP_CLIENT)
+    {
+        CREATESOCKET(instance->tcpClient, host, port);
+        instance->tcpClient.onConnection = [joinCB](const hv::SocketChannelPtr& ch)
+        {
+            std::vector<unsigned char> empty; if (joinCB == NULL) return;
+            if (ch->isConnected()) joinCB(ch->peeraddr(), CONNECTED, empty);
+            else joinCB(ch->peeraddr(), UNCONNECTED, empty);
+        };
+        instance->tcpClient.onMessage = [readCB](const hv::SocketChannelPtr& ch, hv::Buffer* buf)
+        {
+            char* s = (char*)buf->data(); std::vector<unsigned char> data(s, s + buf->size());
+            if (readCB != NULL) readCB(ch->peeraddr(), RECEIVED, data);
+        };
+
+        reconn_setting_t reconn; reconn_setting_init(&reconn);
+        reconn.min_delay = 1000; reconn.max_delay = 10000; reconn.delay_policy = 2;
+        instance->tcpClient.setReconnect(&reconn); instance->tcpClient.start();
+    }
+    else if (method == TCP_SERVER)
+    {
+        CREATESOCKET(instance->tcpServer, host, port);
+        instance->tcpServer.onConnection = [joinCB](const hv::SocketChannelPtr& ch)
+        {
+            std::vector<unsigned char> empty; if (joinCB == NULL) return;
+            if (ch->isConnected()) joinCB(ch->peeraddr(), CONNECTED, empty);
+            else joinCB(ch->peeraddr(), UNCONNECTED, empty);
+        };
+        instance->tcpServer.onMessage = [readCB](const hv::SocketChannelPtr& ch, hv::Buffer* buf)
+        {
+            char* s = (char*)buf->data(); std::vector<unsigned char> data(s, s + buf->size());
+            if (readCB != NULL) readCB(ch->peeraddr(), RECEIVED, data);
+        };
+
+        instance->tcpServer.setThreadNum(4);
+        instance->tcpServer.setLoadBalance(LB_LeastConnections);
+        instance->tcpServer.start();
+    }
+    else if (method == UDP_CLIENT)
+    {
+        CREATESOCKET(instance->udpClient, host, port);
+        instance->udpClient.onMessage = [readCB](const hv::SocketChannelPtr& ch, hv::Buffer* buf)
+        {
+            char* s = (char*)buf->data(); std::vector<unsigned char> data(s, s + buf->size());
+            if (readCB != NULL) readCB(ch->peeraddr(), RECEIVED, data);
+        };
+        instance->udpClient.start();
+    }
+    else if (method == UDP_SERVER)
+    {
+        CREATESOCKET(instance->udpServer, host, port);
+        instance->udpServer.onMessage = [readCB](const hv::SocketChannelPtr& ch, hv::Buffer* buf)
+        {
+            char* s = (char*)buf->data(); std::vector<unsigned char> data(s, s + buf->size());
+            if (readCB != NULL) readCB(ch->peeraddr(), RECEIVED, data);
+        };
+        instance->udpServer.start();
+    }
+    else if (method == WEBSOCKET_CLIENT)
+    {
+        instance->wsClient.onopen = [host, joinCB]()
+        { std::vector<unsigned char> empty; if (joinCB != NULL) joinCB(host, CONNECTED, empty); };
+        instance->wsClient.onclose = [host, joinCB]()
+        { std::vector<unsigned char> empty; if (joinCB != NULL) joinCB(host, UNCONNECTED, empty); };
+        instance->wsClient.onmessage = [instance, host, readCB](const std::string& msg)
+        {
+            const char* s = msg.data(); std::vector<unsigned char> data(s, s + msg.size());
+            if (readCB != NULL) readCB(host, SocketState(WS_CONTINUE + instance->wsClient.opcode()), data);
+        };
+
+        reconn_setting_t reconn; reconn_setting_init(&reconn);
+        reconn.min_delay = 1000; reconn.max_delay = 10000; reconn.delay_policy = 2;
+        instance->wsClient.setReconnect(&reconn);
+
+        http_headers headers; headers.insert(wsHeaders.begin(), wsHeaders.end());
+        instance->wsClient.open(host.c_str(), headers);
+    }
+    return instance.release();
+}
+
+int WebAuxiliary::socketWriter(osg::Referenced* socket, const std::string& target,
+                               const std::vector<unsigned char>& data)
+{
+    int result = -1; if (!socket || data.empty()) return result;
+    SocketInstance* instance = dynamic_cast<SocketInstance*>(socket);
+    if (!instance)
+    {
+        HttpServerInstance* httpInstance = dynamic_cast<HttpServerInstance*>(socket);
+        if (httpInstance && httpInstance->withWebsockets)
+        {
+            for (std::map<std::string, WebSocketChannelPtr>::iterator it = httpInstance->wsChannels.begin();
+                 it != httpInstance->wsChannels.end(); ++it)
+            {
+                if (it->first.find(target) != std::string::npos && it->second.get())
+                    result += it->second->send((char*)data.data(), data.size(), WS_OPCODE_BINARY);
+            }
+        }
+        return result;
+    }
+
+    if (instance->method == TCP_CLIENT)
+    {
+        if (!instance->tcpClient.isConnected()) { OSG_WARN << "[WebAuxiliary] Socket not connected\n"; return 0; }
+        return instance->tcpClient.send(data.data(), data.size());
+    }
+    else if (instance->method == TCP_SERVER)
+    {
+        int result = 0; int* resultPtr = &result;
+        if (target.empty()) return instance->tcpServer.broadcast(data.data(), data.size());
+        instance->tcpServer.foreachChannel([target, data, resultPtr](const hv::SocketChannelPtr& ch)
+        {
+            std::string peerAddr = ch->peeraddr();
+            if (peerAddr.find(target) != std::string::npos)
+                *resultPtr += ch->write(data.data(), data.size());
+        }); return result;
+    }
+    else if (instance->method == UDP_CLIENT)
+    {
+        if (target.empty()) return instance->udpClient.sendto(data.data(), data.size());
+        sockaddr_u peerAddr; if (ResolveAddr(target.c_str(), &peerAddr) != 0) return 0;
+        return instance->udpClient.sendto(data.data(), data.size(), &(peerAddr.sa));
+    }
+    else if (instance->method == UDP_SERVER)
+    {
+        if (target.empty()) return instance->udpServer.sendto(data.data(), data.size());
+        sockaddr_u peerAddr; if (ResolveAddr(target.c_str(), &peerAddr) != 0) return 0;
+        return instance->udpServer.sendto(data.data(), data.size(), &(peerAddr.sa));
+    }
+    else if (instance->method == WEBSOCKET_CLIENT)
+    {
+        if (!instance->wsClient.isConnected()) { OSG_WARN << "[WebAuxiliary] Socket not connected\n"; return 0; }
+        return instance->wsClient.send((char*)data.data(), data.size(), WS_OPCODE_BINARY);
+    }
+    return -1;
 }
