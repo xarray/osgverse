@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: Discregrid Library
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Dan
+    family-names: Koschier
+  - family-names: others
+identifiers:
+  - type: url
+    value: >-
+      https://github.com/InteractiveComputerGraphics/Discregrid
+repository-code: >-
+  https://github.com/InteractiveComputerGraphics/Discregrid
+keywords:
+  - Signed Distance Fields
+  - discretization
+license: MIT

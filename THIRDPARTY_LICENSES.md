@@ -21,6 +21,7 @@
 | BSplineFitting   | Embedded |           | Modeling           | MIT          | https://github.com/QianZheng/BSplineFitting/tree/master |
 | CDT              | Embedded | 1.4.0     | Modeling           | MPL2         | https://github.com/artem-ogre/CDT |
 | Clipper2         | Embedded | 1.3.0     | Modeling           | Boost        | https://github.com/collmot/Clipper2/tree/feat/cpp11-support |
+| Discregrid       | Embedded |           | Modeling           | MIT          | https://github.com/InteractiveComputerGraphics/Discregrid |
 | Eigen            | Embedded |           | -                  | MPL2         | https://gitlab.com/libeigen/eigen |
 | exprtk           | Embedded |           | Modeling           | MIT          | https://github.com/ArashPartow/exprtk |
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr |

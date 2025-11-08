@@ -458,6 +458,13 @@ SET(SPZ_SOURCE_FILES
     spz/splat-types.cc spz/splat-types.h
 )
 
+SET(DISCREGRID_SOURCE_FILES
+    Discregrid/mesh/entity_containers.cpp Discregrid/mesh/entity_iterators.cpp
+    Discregrid/mesh/triangle_mesh.cpp Discregrid/utility/timing.cpp
+    Discregrid/discrete_grid.cpp Discregrid/cubic_lagrange_discrete_grid.cpp
+    Discregrid/discrete_grid.hpp Discregrid/cubic_lagrange_discrete_grid.hpp
+)
+
 SET(MESHOPTIMIZER_SOURCE_FILES
     meshoptimizer/meshoptimizer.h
     meshoptimizer/allocator.cpp meshoptimizer/clusterizer.cpp
@@ -471,14 +478,9 @@ SET(MESHOPTIMIZER_SOURCE_FILES
 )
 
 SET(SHAPELIB_SOURCE_FILES
-    shapelib/shpopen.c
-    shapelib/dbfopen.c
-    shapelib/safileio.c
-    shapelib/shptree.c
-    shapelib/sbnsearch.c
-    shapelib/shapefil.h
-    shapelib/shapefil_private.h
-    shapelib/shapelib.def
+    shapelib/shpopen.c shapelib/dbfopen.c shapelib/safileio.c
+    shapelib/shptree.c shapelib/sbnsearch.c shapelib/shapefil.h
+    shapelib/shapefil_private.h shapelib/shapelib.def
 )
 
 SET(QUADRIFLOW_SOURCE_FILES
@@ -515,6 +517,7 @@ SOURCE_GROUP("RLottie Files" FILES ${RLOTTIE_SOURCE_FILES})
 SOURCE_GROUP("Niantic SPZ Files" FILES ${SPZ_SOURCE_FILES})
 SOURCE_GROUP("Shapelib Files" FILES ${SHAPELIB_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
+SOURCE_GROUP("DiscreGrid Files" FILES ${DISCREGRID_SOURCE_FILES})
 SOURCE_GROUP("QuadriFlow Files" FILES ${QUADRIFLOW_SOURCE_FILES})
 #######################
 
@@ -534,6 +537,7 @@ SET(LIBRARY_FILES
     ${PINYIN_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${LIBHV_SOURCE_FILES}
     ${KTX_SOURCE_FILES} ${MARL_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES} ${SHAPELIB_SOURCE_FILES}
     ${BLEND2D_SOURCE_FILES} ${TWEENY_SOURCE_FILES} ${FILTER_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES}
+    ${DISCREGRID_SOURCE_FILES}
 )
 
 SET(GAINPUT_ENABLED TRUE)
@@ -584,7 +588,7 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4            # Llama.cpp / libGGML
                 -DUSINGZ                                                  # clipper2
                 -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32                      # METIS
-                -DHAVE_UNORDERED_MAP=1)
+                -DHAVE_UNORDERED_MAP=1 -D_USE_MATH_DEFINES)
 
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # libhv: disable use of json.hpp in VS2015
@@ -651,7 +655,7 @@ ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
                     metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector llama nanobind
-                    "${CMAKE_BINARY_DIR}/3rdparty/leveldb" ${THIRDPARTY_INCLUDE_DIRS})
+                    Discregrid "${CMAKE_BINARY_DIR}/3rdparty/leveldb" ${THIRDPARTY_INCLUDE_DIRS})
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} ${THIRDPARTY_LIBRARIES})
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
