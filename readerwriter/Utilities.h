@@ -190,7 +190,7 @@ namespace osgVerse
                                                                          int chO, int chR, int chM);
 
     /** Convert image to compressed texture format */
-    OSGVERSE_RW_EXPORT osg::Image* compressImage(osg::Image& img);
+    OSGVERSE_RW_EXPORT osg::Image* compressImage(osg::Image& img, osgDB::ReaderWriter* rw = NULL, bool forceDXT1 = false);
 
     /** Generate mipmaps of given image */
     OSGVERSE_RW_EXPORT bool generateMipmaps(osg::Image& image, bool useKaiser);

@@ -22,20 +22,47 @@
 #include <osgDB/WriteFile>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+#include <sstream>
+#include <iomanip>
+#include <cctype>
+
+#define RGBCX_IMPLEMENTATION
+#include <bc7_rdo/rgbcx.h>
 #include <ghc/filesystem.hpp>
 #include <nanoid/nanoid.h>
 #include <libhv/all/client/requests.h>
 #include <libhv/all/base64.h>
 #include <xxYUV/rgb2yuv.h>
-#include <sstream>
-#include <iomanip>
-#include <cctype>
 
 #include "modeling/Utilities.h"
 #include "LoadTextureKTX.h"
 #include "Utilities.h"
 using namespace osgVerse;
 #define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))
+
+#pragma pack(push, 1)
+struct DDS_PIXELFORMAT
+{
+    uint32_t dwSize = 32, dwFlags = 0x4;   // DDPF_FOURCC
+    uint32_t dwFourCC = 0x31545844; // "DXT1"
+    uint32_t dwRGBBitCount = 0;
+    uint32_t dwRBitMask = 0, dwGBitMask = 0;
+    uint32_t dwBBitMask = 0, dwABitMask = 0;
+};
+
+struct DDS_HEADER
+{
+    uint32_t dwMagic = 0x20534444; // "DDS "
+    uint32_t dwSize = 124;
+    uint32_t dwFlags = 0x00001007; // DDSD_CAPS|DDSD_HEIGHT|DDSD_WIDTH|DDSD_PIXELFORMAT|DDSD_LINEARSIZE
+    uint32_t dwHeight, dwWidth, dwPitchOrLinearSize;
+    uint32_t dwDepth = 0, dwMipMapCount = 0;
+    uint32_t dwReserved1[11] = {};
+    DDS_PIXELFORMAT ddspf;
+    uint32_t dwCaps = 0x00001000; // DDSCAPS_TEXTURE
+    uint32_t dwCaps2 = 0, dwCaps3 = 0, dwCaps4 = 0, dwReserved2 = 0;
+};
+#pragma pack(pop)
 
 static std::string trimString(const std::string& str)
 {
@@ -614,16 +641,49 @@ namespace osgVerse
         return texO;
     }
 
-    osg::Image* compressImage(osg::Image& img)
+    osg::Image* compressImage(osg::Image& img, osgDB::ReaderWriter* rw, bool forceDXT1)
     {
-        // TODO: need implementation... DDS plugin doesn't convert image to compressed format!
-        osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("dds");
-        if (rw)
-        {
-            std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
-            if (rw->writeImage(img, ss).success()) return rw->readImage(ss).takeImage();
-        }
-        return NULL;
+        int w = img.s(), h = img.t(); unsigned char* data = img.data();
+        if (!data || w == 0 || h == 0 || (w % 4) || (h % 4)) return NULL;
+
+        static bool rgbxInited = false;
+        if (!rgbxInited) { rgbcx::init(); rgbxInited = true; }
+        int dataType = (img.getDataType() == GL_UNSIGNED_BYTE) ? 0 : -1;
+        int components = osg::Image::computeNumComponents(img.getPixelFormat());
+        bool useDXT5 = (!forceDXT1 && components == 4);
+
+        const unsigned int blocksX = w / 4, blocksY = h / 4;
+        const unsigned int bcSize = blocksX * blocksY * (useDXT5 ? 16 : 8);
+        std::vector<unsigned char> bcData(bcSize);
+        for (unsigned int by = 0; by < blocksY; ++by)
+            for (unsigned int bx = 0; bx < blocksX; ++bx)
+            {
+                unsigned int block[16];
+                for (unsigned int y = 0; y < 4; ++y)
+                    for (unsigned int x = 0; x < 4; ++x)
+                    {
+                        unsigned int px = bx * 4 + x, py = by * 4 + y;
+                        if (dataType == 0)
+                        {
+                            unsigned int idx = (py * w + px) * components, rgba = 0;
+                            for (int i = components; i < 4; ++i) rgba |= 0xFF << (8 * i);
+                            for (int i = 0; i < components; ++i) rgba |= (unsigned int)data[idx + i] << (8 * i);
+                            block[y * 4 + x] = rgba;
+                        }
+                        else {}  // TODO
+                    }
+                unsigned char* dst = bcData.data() + (by * blocksX + bx) * (useDXT5 ? 16 : 8);
+                if (useDXT5) rgbcx::encode_bc3(dst, (unsigned char*)block);
+                else rgbcx::encode_bc1(dst, (unsigned char*)block, false);
+            }
+
+        DDS_HEADER hdr{}; std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+        hdr.dwWidth = w; hdr.dwHeight = h; hdr.dwPitchOrLinearSize = bcSize;
+        hdr.ddspf.dwFourCC = useDXT5 ? 0x35545844 : 0x31545844;
+        ss.write((char*)&hdr, sizeof(hdr)); ss.write((char*)bcData.data(), bcData.size());
+
+        if (!rw) rw = osgDB::Registry::instance()->getReaderWriterForExtension("dds");
+        if (rw) return rw->readImage(ss).takeImage(); else return NULL;
     }
 
     bool generateMipmaps(osg::Image& image, bool useKaiser)
@@ -851,9 +911,7 @@ static std::istream& getline_ex(std::istream& is, std::string& str)
 }
 
 std::string WebAuxiliary::encodeBase64(const std::vector<unsigned char>& buffer)
-{
-    return buffer.empty() ? "" : hv::Base64Encode(&buffer[0], buffer.size());
-}
+{ return buffer.empty() ? "" : hv::Base64Encode(&buffer[0], buffer.size()); }
 
 std::vector<unsigned char> WebAuxiliary::decodeBase64(const std::string& data)
 {

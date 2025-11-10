@@ -10,10 +10,27 @@ ApplicationWindow
     title: qsTr("osgVerse for QML")
     color: "darkGray"
 
-    OsgFramebufferObject
+    Row
     {
-        focus: true
+        OsgFramebufferObject
+        {
+            objectName: "main_view"
+            renderMode: "pbr"
+            focus: true
+            width:  parent.width / 2 - parent.spacing / 2
+            height: parent.height
+        }
+
+        OsgFramebufferObject
+        {
+            objectName: "sub_view"
+            renderMode: "normal"
+            focus: false
+            width:  parent.width / 2 - parent.spacing / 2
+            height: parent.height
+        }
+
         anchors.fill: parent
-        anchors.margins: 10
+        spacing: 1
     }
 }

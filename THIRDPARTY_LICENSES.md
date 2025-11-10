@@ -17,6 +17,7 @@
 | any              | Embedded |           | -                  | Boost        | https://github.com/thelink2012/any |
 | ApproxMVBB       | Embedded |           | Modeling           | MPL2         | https://github.com/gabyx/ApproxMVBB |
 | backward-cpp     | Embedded |           | -                  | MIT          | https://github.com/bombela/backward-cpp |
+| bc7_rdo          | Embedded |           | ReaderWriter       | MIT/Apache2  | https://github.com/richgel999/bc7enc_rdo |
 | blend2d          | Embedded | 0.11.4    | Pipeline           | Zlib         | https://github.com/blend2d/blend2d |
 | BSplineFitting   | Embedded |           | Modeling           | MIT          | https://github.com/QianZheng/BSplineFitting/tree/master |
 | CDT              | Embedded | 1.4.0     | Modeling           | MPL2         | https://github.com/artem-ogre/CDT |

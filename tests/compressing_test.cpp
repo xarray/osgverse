@@ -13,6 +13,7 @@
 
 #include <VerseCommon.h>
 #include <modeling/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <readerwriter/DracoProcessor.h>
 #ifdef OSG_LIBRARY_STATIC
 USE_SERIALIZER_WRAPPER(DracoGeometry)
@@ -52,6 +53,11 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
 #if true
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
+    osg::ref_ptr<osg::Image> dds = osgVerse::compressImage(*image);
+    root->addChild(osg::createGeodeForImage(dds.get()));
+    root->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+#elif false
     osg::ref_ptr<osg::Node> node = osgDB::readNodeFiles(arguments);
     if (node)
     {

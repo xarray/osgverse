@@ -23,10 +23,12 @@ void OsgFramebufferObjectRenderer::render()
     QOpenGLContext::currentContext()->functions()->glDisable(GL_BLEND);
     QOpenGLContext::currentContext()->functions()->glDisable(GL_DEPTH_TEST);
 
-    if (fboItem && fboItem->getViewer())
+    if (fboItem && fboItem->getView())
     {
-        osgViewer::Viewer* viewer = fboItem->getViewer();
-        if (!viewer->done()) viewer->frame();
+        MyView* view = fboItem->getView();
+        if (fboItem->getParentViewer())
+            fboItem->getParentViewer()->renderView(view);
+
 #ifdef USE_QT6
         QQuickOpenGLUtils::resetOpenGLState();
 #else
@@ -36,14 +38,18 @@ void OsgFramebufferObjectRenderer::render()
 }
 
 OsgFramebufferObject::OsgFramebufferObject(QQuickItem* parent)
-:   QQuickFramebufferObject(parent), _lastModifiers(0)
+:   QQuickFramebufferObject(parent), _parentViewer(NULL), _lastModifiers(0)
 {
     setAcceptedMouseButtons(Qt::AllButtons);
     setTextureFollowsItemSize(true);
     setMirrorVertically(true);
-
     _graphicsWindow = new osgViewer::GraphicsWindowEmbedded(0, 0, 640, 480);
-    initializeScene();
+}
+
+void OsgFramebufferObject::componentComplete()
+{
+    QQuickFramebufferObject::componentComplete();
+    initializeScene(_renderMode == "pbr" ? true : false);
 
     _updateTimer.setInterval(10); _updateTimer.start();
     connect(&_updateTimer, &QTimer::timeout, this, [this]() { update(); });

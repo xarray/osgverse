@@ -878,7 +878,7 @@ namespace osgVerse
                 osg::Texture* ormOutput = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
                 if (ormOutput && compressed)
                 {
-#if false
+#if true
                     if (ormOutput->getNumImages() > 0) ormOutput->setImage(0, compressImage(*ormOutput->getImage(0)));
 #else
                     ormOutput->setInternalFormatMode(osg::Texture::USE_S3TC_DXT1_COMPRESSION);
