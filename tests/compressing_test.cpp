@@ -14,6 +14,7 @@
 #include <VerseCommon.h>
 #include <modeling/Utilities.h>
 #include <readerwriter/Utilities.h>
+#include <readerwriter/DatabasePager.h>
 #include <readerwriter/DracoProcessor.h>
 #ifdef OSG_LIBRARY_STATIC
 USE_SERIALIZER_WRAPPER(DracoGeometry)
@@ -49,10 +50,11 @@ protected:
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osgVerse::updateOsgBinaryWrappers();
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    osgViewer::Viewer viewer;
 
-#if true
+#if false
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
     osg::ref_ptr<osg::Image> dds = osgVerse::compressImage(*image);
     root->addChild(osg::createGeodeForImage(dds.get()));
@@ -73,7 +75,7 @@ int main(int argc, char** argv)
         }
         root->addChild(geode.get());
     }
-#else
+#elif false
     std::string outFile = "result.osgb";
     if (arguments.read("--out"))
     {
@@ -90,11 +92,12 @@ int main(int argc, char** argv)
             root->addChild(node.get());
         }
     }
-    else
-        root->addChild(osgDB::readNodeFiles(arguments));
+#else
+    root->addChild(osgDB::readNodeFiles(arguments));
+    root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    viewer.setDatabasePager(new osgVerse::DatabasePager(true));
 #endif
 
-    osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);

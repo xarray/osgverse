@@ -249,6 +249,7 @@ namespace osgVerse
 #define ADD_VEC4_SERIALIZER(PROP, DEF) ADD_VEC4F_SERIALIZER(PROP, DEF)
 #define ADD_QUAT_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::Quat>(#PROP, DEF)
 #define ADD_PLANE_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::Plane>(#PROP, DEF)
+#define ADD_MATRIX_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::Matrix>(#PROP, DEF)
 #define ADD_MATRIXF_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::Matrixf>(#PROP, DEF)
 #define ADD_MATRIXD_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::Matrixd>(#PROP, DEF)
 #define ADD_BOUNDINGBOXF_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::BoundingBoxf>(#PROP, DEF)

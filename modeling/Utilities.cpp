@@ -15,6 +15,8 @@
 #include <stb/stb_rect_pack.h>
 #include "3rdparty/VHACD.h"
 #include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
+#include "3rdparty/Discregrid/All"
+#include "3rdparty/Discregrid/gauss_quadrature.hpp"
 #include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;
@@ -447,6 +449,37 @@ osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float re
     rotation.set(oobb.m_q_KI.x(), oobb.m_q_KI.y(), oobb.m_q_KI.z(), oobb.m_q_KI.w());
     return osg::BoundingBox(osg::Vec3(oobb.m_minPoint.x(), oobb.m_minPoint.y(), oobb.m_minPoint.z()),
                             osg::Vec3(oobb.m_maxPoint.x(), oobb.m_maxPoint.y(), oobb.m_maxPoint.z()));
+}
+
+bool SDFGridCreator::generate(SDFGridCreator::SDF& sdf, unsigned int resX, unsigned int resY, unsigned int resZ, bool invert)
+{
+    std::vector<double> verticesD(_vertices.size() * 3); if (_vertices.empty() || _indices.empty()) return false;
+    for (size_t i = 0; i < verticesD.size(); i += 3)
+    { const osg::Vec3& v = _vertices[i / 3]; verticesD[i] = v[0]; verticesD[i + 1] = v[1]; verticesD[i + 2] = v[2]; }
+
+    std::array<unsigned int, 3> resolution{ resX, resY, resZ };
+    Discregrid::TriangleMesh mesh(verticesD.data(), _indices.data(), _vertices.size(), _indices.size() / 3);
+    Discregrid::TriangleMeshDistance meshDistance(mesh);
+
+    Eigen::AlignedBox3d domain;
+    for (auto const& x : mesh.vertices()) domain.extend(x);
+    domain.max() += 1.0e-3 * domain.diagonal().norm() * Eigen::Vector3d::Ones();
+    domain.min() -= 1.0e-3 * domain.diagonal().norm() * Eigen::Vector3d::Ones();
+
+    Discregrid::CubicLagrangeDiscreteGrid grid(domain, resolution);
+    auto func = Discregrid::DiscreteGrid::ContinuousFunction {};
+    if (invert) func = [&meshDistance](Eigen::Vector3d const& xi) {return -1.0 * meshDistance.signed_distance(xi).distance;};
+    else func = [&meshDistance](Eigen::Vector3d const& xi) {return meshDistance.signed_distance(xi).distance;};
+
+    grid.addFunction(func, true);  // Generate discretization
+    const Eigen::Vector3d& cellSize = grid.cellSize(), &invCellSize = grid.invCellSize();
+    const Eigen::Vector3d &domain0 = grid.domain().min(), &domain1 = grid.domain().max();
+    sdf.cellSize.set(cellSize.x(), cellSize.y(), cellSize.z());
+    sdf.invCellSize.set(invCellSize.x(), invCellSize.y(), invCellSize.z());
+    sdf.domain.set(osg::Vec3(domain0.x(), domain0.y(), domain0.z()), osg::Vec3(domain1.x(), domain1.y(), domain1.z()));
+    sdf.nodes = grid.m_nodes; sdf.cells = grid.m_cells; sdf.cellMap = grid.m_cell_map;
+    sdf.resolution[0] = resX; sdf.resolution[1] = resY; sdf.resolution[2] = resZ;
+    return !(sdf.nodes.empty() || sdf.cells.empty());
 }
 
 void MeshTopologyVisitor::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)

@@ -461,8 +461,9 @@ SET(SPZ_SOURCE_FILES
 SET(DISCREGRID_SOURCE_FILES
     Discregrid/mesh/entity_containers.cpp Discregrid/mesh/entity_iterators.cpp
     Discregrid/mesh/triangle_mesh.cpp Discregrid/utility/timing.cpp
-    Discregrid/discrete_grid.cpp Discregrid/cubic_lagrange_discrete_grid.cpp
-    Discregrid/discrete_grid.hpp Discregrid/cubic_lagrange_discrete_grid.hpp
+    Discregrid/discrete_grid.cpp Discregrid/discrete_grid.hpp
+    Discregrid/cubic_lagrange_discrete_grid.cpp Discregrid/cubic_lagrange_discrete_grid.hpp
+    Discregrid/gauss_quadrature.cpp Discregrid/gauss_quadrature.hpp
 )
 
 SET(MESHOPTIMIZER_SOURCE_FILES

@@ -64,7 +64,7 @@ private:
 	Eigen::Vector3d indexToNodePosition(unsigned int l) const;
 
 
-private:
+public:
 
 	std::vector<std::vector<double>> m_nodes;
 	std::vector<std::vector<std::array<unsigned int, 32>>> m_cells;

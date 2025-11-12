@@ -132,6 +132,24 @@ namespace osgVerse
         osg::BoundingBox computeOBB(osg::Quat& rotation, float relativeExtent = 0.1f, int numSamples = 500);
     };
 
+    /** Signed-Distance-Field (SDF) data creator */
+    class SDFGridCreator : public MeshCollector
+    {
+    public:
+        struct SDF
+        {
+            std::vector<std::vector<double>> nodes;
+            std::vector<std::vector<std::array<unsigned int, 32>>> cells;
+            std::vector<std::vector<unsigned int>> cellMap;
+            osg::BoundingBox domain;
+            osg::Vec3 cellSize, invCellSize;
+            int resolution[3];
+        };
+
+        SDFGridCreator() : MeshCollector() {}
+        bool generate(SDF& sdf, unsigned int resX, unsigned int resY, unsigned int resZ, bool invert = false);
+    };
+
     /** Collect mesh data and create topology object */
     class MeshTopologyVisitor : public MeshCollector
     {
