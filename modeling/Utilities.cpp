@@ -460,6 +460,19 @@ osg::BoundingBox BoundingVolumeVisitor::computeOBB(osg::Quat& rotation, float re
                             osg::Vec3(oobb.m_maxPoint.x(), oobb.m_maxPoint.y(), oobb.m_maxPoint.z()));
 }
 
+static void convertToSDF(const Discregrid::CubicLagrangeDiscreteGrid& grid, SDFGridCreator::SDF& sdf)
+{
+    const Eigen::Vector3d& cellSize = grid.cellSize(), & invCellSize = grid.invCellSize();
+    const Eigen::Vector3d& domain0 = grid.domain().min(), & domain1 = grid.domain().max();
+    sdf.cellSize.set(cellSize.x(), cellSize.y(), cellSize.z());
+    sdf.invCellSize.set(invCellSize.x(), invCellSize.y(), invCellSize.z());
+    sdf.domain.set(osg::Vec3(domain0.x(), domain0.y(), domain0.z()), osg::Vec3(domain1.x(), domain1.y(), domain1.z()));
+    sdf.nodes = grid.m_nodes; sdf.cells = grid.m_cells; sdf.cellMap = grid.m_cell_map;
+}
+
+static void convertFromSDF(const SDFGridCreator::SDF& sdf, Discregrid::CubicLagrangeDiscreteGrid& grid)
+{ grid.m_nodes = sdf.nodes; grid.m_cells = sdf.cells; grid.m_cell_map = sdf.cellMap; }
+
 bool SDFGridCreator::generate(SDFGridCreator::SDF& sdf, unsigned int resX, unsigned int resY, unsigned int resZ, bool invert)
 {
     std::vector<double> verticesD(_vertices.size() * 3); if (_vertices.empty() || _indices.empty()) return false;
@@ -481,14 +494,73 @@ bool SDFGridCreator::generate(SDFGridCreator::SDF& sdf, unsigned int resX, unsig
     else func = [&meshDistance](Eigen::Vector3d const& xi) {return meshDistance.signed_distance(xi).distance;};
 
     grid.addFunction(func, true);  // Generate discretization
-    const Eigen::Vector3d& cellSize = grid.cellSize(), &invCellSize = grid.invCellSize();
-    const Eigen::Vector3d &domain0 = grid.domain().min(), &domain1 = grid.domain().max();
-    sdf.cellSize.set(cellSize.x(), cellSize.y(), cellSize.z());
-    sdf.invCellSize.set(invCellSize.x(), invCellSize.y(), invCellSize.z());
-    sdf.domain.set(osg::Vec3(domain0.x(), domain0.y(), domain0.z()), osg::Vec3(domain1.x(), domain1.y(), domain1.z()));
-    sdf.nodes = grid.m_nodes; sdf.cells = grid.m_cells; sdf.cellMap = grid.m_cell_map;
     sdf.resolution[0] = resX; sdf.resolution[1] = resY; sdf.resolution[2] = resZ;
-    return !(sdf.nodes.empty() || sdf.cells.empty());
+    convertToSDF(grid, sdf); return !(sdf.nodes.empty() || sdf.cells.empty());
+}
+
+std::vector<float> SDFGridCreator::computeDistances(const SDF& sdf, const std::vector<osg::Vec3>& pts,
+                                                    std::vector<osg::Vec3>& normals) const
+{
+    const osg::Vec3& domain0 = sdf.domain._min, & domain1 = sdf.domain._max;
+    std::array<uint32_t, 3> resolution{ (uint32_t)sdf.resolution[0], (uint32_t)sdf.resolution[1], (uint32_t)sdf.resolution[2] };
+    Eigen::AlignedBox3d domain(Eigen::Vector3d(domain0[0], domain0[1], domain0[2]),
+                               Eigen::Vector3d(domain1[0], domain1[1], domain1[2]));
+    Discregrid::CubicLagrangeDiscreteGrid grid(domain, resolution); convertFromSDF(sdf, grid);
+
+    std::vector<float> distances(pts.size()); normals.resize(pts.size());
+    for (size_t i = 0; i < pts.size(); ++i)
+    {
+        Eigen::Vector3d N, X(pts[i].x(), pts[i].y(), pts[i].z());
+        double distance = grid.interpolate(0, X.template cast<double>(), &N);
+        if (distance == std::numeric_limits<double>::max()) { distances[i] = FLT_MAX; continue; }
+        
+        normals[i].set((float)N.x(), (float)N.y(), (float)N.z());
+        normals[i].normalize(); distances[i] = (float)distance;
+    }
+    return distances;
+}
+
+std::vector<osg::Vec3> SDFGridCreator::sampleVolume(const SDF& sdf, float particleRadius, bool denseMode) const
+{
+    const osg::Vec3& domain0 = sdf.domain._min, & domain1 = sdf.domain._max;
+    std::array<uint32_t, 3> resolution{ (uint32_t)sdf.resolution[0], (uint32_t)sdf.resolution[1], (uint32_t)sdf.resolution[2] };
+    Eigen::AlignedBox3d domain(Eigen::Vector3d(domain0[0], domain0[1], domain0[2]),
+        Eigen::Vector3d(domain1[0], domain1[1], domain1[2]));
+    Discregrid::CubicLagrangeDiscreteGrid grid(domain, resolution); convertFromSDF(sdf, grid);
+
+    float diameter = 2.0f * particleRadius; float invD = 1.0f / diameter;
+    //unsigned int numberOfSamplePoints = (((unsigned int)((sdf.domain.zMax() - sdf.domain.zMin()) * invD)) + 1) *
+    //                                    (((unsigned int)((sdf.domain.yMax() - sdf.domain.yMin()) * invD)) + 1) *
+    //                                    (((unsigned int)((sdf.domain.xMax() - sdf.domain.xMin()) * invD)) + 1);
+    unsigned int currentSample = 0; int counter_x = 0, counter_y = 0; float xshift = diameter, yshift = diameter;
+    if (denseMode) { xshift = sqrt(3.0f) * particleRadius; yshift = sqrt(6.0f) * diameter / 3.0f; }
+
+    std::vector<osg::Vec3> samples;
+    for (float z = sdf.domain.zMin(); z <= sdf.domain.zMax(); z += diameter)
+    {
+        for (float y = sdf.domain.yMin(); y <= sdf.domain.yMax(); y += yshift)
+        {
+            for (float x = sdf.domain.xMin(); x <= sdf.domain.xMax(); x += xshift)
+            {
+                osg::Vec3 particlePosition, shift_vec;
+                if (denseMode)
+                {
+                    if (counter_x % 2) shift_vec[2] += diameter / (2.0f * (counter_y % 2 ? -1 : 1));
+                    if (counter_y % 2) { shift_vec[0] += xshift / 2.0f; shift_vec[2] += diameter / 2.0f; }
+                    particlePosition = osg::Vec3(x, y + particleRadius, z + particleRadius) + shift_vec;
+                }
+                else
+                    particlePosition = osg::Vec3(x + particleRadius, y + particleRadius, z + particleRadius);
+
+                Eigen::Vector3d X(particlePosition.x(), particlePosition.y(), particlePosition.z());
+                if (grid.interpolate(0, X.template cast<double>()) < 0.0) samples.push_back(particlePosition);
+                currentSample++; counter_x++;
+            }
+            counter_x = 0; counter_y++;
+        }
+        counter_y = 0;
+    }
+    return samples;
 }
 
 void MeshTopologyVisitor::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)

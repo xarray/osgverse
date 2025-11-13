@@ -76,8 +76,6 @@ void DatabasePager::addLoadedDataToSceneGraph_Verse(const osg::FrameStamp& frame
                 std::cout << loaded->getName() << ": TILES = " << loaded->asGroup()->getNumChildren()
                           << ", PLODS = " << ctv._plods.size() << ", GEODES = " << ctv._geodes.size()
                           << ", GEOMS = " << ctv._drawables.size() << ", IMAGES = " << ctv._images.size() << "; ";
-                for (size_t i = 0; i < ctv._texDensities.size(); ++i)
-                    std::cout << ctv._texDensities[i] << " "; std::cout << "\n";
             }
 
             // Update plod / proxynode properties

@@ -147,7 +147,16 @@ namespace osgVerse
         };
 
         SDFGridCreator() : MeshCollector() {}
+
+        /** Generate SDF grid data */
         bool generate(SDF& sdf, unsigned int resX, unsigned int resY, unsigned int resZ, bool invert = false);
+
+        /** Compute distances of given points to the SDF grid, as well as output normals */
+        std::vector<float> computeDistances(const SDF& sdf, const std::vector<osg::Vec3>& pts,
+                                            std::vector<osg::Vec3>& normals) const;
+
+        /** Get volume sampling particles of given SDF grid */
+        std::vector<osg::Vec3> sampleVolume(const SDF& sdf, float particleRadius, bool denseMode = false) const;
     };
 
     /** Collect mesh data and create topology object */

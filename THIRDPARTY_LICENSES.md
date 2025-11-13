@@ -16,6 +16,7 @@
 | Qt               | Depended | > 5.5     | App                | LGPL         | https://download.qt.io/official_releases/ |
 | any              | Embedded |           | -                  | Boost        | https://github.com/thelink2012/any |
 | ApproxMVBB       | Embedded |           | Modeling           | MPL2         | https://github.com/gabyx/ApproxMVBB |
+| Avir             | Embedded | 3.1       | ReaderWriter       | MIT          | https://github.com/avaneev/avir |
 | backward-cpp     | Embedded |           | -                  | MIT          | https://github.com/bombela/backward-cpp |
 | bc7_rdo          | Embedded |           | ReaderWriter       | MIT/Apache2  | https://github.com/richgel999/bc7enc_rdo |
 | blend2d          | Embedded | 0.11.4    | Pipeline           | Zlib         | https://github.com/blend2d/blend2d |
