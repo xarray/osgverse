@@ -1,3 +1,4 @@
+#include <osg/PagedLOD>
 #include <modeling/Utilities.h>
 #include "Utilities.h"
 #include "DatabasePager.h"
@@ -8,8 +9,15 @@ class CompressTextureVisitor : public osgVerse::NodeVisitorEx
 public:
     CompressTextureVisitor() : NodeVisitorEx() {}
     std::map<osg::Image*, osg::observer_ptr<osg::Image>> _imageMap;
-    std::set<osg::Drawable*> _drawables;
-    std::set<osg::Image*> _images;
+    std::set<osg::PagedLOD*> _plods; std::set<osg::Node*> _geodes;
+    std::set<osg::Drawable*> _drawables; std::set<osg::Image*> _images;
+    std::vector<float> _texDensities;
+
+    virtual void apply(osg::PagedLOD& node)
+    {
+        _plods.insert(&node);
+        osgVerse::NodeVisitorEx::apply(node);
+    }
 
     virtual void apply(osg::Node* n, osg::Drawable* d, osg::Texture* tex, int u)
     {
@@ -26,9 +34,11 @@ public:
             }
             else
                 tex->setImage(i, _imageMap[img].get());
-            _images.insert(img);
+
+            osg::Vec2 areas = osgVerse::computeTotalAreas(d->asGeometry());
+            _images.insert(img); _texDensities.push_back(areas[1] * img->s() * img->t() / areas[0]);
         }
-        _drawables.insert(d);
+        _drawables.insert(d); _geodes.insert(d->getParent(0));
     }
 };
 
@@ -64,7 +74,10 @@ void DatabasePager::addLoadedDataToSceneGraph_Verse(const osg::FrameStamp& frame
 
                 osg::Node* loaded = databaseRequest->_loadedModel.get();
                 std::cout << loaded->getName() << ": TILES = " << loaded->asGroup()->getNumChildren()
-                          << ", DRAWABLES = " << ctv._drawables.size() << ", IMAGES = " << ctv._images.size() << "\n";
+                          << ", PLODS = " << ctv._plods.size() << ", GEODES = " << ctv._geodes.size()
+                          << ", GEOMS = " << ctv._drawables.size() << ", IMAGES = " << ctv._images.size() << "; ";
+                for (size_t i = 0; i < ctv._texDensities.size(); ++i)
+                    std::cout << ctv._texDensities[i] << " "; std::cout << "\n";
             }
 
             // Update plod / proxynode properties
@@ -148,13 +161,13 @@ void DatabasePager::removeExpiredSubgraphs(const osg::FrameStamp& frameStamp)
     unsigned int expiryFrame = frameStamp.getFrameNumber() - 1;
     ObjectList childrenRemoved;
 
-    // First traverse inactive PagedLODs, as their children will
-    // certainly have expired. Then traverse active nodes if we still need to prune.
+    // First traverse inactive PagedLODs, as their children will certainly have expired.
     int numToPrune = numPagedLODs - _targetMaximumNumberOfPageLOD;
     if (numToPrune > 0)
         _activePagedLODList->removeExpiredChildren(
             numToPrune, expiryTime, expiryFrame, childrenRemoved, false);
 
+    // Then traverse active nodes if we still need to prune.
     numToPrune = _activePagedLODList->size() - _targetMaximumNumberOfPageLOD;
     if (numToPrune > 0)
         _activePagedLODList->removeExpiredChildren(

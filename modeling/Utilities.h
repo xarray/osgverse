@@ -308,6 +308,11 @@ namespace osgVerse
     /** Change primitives to triangles for GL-Core use */
     extern bool optimizeIndices(osg::Geometry& geom);
 
+    /** Compute total model area and UV area of given drawable's triangles.
+        Result can be used to compute texel density (uvArea * w * h / worldArea), etc.
+    */
+    extern osg::Vec2 computeTotalAreas(osg::Geometry* drawable, int texUnit = 0);
+
 }
 
 #endif

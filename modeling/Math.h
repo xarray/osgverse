@@ -56,8 +56,11 @@ namespace osgVerse
     /** Compute area of a 3D polygon composited of points */
     extern float computeArea(const PointList3D& points, const osg::Vec3& normal);
 
-    /** Compute area of any triangle using Heron's Formula */
-    extern float computeTriangleArea(float a, float b, float c);
+    /** Compute area of a triangle */
+    extern float computeTriangleArea(const osg::Vec3& v0, const osg::Vec3& v1, const osg::Vec3& v2);
+
+    /** Compute area of a triangle in UV space */
+    extern float computeTriangleUVArea(const osg::Vec2& v0, const osg::Vec2& v1, const osg::Vec2& v2);
 
     /** Compute standard deviation */
     extern float computeStandardDeviation(const std::vector<float>& values);

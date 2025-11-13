@@ -1,6 +1,7 @@
 #include <osg/Version>
 #include <osg/io_utils>
 #include <osg/ImageUtils>
+#include <osg/TriangleFunctor>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geometry>
 #include <osg/Geode>
@@ -17,11 +18,12 @@
 #include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
 #include "3rdparty/Discregrid/All"
 #include "3rdparty/Discregrid/gauss_quadrature.hpp"
+#include "Math.h"
 #include "MeshTopology.h"
 #include "Utilities.h"
 using namespace osgVerse;
 
-struct ResortVertexOperator
+struct VertexIndexGetter
 {
     void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
     {
@@ -29,6 +31,13 @@ struct ResortVertexOperator
         indices.push_back(i1); indices.push_back(i2); indices.push_back(i3);
     }
     std::vector<unsigned int> indices;
+};
+
+struct VertexValueGetter
+{
+    void operator()(const osg::Vec3& v1, const osg::Vec3& v2, const osg::Vec3& v3)
+    { vertices.push_back(v1); vertices.push_back(v2); vertices.push_back(v3); }
+    std::vector<osg::Vec3> vertices;
 };
 
 struct CollectVertexOperator
@@ -923,7 +932,7 @@ namespace osgVerse
 
         if (invalidMode)
         {
-            osg::TriangleIndexFunctor<ResortVertexOperator> functor; geom.accept(functor);
+            osg::TriangleIndexFunctor<VertexIndexGetter> functor; geom.accept(functor);
             geom.removePrimitiveSet(0, geom.getNumPrimitiveSets());
 
             size_t idxSize = functor.indices.size();
@@ -947,6 +956,26 @@ namespace osgVerse
             }
         }
         return invalidMode;
+    }
+
+    osg::Vec2 computeTotalAreas(osg::Geometry* geom, int texUnit)
+    {
+        osg::TriangleIndexFunctor<VertexIndexGetter> functor;
+        if (geom) geom->accept(functor); else return osg::Vec2();
+
+        osg::Vec3Array* va = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
+        osg::Vec2Array* ta = dynamic_cast<osg::Vec2Array*>(geom->getTexCoordArray(texUnit));
+        if (!va || !ta) return osg::Vec2();
+
+        float worldArea = 0.0f, uvArea = 0.0f;
+        for (size_t i = 0; i < functor.indices.size(); i += 3)
+        {
+            unsigned int i0 = functor.indices[i], i1 = functor.indices[i + 1],
+                         i2 = functor.indices[i + 2];
+            worldArea += computeTriangleArea((*va)[i0], (*va)[i1], (*va)[i2]);
+            uvArea += computeTriangleUVArea((*ta)[i0], (*ta)[i1], (*ta)[i2]);
+        }
+        return osg::Vec2(worldArea, uvArea);
     }
 }
 

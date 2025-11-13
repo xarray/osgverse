@@ -170,10 +170,19 @@ namespace osgVerse
         return area;
     }
 
-    float computeTriangleArea(float a, float b, float c)
+    float computeTriangleArea(const osg::Vec3& v0, const osg::Vec3& v1, const osg::Vec3& v2)
     {
-        float s = (a + b + c) * 0.5f;
-        return sqrt(s * (s - a) * (s - b) * (s - c));
+        osg::Vec3 edge1 = v1 - v0, edge2 = v2 - v0;
+        osg::Vec3 crossProduct = edge1 ^ edge2;
+        return crossProduct.length() * 0.5f;
+    }
+
+    float computeTriangleUVArea(const osg::Vec2& v0, const osg::Vec2& v1, const osg::Vec2& v2)
+    {
+        osg::Vec2 uv[3] = { v0, v1, v2 };
+        float area = (uv[1][0] - uv[0][0]) * (uv[2][1] - uv[0][1]) -
+                     (uv[2][0] - uv[0][0]) * (uv[1][1] - uv[0][1]);
+        return std::abs(area * 0.5f);
     }
 
     float computeStandardDeviation(const std::vector<float>& values)
