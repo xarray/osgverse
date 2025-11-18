@@ -26,9 +26,9 @@ MACRO(NEW_SIMPLE_EXECUTABLE EXECUTABLE_NAME IS_CUDA SOURCE_FILE)
 
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
     TARGET_INCLUDE_DIRECTORIES(${EXE_NAME} PUBLIC ${EXTERNAL_INCLUDES})
-    TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseReaderWriter osgVerseScript
-                          osgVersePipeline osgVerseAnimation osgVerseModeling osgVerseAI
-                          osgVerseWrappers ${EXTERNAL_LIBRARIES})
+    TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseAnimation osgVersePipeline
+                          osgVerseWrappers osgVerseModeling osgVerseScript osgVerseUI osgVerseAI
+                          osgVerseDependency ${EXTERNAL_LIBRARIES})
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
     IF(NOT VERSE_STATIC_BUILD)
         IF(MSVC AND VERSE_INSTALL_PDB_FILES)

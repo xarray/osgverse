@@ -6,26 +6,31 @@
 #ifdef VERSE_ENABLE_MTT
 #   include <musa.h>
 #   include <musaGL.h>
+#   include "MusaUtils/RadixSort.h"
 #else
 #   include <cuda.h>
 #   include <cudaGL.h>
+#   include "CudaUtils/RadixSort.h"
 #endif
-#include "CudaUtils/RadixSort.h"
 #include "Utilities.h"
 using namespace osgVerse;
 
-CUcontext CudaAlgorithm::initializeContext(int gpuID)
+CudaAlgorithm::CUcontext CudaAlgorithm::initializeContext(int gpuID)
 {
-    CUcontext cuContext = NULL;
-    CUdevice cuDevice = 0; char deviceName[80];
-    int numGpu = 0; cuInit(0); cuDeviceGetCount(&numGpu);
+    CudaAlgorithm::CUcontext cuContext = NULL;
+#ifdef VERSE_ENABLE_MTT
+    MUdevice cuDevice = 0; char deviceName[80];
+    int numGpu = 0; muInit(0); muDeviceGetCount(&numGpu);
     if (gpuID < 0 || gpuID >= numGpu) return NULL;
 
-#ifdef VERSE_ENABLE_MTT
     muDeviceGet(&cuDevice, gpuID);
     muDeviceGetName(deviceName, sizeof(deviceName), cuDevice);
     muCtxCreate(&cuContext, MU_CTX_SCHED_BLOCKING_SYNC, cuDevice);
 #else
+    CUdevice cuDevice = 0; char deviceName[80];
+    int numGpu = 0; cuInit(0); cuDeviceGetCount(&numGpu);
+    if (gpuID < 0 || gpuID >= numGpu) return NULL;
+
     cuDeviceGet(&cuDevice, gpuID);
     cuDeviceGetName(deviceName, sizeof(deviceName), cuDevice);
     cuCtxCreate(&cuContext, CU_CTX_SCHED_BLOCKING_SYNC, cuDevice);
@@ -34,7 +39,7 @@ CUcontext CudaAlgorithm::initializeContext(int gpuID)
     return cuContext;
 }
 
-void CudaAlgorithm::deinitializeContext(CUcontext context)
+void CudaAlgorithm::deinitializeContext(CudaAlgorithm::CUcontext context)
 {
 #ifdef VERSE_ENABLE_MTT
     muCtxDestroy(context);
@@ -51,6 +56,18 @@ bool CudaAlgorithm::radixSort(const std::vector<unsigned int>& inValues, const s
     if (numElements != outIDs.size()) outIDs.resize(numElements);
 
     unsigned int *d_in, *v_in, *d_out;
+#ifdef VERSE_ENABLE_MTT
+    checkCudaErrors(musaMalloc(&d_in, sizeof(unsigned int) * numElements));
+    checkCudaErrors(musaMalloc(&v_in, sizeof(unsigned int) * numElements));
+    checkCudaErrors(musaMalloc(&d_out, sizeof(unsigned int) * numElements));
+    checkCudaErrors(musaMemcpy(d_in, inValues.data(), sizeof(unsigned int) * numElements, musaMemcpyHostToDevice));
+    checkCudaErrors(musaMemcpy(v_in, inIDs.data(), sizeof(unsigned int) * numElements, musaMemcpyHostToDevice));
+
+    radix_sort(d_out, d_in, v_in, numElements);
+    checkCudaErrors(musaMemcpy(outIDs.data(), d_out, sizeof(unsigned int) * numElements, musaMemcpyDeviceToHost));
+    checkCudaErrors(musaFree(d_in)); checkCudaErrors(musaFree(v_in));
+    checkCudaErrors(musaFree(d_out));
+#else
     checkCudaErrors(cudaMalloc(&d_in, sizeof(unsigned int) * numElements));
     checkCudaErrors(cudaMalloc(&v_in, sizeof(unsigned int) * numElements));
     checkCudaErrors(cudaMalloc(&d_out, sizeof(unsigned int) * numElements));
@@ -61,5 +78,6 @@ bool CudaAlgorithm::radixSort(const std::vector<unsigned int>& inValues, const s
     checkCudaErrors(cudaMemcpy(outIDs.data(), d_out, sizeof(unsigned int) * numElements, cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaFree(d_in)); checkCudaErrors(cudaFree(v_in));
     checkCudaErrors(cudaFree(d_out));
+#endif
     return true;
 }
