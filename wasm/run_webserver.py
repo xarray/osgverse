@@ -20,10 +20,6 @@ class RequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?')[0]
         path = path.split('#')[0]
-        if path == '/' or path == '':
-            self.serve_index()
-            return
-        
         file_path = self.translate_path(path)
         if os.path.exists(file_path):
             if file_path.endswith('.gz'):
@@ -37,18 +33,6 @@ class RequestHandler(SimpleHTTPRequestHandler):
             else:
                 self.send_error(404, f"File not found: {path}")
 
-    def serve_index(self):
-        index_files = ['index.html.gz', 'index.html', 'index.htm.gz', 'index.htm']
-        for index_file in index_files:
-            file_path = self.translate_path(index_file)
-            if os.path.exists(file_path):
-                if index_file.endswith('.gz'):
-                    self.serve_gzip_file(file_path)
-                else:
-                    super().do_GET()
-                return
-        self.send_error(404, "No index file found")
-    
     def serve_gzip_file(self, gz_path):
         try:
             with open(gz_path, 'rb') as f:
@@ -56,7 +40,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 file_size = len(gz_content)
             original_filename = os.path.basename(gz_path)[:-3]  # remove .gz
             mime_type = self.get_mime_type(original_filename)
-            
+
             self.send_response(200)
             self.send_header("Content-Type", mime_type)
             self.send_header("Content-Length", str(file_size))
@@ -65,10 +49,10 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(gz_content)
-            
+
         except Exception as e:
             self.send_error(500, f"Server error: {str(e)}")
-    
+
     def get_mime_type(self, filename):
         base, ext = os.path.splitext(filename)
         mime_types = {
