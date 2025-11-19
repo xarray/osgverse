@@ -73,6 +73,7 @@ public:
         supportsOption("MaximumLevel", "Set maximum level (Z) to load: default 0 (infinite)");
         supportsOption("TileSkirtRatio", "Create skirts for every tile: default 0.02");
         supportsOption("TileElevationScale", "Set elevation scale for every tile: default 1.0");
+        osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
     }
 
     virtual const char* className() const

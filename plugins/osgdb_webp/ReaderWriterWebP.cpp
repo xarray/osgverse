@@ -48,7 +48,9 @@ public:
         image->allocateImage(width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE);
         image->setInternalTextureFormat(GL_RGBA8);
         memcpy(image->data(), rgba, image->getTotalSizeInBytes());
-        WebPFree(rgba); return image.get();
+        WebPFree(rgba);
+        image->flipVertical();
+        return image.get();
     }
 
     virtual WriteResult writeImage(const osg::Image& image, const std::string& path,
@@ -57,7 +59,9 @@ public:
         std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ofstream out(fileName, std::ios::out | std::ios::binary);
         if (!out) return WriteResult::ERROR_IN_WRITING_FILE;
-        return writeImage(image, out, options);
+        osg::ref_ptr<osg::Image> tmp_img = new osg::Image(image);
+        tmp_img->flipVertical();
+        return writeImage(*tmp_img, out, options);
     }
 
     virtual WriteResult writeImage(const osg::Image& image, std::ostream& out,

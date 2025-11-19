@@ -55,6 +55,8 @@ public:
         supportsExtension("*", "Passes all read files to other plugins to handle actual model loading.");
         supportsOption("Extension", "Set another pseudo extension for loaded file");
         supportsOption("RequestHeaders", "Set request header list (key1;value1;key2;value2;...) as a string");
+
+        osgDB::Registry::instance()->addFileExtensionAlias("webp","verse_webp");
     }
 
     virtual ~ReaderWriterWeb()
