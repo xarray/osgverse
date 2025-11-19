@@ -54,9 +54,19 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osgViewer::Viewer viewer;
 
-#if false
+#if true
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
+
+    osg::Timer_t t0 = osg::Timer::instance()->tick();
     osg::ref_ptr<osg::Image> dds = osgVerse::compressImage(*image);
+
+    osg::Timer_t t1 = osg::Timer::instance()->tick();
+    osgVerse::resizeImage(*dds, 128, 128);
+
+    osg::Timer_t t2 = osg::Timer::instance()->tick();
+    std::cout << "Compressing time: " << osg::Timer::instance()->delta_m(t0, t1) << "\n"
+              << "Resizing time: " << osg::Timer::instance()->delta_m(t1, t2) << "\n";
+
     root->addChild(osg::createGeodeForImage(dds.get()));
     root->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
 #elif false

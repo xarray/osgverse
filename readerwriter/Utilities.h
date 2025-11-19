@@ -193,7 +193,7 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT osg::Image* compressImage(osg::Image& img, osgDB::ReaderWriter* rw = NULL, bool forceDXT1 = false);
 
     /** Resize image using AVIR resizing algorithm */
-    OSGVERSE_RW_EXPORT bool resizeImage(osg::Image& img, int rWidth, int rHeight);
+    OSGVERSE_RW_EXPORT bool resizeImage(osg::Image& img, int rWidth, int rHeight, bool autoCompress = true);
 
     /** Generate mipmaps of given image */
     OSGVERSE_RW_EXPORT bool generateMipmaps(osg::Image& image, bool useKaiser);

@@ -281,20 +281,53 @@ namespace osgVerse
         if (rw) return rw->readImage(ss).takeImage(); else return NULL;
     }
 
-    bool resizeImage(osg::Image& img, int rWidth, int rHeight)
+    bool resizeImage(osg::Image& img, int rWidth, int rHeight, bool autoCompress)
     {
-        int w = img.s(), h = img.t(); unsigned char* data = img.data();
+        int w = img.s(), h = img.t(); unsigned char *data = img.data(), *newData = NULL;
         if (!data || w == 0 || h == 0 || rWidth == 0 || rHeight == 0) return false;
 
+        bool compressed = img.isCompressed();
         int depth = (img.getDataType() == GL_UNSIGNED_BYTE) ? 8
                   : ((img.getDataType() == GL_UNSIGNED_SHORT) ? 16 : 0);
         int comp = osg::Image::computeNumComponents(img.getPixelFormat());
-        if (!depth) return false;
+        if (!depth || compressed)
+        {
+            if (compressed)
+            {   // Maybe compressed format? Try a stupid method...
+                newData = new unsigned char[w * h * comp];  // normal ubyte array
+#pragma omp parallel for schedule(dynamic, 1)
+                for (int y = 0; y < h; ++y)
+                    for (int x = 0; x < w; ++x)
+                    {
+                        osg::Vec4 c = img.getColor(x, y); int idx = comp * (x + y * w);
+                        for (int n = 0; n < comp; ++n) *(newData + idx + n) = (unsigned char)(c[n] * 255.0f);
+                    }
 
-        avir::CImageResizer<> resizer(8, depth); unsigned char* newData = new unsigned char[rWidth * rHeight * comp];
+                osg::Image::AllocationMode m = osg::Image::USE_NEW_DELETE;
+                switch (comp)
+                {
+                case 1: img.setImage(w, h, 1, GL_R8, GL_R, GL_UNSIGNED_BYTE, newData, m); break;
+                case 2: img.setImage(w, h, 1, GL_RG8, GL_RG, GL_UNSIGNED_BYTE, newData, m); break;
+                case 3: img.setImage(w, h, 1, GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE, newData, m); break;
+                default: img.setImage(w, h, 1, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, newData, m); break;
+                }
+            }
+
+            img.scaleImage(rWidth, rHeight, 1);
+            if (compressed && autoCompress)
+            {
+                osg::ref_ptr<osg::Image> dds = compressImage(img);
+                img.allocateImage(dds->s(), dds->t(), 1, dds->getPixelFormat(), dds->getDataType());
+                img.setInternalTextureFormat(dds->getInternalTextureFormat());
+                memcpy(img.data(), dds->data(), dds->getTotalSizeInBytes());
+            }
+            return (img.s() == rWidth && img.t() == rHeight);
+        }
+
+        avir::CImageResizer<> resizer(8, depth); newData = new unsigned char[rWidth * rHeight * comp];
         resizer.resizeImage(data, img.s(), img.t(), 0, newData, rWidth, rHeight, comp, 0.0);
         img.setImage(rWidth, rHeight, 1, img.getInternalTextureFormat(), img.getPixelFormat(), GL_UNSIGNED_BYTE,
-                     newData, osg::Image::AllocationMode::USE_NEW_DELETE); return true;
+                     newData, osg::Image::USE_NEW_DELETE); return true;
     }
 
     bool generateMipmaps(osg::Image& image, bool useKaiser)

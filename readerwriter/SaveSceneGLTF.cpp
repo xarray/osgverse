@@ -46,7 +46,7 @@ public:
     void pushDescriptions(osg::Node& node)
     {
         const std::vector<std::string>& d = node.getDescriptions();
-        _extraStringList.insert(_extraStringList.end(), _extraStringList.begin(), _extraStringList.end());
+        _extraStringList.insert(_extraStringList.end(), d.begin(), d.end());
     }
 
     void popDescriptions(osg::Node& node)
@@ -100,9 +100,9 @@ public:
         tinygltf::Node& gltfNode = _model->nodes.back(); gltfNode.name = geometry.getName();
         if (geometry.getName().empty()) gltfNode.name = geometry.className();
 
-        std::string extraJsonString = _extraStringList.empty() ? "" : _extraStringList.front();
-        for (size_t i = 1; i < _extraStringList.size(); ++i) extraJsonString += ", " + _extraStringList[i];
-        if (_extraStringList.size() > 1) gltfNode.extras_json_string = "[" + extraJsonString + "]";
+        std::vector<tinygltf::Value> extraStrings; std::map<std::string, tinygltf::Value> extraObj;
+        for (size_t i = 0; i < _extraStringList.size(); ++i) extraStrings.push_back(tinygltf::Value(_extraStringList[i]));
+        if (!extraStrings.empty()) { extraObj["descriptions"] = tinygltf::Value(extraStrings); gltfNode.extras = tinygltf::Value(extraObj); }
 
         osg::Matrix matrix; if (_matrixStack.size() > 0) matrix = _matrixStack.back();
         gltfNode.matrix.assign(matrix.ptr(), matrix.ptr() + 16);
