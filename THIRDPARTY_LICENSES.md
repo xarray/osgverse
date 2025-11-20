@@ -46,16 +46,17 @@
 | MeshOptimizer    | Embedded | 0.26      | Modeling           | MIT          | https://github.com/zeux/meshoptimizer |
 | METIS            | Embedded | 5.2.1     | Modeling           | Apache2      | https://github.com/KarypisLab/METIS |
 | mikktspace       | Embedded |           | Pipeline           | Public       | https://github.com/mmikk/MikkTSpace |
+| miniaudio        | Embedded | 0.11.23   | ReaderWriter       | Public       | https://github.com/mackron/miniaudio |
 | miniz            | Embedded |           | -                  | MIT          | https://github.com/richgel999/miniz |
 | mio              | Embedded |           | -                  | MIT          | https://github.com/vimpunk/mio |
 | nanoflann        | Embedded |           | -                  | BSD          | https://github.com/jlblancoc/nanoflann |
 | nanoid           | Embedded |           | -                  | MIT          | https://github.com/mcmikecreations/nanoid_cpp |
-| NormalGenerator  | Embedded |           | Pipeline           |              | |
+| NormalGenerator  | Embedded |           | Pipeline           | -            | |
 | OpenFBX          | Embedded |           | verse_fbx          | MIT          | https://github.com/nem0/OpenFBX |
 | otl              | Embedded | 4.0       | verse_odbc         | BSD          | http://otl.sourceforge.net |
 | ozz-animation    | Embedded | 0.16.0    | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
 | picojson         | Embedded |           | -                  | BSD2         | https://github.com/kazuho/picojson |
-| pinyin           | Embedded |           | UI                 |              | |
+| pinyin           | Embedded |           | UI                 | -            | |
 | pmp-library      | Embedded |           | Modeling           | MIT          | https://github.com/pmp-library/pmp-library |
 | PoissonGenerator | Embedded |           | Pipeline           | -            | |
 | polylabel        | Embedded | 2.0.1     | Modeling           | ISC          | https://github.com/mapbox/polylabel |
@@ -69,7 +70,7 @@
 | simdb            | Embedded |           | ReaderWriter       | Apache2      | https://github.com/LiveAsynchronousVisualizedArchitecture/simdb |
 | shapelib         | Embedded | 1.6.2     | verse_shp          | MIT          | https://github.com/OSGeo/shapelib |
 | span             | Embedded |           | -                  | Boost        | https://github.com/tcbrindle/span |
-| spz              | Embedded |           | verse_3dgs_        | MIT          | https://github.com/nianticlabs/spz |
+| spz              | Embedded |           | verse_3dgs         | MIT          | https://github.com/nianticlabs/spz |
 | sqlite3          | Embedded |           | verse_mbtiles      | Public       | https://www.sqlite.org/index.html |
 | stb              | Embedded |           | verse_image        | MIT / Public | https://github.com/nothings/stb |
 | strtk            | Embedded |           | -                  | MIT          | https://github.com/ArashPartow/strtk |

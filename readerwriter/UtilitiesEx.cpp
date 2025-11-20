@@ -16,13 +16,17 @@
 #include <iomanip>
 #include <cctype>
 
-#define RGBCX_IMPLEMENTATION
-#include <bc7_rdo/rgbcx.h>
-#include <xxYUV/rgb2yuv.h>
-#include <avir/avir.h>
+#include "Utilities.h"
 #include <libhv/all/client/requests.h>
 #include <libhv/all/base64.h>
-#include "Utilities.h"
+#include <xxYUV/rgb2yuv.h>
+#include <avir/avir.h>
+#include <nanoid/nanoid.h>
+
+#define MINIAUDIO_IMPLEMENTATION
+#include <miniaudio.h>
+#define RGBCX_IMPLEMENTATION
+#include <bc7_rdo/rgbcx.h>
 
 using namespace osgVerse;
 #define ALIGN(v, a) ((v) + ((a) - 1) & ~((a) - 1))
@@ -540,4 +544,138 @@ namespace osgVerse
         }
         return buffer;
     }
+}
+
+/// AudioPlayer ///
+struct AudioPlayingMixer
+{
+    static void dataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount)
+    {
+        float* outputF = (float*)output;
+        memset(outputF, 0, frameCount * device->playback.channels * sizeof(float));
+        AudioPlayingMixer* mixer = (AudioPlayingMixer*)device->pUserData;
+
+        ma_mutex_lock(&mixer->lock);
+        std::map<std::string, osg::ref_ptr<AudioPlayer::Clip>>& clips = mixer->player->getClips();
+        for (std::map<std::string, osg::ref_ptr<AudioPlayer::Clip>>::iterator it = clips.begin();
+             it != clips.end(); ++it)
+        {
+            AudioPlayer::Clip* clip = it->second.get();
+            if (clip->state != AudioPlayer::Clip::PLAYING) continue;
+            
+            float data[4096]; ma_uint64 framesRead = 0;
+            ma_result result = ma_decoder_read_pcm_frames(clip->decoder, data, frameCount, &framesRead);
+            if (result == MA_SUCCESS && framesRead > 0)
+            {
+                for (ma_uint32 frame = 0; frame < framesRead; ++frame)
+                    for (ma_uint32 ch = 0; ch < device->playback.channels; ++ch)
+                    {
+                        float sample = data[frame * device->playback.channels + ch] * clip->volume;
+                        outputF[(framesRead + frame) * device->playback.channels + ch] += sample;
+                    }
+            }
+
+            if (framesRead < frameCount)
+            {
+                if (clip->looping)
+                {
+                    ma_uint64 remainingFrames = frameCount - framesRead;
+                    ma_decoder_seek_to_pcm_frame(clip->decoder, 0);
+                    result = ma_decoder_read_pcm_frames(clip->decoder, data, remainingFrames, &framesRead);
+                    if (result == MA_SUCCESS && framesRead > 0)
+                    {
+                        for (ma_uint32 frame = 0; frame < framesRead; ++frame)
+                            for (ma_uint32 ch = 0; ch < device->playback.channels; ++ch)
+                            {
+                                float sample = data[frame * device->playback.channels + ch] * clip->volume;
+                                outputF[(framesRead + frame) * device->playback.channels + ch] += sample;
+                            }
+                    }
+                }
+                else
+                    clip->state = AudioPlayer::Clip::STOPPED;
+            }
+        }
+        ma_mutex_unlock(&mixer->lock);
+    }
+
+    AudioPlayer* player;
+    ma_mutex lock;
+};
+
+AudioPlayer* AudioPlayer::instance()
+{
+    static osg::ref_ptr<AudioPlayer> s_instance = new AudioPlayer;
+    return s_instance.get();
+}
+
+AudioPlayer::AudioPlayer()
+{
+    _mixer = new AudioPlayingMixer;
+    ma_mutex_init(&(_mixer->lock)); _mixer->player = this;
+
+    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
+    deviceConfig.playback.format = ma_format_f32;
+    deviceConfig.playback.channels = 2;
+    deviceConfig.sampleRate = 48000;
+    deviceConfig.dataCallback = AudioPlayingMixer::dataCallback;
+    deviceConfig.pUserData = _mixer;
+
+    _device = new ma_device;
+    if (ma_device_init(NULL, &deviceConfig, _device) != MA_SUCCESS)
+        { OSG_FATAL << "[AudioPlayer] Failed to open playback device\n"; }
+    else
+        ma_device_start(_device);
+}
+
+AudioPlayer::~AudioPlayer()
+{
+    for (std::map<std::string, osg::ref_ptr<Clip>>::iterator it = _clips.begin();
+         it != _clips.end(); ++it)
+    { ma_decoder_uninit(it->second->decoder); delete it->second->decoder; }
+    ma_device_uninit(_device);
+    ma_mutex_uninit(&(_mixer->lock));
+    delete _device; delete _mixer;
+}
+
+bool AudioPlayer::addFile(const std::string& file, bool autoPlay, bool looping)
+{
+    if (_clips.find(file) != _clips.end()) return false;
+    else ma_mutex_lock(&_mixer->lock);
+
+    osg::ref_ptr<Clip> clip = new Clip; clip->decoder = new ma_decoder;
+    ma_decoder_config decoderConfig = ma_decoder_config_init(ma_format_f32, 2, 48000);
+    ma_result result = ma_decoder_init_file(file.c_str(), &decoderConfig, clip->decoder);
+    if (result != MA_SUCCESS)
+    {
+        OSG_WARN << "[AudioPlayer] Failed to create clip: " << result << "\n";
+        ma_mutex_unlock(&_mixer->lock); return false;
+    }
+
+    if (autoPlay) clip->state = Clip::PLAYING; clip->looping = looping;
+    _clips[file] = clip; ma_mutex_unlock(&_mixer->lock); return true;
+}
+
+bool AudioPlayer::removeFile(const std::string& file)
+{
+    std::map<std::string, osg::ref_ptr<Clip>>::iterator it = _clips.find(file);
+    if (it != _clips.end())
+    {
+        ma_mutex_lock(&_mixer->lock); ma_decoder_uninit(it->second->decoder);
+        delete it->second->decoder; _clips.erase(it);
+        ma_mutex_unlock(&_mixer->lock); return true;
+    }
+    return false;
+}
+
+AudioPlayer::Clip* AudioPlayer::getClip(const std::string& file)
+{
+    std::map<std::string, osg::ref_ptr<Clip>>::iterator it = _clips.find(file);
+    return it == _clips.end() ? NULL : it->second.get();
+}
+
+const AudioPlayer::Clip* AudioPlayer::getClip(const std::string& file) const
+{
+    std::map<std::string, osg::ref_ptr<Clip>>::const_iterator it = _clips.find(file);
+    return it == _clips.end() ? NULL : it->second.get();
 }

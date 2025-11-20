@@ -25,6 +25,10 @@ extern void emscripten_advance();
 #define GL_RG32F                          0x8230
 #endif
 
+struct ma_device;
+struct ma_decoder;
+struct AudioPlayingMixer;
+
 namespace osgVerse
 {
     class OSGVERSE_RW_EXPORT EncodedFrameObject : public osg::Object
@@ -257,6 +261,35 @@ namespace osgVerse
         /** Set a TCP/UDP/WS socket or websocket server for sending out messages */
         static int socketWriter(osg::Referenced* socketListenerOrWsServer, const std::string& target,
                                 const std::vector<unsigned char>& data);
+    };
+
+    /** Audio playback interface */
+    class OSGVERSE_RW_EXPORT AudioPlayer : public osg::Referenced
+    {
+    public:
+        struct OSGVERSE_RW_EXPORT Clip : public osg::Referenced
+        {
+            enum State { STOPPED = 0, PLAYING, PAUSED } state;
+            float volume; bool looping; struct ma_decoder* decoder;
+            Clip() : state(STOPPED), volume(1.0f), looping(false), decoder(NULL) {}
+        };
+        static AudioPlayer* instance();
+
+        bool addFile(const std::string& file, bool autoPlay, bool looping);
+        bool removeFile(const std::string& file);
+        Clip* getClip(const std::string& file);
+        const Clip* getClip(const std::string& file) const;
+
+        std::map<std::string, osg::ref_ptr<Clip>>& getClips() { return _clips; }
+        const std::map<std::string, osg::ref_ptr<Clip>>& getClips() const { return _clips; }
+
+    protected:
+        AudioPlayer();
+        virtual ~AudioPlayer();
+
+        std::map<std::string, osg::ref_ptr<Clip>> _clips;
+        struct ma_device* _device;
+        struct AudioPlayingMixer* _mixer;
     };
 
     /** Load content from local file or network protocol */
