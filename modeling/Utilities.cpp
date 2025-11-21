@@ -705,7 +705,7 @@ namespace osgVerse
 
     osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na,
                                   osg::Vec2Array* ta, osg::PrimitiveSet* p,
-                                  bool autoNormals, bool useVBO)
+                                  bool autoNormals, bool useVBO, bool autoOptimize)
     {
         if (!va || !p)
         {
@@ -744,14 +744,14 @@ namespace osgVerse
         }
         else if (autoNormals)
             osgUtil::SmoothingVisitor::smooth(*geom);
-        if (p->getMode() >= GL_TRIANGLES) optimizeIndices(*geom);
+        if (autoOptimize && p->getMode() >= GL_TRIANGLES) optimizeIndices(*geom);
         return geom.release();
     }
 
     osg::Geometry* createGeometry(osg::Vec3Array* va, osg::Vec3Array* na, const osg::Vec4& color,
-                                  osg::PrimitiveSet* p, bool autoNormals, bool useVBO)
+                                  osg::PrimitiveSet* p, bool autoNormals, bool useVBO, bool autoOptimize)
     {
-        osg::Geometry* geom = createGeometry(va, na, NULL, p, autoNormals, useVBO);
+        osg::Geometry* geom = createGeometry(va, na, NULL, p, autoNormals, useVBO, autoOptimize);
         osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getColorArray());
         if (ca) ca->assign(ca->size(), color); return geom;
     }

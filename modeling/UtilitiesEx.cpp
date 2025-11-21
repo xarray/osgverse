@@ -760,7 +760,8 @@ namespace osgVerse
     osg::Geometry* createExtrusionGeometry(const PointList3D& outer, const std::vector<PointList3D>& inners,
                                            const osg::Vec3& height, bool withSplinePoints, bool withCaps)
     {
-        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array, na = new osg::Vec3Array;
+        osg::ref_ptr<osg::Vec3Array> vaCap0 = new osg::Vec3Array, vaCap1 = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array;
         PointList3D pathEx = withSplinePoints ? osgVerse::createBSpline(outer, outer.size() * 4) : outer;
         std::vector<PointList3D> pathIn = inners;
@@ -768,64 +769,89 @@ namespace osgVerse
             for (size_t i = 0; i < pathIn.size(); ++i)
                 pathIn[i] = osgVerse::createBSpline(pathIn[i], pathIn[i].size() * 4);
 
-        osg::ref_ptr<osg::DrawElementsUInt> deWall = new osg::DrawElementsUInt(GL_QUADS);
+        osg::ref_ptr<osg::DrawElementsUInt> deWall = new osg::DrawElementsUInt(GL_TRIANGLES);
         bool closed = (pathEx.front() == pathEx.back() || !inners.empty());
         if (closed && pathEx.front() == pathEx.back()) pathEx.pop_back();
 
         size_t eSize = pathEx.size(); float eStep = 1.0f / (float)eSize;
         for (size_t i = 0; i <= eSize; ++i)
         {   // outer walls
-            if (!closed && i == eSize) continue;
+            if (!closed && i == eSize) continue; size_t start = va->size();
             va->push_back(pathEx[i % eSize]); ta->push_back(osg::Vec2((float)i * eStep, 0.0f));
+            if (withCaps) { vaCap0->push_back(va->back()); }
             va->push_back(pathEx[i % eSize] + height); ta->push_back(osg::Vec2((float)i * eStep, 1.0f));
-            if (i > 0)
-            {
-                deWall->push_back(2 * (i - 1) + 1); deWall->push_back(2 * (i - 1));
-                deWall->push_back(2 * i); deWall->push_back(2 * i + 1);
-            }
+            if (withCaps) { vaCap1->push_back(va->back()); }
+            va->push_back(pathEx[(i + 1) % eSize]); ta->push_back(osg::Vec2((float)(i + 1) * eStep, 0.0f));
+            if (withCaps && i < eSize) { vaCap0->push_back(va->back()); }
+            va->push_back(pathEx[(i + 1) % eSize] + height); ta->push_back(osg::Vec2((float)(i + 1) * eStep, 1.0f));
+            if (withCaps && i < eSize) { vaCap1->push_back(va->back()); }
+
+            osg::Plane plane(va->at(start), va->at(start + 1), va->at(start + 2));
+            osg::Vec3 N = -plane.getNormal(); na->push_back(N); na->push_back(N); na->push_back(N); na->push_back(N);
+            deWall->push_back(start + 1); deWall->push_back(start); deWall->push_back(start + 2);
+            deWall->push_back(start + 1); deWall->push_back(start + 2); deWall->push_back(start + 3);
         }
 
-        std::vector<size_t> vStartList;
+        std::vector<osg::ref_ptr<osg::Vec3Array>> inCapList0, inCapList1;
         for (size_t j = 0; j < pathIn.size(); ++j)
         {   // inner walls
+            osg::ref_ptr<osg::Vec3Array> inCap0 = new osg::Vec3Array, inCap1 = new osg::Vec3Array;
             const PointList3D& path0 = pathIn[j]; size_t vStart = va->size(), iSize = path0.size();
-            float iStep = 1.0f / (float)iSize; vStartList.push_back(vStart);
+            float iStep = 1.0f / (float)iSize; inCapList0.push_back(inCap0); inCapList1.push_back(inCap1);
             for (size_t i = 0; i <= iSize; ++i)
             {
+                size_t start = va->size();
                 va->push_back(path0[i % iSize]); ta->push_back(osg::Vec2((float)i * iStep, 0.0f));
+                if (withCaps) { inCap0->push_back(va->back()); }
                 va->push_back(path0[i % iSize] + height); ta->push_back(osg::Vec2((float)i * iStep, 1.0f));
-                if (i > 0)
-                {
-                    deWall->push_back(vStart + 2 * (i - 1)); deWall->push_back(vStart + 2 * (i - 1) + 1);
-                    deWall->push_back(vStart + 2 * i + 1); deWall->push_back(vStart + 2 * i);
-                }
+                if (withCaps) { inCap1->push_back(va->back()); }
+                va->push_back(path0[(i + 1) % iSize]); ta->push_back(osg::Vec2((float)(i + 1) * iStep, 0.0f));
+                if (withCaps && i < iSize) { inCap0->push_back(va->back()); }
+                va->push_back(path0[(i + 1) % iSize] + height); ta->push_back(osg::Vec2((float)(i + 1) * iStep, 1.0f));
+                if (withCaps && i < iSize) { inCap1->push_back(va->back()); }
+
+                osg::Plane plane(va->at(start), va->at(start + 1), va->at(start + 2));
+                osg::Vec3 N = plane.getNormal(); na->push_back(N); na->push_back(N); na->push_back(N); na->push_back(N);
+                deWall->push_back(start + 1); deWall->push_back(start); deWall->push_back(start + 2);
+                deWall->push_back(start + 1); deWall->push_back(start + 2); deWall->push_back(start + 3);
             }
         }
 
-        osg::ref_ptr<osg::Geometry> geom = createGeometry(va.get(), NULL, ta.get(), deWall.get());
+        osg::Vec3 hNormal = height; hNormal.normalize();
         if (withCaps)
         {
-            osg::ref_ptr<osg::DrawElementsUInt> deCap0 = new osg::DrawElementsUInt(GL_POLYGON);
-            osg::ref_ptr<osg::DrawElementsUInt> deCap1 = new osg::DrawElementsUInt(GL_POLYGON);
-            for (size_t i = 0; i <= eSize; ++i)
-            {
-                if (!closed && i == eSize) continue;
-                deCap0->insert(deCap0->begin(), 2 * i); deCap1->push_back(2 * i + 1);
-            }
-
+            // Create single cap geometries and tessellate them
             for (size_t j = 0; j < pathIn.size(); ++j)
             {
-                size_t vStart = vStartList[j], iSize = pathIn[j].size();
-                for (size_t i = 0; i <= iSize; ++i)
-                {
-                    deCap0->push_back(vStart + 2 * (iSize - i));
-                    deCap1->push_back(vStart + 2 * (iSize - i) + 1);
-                }
+                vaCap0->insert(vaCap0->end(), inCapList0[j]->begin(), inCapList0[j]->end());
+                vaCap1->insert(vaCap1->end(), inCapList1[j]->begin(), inCapList1[j]->end());
             }
-            geom->addPrimitiveSet(deCap0.get()); geom->addPrimitiveSet(deCap1.get());
-            tessellateGeometry(*geom, height);
+            osg::ref_ptr<osg::Geometry> geomCap0 = osgVerse::createGeometry(
+                vaCap0.get(), NULL, NULL, new osg::DrawArrays(GL_POLYGON, 0, vaCap0->size()), false, true, false);
+            osg::ref_ptr<osg::Geometry> geomCap1 = osgVerse::createGeometry(
+                vaCap1.get(), NULL, NULL, new osg::DrawArrays(GL_POLYGON, 0, vaCap1->size()), false, true, false);
+            tessellateGeometry(*geomCap0, -hNormal); tessellateGeometry(*geomCap1, hNormal);
+
+            // Obtain tessellated vertices and triangles and add them to main geometry
+            MeshCollector mc0; mc0.apply(*geomCap0); size_t capStart = va->size();
+            for (size_t i = 0; i < mc0.getVertices().size(); ++i)
+            {
+                ta->push_back(osg::Vec2(0.5f, 0.5f)); na->push_back(-hNormal);
+                va->push_back(mc0.getVertices()[i]);
+            }
+            for (size_t i = 0; i < mc0.getTriangles().size(); ++i)
+                deWall->push_back(capStart + mc0.getTriangles()[i]);
+            
+            MeshCollector mc1; mc1.apply(*geomCap1); capStart = va->size();
+            for (size_t i = 0; i < mc1.getVertices().size(); ++i)
+            {
+                ta->push_back(osg::Vec2(0.5f, 0.5f)); na->push_back(hNormal);
+                va->push_back(mc1.getVertices()[i]);
+            }
+            for (size_t i = 0; i < mc1.getTriangles().size(); ++i)
+                deWall->push_back(capStart + mc1.getTriangles()[i]);
         }
-        return geom.release();
+        return osgVerse::createGeometry(va.get(), na.get(), ta.get(), deWall.get());
     }
 
     osg::Geometry* createLoftGeometry(const PointList3D& path, const std::vector<PointList3D>& sections,
