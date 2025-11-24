@@ -6,7 +6,7 @@ SET(LIBRARY_INCLUDE_FILES
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h SaveSceneGLTF.cpp SaveSceneGLTF.h MimeTypes.cpp
-    DracoProcessor.cpp FileCache.cpp DatabasePager.cpp OsgbTileOptimizer.cpp
+    DracoProcessor.cpp FileCache.cpp DatabasePager.cpp OsgbTileOptimizer.cpp FeatureDefinition.cpp
     TileCallback.cpp EarthManipulator.cpp MaterialGraph.cpp Utilities.cpp UtilitiesEx.cpp
 )
 

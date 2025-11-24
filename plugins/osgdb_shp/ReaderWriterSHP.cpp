@@ -54,6 +54,9 @@ public:
             SHPDestroyObject(shape);
         }
         SHPClose(shp);
+
+        // TODO
+        return ReadResult::FILE_NOT_HANDLED;
     }
 
 protected:
