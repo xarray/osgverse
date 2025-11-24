@@ -684,7 +684,7 @@ const std::vector<PointCloudQuery::PointData>& PointCloudQuery::getPoints() cons
 void PointCloudQuery::buildIndex(int maxLeafSize)
 {
     PointCloudData* pcd = (PointCloudData*)_queryData;
-    if (_index != NULL) delete _index;
+    if (_index != NULL) { KdTreeType* kd0 = (KdTreeType*)_index; delete kd0; }
     KdTreeType* kdtree = new KdTreeType(3, *pcd, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeafSize));
     kdtree->buildIndex(); _index = kdtree;
 }

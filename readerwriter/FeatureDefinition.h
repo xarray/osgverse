@@ -62,7 +62,8 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT void drawFeatureToImage(Feature& f, Drawer2D* drawer, DrawerStyleData* style = NULL);
 
     /** Add the feature to an existing geometry */
-    OSGVERSE_RW_EXPORT void addFeatureToGeometry(Feature& f, osg::Geometry* geom, bool asNewPrimitiveSet);
+    OSGVERSE_RW_EXPORT void addFeatureToGeometry(Feature& f, osg::Geometry* geom, bool asNewPrimitiveSet,
+                                                 const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 }
 
 #endif

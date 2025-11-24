@@ -310,7 +310,7 @@ namespace osgVerse
                 osg::Image::AllocationMode m = osg::Image::USE_NEW_DELETE;
                 switch (comp)
                 {
-                case 1: img.setImage(w, h, 1, GL_R8, GL_R, GL_UNSIGNED_BYTE, newData, m); break;
+                case 1: img.setImage(w, h, 1, GL_LUMINANCE8, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData, m); break;
                 case 2: img.setImage(w, h, 1, GL_RG8, GL_RG, GL_UNSIGNED_BYTE, newData, m); break;
                 case 3: img.setImage(w, h, 1, GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE, newData, m); break;
                 default: img.setImage(w, h, 1, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, newData, m); break;

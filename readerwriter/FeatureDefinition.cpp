@@ -33,6 +33,12 @@ static osg::PrimitiveSet* createDelaunayTriangulation(
         return new osg::DrawElementsUInt(GL_TRIANGLES, f.triangles.begin(), f.triangles.end());
 }
 
+static void findAndAddToPrimitiveSet(osg::Geometry& geom, osg::PrimitiveSet& p, size_t vStart, bool asNewPrimitiveSet)
+{
+    // TODO: reorder vertex indices according to vStart
+    // TODO: find a suitable existing primitive-set and add to it, or create a new one
+}
+
 namespace osgVerse
 {
     void drawFeatureToImage(Feature& f, Drawer2D* drawer, DrawerStyleData* style0)
@@ -96,9 +102,50 @@ namespace osgVerse
         }
     }
 
-    void addFeatureToGeometry(Feature& f, osg::Geometry* geom, bool asNewPrimitiveSet)
+    void addFeatureToGeometry(Feature& f, osg::Geometry* geom, bool asNewPrimitiveSet, const osg::Vec4& color)
     {
+        osg::Vec3Array* va = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
+        osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geom->getColorArray());
+        if (!va) { va = new osg::Vec3Array; geom->setVertexArray(va); }
+
+        size_t vStart = va->size(); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        if (!ca) { ca = new osg::Vec4Array; geom->setColorArray(ca); }
+        if (ca->size() != vStart) ca->resize(vStart);
+        
         const std::vector<osg::ref_ptr<osg::Vec3Array>>& ptList = f.getPointList();
-        // TODO
+        switch (f.getType())
+        {
+        case GL_POLYGON:
+            if (!ptList.empty())
+            {
+                osg::ref_ptr<osg::Geometry> geomToTess = new osg::Geometry;
+                osg::ref_ptr<osg::Vec3Array> vaToTess = new osg::Vec3Array;
+                geomToTess->setVertexArray(vaToTess.get());
+
+                std::vector<osg::ref_ptr<osg::DrawArrays>> polygonsToTess;
+                for (unsigned int i = 0; i < ptList.size(); ++i)
+                {
+                    osg::Vec3Array* subV = ptList[i].get(); size_t s0 = vaToTess->size();
+                    vaToTess->insert(vaToTess->end(), subV->begin(), subV->end());
+                    polygonsToTess.push_back(new osg::DrawArrays(GL_POLYGON, s0, vaToTess->size() - s0));
+                }
+
+                osg::ref_ptr<osg::PrimitiveSet> p = createDelaunayTriangulation(*geomToTess, polygonsToTess);
+                va->insert(va->end(), vaToTess->begin(), vaToTess->end());
+                ca->insert(ca->end(), vaToTess->size(), color);
+                if (p.valid()) findAndAddToPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet);
+            }
+            break;
+        default:
+            for (unsigned int i = 0; i < ptList.size(); ++i)
+            {
+                osg::Vec3Array* subV = ptList[i].get();
+                va->insert(va->end(), subV->begin(), subV->end());
+                ca->insert(ca->end(), subV->size(), color);
+            }
+
+            osg::ref_ptr<osg::PrimitiveSet> p = new osg::DrawArrays(f.getType(), 0, va->size() - vStart);
+            findAndAddToPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet); break;
+        }
     }
 }

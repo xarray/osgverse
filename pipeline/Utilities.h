@@ -251,9 +251,12 @@ namespace osgVerse
     class QuickEventHandler : public osgGA::GUIEventHandler
     {
     public:
+        typedef std::function<bool(const osgGA::GUIEventAdapter&, osgGA::GUIActionAdapter&)> HandleCallback;
         typedef std::function<void(int, int)> MouseCallback;
         typedef std::function<void (int)> KeyCallback;
+
         virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
+        void setHandleCallback(HandleCallback cb) { _handleCallback = cb; }
 
         void addMouseDownCallback(int btn, MouseCallback cb) { _pushCallbacks[btn] = cb; }
         void addMouseUpCallback(int btn, MouseCallback cb) { _clickCallbacks[btn] = cb; }
@@ -270,6 +273,39 @@ namespace osgVerse
     protected:
         std::map<int, MouseCallback> _pushCallbacks, _clickCallbacks, _dbClickCallbacks;
         std::map<int, KeyCallback> _keyCallbacks0, _keyCallbacks1;
+        HandleCallback _handleCallback;
+    };
+
+    /** Quick thread processor for testing purpose */
+    class QuickThread : public OpenThreads::Thread
+    {
+    public:
+        typedef std::function<void()> ThreadCallback;
+        void setPreProcessor(ThreadCallback cb) { _preprocessor = cb; }
+        void setProcessor(ThreadCallback cb) { _runner = cb; }
+        void setPostProcessor(ThreadCallback cb) { _postprocessor = cb; }
+
+        virtual int cancel()
+        { _running = false; return OpenThreads::Thread::cancel(); }
+
+        virtual void quit()
+        { cancel(); while (isRunning()) YieldCurrentThread(); join(); }
+
+        virtual void run()
+        {
+            _running = true;
+            if (_preprocessor) _preprocessor();
+            while (_running)
+            {
+                if (_runner) _runner();
+                OpenThreads::Thread::YieldCurrentThread();
+            }
+            if (_postprocessor) _postprocessor();
+        }
+
+    protected:
+        ThreadCallback _preprocessor, _runner, _postprocessor;
+        bool _running;
     };
 
     /** Colorized LOG handler that can help display shader information */

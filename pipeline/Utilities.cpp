@@ -1233,7 +1233,7 @@ namespace osgVerse
             int key = ea.getKey();
             if (_keyCallbacks1.find(key) != _keyCallbacks1.end()) _keyCallbacks1[key](key);
         }
-        return false;
+        return (_handleCallback != NULL) ? _handleCallback(ea, aa) : false;
     }
 
     /** ConsoleHandler **/
