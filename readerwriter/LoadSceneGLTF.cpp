@@ -216,7 +216,8 @@ namespace osgVerse
             if (!data)
             {
                 if (err) (*err) += "Unknown image format. Failed to decode image: " + image->name +
-                                   " [" + std::to_string(image_idx) + "], " + image->mimeType + "\n";
+                                   ", ID = " + std::to_string(image_idx) + ", Mimetype = " + image->mimeType +
+                                   ", Size = " + std::to_string(size) + "\n";
                 return false;
             }
         }

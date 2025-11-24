@@ -18,19 +18,22 @@ namespace osgVerse
     class SaverGLTF : public osg::Referenced
     {
     public:
-        SaverGLTF(const osg::Node& node, std::ostream& out, const std::string& d, bool isBinary);
-        tinygltf::Model& getModelData() { return _modelDef; }
+        SaverGLTF(const osg::Node& node, std::ostream& out, const std::string& dir,
+                  const std::string& imgHint, bool isBinary);
+        tinygltf::Model* getModelData() { return _modelDef; }
         bool getResult() const { return _done; }
 
     protected:
-        virtual ~SaverGLTF() {}
+        virtual ~SaverGLTF();
 
-        tinygltf::Model _modelDef;
+        tinygltf::Model* _modelDef;
         bool _done;
     };
 
-    OSGVERSE_RW_EXPORT bool saveGltf(const osg::Node& node, const std::string& file, bool isBinary);
-    OSGVERSE_RW_EXPORT bool saveGltf2(const osg::Node& node, std::ostream& out, const std::string& dir, bool isBinary);
+    OSGVERSE_RW_EXPORT bool saveGltf(const osg::Node& node, const std::string& file,
+                                     const std::string& imgHint, bool isBinary);
+    OSGVERSE_RW_EXPORT bool saveGltf2(const osg::Node& node, std::ostream& out, const std::string& dir,
+                                      const std::string& imgHint, bool isBinary);
 }
 
 #endif

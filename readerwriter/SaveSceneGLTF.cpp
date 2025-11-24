@@ -6,6 +6,7 @@
 #include <osg/Texture2D>
 #include <osg/Geometry>
 #include <osgDB/ConvertUTF>
+#include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
@@ -15,6 +16,7 @@
 #include "LoadTextureKTX.h"
 #include <picojson.h>
 #include <algorithm>
+#include <iostream>
 
 #ifdef VERSE_USE_DRACO
 #   define TINYGLTF_ENABLE_DRACO
@@ -28,8 +30,28 @@
 
 class GltfSceneWriter : public osgVerse::NodeVisitorEx
 {
+#define NEW_BUFFER(id, src, srcType, gltfTarget) \
+    id = (int)_model->bufferViews.size(); \
+    _model->buffers.push_back(tinygltf::Buffer()); tinygltf::Buffer& buf = _model->buffers.back(); \
+    _model->bufferViews.push_back(tinygltf::BufferView()); tinygltf::BufferView& view = _model->bufferViews.back(); \
+    size_t dSize = src.size() * sizeof(srcType); buf.data.resize(dSize); memcpy(buf.data.data(), &src[0], dSize); \
+    view.buffer = _model->buffers.size() - 1; view.byteOffset = 0; view.byteLength = dSize; view.target = gltfTarget;
+#define NEW_ACCESSOR(id, src, gltfType, gltfComp) \
+    id = (int)_model->accessors.size(); \
+    _model->accessors.push_back(tinygltf::Accessor()); tinygltf::Accessor& acc = _model->accessors.back(); \
+    acc.bufferView = _model->bufferViews.size() - 1; acc.byteOffset = 0; acc.count = (int)src.size(); acc.type = gltfType; \
+    acc.componentType = gltfComp; acc.minValues.clear(); acc.maxValues.clear(); acc.sparse.count = 0; acc.sparse.isSparse = false;
+
+#define NEW_V_BUFFER(id, src, srcType, gltfType, gltfComp) \
+    NEW_BUFFER(id, src, srcType, TINYGLTF_TARGET_ARRAY_BUFFER) \
+    NEW_ACCESSOR(id, src, gltfType, gltfComp)
+#define NEW_E_BUFFER(id, src, srcType, gltfType, gltfComp) \
+    NEW_BUFFER(id, src, srcType, TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER) \
+    NEW_ACCESSOR(id, src, gltfType, gltfComp)
+
 public:
-    GltfSceneWriter(tinygltf::Model* m, bool yUp) : osgVerse::NodeVisitorEx(), _model(m)
+    GltfSceneWriter(tinygltf::Model* m, const std::string& dir, const std::string& imgHint, bool yUp)
+    : osgVerse::NodeVisitorEx(), _model(m), _folder(dir), _imageHint(imgHint)
     { if (yUp) pushMatrix(osg::Matrix::rotate(osg::Z_AXIS, osg::Y_AXIS)); }
 
     struct TriangleCollector
@@ -66,21 +88,8 @@ public:
 
     virtual void apply(osg::Geometry& geometry)
     {
-        osgVerse::NodeVisitorEx::apply(geometry);  // traverse first to generate materials
-
-#define NEW_BUFFER_EX(id, src, srcType, gltfType, gltfComp, gltfTarget) \
-    id = (int)_model->accessors.size(); _model->buffers.push_back(tinygltf::Buffer()); tinygltf::Buffer& buf = _model->buffers.back(); \
-    _model->bufferViews.push_back(tinygltf::BufferView()); tinygltf::BufferView& view = _model->bufferViews.back(); \
-    _model->accessors.push_back(tinygltf::Accessor()); tinygltf::Accessor& acc = _model->accessors.back(); \
-    size_t dSize = src.size() * sizeof(srcType); buf.data.resize(dSize); memcpy(buf.data.data(), &src[0], dSize); \
-    view.buffer = _model->buffers.size() - 1; view.byteOffset = 0; view.byteLength = dSize; view.target = gltfTarget; \
-    acc.bufferView = _model->bufferViews.size() - 1; acc.byteOffset = 0; acc.count = (int)src.size(); acc.type = gltfType; \
-    acc.componentType = gltfComp; acc.minValues.clear(); acc.maxValues.clear(); acc.sparse.isSparse = 0;
-
-#define NEW_V_BUFFER(id, src, srcType, gltfType, gltfComp) \
-    NEW_BUFFER_EX(id, src, srcType, gltfType, gltfComp, TINYGLTF_TARGET_ARRAY_BUFFER)
-#define NEW_E_BUFFER(id, src, srcType, gltfType, gltfComp) \
-    NEW_BUFFER_EX(id, src, srcType, gltfType, gltfComp, TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER)
+        // Traverse first to generate materials
+        osgVerse::NodeVisitorEx::apply(geometry);
 
         // Get vertex attribute buffers/accessors
         int posID = -1, normID = -1, colID = -1, uv0ID = -1, uv1ID = -1; size_t vSize = 0;
@@ -260,6 +269,7 @@ public:
         std::string writeError, header = "data:" + mimeType + ";base64,";
         if (embedImages)
         {
+            if (!tinygltf::IsDataURI(header)) header = "data:application/octet-stream;base64,";
             if (data.size())   // Embed base64-encoded image into URI
                 *out_uri = header + osgVerse::WebAuxiliary::encodeBase64(data);
             else
@@ -310,44 +320,87 @@ protected:
         osg::Image* image = tex->getImage(0);  // FIXME: consider only 2D tex?
         if (!image) return -1;
 
-        int resultID = (int)_model->textures.size();
-        _model->images.push_back(tinygltf::Image());
+        int resultID = (int)_model->textures.size(), bufferID = 0;
         _model->textures.push_back(tinygltf::Texture());
         _model->samplers.push_back(tinygltf::Sampler());
-
-        tinygltf::Image& gltfImage = _model->images.back(); gltfImage.name = image->getName();
-        gltfImage.width = image->s(); gltfImage.height = image->t();
-        gltfImage.component = osg::Image::computeNumComponents(image->getPixelFormat());
-        gltfImage.bits = osg::Image::computePixelSizeInBits(image->getPixelFormat(), image->getDataType())
-                       / gltfImage.component;  // bits per channel
-        switch (gltfImage.bits)
+        if (_images.find(image) == _images.end())
         {
-        case 16: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT; break;
-        case 32: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT; break;
-        default: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE; break;
-        }
+            _images[image] = (int)_model->images.size();
+            _model->images.push_back(tinygltf::Image());
 
-        std::string ext = osgDB::getFileExtension(image->getFileName()), newExt;
-        std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
-        if (image->valid())
-        {
-            gltfImage.image.resize(image->getTotalSizeInBytes());
-            memcpy(gltfImage.image.data(), image->data(), image->getTotalSizeInBytes());
-            if (image->isCompressed())  // FIXME: assumed as DDS?
+            tinygltf::Image& gltfImage = _model->images.back(); gltfImage.name = image->getName();
+            gltfImage.width = image->s(); gltfImage.height = image->t();
+            gltfImage.component = osg::Image::computeNumComponents(image->getPixelFormat());
+            gltfImage.bits = osg::Image::computePixelSizeInBits(image->getPixelFormat(), image->getDataType())
+                           / gltfImage.component;  // bits per channel
+            switch (gltfImage.bits)
             {
-                gltfImage.mimeType = "image/dds"; gltfImage.as_is = true;
-                if (ext != "dds") newExt = ".dds";
+            case 16: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT; break;
+            case 32: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT; break;
+            default: gltfImage.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE; break;
             }
-            else
-            {   // FIXME: consider KTX?
-                if (image->isImageTranslucent()) { gltfImage.mimeType = "image/png"; if (ext != "png") newExt = ".png"; }
-                else { gltfImage.mimeType = "image/jpeg"; if (ext != "jpg" && ext != "jpeg") newExt = ".jpg"; }
+
+            std::string ext = osgDB::getFileExtension(image->getFileName()), newExt;
+            std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
+            if (image->valid())
+            {
+                unsigned fileSize = 0, hint = 0;  // WRITE_INLINE_DATA
+                if (_imageHint == "IncludeFile") hint = 1;       // WRITE_INLINE_FILE;
+                else if (_imageHint == "UseExternal") hint = 2;  // WRITE_USE_EXTERNAL;
+
+                if (hint == 1)
+                {
+                    std::string fullPath = osgDB::findDataFile(image->getFileName());
+                    if (fullPath.empty() == false)
+                    {   // Find external file and write its content into GLTF image
+                        osgDB::ifstream infile(fullPath.c_str(), std::ios::in | std::ios::binary);
+                        if (infile)
+                        {
+                            infile.seekg(0, std::ios::end); fileSize = infile.tellg(); infile.seekg(0, std::ios::beg);
+                            if (fileSize > 0)
+                            {
+                                std::string data; data.resize(fileSize); infile.read(&data[0], fileSize);
+                                NEW_BUFFER(bufferID, data, char, 0); gltfImage.bufferView = bufferID;
+                            }
+                            infile.close();
+                        }
+                    }
+                    else
+                    {   // No file on disk, try creating it with a plugin
+                        osgDB::ReaderWriter* writer = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+                        if (writer)
+                        {
+                            std::stringstream outputStream; writer->writeImage(*image, outputStream);
+                            std::string data(outputStream.str()); fileSize = data.size();
+                            NEW_BUFFER(bufferID, data, char, 0); gltfImage.bufferView = bufferID;
+                        }
+                    }
+                    gltfImage.mimeType = "image/" + ext; gltfImage.as_is = true;
+                }
+                else if (hint == 0)
+                {   // Default to write image data directly
+                    if (image->isCompressed())  // assumed as DDS?
+                    {
+                        std::vector<unsigned char> data(image->data(), image->data() + image->getTotalSizeInBytes());
+                        NEW_BUFFER(bufferID, data, char, 0); gltfImage.bufferView = bufferID;
+                        gltfImage.mimeType = "image/dds"; gltfImage.as_is = true;
+                        if (ext != "dds") newExt = ".dds";
+                    }
+                    else
+                    {   // use an internal encoder to write out the image
+                        gltfImage.image.resize(image->getTotalSizeInBytes());
+                        memcpy(gltfImage.image.data(), image->data(), image->getTotalSizeInBytes());
+                        if (image->isImageTranslucent()) { gltfImage.mimeType = "image/png"; if (ext != "png") newExt = ".png"; }
+                        else { gltfImage.mimeType = "image/jpeg"; if (ext != "jpg" && ext != "jpeg") newExt = ".jpg"; }
+                    }
+                }
             }
+            if (gltfImage.bufferView < 0) gltfImage.uri = image->getFileName() + newExt;
+            if (gltfImage.name.empty()) gltfImage.name = image->getFileName();
         }
-        gltfImage.uri = image->getFileName() + newExt;
 
         tinygltf::Texture& gltfTex = _model->textures.back();
-        gltfTex.source = _model->images.size() - 1;
+        gltfTex.source = _images[image];
         gltfTex.sampler = _model->samplers.size() - 1;
         gltfTex.name = tex->getName();
 
@@ -384,32 +437,45 @@ protected:
 
     std::map<osg::Geometry*, int> _geometries;
     std::map<osg::StateSet*, int> _statesets;
+    std::map<osg::Image*, int> _images;
     std::vector<std::string> _extraStringList;
     tinygltf::Model* _model;
     tinygltf::Scene _scene;
+    std::string _folder, _imageHint;
 };
 
 namespace osgVerse
 {
-    SaverGLTF::SaverGLTF(const osg::Node& node, std::ostream& out, const std::string& d, bool isBinary)
+    SaverGLTF::SaverGLTF(const osg::Node& node, std::ostream& out, const std::string& dir,
+                         const std::string& imgHint, bool isBinary)
     {
-        GltfSceneWriter sceneWriter(&_modelDef, true);
+        _modelDef = new tinygltf::Model;
+        GltfSceneWriter sceneWriter(_modelDef, dir, imgHint, true);
         const_cast<osg::Node&>(node).accept(sceneWriter); _done = true;
 
         sceneWriter.scene().name = "Scene: " + node.getName();
-        _modelDef.scenes.push_back(sceneWriter.scene());
-        _modelDef.defaultScene = 0;
-        _modelDef.asset.version = "2.0";
-        _modelDef.asset.generator = "osgVerse::SaverGLTF";
+        _modelDef->scenes.push_back(sceneWriter.scene());
+        _modelDef->defaultScene = 0;
+        _modelDef->asset.version = "2.0";
+        _modelDef->asset.generator = "osgVerse::SaverGLTF";
 
         tinygltf::TinyGLTF writer;
         writer.SetImageWriter(GltfSceneWriter::writeImageImplementation, &sceneWriter);
 
-        bool success = writer.WriteGltfSceneToStream(&_modelDef, out, true, isBinary);
+        bool success = writer.WriteGltfSceneToStream(_modelDef, out, true, isBinary);
         if (!success) { OSG_WARN << "[SaverGLTF] Unable to write GLTF scene\n"; _done = false; }
     }
 
-    bool saveGltf(const osg::Node& node, const std::string& file, bool isBinary)
+    SaverGLTF::~SaverGLTF()
+    {
+        _modelDef->buffers.clear(); _modelDef->bufferViews.clear(); _modelDef->images.clear();
+        _modelDef->textures.clear(); _modelDef->samplers.clear(); _modelDef->animations.clear();
+        _modelDef->meshes.clear(); _modelDef->nodes.clear(); _modelDef->scenes.clear();
+        //delete _modelDef;  // FIXME: will crash on ~Accessor::Sparse(), why?
+    }
+
+    bool saveGltf(const osg::Node& node, const std::string& file,
+                  const std::string& imgHint, bool isBinary)
     {
         std::string workDir = osgDB::getFilePath(file);
         std::ofstream out(file.c_str(), std::ios::out | std::ios::binary);
@@ -419,13 +485,14 @@ namespace osgVerse
             return false;
         }
 
-        osg::ref_ptr<SaverGLTF> saver = new SaverGLTF(node, out, workDir, isBinary);
+        osg::ref_ptr<SaverGLTF> saver = new SaverGLTF(node, out, workDir, imgHint, isBinary);
         return saver->getResult();
     }
 
-    bool saveGltf2(const osg::Node& node, std::ostream& out, const std::string& dir, bool isBinary)
+    bool saveGltf2(const osg::Node& node, std::ostream& out, const std::string& dir,
+                   const std::string& imgHint, bool isBinary)
     {
-        osg::ref_ptr<SaverGLTF> saver = new SaverGLTF(node, out, dir, isBinary);
+        osg::ref_ptr<SaverGLTF> saver = new SaverGLTF(node, out, dir, imgHint, isBinary);
         return saver->getResult();
     }
 }

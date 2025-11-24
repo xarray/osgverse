@@ -28,6 +28,10 @@ public:
         supportsOption("DisabledPBR", "Use PBR materials or not");
         supportsOption("ForcedPBR", "Force using PBR materials or not");
         supportsOption("UpAxis", "Set up axis to Y (0) or Z (1) (default = 0)");
+        supportsOption("WriteImageHint=<hint>", "Export option: Hint of writing image to stream: "
+                       "<IncludeData> writes Image::data() directly; "
+                       "<IncludeFile> writes the image file itself to stream; "
+                       "<UseExternal> writes only the filename.");
     }
 
     virtual const char* className() const
@@ -98,23 +102,25 @@ public:
 
     virtual WriteResult writeNode(const osg::Node& node, const std::string& path, const osgDB::Options* options) const
     {
-        std::string ext; std::string fileName = getRealFileName(path, ext);
+        std::string ext, imageHint; std::string fileName = getRealFileName(path, ext);
         if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
+        if (options) imageHint = options->getPluginStringData("WriteImageHint");
 
         bool success = false;
-        if (ext == "glb") success = osgVerse::saveGltf(node, fileName, true);
-        else success = osgVerse::saveGltf(node, fileName, false);
+        if (ext == "glb") success = osgVerse::saveGltf(node, fileName, imageHint, true);
+        else success = osgVerse::saveGltf(node, fileName, imageHint, false);
         return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 
     virtual WriteResult writeNode(const osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
     {
-        std::string dir = "", mode; bool isBinary = false;
+        std::string dir = "", mode, imageHint; bool isBinary = false;
         if (options)
         {
             dir = options->getPluginStringData("Directory");
             if (dir.empty()) dir = options->getPluginStringData("prefix");
 
+            imageHint = options->getPluginStringData("WriteImageHint");
             mode = options->getPluginStringData("Mode");
             std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
             if (mode == "binary") isBinary = true;
@@ -122,7 +128,7 @@ public:
 
         if (dir.empty() && options && !options->getDatabasePathList().empty())
             dir = options->getDatabasePathList().front();
-        bool success = osgVerse::saveGltf2(node, fout, dir, isBinary);
+        bool success = osgVerse::saveGltf2(node, fout, dir, imageHint, isBinary);
         return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 

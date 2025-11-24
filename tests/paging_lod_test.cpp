@@ -345,8 +345,10 @@ int main(int argc, char** argv)
 
             osg::ref_ptr<osgDB::Options> options = new osgDB::Options("WriteImageHint=IncludeFile");
             options->setPluginStringData("UseBASISU", "1");
-            osgDB::writeNodeFile(*node, std::string(argv[2]) + "_opt.osgb", options.get());
-            opt.deleteSavedTextures(); return 0;
+
+            std::string outExt = (argc > 3) ? argv[3] : "osgb";
+            osgDB::writeNodeFile(*node, std::string(argv[2]) + "_opt." + outExt, options.get());
+            opt.deleteSavedTextures(); std::cout << "Optimization finished\n"; return 0;
         }
     }
     else if (argc > 1)
