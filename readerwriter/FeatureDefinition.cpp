@@ -33,10 +33,38 @@ static osg::PrimitiveSet* createDelaunayTriangulation(
         return new osg::DrawElementsUInt(GL_TRIANGLES, f.triangles.begin(), f.triangles.end());
 }
 
-static void findAndAddToPrimitiveSet(osg::Geometry& geom, osg::PrimitiveSet& p, size_t vStart, bool asNewPrimitiveSet)
+static void findAndAddPrimitiveSet(osg::Geometry& geom, osg::PrimitiveSet& p, size_t vStart, bool asNewPrimitiveSet)
 {
-    // TODO: reorder vertex indices according to vStart
-    // TODO: find a suitable existing primitive-set and add to it, or create a new one
+    // Reorder vertex indices according to vStart
+    osg::TriangleIndexFunctor<TriangleCollector> f; p.accept(f);
+    for (size_t i = 0; i < f.triangles.size(); ++i) f.triangles[i] += vStart;
+
+    // Find a suitable existing primitive-set and add to it, or create a new one
+    size_t newNumTriangles = f.triangles.size(); bool applied = false;
+    if (!asNewPrimitiveSet)
+    {
+        for (size_t i = 0; i < geom.getNumPrimitiveSets(); ++i)
+        {
+            if (newNumTriangles < 65535)
+            {
+                osg::DrawElementsUShort* de0 = static_cast<osg::DrawElementsUShort*>(geom.getPrimitiveSet(i));
+                if (de0 && de0->getMode() == GL_TRIANGLES)
+                { de0->insert(de0->end(), f.triangles.begin(), f.triangles.end()); applied = true; break; }
+            }
+
+            osg::DrawElementsUInt* de = static_cast<osg::DrawElementsUInt*>(geom.getPrimitiveSet(i));
+            if (de && de->getMode() == GL_TRIANGLES)
+            { de->insert(de->end(), f.triangles.begin(), f.triangles.end()); applied = true; break; }
+        }
+    }
+    
+    if (!applied)
+    {
+        if (newNumTriangles < 65535)
+            geom.addPrimitiveSet(new osg::DrawElementsUShort(GL_TRIANGLES, f.triangles.begin(), f.triangles.end()));
+        else
+            geom.addPrimitiveSet(new osg::DrawElementsUInt(GL_TRIANGLES, f.triangles.begin(), f.triangles.end()));
+    }
 }
 
 namespace osgVerse
@@ -133,7 +161,7 @@ namespace osgVerse
                 osg::ref_ptr<osg::PrimitiveSet> p = createDelaunayTriangulation(*geomToTess, polygonsToTess);
                 va->insert(va->end(), vaToTess->begin(), vaToTess->end());
                 ca->insert(ca->end(), vaToTess->size(), color);
-                if (p.valid()) findAndAddToPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet);
+                if (p.valid()) findAndAddPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet);
             }
             break;
         default:
@@ -145,7 +173,7 @@ namespace osgVerse
             }
 
             osg::ref_ptr<osg::PrimitiveSet> p = new osg::DrawArrays(f.getType(), 0, va->size() - vStart);
-            findAndAddToPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet); break;
+            findAndAddPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet); break;
         }
     }
 }

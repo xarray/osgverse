@@ -27,7 +27,7 @@ namespace osgVerse
 
         void addPoint(const osg::Vec3& pt, unsigned int index = 0)
         {
-            if (_ptList.size() < index) _ptList.resize(index);
+            if (_ptList.size() <= index) _ptList.resize(index + 1);
             osg::Vec3Array* va = _ptList[index].get();
             if (!va) { va = new osg::Vec3Array; _ptList[index] = va; }
             va->push_back(pt); _bound.expandBy(pt);
