@@ -136,9 +136,10 @@ namespace osgVerse
         osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geom->getColorArray());
         if (!va) { va = new osg::Vec3Array; geom->setVertexArray(va); }
 
-        size_t vStart = va->size(); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        size_t vStart = va->size();
         if (!ca) { ca = new osg::Vec4Array; geom->setColorArray(ca); }
         if (ca->size() != vStart) ca->resize(vStart);
+        geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
         
         const std::vector<osg::ref_ptr<osg::Vec3Array>>& ptList = f.getPointList();
         switch (f.getType())

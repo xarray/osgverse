@@ -129,6 +129,7 @@ public:
         supportsExtension("verse_geojson", "osgVerse pseudo-loader");
         supportsExtension("geojson", "GEOJSON feature data file");
         supportsExtension("json", "GEOJSON feature data file");
+        supportsOption("IncludeFeatures", "Add FeatureCollection as UserData of the result Geometry/Image. Default: 0");
     }
 
     virtual const char* className() const

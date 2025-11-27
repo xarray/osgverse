@@ -51,7 +51,8 @@ class GltfSceneWriter : public osgVerse::NodeVisitorEx
 
 public:
     GltfSceneWriter(tinygltf::Model* m, const std::string& dir, const std::string& imgHint, bool yUp)
-    : osgVerse::NodeVisitorEx(), _model(m), _folder(dir), _imageHint(imgHint)
+    :   osgVerse::NodeVisitorEx(), _model(m), _folder(dir), _imageHint(imgHint),
+        _withKTX(false), _withDDS(false)
     { if (yUp) pushMatrix(osg::Matrix::rotate(osg::Z_AXIS, osg::Y_AXIS)); }
 
     struct TriangleCollector
@@ -63,7 +64,10 @@ public:
             triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3);
         }
     };
+
     tinygltf::Scene& scene() { return _scene; }
+    bool withKTX() const { return _withKTX; }
+    bool withDDS() const { return _withDDS; }
 
     void pushDescriptions(osg::Node& node)
     {
@@ -201,8 +205,7 @@ public:
             mtlIndex = (unsigned int)_statesets[ss];
 
         tinygltf::Material& material = _model->materials[mtlIndex]; material.name = ss->getName();
-        if (ss->getRenderingHint() == osg::StateSet::TRANSPARENT_BIN) material.alphaMode = "BLEND";
-        material.doubleSided = true;  // FIXME
+        bool transparent = false; material.doubleSided = true;
 
         // /*0*/"DiffuseMap", /*1*/"NormalMap", /*2*/"SpecularMap", /*3*/"ShininessMap",
         // /*4*/"AmbientMap", /*5*/"EmissiveMap", /*6*/"ReflectionMap", /*7*/"CustomMap"
@@ -211,18 +214,21 @@ public:
         {
         case 0:
             if (tc) material.pbrMetallicRoughness.baseColorTexture.texCoord = unit;
-            material.pbrMetallicRoughness.baseColorTexture.index = createGltfTexture(tex); break;
+            material.pbrMetallicRoughness.baseColorTexture.index = createGltfTexture(tex, &transparent); break;
         case 1:
             if (tc) material.normalTexture.texCoord = unit;
-            material.normalTexture.index = createGltfTexture(tex); break;
+            material.normalTexture.index = createGltfTexture(tex, NULL); break;
         case 3:  // FIXME: ORM texture to GLTF?
             if (tc) material.pbrMetallicRoughness.metallicRoughnessTexture.texCoord = unit;
-            material.pbrMetallicRoughness.metallicRoughnessTexture.index = createGltfTexture(tex); break;
+            material.pbrMetallicRoughness.metallicRoughnessTexture.index = createGltfTexture(tex, NULL); break;
         case 5:
             if (tc) material.emissiveTexture.texCoord = unit;
-            material.emissiveTexture.index = createGltfTexture(tex); break;
+            material.emissiveTexture.index = createGltfTexture(tex, NULL); break;
         default: break;
         }
+
+        if (ss->getRenderingHint() == osg::StateSet::TRANSPARENT_BIN) material.alphaMode = "BLEND";
+        else if (transparent) material.alphaMode = "BLEND";
     }
 
     static bool writeImageImplementation(const std::string* basepath, const std::string* filename,
@@ -315,10 +321,10 @@ public:
     }
 
 protected:
-    int createGltfTexture(osg::Texture* tex)
+    int createGltfTexture(osg::Texture* tex, bool* tPtr)
     {
         osg::Image* image = tex->getImage(0);  // FIXME: consider only 2D tex?
-        if (!image) return -1;
+        if (!image) return -1; if (tPtr) *tPtr = image->isImageTranslucent();
 
         int resultID = (int)_model->textures.size(), bufferID = 0;
         _model->textures.push_back(tinygltf::Texture());
@@ -376,6 +382,7 @@ protected:
                         }
                     }
                     gltfImage.mimeType = "image/" + ext; gltfImage.as_is = true;
+                    if (ext == "ktx") _withKTX = true;
                 }
                 else if (hint == 0)
                 {   // Default to write image data directly
@@ -384,7 +391,7 @@ protected:
                         std::vector<unsigned char> data(image->data(), image->data() + image->getTotalSizeInBytes());
                         NEW_BUFFER(bufferID, data, char, 0); gltfImage.bufferView = bufferID;
                         gltfImage.mimeType = "image/dds"; gltfImage.as_is = true;
-                        if (ext != "dds") newExt = ".dds";
+                        if (ext != "dds") newExt = ".dds"; _withDDS = true;
                     }
                     else
                     {   // use an internal encoder to write out the image
@@ -442,6 +449,7 @@ protected:
     tinygltf::Model* _model;
     tinygltf::Scene _scene;
     std::string _folder, _imageHint;
+    bool _withKTX, _withDDS;
 };
 
 namespace osgVerse
@@ -461,6 +469,8 @@ namespace osgVerse
 
         tinygltf::TinyGLTF writer;
         writer.SetImageWriter(GltfSceneWriter::writeImageImplementation, &sceneWriter);
+        if (sceneWriter.withKTX()) _modelDef->extensionsUsed.emplace_back("KHR_texture_basisu");
+        if (sceneWriter.withDDS()) _modelDef->extensionsUsed.emplace_back("MSFT_texture_dds");
 
         bool success = writer.WriteGltfSceneToStream(_modelDef, out, true, isBinary);
         if (!success) { OSG_WARN << "[SaverGLTF] Unable to write GLTF scene\n"; _done = false; }

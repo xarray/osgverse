@@ -14,6 +14,7 @@ class ReaderWriterWebP : public osgDB::ReaderWriter
 public:
     ReaderWriterWebP()
     {
+        supportsOption("FlipVertical", "Flip the image vertical. Default: 0");
         supportsOption("WriteQuality=<q>", "Quality option: 0-100");
         supportsExtension("verse_webp", "osgVerse pseudo-loader");
         supportsExtension("webp", "WEBP image file");
@@ -49,7 +50,12 @@ public:
         image->setInternalTextureFormat(GL_RGBA8);
         memcpy(image->data(), rgba, image->getTotalSizeInBytes());
         WebPFree(rgba);
-        image->flipVertical();
+
+        if (options)
+        {
+            std::string f = options->getPluginStringData("FlipVertical");
+            if (atoi(f.c_str()) > 0) image->flipVertical();
+        }
         return image.get();
     }
 
@@ -59,18 +65,25 @@ public:
         std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ofstream out(fileName, std::ios::out | std::ios::binary);
         if (!out) return WriteResult::ERROR_IN_WRITING_FILE;
-        osg::ref_ptr<osg::Image> tmp_img = new osg::Image(image);
-        tmp_img->flipVertical();
-        return writeImage(*tmp_img, out, options);
+        return writeImage(image, out, options);
     }
 
-    virtual WriteResult writeImage(const osg::Image& image, std::ostream& out,
+    virtual WriteResult writeImage(const osg::Image& image0, std::ostream& out,
                                    const Options* options) const
     {
+        osg::ref_ptr<osg::Image> refImage;
+        if (options)
+        {
+            std::string f = options->getPluginStringData("FlipVertical");
+            if (atoi(f.c_str()) > 0)
+            { refImage = new osg::Image(image0); refImage->flipVertical(); }
+        }
+
         std::string quality = options ? options->getPluginStringData("WriteQuality") : "";
         int q = quality.empty() ? 80 : atoi(quality.c_str());
 
         uint8_t* result = NULL; size_t size = 0;
+        const osg::Image& image = refImage.valid() ? *refImage : image0;
         switch (image.getInternalTextureFormat())
         {
         case GL_RGBA: case GL_RGBA8:

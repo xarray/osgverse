@@ -174,32 +174,40 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
     osgVerse::updateOsgBinaryWrappers();
 
-    bool useOcean = arguments.read("--ocean"), useSky = arguments.read("--sky"), use2D = arguments.read("--map2d");
+    bool useOcean = arguments.read("--ocean"), useSky = arguments.read("--sky"), multiRoot = arguments.read("--multi-root");
+    bool bLeft = arguments.read("--image-bottomleft"), wgs84 = arguments.read("--web-wgs84"), use2D = arguments.read("--map2d");
+    std::string startFile = multiRoot ? "0-0-x.verse_tms" : "0-0-0.verse_tms";
     std::string use2Dor3D = use2D ? "UseEarth3D=0" : "UseEarth3D=1";
+    std::string useBottomLeftImage = bLeft ? "OriginBottomLeft=1" : "OriginBottomLeft=0";
+    std::string useWGS84Tile = wgs84 ? "UseWebMercator=0" : "UseWebMercator=1";
+    std::string ortho, elev; arguments.read("--ortho", ortho); arguments.read("--elevation", elev);
+    std::string headers, options; arguments.read("--headers", headers); arguments.read("--options", options);
+    if (ortho.empty()) ortho = "https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}";
+
 #if false
-    std::string earthURLs = "Orthophoto=G:/DOM_DEM/dom/{z}/{x}/{y}.jpg OriginBottomLeft=1 "
-                            "Elevation=F:/DEM-China-wgs84-Mesh-12.5m/{z}/{x}/{y}.terrain ";
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " " + use2Dor3D);
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-x.verse_tms", earthOptions.get());
-#elif false
-    std::string earthURLs = "Orthophoto=mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg OriginBottomLeft=1 "
-                            "Elevation=mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif UseWebMercator=1";
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " " + use2Dor3D);
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
-#elif false
-    std::string earthURLs = "Orthophoto=https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z} "
-                            "Elevation=https://mt1.google.com/vt/lyrs%3dt&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1";
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " " + use2Dor3D);
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
-#elif false
     std::string earthURLs = "Orthophoto=http://p0.map.gtimg.com/sateTiles/{z}/{x16}/{y16}/{x}_{y}.jpg UseWebMercator=1";
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " " + use2Dor3D);
     earthOptions->setPluginData("UrlPathFunction", (void*)createTengxunPath);
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
 #else
-    std::string earthURLs = "Orthophoto=https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z} UseWebMercator=1";
-    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs + " " + use2Dor3D);
-    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
+    // Argument examples:
+    //   Local tiles from Rivermap: --ortho G:/DOM_DEM/dom/{z}/{x}/{y}.jpg --image-bottomleft --web-wgs84 --multi-root
+    //   Local MBTiles from QGIS: --ortho mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg
+    //                            --elevation mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif
+    //   Google Map: --ortho "https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z}"
+    //               --elevation "https://mt1.google.com/vt/lyrs%3dt&x%3d{x}&y%3d{y}&z%3d{z}"
+    //   TianDiTu: --ortho "http://t0.tianditu.gov.cn/img_w/wmts?SERVICE%3dWMTS&REQUEST%3dGetTile&FORMAT%3dtiles&tk%3d<your_code>
+    //                      &VERSION%3d1.0.0&LAYER%3dimg&STYLE%3ddefault&TILEMATRIXSET%3dw&TILEMATRIX%3d{z}&TILEROW%3d{y}&TILECOL%3d{x}"
+    //             --headers Host;t0.tianditu.gov.cn;Referer;http://www.tianditu.gov.cn
+    //   JiLin No.1: --ortho "https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk%3d<your_code>&tk%3d<your_code2>"
+    //               --options "FlipVertical=1" --image-bottomleft
+    std::string earthURLs = "Orthophoto=" + ortho + (!elev.empty() ? (" Elevation=" + elev) : " ")
+                          + useBottomLeftImage + " " + useWGS84Tile + " " + use2Dor3D;
+    if (!headers.empty()) earthURLs += " RequestHeaders=" + headers;
+    if (!options.empty()) earthURLs += " " + options;
+
+    osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
+    osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile(startFile, earthOptions.get());
 #endif
 
     osg::ref_ptr<osg::Node> tiles = osgDB::readNodeFiles(arguments, new osgDB::Options("DisabledPBR=1"));
@@ -214,10 +222,10 @@ int main(int argc, char** argv)
         earthOptions->setPluginData("UrlPathFunction", (void*)createMixedPath);
         earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     }
-    if (!earth) return 1;
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    if (!earth) { std::cout << "Failed to create earth: " << earthURLs << "\n"; return 1; }
 
     // Create sky and ocean
     osgVerse::EarthAtmosphereOcean earthRenderingUtils;

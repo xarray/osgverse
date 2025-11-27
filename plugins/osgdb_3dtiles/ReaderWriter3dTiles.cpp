@@ -318,10 +318,22 @@ protected:
         bool additive = (st == "ADD" || st == "add");
         if (children.is<picojson::array>())
         {
+            // Put <children> to a virtual file with options to fit OSG's LOD structure
+            osgDB::StringList parts; osgDB::split(name, parts, '-');
+            std::string childPseudoFile = name + "-" + std::to_string(parts.size()) + ".children.verse_tiles";
+
+            osgDB::Options* childOpt = options ? options->cloneOptions() : new osgDB::Options;
+            childOpt->setOptionString(children.serialize());
+            childOpt->setPluginStringData("fallback", uri + (ext == "json" ? ".verse_tiles" : ".verse_gltf"));
+            childOpt->setPluginStringData("refinement", st);
+
+            // Create the rough level node
             osg::ref_ptr<osg::Node> child0;
             if (ext == "json") child0 = osgDB::readNodeFile(uri + ".verse_tiles", options);
             else if (!ext.empty()) child0 = osgDB::readNodeFile(uri + ".verse_gltf", options);
+            else return osgDB::readNodeFile(childPseudoFile, childOpt);
 
+            // Create PagedLOD and add the rough level first
             osg::PagedLOD* plod = new osg::PagedLOD;
             plod->setName("TileLod:" + name); plod->setDatabasePath(prefix);
             plod->addChild(child0.valid() ? child0.get() : new osg::Node);
@@ -332,21 +344,15 @@ protected:
                 plod->getChild(0)->setName(uri);
             }
 
-            // Put <children> to a virtual file with options to fit OSG's LOD structure
-            osgDB::StringList parts; osgDB::split(name, parts, '-');
-            osgDB::Options* childOpt = options ? options->cloneOptions() : new osgDB::Options;
-            childOpt->setOptionString(children.serialize());
-            childOpt->setPluginStringData("fallback", uri + (ext == "json" ? ".verse_tiles" : ".verse_gltf"));
-            childOpt->setPluginStringData("refinement", st);
+            // Add <children> as the refined level of PagedLOD
             plod->setDatabaseOptions(childOpt);
-            plod->setFileName(1, name + "-" + std::to_string(parts.size()) + ".children.verse_tiles");
+            plod->setFileName(1, childPseudoFile);
 
             /*if (child0.valid())
                 std::cout << uri << ": CHILD = " << child0->getBound().center() << "; " << child0->getBound().radius()
                           << ";; REGION = " << bound.center() <<"; " << bound.radius() << "\n";
             else
                 std::cout << uri << ": REGION = " << bound.center() << "; " << bound.radius() << "\n";*/
-
             if (child0.valid() && bound.valid())
             {
                 const osg::BoundingSphere& childBs = child0->getBound();
@@ -359,6 +365,7 @@ protected:
                 }
             }
 
+            // Set correct children bounding sphere and ranges
             if (child0.valid())
             {   // FIXME: some <boundingVolume> too far away?
                 plod->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);

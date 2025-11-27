@@ -14,8 +14,8 @@
 // WGS84Tiles: (0-0-0) Lv1 = 00,10, Lv2 = 00,01,10,11,20,21,30,31, ...; (0-0-x) Lv0 = 00,10, ...
 
 // osgviewer 0-0-0.verse_tms -O "Orthophoto=https://xxxx.com/tile/{z}/{y}/{x} ..."
-// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\testTMS\{z}\{x}\{y}.png ..."
-// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\testTMS\all_in_pack.mbtiles ..."
+// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\\testTMS\\{z}\\{x}\\{y}.png ..."
+// osgviewer 0-0-x.verse_tms -O "Orthophoto=E:\\testTMS\\all_in_pack.mbtiles ..."
 
 /* Tile map servers:
      Arcgis Map:
@@ -74,6 +74,7 @@ public:
         supportsOption("TileSkirtRatio", "Create skirts for every tile: default 0.02");
         supportsOption("TileElevationScale", "Set elevation scale for every tile: default 1.0");
         osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
+        osgDB::Registry::instance()->getReaderWriterForExtension("verse_webp");
     }
 
     virtual const char* className() const
