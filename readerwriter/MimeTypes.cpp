@@ -41,6 +41,7 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "image/pjpeg","jpg",
     "image/png","png",
     "image/tiff","tif",
+    "image/webp","webp",
     "image/vasa","mcf",
     "image/vnd.dwg","dxf",
     "image/vnd.fpx","fpx",
