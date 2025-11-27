@@ -6,12 +6,15 @@
 #include <osgUtil/Tessellator>
 #include "FeatureDefinition.h"
 
-struct TriangleCollector
+namespace
 {
-    std::vector<unsigned int> triangles;
-    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
-    { triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3); }
-};
+    struct TriangleCollector
+    {
+        std::vector<unsigned int> triangles;
+        void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+        { triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3); }
+    };
+}
 
 static osg::PrimitiveSet* createDelaunayTriangulation(
         osg::Geometry& geom, const std::vector<osg::ref_ptr<osg::DrawArrays>>& primitives)
@@ -69,10 +72,12 @@ static void findAndAddPrimitiveSet(osg::Geometry& geom, osg::PrimitiveSet& p, si
 
 namespace osgVerse
 {
-    void drawFeatureToImage(Feature& f, Drawer2D* drawer, DrawerStyleData* style0)
+    void drawFeatureToImage(Feature& f, Drawer2D* drawer, const osg::Vec2& off,
+                            const osg::Vec2& scale, DrawerStyleData* style0)
     {
         const std::vector<osg::ref_ptr<osg::Vec3Array>>& ptList = f.getPointList();
         DrawerStyleData style = (style0 == NULL) ? DrawerStyleData() : (*style0);
+#define NEW_VERTEX(v) osg::Vec2(((v)[0] + off[0]) * scale[0], ((v)[1] + off[1]) * scale[1])
 
         switch (f.getType())
         {
@@ -83,7 +88,7 @@ namespace osgVerse
                 for (unsigned int j = 0; j < va->size(); ++j)
                 {
                     osg::Vec2 v0((*va)[j].x(), (*va)[j].y());
-                    drawer->drawCircle(v0, 1.0f, 1.0f, style);
+                    drawer->drawCircle(NEW_VERTEX(v0), 1.0f, 1.0f, style);
                 }
             }
             break;
@@ -95,7 +100,7 @@ namespace osgVerse
                 {
                     osg::Vec2 v0((*va)[j].x(), (*va)[j].y());
                     osg::Vec2 v1((*va)[j + 1].x(), (*va)[j + 1].y());
-                    drawer->drawLine(v0, v1, style);
+                    drawer->drawLine(NEW_VERTEX(v0), NEW_VERTEX(v1), style);
                 }
             }
             break;
@@ -107,7 +112,10 @@ namespace osgVerse
                 {
                     std::vector<osg::Vec2f> input; osg::Vec3Array* va = ptList[i].get();
                     for (unsigned int j = 0; j < va->size(); ++j)
-                        input.push_back(osg::Vec2((*va)[j].x(), (*va)[j].y()));
+                    {
+                        osg::Vec2 v((*va)[j].x(), (*va)[j].y());
+                        input.push_back(NEW_VERTEX(v));
+                    }
                     drawer->drawPolyline(input, closed, style);
                 }
             }
@@ -120,7 +128,10 @@ namespace osgVerse
                 {
                     std::vector<osg::Vec2f> input; osg::Vec3Array* va = ptList[i].get();
                     for (unsigned int j = 0; j < va->size(); ++j)
-                        input.push_back(osg::Vec2((*va)[j].x(), (*va)[j].y()));
+                    {
+                        osg::Vec2 v((*va)[j].x(), (*va)[j].y());
+                        input.push_back(NEW_VERTEX(v));
+                    }
                     polygon.push_back(input);
                 }
                 drawer->drawPolygon(polygon, style);

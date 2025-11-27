@@ -16,12 +16,12 @@ namespace osgVerse
         Feature(GLenum t = GL_NONE, osg::Object* parent = NULL)
             : _parent(parent), _type(t) { if (parent) parent->setUserData(this); }
         Feature(const Feature& f, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY)
-            : _ptList(f._ptList), _parent(f._parent), _bound(f._bound), _type(f._type) {}
+            : osg::Object(f, copyop), _ptList(f._ptList), _parent(f._parent), _bound(f._bound), _type(f._type) {}
         META_Object(osgVerse, Feature)
 
-        void addPoints(osg::Vec3Array* va)
+        void addPoints(osg::Vec3Array* va, bool atFirst = false)
         {
-            if (!va) return; else  _ptList.push_back(va);
+            if (!va) return; if (atFirst) _ptList.insert(_ptList.begin(), va); else _ptList.push_back(va);
             for (size_t i = 0; i < va->size(); ++i) _bound.expandBy((*va)[i]);
         }
 
@@ -58,8 +58,20 @@ namespace osgVerse
         GLenum _type;  // GL_POINTS, GL_LINES, GL_LINE_STRIP, GL_LINE_LOOP, GL_POLYGON
     };
 
+    struct FeatureCollection : public osg::Object
+    {
+        std::vector<osg::ref_ptr<Feature>> features; osg::BoundingBox bound;
+        void push_back(Feature* feature) { features.push_back(feature); bound.expandBy(feature->getBound()); }
+
+        FeatureCollection() : osg::Object() {}
+        FeatureCollection(const FeatureCollection& f, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY)
+        :   osg::Object(f, copyop), features(f.features), bound(f.bound) {}
+        META_Object(osgVerse, FeatureCollection)
+    };
+
     /** Render the feature on a 2D drawer image */
-    OSGVERSE_RW_EXPORT void drawFeatureToImage(Feature& f, Drawer2D* drawer, DrawerStyleData* style = NULL);
+    OSGVERSE_RW_EXPORT void drawFeatureToImage(Feature& f, Drawer2D* drawer, const osg::Vec2& offset = osg::Vec2(),
+                                               const osg::Vec2& scale = osg::Vec2(1.0f, 1.0f), DrawerStyleData* style = NULL);
 
     /** Add the feature to an existing geometry */
     OSGVERSE_RW_EXPORT void addFeatureToGeometry(Feature& f, osg::Geometry* geom, bool asNewPrimitiveSet,

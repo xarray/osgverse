@@ -61,7 +61,7 @@ void main()
         else if (i == 3) shadowValue = GET_SHADOW(ShadowMap3, lightProjUV.xy, depth).z;
         shadow *= shadowValue;
     }
-    
+
     colorData.rgb *= shadow * ao;
     fragData = colorData;
     VERSE_FS_FINAL(fragData);

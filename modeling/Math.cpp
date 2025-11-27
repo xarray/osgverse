@@ -1249,12 +1249,15 @@ std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(
     return indices;
 }
 
-struct TriangleCollector
+namespace
 {
-    std::vector<size_t> triangles;
-    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
-    { triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3); }
-};
+    struct TriangleCollector
+    {
+        std::vector<size_t> triangles;
+        void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+        { triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3); }
+    };
+}
 
 std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(const std::vector<PointList2D>& polygons,
                                                              PointList2D& addedPoints)
@@ -1283,5 +1286,6 @@ std::vector<size_t> GeometryAlgorithm::delaunayTriangulation(const std::vector<P
         addedPoints.push_back(PointType2D(osg::Vec2(v[0], v[1]), i));
     }
     osg::TriangleIndexFunctor<TriangleCollector> f;
-    geom->accept(f); return f.triangles;
+    geom->accept(f);
+    return f.triangles;
 }

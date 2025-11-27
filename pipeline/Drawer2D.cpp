@@ -669,6 +669,8 @@ void Drawer2D::drawPolygon(const std::vector<std::vector<osg::Vec2f>>& polygon, 
 
         size_t pointSize = points.size();
         if (indices.empty()) { OSG_NOTICE << "[Drawer2D] Failed to triangulate and draw polygon\n"; return; }
+        if (indices.size() % 3) {
+            OSG_NOTICE << "[Drawer2D] Bad triangulation result?\n"; return; }
         for (size_t i = 0; i < indices.size(); i += 3)
         {
             size_t i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];

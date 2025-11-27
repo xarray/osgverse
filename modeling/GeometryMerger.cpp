@@ -138,26 +138,29 @@ static void applyOctreeNode(GeometryMerger* merger, osg::Group* group,
     }
 }
 
-struct ResetTrianglesOperator
+namespace
 {
-    ResetTrianglesOperator() : _start(0), _count(0) {}
-    osg::observer_ptr<osg::DrawElementsUInt> _de;
-#if OSG_VERSION_GREATER_THAN(3, 4, 1)
-    osg::observer_ptr<osg::DrawElementsIndirectUInt> _mde;
-#endif
-    unsigned int _start, _count;
-
-    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+    struct ResetTrianglesOperator
     {
-        if (i1 == i2 || i2 == i3 || i1 == i3) return; else _count += 3;
-        if (_de.valid())
-        { _de->push_back(i1 + _start); _de->push_back(i2 + _start); _de->push_back(i3 + _start); }
+        ResetTrianglesOperator() : _start(0), _count(0) {}
+        osg::observer_ptr<osg::DrawElementsUInt> _de;
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
-        if (_mde.valid())
-        { _mde->push_back(i1 + _start); _mde->push_back(i2 + _start); _mde->push_back(i3 + _start); }
+        osg::observer_ptr<osg::DrawElementsIndirectUInt> _mde;
 #endif
-    }
-};
+        unsigned int _start, _count;
+
+        void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+        {
+            if (i1 == i2 || i2 == i3 || i1 == i3) return; else _count += 3;
+            if (_de.valid())
+            { _de->push_back(i1 + _start); _de->push_back(i2 + _start); _de->push_back(i3 + _start); }
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+            if (_mde.valid())
+            { _mde->push_back(i1 + _start); _mde->push_back(i2 + _start); _mde->push_back(i3 + _start); }
+#endif
+        }
+    };
+}
 
 GeometryMerger::GeometryMerger(Method m, GpuBaker* baker)
 {

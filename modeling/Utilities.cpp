@@ -23,94 +23,97 @@
 #include "Utilities.h"
 using namespace osgVerse;
 
-struct VertexIndexGetter
+namespace
 {
-    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+    struct VertexIndexGetter
     {
-        if (i1 == i2 || i2 == i3 || i1 == i3) return;
-        indices.push_back(i1); indices.push_back(i2); indices.push_back(i3);
-    }
-    std::vector<unsigned int> indices;
-};
-
-struct VertexValueGetter
-{
-    void operator()(const osg::Vec3& v1, const osg::Vec3& v2, const osg::Vec3& v3)
-    { vertices.push_back(v1); vertices.push_back(v2); vertices.push_back(v3); }
-    std::vector<osg::Vec3> vertices;
-};
-
-struct CollectVertexOperator
-{
-    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
-    {
-        if (vertices && vertices->size() <= baseIndex)
+        void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
         {
-            std::vector<bool> vertexAddingList;
-            for (size_t i = 0; i < inputV->size(); ++i)
-            {
-                osg::Vec3 v = (*inputV)[i] * matrix;
-                if (vertexMap)
-                {
-                    if (vertexMap->find(v) == vertexMap->end())
-                    {
-                        (*vertexMap)[v] = vertices->size();
-                        vertexAddingList.push_back(true);
-                        vertices->push_back(v);
-                    }
-                    else
-                        vertexAddingList.push_back(false);
-                    indexMap[baseIndex + i] = (*vertexMap)[v] - baseIndex;
-                }
-                else vertices->push_back(v);
-            }
+            if (i1 == i2 || i2 == i3 || i1 == i3) return;
+            indices.push_back(i1); indices.push_back(i2); indices.push_back(i3);
+        }
+        std::vector<unsigned int> indices;
+    };
 
-            if (attributes)
+    struct VertexValueGetter
+    {
+        void operator()(const osg::Vec3& v1, const osg::Vec3& v2, const osg::Vec3& v3)
+        { vertices.push_back(v1); vertices.push_back(v2); vertices.push_back(v3); }
+        std::vector<osg::Vec3> vertices;
+    };
+
+    struct CollectVertexOperator
+    {
+        void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+        {
+            if (vertices && vertices->size() <= baseIndex)
             {
-                std::vector<osg::Vec4>& na = (*attributes)[MeshCollector::NormalAttr];
-                std::vector<osg::Vec4>& ca = (*attributes)[MeshCollector::ColorAttr];
-                std::vector<osg::Vec4>& ta = (*attributes)[MeshCollector::UvAttr];
+                std::vector<bool> vertexAddingList;
                 for (size_t i = 0; i < inputV->size(); ++i)
                 {
-                    if (vertexMap && !vertexAddingList[i]) continue;
-                    if (inputN)
+                    osg::Vec3 v = (*inputV)[i] * matrix;
+                    if (vertexMap)
                     {
-                        osg::Vec3 n = osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), (*inputN)[i]);
-                        na.push_back(osg::Vec4(n, 0.0));
+                        if (vertexMap->find(v) == vertexMap->end())
+                        {
+                            (*vertexMap)[v] = vertices->size();
+                            vertexAddingList.push_back(true);
+                            vertices->push_back(v);
+                        }
+                        else
+                            vertexAddingList.push_back(false);
+                        indexMap[baseIndex + i] = (*vertexMap)[v] - baseIndex;
                     }
-                    if (inputC) ca.push_back((*inputC)[i]);
-                    if (inputT) ta.push_back(osg::Vec4((*inputT)[i].x(),
-                                                       (*inputT)[i].y(), 0.0f, 1.0));
+                    else vertices->push_back(v);
+                }
+
+                if (attributes)
+                {
+                    std::vector<osg::Vec4>& na = (*attributes)[MeshCollector::NormalAttr];
+                    std::vector<osg::Vec4>& ca = (*attributes)[MeshCollector::ColorAttr];
+                    std::vector<osg::Vec4>& ta = (*attributes)[MeshCollector::UvAttr];
+                    for (size_t i = 0; i < inputV->size(); ++i)
+                    {
+                        if (vertexMap && !vertexAddingList[i]) continue;
+                        if (inputN)
+                        {
+                            osg::Vec3 n = osg::Matrix::transform3x3(osg::Matrix::inverse(matrix), (*inputN)[i]);
+                            na.push_back(osg::Vec4(n, 0.0));
+                        }
+                        if (inputC) ca.push_back((*inputC)[i]);
+                        if (inputT) ta.push_back(osg::Vec4((*inputT)[i].x(),
+                                                           (*inputT)[i].y(), 0.0f, 1.0));
+                    }
                 }
             }
-        }
 
-        if (indices)
-        {
-            if (vertexMap)
+            if (indices)
             {
-                i1 = indexMap[baseIndex + i1]; i2 = indexMap[baseIndex + i2];
-                i3 = indexMap[baseIndex + i3];
+                if (vertexMap)
+                {
+                    i1 = indexMap[baseIndex + i1]; i2 = indexMap[baseIndex + i2];
+                    i3 = indexMap[baseIndex + i3];
+                }
+
+                if (i1 == i2 || i2 == i3 || i1 == i3) return;
+                indices->push_back(baseIndex + i1); indices->push_back(baseIndex + i2);
+                indices->push_back(baseIndex + i3);
             }
-
-            if (i1 == i2 || i2 == i3 || i1 == i3) return;
-            indices->push_back(baseIndex + i1); indices->push_back(baseIndex + i2);
-            indices->push_back(baseIndex + i3);
         }
-    }
 
-    CollectVertexOperator()
-    :   inputV(NULL), inputN(NULL), inputT(NULL), inputC(NULL), vertexMap(NULL),
-        vertices(NULL), indices(NULL), attributes(NULL), baseIndex(0) {}
-    osg::Vec3Array *inputV, *inputN;
-    osg::Vec2Array *inputT; osg::Vec4Array *inputC;
-    std::map<osg::Vec3, unsigned int, Vec3MapComparer>* vertexMap;
-    std::map<unsigned int, unsigned int> indexMap;
+        CollectVertexOperator()
+        :   inputV(NULL), inputN(NULL), inputT(NULL), inputC(NULL), vertexMap(NULL),
+            vertices(NULL), indices(NULL), attributes(NULL), baseIndex(0) {}
+        osg::Vec3Array *inputV, *inputN;
+        osg::Vec2Array *inputT; osg::Vec4Array *inputC;
+        std::map<osg::Vec3, unsigned int, Vec3MapComparer>* vertexMap;
+        std::map<unsigned int, unsigned int> indexMap;
 
-    std::vector<osg::Vec3>* vertices; std::vector<unsigned int>* indices;
-    std::map<MeshCollector::VertexAttribute, std::vector<osg::Vec4>>* attributes;
-    osg::Matrix matrix; unsigned int baseIndex;
-};
+        std::vector<osg::Vec3>* vertices; std::vector<unsigned int>* indices;
+        std::map<MeshCollector::VertexAttribute, std::vector<osg::Vec4>>* attributes;
+        osg::Matrix matrix; unsigned int baseIndex;
+    };
+}
 
 ////////////// NodeVisitor //////////////
 

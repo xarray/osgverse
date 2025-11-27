@@ -17,15 +17,18 @@ using namespace osgVerse;
 #   include <draco/compression/decode.h>
 #endif
 
-struct CollectFaceOperator
+namespace
 {
-    void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+    struct CollectFaceOperator
     {
-        if (i1 == i2 || i2 == i3 || i1 == i3) return;
-        triangles.push_back(osg::Vec3i(i1, i2, i3));
-    }
-    std::vector<osg::Vec3i> triangles;
-};
+        void operator()(unsigned int i1, unsigned int i2, unsigned int i3)
+        {
+            if (i1 == i2 || i2 == i3 || i1 == i3) return;
+            triangles.push_back(osg::Vec3i(i1, i2, i3));
+        }
+        std::vector<osg::Vec3i> triangles;
+    };
+}
 
 bool MeshOptimizer::decodeData(std::istream& in, osg::Geometry* geom)
 {
