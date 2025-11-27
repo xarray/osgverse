@@ -551,27 +551,27 @@ struct AudioPlayingMixer
 {
     static void dataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount)
     {
-        float* outputF = (float*)output;
-        memset(outputF, 0, frameCount * device->playback.channels * sizeof(float));
         AudioPlayingMixer* mixer = (AudioPlayingMixer*)device->pUserData;
+        float* outputF = (float*)output; int channels = device->playback.channels;
+        memset(outputF, 0, frameCount * channels * sizeof(float));
 
-        ma_mutex_lock(&mixer->lock);
+        float data[4096]; ma_mutex_lock(&mixer->lock);
         std::map<std::string, osg::ref_ptr<AudioPlayer::Clip>>& clips = mixer->player->getClips();
         for (std::map<std::string, osg::ref_ptr<AudioPlayer::Clip>>::iterator it = clips.begin();
              it != clips.end(); ++it)
         {
             AudioPlayer::Clip* clip = it->second.get();
             if (clip->state != AudioPlayer::Clip::PLAYING) continue;
-            
-            float data[4096]; ma_uint64 framesRead = 0;
-            ma_result result = ma_decoder_read_pcm_frames(clip->decoder, data, frameCount, &framesRead);
+
+            ma_uint64 framesRead = 0; memset(data, 0, 4096 * sizeof(float));
+            ma_result result = ma_decoder_read_pcm_frames(clip->decoder, (void*)data, frameCount, &framesRead);
             if (result == MA_SUCCESS && framesRead > 0)
             {
                 for (ma_uint32 frame = 0; frame < framesRead; ++frame)
-                    for (ma_uint32 ch = 0; ch < device->playback.channels; ++ch)
+                    for (ma_uint32 ch = 0; ch < channels; ++ch)
                     {
-                        float sample = data[frame * device->playback.channels + ch] * clip->volume;
-                        outputF[(framesRead + frame) * device->playback.channels + ch] += sample;
+                        float sample = data[frame * channels + ch] * clip->volume;
+                        outputF[frame * channels + ch] += sample;
                     }
             }
 
@@ -581,16 +581,6 @@ struct AudioPlayingMixer
                 {
                     ma_uint64 remainingFrames = frameCount - framesRead;
                     ma_decoder_seek_to_pcm_frame(clip->decoder, 0);
-                    result = ma_decoder_read_pcm_frames(clip->decoder, data, remainingFrames, &framesRead);
-                    if (result == MA_SUCCESS && framesRead > 0)
-                    {
-                        for (ma_uint32 frame = 0; frame < framesRead; ++frame)
-                            for (ma_uint32 ch = 0; ch < device->playback.channels; ++ch)
-                            {
-                                float sample = data[frame * device->playback.channels + ch] * clip->volume;
-                                outputF[(framesRead + frame) * device->playback.channels + ch] += sample;
-                            }
-                    }
                 }
                 else
                     clip->state = AudioPlayer::Clip::STOPPED;
@@ -624,8 +614,14 @@ AudioPlayer::AudioPlayer()
     _device = new ma_device;
     if (ma_device_init(NULL, &deviceConfig, _device) != MA_SUCCESS)
         { OSG_FATAL << "[AudioPlayer] Failed to open playback device\n"; }
-    else
-        ma_device_start(_device);
+    else if (ma_device_start(_device) != MA_SUCCESS)
+        { OSG_FATAL << "[AudioPlayer] Failed to start device\n"; }
+
+    ma_context* context = ma_device_get_context(_device);
+    ma_device_state state = ma_device_get_state(_device);
+    ma_device_info info; ma_device_get_info(_device, ma_device_type_playback, &info);
+    OSG_NOTICE << "[AudioPlayer] Backend: " << (context != NULL ? ma_get_backend_name(context->backend) : "(failed)")
+               << "; Device: " << info.name << ", State: " << (state == ma_device_state_started ? "started\n" : "idle\n");
 }
 
 AudioPlayer::~AudioPlayer()

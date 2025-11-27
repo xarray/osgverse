@@ -56,6 +56,8 @@ int main(int argc, char** argv)
 
 #if true
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
+    //osgVerse::AudioPlayer::instance()->addFile("../voice.wav", true, false);
+    //osgVerse::AudioPlayer::instance()->addFile("../sample.wav", true, true);
 
     osg::Timer_t t0 = osg::Timer::instance()->tick();
     osg::ref_ptr<osg::Image> dds = osgVerse::compressImage(*image);

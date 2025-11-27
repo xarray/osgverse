@@ -10,6 +10,8 @@
 #include "modeling/GaussianGeometry.h"
 #include "spz/load-spz.h"
 
+spz::GaussianCloud loadSplatFromXGrids(std::istream& in, const std::string& path);
+
 class ReaderWriter3DGS : public osgDB::ReaderWriter
 {
 public:
@@ -18,8 +20,9 @@ public:
         supportsExtension("verse_3dgs", "osgVerse pseudo-loader");
         supportsExtension("ply", "PLY point cloud file");
         supportsExtension("splat", "Gaussian splat data file");
-        supportsExtension("ksplat", "Mark Kellogg's splat file");
-        supportsExtension("spz", "NianticLabs' splat file");
+        //supportsExtension("ksplat", "Mark Kellogg's splat file");
+        supportsExtension("spz", "Niantic Labs' splat file");
+        supportsExtension("lcc", "XGrids' splat file");
     }
 
     virtual const char* className() const
@@ -56,6 +59,11 @@ public:
             if (ext == "ply")
             {
                 cloud = spz::loadSplatFromPly(fin, prefix, unpackOpt);
+                if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
+            }
+            else if (ext == "lcc")
+            {
+                cloud = loadSplatFromXGrids(fin, prefix);
                 if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
             }
             else

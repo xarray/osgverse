@@ -2,6 +2,7 @@
 #define GL_GLES_PROTOTYPES 0
 #include <GL/glew.h>
 #include <gl_radix_sort/RadixSort.hpp>
+#include <parallel_radix_sort.h>
 
 #include <algorithm>
 #include <iostream>
@@ -175,41 +176,40 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
     }
     else indices->dirty();
 
+    if (_sortCallback.valid()) { _sortCallback->sort(indices, pos, model, view); return; }
     osg::Matrix localToEye = model * view;
+    std::vector<GLuint> values(indices->begin(), indices->end());
+    std::vector<GLuint> keys(values.size());
+    for (size_t i = 0; i < indices->size(); ++i)
+    {
+        float d = ((*pos)[(*indices)[i]] * localToEye).z();
+        union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+        keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+    }
+
     switch (_method)
     {
     case CPU_SORT:
-        std::sort(indices->begin(), indices->end(), [&pos, &localToEye](unsigned int lhs, unsigned int rhs)
-            {
-                const osg::Vec3 &v0 = (*pos)[lhs] * localToEye, &v1 = (*pos)[rhs] * localToEye;
-                return v0.z() < v1.z();  // sort primitive indices
-            });
-        break;
-    case GL46_RADIX_SORT:
+        if (!values.empty())
         {
-            if (_firstFrame)
-            { glewInit(); _firstFrame = false; }
-
-            std::vector<GLuint> keys(indices->begin(), indices->end());
-            std::vector<GLuint> values(keys.size());
-            for (size_t i = 0; i < indices->size(); ++i)
-            {
-                float d = ((*pos)[(*indices)[i]] * localToEye).z();
-                union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
-                values[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
-            }
-
-            glu::ShaderStorageBuffer key_buffer(keys);
-            glu::ShaderStorageBuffer val_buffer(values);
-            glu::RadixSort radix_sort;
-            radix_sort(val_buffer.handle(), key_buffer.handle(), keys.size());
-            //key_buffer.write_data(indices->getDataPointer(), indices->size() * sizeof(GLuint));
-
-            std::vector<GLuint> sorted_keys = key_buffer.get_data<GLuint>();
-            indices->assign(sorted_keys.rbegin(), sorted_keys.rend());
+            parallel_radix_sort::SortPairs(&keys[0], &values[0], values.size());
+            indices->assign(values.rbegin(), values.rend());
         }
         break;
-    default:
-        if (_sortCallback.valid()) _sortCallback->sort(indices, pos, model, view); break;
+    case GL46_RADIX_SORT:
+        if (!values.empty())
+        {
+            if (_firstFrame) { glewInit(); _firstFrame = false; }
+            glu::ShaderStorageBuffer val_buffer(values);
+            glu::ShaderStorageBuffer key_buffer(keys);
+            glu::RadixSort radix_sort;
+            radix_sort(key_buffer.handle(), val_buffer.handle(), keys.size());
+            //val_buffer.write_data(indices->getDataPointer(), indices->size() * sizeof(GLuint));
+
+            std::vector<GLuint> sorted_vals = val_buffer.get_data<GLuint>();
+            indices->assign(sorted_vals.rbegin(), sorted_vals.rend());
+        }
+        break;
+    default: break;
     }
 }

@@ -1,6 +1,7 @@
 SET(LIB_NAME osgdb_verse_3dgs)
 SET(LIBRARY_FILES
     ReaderWriter3DGS.cpp
+    SplatReaderLCC.cpp
 )
 
 INCLUDE_DIRECTORIES(../../3rdparty/spz)
