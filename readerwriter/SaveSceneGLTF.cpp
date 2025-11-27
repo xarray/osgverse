@@ -35,7 +35,7 @@ class GltfSceneWriter : public osgVerse::NodeVisitorEx
     _model->buffers.push_back(tinygltf::Buffer()); tinygltf::Buffer& buf = _model->buffers.back(); \
     _model->bufferViews.push_back(tinygltf::BufferView()); tinygltf::BufferView& view = _model->bufferViews.back(); \
     size_t dSize = src.size() * sizeof(srcType); buf.data.resize(dSize); memcpy(buf.data.data(), &src[0], dSize); \
-    view.buffer = _model->buffers.size() - 1; view.byteOffset = 0; view.byteLength = dSize; view.target = gltfTarget;
+    view.buffer = _model->buffers.size() - 1; view.byteOffset = 0; view.byteLength = dSize; view.target = gltfTarget; view.byteStride = 0;
 #define NEW_ACCESSOR(id, src, gltfType, gltfComp) \
     id = (int)_model->accessors.size(); \
     _model->accessors.push_back(tinygltf::Accessor()); tinygltf::Accessor& acc = _model->accessors.back(); \
