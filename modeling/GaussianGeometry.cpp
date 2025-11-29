@@ -127,7 +127,7 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArra
         if (!quat.zeroRotation()) { double l = quat.length(); if (l > 0.0) quat = quat / l; }
 
         osg::Matrix R(quat), S = osg::Matrix::scale(scale);
-        osg::Matrix cov = R * S * transpose(S) * transpose(R);
+        osg::Matrix cov = transpose(R) * S * S * R;
         (*cov0)[i] = osg::Vec4(cov(0, 0), cov(1, 0), cov(2, 0), a);
         (*cov1)[i] = osg::Vec4(cov(0, 1), cov(1, 1), cov(2, 1), 1.0f);
         (*cov2)[i] = osg::Vec4(cov(0, 2), cov(1, 2), cov(2, 2), 1.0f);
@@ -138,6 +138,96 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArra
 }
 
 ///////////////////////// GaussianSorter /////////////////////////
+class GaussianSortThread : public OpenThreads::Thread
+{
+public:
+    virtual int cancel()
+    { _running = false; return OpenThreads::Thread::cancel(); }
+
+    virtual void run()
+    {
+        _running = true;
+        while (_running)
+        {
+            std::map<osg::DrawElementsUInt*, Task> tempTasks;
+            _taskLock.lock();
+            tempTasks.swap(_sortTasks);
+            _taskLock.unlock();
+
+            for (std::map<osg::DrawElementsUInt*, Task>::iterator it = tempTasks.begin();
+                 it != tempTasks.end(); ++it)
+            {
+                Task& task = it->second;
+                if (task.indices.empty() || !task.positions) continue;
+
+                std::vector<GLuint> keys(task.indices.size());
+                for (size_t i = 0; i < task.indices.size(); ++i)
+                {
+                    float d = ((*task.positions)[task.indices[i]] * task.localToEye).z();
+                    union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+                    keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+                }
+
+                OpenThreads::Thread::YieldCurrentThread();
+                parallel_radix_sort::SortPairs(&keys[0], &(task.indices)[0], keys.size());
+
+                _resultLock.lock();
+                _sortResults[it->first].assign(task.indices.rbegin(), task.indices.rend());
+                _resultLock.unlock();
+            }
+            OpenThreads::Thread::YieldCurrentThread();
+        }
+    }
+
+    size_t addTask(osg::Vec3Array* va, osg::DrawElementsUInt* de, const osg::Matrix& matrix)
+    {
+        size_t num = 0; _taskLock.lock();
+        _sortTasks[de] = Task{ va, std::vector<GLuint>(de->begin(), de->end()), matrix };
+        num = _sortTasks.size(); _taskLock.unlock(); return num;
+    }
+
+    size_t applyResult(osg::DrawElementsUInt* de)
+    {
+        size_t num = 0; _resultLock.lock();
+        std::map<osg::DrawElementsUInt*, std::vector<GLuint>>::iterator it = _sortResults.find(de);
+        if (it != _sortResults.end()) { de->swap(it->second); de->dirty(); }
+        num = _sortResults.size(); _resultLock.unlock(); return num;
+    }
+
+protected:
+    struct Task
+    {
+        osg::ref_ptr<osg::Vec3Array> positions;
+        std::vector<GLuint> indices;
+        osg::Matrix localToEye;
+    };
+
+    std::map<osg::DrawElementsUInt*, Task> _sortTasks;
+    std::map<osg::DrawElementsUInt*, std::vector<GLuint>> _sortResults;
+    OpenThreads::Mutex _taskLock, _resultLock;
+    bool _running;
+};
+
+void GaussianSorter::configureThreads(int numThreads)
+{
+    size_t currentNum = _sortThreads.size();
+    if (numThreads < currentNum)
+    {
+        for (size_t i = numThreads; i < currentNum; ++i)
+        {
+            OpenThreads::Thread* thread = _sortThreads[i]; thread->cancel();
+            while (thread->isRunning()) OpenThreads::Thread::YieldCurrentThread();
+            thread->join(); delete thread; _sortThreads[i] = NULL;
+        }
+    }
+
+    if (numThreads > 0) _sortThreads.resize(numThreads); else _sortThreads.clear();
+    for (size_t i = currentNum; i < numThreads; ++i)
+    {
+        GaussianSortThread* thread = new GaussianSortThread;
+        thread->start(); _sortThreads[i] = thread;
+    }
+}
 
 void GaussianSorter::addGeometry(GaussianGeometry* geom)
 { _geometries.insert(geom); }
@@ -174,31 +264,31 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
         indices->resize(pos->size()); geom->addPrimitiveSet(indices);
         for (unsigned int i = 0; i < pos->size(); ++i) (*indices)[i] = i;
     }
-    else indices->dirty();
 
-    if (_sortCallback.valid()) { _sortCallback->sort(indices, pos, model, view); return; }
     osg::Matrix localToEye = model * view;
-    std::vector<GLuint> values(indices->begin(), indices->end());
-    std::vector<GLuint> keys(values.size());
-    for (size_t i = 0; i < indices->size(); ++i)
-    {
-        float d = ((*pos)[(*indices)[i]] * localToEye).z();
-        union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
-        keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
-    }
-
     switch (_method)
     {
     case CPU_SORT:
-        if (!values.empty())
+        if (!_sortThreads.empty())
         {
-            parallel_radix_sort::SortPairs(&keys[0], &values[0], values.size());
-            indices->assign(values.rbegin(), values.rend());
+            // FIXME: use different threads to share the burden
+            GaussianSortThread* thread = static_cast<GaussianSortThread*>(_sortThreads[0]);
+            thread->addTask(pos, indices, localToEye);
+            thread->applyResult(indices);
         }
         break;
     case GL46_RADIX_SORT:
-        if (!values.empty())
+        if (!indices->empty())
         {
+            std::vector<GLuint> values(indices->begin(), indices->end());
+            std::vector<GLuint> keys(values.size());
+            for (size_t i = 0; i < indices->size(); ++i)
+            {
+                float d = ((*pos)[(*indices)[i]] * localToEye).z();
+                union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+                keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+            }
+
             if (_firstFrame) { glewInit(); _firstFrame = false; }
             glu::ShaderStorageBuffer val_buffer(values);
             glu::ShaderStorageBuffer key_buffer(keys);
@@ -207,9 +297,10 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
             //val_buffer.write_data(indices->getDataPointer(), indices->size() * sizeof(GLuint));
 
             std::vector<GLuint> sorted_vals = val_buffer.get_data<GLuint>();
-            indices->assign(sorted_vals.rbegin(), sorted_vals.rend());
+            indices->assign(sorted_vals.rbegin(), sorted_vals.rend()); indices->dirty();
         }
         break;
-    default: break;
+    default:
+        if (_sortCallback.valid()) _sortCallback->sort(indices, pos, model, view); break;
     }
 }

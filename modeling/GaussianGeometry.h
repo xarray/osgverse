@@ -57,8 +57,11 @@ protected:
 class GaussianSorter : public osg::Referenced
 {
 public:
-    GaussianSorter() : _method(CPU_SORT), _firstFrame(true) {}
+    GaussianSorter(int numThreads = 1) : _method(CPU_SORT), _firstFrame(true)
+    { configureThreads(numThreads); }
+
     void cull(const osg::Matrix& view);
+    void configureThreads(int numThreads);
 
     enum Method
     {
@@ -80,10 +83,11 @@ public:
     void clear() { _geometries.clear(); }
 
 protected:
-    virtual ~GaussianSorter() {}
+    virtual ~GaussianSorter() { configureThreads(0); }
     virtual void cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view);
 
     std::set<osg::ref_ptr<GaussianGeometry>> _geometries;
+    std::vector<OpenThreads::Thread*> _sortThreads;
     osg::ref_ptr<Sorter> _sortCallback;
     Method _method; bool _firstFrame;
 };

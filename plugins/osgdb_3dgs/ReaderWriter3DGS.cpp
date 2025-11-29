@@ -10,7 +10,7 @@
 #include "modeling/GaussianGeometry.h"
 #include "spz/load-spz.h"
 
-spz::GaussianCloud loadSplatFromXGrids(std::istream& in, const std::string& path);
+osg::Node* loadSplatFromXGrids(std::istream& in, const std::string& path);
 
 class ReaderWriter3DGS : public osgDB::ReaderWriter
 {
@@ -54,16 +54,12 @@ public:
             std::string prefix = options->getPluginStringData("prefix");
             std::string ext = options->getPluginStringData("extension");
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == "lcc") return loadSplatFromXGrids(fin, prefix);
 
             spz::GaussianCloud cloud;
             if (ext == "ply")
             {
                 cloud = spz::loadSplatFromPly(fin, prefix, unpackOpt);
-                if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
-            }
-            else if (ext == "lcc")
-            {
-                cloud = loadSplatFromXGrids(fin, prefix);
                 if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
             }
             else
