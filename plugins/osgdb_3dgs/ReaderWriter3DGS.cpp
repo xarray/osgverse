@@ -10,7 +10,8 @@
 #include "modeling/GaussianGeometry.h"
 #include "spz/load-spz.h"
 
-osg::Node* loadSplatFromXGrids(std::istream& in, const std::string& path);
+// Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/
+osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path);
 
 class ReaderWriter3DGS : public osgDB::ReaderWriter
 {
@@ -23,6 +24,7 @@ public:
         //supportsExtension("ksplat", "Mark Kellogg's splat file");
         supportsExtension("spz", "Niantic Labs' splat file");
         supportsExtension("lcc", "XGrids' splat file");
+        supportsExtension("json", "PlayCanvas SOGS' meta.json file");
     }
 
     virtual const char* className() const
@@ -54,7 +56,16 @@ public:
             std::string prefix = options->getPluginStringData("prefix");
             std::string ext = options->getPluginStringData("extension");
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            if (ext == "lcc") return loadSplatFromXGrids(fin, prefix);
+            if (ext == "lcc")
+            {
+                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids(fin, prefix);
+                if (node.valid()) return node.get();
+            }
+            else if (ext == "json")
+            {
+                // TODO
+                return ReadResult::NOT_IMPLEMENTED;
+            }
 
             spz::GaussianCloud cloud;
             if (ext == "ply")
@@ -115,6 +126,7 @@ protected:
 
         std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
         osg::Vec3 posValue, scaleValue; osg::Vec4 rotValue; size_t index = 0;
+        const static float kSH_C0 = 0.28209479177387814;
         while (ss.good() && !ss.eof())
         {
             uint8_t rgba[4], rotation[4];
@@ -126,9 +138,9 @@ protected:
             for (int i = 0; i < 4; ++i) rotValue[i] = (rotation[i] / 255.0f) * 2.0f - 1.0f;
             rotValue.normalize(); rot->push_back(osg::Quat(rotValue));
             pos->push_back(posValue); scale->push_back(scaleValue); alpha->push_back(rgba[3] / 255.0f);
-            rD0->push_back(osg::Vec4(rgba[0] / 255.0f, 0.0f, 0.0f, 0.0f));
-            gD0->push_back(osg::Vec4(rgba[1] / 255.0f, 0.0f, 0.0f, 0.0f));
-            bD0->push_back(osg::Vec4(rgba[2] / 255.0f, 0.0f, 0.0f, 0.0f));
+            rD0->push_back(osg::Vec4((rgba[0] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
+            gD0->push_back(osg::Vec4((rgba[1] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
+            bD0->push_back(osg::Vec4((rgba[2] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
             de->push_back(index++);
         }
         if (index == 0) return NULL;

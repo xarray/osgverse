@@ -10,9 +10,8 @@ namespace osgVerse
 
 /** Gaussian Data:
    - Position (vec3): getVertexArray()
-   - Scale (vec3): getNormalArray()
-   - Rotation (vec4): getVertexAttribArray(2)
-   - HintColor + Alpha (vec4): getColorArray()
+   - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
+   - Alpha (float): getVertexAttribArray(1).a()
    - Spherical harmonics coefficients
      - R-channel (dc + 15 rests): getVertexAttribArray(4,7,10,13)
      - G-channel (dc + 15 rests): getVertexAttribArray(5,8,11,14)

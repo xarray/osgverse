@@ -11,25 +11,6 @@
 #include "GaussianGeometry.h"
 using namespace osgVerse;
 
-class CpuSortThread : public OpenThreads::Thread
-{
-public:
-    virtual void run()
-    {
-        while (!_done)
-        {
-            OpenThreads::Thread::microSleep(15000);
-        }
-        _done = true;
-    }
-
-    virtual int cancel()
-    { _done = true; return OpenThreads::Thread::cancel(); }
-
-protected:
-    bool _done;
-};
-
 GaussianGeometry::GaussianGeometry()
 :   osg::Geometry(), _degrees(0)
 {
@@ -75,8 +56,17 @@ public:
         if (cv && cv->getCurrentCamera())
         {
             osg::StateSet* ss = node->getOrCreateStateSet();
-            osg::Uniform* invScreen = ss->getOrCreateUniform("InvScreenResolution", osg::Uniform::FLOAT_VEC2);
-            osg::Uniform* nearFar = ss->getOrCreateUniform("NearFarPlanes", osg::Uniform::FLOAT_VEC2);
+            osg::Uniform *invScreen = ss->getUniform("InvScreenResolution"), *nearFar = ss->getUniform("NearFarPlanes");
+            if (!invScreen)
+            {
+                invScreen = ss->getOrCreateUniform("InvScreenResolution", osg::Uniform::FLOAT_VEC2);
+                invScreen->setDataVariance(osg::Object::DYNAMIC);
+            }
+            if (!nearFar)
+            {
+                nearFar = ss->getOrCreateUniform("NearFarPlanes", osg::Uniform::FLOAT_VEC2);
+                nearFar->setDataVariance(osg::Object::DYNAMIC);
+            }
 
             const osg::Viewport* vp = cv->getCurrentCamera()->getViewport();
             if (vp) invScreen->set(osg::Vec2(1.0f / vp->width(), 1.0f / vp->height()));
