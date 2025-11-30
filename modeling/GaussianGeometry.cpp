@@ -125,7 +125,7 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArra
         float a = (alphas == NULL) ? 1.0f : alphas->at(i);
         const osg::Vec3& scale = (*vArray)[i]; osg::Quat quat = (*qArray)[i];
         if (!quat.zeroRotation()) { double l = quat.length(); if (l > 0.0) quat = quat / l; }
-
+        
         osg::Matrix R(quat), S = osg::Matrix::scale(scale);
         osg::Matrix cov = transpose(R) * S * S * R;
         (*cov0)[i] = osg::Vec4(cov(0, 0), cov(1, 0), cov(2, 0), a);
