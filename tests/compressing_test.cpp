@@ -54,7 +54,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osgViewer::Viewer viewer;
 
-#if true
+#if false
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
     //osgVerse::AudioPlayer::instance()->addFile("../voice.wav", true, false);
     //osgVerse::AudioPlayer::instance()->addFile("../sample.wav", true, true);

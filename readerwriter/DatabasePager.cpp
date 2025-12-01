@@ -75,7 +75,7 @@ void DatabasePager::addLoadedDataToSceneGraph_Verse(const osg::FrameStamp& frame
                 osg::Node* loaded = databaseRequest->_loadedModel.get();
                 std::cout << loaded->getName() << ": TILES = " << loaded->asGroup()->getNumChildren()
                           << ", PLODS = " << ctv._plods.size() << ", GEODES = " << ctv._geodes.size()
-                          << ", GEOMS = " << ctv._drawables.size() << ", IMAGES = " << ctv._images.size() << "; ";
+                          << ", GEOMS = " << ctv._drawables.size() << ", IMAGES = " << ctv._images.size() << "\n";
             }
 
             // Update plod / proxynode properties

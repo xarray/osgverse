@@ -663,7 +663,7 @@ osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult, bool sto
         if (totalW < (r.x + r.w)) totalW = r.x + r.w;
         if (totalH < (r.y + r.h)) totalH = r.y + r.h;
         _result[itr->first] = InputPair(pair.first, v);
-        if (pair.first.valid()) validChild = pair.first;
+        if (pair.first.valid() && !pair.first->isCompressed()) validChild = pair.first;
     }
     free(rects); numImages = _result.size();
     if (!generateResult) return NULL;
@@ -685,8 +685,14 @@ osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult, bool sto
         const osg::Vec4& r = itr->second.second;
         if (!pair.first.valid()) continue;
 
-        if (!osg::copyImage(pair.first.get(), 0, 0, 0, r[2], r[3], 1,
-                            total.get(), r[0], r[1], 0))
+        if (pair.first->isCompressed())
+        {
+            int x1 = (int)r[2], y1 = (int)r[3], nx0 = (int)r[0], ny0 = (int)r[1];
+            for (int y = 0; y < y1; ++y) for (int x = 0; x < x1; ++x)
+                total->setColor(pair.first->getColor(x, y), nx0 + x, ny0 + y);
+        }
+        else if (!osg::copyImage(pair.first.get(), 0, 0, 0, r[2], r[3], 1,
+                                 total.get(), r[0], r[1], 0))
         { OSG_WARN << "[TexturePacker] Failed to copy image " << itr->first << std::endl; }
     }
     return total.release();

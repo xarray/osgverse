@@ -308,11 +308,11 @@ protected:
         }
         uri = osgVerse::WebAuxiliary::urlDecode(uri);  // some data converted from CesiumLab may have encoded characters...
 
-        std::string ext = osgDB::getFileExtension(uri);
+        std::string ext(osgDB::getFileExtension(uri)), sep(1, osgDB::getNativePathSeparator());
         if (!uri.empty() && !osgDB::isAbsolutePath(uri))
         {
             if (osgDB::getServerProtocol(prefix) != "") uri = prefix + "/" + uri;
-            else uri = prefix + osgDB::getNativePathSeparator() + uri;
+            else if (!prefix.empty()) uri = prefix + sep + uri;
         }
 
         bool additive = (st == "ADD" || st == "add");
@@ -331,7 +331,7 @@ protected:
             osg::ref_ptr<osg::Node> child0;
             if (ext == "json") child0 = osgDB::readNodeFile(uri + ".verse_tiles", options);
             else if (!ext.empty()) child0 = osgDB::readNodeFile(uri + ".verse_gltf", options);
-            else return osgDB::readNodeFile(childPseudoFile, childOpt);
+            else return osgDB::readNodeFile(prefix + sep + childPseudoFile, childOpt);
 
             // Create PagedLOD and add the rough level first
             osg::PagedLOD* plod = new osg::PagedLOD;

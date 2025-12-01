@@ -9,6 +9,7 @@
 #include <osgDB/WriteFile>
 #include <osgDB/ConvertUTF>
 #include <osgGA/TrackballManipulator>
+#include <osgGA/StateSetManipulator>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <osgText/Font>
@@ -44,6 +45,31 @@ struct DefaultGpuBaker : public osgVerse::GeometryMerger::GpuBaker
         osg::ref_ptr<osg::HeightField> hf = osgVerse::createHeightField(node, 128, 128);
         osgVerse::ShapeGeometryVisitor bsgv(geom.get(), NULL); hf->accept(bsgv);
         return geom.release();
+    }
+};
+
+struct AtlasProcessor : public osgVerse::GeometryMerger::AtlasProcessor
+{
+    virtual osg::Image* preprocess(osg::Geometry* geom, osg::Image* image, int unit)
+    {
+        osg::Vec2 areas = osgVerse::computeTotalAreas(geom, unit);
+        float d = areas[1] * image->s() * image->t() / areas[0];
+
+        osg::ref_ptr<osg::Image> newImage = static_cast<osg::Image*>(image->clone(osg::CopyOp::DEEP_COPY_ALL));
+        if (d > 400.0f) osgVerse::resizeImage(*newImage, image->s() / 4, image->t() / 4);
+        else if (d > 100.0f) osgVerse::resizeImage(*newImage, image->s() / 2, image->t() / 2);
+        return newImage.release();
+    }
+
+    virtual osg::Image* process(osgVerse::TexturePacker* packer)
+    {
+        size_t numImages = 0;
+        return packer->pack(numImages, true);
+    }
+
+    virtual osg::Image* postprocess(osg::Image* image)
+    {
+        return osgVerse::compressImage(*image);
     }
 };
 
@@ -149,7 +175,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
     osg::ref_ptr<osg::Group> root = new osg::Group;
 
-#if true
+#if false
     osg::Geometry* g0 = osg::createTexturedQuadGeometry(osg::Vec3(0.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
     osg::Geometry* g1 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
     osg::Geometry* g2 = osg::createTexturedQuadGeometry(osg::Vec3(1.0f, 1.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS);
@@ -211,20 +237,24 @@ int main(int argc, char** argv)
     // Find all geometries and merge them
     osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
     FindGeometryVisitor fgv(true); scene->accept(fgv);
+    int maxTexSize = 2048; arguments.read("--max-size", maxTexSize);
 
     osg::ref_ptr<osg::Geometry> newGeom;
+    osg::Timer_t t0 = osg::Timer::instance()->tick();
     if (arguments.read("--original")) {}  // do nothing
     else if (arguments.read("--combine"))
     {
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::COMBINED_GEOMETRY);
         merger.setForceColorArray(true);
-        newGeom = merger.process(fgv.geomList, 0);
+        merger.setAtlasProcessor(new AtlasProcessor);
+        newGeom = merger.process(fgv.geomList, 0, 0, maxTexSize);
     }
     else if (arguments.read("--indirect"))
     {
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
         merger.setForceColorArray(true);
-        newGeom = merger.process(fgv.geomList, 0);
+        merger.setAtlasProcessor(new AtlasProcessor);
+        newGeom = merger.process(fgv.geomList, 0, 0, maxTexSize);
     }
     else  // octree mode
     {
@@ -236,14 +266,21 @@ int main(int argc, char** argv)
 
         osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::INDIRECT_COMMANDS);
         merger.setForceColorArray(true);
+        merger.setAtlasProcessor(new AtlasProcessor);
         scene = merger.processAsOctree(fgv.geomList, 0, 0, 4096, octRoot.get(), 100,
                                        osg::maximum(50.0f, scene->getBound().radius() * 0.02f));
     }
 
+    osg::Timer_t t1 = osg::Timer::instance()->tick();
+    std::cout << "Merging time: " << osg::Timer::instance()->delta_m(t0, t1) << "ms\n";
     if (newGeom.valid())
     {
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         geode->addDrawable(newGeom.get()); scene = geode;
+
+        std::string fileToSave("result.osgt"), options;
+        if (arguments.read("--save", fileToSave) || arguments.read("--options", options))
+            osgDB::writeNodeFile(*geode, fileToSave, new osgDB::Options(options));
     }
 
     // Start the viewer
@@ -257,6 +294,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new SelectSceneHandler(textGeode.get()));
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
     viewer.setUpViewOnSingleScreen(0);

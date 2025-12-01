@@ -178,7 +178,7 @@ osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomLi
     if (geomList.empty()) return NULL;
 
     // Collect textures and make atlas
-    osg::ref_ptr<TexturePacker> packer = new TexturePacker(4096, 4096);
+    osg::ref_ptr<TexturePacker> packer = new TexturePacker(maxTextureSize, maxTextureSize);
     std::vector<osg::ref_ptr<osg::Image>> images;
     std::vector<size_t> gIndices;
 
@@ -192,7 +192,12 @@ osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomLi
 
         osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(
             ss->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
-        if (tex && tex->getImage()) { images.push_back(tex->getImage()); gIndices.push_back(i); }
+        if (tex && tex->getImage())
+        {
+            osg::ref_ptr<osg::Image> img = !_atlasProcessor ? tex->getImage()
+                                         : _atlasProcessor->preprocess(geomList[i].first, tex->getImage(), 0);
+            if (img.valid()) { images.push_back(img); gIndices.push_back(i); }
+        }
     }
 
     std::string ext = images.empty() ? "" : osgDB::getFileExtension(images[0]->getFileName());
@@ -515,7 +520,8 @@ osg::Geometry* GeometryMerger::createGpuBaking(const std::vector<GeometryPair>& 
 osg::Image* GeometryMerger::createTextureAtlas(TexturePacker* packer, const std::string& fileName,
                                                int maxTextureSize, int& originW, int& originH)
 {
-    size_t numImages = 0; osg::ref_ptr<osg::Image> atlas = packer->pack(numImages, true);
+    size_t numImages = 0; osg::ref_ptr<osg::Image> atlas;
+    atlas = _atlasProcessor.valid() ? _atlasProcessor->process(packer) : packer->pack(numImages, true);
     if (!atlas) { packer->setMaxSize(8192, 8192); atlas = packer->pack(numImages, true); }
 
     if (atlas.valid())
@@ -528,7 +534,9 @@ osg::Image* GeometryMerger::createTextureAtlas(TexturePacker* packer, const std:
         if (totalW1 > maxTextureSize) totalW1 = maxTextureSize;
         if (totalH1 > maxTextureSize) totalH1 = maxTextureSize;
         if (totalW1 != originW || totalH1 != originH) atlas->scaleImage(totalW1, totalH1, 1);
+
         atlas->setFileName(fileName);
+        if (_atlasProcessor.valid()) atlas = _atlasProcessor->postprocess(atlas.get());
     }
     return atlas.release();
 }

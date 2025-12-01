@@ -29,11 +29,26 @@ namespace osgVerse
             virtual osg::Geometry* bakeGeometry(osg::Node* node) = 0;
         };
 
+        struct AtlasProcessor : public osg::Referenced
+        {
+            /** For each geometry-image pair, pre-process them and send result image to packer */
+            virtual osg::Image* preprocess(osg::Geometry* geom, osg::Image* img, int unit) { return img; }
+
+            /** Create new atlas image from the packer */
+            virtual osg::Image* process(TexturePacker* packer) = 0;
+
+            /** Atlas image is finished, check if we should do some post work */
+            virtual osg::Image* postprocess(osg::Image* img) { return img; }
+        };
+
         GeometryMerger(Method m = COMBINED_GEOMETRY, GpuBaker* baker = NULL);
         ~GeometryMerger();
 
         void setGpkBaker(GpuBaker* baker) { _baker = baker; }
         GpuBaker* getGpuBaker() { return _baker.get(); }
+
+        void setAtlasProcessor(AtlasProcessor* proc) { _atlasProcessor = proc; }
+        AtlasProcessor* getAtlasProcessor() { return _atlasProcessor.get(); }
 
         void setMethod(Method m) { _method = m; }
         Method getMethod() const { return _method; }
@@ -65,6 +80,7 @@ namespace osgVerse
                                        int maxTextureSize, int& originW, int& originH);
 
         osg::ref_ptr<GpuBaker> _baker;
+        osg::ref_ptr<AtlasProcessor> _atlasProcessor;
         Method _method;
         float _autoSimplifierRatio;
         bool _forceColorArray;
