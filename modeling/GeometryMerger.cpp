@@ -179,8 +179,8 @@ osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomLi
 
     // Collect textures and make atlas
     osg::ref_ptr<TexturePacker> packer = new TexturePacker(maxTextureSize, maxTextureSize);
-    std::vector<osg::ref_ptr<osg::Image>> images;
-    std::vector<size_t> gIndices;
+    std::set<osg::ref_ptr<osg::Image>> images;
+    std::map<osg::Image*, size_t> gIndices;
 
     std::map<size_t, size_t> geometryIdMap;
     std::string imageName; int atlasW = 0, atlasH = 0;
@@ -196,15 +196,16 @@ osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomLi
         {
             osg::ref_ptr<osg::Image> img = !_atlasProcessor ? tex->getImage()
                                          : _atlasProcessor->preprocess(geomList[i].first, tex->getImage(), 0);
-            if (img.valid()) { images.push_back(img); gIndices.push_back(i); }
+            if (img.valid()) { images.insert(img); gIndices[img.get()] = i; }
         }
     }
 
-    std::string ext = images.empty() ? "" : osgDB::getFileExtension(images[0]->getFileName());
-    for (size_t i = 0; i < images.size(); ++i)
+    std::string ext = images.empty() ? "" : osgDB::getFileExtension((*images.begin())->getFileName());
+    for (std::set<osg::ref_ptr<osg::Image>>::iterator it = images.begin(); it != images.end(); ++it)
     {
-        size_t id = gIndices[i]; geometryIdMap[id] = packer->addElement(images[i].get());
-        imageName += osgDB::getStrippedName(images[i]->getFileName()) + ",";
+        osg::Image* img = it->get(); if (gIndices.find(img) == gIndices.end()) continue;
+        size_t id = gIndices[img]; geometryIdMap[id] = packer->addElement(img);
+        imageName += osgDB::getStrippedName(img->getFileName()) + ",";
     }
     ext = ".jpg";  // packed image should always be saved to JPG at current time...
     if (images.empty()) return NULL;

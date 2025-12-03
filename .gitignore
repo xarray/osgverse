@@ -42,5 +42,6 @@ local.properties
 *.meta
 .DS_Store
 .vscode*/
+.qoder*/
 build*/
 sdk*/

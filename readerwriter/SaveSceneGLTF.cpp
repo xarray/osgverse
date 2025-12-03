@@ -388,7 +388,7 @@ protected:
                         }
                     }
                     gltfImage.mimeType = "image/" + ext; gltfImage.as_is = true;
-                    if (ext == "ktx") _withKTX = true;
+                    if (ext.find("ktx") != std::string::npos) { gltfImage.mimeType = "image/ktx2"; _withKTX = true; }
                 }
                 else if (hint == 0)
                 {   // Default to write image data directly
@@ -484,10 +484,7 @@ namespace osgVerse
 
     SaverGLTF::~SaverGLTF()
     {
-        _modelDef->buffers.clear(); _modelDef->bufferViews.clear(); _modelDef->images.clear();
-        _modelDef->textures.clear(); _modelDef->samplers.clear(); _modelDef->animations.clear();
-        _modelDef->meshes.clear(); _modelDef->nodes.clear(); _modelDef->scenes.clear();
-        //delete _modelDef;  // FIXME: will crash on ~Accessor::Sparse(), why?
+        delete _modelDef;
     }
 
     bool saveGltf(const osg::Node& node, const std::string& file,
