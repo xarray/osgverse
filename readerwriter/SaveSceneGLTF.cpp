@@ -102,11 +102,17 @@ public:
         osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geometry.getColorArray());
         osg::Vec2Array* ta0 = dynamic_cast<osg::Vec2Array*>(geometry.getTexCoordArray(0));
         osg::Vec2Array* ta1 = dynamic_cast<osg::Vec2Array*>(geometry.getTexCoordArray(1));
-        if (va && !va->empty()) { vSize = va->size(); NEW_V_BUFFER(posID, (*va), osg::Vec3, TINYGLTF_TYPE_VEC3, TINYGLTF_COMPONENT_TYPE_FLOAT) }
-        if (na && na->size() == vSize) { NEW_V_BUFFER(normID, (*na), osg::Vec3, TINYGLTF_TYPE_VEC3, TINYGLTF_COMPONENT_TYPE_FLOAT) }
-        if (ca && ca->size() == vSize) { NEW_V_BUFFER(colID, (*ca), osg::Vec4, TINYGLTF_TYPE_VEC4, TINYGLTF_COMPONENT_TYPE_FLOAT) }
-        if (ta0 && ta0->size() == vSize) { NEW_V_BUFFER(uv0ID, (*ta0), osg::Vec2, TINYGLTF_TYPE_VEC2, TINYGLTF_COMPONENT_TYPE_FLOAT) }
-        if (ta1 && ta1->size() == vSize) { NEW_V_BUFFER(uv1ID, (*ta1), osg::Vec2, TINYGLTF_TYPE_VEC2, TINYGLTF_COMPONENT_TYPE_FLOAT) }
+        if (va && !va->empty())
+        {
+            const osg::BoundingBox& bb = geometry.getBoundingBox(); vSize = va->size();
+            NEW_V_BUFFER(posID, (*va), osg::Vec3, TINYGLTF_TYPE_VEC3, TINYGLTF_COMPONENT_TYPE_FLOAT);
+            acc.maxValues = std::vector<double>(bb._max.ptr(), bb._max.ptr() + 3);
+            acc.minValues = std::vector<double>(bb._min.ptr(), bb._min.ptr() + 3);
+        }
+        if (na && na->size() == vSize) { NEW_V_BUFFER(normID, (*na), osg::Vec3, TINYGLTF_TYPE_VEC3, TINYGLTF_COMPONENT_TYPE_FLOAT); }
+        if (ca && ca->size() == vSize) { NEW_V_BUFFER(colID, (*ca), osg::Vec4, TINYGLTF_TYPE_VEC4, TINYGLTF_COMPONENT_TYPE_FLOAT); }
+        if (ta0 && ta0->size() == vSize) { NEW_V_BUFFER(uv0ID, (*ta0), osg::Vec2, TINYGLTF_TYPE_VEC2, TINYGLTF_COMPONENT_TYPE_FLOAT); }
+        if (ta1 && ta1->size() == vSize) { NEW_V_BUFFER(uv1ID, (*ta1), osg::Vec2, TINYGLTF_TYPE_VEC2, TINYGLTF_COMPONENT_TYPE_FLOAT); }
 
         // Create new node and mesh
         _scene.nodes.push_back(_model->nodes.size()); _model->nodes.push_back(tinygltf::Node());
@@ -152,24 +158,24 @@ public:
 
             osg::DrawElementsUInt* de0 = dynamic_cast<osg::DrawElementsUInt*>(p);
             if (de0) { NEW_E_BUFFER(indexID, (*de0), unsigned int,
-                                    TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) }
+                                    TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT); }
             osg::DrawElementsUShort* de1 = dynamic_cast<osg::DrawElementsUShort*>(p);
             if (de1) { NEW_E_BUFFER(indexID, (*de1), unsigned short,
-                                    TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) }
+                                    TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT); }
             osg::DrawElementsUByte* de2 = dynamic_cast<osg::DrawElementsUByte*>(p);
             if (de2) { NEW_E_BUFFER(indexID, (*de2), unsigned char,
-                                    TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) }
+                                    TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE); }
             if (indexID < 0)
             {
                 osg::TriangleIndexFunctor<TriangleCollector> f; p->accept(f);
                 { NEW_E_BUFFER(indexID, (f.triangles), unsigned int,
-                               TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) }
+                               TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT); }
                 primitive.mode = TINYGLTF_MODE_TRIANGLES;
             }
 #else
         osg::TriangleIndexFunctor<TriangleCollector> f; geometry.accept(f);
         int indexID = -1; gltfMesh.primitives.push_back(tinygltf::Primitive());
-        { NEW_E_BUFFER(indexID, (f.triangles), unsigned int, TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) }
+        { NEW_E_BUFFER(indexID, (f.triangles), unsigned int, TINYGLTF_TYPE_SCALAR, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT); }
 
         tinygltf::Primitive& primitive = gltfMesh.primitives.back();
         primitive.mode = TINYGLTF_MODE_TRIANGLES;
@@ -242,7 +248,7 @@ public:
         // If the image data is already encoded, take it as is
         std::vector<unsigned char> data; if (image->as_is) data = image->image;
 
-        const std::string ext = osgDB::getFileExtension(*filename), mimeType = image->mimeType;
+        std::string ext = osgDB::getFileExtension(*filename), mimeType = image->mimeType;
         if (mimeType == "image/png")
         {
             if (!image->as_is)

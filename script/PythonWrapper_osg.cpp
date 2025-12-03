@@ -13,13 +13,6 @@
 using namespace osgVerse;
 void pythonWrapperOsg() {}
 
-template <std::size_t Id>
-struct OsgBase
-{
-    osg::observer_ptr<LibraryEntry> entry;
-    osg::ref_ptr<osg::Object> object;
-};
-
 #ifdef WITH_PYTHON
 
 #define PYBIND_VECTOR(type) \
@@ -45,10 +38,20 @@ struct OsgBase
             .def(("get" + prop.name).c_str(), [&](OsgBase<N>* s) \
         { type v; s->entry->getProperty(s->object.get(), prop.name, v); return v; })
 
-template<int N>
 static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const std::string& name)
 {
     if (!m || !entry || name.empty()) return;
+
+    PyType_Slot slots[] =
+    {
+        //{Py_tp_new,     (void*)Inst_new},
+        //{Py_tp_dealloc, (void*)Inst_dealloc},
+        //{Py_tp_methods, methDef.data()},
+        //{Py_tp_getset,  getsetDef.data()},
+        {0, nullptr}
+    };
+
+#if false
     pybind11::class_<OsgBase<N>> classObj(m, name.c_str());
     classObj.def(pybind11::init([&]()
     {
@@ -57,7 +60,6 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
         dummy->entry = entry; return dummy;
     }));
 
-#if false
     std::vector<LibraryEntry::Property> propNames = entry->getPropertyNames(name);
     for (size_t i = 0; i < propNames.size(); ++i)
     {
@@ -130,18 +132,6 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
 #endif
 }
 
-template <std::size_t... Is>
-void createPythonClasses(pybind11::module_& m, LibraryEntry* entry,
-                         std::string const* classList, std::index_sequence<Is...>)
-{
-    using expander = int[];
-    (void)expander { 0, (createPythonClass<Is>(m, entry, classList[Is]), 0)... };
-}
-
-template <std::size_t N>
-void createAllPythonClasses(pybind11::module_& m, LibraryEntry* entry, std::string const (&classList)[N])
-{ createPythonClasses(m, entry, classList, std::make_index_sequence<N>{}); }
-
 PYBIND11_EMBEDDED_MODULE(osg, module)
 {
     pybind11::class_<osg::Vec2f>(module, "Vec2f")
@@ -165,12 +155,7 @@ PYBIND11_EMBEDDED_MODULE(osg, module)
 
     osg::ref_ptr<LibraryEntry> entry = new LibraryEntry("osg");
     const std::set<std::string>& classes = entry->getClasses();
-
-    std::size_t id = 0;
-    std::vector<std::string> classList(classes.begin(), classes.end());
-
-    constexpr std::size_t N = 280; std::string ptrs[N] = {};
-    for (std::size_t i = 0; i < classList.size(); ++i) ptrs[i] = classList[i];
-    createAllPythonClasses(module, entry.get(), ptrs);
+    for (std::set<std::string>::const_iterator it = classes.begin();
+         it != classes.end(); ++it) createPythonClass(module, entry.get(), *it);
 }
 #endif

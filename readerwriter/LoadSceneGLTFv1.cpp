@@ -8,16 +8,17 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
-#define TINYGLTF_LOADER_IMPLEMENTATION
+//#define TINYGLTF_LOADER_IMPLEMENTATION
 #define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "tiny_gltf_loader.h"
+//#include "tiny_gltf_loader.h"
 
 namespace osgVerse
 {
     bool LoadBinaryV1(std::vector<char>& data, const std::string& baseDir)
     {
+#if false
         tinygltf::Scene scene;
         std::string err;
         tinygltf::TinyGLTFLoader loader;
@@ -27,5 +28,8 @@ namespace osgVerse
         std::cout << "[LoadBinaryV1] " << loaded << ": " << err << "\n";
         // TODO
         return loaded;
+#else
+        return false;
+#endif
     }
 }
