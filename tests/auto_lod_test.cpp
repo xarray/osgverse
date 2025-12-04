@@ -55,9 +55,10 @@ struct AtlasProcessor : public osgVerse::GeometryMerger::AtlasProcessor
         osg::Vec2 areas = osgVerse::computeTotalAreas(geom, unit);
         float d = areas[1] * image->s() * image->t() / areas[0];
 
-        osg::ref_ptr<osg::Image> newImage = static_cast<osg::Image*>(image->clone(osg::CopyOp::DEEP_COPY_ALL));
-        if (d > 400.0f) osgVerse::resizeImage(*newImage, image->s() / 4, image->t() / 4);
-        else if (d > 100.0f) osgVerse::resizeImage(*newImage, image->s() / 2, image->t() / 2);
+        osg::ref_ptr<osg::Image> newImage = (d > 400.0f) ?
+            static_cast<osg::Image*>(image->clone(osg::CopyOp::DEEP_COPY_ALL)) : image;
+        if (d > 1600.0f) osgVerse::resizeImage(*newImage, image->s() / 4, image->t() / 4);
+        else if (d > 400.0f) osgVerse::resizeImage(*newImage, image->s() / 2, image->t() / 2);
         return newImage.release();
     }
 
@@ -69,7 +70,8 @@ struct AtlasProcessor : public osgVerse::GeometryMerger::AtlasProcessor
 
     virtual osg::Image* postprocess(osg::Image* image)
     {
-        return osgVerse::compressImage(*image);
+        std::cout << "Result image: " << image->s() << "x" << image->t() << "\n";
+        return image;// return osgVerse::compressImage(*image);
     }
 };
 

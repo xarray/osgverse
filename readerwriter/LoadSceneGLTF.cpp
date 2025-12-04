@@ -29,6 +29,21 @@
 
 namespace osgVerse
 {
+    static std::set<std::string> g_extensions =
+    {
+        // "KHR_audio",
+        // "KHR_lights_punctual",
+        // "MSFT_lod",
+#ifdef VERSE_USE_DRACO
+        "KHR_draco_mesh_compression",
+#endif
+        "EXT_texture_webp",
+        "KHR_texture_basisu",
+        "MSFT_texture_dds",
+        "KHR_materials_specular",
+        "KHR_materials_unlit"
+    };
+
     extern bool LoadBinaryV1(std::vector<char>& data, const std::string& baseDir);
 }
 
@@ -327,6 +342,16 @@ namespace osgVerse
         else
             loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);
         
+        if (!_modelDef.extensionsRequired.empty() || !_modelDef.extensionsUsed.empty())
+        {
+            OSG_INFO << "[LoaderGLTF] Found GLTF extensions: \n";
+            for (size_t i = 0; i < _modelDef.extensionsUsed.size(); ++i)
+            {
+                std::string ex = _modelDef.extensionsUsed[i]; bool ok = (g_extensions.find(ex) != g_extensions.end());
+                OSG_INFO << "  - " << ex << ": " << ok << "\n"; if (!ok) warn += " " + ex + " not supported.";
+            }
+        }
+
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
         if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << std::endl;
         if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; return; }
@@ -982,7 +1007,7 @@ namespace osgVerse
             image2D->setFileName(imageSrc.uri); image2D->setName(imageSrc.name);
             image2D->setUserValue("Loader", std::string("LoaderGLTF:" + imageSrc.mimeType));
             if (!imageSrc.name.empty())
-                OSG_NOTICE << "[LoaderGLTF] " << imageSrc.name << " loaded for " << name << std::endl;
+                OSG_INFO << "[LoaderGLTF] " << imageSrc.name << " loaded for " << name << std::endl;
         }
 
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;

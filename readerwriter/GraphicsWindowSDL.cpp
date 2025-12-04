@@ -177,12 +177,19 @@ GraphicsWindowSDL::~GraphicsWindowSDL()
 
 void GraphicsWindowSDL::initialize()
 {
+    WindowData* winData = static_cast<WindowData*>(_traits->inheritedWindowData.get());
+
 #if defined(VERSE_EMBEDDED) && !defined(VERSE_WASM)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     OSG_NOTICE << "[GraphicsWindowSDL] Create EGL system for embedded device" << std::endl;
 #elif defined(VERSE_GLES_DESKTOP)
     OSG_NOTICE << "[GraphicsWindowSDL] Create EGL system for desktop PC" << std::endl;
 #elif defined(VERSE_WASM)
+    if (winData)
+    {
+        SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, winData->sleepable ? "1" : "0");
+        SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, winData->canvasElement.c_str());
+    }
     OSG_NOTICE << "[GraphicsWindowSDL] Create EGL system for WebAssembly" << std::endl;
 #else
     OSG_NOTICE << "[GraphicsWindowSDL] Create native windowing system" << std::endl;

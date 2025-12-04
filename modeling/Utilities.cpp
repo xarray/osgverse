@@ -622,6 +622,29 @@ size_t TexturePacker::addElement(int w, int h)
 void TexturePacker::removeElement(size_t id)
 { if (_input.find(id) != _input.end()) _input.erase(_input.find(id)); }
 
+bool TexturePacker::tryPacking()
+{
+    stbrp_context context; int ptr = 0, result = 0;
+    int maxSize = osg::maximum(_maxWidth, _maxHeight) * 2;
+    stbrp_node* nodes = (stbrp_node*)malloc(sizeof(stbrp_node) * maxSize);
+    if (nodes) memset(nodes, 0, sizeof(stbrp_node) * maxSize);
+
+    stbrp_rect* rects = (stbrp_rect*)malloc(sizeof(stbrp_rect) * _input.size());
+    for (std::map<size_t, InputPair>::iterator itr = _input.begin();
+         itr != _input.end(); ++itr, ++ptr)
+    {
+        stbrp_rect& r = rects[ptr];
+        InputPair& pair = itr->second;
+        r.id = itr->first; r.was_packed = 0;
+        r.x = 0; r.w = pair.first.valid() ? pair.first->s() : pair.second[2];
+        r.y = 0; r.h = pair.first.valid() ? pair.first->t() : pair.second[3];
+    }
+
+    stbrp_init_target(&context, _maxWidth, _maxHeight, nodes, maxSize);
+    result = stbrp_pack_rects(&context, rects, _input.size());
+    free(nodes); free(rects); return result > 0;
+}
+
 osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult, bool stopIfFailed)
 {
     stbrp_context context; int ptr = 0, totalW = 0, totalH = 0;

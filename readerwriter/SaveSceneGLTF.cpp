@@ -52,7 +52,7 @@ class GltfSceneWriter : public osgVerse::NodeVisitorEx
 public:
     GltfSceneWriter(tinygltf::Model* m, const std::string& dir, const std::string& imgHint, bool yUp)
     :   osgVerse::NodeVisitorEx(), _model(m), _folder(dir), _imageHint(imgHint),
-        _withKTX(false), _withDDS(false)
+        _withKTX(false), _withDDS(false), _withWEBP(false)
     { if (yUp) pushMatrix(osg::Matrix::rotate(osg::Z_AXIS, osg::Y_AXIS)); }
 
     struct TriangleCollector
@@ -68,6 +68,7 @@ public:
     tinygltf::Scene& scene() { return _scene; }
     bool withKTX() const { return _withKTX; }
     bool withDDS() const { return _withDDS; }
+    bool withWebP() const { return _withWEBP; }
 
     void pushDescriptions(osg::Node& node)
     {
@@ -387,8 +388,11 @@ protected:
                             NEW_BUFFER(bufferID, data, char, 0); gltfImage.bufferView = bufferID;
                         }
                     }
+
                     gltfImage.mimeType = "image/" + ext; gltfImage.as_is = true;
                     if (ext.find("ktx") != std::string::npos) { gltfImage.mimeType = "image/ktx2"; _withKTX = true; }
+                    else if (ext.find("webp") != std::string::npos) { gltfImage.mimeType = "image/webp"; _withWEBP = true; }
+                    else if (ext.find("verse_") == 0) gltfImage.mimeType = "image/" + ext.substr(6);  // remove "verse_"
                 }
                 else if (hint == 0)
                 {   // Default to write image data directly
@@ -455,7 +459,7 @@ protected:
     tinygltf::Model* _model;
     tinygltf::Scene _scene;
     std::string _folder, _imageHint;
-    bool _withKTX, _withDDS;
+    bool _withKTX, _withDDS, _withWEBP;
 };
 
 namespace osgVerse
@@ -476,6 +480,7 @@ namespace osgVerse
         tinygltf::TinyGLTF writer;
         writer.SetImageWriter(GltfSceneWriter::writeImageImplementation, &sceneWriter);
         if (sceneWriter.withKTX()) _modelDef->extensionsUsed.emplace_back("KHR_texture_basisu");
+        if (sceneWriter.withWebP()) _modelDef->extensionsUsed.emplace_back("EXT_texture_webp");
         if (sceneWriter.withDDS()) _modelDef->extensionsUsed.emplace_back("MSFT_texture_dds");
 
         bool success = writer.WriteGltfSceneToStream(_modelDef, out, true, isBinary);

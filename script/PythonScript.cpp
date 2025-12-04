@@ -47,3 +47,18 @@ PythonScript::~PythonScript()
     PythonObject* pobj = static_cast<PythonObject*>(_pythonObject.get());
     if (pobj) pobj->modules.clear();  // clear modules first
 }
+
+bool PythonScript::execute(const std::string& code)
+{
+    try
+    {
+        pybind11::exec(code);
+        // pybind11::eval_file("script.py");
+    }
+    catch (const pybind11::error_already_set& e)
+    {
+        OSG_WARN << "[PythonScript] Execution error: " << e.what() << std::endl;
+        return false;
+    }
+    return true;
+}

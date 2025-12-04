@@ -164,7 +164,7 @@ namespace
 
 GeometryMerger::GeometryMerger(Method m, GpuBaker* baker)
 {
-    _method = m; _baker = baker;
+    _method = m; _defaultAtlasSize = 1024; _baker = baker;
     _autoSimplifierRatio = 0.0f; _forceColorArray = false;
 }
 
@@ -172,43 +172,54 @@ GeometryMerger::~GeometryMerger()
 {}
 
 osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomList,
-                                         size_t offset, size_t size, int maxTextureSize)
+                                         size_t offset, size_t size, int maxTextureSize, int texUnit)
 {
     if (size == 0) size = geomList.size() - offset;
     if (geomList.empty()) return NULL;
 
     // Collect textures and make atlas
-    osg::ref_ptr<TexturePacker> packer = new TexturePacker(maxTextureSize, maxTextureSize);
     std::set<osg::ref_ptr<osg::Image>> images;
-    std::map<osg::Image*, size_t> gIndices;
-
+    std::map<osg::Image*, std::vector<size_t>> gIndices;
     std::map<size_t, size_t> geometryIdMap;
-    std::string imageName; int atlasW = 0, atlasH = 0;
+    std::string imageName;
+
     size_t end = osg::minimum(offset + size, geomList.size());
-    for (size_t i = offset; i < end; ++i)
+    for (size_t i = offset; i < end; ++i)  // FIXME: handle multi-tex-units?
     {
         osg::StateSet* ss = geomList[i].first->getStateSet();
         if (!ss) continue; else if (ss->getNumTextureAttributeLists() == 0) continue;
 
         osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(
-            ss->getTextureAttribute(0, osg::StateAttribute::TEXTURE));
+            ss->getTextureAttribute(texUnit, osg::StateAttribute::TEXTURE));
         if (tex && tex->getImage())
         {
             osg::ref_ptr<osg::Image> img = !_atlasProcessor ? tex->getImage()
-                                         : _atlasProcessor->preprocess(geomList[i].first, tex->getImage(), 0);
-            if (img.valid()) { images.insert(img); gIndices[img.get()] = i; }
+                                         : _atlasProcessor->preprocess(geomList[i].first, tex->getImage(), texUnit);
+            if (img.valid()) { images.insert(img); gIndices[img.get()].push_back(i); }
         }
     }
-
-    std::string ext = images.empty() ? "" : osgDB::getFileExtension((*images.begin())->getFileName());
+    
+    osg::ref_ptr<TexturePacker> packer = new TexturePacker(_defaultAtlasSize, _defaultAtlasSize);
     for (std::set<osg::ref_ptr<osg::Image>>::iterator it = images.begin(); it != images.end(); ++it)
     {
         osg::Image* img = it->get(); if (gIndices.find(img) == gIndices.end()) continue;
-        size_t id = gIndices[img]; geometryIdMap[id] = packer->addElement(img);
+        const std::vector<size_t>& ids = gIndices[img]; size_t element = packer->addElement(img);
+        for (size_t i = 0; i < ids.size(); ++i) geometryIdMap[ids[i]] = element;
         imageName += osgDB::getStrippedName(img->getFileName()) + ",";
     }
+
+    std::string ext = images.empty() ? "" : osgDB::getFileExtension((*images.begin())->getFileName());
     ext = ".jpg";  // packed image should always be saved to JPG at current time...
     if (images.empty()) return NULL;
+
+    // Try finding a usable resolution automatically
+    int atlasW = _defaultAtlasSize, atlasH = _defaultAtlasSize;
+    while (!packer->tryPacking())
+    {
+        if (atlasH >= 16384) { OSG_FATAL << "[GeometryMerger] Atlas texture too large" << std::endl; break; }
+        if (atlasW <= atlasH) atlasW = atlasW * 2; else atlasH = atlasH * 2;
+        packer->setMaxSize(atlasW, atlasH);
+    }
 
     osg::ref_ptr<osg::Image> atlas = createTextureAtlas(
         packer.get(), imageName + "_all." + ext, maxTextureSize, atlasW, atlasH);
@@ -219,10 +230,10 @@ osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomLi
         for (size_t i = offset; i < end; ++i)
         {
             osg::Geometry* geom = geomList[i].first;
-            osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
+            osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(texUnit));
             if (!ta || geometryIdMap.find(i) == geometryIdMap.end()) continue;
 
-            int x = 0, y = 0, w = 0, h = 0;
+            int x = 0, y = 0, w = 0, h = 0, outbound = 0;
             if (!packer->getPackingData(geometryIdMap[i], x, y, w, h)) continue;
 
             float tx0 = (float)x / totalW, tw = (float)w / totalW;
@@ -230,8 +241,13 @@ osg::Image* GeometryMerger::processAtlas(const std::vector<GeometryPair>& geomLi
             for (size_t j = 0; j < ta->size(); ++j)
             {
                 const osg::Vec2& t = (*ta)[j];
+                if (t[0] < 0.0f || t[0] > 1.0f || t[1] < 0.0f || t[1] > 1.0f) outbound++;
                 (*ta)[j] = osg::Vec2(t[0] * tw + tx0, t[1] * th + ty0);
             }
+
+            if (outbound > 0)
+                OSG_NOTICE << "[GeometryMerger] Geometry " << i << " (" << geom->getName() << ") has outbound UVs: "
+                           << outbound << " / " << ta->size() << ", which will cause bad mapping results at present\n";
         }
     }
     return atlas.release();
@@ -523,8 +539,6 @@ osg::Image* GeometryMerger::createTextureAtlas(TexturePacker* packer, const std:
 {
     size_t numImages = 0; osg::ref_ptr<osg::Image> atlas;
     atlas = _atlasProcessor.valid() ? _atlasProcessor->process(packer) : packer->pack(numImages, true);
-    if (!atlas) { packer->setMaxSize(8192, 8192); atlas = packer->pack(numImages, true); }
-
     if (atlas.valid())
     {
         originW = atlas->s(); originH = atlas->t();

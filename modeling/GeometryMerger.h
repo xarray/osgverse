@@ -53,6 +53,9 @@ namespace osgVerse
         void setMethod(Method m) { _method = m; }
         Method getMethod() const { return _method; }
 
+        void setDefaultAtlasSize(int s) { _defaultAtlasSize = s; }
+        int getDefaultAtlasSize() const { return _defaultAtlasSize; }
+
         void setSimplifierRatio(float r) { _autoSimplifierRatio = r; }
         float getSimplifierRatio() const { return _autoSimplifierRatio; }
 
@@ -66,7 +69,7 @@ namespace osgVerse
                                    int maxObjectsInCell = 8, float minSizeInCell = 1.0f);
 
         osg::Image* processAtlas(const std::vector<GeometryPair>& geomList, size_t offset,
-                                 size_t size = 0, int maxTextureSize = 4096);
+                                 size_t size = 0, int maxTextureSize = 4096, int texUnit = 0);
 
     protected:
         osg::Geometry* createCombined(const std::vector<GeometryPair>& geomList,
@@ -81,7 +84,7 @@ namespace osgVerse
 
         osg::ref_ptr<GpuBaker> _baker;
         osg::ref_ptr<AtlasProcessor> _atlasProcessor;
-        Method _method;
+        Method _method; int _defaultAtlasSize;
         float _autoSimplifierRatio;
         bool _forceColorArray;
     };

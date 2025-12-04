@@ -10,6 +10,8 @@ namespace osgVerse
     public:
         PythonScript();
 
+        bool execute(const std::string& code);
+
     protected:
         virtual ~PythonScript();
         osg::ref_ptr<osg::Referenced> _pythonObject;

@@ -13,6 +13,14 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT GraphicsWindowSDL : public osgViewer::GraphicsWindow
     {
     public:
+        struct OSGVERSE_RW_EXPORT WindowData : public osg::Referenced
+        {
+            WindowData(const std::string& canvas = "#canvas") : canvasElement(canvas), sleepable(true) {}
+            std::string canvasElement;  // For emscripten build, set HTML canvas name
+            bool sleepable;             // For emscripten build, set if giving back control to the browser
+                                        // when running with asyncify
+        };
+
         GraphicsWindowSDL(osg::GraphicsContext::Traits* traits);
         virtual const char* libraryName() const { return "osgVerse"; }
         virtual const char* className() const { return "GraphicsWindowSDL"; }

@@ -236,6 +236,7 @@ namespace osgVerse
     public:
         TexturePacker(int maxW, int maxH) : _maxWidth(maxW), _maxHeight(maxH), _dictIndex(0) {}
         void setMaxSize(int w, int h) { _maxWidth = w; _maxHeight = h; }
+        bool tryPacking();
         void clear();
 
         size_t addElement(osg::Image* image);

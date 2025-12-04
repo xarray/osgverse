@@ -109,6 +109,7 @@ int main(int argc, char** argv)
     traits->windowDecoration = true; traits->doubleBuffer = true;
     traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
     traits->windowingSystemPreference = "SDL";
+    //traits->inheritedWindowData = new osgVerse::GraphicsWindowSDL::WindowData("#canvas");
 
     osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
     viewer->getCamera()->setGraphicsContext(gc.get());
