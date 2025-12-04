@@ -1,3 +1,4 @@
+#include <osg/io_utils>
 #include <osg/Version>
 #include <osg/Quat>
 #include <osg/Matrix>
@@ -15,10 +16,16 @@ void pythonWrapperOsg() {}
 
 #ifdef WITH_PYTHON
 
+#define VECTOR_FOR(type) for (int i = 0; i < type::num_components; ++i)
 #define PYBIND_VECTOR(type) \
-    .def("length", & type##::length) \
+    .def("length", [](const type & s) { double t = 0.0; VECTOR_FOR(type) t += (double)s[i] * (double)s[i]; return sqrt(t); }) \
+    .def("__str__", [](const type & s) { std::stringstream ss; VECTOR_FOR(type) ss << (double)s[i] << " "; return ss.str(); }) \
     .def("__getitem__", [](const type & s, size_t i) { return s[i]; }) \
-    .def("__setitem__", [](type & s, size_t i, float v) { s[i] = v; })
+    .def("__setitem__", [](type & s, size_t i, type::value_type v) { s[i] = v; })
+#define PYBIND_VECTOR_GROUP(lib, vtype, type2, type3, type4) \
+    pybind11::class_<lib::type2>(module, #type2).def(pybind11::init<vtype, vtype>()) PYBIND_VECTOR(lib::type2); \
+    pybind11::class_<lib::type3>(module, #type3).def(pybind11::init<vtype, vtype, vtype>()) PYBIND_VECTOR(lib::type3); \
+    pybind11::class_<lib::type4>(module, #type4).def(pybind11::init<vtype, vtype, vtype, vtype>()) PYBIND_VECTOR(lib::type4);
 
 #define PYBIND_MATRIX(type, vec_type, value_type) \
     .def("valid", & type##::valid).def("makeIdentity", & type##::makeIdentity) \
@@ -27,6 +34,8 @@ void pythonWrapperOsg() {}
     .def("makeScale", pybind11::overload_cast<const vec_type &>(& type##::makeScale), pybind11::arg("s")) \
     .def("preMultiply", pybind11::overload_cast<const type &>(& type##::preMult), pybind11::arg("m")) \
     .def("postMultiply", pybind11::overload_cast<const type &>(& type##::postMult), pybind11::arg("m")) \
+    .def("__str__", [](const type & s) \
+        { std::stringstream ss; for (int i = 0; i < 16; ++i) ss << *(s.ptr() + i) << " "; return ss.str(); }) \
     .def("__getitem__", [](const type & self, pybind11::tuple id) \
         { if (id.size() >= 2) return self(id[0].cast<int>(), id[1].cast<int>()); else return (value_type)0.0; }) \
     .def("__setitem__", [](type & self, pybind11::tuple id, value_type v) \
@@ -225,6 +234,8 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
 
     std::vector<PyGetSetDef>* propDefs = new std::vector<PyGetSetDef>;
     std::vector<LibraryEntry::Property> propNames = entry->getPropertyNames(name);
+    std::vector<LibraryEntry::Method> methodNames = entry->getMethodNames(name);
+
     for (size_t i = 0; i < propNames.size(); ++i)
     {
         LibraryEntry::Property& prop = propNames[i]; if (prop.outdated) continue;
@@ -237,13 +248,15 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
         def.set = &PythonWrapperObject::setProperty;
         propDefs->push_back(def);
     }
+
+    // TODO: add methods
     propDefs->push_back({ nullptr });
 
     PyType_Slot slots[] =
     {
         { Py_tp_new, (void*)PythonWrapperObject::allocate },
         { Py_tp_dealloc, (void*)PythonWrapperObject::deallocate },
-        { Py_tp_getset,  propDefs->data() }, //{ Py_tp_methods, methodDefs.data() },
+        { Py_tp_getset,  propDefs->data() },
         { Py_tp_doc, (void*)strdup(fullName.c_str()) }, { 0, nullptr }
     };
 
@@ -282,18 +295,16 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
 
 PYBIND11_EMBEDDED_MODULE(osg, module)
 {
-    pybind11::class_<osg::Vec2f>(module, "Vec2f")
-        .def(pybind11::init<float, float>()) PYBIND_VECTOR(osg::Vec2f);
-    pybind11::class_<osg::Vec3f>(module, "Vec3f")
-        .def(pybind11::init<float, float, float>()) PYBIND_VECTOR(osg::Vec3f);
-    pybind11::class_<osg::Vec4f>(module, "Vec4f")
-        .def(pybind11::init<float, float, float, float>()) PYBIND_VECTOR(osg::Vec4f);
-    pybind11::class_<osg::Vec2d>(module, "Vec2d")
-        .def(pybind11::init<float, float>()) PYBIND_VECTOR(osg::Vec2d);
-    pybind11::class_<osg::Vec3d>(module, "Vec3d")
-        .def(pybind11::init<float, float, float>()) PYBIND_VECTOR(osg::Vec3d);
-    pybind11::class_<osg::Vec4d>(module, "Vec4d")
-        .def(pybind11::init<float, float, float, float>()) PYBIND_VECTOR(osg::Vec4d);
+    PYBIND_VECTOR_GROUP(osg, float, Vec2f, Vec3f, Vec4f);
+    PYBIND_VECTOR_GROUP(osg, double, Vec2d, Vec3d, Vec4d);
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+    PYBIND_VECTOR_GROUP(osg, char, Vec2b, Vec3b, Vec4b);
+    PYBIND_VECTOR_GROUP(osg, uint8_t, Vec2ub, Vec3ub, Vec4ub);
+    PYBIND_VECTOR_GROUP(osg, short, Vec2s, Vec3s, Vec4s);
+    PYBIND_VECTOR_GROUP(osg, uint16_t, Vec2us, Vec3us, Vec4us);
+    PYBIND_VECTOR_GROUP(osg, int, Vec2i, Vec3i, Vec4i);
+    PYBIND_VECTOR_GROUP(osg, uint32_t, Vec2ui, Vec3ui, Vec4ui);
+#endif
     pybind11::class_<osg::Quat>(module, "Quat")
         .def(pybind11::init<float, float, float, float>()) PYBIND_VECTOR(osg::Quat);
     pybind11::class_<osg::Matrixf>(module, "Matrixf")

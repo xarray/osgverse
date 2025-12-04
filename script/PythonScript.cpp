@@ -36,10 +36,18 @@ struct PythonObject : public osg::Referenced
 };
 #endif
 
-PythonScript::PythonScript()
+PythonScript::PythonScript(const wchar_t* pythonPath)
 {
-    pythonWrapperOsg();
-    _pythonObject = new PythonObject;
+    if (pythonPath != NULL) Py_SetPythonHome(pythonPath);
+    try
+    {
+        pythonWrapperOsg();
+        _pythonObject = new PythonObject;
+    }
+    catch (const std::exception& e)
+    {
+        OSG_WARN << "[PythonScript] Initialization error: " << e.what() << std::endl;
+    }
 }
 
 PythonScript::~PythonScript()

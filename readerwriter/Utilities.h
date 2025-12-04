@@ -70,6 +70,7 @@ namespace osgVerse
     public:
         FixedFunctionOptimizer()
             : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _toRemoveShaders(false) {}
+        virtual ~FixedFunctionOptimizer();
         void setRemovingOriginalShaders(bool b) { _toRemoveShaders = b; }
 
         virtual void apply(osg::Geometry& geom);
@@ -79,6 +80,7 @@ namespace osgVerse
     protected:
         bool removeUnusedStateAttributes(osg::StateSet* ssPtr);
         std::vector<osg::ref_ptr<osg::StateAttribute>> _materialStack;
+        std::set<osg::ref_ptr<osg::StateSet>> _materialSets;
         bool _toRemoveShaders;
     };
 

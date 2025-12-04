@@ -8,8 +8,7 @@ namespace osgVerse
     class PythonScript : public ScriptBase
     {
     public:
-        PythonScript();
-
+        PythonScript(const wchar_t* pythonPath = NULL);
         bool execute(const std::string& code);
 
     protected:

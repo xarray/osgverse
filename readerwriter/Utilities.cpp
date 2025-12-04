@@ -150,6 +150,12 @@ void emscripten_advance()
 }
 #endif
 
+FixedFunctionOptimizer::~FixedFunctionOptimizer()
+{
+    for (std::set<osg::ref_ptr<osg::StateSet>>::iterator it = _materialSets.begin();
+         it != _materialSets.end(); ++it) (*it)->removeAttribute(osg::StateAttribute::MATERIAL);
+}
+
 void FixedFunctionOptimizer::apply(osg::Geometry& geom)
 {
     bool added = removeUnusedStateAttributes(geom.getStateSet());
@@ -199,7 +205,7 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     osg::StateSet& ss = *ssPtr;
 
     osg::StateAttribute* sa = ss.getAttribute(osg::StateAttribute::MATERIAL);
-    if (sa != NULL) _materialStack.push_back(sa);
+    if (sa != NULL) { _materialStack.push_back(sa); _materialSets.insert(ssPtr); }
 
     ss.removeAttribute(osg::StateAttribute::ALPHAFUNC);
     ss.removeAttribute(osg::StateAttribute::CLIPPLANE);
@@ -209,7 +215,7 @@ bool FixedFunctionOptimizer::removeUnusedStateAttributes(osg::StateSet* ssPtr)
     ss.removeAttribute(osg::StateAttribute::LIGHTMODEL);
     ss.removeAttribute(osg::StateAttribute::LINESTIPPLE);
     ss.removeAttribute(osg::StateAttribute::LOGICOP);
-    ss.removeAttribute(osg::StateAttribute::MATERIAL);
+    //ss.removeAttribute(osg::StateAttribute::MATERIAL);  // don't remove here, considering shared statesets
     ss.removeAttribute(osg::StateAttribute::POINT);
     ss.removeAttribute(osg::StateAttribute::POLYGONSTIPPLE);
     ss.removeAttribute(osg::StateAttribute::SHADEMODEL);
