@@ -38,7 +38,9 @@ struct PythonObject : public osg::Referenced
 
 PythonScript::PythonScript(const wchar_t* pythonPath)
 {
+#ifndef VERSE_WASM
     if (pythonPath != NULL) Py_SetPythonHome(pythonPath);
+#endif
     try
     {
         pythonWrapperOsg();
@@ -58,6 +60,7 @@ PythonScript::~PythonScript()
 
 bool PythonScript::execute(const std::string& code)
 {
+#ifdef WITH_PYTHON
     try
     {
         pybind11::exec(code);
@@ -69,4 +72,8 @@ bool PythonScript::execute(const std::string& code)
         return false;
     }
     return true;
+#else
+    OSG_WARN << "[PythonScript] Not implemented" << std::endl;
+    return false;
+#endif
 }

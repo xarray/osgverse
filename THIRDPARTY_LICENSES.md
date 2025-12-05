@@ -14,6 +14,7 @@
 | OpenVDB          | Depended | > 10.0    | verse_vdb          | MPL2         | https://github.com/AcademySoftwareFoundation/openvdb |
 | osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/gwaldron/osgearth |
 | Qt               | Depended | > 5.5     | App                | LGPL         | https://download.qt.io/official_releases/ |
+| glfw             | Optional | 3.4       | CMake, WASM        | ZLib         | https://github.com/glfw/glfw |
 | any              | Embedded |           | -                  | Boost        | https://github.com/thelink2012/any |
 | ApproxMVBB       | Embedded |           | Modeling           | MPL2         | https://github.com/gabyx/ApproxMVBB |
 | Avir             | Embedded | 3.1       | ReaderWriter       | MIT          | https://github.com/avaneev/avir |

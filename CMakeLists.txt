@@ -584,11 +584,18 @@ IF(VERSE_USE_EXTERNAL_GLES)
     ENDIF()
 ENDIF()
 
-IF(VERSE_USE_EXTERNAL_GLES3)
+IF(VERSE_USE_EXTERNAL_GLCORE)
+    ADD_DEFINITIONS(-DVERSE_GLCORE)
+ELSEIF(VERSE_USE_EXTERNAL_GLES3)
     ADD_DEFINITIONS(-DVERSE_EMBEDDED_GLES3)
 ELSEIF(VERSE_USE_EXTERNAL_GLES2)
     ADD_DEFINITIONS(-DVERSE_EMBEDDED_GLES2)
 ENDIF()
+
+ADD_SUBDIRECTORY(helpers/toolchain_builder/GLFW)
+IF(NOT USE_WASM_OPTIONS)
+    ADD_SUBDIRECTORY(helpers/toolchain_builder/GLFW_test)
+ENDIF(NOT USE_WASM_OPTIONS)
 
 ######################################### Subdirectories
 IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
@@ -596,11 +603,11 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     IF(OSG_BUILD_INCLUDE_DIR)
         INCLUDE_DIRECTORIES(${OSG_BUILD_INCLUDE_DIR})
     ENDIF(OSG_BUILD_INCLUDE_DIR)
-    INCLUDE_DIRECTORIES(${OPENGL_INCLUDE_DIR} ${OSG_INCLUDE_DIR} . 3rdparty
-                        "${CMAKE_BINARY_DIR}/3rdparty")
+    INCLUDE_DIRECTORIES(${OPENGL_INCLUDE_DIR} ${OSG_INCLUDE_DIR} . 3rdparty "${CMAKE_BINARY_DIR}/3rdparty")
     LINK_DIRECTORIES(${OSG_LIB_DIR} .)
     ADD_DEFINITIONS(-DINSTALL_PATH_PREFIX="${CMAKE_INSTALL_PREFIX}")
 
+    # Build or use basic third-party libraries: GLFW, zlib, freetype, jpeg, png and tiff
     IF(VERSE_BUILD_3RDPARTIES)
         MESSAGE(STATUS "[osgVerse] Build third-party libraries under helpers/toolchain_builder.")
         ADD_SUBDIRECTORY(helpers/toolchain_builder)
@@ -628,6 +635,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         ENDIF(TIFF_FOUND)
     ENDIF(VERSE_BUILD_3RDPARTIES)
 
+    # Actually add sub-directories
     ADD_SUBDIRECTORY(3rdparty)
     ADD_SUBDIRECTORY(readerwriter)
     ADD_SUBDIRECTORY(pipeline)
@@ -652,7 +660,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         ADD_SUBDIRECTORY(wasm)
     ELSEIF(ANDROID)
         MESSAGE(STATUS "[osgVerse] Android toolchain is used. (API = ${VERSE_GRAPHICS_API})")
-        # Nothing else to do... Start 'Android Studio' to continue compiling examples
+        # Add demo project here?
     ELSEIF(IOS)
         MESSAGE(STATUS "[osgVerse] IOS toolchain is used. (API = ${VERSE_GRAPHICS_API})")
         # Add demo project here?
@@ -665,6 +673,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
         ADD_SUBDIRECTORY(assets)
     ENDIF()
 
+    # Show project information at last
     GET_PROPERTY(VERSE_DEPENDENCIES_TO_SHOW GLOBAL PROPERTY VERSE_DEPENDENCIES)
     MESSAGE(STATUS "[osgVerse] OpenSceneGraph version: ${OSG_MAJOR_VERSION}.${OSG_MINOR_VERSION}.${OSG_PATCH_VERSION}"
                    "; osgVerse version: ${VERSE_VERSION} (${VERSE_PLATFORM})")

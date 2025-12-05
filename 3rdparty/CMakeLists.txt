@@ -541,6 +541,11 @@ SET(LIBRARY_FILES
     ${SHAPELIB_SOURCE_FILES} ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${TWEENY_SOURCE_FILES} 
 )
 
+IF(LIBIGL_FOUND)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ${QUADRIFLOW_SOURCE_FILES})
+ENDIF(LIBIGL_FOUND)
+
+### Check for GaInput dependency
 SET(GAINPUT_ENABLED TRUE)
 IF(ANDROID OR IOS)
     # Do nothing?
@@ -564,10 +569,7 @@ IF(GAINPUT_ENABLED)
     SET(LIBRARY_FILES ${LIBRARY_FILES} ${GAINPUT_SOURCE_FILES})
 ENDIF(GAINPUT_ENABLED)
 
-IF(LIBIGL_FOUND)
-    SET(LIBRARY_FILES ${LIBRARY_FILES} ${QUADRIFLOW_SOURCE_FILES})
-ENDIF(LIBIGL_FOUND)
-
+### Check for other dependencies
 IF(USE_WASM_OPTIONS)
     SET(LIBRARY_FILES ${LIBRARY_FILES} rlottie/rlottiewasm.cpp)
 ELSEIF(ANDROID OR IOS)
@@ -576,6 +578,7 @@ ELSE()
     SET(LIBRARY_FILES ${LIBRARY_FILES} tinyfiledialogs.c tinyfiledialogs.h microprofile.cpp)
 ENDIF()
 
+### Add definitions
 ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # ApproxMVBB
                 -DGLEW_STATIC -DGLEW_NO_GLU                               # GLEW
                 -DIMGUI_IMPL_OPENGL_LOADER_GLEW                           # imgui
@@ -590,7 +593,6 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DUSINGZ                                                  # clipper2
                 -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32                      # METIS
                 -DHAVE_UNORDERED_MAP=1 -D_USE_MATH_DEFINES)
-
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # libhv: disable use of json.hpp in VS2015
 ENDIF()
