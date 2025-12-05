@@ -28,10 +28,9 @@ void pythonWrapperOsg() {}
     pybind11::class_<lib::type4>(module, #type4).def(pybind11::init<vtype, vtype, vtype, vtype>()) PYBIND_VECTOR(lib::type4);
 
 #define PYBIND_MATRIX(type, vec_type, value_type) \
-    .def("valid", & type##::valid).def("makeIdentity", & type##::makeIdentity) \
-    .def("makeTranslate", pybind11::overload_cast<const vec_type &>(& type##::makeTranslate), pybind11::arg("t")) \
-    .def("makeRotate", pybind11::overload_cast<const osg::Quat&>(& type##::makeRotate), pybind11::arg("r")) \
-    .def("makeScale", pybind11::overload_cast<const vec_type &>(& type##::makeScale), pybind11::arg("s")) \
+    .def("valid", & type##::valid).def("getTrans", & type##::getTrans).def("getRotate", & type##::getRotate) \
+    .def("setTrans", pybind11::overload_cast<const vec_type &>(& type##::setTrans), pybind11::arg("t")) \
+    .def("setRotate", pybind11::overload_cast<const osg::Quat &>(& type##::setRotate), pybind11::arg("q")) \
     .def("preMultiply", pybind11::overload_cast<const type &>(& type##::preMult), pybind11::arg("m")) \
     .def("postMultiply", pybind11::overload_cast<const type &>(& type##::postMult), pybind11::arg("m")) \
     .def("__str__", [](const type & s) \
@@ -39,7 +38,27 @@ void pythonWrapperOsg() {}
     .def("__getitem__", [](const type & self, pybind11::tuple id) \
         { if (id.size() >= 2) return self(id[0].cast<int>(), id[1].cast<int>()); else return (value_type)0.0; }) \
     .def("__setitem__", [](type & self, pybind11::tuple id, value_type v) \
-        { if (id.size() >= 2) self(id[0].cast<int>(), id[1].cast<int>()) = v; })
+        { if (id.size() >= 2) self(id[0].cast<int>(), id[1].cast<int>()) = v; }) \
+    .def("makeIdentity", &type##::makeIdentity) \
+    .def("makeTranslate", pybind11::overload_cast<const vec_type &>(&type##::makeTranslate), pybind11::arg("t")) \
+    .def("makeRotate", pybind11::overload_cast<const osg::Quat&>(&type##::makeRotate), pybind11::arg("r")) \
+    .def("makeScale", pybind11::overload_cast<const vec_type &>(&type##::makeScale), pybind11::arg("s")) \
+    .def("makeLookAt", [](type & self, const vec_type & eye, const vec_type & center, const vec_type & up) { \
+        self.makeLookAt(eye, center, up); }, pybind11::arg("eye"), pybind11::arg("center"), pybind11::arg("up")) \
+    .def("makeOrtho", [](type & self, value_type l, value_type r, value_type b, value_type t, value_type zn, value_type zf) { \
+        self.makeOrtho(l, r, b, t, zn, zf); }, pybind11::arg("left"), pybind11::arg("right"), pybind11::arg("bottom"), \
+        pybind11::arg("top"), pybind11::arg("znear"), pybind11::arg("zfar")) \
+    .def("makePerspective", [](type & self, value_type fov, value_type ap, value_type zn, value_type zf) { \
+        self.makePerspective(fov, ap, zn, zf); }, pybind11::arg("fov"), pybind11::arg("aspect_ratio"), \
+        pybind11::arg("znear"), pybind11::arg("zfar")) \
+    .def("getLookAt", [](const type & self, vec_type & e, vec_type & c, vec_type & up, value_type d) { \
+        self.getLookAt(e, c, up, d); }, pybind11::arg("eye"), pybind11::arg("center"), pybind11::arg("up"), pybind11::arg("d")) \
+    .def("getOrtho", [](const type & self, value_type & l, value_type & r, value_type & b, value_type & t, \
+        value_type & zn, value_type & zf) { self.getOrtho(l, r, b, t, zn, zf); }, pybind11::arg("left"), pybind11::arg("right"), \
+        pybind11::arg("bottom"), pybind11::arg("top"), pybind11::arg("znear"), pybind11::arg("zfar")) \
+    .def("getPerspective", [](const type & self, value_type & fov, value_type & ap, value_type & zn, value_type & zf) { \
+        self.getPerspective(fov, ap, zn, zf); }, pybind11::arg("fov"), pybind11::arg("aspect_ratio"), \
+        pybind11::arg("znear"), pybind11::arg("zfar"))
 
 struct PythonWrapperObject
 {
@@ -236,6 +255,7 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
     std::vector<LibraryEntry::Property> propNames = entry->getPropertyNames(name);
     std::vector<LibraryEntry::Method> methodNames = entry->getMethodNames(name);
 
+    // Add properties as Python properties: e.g., node.Name = ".." | print("Name: ", node.Name)
     for (size_t i = 0; i < propNames.size(); ++i)
     {
         LibraryEntry::Property& prop = propNames[i]; if (prop.outdated) continue;
@@ -249,9 +269,10 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
         propDefs->push_back(def);
     }
 
-    // TODO: add methods
+    // TODO: Add methods as Python properties, e.g., node.setRenderOrder = { 1, "RenderBin" }
     propDefs->push_back({ nullptr });
 
+    // Create type object from names and slots
     PyType_Slot slots[] =
     {
         { Py_tp_new, (void*)PythonWrapperObject::allocate },
@@ -272,7 +293,7 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
         PyObject* str = PyUnicode_AsEncodedString(PyObject_Str(val), "utf-8", "strict");
 
         OSG_WARN << "[PythonScript] Failed create class: " << PyBytes_AS_STRING(str) << "\n";
-        throw std::runtime_error(("PyType_FromSpec failed at " + name).c_str());
+        throw std::runtime_error(("[PythonScript] PyType_FromSpec failed at " + name).c_str());
     }
     else
     {
@@ -288,15 +309,70 @@ static void createPythonClass(pybind11::module_& m, LibraryEntry* entry, const s
             }));
     }
 
+    // Add Python methods
+#define NEWFUNC_FROM_DICT(method, packName, codeString) \
+    globalCopy = PyDict_Copy(globalData); code = Py_CompileString(codeString.c_str(), packName.c_str(), Py_file_input); \
+    subModule = PyEval_EvalCode(code, globalCopy, globalCopy); func = PyDict_GetItemString(globalCopy, method.c_str()); \
+    if (func) PyObject_SetAttrString(type, method.c_str(), func); Py_DECREF(code); Py_DECREF(subModule); Py_DECREF(globalCopy);
+
+    PyObject *globalData = PyDict_New(), *builtins = PyImport_ImportModule("builtins");
+    PyDict_SetItemString(globalData, "__builtins__", builtins); Py_DECREF(builtins);
+    PyDict_SetItemString(globalData, "__name__", PyUnicode_FromString("__main__"));
+    for (size_t i = 0; i < propNames.size(); ++i)
+    {
+        LibraryEntry::Property& prop = propNames[i]; if (prop.outdated) continue;
+        PyObject *globalCopy = NULL, *code = NULL, *subModule = NULL, *func = NULL;
+        std::stringstream ss; std::string methodName, packageName;
+
+        methodName = "get" + prop.name; packageName = "<" + methodName + ">";
+        ss << "def " << methodName << "(self):\n" << "    return self." << prop.name <<  "\n";
+        NEWFUNC_FROM_DICT(methodName, packageName, ss.str()); ss.str("");
+
+        methodName = "set" + prop.name; packageName = "<" + methodName + ">";
+        ss << "def " << methodName << "(self, value):\n" << "    self." << prop.name << " = value\n";
+        NEWFUNC_FROM_DICT(methodName, packageName, ss.str());
+    }
+
+    // Set library name and create the class object
     PyObject_SetAttrString(type, "_user", PyCapsule_New(strdup(libName.c_str()), "library", nullptr));
     if (PyModule_AddObject(m.ptr(), name.c_str(), type) < 0)
-        throw std::runtime_error(("PyModule_AddObject failed at " + name).c_str());
+        throw std::runtime_error(("[PythonScript] PyModule_AddObject failed at " + name).c_str());
 }
 
 PYBIND11_EMBEDDED_MODULE(osg, module)
 {
-    PYBIND_VECTOR_GROUP(osg, float, Vec2f, Vec3f, Vec4f);
-    PYBIND_VECTOR_GROUP(osg, double, Vec2d, Vec3d, Vec4d);
+    pybind11::class_<osg::Vec2f>(module, "Vec2f")
+        .def(pybind11::init<float, float>())
+        .def(pybind11::init<const osg::Vec2f&>()).def(pybind11::init<const osg::Vec2d&>())
+        .def("dot", [](const osg::Vec2f& self, const osg::Vec2f& r) { return self * r; }, pybind11::arg("v"))
+        .def("normalize", &osg::Vec2f::normalize) PYBIND_VECTOR(osg::Vec2f);
+    pybind11::class_<osg::Vec3f>(module, "Vec3f")
+        .def(pybind11::init<float, float, float>()).def(pybind11::init<const osg::Vec2f&, float>())
+        .def(pybind11::init<const osg::Vec3f&>()).def(pybind11::init<const osg::Vec3d&>())
+        .def("dot", [](const osg::Vec3f& self, const osg::Vec3f& r) { return self * r; }, pybind11::arg("v"))
+        .def("cross", [](const osg::Vec3f& self, const osg::Vec3f& r) { return self ^ r; }, pybind11::arg("v"))
+        .def("normalize", &osg::Vec3f::normalize) PYBIND_VECTOR(osg::Vec3f);
+    pybind11::class_<osg::Vec4f>(module, "Vec4f")
+        .def(pybind11::init<float, float, float, float>()).def(pybind11::init<const osg::Vec3f&, float>())
+        .def(pybind11::init<const osg::Vec4f&>()).def(pybind11::init<const osg::Vec4d&>())
+        .def("dot", [](const osg::Vec4f& self, const osg::Vec4f& r) { return self * r; }, pybind11::arg("v"))
+        .def("normalize", &osg::Vec4f::normalize) PYBIND_VECTOR(osg::Vec4f);
+    pybind11::class_<osg::Vec2d>(module, "Vec2d")
+        .def(pybind11::init<double, double>())
+        .def(pybind11::init<const osg::Vec2d&>()).def(pybind11::init<const osg::Vec2f&>())
+        .def("dot", [](const osg::Vec2d& self, const osg::Vec2d& r) { return self * r; }, pybind11::arg("v"))
+        .def("normalize", &osg::Vec2d::normalize) PYBIND_VECTOR(osg::Vec2d);
+    pybind11::class_<osg::Vec3d>(module, "Vec3d")
+        .def(pybind11::init<double, double, double>()).def(pybind11::init<const osg::Vec2d&, float>())
+        .def(pybind11::init<const osg::Vec3d&>()).def(pybind11::init<const osg::Vec3f&>())
+        .def("dot", [](const osg::Vec3d& self, const osg::Vec3d& r) { return self * r; }, pybind11::arg("v"))
+        .def("cross", [](const osg::Vec3d& self, const osg::Vec3d& r) { return self ^ r; }, pybind11::arg("v"))
+        .def("normalize", &osg::Vec3d::normalize) PYBIND_VECTOR(osg::Vec3d);
+    pybind11::class_<osg::Vec4d>(module, "Vec4d")
+        .def(pybind11::init<double, double, double, double>()).def(pybind11::init<const osg::Vec3d&, float>())
+        .def(pybind11::init<const osg::Vec4d&>()).def(pybind11::init<const osg::Vec4f&>())
+        .def("dot", [](const osg::Vec4d& self, const osg::Vec4d& r) { return self * r; }, pybind11::arg("v"))
+        .def("normalize", &osg::Vec4d::normalize) PYBIND_VECTOR(osg::Vec4d);
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
     PYBIND_VECTOR_GROUP(osg, char, Vec2b, Vec3b, Vec4b);
     PYBIND_VECTOR_GROUP(osg, uint8_t, Vec2ub, Vec3ub, Vec4ub);
@@ -306,11 +382,21 @@ PYBIND11_EMBEDDED_MODULE(osg, module)
     PYBIND_VECTOR_GROUP(osg, uint32_t, Vec2ui, Vec3ui, Vec4ui);
 #endif
     pybind11::class_<osg::Quat>(module, "Quat")
-        .def(pybind11::init<float, float, float, float>()) PYBIND_VECTOR(osg::Quat);
+        .def(pybind11::init<float, float, float, float>()).def(pybind11::init<float, const osg::Vec3d&>())
+        .def(pybind11::init<const osg::Vec4d&>()).def(pybind11::init<const osg::Vec4f&>())
+        .def("inverse", &osg::Quat::inverse).def("conj", &osg::Quat::conj).def("zeroRotation", &osg::Quat::zeroRotation)
+        .def("slerp", [](osg::Quat& self, const osg::Quat& from, const osg::Quat& to, double t)
+                      { self.slerp(t, from, to); }, pybind11::arg("from"), pybind11::arg("to"), pybind11::arg("ratio"))
+        .def("multiply", [](const osg::Quat& self, const osg::Vec3d& v) { return self * v; }, pybind11::arg("v"))
+        .def("multiply", [](const osg::Quat& self, const osg::Vec4d& v) { return self * v; }, pybind11::arg("v"))
+        .def("getRotate", [](const osg::Quat& self, double& a, osg::Vec3d& v) { self.getRotate(a, v); },
+            pybind11::arg("angle"), pybind11::arg("axis")) PYBIND_VECTOR(osg::Quat);
     pybind11::class_<osg::Matrixf>(module, "Matrixf")
-        .def(pybind11::init()) PYBIND_MATRIX(osg::Matrixf, osg::Vec3f, float);
+        .def(pybind11::init()).def(pybind11::init<const osg::Matrixd&>()).def(pybind11::init<const osg::Matrixf&>())
+        .def(pybind11::init<const osg::Quat&>()) PYBIND_MATRIX(osg::Matrixf, osg::Vec3f, float);
     pybind11::class_<osg::Matrixd>(module, "Matrixd")
-        .def(pybind11::init()) PYBIND_MATRIX(osg::Matrixd, osg::Vec3d, double);
+        .def(pybind11::init()).def(pybind11::init<const osg::Matrixd&>()).def(pybind11::init<const osg::Matrixf&>())
+        .def(pybind11::init<const osg::Quat&>()) PYBIND_MATRIX(osg::Matrixd, osg::Vec3d, double);
 
     osg::ref_ptr<LibraryEntry> entry = new LibraryEntry("osg");
     const std::set<std::string>& classes = entry->getClasses();

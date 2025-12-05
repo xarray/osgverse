@@ -72,10 +72,10 @@ int main(int argc, char** argv)
             "value = osg.Matrixd()\n"
             "value.makeTranslate(osg.Vec3d(1.0, 2.0, 3.0))\n"
             "obj = osg.MatrixTransform()\n"
-            "obj.Name = \"TestNode\"\n"
-            "obj.Matrix = value\n"
-            "print(\"Name:\", obj.Name)\n"
-            "print(\"Matrix:\", obj.Matrix)\n");
+            "obj.setName(\"TestNode\")\n"
+            "obj.setMatrix(value)\n"
+            "print(\"Name:\", obj.getName())\n"
+            "print(\"Trans:\", obj.getMatrix().getTrans())\n");
     }
     else
     {
