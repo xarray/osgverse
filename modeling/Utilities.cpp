@@ -710,9 +710,11 @@ osg::Image* TexturePacker::pack(size_t& numImages, bool generateResult, bool sto
 
         if (pair.first->isCompressed())
         {
+#if OSG_VERSION_GREATER_THAN(3, 3, 4)
             int x1 = (int)r[2], y1 = (int)r[3], nx0 = (int)r[0], ny0 = (int)r[1];
             for (int y = 0; y < y1; ++y) for (int x = 0; x < x1; ++x)
                 total->setColor(pair.first->getColor(x, y), nx0 + x, ny0 + y);
+#endif
         }
         else if (!osg::copyImage(pair.first.get(), 0, 0, 0, r[2], r[3], 1,
                                  total.get(), r[0], r[1], 0))

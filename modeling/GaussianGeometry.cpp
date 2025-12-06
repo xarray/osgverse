@@ -79,6 +79,7 @@ public:
     }
 };
 
+#if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
 osg::BoundingSphere GaussianGeometry::computeBound() const
 {
     osg::BoundingSphere bs = osg::Geometry::computeBound();
@@ -92,6 +93,15 @@ osg::BoundingBox GaussianGeometry::computeBoundingBox() const
     bb._min -= d; bb._max += d;
     return bb;  // FIXME: too simple method to compute bound
 }
+#else
+osg::BoundingBox GaussianGeometry::computeBound() const
+{
+    osg::BoundingBox bb = osg::Geometry::computeBound();
+    osg::Vec3 d = bb._max - bb._min;
+    bb._min -= d; bb._max += d;
+    return bb;  // FIXME: too simple method to compute bound
+}
+#endif
 
 osg::NodeCallback* GaussianGeometry::createUniformCallback()
 { return new GaussianUniformCallback; }
@@ -102,7 +112,7 @@ static osg::Matrix transpose(const osg::Matrix& m)
                        m(0, 2), m(1, 2), m(2, 2), m(3, 2), m(0, 3), m(1, 3), m(2, 3), m(3, 3));
 }
 
-void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArray* qArray,
+void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Array* qArray,
                                            osg::FloatArray* alphas)
 {
     if (!vArray || !qArray) return; if (vArray->size() != qArray->size()) return;
@@ -113,7 +123,7 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::QuatArra
     for (size_t i = 0; i < vArray->size(); ++i)
     {
         float a = (alphas == NULL) ? 1.0f : alphas->at(i);
-        const osg::Vec3& scale = (*vArray)[i]; osg::Quat quat = (*qArray)[i];
+        const osg::Vec3& scale = (*vArray)[i]; osg::Quat quat((*qArray)[i]);
         if (!quat.zeroRotation()) { double l = quat.length(); if (l > 0.0) quat = quat / l; }
         
         osg::Matrix R(quat), S = osg::Matrix::scale(scale);

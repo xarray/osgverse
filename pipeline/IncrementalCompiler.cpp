@@ -1,4 +1,5 @@
 #include "IncrementalCompiler.h"
+#include <osg/GLObjects>
 #include <iostream>
 #include <algorithm>
 #include <iterator>

@@ -24,8 +24,12 @@ public:
     GaussianGeometry();
     GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
 
+#if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
     virtual osg::BoundingSphere computeBound() const;
     virtual osg::BoundingBox computeBoundingBox() const;
+#else
+    virtual osg::BoundingBox computeBound() const;
+#endif
 
     static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs);
     static osg::NodeCallback* createUniformCallback();
@@ -34,7 +38,7 @@ public:
     int getShDegrees() const { return _degrees; }
 
     void setPosition(osg::Vec3Array* v) { setVertexArray(v); }
-    void setScaleAndRotation(osg::Vec3Array* v, osg::QuatArray* q, osg::FloatArray* a);
+    void setScaleAndRotation(osg::Vec3Array* v, osg::Vec4Array* q, osg::FloatArray* a);
     void setShRed(int i, osg::Vec4Array* v) { setVertexAttribArray(4 + i * 3, v); setVertexAttribBinding(4 + i * 3, BIND_PER_VERTEX); }
     void setShGreen(int i, osg::Vec4Array* v) { setVertexAttribArray(5 + i * 3, v); setVertexAttribBinding(5 + i * 3, BIND_PER_VERTEX); }
     void setShBlue(int i, osg::Vec4Array* v) { setVertexAttribArray(6 + i * 3, v); setVertexAttribBinding(6 + i * 3, BIND_PER_VERTEX); }

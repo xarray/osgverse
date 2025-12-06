@@ -108,8 +108,12 @@ public:
     virtual ReadResult readObject(const std::string& file, const osgDB::ReaderWriter::Options* options =NULL) const
     {
         const std::string ext = osgDB::getLowerCaseFileExtension(file);
+#if OSG_MIN_VERSION_REQUIRED(3, 1, 5)
         const std::string pro = osgDB::getServerProtocol(file);
         if (!acceptsExtension(ext) && !acceptsProtocol(pro)) return ReadResult::FILE_NOT_HANDLED;
+#else
+        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
+#endif
         if (ext == "ffmpeg" || ext == "verse_ffmpeg")
             return readObject(osgDB::getNameLessExtension(file), options);
 
@@ -126,8 +130,12 @@ public:
     virtual ReadResult readImage(const std::string & filename, const osgDB::ReaderWriter::Options* options) const
     {
         const std::string ext = osgDB::getLowerCaseFileExtension(filename);
+#if OSG_MIN_VERSION_REQUIRED(3, 1, 5)
         const std::string pro = osgDB::getServerProtocol(filename);
         if (!acceptsExtension(ext) && !acceptsProtocol(pro)) return ReadResult::FILE_NOT_HANDLED;
+#else
+        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
+#endif
         if (ext == "ffmpeg" || ext == "verse_ffmpeg")
             return readImage(osgDB::getNameLessExtension(filename), options);
 

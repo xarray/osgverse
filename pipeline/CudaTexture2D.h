@@ -1,6 +1,7 @@
 #ifndef MANA_PP_CUDATEXTURE2D_HPP
 #define MANA_PP_CUDATEXTURE2D_HPP
 
+#include <osg/Version>
 #include <osg/State>
 #include <osg/Texture2D>
 #include <osg/Camera>
@@ -89,8 +90,13 @@ namespace osgVerse
         virtual void releaseGLObjects(osg::State* state = NULL) const;
         virtual void releaseCuda();
 
+#if OSG_VERSION_GREATER_THAN(3, 4, 0)
         virtual osg::ref_ptr<osg::Texture::TextureObject> generateTextureObject(
             const osg::Texture2D& texture, osg::State& state) const;
+#else
+        virtual osg::Texture::TextureObject* generateTextureObject(
+            const osg::Texture2D& texture, osg::State& state) const;
+#endif
         virtual void load(const osg::Texture2D& texture, osg::State& state) const;
         virtual void subload(const osg::Texture2D& texture, osg::State& state) const;
 

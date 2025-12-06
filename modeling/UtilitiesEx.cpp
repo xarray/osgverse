@@ -27,22 +27,19 @@ ShapeGeometryVisitor::ShapeGeometryVisitor(osg::Geometry* geometry, const osg::T
     _normals = dynamic_cast<osg::Vec3Array*>(geometry->getNormalArray());
     _texcoords = dynamic_cast<osg::Vec2Array*>(geometry->getTexCoordArray(0));
 
-    if (!_vertices || _vertices->getBinding() != osg::Array::BIND_PER_VERTEX)
+    if (!_vertices)
     {
-        requiresClearOfPrimitiveSets = true;
-        _vertices = new osg::Vec3Array(osg::Array::BIND_PER_VERTEX);
+        requiresClearOfPrimitiveSets = true; _vertices = new osg::Vec3Array;
         _geometry->setVertexArray(_vertices.get());
     }
-    if (!_normals || (_normals->getBinding() != osg::Array::BIND_PER_VERTEX || _vertices->size() != _normals->size()))
+    if (!_normals || (geometry->getNormalBinding() != osg::Geometry::BIND_PER_VERTEX || _vertices->size() != _normals->size()))
     {
-        requiresClearOfPrimitiveSets = true;
-        _normals = new osg::Vec3Array(osg::Array::BIND_PER_VERTEX);
-        _geometry->setNormalArray(_normals.get());
+        requiresClearOfPrimitiveSets = true; _normals = new osg::Vec3Array;
+        _geometry->setNormalArray(_normals.get()); _geometry->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
     }
-    if (!_texcoords || (_texcoords->getBinding() != osg::Array::BIND_PER_VERTEX || _vertices->size() != _texcoords->size()))
+    if (!_texcoords || _vertices->size() != _texcoords->size())
     {
-        requiresClearOfPrimitiveSets = true;
-        _texcoords = new osg::Vec2Array(osg::Array::BIND_PER_VERTEX);
+        requiresClearOfPrimitiveSets = true; _texcoords = new osg::Vec2Array;
         _geometry->setTexCoordArray(0, _texcoords.get());
     }
 

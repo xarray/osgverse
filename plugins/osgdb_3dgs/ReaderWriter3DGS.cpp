@@ -120,7 +120,7 @@ protected:
     osgVerse::GaussianGeometry* fromSplat(const std::string& buffer) const
     {
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
-        osg::ref_ptr<osg::QuatArray> rot = new osg::QuatArray; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
+        osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
         osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
 
@@ -136,7 +136,7 @@ protected:
             ss.read((char*)rotation, sizeof(uint8_t) * 4);
 
             for (int i = 0; i < 4; ++i) rotValue[i] = (rotation[i] / 255.0f) * 2.0f - 1.0f;
-            rotValue.normalize(); rot->push_back(osg::Quat(rotValue));
+            rotValue.normalize(); rot->push_back(osg::Vec4(rotValue));
             pos->push_back(posValue); scale->push_back(scaleValue); alpha->push_back(rgba[3] / 255.0f);
             rD0->push_back(osg::Vec4((rgba[0] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
             gD0->push_back(osg::Vec4((rgba[1] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
@@ -164,9 +164,9 @@ protected:
             scale->push_back(osg::Vec3(expf(c.scales[i]), expf(c.scales[i + 1]), expf(c.scales[i + 2])));
         }
 
-        osg::ref_ptr<osg::QuatArray> rot = new osg::QuatArray;
+        osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array;
         for (size_t i = 0; i < c.rotations.size(); i += 4)
-            rot->push_back(osg::Quat(c.rotations[i], c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3]));
+            rot->push_back(osg::Vec4(c.rotations[i], c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3]));
 
         osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);

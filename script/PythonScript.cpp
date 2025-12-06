@@ -38,7 +38,7 @@ struct PythonObject : public osg::Referenced
 
 PythonScript::PythonScript(const wchar_t* pythonPath)
 {
-#ifndef VERSE_WASM
+#if defined(WITH_PYTHON) && !defined(VERSE_WASM)
     if (pythonPath != NULL) Py_SetPythonHome(pythonPath);
 #endif
     try

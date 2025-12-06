@@ -270,9 +270,9 @@ namespace osgVerse
         regObject->addFileExtensionAlias("hdr", "verse_image");
 #endif
 
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         osg::GraphicsContext::WindowingSystemInterfaces::Interfaces& interfaces =
             osg::GraphicsContext::getWindowingSystemInterfaces()->getInterfaces();
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         std::vector<osg::GraphicsContext::WindowingSystemInterface*> wsiToRemove; bool hasSDL = false;
         for (size_t i = 0; i < interfaces.size(); ++i)
         {

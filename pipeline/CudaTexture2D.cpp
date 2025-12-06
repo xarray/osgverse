@@ -1,6 +1,7 @@
 #include <osg/Version>
 #include <osg/io_utils>
 #include <osg/GLExtensions>
+#include <osg/FrameBufferObject>
 
 #include "CudaTexture2D.h"
 #ifdef VERSE_ENABLE_MTT
@@ -60,17 +61,22 @@ void CudaResourceReaderBase::releaseGLObjects(osg::State* state) const
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
     osg::GLExtensions* ext = state->get<osg::GLExtensions>();
 #else
-    osg::FBOExtensions* ext = osg::FBOExtensions::instance(state->getContextID(), true);
+    osg::GLBufferObject::Extensions* ext = osg::GLBufferObject::getExtensions(state->getContextID(), true);
 #endif
     if (ext) ext->glDeleteBuffers(1, &_pbo); _pbo = 0;
 }
 
+#if OSG_VERSION_GREATER_THAN(3, 4, 0)
 osg::ref_ptr<osg::Texture::TextureObject> CudaResourceReaderBase::generateTextureObject(
             const osg::Texture2D& texture, osg::State& state) const
+#else
+osg::Texture::TextureObject* CudaResourceReaderBase::generateTextureObject(
+            const osg::Texture2D& texture, osg::State& state) const
+#endif
 {
     osg::ref_ptr<osg::Texture::TextureObject> obj =
         osg::Texture::generateTextureObject(&texture, state.getContextID(), GL_TEXTURE_2D);
-    _textureID = obj->id(); return obj;
+    _textureID = obj->id(); return obj.get();
 }
 
 void CudaResourceReaderBase::load(const osg::Texture2D& texture, osg::State& state) const
@@ -82,7 +88,7 @@ void CudaResourceReaderBase::load(const osg::Texture2D& texture, osg::State& sta
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
     osg::GLExtensions* ext = state.get<osg::GLExtensions>();
 #else
-    osg::FBOExtensions* ext = osg::FBOExtensions::instance(state.getContextID(), true);
+    osg::GLBufferObject::Extensions* ext = osg::GLBufferObject::getExtensions(state.getContextID(), true);
 #endif
     if (_width == 0 || _height == 0 || !ext) return;
     if (_pbo != 0) ext->glDeleteBuffers(1, &_pbo);
@@ -155,7 +161,7 @@ void CudaResourceReaderBase::subload(const osg::Texture2D& texture, osg::State& 
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
     osg::GLExtensions* ext = state.get<osg::GLExtensions>();
 #else
-    osg::FBOExtensions* ext = osg::FBOExtensions::instance(state.getContextID(), true);
+    osg::GLBufferObject::Extensions* ext = osg::GLBufferObject::getExtensions(state.getContextID(), true);
 #endif
     if (ext) ext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, _pbo);
     glBindTexture(GL_TEXTURE_2D, _textureID);

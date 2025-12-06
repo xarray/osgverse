@@ -220,7 +220,7 @@ protected:
                     switch (dimLength[idComp])
                     {
                     case 1: pixelFormat = GL_LUMINANCE; internalFormat = GL_LUMINANCE16; break;
-                    case 2: pixelFormat = GL_LUMINANCE_ALPHA; internalFormat = GL_RG16; break;
+                    case 2: pixelFormat = GL_LUMINANCE_ALPHA; internalFormat = GL_LUMINANCE16_ALPHA16; break;
                     case 3: pixelFormat = GL_RGB; internalFormat = GL_RGB16; break;
                     default: pixelFormat = GL_RGBA; internalFormat = GL_RGBA16; break;
                     } break;

@@ -597,7 +597,7 @@ protected:
 
 #if true
         MyCullVisitor* cullVisitor = new MyCullVisitor;
-        cullVisitor->setName("CullVisitor" + std::to_string(i));
+        //cullVisitor->setName("CullVisitor" + std::to_string(i));
         cullVisitor->setDeferredCallback(cb);
         cullVisitor->setStateGraph(_sceneView[i]->getStateGraph());
         cullVisitor->setRenderStage(_sceneView[i]->getRenderStage());

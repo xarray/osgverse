@@ -105,10 +105,14 @@ public:
         osg::Vec2Array* ta1 = dynamic_cast<osg::Vec2Array*>(geometry.getTexCoordArray(1));
         if (va && !va->empty())
         {
-            const osg::BoundingBox& bb = geometry.getBoundingBox(); vSize = va->size();
+#if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
+            const osg::BoundingBox& bb = geometry.getBoundingBox();
+#else
+            const osg::BoundingBox& bb = geometry.getBound();
+#endif
             NEW_V_BUFFER(posID, (*va), osg::Vec3, TINYGLTF_TYPE_VEC3, TINYGLTF_COMPONENT_TYPE_FLOAT);
             acc.maxValues = std::vector<double>(bb._max.ptr(), bb._max.ptr() + 3);
-            acc.minValues = std::vector<double>(bb._min.ptr(), bb._min.ptr() + 3);
+            acc.minValues = std::vector<double>(bb._min.ptr(), bb._min.ptr() + 3); vSize = va->size();
         }
         if (na && na->size() == vSize) { NEW_V_BUFFER(normID, (*na), osg::Vec3, TINYGLTF_TYPE_VEC3, TINYGLTF_COMPONENT_TYPE_FLOAT); }
         if (ca && ca->size() == vSize) { NEW_V_BUFFER(colID, (*ca), osg::Vec4, TINYGLTF_TYPE_VEC4, TINYGLTF_COMPONENT_TYPE_FLOAT); }

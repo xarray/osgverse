@@ -100,19 +100,19 @@
 | 3.6.1   | 2018.5.28    |                  |
 | 3.6.0   | 2018.4.8     | Use dirtyGLObjects() to replace dirtyDisplayLists() |
 | 3.5.10  | 2018.3.2     | Add Texture minLOD/maxLOD and LODBias |
-| 3.5.8   | 2017.12.1    | Add osg::ComputeDispatch, clean up for GL3 |
-| 3.5.5   | 2016.9.6     |                  |
-| 3.5.3   | 2016.6.2     |                  |
+| 3.5.8   | 2017.12.1    | osg::ComputeDispatch, clean up for GL3 |
+| 3.5.5   | 2016.9.6     | osg::QuadArray |
+| 3.5.3   | 2016.6.2     | osg::GraphicsContext::WindowingSystemInterfaces |
 | 3.5.0   | 2016.1.1     | Drawable to Node, ObjectWrapper methods |
 | 3.4.1   | 2017.8.29    |                  |
 | 3.4.0   | 2015.11.16   |                  |
-| 3.3.7   | 2015.4.16    | Add Camera::dirtyAttachmentMap() |
-| 3.3.4   | 2014.12.22   | Add osg::VertexAttribDivisor |
+| 3.3.7   | 2015.4.16    | Camera::dirtyAttachmentMap(), StateSet::setDefine() |
+| 3.3.4   | 2014.12.22   | osg::VertexAttribDivisor, Image::setColor() |
 | 3.3.2   | 2014.2.24    | get<osg::GLExtensions>(), asNode() |
 | 3.3.0   | 2014.1.1     | osg::Callback, Drawable::getBoundingBox() |
 | 3.2.3   | 2018.2.3     |                  |
 | 3.2.2   | 2015.8.5     |                  |
 | 3.2.1   | 2014.6.5     | ImageSequence::getNumImages() |
 | 3.2.0   | 2013.6.25    | Vec*ub, Vec*us, Vec*ui, checkEvents(), osg::Array::BIND_PER_VERTEX |
-| 3.1.5   | 2013.2.4     | Add compute shader |
+| 3.1.5   | 2013.2.4     | Compute shader, Registry::getReaderWriterListForProtocol() |
 | 3.1.1   | 2012.3.9     | First version of serializers |

@@ -58,7 +58,7 @@ public:
         d->drawBuffersSupported = (glDrawBuffersTemp != NULL);
         d->depthStencilSupported = false;  // TODO
 
-        osg::FBOExtensions* ext2 = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+        osg::FBOExtensions* ext2 = osg::FBOExtensions::instance(state->getContextID(), true);
         d->fboSupported = ext2->isSupported();
 #endif
 

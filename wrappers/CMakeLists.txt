@@ -5,11 +5,11 @@ SET(LIBRARY_INCLUDE_FILES
     Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    DracoWrapper.cpp RewrapperLoader.cpp ${GENERIC_OSG_FILES}
+    DracoWrapper.cpp RewrapperLoader.cpp
 )
 
 IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 4)
-    SET(LIBRARY_FILES ${LIBRARY_FILES}
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ${GENERIC_OSG_FILES}
         WrapperMethods.cpp Geometry_FixedWrapper.cpp)
 ENDIF()
 

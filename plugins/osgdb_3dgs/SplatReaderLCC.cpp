@@ -28,7 +28,7 @@ static osg::Vec3 parseScale(const osg::Vec3& s0, const osg::Vec3& sMin, const os
                      sMin[2] * (1.0f - ratio[2]) + sMax[2] * ratio[2]);
 }
 
-static osg::Quat parseQuat(uint32_t value)
+static osg::Vec4 parseQuat(uint32_t value)
 {
     static const int QLut[16] = { 3, 0, 1, 2,  0, 3, 1, 2, 0, 1, 3, 2, 0, 1, 2, 3 };
     static const float sqrt2 = 1.414213562373095, rsqrt2 = 0.7071067811865475;
@@ -38,7 +38,7 @@ static osg::Quat parseQuat(uint32_t value)
     osg::Vec3 xyz = osg::Vec3(x, y, z) * sqrt2 - osg::Vec3(rsqrt2, rsqrt2, rsqrt2);
     float w = sqrt(1.0f - osg::clampBetween(xyz * xyz, 0.0f, 1.0f));
     uint32_t idx = (uint32_t)round(idF * 3.0f); osg::Vec4 q(xyz, w);
-    return osg::Quat(q[QLut[idx * 4]], q[QLut[idx * 4 + 1]], q[QLut[idx * 4 + 2]], q[QLut[idx * 4 + 3]]);
+    return osg::Vec4(q[QLut[idx * 4]], q[QLut[idx * 4 + 1]], q[QLut[idx * 4 + 2]], q[QLut[idx * 4 + 3]]);
 }
 
 osg::Geometry* loadGeometryFromXGrids(const std::vector<unsigned char>& data, uint32_t numSplats,
@@ -47,7 +47,7 @@ osg::Geometry* loadGeometryFromXGrids(const std::vector<unsigned char>& data, ui
     osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array(numSplats), gD0 = new osg::Vec4Array(numSplats),
                                  bD0 = new osg::Vec4Array(numSplats);
     osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array(numSplats), scale = new osg::Vec3Array(numSplats);
-    osg::ref_ptr<osg::QuatArray> rot = new osg::QuatArray(numSplats);
+    osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array(numSplats);
     osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray(numSplats);
     osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
 

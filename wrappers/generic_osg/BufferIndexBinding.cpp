@@ -1,6 +1,10 @@
 #include <GenericReserializer.h>
 using namespace osgVerse;
 
+#ifndef GL_BUFFER
+#define GL_BUFFER 0x82E0
+#endif
+
 /*#define ADD_GLUINT_SERIALIZER(PROP, DEF) \
     wrapper->addSerializer( new osgDB::PropByValSerializer< MyClass, GLuint >( \
         #PROP, ((unsigned int)(DEF)), &MyClass::get##PROP, &MyClass::set##PROP), osgDB::BaseSerializer::RW_UINT )
@@ -33,9 +37,9 @@ REGISTER_OBJECT_WRAPPER( BufferIndexBinding,
                          "osg::Object osg::StateAttribute osg::BufferIndexBinding" )
 {
 
-    ADD_GLENUM_SERIALIZER( Target,GLenum, GL_BUFFER);  // _target
-    ADD_OBJECT_SERIALIZER( BufferData, osg::BufferData, NULL );  // _bufferObject
-    ADD_UINT_SERIALIZER( Index, 0);  // _index
+    ADD_GLENUM_SERIALIZER(Target, GLenum, GL_BUFFER);  // _target
+    ADD_OBJECT_SERIALIZER(BufferData, osg::BufferData, NULL);  // _bufferObject
+    ADD_UINT_SERIALIZER(Index, 0);  // _index
 
     ADD_USER_SERIALIZER(Size);
     ADD_USER_SERIALIZER(Offset);

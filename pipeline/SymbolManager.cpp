@@ -229,7 +229,11 @@ void SymbolManager::initialize(osg::Group* group)
         // Apply instancing shader
         osg::StateSet* ss = _instanceGeom->getOrCreateStateSet();
         ss->setAttributeAndModes(_farDistanceProgram.get());
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
         ss->setDefine("FAR_DISTANCE");
+#else
+        OSG_NOTICE << "[SymbolManager] setDefine() unsupported before OSG 3.3.7" << std::endl;
+#endif
 
         // Apply default parameter textures
         ss->setTextureAttributeAndModes(0, _posTexture.get());
@@ -271,7 +275,9 @@ void SymbolManager::initialize(osg::Group* group)
         // Apply instancing shader
         osg::StateSet* ss = _instanceBoard->getOrCreateStateSet();
         ss->setAttributeAndModes(_midDistanceProgram.get());
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
         ss->setDefine("MID_DISTANCE");
+#endif
 
         // Apply default parameter textures
         ss->setTextureAttributeAndModes(0, _posTexture2.get());

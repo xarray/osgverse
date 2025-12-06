@@ -130,6 +130,7 @@ namespace osgVerse
 
     void ShadowModule::applyTechniqueDefines(osg::StateSet* ss) const
     {
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
         if (_technique & EyeSpaceDepthSM)
         {
             ss->setDefine("VERSE_SHADOW_EYESPACE");
@@ -143,17 +144,20 @@ namespace osgVerse
 
         if (_technique & BandPCF) ss->setDefine("VERSE_SHADOW_BAND_PCF");
         if (_technique & PossionPCF) ss->setDefine("VERSE_SHADOW_POSSION_PCF");
-#if defined(VERSE_EMBEDDED_GLES2)
+#   if defined(VERSE_EMBEDDED_GLES2)
         if ((_technique & VarianceSM) > 0 || (_technique & ExponentialSM) > 0 ||
             (_technique & ExponentialVarianceSM) > 0)
         {
             OSG_NOTICE << "[ShadowModule] Current shadow technique " << std::hex << _technique
                        << std::dec << " is unsupported in GLES2/WebGL1" << std::endl;
         }
-#else
+#   else
         if (_technique & VarianceSM) ss->setDefine("VERSE_SHADOW_VSM");
         if (_technique & ExponentialSM) ss->setDefine("VERSE_SHADOW_ESM");
         if (_technique & ExponentialVarianceSM) ss->setDefine("VERSE_SHADOW_EVSM");
+#   endif
+#else
+        OSG_NOTICE << "[ShadowModule] applyTechniqueDefines() unsupported before OSG 3.3.7" << std::endl;
 #endif
     }
 

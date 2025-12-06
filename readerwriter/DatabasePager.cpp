@@ -1,3 +1,4 @@
+#include <osg/Version>
 #include <osg/PagedLOD>
 #include <modeling/Utilities.h>
 #include "Utilities.h"
@@ -249,7 +250,9 @@ void DatabasePager::requestNodeFile(const std::string& fileName, osg::NodePath& 
                     databaseRequest->_group = group;
                     databaseRequest->_terrain = terrain;
                     databaseRequest->_loadOptions = loadOptions;
+#if OSG_MIN_VERSION_REQUIRED(3, 3, 4)
                     databaseRequest->_objectCache = 0;
+#endif
                     requeue = true;
                 }
             }
@@ -278,7 +281,9 @@ void DatabasePager::requestNodeFile(const std::string& fileName, osg::NodePath& 
             databaseRequest->_group = group;
             databaseRequest->_terrain = terrain;
             databaseRequest->_loadOptions = loadOptions;
+#if OSG_MIN_VERSION_REQUIRED(3, 3, 4)
             databaseRequest->_objectCache = 0;
+#endif
             _fileRequestQueue->addNoLock(databaseRequest.get());
         }
     }

@@ -69,7 +69,7 @@ namespace osgVerse
         unsigned int getIntersectionMask() const { return _intersectionMask; }
 
         /** Set zoom-in/out factor (default = 1, 1) */
-        void setZoomFactor(const osg::Vec2& zoom) { _zoomFactor.set(zoom); }
+        void setZoomFactor(const osg::Vec2& zoom) { _zoomFactor = zoom; }
         const osg::Vec2& getZoomFactor() const { return _zoomFactor; }
 
         /** Set if all user operations are locked */

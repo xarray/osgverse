@@ -32,7 +32,7 @@ public:
     }
 
     virtual void apply(osg::Geometry& geom)
-    { geometry = &geom; traverse(geom); }
+    { geometry = &geom; }
 };
 
 std::string TileCallback::createPath(const std::string& pseudoPath, int x, int y, int z)
@@ -95,9 +95,11 @@ osg::Texture* TileCallback::createLayerImage(LayerType id, bool& emptyPath, cons
     std::string protocol = osgDB::getServerProtocol(url); if (url.empty()) return NULL;
 
     osg::ref_ptr<osg::Texture2D> tex2D = createTexture2D(NULL, osg::Texture::CLAMP_TO_EDGE);
+#if OSG_MIN_VERSION_REQUIRED(3, 1, 5)
     if (irh != NULL)
         irh->requestImageFile(url, tex2D.get(), 0, 0.0, NULL, _imageRequests[url]);
     else
+#endif
     {
         osgDB::ReaderWriter* rw = TileManager::instance()->getReaderWriter(protocol, url);
         osg::ref_ptr<osg::Image> image = rw ? rw->readImage(url, opt).takeImage() : NULL;
@@ -651,13 +653,14 @@ osgDB::ReaderWriter* TileManager::getReaderWriter(const std::string& protocol, c
     if (it != _cachedReaderWriters.end()) return it->second.get();
 
     osgDB::ReaderWriter* rw = NULL;
+#if OSG_MIN_VERSION_REQUIRED(3, 1, 5)
     if (!protocol.empty())
     {
         osgDB::Registry::ReaderWriterList rwList;
         osgDB::Registry::instance()->getReaderWriterListForProtocol(protocol, rwList);
         if (!rwList.empty()) { rw = rwList.front(); _cachedReaderWriters[protocol] = rw; }
     }
-
+#endif
     if (!rw)
     {
         rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
