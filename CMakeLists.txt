@@ -180,9 +180,9 @@ ENDIF(MSVC)
 GET_FILENAME_COMPONENT(THIRDPARTY_ROOT ${THIRDPARTY_ROOT} ABSOLUTE)
 
 IF(OSG_ROOT)
-    SET(OSG_INCLUDE_DIR "${OSG_ROOT}/include")
-    SET(OSG_BUILD_INCLUDE_DIR "${OSG_ROOT}/include")
-    SET(OSG_LIB_DIR "${OSG_ROOT}/lib")
+    SET(OSG_INCLUDE_DIR "${OSG_ROOT}/include" CACHE STRING "External OSG include path")
+    SET(OSG_BUILD_INCLUDE_DIR "${OSG_ROOT}/include" CACHE STRING "External OSG build path")
+    SET(OSG_LIB_DIR "${OSG_ROOT}/lib" CACHE STRING "External OSG library path")
 ELSE(OSG_ROOT)
     FIND_PATH(OSG_INCLUDE_DIR osg/Referenced
         PATHS ${THIRDPARTY_ROOT}/include
@@ -595,6 +595,10 @@ ENDIF()
 ADD_SUBDIRECTORY(helpers/toolchain_builder/GLFW)
 IF(NOT USE_WASM_OPTIONS)
     ADD_SUBDIRECTORY(helpers/toolchain_builder/GLFW_test)
+    ADD_CUSTOM_TARGET(RUN_GL_TEST DEPENDS osgVerse_PreTest_GL
+                      COMMAND $<TARGET_FILE:osgVerse_PreTest_GL> WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                      COMMENT "OpenGL version validation is starting..." VERBATIM)
+    SET_TARGET_PROPERTIES(RUN_GL_TEST PROPERTIES FOLDER "CMakePredefinedTargets")
 ENDIF(NOT USE_WASM_OPTIONS)
 
 ######################################### Subdirectories

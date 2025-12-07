@@ -355,14 +355,15 @@ else
         mkdir $CurrentDir/build/osg_def
     fi
 
+    ExtraOptions="-DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk"
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $CurrentDir/build/osg_def
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
         fi
+        cmake --build . --target install --config Release || exit 1
     fi
-    cmake --build . --target install --config Release || exit 1
-
+    
 fi
 
 # Build osgEarth (Optional)

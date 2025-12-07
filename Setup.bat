@@ -5,12 +5,6 @@ set BuildModeWasm=0
 set CurrentDir=%cd%
 set OpenSceneGraphRoot=%CurrentDir%\..\OpenSceneGraph
 
-where ninja --version >nul 2>&1
-if not %errorlevel%==0 (
-    echo Ninja not found. Please make sure it can be found in PATH variable.
-    goto exit
-)
-
 where cmake --version >nul 2>&1
 if not %errorlevel%==0 (
     echo CMake not found. Please make sure it can be found in PATH variable.
@@ -27,10 +21,10 @@ echo -----------------------------------
 echo Please Select:
 echo 0. Desktop / OpenGL Compatible Mode
 echo 1. Desktop / OpenGL Core Mode
-echo 2. Desktop / Google Angle
+echo 2. Desktop / OpenGLES 3 (Google Angle)
 echo 3. WASM / WebGL 1.0
 echo 4. WASM / WebGL 2.0 (optional with osgEarth)
-echo 5. Android / GLES3
+echo 5. Android / OpenGLES3
 echo q. Quit
 echo -----------------------------------
 set /p BuildMode="Enter selection [0-5] > "
@@ -70,6 +64,12 @@ goto exit
 
 :: Check if CMake is already configured, or OSG is already built
 :precheck
+where ninja --version >nul 2>&1
+if not %errorlevel%==0 (
+    echo Ninja not found. Please make sure it can be found in PATH variable.
+    goto exit
+)
+
 set SkipOsgBuild="0"
 set UseWasmOption=1
 if exist %CurrentDir%\%BuildResultChecker% (

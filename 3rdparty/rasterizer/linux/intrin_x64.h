@@ -915,7 +915,7 @@ static __inline__ __attribute__((always_inline)) void __cpuid(
                        : "a"(InfoType));
 }
 
-#if !HAS_BUILTIN(__rdtsc)
+#if !defined(__x86_64__) && !HAS_BUILTIN(__rdtsc)
 static __inline__ __attribute__((always_inline)) unsigned long long __rdtsc(
     void) {
   unsigned long long low, high;

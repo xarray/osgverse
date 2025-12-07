@@ -20,7 +20,8 @@ ELSEIF(WIN32)
     ADD_DEFINITIONS(-D_GLFW_WIN32)
 ELSE()
     SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES}
-        posix_time.h posix_thread.h posix_module.c posix_time.c posix_thread.c)
+        posix_time.h posix_thread.h posix_module.c posix_time.c posix_thread.c
+        linux_joystick.h linux_joystick.c)
     IF(X11_FOUND)
         SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES} x11_platform.h xkb_unicode.h glx_context.c
             x11_init.c x11_monitor.c x11_window.c xkb_unicode.c posix_poll.h posix_poll.c)
