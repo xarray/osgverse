@@ -66,7 +66,7 @@ function(GET_X64_SIMD_FEATURES outvar tarch)
     set(${outvar} ${_available_vector_units_list} PARENT_SCOPE)
 
     list(LENGTH _available_vector_units_list vector_length)
-    if(LIST_LEvector_lengthNGTH EQUAL 0)
+    if(vector_length EQUAL 0)
         # https://gcc.gnu.org/onlinedocs/gcc-10.1.0/gcc/x86-Options.html
         set(_arch_core      "sse" "sse2" "sse3")
         set(_arch_merom     "sse" "sse2" "sse3" "ssse3")
