@@ -26,9 +26,11 @@ namespace osgVerse
         void addIndent(float incr) { _indent += incr; }
         void dirty() { _dirty = true; }
         void doneEditing() { _edited = true; }
+        void setReadOnly(bool r) { _readonly = r; }
 
         bool isDirty() const { return _dirty; }
         bool isHidden() const { return _hidden; }
+        bool isReadOnly() const { return _readonly; }
         bool checkEdited() { bool b = _edited; _edited = false; return b; }
 
     protected:
@@ -39,7 +41,7 @@ namespace osgVerse
         osg::observer_ptr<osg::Object> _object;
         std::string _postfix; float _indent;
         bool _composited, _selected, _dirty;
-        bool _hidden, _edited;
+        bool _hidden, _edited, _readonly;
     };
 
     class SerializerInterface : public SerializerBaseItem
@@ -74,6 +76,8 @@ namespace osgVerse
     public:
         typedef std::function<SerializerBaseItem* (
             osg::Object*, LibraryEntry*, const LibraryEntry::Property&)> InterfaceFunction;
+        enum PropertyHint { NO_HINT = 0, READONLY, BLACKLISTED };
+
         static SerializerFactory* instance();
 
         void registerInterface(osgDB::BaseSerializer::Type t, InterfaceFunction func)
@@ -85,11 +89,14 @@ namespace osgVerse
             _userCreatorMap[prop][cName] = func;
         }
 
-        void registerBlacklist(const std::string& prop, osg::Object* ref)
+        void registerPropertyHint(const std::string& prop, PropertyHint h, osg::Object* ref)
         {
             std::string cName = ref ? std::string(ref->libraryName()) + "::" + ref->className() : "";
-            _blacklistMap[prop].insert(cName);
+            _hintMap[prop][cName] = h;
         }
+
+        void registerGLEnum(const std::string& prop, const std::string& key, GLenum value)
+        { _glEnumMap[prop][key] = value; }
 
         void unregisterInterface(osgDB::BaseSerializer::Type t)
         { if (_creatorMap.find(t) != _creatorMap.end()) _creatorMap.erase(_creatorMap.find(t)); }
@@ -105,12 +112,21 @@ namespace osgVerse
             }
         }
 
-        void unregisterBlacklist(const std::string& prop, osg::Object* ref)
+        void unregisterPropertyHint(const std::string& prop, osg::Object* ref)
         {
-            std::set<std::string>& bl = _blacklistMap[prop];
             std::string cName = ref ? std::string(ref->libraryName()) + "::" + ref->className() : "";
-            std::set<std::string>::iterator it = bl.find(cName); if (it != bl.end()) { bl.erase(it); }
-            if (bl.empty()) _blacklistMap.erase(_blacklistMap.find(prop));
+            std::map<std::string, PropertyHint>& bl = _hintMap[prop];
+            std::map<std::string, PropertyHint>::iterator it = bl.find(cName);
+            if (it != bl.end()) { bl.erase(it); } if (bl.empty()) _hintMap.erase(_hintMap.find(prop));
+        }
+
+        void unregisterGLEnum(const std::string& prop)
+        { if (_glEnumMap.find(prop) != _glEnumMap.end()) _glEnumMap.erase(_glEnumMap.find(prop)); }
+
+        std::map<std::string, GLenum> getGLEnumMap(const std::string& prop)
+        {
+            if (_glEnumMap.find(prop) != _glEnumMap.end()) return _glEnumMap[prop];
+            else return std::map<std::string, GLenum>();
         }
 
         /** Create serializer UI items of given object */
@@ -127,7 +143,8 @@ namespace osgVerse
         typedef std::map<std::string, InterfaceFunction> InterfaceFunctionMap;
         std::map<osgDB::BaseSerializer::Type, InterfaceFunction> _creatorMap;
         std::map<std::string, InterfaceFunctionMap> _userCreatorMap;
-        std::map<std::string, std::set<std::string>> _blacklistMap;
+        std::map<std::string, std::map<std::string, PropertyHint>> _hintMap;
+        std::map<std::string, std::map<std::string, GLenum>> _glEnumMap;
     };
 
     struct SerializerInterfaceProxy

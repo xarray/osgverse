@@ -40,20 +40,46 @@ public:
     GLEnumSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
         : SerializerInterface(obj, entry, prop, true)
     {
-        _result = new InputValueField(TR(_property.name) + _postfix);
-        _result->tooltip = tooltip(_property);
-        //_check->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
-        //{ _entry->setProperty(_object.get(), _property.name, _check->value); };
+        osgVerse::SerializerFactory* factory = osgVerse::SerializerFactory::instance();
+        _glEnums = factory->getGLEnumMap(_property.name);
+
+        _combo = new ComboBox(TR(_property.name) + _postfix); _combo->tooltip = tooltip(_property);
+        for (auto it = _glEnums.begin(); it != _glEnums.end(); ++it)
+        { _combo->items.push_back(it->first); _glEnumsRev[it->second] = it->first; }
+
+        _combo->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+            {
+                std::string value = _combo->items[_combo->index]; _result->value = _glEnums[value];
+                if (_entry->setProperty(_object.get(), _property.name, _result->value)) doneEditing();
+            };
+
+        _result = new InputValueField(TR(_property.name) + "V" + _postfix);
+        _result->type = InputValueField::UIntValue; _result->tooltip = tooltip(_property);
+        _result->flags = ImGuiInputTextFlags_CharsHexadecimal;
+        _result->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
+            {
+                unsigned int value = (unsigned int)_result->value; _combo->set(_glEnumsRev[value]);
+                _entry->setProperty(_object.get(), _property.name, _result->value);
+            };
     }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        //if (isDirty()) _entry->getProperty(_object.get(), _property.name, _check->value);
-        return _result->show(mgr, content);
+        if (isDirty())
+        {
+            unsigned int value = 0; _entry->getProperty(_object.get(), _property.name, value);
+            _result->value = (double)value; _combo->set(_glEnumsRev[value]);
+        }
+
+        bool done = _combo->show(mgr, content);
+        done |= _result->show(mgr, content); return done;
     }
 
 protected:
+    std::map<std::string, GLenum> _glEnums;
+    std::map<GLenum, std::string> _glEnumsRev;
     osg::ref_ptr<InputValueField> _result;
+    osg::ref_ptr<ComboBox> _combo;
 };
 
 REGISTER_SERIALIZER_INTERFACE(ENUM, EnumSerializerInterface)

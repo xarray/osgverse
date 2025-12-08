@@ -2,9 +2,9 @@
 #include <osgDB/ReadFile>
 #include <osgGA/StateSetManipulator>
 #include <osgGA/TrackballManipulator>
-#include <osg/Fog>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+#include <picojson.h>
 
 #include "defines.h"
 #ifdef OSG_LIBRARY_STATIC
@@ -64,16 +64,24 @@ public:
 EditorContentHandler::EditorContentHandler()
     : _uiFrameNumber(0)
 {
+    std::string err, file = BASE_DIR + "/misc/editor_defaults.json";
     osgVerse::SerializerFactory* factory = osgVerse::SerializerFactory::instance();
-    factory->registerBlacklist("DataVariance", NULL);
-    factory->registerBlacklist("UserDataContainer", NULL);
-    factory->registerBlacklist("ComputeBoundingSphereCallback", NULL);
-    factory->registerBlacklist("ComputeBoundingBoxCallback", NULL);
-    factory->registerBlacklist("CullCallback", NULL);
-    factory->registerBlacklist("DrawCallback", NULL);
-    factory->registerBlacklist("SupportsDisplayList", NULL);
-    factory->registerBlacklist("UseDisplayList", NULL);
-    factory->registerBlacklist("UseVertexBufferObjects", NULL);
+
+    std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
+    picojson::value document; err = picojson::parse(document, in);
+    if (err.empty())
+    {
+        picojson::value& propJson = document.get("property");
+        picojson::array& blJson = propJson.get("blacklists").get<picojson::array>();
+        for (size_t i = 0; i < blJson.size(); ++i)
+            factory->registerPropertyHint(blJson[i].get<std::string>(), osgVerse::SerializerFactory::BLACKLISTED, NULL);
+
+        // TODO: readonly properties
+    }
+
+    std::map<std::string, std::pair<std::string, GLenum>> glEnums = osgVerse::createGLEnumMapper();
+    for (std::map<std::string, std::pair<std::string, GLenum>>::iterator it = glEnums.begin();
+         it != glEnums.end(); ++it) { factory->registerGLEnum(it->second.first, it->first, it->second.second); }
 
     _mainMenu = new osgVerse::MainMenuBar;
     _mainMenu->userData = this;
@@ -133,7 +141,7 @@ EditorContentHandler::EditorContentHandler()
     _properties->userData = this;
 
     // TEST
-    g_data.sceneRoot->addChild(osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb.90,0,0.rot"));
+    g_data.sceneRoot->addChild(osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb"));
     g_data.view->getCameraManipulator()->home(0.0);
     _hierarchyData->addItem(NULL, g_data.sceneRoot.get());
 }
@@ -209,7 +217,7 @@ int main(int argc, char** argv)
     // Set-up the viewer
     MyViewer viewer(pipeline.get());
     viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+    //viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     //viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
     viewer.setCameraManipulator(new SceneManipulator);
     viewer.setSceneData(root.get());

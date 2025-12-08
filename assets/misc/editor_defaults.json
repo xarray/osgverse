@@ -1,0 +1,39 @@
+{
+    "property": {
+        "blacklists": [
+            "DataVariance",
+            "UserDataContainer",
+            "ComputeBoundingSphereCallback",
+            "ComputeBoundingBoxCallback",
+            "CullCallback",
+            "DrawCallback",
+            "SupportsDisplayList",
+            "UseDisplayList",
+            "UseVertexBufferObjects",
+            "SupportsDisplayList",
+            "SecondaryColorArray",
+            "FogCoordArray",
+            "BufferObject",
+            "PreserveDataType",
+            "RenderBinMode",
+            "BinNumber",
+            "BinName",
+            "NestRenderBins",
+            "UseHardwareMipMapGeneration",
+            "UnRefImageDataAfterApply",
+            "ClientStorageHint",
+            "InternalFormatMode",
+            "ShadowComparison",
+            "ShadowCompareFunc",
+            "ShadowTextureMode",
+            "ShadowAmbient",
+            "MinLOD",
+            "MaxLOD",
+            "LODBias",
+            "WriteHint",
+            "AllocationMode",
+            "RowLength",
+            "Packing"
+        ]
+    }
+}

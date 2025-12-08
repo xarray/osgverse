@@ -302,6 +302,9 @@ namespace osgVerse
     /** Get mimetype and extension map data */
     OSGVERSE_RW_EXPORT std::map<std::string, std::string> createMimeTypeMapper();
 
+    /** Get OpenGL enum name and corresponding group/value pairs */
+    OSGVERSE_RW_EXPORT std::map<std::string, std::pair<std::string, GLenum>> createGLEnumMapper();
+
     /** Setup KTX trancoding flags */
     enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
     OSGVERSE_RW_EXPORT void setReadingKtxFlag(ReadingKtxFlag flag, int value);

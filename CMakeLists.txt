@@ -267,7 +267,7 @@ SET(VERSE_INSTALL_PDB_FILES ON CACHE BOOL "Enable to install PDB files along wit
 SET(VERSE_BUILD_EXAMPLES ON CACHE BOOL "Enable build of examples and tests")
 SET(VERSE_BUILD_EXPORTERS OFF CACHE BOOL "Enable build of exporters of other software (e.g., 3dsmax)")
 SET(VERSE_BUILD_3RDPARTIES ON CACHE BOOL "Enable build of common libraries like FreeType, Jpeg and PNG")
-SET(VERSE_BUILD_WITH_QT OFF CACHE BOOL "Enable build of Qt based applications and tests")
+SET(VERSE_BUILD_WITH_QT ON CACHE BOOL "Enable build of Qt based applications and tests")
 SET(VERSE_BUILD_WITH_CUDA ON CACHE BOOL "Enable build of NVIDIA CUDA based libraries and tests")
 SET(VERSE_BUILD_WITH_ANGLE OFF CACHE BOOL "Enable build with Google Angle if use GLES as interface")
 SET(VERSE_BUILD_DEPRECATED_TESTS OFF CACHE BOOL "Enable build of deprecated tests")
@@ -592,14 +592,15 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES2)
     ADD_DEFINITIONS(-DVERSE_EMBEDDED_GLES2)
 ENDIF()
 
+SET(VERSE_ENABLE_GLFW TRUE)
 ADD_SUBDIRECTORY(helpers/toolchain_builder/GLFW)
-IF(NOT USE_WASM_OPTIONS)
+IF(VERSE_ENABLE_GLFW AND NOT USE_WASM_OPTIONS)
     ADD_SUBDIRECTORY(helpers/toolchain_builder/GLFW_test)
     ADD_CUSTOM_TARGET(RUN_GL_TEST DEPENDS osgVerse_PreTest_GL
                       COMMAND $<TARGET_FILE:osgVerse_PreTest_GL> WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
                       COMMENT "OpenGL version validation is starting..." VERBATIM)
     SET_TARGET_PROPERTIES(RUN_GL_TEST PROPERTIES FOLDER "CMakePredefinedTargets")
-ENDIF(NOT USE_WASM_OPTIONS)
+ENDIF()
 
 ######################################### Subdirectories
 IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)

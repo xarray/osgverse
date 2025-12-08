@@ -6,7 +6,7 @@ static int g_headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_B
                          | ImGuiTreeNodeFlags_OpenOnDoubleClick;
 
 SerializerBaseItem::SerializerBaseItem(osg::Object* obj, bool composited)
-:   _object(obj), _indent(10.0f), _selected(false), _dirty(true), _hidden(false)
+:   _object(obj), _indent(10.0f), _selected(false), _dirty(true), _hidden(false), _readonly(false)
 { _postfix = "##" + nanoid::generate(8); _composited = composited; }
 
 bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* content,
@@ -37,6 +37,7 @@ bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* co
     const static float popUpButtonIndent = 30.0f; ImGui::Indent(popUpButtonIndent);
     if (toOpen)
     {
+        // TODO: different color for readonly?
         if (_composited) ImGui::Indent(_indent);
         toOpen = showProperty(mgr, content); _dirty = false;
         if (_composited) ImGui::Unindent(_indent);
@@ -101,10 +102,13 @@ LibraryEntry* SerializerFactory::createInterfaces(osg::Object* obj, LibraryEntry
         if (registeredProps.find(propName) != registeredProps.end()) continue;
         if (props[i].outdated) continue; else registeredProps.insert(propName);
 
-        if (_blacklistMap.find(propName) != _blacklistMap.end())
+        PropertyHint hint = NO_HINT;
+        if (_hintMap.find(propName) != _hintMap.end())
         {
-            std::set<std::string>& bl = _blacklistMap[propName];
-            if (bl.find("") != bl.end() || bl.find(fullName) != bl.end()) continue;
+            std::map<std::string, PropertyHint>& bl = _hintMap[propName];
+            if (bl.find("") != bl.end()) hint = bl[""];
+            if (bl.find(fullName) != bl.end()) hint = bl[fullName];
+            if (hint == BLACKLISTED) continue;
         }
 
         osg::ref_ptr<SerializerBaseItem> si;
@@ -116,7 +120,7 @@ LibraryEntry* SerializerFactory::createInterfaces(osg::Object* obj, LibraryEntry
         }
 
         if (!si) si = factory->createInterface(obj, entry, props[i]);
-        if (si.valid()) interfaces.push_back(si);
+        if (si.valid()) { si->setReadOnly(hint == READONLY); interfaces.push_back(si); }
     }
     return entry;
 }

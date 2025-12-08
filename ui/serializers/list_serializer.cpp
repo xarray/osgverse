@@ -18,6 +18,8 @@ public:
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
         //if (isDirty()) _entry->getProperty(_object.get(), _property.name, _check->value);
+
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "TBD...");
         return _check->show(mgr, content);
     }
 

@@ -28,8 +28,16 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
         ENDIF()
 
         SET(CMAKE_AUTOMOC OFF)
-        FIND_PACKAGE(Qt5 COMPONENTS Core Gui Widgets OpenGL)
-        FIND_PACKAGE(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
+        FIND_PACKAGE(Qt5 QUIET COMPONENTS Core Gui Widgets OpenGL)
+        FIND_PACKAGE(Qt6 QUIET COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
+
+        IF(Qt5_FOUND)
+            SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_DEPENDENCIES "QT5")
+        ELSEIF(Qt6_FOUND)
+            SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_DEPENDENCIES "QT6")
+        ELSE()
+            MESSAGE("[osgVerse] Dependency Qt5 and Qt6 not found. Some modules and functionalities will be ignored.")
+        ENDIF()
         #########################################
 
         ADD_SUBDIRECTORY(qt_viewer)

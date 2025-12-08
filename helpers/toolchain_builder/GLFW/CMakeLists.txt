@@ -8,6 +8,7 @@ SET(GLFW_SOURCE_FILES
 
 IF(ANDROID OR IOS)
     # Ignore GLFW?
+    SET(VERSE_ENABLE_GLFW FALSE PARENT_SCOPE)
 ELSEIF(APPLE)
     SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES} cocoa_time.h cocoa_time.c posix_thread.h
         posix_module.c posix_thread.c cocoa_platform.h cocoa_joystick.h cocoa_init.m
@@ -23,9 +24,16 @@ ELSE()
         posix_time.h posix_thread.h posix_module.c posix_time.c posix_thread.c
         linux_joystick.h linux_joystick.c)
     IF(X11_FOUND)
-        SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES} x11_platform.h xkb_unicode.h glx_context.c
-            x11_init.c x11_monitor.c x11_window.c xkb_unicode.c posix_poll.h posix_poll.c)
-        ADD_DEFINITIONS(-D_GLFW_X11)
+        IF(X11_Xrandr_INCLUDE_PATH AND X11_Xinerama_INCLUDE_PATH AND X11_Xkb_INCLUDE_PATH AND
+           X11_Xcursor_INCLUDE_PATH AND X11_Xi_INCLUDE_PATH AND X11_Xshape_INCLUDE_PATH)
+            SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES} x11_platform.h xkb_unicode.h glx_context.c
+                x11_init.c x11_monitor.c x11_window.c xkb_unicode.c posix_poll.h posix_poll.c)
+            ADD_DEFINITIONS(-D_GLFW_X11)
+        ELSE()
+            MESSAGE("[osgVerse] X11 libraries missing for GLFW. Please at least install: "
+                    "libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev libx11-dev")
+            SET(VERSE_ENABLE_GLFW FALSE PARENT_SCOPE)
+        ENDIF()
     ELSEIF(WAYLAND_FOUND)
         SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES} wl_platform.h xkb_unicode.h wl_init.c
             wl_monitor.c wl_window.c xkb_unicode.c posix_poll.h posix_poll.c)
