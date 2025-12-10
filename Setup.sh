@@ -39,7 +39,7 @@ Please Select:
 
 0. Desktop / OpenGL Compatible Mode
 1. Desktop / OpenGL Core Mode
-2. Desktop / Google Angle
+2. Desktop / OpenGLES 3
 3. WASM / WebGL 1.0
 4. WASM / WebGL 2.0 (optional with osgEarth)
 q. Quit
@@ -50,9 +50,9 @@ case "$BuildMode" in
         BuildResultChecker=build/sdk_core/bin/osgviewer
         CMakeResultChecker=build/osg_core/CMakeCache.txt
         ;;
-    2)  echo "Google Angle. (NOT IMPLEMENTED)"
-        BuildResultChecker=build/sdk_es/lib/libosgviewer.a
-        CMakeResultChecker=build/osg_es/CMakeCache.txt
+    2)  echo "OpenGL ES 3 Mode."
+        BuildResultChecker=build/sdk_es3/lib/libosgviewer.a
+        CMakeResultChecker=build/osg_es3/CMakeCache.txt
         ;;
     3)  echo "WebAssembly WebGL 1."
         BuildResultChecker=build/sdk_wasm/lib/libosgviewer.a
@@ -75,10 +75,18 @@ case "$BuildMode" in
 esac
 
 # Check for Emscripten/NDK location
+GLES_LibPath="$1/libGLESv2.so"
+EGL_LibPath="$1/libEGL.so"
 EmsdkToolchain="$1/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
 NdkToolchain="$1/build/cmake/android.toolchain.cmake"
 AndroidDepOptions=""
-if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
+if [ "$BuildMode" = '2' ]; then
+    # GLES toolchain
+    if [ ! -f "$GLES_LibPath" ] || [ ! -f "$EGL_LibPath" ]; then
+        echo "libEGL.so or libGLESv2.so not found. Please run as follows: ./Setup.sh <path_of_ligEGL>"
+        exit 1
+    fi
+elif [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     # WASM toolchain
     if [ ! -f "$EmsdkToolchain" ]; then
         echo "Emscripten.cmake not found. Please run as follows: ./Setup.sh <your_path>/emsdk-3.?.?/"
@@ -150,7 +158,7 @@ if [ ! -d "$CurrentDir/build" ]; then
     mkdir $CurrentDir/build
 fi
 
-ThirdPartyBuildDir="$CurrentDir/build/3rdparty_def"
+ThirdPartyBuildDir="$CurrentDir/build/3rdparty"
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     read -p "Would you like to use WASM 64bit (experimental)? (y/n) > " Wasm64Flag
     if [ "$Wasm64Flag" = 'y' ]; then
@@ -189,7 +197,7 @@ elif [ "$BuildMode" = '5' ]; then
 
 else
 
-    # Default toolchain
+    # Default toolchain for desktop builds
     if [ ! -d "$ThirdPartyBuildDir" ]; then
         mkdir $ThirdPartyBuildDir
     fi
@@ -240,7 +248,7 @@ mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
 sed 's/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g' "$OpenSceneGraphRoot/CMakeLists.txt" > CMakeLists.txt.tmp
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/CMakeLists.txt"
 
-# Fix WebGL running errors
+# Fix OpenSceneGraph build warnings and errors
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     sed 's#dlopen(#NULL;\/\/dlopen\/\/(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
 else
@@ -270,7 +278,7 @@ if [ "$BuildMode" = '1' ]; then
     ExtraOptions="
         -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_core
-        -DOPENGL_PROFILE=GL3CORE"
+        -DOPENGL_PROFILE=GLCORE"
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $CurrentDir/build/osg_core
         if [ "$SkipCMakeConfig" = 0 ]; then
@@ -281,8 +289,23 @@ if [ "$BuildMode" = '1' ]; then
 
 elif [ "$BuildMode" = '2' ]; then
 
-    # TODO: Google Angle
-    :
+    # OpenGL ES 3
+    if [ ! -d "$CurrentDir/build/osg_es3" ]; then
+        mkdir $CurrentDir/build/osg_es3
+    fi
+
+    ExtraOptions="
+        -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
+        -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_es3
+        -DEGL_LIBRARY=$EGL_LibPath -DOPENGL_gl_LIBRARY=$GLES_LibPath
+        -DOSG_WINDOWING_SYSTEM=None -DOPENGL_PROFILE=GLES3"
+    if [ "$SkipOsgBuild" = 0 ]; then
+        cd $CurrentDir/build/osg_es3
+        if [ "$SkipCMakeConfig" = 0 ]; then
+            $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
+        fi
+        cmake --build . --target install --config Release || exit 1
+    fi
 
 elif [ "$BuildMode" = '3' ]; then
 
@@ -436,17 +459,29 @@ elif [ "$BuildMode" = '5' ]; then
 else
 
     # Default toolchain
-    if [ ! -d "$CurrentDir/build/verse" ]; then
-        mkdir $CurrentDir/build/verse
-    fi
-
     if [ "$BuildMode" = '1' ]; then
+        ExtraOptions2=""
         OsgRootLocation="$CurrentDir/build/sdk_core"
+        if [ ! -d "$CurrentDir/build/verse_core" ]; then
+            mkdir $CurrentDir/build/verse_core
+        fi
+        cd $CurrentDir/build/verse_core
+    elif [ "$BuildMode" = '2' ]; then
+        ExtraOptions2="-DOSG_EGL_LIBRARY=$EGL_LibPath -DOSG_GLES_LIBRARY=$GLES_LibPath"
+        OsgRootLocation="$CurrentDir/build/sdk_es3"
+        if [ ! -d "$CurrentDir/build/verse_es3" ]; then
+            mkdir $CurrentDir/build/verse_es3
+        fi
+        cd $CurrentDir/build/verse_es3
     else
+        ExtraOptions2=""
         OsgRootLocation="$CurrentDir/build/sdk"
+        if [ ! -d "$CurrentDir/build/verse_def" ]; then
+            mkdir $CurrentDir/build/verse_def
+        fi
+        cd $CurrentDir/build/verse_def
     fi
-    cd $CurrentDir/build/verse
-    $CMakeExe -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
+    $CMakeExe -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $ExtraOptions2 $CurrentDir
     cmake --build . --target install --config Release || exit 1
 
 fi
