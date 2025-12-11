@@ -25,7 +25,7 @@ bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* co
         if (_selected) ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.4f, 0.4f, 0.0f, 1.0f));
         else ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.3f, 0.4f, 1.0f));
         toOpen = ImGui::CollapsingHeader(title.c_str(), g_headerFlags);
-        if (_selected) ImGui::PopStyleColor();
+        ImGui::PopStyleColor();
     }
 
     if (ImGui::BeginPopup((title + "_Popup").c_str()))

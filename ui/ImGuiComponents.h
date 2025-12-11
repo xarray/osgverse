@@ -151,8 +151,13 @@ namespace osgVerse
         std::string name, tooltip; int index, width;
         ActionCallback callback;
 
+        void set(const std::string& s, bool addMissing)
+        {
+            for (size_t i = 0; i < items.size(); ++i) { if (s == items[i]) { index = i; return; } }
+            if (addMissing) { items.push_back("???"); index = items.size() - 1; }
+        }
+
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        void set(const std::string& s) { for (size_t i = 0; i < items.size(); ++i) {if (s == items[i]) {index = i; return;}} }
         ComboBox(const std::string& n) : name(n), index(0), width(200), callback(ActionCallback()) {}
     };
 

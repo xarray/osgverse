@@ -1,9 +1,9 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v1.92.5 WIP
 //
 // The MIT License(MIT)
 //
-// Copyright(c) 2021 Cedric Guillemet
+// Copyright(c) 2016-2021 Cedric Guillemet
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files(the "Software"), to deal
@@ -139,6 +139,8 @@ struct Delegate
     
     virtual const size_t GetLinkCount() = 0;
     virtual const Link GetLink(LinkIndex index) = 0;
+
+    virtual ~Delegate() = default;
 };
 
 void Show(Delegate& delegate, const Options& options, ViewState& viewState, bool enabled, FitOnScreen* fit = nullptr);

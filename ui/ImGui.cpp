@@ -8,11 +8,11 @@
 #include <osgDB/ReadFile>
 #include <imgui/imgui.h>
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-    // TODO: GLES version of IMGUI backend
+    // Specified GLES version of IMGUI backend?
 #else
 #   include <imgui/imgui_impl_opengl2.h>
-#   include <imgui/imgui_impl_opengl3.h>
 #endif
+#include <imgui/imgui_impl_opengl3.h>
 #include <imgui/ImGuizmo.h>
 #include "ImGui.h"
 #include "ImGui.Styles.h"
@@ -33,7 +33,7 @@ void newImGuiFrame(osg::RenderInfo& renderInfo, double& time, std::function<void
         glewInit(); time = 0.0f;
         s_useImguiLoaderGL3 = glewIsSupported("GL_VERSION_3_0");
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-        // TODO: GLES version of IMGUI backend
+        ImGui_ImplOpenGL3_Init();
 #else
         if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_Init();
         else ImGui_ImplOpenGL2_Init();
@@ -41,7 +41,7 @@ void newImGuiFrame(osg::RenderInfo& renderInfo, double& time, std::function<void
     }
 
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-    // TODO: GLES version of IMGUI backend
+    ImGui_ImplOpenGL3_NewFrame();
 #else
     if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_NewFrame();
     else ImGui_ImplOpenGL2_NewFrame();
@@ -93,7 +93,7 @@ void endImGuiFrame(osg::RenderInfo& renderInfo, ImGuiManager* manager,
 #endif
 
                 osg::Texture::TextureObject* tObj = tex2D->getTextureObject(renderInfo.getContextID());
-                if (tObj) textureIdList[itr->first] = reinterpret_cast<ImTextureID>((long long)tObj->id());
+                if (tObj) textureIdList[itr->first] = (ImTextureID)tObj->id();
             }
             func(v, context);
         }
@@ -102,7 +102,7 @@ void endImGuiFrame(osg::RenderInfo& renderInfo, ImGuiManager* manager,
 
     ImGui::Render();
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-    // TODO: GLES version of IMGUI backend
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 #else
     if (s_useImguiLoaderGL3)
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -142,34 +142,29 @@ void startImGuiContext(ImGuiManager* manager, std::map<std::string, ImFont*>& fo
     osg::Image* img = new osg::Image;
     img->setImage(width, height, 1, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, pixels, osg::Image::NO_DELETE);
     osgDB::writeImageFile(*img, "test.png");*/
+}
 
-    // Keyboard mapping. ImGui will use those indices to peek into the io.KeyDown[] array
-    io.KeyMap[ImGuiKey_Tab] = ImGuiKey_Tab;
-    io.KeyMap[ImGuiKey_LeftArrow] = ImGuiKey_LeftArrow;
-    io.KeyMap[ImGuiKey_RightArrow] = ImGuiKey_RightArrow;
-    io.KeyMap[ImGuiKey_UpArrow] = ImGuiKey_UpArrow;
-    io.KeyMap[ImGuiKey_DownArrow] = ImGuiKey_DownArrow;
-    io.KeyMap[ImGuiKey_PageUp] = ImGuiKey_PageUp;
-    io.KeyMap[ImGuiKey_PageDown] = ImGuiKey_PageDown;
-    io.KeyMap[ImGuiKey_Home] = ImGuiKey_Home;
-    io.KeyMap[ImGuiKey_End] = ImGuiKey_End;
-    io.KeyMap[ImGuiKey_Insert] = ImGuiKey_Insert;
-    io.KeyMap[ImGuiKey_Delete] = ImGuiKey_Delete;
-    io.KeyMap[ImGuiKey_Backspace] = ImGuiKey_Backspace;
-    io.KeyMap[ImGuiKey_Space] = ImGuiKey_Space;
-    io.KeyMap[ImGuiKey_Enter] = ImGuiKey_Enter;
-    io.KeyMap[ImGuiKey_Escape] = ImGuiKey_Escape;
-    io.KeyMap[ImGuiKey_KeyPadEnter] = ImGuiKey_KeyPadEnter;
-    io.KeyMap[ImGuiKey_A] = osgGA::GUIEventAdapter::KEY_A;
-    io.KeyMap[ImGuiKey_C] = osgGA::GUIEventAdapter::KEY_C;
-    io.KeyMap[ImGuiKey_V] = osgGA::GUIEventAdapter::KEY_V;
-    io.KeyMap[ImGuiKey_X] = osgGA::GUIEventAdapter::KEY_X;
-    io.KeyMap[ImGuiKey_Y] = osgGA::GUIEventAdapter::KEY_Y;
-    io.KeyMap[ImGuiKey_Z] = osgGA::GUIEventAdapter::KEY_Z;
+int convertImGuiCharacterKey(int key)
+{
+    if (key >= 'a' && key <= 'z') return (int)ImGuiKey_A + (key - 'a');
+    if (key >= 'A' && key <= 'Z') return (int)ImGuiKey_A + (key - 'A');
+    if (key >= '0' && key <= '9') return (int)ImGuiKey_0 + (key - '0');
+    switch (key)
+    {
+    case ' ': return ImGuiKey_Space; case ',': return ImGuiKey_Comma;
+    case '-': return ImGuiKey_Minus; case '.': return ImGuiKey_Period;
+    case '/': return ImGuiKey_Slash; case ';': return ImGuiKey_Semicolon;
+    case '=': return ImGuiKey_Equal; case '[': return ImGuiKey_LeftBracket;
+    case '\\': return ImGuiKey_Backslash; case ']': return ImGuiKey_RightBracket;
+    case '`': return ImGuiKey_GraveAccent; case '\'': return ImGuiKey_Apostrophe;
+    default: return ImGuiKey_None;
+    }
 }
 
 int convertImGuiSpecialKey(int key)
 {
+    if (key >= osgGA::GUIEventAdapter::KEY_F1 && key <= osgGA::GUIEventAdapter::KEY_F24)
+        return (int)ImGuiKey_F1 + (key - osgGA::GUIEventAdapter::KEY_F1);
     switch (key)
     {
     case osgGA::GUIEventAdapter::KEY_Tab: return ImGuiKey_Tab;
@@ -184,10 +179,10 @@ int convertImGuiSpecialKey(int key)
     case osgGA::GUIEventAdapter::KEY_Delete: return ImGuiKey_Delete;
     case osgGA::GUIEventAdapter::KEY_Insert: return ImGuiKey_Insert;
     case osgGA::GUIEventAdapter::KEY_BackSpace: return ImGuiKey_Backspace;
-    case osgGA::GUIEventAdapter::KEY_Space: return ImGuiKey_Space;
     case osgGA::GUIEventAdapter::KEY_Return: return ImGuiKey_Enter;
     case osgGA::GUIEventAdapter::KEY_Escape: return ImGuiKey_Escape;
-    case osgGA::GUIEventAdapter::KEY_KP_Enter: return ImGuiKey_KeyPadEnter;
+    case osgGA::GUIEventAdapter::KEY_Caps_Lock: return ImGuiKey_CapsLock;
+    case osgGA::GUIEventAdapter::KEY_KP_Enter: return ImGuiKey_KeypadEnter;
     default: return -1;
     }
 }
@@ -209,6 +204,16 @@ public:
     void start(ImGuiManager* manager)
     { startImGuiContext(manager, _fonts); }
 
+    void release(ImGuiManager* manager)
+    {
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+        ImGui_ImplOpenGL3_Shutdown();
+#else
+        if (s_useImguiLoaderGL3) ImGui_ImplOpenGL3_Shutdown();
+        else ImGui_ImplOpenGL2_Shutdown();
+#endif
+    }
+
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
         ImGuiIO& io = ImGui::GetIO();
@@ -223,18 +228,20 @@ public:
             //if (wantCaptureKeyboard)
             {
                 const bool isKeyDown = ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN;
-                const int c = ea.getKey();
-                const int special_key = convertImGuiSpecialKey(c);
+                const int c = ea.getKey(); const int special_key = convertImGuiSpecialKey(c);
                 if (special_key > 0)
                 {
-                    io.KeysDown[special_key] = isKeyDown;
+                    io.AddKeyEvent((ImGuiKey)special_key, isKeyDown);
                     io.KeyCtrl = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL;
                     io.KeyShift = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT;
                     io.KeyAlt = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_ALT;
                     io.KeySuper = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SUPER;
                 }
-                else if (isKeyDown && c > 0 && c < 0xFF)
-                    io.AddInputCharacter((unsigned short)c);
+                else if (c > 0 && c < 0xFF)
+                {
+                    io.AddKeyEvent((ImGuiKey)convertImGuiCharacterKey(c), isKeyDown);
+                    if (isKeyDown) io.AddInputCharacter((unsigned short)c);
+                }
                 return wantCaptureKeyboard;
             }
         case osgGA::GUIEventAdapter::DOUBLECLICK:
@@ -310,8 +317,7 @@ struct ImGuiRenderCallback : public CameraDrawCallback
 ////////////// ImGuiManager //////////////
 
 ImGuiManager::ImGuiManager()
-{
-}
+{}
 
 ImGuiManager::~ImGuiManager()
 {}
@@ -327,6 +333,12 @@ void ImGuiManager::initialize(ImGuiContentHandler* cb, bool eventsFrom3D)
     _contentHandler = cb;
     if (eventsFrom3D) initializeEventHandler3D();
     else initializeEventHandler2D();
+}
+
+void ImGuiManager::shutdown()
+{
+    if (_imguiHandler.valid())
+        static_cast<ImGuiHandler*>(_imguiHandler.get())->release(this);
 }
 
 void ImGuiManager::addToView(osgViewer::View* view, osg::Camera* specCam)

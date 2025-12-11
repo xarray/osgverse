@@ -122,12 +122,9 @@ SET(PMP_MCUT_SOURCE_FILES
 SET(IMGUI_SOURCE_FILES
     imgui/imgui-knobs.cpp imgui/imgui-knobs.h
     imgui/implot_items.cpp imgui/implot.cpp imgui/implot.h
-    imgui/GraphEditor.cpp imgui/GraphEditor.h
-    imgui/ImCurveEdit.cpp imgui/ImCurveEdit.h
-    imgui/ImGradient.cpp imgui/ImGradient.h
-    imgui/ImSequencer.cpp imgui/ImSequencer.h
-    imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h
-    imgui/imgui_dock.cpp imgui/imgui_dock.h imgui/imspinner.h
+    imgui/GraphEditor.cpp imgui/GraphEditor.h imgui/ImCurveEdit.cpp imgui/ImCurveEdit.h
+    imgui/ImGradient.cpp imgui/ImGradient.h imgui/ImSequencer.cpp imgui/ImSequencer.h
+    imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h imgui/imspinner.h
 
 	imgui/node-editor/imgui_bezier_math.h imgui/node-editor/imgui_extra_math.h
 	imgui/node-editor/crude_json.cpp imgui/node-editor/crude_json.h

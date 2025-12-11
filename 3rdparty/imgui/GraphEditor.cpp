@@ -1,9 +1,9 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v1.92.5 WIP
 //
 // The MIT License(MIT)
 //
-// Copyright(c) 2021 Cedric Guillemet
+// Copyright(c) 2016-2021 Cedric Guillemet
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files(the "Software"), to deal
@@ -24,8 +24,8 @@
 // SOFTWARE.
 //
 
-#include "imgui.h"
 #define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui.h"
 #include "imgui_internal.h"
 #include <math.h>
 #include <vector>
@@ -311,7 +311,7 @@ static void HandleQuadSelection(Delegate& delegate, ImDrawList* drawList, const 
 
             nodeOperation = NO_None;
             ImRect selectionRect(bmin, bmax);
-            for (int nodeIndex = 0; nodeIndex < nodeCount; nodeIndex++)
+            for (unsigned int nodeIndex = 0; nodeIndex < nodeCount; nodeIndex++)
             {
                 const auto node = delegate.GetNode(nodeIndex);
                 ImVec2 nodeRectangleMin = offset + node.mRect.Min * factor;
@@ -469,7 +469,7 @@ static bool HandleConnections(ImDrawList* drawList,
 
                     if (!alreadyExisting)
                     {
-                        for (int linkIndex = 0; linkIndex < linkCount; linkIndex++)
+                        for (unsigned int linkIndex = 0; linkIndex < linkCount; linkIndex++)
                         {
                             const auto link = delegate.GetLink(linkIndex);
                             if (link.mOutputNodeIndex == nl.mOutputNodeIndex && link.mOutputSlotIndex == nl.mOutputSlotIndex)
@@ -497,7 +497,7 @@ static bool HandleConnections(ImDrawList* drawList,
                 if (editingInput)
                 {
                     // remove existing link
-                    for (int linkIndex = 0; linkIndex < linkCount; linkIndex++)
+                    for (unsigned int linkIndex = 0; linkIndex < linkCount; linkIndex++)
                     {
                         const auto link = delegate.GetLink(linkIndex);
                         if (link.mOutputNodeIndex == nodeIndex && link.mOutputSlotIndex == closestConn)
@@ -837,7 +837,7 @@ void Show(Delegate& delegate, const Options& options, ViewState& viewState, bool
     captureOffset = viewState.mPosition * viewState.mFactor;
 
     //ImGui::InvisibleButton("GraphEditorButton", canvasSize);
-    ImGui::BeginChildFrame(71711, canvasSize);
+    ImGui::BeginChild(71711, canvasSize, ImGuiChildFlags_FrameStyle);
 
     ImGui::SetCursorPos(windowPos);
     ImGui::BeginGroup();
@@ -1030,7 +1030,7 @@ void Show(Delegate& delegate, const Options& options, ViewState& viewState, bool
     ImGui::PopStyleColor(1);
     ImGui::PopStyleVar(2);
     ImGui::EndGroup();
-    ImGui::EndChildFrame();
+    ImGui::EndChild();
 
     ImGui::PopStyleVar(3);
     

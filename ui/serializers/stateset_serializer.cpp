@@ -108,7 +108,7 @@ public:
                     _serializerUIs.push_back(new AttributeSerializerInterface(
                         itr->second.first.get(), entry, ss, itr->second.second));
                 }
-                _separator[1] = _serializerUIs.size();
+                _separator[1] = _serializerUIs.size() - _separator[0];
 
                 // Texture attributes
                 osg::StateSet::TextureAttributeList& texAttrList = ss->getTextureAttributeList();
@@ -122,7 +122,7 @@ public:
                             itr->second.first.get(), entry, ss, itr->second.second, i));
                     }
                 }
-                _separator[2] = _serializerUIs.size();
+                _separator[2] = _serializerUIs.size() - _separator[0] - _separator[1];
 
                 // Uniforms
                 osg::StateSet::UniformList& uniforms = ss->getUniformList();
@@ -137,12 +137,14 @@ public:
         }
 
         bool done = false;
+        static std::string separatedNames[3] = {"Attributes", "Textures", "Uniforms"};
         for (size_t i = 0; i < _serializerUIs.size(); ++i)
         {
             for (int s = 0; s < 3; ++s)
             {
+                std::string num = " " + std::to_string(_separator[s]);
                 if (_separator[s] > 0 && _separator[s] == i)
-                    ImGui::Separator();
+                { ImGui::Separator(); ImGui::Text(TR(separatedNames[s] + num).c_str()); }
             }
             done |= _serializerUIs[i]->show(mgr, content);
         }

@@ -2,10 +2,10 @@
 | Library          | Mode     | Version   | Used by modules    | License      | Website |
 |------------------|----------|-----------|--------------------|--------------|---------|
 | OpenSceneGraph   | Depended | > 3.1.1   | All                | LGPL (+)     | https://github.com/openscenegraph/OpenSceneGraph |
-| SDL2             | Depended |           | App, Android, WASM | Zlib         | https://github.com/libsdl-org/SDL |
+| SDL2             | Depended | > 2.28.2  | App, Android, WASM | Zlib         | https://github.com/libsdl-org/SDL |
 | Bullet           | Depended | > 3.17    | Animation          | Zlib (+)     | https://github.com/bulletphysics/bullet3 |
 | Effekseer        | Depended | > 1.70e   | Animation          | MIT          | https://github.com/effekseer/Effekseer |
-| ZLMediaKit       | Depended |           | verse_ms           | MIT          | https://github.com/ZLMediaKit/ZLMediaKit |
+| ZLMediaKit       | Depended | 20250207  | verse_ms           | MIT          | https://github.com/ZLMediaKit/ZLMediaKit |
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | https://github.com/google/draco |
 | libCEF           | Depended | > 127.3   | Animation          | BSD          | https://github.com/chromiumembedded/cef |
 | libIGL           | Depended | > 2.5     | Modeling           | MPL2         | https://github.com/libigl/libigl |
@@ -30,10 +30,12 @@
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr |
 | gainput          | Embedded |           | -                  | MIT          | https://github.com/jkuhlmann/gainput |
 | ghc_filesystem   | Embedded |           | -                  | MIT          | https://github.com/gulrak/filesystem |
-| imgui            | Embedded | 1.83      | UI, App            | MIT          | https://github.com/ocornut/imgui |
-| ImGuizmo         | Embedded |           | UI                 | MIT          | https://github.com/CedricGuillemet/ImGuizmo |
-| imnode-editor    | Embedded |           | UI                 | MIT          | https://github.com/thedmd/imgui-node-editor |
-| implot           | Embedded |           | UI                 | MIT          | https://github.com/epezent/implot |
+| imgui            | Embedded | 1.92.5    | UI, App            | MIT          | https://github.com/ocornut/imgui |
+| imgui-knobs      | Embedded | 20251211  | UI                 | MIT          | https://github.com/altschuler/imgui-knobs |
+| ImGuizmo         | Embedded | 20251211  | UI                 | MIT          | https://github.com/CedricGuillemet/ImGuizmo |
+| imnode-editor    | Embedded | 20251211  | UI                 | MIT          | https://github.com/thedmd/imgui-node-editor |
+| implot           | Embedded | 20251211  | UI                 | MIT          | https://github.com/epezent/implot |
+| imspinner        | Embedded | 20251211  | UI                 | MIT          | https://github.com/dalerank/imspinner |
 | ktx              | Embedded |           | verse_ktx          | Apache2 (+)  | https://github.com/KhronosGroup/KTX-Software |
 | laplace_deform   | Embedded |           | -                  | -            | |
 | laszip           | Embedded |           | verse_ept          | Apache2      | https://github.com/LASzip/LASzip |

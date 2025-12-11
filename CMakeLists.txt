@@ -279,9 +279,9 @@ SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse libraries
 SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (will force osgVerse to be static)")
 SET(VERSE_USE_MTT_DRIVER OFF CACHE BOOL "Use MooreThreads MTT drivers")
 
-IF(VERSE_SUPPORT_CPP17)
+IF(USE_WASM_OPTIONS OR VERSE_SUPPORT_CPP17)
     SET(CMAKE_CXX_STANDARD 17)
-ENDIF(VERSE_SUPPORT_CPP17)
+ENDIF(USE_WASM_OPTIONS OR VERSE_SUPPORT_CPP17)
 
 IF(MUSA_FOUND)
     SET(VERSE_USE_MTT_DRIVER ON)
@@ -325,9 +325,13 @@ IF(CUDA_FOUND)
     # Check CUDA / Compiler compatibility
     SET(CUDA_CHECKVER0 0)
     SET(CUDA_CHECKVER1 0)
+    SET(CUDA_GPU_FEATURE_CODE 75)
     IF(MSVC)
         # https://quasar.ugent.be/files/doc/cuda-msvc-compatibility.html
-        IF(CUDA_VERSION VERSION_GREATER_EQUAL 12.0)
+        IF(CUDA_VERSION VERSION_GREATER_EQUAL 13.0)
+            MATH(EXPR CUDA_CHECKVER0 "${MSVC_VERSION} - 1910")  # >= VS2017
+            SET(CUDA_GPU_FEATURE_CODE 90)
+        ELSEIF(CUDA_VERSION VERSION_GREATER_EQUAL 12.0)
             MATH(EXPR CUDA_CHECKVER1 "1940 - ${MSVC_VERSION}")  # < VS2022
             MATH(EXPR CUDA_CHECKVER0 "${MSVC_VERSION} - 1910")  # >= VS2017
         ELSEIF(CUDA_VERSION VERSION_GREATER_EQUAL 11.6)
@@ -337,6 +341,7 @@ IF(CUDA_FOUND)
             MATH(EXPR CUDA_CHECKVER1 "1919 - ${MSVC_VERSION}")  # < VS2017
         ELSE()
             MATH(EXPR CUDA_CHECKVER1 "1919 - ${MSVC_VERSION}")  # < VS2017
+            SET(CUDA_GPU_FEATURE_CODE 52)
         ENDIF()
     ELSEIF(CMAKE_COMPILER_IS_GNUCC)
         # https://gist.github.com/ax3l/9489132
@@ -353,7 +358,7 @@ IF(CUDA_FOUND)
         MESSAGE("[osgVerse] NVIDIA CUDA found: ${CUDA_VERSION}, But incompatible with MSVC version ${MSVC_VERSION}")
         SET(CUDA_FOUND FALSE)
     ELSE()
-        SET(VERSE_NVCC_FLAGS "-gencode arch=compute_52,code=\"sm_52,compute_52\""
+        SET(VERSE_NVCC_FLAGS "-gencode arch=compute_${CUDA_GPU_FEATURE_CODE},code=sm_${CUDA_GPU_FEATURE_CODE}"
             CACHE STRING "NVCC Flags. See https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-architecture-arch")
     ENDIF()
 

@@ -213,7 +213,7 @@ bool ImageButton::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     if (imageOnly)
         ImGui::Image(img, ImVec2(size[0], size[1]), ImVec2(uv0[0], uv0[1]), ImVec2(uv1[0], uv1[1]));
     else
-        done = ImGui::ImageButton(img, ImVec2(size[0], size[1]),
+        done = ImGui::ImageButton(name.c_str(), img, ImVec2(size[0], size[1]),
                                   ImVec2(uv0[0], uv0[1]), ImVec2(uv1[0], uv1[1]));
 
     if (!tooltip.empty()) showTooltip(tooltip);

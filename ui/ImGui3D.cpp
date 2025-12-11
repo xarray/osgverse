@@ -13,6 +13,7 @@ extern void endImGuiFrame(osg::RenderInfo& renderInfo, ImGuiManager* manager,
                           std::map<std::string, ImTextureID>& textureIdList,
                           std::function<void(ImGuiContentHandler*, ImGuiContext*)> func);
 extern void startImGuiContext(ImGuiManager* manager, std::map<std::string, ImFont*>& fonts);
+extern int convertImGuiCharacterKey(int key);
 extern int convertImGuiSpecialKey(int key);
 
 class ImGuiHandler3D : public osgGA::GUIEventHandler
@@ -46,18 +47,20 @@ public:
             //if (wantCaptureKeyboard)
             {
                 const bool isKeyDown = ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN;
-                const int c = ea.getKey();
-                const int special_key = convertImGuiSpecialKey(c);
+                const int c = ea.getKey(); const int special_key = convertImGuiSpecialKey(c);
                 if (special_key > 0)
                 {
-                    io.KeysDown[special_key] = isKeyDown;
+                    io.AddKeyEvent((ImGuiKey)special_key, isKeyDown);
                     io.KeyCtrl = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL;
                     io.KeyShift = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT;
                     io.KeyAlt = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_ALT;
                     io.KeySuper = ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SUPER;
                 }
-                else if (isKeyDown && c > 0 && c < 0xFF)
-                    io.AddInputCharacter((unsigned short)c);
+                else if (c > 0 && c < 0xFF)
+                {
+                    io.AddKeyEvent((ImGuiKey)convertImGuiCharacterKey(c), isKeyDown);
+                    if (isKeyDown) io.AddInputCharacter((unsigned short)c);
+                }
                 return wantCaptureKeyboard;
             }
         case osgGA::GUIEventAdapter::SCROLL:

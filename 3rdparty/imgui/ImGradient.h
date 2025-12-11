@@ -1,9 +1,9 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v1.92.5 WIP
 //
 // The MIT License(MIT)
 //
-// Copyright(c) 2021 Cedric Guillemet
+// Copyright(c) 2016-2021 Cedric Guillemet
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files(the "Software"), to deal
@@ -38,6 +38,7 @@ namespace ImGradient
       virtual int EditPoint(int pointIndex, ImVec4 value) = 0;
       virtual ImVec4 GetPoint(float t) = 0;
       virtual void AddPoint(ImVec4 value) = 0;
+      virtual ~Delegate() = default;
    };
 
    bool Edit(Delegate& delegate, const ImVec2& size, int& selection);

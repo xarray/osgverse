@@ -7,7 +7,8 @@ public:
     ImageSerializerInterface(osg::Object* obj, LibraryEntry* entry, const LibraryEntry::Property& prop)
         : ObjectSerializerInterface(obj, entry, prop)
     {
-        _imagePreview = new ImageButton(TR(_property.name) + _postfix);
+        std::string imgName = TR(prop.name) + _postfix + "_IMG";
+        _imagePreview = new ImageButton(imgName);
         _imagePreview->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
             {
                 // TODO: start a dialog to show, edit or replace this image
@@ -27,7 +28,8 @@ public:
 
             int w = _valueImage.valid() ? _valueImage->s() : 0;
             int h = _valueImage.valid() ? _valueImage->t() : 0;
-            mgr->setGuiTexture(TR(_property.name) + _postfix, new osg::Texture2D(_valueImage.get()));
+            std::string imgName = TR(_property.name) + _postfix + "_IMG";
+            mgr->setGuiTexture(imgName, new osg::Texture2D(_valueImage.get()));
             if (w > 0 && h > 0) _imagePreview->size.set((w < 128) ? w : (w * 128 / h), (h < 128) ? h : 128);
 
             SerializerFactory* factory = SerializerFactory::instance();

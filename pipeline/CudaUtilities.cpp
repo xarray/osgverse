@@ -33,7 +33,12 @@ CudaAlgorithm::CUcontext CudaAlgorithm::initializeContext(int gpuID)
 
     cuDeviceGet(&cuDevice, gpuID);
     cuDeviceGetName(deviceName, sizeof(deviceName), cuDevice);
+#   if CUDA_VERSION >= 13000
+    CUctxCreateParams params = {};
+    cuCtxCreate(&cuContext, &params, CU_CTX_SCHED_BLOCKING_SYNC, cuDevice);
+#   else
     cuCtxCreate(&cuContext, CU_CTX_SCHED_BLOCKING_SYNC, cuDevice);
+#   endif
 #endif
     OSG_NOTICE << "[CudaAlgorithm] GPU in use: " << deviceName << std::endl;
     return cuContext;

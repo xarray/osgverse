@@ -5,7 +5,7 @@
 #include <osgGA/GUIEventHandler>
 #include <osgViewer/View>
 
-typedef void* ImTextureID;
+typedef unsigned long long ImTextureID;
 struct ImFont;
 struct ImGuiContext;
 
@@ -34,6 +34,8 @@ namespace osgVerse
         const std::string& getChineseSimplifiedFont() { return _fontData; }
 
         void initialize(ImGuiContentHandler* cb, bool eventsFrom3D = false);
+        void shutdown();  // FIXME: must have context... when to execute it?
+
         void addToView(osgViewer::View* view, osg::Camera* specCam = NULL);
         osg::Texture* addToTexture(osg::Group* parentOfRtt, int w, int h);
 

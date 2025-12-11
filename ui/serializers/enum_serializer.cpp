@@ -43,7 +43,7 @@ public:
         osgVerse::SerializerFactory* factory = osgVerse::SerializerFactory::instance();
         _glEnums = factory->getGLEnumMap(_property.name);
 
-        _combo = new ComboBox(TR(_property.name) + _postfix); _combo->tooltip = tooltip(_property);
+        _combo = new ComboBox(TR("TypeSelector") + _postfix); _combo->tooltip = tooltip(_property);
         for (auto it = _glEnums.begin(); it != _glEnums.end(); ++it)
         { _combo->items.push_back(it->first); _glEnumsRev[it->second] = it->first; }
 
@@ -53,12 +53,12 @@ public:
                 if (_entry->setProperty(_object.get(), _property.name, _result->value)) doneEditing();
             };
 
-        _result = new InputValueField(TR(_property.name) + "V" + _postfix);
+        _result = new InputValueField(TR("TypeValue") + _postfix);
         _result->type = InputValueField::UIntValue; _result->tooltip = tooltip(_property);
         _result->flags = ImGuiInputTextFlags_CharsHexadecimal;
         _result->callback = [this](ImGuiManager*, ImGuiContentHandler*, ImGuiComponentBase*)
             {
-                unsigned int value = (unsigned int)_result->value; _combo->set(_glEnumsRev[value]);
+                unsigned int value = (unsigned int)_result->value; _combo->set(_glEnumsRev[value], true);
                 _entry->setProperty(_object.get(), _property.name, _result->value);
             };
     }
@@ -68,7 +68,7 @@ public:
         if (isDirty())
         {
             unsigned int value = 0; _entry->getProperty(_object.get(), _property.name, value);
-            _result->value = (double)value; _combo->set(_glEnumsRev[value]);
+            _result->value = (double)value; _combo->set(_glEnumsRev[value], true);
         }
 
         bool done = _combo->show(mgr, content);

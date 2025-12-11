@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include <VerseCommon.h>
+#include <ui/Utilities.h>
 #include <modeling/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <readerwriter/DatabasePager.h>
@@ -54,7 +55,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osgViewer::Viewer viewer;
 
-#if false
+#if true
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
     //osgVerse::AudioPlayer::instance()->addFile("../voice.wav", true, false);
     //osgVerse::AudioPlayer::instance()->addFile("../sample.wav", true, true);
@@ -114,5 +115,14 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
-    return viewer.run();
+    //viewer.setUpViewInWindow(0, 0, 1920, 1080);
+    viewer.realize();
+
+    while (!viewer.done())
+    {
+        //if (viewer.getFrameStamp()->getFrameNumber() == 5)
+        //    osgVerse::FileDialog::selectFolder("Hello");
+        viewer.frame();
+    }
+    return 0;
 }

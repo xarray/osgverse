@@ -7,6 +7,7 @@
 #define GLU_BLELLOCHSCAN_HPP
 
 #include <string>
+#include <algorithm>
 
 #ifndef GLU_REDUCE_HPP
 #define GLU_REDUCE_HPP
@@ -310,7 +311,7 @@ namespace glu
                 glBufferStorage(GL_SHADER_STORAGE_BUFFER, (GLsizeiptr) m_size, nullptr, GL_DYNAMIC_STORAGE_BIT);
 
                 if (keep_data)
-                    copy_buffer(old_handle, m_handle, std::min(old_size, size));
+                    copy_buffer(old_handle, m_handle, (std::min)(old_size, size));
 
                 glDeleteBuffers(1, &old_handle);
             }

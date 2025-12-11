@@ -2,54 +2,20 @@
 
 #include <cmath>
 #include <cstdlib>
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
+#include <imgui.h>
+#include <imgui_internal.h>
 
-#define IMGUIKNOBS_PI 3.14159265358979323846
+#define IMGUIKNOBS_PI 3.14159265358979323846f
+
+static inline float ImLog(int x) { return ImLog(static_cast<float>(x)); }
 
 namespace ImGuiKnobs {
     namespace detail {
-        void draw_arc1(ImVec2 center, float radius, float start_angle, float end_angle, float thickness, ImColor color, int num_segments) {
-            ImVec2 start = {
-                    center[0] + cosf(start_angle) * radius,
-                    center[1] + sinf(start_angle) * radius,
-            };
-
-            ImVec2 end = {
-                    center[0] + cosf(end_angle) * radius,
-                    center[1] + sinf(end_angle) * radius,
-            };
-
-            // Calculate bezier arc points
-            auto ax = start[0] - center[0];
-            auto ay = start[1] - center[1];
-            auto bx = end[0] - center[0];
-            auto by = end[1] - center[1];
-            auto q1 = ax * ax + ay * ay;
-            auto q2 = q1 + ax * bx + ay * by;
-            auto k2 = (4.0f / 3.0f) * (sqrtf((2.0f * q1 * q2)) - q2) / (ax * by - ay * bx);
-            auto arc1 = ImVec2{center[0] + ax - k2 * ay, center[1] + ay + k2 * ax};
-            auto arc2 = ImVec2{center[0] + bx + k2 * by, center[1] + by - k2 * bx};
-
+        void draw_arc(ImVec2 center, float radius, float start_angle, float end_angle, float thickness, ImColor color) {
             auto *draw_list = ImGui::GetWindowDrawList();
 
-            draw_list->AddBezierCurve(start, arc1, arc2, end, color, thickness, num_segments);
-        }
-
-        void draw_arc(ImVec2 center, float radius, float start_angle, float end_angle, float thickness, ImColor color, int num_segments, int bezier_count) {
-            // Overlap and angle of ends of bezier curves needs work, only looks good when not transperant
-            auto overlap = thickness * radius * 0.00001f * IMGUIKNOBS_PI;
-            auto delta = end_angle - start_angle;
-            auto bez_step = 1.0f / bezier_count;
-            auto mid_angle = start_angle + overlap;
-
-            for (auto i = 0; i < bezier_count - 1; i++) {
-                auto mid_angle2 = delta * bez_step + mid_angle;
-                draw_arc1(center, radius, mid_angle - overlap, mid_angle2 + overlap, thickness, color, num_segments);
-                mid_angle = mid_angle2;
-            }
-
-            draw_arc1(center, radius, mid_angle - overlap, end_angle, thickness, color, num_segments);
+            draw_list->PathArcTo(center, radius, start_angle, end_angle);
+            draw_list->PathStroke(color, 0, thickness);
         }
 
         template<typename DataType>
@@ -66,22 +32,60 @@ namespace ImGuiKnobs {
             float angle_cos;
             float angle_sin;
 
-            knob(const char *_label, ImGuiDataType data_type, DataType *p_value, DataType v_min, DataType v_max, float speed, float _radius, const char *format, ImGuiKnobFlags flags) {
+            knob(const char *_label,
+                 ImGuiDataType data_type,
+                 DataType *p_value,
+                 DataType v_min,
+                 DataType v_max,
+                 float speed,
+                 float _radius,
+                 const char *format,
+                 ImGuiKnobFlags flags,
+                 float _angle_min,
+                 float _angle_max) {
                 radius = _radius;
-                t = ((float) *p_value - v_min) / (v_max - v_min);
+                if (flags & ImGuiKnobFlags_Logarithmic) {
+                    float v = ImMax(ImMin(*p_value, v_max), v_min);
+                    t = (ImLog(ImAbs(v)) - ImLog(ImAbs(v_min))) / (ImLog(ImAbs(v_max)) - ImLog(ImAbs(v_min)));
+                } else {
+                    t = ((float) *p_value - v_min) / (v_max - v_min);
+                }
                 auto screen_pos = ImGui::GetCursorScreenPos();
 
                 // Handle dragging
                 ImGui::InvisibleButton(_label, {radius * 2.0f, radius * 2.0f});
-                auto gid = ImGui::GetID(_label);
-                ImGuiSliderFlags drag_flags = 0;
-                if (!(flags & ImGuiKnobFlags_DragHorizontal)) {
-                    drag_flags |= ImGuiSliderFlags_Vertical;
-                }
-                value_changed = ImGui::DragBehavior(gid, data_type, p_value, speed, &v_min, &v_max, format, drag_flags);
 
-                angle_min = IMGUIKNOBS_PI * 0.75;
-                angle_max = IMGUIKNOBS_PI * 2.25;
+                // Handle drag: if DragVertical or DragHorizontal flags are set, only the given direction is
+                // used, otherwise use the drag direction with the highest delta
+                ImGuiIO &io = ImGui::GetIO();
+                bool drag_vertical =
+                        !(flags & ImGuiKnobFlags_DragHorizontal) &&
+                        (flags & ImGuiKnobFlags_DragVertical || ImAbs(io.MouseDelta[ImGuiAxis_Y]) > ImAbs(io.MouseDelta[ImGuiAxis_X]));
+
+                auto gid = ImGui::GetID(_label);
+                ImGuiSliderFlags drag_behaviour_flags = 0;
+                if (drag_vertical) {
+                    drag_behaviour_flags |= ImGuiSliderFlags_Vertical;
+                }
+                if (flags & ImGuiKnobFlags_AlwaysClamp) {
+                    drag_behaviour_flags |= ImGuiSliderFlags_AlwaysClamp;
+                }
+                if (flags & ImGuiKnobFlags_Logarithmic) {
+                    drag_behaviour_flags |= ImGuiSliderFlags_Logarithmic;
+                }
+                value_changed = ImGui::DragBehavior(
+                        gid,
+                        data_type,
+                        p_value,
+                        speed,
+                        &v_min,
+                        &v_max,
+                        format,
+                        drag_behaviour_flags);
+
+                angle_min = _angle_min < 0 ? IMGUIKNOBS_PI * 0.75f : _angle_min;
+                angle_max = _angle_max < 0 ? IMGUIKNOBS_PI * 2.25f : _angle_max;
+
                 center = {screen_pos[0] + radius, screen_pos[1] + radius};
                 is_active = ImGui::IsItemActive();
                 is_hovered = ImGui::IsItemHovered();
@@ -95,7 +99,8 @@ namespace ImGuiKnobs {
                 auto dot_radius = radius * this->radius;
 
                 ImGui::GetWindowDrawList()->AddCircleFilled(
-                        {center[0] + cosf(angle) * dot_radius, center[1] + sinf(angle) * dot_radius},
+                        {center[0] + cosf(angle) * dot_radius,
+                         center[1] + sinf(angle) * dot_radius},
                         dot_size,
                         is_active ? color.active : (is_hovered ? color.hovered : color.base),
                         segments);
@@ -109,7 +114,8 @@ namespace ImGuiKnobs {
 
                 ImGui::GetWindowDrawList()->AddLine(
                         {center[0] + angle_cos * tick_end, center[1] + angle_sin * tick_end},
-                        {center[0] + angle_cos * tick_start, center[1] + angle_sin * tick_start},
+                        {center[0] + angle_cos * tick_start,
+                         center[1] + angle_sin * tick_start},
                         is_active ? color.active : (is_hovered ? color.hovered : color.base),
                         width * radius);
             }
@@ -123,33 +129,53 @@ namespace ImGuiKnobs {
                         is_active ? color.active : (is_hovered ? color.hovered : color.base));
             }
 
-            void draw_arc(float radius, float size, float start_angle, float end_angle, color_set color, int segments, int bezier_count) {
+            void draw_arc(float radius, float size, float start_angle, float end_angle, color_set color) {
                 auto track_radius = radius * this->radius;
                 auto track_size = size * this->radius * 0.5f + 0.0001f;
 
-                detail::draw_arc(
-                        center,
-                        track_radius,
-                        start_angle,
-                        end_angle,
-                        track_size,
-                        is_active ? color.active : (is_hovered ? color.hovered : color.base),
-                        segments,
-                        bezier_count);
+                detail::draw_arc(center, track_radius, start_angle, end_angle, track_size, is_active ? color.active : (is_hovered ? color.hovered : color.base));
             }
         };
 
         template<typename DataType>
-        knob<DataType> knob_with_drag(const char *label, ImGuiDataType data_type, DataType *p_value, DataType v_min, DataType v_max, float _speed, const char *format, float size, ImGuiKnobFlags flags) {
+        knob<DataType> knob_with_drag(
+                const char *label,
+                ImGuiDataType data_type,
+                DataType *p_value,
+                DataType v_min,
+                DataType v_max,
+                float _speed,
+                const char *format,
+                float size,
+                ImGuiKnobFlags flags,
+                float angle_min,
+                float angle_max) {
+            if (flags & ImGuiKnobFlags_Logarithmic && v_min <= 0.0 && v_max >= 0.0) {
+                // we must handle the cornercase if a client specifies a logarithmic range that contains zero
+                // for this we clamp lower limit to avoid hitting zero like it is done in ImGui::SliderBehaviorT
+                const bool is_floating_point = (data_type == ImGuiDataType_Float) || (data_type == ImGuiDataType_Double);
+                const int decimal_precision = is_floating_point ? ImParseFormatPrecision(format, 3) : 1;
+                v_min = ImPow(0.1f, (float) decimal_precision);
+                v_max = ImMax(v_min, v_max); // this ensures that in the cornercase v_max is still at least ge v_min
+                *p_value = ImMax(ImMin(*p_value, v_max), v_min); // this ensures that in the cornercase p_value is within the range
+            }
+
             auto speed = _speed == 0 ? (v_max - v_min) / 250.f : _speed;
             ImGui::PushID(label);
-            auto width = size == 0 ? ImGui::GetTextLineHeight() * 4.0f : size * ImGui::GetIO().FontGlobalScale;
+
+#if IMGUI_VERSION_NUM < 19197
+            auto font_scale = ImGui::GetIO().FontGlobalScale;
+#else
+            auto font_scale = ImGui::GetStyle().FontScaleMain;
+#endif
+            auto width = size == 0 ? ImGui::GetTextLineHeight() * 4.0f : size * font_scale;
             ImGui::PushItemWidth(width);
 
             ImGui::BeginGroup();
 
-            // There's an issue with `SameLine` and Groups, see https://github.com/ocornut/imgui/issues/4190.
-            // This is probably not the best solution, but seems to work for now
+            // There's an issue with `SameLine` and Groups, see
+            // https://github.com/ocornut/imgui/issues/4190. This is probably not the best
+            // solution, but seems to work for now
             ImGui::GetCurrentWindow()->DC.CurrLineTextBaseOffset = 0;
 
             // Draw title
@@ -157,16 +183,19 @@ namespace ImGuiKnobs {
                 auto title_size = ImGui::CalcTextSize(label, NULL, false, width);
 
                 // Center title
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (width - title_size[0]) * 0.5f);
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                                     (width - title_size[0]) * 0.5f);
 
                 ImGui::Text("%s", label);
             }
 
             // Draw knob
-            knob<DataType> k(label, data_type, p_value, v_min, v_max, speed, width * 0.5f, format, flags);
+            knob<DataType> k(label, data_type, p_value, v_min, v_max, speed, width * 0.5f, format, flags, angle_min, angle_max);
 
             // Draw tooltip
-            if (flags & ImGuiKnobFlags_ValueTooltip && (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) || ImGui::IsItemActive())) {
+            if (flags & ImGuiKnobFlags_ValueTooltip &&
+                (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) ||
+                 ImGui::IsItemActive())) {
                 ImGui::BeginTooltip();
                 ImGui::Text(format, *p_value);
                 ImGui::EndTooltip();
@@ -174,11 +203,17 @@ namespace ImGuiKnobs {
 
             // Draw input
             if (!(flags & ImGuiKnobFlags_NoInput)) {
-                ImGuiSliderFlags drag_flags = 0;
-                if (!(flags & ImGuiKnobFlags_DragHorizontal)) {
-                    drag_flags |= ImGuiSliderFlags_Vertical;
+                ImGuiSliderFlags drag_scalar_flags = 0;
+                if (flags & ImGuiKnobFlags_AlwaysClamp) {
+                    drag_scalar_flags |= ImGuiSliderFlags_AlwaysClamp;
                 }
-                ImGui::DragScalar("###knob_drag", data_type, p_value, speed, &v_min, &v_max, format, drag_flags);
+                if (flags & ImGuiKnobFlags_Logarithmic) {
+                    drag_scalar_flags |= ImGuiSliderFlags_Logarithmic;
+                }
+                auto changed = ImGui::DragScalar("###knob_drag", data_type, p_value, speed, &v_min, &v_max, format, drag_scalar_flags);
+                if (changed) {
+                    k.value_changed = true;
+                }
             }
 
             ImGui::EndGroup();
@@ -196,17 +231,15 @@ namespace ImGuiKnobs {
 
         color_set GetSecondaryColorSet() {
             auto *colors = ImGui::GetStyle().Colors;
-            auto active = ImVec4(
-                    colors[ImGuiCol_ButtonActive].x * 0.5f,
-                    colors[ImGuiCol_ButtonActive].y * 0.5f,
-                    colors[ImGuiCol_ButtonActive].z * 0.5f,
-                    colors[ImGuiCol_ButtonActive].w);
+            auto active = ImVec4(colors[ImGuiCol_ButtonActive].x * 0.5f,
+                                 colors[ImGuiCol_ButtonActive].y * 0.5f,
+                                 colors[ImGuiCol_ButtonActive].z * 0.5f,
+                                 colors[ImGuiCol_ButtonActive].w);
 
-            auto hovered = ImVec4(
-                    colors[ImGuiCol_ButtonHovered].x * 0.5f,
-                    colors[ImGuiCol_ButtonHovered].y * 0.5f,
-                    colors[ImGuiCol_ButtonHovered].z * 0.5f,
-                    colors[ImGuiCol_ButtonHovered].w);
+            auto hovered = ImVec4(colors[ImGuiCol_ButtonHovered].x * 0.5f,
+                                  colors[ImGuiCol_ButtonHovered].y * 0.5f,
+                                  colors[ImGuiCol_ButtonHovered].z * 0.5f,
+                                  colors[ImGuiCol_ButtonHovered].w);
 
             return {active, hovered, hovered};
         }
@@ -214,68 +247,91 @@ namespace ImGuiKnobs {
         color_set GetTrackColorSet() {
             auto *colors = ImGui::GetStyle().Colors;
 
-            return {colors[ImGuiCol_FrameBg], colors[ImGuiCol_FrameBg], colors[ImGuiCol_FrameBg]};
+            return {colors[ImGuiCol_Button], colors[ImGuiCol_Button], colors[ImGuiCol_Button]};
         }
     }// namespace detail
 
-
     template<typename DataType>
-    bool BaseKnob(const char *label, ImGuiDataType data_type, DataType *p_value, DataType v_min, DataType v_max, float speed, const char *format, ImGuiKnobVariant variant, float size, ImGuiKnobFlags flags, int steps = 10) {
-        auto knob = detail::knob_with_drag(label, data_type, p_value, v_min, v_max, speed, format, size, flags);
+    bool BaseKnob(
+            const char *label,
+            ImGuiDataType data_type,
+            DataType *p_value,
+            DataType v_min,
+            DataType v_max,
+            float speed,
+            const char *format,
+            ImGuiKnobVariant variant,
+            float size,
+            ImGuiKnobFlags flags,
+            int steps,
+            float angle_min,
+            float angle_max) {
+        auto knob = detail::knob_with_drag(
+                label,
+                data_type,
+                p_value,
+                v_min,
+                v_max,
+                speed,
+                format,
+                size,
+                flags,
+                angle_min,
+                angle_max);
 
         switch (variant) {
             case ImGuiKnobVariant_Tick: {
-                knob.draw_circle(0.85, detail::GetSecondaryColorSet(), true, 32);
-                knob.draw_tick(0.5, 0.85, 0.08, knob.angle, detail::GetPrimaryColorSet());
+                knob.draw_circle(0.85f, detail::GetSecondaryColorSet(), true, 32);
+                knob.draw_tick(0.5f, 0.85f, 0.08f, knob.angle, detail::GetPrimaryColorSet());
                 break;
             }
             case ImGuiKnobVariant_Dot: {
-                knob.draw_circle(0.85, detail::GetSecondaryColorSet(), true, 32);
-                knob.draw_dot(0.12, 0.6, knob.angle, detail::GetPrimaryColorSet(), true, 12);
+                knob.draw_circle(0.85f, detail::GetSecondaryColorSet(), true, 32);
+                knob.draw_dot(0.12f, 0.6f, knob.angle, detail::GetPrimaryColorSet(), true, 12);
                 break;
             }
 
             case ImGuiKnobVariant_Wiper: {
-                knob.draw_circle(0.7, detail::GetSecondaryColorSet(), true, 32);
-                knob.draw_arc(0.8, 0.41, knob.angle_min, knob.angle_max, detail::GetTrackColorSet(), 16, 2);
+                knob.draw_circle(0.7f, detail::GetSecondaryColorSet(), true, 32);
+                knob.draw_arc(0.8f, 0.41f, knob.angle_min, knob.angle_max, detail::GetTrackColorSet());
 
-                if (knob.t > 0.01) {
-                    knob.draw_arc(0.8, 0.43, knob.angle_min, knob.angle, detail::GetPrimaryColorSet(), 16, 2);
+                if (knob.t > 0.01f) {
+                    knob.draw_arc(0.8f, 0.43f, knob.angle_min, knob.angle, detail::GetPrimaryColorSet());
                 }
                 break;
             }
             case ImGuiKnobVariant_WiperOnly: {
-                knob.draw_arc(0.8, 0.41, knob.angle_min, knob.angle_max, detail::GetTrackColorSet(), 32, 2);
+                knob.draw_arc(0.8f, 0.41f, knob.angle_min, knob.angle_max, detail::GetTrackColorSet());
 
                 if (knob.t > 0.01) {
-                    knob.draw_arc(0.8, 0.43, knob.angle_min, knob.angle, detail::GetPrimaryColorSet(), 16, 2);
+                    knob.draw_arc(0.8f, 0.43f, knob.angle_min, knob.angle, detail::GetPrimaryColorSet());
                 }
                 break;
             }
             case ImGuiKnobVariant_WiperDot: {
-                knob.draw_circle(0.6, detail::GetSecondaryColorSet(), true, 32);
-                knob.draw_arc(0.85, 0.41, knob.angle_min, knob.angle_max, detail::GetTrackColorSet(), 16, 2);
-                knob.draw_dot(0.1, 0.85, knob.angle, detail::GetPrimaryColorSet(), true, 12);
+                knob.draw_circle(0.6f, detail::GetSecondaryColorSet(), true, 32);
+                knob.draw_arc(0.85f, 0.41f, knob.angle_min, knob.angle_max, detail::GetTrackColorSet());
+                knob.draw_dot(0.1f, 0.85f, knob.angle, detail::GetPrimaryColorSet(), true, 12);
                 break;
             }
             case ImGuiKnobVariant_Stepped: {
                 for (auto n = 0.f; n < steps; n++) {
                     auto a = n / (steps - 1);
                     auto angle = knob.angle_min + (knob.angle_max - knob.angle_min) * a;
-                    knob.draw_tick(0.7, 0.9, 0.04, angle, detail::GetPrimaryColorSet());
+                    knob.draw_tick(0.7f, 0.9f, 0.04f, angle, detail::GetPrimaryColorSet());
                 }
 
-                knob.draw_circle(0.6, detail::GetSecondaryColorSet(), true, 32);
-                knob.draw_dot(0.12, 0.4, knob.angle, detail::GetPrimaryColorSet(), true, 12);
+                knob.draw_circle(0.6f, detail::GetSecondaryColorSet(), true, 32);
+                knob.draw_dot(0.12f, 0.4f, knob.angle, detail::GetPrimaryColorSet(), true, 12);
                 break;
             }
             case ImGuiKnobVariant_Space: {
-                knob.draw_circle(0.3 - knob.t * 0.1, detail::GetSecondaryColorSet(), true, 16);
+                knob.draw_circle(0.3f - knob.t * 0.1f, detail::GetSecondaryColorSet(), true, 16);
 
-                if (knob.t > 0.01) {
-                    knob.draw_arc(0.4, 0.15, knob.angle_min - 1.0, knob.angle - 1.0, detail::GetPrimaryColorSet(), 16, 2);
-                    knob.draw_arc(0.6, 0.15, knob.angle_min + 1.0, knob.angle + 1.0, detail::GetPrimaryColorSet(), 16, 2);
-                    knob.draw_arc(0.8, 0.15, knob.angle_min + 3.0, knob.angle + 3.0, detail::GetPrimaryColorSet(), 16, 2);
+                if (knob.t > 0.01f) {
+                    knob.draw_arc(0.4f, 0.15f, knob.angle_min - 1.0f, knob.angle - 1.0f, detail::GetPrimaryColorSet());
+                    knob.draw_arc(0.6f, 0.15f, knob.angle_min + 1.0f, knob.angle + 1.0f, detail::GetPrimaryColorSet());
+                    knob.draw_arc(0.8f, 0.15f, knob.angle_min + 3.0f, knob.angle + 3.0f, detail::GetPrimaryColorSet());
                 }
                 break;
             }
@@ -284,14 +340,61 @@ namespace ImGuiKnobs {
         return knob.value_changed;
     }
 
-    bool Knob(const char *label, float *p_value, float v_min, float v_max, float speed, const char *format, ImGuiKnobVariant variant, float size, ImGuiKnobFlags flags, int steps) {
-        const char *_format = format == NULL ? "%.3f" : format;
-        return BaseKnob(label, ImGuiDataType_Float, p_value, v_min, v_max, speed, _format, variant, size, flags, steps);
+    bool Knob(
+            const char *label,
+            float *p_value,
+            float v_min,
+            float v_max,
+            float speed,
+            const char *format,
+            ImGuiKnobVariant variant,
+            float size,
+            ImGuiKnobFlags flags,
+            int steps,
+            float angle_min,
+            float angle_max) {
+        return BaseKnob(
+                label,
+                ImGuiDataType_Float,
+                p_value,
+                v_min,
+                v_max,
+                speed,
+                format,
+                variant,
+                size,
+                flags,
+                steps,
+                angle_min,
+                angle_max);
     }
 
-    bool KnobInt(const char *label, int *p_value, int v_min, int v_max, float speed, const char *format, ImGuiKnobVariant variant, float size, ImGuiKnobFlags flags, int steps) {
-        const char *_format = format == NULL ? "%i" : format;
-        return BaseKnob(label, ImGuiDataType_S32, p_value, v_min, v_max, speed, _format, variant, size, flags, steps);
+    bool KnobInt(
+            const char *label,
+            int *p_value,
+            int v_min,
+            int v_max,
+            float speed,
+            const char *format,
+            ImGuiKnobVariant variant,
+            float size,
+            ImGuiKnobFlags flags,
+            int steps,
+            float angle_min,
+            float angle_max) {
+        return BaseKnob(
+                label,
+                ImGuiDataType_S32,
+                p_value,
+                v_min,
+                v_max,
+                speed,
+                format,
+                variant,
+                size,
+                flags,
+                steps,
+                angle_min,
+                angle_max);
     }
-
 }// namespace ImGuiKnobs
