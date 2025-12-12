@@ -422,16 +422,6 @@ SET(RLOTTIE_SOURCE_FILES
     rlottie/lottieanimation_capi.cpp rlottie/stb_lottie_image.cpp
 )
 
-SET(LLAMA_SOURCE_FILES
-    llama/llama.cpp llama/llama.h llama/llama-grammar.cpp
-    llama/llama-vocab.cpp llama/llama-sampling.cpp
-    llama/unicode.h llama/unicode.cpp llama/unicode-data.cpp
-    llama/ggml.h llama/ggml-cpu.h llama/ggml-alloc.h llama/ggml-backend.h llama/ggml-cpp.h
-    llama/ggml.c llama/ggml-cpu.c llama/ggml-alloc.c llama/ggml-backend.cpp
-    llama/ggml-quants.c llama/ggml-quants.h llama/ggml-aarch64.c llama/ggml-aarch64.h
-    llama/llamafile/sgemm.h llama/llamafile/sgemm.cpp
-)
-
 SET(TWEENY_SOURCE_FILES
     tweeny/tween.h tweeny/tween.tcc tweeny/tweeny.h tweeny/tweeny.tcc
     tweeny/tweenone.tcc tweeny/tweenpoint.tcc
@@ -501,7 +491,6 @@ SOURCE_GROUP("LasZIP Files" FILES ${LASZIP_SOURCE_FILES})
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
 SOURCE_GROUP("LibHV Files" FILES ${LIBHV_SOURCE_FILES})
 SOURCE_GROUP("libMETIS Files" FILES ${METIS_SOURCE_FILES})
-SOURCE_GROUP("Llama.cpp Files" FILES ${LLAMA_SOURCE_FILES})
 SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
@@ -558,7 +547,6 @@ ELSE(ANDROID OR IOS)
                 SET(GAINPUT_ENABLED FALSE)
             ENDIF(NOT X11_FOUND)
         ENDIF(WIN32 OR MINGW OR CYGWIN)
-        SET(LIBRARY_FILES ${LIBRARY_FILES} ${LLAMA_SOURCE_FILES})
     ENDIF()
 ENDIF(ANDROID OR IOS)
 
@@ -586,7 +574,6 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DRLOTTIE_BUILD=0                                         # Rlottie
                 -DKHRONOS_STATIC -DLIBKTX -DKTX_FEATURE_KTX1 -DKTX_FEATURE_WRITE=1 -DKTX_OMIT_VULKAN=1  # libKTX
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0          # libKTX: BasisU
-                -DGGML_USE_LLAMAFILE -DGGML_SCHED_MAX_COPIES=4            # Llama.cpp / libGGML
                 -DUSINGZ                                                  # clipper2
                 -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32                      # METIS
                 -DHAVE_UNORDERED_MAP=1 -D_USE_MATH_DEFINES)
@@ -595,8 +582,7 @@ IF(MSVC_VERSION LESS 1910)
 ENDIF()
 
 IF(OPENMP_FOUND)
-    ADD_DEFINITIONS(-D__OPENMP__ -DWITH_OMP -DENABLE_OPENMP -DGGML_USE_OPENMP
-                    -DApproxMVBB_OPENMP_SUPPORT)
+    ADD_DEFINITIONS(-D__OPENMP__ -DWITH_OMP -DENABLE_OPENMP -DApproxMVBB_OPENMP_SUPPORT)
 ENDIF(OPENMP_FOUND)
 
 IF("sse4.2" IN_LIST VERSE_SIMD_FEATURES)
@@ -654,7 +640,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector llama nanobind
+                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector nanobind
                     Discregrid "${CMAKE_BINARY_DIR}/3rdparty/leveldb" ${THIRDPARTY_INCLUDE_DIRS})
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} ${THIRDPARTY_LIBRARIES})
