@@ -434,15 +434,61 @@ EncodedFrameObject::EncodedFrameObject(const EncodedFrameObject& obj, const osg:
     _width(obj._width), _height(obj._height), _type(obj._type) {}
 
 /// WebAuxiliary ///
-static std::istream& getline_ex(std::istream& is, std::string& str)
+namespace
 {
-    str.clear(); char c = 0;
-    while (is.get(c))
+    std::istream& getline_ex(std::istream& is, std::string& str)
     {
-        if (c == '\\' || c == '/') break;
-        str += c;
+        str.clear(); char c = 0;
+        while (is.get(c))
+        {
+            if (c == '\\' || c == '/') break;
+            str += c;
+        }
+        return is;
     }
-    return is;
+
+    struct HttpClientInstance : public osg::Referenced
+    {
+        hv::HttpClient client;
+    };
+
+    struct HttpServerInstance : public osg::Referenced
+    {
+        bool withWebsockets;
+        hv::HttpServer server;
+        hv::WebSocketServer serverEx;
+        hv::HttpService router;
+        hv::WebSocketService ws;
+        std::map<std::string, WebSocketChannelPtr> wsChannels;
+        HttpServerInstance(bool w) { withWebsockets = w; }
+
+        virtual ~HttpServerInstance()
+        {
+            if (withWebsockets) serverEx.stop(); else server.stop();
+            hv::async::cleanup();
+        }
+    };
+
+    struct SocketInstance : public osg::Referenced
+    {
+        WebAuxiliary::SocketMethod method;
+        hv::TcpClient tcpClient; hv::TcpServer tcpServer;
+        hv::UdpClient udpClient; hv::UdpServer udpServer;
+        hv::WebSocketClient wsClient;
+        SocketInstance(WebAuxiliary::SocketMethod m) { method = m; }
+
+        virtual ~SocketInstance()
+        {
+            switch (method)
+            {
+            case WebAuxiliary::TCP_CLIENT: tcpClient.stop(); tcpClient.closesocket(); break;
+            case WebAuxiliary::TCP_SERVER: tcpServer.stop(); tcpServer.closesocket(); break;
+            case WebAuxiliary::UDP_CLIENT: udpClient.stop(); udpClient.closesocket(); break;
+            case WebAuxiliary::UDP_SERVER: udpServer.stop(); udpServer.closesocket(); break;
+            case WebAuxiliary::WEBSOCKET_CLIENT: wsClient.stop(); wsClient.closesocket(); break;
+            }
+        }
+    };
 }
 
 std::string WebAuxiliary::encodeBase64(const std::vector<unsigned char>& buffer)
@@ -535,22 +581,20 @@ WebAuxiliary::HttpResponseData WebAuxiliary::httpRequest(const std::string& url,
     else return HttpResponseData(res.status_code, res.body);
 }
 
-struct HttpServerInstance : public osg::Referenced
+osg::Referenced* WebAuxiliary::httpRequestAsync(HttpCallback cb, const std::string& url, HttpMethod method,
+                                                const std::string& body, const HttpRequestHeaders& headers, int timeout)
 {
-    bool withWebsockets;
-    hv::HttpServer server;
-    hv::WebSocketServer serverEx;
-    hv::HttpService router;
-    hv::WebSocketService ws;
-    std::map<std::string, WebSocketChannelPtr> wsChannels;
-    HttpServerInstance(bool w) { withWebsockets = w; }
+    HttpRequestPtr req = std::make_shared<HttpRequest>();
+    req->method = (http_method)method; req->url = url;
+    req->body = body; if (timeout > 0) req->timeout = timeout;
+    for (HttpRequestHeaders::const_iterator it = headers.begin(); it != headers.end(); ++it)
+        req->headers[it->first] = it->second;
 
-    virtual ~HttpServerInstance()
-    {
-        if (withWebsockets) serverEx.stop(); else server.stop();
-        hv::async::cleanup();
-    }
-};
+    osg::ref_ptr<HttpClientInstance> instance = new HttpClientInstance;
+    instance->client.sendAsync(req, [cb, url](const HttpResponsePtr& res)
+        { cb(url, HttpRequestParams(), HttpRequestHeaders(), HttpResponseData(res->status_code, res->body)); });
+    return instance.release();
+}
 
 osg::Referenced* WebAuxiliary::httpServer(const std::map<std::string, WebAuxiliary::HttpCallback>& getEntries,
                                           const std::map<std::string, WebAuxiliary::HttpCallback>& postEntries,
@@ -622,27 +666,6 @@ osg::Referenced* WebAuxiliary::httpServerEx(const std::map<std::string, HttpCall
     }
     return instance.release();
 }
-
-struct SocketInstance : public osg::Referenced
-{
-    WebAuxiliary::SocketMethod method;
-    hv::TcpClient tcpClient; hv::TcpServer tcpServer;
-    hv::UdpClient udpClient; hv::UdpServer udpServer;
-    hv::WebSocketClient wsClient;
-    SocketInstance(WebAuxiliary::SocketMethod m) { method = m; }
-
-    virtual ~SocketInstance()
-    {
-        switch (method)
-        {
-        case WebAuxiliary::TCP_CLIENT: tcpClient.stop(); tcpClient.closesocket(); break;
-        case WebAuxiliary::TCP_SERVER: tcpServer.stop(); tcpServer.closesocket(); break;
-        case WebAuxiliary::UDP_CLIENT: udpClient.stop(); udpClient.closesocket(); break;
-        case WebAuxiliary::UDP_SERVER: udpServer.stop(); udpServer.closesocket(); break;
-        case WebAuxiliary::WEBSOCKET_CLIENT: wsClient.stop(); wsClient.closesocket(); break;
-        }
-    }
-};
 
 osg::Referenced* WebAuxiliary::socketListener(const std::string& host, int port, SocketMethod method,
                                               SocketCallback readCB, SocketCallback joinCB, const HttpRequestHeaders& wsHeaders)

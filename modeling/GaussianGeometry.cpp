@@ -81,26 +81,13 @@ public:
 
 #if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
 osg::BoundingSphere GaussianGeometry::computeBound() const
-{
-    osg::BoundingSphere bs = osg::Geometry::computeBound();
-    bs._radius *= 2.0f; return bs;  // FIXME: too simple method to compute bound
-}
+{ return osg::Geometry::computeBound(); }
 
 osg::BoundingBox GaussianGeometry::computeBoundingBox() const
-{
-    osg::BoundingBox bb = osg::Geometry::computeBoundingBox();
-    osg::Vec3 d = bb._max - bb._min;
-    bb._min -= d; bb._max += d;
-    return bb;  // FIXME: too simple method to compute bound
-}
+{ return osg::Geometry::computeBoundingBox(); }
 #else
 osg::BoundingBox GaussianGeometry::computeBound() const
-{
-    osg::BoundingBox bb = osg::Geometry::computeBound();
-    osg::Vec3 d = bb._max - bb._min;
-    bb._min -= d; bb._max += d;
-    return bb;  // FIXME: too simple method to compute bound
-}
+{ return osg::Geometry::computeBound(); }
 #endif
 
 osg::NodeCallback* GaussianGeometry::createUniformCallback()

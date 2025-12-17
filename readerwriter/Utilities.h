@@ -243,6 +243,8 @@ namespace osgVerse
         /** Set an HTTP client request (e.g., GET / POST) */
         static HttpResponseData httpRequest(const std::string& url, HttpMethod m, const std::string& body,
                                             const HttpRequestHeaders& headers = HttpRequestHeaders(), int timeout = 0);
+        static osg::Referenced* httpRequestAsync(HttpCallback cb, const std::string& url, HttpMethod m, const std::string& body,
+                                                 const HttpRequestHeaders& headers = HttpRequestHeaders(), int timeout = 0);
 
         /** Set an HTTP server */
         static osg::Referenced* httpServer(const std::map<std::string, HttpCallback>& getEntries,

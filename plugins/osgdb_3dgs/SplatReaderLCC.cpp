@@ -9,6 +9,7 @@
 #include <osgDB/Registry>
 
 #include "modeling/GaussianGeometry.h"
+#include "modeling/Utilities.h"
 #include "readerwriter/Utilities.h"
 #include "3rdparty/picojson.h"
 #include "3rdparty/mio.hpp"
@@ -198,9 +199,9 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string&
 
     // Create LODS and read from data.bin & shcoef.bin
     uint64_t totalSize = ro_mmap.size(); int deg = (fileType == "Portable") ? 1 : 3;
-    for (size_t i = 0; i < dataChunks.size(); ++i)
+    for (size_t k = 0; k < dataChunks.size(); ++k)
     {
-        XGridsNodeChunk& chunk = dataChunks[i];
+        XGridsNodeChunk& chunk = dataChunks[k];
         osg::ref_ptr<osg::LOD> lod = new osg::LOD;
         lod->setName(std::to_string(chunk.col) + "_" + std::to_string(chunk.row));
         lod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
@@ -223,8 +224,9 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string&
                 data, chunk.numSplats[i], deg, scaleRange[0], scaleRange[1]);
             if (geom.valid())
             {
-                osg::ref_ptr<osg::Geode> child = new osg::Geode;
-                child->addDrawable(geom.get());
+                osg::ref_ptr<osg::Geode> child = new osg::Geode; child->addDrawable(geom.get());
+                geom->setName(lod->getName() + "_LOD" + std::to_string(i));
+
                 // TODO: load SH?
                 lod->addChild(child.get(), d * i, d * (i + 1));  // FIXME: better range?
             }

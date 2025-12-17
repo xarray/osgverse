@@ -3,6 +3,7 @@
 #include <osg/ImageUtils>
 #include <osg/TriangleFunctor>
 #include <osg/TriangleIndexFunctor>
+#include <osg/PolygonMode>
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <osgUtil/SmoothingVisitor>
@@ -996,7 +997,7 @@ namespace osgVerse
         return createGeometry(va.get(), NULL, NULL, de.get(), true);
     }
 
-    osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb)
+    osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb, bool asWireframe)
     {
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(8);
         for (int i = 0; i < 8; ++i) (*va)[i] = bb.corner(i);
@@ -1007,13 +1008,25 @@ namespace osgVerse
         (*ta)[4] = osg::Vec2(0.0f, 1.0f); (*ta)[5] = osg::Vec2(0.33f, 1.0f);
         (*ta)[7] = osg::Vec2(0.67f, 1.0f); (*ta)[6] = osg::Vec2(1.0f, 1.0f);
 
-        osg::ref_ptr<osg::DrawElementsUByte> de = new osg::DrawElementsUByte(GL_QUADS);
-        de->push_back(0); de->push_back(1); de->push_back(3); de->push_back(2);
-        de->push_back(4); de->push_back(5); de->push_back(7); de->push_back(6);
-        de->push_back(0); de->push_back(1); de->push_back(5); de->push_back(4);
-        de->push_back(1); de->push_back(3); de->push_back(7); de->push_back(5);
-        de->push_back(3); de->push_back(2); de->push_back(6); de->push_back(7);
-        de->push_back(2); de->push_back(0); de->push_back(4); de->push_back(6);
+        osg::ref_ptr<osg::DrawElementsUByte> de = new osg::DrawElementsUByte(asWireframe ? GL_LINES : GL_QUADS);
+        if (asWireframe)
+        {
+            de->push_back(0); de->push_back(1); de->push_back(1); de->push_back(3);
+            de->push_back(3); de->push_back(2); de->push_back(2); de->push_back(0);
+            de->push_back(4); de->push_back(5); de->push_back(5); de->push_back(7);
+            de->push_back(7); de->push_back(6); de->push_back(6); de->push_back(4);
+            de->push_back(0); de->push_back(4); de->push_back(1); de->push_back(5);
+            de->push_back(2); de->push_back(6); de->push_back(3); de->push_back(7);
+        }
+        else
+        {
+            de->push_back(0); de->push_back(1); de->push_back(3); de->push_back(2);
+            de->push_back(4); de->push_back(5); de->push_back(7); de->push_back(6);
+            de->push_back(0); de->push_back(1); de->push_back(5); de->push_back(4);
+            de->push_back(1); de->push_back(3); de->push_back(7); de->push_back(5);
+            de->push_back(3); de->push_back(2); de->push_back(6); de->push_back(7);
+            de->push_back(2); de->push_back(0); de->push_back(4); de->push_back(6);
+        }
         return createGeometry(va.get(), NULL, ta.get(), de.get());
     }
 

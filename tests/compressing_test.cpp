@@ -55,6 +55,17 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osgViewer::Viewer viewer;
 
+    osgVerse::WebAuxiliary::HttpRequestHeaders headers;
+    headers["Content-Type"] = "application/json";
+    osg::ref_ptr<osg::Referenced> instance = osgVerse::WebAuxiliary::httpRequestAsync(
+        [](const std::string& url, const osgVerse::WebAuxiliary::HttpRequestParams& unused1,
+           const osgVerse::WebAuxiliary::HttpRequestHeaders& unused2, osgVerse::WebAuxiliary::HttpResponseData& res)
+        {
+            std::cout << "Request from " << url << ". Response (" << res.first << "): " << res.second << "\n";
+        },
+        "http://192.168.1.114:8080/Dahua/getVehicleList", osgVerse::WebAuxiliary::HTTP_POST,
+        "{\"eventTime\": [\"2025-12-13 17:19:53\", \"2025-12-16 17:20:03\"]}", headers);
+
 #if true
     osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg256.png");
     //osgVerse::AudioPlayer::instance()->addFile("../voice.wav", true, false);

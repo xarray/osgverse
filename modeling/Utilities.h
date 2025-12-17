@@ -296,7 +296,7 @@ namespace osgVerse
                                                   const std::vector<EdgeType>& edges = {});
 
     /** Create a bounding volume geometry */
-    extern osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb);
+    extern osg::Geometry* createBoundingBoxGeometry(const osg::BoundingBox& bb, bool asWireframe);
     extern osg::Geometry* createBoundingSphereGeometry(const osg::BoundingSphere& bs);
 
     /** Create a 'lathe' geometry by rotating a path about an axis */

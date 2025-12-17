@@ -46,20 +46,24 @@ public:
 
     virtual void apply(osg::Geode& node)
     {
+        bool hasGaussian = false;
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
         {
             osgVerse::GaussianGeometry* gs = dynamic_cast<osgVerse::GaussianGeometry*>(node.getDrawable(i));
-            if (gs && _sorter.valid()) _sorter->addGeometry(gs);
+            if (gs && _sorter.valid()) { _sorter->addGeometry(gs); hasGaussian = true; }
         }
 
-        osg::StateSet* ss = node.getOrCreateStateSet();
-        ss->setAttribute(_program.get());
-        ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-        ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
-        ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
-        ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-        ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);  // to sort geometries by depth
-        node.setCullCallback(_callback.get());
+        if (hasGaussian)
+        {
+            osg::StateSet* ss = node.getOrCreateStateSet();
+            ss->setAttribute(_program.get());
+            ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+            ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
+            ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
+            ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+            ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);  // to sort geometries by depth
+            node.setCullCallback(_callback.get());
+        }
         traverse(node);
     }
 
