@@ -8,6 +8,7 @@
 #include <iostream>
 #include <osg/io_utils>
 #include <osgUtil/CullVisitor>
+#include "Math.h"
 #include "GaussianGeometry.h"
 using namespace osgVerse;
 
@@ -78,6 +79,14 @@ public:
         traverse(node, nv);
     }
 };
+
+void GaussianGeometry::checkShaderFlag()
+{
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
+    if (_degrees > 0) getOrCreateStateSet()->setDefine("FULL_SH");
+    else getOrCreateStateSet()->removeDefine("FULL_SH");
+#endif
+}
 
 #if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
 osg::BoundingSphere GaussianGeometry::computeBound() const
@@ -161,6 +170,10 @@ public:
                 _resultLock.lock();
                 _sortResults[it->first].assign(task.indices.rbegin(), task.indices.rend());
                 _resultLock.unlock();
+
+                _taskLock.lock();
+                _sortTaskFlags.erase(it->first);
+                _taskLock.unlock();
             }
             OpenThreads::Thread::YieldCurrentThread();
         }
@@ -169,8 +182,13 @@ public:
     size_t addTask(osg::Vec3Array* va, osg::DrawElementsUInt* de, const osg::Matrix& matrix)
     {
         size_t num = 0; _taskLock.lock();
-        _sortTasks[de] = Task{ va, std::vector<GLuint>(de->begin(), de->end()), matrix };
-        num = _sortTasks.size(); _taskLock.unlock(); return num;
+        if (_sortTaskFlags.find(de) == _sortTaskFlags.end())
+        {
+            _sortTasks[de] = Task{ va, std::vector<GLuint>(de->begin(), de->end()), matrix };
+            _sortTaskFlags.insert(de);
+        }
+        num = _sortTasks.size();
+        _taskLock.unlock(); return num;
     }
 
     size_t applyResult(osg::DrawElementsUInt* de)
@@ -189,6 +207,7 @@ protected:
         osg::Matrix localToEye;
     };
 
+    std::set<osg::DrawElementsUInt*> _sortTaskFlags;
     std::map<osg::DrawElementsUInt*, Task> _sortTasks;
     std::map<osg::DrawElementsUInt*, std::vector<GLuint>> _sortResults;
     OpenThreads::Mutex _taskLock, _resultLock;
@@ -222,7 +241,12 @@ void GaussianSorter::addGeometry(GaussianGeometry* geom)
 void GaussianSorter::removeGeometry(GaussianGeometry* geom)
 {
     std::set<osg::ref_ptr<GaussianGeometry>>::iterator it = _geometries.find(geom);
-    if (it != _geometries.end()) _geometries.erase(it);
+    if (it != _geometries.end())
+    {
+        std::map<GaussianGeometry*, osg::Matrix>::iterator it2 = _geometryMatrices.find(geom);
+        if (it2 != _geometryMatrices.end()) _geometryMatrices.erase(it2);
+        _geometries.erase(it);
+    }
 }
 
 void GaussianSorter::cull(const osg::Matrix& view)
@@ -253,6 +277,12 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
     }
 
     osg::Matrix localToEye = model * view;
+    if (_onDemand)
+    {
+        osg::Matrix& matrix = _geometryMatrices[geom];
+        if (isEqual(matrix, localToEye)) return; else matrix = localToEye;
+    }
+
     switch (_method)
     {
     case CPU_SORT:

@@ -1,3 +1,9 @@
+#if defined(__AVX__)
+#   include <immintrin.h>
+#elif defined(__SSE2__)
+#   include <emmintrin.h>
+#endif
+
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -251,6 +257,13 @@ namespace osgVerse
             znear = projectionMatrix(3, 2) / (projectionMatrix(2, 2) - 1.0);
             zfar = projectionMatrix(3, 2) / (1.0 + projectionMatrix(2, 2));
         }
+    }
+
+    bool isEqual(const osg::Matrix& m0, const osg::Matrix& m1)
+    {
+#if true  // any platform compatible?
+        return std::memcmp(m0.ptr(), m1.ptr(), 16 * sizeof(double)) == 0;
+#endif
     }
 
     struct MathExpressionPrivate

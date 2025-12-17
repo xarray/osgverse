@@ -83,6 +83,9 @@ namespace osgVerse
     /** Obtain near/far value from a specified projection matrix */
     extern void retrieveNearAndFar(const osg::Matrix& projectionMatrix, double& znear, double& zfar);
 
+    /** Check if two matrix are equal nor not */
+    extern bool isEqual(const osg::Matrix& m0, const osg::Matrix& m1);
+
     /** Compute result of a numeric expression */
     class MathExpression
     {

@@ -34,7 +34,7 @@ public:
     static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs);
     static osg::NodeCallback* createUniformCallback();
 
-    void setShDegrees(int d) { _degrees = d; }
+    void setShDegrees(int d) { _degrees = d; checkShaderFlag(); }
     int getShDegrees() const { return _degrees; }
 
     void setPosition(osg::Vec3Array* v) { setVertexArray(v); }
@@ -53,6 +53,7 @@ public:
 
 protected:
     virtual ~GaussianGeometry() {}
+    void checkShaderFlag();
     int _degrees;
 };
 
@@ -60,18 +61,18 @@ protected:
 class GaussianSorter : public osg::Referenced
 {
 public:
-    GaussianSorter(int numThreads = 1) : _method(CPU_SORT), _firstFrame(true)
+    GaussianSorter(int numThreads = 1) : _method(CPU_SORT), _firstFrame(true), _onDemand(true)
     { configureThreads(numThreads); }
 
     void cull(const osg::Matrix& view);
     void configureThreads(int numThreads);
 
-    enum Method
-    {
-        CPU_SORT, GL46_RADIX_SORT, USER_SORT
-    };
+    enum Method { CPU_SORT, GL46_RADIX_SORT, USER_SORT };
     void setMethod(Method m) { _method = m; }
     Method getMethod() const { return _method; }
+
+    void setOnDemand(bool b) { _onDemand = b; }
+    bool getOnDemand() const { return _onDemand; }
 
     struct Sorter : public osg::Referenced
     {
@@ -83,16 +84,17 @@ public:
 
     void addGeometry(GaussianGeometry* geom);
     void removeGeometry(GaussianGeometry* geom);
-    void clear() { _geometries.clear(); }
+    void clear() { _geometries.clear(); _geometryMatrices.clear(); }
 
 protected:
     virtual ~GaussianSorter() { configureThreads(0); }
     virtual void cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view);
 
     std::set<osg::ref_ptr<GaussianGeometry>> _geometries;
+    std::map<GaussianGeometry*, osg::Matrix> _geometryMatrices;
     std::vector<OpenThreads::Thread*> _sortThreads;
     osg::ref_ptr<Sorter> _sortCallback;
-    Method _method; bool _firstFrame;
+    Method _method; bool _firstFrame, _onDemand;
 };
 
 }

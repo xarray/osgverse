@@ -24,7 +24,7 @@ public:
         //supportsExtension("ksplat", "Mark Kellogg's splat file");
         supportsExtension("spz", "Niantic Labs' splat file");
         supportsExtension("lcc", "XGrids' splat file");
-        supportsExtension("json", "PlayCanvas SOGS' meta.json file");
+        //supportsExtension("json", "PlayCanvas SOGS' meta.json file");
     }
 
     virtual const char* className() const
@@ -92,8 +92,8 @@ public:
                 }
                 else if (ext == "ksplat")
                 {
-                    // TODO
-                    return ReadResult::NOT_IMPLEMENTED;
+                    osgVerse::GaussianGeometry* geom = fromKSplat(buffer);
+                    if (geom) geode->addDrawable(geom);
                 }
             }
         }
@@ -146,7 +146,35 @@ protected:
         if (index == 0) return NULL;
 
         osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
-        geom->setShDegrees(1); geom->setPosition(pos.get());
+        geom->setShDegrees(0); geom->setPosition(pos.get());
+        geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
+        geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
+        geom->addPrimitiveSet(de.get());
+        return geom.release();
+    }
+
+    osgVerse::GaussianGeometry* fromKSplat(const std::string& buffer) const
+    {
+        osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
+        osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
+        osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
+
+        std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
+        uint8_t major = 0, minor = 0, rev = 0; uint16_t compression = 0, rev2 = 0; uint32_t sections = 0, numSplats = 0;
+        ss.read((char*)&major, sizeof(unsigned char)); ss.read((char*)&minor, sizeof(unsigned char));
+        ss.read((char*)&rev, sizeof(unsigned char)); ss.read((char*)&rev, sizeof(unsigned char));
+        ss.read((char*)&sections, sizeof(uint32_t)); ss.read((char*)&sections, sizeof(uint32_t));  // max & current
+        ss.read((char*)&numSplats, sizeof(uint32_t)); ss.read((char*)&numSplats, sizeof(uint32_t));  // max & current
+        ss.read((char*)&compression, sizeof(uint16_t)); ss.read((char*)&rev2, sizeof(uint16_t));
+
+        osg::Vec3 center; float minSh = 0.0f, maxSh = 0.0f, rev3 = 0.0f;
+        ss.read((char*)&rev3, sizeof(float)); ss.read((char*)&rev3, sizeof(float)); ss.read((char*)center.ptr(), sizeof(osg::Vec3));
+        ss.read((char*)&minSh, sizeof(float)); ss.read((char*)&maxSh, sizeof(float)); ss.seekg(4096, std::ios::beg);
+        // TODO: not finished
+
+        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
+        geom->setShDegrees(0); geom->setPosition(pos.get());
         geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
         geom->addPrimitiveSet(de.get());

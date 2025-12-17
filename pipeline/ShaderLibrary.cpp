@@ -279,7 +279,11 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
                  << shader.getName() << std::endl;
     }
     ss << "//! USER GLSL CODE" << std::endl;
-    shader.setShaderSource(ss.str() + source);
+
+    std::string prefixSource = ss.str();
+    size_t count = std::count(prefixSource.begin(), prefixSource.end(), '\n');
+    shader.setShaderSource(prefixSource + source);
+    shader.setUserValue("PrefixCount", (int)count);
 }
 
 void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWriter::Options* options) const
