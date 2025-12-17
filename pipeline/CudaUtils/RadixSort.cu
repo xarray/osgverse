@@ -402,13 +402,13 @@ __global__ void gpu_glbl_shuffle(unsigned int* d_out,
 
     if (cpy_idx < d_in_len)
     {
-        unsigned int t_data = v_in[cpy_idx];
+        unsigned int t_data = d_in[cpy_idx], t_index = v_in[cpy_idx];
         unsigned int t_2bit_extract = (t_data >> input_shift_width) & 3;
         unsigned int t_prefix_sum = d_prefix_sums[cpy_idx];
-        unsigned int data_glbl_pos = d_scan_block_sums[t_2bit_extract * gridDim.x + blockIdx.x]
-            + t_prefix_sum;
+        unsigned int data_glbl_pos = d_scan_block_sums[t_2bit_extract * gridDim.x + blockIdx.x] + t_prefix_sum;
         __syncthreads();
-        d_out[data_glbl_pos] = t_data;
+        //d_out[data_glbl_pos] = t_data;
+        d_out[data_glbl_pos] = t_index;
     }
 }
 

@@ -21,7 +21,7 @@ public:
         supportsExtension("verse_3dgs", "osgVerse pseudo-loader");
         supportsExtension("ply", "PLY point cloud file");
         supportsExtension("splat", "Gaussian splat data file");
-        //supportsExtension("ksplat", "Mark Kellogg's splat file");
+        supportsExtension("ksplat", "Mark Kellogg's splat file");
         supportsExtension("spz", "Niantic Labs' splat file");
         supportsExtension("lcc", "XGrids' splat file");
         //supportsExtension("json", "PlayCanvas SOGS' meta.json file");
@@ -161,17 +161,43 @@ protected:
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
 
         std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
-        uint8_t major = 0, minor = 0, rev = 0; uint16_t compression = 0, rev2 = 0; uint32_t sections = 0, numSplats = 0;
+        uint8_t major = 0, minor = 0, rev = 0; uint16_t compression = 0, rev2 = 0;
+        uint32_t sections = 0, totalSplats = 0, rev3 = 0;
         ss.read((char*)&major, sizeof(unsigned char)); ss.read((char*)&minor, sizeof(unsigned char));
         ss.read((char*)&rev, sizeof(unsigned char)); ss.read((char*)&rev, sizeof(unsigned char));
-        ss.read((char*)&sections, sizeof(uint32_t)); ss.read((char*)&sections, sizeof(uint32_t));  // max & current
-        ss.read((char*)&numSplats, sizeof(uint32_t)); ss.read((char*)&numSplats, sizeof(uint32_t));  // max & current
+        ss.read((char*)&sections, sizeof(uint32_t)); ss.read((char*)&rev3, sizeof(uint32_t));  // max & current
+        ss.read((char*)&rev3, sizeof(uint32_t)); ss.read((char*)&totalSplats, sizeof(uint32_t));  // max & current
         ss.read((char*)&compression, sizeof(uint16_t)); ss.read((char*)&rev2, sizeof(uint16_t));
 
-        osg::Vec3 center; float minSh = 0.0f, maxSh = 0.0f, rev3 = 0.0f;
-        ss.read((char*)&rev3, sizeof(float)); ss.read((char*)&rev3, sizeof(float)); ss.read((char*)center.ptr(), sizeof(osg::Vec3));
+        uint32_t centerBytes = 12, scaleBytes = 12, rotationBytes = 16, colorBytes = 4, shBytes = 4;
+        switch (compression)
+        {
+        case 1: centerBytes = 6; scaleBytes = 6; rotationBytes = 8; colorBytes = 4; shBytes = 2; break;
+        case 2: centerBytes = 6; scaleBytes = 6; rotationBytes = 8; colorBytes = 4; shBytes = 1; break;
+        }
+
+        osg::Vec3 center; float minSh = 0.0f, maxSh = 0.0f, rev4 = 0.0f;
+        ss.read((char*)&rev4, sizeof(float)); ss.read((char*)&rev4, sizeof(float)); ss.read((char*)center.ptr(), sizeof(osg::Vec3));
         ss.read((char*)&minSh, sizeof(float)); ss.read((char*)&maxSh, sizeof(float)); ss.seekg(4096, std::ios::beg);
-        // TODO: not finished
+        for (uint32_t i = 0; i < sections; ++i)
+        {
+            uint32_t numSplats = 0, maxSplats = 0, quantization = 0, bucketCap = 256,
+                     bucketCount = 0, fullBuckets = 0, partBuckets = 0;
+            uint16_t degrees = 0, bucketBytes = 0; float spatialBlockSize = 5.0f;
+            ss.read((char*)&numSplats, sizeof(uint32_t)); ss.read((char*)&maxSplats, sizeof(uint32_t));
+            ss.read((char*)&bucketCap, sizeof(uint32_t)); ss.read((char*)&bucketCount, sizeof(uint32_t));
+            ss.read((char*)&spatialBlockSize, sizeof(float)); ss.read((char*)&bucketBytes, sizeof(uint16_t));
+            ss.read((char*)&quantization, sizeof(uint32_t)); ss.read((char*)&rev3, sizeof(uint32_t));
+            ss.read((char*)&fullBuckets, sizeof(uint32_t)); ss.read((char*)&partBuckets, sizeof(uint32_t));
+            ss.read((char*)&degrees, sizeof(uint16_t)); if (numSplats == 0) continue;
+
+            float positionScale = spatialBlockSize * 0.5f / float(quantization > 0 ? quantization : (compression > 0 ? 32767 : 1));
+            uint32_t shCount = ((uint32_t)pow(1 + degrees, 2) - 1) * 3, partialBucketMetaSize = partBuckets * 4;
+            uint32_t totalBucketSize = bucketBytes * bucketCount + partialBucketMetaSize;
+            uint32_t bytesPerSplat = centerBytes + scaleBytes + rotationBytes + colorBytes + shBytes * shCount;
+            // TODO: not finished
+            ss.seekg(4096 + (i + 1) * 1024, std::ios::beg);
+        }
 
         osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
         geom->setShDegrees(0); geom->setPosition(pos.get());
