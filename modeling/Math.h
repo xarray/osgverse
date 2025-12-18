@@ -135,6 +135,69 @@ namespace osgVerse
         void* _index;
     };
 
+    /** Float16 implementation extracted from Eigen */
+    struct HalfFloat
+    {
+        HalfFloat() : x(0) {}
+        HalfFloat(float f) { set(f); }
+        explicit HalfFloat(unsigned short raw) : x(raw) {}
+        unsigned short x;
+
+        union FP32 { unsigned int u; float f; };
+        float get() const
+        {
+            const static FP32 magic = { 113 << 23 };
+            const static unsigned int shifted_exp = 0x7c00 << 13;  // exponent mask after shift
+            FP32 o; o.u = (x & 0x7fff) << 13;                      // exponent/mantissa bits
+            unsigned int exp = shifted_exp & o.u;                  // just the exponent
+            o.u += (127 - 15) << 23;                               // exponent adjust
+
+            // handle exponent special cases
+            if (exp == shifted_exp)
+                o.u += (128 - 16) << 23;    // Inf/NaN? extra exp adjust
+            else if (exp == 0)
+            {
+                o.u += 1 << 23;             // Zero/Denormal? extra exp adjust
+                o.f -= magic.f;             // renormalize
+            }
+            o.u |= (x & 0x8000) << 16;      // sign bit
+            return o.f;
+        }
+
+        void set(float ff)
+        {
+            const static FP32 f32infty = { 255 << 23 };
+            const static FP32 f16max = { (127 + 16) << 23 };
+            const static FP32 denorm_magic = { ((127 - 15) + (23 - 10) + 1) << 23 };
+            const static unsigned int sign_mask = 0x80000000u;
+            FP32 f; f.f = ff;
+            unsigned int sign = f.u & sign_mask; f.u ^= sign;
+            x = static_cast<unsigned short>(0x0u);
+
+            // NOTE all the integer compares in this function can be safely compiled into signed compares since all operands
+            // are below 0x80000000. Important if you want fast straight SSE2 code (since there's no unsigned PCMPGTD).
+            if (f.u >= f16max.u)
+                x = (f.u > f32infty.u) ? 0x7e00 : 0x7c00;  // result is Inf or NaN (all exponent bits set)
+            else
+            {   // (De)normalized number or zero
+                if (f.u < (113 << 23)) {
+                    // resulting FP16 is subnormal or zero use a magic value to align our 10 mantissa bits at the bottom of
+                    // the float. as long as FP addition is round-to-nearest-even this just works.
+                    f.f += denorm_magic.f;
+                    x = static_cast<unsigned short>(f.u - denorm_magic.u);  // one integer subtract of the bias for final float
+                }
+                else
+                {
+                    unsigned int mant_odd = (f.u >> 13) & 1;  // resulting mantissa is odd
+                    f.u += ((unsigned int)(15 - 127) << 23) + 0xfff;  // update exponent, rounding bias part 1
+                    f.u += mant_odd;                                  // rounding bias part 2
+                    x = static_cast<unsigned short>(f.u >> 13);       // take the bits
+                }
+            }
+            x |= static_cast<unsigned short>(sign >> 16);
+        }
+    };
+
     /** A set of transformation functions between coordinate systems
         Information about spatial reference systems
         - [EPSG:4326] Geographic coordinate system (LLA / geodetic)

@@ -592,7 +592,10 @@ osg::Referenced* WebAuxiliary::httpRequestAsync(HttpCallback cb, const std::stri
 
     osg::ref_ptr<HttpClientInstance> instance = new HttpClientInstance;
     instance->client.sendAsync(req, [cb, url](const HttpResponsePtr& res)
-        { cb(url, HttpRequestParams(), HttpRequestHeaders(), HttpResponseData(res->status_code, res->body)); });
+    {
+        if (!res) cb(url, HttpRequestParams(), HttpRequestHeaders(), HttpResponseData(-1, "[WebAuxiliary] HTTP request failed"));
+        else cb(url, HttpRequestParams(), HttpRequestHeaders(), HttpResponseData(res->status_code, res->body));
+    });
     return instance.release();
 }
 

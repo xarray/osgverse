@@ -1,7 +1,15 @@
-#pragma import_defines(FULL_SH)
+#pragma import_defines(USE_INSTANCING, FULL_SH)
 uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
 
+#if defined(USE_INSTANCING)
+uniform sampler2DArray CoreParameters, ShParameters;
+
+VERSE_VS_IN vec3 osg_UserPosition;
+VERSE_VS_IN uint osg_UserIndex;
+
+// TODO: not finished
+#else
 VERSE_VS_IN vec4 osg_Covariance0, osg_Covariance1, osg_Covariance2;
 VERSE_VS_IN vec4 osg_R_SH0, osg_G_SH0, osg_B_SH0;
 VERSE_VS_IN vec4 osg_R_SH1, osg_G_SH1, osg_B_SH1;
@@ -10,6 +18,7 @@ VERSE_VS_IN vec4 osg_R_SH3, osg_G_SH3, osg_B_SH3;
 
 VERSE_VS_OUT vec4 color_gs, covariance_gs;
 VERSE_VS_OUT vec2 center2D_gs;
+#endif
 
 vec3 computeRadianceFromSH(const vec3 v)
 {

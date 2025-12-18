@@ -122,10 +122,9 @@ protected:
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
         osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
-        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
 
         std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
-        osg::Vec3 posValue, scaleValue; osg::Vec4 rotValue; size_t index = 0;
+        osg::Vec3 posValue, scaleValue; osg::Vec4 rotValue;
         const static float kSH_C0 = 0.28209479177387814;
         while (ss.good() && !ss.eof())
         {
@@ -141,16 +140,14 @@ protected:
             rD0->push_back(osg::Vec4((rgba[0] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
             gD0->push_back(osg::Vec4((rgba[1] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
             bD0->push_back(osg::Vec4((rgba[2] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
-            de->push_back(index++);
         }
-        if (index == 0) return NULL;
+        if (pos->empty()) return NULL;
 
         osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
         geom->setShDegrees(0); geom->setPosition(pos.get());
         geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
-        geom->addPrimitiveSet(de.get());
-        return geom.release();
+        geom->finalize(); return geom.release();
     }
 
     osgVerse::GaussianGeometry* fromKSplat(const std::string& buffer) const
@@ -158,7 +155,6 @@ protected:
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
         osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
-        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
 
         std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
         uint8_t major = 0, minor = 0, rev = 0; uint16_t compression = 0, rev2 = 0;
@@ -203,8 +199,7 @@ protected:
         geom->setShDegrees(0); geom->setPosition(pos.get());
         geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
-        geom->addPrimitiveSet(de.get());
-        return geom.release();
+        geom->finalize(); return geom.release();
     }
 
     osgVerse::GaussianGeometry* fromSpz(spz::GaussianCloud& c) const
@@ -223,12 +218,7 @@ protected:
             rot->push_back(osg::Vec4(c.rotations[i], c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3]));
 
         osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
-        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
-        for (size_t i = 0; i < c.alphas.size(); i++)
-        {
-            float opacity = c.alphas[i]; de->push_back(i);
-            alpha->push_back(1.0f / (1.0f + expf(-opacity)));
-        }
+        for (size_t i = 0; i < c.alphas.size(); i++) { float op = c.alphas[i]; alpha->push_back(1.0f / (1.0f + expf(-op))); }
 
         osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
         osg::ref_ptr<osg::Vec4Array> rD1 = new osg::Vec4Array, gD1 = new osg::Vec4Array, bD1 = new osg::Vec4Array;
@@ -279,8 +269,7 @@ protected:
             if (numShCoff >= 45)
                 { geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get()); }
         }
-        geom->addPrimitiveSet(de.get());
-        return geom.release();
+        geom->finalize(); return geom.release();
     }
 };
 

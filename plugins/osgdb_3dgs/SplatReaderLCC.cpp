@@ -94,6 +94,7 @@ void applyShcoefFromXGrids(osg::Geometry* geomInput, const std::vector<unsigned 
             m = k + 11; (*rD3)[i][k] = result[m].x(); (*gD3)[i][k] = result[m].y(); (*bD3)[i][k] = result[m].z();
         }
     }
+    geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
     geom->setShRed(1, rD1.get()); geom->setShGreen(1, gD1.get()); geom->setShBlue(1, bD1.get());
     geom->setShRed(2, rD2.get()); geom->setShGreen(2, gD2.get()); geom->setShBlue(2, bD2.get());
     geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get());
@@ -107,7 +108,6 @@ osg::Geometry* loadGeometryFromXGrids(const std::vector<unsigned char>& data, ui
     osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array(numSplats), scale = new osg::Vec3Array(numSplats);
     osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array(numSplats);
     osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray(numSplats);
-    osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
 
     const static float kSH_C0 = 0.28209479177387814;
     for (uint32_t i = 0; i < numSplats; ++i)
@@ -122,21 +122,16 @@ osg::Geometry* loadGeometryFromXGrids(const std::vector<unsigned char>& data, ui
         (*alpha)[i] = (float)valueB[3] / 255.0f;
         for (uint32_t n = 0; n < 3; ++n) memcpy(&valueS[n], &data[index + 16 + n * 2], sizeof(uint16_t));
         (*scale)[i] = parseScale(osg::Vec3((float)valueS[0], (float)valueS[1], (float)valueS[2]), sMin, sMax);
-        memcpy(&valueI, &data[index + 22], sizeof(uint32_t)); (*rot)[i] = parseQuat(valueI); de->push_back(i);
+        memcpy(&valueI, &data[index + 22], sizeof(uint32_t)); (*rot)[i] = parseQuat(valueI);
         //for (uint32_t n = 0; n < 3; ++n) memcpy(&valueS[n], &data[index + 26 + n * 2], sizeof(uint16_t));
         // TODO: normal?
     }
 
-#if true
     osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
     geom->setShDegrees(degrees); geom->setPosition(pos.get());
     geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
     geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
-#else
-    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-    geom->setVertexArray(pos.get());
-#endif
-    geom->addPrimitiveSet(de.get()); return geom.release();
+    return geom.release();
 }
 
 osg::Node* loadCollisionFromXGrids(std::istream& in)
@@ -343,6 +338,7 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string&
                     else data2.assign(ro_mmap2.begin() + start, ro_mmap2.begin() + end);
                     applyShcoefFromXGrids(geom.get(), data2, chunk.numSplats[i], shRange[0], shRange[1]);
                 }
+                static_cast<osgVerse::GaussianGeometry*>(geom.get())->finalize();
                 lod->addChild(child.get(), d * pow(1.2f, i), d * pow(1.2f, i + 1));
             }
         }

@@ -2,6 +2,10 @@
 #define MANA_MODELING_GAUSSIANGEOMETRY
 
 #include <osg/Version>
+#if OSG_VERSION_GREATER_THAN(3, 3, 3)
+#   include <osg/VertexAttribDivisor>
+#endif
+#include <osg/Texture2DArray>
 #include <osg/Geometry>
 #include <set>
 
@@ -9,19 +13,29 @@ namespace osgVerse
 {
 
 /** Gaussian Data:
-   - Position (vec3): getVertexArray()
-   - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
-   - Alpha (float): getVertexAttribArray(1).a()
-   - Spherical harmonics coefficients
-     - R-channel (dc + 15 rests): getVertexAttribArray(4,7,10,13)
-     - G-channel (dc + 15 rests): getVertexAttribArray(5,8,11,14)
-     - B-channel (dc + 15 rests): getVertexAttribArray(6,9,12,15)
+   - As texture lookup tables and instances:
+     - Tex2DArray-0 (4 layers): "CoreParameters"
+       - BaseColor + Alpha (vec4): layer 0
+       - Scale + Rotation (CovMatrix): layer 1,2,3
+     - Tex2DArray-1 (optional, 15 layers): "ShParameters"
+       - Spherical harmonics coefficients (vec3 * 15)
+     - Position (vec3): getVertexAttribArray(1)
+     - Instance Indices (uint): getVertexAttribArray(2)
+
+   - As vertex attributes (not recommend):
+     - Position (vec3): getVertexArray()
+     - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
+     - Alpha (float): getVertexAttribArray(1).a()
+     - Spherical harmonics coefficients
+       - R-channel (dc + 15 rests): getVertexAttribArray(4,7,10,13)
+       - G-channel (dc + 15 rests): getVertexAttribArray(5,8,11,14)
+       - B-channel (dc + 15 rests): getVertexAttribArray(6,9,12,15)
 */
 class GaussianGeometry : public osg::Geometry
 {
 public:
-    using osg::Geometry::AttributeBinding;
-    GaussianGeometry();
+    enum RenderMethod { INSTANCING, GEOMETRY_SHADER };
+    GaussianGeometry(RenderMethod m = GEOMETRY_SHADER);
     GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
 
 #if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
@@ -31,30 +45,39 @@ public:
     virtual osg::BoundingBox computeBound() const;
 #endif
 
-    static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs);
+    static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m = INSTANCING);
     static osg::NodeCallback* createUniformCallback();
+
+    bool finalize();  // only run this after setting all attributes
+    RenderMethod getRenderMethod() const { return _method; }
+    int getNumSplats() const { return _numSplats; }
 
     void setShDegrees(int d) { _degrees = d; checkShaderFlag(); }
     int getShDegrees() const { return _degrees; }
 
-    void setPosition(osg::Vec3Array* v) { setVertexArray(v); }
+    void setPosition(osg::Vec3Array* v);
     void setScaleAndRotation(osg::Vec3Array* v, osg::Vec4Array* q, osg::FloatArray* a);
-    void setShRed(int i, osg::Vec4Array* v) { setVertexAttribArray(4 + i * 3, v); setVertexAttribBinding(4 + i * 3, BIND_PER_VERTEX); }
-    void setShGreen(int i, osg::Vec4Array* v) { setVertexAttribArray(5 + i * 3, v); setVertexAttribBinding(5 + i * 3, BIND_PER_VERTEX); }
-    void setShBlue(int i, osg::Vec4Array* v) { setVertexAttribArray(6 + i * 3, v); setVertexAttribBinding(6 + i * 3, BIND_PER_VERTEX); }
+    void setShRed(int i, osg::Vec4Array* v);
+    void setShGreen(int i, osg::Vec4Array* v);
+    void setShBlue(int i, osg::Vec4Array* v);
 
-    osg::Vec3Array* getPosition() { return static_cast<osg::Vec3Array*>(getVertexArray()); }
-    osg::Vec3Array* getCovariance0() { return static_cast<osg::Vec3Array*>(getVertexAttribArray(1)); }
-    osg::Vec3Array* getCovariance1() { return static_cast<osg::Vec3Array*>(getVertexAttribArray(2)); }
-    osg::Vec3Array* getCovariance2() { return static_cast<osg::Vec3Array*>(getVertexAttribArray(3)); }
-    osg::Vec4Array* getShRed(int index) { return static_cast<osg::Vec4Array*>(getVertexAttribArray(4 + index * 3)); }
-    osg::Vec4Array* getShGreen(int index) { return static_cast<osg::Vec4Array*>(getVertexAttribArray(5 + index * 3)); }
-    osg::Vec4Array* getShBlue(int index) { return static_cast<osg::Vec4Array*>(getVertexAttribArray(6 + index * 3)); }
+    osg::Vec3Array* getPosition();
+    osg::Vec3Array* getCovariance0();
+    osg::Vec3Array* getCovariance1();
+    osg::Vec3Array* getCovariance2();
+    osg::Vec4Array* getShRed(int index);
+    osg::Vec4Array* getShGreen(int index);
+    osg::Vec4Array* getShBlue(int index);
 
 protected:
     virtual ~GaussianGeometry() {}
     void checkShaderFlag();
-    int _degrees;
+
+    std::map<std::string, std::vector<osg::Vec4>> _preDataMap;
+    std::map<std::string, std::vector<osg::Vec3>> _preDataMap2;
+    osg::ref_ptr<osg::Texture2DArray> _core, _shcoef;
+    RenderMethod _method;
+    int _degrees, _numSplats;
 };
 
 /** Gaussian sorter */
@@ -76,7 +99,7 @@ public:
 
     struct Sorter : public osg::Referenced
     {
-        virtual void sort(osg::DrawElementsUInt* indices, osg::Vec3Array* pos,
+        virtual bool sort(osg::VectorGLuint* indices, osg::Vec3Array* pos,
                           const osg::Matrix& model, const osg::Matrix& view) = 0;
     };
     void setSortCallback(Sorter* s) { _sortCallback = s; }
