@@ -321,18 +321,18 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
     if (i == 0) { \
         std::vector<osg::Vec4>& dstR = _preDataMap["Layer0"]; dstR.resize(v->size()); \
         for (size_t i = 0; i < v->size(); ++i) { \
-            dstR[i].##col = (*v)[i].x(); dst1[i].##pos = (*v)[i].y(); dst2[i].##pos = (*v)[i].z(); dst3[i].##pos = (*v)[i].w(); \
+            dstR[i][col] = (*v)[i].x(); dst1[i][pos] = (*v)[i].y(); dst2[i][pos] = (*v)[i].z(); dst3[i][pos] = (*v)[i].w(); \
         } \
     } else { \
         std::vector<osg::Vec3>& dst0 = _preDataMap2["Layer" + std::to_string(i * 4 + 0)]; dst0.resize(v->size()); \
         for (size_t i = 0; i < v->size(); ++i) { \
-            dst0[i].##pos = (*v)[i].x(); dst1[i].##pos = (*v)[i].y(); dst2[i].##pos = (*v)[i].z(); dst3[i].##pos = (*v)[i].w(); \
+            dst0[i][pos] = (*v)[i].x(); dst1[i][pos] = (*v)[i].y(); dst2[i][pos] = (*v)[i].z(); dst3[i][pos] = (*v)[i].w(); \
         } }
 
 void GaussianGeometry::setShRed(int i, osg::Vec4Array* v)
 {
     if (_method == INSTANCING)
-        { SET_SHCOEF_DATA(x(), x(), i, v); }
+        { SET_SHCOEF_DATA(0, 0, i, v); }
     else
         { setVertexAttribArray(4 + i * 3, v); setVertexAttribBinding(4 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
 }
@@ -340,7 +340,7 @@ void GaussianGeometry::setShRed(int i, osg::Vec4Array* v)
 void GaussianGeometry::setShGreen(int i, osg::Vec4Array* v)
 {
     if (_method == INSTANCING)
-        { SET_SHCOEF_DATA(y(), y(), i, v); }
+        { SET_SHCOEF_DATA(1, 1, i, v); }
     else
         { setVertexAttribArray(5 + i * 3, v); setVertexAttribBinding(5 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
 }
@@ -348,7 +348,7 @@ void GaussianGeometry::setShGreen(int i, osg::Vec4Array* v)
 void GaussianGeometry::setShBlue(int i, osg::Vec4Array* v)
 {
     if (_method == INSTANCING)
-        { SET_SHCOEF_DATA(z(), z(), i, v); }
+        { SET_SHCOEF_DATA(2, 2, i, v); }
     else
         { setVertexAttribArray(6 + i * 3, v); setVertexAttribBinding(6 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
 }
@@ -399,20 +399,20 @@ osg::Vec3Array* GaussianGeometry::getCovariance2()
         const std::vector<osg::Vec4>& srcR = _preDataMap["Layer0"]; \
         ra = new osg::Vec4Array(srcR.size()); \
         for (size_t i = 0; i < srcR.size(); ++i) \
-            (*ra)[i] = osg::Vec4(srcR[i].##col, src1[i].##pos, src2[i].##pos, src3[i].##pos); \
+            (*ra)[i] = osg::Vec4(srcR[i][col], src1[i][pos], src2[i][pos], src3[i][pos]); \
     } else { \
         const std::vector<osg::Vec3>& src0 = _preDataMap2["Layer" + std::to_string(i * 4 + 0)]; \
         ra = new osg::Vec4Array(src0.size()); \
         for (size_t i = 0; i < src0.size(); ++i) \
-            (*ra)[i] = osg::Vec4(src0[i].##col, src1[i].##pos, src2[i].##pos, src3[i].##pos); \
+            (*ra)[i] = osg::Vec4(src0[i][col], src1[i][pos], src2[i][pos], src3[i][pos]); \
     }
 
 osg::Vec4Array* GaussianGeometry::getShRed(int index)
 {
     if (_method == INSTANCING)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will after if finalize() done
-        GET_SHCOEF_DATA(ra, x(), x(), index); return ra.release();
+        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
+        GET_SHCOEF_DATA(ra, 0, 0, index); return ra.release();
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(4 + index * 3));
@@ -422,8 +422,8 @@ osg::Vec4Array* GaussianGeometry::getShGreen(int index)
 {
     if (_method == INSTANCING)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will after if finalize() done
-        GET_SHCOEF_DATA(ra, y(), y(), index); return ra.release();
+        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
+        GET_SHCOEF_DATA(ra, 1, 1, index); return ra.release();
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(5 + index * 3));
@@ -433,8 +433,8 @@ osg::Vec4Array* GaussianGeometry::getShBlue(int index)
 {
     if (_method == INSTANCING)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will after if finalize() done
-        GET_SHCOEF_DATA(ra, z(), z(), index); return ra.release();
+        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
+        GET_SHCOEF_DATA(ra, 2, 2, index); return ra.release();
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(6 + index * 3));
