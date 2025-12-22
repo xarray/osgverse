@@ -135,8 +135,7 @@ osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, 
 
     if (m == INSTANCING)
     {
-        program->addBindAttribLocation("osg_UserPosition", 1);
-        program->addBindAttribLocation("osg_UserIndex", 2);
+        program->addBindAttribLocation("osg_UserIndex", 1);
     }
     else
     {
@@ -173,15 +172,33 @@ void GaussianGeometry::checkShaderFlag()
     else getOrCreateStateSet()->removeDefine("USE_INSTANCING");
 }
 
+#define GET_POS4(v) osg::Vec4* v = const_cast<GaussianGeometry*>(this)->getPosition4();
+osg::BoundingBox GaussianGeometry::getBounding(osg::Vec4* va) const
+{
+    osg::BoundingBox bbox;
+    for (size_t i = 0; i < _numSplats; ++i)
+    { const osg::Vec4& v = va[i]; bbox.expandBy(osg::Vec3(v[0], v[1], v[2])); }
+    return bbox;
+}
+
 #if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
 osg::BoundingSphere GaussianGeometry::computeBound() const
-{ return osg::Geometry::computeBound(); }
+{
+    if (_method == INSTANCING) { GET_POS4(v); return getBounding(v); }
+    return osg::Geometry::computeBound();
+}
 
 osg::BoundingBox GaussianGeometry::computeBoundingBox() const
-{ return osg::Geometry::computeBoundingBox(); }
+{
+    if (_method == INSTANCING) { GET_POS4(v); return getBounding(v); }
+    return osg::Geometry::computeBoundingBox();
+}
 #else
 osg::BoundingBox GaussianGeometry::computeBound() const
-{ return osg::Geometry::computeBound(); }
+{
+    if (_method == INSTANCING) { GET_POS4(v); return getBounding(v); }
+    return osg::Geometry::computeBound();
+}
 #endif
 
 osg::NodeCallback* GaussianGeometry::createUniformCallback()
@@ -189,11 +206,11 @@ osg::NodeCallback* GaussianGeometry::createUniformCallback()
 
 bool GaussianGeometry::finalize()
 {
-    osg::ref_ptr<osg::DrawElementsUInt> de;
     if (_method == INSTANCING)
     {
         std::pair<int, int> res = calculateTextureDim(_numSplats);
         osg::StateSet* ss = getOrCreateStateSet();
+        ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
 
         // Apply core attributes
         if (!_core)
@@ -230,30 +247,31 @@ bool GaussianGeometry::finalize()
 
         // Create default quad and instanced primitive set
         osg::ref_ptr<osg::Vec3Array> quad = new osg::Vec3Array(4);
-        (*quad)[0].set(-0.5f, -0.5f, 0.0f); (*quad)[1].set(0.5f, -0.5f, 0.0f);
-        (*quad)[2].set(0.5f, 0.5f, 0.0f); (*quad)[3].set(-0.5f, 0.5f, 0.0f);
+        (*quad)[0].set(1.0f, 1.0f, 0.0f); (*quad)[1].set(-1.0f, 1.0f, 0.0f);
+        (*quad)[2].set(1.0f, -1.0f, 0.0f); (*quad)[3].set(-1.0f, -1.0f, 0.0f);
         setVertexArray(quad.get());
 
-        de = new osg::DrawElementsUInt(GL_TRIANGLES);
+        osg::ref_ptr<osg::DrawElementsUShort> de = new osg::DrawElementsUShort(GL_TRIANGLES);
         de->push_back(0); de->push_back(1); de->push_back(2);
-        de->push_back(0); de->push_back(2); de->push_back(3);
+        de->push_back(1); de->push_back(3); de->push_back(2);
         de->setNumInstances(_numSplats);
 
         // Add an index array for sorting
         osg::ref_ptr<osg::UIntArray> indices = new osg::UIntArray(_numSplats);
         for (int i = 0; i < _numSplats; ++i) (*indices)[i] = i;
-        setVertexAttribArray(2, indices); setVertexAttribNormalize(2, GL_FALSE);
-        setVertexAttribBinding(2, osg::Geometry::BIND_PER_VERTEX);
+        setVertexAttribArray(1, indices); setVertexAttribNormalize(1, GL_FALSE);
+        setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
-        getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(2, 1));
+        getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(1, 1));
 #endif
+        return addPrimitiveSet(de.get());
     }
     else
     {
-        de = new osg::DrawElementsUInt(GL_POINTS);
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_POINTS);
         for (size_t i = 0; i < _numSplats; ++i) de->push_back(i);
+        return addPrimitiveSet(de.get());
     }
-    return addPrimitiveSet(de.get());
 }
 
 void GaussianGeometry::setPosition(osg::Vec3Array* v)
@@ -261,8 +279,9 @@ void GaussianGeometry::setPosition(osg::Vec3Array* v)
     if (v) _numSplats = v->size(); else return;
     if (_method == INSTANCING)
     {
-        setVertexAttribArray(1, v); setVertexAttribNormalize(1, GL_FALSE);
-        setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
+        std::vector<osg::Vec4>& dst = _preDataMap["Layer0"]; dst.resize(v->size());
+        for (size_t i = 0; i < v->size(); ++i)
+            dst[i] = osg::Vec4((*v)[i].x(), (*v)[i].y(), (*v)[i].z(), dst[i].a());
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
         getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(1, 1));
 #endif
@@ -319,9 +338,9 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
     std::vector<osg::Vec3>& dst2 = _preDataMap2["Layer" + std::to_string(i * 4 + 2)]; dst2.resize(v->size()); \
     std::vector<osg::Vec3>& dst3 = _preDataMap2["Layer" + std::to_string(i * 4 + 3)]; dst3.resize(v->size()); \
     if (i == 0) { \
-        std::vector<osg::Vec4>& dstR = _preDataMap["Layer0"]; dstR.resize(v->size()); \
+        std::vector<osg::Vec4>& dstR = _preDataMap["Layer" #col]; dstR.resize(v->size()); \
         for (size_t i = 0; i < v->size(); ++i) { \
-            dstR[i][col] = (*v)[i].x(); dst1[i][pos] = (*v)[i].y(); dst2[i][pos] = (*v)[i].z(); dst3[i][pos] = (*v)[i].w(); \
+            dstR[i][3] = (*v)[i].x(); dst1[i][pos] = (*v)[i].y(); dst2[i][pos] = (*v)[i].z(); dst3[i][pos] = (*v)[i].w(); \
         } \
     } else { \
         std::vector<osg::Vec3>& dst0 = _preDataMap2["Layer" + std::to_string(i * 4 + 0)]; dst0.resize(v->size()); \
@@ -332,7 +351,7 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
 void GaussianGeometry::setShRed(int i, osg::Vec4Array* v)
 {
     if (_method == INSTANCING)
-        { SET_SHCOEF_DATA(0, 0, i, v); }
+        { SET_SHCOEF_DATA(1, 0, i, v); }
     else
         { setVertexAttribArray(4 + i * 3, v); setVertexAttribBinding(4 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
 }
@@ -340,7 +359,7 @@ void GaussianGeometry::setShRed(int i, osg::Vec4Array* v)
 void GaussianGeometry::setShGreen(int i, osg::Vec4Array* v)
 {
     if (_method == INSTANCING)
-        { SET_SHCOEF_DATA(1, 1, i, v); }
+        { SET_SHCOEF_DATA(2, 1, i, v); }
     else
         { setVertexAttribArray(5 + i * 3, v); setVertexAttribBinding(5 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
 }
@@ -348,20 +367,33 @@ void GaussianGeometry::setShGreen(int i, osg::Vec4Array* v)
 void GaussianGeometry::setShBlue(int i, osg::Vec4Array* v)
 {
     if (_method == INSTANCING)
-        { SET_SHCOEF_DATA(2, 2, i, v); }
+        { SET_SHCOEF_DATA(3, 2, i, v); }
     else
         { setVertexAttribArray(6 + i * 3, v); setVertexAttribBinding(6 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
 }
 
-osg::Vec3Array* GaussianGeometry::getPosition()
+osg::Vec3* GaussianGeometry::getPosition3()
 {
-    if (_method == INSTANCING)
-        return static_cast<osg::Vec3Array*>(getVertexAttribArray(1));
-    else
-        return static_cast<osg::Vec3Array*>(getVertexArray());
+    if (_method == INSTANCING) return NULL;  // not supported
+    else return (osg::Vec3*)getVertexArray()->getDataPointer();
 }
 
-osg::Vec3Array* GaussianGeometry::getCovariance0()
+osg::Vec4* GaussianGeometry::getPosition4()
+{
+    if (_method == INSTANCING)
+    {
+        if (!_preDataMap.empty())
+        {
+            std::vector<osg::Vec4>& dst = _preDataMap["Layer0"];
+            if (!dst.empty()) return dst.data();
+        }
+        else if (_core.valid())
+            return TextureLookUpTable::getFloat4(_core.get(), 0);
+    }
+    return NULL;
+}
+
+osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance0()
 {
     if (_method == INSTANCING)
     {
@@ -371,7 +403,7 @@ osg::Vec3Array* GaussianGeometry::getCovariance0()
         return static_cast<osg::Vec3Array*>(getVertexAttribArray(1));
 }
 
-osg::Vec3Array* GaussianGeometry::getCovariance1()
+osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance1()
 {
     if (_method == INSTANCING)
     {
@@ -381,7 +413,7 @@ osg::Vec3Array* GaussianGeometry::getCovariance1()
         return static_cast<osg::Vec3Array*>(getVertexAttribArray(2));
 }
 
-osg::Vec3Array* GaussianGeometry::getCovariance2()
+osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance2()
 {
     if (_method == INSTANCING)
     {
@@ -396,10 +428,10 @@ osg::Vec3Array* GaussianGeometry::getCovariance2()
     const std::vector<osg::Vec3>& src2 = _preDataMap2["Layer" + std::to_string(i * 4 + 2)]; \
     const std::vector<osg::Vec3>& src3 = _preDataMap2["Layer" + std::to_string(i * 4 + 3)]; \
     if (i == 0) { \
-        const std::vector<osg::Vec4>& srcR = _preDataMap["Layer0"]; \
+        const std::vector<osg::Vec4>& srcR = _preDataMap["Layer" #col]; \
         ra = new osg::Vec4Array(srcR.size()); \
         for (size_t i = 0; i < srcR.size(); ++i) \
-            (*ra)[i] = osg::Vec4(srcR[i][col], src1[i][pos], src2[i][pos], src3[i][pos]); \
+            (*ra)[i] = osg::Vec4(srcR[i][3], src1[i][pos], src2[i][pos], src3[i][pos]); \
     } else { \
         const std::vector<osg::Vec3>& src0 = _preDataMap2["Layer" + std::to_string(i * 4 + 0)]; \
         ra = new osg::Vec4Array(src0.size()); \
@@ -407,34 +439,34 @@ osg::Vec3Array* GaussianGeometry::getCovariance2()
             (*ra)[i] = osg::Vec4(src0[i][col], src1[i][pos], src2[i][pos], src3[i][pos]); \
     }
 
-osg::Vec4Array* GaussianGeometry::getShRed(int index)
+osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShRed(int index)
 {
     if (_method == INSTANCING)
     {
         osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
-        GET_SHCOEF_DATA(ra, 0, 0, index); return ra.release();
+        GET_SHCOEF_DATA(ra, 1, 0, index); return ra;
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(4 + index * 3));
 }
 
-osg::Vec4Array* GaussianGeometry::getShGreen(int index)
+osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShGreen(int index)
 {
     if (_method == INSTANCING)
     {
         osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
-        GET_SHCOEF_DATA(ra, 1, 1, index); return ra.release();
+        GET_SHCOEF_DATA(ra, 2, 1, index); return ra;
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(5 + index * 3));
 }
 
-osg::Vec4Array* GaussianGeometry::getShBlue(int index)
+osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShBlue(int index)
 {
     if (_method == INSTANCING)
     {
         osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
-        GET_SHCOEF_DATA(ra, 2, 2, index); return ra.release();
+        GET_SHCOEF_DATA(ra, 3, 2, index); return ra;
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(6 + index * 3));
@@ -461,14 +493,27 @@ public:
                  it != tempTasks.end(); ++it)
             {
                 Task& task = it->second;
-                if (task.indices.empty() || !task.positions) continue;
+                if (task.indices.empty()) continue;
 
                 std::vector<GLuint> keys(task.indices.size());
-                for (size_t i = 0; i < task.indices.size(); ++i)
+                if (task.positions3)
                 {
-                    float d = ((*task.positions)[task.indices[i]] * task.localToEye).z();
-                    union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
-                    keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+                    for (size_t i = 0; i < task.indices.size(); ++i)
+                    {
+                        float d = (task.positions3[task.indices[i]] * task.localToEye).z();
+                        union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+                        keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+                    }
+                }
+                else if (task.positions4)
+                {
+                    for (size_t i = 0; i < task.indices.size(); ++i)
+                    {
+                        const osg::Vec4& v = task.positions4[task.indices[i]];
+                        float d = (osg::Vec3(v[0], v[1], v[2]) * task.localToEye).z();
+                        union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+                        keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+                    }
                 }
 
                 OpenThreads::Thread::YieldCurrentThread();
@@ -486,12 +531,12 @@ public:
         }
     }
 
-    size_t addTask(osg::Vec3Array* va, osg::VectorGLuint* de, const osg::Matrix& matrix)
+    size_t addTask(osg::Vec3* va, osg::Vec4* va2, osg::VectorGLuint* de, const osg::Matrix& matrix)
     {
         size_t num = 0; _taskLock.lock();
         if (_sortTaskFlags.find(de) == _sortTaskFlags.end())
         {
-            _sortTasks[de] = Task{ va, std::vector<GLuint>(de->begin(), de->end()), matrix };
+            _sortTasks[de] = Task{ va, va2, std::vector<GLuint>(de->begin(), de->end()), matrix };
             _sortTaskFlags.insert(de);
         }
         num = _sortTasks.size();
@@ -509,7 +554,8 @@ public:
 protected:
     struct Task
     {
-        osg::ref_ptr<osg::Vec3Array> positions;
+        osg::Vec3* positions3;
+        osg::Vec4* positions4;
         std::vector<GLuint> indices;
         osg::Matrix localToEye;
     };
@@ -574,19 +620,20 @@ void GaussianSorter::cull(const osg::Matrix& view)
 void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view)
 {
     osg::VectorGLuint* indices = NULL; osg::BufferData* indexBuffer = NULL;
-    osg::Vec3Array* pos = geom->getPosition(); if (!pos || !geom->getNumSplats()) return;
+    osg::Vec3* pos = geom->getPosition3(); osg::Vec4* pos2 = geom->getPosition4();
+    int numSplats = geom->getNumSplats(); if ((!pos && !pos2) || !numSplats) return;
     
     if (geom->getRenderMethod() == GaussianGeometry::INSTANCING)
     {
-        osg::UIntArray* vaa = static_cast<osg::UIntArray*>(geom->getVertexAttribArray(2));
+        osg::UIntArray* vaa = static_cast<osg::UIntArray*>(geom->getVertexAttribArray(1));
         if (!vaa)
         {
-            vaa = new osg::UIntArray(geom->getNumSplats());
-            for (int i = 0; i < geom->getNumSplats(); ++i) (*vaa)[i] = i;
-            geom->setVertexAttribArray(2, vaa); geom->setVertexAttribNormalize(2, GL_FALSE);
-            geom->setVertexAttribBinding(2, osg::Geometry::BIND_PER_VERTEX);
+            vaa = new osg::UIntArray(numSplats);
+            for (int i = 0; i < numSplats; ++i) (*vaa)[i] = i;
+            geom->setVertexAttribArray(1, vaa); geom->setVertexAttribNormalize(1, GL_FALSE);
+            geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
-            geom->getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(2, 1));
+            geom->getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(1, 1));
 #endif
         }
         indices = vaa; indexBuffer = vaa;
@@ -597,8 +644,8 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
                                   ? static_cast<osg::DrawElementsUInt*>(geom->getPrimitiveSet(0)) : NULL;
         if (!de)
         {
-            de = new osg::DrawElementsUInt(GL_POINTS); de->resize(geom->getNumSplats()); geom->addPrimitiveSet(de);
-            for (int i = 0; i < geom->getNumSplats(); ++i) (*de)[i] = i;
+            de = new osg::DrawElementsUInt(GL_POINTS); de->resize(numSplats); geom->addPrimitiveSet(de);
+            for (int i = 0; i < numSplats; ++i) (*de)[i] = i;
         }
         indices = de; indexBuffer = de;
     }
@@ -617,18 +664,18 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
         {
             // FIXME: use different threads to share the burden
             GaussianSortThread* thread = static_cast<GaussianSortThread*>(_sortThreads[0]);
-            if (toSort) thread->addTask(pos, indices, localToEye);
+            if (toSort) thread->addTask(pos, pos2, indices, localToEye);
             if (thread->applyResult(indices)) indexBuffer->dirty();
         }
         break;
     case GL46_RADIX_SORT:
-        if (toSort && !indices->empty())
+        if (toSort && pos && !indices->empty())
         {
             std::vector<GLuint> values(indices->begin(), indices->end());
             std::vector<GLuint> keys(values.size());
             for (size_t i = 0; i < indices->size(); ++i)
             {
-                float d = ((*pos)[(*indices)[i]] * localToEye).z();
+                float d = (pos[(*indices)[i]] * localToEye).z();
                 union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
                 keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
             }
@@ -645,7 +692,10 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
         }
         break;
     default:
-        if (toSort && _sortCallback.valid() && _sortCallback->sort(indices, pos, model, view))
-            indexBuffer->dirty(); break;
+        if (toSort && _sortCallback.valid())
+        {
+            if (_sortCallback->sort(indices, pos, numSplats, model, view)) indexBuffer->dirty();
+            else if (_sortCallback->sort(indices, pos2, numSplats, model, view)) indexBuffer->dirty();
+        } break;
     }
 }

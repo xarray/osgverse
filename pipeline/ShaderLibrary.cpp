@@ -150,7 +150,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
 
     std::string m_mvp = "gl_ModelViewProjectionMatrix", m_mv = "gl_ModelViewMatrix";
     std::string m_p = "gl_ProjectionMatrix", m_n = "gl_NormalMatrix";
-    std::string tex1d = "texture", tex2d = "texture", tex3d = "texture", texCube = "texture";
+    std::string tex1d = "texture", tex2d = "texture", tex2dArr = "texture", tex3d = "texture", texCube = "texture";
     std::string vin = "in", vout = "out", fin = "in", fout = "out", finalColor = "//";
 #if defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     if (false)
@@ -158,7 +158,8 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     if (glslVer <= 120)
 #endif
     {
-        tex1d = "texture1D"; tex2d = "texture2D"; tex3d = "texture3D"; texCube = "textureCube";
+        tex1d = "texture1D"; tex2d = "texture2D"; tex2dArr = "texture2DArray";
+        tex3d = "texture3D"; texCube = "textureCube";
         vin = "attribute"; vout = "varying"; fin = "varying"; fout = "";
         finalColor = "gl_FragColor = ";
 
@@ -268,6 +269,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     }
     ss << "#define VERSE_TEX1D " << tex1d << std::endl;
     ss << "#define VERSE_TEX2D " << tex2d << std::endl;
+    ss << "#define VERSE_TEX2DARRAY " << tex2dArr << std::endl;
     ss << "#define VERSE_TEX3D " << tex3d << std::endl;
     ss << "#define VERSE_TEXCUBE " << texCube << std::endl;
 

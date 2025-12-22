@@ -15,12 +15,11 @@ namespace osgVerse
 /** Gaussian Data:
    - As texture lookup tables and instances:
      - Tex2DArray-0 (4 layers): "CoreParameters"
-       - BaseColor + Alpha (vec4): layer 0
-       - Scale + Rotation (CovMatrix): layer 1,2,3
+       - Position + Alpha (vec4): layer 0
+       - Scale + Rotation + Color (CovMatrix + vec2): layer 1,2,3
      - Tex2DArray-1 (optional, 15 layers): "ShParameters"
        - Spherical harmonics coefficients (vec3 * 15)
-     - Position (vec3): getVertexAttribArray(1)
-     - Instance Indices (uint): getVertexAttribArray(2)
+     - Instance Indices (uint): getVertexAttribArray(1)
 
    - As vertex attributes (not recommend):
      - Position (vec3): getVertexArray()
@@ -45,7 +44,7 @@ public:
     virtual osg::BoundingBox computeBound() const;
 #endif
 
-    static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m = INSTANCING);
+    static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m = GEOMETRY_SHADER);
     static osg::NodeCallback* createUniformCallback();
 
     bool finalize();  // only run this after setting all attributes
@@ -61,16 +60,18 @@ public:
     void setShGreen(int i, osg::Vec4Array* v);
     void setShBlue(int i, osg::Vec4Array* v);
 
-    osg::Vec3Array* getPosition();
-    osg::Vec3Array* getCovariance0();
-    osg::Vec3Array* getCovariance1();
-    osg::Vec3Array* getCovariance2();
-    osg::Vec4Array* getShRed(int index);
-    osg::Vec4Array* getShGreen(int index);
-    osg::Vec4Array* getShBlue(int index);
+    osg::Vec3* getPosition3();
+    osg::Vec4* getPosition4();
+    osg::ref_ptr<osg::Vec3Array> getCovariance0();
+    osg::ref_ptr<osg::Vec3Array> getCovariance1();
+    osg::ref_ptr<osg::Vec3Array> getCovariance2();
+    osg::ref_ptr<osg::Vec4Array> getShRed(int index);
+    osg::ref_ptr<osg::Vec4Array> getShGreen(int index);
+    osg::ref_ptr<osg::Vec4Array> getShBlue(int index);
 
 protected:
     virtual ~GaussianGeometry() {}
+    osg::BoundingBox getBounding(osg::Vec4* va) const;
     void checkShaderFlag();
 
     std::map<std::string, std::vector<osg::Vec4>> _preDataMap;
@@ -99,7 +100,9 @@ public:
 
     struct Sorter : public osg::Referenced
     {
-        virtual bool sort(osg::VectorGLuint* indices, osg::Vec3Array* pos,
+        virtual bool sort(osg::VectorGLuint* indices, osg::Vec3* pos, size_t size,
+                          const osg::Matrix& model, const osg::Matrix& view) = 0;
+        virtual bool sort(osg::VectorGLuint* indices, osg::Vec4* pos, size_t size,
                           const osg::Matrix& model, const osg::Matrix& view) = 0;
     };
     void setSortCallback(Sorter* s) { _sortCallback = s; }

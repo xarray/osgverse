@@ -900,7 +900,7 @@ protected:
     
     void initialize(const osgDB::Options* options) const
     {
-        mk_config config;
+        mk_config config = { 0 };
         config.ini = NULL,
         config.ini_is_path = 1;
         config.log_level = 0;
@@ -910,14 +910,15 @@ protected:
         config.ssl_pwd = NULL;
         config.thread_num = 0;
 
+        std::string ini, ssl, pwd;
         if (options != NULL)
         {
-            std::string ini = options->getPluginStringData("ini_file");
-            std::string ssl = options->getPluginStringData("ssl_file");
-            std::string pwd = options->getPluginStringData("ssl_pwd");
+            ini = options->getPluginStringData("ini_file");
+            ssl = options->getPluginStringData("ssl_file");
+            pwd = options->getPluginStringData("ssl_pwd");
             if (!ini.empty()) config.ini = ini.c_str();
-            if (!ini.empty()) config.ssl = ssl.c_str();
-            if (!ini.empty()) config.ssl_pwd = pwd.c_str();
+            if (!ssl.empty()) config.ssl = ssl.c_str();
+            if (!pwd.empty()) config.ssl_pwd = pwd.c_str();
         }
         mk_env_init(&config);
     }

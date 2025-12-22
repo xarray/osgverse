@@ -1,14 +1,23 @@
+#extension GL_EXT_draw_instanced : enable
 #pragma import_defines(USE_INSTANCING, FULL_SH)
+
 uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
-
 #if defined(USE_INSTANCING)
 uniform sampler2DArray CoreParameters, ShParameters;
+uniform vec2 TextureSize;
 
-VERSE_VS_IN vec3 osg_UserPosition;
-VERSE_VS_IN uint osg_UserIndex;
+VERSE_VS_IN float osg_UserIndex;
+VERSE_VS_OUT vec4 color, invCovariance;
+VERSE_VS_OUT vec2 center2D;
 
-// TODO: not finished
+mat2 inverseMat2(mat2 m)
+{
+    float det = m[0][0] * m[1][1] - m[0][1] * m[1][0]; mat2 inv;
+    inv[0][0] = m[1][1] / det; inv[0][1] = -m[0][1] / det;
+    inv[1][0] = -m[1][0] / det; inv[1][1] = m[0][0] / det;
+    return inv;
+}
 #else
 VERSE_VS_IN vec4 osg_Covariance0, osg_Covariance1, osg_Covariance2;
 VERSE_VS_IN vec4 osg_R_SH0, osg_G_SH0, osg_B_SH0;
@@ -20,7 +29,7 @@ VERSE_VS_OUT vec4 color_gs, covariance_gs;
 VERSE_VS_OUT vec2 center2D_gs;
 #endif
 
-vec3 computeRadianceFromSH(const vec3 v)
+vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor, in vec2 paramUV)
 {
 #ifdef FULL_SH
     float b[16];
@@ -60,30 +69,69 @@ vec3 computeRadianceFromSH(const vec3 v)
     b[14] = k9 * v.z * (vx2 - vy2);
     b[15] = -k5 * v.x * (vx2 - 3.0f * vy2);
 
-    float re = (b[0] * osg_R_SH0.x + b[1] * osg_R_SH0.y + b[2] * osg_R_SH0.z + b[3] * osg_R_SH0.w +
+#  if defined(USE_INSTANCING)
+    vec4 sh_rgb0 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 0.0));
+    vec4 sh_rgb1 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 1.0));
+    vec4 sh_rgb2 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 2.0));
+    vec4 sh_rgb3 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 3.0));
+    vec4 sh_rgb4 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 4.0));
+    vec4 sh_rgb5 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 5.0));
+    vec4 sh_rgb6 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 6.0));
+    vec4 sh_rgb7 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 7.0));
+    vec4 sh_rgb8 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 8.0));
+    vec4 sh_rgb9 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 9.0));
+    vec4 sh_rgb10 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 10.0));
+    vec4 sh_rgb11 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 11.0));
+    vec4 sh_rgb12 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 12.0));
+    vec4 sh_rgb13 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 13.0));
+    vec4 sh_rgb14 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 14.0));
+    vec4 sh_rgb15 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 15.0));
+    float re = (b[0] * baseColor.x + b[1] * sh_rgb0.x + b[2] * sh_rgb1.x + b[3] * sh_rgb2.x +
+                b[4] * sh_rgb3.x + b[5] * sh_rgb5.x + b[6] * sh_rgb6.x + b[7] * sh_rgb7.x +
+                b[8] * sh_rgb8.x + b[9] * sh_rgb9.x + b[10] * sh_rgb10.x + b[11] * sh_rgb11.x +
+                b[12] * sh_rgb12.x + b[13] * sh_rgb13.x + b[14] * sh_rgb14.x + b[15] * sh_rgb15.x);
+    float gr = (b[0] * baseColor.y + b[1] * sh_rgb0.y + b[2] * sh_rgb1.y + b[3] * sh_rgb2.y +
+                b[4] * sh_rgb3.y + b[5] * sh_rgb5.y + b[6] * sh_rgb6.y + b[7] * sh_rgb7.y +
+                b[8] * sh_rgb8.y + b[9] * sh_rgb9.y + b[10] * sh_rgb10.y + b[11] * sh_rgb11.y +
+                b[12] * sh_rgb12.y + b[13] * sh_rgb13.y + b[14] * sh_rgb14.y + b[15] * sh_rgb15.y);
+    float bl = (b[0] * baseColor.z + b[1] * sh_rgb0.z + b[2] * sh_rgb1.z + b[3] * sh_rgb2.z +
+                b[4] * sh_rgb3.z + b[5] * sh_rgb5.z + b[6] * sh_rgb6.z + b[7] * sh_rgb7.z +
+                b[8] * sh_rgb8.z + b[9] * sh_rgb9.z + b[10] * sh_rgb10.z + b[11] * sh_rgb11.z +
+                b[12] * sh_rgb12.z + b[13] * sh_rgb13.z + b[14] * sh_rgb14.z + b[15] * sh_rgb15.z);
+#  else
+    float re = (b[0] * baseColor.x + b[1] * osg_R_SH0.y + b[2] * osg_R_SH0.z + b[3] * osg_R_SH0.w +
                 b[4] * osg_R_SH1.x + b[5] * osg_R_SH1.y + b[6] * osg_R_SH1.z + b[7] * osg_R_SH1.w +
                 b[8] * osg_R_SH2.x + b[9] * osg_R_SH2.y + b[10] * osg_R_SH2.z + b[11] * osg_R_SH2.w +
                 b[12] * osg_R_SH3.x + b[13] * osg_R_SH3.y + b[14] * osg_R_SH3.z + b[15] * osg_R_SH3.w);
-    float gr = (b[0] * osg_G_SH0.x + b[1] * osg_G_SH0.y + b[2] * osg_G_SH0.z + b[3] * osg_G_SH0.w +
+    float gr = (b[0] * baseColor.y + b[1] * osg_G_SH0.y + b[2] * osg_G_SH0.z + b[3] * osg_G_SH0.w +
                 b[4] * osg_G_SH1.x + b[5] * osg_G_SH1.y + b[6] * osg_G_SH1.z + b[7] * osg_G_SH1.w +
                 b[8] * osg_G_SH2.x + b[9] * osg_G_SH2.y + b[10] * osg_G_SH2.z + b[11] * osg_G_SH2.w +
                 b[12] * osg_G_SH3.x + b[13] * osg_G_SH3.y + b[14] * osg_G_SH3.z + b[15] * osg_G_SH3.w);
-    float bl = (b[0] * osg_B_SH0.x + b[1] * osg_B_SH0.y + b[2] * osg_B_SH0.z + b[3] * osg_B_SH0.w +
+    float bl = (b[0] * baseColor.z + b[1] * osg_B_SH0.y + b[2] * osg_B_SH0.z + b[3] * osg_B_SH0.w +
                 b[4] * osg_B_SH1.x + b[5] * osg_B_SH1.y + b[6] * osg_B_SH1.z + b[7] * osg_B_SH1.w +
                 b[8] * osg_B_SH2.x + b[9] * osg_B_SH2.y + b[10] * osg_B_SH2.z + b[11] * osg_B_SH2.w +
                 b[12] * osg_B_SH3.x + b[13] * osg_B_SH3.y + b[14] * osg_B_SH3.z + b[15] * osg_B_SH3.w);
+#  endif
 #else
-    float re = (b[0] * osg_R_SH0.x + b[1] * osg_R_SH0.y + b[2] * osg_R_SH0.z + b[3] * osg_R_SH0.w);
-    float gr = (b[0] * osg_G_SH0.x + b[1] * osg_G_SH0.y + b[2] * osg_G_SH0.z + b[3] * osg_G_SH0.w);
-    float bl = (b[0] * osg_B_SH0.x + b[1] * osg_B_SH0.y + b[2] * osg_B_SH0.z + b[3] * osg_B_SH0.w);
+    float re = b[0] * baseColor.x, gr = b[0] * baseColor.y, bl = b[0] * baseColor.z;
 #endif
     return vec3(0.5f, 0.5f, 0.5f) + vec3(re, gr, bl);
 }
 
 void main()
 {
+    vec2 paramUV = vec2(0.0, 0.0);
+#if defined(USE_INSTANCING)
+    float r = float(osg_UserIndex) / TextureSize.x;
+    float c = floor(r) / TextureSize.y; paramUV = vec2(fract(r), c);
+
+    vec4 posAlpha = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 0.0));
+    vec4 eyeVertex = VERSE_MATRIX_MV * vec4(posAlpha.xyz, 1.0);
+    float alpha = posAlpha.w, FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x;
+#else
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(osg_Vertex.xyz, 1.0);
     float alpha = osg_Covariance0.w, FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x;
+#endif
     float WIDTH = 1.0 / InvScreenResolution.x, HEIGHT = 1.0 / InvScreenResolution.y;
 
     // J is the jacobian of the projection and viewport transformations.
@@ -99,24 +147,64 @@ void main()
 
     // combine the affine transforms of W (viewMat) and J (approx of viewportMat * projMat)
     // using the fact that the new transformed covariance matrix V_Prime = JW * V * (JW)^T
-    mat3 W = mat3(VERSE_MATRIX_MV), V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
-    mat3 JW = J * W; mat3 V_prime = JW * V * transpose(JW);
+#if defined(USE_INSTANCING)
+    vec4 cov0 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 1.0));
+    vec4 cov1 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 2.0));
+    vec4 cov2 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 3.0));
+    mat3 V = mat3(cov0.xyz, cov1.xyz, cov2.xyz);
+#else
+    mat3 V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
+#endif
+    mat3 W = mat3(VERSE_MATRIX_MV); mat3 JW = J * W; mat3 V_prime = JW * V * transpose(JW);
     mat2 cov2D = mat2(V_prime);  // 'project' the 3D covariance matrix onto xy plane
-
-    // use the fact that the convolution of a gaussian with another gaussian is the sum
-    // of their covariance matrices to apply a low-pass filter to anti-alias the splats
-    cov2D[0][0] += 0.3f; cov2D[1][1] += 0.3f;
-    covariance_gs = vec4(cov2D[0], cov2D[1]);
 
     float X0 = 0.0, Y0 = 0.0;  // viewport X & Y... FIXME: always 0?
     vec4 proj = VERSE_MATRIX_P * eyeVertex;
+    cov2D[0][0] += 0.3f; cov2D[1][1] += 0.3f;  // The convolution of a gaussian with another is the sum of their
+                                               // covariance matrices, apply a low-pass filter for antialiasing
+    
+#if defined(USE_INSTANCING)
+    vec4 covariance = vec4(cov2D[0], cov2D[1]);
+    center2D = vec2(proj.x / proj.w, proj.y / proj.w);
+    center2D.x = 0.5f * (WIDTH + (center2D.x * WIDTH) + (2.0f * X0));
+    center2D.y = 0.5f * (HEIGHT + (center2D.y * HEIGHT) + (2.0f * Y0));
+#else
+    covariance_gs = vec4(cov2D[0], cov2D[1]);
     center2D_gs = vec2(proj.x / proj.w, proj.y / proj.w);
     center2D_gs.x = 0.5f * (WIDTH + (center2D_gs.x * WIDTH) + (2.0f * X0));
     center2D_gs.y = 0.5f * (HEIGHT + (center2D_gs.y * HEIGHT) + (2.0f * Y0));
+#endif
 
     // compute radiance from SH
     vec3 eyeDirection = normalize(eyeVertex.xyz / eyeVertex.w);
     //vec3 direction = transpose(mat3(osg_ViewMatrixInverse)) * eyeDirection;
-    color_gs = vec4(computeRadianceFromSH(eyeDirection), alpha);
+#if defined(USE_INSTANCING)
+    vec3 baseColor = vec3(cov0.w, cov1.w, cov2.w);
+    color = vec4(computeRadianceFromSH(eyeDirection, baseColor, paramUV), alpha);
+
+    {
+        mat2 cov2Dinv = inverseMat2(cov2D);
+        vec4 cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);
+
+        // compute 2d extents for the splat, using covariance matrix ellipse (https://cookierobotics.com/007/)
+        float k = 3.5, a = cov2D[0][0], b = cov2D[0][1], c = cov2D[1][1];
+        float apco2 = (a + c) / 2.0, amco2 = (a - c) / 2.0;
+        float term = sqrt(amco2 * amco2 + b * b);
+        float maj = apco2 + term, min = apco2 - term;
+
+        float theta = (b == 0.0) ? ((a >= c) ? 0.0 : radians(90.0)) : atan(maj - a, b);
+        float r1 = k * sqrt(maj), r2 = k * sqrt(min);
+        vec2 majAxis = vec2(r1 * cos(theta), r1 * sin(theta));
+        vec2 minAxis = vec2(r2 * cos(theta + radians(90.0)), r2 * sin(theta + radians(90.0)));
+
+        vec2 offset = majAxis * osg_Vertex.x + minAxis * osg_Vertex.y;
+        offset.x *= (2.0 * InvScreenResolution.x) * proj.w;
+        offset.y *= (2.0 * InvScreenResolution.y) * proj.w;
+        invCovariance = cov2Dinv4; proj.xy += offset;
+    }
+#else
+    vec3 baseColor = vec3(osg_R_SH0.x, osg_G_SH0.x, osg_B_SH0.x);
+    color_gs = vec4(computeRadianceFromSH(eyeDirection, baseColor, paramUV), alpha);
+#endif
     gl_Position = proj;
 }
