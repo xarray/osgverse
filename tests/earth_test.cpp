@@ -218,7 +218,7 @@ int main(int argc, char** argv)
                     " Elevation=mbtiles://" + mainFolder + "/DEM_lv3.mbtiles/{z}-{x}-{y}.tif"
                     " OceanMask=mbtiles://" + mainFolder + "/Mask_lv3.mbtiles/{z}-{x}-{y}.tif"
                     " UseWebMercator=1 UseEarth3D=1 OriginBottomLeft=1 TileElevationScale=3 TileSkirtRatio=0.05";
-        earthOptions = new osgDB::Options(earthURLs);
+        earthOptions = new osgDB::Options(earthURLs + " " + options);
         earthOptions->setPluginData("UrlPathFunction", (void*)createMixedPath);
         earth = osgDB::readNodeFile("0-0-0.verse_tms", earthOptions.get());
     }

@@ -66,6 +66,7 @@ public:
         supportsOption("UseEarth3D", "Display TMS tiles as a real earth: default=0");
         supportsOption("UseWebMercator", "Use Web Mercator (Level-0 has 4 tiles): default=0");
         supportsOption("OriginBottomLeft", "Use bottom-left as every tile's origin point: default=0");
+        supportsOption("NoGlobeAttribute", "Donot use extra vertex-attribute for ocean-related data: default=0");
         supportsOption("FlatExtentMinX", "Flat earth extent X0: default -180");
         supportsOption("FlatExtentMinY", "Flat earth extent Y0: default -90");
         supportsOption("FlatExtentMaxX", "Flat earth extent X1: default 180");
@@ -164,8 +165,8 @@ protected:
     {
         CreatePathFunc pathFunc = (CreatePathFunc)opt->getPluginData("UrlPathFunction");
         std::string name = "TMS_" + std::to_string(x) + "_" + std::to_string(y) + "_" + std::to_string(z),
-                    botLeft = opt->getPluginStringData("OriginBottomLeft");
-        if (!botLeft.empty()) std::transform(botLeft.begin(), botLeft.end(), botLeft.begin(), tolower);
+                    botLeft = opt->getPluginStringData("OriginBottomLeft"),
+                    noGlobeAttr = opt->getPluginStringData("NoGlobeAttribute");
 
         std::string elevPath1 = elevPath, ext = osgDB::getFileExtensionIncludingDot(elevPath), extWithVerse;
         size_t queryInExt = ext.find("?");  // remove query string if mixed with extension
@@ -176,12 +177,12 @@ protected:
         if (!extWithVerse.empty() && osgDB::getServerProtocol(elevPath1).empty())  // auto-change local file ext
             osgVerse::TileCallback::replace(elevPath1, ext, extWithVerse, changed);
 
-        osg::ref_ptr<osgVerse::TileCallback> tileCB = new osgVerse::TileCallback;
+        osg::ref_ptr<osgVerse::TileCallback> tileCB = new osgVerse::TileCallback(atoi(noGlobeAttr.c_str()) == 0);
         tileCB->setLayerPath(osgVerse::TileCallback::ELEVATION, elevPath1);
         tileCB->setLayerPath(osgVerse::TileCallback::ORTHOPHOTO, orthPath);
         tileCB->setLayerPath(osgVerse::TileCallback::OCEAN_MASK, maskPath);
         tileCB->setTotalExtent(extentMin, extentMax); tileCB->setTileNumber(x, y, z);
-        tileCB->setBottomLeft(botLeft == "true" || atoi(botLeft.c_str()) > 0);
+        tileCB->setBottomLeft(atoi(botLeft.c_str()) > 0);
         tileCB->setUseWebMercator(useWM); tileCB->setFlatten(flatten);
         tileCB->setCreatePathFunction(pathFunc); tileCB->setName(name + "_Callback");
         if (opt)

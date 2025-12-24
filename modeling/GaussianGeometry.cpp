@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <iostream>
 #include <osg/io_utils>
+#include <osg/BufferIndexBinding>
+#include <osg/BufferObject>
 #include <osgUtil/CullVisitor>
 #include "Math.h"
 #include "GaussianGeometry.h"
@@ -123,21 +125,25 @@ namespace
 
 GaussianGeometry::GaussianGeometry(RenderMethod m)
 :   osg::Geometry(), _method(m), _degrees(0), _numSplats(0)
-{ setUseDisplayList(false); setUseVertexBufferObjects(true); }
+{
+    setUseDisplayList(false); setUseVertexBufferObjects(true);
+    if (_method == INSTANCING)
+    {
+        _coreBuffer = new osg::FloatArray;
+        _shcoefBuffer = new osg::FloatArray;
+    }
+}
 
 GaussianGeometry::GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop)
-: osg::Geometry(copy, copyop), _method(copy._method), _degrees(copy._degrees), _numSplats(copy._numSplats) {}
+:   osg::Geometry(copy, copyop), _preDataMap(copy._preDataMap), _preDataMap2(copy._preDataMap2),
+    _coreBuffer(copy._coreBuffer), _shcoefBuffer(copy._shcoefBuffer), _core(copy._core), _shcoef(copy._shcoef),
+    _method(copy._method), _degrees(copy._degrees), _numSplats(copy._numSplats) {}
 
 osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m)
 {
     osg::Program* program = new osg::Program;
     program->addShader(vs); program->addShader(fs);
-
-    if (m == INSTANCING)
-    {
-        program->addBindAttribLocation("osg_UserIndex", 1);
-    }
-    else
+    if (m == GEOMETRY_SHADER)
     {
         program->addShader(gs);
         program->setParameter(GL_GEOMETRY_VERTICES_OUT_EXT, 4);
@@ -159,6 +165,10 @@ osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, 
         program->addBindAttribLocation("osg_G_SH3", 14);
         program->addBindAttribLocation("osg_B_SH3", 15);
     }
+    else
+    {
+        program->addBindAttribLocation("osg_UserIndex", 1);
+    }
     return program;
 }
 
@@ -168,8 +178,16 @@ void GaussianGeometry::checkShaderFlag()
     if (_degrees > 0) getOrCreateStateSet()->setDefine("FULL_SH");
     else getOrCreateStateSet()->removeDefine("FULL_SH");
 #endif
-    if (_method == INSTANCING) getOrCreateStateSet()->setDefine("USE_INSTANCING");
-    else getOrCreateStateSet()->removeDefine("USE_INSTANCING");
+    if (_method != GEOMETRY_SHADER)
+    {
+        getOrCreateStateSet()->setDefine("USE_INSTANCING");
+        if (_method == INSTANCING_TEXTURE) getOrCreateStateSet()->setDefine("USE_INSTANCING_TEXARRAY");
+    }
+    else
+    {
+        getOrCreateStateSet()->removeDefine("USE_INSTANCING");
+        getOrCreateStateSet()->removeDefine("USE_INSTANCING_TEXARRAY");
+    }
 }
 
 #define GET_POS4(v) osg::Vec4* v = const_cast<GaussianGeometry*>(this)->getPosition4();
@@ -184,19 +202,19 @@ osg::BoundingBox GaussianGeometry::getBounding(osg::Vec4* va) const
 #if OSG_MIN_VERSION_REQUIRED(3, 3, 2)
 osg::BoundingSphere GaussianGeometry::computeBound() const
 {
-    if (_method == INSTANCING) { GET_POS4(v); return getBounding(v); }
+    if (_method != GEOMETRY_SHADER) { GET_POS4(v); return getBounding(v); }
     return osg::Geometry::computeBound();
 }
 
 osg::BoundingBox GaussianGeometry::computeBoundingBox() const
 {
-    if (_method == INSTANCING) { GET_POS4(v); return getBounding(v); }
+    if (_method != GEOMETRY_SHADER) { GET_POS4(v); return getBounding(v); }
     return osg::Geometry::computeBoundingBox();
 }
 #else
 osg::BoundingBox GaussianGeometry::computeBound() const
 {
-    if (_method == INSTANCING) { GET_POS4(v); return getBounding(v); }
+    if (_method != GEOMETRY_SHADER) { GET_POS4(v); return getBounding(v); }
     return osg::Geometry::computeBound();
 }
 #endif
@@ -206,41 +224,70 @@ osg::NodeCallback* GaussianGeometry::createUniformCallback()
 
 bool GaussianGeometry::finalize()
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         std::pair<int, int> res = calculateTextureDim(_numSplats);
         osg::StateSet* ss = getOrCreateStateSet();
         ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
 
         // Apply core attributes
-        if (!_core)
+        size_t blockSize = _numSplats * sizeof(osg::Vec4);
+        if (_coreBuffer.valid())
+        {
+            osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
+            _coreBuffer->resize(_numSplats * 16, 0.0f); _coreBuffer->setBufferObject(ssbo);
+            ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(0, _coreBuffer.get(), 0, blockSize));
+            ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(1, _coreBuffer.get(), blockSize, blockSize * 2));
+            ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(2, _coreBuffer.get(), blockSize * 2, blockSize * 3));
+            ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(3, _coreBuffer.get(), blockSize * 3, blockSize * 4));
+        }
+        else if (!_core)
         {
             _core = TextureLookUpTable::create(res.first, res.second, 4, false, false);
             ss->setTextureAttributeAndModes(0, _core.get());
             ss->addUniform(new osg::Uniform("CoreParameters", (int)0));
         }
 
+        size_t total = 0; char* ptr = _coreBuffer.valid() ? (char*)_coreBuffer->getDataPointer() : NULL;
         for (int i = 0; i < 4; ++i)
         {
             std::vector<osg::Vec4>& src = _preDataMap["Layer" + std::to_string(i)];
-            TextureLookUpTable::setFloat4(_core.get(), i, &src);
+            if (_coreBuffer.valid())
+                { memcpy(ptr + total, src.data(), src.size() * sizeof(osg::Vec4)); total += blockSize; }
+            else
+                TextureLookUpTable::setFloat4(_core.get(), i, &src);
         }
         _preDataMap.clear();  // clear host prepared data
 
         // Apply shcoef attributes
-        if (_degrees > 0 && _preDataMap2.size() > 10)
+        size_t shDataSize = _preDataMap2.size();
+        if (_degrees > 0 && shDataSize > 10)
         {
-            if (!_shcoef)
+            size_t blockSize = _numSplats * sizeof(osg::Vec4) * 15;  // rgb4 * 15
+            if (_shcoefBuffer.valid())
+            {
+                osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
+                _shcoefBuffer->resize(_numSplats * 60, 0.0f); _shcoefBuffer->setBufferObject(ssbo);
+                ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(4, _shcoefBuffer.get(), 0, blockSize));
+            }
+            else if (!_shcoef)
             {
                 _shcoef = TextureLookUpTable::create(res.first, res.second, 15, true, false);
                 ss->setTextureAttributeAndModes(1, _shcoef.get());
                 ss->addUniform(new osg::Uniform("ShParameters", (int)1));
             }
 
-            for (int i = 0; i < _preDataMap2.size(); ++i)
+            ptr = _shcoefBuffer.valid() ? (char*)_shcoefBuffer->getDataPointer() : NULL;
+            for (size_t i = 0; i < shDataSize; ++i)
             {
                 std::vector<osg::Vec3>& src = _preDataMap2["Layer" + std::to_string(i + 1)];
-                TextureLookUpTable::setFloat3(_core.get(), i, &src);
+                if (_shcoefBuffer.valid())
+                {
+                    for (size_t j = 0; j < src.size(); ++j)
+                        *((osg::Vec4*)ptr + (j * 15 + i)) = osg::Vec4(src[j], 0.0f);
+                }
+                else
+                    TextureLookUpTable::setFloat3(_core.get(), i, &src);
             }
         }
         _preDataMap2.clear();  // clear host prepared data
@@ -277,7 +324,7 @@ bool GaussianGeometry::finalize()
 void GaussianGeometry::setPosition(osg::Vec3Array* v)
 {
     if (v) _numSplats = v->size(); else return;
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         std::vector<osg::Vec4>& dst = _preDataMap["Layer0"]; dst.resize(v->size());
         for (size_t i = 0; i < v->size(); ++i)
@@ -311,7 +358,7 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
         (*cov2)[i] = osg::Vec4(cov(0, 2), cov(1, 2), cov(2, 2), 1.0f);
     }
 
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         std::vector<osg::Vec4>& dst0 = _preDataMap["Layer0"]; dst0.resize(vArray->size());
         std::vector<osg::Vec4>& dst1 = _preDataMap["Layer1"]; dst1.resize(vArray->size());
@@ -350,7 +397,7 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
 
 void GaussianGeometry::setShRed(int i, osg::Vec4Array* v)
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
         { SET_SHCOEF_DATA(1, 0, i, v); }
     else
         { setVertexAttribArray(4 + i * 3, v); setVertexAttribBinding(4 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
@@ -358,7 +405,7 @@ void GaussianGeometry::setShRed(int i, osg::Vec4Array* v)
 
 void GaussianGeometry::setShGreen(int i, osg::Vec4Array* v)
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
         { SET_SHCOEF_DATA(2, 1, i, v); }
     else
         { setVertexAttribArray(5 + i * 3, v); setVertexAttribBinding(5 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
@@ -366,7 +413,7 @@ void GaussianGeometry::setShGreen(int i, osg::Vec4Array* v)
 
 void GaussianGeometry::setShBlue(int i, osg::Vec4Array* v)
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
         { SET_SHCOEF_DATA(3, 2, i, v); }
     else
         { setVertexAttribArray(6 + i * 3, v); setVertexAttribBinding(6 + i * 3, osg::Geometry::BIND_PER_VERTEX); }
@@ -374,19 +421,21 @@ void GaussianGeometry::setShBlue(int i, osg::Vec4Array* v)
 
 osg::Vec3* GaussianGeometry::getPosition3()
 {
-    if (_method == INSTANCING) return NULL;  // not supported
+    if (_method != GEOMETRY_SHADER) return NULL;  // not supported
     else return (osg::Vec3*)getVertexArray()->getDataPointer();
 }
 
 osg::Vec4* GaussianGeometry::getPosition4()
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         if (!_preDataMap.empty())
         {
             std::vector<osg::Vec4>& dst = _preDataMap["Layer0"];
             if (!dst.empty()) return dst.data();
         }
+        else if (_coreBuffer.valid())
+            return (osg::Vec4*)_coreBuffer->getDataPointer();
         else if (_core.valid())
             return TextureLookUpTable::getFloat4(_core.get(), 0);
     }
@@ -395,7 +444,7 @@ osg::Vec4* GaussianGeometry::getPosition4()
 
 osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance0()
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         return NULL;  // TODO: not implemented
     }
@@ -405,7 +454,7 @@ osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance0()
 
 osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance1()
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         return NULL;  // TODO: not implemented
     }
@@ -415,7 +464,7 @@ osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance1()
 
 osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance2()
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         return NULL;  // TODO: not implemented
     }
@@ -441,7 +490,7 @@ osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance2()
 
 osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShRed(int index)
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
         GET_SHCOEF_DATA(ra, 1, 0, index); return ra;
@@ -452,7 +501,7 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShRed(int index)
 
 osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShGreen(int index)
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
         GET_SHCOEF_DATA(ra, 2, 1, index); return ra;
@@ -463,7 +512,7 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShGreen(int index)
 
 osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShBlue(int index)
 {
-    if (_method == INSTANCING)
+    if (_method != GEOMETRY_SHADER)
     {
         osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
         GET_SHCOEF_DATA(ra, 3, 2, index); return ra;
@@ -623,7 +672,7 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
     osg::Vec3* pos = geom->getPosition3(); osg::Vec4* pos2 = geom->getPosition4();
     int numSplats = geom->getNumSplats(); if ((!pos && !pos2) || !numSplats) return;
     
-    if (geom->getRenderMethod() == GaussianGeometry::INSTANCING)
+    if (geom->getRenderMethod() != GaussianGeometry::GEOMETRY_SHADER)
     {
         osg::UIntArray* vaa = static_cast<osg::UIntArray*>(geom->getVertexAttribArray(1));
         if (!vaa)

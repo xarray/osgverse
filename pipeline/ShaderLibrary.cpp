@@ -172,7 +172,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)
     {
 #if !defined(VERSE_EMBEDDED_GLES2)
-        if (glVer >= 300 || glslVer >= 140)
+        if (glVer >= 300 && glslVer >= 140)
         {
             m_mvp = "osg_ModelViewProjectionMatrix"; m_mv = "osg_ModelViewMatrix";
             m_p = "osg_ProjectionMatrix"; m_n = "osg_NormalMatrix";

@@ -28,8 +28,8 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT TileCallback : public osg::NodeCallback
     {
     public:
-        TileCallback()
-        :   _x(-1), _y(-1), _z(-1), _skirtRatio(0.02f), _elevationScale(1.0f), _flatten(true),
+        TileCallback(bool g = true)
+        :   _x(-1), _y(-1), _z(-1), _skirtRatio(0.02f), _elevationScale(1.0f), _withGlobeAttr(g), _flatten(true),
             _bottomLeft(false), _useWebMercator(false), _layersDone(false) { _createPathFunc = NULL; }
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
@@ -125,7 +125,7 @@ namespace osgVerse
         osg::Vec3d _extentMin, _extentMax;
         CreatePathFunc _createPathFunc;
         int _x, _y, _z; float _skirtRatio, _elevationScale;
-        bool _flatten, _bottomLeft, _useWebMercator, _layersDone;
+        bool _withGlobeAttr, _flatten, _bottomLeft, _useWebMercator, _layersDone;
     };
 
     class OSGVERSE_RW_EXPORT TileManager : public osg::Referenced

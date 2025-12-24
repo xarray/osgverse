@@ -37,7 +37,7 @@ public:
             return;
         }
 
-        osgVerse::Pipeline::createShaderDefinitions(vert, 100, 130);
+        osgVerse::Pipeline::createShaderDefinitions(vert, 100, 430);
         osgVerse::Pipeline::createShaderDefinitions(geom, 100, 130);
         osgVerse::Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
         _program = osgVerse::GaussianGeometry::createProgram(vert, geom, frag);

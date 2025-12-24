@@ -1,11 +1,26 @@
 #extension GL_EXT_draw_instanced : enable
-#pragma import_defines(USE_INSTANCING, FULL_SH)
+#pragma import_defines(USE_INSTANCING, USE_INSTANCING_TEXARRAY, FULL_SH)
 
 uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
 #if defined(USE_INSTANCING)
+#  if defined(USE_INSTANCING_TEXARRAY)
 uniform sampler2DArray CoreParameters, ShParameters;
 uniform vec2 TextureSize;
+#  else
+layout(std140, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
+layout(std140, binding = 1) restrict readonly buffer CoreCov0Buffer { vec4 coreCov0[]; };
+layout(std140, binding = 2) restrict readonly buffer CoreCov1Buffer { vec4 coreCov1[]; };
+layout(std140, binding = 3) restrict readonly buffer CoreCov2Buffer { vec4 coreCov2[]; };
+
+struct ShcoefData
+{
+    vec4 rgb0; vec4 rgb1; vec4 rgb2; vec4 rgb3; vec4 rgb4;
+    vec4 rgb5; vec4 rgb6; vec4 rgb7; vec4 rgb8; vec4 rgb9;
+    vec4 rgb10; vec4 rgb11; vec4 rgb12; vec4 rgb13; vec4 rgb14;
+};
+layout(std140, binding = 4) restrict readonly buffer ShcoefBuffer { ShcoefData shcoef[]; };
+#  endif
 
 VERSE_VS_IN float osg_UserIndex;
 VERSE_VS_OUT vec4 color, invCovariance;
@@ -70,6 +85,7 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor, in vec2 paramUV)
     b[15] = -k5 * v.x * (vx2 - 3.0f * vy2);
 
 #  if defined(USE_INSTANCING)
+#    if defined(USE_INSTANCING_TEXARRAY)
     vec4 sh_rgb0 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 0.0));
     vec4 sh_rgb1 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 1.0));
     vec4 sh_rgb2 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 2.0));
@@ -85,19 +101,24 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor, in vec2 paramUV)
     vec4 sh_rgb12 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 12.0));
     vec4 sh_rgb13 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 13.0));
     vec4 sh_rgb14 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 14.0));
-    vec4 sh_rgb15 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 15.0));
+#    else
+    ShcoefData shData = shcoef[uint(osg_UserIndex)];
+    vec4 sh_rgb0 = shData.rgb0, sh_rgb1 = shData.rgb1, sh_rgb2 = shData.rgb2, sh_rgb3 = shData.rgb3, sh_rgb4 = shData.rgb4;
+    vec4 sh_rgb5 = shData.rgb5, sh_rgb6 = shData.rgb6, sh_rgb7 = shData.rgb7, sh_rgb8 = shData.rgb8, sh_rgb9 = shData.rgb9;
+    vec4 sh_rgb10 = shData.rgb10, sh_rgb11 = shData.rgb11, sh_rgb12 = shData.rgb12, sh_rgb13 = shData.rgb13, sh_rgb14 = shData.rgb14;
+#    endif
     float re = (b[0] * baseColor.x + b[1] * sh_rgb0.x + b[2] * sh_rgb1.x + b[3] * sh_rgb2.x +
-                b[4] * sh_rgb3.x + b[5] * sh_rgb5.x + b[6] * sh_rgb6.x + b[7] * sh_rgb7.x +
-                b[8] * sh_rgb8.x + b[9] * sh_rgb9.x + b[10] * sh_rgb10.x + b[11] * sh_rgb11.x +
-                b[12] * sh_rgb12.x + b[13] * sh_rgb13.x + b[14] * sh_rgb14.x + b[15] * sh_rgb15.x);
+                b[4] * sh_rgb3.x + b[5] * sh_rgb4.x + b[6] * sh_rgb5.x + b[7] * sh_rgb6.x +
+                b[8] * sh_rgb7.x + b[9] * sh_rgb8.x + b[10] * sh_rgb9.x + b[11] * sh_rgb10.x +
+                b[12] * sh_rgb11.x + b[13] * sh_rgb12.x + b[14] * sh_rgb13.x + b[15] * sh_rgb14.x);
     float gr = (b[0] * baseColor.y + b[1] * sh_rgb0.y + b[2] * sh_rgb1.y + b[3] * sh_rgb2.y +
-                b[4] * sh_rgb3.y + b[5] * sh_rgb5.y + b[6] * sh_rgb6.y + b[7] * sh_rgb7.y +
-                b[8] * sh_rgb8.y + b[9] * sh_rgb9.y + b[10] * sh_rgb10.y + b[11] * sh_rgb11.y +
-                b[12] * sh_rgb12.y + b[13] * sh_rgb13.y + b[14] * sh_rgb14.y + b[15] * sh_rgb15.y);
+                b[4] * sh_rgb3.y + b[5] * sh_rgb4.y + b[6] * sh_rgb5.y + b[7] * sh_rgb6.y +
+                b[8] * sh_rgb7.y + b[9] * sh_rgb8.y + b[10] * sh_rgb9.y + b[11] * sh_rgb10.y +
+                b[12] * sh_rgb11.y + b[13] * sh_rgb12.y + b[14] * sh_rgb13.y + b[15] * sh_rgb14.y);
     float bl = (b[0] * baseColor.z + b[1] * sh_rgb0.z + b[2] * sh_rgb1.z + b[3] * sh_rgb2.z +
-                b[4] * sh_rgb3.z + b[5] * sh_rgb5.z + b[6] * sh_rgb6.z + b[7] * sh_rgb7.z +
-                b[8] * sh_rgb8.z + b[9] * sh_rgb9.z + b[10] * sh_rgb10.z + b[11] * sh_rgb11.z +
-                b[12] * sh_rgb12.z + b[13] * sh_rgb13.z + b[14] * sh_rgb14.z + b[15] * sh_rgb15.z);
+                b[4] * sh_rgb3.z + b[5] * sh_rgb4.z + b[6] * sh_rgb5.z + b[7] * sh_rgb6.z +
+                b[8] * sh_rgb7.z + b[9] * sh_rgb8.z + b[10] * sh_rgb9.z + b[11] * sh_rgb10.z +
+                b[12] * sh_rgb11.z + b[13] * sh_rgb12.z + b[14] * sh_rgb13.z + b[15] * sh_rgb14.z);
 #  else
     float re = (b[0] * baseColor.x + b[1] * osg_R_SH0.y + b[2] * osg_R_SH0.z + b[3] * osg_R_SH0.w +
                 b[4] * osg_R_SH1.x + b[5] * osg_R_SH1.y + b[6] * osg_R_SH1.z + b[7] * osg_R_SH1.w +
@@ -122,10 +143,18 @@ void main()
 {
     vec2 paramUV = vec2(0.0, 0.0);
 #if defined(USE_INSTANCING)
+#  if defined(USE_INSTANCING_TEXARRAY)
     float r = float(osg_UserIndex) / TextureSize.x;
     float c = floor(r) / TextureSize.y; paramUV = vec2(fract(r), c);
-
     vec4 posAlpha = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 0.0));
+    vec4 cov0 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 1.0));
+    vec4 cov1 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 2.0));
+    vec4 cov2 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 3.0));
+#  else
+    uint index = uint(osg_UserIndex);
+    vec4 posAlpha = corePos[index];
+    vec4 cov0 = coreCov0[index], cov1 = coreCov1[index], cov2 = coreCov2[index];
+#  endif
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(posAlpha.xyz, 1.0);
     float alpha = posAlpha.w, FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x;
 #else
@@ -148,9 +177,6 @@ void main()
     // combine the affine transforms of W (viewMat) and J (approx of viewportMat * projMat)
     // using the fact that the new transformed covariance matrix V_Prime = JW * V * (JW)^T
 #if defined(USE_INSTANCING)
-    vec4 cov0 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 1.0));
-    vec4 cov1 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 2.0));
-    vec4 cov2 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 3.0));
     mat3 V = mat3(cov0.xyz, cov1.xyz, cov2.xyz);
 #else
     mat3 V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
