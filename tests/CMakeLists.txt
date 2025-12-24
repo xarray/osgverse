@@ -63,7 +63,6 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST(osgVerse_Test_Auto_LOD auto_lod_test.cpp)
     NEW_TEST(osgVerse_Test_Sky_Box sky_box_test.cpp)
     NEW_TEST(osgVerse_Test_Earth_Plates earth_plates_test.cpp)
-    NEW_TEST(osgVerse_Test_3DGS gaussian_splatting_test.cpp)
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 3)
         NEW_TEST(osgVerse_Test_Instance_Param instance_param_test.cpp)
@@ -78,6 +77,11 @@ NEW_EXAMPLE(osgVerse_Test_Report_Graph report_graph_test.cpp)  # Scene graph str
 NEW_EXAMPLE(osgVerse_Test_Shader_Library shader_library_test.cpp)  # Shader library loading and platform-testing example
 NEW_EXAMPLE(osgVerse_Test_Shadow shadow_test.cpp)  # Shadow algorithm and efficiency testing example
 NEW_EXAMPLE(osgVerse_Test_Earth earth_test.cpp)  # Lightweight earth, atmosphere and ocean creation example
+NEW_EXAMPLE(osgVerse_Test_3DGS gaussian_splatting_test.cpp)  # 3D gaussian splatting load and render example
+IF(ONNXRUNTIME_FOUND)
+    NEW_EXAMPLE(osgVerse_Test_Onnx onnx_engine_test.cpp)  # ONNX-based AI model load and inference example
+ENDIF(ONNXRUNTIME_FOUND)
+
 IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Pbr_Prerequisite pbr_prerequisite.cpp)  # PBR necessary textures creator example
     NEW_EXAMPLE(osgVerse_Test_Atmospheric atmospheric_scattering.cpp)  # Precomputed atmosphere textures example // FIXME: implement

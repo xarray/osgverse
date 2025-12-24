@@ -120,5 +120,8 @@ int main(int argc, char** argv)
 
     GaussianStateVisitor gsv(sorter.get()); gs->accept(gsv);
     viewer.getCamera()->setPreDrawCallback(new SortCallback(sorter.get()));
+
+    int screenNo = 0; arguments.read("--screen", screenNo);
+    viewer.setUpViewOnSingleScreen(screenNo);
     return viewer.run();
 }

@@ -23,6 +23,8 @@ namespace osgVerse
         std::vector<int64_t> getModelShapes(bool inputLayer, const std::string& name) const;
         DataType getModelDataType(bool inputLayer, const std::string& name) const;
 
+        bool addInput(const std::vector<osg::Image*>& images, const std::string& inName);
+
     protected:
         virtual ~OnnxInferencer();
         void* _handle;
