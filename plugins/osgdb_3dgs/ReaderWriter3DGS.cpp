@@ -12,6 +12,7 @@
 
 // Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/
 osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path);
+osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path);
 
 class ReaderWriter3DGS : public osgDB::ReaderWriter
 {
@@ -24,7 +25,8 @@ public:
         supportsExtension("ksplat", "Mark Kellogg's splat file");
         supportsExtension("spz", "Niantic Labs' splat file");
         supportsExtension("lcc", "XGrids' splat file");
-        //supportsExtension("json", "PlayCanvas SOGS' meta.json file");
+        supportsExtension("json", "PlayCanvas SOG's meta.json file");
+        //supportsExtension("sog", "PlayCanvas SOG's ZIP file");
     }
 
     virtual const char* className() const
@@ -63,8 +65,8 @@ public:
             }
             else if (ext == "json")
             {
-                // TODO
-                return ReadResult::NOT_IMPLEMENTED;
+                osg::ref_ptr<osg::Node> node = loadSplatFromSOG(fin, prefix);
+                if (node.valid()) return node.get();
             }
 
             spz::GaussianCloud cloud;
