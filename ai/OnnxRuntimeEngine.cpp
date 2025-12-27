@@ -1,5 +1,7 @@
 #include "OnnxRuntimeEngine.h"
+#include <osg/io_utils>
 #include <onnxruntime_cxx_api.h>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 using namespace osgVerse;
@@ -14,6 +16,8 @@ namespace
         {
             Ort::SessionOptions session_options; Ort::Status status;
             session_options.SetIntraOpNumThreads(1);
+            session_options.SetInterOpNumThreads(1);
+            session_options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
             session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 #ifdef VERSE_USE_CUDA
             if (type == OnnxInferencer::CUDA)
@@ -55,6 +59,17 @@ namespace
         };
         const ModelInformation& getModelInformation() const { return _modelInfo; }
 
+        struct InferenceWorkData
+        {
+            std::vector<std::string> inNames, outNames;
+            std::vector<Ort::Value> inputs, outputs;
+            OnnxInferencer::FinishedCallback callback;
+            bool finished, failed;
+            InferenceWorkData()
+                : callback(NULL), finished(false), failed(false) {}
+        };
+        InferenceWorkData& getWorkData() { return _work; }
+
         static const char* getDataTypeName(ONNXTensorElementDataType type)
         {
             switch (type)
@@ -79,9 +94,32 @@ namespace
             return "Unknown";
         }
 
-        static void runCallback(void* userData, OrtValue** outputs, size_t numOutputs, OrtStatus* status)
+        static void runCallback(void* userData, Ort::Value* outputs, size_t numOutputs, OrtStatus* status)
         {
-            // TODO
+            OnnxWrapper* wrapper = (OnnxWrapper*)userData;
+            wrapper->_work.outNames = wrapper->_modelInfo.outputNames;
+            wrapper->_work.failed = (status != NULL); wrapper->_work.finished = true;
+            if (wrapper->_work.callback) (wrapper->_work.callback)(status == NULL);
+        }
+
+        template<typename T>
+        Ort::Value createInput(const std::vector<std::vector<T>>& values,
+                               ONNXTensorElementDataType type, const std::string& checkInName)
+        {
+            Ort::Value tensor; if (values.empty()) return tensor;
+            std::vector<int64_t> shapes = { (int64_t)values.size(), (int64_t)values[0].size() };
+            if (checkValidation(checkInName, shapes, type, true))
+            {
+                tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(), type);
+                T* ptr = tensor.GetTensorMutableData<T>(); size_t totalSize = 0;
+                for (size_t i = 0; i < values.size(); ++i)
+                {
+                    const std::vector<T>& subValues = values[i];
+                    size_t size = subValues.size() * sizeof(T);
+                    memcpy(ptr + totalSize, subValues.data(), size); totalSize += size;
+                }
+            }
+            return tensor;
         }
 
         Ort::Value createInput(const std::vector<osg::Image*>& images, const std::string& checkInName)
@@ -89,7 +127,7 @@ namespace
             Ort::Value tensor; osg::Image* firstImage = NULL;
             if (images.empty()) return tensor; else firstImage = images.front();
 
-            int64_t channels = osg::Image::computeNumComponents(firstImage->getPixelFormat());
+            int64_t channels = osg::Image::computeNumComponents(firstImage->getPixelFormat()), totalSize = 0;
             std::vector<int64_t> shapes = { (int64_t)images.size(), channels, firstImage->t(), firstImage->s() };
             switch (firstImage->getDataType())
             {
@@ -99,7 +137,11 @@ namespace
                     tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(),
                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8);
                     unsigned char* ptr = tensor.GetTensorMutableData<unsigned char>();
-                    // TODO
+                    for (size_t i = 0; i < images.size(); ++i)
+                    {
+                        osg::Image* img = images[i]; int size = img->getTotalSizeInBytes();
+                        memcpy(ptr + totalSize, img->data(), size); totalSize += size;
+                    }
                 } break;
             case GL_FLOAT:
                 if (checkValidation(checkInName, shapes, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, true))
@@ -107,7 +149,11 @@ namespace
                     tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(),
                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
                     float* ptr = tensor.GetTensorMutableData<float>();
-                    // TODO
+                    for (size_t i = 0; i < images.size(); ++i)
+                    {
+                        osg::Image* img = images[i]; int size = img->getTotalSizeInBytes();
+                        memcpy(ptr + totalSize, img->data(), size); totalSize += size;
+                    }
                 } break;
             default:
                 OSG_NOTICE << "[OnnxInferencer] Input image type unsupported: " << std::hex
@@ -134,33 +180,22 @@ namespace
 
             std::string info; for (size_t i = 0; i < shapes.size(); ++i) info += "/" + std::to_string(shapes[i]);
             OSG_NOTICE << "[OnnxInferencer] Failed to check validation of tensor: Expected = "
-                       << getTensorInformation(n, asInput) << "; Provided = " << n << "/"
+                       << getTensorInformation(n, asInput) << "; Current = " << n << "/"
                        << getDataTypeName(type) << info << std::endl; return false;
         }
 
-        void runAsync(const std::vector<std::string>& inNameStrings, const std::vector<Ort::Value>& inTensors)
+        void runSync(const std::vector<std::string>& inNameStrings,
+                      const std::vector<Ort::Value>& inTensors, std::vector<Ort::Value>& outTensors)
         {
-            std::vector<const char*> inNames, outNames; std::vector<Ort::Value> outTensors;
+            std::vector<const char*> inNames, outNames;
             const std::vector<std::string>& inputNames = inNameStrings.empty() ? _modelInfo.inputNames : inNameStrings;
             for (size_t i = 0; i < inputNames.size(); ++i) inNames.push_back(inputNames[i].c_str());
             for (size_t i = 0; i < _modelInfo.outputNames.size(); ++i) outNames.push_back(_modelInfo.outputNames[i].c_str());
 
-            size_t inTensorSize = osg::minimum(inTensors.size(), inNames.size());
-            Ort::AllocatorWithDefaultOptions allocator;
-            for (size_t i = 0; i < outNames.size(); ++i)
-            {
-                const char* name = outNames[i]; size_t elementCount = 1;
-                ONNXTensorElementDataType type = _modelInfo.outputTypes[name];
-                std::vector<int64_t> shapes = _modelInfo.outputShapes[name];
-                for (size_t s = 0; s < shapes.size(); ++s) { if (shapes[s] > 0) elementCount *= shapes[s]; }
-
-                Ort::Value outTensor = Ort::Value::CreateTensor(allocator, shapes.data(), shapes.size(), type);
-                outTensors.push_back(std::move(outTensor));
-            }
-
-            Ort::RunOptions options;
-            _session.RunAsync(options, inNames.data(), inTensors.data(), inTensorSize,
-                outNames.data(), outTensors.data(), outTensors.size(), &runCallback, this);
+            Ort::RunOptions options; size_t inTensorSize = osg::minimum(inTensors.size(), inNames.size());
+            std::vector<Ort::Value> results = _session.Run(options, inNames.data(), inTensors.data(), inTensorSize,
+                                                           outNames.data(), outNames.size());
+            outTensors.swap(results); runCallback(this, outTensors.data(), outTensors.size(), NULL);  // FIXME: implement RunAsync
         }
 
     protected:
@@ -199,6 +234,7 @@ namespace
         Ort::Session _session;
         Ort::AllocatorWithDefaultOptions _allocator;
         ModelInformation _modelInfo;
+        InferenceWorkData _work;
     };
 }
 
@@ -206,7 +242,7 @@ OnnxInferencer::OnnxInferencer(const std::wstring& modelPath, DeviceType type, i
     : _handle(NULL)
 {
     try { _handle = new OnnxWrapper(modelPath, type, deviceID); }
-    catch (std::exception& e) { OSG_WARN << "[OnnxInferencer] Failed to load model: " << e.what(); }
+    catch (std::exception& e) { OSG_WARN << "[OnnxInferencer] Failed to load model: " << e.what() << "\n"; }
 }
 
 OnnxInferencer::~OnnxInferencer()
@@ -260,10 +296,126 @@ OnnxInferencer::DataType OnnxInferencer::getModelDataType(bool in, const std::st
     return UnknownData;
 }
 
+#define INPUT_TENSOR(values, inName, type) \
+    OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false; \
+    Ort::Value tensor = w->createInput(values, type, inName); if (!tensor.IsTensor()) return false; \
+    OnnxWrapper::InferenceWorkData& work = w->getWorkData(); \
+    work.inputs.push_back(std::move(tensor)); work.inNames.push_back(inName); return true;
+
+bool OnnxInferencer::addInput(const std::vector<std::vector<float>>& values, const std::string& inName)
+{ INPUT_TENSOR(values, inName, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT); }
+bool OnnxInferencer::addInput(const std::vector<std::vector<unsigned char>>& values, const std::string& inName)
+{ INPUT_TENSOR(values, inName, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8); }
+bool OnnxInferencer::addInput(const std::vector<std::vector<char>>& values, const std::string& inName)
+{ INPUT_TENSOR(values, inName, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8); }
+bool OnnxInferencer::addInput(const std::vector<std::vector<unsigned short>>& values, const std::string& inName)
+{ INPUT_TENSOR(values, inName, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16); }
+bool OnnxInferencer::addInput(const std::vector<std::vector<short>>& values, const std::string& inName)
+{ INPUT_TENSOR(values, inName, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16); }
+bool OnnxInferencer::addInput(const std::vector<std::vector<unsigned int>>& values, const std::string& inName)
+{ INPUT_TENSOR(values, inName, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32); }
+bool OnnxInferencer::addInput(const std::vector<std::vector<int>>& values, const std::string& inName)
+{ INPUT_TENSOR(values, inName, ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32); }
+
 bool OnnxInferencer::addInput(const std::vector<osg::Image*>& images, const std::string& inName)
 {
     OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false;
     Ort::Value value = w->createInput(images, inName);
-    // TODO
-    return true;
+    if (!value.IsTensor()) return false;
+
+    OnnxWrapper::InferenceWorkData& work = w->getWorkData();
+    work.inputs.push_back(std::move(value));
+    work.inNames.push_back(inName); return true;
+}
+
+bool OnnxInferencer::run(FinishedCallback cb)
+{
+    OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false;
+    OnnxWrapper::InferenceWorkData& work = w->getWorkData();
+    if (work.inputs.empty()) return false; else work.callback = cb;
+
+    work.outputs.clear(); work.outNames.clear(); work.finished = false;
+    try { w->runSync(work.inNames, work.inputs, work.outputs); return true; }
+    catch (std::exception& e) { OSG_WARN << "[OnnxInferencer] Failed to run model: " << e.what() << "\n"; }
+    return false;
+}
+
+#define OUTPUT_TENSOR(values, index, type) \
+    OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false; \
+    OnnxWrapper::InferenceWorkData& work = w->getWorkData(); if (work.outputs.size() <= index) return false; \
+    Ort::Value& tensor = work.outputs[index]; size_t count = tensor.GetTensorTypeAndShapeInfo().GetElementCount(); \
+    type* data = tensor.GetTensorMutableData<type>(); if (!data) return false; \
+    values.assign(data, data + count); return true;
+
+bool OnnxInferencer::getOutput(std::vector<float>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, float); }
+bool OnnxInferencer::getOutput(std::vector<unsigned char>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, unsigned char); }
+bool OnnxInferencer::getOutput(std::vector<char>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, char); }
+bool OnnxInferencer::getOutput(std::vector<unsigned short>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, unsigned short); }
+bool OnnxInferencer::getOutput(std::vector<short>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, short); }
+bool OnnxInferencer::getOutput(std::vector<unsigned int>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, unsigned int); }
+bool OnnxInferencer::getOutput(std::vector<int>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, int); }
+
+osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const std::vector<int64_t>& shapes)
+{
+    size_t shapeCount = shapes.size(); if (!img0 || shapeCount < 3) return img0;
+    int channels = shapeCount > 3 ? (int)shapes[1] : (int)shapes[0],
+        w = (int)shapes.back(), h = (int)shapes[shapeCount - 2];
+    GLenum pixelFmt = GL_RGBA, dataType = GL_UNSIGNED_BYTE, internalFmt = GL_RGBA8;
+    switch (type)
+    {
+    case HalfData:
+        switch (channels)
+        {
+        case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE16F_ARB; break;
+        case 2: pixelFmt = GL_RG; internalFmt = GL_RG16F; break;
+        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB16F_ARB; break;
+        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA16F_ARB; break;
+        }
+        dataType = GL_HALF_FLOAT; break;
+    case FloatData:
+        switch (channels)
+        {
+        case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE32F_ARB; break;
+        case 2: pixelFmt = GL_RG; internalFmt = GL_RG32F; break;
+        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB32F_ARB; break;
+        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA32F_ARB; break;
+        }
+        dataType = GL_FLOAT; break;
+    case UCharData:
+        switch (channels)
+        {
+        case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE8; break;
+        case 2: pixelFmt = GL_RG; internalFmt = GL_RG8; break;
+        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB8; break;
+        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA8; break;
+        }
+        dataType = GL_UNSIGNED_BYTE; break;
+    case UShortData:
+        switch (channels)
+        {
+        case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE16; break;
+        case 2: pixelFmt = GL_RG; internalFmt = GL_RG16UI; break;
+        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB16UI_EXT; break;
+        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA16UI_EXT; break;
+        }
+        dataType = GL_UNSIGNED_SHORT;break;
+    case UIntData:
+        switch (channels)
+        {
+        case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE32I_EXT; break;
+        case 2: pixelFmt = GL_RG; internalFmt = GL_RG32UI; break;
+        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB32UI_EXT; break;
+        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA32UI_EXT; break;
+        }
+        dataType = GL_UNSIGNED_INT; break;
+    }
+
+    osg::ref_ptr<osg::Image> img = new osg::Image;
+    img->allocateImage(img0->s(), img0->t(), 1, pixelFmt, dataType);
+    img->setInternalTextureFormat(internalFmt);
+    for (int y = 0; y < img0->t(); ++y) for (int x = 0; x < img0->s(); ++x)
+        { osg::Vec4 color = img0->getColor(x, y); img->setColor(color, x, y); }
+    if (img->s() != w || img->t() != h) img->scaleImage(w, h, 1);
+    if (img->getOrigin() == osg::Image::BOTTOM_LEFT) img->flipVertical();
+    return img.release();
 }

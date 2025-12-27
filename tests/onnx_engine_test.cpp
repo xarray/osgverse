@@ -33,17 +33,25 @@ int main(int argc, char** argv)
         new osgVerse::OnnxInferencer(osgDB::convertUTF8toUTF16(modelName), osgVerse::OnnxInferencer::CUDA);
     std::cout << modelName << ": " << inferencer->getModelDescription();
 
-    osg::ref_ptr<osg::Image> image = osgDB::readImageFile("Images/osg64.png");
+    std::string inputName = inferencer->getModelLayerNames(true).front();
+    osg::ref_ptr<osg::Image> image = osgDB::readImageFile(BASE_DIR + "/misc/mnist_test.jpg");
+    image = osgVerse::OnnxInferencer::convertImage(
+        image.get(), inferencer->getModelDataType(true, inputName), inferencer->getModelShapes(true, inputName));
 
-    std::vector<osg::Image*> images; images.push_back(image.get());
-    inferencer->addInput(images, inferencer->getModelLayerNames(true).front());
+    inferencer->addInput(std::vector<osg::Image*>{ image.get() }, inputName);
+    inferencer->run([&inferencer](bool success)
+    {
+        if (!success) std::cout << "Failed to run task\n"; else std::cout << "Results: ";
+        std::vector<float> values; inferencer->getOutput(values);
+        for (size_t i = 0; i < values.size(); ++i) std::cout << values[i] << " ";
+    });
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
-    viewer.setUpViewInWindow(0, 0, 960, 600);
+    viewer.setUpViewInWindow(50, 50, 960, 600);
     viewer.realize();
 
     while (!viewer.done())
