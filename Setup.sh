@@ -51,7 +51,7 @@ case "$BuildMode" in
         CMakeResultChecker=build/osg_core/CMakeCache.txt
         ;;
     2)  echo "OpenGL ES 3 Mode."
-        BuildResultChecker=build/sdk_es3/lib/libosgviewer.a
+        BuildResultChecker=build/sdk_es3/bin/osgviewer
         CMakeResultChecker=build/osg_es3/CMakeCache.txt
         ;;
     3)  echo "WebAssembly WebGL 1."
@@ -277,6 +277,7 @@ if [ "$BuildMode" = '1' ]; then
 
     ExtraOptions="
         -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
+        -DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_core
         -DOPENGL_PROFILE=GLCORE"
     if [ "$SkipOsgBuild" = 0 ]; then
@@ -296,6 +297,7 @@ elif [ "$BuildMode" = '2' ]; then
 
     ExtraOptions="
         -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
+        -DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_es3
         -DEGL_LIBRARY=$EGL_LibPath -DOPENGL_gl_LIBRARY=$GLES_LibPath
         -DOSG_WINDOWING_SYSTEM=None -DOPENGL_PROFILE=GLES3"
@@ -460,14 +462,15 @@ else
 
     # Default toolchain
     if [ "$BuildMode" = '1' ]; then
-        ExtraOptions2=""
+        ExtraOptions2="-DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl"
         OsgRootLocation="$CurrentDir/build/sdk_core"
         if [ ! -d "$CurrentDir/build/verse_core" ]; then
             mkdir $CurrentDir/build/verse_core
         fi
         cd $CurrentDir/build/verse_core
     elif [ "$BuildMode" = '2' ]; then
-        ExtraOptions2="-DOSG_EGL_LIBRARY=$EGL_LibPath -DOSG_GLES_LIBRARY=$GLES_LibPath"
+        ExtraOptions2="-DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
+                       -DOSG_EGL_LIBRARY=$EGL_LibPath -DOSG_GLES_LIBRARY=$GLES_LibPath"
         OsgRootLocation="$CurrentDir/build/sdk_es3"
         if [ ! -d "$CurrentDir/build/verse_es3" ]; then
             mkdir $CurrentDir/build/verse_es3
