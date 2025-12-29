@@ -38,9 +38,9 @@ namespace
         for (size_t i = 0; i < va.size(); ++i)
         {
             osg::Vec4ub valueL = *(ptrL + i), valueU = *(ptrU + i);
-            float qx = (unsigned short(valueU.r() << 8) | valueL.r()) / 65535.0f;
-            float qy = (unsigned short(valueU.g() << 8) | valueL.g()) / 65535.0f;
-            float qz = (unsigned short(valueU.b() << 8) | valueL.b()) / 65535.0f;
+            float qx = ((unsigned short)(valueU.r() << 8) | valueL.r()) / 65535.0f;
+            float qy = ((unsigned short)(valueU.g() << 8) | valueL.g()) / 65535.0f;
+            float qz = ((unsigned short)(valueU.b() << 8) | valueL.b()) / 65535.0f;
 
             osg::Vec3 pos(mins[0] * (1.0f - qx) + maxs[0] * qx, mins[1] * (1.0f - qy) + maxs[1] * qy,
                           mins[2] * (1.0f - qz) + maxs[2] * qz);
@@ -54,11 +54,11 @@ namespace
         if (scales->getDataType() != GL_UNSIGNED_BYTE || scales->getPixelFormat() != GL_RGBA)
         { OSG_NOTICE << "[ReaderWriter3DGS] SOG 'scales' image format mismatch\n"; return; }
 
-        osg::Vec4ub* ptr = (osg::Vec4ub*)scales->data(); codes.resize(255);
+        osg::Vec4ub* ptr = (osg::Vec4ub*)scales->data(); codes.resize(256);
         for (size_t i = 0; i < sa.size(); ++i)
         {
             osg::Vec4ub value = *(ptr + i);
-            sa[i] = osg::Vec3(codes[value.r()], codes[value.g()], codes[value.b()]);
+            sa[i] = osg::Vec3(exp(codes[value.r()]), exp(codes[value.g()]), exp(codes[value.b()]));
         }
     }
 
@@ -96,14 +96,56 @@ namespace
         if (sh0->getDataType() != GL_UNSIGNED_BYTE || sh0->getPixelFormat() != GL_RGBA)
         { OSG_NOTICE << "[ReaderWriter3DGS] SOG 'sh0' image format mismatch\n"; return; }
 
-        osg::Vec4ub* ptr = (osg::Vec4ub*)sh0->data(); codes.resize(255);
-        const double SH_C0 = 0.28209479177387814;
+        //const static double SH_C0 = 0.28209479177387814;
+        osg::Vec4ub* ptr = (osg::Vec4ub*)sh0->data(); codes.resize(256);
         for (size_t i = 0; i < a.size(); ++i)
         {
             osg::Vec4ub value = *(ptr + i); a[i] = value.a() / 255.0f;
-            r0[i] = osg::Vec4(codes[value.r()] * SH_C0 + 0.5f, 0.0f, 0.0f, 0.0f);
-            g0[i] = osg::Vec4(codes[value.g()] * SH_C0 + 0.5f, 0.0f, 0.0f, 0.0f);
-            b0[i] = osg::Vec4(codes[value.b()] * SH_C0 + 0.5f, 0.0f, 0.0f, 0.0f);
+            r0[i] = osg::Vec4(codes[value.r()], 0.0f, 0.0f, 0.0f);
+            g0[i] = osg::Vec4(codes[value.g()], 0.0f, 0.0f, 0.0f);
+            b0[i] = osg::Vec4(codes[value.b()], 0.0f, 0.0f, 0.0f);
+        }
+    }
+
+    static void createSogColorsN(osg::Vec4Array& r0, osg::Vec4Array& g0, osg::Vec4Array& b0,
+                                 osg::Vec4Array& r1, osg::Vec4Array& g1, osg::Vec4Array& b1,
+                                 osg::Vec4Array& r2, osg::Vec4Array& g2, osg::Vec4Array& b2,
+                                 osg::Vec4Array& r3, osg::Vec4Array& g3, osg::Vec4Array& b3,
+                                 osg::Image* centroids, osg::Image* labels, std::vector<float>& codes,
+                                 size_t numDegrees, size_t numEntries)
+    {
+        if (!centroids) { OSG_NOTICE << "[ReaderWriter3DGS] SOG 'shN_centroids' image missing\n"; return; }
+        if (!labels) { OSG_NOTICE << "[ReaderWriter3DGS] SOG 'shN_labels' image missing\n"; return; }
+        if (centroids->getDataType() != GL_UNSIGNED_BYTE || centroids->getPixelFormat() != GL_RGBA ||
+            labels->getDataType() != GL_UNSIGNED_BYTE || labels->getPixelFormat() != GL_RGBA)
+        { OSG_NOTICE << "[ReaderWriter3DGS] SOG 'shN' image format mismatch\n"; return; }
+
+        const static std::vector<int> coeffs = { 0, 3, 8, 15 };
+        int coeff = coeffs[numDegrees]; std::vector<float> R(coeff), G(coeff), B(coeff);
+        if (centroids->getOrigin() == osg::Image::BOTTOM_LEFT) centroids->flipVertical();
+
+        osg::Vec4ub* ptrC = (osg::Vec4ub*)centroids->data();
+        osg::Vec4ub* ptrL = (osg::Vec4ub*)labels->data(); codes.resize(256);
+        for (size_t i = 0; i < r0.size(); ++i)
+        {
+            osg::Vec4ub value = *(ptrL + i);
+            unsigned short q = (unsigned short)(value.g() << 8) | value.r();
+            for (int j = 0; j < coeff; ++j)
+            {
+                const int cx = (int)(q % 64) * coeff + j, cy = (int)floor(q / 64);
+                osg::Vec4ub center = *(ptrC + cy * centroids->s() + cx);
+                R[j] = codes[center.r()]; G[j] = codes[center.g()]; B[j] = codes[center.b()];
+            }
+
+            r0[i] = osg::Vec4(r0[i].r(), R[0], R[1], R[2]);
+            g0[i] = osg::Vec4(g0[i].r(), G[0], G[1], G[2]);
+            b0[i] = osg::Vec4(b0[i].r(), B[0], B[1], B[2]);
+            for (int k = 0; k < 4; ++k)
+            {
+                r1[i][k] = R[3 + k]; g1[i][k] = G[3 + k]; b1[i][k] = B[3 + k];
+                r2[i][k] = R[7 + k]; g2[i][k] = G[7 + k]; b2[i][k] = B[7 + k];
+                r3[i][k] = R[11 + k]; g3[i][k] = G[11 + k]; b3[i][k] = B[11 + k];
+            }
         }
     }
 }
@@ -129,10 +171,10 @@ osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& pa
 
     double version = versionObj.is<double>() ? versionObj.get<double>() : 1;
     double count = countObj.is<double>() ? countObj.get<double>() : 0;
-    if (version < 2) { OSG_NOTICE << "[ReaderWriter3DGS] SOG version 1 not supported\n"; return NULL; }
+    if (version < 2) { OSG_NOTICE << "[ReaderWriter3DGS] SOG version 1 is not supported\n"; return NULL; }
 
-    std::map<std::string, osg::ref_ptr<osg::Image>> images;
-    std::vector<float> scaleCode, sh0Code; osg::Vec3 meansMin, meansMax;
+    std::map<std::string, osg::ref_ptr<osg::Image>> images; osg::Vec3 meansMin, meansMax;
+    std::vector<float> scaleCode, sh0Code, shNCode; size_t numDegrees = 0, numEntries = 0;
     if (meansObj.is<picojson::object>())
     {
         picojson::array mins = meansObj.get("mins").get<picojson::array>();
@@ -175,6 +217,18 @@ osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& pa
             images["sh0_" + std::to_string(i)] = readDataImage(path + "/" + files[i].get<std::string>());
     }
 
+    if (shNObj.is<picojson::object>())
+    {
+        picojson::array codebook = shNObj.get("codebook").get<picojson::array>();
+        for (size_t i = 0; i < codebook.size(); ++i) shNCode.push_back(codebook[i].get<double>());
+
+        picojson::array files = shNObj.get("files").get<picojson::array>();
+        for (size_t i = 0; i < files.size(); ++i)
+            images["shN_" + std::to_string(i)] = readDataImage(path + "/" + files[i].get<std::string>());
+        numDegrees = (size_t)shNObj.get("bands").get<double>();
+        numEntries = (size_t)shNObj.get("count").get<double>();
+    }
+
     // Create data arrays from loaded images
     osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array(count), scale = new osg::Vec3Array(count);
     osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array(count); osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray(count);
@@ -185,10 +239,21 @@ osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& pa
 
 #if true
     osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
-    geom->setShDegrees(0); geom->setPosition(pos.get());
+    geom->setShDegrees(numDegrees); geom->setPosition(pos.get());
     geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
-    geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get());
-    geom->setShBlue(0, bD0.get()); geom->finalize();
+    geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get()); geom->finalize();
+
+    if (numDegrees == 3)  // FIXME: consider degree 1 and 2?
+    {
+        osg::ref_ptr<osg::Vec4Array> rD1 = new osg::Vec4Array(count), gD1 = new osg::Vec4Array(count), bD1 = new osg::Vec4Array(count),
+                                     rD2 = new osg::Vec4Array(count), gD2 = new osg::Vec4Array(count), bD2 = new osg::Vec4Array(count),
+                                     rD3 = new osg::Vec4Array(count), gD3 = new osg::Vec4Array(count), bD3 = new osg::Vec4Array(count);
+        createSogColorsN(*rD0, *gD0, *bD0, *rD1, *gD1, *bD1, *rD2, *gD2, *bD2, *rD3, *gD3, *bD3,
+                         images["shN_0"].get(), images["shN_1"].get(), shNCode, numDegrees, numEntries);
+        geom->setShRed(1, rD1.get()); geom->setShGreen(1, gD1.get()); geom->setShBlue(1, bD1.get());
+        geom->setShRed(2, rD2.get()); geom->setShGreen(2, gD2.get()); geom->setShBlue(2, bD2.get());
+        geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get());
+    }
 #else
     osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
     geom->setVertexArray(pos.get());

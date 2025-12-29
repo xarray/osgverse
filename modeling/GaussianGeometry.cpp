@@ -224,10 +224,10 @@ osg::NodeCallback* GaussianGeometry::createUniformCallback()
 
 bool GaussianGeometry::finalize()
 {
+    osg::StateSet* ss = getOrCreateStateSet();
     if (_method != GEOMETRY_SHADER)
     {
         std::pair<int, int> res = calculateTextureDim(_numSplats);
-        osg::StateSet* ss = getOrCreateStateSet();
         ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
 
         // Apply core attributes
@@ -541,27 +541,27 @@ public:
             for (std::map<osg::VectorGLuint*, Task>::iterator it = tempTasks.begin();
                  it != tempTasks.end(); ++it)
             {
-                Task& task = it->second;
+                Task& task = it->second; size_t numCulled = 0;
                 if (task.indices.empty()) continue;
 
                 std::vector<GLuint> keys(task.indices.size());
                 if (task.positions3)
                 {
                     for (size_t i = 0; i < task.indices.size(); ++i)
-                    {
+                    {   // comparing floating-point numbers as integers
                         float d = (task.positions3[task.indices[i]] * task.localToEye).z();
                         union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
-                        keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+                        keys[i] = (GLuint)un.u; if (d > 0.0f) numCulled++;
                     }
                 }
                 else if (task.positions4)
                 {
                     for (size_t i = 0; i < task.indices.size(); ++i)
-                    {
+                    {   // comparing floating-point numbers as integers
                         const osg::Vec4& v = task.positions4[task.indices[i]];
                         float d = (osg::Vec3(v[0], v[1], v[2]) * task.localToEye).z();
                         union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
-                        keys[i] = (GLuint)un.u;  // comparing floating-point numbers as integers
+                        keys[i] = (GLuint)un.u; if (d > 0.0f) numCulled++;
                     }
                 }
 
@@ -569,7 +569,8 @@ public:
                 parallel_radix_sort::SortPairs(&keys[0], &(task.indices)[0], keys.size());
 
                 _resultLock.lock();
-                _sortResults[it->first].assign(task.indices.rbegin(), task.indices.rend());
+                ResultIndices& ri = _sortResults[it->first]; ri.second = numCulled;
+                ri.first.assign(task.indices.rbegin(), task.indices.rend());
                 _resultLock.unlock();
 
                 _taskLock.lock();
@@ -592,11 +593,12 @@ public:
         _taskLock.unlock(); return num;
     }
 
-    bool applyResult(osg::VectorGLuint* de)
+    bool applyResult(osg::VectorGLuint* de, size_t& numCulled)
     {
         bool taskDone = false; _resultLock.lock();
-        std::map<osg::VectorGLuint*, std::vector<GLuint>>::iterator it = _sortResults.find(de);
-        if (it != _sortResults.end()) { de->swap(it->second); _sortResults.erase(it); taskDone = true; }
+        std::map<osg::VectorGLuint*, ResultIndices>::iterator it = _sortResults.find(de);
+        if (it != _sortResults.end()) { numCulled = it->second.second; de->swap(it->second.first);
+                                        _sortResults.erase(it); taskDone = true; }
         _resultLock.unlock(); return taskDone;
     }
 
@@ -609,9 +611,10 @@ protected:
         osg::Matrix localToEye;
     };
 
+    typedef std::pair<std::vector<GLuint>, size_t> ResultIndices;
+    std::map<osg::VectorGLuint*, ResultIndices> _sortResults;
     std::set<osg::VectorGLuint*> _sortTaskFlags;
     std::map<osg::VectorGLuint*, Task> _sortTasks;
-    std::map<osg::VectorGLuint*, std::vector<GLuint>> _sortResults;
     OpenThreads::Mutex _taskLock, _resultLock;
     bool _running;
 };
@@ -699,7 +702,7 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
         indices = de; indexBuffer = de;
     }
 
-    osg::Matrix localToEye = model * view; bool toSort = true;
+    osg::Matrix localToEye = model * view; size_t numCulled = 0; bool toSort = true;
     if (_onDemand)
     {
         osg::Matrix& matrix = _geometryMatrices[geom];
@@ -714,7 +717,16 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
             // FIXME: use different threads to share the burden
             GaussianSortThread* thread = static_cast<GaussianSortThread*>(_sortThreads[0]);
             if (toSort) thread->addTask(pos, pos2, indices, localToEye);
-            if (thread->applyResult(indices)) indexBuffer->dirty();
+            if (thread->applyResult(indices, numCulled))
+            {
+                if (geom->getRenderMethod() != GaussianGeometry::GEOMETRY_SHADER)
+                {
+                    osg::DrawElementsUShort* de = (geom->getNumPrimitiveSets() > 0)
+                                                ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
+                    de->setNumInstances(numSplats - numCulled); de->dirty();
+                }
+                indexBuffer->dirty();
+            }
         }
         break;
     case GL46_RADIX_SORT:

@@ -281,9 +281,9 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
 
     osg::Geometry* geom = new osg::Geometry;
     geom->setVertexArray(va.get()); geom->setTexCoordArray(0, ta.get());
-    geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
     if (_withGlobeAttr)
     {
+        geom->setNormalArray(na.get()); geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
         geom->setVertexAttribArray(GLOBE_ATTRIBUTE_INDEX, ca.get());
         geom->setVertexAttribNormalize(GLOBE_ATTRIBUTE_INDEX, GL_FALSE);
         geom->setVertexAttribBinding(GLOBE_ATTRIBUTE_INDEX, osg::Geometry::BIND_PER_VERTEX);
@@ -336,7 +336,7 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
                 osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
                 (*va)[vi] = osg::Vec3(ecef * _worldToLocal);
-                (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
+                if (na.valid()) { (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize(); }
 
                 // For ocean plane, save height difference when ALTITUDE = 0
                 if (ca.valid())
@@ -373,7 +373,7 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
                 (*va)[vi] = osg::Vec3(osg::RadiansToDegrees(lla[1]), osg::RadiansToDegrees(lla[0]), lla[2]);
-                (*na)[vi] = osg::Z_AXIS; lastAlt = altitude;
+                if (na.valid()) (*na)[vi] = osg::Z_AXIS; lastAlt = altitude;
                 if (ca.valid()) (*ca)[vi] = osg::Vec4((*va)[vi][0], (*va)[vi][1], 0.0f, 0.0f);
             }
     }
@@ -392,15 +392,15 @@ void TileCallback::updateSkirtData(osg::Geometry* geom, double tileRefSize, bool
     osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(geom->getTexCoordArray(0));
     osg::Vec4Array* ca = static_cast<osg::Vec4Array*>(geom->getVertexAttribArray(GLOBE_ATTRIBUTE_INDEX));
     osg::DrawElementsUShort* de = static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0));
-    va->dirty(); na->dirty(); ta->dirty(); if (ca) ca->dirty(); geom->dirtyBound();
+    va->dirty(); ta->dirty(); if (na) na->dirty(); if (ca) ca->dirty(); geom->dirtyBound();
     if (addingTriangles) { de->dirty(); }
 
     // row[0]
     unsigned int tile_bottom_row = 0, skirt_bottom_row = vi;
     for (unsigned int c = 0; c < numCols; ++c, ++vi)
     {
-        unsigned int si = tile_bottom_row + c; osg::Vec3 N = na->at(si); N.normalize();
-        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        unsigned int si = tile_bottom_row + c; osg::Vec3 N = na ? na->at(si) : osg::Z_AXIS; N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; if (na) na->at(vi) = N;
         ta->at(vi) = ta->at(si); if (ca) { ca->at(vi) = ca->at(si); ca->at(vi).w() = -1.0f; }
     }
     if (addingTriangles)
@@ -416,8 +416,8 @@ void TileCallback::updateSkirtData(osg::Geometry* geom, double tileRefSize, bool
     unsigned int tile_top_row = (numRows - 1) * numCols, base_top_row = vi;
     for (unsigned int c = 0; c < numCols; ++c, ++vi)
     {
-        unsigned int si = tile_top_row + c; osg::Vec3 N = na->at(si); N.normalize();
-        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        unsigned int si = tile_top_row + c; osg::Vec3 N = na ? na->at(si) : osg::Z_AXIS; N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; if (na) na->at(vi) = N;
         ta->at(vi) = ta->at(si); if (ca) { ca->at(vi) = ca->at(si); ca->at(vi).w() = -1.0f; }
     }
     if (addingTriangles)
@@ -433,8 +433,8 @@ void TileCallback::updateSkirtData(osg::Geometry* geom, double tileRefSize, bool
     unsigned int tile_left_column = 0, skirt_left_column = vi;
     for (unsigned int r = 0; r < numRows; ++r, ++vi)
     {
-        unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
-        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        unsigned int si = tile_left_column + r * numCols; osg::Vec3 N = na ? na->at(si) : osg::Z_AXIS; N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; if (na) na->at(vi) = N;
         ta->at(vi) = ta->at(si); if (ca) { ca->at(vi) = ca->at(si); ca->at(vi).w() = -1.0f; }
     }
     if (addingTriangles)
@@ -450,8 +450,8 @@ void TileCallback::updateSkirtData(osg::Geometry* geom, double tileRefSize, bool
     unsigned int tile_right_column = numCols - 1, skirt_right_column = vi;
     for (unsigned int r = 0; r < numRows; ++r, ++vi)
     {
-        unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = na->at(si); N.normalize();
-        va->at(vi) = va->at(si) - N * skirtHeight; na->at(vi) = N;
+        unsigned int si = tile_right_column + r * numCols; osg::Vec3 N = na ? na->at(si) : osg::Z_AXIS; N.normalize();
+        va->at(vi) = va->at(si) - N * skirtHeight; if (na) na->at(vi) = N;
         ta->at(vi) = ta->at(si); if (ca) { ca->at(vi) = ca->at(si); ca->at(vi).w() = -1.0f; }
     }
     if (addingTriangles)

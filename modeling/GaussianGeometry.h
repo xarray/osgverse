@@ -31,7 +31,7 @@ namespace osgVerse
      - Tex2DArray-1 (optional, 15 layers): "ShParameters"
        - Spherical harmonics coefficients (vec3 * 15)
 
-   - As vertex attributes (not recommend):
+   - As vertex attributes:
      - Position (vec3): getVertexArray()
      - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
      - Alpha (float): getVertexAttribArray(1).a()

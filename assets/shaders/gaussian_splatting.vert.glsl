@@ -3,6 +3,7 @@
 
 uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
+uniform float GaussianRenderingMode;
 #if defined(USE_INSTANCING)
 #  if defined(USE_INSTANCING_TEXARRAY)
 uniform sampler2DArray CoreParameters, ShParameters;
@@ -181,9 +182,10 @@ void main()
 #else
     mat3 V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
 #endif
+    if (GaussianRenderingMode > 0.5) V = mat3(0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001);
+
     mat3 W = mat3(VERSE_MATRIX_MV); mat3 JW = J * W; mat3 V_prime = JW * V * transpose(JW);
     mat2 cov2D = mat2(V_prime);  // 'project' the 3D covariance matrix onto xy plane
-
     float X0 = 0.0, Y0 = 0.0;  // viewport X & Y... FIXME: always 0?
     vec4 proj = VERSE_MATRIX_P * eyeVertex;
     cov2D[0][0] += 0.3f; cov2D[1][1] += 0.3f;  // The convolution of a gaussian with another is the sum of their
@@ -208,6 +210,8 @@ void main()
     vec3 baseColor = vec3(cov0.w, cov1.w, cov2.w);
     color = vec4(computeRadianceFromSH(eyeDirection, baseColor, paramUV), alpha);
 
+    vec3 ndcP = proj.xyz / proj.w;
+    if (!(ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0))
     {
         mat2 cov2Dinv = inverseMat2(cov2D);
         vec4 cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);

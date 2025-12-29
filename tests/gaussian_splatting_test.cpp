@@ -16,6 +16,7 @@
 #include <modeling/Math.h>
 #include <modeling/GaussianGeometry.h>
 #include <pipeline/Pipeline.h>
+#include <pipeline/Utilities.h>
 #include <VerseCommon.h>
 
 #ifndef _DEBUG
@@ -50,7 +51,11 @@ public:
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
         {
             osgVerse::GaussianGeometry* gs = dynamic_cast<osgVerse::GaussianGeometry*>(node.getDrawable(i));
-            if (gs && _sorter.valid()) { _sorter->addGeometry(gs); hasGaussian = true; }
+            if (gs && _sorter.valid())
+            {   // to sort geometries by depth
+                gs->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+                _sorter->addGeometry(gs); hasGaussian = true;
+            }
         }
 
         if (hasGaussian)
@@ -58,10 +63,9 @@ public:
             osg::StateSet* ss = node.getOrCreateStateSet();
             ss->setAttribute(_program.get());
             ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-            ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
+            //ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
             ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
             ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-            ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);  // to sort geometries by depth
             node.setCullCallback(_callback.get());
         }
         traverse(node);
@@ -105,6 +109,7 @@ int main(int argc, char** argv)
     if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    root->getOrCreateStateSet()->getOrCreateUniform("GaussianRenderingMode", osg::Uniform::FLOAT)->set(0.0f);
     root->addChild(gs.get());
 
     osgViewer::Viewer viewer;
@@ -114,6 +119,11 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+
+    osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
+    handler->addKeyUpCallback('1', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(1.0f); });
+    handler->addKeyUpCallback('0', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(0.0f); });
+    viewer.addEventHandler(handler);
 
     osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;  // TODO: better sort in GL context
     if (arguments.read("--gl46")) sorter->setMethod(osgVerse::GaussianSorter::GL46_RADIX_SORT);
