@@ -90,39 +90,6 @@ public:
     { plodList.push_back(&node); traverse(node); }
 };
 
-class FindGeometryVisitor : public osg::NodeVisitor
-{
-public:
-    FindGeometryVisitor(bool applyM)
-        : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), appliedMatrix(applyM) {}
-    inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
-    inline void popMatrix() { _matrixStack.pop_back(); }
-
-    std::vector<osg::Matrix> _matrixStack;
-    std::vector<std::pair<osg::Geometry*, osg::Matrix>> geomList;
-    bool appliedMatrix;
-
-    virtual void apply(osg::Transform& node)
-    {
-        osg::Matrix matrix;
-        if (!_matrixStack.empty()) matrix = _matrixStack.back();
-        node.computeLocalToWorldMatrix(matrix, this);
-        pushMatrix(matrix); traverse(node); popMatrix();
-    }
-
-    virtual void apply(osg::Geode& node)
-    {
-        osg::Matrix matrix;
-        if (appliedMatrix && _matrixStack.size() > 0) matrix = _matrixStack.back();
-        for (size_t i = 0; i < node.getNumDrawables(); ++i)
-        {
-            osg::Geometry* geom = node.getDrawable(i)->asGeometry();
-            if (geom) geomList.push_back(std::pair<osg::Geometry*, osg::Matrix>(geom, matrix));
-        }
-        traverse(node);
-    }
-};
-
 static std::string tileNumberToString(int num, int digits = 3)
 {
     std::stringstream ss; ss.fill('0'); if (num >= 0) ss << "+"; else ss << "-";
@@ -488,12 +455,14 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
             }
 
             FindGeometryVisitor fgv(true); fineNode->accept(fgv);
-            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+            std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
+            geomList.insert(geomList.end(), geomList.begin(), geomList.end());
         }
         else if (roughNode.valid())
         {
             FindGeometryVisitor fgv(true); roughNode->accept(fgv);
-            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+            std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
+            geomList.insert(geomList.end(), geomList.begin(), geomList.end());
         }
 
         fileName = "../" + fileName;
@@ -623,7 +592,8 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         for (size_t i = 0; i < plodList.size(); ++i)
         {
             osg::PagedLOD* n = plodList[i]; FindGeometryVisitor fgv(true); n->accept(fgv);
-            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+            std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
+            geomList.insert(geomList.end(), geomList.begin(), geomList.end());
 
             osg::BoundingSphere bs0(n->getCenter(), n->getRadius());
             if (i == 0) bs = bs0; else bs.expandBy(bs0.valid() ? bs0 : n->getBound());
@@ -668,7 +638,8 @@ osg::Node* TileOptimizer::mergeNodes(const std::vector<osg::ref_ptr<osg::Node>>&
         for (size_t i = 0; i < loadedNodes.size(); ++i)
         {
             FindGeometryVisitor fgv(true); loadedNodes[i]->accept(fgv);
-            geomList.insert(geomList.end(), fgv.geomList.begin(), fgv.geomList.end());
+            std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
+            geomList.insert(geomList.end(), geomList.begin(), geomList.end());
         }
 
         OSG_NOTICE << "[TileOptimizer] Merging " << geomList.size() << " geometries from "

@@ -230,6 +230,27 @@ namespace osgVerse
         osg::Matrixd    _inverse;
     };
 
+    /** Geometry finder */
+    class FindGeometryVisitor : public osg::NodeVisitor
+    {
+    public:
+        FindGeometryVisitor(bool applyM)
+            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _appliedMatrix(applyM) {}
+        inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
+        inline void popMatrix() { _matrixStack.pop_back(); }
+
+        virtual void apply(osg::Transform& node);
+        virtual void apply(osg::Geode& node);
+
+        std::vector<std::pair<osg::Geometry*, osg::Matrix>>& getGeometries() { return _geomList; }
+        const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& getGeometries() const { return _geomList; }
+
+    protected:
+        std::vector<osg::Matrix> _matrixStack;
+        std::vector<std::pair<osg::Geometry*, osg::Matrix>> _geomList;
+        bool _appliedMatrix;
+    };
+
     /** The 2D texture atlaser */
     class TexturePacker : public osg::Referenced
     {

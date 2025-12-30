@@ -9,6 +9,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
+#include "modeling/Utilities.h"
 #include "modeling/GaussianGeometry.h"
 #include "animation/TweenAnimation.h"
 #include "animation/BlendShapeAnimation.h"
@@ -43,7 +44,8 @@ namespace osgVerse
         "MSFT_texture_dds",
         "KHR_materials_specular",
         "KHR_materials_unlit",
-        "KHR_gaussian_splatting"
+        "KHR_gaussian_splatting",
+        "KHR_gaussian_splatting_compression_spz_2"
     };
 
     extern bool LoadBinaryV1(std::vector<char>& data, const std::string& baseDir);
@@ -578,21 +580,49 @@ namespace osgVerse
                 std::vector<unsigned short> jointList1;
                 std::vector<float> weightList;
             } skData;
-            
-            tinygltf::Primitive primitive = mesh.primitives[i]; std::vector<unsigned char> bufferData;
+
+            std::vector<unsigned char> bufferData; std::map<std::string, int> extBufferViews;
+            tinygltf::Primitive primitive = mesh.primitives[i];
             for (std::map<std::string, tinygltf::Value>::iterator it = primitive.extensions.begin();
                  it != primitive.extensions.end(); ++it)
             {
                 const std::string& ext = it->first;
+                std::vector<std::string> keys = it->second.Keys();
                 if (ext == "KHR_gaussian_splatting") gsData.enabled = true;
-                //std::vector<std::string> keys = it->second.Keys();
-                // TODO: compute gsData.shDegrees?
+
+                for (size_t i = 0; i < keys.size(); ++i)
+                {
+                    if (keys[i] == "extensions")
+                    {
+                        const tinygltf::Value& val = it->second.Get("extensions");
+                        std::string subExt = "KHR_gaussian_splatting_compression_spz_2";
+                        if (val.Has(subExt))
+                        {
+                            const tinygltf::Value& spz = val.Get(subExt);
+                            if (spz.Has("bufferView")) extBufferViews[subExt] = spz.Get("bufferView").GetNumberAsInt();
+                        }
+                    }
+                    else {}
+                }
             }
 
             osg::ref_ptr<osg::Geometry> geom = gsData.enabled ? new GaussianGeometry : new osg::Geometry;
             if (gsData.enabled) static_cast<GaussianGeometry*>(geom.get())->setShDegrees(gsData.shDegrees);
             geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
             geom->setName(mesh.name + "_" + std::to_string(i));
+            if (primitive.material >= 0)
+            {
+                tinygltf::Material& material = _modelDef.materials[primitive.material];
+                createMaterial(geom->getOrCreateStateSet(), material);  // add material
+            }
+
+            if (gsData.enabled && extBufferViews.find("KHR_gaussian_splatting_compression_spz_2") != extBufferViews.end())
+            {
+                osg::ref_ptr<osg::Geometry> geom2 =
+                    createFromExtGaussianSplattingSPZ2(mesh.name, extBufferViews["KHR_gaussian_splatting_compression_spz_2"]);
+                if (geom2.valid()) { geom2->setStateSet(geom->getStateSet()); geom2->setName(geom->getName()); geom = geom2; }
+                geode->addDrawable(geom.get()); continue;
+            }
 
             for (std::map<std::string, int>::iterator attrib = primitive.attributes.begin();
                  attrib != primitive.attributes.end(); ++attrib)
@@ -773,7 +803,7 @@ namespace osgVerse
                     OSG_WARN << "[LoaderGLTF] Unsupported attribute " << attrib->first << " with "
                              << compNum << "-components and dataSize=" << compSize << std::endl;
                 }
-            }
+            }  // for (std::map<std::string, int>::iterator attrib ...)
 
             osg::Vec3Array* va = NULL;
             if (gsData.enabled)
@@ -853,11 +883,6 @@ namespace osgVerse
             // Apply to geode and create material
             if (!gsData.enabled) geom->addPrimitiveSet(p.get());
             else static_cast<GaussianGeometry*>(geom.get())->finalize();
-            if (primitive.material >= 0)
-            {
-                tinygltf::Material& material = _modelDef.materials[primitive.material];
-                createMaterial(geom->getOrCreateStateSet(), material);
-            }
             geode->addDrawable(geom.get());
 
             // Handle skinning data
@@ -897,7 +922,7 @@ namespace osgVerse
             // Handle blendshapes
             for (size_t j = 0; j < primitive.targets.size(); ++j)
                 createBlendshapeData(geom.get(), primitive.targets[j]);
-        }
+        }  // for (size_t i = 0; i < mesh.primitives.size(); ++i)
 
         bool withNames = mesh.extras.Has("targetNames");
         if (!mesh.weights.empty()) applyBlendshapeWeights(geode, mesh.weights,
@@ -1321,6 +1346,33 @@ namespace osgVerse
                 geode->getDrawable(i)->getUpdateCallback());
             if (bsa) bsa->apply(names, weights);
         }
+    }
+
+    osg::Geometry* LoaderGLTF::createFromExtGaussianSplattingSPZ2(const std::string& name, int bufferViewID)
+    {
+        std::vector<unsigned char> bufferData;
+        const tinygltf::BufferView& extView = _modelDef.bufferViews[bufferViewID];
+        if (extView.buffer >= 0) { bufferData = _modelDef.buffers[extView.buffer].data; }
+
+        osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_3dgs");
+        if (!rw)
+            { OSG_WARN << "[LoaderGLTF] 3DGS plugin not found. Cannot parse SPZ in " << name << std::endl; }
+        else
+        {
+            std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+            ss.write((char*)bufferData.data(), bufferData.size());
+
+            osg::ref_ptr<osgDB::Options> opt = new osgDB::Options("extension=spz");
+            osg::ref_ptr<osg::Node> spzNode = rw->readNode(ss, opt.get()).getNode();
+            FindGeometryVisitor fgv(true); if (spzNode.valid()) spzNode->accept(fgv);
+
+            std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
+            if (geomList.empty())
+                { OSG_WARN << "[LoaderGLTF] Failed to load SPZ gaussian geometry in " << name << std::endl; }
+            else
+                return geomList.front().first;  // SPZ always creates only 1 geometry
+        }
+        return NULL;
     }
 
     osg::ref_ptr<osg::Group> loadGltf(const std::string& file, bool isBinary, int usingPBR, bool yUp)

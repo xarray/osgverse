@@ -609,8 +609,28 @@ void HostTextureReserver::set(bool toKeepHostTextures)
     }
 }
 
-/// TexturePacker ///
+/// FindGeometryVisitor ///
+void FindGeometryVisitor::apply(osg::Transform& node)
+{
+    osg::Matrix matrix;
+    if (!_matrixStack.empty()) matrix = _matrixStack.back();
+    node.computeLocalToWorldMatrix(matrix, this);
+    pushMatrix(matrix); traverse(node); popMatrix();
+}
 
+void FindGeometryVisitor::apply(osg::Geode& node)
+{
+    osg::Matrix matrix;
+    if (_appliedMatrix && _matrixStack.size() > 0) matrix = _matrixStack.back();
+    for (size_t i = 0; i < node.getNumDrawables(); ++i)
+    {
+        osg::Geometry* geom = node.getDrawable(i)->asGeometry();
+        if (geom) _geomList.push_back(std::pair<osg::Geometry*, osg::Matrix>(geom, matrix));
+    }
+    traverse(node);
+}
+
+/// TexturePacker ///
 void TexturePacker::clear()
 { _input.clear(); _result.clear(); _dictIndex = 0; }
 

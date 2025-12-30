@@ -22,6 +22,7 @@
 #include <xxYUV/rgb2yuv.h>
 #include <avir/avir.h>
 #include <nanoid/nanoid.h>
+#include <miniz.h>
 
 #define MINIAUDIO_IMPLEMENTATION
 #include <miniaudio.h>
@@ -544,6 +545,65 @@ namespace osgVerse
         }
         return buffer;
     }
+}
+
+/// CompressAuxiliary ///
+struct CompressHandleData : osg::Referenced
+{
+    CompressHandleData(CompressAuxiliary::CompressorType t) : type(t) {}
+    std::vector<unsigned char> buffer;
+    CompressAuxiliary::CompressorType type;
+
+    mz_zip_archive zipArchive;
+};
+
+osg::Referenced* CompressAuxiliary::createHandle(CompressorType type, std::istream& fin)
+{
+    std::string data((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());
+    osg::ref_ptr<CompressHandleData> H = new CompressHandleData(type);
+    if (type == ZIP)
+    {
+        memset(&(H->zipArchive), 0, sizeof(mz_zip_archive));
+        H->buffer.assign(data.begin(), data.end());
+        if (mz_zip_reader_init_mem(&(H->zipArchive), (void*)H->buffer.data(), H->buffer.size(), 0))
+            return H.release();
+    }
+    return NULL;
+}
+
+void CompressAuxiliary::destroyHandle(osg::Referenced* handle)
+{
+    CompressHandleData* H = (CompressHandleData*)handle; if (!H) return;
+    if (H->type == ZIP) mz_zip_reader_end(&(H->zipArchive));
+}
+
+std::vector<std::string> CompressAuxiliary::listContents(osg::Referenced* handle)
+{
+    std::vector<std::string> fileList;
+    CompressHandleData* H = (CompressHandleData*)handle; if (!H) return fileList;
+    if (H->type == ZIP)
+    {
+        mz_uint count = mz_zip_reader_get_num_files(&(H->zipArchive));
+        for (mz_uint i = 0; i < count; ++i)
+        {
+            mz_zip_archive_file_stat fileStat;
+            if (mz_zip_reader_file_stat(&(H->zipArchive), i, &fileStat))
+                fileList.push_back(fileStat.m_filename);
+        }
+    }
+    return fileList;
+}
+
+std::vector<unsigned char> CompressAuxiliary::extract(osg::Referenced* handle, const std::string& fileName)
+{
+    size_t uncompSize = 0; std::vector<unsigned char> data;
+    CompressHandleData* H = (CompressHandleData*)handle; if (!H) return data;
+    if (H->type == ZIP)
+    {
+        void* p = mz_zip_reader_extract_file_to_heap(&(H->zipArchive), fileName.c_str(), &uncompSize, 0);
+        if (!p) return data; data.assign((unsigned char*)p, (unsigned char*)p + uncompSize); mz_free(p);
+    }
+    return data;
 }
 
 /// AudioPlayer ///

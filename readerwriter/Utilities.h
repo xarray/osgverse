@@ -267,6 +267,24 @@ namespace osgVerse
                                 const std::vector<unsigned char>& data);
     };
 
+    /** Compression helper functions and algorithms */
+    struct OSGVERSE_RW_EXPORT CompressAuxiliary
+    {
+        enum CompressorType { ZIP };
+
+        /** Create the archive handle */
+        static osg::Referenced* createHandle(CompressorType type, std::istream& fin);
+
+        /** Destroy the archive handle */
+        static void destroyHandle(osg::Referenced* handle);
+
+        /** List all files in the archive */
+        static std::vector<std::string> listContents(osg::Referenced* handle);
+
+        /** Extract specified file data from the archive */
+        static std::vector<unsigned char> extract(osg::Referenced* handle, const std::string& fileName);
+    };
+
     /** Audio playback interface */
     class OSGVERSE_RW_EXPORT AudioPlayer : public osg::Referenced
     {

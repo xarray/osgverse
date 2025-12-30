@@ -16,14 +16,115 @@
 // https://developer.playcanvas.com/user-manual/gaussian-splatting/formats/sog/
 namespace
 {
+    struct SogData
+    {
+        std::map<std::string, osg::ref_ptr<osg::Image>> images;
+        std::vector<float> scaleCode, sh0Code, shNCode;
+        osg::Vec3 meansMin, meansMax;
+        size_t numDegrees, numEntries;
+        double count, version;
+        SogData() : numDegrees(0), numEntries(0), count(0), version(0) {}
+    };
+
     static float signum(float x) { return float((x > 0.0f) - (x < 0.0f)); }
     static float unlog(float x) { return signum(x) * (exp(abs(x)) - 1.0f); }
     static float sigmoidInv(float x) { float e = osg::minimum(1.0 - 1e-6, osg::maximum(1e-6, (double)x)); return (float)log(e / (1.0 - e)); };
 
-    static osg::Image* readDataImage(const std::string& path)
+    static osg::Image* readDataImage(const std::string& path, const std::string& file, osg::Referenced* zip)
     {
-        osg::Image* img = osgDB::readImageFile(path + ".verse_webp");
-        if (!img) img = osgDB::readImageFile(path); return img;
+        if (zip != NULL)
+        {
+            std::vector<unsigned char> data = osgVerse::CompressAuxiliary::extract(zip, file);
+            if (data.empty()) return NULL;
+
+            std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary); ss.write((char*)data.data(), data.size());
+            osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(osgDB::getFileExtension(file));
+            if (!rw) rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_webp");
+            if (!rw) return NULL; else return rw->readImage(ss).takeImage();
+        }
+        else
+        {
+            osg::Image* img = osgDB::readImageFile(path + "/" + file + ".verse_webp");
+            if (!img) img = osgDB::readImageFile(path + "/" + file); return img;
+        }
+    }
+
+    static bool parseSogMetaData(SogData& sogData, picojson::value& document, const std::string& path, osg::Referenced* zip)
+    {
+        if (zip != NULL)
+        {
+            std::vector<unsigned char> json = osgVerse::CompressAuxiliary::extract(zip, "meta.json");
+            std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary); ss.write((char*)json.data(), json.size());
+            std::string err = picojson::parse(document, ss);
+            if (!err.empty()) { OSG_WARN << "[ReaderWriter3DGS] Failed to parse PlayCanvas' SOG data: " << err << std::endl; return false; }
+        }
+
+        // Read information from meta.json
+        picojson::value versionObj = document.get("version");
+        picojson::value countObj = document.get("count");
+        picojson::value meansObj = document.get("means");
+        picojson::value scalesObj = document.get("scales");
+        picojson::value quatsObj = document.get("quats");
+        picojson::value sh0Obj = document.get("sh0");
+        picojson::value shNObj = document.get("shN");
+        sogData.version = versionObj.is<double>() ? versionObj.get<double>() : 1;
+        sogData.count = countObj.is<double>() ? countObj.get<double>() : 0;
+        if (sogData.version < 2) { OSG_NOTICE << "[ReaderWriter3DGS] SOG version 1 is not supported\n"; return false; }
+
+        if (meansObj.is<picojson::object>())
+        {
+            picojson::array mins = meansObj.get("mins").get<picojson::array>();
+            picojson::array maxs = meansObj.get("maxs").get<picojson::array>();
+            if (mins.size() > 2 && maxs.size() > 2)
+            {
+                for (size_t i = 0; i < 3; ++i)
+                { sogData.meansMin[i] = mins[i].get<double>(); sogData.meansMax[i] = maxs[i].get<double>(); }
+            }
+
+            picojson::array files = meansObj.get("files").get<picojson::array>();
+            for (size_t i = 0; i < files.size(); ++i)
+                sogData.images["means_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+        }
+
+        if (quatsObj.is<picojson::object>())
+        {
+            picojson::array files = quatsObj.get("files").get<picojson::array>();
+            for (size_t i = 0; i < files.size(); ++i)
+                sogData.images["quats_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+        }
+
+        if (scalesObj.is<picojson::object>())
+        {
+            picojson::array codebook = scalesObj.get("codebook").get<picojson::array>();
+            for (size_t i = 0; i < codebook.size(); ++i) sogData.scaleCode.push_back(codebook[i].get<double>());
+
+            picojson::array files = scalesObj.get("files").get<picojson::array>();
+            for (size_t i = 0; i < files.size(); ++i)
+                sogData.images["scales_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+        }
+
+        if (sh0Obj.is<picojson::object>())
+        {
+            picojson::array codebook = sh0Obj.get("codebook").get<picojson::array>();
+            for (size_t i = 0; i < codebook.size(); ++i) sogData.sh0Code.push_back(codebook[i].get<double>());
+
+            picojson::array files = sh0Obj.get("files").get<picojson::array>();
+            for (size_t i = 0; i < files.size(); ++i)
+                sogData.images["sh0_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+        }
+
+        if (shNObj.is<picojson::object>())
+        {
+            picojson::array codebook = shNObj.get("codebook").get<picojson::array>();
+            for (size_t i = 0; i < codebook.size(); ++i) sogData.shNCode.push_back(codebook[i].get<double>());
+
+            picojson::array files = shNObj.get("files").get<picojson::array>();
+            for (size_t i = 0; i < files.size(); ++i)
+                sogData.images["shN_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+            sogData.numDegrees = (size_t)shNObj.get("bands").get<double>();
+            sogData.numEntries = (size_t)shNObj.get("count").get<double>();
+        }
+        return true;
     }
 
     static void createSogPositions(osg::Vec3Array& va, osg::Image* means_l, osg::Image* means_u,
@@ -150,106 +251,49 @@ namespace
     }
 }
 
-osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path)
+osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext)
 {
-    std::string reserved0, reserved1, err;
-    picojson::value document; err = picojson::parse(document, in);
-    if (!err.empty())
+    SogData sogData; picojson::value document;
+    if (ext == "json")
     {
-        OSG_WARN << "[ReaderWriter3DGS] Failed to parse PlayCanvas' SOG data: " << err << std::endl;
-        return NULL;
-    }
-
-    // Read information from .json
-    picojson::value versionObj = document.get("version");
-    picojson::value countObj = document.get("count");
-    picojson::value meansObj = document.get("means");
-    picojson::value scalesObj = document.get("scales");
-    picojson::value quatsObj = document.get("quats");
-    picojson::value sh0Obj = document.get("sh0");
-    picojson::value shNObj = document.get("shN");
-
-    double version = versionObj.is<double>() ? versionObj.get<double>() : 1;
-    double count = countObj.is<double>() ? countObj.get<double>() : 0;
-    if (version < 2) { OSG_NOTICE << "[ReaderWriter3DGS] SOG version 1 is not supported\n"; return NULL; }
-
-    std::map<std::string, osg::ref_ptr<osg::Image>> images; osg::Vec3 meansMin, meansMax;
-    std::vector<float> scaleCode, sh0Code, shNCode; size_t numDegrees = 0, numEntries = 0;
-    if (meansObj.is<picojson::object>())
-    {
-        picojson::array mins = meansObj.get("mins").get<picojson::array>();
-        picojson::array maxs = meansObj.get("maxs").get<picojson::array>();
-        if (mins.size() > 2 && maxs.size() > 2)
+        std::string err = picojson::parse(document, in);
+        if (!err.empty())
         {
-            for (size_t i = 0; i < 3; ++i)
-            { meansMin[i] = mins[i].get<double>(); meansMax[i] = maxs[i].get<double>(); }
+            OSG_WARN << "[ReaderWriter3DGS] Failed to parse PlayCanvas' SOG data: " << err << std::endl;
+            return NULL;
         }
-
-        picojson::array files = meansObj.get("files").get<picojson::array>();
-        for (size_t i = 0; i < files.size(); ++i)
-            images["means_" + std::to_string(i)] = readDataImage(path + "/" + files[i].get<std::string>());
+        if (!parseSogMetaData(sogData, document, path, NULL)) return NULL;
     }
-
-    if (quatsObj.is<picojson::object>())
+    else if (ext == "sog")
     {
-        picojson::array files = quatsObj.get("files").get<picojson::array>();
-        for (size_t i = 0; i < files.size(); ++i)
-            images["quats_" + std::to_string(i)] = readDataImage(path + "/" + files[i].get<std::string>());
-    }
-
-    if (scalesObj.is<picojson::object>())
-    {
-        picojson::array codebook = scalesObj.get("codebook").get<picojson::array>();
-        for (size_t i = 0; i < codebook.size(); ++i) scaleCode.push_back(codebook[i].get<double>());
-
-        picojson::array files = scalesObj.get("files").get<picojson::array>();
-        for (size_t i = 0; i < files.size(); ++i)
-            images["scales_" + std::to_string(i)] = readDataImage(path + "/" + files[i].get<std::string>());
-    }
-
-    if (sh0Obj.is<picojson::object>())
-    {
-        picojson::array codebook = sh0Obj.get("codebook").get<picojson::array>();
-        for (size_t i = 0; i < codebook.size(); ++i) sh0Code.push_back(codebook[i].get<double>());
-
-        picojson::array files = sh0Obj.get("files").get<picojson::array>();
-        for (size_t i = 0; i < files.size(); ++i)
-            images["sh0_" + std::to_string(i)] = readDataImage(path + "/" + files[i].get<std::string>());
-    }
-
-    if (shNObj.is<picojson::object>())
-    {
-        picojson::array codebook = shNObj.get("codebook").get<picojson::array>();
-        for (size_t i = 0; i < codebook.size(); ++i) shNCode.push_back(codebook[i].get<double>());
-
-        picojson::array files = shNObj.get("files").get<picojson::array>();
-        for (size_t i = 0; i < files.size(); ++i)
-            images["shN_" + std::to_string(i)] = readDataImage(path + "/" + files[i].get<std::string>());
-        numDegrees = (size_t)shNObj.get("bands").get<double>();
-        numEntries = (size_t)shNObj.get("count").get<double>();
+        osg::ref_ptr<osg::Referenced> zip = osgVerse::CompressAuxiliary::createHandle(osgVerse::CompressAuxiliary::ZIP, in);
+        bool done = parseSogMetaData(sogData, document, path, zip);
+        osgVerse::CompressAuxiliary::destroyHandle(zip); if (!done) return NULL;
     }
 
     // Create data arrays from loaded images
+    size_t count = sogData.count; if (!count) return NULL;
     osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array(count), scale = new osg::Vec3Array(count);
     osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array(count); osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray(count);
     osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array(count), gD0 = new osg::Vec4Array(count), bD0 = new osg::Vec4Array(count);
-    createSogPositions(*pos, images["means_0"].get(), images["means_1"].get(), meansMin, meansMax);
-    createSogScales(*scale, images["scales_0"].get(), scaleCode); createSogRotations(*rot, images["quats_0"].get());
-    createSogColors0(*rD0, *gD0, *bD0, *alpha, images["sh0_0"].get(), sh0Code);
+    createSogPositions(*pos, sogData.images["means_0"].get(), sogData.images["means_1"].get(), sogData.meansMin, sogData.meansMax);
+    createSogScales(*scale, sogData.images["scales_0"].get(), sogData.scaleCode); createSogRotations(*rot, sogData.images["quats_0"].get());
+    createSogColors0(*rD0, *gD0, *bD0, *alpha, sogData.images["sh0_0"].get(), sogData.sh0Code);
 
 #if true
     osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
-    geom->setShDegrees(numDegrees); geom->setPosition(pos.get());
+    geom->setShDegrees(sogData.numDegrees); geom->setPosition(pos.get());
     geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
     geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get()); geom->finalize();
 
-    if (numDegrees == 3)  // FIXME: consider degree 1 and 2?
+    if (sogData.numDegrees == 3)  // FIXME: consider degree 1 and 2?
     {
         osg::ref_ptr<osg::Vec4Array> rD1 = new osg::Vec4Array(count), gD1 = new osg::Vec4Array(count), bD1 = new osg::Vec4Array(count),
                                      rD2 = new osg::Vec4Array(count), gD2 = new osg::Vec4Array(count), bD2 = new osg::Vec4Array(count),
                                      rD3 = new osg::Vec4Array(count), gD3 = new osg::Vec4Array(count), bD3 = new osg::Vec4Array(count);
         createSogColorsN(*rD0, *gD0, *bD0, *rD1, *gD1, *bD1, *rD2, *gD2, *bD2, *rD3, *gD3, *bD3,
-                         images["shN_0"].get(), images["shN_1"].get(), shNCode, numDegrees, numEntries);
+                         sogData.images["shN_0"].get(), sogData.images["shN_1"].get(),
+                         sogData.shNCode, sogData.numDegrees, sogData.numEntries);
         geom->setShRed(1, rD1.get()); geom->setShGreen(1, gD1.get()); geom->setShBlue(1, bD1.get());
         geom->setShRed(2, rD2.get()); geom->setShGreen(2, gD2.get()); geom->setShBlue(2, bD2.get());
         geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get());
