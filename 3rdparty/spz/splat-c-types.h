@@ -1,6 +1,10 @@
 #ifndef SPZ_SPLAT_C_TYPES_H_
 #define SPZ_SPLAT_C_TYPES_H_
 
+#ifndef _USE_MATH_DEFINES
+#   define _USE_MATH_DEFINES
+#endif
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 

@@ -8,9 +8,6 @@
 #include <vector>
 
 #include "splat-c-types.h"
-#ifndef M_PI
-#   define M_PI 3.14159265358979323846
-#endif
 
 namespace spz {
 
@@ -56,32 +53,31 @@ inline std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) {
 }
 
 inline CoordinateConverter coordinateConverter(CoordinateSystem from, CoordinateSystem to) {
-  std::array<bool, 3> matches = axesMatch(from, to);
-  float x = matches[0] ? 1.0f : -1.0f;
-  float y = matches[1] ? 1.0f : -1.0f;
-  float z = matches[2] ? 1.0f : -1.0f;
-  CoordinateConverter cc;
-  cc.flipP = { x, y, z };
-  cc.flipQ = { y * z, x * z, x * y };
-  cc.flipSh =
-  {
-    y,          // 0
-    z,          // 1
-    x,          // 2
-    x * y,      // 3
-    y * z,      // 4
-    1.0f,       // 5
-    x * z,      // 6
-    1.0f,       // 7
-    y,          // 8
-    x * y * z,  // 9
-    y,          // 10
-    z,          // 11
-    x,          // 12
-    z,          // 13
-    x,          // 14
+  auto [xMatch, yMatch, zMatch] = axesMatch(from, to);
+  float x = xMatch ? 1.0f : -1.0f;
+  float y = yMatch ? 1.0f : -1.0f;
+  float z = zMatch ? 1.0f : -1.0f;
+  return CoordinateConverter{
+    {x, y, z},
+    {y * z, x * z, x * y},
+    {
+      y,          // 0
+      z,          // 1
+      x,          // 2
+      x * y,      // 3
+      y * z,      // 4
+      1.0f,       // 5
+      x * z,      // 6
+      1.0f,       // 7
+      y,          // 8
+      x * y * z,  // 9
+      y,          // 10
+      z,          // 11
+      x,          // 12
+      z,          // 13
+      x           // 14
+    }
   };
-  return cc;
 }
 
 // A point cloud composed of Gaussians. Each gaussian is represented by:
@@ -136,6 +132,10 @@ struct GaussianCloud {
   // Convert between two coordinate systems, for example from RDF (ply format) to RUB (used by spz).
   // This is performed in-place.
   void convertCoordinates(CoordinateSystem from, CoordinateSystem to) {
+    if (numPoints == 0) {
+      // There is nothing to convert.
+      return;
+    }
     CoordinateConverter c = coordinateConverter(from, to);
     for (size_t i = 0; i < positions.size(); i += 3) {
       positions[i + 0] *= c.flipP[0];
@@ -175,12 +175,12 @@ struct GaussianCloud {
     // axis. Scales are stored on a log scale, and exp(x) * exp(y) * exp(z) = exp(x + y + z). So we
     // can sort by value = (x + y + z) and compute volume = 4/3 * pi * exp(value) later.
     std::vector<float> scaleSums;
-    for (int32_t i = 0; i < scales.size(); i += 3) {
+    for (size_t i = 0; i < scales.size(); i += 3) {
       float sum = scales[i] + scales[i + 1] + scales[i + 2];
       scaleSums.push_back(sum);
     }
     std::sort(scaleSums.begin(), scaleSums.end());
-    float median = scaleSums[(int32_t)(scaleSums.size() / 2)];
+    float median = scaleSums[scaleSums.size() / 2];
     return (float)(M_PI * 4 / 3) * exp(median);
   }
 };
@@ -215,8 +215,8 @@ inline float squaredNorm(const Vec3f &v) { return dot(v, v); }
 inline Quat4f quat4f(const float *data) { return {data[0], data[1], data[2], data[3]}; }
 
 inline Vec3f times(const Quat4f &q, const Vec3f &p) {
-  float w = q[0], x = q[1], y = q[2], z = q[3];
-  float vx = p[0], vy = p[1], vz = p[2];
+  auto [w, x, y, z] = q;
+  auto [vx, vy, vz] = p;
   auto x2 = x + x;
   auto y2 = y + y;
   auto z2 = z + z;
@@ -236,8 +236,8 @@ inline Vec3f times(const Quat4f &q, const Vec3f &p) {
 }
 
 inline Quat4f times(const Quat4f &a, const Quat4f &b) {
-  float w = a[0], x = a[1], y = a[2], z = a[3];
-  float qw = b[0], qx = b[1], qy = b[2], qz = b[3];
+  auto [w, x, y, z] = a;
+  auto [qw, qx, qy, qz] = b;
   return normalized(std::array<float, 4>{
     w * qw - x * qx - y * qy - z * qz,
     w * qx + x * qw + y * qz - z * qy,

@@ -48,7 +48,7 @@ namespace osgVerse
         virtual ~LoaderGLTF() {}
         osg::Node* createNode(int id, tinygltf::Node& node);
         osg::Texture* createTexture(const std::string& name, tinygltf::Texture& tex);
-        osg::Geometry* createFromExtGaussianSplattingSPZ2(const std::string& name, int bufferViewID);
+        osg::ref_ptr<osg::Geometry> createFromExtGaussianSplattingSPZ2(const std::string& name, int bufferViewID);
 
         bool createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex);
         void createMaterial(osg::StateSet* ss, tinygltf::Material mat);

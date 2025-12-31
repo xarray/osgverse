@@ -620,7 +620,7 @@ namespace osgVerse
             {
                 osg::ref_ptr<osg::Geometry> geom2 =
                     createFromExtGaussianSplattingSPZ2(mesh.name, extBufferViews["KHR_gaussian_splatting_compression_spz_2"]);
-                if (geom2.valid()) { geom2->setStateSet(geom->getStateSet()); geom2->setName(geom->getName()); geom = geom2; }
+                if (geom2.valid()) { geom2->setName(geom->getName()); geom = geom2; }
                 geode->addDrawable(geom.get()); continue;
             }
 
@@ -1348,7 +1348,7 @@ namespace osgVerse
         }
     }
 
-    osg::Geometry* LoaderGLTF::createFromExtGaussianSplattingSPZ2(const std::string& name, int bufferViewID)
+    osg::ref_ptr<osg::Geometry> LoaderGLTF::createFromExtGaussianSplattingSPZ2(const std::string& name, int bufferViewID)
     {
         std::vector<unsigned char> bufferData;
         const tinygltf::BufferView& extView = _modelDef.bufferViews[bufferViewID];
