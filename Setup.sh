@@ -276,7 +276,7 @@ if [ "$BuildMode" = '1' ]; then
     fi
 
     ExtraOptions="
-        -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
+        -DCMAKE_INSTALL_RPATH=$CurrentDir/build/sdk_core/lib
         -DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_core
         -DOPENGL_PROFILE=GLCORE"
@@ -296,7 +296,7 @@ elif [ "$BuildMode" = '2' ]; then
     fi
 
     ExtraOptions="
-        -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
+        -DCMAKE_INSTALL_RPATH=$CurrentDir/build/sdk_es3/lib
         -DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_es3
         -DEGL_LIBRARY=$EGL_LibPath -DOPENGL_gl_LIBRARY=$GLES_LibPath
@@ -380,7 +380,9 @@ else
         mkdir $CurrentDir/build/osg_def
     fi
 
-    ExtraOptions="-DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk"
+    ExtraOptions="
+        -DCMAKE_INSTALL_RPATH=$CurrentDir/build/sdk/lib
+        -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk"
     if [ "$SkipOsgBuild" = 0 ]; then
         cd $CurrentDir/build/osg_def
         if [ "$SkipCMakeConfig" = 0 ]; then

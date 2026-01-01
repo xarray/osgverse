@@ -53,7 +53,8 @@ inline std::array<bool, 3> axesMatch(CoordinateSystem a, CoordinateSystem b) {
 }
 
 inline CoordinateConverter coordinateConverter(CoordinateSystem from, CoordinateSystem to) {
-  auto [xMatch, yMatch, zMatch] = axesMatch(from, to);
+  std::array<bool, 3> matches = axesMatch(from, to);
+  bool xMatch = matches[0], yMatch = matches[1], zMatch = matches[2];
   float x = xMatch ? 1.0f : -1.0f;
   float y = yMatch ? 1.0f : -1.0f;
   float z = zMatch ? 1.0f : -1.0f;
@@ -215,8 +216,8 @@ inline float squaredNorm(const Vec3f &v) { return dot(v, v); }
 inline Quat4f quat4f(const float *data) { return {data[0], data[1], data[2], data[3]}; }
 
 inline Vec3f times(const Quat4f &q, const Vec3f &p) {
-  auto [w, x, y, z] = q;
-  auto [vx, vy, vz] = p;
+  float w = q[0], x = q[1], y = q[2], z = q[3];
+  float vx = p[0], vy = p[1], vz = p[2];
   auto x2 = x + x;
   auto y2 = y + y;
   auto z2 = z + z;
@@ -236,8 +237,8 @@ inline Vec3f times(const Quat4f &q, const Vec3f &p) {
 }
 
 inline Quat4f times(const Quat4f &a, const Quat4f &b) {
-  auto [w, x, y, z] = a;
-  auto [qw, qx, qy, qz] = b;
+  float w = a[0], x = a[1], y = a[2], z = a[3];
+  float qw = b[0], qx = b[1], qy = b[2], qz = b[3];
   return normalized(std::array<float, 4>{
     w * qw - x * qx - y * qy - z * qz,
     w * qx + x * qw + y * qz - z * qy,

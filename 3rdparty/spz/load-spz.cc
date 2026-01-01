@@ -71,13 +71,17 @@ int32_t dimForDegree(int32_t degree) {
   }
 }
 
-uint8_t toUint8(float x) { return static_cast<uint8_t>(std::clamp(std::round(x), 0.0f, 255.0f)); }
+static float std_clamp(float x, float m0, float m1)
+{ if (x < m0) return m0; else if (x > m1) return m1; return x; }
+
+uint8_t toUint8(float x)
+{ return static_cast<uint8_t>(std_clamp(std::round(x), 0.0f, 255.0f)); }
 
 // Quantizes to 8 bits, the round to nearest bucket center. 0 always maps to a bucket center.
 uint8_t quantizeSH(float x, int32_t bucketSize) {
   int32_t q = static_cast<int>(std::round(x * 128.0f) + 128.0f);
   q = (q + bucketSize / 2) / bucketSize * bucketSize;
-  return static_cast<uint8_t>(std::clamp(q, 0, 255));
+  return static_cast<uint8_t>(std_clamp(q, 0, 255));
 }
 
 float unquantizeSH(uint8_t x) { return (static_cast<float>(x) - 128.0f) / 128.0f; }
