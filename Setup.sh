@@ -9,6 +9,11 @@ UseWasmOption=1
 SkipCMakeConfig=0
 SkipOsgBuild=0
 
+# Android related variables
+CheckJavaExe=$(command -version java)
+GradleLocalPropFile=$CurrentDir/android/local.properties
+GradleSettingsFile=$CurrentDir/android/settings.gradle
+
 MingwSystem=$(echo $CurrentSystem | grep "MINGW")
 WslKernel=$(echo $CurrentKernel | grep "Microsoft")
 if [ "$WslKernel" != "" ]; then
@@ -42,9 +47,10 @@ Please Select:
 2. Desktop / OpenGLES 3
 3. WASM / WebGL 1.0
 4. WASM / WebGL 2.0 (optional with osgEarth)
+5. Android / OpenGLES 3
 q. Quit
 -----------------------------------"
-read -p "Enter selection [0-4] > " BuildMode
+read -p "Enter selection [0-5] > " BuildMode
 case "$BuildMode" in
     1)  echo "OpenGL Core Mode."
         BuildResultChecker=build/sdk_core/bin/osgviewer
@@ -62,7 +68,7 @@ case "$BuildMode" in
         BuildResultChecker=build/sdk_wasm2/lib/libosgviewer.a
         CMakeResultChecker=build/osg_wasm2/CMakeCache.txt
         ;;
-    5)  echo "Android GLES 2."
+    5)  echo "Android GLES 3."
         BuildResultChecker=build/sdk_android/lib/libosgviewer.a
         CMakeResultChecker=build/osg_android/CMakeCache.txt
         ;;
@@ -78,8 +84,6 @@ esac
 GLES_LibPath="$1/libGLESv2.so"
 EGL_LibPath="$1/libEGL.so"
 EmsdkToolchain="$1/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
-NdkToolchain="$1/build/cmake/android.toolchain.cmake"
-AndroidDepOptions=""
 if [ "$BuildMode" = '2' ]; then
     # GLES toolchain
     if [ ! -f "$GLES_LibPath" ] || [ ! -f "$EGL_LibPath" ]; then
@@ -94,44 +98,50 @@ elif [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     fi
 elif [ "$BuildMode" = '5' ]; then
     # Android toolchain
-    if [ ! -f "$NdkToolchain" ]; then
-        echo "android.toolchain.cmake not found. Please run as follows: ./Setup.sh <your_path>/ndk-r??-linux/"
+    if [ "$CheckJavaExe" = "" ]; then
+        echo "Java version checking failed. Please make sure JDK 1.7 is installed."
         exit 1
     fi
 
-    AndroidABI="armeabi-v7a"
-    AndroidSdkLevel=21
-    echo "
------------------------------------
-Please Select an Android ABI option:
+    if [ ! -d "../SDL2" ]; then
+        echo "SDL2 source folder not found. Please download and unzip it in ../SDL2."
+        exit 1
+    fi
 
-0. armeabi-v7a (AArch32, Armv7)
-1. armeabi-v7a with NEON
-2. arm64-v8a (AArch64, Armv8.0)
-3. x86 (MMX, SSE/2/3)
-4. x86_64 (MMX, SSE/2/3, SSE4.1/4.2)
------------------------------------"
-    read -p "Enter selection [0-4] > " OptionAndroidABI
-    case "$OptionAndroidABI" in
-        1)  AndroidABI="armeabi-v7a with NEON" ;;
-        2)  AndroidABI="arm64-v8a" ;;
-        3)  AndroidABI="x86" ;;
-        4)  AndroidABI="x86_64" ;;
-        *)  AndroidABI="armeabi-v7a" ;;
-    esac
+    if [ ! -f "$GradleLocalPropFile" ]; then
+        if [ ! -n "$ANDROID_SDK" ]; then
+            echo "Environment variable ANDROID_SDK not set. Unable to create local.properties."
+            exit 1
+        fi
 
-    AndroidDepOptions="
-        -DCMAKE_TOOLCHAIN_FILE=$NdkToolchain
-        -DANDROID_ABI=$AndroidABI
-        -DANDROID_PLATFORM=$AndroidSdkLevel"
-    if [ "$UsingWSL" = 1 ]; then
-        # Please download NDK for LINUX at https://github.com/android/ndk/wiki/Unsupported-Downloads
-        echo "Please download NDK for Linux r20e at present. The latest r25 version seems having problems
-              with WSL, as clang will report 'Exec format error'. Need more tests later..."
+        if [ ! -n "$ANDROID_NDK" ]; then
+            echo "Environment variable ANDROID_NDK not set. Unable to create local.properties."
+            exit 1
+        fi
 
-        # See https://github.com/android/ndk/issues/1755
-        # You should first install patchelf: $ sudo apt-get install patchelf
-        #/usr/bin/patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$1/toolchains/llvm/prebuilt/linux-x86_64/bin/clang-14"
+        cat > $GradleLocalPropFile <<EOF
+sdk.dir=$ANDROID_SDK
+ndk.dir=$ANDROID_NDK
+EOF
+
+        read -p "Would you like to set a specific SDK version? (y/n) " AndroidCheckingFlag
+        if [ "$AndroidCheckingFlag" = 'y' ]; then
+            read -p "Please set build-tools version (e.g. 32.0.0) > " BuildToolsVersion
+            read -p "Please set target SDK version (e.g. 32) > " TargetSdkVersion
+            read -p "Please set minimum SDK version (e.g. 21) > " MinimumSdkVersion
+            cat > $GradleSettingsFile <<EOF
+gradle.ext.buildToolsVersion = '$BuildToolsVersion'
+gradle.ext.sdkVersion = $TargetSdkVersion
+gradle.ext.minSdkVersion = $MinimumSdkVersion
+gradle.ext.targetSdkVersion = $TargetSdkVersion
+gradle.ext.libDistributionRoot = '../build'
+include ':thirdparty'
+include ':sdl2'
+include ':osg'
+include ':osgverse'
+include ':app'
+EOF
+        fi
     fi
 fi
 
@@ -152,12 +162,12 @@ if [ -f "$CurrentDir/$BuildResultChecker" ]; then
 #    fi
 fi
 
-# Compile 3rdparty libraries
 echo "*** Building 3rdparty libraries..."
 if [ ! -d "$CurrentDir/build" ]; then
     mkdir $CurrentDir/build
 fi
 
+# Compile 3rdparty libraries
 ThirdPartyBuildDir="$CurrentDir/build/3rdparty"
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     read -p "Would you like to use WASM 64bit (experimental)? (y/n) > " Wasm64Flag
@@ -182,18 +192,7 @@ if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
 elif [ "$BuildMode" = '5' ]; then
 
     # Android toolchain
-    ThirdPartyBuildDir="$CurrentDir/build/3rdparty_android"
-    if [ ! -d "$ThirdPartyBuildDir" ]; then
-        mkdir $ThirdPartyBuildDir
-    fi
-
-    if [ "$SkipOsgBuild" = 0 ]; then
-        cd $ThirdPartyBuildDir
-        if [ "$SkipCMakeConfig" = 0 ]; then
-            $CMakeExe $AndroidDepOptions $CurrentDir/helpers/toolchain_builder
-        fi
-        cmake --build . || exit 1
-    fi
+    echo "The compilation will be processed by Gradle..."
 
 else
 
@@ -234,6 +233,7 @@ if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
 fi
 
 # Fix some OpenSceneGraph compile errors
+echo "*** Automatically patching source code..."
 OpenSceneGraphRoot=$CurrentDir/../OpenSceneGraph
 sed 's/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g' "$OpenSceneGraphRoot/src/osgDB/FileUtils.cpp" > FileUtils.cpp.tmp
 mv FileUtils.cpp.tmp "$OpenSceneGraphRoot/src/osgDB/FileUtils.cpp"
@@ -356,22 +356,7 @@ elif [ "$BuildMode" = '4' ]; then
 elif [ "$BuildMode" = '5' ]; then
 
     # Android toolchain
-    if [ ! -d "$CurrentDir/build/osg_android" ]; then
-        mkdir $CurrentDir/build/osg_android
-    fi
-
-    ExtraOptions="
-        -DCMAKE_INCLUDE_PATH=$CurrentDir/helpers/toolchain_builder/opengl
-        -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_android
-        -DOSG_SOURCE_DIR=$OpenSceneGraphRoot
-        -DOSG_BUILD_DIR=$CurrentDir/build/osg_android/osg"
-    if [ "$SkipOsgBuild" = 0 ]; then
-        cd $CurrentDir/build/osg_android
-        if [ "$SkipCMakeConfig" = 0 ]; then
-            $CMakeExe $AndroidDepOptions $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/android
-        fi
-        cmake --build . --target install --config Release || exit 1
-    fi
+    echo "The compilation will be processed by Gradle..."
 
 else
 
@@ -450,15 +435,9 @@ elif [ "$BuildMode" = '4' ]; then
 
 elif [ "$BuildMode" = '5' ]; then
 
-    # WASM toolchain
-    if [ ! -d "$CurrentDir/build/verse_android" ]; then
-        mkdir $CurrentDir/build/verse_android
-    fi
-
-    OsgRootLocation="$CurrentDir/build/sdk_android"
-    cd $CurrentDir/build/verse_android
-    $CMakeExe $AndroidDepOptions -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
-    cmake --build . --target install --config Release || exit 1
+    # Android toolchain
+    cd $CurrentDir/android
+    ./gradlew assembleDebug || exit 1
 
 else
 
@@ -492,6 +471,7 @@ else
 fi
 
 # Reset some OpenSceneGraph source code
+echo "*** Automatically unpatching source code..."
 sed 's/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt" > CMakeLists.txt.tmp
 mv CMakeLists.txt.tmp "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
 sed 's/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt" > CMakeLists.txt.tmp

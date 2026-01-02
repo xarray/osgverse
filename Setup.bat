@@ -24,7 +24,7 @@ echo 1. Desktop / OpenGL Core Mode
 echo 2. Desktop / OpenGLES 3 (Google Angle)
 echo 3. WASM / WebGL 1.0
 echo 4. WASM / WebGL 2.0 (optional with osgEarth)
-echo 5. Android / OpenGLES3
+echo 5. Android / OpenGLES 3
 echo q. Quit
 echo -----------------------------------
 set /p BuildMode="Enter selection [0-5] > "

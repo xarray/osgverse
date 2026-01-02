@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 def ABI_FILTER = rootProject.ext.ABI_FILTER
+def ARM_HOST = System.getProperty("os.arch") in ["aarch64", "armv7l", "arm64"]
 
 android {
     namespace "org.thirdparty"
@@ -21,14 +22,14 @@ android {
         debug {
             externalNativeBuild {
                 cmake {
-                    arguments "-DCMAKE_BUILD_TYPE=Debug"
+                    arguments "-DCMAKE_BUILD_TYPE=Debug", "-DARM_HOST=$ARM_HOST"
                 }
             }
         }
         release {
             externalNativeBuild {
                 cmake {
-                    arguments "-DCMAKE_BUILD_TYPE=Release"
+                    arguments "-DCMAKE_BUILD_TYPE=Release", "-DARM_HOST=$ARM_HOST"
                 }
             }
             minifyEnabled = false
