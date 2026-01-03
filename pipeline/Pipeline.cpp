@@ -25,74 +25,86 @@
 static osg::Camera::ComputeNearFarMode g_nearFarMode =
         osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES;
 
-class DebugDrawCallback : public osg::Camera::DrawCallback
+namespace
 {
-public:
-    virtual void operator()(osg::RenderInfo& renderInfo) const
+    static void applyTextureAttributeAndModes(osg::StateSet* ss, int unit, osg::Texture* tex)
     {
-        double fov, ratio, zn, zf;
-        osg::Camera* cam = renderInfo.getCurrentCamera();
-        renderInfo.getState()->getProjectionMatrix().getPerspective(fov, ratio, zn, zf);
-        std::cout << _name << ": " << cam->getName() << " = "
-                  << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+        ss->setTextureAttribute(unit, tex);  // No need for glEnable(tex_mode) in GLES 2.0/3.x and GL3/4
+#else
+        ss->setTextureAttributeAndModes(unit, tex);
+#endif
     }
 
-    DebugDrawCallback(const std::string& n) : _name(n) {}
-    std::string _name;
-};
-
-struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatrixCallback
-{
-    template<class MatrixType>
-    bool _clampProjectionMatrix(MatrixType& proj, double& znear, double& zfar) const
+    class DebugDrawCallback : public osg::Camera::DrawCallback
     {
-        static double epsilon = 1e-6;
-        osg::Vec2d nearFar = _callback->getCalculatedNearFar();
-        if (nearFar[0] > 0.0 && nearFar[1] > 0.0)
+    public:
+        virtual void operator()(osg::RenderInfo& renderInfo) const
         {
-            // Work with near/far values to implement depth-partition here
-            if (_stage.valid() && _stage->depthPartition.x() > 0.0)
-            {
-                double nearData = _stage->depthPartition.y(); if (nearData <= 0.0) nearData = 0.1;
-                if ((int)_stage->depthPartition.x() == 1)  // front frustum
-                    nearFar.set(nearData, sqrt(nearData * nearFar[1]));
-                else
-                    nearFar.set(sqrt(nearData * nearFar[1]), nearFar[1]);
-            }
-
-            if (fabs(proj(0, 3)) < epsilon  && fabs(proj(1, 3)) < epsilon  && fabs(proj(2, 3)) < epsilon)
-            {   // Orthographic matrix
-                proj(2, 2) = -2.0f / (nearFar[1] - nearFar[0]);
-                proj(3, 2) = -(nearFar[1] + nearFar[0]) / (nearFar[1] - nearFar[0]);
-            }
-            else
-            {   // Persepective matrix
-                double tNear = (-nearFar[0] * proj(2, 2) + proj(3, 2))
-                             / (-nearFar[0] * proj(2, 3) + proj(3, 3));
-                double tFar = (-nearFar[1] * proj(2, 2) + proj(3, 2))
-                            / (-nearFar[1] * proj(2, 3) + proj(3, 3));
-                double ratio = fabs(2.0 / (tNear - tFar)), center = -(tNear + tFar) / 2.0;
-                proj.postMult(osg::Matrix(1.0f, 0.0f, 0.0f, 0.0f,
-                                          0.0f, 1.0f, 0.0f, 0.0f,
-                                          0.0f, 0.0f, ratio, 0.0f,
-                                          0.0f, 0.0f, center * ratio, 1.0f));
-            }
+            double fov, ratio, zn, zf;
+            osg::Camera* cam = renderInfo.getCurrentCamera();
+            renderInfo.getState()->getProjectionMatrix().getPerspective(fov, ratio, zn, zf);
+            std::cout << _name << ": " << cam->getName() << " = "
+                    << fov << ", " << ratio << ", " << zn << ", " << zf << "\n";
         }
-        znear = nearFar[0]; zfar = nearFar[1];
-        return true;
-    }
 
-    virtual bool clampProjectionMatrixImplementation(osg::Matrixf& p, double& znear, double& zfar) const
-    { return _clampProjectionMatrix(p, znear, zfar); }
+        DebugDrawCallback(const std::string& n) : _name(n) {}
+        std::string _name;
+    };
 
-    virtual bool clampProjectionMatrixImplementation(osg::Matrixd& p, double& znear, double& zfar) const
-    { return _clampProjectionMatrix(p, znear, zfar); }
+    struct MyClampProjectionCallback : public osg::CullSettings::ClampProjectionMatrixCallback
+    {
+        template<class MatrixType>
+        bool _clampProjectionMatrix(MatrixType& proj, double& znear, double& zfar) const
+        {
+            static double epsilon = 1e-6;
+            osg::Vec2d nearFar = _callback->getCalculatedNearFar();
+            if (nearFar[0] > 0.0 && nearFar[1] > 0.0)
+            {
+                // Work with near/far values to implement depth-partition here
+                if (_stage.valid() && _stage->depthPartition.x() > 0.0)
+                {
+                    double nearData = _stage->depthPartition.y(); if (nearData <= 0.0) nearData = 0.1;
+                    if ((int)_stage->depthPartition.x() == 1)  // front frustum
+                        nearFar.set(nearData, sqrt(nearData * nearFar[1]));
+                    else
+                        nearFar.set(sqrt(nearData * nearFar[1]), nearFar[1]);
+                }
 
-    MyClampProjectionCallback(osgVerse::Pipeline::Stage* s, osgVerse::DeferredRenderCallback* cb)
-        : _stage(s), _callback(cb) {}
-    osg::observer_ptr<osgVerse::Pipeline::Stage> _stage;
-    osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
-};
+                if (fabs(proj(0, 3)) < epsilon  && fabs(proj(1, 3)) < epsilon  && fabs(proj(2, 3)) < epsilon)
+                {   // Orthographic matrix
+                    proj(2, 2) = -2.0f / (nearFar[1] - nearFar[0]);
+                    proj(3, 2) = -(nearFar[1] + nearFar[0]) / (nearFar[1] - nearFar[0]);
+                }
+                else
+                {   // Persepective matrix
+                    double tNear = (-nearFar[0] * proj(2, 2) + proj(3, 2))
+                                / (-nearFar[0] * proj(2, 3) + proj(3, 3));
+                    double tFar = (-nearFar[1] * proj(2, 2) + proj(3, 2))
+                                / (-nearFar[1] * proj(2, 3) + proj(3, 3));
+                    double ratio = fabs(2.0 / (tNear - tFar)), center = -(tNear + tFar) / 2.0;
+                    proj.postMult(osg::Matrix(1.0f, 0.0f, 0.0f, 0.0f,
+                                            0.0f, 1.0f, 0.0f, 0.0f,
+                                            0.0f, 0.0f, ratio, 0.0f,
+                                            0.0f, 0.0f, center * ratio, 1.0f));
+                }
+            }
+            znear = nearFar[0]; zfar = nearFar[1];
+            return true;
+        }
+
+        virtual bool clampProjectionMatrixImplementation(osg::Matrixf& p, double& znear, double& zfar) const
+        { return _clampProjectionMatrix(p, znear, zfar); }
+
+        virtual bool clampProjectionMatrixImplementation(osg::Matrixd& p, double& znear, double& zfar) const
+        { return _clampProjectionMatrix(p, znear, zfar); }
+
+        MyClampProjectionCallback(osgVerse::Pipeline::Stage* s, osgVerse::DeferredRenderCallback* cb)
+            : _stage(s), _callback(cb) {}
+        osg::observer_ptr<osgVerse::Pipeline::Stage> _stage;
+        osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
+    };
+}
 
 class MyCullVisitor : public osgUtil::CullVisitor
 {
@@ -877,7 +889,7 @@ namespace osgVerse
 
             osg::StateSet* ss = deferred ?
                 runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
-            ss->setTextureAttributeAndModes(unit, tex);
+            applyTextureAttributeAndModes(ss, unit, tex);
             ss->addUniform(new osg::Uniform(n.data(), unit));
 #if VERBOSE_CREATING
             OSG_NOTICE << "  Buffer " << unit << ": " << buffer << " (" << n << ")" << std::endl;
@@ -892,7 +904,7 @@ namespace osgVerse
     {
         osg::StateSet* ss = deferred ?
             runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
-        ss->setTextureAttributeAndModes(u, tex);
+        applyTextureAttributeAndModes(ss, u, tex);
         ss->addUniform(new osg::Uniform(buffer.data(), u));
 #if VERBOSE_CREATING
         OSG_NOTICE << "  Texture " << u << ": " << buffer << std::endl;
@@ -903,7 +915,7 @@ namespace osgVerse
     {
         osg::StateSet* ss = deferred ?
             runner->geometry->getOrCreateStateSet() : camera->getOrCreateStateSet();
-        ss->setTextureAttributeAndModes(u, createDefaultTexture(color));
+        applyTextureAttributeAndModes(ss, u, createDefaultTexture(color));
         ss->addUniform(new osg::Uniform(buffer.data(), u));
     }
 
@@ -1410,13 +1422,13 @@ namespace osgVerse
 
         if (applyDefTextures)
         {
-            ss.setTextureAttributeAndModes(0, createDefaultTexture(color1));  // DiffuseMap
-            ss.setTextureAttributeAndModes(1, createDefaultTexture(color0));  // NormalMap
-            ss.setTextureAttributeAndModes(2, createDefaultTexture(color1));  // SpecularMap
-            ss.setTextureAttributeAndModes(3, createDefaultTexture(colorORM));  // ShininessMap
-            ss.setTextureAttributeAndModes(4, createDefaultTexture(color0));  // AmbientMap
-            ss.setTextureAttributeAndModes(5, createDefaultTexture(color0));  // EmissiveMap
-            ss.setTextureAttributeAndModes(6, createDefaultTexture(color0));  // ReflectionMap
+            applyTextureAttributeAndModes(&ss, 0, createDefaultTexture(color1));  // DiffuseMap
+            applyTextureAttributeAndModes(&ss, 1, createDefaultTexture(color0));  // NormalMap
+            applyTextureAttributeAndModes(&ss, 2, createDefaultTexture(color1));  // SpecularMap
+            applyTextureAttributeAndModes(&ss, 3, createDefaultTexture(colorORM));  // ShininessMap
+            applyTextureAttributeAndModes(&ss, 4, createDefaultTexture(color0));  // AmbientMap
+            applyTextureAttributeAndModes(&ss, 5, createDefaultTexture(color0));  // EmissiveMap
+            applyTextureAttributeAndModes(&ss, 6, createDefaultTexture(color0));  // ReflectionMap
             for (int i = 0; i < 7; ++i) ss.addUniform(new osg::Uniform(uniformNames[i].c_str(), i));
         }
 

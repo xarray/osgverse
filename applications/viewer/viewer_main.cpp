@@ -29,7 +29,8 @@ USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
-#ifdef false  // GLDebug requires OpenGL 4.3, enable it by yourselves
+#define VERSE_USE_CORE_DEBUGGER 0
+#if VERSE_USE_CORE_DEBUGGER  // GLDebug requires OpenGL 4.3, enable it by yourselves
 class GLDebugOperation : public osg::GraphicsOperation
 {
 public:
@@ -49,7 +50,7 @@ public:
 
         glEnable(GL_DEBUG_OUTPUT);
         _glDebugMessageCallback((GLDEBUGPROC)&(GLDebugOperation::debugCallback), NULL);
-        //glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
     }
 
     static void debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
@@ -349,13 +350,15 @@ int main(int argc, char** argv)
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
-#ifdef false  // GLDebug requires OpenGL 4.3, enable it by yourselves
+#if VERSE_USE_CORE_DEBUGGER  // GLDebug requires OpenGL 4.3, enable it by yourselves
 #   ifdef VERSE_WINDOWS
     // WGL_CONTEXT_DEBUG_BIT_ARB = 0x0001
     // WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002
     int flags = 0x0001 | 0x0002;
 #   else
-    int flags = 0;  // TODO
+    // GLX_CONTEXT_DEBUG_BIT_ARB = 0x0001
+    // GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002
+    int flags = 0x0001 | 0x0002;
 #   endif
     osg::ref_ptr<osg::GraphicsContext> gc = pipeline->createGraphicsContext(1920, 1080, "4.5", NULL, flags);
     viewer.getCamera()->setGraphicsContext(gc.get());
@@ -363,10 +366,6 @@ int main(int argc, char** argv)
         30., (double)1920 / (double)1080, 1., 100.));
     viewer.getCamera()->setViewport(new osg::Viewport(0, 0, 1920, 1080));
     viewer.setRealizeOperation(new GLDebugOperation);
-
-    osgVerse::FixedFunctionOptimizer ffo;
-    if (arguments.read("--no-original-shaders")) ffo.setRemovingOriginalShaders(true);
-    root->accept(ffo);
 #else
     // Always call viewer.setUp*() before setupStandardPipeline()!
     int screenNo = 0; arguments.read("--screen", screenNo);

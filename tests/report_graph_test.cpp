@@ -322,6 +322,10 @@ int main(int argc, char** argv)
         (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFiles(arguments);
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
 
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+#endif
+
     Reporter reporter;
     reporter.setVerbose(!arguments.read("--slient"));
     reporter.setGeometryReport("geom_report.csv");
