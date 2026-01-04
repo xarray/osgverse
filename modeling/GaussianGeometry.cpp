@@ -287,7 +287,7 @@ bool GaussianGeometry::finalize()
                         *((osg::Vec4*)ptr + (j * 15 + i)) = osg::Vec4(src[j], 0.0f);
                 }
                 else
-                    TextureLookUpTable::setFloat3(_core.get(), i, &src);
+                    TextureLookUpTable::setFloat3(_shcoef.get(), i, &src);
             }
         }
         _preDataMap2.clear();  // clear host prepared data
