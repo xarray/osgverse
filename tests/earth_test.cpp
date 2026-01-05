@@ -174,9 +174,9 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
     osgVerse::updateOsgBinaryWrappers();
 
-    bool useOcean = arguments.read("--ocean"), useSky = arguments.read("--sky"), multiRoot = arguments.read("--multi-root");
+    bool useOcean = arguments.read("--ocean"), useSky = arguments.read("--sky"), withAxes = arguments.read("--with-axes");
     bool bLeft = arguments.read("--image-bottomleft"), wgs84 = arguments.read("--web-wgs84"), use2D = arguments.read("--map2d");
-    std::string startFile = multiRoot ? "0-0-x.verse_tms" : "0-0-0.verse_tms";
+    std::string startFile = arguments.read("--multi-root") ? "0-0-x.verse_tms" : "0-0-0.verse_tms";
     std::string use2Dor3D = use2D ? "UseEarth3D=0" : "UseEarth3D=1";
     std::string useBottomLeftImage = bLeft ? "OriginBottomLeft=1" : "OriginBottomLeft=0";
     std::string useWGS84Tile = wgs84 ? "UseWebMercator=0" : "UseWebMercator=1";
@@ -318,7 +318,24 @@ int main(int argc, char** argv)
         { OSG_NOTICE << "Ocean and sky rendering effects are incompatible with 2D maps\n"; return 1; }
     }
     else
+    {
         root->addChild(earth.get());
+        if (tiles.valid()) root->addChild(tiles.get());
+    }
+
+    // Show axes all over the world for testing
+    if (withAxes)
+    {
+        osg::ref_ptr<osg::Node> axes = osgDB::readNodeFile("axes.osgt.10000,10000,10000.scale");
+        for (int y = -88; y <= 88; y += 2)
+            for (int x = -180; x < 180; x += 5)
+            {
+                osg::MatrixTransform* mt = new osg::MatrixTransform;
+                mt->setMatrix(osgVerse::Coordinate::convertLLAtoENU(
+                    osg::Vec3d(osg::inDegrees((double)y), osg::inDegrees((double)x), 0.0)));
+                mt->addChild(axes.get()); root->addChild(mt);
+            }
+    }
 
     // Create camera manipulator
     osg::ref_ptr<osgGA::CameraManipulator> camManipulator;

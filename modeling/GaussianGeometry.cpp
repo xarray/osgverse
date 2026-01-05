@@ -305,6 +305,7 @@ bool GaussianGeometry::finalize()
 
         // Add an index array for sorting
         osg::ref_ptr<osg::UIntArray> indices = new osg::UIntArray(_numSplats);
+        indices->setPreserveDataType(true);  // force using glVertexAttribIPointer in osg/VertexArrayState
         for (int i = 0; i < _numSplats; ++i) (*indices)[i] = i;
         setVertexAttribArray(1, indices); setVertexAttribNormalize(1, GL_FALSE);
         setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
@@ -680,7 +681,7 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
         osg::UIntArray* vaa = static_cast<osg::UIntArray*>(geom->getVertexAttribArray(1));
         if (!vaa)
         {
-            vaa = new osg::UIntArray(numSplats);
+            vaa = new osg::UIntArray(numSplats); vaa->setPreserveDataType(true);
             for (int i = 0; i < numSplats; ++i) (*vaa)[i] = i;
             geom->setVertexAttribArray(1, vaa); geom->setVertexAttribNormalize(1, GL_FALSE);
             geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
@@ -725,7 +726,7 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
                                                 ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
                     de->setNumInstances(numSplats - numCulled); de->dirty();
                 }
-                indexBuffer->dirty();
+                indexBuffer->dirty();  // FIXME: not updating under core profile??
             }
         }
         break;

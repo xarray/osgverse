@@ -210,7 +210,9 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     }
 
     if (shader.getType() == osg::Shader::GEOMETRY)
+    {
         extLines.push_back("#extension GL_EXT_geometry_shader4: enable");
+    }
     else
     {
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
@@ -222,14 +224,11 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     std::stringstream ss;
 #if defined(OSG_GL3_AVAILABLE)
     ss << "#version " << osg::maximum(glslVer, 330) << " core" << std::endl;
-    for (size_t i = 0; i < extLines.size(); ++i) ss << extLines[i] << std::endl;
     ss << "#define VERSE_GLES3 1" << std::endl;
 #elif defined(OSG_GLES3_AVAILABLE)
     ss << "#version " << osg::maximum(glslVer, 300) << " es" << std::endl;
-    for (size_t i = 0; i < extLines.size(); ++i) ss << extLines[i] << std::endl;
     ss << "#define VERSE_GLES3 1" << std::endl;
 #elif defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
-    for (size_t i = 0; i < extLines.size(); ++i) ss << extLines[i] << std::endl;
     ss << "#define VERSE_GLES2 1" << std::endl;
 #else
     if (glslVer > 120)
@@ -237,9 +236,9 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
         if (glslVer < 300) ss << "#version " << glslVer << std::endl;
         else ss << "#version " << glslVer << " compatibility" << std::endl;
     }
-    for (size_t i = 0; i < extLines.size(); ++i) ss << extLines[i] << std::endl;
 #endif
 
+    for (size_t i = 0; i < extLines.size(); ++i) ss << extLines[i] << std::endl;
 #if defined(VERSE_EMBEDDED_GLES2)
     ss << "#define VERSE_WEBGL1 1" << std::endl;
 #elif defined(VERSE_EMBEDDED_GLES3)

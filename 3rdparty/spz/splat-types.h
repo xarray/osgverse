@@ -58,10 +58,11 @@ inline CoordinateConverter coordinateConverter(CoordinateSystem from, Coordinate
   float x = xMatch ? 1.0f : -1.0f;
   float y = yMatch ? 1.0f : -1.0f;
   float z = zMatch ? 1.0f : -1.0f;
-  return CoordinateConverter{
-    {x, y, z},
-    {y * z, x * z, x * y},
-    {
+
+  CoordinateConverter converter;
+  converter.flipP = std::array<float, 3> {x, y, z};
+  converter.flipQ = std::array<float, 3> {y * z, x * z, x * y};
+  converter.flipSh = std::array<float, 15> {
       y,          // 0
       z,          // 1
       x,          // 2
@@ -77,8 +78,8 @@ inline CoordinateConverter coordinateConverter(CoordinateSystem from, Coordinate
       x,          // 12
       z,          // 13
       x           // 14
-    }
   };
+  return converter;
 }
 
 // A point cloud composed of Gaussians. Each gaussian is represented by:

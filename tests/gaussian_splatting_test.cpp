@@ -63,7 +63,7 @@ public:
             osg::StateSet* ss = node.getOrCreateStateSet();
             ss->setAttribute(_program.get());
             ss->setAttributeAndModes(new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-            //ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
+            ss->setAttributeAndModes(new osg::BlendEquation(osg::BlendEquation::FUNC_ADD));
             ss->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false));
             ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
             node.setCullCallback(_callback.get());

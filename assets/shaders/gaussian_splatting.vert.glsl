@@ -23,7 +23,7 @@ struct ShcoefData
 layout(std140, binding = 4) restrict readonly buffer ShcoefBuffer { ShcoefData shcoef[]; };
 #  endif
 
-VERSE_VS_IN float osg_UserIndex;
+VERSE_VS_IN uint osg_UserIndex;
 VERSE_VS_OUT vec4 color, invCovariance;
 VERSE_VS_OUT vec2 center2D;
 
