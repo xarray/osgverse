@@ -151,6 +151,32 @@ namespace osgVerse
         std::set<std::string> _classes;
         std::string _libraryName;
     };
+
+    class MethodInformationManager : public osg::Referenced
+    {
+    public:
+        static MethodInformationManager* instance();
+
+        struct Argument
+        {
+            std::string name; osgDB::BaseSerializer::Type type; bool optional;
+            Argument() : type(osgDB::BaseSerializer::RW_UNDEFINED), optional(false) {}
+        };
+        typedef std::pair<std::string, std::vector<Argument>> MethodInformation;
+
+        void addInformation(const std::string& clsName, const std::string& methodName, const MethodInformation& info);
+        void removeInformation(const std::string& clsName, const std::string& methodName);
+        std::vector<Argument>& getInformation(const std::string& clsName, const std::string& methodName);
+        const std::vector<Argument>& getInformation(const std::string& clsName, const std::string& methodName) const;
+
+        typedef std::pair<std::string, std::string> ClassAndMethod;
+        std::map<ClassAndMethod, MethodInformation>& getInformationMap() { return _informationMap; }
+        const std::map<ClassAndMethod, MethodInformation>& getInformationMap() const { return _informationMap; }
+
+    protected:
+        MethodInformationManager();
+        std::map<ClassAndMethod, MethodInformation> _informationMap;
+    };
 }
 
 #endif

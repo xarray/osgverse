@@ -241,3 +241,42 @@ bool LibraryEntry::callMethod(osg::Object* object, const std::string& name,
 osg::Object* LibraryEntry::create(const std::string& name)
 { OSG_WARN << "[LibraryEntry] create() not implemented" << std::endl; return NULL; }
 #endif
+
+MethodInformationManager::MethodInformationManager()
+{
+    // TODO: add default method information
+}
+
+MethodInformationManager* MethodInformationManager::instance()
+{
+    static osg::ref_ptr<MethodInformationManager> s_instance = new MethodInformationManager;
+    return s_instance.get();
+}
+
+void MethodInformationManager::addInformation(const std::string& clsName, const std::string& methodName, const MethodInformation& info)
+{ ClassAndMethod pair(clsName, methodName); _informationMap[pair] = info; }
+
+void MethodInformationManager::removeInformation(const std::string& clsName, const std::string& methodName)
+{
+    ClassAndMethod pair(clsName, methodName);
+    std::map<ClassAndMethod, MethodInformation>::iterator it = _informationMap.find(pair);
+    if (it != _informationMap.end()) _informationMap.erase(it);
+}
+
+std::vector<MethodInformationManager::Argument>& MethodInformationManager::getInformation(
+        const std::string& clsName, const std::string& methodName)
+{
+    ClassAndMethod pair(clsName, methodName);
+    std::map<ClassAndMethod, MethodInformation>::iterator it = _informationMap.find(pair);
+    if (it != _informationMap.end()) return it->second.second;
+    return std::vector<MethodInformationManager::Argument>();
+}
+
+const std::vector<MethodInformationManager::Argument>& MethodInformationManager::getInformation(
+        const std::string& clsName, const std::string& methodName) const
+{
+    ClassAndMethod pair(clsName, methodName);
+    std::map<ClassAndMethod, MethodInformation>::const_iterator it = _informationMap.find(pair);
+    if (it != _informationMap.end()) return it->second.second;
+    return std::vector<MethodInformationManager::Argument>();
+}
