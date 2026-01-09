@@ -203,10 +203,12 @@ namespace osgVerse
                osgDB::convertUTF8toUTF16(osgDB::convertStringFromCurrentCodePageToUTF8(s));
     }
 
-    osg::ArgumentParser globalInitialize(int argc, char** argv)
+    osg::ArgumentParser globalInitialize(int argc, char** argv, InitParameters params)
     {
         setlocale(LC_ALL, ".UTF8");
         osg::setNotifyLevel(osg::NOTICE);
+
+        // TODO: handle InitParameters
         osgDB::Registry::instance()->setReadFileCallback(new MyReadFileCallback);
         if (argv && argc > 0)
         {

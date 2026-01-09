@@ -10,20 +10,23 @@
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-
 #define TEST_PIPELINE 1
 #define TEST_SHADOW_MAP 0
-#if VERSE_APPLE
-#   define TEST_VULKAN_IMPLEMENTATION 0
-#elif defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-#   define TEST_VULKAN_IMPLEMENTATION 1
-#else
-#   define TEST_VULKAN_IMPLEMENTATION 0
+
+#ifdef VERSE_WITH_SDL
+#   if VERSE_APPLE
+#      define TEST_VULKAN_IMPLEMENTATION 0
+#   elif defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#      define TEST_VULKAN_IMPLEMENTATION 1
+#   else
+#      define TEST_VULKAN_IMPLEMENTATION 0
 #endif
 
-#include <SDL.h>
-#include <SDL_syswm.h>
+#   include <SDL.h>
+#   include <SDL_syswm.h>
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+#endif
+USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
 
 #if TEST_VULKAN_IMPLEMENTATION
 // TODO
@@ -59,15 +62,17 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
-        argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
+
+    bool useGLFW = arguments.read("--use-glfw"), useWin32Ex = arguments.read("--use-win32ex");
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
+    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
         // Add tangent/bi-normal arrays for normal mapping
         osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        //osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
     }
 
     // The scene graph
@@ -80,7 +85,7 @@ int main(int argc, char** argv)
     root->addChild(sceneRoot.get());
 
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
-    //root->addChild(postCamera.get());
+    root->addChild(postCamera.get());
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
@@ -119,8 +124,13 @@ int main(int argc, char** argv)
     traits->alpha = 8; traits->depth = 24; traits->stencil = 8;
     traits->windowDecoration = true; traits->doubleBuffer = true;
     traits->readDISPLAY(); traits->setUndefinedScreenDetailsToDefaultScreen();
+
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)
+#   ifdef VERSE_WITH_SDL
     traits->windowingSystemPreference = "SDL";
+#   endif
+    if (useGLFW) traits->windowingSystemPreference = "GLFW";
+    else if (useWin32Ex) traits->windowingSystemPreference = "Win32NV";  // FIXME: will crash currently...
 #endif
 
     osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());

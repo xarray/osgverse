@@ -320,8 +320,32 @@ namespace osgVerse
         static std::wstring convertW(const std::string& s);
     };
 
-    /** Suggest run this function once to initialize some plugins & environments */
-    extern osg::ArgumentParser globalInitialize(int argc, char** argv);
+    /** Global initialization parameters */
+    struct InitParameters
+    {
+        // Used for optimizing read node (remove fixed function modes, etc.)
+        // TODO: implementation in readerwriter?
+        struct NodeOptimizerBase : public osg::Referenced
+        {
+            virtual void removeFixedFunctionData(osg::Node& node) = 0;
+            virtual void createTangentArray(osg::Node& node) = 0;
+            virtual void mergeMultipleGeometries(osg::Node& node) = 0;
+        };
+
+        // Used for sorting read gaussian splatting objects
+        // TODO: implementation in readerwriter?
+        struct GaussianSorterBase : public osg::Referenced
+        {
+            virtual void registerGaussianObjects(osg::Node& node) = 0;
+        };
+
+        osg::ref_ptr<NodeOptimizerBase> nodeOptimizer;
+        osg::ref_ptr<GaussianSorterBase> gaussianSorter;
+        InitParameters() {}
+    };
+
+    /** We recommend run this function once to initialize some plugins & environments */
+    extern osg::ArgumentParser globalInitialize(int argc, char** argv, InitParameters params = InitParameters());
 }
 
 namespace osg

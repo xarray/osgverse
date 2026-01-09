@@ -1,13 +1,15 @@
 SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_INCLUDE_FILES
-    Utilities.h OsgbTileOptimizer.h DracoProcessor.h FileCache.h DatabasePager.h TileCallback.h
-    EarthManipulator.h MaterialGraph.h NamedObjectFinder.h FeatureDefinition.h Export.h
+    Utilities.h OsgbTileOptimizer.h DracoProcessor.h FileCache.h DatabasePager.h
+    TileCallback.h EarthManipulator.h GraphicsWindowGLFW.h
+    MaterialGraph.h NamedObjectFinder.h FeatureDefinition.h Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h SaveSceneGLTF.cpp SaveSceneGLTF.h MimeTypes.cpp GLEnums.cpp
     DracoProcessor.cpp FileCache.cpp DatabasePager.cpp OsgbTileOptimizer.cpp FeatureDefinition.cpp
-    TileCallback.cpp EarthManipulator.cpp MaterialGraph.cpp Utilities.cpp UtilitiesEx.cpp
+    TileCallback.cpp EarthManipulator.cpp GraphicsWindowGLFW.cpp
+    MaterialGraph.cpp Utilities.cpp UtilitiesEx.cpp
 )
 
 IF(WIN32 AND NOT VERSE_USE_EXTERNAL_GLES)
@@ -33,7 +35,7 @@ ELSE()
 ENDIF()
 
 INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all
-                    ../3rdparty/stb ../3rdparty/rapidjson)
+                    ../3rdparty/stb ../3rdparty/rapidjson ../helpers/toolchain_builder)
 ADD_DEFINITIONS(-DVERSE_RW_LIBRARY -DKHRONOS_STATIC -DHV_STATICLIB
                 -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32)  # METIS
 IF(DRACO_FOUND)
@@ -47,6 +49,7 @@ ELSE()
 ENDIF()
 
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+TARGET_LINK_LIBRARIES(${LIB_NAME} glfw)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 

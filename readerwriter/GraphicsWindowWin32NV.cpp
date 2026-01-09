@@ -29,146 +29,149 @@ static PFNWGLCREATEAFFINITYDCNV wglCreateAffinityDCNV = NULL;
 static PFNWGLENUMGPUSFROMAFFINITYDCNV wglEnumGpusFromAffinityDCNV = NULL;
 static PFNWGLDELETEDCNV wglDeleteDCNV = NULL;
 
-class Win32WindowingSystemNV : public osg::GraphicsContext::WindowingSystemInterface
+namespace
 {
-public:
-    typedef std::vector<DISPLAY_DEVICE> DisplayDevices;
-    typedef std::map<HWND, osgViewer::GraphicsWindowWin32*> WindowHandles;
-    typedef std::pair<HWND, osgViewer::GraphicsWindowWin32*> WindowHandleEntry;
-    static std::string osgGraphicsWindowWithCursorClass;
-    static std::string osgGraphicsWindowWithoutCursorClass;
-
-    Win32WindowingSystemNV()
+    class Win32WindowingSystemNV : public osg::GraphicsContext::WindowingSystemInterface
     {
-        _windowClassesRegistered = false;
-        getInterface() = this;
-    }
+    public:
+        typedef std::vector<DISPLAY_DEVICE> DisplayDevices;
+        typedef std::map<HWND, osgViewer::GraphicsWindowWin32*> WindowHandles;
+        typedef std::pair<HWND, osgViewer::GraphicsWindowWin32*> WindowHandleEntry;
+        static std::string osgGraphicsWindowWithCursorClass;
+        static std::string osgGraphicsWindowWithoutCursorClass;
 
-    void registerWindow(HWND hwnd, osgViewer::GraphicsWindowWin32* window)
-    { if (hwnd) _activeWindows.insert(WindowHandleEntry(hwnd, window)); }
-
-    void unregisterWindow(HWND hwnd)
-    { if (hwnd) _activeWindows.erase(hwnd); }
-
-    osgViewer::GraphicsWindowWin32* getGraphicsWindowFor(HWND hwnd)
-    {
-        WindowHandles::const_iterator entry = _activeWindows.find(hwnd);
-        return entry == _activeWindows.end() ? 0 : entry->second;
-    }
-
-    static osg::observer_ptr<Win32WindowingSystemNV>& getInterface()
-    {
-        static osg::observer_ptr<Win32WindowingSystemNV> s_win32Interface;
-        return s_win32Interface;
-    }
-
-    virtual unsigned int getNumScreens(const osg::GraphicsContext::ScreenIdentifier& si =
-                                       osg::GraphicsContext::ScreenIdentifier())
-    { return si.displayNum == 0 ? ::GetSystemMetrics(SM_CMONITORS) : 0; }
-
-    virtual void getScreenSettings(const osg::GraphicsContext::ScreenIdentifier& si,
-                                   osg::GraphicsContext::ScreenSettings& resolution)
-    {
-        DISPLAY_DEVICE displayDevice; DEVMODE deviceMode;
-        if (!getScreenInformation(si, displayDevice, deviceMode))
-            deviceMode.dmFields = 0;        // Set the fields to 0 so that it says 'nothing'.
-        if ((deviceMode.dmFields & (DM_PELSWIDTH | DM_PELSHEIGHT)) != 0)  // Get resolution
+        Win32WindowingSystemNV()
         {
-            resolution.width = deviceMode.dmPelsWidth;
-            resolution.height = deviceMode.dmPelsHeight;
+            _windowClassesRegistered = false;
+            getInterface() = this;
         }
-        else
-            { resolution.width = 0; resolution.height = 0; }
 
-        if ((deviceMode.dmFields & DM_DISPLAYFREQUENCY) != 0)  // Get refersh rate
+        void registerWindow(HWND hwnd, osgViewer::GraphicsWindowWin32* window)
+        { if (hwnd) _activeWindows.insert(WindowHandleEntry(hwnd, window)); }
+
+        void unregisterWindow(HWND hwnd)
+        { if (hwnd) _activeWindows.erase(hwnd); }
+
+        osgViewer::GraphicsWindowWin32* getGraphicsWindowFor(HWND hwnd)
         {
-            resolution.refreshRate = deviceMode.dmDisplayFrequency;
-            if (resolution.refreshRate == 0 || resolution.refreshRate == 1)
-                resolution.refreshRate = 0;  // Windows specific: 0 and 1 represent the hardware's default refresh rate
+            WindowHandles::const_iterator entry = _activeWindows.find(hwnd);
+            return entry == _activeWindows.end() ? 0 : entry->second;
         }
-        else
-            resolution.refreshRate = 0;
 
-        if ((deviceMode.dmFields & DM_BITSPERPEL) != 0) resolution.colorDepth = deviceMode.dmBitsPerPel;
-        else resolution.colorDepth = 0;  // Get bits per pixel for color buffer
-    }
-
-    virtual bool setScreenSettings(const osg::GraphicsContext::ScreenIdentifier& si,
-                                   const osg::GraphicsContext::ScreenSettings& resolution)
-    {
-        OSG_WARN << "[Win32WindowingSystemNV] setScreenSettings() not implemented" << std::endl;
-        return false;
-    }
-
-    bool getScreenInformation(const osg::GraphicsContext::ScreenIdentifier& si,
-                              DISPLAY_DEVICE& displayDevice, DEVMODE& deviceMode)
-    {
-        if (si.displayNum > 0) return false;
-        DisplayDevices displayDevices; enumerateDisplayDevices(displayDevices);
-        if (si.screenNum >= static_cast<int>(displayDevices.size())) return false;
-
-        displayDevice = displayDevices[si.screenNum];
-        deviceMode.dmSize = sizeof(deviceMode); deviceMode.dmDriverExtra = 0;
-        if (!::EnumDisplaySettings(displayDevice.DeviceName, ENUM_CURRENT_SETTINGS, &deviceMode)) return false;
-        return true;
-    }
-
-    virtual void enumerateScreenSettings(const osg::GraphicsContext::ScreenIdentifier& si,
-                                         osg::GraphicsContext::ScreenSettingsList& resolutionList)
-    {
-        resolutionList.clear();
-        if (si.displayNum > 0) return;
-
-        DisplayDevices displayDevices;
-        enumerateDisplayDevices(displayDevices);
-        if (si.screenNum >= static_cast<int>(displayDevices.size())) return;
-
-        DISPLAY_DEVICE displayDevice = displayDevices[si.screenNum]; DEVMODE deviceMode;
-        static const unsigned int MAX_RESOLUTIONS = 4046;
-        for (unsigned int i = 0; i < MAX_RESOLUTIONS; ++i)
+        static osg::observer_ptr<Win32WindowingSystemNV>& getInterface()
         {
-            if (!::EnumDisplaySettings(displayDevice.DeviceName, i, &deviceMode)) break;
+            static osg::observer_ptr<Win32WindowingSystemNV> s_win32Interface;
+            return s_win32Interface;
+        }
+
+        virtual unsigned int getNumScreens(const osg::GraphicsContext::ScreenIdentifier& si =
+                                           osg::GraphicsContext::ScreenIdentifier())
+        { return si.displayNum == 0 ? ::GetSystemMetrics(SM_CMONITORS) : 0; }
+
+        virtual void getScreenSettings(const osg::GraphicsContext::ScreenIdentifier& si,
+                                       osg::GraphicsContext::ScreenSettings& resolution)
+        {
+            DISPLAY_DEVICE displayDevice; DEVMODE deviceMode;
+            if (!getScreenInformation(si, displayDevice, deviceMode))
+                deviceMode.dmFields = 0;        // Set the fields to 0 so that it says 'nothing'.
+            if ((deviceMode.dmFields & (DM_PELSWIDTH | DM_PELSHEIGHT)) != 0)  // Get resolution
+            {
+                resolution.width = deviceMode.dmPelsWidth;
+                resolution.height = deviceMode.dmPelsHeight;
+            }
+            else
+                { resolution.width = 0; resolution.height = 0; }
+
+            if ((deviceMode.dmFields & DM_DISPLAYFREQUENCY) != 0)  // Get refersh rate
+            {
+                resolution.refreshRate = deviceMode.dmDisplayFrequency;
+                if (resolution.refreshRate == 0 || resolution.refreshRate == 1)
+                    resolution.refreshRate = 0;  // Windows specific: 0 and 1 represent the hardware's default refresh rate
+            }
+            else
+                resolution.refreshRate = 0;
+
+            if ((deviceMode.dmFields & DM_BITSPERPEL) != 0) resolution.colorDepth = deviceMode.dmBitsPerPel;
+            else resolution.colorDepth = 0;  // Get bits per pixel for color buffer
+        }
+
+        virtual bool setScreenSettings(const osg::GraphicsContext::ScreenIdentifier& si,
+                                       const osg::GraphicsContext::ScreenSettings& resolution)
+        {
+            OSG_WARN << "[Win32WindowingSystemNV] setScreenSettings() not implemented" << std::endl;
+            return false;
+        }
+
+        bool getScreenInformation(const osg::GraphicsContext::ScreenIdentifier& si,
+                                  DISPLAY_DEVICE& displayDevice, DEVMODE& deviceMode)
+        {
+            if (si.displayNum > 0) return false;
+            DisplayDevices displayDevices; enumerateDisplayDevices(displayDevices);
+            if (si.screenNum >= static_cast<int>(displayDevices.size())) return false;
+
+            displayDevice = displayDevices[si.screenNum];
             deviceMode.dmSize = sizeof(deviceMode); deviceMode.dmDriverExtra = 0;
-            resolutionList.push_back(osg::GraphicsContext::ScreenSettings(
-                deviceMode.dmPelsWidth, deviceMode.dmPelsHeight, deviceMode.dmDisplayFrequency, deviceMode.dmBitsPerPel));
+            if (!::EnumDisplaySettings(displayDevice.DeviceName, ENUM_CURRENT_SETTINGS, &deviceMode)) return false;
+            return true;
         }
-    }
 
-    virtual osg::GraphicsContext* createGraphicsContext(osg::GraphicsContext::Traits* traits)
-    {
-        registerWindowClasses();
-        return new GraphicsWindowWin32NV(traits);
-    }
-
-protected:
-    virtual ~Win32WindowingSystemNV()
-    {
-        if (osg::Referenced::getDeleteHandler())
+        virtual void enumerateScreenSettings(const osg::GraphicsContext::ScreenIdentifier& si,
+                                             osg::GraphicsContext::ScreenSettingsList& resolutionList)
         {
-            osg::Referenced::getDeleteHandler()->setNumFramesToRetainObjects(0);
-            osg::Referenced::getDeleteHandler()->flushAll();
-        }
-        unregisterWindowClasses();
-    }
+            resolutionList.clear();
+            if (si.displayNum > 0) return;
 
-    void enumerateDisplayDevices(DisplayDevices& displayDevices) const
-    {
-        for (unsigned int deviceNum = 0;; ++deviceNum)
+            DisplayDevices displayDevices;
+            enumerateDisplayDevices(displayDevices);
+            if (si.screenNum >= static_cast<int>(displayDevices.size())) return;
+
+            DISPLAY_DEVICE displayDevice = displayDevices[si.screenNum]; DEVMODE deviceMode;
+            static const unsigned int MAX_RESOLUTIONS = 4046;
+            for (unsigned int i = 0; i < MAX_RESOLUTIONS; ++i)
+            {
+                if (!::EnumDisplaySettings(displayDevice.DeviceName, i, &deviceMode)) break;
+                deviceMode.dmSize = sizeof(deviceMode); deviceMode.dmDriverExtra = 0;
+                resolutionList.push_back(osg::GraphicsContext::ScreenSettings(
+                    deviceMode.dmPelsWidth, deviceMode.dmPelsHeight, deviceMode.dmDisplayFrequency, deviceMode.dmBitsPerPel));
+            }
+        }
+
+        virtual osg::GraphicsContext* createGraphicsContext(osg::GraphicsContext::Traits* traits)
         {
-            DISPLAY_DEVICE displayDevice; displayDevice.cb = sizeof(displayDevice);
-            if (!::EnumDisplayDevices(NULL, deviceNum, &displayDevice, 0)) break;
-
-            if (displayDevice.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER) continue;
-            if (!(displayDevice.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP)) continue;
-            displayDevices.push_back(displayDevice);
+            registerWindowClasses();
+            return new GraphicsWindowWin32NV(traits);
         }
-    }
 
-    void registerWindowClasses();
-    void unregisterWindowClasses();
-    WindowHandles _activeWindows;
-    bool _windowClassesRegistered;
-};
+    protected:
+        virtual ~Win32WindowingSystemNV()
+        {
+            if (osg::Referenced::getDeleteHandler())
+            {
+                osg::Referenced::getDeleteHandler()->setNumFramesToRetainObjects(0);
+                osg::Referenced::getDeleteHandler()->flushAll();
+            }
+            unregisterWindowClasses();
+        }
+
+        void enumerateDisplayDevices(DisplayDevices& displayDevices) const
+        {
+            for (unsigned int deviceNum = 0;; ++deviceNum)
+            {
+                DISPLAY_DEVICE displayDevice; displayDevice.cb = sizeof(displayDevice);
+                if (!::EnumDisplayDevices(NULL, deviceNum, &displayDevice, 0)) break;
+
+                if (displayDevice.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER) continue;
+                if (!(displayDevice.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP)) continue;
+                displayDevices.push_back(displayDevice);
+            }
+        }
+
+        void registerWindowClasses();
+        void unregisterWindowClasses();
+        WindowHandles _activeWindows;
+        bool _windowClassesRegistered;
+    };
+}
 
 std::string Win32WindowingSystemNV::osgGraphicsWindowWithCursorClass;
 std::string Win32WindowingSystemNV::osgGraphicsWindowWithoutCursorClass;

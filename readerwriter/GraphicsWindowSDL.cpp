@@ -33,58 +33,61 @@ static void EGLAPIENTRY eglErrorCallback(EGLenum error, const char* command, EGL
 }
 #endif
 
-static int getModKey()
+namespace
 {
-    SDL_Keymod modstates = SDL_GetModState();
-    if (modstates & KMOD_LCTRL) return osgGA::GUIEventAdapter::KEY_Control_L;
-    else if (modstates & KMOD_RCTRL) return osgGA::GUIEventAdapter::KEY_Control_R;
-    else if (modstates & KMOD_LALT) return osgGA::GUIEventAdapter::KEY_Alt_L;
-    else if (modstates & KMOD_RALT) return osgGA::GUIEventAdapter::KEY_Alt_R;
-    else if (modstates & KMOD_LSHIFT) return osgGA::GUIEventAdapter::KEY_Shift_L;
-    else if (modstates & KMOD_RSHIFT) return osgGA::GUIEventAdapter::KEY_Shift_R;
-    else if (modstates & KMOD_CAPS) return osgGA::GUIEventAdapter::KEY_Caps_Lock;
-    else if (modstates & KMOD_NUM) return osgGA::GUIEventAdapter::KEY_Num_Lock;
-    else return 0;
-}
-
-static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
-{
-    switch (key)
+    static int getModKey()
     {
-    case SDLK_RETURN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Return;
-    case SDLK_ESCAPE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Escape;
-    case SDLK_BACKSPACE: return osgGA::GUIEventAdapter::KeySymbol::KEY_BackSpace;
-    case SDLK_TAB: return osgGA::GUIEventAdapter::KeySymbol::KEY_Tab;
-    case SDLK_SPACE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Space;
-    case SDLK_CAPSLOCK: return osgGA::GUIEventAdapter::KeySymbol::KEY_Caps_Lock;
-    case SDLK_F1: return osgGA::GUIEventAdapter::KeySymbol::KEY_F1;
-    case SDLK_F2: return osgGA::GUIEventAdapter::KeySymbol::KEY_F2;
-    case SDLK_F3: return osgGA::GUIEventAdapter::KeySymbol::KEY_F3;
-    case SDLK_F4: return osgGA::GUIEventAdapter::KeySymbol::KEY_F4;
-    case SDLK_F5: return osgGA::GUIEventAdapter::KeySymbol::KEY_F5;
-    case SDLK_F6: return osgGA::GUIEventAdapter::KeySymbol::KEY_F6;
-    case SDLK_F7: return osgGA::GUIEventAdapter::KeySymbol::KEY_F7;
-    case SDLK_F8: return osgGA::GUIEventAdapter::KeySymbol::KEY_F8;
-    case SDLK_F9: return osgGA::GUIEventAdapter::KeySymbol::KEY_F9;
-    case SDLK_F10: return osgGA::GUIEventAdapter::KeySymbol::KEY_F10;
-    case SDLK_F11: return osgGA::GUIEventAdapter::KeySymbol::KEY_F11;
-    case SDLK_F12: return osgGA::GUIEventAdapter::KeySymbol::KEY_F12;
-    case SDLK_PRINTSCREEN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Print;
-    case SDLK_SCROLLLOCK: return osgGA::GUIEventAdapter::KeySymbol::KEY_Scroll_Lock;
-    case SDLK_PAUSE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Pause;
-    case SDLK_INSERT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Insert;
-    case SDLK_HOME: return osgGA::GUIEventAdapter::KeySymbol::KEY_Home;
-    case SDLK_PAGEUP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Page_Up;
-    case SDLK_DELETE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Delete;
-    case SDLK_END: return osgGA::GUIEventAdapter::KeySymbol::KEY_End;
-    case SDLK_PAGEDOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Page_Down;
-    case SDLK_RIGHT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Right;
-    case SDLK_LEFT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Left;
-    case SDLK_DOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Down;
-    case SDLK_UP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Up;
-    default:
-        OSG_NOTICE << "[GraphicsWindowSDL] Unknown input key: " << key << std::endl;
-        return (osgGA::GUIEventAdapter::KeySymbol)key;
+        SDL_Keymod modstates = SDL_GetModState();
+        if (modstates & KMOD_LCTRL) return osgGA::GUIEventAdapter::KEY_Control_L;
+        else if (modstates & KMOD_RCTRL) return osgGA::GUIEventAdapter::KEY_Control_R;
+        else if (modstates & KMOD_LALT) return osgGA::GUIEventAdapter::KEY_Alt_L;
+        else if (modstates & KMOD_RALT) return osgGA::GUIEventAdapter::KEY_Alt_R;
+        else if (modstates & KMOD_LSHIFT) return osgGA::GUIEventAdapter::KEY_Shift_L;
+        else if (modstates & KMOD_RSHIFT) return osgGA::GUIEventAdapter::KEY_Shift_R;
+        else if (modstates & KMOD_CAPS) return osgGA::GUIEventAdapter::KEY_Caps_Lock;
+        else if (modstates & KMOD_NUM) return osgGA::GUIEventAdapter::KEY_Num_Lock;
+        else return 0;
+    }
+
+    static osgGA::GUIEventAdapter::KeySymbol getKey(SDL_Keycode key)
+    {
+        switch (key)
+        {
+        case SDLK_RETURN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Return;
+        case SDLK_ESCAPE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Escape;
+        case SDLK_BACKSPACE: return osgGA::GUIEventAdapter::KeySymbol::KEY_BackSpace;
+        case SDLK_TAB: return osgGA::GUIEventAdapter::KeySymbol::KEY_Tab;
+        case SDLK_SPACE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Space;
+        case SDLK_CAPSLOCK: return osgGA::GUIEventAdapter::KeySymbol::KEY_Caps_Lock;
+        case SDLK_F1: return osgGA::GUIEventAdapter::KeySymbol::KEY_F1;
+        case SDLK_F2: return osgGA::GUIEventAdapter::KeySymbol::KEY_F2;
+        case SDLK_F3: return osgGA::GUIEventAdapter::KeySymbol::KEY_F3;
+        case SDLK_F4: return osgGA::GUIEventAdapter::KeySymbol::KEY_F4;
+        case SDLK_F5: return osgGA::GUIEventAdapter::KeySymbol::KEY_F5;
+        case SDLK_F6: return osgGA::GUIEventAdapter::KeySymbol::KEY_F6;
+        case SDLK_F7: return osgGA::GUIEventAdapter::KeySymbol::KEY_F7;
+        case SDLK_F8: return osgGA::GUIEventAdapter::KeySymbol::KEY_F8;
+        case SDLK_F9: return osgGA::GUIEventAdapter::KeySymbol::KEY_F9;
+        case SDLK_F10: return osgGA::GUIEventAdapter::KeySymbol::KEY_F10;
+        case SDLK_F11: return osgGA::GUIEventAdapter::KeySymbol::KEY_F11;
+        case SDLK_F12: return osgGA::GUIEventAdapter::KeySymbol::KEY_F12;
+        case SDLK_PRINTSCREEN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Print;
+        case SDLK_SCROLLLOCK: return osgGA::GUIEventAdapter::KeySymbol::KEY_Scroll_Lock;
+        case SDLK_PAUSE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Pause;
+        case SDLK_INSERT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Insert;
+        case SDLK_HOME: return osgGA::GUIEventAdapter::KeySymbol::KEY_Home;
+        case SDLK_PAGEUP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Page_Up;
+        case SDLK_DELETE: return osgGA::GUIEventAdapter::KeySymbol::KEY_Delete;
+        case SDLK_END: return osgGA::GUIEventAdapter::KeySymbol::KEY_End;
+        case SDLK_PAGEDOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Page_Down;
+        case SDLK_RIGHT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Right;
+        case SDLK_LEFT: return osgGA::GUIEventAdapter::KeySymbol::KEY_Left;
+        case SDLK_DOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Down;
+        case SDLK_UP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Up;
+        default:
+            //OSG_NOTICE << "[GraphicsWindowSDL] Unknown input key: " << key << std::endl;
+            return (osgGA::GUIEventAdapter::KeySymbol)key;  // FIXME: cant check upper/lower
+        }
     }
 }
 
@@ -217,8 +220,21 @@ void GraphicsWindowSDL::initialize()
         if (!_traits->windowDecoration) flags |= SDL_WINDOW_BORDERLESS;
         winX = _traits->x; winY = _traits->y;
         winW = _traits->width; winH = _traits->height;
-        _sdlWindow = SDL_CreateWindow(
-            _traits->windowName.c_str(), winX, winY, winW, winH, flags);
+
+        if (_traits->screenNum > 0)
+        {
+            int displayCount = SDL_GetNumVideoDisplays();
+            if (_traits->screenNum < displayCount)
+            {
+                int num = _traits->screenNum + 1;
+                _sdlWindow = SDL_CreateWindow(
+                    _traits->windowName.c_str(),
+                    SDL_WINDOWPOS_CENTERED_DISPLAY(num), SDL_WINDOWPOS_CENTERED_DISPLAY(num),
+                    winW, winH, flags);
+            }
+        }
+        else
+            _sdlWindow = SDL_CreateWindow(_traits->windowName.c_str(), winX, winY, winW, winH, flags);
 
 #if defined(VERSE_GLES_DESKTOP)
         // Config EGL by ourselves so that to set different backends of Google Angle!
@@ -509,14 +525,14 @@ void GraphicsWindowSDL::checkEvents()
             else if (event.wheel.y > 0) eq->mouseScroll(osgGA::GUIEventAdapter::ScrollingMotion::SCROLL_UP); break;
         case SDL_KEYUP:
             {
-                int key = getKey(event.key.keysym.sym), state = event.key.keysym.mod;
+                int key = getKey(event.key.keysym.sym), state = event.key.keysym.mod; if (key == 0) break;
                 if (state == 0) eq->getCurrentEventState()->setModKeyMask(0);
                 eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)key, 0);  // modkey state will be kept if passed 0
                 _lastKey = 0; _lastModKey = 0;
             } break;
         case SDL_KEYDOWN:
             {
-                int key = getKey(event.key.keysym.sym), mod = getModKey();
+                int key = getKey(event.key.keysym.sym), mod = getModKey(); if (key == 0) break;
                 if (key != _lastKey || mod != _lastModKey)
                 {
                     eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)key, mod);
@@ -605,6 +621,8 @@ void GraphicsWindowSDL::setCursor(osgViewer::GraphicsWindow::MouseCursor cursor)
     case NoCursor: sdlCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO); break;
     case LeftRightCursor: sdlCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE); break;
     case UpDownCursor: sdlCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS); break;
+    case TopLeftCorner: case BottomRightCorner: sdlCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE); break;
+    case TopRightCorner: case BottomLeftCorner: sdlCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW); break;
     default: sdlCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW); break;
     }
     SDL_SetCursor(sdlCursor); SDL_SetCursor(NULL);
