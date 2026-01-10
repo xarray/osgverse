@@ -5,8 +5,11 @@
 #include <osgDB/ObjectWrapper>
 #include <osgDB/InputStream>
 #include <osgDB/OutputStream>
+
 #include <readerwriter/Utilities.h>
+#include <script/Entry.h>
 #include "Export.h"
+using namespace osgVerse;
 
 /////////////////////////////// STATESET
 struct StateSet_GetAttribute : public osgDB::MethodObject
@@ -246,6 +249,24 @@ static void addStateSetMethods(osgDB::ObjectWrapper* wrapper)
     wrapper->addMethodObject("getUniform", new StateSet_GetUniform);
     wrapper->addMethodObject("addUniform", new StateSet_AddUniform);
     wrapper->addMethodObject("removeUniform", new StateSet_RemoveUniform);
+    // TODO: createUniform() with different types?
+
+    METHOD_INFO_IN1_OUT1(wrapper, "getAttribute", ARG_INFO("type", RW_UINT), ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN2_OUT1(wrapper, "getTextureAttribute", OPTIONAL_ARG_INFO("unit", RW_UINT), ARG_INFO("type", RW_UINT),
+                                                         ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN1_OUT1(wrapper, "getMode", ARG_INFO("type", RW_UINT), ARG_INFO("mode", RW_UINT));
+    METHOD_INFO_IN2_OUT1(wrapper, "getTextureMode", OPTIONAL_ARG_INFO("unit", RW_UINT), ARG_INFO("type", RW_UINT),
+                                                    ARG_INFO("mode", RW_UINT));
+    METHOD_INFO_IN2(wrapper, "setAttribute", ARG_INFO("attribute", RW_OBJECT), OPTIONAL_ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN3(wrapper, "setAttributeAndModes", OPTIONAL_ARG_INFO("unit", RW_UINT), ARG_INFO("attribute", RW_OBJECT),
+                                                     OPTIONAL_ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN1(wrapper, "removeAttribute", ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN2(wrapper, "removeTextureAttribute", ARG_INFO("unit", RW_UINT), ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN1(wrapper, "removeMode", ARG_INFO("mode", RW_UINT));
+    METHOD_INFO_IN2(wrapper, "removeTextureMode", ARG_INFO("unit", RW_UINT), ARG_INFO("mode", RW_UINT));
+    METHOD_INFO_IN1_OUT1(wrapper, "getUniform", ARG_INFO("name", RW_STRING), ARG_INFO("uniform", RW_OBJECT));
+    METHOD_INFO_IN2(wrapper, "addUniform", ARG_INFO("uniform", RW_OBJECT), OPTIONAL_ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN1(wrapper, "removeUniform", ARG_INFO("uniform", RW_OBJECT));
 }
 
 /////////////////////////////// UNIFORM

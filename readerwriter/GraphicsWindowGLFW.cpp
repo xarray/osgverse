@@ -17,7 +17,7 @@ namespace
         else return 0;
     }
 
-    static osgGA::GUIEventAdapter::KeySymbol getKey(int key)
+    static osgGA::GUIEventAdapter::KeySymbol getKey(int key, bool& treatAsChar)
     {
         switch (key)
         {
@@ -53,8 +53,7 @@ namespace
         case GLFW_KEY_DOWN: return osgGA::GUIEventAdapter::KeySymbol::KEY_Down;
         case GLFW_KEY_UP: return osgGA::GUIEventAdapter::KeySymbol::KEY_Up;
         default:
-            //OSG_NOTICE << "[GraphicsWindowGLFW] Unknown input key: " << key << "; " << (int)'s' << std::endl;
-            return (osgGA::GUIEventAdapter::KeySymbol)key;  // FIXME: cant check upper/lower.. always upper?
+            treatAsChar = true; return (osgGA::GUIEventAdapter::KeySymbol)key;
         }
     }
 }
@@ -134,7 +133,7 @@ protected:
 };
 
 GraphicsWindowGLFW::GraphicsWindowGLFW(osg::GraphicsContext::Traits* traits)
-:   _lastKey(0), _lastModKey(0), _valid(false), _realized(false)
+:   _lastKey(0), _lastModKey(0), _lastChar(0), _valid(false), _realized(false)
 {
     _traits = traits; initialize();
     if (valid())
@@ -263,18 +262,24 @@ void GraphicsWindowGLFW::initialize()
             });
         glfwSetKeyCallback(_window, [](GLFWwindow* w, int sym, int scancode, int action, int mods)
             {
-                GET_EVENTER(w); int key = getKey(sym), mod = getModKey(mods);
-                if (action == GLFW_PRESS && key != 0)
+                GET_EVENTER(w); bool asChar = false; int key = getKey(sym, asChar), mod = getModKey(mods);
+                if (action == GLFW_PRESS)
                 {
-                    eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)key, mod);
+                    if (!asChar) eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)key, mod);
                     gw->_lastKey = key; gw->_lastModKey = mod;
                 }
-                else if (action == GLFW_RELEASE && key != 0)
+                else if (action == GLFW_RELEASE)
                 {
                     if (mods == 0) eq->getCurrentEventState()->setModKeyMask(0);
-                    eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)key, 0);  // modkey state will be kept if passed 0
-                    gw->_lastKey = 0; gw->_lastModKey = 0;
+                    if (gw->_lastChar > 0) eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)gw->_lastChar, 0);
+                    if (!asChar) eq->keyRelease((osgGA::GUIEventAdapter::KeySymbol)key, 0);
+                    gw->_lastKey = 0; gw->_lastModKey = 0; gw->_lastChar = 0;
                 }
+            });
+        glfwSetCharCallback(_window, [](GLFWwindow* w, unsigned int value)
+            {
+                GET_EVENTER(w); gw->_lastChar = value;
+                eq->keyPress((osgGA::GUIEventAdapter::KeySymbol)value, gw->_lastModKey);
             });
     }
     _valid = true;

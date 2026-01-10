@@ -253,30 +253,28 @@ MethodInformationManager* MethodInformationManager::instance()
     return s_instance.get();
 }
 
-void MethodInformationManager::addInformation(const std::string& clsName, const std::string& methodName, const MethodInformation& info)
-{ ClassAndMethod pair(clsName, methodName); _informationMap[pair] = info; }
+void MethodInformationManager::addInformation(osgDB::ObjectWrapper* cls, const std::string& m, const MethodInformation& info)
+{ ClassAndMethod pair(cls, m); _informationMap[pair] = info; }
 
-void MethodInformationManager::removeInformation(const std::string& clsName, const std::string& methodName)
+void MethodInformationManager::removeInformation(osgDB::ObjectWrapper* cls, const std::string& methodName)
 {
-    ClassAndMethod pair(clsName, methodName);
+    ClassAndMethod pair(cls, methodName);
     std::map<ClassAndMethod, MethodInformation>::iterator it = _informationMap.find(pair);
     if (it != _informationMap.end()) _informationMap.erase(it);
 }
 
 std::vector<MethodInformationManager::Argument>& MethodInformationManager::getInformation(
-        const std::string& clsName, const std::string& methodName)
+        osgDB::ObjectWrapper* cls, const std::string& methodName)
 {
-    ClassAndMethod pair(clsName, methodName);
+    ClassAndMethod pair(cls, methodName);
     std::map<ClassAndMethod, MethodInformation>::iterator it = _informationMap.find(pair);
-    if (it != _informationMap.end()) return it->second.second;
-    return std::vector<MethodInformationManager::Argument>();
+    if (it != _informationMap.end()) return it->second.second; else return _defaultArguments;
 }
 
 const std::vector<MethodInformationManager::Argument>& MethodInformationManager::getInformation(
-        const std::string& clsName, const std::string& methodName) const
+        osgDB::ObjectWrapper* cls, const std::string& methodName) const
 {
-    ClassAndMethod pair(clsName, methodName);
+    ClassAndMethod pair(cls, methodName);
     std::map<ClassAndMethod, MethodInformation>::const_iterator it = _informationMap.find(pair);
-    if (it != _informationMap.end()) return it->second.second;
-    return std::vector<MethodInformationManager::Argument>();
+    if (it != _informationMap.end()) return it->second.second; else return _defaultArguments;
 }

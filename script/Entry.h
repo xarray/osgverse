@@ -155,28 +155,62 @@ namespace osgVerse
     class MethodInformationManager : public osg::Referenced
     {
     public:
+        typedef osgDB::BaseSerializer::Type ArgType;
         static MethodInformationManager* instance();
 
         struct Argument
         {
-            std::string name; osgDB::BaseSerializer::Type type; bool optional;
-            Argument() : type(osgDB::BaseSerializer::RW_UNDEFINED), optional(false) {}
+            std::string name; ArgType type; bool optional;
+            Argument() : type(ArgType::RW_UNDEFINED), optional(false) {}
+            Argument(const std::string& n, ArgType t, bool o = false) : name(n), type(t), optional(o) {}
         };
-        typedef std::pair<std::string, std::vector<Argument>> MethodInformation;
 
-        void addInformation(const std::string& clsName, const std::string& methodName, const MethodInformation& info);
-        void removeInformation(const std::string& clsName, const std::string& methodName);
-        std::vector<Argument>& getInformation(const std::string& clsName, const std::string& methodName);
-        const std::vector<Argument>& getInformation(const std::string& clsName, const std::string& methodName) const;
+        typedef std::pair<std::vector<Argument>, std::vector<Argument>> MethodInformation;  // <in-args, out-args>
+        void addInformation(osgDB::ObjectWrapper* cls, const std::string& methodName, const MethodInformation& info);
+        void removeInformation(osgDB::ObjectWrapper* cls, const std::string& methodName);
 
-        typedef std::pair<std::string, std::string> ClassAndMethod;
+        void addInformation(osgDB::ObjectWrapper* cls, const std::string& method, const std::vector<Argument>& argsIn)
+        { addInformation(cls, method, MethodInformation(argsIn, std::vector<Argument>())); }
+        void addInformation(osgDB::ObjectWrapper* cls, const std::string& method,
+                            const std::vector<Argument>& argsIn, const std::vector<Argument>& argsOut)
+        { addInformation(cls, method, MethodInformation(argsIn, argsOut)); }
+
+        std::vector<Argument>& getInformation(osgDB::ObjectWrapper* cls, const std::string& methodName);
+        const std::vector<Argument>& getInformation(osgDB::ObjectWrapper* cls, const std::string& methodName) const;
+
+        typedef std::pair<osg::observer_ptr<osgDB::ObjectWrapper>, std::string> ClassAndMethod;
         std::map<ClassAndMethod, MethodInformation>& getInformationMap() { return _informationMap; }
         const std::map<ClassAndMethod, MethodInformation>& getInformationMap() const { return _informationMap; }
 
     protected:
         MethodInformationManager();
         std::map<ClassAndMethod, MethodInformation> _informationMap;
+        std::vector<MethodInformationManager::Argument> _defaultArguments;
     };
 }
+
+#define ARG_INFO(name, type) \
+    osgVerse::MethodInformationManager::Argument(name, osgVerse::MethodInformationManager::ArgType::##type, false)
+#define OPTIONAL_ARG_INFO(name, type) \
+    osgVerse::MethodInformationManager::Argument(name, osgVerse::MethodInformationManager::ArgType::##type, true)
+
+#define METHOD_INFO_IN1(cls, method, arg0) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, args); }
+#define METHOD_INFO_IN2(cls, method, arg0, arg1) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); args.push_back(arg1); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, args); }
+#define METHOD_INFO_IN3(cls, method, arg0, arg1, arg2) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); args.push_back(arg1); \
+     args.push_back(arg2);osgVerse::MethodInformationManager::instance()->addInformation(cls, method, args); }
+#define METHOD_INFO_OUT1(cls, method, arg0) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsO.push_back(arg0); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, argsI, argsO); }
+#define METHOD_INFO_IN1_OUT1(cls, method, aIn, aOut) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsI.push_back(aIn); argsO.push_back(aOut); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, argsI, argsO); }
+#define METHOD_INFO_IN2_OUT1(cls, method, aIn0, aIn1, aOut) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsI.push_back(aIn0); argsI.push_back(aIn1); \
+    argsO.push_back(aOut); osgVerse::MethodInformationManager::instance()->addInformation(cls, method, argsI, argsO); }
 
 #endif

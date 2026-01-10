@@ -49,7 +49,7 @@ namespace osgVerse
 
         GLFWwindow* _window;
         osg::Vec2d _lastMousePosition;
-        int _lastKey, _lastModKey;
+        int _lastKey, _lastModKey, _lastChar;
         bool _valid, _realized;
     };
 }
