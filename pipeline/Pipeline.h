@@ -64,10 +64,15 @@ namespace osgVerse
     */
     struct GLVersionData : public osg::Referenced
     {
+        std::map<std::string, int> capabilities;
         std::string version, renderer;
         int glVersion, glslVersion;
         bool glslSupported, fboSupported;
         bool drawBuffersSupported, depthStencilSupported;
+
+        GLVersionData() : glVersion(0), glslVersion(0), glslSupported(false), fboSupported(false),
+                          drawBuffersSupported(false), depthStencilSupported(false) {}
+        int score();  // compute a score of current graphics card for checking performance
     };
 
     /** Module to be used in pipeline */

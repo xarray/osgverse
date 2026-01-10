@@ -21,6 +21,12 @@
 #define FRAG osg::Shader::FRAGMENT
 #define GEOM osg::Shader::GEOMETRY
 
+#define GL_MAX_UNIFORM_LOCATIONS                         0x826E
+#define GL_MAX_TESS_PATCH_COMPONENTS                     0x8E84
+#define GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX    0x9048
+#define GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX  0x9049
+#define GL_MAX_TASK_WORK_GROUP_COUNT_NV                  0x954D
+
 class GLExtensionTester : public osg::Camera::DrawCallback
 {
 public:
@@ -66,6 +72,47 @@ public:
         const char* rendererString = (const char*)glGetString(GL_RENDERER);
         if (versionString != NULL) d->version = versionString;
         if (rendererString != NULL) d->renderer = rendererString;
+
+        // Check graphics card performance
+        GLint totalMemMB = 0, maxFboDim = 0, maxTexSize = 0, maxColorAtt = 0, maxSsboVS = 0, maxSsboFS = 0;
+        GLint maxUniforms = 0, maxUniformVS = 0, maxUniformFS = 0, maxUboBlockSize = 0, maxUboBinds = 0;
+        glGetIntegerv(GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &totalMemMB);
+        glGetIntegerv(GL_MAX_VIEWPORT_DIMS, &maxFboDim);
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexSize);
+        glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxColorAtt);
+        glGetIntegerv(GL_MAX_UNIFORM_LOCATIONS, &maxUniforms);
+        glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &maxUniformVS);
+        glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, &maxUniformFS);
+        glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUboBlockSize);
+        glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &maxUboBinds);
+        glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &maxSsboVS);
+        glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &maxSsboFS);
+
+        GLint maxOutVecGS = 0, maxPatchTS = 0, workGroupCS[3] = {0}, workGroupTS[3] = {0};
+        glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &maxOutVecGS);
+        glGetIntegerv(GL_MAX_TESS_PATCH_COMPONENTS, &maxPatchTS);
+        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &workGroupCS[0]);
+        glGetIntegeri_v(GL_MAX_TASK_WORK_GROUP_COUNT_NV, 0, &workGroupTS[0]);
+
+#ifdef _WIN32
+        totalMemMB = totalMemMB / 1024;
+#endif
+        while (glGetError() != GL_NO_ERROR) {}  // clear all errors
+        d->capabilities["total_memory"] = totalMemMB;                     // Low => [1024, 4096] => High
+        d->capabilities["max_fbo_size"] = maxFboDim;                      // Low => [4096, 16384] => High
+        d->capabilities["max_texture_size"] = maxTexSize;                 // Low => [8192, 16384] => High
+        d->capabilities["max_attachments"] = maxColorAtt;                 // Low => [4, 8] => High
+        d->capabilities["max_uniform_locations"] = maxUniforms;           // Low => [1024, 4096] => High
+        d->capabilities["max_uniform_floats"] =
+            osg::minimum(maxUniformVS, maxUniformFS);                     // Low => [1024, 16384] => High
+        d->capabilities["max_ubo_blocksize"] = maxUboBlockSize;           // Low => [16384, 131072] => High
+        d->capabilities["max_ubo_bindings"] = maxUboBinds;                // Low => [36, 96] => High
+        d->capabilities["max_ssbo_bindings"] =
+            osg::minimum(maxSsboVS, maxSsboFS);                           // Low => [0, 16] => High
+        d->capabilities["max_output_gs"] = maxOutVecGS;                   // Geometry shader: 256
+        d->capabilities["max_patches_ts"] = maxPatchTS;                   // Tess shader: 120
+        d->capabilities["max_group_cs"] = workGroupCS[0];                 // Compute shader: 65535
+        d->capabilities["max_group_ts"] = workGroupTS[0];                 // Task shader: 65535 
     }
 
 protected:
@@ -100,6 +147,24 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
 
 namespace osgVerse
 {
+    int GLVersionData::score()
+    {
+        float score = 0.0f;
+#define GET_SCORE(v, m0, m1) ((v < m1) ? ((float)(v - m0) / (float)(m1 - m0)) : 1.0f);
+        if (glslSupported) score += 0.5f; if (fboSupported) score += 0.5f;
+        if (drawBuffersSupported) score += 0.5f; if (glslSupported) score += 0.5f;
+
+        score += GET_SCORE(capabilities["total_memory"], 1024, 4096);
+        score += GET_SCORE(capabilities["max_fbo_size"], 4096, 15384);
+        score += GET_SCORE(capabilities["max_texture_size"], 8192, 16384);
+        score += GET_SCORE(capabilities["max_attachments"], 4, 8);
+        score += GET_SCORE(capabilities["max_uniform_locations"], 1024, 4096);
+        score += GET_SCORE(capabilities["max_uniform_floats"], 1024, 16384);
+        score += GET_SCORE(capabilities["max_ubo_bindings"], 36, 96);
+        score += GET_SCORE(capabilities["max_ssbo_bindings"], 0, 16);
+        return (int)(score * 10.0f);
+    }
+
     void RealizeOperation::operator()(osg::Object* object)
     {
         osg::GraphicsContext* context = dynamic_cast<osg::GraphicsContext*>(object);
@@ -111,7 +176,8 @@ namespace osgVerse
         if (_glVersionData.valid())
         {
             OSG_NOTICE << "[RealizeOperation] OpenGL Driver: " << _glVersionData->version << "; GLSL: "
-                       << _glVersionData->glslVersion << "; Renderer: " << _glVersionData->renderer << std::endl;
+                       << _glVersionData->glslVersion << "; Renderer: " << _glVersionData->renderer << std::endl
+                       << "Performance score: " << _glVersionData->score() << " / 100" << std::endl;
         }
 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)

@@ -1,7 +1,7 @@
 #include <osg/Geometry>
 #include <osg/ProxyNode>
 #include <osg/PagedLOD>
-#include <osgDB/Registry>
+#include <osgDB/Serializer>
 #include <osgDB/ObjectWrapper>
 #include <osgDB/InputStream>
 #include <osgDB/OutputStream>

@@ -275,19 +275,23 @@ namespace osgVerse
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         osg::GraphicsContext::WindowingSystemInterfaces::Interfaces& interfaces =
             osg::GraphicsContext::getWindowingSystemInterfaces()->getInterfaces();
-        std::vector<osg::GraphicsContext::WindowingSystemInterface*> wsiToRemove; bool hasSDL = false;
+        std::vector<osg::GraphicsContext::WindowingSystemInterface*> wsiToRemove;
+        bool hasSDL = false, hasGLFW = false;
         for (size_t i = 0; i < interfaces.size(); ++i)
         {
             const std::string& name = interfaces[i]->getName();
-            if (name != "SDL") wsiToRemove.push_back(interfaces[i].get()); else hasSDL = true;
+            if (name == "SDL") hasSDL = true; else if (name == "GLFW") hasGLFW = true;
+            else wsiToRemove.push_back(interfaces[i].get());
         }
 
-        if (hasSDL && !wsiToRemove.empty())
+        if ((hasSDL || hasGLFW) && !wsiToRemove.empty())
         {
             for (size_t i = 0; i < wsiToRemove.size(); ++i)
                 osg::GraphicsContext::getWindowingSystemInterfaces()->removeWindowingSystemInterface(wsiToRemove[i]);
         }
-        if (hasSDL) OSG_NOTICE << "[osgVerse] Enable SDL to manage EGL windowing system" << std::endl;
+
+        if (hasSDL) OSG_NOTICE << "[osgVerse] SDL is ready for managing EGL windowing system" << std::endl;
+        if (hasGLFW) OSG_NOTICE << "[osgVerse] GLFW is ready for managing EGL windowing system" << std::endl;
 #endif
 
         g_argumentCount = argc;

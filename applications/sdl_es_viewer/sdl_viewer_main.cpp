@@ -10,8 +10,6 @@
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-#define TEST_PIPELINE 1
-#define TEST_SHADOW_MAP 0
 
 #ifdef VERSE_WITH_SDL
 #   if VERSE_APPLE
@@ -66,6 +64,8 @@ int main(int argc, char** argv)
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     bool useGLFW = arguments.read("--use-glfw"), useWin32Ex = arguments.read("--use-win32ex");
+    bool testPipeline = arguments.read("--with-deferred"), showShadowMaps = arguments.read("--debug-shadow");
+
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
     if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (scene.valid())
@@ -102,21 +102,23 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;
     
     // Create the viewer
-#if TEST_PIPELINE
-    MyViewer viewer(pipeline.get());
-#else
-    root = new osg::Group;
-    root->addChild(postCamera.get());
-    root->addChild(sceneRoot.get());
-
-    osgViewer::Viewer viewer;
-#endif
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    osg::ref_ptr<osgViewer::Viewer> viewer;
+    if (testPipeline)
+        viewer = new MyViewer(pipeline.get());
+    else
+    {
+        root = new osg::Group;
+        root->addChild(postCamera.get());
+        root->addChild(sceneRoot.get());
+        viewer = new osgViewer::Viewer;
+    }
+    
+    viewer->addEventHandler(new osgViewer::StatsHandler);
+    viewer->addEventHandler(new osgViewer::WindowSizeHandler);
+    viewer->addEventHandler(new osgGA::StateSetManipulator(viewer->getCamera()->getOrCreateStateSet()));
+    viewer->setCameraManipulator(new osgGA::TrackballManipulator);
+    viewer->setSceneData(root.get());
+    viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     // Create the graphics window
     osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
@@ -134,51 +136,53 @@ int main(int argc, char** argv)
 #endif
 
     osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
-    viewer.getCamera()->setGraphicsContext(gc.get());
-    viewer.getCamera()->setViewport(0, 0, traits->width, traits->height);
-    viewer.getCamera()->setDrawBuffer(GL_BACK);
-    viewer.getCamera()->setReadBuffer(GL_BACK);
-    viewer.getCamera()->setProjectionMatrixAsPerspective(
+    viewer->getCamera()->setGraphicsContext(gc.get());
+    viewer->getCamera()->setViewport(0, 0, traits->width, traits->height);
+    viewer->getCamera()->setDrawBuffer(GL_BACK);
+    viewer->getCamera()->setReadBuffer(GL_BACK);
+    viewer->getCamera()->setProjectionMatrixAsPerspective(
         30.0f, static_cast<double>(traits->width) / static_cast<double>(traits->height), 1.0f, 10000.0f);
     
     // Setup the pipeline
-#if TEST_PIPELINE
-    //params.enablePostEffects = false;
-    queryOpenGLVersion(pipeline.get(), true, gc.get());
-    setupStandardPipeline(pipeline.get(), &viewer, params);
-
-    // Post pipeline settings
-    osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-    if (shadow && shadow->getFrustumGeode())
+    if (testPipeline)
     {
-        osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-        root->addChild(shadow->getFrustumGeode());
+        //params.enablePostEffects = false;
+        queryOpenGLVersion(pipeline.get(), true, gc.get());
+        setupStandardPipeline(pipeline.get(), viewer.get(), params);
+
+        // Post pipeline settings
+        osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+        if (shadow && shadow->getFrustumGeode())
+        {
+            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+            root->addChild(shadow->getFrustumGeode());
+        }
+
+        if (showShadowMaps)
+        {
+            osg::ref_ptr<osg::Camera> hudCamera = new osg::Camera;
+            hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+            hudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+            hudCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
+            hudCamera->setViewMatrix(osg::Matrix::identity());
+            hudCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
+            hudCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+            osgVerse::Pipeline::setPipelineMask(*hudCamera, FORWARD_SCENE_MASK);
+
+            float quadY = 0.0f;
+            for (int i = 0; i < shadow->getShadowNumber(); ++i)
+            {
+                osg::Node* quad = osgVerse::createScreenQuad(
+                    osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
+                quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
+                hudCamera->addChild(quad); quadY += 0.21f;
+            }
+            root->addChild(hudCamera.get());
+        }
+
+        osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+        if (light) light->setMainLight(light0.get(), "Shadow");
     }
-
-#   if TEST_SHADOW_MAP
-    osg::ref_ptr<osg::Camera> hudCamera = new osg::Camera;
-    hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
-    hudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-    hudCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
-    hudCamera->setViewMatrix(osg::Matrix::identity());
-    hudCamera->setRenderOrder(osg::Camera::POST_RENDER, 10000);
-    hudCamera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-    osgVerse::Pipeline::setPipelineMask(*hudCamera, FORWARD_SCENE_MASK);
-
-    float quadY = 0.0f;
-    for (int i = 0; i < shadow->getShadowNumber(); ++i)
-    {
-        osg::Node* quad = osgVerse::createScreenQuad(
-            osg::Vec3(0.0f, quadY, 0.0f), 0.2f, 0.2f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, shadow->getTexture(i));
-        hudCamera->addChild(quad); quadY += 0.21f;
-    }
-    root->addChild(hudCamera.get());
-#   endif
-
-    osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-    if (light) light->setMainLight(light0.get(), "Shadow");
-#endif
 
     // Post-HUD display
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
@@ -191,9 +195,9 @@ int main(int argc, char** argv)
     }
 
     // Start the main loop
-    while (!viewer.done())
+    while (!viewer->done())
     {
-        viewer.frame();
+        viewer->frame();
     }
     return 0;
 }

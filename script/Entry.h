@@ -190,9 +190,9 @@ namespace osgVerse
 }
 
 #define ARG_INFO(name, type) \
-    osgVerse::MethodInformationManager::Argument(name, osgVerse::MethodInformationManager::ArgType::##type, false)
+    osgVerse::MethodInformationManager::Argument(name, osgDB::BaseSerializer:: type, false)
 #define OPTIONAL_ARG_INFO(name, type) \
-    osgVerse::MethodInformationManager::Argument(name, osgVerse::MethodInformationManager::ArgType::##type, true)
+    osgVerse::MethodInformationManager::Argument(name, osgDB::BaseSerializer:: type, true)
 
 #define METHOD_INFO_IN1(cls, method, arg0) { \
     std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); \
