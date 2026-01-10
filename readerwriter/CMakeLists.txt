@@ -51,7 +51,7 @@ ENDIF()
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 TARGET_LINK_LIBRARIES(${LIB_NAME} glfw)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
-LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
+LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgViewer)
 
 IF(SDL2_FOUND)
     TARGET_LINK_LIBRARIES(${LIB_NAME} debug SDL2main${VERSE_DEBUG_POSTFIX} optimized SDL2main

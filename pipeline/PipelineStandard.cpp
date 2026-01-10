@@ -21,11 +21,14 @@
 #define FRAG osg::Shader::FRAGMENT
 #define GEOM osg::Shader::GEOMETRY
 
+#define GL_MAX_COLOR_ATTACHMENTS                         0x8CDF
 #define GL_MAX_UNIFORM_LOCATIONS                         0x826E
+#define GL_MAX_TRANSFORM_FEEDBACK_BUFFERS                0x8E70
 #define GL_MAX_TESS_PATCH_COMPONENTS                     0x8E84
+#define GL_MAX_MESH_TOTAL_MEMORY_SIZE_NV                 0x9536
+#define GL_MAX_TASK_TOTAL_MEMORY_SIZE_NV                 0x9537
 #define GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX    0x9048
 #define GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX  0x9049
-#define GL_MAX_TASK_WORK_GROUP_COUNT_NV                  0x954D
 
 class GLExtensionTester : public osg::Camera::DrawCallback
 {
@@ -58,7 +61,7 @@ public:
         d->glslVersion = ext->getLanguageVersion() * 100;
         d->glslSupported = ext->isGlslSupported();
 
-        typedef void (GL_APIENTRY * DrawBuffersProc)(GLsizei n, const GLenum *bufs);
+        typedef void (GL_APIENTRY* DrawBuffersProc)(GLsizei n, const GLenum *bufs);
         DrawBuffersProc glDrawBuffersTemp = NULL;
         osg::setGLExtensionFuncPtr(glDrawBuffersTemp, "glDrawBuffers", "glDrawBuffersARB");
         d->drawBuffersSupported = (glDrawBuffersTemp != NULL);
@@ -72,6 +75,7 @@ public:
         const char* rendererString = (const char*)glGetString(GL_RENDERER);
         if (versionString != NULL) d->version = versionString;
         if (rendererString != NULL) d->renderer = rendererString;
+        if (!d->capabilities.empty()) return;  // query only once
 
         // Check graphics card performance
         GLint totalMemMB = 0, maxFboDim = 0, maxTexSize = 0, maxColorAtt = 0, maxSsboVS = 0, maxSsboFS = 0;
@@ -88,11 +92,14 @@ public:
         glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &maxSsboVS);
         glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &maxSsboFS);
 
-        GLint maxOutVecGS = 0, maxPatchTS = 0, workGroupCS[3] = {0}, workGroupTS[3] = {0};
+        GLint maxTransFeedback = 0, maxOutVecGS = 0, maxPatchTS = 0;
+        GLint maxComputeMemTS = 0, maxMeshMemTS = 0, maxTaskMemTS = 0;
+        glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &maxTransFeedback);
         glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &maxOutVecGS);
         glGetIntegerv(GL_MAX_TESS_PATCH_COMPONENTS, &maxPatchTS);
-        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &workGroupCS[0]);
-        glGetIntegeri_v(GL_MAX_TASK_WORK_GROUP_COUNT_NV, 0, &workGroupTS[0]);
+        glGetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeMemTS);
+        glGetIntegerv(GL_MAX_MESH_TOTAL_MEMORY_SIZE_NV, &maxMeshMemTS);
+        glGetIntegerv(GL_MAX_TASK_TOTAL_MEMORY_SIZE_NV, &maxTaskMemTS);
 
 #ifdef _WIN32
         totalMemMB = totalMemMB / 1024;
@@ -109,10 +116,12 @@ public:
         d->capabilities["max_ubo_bindings"] = maxUboBinds;                // Low => [36, 96] => High
         d->capabilities["max_ssbo_bindings"] =
             osg::minimum(maxSsboVS, maxSsboFS);                           // Low => [0, 16] => High
-        d->capabilities["max_output_gs"] = maxOutVecGS;                   // Geometry shader: 256
-        d->capabilities["max_patches_ts"] = maxPatchTS;                   // Tess shader: 120
-        d->capabilities["max_group_cs"] = workGroupCS[0];                 // Compute shader: 65535
-        d->capabilities["max_group_ts"] = workGroupTS[0];                 // Task shader: 65535 
+        d->capabilities["transform_feedback"] = maxTransFeedback;         // Transform feedback buffers: >4
+        d->capabilities["geometry_shader"] = maxOutVecGS;                 // Geometry shader outputs: 256
+        d->capabilities["tess_shader"] = maxPatchTS;                      // Tess shader patches: 120
+        d->capabilities["compute_shader"] = maxComputeMemTS;              // Compute shader memory: >16384
+        d->capabilities["mesh_shader"] = maxMeshMemTS;                    // Mesh shader memory: >16384
+        d->capabilities["task_shader"] = maxTaskMemTS;                    // Mesh shader memory: >16384
     }
 
 protected:
