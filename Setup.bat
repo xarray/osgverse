@@ -1,8 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 set BuildMode=""
+set BuildGles2=0
 set BuildModeWasm=0
 set CurrentDir=%cd%
+set GLES_LibPath="%1/libGLESv2.lib"
+set EGL_LibPath="%1/libEGL.lib"
 set OpenSceneGraphRoot=%CurrentDir%\..\OpenSceneGraph
 
 where cmake --version >nul 2>&1
@@ -12,8 +15,11 @@ if not %errorlevel%==0 (
 )
 
 if not exist %OpenSceneGraphRoot%\ (
-    echo OSG source folder not found. Please download and unzip it in ..\OpenSceneGraph.
-    goto exit
+    git clone https://gitee.com/mirrors/OpenSceneGraph.git %OpenSceneGraphRoot%\
+    if not exist %OpenSceneGraphRoot%\ (
+        echo OSG source folder not found. Please download and unzip it in ..\OpenSceneGraph.
+        goto exit
+    )
 )
 
 echo How do you like to compile OSG and osgVerse?
@@ -21,7 +27,7 @@ echo -----------------------------------
 echo Please Select:
 echo 0. Desktop / OpenGL Compatible Mode
 echo 1. Desktop / OpenGL Core Mode
-echo 2. Desktop / OpenGLES 3 (Google Angle)
+echo 2. Desktop / OpenGL ES
 echo 3. WASM / WebGL 1.0
 echo 4. WASM / WebGL 2.0 (optional with osgEarth)
 echo 5. Android / OpenGLES 3
@@ -29,16 +35,28 @@ echo q. Quit
 echo -----------------------------------
 set /p BuildMode="Enter selection [0-5] > "
 if "!BuildMode!"=="0" (
-    :: TODO
-    goto todo
+    set BuildResultChecker=build\sdk_def\lib\osgviewer.lib
+    set CMakeResultChecker=build\osg_def\CMakeCache.txt
+    goto precheck
 )
 if "!BuildMode!"=="1" (
-    :: TODO
-    goto todo
+    set BuildResultChecker=build\sdk_core\lib\osgviewer.lib
+    set CMakeResultChecker=build\osg_core\CMakeCache.txt
+    goto precheck
 )
 if "!BuildMode!"=="2" (
-    :: TODO
-    goto todo
+    set BuildResultChecker=build\sdk_es\lib\osgviewer.lib
+    set CMakeResultChecker=build\osg_es\CMakeCache.txt
+
+    if not exist %GLES_LibPath%\ (
+        echo "libGLESv2.lib not found. Please run as follows: ./Setup.sh <path_of_libGLES>"
+        goto exit
+    )
+    if not exist %EGL_LibPath%\ (
+        echo "libEGL.lib not found. Please run as follows: ./Setup.sh <path_of_libEGL>"
+        goto exit
+    )
+    goto precheck
 )
 if "!BuildMode!"=="3" (
     set BuildResultChecker=build\sdk_wasm\lib\libosgviewer.a
@@ -64,12 +82,6 @@ goto exit
 
 :: Check if CMake is already configured, or OSG is already built
 :precheck
-where ninja --version >nul 2>&1
-if not %errorlevel%==0 (
-    echo Ninja not found. Please make sure it can be found in PATH variable.
-    goto exit
-)
-
 set SkipOsgBuild="0"
 set UseWasmOption=1
 if exist %CurrentDir%\%BuildResultChecker% (
@@ -79,6 +91,15 @@ if exist %CurrentDir%\%BuildResultChecker% (
 )
 
 set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
+where ninja --version >nul 2>&1
+if not %errorlevel%==0 (
+    echo Ninja not found. Please make sure it can be found in PATH variable.
+    goto exit
+)
+
+if !BuildModeWasm!==0 (
+    set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty"
+)
 if !BuildModeWasm!==1 (
     :: WASM (WebGL 1 and WebGL 2)
     if not defined EMSDK (
@@ -96,12 +117,20 @@ if !BuildModeWasm!==1 (
     set EmsdkToolchain="%EMSDK%\upstream\emscripten\cmake\Modules\Platform\Emscripten.cmake"
     set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty_wasm"
 )
-if not exist %ThirdPartyBuildDir%\ mkdir %ThirdPartyBuildDir%
 
 :: Compile 3rdparties
 echo *** Building 3rdparty libraries...
+if not exist %ThirdPartyBuildDir%\ mkdir %ThirdPartyBuildDir%
 set ExtraOptions=""
 set ExtraOptions2=""
+if !BuildModeWasm!==0 (
+    if not !SkipOsgBuild!=="1" (
+        cd %ThirdPartyBuildDir%
+        cmake %BasicCmakeOptions% "%CurrentDir%\helpers\toolchain_builder"
+        cmake --build .
+        if not %errorlevel%==0 goto exit
+    )
+)
 if !BuildModeWasm!==1 (
     if not !SkipOsgBuild!=="1" (
         cd %ThirdPartyBuildDir%
@@ -111,18 +140,30 @@ if !BuildModeWasm!==1 (
     )
 )
 
-set ThirdDepOptions=%BasicCmakeOptions% ^
-    -DFREETYPE_INCLUDE_DIR_freetype2=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
-    -DFREETYPE_INCLUDE_DIR_ft2build=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
-    -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\libfreetype.a ^
-    -DJPEG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\jpeg ^
-    -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\libjpeg.a ^
-    -DPNG_PNG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\png ^
-    -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\libpng.a ^
-    -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
-    -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\libzlib.a ^
-    -DVERSE_BUILD_3RDPARTIES=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+set ThirdDepOptions=%BasicCmakeOptions% -DVERSE_BUILD_3RDPARTIES=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+if !BuildModeWasm!==0 (
+    set ThirdDepOptions=!ThirdDepOptions! ^
+        -DFREETYPE_INCLUDE_DIR_freetype2=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+        -DFREETYPE_INCLUDE_DIR_ft2build=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+        -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\freetype.lib ^
+        -DJPEG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\jpeg ^
+        -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\jpeg.lib ^
+        -DPNG_PNG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\png ^
+        -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\png.lib ^
+        -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
+        -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\zlib.lib
+)
 if !BuildModeWasm!==1 (
+    set ThirdDepOptions=!ThirdDepOptions! ^
+        -DFREETYPE_INCLUDE_DIR_freetype2=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+        -DFREETYPE_INCLUDE_DIR_ft2build=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+        -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\libfreetype.a ^
+        -DJPEG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\jpeg ^
+        -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\libjpeg.a ^
+        -DPNG_PNG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\png ^
+        -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\libpng.a ^
+        -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
+        -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\libzlib.a
     if exist "%CurrentDir%\..\Dependencies\wasm\lib\libtiff.a" (
         set ThirdDepOptions=!ThirdDepOptions! ^
             -DTIFF_INCLUDE_DIR=%CurrentDir%\..\Dependencies\wasm\include ^
@@ -131,6 +172,7 @@ if !BuildModeWasm!==1 (
 )
 
 :: Fix some OpenSceneGraph compile errors
+echo *** Automatically patching source code...
 set SedEXE=%CurrentDir%\wasm\sed.exe
 %SedEXE% "s/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g" "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" > FileUtils.cpp.tmp
 xcopy /y FileUtils.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp"
@@ -167,7 +209,52 @@ xcopy /y Image.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Image.cpp"
 
 :: Compile OpenSceneGraph
 echo *** Building OpenSceneGraph...
+if "!BuildMode!"=="0" (
+    :: OpenGL Compatible Profile
+    if not exist %CurrentDir%\build\osg_def\ mkdir %CurrentDir%\build\osg_def
+    set ExtraOptions=-DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk
+    if not !SkipOsgBuild!=="1" (
+        cd %CurrentDir%\build\osg_def
+        cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
+        cmake --build . --target install --config Release
+        if not %errorlevel%==0 goto exit
+    )
+)
+if "!BuildMode!"=="1" (
+    :: OpenGL Core Profile
+    if not exist %CurrentDir%\build\osg_core\ mkdir %CurrentDir%\build\osg_core
+    set ExtraOptions=-DOPENGL_PROFILE=GLCORE ^
+        -DGLCORE_INCLUDE_DIR=%CurrentDir%\3rdparty ^
+        -DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
+        -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_core
+    if not !SkipOsgBuild!=="1" (
+        cd %CurrentDir%\build\osg_core
+        echo "cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%"
+        cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
+        cmake --build . --target install --config Release
+        if not %errorlevel%==0 goto exit
+    )
+)
+if "!BuildMode!"=="2" (
+    :: OpenGL ES
+    if not exist %CurrentDir%\build\osg_es\ mkdir %CurrentDir%\build\osg_es
+    set /p Gles2Flag="Would you like to compile GLES2 version (default is GLES3)? (y/n) > "
+    if "!Gles2Flag!"=="y" set BuildGles2=1
+
+    set ExtraOptions=-DOSG_WINDOWING_SYSTEM=None ^
+        -DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
+        -DEGL_LIBRARY=%EGL_LibPath% -DOPENGL_gl_LIBRARY=%GLES_LibPath% ^
+        -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_es
+    if not !SkipOsgBuild!=="1" (
+        cd %CurrentDir%\build\osg_es
+        if !BuildGles2!==1 cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES2 %OpenSceneGraphRoot%
+        if !BuildGles2!==0 cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES3 %OpenSceneGraphRoot%
+        cmake --build . --target install --config Release
+        if not %errorlevel%==0 goto exit
+    )
+)
 if "!BuildMode!"=="3" (
+    :: WASM toolchain: WebGL 1
     if not exist %CurrentDir%\build\osg_wasm\ mkdir %CurrentDir%\build\osg_wasm
     set ExtraOptions=-DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" ^
         -DCMAKE_INCLUDE_PATH=%CurrentDir%\helpers\toolchain_builder\opengl ^
@@ -183,6 +270,7 @@ if "!BuildMode!"=="3" (
     )
 )
 if "!BuildMode!"=="4" (
+    :: WASM toolchain: WebGL 2
     if not exist %CurrentDir%\build\osg_wasm2\ mkdir %CurrentDir%\build\osg_wasm2
     set ExtraOptions=-DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" ^
         -DCMAKE_INCLUDE_PATH=%CurrentDir%\helpers\toolchain_builder\opengl ^
@@ -221,7 +309,35 @@ if "!BuildMode!"=="4" (
 :: Build osgVerse
 echo *** Building osgVerse...
 set OsgRootLocation=""
+if "!BuildMode!"=="0" (
+    :: OpenGL Compatible Profile
+    if not exist %CurrentDir%\build\verse_def\ mkdir %CurrentDir%\build\verse_def
+    cd %CurrentDir%\build\verse_def
+    cmake !ThirdDepOptions! !ExtraOptions! -DOSG_ROOT="%CurrentDir%\build\sdk" %CurrentDir%
+    cmake --build . --target install --config Release
+    if not %errorlevel%==0 goto exit
+)
+if "!BuildMode!"=="1" (
+    :: OpenGL Core Profile
+    if not exist %CurrentDir%\build\verse_core\ mkdir %CurrentDir%\build\verse_core
+    cd %CurrentDir%\build\verse_core
+    set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl
+    cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_core" %CurrentDir%
+    cmake --build . --target install --config Release
+    if not %errorlevel%==0 goto exit
+)
+if "!BuildMode!"=="2" (
+    :: OpenGL ES
+    if not exist %CurrentDir%\build\verse_es\ mkdir %CurrentDir%\build\verse_es
+    cd %CurrentDir%\build\verse_es
+    set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
+                      -DEGL_LIBRARY=%EGL_LibPath% -DOPENGL_gl_LIBRARY=%GLES_LibPath%
+    cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_es" %CurrentDir%
+    cmake --build . --target install --config Release
+    if not %errorlevel%==0 goto exit
+)
 if "!BuildMode!"=="3" (
+    :: WASM toolchain: WebGL 1
     if not exist %CurrentDir%\build\verse_wasm\ mkdir %CurrentDir%\build\verse_wasm
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm
     cd %CurrentDir%\build\verse_wasm
@@ -230,6 +346,7 @@ if "!BuildMode!"=="3" (
     if not %errorlevel%==0 goto exit
 )
 if "!BuildMode!"=="4" (
+    :: WASM toolchain: WebGL 2
     if not exist %CurrentDir%\build\verse_wasm2\ mkdir %CurrentDir%\build\verse_wasm2
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm2
     cd %CurrentDir%\build\verse_wasm2
@@ -314,6 +431,7 @@ if not %errorlevel%==0 (
 cd %CurrentDir%
 
 :: Reset some OpenSceneGraph source code
+echo *** Automatically unpatching source code...
 %SedEXE% "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
 %SedEXE% "s/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp

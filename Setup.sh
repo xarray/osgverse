@@ -91,7 +91,7 @@ EmsdkToolchain="$1/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
 if [ "$BuildMode" = '2' ]; then
     # GLES toolchain
     if [ ! -f "$GLES_LibPath" ] || [ ! -f "$EGL_LibPath" ]; then
-        echo "libEGL.so or libGLESv2.so not found. Please run as follows: ./Setup.sh <path_of_ligEGL>"
+        echo "libEGL.so or libGLESv2.so not found. Please run as follows: ./Setup.sh <path_of_libEGL>"
         exit 1
     fi
 elif [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
@@ -283,6 +283,7 @@ if [ "$BuildMode" = '1' ]; then
 
     ExtraOptions="
         -DCMAKE_INSTALL_RPATH=$CurrentDir/build/sdk_core/lib
+        -DGLCORE_INCLUDE_DIR=$CurrentDir/3rdparty
         -DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_core
         -DOPENGL_PROFILE=GLCORE"
@@ -385,7 +386,7 @@ else
         fi
         cmake --build . --target install --config Release || exit 1
     fi
-    
+
 fi
 
 # Build osgEarth (Optional)

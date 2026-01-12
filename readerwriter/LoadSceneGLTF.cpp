@@ -345,7 +345,8 @@ namespace osgVerse
         }
         else
             loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);
-        
+
+        _root = new osg::MatrixTransform;
         if (!_modelDef.extensionsRequired.empty() || !_modelDef.extensionsUsed.empty())
         {
             OSG_INFO << "[LoaderGLTF] Found GLTF extensions: \n";
@@ -353,13 +354,20 @@ namespace osgVerse
             {
                 std::string ex = _modelDef.extensionsUsed[i]; bool ok = (g_extensions.find(ex) != g_extensions.end());
                 OSG_INFO << "  - " << ex << ": " << ok << "\n"; if (!ok) warn += " " + ex + " not supported.";
+
+                if (ex == "KHR_materials_unlit")
+                {
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+                    // FIXME: add an 'unlit' flag for shader?
+#else
+                    _root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
+                }
             }
         }
-
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
         if (!warn.empty()) OSG_WARN << "[LoaderGLTF] Warnings found: " << warn << std::endl;
         if (!loaded) { OSG_WARN << "[LoaderGLTF] Unable to load GLTF scene" << std::endl; return; }
-        _root = new osg::MatrixTransform;
 
         // Preload skin data
         for (size_t i = 0; i < _modelDef.skins.size(); ++i)
@@ -589,6 +597,7 @@ namespace osgVerse
                 const std::string& ext = it->first;
                 std::vector<std::string> keys = it->second.Keys();
                 if (ext == "KHR_gaussian_splatting") gsData.enabled = true;
+                else OSG_NOTICE << "[LoaderGLTF] Not-implemented extension: " << ext << std::endl;
 
                 for (size_t i = 0; i < keys.size(); ++i)
                 {
