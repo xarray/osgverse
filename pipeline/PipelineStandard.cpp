@@ -23,6 +23,8 @@
 
 #define GL_MAX_COLOR_ATTACHMENTS                         0x8CDF
 #define GL_MAX_UNIFORM_LOCATIONS                         0x826E
+#define GL_MAX_VERTEX_UNIFORM_COMPONENTS                 0x8B4A
+#define GL_MAX_FRAGMENT_UNIFORM_COMPONENTS               0x8B49
 #define GL_MAX_TRANSFORM_FEEDBACK_BUFFERS                0x8E70
 #define GL_MAX_TESS_PATCH_COMPONENTS                     0x8E84
 #define GL_MAX_MESH_TOTAL_MEMORY_SIZE_NV                 0x9536

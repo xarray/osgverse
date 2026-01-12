@@ -5,6 +5,7 @@ CurrentKernel=$(uname -r)
 CheckCmakeExe=$(command -v cmake)
 CMakeExe=$(printf "cmake -DCMAKE_BUILD_TYPE=Release")
 UsingWSL=0
+UsingGles2=0
 UseWasmOption=1
 SkipCMakeConfig=0
 SkipOsgBuild=0
@@ -32,8 +33,11 @@ if [ "$CheckCmakeExe" = "" ]; then
 fi
 
 if [ ! -d "../OpenSceneGraph" ]; then
-    echo "OSG source folder not found. Please download and unzip it in ../OpenSceneGraph."
-    exit 1
+    git clone https://gitee.com/mirrors/OpenSceneGraph.git ../OpenSceneGraph
+    if [ ! -d "../OpenSceneGraph" ]; then
+        echo "OSG source folder not found. Please download and unzip it in ../OpenSceneGraph."
+        exit 1
+    fi
 fi
 
 # Select how to compile
@@ -44,7 +48,7 @@ Please Select:
 
 0. Desktop / OpenGL Compatible Mode
 1. Desktop / OpenGL Core Mode
-2. Desktop / OpenGLES 3
+2. Desktop / OpenGL ES
 3. WASM / WebGL 1.0
 4. WASM / WebGL 2.0 (optional with osgEarth)
 5. Android / OpenGLES 3
@@ -56,9 +60,9 @@ case "$BuildMode" in
         BuildResultChecker=build/sdk_core/bin/osgviewer
         CMakeResultChecker=build/osg_core/CMakeCache.txt
         ;;
-    2)  echo "OpenGL ES 3 Mode."
-        BuildResultChecker=build/sdk_es3/bin/osgviewer
-        CMakeResultChecker=build/osg_es3/CMakeCache.txt
+    2)  echo "OpenGL ES Mode."
+        BuildResultChecker=build/sdk_es/bin/osgviewer
+        CMakeResultChecker=build/osg_es/CMakeCache.txt
         ;;
     3)  echo "WebAssembly WebGL 1."
         BuildResultChecker=build/sdk_wasm/lib/libosgviewer.a
@@ -153,13 +157,15 @@ if [ -f "$CurrentDir/$BuildResultChecker" ]; then
     else
         SkipOsgBuild=1
     fi
-#elif [ -f "$CurrentDir/$CMakeResultChecker" ]; then
-#    read -p "Would you like to use current CMake cache? (y/n) > " RecmakeFlag
-#    if [ "$RecmakeFlag" = 'n' ]; then
-#        SkipCMakeConfig=0
-#    else
-#        SkipCMakeConfig=1
-#    fi
+fi
+
+if [ "$SkipOsgBuild" = 0 ]; then
+    if [ "$BuildMode" = '2' ]; then
+        read -p "Would you like to compile GLES2 version (default is GLES3)? (y/n) > " Gles2Flag
+        if [ "$Gles2Flag" = 'y' ]; then
+            UsingGles2=1
+        fi
+    fi
 fi
 
 echo "*** Building 3rdparty libraries..."
@@ -290,21 +296,25 @@ if [ "$BuildMode" = '1' ]; then
 
 elif [ "$BuildMode" = '2' ]; then
 
-    # OpenGL ES 3
-    if [ ! -d "$CurrentDir/build/osg_es3" ]; then
-        mkdir $CurrentDir/build/osg_es3
+    # OpenGL ES
+    if [ ! -d "$CurrentDir/build/osg_es" ]; then
+        mkdir $CurrentDir/build/osg_es
     fi
 
     ExtraOptions="
-        -DCMAKE_INSTALL_RPATH=$CurrentDir/build/sdk_es3/lib
+        -DCMAKE_INSTALL_RPATH=$CurrentDir/build/sdk_es/lib
         -DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
-        -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_es3
+        -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_es
         -DEGL_LIBRARY=$EGL_LibPath -DOPENGL_gl_LIBRARY=$GLES_LibPath
-        -DOSG_WINDOWING_SYSTEM=None -DOPENGL_PROFILE=GLES3"
+        -DOSG_WINDOWING_SYSTEM=None"
     if [ "$SkipOsgBuild" = 0 ]; then
-        cd $CurrentDir/build/osg_es3
+        cd $CurrentDir/build/osg_es
         if [ "$SkipCMakeConfig" = 0 ]; then
-            $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
+            if [ "$UsingGles2" = 0 ]; then
+                $CMakeExe $ThirdDepOptions $ExtraOptions -DOPENGL_PROFILE=GLES3 $OpenSceneGraphRoot
+            else
+                $CMakeExe $ThirdDepOptions $ExtraOptions -DOPENGL_PROFILE=GLES2 $OpenSceneGraphRoot
+            fi
         fi
         cmake --build . --target install --config Release || exit 1
     fi
@@ -452,11 +462,11 @@ else
     elif [ "$BuildMode" = '2' ]; then
         ExtraOptions2="-DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
                        -DOSG_EGL_LIBRARY=$EGL_LibPath -DOSG_GLES_LIBRARY=$GLES_LibPath"
-        OsgRootLocation="$CurrentDir/build/sdk_es3"
-        if [ ! -d "$CurrentDir/build/verse_es3" ]; then
-            mkdir $CurrentDir/build/verse_es3
+        OsgRootLocation="$CurrentDir/build/sdk_es"
+        if [ ! -d "$CurrentDir/build/verse_es" ]; then
+            mkdir $CurrentDir/build/verse_es
         fi
-        cd $CurrentDir/build/verse_es3
+        cd $CurrentDir/build/verse_es
     else
         ExtraOptions2=""
         OsgRootLocation="$CurrentDir/build/sdk"
