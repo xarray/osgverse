@@ -1,12 +1,12 @@
 #extension GL_EXT_draw_instanced : enable
-#pragma import_defines(USE_INSTANCING, USE_INSTANCING_TEXARRAY, FULL_SH)
+#pragma import_defines(USE_INSTANCING, USE_INSTANCING_TEX, FULL_SH)
 
 uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
 uniform float GaussianRenderingMode;
 #if defined(USE_INSTANCING)
-#  if defined(USE_INSTANCING_TEXARRAY)
-uniform sampler2DArray CoreParameters, ShParameters;
+#  if defined(USE_INSTANCING_TEX)
+uniform samplerBuffer CoreTexture0, CoreTexture1, CoreTexture2, CoreTexture3;
 uniform vec2 TextureSize;
 #  else
 layout(std140, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
@@ -45,7 +45,7 @@ VERSE_VS_OUT vec4 color_gs, covariance_gs;
 VERSE_VS_OUT vec2 center2D_gs;
 #endif
 
-vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor, in vec2 paramUV)
+vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor)
 {
 #ifdef FULL_SH
     float b[16];
@@ -86,28 +86,11 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor, in vec2 paramUV)
     b[15] = -k5 * v.x * (vx2 - 3.0f * vy2);
 
 #  if defined(USE_INSTANCING)
-#    if defined(USE_INSTANCING_TEXARRAY)
-    vec4 sh_rgb0 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 0.0));
-    vec4 sh_rgb1 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 1.0));
-    vec4 sh_rgb2 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 2.0));
-    vec4 sh_rgb3 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 3.0));
-    vec4 sh_rgb4 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 4.0));
-    vec4 sh_rgb5 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 5.0));
-    vec4 sh_rgb6 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 6.0));
-    vec4 sh_rgb7 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 7.0));
-    vec4 sh_rgb8 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 8.0));
-    vec4 sh_rgb9 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 9.0));
-    vec4 sh_rgb10 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 10.0));
-    vec4 sh_rgb11 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 11.0));
-    vec4 sh_rgb12 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 12.0));
-    vec4 sh_rgb13 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 13.0));
-    vec4 sh_rgb14 = VERSE_TEX2DARRAY(ShParameters, vec3(paramUV, 14.0));
-#    else
     ShcoefData shData = shcoef[uint(osg_UserIndex)];
     vec4 sh_rgb0 = shData.rgb0, sh_rgb1 = shData.rgb1, sh_rgb2 = shData.rgb2, sh_rgb3 = shData.rgb3, sh_rgb4 = shData.rgb4;
     vec4 sh_rgb5 = shData.rgb5, sh_rgb6 = shData.rgb6, sh_rgb7 = shData.rgb7, sh_rgb8 = shData.rgb8, sh_rgb9 = shData.rgb9;
     vec4 sh_rgb10 = shData.rgb10, sh_rgb11 = shData.rgb11, sh_rgb12 = shData.rgb12, sh_rgb13 = shData.rgb13, sh_rgb14 = shData.rgb14;
-#    endif
+
     float re = (b[0] * baseColor.x + b[1] * sh_rgb0.x + b[2] * sh_rgb1.x + b[3] * sh_rgb2.x +
                 b[4] * sh_rgb3.x + b[5] * sh_rgb4.x + b[6] * sh_rgb5.x + b[7] * sh_rgb6.x +
                 b[8] * sh_rgb7.x + b[9] * sh_rgb8.x + b[10] * sh_rgb9.x + b[11] * sh_rgb10.x +
@@ -142,15 +125,15 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor, in vec2 paramUV)
 
 void main()
 {
-    vec2 paramUV = vec2(0.0, 0.0);
 #if defined(USE_INSTANCING)
-#  if defined(USE_INSTANCING_TEXARRAY)
-    float r = float(osg_UserIndex) / TextureSize.x;
-    float c = floor(r) / TextureSize.y; paramUV = vec2(fract(r), c);
-    vec4 posAlpha = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 0.0));
-    vec4 cov0 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 1.0));
-    vec4 cov1 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 2.0));
-    vec4 cov2 = VERSE_TEX2DARRAY(CoreParameters, vec3(paramUV, 3.0));
+#  if defined(USE_INSTANCING_TEX)
+    int index = int(osg_UserIndex);
+    //float r = float(osg_UserIndex) / TextureSize.x;
+    //float c = floor(r) / TextureSize.y; paramUV = vec2(fract(r), c);
+    vec4 posAlpha = texelFetch(CoreTexture0, index);
+    vec4 cov0 = texelFetch(CoreTexture1, index);
+    vec4 cov1 = texelFetch(CoreTexture2, index);
+    vec4 cov2 = texelFetch(CoreTexture3, index);
 #  else
     uint index = uint(osg_UserIndex);
     vec4 posAlpha = corePos[index];
@@ -208,7 +191,7 @@ void main()
     //vec3 direction = transpose(mat3(osg_ViewMatrixInverse)) * eyeDirection;
 #if defined(USE_INSTANCING)
     vec3 baseColor = vec3(cov0.w, cov1.w, cov2.w);
-    color = vec4(computeRadianceFromSH(eyeDirection, baseColor, paramUV), alpha);
+    color = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);
 
     vec3 ndcP = proj.xyz / proj.w;
     if (!(ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0))
@@ -234,7 +217,7 @@ void main()
     }
 #else
     vec3 baseColor = vec3(osg_R_SH0.x, osg_G_SH0.x, osg_B_SH0.x);
-    color_gs = vec4(computeRadianceFromSH(eyeDirection, baseColor, paramUV), alpha);
+    color_gs = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);
 #endif
     gl_Position = proj;
 }

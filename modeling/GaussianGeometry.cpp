@@ -63,9 +63,9 @@ namespace
 
     struct TextureLookUpTable
     {
-        static osg::Texture2DArray* create(int w, int h, int layers, bool useVec3, bool useHalf)
+        static osg::TextureBuffer* create(int w, int h, bool useVec3, bool useHalf)
         {
-            osg::ref_ptr<osg::Texture2DArray> tex = new osg::Texture2DArray;
+            osg::ref_ptr<osg::TextureBuffer> tex = new osg::TextureBuffer;
             tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
             tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
             tex->setWrap(osg::Texture::WRAP_S, osg::Texture::MIRROR);
@@ -74,20 +74,17 @@ namespace
             GLenum pf = (useVec3 ? GL_RGB : GL_RGBA);
             GLenum tf = (useVec3 ? (useHalf ? GL_RGB16F_ARB : GL_RGB32F_ARB)
                                  : (useHalf ? GL_RGBA16F_ARB : GL_RGBA32F_ARB));
-            for (int i = 0; i < layers; ++i)
-            {
-                osg::ref_ptr<osg::Image> image = new osg::Image;
-                image->allocateImage(w, h, 1, pf, useHalf ? GL_HALF_FLOAT : GL_FLOAT);
-                image->setInternalTextureFormat(tf); tex->setImage(i, image.get());
-            }
+            osg::ref_ptr<osg::Image> image = new osg::Image;
+            image->allocateImage(w, h, 1, pf, useHalf ? GL_HALF_FLOAT : GL_FLOAT);
+            image->setInternalTextureFormat(tf); tex->setImage(image.get());
             return tex.release();
         }
 
-        static osg::Image* getLayer(osg::Texture2DArray* tex, int layer, bool asVec3, bool asHalf)
+        static osg::Image* getLayer(osg::TextureBuffer* tex, int layer, bool asVec3, bool asHalf)
         {
-            if (tex && layer < (int)tex->getNumImages())
+            if (tex)
             {
-                osg::Image* image = tex->getImage(layer);
+                osg::Image* image = tex->getImage();
                 bool useVec3 = (image->getPixelFormat() == GL_RGB);
                 bool useHalf = (image->getDataType() == GL_HALF_FLOAT);
                 if (asVec3 == useVec3 && asHalf == useHalf) return image;
@@ -103,22 +100,22 @@ namespace
             else { OSG_WARN << "[GaussianGeometry] Failed to set lookup table\n"; }
         }
 
-        static osg::Vec3* getFloat3(osg::Texture2DArray* t, int d)
+        static osg::Vec3* getFloat3(osg::TextureBuffer* t, int d)
         { osg::Image* im = getLayer(t, d, true, false); return im ? (osg::Vec3*)im->data() : NULL; }
-        static osg::Vec4* getFloat4(osg::Texture2DArray* t, int d)
+        static osg::Vec4* getFloat4(osg::TextureBuffer* t, int d)
         { osg::Image* im = getLayer(t, d, false, false); return im ? (osg::Vec4*)im->data() : NULL; }
-        static osg::Vec3us* getHalf3(osg::Texture2DArray* t, int d)
+        static osg::Vec3us* getHalf3(osg::TextureBuffer* t, int d)
         { osg::Image* im = getLayer(t, d, true, true); return im ? (osg::Vec3us*)im->data() : NULL; }
-        static osg::Vec4us* getHalf4(osg::Texture2DArray* t, int d)
+        static osg::Vec4us* getHalf4(osg::TextureBuffer* t, int d)
         { osg::Image* im = getLayer(t, d, false, true); return im ? (osg::Vec4us*)im->data() : NULL; }
 
-        static void setFloat3(osg::Texture2DArray* t, int d, std::vector<osg::Vec3>* ptr)
+        static void setFloat3(osg::TextureBuffer* t, int d, std::vector<osg::Vec3>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, true, false), &(*ptr)[0], sizeof(osg::Vec3), ptr->size()); }
-        static void setFloat4(osg::Texture2DArray* t, int d, std::vector<osg::Vec4>* ptr)
+        static void setFloat4(osg::TextureBuffer* t, int d, std::vector<osg::Vec4>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, false, false), &(*ptr)[0], sizeof(osg::Vec4), ptr->size()); }
-        static void setHalf3(osg::Texture2DArray* t, int d, std::vector<osg::Vec3us>* ptr)
+        static void setHalf3(osg::TextureBuffer* t, int d, std::vector<osg::Vec3us>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, true, true), &(*ptr)[0], sizeof(osg::Vec3us), ptr->size()); }
-        static void setHalf4(osg::Texture2DArray* t, int d, std::vector<osg::Vec4us>* ptr)
+        static void setHalf4(osg::TextureBuffer* t, int d, std::vector<osg::Vec4us>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, false, true), &(*ptr)[0], sizeof(osg::Vec4us), ptr->size()); }
     };
 }
@@ -136,8 +133,9 @@ GaussianGeometry::GaussianGeometry(RenderMethod m)
 
 GaussianGeometry::GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop)
 :   osg::Geometry(copy, copyop), _preDataMap(copy._preDataMap), _preDataMap2(copy._preDataMap2),
-    _coreBuffer(copy._coreBuffer), _shcoefBuffer(copy._shcoefBuffer), _core(copy._core), _shcoef(copy._shcoef),
-    _method(copy._method), _degrees(copy._degrees), _numSplats(copy._numSplats) {}
+    _coreBuffer(copy._coreBuffer), _shcoefBuffer(copy._shcoefBuffer), _method(copy._method),
+    _degrees(copy._degrees), _numSplats(copy._numSplats)
+{ for (int i = 0; i < 4; ++i) _coreTex[i] = copy._coreTex[i]; }
 
 osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m)
 {
@@ -175,18 +173,18 @@ osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, 
 void GaussianGeometry::checkShaderFlag()
 {
 #if OSG_VERSION_GREATER_THAN(3, 3, 6)
-    if (_degrees > 0) getOrCreateStateSet()->setDefine("FULL_SH");
+    if (_degrees > 0 && _method != INSTANCING_TEXTURE) getOrCreateStateSet()->setDefine("FULL_SH");
     else getOrCreateStateSet()->removeDefine("FULL_SH");
 #endif
     if (_method != GEOMETRY_SHADER)
     {
         getOrCreateStateSet()->setDefine("USE_INSTANCING");
-        if (_method == INSTANCING_TEXTURE) getOrCreateStateSet()->setDefine("USE_INSTANCING_TEXARRAY");
+        if (_method == INSTANCING_TEXTURE) getOrCreateStateSet()->setDefine("USE_INSTANCING_TEX");
     }
     else
     {
         getOrCreateStateSet()->removeDefine("USE_INSTANCING");
-        getOrCreateStateSet()->removeDefine("USE_INSTANCING_TEXARRAY");
+        getOrCreateStateSet()->removeDefine("USE_INSTANCING_TEX");
     }
 }
 
@@ -228,7 +226,8 @@ bool GaussianGeometry::finalize()
     if (_method != GEOMETRY_SHADER)
     {
         std::pair<int, int> res = calculateTextureDim(_numSplats);
-        ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
+        if (_method == INSTANCING_TEXTURE)
+            ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
 
         // Apply core attributes
         size_t blockSize = _numSplats * sizeof(osg::Vec4);
@@ -241,11 +240,14 @@ bool GaussianGeometry::finalize()
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(2, _coreBuffer.get(), blockSize * 2, blockSize * 3));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(3, _coreBuffer.get(), blockSize * 3, blockSize * 4));
         }
-        else if (!_core)
+        else if (!_coreTex[0])
         {
-            _core = TextureLookUpTable::create(res.first, res.second, 4, false, false);
-            ss->setTextureAttributeAndModes(0, _core.get());
-            ss->addUniform(new osg::Uniform("CoreParameters", (int)0));
+            for (int i = 0; i < 4; ++i)
+            {
+                _coreTex[i] = TextureLookUpTable::create(res.first, res.second, false, false);
+                ss->setTextureAttribute(i, _coreTex[i].get());
+                ss->addUniform(new osg::Uniform(("CoreTexture" + std::to_string(i)).c_str(), i));
+            }
         }
 
         size_t total = 0; char* ptr = _coreBuffer.valid() ? (char*)_coreBuffer->getDataPointer() : NULL;
@@ -255,13 +257,13 @@ bool GaussianGeometry::finalize()
             if (_coreBuffer.valid())
                 { memcpy(ptr + total, src.data(), src.size() * sizeof(osg::Vec4)); total += blockSize; }
             else
-                TextureLookUpTable::setFloat4(_core.get(), i, &src);
+                TextureLookUpTable::setFloat4(_coreTex[i].get(), i, &src);
         }
         _preDataMap.clear();  // clear host prepared data
 
         // Apply shcoef attributes
         size_t shDataSize = _preDataMap2.size();
-        if (_degrees > 0 && shDataSize > 10)
+        if (_degrees > 0 && shDataSize > 10 && _method != INSTANCING_TEXTURE)
         {
             size_t blockSize = _numSplats * sizeof(osg::Vec4) * 15;  // rgb4 * 15
             if (_shcoefBuffer.valid())
@@ -269,12 +271,6 @@ bool GaussianGeometry::finalize()
                 osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
                 _shcoefBuffer->resize(_numSplats * 60, 0.0f); _shcoefBuffer->setBufferObject(ssbo);
                 ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(4, _shcoefBuffer.get(), 0, blockSize));
-            }
-            else if (!_shcoef)
-            {
-                _shcoef = TextureLookUpTable::create(res.first, res.second, 15, true, false);
-                ss->setTextureAttributeAndModes(1, _shcoef.get());
-                ss->addUniform(new osg::Uniform("ShParameters", (int)1));
             }
 
             ptr = _shcoefBuffer.valid() ? (char*)_shcoefBuffer->getDataPointer() : NULL;
@@ -286,8 +282,6 @@ bool GaussianGeometry::finalize()
                     for (size_t j = 0; j < src.size(); ++j)
                         *((osg::Vec4*)ptr + (j * 15 + i)) = osg::Vec4(src[j], 0.0f);
                 }
-                else
-                    TextureLookUpTable::setFloat3(_shcoef.get(), i, &src);
             }
         }
         _preDataMap2.clear();  // clear host prepared data
@@ -330,9 +324,6 @@ void GaussianGeometry::setPosition(osg::Vec3Array* v)
         std::vector<osg::Vec4>& dst = _preDataMap["Layer0"]; dst.resize(v->size());
         for (size_t i = 0; i < v->size(); ++i)
             dst[i] = osg::Vec4((*v)[i].x(), (*v)[i].y(), (*v)[i].z(), dst[i].a());
-#if OSG_VERSION_GREATER_THAN(3, 3, 3)
-        getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(1, 1));
-#endif
     }
     else
         setVertexArray(v);
@@ -437,8 +428,8 @@ osg::Vec4* GaussianGeometry::getPosition4()
         }
         else if (_coreBuffer.valid())
             return (osg::Vec4*)_coreBuffer->getDataPointer();
-        else if (_core.valid())
-            return TextureLookUpTable::getFloat4(_core.get(), 0);
+        else if (_coreTex[0].valid())
+            return TextureLookUpTable::getFloat4(_coreTex[0].get(), 0);
     }
     return NULL;
 }

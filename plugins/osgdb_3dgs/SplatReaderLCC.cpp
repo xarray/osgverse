@@ -101,7 +101,8 @@ void applyShcoefFromXGrids(osg::Geometry* geomInput, const std::vector<unsigned 
 }
 
 osg::Geometry* loadGeometryFromXGrids(const std::vector<unsigned char>& data, uint32_t numSplats,
-                                      int degrees, const osg::Vec3& sMin, const osg::Vec3& sMax)
+                                      int degrees, const osg::Vec3& sMin, const osg::Vec3& sMax,
+                                      osgVerse::GaussianGeometry::RenderMethod rm)
 {
     osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array(numSplats), gD0 = new osg::Vec4Array(numSplats),
                                  bD0 = new osg::Vec4Array(numSplats);
@@ -127,7 +128,7 @@ osg::Geometry* loadGeometryFromXGrids(const std::vector<unsigned char>& data, ui
         // TODO: normal?
     }
 
-    osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
+    osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(rm);
     geom->setShDegrees(degrees); geom->setPosition(pos.get());
     geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
     geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
@@ -174,7 +175,8 @@ osg::Node* loadCollisionFromXGrids(std::istream& in)
     return geode.release();
 }
 
-osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path)
+osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path,
+                                            osgVerse::GaussianGeometry::RenderMethod rm)
 {
     std::string reserved0, reserved1, err;
     picojson::value document; err = picojson::parse(document, in);
@@ -324,7 +326,7 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string&
             else data.assign(ro_mmap.begin() + start, ro_mmap.begin() + end);
             
             osg::ref_ptr<osg::Geometry> geom = loadGeometryFromXGrids(
-                data, chunk.numSplats[i], deg, scaleRange[0], scaleRange[1]);
+                data, chunk.numSplats[i], deg, scaleRange[0], scaleRange[1], rm);
             if (geom.valid())
             {
                 osg::ref_ptr<osg::Geode> child = new osg::Geode; child->addDrawable(geom.get());

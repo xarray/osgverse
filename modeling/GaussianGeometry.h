@@ -5,33 +5,32 @@
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
 #   include <osg/VertexAttribDivisor>
 #endif
-#include <osg/Texture2DArray>
+#include <osg/TextureBuffer>
 #include <osg/Geometry>
 #include <set>
 
 namespace osgVerse
 {
 
-/** Gaussian Data:
-   - As mesh instances:
+/** Gaussian geometry:
+   - Render with mesh instances and SSBO: INSTANCING
      - Original shape vertices (vec3): getVertexArray()
      - Instance Indices (uint): getVertexAttribArray(1)
-     - SSBO-0 (4 floats): Position.xyz + Alpha
-     - SSBO-1 (4 floats): CovMatrix.c0 + Color.r
-     - SSBO-2 (4 floats): CovMatrix.c1 + Color.g
-     - SSBO-3 (4 floats): CovMatrix.c2 + Color.b
-     - SSBO-4 (optional, 60 floats): Spherical harmonics coefficients (alpha is ignored)
+     - Position.xyz + Alpha: SSBO-0 (4 floats)
+     - CovMatrix.c0 + Color.r: SSBO-1 (4 floats)
+     - CovMatrix.c1 + Color.g: SSBO-2 (4 floats)
+     - CovMatrix.c2 + Color.b: SSBO-3 (4 floats)
+     - Spherical harmonics coefficients: SSBO-4 (optional, 15 * 4 floats, alpha ignored)
 
-   - As mesh instances and texture look-up tables (not recommend):
+   - Render with mesh instances and texture buffers (no SH): INSTANCING_TEXTURE
      - Original shape vertices (vec3): getVertexArray()
      - Instance Indices (uint): getVertexAttribArray(1)
-     - Tex2DArray-0 (4 layers): "CoreParameters"
-       - Position + Alpha (vec4): layer 0
-       - Scale + Rotation + Color (CovMatrix + vec3): layer 1,2,3
-     - Tex2DArray-1 (optional, 15 layers): "ShParameters"
-       - Spherical harmonics coefficients (vec3 * 15)
+     - Position.xyz + Alpha: Tex2D-0 (4 floats)
+     - CovMatrix.c0 + Color.r: Tex2D-1 (4 floats)
+     - CovMatrix.c1 + Color.g: Tex2D-2 (4 floats)
+     - CovMatrix.c2 + Color.b: Tex2D-3 (4 floats)
 
-   - As vertex attributes:
+   - Render with geometry shader and vertex attributes: GEOMETRY_SHADER
      - Position (vec3): getVertexArray()
      - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
      - Alpha (float): getVertexAttribArray(1).a()
@@ -87,7 +86,7 @@ protected:
     std::map<std::string, std::vector<osg::Vec4>> _preDataMap;
     std::map<std::string, std::vector<osg::Vec3>> _preDataMap2;
     osg::ref_ptr<osg::FloatArray> _coreBuffer, _shcoefBuffer;
-    osg::ref_ptr<osg::Texture2DArray> _core, _shcoef;
+    osg::ref_ptr<osg::TextureBuffer> _coreTex[4];
     RenderMethod _method;
     int _degrees, _numSplats;
 };

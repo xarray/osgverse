@@ -27,7 +27,8 @@ namespace backward { backward::SignalHandling sh; }
 class GaussianStateVisitor : public osg::NodeVisitor
 {
 public:
-    GaussianStateVisitor(osgVerse::GaussianSorter* s) : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), _sorter(s)
+    GaussianStateVisitor(osgVerse::GaussianSorter* s, const std::string& hint)
+        : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), _sorter(s)
     {
         osg::Shader* vert = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "gaussian_splatting.vert.glsl");
         osg::Shader* geom = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "gaussian_splatting.geom.glsl");
@@ -38,11 +39,14 @@ public:
             return;
         }
 
+        osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
+        if (hint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
+        else if (hint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;
+        _program = osgVerse::GaussianGeometry::createProgram(vert, geom, frag, method);
+        _callback = osgVerse::GaussianGeometry::createUniformCallback();
         osgVerse::Pipeline::createShaderDefinitions(vert, 100, 430);
         osgVerse::Pipeline::createShaderDefinitions(geom, 100, 130);
         osgVerse::Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
-        _program = osgVerse::GaussianGeometry::createProgram(vert, geom, frag);
-        _callback = osgVerse::GaussianGeometry::createUniformCallback();
     }
 
     virtual void apply(osg::Geode& node)
@@ -105,8 +109,10 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->addFileExtensionAlias("sog", "verse_3dgs");
     osgVerse::updateOsgBinaryWrappers();
 
-    osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments);
-    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat");
+    std::string hint; arguments.read("--render-mode", hint);
+    osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + hint);
+    osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments, options.get());
+    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat", options.get());
     if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
@@ -129,7 +135,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;  // TODO: better sort in GL context
     if (arguments.read("--gl46")) sorter->setMethod(osgVerse::GaussianSorter::GL46_RADIX_SORT);
 
-    GaussianStateVisitor gsv(sorter.get()); gs->accept(gsv);
+    GaussianStateVisitor gsv(sorter.get(), hint); gs->accept(gsv);
     viewer.getCamera()->setPreDrawCallback(new SortCallback(sorter.get()));
 
     int screenNo = 0; arguments.read("--screen", screenNo);

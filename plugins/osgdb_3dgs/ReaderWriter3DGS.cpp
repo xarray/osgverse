@@ -11,8 +11,10 @@
 #include "spz/load-spz.h"
 
 // Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/
-osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path);
-osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext);
+osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path,
+                                            osgVerse::GaussianGeometry::RenderMethod method);
+osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
+                                         osgVerse::GaussianGeometry::RenderMethod method);
 
 class ReaderWriter3DGS : public osgDB::ReaderWriter
 {
@@ -27,6 +29,10 @@ public:
         supportsExtension("lcc", "XGrids' splat file");
         supportsExtension("json", "PlayCanvas SOG's meta.json file");
         supportsExtension("sog", "PlayCanvas SOG's ZIP file");
+        supportsOption("RenderMethod=<hint>", "Rendering method of 3D gaussian data: "
+                       "<SSBO> render with draw-instanced and SSBO; "
+                       "<TBO> render with draw-instanced and textures; "
+                       "<GS> render with geometry shader.");
     }
 
     virtual const char* className() const
@@ -55,17 +61,22 @@ public:
         spz::UnpackOptions unpackOpt;  // TODO: convert coordinates
         if (options)
         {
+            std::string renderHint = options->getPluginStringData("RenderMethod");
+            osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
+            if (renderHint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
+            else if (renderHint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;
+
             std::string prefix = options->getPluginStringData("prefix");
             std::string ext = options->getPluginStringData("extension");
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == "lcc")
             {
-                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids(fin, prefix);
+                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids(fin, prefix, method);
                 if (node.valid()) return node.get();
             }
             else if (ext == "json" || ext == "sog")
             {
-                osg::ref_ptr<osg::Node> node = loadSplatFromSOG(fin, prefix, ext);
+                osg::ref_ptr<osg::Node> node = loadSplatFromSOG(fin, prefix, ext, method);
                 if (node.valid()) return node.get();
             }
 
@@ -73,7 +84,7 @@ public:
             if (ext == "ply")
             {
                 cloud = spz::loadSplatFromPly(fin, prefix, unpackOpt);
-                if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
+                if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud, method));
             }
             else
             {
@@ -85,16 +96,16 @@ public:
                 {
                     std::vector<uint8_t> dataSrc(buffer.begin(), buffer.end());
                     cloud = spz::loadSpz(dataSrc, unpackOpt);
-                    if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud));
+                    if (cloud.numPoints > 0) geode->addDrawable(fromSpz(cloud, method));
                 }
                 else if (ext == "splat")
                 {
-                    osgVerse::GaussianGeometry* geom = fromSplat(buffer);
+                    osgVerse::GaussianGeometry* geom = fromSplat(buffer, method);
                     if (geom) geode->addDrawable(geom);
                 }
                 else if (ext == "ksplat")
                 {
-                    osgVerse::GaussianGeometry* geom = fromKSplat(buffer);
+                    osgVerse::GaussianGeometry* geom = fromKSplat(buffer, method);
                     if (geom) geode->addDrawable(geom);
                 }
             }
@@ -119,7 +130,7 @@ protected:
         return fileName;
     }
 
-    osgVerse::GaussianGeometry* fromSplat(const std::string& buffer) const
+    osgVerse::GaussianGeometry* fromSplat(const std::string& buffer, osgVerse::GaussianGeometry::RenderMethod m) const
     {
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
@@ -145,14 +156,14 @@ protected:
         }
         if (pos->empty()) return NULL;
 
-        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
+        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(m);
         geom->setShDegrees(0); geom->setPosition(pos.get());
         geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
         geom->finalize(); return geom.release();
     }
 
-    osgVerse::GaussianGeometry* fromKSplat(const std::string& buffer) const
+    osgVerse::GaussianGeometry* fromKSplat(const std::string& buffer, osgVerse::GaussianGeometry::RenderMethod m) const
     {
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
@@ -197,14 +208,14 @@ protected:
             ss.seekg(4096 + (i + 1) * 1024, std::ios::beg);
         }
 
-        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
+        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(m);
         geom->setShDegrees(0); geom->setPosition(pos.get());
         geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
         geom->finalize(); return geom.release();
     }
 
-    osgVerse::GaussianGeometry* fromSpz(spz::GaussianCloud& c) const
+    osgVerse::GaussianGeometry* fromSpz(spz::GaussianCloud& c, osgVerse::GaussianGeometry::RenderMethod m) const
     {
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
         for (size_t i = 0; i < c.positions.size(); i += 3)
@@ -260,7 +271,7 @@ protected:
             }
         }
 
-        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
+        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(m);
         geom->setShDegrees(c.shDegree); geom->setPosition(pos.get());
         geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());

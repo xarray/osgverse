@@ -251,7 +251,8 @@ namespace
     }
 }
 
-osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext)
+osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
+                                         osgVerse::GaussianGeometry::RenderMethod rm)
 {
     SogData sogData; picojson::value document;
     if (ext == "json")
@@ -281,7 +282,7 @@ osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& pa
     createSogColors0(*rD0, *gD0, *bD0, *alpha, sogData.images["sh0_0"].get(), sogData.sh0Code);
 
 #if true
-    osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry;
+    osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(rm);
     geom->setShDegrees(sogData.numDegrees); geom->setPosition(pos.get());
     geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
     geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get()); geom->finalize();
