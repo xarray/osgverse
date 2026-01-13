@@ -5,11 +5,9 @@
 
 #ifdef VERSE_ENABLE_MTT
 #   include <musa.h>
-#   include <musaGL.h>
 #   include "MusaUtils/RadixSort.h"
 #else
 #   include <cuda.h>
-#   include <cudaGL.h>
 #   include "CudaUtils/RadixSort.h"
 #endif
 #include "Utilities.h"

@@ -11,6 +11,14 @@
 #include "Export.h"
 using namespace osgVerse;
 
+#define SERIALIZER_METHOD_BEGIN(ns, clsName, method) \
+    struct MethodStruct_##ns##_##clsName##_##method : public osgDB::MethodObject { \
+        virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const { \
+            ns :: clsName* obj = reinterpret_cast<ns :: clsName*>(objectPtr); if (!obj) return false;
+#define ARG_TO_VALUE(obj, var) { if (obj->asValueObject()) obj->asValueObject()->getScalarValue(var); }
+#define VALUE_TO_ARG(var, obj) { osg::ValueObject* vo = new osg::ValueObject; vo->setScalarValue(var); obj = vo.get(); }
+#define SERIALIZER_METHOD_END() return true; } }
+
 /////////////////////////////// STATESET
 struct StateSet_GetAttribute : public osgDB::MethodObject
 {

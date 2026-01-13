@@ -98,10 +98,10 @@ public:
     GaussianSorter(int numThreads = 1) : _method(CPU_SORT), _firstFrame(true), _onDemand(true)
     { configureThreads(numThreads); }
 
-    void cull(const osg::Matrix& view);
+    void cull(osg::RenderInfo& renderInfo);
     void configureThreads(int numThreads);
 
-    enum Method { CPU_SORT, GL46_RADIX_SORT, USER_SORT };
+    enum Method { CPU_SORT, USER_SORT };
     void setMethod(Method m) { _method = m; }
     Method getMethod() const { return _method; }
 
@@ -124,7 +124,7 @@ public:
 
 protected:
     virtual ~GaussianSorter() { configureThreads(0); }
-    virtual void cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view);
+    virtual void cull(osg::State* state, GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view);
 
     std::set<osg::ref_ptr<GaussianGeometry>> _geometries;
     std::map<GaussianGeometry*, osg::Matrix> _geometryMatrices;

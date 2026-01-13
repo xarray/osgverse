@@ -392,7 +392,8 @@ IF(OSG_BUILD_INCLUDE_DIR)
 
     IF(OSG_GLES3_INDEX GREATER -1)
         MESSAGE(STATUS "[osgVerse] OSG is built with GLES3 support. Make sure to configure osgVerse to use GLES3, too.")
-        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES3/gl3.h PATHS ${THIRDPARTY_ROOT}/include /usr/include /usr/local/include)
+        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES3/gl3.h PATHS ${THIRDPARTY_ROOT}/include /usr/include /usr/local/include
+                                                         ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/opengl)
         FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.dylib libGLESv2.lib
                      HINTS ${THIRDPARTY_ROOT}/lib /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
         FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.dylib libEGL.lib
@@ -401,7 +402,8 @@ IF(OSG_BUILD_INCLUDE_DIR)
         SET(VERSE_GRAPHICS_API "GLES3")
     ELSEIF(OSG_GLES2_INDEX GREATER -1)
         MESSAGE(STATUS "[osgVerse] OSG is built with GLES2 support. Make sure to configure osgVerse to use GLES2, too.")
-        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES2/gl2.h PATHS ${THIRDPARTY_ROOT}/include /usr/include /usr/local/include)
+        FIND_PATH(OSG_GLES_INCLUDE_DIR GLES2/gl2.h PATHS ${THIRDPARTY_ROOT}/include /usr/include /usr/local/include
+                                                         ${CMAKE_SOURCE_DIR}/helpers/toolchain_builder/opengl)
         FIND_LIBRARY(OSG_GLES_LIBRARY NAMES libGLESv2.so libGLESv2.dylib libGLESv2.lib
                      HINTS ${THIRDPARTY_ROOT}/lib /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/local/lib /usr/local/${FIND_LIB_POSTFIX})
         FIND_LIBRARY(OSG_EGL_LIBRARY NAMES libEGL.so libEGL.dylib libEGL.lib

@@ -42,11 +42,18 @@ public:
         osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
         if (hint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
         else if (hint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;
-        _program = osgVerse::GaussianGeometry::createProgram(vert, geom, frag, method);
+        _program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
         _callback = osgVerse::GaussianGeometry::createUniformCallback();
+
+#if defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+        osgVerse::Pipeline::createShaderDefinitions(vert, 300, 430);
+        osgVerse::Pipeline::createShaderDefinitions(geom, 300, 430);
+        osgVerse::Pipeline::createShaderDefinitions(frag, 300, 430);
+#else
         osgVerse::Pipeline::createShaderDefinitions(vert, 100, 430);
         osgVerse::Pipeline::createShaderDefinitions(geom, 100, 130);
         osgVerse::Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
+#endif
     }
 
     virtual void apply(osg::Geode& node)
@@ -90,8 +97,7 @@ public:
     virtual void operator()(osg::RenderInfo& renderInfo) const
     {
         //if (renderInfo.getView()->getFrameStamp()->getFrameNumber() % 10 != 0) return;
-        if (renderInfo.getCurrentCamera() != NULL)
-            _sorter->cull(renderInfo.getCurrentCamera()->getViewMatrix());
+        if (renderInfo.getCurrentCamera() != NULL) _sorter->cull(renderInfo);
     }
 
 protected:
@@ -132,9 +138,7 @@ int main(int argc, char** argv)
     handler->addKeyUpCallback('0', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(0.0f); });
     viewer.addEventHandler(handler);
 
-    osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;  // TODO: better sort in GL context
-    if (arguments.read("--gl46")) sorter->setMethod(osgVerse::GaussianSorter::GL46_RADIX_SORT);
-
+    osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;
     GaussianStateVisitor gsv(sorter.get(), hint); gs->accept(gsv);
     viewer.getCamera()->setPreDrawCallback(new SortCallback(sorter.get()));
 

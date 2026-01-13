@@ -174,7 +174,8 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
                             "vec4(m[0].z, m[1].z, m[2].z, m[3].z), vec4(m[0].w, m[1].w, m[2].w, m[3].w)); }");
     }
 
-    if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)
+    osg::Shader::Type shaderType = shader.getType();
+    if (shaderType == osg::Shader::VERTEX || shaderType == osg::Shader::GEOMETRY)
     {
 #if !defined(VERSE_EMBEDDED_GLES2)
         if (glVer >= 300 && glslVer >= 140)
@@ -184,9 +185,12 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
             extraDefs.push_back("uniform mat4 osg_ModelViewProjectionMatrix, "
                                 "osg_ModelViewMatrix, osg_ProjectionMatrix;");
             extraDefs.push_back("uniform mat3 osg_NormalMatrix;");
-            extraDefs.push_back("VERSE_VS_IN vec4 osg_Vertex, osg_Color, "
-                                "osg_MultiTexCoord0, osg_MultiTexCoord1;");
-            extraDefs.push_back("VERSE_VS_IN vec3 osg_Normal;");
+            if (shaderType == osg::Shader::VERTEX)
+            {
+                extraDefs.push_back("VERSE_VS_IN vec4 osg_Vertex, osg_Color, "
+                                    "osg_MultiTexCoord0, osg_MultiTexCoord1;");
+                extraDefs.push_back("VERSE_VS_IN vec3 osg_Normal;");
+            }
         }
         else
 #endif
@@ -214,7 +218,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
         source = pre + post; extPos = source.find("#extension");
     }
 
-    if (shader.getType() == osg::Shader::GEOMETRY)
+    if (shaderType == osg::Shader::GEOMETRY)
     {
         extLines.push_back("#extension GL_EXT_geometry_shader4: enable");
     }
@@ -257,7 +261,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     ss << "precision highp float;" << std::endl << "precision highp sampler2D;" << std::endl
        << "precision mediump sampler3D;" << std::endl;
 #endif
-    if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)
+    if (shaderType == osg::Shader::VERTEX || shaderType == osg::Shader::GEOMETRY)
     {
         ss << "#define VERSE_MATRIX_MVP " << m_mvp << std::endl;
         ss << "#define VERSE_MATRIX_MV " << m_mv << std::endl;
@@ -266,7 +270,7 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
         ss << "#define VERSE_VS_IN " << vin << std::endl;
         ss << "#define VERSE_VS_OUT " << vout << std::endl;
     }
-    else if (shader.getType() == osg::Shader::FRAGMENT)
+    else if (shaderType == osg::Shader::FRAGMENT)
     {
         ss << "#define VERSE_FS_IN " << fin << std::endl;
         ss << "#define VERSE_FS_OUT " << fout << std::endl;

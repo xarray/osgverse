@@ -224,7 +224,7 @@ if "!BuildMode!"=="1" (
     :: OpenGL Core Profile
     if not exist %CurrentDir%\build\osg_core\ mkdir %CurrentDir%\build\osg_core
     set ExtraOptions=-DOPENGL_PROFILE=GLCORE ^
-        -DGLCORE_INCLUDE_DIR=%CurrentDir%\3rdparty ^
+        -DGLCORE_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_core
     if not !SkipOsgBuild!=="1" (

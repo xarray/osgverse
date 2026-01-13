@@ -2,8 +2,12 @@
 #include <osg/io_utils>
 #include <osg/GLExtensions>
 #include <osg/FrameBufferObject>
-
 #include "CudaTexture2D.h"
+
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+#   define __GL_H__  // don't include GL/gl.h
+#endif
+
 #ifdef VERSE_ENABLE_MTT
 #   include <musa.h>
 #   include <musaGL.h>

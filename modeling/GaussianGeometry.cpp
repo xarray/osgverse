@@ -1,15 +1,10 @@
-// Prevent GLES2/gl2.h to redefine gl* functions
-#define GL_GLES_PROTOTYPES 0
-#include <GL/glew.h>
-#include <gl_radix_sort/RadixSort.hpp>
-#include <parallel_radix_sort.h>
-
 #include <algorithm>
 #include <iostream>
 #include <osg/io_utils>
 #include <osg/BufferIndexBinding>
 #include <osg/BufferObject>
 #include <osgUtil/CullVisitor>
+#include <parallel_radix_sort.h>
 #include "Math.h"
 #include "GaussianGeometry.h"
 using namespace osgVerse;
@@ -299,10 +294,12 @@ bool GaussianGeometry::finalize()
 
         // Add an index array for sorting
         osg::ref_ptr<osg::UIntArray> indices = new osg::UIntArray(_numSplats);
-        indices->setPreserveDataType(true);  // force using glVertexAttribIPointer in osg/VertexArrayState
         for (int i = 0; i < _numSplats; ++i) (*indices)[i] = i;
         setVertexAttribArray(1, indices); setVertexAttribNormalize(1, GL_FALSE);
         setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
+
+        if (indices->getVertexBufferObject()) indices->getVertexBufferObject()->setUsage(GL_DYNAMIC_DRAW);
+        indices->setPreserveDataType(true);  // force using glVertexAttribIPointer in osg/VertexArrayState
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
         getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(1, 1));
 #endif
@@ -646,8 +643,11 @@ void GaussianSorter::removeGeometry(GaussianGeometry* geom)
     }
 }
 
-void GaussianSorter::cull(const osg::Matrix& view)
+void GaussianSorter::cull(osg::RenderInfo& renderInfo)
 {
+    if (!renderInfo.getCurrentCamera()) return;
+    const osg::Matrix& view = renderInfo.getCurrentCamera()->getViewMatrix();
+
     std::vector<osg::ref_ptr<GaussianGeometry>> _geometriesToSort;
     for (std::set<osg::ref_ptr<GaussianGeometry>>::iterator it = _geometries.begin();
          it != _geometries.end();)
@@ -657,11 +657,11 @@ void GaussianSorter::cull(const osg::Matrix& view)
 
         osg::MatrixList matrices = gs->getWorldMatrices();
         if (matrices.empty()) { it = _geometries.erase(it); continue; }
-        cull(gs, matrices[0], view); ++it;
+        cull(renderInfo.getState(), gs, matrices[0], view); ++it;
     }
 }
 
-void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view)
+void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view)
 {
     osg::VectorGLuint* indices = NULL; osg::BufferData* indexBuffer = NULL;
     osg::Vec3* pos = geom->getPosition3(); osg::Vec4* pos2 = geom->getPosition4();
@@ -676,6 +676,7 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
             for (int i = 0; i < numSplats; ++i) (*vaa)[i] = i;
             geom->setVertexAttribArray(1, vaa); geom->setVertexAttribNormalize(1, GL_FALSE);
             geom->setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
+            if (vaa->getVertexBufferObject()) vaa->getVertexBufferObject()->setUsage(GL_DYNAMIC_DRAW);
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
             geom->getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(1, 1));
 #endif
@@ -694,13 +695,14 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
         indices = de; indexBuffer = de;
     }
 
-    osg::Matrix localToEye = model * view; size_t numCulled = 0; bool toSort = true;
+    osg::Matrix localToEye = model * view; bool toSort = true, shouldDirty = false;
     if (_onDemand)
     {
         osg::Matrix& matrix = _geometryMatrices[geom];
         if (isEqual(matrix, localToEye)) toSort = false; else matrix = localToEye;
     }
 
+    size_t numCulled = 0;
     switch (_method)
     {
     case CPU_SORT:
@@ -717,11 +719,10 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
                                                 ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
                     de->setNumInstances(numSplats - numCulled); de->dirty();
                 }
-                indexBuffer->dirty();  // FIXME: not updating under core profile??
+                shouldDirty = true; indexBuffer->dirty();
             }
-        }
-        break;
-    case GL46_RADIX_SORT:
+        } break;
+    /*case GL46_RADIX_SORT:
         if (toSort && pos && !indices->empty())
         {
             std::vector<GLuint> values(indices->begin(), indices->end());
@@ -742,13 +743,21 @@ void GaussianSorter::cull(GaussianGeometry* geom, const osg::Matrix& model, cons
 
             std::vector<GLuint> sorted_vals = val_buffer.get_data<GLuint>();
             indices->assign(sorted_vals.rbegin(), sorted_vals.rend()); indexBuffer->dirty();
-        }
-        break;
+        } break;*/
     default:
         if (toSort && _sortCallback.valid())
         {
-            if (_sortCallback->sort(indices, pos, numSplats, model, view)) indexBuffer->dirty();
-            else if (_sortCallback->sort(indices, pos2, numSplats, model, view)) indexBuffer->dirty();
+            if (_sortCallback->sort(indices, pos, numSplats, model, view))
+                { shouldDirty = true; indexBuffer->dirty(); }
+            else if (_sortCallback->sort(indices, pos2, numSplats, model, view))
+                { shouldDirty = true; indexBuffer->dirty(); }
         } break;
     }
+
+#if defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    unsigned int contextID = state ? state->getContextID() : 0;
+    osg::VertexArrayStateList& vas = geom->getVertexArrayStateList();
+    if (shouldDirty && contextID < vas.size())
+        vas[contextID]->dirty();  // must dirty; otherwise index attribute won't update..
+#endif
 }

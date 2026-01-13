@@ -283,7 +283,7 @@ if [ "$BuildMode" = '1' ]; then
 
     ExtraOptions="
         -DCMAKE_INSTALL_RPATH=$CurrentDir/build/sdk_core/lib
-        -DGLCORE_INCLUDE_DIR=$CurrentDir/3rdparty
+        -DGLCORE_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
         -DOPENGL_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/opengl
         -DCMAKE_INSTALL_PREFIX=$CurrentDir/build/sdk_core
         -DOPENGL_PROFILE=GLCORE"
