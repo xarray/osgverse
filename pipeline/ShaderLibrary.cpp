@@ -167,6 +167,11 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
         extraDefs.push_back("vec2 round(vec2 v) { return vec2(round(v.x), round(v.y)); }");
         extraDefs.push_back("vec3 round(vec3 v) { return vec3(round(v.x), round(v.y), round(v.z)); }");
         extraDefs.push_back("vec4 textureLod(sampler2D t, vec2 uv, float l) { return texture2D(t, uv); }");
+        extraDefs.push_back("mat3 transpose(mat3 m) { return mat3("
+                            "vec3(m[0].x, m[1].x, m[2].x), vec3(m[0].y, m[1].y, m[2].y), vec3(m[0].z, m[1].z, m[2].z)); }");
+        extraDefs.push_back("mat4 transpose(mat4 m) { return mat4("
+                            "vec4(m[0].x, m[1].x, m[2].x, m[3].x), vec4(m[0].y, m[1].y, m[2].y, m[3].y),"
+                            "vec4(m[0].z, m[1].z, m[2].z, m[3].z), vec4(m[0].w, m[1].w, m[2].w, m[3].w)); }");
     }
 
     if (shader.getType() == osg::Shader::VERTEX || shader.getType() == osg::Shader::GEOMETRY)

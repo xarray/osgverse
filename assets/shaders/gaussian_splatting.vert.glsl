@@ -56,34 +56,34 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor)
     float vy2 = v.y * v.y;
     float vz2 = v.z * v.z;
 
-    float k1 = 0.4886025119029199f;  // first order (/ (sqrt 3.0) (* 2 (sqrt pi)))
-    b[0] = 0.28209479177387814f;     // zeroth order (/ 1.0 (* 2.0 (sqrt pi)))
+    float k1 = 0.4886025119029199;  // first order (/ (sqrt 3.0) (* 2 (sqrt pi)))
+    b[0] = 0.28209479177387814;     // zeroth order (/ 1.0 (* 2.0 (sqrt pi)))
     b[1] = -k1 * v.y; b[2] = k1 * v.z; b[3] = -k1 * v.x;
 
 #ifdef FULL_SH
     // second order
-    float k2 = 1.0925484305920792f;   // (/ (sqrt 15.0) (* 2 (sqrt pi)))
-    float k3 = 0.31539156525252005f;  // (/ (sqrt 5.0) (* 4 (sqrt  pi)))
-    float k4 = 0.5462742152960396f;   // (/ (sqrt 15.0) (* 4 (sqrt pi)))
+    float k2 = 1.0925484305920792;   // (/ (sqrt 15.0) (* 2 (sqrt pi)))
+    float k3 = 0.31539156525252005;  // (/ (sqrt 5.0) (* 4 (sqrt  pi)))
+    float k4 = 0.5462742152960396;   // (/ (sqrt 15.0) (* 4 (sqrt pi)))
     b[4] = k2 * v.y * v.x;
     b[5] = -k2 * v.y * v.z;
-    b[6] = k3 * (3.0f * vz2 - 1.0f);
+    b[6] = k3 * (3.0 * vz2 - 1.0);
     b[7] = -k2 * v.x * v.z;
     b[8] = k4 * (vx2 - vy2);
 
     // third order
-    float k5 = 0.5900435899266435f;  // (/ (* (sqrt 2) (sqrt 35)) (* 8 (sqrt pi)))
-    float k6 = 2.8906114426405543f;  // (/ (sqrt 105) (* 2 (sqrt pi)))
-    float k7 = 0.4570457994644658f;  // (/ (* (sqrt 2) (sqrt 21)) (* 8 (sqrt pi)))
-    float k8 = 0.37317633259011546f; // (/ (sqrt 7) (* 4 (sqrt pi)))
-    float k9 = 1.4453057213202771f;  // (/ (sqrt 105) (* 4 (sqrt pi)))
-    b[9] = -k5 * v.y * (3.0f * vx2 - vy2);
+    float k5 = 0.5900435899266435;  // (/ (* (sqrt 2) (sqrt 35)) (* 8 (sqrt pi)))
+    float k6 = 2.8906114426405543;  // (/ (sqrt 105) (* 2 (sqrt pi)))
+    float k7 = 0.4570457994644658;  // (/ (* (sqrt 2) (sqrt 21)) (* 8 (sqrt pi)))
+    float k8 = 0.37317633259011546; // (/ (sqrt 7) (* 4 (sqrt pi)))
+    float k9 = 1.4453057213202771;  // (/ (sqrt 105) (* 4 (sqrt pi)))
+    b[9] = -k5 * v.y * (3.0 * vx2 - vy2);
     b[10] = k6 * v.y * v.x * v.z;
-    b[11] = -k7 * v.y * (5.0f * vz2 - 1.0f);
-    b[12] = k8 * v.z * (5.0f * vz2 - 3.0f);
-    b[13] = -k7 * v.x * (5.0f * vz2 - 1.0f);
+    b[11] = -k7 * v.y * (5.0 * vz2 - 1.0);
+    b[12] = k8 * v.z * (5.0 * vz2 - 3.0);
+    b[13] = -k7 * v.x * (5.0 * vz2 - 1.0);
     b[14] = k9 * v.z * (vx2 - vy2);
-    b[15] = -k5 * v.x * (vx2 - 3.0f * vy2);
+    b[15] = -k5 * v.x * (vx2 - 3.0 * vy2);
 
 #  if defined(USE_INSTANCING)
     ShcoefData shData = shcoef[uint(osg_UserIndex)];
@@ -120,7 +120,7 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor)
 #else
     float re = b[0] * baseColor.x, gr = b[0] * baseColor.y, bl = b[0] * baseColor.z;
 #endif
-    return vec3(0.5f, 0.5f, 0.5f) + vec3(re, gr, bl);
+    return vec3(0.5, 0.5, 0.5) + vec3(re, gr, bl);
 }
 
 void main()
@@ -151,12 +151,12 @@ void main()
     // this is an affine approximation of the real projection.
     float SX = VERSE_MATRIX_P[0][0], SY = VERSE_MATRIX_P[1][1];
     float WZ = VERSE_MATRIX_P[3][2], eyeZsq = eyeVertex.z * eyeVertex.z;
-    float jsx = -(SX * WIDTH) / (2.0f * eyeVertex.z);
-    float jsy = -(SY * HEIGHT) / (2.0f * eyeVertex.z);
-    float jtx = (SX * eyeVertex.x * WIDTH) / (2.0f * eyeZsq);
-    float jty = (SY * eyeVertex.y * HEIGHT) / (2.0f * eyeZsq);
-    float jtz = (FAR_NEAR * WZ) / (2.0f * eyeZsq);
-    mat3 J = mat3(vec3(jsx, 0.0f, 0.0f), vec3(0.0f, jsy, 0.0f), vec3(jtx, jty, jtz));
+    float jsx = -(SX * WIDTH) / (2.0 * eyeVertex.z);
+    float jsy = -(SY * HEIGHT) / (2.0 * eyeVertex.z);
+    float jtx = (SX * eyeVertex.x * WIDTH) / (2.0 * eyeZsq);
+    float jty = (SY * eyeVertex.y * HEIGHT) / (2.0 * eyeZsq);
+    float jtz = (FAR_NEAR * WZ) / (2.0 * eyeZsq);
+    mat3 J = mat3(vec3(jsx, 0.0, 0.0), vec3(0.0, jsy, 0.0), vec3(jtx, jty, jtz));
 
     // combine the affine transforms of W (viewMat) and J (approx of viewportMat * projMat)
     // using the fact that the new transformed covariance matrix V_Prime = JW * V * (JW)^T
@@ -171,19 +171,19 @@ void main()
     mat2 cov2D = mat2(V_prime);  // 'project' the 3D covariance matrix onto xy plane
     float X0 = 0.0, Y0 = 0.0;  // viewport X & Y... FIXME: always 0?
     vec4 proj = VERSE_MATRIX_P * eyeVertex;
-    cov2D[0][0] += 0.3f; cov2D[1][1] += 0.3f;  // The convolution of a gaussian with another is the sum of their
-                                               // covariance matrices, apply a low-pass filter for antialiasing
+    cov2D[0][0] += 0.3; cov2D[1][1] += 0.3;  // The convolution of a gaussian with another is the sum of their
+                                             // covariance matrices, apply a low-pass filter for antialiasing
     
 #if defined(USE_INSTANCING)
     vec4 covariance = vec4(cov2D[0], cov2D[1]);
     center2D = vec2(proj.x / proj.w, proj.y / proj.w);
-    center2D.x = 0.5f * (WIDTH + (center2D.x * WIDTH) + (2.0f * X0));
-    center2D.y = 0.5f * (HEIGHT + (center2D.y * HEIGHT) + (2.0f * Y0));
+    center2D.x = 0.5 * (WIDTH + (center2D.x * WIDTH) + (2.0 * X0));
+    center2D.y = 0.5 * (HEIGHT + (center2D.y * HEIGHT) + (2.0 * Y0));
 #else
     covariance_gs = vec4(cov2D[0], cov2D[1]);
     center2D_gs = vec2(proj.x / proj.w, proj.y / proj.w);
-    center2D_gs.x = 0.5f * (WIDTH + (center2D_gs.x * WIDTH) + (2.0f * X0));
-    center2D_gs.y = 0.5f * (HEIGHT + (center2D_gs.y * HEIGHT) + (2.0f * Y0));
+    center2D_gs.x = 0.5 * (WIDTH + (center2D_gs.x * WIDTH) + (2.0 * X0));
+    center2D_gs.y = 0.5 * (HEIGHT + (center2D_gs.y * HEIGHT) + (2.0 * Y0));
 #endif
 
     // compute radiance from SH

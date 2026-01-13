@@ -166,12 +166,14 @@ void GraphicsWindowGLFW::initialize()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-    OSG_NOTICE << "[GraphicsWindowGLFW] Create EGL system" << std::endl;
+    glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+    OSG_NOTICE << "[GraphicsWindowGLFW] Create EGL system with GLES2" << std::endl;
 #elif defined(VERSE_EMBEDDED_GLES3)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-    OSG_NOTICE << "[GraphicsWindowGLFW] Create EGL system" << std::endl;
+    glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+    OSG_NOTICE << "[GraphicsWindowGLFW] Create EGL system with GLES3" << std::endl;
 #else
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
@@ -244,7 +246,7 @@ void GraphicsWindowGLFW::initialize()
                 {
                 case GLFW_MOUSE_BUTTON_LEFT: btn = osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON; break;
                 case GLFW_MOUSE_BUTTON_MIDDLE: btn = osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON; break;
-                case GLFW_MOUSE_BUTTON_RIGHT: btn = osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON; break;
+                case GLFW_MOUSE_BUTTON_RIGHT: btn = 3/*osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON*/; break;
                 default: btn = button; break;
                 }
                 if (action == GLFW_PRESS)

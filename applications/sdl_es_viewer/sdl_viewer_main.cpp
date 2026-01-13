@@ -65,6 +65,9 @@ int main(int argc, char** argv)
 
     bool useGLFW = arguments.read("--use-glfw"), useWin32Ex = arguments.read("--use-win32ex");
     bool testPipeline = arguments.read("--with-deferred"), showShadowMaps = arguments.read("--debug-shadow");
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+    testPipeline = true;
+#endif
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
     if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf");
@@ -191,7 +194,7 @@ int main(int argc, char** argv)
             osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
-        postCamera->addChild(skybox.get());
+        //postCamera->addChild(skybox.get());
     }
 
     // Start the main loop
