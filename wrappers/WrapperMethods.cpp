@@ -11,334 +11,194 @@
 #include "Export.h"
 using namespace osgVerse;
 
-#define SERIALIZER_METHOD_BEGIN(ns, clsName, method) \
-    struct MethodStruct_##ns##_##clsName##_##method : public osgDB::MethodObject { \
-        virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const { \
-            ns :: clsName* obj = reinterpret_cast<ns :: clsName*>(objectPtr); if (!obj) return false;
-#define ARG_TO_VALUE(obj, var) { if (obj->asValueObject()) obj->asValueObject()->getScalarValue(var); }
-#define VALUE_TO_ARG(var, obj) { osg::ValueObject* vo = new osg::ValueObject; vo->setScalarValue(var); obj = vo.get(); }
-#define SERIALIZER_METHOD_END() return true; } }
-
 /////////////////////////////// STATESET
-struct StateSet_GetAttribute : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, getAttribute)
+if (in.size() > 0)  // osg::StateSet::getAttribute(Type type)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // getAttribute(type) / getTextureAttribute(unit, type)
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
+    unsigned int type = 0; ARG_TO_VALUE(in[0], type);
+    osg::StateAttribute* sa = object->getAttribute((osg::StateAttribute::Type)type);
+    if (sa) out.push_back(sa); return true;
+}
+METHOD_END()
 
-        unsigned int unit = 0, type = osg::StateAttribute::Type::TEXTURE;
-        if (in.size() > 1)
-        {
-            osg::ValueObject* unitObj = in[0]->asValueObject();
-            osg::ValueObject* typeObj = in[1]->asValueObject();
-            if (unitObj) unitObj->getScalarValue(unit);
-            if (typeObj) typeObj->getScalarValue(type);
-        }
-        else
-        {
-            osg::ValueObject* typeObj = in[0]->asValueObject();
-            if (typeObj) typeObj->getScalarValue(type);
-        }
-
-        osg::StateAttribute* sa = NULL;
-        if (_withTextureUnit) sa = ss->getTextureAttribute(unit, (osg::StateAttribute::Type)type);
-        else sa = ss->getAttribute((osg::StateAttribute::Type)type);
-        out.push_back(sa); return true;
-    }
-
-    StateSet_GetAttribute(bool withTex) : _withTextureUnit(withTex) {}
-    bool _withTextureUnit;
-};
-
-struct StateSet_GetMode : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, getTextureAttribute)
+if (in.size() > 1)  // osg::StateSet::getTextureAttribute(unsigned int u, Type type)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // getMode(mode) / getTextureMode(unit, mode)
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
+    unsigned int unit = 0, type = 0; ARG_TO_VALUE(in[0], unit); ARG_TO_VALUE(in[1], type);
+    osg::StateAttribute* sa = object->getTextureAttribute(unit, (osg::StateAttribute::Type)type);
+    if (sa) out.push_back(sa); return true;
+}
+METHOD_END()
 
-        unsigned int unit = 0, mode = GL_NONE;
-        if (in.size() > 1)
-        {
-            osg::ValueObject* unitObj = in[0]->asValueObject();
-            osg::ValueObject* modeObj = in[1]->asValueObject();
-            if (unitObj) unitObj->getScalarValue(unit);
-            if (modeObj) modeObj->getScalarValue(mode);
-        }
-        else
-        {
-            osg::ValueObject* modeObj = in[0]->asValueObject();
-            if (modeObj) modeObj->getScalarValue(mode);
-        }
-
-        if (_withTextureUnit)
-            out.push_back(new osg::UIntValueObject("return", ss->getTextureMode(unit, (GLenum)mode)));
-        else
-            out.push_back(new osg::UIntValueObject("return", ss->getMode((GLenum)mode))); return true;
-    }
-
-    StateSet_GetMode(bool withTex) : _withTextureUnit(withTex) {}
-    bool _withTextureUnit;
-};
-
-struct StateSet_SetAttribute : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, getMode)
+if (in.size() > 0)  // osg::StateSet::getMode(GLenum mode)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // setAttribute(obj, [flags])
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
-        osg::StateAttribute* sa = dynamic_cast<osg::StateAttribute*>(in[0].get());
-        if (!sa) return false;
+    unsigned int mode = 0; ARG_TO_VALUE(in[0], mode);
+    VALUE_TO_ARG(UIntValueObject, (unsigned int)object->getMode(mode), rtn);
+    out.push_back(rtn); return true;
+}
+METHOD_END()
 
-        unsigned int flags = osg::StateAttribute::ON;
-        if (in.size() > 1)
-        {
-            osg::ValueObject* flagsObj = in[1]->asValueObject();
-            if (flagsObj) flagsObj->getScalarValue(flags);
-        }
-        if (_withModes) ss->setAttributeAndModes(sa, flags);
-        else ss->setAttribute(sa, flags); return true;
-    }
-
-    StateSet_SetAttribute(bool withModes) : _withModes(withModes) {}
-    bool _withModes;
-};
-
-struct StateSet_SetTextureAttribute : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, getTextureMode)
+if (in.size() > 1)  // osg::StateSet::getTextureMode(unsigned int u, GLenum mode)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // setTextureAttribute(unit, obj, [flags])
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 2) return false;
+    unsigned int unit = 0, mode = 0; ARG_TO_VALUE(in[0], unit); ARG_TO_VALUE(in[1], mode);
+    VALUE_TO_ARG(UIntValueObject, (unsigned int)object->getTextureMode(unit, mode), rtn);
+    out.push_back(rtn); return true;
+}
+METHOD_END()
 
-        unsigned int unit = 0, flags = osg::StateAttribute::ON;
-        osg::ValueObject* unitObj = in[0]->asValueObject();
-        osg::StateAttribute* sa = dynamic_cast<osg::StateAttribute*>(in[1].get());
-        if (unitObj) unitObj->getScalarValue(unit); if (!sa) return false;
-
-        if (in.size() > 2)
-        {
-            osg::ValueObject* flagsObj = in[2]->asValueObject();
-            if (flagsObj) flagsObj->getScalarValue(flags);
-        }
-        if (_withModes) ss->setTextureAttributeAndModes(unit, sa, flags);
-        else ss->setTextureAttribute(unit, sa, flags); return true;
-    }
-
-    StateSet_SetTextureAttribute(bool withModes) : _withModes(withModes) {}
-    bool _withModes;
-};
-
-struct StateSet_RemoveAttribute : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, setAttribute)
+if (in.size() > 1)  // osg::StateSet::setAttribute(osg::StateAttribute* sa, unsigned int flags)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // removeAttribute(string/type) / removeTextureAttribute(unit, string/type)
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
+    osg::StateAttribute* sa = dynamic_cast<osg::StateAttribute*>(in[0].get());
+    unsigned int flags = 0; ARG_TO_VALUE(in[1], flags);
+    if (sa != NULL) { object->setAttribute(sa, flags); return true; }
+}
+METHOD_END()
 
-        unsigned int unit = 0, tID = 0, type = osg::StateAttribute::Type::TEXTURE;
-        if (in.size() > 1)
-        {
-            osg::ValueObject* unitObj = in[0]->asValueObject();
-            if (unitObj) unitObj->getScalarValue(unit); tID = 1;
-        }
-
-        osg::StateAttribute* sa = dynamic_cast<osg::StateAttribute*>(in[tID].get());
-        osg::ValueObject* tObj = in[tID]->asValueObject(); if (tObj) tObj->getScalarValue(type);
-        if (_withTextureUnit)
-        {
-            if (sa) ss->removeTextureAttribute(unit, sa);
-            else ss->removeTextureAttribute(unit, (osg::StateAttribute::Type)type);
-        }
-        else
-        {
-            if (sa) ss->removeAttribute(sa);
-            else ss->removeAttribute((osg::StateAttribute::Type)type);
-        }
-        return true;
-    }
-
-    StateSet_RemoveAttribute(bool withTex) : _withTextureUnit(withTex) {}
-    bool _withTextureUnit;
-};
-
-struct StateSet_RemoveMode : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, setTextureAttribute)
+if (in.size() > 2)  // osg::StateSet::setTextureAttribute(unsigned int unit, osg::StateAttribute* sa, unsigned int flags)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // removeMode(mode) / removeTextureMode(unit, mode)
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
+    osg::StateAttribute* sa = dynamic_cast<osg::StateAttribute*>(in[1].get());
+    unsigned int unit = 0, flags = 0; ARG_TO_VALUE(in[0], unit); ARG_TO_VALUE(in[2], flags);
+    if (sa != NULL) { object->setTextureAttribute(unit, sa, flags); return true; }
+}
+METHOD_END()
 
-        unsigned int unit = 0, tID = 0, type = GL_NONE;
-        if (in.size() > 1)
-        {
-            osg::ValueObject* unitObj = in[0]->asValueObject();
-            if (unitObj) unitObj->getScalarValue(unit); tID = 1;
-        }
-
-        osg::ValueObject* tObj = in[tID]->asValueObject(); if (tObj) tObj->getScalarValue(type);
-        if (_withTextureUnit) ss->removeTextureMode(unit, (GLenum)type);
-        else ss->removeMode((GLenum)type); return true;
-    }
-
-    StateSet_RemoveMode(bool withTex) : _withTextureUnit(withTex) {}
-    bool _withTextureUnit;
-};
-
-struct StateSet_GetUniform : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, setMode)
+if (in.size() > 1)  // osg::StateSet::setMode(GLenum mode, unsigned int flags)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // getUniform(string)
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
+    unsigned int mode = 0, flags = 0; ARG_TO_VALUE(in[0], mode); ARG_TO_VALUE(in[1], flags);
+    object->setMode(mode, flags); return true;
+}
+METHOD_END()
 
-        osg::StringValueObject* nameObj = dynamic_cast<osg::StringValueObject*>(in[0].get());
-        osg::Uniform* uniform = nameObj ? ss->getUniform(nameObj->getValue()) : NULL;
-        out.push_back(uniform); return true;
-    }
-};
-
-struct StateSet_AddUniform : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, setTextureMode)
+if (in.size() > 2)  // osg::StateSet::setTextureMode(unsigned int unit, GLenum mode, unsigned int flags)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // addUniform(obj, [value])
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
+    unsigned int unit = 0, mode = 0, flags = 0;
+    ARG_TO_VALUE(in[0], unit); ARG_TO_VALUE(in[1], mode); ARG_TO_VALUE(in[2], flags);
+    object->setTextureMode(unit, mode, flags); return true;
+}
+METHOD_END()
 
-        unsigned int flags = osg::StateAttribute::ON;
-        if (in.size() > 1)
-        {
-            osg::ValueObject* flagsObj = in[1]->asValueObject();
-            if (flagsObj) flagsObj->getScalarValue(flags);
-        }
-        osg::Uniform* uniform = dynamic_cast<osg::Uniform*>(in[0].get());
-        ss->addUniform(uniform, flags); return true;
-    }
-};
-
-struct StateSet_RemoveUniform : public osgDB::MethodObject
+METHOD_BEGIN(osg, StateSet, removeAttribute)
+if (in.size() > 0)  // osg::StateSet::removeAttribute(osg::StateAttribute* sa)
 {
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // removeUniform(obj/string)
-        osg::StateSet* ss = reinterpret_cast<osg::StateSet*>(objectPtr);
-        if (in.size() < 1) return false;
+    osg::StateAttribute* sa = dynamic_cast<osg::StateAttribute*>(in[0].get());
+    if (sa != NULL) { object->removeAttribute(sa); return true; }
+}
+METHOD_END()
 
-        osg::StringValueObject* nameObj = dynamic_cast<osg::StringValueObject*>(in[0].get());
-        osg::Uniform* uniform = nameObj ? NULL : dynamic_cast<osg::Uniform*>(in[0].get());
-        if (nameObj) ss->removeUniform(nameObj->getValue());
-        else if (uniform) ss->removeUniform(uniform); return true;
-    }
-};
+METHOD_BEGIN(osg, StateSet, removeTextureAttribute)
+if (in.size() > 1)  // osg::StateSet::removeTextureAttribute(unsigned int unit, osg::StateAttribute* sa)
+{
+    unsigned int unit = 0; ARG_TO_VALUE(in[0], unit);
+    osg::StateAttribute* sa = dynamic_cast<osg::StateAttribute*>(in[1].get());
+    if (sa != NULL) { object->removeTextureAttribute(unit, sa); return true; }
+}
+METHOD_END()
+
+METHOD_BEGIN(osg, StateSet, removeMode)
+if (in.size() > 0)  // osg::StateSet::removeMode(GLenum mode)
+{
+    unsigned int mode = 0; ARG_TO_VALUE(in[0], mode);
+    object->removeMode(mode); return true;
+}
+METHOD_END()
+
+METHOD_BEGIN(osg, StateSet, removeTextureMode)
+if (in.size() > 1)  // osg::StateSet::removeTextureMode(unsigned int unit, GLenum mode)
+{
+    unsigned int unit = 0, mode = 0; ARG_TO_VALUE(in[0], unit); ARG_TO_VALUE(in[1], mode);
+    object->removeTextureMode(unit, mode); return true;
+}
+METHOD_END()
+
+METHOD_BEGIN(osg, StateSet, getUniform)
+if (in.size() > 0)  // osg::StateSet::getUniform(const std::string& name)
+{
+    std::string name; ARG_TO_VALUE(in[0], name);
+    osg::Uniform* uniform = object->getUniform(name);
+    if (uniform) out.push_back(uniform); return true;
+}
+METHOD_END()
+
+METHOD_BEGIN(osg, StateSet, getOrCreateUniform)
+if (in.size() > 2)  // osg::StateSet::getOrCreateUniform(const std::string& name, Uniform::Type type, unsigned int num)
+{
+    std::string name; ARG_TO_VALUE(in[0], name);
+    unsigned int type = 0, num = 0; ARG_TO_VALUE(in[1], type); ARG_TO_VALUE(in[2], num);
+    osg::Uniform* uniform = object->getOrCreateUniform(name, (osg::Uniform::Type)type, num);
+    if (uniform) out.push_back(uniform); return true;
+}
+METHOD_END()
+
+METHOD_BEGIN(osg, StateSet, addUniform)
+if (in.size() > 1)  // osg::StateSet::addUniform(osg::Uniform* uniform, unsigned int flags)
+{
+    osg::Uniform* uniform = dynamic_cast<osg::Uniform*>(in[0].get());
+    unsigned int flags = 0; ARG_TO_VALUE(in[1], flags);
+    object->addUniform(uniform, flags); return true;
+}
+METHOD_END()
+
+METHOD_BEGIN(osg, StateSet, removeUniform)
+if (in.size() > 0)  // osg::StateSet::removeUniform(const std::string& name)
+{
+    std::string name; ARG_TO_VALUE(in[0], name);
+    object->removeUniform(name); return true;
+}
+METHOD_END()
 
 static void addStateSetMethods(osgDB::ObjectWrapper* wrapper)
 {
-    wrapper->addMethodObject("getAttribute", new StateSet_GetAttribute(false));
-    wrapper->addMethodObject("getTextureAttribute", new StateSet_GetAttribute(true));
-    wrapper->addMethodObject("getMode", new StateSet_GetMode(false));
-    wrapper->addMethodObject("getTextureMode", new StateSet_GetMode(true));
-    wrapper->addMethodObject("setAttribute", new StateSet_SetAttribute(false));
-    wrapper->addMethodObject("setAttributeAndModes", new StateSet_SetAttribute(true));
-    wrapper->addMethodObject("setTextureAttribute", new StateSet_SetTextureAttribute(false));
-    wrapper->addMethodObject("setTextureAttributeAndModes", new StateSet_SetTextureAttribute(true));
-    wrapper->addMethodObject("removeAttribute", new StateSet_RemoveAttribute(false));
-    wrapper->addMethodObject("removeTextureAttribute", new StateSet_RemoveAttribute(true));
-    wrapper->addMethodObject("removeMode", new StateSet_RemoveMode(false));
-    wrapper->addMethodObject("removeTextureMode", new StateSet_RemoveMode(true));
-    wrapper->addMethodObject("getUniform", new StateSet_GetUniform);
-    wrapper->addMethodObject("addUniform", new StateSet_AddUniform);
-    wrapper->addMethodObject("removeUniform", new StateSet_RemoveUniform);
-    // TODO: createUniform() with different types?
+    REGISTER_METHOD(wrapper, osg, StateSet, getAttribute);
+    REGISTER_METHOD(wrapper, osg, StateSet, getTextureAttribute);
+    REGISTER_METHOD(wrapper, osg, StateSet, getMode);
+    REGISTER_METHOD(wrapper, osg, StateSet, getTextureMode);
+    REGISTER_METHOD(wrapper, osg, StateSet, setAttribute);
+    REGISTER_METHOD(wrapper, osg, StateSet, setTextureAttribute);
+    REGISTER_METHOD(wrapper, osg, StateSet, setMode);
+    REGISTER_METHOD(wrapper, osg, StateSet, setTextureMode);
+    REGISTER_METHOD(wrapper, osg, StateSet, removeAttribute);
+    REGISTER_METHOD(wrapper, osg, StateSet, removeTextureAttribute);
+    REGISTER_METHOD(wrapper, osg, StateSet, removeMode);
+    REGISTER_METHOD(wrapper, osg, StateSet, removeTextureMode);
+    REGISTER_METHOD(wrapper, osg, StateSet, getUniform);
+    REGISTER_METHOD(wrapper, osg, StateSet, getOrCreateUniform);
+    REGISTER_METHOD(wrapper, osg, StateSet, addUniform);
+    REGISTER_METHOD(wrapper, osg, StateSet, removeUniform);
 
-    METHOD_INFO_IN1_OUT1(wrapper, "getAttribute", ARG_INFO("type", RW_UINT), ARG_INFO("attribute", RW_OBJECT));
-    METHOD_INFO_IN2_OUT1(wrapper, "getTextureAttribute", OPTIONAL_ARG_INFO("unit", RW_UINT), ARG_INFO("type", RW_UINT),
-                                                         ARG_INFO("attribute", RW_OBJECT));
-    METHOD_INFO_IN1_OUT1(wrapper, "getMode", ARG_INFO("type", RW_UINT), ARG_INFO("mode", RW_UINT));
-    METHOD_INFO_IN2_OUT1(wrapper, "getTextureMode", OPTIONAL_ARG_INFO("unit", RW_UINT), ARG_INFO("type", RW_UINT),
-                                                    ARG_INFO("mode", RW_UINT));
-    METHOD_INFO_IN2(wrapper, "setAttribute", ARG_INFO("attribute", RW_OBJECT), OPTIONAL_ARG_INFO("flags", RW_UINT));
-    METHOD_INFO_IN3(wrapper, "setAttributeAndModes", OPTIONAL_ARG_INFO("unit", RW_UINT), ARG_INFO("attribute", RW_OBJECT),
-                                                     OPTIONAL_ARG_INFO("flags", RW_UINT));
-    METHOD_INFO_IN1(wrapper, "removeAttribute", ARG_INFO("attribute", RW_OBJECT));
-    METHOD_INFO_IN2(wrapper, "removeTextureAttribute", ARG_INFO("unit", RW_UINT), ARG_INFO("attribute", RW_OBJECT));
-    METHOD_INFO_IN1(wrapper, "removeMode", ARG_INFO("mode", RW_UINT));
-    METHOD_INFO_IN2(wrapper, "removeTextureMode", ARG_INFO("unit", RW_UINT), ARG_INFO("mode", RW_UINT));
-    METHOD_INFO_IN1_OUT1(wrapper, "getUniform", ARG_INFO("name", RW_STRING), ARG_INFO("uniform", RW_OBJECT));
-    METHOD_INFO_IN2(wrapper, "addUniform", ARG_INFO("uniform", RW_OBJECT), OPTIONAL_ARG_INFO("flags", RW_UINT));
-    METHOD_INFO_IN1(wrapper, "removeUniform", ARG_INFO("uniform", RW_OBJECT));
+    METHOD_INFO_IN1_OUT1(wrapper, getAttribute, ARG_INFO("type", RW_UINT), ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN2_OUT1(wrapper, getTextureAttribute, ARG_INFO("unit", RW_UINT), ARG_INFO("type", RW_UINT),
+                                                       ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN1_OUT1(wrapper, getMode, ARG_INFO("mode", RW_UINT), ARG_INFO("value", RW_UINT));
+    METHOD_INFO_IN2_OUT1(wrapper, getTextureMode, ARG_INFO("unit", RW_UINT), ARG_INFO("mode", RW_UINT),
+                                                  ARG_INFO("value", RW_UINT));
+    METHOD_INFO_IN2(wrapper, setAttribute, ARG_INFO("attribute", RW_OBJECT), ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN3(wrapper, setTextureAttribute, ARG_INFO("unit", RW_UINT), ARG_INFO("attribute", RW_OBJECT),
+                                                  ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN2(wrapper, setMode, ARG_INFO("mode", RW_UINT), ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN3(wrapper, setTextureMode, ARG_INFO("unit", RW_UINT), ARG_INFO("mode", RW_UINT),
+                                             ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN1(wrapper, removeAttribute, ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN2(wrapper, removeTextureAttribute, ARG_INFO("unit", RW_UINT), ARG_INFO("attribute", RW_OBJECT));
+    METHOD_INFO_IN1(wrapper, removeMode, ARG_INFO("mode", RW_UINT));
+    METHOD_INFO_IN2(wrapper, removeTextureMode, ARG_INFO("unit", RW_UINT), ARG_INFO("mode", RW_UINT));
+    METHOD_INFO_IN1_OUT1(wrapper, getUniform, ARG_INFO("name", RW_STRING), ARG_INFO("uniform", RW_OBJECT));
+    METHOD_INFO_IN3_OUT1(wrapper, getOrCreateUniform, ARG_INFO("name", RW_STRING), ARG_INFO("type", RW_UINT),
+                                                      ARG_INFO("numElements", RW_UINT), ARG_INFO("uniform", RW_OBJECT));
+    METHOD_INFO_IN2(wrapper, addUniform, ARG_INFO("uniform", RW_OBJECT), ARG_INFO("flags", RW_UINT));
+    METHOD_INFO_IN1(wrapper, removeUniform, ARG_INFO("name", RW_STRING));
 }
 
 /////////////////////////////// UNIFORM
-struct Uniform_GetElement : public osgDB::MethodObject
-{
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // getElement(index)
-        osg::Uniform* uniform = reinterpret_cast<osg::Uniform*>(objectPtr);
-        if (in.size() < 1) return false;
-        unsigned int index = 0; osg::ValueObject* idObj = in[0]->asValueObject();
-        if (idObj) idObj->getScalarValue(index);
-
-        unsigned int num = uniform->getTypeNumComponents(uniform->getType());
-        unsigned int j = index * num;
-        for (unsigned int i = 0; i < num; ++i)
-        {
-            std::string name = std::to_string(i);
-            if (uniform->getFloatArray() != NULL)
-                out.push_back(new osg::FloatValueObject(name, (*uniform->getFloatArray())[j + i]));
-            else if (uniform->getDoubleArray() != NULL)
-                out.push_back(new osg::DoubleValueObject(name, (*uniform->getDoubleArray())[j + i]));
-            else if (uniform->getIntArray() != NULL)
-                out.push_back(new osg::IntValueObject(name, (*uniform->getIntArray())[j + i]));
-            else if (uniform->getUIntArray() != NULL)
-                out.push_back(new osg::UIntValueObject(name, (*uniform->getUIntArray())[j + i]));
-        }
-        return true;
-    }
-};
-
-struct Uniform_SetElement : public osgDB::MethodObject
-{
-    virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const
-    {
-        // setElement(index, v0, v1, ...)
-        osg::Uniform* uniform = reinterpret_cast<osg::Uniform*>(objectPtr);
-        unsigned int num = uniform->getTypeNumComponents(uniform->getType());
-        if (in.size() < (1 + num)) return false;
-
-        unsigned int index = 0; osg::ValueObject* idObj = in[0]->asValueObject();
-        if (idObj) idObj->getScalarValue(index);
-
-        unsigned int j = index * num;
-        for (unsigned int i = 0; i < num; ++i)
-        {
-            osg::ValueObject* vObj = in[1 + i]->asValueObject(); if (!vObj) continue;
-            if (uniform->getFloatArray() != NULL)
-                vObj->getScalarValue((*uniform->getFloatArray())[j + i]);
-            else if (uniform->getDoubleArray() != NULL)
-                vObj->getScalarValue((*uniform->getDoubleArray())[j + i]);
-            else if (uniform->getIntArray() != NULL)
-                vObj->getScalarValue((*uniform->getIntArray())[j + i]);
-            else if (uniform->getUIntArray() != NULL)
-                vObj->getScalarValue((*uniform->getUIntArray())[j + i]);
-        }
-        return true;
-    }
-};
 
 void addUniformMethods(osgDB::ObjectWrapper* wrapper)
 {
-    wrapper->addMethodObject("getElement", new Uniform_GetElement);
-    wrapper->addMethodObject("setElement", new Uniform_SetElement);
+    // TODO: set/get, setElement/getElement
 }
 
 /////////////////////////////// SHADER
@@ -350,8 +210,7 @@ void addShaderMethods(osgDB::ObjectWrapper* wrapper)
 /////////////////////////////// PROGRAM
 void addProgramMethods(osgDB::ObjectWrapper* wrapper)
 {
-    // TODO: get/add/removeShader, set/getAttrBinding, set/getFragBinding,
-    //       get/setGeomProperty, get/setComputeGroups
+    // TODO: get/setGeomProperty, get/setComputeGroups
 }
 
 /////////////////////////////// PROXYNODE
@@ -391,14 +250,51 @@ namespace osgVerse
         for (osgDB::ObjectWrapperManager::WrapperMap::iterator itr = wrappers.begin();
             itr != wrappers.end(); ++itr)
         {
-            if (itr->first == "osg::StateSet") addStateSetMethods(itr->second.get());
-            else if (itr->first == "osg::Uniform") addUniformMethods(itr->second.get());
-            else if (itr->first == "osg::Program") addProgramMethods(itr->second.get());
-            else if (itr->first == "osg::Shader") addShaderMethods(itr->second.get());
-            else if (itr->first == "osg::ProxyNode") addProxyNodeMethods(itr->second.get());
-            else if (itr->first == "osg::LOD") addLODMethods(itr->second.get());
-            else if (itr->first == "osg::PagedLOD") addPagedLODMethods(itr->second.get());
-            else if (itr->first == "osg::Camera") addCameraMethods(itr->second.get());
+            const std::string& clsName = itr->first; osgDB::ObjectWrapper* w = itr->second.get();
+            if (clsName == "osg::Node") METHOD_INFO_OUT1(w, getOrCreateStateSet, ARG_INFO("return", RW_OBJECT))
+            else if (clsName == "osg::ProxyNode") addProxyNodeMethods(w);
+            else if (clsName == "osg::LOD") addLODMethods(w);
+            else if (clsName == "osg::PagedLOD") addPagedLODMethods(w);
+            else if (clsName == "osg::Camera") addCameraMethods(w);
+            else if (clsName == "osg::StateSet") addStateSetMethods(w);
+            else if (clsName == "osg::Uniform") addUniformMethods(w);
+            else if (clsName == "osg::Shader") addShaderMethods(w);
+            else if (clsName == "osg::Program")
+            {
+                METHOD_INFO_OUT1(w, getNumShaders, ARG_INFO("return", RW_UINT));
+                METHOD_INFO_IN1_OUT1(w, getShader, ARG_INFO("index", RW_UINT), ARG_INFO("shader", RW_OBJECT));
+                METHOD_INFO_IN1(w, addShader, ARG_INFO("shader", RW_OBJECT));
+                METHOD_INFO_IN1(w, removeShader, ARG_INFO("shader", RW_OBJECT));
+                METHOD_INFO_IN2(w, addBindAttribLocation, ARG_INFO("name", RW_STRING), ARG_INFO("index", RW_UINT));
+                METHOD_INFO_IN1(w, removeBindAttribLocation, ARG_INFO("name", RW_STRING));
+                addProgramMethods(w);
+            }
+            else if (clsName == "osg::Geode")
+            {
+                METHOD_INFO_OUT1(w, getNumDrawables, ARG_INFO("return", RW_UINT));
+                METHOD_INFO_IN1_OUT1(w, getDrawable, ARG_INFO("index", RW_UINT), ARG_INFO("child", RW_OBJECT));
+                METHOD_INFO_IN2(w, setDrawable, ARG_INFO("index", RW_UINT), ARG_INFO("child", RW_OBJECT));
+                METHOD_INFO_IN1(w, addDrawable, ARG_INFO("child", RW_OBJECT));
+                METHOD_INFO_IN1(w, removeDrawable, ARG_INFO("child", RW_OBJECT));
+            }
+            else if (clsName == "osg::Group")
+            {
+                METHOD_INFO_OUT1(w, getNumChildren, ARG_INFO("return", RW_UINT));
+                METHOD_INFO_IN1_OUT1(w, getChild, ARG_INFO("index", RW_UINT), ARG_INFO("child", RW_OBJECT));
+                METHOD_INFO_IN2(w, setChild, ARG_INFO("index", RW_UINT), ARG_INFO("child", RW_OBJECT));
+                METHOD_INFO_IN1(w, addChild, ARG_INFO("child", RW_OBJECT));
+                METHOD_INFO_IN1(w, removeChild, ARG_INFO("child", RW_OBJECT));
+            }
+            else if (clsName == "osg::Switch")
+            {
+                METHOD_INFO_IN1_OUT1(w, getValue, ARG_INFO("index", RW_UINT), ARG_INFO("enabled", RW_BOOL));
+                METHOD_INFO_IN2(w, setValue, ARG_INFO("index", RW_UINT), ARG_INFO("enabled", RW_BOOL));
+            }
+            else if (clsName == "osg::TextureCubeMap")
+            {
+                METHOD_INFO_IN1_OUT1(w, getImage, ARG_INFO("face", RW_UINT), ARG_INFO("image", RW_IMAGE));
+                METHOD_INFO_IN2(w, setImage, ARG_INFO("face", RW_UINT), ARG_INFO("image", RW_IMAGE));
+            }
         }
         return fixOsgBinaryWrappers(libName);
     }

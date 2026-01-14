@@ -189,28 +189,59 @@ namespace osgVerse
     };
 }
 
+
+/** osgDB::MethodObject macros
+    Usage example:
+    METHOD_BEGIN(osg, StateSet, getTextureAttribute)
+    if (in.size() > 1)  // osg::StateSet::getTextureAttribute(int u, Type type)
+    {
+        unsigned int unit = 0, type = 0;
+        ARG_TO_VALUE(in[0], unit); ARG_TO_VALUE(in[1], type);
+        osg::StateAttribute* sa = object->getTextureAttribute(unit, (osg::StateAttribute::Type)type);
+        if (sa) out.push_back(sa); return true;
+    }
+    METHOD_END()
+*/
+#define METHOD_BEGIN(ns, clsName, method) \
+    struct MethodStruct_##ns##_##clsName##_##method : public osgDB::MethodObject { \
+        virtual bool run(void* objectPtr, osg::Parameters& in, osg::Parameters& out) const { \
+            ns :: clsName* object = reinterpret_cast<ns :: clsName*>(objectPtr); if (!object) return false;
+#define ARG_TO_VALUE(obj, var) { if ((obj)->asValueObject()) (obj)->asValueObject()->getScalarValue(var); }
+#define VALUE_TO_ARG(objClass, var, obj) osg:: objClass* obj = new osg:: objClass(var);
+#define METHOD_END() return false; } };
+#define REGISTER_METHOD(wrapper, ns, clsName, method) \
+    wrapper->addMethodObject(#method, new MethodStruct_##ns##_##clsName##_##method );
+
+/** osgVerse::MethodInformation macros
+    Usage example:
+    // osg::StateSet::getTextureAttribute(int u, Type type)
+    METHOD_INFO_IN2_OUT1(wrapper, "getTextureAttribute", ARG_INFO("unit", RW_UINT), ARG_INFO("type", RW_UINT),
+                                                         ARG_INFO("attribute", RW_OBJECT));
+*/
+#define METHOD_INFO_IN1(cls, method, arg0) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, #method, args); }
+#define METHOD_INFO_IN2(cls, method, arg0, arg1) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); args.push_back(arg1); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, #method, args); }
+#define METHOD_INFO_IN3(cls, method, arg0, arg1, arg2) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); args.push_back(arg1); \
+     args.push_back(arg2);osgVerse::MethodInformationManager::instance()->addInformation(cls, #method, args); }
+#define METHOD_INFO_OUT1(cls, method, arg0) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsO.push_back(arg0); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, #method, argsI, argsO); }
+#define METHOD_INFO_IN1_OUT1(cls, method, aIn, aOut) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsI.push_back(aIn); argsO.push_back(aOut); \
+    osgVerse::MethodInformationManager::instance()->addInformation(cls, #method, argsI, argsO); }
+#define METHOD_INFO_IN2_OUT1(cls, method, aIn0, aIn1, aOut) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsI.push_back(aIn0); argsI.push_back(aIn1); \
+    argsO.push_back(aOut); osgVerse::MethodInformationManager::instance()->addInformation(cls, #method, argsI, argsO); }
+#define METHOD_INFO_IN3_OUT1(cls, method, aIn0, aIn1, aIn2, aOut) { \
+    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsI.push_back(aIn0); argsI.push_back(aIn1); \
+    argsI.push_back(aIn2); argsO.push_back(aOut); osgVerse::MethodInformationManager::instance()->addInformation(cls, #method, argsI, argsO); }
 #define ARG_INFO(name, type) \
     osgVerse::MethodInformationManager::Argument(name, osgDB::BaseSerializer:: type, false)
 #define OPTIONAL_ARG_INFO(name, type) \
     osgVerse::MethodInformationManager::Argument(name, osgDB::BaseSerializer:: type, true)
-
-#define METHOD_INFO_IN1(cls, method, arg0) { \
-    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); \
-    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, args); }
-#define METHOD_INFO_IN2(cls, method, arg0, arg1) { \
-    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); args.push_back(arg1); \
-    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, args); }
-#define METHOD_INFO_IN3(cls, method, arg0, arg1, arg2) { \
-    std::vector<osgVerse::MethodInformationManager::Argument> args; args.push_back(arg0); args.push_back(arg1); \
-     args.push_back(arg2);osgVerse::MethodInformationManager::instance()->addInformation(cls, method, args); }
-#define METHOD_INFO_OUT1(cls, method, arg0) { \
-    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsO.push_back(arg0); \
-    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, argsI, argsO); }
-#define METHOD_INFO_IN1_OUT1(cls, method, aIn, aOut) { \
-    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsI.push_back(aIn); argsO.push_back(aOut); \
-    osgVerse::MethodInformationManager::instance()->addInformation(cls, method, argsI, argsO); }
-#define METHOD_INFO_IN2_OUT1(cls, method, aIn0, aIn1, aOut) { \
-    std::vector<osgVerse::MethodInformationManager::Argument> argsI, argsO; argsI.push_back(aIn0); argsI.push_back(aIn1); \
-    argsO.push_back(aOut); osgVerse::MethodInformationManager::instance()->addInformation(cls, method, argsI, argsO); }
 
 #endif

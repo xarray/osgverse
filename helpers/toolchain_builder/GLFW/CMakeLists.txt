@@ -23,7 +23,9 @@ ELSE()
     SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES}
         posix_time.h posix_thread.h posix_module.c posix_time.c posix_thread.c
         linux_joystick.h linux_joystick.c)
-    IF(WAYLAND_FOUND)
+    IF(USE_WASM_OPTIONS)
+        # do nothing?
+    ELSEIF(WAYLAND_FOUND)
         SET(GLFW_SOURCE_FILES ${GLFW_SOURCE_FILES} wl_platform.h xkb_unicode.h wl_init.c
             wl_monitor.c wl_window.c xkb_unicode.c posix_poll.h posix_poll.c)
         ADD_DEFINITIONS(-D_GLFW_WAYLAND)
