@@ -5,8 +5,6 @@ using namespace osgVerse;
     #define GL_ACCUM_BUFFER_BIT 0x00000200
 #endif
 
-#if false  // TODO
-
 REGISTER_OBJECT_WRAPPER( ClearNode,
                          new osg::ClearNode,
                          osg::ClearNode,
@@ -21,5 +19,3 @@ REGISTER_OBJECT_WRAPPER( ClearNode,
         ADD_BITFLAG_VALUE(STENCIL, GL_STENCIL_BUFFER_BIT);
     END_BITFLAGS_SERIALIZER();
 }
-
-#endif

@@ -6,7 +6,7 @@ REGISTER_OBJECT_WRAPPER( ClipNode,
                          osg::ClipNode,
                          "osg::Object osg::Node osg::Group osg::ClipNode" )
 {
-    // TODO ////ADD_LIST_SERIALIZER( ClipPlaneList, osg::ClipNode::ClipPlaneList );  // _planes
+    ADD_OBJECT_LIST_SERIALIZER( ClipPlaneList, osg::ClipPlane );  // _planes
 
     BEGIN_ENUM_SERIALIZER( ReferenceFrame, RELATIVE_RF );
         ADD_ENUM_VALUE( RELATIVE_RF );

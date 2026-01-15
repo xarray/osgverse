@@ -7,7 +7,7 @@ static void readConvexPlanarPolygon(InputStream& is, InputUserData& ud)
     for ( unsigned int i=0; i<size; ++i )
     {
         osg::Vec3d vertex; is >> vertex;
-        ////ud.add( vertex );  // TODO
+        ud.add("polygon", vertex);
     }
     is >> is.END_BRACKET;
 }

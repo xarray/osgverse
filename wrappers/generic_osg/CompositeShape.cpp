@@ -6,7 +6,8 @@ static bool readChildren(InputStream& is, InputUserData& ud)
     unsigned int size = 0; is >> size >> is.BEGIN_BRACKET;
     for ( unsigned int i=0; i<size; ++i )
     {
-        ////osg::ref_ptr<osg::Shape> child = is.readObjectOfType<osg::Shape>();  // TODO
+        ObjectTypeAndID child = ud.readObjectFromStream(is, "osg::Shape");
+        if (child.valid()) ud.add("addChild", child);
     }
     is >> is.END_BRACKET;
     return true;

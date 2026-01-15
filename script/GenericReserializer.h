@@ -94,8 +94,14 @@ namespace osgVerse
     struct BoolSerializer : public BaseSerializer { bool _v0; META_VISITOR() };
     struct StringSerializer : public BaseSerializer { std::string _v0; META_VISITOR() };
     struct GLenumSerializer : public BaseSerializer { std::string _type; unsigned int _v0; META_VISITOR() };
-    struct EnumSerializer : public BaseSerializer { std::string _v0; std::set<std::string> _values; META_VISITOR() };
     template<typename T> struct ValueSerializer : public BaseSerializer { T _v0; bool _hex; META_VISITOR() };
+    template<typename T> struct ListSerializer : public BaseSerializer { T _v0; META_VISITOR() };
+
+    struct EnumSerializer : public BaseSerializer
+    { std::string _v0; std::set<std::string> _values; META_VISITOR() };
+
+    struct BitFlagSerializer : public BaseSerializer
+    { bool _asInt; unsigned int _v0; std::map<std::string, unsigned int> _valueMap; META_VISITOR() };
 
     template<typename T> void SerializerVisitor::apply(ValueSerializer<T>& obj)
     { applyValue(static_cast<BaseSerializer&>(obj)); }
@@ -108,6 +114,12 @@ namespace osgVerse
 
         template<typename T> void addRefValueSerializer(const std::string& prop, const T& def, bool hex = false)
         { ValueSerializer<T>* s = new ValueSerializer<T>(); s->_v0 = def; s->_hex = hex; add(prop, s); }
+
+        template<typename T> void addListSerializer(const std::string& prop)
+        { ListSerializer<T>* s = new ListSerializer<T>(); add(prop, s); }
+
+        void addObjectListSerializer(const std::string& prop, const std::string& t)
+        { ListSerializer<ObjectTypeAndID>* s = new ListSerializer<ObjectTypeAndID>(); s->_v0 = ObjectTypeAndID(t, ""); add(prop, s); }
 
         void addBoolSerializer(const std::string& prop, bool def)
         { BoolSerializer* s = new BoolSerializer; s->_v0 = def; add(prop, s); }
@@ -132,9 +144,13 @@ namespace osgVerse
 
         void beginEnumSerializer(const std::string& prop, const std::string& value)
         { _lastEnum = new EnumSerializer; _lastEnum->_v0 = value; add(prop, _lastEnum); }
-
-        void addEnumValue(const std::string& v) { if (_lastEnum) _lastEnum->_values.insert(v); }
+        void addEnumValue(const std::string & v) { if (_lastEnum) _lastEnum->_values.insert(v); }
         void endEnumSerializer() { _lastEnum = NULL; }
+
+        void beginBitFlagSerializer(const std::string& prop, unsigned int v, bool i)
+        { _lastBitFlags = new BitFlagSerializer; _lastBitFlags->_asInt = i; _lastBitFlags->_v0 = v; add(prop, _lastBitFlags); }
+        void addBitFlagValue(const std::string& v, unsigned int ui) { if (_lastBitFlags) { _lastBitFlags->_valueMap[v] = ui; } }
+        void endBitFlagSerializer() { _lastBitFlags = NULL; }
 
         void setAssociates(const std::string& a) { splitAssociates(a); }
         void add(const std::string& n, BaseSerializer* s);
@@ -147,7 +163,7 @@ namespace osgVerse
         void markAssociateAsRemoved(const std::string& name);
         void markAssociateAsAdded(const std::string& name);
 
-        Rewrapper() : _lastEnum(NULL), _version(0) {}
+        Rewrapper() : _lastBitFlags(NULL), _lastEnum(NULL), _version(0) {}
         void accept(RewrapperManager* manager, SerializerVisitor& v,
                     int inputVersion, bool includingAssociates = true);
 
@@ -158,6 +174,7 @@ namespace osgVerse
         typedef std::pair<std::string, osg::ref_ptr<BaseSerializer>> SerializerPair;
         std::vector<SerializerPair> _serializers;
         std::vector<WrapperAssociate> _associates;
+        BitFlagSerializer* _lastBitFlags;
         EnumSerializer* _lastEnum; int _version;
     };
 
@@ -207,7 +224,6 @@ namespace osgVerse
 #define ADD_STRING_SERIALIZER(PROP, DEF) wrapper.addStringSerializer(#PROP, DEF)
 #define ADD_OBJECT_SERIALIZER(PROP, TYPE, DEF) wrapper.addObjectSerializer(#PROP, #TYPE)
 #define ADD_IMAGE_SERIALIZER(PROP, TYPE, DEF) wrapper.addImageSerializer(#PROP, #TYPE)
-#define ADD_ISAVECTOR_SERIALIZER(PROP, ETYPE, NUMONROW) wrapper.addVectorSerializer(#PROP, #ETYPE)
 
 #define ADD_CHAR_SERIALIZER(PROP, DEF) wrapper.addValueSerializer<char>(#PROP, DEF)
 #define ADD_UCHAR_SERIALIZER(PROP, DEF) wrapper.addValueSerializer<unsigned char>(#PROP, DEF)
@@ -257,10 +273,21 @@ namespace osgVerse
 #define ADD_BOUNDINGSPHEREF_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::BoundingSpheref>(#PROP, DEF)
 #define ADD_BOUNDINGSPHERED_SERIALIZER(PROP, DEF) wrapper.addRefValueSerializer<osg::BoundingSphered>(#PROP, DEF)
 
+#define ADD_VECTOR_SERIALIZER(PROP, TYPE, ETYPE, NUMONROW) wrapper.addVectorSerializer(#PROP, #TYPE)
+#define ADD_ISAVECTOR_SERIALIZER(PROP, ETYPE, NUMONROW) wrapper.addVectorSerializer(#PROP, #ETYPE)
+#define ADD_LIST_SERIALIZER(PROP, TYPE) wrapper.addListSerializer<TYPE>(#PROP);
+#define ADD_OBJECT_LIST_SERIALIZER(PROP, TYPE) wrapper.addObjectListSerializer(#PROP, #TYPE);
+
 #define BEGIN_ENUM_SERIALIZER(PROP, DEF) wrapper.beginEnumSerializer(#PROP, #DEF);
 #define BEGIN_ENUM_SERIALIZER2(PROP, TYPE, DEF) wrapper.beginEnumSerializer(#PROP, #DEF);
 #define ADD_ENUM_VALUE(VALUE) wrapper.addEnumValue(#VALUE);
 #define END_ENUM_SERIALIZER() wrapper.endEnumSerializer();
+
+#define BEGIN_BITFLAGS_SERIALIZER(PROP, DEF) wrapper.beginBitFlagSerializer(#PROP, DEF, false);
+#define BEGIN_UINT_BITFLAGS_SERIALIZER(PROP, DEF) wrapper.beginBitFlagSerializer(#PROP, DEF, false);
+#define BEGIN_INT_BITFLAGS_SERIALIZER(PROP, DEF) wrapper.beginBitFlagSerializer(#PROP, DEF, true);
+#define ADD_BITFLAG_VALUE(VALUE_NAME, VALUE) wrapper.addBitFlagValue(#VALUE_NAME, VALUE);
+#define END_BITFLAGS_SERIALIZER() wrapper.endBitFlagSerializer();
 
 #define UPDATE_TO_VERSION(VER) wrapper.setUpdatedVersion((VER));
 #define UPDATE_TO_VERSION_SCOPED(VER) UpdateWrapperVersionProxy uwvp(&wrapper, (VER));
