@@ -1,12 +1,22 @@
 @echo off
 setlocal enabledelayedexpansion
+chcp 65001
+
 set BuildMode=""
 set BuildGles2=0
 set BuildModeWasm=0
+set SourceCodePatched=0
 set CurrentDir=%cd%
-set GLES_LibPath="%1/libGLESv2.lib"
-set EGL_LibPath="%1/libEGL.lib"
 set OpenSceneGraphRoot=%CurrentDir%\..\OpenSceneGraph
+
+set OptionalDir=%1
+if not "!OptionalDir!"=="" (
+    set "OptionalDir=!OptionalDir:\=/!"
+    set "LastCharOfOptionalDir=!OptionalDir:~-1!"
+    if "!LastCharOfOptionalDir!"=="/" (set "OptionalDir=!OptionalDir:~0,-1!")
+)
+set GLES_LibPath="!OptionalDir!/libGLESv2.lib"
+set EGL_LibPath="!OptionalDir!/libEGL.lib"
 
 where cmake --version >nul 2>&1
 if not %errorlevel%==0 (
@@ -48,11 +58,11 @@ if "!BuildMode!"=="2" (
     set BuildResultChecker=build\sdk_es\lib\osgviewer.lib
     set CMakeResultChecker=build\osg_es\CMakeCache.txt
 
-    if not exist %GLES_LibPath%\ (
+    if not exist %GLES_LibPath% (
         echo "libGLESv2.lib not found. Please run as follows: ./Setup.sh <path_of_libGLES>"
         goto exit
     )
-    if not exist %EGL_LibPath%\ (
+    if not exist %EGL_LibPath% (
         echo "libEGL.lib not found. Please run as follows: ./Setup.sh <path_of_libEGL>"
         goto exit
     )
@@ -86,21 +96,42 @@ set SkipOsgBuild="0"
 set UseWasmOption=1
 if exist %CurrentDir%\%BuildResultChecker% (
     set SkipOsgBuild="1"
-    set /p RebuildFlag="Would you like to use current OSG built? (y/n) > "
-    if "!RebuildFlag!"=="n" set SkipOsgBuild="0"
+    set /p RebuildFlag="Would you like to use current OSG built (default: yes)? (y/n) > "
+    if /i "!RebuildFlag!"=="n" set SkipOsgBuild="0"
 )
 
-set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
-where ninja --version >nul 2>&1
-if not %errorlevel%==0 (
-    echo Ninja not found. Please make sure it can be found in PATH variable.
-    goto exit
-)
-
+set BasicCmakeOptions=""
 if !BuildModeWasm!==0 (
+    where nmake /? >nul 2>&1
+    if not %errorlevel%==0 (
+        echo NMake not found. Please start from Developer Command Prompt of Visual Studio.
+        goto exit
+    )
+
+    :: Desktop build
+    set /p DebugLibFlag="Would you like to build Debug libraries (default: Release)? (y/n) > "
+    if /i "!DebugLibFlag!"=="y" (
+        set BasicCmakeOptions=-G"NMake Makefiles" -DCMAKE_BUILD_TYPE=Debug
+    ) else (
+        set BasicCmakeOptions=-G"NMake Makefiles" -DCMAKE_BUILD_TYPE=Release
+    )
     set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty"
+
+    if "!BuildMode!"=="2" (
+        :: OpenGL ES
+        if not !SkipOsgBuild!=="1" (
+            set /p Gles2Flag="Would you like to compile GLES2 version (default: GLES3)? (y/n) > "
+            if /i "!Gles2Flag!"=="y" set BuildGles2=1
+        )
+    )
 )
 if !BuildModeWasm!==1 (
+    where ninja --version >nul 2>&1
+    if not %errorlevel%==0 (
+        echo Ninja not found. Please make sure it can be found in PATH variable.
+        goto exit
+    )
+
     :: WASM (WebGL 1 and WebGL 2)
     if not defined EMSDK (
         echo EMSDK variable not found. Please download Emscripten and run 'emsdk_env.bat' before current work.
@@ -111,9 +142,10 @@ if !BuildModeWasm!==1 (
         goto exit
     )
 
-    set /p Wasm64Flag="Would you like to use WASM 64bit (experimental)? (y/n) > "
-    if "!Wasm64Flag!"=="y" set UseWasmOption=2
+    set /p Wasm64Flag="Would you like to use WASM 64bit (experimental, default: no)? (y/n) > "
+    if /i "!Wasm64Flag!"=="y" set UseWasmOption=2
 
+    set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
     set EmsdkToolchain="%EMSDK%\upstream\emscripten\cmake\Modules\Platform\Emscripten.cmake"
     set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty_wasm"
 )
@@ -128,7 +160,7 @@ if !BuildModeWasm!==0 (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% "%CurrentDir%\helpers\toolchain_builder"
         cmake --build .
-        if not %errorlevel%==0 goto exit
+        if not !errorlevel! == 0 (goto exit)
     )
 )
 if !BuildModeWasm!==1 (
@@ -136,7 +168,7 @@ if !BuildModeWasm!==1 (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% -DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" -DUSE_WASM_OPTIONS=!UseWasmOption! "%CurrentDir%\helpers\toolchain_builder"
         cmake --build .
-        if not %errorlevel%==0 goto exit
+        if not !errorlevel! == 0 (goto exit)
     )
 )
 
@@ -173,6 +205,7 @@ if !BuildModeWasm!==1 (
 
 :: Fix some OpenSceneGraph compile errors
 echo *** Automatically patching source code...
+set SourceCodePatched=1
 set SedEXE=%CurrentDir%\wasm\sed.exe
 %SedEXE% "s/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g" "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" > FileUtils.cpp.tmp
 xcopy /y FileUtils.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp"
@@ -184,6 +217,8 @@ xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
 %SedEXE% "s/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+%SedEXE% "s/IF(WIN32 AND NOT ANDROID)/IF(${OSG_WINDOWING_SYSTEM} STREQUAL \"Win32\" AND WIN32 AND NOT ANDROID)/g" "%OpenSceneGraphRoot%\src\osgViewer\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgViewer\CMakeLists.txt"
 %SedEXE% "s/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
 
@@ -217,7 +252,7 @@ if "!BuildMode!"=="0" (
         cd %CurrentDir%\build\osg_def
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
         cmake --build . --target install --config Release
-        if not %errorlevel%==0 goto exit
+        if not !errorlevel! == 0 (goto exit)
     )
 )
 if "!BuildMode!"=="1" (
@@ -232,25 +267,25 @@ if "!BuildMode!"=="1" (
         echo "cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%"
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
         cmake --build . --target install --config Release
-        if not %errorlevel%==0 goto exit
+        if not !errorlevel! == 0 (goto exit)
     )
 )
 if "!BuildMode!"=="2" (
     :: OpenGL ES
     if not exist %CurrentDir%\build\osg_es\ mkdir %CurrentDir%\build\osg_es
-    set /p Gles2Flag="Would you like to compile GLES2 version (default is GLES3)? (y/n) > "
-    if "!Gles2Flag!"=="y" set BuildGles2=1
-
     set ExtraOptions=-DOSG_WINDOWING_SYSTEM=None ^
         -DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DEGL_LIBRARY=%EGL_LibPath% -DOPENGL_gl_LIBRARY=%GLES_LibPath% ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_es
     if not !SkipOsgBuild!=="1" (
         cd %CurrentDir%\build\osg_es
-        if !BuildGles2!==1 cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES2 %OpenSceneGraphRoot%
-        if !BuildGles2!==0 cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES3 %OpenSceneGraphRoot%
+        if !BuildGles2!==1 (
+            cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES2 %OpenSceneGraphRoot%
+        ) else (
+            cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES3 %OpenSceneGraphRoot%
+        )
         cmake --build . --target install --config Release
-        if not %errorlevel%==0 goto exit
+        if not !errorlevel! == 0 (goto exit)
     )
 )
 if "!BuildMode!"=="3" (
@@ -266,7 +301,7 @@ if "!BuildMode!"=="3" (
         cd %CurrentDir%\build\osg_wasm
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm
         cmake --build . --target install --config Release
-        if not %errorlevel%==0 goto exit
+        if not !errorlevel! == 0 (goto exit)
     )
 )
 if "!BuildMode!"=="4" (
@@ -282,7 +317,7 @@ if "!BuildMode!"=="4" (
         cd %CurrentDir%\build\osg_wasm2
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm2
         cmake --build . --target install --config Release
-        if not %errorlevel%==0 goto exit
+        if not !errorlevel! == 0 (goto exit)
     )
 )
 
@@ -315,7 +350,7 @@ if "!BuildMode!"=="0" (
     cd %CurrentDir%\build\verse_def
     cmake !ThirdDepOptions! !ExtraOptions! -DOSG_ROOT="%CurrentDir%\build\sdk" %CurrentDir%
     cmake --build . --target install --config Release
-    if not %errorlevel%==0 goto exit
+    if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="1" (
     :: OpenGL Core Profile
@@ -324,7 +359,7 @@ if "!BuildMode!"=="1" (
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl
     cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_core" %CurrentDir%
     cmake --build . --target install --config Release
-    if not %errorlevel%==0 goto exit
+    if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="2" (
     :: OpenGL ES
@@ -334,7 +369,7 @@ if "!BuildMode!"=="2" (
                       -DEGL_LIBRARY=%EGL_LibPath% -DOPENGL_gl_LIBRARY=%GLES_LibPath%
     cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_es" %CurrentDir%
     cmake --build . --target install --config Release
-    if not %errorlevel%==0 goto exit
+    if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="3" (
     :: WASM toolchain: WebGL 1
@@ -343,7 +378,7 @@ if "!BuildMode!"=="3" (
     cd %CurrentDir%\build\verse_wasm
     cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=!UseWasmOption! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
     cmake --build . --target install --config Release
-    if not %errorlevel%==0 goto exit
+    if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="4" (
     :: WASM toolchain: WebGL 2
@@ -352,7 +387,7 @@ if "!BuildMode!"=="4" (
     cd %CurrentDir%\build\verse_wasm2
     cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=!UseWasmOption! -DUSE_WASM_OSGEARTH=!WithOsgEarth! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
     cmake --build . --target install --config Release
-    if not %errorlevel%==0 goto exit
+    if not !errorlevel! == 0 (goto exit)
 )
 goto exit
 
@@ -396,8 +431,8 @@ if not exist %GradleLocalPropFile% (
     )
 )
 
-set /p AndroidCheckingFlag="Would you like to set a specific SDK version? (y/n) > "
-if "!AndroidCheckingFlag!"=="y" (
+set /p AndroidCheckingFlag="Would you like to set a specific SDK version (default: no)? (y/n) > "
+if /i "!AndroidCheckingFlag!"=="y" (
     set /p BuildToolsVersion="Please set build-tools version (e.g. 32.0.0) > "
     set /p TargetSdkVersion="Please set target SDK version (e.g. 32) > "
     set /p MinimumSdkVersion="Please set minimum SDK version (e.g. 21) > "
@@ -431,21 +466,24 @@ if not %errorlevel%==0 (
 cd %CurrentDir%
 
 :: Reset some OpenSceneGraph source code
-echo *** Automatically unpatching source code...
-%SedEXE% "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
-xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
-%SedEXE% "s/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
-xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
-%SedEXE% "s/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
-xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
-%SedEXE% "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
-xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
-%SedEXE% "s#\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#;glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
-xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
-%SedEXE% "s#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
-xcopy /y GLExtensions.cpp.tmp "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
-del /Q *.tmp
-
+if !SourceCodePatched!==1 (
+    echo *** Automatically unpatching source code...
+    %SedEXE% "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+    xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+    %SedEXE% "s/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
+    xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
+    %SedEXE% "s/IF(${OSG_WINDOWING_SYSTEM} STREQUAL \"Win32\" AND WIN32 AND NOT ANDROID)/IF(WIN32 AND NOT ANDROID)/g" "%OpenSceneGraphRoot%\src\osgViewer\CMakeLists.txt" > CMakeLists.txt.tmp
+    xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgViewer\CMakeLists.txt"
+    %SedEXE% "s/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g" "%OpenSceneGraphRoot%\CMakeLists.txt" > CMakeLists.txt.tmp
+    xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
+    %SedEXE% "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
+    xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
+    %SedEXE% "s#\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#;glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
+    xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
+    %SedEXE% "s#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
+    xcopy /y GLExtensions.cpp.tmp "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
+    del /Q *.tmp
+)
 echo Quited.
 endlocal
 pause

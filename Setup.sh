@@ -11,7 +11,6 @@ SkipCMakeConfig=0
 SkipOsgBuild=0
 
 # Android related variables
-CheckJavaExe=$(command -version java)
 GradleLocalPropFile=$CurrentDir/android/local.properties
 GradleSettingsFile=$CurrentDir/android/settings.gradle
 
@@ -102,6 +101,7 @@ elif [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     fi
 elif [ "$BuildMode" = '5' ]; then
     # Android toolchain
+    CheckJavaExe=$(command -version java)
     if [ "$CheckJavaExe" = "" ]; then
         echo "Java version checking failed. Please make sure JDK 1.7 is installed."
         exit 1
@@ -128,7 +128,7 @@ sdk.dir=$ANDROID_SDK
 ndk.dir=$ANDROID_NDK
 EOF
 
-        read -p "Would you like to set a specific SDK version? (y/n) " AndroidCheckingFlag
+        read -p "Would you like to set a specific SDK version (default: no)? (y/n) " AndroidCheckingFlag
         if [ "$AndroidCheckingFlag" = 'y' ]; then
             read -p "Please set build-tools version (e.g. 32.0.0) > " BuildToolsVersion
             read -p "Please set target SDK version (e.g. 32) > " TargetSdkVersion
@@ -151,7 +151,7 @@ fi
 
 # Check if CMake is already configured, or OSG is already built
 if [ -f "$CurrentDir/$BuildResultChecker" ]; then
-    read -p "Would you like to use current OSG built? (y/n) > " RebuildFlag
+    read -p "Would you like to use current OSG built (default: yes)? (y/n) > " RebuildFlag
     if [ "$RebuildFlag" = 'n' ]; then
         SkipOsgBuild=0
     else
@@ -161,7 +161,7 @@ fi
 
 if [ "$SkipOsgBuild" = 0 ]; then
     if [ "$BuildMode" = '2' ]; then
-        read -p "Would you like to compile GLES2 version (default is GLES3)? (y/n) > " Gles2Flag
+        read -p "Would you like to compile GLES2 version (default: GLES3)? (y/n) > " Gles2Flag
         if [ "$Gles2Flag" = 'y' ]; then
             UsingGles2=1
         fi
@@ -176,7 +176,7 @@ fi
 # Compile 3rdparty libraries
 ThirdPartyBuildDir="$CurrentDir/build/3rdparty"
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
-    read -p "Would you like to use WASM 64bit (experimental)? (y/n) > " Wasm64Flag
+    read -p "Would you like to use WASM 64bit (experimental, default: no)? (y/n) > " Wasm64Flag
     if [ "$Wasm64Flag" = 'y' ]; then
         UseWasmOption=2
     fi
