@@ -41,14 +41,27 @@ public:
 
         osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
         if (hint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
+        else if (hint == "TEX2D") method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
         else if (hint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;
         _program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
         _callback = osgVerse::GaussianGeometry::createUniformCallback();
 
-#if defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+#if defined(OSG_GL3_AVAILABLE)
         osgVerse::Pipeline::createShaderDefinitions(vert, 300, 430);
         osgVerse::Pipeline::createShaderDefinitions(geom, 300, 430);
         osgVerse::Pipeline::createShaderDefinitions(frag, 300, 430);
+#elif defined(OSG_GLES3_AVAILABLE)
+        // FIXME: it seems import_defines failed in GLES mode? Try ShaderLibrary as fallback
+        if (hint == "TBO")
+            vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX"));
+        else if (hint == "TEX2D")
+            vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX2D"));
+        else if (hint != "GS")
+            vert->setUserValue("Definitions", std::string("USE_INSTANCING"));
+
+        osgVerse::Pipeline::createShaderDefinitions(vert, 300, 300);
+        osgVerse::Pipeline::createShaderDefinitions(geom, 300, 300);
+        osgVerse::Pipeline::createShaderDefinitions(frag, 300, 300);
 #else
         osgVerse::Pipeline::createShaderDefinitions(vert, 100, 430);
         osgVerse::Pipeline::createShaderDefinitions(geom, 100, 130);
@@ -92,16 +105,16 @@ class SortCallback : public osg::Camera::DrawCallback
 {
 public:
     SortCallback(osgVerse::GaussianSorter* sorter)
-        : _sorter(sorter) {}
+        : _sorter(sorter), _firstFrame(true) {}
 
     virtual void operator()(osg::RenderInfo& renderInfo) const
     {
-        //if (renderInfo.getView()->getFrameStamp()->getFrameNumber() % 10 != 0) return;
         if (renderInfo.getCurrentCamera() != NULL) _sorter->cull(renderInfo);
     }
 
 protected:
     osg::ref_ptr<osgVerse::GaussianSorter> _sorter;
+    mutable bool _firstFrame;
 };
 
 int main(int argc, char** argv)
@@ -132,6 +145,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
     osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
     handler->addKeyUpCallback('1', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(1.0f); });

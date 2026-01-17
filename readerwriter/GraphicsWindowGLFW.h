@@ -13,6 +13,12 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT GraphicsWindowGLFW : public osgViewer::GraphicsWindow
     {
     public:
+        struct OSGVERSE_RW_EXPORT WindowData : public osg::Referenced
+        {
+            WindowData() : majorVersion(0), minorVersion(0) {}
+            int majorVersion, minorVersion;  // Expected OpenGL version
+        };
+
         GraphicsWindowGLFW(osg::GraphicsContext::Traits* traits);
         virtual const char* libraryName() const { return "osgVerse"; }
         virtual const char* className() const { return "GraphicsWindowGLFW"; }

@@ -15,10 +15,12 @@ namespace osgVerse
     public:
         struct OSGVERSE_RW_EXPORT WindowData : public osg::Referenced
         {
-            WindowData(const std::string& canvas = "#canvas") : canvasElement(canvas), sleepable(true) {}
-            std::string canvasElement;  // For emscripten build, set HTML canvas name
-            bool sleepable;             // For emscripten build, set if giving back control to the browser
-                                        // when running with asyncify
+            WindowData(const std::string& canvas = "#canvas")
+                : canvasElement(canvas), majorVersion(0), minorVersion(0), sleepable(true) {}
+            std::string canvasElement;       // For emscripten build, set HTML canvas name
+            int majorVersion, minorVersion;  // Expected OpenGL version
+            bool sleepable;                  // For emscripten build, set if giving back control
+                                             // to the browser when running with asyncify
         };
 
         GraphicsWindowSDL(osg::GraphicsContext::Traits* traits);

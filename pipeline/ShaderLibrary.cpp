@@ -301,9 +301,9 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
 void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWriter::Options* options) const
 {
     std::string code = shader.getShaderSource();
-    std::string startOfIncludeMarker("// BEGIN: ");
-    std::string endOfIncludeMarker("// END: ");
-    std::string failedLoadMarker("// FAILED: ");
+    std::string definesValue, startOfIncludeMarker("// BEGIN: ");
+    std::string endOfIncludeMarker("// END: "), failedLoadMarker("// FAILED: ");
+    shader.getUserValue("Definitions", definesValue);
 
 #if defined(__APPLE__)
     std::string endOfLine("\r");
@@ -313,7 +313,8 @@ void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWrit
     std::string endOfLine("\n");
 #endif
 
-    std::string::size_type pos = 0, pragma_pos = 0, include_pos = 0;
+    std::string::size_type pos = 0, pragma_pos = 0, include_pos = 0, defines_pos = 0;
+    std::vector<std::string> defines; osgDB::split(definesValue, defines, ',');
     while ((pos != std::string::npos) && (((pragma_pos = code.find("#pragma", pos)) != std::string::npos) ||
                                            (include_pos = code.find("#include", pos)) != std::string::npos))
     {
@@ -326,10 +327,14 @@ void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWrit
             if (pos == std::string::npos) break;
 
             // check for include part of #pragma include usage
-            if (code.compare(pos, 7, "include") != 0) { pos = end_of_line; continue; }
+            int jumpOverKeyword = 7;
+            if (!defines.empty() && code.compare(pos, 14, "import_defines") == 0)
+                { defines_pos = pos + 14; jumpOverKeyword = 14; }
+            else if (code.compare(pos, 7, "include") != 0)
+                { pos = end_of_line; continue; }
 
             // found include entry so skip to next non white space
-            pos = code.find_first_not_of(" \t", pos + 7);
+            pos = code.find_first_not_of(" \t", pos + jumpOverKeyword);
             if (pos == std::string::npos) break;
         }
         else
@@ -350,15 +355,40 @@ void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWrit
             if (code[pos + num_characters - 1] != '\"') num_characters -= 1;
             else num_characters -= 2; ++pos;
         }
+        else if (code[pos] == '(')
+        {
+            if (code[pos + num_characters - 1] != ')') num_characters -= 1;
+            else num_characters -= 2; ++pos;
+        }
 
-        std::string filename(code, pos, num_characters);
+        std::string fileOrDefines(code, pos, num_characters);
         code.erase(start_of_pragma_line, (end_of_line == std::string::npos) ?
                    (code.size() - start_of_pragma_line) : (end_of_line - start_of_pragma_line));
         pos = start_of_pragma_line;
 
-        osg::ref_ptr<osg::Shader> innerShader; std::string realFilename = osgDB::findDataFile(filename);
+        // Handle 'import_defines'
+        if (defines_pos > 0)
+        {
+            std::vector<std::string> expects; osgDB::split(fileOrDefines, expects, ',');
+            for (size_t k = 0; k < expects.size(); ++k)
+            {
+                std::string key = trimString(expects[k]), defLine = "#define ";
+                for (size_t m = 0; m < defines.size(); ++m)
+                {
+                    if (key != trimString(defines[m])) continue; else defLine += key + ";\n";
+                    code.insert(pos, defLine); pos += defLine.size(); break;
+                }
+            }
+            continue;
+        }
+
+        // Handle 'including file'
+        osg::ref_ptr<osg::Shader> innerShader;
+        std::string filename = fileOrDefines;
+        std::string realFilename = osgDB::findDataFile(filename);
         if (!realFilename.empty()) innerShader = osgDB::readRefShaderFile(realFilename, options);
         if (!innerShader) innerShader = osgDB::readRefShaderFile(SHADER_DIR + filename, options);
+
         if (innerShader.valid())
         {
             if (!startOfIncludeMarker.empty())

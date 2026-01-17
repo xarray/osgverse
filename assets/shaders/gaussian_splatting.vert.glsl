@@ -1,5 +1,5 @@
 #extension GL_EXT_draw_instanced : enable
-#pragma import_defines(USE_INSTANCING, USE_INSTANCING_TEX, FULL_SH)
+#pragma import_defines(USE_INSTANCING, USE_INSTANCING_TEX, USE_INSTANCING_TEX2D, FULL_SH)
 
 uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
@@ -7,6 +7,8 @@ uniform float GaussianRenderingMode;
 #if defined(USE_INSTANCING)
 #  if defined(USE_INSTANCING_TEX)
 uniform samplerBuffer CoreTexture0, CoreTexture1, CoreTexture2, CoreTexture3;
+#  elif defined(USE_INSTANCING_TEX2D)
+uniform sampler2D CoreTexture0, CoreTexture1, CoreTexture2, CoreTexture3;
 uniform vec2 TextureSize;
 #  else
 layout(std140, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
@@ -128,12 +130,17 @@ void main()
 #if defined(USE_INSTANCING)
 #  if defined(USE_INSTANCING_TEX)
     int index = int(osg_UserIndex);
-    //float r = float(osg_UserIndex) / TextureSize.x;
-    //float c = floor(r) / TextureSize.y; paramUV = vec2(fract(r), c);
     vec4 posAlpha = texelFetch(CoreTexture0, index);
     vec4 cov0 = texelFetch(CoreTexture1, index);
     vec4 cov1 = texelFetch(CoreTexture2, index);
     vec4 cov2 = texelFetch(CoreTexture3, index);
+#  elif defined(USE_INSTANCING_TEX2D)
+    float r = float(osg_UserIndex) / TextureSize.x;
+    float c = floor(r) / TextureSize.y; vec2 paramUV = vec2(fract(r), c);
+    vec4 posAlpha = VERSE_TEX2D(CoreTexture0, paramUV);
+    vec4 cov0 = VERSE_TEX2D(CoreTexture1, paramUV);
+    vec4 cov1 = VERSE_TEX2D(CoreTexture2, paramUV);
+    vec4 cov2 = VERSE_TEX2D(CoreTexture3, paramUV);
 #  else
     uint index = uint(osg_UserIndex);
     vec4 posAlpha = corePos[index];

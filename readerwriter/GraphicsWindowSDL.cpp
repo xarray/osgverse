@@ -181,7 +181,6 @@ GraphicsWindowSDL::~GraphicsWindowSDL()
 void GraphicsWindowSDL::initialize()
 {
     WindowData* winData = static_cast<WindowData*>(_traits->inheritedWindowData.get());
-
 #if defined(VERSE_EMBEDDED) && !defined(VERSE_WASM)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     OSG_NOTICE << "[GraphicsWindowSDL] Create EGL system for embedded device" << std::endl;
@@ -198,14 +197,19 @@ void GraphicsWindowSDL::initialize()
     OSG_NOTICE << "[GraphicsWindowSDL] Create native windowing system" << std::endl;
 #endif
 
+    int exMajor = 0, exMinor = 0;
+    if (winData) { exMajor = winData->majorVersion; exMinor = winData->minorVersion; }
+
 #if defined(VERSE_GLES_DESKTOP)
     EGLConfig config;
 #elif defined(VERSE_EMBEDDED_GLES2)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    if (exMajor <= 0) exMajor = 2;
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, exMajor);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, exMinor);
 #elif defined(VERSE_EMBEDDED_GLES3)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    if (exMajor <= 0) exMajor = 3;
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, exMajor);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, exMinor);
 #endif
 
     // Create window
@@ -370,13 +374,15 @@ void GraphicsWindowSDL::initialize()
     // Create context
 #if defined(VERSE_GLES_DESKTOP)
 #   if defined(OSG_GLES3_AVAILABLE)
+    if (exMajor <= 0) exMajor = 3;
     EGLint contextAttribList[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 3,
-        EGL_CONTEXT_MINOR_VERSION, 0,
+        EGL_CONTEXT_CLIENT_VERSION, exMajor,
+        EGL_CONTEXT_MINOR_VERSION, exMinor,
         EGL_NONE, EGL_NONE
     };
 #   else
-    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE };
+    if (exMajor <= 0) exMajor = 2;
+    EGLint contextAttribList[] = { EGL_CONTEXT_CLIENT_VERSION, exMajor, EGL_NONE, EGL_NONE };
 #   endif
     EGLDisplay display = (EGLDisplay)_glDisplay;
     EGLSurface surface = (EGLSurface)_glSurface;

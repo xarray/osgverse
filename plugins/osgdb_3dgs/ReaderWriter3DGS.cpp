@@ -29,9 +29,10 @@ public:
         supportsExtension("lcc", "XGrids' splat file");
         supportsExtension("json", "PlayCanvas SOG's meta.json file");
         supportsExtension("sog", "PlayCanvas SOG's ZIP file");
-        supportsOption("RenderMethod=<hint>", "Rendering method of 3D gaussian data: "
-                       "<SSBO> render with draw-instanced and SSBO; "
-                       "<TBO> render with draw-instanced and textures; "
+        supportsOption("RenderMethod=<hint>", "Rendering method of 3D gaussian data:\n"
+                       "<SSBO> render with draw-instanced and SSBO;\n"
+                       "<TBO> render with draw-instanced and TBO;\n"
+                       "<TEX2D> render with draw-instanced and 2D textures (very low FPS);\n"
                        "<GS> render with geometry shader.");
     }
 
@@ -64,6 +65,7 @@ public:
             std::string renderHint = options->getPluginStringData("RenderMethod");
             osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
             if (renderHint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
+            if (renderHint == "TEX2D") method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
             else if (renderHint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;
 
             std::string prefix = options->getPluginStringData("prefix");

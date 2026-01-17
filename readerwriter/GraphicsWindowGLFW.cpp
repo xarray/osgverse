@@ -156,27 +156,35 @@ GraphicsWindowGLFW::~GraphicsWindowGLFW()
 void GraphicsWindowGLFW::initialize()
 {
     // FIXME: VERSE_WASM?
+    int exMajor = 0, exMinor = 0;
+    WindowData* winData = static_cast<WindowData*>(_traits->inheritedWindowData.get());
+    if (winData) { exMajor = winData->majorVersion; exMinor = winData->minorVersion; }
+
 #if defined(VERSE_GLCORE)
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    if (exMajor <= 0) exMajor = 4;
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, exMajor);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, exMinor);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     OSG_NOTICE << "[GraphicsWindowGLFW] Create native windowing system" << std::endl;
 #elif defined(VERSE_EMBEDDED_GLES2)
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    if (exMajor <= 0) exMajor = 2;
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, exMajor);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, exMinor);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
     glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
     OSG_NOTICE << "[GraphicsWindowGLFW] Create EGL system with GLES2" << std::endl;
 #elif defined(VERSE_EMBEDDED_GLES3)
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    if (exMajor <= 0) exMajor = 3; if (exMinor <= 0) exMinor = 1;
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, exMajor);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, exMinor);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
     glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
     OSG_NOTICE << "[GraphicsWindowGLFW] Create EGL system with GLES3" << std::endl;
 #else
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    if (exMajor <= 0) exMajor = 2; if (exMinor <= 0) exMinor = 1;
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, exMajor);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, exMinor);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
     OSG_NOTICE << "[GraphicsWindowGLFW] Create native windowing system" << std::endl;
 #endif

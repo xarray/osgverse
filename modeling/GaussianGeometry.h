@@ -6,6 +6,7 @@
 #   include <osg/VertexAttribDivisor>
 #endif
 #include <osg/TextureBuffer>
+#include <osg/Texture2D>
 #include <osg/Geometry>
 #include <set>
 
@@ -42,7 +43,7 @@ namespace osgVerse
 class GaussianGeometry : public osg::Geometry
 {
 public:
-    enum RenderMethod { INSTANCING, INSTANCING_TEXTURE, GEOMETRY_SHADER };
+    enum RenderMethod { INSTANCING, INSTANCING_TEXTURE, INSTANCING_TEX2D, GEOMETRY_SHADER };
     GaussianGeometry(RenderMethod m = INSTANCING);
     GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
 
@@ -86,7 +87,7 @@ protected:
     std::map<std::string, std::vector<osg::Vec4>> _preDataMap;
     std::map<std::string, std::vector<osg::Vec3>> _preDataMap2;
     osg::ref_ptr<osg::FloatArray> _coreBuffer, _shcoefBuffer;
-    osg::ref_ptr<osg::TextureBuffer> _coreTex[4];
+    osg::ref_ptr<osg::Texture> _coreTex[4];
     RenderMethod _method;
     int _degrees, _numSplats;
 };
