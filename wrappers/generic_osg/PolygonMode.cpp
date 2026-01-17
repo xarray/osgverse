@@ -1,4 +1,5 @@
 #include <GenericReserializer.h>
+#include <GL/gl.h>
 using namespace osgVerse;
 
 enum osg_PolygonMode_Mode { POINT = GL_POINT, LINE = GL_LINE, FILL = GL_FILL };

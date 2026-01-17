@@ -23,7 +23,7 @@ static bool readImages(InputStream& is, InputUserData& ud)
     {
         //osg::ref_ptr<osg::Image> img = is.readImage();
         ObjectTypeAndID img = ud.readObjectFromStream(is, "osg::Image");
-        if (img.valid()) ud.add("addImage", img);
+        if (img.valid()) ud.add("addImage", &img);
     }
     is >> is.END_BRACKET;
     return true;

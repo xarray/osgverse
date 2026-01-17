@@ -119,12 +119,12 @@ static bool readBufferAttachmentMap(InputStream& is, InputUserData& ud)
         }
         else if (attachment._image.valid())
         {
-            ud.add("attach", bufferComponent, attachment._image,
+            ud.add("attach", bufferComponent, &attachment._image,
                 attachment._multisampleSamples, attachment._multisampleColorSamples);
         }
         else if (attachment._texture.valid())
         {
-            ud.add("attach", bufferComponent, attachment._texture,
+            ud.add("attach", bufferComponent, &attachment._texture,
                 attachment._level, attachment._face, attachment._mipMapGeneration,
                 attachment._multisampleSamples, attachment._multisampleColorSamples);
         }

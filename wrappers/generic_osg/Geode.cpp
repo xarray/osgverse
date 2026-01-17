@@ -7,7 +7,7 @@ static bool readDrawables(InputStream& is, InputUserData& ud)
     for ( unsigned int i=0; i<size; ++i )
     {
         ObjectTypeAndID drawable = ud.readObjectFromStream(is, "osg::Drawable");
-        if (drawable.valid()) ud.add("addDrawable", drawable);
+        if (drawable.valid()) ud.add("addDrawable", &drawable);
     }
     is >> is.END_BRACKET;
     return true;

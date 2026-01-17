@@ -25,7 +25,7 @@ static bool readChildren(InputStream& is, InputUserData& ud)
         for ( unsigned int i=0; i<size; ++i )
         {
             ObjectTypeAndID child = ud.readObjectFromStream(is, "osg::Node");
-            if ( child.valid() ) ud.add("addChild", child);
+            if ( child.valid() ) ud.add("addChild", &child);
         }
         is >> is.END_BRACKET;
     }

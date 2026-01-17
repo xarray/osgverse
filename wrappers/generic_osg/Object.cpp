@@ -5,7 +5,7 @@ static bool readUserData(InputStream& is, InputUserData& ud)
 {
     is >> is.BEGIN_BRACKET;
     ObjectTypeAndID object = ud.readObjectFromStream(is, "osg::Object");
-    if (object.valid()) ud.add("setUserData", object);
+    if (object.valid()) ud.add("setUserData", &object);
     is >> is.END_BRACKET;
     return true;
 }

@@ -15,7 +15,7 @@ enum osg_StateAttribute
     INHERIT = 0x8
 };
 
-static int readValue(InputStream& is, InputUserData& ud)
+static int readValue(InputStream& is)
 {
     int value = 0;
     if ( is.isBinary() )
@@ -34,9 +34,7 @@ static int readValue(InputStream& is, InputUserData& ud)
     return value;
 }
 
-//// TODO!!
-
-/*static void readModes(InputStream& is, std::map<GLenum, unsigned int>& modes)
+static void readModes(InputStream& is, std::map<GLenum, unsigned int>& modes)
 {
     unsigned int size = is.readSize();
     if ( size>0 )
@@ -52,7 +50,8 @@ static int readValue(InputStream& is, InputUserData& ud)
     }
 }
 
-static void readAttributes(InputStream& is, InputUserData& ud)
+typedef std::pair<ObjectTypeAndID, int> AttributePair;
+static void readAttributes(InputStream& is, InputUserData& ud, std::vector<AttributePair>& attrs)
 {
     unsigned int size = is.readSize();
     if ( size>0 )
@@ -60,24 +59,24 @@ static void readAttributes(InputStream& is, InputUserData& ud)
         is >> is.BEGIN_BRACKET;
         for ( unsigned int i=0; i<size; ++i )
         {
-            ObjectTypeAndID indices = ud.readObjectFromStream(is, "osg::StateAttribute");
+            ObjectTypeAndID sa = ud.readObjectFromStream(is, "osg::StateAttribute");
             is >> is.PROPERTY("Value");
             int value = readValue( is );
-            if ( sa )
-                attrs[sa->getTypeMemberPair()] = osg::StateSet::RefAttributePair(sa,value);
+            if ( sa.valid() )
+                attrs.push_back(AttributePair(sa, value));
         }
         is >> is.END_BRACKET;
     }
-}*/
+}
 
 // _modeList
-/*static bool readModeList(InputStream& is, InputUserData& ud)
+static bool readModeList(InputStream& is, InputUserData& ud)
 {
     std::map<GLenum, unsigned int> modes; readModes( is, modes );
-    for ( osg::StateSet::ModeList::iterator itr=modes.begin();
+    for ( std::map<GLenum, unsigned int>::iterator itr=modes.begin();
           itr!=modes.end(); ++itr )
     {
-        ss.setMode( itr->first, itr->second );
+        ud.add("setMode", itr->first, itr->second);
     }
     return true;
 }
@@ -85,11 +84,11 @@ static void readAttributes(InputStream& is, InputUserData& ud)
 // _attributeList
 static bool readAttributeList(InputStream& is, InputUserData& ud)
 {
-    std::map<std::pair<Type, unsigned int>, RefAttributePair> attrs; readAttributes( is, attrs );
-    for ( osg::StateSet::AttributeList::iterator itr=attrs.begin();
+    std::vector<AttributePair> attrs; readAttributes( is, ud, attrs );
+    for ( std::vector<AttributePair>::iterator itr=attrs.begin();
           itr!=attrs.end(); ++itr )
     {
-        ss.setAttribute( itr->second.first, itr->second.second );
+        ud.add("setAttribute", &(itr->first), itr->second);
     }
     return true;
 }
@@ -98,7 +97,7 @@ static bool readAttributeList(InputStream& is, InputUserData& ud)
 static bool readTextureModeList(InputStream& is, InputUserData& ud)
 {
     unsigned int size = is.readSize(); is >> is.BEGIN_BRACKET;
-    osg::StateSet::ModeList modes;
+    std::map<GLenum, unsigned int> modes;
     for ( unsigned int i=0; i<size; ++i )
     {
         is >> is.PROPERTY("Data");
@@ -106,7 +105,7 @@ static bool readTextureModeList(InputStream& is, InputUserData& ud)
         for ( osg::StateSet::ModeList::iterator itr=modes.begin();
               itr!=modes.end(); ++itr )
         {
-            ss.setTextureMode( i, itr->first, itr->second );
+            ud.add("setTextureMode", i, itr->first, itr->second);
         }
         modes.clear();
     }
@@ -118,21 +117,21 @@ static bool readTextureModeList(InputStream& is, InputUserData& ud)
 static bool readTextureAttributeList(InputStream& is, InputUserData& ud)
 {
     unsigned int size = is.readSize(); is >> is.BEGIN_BRACKET;
-    osg::StateSet::AttributeList attrs;
+    std::vector<AttributePair> attrs;
     for ( unsigned int i=0; i<size; ++i )
     {
         is >> is.PROPERTY("Data");
-        readAttributes( is, attrs );
-        for ( osg::StateSet::AttributeList::iterator itr=attrs.begin();
+        readAttributes( is, ud, attrs );
+        for ( std::vector<AttributePair>::iterator itr=attrs.begin();
               itr!=attrs.end(); ++itr )
         {
-            ss.setTextureAttribute( i, itr->second.first, itr->second.second );
+            ud.add("setTextureAttribute", i, &(itr->first), itr->second);
         }
         attrs.clear();
     }
     is >> is.END_BRACKET;
     return true;
-}*/
+}
 
 // _uniformList
 static bool readUniformList(InputStream& is, InputUserData& ud)
@@ -142,9 +141,9 @@ static bool readUniformList(InputStream& is, InputUserData& ud)
     {
         ObjectTypeAndID uniform = ud.readObjectFromStream(is, "osg::UniformBase");
         is >> is.PROPERTY("Value");
-        int value = readValue( is, ud );
+        int value = readValue( is );
         if ( uniform.valid() )
-            ud.add("addUniform", uniform, value);
+            ud.add("addUniform", &uniform, value);
     }
     is >> is.END_BRACKET;
     return true;
@@ -163,7 +162,7 @@ static bool readDefineList(InputStream& is, InputUserData& ud)
         is.readWrappedString( defineValue );
 
         is >> is.PROPERTY("Value");
-        int overrideValue = readValue( is, ud );
+        int overrideValue = readValue( is );
 
         ud.add("setDefine", defineName, defineValue, overrideValue);
     }
@@ -176,10 +175,10 @@ REGISTER_OBJECT_WRAPPER( StateSet,
                          osg::StateSet,
                          "osg::Object osg::StateSet" )
 {
-    //ADD_USER_SERIALIZER( ModeList );  // _modeList
-    //ADD_USER_SERIALIZER( AttributeList );  // _attributeList
-    //ADD_USER_SERIALIZER( TextureModeList );  // _textureModeList
-    //ADD_USER_SERIALIZER( TextureAttributeList );  // _textureAttributeList
+    ADD_USER_SERIALIZER( ModeList );  // _modeList
+    ADD_USER_SERIALIZER( AttributeList );  // _attributeList
+    ADD_USER_SERIALIZER( TextureModeList );  // _textureModeList
+    ADD_USER_SERIALIZER( TextureAttributeList );  // _textureAttributeList
     ADD_USER_SERIALIZER( UniformList );  // _uniformList
     ADD_INT_SERIALIZER( RenderingHint, osg::StateSet::DEFAULT_BIN );  // _renderingHint
 

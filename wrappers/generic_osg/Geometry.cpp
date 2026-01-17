@@ -24,7 +24,7 @@ static ObjectTypeAndID readArray(InputStream& is, InputUserData& ud)
     if ( hasIndices )
     {
         ObjectTypeAndID indices = ud.readObjectFromStream(is, "osg::IndexArray");
-        if (array.valid() && indices.valid()) ud.add(array, "setUserData", indices);
+        if (array.valid() && indices.valid()) ud.add(array, "setUserData", &indices);
     }
 
     is >> is.PROPERTY("Binding");
@@ -41,7 +41,7 @@ static ObjectTypeAndID readArray(InputStream& is, InputUserData& ud)
     static bool read##ORIGINAL_PROP(InputStream& is, InputUserData& ud) { \
         is >> is.BEGIN_BRACKET; \
         ObjectTypeAndID array = readArray(is, ud); \
-        ud.add("set" #PROP, array); \
+        ud.add("set" #PROP, &array); \
         is >> is.END_BRACKET; \
         return true; \
     }
@@ -58,7 +58,7 @@ ADD_ARRAYDATA_FUNCTIONS( FogCoordData, FogCoordArray )
         for ( unsigned int i=0; i<size; ++i ) { \
             is >> is.PROPERTY("Data") >> is.BEGIN_BRACKET; \
             ObjectTypeAndID array = readArray(is, ud); \
-            ud.add("set" #PROP, i, array); \
+            ud.add("set" #PROP, i, &array); \
             is >> is.END_BRACKET; } \
         is >> is.END_BRACKET; \
         return true; \

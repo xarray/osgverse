@@ -101,10 +101,11 @@ if exist %CurrentDir%\%BuildResultChecker% (
 )
 
 set BasicCmakeOptions=""
+ver > nul
 if !BuildModeWasm!==0 (
     where nmake /? >nul 2>&1
     if not %errorlevel%==0 (
-        echo NMake not found. Please start from Developer Command Prompt of Visual Studio.
+        echo %errorlevel% NMake not found. Please start from Developer Command Prompt of Visual Studio.
         goto exit
     )
 
@@ -207,10 +208,14 @@ if !BuildModeWasm!==1 (
 echo *** Automatically patching source code...
 set SourceCodePatched=1
 set SedEXE=%CurrentDir%\wasm\sed.exe
+if exist "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" (
+    %SedEXE% "s/std::mem_fun_ref/std::mem_fn/g" "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" > graph_array.h.tmp
+    xcopy /y graph_array.h.tmp "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h"
+)
 %SedEXE% "s/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g" "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp" > FileUtils.cpp.tmp
 xcopy /y FileUtils.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp"
-%SedEXE% "s/std::mem_fun_ref/std::mem_fn/g" "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" > graph_array.h.tmp
-xcopy /y graph_array.h.tmp "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h"
+%SedEXE% "s/TARGET_EXTERNAL_LIBRARIES ${FREETYPE_LIBRARIES}/TARGET_EXTERNAL_LIBRARIES ${PNG_LIBRARY} ${FREETYPE_LIBRARIES}/g" "%OpenSceneGraphRoot%\src\osgPlugins\freetype\CMakeLists.txt" > CMakeLists.txt.tmp
+xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\freetype\CMakeLists.txt"
 %SedEXE% "s/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
 xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
 %SedEXE% "s/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
@@ -366,7 +371,7 @@ if "!BuildMode!"=="2" (
     if not exist %CurrentDir%\build\verse_es\ mkdir %CurrentDir%\build\verse_es
     cd %CurrentDir%\build\verse_es
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
-                      -DEGL_LIBRARY=%EGL_LibPath% -DOPENGL_gl_LIBRARY=%GLES_LibPath%
+                      -DOSG_EGL_LIBRARY=%EGL_LibPath% -DOSG_GLES_LIBRARY=%GLES_LibPath%
     cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_es" %CurrentDir%
     cmake --build . --target install --config Release
     if not !errorlevel! == 0 (goto exit)
@@ -468,6 +473,8 @@ cd %CurrentDir%
 :: Reset some OpenSceneGraph source code
 if !SourceCodePatched!==1 (
     echo *** Automatically unpatching source code...
+    %SedEXE% "s/TARGET_EXTERNAL_LIBRARIES ${PNG_LIBRARY} ${FREETYPE_LIBRARIES}/TARGET_EXTERNAL_LIBRARIES ${FREETYPE_LIBRARIES}/g" "%OpenSceneGraphRoot%\src\osgPlugins\freetype\CMakeLists.txt" > CMakeLists.txt.tmp
+    xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\freetype\CMakeLists.txt"
     %SedEXE% "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
     xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
     %SedEXE% "s/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt" > CMakeLists.txt.tmp
