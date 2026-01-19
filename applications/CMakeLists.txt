@@ -28,8 +28,8 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
         ENDIF()
 
         SET(CMAKE_AUTOMOC OFF)
-        FIND_PACKAGE(Qt6 QUIET COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets)
-        FIND_PACKAGE(Qt5 QUIET COMPONENTS Core Gui Widgets OpenGL)
+        FIND_PACKAGE(Qt6 QUIET COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Qml)
+        FIND_PACKAGE(Qt5 QUIET COMPONENTS Core Gui Widgets OpenGL Qml)
 
         IF(Qt6_FOUND)
             SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_DEPENDENCIES "QT6")
@@ -41,7 +41,9 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
         #########################################
 
         ADD_SUBDIRECTORY(qt_viewer)
-        ADD_SUBDIRECTORY(qml_viewer)
+        IF(Qt5Qml_DIR OR Qt6Qml_DIR)
+            ADD_SUBDIRECTORY(qml_viewer)
+        ENDIF()
     ENDIF()
 ENDIF()
 ADD_SUBDIRECTORY(scene_editor)
