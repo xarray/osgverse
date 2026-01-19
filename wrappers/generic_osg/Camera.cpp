@@ -1,6 +1,12 @@
 #include <GenericReserializer.h>
-#include <GL/gl.h>
 using namespace osgVerse;
+
+#ifndef GL_VERSION_1_0
+#define GL_NONE                           0
+#define GL_DEPTH_BUFFER_BIT               0x00000100
+#define GL_STENCIL_BUFFER_BIT             0x00000400
+#define GL_COLOR_BUFFER_BIT               0x00004000
+#endif
 
 #ifndef GL_ACCUM_BUFFER_BIT
 #define GL_ACCUM_BUFFER_BIT 0x00000200

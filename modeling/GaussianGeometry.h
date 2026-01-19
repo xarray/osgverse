@@ -16,7 +16,7 @@ namespace osgVerse
 /** Gaussian geometry:
    - Render with mesh instances and SSBO: INSTANCING
      - Original shape vertices (vec3): getVertexArray()
-     - Instance Indices (uint): getVertexAttribArray(1)
+     - Instance Indices (uint): getVertexAttribArray(7)
      - Position.xyz + Alpha: SSBO-0 (4 floats)
      - CovMatrix.c0 + Color.r: SSBO-1 (4 floats)
      - CovMatrix.c1 + Color.g: SSBO-2 (4 floats)
@@ -25,7 +25,7 @@ namespace osgVerse
 
    - Render with mesh instances and texture buffers (no SH): INSTANCING_TEXTURE
      - Original shape vertices (vec3): getVertexArray()
-     - Instance Indices (uint): getVertexAttribArray(1)
+     - Instance Indices (uint): getVertexAttribArray(7)
      - Position.xyz + Alpha: Tex2D-0 (4 floats)
      - CovMatrix.c0 + Color.r: Tex2D-1 (4 floats)
      - CovMatrix.c1 + Color.g: Tex2D-2 (4 floats)
@@ -78,6 +78,9 @@ public:
     osg::ref_ptr<osg::Vec4Array> getShRed(int index);
     osg::ref_ptr<osg::Vec4Array> getShGreen(int index);
     osg::ref_ptr<osg::Vec4Array> getShBlue(int index);
+
+    osg::FloatArray* getCoreDataBuffer() { return _coreBuffer.get(); }
+    osg::FloatArray* getShcoefBuffer() { return _shcoefBuffer.get(); }
 
 protected:
     virtual ~GaussianGeometry() {}

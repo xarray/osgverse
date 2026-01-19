@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 
     bool useGLFW = arguments.read("--use-glfw"), useWin32Ex = arguments.read("--use-win32ex");
     bool testPipeline = arguments.read("--with-deferred"), showShadowMaps = arguments.read("--debug-shadow");
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     testPipeline = true;
 #endif
 

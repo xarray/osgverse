@@ -485,7 +485,7 @@ if !SourceCodePatched!==1 (
     xcopy /y CMakeLists.txt.tmp "%OpenSceneGraphRoot%\CMakeLists.txt"
     %SedEXE% "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp" > DynamicLibrary.cpp.tmp
     xcopy /y DynamicLibrary.cpp.tmp "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
-    %SedEXE% "s#\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#;glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
+    %SedEXE% "s#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp" > Texture.cpp.tmp
     xcopy /y Texture.cpp.tmp "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
     %SedEXE% "s#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp" > GLExtensions.cpp.tmp
     xcopy /y GLExtensions.cpp.tmp "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"

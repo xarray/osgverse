@@ -46,21 +46,26 @@ public:
         _program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
         _callback = osgVerse::GaussianGeometry::createUniformCallback();
 
-#if defined(OSG_GL3_AVAILABLE)
-        osgVerse::Pipeline::createShaderDefinitions(vert, 300, 430);
-        osgVerse::Pipeline::createShaderDefinitions(geom, 300, 430);
-        osgVerse::Pipeline::createShaderDefinitions(frag, 300, 430);
-#elif defined(OSG_GLES3_AVAILABLE)
-        // FIXME: it seems import_defines failed in GLES mode? Try ShaderLibrary as fallback
+        // FIXME: it seems import_defines failed in GLCore/GLES mode? Try ShaderLibrary as fallback
+        std::vector<std::string> gsDefinitions;
         if (hint == "TBO")
             vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX"));
         else if (hint == "TEX2D")
             vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX2D"));
-        else if (hint != "GS")
+        else if (hint == "GS")
+        {
+            gsDefinitions.push_back("layout(points) in;");
+            gsDefinitions.push_back("layout(triangle_strip, max_vertices = 4) out;");
+        }
+        else
             vert->setUserValue("Definitions", std::string("USE_INSTANCING"));
-
+#if defined(OSG_GL3_AVAILABLE)
+        osgVerse::Pipeline::createShaderDefinitions(vert, 300, 430);
+        osgVerse::Pipeline::createShaderDefinitions(geom, 300, 430, gsDefinitions);
+        osgVerse::Pipeline::createShaderDefinitions(frag, 300, 430);
+#elif defined(OSG_GLES3_AVAILABLE)
         osgVerse::Pipeline::createShaderDefinitions(vert, 300, 300);
-        osgVerse::Pipeline::createShaderDefinitions(geom, 300, 300);
+        osgVerse::Pipeline::createShaderDefinitions(geom, 300, 300, gsDefinitions);
         osgVerse::Pipeline::createShaderDefinitions(frag, 300, 300);
 #else
         osgVerse::Pipeline::createShaderDefinitions(vert, 100, 430);

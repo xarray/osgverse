@@ -1,6 +1,14 @@
 #include <GenericReserializer.h>
-#include <GL/gl.h>
 using namespace osgVerse;
+
+#ifndef GL_VERSION_1_0
+#define GL_ZERO                           0
+#define GL_ONE                            1
+#define GL_RED                            0x1903
+#define GL_GREEN                          0x1904
+#define GL_BLUE                           0x1905
+#define GL_ALPHA                          0x1906
+#endif
 
 enum osg_Texture_WrapParameter { WRAP_S, WRAP_T, WRAP_R };
 enum osg_Texture_FilterParameter { MIN_FILTER, MAG_FILTER };
@@ -45,7 +53,7 @@ static bool readInternalFormat(InputStream& is, InputUserData& ud)
 // _imageAttachment
 struct DummyImageAttachment
 {
-DummyImageAttachment(): unit(0), level(0), layered(GL_FALSE), layer(0), access(0), format(0){}
+DummyImageAttachment(): unit(0), level(0), layered(0), layer(0), access(0), format(0){}
     GLuint unit;
     GLint level;
     GLboolean layered;

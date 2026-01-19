@@ -1,6 +1,14 @@
 #include <GenericReserializer.h>
-#include <GL/gl.h>
 using namespace osgVerse;
+
+#ifndef GL_VERSION_1_0
+#define GL_FRONT                          0x0404
+#define GL_BACK                           0x0405
+#define GL_FRONT_AND_BACK                 0x0408
+#define GL_POINT                          0x1B00
+#define GL_LINE                           0x1B01
+#define GL_FILL                           0x1B02
+#endif
 
 enum osg_PolygonMode_Mode { POINT = GL_POINT, LINE = GL_LINE, FILL = GL_FILL };
 BEGIN_USER_TABLE( Mode, osg_PolygonMode );

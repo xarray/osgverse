@@ -228,11 +228,13 @@ bool GaussianGeometry::finalize()
             ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
 
         // Apply core attributes
+        static size_t alignment = 128;  // consider GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT: NV is 32, but Moore is 128...
         size_t blockSize = _numSplats * sizeof(osg::Vec4);
+        blockSize = ((blockSize + alignment - 1) / alignment) * alignment;
         if (_coreBuffer.valid())
         {
             osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
-            _coreBuffer->resize(_numSplats * 16, 0.0f); _coreBuffer->setBufferObject(ssbo);
+            _coreBuffer->resize(blockSize * 4, 0.0f); _coreBuffer->setBufferObject(ssbo);
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(0, _coreBuffer.get(), 0, blockSize));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(1, _coreBuffer.get(), blockSize, blockSize * 2));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(2, _coreBuffer.get(), blockSize * 2, blockSize * 3));
