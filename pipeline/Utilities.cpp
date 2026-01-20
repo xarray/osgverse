@@ -40,10 +40,10 @@
 #define APPLY_PROGRAM(ss, vsCode, fsCode) { \
     osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode); \
     osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode); \
-    int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer); \
+    int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer); \
     osg::ref_ptr<osg::Program> prog = new osg::Program; \
-    Pipeline::createShaderDefinitions(vs, glVer, glslVer); prog->addShader(vs); \
-    Pipeline::createShaderDefinitions(fs, glVer, glslVer); prog->addShader(fs); \
+    Pipeline::createShaderDefinitions(vs, cxtVer, glslVer); prog->addShader(vs); \
+    Pipeline::createShaderDefinitions(fs, cxtVer, glslVer); prog->addShader(fs); \
     ss->setAttributeAndModes(prog.get()); }
 
 #define BACKWARD_MESSAGE(msg, n) \
@@ -559,6 +559,70 @@ namespace osgVerse
         image1D->setImage(resolution, 1, 1, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE,
             (unsigned char*)values, osg::Image::USE_NEW_DELETE);
         return image1D.release();
+    }
+
+    void guessOpenGLVersions(int& contextVersion, int& glslVersion)
+    {
+#if defined(OSG_GL3_AVAILABLE)
+        contextVersion = 300; glslVersion = 430;
+#elif defined(OSG_GLES2_AVAILABLE)
+        contextVersion = 100; glslVersion = 200;
+#elif defined(OSG_GLES3_AVAILABLE)
+        contextVersion = 300; glslVersion = 300;
+#else
+        contextVersion = 100; glslVersion = 130;
+#endif
+    }
+
+    osg::Program* createDefaultProgram(const std::string& texSamplerName, Pipeline* pipeline)
+    {
+        std::string vertCode, fragCode;
+        vertCode = std::string(
+            "VERSE_VS_OUT vec4 uv, color;\n"
+            "void main() {\n"
+            "    uv = osg_MultiTexCoord0; color = osg_Color;\n"
+            "    gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n"
+            "}\n");
+
+        if (texSamplerName.empty())
+        {
+            fragCode = std::string(
+                "VERSE_FS_IN vec4 uv, color;\n"
+                "VERSE_FS_OUT vec4 fragData;\n"
+                "void main() {\n"
+                "    fragData = color;\n"
+                "    VERSE_FS_FINAL(fragData);\n"
+                "}\n");
+        }
+        else
+        {
+            fragCode = std::string(
+                "uniform sampler2D ") + texSamplerName + std::string(";\n"
+                "VERSE_FS_IN vec4 uv, color;\n"
+                "VERSE_FS_OUT vec4 fragData;\n"
+                "void main() {\n"
+                "    fragData = VERSE_TEX2D(") + texSamplerName + std::string(", uv.xy);\n"
+                "    VERSE_FS_FINAL(fragData);\n"
+                "}\n");
+        }
+
+        osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vertCode);
+        osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fragCode);
+        if (pipeline)
+        {
+            pipeline->createShaderDefinitionsFromPipeline(vs);
+            pipeline->createShaderDefinitionsFromPipeline(fs);
+        }
+        else
+        {
+            int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+            Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+            Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
+        }
+
+        osg::ref_ptr<osg::Program> prog = new osg::Program;
+        vs->setName("Unlit_VS"); prog->addShader(vs); fs->setName("Unlit_FS"); prog->addShader(fs);
+        prog->setName("DEFAULT_PROGRAM"); return prog.release();
     }
 
     osg::Texture2D* createDefaultTexture(const osg::Vec4& color)

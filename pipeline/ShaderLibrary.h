@@ -16,7 +16,6 @@ namespace osgVerse
     {
     public:
         static ShaderLibrary* instance();
-        static int guessShaderVersion(int& glContext);
 
         enum PreDefinedModule
         {

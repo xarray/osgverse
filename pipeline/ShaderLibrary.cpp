@@ -28,19 +28,6 @@ ShaderLibrary::ShaderLibrary()
 ShaderLibrary::~ShaderLibrary()
 {}
 
-int ShaderLibrary::guessShaderVersion(int& glContext)
-{
-#if defined(OSG_GL3_AVAILABLE)
-    glContext = 300; return 330;
-#elif defined(OSG_GLES2_AVAILABLE)
-    glContext = 100; return 200;
-#elif defined(OSG_GLES3_AVAILABLE)
-    glContext = 100; return 300;
-#else
-    glContext = 100; return 120;
-#endif
-}
-
 void ShaderLibrary::updateModuleData(PreDefinedModule m, osg::Shader::Type type,
                                      const std::string& baseDir, const std::string& name)
 {
@@ -71,12 +58,12 @@ void ShaderLibrary::refreshModules(const std::string& baseDir)
 void ShaderLibrary::updateProgram(osg::Program& program, Pipeline* pipeline,
                                   int moduleFlags, bool needDefinitions)
 {
-    int glVer = 0; int glslVer = guessShaderVersion(glVer);
+    int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
     if (needDefinitions)
     {
         for (size_t i = 0; i < program.getNumShaders(); ++i)
         {
-            if (!pipeline) createShaderDefinitions(*program.getShader(i), glVer, glslVer);
+            if (!pipeline) createShaderDefinitions(*program.getShader(i), cxtVer, glslVer);
             else pipeline->createShaderDefinitionsFromPipeline(program.getShader(i));
         }
     }
@@ -296,6 +283,8 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     size_t count = std::count(prefixSource.begin(), prefixSource.end(), '\n');
     shader.setShaderSource(prefixSource + source);
     shader.setUserValue("PrefixCount", (int)count);
+
+    //std::cout << "=== " << shader.getName() << " ===\n" << shader.getShaderSource() << "\n";
 }
 
 void ShaderLibrary::processIncludes(osg::Shader& shader, const osgDB::ReaderWriter::Options* options) const

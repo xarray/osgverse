@@ -171,16 +171,17 @@ void SkyBox::initialize(bool asCube, const osg::Matrixf& texMat)
     _stateset->setAttributeAndModes(depth, values);
     _stateset->setRenderBinDetails(-9999, "RenderBin");
 
-    int glVer = (_pipeline.valid() ? _pipeline->getContextTargetVersion() : 100);
-    int glslVer = (_pipeline.valid() ? _pipeline->getGlslTargetVersion() : 130);
+    int cxtVer = 0, glslVer = 0;
+    if (!_pipeline) guessOpenGLVersions(cxtVer, glslVer);
+    else { cxtVer = _pipeline->getContextTargetVersion(); glslVer = _pipeline->getGlslTargetVersion(); }
     if (!_vertex || !_fragment) { OSG_WARN << "[SkyBox] Missing skybox shaders" << std::endl; return; }
     _vertex->setName("SkyBox_SHADER_VS"); _fragment->setName("SkyBox_SHADER_FS");
     {
         std::vector<std::string> defs;
         if (asCube) defs.push_back("#define VERSE_CUBEMAP_SKYBOX 1");
         else defs.push_back("#define VERSE_CUBEMAP_SKYBOX 0");
-        Pipeline::createShaderDefinitions(_vertex.get(), glVer, glslVer);
-        Pipeline::createShaderDefinitions(_fragment.get(), glVer, glslVer, defs);
+        Pipeline::createShaderDefinitions(_vertex.get(), cxtVer, glslVer);
+        Pipeline::createShaderDefinitions(_fragment.get(), cxtVer, glslVer, defs);
     }
 
     osg::Program* program = new osg::Program;

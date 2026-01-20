@@ -414,14 +414,15 @@ void ParticleSystemU3D::linkTo(osg::Geode* geode, bool applyStates,
             vert->setShaderSource("#define USE_VERTEX_ATTRIB 1\n" + vert->getShaderSource());
     }
 
-    program->addShader(vert); Pipeline::createShaderDefinitions(vert, 100, 130);
-    program->addShader(frag); Pipeline::createShaderDefinitions(frag, 100, 130);  // FIXME
+    int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+    program->addShader(vert); Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
+    program->addShader(frag); Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
     if (_updateMethod == GPU_GEOMETRY && geom)
     {
         program->setParameter(GL_GEOMETRY_VERTICES_OUT_EXT, 6);  // FIXME: only billboard?
         program->setParameter(GL_GEOMETRY_INPUT_TYPE_EXT, GL_POINTS);
         program->setParameter(GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLES);
-        program->addShader(geom); Pipeline::createShaderDefinitions(geom, 100, 130);
+        program->addShader(geom); Pipeline::createShaderDefinitions(geom, cxtVer, glslVer);
     }
 
     osg::StateSet* ss = geode->getOrCreateStateSet();

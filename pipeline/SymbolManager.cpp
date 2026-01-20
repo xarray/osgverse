@@ -195,8 +195,10 @@ void SymbolManager::setShaders(osg::Shader* vs, osg::Shader* fs)
     _midDistanceProgram = new osg::Program; _midDistanceProgram->setName("MidDistanceProgram");
     _farDistanceProgram->addShader(vs); _farDistanceProgram->addShader(fs);
     _midDistanceProgram->addShader(vs); _midDistanceProgram->addShader(fs);
-    if (vs) Pipeline::createShaderDefinitions(vs, 100, 130);
-    if (fs) Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+
+    int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+    if (vs) Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+    if (fs) Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
 }
 
 void SymbolManager::initialize(osg::Group* group)

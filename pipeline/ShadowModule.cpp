@@ -228,10 +228,10 @@ namespace osgVerse
         osg::ref_ptr<ScriptableProgram> prog = new ScriptableProgram;
         prog->setName("ShadowCaster_PROGRAM");
 
-        int glVer = 100, glslVer = 130;  // FIXME
+        int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
         if (_pipeline.valid())
         {
-            glVer = _pipeline->getContextTargetVersion();
+            cxtVer = _pipeline->getContextTargetVersion();
             glslVer = _pipeline->getGlslTargetVersion();
         }
 
@@ -245,13 +245,13 @@ namespace osgVerse
         if (vs)
         {
             vs->setName("ShadowCaster_SHADER_VS"); prog->addShader(vs);
-            Pipeline::createShaderDefinitions(vs, glVer, glslVer);
+            Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
         }
 
         if (fs)
         {
             fs->setName("ShadowCaster_SHADER_FS"); prog->addShader(fs);
-            Pipeline::createShaderDefinitions(fs, glVer, glslVer);
+            Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
         }
         return stages;
     }

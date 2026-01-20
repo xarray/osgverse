@@ -515,8 +515,10 @@ int main(int argc, char** argv)
     std::string header = model._factory(osg::Vec3(atmosphere::kLambdaR, atmosphere::kLambdaG, atmosphere::kLambdaB));
     osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "std_common_quad.vert.glsl");
     osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, header + kComputeTransmittanceShader);
-    osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
-    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);
+
+    int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+    osgVerse::Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+    osgVerse::Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
 
     osg::ref_ptr<osg::Program> prog = new osg::Program;
     prog->addShader(vs); prog->addShader(fs);

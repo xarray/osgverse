@@ -176,13 +176,14 @@ int main(int argc, char** argv)
 
     bool useOcean = arguments.read("--ocean"), useSky = arguments.read("--sky"), withAxes = arguments.read("--with-axes");
     bool bLeft = arguments.read("--image-bottomleft"), wgs84 = arguments.read("--web-wgs84"), use2D = arguments.read("--map2d");
-    std::string startFile = arguments.read("--multi-root") ? "0-0-x.verse_tms" : "0-0-0.verse_tms";
-    std::string use2Dor3D = use2D ? "UseEarth3D=0" : "UseEarth3D=1";
+    std::string startFile, use2Dor3D = use2D ? "UseEarth3D=0" : "UseEarth3D=1";
     std::string useBottomLeftImage = bLeft ? "OriginBottomLeft=1" : "OriginBottomLeft=0";
     std::string useWGS84Tile = wgs84 ? "UseWebMercator=0" : "UseWebMercator=1";
     std::string ortho, elev; arguments.read("--ortho", ortho); arguments.read("--elevation", elev);
     std::string headers, options; arguments.read("--headers", headers); arguments.read("--options", options);
     if (ortho.empty()) ortho = "https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}";
+    if (!arguments.read("--custom-root", startFile))
+        startFile = arguments.read("--multi-root") ? "0-0-x.verse_tms" : "0-0-0.verse_tms";
 
 #if false
     std::string earthURLs = "Orthophoto=http://p0.map.gtimg.com/sateTiles/{z}/{x16}/{y16}/{x}_{y}.jpg UseWebMercator=1";
@@ -224,7 +225,12 @@ int main(int argc, char** argv)
     }
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    root->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("BaseTexture"));
+    root->getOrCreateStateSet()->addUniform(new osg::Uniform("BaseTexture", (int)0));
+#else
     root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
     if (!earth) { std::cout << "Failed to create earth: " << earthURLs << "\n"; return 1; }
 
     // Create sky and ocean
@@ -309,8 +315,10 @@ int main(int argc, char** argv)
                 osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, finalVertCode);
                 osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, finalFragCode);
                 program->addShader(vs); program->addShader(fs);
-                osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
-                osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+
+                int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+                osgVerse::Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+                osgVerse::Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
             }
             finalCamera->getOrCreateStateSet()->setAttributeAndModes(program.get());
         }

@@ -124,8 +124,10 @@ int main(int argc, char** argv)
         prog->addBindAttribLocation("osg_UserColor", 2);
         prog->addShader(new osg::Shader(osg::Shader::VERTEX, vertCode0));
         prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
-        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(0), 100, 130);
-        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(1), 100, 130);  // FIXME
+
+        int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(0), cxtVer, glslVer);
+        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(1), cxtVer, glslVer);
         ss->setAttribute(prog.get());
         ss->setAttributeAndModes(new osg::VertexAttribDivisor(1, 1));
         ss->setAttributeAndModes(new osg::VertexAttribDivisor(2, 1));
@@ -153,8 +155,10 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Program> prog = new osg::Program;
         prog->addShader(new osg::Shader(osg::Shader::VERTEX, vertCode1));
         prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
-        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(0), 100, 130);
-        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(1), 100, 130);  // FIXME
+
+        int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(0), cxtVer, glslVer);
+        osgVerse::Pipeline::createShaderDefinitions(prog->getShader(1), cxtVer, glslVer);
         ss->setAttribute(prog.get());
     }
 

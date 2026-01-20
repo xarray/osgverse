@@ -130,8 +130,9 @@ void EarthAtmosphereOcean::applyToGlobe(osg::StateSet* ss, osg::Texture* baseTex
     vs->setName("Scattering_Globe_VS"); fs->setName("Scattering_Globe_FS");
     if (!ref)
     {
-        Pipeline::createShaderDefinitions(vs, 100, 130);
-        Pipeline::createShaderDefinitions(fs, 100, 130);
+        int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+        Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+        Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
     }
 
     ss->setTextureAttributeAndModes(0, baseTex);
@@ -155,8 +156,9 @@ void EarthAtmosphereOcean::applyToOcean(osg::StateSet* ss, osg::Texture* postMas
     vs->setName("Global_Ocean_VS"); fs->setName("Global_Ocean_FS");
     if (!ref)
     {
-        Pipeline::createShaderDefinitions(vs, 100, 130);
-        Pipeline::createShaderDefinitions(fs, 100, 130);
+        int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+        Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+        Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
     }
 
     ss->setTextureAttributeAndModes(0, postMaskTex);
@@ -175,8 +177,9 @@ void EarthAtmosphereOcean::applyToAtmosphere(osg::StateSet* ss, osg::Texture* ea
     vs->setName("Scattering_Sky_VS"); fs->setName("Scattering_Sky_FS");
     if (!ref)
     {
-        Pipeline::createShaderDefinitions(vs, 100, 130);
-        Pipeline::createShaderDefinitions(fs, 100, 130);
+        int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
+        Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+        Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
     }
 
     ss->setTextureAttributeAndModes(0, earthSceneTex);

@@ -44,6 +44,12 @@ namespace osgVerse
     */
     extern osg::Image* generateTransferFunction(int type, int resolution = 64, int alpha = 255);
 
+    /** Guess GL context and GLSL versions */
+    extern void guessOpenGLVersions(int& contextVersion, int& glslVersion);
+
+    /** Create default unlit shader for GLCore/GLES use */
+    extern osg::Program* createDefaultProgram(const std::string& texSamplerName, Pipeline* pipeline = NULL);
+
     /** Create default texture for untextured model */
     extern osg::Texture2D* createDefaultTexture(const osg::Vec4& color = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 

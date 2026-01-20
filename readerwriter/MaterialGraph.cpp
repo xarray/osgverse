@@ -223,7 +223,7 @@ void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList
      * VECT_MATH: vec3 mathAdd/..(vec3 v0, vec3 v1, vec3 v2);
      */
 
-    int glVer = 0; int glslVer = ShaderLibrary::guessShaderVersion(glVer);
+    int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
     std::string vsCode = "VERSE_VS_OUT vec2 uv;\nvoid main() {\n"
                          "  uv = osg_MultiTexCoord0.st;\n  gl_Position = VERSE_MATRIX_MVP * osg_Vertex;\n}\n";
     for (size_t i = 0; i < endLinks.size(); ++i)
@@ -250,8 +250,8 @@ void MaterialGraph::processBlenderLinks(MaterialNodeMap& nodes, MaterialLinkList
             osg::ref_ptr<osg::Shader> vs = new osg::Shader(osg::Shader::VERTEX, vsCode);
             osg::ref_ptr<osg::Shader> fs = new osg::Shader(osg::Shader::FRAGMENT, fsShader.str());
             prog->addShader(vs.get()); prog->addShader(fs.get());
-            Pipeline::createShaderDefinitions(vs.get(), glVer, glslVer);
-            Pipeline::createShaderDefinitions(fs.get(), glVer, glslVer);
+            Pipeline::createShaderDefinitions(vs.get(), cxtVer, glslVer);
+            Pipeline::createShaderDefinitions(fs.get(), cxtVer, glslVer);
         }
         comp.stateset->setAttributeAndModes(prog.get());
 

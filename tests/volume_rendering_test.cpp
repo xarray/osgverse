@@ -206,8 +206,9 @@ ResultPair createVolumeData(
 
     osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "fast_volume.vert");
     osg::Shader* fs = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "fast_volume.frag");
-    osgVerse::Pipeline::createShaderDefinitions(vs, 100, 130);
-    osgVerse::Pipeline::createShaderDefinitions(fs, 100, 130);  // FIXME
+    int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+    osgVerse::Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+    osgVerse::Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
 
     osg::ref_ptr<osg::Program> program = new osg::Program;
     vs->setName("Volume_VS"); program->addShader(vs);
