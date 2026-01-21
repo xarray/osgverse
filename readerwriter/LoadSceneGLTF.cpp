@@ -589,7 +589,7 @@ namespace osgVerse
                 std::vector<float> weightList;
             } skData;
 
-            std::vector<unsigned char> bufferData; std::map<std::string, int> extBufferViews;
+            const unsigned char* bufferData = NULL; std::map<std::string, int> extBufferViews;
             tinygltf::Primitive primitive = mesh.primitives[i];
             for (std::map<std::string, tinygltf::Value>::iterator it = primitive.extensions.begin();
                  it != primitive.extensions.end(); ++it)
@@ -649,7 +649,7 @@ namespace osgVerse
                     if (attrView.buffer >= 0)
                     {
                         const tinygltf::Buffer& buffer = _modelDef.buffers[attrView.buffer];
-                        bufferData = buffer.data;
+                        bufferData = buffer.data.data();
                     }
                     offset = attrView.byteOffset + attrAccessor.byteOffset;
                     stride = (attrView.byteStride > 0 && attrView.byteStride != (compSize * compNum))
@@ -658,7 +658,7 @@ namespace osgVerse
                 else
                     {}  // TODO: process certain extension buffer?
 
-                if (bufferData.empty())
+                if (bufferData == NULL)
                     { OSG_WARN << "[LoaderGLTF] No data buffer for " << attrib->first << std::endl; continue; }
                 //std::cout << attrib->first << ": Size = " << size << ", Components = " << compNum
                 //          << ", ComponentBytes = " << compSize << std::endl;
