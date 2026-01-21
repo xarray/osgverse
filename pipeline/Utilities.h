@@ -2,6 +2,7 @@
 #define MANA_PP_UTILITIES_HPP
 
 #include <osg/Polytope>
+#include <osg/BufferObject>
 #include <osg/Geometry>
 #include <osg/ShapeDrawable>
 #include <osg/CullStack>
@@ -20,6 +21,8 @@
 
 struct SMikkTSpaceContext;
 struct lay_context;
+
+#
 
 namespace osgVerse
 {
@@ -404,6 +407,31 @@ namespace osgVerse
 
         /** Trim leading and trailing spaces of a string */
         static std::string trim(const std::string& str);
+    };
+
+    /** Get hash value of any binary data for comparing and sharing scene objects */
+    struct Hash
+    {
+        /** Start a hash computation stream */
+        static void* startStream();
+
+        /** Add new data to the computation stream */
+        static bool addToStream(void* s, const char* data, unsigned int size);
+
+        /** Get hash result of the stream and finish it or not */
+        static unsigned long long getStream(void* s, bool toFinish);
+
+        /** Get hash of some input data directly */
+        static unsigned long long get(const char* data, unsigned int size);
+
+        /** Get hash of an image object */
+        static unsigned long long getImage(osg::Image& image);
+
+        /** Get hash of a buffer object */
+        static unsigned long long getBuffer(osg::BufferData& buffer);
+
+        /** Get hash of a shader object */
+        static unsigned long long getShader(osg::Shader& shader);
     };
 }
 

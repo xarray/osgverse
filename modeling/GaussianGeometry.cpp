@@ -77,6 +77,20 @@ namespace
             return tex.release();
         }
 
+        template<typename T> static T* createIndex(int w, int h, osg::UIntArray* ref)
+        {
+            osg::ref_ptr<T> tex = new T;  // TextureBuffer or Texture2D
+            tex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::NEAREST);
+            tex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+            tex->setWrap(osg::Texture::WRAP_S, osg::Texture::MIRROR);
+            tex->setWrap(osg::Texture::WRAP_T, osg::Texture::MIRROR);
+
+            osg::ref_ptr<osg::Image> image = new osg::Image;
+            image->allocateImage(w, h, 1, GL_LUMINANCE, GL_UNSIGNED_INT);
+            image->setInternalTextureFormat(GL_LUMINANCE32UI_EXT);
+            tex->setUserData(ref); tex->setImage(image.get()); return tex.release();
+        }
+
         template<typename T> static osg::Image* getLayer(T* tex, int layer, bool asVec3, bool asHalf)
         {
             if (tex)
@@ -130,8 +144,8 @@ GaussianGeometry::GaussianGeometry(RenderMethod m)
 
 GaussianGeometry::GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop)
 :   osg::Geometry(copy, copyop), _preDataMap(copy._preDataMap), _preDataMap2(copy._preDataMap2),
-    _coreBuffer(copy._coreBuffer), _shcoefBuffer(copy._shcoefBuffer), _method(copy._method),
-    _degrees(copy._degrees), _numSplats(copy._numSplats)
+    _coreBuffer(copy._coreBuffer), _shcoefBuffer(copy._shcoefBuffer), _indexTex(copy._indexTex),
+    _method(copy._method), _degrees(copy._degrees), _numSplats(copy._numSplats)
 { for (int i = 0; i < 4; ++i) _coreTex[i] = copy._coreTex[i]; }
 
 osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m)
@@ -160,7 +174,7 @@ osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, 
         program->addBindAttribLocation("osg_G_SH3", 14);
         program->addBindAttribLocation("osg_B_SH3", 15);
     }
-    else
+    else if (m != INSTANCING_TEXTURE)
         program->addBindAttribLocation("osg_UserIndex", GLOBAL_3DGS_INDEX);
     return program;
 }
@@ -246,7 +260,7 @@ bool GaussianGeometry::finalize()
             {
                 if (_method == INSTANCING_TEX2D)
                     _coreTex[i] = TextureLookUpTable::create<osg::Texture2D>(res.first, res.second, false, false);
-                else
+                else if (_method == INSTANCING_TEXTURE)
                     _coreTex[i] = TextureLookUpTable::create<osg::TextureBuffer>(res.first, res.second, false, false);
                 ss->setTextureAttribute(i, _coreTex[i].get());
                 ss->addUniform(new osg::Uniform(("CoreTexture" + std::to_string(i)).c_str(), i));
@@ -304,15 +318,25 @@ bool GaussianGeometry::finalize()
         // Add an index array for sorting
         osg::ref_ptr<osg::UIntArray> indices = new osg::UIntArray(_numSplats);
         for (int i = 0; i < _numSplats; ++i) (*indices)[i] = i;
-        setVertexAttribArray(GLOBAL_3DGS_INDEX, indices);
-        setVertexAttribNormalize(GLOBAL_3DGS_INDEX, GL_FALSE);
-        setVertexAttribBinding(GLOBAL_3DGS_INDEX, osg::Geometry::BIND_PER_VERTEX);
-
-        if (indices->getVertexBufferObject()) indices->getVertexBufferObject()->setUsage(GL_DYNAMIC_DRAW);
-        indices->setPreserveDataType(true);  // force using glVertexAttribIPointer in osg/VertexArrayState
+        if (_method == INSTANCING_TEXTURE)
+            _indexTex = TextureLookUpTable::createIndex<osg::TextureBuffer>(res.first, res.second, indices.get());
+        else
+        {
+            setVertexAttribArray(GLOBAL_3DGS_INDEX, indices);
+            setVertexAttribNormalize(GLOBAL_3DGS_INDEX, GL_FALSE);
+            setVertexAttribBinding(GLOBAL_3DGS_INDEX, osg::Geometry::BIND_PER_VERTEX);
+            if (indices->getVertexBufferObject()) indices->getVertexBufferObject()->setUsage(GL_DYNAMIC_DRAW);
+            indices->setPreserveDataType(true);  // force using glVertexAttribIPointer in osg/VertexArrayState
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
-        getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(GLOBAL_3DGS_INDEX, 1));
+            getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(GLOBAL_3DGS_INDEX, 1));
 #endif
+        }
+
+        if (_indexTex.valid())
+        {
+            ss->setTextureAttribute(4, _indexTex.get());
+            ss->addUniform(new osg::Uniform("IndexTexture", (int)4));
+        }
         return addPrimitiveSet(de.get());
     }
     else
@@ -673,37 +697,29 @@ void GaussianSorter::cull(osg::RenderInfo& renderInfo)
 
 void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::Matrix& model, const osg::Matrix& view)
 {
-    osg::VectorGLuint* indices = NULL; osg::BufferData* indexBuffer = NULL;
+    osg::VectorGLuint* indices = NULL; osg::BufferData* indexBuffer = NULL; osg::Texture* tex = geom->getIndexTexture();
     osg::Vec3* pos = geom->getPosition3(); osg::Vec4* pos2 = geom->getPosition4();
     int numSplats = geom->getNumSplats(); if ((!pos && !pos2) || !numSplats) return;
-    
-    if (geom->getRenderMethod() != GaussianGeometry::GEOMETRY_SHADER)
+
+    if (geom->getRenderMethod() == GaussianGeometry::INSTANCING_TEXTURE)
     {
-        osg::UIntArray* vaa = static_cast<osg::UIntArray*>(geom->getVertexAttribArray(GLOBAL_3DGS_INDEX));
-        if (!vaa)
-        {
-            vaa = new osg::UIntArray(numSplats); vaa->setPreserveDataType(true);
-            for (int i = 0; i < numSplats; ++i) (*vaa)[i] = i;
-            geom->setVertexAttribArray(GLOBAL_3DGS_INDEX, vaa);
-            geom->setVertexAttribNormalize(GLOBAL_3DGS_INDEX, GL_FALSE);
-            geom->setVertexAttribBinding(GLOBAL_3DGS_INDEX, osg::Geometry::BIND_PER_VERTEX);
-            if (vaa->getVertexBufferObject()) vaa->getVertexBufferObject()->setUsage(GL_DYNAMIC_DRAW);
-#if OSG_VERSION_GREATER_THAN(3, 3, 3)
-            geom->getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(GLOBAL_3DGS_INDEX, 1));
-#endif
-        }
+        osg::UIntArray* vaa = static_cast<osg::UIntArray*>(tex ? tex->getUserData() : NULL);
+        if (!vaa) { OSG_NOTICE << "[GaussianSorter] No index texture for sorting " << geom->getName() << "\n"; return; }
         indices = vaa; indexBuffer = vaa;
+
+    }
+    else if (geom->getRenderMethod() == GaussianGeometry::GEOMETRY_SHADER)
+    {
+        osg::DrawElementsUInt* de = (geom->getNumPrimitiveSets() > 0)
+            ? static_cast<osg::DrawElementsUInt*>(geom->getPrimitiveSet(0)) : NULL;
+        if (!de) { OSG_NOTICE << "[GaussianSorter] No primitive-sets for sorting " << geom->getName() << "\n"; return; }
+        indices = de; indexBuffer = de;
     }
     else
     {
-        osg::DrawElementsUInt* de = (geom->getNumPrimitiveSets() > 0)
-                                  ? static_cast<osg::DrawElementsUInt*>(geom->getPrimitiveSet(0)) : NULL;
-        if (!de)
-        {
-            de = new osg::DrawElementsUInt(GL_POINTS); de->resize(numSplats); geom->addPrimitiveSet(de);
-            for (int i = 0; i < numSplats; ++i) (*de)[i] = i;
-        }
-        indices = de; indexBuffer = de;
+        osg::UIntArray* vaa = static_cast<osg::UIntArray*>(geom->getVertexAttribArray(GLOBAL_3DGS_INDEX));
+        if (!vaa) { OSG_NOTICE << "[GaussianSorter] No index array for sorting " << geom->getName() << "\n"; return; }
+        indices = vaa; indexBuffer = vaa;
     }
 
     osg::Matrix localToEye = model * view; bool toSort = true, shouldDirty = false;
@@ -726,11 +742,20 @@ void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::
             {
                 if (geom->getRenderMethod() != GaussianGeometry::GEOMETRY_SHADER)
                 {
-                    osg::DrawElementsUShort* de = (geom->getNumPrimitiveSets() > 0)
-                                                ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
-                    de->setNumInstances(numSplats - numCulled); de->dirty();
+                    if (tex && tex->getNumImages() > 0)
+                    {
+                        memcpy(tex->getImage(0)->data(), indexBuffer->getDataPointer(),
+                               indices->size() * sizeof(int));
+                        tex->getImage(0)->dirty();
+                    }
+                    else
+                    {
+                        osg::DrawElementsUShort* de = (geom->getNumPrimitiveSets() > 0)
+                            ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
+                        de->setNumInstances(numSplats - numCulled); de->dirty(); shouldDirty = true;
+                    }
                 }
-                shouldDirty = true; indexBuffer->dirty();
+                indexBuffer->dirty();
             }
         } break;
     /*case GL46_RADIX_SORT:

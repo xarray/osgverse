@@ -14,24 +14,29 @@ namespace osgVerse
 {
 
 /** Gaussian geometry:
-   - Render with mesh instances and SSBO: INSTANCING
+   - Render with mesh instances and SSBO:
+     - (Method = INSTANCING, for GL 4.3 or later)
      - Original shape vertices (vec3): getVertexArray()
-     - Instance Indices (uint): getVertexAttribArray(7)
      - Position.xyz + Alpha: SSBO-0 (4 floats)
      - CovMatrix.c0 + Color.r: SSBO-1 (4 floats)
      - CovMatrix.c1 + Color.g: SSBO-2 (4 floats)
      - CovMatrix.c2 + Color.b: SSBO-3 (4 floats)
      - Spherical harmonics coefficients: SSBO-4 (optional, 15 * 4 floats, alpha ignored)
-
-   - Render with mesh instances and texture buffers (no SH): INSTANCING_TEXTURE
-     - Original shape vertices (vec3): getVertexArray()
      - Instance Indices (uint): getVertexAttribArray(7)
-     - Position.xyz + Alpha: Tex2D-0 (4 floats)
-     - CovMatrix.c0 + Color.r: Tex2D-1 (4 floats)
-     - CovMatrix.c1 + Color.g: Tex2D-2 (4 floats)
-     - CovMatrix.c2 + Color.b: Tex2D-3 (4 floats)
+
+   - Render with mesh instances and texture buffers (no SH):
+     - (Method = INSTANCING_TEXTURE, for GL 3 / GLES3)
+     - (Method = INSTANCING_TEX2D, for GL 2 / GLES2)
+     - Original shape vertices (vec3): getVertexArray()
+     - Position.xyz + Alpha: Tex-0 (4 floats)
+     - CovMatrix.c0 + Color.r: Tex-1 (4 floats)
+     - CovMatrix.c1 + Color.g: Tex-2 (4 floats)
+     - CovMatrix.c2 + Color.b: Tex-3 (4 floats)
+     - Instance Indices: Tex-4 (1 uint, for INSTANCING_TEXTURE)
+                      or getVertexAttribArray(7) (for INSTANCING_TEX2D)
 
    - Render with geometry shader and vertex attributes: GEOMETRY_SHADER
+     - (Method = INSTANCING_TEXTURE, for GL 3)
      - Position (vec3): getVertexArray()
      - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
      - Alpha (float): getVertexAttribArray(1).a()
@@ -39,6 +44,7 @@ namespace osgVerse
        - R-channel (dc + 15 rests): getVertexAttribArray(4,7,10,13)
        - G-channel (dc + 15 rests): getVertexAttribArray(5,8,11,14)
        - B-channel (dc + 15 rests): getVertexAttribArray(6,9,12,15)
+     - Indices: getPrimitiveSet(0)
 */
 class GaussianGeometry : public osg::Geometry
 {
@@ -79,6 +85,7 @@ public:
     osg::ref_ptr<osg::Vec4Array> getShGreen(int index);
     osg::ref_ptr<osg::Vec4Array> getShBlue(int index);
 
+    osg::Texture* getIndexTexture() { return _indexTex.get(); }
     osg::FloatArray* getCoreDataBuffer() { return _coreBuffer.get(); }
     osg::FloatArray* getShcoefBuffer() { return _shcoefBuffer.get(); }
 
@@ -90,7 +97,7 @@ protected:
     std::map<std::string, std::vector<osg::Vec4>> _preDataMap;
     std::map<std::string, std::vector<osg::Vec3>> _preDataMap2;
     osg::ref_ptr<osg::FloatArray> _coreBuffer, _shcoefBuffer;
-    osg::ref_ptr<osg::Texture> _coreTex[4];
+    osg::ref_ptr<osg::Texture> _coreTex[4], _indexTex;
     RenderMethod _method;
     int _degrees, _numSplats;
 };

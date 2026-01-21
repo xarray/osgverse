@@ -29,18 +29,21 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - [x] Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
 - [x] Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
 - [x] Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
+- [x] Supports 3D Gaussian Splatting rendering and related formats: PLY, SPZ, SPLAT, PlayCanvas SOG and XGrids LCC.
 - [x] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
-- [ ] Supports major embedded devices with GPU supports, including ARM and RISC-V.
+- [x] (PARTLY) Supports major embedded devices with GPU supports, including ARM and RISC-V.
 - [x] Supports Emscripten / WASM compilation and works with WebGL 1/2 based browsers.
 - [ ] Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
 #### Screenshots
 * osgVerse_Viewer: PBR and deferred pipeline with Desktop GL
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza.jpg)
-* osgVerse_ViewerWASM: PBR and deferred pipeline with WebGL 1.0, compiled from WASM
+* osgVerse_ViewerWASM: PBR and deferred pipeline with WebGL 1.0/2.0, compiled from WASM
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/sponza_wasm.jpg)
-* osgVerse_JsCallerWASM: Scriptable osgb rendering with WebGL 1.0, compiled from WASM
+* osgVerse_JsCallerWASM: Scriptable osgb rendering with WebGL 1.0/2.0, compiled from WASM
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/osgb_wasm.jpg)
+* osgVerse_Test_3DGS: 3D Gaussian Splatting rendering (data from XGrids offical website)
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/3dgs_rendering.jpg)
 
 #### Dependencies
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)

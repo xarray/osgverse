@@ -7,9 +7,11 @@ uniform float GaussianRenderingMode;
 #if defined(USE_INSTANCING)
 #  if defined(USE_INSTANCING_TEX)
 uniform samplerBuffer CoreTexture0, CoreTexture1, CoreTexture2, CoreTexture3;
+uniform usamplerBuffer IndexTexture;
 #  elif defined(USE_INSTANCING_TEX2D)
 uniform sampler2D CoreTexture0, CoreTexture1, CoreTexture2, CoreTexture3;
 uniform vec2 TextureSize;
+VERSE_VS_IN uint osg_UserIndex;
 #  else
 layout(std140, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
 layout(std140, binding = 1) restrict readonly buffer CoreCov0Buffer { vec4 coreCov0[]; };
@@ -23,9 +25,9 @@ struct ShcoefData
     vec4 rgb10; vec4 rgb11; vec4 rgb12; vec4 rgb13; vec4 rgb14;
 };
 layout(std140, binding = 4) restrict readonly buffer ShcoefBuffer { ShcoefData shcoef[]; };
+VERSE_VS_IN uint osg_UserIndex;
 #  endif
 
-VERSE_VS_IN uint osg_UserIndex;
 VERSE_VS_OUT vec4 color, invCovariance;
 VERSE_VS_OUT vec2 center2D;
 
@@ -129,7 +131,7 @@ void main()
 {
 #if defined(USE_INSTANCING)
 #  if defined(USE_INSTANCING_TEX)
-    int index = int(osg_UserIndex);
+    int index = int(texelFetch(IndexTexture, gl_InstanceID).r);
     vec4 posAlpha = texelFetch(CoreTexture0, index);
     vec4 cov0 = texelFetch(CoreTexture1, index);
     vec4 cov1 = texelFetch(CoreTexture2, index);

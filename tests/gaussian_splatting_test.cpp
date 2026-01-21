@@ -16,6 +16,7 @@
 #include <modeling/Math.h>
 #include <modeling/GaussianGeometry.h>
 #include <pipeline/Pipeline.h>
+#include <pipeline/ResourceManager.h>
 #include <pipeline/Utilities.h>
 #include <VerseCommon.h>
 
@@ -38,6 +39,10 @@ public:
             OSG_WARN << "Missing shaders for gaussian splatting." << std::endl;
             return;
         }
+
+        osgVerse::ResourceManager* res = osgVerse::ResourceManager::instance();
+        vert->setName("Gaussian_VS"); geom->setName("Gaussian_GS"); frag->setName("Gaussian_FS");
+        res->shareShader(vert, true); res->shareShader(geom, true); res->shareShader(frag, true);
 
         osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
         if (hint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
@@ -64,7 +69,11 @@ public:
             vert->setUserValue("Definitions", std::string("USE_INSTANCING"));
 
         int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
+#else
+        osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, 430);  // for SSBO under compatible profile
+#endif
         osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
         osgVerse::Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
     }

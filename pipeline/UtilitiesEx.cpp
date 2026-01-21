@@ -21,13 +21,82 @@
 #include <array>
 #include <random>
 
+#define XXH_STATIC_LINKING_ONLY
+#define XXH_IMPLEMENTATION
+#include "3rdparty/xxhash.h"
 #include "modeling/Math.h"
 #include "ShaderLibrary.h"
 #include "Pipeline.h"
+#include "ResourceManager.h"
 #include "Utilities.h"
 
 #define srnd() (2 * frandom(&seed) - 1)
 using namespace osgVerse;
+
+/************** Hash **************/
+static XXH64_hash_t g_hashSeed = XXH64("osgVerse", 8, 0);
+
+void* Hash::startStream()
+{
+    XXH64_state_t* state = XXH64_createState();
+    XXH64_reset(state, g_hashSeed); return state;
+}
+
+bool Hash::addToStream(void* s, const char* data, unsigned int size)
+{
+    XXH64_state_t* state = (XXH64_state_t*)s; if (!s) return false;
+    return XXH64_update(state, data, size) != XXH_ERROR;
+}
+
+unsigned long long Hash::getStream(void* s, bool toFinish)
+{
+    XXH64_state_t* state = (XXH64_state_t*)s; if (!s) return 0;
+    XXH64_hash_t v = XXH64_digest(state);
+    if (toFinish) XXH64_freeState(state); return v;
+}
+
+unsigned long long Hash::get(const char* data, unsigned int size)
+{ return XXH64(data, size, g_hashSeed); }
+
+unsigned long long Hash::getImage(osg::Image& image)
+{
+    unsigned int allSize = image.getTotalDataSize(), numMipmaps = image.getNumMipmapLevels();
+    XXH64_state_t* state = (XXH64_state_t*)startStream();
+    XXH64_update(state, image.data(), image.getTotalSizeInBytes());
+    for (unsigned int j = 1; j < numMipmaps; ++j)
+    {
+        unsigned int size = (j < numMipmaps - 1 ? image.getMipmapOffset(j + 1) : allSize)
+                          - image.getMipmapOffset(j);
+        XXH64_update(state, image.getMipmapData(j), size);
+    }
+    XXH64_hash_t v = XXH64_digest(state);
+    XXH64_freeState(state); return v;
+}
+
+unsigned long long Hash::getBuffer(osg::BufferData& buffer)
+{
+    XXH64_state_t* state = (XXH64_state_t*)startStream();
+    XXH64_update(state, buffer.getDataPointer(), buffer.getTotalDataSize());
+    XXH64_hash_t v = XXH64_digest(state);
+    XXH64_freeState(state); return v;
+}
+
+unsigned long long Hash::getShader(osg::Shader& shader)
+{
+    XXH64_state_t* state = (XXH64_state_t*)startStream();
+    if (shader.getShaderBinary())
+    {
+        osg::ShaderBinary* bin = shader.getShaderBinary();
+        XXH64_update(state, bin->getData(), bin->getSize());
+    }
+    else
+    {
+        const std::string& src = shader.getShaderSource();
+        XXH64_update(state, src.data(), src.size());
+    }
+    XXH64_hash_t v = XXH64_digest(state);
+    XXH64_freeState(state); return v;
+}
 
 /************** StringAuxiliary **************/
 
@@ -126,8 +195,8 @@ static unsigned char* loadAllData(const std::string& file, unsigned int& size, u
 void EarthAtmosphereOcean::applyToGlobe(osg::StateSet* ss, osg::Texture* baseTex, osg::Texture* maskTex,
                                         osg::Texture* extraTex, osg::Shader* vs, osg::Shader* fs, Pipeline* ref)
 {
-    if (!ss || !vs || !fs) return;
-    vs->setName("Scattering_Globe_VS"); fs->setName("Scattering_Globe_FS");
+    if (!ss || !vs || !fs) return; vs->setName("Scattering_Globe_VS"); fs->setName("Scattering_Globe_FS");
+    ResourceManager* res = ResourceManager::instance(); res->shareShader(vs, true); res->shareShader(fs, true);
     if (!ref)
     {
         int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
@@ -152,8 +221,8 @@ void EarthAtmosphereOcean::applyToGlobe(osg::StateSet* ss, osg::Texture* baseTex
 void EarthAtmosphereOcean::applyToOcean(osg::StateSet* ss, osg::Texture* postMaskTex, osg::Texture* waveTex,
                                         osg::Shader* vs, osg::Shader* fs, Pipeline* ref)
 {
-    if (!ss || !vs || !fs) return;
-    vs->setName("Global_Ocean_VS"); fs->setName("Global_Ocean_FS");
+    if (!ss || !vs || !fs) return; vs->setName("Global_Ocean_VS"); fs->setName("Global_Ocean_FS");
+    ResourceManager* res = ResourceManager::instance(); res->shareShader(vs, true); res->shareShader(fs, true);
     if (!ref)
     {
         int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
@@ -173,8 +242,8 @@ void EarthAtmosphereOcean::applyToOcean(osg::StateSet* ss, osg::Texture* postMas
 void EarthAtmosphereOcean::applyToAtmosphere(osg::StateSet* ss, osg::Texture* earthSceneTex,
                                              osg::Shader* vs, osg::Shader* fs, Pipeline* ref)
 {
-    if (!ss || !vs || !fs) return;
-    vs->setName("Scattering_Sky_VS"); fs->setName("Scattering_Sky_FS");
+    if (!ss || !vs || !fs) return; vs->setName("Scattering_Sky_VS"); fs->setName("Scattering_Sky_FS");
+    ResourceManager* res = ResourceManager::instance(); res->shareShader(vs, true); res->shareShader(fs, true);
     if (!ref)
     {
         int cxtVer = 0, glslVer = 0; guessOpenGLVersions(cxtVer, glslVer);
