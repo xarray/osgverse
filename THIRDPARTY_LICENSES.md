@@ -109,12 +109,12 @@
 | 3.4.1   | 2017.8.29    |                  |
 | 3.4.0   | 2015.11.16   |                  |
 | 3.3.7   | 2015.4.16    | Camera::dirtyAttachmentMap(), StateSet::setDefine() |
-| 3.3.4   | 2014.12.22   | osg::VertexAttribDivisor, Image::setColor() |
-| 3.3.2   | 2014.2.24    | get<osg::GLExtensions>(), asNode() |
+| 3.3.4   | 2014.12.22   | osg::VertexAttribDivisor, osg::ShaderStorageBufferObject, Image::setColor() |
+| 3.3.2   | 2014.2.24    | get`<osg::GLExtensions>`(), asNode() |
 | 3.3.0   | 2014.1.1     | osg::Callback, Drawable::getBoundingBox() |
 | 3.2.3   | 2018.2.3     |                  |
 | 3.2.2   | 2015.8.5     |                  |
 | 3.2.1   | 2014.6.5     | ImageSequence::getNumImages() |
-| 3.2.0   | 2013.6.25    | Vec*ub, Vec*us, Vec*ui, checkEvents(), osg::Array::BIND_PER_VERTEX |
+| 3.2.0   | 2013.6.25    | Vec*ub, Vec*us, Vec*ui, TextureBuffer, checkEvents(), osg::Array::BIND_PER_VERTEX |
 | 3.1.5   | 2013.2.4     | Compute shader, Registry::getReaderWriterListForProtocol() |
 | 3.1.1   | 2012.3.9     | First version of serializers |

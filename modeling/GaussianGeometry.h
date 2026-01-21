@@ -5,7 +5,9 @@
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
 #   include <osg/VertexAttribDivisor>
 #endif
+#if OSG_VERSION_GREATER_THAN(3, 1, 9)
 #include <osg/TextureBuffer>
+#endif
 #include <osg/Texture2D>
 #include <osg/Geometry>
 #include <set>

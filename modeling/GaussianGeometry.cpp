@@ -7,9 +7,12 @@
 #include <parallel_radix_sort.h>
 #include "Math.h"
 #include "GaussianGeometry.h"
-
 using namespace osgVerse;
+
 #define GLOBAL_3DGS_INDEX 7
+#ifndef GL_HALF_FLOAT
+#   define GL_HALF_FLOAT 0x140B
+#endif
 
 namespace
 {
@@ -115,19 +118,23 @@ namespace
         { osg::Image* im = getLayer(t, d, true, false); return im ? (osg::Vec3*)im->data() : NULL; }
         template<typename T> static osg::Vec4* getFloat4(T* t, int d)
         { osg::Image* im = getLayer(t, d, false, false); return im ? (osg::Vec4*)im->data() : NULL; }
+#if OSG_VERSION_GREATER_THAN(3, 1, 9)
         template<typename T> static osg::Vec3us* getHalf3(T* t, int d)
         { osg::Image* im = getLayer(t, d, true, true); return im ? (osg::Vec3us*)im->data() : NULL; }
         template<typename T> static osg::Vec4us* getHalf4(T* t, int d)
         { osg::Image* im = getLayer(t, d, false, true); return im ? (osg::Vec4us*)im->data() : NULL; }
+#endif
 
         template<typename T> static void setFloat3(T* t, int d, std::vector<osg::Vec3>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, true, false), &(*ptr)[0], sizeof(osg::Vec3), ptr->size()); }
         template<typename T> static void setFloat4(T* t, int d, std::vector<osg::Vec4>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, false, false), &(*ptr)[0], sizeof(osg::Vec4), ptr->size()); }
+#if OSG_VERSION_GREATER_THAN(3, 1, 9)
         template<typename T> static void setHalf3(T* t, int d, std::vector<osg::Vec3us>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, true, true), &(*ptr)[0], sizeof(osg::Vec3us), ptr->size()); }
         template<typename T> static void setHalf4(T* t, int d, std::vector<osg::Vec4us>* ptr)
         { if (!ptr->empty()) setLayerData(getLayer(t, d, false, true), &(*ptr)[0], sizeof(osg::Vec4us), ptr->size()); }
+#endif
     };
 }
 
@@ -185,7 +192,7 @@ void GaussianGeometry::checkShaderFlag()
     if (_degrees > 0 && _method != INSTANCING_TEXTURE && _method != INSTANCING_TEX2D)
         getOrCreateStateSet()->setDefine("FULL_SH");
     else getOrCreateStateSet()->removeDefine("FULL_SH");
-#endif
+
     if (_method != GEOMETRY_SHADER)
     {
         getOrCreateStateSet()->setDefine("USE_INSTANCING");
@@ -198,6 +205,7 @@ void GaussianGeometry::checkShaderFlag()
         getOrCreateStateSet()->removeDefine("USE_INSTANCING_TEX");
         getOrCreateStateSet()->removeDefine("USE_INSTANCING_TEX2D");
     }
+#endif
 }
 
 #define GET_POS4(v) osg::Vec4* v = const_cast<GaussianGeometry*>(this)->getPosition4();
@@ -247,12 +255,14 @@ bool GaussianGeometry::finalize()
         blockSize = ((blockSize + alignment - 1) / alignment) * alignment;
         if (_coreBuffer.valid())
         {
+#if OSG_VERSION_GREATER_THAN(3, 3, 3)
             osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
             _coreBuffer->resize(blockSize * 4, 0.0f); _coreBuffer->setBufferObject(ssbo);
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(0, _coreBuffer.get(), 0, blockSize));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(1, _coreBuffer.get(), blockSize, blockSize * 2));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(2, _coreBuffer.get(), blockSize * 2, blockSize * 3));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(3, _coreBuffer.get(), blockSize * 3, blockSize * 4));
+#endif
         }
         else if (!_coreTex[0])
         {
@@ -260,8 +270,10 @@ bool GaussianGeometry::finalize()
             {
                 if (_method == INSTANCING_TEX2D)
                     _coreTex[i] = TextureLookUpTable::create<osg::Texture2D>(res.first, res.second, false, false);
+#if OSG_VERSION_GREATER_THAN(3, 1, 9)
                 else if (_method == INSTANCING_TEXTURE)
                     _coreTex[i] = TextureLookUpTable::create<osg::TextureBuffer>(res.first, res.second, false, false);
+#endif
                 ss->setTextureAttribute(i, _coreTex[i].get());
                 ss->addUniform(new osg::Uniform(("CoreTexture" + std::to_string(i)).c_str(), i));
             }
@@ -286,9 +298,11 @@ bool GaussianGeometry::finalize()
             size_t blockSize = _numSplats * sizeof(osg::Vec4) * 15;  // rgb4 * 15
             if (_shcoefBuffer.valid())
             {
+#if OSG_VERSION_GREATER_THAN(3, 3, 3)
                 osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
                 _shcoefBuffer->resize(_numSplats * 60, 0.0f); _shcoefBuffer->setBufferObject(ssbo);
                 ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(4, _shcoefBuffer.get(), 0, blockSize));
+#endif
             }
 
             ptr = _shcoefBuffer.valid() ? (char*)_shcoefBuffer->getDataPointer() : NULL;
@@ -318,16 +332,18 @@ bool GaussianGeometry::finalize()
         // Add an index array for sorting
         osg::ref_ptr<osg::UIntArray> indices = new osg::UIntArray(_numSplats);
         for (int i = 0; i < _numSplats; ++i) (*indices)[i] = i;
+#if OSG_VERSION_GREATER_THAN(3, 1, 9)
         if (_method == INSTANCING_TEXTURE)
             _indexTex = TextureLookUpTable::createIndex<osg::TextureBuffer>(res.first, res.second, indices.get());
         else
+#endif
         {
             setVertexAttribArray(GLOBAL_3DGS_INDEX, indices);
             setVertexAttribNormalize(GLOBAL_3DGS_INDEX, GL_FALSE);
             setVertexAttribBinding(GLOBAL_3DGS_INDEX, osg::Geometry::BIND_PER_VERTEX);
             if (indices->getVertexBufferObject()) indices->getVertexBufferObject()->setUsage(GL_DYNAMIC_DRAW);
-            indices->setPreserveDataType(true);  // force using glVertexAttribIPointer in osg/VertexArrayState
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
+            indices->setPreserveDataType(true);  // force using glVertexAttribIPointer in osg/VertexArrayState
             getOrCreateStateSet()->setAttributeAndModes(new osg::VertexAttribDivisor(GLOBAL_3DGS_INDEX, 1));
 #endif
         }

@@ -214,9 +214,15 @@ void GraphicsWindowGLFW::initialize()
             int monitorCount = 0; GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
             if (_traits->screenNum < monitorCount) monitor = monitors[_traits->screenNum];
         }
-        if (_traits->sharedContext.valid())
+
+#if OSG_VERSION_GREATER_THAN(3, 1, 9)
+        osg::GraphicsContext* sharedContext = _traits->sharedContext.get();
+#else
+        osg::GraphicsContext* sharedContext = _traits->sharedContext;
+#endif
+        if (sharedContext)
         {
-            GraphicsWindowGLFW* sharedWin = dynamic_cast<GraphicsWindowGLFW*>(_traits->sharedContext.get());
+            GraphicsWindowGLFW* sharedWin = dynamic_cast<GraphicsWindowGLFW*>(sharedContext);
             shared = (sharedWin != NULL) ? sharedWin->_window : NULL;
         }
     }

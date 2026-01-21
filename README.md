@@ -30,6 +30,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - [x] Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
 - [x] Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
 - [x] Supports 3D Gaussian Splatting rendering and related formats: PLY, SPZ, SPLAT, PlayCanvas SOG and XGrids LCC.
+- [x] Supports dependency-free earth scene construction and high quality terrain/atmosphere/ocean rendering. (without osgEarth)
 - [x] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
 - [x] (PARTLY) Supports major embedded devices with GPU supports, including ARM and RISC-V.
 - [x] Supports Emscripten / WASM compilation and works with WebGL 1/2 based browsers.
@@ -44,6 +45,8 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/osgb_wasm.jpg)
 * osgVerse_Test_3DGS: 3D Gaussian Splatting rendering (data from XGrids offical website)
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/3dgs_rendering.jpg)
+* osgVerse_Test_Earth: Earth rendering with DEM/DOM tiles, atmosphere and ocean supports
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/earth_rendering.jpg)
 
 #### Dependencies
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
@@ -209,23 +212,23 @@ Our project is already tested on graphics cards listed as below:
 1. By default, osgVerse will find third-party libraries as follows:
   - OpenGL: from the system. Note that some Linux distributions (e.g., Qilin) should enable VERSE_FIND_LEGACY_OPENGL first.
   - OpenSceneGraph: from environment variable $OSG_ROOT.
-  - SDL, Draco, Bullet, etc.: from CMake variable ${VERSE_3RDPARTY_PATH}, which is <osgverse_folder>/../Dependencies by default.
-    - Actually path to find includes and libraries will be automatically set to '${VERSE_3RDPARTY_PATH}/<platform>'.
-    - For x86/x64 build: <platform> is 'x86' or 'x64'.
-    - For Android build: <platform> is 'android'.
-    - For MacOSX/IOS build: <platform> is 'apple' or 'ios'.
-    - For WebAssembly (WASM) build: <platform> is 'wasm'.
-    - For Windows UWP build: <platform> is 'uwp'.
-    - For ARM64 build: <platform> is 'aarch64'.
+  - SDL, Draco, Bullet, etc.: from CMake variable ${VERSE_3RDPARTY_PATH}, which is `<osgverse_folder>`/../Dependencies by default.
+    - Actually path to find includes and libraries will be automatically set to '${VERSE_3RDPARTY_PATH}/`<platform>`'.
+    - For x86/x64 build: `<platform>` is 'x86' or 'x64'.
+    - For Android build: `<platform>` is 'android'.
+    - For MacOSX/IOS build: `<platform>` is 'apple' or 'ios'.
+    - For WebAssembly (WASM) build: `<platform>` is 'wasm'.
+    - For Windows UWP build: `<platform>` is 'uwp'.
+    - For ARM64 build: `<platform>` is 'aarch64'.
 2. Build Draco:
   - Clone from https://github.com/google/draco.git
   - For WebAssembly (WASM):
-    - $ export EMSCRIPTEN=<emsdk_folder>/upstream/emscripten
+    - $ export EMSCRIPTEN=`<emsdk_folder>`/upstream/emscripten
     - $ cmake -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake -DDRACO_WASM=ON
-              -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/wasm <draco_folder>
+              -DDRACO_JS_GLUE=OFF -DCMAKE_INSTALL_PREFIX=`<your_path>`/Dependencies/wasm `<draco_folder>`
     - $ make install
   - For common platforms:
-    - (Windows) $ make -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/<arch> <draco_folder> & make install
+    - (Windows) $ make -DCMAKE_INSTALL_PREFIX=`<your_path>`/Dependencies/`<arch>` `<draco_folder>` & make install
     - (Linux)   $ apt-get install libdraco-dev
 3. Build ZLMediaKit:
   - Prepare related dependencies:
@@ -241,33 +244,33 @@ Our project is already tested on graphics cards listed as below:
       - (Linux) $ apt-get install libscrtp2-dev
       - Or build from source:
         - Clone from https://github.com/cisco/libsrtp.git
-        - $ cmake -DENABLE_OPENSSL=ON <srtp_folder> & make install
+        - $ cmake -DENABLE_OPENSSL=ON `<srtp_folder>` & make install
   - Clone recursively from https://github.com/ZLMediaKit/ZLMediaKit.git
   - $ cmake -DENABLE_API=ON -DENABLE_CXX_API=ON -DENABLE_FFMPEG=ON -DENABLE_OPENSSL=ON -DENABLE_SCTP=ON
             -DENABLE_SERVER=ON -DENABLE_WEBRTC=ON -DENABLE_X264=ON
-            -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/<arch> <zlmediakit_folder>
+            -DCMAKE_INSTALL_PREFIX=`<your_path>`/Dependencies/`<arch>` `<zlmediakit_folder>`
     - You may have to manually specify some library paths in cmake-gui
   - $ make install
 4. Build Bullet3:
   - Clone from https://github.com/bulletphysics/bullet3.git
   - $ cmake -DINSTALL_LIBS=ON -DUSE_DOUBLE_PRECISION=ON
-            -DCMAKE_INSTALL_PREFIX=<your_path>/Dependencies/<arch> <bullet_folder>
+            -DCMAKE_INSTALL_PREFIX=`<your_path>`/Dependencies/`<arch>` `<bullet_folder>`
   - $ make install
 5. Build netCDF:
   - TBD...
 5. TBD...
 
 #### Build osgverse from Source
-0. Assume that osgVerse source code is already at <osgverse_folder>.
+0. Assume that osgVerse source code is already at `<osgverse_folder>`.
 1. Desktop Windows / Linux
   - Make sure you have a compiler environment (e.g., Visual Studio).
   - Download and install CMake tool.
-  - Download OSG prebuilt libraries or build them from source, extracting to <osg_sdk_folder>.
+  - Download OSG prebuilt libraries or build them from source, extracting to `<osg_sdk_folder>`.
   - Declare an environment variable OSG_ROOT, to indicate OSG root directory:
-    - (Windows) $ set OSG_ROOT=<osg_sdk_folder>
-    - (Linux)   $ export OSG_ROOT=<osg_sdk_folder>
+    - (Windows) $ set OSG_ROOT=`<osg_sdk_folder>`
+    - (Linux)   $ export OSG_ROOT=`<osg_sdk_folder>`
   - Run commands below in terminal:
-    - $ cd <osgverse_folder>
+    - $ cd `<osgverse_folder>`
     - $ mkdir build
     - $ cd build
     - $ cmake ..
@@ -277,14 +280,14 @@ Our project is already tested on graphics cards listed as below:
     - First download OpenSceneGraph prebuilt libraries:
       - $ pacman -S mingw-w64-ucrt-x86_64-OpenSceneGraph
     - Run commands below in terminal:
-      - $ cmake -G "MSYS Makefiles" <osgverse_folder>
+      - $ cmake -G "MSYS Makefiles" `<osgverse_folder>`
   - For UWP build:
     - First download Windows Store SDK or latest Windows 11 SDK (with VS2022).
     - Download Angle for UWP: https://www.nuget.org/packages/ANGLE.WindowsStore
     - Rename the .nuget file to .zip and extract it. Find libraries and include files there.
     - Build OSG for GLES2/GLES3 (Desktop / GoogleAngle). See herlps/osg_builder/README.md for details.
     - Run commands below in terminal:
-      - $ cmake -G "Visual Studio 17 2022" -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" <osgverse_folder>
+      - $ cmake -G "Visual Studio 17 2022" -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" `<osgverse_folder>`
 2. Desktop Mac OSX
   - Prepare Ninja, Python3 and CMake first. (from Homebrew on MacOSX)
   - Download and compile GoogleAngle as described in helpers/osg_builder/README.md
@@ -292,29 +295,29 @@ Our project is already tested on graphics cards listed as below:
   - Configure osgverse to use the specified version of OpenSceneGraph and GoogleAngle as bridge
 3. Android
   - Download OpenJDK 17 from: https://jdk.java.net/archive/
-    - Unzip and set the JAVA_HOME variable to <jdk_folder>
+    - Unzip and set the JAVA_HOME variable to `<jdk_folder>`
   - Download Android command-line tools from: https://developer.android.com/studio#command-line-tools-only
     - Install SDK following the instructions: https://developer.android.com/tools/sdkmanager
-    - $ <commandline_folder>/bin/sdkmanager "platform-tools" "platforms;android-32"
+    - $ `<commandline_folder>`/bin/sdkmanager "platform-tools" "platforms;android-32"
   - Download Android NDK from: https://developer.android.com/ndk/downloads/
-  - Download Gradle and add <gradle_folder>/bin to PATH: https://gradle.org/releases/
+  - Download Gradle and add `<gradle_folder>`/bin to PATH: https://gradle.org/releases/
   - Under Windows, run commands below in terminal:
-    - $ cd <osgverse_folder>
+    - $ cd `<osgverse_folder>`
     - $ ./Setup.bat
     - Select "5. Android / GLES3" and start building. Note: local.properties and settings.gradle will be regenerated if necessary.
   - TBD...
 4. HarmonyOS
   - Download OpenJDK 17 from: https://jdk.java.net/archive/
-    - Unzip and set the JAVA_HOME variable to <jdk_folder>
+    - Unzip and set the JAVA_HOME variable to `<jdk_folder>`
   - Download command-line tools from: https://developer.huawei.com/consumer/cn/download/
   - TBD...
 5. IOS
   - TBD...
 6. WebAssembly
-  - Download emsdk from https://emscripten.org/docs/getting_started/downloads.html, extracting to <emsdk_folder>.
+  - Download emsdk from https://emscripten.org/docs/getting_started/downloads.html, extracting to `<emsdk_folder>`.
   - Update and activate emsdk as required at the page above.
-  - Download OSG source code and extract it to <osgverse_folder>/../OpenSceneGraph
-  - (Optional) Download osgEarth-WASM source code and extract it to <osgverse_folder>/../osgearth-wasm
+  - Download OSG source code and extract it to `<osgverse_folder>`/../OpenSceneGraph
+  - (Optional) Download osgEarth-WASM source code and extract it to `<osgverse_folder>`/../osgearth-wasm
     - Repository: https://gitee.com/xarray/osgearth-wasm
     - osgEarth-WASM can only be built with WebGL 2.0
     - Build GDAL, GEOS, etc. (https://github.com/bugra9/gdal3.js)
@@ -323,23 +326,23 @@ Our project is already tested on graphics cards listed as below:
       - $ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
       - $ nvm install node
       - $ npm install -g pnpm@8.0
-      - $ source <emsdk_folder>/emsdk_env.sh
+      - $ source `<emsdk_folder>`/emsdk_env.sh
       - $ pnpm install
       - $ pnpm run build
-      - Copy bin/include/lib from gdal3.js\build\native\usr to <osgverse_folder>/../Dependencies/wasm
+      - Copy bin/include/lib from gdal3.js\build\native\usr to `<osgverse_folder>`/../Dependencies/wasm
   - Under Windows with Ninja:
     - Run commands below in terminal:
-      - $ <emsdk_folder>/emsdk_env.bat
-      - $ cd <osgverse_folder>
+      - $ `<emsdk_folder>`/emsdk_env.bat
+      - $ cd `<osgverse_folder>`
       - $ ./Setup.bat
   - Under Linux or WSL (Windows Sub-System for Linux):
     - Start a UNIX ternimal (under Windows, please install WSL v1 and start it).
     - Run commands below in terminal:
-        - $ cd <osgverse_folder>
-        - $ ./Setup.sh <emsdk_folder>
-  - Select "3. WASM / WebGL 1.0" or "4. WASM / WebGL 2.0" and start building WASM at <osgverse_folder>/build/verse_wasm.
-  - Start an HTTPS server at <osgverse_folder>/build/verse_wasm/bin. See <osgverse_folder>/wasm/run_webserver.py as an example.
-  - Copy <osgverse_folder>/assets to the same root folder of the server, and enjoy our WebGL examples.
+        - $ cd `<osgverse_folder>`
+        - $ ./Setup.sh `<emsdk_folder>`
+  - Select "3. WASM / WebGL 1.0" or "4. WASM / WebGL 2.0" and start building WASM at `<osgverse_folder>`/build/verse_wasm.
+  - Start an HTTPS server at `<osgverse_folder>`/build/verse_wasm/bin. See `<osgverse_folder>`/wasm/run_webserver.py as an example.
+  - Copy `<osgverse_folder>`/assets to the same root folder of the server, and enjoy our WebGL examples.
 
 #### CMake options
 | Option                      | Type    | Default Value | Notes |
@@ -369,8 +372,8 @@ Our project is already tested on graphics cards listed as below:
 | OSGEARTH_LIB_DIR            | Path    |               | Set to path of libosgEarth.so or osgEarth.lib |
 | SDL2_INCLUDE_DIR            | Path    |               | Set to path of SDL.h |
 | SDL2_LIB_DIR                | Path    |               | Set to path of libSDL2.so or SDL2.lib |
-| Qt5_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt5 |
-| Qt6_DIR                     | Path    |               | Set to path of <qt_dist>/lib/cmake/Qt6 |
+| Qt5_DIR                     | Path    |               | Set to path of `<qt_dist>`/lib/cmake/Qt5 |
+| Qt6_DIR                     | Path    |               | Set to path of `<qt_dist>`/lib/cmake/Qt6 |
 | VERSE_3RDPARTY_PATH         | Path    |               | Set to path of third-party libraries |
 | VERSE_INSTALL_PDB_FILES     | Boolean | ON            | Enable to install PDB files along with executables and dynamic libraries |
 | VERSE_BUILD_EXPORTERS       | Boolean | OFF           | Enable build of exporters of other software (e.g., 3dsmax) |

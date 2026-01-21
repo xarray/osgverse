@@ -2,7 +2,6 @@
 #include <osg/LightSource>
 #include <osg/Texture2D>
 #include <osg/MatrixTransform>
-#include <osgDB/ClassInterface>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgGA/TrackballManipulator>
@@ -69,6 +68,7 @@ static std::string getPropertyTypeName(const std::string& clsName, osgDB::BaseSe
     case osgDB::BaseSerializer::RW_MATRIX: return "Matrix";
     case osgDB::BaseSerializer::RW_STRING: return "std::string";
     case osgDB::BaseSerializer::RW_ENUM: return "Enum";
+#if OSG_VERSION_GREATER_THAN(3, 3, 0)
     case osgDB::BaseSerializer::RW_VECTOR:
         if (clsName == "FloatArray") return "std::vector<float>";
         else if (clsName == "Vec2Array") return "std::vector<osg::Vec2>";
@@ -83,6 +83,7 @@ static std::string getPropertyTypeName(const std::string& clsName, osgDB::BaseSe
         else if (clsName == "DrawElementsUInt") return "std::vector<unsigned int>";
         else return "std::vector<Object>";
         break;
+#endif
     default:
         //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
         return "Unknown_" + std::to_string((int)type);

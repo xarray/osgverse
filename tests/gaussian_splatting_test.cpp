@@ -1,4 +1,5 @@
 #include <osg/io_utils>
+#include <osg/ValueObject>
 #include <osg/Texture2D>
 #include <osg/BlendFunc>
 #include <osg/BlendEquation>

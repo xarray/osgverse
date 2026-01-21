@@ -13,18 +13,18 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 #### OSG for GLES2/GLES3 (Desktop / GoogleAngle)
 * CMake options: (not in cmake-gui)
   * OPENGL_PROFILE: GLES2/GLES3
-  * EGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
-  * EGL_LIBRARY: <GoogleAngle_SDK>/lib/libEGL.lib
-  * OPENGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
-  * OPENGL_gl_LIBRARY: <GoogleAngle_SDK>/lib/libGLESv2.lib
+  * EGL_INCLUDE_DIR: `<GoogleAngle_SDK>`/include
+  * EGL_LIBRARY: `<GoogleAngle_SDK>`/lib/libEGL.lib
+  * OPENGL_INCLUDE_DIR: `<GoogleAngle_SDK>`/include
+  * OPENGL_gl_LIBRARY: `<GoogleAngle_SDK>`/lib/libGLESv2.lib
 * You will have to find include-files and libraries from PowerVR / GoogleAngle SDK. Only support OSG 3.7.0 or later.
   * A quick guild to compile GoogleAngle on Windows/MacOSX
     * Prepare Ninja, Python3 and CMake first. (from Homebrew on MacOSX)
     * <em>git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git</em>
     * <em>git clone https://chromium.googlesource.com/angle/angle</em>
-    * <em>set PATH=<path>/depot_tools;%PATH% 'OR' export PATH=<path>/depot_tools:$PATH</em>
+    * <em>set PATH=`<path>`/depot_tools;%PATH% 'OR' export PATH=`<path>`/depot_tools:$PATH</em>
     * <em>set DEPOT_TOOLS_WIN_TOOLCHAIN=0</em>  '''Disable private downloading from Google Cloud
-    * <em>cd <path>/angle; python.exe scripts/bootstrap.py</em>
+    * <em>cd `<path>`/angle; python.exe scripts/bootstrap.py</em>
     * <em>gclient sync</em>  '''Make sure you can visit the website!
     * <em>gn gen out/Release</em>  '''Generate makefiles
     * Set options in args.gn</em> (like: angle_enable_vulkan = true, angle_enable_metal = true, is_debug = false, etc.)
@@ -38,11 +38,11 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 #### OSG for GLES2/GLES3 (MacOSX > 14 / GoogleAngle)
 * CMake options: (not in cmake-gui)
   * OPENGL_PROFILE: GLES2/GLES3
-  * EGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
-  * EGL_LIBRARY: <GoogleAngle_SDK>/lib/libEGL.dylib
-  * OPENGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
-  * OPENGL_gl_LIBRARY: <GoogleAngle_SDK>/lib/libGLESv2.dylib
-  * OPENGL_HEADER2: "#include <GLES3/gl3.h>"
+  * EGL_INCLUDE_DIR: `<GoogleAngle_SDK>`/include
+  * EGL_LIBRARY: `<GoogleAngle_SDK>`/lib/libEGL.dylib
+  * OPENGL_INCLUDE_DIR: `<GoogleAngle_SDK>`/include
+  * OPENGL_gl_LIBRARY: `<GoogleAngle_SDK>`/lib/libGLESv2.dylib
+  * OPENGL_HEADER2: "#include `<GLES3/gl3.h>`"
 * You will have to find include-files and libraries from GoogleAngle 
   * args.gn for compiling GoogleAngle on MacOSX:
     angle_enable_metal = true
@@ -50,10 +50,10 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * Copy Angle include folders to %osg_build_path%/include
   * Remove avfoundation plugin in osgPlugins/CMakeLsits.txt
   * <cm>FIXME: Current OSG cmake has some Apple-related code that force setting OpenGL libraries and include paths.
-        (Satrting from line 240 in <osg_root_path>/CMakeLists.txt) Will have to modify or remove them manually to
+        (Satrting from line 240 in `<osg_root_path>`/CMakeLists.txt) Will have to modify or remove them manually to
         make Googla Angle (GLES) work. Make these modifications automatically later?</cm>
 * Command-line example:
-  * <em>cmake -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_HEADER2="#include <GLES3/gl3.h>" -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
+  * <em>cmake -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_HEADER2="#include `<GLES3/gl3.h>`" -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
   * <em>cmake --build .</em>
   * osgVerse must be built with -DVERSE_BUILD_WITH_ANGLE=ON
 
@@ -62,10 +62,10 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * CMAKE_SYSTEM_NAME: WindowsStore
   * CMAKE_SYSTEM_VERSION: "10.0"
   * OPENGL_PROFILE: GLES2
-  * EGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
-  * EGL_LIBRARY: <GoogleAngle_SDK>/lib/libEGL.lib
-  * OPENGL_INCLUDE_DIR: <GoogleAngle_SDK>/include
-  * OPENGL_gl_LIBRARY: <GoogleAngle_SDK>/lib/libGLESv2.lib
+  * EGL_INCLUDE_DIR: `<GoogleAngle_SDK>`/include
+  * EGL_LIBRARY: `<GoogleAngle_SDK>`/lib/libEGL.lib
+  * OPENGL_INCLUDE_DIR: `<GoogleAngle_SDK>`/include
+  * OPENGL_gl_LIBRARY: `<GoogleAngle_SDK>`/lib/libGLESv2.lib
   * OSG_USE_UTF8_FILENAME: ON
   * OSG_WINDOWING_SYSTEM: "None"
   * _OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE: 0
@@ -75,17 +75,17 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * Rename the .nuget file to .zip and extract it. Find libraries and include files there.
 * Patches to version 3.6.5
   * GLES3/gl2.h and GLES3/gl3.h
-    * <Line 44 Insertion> #define GL_GLEXT_PROTOTYPES
+    * `<Line 44 Insertion>` #define GL_GLEXT_PROTOTYPES
   * src/OpenThreads/win32/Win32Thread.cpp
-    * <Line 434> //return TerminateThread(pd->tid.get(),(DWORD)-1);
+    * `<Line 434>` //return TerminateThread(pd->tid.get(),(DWORD)-1);
   * src/osgDB/FileNameUtils.cpp
-    * <Line 310> memcpy(tempbuf1, retbuf, _countof(retbuf));
-    * <Line 320> if (0 == memcpy(tempbuf1, convertUTF8toUTF16(FilePath).c_str(), convertUTF8toUTF16(FilePath).size()))
+    * `<Line 310>` memcpy(tempbuf1, retbuf, _countof(retbuf));
+    * `<Line 320>` if (0 == memcpy(tempbuf1, convertUTF8toUTF16(FilePath).c_str(), convertUTF8toUTF16(FilePath).size()))
   * src/osgDB/FilUtils.cpp
-    * <Line 19> //typedef char TCHAR;
-    * <Line 247> if (_wgetcwd(rootdir, MAX_PATH - 1))
-      <Line 249> return OSGDB_FILENAME_TO_STRING(rootdir);
-    * <Line 861> retval = OSGDB_WINDOWS_FUNCT(GetSystemWindowsDirectory)(windowsDir, (UINT)size);
+    * `<Line 19>` //typedef char TCHAR;
+    * `<Line 247>` if (_wgetcwd(rootdir, MAX_PATH - 1))
+      `<Line 249>` return OSGDB_FILENAME_TO_STRING(rootdir);
+    * `<Line 861>` retval = OSGDB_WINDOWS_FUNCT(GetSystemWindowsDirectory)(windowsDir, (UINT)size);
 * Command-line example: (Windows only)
   * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES2 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_USE_UTF8_FILENAME=ON -DOSG_WINDOWING_SYSTEM="None" -D_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE=0 "%osg_root_path%"</em>
   * Run <em>Solution File</em> and build
@@ -102,10 +102,10 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 * CMake options: (not in cmake-gui)
   * CMAKE_TOOLCHAIN_FILE: android.toolchain.cmake
   * CMAKE_BUILD_TYPE: Release
-  * ANDROID_NDK: <Android NDK path>
+  * ANDROID_NDK: `<Android NDK path>`
   * ANDROID_ABI: armeabi/armeabi-v7a/armeabi-v7a with NEON/arm64-v8a/mips/mips64/x86/x86_64
-  * ANDROID_NATIVE_API_LEVEL: 21 (find a version in <Android NDK path>/platforms)
-  * CMAKE_MAKE_PROGRAM (Windows only): <Android NDK path>/prebuilt/windows-x86_64/bin/make.exe
+  * ANDROID_NATIVE_API_LEVEL: 21 (find a version in `<Android NDK path>`/platforms)
+  * CMAKE_MAKE_PROGRAM (Windows only): `<Android NDK path>`/prebuilt/windows-x86_64/bin/make.exe
   * DYNAMIC_OPENSCENEGRAPH: OFF
   * DYNAMIC_OPENTHREADS: OFF
   * OPENGL_PROFILE: GLES2/GLES3
@@ -126,7 +126,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * _OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE: 0
 * Patches to version 3.6.5
   * src/osgUtil/tristripper/include/detail/graph_array.h
-    * <Line 449> std::for_each(G.begin(), G.end(), std::mem_fn(&graph_array<N>::node::unmark));
+    * `<Line 449>` std::for_each(G.begin(), G.end(), std::mem_fn(&graph_array<N>::node::unmark));
   * src/osgPlugins/cfg (Comment out it in src/osgPlugins/CMakeLists.txt)
 * Download and prepare the emscripten toolchain, for Linux / WSL only at present:
   * Download emsdk first (e.g. https://github.com/emscripten-core/emsdk/releases/)

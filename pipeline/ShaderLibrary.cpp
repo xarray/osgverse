@@ -1,3 +1,4 @@
+#include <osg/ValueObject>
 #include <osgDB/ReadFile>
 #include <osgDB/FileUtils>
 #include "Pipeline.h"
