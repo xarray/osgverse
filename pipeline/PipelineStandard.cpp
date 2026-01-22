@@ -49,6 +49,101 @@
 #   define GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS          0x90DB
 #endif
 
+#ifndef GL_VERSION_4_3
+typedef void (APIENTRY* GLDEBUGPROC)(GLenum source, GLenum type, GLuint id, GLenum severity,
+                                     GLsizei length, const GLchar* message, const void* userParam);
+#   define GL_INVALID_FRAMEBUFFER_OPERATION  0x0506
+#   define GL_DEBUG_SOURCE_API               0x8246
+#   define GL_DEBUG_SOURCE_WINDOW_SYSTEM     0x8247
+#   define GL_DEBUG_SOURCE_SHADER_COMPILER   0x8248
+#   define GL_DEBUG_SOURCE_THIRD_PARTY       0x8249
+#   define GL_DEBUG_SOURCE_APPLICATION       0x824A
+#   define GL_DEBUG_SOURCE_OTHER             0x824B
+#   define GL_DEBUG_TYPE_ERROR               0x824C
+#   define GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR 0x824D
+#   define GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR  0x824E
+#   define GL_DEBUG_TYPE_PORTABILITY         0x824F
+#   define GL_DEBUG_TYPE_PERFORMANCE         0x8250
+#   define GL_DEBUG_TYPE_OTHER               0x8251
+#   define GL_DEBUG_SEVERITY_HIGH            0x9146
+#   define GL_DEBUG_SEVERITY_MEDIUM          0x9147
+#   define GL_DEBUG_SEVERITY_LOW             0x9148
+#   define GL_DEBUG_TYPE_MARKER              0x8268
+#   define GL_DEBUG_TYPE_PUSH_GROUP          0x8269
+#   define GL_DEBUG_TYPE_POP_GROUP           0x826A
+#endif
+
+#ifndef GL_VERSION_4_5
+#   define GL_CONTEXT_LOST                   0x0507
+#endif
+
+namespace
+{
+#if defined(OSG_GL3_AVAILABLE)
+    typedef void (APIENTRY* glDebugMessageCallbackPtr)(GLDEBUGPROC callback, const void* userParam);
+    typedef void (APIENTRY* glDebugMessageControlPtr)(GLenum source, GLenum type, GLenum severity, GLsizei count,
+                                                      const GLuint* ids, GLboolean enabled);
+    static glDebugMessageCallbackPtr _glDebugMessageCallback = NULL;
+    static glDebugMessageControlPtr _glDebugMessageControl = NULL;
+
+    static void glDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                                const GLchar* message, const void* userParam)
+    {
+        std::string srcInfo, typeInfo, idInfo;
+        switch (source)
+        {
+        case GL_DEBUG_SOURCE_API: srcInfo = "API"; break;
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: srcInfo = "WINDOW_SYSTEM"; break;
+        case GL_DEBUG_SOURCE_SHADER_COMPILER: srcInfo = "SHADER_COMPILER"; break;
+        case GL_DEBUG_SOURCE_THIRD_PARTY: srcInfo = "THIRD_PARTY"; break;
+        case GL_DEBUG_SOURCE_APPLICATION: srcInfo = "APPLICATION"; break;
+        case GL_DEBUG_SOURCE_OTHER: srcInfo = "OTHER"; break;
+        default: srcInfo = "UNKNOWN_" + std::to_string(source); break;
+        }
+
+        switch (type)
+        {
+        case GL_DEBUG_TYPE_ERROR: typeInfo = "ERROR"; break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typeInfo = "DEPRECATED_BEHAVIOR"; break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typeInfo = "UNDEFINED_BEHAVIOR"; break;
+        case GL_DEBUG_TYPE_PORTABILITY: typeInfo = "PORTABILITY"; break;
+        case GL_DEBUG_TYPE_PERFORMANCE: typeInfo = "PERFORMANCE"; break;
+        case GL_DEBUG_TYPE_MARKER: typeInfo = "MARKER"; break;
+        case GL_DEBUG_TYPE_PUSH_GROUP: typeInfo = "PUSH_GROUP"; break;
+        case GL_DEBUG_TYPE_POP_GROUP: typeInfo = "POP_GROUP"; break;
+        case GL_DEBUG_TYPE_OTHER: typeInfo = "OTHER"; break;
+        default: typeInfo = "UNKNOWN_" + std::to_string(type); break;
+        }
+
+        switch (id)
+        {
+        case GL_NO_ERROR: idInfo = "NO_ERROR"; break;
+        case GL_INVALID_ENUM: idInfo = "INVALID_ENUM"; break;
+        case GL_INVALID_VALUE: idInfo = "INVALID_VALUE"; break;
+        case GL_INVALID_OPERATION: idInfo = "INVALID_OPERATION"; break;
+        case GL_STACK_OVERFLOW: idInfo = "STACK_OVERFLOW"; break;
+        case GL_STACK_UNDERFLOW: idInfo = "STACK_UNDERFLOW"; break;
+        case GL_OUT_OF_MEMORY: idInfo = "OUT_OF_MEMORY"; break;
+        case GL_INVALID_FRAMEBUFFER_OPERATION: idInfo = "INVALID_FRAMEBUFFER_OPERATION"; break;
+        case GL_CONTEXT_LOST: idInfo = "CONTEXT_LOST"; break;
+        //case GL_TABLE_TOO_LARGE: idInfo = "TABLE_TOO_LARGE"; break;
+        default: idInfo = "UNKNOWN_" + std::to_string(id); break;
+        }
+
+        std::string msgData = "ID = " + idInfo + "\n" + std::string(message)
+                            + " (Source = " + srcInfo + ", Type = " + typeInfo + ")";
+        switch (severity)
+        {
+        case GL_DEBUG_SEVERITY_HIGH: OSG_WARN << "[GLDebug HIGH] " << msgData << std::endl; break;
+        case GL_DEBUG_SEVERITY_MEDIUM: OSG_NOTICE << "[GLDebug MEDIUM] " << msgData << std::endl; break;
+        case GL_DEBUG_SEVERITY_LOW: OSG_INFO << "[GLDebug LOW] " << msgData << std::endl; break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION: OSG_INFO << "[GLDebug NOTIFY] " << msgData << std::endl; break;
+        default: OSG_NOTICE << "[GLDebug DEFAULT] " << msgData << std::endl; break;
+        }
+    }
+#endif
+}
+
 class GLExtensionTester : public osg::Camera::DrawCallback
 {
 public:
@@ -176,6 +271,16 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
 
 namespace osgVerse
 {
+    void GLVersionData::copy(GLVersionData* data)
+    {
+        if (!data) return; capabilities = data->capabilities;
+        version = data->version; renderer = data->renderer;
+        glVersion = data->glVersion; glslVersion = data->glslVersion;
+        glslSupported = data->glslSupported; fboSupported = data->fboSupported;
+        drawBuffersSupported = data->drawBuffersSupported;
+        depthStencilSupported = data->depthStencilSupported;
+    }
+
     int GLVersionData::score()
     {
         float score = 0.0f;
@@ -200,10 +305,10 @@ namespace osgVerse
         osg::State* state = (context != NULL) ? context->getState() : NULL;
         if (!state) { OSG_WARN << "[RealizeOperation] Failed to realize context\n"; return; }
 
-        osg::ref_ptr<GLExtensionTester> tester = new GLExtensionTester(NULL);
-        tester->check(state); _glVersionData = tester->getVersionData();
         if (_glVersionData.valid())
         {
+            osg::ref_ptr<GLExtensionTester> tester = new GLExtensionTester(NULL);
+            tester->check(state); _glVersionData->copy(tester->getVersionData());
             OSG_NOTICE << "[RealizeOperation] OpenGL Driver: " << _glVersionData->version << "; GLSL: "
                        << _glVersionData->glslVersion << "; Renderer: " << _glVersionData->renderer << std::endl
                        << "Performance score: " << _glVersionData->score() << " / 100" << std::endl;
@@ -219,6 +324,17 @@ namespace osgVerse
                 osg::isGLExtensionSupported(state->getContextID(), "GL_EXT_texture_lod_bias");
 #   endif
         }
+#endif
+
+#if defined(OSG_GL3_AVAILABLE)
+        _glDebugMessageCallback = (glDebugMessageCallbackPtr)osg::getGLExtensionFuncPtr("glDebugMessageCallback");
+        _glDebugMessageControl = (glDebugMessageControlPtr)osg::getGLExtensionFuncPtr("glDebugMessageControl");
+        if (_glDebugMessageCallback == NULL || _glDebugMessageControl == NULL)
+        { OSG_WARN << "[RealizeOperation] Debug callback function not found" << std::endl; return; }
+
+        glEnable(GL_DEBUG_OUTPUT);
+        _glDebugMessageCallback((GLDEBUGPROC)&glDebugCallback, NULL);
+        _glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
 #endif
     }
 

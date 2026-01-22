@@ -372,8 +372,8 @@ protected:
                 plod->setCenter(bound.center()); plod->setRadius(bound.radius());
             }
             else if (bound.valid())
-            {
-                plod->setCenterMode(osg::LOD::USER_DEFINED_CENTER);
+            {   // FIXME: 'USER_DEFINED_CENTER' may clip sometimes?
+                plod->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
                 plod->setCenter(bound.center()); plod->setRadius(bound.radius());
             }
             else

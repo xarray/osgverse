@@ -72,6 +72,7 @@ namespace osgVerse
 
         GLVersionData() : glVersion(0), glslVersion(0), glslSupported(false), fboSupported(false),
                           drawBuffersSupported(false), depthStencilSupported(false) {}
+        void copy(GLVersionData* data);  // copy from another version checker
         int score();  // compute a score of current graphics card for checking performance
     };
 
@@ -422,10 +423,11 @@ namespace osgVerse
         bool _withSky, _withSelector;
     };
 
-    /** Realize operation for normal osgViewer::Viewer to check OpenGL states before rendering */
+    /** Realize operation for viewer to check OpenGL states before rendering */
     class RealizeOperation : public osg::Operation
     {
     public:
+        RealizeOperation(bool checkGL = true) { if (checkGL) _glVersionData = new GLVersionData; }
         GLVersionData* getVersionData() { return _glVersionData.get(); }
         virtual void operator()(osg::Object* object);
 

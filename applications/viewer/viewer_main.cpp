@@ -29,92 +29,6 @@ USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
 
-#define VERSE_USE_CORE_DEBUGGER 0
-#if VERSE_USE_CORE_DEBUGGER  // GLDebug requires OpenGL 4.3, enable it by yourselves
-class GLDebugOperation : public osg::GraphicsOperation
-{
-public:
-    GLDebugOperation()
-        : osg::Referenced(true), osg::GraphicsOperation("GLDebugOperation", false),
-          _glDebugMessageCallback(NULL) {}
-
-    virtual void operator () (osg::GraphicsContext* gc)
-    {
-        _glDebugMessageCallback = (glDebugMessageCallbackPtr)
-            osg::getGLExtensionFuncPtr("glDebugMessageCallback");
-        if (_glDebugMessageCallback == NULL)
-        {
-            OSG_WARN << "[GLDebugOperation] Debug callback function not found" << std::endl;
-            return;
-        }
-
-        glEnable(GL_DEBUG_OUTPUT);
-        _glDebugMessageCallback((GLDEBUGPROC)&(GLDebugOperation::debugCallback), NULL);
-        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
-    }
-
-    static void debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
-                              const GLchar* message, const void* userParam)
-    {
-        std::string srcInfo, typeInfo, idInfo;
-        switch (source)
-        {
-        case GL_DEBUG_SOURCE_API: srcInfo = "API"; break;
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: srcInfo = "WINDOW_SYSTEM"; break;
-        case GL_DEBUG_SOURCE_SHADER_COMPILER: srcInfo = "SHADER_COMPILER"; break;
-        case GL_DEBUG_SOURCE_THIRD_PARTY: srcInfo = "THIRD_PARTY"; break;
-        case GL_DEBUG_SOURCE_APPLICATION: srcInfo = "APPLICATION"; break;
-        case GL_DEBUG_SOURCE_OTHER: srcInfo = "OTHER"; break;
-        default: srcInfo = "UNKNOWN_SOURCE"; break;
-        }
-
-        switch (type)
-        {
-        case GL_DEBUG_TYPE_ERROR: typeInfo = "ERROR"; break;
-        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typeInfo = "DEPRECATED_BEHAVIOR"; break;
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: typeInfo = "UNDEFINED_BEHAVIOR"; break;
-        case GL_DEBUG_TYPE_PORTABILITY: typeInfo = "PORTABILITY"; break;
-        case GL_DEBUG_TYPE_PERFORMANCE: typeInfo = "PERFORMANCE"; break;
-        case GL_DEBUG_TYPE_MARKER: typeInfo = "MARKER"; break;
-        case GL_DEBUG_TYPE_PUSH_GROUP: typeInfo = "PUSH_GROUP"; break;
-        case GL_DEBUG_TYPE_POP_GROUP: typeInfo = "POP_GROUP"; break;
-        case GL_DEBUG_TYPE_OTHER: typeInfo = "OTHER"; break;
-        default: typeInfo = "UNKNOWN_TYPE"; break;
-        }
-
-        switch (id)
-        {
-        case GL_NO_ERROR: idInfo = "NO_ERROR"; break;
-        case GL_INVALID_ENUM: idInfo = "INVALID_ENUM"; break;
-        case GL_INVALID_VALUE: idInfo = "INVALID_VALUE"; break;
-        case GL_INVALID_OPERATION: idInfo = "INVALID_OPERATION"; break;
-        case GL_STACK_OVERFLOW: idInfo = "STACK_OVERFLOW"; break;
-        case GL_STACK_UNDERFLOW: idInfo = "STACK_UNDERFLOW"; break;
-        case GL_OUT_OF_MEMORY: idInfo = "OUT_OF_MEMORY"; break;
-        case GL_INVALID_FRAMEBUFFER_OPERATION: idInfo = "INVALID_FRAMEBUFFER_OPERATION"; break;
-        case GL_CONTEXT_LOST: idInfo = "CONTEXT_LOST"; break;
-        //case GL_TABLE_TOO_LARGE: idInfo = "TABLE_TOO_LARGE"; break;
-        default: idInfo = "UNKNOWN_ID"; break;
-        }
-
-        std::string msgData = "(ID = " + idInfo + ") " + std::string(message)
-                            + "\n\t(Source = " + srcInfo + ", Type = " + typeInfo + ")";
-        switch (severity)
-        {
-        case GL_DEBUG_SEVERITY_HIGH: OSG_WARN << "[HIGH] " << msgData << std::endl; break;
-        case GL_DEBUG_SEVERITY_MEDIUM: OSG_NOTICE << "[MEDIUM] " << msgData << std::endl; break;
-        case GL_DEBUG_SEVERITY_LOW: OSG_INFO << "[LOW] " << msgData << std::endl; break;
-        case GL_DEBUG_SEVERITY_NOTIFICATION: OSG_INFO << "[NOTIFY] " << msgData << std::endl; break;
-        default: OSG_NOTICE << "[DEFAULT] " << msgData << std::endl; break;
-        }
-    }
-
-protected:
-    typedef void (GL_APIENTRY* glDebugMessageCallbackPtr)(GLDEBUGPROC callback, const void* userParam);
-    glDebugMessageCallbackPtr _glDebugMessageCallback;
-};
-#endif
-
 class SetPipelineHandler : public osgGA::GUIEventHandler
 {
 public:
@@ -346,33 +260,25 @@ int main(int argc, char** argv)
     if (arguments.read("--lod-scale", lodScale))
         viewer.getCamera()->setLODScale(lodScale);
 
-    // FIXME: how to avoid shadow problem...
     // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
-#if VERSE_USE_CORE_DEBUGGER  // GLDebug requires OpenGL 4.3, enable it by yourselves
-#   ifdef VERSE_WINDOWS
-    // WGL_CONTEXT_DEBUG_BIT_ARB = 0x0001
-    // WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002
+    /* FIXME: is it necessary?
+    // WGL_CONTEXT_DEBUG_BIT_ARB / GLX_CONTEXT_DEBUG_BIT_ARB = 0x0001
+    // WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB / GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002
     int flags = 0x0001 | 0x0002;
-#   else
-    // GLX_CONTEXT_DEBUG_BIT_ARB = 0x0001
-    // GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 0x0002
-    int flags = 0x0001 | 0x0002;
-#   endif
     osg::ref_ptr<osg::GraphicsContext> gc = pipeline->createGraphicsContext(1920, 1080, "4.5", NULL, flags);
     viewer.getCamera()->setGraphicsContext(gc.get());
     viewer.getCamera()->setProjectionMatrix(osg::Matrix::perspective(
         30., (double)1920 / (double)1080, 1., 100.));
-    viewer.getCamera()->setViewport(new osg::Viewport(0, 0, 1920, 1080));
-    viewer.setRealizeOperation(new GLDebugOperation);
-#else
+    viewer.getCamera()->setViewport(new osg::Viewport(0, 0, 1920, 1080));*/
+
     // Always call viewer.setUp*() before setupStandardPipeline()!
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);
-#endif
+    viewer.setRealizeOperation(new osgVerse::RealizeOperation(false));
 
     // Setup the pipeline
 #if true

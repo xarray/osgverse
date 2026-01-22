@@ -57,7 +57,7 @@ namespace
         template<class MatrixType>
         bool _clampProjectionMatrix(MatrixType& proj, double& znear, double& zfar) const
         {
-            static double epsilon = 1e-6;
+            static double epsilon = 1e-6; if (!_callback) return true;
             osg::Vec2d nearFar = _callback->getCalculatedNearFar();
             if (nearFar[0] > 0.0 && nearFar[1] > 0.0)
             {
@@ -1087,7 +1087,7 @@ namespace osgVerse
         { mainCam->removeUpdateCallback(itr->second.get()); }
 
 #if defined(VERSE_MSVC) && !defined(VERSE_NO_NATIVE_WINDOW)
-        TextInputMethodManager::instance()->unbind();
+        //TextInputMethodManager::instance()->unbind();
 #endif
     }
 
@@ -1118,13 +1118,16 @@ namespace osgVerse
         // Set-up projection matrix clamper
         osg::ref_ptr<MyClampProjectionCallback> customClamper =
             new MyClampProjectionCallback(NULL, _deferredCallback.get());
-        if (mainCam)
+        if (_deferredCallback.valid())
         {
-            // User's ClampProjectionCallback on view's main camera will be kept and reused
-            if (mainCam->getClampProjectionMatrixCallback())
-                _deferredCallback->setClampCallback(mainCam->getClampProjectionMatrixCallback());
+            if (mainCam)
+            {
+                // User's ClampProjectionCallback on view's main camera will be kept and reused
+                if (mainCam->getClampProjectionMatrixCallback())
+                    _deferredCallback->setClampCallback(mainCam->getClampProjectionMatrixCallback());
+            }
+            _deferredCallback->setForwardMask(defForwardMask);
         }
-        _deferredCallback->setForwardMask(defForwardMask);
 
         // Set-up stages as to add them as slaves
         int orderStart = -100;
@@ -1152,12 +1155,15 @@ namespace osgVerse
         forwardCam->setUserValue("PipelineCullMask", defForwardMask);  // replacing setCullMask()
         forwardCam->setClampProjectionMatrixCallback(customClamper.get());
         forwardCam->setComputeNearFarMode(g_nearFarMode);
-        _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
 
+        if (_deferredCallback.valid())
+        {
+            _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
+            forwardCam->getOrCreateStateSet()->addUniform(_deferredCallback->getNearFarUniform());
+        }
+        forwardCam->getOrCreateStateSet()->addUniform(_invScreenResolution.get());
         forwardCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
         forwardCam->setGraphicsContext(_stageContext.get());
-        forwardCam->getOrCreateStateSet()->addUniform(_deferredCallback->getNearFarUniform());
-        forwardCam->getOrCreateStateSet()->addUniform(_invScreenResolution.get());
         _forwardCamera = forwardCam;
 
         if (!_stages.empty()) forwardCam->setClearMask(0);
@@ -1328,7 +1334,7 @@ namespace osgVerse
         Stage* s = new Stage; s->deferred = true;
         s->runner = new osgVerse::DeferredRenderCallback::RttGeometryRunner(name);
         s->runner->runOnce = runOnce; s->runner->setUseScreenQuad(0, NULL);  // quad at the beginning
-        _deferredCallback->addRunner(s->runner.get());
+        if (_deferredCallback.valid()) _deferredCallback->addRunner(s->runner.get());
 
         bool useColorBuf = (getNumNonDepthBuffers(buffers) == 1);
         for (int i = 0; i < buffers.size(); i++)
@@ -1408,7 +1414,7 @@ namespace osgVerse
 
             int values = s.overridedPrograms ? osg::StateAttribute::OVERRIDE : 0;
             ss->setAttributeAndModes(prog.get(), osg::StateAttribute::ON | values);
-            ss->addUniform(_deferredCallback->getNearFarUniform());
+            if (_deferredCallback.valid()) ss->addUniform(_deferredCallback->getNearFarUniform());
             ss->addUniform(_invScreenResolution.get());
         }
         s.name = name; if (!s.deferred) s.camera->setName(name);
