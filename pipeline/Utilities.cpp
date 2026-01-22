@@ -565,10 +565,10 @@ namespace osgVerse
     {
 #if defined(OSG_GL3_AVAILABLE)
         contextVersion = 300; glslVersion = 430;
-#elif defined(OSG_GLES2_AVAILABLE)
-        contextVersion = 100; glslVersion = 200;
 #elif defined(OSG_GLES3_AVAILABLE)
         contextVersion = 300; glslVersion = 300;
+#elif defined(OSG_GLES2_AVAILABLE)
+        contextVersion = 100; glslVersion = 200;
 #else
         contextVersion = 100; glslVersion = 130;
 #endif

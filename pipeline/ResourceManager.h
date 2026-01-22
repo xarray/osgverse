@@ -33,6 +33,13 @@ namespace osgVerse
         std::vector<osg::BufferData*> getBuffers(const std::string& name) const;
         std::vector<osg::Shader*> getShaders(const std::string& name) const;
 
+        osg::Image* getImage(const std::string& name) const
+        { std::vector<osg::Image*> v = getImages(name); return v.empty() ? NULL : v.front(); }
+        osg::BufferData* getBuffer(const std::string& name) const
+        { std::vector<osg::BufferData*> v = getBuffers(name); return v.empty() ? NULL : v.front(); }
+        osg::Shader* getShader(const std::string& name) const
+        { std::vector<osg::Shader*> v = getShaders(name); return v.empty() ? NULL : v.front(); }
+
         typedef std::pair<Type, std::string> TypeAndName;
         typedef std::set<unsigned long long> HashSet;
         std::map<TypeAndName, HashSet>& getNameMap() { return _nameMap; }

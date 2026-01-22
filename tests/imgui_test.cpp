@@ -15,7 +15,9 @@
 #include <ui/ImGui.h>
 #include <ui/ImGuiComponents.h>
 #include <pipeline/Global.h>
+#include <pipeline/Utilities.h>
 #include <pipeline/IntersectionManager.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -238,6 +240,11 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> scene =
         (argc < 2) ? osgDB::readNodeFile("cessna.osg") : osgDB::readNodeFile(argv[1]);
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    scene->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
+    scene->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
+    { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
+#endif
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

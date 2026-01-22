@@ -17,6 +17,9 @@
 
 #include <VerseCommon.h>
 #include <modeling/Utilities.h>
+#include <pipeline/Utilities.h>
+#include <pipeline/ResourceManager.h>
+#include <pipeline/Pipeline.h>
 
 #ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
@@ -344,26 +347,28 @@ osg::Node* createCsgScene(osg::Node* nodeA, osg::Node* nodeB)
 #ifdef EARTH_CROSS_EXAMPLE
 const char* commonVertCode = {
     "uniform mat4 osg_ViewMatrixInverse; \n"
-    "varying vec4 worldPos, texCoord;; \n"
+    "VERSE_VS_OUT vec4 worldPos, texCoord, color; \n"
     "void main() {\n"
-    "    texCoord = gl_MultiTexCoord0; \n"
-    "    worldPos = osg_ViewMatrixInverse * gl_ModelViewMatrix * gl_Vertex; \n"
-    "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex; \n"
+    "    texCoord = osg_MultiTexCoord0; color = osg_Color; \n"
+    "    worldPos = osg_ViewMatrixInverse * osg_ModelViewMatrix * osg_Vertex; \n"
+    "    gl_Position = osg_ModelViewProjectionMatrix * osg_Vertex; \n"
     "}\n"
 };
 
 const char* sphereFragCode = {
     "uniform sampler2D baseTexture; \n"
     "uniform vec4 clipPlane0, clipPlane1, clipPlane2; \n"
-    "varying vec4 worldPos, texCoord; \n"
+    "VERSE_FS_IN vec4 worldPos, texCoord; \n"
+    "VERSE_FS_OUT vec4 fragColor; \n"
     "void main() {\n"
     "    float clipD0 = dot(worldPos, clipPlane0); bool valid0 = any(notEqual(clipPlane0, vec4(0.0))); \n"
     "    float clipD1 = dot(worldPos, clipPlane1); bool valid1 = any(notEqual(clipPlane1, vec4(0.0))); \n"
     "    float clipD2 = dot(worldPos, clipPlane2); bool valid2 = any(notEqual(clipPlane2, vec4(0.0))); \n"
-    "    int passed = ((clipD0 <= 0.0) && valid0) ? 1 : 0 + ((clipD1 <= 0.0) && valid1) ? 1 : 0 + \n"
-    "                 ((clipD2 <= 0.0) && valid2) ? 1 : 0; \n"
+    "    int passed = ((clipD0 <= 0.0 && valid0) ? 1 : 0) + ((clipD1 <= 0.0 && valid1) ? 1 : 0) + \n"
+    "                 ((clipD2 <= 0.0 && valid2) ? 1 : 0); \n"
     "    if (passed == 0 && (valid0 || valid1 || valid2)) discard; \n"
-    "    gl_FragColor = texture2D(baseTexture, texCoord.st); \n"
+    "    fragColor = VERSE_TEX2D(baseTexture, texCoord.st); \n"
+    "    VERSE_FS_FINAL(fragColor);\n"
     "}\n"
 };
 
@@ -371,10 +376,12 @@ const char* mentalFragCode = {
     "uniform sampler2D noiseTexture; \n"
     "uniform vec3 colorScale; \n"
     "uniform float osg_SimulationTime; \n"
+    "VERSE_FS_IN vec4 texCoord, color; \n"
+    "VERSE_FS_OUT vec4 fragColor; \n"
 
     "float hash21(in vec2 n) { return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }\n"
     "mat2 makem2(in float theta) { float c = cos(theta); float s = sin(theta); return mat2(c, -s, s, c); }\n"
-    "float noise(in vec2 x) { return texture2D(noiseTexture, x * .01).x; }\n"
+    "float noise(in vec2 x) { return VERSE_TEX2D(noiseTexture, x * .01).x; }\n"
 
     "vec2 gradn(vec2 p) {\n"
     "    float ep = .09; \n"
@@ -399,9 +406,10 @@ const char* mentalFragCode = {
     "}\n"
 
     "void main() {\n"
-    "    vec2 p = gl_TexCoord[0].st; p *= 30.; float rz = flow(p, -osg_SimulationTime * 0.02); \n"
+    "    vec2 p = texCoord.st; p *= 30.; float rz = flow(p, -osg_SimulationTime * 0.02); \n"
     "    vec3 col = colorScale / rz; col = pow(col, vec3(1.4)); \n"
-    "    gl_FragColor = gl_Color * vec4(col, 1.0); \n"
+    "    fragColor = color * vec4(col, 1.0); \n"
+    "    VERSE_FS_FINAL(fragColor);\n"
     "}\n"
 };
 
@@ -479,11 +487,22 @@ osg::Node* createCrossScene(EnvironmentHandler* env, osg::Node* nodeA, osg::Node
     rootStateSet->setAttributeAndModes(new osg::Depth(osg::Depth::LESS, 0.0, 1.0, true));
     rootStateSet->setAttributeAndModes(new osg::CullFace(osg::CullFace::BACK));
 
+    int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+    osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, commonVertCode);
+    osg::Shader* fs0 = new osg::Shader(osg::Shader::FRAGMENT, sphereFragCode);
+    osg::Shader* fs2 = new osg::Shader(osg::Shader::FRAGMENT, mentalFragCode);
+    osgVerse::Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
+    osgVerse::Pipeline::createShaderDefinitions(fs0, cxtVer, glslVer);
+    osgVerse::Pipeline::createShaderDefinitions(fs2, cxtVer, glslVer);
+    
+    vs->setName("Common_VS"); osgVerse::ResourceManager::instance()->shareShader(vs, true);
+    fs0->setName("Sphere_FS"); osgVerse::ResourceManager::instance()->shareShader(fs0, true);
+    fs2->setName("Mental_FS"); osgVerse::ResourceManager::instance()->shareShader(fs2, true);
+
     osg::StateSet* statesetBin0 = new osg::StateSet;
     {
         osg::Program* prog = new osg::Program;
-        prog->addShader(new osg::Shader(osg::Shader::VERTEX, commonVertCode));
-        prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, sphereFragCode));
+        prog->addShader(vs); prog->addShader(fs0);
 
         osg::Stencil* stencil = new osg::Stencil;
         stencil->setFunction(osg::Stencil::ALWAYS, 1, ~0u);
@@ -524,7 +543,7 @@ osg::Node* createCrossScene(EnvironmentHandler* env, osg::Node* nodeA, osg::Node
     osg::StateSet* statesetBin2 = new osg::StateSet;
     {
         osg::Program* prog = new osg::Program;
-        prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, mentalFragCode));
+        prog->addShader(vs); prog->addShader(fs2);
 
         osg::Stencil* stencil = new osg::Stencil;
         stencil->setFunction(osg::Stencil::EQUAL, 1, ~0u);
@@ -588,7 +607,7 @@ int main(int argc, char** argv)
     core->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(), 2.0f)));
     {
         osg::Program* prog = new osg::Program;
-        prog->addShader(new osg::Shader(osg::Shader::FRAGMENT, mentalFragCode));
+        prog->addShader(osgVerse::ResourceManager::instance()->getShader("Mental_FS"));
         core->getOrCreateStateSet()->setAttributeAndModes(prog);
         core->getOrCreateStateSet()->setTextureAttributeAndModes(
             0, osgVerse::createTexture2D(osgDB::readImageFile(BASE_DIR + "/textures/noise.jpg")));
@@ -602,9 +621,13 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> rootNode = createCrossScene(env, sphere, box);
     rootNode->asGroup()->addChild(core);
 #else
-    osg::ref_ptr<osg::Node> rootNode;
+    osg::ref_ptr<osg::Node> rootNode = new osg::Group;
 #endif
 
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    rootNode->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
+    rootNode->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
+#endif
     viewer.getCamera()->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);

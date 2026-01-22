@@ -5,14 +5,16 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <picojson.h>
-
 #include "defines.h"
+GlobalData g_data;
+
 #ifdef OSG_LIBRARY_STATIC
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
-GlobalData g_data;
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
 
 class MyViewer : public osgViewer::Viewer
 {
@@ -141,7 +143,15 @@ EditorContentHandler::EditorContentHandler()
     _properties->userData = this;
 
     // TEST
-    g_data.sceneRoot->addChild(osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb"));
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
+    if (scene.valid())
+    {
+        // Add tangent/bi-normal arrays for normal mapping
+        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    }
+
+    g_data.sceneRoot->addChild(scene.get());
     g_data.view->getCameraManipulator()->home(0.0);
     _hierarchyData->addItem(NULL, g_data.sceneRoot.get());
 }

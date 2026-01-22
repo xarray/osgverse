@@ -22,6 +22,8 @@ USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 USE_SERIALIZER_WRAPPER(DracoGeometry)
 #endif
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
 
 #ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
@@ -323,7 +325,9 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
 
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
-    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    scene->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
+    scene->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
+    { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
 #endif
 
     Reporter reporter;

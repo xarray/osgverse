@@ -467,6 +467,7 @@ namespace osgVerse
 
 #ifdef VERSE_STATIC_BUILD
 #   define USE_VERSE_PLUGINS() \
+    USE_OSGPLUGIN(verse_3dgs) \
     USE_OSGPLUGIN(verse_ept) \
     USE_OSGPLUGIN(verse_fbx) \
     USE_OSGPLUGIN(verse_gltf) \

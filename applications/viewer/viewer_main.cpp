@@ -257,8 +257,10 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load scene model" << std::endl; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    {
+        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    }
 
     if (arguments.read("--save"))
     {

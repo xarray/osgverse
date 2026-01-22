@@ -97,10 +97,10 @@ public:
         if (!d->capabilities.empty()) return;  // query only once
 
         // Check graphics card performance
-        GLint totalMemMB = 0, maxFboDim = 0, maxTexSize = 0, maxColorAtt = 0, maxSsboVS = 0, maxSsboFS = 0;
+        GLint totalMemMB = 0, maxTexSize = 0, maxColorAtt = 0, maxSsboVS = 0, maxSsboFS = 0, maxFboDim[2] = {0};
         GLint maxUniforms = 0, maxUniformVS = 0, maxUniformFS = 0, maxUboBlockSize = 0, maxUboBinds = 0;
         glGetIntegerv(GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &totalMemMB);
-        glGetIntegerv(GL_MAX_VIEWPORT_DIMS, &maxFboDim);
+        glGetIntegerv(GL_MAX_VIEWPORT_DIMS, maxFboDim);
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexSize);
         glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxColorAtt);
         glGetIntegerv(GL_MAX_UNIFORM_LOCATIONS, &maxUniforms);
@@ -125,7 +125,8 @@ public:
 #endif
         while (glGetError() != GL_NO_ERROR) {}  // clear all errors
         d->capabilities["total_memory"] = totalMemMB;                     // Low => [1024, 4096] => High
-        d->capabilities["max_fbo_size"] = maxFboDim;                      // Low => [4096, 16384] => High
+        d->capabilities["max_fbo_size"] =
+            osg::minimum(maxFboDim[0], maxFboDim[1]);                     // Low => [4096, 16384] => High
         d->capabilities["max_texture_size"] = maxTexSize;                 // Low => [8192, 16384] => High
         d->capabilities["max_attachments"] = maxColorAtt;                 // Low => [4, 8] => High
         d->capabilities["max_uniform_locations"] = maxUniforms;           // Low => [1024, 4096] => High

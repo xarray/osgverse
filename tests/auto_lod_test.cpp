@@ -237,7 +237,7 @@ int main(int argc, char** argv)
     }
 
     // Find all geometries and merge them
-    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
     FindGeometryVisitor fgv(true); scene->accept(fgv);
     int maxTexSize = 2048; arguments.read("--max-size", maxTexSize);
 

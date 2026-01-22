@@ -89,8 +89,13 @@ namespace
             tex->setWrap(osg::Texture::WRAP_T, osg::Texture::MIRROR);
 
             osg::ref_ptr<osg::Image> image = new osg::Image;
+#if !defined(VERSE_ENABLE_MTT) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
             image->allocateImage(w, h, 1, GL_LUMINANCE, GL_UNSIGNED_INT);
             image->setInternalTextureFormat(GL_LUMINANCE32UI_EXT);
+#else
+            image->allocateImage(w, h, 1, GL_RED, GL_UNSIGNED_INT);
+            image->setInternalTextureFormat(GL_R32UI);
+#endif
             tex->setUserData(ref); tex->setImage(image.get()); return tex.release();
         }
 

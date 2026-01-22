@@ -26,6 +26,13 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
+#ifdef OSG_LIBRARY_STATIC
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+#endif
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
+
 class GaussianStateVisitor : public osg::NodeVisitor
 {
 public:
@@ -60,7 +67,6 @@ public:
             vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX2D"));
         else if (hint == "GS")
         {
-
 #if defined(OSG_GL3_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
             gsDefinitions.push_back("layout(points) in;");
             gsDefinitions.push_back("layout(triangle_strip, max_vertices = 4) out;");
@@ -73,7 +79,7 @@ public:
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
 #else
-        osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, 430);  // for SSBO under compatible profile
+        osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, 430);  // for SSBO compatibility
 #endif
         osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
         osgVerse::Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
@@ -155,6 +161,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setSceneData(root.get());
+    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
     osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;

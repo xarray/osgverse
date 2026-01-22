@@ -34,8 +34,10 @@ static osg::Group* loadBasicScene(int argc, char** argv)
     if (!scene) scene = new osg::Group;
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    {
+        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

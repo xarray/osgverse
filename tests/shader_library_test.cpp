@@ -66,7 +66,7 @@ int main(int argc, char** argv)
     {
         // Add tangent/bi-normal arrays for normal mapping
         //osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+        { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
 
         // Create program for demonstrating shader module uses
         osg::ref_ptr<osg::Program> program = new osg::Program;

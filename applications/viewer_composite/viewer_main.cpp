@@ -12,9 +12,6 @@
 #include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
 
-// Change the macro to switch between composite viewer / viewer with slaves
-#define USE_COMPOSITE_VIEWER 1
-
 #include <pipeline/SkyBox.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/LightModule.h>
@@ -27,7 +24,7 @@
 USE_OSG_PLUGINS()
 USE_VERSE_PLUGINS()
 
-#if USE_COMPOSITE_VIEWER
+// For composite viewer
 class MyView : public osgViewer::View
 {
 public:
@@ -41,7 +38,8 @@ protected:
         else return osgViewer::View::createRenderer(camera);
     }
 };
-#else
+
+// For viewer with slaves
 class MyViewer : public osgViewer::Viewer
 {
 public:
@@ -60,19 +58,20 @@ protected:
         return osgViewer::Viewer::createRenderer(camera);
     }
 };
-#endif
 
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
 
     // Add tangent/bi-normal arrays for normal mapping
-    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    {
+        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -82,7 +81,10 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
     if (otherSceneRoot.valid())
-        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, FORWARD_SCENE_MASK);
+    {
+        osgVerse::FixedFunctionOptimizer ffo; otherSceneRoot->accept(ffo);
+        osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, CUSTOM_INPUT_MASK);
+    }
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (argc == 1) root->addChild(otherSceneRoot.get());
@@ -118,110 +120,103 @@ int main(int argc, char** argv)
 
     // Use multiple views
     const static int numViews = 2;
-
-#if USE_COMPOSITE_VIEWER
-    osg::ref_ptr<MyView> views[numViews];
-    for (int i = 0; i < numViews; ++i)
+    osg::ref_ptr<osgViewer::ViewerBase> viewerBase;
+    if (arguments.read("--composite"))
     {
-        // Create the pipeline
-        osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
-
-        // Realize the viewer
-        views[i] = new MyView(pipeline.get());
-        views[i]->addEventHandler(new osgViewer::StatsHandler);
-        views[i]->addEventHandler(new osgViewer::WindowSizeHandler);
-        views[i]->setCameraManipulator(new osgGA::TrackballManipulator);
-        views[i]->setSceneData(root.get());
-        views[i]->setUpViewInWindow(50 + 640 * i, 50, 640, 480);
-
-        // Setup the pipeline... Always call viewer.setUp*() before setupStandardPipeline()!
-        setupStandardPipeline(pipeline.get(), views[i].get(), params);
-
-        // Post pipeline settings
-        osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-        if (shadow && shadow->getFrustumGeode())
+        osg::ref_ptr<MyView> views[numViews];
+        for (int i = 0; i < numViews; ++i)
         {
-            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-            root->addChild(shadow->getFrustumGeode());
+            // Create the pipeline
+            osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+
+            // Realize the viewer
+            views[i] = new MyView(pipeline.get());
+            views[i]->addEventHandler(new osgViewer::StatsHandler);
+            views[i]->addEventHandler(new osgViewer::WindowSizeHandler);
+            views[i]->setCameraManipulator(new osgGA::TrackballManipulator);
+            views[i]->setSceneData(root.get());
+            views[i]->setUpViewInWindow(50 + 640 * i, 50, 640, 480);
+
+            // Setup the pipeline... Always call viewer.setUp*() before setupStandardPipeline()!
+            setupStandardPipeline(pipeline.get(), views[i].get(), params);
+
+            // Post pipeline settings
+            osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+            if (shadow && shadow->getFrustumGeode())
+            {
+                osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+                root->addChild(shadow->getFrustumGeode());
+            }
+
+            osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+            if (light) light->setMainLight(light0.get(), "Shadow");
         }
 
-        osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-        if (light) light->setMainLight(light0.get(), "Shadow");
+        // Start the composite viewer
+        osgViewer::CompositeViewer* viewer = new osgViewer::CompositeViewer; viewerBase = viewer;
+        for (int i = 0; i < numViews; ++i) viewer->addView(views[i].get());
+    }
+    else
+    {
+        MyViewer* viewer = new MyViewer; viewerBase = viewer;
+        viewer->addEventHandler(new osgViewer::StatsHandler);
+        viewer->addEventHandler(new osgViewer::WindowSizeHandler);
+        viewer->addEventHandler(new osgGA::StateSetManipulator(viewer->getCamera()->getOrCreateStateSet()));
+        viewer->setCameraManipulator(new osgGA::TrackballManipulator);
+        viewer->setSceneData(root.get());
+
+        double viewPos = (double)numViews - 1.0;
+        for (int i = 0; i < numViews; ++i, viewPos -= 2.0)
+        {
+            osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+            traits->screenNum = 0;
+            traits->x = 50 + 640 * i; traits->y = 50;
+            traits->width = 640; traits->height = 480;
+            traits->windowDecoration = true; traits->doubleBuffer = true;
+            traits->sharedContext = 0; traits->readDISPLAY();
+            traits->setUndefinedScreenDetailsToDefaultScreen();
+
+            osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+            if (!gc) return -1;
+
+            osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+            camera->setName("SlaveCamera" + std::to_string(i));
+            camera->setGraphicsContext(gc.get());
+            camera->setViewport(new osg::Viewport(0, 0, 640, 480));
+            camera->setDrawBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
+            camera->setReadBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
+
+            osg::Matrix projOffset = osg::Matrix::scale((double)numViews, 1.0, 1.0)
+                                   * osg::Matrix::translate(viewPos, 0.0, 0.0);
+            viewer->addSlave(camera.get(), projOffset, osg::Matrix());
+
+            // Create the pipeline
+            osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
+            viewer->pipelines.push_back(pipeline);
+
+            // Setup the pipeline
+            setupStandardPipelineEx(pipeline.get(), viewer, camera.get(), params);
+
+            // Post pipeline settings
+            osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
+            if (shadow && shadow->getFrustumGeode())
+            {
+                osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
+                root->addChild(shadow->getFrustumGeode());
+            }
+
+            osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
+            if (light) light->setMainLight(light0.get(), "Shadow");
+        }
     }
 
-    // Start the composite viewer
-    osgViewer::CompositeViewer viewer;
-    for (int i = 0; i < numViews; ++i)
-        viewer.addView(views[i].get());
-#else
-    MyViewer viewer;
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
-
-    // FIXME: how to avoid shadow problem...
     // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
     // Shadow will go jigger because the output texture is not sync-ed before lighting...
     // For SingleThreaded & CullDrawThreadPerContext it seems OK
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-
-    double viewPos = (double)numViews - 1.0;
-    for (int i = 0; i < numViews; ++i, viewPos -= 2.0)
+    viewerBase->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    while (!viewerBase->done())
     {
-        osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
-        traits->screenNum = 0;
-        traits->x = 50 + 640 * i; traits->y = 50;
-        traits->width = 640; traits->height = 480;
-        traits->windowDecoration = true; traits->doubleBuffer = true;
-        traits->sharedContext = 0; traits->readDISPLAY();
-        traits->setUndefinedScreenDetailsToDefaultScreen();
-
-        osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
-        if (!gc) return -1;
-
-        osg::ref_ptr<osg::Camera> camera = new osg::Camera;
-        camera->setName("SlaveCamera" + std::to_string(i));
-        camera->setGraphicsContext(gc.get());
-        camera->setViewport(new osg::Viewport(0, 0, 640, 480));
-        camera->setDrawBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
-        camera->setReadBuffer(traits->doubleBuffer ? GL_BACK : GL_FRONT);
-
-        osg::Matrix projOffset = osg::Matrix::scale((double)numViews, 1.0, 1.0)
-                               * osg::Matrix::translate(viewPos, 0.0, 0.0);
-        viewer.addSlave(camera.get(), projOffset, osg::Matrix());
-
-        // Create the pipeline
-        osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline(requiredGLContext, requiredGLSL);
-        viewer.pipelines.push_back(pipeline);
-
-        // Setup the pipeline
-        setupStandardPipelineEx(pipeline.get(), &viewer, camera.get(), params);
-
-        // Post pipeline settings
-        osgVerse::ShadowModule* shadow = static_cast<osgVerse::ShadowModule*>(pipeline->getModule("Shadow"));
-        if (shadow && shadow->getFrustumGeode())
-        {
-            osgVerse::Pipeline::setPipelineMask(*shadow->getFrustumGeode(), FORWARD_SCENE_MASK);
-            root->addChild(shadow->getFrustumGeode());
-        }
-
-        osgVerse::LightModule* light = static_cast<osgVerse::LightModule*>(pipeline->getModule("Light"));
-        if (light) light->setMainLight(light0.get(), "Shadow");
-    }
-#endif
-
-    // FIXME: how to avoid shadow problem...
-    // If renderer->setGraphicsThreadDoesCull(false), which is used by DrawThreadPerContext & ThreadPerCamera,
-    // Shadow will go jigger because the output texture is not sync-ed before lighting...
-    // For SingleThreaded & CullDrawThreadPerContext it seems OK
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-
-    // Start the main loop
-    while (!viewer.done())
-    {
-        viewer.frame();
+        viewerBase->frame();
     }
     return 0;
 }

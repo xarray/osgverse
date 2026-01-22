@@ -27,6 +27,14 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
+#ifdef OSG_LIBRARY_STATIC
+USE_OSG_PLUGINS()
+USE_VERSE_PLUGINS()
+USE_OSGPLUGIN(verse_tiff)
+#endif
+USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
+USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
+
 #ifdef false  // no use and will be removed later
 static const char* resizeSrc = {
     "#version 430 core \n"
