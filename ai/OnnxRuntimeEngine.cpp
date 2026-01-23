@@ -1,6 +1,7 @@
 #include "OnnxRuntimeEngine.h"
 #include <osg/io_utils>
 #include <onnxruntime_cxx_api.h>
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -174,7 +175,10 @@ namespace
             {
                 bool diff = false;
                 for (size_t i = 0; i < shapes.size(); ++i)
-                { if (shapes0[i] != shapes[i]) diff = true; }
+                {
+                    if (shapes0[i] < 0 || shapes[i] < 0) continue;  // dynamic
+                    if (shapes0[i] != shapes[i]) diff = true;
+                }
                 if (!diff) return true;
             }
 
@@ -298,7 +302,7 @@ OnnxInferencer::DataType OnnxInferencer::getModelDataType(bool in, const std::st
 
 #define INPUT_TENSOR(values, inName, type) \
     OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false; \
-    Ort::Value tensor = w->createInput(values, type, inName); if (!tensor.IsTensor()) return false; \
+    Ort::Value tensor = w->createInput(values, type, inName); if (!tensor) return false; \
     OnnxWrapper::InferenceWorkData& work = w->getWorkData(); \
     work.inputs.push_back(std::move(tensor)); work.inNames.push_back(inName); return true;
 
@@ -320,8 +324,7 @@ bool OnnxInferencer::addInput(const std::vector<std::vector<int>>& values, const
 bool OnnxInferencer::addInput(const std::vector<osg::Image*>& images, const std::string& inName)
 {
     OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false;
-    Ort::Value value = w->createInput(images, inName);
-    if (!value.IsTensor()) return false;
+    Ort::Value value = w->createInput(images, inName); if (!value) return false;
 
     OnnxWrapper::InferenceWorkData& work = w->getWorkData();
     work.inputs.push_back(std::move(value));
@@ -418,4 +421,15 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
     if (img->s() != w || img->t() != h) img->scaleImage(w, h, 1);
     if (img->getOrigin() == osg::Image::BOTTOM_LEFT) img->flipVertical();
     return img.release();
+}
+
+std::vector<float> OnnxInferencer::computeSoftmax(const std::vector<float>& logits)
+{
+    size_t size = logits.size(); std::vector<float> probabilities(size);
+    float total = 0.0f, maxValue = *(std::max_element(logits.begin(), logits.end()));
+
+    for (size_t i = 0; i < size; ++i) total += std::exp(logits[i] - maxValue);
+    for (size_t i = 0; i < size; ++i)
+        probabilities[i] = std::exp(logits[i] - maxValue) / total;
+    return probabilities;
 }

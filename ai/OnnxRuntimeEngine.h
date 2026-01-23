@@ -45,6 +45,7 @@ namespace osgVerse
         bool getOutput(std::vector<int>& values, unsigned int index = 0) const;
 
         static osg::Image* convertImage(osg::Image* in, DataType type, const std::vector<int64_t>& shapes);
+        static std::vector<float> computeSoftmax(const std::vector<float>& logits);
 
     protected:
         virtual ~OnnxInferencer();
