@@ -20,7 +20,7 @@ void main()
     vec4 cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);
 
     // discard splats that end up outside of a guard band
-    vec4 proj = gl_PositionIn[0]; vec3 ndcP = proj.xyz / proj.w;
+    vec4 proj = gl_in[0].gl_Position; vec3 ndcP = proj.xyz / proj.w;
     if (ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0) return;
 
     // compute 2d extents for the splat, using covariance matrix ellipse (https://cookierobotics.com/007/)
@@ -38,7 +38,7 @@ void main()
     offsets[0] = majAxis + minAxis; offsets[1] = -majAxis + minAxis;
     offsets[2] = majAxis - minAxis; offsets[3] = -majAxis - minAxis;
 
-    float w = gl_PositionIn[0].w;
+    float w = gl_in[0].gl_Position.w;
     for (int i = 0; i < 4; i++)
     {
         // transform offset back into clip space, and apply it to gl_Position.
@@ -47,7 +47,7 @@ void main()
         offset.y *= (2.0 * InvScreenResolution.y) * w;
         //offset.x = (i == 1 || i == 3) ? -0.01 : 0.01; offset.y = (i == 2 || i == 3) ? -0.01 : 0.01;
 
-        gl_Position = gl_PositionIn[0] + vec4(offset.x, offset.y, 0.0, 0.0);
+        gl_Position = gl_in[0].gl_Position + vec4(offset.x, offset.y, 0.0, 0.0);
         color = color_gs[0]; center2D = center2D_gs[0];
         invCovariance = cov2Dinv4;
         EmitVertex();

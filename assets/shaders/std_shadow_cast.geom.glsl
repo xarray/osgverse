@@ -17,7 +17,7 @@ void main()
         int Sx = k % int(NV.x), Sy = int(floor(k / NV.x));
         for (int i = 0; i < 3; ++i)
         {
-            vec4 tmp = TSP * (Tv + gl_PositionIn[i]);
+            vec4 tmp = TSP * (Tv + gl_in[i].gl_Position);
             lightProjVec = tmp;
             lightProjVec.xy += (vec2(float(Sx), float(Sy)) / NV) * tmp.w * 2.0;
             texCoord0 = texCoord0_gs[i]; gl_Position = lightProjVec;

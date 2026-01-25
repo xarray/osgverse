@@ -564,7 +564,7 @@ namespace osgVerse
     void guessOpenGLVersions(int& contextVersion, int& glslVersion)
     {
 #if defined(OSG_GL3_AVAILABLE)
-        contextVersion = 300; glslVersion = 430;
+        contextVersion = 300; glslVersion = 300;
 #elif defined(OSG_GLES3_AVAILABLE)
         contextVersion = 300; glslVersion = 300;
 #elif defined(OSG_GLES2_AVAILABLE)

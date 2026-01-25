@@ -59,7 +59,7 @@ void createShaders(osg::StateSet* ss)
         "    for (int k = 0; k < numViews; ++k) {\n"
         "        int Sx = k % int(NV.x), Sy = int(floor(k / NV.x));\n"
         "        for (int i = 0; i < 3; ++i) {\n"
-        "            vec4 tmp = TSP * (Tv + gl_PositionIn[i]);\n"
+        "            vec4 tmp = TSP * (Tv + gl_in[i].gl_Position);\n"
         "            vec2 coeff = (vec2(2.0) / NV) * tmp.w;\n"
         "            gl_ClipDistance[0] = tmp.x + tmp.w;\n"
         "            gl_ClipDistance[1] = coeff.x - (tmp.x + tmp.w);\n"

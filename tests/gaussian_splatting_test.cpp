@@ -60,7 +60,7 @@ public:
         _callback = osgVerse::GaussianGeometry::createUniformCallback();
 
         // FIXME: it seems import_defines failed in GLCore/GLES mode? Try ShaderLibrary as fallback
-        std::vector<std::string> gsDefinitions;
+        std::vector<std::string> gsDefinitions; int minGlslVer = 300;
         if (hint == "TBO")
             vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX"));
         else if (hint == "TEX2D")
@@ -73,13 +73,17 @@ public:
 #endif
         }
         else
+        {
             vert->setUserValue("Definitions", std::string("USE_INSTANCING"));
+            minGlslVer = 430;  // for SSBO compatibility
+        }
 
         int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+        glslVer = osg::maximum(glslVer, minGlslVer);
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
 #else
-        osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, 430);  // for SSBO compatibility
+        osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
 #endif
         osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
         osgVerse::Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
