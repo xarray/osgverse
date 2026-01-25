@@ -3,6 +3,11 @@
 #include "GraphicsWindowGLFW.h"
 #include <osg/DeleteHandler>
 #include <iostream>
+
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#   define GLFW_EXPOSE_NATIVE_EGL
+#   include <GLFW/glfw3native.h>
+#endif
 using namespace osgVerse;
 
 namespace
@@ -436,6 +441,17 @@ void GraphicsWindowGLFW::setCursor(osgViewer::GraphicsWindow::MouseCursor cursor
 
 void GraphicsWindowGLFW::setSyncToVBlank(bool on)
 { glfwSwapInterval(on ? 1 : 0); }
+
+GraphicsWindowHandle* GraphicsWindowGLFW::getHandle() const
+{
+    osg::ref_ptr<GraphicsWindowHandle> handle = new GraphicsWindowHandle;
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+    handle->eglDisplay = glfwGetEGLDisplay();
+    handle->eglSurface = glfwGetEGLSurface(_window);
+    handle->eglContext = glfwGetEGLContext(_window);
+#endif
+    handle->nativeHandle = _window; return handle.release();
+}
 
 extern "C" OSGVERSE_RW_EXPORT void graphicswindow_GLFW(void) {}
 #if OSG_VERSION_GREATER_THAN(3, 5, 1)

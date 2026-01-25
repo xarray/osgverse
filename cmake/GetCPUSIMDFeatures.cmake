@@ -25,6 +25,8 @@ function(GET_CPU_SIMD_FEATURES outvar target_architecture)
     elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" MATCHES "(PPC|PPC64)")
         # FIXME implement me
         message(WARNING "GET_CPU_SIMD_FEATURES not implemented yet for PPC|PPC64")
+    else()
+        message(WARNING "GET_CPU_SIMD_FEATURES not implemented yet for ${CMAKE_HOST_SYSTEM_PROCESSOR}")
     endif()
     set(${outvar} ${features} PARENT_SCOPE)
 endfunction()

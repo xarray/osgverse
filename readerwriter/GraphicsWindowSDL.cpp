@@ -638,6 +638,15 @@ void GraphicsWindowSDL::setCursor(osgViewer::GraphicsWindow::MouseCursor cursor)
 void GraphicsWindowSDL::setSyncToVBlank(bool on)
 { SDL_GL_SetSwapInterval(on ? 1 : 0); }
 
+GraphicsWindowHandle* GraphicsWindowSDL::getHandle() const
+{
+    osg::ref_ptr<GraphicsWindowHandle> handle = new GraphicsWindowHandle;
+#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+    handle->eglDisplay = _glDisplay; handle->eglSurface = _glSurface; handle->eglContext = _glContext;
+#endif
+    handle->nativeHandle = _sdlWindow; return handle.release();
+}
+
 extern "C" OSGVERSE_RW_EXPORT void graphicswindow_SDL(void) {}
 #if OSG_VERSION_GREATER_THAN(3, 5, 1)
 static osg::WindowingSystemInterfaceProxy<SDLWindowingSystem> s_proxy_SDLWindowingSystem("SDL");

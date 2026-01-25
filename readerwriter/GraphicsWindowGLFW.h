@@ -49,6 +49,8 @@ namespace osgVerse
         virtual void setCursor(osgViewer::GraphicsWindow::MouseCursor cursor);
         virtual void setSyncToVBlank(bool on);
 
+        GraphicsWindowHandle* getHandle() const;
+
     protected:
         virtual ~GraphicsWindowGLFW();
         void initialize();
