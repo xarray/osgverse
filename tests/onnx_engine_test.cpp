@@ -54,8 +54,9 @@ int main(int argc, char** argv)
             std::vector<float> values; inferencer->getOutput(values); std::cout << values.size() << "): ";
             std::vector<float> probabilities = osgVerse::OnnxInferencer::computeSoftmax(values);
 
+            // Check result at https://github.com/onnx/models/blob/main/validated/vision/classification/synset.txt
             std::vector<float>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
-            std::cout << "Maximum index " << (it - probabilities.begin()) << ", Percent = " << *it << "\n";
+            std::cout << "Maximum index " << (it - probabilities.begin()) + 1 << ", Confidence = " << *it << "\n";
         });
     }
     else if (arguments.read("--yolo4"))
@@ -109,21 +110,21 @@ int main(int argc, char** argv)
             if (!success) std::cout << "Failed to run task\n"; else std::cout << "Results (size = ";
             std::vector<float> values; inferencer->getOutput(values); std::cout << values.size() << "): ";
             std::vector<float> probabilities = osgVerse::OnnxInferencer::computeSoftmax(values);
-            for (size_t i = 0; i < probabilities.size(); ++i) std::cout << probabilities[i] << " ";
+
+            std::vector<float>::iterator it = std::max_element(probabilities.begin(), probabilities.end());
+            std::cout << "Maximum index " << (it - probabilities.begin()) + 1 << ", Confidence = " << *it << "\n";
         });
     }
 
-    /*osgViewer::Viewer viewer;
-    viewer.addEventHandler(new osgViewer::StatsHandler);
-    viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
-    viewer.setUpViewInWindow(50, 50, 960, 600);
-    viewer.realize();
-
-    while (!viewer.done())
+    if (root->getNumChildren() > 0)
     {
-        viewer.frame();
-    }*/
+        osgViewer::Viewer viewer;
+        viewer.addEventHandler(new osgViewer::StatsHandler);
+        viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+        viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+        viewer.setSceneData(root.get());
+        viewer.setUpViewInWindow(50, 50, 960, 600);
+        return viewer.run();
+    }
     return 0;
 }

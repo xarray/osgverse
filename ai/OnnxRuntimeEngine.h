@@ -15,11 +15,13 @@ namespace osgVerse
     {
     public:
         enum DeviceType { CPU, CUDA };
+        enum DataLayout { Default = 0, ImageNCHW = Default, ImageNHWC };
         enum DataType { UnknownData, FloatData, UCharData, CharData, UShortData, ShortData, IntData, LongData,
                         StringData, BoolData, HalfData, DoubleData, UIntData, ULongData, Complex64, Complex128 };
         typedef std::function<void (bool)> FinishedCallback;
 
         OnnxInferencer(const std::wstring& modelPath, DeviceType type, int deviceID = 0);
+        void setModelDataLayout(bool inputLayer, const std::string& name, DataLayout layout);
 
         std::string getModelDescription() const;
         std::vector<std::string> getModelLayerNames(bool inputLayer) const;
@@ -44,7 +46,8 @@ namespace osgVerse
         bool getOutput(std::vector<unsigned int>& values, unsigned int index = 0) const;
         bool getOutput(std::vector<int>& values, unsigned int index = 0) const;
 
-        static osg::Image* convertImage(osg::Image* in, DataType type, const std::vector<int64_t>& shapes);
+        static osg::Image* convertImage(osg::Image* in, DataType type, const std::vector<int64_t>& shapes,
+                                        DataLayout layout = ImageNCHW, bool asBGR = true);
         static std::vector<float> computeSoftmax(const std::vector<float>& logits);
 
     protected:

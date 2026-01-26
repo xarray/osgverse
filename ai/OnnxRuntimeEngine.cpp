@@ -56,8 +56,10 @@ namespace
             std::vector<std::string> inputNames, outputNames;
             std::map<std::string, std::vector<int64_t>> inputShapes, outputShapes;
             std::map<std::string, ONNXTensorElementDataType> inputTypes, outputTypes;
+            std::map<std::string, OnnxInferencer::DataLayout> inputLayouts, outputLayouts;
             std::string description;
         };
+        ModelInformation& getModelInformation() { return _modelInfo; }
         const ModelInformation& getModelInformation() const { return _modelInfo; }
 
         struct InferenceWorkData
@@ -109,7 +111,8 @@ namespace
         {
             Ort::Value tensor; if (values.empty()) return tensor;
             std::vector<int64_t> shapes = { (int64_t)values.size(), (int64_t)values[0].size() };
-            if (checkValidation(checkInName, shapes, type, true))
+            OnnxInferencer::DataLayout outLayout = OnnxInferencer::Default;
+            if (checkValidation(checkInName, shapes, type, true, outLayout))
             {
                 tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(), type);
                 T* ptr = tensor.GetTensorMutableData<T>(); size_t totalSize = 0;
@@ -126,6 +129,7 @@ namespace
         Ort::Value createInput(const std::vector<osg::Image*>& images, const std::string& checkInName)
         {
             Ort::Value tensor; osg::Image* firstImage = NULL;
+            OnnxInferencer::DataLayout outLayout = OnnxInferencer::ImageNCHW;
             if (images.empty()) return tensor; else firstImage = images.front();
 
             int64_t channels = osg::Image::computeNumComponents(firstImage->getPixelFormat()), totalSize = 0;
@@ -133,7 +137,7 @@ namespace
             switch (firstImage->getDataType())
             {
             case GL_UNSIGNED_BYTE:
-                if (checkValidation(checkInName, shapes, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8, true))
+                if (checkValidation(checkInName, shapes, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8, true, outLayout))
                 {
                     tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(),
                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8);
@@ -141,11 +145,12 @@ namespace
                     for (size_t i = 0; i < images.size(); ++i)
                     {
                         osg::Image* img = images[i]; int size = img->getTotalSizeInBytes();
-                        memcpy(ptr + totalSize, img->data(), size); totalSize += size;
+                        if (outLayout == OnnxInferencer::ImageNHWC) memcpy(ptr + totalSize, img->data(), size);
+                        else copyDataNCHW<unsigned char>(ptr + totalSize, *img, size, channels); totalSize += size;
                     }
                 } break;
             case GL_FLOAT:
-                if (checkValidation(checkInName, shapes, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, true))
+                if (checkValidation(checkInName, shapes, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, true, outLayout))
                 {
                     tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(),
                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
@@ -153,7 +158,8 @@ namespace
                     for (size_t i = 0; i < images.size(); ++i)
                     {
                         osg::Image* img = images[i]; int size = img->getTotalSizeInBytes();
-                        memcpy(ptr + totalSize, img->data(), size); totalSize += size;
+                        if (outLayout == OnnxInferencer::ImageNHWC) memcpy(ptr + totalSize, img->data(), size);
+                        else copyDataNCHW<float>(ptr + totalSize, *img, size, channels); totalSize += size;
                     }
                 } break;
             default:
@@ -164,20 +170,39 @@ namespace
         }
 
         bool checkValidation(const std::string& n, const std::vector<int64_t>& shapes,
-                             ONNXTensorElementDataType type, bool asInput)
+                             ONNXTensorElementDataType type, bool asInput, OnnxInferencer::DataLayout& outLayout)
         {
             const std::vector<std::string>& names = asInput ? _modelInfo.inputNames : _modelInfo.outputNames;
             if (std::find(names.begin(), names.end(), n) == names.end()) return false;
 
             std::vector<int64_t>& shapes0 = asInput ? _modelInfo.inputShapes[n] : _modelInfo.outputShapes[n];
             ONNXTensorElementDataType type0 = asInput ? _modelInfo.inputTypes[n] : _modelInfo.outputTypes[n];
+            outLayout = asInput ? _modelInfo.inputLayouts[n] : _modelInfo.outputLayouts[n];
             if (type0 == type && shapes0.size() == shapes.size())
             {
-                bool diff = false;
-                for (size_t i = 0; i < shapes.size(); ++i)
+                bool diff = false; size_t num = shapes.size();
+                if (outLayout == OnnxInferencer::ImageNHWC)
                 {
-                    if (shapes0[i] < 0 || shapes[i] < 0) continue;  // dynamic
-                    if (shapes0[i] != shapes[i]) diff = true;
+                    for (size_t i = 0; i < num - 3; ++i)
+                    {
+                        if (shapes0[i] < 0 || shapes[i] < 0) continue;  // dynamic
+                        if (shapes0[i] != shapes[i]) diff = true;
+                    }
+
+                    if (num >= 3)
+                    {
+                        if (shapes0[num - 1] != shapes[num - 3]) diff = true;
+                        if (shapes0[num - 2] != shapes[num - 1]) diff = true;
+                        if (shapes0[num - 3] != shapes[num - 2]) diff = true;
+                    }
+                }
+                else
+                {   // OnnxInferencer::ImageNCHW
+                    for (size_t i = 0; i < num; ++i)
+                    {
+                        if (shapes0[i] < 0 || shapes[i] < 0) continue;  // dynamic
+                        if (shapes0[i] != shapes[i]) diff = true;
+                    }
                 }
                 if (!diff) return true;
             }
@@ -219,6 +244,7 @@ namespace
                 std::string name(name_ptr.get()); _modelInfo.inputNames.push_back(name);
                 _modelInfo.inputShapes[name] = tensor_info.GetShape();
                 _modelInfo.inputTypes[name] = tensor_info.GetElementType();
+                _modelInfo.inputLayouts[name] = OnnxInferencer::Default;
             }
 
             size_t num_outputs = _session.GetOutputCount();
@@ -231,7 +257,20 @@ namespace
                 std::string name(name_ptr.get()); _modelInfo.outputNames.push_back(name);
                 _modelInfo.outputShapes[name] = tensor_info.GetShape();
                 _modelInfo.outputTypes[name] = tensor_info.GetElementType();
+                _modelInfo.outputLayouts[name] = OnnxInferencer::Default;
             }
+        }
+
+        template<typename T> void copyDataNCHW(T* ptr, osg::Image& img, int size, int channels)
+        {
+            if (channels > 1)
+            {
+                T* data = (T*)img.data(); int idx = 0, pixels = size / (sizeof(T) * channels);
+                for (int c = 0; c < channels; ++c) for (int i = 0; i < pixels; ++i)
+                    ptr[idx++] = *(data + i * channels + c);
+            }
+            else
+                memcpy(ptr, img.data(), size);
         }
 
         Ort::Env _env;
@@ -251,6 +290,15 @@ OnnxInferencer::OnnxInferencer(const std::wstring& modelPath, DeviceType type, i
 
 OnnxInferencer::~OnnxInferencer()
 { if (_handle) delete _handle; }
+
+void OnnxInferencer::setModelDataLayout(bool in, const std::string& name, DataLayout layout)
+{
+    OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return;
+    OnnxWrapper::ModelInformation& info = w->getModelInformation();
+    std::map<std::string, OnnxInferencer::DataLayout>::iterator itr;
+    if (in) { itr = info.inputLayouts.find(name); if (itr != info.inputLayouts.end()) itr->second = layout; }
+    else { itr = info.outputLayouts.find(name); if (itr != info.outputLayouts.end()) itr->second = layout; }
+}
 
 std::string OnnxInferencer::getModelDescription() const
 {
@@ -358,12 +406,19 @@ bool OnnxInferencer::getOutput(std::vector<short>& v, unsigned int id) const { O
 bool OnnxInferencer::getOutput(std::vector<unsigned int>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, unsigned int); }
 bool OnnxInferencer::getOutput(std::vector<int>& v, unsigned int id) const { OUTPUT_TENSOR(v, id, int); }
 
-osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const std::vector<int64_t>& shapes)
+osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const std::vector<int64_t>& shapes,
+                                         DataLayout layout, bool asBGR)
 {
     size_t shapeCount = shapes.size(); if (!img0 || shapeCount < 3) return img0;
     int channels = shapeCount > 3 ? (int)shapes[1] : (int)shapes[0],
         w = (int)shapes.back(), h = (int)shapes[shapeCount - 2];
-    GLenum pixelFmt = GL_RGBA, dataType = GL_UNSIGNED_BYTE, internalFmt = GL_RGBA8;
+    if (layout == ImageNHWC)
+    {
+        channels = (int)shapes.back(); w = (int)shapes[shapeCount - 2];
+        h = shapeCount > 3 ? (int)shapes[1] : (int)shapes[0];
+    }
+
+    GLenum pixelFmt = asBGR ? GL_BGRA : GL_RGBA, dataType = GL_UNSIGNED_BYTE, internalFmt = GL_RGBA8;
     switch (type)
     {
     case HalfData:
@@ -371,8 +426,8 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
         {
         case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE16F_ARB; break;
         case 2: pixelFmt = GL_RG; internalFmt = GL_RG16F; break;
-        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB16F_ARB; break;
-        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA16F_ARB; break;
+        case 3: pixelFmt = asBGR ? GL_BGR : GL_RGB; internalFmt = GL_RGB16F_ARB; break;
+        case 4: pixelFmt = asBGR ? GL_BGRA : GL_RGBA; internalFmt = GL_RGBA16F_ARB; break;
         }
         dataType = GL_HALF_FLOAT; break;
     case FloatData:
@@ -380,8 +435,8 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
         {
         case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE32F_ARB; break;
         case 2: pixelFmt = GL_RG; internalFmt = GL_RG32F; break;
-        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB32F_ARB; break;
-        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA32F_ARB; break;
+        case 3: pixelFmt = asBGR ? GL_BGR : GL_RGB; internalFmt = GL_RGB32F_ARB; break;
+        case 4: pixelFmt = asBGR ? GL_BGRA : GL_RGBA; internalFmt = GL_RGBA32F_ARB; break;
         }
         dataType = GL_FLOAT; break;
     case UCharData:
@@ -389,8 +444,8 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
         {
         case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE8; break;
         case 2: pixelFmt = GL_RG; internalFmt = GL_RG8; break;
-        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB8; break;
-        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA8; break;
+        case 3: pixelFmt = asBGR ? GL_BGR : GL_RGB; internalFmt = GL_RGB8; break;
+        case 4: pixelFmt = asBGR ? GL_BGRA : GL_RGBA; internalFmt = GL_RGBA8; break;
         }
         dataType = GL_UNSIGNED_BYTE; break;
     case UShortData:
@@ -398,8 +453,8 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
         {
         case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE16; break;
         case 2: pixelFmt = GL_RG; internalFmt = GL_RG16UI; break;
-        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB16UI_EXT; break;
-        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA16UI_EXT; break;
+        case 3: pixelFmt = asBGR ? GL_BGR : GL_RGB; internalFmt = GL_RGB16UI_EXT; break;
+        case 4: pixelFmt = asBGR ? GL_BGRA : GL_RGBA; internalFmt = GL_RGBA16UI_EXT; break;
         }
         dataType = GL_UNSIGNED_SHORT;break;
     case UIntData:
@@ -407,8 +462,8 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
         {
         case 1: pixelFmt = GL_LUMINANCE; internalFmt = GL_LUMINANCE32I_EXT; break;
         case 2: pixelFmt = GL_RG; internalFmt = GL_RG32UI; break;
-        case 3: pixelFmt = GL_RGB; internalFmt = GL_RGB32UI_EXT; break;
-        case 4: pixelFmt = GL_RGBA; internalFmt = GL_RGBA32UI_EXT; break;
+        case 3: pixelFmt = asBGR ? GL_BGR : GL_RGB; internalFmt = GL_RGB32UI_EXT; break;
+        case 4: pixelFmt = asBGR ? GL_BGRA : GL_RGBA; internalFmt = GL_RGBA32UI_EXT; break;
         }
         dataType = GL_UNSIGNED_INT; break;
     }
