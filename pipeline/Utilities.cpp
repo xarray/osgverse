@@ -133,6 +133,12 @@ static void advanceImageViewer(osgViewer::Viewer* viewer0, osg::Node* node, osg:
 class MyReadFileCallback : public osgDB::ReadFileCallback
 {
 public:
+    MyReadFileCallback(const osgVerse::InitParameters& params)
+    {
+        nodeOptimizer = params.nodeOptimizer;
+        gaussianSorter = params.gaussianSorter;
+    }
+
     virtual osgDB::ReaderWriter::ReadResult openArchive(
             const std::string& f, osgDB::ReaderWriter::ArchiveStatus status,
             unsigned int indexBlockSizeHint, const osgDB::Options* useObjectCache)
@@ -167,7 +173,21 @@ public:
     {
         std::string file = osgVerse::Utf8StringValidator::check(f) ? f
                          : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        return osgDB::ReadFileCallback::readNode(file, opt);
+        osgDB::ReaderWriter::ReadResult rr = osgDB::ReadFileCallback::readNode(file, opt);
+
+        osg::Node* resultNode = rr.getNode();
+        if (resultNode)
+        {
+            if (nodeOptimizer.valid())
+            {
+                nodeOptimizer->removeFixedFunctionData(*resultNode);
+                nodeOptimizer->createTangentArray(*resultNode);
+                nodeOptimizer->mergeMultipleGeometries(*resultNode);
+            }
+            if (gaussianSorter.valid())
+                gaussianSorter->registerGaussianObjects(*resultNode);
+        }
+        return rr;
     }
 
     virtual osgDB::ReaderWriter::ReadResult readShader(const std::string& f, const osgDB::Options* opt)
@@ -187,6 +207,9 @@ public:
 
 protected:
     virtual ~MyReadFileCallback() {}
+
+    osg::ref_ptr<osgVerse::InitParameters::NodeOptimizerBase> nodeOptimizer;
+    osg::ref_ptr<osgVerse::InitParameters::GaussianSorterBase> gaussianSorter;
 };
 
 namespace osgVerse
@@ -203,13 +226,13 @@ namespace osgVerse
                osgDB::convertUTF8toUTF16(osgDB::convertStringFromCurrentCodePageToUTF8(s));
     }
 
-    osg::ArgumentParser globalInitialize(int argc, char** argv, InitParameters params)
+    osg::ArgumentParser globalInitialize(int argc, char** argv, const InitParameters& params)
     {
         setlocale(LC_ALL, ".UTF8");
-        osg::setNotifyLevel(osg::NOTICE);
+        //osg::setNotifyLevel(osg::NOTICE);
 
-        // TODO: handle InitParameters
-        osgDB::Registry::instance()->setReadFileCallback(new MyReadFileCallback);
+        // Handle InitParameters in file callback
+        osgDB::Registry::instance()->setReadFileCallback(new MyReadFileCallback(params));
         if (argv && argc > 0)
         {
             std::string path = osgDB::getFilePath(argv[0]);

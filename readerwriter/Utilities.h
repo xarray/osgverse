@@ -314,6 +314,22 @@ namespace osgVerse
         struct AudioPlayingMixer* _mixer;
     };
 
+    enum InitParameterFlag
+    {
+        NoParameters = 0, FixedFunctionRemoval = 0x1, TangentCreation = 0x2,
+        GeodeMerging = 0x4, GaussianSorting = 0x8,
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+        DefaultParameters = FixedFunctionRemoval | TangentCreation | GaussianSorting
+#else
+        DefaultParameters = GaussianSorting
+#endif
+    };
+    enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
+    struct InitParameters;
+
+    /** Create default initializing parameters */
+    OSGVERSE_RW_EXPORT InitParameters defaultInitParameters(int flags = DefaultParameters);
+
     /** Load content from local file or network protocol */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(
             const std::string& url, std::string& mimeType, std::string& encodingType,
@@ -326,7 +342,6 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT std::map<std::string, std::pair<std::string, GLenum>> createGLEnumMapper();
 
     /** Setup KTX trancoding flags */
-    enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
     OSGVERSE_RW_EXPORT void setReadingKtxFlag(ReadingKtxFlag flag, int value);
 }
 

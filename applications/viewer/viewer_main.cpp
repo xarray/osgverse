@@ -158,7 +158,7 @@ void addStagesToHUD(osgVerse::Pipeline* pipeline, osg::Camera* camera)
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::updateOsgBinaryWrappers();
 
@@ -170,10 +170,10 @@ int main(int argc, char** argv)
     if (!scene) { scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get()); defScene = true; }
     if (!scene) { OSG_WARN << "Failed to load scene model" << std::endl; return 1; }
 
-    // Add tangent/bi-normal arrays for normal mapping
+    // Add tangent/bi-normal arrays for normal mapping... now built in defaultInitParameters()
     {
-        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
+        //osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
+        //osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
     }
 
     if (arguments.read("--save"))
@@ -204,7 +204,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     if (otherSceneRoot.valid())
     {
-        osgVerse::FixedFunctionOptimizer ffo; otherSceneRoot->accept(ffo);
+        //osgVerse::FixedFunctionOptimizer ffo; otherSceneRoot->accept(ffo);  // built in defaultInitParameters()
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, CUSTOM_INPUT_MASK);
     }
 

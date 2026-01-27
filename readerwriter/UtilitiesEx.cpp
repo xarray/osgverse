@@ -16,6 +16,9 @@
 #include <iomanip>
 #include <cctype>
 
+#include "pipeline/Global.h"
+#include "pipeline/Utilities.h"
+#include "modeling/GaussianGeometry.h"
 #include "Utilities.h"
 #include <libhv/all/client/requests.h>
 #include <libhv/all/base64.h>
@@ -734,4 +737,57 @@ const AudioPlayer::Clip* AudioPlayer::getClip(const std::string& file) const
 {
     std::map<std::string, osg::ref_ptr<Clip>>::const_iterator it = _clips.find(file);
     return it == _clips.end() ? NULL : it->second.get();
+}
+
+/// InitParameters ///
+namespace
+{
+    struct GlobalNodeOptimizer : public InitParameters::NodeOptimizerBase
+    {
+        bool toRemoveFixedFunc, toCreateTangent, toMergeGeode;
+        GlobalNodeOptimizer(int flags)
+        {
+            toRemoveFixedFunc = (flags & FixedFunctionRemoval) != 0;
+            toCreateTangent = (flags & TangentCreation) != 0;
+            toMergeGeode = (flags & GeodeMerging) != 0;
+        }
+
+        virtual void removeFixedFunctionData(osg::Node& node)
+        {
+            if (!toRemoveFixedFunc) return;
+            osgVerse::FixedFunctionOptimizer ffo; node.accept(ffo);
+        }
+
+        virtual void createTangentArray(osg::Node& node)
+        {
+            if (!toCreateTangent) return;
+            osgVerse::TangentSpaceVisitor tsv; node.accept(tsv);
+        }
+
+        virtual void mergeMultipleGeometries(osg::Node& node)
+        {
+            if (!toMergeGeode) return;
+            // TODO
+        }
+    };
+
+    struct GlobalGaussianSorter : public InitParameters::GaussianSorterBase
+    {
+        virtual void registerGaussianObjects(osg::Node& node)
+        {
+            // TODO
+        }
+    };
+}
+
+namespace osgVerse
+{
+    InitParameters defaultInitParameters(int flags)
+    {
+        InitParameters param;
+        param.nodeOptimizer = new GlobalNodeOptimizer(flags);
+        if (flags & GaussianSorting)
+            param.gaussianSorter = new GlobalGaussianSorter;
+        return param;
+    }
 }

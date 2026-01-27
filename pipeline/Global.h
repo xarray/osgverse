@@ -345,7 +345,8 @@ namespace osgVerse
     };
 
     /** We recommend run this function once to initialize some plugins & environments */
-    extern osg::ArgumentParser globalInitialize(int argc, char** argv, InitParameters params = InitParameters());
+    extern osg::ArgumentParser globalInitialize(int argc, char** argv,
+                                                const InitParameters& params = InitParameters());
 }
 
 namespace osg

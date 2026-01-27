@@ -1020,7 +1020,7 @@ namespace osgVerse
                        << _glVersionData->glslVersion << "; Renderer: " << _glVersionData->renderer << std::endl;
             OSG_NOTICE << "[Pipeline] Using OpenGL Context: " << getContextTargetVersion()
                        << "; Target GLSL Version: " << getGlslTargetVersion() << std::endl
-                       << "Performance score: " << _glVersionData->score() << " / 100" << std::endl;
+                       << "[Pipeline] Performance score: " << _glVersionData->score() << " / 100" << std::endl;
         }
 
         if (gc)
