@@ -45,17 +45,17 @@ echo q. Quit
 echo -----------------------------------
 set /p BuildMode="Enter selection [0-5] > "
 if "!BuildMode!"=="0" (
-    set BuildResultChecker=build\sdk_def\lib\osgviewer.lib
+    set BuildResultChecker=build\sdk_def\lib\osgViewer.lib
     set CMakeResultChecker=build\osg_def\CMakeCache.txt
     goto precheck
 )
 if "!BuildMode!"=="1" (
-    set BuildResultChecker=build\sdk_core\lib\osgviewer.lib
+    set BuildResultChecker=build\sdk_core\lib\osgViewer.lib
     set CMakeResultChecker=build\osg_core\CMakeCache.txt
     goto precheck
 )
 if "!BuildMode!"=="2" (
-    set BuildResultChecker=build\sdk_es\lib\osgviewer.lib
+    set BuildResultChecker=build\sdk_es\lib\osgViewer.lib
     set CMakeResultChecker=build\osg_es\CMakeCache.txt
 
     if not exist %GLES_LibPath% (
@@ -69,13 +69,13 @@ if "!BuildMode!"=="2" (
     goto precheck
 )
 if "!BuildMode!"=="3" (
-    set BuildResultChecker=build\sdk_wasm\lib\libosgviewer.a
+    set BuildResultChecker=build\sdk_wasm\lib\libosgViewer.a
     set CMakeResultChecker=build\osg_wasm\CMakeCache.txt
     set BuildModeWasm=1
     goto precheck
 )
 if "!BuildMode!"=="4" (
-    set BuildResultChecker=build\sdk_wasm2\lib\libosgviewer.a
+    set BuildResultChecker=build\sdk_wasm2\lib\libosgViewer.a
     set CMakeResultChecker=build\osg_wasm2\CMakeCache.txt
     set BuildModeWasm=1
     goto precheck

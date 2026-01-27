@@ -1,5 +1,6 @@
 #include "OnnxRuntimeEngine.h"
 #include <osg/io_utils>
+#include <osgDB/ConvertUTF>
 #include <onnxruntime_cxx_api.h>
 #include <algorithm>
 #include <iomanip>
@@ -31,7 +32,12 @@ namespace
 
             if (!status.IsOK())
                 { OSG_NOTICE << "[OnnxInferencer] Failed to load provider: " << status.GetErrorMessage() << "\n"; }
+#ifdef _WIN32
             _session = Ort::Session(_env, modelPath.c_str(), session_options);
+#else
+            std::string modelPath2 = osgDB::convertUTF16toUTF8(modelPath);
+            _session = Ort::Session(_env, modelPath2.c_str(), session_options);
+#endif
             initializeModelInformation();
         }
 
@@ -289,7 +295,7 @@ OnnxInferencer::OnnxInferencer(const std::wstring& modelPath, DeviceType type, i
 }
 
 OnnxInferencer::~OnnxInferencer()
-{ if (_handle) delete _handle; }
+{ OnnxWrapper* w = (OnnxWrapper*)_handle; if (w) delete w; }
 
 void OnnxInferencer::setModelDataLayout(bool in, const std::string& name, DataLayout layout)
 {
