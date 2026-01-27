@@ -236,6 +236,13 @@ if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
             -DTIFF_INCLUDE_DIR=$CurrentDir/../Dependencies/wasm/include
             -DTIFF_LIBRARY_RELEASE=$CurrentDir/../Dependencies/wasm/lib/libtiff.a"
     fi
+else
+    if [ -e "$ThirdPartyBuildDir/tiff/libtiff.a" ]; then
+        ThirdDepOptions="
+            $ThirdDepOptions
+            -DTIFF_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/tiff
+            -DTIFF_LIBRARY_RELEASE=$ThirdPartyBuildDir/tiff/libtiff.a"
+    fi
 fi
 
 # Fix some OpenSceneGraph compile errors

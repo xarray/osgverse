@@ -711,7 +711,7 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
     ELSEIF(MUSA_FOUND AND VERSE_BUILD_WITH_MUSA)
         MESSAGE(STATUS "[osgVerse] MooreThreads MUSA found: ${MUSA_VERSION}")
     ENDIF()
-    CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/osgVerse/osgVerseConfig.cmake" @ONLY)
+    CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/cmake/osgVerse/osgVerseConfig.cmake" @ONLY)
     INSTALL(FILES VerseCommon.h DESTINATION ${INSTALL_INCDIR}/osgVerse COMPONENT libosgverse-dev)
 
 ELSE(OSG_INCLUDE_DIR AND OSG_LIB_DIR)

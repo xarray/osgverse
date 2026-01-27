@@ -189,8 +189,20 @@ namespace osgVerse
         if (user_data)
             option = *reinterpret_cast<tinygltf::LoadImageDataOption*>(user_data);
 
+        // decode image header
+        if (!stbi_info_from_memory(bytes, size, &w, &h, &comp))
+        {
+            /*if (option.as_is)
+            {
+                image->width = image->height = image->component = -1;
+                image->bits = image->pixel_type = -1;
+                image->image.resize(static_cast<size_t>(size));
+                std::copy(bytes, bytes + size, image->image.begin()); return true;
+            }*/
+        }
+
         // preserve_channels true: Use channels stored in the image file.
-        req_comp = option.preserve_channels ? 0 : 4;
+        req_comp = (option.preserve_channels || option.as_is) ? 0 : 4;
         int bits = 8, pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
 
         // It is possible that the image we want to load is a 16bit per channel image

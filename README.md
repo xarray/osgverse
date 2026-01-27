@@ -260,7 +260,38 @@ Our project is already tested on graphics cards listed as below:
   - TBD...
 5. TBD...
 
-#### Build osgverse from Source
+#### Build osgverse from Source (with shell script)
+0. Assume that osgVerse source code is already at `<osgverse_folder>`.
+1. Linux Host
+  - Run commands below in terminal:
+  - $ cd `<osgverse_folder>`
+  - $ ./Setup.sh `<optional_path>`
+  - OSG source code will be downloaded automatically and placed at ../OpenSceneGraph
+  - Select from the menu and start compiling all libraries:
+    - `<0>`: OpenGL Compatible profile
+      - Result will be saved at `<osgverse_folder>/build/sdk`
+    - `<1>`: OpenGL Core profile
+      - Result will be saved at `<osgverse_folder>/build/sdk_core`
+    - `<2>`: OpenGL ES
+      - `<optional_path>` must be set to path of libEGL.so and libGLESv2.so, e.g., `/usr/lib/x86_64-linux-gnu`
+      - You may select to build GLES2 or GLES3 in the following steps.
+      - Result will be saved at `<osgverse_folder>/build/sdk_es`
+    - `<3>` or `<4>`: WebAssembly 1 or 2
+      - `<optional_path>` must be set to path of Emscripten SDK.
+      - You may select to build WASM64 in the following steps.
+      - More information about osgEarth related dependencies can be found below.
+      - Result will be saved at `<osgverse_folder>/build/verse_wasm` or `<osgverse_folder>/build/verse_wasm2`
+    - `<5>`: Android GLES3
+      - Java SDK and Gradle must be installed first.
+      - Environment variable ANDROID_SDK and ANDROID_NDK must be set.
+2. Windows Host
+  - Run Visual Studio commandline prompt (x64) to make sure NMake can be found.
+  - Run commands below:
+    - $ cd `<osgverse_folder>`
+    - $ Setup.bat `<optional_path>`
+    - See `Linux Host` for more details
+
+#### Build osgverse from Source (traditional way)
 0. Assume that osgVerse source code is already at `<osgverse_folder>`.
 1. Desktop Windows / Linux
   - Make sure you have a compiler environment (e.g., Visual Studio).
