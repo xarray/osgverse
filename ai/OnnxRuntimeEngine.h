@@ -18,7 +18,7 @@ namespace osgVerse
         enum DataLayout { Default = 0, ImageNCHW = Default, ImageNHWC };
         enum DataType { UnknownData, FloatData, UCharData, CharData, UShortData, ShortData, IntData, LongData,
                         StringData, BoolData, HalfData, DoubleData, UIntData, ULongData, Complex64, Complex128 };
-        typedef std::function<void (bool)> FinishedCallback;
+        typedef std::function<void (size_t, bool)> FinishedCallback;
 
         OnnxInferencer(const std::wstring& modelPath, DeviceType type, int deviceID = 0);
         void setModelDataLayout(bool inputLayer, const std::string& name, DataLayout layout);

@@ -108,7 +108,7 @@ namespace
             OnnxWrapper* wrapper = (OnnxWrapper*)userData;
             wrapper->_work.outNames = wrapper->_modelInfo.outputNames;
             wrapper->_work.failed = (status != NULL); wrapper->_work.finished = true;
-            if (wrapper->_work.callback) (wrapper->_work.callback)(status == NULL);
+            if (wrapper->_work.callback) (wrapper->_work.callback)(numOutputs, status == NULL);
         }
 
         template<typename T>
@@ -118,7 +118,7 @@ namespace
             Ort::Value tensor; if (values.empty()) return tensor;
             std::vector<int64_t> shapes = { (int64_t)values.size(), (int64_t)values[0].size() };
             OnnxInferencer::DataLayout outLayout = OnnxInferencer::Default;
-            if (checkValidation(checkInName, shapes, type, true, outLayout))
+            if (checkValidation(checkInName, shapes, outLayout, type, true))
             {
                 tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(), type);
                 T* ptr = tensor.GetTensorMutableData<T>(); size_t totalSize = 0;
@@ -143,7 +143,7 @@ namespace
             switch (firstImage->getDataType())
             {
             case GL_UNSIGNED_BYTE:
-                if (checkValidation(checkInName, shapes, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8, true, outLayout))
+                if (checkValidation(checkInName, shapes, outLayout, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8, true))
                 {
                     tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(),
                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8);
@@ -156,7 +156,7 @@ namespace
                     }
                 } break;
             case GL_FLOAT:
-                if (checkValidation(checkInName, shapes, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, true, outLayout))
+                if (checkValidation(checkInName, shapes, outLayout, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, true))
                 {
                     tensor = Ort::Value::CreateTensor(_allocator, shapes.data(), shapes.size(),
                                                       ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
@@ -175,8 +175,8 @@ namespace
             return tensor;
         }
 
-        bool checkValidation(const std::string& n, const std::vector<int64_t>& shapes,
-                             ONNXTensorElementDataType type, bool asInput, OnnxInferencer::DataLayout& outLayout)
+        bool checkValidation(const std::string& n, std::vector<int64_t>& shapes, OnnxInferencer::DataLayout& outLayout,
+                             ONNXTensorElementDataType type, bool asInput)
         {
             const std::vector<std::string>& names = asInput ? _modelInfo.inputNames : _modelInfo.outputNames;
             if (std::find(names.begin(), names.end(), n) == names.end()) return false;
@@ -187,28 +187,17 @@ namespace
             if (type0 == type && shapes0.size() == shapes.size())
             {
                 bool diff = false; size_t num = shapes.size();
-                if (outLayout == OnnxInferencer::ImageNHWC)
+                if (outLayout == OnnxInferencer::ImageNHWC && num >= 3)
                 {
-                    for (size_t i = 0; i < num - 3; ++i)
-                    {
-                        if (shapes0[i] < 0 || shapes[i] < 0) continue;  // dynamic
-                        if (shapes0[i] != shapes[i]) diff = true;
-                    }
-
-                    if (num >= 3)
-                    {
-                        if (shapes0[num - 1] != shapes[num - 3]) diff = true;
-                        if (shapes0[num - 2] != shapes[num - 1]) diff = true;
-                        if (shapes0[num - 3] != shapes[num - 2]) diff = true;
-                    }
+                    int64_t tmp = 0; tmp = shapes[num - 3];  // temp channel
+                    shapes[num - 3] = shapes[num - 2]; shapes[num - 2] = shapes[num - 1];
+                    shapes[num - 1] = tmp;  // change from NCHW to NHWC
                 }
-                else
-                {   // OnnxInferencer::ImageNCHW
-                    for (size_t i = 0; i < num; ++i)
-                    {
-                        if (shapes0[i] < 0 || shapes[i] < 0) continue;  // dynamic
-                        if (shapes0[i] != shapes[i]) diff = true;
-                    }
+
+                for (size_t i = 0; i < num; ++i)
+                {
+                    if (shapes0[i] < 0 || shapes[i] < 0) continue;  // dynamic
+                    if (shapes0[i] != shapes[i]) diff = true;
                 }
                 if (!diff) return true;
             }
@@ -220,7 +209,7 @@ namespace
         }
 
         void runSync(const std::vector<std::string>& inNameStrings,
-                      const std::vector<Ort::Value>& inTensors, std::vector<Ort::Value>& outTensors)
+                     const std::vector<Ort::Value>& inTensors, std::vector<Ort::Value>& outTensors)
         {
             std::vector<const char*> inNames, outNames;
             const std::vector<std::string>& inputNames = inNameStrings.empty() ? _modelInfo.inputNames : inNameStrings;
@@ -228,9 +217,14 @@ namespace
             for (size_t i = 0; i < _modelInfo.outputNames.size(); ++i) outNames.push_back(_modelInfo.outputNames[i].c_str());
 
             Ort::RunOptions options; size_t inTensorSize = osg::minimum(inTensors.size(), inNames.size());
-            std::vector<Ort::Value> results = _session.Run(options, inNames.data(), inTensors.data(), inTensorSize,
-                                                           outNames.data(), outNames.size());
-            outTensors.swap(results); runCallback(this, outTensors.data(), outTensors.size(), NULL);  // FIXME: implement RunAsync
+            try
+            {
+                std::vector<Ort::Value> results = _session.Run(options, inNames.data(), inTensors.data(), inTensorSize,
+                                                               outNames.data(), outNames.size());  // FIXME: implement RunAsync
+                outTensors.swap(results); runCallback(this, outTensors.data(), outTensors.size(), NULL);
+            }
+            catch (std::exception& e)
+                { OSG_NOTICE << "[OnnxInferencer] Running exception: " << e.what() << std::endl; }
         }
 
     protected:
@@ -418,7 +412,7 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
     size_t shapeCount = shapes.size(); if (!img0 || shapeCount < 3) return img0;
     int channels = shapeCount > 3 ? (int)shapes[1] : (int)shapes[0],
         w = (int)shapes.back(), h = (int)shapes[shapeCount - 2];
-    if (layout == ImageNHWC)
+    if (channels > 4 || layout == ImageNHWC)
     {
         channels = (int)shapes.back(); w = (int)shapes[shapeCount - 2];
         h = shapeCount > 3 ? (int)shapes[1] : (int)shapes[0];
