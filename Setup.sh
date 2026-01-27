@@ -64,15 +64,15 @@ case "$BuildMode" in
         CMakeResultChecker=build/osg_es/CMakeCache.txt
         ;;
     3)  echo "WebAssembly WebGL 1."
-        BuildResultChecker=build/sdk_wasm/lib/libosgviewer.a
+        BuildResultChecker=build/sdk_wasm/lib/libosgViewer.a
         CMakeResultChecker=build/osg_wasm/CMakeCache.txt
         ;;
     4)  echo "WebAssembly WebGL 2."
-        BuildResultChecker=build/sdk_wasm2/lib/libosgviewer.a
+        BuildResultChecker=build/sdk_wasm2/lib/libosgViewer.a
         CMakeResultChecker=build/osg_wasm2/CMakeCache.txt
         ;;
     5)  echo "Android GLES 3."
-        BuildResultChecker=build/sdk_android/lib/libosgviewer.a
+        BuildResultChecker=build/sdk_android/lib/libosgViewer.a
         CMakeResultChecker=build/osg_android/CMakeCache.txt
         ;;
     q)  exit 0
