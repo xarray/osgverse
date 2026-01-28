@@ -36,8 +36,8 @@ USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
 class GaussianStateVisitor : public osg::NodeVisitor
 {
 public:
-    GaussianStateVisitor(osgVerse::GaussianSorter* s, const std::string& hint)
-        : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), _sorter(s)
+    GaussianStateVisitor(osgVerse::GaussianSorter* s, const std::string& hint, bool testColor)
+        : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), _sorter(s), _testColorCustomizing(testColor)
     {
         osg::Shader* vert = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "gaussian_splatting.vert.glsl");
         osg::Shader* geom = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "gaussian_splatting.geom.glsl");
@@ -59,12 +59,10 @@ public:
         _program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
         _callback = osgVerse::GaussianGeometry::createUniformCallback();
 
-        // FIXME: it seems import_defines failed in GLCore/GLES mode? Try ShaderLibrary as fallback
-        std::vector<std::string> gsDefinitions; int minGlslVer = 300;
-        if (hint == "TBO")
-            vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX"));
-        else if (hint == "TEX2D")
-            vert->setUserValue("Definitions", std::string("USE_INSTANCING,USE_INSTANCING_TEX2D"));
+        std::vector<std::string> gsDefinitions; int minGlslVer = 120;
+        std::string vsDefinitions; if (_testColorCustomizing) vsDefinitions = "CUSTOMIZED_TEX,";
+        if (hint == "TBO") vsDefinitions += std::string("USE_INSTANCING,USE_INSTANCING_TEX");
+        else if (hint == "TEX2D") vsDefinitions += std::string("USE_INSTANCING,USE_INSTANCING_TEX2D");
         else if (hint == "GS")
         {
 #if defined(OSG_GL3_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
@@ -74,17 +72,16 @@ public:
         }
         else
         {
-            vert->setUserValue("Definitions", std::string("USE_INSTANCING"));
+            vsDefinitions += std::string("USE_INSTANCING");
             minGlslVer = 430;  // for SSBO compatibility
         }
 
+        // FIXME: it seems import_defines failed in GLCore/GLES mode? Try using ShaderLibrary as fallback
+        if (!vsDefinitions.empty()) vert->setUserValue("Definitions", vsDefinitions);
+
         int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
         glslVer = osg::maximum(glslVer, minGlslVer);
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
         osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
-#else
-        osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
-#endif
         osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
         osgVerse::Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
     }
@@ -99,6 +96,14 @@ public:
             {   // to sort geometries by depth
                 gs->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
                 _sorter->addGeometry(gs); hasGaussian = true;
+
+                if (_testColorCustomizing)
+                {
+                    std::vector<osg::Vec4> param(gs->getNumSplats(), osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+                    for (size_t i = 0; i < param.size() / 2; ++i)
+                        param[i] = osg::Vec4(1.0f, 0.0f, 0.0f, 2.0f);  // a = 1: replacing; a = 2: additive
+                    gs->setColorParameters(param);
+                }
             }
         }
 
@@ -119,6 +124,7 @@ protected:
     osg::ref_ptr<osg::Program> _program;
     osg::ref_ptr<osg::NodeCallback> _callback;
     osg::observer_ptr<osgVerse::GaussianSorter> _sorter;
+    bool _testColorCustomizing;
 };
 
 class SortCallback : public osg::Camera::DrawCallback
@@ -149,6 +155,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     std::string hint; arguments.read("--render-mode", hint);
+    bool testColor = arguments.read("--test-color");
     osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + hint);
     osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments, options.get());
     if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat", options.get());
@@ -174,7 +181,7 @@ int main(int argc, char** argv)
     viewer.addEventHandler(handler);
 
     osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;
-    GaussianStateVisitor gsv(sorter.get(), hint); gs->accept(gsv);
+    GaussianStateVisitor gsv(sorter.get(), hint, testColor); gs->accept(gsv);
     viewer.getCamera()->setPreDrawCallback(new SortCallback(sorter.get()));
 
     int screenNo = 0; arguments.read("--screen", screenNo);

@@ -23,7 +23,7 @@ void main()
         int Sx = k % int(NV.x), Sy = int(floor(k / NV.x));
         for (int i = 0; i < 3; ++i)
         {
-            vec4 tmp = TSP * (Tv + gl_in[i].gl_Position);
+            vec4 tmp = TSP * (Tv + VERSE_GS_POS(i));
             vec2 coeff = (vec2(2.0) / NV) * tmp.w;
             gl_ClipDistance[0] = tmp.x + tmp.w;
             gl_ClipDistance[1] = coeff.x - (tmp.x + tmp.w);

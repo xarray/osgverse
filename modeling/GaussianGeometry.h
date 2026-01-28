@@ -24,21 +24,22 @@ namespace osgVerse
      - CovMatrix.c1 + Color.g: SSBO-2 (4 floats)
      - CovMatrix.c2 + Color.b: SSBO-3 (4 floats)
      - Spherical harmonics coefficients: SSBO-4 (optional, 15 * 4 floats, alpha ignored)
-     - Instance Indices (uint): getVertexAttribArray(7)
+     - Indices (uint): getVertexAttribArray(7)
+     - [Color customizing] Tex-0 (4 floats)
 
    - Render with mesh instances and texture buffers (no SH):
-     - (Method = INSTANCING_TEXTURE, for GL 3 / GLES3)
-     - (Method = INSTANCING_TEX2D, for GL 2 / GLES2)
+     - (Method = INSTANCING_TEXTURE, for GL 3 or later and GLES 3.2)
+     - (Method = INSTANCING_TEX2D, for GL 2 / GLES2 / GLES3)
      - Original shape vertices (vec3): getVertexArray()
      - Position.xyz + Alpha: Tex-0 (4 floats)
      - CovMatrix.c0 + Color.r: Tex-1 (4 floats)
      - CovMatrix.c1 + Color.g: Tex-2 (4 floats)
      - CovMatrix.c2 + Color.b: Tex-3 (4 floats)
-     - Instance Indices: Tex-4 (1 uint, for INSTANCING_TEXTURE)
-                      or getVertexAttribArray(7) (for INSTANCING_TEX2D)
+     - Indices: getVertexAttribArray(7)
+     - [Color customizing] Tex-4 (4 floats)
 
-   - Render with geometry shader and vertex attributes: GEOMETRY_SHADER
-     - (Method = INSTANCING_TEXTURE, for GL 3)
+   - Render with geometry shader and vertex attributes:
+     - (Method = GEOMETRY_SHADER, for GL 3 or later and GLES 3.2)
      - Position (vec3): getVertexArray()
      - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
      - Alpha (float): getVertexAttribArray(1).a()
@@ -47,6 +48,7 @@ namespace osgVerse
        - G-channel (dc + 15 rests): getVertexAttribArray(5,8,11,14)
        - B-channel (dc + 15 rests): getVertexAttribArray(6,9,12,15)
      - Indices: getPrimitiveSet(0)
+     - [Color customizing] not supported
 */
 class GaussianGeometry : public osg::Geometry
 {
@@ -64,6 +66,9 @@ public:
 
     static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m = INSTANCING);
     static osg::NodeCallback* createUniformCallback();
+
+    void setColorParameters(const std::vector<osg::Vec4>& param);
+    osg::Vec4* getColorParameters(bool dirty);
 
     bool finalize();  // only run this after setting all attributes
     RenderMethod getRenderMethod() const { return _method; }
@@ -87,7 +92,6 @@ public:
     osg::ref_ptr<osg::Vec4Array> getShGreen(int index);
     osg::ref_ptr<osg::Vec4Array> getShBlue(int index);
 
-    osg::Texture* getIndexTexture() { return _indexTex.get(); }
     osg::FloatArray* getCoreDataBuffer() { return _coreBuffer.get(); }
     osg::FloatArray* getShcoefBuffer() { return _shcoefBuffer.get(); }
 
@@ -99,7 +103,7 @@ protected:
     std::map<std::string, std::vector<osg::Vec4>> _preDataMap;
     std::map<std::string, std::vector<osg::Vec3>> _preDataMap2;
     osg::ref_ptr<osg::FloatArray> _coreBuffer, _shcoefBuffer;
-    osg::ref_ptr<osg::Texture> _coreTex[4], _indexTex;
+    osg::ref_ptr<osg::Texture> _coreTex[4];
     RenderMethod _method;
     int _degrees, _numSplats;
 };

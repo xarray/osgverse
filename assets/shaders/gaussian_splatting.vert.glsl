@@ -1,33 +1,51 @@
 #extension GL_EXT_draw_instanced : enable
-#pragma import_defines(USE_INSTANCING, USE_INSTANCING_TEX, USE_INSTANCING_TEX2D, FULL_SH)
+#extension GL_EXT_gpu_shader4 : enable
+#pragma import_defines(USE_INSTANCING, USE_INSTANCING_TEX, USE_INSTANCING_TEX2D, FULL_SH, CUSTOMIZED_TEX)
 
 uniform mat4 osg_ViewMatrixInverse;
 uniform vec2 NearFarPlanes, InvScreenResolution;
 uniform float GaussianRenderingMode;
+#if defined(CUSTOMIZED_TEX)
+void customizeColorChanging(inout vec4 color, vec4 param)
+{
+    if (param.a > 1.5) color.rgb += param.rgb;
+    else if (param.a > 0.5) color.rgb = param.rgb;
+}
+
+#   if defined(USE_INSTANCING_TEX2D)
+uniform sampler2D ParamTexture;
+void customizeColor(inout vec4 color, in int index, in vec2 uvIndex)
+{ customizeColorChanging(color, VERSE_TEX2D(ParamTexture, uvIndex)); }
+#   else
+uniform samplerBuffer ParamTexture;
+void customizeColor(inout vec4 color, in int index, in vec2 uvIndex)
+{ customizeColorChanging(color, texelFetch(ParamTexture, index)); }
+#   endif
+#else
+void customizeColor(inout vec4 color, in int index, in vec2 uvIndex) {}
+#endif
+
 #if defined(USE_INSTANCING)
 #  if defined(USE_INSTANCING_TEX)
 uniform samplerBuffer CoreTexture0, CoreTexture1, CoreTexture2, CoreTexture3;
-uniform usamplerBuffer IndexTexture;
 #  elif defined(USE_INSTANCING_TEX2D)
 uniform sampler2D CoreTexture0, CoreTexture1, CoreTexture2, CoreTexture3;
 uniform vec2 TextureSize;
-VERSE_VS_IN uint osg_UserIndex;
 #  else
-layout(std140, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
-layout(std140, binding = 1) restrict readonly buffer CoreCov0Buffer { vec4 coreCov0[]; };
-layout(std140, binding = 2) restrict readonly buffer CoreCov1Buffer { vec4 coreCov1[]; };
-layout(std140, binding = 3) restrict readonly buffer CoreCov2Buffer { vec4 coreCov2[]; };
-
 struct ShcoefData
 {
     vec4 rgb0; vec4 rgb1; vec4 rgb2; vec4 rgb3; vec4 rgb4;
     vec4 rgb5; vec4 rgb6; vec4 rgb7; vec4 rgb8; vec4 rgb9;
     vec4 rgb10; vec4 rgb11; vec4 rgb12; vec4 rgb13; vec4 rgb14;
 };
+layout(std140, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
+layout(std140, binding = 1) restrict readonly buffer CoreCov0Buffer { vec4 coreCov0[]; };
+layout(std140, binding = 2) restrict readonly buffer CoreCov1Buffer { vec4 coreCov1[]; };
+layout(std140, binding = 3) restrict readonly buffer CoreCov2Buffer { vec4 coreCov2[]; };
 layout(std140, binding = 4) restrict readonly buffer ShcoefBuffer { ShcoefData shcoef[]; };
-VERSE_VS_IN uint osg_UserIndex;
 #  endif
 
+VERSE_VS_IN uint osg_UserIndex;
 VERSE_VS_OUT vec4 color, invCovariance;
 VERSE_VS_OUT vec2 center2D;
 
@@ -129,22 +147,23 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor)
 
 void main()
 {
+    int index = 0; vec2 paramUV = vec2(0.0);
 #if defined(USE_INSTANCING)
 #  if defined(USE_INSTANCING_TEX)
-    int index = int(texelFetch(IndexTexture, gl_InstanceID).r);
+    index = int(osg_UserIndex);
     vec4 posAlpha = texelFetch(CoreTexture0, index);
     vec4 cov0 = texelFetch(CoreTexture1, index);
     vec4 cov1 = texelFetch(CoreTexture2, index);
     vec4 cov2 = texelFetch(CoreTexture3, index);
 #  elif defined(USE_INSTANCING_TEX2D)
     float r = float(osg_UserIndex) / TextureSize.x;
-    float c = floor(r) / TextureSize.y; vec2 paramUV = vec2(fract(r), c);
+    float c = floor(r) / TextureSize.y; paramUV = vec2(fract(r), c);
     vec4 posAlpha = VERSE_TEX2D(CoreTexture0, paramUV);
     vec4 cov0 = VERSE_TEX2D(CoreTexture1, paramUV);
     vec4 cov1 = VERSE_TEX2D(CoreTexture2, paramUV);
     vec4 cov2 = VERSE_TEX2D(CoreTexture3, paramUV);
 #  else
-    uint index = uint(osg_UserIndex);
+    index = int(osg_UserIndex);
     vec4 posAlpha = corePos[index];
     vec4 cov0 = coreCov0[index], cov1 = coreCov1[index], cov2 = coreCov2[index];
 #  endif
@@ -201,6 +220,7 @@ void main()
 #if defined(USE_INSTANCING)
     vec3 baseColor = vec3(cov0.w, cov1.w, cov2.w);
     color = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);
+    customizeColor(color, index, paramUV);
 
     vec3 ndcP = proj.xyz / proj.w;
     if (!(ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0))

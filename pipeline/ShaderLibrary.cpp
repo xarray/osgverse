@@ -163,6 +163,15 @@ void ShaderLibrary::createShaderDefinitions(osg::Shader& shader, int glVer, int 
     }
 
     osg::Shader::Type shaderType = shader.getType();
+    if (shaderType == osg::Shader::GEOMETRY)
+    {
+#if defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+        extraDefs.push_back("vec4 VERSE_GS_POS(int i) { return gl_in[i].gl_Position; }");
+#else
+        extraDefs.push_back("vec4 VERSE_GS_POS(int i) { return gl_PositionIn[i]; }");
+#endif
+    }
+
     if (shaderType == osg::Shader::VERTEX || shaderType == osg::Shader::GEOMETRY)
     {
 #if !defined(VERSE_EMBEDDED_GLES2)

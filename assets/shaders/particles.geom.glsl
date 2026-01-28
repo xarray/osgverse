@@ -17,22 +17,22 @@ void main()
         color = color_gs[0]; texCoord = vec4(uv[id], 0.0, 0.0);
         if (DataRange.z > 2.5)  // ray
         {
-            vec4 viewPos = vec4(e[id], 0.0, 0.0) + gl_in[0].gl_Position;
+            vec4 viewPos = vec4(e[id], 0.0, 0.0) + VERSE_GS_POS(0);
             if (id > 1) viewPos += vec4(texCoord_gs[0].yzw, 0.0);
             gl_Position = (VERSE_MATRIX_MVP * viewPos) + vec4(e[id] * texCoord_gs[0].x, 0.0, 0.0);
         }
         else if (DataRange.z > 1.5)  // billboard (no-scale)
         {
-            vec4 viewPos = gl_in[0].gl_Position + vec4(e[id] * texCoord_gs[0].x, 0.0, 0.0);
+            vec4 viewPos = VERSE_GS_POS(0) + vec4(e[id] * texCoord_gs[0].x, 0.0, 0.0);
             gl_Position = VERSE_MATRIX_P * viewPos;
         }
         else if (DataRange.z > 0.5)  // billboard (with-scale)
         {
-            vec4 viewPos = VERSE_MATRIX_MVP * (vec4(e[id], 0.0, 0.0) + gl_in[0].gl_Position);
+            vec4 viewPos = VERSE_MATRIX_MVP * (vec4(e[id], 0.0, 0.0) + VERSE_GS_POS(0));
             gl_Position = viewPos + vec4(e[id] * texCoord_gs[0].x, 0.0, 0.0);
         }
         else  // etc.
-            gl_Position = VERSE_MATRIX_MVP * (vec4(e[id], 0.0, 0.0) + gl_in[0].gl_Position);
+            gl_Position = VERSE_MATRIX_MVP * (vec4(e[id], 0.0, 0.0) + VERSE_GS_POS(0));
         EmitVertex();
         if (i == 2 || i == 5) EndPrimitive();
     }
