@@ -61,17 +61,11 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
     if (!scene) { OSG_WARN << "Failed to load GLTF model"; return 1; }
-
-    // Add tangent/bi-normal arrays for normal mapping
-    {
-        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
-    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
@@ -81,10 +75,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     //osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.0,0,-250.trans");
     if (otherSceneRoot.valid())
-    {
-        osgVerse::FixedFunctionOptimizer ffo; otherSceneRoot->accept(ffo);
         osgVerse::Pipeline::setPipelineMask(*otherSceneRoot, CUSTOM_INPUT_MASK);
-    }
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     if (argc == 1) root->addChild(otherSceneRoot.get());

@@ -572,7 +572,7 @@ osg::Node* createCrossScene(EnvironmentHandler* env, osg::Node* nodeA, osg::Node
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgVerse::updateOsgBinaryWrappers();
 
     osg::DisplaySettings::instance()->setMinimumNumStencilBits(8);

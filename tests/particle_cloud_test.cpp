@@ -29,7 +29,7 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     if (arguments.read("--csv"))
     {
         std::string csvFile, outFile("result.particle");

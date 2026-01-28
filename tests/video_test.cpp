@@ -10,6 +10,7 @@
 
 #include <pipeline/CudaTexture2D.h>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -20,7 +21,7 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     std::string file; bool recordeMode = arguments.read("--record");
     if (!arguments.read("--file", file))
     {

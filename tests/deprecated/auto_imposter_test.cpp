@@ -120,7 +120,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgVerse::updateOsgBinaryWrappers();
 
     std::string treeFileName; arguments.read("--tree", treeFileName);

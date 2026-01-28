@@ -60,7 +60,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     bool useGLFW = arguments.read("--use-glfw"), useWin32Ex = arguments.read("--use-win32ex");
@@ -71,12 +71,6 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
     if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf");
-    if (scene.valid())
-    {
-        // Add tangent/bi-normal arrays for normal mapping
-        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
-    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

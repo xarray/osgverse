@@ -21,7 +21,7 @@ void loop() { g_app->frame(); }
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgEarth::Registry::instance()->overrideTerrainEngineDriverName() = "mp";
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 

@@ -11,6 +11,7 @@
 #include <pipeline/Global.h>
 #include <animation/PlayerAnimation.h>
 #include <animation/BlendShapeAnimation.h>
+#include <readerwriter/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -44,7 +45,7 @@ osgVerse::PlayerAnimation* findAnimationManager(osg::Node* node)
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     int jointToOutput = -1; arguments.read("--joint-skinning", jointToOutput);
     bool withSkinning = !arguments.read("--disable-skinning");
 

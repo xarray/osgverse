@@ -33,6 +33,23 @@
 #define srnd() (2 * frandom(&seed) - 1)
 using namespace osgVerse;
 
+/************** ScreenSnapshotCallback **************/
+void ScreenSnapshotCallback::operator()(const osg::Camera & camera) const
+{
+    int width = 800, height = 600; if (!_capturing) return;
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
+    glReadBuffer(GL_BACK);  // read from back buffer (gc must be double-buffered)
+#endif
+
+    const osg::GraphicsContext* gc = camera.getGraphicsContext();
+    if (gc && gc->getTraits())
+    {
+        width = gc->getTraits()->width;
+        height = gc->getTraits()->height;
+    }
+    _image->readPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
+}
+
 /************** Hash **************/
 static XXH64_hash_t g_hashSeed = XXH64("osgVerse", 8, 0);
 

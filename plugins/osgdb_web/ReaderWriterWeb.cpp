@@ -123,8 +123,8 @@ public:
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
                 if (rr.validNode())
                 {
-                    osgVerse::FixedFunctionOptimizer ffo;
-                    rr.getNode()->accept(ffo);
+                    //osgVerse::FixedFunctionOptimizer ffo;
+                    //rr.getNode()->accept(ffo);  // FIXME: let osgVerse::defaultInitParameters() manage it?
                 }
 #endif
                 return rr;
@@ -149,8 +149,8 @@ public:
     #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
                 if (rr.validNode())
                 {
-                    osgVerse::FixedFunctionOptimizer ffo;
-                    rr.getNode()->accept(ffo);
+                    //osgVerse::FixedFunctionOptimizer ffo;
+                    //rr.getNode()->accept(ffo);  // FIXME: let osgVerse::defaultInitParameters() manage it?
                 }
     #endif
                 return rr;

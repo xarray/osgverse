@@ -59,15 +59,11 @@ const char* fragCode = {
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (scene.valid())
     {
-        // Add tangent/bi-normal arrays for normal mapping
-        //osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
-
         // Create program for demonstrating shader module uses
         osg::ref_ptr<osg::Program> program = new osg::Program;
         program->addShader(new osg::Shader(osg::Shader::VERTEX, vertCode));

@@ -350,6 +350,8 @@ int main(int argc, char** argv)
     }
 
     // Start the main loop
+    //osgVerse::ScreenSnapshotCallback* capturer = new osgVerse::ScreenSnapshotCallback;
+    //pipeline->getForwardCamera()->setFinalDrawCallback(capturer);
     while (!viewer.done())
     {
         viewer.frame();

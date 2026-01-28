@@ -145,7 +145,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgDB::Registry::instance()->addFileExtensionAlias("ply", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("spz", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("splat", "verse_3dgs");

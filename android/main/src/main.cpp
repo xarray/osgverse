@@ -26,7 +26,7 @@ USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 
 int SDL_main(int argc, char* argv[])
 {
-    osgVerse::globalInitialize(argc, argv);
+    osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     bool quit = false;

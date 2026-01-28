@@ -34,15 +34,9 @@ protected:
 #define SERVER_ADDR "http://127.0.0.1:8000/assets"
 int main(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(SERVER_ADDR "/models/Sponza/Sponza.gltf");
-    if (scene.valid())
-    {
-        // Add tangent/bi-normal arrays for normal mapping
-        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
-    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

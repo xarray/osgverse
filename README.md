@@ -22,17 +22,18 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 
 #### Main Features (ongoing to v1.0)
 - [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
-- [x] (PARTLY) Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
-- [x] (PARTLY) Supports physics simuation based on Bullet3/PhysX library, and character animation based on OZZ library.
-- [ ] (PARTLY) Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
-- [x] Provides a LevelDB nosql plugin, for reading tiles from database rather than local folders.
-- [x] Provides a media streaming plugin, which supports pixel streaming through WebRTC / Websockets.
-- [x] Provides a scripting plugin, which supports scripting using OSGB serialization and changing to Restful-like format.
-- [x] Supports GL3 Core profile, as well as GLES2 / GLES3. Google Angel is also supported for future bridging uses.
+- [x] Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
+- [x] Supports physics simuation based on Bullet3/PhysX library, and character animation based on OZZ library.
+- [x] Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
+- [x] Provides database plugins (leveldb, mbtiles, odbc), for reading models and tiles from database rather than local folders.
+- [x] Provides media streaming plugin, which supports playing RTSP and streaming through WebRTC / Websockets.
+- [ ] (PARTLY) Provides video decoding plugins based on GPU (with NVCUVID or LibVA), without CPU copying overload.
+- [x] Provides scripting functionalities to support Python / JsonRPC scripting using OSGB serialization.
+- [x] Supports GL3 Core profile, GLES2 and GLES3. Google Angle is also supported for bridging low-level APIs like Vulkan and DirectX.
 - [x] Supports 3D Gaussian Splatting rendering and related formats: PLY, SPZ, SPLAT, PlayCanvas SOG and XGrids LCC.
 - [x] Supports dependency-free earth scene construction and high quality terrain/atmosphere/ocean rendering. (without osgEarth)
-- [x] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
-- [x] (PARTLY) Supports major embedded devices with GPU supports, including ARM and RISC-V.
+- [ ] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
+- [x] Supports major embedded devices with GPU supports, including ARM and RISC-V.
 - [x] Supports Emscripten / WASM compilation and works with WebGL 1/2 based browsers.
 - [ ] Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
 
@@ -82,17 +83,18 @@ Our project is already tested on graphics cards listed as below:
 | NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | Display has broken problems with Nouveau driver |
-| NVIDIA GT720              | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 12fps |
+| NVIDIA GT720              | 4.6 / GLSL 4.6 | :heavy_check_mark: | Viewer FPS < 12fps |
 | NVIDIA Quadro K2200       | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
 | AMD Radeon RX5500         | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate < 15fps |
-| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Current frame rate ~= 30fps |
-| MooreThreads S80/1000     | 4.1 / GLSL 4.1 | :heavy_check_mark: | Enable VERSE_USE_MTT_DRIVER before solving driver problems |
-| PhytiumVR AXT-16-512      | 3.0 / GLSL 3.3 | :heavy_check_mark: | Current frame rate < 10fps. Will go blank if GLSL code has '#include'? |
+| AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Viewer FPS < 15fps |
+| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Viewer FPS ~= 30fps |
+| MooreThreads X300         | 4.3 / GLSL 4.3 | :heavy_check_mark: | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA), Viewer FPS ~= 60fps |
+| MooreThreads S80/S1000    | 4.1 / GLSL 4.1 | :heavy_check_mark: | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA), Viewer FPS ~= 30fps |
+| Phytium D2000+X100        | 3.0 / GLSL 3.3 | :heavy_check_mark: | Viewer FPS < 10fps |
 | JingJia Micro JM7201      |                | :soon:             |       |
-| LJmicro GP202             | 4.0 / GLSL 4.0 | :heavy_check_mark: | Current frame rate < 10fps. Shadows gone? |
+| LJmicro GP202             | 4.0 / GLSL 4.0 | :heavy_check_mark: | Viewer FPS < 10fps. Shadows gone? |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
-| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | osgVerse_Test_Pipeline can work; standard can't |
+| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | Test_Pipeline can work; Viewer can't |
 
 #### Modules
 1. osgVerseDependency: contains all embedded 3rdparty dependencies.

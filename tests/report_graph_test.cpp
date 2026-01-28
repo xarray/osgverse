@@ -317,7 +317,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgVerse::updateOsgBinaryWrappers();
 
     osg::ref_ptr<osg::Node> scene =
@@ -327,7 +327,6 @@ int main(int argc, char** argv)
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     scene->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
     scene->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
-    { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
 #endif
 
     Reporter reporter;

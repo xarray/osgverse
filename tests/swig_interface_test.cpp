@@ -10,6 +10,7 @@
 #include <osg/Version>
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <script/Entry.h>
 #include <wrappers/Export.h>
 #include <iostream>
@@ -92,7 +93,7 @@ static std::string getPropertyTypeName(const std::string& clsName, osgDB::BaseSe
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgVerse::updateOsgBinaryWrappers();
     std::string ns = "osg";
 

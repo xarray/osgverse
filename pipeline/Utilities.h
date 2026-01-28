@@ -22,8 +22,6 @@
 struct SMikkTSpaceContext;
 struct lay_context;
 
-#
-
 namespace osgVerse
 {
     class Pipeline;
@@ -102,6 +100,22 @@ namespace osgVerse
     /** Create image from given 2D point and attributes */
     extern osg::Image* createInterpolatedMap(const std::vector<osg::Vec2>& points, const std::vector<osg::Vec4>& values,
                                              int resX, int resY, int valueComponents, bool toInt8 = false, osg::View* viewer = NULL);
+
+    /** The screen snapshot capture */
+    class ScreenSnapshotCallback : public CameraDrawCallback
+    {
+    public:
+        ScreenSnapshotCallback(bool c = true) : _capturing(c) { _image = new osg::Image; }
+        virtual void operator()(const osg::Camera& camera) const;
+
+        void setCapturing(bool c) { _capturing = c; }
+        bool getCapturing() const { return _capturing; }
+        osg::Image* getImage() { return _image.get(); }
+
+    protected:
+        osg::ref_ptr<osg::Image> _image;
+        bool _capturing;
+    };
 
     /** The tangent/binormal computing visitor */
     class TangentSpaceVisitor : public osg::NodeVisitor

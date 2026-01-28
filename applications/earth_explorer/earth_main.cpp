@@ -209,7 +209,7 @@ static std::string createCustomPath(int type, const std::string& prefix, int x, 
 int main(int argc, char** argv)
 {
     osgViewer::Viewer viewer;
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler(false));
     osgVerse::updateOsgBinaryWrappers();
     osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");

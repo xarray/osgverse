@@ -230,7 +230,7 @@ protected:
 int main(int argc, char** argv)
 {
     bool guiAsTexture = false;
-    osgVerse::globalInitialize(argc, argv);
+    osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
 #if USE_COMPOSITE_VIEWER
     osgViewer::CompositeViewer viewer;
 #else
@@ -243,7 +243,6 @@ int main(int argc, char** argv)
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     scene->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
     scene->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
-    { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
 #endif
 
     // The scene graph

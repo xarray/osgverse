@@ -27,17 +27,11 @@ USE_VERSE_PLUGINS()
 
 static osg::Group* loadBasicScene(int argc, char** argv)
 {
-    osgVerse::globalInitialize(argc, argv);
+    osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(
         argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (!scene) scene = new osg::Group;
-
-    // Add tangent/bi-normal arrays for normal mapping
-    {
-        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
-    }
 
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;

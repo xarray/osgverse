@@ -136,9 +136,6 @@ osgEarth::Viewpoint createPlaceOnEarth(osg::Group* sceneRoot, osgEarth::MapNode*
         if (loadedModel.valid()) baseScene->addChild(loadedModel.get());
         baseScene->setMatrix(baseT); scene->addChild(baseScene.get());
     }
-
-    osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-    osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
     sceneRoot->addChild(scene.get());
 
     // Use a geo-transform node to place scene on earth
@@ -166,7 +163,7 @@ int main(int argc, char** argv)
 #if OSGEARTH_VERSION_GREATER_THAN(2, 10, 2)
     osgEarth::initialize();
 #endif
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     osgEarth::setNotifyLevel(osg::INFO);

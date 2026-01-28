@@ -173,7 +173,7 @@ public:
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgVerse::updateOsgBinaryWrappers();
     osg::ref_ptr<osg::Group> root = new osg::Group;
 
@@ -237,7 +237,6 @@ int main(int argc, char** argv)
     }
 
     // Find all geometries and merge them
-    { osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo); }
     FindGeometryVisitor fgv(true); scene->accept(fgv);
     int maxTexSize = 2048; arguments.read("--max-size", maxTexSize);
 

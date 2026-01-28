@@ -205,7 +205,7 @@ osg::Node* createEarthWithSkyAndOcean(osgViewer::Viewer* viewer, osg::Group* roo
 #define SERVER_ADDR "http://127.0.0.1:8000/assets"
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgDB::Registry::instance()->addFileExtensionAlias("tif", "verse_tiff");
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 

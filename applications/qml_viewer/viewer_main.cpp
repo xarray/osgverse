@@ -31,12 +31,6 @@ static osg::Group* loadBasicScene(int argc, char** argv)
         argc > 1 ? argv[1] : BASE_DIR + "/models/Sponza/Sponza.gltf");
     if (!scene) scene = new osg::Group;
 
-    // Add tangent/bi-normal arrays for normal mapping
-    {
-        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
-    }
-
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->addChild(scene.get());
@@ -152,7 +146,7 @@ int main(int argc, char** argv)
     QApplication app(argc, argv);
     qmlRegisterType<OsgFramebufferObject>("osgVerse", 1, 0, "OsgFramebufferObject");
 
-    osgVerse::globalInitialize(argc, argv);
+    osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
     MyCompositeViewer viewer;

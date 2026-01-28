@@ -13,6 +13,7 @@
 #include <pipeline/Utilities.h>
 #include <pipeline/SymbolManager.h>
 #include <pipeline/Drawer2D.h>
+#include <readerwriter/Utilities.h>
 
 #ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
@@ -70,7 +71,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::ref_ptr<osg::Group> root = new osg::Group;
 
     osgViewer::Viewer viewer;

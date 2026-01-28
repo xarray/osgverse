@@ -12,6 +12,7 @@
 #include <pipeline/Utilities.h>
 #include <script/JsonScript.h>
 #include <script/PythonScript.h>
+#include <readerwriter/Utilities.h>
 #include <wrappers/Export.h>
 #include <iostream>
 #include <sstream>
@@ -53,7 +54,7 @@ void printClassInfo(osgDB::ClassInterface& classMgr, osg::Object* obj)
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::updateOsgBinaryWrappers();
 

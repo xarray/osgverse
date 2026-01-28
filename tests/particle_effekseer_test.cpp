@@ -29,7 +29,7 @@ namespace backward { backward::SignalHandling sh; }
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::ref_ptr<osg::Group> root = new osg::Group;
 
     osg::ref_ptr<osg::Node> scene =

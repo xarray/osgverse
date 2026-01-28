@@ -120,7 +120,7 @@ std::vector<YoloDetection> decodeYOLOv4Output(
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgVerse::updateOsgBinaryWrappers();
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
 

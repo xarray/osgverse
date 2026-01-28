@@ -144,13 +144,6 @@ EditorContentHandler::EditorContentHandler()
 
     // TEST
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
-    if (scene.valid())
-    {
-        // Add tangent/bi-normal arrays for normal mapping
-        osgVerse::TangentSpaceVisitor tsv; scene->accept(tsv);
-        osgVerse::FixedFunctionOptimizer ffo; scene->accept(ffo);
-    }
-
     g_data.sceneRoot->addChild(scene.get());
     g_data.view->getCameraManipulator()->home(0.0);
     _hierarchyData->addItem(NULL, g_data.sceneRoot.get());
@@ -194,7 +187,7 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
 int main(int argc, char** argv)
 {
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv);
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osgVerse::updateOsgBinaryWrappers();
 
     // Core scene graph
