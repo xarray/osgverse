@@ -180,12 +180,14 @@ protected:
 int main(int argc, char** argv)
 {
     osgVerse::ConsoleHandler* logger = new osgVerse::ConsoleHandler;
+#if false
     logger->setShaderLogCallback([](GLenum type, const std::string& name, const std::string& msg)
         {
             std::vector<osg::Shader*> shaders = osgVerse::ResourceManager::instance()->getShaders(name);
             if (shaders.empty()) return name + " [UNKNOWN SHADER ERROR]: " + msg;
             return name + " [SHADER ERROR]: " + msg + "\n==========\n" + shaders[0]->getShaderSource() + "\n==========\n";
         });
+#endif
     osg::setNotifyHandler(logger);
 
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());

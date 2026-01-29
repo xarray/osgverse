@@ -10,7 +10,7 @@ void main()
 {
     mat4 modelMatrix = osg_ViewMatrixInverse * VERSE_MATRIX_MV;
     vertexInWorld = vec3(modelMatrix * osg_Vertex);
-    normalInWorld = normalize(vec3(osg_ViewMatrixInverse * vec4(VERSE_MATRIX_N * gl_Normal, 0.0)));
+    normalInWorld = normalize(vec3(osg_ViewMatrixInverse * vec4(VERSE_MATRIX_N * osg_Normal, 0.0)));
     texCoord = osg_MultiTexCoord0; texCoord.zw = osg_GlobeData.zw; isSkirt = osg_GlobeData.w;
 
     vec4 vertex = osg_Vertex, maskColor = VERSE_TEX2D(MaskSampler, texCoord.st);
