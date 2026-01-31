@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <readerwriter/EarthManipulator.h>
 #include <readerwriter/TileCallback.h>
+#include <readerwriter/Utilities.h>
 #include <pipeline/ShaderLibrary.h>
 #include <pipeline/Predefines.h>
 #include "earth_viewer.h"

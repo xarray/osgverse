@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <pipeline/ShaderLibrary.h>
 #include <pipeline/Predefines.h>
+#include <readerwriter/Utilities.h>
 #include "ccall_viewer.h"
 
 USE_OSG_PLUGINS()

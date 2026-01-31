@@ -78,23 +78,24 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
 Our project is already tested on graphics cards listed as below:
-| Graphics Card             | OpenGL Version | Supported          | Notes |
-|---------------------------|----------------|--------------------|-------|
-| NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | Display has broken problems with Nouveau driver |
-| NVIDIA GT720              | 4.6 / GLSL 4.6 | :heavy_check_mark: | Viewer FPS < 12fps |
-| NVIDIA Quadro K2200       | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| AMD Radeon RX5500         | 4.6 / GLSL 4.6 | :heavy_check_mark: |       |
-| AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | Viewer FPS < 15fps |
-| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | Viewer FPS ~= 30fps |
-| MooreThreads X300         | 4.3 / GLSL 4.3 | :heavy_check_mark: | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA), Viewer FPS ~= 60fps |
-| MooreThreads S80/S1000    | 4.1 / GLSL 4.1 | :heavy_check_mark: | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA), Viewer FPS ~= 30fps |
-| Phytium D2000+X100        | 3.0 / GLSL 3.3 | :heavy_check_mark: | Viewer FPS < 10fps |
-| JingJia Micro JM7201      |                | :soon:             |       |
-| LJmicro GP202             | 4.0 / GLSL 4.0 | :heavy_check_mark: | Viewer FPS < 10fps. Shadows gone? |
-| Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              | Segment fault in osg::Texture at present  |
-| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              | Test_Pipeline can work; Viewer can't |
+| Graphics Card             | OpenGL Version | Supported          | VerseViewer | Notes |
+|---------------------------|----------------|--------------------|-------------|-------|
+| NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | |
+| NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | |
+| NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | 60fps       | Display has broken problems with Nouveau driver |
+| NVIDIA GT720              | 4.6 / GLSL 4.6 | :heavy_check_mark: | < 12fps     | |
+| NVIDIA Quadro K2200       | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | |
+| AMD Radeon RX5500         | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | |
+| AMD Radeon (TM) Graphics  | 4.6 / GLSL 4.6 | :heavy_check_mark: | < 15fps     | |
+| Intel UHD Graphics        | 4.6 / GLSL 4.6 | :heavy_check_mark: | ~= 30fps    | |
+| MooreThreads X300         | 4.3 / GLSL 4.3 | :heavy_check_mark: | 60fps       | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA) |
+| MooreThreads S80/S1000    | 4.1 / GLSL 4.1 | :heavy_check_mark: | ~= 30fps    | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA) |
+| LISUAN 7G100              | 4.6 / GLSL 4.6 | :heavy_check_mark: | ~= 45fps    | |
+| Phytium D2000+X100        | 3.0 / GLSL 3.3 | :heavy_check_mark: | < 10fps     | |
+| JingJia Micro JM7201      |                | :soon:             |             | |
+| LJmicro GP202             | 4.0 / GLSL 4.0 | :heavy_check_mark: | < 10fps     | |
+| Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              |             | Segment fault in osg::Texture at present  |
+| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              |             | Test_Pipeline can work; Viewer can't |
 
 #### Modules
 1. osgVerseDependency: contains all embedded 3rdparty dependencies.

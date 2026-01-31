@@ -135,13 +135,18 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
     SET(${DEP_NAME}_FOUND FALSE)
     SET(${DEP_NAME}_FEATURE_ENABLED ON CACHE BOOL "Enable to search for ${DEP_NAME} dependencies")
     IF(${DEP_NAME}_FEATURE_ENABLED)
+        SET(USR_SEARCH_PATH /usr)
+        IF(USE_WASM_OPTIONS)
+            SET(USR_SEARCH_PATH ${THIRDPARTY_ROOT})
+        ENDIF()
+
         IF(NOT "${INC_PATH_POSTFIX}" STREQUAL "")
             LIST(LENGTH INC_PATH_POSTFIX INC_LIST_LENGTH)
             IF(INC_LIST_LENGTH EQUAL 0)
                 FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
                     PATHS ${THIRDPARTY_ROOT}/include/${INC_PATH_POSTFIX}
-                    /usr/include/${INC_PATH_POSTFIX}
-                    /usr/local/include/${INC_PATH_POSTFIX}
+                    ${USR_SEARCH_PATH}/include/${INC_PATH_POSTFIX}
+                    ${USR_SEARCH_PATH}/local/include/${INC_PATH_POSTFIX}
                     NO_CMAKE_FIND_ROOT_PATH
                 )
             ELSE(INC_LIST_LENGTH EQUAL 0)
@@ -149,8 +154,8 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
                 FOREACH(INC_ITEM IN LISTS INC_PATH_POSTFIX)
                     FIND_PATH(TEMP_RESULT ${INCLUDE_NAMES}
                         PATHS ${THIRDPARTY_ROOT}/include/${INC_ITEM}
-                        /usr/include/${INC_ITEM}
-                        /usr/local/include/${INC_ITEM}
+                        ${USR_SEARCH_PATH}/include/${INC_ITEM}
+                        ${USR_SEARCH_PATH}/local/include/${INC_ITEM}
                         NO_CMAKE_FIND_ROOT_PATH
                     )
 
@@ -165,16 +170,16 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
         ELSE()
             FIND_PATH(${DEP_NAME}_INCLUDE_DIR ${INCLUDE_NAMES}
                 PATHS ${THIRDPARTY_ROOT}/include
-                /usr/include /usr/local/include
+                ${USR_SEARCH_PATH}/include ${USR_SEARCH_PATH}/local/include
                 NO_CMAKE_FIND_ROOT_PATH
             )
         ENDIF()
 
         IF(NOT "${LIB_NAMES}" STREQUAL "")
             FIND_PATH(${DEP_NAME}_LIB_DIR ${LIB_NAMES}
-                PATHS ${THIRDPARTY_ROOT}/lib
-                /usr/lib /usr/${FIND_LIB_POSTFIX} /usr/lib/${FIND_SUBLIB_POSTFIX}
-                /usr/local/lib /usr/local/${FIND_LIB_POSTFIX}
+                PATHS ${THIRDPARTY_ROOT}/lib ${USR_SEARCH_PATH}/lib
+                ${USR_SEARCH_PATH}/${FIND_LIB_POSTFIX} ${USR_SEARCH_PATH}/lib/${FIND_SUBLIB_POSTFIX}
+                ${USR_SEARCH_PATH}/local/lib ${USR_SEARCH_PATH}/local/${FIND_LIB_POSTFIX}
                 NO_CMAKE_FIND_ROOT_PATH
             )
 

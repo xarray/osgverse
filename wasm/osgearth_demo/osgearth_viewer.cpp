@@ -4,6 +4,7 @@
 #include <osgEarthUtil/Sky>
 #include <osgEarthUtil/EarthManipulator>
 #include <pipeline/Predefines.h>
+#include <readerwriter/Utilities.h>
 #include "osgearth_viewer.h"
 
 USE_OSG_PLUGINS()
