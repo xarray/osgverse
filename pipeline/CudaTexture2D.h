@@ -16,8 +16,10 @@ typedef CUdeviceptr_v2 CUdeviceptr;
 
 #ifdef VERSE_ENABLE_MTT
 typedef struct MUctx_st* CUcontext;
+typedef struct MUgraphicsResource_st* MUgraphicsResource;
 #else
 typedef struct CUctx_st* CUcontext;
+typedef struct CUgraphicsResource_st* CUgraphicsResource;
 #endif
 
 namespace osgVerse
@@ -110,6 +112,7 @@ namespace osgVerse
 
         osg::ref_ptr<Demuxer> _demuxer;
         CUcontext _cuContext;
+        mutable CUgraphicsResource _cuResource;
         mutable CUdeviceptr _deviceFrame;
         ResourceState _state;
         int _width, _height;

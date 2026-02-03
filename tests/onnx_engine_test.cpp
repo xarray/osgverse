@@ -24,6 +24,20 @@
 namespace backward { backward::SignalHandling sh; }
 #endif
 
+static void findClosestImageSize(int& W, int& H, int divisor)
+{
+    int original_h = H, original_w = W;
+    int new_h = ((original_h + divisor - 1) / divisor) * divisor;
+    int new_w = ((original_w + divisor - 1) / divisor) * divisor;
+    int new_h_down = (original_h / divisor) * divisor;
+    int new_w_down = (original_w / divisor) * divisor;
+
+    int change_up = std::abs(new_h - original_h) + std::abs(new_w - original_w);
+    int change_down = std::abs(new_h_down - original_h) + std::abs(new_w_down - original_w);
+    if (change_up < change_down) { W = new_w; H = new_h; }
+    else { W = new_w_down; H = new_h_down; }
+}
+
 struct YoloDetection
 {
     float x, y, w, h;
@@ -124,15 +138,29 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
 
-    // Create a drawer for displaying final result
+    // Create a drawer for displaying final result, if needed
     osg::ref_ptr<osgVerse::Drawer2D> drawer = new osgVerse::Drawer2D;
     drawer->allocateImage(512, 512, 1, GL_RGBA, GL_UNSIGNED_BYTE);
     drawer->loadFont("default", MISC_DIR + "LXGWFasmartGothic.otf");
     drawer->start(false);
     drawer->fillBackground(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
+    // Create foreground / background geometries, if needed
+    osg::ref_ptr<osg::Geometry> background = osg::createTexturedQuadGeometry(
+        osg::Vec3(0.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS, 0.0f, 1.0f, 1.0f, 0.0f);
+    osg::ref_ptr<osg::Geometry> foreground = osg::createTexturedQuadGeometry(
+        osg::Vec3(0.0f, 0.0f, 0.01f), osg::X_AXIS, osg::Y_AXIS, 0.0f, 1.0f, 1.0f, 0.0f);
+    foreground->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+    foreground->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+    geode->addDrawable(background.get()); geode->addDrawable(foreground.get());
+    geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+
     // Load onnx model
-    std::string modelName = BASE_DIR + "/misc/mnist-12.onnx"; arguments.read("--model", modelName);
+    std::string modelName = BASE_DIR + "/misc/mnist-12.onnx";
+    bool customModel = arguments.read("--model", modelName);
+
     osg::ref_ptr<osgVerse::OnnxInferencer> inferencer =
         new osgVerse::OnnxInferencer(osgDB::convertUTF8toUTF16(modelName), osgVerse::OnnxInferencer::CUDA);
     std::cout << modelName << ": " << inferencer->getModelDescription();
@@ -208,20 +236,9 @@ int main(int argc, char** argv)
         });
 
         // Show detection results in scene graph
-        osg::Geometry* geom0 = osg::createTexturedQuadGeometry(
-            osg::Vec3(0.0f, 0.0f, 0.0f), osg::X_AXIS, osg::Y_AXIS, 0.0f, 1.0f, 1.0f, 0.0f);
-        geom0->getOrCreateStateSet()->setTextureAttributeAndModes(0, osgVerse::createTexture2D(image.get()));
-
-        osg::Geometry* geom1 = osg::createTexturedQuadGeometry(
-            osg::Vec3(0.0f, 0.0f, 0.01f), osg::X_AXIS, osg::Y_AXIS, 0.0f, 1.0f, 1.0f, 0.0f);
-        geom1->getOrCreateStateSet()->setTextureAttributeAndModes(0, osgVerse::createTexture2D(drawer.get()));
-        geom1->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
-        geom1->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-
-        osg::Geode* geode = new osg::Geode;
-        geode->addDrawable(geom0); geode->addDrawable(geom1);
-        geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-        root->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS)); root->addChild(geode);
+        background->getOrCreateStateSet()->setTextureAttributeAndModes(0, osgVerse::createTexture2D(image.get()));
+        foreground->getOrCreateStateSet()->setTextureAttributeAndModes(0, osgVerse::createTexture2D(drawer.get()));
+        root->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS)); root->addChild(geode.get());
     }
     else if (arguments.read("--upscale"))
     {
@@ -244,7 +261,42 @@ int main(int argc, char** argv)
 
         // TODO
     }
-    else
+    else if (arguments.read("--depthanything"))
+    {
+        // https://github.com/fabio-sim/Depth-Anything-ONNX
+        /* DepthAnything v2:
+           -  IN: image/Float/-1/3/-1/-1 => dynamic batch / RGB image (3-comp) / dynamic resolution
+           - OUT: depth/Float/-1/-1/-1 => dynamic batch / dynamic resolution
+           - Dynamic Model Signature： H mod 14 == 0, W mod 14 == 0
+        */
+        std::string inputFile; if (!arguments.read("--image", inputFile)) return 1;
+        osg::ref_ptr<osg::Image> image = osgDB::readImageFile(inputFile);
+
+        int imgW = image->s(), imgH = image->t(); findClosestImageSize(imgW, imgH, 14);
+        if (imgW != image->s() || imgH != image->t()) image->scaleImage(imgW, imgH, 1);
+        image = osgVerse::OnnxInferencer::convertImage(
+            image.get(), inferencer->getModelDataType(true, inputName), inferencer->getModelShapes(true, inputName));
+        std::cout << "Input image size (optimized): " << imgW << "x" << imgH << "\n";
+
+        inferencer->addInput(std::vector<osg::Image*>{ image.get() }, inputName);
+        inferencer->run([imgW, imgH, &foreground, &inferencer](size_t numOutputs, bool success)
+        {
+            if (!success) std::cout << "Failed to run task\n"; else std::cout << "Results (outputs = " << numOutputs;
+            std::vector<float> values; inferencer->getOutput(values); std::cout << ", size0 = " << values.size() << ")\n";
+
+            osg::ref_ptr<osg::Image> depth = new osg::Image;
+            depth->allocateImage(imgW, imgH, 1, GL_LUMINANCE, GL_UNSIGNED_BYTE);
+            depth->setInternalTextureFormat(GL_LUMINANCE8);
+            foreground->getOrCreateStateSet()->setTextureAttributeAndModes(0, osgVerse::createTexture2D(depth.get()));
+
+            std::vector<float>::iterator it0 = std::min_element(values.begin(), values.end());
+            std::vector<float>::iterator it1 = std::max_element(values.begin(), values.end());
+            float minV = *it0, range = (*it1 - *it0); unsigned char* ptr = depth->data();
+            for (size_t i = 0; i < values.size(); ++i) *(ptr + i) = (unsigned char)((values[i] - minV) * 255.0f / range);
+        });
+        root->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS)); root->addChild(geode.get());
+    }
+    else if (!customModel)
     {
         // https://github.com/onnx/models/blob/main/validated/vision/classification/mnist
         /* MNIST model (handwriting of 0 - 9 numbers):

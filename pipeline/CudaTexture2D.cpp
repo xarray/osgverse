@@ -40,7 +40,7 @@ bool CudaResourceWriterBase::openResource(CudaResourceDemuxerMuxerContainer* c)
 }
 
 CudaResourceReaderBase::CudaResourceReaderBase(CUcontext cu)
-:   osg::Texture2D::SubloadCallback(), _deviceFrame(NULL), _state(INVALID),
+:   osg::Texture2D::SubloadCallback(), _cuResource(NULL), _deviceFrame(NULL), _state(INVALID),
     _width(0), _height(0), _pbo(0), _textureID(0), _vendorStatus(false)
 { _cuContext = (CUcontext)cu; }
 
@@ -67,7 +67,17 @@ void CudaResourceReaderBase::releaseGLObjects(osg::State* state) const
 #else
     osg::GLBufferObject::Extensions* ext = osg::GLBufferObject::getExtensions(state->getContextID(), true);
 #endif
-    if (ext) ext->glDeleteBuffers(1, &_pbo); _pbo = 0;
+
+    if (_cuResource != NULL)
+    {
+#ifdef VERSE_ENABLE_MTT
+        ck(muGraphicsUnregisterResource(_cuResource));
+#else
+        ck(cuGraphicsUnregisterResource(_cuResource));
+#endif
+    }
+    if (ext) ext->glDeleteBuffers(1, &_pbo);
+    _cuResource = 0; _pbo = 0;
 }
 
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)
@@ -123,42 +133,19 @@ void CudaResourceReaderBase::subload(const osg::Texture2D& texture, osg::State& 
     if (_pbo == 0) { load(texture, state); if (_pbo == 0) return; }
     _mutex.lock();
 
+    CUdeviceptr devBackBuffer; size_t size = 0;
 #ifdef VERSE_ENABLE_MTT
-    MUgraphicsResource cuResource;
-    ck(muGraphicsGLRegisterBuffer(&cuResource, _pbo, MU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
-    ck(muGraphicsMapResources(1, &cuResource, 0));
-
-    CUdeviceptr devBackBuffer; size_t size = 0;
-    ck(muGraphicsResourceGetMappedPointer(&devBackBuffer, &size, cuResource));
-
-    MUSA_MEMCPY2D m = { 0 };
-    m.srcMemoryType = MU_MEMORYTYPE_DEVICE;
-    m.srcDevice = _deviceFrame; m.srcPitch = _width * 4;
-    m.dstMemoryType = MU_MEMORYTYPE_DEVICE;
-    m.dstDevice = devBackBuffer; m.dstPitch = size / _height;
-    m.WidthInBytes = _width * 4; m.Height = _height;
-    ck(muMemcpy2DAsync(&m, 0));
-
-    ck(muGraphicsUnmapResources(1, &cuResource, 0));
-    ck(muGraphicsUnregisterResource(cuResource));
+    if (!_cuResource) ck(muGraphicsGLRegisterBuffer(&_cuResource, _pbo, MU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
+    ck(muGraphicsMapResources(1, &_cuResource, 0));
+    ck(muGraphicsResourceGetMappedPointer(&devBackBuffer, &size, _cuResource));
+    ck(muMemcpyAsync(devBackBuffer, _deviceFrame, size, 0));
+    ck(muGraphicsUnmapResources(1, &_cuResource, 0));
 #else
-    CUgraphicsResource cuResource;
-    ck(cuGraphicsGLRegisterBuffer(&cuResource, _pbo, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
-    ck(cuGraphicsMapResources(1, &cuResource, 0));
-
-    CUdeviceptr devBackBuffer; size_t size = 0;
-    ck(cuGraphicsResourceGetMappedPointer(&devBackBuffer, &size, cuResource));
-
-    CUDA_MEMCPY2D m = { 0 };
-    m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
-    m.srcDevice = _deviceFrame; m.srcPitch = _width * 4;
-    m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
-    m.dstDevice = devBackBuffer; m.dstPitch = size / _height;
-    m.WidthInBytes = _width * 4; m.Height = _height;
-    ck(cuMemcpy2DAsync(&m, 0));
-
-    ck(cuGraphicsUnmapResources(1, &cuResource, 0));
-    ck(cuGraphicsUnregisterResource(cuResource));
+    if (!_cuResource) ck(cuGraphicsGLRegisterBuffer(&_cuResource, _pbo, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
+    ck(cuGraphicsMapResources(1, &_cuResource, 0));
+    ck(cuGraphicsResourceGetMappedPointer(&devBackBuffer, &size, _cuResource));
+    ck(cuMemcpyAsync(devBackBuffer, _deviceFrame, size, 0));
+    ck(cuGraphicsUnmapResources(1, &_cuResource, 0));
 #endif
     _mutex.unlock();
 

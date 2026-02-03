@@ -473,7 +473,10 @@ osg::Image* OnnxInferencer::convertImage(osg::Image* img0, DataType type, const 
     img->setInternalTextureFormat(internalFmt);
     for (int y = 0; y < img0->t(); ++y) for (int x = 0; x < img0->s(); ++x)
         { osg::Vec4 color = img0->getColor(x, y); img->setColor(color, x, y); }
-    if (img->s() != w || img->t() != h) img->scaleImage(w, h, 1);
+
+    if (w > 0 && h > 0 && (img->s() != w || img->t() != h)) img->scaleImage(w, h, 1);
+    else if (w > 0 && img->s() != w) img->scaleImage(w, img->t(), 1);
+    else if (h > 0 && img->t() != h) img->scaleImage(img->s(), h, 1);
     if (img->getOrigin() == osg::Image::BOTTOM_LEFT) img->flipVertical();
     return img.release();
 }
