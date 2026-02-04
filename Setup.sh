@@ -101,7 +101,7 @@ elif [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
     fi
 elif [ "$BuildMode" = '5' ]; then
     # Android toolchain
-    CheckJavaExe=$(command -version java)
+    CheckJavaExe=$(command -v java)
     if [ "$CheckJavaExe" = "" ]; then
         echo "Java version checking failed. Please make sure JDK 1.7 is installed."
         exit 1

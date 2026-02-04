@@ -62,8 +62,8 @@ public:
              it = _serializerUiMap.begin(); it != _serializerUiMap.end(); ++it)
         {
             std::vector<osg::ref_ptr<SerializerBaseItem>>& serializerUIs = it->second.second;
-            std::string lineName = "ID " + std::to_string(it->second.first);
-            ImGui::Text(TR(lineName).c_str()); ImGui::Separator();
+            std::string lineName = TR("ID " + std::to_string(it->second.first));
+            ImGui::Text("%s", lineName.c_str()); ImGui::Separator();
             for (size_t i = 0; i < serializerUIs.size(); ++i)
                 done |= serializerUIs[i]->show(mgr, content);
             ImGui::Separator();

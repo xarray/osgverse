@@ -43,5 +43,13 @@ android {
     }
 }
 
+gradle.buildFinished {
+    fileTree(".cxx").visit { details ->
+        if (details.directory && details.file.listFiles()?.length == 0) {
+            details.file.deleteDir()
+        }
+    }
+}
+
 dependencies {
 }

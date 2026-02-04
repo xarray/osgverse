@@ -144,7 +144,10 @@ public:
             {
                 std::string num = " " + std::to_string(_separator[s]);
                 if (_separator[s] > 0 && _separator[s] == i)
-                { ImGui::Separator(); ImGui::Text(TR(separatedNames[s] + num).c_str()); }
+                {
+                    std::string name = TR(separatedNames[s] + num);
+                    ImGui::Separator(); ImGui::Text("%s", name.c_str());
+                }
             }
             done |= _serializerUIs[i]->show(mgr, content);
         }

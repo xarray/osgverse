@@ -16,7 +16,7 @@ typedef CUdeviceptr_v2 CUdeviceptr;
 
 #ifdef VERSE_ENABLE_MTT
 typedef struct MUctx_st* CUcontext;
-typedef struct MUgraphicsResource_st* MUgraphicsResource;
+typedef struct MUgraphicsResource_st* CUgraphicsResource;
 #else
 typedef struct CUctx_st* CUcontext;
 typedef struct CUgraphicsResource_st* CUgraphicsResource;

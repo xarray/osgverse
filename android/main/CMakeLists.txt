@@ -21,6 +21,7 @@ IF(OPENMP_FOUND)
 ENDIF()
 
 # Build main bridge library
+ADD_DEFINITIONS(-DSDL_DISABLE_ARM_NEON_H)
 INCLUDE_DIRECTORIES("${SDL2_SOURCE_DIR}/include"
                     "${OSG_BUILD_DIR}/include"
                     "${OSG_SOURCE_DIR}/include"
@@ -30,7 +31,7 @@ LINK_DIRECTORIES("${SDL2_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH
                  "${OSG_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}" "${OSG_BUILD_DIR}/lib"
                  "${OSGVERSE_BUILD_DIR}/lib/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}" "${OSGVERSE_BUILD_DIR}/lib")
 ADD_LIBRARY(osgVerseAndroid SHARED src/main.cpp)
-TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2 OpenSLES SDL2
+TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2 GLESv3 OpenSLES SDL2
                       debug osgVerseDependencyd optimized osgVerseDependency
                       debug osgVerseModelingd optimized osgVerseModeling
                       debug osgVerseAnimationd optimized osgVerseAnimation

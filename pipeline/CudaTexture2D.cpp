@@ -40,7 +40,7 @@ bool CudaResourceWriterBase::openResource(CudaResourceDemuxerMuxerContainer* c)
 }
 
 CudaResourceReaderBase::CudaResourceReaderBase(CUcontext cu)
-:   osg::Texture2D::SubloadCallback(), _cuResource(NULL), _deviceFrame(NULL), _state(INVALID),
+:   osg::Texture2D::SubloadCallback(), _cuResource(0), _deviceFrame(0), _state(INVALID),
     _width(0), _height(0), _pbo(0), _textureID(0), _vendorStatus(false)
 { _cuContext = (CUcontext)cu; }
 

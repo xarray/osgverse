@@ -65,8 +65,16 @@ android {
     }
 }
 
-//preBuild.dependsOn ":sdl2:build", ":osgverse:build"
-preBuild.dependsOn ":sdl2:build"
+gradle.buildFinished {
+    fileTree(".cxx").visit { details ->
+        if (details.directory && details.file.listFiles()?.length == 0) {
+            details.file.deleteDir()
+        }
+    }
+}
+
+preBuild.dependsOn ":sdl2:build", ":osgverse:build"
+//preBuild.dependsOn ":sdl2:build"
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.so'])
