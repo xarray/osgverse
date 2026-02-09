@@ -49,14 +49,23 @@ bool CudaResourceReaderBase::openResource(CudaResourceDemuxerMuxerContainer* c)
 
 void CudaResourceReaderBase::releaseCuda()
 {
+    if (_cuResource != NULL)
+    {
+#ifdef VERSE_ENABLE_MTT
+        ck(muGraphicsUnregisterResource(_cuResource));
+#else
+        ck(cuGraphicsUnregisterResource(_cuResource));
+#endif
+    }
+
     _mutex.lock();
 #ifdef VERSE_ENABLE_MTT
     ck(muMemFree(_deviceFrame));
 #else
     ck(cuMemFree(_deviceFrame));
 #endif
-    _pbo = 0; _demuxer = NULL;
     _mutex.unlock();
+    _pbo = 0; _demuxer = NULL; _cuResource = NULL;
 }
 
 void CudaResourceReaderBase::releaseGLObjects(osg::State* state) const
@@ -67,17 +76,7 @@ void CudaResourceReaderBase::releaseGLObjects(osg::State* state) const
 #else
     osg::GLBufferObject::Extensions* ext = osg::GLBufferObject::getExtensions(state->getContextID(), true);
 #endif
-
-    if (_cuResource != NULL)
-    {
-#ifdef VERSE_ENABLE_MTT
-        ck(muGraphicsUnregisterResource(_cuResource));
-#else
-        ck(cuGraphicsUnregisterResource(_cuResource));
-#endif
-    }
-    if (ext) ext->glDeleteBuffers(1, &_pbo);
-    _cuResource = 0; _pbo = 0;
+    if (ext) ext->glDeleteBuffers(1, &_pbo); _pbo = 0;
 }
 
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)
@@ -186,6 +185,12 @@ CudaTexture2D::CudaTexture2D(void* cu) : osg::Texture2D(), _cuContext(cu)
 CudaTexture2D::CudaTexture2D(const CudaTexture2D& copy, const osg::CopyOp& op)
 :   osg::Texture2D(copy, op), _cuContext(copy._cuContext)
 {}
+
+CudaTexture2D::~CudaTexture2D()
+{
+    CudaResourceReaderBase* callback = static_cast<CudaResourceReaderBase*>(getSubloadCallback());
+    if (callback) callback->releaseCuda();
+}
 
 void CudaTexture2D::setResourceReader(CudaResourceReaderBase* reader)
 {

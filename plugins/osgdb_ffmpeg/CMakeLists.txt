@@ -23,6 +23,7 @@ IF(FFMPEG_FOUND)
         MESSAGE("[osgVerse] FFmpeg found but version is too low (avutil: ${AVUTIL_VERSION} < 57). Plugin ffmpeg will be ignored.")
         SET(FFMPEG_FOUND FALSE)
     ENDIF()
+    INCLUDE_DIRECTORIES(${FFMPEG_INCLUDE_DIR})
 ENDIF(FFMPEG_FOUND)
 
 IF(FFMPEG_FOUND)

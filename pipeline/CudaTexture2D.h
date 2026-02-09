@@ -64,6 +64,7 @@ namespace osgVerse
         void releaseCudaData();
 
     protected:
+        virtual ~CudaTexture2D();
         void* _cuContext;
     };
 

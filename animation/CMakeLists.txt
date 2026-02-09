@@ -7,6 +7,7 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     TweenAnimation.cpp BlendShapeAnimation.cpp ParticleEngineU3D.cpp Utilities.cpp)
 
 IF(BULLET_FOUND)
+    INCLUDE_DIRECTORIES(${BULLET_INCLUDE_DIR})
     INCLUDE("${BULLET_LIB_DIR}/cmake/bullet/BulletConfig.cmake" OPTIONAL)
     ADD_DEFINITIONS(-DVERSE_WITH_BULLET ${BULLET_DEFINITIONS})
 	SET(LIBRARY_FILES ${LIBRARY_FILES} PhysicsEngine.cpp)
@@ -17,6 +18,7 @@ IF(NOT VERSE_SUPPORT_CPP17)
     MESSAGE("[osgVerse] C++ 17 standard is disabled at present. Effekseer will be ignored.")
 ELSEIF(EFFEKSEER_FOUND)
     SET(LIBRARY_FILES ${LIBRARY_FILES} ParticleEngineEffekseer.cpp)
+    INCLUDE_DIRECTORIES(${EFFEKSEER_INCLUDE_DIR})
 ENDIF()
 
 NEW_LIBRARY(${LIB_NAME} STATIC)

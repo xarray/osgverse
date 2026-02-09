@@ -12,11 +12,13 @@ IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
 
         SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")
         IF(NV_DECODER_FOUND)
+            INCLUDE_DIRECTORIES(${NV_DECODER_INCLUDE_DIR})
             ADD_DEFINITIONS(-DNV_DECODER)
             SET(LIBRARY_FILES ${LIBRARY_FILES} Common/AppDecUtils.h
                 NvDecoder/NvDecoder.cpp NvDecoder/NvDecoder.h)
         ENDIF()
         IF(NV_ENCODER_FOUND)
+            INCLUDE_DIRECTORIES(${NV_ENCODER_INCLUDE_DIR})
             ADD_DEFINITIONS(-DNV_ENCODER)
             SET(LIBRARY_FILES ${LIBRARY_FILES}
                 NvEncoder/NvEncoder.cpp NvEncoder/NvEncoder.h

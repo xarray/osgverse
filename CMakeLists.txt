@@ -520,7 +520,7 @@ ENDIF(MIMALLOC_FOUND)
 ######################################### Platform Definintions
 ADD_DEFINITIONS(-DPREPENDED_HEADER="pipeline/Allocator.h")
 IF(VERSE_USE_MIMALLOC)
-    # TODO: static building support?
+    # TODO: static mimalloc building support?
     SET(EXTERNAL_LIBRARIES mimalloc ${EXTERNAL_LIBRARIES})
     INCLUDE_DIRECTORIES(${MIMALLOC_INCLUDE_DIR}/mimalloc)
     ADD_DEFINITIONS(-DVERSE_USE_MIMALLOC)

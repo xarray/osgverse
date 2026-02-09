@@ -184,7 +184,8 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
             )
 
             IF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
-                INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
+                # Don't add *_INCLUDE_DIR here, to avoid too many confusingly global include paths
+                # But we have to add *_LINK_DIR so to ensure we can always find dependencies of libraries
                 LINK_DIRECTORIES(${${DEP_NAME}_LIB_DIR})
                 SET(${DEP_NAME}_FOUND TRUE)
             ELSE(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
@@ -192,7 +193,6 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
             ENDIF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
         ELSE()
             IF(${DEP_NAME}_INCLUDE_DIR)
-                INCLUDE_DIRECTORIES(${${DEP_NAME}_INCLUDE_DIR})
                 SET(${DEP_NAME}_FOUND TRUE)
             ELSE(${DEP_NAME}_INCLUDE_DIR)
                 MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")

@@ -20,11 +20,11 @@ SET(FREETYPE_SOURCES
 )
 
 INCLUDE_DIRECTORIES(BEFORE ../zlib ../png include)
-FILE(READ "include/freetype/config/ftoption.h" FTOPTION_H)
+FILE(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/freetype/config/ftoption.h" FTOPTION_H)
 STRING(REGEX REPLACE "/\\* +(#define +FT_CONFIG_OPTION_SYSTEM_ZLIB) +\\*/" "\\1" FTOPTION_H "${FTOPTION_H}")
 STRING(REGEX REPLACE "/\\* +(#define +FT_CONFIG_OPTION_USE_PNG) +\\*/" "\\1" FTOPTION_H "${FTOPTION_H}")
 
-SET(FTOPTION_H_NAME "include/freetype/config/ftoption.h")
+SET(FTOPTION_H_NAME "${CMAKE_CURRENT_SOURCE_DIR}/include/freetype/config/ftoption.h")
 IF(EXISTS "${FTOPTION_H_NAME}")
     FILE(READ "${FTOPTION_H_NAME}" ORIGINAL_FTOPTION_H)
 ELSE()
