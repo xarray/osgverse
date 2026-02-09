@@ -1,5 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 
+set(CMAKE_CXX_STANDARD 14)
+
 # Specify critical OpenSceneGraph build variables.
 SET(BUILD_OSG_APPLICATIONS NO CACHE BOOL "Do not build applications")
 SET(EGL_LIBRARY "GL" CACHE STRING "Suppress linkage error")
