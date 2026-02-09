@@ -240,7 +240,7 @@ else
     if [ -e "$ThirdPartyBuildDir/tiff/libtiff.a" ]; then
         ThirdDepOptions="
             $ThirdDepOptions
-            -DTIFF_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/tiff
+            -DTIFF_INCLUDE_DIR=$CurrentDir/helpers/toolchain_builder/tiff;$ThirdPartyBuildDir/tiff
             -DTIFF_LIBRARY_RELEASE=$ThirdPartyBuildDir/tiff/libtiff.a"
     fi
 fi

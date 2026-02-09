@@ -185,7 +185,7 @@ if !BuildModeWasm!==0 (
         -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\png.lib ^
         -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
         -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\zlib.lib ^
-        -DTIFF_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\tiff ^
+        -DTIFF_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\tiff;%ThirdPartyBuildDir%\tiff ^
         -DTIFF_LIBRARY_RELEASE=%ThirdPartyBuildDir%\tiff\libtiff.a
 )
 if !BuildModeWasm!==1 (
