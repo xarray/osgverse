@@ -206,11 +206,12 @@ if !BuildModeWasm!==1 (
     )
 )
 
+set SedEXE=%CurrentDir%\wasm\sed.exe
 :: Fix some OpenSceneGraph compile errors
 if not !SkipOsgBuild!=="1" (
     echo *** Automatically patching source code...
     set SourceCodePatched=1
-    set SedEXE=%CurrentDir%\wasm\sed.exe
+    
     if exist "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h" (
         %SedEXE% -i.bak "s/std::mem_fun_ref/std::mem_fn/g" "%OpenSceneGraphRoot%\src\osgUtil\tristripper\include\detail\graph_array.h"
     )
