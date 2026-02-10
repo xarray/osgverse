@@ -471,6 +471,16 @@ SET(SHAPELIB_SOURCE_FILES
     shapelib/shapefil_private.h shapelib/shapelib.def
 )
 
+SET(MLT_SOURCE_FILES
+    mlt/decoder.cpp mlt/decode/geometry.hpp mlt/decode/int.cpp mlt/decode/int.hpp
+    mlt/decode/property.hpp mlt/decode/string.hpp mlt/feature.cpp mlt/geometry_vector.cpp
+    mlt/layer.cpp mlt/metadata/stream.cpp mlt/metadata/tileset.cpp mlt/properties.cpp
+    mlt/util/morton_curve.hpp mlt/util/raw.hpp mlt/util/rle.cpp mlt/util/rle.hpp
+    mlt/util/space_filling_curve.hpp mlt/util/vectorized.hpp mlt/util/zigzag.hpp
+    mlt/common.hpp mlt/decoder.hpp mlt/feature.hpp mlt/geometry.hpp mlt/tile.hpp
+    mlt/geometry_vector.hpp mlt/layer.hpp mlt/polyfill.hpp mlt/projection.hpp mlt/properties.hpp
+)
+
 SET(QUADRIFLOW_SOURCE_FILES
     quadriflow/manifold/types.h quadriflow/manifold/GridIndex.h
     quadriflow/manifold/Intersection.h quadriflow/manifold/Intersection.cc
@@ -494,6 +504,7 @@ SOURCE_GROUP("libMETIS Files" FILES ${METIS_SOURCE_FILES})
 SOURCE_GROUP("Marl Files" FILES ${MARL_SOURCE_FILES})
 SOURCE_GROUP("MbedTLS Files" FILES ${MBEDTLS_SOURCE_FILES})
 SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
+SOURCE_GROUP("MapLibre Tile Files" FILES ${MLT_SOURCE_FILES})
 SOURCE_GROUP("Niantic SPZ Files" FILES ${SPZ_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
 SOURCE_GROUP("OzzAnimation Files" FILES ${OZZ_SOURCE_FILES})
@@ -516,7 +527,7 @@ SET(LIBRARY_FILES
     sqlite3.c sqlite3.h ofbx.cpp ofbx.h libdeflate.c libdeflate.h tinyexr.h dkm_parallel.hpp lsqcpp.hpp
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp lightmapper.h
 	xatlas.cpp xatlas.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp mapbox/geojson.cpp
-    GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp timeout.c timeout.h
+    GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp timeout.c timeout.h pmtiles.hpp
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp pybind11/pybind11.h
     bc7_rdo/rgbcx.h bc7_rdo/rgbcx.cpp ${APPROXMVBB_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${DISCREGRID_SOURCE_FILES}
@@ -526,6 +537,10 @@ SET(LIBRARY_FILES
     ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES}
     ${SHAPELIB_SOURCE_FILES} ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${TWEENY_SOURCE_FILES} 
 )
+
+IF(VERSE_SUPPORT_CPP17)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ${MLT_SOURCE_FILES})
+ENDIF(VERSE_SUPPORT_CPP17)
 
 IF(LIBIGL_FOUND)
     SET(LIBRARY_FILES ${LIBRARY_FILES} ${QUADRIFLOW_SOURCE_FILES})

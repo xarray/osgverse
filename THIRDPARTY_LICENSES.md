@@ -2,19 +2,21 @@
 | Library          | Mode     | Version   | Used by modules    | License      | Website |
 |------------------|----------|-----------|--------------------|--------------|---------|
 | OpenSceneGraph   | Depended | > 3.1.1   | All                | LGPL (+)     | https://github.com/openscenegraph/OpenSceneGraph |
-| SDL2             | Depended | > 2.28.2  | App, Android, WASM | Zlib         | https://github.com/libsdl-org/SDL |
 | Bullet           | Depended | > 3.17    | Animation          | Zlib (+)     | https://github.com/bulletphysics/bullet3 |
 | Effekseer        | Depended | > 1.70e   | Animation          | MIT          | https://github.com/effekseer/Effekseer |
-| ZLMediaKit       | Depended | 20250207  | verse_ms           | MIT          | https://github.com/ZLMediaKit/ZLMediaKit |
+| FFmpeg           | Depended | > 6.0     | verse_ffmpeg       | LGPL         | https://github.com/FFmpeg/FFmpeg |
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | https://github.com/google/draco |
 | libCEF           | Depended | > 127.3   | Animation          | BSD          | https://github.com/chromiumembedded/cef |
 | libIGL           | Depended | > 2.5     | Modeling           | MPL2         | https://github.com/libigl/libigl |
+| libosmium        | Depended | > 2.11    | verse_osm          | Boost        | https://github.com/osmcode/libosmium |
 | mimalloc         | Depended | > 2.17    | All                | MIT          | https://github.com/microsoft/mimalloc |
 | netCDF-C         | Depended | > 4.9.3   | verse_netcdf       | BSD3         | https://github.com/Unidata/netcdf-c |
+| NVIDIA Video SDK | Depended | > 12.0    | codec_nv           | Bussiness    | https://developer.nvidia.com/video-codec-sdk |
 | OpenVDB          | Depended | > 10.0    | verse_vdb          | MPL2         | https://github.com/AcademySoftwareFoundation/openvdb |
 | osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/gwaldron/osgearth |
-| Qt               | Depended | > 5.5     | App                | LGPL         | https://download.qt.io/official_releases/ |
-| glfw             | Optional | 3.4       | CMake, WASM        | ZLib         | https://github.com/glfw/glfw |
+| Qt               | Depended | > 5.5     | App                | LGPL         | https://download.qt.io |
+| SDL2             | Depended | > 2.28.2  | ReaderWriter, WASM | Zlib         | https://github.com/libsdl-org/SDL |
+| ZLMediaKit       | Depended | 20250207  | verse_ms           | MIT          | https://github.com/ZLMediaKit/ZLMediaKit |
 | any              | Embedded |           | -                  | Boost        | https://github.com/thelink2012/any |
 | ApproxMVBB       | Embedded |           | Modeling           | MPL2         | https://github.com/gabyx/ApproxMVBB |
 | Avir             | Embedded | 3.1       | ReaderWriter       | MIT          | https://github.com/avaneev/avir |
@@ -30,6 +32,7 @@
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr |
 | gainput          | Embedded |           | -                  | MIT          | https://github.com/jkuhlmann/gainput |
 | ghc_filesystem   | Embedded |           | -                  | MIT          | https://github.com/gulrak/filesystem |
+| glfw             | Embedded | 3.4       | ReaderWriter, WASM | ZLib         | https://github.com/glfw/glfw |
 | imgui            | Embedded | 1.92.5    | UI, App            | MIT          | https://github.com/ocornut/imgui |
 | imgui-knobs      | Embedded | 20251211  | UI                 | MIT          | https://github.com/altschuler/imgui-knobs |
 | ImGuizmo         | Embedded | 20251211  | UI                 | MIT          | https://github.com/CedricGuillemet/ImGuizmo |
@@ -45,6 +48,7 @@
 | libhv            | Embedded |           | verse_web          | BSD3         | https://github.com/ithewei/libhv |
 | lightmapper      | Embedded |           | -                  | -            | https://github.com/ands/lightmapper |
 | llama.cpp        | Embedded |           | AI                 | -            | https://github.com/ggerganov/llama.cpp |
+| maplibre-tile    | Embedded | 20260210  | verse_mlt          | Apache2/MIT  | https://github.com/maplibre/maplibre-tile-spec |
 | marl             | Embedded |           | -                  | Apache2      | https://github.com/google/marl |
 | MeshOptimizer    | Embedded | 0.26      | Modeling           | MIT          | https://github.com/zeux/meshoptimizer |
 | METIS            | Embedded | 5.2.1     | Modeling           | Apache2      | https://github.com/KarypisLab/METIS |
@@ -61,6 +65,7 @@
 | picojson         | Embedded |           | -                  | BSD2         | https://github.com/kazuho/picojson |
 | pinyin           | Embedded |           | UI                 | -            | |
 | pmp-library      | Embedded |           | Modeling           | MIT          | https://github.com/pmp-library/pmp-library |
+| PMTiles          | Embedded | 20260210  | verse_mbtiles      | BSD3         | https://github.com/protomaps/PMTiles |
 | PoissonGenerator | Embedded |           | Pipeline           | -            | |
 | polylabel        | Embedded | 2.0.1     | Modeling           | ISC          | https://github.com/mapbox/polylabel |
 | protozero        | EMbedded | 1.7.1     | verse_mvt          | BSD2         | https://github.com/mapbox/protozero |
@@ -90,6 +95,26 @@
 | vtzero           | Embedded | 1.1.0     | verse_mvt          | BSD2         |_https://github.com/mapbox/vtzero |
 | xatlas           | Embedded |           | -                  | MIT          | https://github.com/jpcy/xatlas |
 | xxYUV            | Embedded |           | ReaderWriter       | MIT          | https://github.com/metarutaiga/xxYUV |
+
+### Thirparty dependencies installation
+| Library          | Installation |
+|------------------|--------------|
+| OpenSceneGraph   | Cloned and compiled by Setup.sh/Setup.bat |
+| Bullet           | (Linux) apt-get install libbullet-dev |
+| Effekseer        | Manually Compile from source |
+| FFmpeg           | (Linux) apt-get install libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev libswscale-dev |
+| libDraco         | (Linux) apt-get install libdraco-dev |
+| libCEF           | Download from https://cef-builds.spotifycdn.com/index.html |
+| libIGL           | Download from https://github.com/libigl/libigl/releases |
+| libosmium        | (Linux) apt-get install libosmium2-dev |
+| mimalloc         | (Linux) apt-get install libmimalloc-dev |
+| netCDF-C         | (Linux) apt-get install libnetcdf-dev |
+| NVIDIA Video SDK | (Windows) Download from https://developer.nvidia.com/video-codec-sdk |
+| OpenVDB          | (Linux) apt-get install libopenvdb-dev |
+| osgEarth         | Manually Compile from source |
+| Qt               | Download from https://download.qt.io/official_releases/ |
+| SDL2             | (Linux) apt-get install libsdl2-dev |
+| ZLMediaKit       | Manually Compile from source |
 
 ### OpenSceneGraph version history
 | Version | Release Date | Critical Changes |

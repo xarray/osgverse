@@ -74,6 +74,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 5.12 mimalloc 2.17 or later, for general purpose memory allocator with excellent performance. (https://github.com/microsoft/mimalloc)
   - 5.13 NVIDIA Video Codec SDK 12 or later, for video decoding/encoding based on codec_nv plugin. (https://developer.nvidia.com/video-codec-sdk)
   - 5.14 The netCDF-C 4.9.3 or later, for NetCDF/HDF data reading plugin. (https://github.com/Unidata/netcdf-c)
+  - 5.15 FFmpeg 6.0 or later, for video parsing and CPU based decoding/encoding. (https://github.com/FFmpeg/FFmpeg)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.
