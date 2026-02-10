@@ -8,7 +8,6 @@ IF(NOT USE_WASM_OPTIONS)
     IF(WIN32)
         ADD_DEFINITIONS(-DUSE_ODBC_API)
     ELSE(WIN32)
-        # sudo apt-install unixodbc-dev
         FIND_DEPENDENCE(ODBC "sql.h" "libodbc.so" "")
         IF(ODBC_FOUND)
             ADD_DEFINITIONS(-DUSE_ODBC_API)

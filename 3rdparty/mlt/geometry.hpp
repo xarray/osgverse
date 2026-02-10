@@ -4,8 +4,8 @@
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/noncopyable.hpp>
 
-#include <memory>
 #include <3rdparty/span.hpp>
+#include <memory>
 #include <vector>
 
 #include <cstddef>

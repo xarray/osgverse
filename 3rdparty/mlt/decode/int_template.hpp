@@ -4,8 +4,8 @@
 #include <mlt/decode/int.hpp>
 #include <mlt/util/morton_curve.hpp>
 
+#include <3rdparty/span.hpp>
 #include <cassert>
-//#include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>

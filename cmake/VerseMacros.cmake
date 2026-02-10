@@ -130,7 +130,7 @@ MACRO(NEW_CUDA_PLUGIN LIBRARY_NAME LIBRARY_TYPE)
 
 ENDMACRO(NEW_CUDA_PLUGIN)
 
-MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
+MACRO(FIND_DEPENDENCE_EX DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX BE_QUITE)
 
     SET(${DEP_NAME}_FOUND FALSE)
     SET(${DEP_NAME}_FEATURE_ENABLED ON CACHE BOOL "Enable to search for ${DEP_NAME} dependencies")
@@ -189,13 +189,17 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
                 LINK_DIRECTORIES(${${DEP_NAME}_LIB_DIR})
                 SET(${DEP_NAME}_FOUND TRUE)
             ELSE(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
-                MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
+                IF(NOT ${BE_QUITE})
+                    MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some functionalities will be ignored.")
+                ENDIF()
             ENDIF(${DEP_NAME}_INCLUDE_DIR AND ${DEP_NAME}_LIB_DIR)
         ELSE()
             IF(${DEP_NAME}_INCLUDE_DIR)
                 SET(${DEP_NAME}_FOUND TRUE)
             ELSE(${DEP_NAME}_INCLUDE_DIR)
-                MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some modules and functionalities will be ignored.")
+                IF(NOT ${BE_QUITE})
+                    MESSAGE("[osgVerse] Dependency ${DEP_NAME} not found. Some functionalities will be ignored.")
+                ENDIF()
             ENDIF(${DEP_NAME}_INCLUDE_DIR)
         ENDIF()
     ENDIF(${DEP_NAME}_FEATURE_ENABLED)
@@ -203,6 +207,12 @@ MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
     IF(${DEP_NAME}_FOUND)
         SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_DEPENDENCIES "${DEP_NAME}")
     ENDIF()
+
+ENDMACRO(FIND_DEPENDENCE_EX)
+
+MACRO(FIND_DEPENDENCE DEP_NAME INCLUDE_NAMES LIB_NAMES INC_PATH_POSTFIX)
+
+    FIND_DEPENDENCE_EX("${DEP_NAME}" "${INCLUDE_NAMES}" "${LIB_NAMES}" "${INC_PATH_POSTFIX}" FALSE)
 
 ENDMACRO(FIND_DEPENDENCE)
 

@@ -9,6 +9,7 @@
 | libCEF           | Depended | > 127.3   | Animation          | BSD          | https://github.com/chromiumembedded/cef |
 | libIGL           | Depended | > 2.5     | Modeling           | MPL2         | https://github.com/libigl/libigl |
 | libosmium        | Depended | > 2.11    | verse_osm          | Boost        | https://github.com/osmcode/libosmium |
+| libWebP          | Depended | > 1.2     | verse_webp         | BSD3         | https://github.com/webmproject/libwebp |
 | mimalloc         | Depended | > 2.17    | All                | MIT          | https://github.com/microsoft/mimalloc |
 | netCDF-C         | Depended | > 4.9.3   | verse_netcdf       | BSD3         | https://github.com/Unidata/netcdf-c |
 | NVIDIA Video SDK | Depended | > 12.0    | codec_nv           | Bussiness    | https://developer.nvidia.com/video-codec-sdk |
@@ -107,9 +108,11 @@
 | libCEF           | Download from https://cef-builds.spotifycdn.com/index.html |
 | libIGL           | Download from https://github.com/libigl/libigl/releases |
 | libosmium        | (Linux) apt-get install libosmium2-dev |
+| libwebp          | (Linux) apt-get install libwebp-dev
 | mimalloc         | (Linux) apt-get install libmimalloc-dev |
 | netCDF-C         | (Linux) apt-get install libnetcdf-dev |
 | NVIDIA Video SDK | (Windows) Download from https://developer.nvidia.com/video-codec-sdk |
+| ODBC             | (Linux) apt-get install unixodbc-dev |
 | OpenVDB          | (Linux) apt-get install libopenvdb-dev |
 | osgEarth         | Manually Compile from source |
 | Qt               | Download from https://download.qt.io/official_releases/ |

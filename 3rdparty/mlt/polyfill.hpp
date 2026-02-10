@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <algorithm>
 //#include <bit>
 //#include <ranges> // IWYU pragma: keep - Needed by MSVC

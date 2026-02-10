@@ -6,13 +6,33 @@
 #include <stdexcept>
 #include <type_traits>
 
+// WangRui 202602: downgrade to C++17
+template <typename T>
+constexpr std::enable_if_t<std::is_unsigned_v<T>, int>
+downgraded_countl_zero(T x) noexcept {
+    if (x == 0) return sizeof(T) * 8; int count = 0;
+    constexpr int bits = sizeof(T) * 8;
+    if constexpr (bits >= 64) {
+        if ((x >> 32) == 0) { count += 32; x <<= 32; }
+    }
+    if constexpr (bits >= 32) {
+        if ((x >> 48) == 0) { count += 16; x <<= 16; }
+    }
+    if ((x >> 56) == 0) { count += 8; x <<= 8; }
+    if ((x >> 60) == 0) { count += 4; x <<= 4; }
+    if ((x >> 62) == 0) { count += 2; x <<= 2; }
+    if ((x >> 63) == 0) { count += 1; }
+    return count;
+}
+////
+
 namespace mlt::util::decoding {
 
 /// Returns the size of the varint encoding for a given value.
 /// Equivalent to `max(1,ceil(log128(value)))`
 template <typename T = std::uint32_t>
 std::size_t getVarintSize(T value) {
-    return std::max<std::size_t>(1, ((8 * sizeof(value)) - std::countl_zero(value) + 6) / 7);
+    return std::max<std::size_t>(1, ((8 * sizeof(value)) - downgraded_countl_zero(value) + 6) / 7);
 }
 
 /*template <typename T>
