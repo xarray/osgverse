@@ -72,7 +72,7 @@ case "$BuildMode" in
         CMakeResultChecker=build/osg_wasm2/CMakeCache.txt
         ;;
     5)  echo "Android GLES 3."
-        BuildResultChecker=build/sdk_android/lib/libosgViewer.a
+        BuildResultChecker=build/osg_android/lib/libosgViewer.a
         CMakeResultChecker=build/osg_android/CMakeCache.txt
         ;;
     q)  exit 0

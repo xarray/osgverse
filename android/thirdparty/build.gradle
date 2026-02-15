@@ -5,6 +5,9 @@ def ARM_HOST = System.getProperty("os.arch") in ["aarch64", "armv7l", "arm64"]
 android {
     namespace "org.thirdparty"
     compileSdkVersion = gradle.sdkVersion
+    buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         minSdkVersion gradle.minSdkVersion
         targetSdkVersion gradle.targetSdkVersion

@@ -35,7 +35,9 @@
 #define vBV -0.04038
 
 #if defined(__ARM_NEON__) || defined(__ARM_NEON) || defined(_M_ARM) || defined(_M_ARM64) || defined(_M_HYBRID_X86_ARM64)
+#  ifndef VERSE_NO_NEON
 #   include <arm_neon.h>
+#  endif
 #elif defined(_M_IX86) || defined(_M_AMD64) || defined(__i386__) || defined(__amd64__)
 #   include <immintrin.h>
 #   include <tmmintrin.h>

@@ -13,6 +13,20 @@ allprojects {
         google()
         mavenCentral()
     }
+    afterEvaluate { project ->
+        tasks.matching { it.name.contains("assemble") }.configureEach { task ->
+            notCompatibleWithConfigurationCache("Task uses custom logic")
+            outputs.upToDateWhen { 
+                !project.hasProperty("forceRebuild") 
+            }
+        }
+        
+        tasks.matching { 
+            it.name in ["mergeDebugNativeLibs", "stripDebugDebugSymbols", "packageDebug"] 
+        }.configureEach { task ->
+            task.outputs.cacheIf { true }
+        }
+    }
 }
 
 ext {

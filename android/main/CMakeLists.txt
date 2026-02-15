@@ -48,3 +48,6 @@ TARGET_LINK_LIBRARIES(osgVerseAndroid log android EGL GLESv1_CM GLESv2 GLESv3 Op
                       debug osgGAd optimized osgGA
                       debug osgTerraind optimized osgTerrain
                       debug osgViewerd optimized osgViewer)
+IF(OPENMP_FOUND)
+    TARGET_LINK_LIBRARIES(osgVerseAndroid omp)
+ENDIF()

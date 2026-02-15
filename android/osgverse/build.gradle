@@ -4,6 +4,9 @@ def ABI_FILTER = rootProject.ext.ABI_FILTER
 android {
     namespace "org.osgverse"
     compileSdkVersion = gradle.sdkVersion
+    buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         minSdkVersion gradle.minSdkVersion
         targetSdkVersion gradle.targetSdkVersion

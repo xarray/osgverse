@@ -14,7 +14,7 @@
 namespace mlt {
 
 /// A block of data and a collection of strings views on it
-class StringDictViews : util::noncopyable {
+class StringDictViews /*: util::noncopyable*/ {
 public:
     StringDictViews() = default;
     StringDictViews(std::vector<std::uint8_t>&& data_, std::vector<std::string_view> views_) noexcept
@@ -85,11 +85,11 @@ static inline std::size_t propertyCount(const PropertyVec& vec, bool byteIsBoole
 }
 
 /// A column of properties and the present bits for each feature
-class PresentProperties : public util::noncopyable {
+class PresentProperties /*: public util::noncopyable*/ {
 public:
     using ScalarType = metadata::tileset::ScalarType;
 
-    PresentProperties() = delete;
+    PresentProperties() = default;
     PresentProperties(ScalarType type_, PropertyVec properties_, const PackedBitset& present) noexcept;
 
     ScalarType getType() const noexcept { return type; }

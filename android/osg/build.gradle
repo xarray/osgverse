@@ -5,6 +5,9 @@ def GLES_PROFILE = rootProject.ext.GLES_PROFILE
 android {
     namespace "org.osg"
     compileSdkVersion = gradle.sdkVersion
+    buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         minSdkVersion gradle.minSdkVersion
         targetSdkVersion gradle.targetSdkVersion

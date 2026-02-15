@@ -27,8 +27,10 @@
 #define fVG -0.469967
 
 #if defined(__ARM_NEON__) || defined(__ARM_NEON) || defined(_M_ARM) || defined(_M_ARM64) || defined(_M_HYBRID_X86_ARM64)
+#  ifndef VERSE_NO_NEON
 #   include <arm_neon.h>
 #   define NEON_FAST 1
+#  endif
 #elif defined(_M_IX86) || defined(_M_AMD64) || defined(__i386__) || defined(__amd64__)
 #   include <immintrin.h>
 #   if defined(__llvm__)
