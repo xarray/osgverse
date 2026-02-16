@@ -5,8 +5,11 @@
 
 #include <cmath>
 #include <cstdint>
-#include <numbers>
+//#include <numbers>
 #include <stdexcept>
+#ifndef M_PI
+#    define M_PI 3.14159265358979323846
+#endif
 
 namespace mlt {
 
@@ -36,14 +39,14 @@ private:
         return (2.0f * radToDeg(std::atan(std::exp(degToRad(180.0f - ((y + y0) * s1)))))) - 90.0f;
     }
 
-    static float degToRad(float deg) noexcept { return deg * std::numbers::pi / 180.0; }
-    static float radToDeg(float rad) noexcept { return rad * 180 / std::numbers::pi; }
+    static float degToRad(float deg) noexcept { return deg * M_PI / 180.0; }
+    static float radToDeg(float rad) noexcept { return rad * 180 / M_PI; }
 
     std::uint64_t size;
     std::uint64_t x0;
     std::uint64_t y0;
     double s1;
-    constexpr static double s2 = 360.0 / std::numbers::pi;
+    constexpr static double s2 = 360.0 / M_PI;
 };
 
 } // namespace mlt

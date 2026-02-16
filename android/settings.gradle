@@ -1,7 +1,7 @@
 gradle.ext.buildToolsVersion = '30.0.3'
-gradle.ext.sdkVersion = 33
+gradle.ext.sdkVersion = 32
 gradle.ext.minSdkVersion = 21
-gradle.ext.targetSdkVersion = 33
+gradle.ext.targetSdkVersion = 32
 gradle.ext.libDistributionRoot = '../build'
 include ':thirdparty'
 include ':sdl2'
