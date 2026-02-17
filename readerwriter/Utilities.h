@@ -285,6 +285,44 @@ namespace osgVerse
         static std::vector<unsigned char> extract(osg::Referenced* handle, const std::string& fileName);
     };
 
+    /** Client wrapper working with osgVerse Python server (multimodel_server.py) */
+    class OSGVERSE_RW_EXPORT MultiModelClient : public osg::Referenced
+    {
+    public:
+        struct ShmHeader  // HEADER_SIZE = 64
+        {
+            uint32_t magic;        // 0x53484D45 "SHME"
+            uint32_t version, status;
+            uint32_t data_size;    // real data size
+            uint64_t buffer_size;  // total buffer size
+            uint32_t data_type;    // 0=binary, 1=text, 2=image, 3=json
+            uint32_t checksum;
+            double timestamp;
+            uint64_t flags;
+            // reserved
+        };
+
+        enum Status
+        {
+            IDLE = 0, CLIENT_WRITING = 1,
+            SERVER_READING = 2, PROCESSING = 3,
+            SERVER_WRITING = 4, CLIENT_READING = 5,
+            READY = 6, INVALID = 7
+        };
+
+        MultiModelClient(const std::string& url = "http://127.0.0.1:5000");
+
+        bool sendShm(const std::string& shm_name, const void* data, size_t size, bool bidirectional);
+        std::vector<unsigned char> receiveShm(const std::string& shm_name);
+        void cleanupShm(const std::string& path);
+
+    protected:
+        bool notifyShmServer(const std::string& shm_name, bool bidirectional);
+
+        osg::ref_ptr<osg::Referenced> _handler;
+        std::string _serverUrl;
+    };
+
     /** Audio playback interface */
     class OSGVERSE_RW_EXPORT AudioPlayer : public osg::Referenced
     {
