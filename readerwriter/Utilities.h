@@ -302,7 +302,7 @@ namespace osgVerse
             // reserved
         };
 
-        enum Status
+        enum ShmStatus
         {
             IDLE = 0, CLIENT_WRITING = 1,
             SERVER_READING = 2, PROCESSING = 3,

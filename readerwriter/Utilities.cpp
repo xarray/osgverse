@@ -946,7 +946,7 @@ bool MultiModelClient::sendShm(const std::string& shm_path0, const void* input_d
 
     ShmHeader header{};
     header.magic = SHM_MAGIC; header.version = 1;
-    header.status = static_cast<uint32_t>(Status::CLIENT_WRITING);
+    header.status = static_cast<uint32_t>(ShmStatus::CLIENT_WRITING);
     header.data_size = input_size; header.buffer_size = buffer_size;
     header.data_type = 0;  // binary
     header.timestamp = InternalClientHandler::getTimestamp();
@@ -974,13 +974,13 @@ std::vector<unsigned char> MultiModelClient::receiveShm(const std::string& shm_n
         return resultData;
     }
 
-    Status status = static_cast<Status>(header.status);
-    if (status == Status::READY)
+    ShmStatus status = static_cast<ShmStatus>(header.status);
+    if (status == ShmStatus::READY)
     {
         resultData.resize(header.data_size);
         std::memcpy(resultData.data(), handler->mmap.data() + SHM_HEADER_SIZE, header.data_size);
     }
-    else if (status == Status::INVALID)
+    else if (status == ShmStatus::INVALID)
         { OSG_NOTICE << "[MultiModelClient] Server reported error" << std::endl; }
     return resultData;
 }

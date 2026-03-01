@@ -28,21 +28,21 @@ void pythonWrapperOsg() {}
     pybind11::class_<lib::type4>(module, #type4).def(pybind11::init<vtype, vtype, vtype, vtype>()) PYBIND_VECTOR(lib::type4);
 
 #define PYBIND_MATRIX(type, vec_type, value_type) \
-    .def("valid", & type##::valid).def("getTrans", & type##::getTrans).def("getRotate", & type##::getRotate) \
-    .def("setTrans", pybind11::overload_cast<const vec_type &>(& type##::setTrans), pybind11::arg("t")) \
-    .def("setRotate", pybind11::overload_cast<const osg::Quat &>(& type##::setRotate), pybind11::arg("q")) \
-    .def("preMultiply", pybind11::overload_cast<const type &>(& type##::preMult), pybind11::arg("m")) \
-    .def("postMultiply", pybind11::overload_cast<const type &>(& type##::postMult), pybind11::arg("m")) \
+    .def("valid", & type ::valid).def("getTrans", & type ::getTrans).def("getRotate", & type ::getRotate) \
+    .def("setTrans", pybind11::overload_cast<const vec_type &>(& type ::setTrans), pybind11::arg("t")) \
+    .def("setRotate", pybind11::overload_cast<const osg::Quat &>(& type ::setRotate), pybind11::arg("q")) \
+    .def("preMultiply", pybind11::overload_cast<const type &>(& type ::preMult), pybind11::arg("m")) \
+    .def("postMultiply", pybind11::overload_cast<const type &>(& type ::postMult), pybind11::arg("m")) \
     .def("__str__", [](const type & s) \
         { std::stringstream ss; for (int i = 0; i < 16; ++i) ss << *(s.ptr() + i) << " "; return ss.str(); }) \
     .def("__getitem__", [](const type & self, pybind11::tuple id) \
         { if (id.size() >= 2) return self(id[0].cast<int>(), id[1].cast<int>()); else return (value_type)0.0; }) \
     .def("__setitem__", [](type & self, pybind11::tuple id, value_type v) \
         { if (id.size() >= 2) self(id[0].cast<int>(), id[1].cast<int>()) = v; }) \
-    .def("makeIdentity", &type##::makeIdentity) \
-    .def("makeTranslate", pybind11::overload_cast<const vec_type &>(&type##::makeTranslate), pybind11::arg("t")) \
-    .def("makeRotate", pybind11::overload_cast<const osg::Quat&>(&type##::makeRotate), pybind11::arg("r")) \
-    .def("makeScale", pybind11::overload_cast<const vec_type &>(&type##::makeScale), pybind11::arg("s")) \
+    .def("makeIdentity", &type ::makeIdentity) \
+    .def("makeTranslate", pybind11::overload_cast<const vec_type &>(&type ::makeTranslate), pybind11::arg("t")) \
+    .def("makeRotate", pybind11::overload_cast<const osg::Quat&>(&type ::makeRotate), pybind11::arg("r")) \
+    .def("makeScale", pybind11::overload_cast<const vec_type &>(&type ::makeScale), pybind11::arg("s")) \
     .def("makeLookAt", [](type & self, const vec_type & eye, const vec_type & center, const vec_type & up) { \
         self.makeLookAt(eye, center, up); }, pybind11::arg("eye"), pybind11::arg("center"), pybind11::arg("up")) \
     .def("makeOrtho", [](type & self, value_type l, value_type r, value_type b, value_type t, value_type zn, value_type zf) { \

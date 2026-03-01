@@ -111,10 +111,11 @@
 | libwebp          | (Linux) apt-get install libwebp-dev
 | mimalloc         | (Linux) apt-get install libmimalloc-dev |
 | netCDF-C         | (Linux) apt-get install libnetcdf-dev |
-| NVIDIA Video SDK | (Windows) Download from https://developer.nvidia.com/video-codec-sdk |
+| NVIDIA Video SDK | Download from https://developer.nvidia.com/video-codec-sdk |
 | ODBC             | (Linux) apt-get install unixodbc-dev |
-| OpenVDB          | (Linux) apt-get install libopenvdb-dev |
+| OpenVDB          | (Linux) apt-get install libopenvdb-dev libboost-dev |
 | osgEarth         | Manually Compile from source |
+| Python           | (Linux) apt-get install libpython3.10-dev |
 | Qt               | Download from https://download.qt.io/official_releases/ |
 | SDL2             | (Linux) apt-get install libsdl2-dev |
 | ZLMediaKit       | Manually Compile from source |

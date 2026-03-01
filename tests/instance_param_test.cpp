@@ -23,7 +23,7 @@ namespace backward { backward::SignalHandling sh; }
 #define RES 2048
 #define RESV "2048"
 
-char* vertCode0 = {
+const char* vertCode0 = {
     "#extension GL_EXT_draw_instanced : enable\n"
     "VERSE_VS_IN vec4 osg_UserPosition, osg_UserColor;\n"
     "VERSE_VS_OUT vec4 color;\n"
@@ -36,7 +36,7 @@ char* vertCode0 = {
     "}\n"
 };
 
-char* vertCode1 = {
+const char* vertCode1 = {
     "#extension GL_EXT_draw_instanced : enable\n"
     "uniform sampler2D PosTexture, ColorTexture;\n"
     "VERSE_VS_OUT vec4 color;\n"
@@ -49,7 +49,7 @@ char* vertCode1 = {
     "}\n"
 };
 
-char* fragCode = {
+const char* fragCode = {
     "VERSE_FS_IN vec4 color;\n"
     "VERSE_FS_OUT vec4 fragData;\n"
     "void main() {\n"
