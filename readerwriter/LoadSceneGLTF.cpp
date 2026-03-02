@@ -1018,8 +1018,11 @@ namespace osgVerse
                 if (ormNewInput.valid())
                 {
                     // https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/schema/material.occlusionTextureInfo.schema.json
+                    // According to the document:
+                    //   - "A value of `0.0` means no occlusion. A value of `1.0` means full occlusion..."
+                    //   - The input AO value should be reset to '1.0 - value' to avoid mis-understanding in shaders
                     osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
-                    ss->setTextureAttributeAndModes(3, constructOcclusionRoughnessMetallic(t, ormNewInput.get(), 0, -1, -1));
+                    ss->setTextureAttributeAndModes(3, constructOcclusionRoughnessMetallic(t, ormNewInput.get(), 0, -1, -1, true));
                     if (!compressed && ormNewInput->getNumImages() > 0) compressed = ormNewInput->getImage(0)->isCompressed();
                 }
 
@@ -1031,11 +1034,11 @@ namespace osgVerse
                         1.0f, material.pbrMetallicRoughness.roughnessFactor, material.pbrMetallicRoughness.metallicFactor, 1.0f));
                 if (ormNewInput.valid())
                 {
-                    // https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/schema/material.pbrMetallicRoughness.schema.json
-                    if (occlusionID < 0)
+                    /*if (occlusionID < 0)
                         ss->setTextureAttributeAndModes(3, ormNewInput.get());  // directly use GLTF's XRM texture?
-                    else
+                    else*/
                     {
+                        // https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/schema/material.pbrMetallicRoughness.schema.json
                         osg::Texture* t = static_cast<osg::Texture*>(ss->getTextureAttribute(3, osg::StateAttribute::TEXTURE));
                         ss->setTextureAttributeAndModes(3, constructOcclusionRoughnessMetallic(t, ormNewInput.get(), -1, 1, 2));
                         if (!compressed && ormNewInput->getNumImages() > 0) compressed = ormNewInput->getImage(0)->isCompressed();

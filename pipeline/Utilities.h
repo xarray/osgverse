@@ -410,6 +410,20 @@ namespace osgVerse
                               std::vector<unsigned int>& outIDs);
     };
 
+    /** Compute SSIM (structural similarity index measure) of two input image list */
+    struct SSIM
+    {
+        struct Result
+        {
+            std::vector<float> ssim_map;
+            int width, height; float ssim;  // [0, 1]
+            Result() : width(0), height(0), ssim(-1.0f) {}
+        };
+
+        static Result compute(const osg::Image& img0, const osg::Image& img1,
+                              float C1 = 0.0001f, float C2 = 0.0009f, int winSize = 11, float sigma = 1.5f);
+    };
+
     /** Some string-related helper functions and algorithms */
     struct StringAuxiliary
     {

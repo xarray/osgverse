@@ -193,7 +193,7 @@ namespace osgVerse
 
     /** Handle ORM (Occlusion-Roughness-Metallic) texture creation */
     OSGVERSE_RW_EXPORT osg::Texture* constructOcclusionRoughnessMetallic(osg::Texture* origin, osg::Texture* input,
-                                                                         int chO, int chR, int chM);
+                                                                         int chO, int chR, int chM, bool reverseO = false);
 
     /** Convert image to compressed texture format */
     OSGVERSE_RW_EXPORT osg::Image* compressImage(osg::Image& img, osgDB::ReaderWriter* rw = NULL, bool forceDXT1 = false);
@@ -372,6 +372,8 @@ namespace osgVerse
     OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(
             const std::string& url, std::string& mimeType, std::string& encodingType,
             const std::vector<std::string>& reqHeaders = std::vector<std::string>());
+    inline std::vector<unsigned char> loadFileData(const std::string& url)
+    { std::string mimeType, encodingType; return loadFileData(url, mimeType, encodingType); }
 
     /** Get mimetype and extension map data */
     OSGVERSE_RW_EXPORT std::map<std::string, std::string> createMimeTypeMapper();

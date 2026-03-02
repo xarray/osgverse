@@ -69,10 +69,13 @@ int main(int argc, char** argv)
     if (useForwardShadow)
     {
         viewer = new osgViewer::Viewer;
+        // TODO: forward shadowing?
     }
     else
     {
         osgVerse::StandardPipelineViewer* plViewer = new osgVerse::StandardPipelineViewer(false, true, true);
+        plViewer->getParameters().enableAO = false;
+        plViewer->getParameters().enablePostEffects = false;
         if (arguments.read("--eyespace-depth"))
             plViewer->getParameters().shadowTechnique |= osgVerse::ShadowModule::EyeSpaceDepthSM;
         if (arguments.read("--vsm"))

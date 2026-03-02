@@ -687,3 +687,135 @@ osg::Camera* HeadUpDisplayCanvas::create(int width, int height)
     canvasCamera->setName("Canvas");
     return canvasCamera.get();
 }
+
+/************** SSIM **************/
+namespace
+{
+    struct SsimImageF
+    {
+        int w, h, c; std::vector<float> data;
+        float& at(int x, int y, int ch) { return data[(y * w + x) * c + ch]; }
+        const float& at(int x, int y, int ch) const { return data[(y * w + x) * c + ch]; }
+        SsimImageF(int ww = 0, int hh = 0, int cc = 0) : w(ww), h(hh), c(cc) {}
+    };
+
+    SsimImageF ssimConvertImage(const osg::Image& img)
+    {
+        SsimImageF result;
+        result.w = img.s(); result.h = img.t();
+        result.c = osg::Image::computeNumComponents(img.getPixelFormat());
+        result.data.resize(result.w * result.h * result.c);
+
+        for (int y = 0; y < result.h; ++y)
+            for (int x = 0; x < result.w; ++x)
+            {
+                osg::Vec4 color = img.getColor(x, y);
+                for (int c = 0; c < result.c; ++c) result.at(x, y, c) = color[c];
+            }
+        return result;
+    }
+
+    std::vector<float> ssimGaussianKernel(int size, float sigma)
+    {
+        std::vector<float> kernel(size * size);
+        float sum = 0.0f, sigma_sq = 2.0f * sigma * sigma;
+        int half = size / 2;
+
+        for (int y = -half; y <= half; ++y)
+            for (int x = -half; x <= half; ++x)
+            {
+                float val = std::exp(-(x * x + y * y) / sigma_sq);
+                kernel[(y + half) * size + (x + half)] = val; sum += val;
+            }
+        for (auto& v : kernel) v /= sum;
+        return kernel;
+    }
+
+    void ssimGaussianBlur(const SsimImageF& src, SsimImageF& dst,
+                          const std::vector<float>& kernel, int ksize)
+    {
+        int half = ksize / 2;
+#pragma omp parallel for schedule(dynamic)
+        for (int c = 0; c < src.c; ++c)
+            for (int y = 0; y < src.h; ++y)
+                for (int x = 0; x < src.w; ++x)
+                {
+                    float sum = 0.0f;
+                    for (int ky = -half; ky <= half; ++ky)
+                        for (int kx = -half; kx <= half; ++kx)
+                        {
+                            int py = std::clamp(y + ky, 0, src.h - 1);
+                            int px = std::clamp(x + kx, 0, src.w - 1);
+                            float weight = kernel[(ky + half) * ksize + (kx + half)];
+                            float pixel = src.at(px, py, c); sum += pixel * weight;
+                        }
+                    dst.at(x, y, c) = sum;
+                }
+    }
+}
+
+SSIM::Result SSIM::compute(const osg::Image& img0, const osg::Image& img1, float C1, float C2, int winSize, float sigma)
+{
+    SSIM::Result result; result.width = img0.s(); result.height = img0.t();
+    if (img0.s() != img1.s() || img0.t() != img1.t())
+    { OSG_NOTICE << "[SSIM] Image dimensions mismatch\n"; return result; }
+
+    SsimImageF f0 = ssimConvertImage(img0);
+    SsimImageF f1 = ssimConvertImage(img1);
+    int size = f0.w * f0.h * f0.c;
+
+    std::vector<float> kernel = ssimGaussianKernel(winSize, sigma);
+    SsimImageF mu0{ f0.w, f0.h, f0.c }, mu1{ f0.w, f0.h, f0.c };
+#pragma omp parallel sections
+    {
+#pragma omp section
+        ssimGaussianBlur(f0, mu0, kernel, winSize);
+#pragma omp section
+        ssimGaussianBlur(f1, mu1, kernel, winSize);
+    }
+
+    SsimImageF img0_sq{ f0.w, f0.h, f0.c };
+    SsimImageF img1_sq{ f0.w, f0.h, f0.c };
+    SsimImageF img0_img1{ f0.w, f0.h, f0.c };
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < size; ++i)
+    {
+        img0_sq.data[i] = f0.data[i] * f0.data[i];
+        img1_sq.data[i] = f1.data[i] * f1.data[i];
+        img0_img1.data[i] = f0.data[i] * f1.data[i];
+    }
+
+    SsimImageF sigma0_sq{ f0.w, f0.h, f0.c }, sigma1_sq{ f0.w, f0.h, f0.c }, sigma01{ f0.w, f0.h, f0.c };
+#pragma omp parallel sections
+    {
+#pragma omp section
+        ssimGaussianBlur(img0_sq, sigma0_sq, kernel, winSize);
+#pragma omp section
+        ssimGaussianBlur(img1_sq, sigma1_sq, kernel, winSize);
+#pragma omp section
+        ssimGaussianBlur(img0_img1, sigma01, kernel, winSize);
+    }
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < size; ++i)
+    {
+        sigma0_sq.data[i] -= mu0.data[i] * mu0.data[i];
+        sigma1_sq.data[i] -= mu1.data[i] * mu1.data[i];
+        sigma01.data[i] -= mu0.data[i] * mu1.data[i];
+    }
+    
+    double ssim_sum = 0.0; result.ssim_map.resize(size);
+#pragma omp parallel for reduction(+:ssim_sum) schedule(static)
+    for (int i = 0; i < size; ++i)
+    {
+        float mu0_sq = mu0.data[i] * mu0.data[i];
+        float mu1_sq = mu1.data[i] * mu1.data[i];
+        float mu0_mu1 = mu0.data[i] * mu1.data[i];
+        float numerator = (2.0f * mu0_mu1 + C1) * (2.0f * sigma01.data[i] + C2);
+        float denominator = (mu0_sq + mu1_sq + C1) * (sigma0_sq.data[i] + sigma1_sq.data[i] + C2);
+        result.ssim_map[i] = numerator / denominator;
+        ssim_sum += result.ssim_map[i];
+    }
+    result.ssim = static_cast<float>(ssim_sum / size);
+    return result;
+}

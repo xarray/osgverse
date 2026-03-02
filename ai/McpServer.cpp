@@ -37,7 +37,7 @@ protected:
     struct McpRequest
     {
         picojson::value params; int id;
-        std::string version, method;
+        std::string version, method, progressToken;
     };
 
     virtual ~JsonRpcServer()
@@ -72,6 +72,23 @@ protected:
             return responseStatus(ctx, 204, "", true);
         OSG_NOTICE << "[JsonRpcServer] POST: " << ctx->body() << std::endl;
 
+        if (authentication)
+        {
+            std::string authHeader = ctx->request->GetHeader("Authorization");
+            std::string apiKey = ctx->request->GetParam("api_key");
+            if (!authHeader.empty())
+            {
+                if (authHeader.substr(0, 7) == "Bearer ") apiKey = authHeader.substr(7);
+                else apiKey = authHeader;
+            }
+
+            if (!authentication(apiKey, sessionID))
+            {
+                OSG_NOTICE << "[JsonRpcServer] Authentication failed" << std::endl;
+                return responseStatus(ctx, 401, "Unauthorized");
+            }
+        }
+
         picojson::value root;
         std::string err = picojson::parse(root, ctx->body());
         if (!err.empty())
@@ -85,6 +102,12 @@ protected:
         if (root.contains("method")) request.method = root.get("method").get<std::string>();
         if (root.contains("id")) request.id = (int)root.get("id").get<double>();
         if (root.contains("params")) request.params = root.get("params");
+        if (request.params.contains("_meta"))
+        {
+            picojson::value meta = request.params.get("_meta");
+            if (meta.contains("progressToken"))
+                request.progressToken = meta.get("progressToken").get<std::string>();
+        }
 
         JsonRpcServer* rpc = this;
         if (request.method.empty())
@@ -165,6 +188,17 @@ protected:
                 std::lock_guard<std::mutex> lock(sseMutex);
                 sseInitialized[sessionID] = true;
             }
+            else if (req.method == "notifications/resources/updated")
+            {
+                OSG_NOTICE << "[JsonRpcServer] Resource updated notification received" << std::endl;
+            }
+            else if (req.method == "notifications/cancelled")
+            {
+                std::string reqId = "unknown";
+                if (req.params.contains("requestId"))
+                    reqId = req.params.get("requestId").get<std::string>(); cancelledRequests.insert(reqId);
+                OSG_NOTICE << "[JsonRpcServer] Request cancelled: " << reqId << std::endl;
+            }
             else
                 OSG_NOTICE << "[JsonRpcServer] notify(" << req.method << ")" << std::endl;
             return picojson::value();
@@ -192,6 +226,14 @@ protected:
             result["error"] = simpleJson("code", MethodNotFound, "message", "Method " + req.method + " not found");
         else
         {
+            std::string reqIdStr = std::to_string(req.id);
+            if (cancelledRequests.find(reqIdStr) != cancelledRequests.end())
+            {
+                cancelledRequests.erase(reqIdStr);
+                result["error"] = simpleJson("code", InvalidRequest, "message", "Request was cancelled");
+                return picojson::value(result);
+            }
+
             picojson::value methodResult = handler(req.params, sessionID);
             if (methodResult.contains("code")) result["error"] = picojson::value(methodResult);
             else result["result"] = picojson::value(methodResult);
@@ -212,10 +254,16 @@ protected:
             info.version = !clientInfo.contains("version") ? "0.0" : clientInfo.get("version").get<std::string>();
         }
 
-        picojson::object promptsProps, resourcesProp, toolsProp;  // TODO
+        picojson::object resAnnotations, promptAnnotations;
+        resAnnotations["subscribe"] = picojson::value(true);
+        resAnnotations["listChanged"] = picojson::value(true);
+        promptAnnotations["listChanged"] = picojson::value(true);
+
+        picojson::object promptsProps, resourcesProp, toolsProp;
         picojson::object capabilities, serverInfo;
-        //capabilities["prompts"] = picojson::value();
-        //capabilities["resources"] = picojson::value();
+        resourcesProp["annotations"] = picojson::value(resAnnotations);
+        if (!prompts.empty()) capabilities["prompts"] = picojson::value(promptAnnotations);
+        capabilities["resources"] = picojson::value(resourcesProp);
         capabilities["tools"] = picojson::value(toolsProp);
         serverInfo["name"] = picojson::value(MCP_SERVER_NAME);
         serverInfo["version"] = picojson::value(MCP_SERVER_VERSION);
@@ -250,6 +298,46 @@ public:
         server.registerHttpService(&service);
     }
 
+    bool readResourceContent(const std::string& uri, picojson::array& contents,
+                             const std::string& sessionID)
+    {
+        // Find static resource
+        auto it = resources.find(uri);
+        if (it != resources.end())
+        {
+            picojson::value content = it->second->read();
+            contents.push_back(content); return true;
+        }
+
+        // Find template resource
+        for (auto& tmpl : resourceTemplates)
+        {
+            std::map<std::string, std::string> params;
+            if (!tmpl.second->match(uri, params)) continue;
+            if (!tmpl.second->handler) continue;
+
+            picojson::value content = tmpl.second->handler(params, sessionID);
+            if (content.is<picojson::object>())
+            {
+                picojson::object& obj = content.get<picojson::object>();
+                if (obj.find("uri") == obj.end()) obj["uri"] = picojson::value(uri);
+            }
+            contents.push_back(content); return true;
+        }
+        return false;
+    }
+
+    bool resourceExists(const std::string& uri) const
+    {
+        if (resources.find(uri) != resources.end()) return true;
+        for (auto& tmpl : resourceTemplates)
+        {
+            std::map<std::string, std::string> params;
+            if (tmpl.second->match(uri, params)) return true;
+        }
+        return false;
+    }
+
     virtual void run()
     {
         server.start();
@@ -279,17 +367,71 @@ public:
 
     void sendEventMessage(const std::string& sessionID, const HttpContextPtr& ctx)
     {
-        std::queue<EventAndData> messages;
+        EventAndData ed;
         {
             std::lock_guard<std::mutex> lock(msgMutex);
             std::queue<EventAndData>& origin = sseMessages[sessionID];
-            if (origin.empty()) return; messages = origin; origin.pop();
+            if (origin.empty()) return; ed = origin.front(); origin.pop();
         }
 
-        EventAndData& ed = messages.front();
         ctx->writer->SSEvent(ed.first, ed.second.c_str());
         if (ed.second != "heartbeat")
             OSG_NOTICE << "[JsonRpcServer] SSE-" << ed.second << ": " << ed.first << std::endl;
+    }
+
+    void sendNotification(const std::string& sessionID, const picojson::value& notification)
+    { createEventMessage(sessionID, notification.serialize(false), "message"); }
+
+    void broadcastResourceUpdated(const std::string& uri)
+    {
+        std::vector<std::string> tempResourceSubscriptions;
+        {
+            std::lock_guard<std::mutex> lock(sseMutex);
+            for (auto& sessionSub : resourceSubscriptions)
+            {
+                if (sessionSub.second.find(uri) != sessionSub.second.end())
+                    tempResourceSubscriptions.push_back(sessionSub.first);
+            }
+        }
+
+        picojson::object params, notify; params["uri"] = picojson::value(uri);
+        notify["jsonrpc"] = picojson::value("2.0");
+        notify["method"] = picojson::value("notifications/resources/updated");
+        notify["params"] = picojson::value(params);
+        for (auto& sessionID : tempResourceSubscriptions)
+            createEventMessage(sessionID, picojson::value(notify).serialize(false), "message");
+    }
+
+    void broadcastResourceListChanged()
+    {
+        std::map<std::string, bool> tempSseInitialized;
+        {
+            std::lock_guard<std::mutex> lock(sseMutex);
+            for (auto& it : sseInitialized)
+            { if (it.second) tempSseInitialized[it.first] = it.second; }
+        }
+
+        picojson::object notify;
+        notify["jsonrpc"] = picojson::value("2.0");
+        notify["method"] = picojson::value("notifications/resources/list_changed");
+        for (auto& session : tempSseInitialized)
+            createEventMessage(session.first, picojson::value(notify).serialize(false), "message");
+    }
+
+    void broadcastPromptListChanged()
+    {
+        std::map<std::string, bool> tempSseInitialized;
+        {
+            std::lock_guard<std::mutex> lock(sseMutex);
+            for (auto& it : sseInitialized)
+            { if (it.second) tempSseInitialized[it.first] = it.second; }
+        }
+
+        picojson::object notify;
+        notify["jsonrpc"] = picojson::value("2.0");
+        notify["method"] = picojson::value("notifications/prompts/list_changed");
+        for (auto& session : tempSseInitialized)
+            createEventMessage(session.first, picojson::value(notify).serialize(false), "message");
     }
 
     void removeSessionMember(const std::string& sessionID)
@@ -297,9 +439,11 @@ public:
         auto cit = clientMap.find(sessionID);
         auto tit2 = sseMessages.find(sessionID);
         auto tit3 = sseInitialized.find(sessionID);
+        auto subIt = resourceSubscriptions.find(sessionID);
         if (cit != clientMap.end()) clientMap.erase(cit);
         if (tit2 != sseMessages.end()) sseMessages.erase(tit2);
         if (tit3 != sseInitialized.end()) sseInitialized.erase(tit3);
+        if (subIt != resourceSubscriptions.end()) resourceSubscriptions.erase(subIt);
     }
 
     void closeSession(const std::string& sessionID, bool useMutex = true)
@@ -329,8 +473,14 @@ public:
             }
             removeSessionMember(sessionID);
         }
-        if (toRelease) toRelease.release();
+        if (toRelease) { toRelease->join(); toRelease.release(); }
     }
+
+    std::string encodeCursor(int offset)
+    { return "cursor_" + std::to_string(offset); }
+
+    int decodeCursor(const std::string& cursor)
+    { if (cursor.substr(0, 7) == "cursor_") return std::stoi(cursor.substr(7)); return 0; }
 
     typedef std::pair<std::string, std::string> EventAndData;
     std::map<std::string, McpClientInfo> clientMap;
@@ -339,18 +489,24 @@ public:
     std::map<std::string, bool> sseInitialized;
 
     typedef std::pair<osg::ref_ptr<McpTool>, McpServer::MethodHandler> ToolData;
+    typedef std::pair<osg::ref_ptr<McpPrompt>, McpServer::PromptHandler> PromptData;
+
     std::map<std::string, McpServer::MethodHandler> methods;
     std::map<std::string, McpServer::NotificationHandler> notifications;
     std::map<std::string, McpServer::SessionCleanupHandler> sessionCleanups;
     std::map<std::string, osg::ref_ptr<McpResource>> resources;
+    std::map<std::string, osg::ref_ptr<McpResourceTemplate>> resourceTemplates;
+    std::map<std::string, std::set<std::string>> resourceSubscriptions;
+    std::map<std::string, PromptData> prompts;
     std::map<std::string, ToolData> tools;
+    std::set<std::string> cancelledRequests;
     McpServer::AuthenticationHandler authentication;
 
     ThreadPool* threadPool;
     hv::HttpServer server;
     hv::HttpService service;
     std::string sseEndpoint, msgEndpoint;
-    std::mutex sseMutex, msgMutex;
+    std::mutex clientMutex, sseMutex, msgMutex;
     bool running;
 };
 
@@ -418,8 +574,8 @@ void McpServer::registerTool(McpTool* tool, MethodHandler handler)
             for (std::map<std::string, JsonRpcServer::ToolData>::iterator it = server->tools.begin();
                  it != server->tools.end(); ++it) toolsData.push_back(it->second.first->json());
 
-            picojson::object toolsRoot; toolsRoot["tools"] = picojson::value(toolsData);
-            toolsRoot["nextCursor"] = picojson::value("next-page-cursor"); return picojson::value(toolsRoot);
+            std::string cursor = params.contains("cursor") ? params.get("cursor").get<std::string>() : "";
+            return paginateResults(toolsData, cursor, 20, "tools");
         };
     if (server->methods.find("tools/call") == server->methods.end())
         server->methods["tools/call"] = [this](const picojson::value& params, const std::string& id)
@@ -451,6 +607,13 @@ void McpServer::registerTool(McpTool* tool, MethodHandler handler)
         };
 }
 
+void McpServer::registerRootsHandler(MethodHandler handler)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    std::lock_guard<std::mutex> lock(server->sseMutex);
+    server->methods["roots/list"] = handler;
+}
+
 void McpServer::registerNotification(const std::string& notify, NotificationHandler handler)
 {
     JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
@@ -469,23 +632,197 @@ void McpServer::registerResource(const std::string& path, McpResource* resource)
         {
             JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
             if (!params.contains("uri")) return simpleJson("code", InvalidParams, "message", "Missing 'uri' parameter");
-            std::string name = params.get("uri").get<std::string>(); auto it = server->resources.find(name);
-            if (it == server->resources.end())
-                return simpleJson("code", InvalidParams, "message", "Resource " + name + " not found");
+            std::string name = params.get("uri").get<std::string>();
 
-            // TODO: read from resource
-            return picojson::value();
+            picojson::array contents; picojson::object result;
+            if (server->readResourceContent(name, contents, id))
+            {
+                result["contents"] = picojson::value(contents);
+                return picojson::value(result);
+            }
+            return simpleJson("code", InvalidParams, "message", "Resource " + name + " not found");
         };
     if (server->methods.find("resources/list") == server->methods.end())
         server->methods["resources/list"] = [this](const picojson::value& params, const std::string& id)
         {
-            // TODO: list resources
-            return picojson::value();
+            JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+            picojson::array allResources;
+            for (auto& res : server->resources) allResources.push_back(res.second->metadata());
+            for (auto& tmpl : server->resourceTemplates) allResources.push_back(tmpl.second->metadata());
+
+            std::string cursor = params.contains("cursor") ? params.get("cursor").get<std::string>() : "";
+            return paginateResults(allResources, cursor, 20, "resources");
         };
     if (server->methods.find("resources/subscribe") == server->methods.end())
         server->methods["resources/subscribe"] = [this](const picojson::value& params, const std::string& id)
         {
-            // TODO: subscribe resources
-            return picojson::value();
+            JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+            if (!params.contains("uri")) return simpleJson("code", InvalidParams, "message", "Missing 'uri' parameter");
+            std::string name = params.get("uri").get<std::string>();
+
+            if (!server->resourceExists(name))
+                return simpleJson("code", InvalidParams, "message", "Resource " + name + " not found");
+            else
+            {
+                std::lock_guard<std::mutex> lock(server->sseMutex);
+                server->resourceSubscriptions[id].insert(name);
+            }
+            picojson::object result; return picojson::value(result);
         };
+    if (server->methods.find("resources/unsubscribe") == server->methods.end())
+        server->methods["resources/unsubscribe"] = [this](const picojson::value& params, const std::string& id)
+        {
+            JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+            if (!params.contains("uri")) return simpleJson("code", InvalidParams, "message", "Missing 'uri' parameter");
+            std::string name = params.get("uri").get<std::string>();
+            {
+                std::lock_guard<std::mutex> lock(server->sseMutex);
+                auto it = server->resourceSubscriptions.find(id);
+                if (it != server->resourceSubscriptions.end()) it->second.erase(name);
+            }
+            picojson::object result; return picojson::value(result);
+        };
+}
+
+void McpServer::registerResourceTemplate(McpResourceTemplate* resourceTemplate)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    {
+        std::lock_guard<std::mutex> lock(server->sseMutex);
+        server->resourceTemplates[resourceTemplate->uriTemplate] = resourceTemplate;
+    }
+    server->broadcastResourceListChanged();
+}
+
+void McpServer::registerPrompt(McpPrompt* prompt, PromptHandler handler)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    {
+        std::lock_guard<std::mutex> lock(server->sseMutex);
+        server->prompts[prompt->name] = std::pair<osg::ref_ptr<McpPrompt>, PromptHandler>(prompt, handler);
+    }
+
+    if (server->methods.find("prompts/list") == server->methods.end())
+        server->methods["prompts/list"] = [this](const picojson::value& params, const std::string& id)
+        {
+            JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+            picojson::array allPrompts;
+            for (auto& p : server->prompts) allPrompts.push_back(p.second.first->metadata());
+
+            std::string cursor = params.contains("cursor") ? params.get("cursor").get<std::string>() : "";
+            return paginateResults(allPrompts, cursor, 20, "prompts");
+        };
+    if (server->methods.find("prompts/get") == server->methods.end())
+        server->methods["prompts/get"] = [this](const picojson::value& params, const std::string& id)
+        {
+            JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+            if (!params.contains("name"))
+                return simpleJson("code", InvalidParams, "message", "Missing 'name' parameter");
+
+            std::string name = params.get("name").get<std::string>();
+            auto it = server->prompts.find(name);
+            if (it == server->prompts.end())
+                return simpleJson("code", InvalidParams, "message", "Prompt " + name + " not found");
+
+            picojson::value args = params.contains("arguments") ? params.get("arguments") : picojson::value();
+            std::vector<McpPromptMessage> messages = it->second.second(args, id);
+            picojson::array msgArray; for (auto& msg : messages) msgArray.push_back(msg.json());
+
+            picojson::object result;
+            result["description"] = picojson::value(it->second.first->description);
+            result["messages"] = picojson::value(msgArray);
+            return picojson::value(result);
+        };
+    server->broadcastPromptListChanged();
+}
+
+void McpServer::registerSamplingHandler(SamplingHandler handler)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    std::lock_guard<std::mutex> lock(server->sseMutex);
+    if (server->methods.find("sampling/createMessage") == server->methods.end())
+        server->methods["sampling/createMessage"] = [this, handler](const picojson::value& params, const std::string& id)
+        { return handler(params, id); };  // client should handle it...
+}
+
+void McpServer::notifyPromptListChanged()
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    server->broadcastPromptListChanged();
+}
+
+void McpServer::notifyResourceUpdated(const std::string& uri)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    server->broadcastResourceUpdated(uri);
+}
+
+void McpServer::notifyResourceListChanged()
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    server->broadcastResourceListChanged();
+}
+
+void McpServer::subscribeResource(const std::string& sessionID, const std::string& uri)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    {
+        std::lock_guard<std::mutex> lock(server->sseMutex);
+        server->resourceSubscriptions[sessionID].insert(uri);
+    }
+}
+
+void McpServer::unsubscribeResource(const std::string& sessionID, const std::string& uri)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    {
+        std::lock_guard<std::mutex> lock(server->sseMutex);
+        auto it = server->resourceSubscriptions.find(sessionID);
+        if (it != server->resourceSubscriptions.end()) it->second.erase(uri);
+    }
+}
+
+bool McpServer::isResourceSubscribed(const std::string& sessionID, const std::string& uri) const
+{
+    const JsonRpcServer* server = static_cast<const JsonRpcServer*>(_core.get());
+    {
+        JsonRpcServer* nonconst = const_cast<JsonRpcServer*>(server);
+        std::lock_guard<std::mutex> lock(nonconst->sseMutex);
+
+        auto it = server->resourceSubscriptions.find(sessionID);
+        if (it != server->resourceSubscriptions.end())
+            return it->second.find(uri) != it->second.end();
+    }
+    return false;
+}
+
+picojson::value McpServer::paginateResults(const picojson::array& allItems, const std::string& cursor,
+                                           int pageSize, const std::string& listType)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    int offset = server->decodeCursor(cursor), total = allItems.size();
+
+    picojson::array pageItems; int end = std::min(offset + pageSize, total);
+    for (int i = offset; i < end; ++i) pageItems.push_back(allItems[i]);
+
+    picojson::object result; result[listType] = picojson::value(pageItems);
+    if (end < total) result["nextCursor"] = picojson::value(server->encodeCursor(end));
+    else result["nextCursor"] = picojson::value("");
+    return picojson::value(result);
+}
+
+void McpServer::sendProgress(const std::string& sessionID, const std::string& token,
+                             double progress, double total, const std::string& message)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    picojson::value notify = progressNotification(token, progress, total, message);
+    server->sendNotification(sessionID, notify);
+}
+
+void McpServer::sendCancelled(const std::string& sessionID, const std::string& requestId,
+                              const std::string& reason)
+{
+    JsonRpcServer* server = static_cast<JsonRpcServer*>(_core.get());
+    picojson::value notify = cancelledNotification(requestId, reason);
+    server->sendNotification(sessionID, notify);
 }

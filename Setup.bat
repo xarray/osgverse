@@ -101,23 +101,43 @@ if exist %CurrentDir%\%BuildResultChecker% (
 )
 
 set BasicCmakeOptions=""
+set BuildTypeString=Release
 ver > nul
 if !BuildModeWasm!==0 (
-    where nmake /? >nul 2>&1
+    where msbuild -version >nul 2>&1
     if not %errorlevel%==0 (
-        echo %errorlevel% NMake not found. Please start from Developer Command Prompt of Visual Studio.
+        echo %errorlevel% MsBuild not found. Please start from Developer Command Prompt of Visual Studio.
+        goto exit
+    )
+
+    :: Get Visual Studio version
+    for /f "tokens=1 delims=." %%a in ('msbuild -nologo -version 2^>^&1') do (
+        set "MSBUILD_MAJOR=%%a"
+        goto found_msbuild
+    )
+:found_msbuild
+    if "%MSBUILD_MAJOR%"=="18" (
+        set "CMAKE_GENERATOR=Visual Studio 18 2026"
+    ) else if "%MSBUILD_MAJOR%"=="17" (
+        set "CMAKE_GENERATOR=Visual Studio 17 2022"
+    ) else if "%MSBUILD_MAJOR%"=="16" (
+        set "CMAKE_GENERATOR=Visual Studio 16 2019"
+    ) else if "%MSBUILD_MAJOR%"=="15" (
+        set "CMAKE_GENERATOR=Visual Studio 15 2017"
+    ) else if "%MSBUILD_MAJOR%"=="14" (
+        set "CMAKE_GENERATOR=Visual Studio 14 2015"
+    ) else (
+        echo Unsupported Visual Studio version: %MSBUILD_MAJOR%
         goto exit
     )
 
     :: Desktop build
     set /p DebugLibFlag="Would you like to build Debug libraries (default: Release)? (y/n) > "
-    if /i "!DebugLibFlag!"=="y" (
-        set BasicCmakeOptions=-G"NMake Makefiles" -DCMAKE_BUILD_TYPE=Debug
-    ) else (
-        set BasicCmakeOptions=-G"NMake Makefiles" -DCMAKE_BUILD_TYPE=Release
-    )
+    if /i "!DebugLibFlag!"=="y" set BuildTypeString=Debug
+    
     set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty"
-
+    set BasicCmakeOptions=-G"%CMAKE_GENERATOR%" -A x64 -DCMAKE_CONFIGURATION_TYPES=!BuildTypeString!
+    echo Using CMake generator: %CMAKE_GENERATOR%
     if "!BuildMode!"=="2" (
         :: OpenGL ES
         if not !SkipOsgBuild!=="1" (
@@ -160,7 +180,7 @@ if !BuildModeWasm!==0 (
     if not !SkipOsgBuild!=="1" (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% "%CurrentDir%\helpers\toolchain_builder"
-        cmake --build .
+        cmake --build . --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -178,15 +198,15 @@ if !BuildModeWasm!==0 (
     set ThirdDepOptions=!ThirdDepOptions! ^
         -DFREETYPE_INCLUDE_DIR_freetype2=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
         -DFREETYPE_INCLUDE_DIR_ft2build=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
-        -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\freetype.lib ^
+        -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\!BuildTypeString!\freetype.lib ^
         -DJPEG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\jpeg ^
-        -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\jpeg.lib ^
+        -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\!BuildTypeString!\jpeg.lib ^
         -DPNG_PNG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\png ^
-        -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\png.lib ^
+        -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\!BuildTypeString!\png.lib ^
         -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
-        -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\zlib.lib ^
+        -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\!BuildTypeString!\zlib.lib ^
         -DTIFF_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\tiff;%ThirdPartyBuildDir%\tiff ^
-        -DTIFF_LIBRARY_RELEASE=%ThirdPartyBuildDir%\tiff\libtiff.a
+        -DTIFF_LIBRARY_RELEASE=%ThirdPartyBuildDir%\tiff\!BuildTypeString!\tiff.lib
 )
 if !BuildModeWasm!==1 (
     set ThirdDepOptions=!ThirdDepOptions! ^
@@ -246,7 +266,7 @@ if "!BuildMode!"=="0" (
     if not !SkipOsgBuild!=="1" (
         cd %CurrentDir%\build\osg_def
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
-        cmake --build . --target install --config Release
+        cmake --build . --target install --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -261,7 +281,7 @@ if "!BuildMode!"=="1" (
         cd %CurrentDir%\build\osg_core
         echo "cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%"
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
-        cmake --build . --target install --config Release
+        cmake --build . --target install --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -279,7 +299,7 @@ if "!BuildMode!"=="2" (
         ) else (
             cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES3 %OpenSceneGraphRoot%
         )
-        cmake --build . --target install --config Release
+        cmake --build . --target install --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -344,7 +364,7 @@ if "!BuildMode!"=="0" (
     if not exist %CurrentDir%\build\verse_def\ mkdir %CurrentDir%\build\verse_def
     cd %CurrentDir%\build\verse_def
     cmake !ThirdDepOptions! !ExtraOptions! -DOSG_ROOT="%CurrentDir%\build\sdk" %CurrentDir%
-    cmake --build . --target install --config Release
+    cmake --build . --target install --config !BuildTypeString!
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="1" (
@@ -353,7 +373,7 @@ if "!BuildMode!"=="1" (
     cd %CurrentDir%\build\verse_core
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl
     cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_core" %CurrentDir%
-    cmake --build . --target install --config Release
+    cmake --build . --target install --config !BuildTypeString!
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="2" (
@@ -363,7 +383,7 @@ if "!BuildMode!"=="2" (
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
                       -DOSG_EGL_LIBRARY=%EGL_LibPath% -DOSG_GLES_LIBRARY=%GLES_LibPath%
     cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_es" %CurrentDir%
-    cmake --build . --target install --config Release
+    cmake --build . --target install --config !BuildTypeString!
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="3" (

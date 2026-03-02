@@ -869,6 +869,9 @@ namespace osgVerse
             if (stage->outputs.find(name) != stage->outputs.end()) bufferName = name;
             else bufferName = stage->outputs.begin()->first;
         }
+#if VERBOSE_CREATING
+        OSG_NOTICE << "  Find stage <" << stage->name << "> and buffer <" << bufferName << ">\n";
+#endif
         applyBuffer(*stage, bufferName, name, unit, wp);
     }
 

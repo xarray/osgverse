@@ -8,7 +8,9 @@
 #include <osgUtil/SmoothingVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+
 #include <pipeline/Utilities.h>
+#include <readerwriter/Utilities.h>
 #include <ai/McpServer.h>
 #include <iostream>
 #include <sstream>

@@ -203,13 +203,14 @@ namespace osgVerse
     }
 
     osg::Texture* constructOcclusionRoughnessMetallic(osg::Texture* origin, osg::Texture* input,
-                                                      int chO, int chR, int chM)
+                                                      int chO, int chR, int chM, bool reverseO)
     {
         osg::Texture2D* texO = static_cast<osg::Texture2D*>(origin);
         osg::Texture2D* texI = static_cast<osg::Texture2D*>(input);
         if (!texI || (texI && !texI->getImage())) return texO;
 
-        osg::Image* imgI = texI->getImage(); int s = imgI->s(), t = imgI->t();
+        osg::Image* imgI = texI->getImage();
+        int s = imgI->s(), t = imgI->t(); bool newInput = true;
         if (!texO)  // no origin texture, create one referring to current input
         {
             osg::Image* imgO = new osg::Image;
@@ -227,7 +228,7 @@ namespace osgVerse
         else
         {
             osg::Image* imgO = texO->getImage();
-            imgO->scaleImage(s, t, 1);
+            imgO->scaleImage(s, t, 1); newInput = false;
         }
         
         osg::Vec4ub* ptr = (osg::Vec4ub*)texO->getImage()->data();
@@ -236,10 +237,14 @@ namespace osgVerse
             for (int x = 0; x < s; ++x)
             {
                 osg::Vec4 c0 = imgI->getColor(x, y);
-                unsigned char valO = (chO < 0) ? 255 : (unsigned char)(c0[chO] * 255.0f);
-                unsigned char valR = (chR < 0) ? 255 : (unsigned char)(c0[chR] * 255.0f);
-                unsigned char valM = (chM < 0) ? 0 : (unsigned char)(c0[chM] * 255.0f);
-                *(ptr + x + y * s) = osg::Vec4ub(valO, valR, valM, 255);
+                osg::Vec4ub srcPixel = *(ptr + x + y * s);
+                if (newInput) srcPixel = osg::Vec4ub(255, 255, 0, 255);
+
+                unsigned char dstO = (chO < 0) ? 255 : (unsigned char)(c0[chO] * 255.0f);
+                unsigned char valO = (chO < 0) ? srcPixel[0] : (reverseO ? (255 - dstO) : dstO);
+                unsigned char valR = (chR < 0) ? srcPixel[1] : (unsigned char)(c0[chR] * 255.0f);
+                unsigned char valM = (chM < 0) ? srcPixel[2] : (unsigned char)(c0[chM] * 255.0f);
+                *(ptr + x + y * s) = osg::Vec4ub(valO, valR, valM, srcPixel[3]);
             }
         return texO;
     }
