@@ -401,17 +401,22 @@ protected:
             picojson::value& bb = bv.get("box");
             if (bb.is<picojson::array>())
             {
-                picojson::array& bArray = bb.get<picojson::array>();
-                osg::Vec3d center(bArray.at(0).get<double>(), bArray.at(1).get<double>(),
-                                  bArray.at(2).get<double>());
-                osg::Vec3d xWidth(bArray.at(3).get<double>(), bArray.at(4).get<double>(),
-                                  bArray.at(5).get<double>());
-                osg::Vec3d yWidth(bArray.at(6).get<double>(), bArray.at(7).get<double>(),
-                                  bArray.at(8).get<double>());
-                osg::Vec3d zWidth(bArray.at(9).get<double>(), bArray.at(10).get<double>(),
-                                  bArray.at(11).get<double>());
-                result.expandBy(center); result.expandBy(center + xWidth);
-                result.expandBy(center + yWidth); result.expandBy(center + zWidth);
+                try
+                {
+                    picojson::array& bArray = bb.get<picojson::array>();
+                    osg::Vec3d center(bArray.at(0).get<double>(), bArray.at(1).get<double>(),
+                                      bArray.at(2).get<double>());
+                    osg::Vec3d xWidth(bArray.at(3).get<double>(), bArray.at(4).get<double>(),
+                                      bArray.at(5).get<double>());
+                    osg::Vec3d yWidth(bArray.at(6).get<double>(), bArray.at(7).get<double>(),
+                                      bArray.at(8).get<double>());
+                    osg::Vec3d zWidth(bArray.at(9).get<double>(), bArray.at(10).get<double>(),
+                                      bArray.at(11).get<double>());
+                    result.expandBy(center); result.expandBy(center + xWidth);
+                    result.expandBy(center + yWidth); result.expandBy(center + zWidth);
+                }
+                catch (std::exception& e)
+                { OSG_NOTICE << "[ReaderWriter3dtiles]" << e.what() << std::endl; }
             }
         }
         else if (bv.contains("sphere"))
@@ -419,10 +424,15 @@ protected:
             picojson::value& bs = bv.get("sphere");
             if (bs.is<picojson::array>())
             {
-                picojson::array& bArray = bs.get<picojson::array>();
-                osg::Vec3d center(bArray.at(0).get<double>(), bArray.at(1).get<double>(),
-                                  bArray.at(2).get<double>());
-                result = osg::BoundingSphered(center, bArray.at(3).get<double>());
+                try
+                {
+                    picojson::array& bArray = bs.get<picojson::array>();
+                    osg::Vec3d center(bArray.at(0).get<double>(), bArray.at(1).get<double>(),
+                                      bArray.at(2).get<double>());
+                    result = osg::BoundingSphered(center, bArray.at(3).get<double>());
+                }
+                catch (std::exception& e)
+                { OSG_NOTICE << "[ReaderWriter3dtiles]" << e.what() << std::endl; }
             }
         }
         else if (bv.contains("region"))
@@ -430,19 +440,24 @@ protected:
             picojson::value& br = bv.get("region");
             if (br.is<picojson::array>())
             {
-                picojson::array& bArray = br.get<picojson::array>();
-                double lng0 = bArray.at(0).get<double>(), lat0 = bArray.at(1).get<double>();
-                double lng1 = bArray.at(2).get<double>(), lat1 = bArray.at(3).get<double>();
-                double h0 = bArray.at(4).get<double>(), h1 = bArray.at(5).get<double>();
-                double x = 0.0, y = 0.0, z = 0.0; absolutely = true;
-                _ellipsoid->convertLatLongHeightToXYZ(lat0, lng0, h0, x, y, z);
-                result.expandBy(osg::Vec3d(x, z, -y));
-                _ellipsoid->convertLatLongHeightToXYZ(lat0, lng0, h1, x, y, z);
-                result.expandBy(osg::Vec3d(x, z, -y));
-                _ellipsoid->convertLatLongHeightToXYZ(lat1, lng1, h0, x, y, z);
-                result.expandBy(osg::Vec3d(x, z, -y));
-                _ellipsoid->convertLatLongHeightToXYZ(lat1, lng1, h1, x, y, z);
-                result.expandBy(osg::Vec3d(x, z, -y));
+                try
+                {
+                    picojson::array& bArray = br.get<picojson::array>();
+                    double lng0 = bArray.at(0).get<double>(), lat0 = bArray.at(1).get<double>();
+                    double lng1 = bArray.at(2).get<double>(), lat1 = bArray.at(3).get<double>();
+                    double h0 = bArray.at(4).get<double>(), h1 = bArray.at(5).get<double>();
+                    double x = 0.0, y = 0.0, z = 0.0; absolutely = true;
+                    _ellipsoid->convertLatLongHeightToXYZ(lat0, lng0, h0, x, y, z);
+                    result.expandBy(osg::Vec3d(x, z, -y));
+                    _ellipsoid->convertLatLongHeightToXYZ(lat0, lng0, h1, x, y, z);
+                    result.expandBy(osg::Vec3d(x, z, -y));
+                    _ellipsoid->convertLatLongHeightToXYZ(lat1, lng1, h0, x, y, z);
+                    result.expandBy(osg::Vec3d(x, z, -y));
+                    _ellipsoid->convertLatLongHeightToXYZ(lat1, lng1, h1, x, y, z);
+                    result.expandBy(osg::Vec3d(x, z, -y));
+                }
+                catch (std::exception& e)
+                { OSG_NOTICE << "[ReaderWriter3dtiles]" << e.what() << std::endl; }
             }
         }
         else

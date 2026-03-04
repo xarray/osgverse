@@ -609,6 +609,7 @@ namespace osgVerse
                 const std::string& ext = it->first;
                 std::vector<std::string> keys = it->second.Keys();
                 if (ext == "KHR_gaussian_splatting") gsData.enabled = true;
+                else if (g_extensions.find(ext) != g_extensions.end()) continue;
                 else OSG_NOTICE << "[LoaderGLTF] Not-implemented extension: " << ext << std::endl;
 
                 for (size_t i = 0; i < keys.size(); ++i)

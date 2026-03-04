@@ -1,3 +1,4 @@
+#include "modeling/GaussianGeometry.h"
 #include "Pipeline.h"
 #include "SkyBox.h"
 #include "ShaderLibrary.h"
@@ -7,6 +8,7 @@
 #include "IntersectionManager.h"
 #include "NodeSelector.h"
 #include "Utilities.h"
+#include "Global.h"
 
 #include <osg/GLExtensions>
 #include <osg/DisplaySettings>
@@ -249,7 +251,7 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
 {
     HWND hd = ::GetDesktopWindow(); RECT rect; ::GetWindowRect(hd, &rect);
     w = (rect.right - rect.left); h = (rect.bottom - rect.top);
-    OSG_NOTICE << "[obtainScreenResolution] Get screen size " << w << " x " << h << "\n";
+    OSG_NOTICE << "[StandardPipeline] Get screen size " << w << " x " << h << "\n";
 }
 #elif defined(VERSE_X11)
 #include <X11/Xlib.h>
@@ -258,14 +260,14 @@ void obtainScreenResolution(unsigned int& w, unsigned int& h)
     Display* disp = XOpenDisplay(NULL);
     Screen* screen = DefaultScreenOfDisplay(disp);
     w = screen->width; h = screen->height;
-    OSG_NOTICE << "[obtainScreenResolution] Get screen size " << w << " x " << h << "\n";
+    OSG_NOTICE << "[StandardPipeline] Get screen size " << w << " x " << h << "\n";
 }
 #else
 void obtainScreenResolution(unsigned int& w, unsigned int& h)
 {
     w = osg::DisplaySettings::instance()->getScreenWidth();
     h = osg::DisplaySettings::instance()->getScreenHeight();
-    OSG_NOTICE << "[obtainScreenResolution] Get screen size " << w << " x " << h << "\n";
+    OSG_NOTICE << "[StandardPipeline] Get screen size " << w << " x " << h << "\n";
 }
 #endif
 
@@ -344,7 +346,7 @@ namespace osgVerse
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
         eyeSeparationVR(0.05), withEmbeddedViewer(false), debugShadowModule(false),
         debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
-        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
+        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -356,7 +358,7 @@ namespace osgVerse
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
         eyeSeparationVR(0.05), withEmbeddedViewer(false), debugShadowModule(false),
         debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
-        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false)
+        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -416,7 +418,7 @@ namespace osgVerse
                                                        UserInputOccasion occasion, UserInputType t)
     {
         userInputs[occasion].push_back(UserInputStageData(name, mask, t));
-        if (t != UserInputType::DEFAULT_INPUT) enableDepthPartition = true;
+        if (t > UserInputType::DEFAULT_INPUT) enableDepthPartition = true;
     }
 
     void StandardPipelineParameters::applyUserInputStages(
@@ -615,6 +617,24 @@ namespace osgVerse
         // Light module only needs to be added to main camera
         osg::ref_ptr<osgVerse::LightModule> lightModule = new osgVerse::LightModule("Light", p);
         mainCam->addUpdateCallback(lightModule.get());
+
+        // Update 3DGS sorter
+        if (spp.enable3DGS)
+        {
+            if (gbuffer->camera->getPostDrawCallback())
+            {
+                OSG_WARN << "[StandardPipeline] GBuffer camera already has a pre-draw callback, "
+                         << "which will be overwritten by GaussianSortCallback. Please check and "
+                         << "see if your own callback should be re-applied in some other ways." << std::endl;
+            }
+
+            GlobalReadFileCallback* cb = getGlobalFileCallback();
+            osgVerse::GaussianSorter* sorter = (cb == NULL) ? new osgVerse::GaussianSorter
+                                             : static_cast<osgVerse::GaussianSorter*>(cb->getGaussian()->sorterBase.get());
+            gbuffer->camera->setPostDrawCallback(new osgVerse::GaussianSortCallback(sorter));
+            OSG_NOTICE << "[StandardPipeline] Gaussian splatting sorter enabled (current queue size = "
+                       << sorter->size() << ")" << std::endl;
+        }
 
         // IBL related textures can be read from files or from run-once stages
         osgVerse::Pipeline::Stage *brdfLut = NULL, *prefiltering = NULL, *convolution = NULL;

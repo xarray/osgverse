@@ -3,6 +3,9 @@
 #include <osg/ValueObject>
 #include <osg/TriangleIndexFunctor>
 #include <osg/Geode>
+#include <osg/BlendFunc>
+#include <osg/BlendEquation>
+#include <osg/Depth>
 #include <osg/Texture1D>
 #include <osg/Texture2D>
 #include <osg/Multisample>
@@ -18,6 +21,10 @@
 
 #include "pipeline/Global.h"
 #include "pipeline/Utilities.h"
+#include "pipeline/Pipeline.h"
+#include "pipeline/ResourceManager.h"
+#include "modeling/Utilities.h"
+#include "modeling/GeometryMerger.h"
 #include "modeling/GaussianGeometry.h"
 #include "Utilities.h"
 #include <libhv/all/client/requests.h>
@@ -747,6 +754,52 @@ const AudioPlayer::Clip* AudioPlayer::getClip(const std::string& file) const
 /// InitParameters ///
 namespace
 {
+    class MergeGeomVisitor : public osg::NodeVisitor
+    {
+    public:
+        struct MergerAtlas : public osgVerse::GeometryMerger::AtlasProcessor
+        {
+            virtual osg::Image* preprocess(osg::Geometry* geom, osg::Image* image, int unit)
+            {
+                osg::Vec2 areas = osgVerse::computeTotalAreas(geom, unit);
+                float d = areas[1] * image->s() * image->t() / areas[0];
+
+                osg::ref_ptr<osg::Image> newImage = (d > 400.0f) ?
+                    static_cast<osg::Image*>(image->clone(osg::CopyOp::DEEP_COPY_ALL)) : image;
+                if (d > 1600.0f) osgVerse::resizeImage(*newImage, image->s() / 4, image->t() / 4);
+                else if (d > 400.0f) osgVerse::resizeImage(*newImage, image->s() / 2, image->t() / 2);
+                return newImage.release();
+            }
+
+            virtual osg::Image* process(osgVerse::TexturePacker* packer)
+            { size_t numImages = 0; return packer->pack(numImages, true); }
+
+            virtual osg::Image* postprocess(osg::Image* image)
+            { return image;/*return osgVerse::compressImage(*image);*/ }
+        };
+
+        MergeGeomVisitor() : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
+        { _atlas = new MergerAtlas; _maxTextureSize = 2048; }
+
+        virtual void apply(osg::Geode& node)
+        {
+            osgVerse::FindGeometryVisitor fgv(true); node.accept(fgv);
+            if (fgv.getGeometries().size() > 1)
+            {
+                osgVerse::GeometryMerger merger(osgVerse::GeometryMerger::COMBINED_GEOMETRY);
+                merger.setForceColorArray(true); merger.setAtlasProcessor(_atlas.get());
+
+                osg::ref_ptr<osg::Geometry> geom = merger.process(fgv.getGeometries(), 0, 0, _maxTextureSize);
+                node.removeDrawables(0, node.getNumDrawables()); node.addDrawable(geom.get());
+            }
+            traverse(node);
+        }
+
+    protected:
+        osg::ref_ptr<MergerAtlas> _atlas;
+        int _maxTextureSize;
+    };
+
     struct GlobalNodeOptimizer : public InitParameters::NodeOptimizerBase
     {
         bool toRemoveFixedFunc, toCreateTangent, toMergeGeode;
@@ -772,16 +825,109 @@ namespace
         virtual void mergeMultipleGeometries(osg::Node& node)
         {
             if (!toMergeGeode) return;
-            // TODO
+            MergeGeomVisitor mgv; node.accept(mgv);
         }
+    };
+
+    class GaussianGeomVisitor : public osg::NodeVisitor
+    {
+    public:
+        GaussianGeomVisitor(osgVerse::GaussianSorter* gs, osg::Program* prog)
+            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), _sorter(gs), _program(prog)
+        {
+            _blendFunc = new osg::BlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            _blendEq = new osg::BlendEquation(osg::BlendEquation::FUNC_ADD);
+            _depth = new osg::Depth(osg::Depth::LESS, 0.0, 1.0, false);
+        }
+
+        virtual void apply(osg::Geode& node)
+        {
+            bool hasGaussian = false;
+            for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
+            {
+                osgVerse::GaussianGeometry* gs = dynamic_cast<osgVerse::GaussianGeometry*>(node.getDrawable(i));
+                if (gs && _sorter.valid())
+                {   // to sort geometries by depth
+                    gs->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+                    _sorter->addGeometry(gs); hasGaussian = true;
+                }
+            }
+
+            if (hasGaussian)
+            {
+                osg::StateSet* ss = node.getOrCreateStateSet();
+                ss->setAttribute(_program.get()); ss->setAttributeAndModes(_depth.get());
+                ss->setAttributeAndModes(_blendFunc.get()); ss->setAttributeAndModes(_blendEq.get());
+                ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+            }
+            traverse(node);
+        }
+
+    protected:
+        osg::observer_ptr<osgVerse::GaussianSorter> _sorter;
+        osg::observer_ptr<osg::Program> _program;
+        osg::ref_ptr<osg::StateAttribute> _blendFunc, _blendEq, _depth;
     };
 
     struct GlobalGaussianSorter : public InitParameters::GaussianSorterBase
     {
+        bool initializeProgram(const std::string& hint)
+        {
+            osg::Shader* vert = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "gaussian_splatting.vert.glsl");
+            osg::Shader* geom = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "gaussian_splatting.geom.glsl");
+            osg::Shader* frag = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "gaussian_splatting.frag.glsl");
+            if (!vert || !geom || !frag)
+            {
+                OSG_WARN << "[GaussianStateVisitor] Missing shaders for gaussian splatting." << std::endl;
+                return false;
+            }
+
+            osgVerse::ResourceManager* res = osgVerse::ResourceManager::instance();
+            vert->setName("Gaussian_VS"); geom->setName("Gaussian_GS"); frag->setName("Gaussian_FS");
+            res->shareShader(vert, true); res->shareShader(geom, true); res->shareShader(frag, true);
+
+            osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
+            if (hint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
+            else if (hint == "TEX2D") method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
+            else if (hint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;
+
+            std::vector<std::string> gsDefinitions; std::string vsDefinitions; int minGlslVer = 120;
+            if (hint == "TBO") vsDefinitions += std::string("USE_INSTANCING,USE_INSTANCING_TEX");
+            else if (hint == "TEX2D") vsDefinitions += std::string("USE_INSTANCING,USE_INSTANCING_TEX2D");
+            else if (hint == "GS")
+            {
+#if defined(OSG_GL3_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+                gsDefinitions.push_back("layout(points) in;");
+                gsDefinitions.push_back("layout(triangle_strip, max_vertices = 4) out;");
+#endif
+            }
+            else
+            {
+                vsDefinitions += std::string("USE_INSTANCING");
+                minGlslVer = 430;  // for SSBO compatibility
+            }
+            // FIXME: it seems import_defines failed in GLCore/GLES mode? Try using ShaderLibrary as fallback
+            if (!vsDefinitions.empty()) vert->setUserValue("Definitions", vsDefinitions);
+
+            int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
+            glslVer = osg::maximum(glslVer, minGlslVer);
+            osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
+            osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
+            osgVerse::Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
+
+            _program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
+            _renderMode = new osg::Uniform("GaussianRenderingMode", 0.0f); return true;
+        }
+
         virtual void registerGaussianObjects(osg::Node& node)
         {
-            // TODO
+            osgVerse::GaussianSorter* gs = static_cast<osgVerse::GaussianSorter*>(sorterBase.get());
+            GaussianGeomVisitor ggv(gs, _program.get()); node.accept(ggv);
+            node.getOrCreateStateSet()->addUniform(_renderMode.get());
         }
+
+        osg::ref_ptr<osg::Program> _program;
+        osg::ref_ptr<osg::Uniform> _renderMode;
     };
 }
 
@@ -791,8 +937,20 @@ namespace osgVerse
     {
         InitParameters param;
         param.nodeOptimizer = new GlobalNodeOptimizer(flags);
+
         if (flags & GaussianSorting)
-            param.gaussianSorter = new GlobalGaussianSorter;
+        {
+            GlobalGaussianSorter* sorter = new GlobalGaussianSorter;
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+            sorter->initializeProgram("TEX2D");
+#elif !defined(OSG_GL3_AVAILABLE)
+            sorter->initializeProgram("TBO");
+#else
+            sorter->initializeProgram("");
+#endif
+            sorter->sorterBase = new osgVerse::GaussianSorter;  // FIXME
+            param.gaussianSorter = sorter;
+        }
         return param;
     }
 }

@@ -375,7 +375,7 @@ namespace osgVerse
         unsigned int shadowCastMask, shadowNumber, shadowResolution, shadowTechnique, coverageSamples;
         double depthPartitionNearValue, eyeSeparationVR;
         bool withEmbeddedViewer, debugShadowModule, debugShadowCombination, enableVSync, enableMRT;
-        bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR;
+        bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR, enable3DGS;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);

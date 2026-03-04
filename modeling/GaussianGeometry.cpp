@@ -720,7 +720,7 @@ void GaussianSorter::removeGeometry(GaussianGeometry* geom)
 
 void GaussianSorter::cull(osg::RenderInfo& renderInfo)
 {
-    if (!renderInfo.getCurrentCamera()) return;
+    if (!renderInfo.getCurrentCamera() || _geometries.empty()) return;
     const osg::Matrix& view = renderInfo.getCurrentCamera()->getViewMatrix();
 
     std::vector<osg::ref_ptr<GaussianGeometry>> _geometriesToSort;
@@ -824,4 +824,21 @@ void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::
         if (state) state->dirty();  // must dirty; otherwise index attribute won't update..
     }
 #endif
+}
+
+void GaussianSortCallback::operator()(osg::RenderInfo& renderInfo) const
+{
+    if (renderInfo.getView() && renderInfo.getView()->getFrameStamp())
+    {
+        unsigned int frame = renderInfo.getView()->getFrameStamp()->getFrameNumber();
+        if (frame <= _lastFrame) return; else _lastFrame = frame;
+    }
+    if (_sorter.valid()) _sorter->cull(renderInfo);
+}
+
+void GaussianSortCallback::releaseGLObjects(osg::State* state) const
+{
+    GaussianSortCallback* non_const = const_cast<GaussianSortCallback*>(this);
+    if (non_const->_sorter.valid()) non_const->_sorter->configureThreads(0);
+    non_const->_sorter = NULL;   // to release threads
 }

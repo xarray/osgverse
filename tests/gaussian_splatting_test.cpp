@@ -127,62 +127,69 @@ protected:
     bool _testColorCustomizing;
 };
 
-class SortCallback : public osg::Camera::DrawCallback
-{
-public:
-    SortCallback(osgVerse::GaussianSorter* sorter)
-        : _sorter(sorter), _firstFrame(true) {}
-
-    virtual void operator()(osg::RenderInfo& renderInfo) const
-    {
-        if (renderInfo.getCurrentCamera() != NULL) _sorter->cull(renderInfo);
-    }
-
-protected:
-    osg::ref_ptr<osgVerse::GaussianSorter> _sorter;
-    mutable bool _firstFrame;
-};
-
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
-    osgDB::Registry::instance()->addFileExtensionAlias("ply", "verse_3dgs");
-    osgDB::Registry::instance()->addFileExtensionAlias("spz", "verse_3dgs");
-    osgDB::Registry::instance()->addFileExtensionAlias("splat", "verse_3dgs");
-    osgDB::Registry::instance()->addFileExtensionAlias("ksplat", "verse_3dgs");
-    osgDB::Registry::instance()->addFileExtensionAlias("lcc", "verse_3dgs");
-    osgDB::Registry::instance()->addFileExtensionAlias("sog", "verse_3dgs");
-    osgVerse::updateOsgBinaryWrappers();
-
-    std::string hint; arguments.read("--render-mode", hint);
-    bool testColor = arguments.read("--test-color");
-    osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + hint);
-    osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments, options.get());
-    if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat", options.get());
-    if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
-
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->getOrCreateStateSet()->getOrCreateUniform("GaussianRenderingMode", osg::Uniform::FLOAT)->set(0.0f);
-    root->addChild(gs.get());
-
     osgViewer::Viewer viewer;
     viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
     viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
     viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-    viewer.setSceneData(root.get());
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
-    osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
-    handler->addKeyUpCallback('1', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(1.0f); });
-    handler->addKeyUpCallback('0', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(0.0f); });
-    viewer.addEventHandler(handler);
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    root->getOrCreateStateSet()->getOrCreateUniform("GaussianRenderingMode", osg::Uniform::FLOAT)->set(0.0f);
 
-    osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;
-    GaussianStateVisitor gsv(sorter.get(), hint, testColor); gs->accept(gsv);
-    viewer.getCamera()->setPreDrawCallback(new SortCallback(sorter.get()));
+    osgDB::Registry::instance()->addFileExtensionAlias("ply", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("spz", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("splat", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("ksplat", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("lcc", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("sog", "verse_3dgs");
+
+    osg::ArgumentParser arguments(&argc, argv);
+    if (arguments.read("--simple"))
+    {
+        // Simplest forward rendering implementation
+        osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
+        osgVerse::updateOsgBinaryWrappers();
+
+        osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments);
+        if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat");
+        if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
+
+        gs->setCullCallback(osgVerse::GaussianGeometry::createUniformCallback());
+        root->addChild(gs.get()); viewer.setSceneData(root.get());
+
+        osgVerse::GaussianSorter* sorter = static_cast<osgVerse::GaussianSorter*>(
+            osgVerse::getGlobalFileCallback()->getGaussian()->sorterBase.get());
+        viewer.getCamera()->setPreDrawCallback(new osgVerse::GaussianSortCallback(sorter));
+    }
+    else
+    {
+        osgVerse::globalInitialize(
+            argc, argv, osgVerse::defaultInitParameters(osgVerse::NoParameters));  // disable default sorter for test...
+        osgVerse::updateOsgBinaryWrappers();
+
+        std::string hint; arguments.read("--render-mode", hint);
+        bool testColor = arguments.read("--test-color");
+        osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + hint);
+
+        osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments, options.get());
+        if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat", options.get());
+        if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
+        root->addChild(gs.get()); viewer.setSceneData(root.get());
+
+        osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
+        handler->addKeyUpCallback('1', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(1.0f); });
+        handler->addKeyUpCallback('0', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(0.0f); });
+        viewer.addEventHandler(handler);
+
+        osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;
+        GaussianStateVisitor gsv(sorter.get(), hint, testColor); gs->accept(gsv);
+        viewer.getCamera()->setPreDrawCallback(new osgVerse::GaussianSortCallback(sorter.get()));
+    }
 
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);

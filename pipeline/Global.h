@@ -337,6 +337,7 @@ namespace osgVerse
         struct GaussianSorterBase : public osg::Referenced
         {
             virtual void registerGaussianObjects(osg::Node& node) = 0;
+            osg::ref_ptr<osg::Referenced> sorterBase;
         };
 
         osg::ref_ptr<NodeOptimizerBase> nodeOptimizer;
@@ -344,9 +345,38 @@ namespace osgVerse
         InitParameters() {}
     };
 
+    /** Global file callback, used by globalInitialize() internally */
+    class GlobalReadFileCallback : public osgDB::ReadFileCallback
+    {
+    public:
+        GlobalReadFileCallback(const InitParameters& params);
+        InitParameters::NodeOptimizerBase* getOptimizer() { return nodeOptimizer.get(); }
+        InitParameters::GaussianSorterBase* getGaussian() { return gaussianSorter.get(); }
+
+        virtual osgDB::ReaderWriter::ReadResult openArchive(
+            const std::string& f, osgDB::ReaderWriter::ArchiveStatus status,
+            unsigned int indexBlockSizeHint, const osgDB::Options* useObjectCache);
+        virtual osgDB::ReaderWriter::ReadResult readObject(const std::string& f, const osgDB::Options* opt);
+        virtual osgDB::ReaderWriter::ReadResult readImage(const std::string& f, const osgDB::Options* opt);
+        virtual osgDB::ReaderWriter::ReadResult readHeightField(const std::string& f, const osgDB::Options* opt);
+        virtual osgDB::ReaderWriter::ReadResult readNode(const std::string& f, const osgDB::Options* opt);
+        virtual osgDB::ReaderWriter::ReadResult readShader(const std::string& f, const osgDB::Options* opt);
+#if OSG_VERSION_GREATER_THAN(3, 5, 0)
+        virtual osgDB::ReaderWriter::ReadResult readScript(const std::string& f, const osgDB::Options* opt);
+#endif
+
+    protected:
+        virtual ~GlobalReadFileCallback() {}
+        osg::ref_ptr<InitParameters::NodeOptimizerBase> nodeOptimizer;
+        osg::ref_ptr<InitParameters::GaussianSorterBase> gaussianSorter;
+    };
+
     /** We recommend run this function once to initialize some plugins & environments */
     extern osg::ArgumentParser globalInitialize(int argc, char** argv,
                                                 const InitParameters& params = InitParameters());
+
+    /** Get global file callback created by globalInitialize() */
+    extern GlobalReadFileCallback* getGlobalFileCallback();
 }
 
 namespace osg

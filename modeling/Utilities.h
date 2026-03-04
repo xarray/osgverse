@@ -230,7 +230,7 @@ namespace osgVerse
         osg::Matrixd    _inverse;
     };
 
-    /** Geometry finder */
+    /** Geometry finder for GeometryMerger use */
     class FindGeometryVisitor : public osg::NodeVisitor
     {
     public:

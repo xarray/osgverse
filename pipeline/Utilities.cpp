@@ -35,7 +35,9 @@
 #include <modeling/Utilities.h>
 #include "ShaderLibrary.h"
 #include "Pipeline.h"
+#include "Global.h"
 #include "Utilities.h"
+using namespace osgVerse;
 
 #define APPLY_PROGRAM(ss, vsCode, fsCode) { \
     osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode); \
@@ -130,87 +132,78 @@ static void advanceImageViewer(osgViewer::Viewer* viewer0, osg::Node* node, osg:
         for (int i = 0; i < 2; ++i) viewer->frame();
 }
 
-class MyReadFileCallback : public osgDB::ReadFileCallback
+GlobalReadFileCallback::GlobalReadFileCallback(const osgVerse::InitParameters& params)
 {
-public:
-    MyReadFileCallback(const osgVerse::InitParameters& params)
-    {
-        nodeOptimizer = params.nodeOptimizer;
-        gaussianSorter = params.gaussianSorter;
-    }
+    nodeOptimizer = params.nodeOptimizer;
+    gaussianSorter = params.gaussianSorter;
+}
 
-    virtual osgDB::ReaderWriter::ReadResult openArchive(
-            const std::string& f, osgDB::ReaderWriter::ArchiveStatus status,
-            unsigned int indexBlockSizeHint, const osgDB::Options* useObjectCache)
-    {
-        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
-                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        return osgDB::ReadFileCallback::openArchive(file, status, indexBlockSizeHint, useObjectCache);
-    }
+osgDB::ReaderWriter::ReadResult GlobalReadFileCallback::openArchive(
+        const std::string& f, osgDB::ReaderWriter::ArchiveStatus status,
+        unsigned int indexBlockSizeHint, const osgDB::Options* useObjectCache)
+{
+    std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                        : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+    return osgDB::ReadFileCallback::openArchive(file, status, indexBlockSizeHint, useObjectCache);
+}
 
-    virtual osgDB::ReaderWriter::ReadResult readObject(const std::string& f, const osgDB::Options* opt)
-    {
-        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
-                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        return osgDB::ReadFileCallback::readObject(file, opt);
-    }
+osgDB::ReaderWriter::ReadResult GlobalReadFileCallback::readObject(const std::string& f, const osgDB::Options* opt)
+{
+    std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                        : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+    return osgDB::ReadFileCallback::readObject(file, opt);
+}
 
-    virtual osgDB::ReaderWriter::ReadResult readImage(const std::string& f, const osgDB::Options* opt)
-    {
-        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
-                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        return osgDB::ReadFileCallback::readImage(file, opt);
-    }
+osgDB::ReaderWriter::ReadResult GlobalReadFileCallback::readImage(const std::string& f, const osgDB::Options* opt)
+{
+    std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                        : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+    return osgDB::ReadFileCallback::readImage(file, opt);
+}
 
-    virtual osgDB::ReaderWriter::ReadResult readHeightField(const std::string& f, const osgDB::Options* opt)
-    {
-        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
-                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        return osgDB::ReadFileCallback::readHeightField(file, opt);
-    }
+osgDB::ReaderWriter::ReadResult GlobalReadFileCallback::readHeightField(const std::string& f, const osgDB::Options* opt)
+{
+    std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                        : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+    return osgDB::ReadFileCallback::readHeightField(file, opt);
+}
 
-    virtual osgDB::ReaderWriter::ReadResult readNode(const std::string& f, const osgDB::Options* opt)
-    {
-        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
-                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        osgDB::ReaderWriter::ReadResult rr = osgDB::ReadFileCallback::readNode(file, opt);
+osgDB::ReaderWriter::ReadResult GlobalReadFileCallback::readNode(const std::string& f, const osgDB::Options* opt)
+{
+    std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                        : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+    osgDB::ReaderWriter::ReadResult rr = osgDB::ReadFileCallback::readNode(file, opt);
 
-        osg::Node* resultNode = rr.getNode();
-        if (resultNode)
+    osg::Node* resultNode = rr.getNode();
+    if (resultNode)
+    {
+        if (nodeOptimizer.valid())
         {
-            if (nodeOptimizer.valid())
-            {
-                nodeOptimizer->removeFixedFunctionData(*resultNode);
-                nodeOptimizer->createTangentArray(*resultNode);
-                nodeOptimizer->mergeMultipleGeometries(*resultNode);
-            }
-            if (gaussianSorter.valid())
-                gaussianSorter->registerGaussianObjects(*resultNode);
+            nodeOptimizer->removeFixedFunctionData(*resultNode);
+            nodeOptimizer->createTangentArray(*resultNode);
+            nodeOptimizer->mergeMultipleGeometries(*resultNode);
         }
-        return rr;
+        if (gaussianSorter.valid())
+            gaussianSorter->registerGaussianObjects(*resultNode);
     }
+    return rr;
+}
 
-    virtual osgDB::ReaderWriter::ReadResult readShader(const std::string& f, const osgDB::Options* opt)
-    {
-        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
-                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        return osgDB::ReadFileCallback::readShader(file, opt);
-    }
+osgDB::ReaderWriter::ReadResult GlobalReadFileCallback::readShader(const std::string& f, const osgDB::Options* opt)
+{
+    std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                        : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+    return osgDB::ReadFileCallback::readShader(file, opt);
+}
+
 #if OSG_VERSION_GREATER_THAN(3, 5, 0)
-    virtual osgDB::ReaderWriter::ReadResult readScript(const std::string& f, const osgDB::Options* opt)
-    {
-        std::string file = osgVerse::Utf8StringValidator::check(f) ? f
-                         : osgDB::convertStringFromCurrentCodePageToUTF8(f);
-        return osgDB::ReadFileCallback::readScript(file, opt);
-    }
+osgDB::ReaderWriter::ReadResult GlobalReadFileCallback::readScript(const std::string& f, const osgDB::Options* opt)
+{
+    std::string file = osgVerse::Utf8StringValidator::check(f) ? f
+                        : osgDB::convertStringFromCurrentCodePageToUTF8(f);
+    return osgDB::ReadFileCallback::readScript(file, opt);
+}
 #endif
-
-protected:
-    virtual ~MyReadFileCallback() {}
-
-    osg::ref_ptr<osgVerse::InitParameters::NodeOptimizerBase> nodeOptimizer;
-    osg::ref_ptr<osgVerse::InitParameters::GaussianSorterBase> gaussianSorter;
-};
 
 namespace osgVerse
 {
@@ -226,13 +219,16 @@ namespace osgVerse
                osgDB::convertUTF8toUTF16(osgDB::convertStringFromCurrentCodePageToUTF8(s));
     }
 
+    GlobalReadFileCallback* getGlobalFileCallback()
+    { return dynamic_cast<GlobalReadFileCallback*>(osgDB::Registry::instance()->getReadFileCallback()); }
+
     osg::ArgumentParser globalInitialize(int argc, char** argv, const InitParameters& params)
     {
         setlocale(LC_ALL, ".UTF8");
         //osg::setNotifyLevel(osg::NOTICE);
 
         // Handle InitParameters in file callback
-        osgDB::Registry::instance()->setReadFileCallback(new MyReadFileCallback(params));
+        osgDB::Registry::instance()->setReadFileCallback(new GlobalReadFileCallback(params));
         if (argv && argc > 0)
         {
             std::string path = osgDB::getFilePath(argv[0]);

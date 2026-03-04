@@ -163,7 +163,9 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     std::string optString, optAll; bool defScene = false;
+    std::string otherSceneFile("lz.osg.15,15,1.scale.0,0,-300.trans"); arguments.read("--custom", otherSceneFile);
     while (arguments.read("-O", optString)) optAll += optString + " ";
+
     osg::ref_ptr<osgDB::Options> options = optAll.empty() ? NULL : new osgDB::Options(optAll);
 
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments, options.get());
@@ -184,8 +186,8 @@ int main(int argc, char** argv)
         options->setPluginStringData("UseBASISU", "1");
 
         // Compress and optimize textures (it may take a while)
-        // With op: CPU memory = 167.5MB, GPU memory = 0.8GB
-        // Without: CPU memory = 401.8MB, GPU memory = 2.1GB
+        // With opt: CPU memory = 167.5MB, GPU memory = 0.8GB
+        // Without : CPU memory = 401.8MB, GPU memory = 2.1GB
         scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
         if (scene.valid())
         {
@@ -201,7 +203,7 @@ int main(int argc, char** argv)
     sceneRoot->setName("PbrSceneRoot"); sceneRoot->addChild(scene.get());
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
-    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
+    osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile(otherSceneFile);
     if (otherSceneRoot.valid())
     {
         //osgVerse::FixedFunctionOptimizer ffo; otherSceneRoot->accept(ffo);  // built in defaultInitParameters()

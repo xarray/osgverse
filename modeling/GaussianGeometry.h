@@ -138,6 +138,7 @@ public:
     void addGeometry(GaussianGeometry* geom);
     void removeGeometry(GaussianGeometry* geom);
     void clear() { _geometries.clear(); _geometryMatrices.clear(); }
+    unsigned int size() const { return _geometries.size(); }
 
 protected:
     virtual ~GaussianSorter() { configureThreads(0); }
@@ -148,6 +149,22 @@ protected:
     std::vector<OpenThreads::Thread*> _sortThreads;
     osg::ref_ptr<Sorter> _sortCallback;
     Method _method; bool _firstFrame, _onDemand;
+};
+
+/** Gaussian sorter callback for use */
+class GaussianSortCallback : public osg::Camera::DrawCallback
+{
+public:
+    GaussianSortCallback(osgVerse::GaussianSorter* s) : _sorter(s), _lastFrame(0) {}
+    virtual void operator()(osg::RenderInfo& renderInfo) const;
+    virtual void releaseGLObjects(osg::State* state = 0) const;
+
+    osgVerse::GaussianSorter* getSorter() { return _sorter.get(); }
+    const osgVerse::GaussianSorter* getSorter() const { return _sorter.get(); }
+
+protected:
+    osg::ref_ptr<osgVerse::GaussianSorter> _sorter;
+    mutable unsigned int _lastFrame;
 };
 
 }
