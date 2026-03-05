@@ -844,23 +844,27 @@ struct InternalClientHandler : public osg::Referenced
     {
         path = getShmPath(name);
 #ifdef VERSE_WINDOWS
-        HANDLE hFile = CreateFileA(
-            path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
-            NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        HANDLE hFile = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+                                   FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                                   FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile != INVALID_HANDLE_VALUE) { CloseHandle(hFile); return true; }
+
+        hFile = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS,
+                            FILE_ATTRIBUTE_NORMAL, NULL);
         if (hFile == INVALID_HANDLE_VALUE)
         {
             OSG_NOTICE << "[MultiModelClient] CreateFile failed: " << GetLastError() << std::endl;
             return false;
         }
 
-        LARGE_INTEGER liSize;
-        liSize.QuadPart = static_cast<LONGLONG>(size);
+        LARGE_INTEGER liSize; liSize.QuadPart = static_cast<LONGLONG>(size);
         if (!SetFilePointerEx(hFile, liSize, NULL, FILE_BEGIN))
         {
             OSG_NOTICE << "[MultiModelClient] SetFilePointerEx failed: " << GetLastError() << std::endl;
             CloseHandle(hFile); return false;
         }
-        if (!SetEndOfFile(hFile))
+        else if (!SetEndOfFile(hFile))
         {
             OSG_NOTICE << "[MultiModelClient] SetEndOfFile failed: " << GetLastError() << std::endl;
             CloseHandle(hFile); return false;
@@ -921,13 +925,15 @@ struct InternalClientHandler : public osg::Referenced
 };
 
 MultiModelClient::MultiModelClient(const std::string& url)
-    : _serverUrl(url)
-{ _handler = new InternalClientHandler; }
+    : _serverUrl(url) {}
 
 bool MultiModelClient::sendShm(const std::string& shm_path0, const void* input_data,
                                size_t input_size, bool bidirectional)
 {
-    std::string shm_path = shm_path0;
+    std::string shm_path = shm_path0; std::error_code ec;
+    osg::Referenced* memObject = _handlers[shm_path0].get();
+    if (memObject != NULL) cleanupShm(shm_path0);
+
     size_t buffer_size = std::max(input_size * 2, static_cast<size_t>(1024 * 1024));
     if (!InternalClientHandler::createShm(shm_path0, SHM_HEADER_SIZE + buffer_size, shm_path))
     {
@@ -935,8 +941,7 @@ bool MultiModelClient::sendShm(const std::string& shm_path0, const void* input_d
         return false;
     }
 
-    std::error_code ec;
-    InternalClientHandler* handler = static_cast<InternalClientHandler*>(_handler.get());
+    osg::ref_ptr<InternalClientHandler> handler = new InternalClientHandler;
     handler->mmap = mio::make_mmap_sink(shm_path, 0, mio::map_entire_file, ec);
     if (ec)
     {
@@ -953,9 +958,9 @@ bool MultiModelClient::sendShm(const std::string& shm_path0, const void* input_d
     std::memcpy(handler->mmap.data(), &header, SHM_HEADER_SIZE);
     std::memcpy(handler->mmap.data() + SHM_HEADER_SIZE, input_data, input_size);
 
-    handler->mmap.sync(ec);
+    handler->mmap.sync(ec); _handlers[shm_path0] = handler;
     if (ec) { OSG_NOTICE << "[MultiModelClient] sync failed: " << ec.message() << std::endl; }
-    if (!notifyShmServer(shm_path, bidirectional))
+    if (!notifyShmServer(shm_path0, bidirectional))
     {
         OSG_NOTICE << "[MultiModelClient] Failed to notify server" << std::endl;
         return false;
@@ -966,7 +971,10 @@ bool MultiModelClient::sendShm(const std::string& shm_path0, const void* input_d
 std::vector<unsigned char> MultiModelClient::receiveShm(const std::string& shm_name)
 {
     ShmHeader header; std::vector<unsigned char> resultData;
-    InternalClientHandler* handler = static_cast<InternalClientHandler*>(_handler.get());
+    osg::Referenced* memObject = _handlers[shm_name].get();
+    if (memObject == NULL) return resultData;
+
+    InternalClientHandler* handler = static_cast<InternalClientHandler*>(memObject);
     std::memcpy(&header, handler->mmap.data(), sizeof(ShmHeader));
     if (header.magic != SHM_MAGIC)
     {
@@ -985,10 +993,15 @@ std::vector<unsigned char> MultiModelClient::receiveShm(const std::string& shm_n
     return resultData;
 }
 
-void MultiModelClient::cleanupShm(const std::string& path)
+void MultiModelClient::cleanupShm(const std::string& shm_name)
 {
-    InternalClientHandler* handler = static_cast<InternalClientHandler*>(_handler.get());
-    handler->mmap.unmap(); InternalClientHandler::removeShm(path);
+    osg::Referenced* memObject = _handlers[shm_name].get();
+    if (memObject != NULL)
+    {
+        InternalClientHandler* handler = static_cast<InternalClientHandler*>(memObject);
+        std::string path = InternalClientHandler::getShmPath(shm_name);
+        handler->mmap.unmap(); InternalClientHandler::removeShm(path);
+    }
 }
 
 bool MultiModelClient::notifyShmServer(const std::string& shm_name, bool bidirectional)
@@ -1006,5 +1019,7 @@ bool MultiModelClient::notifyShmServer(const std::string& shm_name, bool bidirec
         OSG_NOTICE << "[MultiModelClient] Server returned " << resp->status_code << std::endl;
         return false;
     }
+    else
+        { OSG_NOTICE << "[MultiModelClient] " << resp->body << std::endl; }
     return true;
 }

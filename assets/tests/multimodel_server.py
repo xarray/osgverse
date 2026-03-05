@@ -1,5 +1,6 @@
 # pip install Pillow flask
-import hashlib, json, os, argparse, io, time, struct, threading
+import hashlib, json, os, argparse, io, time, struct
+import mmap, platform, tempfile, threading, traceback
 from typing import Dict, Callable, Any, Optional, Tuple
 from flask import Flask, request, jsonify
 from functools import wraps
@@ -7,12 +8,7 @@ from PIL import Image
 from dataclasses import dataclass
 from enum import IntEnum
 
-try:
-    from multiprocessing import shared_memory
-    SHARED_MEMORY_AVAILABLE = True
-except ImportError:
-    SHARED_MEMORY_AVAILABLE = False
-    print("Warning: shared_memory not available")
+SHARED_MEMORY_AVAILABLE = True
 UPLOAD_FOLDER = './uploads'
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024 * 1024  # 16GB
 STREAM_THRESHOLD = 10 * 1024 * 1024  # 10MB
@@ -46,19 +42,21 @@ class ShmHeader:
     checksum: int = 0
     timestamp: float = 0.0
     flags: int = 0
+    reserved1: int = 0
+    reserved2: int = 0
     HEADER_SIZE = 64
 
     def pack(self) -> bytes:
-        return struct.pack('<IIIIIIIddQ',
+        return struct.pack('<IIIIQIIdQQQ',
             self.magic, self.version, self.status, self.data_size,
             self.buffer_size, self.data_type, self.checksum,
-            self.timestamp, self.flags)
+            self.timestamp, self.flags, self.reserved1, self.reserved2)
 
     @classmethod
     def unpack(cls, data: bytes) -> 'ShmHeader':
         if len(data) < cls.HEADER_SIZE:
             raise ValueError("Invalid header size")
-        unpacked = struct.unpack('<IIIIIIIddQ', data[:cls.HEADER_SIZE])
+        unpacked = struct.unpack('<IIIIQIIdQQQ', data[:cls.HEADER_SIZE])
         return cls(*unpacked)
 
     def is_valid(self) -> bool:
@@ -66,10 +64,23 @@ class ShmHeader:
 
 class SharedMemoryManager:
     def __init__(self):
-        self._shm_map: Dict[str, shared_memory.SharedMemory] = {}
+        self._shm_map: Dict[str, mmap.mmap] = {}
+        self._file_handles: Dict[str, object] = {}
         self._local_locks: Dict[str, threading.Lock] = {}
         self._metadata: Dict[str, dict] = {}
         self._global_lock = threading.Lock()
+
+    def _get_shm_path(self, name: str) -> str:
+        clean_name = name.replace('/', '_').replace('\\', '_').replace(':', '_')
+        if platform.system() == 'Windows':
+            temp_dir = tempfile.gettempdir()
+            shm_dir = os.path.join(temp_dir, "shm_shared_mem")
+            os.makedirs(shm_dir, exist_ok=True)
+            return os.path.join(shm_dir, clean_name + ".shm")
+        else:
+            if os.path.isdir("/dev/shm"):
+                return f"/dev/shm/{clean_name}"
+            return f"/tmp/{clean_name}"
 
     def create(self, name: str, size: int, exist_ok: bool = False) -> Tuple[bool, str]:
         try:
@@ -81,15 +92,24 @@ class SharedMemoryManager:
                     self.close(name)
 
                 # Create new shm
+                filepath = self._get_shm_path(name)
                 total_size = ShmHeader.HEADER_SIZE + size
+                if platform.system() == 'Windows':
+                    fd = os.open(filepath, os.O_CREAT | os.O_RDWR | os.O_TRUNC)
+                else:
+                    fd = os.open(filepath, os.O_CREAT | os.O_RDWR | os.O_TRUNC, 0o666)
+
+                if fd < 0:
+                    return False, f"Failed to create file: {filepath}"
                 try:
-                    shm = shared_memory.SharedMemory(create=True, size=total_size, name=name)
-                except FileExistsError:
-                    if exist_ok:
-                        # Open existing shm
-                        shm = shared_memory.SharedMemory(name=name)
-                    else:
-                        return False, "Shared memory already exists"
+                    os.ftruncate(fd, total_size)
+                    file_obj = os.fdopen(fd, 'r+b')
+                    mm = mmap.mmap(file_obj.fileno(), total_size, access=mmap.ACCESS_WRITE)
+                    self._file_handles[name] = file_obj
+                    self._shm_map[name] = mm
+                except Exception as e:
+                    os.close(fd)
+                    raise e
 
                 # Iniitialize header
                 header = ShmHeader(
@@ -97,57 +117,70 @@ class SharedMemoryManager:
                     buffer_size=size,
                     timestamp=time.time()
                 )
-                shm.buf[:ShmHeader.HEADER_SIZE] = header.pack()
+                mm[:ShmHeader.HEADER_SIZE] = header.pack()
 
-                self._shm_map[name] = shm
                 self._local_locks[name] = threading.Lock()
                 self._metadata[name] = {
-                    'created': time.time(),
-                    'access_count': 0,
-                    'owner': 'server'
+                    'created': time.time(), 'access_count': 0,
+                    'owner': 'server', 'path': filepath
                 }
                 return True, "OK"
         except Exception as e:
+            traceback.print_exc()
             return False, str(e)
 
-    def open(self, name: str) -> Optional[shared_memory.SharedMemory]:
+    def open(self, name: str) -> Optional[mmap.mmap]:
         try:
             with self._global_lock:
                 if name not in self._shm_map:
-                    shm = shared_memory.SharedMemory(name=name)
-                    self._shm_map[name] = shm
+                    filepath = self._get_shm_path(name)
+                    if not os.path.exists(filepath):
+                        print(f"SHM file not found: {filepath}")
+                        return None
+                    file_size = os.path.getsize(filepath)
+                    file_obj = open(filepath, 'r+b')
+                    mm = mmap.mmap(file_obj.fileno(), file_size, access=mmap.ACCESS_WRITE)
+                    
+                    self._file_handles[name] = file_obj
+                    self._shm_map[name] = mm
                     self._local_locks[name] = threading.Lock()
-                    self._metadata[name] = {'opened': time.time(), 'owner': 'client'}
+                    self._metadata[name] = {
+                        'opened': time.time(), 'owner': 'client',
+                        'path': filepath
+                    }
                 return self._shm_map.get(name)
         except Exception as e:
             print(f"Failed to open SHM {name}: {e}")
+            traceback.print_exc()
             return None
 
     def read_header(self, name: str) -> Optional[ShmHeader]:
-        shm = self._shm_map.get(name)
-        if not shm:
+        mm = self._shm_map.get(name)
+        if not mm:
             return None
         try:
-            header_data = bytes(shm.buf[:ShmHeader.HEADER_SIZE])
+            header_data = bytes(mm[:ShmHeader.HEADER_SIZE])
             header = ShmHeader.unpack(header_data)
             return header if header.is_valid() else None
-        except Exception:
+        except Exception as e:
+            print(f"Failed to read head of {name}: {e}")
             return None
 
     def write_header(self, name: str, header: ShmHeader) -> bool:
-        shm = self._shm_map.get(name)
-        if not shm:
+        mm = self._shm_map.get(name)
+        if not mm:
             return False
         try:
-            shm.buf[:ShmHeader.HEADER_SIZE] = header.pack()
+            mm[:ShmHeader.HEADER_SIZE] = header.pack()
+            mm.flush()  # ensure written to disk
             return True
         except Exception as e:
-            print(f"Failed to write header: {e}")
+            print(f"Failed to write header of {name}: {e}")
             return False
 
     def read_data(self, name: str, offset: int = 0, size: int = None) -> Optional[bytes]:
-        shm = self._shm_map.get(name)
-        if not shm:
+        mm = self._shm_map.get(name)
+        if not mm:
             return None
         try:
             header = self.read_header(name)
@@ -158,14 +191,14 @@ class SharedMemoryManager:
             start = ShmHeader.HEADER_SIZE + offset
             end = start + min(data_size, header.buffer_size - offset)
 
-            return bytes(shm.buf[start:end])
+            return bytes(mm[start:end])
         except Exception as e:
             print(f"Failed to read data: {e}")
             return None
 
     def write_data(self, name: str, data: bytes, offset: int = 0) -> bool:
-        shm = self._shm_map.get(name)
-        if not shm:
+        mm = self._shm_map.get(name)
+        if not mm:
             return False
         try:
             header = self.read_header(name)
@@ -176,9 +209,10 @@ class SharedMemoryManager:
                 raise ValueError("Data exceeds buffer size")
 
             start = ShmHeader.HEADER_SIZE + offset
-            shm.buf[start:start + len(data)] = data
+            mm[start:start + len(data)] = data
+            mm.flush(start, len(data))
 
-            # 更新数据大小
+            # Update data size
             header.data_size = max(header.data_size, offset + len(data))
             header.timestamp = time.time()
             self.write_header(name, header)
@@ -221,10 +255,28 @@ class SharedMemoryManager:
                     del self._local_locks[name]
 
                 if name in self._metadata:
+                    meta = self._metadata[name]
+                    if meta.get('owner') == 'server':
+                        filepath = meta.get('path')
+                        if filepath and os.path.exists(filepath):
+                            try:
+                                os.remove(filepath)
+                            except:
+                                pass
                     del self._metadata[name]
             return True
         except Exception as e:
             print(f"Failed to close SHM {name}: {e}")
+            return False
+
+    def unlink(self, name: str) -> bool:
+        try:
+            filepath = self._get_shm_path(name)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            return True
+        except Exception as e:
+            print(f"Failed to unlink SHM {name}: {e}")
             return False
 
 # global SHM manager
@@ -286,7 +338,7 @@ def _shm_bidirectional_operation(shm_name: str, metadata: Dict) -> Dict:
         return {'status': 'error', 'type': 'shm', 'message': 'Failed to read input data'}
 
     shm_mgr.set_status(shm_name, LockStatus.PROCESSING)
-    result_data = process_shm_data(input_data, metadata)
+    result_data = handle_shm_data(input_data, metadata)
 
     header = shm_mgr.read_header(shm_name)
     if len(result_data) <= header.buffer_size:
@@ -324,17 +376,6 @@ def _shm_bidirectional_operation(shm_name: str, metadata: Dict) -> Dict:
             shm_mgr.set_status(shm_name, LockStatus.ERROR)
             return {'status': 'error', 'type': 'shm', 'message': 'Failed to create result SHM'}
 
-# ==================== Handlers ====================
-
-def process_shm_data(data: bytes, metadata: Dict) -> bytes:
-    """ TODO: handle SHM in/out """
-    result = {
-        'processed': True,
-        'input_size': len(data),
-        'timestamp': time.time(),
-    }
-    return json.dumps(result).encode('utf-8')
-
 def handle_shm(data: bytes, metadata: Dict[str, Any]) -> Dict:
     shm_name = metadata.get('shm_name')
     operation = metadata.get('operation', 'read')  # read/write/bidirectional
@@ -355,11 +396,21 @@ def handle_shm(data: bytes, metadata: Dict[str, Any]) -> Dict:
     except Exception as e:
         return {'status': 'error', 'type': 'shm', 'message': f'SHM operation failed: {str(e)}'}
 
+# ==================== Handlers ====================
+
+def handle_shm_data(data: bytes, metadata: Dict) -> bytes:
+    ''' TODO: handle SHM in/out '''
+    print(f"[handle_shm_data] Processing {len(data)} bytes")
+    ''''''
+    return data
+
 def handle_text(data: bytes, metadata: Dict[str, Any]) -> Dict:
     try:
         text = data.decode('utf-8')
-        ''' TODO: text handing '''
 
+        ''' TODO: text handing '''
+        print(f"[handle_text] Processing {len(data)} bytes")
+        ''''''
         return {
             'status': 'success',
             'type': 'text', 'size': len(data),
@@ -380,8 +431,10 @@ def handle_image(data: bytes, metadata: Dict[str, Any]) -> Dict:
             image_rgb = image.copy()
         width, height = image.size
         format_type = image.format or 'UNKNOWN'
-        ''' TODO: image handing '''
 
+        ''' TODO: image handing '''
+        print(f"[handle_image] Processing {len(data)} bytes")
+        ''''''
         return {
             'status': 'success',
             'type': 'image', 'size': len(data),
@@ -396,7 +449,8 @@ def handle_image(data: bytes, metadata: Dict[str, Any]) -> Dict:
 
 def handle_binary(data: bytes, metadata: Dict[str, Any]) -> Dict:
     ''' TODO: binary data handing '''
-
+    print(f"[handle_binary] Processing {len(data)} bytes")
+    ''''''
     return {
         'status': 'success',
         'type': 'binary', 'size': len(data),
@@ -408,8 +462,10 @@ def handle_json(data: bytes, metadata: Dict[str, Any]) -> Dict:
     try:
         decoded = data.decode('utf-8')
         json_root = json.loads(decoded)
-        ''' TODO: JSON data handing '''
 
+        ''' TODO: JSON data handing '''
+        print(f"[handle_json] Processing {len(data)} bytes")
+        ''''''
         return {
             'status': 'success',
             'type': 'json', 'size': len(data),
@@ -426,8 +482,10 @@ def handle_file(data: bytes, metadata: Dict[str, Any]) -> Dict:
     file_path = os.path.join(UPLOAD_FOLDER, filename)
     with open(file_path, 'wb') as f:
         f.write(data)
-    ''' TODO: file data handing '''
 
+    ''' TODO: file data handing '''
+    print(f"[handle_file] Processing {len(data)} bytes")
+    ''''''
     return {
         'status': 'success',
         'type': 'file', 'size': len(data),
@@ -442,8 +500,6 @@ def handle_unknown(data: bytes, metadata: Dict[str, Any]) -> Dict:
         'message': f'Unknown data type: {metadata.get("type", "undefined")}',
         'supported_types': ['text', 'image', 'binary', 'json', 'file']
     }
-
-# ==================== 分段上传处理 ====================
 
 def handle_chunked_upload() -> Dict:
     upload_id = request.headers.get('X-Upload-ID')

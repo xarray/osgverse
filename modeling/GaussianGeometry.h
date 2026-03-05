@@ -138,7 +138,9 @@ public:
     void addGeometry(GaussianGeometry* geom);
     void removeGeometry(GaussianGeometry* geom);
     void clear() { _geometries.clear(); _geometryMatrices.clear(); }
+
     unsigned int size() const { return _geometries.size(); }
+    unsigned int numThreads() const { return _sortThreads.size(); }
 
 protected:
     virtual ~GaussianSorter() { configureThreads(0); }

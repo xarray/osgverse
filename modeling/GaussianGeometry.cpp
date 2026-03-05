@@ -833,7 +833,12 @@ void GaussianSortCallback::operator()(osg::RenderInfo& renderInfo) const
         unsigned int frame = renderInfo.getView()->getFrameStamp()->getFrameNumber();
         if (frame <= _lastFrame) return; else _lastFrame = frame;
     }
-    if (_sorter.valid()) _sorter->cull(renderInfo);
+
+    if (_sorter.valid())
+    {
+        if (_sorter->numThreads() == 0) _sorter->configureThreads(1);
+        _sorter->cull(renderInfo);
+    }
 }
 
 void GaussianSortCallback::releaseGLObjects(osg::State* state) const

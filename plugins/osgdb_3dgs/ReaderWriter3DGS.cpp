@@ -64,6 +64,9 @@ public:
         {
             std::string renderHint = options->getPluginStringData("RenderMethod");
             osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+            method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
+#endif
             if (renderHint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
             if (renderHint == "TEX2D") method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
             else if (renderHint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;

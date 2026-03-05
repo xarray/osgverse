@@ -63,6 +63,7 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_TEST(osgVerse_Test_Auto_LOD auto_lod_test.cpp)
     NEW_TEST(osgVerse_Test_Sky_Box sky_box_test.cpp)
     NEW_TEST(osgVerse_Test_Swig_Interface swig_interface_test.cpp)
+    NEW_TEST(osgVerse_Test_Python_Server python_server_test.cpp)
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 3)
         NEW_TEST(osgVerse_Test_Instance_Param instance_param_test.cpp)
@@ -105,10 +106,6 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
         NEW_EXAMPLE(osgVerse_Test_Video video_test.cpp)  # Hardware video encoding example
     ENDIF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
 
-	IF(MSVC_VERSION GREATER 1900)
-        NEW_TEST(osgVerse_Test_Restful_Server restful_server_test.cpp)  # Restful server example  // FIXME: merge with script support
-	ENDIF(MSVC_VERSION GREATER 1900)
-
     IF(BULLET_FOUND)
         NEW_EXAMPLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)  # Basic rigid physics example  // FIXME: with simple hint UI
 	    # TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test
@@ -135,6 +132,9 @@ IF(VERSE_BUILD_DEPRECATED_TESTS)
         NEW_TEST(osgVerse_Test_Mesh_Boolean deprecated/mesh_boolean_test.cpp)
         NEW_TEST(osgVerse_Test_Auto_Imposter deprecated/auto_imposter_test.cpp)
         NEW_TEST(osgVerse_Test_Texture_Mapping deprecated/texture_mapping_test.cpp)
+	    IF(MSVC_VERSION GREATER 1900)
+            NEW_TEST(osgVerse_Test_Restful_Server deprecated/restful_server_test.cpp)
+	    ENDIF(MSVC_VERSION GREATER 1900)
 
         IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
             NEW_TEST(osgVerse_Test_Indirect_Draw deprecated/indirect_drawing_test.cpp)

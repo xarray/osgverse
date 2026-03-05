@@ -943,12 +943,10 @@ namespace osgVerse
             GlobalGaussianSorter* sorter = new GlobalGaussianSorter;
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
             sorter->initializeProgram("TEX2D");
-#elif !defined(OSG_GL3_AVAILABLE)
-            sorter->initializeProgram("TBO");
 #else
             sorter->initializeProgram("");
 #endif
-            sorter->sorterBase = new osgVerse::GaussianSorter;  // FIXME
+            sorter->sorterBase = new osgVerse::GaussianSorter(0);  // FIXME
             param.gaussianSorter = sorter;
         }
         return param;

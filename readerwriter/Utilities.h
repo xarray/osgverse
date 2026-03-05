@@ -299,7 +299,7 @@ namespace osgVerse
             uint32_t checksum;
             double timestamp;
             uint64_t flags;
-            // reserved
+            uint64_t reserved1, reserved2;
         };
 
         enum ShmStatus
@@ -314,12 +314,12 @@ namespace osgVerse
 
         bool sendShm(const std::string& shm_name, const void* data, size_t size, bool bidirectional);
         std::vector<unsigned char> receiveShm(const std::string& shm_name);
-        void cleanupShm(const std::string& path);
+        void cleanupShm(const std::string& shm_name);
 
     protected:
         bool notifyShmServer(const std::string& shm_name, bool bidirectional);
 
-        osg::ref_ptr<osg::Referenced> _handler;
+        std::map<std::string, osg::ref_ptr<osg::Referenced>> _handlers;
         std::string _serverUrl;
     };
 
