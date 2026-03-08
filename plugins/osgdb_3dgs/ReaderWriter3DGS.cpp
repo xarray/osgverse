@@ -153,7 +153,7 @@ protected:
             ss.read((char*)rotation, sizeof(uint8_t) * 4);
 
             for (int i = 0; i < 4; ++i) rotValue[i] = (rotation[i] / 255.0f) * 2.0f - 1.0f;
-            rotValue.normalize(); rot->push_back(osg::Vec4(rotValue));
+            rotValue.normalize(); rot->push_back(osg::Vec4(rotValue[1], rotValue[2], rotValue[3], rotValue[0]));
             pos->push_back(posValue); scale->push_back(scaleValue); alpha->push_back(rgba[3] / 255.0f);
             rD0->push_back(osg::Vec4((rgba[0] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
             gD0->push_back(osg::Vec4((rgba[1] / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
