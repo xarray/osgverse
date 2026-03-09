@@ -311,7 +311,13 @@ namespace osgVerse
         };
 
         MultiModelClient(const std::string& url = "http://127.0.0.1:5000");
+        bool registerFunction(const std::string& name, const std::string& code);
+        bool sendText(const std::string& text, bool asJson);
+        bool sendImage(const osg::Image& image, bool asPng);
+        bool sendBinary(const void* data, size_t size);
 
+        bool sendData(const std::string& command, const std::string& type, const void* data, size_t size,
+                      const std::string& mineType = "text/plain");
         bool sendShm(const std::string& shm_name, const void* data, size_t size, bool bidirectional);
         std::vector<unsigned char> receiveShm(const std::string& shm_name);
         void cleanupShm(const std::string& shm_name);

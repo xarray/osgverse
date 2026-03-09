@@ -1,7 +1,7 @@
 # pip install Pillow flask
 import hashlib, json, os, argparse, io, time, struct
 import mmap, platform, tempfile, threading, traceback
-from typing import Dict, Callable, Any, Optional, Tuple
+from typing import Dict, Callable, Any, Optional, Tuple, Union
 from flask import Flask, request, jsonify
 from functools import wraps
 from PIL import Image
@@ -18,6 +18,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 chunked_uploads: Dict[str, Dict] = {}
+
+HandlerFirstArg = Union[str, bytes, Image.Image]
+HandlerResult = Union[str, bytes]
+user_handlers: Dict[str, Callable[[HandlerFirstArg, Dict[str, Any]], HandlerResult]] = {}
 
 # ================== Shared memory =================
 
@@ -282,7 +286,7 @@ class SharedMemoryManager:
 # global SHM manager
 shm_mgr = SharedMemoryManager()
 
-def _shm_read_operation(shm_name: str, metadata: Dict) -> Dict:
+def _shm_read_operation(shm_name: str, metadata: Dict[str, Any]) -> Dict:
     """ read SHM from client """
     if not shm_mgr.open(shm_name):
         return {'status': 'error', 'type': 'shm', 'message': f'Failed to open SHM: {shm_name}'}
@@ -307,7 +311,7 @@ def _shm_read_operation(shm_name: str, metadata: Dict) -> Dict:
     result['data_type'] = actual_type
     return result
 
-def _shm_write_operation(shm_name: str, data: bytes, metadata: Dict) -> Dict:
+def _shm_write_operation(shm_name: str, data: bytes, metadata: Dict[str, Any]) -> Dict:
     """ write to SHM from server """
     size = metadata.get('size', len(data) if data else 1024 * 1024)
     success, msg = shm_mgr.create(shm_name, size, exist_ok=False)
@@ -325,7 +329,7 @@ def _shm_write_operation(shm_name: str, data: bytes, metadata: Dict) -> Dict:
         'message': 'Data ready in SHM, client can read now'
     }
 
-def _shm_bidirectional_operation(shm_name: str, metadata: Dict) -> Dict:
+def _shm_bidirectional_operation(shm_name: str, metadata: Dict[str, Any]) -> Dict:
     """ Read from client and then write from server """
     if not shm_mgr.open(shm_name):
         return {'status': 'error', 'type': 'shm', 'message': f'Failed to open SHM: {shm_name}'}
@@ -398,18 +402,23 @@ def handle_shm(data: bytes, metadata: Dict[str, Any]) -> Dict:
 
 # ==================== Handlers ====================
 
-def handle_shm_data(data: bytes, metadata: Dict) -> bytes:
-    ''' TODO: handle SHM in/out '''
-    print(f"[handle_shm_data] Processing {len(data)} bytes")
+def handle_shm_data(data: bytes, metadata: Dict[str, Any]) -> bytes:
+    ''' handle SHM in/out '''
+    if "shm" not in user_handlers:
+        print(f"[handle_shm_data] Processing {len(data)} bytes")
+    else:
+        return user_handlers["shm"](data, metadata)
     ''''''
     return data
 
 def handle_text(data: bytes, metadata: Dict[str, Any]) -> Dict:
     try:
-        text = data.decode('utf-8')
-
-        ''' TODO: text handing '''
-        print(f"[handle_text] Processing {len(data)} bytes")
+        ''' text handing '''
+        if "text" not in user_handlers:
+            print(f"[handle_text] Processing {len(data)} bytes")
+        else:
+            text = data.decode('utf-8')
+            return user_handlers["text"](text, metadata)
         ''''''
         return {
             'status': 'success',
@@ -425,15 +434,14 @@ def handle_text(data: bytes, metadata: Dict[str, Any]) -> Dict:
 def handle_image(data: bytes, metadata: Dict[str, Any]) -> Dict:
     try:
         image = Image.open(io.BytesIO(data))
-        if image.mode != 'RGB':
-            image_rgb = image.convert('RGB')
-        else:
-            image_rgb = image.copy()
         width, height = image.size
         format_type = image.format or 'UNKNOWN'
 
-        ''' TODO: image handing '''
-        print(f"[handle_image] Processing {len(data)} bytes")
+        ''' image handing '''
+        if "image" not in user_handlers:
+            print(f"[handle_image] Processing {len(data)} bytes")
+        else:
+            return user_handlers["image"](image, metadata)
         ''''''
         return {
             'status': 'success',
@@ -448,8 +456,11 @@ def handle_image(data: bytes, metadata: Dict[str, Any]) -> Dict:
         }
 
 def handle_binary(data: bytes, metadata: Dict[str, Any]) -> Dict:
-    ''' TODO: binary data handing '''
-    print(f"[handle_binary] Processing {len(data)} bytes")
+    ''' binary data handing '''
+    if "binary" not in user_handlers:
+        print(f"[handle_binary] Processing {len(data)} bytes")
+    else:
+        return user_handlers["binary"](data, metadata)
     ''''''
     return {
         'status': 'success',
@@ -460,11 +471,13 @@ def handle_binary(data: bytes, metadata: Dict[str, Any]) -> Dict:
 
 def handle_json(data: bytes, metadata: Dict[str, Any]) -> Dict:
     try:
-        decoded = data.decode('utf-8')
-        json_root = json.loads(decoded)
-
-        ''' TODO: JSON data handing '''
-        print(f"[handle_json] Processing {len(data)} bytes")
+        ''' JSON data handing '''
+        if "json" not in user_handlers:
+            print(f"[handle_json] Processing {len(data)} bytes")
+        else:
+            decoded = data.decode('utf-8')
+            json_root = json.loads(decoded)
+            return user_handlers["json"](json_root, metadata)
         ''''''
         return {
             'status': 'success',
@@ -483,8 +496,11 @@ def handle_file(data: bytes, metadata: Dict[str, Any]) -> Dict:
     with open(file_path, 'wb') as f:
         f.write(data)
 
-    ''' TODO: file data handing '''
-    print(f"[handle_file] Processing {len(data)} bytes")
+    ''' file data handing '''
+    if "file" not in user_handlers:
+        print(f"[handle_file] Processing {len(data)} bytes")
+    else:
+        return user_handlers["file"](file_path, metadata)
     ''''''
     return {
         'status': 'success',
@@ -557,7 +573,40 @@ def get_handler(data_type: str) -> Callable:
     }
     return handlers.get(data_type, handle_unknown)
 
+def register_user_handler(name: str, func: Callable[[HandlerFirstArg, Dict[str, Any]], HandlerResult]):
+    user_handlers[name] = func
+    if name in user_handlers:
+        print(f"[register_handler] {name} registered")
+    return func
+
 # ==================== Route ====================
+
+@app.route('/reg', methods=['POST'])
+def register_handler():
+    try:
+        data = request.get_json()
+        handler_name = data.get('name')
+        code = data.get('code')
+        if not handler_name or not code:
+            return jsonify({
+                'status': 'error', 'type': 'register',
+                'message': 'Missing name or code for registering'
+            }), 400
+
+        namespace = {
+            'register': lambda f: register_user_handler(handler_name, f),
+            'json': json, '__builtins__': __builtins__
+        }
+        exec(code, namespace)
+        if 'handler' in namespace:
+            register_user_handler(handler_name, namespace['handler'])
+        return jsonify({'status': 'success', 'type': 'register'}), 200
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error', 'type': 'register',
+            'message': str(e)
+        }), 500
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -799,7 +848,6 @@ if __name__ == '__main__':
     """
     print("Starting osgVerse multi-model server...")
     print("Supported types: text, image, binary, json, file, shm")
-    print(f"Shared Memory available: {SHARED_MEMORY_AVAILABLE}")
     print("Endpoints:")
     print("  POST /upload?type=<type>                - Normal uploading")
     print("  POST /upload?mode=chunked&type=<type>   - Chunked uploading")

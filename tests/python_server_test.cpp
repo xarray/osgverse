@@ -27,12 +27,7 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-
-    std::vector<unsigned char> testData(256);
-    for (size_t i = 0; i < testData.size(); ++i) testData[i] = 255 - i;
-
     osg::ref_ptr<osgVerse::MultiModelClient> client = new osgVerse::MultiModelClient("http://127.0.0.1:5000");
-    client->sendShm("test", testData.data(), testData.size(), true);
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
@@ -41,6 +36,23 @@ int main(int argc, char** argv)
     viewer.setSceneData(root.get());
     viewer.setUpViewInWindow(0, 0, 640, 480);
     viewer.realize();
+
+    osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
+    handler->addKeyUpCallback('0', [&](int key)
+    {
+        client->registerFunction(
+            "text", "def handler(text: str, metadata):\\n  print(text)\\n  return {'status': 'success'}");
+        client->registerFunction(
+            "json", "def handler(text: str, metadata):\\n  print(text)\\n  return {'status': 'success'}");
+    });
+    handler->addKeyUpCallback('1', [&](int key) { client->sendText("HELLO WORLD", false); });
+    handler->addKeyUpCallback('2', [&](int key) { client->sendText("{'msg': 'HELLO WORLD'}", true); });
+    viewer.addEventHandler(handler);
+
+    // Test SHM usage
+    std::vector<unsigned char> testData(256);
+    for (size_t i = 0; i < testData.size(); ++i) testData[i] = 255 - i;
+    client->sendShm("test", testData.data(), testData.size(), true);
 
     while (!viewer.done())
     {

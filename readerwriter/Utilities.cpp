@@ -927,6 +927,51 @@ struct InternalClientHandler : public osg::Referenced
 MultiModelClient::MultiModelClient(const std::string& url)
     : _serverUrl(url) {}
 
+bool MultiModelClient::registerFunction(const std::string& name, const std::string& code)
+{
+    std::string json = "{\"name\": \"" + name + "\", \"code\": \"" + code + "\"}";
+    return sendData("/reg", "regfunc", json.data(), json.size(), "application/json");
+}
+
+bool MultiModelClient::sendText(const std::string& text, bool asJson)
+{
+    return sendData("/upload", (asJson ? "json" : "text"), text.data(), text.size(),
+                    (asJson ? "application/json" : "text/plain"));
+}
+
+bool MultiModelClient::sendImage(const osg::Image& image, bool asPng)
+{
+    osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(asPng ? "png" : "jpg");
+    if (!rw || !image.valid()) return false; std::string mt = asPng ? "image/png" : "image/jpeg";
+
+    std::stringstream ss; rw->writeImage(image, ss); std::string result = ss.str();
+    return result.empty() ? false : sendData("/upload", "image", result.data(), result.size(), mt);
+}
+
+bool MultiModelClient::sendBinary(const void* data, size_t size)
+{ return sendData("/upload", "binary", data, size, "application/octet-stream"); }
+
+bool MultiModelClient::sendData(const std::string& command, const std::string& type, const void* data, size_t size,
+                                const std::string& mineType)
+{
+    std::string url = _serverUrl + command + "?type=" + type; http_headers headers;
+    if (!mineType.empty()) headers["Content-Type"] = mineType;
+    requests::Response resp = requests::post(url.c_str(), std::string((char*)data, (char*)data + size), headers);
+    if (resp == nullptr)
+    {
+        OSG_NOTICE << "[MultiModelClient] HTTP request failed" << std::endl;
+        return false;
+    }
+
+    OSG_NOTICE << "[MultiModelClient] " << resp->body << std::endl;
+    if (resp->status_code != 200)
+    {
+        OSG_NOTICE << "[MultiModelClient] Server returned " << resp->status_code << std::endl;
+        return false;
+    }
+    return true;
+}
+
 bool MultiModelClient::sendShm(const std::string& shm_path0, const void* input_data,
                                size_t input_size, bool bidirectional)
 {
