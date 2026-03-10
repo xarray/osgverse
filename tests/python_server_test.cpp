@@ -27,7 +27,17 @@ int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+
     osg::ref_ptr<osgVerse::MultiModelClient> client = new osgVerse::MultiModelClient("http://127.0.0.1:5000");
+    client->registerFunction(
+        "text", "def handler(text: str, metadata):\\n  print(text)\\n  return {'status': 'success', 'handler': 1}");
+    client->registerFunction(
+        "json", "def handler(text: str, metadata):\\n  print(text)\\n  return {'status': 'success', 'handler': 2}");
+    client->registerFunction(
+        "image", "def handler(image: 'Image.Image', metadata):\\n  from PIL import Image\\n"
+                 "  print(image.format)\\n  return {'status': 'success', 'handler': 3}");
+    client->registerFunction(
+        "shm", "def handler(data: bytes, metadata):\\n  return data[::-1]");
 
     osgViewer::Viewer viewer;
     viewer.addEventHandler(new osgViewer::StatsHandler);
@@ -38,15 +48,13 @@ int main(int argc, char** argv)
     viewer.realize();
 
     osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
-    handler->addKeyUpCallback('0', [&](int key)
-    {
-        client->registerFunction(
-            "text", "def handler(text: str, metadata):\\n  print(text)\\n  return {'status': 'success'}");
-        client->registerFunction(
-            "json", "def handler(text: str, metadata):\\n  print(text)\\n  return {'status': 'success'}");
-    });
     handler->addKeyUpCallback('1', [&](int key) { client->sendText("HELLO WORLD", false); });
-    handler->addKeyUpCallback('2', [&](int key) { client->sendText("{'msg': 'HELLO WORLD'}", true); });
+    handler->addKeyUpCallback('2', [&](int key) { client->sendText("{\"msg\": \"HELLO WORLD\"}", true); });
+    handler->addKeyUpCallback('3', [&](int key)
+    {
+        osg::ref_ptr<osg::Image> img = osgDB::readImageFile("Images/osg256.png");
+        if (img.valid()) client->sendImage(*img, true);
+    });
     viewer.addEventHandler(handler);
 
     // Test SHM usage

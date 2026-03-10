@@ -135,7 +135,7 @@ if !BuildModeWasm!==0 (
     set /p DebugLibFlag="Would you like to build Debug libraries (default: Release)? (y/n) > "
     if /i "!DebugLibFlag!"=="y" set BuildTypeString=Debug
     
-    set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty"
+    set ThirdPartyBuildDir=%CurrentDir%\build\3rdparty
     set BasicCmakeOptions=-G"%CMAKE_GENERATOR%" -A x64 -DCMAKE_CONFIGURATION_TYPES=!BuildTypeString!
     echo Using CMake generator: %CMAKE_GENERATOR%
     if "!BuildMode!"=="2" (
@@ -168,7 +168,7 @@ if !BuildModeWasm!==1 (
 
     set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
     set EmsdkToolchain="%EMSDK%\upstream\emscripten\cmake\Modules\Platform\Emscripten.cmake"
-    set ThirdPartyBuildDir="%CurrentDir%\build\3rdparty_wasm"
+    set ThirdPartyBuildDir=%CurrentDir%\build\3rdparty_wasm
 )
 
 :: Compile 3rdparties

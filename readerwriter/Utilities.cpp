@@ -994,16 +994,20 @@ bool MultiModelClient::sendShm(const std::string& shm_path0, const void* input_d
         InternalClientHandler::removeShm(shm_path.c_str()); return {};
     }
 
-    ShmHeader header{};
-    header.magic = SHM_MAGIC; header.version = 1;
-    header.status = static_cast<uint32_t>(ShmStatus::CLIENT_WRITING);
-    header.data_size = input_size; header.buffer_size = buffer_size;
-    header.data_type = 0;  // binary
-    header.timestamp = InternalClientHandler::getTimestamp();
-    std::memcpy(handler->mmap.data(), &header, SHM_HEADER_SIZE);
-    std::memcpy(handler->mmap.data() + SHM_HEADER_SIZE, input_data, input_size);
+    if (bidirectional)
+    {
+        ShmHeader header{};
+        header.magic = SHM_MAGIC; header.version = 1;
+        header.status = static_cast<uint32_t>(ShmStatus::CLIENT_WRITING);
+        header.data_size = input_size; header.buffer_size = buffer_size;
+        header.data_type = 0;  // binary
+        header.timestamp = InternalClientHandler::getTimestamp();
+        std::memcpy(handler->mmap.data(), &header, SHM_HEADER_SIZE);
+        std::memcpy(handler->mmap.data() + SHM_HEADER_SIZE, input_data, input_size);
+        handler->mmap.sync(ec);
+    }
 
-    handler->mmap.sync(ec); _handlers[shm_path0] = handler;
+    _handlers[shm_path0] = handler;
     if (ec) { OSG_NOTICE << "[MultiModelClient] sync failed: " << ec.message() << std::endl; }
     if (!notifyShmServer(shm_path0, bidirectional))
     {
@@ -1046,6 +1050,7 @@ void MultiModelClient::cleanupShm(const std::string& shm_name)
         InternalClientHandler* handler = static_cast<InternalClientHandler*>(memObject);
         std::string path = InternalClientHandler::getShmPath(shm_name);
         handler->mmap.unmap(); InternalClientHandler::removeShm(path);
+        _handlers.erase(_handlers.find(shm_name));
     }
 }
 
