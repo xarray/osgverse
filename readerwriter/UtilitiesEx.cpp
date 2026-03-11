@@ -529,11 +529,11 @@ namespace osgVerse
             HttpResponse response; hv::HttpClient client;
             int result = client.send(&req, &response);
             if (result != 0)
-                { OSG_WARN << "[loadFileData] Failed getting " << url << ": " << result << std::endl; }
+                { OSG_WARN << "[loadFileData] Failed getting " << url << ": Err = " << result << std::endl; }
             else if (response.status_code > 200 || response.body.empty())
             {
-                OSG_WARN << "[loadFileData] Failed getting " << url << ": Code = "
-                         << response.status_code << ", Size = " << response.body.size() << std::endl;
+                OSG_WARN << "[loadFileData] Failed getting " << url << ": Code = " << response.status_code << ", Content = \""
+                         << response.body.substr(0, 20) << "...\", Size = " << response.body.size() << std::endl;
             }
             else
             {

@@ -222,6 +222,7 @@ int main(int argc, char** argv)
     //             --headers Host;t0.tianditu.gov.cn;Referer;http://www.tianditu.gov.cn
     //   JiLin No.1: --ortho "https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk%3d<your_code>&tk%3d<your_code2>"
     //               --options "FlipVertical=1" --image-bottomleft
+    //   GEOVIS Earth: --ortho "https://tiles1.geovisearth.com/base/v1/img/{z}/{x}/{y}?token%3d<your_code>" --options "FlipVertical=1"
     std::string earthURLs = "Orthophoto=" + ortho + (!elev.empty() ? (" Elevation=" + elev) : " ")
                           + useBottomLeftImage + " " + useWGS84Tile + " " + use2Dor3D;
     if (!headers.empty()) earthURLs += " RequestHeaders=" + headers;

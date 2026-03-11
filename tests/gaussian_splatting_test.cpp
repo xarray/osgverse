@@ -139,8 +139,6 @@ int main(int argc, char** argv)
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->getOrCreateStateSet()->getOrCreateUniform("GaussianRenderingMode", osg::Uniform::FLOAT)->set(0.0f);
-
     osgDB::Registry::instance()->addFileExtensionAlias("ply", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("spz", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("splat", "verse_3dgs");
@@ -149,7 +147,7 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->addFileExtensionAlias("sog", "verse_3dgs");
 
     osg::ArgumentParser arguments(&argc, argv);
-    if (arguments.read("--simple"))
+    if (!arguments.read("--custom"))
     {
         // Simplest forward rendering implementation
         osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
@@ -179,6 +177,8 @@ int main(int argc, char** argv)
         osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments, options.get());
         if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat", options.get());
         if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
+
+        root->getOrCreateStateSet()->getOrCreateUniform("GaussianRenderingMode", osg::Uniform::FLOAT)->set(0.0f);
         root->addChild(gs.get()); viewer.setSceneData(root.get());
 
         osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
