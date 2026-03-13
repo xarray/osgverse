@@ -363,7 +363,6 @@ IF(CUDA_FOUND)
         # https://quasar.ugent.be/files/doc/cuda-msvc-compatibility.html
         IF(CUDA_VERSION VERSION_GREATER_EQUAL 12.4)
             MATH(EXPR CUDA_CHECKVER0 "${MSVC_VERSION} - 1910")  # >= VS2017
-            SET(CUDA_GPU_FEATURE_CODE 90)
         ELSEIF(CUDA_VERSION VERSION_GREATER_EQUAL 12.0)
             MATH(EXPR CUDA_CHECKVER1 "1940 - ${MSVC_VERSION}")  # < VS2022
             MATH(EXPR CUDA_CHECKVER0 "${MSVC_VERSION} - 1910")  # >= VS2017
@@ -374,7 +373,6 @@ IF(CUDA_FOUND)
             MATH(EXPR CUDA_CHECKVER1 "1919 - ${MSVC_VERSION}")  # < VS2017
         ELSE()
             MATH(EXPR CUDA_CHECKVER1 "1919 - ${MSVC_VERSION}")  # < VS2017
-            SET(CUDA_GPU_FEATURE_CODE 52)
         ENDIF()
     ELSEIF(CMAKE_COMPILER_IS_GNUCC)
         # https://gist.github.com/ax3l/9489132
@@ -391,6 +389,7 @@ IF(CUDA_FOUND)
         MESSAGE("[osgVerse] NVIDIA CUDA found: ${CUDA_VERSION}, But incompatible with MSVC version ${MSVC_VERSION}.")
         SET(CUDA_FOUND FALSE)
     ELSE()
+        CHECK_CUDA_FEATURE_CODE()
         SET(VERSE_NVCC_FLAGS "-gencode arch=compute_${CUDA_GPU_FEATURE_CODE},code=sm_${CUDA_GPU_FEATURE_CODE}"
             CACHE STRING "NVCC Flags. See https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-architecture-arch" FORCE)
     ENDIF()
@@ -400,9 +399,9 @@ IF(CUDA_FOUND)
 ENDIF(CUDA_FOUND)
 
 IF(MUSA_FOUND)
-    SET(VERSE_MCC_FLAGS "--offload-arch=mp_21"
+    SET(MUSA_GPU_FEATURE_CODE 21)
+    SET(VERSE_MCC_FLAGS "--offload-arch=${MUSA_GPU_FEATURE_CODE}"
         CACHE STRING "Musa MCC Flags. MTT S50: mp_10; MTT S80/MTT S3000: mp_21; MTT S4000: mp_22")
-
     SET(MUSA_VERBOSE_BUILD ON)
     SET(MUSA_MCC_FLAGS ${MUSA_MCC_FLAGS} ${VERSE_MCC_FLAGS})
 ENDIF(MUSA_FOUND)
@@ -523,7 +522,9 @@ ENDIF(OSG_BUILD_INCLUDE_DIR)
 ######################################### Optional Dependencies
 MESSAGE(STATUS "[osgVerse] Automatically Search for Dependencies in ${THIRDPARTY_ROOT}...")
 FIND_PACKAGE(Python3 COMPONENTS Development)
-IF(Python3_FOUND AND NOT USE_WASM_OPTIONS)
+IF(MSVC AND MSVC_VERSION LESS 1910)
+    SET(PYTHON_FOUND FALSE)  # disable Python script on VS2015 and lower
+ELSEIF(Python3_FOUND AND NOT USE_WASM_OPTIONS)
     SET(PYTHON_FOUND ${Python3_FOUND})
     SET(PYTHON_INCLUDE_DIR "${Python3_INCLUDE_DIRS}" CACHE STRING "Python include path" FORCE)
     SET(PYTHON_LIB_DIR "${Python3_LIBRARY_DIRS}" CACHE STRING "Python library path" FORCE)
@@ -748,9 +749,9 @@ IF(OSG_INCLUDE_DIR AND OSG_LIB_DIR)
                    "; osgVerse version: ${VERSE_VERSION} (${VERSE_PLATFORM})")
     MESSAGE(STATUS "[osgVerse] Dependency libraries: ${VERSE_DEPENDENCIES_TO_SHOW}")
     IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
-        MESSAGE(STATUS "[osgVerse] NVIDIA CUDA found: ${CUDA_VERSION}")
+        MESSAGE(STATUS "[osgVerse] NVIDIA CUDA found: ${CUDA_VERSION}; Compute Capability: sm_${CUDA_GPU_FEATURE_CODE}")
     ELSEIF(MUSA_FOUND AND VERSE_BUILD_WITH_MUSA)
-        MESSAGE(STATUS "[osgVerse] MooreThreads MUSA found: ${MUSA_VERSION}")
+        MESSAGE(STATUS "[osgVerse] MooreThreads MUSA found: ${MUSA_VERSION}; Compute Capability: mp_${MUSA_GPU_FEATURE_CODE}")
     ENDIF()
     CONFIGURE_FILE(cmake/osgVerseConfig.cmake.in "${CMAKE_INSTALL_PREFIX}/lib/cmake/osgVerse/osgVerseConfig.cmake" @ONLY)
     INSTALL(FILES VerseCommon.h DESTINATION ${INSTALL_INCDIR}/osgVerse COMPONENT libosgverse-dev)

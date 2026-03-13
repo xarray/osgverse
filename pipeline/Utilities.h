@@ -21,6 +21,11 @@
 
 struct SMikkTSpaceContext;
 struct lay_context;
+#ifdef VERSE_ENABLE_MTT
+typedef struct MUctx_st* CUcontext;
+#else
+typedef struct CUctx_st* CUcontext;
+#endif
 
 namespace osgVerse
 {
@@ -398,11 +403,6 @@ namespace osgVerse
     /** CUDA/MUSA related algorithms */
     struct CudaAlgorithm
     {
-#ifdef VERSE_ENABLE_MTT
-        typedef struct MUctx_st* CUcontext;
-#else
-        typedef struct CUctx_st* CUcontext;
-#endif
         static CUcontext initializeContext(int gpuID);
         static void deinitializeContext(CUcontext context);
 

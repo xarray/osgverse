@@ -756,14 +756,14 @@ void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::
         indices = vaa; indexBuffer = vaa;
     }
 
-    osg::Matrix localToEye = model * view; bool toSort = true, shouldDirty = false;
+    osg::Matrix localToEye = model * view; size_t numCulled = 0;
+    bool toSort = true, sortDone = false, shouldDirty = false;
     if (_onDemand)
     {
         osg::Matrix& matrix = _geometryMatrices[geom];
         if (isEqual(matrix, localToEye)) toSort = false; else matrix = localToEye;
     }
 
-    size_t numCulled = 0;
     switch (_method)
     {
     case CPU_SORT:
@@ -772,16 +772,7 @@ void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::
             // FIXME: use different threads to share the burden
             GaussianSortThread* thread = static_cast<GaussianSortThread*>(_sortThreads[0]);
             if (toSort) thread->addTask(pos, pos2, indices, localToEye);
-            if (thread->applyResult(indices, numCulled))
-            {
-                if (geom->getRenderMethod() != GaussianGeometry::GEOMETRY_SHADER)
-                {
-                    osg::DrawElementsUShort* de = (geom->getNumPrimitiveSets() > 0)
-                        ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
-                    de->setNumInstances(numSplats - numCulled); de->dirty(); shouldDirty = true;
-                }
-                indexBuffer->dirty();
-            }
+            if (thread->applyResult(indices, numCulled)) sortDone = true;
         } break;
     /*case GL46_RADIX_SORT:
         if (toSort && pos && !indices->empty())
@@ -808,11 +799,21 @@ void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::
     default:
         if (toSort && _sortCallback.valid())
         {
-            if (_sortCallback->sort(indices, pos, numSplats, model, view))
-                { shouldDirty = true; indexBuffer->dirty(); }
-            else if (_sortCallback->sort(indices, pos2, numSplats, model, view))
-                { shouldDirty = true; indexBuffer->dirty(); }
+            if (pos && _sortCallback->sort(indices, pos, numSplats, model, view)) sortDone = true;
+            else if (pos2 && _sortCallback->sort(indices, pos2, numSplats, model, view)) sortDone = true;
         } break;
+    }
+
+    if (sortDone)
+    {
+        if (geom->getRenderMethod() != GaussianGeometry::GEOMETRY_SHADER)
+        {
+            osg::DrawElementsUShort* de = (geom->getNumPrimitiveSets() > 0)
+                ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
+            if (numCulled > 0) { de->setNumInstances(numSplats - numCulled); de->dirty(); }
+            shouldDirty = true;
+        }
+        indexBuffer->dirty();
     }
 
 #if defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)

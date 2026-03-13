@@ -744,8 +744,8 @@ namespace
                     for (int ky = -half; ky <= half; ++ky)
                         for (int kx = -half; kx <= half; ++kx)
                         {
-                            int py = std::clamp(y + ky, 0, src.h - 1);
-                            int px = std::clamp(x + kx, 0, src.w - 1);
+                            int py = osg::clampBetween(y + ky, 0, src.h - 1);
+                            int px = osg::clampBetween(x + kx, 0, src.w - 1);
                             float weight = kernel[(ky + half) * ksize + (kx + half)];
                             float pixel = src.at(px, py, c); sum += pixel * weight;
                         }

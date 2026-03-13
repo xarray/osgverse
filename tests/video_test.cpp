@@ -31,7 +31,7 @@ int main(int argc, char** argv)
     if (file.empty())
     { file = "record.mp4.verse_ffmpeg"; recordeMode = true; }
 
-    osgVerse::CudaAlgorithm::CUcontext cuContext = osgVerse::CudaAlgorithm::initializeContext(0);
+    CUcontext cuContext = osgVerse::CudaAlgorithm::initializeContext(0);
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     osg::ref_ptr<osgVerse::CudaTexture2D> videoTexture;
     osg::ref_ptr<osgVerse::CudaResourceDemuxerMuxerContainer> videoRecorder;

@@ -146,6 +146,15 @@ int main(int argc, char** argv)
     QApplication app(argc, argv);
     qmlRegisterType<OsgFramebufferObject>("osgVerse", 1, 0, "OsgFramebufferObject");
 
+#if defined(OSG_GL3_AVAILABLE)
+    QSurfaceFormat format;
+    format.setVersion(4, 0);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    format.setDepthBufferSize(24);
+    format.setStencilBufferSize(8);
+    QSurfaceFormat::setDefaultFormat(format);
+#endif
+
     osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 

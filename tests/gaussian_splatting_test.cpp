@@ -127,6 +127,58 @@ protected:
     bool _testColorCustomizing;
 };
 
+struct CudaRadixSorter : public osgVerse::GaussianSorter::UserCallback
+{
+    CudaRadixSorter() { _context = osgVerse::CudaAlgorithm::initializeContext(0); }
+    ~CudaRadixSorter() { osgVerse::CudaAlgorithm::deinitializeContext(_context); }
+    CUcontext _context;
+
+    virtual bool sort(osg::VectorGLuint* indices, osg::Vec3* pos, size_t numSplats,
+                      const osg::Matrix& model, const osg::Matrix& view)
+    {
+        osg::Matrix localToEye = model * view; size_t size = indices->size();
+        std::vector<unsigned int> inValues(size), outIDs(size);
+        std::vector<unsigned int> inIDs(indices->begin(), indices->end());
+
+        for (size_t i = 0; i < size; ++i)
+        {   // comparing floating-point numbers as integers
+            float d = (pos[(*indices)[i]] * localToEye).z();
+            union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+            inValues[i] = (GLuint)un.u; //if (d > 0.0f) numCulled++;
+        }
+
+        if (osgVerse::CudaAlgorithm::radixSort(inValues, inIDs, outIDs))
+        {
+            indices->assign(outIDs.rbegin(), outIDs.rend());
+            return true;
+        }
+        return false;
+    }
+
+    virtual bool sort(osg::VectorGLuint* indices, osg::Vec4* pos, size_t numSplats,
+                      const osg::Matrix& model, const osg::Matrix& view)
+    {
+        osg::Matrix localToEye = model * view; size_t size = indices->size();
+        std::vector<unsigned int> inValues(size), outIDs(size);
+        std::vector<unsigned int> inIDs(indices->begin(), indices->end());
+
+        for (size_t i = 0; i < size; ++i)
+        {   // comparing floating-point numbers as integers
+            const osg::Vec4& p = pos[(*indices)[i]];
+            float d = (osg::Vec3(p[0], p[1], p[2]) * localToEye).z();
+            union { float f; uint32_t u; } un = { (d > 0.0f ? 0.0f : (-d)) };
+            inValues[i] = (GLuint)un.u; //if (d > 0.0f) numCulled++;
+        }
+
+        if (osgVerse::CudaAlgorithm::radixSort(inValues, inIDs, outIDs))
+        {
+            indices->assign(outIDs.rbegin(), outIDs.rend());
+            return true;
+        }
+        return false;
+    }
+};
+
 int main(int argc, char** argv)
 {
     osgViewer::Viewer viewer;
@@ -190,6 +242,8 @@ int main(int argc, char** argv)
         viewer.addEventHandler(handler);
 
         osg::ref_ptr<osgVerse::GaussianSorter> sorter = new osgVerse::GaussianSorter;
+        if (arguments.read("--cuda-sort")) sorter->setSortCallback(new CudaRadixSorter);
+
         GaussianStateVisitor gsv(sorter.get(), hint, testColor); gs->accept(gsv);
         viewer.getCamera()->setPreDrawCallback(new osgVerse::GaussianSortCallback(sorter.get()));
     }

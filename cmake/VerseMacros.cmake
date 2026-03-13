@@ -241,3 +241,28 @@ MACRO(USE_STATIC_RUNTIME)
     ENDIF(MSVC)
 
 ENDMACRO(USE_STATIC_RUNTIME)
+
+MACRO(CHECK_CUDA_FEATURE_CODE)
+
+    FIND_PROGRAM(NVIDIA_SMI nvidia-smi)
+    IF(NOT NVIDIA_SMI)
+        MESSAGE(STATUS "Notice: nvidia-smi not found, use default feature code")
+        RETURN()
+    ENDIF()
+    EXECUTE_PROCESS(
+        COMMAND ${NVIDIA_SMI} --query-gpu=compute_cap --format=csv,noheader
+        OUTPUT_VARIABLE CAP_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET RESULT_VARIABLE SMI_RESULT
+    )
+    
+    IF(NOT SMI_RESULT EQUAL 0 OR NOT CAP_OUTPUT)
+        MESSAGE(STATUS "Notice: nvidia-smi failed to run, use default feature code")
+    ELSE()
+        STRING(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _ ${CAP_OUTPUT})
+        IF(CMAKE_MATCH_1 AND CMAKE_MATCH_2)
+            MATH(EXPR ARCH "${CMAKE_MATCH_1} * 10 + ${CMAKE_MATCH_2}")
+            SET(CUDA_GPU_FEATURE_CODE ${ARCH})
+        ENDIF()
+    ENDIF()
+
+ENDMACRO(CHECK_CUDA_FEATURE_CODE)

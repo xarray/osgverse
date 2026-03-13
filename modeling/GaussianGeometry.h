@@ -125,15 +125,15 @@ public:
     void setOnDemand(bool b) { _onDemand = b; }
     bool getOnDemand() const { return _onDemand; }
 
-    struct Sorter : public osg::Referenced
+    struct UserCallback : public osg::Referenced
     {
         virtual bool sort(osg::VectorGLuint* indices, osg::Vec3* pos, size_t size,
                           const osg::Matrix& model, const osg::Matrix& view) = 0;
         virtual bool sort(osg::VectorGLuint* indices, osg::Vec4* pos, size_t size,
                           const osg::Matrix& model, const osg::Matrix& view) = 0;
     };
-    void setSortCallback(Sorter* s) { _sortCallback = s; }
-    Sorter* getSortCallback() { return _sortCallback.get(); }
+    void setSortCallback(UserCallback* s) { _sortCallback = s; if (s) _method = USER_SORT; }
+    UserCallback* getSortCallback() { return _sortCallback.get(); }
 
     void addGeometry(GaussianGeometry* geom);
     void removeGeometry(GaussianGeometry* geom);
@@ -149,7 +149,7 @@ protected:
     std::set<osg::ref_ptr<GaussianGeometry>> _geometries;
     std::map<GaussianGeometry*, osg::Matrix> _geometryMatrices;
     std::vector<OpenThreads::Thread*> _sortThreads;
-    osg::ref_ptr<Sorter> _sortCallback;
+    osg::ref_ptr<UserCallback> _sortCallback;
     Method _method; bool _firstFrame, _onDemand;
 };
 
