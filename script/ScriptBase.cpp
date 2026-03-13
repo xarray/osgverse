@@ -346,40 +346,35 @@ bool ScriptBase::setProperty(const std::string& key, const std::string& value,
         case osgDB::BaseSerializer::RW_ENUM:
             return entry->setEnumProperty(object, key, value);
         case osgDB::BaseSerializer::RW_VECTOR:
-            if (clsName == "FloatArray")
-                return entry->setProperty(object, key, getVector<float>(value));
-            else if (clsName == "Vec2Array")
-                return entry->setVecProperty(object, key, getVecVector<osg::Vec2f>(value, sep));
-            else if (clsName == "Vec3Array")
-                return entry->setVecProperty(object, key, getVecVector<osg::Vec3f>(value, sep));
-            else if (clsName == "Vec4Array")
-                return entry->setVecProperty(object, key, getVecVector<osg::Vec4f>(value, sep));
-            else if (clsName == "DoubleArray")
-                return entry->setProperty(object, key, getVector<double>(value));
-            else if (clsName == "Vec2dArray")
-                return entry->setVecProperty(object, key, getVecVector<osg::Vec2d>(value, sep));
-            else if (clsName == "Vec3dArray")
-                return entry->setVecProperty(object, key, getVecVector<osg::Vec3d>(value, sep));
-            else if (clsName == "Vec4dArray")
-                return entry->setVecProperty(object, key, getVecVector<osg::Vec4d>(value, sep));
-            else if (clsName == "DrawElementsUByte")
-                return entry->setProperty(object, key, getVector<unsigned char>(value));
-            else if (clsName == "DrawElementsUShort")
-                return entry->setProperty(object, key, getVector<unsigned short>(value));
-            else if (clsName == "DrawElementsUInt")
-                return entry->setProperty(object, key, getVector<unsigned int>(value));
-            else  // treat as ObjectVector
+            switch (LibraryEntry::guessVectorDataType(clsName, prop.name))
             {
-                osgDB::StringList slist; osgDB::split(value, slist, sep);
-                std::vector<osg::Object*> objList(slist.size());
-                for (size_t o = 0; o < slist.size(); ++o) objList[o] = getFromPath(slist[o]);
-                return entry->setProperty(object, key, objList);
+            case osgDB::BaseSerializer::RW_CHAR: return entry->setProperty(object, key, getVector<char>(value));
+            case osgDB::BaseSerializer::RW_UCHAR: return entry->setProperty(object, key, getVector<unsigned char>(value));
+            case osgDB::BaseSerializer::RW_SHORT: return entry->setProperty(object, key, getVector<short>(value));
+            case osgDB::BaseSerializer::RW_USHORT: return entry->setProperty(object, key, getVector<unsigned short>(value));
+            case osgDB::BaseSerializer::RW_INT: return entry->setProperty(object, key, getVector<int>(value));
+            case osgDB::BaseSerializer::RW_UINT: return entry->setProperty(object, key, getVector<unsigned int>(value));
+            case osgDB::BaseSerializer::RW_FLOAT: return entry->setProperty(object, key, getVector<float>(value));
+            case osgDB::BaseSerializer::RW_DOUBLE: return entry->setProperty(object, key, getVector<double>(value));
+            case osgDB::BaseSerializer::RW_VEC2F: return entry->setProperty(object, key, getVecVector<osg::Vec2f>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC3F: return entry->setProperty(object, key, getVecVector<osg::Vec3f>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC4F: return entry->setProperty(object, key, getVecVector<osg::Vec4f>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC2D: return entry->setProperty(object, key, getVecVector<osg::Vec2d>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC3D: return entry->setProperty(object, key, getVecVector<osg::Vec3d>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC4D: return entry->setProperty(object, key, getVecVector<osg::Vec4d>(value, sep));
+            case osgDB::BaseSerializer::RW_OBJECT:
+                {
+                    osgDB::StringList slist; osgDB::split(value, slist, sep);
+                    std::vector<osg::Object*> objList(slist.size());
+                    for (size_t o = 0; o < slist.size(); ++o) objList[o] = getFromPath(slist[o]);
+                    return entry->setProperty(object, key, objList);
+                }
+            default: break;
             }
-            break;
+            OSG_NOTICE << "[ScriptBase] setter not implemented for serializer " << prop.name << std::endl; break;
         default:
             //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
-            OSG_NOTICE << "[ScriptBase] Unsupported setter serializer " << prop.name << std::endl;
-            break;
+            OSG_NOTICE << "[ScriptBase] Unsupported setter serializer " << prop.name << std::endl; break;
         }
 #else
         OSG_WARN << "[ScriptBase] setProperty() not implemented" << std::endl;
@@ -504,42 +499,37 @@ bool ScriptBase::getProperty(const std::string& key, std::string& value,
             value = entry->getEnumProperty(object, key);
             return !value.empty();
         case osgDB::BaseSerializer::RW_VECTOR:
-            if (clsName == "FloatArray")
-                GET_PROP_VALUE(std::vector<float>, setVector)
-            else if (clsName == "Vec2Array")
-                GET_PROP_VALUE2(std::vector<osg::Vec2f>, setVecVector, sep)
-            else if (clsName == "Vec3Array")
-                GET_PROP_VALUE2(std::vector<osg::Vec3f>, setVecVector, sep)
-            else if (clsName == "Vec4Array")
-                GET_PROP_VALUE2(std::vector<osg::Vec4f>, setVecVector, sep)
-            else if (clsName == "DoubleArray")
-                GET_PROP_VALUE(std::vector<double>, setVector)
-            else if (clsName == "Vec2dArray")
-                GET_PROP_VALUE2(std::vector<osg::Vec2d>, setVecVector, sep)
-            else if (clsName == "Vec3dArray")
-                GET_PROP_VALUE2(std::vector<osg::Vec3d>, setVecVector, sep)
-            else if (clsName == "Vec4dArray")
-                GET_PROP_VALUE2(std::vector<osg::Vec4d>, setVecVector, sep)
-            else if (clsName == "DrawElementsUByte")
-                GET_PROP_VALUE(std::vector<unsigned char>, setVector)
-            else if (clsName == "DrawElementsUShort")
-                GET_PROP_VALUE(std::vector<unsigned short>, setVector)
-            else if (clsName == "DrawElementsUInt")
-                GET_PROP_VALUE(std::vector<unsigned int>, setVector)
-            else  // treat as ObjectVector
+            switch (LibraryEntry::guessVectorDataType(clsName, prop.name))
             {
-                std::vector<osg::Object*> objList;
-                if (!entry->getProperty(object, key, objList)) return false;
-                if (!objList.empty()) value = getFromObject(objList[0]);
-                for (size_t o = 1; o < objList.size(); ++o)
-                    value += sep + getFromObject(objList[o]);
-                return true;
+            case osgDB::BaseSerializer::RW_CHAR: GET_PROP_VALUE(std::vector<char>, setVector);
+            case osgDB::BaseSerializer::RW_UCHAR: GET_PROP_VALUE(std::vector<unsigned char>, setVector);
+            case osgDB::BaseSerializer::RW_SHORT: GET_PROP_VALUE(std::vector<short>, setVector);
+            case osgDB::BaseSerializer::RW_USHORT: GET_PROP_VALUE(std::vector<unsigned short>, setVector);
+            case osgDB::BaseSerializer::RW_INT: GET_PROP_VALUE(std::vector<int>, setVector);
+            case osgDB::BaseSerializer::RW_UINT: GET_PROP_VALUE(std::vector<unsigned int>, setVector);
+            case osgDB::BaseSerializer::RW_FLOAT: GET_PROP_VALUE(std::vector<float>, setVector);
+            case osgDB::BaseSerializer::RW_DOUBLE: GET_PROP_VALUE(std::vector<double>, setVector);
+            case osgDB::BaseSerializer::RW_VEC2F: GET_PROP_VALUE2(std::vector<osg::Vec2f>, setVecVector, sep);
+            case osgDB::BaseSerializer::RW_VEC3F: GET_PROP_VALUE2(std::vector<osg::Vec3f>, setVecVector, sep);
+            case osgDB::BaseSerializer::RW_VEC4F: GET_PROP_VALUE2(std::vector<osg::Vec4f>, setVecVector, sep);
+            case osgDB::BaseSerializer::RW_VEC2D: GET_PROP_VALUE2(std::vector<osg::Vec2d>, setVecVector, sep);
+            case osgDB::BaseSerializer::RW_VEC3D: GET_PROP_VALUE2(std::vector<osg::Vec3d>, setVecVector, sep);
+            case osgDB::BaseSerializer::RW_VEC4D: GET_PROP_VALUE2(std::vector<osg::Vec4d>, setVecVector, sep);
+            case osgDB::BaseSerializer::RW_OBJECT:
+                {   // treat as ObjectVector
+                    std::vector<osg::Object*> objList;
+                    if (!entry->getProperty(object, key, objList)) return false;
+                    if (!objList.empty()) value = getFromObject(objList[0]);
+                    for (size_t o = 1; o < objList.size(); ++o)
+                        value += sep + getFromObject(objList[o]);
+                    return true;
+                }
+            default: break;
             }
-            break;
+            OSG_NOTICE << "[ScriptBase] getter not implemented for serializer " << prop.name << std::endl; break;
         default:
             //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED
-            OSG_NOTICE << "[ScriptBase] Unsupported getter serializer " << prop.name << std::endl;
-            break;
+            OSG_NOTICE << "[ScriptBase] Unsupported getter serializer " << prop.name << std::endl; break;
         }
 #else
         OSG_WARN << "[ScriptBase] getProperty() not implemented" << std::endl;

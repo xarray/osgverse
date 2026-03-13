@@ -5,11 +5,21 @@ chcp 65001
 set BuildMode=""
 set BuildGles2=0
 set BuildModeWasm=0
+set QuietMode=0
 set SourceCodePatched=0
 set CurrentDir=%cd%
 set OpenSceneGraphRoot=%CurrentDir%\..\OpenSceneGraph
 
 set OptionalDir=%1
+if "!OptionalDir!"=="DEFAULT" (set BuildMode="0" & set QuietMode=1)
+if "!OptionalDir!"=="CORE" (set BuildMode="1" & set QuietMode=1)
+if "!OptionalDir!"=="GLES2" (set BuildMode="2" & set BuildGles2=1 & set QuietMode=1)
+if "!OptionalDir!"=="GLES3" (set BuildMode="2" & set BuildGles2=0 & set QuietMode=1)
+if "!OptionalDir!"=="WEBGL1" (set BuildMode="3" & set QuietMode=1)
+if "!OptionalDir!"=="WEBGL2" (set BuildMode="4" & set QuietMode=1)
+if "!OptionalDir!"=="ANDROID" (set BuildMode="5" & set QuietMode=1)
+if not "!BuildMode!"=="" set OptionalDir=%2
+
 if not "!OptionalDir!"=="" (
     set "OptionalDir=!OptionalDir:\=/!"
     set "LastCharOfOptionalDir=!OptionalDir:~-1!"
@@ -32,18 +42,21 @@ if not exist %OpenSceneGraphRoot%\ (
     )
 )
 
-echo How do you like to compile OSG and osgVerse?
-echo -----------------------------------
-echo Please Select:
-echo 0. Desktop / OpenGL Compatible Mode
-echo 1. Desktop / OpenGL Core Mode
-echo 2. Desktop / OpenGL ES
-echo 3. WASM / WebGL 1.0
-echo 4. WASM / WebGL 2.0 (optional with osgEarth)
-echo 5. Android / OpenGLES 3
-echo q. Quit
-echo -----------------------------------
-set /p BuildMode="Enter selection [0-5] > "
+if !QuietMode!==0 (
+    echo How do you like to compile OSG and osgVerse?
+    echo -----------------------------------
+    echo Please Select:
+    echo 0. Desktop / OpenGL Compatible Mode
+    echo 1. Desktop / OpenGL Core Mode
+    echo 2. Desktop / OpenGL ES
+    echo 3. WASM / WebGL 1.0
+    echo 4. WASM / WebGL 2.0 (optional with osgEarth)
+    echo 5. Android / OpenGLES 3
+    echo q. Quit
+    echo -----------------------------------
+    set /p BuildMode="Enter selection [0-5] > "
+)
+
 if "!BuildMode!"=="0" (
     set BuildResultChecker=build\sdk_def\lib\osgViewer.lib
     set CMakeResultChecker=build\osg_def\CMakeCache.txt
@@ -96,8 +109,10 @@ set SkipOsgBuild="0"
 set UseWasmOption=1
 if exist %CurrentDir%\%BuildResultChecker% (
     set SkipOsgBuild="1"
-    set /p RebuildFlag="Would you like to use current OSG built (default: yes)? (y/n) > "
-    if /i "!RebuildFlag!"=="n" set SkipOsgBuild="0"
+    if !QuietMode!==0 (
+        set /p RebuildFlag="Would you like to use current OSG built (default: yes)? (y/n) > "
+        if /i "!RebuildFlag!"=="n" set SkipOsgBuild="0"
+    )
 )
 
 set BasicCmakeOptions=""
@@ -132,8 +147,10 @@ if !BuildModeWasm!==0 (
     )
 
     :: Desktop build
-    set /p DebugLibFlag="Would you like to build Debug libraries (default: Release)? (y/n) > "
-    if /i "!DebugLibFlag!"=="y" set BuildTypeString=Debug
+    if !QuietMode!==0 (
+        set /p DebugLibFlag="Would you like to build Debug libraries (default: Release)? (y/n) > "
+        if /i "!DebugLibFlag!"=="y" set BuildTypeString=Debug
+    )
     
     set ThirdPartyBuildDir=%CurrentDir%\build\3rdparty
     set BasicCmakeOptions=-G"%CMAKE_GENERATOR%" -A x64 -DCMAKE_CONFIGURATION_TYPES=!BuildTypeString!
@@ -163,9 +180,10 @@ if !BuildModeWasm!==1 (
         goto exit
     )
 
-    set /p Wasm64Flag="Would you like to use WASM 64bit (experimental, default: no)? (y/n) > "
-    if /i "!Wasm64Flag!"=="y" set UseWasmOption=2
-
+    if !QuietMode!==0 (
+        set /p Wasm64Flag="Would you like to use WASM 64bit (experimental, default: no)? (y/n) > "
+        if /i "!Wasm64Flag!"=="y" set UseWasmOption=2
+    )
     set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
     set EmsdkToolchain="%EMSDK%\upstream\emscripten\cmake\Modules\Platform\Emscripten.cmake"
     set ThirdPartyBuildDir=%CurrentDir%\build\3rdparty_wasm
@@ -446,32 +464,33 @@ if not exist %GradleLocalPropFile% (
     )
 )
 
-set /p AndroidCheckingFlag="Would you like to set a specific SDK version (default: no)? (y/n) > "
-if /i "!AndroidCheckingFlag!"=="y" (
-    set /p BuildToolsVersion="Please set build-tools version (e.g. 32.0.0) > "
-    set /p TargetSdkVersion="Please set target SDK version (e.g. 32) > "
-    set /p MinimumSdkVersion="Please set minimum SDK version (e.g. 21) > "
-    @echo off
-    (
-        echo gradle.ext.buildToolsVersion = '!BuildToolsVersion!'
-        echo gradle.ext.sdkVersion = !TargetSdkVersion!
-        echo gradle.ext.minSdkVersion = !MinimumSdkVersion!
-        echo gradle.ext.targetSdkVersion = !TargetSdkVersion!
-        echo gradle.ext.libDistributionRoot = '../build'
-        echo include ':thirdparty'
-        echo include ':sdl2'
-        echo include ':osg'
-        echo include ':osgverse'
-        echo include ':app'
-    ) > "%GradleSettingsFile%"
+if !QuietMode!==0 (
+    set /p AndroidCheckingFlag="Would you like to set a specific SDK version (default: no)? (y/n) > "
+    if /i "!AndroidCheckingFlag!"=="y" (
+        set /p BuildToolsVersion="Please set build-tools version (e.g. 32.0.0) > "
+        set /p TargetSdkVersion="Please set target SDK version (e.g. 32) > "
+        set /p MinimumSdkVersion="Please set minimum SDK version (e.g. 21) > "
+        @echo off
+        (
+            echo gradle.ext.buildToolsVersion = '!BuildToolsVersion!'
+            echo gradle.ext.sdkVersion = !TargetSdkVersion!
+            echo gradle.ext.minSdkVersion = !MinimumSdkVersion!
+            echo gradle.ext.targetSdkVersion = !TargetSdkVersion!
+            echo gradle.ext.libDistributionRoot = '../build'
+            echo include ':thirdparty'
+            echo include ':sdl2'
+            echo include ':osg'
+            echo include ':osgverse'
+            echo include ':app'
+        ) > "%GradleSettingsFile%"
+    )
+) else (
+    :: TODO: auto check and create %GradleSettingsFile%?
+    echo "Ignore creation of %GradleSettingsFile%..."
 )
 
 cd %CurrentDir%\android
 gradle assembleDebug
-
-:: TODO and exit process
-:todo
-echo Current option is not implemented yet. Be patient :-)
 
 :exit
 if not %errorlevel%==0 (

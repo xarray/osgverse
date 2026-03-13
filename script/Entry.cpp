@@ -1,6 +1,47 @@
 #include "Entry.h"
 using namespace osgVerse;
 
+osgDB::BaseSerializer::Type LibraryEntry::guessVectorDataType(const std::string& clsName, const std::string& propName)
+{
+    if (clsName == "FloatArray") return osgDB::BaseSerializer::RW_FLOAT;
+    else if (clsName == "Vec2Array") return osgDB::BaseSerializer::RW_VEC2F;
+    else if (clsName == "Vec3Array") return osgDB::BaseSerializer::RW_VEC3F;
+    else if (clsName == "Vec4Array") return osgDB::BaseSerializer::RW_VEC4F;
+    else if (clsName == "DoubleArray") return osgDB::BaseSerializer::RW_DOUBLE;
+    else if (clsName == "Vec2dArray") return osgDB::BaseSerializer::RW_VEC2D;
+    else if (clsName == "Vec3dArray") return osgDB::BaseSerializer::RW_VEC3D;
+    else if (clsName == "Vec4dArray") return osgDB::BaseSerializer::RW_VEC4D;
+#if OSG_VERSION_GREATER_THAN(3, 4, 1)
+    else if (clsName == "Vec2bArray") return osgDB::BaseSerializer::RW_VEC2B;
+    else if (clsName == "Vec3bArray") return osgDB::BaseSerializer::RW_VEC3B;
+    else if (clsName == "Vec4bArray") return osgDB::BaseSerializer::RW_VEC4B;
+    else if (clsName == "Vec2ubArray") return osgDB::BaseSerializer::RW_VEC2UB;
+    else if (clsName == "Vec3ubArray") return osgDB::BaseSerializer::RW_VEC3UB;
+    else if (clsName == "Vec4ubArray") return osgDB::BaseSerializer::RW_VEC4UB;
+    else if (clsName == "Vec2sArray") return osgDB::BaseSerializer::RW_VEC2S;
+    else if (clsName == "Vec3sArray") return osgDB::BaseSerializer::RW_VEC3S;
+    else if (clsName == "Vec4sArray") return osgDB::BaseSerializer::RW_VEC4S;
+    else if (clsName == "Vec2usArray") return osgDB::BaseSerializer::RW_VEC2US;
+    else if (clsName == "Vec3usArray") return osgDB::BaseSerializer::RW_VEC3US;
+    else if (clsName == "Vec4usArray") return osgDB::BaseSerializer::RW_VEC4US;
+    else if (clsName == "Vec2iArray") return osgDB::BaseSerializer::RW_VEC2I;
+    else if (clsName == "Vec3iArray") return osgDB::BaseSerializer::RW_VEC3I;
+    else if (clsName == "Vec4iArray") return osgDB::BaseSerializer::RW_VEC4I;
+    else if (clsName == "Vec2uiArray") return osgDB::BaseSerializer::RW_VEC2UI;
+    else if (clsName == "Vec3uiArray") return osgDB::BaseSerializer::RW_VEC3UI;
+    else if (clsName == "Vec4uiArray") return osgDB::BaseSerializer::RW_VEC4UI;
+#endif
+    else if (clsName == "DrawElementsUByte") return osgDB::BaseSerializer::RW_UCHAR;
+    else if (clsName == "DrawElementsIndirectUByte") return osgDB::BaseSerializer::RW_UCHAR;
+    else if (clsName == "DrawElementsUShort") return osgDB::BaseSerializer::RW_USHORT;
+    else if (clsName == "DrawElementsIndirectUShort") return osgDB::BaseSerializer::RW_USHORT;
+    else if (clsName == "DrawElementsUInt") return osgDB::BaseSerializer::RW_UINT;
+    else if (clsName == "DrawElementsIndirectUInt") return osgDB::BaseSerializer::RW_UINT;
+    else if (clsName == "DrawArrayLengths") return osgDB::BaseSerializer::RW_INT;
+    else if (clsName == "MultiDrawArrays") return osgDB::BaseSerializer::RW_INT;
+    else return osgDB::BaseSerializer::RW_OBJECT;
+}
+
 LibraryEntry::LibraryEntry(const std::string& libName)
 {
     osgDB::Registry* registry = osgDB::Registry::instance();

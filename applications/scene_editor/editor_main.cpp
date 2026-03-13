@@ -141,12 +141,6 @@ EditorContentHandler::EditorContentHandler()
     _properties->alpha = 0.9f;
     _properties->flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar;
     _properties->userData = this;
-
-    // TEST
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
-    g_data.sceneRoot->addChild(scene.get());
-    g_data.view->getCameraManipulator()->home(0.0);
-    _hierarchyData->addItem(NULL, g_data.sceneRoot.get());
 }
 
 void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
@@ -278,9 +272,19 @@ int main(int argc, char** argv)
     g_data.shadow = shadow;
 
     // UI settings
+    osg::ref_ptr<EditorContentHandler> editorCore = new EditorContentHandler;
+
     osg::ref_ptr<osgVerse::ImGuiManager> imgui = new osgVerse::ImGuiManager;
     imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
-    imgui->initialize(new EditorContentHandler());
+    imgui->initialize(editorCore.get());
     imgui->addToView(&viewer, postCamera.get());
+
+    // Start with test scene
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
+    if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb");
+    g_data.sceneRoot->addChild(scene.get());
+    g_data.view->getCameraManipulator()->home(0.0);
+
+    editorCore->getHierarchyData()->addItem(NULL, g_data.sceneRoot.get());
     return viewer.run();
 }

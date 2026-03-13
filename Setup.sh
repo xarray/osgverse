@@ -4,6 +4,7 @@ CurrentSystem=$(uname)
 CurrentKernel=$(uname -r)
 CheckCmakeExe=$(command -v cmake)
 CMakeExe=$(printf "cmake -DCMAKE_BUILD_TYPE=Release")
+QuietMode=0
 UsingWSL=0
 UsingGles2=0
 UseWasmOption=1
@@ -39,21 +40,55 @@ if [ ! -d "../OpenSceneGraph" ]; then
     fi
 fi
 
-# Select how to compile
-echo "
-How do you like to compile OSG and osgVerse?
------------------------------------
-Please Select:
+# Check for Emscripten/NDK location
+QuietModeString="$1"
+case "$QuietModeString" in
+    "DEFAULT")   BuildMode="0"
+                 QuietMode=1 ;;
+    "CORE")      BuildMode="1"
+                 QuietMode=1 ;;
+    "GLES2")     BuildMode="2"
+                 UsingGles2=1
+                 QuietMode=1 ;;
+    "GLES3")     BuildMode="2"
+                 UsingGles2=0
+                 QuietMode=1 ;;
+    "WEBGL1")    BuildMode="3"
+                 QuietMode=1 ;;
+    "WEBGL2")    BuildMode="4"
+                 QuietMode=1 ;;
+    "ANDROID")   BuildMode="5"
+                 QuietMode=1 ;;
+esac
 
-0. Desktop / OpenGL Compatible Mode
-1. Desktop / OpenGL Core Mode
-2. Desktop / OpenGL ES
-3. WASM / WebGL 1.0
-4. WASM / WebGL 2.0 (optional with osgEarth)
-5. Android / OpenGLES 3
-q. Quit
------------------------------------"
-read -p "Enter selection [0-5] > " BuildMode
+if [[ -z "$BuildMode" ]]; then
+    GLES_LibPath="$1/libGLESv2.so"
+    EGL_LibPath="$1/libEGL.so"
+    EmsdkToolchain="$1/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+else
+    GLES_LibPath="$2/libGLESv2.so"
+    EGL_LibPath="$2/libEGL.so"
+    EmsdkToolchain="$2/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+fi
+
+# Select how to compile
+if [ "$QuietMode" = 0 ]; then
+    echo "
+    How do you like to compile OSG and osgVerse?
+    -----------------------------------
+    Please Select:
+
+    0. Desktop / OpenGL Compatible Mode
+    1. Desktop / OpenGL Core Mode
+    2. Desktop / OpenGL ES
+    3. WASM / WebGL 1.0
+    4. WASM / WebGL 2.0 (optional with osgEarth)
+    5. Android / OpenGLES 3
+    q. Quit
+    -----------------------------------"
+    read -p "Enter selection [0-5] > " BuildMode
+fi
+
 case "$BuildMode" in
     1)  echo "OpenGL Core Mode."
         BuildResultChecker=build/sdk_core/bin/osgviewer
@@ -83,10 +118,6 @@ case "$BuildMode" in
         ;;
 esac
 
-# Check for Emscripten/NDK location
-GLES_LibPath="$1/libGLESv2.so"
-EGL_LibPath="$1/libEGL.so"
-EmsdkToolchain="$1/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
 if [ "$BuildMode" = '2' ]; then
     # GLES toolchain
     if [ ! -f "$GLES_LibPath" ] || [ ! -f "$EGL_LibPath" ]; then
@@ -128,12 +159,13 @@ sdk.dir=$ANDROID_SDK
 ndk.dir=$ANDROID_NDK
 EOF
 
-        read -p "Would you like to set a specific SDK version (default: no)? (y/n) " AndroidCheckingFlag
-        if [ "$AndroidCheckingFlag" = 'y' ]; then
-            read -p "Please set build-tools version (e.g. 32.0.0) > " BuildToolsVersion
-            read -p "Please set target SDK version (e.g. 32) > " TargetSdkVersion
-            read -p "Please set minimum SDK version (e.g. 21) > " MinimumSdkVersion
-            cat > $GradleSettingsFile <<EOF
+        if [ "$QuietMode" = 0 ]; then
+            read -p "Would you like to set a specific SDK version (default: no)? (y/n) " AndroidCheckingFlag
+            if [ "$AndroidCheckingFlag" = 'y' ]; then
+                read -p "Please set build-tools version (e.g. 32.0.0) > " BuildToolsVersion
+                read -p "Please set target SDK version (e.g. 32) > " TargetSdkVersion
+                read -p "Please set minimum SDK version (e.g. 21) > " MinimumSdkVersion
+                cat > $GradleSettingsFile <<EOF
 gradle.ext.buildToolsVersion = '$BuildToolsVersion'
 gradle.ext.sdkVersion = $TargetSdkVersion
 gradle.ext.minSdkVersion = $MinimumSdkVersion
@@ -145,15 +177,23 @@ include ':osg'
 include ':osgverse'
 include ':app'
 EOF
+           fi
+        else
+            # TODO: auto check and create $GradleSettingsFile?
+            echo "Ignore creation of $GradleSettingsFile..."
         fi
     fi
 fi
 
 # Check if CMake is already configured, or OSG is already built
 if [ -f "$CurrentDir/$BuildResultChecker" ]; then
-    read -p "Would you like to use current OSG built (default: yes)? (y/n) > " RebuildFlag
-    if [ "$RebuildFlag" = 'n' ]; then
-        SkipOsgBuild=0
+    if [ "$QuietMode" = 0 ]; then
+        read -p "Would you like to use current OSG built (default: yes)? (y/n) > " RebuildFlag
+        if [ "$RebuildFlag" = 'n' ]; then
+            SkipOsgBuild=0
+        else
+            SkipOsgBuild=1
+        fi
     else
         SkipOsgBuild=1
     fi
@@ -176,9 +216,11 @@ fi
 # Compile 3rdparty libraries
 ThirdPartyBuildDir="$CurrentDir/build/3rdparty"
 if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
-    read -p "Would you like to use WASM 64bit (experimental, default: no)? (y/n) > " Wasm64Flag
-    if [ "$Wasm64Flag" = 'y' ]; then
-        UseWasmOption=2
+    if [ "$QuietMode" = 0 ]; then
+        read -p "Would you like to use WASM 64bit (experimental, default: no)? (y/n) > " Wasm64Flag
+        if [ "$Wasm64Flag" = 'y' ]; then
+            UseWasmOption=2
+        fi
     fi
 
     # WASM toolchain

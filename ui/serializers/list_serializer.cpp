@@ -18,42 +18,38 @@ public:
         if (isDirty())
         {
             std::string clsName = _object->className();
-            if (clsName == "FloatArray")
-                {}  // return entry->setProperty(object, key, getVector<float>(value));
-            else if (clsName == "Vec2Array")
-                {}  // return entry->setVecProperty(object, key, getVecVector<osg::Vec2f>(value, sep));
-            else if (clsName == "Vec3Array")
-                {}  // return entry->setVecProperty(object, key, getVecVector<osg::Vec3f>(value, sep));
-            else if (clsName == "Vec4Array")
-                {}  // return entry->setVecProperty(object, key, getVecVector<osg::Vec4f>(value, sep));
-            else if (clsName == "DoubleArray")
-                {}  // return entry->setProperty(object, key, getVector<double>(value));
-            else if (clsName == "Vec2dArray")
-                {}  // return entry->setVecProperty(object, key, getVecVector<osg::Vec2d>(value, sep));
-            else if (clsName == "Vec3dArray")
-                {}  // return entry->setVecProperty(object, key, getVecVector<osg::Vec3d>(value, sep));
-            else if (clsName == "Vec4dArray")
-                {}  // return entry->setVecProperty(object, key, getVecVector<osg::Vec4d>(value, sep));
-            else if (clsName == "DrawElementsUByte")
-                {}  // return entry->setProperty(object, key, getVector<unsigned char>(value));
-            else if (clsName == "DrawElementsUShort")
-                {}  // return entry->setProperty(object, key, getVector<unsigned short>(value));
-            else if (clsName == "DrawElementsUInt")
-                {}  // return entry->setProperty(object, key, getVector<unsigned int>(value));
-            else  // treat as ObjectVector
+            switch (LibraryEntry::guessVectorDataType(clsName, _property.name))
             {
-                std::vector<osg::Object*> objList; _serializerUiMap.clear();
-                _entry->getProperty(_object.get(), _property.name, objList);
-                
-                SerializerFactory* factory = SerializerFactory::instance();
-                for (size_t i = 0; i < objList.size(); ++i)
+            case osgDB::BaseSerializer::RW_CHAR: break;  // entry->setProperty(object, key, getVector<char>(value));
+            case osgDB::BaseSerializer::RW_UCHAR: break;  // entry->setProperty(object, key, getVector<unsigned char>(value));
+            case osgDB::BaseSerializer::RW_SHORT: break;  // entry->setProperty(object, key, getVector<short>(value));
+            case osgDB::BaseSerializer::RW_USHORT: break;  // entry->setProperty(object, key, getVector<unsigned short>(value));
+            case osgDB::BaseSerializer::RW_INT: break;  // entry->setProperty(object, key, getVector<int>(value));
+            case osgDB::BaseSerializer::RW_UINT: break;  // entry->setProperty(object, key, getVector<unsigned int>(value));
+            case osgDB::BaseSerializer::RW_FLOAT: break;  // entry->setProperty(object, key, getVector<float>(value));
+            case osgDB::BaseSerializer::RW_DOUBLE: break;  // entry->setProperty(object, key, getVector<double>(value));
+            case osgDB::BaseSerializer::RW_VEC2F: break;  // entry->setProperty(object, key, getVector<osg::Vec2f>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC3F: break;  // entry->setProperty(object, key, getVector<osg::Vec3f>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC4F: break;  // entry->setProperty(object, key, getVector<osg::Vec4f>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC2D: break;  // entry->setProperty(object, key, getVector<osg::Vec2d>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC3D: break;  // entry->setProperty(object, key, getVector<osg::Vec3d>(value, sep));
+            case osgDB::BaseSerializer::RW_VEC4D: break;  // entry->setProperty(object, key, getVector<osg::Vec4d>(value, sep));
+            case osgDB::BaseSerializer::RW_OBJECT:
                 {
-                    osg::Object* obj = objList[i]; if (!obj)  continue;
-                    std::vector<osg::ref_ptr<SerializerBaseItem>> serializerUIs;
-                    factory->createInterfaces(obj, _entry.get(), serializerUIs);
-                    for (size_t j = 0; j < serializerUIs.size(); ++j) serializerUIs[j]->addIndent(2.0f);
-                    _serializerUiMap[obj] = std::pair<int, SerializerList>((int)i, serializerUIs);
-                }
+                    std::vector<osg::Object*> objList; _serializerUiMap.clear();
+                    _entry->getProperty(_object.get(), _property.name, objList);
+                
+                    SerializerFactory* factory = SerializerFactory::instance();
+                    for (size_t i = 0; i < objList.size(); ++i)
+                    {
+                        osg::Object* obj = objList[i]; if (!obj)  continue;
+                        std::vector<osg::ref_ptr<SerializerBaseItem>> serializerUIs;
+                        factory->createInterfaces(obj, _entry.get(), serializerUIs);
+                        for (size_t j = 0; j < serializerUIs.size(); ++j) serializerUIs[j]->addIndent(2.0f);
+                        _serializerUiMap[obj] = std::pair<int, SerializerList>((int)i, serializerUIs);
+                    }
+                } break;
+            default: break;
             }
         }
 

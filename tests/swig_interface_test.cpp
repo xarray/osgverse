@@ -71,19 +71,10 @@ static std::string getPropertyTypeName(const std::string& clsName, osgDB::BaseSe
     case osgDB::BaseSerializer::RW_ENUM: return "Enum";
 #if OSG_VERSION_GREATER_THAN(3, 3, 0)
     case osgDB::BaseSerializer::RW_VECTOR:
-        if (clsName == "FloatArray") return "std::vector<float>";
-        else if (clsName == "Vec2Array") return "std::vector<osg::Vec2>";
-        else if (clsName == "Vec3Array") return "std::vector<osg::Vec3>";
-        else if (clsName == "Vec4Array") return "std::vector<osg::Vec4>";
-        else if (clsName == "DoubleArray") return "std::vector<double>";
-        else if (clsName == "Vec2dArray") return "std::vector<osg::Vec2d>";
-        else if (clsName == "Vec3dArray") return "std::vector<osg::Vec3d>";
-        else if (clsName == "Vec4dArray") return "std::vector<osg::Vec4d>";
-        else if (clsName == "DrawElementsUByte") return "std::vector<unsigned char>";
-        else if (clsName == "DrawElementsUShort") return "std::vector<unsigned short>";
-        else if (clsName == "DrawElementsUInt") return "std::vector<unsigned int>";
-        else return "std::vector<Object>";
-        break;
+        {
+            std::string subtype = getPropertyTypeName(clsName, osgVerse::LibraryEntry::guessVectorDataType(clsName));
+            return "std::vector<" + subtype + ">";
+        }
 #endif
     default:
         //RW_PLANE, RW_BOUNDINGBOXF, RW_BOUNDINGBOXD, RW_BOUNDINGSPHEREF, RW_BOUNDINGSPHERED

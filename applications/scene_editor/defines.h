@@ -91,6 +91,9 @@ public:
     osgVerse::Window* getProperties() { return _properties.get(); }
     osgVerse::MainMenuBar* getMainMenu() { return _mainMenu.get(); }
 
+    osgVerse::SceneHierarchy* getHierarchyData() { return _hierarchyData.get(); }
+    osgVerse::SceneNavigation* getNavigationData() { return _navigationData.get(); }
+
     virtual void runInternal(osgVerse::ImGuiManager* mgr);
 
 protected:

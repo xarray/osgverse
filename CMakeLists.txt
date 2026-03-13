@@ -392,7 +392,7 @@ IF(CUDA_FOUND)
         SET(CUDA_FOUND FALSE)
     ELSE()
         SET(VERSE_NVCC_FLAGS "-gencode arch=compute_${CUDA_GPU_FEATURE_CODE},code=sm_${CUDA_GPU_FEATURE_CODE}"
-            CACHE STRING "NVCC Flags. See https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-architecture-arch")
+            CACHE STRING "NVCC Flags. See https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-architecture-arch" FORCE)
     ENDIF()
 
     SET(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})

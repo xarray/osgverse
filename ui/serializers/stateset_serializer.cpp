@@ -137,7 +137,7 @@ public:
         }
 
         bool done = false;
-        static std::string separatedNames[3] = {"Attributes", "Textures", "Uniforms"};
+        static std::string separatedNames[3] = {"Attributes", "Texture Attributes", "Uniforms"};
         for (size_t i = 0; i < _serializerUIs.size(); ++i)
         {
             for (int s = 0; s < 3; ++s)

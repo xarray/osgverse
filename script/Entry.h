@@ -24,7 +24,9 @@ namespace osgVerse
     {
     public:
         LibraryEntry(const std::string& libName);
-        
+        static osgDB::BaseSerializer::Type guessVectorDataType(
+                const std::string& clsName, const std::string& propName = "");
+
         void refresh(const std::string& libName);
         const std::set<std::string>& getClasses() const { return _classes; }
 

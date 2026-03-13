@@ -14,7 +14,7 @@
 | netCDF-C         | Depended | > 4.9.3   | verse_netcdf       | BSD3         | https://github.com/Unidata/netcdf-c |
 | NVIDIA Video SDK | Depended | > 12.0    | codec_nv           | Bussiness    | https://developer.nvidia.com/video-codec-sdk |
 | OpenVDB          | Depended | > 10.0    | verse_vdb          | MPL2         | https://github.com/AcademySoftwareFoundation/openvdb |
-| osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/gwaldron/osgearth |
+| osgEarth         | Depended | > 2.10    | App                | LGPL (+)     | https://github.com/pelicanmapping/osgearth |
 | Qt               | Depended | > 5.5     | App                | LGPL         | https://download.qt.io |
 | SDL2             | Depended | > 2.28.2  | ReaderWriter, WASM | Zlib         | https://github.com/libsdl-org/SDL |
 | ZLMediaKit       | Depended | 20250207  | verse_ms           | MIT          | https://github.com/ZLMediaKit/ZLMediaKit |
