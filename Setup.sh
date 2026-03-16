@@ -61,7 +61,7 @@ case "$QuietModeString" in
                  QuietMode=1 ;;
 esac
 
-if [[ -z "$BuildMode" ]]; then
+if [ -z "$BuildMode" ]; then
     GLES_LibPath="$1/libGLESv2.so"
     EGL_LibPath="$1/libEGL.so"
     EmsdkToolchain="$1/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
