@@ -1,0 +1,16 @@
+{
+    "name": "osgverse",
+    "version-string": "0.9.0",
+    "builtin-baseline": "4b77da7fed37817f124936239197833469f1b9a8",
+    "dependencies": [
+        "osg",
+        "bullet3",
+        "draco",
+        "libwebp",
+        "sdl2",
+        {
+            "name": "zlmediakit",
+            "features": ["mp4", "openssl", "webrtc", "sctp"]
+        }
+    ]
+}
