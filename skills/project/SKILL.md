@@ -7,7 +7,13 @@ metadata: {"nanobot":{"emoji":"🌤️","requires":{"bins":["cmake", "git"]}}}
 
 # Creation
 
-任何情况下，都请在Windows系统的E:\BotWorkspace或者Unix系统的~/BotWorkspace下工作，如果这个目录不存在，你可以建立它。但是请不要在这个目录之外删除、修改或者创建任何文件与目录。
+任何情况下，都请在Windows系统的`E:\BotWorkspace`或者Unix系统的`~/BotWorkspace`下工作，如果这个目录不存在，你可以建立它。但是请不要在这个目录之外删除、修改或者创建任何文件与目录。如果这个目录不存在又无法被建立，则直接停止你后续的工作并汇报即可。
+
+默认系统中已有`cmake`，`git`这些指令，不需要再单独搜索它们的路径。如果用户指示查找和阅读某个代码文件，请按照下面的顺序在`BotWorkspace`目录中查找
+- 查找`BotWorkspace`根目录
+- 查找`BotWorkspace/osgVerse`目录
+- 查找`BotWorkspace/OpenSceneGraph`目录
+- 如果用户指示查找某个代码仓库，则首先尝试使用git将这个仓库下载到`BotWorkspace`根目录中
 
 创建新工程前，**必须**验证osgVerse编译结果的完整性：
 - 默认情况下，检查`BotWorkspace/osgverse/build/sdk/lib/cmake/osgVerse/osgVerseConfig.cmake`文件是否存在
@@ -63,6 +69,7 @@ TARGET_LINK_LIBRARIES(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText os
 ## Code Style Constraints
 
 代码必须遵循C++ 11/14规范，避免使用C++ 17或者更高版本的写法
+代码注释量适中即可，不需要过于频繁。所有的注释都采用英文，以避免编码问题。
 使用4个空格来控制缩进，避免在任何时候使用Tab。
 每一行的字符数尽可能不超过100个字符
 大括号`{`另起一行书写，不要写在行尾
