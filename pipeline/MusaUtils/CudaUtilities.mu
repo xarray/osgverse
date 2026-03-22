@@ -12,9 +12,9 @@ using namespace osgVerse;
 
 namespace osgVerse
 {
-    CudaAlgorithm::CUcontext CudaAlgorithm::initializeContext(int gpuID)
+    CUcontext CudaAlgorithm::initializeContext(int gpuID)
     {
-        CudaAlgorithm::CUcontext cuContext = NULL;
+        CUcontext cuContext = NULL;
         MUdevice cuDevice = 0; char deviceName[80];
         int numGpu = 0; muInit(0); muDeviceGetCount(&numGpu);
         if (gpuID < 0 || gpuID >= numGpu) return NULL;
@@ -26,7 +26,7 @@ namespace osgVerse
         return cuContext;
     }
 
-    void CudaAlgorithm::deinitializeContext(CudaAlgorithm::CUcontext context)
+    void CudaAlgorithm::deinitializeContext(CUcontext context)
     {
         muCtxDestroy(context);
     }
