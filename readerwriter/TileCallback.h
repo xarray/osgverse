@@ -33,6 +33,7 @@ namespace osgVerse
             _bottomLeft(false), _useWebMercator(false), _layersDone(false) { _createPathFunc = NULL; }
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
+        virtual osg::Vec3d convertToECEF(const osg::Vec3d& lla) const;
         virtual void computeTileExtent(osg::Vec3d& tileMin, osg::Vec3d& tileMax,
                                        double& tileWidth, double& tileHeight) const;
         virtual double mapAltitude(const osg::Vec4& color, double minH = 0.0, double maxH = 20000.0) const;

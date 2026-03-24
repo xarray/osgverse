@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include <VerseCommon.h>
+#include <ui/ImGui.h>
 #include <ui/Utilities.h>
 #include <modeling/Utilities.h>
 #include <readerwriter/Utilities.h>

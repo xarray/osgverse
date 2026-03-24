@@ -336,6 +336,9 @@ namespace osgVerse
                                              const std::vector<PointList3D>& sections, bool closed = true,
                                              bool withSplinePoints = false, bool withCaps = true);
 
+    /** Create a watertight manifold geometry, requres libIGL to be added to dependencies */
+    extern osg::Geometry* createManifold(osg::Geometry& geom, int depth = 8);
+
     /** Change primitives to triangles for GL-Core use */
     extern bool optimizeIndices(osg::Geometry& geom);
 

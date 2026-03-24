@@ -239,6 +239,7 @@ int main(int argc, char** argv)
     if (light) light->setMainLight(light0.get(), "Shadow");
 
     // Post-HUD displays and utilities
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
     osg::ref_ptr<osg::Camera> skyCamera = osgVerse::SkyBox::createSkyCamera();
     auxRoot->addChild(skyCamera.get());
 
@@ -249,6 +250,7 @@ int main(int argc, char** argv)
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         skyCamera->addChild(skybox.get());
     }
+#endif
 
     osg::ref_ptr<osg::Camera> postCamera = new osg::Camera;
     postCamera->setClearMask(GL_DEPTH_BUFFER_BIT);

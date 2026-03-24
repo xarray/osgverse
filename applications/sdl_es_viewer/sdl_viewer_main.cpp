@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 
     bool useGLFW = arguments.read("--use-glfw"), useWin32Ex = arguments.read("--use-win32ex");
     bool testPipeline = arguments.read("--with-deferred"), showShadowMaps = arguments.read("--debug-shadow");
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
     testPipeline = true;
 #endif
 
@@ -182,14 +182,16 @@ int main(int argc, char** argv)
     }
 
     // Post-HUD display
+#if false  //!defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {
         skybox->setSkyShaders(osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "skybox.vert.glsl"),
             osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "skybox.frag.glsl"));
         skybox->setEnvironmentMap(params.skyboxMap.get(), false);
         osgVerse::Pipeline::setPipelineMask(*skybox, FORWARD_SCENE_MASK);
-        //postCamera->addChild(skybox.get());
+        postCamera->addChild(skybox.get());
     }
+#endif
 
     // Start the main loop
     while (!viewer->done())

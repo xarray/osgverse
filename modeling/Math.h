@@ -238,6 +238,13 @@ namespace osgVerse
             static double clenshaw2(const double* a, int size, double real, double imag, double& R, double& I);
         };
 
+        struct PolarStereographic
+        {
+            // https://github.com/Sciumo/GeographicLib/blob/master/include/GeographicLib/PolarStereographic.hpp
+            double _a, _b, _f, _e2, _es, _e2m, _c, _k0;
+            PolarStereographic(const WGS84& wgs84 = WGS84(), double k0 = 0.994);
+        };
+
         /// Geodetic: latitude and longitude in radius, altitude in metres; ECEF: coords in metres
         static osg::Vec3d convertLLAtoECEF(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());
 
@@ -263,6 +270,14 @@ namespace osgVerse
         /// Geodetic: latitude and longitude in radius, altitude in metres; UTM: coords in metres
         static osg::Vec3d convertUTMtoLLA(const osg::Vec3d& coord,
                                           const UTM& utm, const WGS84& wgs84 = WGS84());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; Polar stereo in metres
+        static osg::Vec3d convertLLAtoPolarStereo(const osg::Vec3d& coord, bool isNorth,
+                                                  const PolarStereographic& ps = PolarStereographic());
+
+        /// Geodetic: latitude and longitude in radius, altitude in metres; Polar stereo in metres
+        static osg::Vec3d convertPolarStereoToLLA(const osg::Vec3d& coord, bool isNorth,
+                                                  const PolarStereographic& ps = PolarStereographic());
 
         /// Geodetic: latitude and longitude in radius, altitude in metres; ENU: east-north-up
         static osg::Matrix convertLLAtoENU(const osg::Vec3d& lla, const WGS84& wgs84 = WGS84());

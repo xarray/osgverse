@@ -279,6 +279,39 @@ using namespace osgVerse;
 
 /* Coordinate */
 
+namespace
+{
+    // https://github.com/Sciumo/GeographicLib/blob/master/include/GeographicLib/Math.hpp
+    template<typename T> T eatanhe(T x, T es)
+    { return es > T(0) ? es * atanh(es * x) : -es * atan(es * x); }
+
+    template<typename T> static T tand(T x)
+    {
+        static const T overflow = 1 / (std::numeric_limits<T>::epsilon());
+        return std::abs(x) != osg::PI_2 ? std::tan(x) : (x < 0 ? -overflow : overflow);
+    }
+
+    template<typename T> T taupf(T tau, T es)
+    {
+        T tau1 = std::hypot(T(1), tau), sig = std::sinh(eatanhe(tau / tau1, es));
+        return std::hypot(T(1), sig) * tau - sig * tau1;
+    }
+
+    template<typename T> T tauf(T taup, T es)
+    {
+        static const int numIt = 5;
+        static const T tol = std::sqrt(std::numeric_limits<T>::epsilon()) / T(10);
+        T e2m = T(1) - (es * es), tau = taup / e2m, stol = tol * std::max<T>(T(1), std::abs(taup));
+        for (int i = 0; i < numIt; ++i)
+        {
+            T taupa = taupf(tau, es), dtau = (taup - taupa) * (1 + e2m * (tau * tau)) /
+                                             (e2m * hypot(T(1), tau) * std::hypot(T(1), taupa));
+            tau += dtau; if (!(abs(dtau) >= stol)) break;
+        }
+        return tau;
+    }
+}
+
 Coordinate::WGS84::WGS84(double radiusE, double radiusP)
 {
     double flattening = (radiusE - radiusP) / radiusE;
@@ -373,6 +406,13 @@ Coordinate::UTM::UTM(int code, const WGS84& wgs84)
 
     // Gaussian latitude of origin latitude
     double Z = clenshaw(cbg, 6, 0.); Zb = -Qn * (Z + clenshaw(gtu, 6, 2 * Z));
+}
+
+Coordinate::PolarStereographic::PolarStereographic(const Coordinate::WGS84& wgs84, double k0)
+    : _a(wgs84.radiusEquator), _b(wgs84.radiusPolar), _e2(wgs84.eccentricitySq), _k0(k0)
+{
+    _f = (wgs84.radiusEquator - wgs84.radiusPolar) / wgs84.radiusEquator;
+    _es = sqrt(abs(_e2)); _e2m = 1.0 - _e2; _c = (1.0 - _f) * std::exp(eatanhe(1.0, _es));
 }
 
 osg::Vec3d Coordinate::convertLLAtoECEF(const osg::Vec3d& lla, const WGS84& wgs84)
@@ -514,6 +554,29 @@ osg::Vec3d Coordinate::convertUTMtoLLA(const osg::Vec3d& coord, const UTM& utm, 
         return osg::Vec3d(Ce + utm.lon0, UTM::clenshaw(utm.cgb, 6, 2 * Cn) + Cn, coord[2]);
     }
     return osg::Vec3d();
+}
+
+osg::Vec3d Coordinate::convertLLAtoPolarStereo(const osg::Vec3d& lla, bool isNorth, const PolarStereographic& ps)
+{
+    double lat = lla[0] * (isNorth ? 1.0 : -1.0); double tau = tand(lat);
+    double secphi = std::hypot(1.0, tau), taup = taupf(tau, ps._es), rho = std::hypot(1.0, taup) + abs(taup);
+    rho = (taup >= 0.0) ? (lat != osg::PI_2 ? (1.0 / rho) : 0.0) : rho; rho *= 2 * ps._k0 * ps._a / ps._c;
+
+    double k = (lat != osg::PI_2) ? (rho / ps._a) * secphi * sqrt(ps._e2m + ps._e2 / (secphi * secphi)) : ps._k0;
+    double lam = (lla[1] >= osg::PI) ? (lla[1] - osg::PI * 2.0) : ((lla[1] < -osg::PI) ? (lla[1] + osg::PI * 2.0) : lla[1]);
+    double x = rho * (lam == -osg::PI ? 0.0 : sin(lam));
+    double y = (isNorth ? -rho : rho) * (abs(lam) == osg::PI_2 ? 0.0 : cos(lam));
+    return osg::Vec3d(x, y, lla[2]);
+}
+
+osg::Vec3d Coordinate::convertPolarStereoToLLA(const osg::Vec3d& coord, bool isNorth, const PolarStereographic& ps)
+{
+    double rho = std::hypot(coord[0], coord[1]); double t = rho / (2.0 * ps._k0 * ps._a / ps._c);
+    double taup = (1 / t - t) / 2.0; double tau = tauf(taup, ps._es);
+    double phi = atan(tau), secphi = std::hypot(1.0, tau);
+    double k = rho ? (rho / ps._a) * secphi * sqrt(ps._e2m + ps._e2 / (secphi * secphi)) : ps._k0;
+    double lat = (isNorth ? 1.0 : -1.0) * (rho ? phi : osg::PI_2);
+    double lon = 0.0 - atan2(-coord[0], isNorth ? -coord[1] : coord[1]); return osg::Vec3d(lat, lon, coord[2]);
 }
 
 osg::Matrix Coordinate::convertLLAtoENU(const osg::Vec3d& lla, const WGS84& wgs84)

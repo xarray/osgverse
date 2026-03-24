@@ -19,6 +19,11 @@
 #include "3rdparty/ApproxMVBB/ComputeApproxMVBB.hpp"
 #include "3rdparty/Discregrid/All"
 #include "3rdparty/Discregrid/gauss_quadrature.hpp"
+
+#ifdef VERSE_WITH_LIBIGL
+#   include "3rdparty/quadriflow/manifold/Manifold.h"
+#endif
+
 #include "Math.h"
 #include "MeshTopology.h"
 #include "Utilities.h"
@@ -1115,6 +1120,49 @@ namespace osgVerse
             uvArea += computeTriangleUVArea((*ta)[i0], (*ta)[i1], (*ta)[i2]);
         }
         return osg::Vec2(worldArea, uvArea);
+    }
+
+    osg::Geometry* createManifold(osg::Geometry& geom, int depth)
+    {
+#ifdef VERSE_WITH_LIBIGL
+        MeshCollector collector; collector.apply(geom);
+        const std::vector<osg::Vec3>& v0 = collector.getVertices();
+        const std::vector<unsigned int>& f0 = collector.getTriangles();
+
+        std::vector<Eigen::Vector3d> vertices(v0.size());
+#pragma omp parallel for
+        for (int i = 0; i < (int)v0.size(); ++i)
+        { const auto& v = v0[i]; vertices[i] << v.x(), v.y(), v.z(); }
+
+        std::vector<Eigen::Vector3i> faces(f0.size() / 3);
+#pragma omp parallel for
+        for (int i = 0; i < (int)f0.size(); i += 3)
+        {
+            faces[i / 3] << static_cast<int>(f0[i]), static_cast<int>(f0[i + 1]),
+                            static_cast<int>(f0[i + 2]);
+        }
+
+        MatrixD in_V, out_V; in_V.resize(vertices.size(), 3);
+        MatrixI in_F, out_F; in_F.resize(faces.size(), 3);
+        memcpy(in_V.data(), vertices.data(), sizeof(Vector3) * vertices.size());
+        memcpy(in_F.data(), faces.data(), sizeof(Vector3i) * faces.size());
+
+        Manifold manifold;
+        manifold.ProcessManifold(in_V, in_F, depth, &out_V, &out_F);
+
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(out_V.rows());
+        for (int i = 0; i < out_V.rows(); ++i)
+        { auto& v = out_V.row(i); (*va)[i] = osg::Vec3(v[0], v[1], v[2]); }
+
+        osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
+        for (int i = 0; i < out_F.rows(); ++i)
+        { auto& f = out_F.row(i); de->push_back(f[0]); de->push_back(f[1]); de->push_back(f[2]); }
+
+        return createGeometry(va.get(), NULL, NULL, de.get());
+#else
+        OSG_NOTICE << "createManifold: no libIGL support" << std::endl;
+        return NULL;
+#endif
     }
 }
 

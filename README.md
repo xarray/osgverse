@@ -92,10 +92,10 @@ Our project is already tested on graphics cards listed as below:
 | MooreThreads X300         | 4.3 / GLSL 4.3 | :heavy_check_mark: | 60fps       | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA) |
 | MooreThreads S80/S1000    | 4.1 / GLSL 4.1 | :heavy_check_mark: | ~= 30fps    | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA) |
 | LISUAN 7G100              | 4.6 / GLSL 4.6 | :heavy_check_mark: | ~= 45fps    | |
-| XiangDiXian FUXI R2900E   | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | Shadow is all black? |
+| XiangDiXian FUXI R2900E   | 4.6 / GLSL 4.6 | :heavy_plus_sign:  | 60fps       | PCF Shadow failed, but VSM/ESM is OK |
 | Phytium D2000+X100        | 3.0 / GLSL 3.3 | :heavy_check_mark: | < 10fps     | |
-| JingJia Micro JM7201      |                | :soon:             |             | |
-| LJmicro GP202             | 4.0 / GLSL 4.0 | :heavy_check_mark: | < 10fps     | |
+| JingJia Micro JM7201      | 3.0 / GLSL 1.3 | :heavy_plus_sign:  | < 5fps      | Core only; PCF Shadow failed, but VSM/ESM is OK; glBlitFrameBuffer failed |
+| LJmicro GP202             | 4.0 / GLSL 4.0 | :zap: | < 10fps     | |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              |             | Segment fault in osg::Texture at present  |
 | VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              |             | Test_Pipeline can work; Viewer can't |
 
@@ -103,11 +103,11 @@ Our project is already tested on graphics cards listed as below:
 1. osgVerseDependency: contains all embedded 3rdparty dependencies.
 2. osgVersePipeline: modern rendering pipeline supporting PBR materials, realtime shadows, deferred lighting and effects.
 3. osgVerseReaderWriter: full featured reader-writer support for FBX, GLTF and KTX formats, and for more later.
-4. osgVerseAnimation: physics and character animation supports.
+4. osgVerseAnimation: tween-based path animation, physics simulation, particle animation and character animation supports.
 5. osgVerseModeling: model simplification pipeline, modeling operators, and computational geometry utilities
 6. osgVerseUI: IMGUI based quick UI support, HTML based UI solution, and related utilities.
-7. osgVerseScript: Scripting support based on OSG serialization functionalities.
-8. osgVerseAI: Artificial-Intelligence related classes, including navigation-mesh and so on.
+7. osgVerseScript: Scripting support based on OSG serialization functionalities. Currently Python and JsonRPC.
+8. osgVerseAI: Artificial-Intelligence related classes, including navigation-mesh, AI models (onnx) loading and so on.
 9. osgVerseWrappers: All serialzier wrappers of osgVerse and extended OSG classes.
 10. TBD...
 

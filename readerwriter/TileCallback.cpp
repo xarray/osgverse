@@ -216,7 +216,8 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
 
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
-                osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla); lastAlt = altitude;
+                osg::Vec3d ecef = convertToECEF(lla); lastAlt = altitude;
+
                 (*va)[vi] = osg::Vec3(ecef * _worldToLocal); (*ta)[vi] = osg::Vec2(uv[0], uv[1]);
                 (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize();
                 
@@ -225,7 +226,7 @@ osg::Geometry* TileCallback::createTileGeometry(osg::Matrix& outMatrix, osg::Tex
                 {
                     lla = adjustLatitudeLongitudeAltitude(
                         tileMin + osg::Vec3d((double)x * invW, (double)y * invH, 0.0), _useWebMercator);
-                    osg::Vec3 v0 = Coordinate::convertLLAtoECEF(lla); if (altitude >= 0.0) v0 = ecef;
+                    osg::Vec3 v0 = convertToECEF(lla); if (altitude >= 0.0) v0 = ecef;
                     (*ca)[vi] = osg::Vec4(v0 * _worldToLocal, 0.0f);
                 }
             }
@@ -334,8 +335,7 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
 
                 osg::Vec3d lla = adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), _useWebMercator);
-                osg::Vec3d ecef = Coordinate::convertLLAtoECEF(lla);
-                (*va)[vi] = osg::Vec3(ecef * _worldToLocal);
+                osg::Vec3d ecef = convertToECEF(lla); (*va)[vi] = osg::Vec3(ecef * _worldToLocal);
                 if (na.valid()) { (*na)[vi] = osg::Vec3(normalMatrix.postMult(ecef)); (*na)[vi].normalize(); }
 
                 // For ocean plane, save height difference when ALTITUDE = 0
@@ -343,7 +343,7 @@ void TileCallback::updateTileGeometry(osg::Geometry* geom, osg::Texture* elevati
                 {
                     lla = adjustLatitudeLongitudeAltitude(
                         tileMin + osg::Vec3d((double)x * invW, (double)y * invH, 0.0), _useWebMercator);
-                    osg::Vec3 v0 = Coordinate::convertLLAtoECEF(lla); if (altitude >= 0.0) v0 = ecef;
+                    osg::Vec3 v0 = convertToECEF(lla); if (altitude >= 0.0) v0 = ecef;
                     (*ca)[vi] = osg::Vec4(v0 * _worldToLocal, 0.0f);
                 }
             }
@@ -622,6 +622,12 @@ void TileCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
     traverse(node, nv);
 }
 
+osg::Vec3d TileCallback::convertToECEF(const osg::Vec3d& lla) const
+{
+    // TODO: consider polar-stereo
+    return Coordinate::convertLLAtoECEF(lla);
+}
+
 ////////////////////////// TileManager //////////////////////////
 
 TileManager* TileManager::instance()
@@ -700,7 +706,7 @@ void TileManager::updateTileGeometry(TileCallback& tileCB, osg::Geometry* geom)
                 unsigned int vi = x + y * numCols; double altitude = 0.0;
                 osg::Vec3d lla = tileCB.adjustLatitudeLongitudeAltitude(
                     tileMin + osg::Vec3d((double)x * invW, (double)y * invH, altitude), tileCB.getUseWebMercator());
-                osg::Vec3 v0 = Coordinate::convertLLAtoECEF(lla);
+                osg::Vec3 v0 = tileCB.convertToECEF(lla);
 
                 osg::Vec3d ecef = _dynamicCallback->updateTileVertex(tileCB, lla[0], lla[1]);
                 (*va)[vi] = osg::Vec3(ecef * worldToLocal);

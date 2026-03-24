@@ -19,7 +19,8 @@ namespace osgVerse
         std::map<std::string, ImTextureID> ImGuiTextures;
         ImGuiContext* context;
 
-        virtual void runInternal(ImGuiManager* m) {}
+        std::function<void(ImGuiManager*)> runnerCallback;
+        virtual void runInternal(ImGuiManager* m) { if (runnerCallback) runnerCallback(m); }
     };
 
     class ImGuiManager : public osg::Referenced
