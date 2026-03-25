@@ -49,8 +49,6 @@
 #   define XR_USE_GRAPHICS_API_OPENGL 1
 #endif
 
-#include "3rdparty/openxr/openxr.h"
-#include "3rdparty/openxr/openxr_platform.h"
 #include "RenderCallbackXR.h"
 #include "Utilities.h"
 using namespace osgVerse;
@@ -72,6 +70,9 @@ void RenderCallbackXR::releaseGLObjects(osg::State* state) const
 { CameraDrawCallback::releaseGLObjects(state); }
 
 #else
+
+#include "3rdparty/openxr/openxr.h"
+#include "3rdparty/openxr/openxr_platform.h"
 
 struct LoaderXR : public osg::Referenced
 {
@@ -110,7 +111,7 @@ struct LoaderXR : public osg::Referenced
 #else
     PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR = nullptr;
 #endif
-    
+
     bool load()
     {
 #ifdef _WIN32
