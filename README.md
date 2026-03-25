@@ -92,12 +92,13 @@ Our project is already tested on graphics cards listed as below:
 | MooreThreads X300         | 4.3 / GLSL 4.3 | :heavy_check_mark: | 60fps       | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA) |
 | MooreThreads S80/S1000    | 4.1 / GLSL 4.1 | :heavy_check_mark: | ~= 30fps    | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA) |
 | LISUAN 7G100              | 4.6 / GLSL 4.6 | :heavy_check_mark: | ~= 45fps    | |
-| XiangDiXian FUXI R2900E   | 4.6 / GLSL 4.6 | :heavy_plus_sign:  | 60fps       | PCF Shadow failed, but VSM/ESM is OK |
-| Phytium D2000+X100        | 3.0 / GLSL 3.3 | :heavy_check_mark: | < 10fps     | |
-| JingJia Micro JM7201      | 3.0 / GLSL 1.3 | :heavy_plus_sign:  | < 5fps      | Core only; PCF Shadow failed, but VSM/ESM is OK; glBlitFrameBuffer failed |
-| LJmicro GP202             | 4.0 / GLSL 4.0 | :zap: | < 10fps     | |
+| XiangDiXian FUXI R2900E   | 4.6 / GLSL 4.6 | :heavy_plus_sign:  | 60fps       | PCF Shadow failed (VSM/ESM OK) |
+| Phytium D2000+X100        | 3.0 / GLSL 3.3 | :heavy_plus_sign:  | < 10fps     | |
+| JingJia Micro JM7201      | 3.0 / GLSL 1.3 | :heavy_plus_sign:  | < 5fps      | Core only; PCF Shadow failed (VSM/ESM OK); glBlitFrameBuffer failed |
+| LJmicro GP202             | 4.0 / GLSL 4.0 | :heavy_plus_sign:  | < 10fps     | |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              |             | Segment fault in osg::Texture at present  |
-| VirtualBox SVGA 3D        | 2.1 / GLSL 1.2 | :zap:              |             | Test_Pipeline can work; Viewer can't |
+| VirtualBox SVGA 3D        | 4.1 / GLSL 4.1 | :heavy_check_mark: | 60fps       | |
+| VirtualBox (No 3D / Mesa) | 4.5 / GLSL 4.5 | :heavy_plus_sign:  | < 5fps      | glBlitFrameBuffer failed |
 
 #### Modules
 1. osgVerseDependency: contains all embedded 3rdparty dependencies.

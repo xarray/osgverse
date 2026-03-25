@@ -946,8 +946,17 @@ namespace osgVerse
 #else
             sorter->initializeProgram("");
 #endif
-            sorter->sorterBase = new osgVerse::GaussianSorter(0);  // FIXME
+            // created with no processing threads to avoid deadlock at exit
+            // create new threads until new gaussians come
+            sorter->sorterBase = new osgVerse::GaussianSorter(0);
             param.gaussianSorter = sorter;
+        }
+
+        if (flags & DontVertifySSL)
+        {
+            hssl_ctx_opt_t opt; memset(&opt, 0, sizeof(opt));
+            opt.verify_peer = 0; opt.endpoint = HSSL_CLIENT;
+            hssl_ctx_init(&opt);
         }
         return param;
     }

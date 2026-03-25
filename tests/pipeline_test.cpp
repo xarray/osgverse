@@ -16,6 +16,7 @@
 #include <pipeline/Pipeline.h>
 #include <pipeline/UserInputModule.h>
 #include <pipeline/HistoryBufferCallback.h>
+#include <pipeline/RenderCallbackXR.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <iostream>
@@ -226,6 +227,13 @@ int main(int argc, char** argv)
             osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
         output->applyBuffer(*testStage, "MiddleBuffer", "ColorBuffer", 0);
         output->applyBuffer(*gbuffer, "DepthBuffer", 1);
+
+        if (arguments.read("--openxr"))
+        {
+            // FIXME: when to begin() ?
+            osgVerse::RenderCallbackXR* xr = new osgVerse::RenderCallbackXR;
+            xr->setup(output->camera.get(), 2);  // post-draw
+        }
 
         // 6. Apply stages to viewer's slaves, also finish stage configuring
         pipeline->applyStagesToView(&viewer, FORWARD_SCENE_MASK);

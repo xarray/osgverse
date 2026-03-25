@@ -208,6 +208,12 @@ namespace osgVerse
                 OSG_WARN << "Error: Camera::DrawCallback called without valid camera." << std::endl;
         }
 
+        virtual void releaseGLObjects(osg::State* state = 0) const
+        {
+            osg::Camera::DrawCallback::releaseGLObjects(state);
+            if (_subCallback.valid()) _subCallback.get()->releaseGLObjects(state);
+        }
+
     protected:
         virtual ~CameraDrawCallback() {}
         osg::ref_ptr<CameraDrawCallback> _subCallback;

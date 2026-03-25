@@ -190,8 +190,7 @@ namespace osgVerse
 #else
         if (!_depthBlitList.empty())
         {
-            GLuint fboId = state->getGraphicsContext()
-                ? state->getGraphicsContext()->getDefaultFboId() : 0;
+            GLuint fboId = state->getGraphicsContext() ? state->getGraphicsContext()->getDefaultFboId() : 0;
             ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, fboId); // write to default framebuffer
 
             int sWidth = 1920, tWidth = 1920, sHeight = 1080, tHeight = 1080;
