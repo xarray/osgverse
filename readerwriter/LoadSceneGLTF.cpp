@@ -136,7 +136,7 @@ namespace
         {
             for (size_t c = 0; c < size; ++c)
             {
-                const T::ElementDataType& v = (*dataArray)[c];
+                const typename T::ElementDataType& v = (*dataArray)[c];
                 (*(gs.red[mainIdx]))[c][compIdx] = v[0] / 255.0f;
                 (*(gs.green[mainIdx]))[c][compIdx] = v[1] / 255.0f;
                 (*(gs.blue[mainIdx]))[c][compIdx] = v[2] / 255.0f;
@@ -146,7 +146,7 @@ namespace
         {
             for (size_t c = 0; c < size; ++c)
             {
-                const T::ElementDataType& v = (*dataArray)[c];
+                const typename T::ElementDataType& v = (*dataArray)[c];
                 (*(gs.red[mainIdx]))[c][compIdx] = v[0];
                 (*(gs.green[mainIdx]))[c][compIdx] = v[1];
                 (*(gs.blue[mainIdx]))[c][compIdx] = v[2];
