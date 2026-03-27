@@ -471,6 +471,12 @@ SET(SHAPELIB_SOURCE_FILES
     shapelib/shapefil_private.h shapelib/shapelib.def
 )
 
+SET(BYTETRACK_SOURCE_FILES
+    ByteTrack/BYTETracker.cpp ByteTrack/BYTETracker.h ByteTrack/STrack.cpp ByteTrack/STrack.h
+    ByteTrack/KalmanFilter.cpp ByteTrack/KalmanFilter.h ByteTrack/Rect.cpp ByteTrack/Rect.h
+    ByteTrack/Object.cpp ByteTrack/Object.h ByteTrack/lapjv.cpp ByteTrack/lapjv.h
+)
+
 SET(MLT_SOURCE_FILES
     mlt/decoder.cpp mlt/decode/geometry.hpp mlt/decode/int.cpp mlt/decode/int.hpp
     mlt/decode/property.hpp mlt/decode/string.hpp mlt/feature.cpp mlt/geometry_vector.cpp
@@ -492,6 +498,7 @@ SET(QUADRIFLOW_SOURCE_FILES
 
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
+SOURCE_GROUP("ByteTrack Files" FILES ${BYTETRACK_SOURCE_FILES})
 SOURCE_GROUP("DiscreGrid Files" FILES ${DISCREGRID_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
@@ -539,7 +546,7 @@ SET(LIBRARY_FILES
 )
 
 IF(VERSE_SUPPORT_CPP17)
-    SET(LIBRARY_FILES ${LIBRARY_FILES} ${MLT_SOURCE_FILES})
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ${BYTETRACK_SOURCE_FILES} ${MLT_SOURCE_FILES})
 ENDIF(VERSE_SUPPORT_CPP17)
 
 IF(LIBIGL_FOUND)

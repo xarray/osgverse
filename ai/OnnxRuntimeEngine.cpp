@@ -134,6 +134,7 @@ namespace
 
         Ort::Value createInput(const std::vector<osg::Image*>& images, const std::string& checkInName)
         {
+            // FIXME: use Ort::IoBinding to improve tensor data copying
             Ort::Value tensor; osg::Image* firstImage = NULL;
             OnnxInferencer::DataLayout outLayout = OnnxInferencer::ImageNCHW;
             if (images.empty()) return tensor; else firstImage = images.front();

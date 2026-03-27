@@ -18,6 +18,7 @@
 #include "LoadTextureKTX.h"
 #include <libhv/all/client/requests.h>
 #include <picojson.h>
+#include <regex>
 #define DISABLE_SKINNING_DATA 0
 
 #define TINYGLTF_IMPLEMENTATION
@@ -63,55 +64,103 @@ namespace osgVerse
 #define GL_RG32F                          0x8230
 #endif
 
-static float linearToSRGB(float x)
+namespace
 {
-    if (x <= 0.0031308f) return 12.92f * x;
-    else return 1.055f * pow(x, 1.0f / 2.4f) - 0.055f;
-}
-
-static std::string trimString(const std::string& str)
-{
-    if (!str.size()) return str;
-    std::string::size_type first = str.find_first_not_of(" \t");
-    std::string::size_type last = str.find_last_not_of("  \t\r\n");
-    if ((first == str.npos) || (last == str.npos)) return std::string("");
-    return str.substr(first, last - first + 1);
-}
-
-class HttpRequester : public osg::Referenced
-{
-public:
-    static HttpRequester* instance()
+    static float linearToSRGB(float x)
     {
-        static osg::ref_ptr<HttpRequester> s_ins = new HttpRequester;
-        return s_ins.get();
+        if (x <= 0.0031308f) return 12.92f * x;
+        else return 1.055f * pow(x, 1.0f / 2.4f) - 0.055f;
     }
 
-    bool read(const std::string& fileName, std::vector<unsigned char>& data)
+    static std::string trimString(const std::string& str)
     {
-#ifdef __EMSCRIPTEN__
-        osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
-        bool succeed = wf->httpGet(fileName);
-        if (!succeed) return false;
-        else data.assign(wf->buffer.begin(), wf->buffer.end());
-#else
-        HttpRequest req;
-        req.method = HTTP_GET; req.url = fileName;
-        req.scheme = osgDB::getServerProtocol(fileName);
-
-        HttpResponse response;
-        int result = _client->send(&req, &response);
-        if (result != 0) return false;
-        data.assign(response.body.begin(), response.body.end());
-#endif
-        return true;
+        if (!str.size()) return str;
+        std::string::size_type first = str.find_first_not_of(" \t");
+        std::string::size_type last = str.find_last_not_of("  \t\r\n");
+        if ((first == str.npos) || (last == str.npos)) return std::string("");
+        return str.substr(first, last - first + 1);
     }
 
-protected:
-    HttpRequester() { _client = new hv::HttpClient; }
-    virtual ~HttpRequester() { delete _client; }
-    hv::HttpClient* _client;
-};
+    class HttpRequester : public osg::Referenced
+    {
+    public:
+        static HttpRequester* instance()
+        {
+            static osg::ref_ptr<HttpRequester> s_ins = new HttpRequester;
+            return s_ins.get();
+        }
+
+        bool read(const std::string& fileName, std::vector<unsigned char>& data)
+        {
+    #ifdef __EMSCRIPTEN__
+            osg::ref_ptr<osgVerse::WebFetcher> wf = new osgVerse::WebFetcher;
+            bool succeed = wf->httpGet(fileName);
+            if (!succeed) return false;
+            else data.assign(wf->buffer.begin(), wf->buffer.end());
+    #else
+            HttpRequest req;
+            req.method = HTTP_GET; req.url = fileName;
+            req.scheme = osgDB::getServerProtocol(fileName);
+
+            HttpResponse response;
+            int result = _client->send(&req, &response);
+            if (result != 0) return false;
+            data.assign(response.body.begin(), response.body.end());
+    #endif
+            return true;
+        }
+
+    protected:
+        HttpRequester() { _client = new hv::HttpClient; }
+        virtual ~HttpRequester() { delete _client; }
+        hv::HttpClient* _client;
+    };
+
+    struct GaussianPreparedData
+    {
+        osg::ref_ptr<osg::Vec4Array> quat, red[4], green[4], blue[4];
+        osg::ref_ptr<osg::Vec3Array> scale;
+        osg::ref_ptr<osg::FloatArray> alpha;
+        int shDegrees; bool enabled;
+        GaussianPreparedData() : shDegrees(0), enabled(false) {}
+    };
+
+    template<typename T>
+    static void applySH(GaussianPreparedData& gs, int mainIdx, int compIdx, T* dataArray, int size, int compSize)
+    {
+        if (!gs.red[mainIdx]) gs.red[mainIdx] = new osg::Vec4Array(size);
+        if (!gs.green[mainIdx]) gs.green[mainIdx] = new osg::Vec4Array(size);
+        if (!gs.blue[mainIdx]) gs.blue[mainIdx] = new osg::Vec4Array(size);
+
+        if (compSize == 1)
+        {
+            for (size_t c = 0; c < size; ++c)
+            {
+                const T::ElementDataType& v = (*dataArray)[c];
+                (*(gs.red[mainIdx]))[c][compIdx] = v[0] / 255.0f;
+                (*(gs.green[mainIdx]))[c][compIdx] = v[1] / 255.0f;
+                (*(gs.blue[mainIdx]))[c][compIdx] = v[2] / 255.0f;
+            }
+        }
+        else if (compSize == 4)
+        {
+            for (size_t c = 0; c < size; ++c)
+            {
+                const T::ElementDataType& v = (*dataArray)[c];
+                (*(gs.red[mainIdx]))[c][compIdx] = v[0];
+                (*(gs.green[mainIdx]))[c][compIdx] = v[1];
+                (*(gs.blue[mainIdx]))[c][compIdx] = v[2];
+            }
+        }
+    }
+
+    struct SkeletonPreparedData
+    {
+        std::vector<unsigned char> jointList0;
+        std::vector<unsigned short> jointList1;
+        std::vector<float> weightList;
+    };
+}
 
 namespace osgVerse
 {
@@ -585,23 +634,11 @@ namespace osgVerse
 
         for (size_t i = 0; i < mesh.primitives.size(); ++i)
         {
-            struct GaussianPreparedData
-            {
-                osg::ref_ptr<osg::Vec4Array> quat, red[4], green[4], blue[4];
-                osg::ref_ptr<osg::Vec3Array> scale;
-                osg::ref_ptr<osg::FloatArray> alpha;
-                int shDegrees; bool enabled;
-                GaussianPreparedData() : shDegrees(0), enabled(false) {}
-            } gsData;
+            GaussianPreparedData gsData;
+            SkeletonPreparedData skData;
+            const unsigned char* bufferData = NULL;
+            std::map<std::string, int> extBufferViews;
 
-            struct SkeletonPreparedData
-            {
-                std::vector<unsigned char> jointList0;
-                std::vector<unsigned short> jointList1;
-                std::vector<float> weightList;
-            } skData;
-
-            const unsigned char* bufferData = NULL; std::map<std::string, int> extBufferViews;
             tinygltf::Primitive primitive = mesh.primitives[i];
             for (std::map<std::string, tinygltf::Value>::iterator it = primitive.extensions.begin();
                  it != primitive.extensions.end(); ++it)
@@ -724,33 +761,10 @@ namespace osgVerse
                     {
                         if (gsData.enabled)
                         {
-                            gsData.alpha = new osg::FloatArray(size);
-                            if (!gsData.red[0]) gsData.red[0] = new osg::Vec4Array(size);
-                            if (!gsData.green[0]) gsData.green[0] = new osg::Vec4Array(size);
-                            if (!gsData.blue[0]) gsData.blue[0] = new osg::Vec4Array(size);
-
                             if (compSize == 1)
-                            {
-                                osg::Vec4ubArray* ca4ub = static_cast<osg::Vec4ubArray*>(ca.get());
-                                for (size_t c = 0; c < size; ++c)
-                                {
-                                    const osg::Vec4ub& v = (*ca4ub)[c]; (*gsData.alpha)[c] = v.a() / 255.0f;
-                                    (*(gsData.red[0]))[c] = osg::Vec4(v[0] / 255.0f, 0.0f, 0.0f, 0.0f);
-                                    (*(gsData.green[0]))[c] = osg::Vec4(v[1] / 255.0f, 0.0f, 0.0f, 0.0f);
-                                    (*(gsData.blue[0]))[c] = osg::Vec4(v[2] / 255.0f, 0.0f, 0.0f, 0.0f);
-                                }
-                            }
+                                applySH(gsData, 0, 0, static_cast<osg::Vec4ubArray*>(ca.get()), size, compSize);
                             else if (compSize == 4)
-                            {
-                                osg::Vec4Array* ca4f = static_cast<osg::Vec4Array*>(ca.get());
-                                for (size_t c = 0; c < size; ++c)
-                                {
-                                    const osg::Vec4& v = (*ca4f)[c]; (*gsData.alpha)[c] = v.a();
-                                    (*(gsData.red[0]))[c] = osg::Vec4(v[0], 0.0f, 0.0f, 0.0f);
-                                    (*(gsData.green[0]))[c] = osg::Vec4(v[1], 0.0f, 0.0f, 0.0f);
-                                    (*(gsData.blue[0]))[c] = osg::Vec4(v[2], 0.0f, 0.0f, 0.0f);
-                                }
-                            }
+                                applySH(gsData, 0, 0, static_cast<osg::Vec4Array*>(ca.get()), size, compSize);
                         }
                         else
                         {
@@ -806,15 +820,30 @@ namespace osgVerse
                         copyBufferData(&skData.weightList[0], &bufferData[offset], copySize, stride, size);
                     }
                 }
-                else if (attrib->first.compare("_ROTATION") == 0 && compSize == 4 && compNum == 4)
+                else if (attrib->first.find("KHR_gaussian_splatting:SH_DEGREE") != std::string::npos && compSize == 4 && compNum == 3)
+                {
+                    int degreeID = 0, coefID = 0, total = 0;
+                    std::sscanf(attrib->first.c_str(), "KHR_gaussian_splatting:SH_DEGREE_%d_COEF_%d", &degreeID, &coefID);
+                    for (int i = 0; i < degreeID; ++i) total += (i * 2 + 1); total += coefID;
+
+                    osg::ref_ptr<osg::Vec3Array> coef = new osg::Vec3Array(size);
+                    copyBufferData(&(*coef)[0], &bufferData[offset], copySize, stride, size);
+                    applySH(gsData, total / 4, total % 4, coef.get(), size, compSize);
+                }
+                else if (attrib->first.compare("KHR_gaussian_splatting:ROTATION") == 0 && compSize == 4 && compNum == 4)
                 {
                     gsData.quat = new osg::Vec4Array(size);
                     copyBufferData(&(*gsData.quat)[0], &bufferData[offset], copySize, stride, size);
                 }
-                else if (attrib->first.compare("_SCALE") == 0 && compSize == 4 && compNum == 3)
+                else if (attrib->first.compare("KHR_gaussian_splatting:SCALE") == 0 && compSize == 4 && compNum == 3)
                 {
                     gsData.scale = new osg::Vec3Array(size);
                     copyBufferData(&(*gsData.scale)[0], &bufferData[offset], copySize, stride, size);
+                }
+                else if (attrib->first.compare("KHR_gaussian_splatting:OPACITY") == 0 && compSize == 4 && compNum == 1)
+                {
+                    gsData.alpha = new osg::FloatArray(size);
+                    copyBufferData(&(*gsData.alpha)[0], &bufferData[offset], copySize, stride, size);
                 }
                 else if (attrib->first.compare("_BATCHID") == 0 && compSize == 2 && compNum == 1)
                 {

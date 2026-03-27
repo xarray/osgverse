@@ -1,9 +1,9 @@
 SET(LIB_NAME osgVerseAI)
-SET(LIBRARY_INCLUDE_FILES RecastManager.h McpServer.h)
+SET(LIBRARY_INCLUDE_FILES RecastManager.h McpServer.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     RecastManager.cpp RecastManager_Private.h
     RecastManager_Builder.cpp RecastManager_Builder.h
-    McpServer.cpp)
+    McpServer.cpp Utilities.cpp)
 
 INCLUDE_DIRECTORIES(../3rdparty/recastnavigation/Detour)
 INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all
@@ -11,10 +11,15 @@ INCLUDE_DIRECTORIES(../3rdparty/libhv ../3rdparty/libhv/all
 ADD_DEFINITIONS(-DHV_STATICLIB)
 
 IF(ONNXRUNTIME_FOUND)
+    ADD_DEFINITIONS(-DVERSE_WITH_ONNXRUNTIME)
     INCLUDE_DIRECTORIES(${ONNXRUNTIME_INCLUDE_DIR})
     SET(LIBRARY_FILES ${LIBRARY_FILES} OnnxRuntimeEngine.h OnnxRuntimeEngine.cpp)
     SET(LIBRARY_INCLUDE_FILES ${LIBRARY_INCLUDE_FILES} OnnxRuntimeEngine.h)
 ENDIF(ONNXRUNTIME_FOUND)
+
+IF(VERSE_SUPPORT_CPP17)
+    ADD_DEFINITIONS(-DVERSE_WITH_BYTETRACK)
+ENDIF(VERSE_SUPPORT_CPP17)
 
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseModeling)

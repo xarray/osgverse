@@ -24,7 +24,8 @@
 | backward-cpp     | Embedded |           | -                  | MIT          | https://github.com/bombela/backward-cpp |
 | bc7_rdo          | Embedded |           | ReaderWriter       | MIT/Apache2  | https://github.com/richgel999/bc7enc_rdo |
 | blend2d          | Embedded | 0.11.4    | Pipeline           | Zlib         | https://github.com/blend2d/blend2d |
-| BSplineFitting   | Embedded |           | Modeling           | MIT          | https://github.com/QianZheng/BSplineFitting/tree/master |
+| BSplineFitting   | Embedded |           | Modeling           | MIT          | https://github.com/QianZheng/BSplineFitting |
+| ByteTrack-cpp    | Embedded | 20260327  | AI                 | MIT          | https://github.com/Vertical-Beach/ByteTrack-cpp |
 | CDT              | Embedded | 1.4.0     | Modeling           | MPL2         | https://github.com/artem-ogre/CDT |
 | Clipper2         | Embedded | 1.3.0     | Modeling           | Boost        | https://github.com/collmot/Clipper2/tree/feat/cpp11-support |
 | Discregrid       | Embedded |           | Modeling           | MIT          | https://github.com/InteractiveComputerGraphics/Discregrid |

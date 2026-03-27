@@ -15,6 +15,7 @@
 
 #include <VerseCommon.h>
 #include <ai/OnnxRuntimeEngine.h>
+#include <ai/Utilities.h>
 #include <modeling/Utilities.h>
 #include <pipeline/Drawer2D.h>
 #include <readerwriter/Utilities.h>
@@ -23,20 +24,6 @@
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
 #endif
-
-static void findClosestImageSize(int& W, int& H, int divisor)
-{
-    int original_h = H, original_w = W;
-    int new_h = ((original_h + divisor - 1) / divisor) * divisor;
-    int new_w = ((original_w + divisor - 1) / divisor) * divisor;
-    int new_h_down = (original_h / divisor) * divisor;
-    int new_w_down = (original_w / divisor) * divisor;
-
-    int change_up = std::abs(new_h - original_h) + std::abs(new_w - original_w);
-    int change_down = std::abs(new_h_down - original_h) + std::abs(new_w_down - original_w);
-    if (change_up < change_down) { W = new_w; H = new_h; }
-    else { W = new_w_down; H = new_h_down; }
-}
 
 struct YoloDetection
 {
@@ -272,7 +259,8 @@ int main(int argc, char** argv)
         std::string inputFile; if (!arguments.read("--image", inputFile)) return 1;
         osg::ref_ptr<osg::Image> image = osgDB::readImageFile(inputFile);
 
-        int imgW = image->s(), imgH = image->t(); findClosestImageSize(imgW, imgH, 14);
+        int imgW = image->s(), imgH = image->t();
+        if (!arguments.read("--resize", imgW, imgH)) osgVerse::DepthEstimator::findClosestImageSize(imgW, imgH, 14);
         if (imgW != image->s() || imgH != image->t()) image->scaleImage(imgW, imgH, 1);
         image = osgVerse::OnnxInferencer::convertImage(
             image.get(), inferencer->getModelDataType(true, inputName), inferencer->getModelShapes(true, inputName));
