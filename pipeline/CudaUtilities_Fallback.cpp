@@ -11,5 +11,6 @@ namespace osgVerse
     void CudaAlgorithm::deinitializeContext(CUcontext context) {}
 
     bool CudaAlgorithm::radixSort(const std::vector<unsigned int>& inValues, const std::vector<unsigned int>& inIDs,
-                                  std::vector<unsigned int>& outIDs) { return false; }
+                                  std::vector<unsigned int>& outIDs)
+    { OSG_WARN << "[CudaAlgorithm] CUDA/MUSA not compiled\n"; return false; }
 }

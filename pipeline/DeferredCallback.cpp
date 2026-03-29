@@ -13,12 +13,19 @@
 #include "DeferredCallback.h"
 #include "Utilities.h"
 
+namespace
+{
+    typedef void (GL_APIENTRY* BlitNamedFramebufferProc) (GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0,
+                                                          GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+                                                          GLbitfield mask, GLenum filter);
+    BlitNamedFramebufferProc glBlitNamedFramebuffer = NULL;
+}
+
 namespace osgVerse
 {
     DeferredRenderCallback::DeferredRenderCallback(bool inPipeline)
-    :   _drawBuffer(GL_NONE), _readBuffer(GL_NONE), _cullFrameNumber(0),
-        _forwardMask(0xffffffff), _inPipeline(inPipeline),
-        _drawBufferApplyMask(false), _readBufferApplyMask(false)
+    :   _drawBuffer(GL_NONE), _readBuffer(GL_NONE), _cullFrameNumber(0), _forwardMask(0xffffffff), _inPipeline(inPipeline),
+        _drawBufferApplyMask(false), _readBufferApplyMask(false), _firstFrame(true)
     {
         _nearFarUniform = new osg::Uniform("NearFarPlanes", osg::Vec2());
         _calculatedNearFar.set(-1.0, -1.0);
@@ -110,6 +117,12 @@ namespace osgVerse
     void DeferredRenderCallback::operator()(osg::RenderInfo& renderInfo) const
     {
         osg::State* state = renderInfo.getState();
+        if (_firstFrame)
+        {
+            osg::setGLExtensionFuncPtr(glBlitNamedFramebuffer, "glBlitNamedFramebuffer", "glBlitNamedFramebufferEXT");
+            _firstFrame = false;
+        }
+
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
         if (!ext->isFrameBufferObjectSupported)
@@ -190,33 +203,52 @@ namespace osgVerse
 #else
         if (!_depthBlitList.empty())
         {
-            GLuint fboId = state->getGraphicsContext() ? state->getGraphicsContext()->getDefaultFboId() : 0;
-            ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, fboId); // write to default framebuffer
-
             int sWidth = 1920, tWidth = 1920, sHeight = 1080, tHeight = 1080;
             osg::Viewport* viewport = forwardCam->getViewport();
             if (viewport != NULL) { tWidth = viewport->width(); tHeight = viewport->height(); }
 
-            // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
+            GLuint fboId = state->getGraphicsContext() ? state->getGraphicsContext()->getDefaultFboId() : 0;
             typedef std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> CamFboMap;
-            for (std::set<osg::observer_ptr<osg::Camera>>::iterator itr = _depthBlitList.begin();
-                 itr != _depthBlitList.end(); ++itr)
+            if (glBlitNamedFramebuffer != NULL)
             {
-                osg::Camera* cam = itr->get();
-                CamFboMap::const_iterator fboItr = _depthFboMap.find(cam);
-                if (!cam || fboItr == _depthFboMap.end()) continue; else viewport = cam->getViewport();
-                if (viewport != NULL) { sWidth = viewport->width(); sHeight = viewport->height(); }
+                // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
+                for (std::set<osg::observer_ptr<osg::Camera>>::iterator itr = _depthBlitList.begin();
+                     itr != _depthBlitList.end(); ++itr)
+                {
+                    osg::Camera* cam = itr->get(); CamFboMap::const_iterator fboItr = _depthFboMap.find(cam);
+                    if (!cam || fboItr == _depthFboMap.end()) continue; else viewport = cam->getViewport();
+                    if (viewport != NULL) { sWidth = viewport->width(); sHeight = viewport->height(); }
 
-                osg::FrameBufferObject* fbo = fboItr->second.get();
-                if (fbo) fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
-                ext->glBlitFramebuffer(0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
-                                       GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-#   if false
-                OSG_NOTICE << "Blitting " << cam->getName() << ": " << sWidth << "x" << sHeight << " => "
-                           << forwardCam->getName() << ": " << tWidth << "x" << tHeight << std::endl;
-#   endif
+                    osg::FrameBufferObject* fbo = fboItr->second.get();
+                    GLuint readId = fbo ?  fbo->getHandle(renderInfo.getContextID()) : fboId;
+                    glBlitNamedFramebuffer(readId, fboId, 0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
+                                           GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+                }
             }
-            ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
+            else
+            {
+                // Write to default framebuffer
+                ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, fboId);
+
+                // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
+                for (std::set<osg::observer_ptr<osg::Camera>>::iterator itr = _depthBlitList.begin();
+                     itr != _depthBlitList.end(); ++itr)
+                {
+                    osg::Camera* cam = itr->get(); CamFboMap::const_iterator fboItr = _depthFboMap.find(cam);
+                    if (!cam || fboItr == _depthFboMap.end()) continue; else viewport = cam->getViewport();
+                    if (viewport != NULL) { sWidth = viewport->width(); sHeight = viewport->height(); }
+
+                    osg::FrameBufferObject* fbo = fboItr->second.get();
+                    if (fbo) fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+                    ext->glBlitFramebuffer(0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
+                                           GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+#   if false
+                    OSG_NOTICE << "Blitting " << cam->getName() << ": " << sWidth << "x" << sHeight << " => "
+                               << forwardCam->getName() << ": " << tWidth << "x" << tHeight << std::endl;
+#   endif
+                }
+                ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
+            }
         }
         else if (_inPipeline)
         {

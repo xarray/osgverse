@@ -11,6 +11,7 @@
 #include <osg/Texture2DArray>
 #include <osg/Texture3D>
 #include <osg/TextureCubeMap>
+#include <osg/FrameBufferObject>
 #include <osg/Camera>
 #include <osgGA/GUIEventHandler>
 #include <osgText/Font>
@@ -398,6 +399,27 @@ namespace osgVerse
     public:
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
         { /*traverse(node, nv);*/ }
+    };
+
+    /** Texture copying handler */
+    class TextureCopier : public osg::Referenced
+    {
+    public:
+        static TextureCopier* instance();
+        bool operator()(osg::Texture2D& srcTexture, osg::FrameBufferObject* srcFBO,
+                        osg::Texture2D& dstTexture, osg::State* state) const;
+        virtual bool operator()(osg::Texture2D& srcTexture, osg::FrameBufferObject* srcFBO,
+                                int srcX, int srcY, int srcW, int srcH,
+                                osg::Texture2D& dstTexture, int dstX, int dstY, osg::State* state) const;
+        virtual bool operator()(unsigned int srcTexture, unsigned int srcFBO, int srcX, int srcY, int srcW, int srcH,
+                                unsigned int dstTexture, int dstX, int dstY, osg::State* state) const;
+
+    protected:
+        TextureCopier() : _glCopyImageSubDataPtr(NULL), _initialized(false) {}
+        virtual ~TextureCopier() {}
+
+        mutable void* _glCopyImageSubDataPtr;
+        mutable bool _initialized;
     };
 
     /** CUDA/MUSA related algorithms */

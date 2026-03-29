@@ -819,3 +819,60 @@ SSIM::Result SSIM::compute(const osg::Image& img0, const osg::Image& img1, float
     result.ssim = static_cast<float>(ssim_sum / size);
     return result;
 }
+
+/************** TextureCopier **************/
+bool TextureCopier::operator()(osg::Texture2D& srcT, osg::FrameBufferObject* srcFBO, osg::Texture2D& dstT, osg::State* state) const
+{
+    if (srcT.getImage() && srcT.getImage()->valid())
+        return (*this)(srcT, srcFBO, 0, 0, srcT.getImage()->s(), srcT.getImage()->t(), dstT, 0, 0, state);
+    else
+        return (*this)(srcT, srcFBO, 0, 0, srcT.getTextureWidth(), srcT.getTextureHeight(), dstT, 0, 0, state);
+}
+
+bool TextureCopier::operator()(osg::Texture2D& srcTexture, osg::FrameBufferObject* srcFBO, int srcX, int srcY, int srcW, int srcH,
+                               osg::Texture2D& dstTexture, int dstX, int dstY, osg::State* state) const
+{
+    unsigned int srcFboID = 0, contextID = state ? state->getContextID() : 0;
+    osg::Texture::TextureObject* srcObj = srcTexture.getTextureObject(contextID);
+    osg::Texture::TextureObject* dstObj = dstTexture.getTextureObject(contextID);
+    srcFboID = srcFBO ? srcFBO->getHandle(contextID) : 0; if (!srcObj || !dstObj) return false;
+    return (*this)(srcObj->id(), srcFboID, srcX, srcY, srcW, srcH, dstObj->id(), dstX, dstY, state);
+}
+
+bool TextureCopier::operator()(unsigned int srcTexture, unsigned int srcFBO, int srcX, int srcY, int srcW, int srcH,
+                               unsigned int dstTexture, int dstX, int dstY, osg::State* state) const
+{
+    typedef void (GL_APIENTRY* CopyImageSubDataProc)(GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY,
+                                                     GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX,
+                                                     GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth);
+    if (!_initialized)
+    {
+        CopyImageSubDataProc glCopyImageSubData = NULL;
+        osg::setGLExtensionFuncPtr(
+            glCopyImageSubData, "glCopyImageSubData", "glCopyImageSubDataEXT", "glCopyImageSubDataNV", true);
+        _glCopyImageSubDataPtr = (void*)glCopyImageSubData; _initialized = true;
+    }
+
+    if (_glCopyImageSubDataPtr != NULL)
+    {
+        CopyImageSubDataProc glCopyImageSubData = (CopyImageSubDataProc)_glCopyImageSubDataPtr;
+        glCopyImageSubData(srcTexture, GL_TEXTURE_2D, 0, srcX, srcY, 0,
+                           dstTexture, GL_TEXTURE_2D, 0, dstX, dstY, 0, srcW, srcH, 1);
+    }
+    else if (state)
+    {
+#if OSG_VERSION_GREATER_THAN(3, 3, 2)
+        osg::GLExtensions* ext = state->get<osg::GLExtensions>();
+        if (!ext->isFrameBufferObjectSupported)
+#else
+        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+        if (!ext->isSupported())
+#endif
+        {
+            ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, srcFBO);
+            glBindTexture(GL_TEXTURE_2D, dstTexture);
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, dstX, dstY, srcX, srcY, srcW, srcH);
+        }
+    }
+    return (state && !state->checkGLErrors("TextureCopier"));
+}

@@ -506,7 +506,8 @@ public:
     {
         // Cameras that need calculate near/far globally should do the calculation here
         // Note that cullWithNearFarCalculation() will only compute whole near/far once per frame
-        bool calcNearFar = false; getCamera()->getUserValue("NeedNearFarCalculation", calcNearFar);
+        bool calcNearFar = false; osg::Camera* camera = getCamera();
+        camera->getUserValue("NeedNearFarCalculation", calcNearFar);
         if (calcNearFar && _callback.valid()) _callback->cullWithNearFarCalculation(this);
 
         // TODO!! add software-rasterizer for occlusion culling here
@@ -526,7 +527,8 @@ public:
             // Blit for DEPTH_BUFFER & PACKED_DEPTH_STENCIL_BUFFER
             if (fbo->hasAttachment(osg::Camera::DEPTH_BUFFER) ||
                 fbo->hasAttachment(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER))
-                _callback->registerDepthFBO(getCamera(), fbo);
+                _callback->registerDepthFBO(camera, fbo);
+            _callback->addToFboQueryMap(camera, fbo);
         }
 
 #if false

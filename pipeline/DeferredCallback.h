@@ -30,6 +30,11 @@ namespace osgVerse
         void registerDepthFBO(osg::Camera* cam, osg::FrameBufferObject* fbo) { _depthFboMap[cam] = fbo; }
         void requireDepthBlit(osg::Camera* cam, bool addToList);
 
+        typedef std::unordered_map<osg::FrameBufferObject*, osg::observer_ptr<osg::Camera>> FboQueryMap;
+        void addToFboQueryMap(osg::Camera* cam, osg::FrameBufferObject* fbo) { _fboQueryMap[fbo] = cam; }
+        FboQueryMap& getFboQueryMap() { return _fboQueryMap; }
+        const FboQueryMap& getFboQueryMap() const { return _fboQueryMap; }
+
         void applyAndUpdateCameraUniforms(osgUtil::SceneView* sv);
         osg::Vec2d cullWithNearFarCalculation(osgUtil::SceneView* sv);
         osg::Vec2d getCalculatedNearFar() const { return _calculatedNearFar; }
@@ -87,6 +92,8 @@ namespace osgVerse
         typedef std::pair<std::string, std::vector<osg::Matrixf>> MatrixListPair;
         std::map<osg::Camera*, MatrixListPair> _cameraMatrixMap;
         std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> _depthFboMap;
+        FboQueryMap _fboQueryMap;
+
         std::set<osg::observer_ptr<osg::Camera>> _depthBlitList;
         std::vector<osg::ref_ptr<RttRunner>> _runners;
         osg::ref_ptr<osg::CullSettings::ClampProjectionMatrixCallback> _userClamperCallback;
@@ -97,6 +104,7 @@ namespace osgVerse
         double _clearDepth, _clearStencil;
         unsigned int _cullFrameNumber, _forwardMask;
         bool _inPipeline, _drawBufferApplyMask, _readBufferApplyMask;
+        mutable bool _firstFrame;
     };
 }
 
