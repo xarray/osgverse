@@ -2,6 +2,7 @@
 #define MANA_PP_DEFERRED_CALLBACK_HPP
 
 #include <osg/TextureCubeMap>
+#include <unordered_map>
 #include "Utilities.h"
 
 namespace osgVerse

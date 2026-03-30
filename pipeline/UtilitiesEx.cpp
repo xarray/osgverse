@@ -821,6 +821,12 @@ SSIM::Result SSIM::compute(const osg::Image& img0, const osg::Image& img1, float
 }
 
 /************** TextureCopier **************/
+TextureCopier* TextureCopier::instance()
+{
+    static osg::ref_ptr<TextureCopier> s_instance = new TextureCopier;
+    return s_instance.get();
+}
+
 bool TextureCopier::operator()(osg::Texture2D& srcT, osg::FrameBufferObject* srcFBO, osg::Texture2D& dstT, osg::State* state) const
 {
     if (srcT.getImage() && srcT.getImage()->valid())

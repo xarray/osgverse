@@ -471,6 +471,11 @@ SET(SHAPELIB_SOURCE_FILES
     shapelib/shapefil_private.h shapelib/shapelib.def
 )
 
+SET(SMPLXPP_SOURCE_FILES
+    smplxpp/body.cpp smplxpp/model.cpp smplxpp/sequence.cpp smplxpp/util.cpp
+    smplxpp/cnpy.cpp smplxpp/smplx/defs.hpp smplxpp/smplx/smplx.hpp
+)
+
 SET(BYTETRACK_SOURCE_FILES
     ByteTrack/BYTETracker.cpp ByteTrack/BYTETracker.h ByteTrack/STrack.cpp ByteTrack/STrack.h
     ByteTrack/KalmanFilter.cpp ByteTrack/KalmanFilter.h ByteTrack/Rect.cpp ByteTrack/Rect.h
@@ -496,6 +501,16 @@ SET(QUADRIFLOW_SOURCE_FILES
     quadriflow/manifold/Parser.h quadriflow/manifold/Parser.cc
 )
 
+SET(INTERACTIVEMESHBOOL_SOURCE_FILES
+    InteractiveMeshBool/aux_structure.cpp InteractiveMeshBool/aux_structure.h
+    InteractiveMeshBool/fast_trimesh.cpp InteractiveMeshBool/fast_trimesh.h
+    InteractiveMeshBool/intersection_classification.cpp InteractiveMeshBool/intersection_classification.h
+    InteractiveMeshBool/processing.cpp InteractiveMeshBool/processing.h
+    InteractiveMeshBool/solve_intersections.cpp InteractiveMeshBool/solve_intersections.h
+    InteractiveMeshBool/triangle_soup.cpp InteractiveMeshBool/triangle_soup.h
+    InteractiveMeshBool/triangulation.cpp InteractiveMeshBool/triangulation.h
+)
+
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("ByteTrack Files" FILES ${BYTETRACK_SOURCE_FILES})
@@ -503,6 +518,7 @@ SOURCE_GROUP("DiscreGrid Files" FILES ${DISCREGRID_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
 SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
+SOURCE_GROUP("InteractiveMeshBoolean Files" FILES ${INTERACTIVEMESHBOOL_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
 SOURCE_GROUP("LasZIP Files" FILES ${LASZIP_SOURCE_FILES})
 SOURCE_GROUP("LevelDB Files" FILES ${LEVELDB_SOURCE_FILES})
@@ -522,6 +538,7 @@ SOURCE_GROUP("Rasterizer Files" FILES ${RASTERIZER_SOURCE_FILES})
 SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
 SOURCE_GROUP("RLottie Files" FILES ${RLOTTIE_SOURCE_FILES})
 SOURCE_GROUP("Shapelib Files" FILES ${SHAPELIB_SOURCE_FILES})
+SOURCE_GROUP("SMPLX++ Files" FILES ${SMPLXPP_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SOURCE_GROUP("Tweeny Files" FILES ${TWEENY_SOURCE_FILES})
 #######################
@@ -530,19 +547,19 @@ SET(LIB_NAME osgVerseDependency)
 SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp VHACD.h
     backward.hpp strtk.hpp ghc/filesystem.hpp rapidxml/rapidxml.hpp rapidjson/rapidjson.h parallel_radix_sort.h
-    nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h miniaudio.h
+    nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h heatmap.c heatmap.h
     sqlite3.c sqlite3.h ofbx.cpp ofbx.h libdeflate.c libdeflate.h tinyexr.h dkm_parallel.hpp lsqcpp.hpp
-    mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp lightmapper.h
+    mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp lightmapper.h miniaudio.h
 	xatlas.cpp xatlas.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp mapbox/geojson.cpp
     GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp timeout.c timeout.h pmtiles.hpp
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp pybind11/pybind11.h
-    bc7_rdo/rgbcx.h bc7_rdo/rgbcx.cpp ${APPROXMVBB_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${DISCREGRID_SOURCE_FILES}
-    ${FILTER_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${KTX_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
-    ${LEVELDB_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${MARL_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES}
-    ${MESHOPTIMIZER_SOURCE_FILES} ${METIS_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${OZZ_SOURCE_FILES}
-    ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES}
-    ${SHAPELIB_SOURCE_FILES} ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${TWEENY_SOURCE_FILES} 
+    parallel_hashmap/phmap.h bc7_rdo/rgbcx.h bc7_rdo/rgbcx.cpp ${APPROXMVBB_SOURCE_FILES} ${BLEND2D_SOURCE_FILES}
+    ${DISCREGRID_SOURCE_FILES} ${FILTER_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${KTX_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
+    ${LEVELDB_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${MARL_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES}
+    ${METIS_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES}
+    ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES} ${SHAPELIB_SOURCE_FILES} ${SMPLXPP_SOURCE_FILES} ${SPZ_SOURCE_FILES}
+    ${TINYSPLINE_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
 )
 
 IF(VERSE_SUPPORT_CPP17)
@@ -553,6 +570,11 @@ IF(LIBIGL_FOUND)
     SET(LIBRARY_FILES ${LIBRARY_FILES} ${QUADRIFLOW_SOURCE_FILES})
     INCLUDE_DIRECTORIES(${LIBIGL_INCLUDE_DIR})
 ENDIF(LIBIGL_FOUND)
+
+IF(CINOLIB_FOUND)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ${INTERACTIVEMESHBOOL_SOURCE_FILES})
+    INCLUDE_DIRECTORIES(${CINOLIB_INCLUDE_DIR})
+ENDIF(CINOLIB_FOUND)
 
 ### Check for GaInput dependency
 SET(GAINPUT_ENABLED TRUE)
@@ -663,7 +685,7 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector nanobind
+                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector nanobind smplxpp
                     Discregrid "${CMAKE_BINARY_DIR}/3rdparty/leveldb" ${THIRDPARTY_INCLUDE_DIRS})
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} ${THIRDPARTY_LIBRARIES})

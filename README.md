@@ -68,13 +68,14 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
   - 5.6 OpenVDB 10.0 or later, for VDB point cloud and 3D image reader/writer plugin. (https://github.com/AcademySoftwareFoundation/openvdb)
   - 5.7 libDraco 1.5 or later, for Draco mesh compression support in osgVerseReaderWriter library. (https://github.com/google/draco)
   - 5.8 libIGL 2.5 or later, for Quadriflow, ManifoldPlus and other functionalities in osgModeling library. (https://github.com/libigl/libigl)
-  - 5.9 Vulkan 1.3 or later, for Vulkan extensions based on Google Angle's cross-Graphics API. (https://vulkan.lunarg.com/sdk/home)
-  - 5.10 Effekseer 1.70 or later, for particle support in osgVerseAnimation module and related examples. Remember to check the USE_MSVC_RUNTIME_LIBRARY_DLL option while compiling. (https://github.com/effekseer/Effekseer)
-  - 5.11 libCEF 127.3 or later, for HTML5/CSS page rendering support in osgVerseAnimation module and related examples. (Binaries download: https://cef-builds.spotifycdn.com/index.html)
-  - 5.12 mimalloc 2.17 or later, for general purpose memory allocator with excellent performance. (https://github.com/microsoft/mimalloc)
-  - 5.13 NVIDIA Video Codec SDK 12 or later, for video decoding/encoding based on codec_nv plugin. (https://developer.nvidia.com/video-codec-sdk)
-  - 5.14 The netCDF-C 4.9.3 or later, for NetCDF/HDF data reading plugin. (https://github.com/Unidata/netcdf-c)
-  - 5.15 FFmpeg 6.0 or later, for video parsing and CPU based decoding/encoding. (https://github.com/FFmpeg/FFmpeg)
+  - 5.9 cinolib 1.0 or later, for Mesh Boolean and other functionalities in osgModeling library. (https://github.com/mlivesu/cinolib)
+  - 5.10 Vulkan 1.3 or later, for Vulkan extensions based on Google Angle's cross-Graphics API. (https://vulkan.lunarg.com/sdk/home)
+  - 5.11 Effekseer 1.70 or later, for particle support in osgVerseAnimation module and related examples. Remember to check the USE_MSVC_RUNTIME_LIBRARY_DLL option while compiling. (https://github.com/effekseer/Effekseer)
+  - 5.12 libCEF 127.3 or later, for HTML5/CSS page rendering support in osgVerseAnimation module and related examples. (Binaries download: https://cef-builds.spotifycdn.com/index.html)
+  - 5.13 mimalloc 2.17 or later, for general purpose memory allocator with excellent performance. (https://github.com/microsoft/mimalloc)
+  - 5.14 NVIDIA Video Codec SDK 12 or later, for video decoding/encoding based on codec_nv plugin. (https://developer.nvidia.com/video-codec-sdk)
+  - 5.15 The netCDF-C 4.9.3 or later, for NetCDF/HDF data reading plugin. (https://github.com/Unidata/netcdf-c)
+  - 5.16 FFmpeg 6.0 or later, for video parsing and CPU based decoding/encoding. (https://github.com/FFmpeg/FFmpeg)
 
 #### Supported Hardware
 To use osgVerse libraries and applications, OpenGL version must be higher than 2.0. Both core profile and compatible profile will work. Our project uses the GLSL functionality, and supports from GLSL 120 to the latest GLSL version.

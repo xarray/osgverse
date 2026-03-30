@@ -3,6 +3,7 @@
 |------------------|----------|-----------|--------------------|--------------|---------|
 | OpenSceneGraph   | Depended | > 3.1.1   | All                | LGPL (+)     | https://github.com/openscenegraph/OpenSceneGraph |
 | Bullet           | Depended | > 3.17    | Animation          | Zlib (+)     | https://github.com/bulletphysics/bullet3 |
+| cinolib          | Depended | >= 1.0    | Modeling           | MIT          | https://github.com/mlivesu/cinolib |
 | Effekseer        | Depended | > 1.70e   | Animation          | MIT          | https://github.com/effekseer/Effekseer |
 | FFmpeg           | Depended | > 6.0     | verse_ffmpeg       | LGPL         | https://github.com/FFmpeg/FFmpeg |
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | https://github.com/google/draco |
@@ -47,6 +48,7 @@
 | layout           | Embedded |           | -                  | -            | |
 | least-squares    | Embedded |           | Modeling           | MIT          | https://github.com/Rookfighter/least-squares-cpp |
 | leveldb          | Embedded |           | verse_db           | BSD3         | https://github.com/google/leveldb |
+| libheatmap       | Embedded | 20260330  | -                  | MIT          | https://github.com/lucasb-eyer/libheatmap |
 | libhv            | Embedded |           | verse_web          | BSD3         | https://github.com/ithewei/libhv |
 | lightmapper      | Embedded |           | -                  | -            | https://github.com/ands/lightmapper |
 | llama.cpp        | Embedded |           | AI                 | -            | https://github.com/ggerganov/llama.cpp |
@@ -64,6 +66,7 @@
 | OpenFBX          | Embedded |           | verse_fbx          | MIT          | https://github.com/nem0/OpenFBX |
 | otl              | Embedded | 4.0       | verse_odbc         | BSD          | http://otl.sourceforge.net |
 | ozz-animation    | Embedded | 0.16.0    | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
+| parallel_hashmap | Embedded | 20260330  | -                  | Apache2      | https://github.com/greg7mdp/parallel-hashmap |
 | picojson         | Embedded |           | -                  | BSD2         | https://github.com/kazuho/picojson |
 | pinyin           | Embedded |           | UI                 | -            | |
 | pmp-library      | Embedded |           | Modeling           | MIT          | https://github.com/pmp-library/pmp-library |
@@ -79,6 +82,7 @@
 | rLottie          | Embedded | 0.2       | -                  | MIT (+)      | https://github.com/Samsung/rlottie |
 | simdb            | Embedded |           | ReaderWriter       | Apache2      | https://github.com/LiveAsynchronousVisualizedArchitecture/simdb |
 | shapelib         | Embedded | 1.6.2     | verse_shp          | MIT          | https://github.com/OSGeo/shapelib |
+| smplxpp          | Embedded | 20260330  | AI                 | Apache2      | https://github.com/sxyu/smplxpp |
 | span             | Embedded |           | -                  | Boost        | https://github.com/tcbrindle/span |
 | spz              | Embedded |           | verse_3dgs         | MIT          | https://github.com/nianticlabs/spz |
 | sqlite3          | Embedded |           | verse_mbtiles      | Public       | https://www.sqlite.org/index.html |
@@ -90,8 +94,8 @@
 | tiny_gltf_loader | Embedded |           | verse_gltf         | MIT          | https://github.com/syoyo/tinygltfloader |
 | tiny_obj_loader  | Embedded |           | -                  | MIT          | https://github.com/tinyobjloader/tinyobjloader |
 | tinyexr          | Embedded |           | -                  | BSD          | https://github.com/syoyo/tinyexr |
-| tinyfiledialogs  | Embedded | 3.18.2    | -                  | Zlib         | https://sourceforge.net/projects/tinyfiledialogs |
-| tinyspline       | Embedded |           | -                  | MIT          | https://github.com/msteinbeck/tinyspline |
+| tinyfiledialogs  | Embedded | 3.18.2    | UI                 | Zlib         | https://sourceforge.net/projects/tinyfiledialogs |
+| tinyspline       | Embedded |           | Modeling           | MIT          | https://github.com/msteinbeck/tinyspline |
 | tweeny           | Embedded |           | Animation          | MIT          | https://github.com/mobius3/tweeny |
 | VHACD            | Embedded | 4.1       | Modeling           | BSD3         | https://github.com/kmammou/v-hacd |
 | vtzero           | Embedded | 1.1.0     | verse_mvt          | BSD2         |_https://github.com/mapbox/vtzero |
@@ -103,11 +107,12 @@
 |------------------|--------------|
 | OpenSceneGraph   | Cloned and compiled by Setup.sh/Setup.bat |
 | Bullet           | (Linux) apt-get install libbullet-dev |
+| cinolib          | Headers only. Download from https://github.com/mlivesu/cinolib/tags |
 | Effekseer        | Manually Compile from source |
 | FFmpeg           | (Linux) apt-get install libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev libswscale-dev |
 | libDraco         | (Linux) apt-get install libdraco-dev |
 | libCEF           | Download from https://cef-builds.spotifycdn.com/index.html |
-| libIGL           | Download from https://github.com/libigl/libigl/releases |
+| libIGL           | Headers only. Download from https://github.com/libigl/libigl/releases |
 | libosmium        | (Linux) apt-get install libosmium2-dev |
 | libwebp          | (Linux) apt-get install libwebp-dev
 | mimalloc         | (Linux) apt-get install libmimalloc-dev |

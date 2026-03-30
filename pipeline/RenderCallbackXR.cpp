@@ -16,6 +16,7 @@
 #   define XR_DISABLED 1
 #elif defined(__unix__) || defined(__linux__)
 # if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#   include <EGL/egl.h>
 #   define XR_USE_PLATFORM_EGL 1
 //  XrGraphicsBindingEGLMNDX
 # else
@@ -28,6 +29,7 @@
 # endif
 #elif defined(WIN32) || defined(_WIN32)
 # if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+#   include <EGL/egl.h>
 #   define XR_USE_PLATFORM_EGL 1
 //  XrGraphicsBindingEGLMNDX
 # else
