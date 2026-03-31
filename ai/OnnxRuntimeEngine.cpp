@@ -115,7 +115,7 @@ namespace
         Ort::Value createInput(const std::vector<std::vector<T>>& values,
                                ONNXTensorElementDataType type, const std::string& checkInName)
         {
-            Ort::Value tensor; if (values.empty()) return tensor;
+            Ort::Value tensor(nullptr); if (values.empty()) return tensor;
             std::vector<int64_t> shapes = { (int64_t)values.size(), (int64_t)values[0].size() };
             OnnxInferencer::DataLayout outLayout = OnnxInferencer::Default;
             if (checkValidation(checkInName, shapes, outLayout, type, true))
@@ -135,7 +135,7 @@ namespace
         Ort::Value createInput(const std::vector<osg::Image*>& images, const std::string& checkInName)
         {
             // FIXME: use Ort::IoBinding to improve tensor data copying
-            Ort::Value tensor; osg::Image* firstImage = NULL;
+            Ort::Value tensor(nullptr); osg::Image* firstImage = NULL;
             OnnxInferencer::DataLayout outLayout = OnnxInferencer::ImageNCHW;
             if (images.empty()) return tensor; else firstImage = images.front();
 

@@ -273,7 +273,7 @@ inline void parallel_foreach(const std::vector<T>& values, Func&& func) {
 template <typename T, typename Func>
 inline bool parallel_foreach(std::vector<T>& values, std::string& error, Func&& func) {
   return parallel_for(
-      values.size(), error, [&func, &values](size_t idx, string& error) {
+      values.size(), error, [&func, &values](size_t idx, std::string& error) {
         return func(values[idx], error);
       });
 }
@@ -281,7 +281,7 @@ template <typename T, typename Func>
 inline bool parallel_foreach(
     const std::vector<T>& values, std::string& error, Func&& func) {
   return parallel_for(
-      values.size(), error, [&func, &values](size_t idx, string& error) {
+      values.size(), error, [&func, &values](size_t idx, std::string& error) {
         return func(values[idx], error);
       });
 }

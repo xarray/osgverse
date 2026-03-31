@@ -1152,11 +1152,11 @@ namespace osgVerse
 
         osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(out_V.rows());
         for (int i = 0; i < out_V.rows(); ++i)
-        { auto& v = out_V.row(i); (*va)[i] = osg::Vec3(v[0], v[1], v[2]); }
+        { const auto& v = out_V.row(i); (*va)[i] = osg::Vec3(v[0], v[1], v[2]); }
 
         osg::ref_ptr<osg::DrawElementsUInt> de = new osg::DrawElementsUInt(GL_TRIANGLES);
         for (int i = 0; i < out_F.rows(); ++i)
-        { auto& f = out_F.row(i); de->push_back(f[0]); de->push_back(f[1]); de->push_back(f[2]); }
+        { const auto& f = out_F.row(i); de->push_back(f[0]); de->push_back(f[1]); de->push_back(f[2]); }
 
         return createGeometry(va.get(), NULL, NULL, de.get());
 #else

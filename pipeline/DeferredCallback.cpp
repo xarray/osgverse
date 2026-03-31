@@ -18,7 +18,7 @@ namespace
     typedef void (GL_APIENTRY* BlitNamedFramebufferProc) (GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0,
                                                           GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
                                                           GLbitfield mask, GLenum filter);
-    BlitNamedFramebufferProc glBlitNamedFramebuffer = NULL;
+    BlitNamedFramebufferProc glBlitNamedFramebufferFunc = NULL;
 }
 
 namespace osgVerse
@@ -119,7 +119,7 @@ namespace osgVerse
         osg::State* state = renderInfo.getState();
         if (_firstFrame)
         {
-            osg::setGLExtensionFuncPtr(glBlitNamedFramebuffer, "glBlitNamedFramebuffer", "glBlitNamedFramebufferEXT");
+            osg::setGLExtensionFuncPtr(glBlitNamedFramebufferFunc, "glBlitNamedFramebuffer", "glBlitNamedFramebufferEXT");
             _firstFrame = false;
         }
 
@@ -209,7 +209,7 @@ namespace osgVerse
 
             GLuint fboId = state->getGraphicsContext() ? state->getGraphicsContext()->getDefaultFboId() : 0;
             typedef std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> CamFboMap;
-            if (glBlitNamedFramebuffer != NULL)
+            if (glBlitNamedFramebufferFunc != NULL)
             {
                 // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
                 for (std::set<osg::observer_ptr<osg::Camera>>::iterator itr = _depthBlitList.begin();
@@ -221,8 +221,8 @@ namespace osgVerse
 
                     osg::FrameBufferObject* fbo = fboItr->second.get();
                     GLuint readId = fbo ?  fbo->getHandle(renderInfo.getContextID()) : fboId;
-                    glBlitNamedFramebuffer(readId, fboId, 0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
-                                           GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+                    glBlitNamedFramebufferFunc(readId, fboId, 0, 0, sWidth, sHeight, 0, 0, tWidth, tHeight,
+                                               GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
                 }
             }
             else

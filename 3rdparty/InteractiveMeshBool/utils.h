@@ -47,7 +47,7 @@
 #include <algorithm>
 
 //#include <absl/container/flat_hash_map.h>
-
+#include <condition_variable>
 #include <thread>
 #include <mutex>
 #include <functional>
@@ -155,7 +155,8 @@ inline size_t remove_duplicates(std::array<T, N>& values) {
 
 template<typename T>
 inline void parallel_remove_duplicates(std::vector<T>& values) {
-  tbb::parallel_sort(values.begin(), values.end());
+  //tbb::parallel_sort(values.begin(), values.end());
+  std::sort(values.begin(), values.end());
   values.erase(std::unique(values.begin(), values.end()), values.end());
 }
 
@@ -178,7 +179,8 @@ inline T my_unique(std::vector<T>& data) {
 
 template<typename T>
 inline void fast_remove_duplicates(std::vector<T>& values) {
-  tbb::parallel_sort(values.begin(), values.end());
+  //tbb::parallel_sort(values.begin(), values.end());
+  std::sort(values.begin(), values.end());
   values.erase(my_unique(values), values.end());
 }
 
