@@ -1,13 +1,13 @@
 #include <SDL.h>
 #include "wasm_viewer.h"
+#include <emscripten.h>
+#include <osg/LineWidth>
+#include <osg/BlendFunc>
 #include <osgGA/GUIEventHandler>
 #include <osgUtil/IntersectionVisitor>
 #include <osgUtil/LineSegmentIntersector>
 #include <modeling/GeometryMerger.h>
 #include <pipeline/IntersectionManager.h>
-#include <emscripten.h>
-#include <osg/LineWidth>
-#include <osg/BlendFunc>
 #include <pipeline/UserInputModule.h>
 
 #define TEST_PIPELINE 1
@@ -18,108 +18,75 @@ USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 osg::ref_ptr<Application> g_app = new Application;
 void loop() { g_app->frame(); }
 
-// 全局变量，用于存储包围盒节点、高亮模型节点和场景根节点
-osg::ref_ptr<osg::Node> g_highlightNode = nullptr;
-osg::ref_ptr<osg::Group> g_highLightRoot = nullptr;
-
-// 辅助函数：沿法线膨胀顶点 
-void inflateGeometry(osg::Geometry* geom, float inflationFactor) {
-    osg::Vec3Array* vertices = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
-    osg::Vec3Array* normals = dynamic_cast<osg::Vec3Array*>(geom->getNormalArray());
-
-    if (!vertices || !normals) return;
-
-    // 确保法线绑定方式支持逐顶点操作 
-    if (geom->getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) {
-        // 如果法线不是逐顶点的，可能需要先计算逐顶点法线，这里简化处理假设已有 
-        return;
-    }
-
-    for (size_t i = 0; i < vertices->size(); ++i) {
-        // 新位置 = 原位置 + 法线 * 膨胀系数 
-        (*vertices)[i] += (*normals)[i] * inflationFactor;
-    }
-
-    vertices->dirty(); // 标记顶点数据已修改，需要重新上传GPU 
-}
-
-// 创建半透明高亮模型的函数（使用膨胀法）
-osg::Node* createTransparentHighlightModel(osg::Drawable* drawable, osg::Matrix mat)
+namespace
 {
+    // Initial implemented by @Water_Peach at gitee.com
+    osg::ref_ptr<osg::Node> g_highlightNode = nullptr;
+    osg::ref_ptr<osg::Group> g_highLightRoot = nullptr;
+
+    void inflateGeometry(osg::Geometry* geom, float inflationFactor)
+    {
+        osg::Vec3Array* vertices = dynamic_cast<osg::Vec3Array*>(geom->getVertexArray());
+        osg::Vec3Array* normals = dynamic_cast<osg::Vec3Array*>(geom->getNormalArray());
+        if (!vertices || !normals) return;
+        if (geom->getNormalBinding() != osg::Geometry::BIND_PER_VERTEX) return;
+
+        for (size_t i = 0; i < vertices->size(); ++i)
+            (*vertices)[i] += (*normals)[i] * inflationFactor;
+        vertices->dirty();
+    }
+
+    // Create highlighted model for show
+    osg::Node* createTransparentHighlightModel(osg::Drawable* drawable, osg::Matrix mat)
+    {
         if (!drawable) return nullptr;
+        osg::ref_ptr<osg::Drawable> clonedDrawable =
+            dynamic_cast<osg::Drawable*>(drawable->clone(osg::CopyOp::DEEP_COPY_ALL));
 
-    // 1. 深拷贝 Drawable 
-    osg::ref_ptr<osg::Drawable> clonedDrawable = dynamic_cast<osg::Drawable*>(drawable->clone(osg::CopyOp::DEEP_COPY_ALL));
-    if (!clonedDrawable) return nullptr;
+        osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(clonedDrawable.get());
+        if (!geometry) return nullptr;
+        else inflateGeometry(geometry, 0.005f);
 
-    osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(clonedDrawable.get());
-    if (!geometry) {
-        // 如果不是Geometry (如ShapeDrawable)，可能需要先转换或返回错误 
-        return nullptr;
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        geode->addDrawable(clonedDrawable);
+
+        // Set a suitable transparent stateset
+        osg::StateSet* stateSet = geode->getOrCreateStateSet();
+        stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
+        stateSet->setAttributeAndModes(
+            new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+        stateSet->setMode(GL_DEPTH_WRITEMASK, osg::StateAttribute::OFF);
+        stateSet->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+        stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        stateSet->setRenderBinDetails(10, "TransparentBin");
+
+        osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+        colors->push_back(osg::Vec4(0.0f, 1.0f, 1.0f, 0.5f));
+        geometry->setColorArray(colors, osg::Array::BIND_OVERALL);
+        geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
+
+        osg::ref_ptr<osg::MatrixTransform> transform = new osg::MatrixTransform;
+        transform->setMatrix(mat);
+        transform->addChild(geode);
+
+        // Add transparent nodes to custom input pass
+        osgVerse::Pipeline::setPipelineMask(*transform, CUSTOM_INPUT_MASK);
+        return transform.release();
     }
 
-    // 2. 关键步骤：膨胀几何体 
-    // 注意：inflation 需要根据你的场景单位大小调整。太小看不出效果，太大轮廓会脱离模型。 
-    inflateGeometry(geometry, 0.005f); // 减小膨胀系数，适合WebGL环境
-
-    // 3. 创建 Geode 
-    osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-    geode->addDrawable(clonedDrawable);
-
-    osg::StateSet* stateSet = geode->getOrCreateStateSet();
-
-    // 4. 设置半透明渲染状态 
-    // A. 启用混合模式并明确设置混合函数
-    stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-    stateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
-
-    // B. 关闭深度写入，避免半透明物体遮挡其他物体 
-    stateSet->setMode(GL_DEPTH_WRITEMASK, osg::StateAttribute::OFF);
-
-    // C. 保持深度测试开启，确保半透明物体正确排序
-    stateSet->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
-
-    // D. 关闭光照，设置半透明浅蓝色 
-    stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-
-    osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
-    colors->push_back(osg::Vec4(0.0f, 1.0f, 1.0f, 0.5f)); // 半透明浅蓝色 
-    geometry->setColorArray(colors, osg::Array::BIND_OVERALL);
-    geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
-
-    // E. 使用透明渲染桶，确保正确的渲染顺序
-    stateSet->setRenderBinDetails(10, "TransparentBin");
-
-    osg::ref_ptr<osg::MatrixTransform> transform = new osg::MatrixTransform;
-    transform->setMatrix(mat);
-    transform->addChild(geode);
-
-    // 设置渲染掩码，确保高亮模型正确显示
-    osgVerse::Pipeline::setPipelineMask(*transform, CUSTOM_INPUT_MASK);
-
-    return transform.release();
-}
-
-// 更新高亮模型显示的函数
-void updateHighlightDisplay(osg::Drawable* drawable, osg::Matrix mat)
-{
-    if (!g_highLightRoot) return;
-
-    // 移除旧的高亮模型
-    // if (g_highlightNode)
+    // Update highlighted model
+    void updateHighlightDisplay(osg::Drawable* drawable, osg::Matrix mat)
     {
-        g_highLightRoot->removeChild(0, g_highLightRoot->getNumChildren());
-        g_highlightNode = nullptr;
-    }
-
-    if (drawable)
-    {
-        // 创建新的高亮模型
-        g_highlightNode = createTransparentHighlightModel(drawable, mat);
-        // 添加到场景中
-        if (g_highlightNode)
+        if (!g_highLightRoot) return;
         {
-            g_highLightRoot->addChild(g_highlightNode.get());
+            g_highLightRoot->removeChild(0, g_highLightRoot->getNumChildren());
+            g_highlightNode = nullptr;
+        }
+
+        if (drawable)
+        {
+            g_highlightNode = createTransparentHighlightModel(drawable, mat);
+            if (g_highlightNode) g_highLightRoot->addChild(g_highlightNode.get());
         }
     }
 }
@@ -138,68 +105,55 @@ protected:
     }
 };
 
-
-// 鼠标点击事件处理器
 class MouseClickHandler : public osgGA::GUIEventHandler
 {
 public:
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
     {
+        // Initial implemented by @Water_Peach at gitee.com
         if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE &&
-                (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL))
+            (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL))
         {
-            // 获取点击位置
-            float x = ea.getX();
-            float y = ea.getY();
-            
-            // 获取viewer
+            float x = ea.getX(), y = ea.getY();
             osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
             if (view)
             {
-                // 执行射线求交
+                // Ray intersection from mouse position
                 osgVerse::IntersectionResult result = osgVerse::findNearestIntersection(
                     view->getCamera(), ea.getXnormalized(), ea.getYnormalized());
                 if (!result.drawable) return false;
-                
+
                 if (result.drawable)
                 {
-                // 调用JavaScript函数处理点击事件，传递点击位置和是否点击到geometry
-                    std::string geoName = result.drawable->getName();
+                    // Get intersection result
                     auto center = result.drawable->getBoundingBox().center();
-                    x = center.x();
-                    y = center.y();
-
-                    // 更新高亮模型显示
+                    x = center.x(); y = center.y();
                     updateHighlightDisplay(result.drawable.get(), result.matrix);
 
                     float z = center.z();
+                    std::string geoName = result.drawable->getName();
                     EM_ASM(
                         if (typeof handleMouseClick === 'function') {
                             handleMouseClick($0, $1, $2, UTF8ToString($3));
-                        } 
-                        else 
-                        {
+                        }
+                        else {
                             console.log('handleMouseClick function not found');
                         }
-                    , x, y, z, geoName.c_str());
-
+                    , x, y, z, geoName.c_str());  // sent to JavaScript side
                 }
                 else
                 {
-                    // 点击到了背景，移除包围盒和高亮模型
                     g_highLightRoot->removeChild(0, g_highLightRoot->getNumChildren());
-                    EM_ASM(
-                            console.log('donnot clicke on geometry');
-
-                    );
+                    /*EM_ASM(
+                        console.log('no clicked result');
+                    );*/
                 }
             }
-            
-            // return true; // 事件已处理
         }
-        return false; // 事件未处理
+        return false;
     }
 };
+
 // Server structure
 /* - <assets>: User resource folder copied from master/assets
    - osgVerse_ViewerWASM.data: preload data (only shaders)
@@ -224,7 +178,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
-    
+
     // 设置全局场景根节点
     osg::ref_ptr<osg::Group> highLightRoot = new osg::Group;
     root->addChild(highLightRoot.get());
