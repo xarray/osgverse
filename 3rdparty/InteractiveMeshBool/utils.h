@@ -43,103 +43,12 @@
 
 #include <vector>
 #include <deque>
-#include <queue>
 #include <algorithm>
 
 //#include <absl/container/flat_hash_map.h>
-#include <condition_variable>
-#include <thread>
-#include <mutex>
+#include "fake_tbb.h"
 #include <functional>
 #include <cstddef>
-
-namespace
-{
-    class ThreadPool
-    {
-    public:
-        explicit ThreadPool(size_t num_threads) : stop_(false)
-        {
-            for (size_t i = 0; i < num_threads; ++i)
-            {
-                workers_.emplace_back([this]() {
-                    while (true)
-                    {
-                        std::function<void()> task;
-                        {
-                            std::unique_lock<std::mutex> lock(mutex_);
-                            cv_.wait(lock, [this]() { return stop_ || !tasks_.empty(); });
-                            if (stop_ && tasks_.empty()) return;
-                            task = std::move(tasks_.front());
-                            tasks_.pop();
-                        }
-                        task();
-                    }
-                });
-            }
-        }
-
-        ~ThreadPool()
-        {
-            {
-                std::unique_lock<std::mutex> lock(mutex_);
-                stop_ = true;
-            }
-            cv_.notify_all();
-            for (auto& t : workers_) t.join();
-        }
-
-        void enqueue(std::function<void()> task)
-        {
-            {
-                std::unique_lock<std::mutex> lock(mutex_);
-                tasks_.push(std::move(task));
-            }
-            cv_.notify_one();
-        }
-
-        size_t size() const { return workers_.size(); }
-
-    private:
-        std::vector<std::thread> workers_;
-        std::queue<std::function<void()>> tasks_;
-        std::mutex mutex_;
-        std::condition_variable cv_;
-        bool stop_;
-    };
-
-    template<typename Index, typename Func>
-    void parallel_for(Index first, Index last, Func func, size_t num_threads = 0)
-    {
-        if (first >= last) return;
-        if (num_threads == 0) num_threads = std::thread::hardware_concurrency();
-        const size_t n = static_cast<size_t>(last - first);
-        const size_t chunk_size = (n + num_threads - 1) / num_threads;
-
-        ThreadPool pool(num_threads);
-        std::atomic<size_t> completed{ 0 };
-        std::mutex mutex;
-        std::condition_variable cv;
-        for (size_t t = 0; t < num_threads; ++t)
-        {
-            Index chunk_begin = first + static_cast<Index>(t * chunk_size);
-            Index chunk_end = std::min(chunk_begin + static_cast<Index>(chunk_size), last);
-            if (chunk_begin >= chunk_end) break;
-
-            pool.enqueue([=, &completed, &mutex, &cv]() {
-                for (Index i = chunk_begin; i < chunk_end; ++i) func(i);
-                if (++completed == num_threads)
-                {
-                    std::lock_guard<std::mutex> lock(mutex);
-                    cv.notify_one();
-                }
-            });
-        }
-
-        std::unique_lock<std::mutex> lock(mutex);
-        cv.wait(lock, [&]() { return completed == num_threads; });
-    }
-}
 
 template<typename T>
 inline void remove_duplicates(std::vector<T>& values) {

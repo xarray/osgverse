@@ -509,6 +509,8 @@ SET(INTERACTIVEMESHBOOL_SOURCE_FILES
     InteractiveMeshBool/solve_intersections.cpp InteractiveMeshBool/solve_intersections.h
     InteractiveMeshBool/triangle_soup.cpp InteractiveMeshBool/triangle_soup.h
     InteractiveMeshBool/triangulation.cpp InteractiveMeshBool/triangulation.h
+    InteractiveMeshBool/booleans.cpp InteractiveMeshBool/booleans.h
+    InteractiveMeshBool/foctree.cpp InteractiveMeshBool/foctree.h
 )
 
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})

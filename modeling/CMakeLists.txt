@@ -1,9 +1,9 @@
 SET(LIB_NAME osgVerseModeling)
 SET(LIBRARY_INCLUDE_FILES
-    MeshDeformer.h MeshTopology.h GeometryMerger.h GeometryMapper.h
+    MeshDeformer.h MeshTopology.h GeometryMerger.h GeometryMapper.h TextureMapping.h
     FFDModeler.h DynamicGeometry.h GaussianGeometry.h Math.h Octree.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    MeshDeformer.cpp MeshTopology.cpp FFDModeler.cpp Math.cpp
+    MeshDeformer.cpp MeshTopology.cpp FFDModeler.cpp Math.cpp TextureMapping.cpp
     GeometryMerger.cpp GeometryMapper.cpp DynamicGeometry.cpp
     GaussianGeometry.cpp Utilities.cpp UtilitiesEx.cpp
 )
