@@ -3,10 +3,11 @@
 #include <osg/GL>
 #include <iostream>
 
-#include <cuda.h>
 #include <thrust/sort.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+
+#define ONLY_CUDA_DEFINITIONS
 #include "../Utilities.h"
 using namespace osgVerse;
 

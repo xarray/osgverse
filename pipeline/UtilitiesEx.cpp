@@ -841,8 +841,12 @@ bool TextureCopier::operator()(osg::Texture2D& srcTexture, osg::FrameBufferObjec
     unsigned int srcFboID = 0, contextID = state ? state->getContextID() : 0;
     osg::Texture::TextureObject* srcObj = srcTexture.getTextureObject(contextID);
     osg::Texture::TextureObject* dstObj = dstTexture.getTextureObject(contextID);
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
     srcFboID = srcFBO ? srcFBO->getHandle(contextID) : 0; if (!srcObj || !dstObj) return false;
     return (*this)(srcObj->id(), srcFboID, srcX, srcY, srcW, srcH, dstObj->id(), dstX, dstY, state);
+#else
+    OSG_NOTICE << "[TextureCopier] Not implemented\n"; return false;
+#endif
 }
 
 bool TextureCopier::operator()(unsigned int srcTexture, unsigned int srcFBO, int srcX, int srcY, int srcW, int srcH,
@@ -855,7 +859,7 @@ bool TextureCopier::operator()(unsigned int srcTexture, unsigned int srcFBO, int
     {
         CopyImageSubDataProc glCopyImageSubData = NULL;
         osg::setGLExtensionFuncPtr(
-            glCopyImageSubData, "glCopyImageSubData", "glCopyImageSubDataEXT", "glCopyImageSubDataNV", true);
+            glCopyImageSubData, "glCopyImageSubData", "glCopyImageSubDataEXT", "glCopyImageSubDataNV");
         _glCopyImageSubDataPtr = (void*)glCopyImageSubData; _initialized = true;
     }
 
@@ -871,7 +875,7 @@ bool TextureCopier::operator()(unsigned int srcTexture, unsigned int srcFBO, int
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
         if (!ext->isFrameBufferObjectSupported)
 #else
-        osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
+        osg::FBOExtensions* ext = osg::FBOExtensions::instance(state->getContextID(), true);
         if (!ext->isSupported())
 #endif
         {

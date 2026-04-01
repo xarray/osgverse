@@ -1,6 +1,7 @@
 #ifndef MANA_PP_UTILITIES_HPP
 #define MANA_PP_UTILITIES_HPP
 
+#ifndef ONLY_CUDA_DEFINITIONS
 #include <osg/Polytope>
 #include <osg/BufferObject>
 #include <osg/Geometry>
@@ -22,6 +23,9 @@
 
 struct SMikkTSpaceContext;
 struct lay_context;
+#endif
+
+#include <vector>
 #ifdef VERSE_ENABLE_MTT
 typedef struct MUctx_st* CUcontext;
 #else
@@ -30,6 +34,18 @@ typedef struct CUctx_st* CUcontext;
 
 namespace osgVerse
 {
+
+    /** CUDA/MUSA related algorithms */
+    struct CudaAlgorithm
+    {
+        static CUcontext initializeContext(int gpuID);
+        static void deinitializeContext(CUcontext context);
+
+        static bool radixSort(const std::vector<unsigned int>& inValues, const std::vector<unsigned int>& inIDs,
+                              std::vector<unsigned int>& outIDs);
+    };
+
+#ifndef ONLY_CUDA_DEFINITIONS
     class Pipeline;
 
     /** Get unique node-path like name (e.g. rootName/childA/subChildB/0) */
@@ -422,16 +438,6 @@ namespace osgVerse
         mutable bool _initialized;
     };
 
-    /** CUDA/MUSA related algorithms */
-    struct CudaAlgorithm
-    {
-        static CUcontext initializeContext(int gpuID);
-        static void deinitializeContext(CUcontext context);
-
-        static bool radixSort(const std::vector<unsigned int>& inValues, const std::vector<unsigned int>& inIDs,
-                              std::vector<unsigned int>& outIDs);
-    };
-
     /** Compute SSIM (structural similarity index measure) of two input image list */
     struct SSIM
     {
@@ -483,6 +489,8 @@ namespace osgVerse
         /** Get hash of a shader object */
         static unsigned long long getShader(osg::Shader& shader);
     };
+#endif
+
 }
 
 #ifdef OSG_LIBRARY_STATIC

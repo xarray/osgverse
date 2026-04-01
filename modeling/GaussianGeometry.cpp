@@ -220,7 +220,9 @@ void GaussianGeometry::setColorParameters(const std::vector<osg::Vec4>& src)
     if (src.empty())
     {
         ss->removeTextureAttribute(unit, osg::StateAttribute::TEXTURE);
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
         ss->removeDefine("CUSTOMIZED_TEX");
+#endif
     }
 
     std::pair<int, int> res = calculateTextureDim(_numSplats);
@@ -233,7 +235,9 @@ void GaussianGeometry::setColorParameters(const std::vector<osg::Vec4>& src)
 
     ss->setTextureAttribute(unit, paramTex.get());
     ss->getOrCreateUniform("ParamTexture", osg::Uniform::INT)->set(unit);
+#if OSG_VERSION_GREATER_THAN(3, 3, 6)
     ss->setDefine("CUSTOMIZED_TEX");
+#endif
     TextureLookUpTable::setFloat4(paramTex.get(), 0, &src);
 }
 

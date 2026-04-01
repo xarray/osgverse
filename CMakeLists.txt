@@ -310,6 +310,12 @@ ENDIF()
 MESSAGE(STATUS "[osgVerse] Current C++ compiler: ${VERSE_COMPILER_NAME} (C++17 Flag = ${VERSE_SUPPORT_CPP17}).")
 IF(VERSE_SUPPORT_CPP17)
     SET(CMAKE_CXX_STANDARD 17)
+    SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++17")
+    IF(MSVC AND CUDA_VERSION VERSION_GREATER_EQUAL 12.9)
+        SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=/Zc:preprocessor")
+        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")
+    ENDIF()
+
     IF(NOT WIN32)
         # disable warning in include/osg/GraphicsCostEstimator
         ADD_COMPILE_OPTIONS(-Wno-psabi)
