@@ -2,6 +2,7 @@
 #include <osg/Notify>
 #include <osg/io_utils>
 #include <random>
+#include <set>
 
 #include <libhv/all/EventLoop.h>
 #include <libhv/all/server/HttpService.h>
@@ -387,10 +388,11 @@ public:
         std::vector<std::string> tempResourceSubscriptions;
         {
             std::lock_guard<std::mutex> lock(sseMutex);
-            for (auto& sessionSub : resourceSubscriptions)
+            for (std::map<std::string, std::set<std::string>>::iterator it = resourceSubscriptions.begin();
+                 it != resourceSubscriptions.end(); ++it)
             {
-                if (sessionSub.second.find(uri) != sessionSub.second.end())
-                    tempResourceSubscriptions.push_back(sessionSub.first);
+                if (it->second.find(uri) != it->second.end())
+                    tempResourceSubscriptions.push_back(it->first);
             }
         }
 

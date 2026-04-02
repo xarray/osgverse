@@ -21,6 +21,10 @@
 #include <pipeline/Utilities.h>
 #include <VerseCommon.h>
 
+#ifndef GL_DEPTH_CLAMP
+#define GL_DEPTH_CLAMP 0x864F
+#endif
+
 #ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
