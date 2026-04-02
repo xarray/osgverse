@@ -345,6 +345,7 @@ namespace osgVerse
     LoaderGLTF::LoaderGLTF(std::istream& in, const std::string& d, bool isBinary,
                            int pbr, bool yUp) : _usingMaterialPBR(pbr), _3dtilesFormat(false)
     {
+        _materialsMap.clear();
         std::string protocol = osgDB::getServerProtocol(d);
         osgDB::ReaderWriter* rwWeb = (protocol.empty()) ? NULL
                                    : osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
@@ -671,8 +672,14 @@ namespace osgVerse
             geom->setName(mesh.name + "_" + std::to_string(i));
             if (primitive.material >= 0)
             {
-                tinygltf::Material& material = _modelDef.materials[primitive.material];
-                createMaterial(geom->getOrCreateStateSet(), material);  // add material
+                auto findIter = _materialsMap.find(primitive.material);
+                if (findIter != _materialsMap.end()) geom->setStateSet(findIter->second);
+                else
+                {
+                    tinygltf::Material& material = _modelDef.materials[primitive.material];
+                    createMaterial(geom->getOrCreateStateSet(), material);  // add material
+                    _materialsMap[primitive.material] = geom->getStateSet();
+                }
             }
 
             if (gsData.enabled && extBufferViews.find("KHR_gaussian_splatting_compression_spz_2") != extBufferViews.end())

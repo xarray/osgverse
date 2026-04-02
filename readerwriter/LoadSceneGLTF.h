@@ -76,6 +76,7 @@ namespace osgVerse
         std::map<std::pair<int, int>, osg::observer_ptr<osg::Image>> _ormImageMap;
         std::map<int, osg::observer_ptr<osg::Image>> _imageMap;
         std::map<int, osg::Node*> _nodeCreationMap;
+        std::map<int, osg::ref_ptr<osg::StateSet>> _materialsMap;
         std::vector<DeferredMeshData> _deferredMeshList;
         std::vector<SkinningData> _skinningDataList;
         osg::ref_ptr<osg::MatrixTransform> _root;
