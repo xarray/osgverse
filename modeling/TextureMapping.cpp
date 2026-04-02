@@ -145,11 +145,12 @@ namespace osgVerse
         // C = -R^T * T
         osg::Matrixf RT = R;
 #if OSG_VERSION_GREATER_THAN(3, 5, 7)
-        RT.transpose(RT);
+        RT.transpose(RT); return -(RT * T);
 #else
-        // TODO: transpose?
+        osg::Matrix RT1(RT(0, 0), RT(1, 0), RT(2, 0), RT(3, 0), RT(0, 1), RT(1, 1), RT(2, 1), RT(3, 1),
+                        RT(0, 2), RT(1, 2), RT(2, 2), RT(3, 2), RT(0, 3), RT(1, 3), RT(2, 3), RT(3, 3));
+        return -(RT1 * T);
 #endif
-        return -(RT * T);
     }
 
     void TextureMapping::Image::convertFromColmap(const osg::Matrixf& R_colmap, const osg::Vec3f& T_colmap,

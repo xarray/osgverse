@@ -8,6 +8,7 @@
 #include <osgDB/Registry>
 #include <osgUtil/Tessellator>
 #include "modeling/GaussianGeometry.h"
+#include "modeling/Utilities.h"
 #include "spz/load-spz.h"
 
 // Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/
@@ -38,7 +39,7 @@ public:
 
     virtual const char* className() const
     {
-        return "[osgVerse] 3D Gaussian Scattering data format reader";
+        return "[osgVerse] 3D Gaussian Scattering data format reader / writer";
     }
 
     virtual ReadResult readNode(const std::string& path, const Options* options) const
@@ -118,6 +119,44 @@ public:
 
         if (geode->getNumDrawables() > 0) return geode.get();
         else return ReadResult::FILE_NOT_HANDLED;
+    }
+
+    virtual WriteResult writeNode(const osg::Node& node, const std::string& path, const osgDB::Options* options) const
+    {
+        std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
+
+        if (ext == "ply")
+        {
+            if (spz::saveSplatToPly(sceneToSpz(node), spz::PackOptions(), fileName)) return WriteResult::FILE_SAVED;
+            else WriteResult::ERROR_IN_WRITING_FILE;
+        }
+        else
+        {
+            std::ofstream out(fileName, std::ios::out | std::ios::binary);
+            if (!out) return WriteResult::FILE_NOT_HANDLED;
+
+            osg::ref_ptr<Options> localOptions = NULL;
+            if (options) localOptions = options->cloneOptions();
+            else localOptions = new osgDB::Options();
+
+            localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
+            localOptions->setPluginStringData("extension", ext);
+            return writeNode(node, out, localOptions.get());
+        }
+    }
+
+    virtual WriteResult writeNode(const osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
+    {
+        std::string ext = ""; bool success = false;
+        if (options) { ext = options->getPluginStringData("extension"); }
+
+        std::vector<unsigned char> resultData;
+        if (ext == "spz") success = saveSpz(sceneToSpz(node), spz::PackOptions(), &resultData);
+        // TODO: more extensions to support
+
+        if (!resultData.empty()) fout.write((char*)resultData.data(), resultData.size());
+        return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 
 protected:
@@ -288,6 +327,23 @@ protected:
                 { geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get()); }
         }
         geom->finalize(); return geom.release();
+    }
+
+    spz::GaussianCloud sceneToSpz(const osg::Node& node) const
+    {
+        spz::GaussianCloud cloud; osgVerse::FindGeometryVisitor fgv(true);
+        osg::Node& nonconst = const_cast<osg::Node&>(node); nonconst.accept(fgv);
+
+        const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
+        for (size_t i = 0; i < geomList.size(); ++i)
+        {
+            osgVerse::GaussianGeometry* geom =
+                dynamic_cast<osgVerse::GaussianGeometry*>(geomList[i].first);
+            if (!geom) continue;
+
+            // TODO: not finished because GaussianGeometry doesn't provide all get*() functions
+        }
+        return cloud;
     }
 };
 

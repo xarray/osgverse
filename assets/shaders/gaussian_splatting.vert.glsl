@@ -12,6 +12,7 @@ void customizeColorChanging(inout vec4 color, vec4 param)
     else if (param.a > 0.5) color.rgb = param.rgb;
 }
 
+# if defined(USE_INSTANCING)
 #   if defined(USE_INSTANCING_TEX2D)
 uniform sampler2D ParamTexture;
 void customizeColor(inout vec4 color, in int index, in vec2 uvIndex)
@@ -21,6 +22,12 @@ uniform samplerBuffer ParamTexture;
 void customizeColor(inout vec4 color, in int index, in vec2 uvIndex)
 { customizeColorChanging(color, texelFetch(ParamTexture, index)); }
 #   endif
+# else  // geometry shader
+VERSE_VS_IN vec4 osg_CustomData;
+void customizeColor(inout vec4 color, in int index, in vec2 uvIndex)
+{ customizeColorChanging(color, osg_CustomData); }
+# endif
+
 #else
 void customizeColor(inout vec4 color, in int index, in vec2 uvIndex) {}
 #endif
@@ -57,7 +64,7 @@ mat2 inverseMat2(mat2 m)
     return inv;
 }
 #else
-VERSE_VS_IN vec4 osg_Covariance0, osg_Covariance1, osg_Covariance2;
+VERSE_VS_IN vec4 osg_Covariance0, osg_Covariance1;// , osg_Covariance2;
 VERSE_VS_IN vec4 osg_R_SH0, osg_G_SH0, osg_B_SH0;
 VERSE_VS_IN vec4 osg_R_SH1, osg_G_SH1, osg_B_SH1;
 VERSE_VS_IN vec4 osg_R_SH2, osg_G_SH2, osg_B_SH2;
@@ -66,6 +73,35 @@ VERSE_VS_IN vec4 osg_R_SH3, osg_G_SH3, osg_B_SH3;
 VERSE_VS_OUT vec4 color_gs, covariance_gs;
 VERSE_VS_OUT vec2 center2D_gs;
 #endif
+
+mat3 computeRotationMat3(in vec4 q)
+{
+    float x = q.x, y = q.y, z = q.z, w = q.w;
+    float x2 = x + x, y2 = y + y, z2 = z + z;
+    float xx = x * x2, xy = x * y2, xz = x * z2;
+    float yy = y * y2, yz = y * z2, zz = z * z2;
+    float wx = w * x2, wy = w * y2, wz = w * z2;
+    return mat3(1.0 - (yy + zz), xy + wz, xz - wy,
+                xy - wz, 1.0 - (xx + zz), yz + wx,
+                xz + wy, yz - wx, 1.0 - (xx + yy));
+}
+
+mat3 transposeMat3(in mat3 m)
+{
+    return mat3(m[0][0], m[1][0], m[2][0],
+                m[0][1], m[1][1], m[2][1],
+                m[0][2], m[1][2], m[2][2]);
+}
+
+mat3 computeCovariance(in vec3 scale, in vec4 quat)
+{
+    mat3 S2 = mat3(scale.x * scale.x, 0.0, 0.0,
+                   0.0, scale.y * scale.y, 0.0,
+                   0.0, 0.0, scale.z * scale.z);
+    mat3 R = computeRotationMat3(quat);
+    mat3 Rt = transposeMat3(R);
+    return R * (S2 * Rt);
+}
 
 vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor)
 {
@@ -189,9 +225,11 @@ void main()
     // combine the affine transforms of W (viewMat) and J (approx of viewportMat * projMat)
     // using the fact that the new transformed covariance matrix V_Prime = JW * V * (JW)^T
 #if defined(USE_INSTANCING)
-    mat3 V = mat3(cov0.xyz, cov1.xyz, cov2.xyz);
+    //mat3 V = mat3(cov0.xyz, cov1.xyz, cov2.xyz);
+    mat3 V = computeCovariance(cov0.xyz, vec4(cov1.xyz, cov2.x));
 #else
-    mat3 V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
+    //mat3 V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
+    mat3 V = computeCovariance(osg_Covariance0.xyz, osg_Covariance1);
 #endif
     if (GaussianRenderingMode > 0.5) V = mat3(0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001);
 
@@ -247,6 +285,7 @@ void main()
 #else
     vec3 baseColor = vec3(osg_R_SH0.x, osg_G_SH0.x, osg_B_SH0.x);
     color_gs = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);
+    customizeColor(color_gs, int(0), vec2(0.0));
 #endif
     gl_Position = proj;
 }

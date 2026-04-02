@@ -20,9 +20,9 @@ namespace osgVerse
      - (Method = INSTANCING, for GL 4.3 or later)
      - Original shape vertices (vec3): getVertexArray()
      - Position.xyz + Alpha: SSBO-0 (4 floats)
-     - CovMatrix.c0 + Color.r: SSBO-1 (4 floats)
-     - CovMatrix.c1 + Color.g: SSBO-2 (4 floats)
-     - CovMatrix.c2 + Color.b: SSBO-3 (4 floats)
+     - Scale.xyz + Color.r: SSBO-1 (4 floats)
+     - Quat.xyz + Color.g: SSBO-2 (4 floats)
+     - Quat.w + ReservedX2 + Color.b: SSBO-3 (4 floats)
      - Spherical harmonics coefficients: SSBO-4 (optional, 15 * 4 floats, alpha ignored)
      - Indices (uint): getVertexAttribArray(7)
      - [Color customizing] Tex-0 (4 floats)
@@ -32,23 +32,23 @@ namespace osgVerse
      - (Method = INSTANCING_TEX2D, for GL 2 / GLES2 / GLES3)
      - Original shape vertices (vec3): getVertexArray()
      - Position.xyz + Alpha: Tex-0 (4 floats)
-     - CovMatrix.c0 + Color.r: Tex-1 (4 floats)
-     - CovMatrix.c1 + Color.g: Tex-2 (4 floats)
-     - CovMatrix.c2 + Color.b: Tex-3 (4 floats)
+     - Scale.xyz + Color.r: Tex-1 (4 floats)
+     - Quat.xyz + Color.g: Tex-2 (4 floats)
+     - Quat.w + ReservedX2 + Color.b: Tex-3 (4 floats)
      - Indices: getVertexAttribArray(7)
      - [Color customizing] Tex-4 (4 floats)
 
    - Render with geometry shader and vertex attributes:
      - (Method = GEOMETRY_SHADER, for GL 3 or later and GLES 3.2)
      - Position (vec3): getVertexArray()
-     - Scale + Rotation (CovMatrix): getVertexAttribArray(1,2,3)
+     - Scale + Rotation: getVertexAttribArray(1,2)
      - Alpha (float): getVertexAttribArray(1).a()
      - Spherical harmonics coefficients
        - R-channel (dc + 15 rests): getVertexAttribArray(4,7,10,13)
        - G-channel (dc + 15 rests): getVertexAttribArray(5,8,11,14)
        - B-channel (dc + 15 rests): getVertexAttribArray(6,9,12,15)
      - Indices: getPrimitiveSet(0)
-     - [Color customizing] not supported
+     - [Color customizing]: getVertexAttribArray(3)
 */
 class GaussianGeometry : public osg::Geometry
 {
@@ -85,9 +85,9 @@ public:
 
     osg::Vec3* getPosition3();
     osg::Vec4* getPosition4();
-    osg::ref_ptr<osg::Vec3Array> getCovariance0();
-    osg::ref_ptr<osg::Vec3Array> getCovariance1();
-    osg::ref_ptr<osg::Vec3Array> getCovariance2();
+    osg::ref_ptr<osg::Vec3Array> getScale();
+    osg::ref_ptr<osg::Vec3Array> getRotation();
+    osg::ref_ptr<osg::FloatArray> getAlpha();
     osg::ref_ptr<osg::Vec4Array> getShRed(int index);
     osg::ref_ptr<osg::Vec4Array> getShGreen(int index);
     osg::ref_ptr<osg::Vec4Array> getShBlue(int index);

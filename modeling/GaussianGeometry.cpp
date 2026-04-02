@@ -172,7 +172,7 @@ osg::Program* GaussianGeometry::createProgram(osg::Shader* vs, osg::Shader* gs, 
         program->setParameter(GL_GEOMETRY_OUTPUT_TYPE_EXT, GL_TRIANGLE_STRIP);
         program->addBindAttribLocation("osg_Covariance0", 1);
         program->addBindAttribLocation("osg_Covariance1", 2);
-        program->addBindAttribLocation("osg_Covariance2", 3);
+        program->addBindAttribLocation("osg_CustomData", 3);
         program->addBindAttribLocation("osg_R_SH0", 4);
         program->addBindAttribLocation("osg_G_SH0", 5);
         program->addBindAttribLocation("osg_B_SH0", 6);
@@ -225,29 +225,47 @@ void GaussianGeometry::setColorParameters(const std::vector<osg::Vec4>& src)
 #endif
     }
 
-    std::pair<int, int> res = calculateTextureDim(_numSplats);
-    if (_method == INSTANCING_TEX2D)
-        paramTex = TextureLookUpTable::create<osg::Texture2D>(res.first, res.second, false, false);
+    if (_method != GEOMETRY_SHADER)
+    {
+        std::pair<int, int> res = calculateTextureDim(_numSplats);
+        if (_method == INSTANCING_TEX2D)
+            paramTex = TextureLookUpTable::create<osg::Texture2D>(res.first, res.second, false, false);
 #if OSG_VERSION_GREATER_THAN(3, 1, 9)
-    else
-        paramTex = TextureLookUpTable::create<osg::TextureBuffer>(res.first, res.second, false, false);
+        else
+            paramTex = TextureLookUpTable::create<osg::TextureBuffer>(res.first, res.second, false, false);
 #endif
 
-    ss->setTextureAttribute(unit, paramTex.get());
-    ss->getOrCreateUniform("ParamTexture", osg::Uniform::INT)->set(unit);
+        ss->setTextureAttribute(unit, paramTex.get());
+        ss->getOrCreateUniform("ParamTexture", osg::Uniform::INT)->set(unit);
 #if OSG_VERSION_GREATER_THAN(3, 3, 6)
-    ss->setDefine("CUSTOMIZED_TEX");
+        ss->setDefine("CUSTOMIZED_TEX");
 #endif
-    TextureLookUpTable::setFloat4(paramTex.get(), 0, &src);
+        TextureLookUpTable::setFloat4(paramTex.get(), 0, &src);
+    }
+    else
+    {
+        osg::ref_ptr<osg::Vec4Array> custom = new osg::Vec4Array;
+        custom->assign(src.begin(), src.end()); custom->resize(_numSplats);
+        setVertexAttribArray(3, custom.get()); setVertexAttribNormalize(3, false);
+        setVertexAttribBinding(3, osg::Geometry::BIND_PER_VERTEX);
+    }
 }
 
 osg::Vec4* GaussianGeometry::getColorParameters(bool dirty)
 {
-    int unit = (_method == INSTANCING_TEXTURE || _method == INSTANCING_TEX2D) ? 4 : 0;
-    osg::StateSet* ss = getOrCreateStateSet(); osg::Texture* param = NULL;
-    param = static_cast<osg::Texture*>(ss->getTextureAttribute(unit, osg::StateAttribute::TEXTURE));
-    if (dirty && param && param->getNumImages() > 0) param->getImage(0)->dirty();
-    return param ? TextureLookUpTable::getFloat4(param, 0) : NULL;
+    if (_method != GEOMETRY_SHADER)
+    {
+        int unit = (_method == INSTANCING_TEXTURE || _method == INSTANCING_TEX2D) ? 4 : 0;
+        osg::StateSet* ss = getOrCreateStateSet(); osg::Texture* param = NULL;
+        param = static_cast<osg::Texture*>(ss->getTextureAttribute(unit, osg::StateAttribute::TEXTURE));
+        if (dirty && param && param->getNumImages() > 0) param->getImage(0)->dirty();
+        return param ? TextureLookUpTable::getFloat4(param, 0) : NULL;
+    }
+    else
+    {
+        osg::Array* custom = getVertexAttribArray(3); if (!custom) return NULL;
+        if (dirty) custom->dirty(); return (osg::Vec4*)custom->getDataPointer();
+    }
 }
 
 #define GET_POS4(v) osg::Vec4* v = const_cast<GaussianGeometry*>(this)->getPosition4();
@@ -409,21 +427,31 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
                                            osg::FloatArray* alphas)
 {
     if (!vArray || !qArray) return; if (vArray->size() != qArray->size()) return;
-    osg::Vec4Array* cov0 = new osg::Vec4Array(vArray->size());
-    osg::Vec4Array* cov1 = new osg::Vec4Array(vArray->size());
-    osg::Vec4Array* cov2 = new osg::Vec4Array(vArray->size());
+    osg::ref_ptr<osg::Vec4Array> cov0 = new osg::Vec4Array(vArray->size());
+    osg::ref_ptr<osg::Vec4Array> cov1 = new osg::Vec4Array(vArray->size());
+    osg::ref_ptr<osg::Vec4Array> cov2 = new osg::Vec4Array(vArray->size());
 
     for (size_t i = 0; i < vArray->size(); ++i)
     {
         float a = (alphas == NULL) ? 1.0f : alphas->at(i);
         const osg::Vec3& scale = (*vArray)[i]; osg::Quat quat((*qArray)[i]);
         if (!quat.zeroRotation()) { double l = quat.length(); if (l > 0.0) quat = quat / l; }
-        
+#if false
         osg::Matrix R(quat), S = osg::Matrix::scale(scale);
         osg::Matrix cov = transpose(R) * S * S * R;
         (*cov0)[i] = osg::Vec4(cov(0, 0), cov(1, 0), cov(2, 0), a);
         (*cov1)[i] = osg::Vec4(cov(0, 1), cov(1, 1), cov(2, 1), 1.0f);
         (*cov2)[i] = osg::Vec4(cov(0, 2), cov(1, 2), cov(2, 2), 1.0f);
+#else
+        (*cov0)[i] = osg::Vec4(scale[0], scale[1], scale[2], a);
+        if (_method != GEOMETRY_SHADER)
+        {
+            (*cov1)[i] = osg::Vec4(quat[0], quat[1], quat[2], 1.0f);
+            (*cov2)[i] = osg::Vec4(quat[3], 1.0f, 1.0f, 1.0f);
+        }
+        else
+            (*cov1)[i] = quat.asVec4();
+#endif
     }
 
     if (_method != GEOMETRY_SHADER)
@@ -442,9 +470,9 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
     }
     else
     {
-        setVertexAttribArray(1, cov0); setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
-        setVertexAttribArray(2, cov1); setVertexAttribBinding(2, osg::Geometry::BIND_PER_VERTEX);
-        setVertexAttribArray(3, cov2); setVertexAttribBinding(3, osg::Geometry::BIND_PER_VERTEX);
+        setVertexAttribArray(1, cov0.get()); setVertexAttribBinding(1, osg::Geometry::BIND_PER_VERTEX);
+        setVertexAttribArray(2, cov1.get()); setVertexAttribBinding(2, osg::Geometry::BIND_PER_VERTEX);
+        //setVertexAttribArray(3, cov2.get()); setVertexAttribBinding(3, osg::Geometry::BIND_PER_VERTEX);
     }
 }
 
@@ -510,7 +538,7 @@ osg::Vec4* GaussianGeometry::getPosition4()
     return NULL;
 }
 
-osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance0()
+osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getScale()
 {
     if (_method != GEOMETRY_SHADER)
     {
@@ -520,7 +548,7 @@ osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance0()
         return static_cast<osg::Vec3Array*>(getVertexAttribArray(1));
 }
 
-osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance1()
+osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getRotation()
 {
     if (_method != GEOMETRY_SHADER)
     {
@@ -530,14 +558,9 @@ osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance1()
         return static_cast<osg::Vec3Array*>(getVertexAttribArray(2));
 }
 
-osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getCovariance2()
+osg::ref_ptr<osg::FloatArray> GaussianGeometry::getAlpha()
 {
-    if (_method != GEOMETRY_SHADER)
-    {
-        return NULL;  // TODO: not implemented
-    }
-    else
-        return static_cast<osg::Vec3Array*>(getVertexAttribArray(3));
+    return NULL;  // TODO: not implemented
 }
 
 #define GET_SHCOEF_DATA(ra, col, pos, i) \

@@ -181,10 +181,10 @@ namespace
 
             switch (value.a() - 252)
             {
-            case 0: qa[i].set(d, a, b, c); break;  // omitted = x
-            case 1: qa[i].set(a, d, b, c); break;  // omitted = y
-            case 2: qa[i].set(a, b, d, c); break;  // omitted = z
-            case 3: qa[i].set(a, b, c, d); break;  // omitted = w
+            case 0: qa[i].set(a, b, c, d); break;  // omitted = x
+            case 1: qa[i].set(d, b, c, a); break;  // omitted = y
+            case 2: qa[i].set(b, d, c, a); break;  // omitted = z
+            case 3: qa[i].set(b, c, d, a); break;  // omitted = w
             default: OSG_NOTICE << "[ReaderWriter3DGS] Bad SOG quat: " << value.a() << "\n"; break;
             }
         }
