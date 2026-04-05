@@ -17,6 +17,31 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string&
 osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
                                          osgVerse::GaussianGeometry::RenderMethod method);
 
+namespace
+{
+    static float halfToFloat(uint16_t h)
+    {   // Simple half-float to float conversion
+        uint32_t sign = (h >> 15) & 0x1;
+        uint32_t exp = (h >> 10) & 0x1F;
+        uint32_t mant = h & 0x3FF;
+        if (exp == 0)
+        {
+            if (mant == 0) return sign ? -0.0f : 0.0f;
+            float val = mant / 1024.0f * powf(2.0f, -14);  // Denormalized
+            return sign ? -val : val;
+        }
+        else if (exp == 31)
+        {
+            if (mant == 0) return sign ? -INFINITY : INFINITY;
+            return NAN;
+        }
+
+        // Normalized
+        float val = (1.0f + mant / 1024.0f) * powf(2.0f, (int)exp - 15);
+        return sign ? -val : val;
+    }
+}
+
 class ReaderWriter3DGS : public osgDB::ReaderWriter
 {
 public:
@@ -144,6 +169,7 @@ public:
             localOptions->setPluginStringData("extension", ext);
             return writeNode(node, out, localOptions.get());
         }
+        return WriteResult::FILE_NOT_HANDLED;
     }
 
     virtual WriteResult writeNode(const osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
@@ -209,52 +235,158 @@ protected:
 
     osgVerse::GaussianGeometry* fromKSplat(const std::string& buffer, osgVerse::GaussianGeometry::RenderMethod m) const
     {
+        static const uint32_t KSPLAT_HEADER_SIZE = 4096, KSPLAT_SECTION_HEADER_SIZE = 1024;
+        static const uint32_t KSPLAT_BUCKET_STORAGE_SIZE = 12, KSPLAT_BUCKET_SIZE = 256;
+        if (buffer.size() < KSPLAT_HEADER_SIZE)
+            { OSG_WARN << "[ReaderWriter3DGS] KSplat buffer too small for header" << std::endl; return NULL; }
+
+        // Parse header fields (4096 bytes)
+        const uint8_t* data = (const uint8_t*)buffer.data(); uint32_t offset = 0;
+        uint8_t versionMajor = data[offset++];
+        uint8_t versionMinor = data[offset++]; offset += 2; // Skip unused bytes
+        uint32_t maxSectionCount = *(uint32_t*)(data + 4);
+        uint32_t sectionCount = *(uint32_t*)(data + 8);
+        uint32_t maxSplatCount = *(uint32_t*)(data + 12);
+        uint32_t splatCount = *(uint32_t*)(data + 16);
+        uint16_t compressionLevel = *(uint16_t*)(data + 20);
+        osg::Vec3 sceneCenter(*(float*)(data + 24), *(float*)(data + 28), *(float*)(data + 32));  // Scene center
+        float minSHCoeff = *(float*)(data + 36), maxSHCoeff = *(float*)(data + 40);  // SH compression range
+        if (minSHCoeff == 0.0f) minSHCoeff = -1.5f; if (maxSHCoeff == 0.0f) maxSHCoeff = 1.5f;
+
+        // Calculate bytes per component based on compression level
+        uint32_t bytesPerCenter = 0, bytesPerScale = 0, bytesPerRotation = 0, bytesPerColor = 0, bytesPerSH = 0;
+        switch (compressionLevel)
+        {
+        case 0: // No compression
+            bytesPerCenter = 12; bytesPerScale = 12; bytesPerRotation = 16;
+            bytesPerColor = 4; bytesPerSH = 4; break;
+        case 1: // 16-bit compression
+            bytesPerCenter = 6; bytesPerScale = 6; bytesPerRotation = 8;
+            bytesPerColor = 4; bytesPerSH = 2; break;
+        case 2: // 8-bit SH compression
+            bytesPerCenter = 6; bytesPerScale = 6; bytesPerRotation = 8;
+            bytesPerColor = 4; bytesPerSH = 1; break;
+        default:
+            OSG_WARN << "[ReaderWriter3DGS] Unsupported KSplat compression level: " << compressionLevel << std::endl;
+            return NULL;
+        }
+
+        // Prepare output arrays
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
         osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array; osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
         osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
+        const static float kSH_C0 = 0.28209479177387814, scaleRange = 32767.0f;
 
-        std::stringstream ss(buffer, std::ios::in | std::ios::out | std::ios::binary);
-        uint8_t major = 0, minor = 0, rev = 0; uint16_t compression = 0, rev2 = 0;
-        uint32_t sections = 0, totalSplats = 0, rev3 = 0;
-        ss.read((char*)&major, sizeof(unsigned char)); ss.read((char*)&minor, sizeof(unsigned char));
-        ss.read((char*)&rev, sizeof(unsigned char)); ss.read((char*)&rev, sizeof(unsigned char));
-        ss.read((char*)&sections, sizeof(uint32_t)); ss.read((char*)&rev3, sizeof(uint32_t));  // max & current
-        ss.read((char*)&rev3, sizeof(uint32_t)); ss.read((char*)&totalSplats, sizeof(uint32_t));  // max & current
-        ss.read((char*)&compression, sizeof(uint16_t)); ss.read((char*)&rev2, sizeof(uint16_t));
-
-        uint32_t centerBytes = 12, scaleBytes = 12, rotationBytes = 16, colorBytes = 4, shBytes = 4;
-        switch (compression)
+        // Parse sections
+        uint32_t totalSplatsRead = 0, maxShDegree = 0; offset = KSPLAT_HEADER_SIZE;
+        for (uint32_t s = 0; s < maxSectionCount && totalSplatsRead < splatCount; s++)
         {
-        case 1: centerBytes = 6; scaleBytes = 6; rotationBytes = 8; colorBytes = 4; shBytes = 2; break;
-        case 2: centerBytes = 6; scaleBytes = 6; rotationBytes = 8; colorBytes = 4; shBytes = 1; break;
-        }
+            // Parse section header (1024 bytes)
+            if (offset + KSPLAT_SECTION_HEADER_SIZE > buffer.size()) break;
+            const uint8_t* secData = data + offset;
+            uint32_t secMaxSplatCount = *(uint32_t*)(secData + 4);
+            uint32_t bucketSize = *(uint32_t*)(secData + 8);
+            uint32_t bucketCount = *(uint32_t*)(secData + 12);
+            float bucketBlockSize = *(float*)(secData + 16);
+            uint16_t bucketStorageSizeBytes = *(uint16_t*)(secData + 20);
+            uint32_t compressionScaleRange = *(uint32_t*)(secData + 24);
+            uint32_t fullBucketCount = *(uint32_t*)(secData + 32);
+            uint32_t partiallyFilledBucketCount = *(uint32_t*)(secData + 36);
+            uint16_t sphericalHarmonicsDegree = *(uint16_t*)(secData + 40);
+            if (sphericalHarmonicsDegree > maxShDegree) maxShDegree = sphericalHarmonicsDegree;
 
-        osg::Vec3 center; float minSh = 0.0f, maxSh = 0.0f, rev4 = 0.0f;
-        ss.read((char*)&rev4, sizeof(float)); ss.read((char*)&rev4, sizeof(float)); ss.read((char*)center.ptr(), sizeof(osg::Vec3));
-        ss.read((char*)&minSh, sizeof(float)); ss.read((char*)&maxSh, sizeof(float)); ss.seekg(4096, std::ios::beg);
-        for (uint32_t i = 0; i < sections; ++i)
-        {
-            uint32_t numSplats = 0, maxSplats = 0, quantization = 0, bucketCap = 256,
-                     bucketCount = 0, fullBuckets = 0, partBuckets = 0;
-            uint16_t degrees = 0, bucketBytes = 0; float spatialBlockSize = 5.0f;
-            ss.read((char*)&numSplats, sizeof(uint32_t)); ss.read((char*)&maxSplats, sizeof(uint32_t));
-            ss.read((char*)&bucketCap, sizeof(uint32_t)); ss.read((char*)&bucketCount, sizeof(uint32_t));
-            ss.read((char*)&spatialBlockSize, sizeof(float)); ss.read((char*)&bucketBytes, sizeof(uint16_t));
-            ss.read((char*)&quantization, sizeof(uint32_t)); ss.read((char*)&rev3, sizeof(uint32_t));
-            ss.read((char*)&fullBuckets, sizeof(uint32_t)); ss.read((char*)&partBuckets, sizeof(uint32_t));
-            ss.read((char*)&degrees, sizeof(uint16_t)); if (numSplats == 0) continue;
+            // Calculate bytes per splat for this section
+            uint32_t shComponentCount = 0;
+            if (sphericalHarmonicsDegree == 1) shComponentCount = 9;  // 3 * (4-1)
+            else if (sphericalHarmonicsDegree == 2) shComponentCount = 24; // 3 * (9-1)
+            else if (sphericalHarmonicsDegree == 3) shComponentCount = 45; // 3 * (16-1)
 
-            float positionScale = spatialBlockSize * 0.5f / float(quantization > 0 ? quantization : (compression > 0 ? 32767 : 1));
-            uint32_t shCount = ((uint32_t)pow(1 + degrees, 2) - 1) * 3, partialBucketMetaSize = partBuckets * 4;
-            uint32_t totalBucketSize = bucketBytes * bucketCount + partialBucketMetaSize;
-            uint32_t bytesPerSplat = centerBytes + scaleBytes + rotationBytes + colorBytes + shBytes * shCount;
-            // TODO: not finished
-            ss.seekg(4096 + (i + 1) * 1024, std::ios::beg);
+            uint32_t bytesPerSplat = bytesPerCenter + bytesPerScale + bytesPerRotation + bytesPerColor;
+            if (sphericalHarmonicsDegree > 0) bytesPerSplat += shComponentCount * bytesPerSH;
+
+            // Calculate section data offset
+            uint32_t bucketsMetaDataSize = partiallyFilledBucketCount * 4;
+            uint32_t bucketsStorageSize = bucketStorageSizeBytes * bucketCount + bucketsMetaDataSize;
+            uint32_t sectionDataOffset = offset + KSPLAT_SECTION_HEADER_SIZE + bucketsStorageSize;
+
+            // Read splats in this section
+            uint32_t splatsInSection = osg::minimum(secMaxSplatCount, splatCount - totalSplatsRead);
+            float positionScale = bucketBlockSize * 0.5f / (compressionScaleRange > 0 ? compressionScaleRange : scaleRange);
+            for (uint32_t i = 0; i < splatsInSection; i++)
+            {
+                uint32_t splatOffset = sectionDataOffset + i * bytesPerSplat;
+                if (splatOffset + bytesPerSplat > buffer.size()) break;
+                const uint8_t* splatData = data + splatOffset; uint32_t so = 0;
+
+                // Read position (quantized, needs dequantization)
+                osg::Vec3 pv, sv; osg::Vec4 rotation;
+                if (compressionLevel == 0)
+                {
+                    pv[0] = *(float*)(splatData + so);
+                    pv[1] = *(float*)(splatData + so + 4);
+                    pv[2] = *(float*)(splatData + so + 8); so += 12;
+                }
+                else
+                {   // 16-bit quantized positions
+                    pv[0] = sceneCenter[0] + (*(int16_t*)(splatData + so)) * positionScale;
+                    pv[1] = sceneCenter[1] + (*(int16_t*)(splatData + so + 2)) * positionScale;
+                    pv[2] = sceneCenter[2] + (*(int16_t*)(splatData + so + 4)) * positionScale; so += 6;
+                }
+                pos->push_back(pv);
+
+                // Read scale
+                if (compressionLevel == 0)
+                {
+                    sv[0] = (*(float*)(splatData + so));
+                    sv[1] = (*(float*)(splatData + so + 4));
+                    sv[2] = (*(float*)(splatData + so + 8)); so += 12;
+                }
+                else
+                {   // 16-bit half-float scales
+                    sv[0] = (halfToFloat(*(uint16_t*)(splatData + so)));
+                    sv[1] = (halfToFloat(*(uint16_t*)(splatData + so + 2)));
+                    sv[2] = (halfToFloat(*(uint16_t*)(splatData + so + 4))); so += 6;
+                }
+                scale->push_back(sv);
+
+                // Read rotation (quaternion)
+                if (compressionLevel == 0)
+                {
+                    rotation[0] = *(float*)(splatData + so);
+                    rotation[1] = *(float*)(splatData + so + 4);
+                    rotation[2] = *(float*)(splatData + so + 8);
+                    rotation[3] = *(float*)(splatData + so + 12); so += 16;
+                }
+                else
+                {   // 16-bit half-float rotations
+                    rotation[0] = halfToFloat(*(uint16_t*)(splatData + so));
+                    rotation[1] = halfToFloat(*(uint16_t*)(splatData + so + 2));
+                    rotation[2] = halfToFloat(*(uint16_t*)(splatData + so + 4));
+                    rotation[3] = halfToFloat(*(uint16_t*)(splatData + so + 6)); so += 8;
+                }
+                rotation.normalize(); rot->push_back(rotation);
+
+                // Read color (RGBA, 4 bytes)
+                uint8_t r = splatData[so], g = splatData[so + 1];
+                uint8_t b = splatData[so + 2], a = splatData[so + 3]; so += 4;
+
+                // Convert color to SH DC coefficients
+                rD0->push_back(osg::Vec4((r / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
+                gD0->push_back(osg::Vec4((g / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
+                bD0->push_back(osg::Vec4((b / 255.0f - 0.5f) / kSH_C0, 0.0f, 0.0f, 0.0f));
+                alpha->push_back(a / 255.0f);
+
+                // FIXME: skip SH data if present (for now, we only support degree 0)
+                if (sphericalHarmonicsDegree > 0) so += shComponentCount * bytesPerSH;
+            }
+
+            totalSplatsRead += splatsInSection; offset += KSPLAT_SECTION_HEADER_SIZE;
+            offset += bucketsStorageSize + secMaxSplatCount * bytesPerSplat;  // Skip to next section
         }
 
         osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(m);
-        geom->setShDegrees(0); geom->setPosition(pos.get());
-        geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
+        geom->setShDegrees(0); // Currently only support degree 0
+        geom->setPosition(pos.get()); geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
         geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
         geom->finalize(); return geom.release();
     }

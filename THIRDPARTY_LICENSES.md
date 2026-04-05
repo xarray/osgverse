@@ -3,7 +3,7 @@
 |------------------|----------|-----------|--------------------|--------------|---------|
 | OpenSceneGraph   | Depended | > 3.1.1   | All                | LGPL (+)     | https://github.com/openscenegraph/OpenSceneGraph |
 | Bullet           | Depended | > 3.17    | Animation          | Zlib (+)     | https://github.com/bulletphysics/bullet3 |
-| cinolib          | Depended | >= 1.0    | Modeling           | MIT          | https://github.com/mlivesu/cinolib |
+| cinolib          | Depended | > 1.0     | Modeling           | MIT          | https://github.com/mlivesu/cinolib |
 | Effekseer        | Depended | > 1.70e   | Animation          | MIT          | https://github.com/effekseer/Effekseer |
 | FFmpeg           | Depended | > 6.0     | verse_ffmpeg       | LGPL         | https://github.com/FFmpeg/FFmpeg |
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | https://github.com/google/draco |
@@ -80,6 +80,7 @@
 | rasterizer       | Embedded |           | Pipeline           | -            | https://github.com/rawrunprotected/rasterizer |
 | recastnavigation | Embedded |           | AI                 | Zlib         | https://github.com/recastnavigation/recastnavigation |
 | rLottie          | Embedded | 0.2       | -                  | MIT (+)      | https://github.com/Samsung/rlottie |
+| RTree            | Embedded | 20260404  | Modeling           | MIT          | https://github.com/nushoin/RTree |
 | simdb            | Embedded |           | ReaderWriter       | Apache2      | https://github.com/LiveAsynchronousVisualizedArchitecture/simdb |
 | shapelib         | Embedded | 1.6.2     | verse_shp          | MIT          | https://github.com/OSGeo/shapelib |
 | smplxpp          | Embedded | 20260330  | AI                 | Apache2      | https://github.com/sxyu/smplxpp |
@@ -107,7 +108,7 @@
 |------------------|--------------|
 | OpenSceneGraph   | Cloned and compiled by Setup.sh/Setup.bat |
 | Bullet           | (Linux) apt-get install libbullet-dev |
-| cinolib          | Headers only. Download from https://github.com/mlivesu/cinolib/tags |
+| cinolib          | Headers only. Download from https://github.com/mlivesu/cinolib |
 | Effekseer        | Manually Compile from source |
 | FFmpeg           | (Linux) apt-get install libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev libswscale-dev |
 | libDraco         | (Linux) apt-get install libdraco-dev |
