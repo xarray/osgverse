@@ -9,7 +9,7 @@
 #include <osgDB/Archive>
 
 #include "pipeline/CudaUtils/ColorSpace.h"
-#include "pipeline/CudaTexture2D.h"
+#include "pipeline/ExternalTexture2D.h"
 #include "Utils/NvCodecUtils.h"
 #if defined(NV_DECODER)
 #   include "NvDecoder/NvDecoder.h"
@@ -22,11 +22,11 @@
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 #if defined(NV_DECODER)
-class CuvidResourceReader : public osgVerse::CudaResourceReaderBase
+class CuvidResourceReader : public osgVerse::GpuResourceReaderBase
 {
 public:
     CuvidResourceReader(CUcontext cu)
-        : osgVerse::CudaResourceReaderBase(cu), _numFrames(0)
+        : osgVerse::GpuResourceReaderBase(cu), _numFrames(0)
     { _decoder = NULL; }
 
     virtual ~CuvidResourceReader()
@@ -62,10 +62,10 @@ public:
         }
 
         CUdeviceptr deviceFrame = NULL;
-        uint8_t* video = NULL, * frame = NULL;
+        uint8_t* video = NULL, * frame = NULL; long long pts = 0;
         int videoBytes = 0, frameReturned = 0, matrixData = 0, pitch = _width * 4;
         if (!_demuxer || !_decoder || !_vendorStatus) { setState(INVALID); return; }
-        if (!_demuxer->demux(&video, &videoBytes, NULL)) { setState(PENDING); return; }
+        if (!_demuxer->demux(&video, &videoBytes, &pts)) { setState(PENDING); return; }
 
         frameReturned = _decoder->Decode(video, videoBytes);
         if (!_numFrames && frameReturned)
@@ -138,8 +138,8 @@ public:
         const void* context = (options ? options->getPluginData("Context") : NULL);
         if (context != NULL)
         {
-            osg::ref_ptr<osgVerse::CudaResourceReaderWriterContainer> container =
-                new osgVerse::CudaResourceReaderWriterContainer;
+            osg::ref_ptr<osgVerse::GpuResourceReaderWriterContainer> container =
+                new osgVerse::GpuResourceReaderWriterContainer;
             std::transform(fileName.begin(), fileName.end(), fileName.begin(), tolower);
             if (fileName.find("encode") != std::string::npos)
             {

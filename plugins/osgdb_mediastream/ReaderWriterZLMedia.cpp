@@ -9,7 +9,7 @@
 #include <osgDB/Archive>
 
 #include "pipeline/Global.h"
-#include "pipeline/CudaTexture2D.h"
+#include "pipeline/ExternalTexture2D.h"
 #include "readerwriter/Utilities.h"
 #include <mk_mediakit.h>
 #include <chrono>
@@ -68,7 +68,7 @@ static char* escape_string(const char* ptr)
 class ZLMediaServerArchive;
 osg::observer_ptr<ZLMediaServerArchive> g_server;
 
-class ZLMediaResourceDemuxer : public osgVerse::CudaResourceReaderBase::Demuxer
+class ZLMediaResourceDemuxer : public osgVerse::GpuResourceReaderBase::Demuxer
 {
 public:
     ZLMediaResourceDemuxer() : _width(0), _height(0), _type(osgVerse::CODEC_INVALID) {}
@@ -543,8 +543,8 @@ public:
         osg::ref_ptr<ZLMediaResourceDemuxer> demuxer = new ZLMediaResourceDemuxer;
         ctx->setDemuxer(demuxer.get());
 
-        osgVerse::CudaResourceDemuxerMuxerContainer* container =
-            new osgVerse::CudaResourceDemuxerMuxerContainer;
+        osgVerse::GpuResourceDemuxerMuxerContainer* container =
+            new osgVerse::GpuResourceDemuxerMuxerContainer;
         container->setDemuxer(demuxer.get()); return container;
     }
 

@@ -120,8 +120,8 @@ public:
         osg::ref_ptr<osgVerse::FFmpegResourceDemuxer> demuxer = new osgVerse::FFmpegResourceDemuxer(file);
         if (demuxer->getWidth() > 0 && demuxer->getHeight() > 0)
         {
-            osgVerse::CudaResourceDemuxerMuxerContainer* container =
-                new osgVerse::CudaResourceDemuxerMuxerContainer;
+            osgVerse::GpuResourceDemuxerMuxerContainer* container =
+                new osgVerse::GpuResourceDemuxerMuxerContainer;
             container->setDemuxer(demuxer.get()); return container;
         }
         return ReadResult::ERROR_IN_READING_FILE;

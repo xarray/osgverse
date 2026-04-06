@@ -1,12 +1,12 @@
 #pragma once
 #include "Utils/FFmpegDemuxer.h"
-#include "pipeline/CudaTexture2D.h"
+#include "pipeline/ExternalTexture2D.h"
 #include <osg/ref_ptr>
 
 namespace osgVerse
 {
 
-    class FFmpegResourceDemuxer : public osgVerse::CudaResourceReaderBase::Demuxer
+    class FFmpegResourceDemuxer : public osgVerse::GpuResourceReaderBase::Demuxer
     {
     public:
         FFmpegResourceDemuxer(const std::string& fileName, long long timeScale = 1000ll)
@@ -31,11 +31,22 @@ namespace osgVerse
             }
         }
 
-        virtual int getWidth() { return _subDemuxer->GetWidth(); }
-        virtual int getHeight() { return _subDemuxer->GetHeight(); }
+        virtual int getWidth() const { return _subDemuxer->GetWidth(); }
+        virtual int getHeight() const { return _subDemuxer->GetHeight(); }
+        virtual double getFrameRate() const { return _subDemuxer->GetFPS(); }
 
-        virtual bool demux(unsigned char** videoData, int* videoBytes, long long* pts)
-        { return _subDemuxer->Demux(videoData, videoBytes, pts); }
+        virtual bool demux(unsigned char** dataData, int* dataBytes, long long* pts)
+        {
+            bool isVideo = false;
+            bool ok = _subDemuxer->Demux(isVideo, dataData, dataBytes, pts);
+            while (ok && !isVideo)
+            {
+                // TODO
+                //std::cout << "AUDIO " << *dataBytes << "\n";
+                ok = _subDemuxer->Demux(isVideo, dataData, dataBytes, pts);
+            }
+            return isVideo && ok;
+        }
 
     protected:
         FFmpegDemuxer* _subDemuxer;

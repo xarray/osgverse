@@ -1,5 +1,5 @@
-#ifndef MANA_PP_CUDATEXTURE2D_HPP
-#define MANA_PP_CUDATEXTURE2D_HPP
+#ifndef MANA_PP_ExternalTexture2D_HPP
+#define MANA_PP_ExternalTexture2D_HPP
 
 #include <osg/Version>
 #include <osg/State>
@@ -24,8 +24,8 @@ typedef struct CUgraphicsResource_st* CUgraphicsResource;
 
 namespace osgVerse
 {
-    class CudaResourceReaderBase;
-    class CudaResourceDemuxerMuxerContainer;
+    class GpuResourceReaderBase;
+    class GpuResourceDemuxerMuxerContainer;
 
     enum VideoCodecType
     {
@@ -50,48 +50,52 @@ namespace osgVerse
         CODEC_UYVY = (('U' << 24) | ('Y' << 16) | ('V' << 8) | ('Y'))      /**< UYVY (4:2:2)       */
     };
 
-    // The Cuda-based texture
-    class CudaTexture2D : public osg::Texture2D
+    // 2D texture constructed from external GPU data
+    class ExternalTexture2D : public osg::Texture2D
     {
     public:
-        CudaTexture2D(void* cuContext);
-        CudaTexture2D(const CudaTexture2D& copy, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
+        ExternalTexture2D(void* cuContext);
+        ExternalTexture2D(const ExternalTexture2D& copy, const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY);
 
-        void setResourceReader(CudaResourceReaderBase* reader);
-        const CudaResourceReaderBase* getResourceReader() const;
+        void setResourceReader(GpuResourceReaderBase* reader);
+        const GpuResourceReaderBase* getResourceReader() const;
 
         virtual void releaseGLObjects(osg::State* state = NULL) const;
-        void releaseCudaData();
+        void releaseGpuData();
 
     protected:
-        virtual ~CudaTexture2D();
+        virtual ~ExternalTexture2D();
         void* _cuContext;
     };
 
-    // Cuda resource reader: load H264 frames from Demuxer and decode to texture
-    class CudaResourceReaderBase : public osg::Texture2D::SubloadCallback
+    // Gpu resource reader: load H264 frames from Demuxer and decode to texture
+    class GpuResourceReaderBase : public osg::Texture2D::SubloadCallback
     {
     public:
         class Demuxer : public osg::Referenced
         {
         public:
             virtual VideoCodecType getVideoCodec() { return CODEC_INVALID; }
-            virtual int getWidth() { return 0; }
-            virtual int getHeight() { return 0; }
+            virtual int getWidth() const { return 0; }
+            virtual int getHeight() const { return 0; }
+            virtual double getFrameRate() const { return 25; }
 
             virtual bool demux(unsigned char** videoData, int* videoBytes, long long* pts)
             { return false; }
         };
 
-        CudaResourceReaderBase(CUcontext cu);
+        GpuResourceReaderBase(CUcontext cu);
         virtual void operator()(osg::StateAttribute* sa, osg::NodeVisitor* nv) {}
 
-        bool openResource(CudaResourceDemuxerMuxerContainer* c);
+        bool openResource(GpuResourceDemuxerMuxerContainer* c);
+        Demuxer* getDemuxer() { return _demuxer.get(); }
+        const Demuxer* getDemuxer() const { return _demuxer.get(); }
+
         virtual bool openResource(Demuxer* demuxer) = 0;
         virtual void closeResource() { _demuxer = NULL; }
 
         virtual void releaseGLObjects(osg::State* state = NULL) const;
-        virtual void releaseCuda();
+        virtual void releaseGpu();
 
 #if OSG_VERSION_GREATER_THAN(3, 4, 0)
         virtual osg::ref_ptr<osg::Texture::TextureObject> generateTextureObject(
@@ -108,7 +112,7 @@ namespace osgVerse
         ResourceState getState() const { return _state; }
 
     protected:
-        virtual ~CudaResourceReaderBase() {}
+        virtual ~GpuResourceReaderBase() {}
         bool getDeviceFrameBuffer(CUdeviceptr* devFrameOut, int* pitchOut);
 
         osg::ref_ptr<Demuxer> _demuxer;
@@ -122,8 +126,8 @@ namespace osgVerse
         mutable std::mutex _mutex;
     };
 
-    // Cuda resource writer: load texture and encode to H264 frames, then send to Muxer
-    class CudaResourceWriterBase : public osg::Camera::DrawCallback
+    // Gpu resource writer: load texture and encode to H264 frames, then send to Muxer
+    class GpuResourceWriterBase : public osg::Camera::DrawCallback
     {
     public:
         class Muxer : public osg::Referenced
@@ -134,10 +138,13 @@ namespace osgVerse
             virtual int getHeight() { return 0; }
         };
 
-        CudaResourceWriterBase(CUcontext cu);
+        GpuResourceWriterBase(CUcontext cu);
         virtual void operator()(osg::RenderInfo& renderInfo) const {}
 
-        bool openResource(CudaResourceDemuxerMuxerContainer* c);
+        bool openResource(GpuResourceDemuxerMuxerContainer* c);
+        Muxer* getMuxer() { return _muxer.get(); }
+        const Muxer* getMuxer() const { return _muxer.get(); }
+
         virtual bool openResource(Muxer* muxer) = 0;
         virtual void closeResource() { _muxer = NULL; }
 
@@ -146,57 +153,57 @@ namespace osgVerse
         //ResourceState getState() const { return _state; }
 
     protected:
-        virtual ~CudaResourceWriterBase() {}
+        virtual ~GpuResourceWriterBase() {}
 
         osg::ref_ptr<Muxer> _muxer;
-        CudaResourceDemuxerMuxerContainer* _muxerParent;
+        GpuResourceDemuxerMuxerContainer* _muxerParent;
         CUcontext _cuContext;
     };
 
-    // The Cuda demuxer/muxer container
-    class CudaResourceDemuxerMuxerContainer : public osg::Object
+    // The Gpu demuxer/muxer container
+    class GpuResourceDemuxerMuxerContainer : public osg::Object
     {
     public:
-        CudaResourceDemuxerMuxerContainer() {}
-        CudaResourceDemuxerMuxerContainer(const CudaResourceDemuxerMuxerContainer& copy,
+        GpuResourceDemuxerMuxerContainer() {}
+        GpuResourceDemuxerMuxerContainer(const GpuResourceDemuxerMuxerContainer& copy,
                                           const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY)
         : osg::Object(copy, op), _demuxer(copy._demuxer), _muxer(copy._muxer) {}
-        META_Object(osgVerse, CudaResourceDemuxerMuxerContainer)
+        META_Object(osgVerse, GpuResourceDemuxerMuxerContainer)
 
-        void setDemuxer(CudaResourceReaderBase::Demuxer* r) { _demuxer = r; }
-        CudaResourceReaderBase::Demuxer* getDemuxer() { return _demuxer.get(); }
-        const CudaResourceReaderBase::Demuxer* getDemuxer() const { return _demuxer.get(); }
+        void setDemuxer(GpuResourceReaderBase::Demuxer* r) { _demuxer = r; }
+        GpuResourceReaderBase::Demuxer* getDemuxer() { return _demuxer.get(); }
+        const GpuResourceReaderBase::Demuxer* getDemuxer() const { return _demuxer.get(); }
 
-        void setMuxer(CudaResourceWriterBase::Muxer* r) { _muxer = r; }
-        CudaResourceWriterBase::Muxer* getMuxer() { return _muxer.get(); }
-        const CudaResourceWriterBase::Muxer* getMuxer() const { return _muxer.get(); }
+        void setMuxer(GpuResourceWriterBase::Muxer* r) { _muxer = r; }
+        GpuResourceWriterBase::Muxer* getMuxer() { return _muxer.get(); }
+        const GpuResourceWriterBase::Muxer* getMuxer() const { return _muxer.get(); }
 
     protected:
-        osg::ref_ptr<CudaResourceReaderBase::Demuxer> _demuxer;
-        osg::ref_ptr<CudaResourceWriterBase::Muxer> _muxer;
+        osg::ref_ptr<GpuResourceReaderBase::Demuxer> _demuxer;
+        osg::ref_ptr<GpuResourceWriterBase::Muxer> _muxer;
     };
 
-    // The Cuda reader/writer container
-    class CudaResourceReaderWriterContainer : public osg::Object
+    // The Gpu reader/writer container
+    class GpuResourceReaderWriterContainer : public osg::Object
     {
     public:
-        CudaResourceReaderWriterContainer() {}
-        CudaResourceReaderWriterContainer(const CudaResourceReaderWriterContainer& copy,
+        GpuResourceReaderWriterContainer() {}
+        GpuResourceReaderWriterContainer(const GpuResourceReaderWriterContainer& copy,
                                           const osg::CopyOp& op = osg::CopyOp::SHALLOW_COPY)
         : osg::Object(copy, op), _reader(copy._reader), _writer(copy._writer) {}
-        META_Object(osgVerse, CudaResourceReaderWriterContainer)
+        META_Object(osgVerse, GpuResourceReaderWriterContainer)
 
-        void setReader(CudaResourceReaderBase* r) { _reader = r; }
-        CudaResourceReaderBase* getReader() { return _reader.get(); }
-        const CudaResourceReaderBase* getReader() const { return _reader.get(); }
+        void setReader(GpuResourceReaderBase* r) { _reader = r; }
+        GpuResourceReaderBase* getReader() { return _reader.get(); }
+        const GpuResourceReaderBase* getReader() const { return _reader.get(); }
 
-        void setWriter(CudaResourceWriterBase* w) { _writer = w; }
-        CudaResourceWriterBase* getWriter() { return _writer.get(); }
-        const CudaResourceWriterBase* getWriter() const { return _writer.get(); }
+        void setWriter(GpuResourceWriterBase* w) { _writer = w; }
+        GpuResourceWriterBase* getWriter() { return _writer.get(); }
+        const GpuResourceWriterBase* getWriter() const { return _writer.get(); }
 
     protected:
-        osg::ref_ptr<CudaResourceReaderBase> _reader;
-        osg::ref_ptr<CudaResourceWriterBase> _writer;
+        osg::ref_ptr<GpuResourceReaderBase> _reader;
+        osg::ref_ptr<GpuResourceWriterBase> _writer;
     };
 }
 

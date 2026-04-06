@@ -8,7 +8,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 
-#include <pipeline/CudaTexture2D.h>
+#include <pipeline/ExternalTexture2D.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
 #include <iostream>
@@ -33,21 +33,21 @@ int main(int argc, char** argv)
 
     CUcontext cuContext = osgVerse::CudaAlgorithm::initializeContext(0);
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    osg::ref_ptr<osgVerse::CudaTexture2D> videoTexture;
-    osg::ref_ptr<osgVerse::CudaResourceDemuxerMuxerContainer> videoRecorder;
+    osg::ref_ptr<osgVerse::ExternalTexture2D> videoTexture;
+    osg::ref_ptr<osgVerse::GpuResourceDemuxerMuxerContainer> videoRecorder;
 
     osgDB::Options* opt = new osgDB::Options; opt->setPluginData("Context", cuContext);
     if (recordeMode)
     {
-        osgVerse::CudaResourceReaderWriterContainer* container =
-            dynamic_cast<osgVerse::CudaResourceReaderWriterContainer*>(osgDB::readObjectFile("encoder.codec_nv", opt));
+        osgVerse::GpuResourceReaderWriterContainer* container =
+            dynamic_cast<osgVerse::GpuResourceReaderWriterContainer*>(osgDB::readObjectFile("encoder.codec_nv", opt));
         if (!container)
         {
             OSG_WARN << "No encoder found for video recording" << std::endl;
             return 0;
         }
 
-        videoRecorder = new osgVerse::CudaResourceDemuxerMuxerContainer;
+        videoRecorder = new osgVerse::GpuResourceDemuxerMuxerContainer;
         container->getWriter()->openResource(videoRecorder.get());
         // Use osgDB::writeObjectFile(*videoRecorder, name) to create muxer and save H264 frames
 
@@ -56,23 +56,23 @@ int main(int argc, char** argv)
     }
     else
     {
-        osgVerse::CudaResourceReaderWriterContainer* container =
-            dynamic_cast<osgVerse::CudaResourceReaderWriterContainer*>(osgDB::readObjectFile("decoder.codec_nv", opt));
+        osgVerse::GpuResourceReaderWriterContainer* container =
+            dynamic_cast<osgVerse::GpuResourceReaderWriterContainer*>(osgDB::readObjectFile("decoder.codec_nv", opt));
         if (!container)
         {
             OSG_WARN << "No decoder found for video playing" << std::endl;
             return 0;
         }
 
-        osgVerse::CudaResourceDemuxerMuxerContainer* videoReader =
-            dynamic_cast<osgVerse::CudaResourceDemuxerMuxerContainer*>(osgDB::readObjectFile(file));
+        osgVerse::GpuResourceDemuxerMuxerContainer* videoReader =
+            dynamic_cast<osgVerse::GpuResourceDemuxerMuxerContainer*>(osgDB::readObjectFile(file));
         if (!videoReader)
         {
             OSG_WARN << "No demuxer found for video file: " << file << std::endl;
             return 0;
         }
 
-        videoTexture = new osgVerse::CudaTexture2D(cuContext);
+        videoTexture = new osgVerse::ExternalTexture2D(cuContext);
         videoTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         videoTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         videoTexture->setResourceReader(container->getReader());
@@ -99,7 +99,7 @@ int main(int argc, char** argv)
         if (videoRecorder.valid()) osgDB::writeObjectFile(*videoRecorder, file);
     }
 
-    if (videoTexture.valid()) videoTexture->releaseCudaData();
+    if (videoTexture.valid()) videoTexture->releaseGpuData();
     osgVerse::CudaAlgorithm::deinitializeContext(cuContext);
     return 0;
 }
