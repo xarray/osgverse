@@ -4,6 +4,13 @@
 #   include <emmintrin.h>
 #endif
 
+#ifndef M_PI
+#   define M_PI 3.14159265358979323846
+#endif
+#ifndef M_E
+#   define M_E 2.71828182845904523536
+#endif
+
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -13,8 +20,10 @@
 #include <osg/Geometry>
 #include <osgUtil/Tessellator>
 
+#include "3rdparty/Eigen/Dense"
 #include "3rdparty/exprtk.hpp"
 #include "3rdparty/nanoflann.hpp"
+#include "3rdparty/RTree.h"
 #include "3rdparty/cdt/CDT.h"
 #include "3rdparty/mapbox/polylabel.hpp"
 #ifndef VERSE_MSVC14
@@ -695,97 +704,248 @@ double MathExpression::evaluate(bool* ok)
 }
 
 /* PointCloudQuery */
-struct PointCloudData
+namespace knn
 {
-    std::vector<PointCloudQuery::PointData> points;
-    inline size_t kdtree_get_point_count() const { return points.size(); }
-
-    // Returns the distance between the vector "p1[0:size-1]" and
-    // the data point with index "idx_p2" stored in the class
-    inline float kdtree_distance(const float* p1, const size_t idx_p2, size_t size) const
+    struct PointCloudData
     {
-        const osg::Vec3& p = points[idx_p2].first;
-        const float d0 = p1[0] - p[0], d1 = p1[1] - p[1], d2 = p1[2] - p[2];
-        return d0 * d0 + d1 * d1 + d2 * d2;
+        std::vector<PointCloudQuery::PointData> points;
+        inline size_t kdtree_get_point_count() const { return points.size(); }
+
+        // Returns the distance between the vector "p1[0:size-1]" and
+        // the data point with index "idx_p2" stored in the class
+        inline float kdtree_distance(const float* p1, const size_t idx_p2, size_t size) const
+        {
+            const osg::Vec3& p = points[idx_p2].first;
+            const float d0 = p1[0] - p[0], d1 = p1[1] - p[1], d2 = p1[2] - p[2];
+            return d0 * d0 + d1 * d1 + d2 * d2;
+        }
+
+        // Returns the dim'th component of the idx'th point in the class
+        inline float kdtree_get_pt(const size_t idx, int dim) const
+        {
+            if (dim == 0) return points[idx].first.x();
+            else if (dim == 1) return points[idx].first.y();
+            else return points[idx].first.z();
+        }
+
+        // Optional bounding-box computation: return false to default to a standard bbox computation loop
+        template <class BBOX> bool kdtree_get_bbox(BBOX& bb) const { return false; }
+    };
+    typedef nanoflann::L2_Simple_Adaptor<float, PointCloudData> AdaptorType;
+    typedef nanoflann::KDTreeSingleIndexAdaptor<AdaptorType, PointCloudData, 3> KdTreeType;
+}
+
+namespace rtree
+{
+    typedef RTree<osg::ref_ptr<osg::Referenced>, float, 3> RTreeType;
+
+    bool intersectThreePlanes(const osg::Plane& p1, const osg::Plane& p2,
+                              const osg::Plane& p3, Eigen::Vector3d& result)
+    {
+        Eigen::Matrix3d A;
+        A << p1[0], p1[1], p1[2],
+             p2[0], p2[1], p2[2],
+             p3[0], p3[1], p3[2];
+        Eigen::Vector3d b(-p1[3], -p2[3], -p3[3]);
+
+        double det = A.determinant();
+        if (std::abs(det) < 1e-10) return false;
+        result = A.inverse() * b; return true;
     }
 
-    // Returns the dim'th component of the idx'th point in the class
-    inline float kdtree_get_pt(const size_t idx, int dim) const
+    osg::BoundingBox estimatePolytopeBounds(const osg::Polytope& polytope)
     {
-        if (dim == 0) return points[idx].first.x();
-        else if (dim == 1) return points[idx].first.y();
-        else return points[idx].first.z();
+        const auto& planes = polytope.getPlaneList();
+        Eigen::Vector3d center = Eigen::Vector3d::Zero();
+        double maxDist = 0.0, radius = 0.0;
+
+        for (const auto& plane : planes)
+        {
+            Eigen::Vector3d normal(plane[0], plane[1], plane[2]);
+            double d = -plane[3]; // normal * x = d
+
+            if (normal.norm() > ZERO_TOLERANCE)
+            {
+                Eigen::Vector3d pointOnPlane = normal * d / normal.squaredNorm();
+                center += pointOnPlane; maxDist = std::max(maxDist, pointOnPlane.norm());
+            }
+        }
+        center /= planes.size(); radius = maxDist * 2.0;
+        return osg::BoundingBox(
+            center.x() - radius, center.y() - radius, center.z() - radius,
+            center.x() + radius, center.y() + radius, center.z() + radius);
     }
+}
 
-    // Optional bounding-box computation: return false to default to a standard bbox computation loop
-    template <class BBOX> bool kdtree_get_bbox(BBOX& bb) const { return false; }
-};
-typedef nanoflann::L2_Simple_Adaptor<float, PointCloudData> AdaptorType;
-typedef nanoflann::KDTreeSingleIndexAdaptor<AdaptorType, PointCloudData, 3> KdTreeType;
-
-PointCloudQuery::PointCloudQuery()
-{ _queryData = new PointCloudData; _index = NULL; }
+PointCloudQuery::PointCloudQuery(Mode m) : _index(NULL), _mode(m)
+{
+    if (_mode == RTreeMode) _queryData = new rtree::RTreeType;
+    else _queryData = new knn::PointCloudData;
+}
 
 PointCloudQuery::~PointCloudQuery()
 {
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    pcd->points.clear(); delete pcd; _queryData = NULL;
-    KdTreeType* kdtree = (KdTreeType*)_index; delete kdtree; _index = NULL;
+    if (_mode == RTreeMode)
+        { rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData; delete _queryData; }
+    else
+    {
+        knn::PointCloudData* pcd = (knn::PointCloudData*)_queryData; pcd->points.clear(); delete pcd;
+        knn::KdTreeType* kdtree = (knn::KdTreeType*)_index; delete kdtree;
+    }
 }
 
-void PointCloudQuery::addPoint(const osg::Vec3& pt, osg::Referenced* userData)
+void PointCloudQuery::addPoint(const osg::Vec3& pt, osg::Referenced* userData, float padding)
 {
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    pcd->points.push_back(PointData(pt, userData));
+    if (_mode == RTreeMode)
+    {
+        osg::Vec3 ep(padding * 0.5f, padding * 0.5f, padding * 0.5f);
+        rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData;
+        rtree->Insert((pt - ep).ptr(), (pt + ep).ptr(), userData);
+    }
+    else
+    {
+        knn::PointCloudData* pcd = (knn::PointCloudData*)_queryData;
+        pcd->points.push_back(PointData(pt, userData));
+    }
 }
 
-void PointCloudQuery::setPoints(const std::vector<PointData>& data)
+void PointCloudQuery::addBox(const osg::BoundingBox& bb, osg::Referenced* userData)
 {
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    pcd->points = data;
+    if (_mode == RTreeMode)
+    {
+        osg::Vec3 v0 = bb._min, v1 = bb._max;
+        rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData;
+        rtree->Insert(v0.ptr(), v1.ptr(), userData);
+    }
 }
 
-unsigned int PointCloudQuery::getNumPoints() const
+void PointCloudQuery::setPoints(const std::vector<PointData>& data, float padding)
 {
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    return pcd->points.size();
+    if (_mode == RTreeMode)
+    {
+        osg::Vec3 ep(padding * 0.5f, padding * 0.5f, padding * 0.5f);
+        rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData;
+        for (size_t i = 0; i < data.size(); ++i)
+        {
+            const osg::Vec3& pt = data[i].first;
+            rtree->Insert((pt - ep).ptr(), (pt + ep).ptr(), data[i].second.get());
+        }
+    }
+    else
+    {
+        knn::PointCloudData* pcd = (knn::PointCloudData*)_queryData;
+        pcd->points = data;
+    }
 }
 
-const std::vector<PointCloudQuery::PointData>& PointCloudQuery::getPoints() const
+void PointCloudQuery::clear()
 {
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    return pcd->points;
+    if (_mode == RTreeMode)
+    {
+        rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData;
+        rtree->RemoveAll();
+    }
+    else
+    {
+        knn::PointCloudData* pcd = (knn::PointCloudData*)_queryData;
+        pcd->points.clear();
+    }
 }
 
 void PointCloudQuery::buildIndex(int maxLeafSize)
 {
-    PointCloudData* pcd = (PointCloudData*)_queryData;
-    if (_index != NULL) { KdTreeType* kd0 = (KdTreeType*)_index; delete kd0; }
-    KdTreeType* kdtree = new KdTreeType(3, *pcd, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeafSize));
-    kdtree->buildIndex(); _index = kdtree;
+    if (_mode == KdTreeMode)
+    {
+        knn::PointCloudData* pcd = (knn::PointCloudData*)_queryData;
+        if (_index != NULL) { knn::KdTreeType* kd0 = (knn::KdTreeType*)_index; delete kd0; }
+        knn::KdTreeType* kdtree = new knn::KdTreeType(
+            3, *pcd, nanoflann::KDTreeSingleIndexAdaptorParams(maxLeafSize));
+        kdtree->buildIndex(); _index = kdtree;
+    }
 }
 
-float PointCloudQuery::findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
-                                   unsigned int maxResults)
+float PointCloudQuery::findNearest(const osg::Vec3& pt, std::vector<PointData>& resultData,
+                                   float maxDistance, unsigned int maxResults)
 {
-    KdTreeType* kdtree = (KdTreeType*)_index;
-    std::vector<float> resultDistance2(maxResults);
-    resultIndices.resize(maxResults);
+    if (_mode == RTreeMode)
+    {
+        osg::Vec3 extend(maxDistance, maxDistance, maxDistance);
+        rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData; float minDistance = FLT_MAX;
+        size_t nhits = rtree->NNSearch((pt - extend).ptr(), (pt + extend).ptr(),
+            [&resultData, &minDistance](const float* v0, const float* v1, const osg::ref_ptr<osg::Referenced>& data, float d)
+            {
+                osg::Vec3 center = (osg::Vec3(v0[0], v0[1], v0[2]) + osg::Vec3(v1[0], v1[1], v1[2])) * 0.5f;
+                resultData.push_back(PointData(center, data)); if (d < minDistance) minDistance = d; return true;
+            });
+        return minDistance;  // FIXME: consider sorting and use maxResults?
+    }
+    else
+    {
+        knn::KdTreeType* kdtree = (knn::KdTreeType*)_index;
+        std::vector<float> resultDistance2(maxResults);
+        std::vector<uint32_t> resultIndices(maxResults);
 
-    float queryPt[3] = { pt[0], pt[1], pt[2] };
-    kdtree->knnSearch(&queryPt[0], maxResults, &(resultIndices[0]), &(resultDistance2[0]));
-    std::sort(resultDistance2.begin(), resultDistance2.end(), std::less<float>());
-    return resultDistance2[0];
+        float queryPt[3] = { pt[0], pt[1], pt[2] };
+        kdtree->knnSearch(&queryPt[0], maxResults, &(resultIndices[0]), &(resultDistance2[0]));
+        std::sort(resultDistance2.begin(), resultDistance2.end(), std::less<float>());
+
+        knn::PointCloudData* pcd = (knn::PointCloudData*)_queryData;
+        for (size_t i = 0; i < resultIndices.size(); ++i)
+        {
+            PointData& pd = pcd->points[resultIndices[i]];
+            if ((pd.first - pt).length() < maxDistance) resultData.push_back(pd);
+        }
+        return resultDistance2[0];
+    }
 }
 
-int PointCloudQuery::findInRadius(const osg::Vec3& pt, float radius,
-                                  std::vector<IndexAndDistancePair>& resultIndices)
+int PointCloudQuery::findInRadius(const osg::Vec3& pt, float radius, std::vector<PointData>& resultData)
 {
-    KdTreeType* kdtree = (KdTreeType*)_index;
-    nanoflann::SearchParams params; params.sorted = false;
+    if (_mode == RTreeMode)
+    {
+        osg::Vec3 extend(radius, radius, radius); osg::BoundingSphere bs(pt, radius);
+        rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData;
+        size_t nhits = rtree->Search((pt - extend).ptr(), (pt + extend).ptr(),
+            [&resultData, &bs](const float* v0, const float* v1, const osg::ref_ptr<osg::Referenced>& data)
+            {
+                osg::Vec3 a(v0[0], v0[1], v0[2]), b(v1[0], v1[1], v1[2]);
+                if (bs.contains(a) && bs.contains(b))
+                    resultData.push_back(PointData((a + b) * 0.5f, data)); return true;
+            });
+        return (int)resultData.size();
+    }
+    else
+    {
+        knn::KdTreeType* kdtree = (knn::KdTreeType*)_index;
+        nanoflann::SearchParams params; params.sorted = false;
 
-    float queryPt[3] = { pt[0], pt[1], pt[2] };
-    return kdtree->radiusSearch(&queryPt[0], radius, resultIndices, params);
+        float queryPt[3] = { pt[0], pt[1], pt[2] };
+        std::vector<std::pair<uint32_t, float>> resultIndices;
+        int result = kdtree->radiusSearch(&queryPt[0], radius, resultIndices, params);
+
+        knn::PointCloudData* pcd = (knn::PointCloudData*)_queryData;
+        for (size_t i = 0; i < resultIndices.size(); ++i)
+            resultData.push_back(pcd->points[resultIndices[i].first]);
+        return result;
+    }
+}
+
+int PointCloudQuery::findInPolytope(const osg::Polytope& poly, std::vector<PointData>& resultData)
+{
+    if (_mode == RTreeMode)
+    {
+        osg::BoundingBox bb = rtree::estimatePolytopeBounds(poly);
+        osg::Vec3 v0 = bb._min, v1 = bb._max;
+        rtree::RTreeType* rtree = (rtree::RTreeType*)_queryData;
+        size_t nhits = rtree->Search(v0.ptr(), v1.ptr(),
+            [&resultData, &poly](const float* v0, const float* v1, const osg::ref_ptr<osg::Referenced>& data)
+            {
+                osg::Vec3 a(v0[0], v0[1], v0[2]), b(v1[0], v1[1], v1[2]);
+                if (poly.contains(a) && poly.contains(b))
+                    resultData.push_back(PointData((a + b) * 0.5f, data)); return true;
+            });
+    }
+    return (int)resultData.size();
 }
 
 /* GeometryAlgorithm */

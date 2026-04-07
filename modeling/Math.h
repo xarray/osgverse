@@ -15,7 +15,7 @@
 #include <osg/Quat>
 #include <osg/Plane>
 #include <osg/Matrix>
-#include <osg/Node>
+#include <osg/Polytope>
 #include <osg/Shape>
 #include <osg/CoordinateSystemNode>
 
@@ -108,31 +108,34 @@ namespace osgVerse
     class PointCloudQuery
     {
     public:
-        typedef std::pair<uint32_t, float> IndexAndDistancePair;
         typedef std::pair<osg::Vec3, osg::ref_ptr<osg::Referenced>> PointData;
+        enum Mode { RTreeMode = 0, KdTreeMode };
 
-        PointCloudQuery();
+        PointCloudQuery(Mode m = RTreeMode);
         ~PointCloudQuery();
 
-        void addPoint(const osg::Vec3& pt, osg::Referenced* userData);
-        void setPoints(const std::vector<PointData>& data);
+        void addPoint(const osg::Vec3& pt, osg::Referenced* userData, float padding = 0.0001f);
+        void addBox(const osg::BoundingBox& bb, osg::Referenced* userData);  // RTree only
+        void setPoints(const std::vector<PointData>& data, float padding = 0.0001f);
+        void clear();
 
-        unsigned int getNumPoints() const;
-        const std::vector<PointData>& getPoints() const;
-
-        /** Build the KDTree index for point cloud */
+        /** Build the KDTree index for point cloud, KDTree mode only */
         void buildIndex(int maxLeafSize = 10);
 
         /** Find nearest neighbors of specific point */
-        float findNearest(const osg::Vec3& pt, std::vector<uint32_t>& resultIndices,
-                          unsigned int maxResults = 1000);
+        float findNearest(const osg::Vec3& pt, std::vector<PointData>& resultData,
+                          float maxDistance, unsigned int maxResults = 1000);
 
-        /** Find points inside the radius of specific point */
-        int findInRadius(const osg::Vec3& pt, float radius, std::vector<IndexAndDistancePair>& resultIndices);
+        /** Find points inside a sphere defined by center and radius */
+        int findInRadius(const osg::Vec3& pt, float radius, std::vector<PointData>& resultData);
+
+        /** Find points inside a polytope, RTree mode only */
+        int findInPolytope(const osg::Polytope& poly, std::vector<PointData>& resultData);
 
     protected:
         void* _queryData;
         void* _index;
+        Mode _mode;
     };
 
     /** Float16 implementation extracted from Eigen */

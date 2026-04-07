@@ -231,7 +231,7 @@ void main()
     //mat3 V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
     mat3 V = computeCovariance(osg_Covariance0.xyz, osg_Covariance1);
 #endif
-    if (GaussianRenderingMode > 0.5) V = mat3(0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001);
+    if (GaussianRenderingMode > 0.5) V = mat3(0.0001, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0001);
 
     mat3 W = mat3(VERSE_MATRIX_MV); mat3 JW = J * W; mat3 V_prime = JW * V * transpose(JW);
     mat2 cov2D = mat2(V_prime);  // 'project' the 3D covariance matrix onto xy plane

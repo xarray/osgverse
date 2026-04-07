@@ -28,10 +28,11 @@ public:
         std::map<osg::StateSet*, unsigned int> stateSetCounts;
         for (size_t i = 0; i < va->size(); ++i)
         {
-            std::vector<uint32_t> resultIndices(1);
-            _query->findNearest((*va)[i] * matrix, resultIndices, 1);
+            std::vector<PointCloudQuery::PointData> results;
+            _query->findNearest((*va)[i] * matrix, results, 1000.0f, 1);
 
-            unsigned int index = resultIndices[0];
+            VertexIndex* vid = dynamic_cast<VertexIndex*>(results.empty() ? NULL : results[0].second.get());
+            unsigned int index = vid ? vid->index : _texcoords->size();
             if (_verticesOfStateSets)
             {
                 for (std::map<osg::StateSet*, std::vector<size_t>>::iterator itr =
@@ -120,8 +121,8 @@ float GeometryMapper::computeSimilarity(osg::Node* source, osg::Node* target)
     std::vector<float> lengthList; float maxD = 0.0f, minD = FLT_MAX;
     for (size_t i = 0; i < vertices1.size(); ++i)
     {
-        std::vector<uint32_t> resultIndices(1);
-        float d = sqrt(query.findNearest(vertices1[i], resultIndices, 1));
+        std::vector<PointCloudQuery::PointData> results;
+        float d = sqrt(query.findNearest(vertices1[i], results, 1000.0f, 1));
         if (maxD < d) maxD = d; if (minD > d) minD = d;
         lengthList.push_back(d);
     }

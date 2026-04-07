@@ -6,6 +6,7 @@
 #include <thrust/sort.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <cuda.h>
 
 #define ONLY_CUDA_DEFINITIONS
 #include "../Utilities.h"

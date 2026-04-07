@@ -278,6 +278,7 @@ protected:
         const static float kSH_C0 = 0.28209479177387814, scaleRange = 32767.0f;
 
         // Parse sections
+        uint32_t currentSectionOffset = KSPLAT_HEADER_SIZE + maxSectionCount * KSPLAT_SECTION_HEADER_SIZE;
         uint32_t totalSplatsRead = 0, maxShDegree = 0; offset = KSPLAT_HEADER_SIZE;
         for (uint32_t s = 0; s < maxSectionCount && totalSplatsRead < splatCount; s++)
         {
@@ -293,6 +294,7 @@ protected:
             uint32_t fullBucketCount = *(uint32_t*)(secData + 32);
             uint32_t partiallyFilledBucketCount = *(uint32_t*)(secData + 36);
             uint16_t sphericalHarmonicsDegree = *(uint16_t*)(secData + 40);
+            if (compressionScaleRange <= 0) compressionScaleRange = scaleRange;
             if (sphericalHarmonicsDegree > maxShDegree) maxShDegree = sphericalHarmonicsDegree;
 
             // Calculate bytes per splat for this section
@@ -308,18 +310,34 @@ protected:
             uint32_t bucketsMetaDataSize = partiallyFilledBucketCount * 4;
             uint32_t bucketsStorageSize = bucketStorageSizeBytes * bucketCount + bucketsMetaDataSize;
             uint32_t sectionDataOffset = offset + KSPLAT_SECTION_HEADER_SIZE + bucketsStorageSize;
+            const osg::Vec3* subCenters = (const osg::Vec3*)(data + currentSectionOffset + bucketsMetaDataSize);
+            const uint32_t* partialBucketSizes = (const uint32_t*)(data + currentSectionOffset);
 
             // Read splats in this section
             uint32_t splatsInSection = osg::minimum(secMaxSplatCount, splatCount - totalSplatsRead);
-            float positionScale = bucketBlockSize * 0.5f / (compressionScaleRange > 0 ? compressionScaleRange : scaleRange);
+            uint32_t fullBucketSplats = fullBucketCount * bucketSize;
+            uint32_t currentPartialBucket = fullBucketCount, currentPartialBase = fullBucketSplats;
+            float positionScale = bucketBlockSize * 0.5f / compressionScaleRange;
             for (uint32_t i = 0; i < splatsInSection; i++)
             {
                 uint32_t splatOffset = sectionDataOffset + i * bytesPerSplat;
                 if (splatOffset + bytesPerSplat > buffer.size()) break;
-                const uint8_t* splatData = data + splatOffset; uint32_t so = 0;
+                const uint8_t* splatData = data + splatOffset;
+                osg::Vec3 pv, sv; osg::Vec4 rotation;
+
+                // Get bucket center
+                uint32_t bucketIdx = 0, so = 0;
+                if (i < fullBucketSplats)
+                    bucketIdx = floor(i / bucketSize);
+                else
+                {
+                    uint32_t currentBucketSize = partialBucketSizes[currentPartialBucket - fullBucketCount];
+                    if (i >= currentPartialBase + currentBucketSize)
+                        { currentPartialBucket++; currentPartialBase += currentBucketSize; }
+                    bucketIdx = currentPartialBucket;
+                }
 
                 // Read position (quantized, needs dequantization)
-                osg::Vec3 pv, sv; osg::Vec4 rotation;
                 if (compressionLevel == 0)
                 {
                     pv[0] = *(float*)(splatData + so);
@@ -328,9 +346,10 @@ protected:
                 }
                 else
                 {   // 16-bit quantized positions
-                    pv[0] = sceneCenter[0] + (*(int16_t*)(splatData + so)) * positionScale;
-                    pv[1] = sceneCenter[1] + (*(int16_t*)(splatData + so + 2)) * positionScale;
-                    pv[2] = sceneCenter[2] + (*(int16_t*)(splatData + so + 4)) * positionScale; so += 6;
+                    osg::Vec3 offset = subCenters[bucketIdx] - osg::Vec3(1.0f, 1.0f, 1.0f) * (bucketBlockSize * 0.5f);
+                    pv[0] = offset[0] + (*(uint16_t*)(splatData + so)) * positionScale;
+                    pv[1] = offset[1] + (*(uint16_t*)(splatData + so + 2)) * positionScale;
+                    pv[2] = offset[2] + (*(uint16_t*)(splatData + so + 4)) * positionScale; so += 6;
                 }
                 pos->push_back(pv);
 
@@ -352,17 +371,17 @@ protected:
                 // Read rotation (quaternion)
                 if (compressionLevel == 0)
                 {
-                    rotation[0] = *(float*)(splatData + so);
-                    rotation[1] = *(float*)(splatData + so + 4);
-                    rotation[2] = *(float*)(splatData + so + 8);
-                    rotation[3] = *(float*)(splatData + so + 12); so += 16;
+                    rotation[3] = *(float*)(splatData + so);
+                    rotation[0] = *(float*)(splatData + so + 4);
+                    rotation[1] = *(float*)(splatData + so + 8);
+                    rotation[2] = *(float*)(splatData + so + 12); so += 16;
                 }
                 else
                 {   // 16-bit half-float rotations
-                    rotation[0] = halfToFloat(*(uint16_t*)(splatData + so));
-                    rotation[1] = halfToFloat(*(uint16_t*)(splatData + so + 2));
-                    rotation[2] = halfToFloat(*(uint16_t*)(splatData + so + 4));
-                    rotation[3] = halfToFloat(*(uint16_t*)(splatData + so + 6)); so += 8;
+                    rotation[3] = halfToFloat(*(uint16_t*)(splatData + so));
+                    rotation[0] = halfToFloat(*(uint16_t*)(splatData + so + 2));
+                    rotation[1] = halfToFloat(*(uint16_t*)(splatData + so + 4));
+                    rotation[2] = halfToFloat(*(uint16_t*)(splatData + so + 6)); so += 8;
                 }
                 rotation.normalize(); rot->push_back(rotation);
 

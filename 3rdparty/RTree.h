@@ -106,14 +106,16 @@ public:
   /// \param a_resultCallback Callback function to return result.  Callback should return 'true' to continue searching
   /// \param a_context User context to pass as parameter to a_resultCallback
   /// \return Returns the number of entries found
-  int Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], std::function<bool (const DATATYPE&)> callback) const;
+  int Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS],
+             std::function<bool (const ELEMTYPE*, const ELEMTYPE*, const DATATYPE&)> callback) const;
 
   /// Find the nearest neighbors
   /// \param a_min Min of search bounding rect
   /// \param a_max Max of search bounding rect
   /// \param a_resultCallback Callback function to return result.  The Callback takes both the resulting data point and the calculated square distance. Callback should return 'true' to continue searching
   /// \return Returns the number of entries found
-  size_t NNSearch(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], std::function<bool(const DATATYPE&, ELEMTYPE)> callback) const;
+  size_t NNSearch(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS],
+                  std::function<bool (const ELEMTYPE*, const ELEMTYPE*, const DATATYPE&, ELEMTYPE)> callback) const;
 
 
   /// Remove all entries from tree
@@ -377,7 +379,7 @@ protected:
   bool Overlap(Rect* a_rectA, Rect* a_rectB) const;
   ELEMTYPE SquareDistance(Rect const& a_rectA, Rect const& a_rectB) const;
   void ReInsert(Node* a_node, ListNode** a_listNode);
-  bool Search(Node* a_node, Rect* a_rect, int& a_foundCount, std::function<bool (const DATATYPE&)> callback) const;
+  bool Search(Node* a_node, Rect* a_rect, int& a_foundCount, std::function<bool (const ELEMTYPE*, const ELEMTYPE*, const DATATYPE&)> callback) const;
   void RemoveAllRec(Node* a_node);
   void Reset();
   void CountRec(Node* a_node, int& a_count);
@@ -573,7 +575,8 @@ void RTREE_QUAL::Remove(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMD
 
 
 RTREE_TEMPLATE
-int RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], std::function<bool (const DATATYPE&)> callback) const
+int RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS],
+                       std::function<bool (const ELEMTYPE*, const ELEMTYPE*, const DATATYPE&)> callback) const
 {
 #ifdef _DEBUG
   for(int index=0; index<NUMDIMS; ++index)
@@ -601,7 +604,7 @@ int RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDI
 RTREE_TEMPLATE
 size_t RTREE_QUAL::NNSearch(
     const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS],
-    std::function<bool(const DATATYPE&, ELEMTYPE)> callback
+    std::function<bool(const ELEMTYPE*, const ELEMTYPE*, const DATATYPE&, ELEMTYPE)> callback
 ) const
 {
     // Create a search rectangle
@@ -664,7 +667,8 @@ size_t RTREE_QUAL::NNSearch(
             // If this is a leaf, then we have found a minimum distance
             // Call the callback
             ++foundCount;
-            if (!callback(process.branch->m_data, process.distance))
+            if (!callback(process.branch->m_rect.m_min, process.branch->m_rect.m_max,
+                          process.branch->m_data, process.distance))
             {
                 // If the user has flaged to stopped, then return
                 // the number found.
@@ -1746,7 +1750,8 @@ void RTREE_QUAL::ReInsert(Node* a_node, ListNode** a_listNode)
 
 // Search in an index tree or subtree for all data retangles that overlap the argument rectangle.
 RTREE_TEMPLATE
-bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, int& a_foundCount, std::function<bool (const DATATYPE&)> callback) const
+bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, int& a_foundCount,
+                        std::function<bool (const ELEMTYPE*, const ELEMTYPE*, const DATATYPE&)> callback) const
 {
   RTREE_ASSERT(a_node);
   RTREE_ASSERT(a_node->m_level >= 0);
@@ -1774,13 +1779,12 @@ bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, int& a_foundCount, std::func
     {
       if(Overlap(a_rect, &a_node->m_branch[index].m_rect))
       {
-        DATATYPE& id = a_node->m_branch[index].m_data;
-        ++a_foundCount;
+          auto& branch = a_node->m_branch[index];
+          DATATYPE& id = branch.m_data;
+          ++a_foundCount;
 
-          if(callback && !callback(id))
-          {
-            return false; // Don't continue searching
-          }
+          if(callback && !callback(branch.m_rect.m_min, branch.m_rect.m_max, id))
+              return false; // Don't continue searching
       }
     }
   }
