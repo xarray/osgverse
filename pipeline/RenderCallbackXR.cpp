@@ -405,7 +405,7 @@ struct SessionXR : public osg::Referenced
         loader.xrEnumerateSwapchainImages(
             swapchain, imageCount, &imageCount, (XrSwapchainImageBaseHeader*)swapchainImages.data());
         OSG_NOTICE << "[RenderCallbackXR] Created swapchain with " << imageCount << " images" << std::endl;
-        views.resize(viewCount); return true;
+        views.resize(viewCount, {XR_TYPE_VIEW, nullptr}); return true;
     }
 
     void destroy(const LoaderXR& loader) const
@@ -416,18 +416,40 @@ struct SessionXR : public osg::Referenced
         if (instance != XR_NULL_HANDLE) loader.xrDestroyInstance(instance);
     }
 
-#if OSG_VERSION_GREATER_THAN(3, 3, 2)
-    void blitToSwapchain(osg::State* state, osg::GLExtensions* ext, GLuint dstTexture)
-#else
-    void blitToSwapchain(osg::State* state, osg::FBOExtensions* ext, GLuint dstTexture)
-#endif
+    void blitToSwapchain(osg::RenderInfo& renderInfo, GLuint dstTexture)
     {
-        // TODO
+        osg::Camera* cam = renderInfo.getCurrentCamera(); if (!cam) return;
+        osg::Camera::BufferAttachmentMap& attachments = cam->getBufferAttachmentMap();
+
+        osg::ref_ptr<osg::Texture2D> tex;
+        osg::Camera::BufferAttachmentMap::iterator it = attachments.find(osg::Camera::COLOR_BUFFER0);
+        if (it != attachments.end())
+            tex = static_cast<osg::Texture2D*>(it->second._texture.get());
+        else
+        {
+            it = attachments.find(osg::Camera::COLOR_BUFFER);
+            if (it != attachments.end()) tex = static_cast<osg::Texture2D*>(it->second._texture.get());
+        }
+
+        unsigned int contextID = renderInfo.getContextID();
+        TextureCopier* copier = TextureCopier::instance();
+        if (tex.valid())
+        {
+            osg::Texture::TextureObject* texObj = tex->getTextureObject(contextID);
+            if (texObj)
+            {
+                // FIXME: relation between recommendedWidth/Height and getTextureWidth/Height()?
+                (*copier)(texObj->id(), 0, 0, 0, recommendedWidth * 2, recommendedHeight,
+                          dstTexture, 0, 0, renderInfo.getState());
+            }
+        }
+        else
+            { OSG_NOTICE << "[RenderCallbackXR] No source texture to blit, maybe not a FBO camera?\n"; }
     }
 };
 
 RenderCallbackXR::RenderCallbackXR()
-:   _beginFrameTick(0), _spaceType(LOCAL), _beganFrame(false)
+:   _beginFrameTick(0), _spaceType(LOCAL), _sessionReady(false), _shouldRender(false), _beganFrame(false)
 {
     osg::ref_ptr<LoaderXR> loader = new LoaderXR;
     if (loader->load()) _xrLoader = loader; else return;
@@ -450,24 +472,26 @@ RenderCallbackXR::~RenderCallbackXR()
     }
 }
 
-bool RenderCallbackXR::begin(osg::Matrix& view, osg::Matrix& projL, osg::Matrix& projR, double znear, double zfar)
+bool RenderCallbackXR::begin(osg::Matrix& viewL, osg::Matrix& viewR,
+                             osg::Matrix& projL, osg::Matrix& projR, double znear, double zfar)
 {
     LoaderXR* loader = static_cast<LoaderXR*>(_xrLoader.get());
     SessionXR* xr = static_cast<SessionXR*>(_xrSession.get());
-    if (loader && xr)
+    if (loader && xr && _sessionReady)
     {
         if (!_beganFrame && xr->session)
         {
             XrFrameWaitInfo waitInfo{ XR_TYPE_FRAME_WAIT_INFO };
             XrFrameState frameState{ XR_TYPE_FRAME_STATE };
             loader->xrWaitFrame(xr->session, &waitInfo, &frameState);
-            if (frameState.shouldRender)
+            loader->xrBeginFrame(xr->session, nullptr);
+
+            xr->frameLastTime = frameState.predictedDisplayTime;
+            _shouldRender = frameState.shouldRender; _beganFrame = true;
+            if (_shouldRender)
             {
-                // Start frame
                 uint32_t viewCountOutput = 0;
-                loader->xrBeginFrame(xr->session, nullptr);
                 _beginFrameTick = osg::Timer::instance()->tick();
-                xr->frameLastTime = frameState.predictedDisplayTime;
 
                 // Get view location
                 XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
@@ -476,52 +500,76 @@ bool RenderCallbackXR::begin(osg::Matrix& view, osg::Matrix& projL, osg::Matrix&
                 viewLocateInfo.space = xr->referenceSpace;
 
                 XrViewState viewState{ XR_TYPE_VIEW_STATE };
-                loader->xrLocateViews(xr->session, &viewLocateInfo, &viewState,
-                                      xr->viewCount, &viewCountOutput, xr->views.data());
+                XrResult result = loader->xrLocateViews(xr->session, &viewLocateInfo, &viewState,
+                                                        xr->viewCount, &viewCountOutput, xr->views.data());
+                if (XR_FAILED(result))
+                {
+                    OSG_NOTICE << "[RenderCallbackXR] Failed to get view information: " << result << std::endl;
+                    return false;
+                }
 
                 // Compute OSG view & projection matrices
                 const XrView& left = xr->views.front();
                 const XrView& right = xr->views.back();
-                osg::Matrix leftProj = xr->fovToProjection(left.fov, znear, zfar);
-                osg::Matrix rightProj = xr->fovToProjection(right.fov, znear, zfar);
-
-                osg::Vec3d leftPos(left.pose.position.x, left.pose.position.y, left.pose.position.z);
-                osg::Vec3d rightPos(right.pose.position.x, right.pose.position.y, right.pose.position.z);
-                osg::Vec3d ipdOffset = rightPos - leftPos;
-                osg::Matrix ipdMatrix; ipdMatrix.makeTranslate(-ipdOffset);
-                osg::Matrix rightProjAdjusted = ipdMatrix * rightProj;
-
-                view = xr->poseToView(left.pose);
-                projL = leftProj; projR = rightProjAdjusted;
-                _beganFrame = true; return true;
+                viewL = xr->poseToView(left.pose); viewR = xr->poseToView(right.pose);
+                projL = xr->fovToProjection(left.fov, znear, zfar);
+                projR = xr->fovToProjection(right.fov, znear, zfar); return true;
             }
         }
-        else if (_beganFrame)
-            { OSG_NOTICE << "[RenderCallbackXR] Current frame already began, should call xrEndFrame()\n"; }
+        //else if (_beganFrame)
+        //    { OSG_NOTICE << "[RenderCallbackXR] Current frame already began, should call xrEndFrame()\n"; }
+    }
+    return false;
+}
+
+bool RenderCallbackXR::handleEvents(osgGA::EventQueue* ev)
+{
+    LoaderXR* loader = static_cast<LoaderXR*>(_xrLoader.get());
+    SessionXR* xr = static_cast<SessionXR*>(_xrSession.get());
+    if (loader && xr)
+    {
+        XrEventDataBuffer event{ XR_TYPE_EVENT_DATA_BUFFER };
+        while (loader->xrPollEvent(xr->instance, &event) == XR_SUCCESS)
+        {
+            switch (event.type)
+            {
+            case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
+                {
+                    XrEventDataSessionStateChanged* stateEvent = reinterpret_cast<XrEventDataSessionStateChanged*>(&event);
+                    switch (stateEvent->state)
+                    {
+                    case XR_SESSION_STATE_READY:
+                        {
+                            XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
+                            beginInfo.primaryViewConfigurationType = xr->viewConfigType;
+                            loader->xrBeginSession(xr->session, &beginInfo);
+                        }
+                        _sessionReady = true; break;
+                    case XR_SESSION_STATE_SYNCHRONIZED: break;
+                    case XR_SESSION_STATE_VISIBLE: case XR_SESSION_STATE_FOCUSED:
+                        break;  // HMD already focused and frameState.shouldRender = true
+                    case XR_SESSION_STATE_STOPPING:
+                        loader->xrEndSession(xr->session); _sessionReady = false; break;
+                    }
+                    break;
+                }
+            default:
+                std::cout << "[RenderCallbackXR] Unhandled event: " << event.type << "\n"; break;
+            }
+        }
+        return true;
     }
     return false;
 }
 
 void RenderCallbackXR::operator()(osg::RenderInfo& renderInfo) const
 {
-    osg::State* state = renderInfo.getState();
-#if OSG_VERSION_GREATER_THAN(3, 3, 2)
-    osg::GLExtensions* ext = state->get<osg::GLExtensions>();
-    if (!ext->isFrameBufferObjectSupported)
-#else
-    osg::FBOExtensions* ext = osg::FBOExtensions::instance(renderInfo.getContextID(), true);
-    if (!ext->isSupported())
-#endif
-    {
-        OSG_WARN << "[RenderCallbackXR] No FBO support" << std::endl;
-        if (_subCallback.valid()) _subCallback.get()->run(renderInfo); return;
-    }
-
     LoaderXR* loader = static_cast<LoaderXR*>(_xrLoader.get());
     SessionXR* xr = static_cast<SessionXR*>(_xrSession.get());
     if (loader && xr)
     {
         // Initialize current session
+        osg::State* state = renderInfo.getState();
         if (!xr->session)
         {
             if (xr->createSession(*loader, state->getGraphicsContext()))
@@ -533,57 +581,68 @@ void RenderCallbackXR::operator()(osg::RenderInfo& renderInfo) const
 
         // Finish XR rendering
         uint32_t imageIndex = 0;
-        if (xr->session && _beganFrame)
+        if (xr->session && _sessionReady && _beganFrame)
         {
-            // Update swapchain images from single FBO input
-            XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
-            loader->xrAcquireSwapchainImage(xr->swapchain, &acquireInfo, &imageIndex);
-            {
-                // Blit FBO to each eye's image
-                GLuint destFramebuffer = xr->swapchainImages[imageIndex].image;
-                xr->blitToSwapchain(state, ext, destFramebuffer);
-            }
-            XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-            loader->xrReleaseSwapchainImage(xr->swapchain, &releaseInfo);
-
-            // Configure projection view of each eye
-            std::vector<XrCompositionLayerProjectionView> projectionViews;
-            projectionViews.resize(xr->viewCount);
-            for (uint32_t eye = 0; eye < xr->viewCount; ++eye)
-            {
-                XrCompositionLayerProjectionView& projectionView = projectionViews[eye];
-                projectionView.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
-                projectionView.pose = xr->views[eye].pose;
-                projectionView.fov = xr->views[eye].fov;
-                projectionView.next = nullptr;
-                projectionView.subImage.swapchain = xr->swapchain;
-                projectionView.subImage.imageRect.offset =
-                    { (eye == 0 ? 0 : (int32_t)xr->recommendedWidth), 0 };
-                projectionView.subImage.imageRect.extent =
-                    { (int32_t)xr->recommendedWidth, (int32_t)xr->recommendedHeight };
-                projectionView.subImage.imageArrayIndex = 0;
-            }
-
-            // Last composition layer
-            XrCompositionLayerProjection projectionLayer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
-            projectionLayer.space = xr->referenceSpace;
-            projectionLayer.viewCount = static_cast<uint32_t>(projectionViews.size());
-            projectionLayer.views = projectionViews.data();
-
-            const XrCompositionLayerBaseHeader* layers[] =
-            { reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projectionLayer) };
-            osg::Timer_t delta = osg::Timer::instance()->tick() - _beginFrameTick;
-
-            // End frame and present all layers
             XrFrameEndInfo endInfo{ XR_TYPE_FRAME_END_INFO };
-            endInfo.displayTime = xr->frameLastTime + delta;
             endInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
-            endInfo.layerCount = 1; endInfo.layers = layers;
-            loader->xrEndFrame(xr->session, &endInfo);
-            _beganFrame = false;
+            if (!_shouldRender)
+            {
+                endInfo.displayTime = xr->frameLastTime;
+                endInfo.layerCount = 0; endInfo.layers = nullptr;
+            }
+            else
+            {
+                // Update swapchain images from single FBO input
+                XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+                loader->xrAcquireSwapchainImage(xr->swapchain, &acquireInfo, &imageIndex);
+                {
+                    XrSwapchainImageWaitInfo waitInfo{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+                    waitInfo.timeout = XR_INFINITE_DURATION;
+                    loader->xrWaitSwapchainImage(xr->swapchain, &waitInfo);
+
+                    // Blit FBO to each eye's image
+                    GLuint destFramebuffer = xr->swapchainImages[imageIndex].image;
+                    xr->blitToSwapchain(renderInfo, destFramebuffer);
+                }
+                XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+                loader->xrReleaseSwapchainImage(xr->swapchain, &releaseInfo);
+
+                // Configure projection view of each eye
+                std::vector<XrCompositionLayerProjectionView> projectionViews;
+                projectionViews.resize(xr->viewCount);
+                for (uint32_t eye = 0; eye < xr->viewCount; ++eye)
+                {
+                    XrCompositionLayerProjectionView& projectionView = projectionViews[eye];
+                    projectionView.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+                    projectionView.pose = xr->views[eye].pose;
+                    projectionView.fov = xr->views[eye].fov;
+                    projectionView.next = nullptr;
+                    projectionView.subImage.swapchain = xr->swapchain;
+                    projectionView.subImage.imageRect.offset =
+                        { (eye == 0 ? 0 : (int32_t)xr->recommendedWidth), 0 };
+                    projectionView.subImage.imageRect.extent =
+                        { (int32_t)xr->recommendedWidth, (int32_t)xr->recommendedHeight };
+                    projectionView.subImage.imageArrayIndex = 0;
+                }
+
+                // Last composition layer
+                XrCompositionLayerProjection projectionLayer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
+                projectionLayer.space = xr->referenceSpace;
+                projectionLayer.viewCount = static_cast<uint32_t>(projectionViews.size());
+                projectionLayer.views = projectionViews.data();
+
+                const XrCompositionLayerBaseHeader* layers[] =
+                { reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projectionLayer) };
+                osg::Timer_t delta = osg::Timer::instance()->tick() - _beginFrameTick;
+
+                // End frame and present all layers
+                endInfo.displayTime = xr->frameLastTime + delta;
+                endInfo.layerCount = 1; endInfo.layers = layers;
+            }
+            loader->xrEndFrame(xr->session, &endInfo); _beganFrame = false;
         }
-        else if (!_beganFrame)
-            { OSG_NOTICE << "[RenderCallbackXR] Current frame not ready, should call begin() first\n"; }
+        //else if (!_beganFrame)
+        //    { OSG_NOTICE << "[RenderCallbackXR] Current frame not ready, should call begin() first\n"; }
     }
     if (_subCallback.valid()) _subCallback.get()->run(renderInfo);
 }

@@ -98,6 +98,31 @@ static const char* inputFragmentShaderCode =
     "}\n"
 };
 
+class UpdateCallbackXR : public osg::NodeCallback
+{
+public:
+    UpdateCallbackXR(osgVerse::RenderCallbackXR* xr) : _xr(xr) {}
+    osgVerse::RenderCallbackXR* getXR() { return _xr.get(); }
+
+    virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+    {
+        if (_xr.valid())
+        {
+            osg::Matrix viewL, viewR, projL, projR;
+            _xr->handleEvents(NULL);
+            if (_xr->begin(viewL, viewR, projL, projR, 1.0, 10000.0))
+            {
+                // TODO?
+                std::cout << viewL << "\n";
+            }
+        }
+        traverse(node, nv);
+    }
+
+protected:
+    osg::observer_ptr<osgVerse::RenderCallbackXR> _xr;
+};
+
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
@@ -230,9 +255,10 @@ int main(int argc, char** argv)
 
         if (arguments.read("--openxr"))
         {
-            // FIXME: when to begin() ?
             osgVerse::RenderCallbackXR* xr = new osgVerse::RenderCallbackXR;
-            xr->setup(output->camera.get(), 2);  // post-draw
+            //xr->setReferenceSpaceType(osgVerse::RenderCallbackXR::STAGE);
+            xr->setup(testStage->camera.get(), 2);  // post-draw
+            viewer.getCamera()->addUpdateCallback(new UpdateCallbackXR(xr));
         }
 
         // 6. Apply stages to viewer's slaves, also finish stage configuring
