@@ -203,15 +203,15 @@ struct SessionXR : public osg::Referenced
         return ss.str();
     }
 
-    static osg::Matrix poseToView(const XrPosef& pose)
+    static osg::Matrixf poseToView(const XrPosef& pose)
     {
-        osg::Vec3d p(pose.position.x, pose.position.y, pose.position.z);
+        osg::Vec3f p(pose.position.x, pose.position.y, pose.position.z);
         osg::Quat q(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
-        osg::Matrixd mat; mat.setTrans(p); mat.setRotate(q);
-        return osg::Matrixd::inverse(mat);
+        osg::Matrixf mat; mat.setTrans(p); mat.setRotate(q);
+        return osg::Matrixf::inverse(mat);
     }
 
-    static osg::Matrix fovToProjection(const XrFovf& fov, double nearZ, double farZ)
+    static osg::Matrixf fovToProjection(const XrFovf& fov, double nearZ, double farZ)
     {
         if (farZ <= nearZ)
         {
@@ -219,14 +219,14 @@ struct SessionXR : public osg::Referenced
             float tanUp = tanf(fov.angleUp), tanDown = tanf(fov.angleDown);
             float tanWidth = tanRight - tanLeft, tanHeight = tanUp - tanDown;
 
-            osg::Matrix proj;
-            proj(0, 0) = 2.0 / tanWidth; proj(1, 1) = 2.0 / tanHeight;
+            osg::Matrixf proj;
+            proj(0, 0) = 2.0f / tanWidth; proj(1, 1) = 2.0f / tanHeight;
             proj(0, 2) = (tanRight + tanLeft) / tanWidth;
             proj(1, 2) = (tanUp + tanDown) / tanHeight;
-            proj(2, 2) = -1.0; proj(2, 3) = -2.0 * nearZ;
-            proj(3, 2) = -1.0; proj(3, 3) = 0.0; return proj;
+            proj(2, 2) = -1.0f; proj(2, 3) = -2.0f * nearZ;
+            proj(3, 2) = -1.0f; proj(3, 3) = 0.0f; return proj;
         }
-        return osg::Matrix::frustum(
+        return osg::Matrixf::frustum(
             tanf(fov.angleLeft) * nearZ, tanf(fov.angleRight) * nearZ,
             tanf(fov.angleDown) * nearZ, tanf(fov.angleUp) * nearZ, nearZ, farZ);
     }
@@ -438,9 +438,11 @@ struct SessionXR : public osg::Referenced
             osg::Texture::TextureObject* texObj = tex->getTextureObject(contextID);
             if (texObj)
             {
-                // FIXME: relation between recommendedWidth/Height and getTextureWidth/Height()?
-                (*copier)(texObj->id(), 0, 0, 0, recommendedWidth * 2, recommendedHeight,
-                          dstTexture, 0, 0, renderInfo.getState());
+                // FIXME: handle relation between recommendedWidth/Height and getTextureWidth/Height()?
+                TextureCopier::CopyRegion re = TextureCopier::calculateCenteredCopyRegion(
+                    tex->getTextureWidth(), tex->getTextureHeight(), recommendedWidth * 2, recommendedHeight);
+                (*copier)(texObj->id(), 0, re.srcX, re.srcY, re.srcWidth, re.srcHeight,
+                          dstTexture, re.dstX, re.dstY, renderInfo.getState());
             }
         }
         else
@@ -472,8 +474,8 @@ RenderCallbackXR::~RenderCallbackXR()
     }
 }
 
-bool RenderCallbackXR::begin(osg::Matrix& viewL, osg::Matrix& viewR,
-                             osg::Matrix& projL, osg::Matrix& projR, double znear, double zfar)
+bool RenderCallbackXR::begin(osg::Matrixf& viewL, osg::Matrixf& viewR,
+                             osg::Matrixf& projL, osg::Matrixf& projR, double znear, double zfar)
 {
     LoaderXR* loader = static_cast<LoaderXR*>(_xrLoader.get());
     SessionXR* xr = static_cast<SessionXR*>(_xrSession.get());

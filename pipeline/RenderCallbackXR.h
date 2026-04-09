@@ -18,8 +18,8 @@ namespace osgVerse
     {
     public:
         RenderCallbackXR();
-        virtual bool begin(osg::Matrix& viewL, osg::Matrix& viewR,
-                           osg::Matrix& projL, osg::Matrix& projR, double znear, double zfar);
+        virtual bool begin(osg::Matrixf& viewL, osg::Matrixf& viewR,
+                           osg::Matrixf& projL, osg::Matrixf& projR, double znear, double zfar);
         virtual bool handleEvents(osgGA::EventQueue* ev);
 
         virtual void operator()(osg::RenderInfo& renderInfo) const;

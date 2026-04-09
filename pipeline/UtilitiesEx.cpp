@@ -827,6 +827,36 @@ TextureCopier* TextureCopier::instance()
     return s_instance.get();
 }
 
+TextureCopier::CopyRegion TextureCopier::calculateCenteredCopyRegion(int srcW, int srcH, int dstW, int dstH)
+{
+    CopyRegion region{};
+    float scaleX = static_cast<float>(dstW) / srcW;
+    float scaleY = static_cast<float>(dstH) / srcH;
+    float scale = osg::minimum(scaleX, scaleY);
+
+    int copyW = 0, copyH = 0;
+    if (scale >= 1.0f)
+    {   // copy entire src texture and center it
+        copyW = srcW; copyH = srcH;
+        region.srcX = 0; region.srcY = 0;
+        region.srcWidth = srcW; region.srcHeight = srcH;
+
+        region.dstX = (dstW - copyW) / 2;
+        region.dstY = (dstH - copyH) / 2;
+        region.dstWidth = copyW; region.dstHeight = copyH;
+    }
+    else
+    {   // clip src texture to fill entire target
+        copyW = dstW; copyH = dstH;
+        region.srcX = (srcW - copyW) / 2;
+        region.srcY = (srcH - copyH) / 2;
+        region.srcWidth = copyW; region.srcHeight = copyH;
+        region.dstX = 0; region.dstY = 0;
+        region.dstWidth = dstW; region.dstHeight = dstH;
+    }
+    return region;
+}
+
 bool TextureCopier::operator()(osg::Texture2D& srcT, osg::FrameBufferObject* srcFBO, osg::Texture2D& dstT, osg::State* state) const
 {
     if (srcT.getImage() && srcT.getImage()->valid())

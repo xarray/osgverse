@@ -7,6 +7,7 @@ VERSE_VS_OUT vec3 eyeNormal_gs, eyeTangent_gs, eyeBinormal_gs;
 VERSE_VS_OUT vec4 texCoord0, texCoord1, color;
 VERSE_VS_OUT vec3 eyeNormal, eyeTangent, eyeBinormal;
 #endif
+uniform mat4 osg_ViewMatrixInverse;
 
 void main()
 {
@@ -17,7 +18,7 @@ void main()
     texCoord0_gs = osg_MultiTexCoord0;
     texCoord1_gs = osg_MultiTexCoord1;
     color_gs = osg_Color;
-    gl_Position = VERSE_MATRIX_MV * osg_Vertex;
+    gl_Position = osg_ViewMatrixInverse * VERSE_MATRIX_MV * osg_Vertex;
 #else
     eyeNormal = normalize(VERSE_MATRIX_N * osg_Normal);
     eyeTangent = normalize(VERSE_MATRIX_N * osg_Tangent.xyz);

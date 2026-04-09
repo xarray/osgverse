@@ -430,6 +430,13 @@ namespace osgVerse
         virtual bool operator()(unsigned int srcTexture, unsigned int srcFBO, int srcX, int srcY, int srcW, int srcH,
                                 unsigned int dstTexture, int dstX, int dstY, osg::State* state) const;
 
+        struct CopyRegion
+        {
+            int srcX, srcY, srcWidth, srcHeight;
+            int dstX, dstY, dstWidth, dstHeight;
+        };
+        static CopyRegion calculateCenteredCopyRegion(int srcW, int srcH, int dstW, int dstH);
+
     protected:
         TextureCopier() : _glCopyImageSubDataPtr(NULL), _initialized(false) {}
         virtual ~TextureCopier() {}
