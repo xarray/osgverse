@@ -16,6 +16,9 @@ using namespace osgVerse;
 
 namespace
 {
+    // GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT: NV is 32, but Moore is 128...
+    static const size_t SSBO_ALIGNMENT = 128;
+
     static osg::Matrix transpose(const osg::Matrix& m)
     {
         return osg::Matrix(m(0, 0), m(1, 0), m(2, 0), m(3, 0), m(0, 1), m(1, 1), m(2, 1), m(3, 1),
@@ -310,9 +313,8 @@ bool GaussianGeometry::finalize()
             ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
 
         // Apply core attributes
-        static size_t alignment = 128;  // consider GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT: NV is 32, but Moore is 128...
         size_t blockSize = _numSplats * sizeof(osg::Vec4);
-        blockSize = ((blockSize + alignment - 1) / alignment) * alignment;
+        blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
         if (_coreBuffer.valid())
         {
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
@@ -436,6 +438,7 @@ void GaussianGeometry::setScaleAndRotation(osg::Vec3Array* vArray, osg::Vec4Arra
         float a = (alphas == NULL) ? 1.0f : alphas->at(i);
         const osg::Vec3& scale = (*vArray)[i]; osg::Quat quat((*qArray)[i]);
         if (!quat.zeroRotation()) { double l = quat.length(); if (l > 0.0) quat = quat / l; }
+        
 #if false
         osg::Matrix R(quat), S = osg::Matrix::scale(scale);
         osg::Matrix cov = transpose(R) * S * S * R;
@@ -540,27 +543,96 @@ osg::Vec4* GaussianGeometry::getPosition4()
 
 osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getScale()
 {
+    osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array(_numSplats); osg::Vec4* ptr = NULL;
     if (_method != GEOMETRY_SHADER)
     {
-        return NULL;  // TODO: not implemented
+        if (!_preDataMap.empty())
+        {
+            std::vector<osg::Vec4>& dst = _preDataMap["Layer1"];
+            if (!dst.empty()) ptr = dst.data();
+        }
+        else if (_coreBuffer.valid())
+        {
+            size_t blockSize = _numSplats * sizeof(osg::Vec4);
+            blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
+            ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize);
+        }
+        else if (_coreTex[1].valid())
+            ptr = TextureLookUpTable::getFloat4(_coreTex[1].get(), 0);
     }
     else
-        return static_cast<osg::Vec3Array*>(getVertexAttribArray(1));
+        ptr = (osg::Vec4*)getVertexAttribArray(1)->getDataPointer();
+    if (!ptr) return NULL;
+
+#pragma omp parallel for
+    for (int i = 0; i < _numSplats; ++i)
+    { const osg::Vec4& v0 = *(ptr + i); (*v)[i] = osg::Vec3(v0.x(), v0.y(), v0.z()); }
+    return v;
 }
 
-osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getRotation()
+osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getRotation()
 {
+    osg::ref_ptr<osg::Vec4Array> v = new osg::Vec4Array(_numSplats);
+    osg::Vec4 *ptr0 = NULL, *ptr1 = NULL;  // ptr0 = (x, y, z), ptr1 = (w)
     if (_method != GEOMETRY_SHADER)
     {
-        return NULL;  // TODO: not implemented
+        if (!_preDataMap.empty())
+        {
+            std::vector<osg::Vec4>& dst0 = _preDataMap["Layer2"];
+            std::vector<osg::Vec4>& dst1 = _preDataMap["Layer3"];
+            if (!dst0.empty()) ptr0 = dst0.data(); if (!dst1.empty()) ptr1 = dst1.data();
+        }
+        else if (_coreBuffer.valid())
+        {
+            size_t blockSize = _numSplats * sizeof(osg::Vec4);
+            blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
+            ptr0 = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 2);
+            ptr1 = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 3);
+        }
+        else if (_coreTex[2].valid() && _coreTex[3].valid())
+        {
+            ptr0 = TextureLookUpTable::getFloat4(_coreTex[2].get(), 0);
+            ptr1 = TextureLookUpTable::getFloat4(_coreTex[3].get(), 0);
+        }
+
+        if (!ptr0 || !ptr1) return NULL;
+#pragma omp parallel for
+        for (int i = 0; i < _numSplats; ++i)
+        {
+            const osg::Vec4 &v0 = *(ptr0 + i), &v1 = *(ptr1 + i);
+            (*v)[i] = osg::Vec4(v0.x(), v0.y(), v0.z(), v1.x());
+        }
     }
     else
-        return static_cast<osg::Vec3Array*>(getVertexAttribArray(2));
+    {
+        ptr0 = (osg::Vec4*)getVertexAttribArray(2)->getDataPointer();
+        if (ptr0) v->assign(ptr0, ptr0 + _numSplats); else return NULL;
+    }
+    return v;
 }
 
 osg::ref_ptr<osg::FloatArray> GaussianGeometry::getAlpha()
 {
-    return NULL;  // TODO: not implemented
+    osg::ref_ptr<osg::FloatArray> v = new osg::FloatArray(_numSplats); osg::Vec4* ptr = NULL;
+    if (_method != GEOMETRY_SHADER)
+    {
+        if (!_preDataMap.empty())
+        {
+            std::vector<osg::Vec4>& dst = _preDataMap["Layer0"];
+            if (!dst.empty()) ptr = dst.data();
+        }
+        else if (_coreBuffer.valid())
+            ptr = (osg::Vec4*)_coreBuffer->getDataPointer();
+        else if (_coreTex[0].valid())
+            ptr = TextureLookUpTable::getFloat4(_coreTex[0].get(), 0);
+    }
+    else
+        ptr = (osg::Vec4*)getVertexAttribArray(1)->getDataPointer();
+    if (!ptr) return NULL;
+
+#pragma omp parallel for
+    for (int i = 0; i < _numSplats; ++i) (*v)[i] = ptr[i].w();
+    return v;
 }
 
 #define GET_SHCOEF_DATA(ra, col, pos, i) \
@@ -583,8 +655,35 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShRed(int index)
 {
     if (_method != GEOMETRY_SHADER)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
-        GET_SHCOEF_DATA(ra, 1, 0, index); return ra;
+        osg::ref_ptr<osg::Vec4Array> ra;
+        if (!_preDataMap.empty())
+            { GET_SHCOEF_DATA(ra, 1, 0, index); }
+        else
+        {
+            ra = new osg::Vec4Array(_numSplats); osg::Vec4* ptr = NULL;
+            if (index == 0)
+            {
+                size_t blockSize = _numSplats * sizeof(osg::Vec4);
+                blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
+                if (_coreBuffer.valid()) ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize);
+                else if (_coreTex[1].valid()) ptr = TextureLookUpTable::getFloat4(_coreTex[1].get(), 0);
+                if (!ptr) return NULL;
+#pragma omp parallel for
+                for (int i = 0; i < _numSplats; ++i) (*ra)[i] = osg::Vec4(ptr[i].w(), 0.0f, 0.0f, 0.0f);
+            }
+
+            if (_shcoefBuffer.valid() && _shcoefBuffer->size() > 0)
+            {
+                ptr = (osg::Vec4*)_shcoefBuffer->getDataPointer(); if (!ptr) return ra;
+#pragma omp parallel for
+                for (int i = 0; i < _numSplats; ++i)
+                {
+                    int sh = (index * 4 - 1); osg::Vec4& v = (*ra)[i];
+                    for (int k = 0; k < 4; ++k) { if (k + sh >= 0) v[k] = ptr[i * 15 + k + sh][0]; }
+                }
+            }
+        }
+        return ra;
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(4 + index * 3));
@@ -594,8 +693,35 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShGreen(int index)
 {
     if (_method != GEOMETRY_SHADER)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
-        GET_SHCOEF_DATA(ra, 2, 1, index); return ra;
+        osg::ref_ptr<osg::Vec4Array> ra;
+        if (!_preDataMap.empty())
+            { GET_SHCOEF_DATA(ra, 2, 1, index); }
+        else
+        {
+            ra = new osg::Vec4Array(_numSplats); osg::Vec4* ptr = NULL;
+            if (index == 0)
+            {
+                size_t blockSize = _numSplats * sizeof(osg::Vec4);
+                blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
+                if (_coreBuffer.valid()) ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 2);
+                else if (_coreTex[2].valid()) ptr = TextureLookUpTable::getFloat4(_coreTex[2].get(), 0);
+                if (!ptr) return NULL;
+#pragma omp parallel for
+                for (int i = 0; i < _numSplats; ++i) (*ra)[i] = osg::Vec4(ptr[i].w(), 0.0f, 0.0f, 0.0f);
+            }
+
+            if (_shcoefBuffer.valid() && _shcoefBuffer->size() > 0)
+            {
+                ptr = (osg::Vec4*)_shcoefBuffer->getDataPointer(); if (!ptr) return ra;
+#pragma omp parallel for
+                for (int i = 0; i < _numSplats; ++i)
+                {
+                    int sh = (index * 4 - 1); osg::Vec4& v = (*ra)[i];
+                    for (int k = 0; k < 4; ++k) { if (k + sh >= 0) v[k] = ptr[i * 15 + k + sh][1]; }
+                }
+            }
+        }
+        return ra;
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(5 + index * 3));
@@ -605,8 +731,35 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShBlue(int index)
 {
     if (_method != GEOMETRY_SHADER)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;  // FIXME: will fail after if finalize() done
-        GET_SHCOEF_DATA(ra, 3, 2, index); return ra;
+        osg::ref_ptr<osg::Vec4Array> ra;
+        if (!_preDataMap.empty())
+            { GET_SHCOEF_DATA(ra, 3, 2, index); }
+        else
+        {
+            ra = new osg::Vec4Array(_numSplats); osg::Vec4* ptr = NULL;
+            if (index == 0)
+            {
+                size_t blockSize = _numSplats * sizeof(osg::Vec4);
+                blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
+                if (_coreBuffer.valid()) ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 3);
+                else if (_coreTex[3].valid()) ptr = TextureLookUpTable::getFloat4(_coreTex[3].get(), 0);
+                if (!ptr) return NULL;
+#pragma omp parallel for
+                for (int i = 0; i < _numSplats; ++i) (*ra)[i] = osg::Vec4(ptr[i].w(), 0.0f, 0.0f, 0.0f);
+            }
+
+            if (_shcoefBuffer.valid() && _shcoefBuffer->size() > 0)
+            {
+                ptr = (osg::Vec4*)_shcoefBuffer->getDataPointer(); if (!ptr) return ra;
+#pragma omp parallel for
+                for (int i = 0; i < _numSplats; ++i)
+                {
+                    int sh = (index * 4 - 1); osg::Vec4& v = (*ra)[i];
+                    for (int k = 0; k < 4; ++k) { if (k + sh >= 0) v[k] = ptr[i * 15 + k + sh][2]; }
+                }
+            }
+        }
+        return ra;
     }
     else
         return static_cast<osg::Vec4Array*>(getVertexAttribArray(6 + index * 3));

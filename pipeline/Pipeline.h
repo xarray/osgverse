@@ -49,6 +49,7 @@ namespace osgVerse
     class ShadowModule;
     class UserInputModule;
     class ScriptableProgram;
+    class RenderCallbackXR;
 
     /** OpenGL version data for graphics hardware adpation.
         OpenGL Version: GLSL Version
@@ -224,8 +225,11 @@ namespace osgVerse
         /** Remove all stages and reset the viewer to default (clear all slaves) */
         void clearStagesFromView(osgViewer::View* view, osg::Camera* mainCam = NULL);
 
-        /** Apply attributes for VR mode geometry shader */
-        void updateStageForStereoVR(Stage* s, osg::Shader* geomShader, double eyeSep, bool useClip);
+        /** Apply initial attributes (single-pass stereo geometry shader) for VR mode */
+        bool updateStageForStereoVR(Stage* s, osg::Shader* geomShader, bool useClip);
+
+        /** Apply HMD matrices from RenderCallbackXR and begin new XR frame for VR mode */
+        bool updateMatricesForStereoVR(Stage* s, RenderCallbackXR* callbackXR, osg::Matrix& view, osg::Matrix& proj);
 
         /** Require depth buffer of specific stage to blit to default forward pass */
         void requireDepthBlit(Stage* s, bool addToList)
@@ -373,7 +377,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight, deferredMask, forwardMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution, shadowTechnique, coverageSamples;
-        double depthPartitionNearValue, eyeSeparationVR;
+        double depthPartitionNearValue;
         bool withEmbeddedViewer, debugShadowModule, debugShadowCombination, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR, enable3DGS;
 

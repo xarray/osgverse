@@ -98,6 +98,40 @@ static const char* inputFragmentShaderCode =
     "}\n"
 };
 
+class UpdateHandlerXR : public osgGA::GUIEventHandler
+{
+public:
+    UpdateHandlerXR(osgVerse::Pipeline* p, osgVerse::Pipeline::Stage* s, osgVerse::RenderCallbackXR* xr)
+        : _pipeline(p), _gbuffer(s), _xr(xr) {}
+
+    bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+    {
+        if (_pipeline.valid() && _xr.valid())
+        {
+            osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
+            if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+            {
+                osg::Matrix vMatrix, pMatrix; _xr->handleEvents(view->getEventQueue());
+                if (_pipeline->updateMatricesForStereoVR(_gbuffer.get(), _xr.get(), vMatrix, pMatrix))
+                {
+                    // Also apply to main camera
+                    osg::Camera* cam = view->getCamera();
+                    osgGA::CameraManipulator* mani = view->getCameraManipulator();
+                    if (mani) mani->setByInverseMatrix(vMatrix);
+                    else cam->setViewMatrix(vMatrix);
+                    cam->setProjectionMatrix(pMatrix);
+                }
+            }
+        }
+        return false;
+    }
+
+protected:
+    osg::observer_ptr<osgVerse::Pipeline> _pipeline;
+    osg::observer_ptr<osgVerse::Pipeline::Stage> _gbuffer;
+    osg::observer_ptr<osgVerse::RenderCallbackXR> _xr;
+};
+
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
@@ -230,9 +264,16 @@ int main(int argc, char** argv)
 
         if (arguments.read("--openxr"))
         {
-            // FIXME: when to begin() ?
+            // Optional, VR mode
             osgVerse::RenderCallbackXR* xr = new osgVerse::RenderCallbackXR;
-            xr->setup(output->camera.get(), 2);  // post-draw
+            xr->setup(testStage->camera.get(), 2);  // post-draw callback to endFrame() and submit current stage to VR
+            viewer.addEventHandler(new UpdateHandlerXR(pipeline.get(), gbuffer, xr));  // frame event to beginFrame()
+
+            osg::ref_ptr<osg::Shader> gs = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "std_gbuffer.geom.glsl");
+            if (gs.valid()) pipeline->updateStageForStereoVR(gbuffer, gs.get(), true);  // apply single-pass stereo
+
+            // Move the model far from the HMD position to make it visible at first
+            sceneRoot->setMatrix(osg::Matrix::translate(0.0f, 0.0f, -scene->getBound().radius()));
         }
 
         // 6. Apply stages to viewer's slaves, also finish stage configuring

@@ -490,10 +490,67 @@ protected:
         {
             osgVerse::GaussianGeometry* geom =
                 dynamic_cast<osgVerse::GaussianGeometry*>(geomList[i].first);
-            if (!geom) continue;
+            if (!geom) continue;  // FIXME: apply matrix?
 
-            // TODO: not finished because GaussianGeometry doesn't provide all get*() functions
+            int numSplats = geom->getNumSplats(); if (!numSplats) continue;
+            float *pos3 = (float*)geom->getPosition3(), *pos4 = (float*)geom->getPosition4();
+            if (pos4)
+            {
+                size_t curr = cloud.positions.size(); cloud.positions.resize(curr + numSplats * 3);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                { for (int k = 0; k < 3; ++k) cloud.positions[curr + i * 3 + k] = *(pos4 + i * 4 + k); }
+            }
+            else if (pos3)
+                cloud.positions.insert(cloud.positions.end(), pos3, pos3 + numSplats * 3);
+
+            osg::ref_ptr<osg::Vec3Array> scale = geom->getScale();
+            if (scale.valid() && scale->size() == numSplats)
+            {
+                float* ptr = (float*)scale->getDataPointer();
+                size_t curr = cloud.scales.size(); cloud.scales.resize(curr + numSplats * 3);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                { for (int k = 0; k < 3; ++k) cloud.scales[curr + i * 3 + k] = logf(*(ptr + i * 3 + k)); }
+            }
+
+            osg::ref_ptr<osg::Vec4Array> rot = geom->getRotation();
+            if (rot.valid() && rot->size() == numSplats)
+            {
+                float* ptr = (float*)rot->getDataPointer();
+                cloud.rotations.insert(cloud.rotations.end(), ptr, ptr + numSplats * 4);
+            }
+
+            osg::ref_ptr<osg::FloatArray> alpha = geom->getAlpha();
+            if (alpha.valid() && alpha->size() == numSplats)
+            {
+                float* ptr = (float*)alpha->getDataPointer();
+                size_t curr = cloud.alphas.size(); cloud.alphas.resize(curr + numSplats);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                    cloud.alphas[curr + i] = logf(ptr[i] / (1.0f - ptr[i]));
+            }
+
+            osg::ref_ptr<osg::Vec4Array> r = geom->getShRed(0);
+            osg::ref_ptr<osg::Vec4Array> g = geom->getShGreen(0);
+            osg::ref_ptr<osg::Vec4Array> b = geom->getShBlue(0);
+            if (r.valid() && g.valid() && b.valid())
+            {
+                size_t curr = cloud.colors.size(); cloud.colors.resize(curr + numSplats * 3);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                {
+                    cloud.colors[curr + i * 3 + 0] = (*r)[i].x();
+                    cloud.colors[curr + i * 3 + 1] = (*g)[i].x();
+                    cloud.colors[curr + i * 3 + 2] = (*b)[i].x();
+                }
+            }
+            // FIXME: more sh-coeffs?
         }
+
+        size_t numSh = cloud.sh.size() / cloud.positions.size();
+        cloud.numPoints = cloud.positions.size() / 3;
+        cloud.shDegree = (numSh == 15) ? 3 : (numSh == 8 ? 2 : (numSh == 3 ? 1 : 0));
         return cloud;
     }
 };

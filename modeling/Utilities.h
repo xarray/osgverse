@@ -234,13 +234,16 @@ namespace osgVerse
     class FindGeometryVisitor : public osg::NodeVisitor
     {
     public:
-        FindGeometryVisitor(bool applyM)
-            : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _appliedMatrix(applyM) {}
+        FindGeometryVisitor(bool applyM, bool applyFinestLOD = true)
+        :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+            _appliedMatrix(applyM), _applyFinestLOD(applyFinestLOD) {}
         inline void pushMatrix(osg::Matrix& matrix) { _matrixStack.push_back(matrix); }
         inline void popMatrix() { _matrixStack.pop_back(); }
 
         virtual void apply(osg::Transform& node);
         virtual void apply(osg::Geode& node);
+        virtual void apply(osg::LOD& node);
+        virtual void apply(osg::PagedLOD& node);
 
         std::vector<std::pair<osg::Geometry*, osg::Matrix>>& getGeometries() { return _geomList; }
         const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& getGeometries() const { return _geomList; }
@@ -248,7 +251,7 @@ namespace osgVerse
     protected:
         std::vector<osg::Matrix> _matrixStack;
         std::vector<std::pair<osg::Geometry*, osg::Matrix>> _geomList;
-        bool _appliedMatrix;
+        bool _appliedMatrix, _applyFinestLOD;
     };
 
     /** The 2D texture atlaser */

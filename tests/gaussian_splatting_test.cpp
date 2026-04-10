@@ -206,6 +206,7 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->addFileExtensionAlias("sog", "verse_3dgs");
 
     osg::ArgumentParser arguments(&argc, argv);
+    std::string savedFile; arguments.read("--save", savedFile);
     if (!arguments.read("--custom"))
     {
         // Simplest forward rendering implementation
@@ -254,5 +255,6 @@ int main(int argc, char** argv)
 
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);
+    if (!savedFile.empty()) osgDB::writeNodeFile(*root, savedFile);
     return viewer.run();
 }

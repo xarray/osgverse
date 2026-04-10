@@ -86,7 +86,7 @@ public:
     osg::Vec3* getPosition3();
     osg::Vec4* getPosition4();
     osg::ref_ptr<osg::Vec3Array> getScale();
-    osg::ref_ptr<osg::Vec3Array> getRotation();
+    osg::ref_ptr<osg::Vec4Array> getRotation();
     osg::ref_ptr<osg::FloatArray> getAlpha();
     osg::ref_ptr<osg::Vec4Array> getShRed(int index);
     osg::ref_ptr<osg::Vec4Array> getShGreen(int index);

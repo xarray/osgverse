@@ -13,6 +13,7 @@
 #include "Pipeline.h"
 #include "ShadowModule.h"
 #include "UserInputModule.h"
+#include "RenderCallbackXR.h"
 #include "ImageCheck.h"
 #include "Utilities.h"
 
@@ -1453,9 +1454,10 @@ namespace osgVerse
         return applyDefTextures ? 7 : 0;
     }
 
-    void Pipeline::updateStageForStereoVR(Stage* s, osg::Shader* geomShader, double eyeSep, bool useClip)
+    bool Pipeline::updateStageForStereoVR(Stage* s, osg::Shader* geomShader, bool useClip)
     {
         int glslVer = osg::maximum(_glslTargetVersion, 130);
+        if (!s || !geomShader) return false;
         createShaderDefinitions(geomShader, _glContextVersion, glslVer);
 
         ScriptableProgram* stageProg = s->getProgram();
@@ -1478,10 +1480,25 @@ namespace osgVerse
             stageSS->setMode(GL_CLIP_PLANE3, osg::StateAttribute::ON);
 #endif
         }
+        return true;
+    }
 
-        osg::Uniform* eyeUniform = stageSS->getOrCreateUniform("eyeSep", osg::Uniform::FLOAT, 2);
-        eyeUniform->setElement(0, -(float)eyeSep * 0.5f);
-        eyeUniform->setElement(1, (float)eyeSep * 0.5f);
+    bool Pipeline::updateMatricesForStereoVR(Stage* s, RenderCallbackXR* callbackXR, osg::Matrix& view, osg::Matrix& proj)
+    {
+        osg::Vec2d nearFar = _deferredCallback.valid() ? _deferredCallback->getCalculatedNearFar() : osg::Vec2d();
+        if (s && callbackXR)
+        {
+            osg::Matrixf viewL, viewR, projL, projR;
+            if (callbackXR->begin(viewL, viewR, projL, projR, nearFar[0], nearFar[1]))
+            {
+                osg::StateSet* stageSS = s->camera->getOrCreateStateSet();
+                osg::Uniform* v = stageSS->getOrCreateUniform("viewMatrices", osg::Uniform::FLOAT_MAT4, 2);
+                osg::Uniform* p = stageSS->getOrCreateUniform("projMatrices", osg::Uniform::FLOAT_MAT4, 2);
+                v->setElement(0, viewL); v->setElement(1, viewR); p->setElement(0, projL); p->setElement(1, projR);
+                view = viewL; proj = projL; return true;
+            }
+        }
+        return false;
     }
 
     osg::StateSet* Pipeline::createForwardStateSet(osg::Shader* vs, osg::Shader* fs)

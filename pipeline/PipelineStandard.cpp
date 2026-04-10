@@ -344,9 +344,9 @@ namespace osgVerse
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
-        eyeSeparationVR(0.05), withEmbeddedViewer(false), debugShadowModule(false),
-        debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
-        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
+        withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
+        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
+        enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -356,9 +356,9 @@ namespace osgVerse
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
-        eyeSeparationVR(0.05), withEmbeddedViewer(false), debugShadowModule(false),
-        debugShadowCombination(false), enableVSync(true), enableMRT(true), enableAO(true),
-        enablePostEffects(true), enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
+        withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
+        enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
+        enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -584,7 +584,7 @@ namespace osgVerse
         if (gbuffer && spp.enableDepthPartition)  // GBuffer is always depth-partition front
             gbuffer->depthPartition.set(1.0, spp.depthPartitionNearValue);
         if (gbuffer && spp.shaders.gbufferGS.valid() && spp.enableVR)
-            p->updateStageForStereoVR(gbuffer, spp.shaders.gbufferGS, spp.eyeSeparationVR, true);
+            p->updateStageForStereoVR(gbuffer, spp.shaders.gbufferGS, true);
 
         // User input module before any deferred passes
         occasion = StandardPipelineParameters::BEFORE_DEFERRED_PASSES;
@@ -605,7 +605,7 @@ namespace osgVerse
         if (spp.shaders.shadowCastGS.valid() && spp.enableVR)
         {
             for (size_t i = 0; i < shadowStages.size(); ++i)
-                p->updateStageForStereoVR(shadowStages[i], spp.shaders.shadowCastGS, spp.eyeSeparationVR, false);
+                p->updateStageForStereoVR(shadowStages[i], spp.shaders.shadowCastGS, false);
         }
 
         // Update shadow matrices at the end of g-buffer (when near/far planes are sync-ed)

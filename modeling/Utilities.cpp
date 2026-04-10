@@ -635,6 +635,20 @@ void FindGeometryVisitor::apply(osg::Geode& node)
     traverse(node);
 }
 
+void FindGeometryVisitor::apply(osg::LOD& node)
+{
+    if (!_applyFinestLOD) traverse(node);
+    else if (node.getNumChildren() > 0)
+        node.getChild(node.getNumChildren() - 1)->accept(*this);
+}
+
+void FindGeometryVisitor::apply(osg::PagedLOD& node)
+{
+    if (!_applyFinestLOD) traverse(node);
+    else if (node.getNumChildren() > 0)  // FIXME: auto load sub-file?
+        node.getChild(node.getNumChildren() - 1)->accept(*this);
+}
+
 /// TexturePacker ///
 void TexturePacker::clear()
 { _input.clear(); _result.clear(); _dictIndex = 0; }
