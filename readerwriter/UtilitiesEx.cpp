@@ -629,18 +629,18 @@ struct AudioPlayingMixer
         AudioPlayingMixer* mixer = (AudioPlayingMixer*)device->pUserData;
         float* outputF = (float*)output; int channels = device->playback.channels;
         memset(outputF, 0, frameCount * channels * sizeof(float));
+        ma_mutex_lock(&mixer->lock);
 
-        float data[4096]; ma_mutex_lock(&mixer->lock);
         std::map<std::string, osg::ref_ptr<AudioPlayer::Clip>>& clips = mixer->player->getClips();
         for (std::map<std::string, osg::ref_ptr<AudioPlayer::Clip>>::iterator it = clips.begin();
              it != clips.end(); ++it)
         {
-            AudioPlayer::Clip* clip = it->second.get();
+            AudioPlayer::Clip* clip = it->second.get(); ma_uint64 framesRead = 0;
             if (clip->state != AudioPlayer::Clip::PLAYING) continue;
 
-            ma_uint64 framesRead = 0; memset(data, 0, 4096 * sizeof(float));
             if (clip->decoder != NULL)
             {   // read from file decoder
+                float data[4096]; memset(data, 0, 4096 * sizeof(float));
                 ma_result result = ma_decoder_read_pcm_frames(clip->decoder, (void*)data, frameCount, &framesRead);
                 if (result == MA_SUCCESS && framesRead > 0)
                 {
@@ -656,14 +656,23 @@ struct AudioPlayingMixer
             {   // read from custom data
                 AudioPlayer::PcmQueue* queue = static_cast<AudioPlayer::PcmQueue*>(clip->decodeData.get());
                 if (!queue) continue;  // not from file and not from queue, is it an invalid clip?
+                if (clip->state != AudioPlayer::Clip::PLAYING) continue;
 
-                AudioPlayer::PcmFrame frame; if (!queue->pop(frame)) continue;  // no more frames in queue
-                // TODO
+                AudioPlayer::PcmFrame pcm;
+                if (!queue->pop(pcm, channels * frameCount)) continue;  // no more frames in queue
+                framesRead = pcm.data.size() / channels;
+
+                for (ma_uint32 frame = 0; frame < framesRead; ++frame)
+                    for (ma_uint32 ch = 0; ch < channels; ++ch)
+                    {
+                        float sample = pcm.data[frame * channels + ch] * clip->volume;
+                        outputF[frame * channels + ch] += sample;
+                    }
             }
 
-            if (framesRead < frameCount)
+            if (framesRead < frameCount && clip->decoder != NULL)
             {
-                if (clip->looping && clip->decoder != NULL)
+                if (clip->looping)
                 {
                     ma_uint64 remainingFrames = frameCount - framesRead;
                     ma_decoder_seek_to_pcm_frame(clip->decoder, 0);

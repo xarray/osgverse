@@ -336,7 +336,7 @@ namespace osgVerse
     {
     public:
         struct OSGVERSE_RW_EXPORT PcmFrame
-        { int samples, channels; std::vector<float> data; };
+        { int samples = 0, channels = 0; std::vector<float> data; };
 
         class OSGVERSE_RW_EXPORT PcmQueue : public osg::Referenced
         {
@@ -347,14 +347,32 @@ namespace osgVerse
                 _queue.push(item);
             }
 
-            bool pop(PcmFrame& item)
+            bool pop(PcmFrame& item, size_t maxDataSize)
             {
                 std::unique_lock<std::mutex> lock(_mutex);
                 if (_queue.empty()) return false;
 
-                PcmFrame& last = _queue.front(); item.data.swap(last.data);
-                item.samples = last.samples; item.channels = last.channels;
-                _queue.pop(); return true;
+                size_t sizeToFill = maxDataSize;
+                while (sizeToFill > 0)
+                {
+                    PcmFrame& last = _queue.front();
+                    size_t lastSize = item.data.size() + last.data.size();
+                    item.samples = last.samples; item.channels = last.channels;
+
+                    std::vector<float>::iterator it = last.data.begin();
+                    if (sizeToFill < lastSize)
+                    {   // get part of current queue data
+                        item.data.insert(item.data.end(), it, it + sizeToFill);
+                        last.data.erase(it, it + sizeToFill); sizeToFill = 0;
+                    }
+                    else
+                    {
+                        item.data.insert(item.data.end(), it, last.data.end());
+                        sizeToFill -= lastSize; _queue.pop();
+                    }
+                    if (_queue.empty()) return true;
+                }
+                return true;
             }
 
         private:
