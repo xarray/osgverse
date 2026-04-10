@@ -37,18 +37,47 @@ namespace osgVerse
 
         virtual bool demux(unsigned char** dataData, int* dataBytes, long long* pts)
         {
-            bool isVideo = false;
-            bool ok = _subDemuxer->Demux(isVideo, dataData, dataBytes, pts);
+            std::vector<float> buffer; std::string name = _subDemuxer->GetMediaName();
+            int numSamples = 0, channels = 0; bool isVideo = false, ok = false;
+            AudioPlayer* audio = static_cast<AudioPlayer*>(getAudioContainer());
+
+            ok = _subDemuxer->Demux(isVideo, dataData, dataBytes, pts);
             while (ok && !isVideo)
             {
-                // TODO
-                //std::cout << "AUDIO " << *dataBytes << "\n";
+                if (audio != NULL)
+                {
+                    channels = _subDemuxer->GetAudioFrame(buffer, numSamples);
+                    while (channels > 0)
+                    {
+                        // Check and add new PCM frame to global osgVerse::AudioPlayer
+                        AudioPlayer::Clip* clip = audio->getClip(name);
+                        if (!clip) { audio->addQueue(name, true, false); clip = audio->getClip(name); }
+
+                        if (clip && clip->decodeData.valid())
+                        {
+                            AudioPlayer::PcmQueue* q = static_cast<AudioPlayer::PcmQueue*>(clip->decodeData.get());
+                            q->push(AudioPlayer::PcmFrame{ numSamples, channels, buffer });
+                        }
+                        channels = _subDemuxer->GetAudioFrame(buffer, numSamples);
+                    }
+                }
+                else
+                    { OSG_NOTICE << "[FFmpegResourceDemuxer] Audio data found but no audio-container set\n"; }
+
+                // Continue till a video frame comes
                 ok = _subDemuxer->Demux(isVideo, dataData, dataBytes, pts);
             }
             return isVideo && ok;
         }
 
     protected:
+        virtual ~FFmpegResourceDemuxer()
+        {
+            std::string name = _subDemuxer->GetMediaName();
+            AudioPlayer* audio = static_cast<AudioPlayer*>(getAudioContainer());
+            if (audio && !name.empty()) audio->removeFile(name);
+        }
+
         FFmpegDemuxer* _subDemuxer;
     };
 }

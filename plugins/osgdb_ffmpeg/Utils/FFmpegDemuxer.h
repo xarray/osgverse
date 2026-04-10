@@ -14,6 +14,8 @@ extern "C" {
     #   include <libavcodec/bsf.h>
     #endif
 }
+#include "3rdparty/nanoid/nanoid.h"
+#include "readerwriter/Utilities.h"
 #include <iostream>
 
 //---------------------------------------------------------------------------
@@ -29,11 +31,16 @@ extern "C" {
 class FFmpegDemuxer
 {
 private:
-    AVFormatContext *fmtc = NULL;
-    AVIOContext *avioc = NULL;
+    std::string mediaSourceName;
+    AVFormatContext* fmtc = NULL;
+
+    AVIOContext* avioc = NULL;
     AVPacket* pkt = NULL;  /*!< compressed data from demuxers to decoders */
     AVPacket* pktFiltered = NULL;
-    AVBSFContext *bsfc = NULL;
+    AVBSFContext* bsfc = NULL;
+    AVCodecContext* audioCodec = NULL;
+    AVFrame* audioFrame = NULL;
+    SwrContext* audioConvert = NULL;
     uint8_t* pDataWithHeader = NULL;
 
     int64_t userTimeScale;
@@ -61,9 +68,11 @@ private:
     *   @brief  Private constructor to initialize libavformat resources.
     *   @param  fmtc - Pointer to AVFormatContext allocated inside avformat_open_input()
     */
-    FFmpegDemuxer(AVFormatContext *fmtc, int64_t timeScale = 1000 /*Hz*/) : fmtc(fmtc), bHasAudio(false)
+    FFmpegDemuxer(const std::string& name, AVFormatContext *fmtc, int64_t timeScale = 1000 /*Hz*/)
+        : fmtc(fmtc), bHasAudio(false)
     {
         if (!fmtc) { std::cerr << "No AVFormatContext provided."; return; }
+        mediaSourceName = name.empty() ? nanoid::generate(8) : name;
 
         // Allocate the AVPackets and initialize to default values
         pkt = av_packet_alloc();
@@ -189,12 +198,31 @@ private:
             default:
                 nAudioBitDepth = 16; break;  // default assumption
             }
+
+            const AVCodec* codec = avcodec_find_decoder(audioCodecPar->codec_id);
+            if (codec)
+            {
+                audioCodec = avcodec_alloc_context3(codec);
+                avcodec_parameters_to_context(audioCodec, audioCodecPar);
+                if (avcodec_open2(audioCodec, codec, NULL) == 0)
+                {
+                    audioConvert = swr_alloc_set_opts(
+                        NULL, AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, osgVerse::AudioPlayer::defaultSampleRate(),
+                        audioCodec->ch_layout.nb_channels > 1 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO,
+                        audioCodec->sample_fmt, audioCodec->sample_rate, 0, NULL);
+                    if (swr_init(audioConvert) < 0)
+                    {
+                        std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "swr_init() failed";
+                        swr_free(&audioConvert); audioConvert = NULL;
+                    }
+                }
+            }
             nAudioFrameSize = (nAudioBitDepth / 8) * nChannels;
             bHasAudio = true;
         }
     }
 
-    AVFormatContext *CreateFormatContext(DataProvider *pDataProvider)
+    AVFormatContext* CreateFormatContext(DataProvider *pDataProvider)
     {
         AVFormatContext *ctx = NULL; uint8_t* avioc_buffer = NULL;
         if (!(ctx = avformat_alloc_context())) { std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__; return NULL; }
@@ -226,9 +254,9 @@ private:
 
 public:
     FFmpegDemuxer(const char *szFilePath, int64_t timescale = 1000 /*Hz*/)
-        : FFmpegDemuxer(CreateFormatContext(szFilePath), timescale) {}
+        : FFmpegDemuxer(szFilePath, CreateFormatContext(szFilePath), timescale) {}
     FFmpegDemuxer(DataProvider *pDataProvider)
-        : FFmpegDemuxer(CreateFormatContext(pDataProvider)) { avioc = fmtc->pb; }
+        : FFmpegDemuxer("", CreateFormatContext(pDataProvider)) { avioc = fmtc->pb; }
 
     ~FFmpegDemuxer()
     {
@@ -236,11 +264,17 @@ public:
         if (pkt) av_packet_free(&pkt);
         if (pktFiltered) av_packet_free(&pktFiltered);
         if (bsfc) av_bsf_free(&bsfc);
+        if (audioConvert) swr_free(&audioConvert);
+        if (audioCodec) avcodec_free_context(&audioCodec);
+        if (audioFrame) av_frame_free(&audioFrame);
 
         avformat_close_input(&fmtc);
         if (avioc) { av_freep(&avioc->buffer); av_freep(&avioc); }
         if (pDataWithHeader) av_free(pDataWithHeader);
     }
+
+    const std::string& GetMediaName() { return mediaSourceName; }
+    bool HasAudio() { return bHasAudio; }
 
     AVCodecID GetVideoCodec() { return eVideoCodec; }
     AVPixelFormat GetChromaFormat() { return eChromaFormat; }
@@ -250,7 +284,6 @@ public:
     int GetFrameSize() { return nWidth * (nHeight + nChromaHeight) * nBPP; }
     double GetFPS() { return frameRate; }
 
-    bool HasAudio() { return bHasAudio; }
     AVCodecID GetAudioCodec() { return eAudioCodec; }
     AVSampleFormat GetSampleFormat() { return eSampleFormat; }
     int GetSampleRate() { return nSampleRate; }
@@ -258,6 +291,22 @@ public:
     uint64_t GetChannelLayout() { return nChannelLayout; }
     int GetAudioBitDepth() { return nAudioBitDepth; }
     int GetAudioFrameSize() { return nAudioFrameSize; }
+
+    int GetAudioFrame(std::vector<float>& interleaved_buffer, int& samples)
+    {
+        if (!audioCodec || !audioConvert) return 0;
+        if (avcodec_receive_frame(audioCodec, audioFrame) == 0)
+        {
+            samples = swr_get_out_samples(audioConvert, audioFrame->nb_samples);
+            interleaved_buffer.resize(samples * audioCodec->channels);
+
+            uint8_t* out_data[1] = { (uint8_t*)interleaved_buffer.data() };
+            swr_convert(audioConvert, out_data, samples,
+                        (const uint8_t**)audioFrame->data, audioFrame->nb_samples);
+            return audioCodec->channels;
+        }
+        return 0;
+    }
 
     bool Demux(bool& isVideo, uint8_t** ppData, int* pnDataBytes, int64_t* pts = NULL)
     {
@@ -267,12 +316,14 @@ public:
         int e = 0; *pnDataBytes = 0;
         while ((e = av_read_frame(fmtc, pkt)) >= 0 &&
                pkt->stream_index != iVideoStream && pkt->stream_index != iAudioStream)
-            av_packet_unref(pkt);
+        { av_packet_unref(pkt); }
         if (e < 0) return false;
 
         isVideo = (pkt->stream_index == iVideoStream);
         if (!isVideo)
         {
+            if (!audioFrame) audioFrame = av_frame_alloc();
+            avcodec_send_packet(audioCodec, pkt);
             *ppData = pkt->data; *pnDataBytes = pkt->size;
             if (pts) *pts = (int64_t)(pkt->pts * userTimeScale * audioTimeBase);
         }

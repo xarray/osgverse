@@ -12,6 +12,8 @@ extern void emscripten_advance();
 #endif
 #include "Export.h"
 #include <functional>
+#include <queue>
+#include <mutex>
 
 #ifndef GL_ARB_texture_rg
 #define GL_RG                             0x8227
@@ -333,15 +335,47 @@ namespace osgVerse
     class OSGVERSE_RW_EXPORT AudioPlayer : public osg::Referenced
     {
     public:
+        struct OSGVERSE_RW_EXPORT PcmFrame
+        { int samples, channels; std::vector<float> data; };
+
+        class OSGVERSE_RW_EXPORT PcmQueue : public osg::Referenced
+        {
+        public:
+            void push(PcmFrame item)
+            {
+                std::unique_lock<std::mutex> lock(_mutex);
+                _queue.push(item);
+            }
+
+            bool pop(PcmFrame& item)
+            {
+                std::unique_lock<std::mutex> lock(_mutex);
+                if (_queue.empty()) return false;
+
+                PcmFrame& last = _queue.front(); item.data.swap(last.data);
+                item.samples = last.samples; item.channels = last.channels;
+                _queue.pop(); return true;
+            }
+
+        private:
+            std::queue<PcmFrame> _queue;
+            std::mutex _mutex;
+        };
+
         struct OSGVERSE_RW_EXPORT Clip : public osg::Referenced
         {
             enum State { STOPPED = 0, PLAYING, PAUSED } state;
             float volume; bool looping; struct ma_decoder* decoder;
+            osg::ref_ptr<osg::Referenced> decodeData;
             Clip() : state(STOPPED), volume(1.0f), looping(false), decoder(NULL) {}
         };
-        static AudioPlayer* instance();
 
+        static AudioPlayer* instance();
+        static int defaultSampleRate();
+
+        bool addQueue(const std::string& file, bool autoPlay, bool looping);
         bool addFile(const std::string& file, bool autoPlay, bool looping);
+
         bool removeFile(const std::string& file);
         Clip* getClip(const std::string& file);
         const Clip* getClip(const std::string& file) const;

@@ -639,20 +639,31 @@ struct AudioPlayingMixer
             if (clip->state != AudioPlayer::Clip::PLAYING) continue;
 
             ma_uint64 framesRead = 0; memset(data, 0, 4096 * sizeof(float));
-            ma_result result = ma_decoder_read_pcm_frames(clip->decoder, (void*)data, frameCount, &framesRead);
-            if (result == MA_SUCCESS && framesRead > 0)
-            {
-                for (ma_uint32 frame = 0; frame < framesRead; ++frame)
-                    for (ma_uint32 ch = 0; ch < channels; ++ch)
-                    {
-                        float sample = data[frame * channels + ch] * clip->volume;
-                        outputF[frame * channels + ch] += sample;
-                    }
+            if (clip->decoder != NULL)
+            {   // read from file decoder
+                ma_result result = ma_decoder_read_pcm_frames(clip->decoder, (void*)data, frameCount, &framesRead);
+                if (result == MA_SUCCESS && framesRead > 0)
+                {
+                    for (ma_uint32 frame = 0; frame < framesRead; ++frame)
+                        for (ma_uint32 ch = 0; ch < channels; ++ch)
+                        {
+                            float sample = data[frame * channels + ch] * clip->volume;
+                            outputF[frame * channels + ch] += sample;
+                        }
+                }
+            }
+            else
+            {   // read from custom data
+                AudioPlayer::PcmQueue* queue = static_cast<AudioPlayer::PcmQueue*>(clip->decodeData.get());
+                if (!queue) continue;  // not from file and not from queue, is it an invalid clip?
+
+                AudioPlayer::PcmFrame frame; if (!queue->pop(frame)) continue;  // no more frames in queue
+                // TODO
             }
 
             if (framesRead < frameCount)
             {
-                if (clip->looping)
+                if (clip->looping && clip->decoder != NULL)
                 {
                     ma_uint64 remainingFrames = frameCount - framesRead;
                     ma_decoder_seek_to_pcm_frame(clip->decoder, 0);
@@ -674,6 +685,9 @@ AudioPlayer* AudioPlayer::instance()
     return s_instance.get();
 }
 
+int AudioPlayer::defaultSampleRate()
+{ return 48000; }
+
 AudioPlayer::AudioPlayer()
 {
     _mixer = new AudioPlayingMixer;
@@ -682,7 +696,7 @@ AudioPlayer::AudioPlayer()
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.playback.channels = 2;
-    deviceConfig.sampleRate = 48000;
+    deviceConfig.sampleRate = defaultSampleRate();
     deviceConfig.dataCallback = AudioPlayingMixer::dataCallback;
     deviceConfig.pUserData = _mixer;
 
@@ -709,13 +723,23 @@ AudioPlayer::~AudioPlayer()
     delete _device; delete _mixer;
 }
 
+bool AudioPlayer::addQueue(const std::string& file, bool autoPlay, bool looping)
+{
+    if (_clips.find(file) != _clips.end()) return false;
+    else ma_mutex_lock(&_mixer->lock);
+
+    osg::ref_ptr<Clip> clip = new Clip; clip->decoder = NULL; clip->decodeData = new PcmQueue;
+    if (autoPlay) clip->state = Clip::PLAYING; clip->looping = looping;
+    _clips[file] = clip; ma_mutex_unlock(&_mixer->lock); return true;
+}
+
 bool AudioPlayer::addFile(const std::string& file, bool autoPlay, bool looping)
 {
     if (_clips.find(file) != _clips.end()) return false;
     else ma_mutex_lock(&_mixer->lock);
 
     osg::ref_ptr<Clip> clip = new Clip; clip->decoder = new ma_decoder;
-    ma_decoder_config decoderConfig = ma_decoder_config_init(ma_format_f32, 2, 48000);
+    ma_decoder_config decoderConfig = ma_decoder_config_init(ma_format_f32, 2, defaultSampleRate());
     ma_result result = ma_decoder_init_file(file.c_str(), &decoderConfig, clip->decoder);
     if (result != MA_SUCCESS)
     {

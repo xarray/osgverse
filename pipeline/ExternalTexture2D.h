@@ -82,12 +82,21 @@ namespace osgVerse
 
             virtual bool demux(unsigned char** videoData, int* videoBytes, long long* pts)
             { return false; }
+
+            void setAudioContainer(osg::Referenced* a) { _audioContainer = a; }
+            osg::Referenced* getAudioContainer() { return _audioContainer.get(); }
+            const osg::Referenced* getAudioContainer() const { return _audioContainer.get(); }
+
+        protected:
+            osg::ref_ptr<osg::Referenced> _audioContainer;
         };
 
         GpuResourceReaderBase(CUcontext cu);
         virtual void operator()(osg::StateAttribute* sa, osg::NodeVisitor* nv) {}
 
         bool openResource(GpuResourceDemuxerMuxerContainer* c);
+        void setAudioContainer(osg::Referenced* a) { _demuxer->setAudioContainer(a); }
+
         Demuxer* getDemuxer() { return _demuxer.get(); }
         const Demuxer* getDemuxer() const { return _demuxer.get(); }
 

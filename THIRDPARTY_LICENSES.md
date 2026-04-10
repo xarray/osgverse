@@ -42,6 +42,7 @@
 | imnode-editor    | Embedded | 20251211  | UI                 | MIT          | https://github.com/thedmd/imgui-node-editor |
 | implot           | Embedded | 20251211  | UI                 | MIT          | https://github.com/epezent/implot |
 | imspinner        | Embedded | 20251211  | UI                 | MIT          | https://github.com/dalerank/imspinner |
+| InteractiveMesh  | Embedded | 20260403  | Modeling           | MIT          | https://github.com/gcherchi/InteractiveAndRobustMeshBooleans |
 | ktx              | Embedded |           | verse_ktx          | Apache2 (+)  | https://github.com/KhronosGroup/KTX-Software |
 | laplace_deform   | Embedded |           | -                  | -            | |
 | laszip           | Embedded |           | verse_ept          | Apache2      | https://github.com/LASzip/LASzip |

@@ -79,6 +79,9 @@ int main(int argc, char** argv)
         if (!container->getReader()->openResource(videoReader))
             OSG_WARN << "Failed to open video demuxer: " << file << std::endl;
 
+        // Add audio container if needed
+        container->getReader()->setAudioContainer(osgVerse::AudioPlayer::instance());
+
         // Set up scene graph
         osg::Geometry* quad = osg::createTexturedQuadGeometry(
             osg::Vec3(), osg::X_AXIS * 1.6f, osg::Z_AXIS * 0.9f, 0.0f, 1.0f, 1.0f, 0.0f);
