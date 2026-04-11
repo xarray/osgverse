@@ -523,7 +523,13 @@ void GraphicsWindowSDL::checkEvents()
             if (event.motion.x > 0 || event.motion.y > 0)
                 eq->mouseMotion(event.motion.x, event.motion.y); break;
         case SDL_MOUSEBUTTONDOWN:
-            eq->mouseButtonPress(event.button.x, event.button.y, event.button.button); break;
+            {
+                if (event.button.clicks == 2)
+                    eq->mouseDoubleButtonPress(event.button.x, event.button.y, event.button.button);
+                else
+                    eq->mouseButtonPress(event.button.x, event.button.y, event.button.button); 
+                break;
+            }
         case SDL_MOUSEBUTTONUP:
             eq->mouseButtonRelease(event.button.x, event.button.y, event.button.button); break;
         case SDL_MOUSEWHEEL:
