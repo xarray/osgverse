@@ -8,6 +8,7 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgGA/TrackballManipulator>
+#include <osgGA/FirstPersonManipulator>
 #include <osgUtil/CullVisitor>
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
@@ -36,6 +37,32 @@ USE_VERSE_PLUGINS()
 #endif
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
+
+class QwertyManipulator : public osgGA::FirstPersonManipulator
+{
+public:
+    QwertyManipulator(const osg::Vec3d& e) : osgGA::FirstPersonManipulator(), _presetEye(e)
+    { setAllowThrow(false); setVerticalAxisFixed(true); setWheelMovement(0.05f, true); }
+
+    virtual void home(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+    { osgGA::FirstPersonManipulator::home(ea, us); setTransformation(_presetEye, _homeCenter, _homeUp); }
+
+protected:
+    virtual bool handleKeyDown(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+    {
+        float m = (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT)
+                ? (_wheelMovement * _modelSize) : 0.05f;
+        switch (ea.getKey())
+        {
+        case osgGA::GUIEventAdapter::KEY_Up: moveForward(m); break;
+        case osgGA::GUIEventAdapter::KEY_Down: moveForward(-m); break;
+        case osgGA::GUIEventAdapter::KEY_Left: moveRight(-m); break;
+        case osgGA::GUIEventAdapter::KEY_Right: moveRight(m); break;
+        }
+        return false;
+    }
+    osg::Vec3d _presetEye;
+};
 
 class GaussianStateVisitor : public osg::NodeVisitor
 {
@@ -104,8 +131,42 @@ public:
                 if (_testColorCustomizing)
                 {
                     std::vector<osg::Vec4> param(gs->getNumSplats(), osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+#if false
+                    osgVerse::PointCloudSegmentation segmentation;
+                    segmentation.setPairwiseLinkageFactors(100, osg::PI_2, 1);
+
+                    std::vector<osg::Vec3d> allPoints(gs->getNumSplats());
+                    {
+                        osg::Vec4* pts4 = gs->getPosition4();
+                        if (pts4 != NULL)
+                        {
+                            for (size_t i = 0; i < allPoints.size(); ++i)
+                            { const osg::Vec4& p = pts4[i]; allPoints[i] = osg::Vec3(p[0], p[1], p[2]); }
+                        }
+                        else
+                        {
+                            osg::Vec3* pts3 = gs->getPosition3();
+                            if (pts3 != NULL) { for (size_t i = 0; i < allPoints.size(); ++i) allPoints[i] = pts3[i]; }
+                        }
+                    }
+
+                    static osg::Vec3 colors[] = {
+                        { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 1.0f }, { 1.0f, 0.5f, 0.0f }, { 1.0f, 0.0f, 0.5f },
+                        { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 1.0f }, { 0.5f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.5f }, { 0.5f, 1.0f, 0.5f },
+                        { 0.0f, 0.0f, 1.0f }, { 0.5f, 0.0f, 1.0f }, { 0.0f, 0.5f, 1.0f }, { 0.5f, 0.5f, 1.0f }, { 0.5f, 0.5f, 0.5f }
+                    };
+
+                    std::vector<std::vector<int>> clusters = segmentation.execute(allPoints);
+                    for (size_t i = 0; i < clusters.size(); ++i)
+                    {
+                        const std::vector<int>& cluster = clusters[i];
+                        for (size_t j = 0; j < cluster.size(); ++j)
+                            param[cluster[j]] = osg::Vec4(colors[i % 15], 1.0f);  // a = 1: replacing; a = 2: additive
+                    }
+#else
                     for (size_t i = 0; i < param.size() / 2; ++i)
                         param[i] = osg::Vec4(1.0f, 0.0f, 0.0f, 2.0f);  // a = 1: replacing; a = 2: additive
+#endif
                     gs->setColorParameters(param);
                 }
             }
@@ -191,7 +252,6 @@ int main(int argc, char** argv)
     viewer.getCamera()->setProjectionMatrixAsPerspective(30.0, 16.0 / 9.0, 0.1, 10000.0);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
-    viewer.setCameraManipulator(new osgGA::TrackballManipulator);
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
@@ -255,6 +315,13 @@ int main(int argc, char** argv)
 
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);
+
+    double firstX = 0.0, firstY = 0.0, firstZ = 0.0;
+    if (arguments.read("--first", firstX, firstY, firstZ))
+        viewer.setCameraManipulator(new QwertyManipulator(osg::Vec3d(firstX, firstY, firstZ)));
+    else
+        viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+
     if (!savedFile.empty()) osgDB::writeNodeFile(*root, savedFile);
     return viewer.run();
 }

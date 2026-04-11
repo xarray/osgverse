@@ -72,6 +72,7 @@
 | pinyin           | Embedded |           | UI                 | -            | |
 | pmp-library      | Embedded |           | Modeling           | MIT          | https://github.com/pmp-library/pmp-library |
 | PMTiles          | Embedded | 20260210  | verse_mbtiles      | BSD3         | https://github.com/protomaps/PMTiles |
+| PointCloudSeg    | Embedded | 20260411  | Modeling           | BSD2         | https://github.com/xiaohulugo/PointCloudSegmentation |
 | PoissonGenerator | Embedded |           | Pipeline           | -            | |
 | polylabel        | Embedded | 2.0.1     | Modeling           | ISC          | https://github.com/mapbox/polylabel |
 | protozero        | EMbedded | 1.7.1     | verse_mvt          | BSD2         | https://github.com/mapbox/protozero |

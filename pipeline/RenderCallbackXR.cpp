@@ -59,8 +59,11 @@ using namespace osgVerse;
 
 RenderCallbackXR::RenderCallbackXR() : _beganFrame(false) {}
 RenderCallbackXR::~RenderCallbackXR() {}
-bool RenderCallbackXR::begin(osg::Matrix& view, osg::Matrix& projL, osg::Matrix& projR,
+bool RenderCallbackXR::begin(osg::Matrixf& viewL, osg::Matrixf& viewR, osg::Matrixf& projL, osg::Matrixf& projR,
                              double znear, double zfar) { return false; }
+
+bool RenderCallbackXR::handleEvents(osgGA::EventQueue* ev)
+{ OSG_NOTICE << "[RenderCallbackXR] Current platform is unsupported" << std::endl; return false; }
 
 void RenderCallbackXR::operator()(osg::RenderInfo& renderInfo) const
 {

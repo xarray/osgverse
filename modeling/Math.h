@@ -138,6 +138,21 @@ namespace osgVerse
         Mode _mode;
     };
 
+    /** Point cloud segmentation manager */
+    class PointCloudSegmentation
+    {
+    public:
+        typedef std::vector<int> IndexList;
+        PointCloudSegmentation();
+
+        void setPairwiseLinkageFactors(int k, double theta, int planeMode);
+        std::vector<IndexList> execute(const std::vector<osg::Vec3d>& points);
+
+    protected:
+        int _pcaIterations, _planeMode;  // PLANE: 0, SURFACE: 1
+        double _theta;
+    };
+
     /** Float16 implementation extracted from Eigen */
     struct HalfFloat
     {
