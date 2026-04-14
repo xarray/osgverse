@@ -229,7 +229,8 @@ namespace osgVerse
         bool updateStageForStereoVR(Stage* s, osg::Shader* geomShader, bool useClip);
 
         /** Apply HMD matrices from RenderCallbackXR and begin new XR frame for VR mode */
-        bool updateMatricesForStereoVR(Stage* s, RenderCallbackXR* callbackXR, osg::Matrix& view, osg::Matrix& proj);
+        bool updateMatricesForStereoVR(Stage* s, RenderCallbackXR* callbackXR, osg::Matrix& view, osg::Matrix& proj,
+                                       double presetZnear = 0.0, double presetZfar = 0.0);
 
         /** Require depth buffer of specific stage to blit to default forward pass */
         void requireDepthBlit(Stage* s, bool addToList)

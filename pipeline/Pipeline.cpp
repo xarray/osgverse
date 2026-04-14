@@ -1483,9 +1483,11 @@ namespace osgVerse
         return true;
     }
 
-    bool Pipeline::updateMatricesForStereoVR(Stage* s, RenderCallbackXR* callbackXR, osg::Matrix& view, osg::Matrix& proj)
+    bool Pipeline::updateMatricesForStereoVR(Stage* s, RenderCallbackXR* callbackXR, osg::Matrix& view, osg::Matrix& proj,
+                                             double presetZnear, double presetZfar)
     {
-        osg::Vec2d nearFar = _deferredCallback.valid() ? _deferredCallback->getCalculatedNearFar() : osg::Vec2d();
+        osg::Vec2d nearFar = _deferredCallback.valid() ? _deferredCallback->getCalculatedNearFar()
+                                                       : osg::Vec2d(presetZnear, presetZfar);
         if (s && callbackXR)
         {
             osg::Matrixf viewL, viewR, projL, projR;

@@ -266,7 +266,11 @@ int main(int argc, char** argv)
         {
             // Optional, VR mode
             osgVerse::RenderCallbackXR* xr = new osgVerse::RenderCallbackXR;
+#ifdef COPY_MIDDLE_STAGE_TEXTURE_TO_VR
             xr->setup(testStage->camera.get(), 2);  // post-draw callback to endFrame() and submit current stage to VR
+#else // COPY_LAST_FRAME_BUFFER_TO_VR
+            xr->setup(output->camera.get(), 2);  // post-draw callback to endFrame() and submit last stage (default FB) to VR
+#endif
             viewer.addEventHandler(new UpdateHandlerXR(pipeline.get(), gbuffer, xr));  // frame event to beginFrame()
 
             osg::ref_ptr<osg::Shader> gs = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "std_gbuffer.geom.glsl");

@@ -893,7 +893,7 @@ bool TextureCopier::operator()(unsigned int srcTexture, unsigned int srcFBO, int
         _glCopyImageSubDataPtr = (void*)glCopyImageSubData; _initialized = true;
     }
 
-    if (_glCopyImageSubDataPtr != NULL)
+    if (srcTexture != 0 && _glCopyImageSubDataPtr != NULL)
     {
         CopyImageSubDataProc glCopyImageSubData = (CopyImageSubDataProc)_glCopyImageSubDataPtr;
         glCopyImageSubData(srcTexture, GL_TEXTURE_2D, 0, srcX, srcY, 0,
@@ -903,10 +903,10 @@ bool TextureCopier::operator()(unsigned int srcTexture, unsigned int srcFBO, int
     {
 #if OSG_VERSION_GREATER_THAN(3, 3, 2)
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
-        if (!ext->isFrameBufferObjectSupported)
+        if (ext->isFrameBufferObjectSupported)
 #else
         osg::FBOExtensions* ext = osg::FBOExtensions::instance(state->getContextID(), true);
-        if (!ext->isSupported())
+        if (ext->isSupported())
 #endif
         {
             ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, srcFBO);

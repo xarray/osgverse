@@ -434,22 +434,30 @@ struct SessionXR : public osg::Referenced
             if (it != attachments.end()) tex = static_cast<osg::Texture2D*>(it->second._texture.get());
         }
 
-        unsigned int contextID = renderInfo.getContextID();
+        unsigned int contextID = renderInfo.getContextID(), sWidth = 1920, sHeight = 1080;
         TextureCopier* copier = TextureCopier::instance();
         if (tex.valid())
         {
             osg::Texture::TextureObject* texObj = tex->getTextureObject(contextID);
             if (texObj)
             {
-                // FIXME: handle relation between recommendedWidth/Height and getTextureWidth/Height()?
+                sWidth = tex->getTextureWidth(); sHeight = tex->getTextureHeight();
                 TextureCopier::CopyRegion re = TextureCopier::calculateCenteredCopyRegion(
-                    tex->getTextureWidth(), tex->getTextureHeight(), recommendedWidth * 2, recommendedHeight);
+                        sWidth, sHeight, recommendedWidth * 2, recommendedHeight);
                 (*copier)(texObj->id(), 0, re.srcX, re.srcY, re.srcWidth, re.srcHeight,
                           dstTexture, re.dstX, re.dstY, renderInfo.getState());
             }
         }
         else
-            { OSG_NOTICE << "[RenderCallbackXR] No source texture to blit, maybe not a FBO camera?\n"; }
+        {
+            osg::Viewport* viewport = cam->getViewport(); osg::State* state = renderInfo.getState();
+            if (viewport != NULL) { sWidth = viewport->width(); sHeight = viewport->height(); }
+
+            GLuint fboId = state->getGraphicsContext() ? state->getGraphicsContext()->getDefaultFboId() : 0;
+            TextureCopier::CopyRegion re = TextureCopier::calculateCenteredCopyRegion(
+                    sWidth, sHeight, recommendedWidth * 2, recommendedHeight);
+            (*copier)(0, fboId, re.srcX, re.srcY, re.srcWidth, re.srcHeight, dstTexture, re.dstX, re.dstY, state);
+        }
     }
 };
 
