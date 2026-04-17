@@ -1,4 +1,6 @@
 #include "OnnxRuntimeEngine.h"
+#include "pipeline/Utilities.h"
+
 #include <osg/io_utils>
 #include <osgDB/ConvertUTF>
 #include <onnxruntime_cxx_api.h>
@@ -128,6 +130,37 @@ namespace
                     size_t size = subValues.size() * sizeof(T);
                     memcpy(ptr + totalSize, subValues.data(), size); totalSize += size;
                 }
+            }
+            return tensor;
+        }
+
+        Ort::Value createInput(CudaAlgorithm::TextureResource* tr, const std::string& checkInName, int gpuID)
+        {
+            Ort::MemoryInfo memory_info("Cuda", OrtArenaAllocator, gpuID, OrtMemTypeDefault);
+            Ort::Value tensor(nullptr); void* cudaPtr = NULL;
+            OnnxInferencer::DataLayout outLayout = OnnxInferencer::ImageNCHW;
+
+            int channels = osg::Image::computeNumComponents(tr->getPixelFormat());
+            std::vector<int64_t> shapes = { 1, channels, tr->getHeight(), tr->getWidth() };
+            switch (tr->getDataType())
+            {
+            case GL_UNSIGNED_BYTE:
+                if (checkValidation(checkInName, shapes, outLayout, ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8, true))
+                {
+                    // TODO: map cuda_res (and unmap after Run()), considering image layout
+                    tensor = Ort::Value::CreateTensor(memory_info, cudaPtr, tr->getDataSize(), shapes.data(),
+                                                      shapes.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8);
+                } break;
+            case GL_FLOAT:
+                if (checkValidation(checkInName, shapes, outLayout, ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, true))
+                {
+                    // TODO: map cuda_res (and unmap after Run()), considering image layout
+                    tensor = Ort::Value::CreateTensor(memory_info, cudaPtr, tr->getDataSize(), shapes.data(),
+                                                      shapes.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
+                } break;
+            default:
+                OSG_NOTICE << "[OnnxInferencer] Input image type unsupported: " << std::hex
+                           << tr->getDataType() << "\n"; break;
             }
             return tensor;
         }
@@ -375,6 +408,18 @@ bool OnnxInferencer::addInput(const std::vector<osg::Image*>& images, const std:
     OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false;
     Ort::Value value = w->createInput(images, inName); if (!value) return false;
 
+    OnnxWrapper::InferenceWorkData& work = w->getWorkData();
+    work.inputs.push_back(std::move(value));
+    work.inNames.push_back(inName); return true;
+}
+
+bool OnnxInferencer::addCudaResourceInput(osg::Referenced* inValue, const std::string& inName, int gpuID)
+{
+    OnnxWrapper* w = (OnnxWrapper*)_handle; if (!w) return false;
+    CudaAlgorithm::TextureResource* tr = dynamic_cast<CudaAlgorithm::TextureResource*>(inValue);
+    if (!tr) { OSG_NOTICE << "[OnnxInferencer] Not a valid CUDA resource\n"; return false; }
+
+    Ort::Value value = w->createInput(tr, inName, gpuID); if (!value) return false;
     OnnxWrapper::InferenceWorkData& work = w->getWorkData();
     work.inputs.push_back(std::move(value));
     work.inNames.push_back(inName); return true;

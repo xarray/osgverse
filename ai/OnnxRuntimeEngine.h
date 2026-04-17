@@ -36,6 +36,7 @@ namespace osgVerse
         bool addInput(const std::vector<std::vector<unsigned int>>& values, const std::string& inName);
         bool addInput(const std::vector<std::vector<int>>& values, const std::string& inName);
         bool addInput(const std::vector<osg::Image*>& images, const std::string& inName);
+        bool addCudaResourceInput(osg::Referenced* value, const std::string& inName, int gpuID = 0);
 
         bool run(FinishedCallback cb = NULL);
         bool getOutput(std::vector<float>& values, unsigned int index = 0) const;

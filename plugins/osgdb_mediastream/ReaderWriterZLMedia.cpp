@@ -844,22 +844,27 @@ protected:
             PlayerContext* ctx = (PlayerContext*)userData;
             for (int i = 0; i < trackCount; ++i)
             {
-                if (mk_track_is_video(tracks[i]) == 0) continue;
-                if (ctx->decoder) mk_decoder_release(ctx->decoder, 1);
-
                 mk_track& track = tracks[i];
-                if (ctx->getDemuxer())
-                {
-                    ctx->getDemuxer()->setTrackInfo(
-                        mk_track_codec_id(track), mk_track_video_width(track), mk_track_video_height(track));
+                if (mk_track_is_video(track) != 0)
+                {   // Video track
+                    if (ctx->decoder) mk_decoder_release(ctx->decoder, 1);
+                    if (ctx->getDemuxer())
+                    {
+                        ctx->getDemuxer()->setTrackInfo(
+                            mk_track_codec_id(track), mk_track_video_width(track), mk_track_video_height(track));
+                    }
+                    else
+                    {
+                        ctx->decoder = mk_decoder_create(track, 0);
+                        mk_decoder_set_cb(ctx->decoder, ReaderWriterZLMedia::onMkFrameDecoded, userData);
+                    }
+                    mk_track_add_delegate(track, ReaderWriterZLMedia::onMkTrackFrameOut, userData);
                 }
                 else
-                {
-                    ctx->decoder = mk_decoder_create(track, 0);
-                    mk_decoder_set_cb(ctx->decoder, ReaderWriterZLMedia::onMkFrameDecoded, userData);
+                {   // Audio track
+                    // TODO
                 }
-                mk_track_add_delegate(track, ReaderWriterZLMedia::onMkTrackFrameOut, userData);
-            }
+            }  // for (int i = 0; i < trackCount; ++i)
         }
     }
 

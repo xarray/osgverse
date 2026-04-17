@@ -7,12 +7,12 @@
 #include <osg/Geometry>
 #include <osg/ShapeDrawable>
 #include <osg/CullStack>
+#include <osg/FrameBufferObject>
 #include <osg/Texture1D>
 #include <osg/Texture2D>
 #include <osg/Texture2DArray>
 #include <osg/Texture3D>
 #include <osg/TextureCubeMap>
-#include <osg/FrameBufferObject>
 #include <osg/Camera>
 #include <osgGA/GUIEventHandler>
 #include <osgText/Font>
@@ -25,12 +25,22 @@ struct SMikkTSpaceContext;
 struct lay_context;
 #endif
 
+#include <osg/Texture2D>
 #include <vector>
 #ifdef VERSE_ENABLE_MTT
 typedef struct MUctx_st* CUcontext;
+typedef struct MUgraphicsResource_st* CUgraphicsResource;
 #else
 typedef struct CUctx_st* CUcontext;
+typedef struct CUgraphicsResource_st* CUgraphicsResource;
 #endif
+
+#if defined(_WIN64) || defined(__LP64__)
+typedef unsigned long long CUdeviceptr_v2;
+#else
+typedef unsigned int CUdeviceptr_v2;
+#endif
+typedef CUdeviceptr_v2 CUdeviceptr;
 
 namespace osgVerse
 {
@@ -43,6 +53,28 @@ namespace osgVerse
 
         static bool radixSort(const std::vector<unsigned int>& inValues, const std::vector<unsigned int>& inIDs,
                               std::vector<unsigned int>& outIDs);
+
+        class TextureResource : public osg::Referenced
+        {
+        public:
+            TextureResource(osg::Texture* tex, int contextID, bool copyFromTexture);
+            CUdeviceptr map(size_t& size, int contextID, bool copyFromTexture);
+            void unmap(int contextID, bool copyToTexture);
+
+            int getWidth() const { return (int)width; }
+            int getHeight() const { return (int)height; }
+            int getDataSize() const { return (int)dataSize; }
+            GLenum getPixelFormat() const { return pixelFormat; }
+            GLenum getDataType() const { return dataType; }
+
+        protected:
+            virtual ~TextureResource();
+
+            osg::ref_ptr<osg::Texture> texture;
+            CUgraphicsResource resource;
+            GLuint pbo, width, height, dataSize;
+            GLenum pixelFormat, dataType;
+        };
     };
 
 #ifndef ONLY_CUDA_DEFINITIONS

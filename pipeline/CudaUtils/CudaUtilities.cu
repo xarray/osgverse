@@ -1,3 +1,4 @@
+#include "3rdparty/GL/glew.h"
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/GL>
@@ -7,10 +8,85 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <cuda.h>
+#include <cudaGL.h>
 
 #define ONLY_CUDA_DEFINITIONS
 #include "../Utilities.h"
 using namespace osgVerse;
+
+CudaAlgorithm::TextureResource::TextureResource(osg::Texture* tex, int contextID, bool copyFromTexture)
+:   texture(tex), resource(NULL), pbo(0)
+{
+    int w = tex->getTextureWidth(), h = tex->getTextureHeight(); GLenum dtype = GL_NONE;
+    if (tex->getImage(0)) { w = tex->getImage(0)->s(); h = tex->getImage(0)->t(); }
+    pixelFormat = tex->getImage(0) ? tex->getImage(0)->getPixelFormat() : tex->getSourceFormat();
+    dataType = tex->getImage(0) ? tex->getImage(0)->getDataType() : tex->getSourceType();
+
+    int bits = osg::Image::computePixelSizeInBits(pixelFormat, dataType);
+    dataSize = w * h * bits / 8; width = w; height = h;
+    if (w < 1 || h < 1)
+        { OSG_NOTICE << "[TextureResource] Texture size must be greater than 0\n"; }
+    else
+    {
+        glGenBuffers(1, &pbo);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, dataSize, nullptr, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        cuGraphicsGLRegisterBuffer(&resource, pbo, cudaGraphicsMapFlagsNone);
+
+        osg::Texture::TextureObject* texObj = texture->getTextureObject(contextID);
+        if (texObj && copyFromTexture)
+        {
+            glBindTexture(GL_TEXTURE_2D, texObj->id());
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+            glGetTexImage(GL_TEXTURE_2D, 0, pixelFormat, dataType, 0);
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+    }
+}
+
+CudaAlgorithm::TextureResource::~TextureResource()
+{
+    if (resource != nullptr) cuGraphicsUnregisterResource(resource);
+    if (pbo) glDeleteBuffers(1, &pbo);
+}
+
+CUdeviceptr CudaAlgorithm::TextureResource::map(size_t& size, int contextID, bool copyFromTexture)
+{
+    osg::Texture::TextureObject* texObj = texture->getTextureObject(contextID);
+    if (resource == 0) return NULL;
+    if (copyFromTexture && texObj)
+    {
+        glBindTexture(GL_TEXTURE_2D, texObj->id());
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+        glGetTexImage(GL_TEXTURE_2D, 0, pixelFormat, dataType, 0);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    CUdeviceptr devicePtr = NULL;
+    cuGraphicsMapResources(1, &resource, 0);
+    cuGraphicsResourceGetMappedPointer(&devicePtr, &size, resource);
+    return devicePtr;
+}
+
+void CudaAlgorithm::TextureResource::unmap(int contextID, bool copyToTexture)
+{
+    if (resource == 0) return;
+    cuGraphicsUnmapResources(1, &resource, 0);
+
+    osg::Texture::TextureObject* texObj = texture->getTextureObject(contextID);
+    if (copyToTexture && texObj)
+    {
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+        glBindTexture(GL_TEXTURE_2D, texObj->id());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, texture->getTextureWidth(), texture->getTextureHeight(),
+                        pixelFormat, dataType, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    }
+}
 
 namespace osgVerse
 {
