@@ -301,34 +301,6 @@ IF(NOT MSVC)
     )
 ENDIF(NOT MSVC)
 
-SET(GAINPUT_SOURCE_FILES
-    gainput/gainput.cpp gainput/gainput.h gainput/GainputInputManager.h
-    gainput/GainputInputDevice.h gainput/GainputInputListener.h
-    gainput/GainputAllocator.cpp gainput/GainputAllocator.h
-    gainput/GainputInputDeltaState.cpp gainput/GainputInputDevice.cpp
-    gainput/GainputInputManager.cpp gainput/GainputInputMap.cpp
-    gainput/GainputInputState.cpp gainput/GainputMapFilters.cpp
-    gainput/builtin/GainputInputDeviceBuiltIn.cpp gainput/dev/GainputNetListener.cpp
-    gainput/dev/GainputDev.cpp gainput/dev/GainputMemoryStream.cpp
-    gainput/dev/GainputNetAddress.cpp gainput/dev/GainputNetConnection.cpp
-    gainput/gestures/GainputButtonStickGesture.cpp gainput/gestures/GainputDoubleClickGesture.cpp
-    gainput/gestures/GainputHoldGesture.cpp gainput/gestures/GainputPinchGesture.cpp
-    gainput/gestures/GainputRotateGesture.cpp gainput/gestures/GainputSimultaneouslyDownGesture.cpp
-    gainput/gestures/GainputTapGesture.cpp gainput/gestures/GainputGestures.h
-    gainput/keyboard/GainputInputDeviceKeyboard.cpp gainput/keyboard/GainputKeyboardKeyNames.h
-    gainput/mouse/GainputInputDeviceMouse.cpp gainput/mouse/GainputMouseInfo.h
-    gainput/pad/GainputInputDevicePad.cpp gainput/pad/GainputInputDevicePadMac.cpp
-    gainput/recorder/GainputInputPlayer.cpp gainput/recorder/GainputInputRecorder.cpp
-    gainput/recorder/GainputInputRecording.cpp gainput/touch/GainputInputDeviceTouch.cpp
-)
-IF(APPLE)
-    SET(GAINPUT_SOURCE_FILES ${GAINPUT_SOURCE_FILES}
-        gainput/GainputIos.mm gainput/GainputMac.mm
-        gainput/builtin/GainputInputDeviceBuiltInIos.mm
-        gainput/pad/GainputInputDevicePadIos.mm
-    )
-ENDIF(APPLE)
-
 SET(RECAST_SOURCE_FILES
     recastnavigation/Detour/DetourAlloc.cpp recastnavigation/Detour/DetourAssert.cpp
     recastnavigation/Detour/DetourNode.cpp recastnavigation/Detour/DetourNavMesh.cpp
@@ -525,7 +497,6 @@ SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("ByteTrack Files" FILES ${BYTETRACK_SOURCE_FILES})
 SOURCE_GROUP("DiscreGrid Files" FILES ${DISCREGRID_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
-SOURCE_GROUP("GaInput Files" FILES ${GAINPUT_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 SOURCE_GROUP("InteractiveMeshBoolean Files" FILES ${INTERACTIVEMESHBOOL_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
@@ -586,28 +557,10 @@ IF(CINOLIB_FOUND)
     INCLUDE_DIRECTORIES(${CINOLIB_INCLUDE_DIR})
 ENDIF(CINOLIB_FOUND)
 
-### Check for GaInput dependency
-SET(GAINPUT_ENABLED TRUE)
-IF(ANDROID OR IOS)
-    # Do nothing?
-ELSE(ANDROID OR IOS)
-    IF("${VERSE_SYSTEM_ARCHITECT}" MATCHES "ARM")
-        SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-vectorize -ffast-math")
-        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftree-vectorize -ffast-math")
-    ELSE()
-        IF(WIN32 OR MINGW OR CYGWIN)
-            # Do nothing?
-        ELSE(WIN32 OR MINGW OR CYGWIN)
-            IF(NOT X11_FOUND)
-                SET(GAINPUT_ENABLED FALSE)
-            ENDIF(NOT X11_FOUND)
-        ENDIF(WIN32 OR MINGW OR CYGWIN)
-    ENDIF()
-ENDIF(ANDROID OR IOS)
-
-IF(GAINPUT_ENABLED)
-    SET(LIBRARY_FILES ${LIBRARY_FILES} ${GAINPUT_SOURCE_FILES})
-ENDIF(GAINPUT_ENABLED)
+IF("${VERSE_SYSTEM_ARCHITECT}" MATCHES "ARM")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-vectorize -ffast-math")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftree-vectorize -ffast-math")
+ENDIF()
 
 ### Check for other dependencies
 IF(USE_WASM_OPTIONS)

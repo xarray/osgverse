@@ -5,24 +5,67 @@ extern "C"
 #include "Utilities.h"
 using namespace osgVerse;
 
-static const char* obtainIconType(FileDialog::NotifyLevel n)
+/// KeyboardCacher ///
+KeyboardCacher* KeyboardCacher::instance()
 {
-    switch (n)
+    static osg::ref_ptr<KeyboardCacher> s_instance = new KeyboardCacher;
+    return s_instance.get();
+}
+
+void KeyboardCacher::advance(const osgGA::GUIEventAdapter& ea)
+{
+    if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN)
     {
-    case FileDialog::Warn: return "warning";
-    case FileDialog::Error: return "error";
-    default: return "info";
+        int key = ea.getKey(); if (_keyStates[key]) return;
+        _keyStates[key] = true;
+    }
+    else if (ea.getEventType() == osgGA::GUIEventAdapter::KEYUP)
+    {
+        int key = ea.getKey(); if (!_keyStates[key]) return;
+        _keyStates[key] = false;
     }
 }
 
-static const char* obtainButtonType(FileDialog::ButtonGroup g)
+bool KeyboardCacher::isKeyDown(int key) const
 {
-    switch (g)
+    std::unordered_map<int, bool>::const_iterator it = _keyStates.find(key);
+    if (it == _keyStates.end()) return false; else return it->second;
+}
+
+bool KeyboardCacher::anyKeyDown(std::initializer_list<int> keys) const
+{
+    for (int k : keys) { if (isKeyDown(k)) return true; }
+    return false;
+}
+
+bool KeyboardCacher::allKeyDown(std::initializer_list<int> keys) const
+{
+    for (int k : keys) { if (!isKeyDown(k)) return false; }
+    return true;
+}
+
+/// FileDialog ///
+namespace
+{
+    static const char* obtainIconType(FileDialog::NotifyLevel n)
     {
-    case FileDialog::OkCancel: return "okcancel";
-    case FileDialog::YesNo: return "yesno";
-    case FileDialog::YesNoCancel: return "yesnocancel";
-    default: return "ok";
+        switch (n)
+        {
+        case FileDialog::Warn: return "warning";
+        case FileDialog::Error: return "error";
+        default: return "info";
+        }
+    }
+
+    static const char* obtainButtonType(FileDialog::ButtonGroup g)
+    {
+        switch (g)
+        {
+        case FileDialog::OkCancel: return "okcancel";
+        case FileDialog::YesNo: return "yesno";
+        case FileDialog::YesNoCancel: return "yesnocancel";
+        default: return "ok";
+        }
     }
 }
 

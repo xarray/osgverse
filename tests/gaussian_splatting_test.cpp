@@ -20,6 +20,7 @@
 #include <pipeline/Pipeline.h>
 #include <pipeline/ResourceManager.h>
 #include <pipeline/Utilities.h>
+#include <ui/Utilities.h>
 #include <VerseCommon.h>
 
 #ifndef GL_DEPTH_CLAMP
@@ -49,18 +50,20 @@ public:
 
 protected:
     virtual bool handleKeyDown(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+    { osgVerse::KeyboardCacher::instance()->advance(ea); return false; }
+
+    virtual bool handleFrame(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
     {
         float m = (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT)
                 ? (_wheelMovement * _modelSize) : 0.05f;
-        switch (ea.getKey())
-        {
-        case osgGA::GUIEventAdapter::KEY_Up: moveForward(m); break;
-        case osgGA::GUIEventAdapter::KEY_Down: moveForward(-m); break;
-        case osgGA::GUIEventAdapter::KEY_Left: moveRight(-m); break;
-        case osgGA::GUIEventAdapter::KEY_Right: moveRight(m); break;
-        }
+        osgVerse::KeyboardCacher* kb = osgVerse::KeyboardCacher::instance();
+        if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Up)) moveForward(m);
+        if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Down)) moveForward(-m);
+        if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Left)) moveRight(-m);
+        if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Right)) moveRight(m);
         return false;
     }
+
     osg::Vec3d _presetEye;
 };
 
