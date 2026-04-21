@@ -8,8 +8,9 @@ INCLUDE_DIRECTORIES(../3rdparty/imgui)
 NEW_EXECUTABLE(${EXE_NAME} SHARED)
 SET_PROPERTY(TARGET ${EXE_NAME} PROPERTY FOLDER "APPLICATIONS")
 
-TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseUI osgVerseDependency osgVerseModeling osgVerseAnimation
-                      osgVersePipeline osgVerseReaderWriter osgVerseWrappers)
+TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseAnimation osgVersePipeline
+                      osgVerseWrappers osgVerseModeling osgVerseScript osgVerseUI osgVerseAI
+                      osgVerseDependency ${EXTERNAL_LIBRARIES})
 LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 

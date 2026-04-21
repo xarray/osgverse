@@ -5,8 +5,9 @@ SET(EXECUTABLE_FILES
 
 NEW_EXECUTABLE(${EXE_NAME} SHARED)
 SET_PROPERTY(TARGET ${EXE_NAME} PROPERTY FOLDER "APPLICATIONS")
-TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseDependency osgVerseReaderWriter
-                      osgVersePipeline osgVerseAnimation osgVerseWrappers)
+TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseAnimation osgVersePipeline
+                      osgVerseWrappers osgVerseModeling osgVerseScript osgVerseUI osgVerseAI
+                      osgVerseDependency ${EXTERNAL_LIBRARIES})
 LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 

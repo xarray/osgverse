@@ -14,7 +14,9 @@ SET_PROPERTY(TARGET ${EXE_NAME} PROPERTY FOLDER "APPLICATIONS")
 IF(SDL2_FOUND)
     TARGET_LINK_LIBRARIES(${EXE_NAME} SDL2 SDL2main)
 ENDIF(SDL2_FOUND)
-TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseDependency osgVerseReaderWriter osgVersePipeline)
+TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseReaderWriter osgVerseAnimation osgVersePipeline
+                      osgVerseWrappers osgVerseModeling osgVerseScript osgVerseUI osgVerseAI
+                      osgVerseDependency ${EXTERNAL_LIBRARIES})
 LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
 TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
 
