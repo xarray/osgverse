@@ -824,15 +824,16 @@ namespace osgVerse
     }
 
     osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
-                                 float quadW, float quadH, bool screenSpaced)
+                                 float quadW, float quadH, const osg::Vec4& texcoord, bool screenSpaced, bool clearColor)
     {
         osg::ref_ptr<osg::Camera> camera = new osg::Camera;
         camera->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-        camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        camera->setClearMask(clearColor ? (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) : GL_DEPTH_BUFFER_BIT);
         camera->setRenderOrder(osg::Camera::POST_RENDER);
         camera->setAllowEventFocus(false);
         if (gc) camera->setGraphicsContext(gc);
         camera->setViewport(0, 0, w, h);
+        camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
         camera->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
         if (screenSpaced)
@@ -841,7 +842,7 @@ namespace osgVerse
             camera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
             camera->setViewMatrix(osg::Matrix::identity());
             if (quadW > 0.0f && quadH > 0.0f)
-                camera->addChild(createScreenQuad(quadPt, quadW, quadH, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f)));
+                camera->addChild(createScreenQuad(quadPt, quadW, quadH, texcoord));
         }
         return camera.release();
     }

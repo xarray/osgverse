@@ -379,7 +379,8 @@ osg::Camera* configureUI(osgViewer::View& viewer, osg::Group* root,
     drawer->loadFont("default", mainFolder + "/UI/pingfang.ttf");
     drawer->setPixelBufferObject(new osg::PixelBufferObject(drawer.get()));
 
-    osg::Camera* hudCamera = osgVerse::createHUDCamera(NULL, w, h, osg::Vec3(), 1.0, 1.0, true);
+    osg::Camera* hudCamera = osgVerse::createHUDCamera(
+        NULL, w, h, osg::Vec3(), 1.0, 1.0, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f), true);
     hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
     hudCamera->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
     hudCamera->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);

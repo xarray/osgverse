@@ -1374,8 +1374,8 @@ namespace osgVerse
                                                osg::Shader* vs, osg::Shader* fs, const osg::Vec4& geom)
     {
         Stage* s = new Stage; s->deferred = false;
-        s->camera = createHUDCamera(_stageContext.get(), _stageSize[0], _stageSize[1],
-                                    osg::Vec3(geom[0], geom[1], 0.0f), geom[2], geom[3], true);
+        s->camera = createHUDCamera(_stageContext.get(), _stageSize[0], _stageSize[1], osg::Vec3(geom[0], geom[1], 0.0f),
+                                    geom[2], geom[3], osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f), true);
         applyDefaultStageData(*s, name, vs, fs);
 
         //s->camera->setClearColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));

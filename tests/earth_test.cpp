@@ -324,7 +324,8 @@ int main(int argc, char** argv)
             }
 
             // Merge results to an HUD camera to show
-            osg::Camera* finalCamera = osgVerse::createHUDCamera(NULL, w, h, osg::Vec3(), 1.0f, 1.0f, true);
+            osg::Camera* finalCamera = osgVerse::createHUDCamera(
+                NULL, w, h, osg::Vec3(), 1.0f, 1.0f, osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f), true);
             finalCamera->getOrCreateStateSet()->setTextureAttributeAndModes(0, mergedGlobeBuffer.get());
             finalCamera->getOrCreateStateSet()->setTextureAttributeAndModes(1, oceanColorBuffer.get());
             finalCamera->getOrCreateStateSet()->addUniform(new osg::Uniform("EarthTexture", (int)0));

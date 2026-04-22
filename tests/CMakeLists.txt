@@ -79,6 +79,7 @@ NEW_EXAMPLE(osgVerse_Test_Shader_Library shader_library_test.cpp)  # Shader libr
 NEW_EXAMPLE(osgVerse_Test_Shadow shadow_test.cpp)  # Shadow algorithm and efficiency testing example
 NEW_EXAMPLE(osgVerse_Test_Earth earth_test.cpp)  # Lightweight earth, atmosphere and ocean creation example
 NEW_EXAMPLE(osgVerse_Test_3DGS gaussian_splatting_test.cpp)  # 3D gaussian splatting load and render example
+NEW_EXAMPLE(osgVerse_Test_HUD_Text hud_text_test.cpp)  # HUD texts rendering and dynamic changing example
 IF(ONNXRUNTIME_FOUND)
     NEW_EXAMPLE(osgVerse_Test_Onnx onnx_engine_test.cpp)  # ONNX-based AI model load and inference example
 ENDIF(ONNXRUNTIME_FOUND)

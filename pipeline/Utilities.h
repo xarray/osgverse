@@ -136,7 +136,8 @@ namespace osgVerse
 
     /** Create a post-render HUD camera, which may contain a quad for display use */
     extern osg::Camera* createHUDCamera(osg::GraphicsContext* gc, int w, int h, const osg::Vec3& quadPt,
-                                        float quadW, float quadH, bool screenSpaced);
+                                        float quadW, float quadH, const osg::Vec4& texcoord,
+                                        bool screenSpaced = true, bool clearColor = true);
 
     /** Align the camera (usually RTT) to a bounding box to capture one of its face exactly */
     extern void alignCameraToBox(osg::Camera* camera, const osg::BoundingBoxd& bb, int resW, int resH,
