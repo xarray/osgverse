@@ -119,7 +119,7 @@ namespace
 
         switch (id)
         {
-        case GL_NO_ERROR: idInfo = "NO_ERROR"; break;
+        case GL_NO_ERROR: idInfo = "NO_ERROR"; return;
         case GL_INVALID_ENUM: idInfo = "INVALID_ENUM"; break;
         case GL_INVALID_VALUE: idInfo = "INVALID_VALUE"; break;
         case GL_INVALID_OPERATION: idInfo = "INVALID_OPERATION"; break;

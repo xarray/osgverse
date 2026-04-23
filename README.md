@@ -94,13 +94,13 @@ Our project is already tested on graphics cards listed as below:
 | MooreThreads S80/S1000    | 4.1 / GLSL 4.1 | :heavy_check_mark: | ~= 30fps    | Need VERSE_USE_MTT_DRIVER (automatically enabled with MUSA) |
 | LISUAN 7G100              | 4.6 / GLSL 4.6 | :heavy_check_mark: | ~= 45fps    | |
 | XiangDiXian FUXI R2900E   | 4.6 / GLSL 4.6 | :heavy_plus_sign:  | 60fps       | PCF Shadow failed (VSM/ESM OK) |
-| Phytium D3000M (FTG340)   | 4.6 / GLSL 4.6 | :heavy_plus_sign:  | < 10fps     | PCF Shadow failed (VSM/ESM OK) |
+| Phytium D3000M (FTG340)   | GLES 3.2       | :heavy_plus_sign:  | < 10fps     | GLES only; PCF Shadow failed (VSM/ESM OK) |
 | Phytium D2000+X100        | 3.0 / GLSL 3.3 | :heavy_plus_sign:  | < 10fps     | |
 | JingJia Micro JM7201      | 3.0 / GLSL 1.3 | :heavy_plus_sign:  | < 5fps      | Core only; PCF Shadow failed (VSM/ESM OK); glBlitFrameBuffer failed |
-| LJmicro GP202             | 4.0 / GLSL 4.0 | :heavy_plus_sign:  | < 10fps     | |
+| LJmicro GP201/202         | 4.0 / GLSL 4.0 | :heavy_plus_sign:  | < 10fps     | glBlitFrameBuffer failed |
 | Zhaoxin C-960 (SIS)       | 3.2 / GLSL 1.5 | :zap:              |             | Segment fault in osg::Texture at present  |
 | VirtualBox SVGA 3D        | 4.1 / GLSL 4.1 | :heavy_check_mark: | 60fps       | |
-| VirtualBox (No 3D / Mesa) | 4.5 / GLSL 4.5 | :heavy_plus_sign:  | < 5fps      | glBlitFrameBuffer failed |
+| VirtualBox (Only Mesa)    | 4.5 / GLSL 4.5 | :heavy_plus_sign:  | < 5fps      | glBlitFrameBuffer failed |
 
 #### Modules
 1. osgVerseDependency: contains all embedded 3rdparty dependencies.

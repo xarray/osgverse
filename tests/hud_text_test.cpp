@@ -42,11 +42,11 @@ public:
         osgViewer::View* view = static_cast<osgViewer::View*>(&aa);
         if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
         {
+            int frames = view->getFrameStamp()->getFrameNumber();
             if (_mainCamera.valid())
                 view->getCamera()->setViewMatrix(_mainCamera->getViewMatrix());
-            if (_drawer.valid())
+            if (_drawer.valid() && (frames & 60) == 0)
             {
-                int frames = view->getFrameStamp()->getFrameNumber();
                 _drawer->startInThread([this, frames](osgVerse::Drawer2D* drawer)
                     {
                         auto now = std::chrono::system_clock::now();
@@ -124,10 +124,10 @@ int main(int argc, char** argv)
     root->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
     root->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
     root->addChild(sceneRoot.get());
-    root->addChild(hudCamera);
+    if (withHUD) root->addChild(hudCamera);
 
     osgViewer::CompositeViewer viewer;
-    viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    //viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
     for (int i = 0; i < numViews; ++i)
     {
