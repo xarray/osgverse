@@ -3,6 +3,7 @@ extern "C"
 #   include <3rdparty/tinyfiledialogs.h>
 }
 #include "Utilities.h"
+#include <iostream>
 using namespace osgVerse;
 
 /// KeyboardCacher ///

@@ -26,6 +26,7 @@ struct QuantizedMesh
     {
         unsigned int dataCount;
         std::vector<unsigned short> u, v, h;
+        std::vector<unsigned int> x, y, z;
     };
 
     struct IndexData
@@ -46,9 +47,9 @@ struct QuantizedMesh
 
     void readVertices(std::istream& in)
     {
-        vertices.u.resize(vertices.dataCount);
-        vertices.v.resize(vertices.dataCount);
-        vertices.h.resize(vertices.dataCount);
+        vertices.u.resize(vertices.dataCount); vertices.x.resize(vertices.dataCount);
+        vertices.v.resize(vertices.dataCount); vertices.y.resize(vertices.dataCount);
+        vertices.h.resize(vertices.dataCount); vertices.z.resize(vertices.dataCount);
         in.read((char*)&(vertices.u[0]), sizeof(short) * vertices.u.size());
         in.read((char*)&(vertices.v[0]), sizeof(short) * vertices.v.size());
         in.read((char*)&(vertices.h[0]), sizeof(short) * vertices.h.size());
@@ -56,9 +57,9 @@ struct QuantizedMesh
         uint32_t uValue = 0, vValue = 0, hValue = 0;
         for (unsigned int i = 0; i < vertices.dataCount; ++i)
         {
-            uValue += zigZagDecode(vertices.u[i]); vertices.u[i] = uValue;
-            vValue += zigZagDecode(vertices.v[i]); vertices.v[i] = vValue;
-            hValue += zigZagDecode(vertices.h[i]); vertices.h[i] = hValue;
+            uValue += zigZagDecode(vertices.u[i]); vertices.x[i] = uValue;
+            vValue += zigZagDecode(vertices.v[i]); vertices.y[i] = vValue;
+            hValue += zigZagDecode(vertices.h[i]); vertices.z[i] = hValue;
         }
     }
 
@@ -128,14 +129,17 @@ struct TerrainGeometryHandler : public osgVerse::TileGeometryHandler
         osg::ref_ptr<osg::Vec2Array> ta = new osg::Vec2Array(meshData.vertices.dataCount);
         for (size_t i = 0; i < va->size(); ++i)
         {
-            osg::Vec3f code(meshData.vertices.u[i], meshData.vertices.v[i], meshData.vertices.h[i]);
+            osg::Vec3f code(meshData.vertices.x[i], meshData.vertices.y[i], meshData.vertices.z[i]);
             for (int c = 0; c < 3; ++c) (*va)[i][c] = extentMin[c] + extent[c] * code[c] * INV_SHORT_MAX;
-            if (cb->getFlatten()) (*va)[i][2] *= 0.0002f;  // show on 2D map
+            if (cb && cb->getFlatten()) (*va)[i][2] *= 0.0002f;  // show on 2D map
             (*ta)[i] = osg::Vec2(code[0], code[1]) * INV_SHORT_MAX;
 
-            osg::Vec3d lla = cb->adjustLatitudeLongitudeAltitude((*va)[i], cb->getUseWebMercator());
-            osg::Vec3d ecef = osgVerse::Coordinate::convertLLAtoECEF(lla);
-            (*va)[i] = osg::Vec3(ecef * worldToLocal);
+            if (cb)
+            {
+                osg::Vec3d lla = cb->adjustLatitudeLongitudeAltitude((*va)[i], cb->getUseWebMercator());
+                osg::Vec3d ecef = osgVerse::Coordinate::convertLLAtoECEF(lla);
+                (*va)[i] = osg::Vec3(ecef * worldToLocal);
+            }
         }
 
         osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;

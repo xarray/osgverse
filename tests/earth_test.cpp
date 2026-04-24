@@ -215,19 +215,21 @@ int main(int argc, char** argv)
     //   Local tiles from Rivermap: --ortho G:/DOM_DEM/dom/{z}/{x}/{y}.jpg --image-bottomleft --web-wgs84 --multi-root
     //   Local MBTiles from QGIS: --ortho mbtiles://F:/satellite-2017-jpg-z13.mbtiles/{z}-{x}-{y}.jpg
     //                            --elevation mbtiles://F:/elevation-google-tif-z8.mbtiles/{z}-{x}-{y}.tif
+    //   GaoDe Map: --ortho "https://webst01.is.autonavi.com/appmaptile?style%3d6&x%3d{x}&y%3d{y}&z%3d{z}"
     //   Google Map: --ortho "https://mt1.google.com/vt/lyrs%3ds&x%3d{x}&y%3d{y}&z%3d{z}"
     //               --elevation "https://mt1.google.com/vt/lyrs%3dt&x%3d{x}&y%3d{y}&z%3d{z}"
+    //   MapTiler: --ortho "https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key%3d<your_code>"
+    //             --elevation "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/{z}/{x}/{y}.terrain?key%3d<your_code>"
     //   TianDiTu: --ortho "http://t0.tianditu.gov.cn/img_w/wmts?SERVICE%3dWMTS&REQUEST%3dGetTile&FORMAT%3dtiles&tk%3d<your_code>
     //                      &VERSION%3d1.0.0&LAYER%3dimg&STYLE%3ddefault&TILEMATRIXSET%3dw&TILEMATRIX%3d{z}&TILEROW%3d{y}&TILECOL%3d{x}"
     //             --headers Host;t0.tianditu.gov.cn;Referer;http://www.tianditu.gov.cn
     //   JiLin No.1: --ortho "https://api.jl1mall.com/getMap/{z}/{x}/{y}?mk%3d<your_code>&tk%3d<your_code2>"
     //               --options "FlipVertical=1" --image-bottomleft
     //   GEOVIS Earth: --ortho "https://tiles1.geovisearth.com/base/v1/img/{z}/{x}/{y}?token%3d<your_code>" --options "FlipVertical=1"
-    std::string earthURLs = "Orthophoto=" + ortho + (!elev.empty() ? (" Elevation=" + elev) : " ")
+    std::string earthURLs = "Orthophoto=" + ortho + (!elev.empty() ? (" Elevation=" + elev + " ") : " ")
                           + useBottomLeftImage + " " + useWGS84Tile + " " + use2Dor3D;
     if (!headers.empty()) earthURLs += " RequestHeaders=" + headers;
     if (!options.empty()) earthURLs += " " + options;
-
     osg::ref_ptr<osgDB::Options> earthOptions = new osgDB::Options(earthURLs);
     osg::ref_ptr<osg::Node> earth = osgDB::readNodeFile(startFile, earthOptions.get());
 #endif

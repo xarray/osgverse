@@ -52,6 +52,9 @@ protected:
     virtual bool handleKeyDown(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
     { osgVerse::KeyboardCacher::instance()->advance(ea); return false; }
 
+    virtual bool handleKeyUp(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+    { osgVerse::KeyboardCacher::instance()->advance(ea); return false; }
+
     virtual bool handleFrame(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
     {
         float m = (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_SHIFT)
