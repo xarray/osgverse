@@ -1,4 +1,7 @@
-#include "3rdparty/GL/glew.h"
+#if !defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_EMBEDDED_GLES3)
+#   include "3rdparty/GL/glew.h"
+#endif
+
 #include <osg/io_utils>
 #include <osg/Version>
 #include <osg/GL>

@@ -116,7 +116,7 @@
 | libCEF           | Download from https://cef-builds.spotifycdn.com/index.html |
 | libIGL           | Headers only. Download from https://github.com/libigl/libigl/releases |
 | libosmium        | (Linux) apt-get install libosmium2-dev |
-| libwebp          | (Linux) apt-get install libwebp-dev
+| libwebp          | (Linux) apt-get install libwebp-dev |
 | mimalloc         | (Linux) apt-get install libmimalloc-dev |
 | netCDF-C         | (Linux) apt-get install libnetcdf-dev |
 | NVIDIA Video SDK | Download from https://developer.nvidia.com/video-codec-sdk |

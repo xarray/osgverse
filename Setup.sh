@@ -297,6 +297,7 @@ if [ "$SkipOsgBuild" = 0 ]; then
     sed -i.bak 's/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g' "$OpenSceneGraphRoot/src/osgDB/FileUtils.cpp"
     sed -i.bak 's/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
     sed -i.bak 's/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(ffmpeg)/#ADD_PLUGIN_DIRECTORY(#ffmpeg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
     sed -i.bak 's/TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE/TIFF_FOUND/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
     sed -i.bak 's/ANDROID_3RD_PARTY()/#ANDROID_3RD_PARTY(#)/g' "$OpenSceneGraphRoot/CMakeLists.txt"
 
@@ -528,6 +529,7 @@ if [ "$SkipOsgBuild" = 0 ]; then
     echo "*** Automatically unpatching source code..."
     sed -i.bak 's/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
     sed -i.bak 's/ADD_PLUGIN_DIRECTORY(#obj)/#ADD_PLUGIN_DIRECTORY(obj)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
+    sed -i.bak 's/ADD_PLUGIN_DIRECTORY(#ffmpeg)/#ADD_PLUGIN_DIRECTORY(ffmpeg)/g' "$OpenSceneGraphRoot/src/osgPlugins/CMakeLists.txt"
     sed -i.bak 's/#ANDROID_3RD_PARTY(#)/ANDROID_3RD_PARTY()/g' "$OpenSceneGraphRoot/CMakeLists.txt"
     sed -i.bak 's#NULL;\/\/dlopen\/\/(#dlopen(#g' "$OpenSceneGraphRoot/src/osgDB/DynamicLibrary.cpp"
     sed -i.bak 's#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g' "$OpenSceneGraphRoot/src/osg/Texture.cpp"

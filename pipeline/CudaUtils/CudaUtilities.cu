@@ -1,6 +1,9 @@
-#include "3rdparty/GL/glew.h"
-#include <osg/io_utils>
+#if !defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_EMBEDDED_GLES3)
+#   include "3rdparty/GL/glew.h"
+#endif
+
 #include <osg/Version>
+#include <osg/io_utils>
 #include <osg/GL>
 #include <iostream>
 
@@ -37,11 +40,15 @@ CudaAlgorithm::TextureResource::TextureResource(osg::Texture* tex, int contextID
         osg::Texture::TextureObject* texObj = texture->getTextureObject(contextID);
         if (texObj && copyFromTexture)
         {
+#if !defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_EMBEDDED_GLES3)
             glBindTexture(GL_TEXTURE_2D, texObj->id());
             glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
             glGetTexImage(GL_TEXTURE_2D, 0, pixelFormat, dataType, 0);
             glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
             glBindTexture(GL_TEXTURE_2D, 0);
+#else
+            OSG_NOTICE << "[TextureResource] Texture copying not implemented\n";
+#endif
         }
     }
 }
@@ -58,11 +65,15 @@ CUdeviceptr CudaAlgorithm::TextureResource::map(size_t& size, int contextID, boo
     if (resource == 0) return NULL;
     if (copyFromTexture && texObj)
     {
+#if !defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_EMBEDDED_GLES3)
         glBindTexture(GL_TEXTURE_2D, texObj->id());
         glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
         glGetTexImage(GL_TEXTURE_2D, 0, pixelFormat, dataType, 0);
         glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
+#else
+        OSG_NOTICE << "[TextureResource] Texture copying not implemented\n";
+#endif
     }
 
     CUdeviceptr devicePtr = NULL;

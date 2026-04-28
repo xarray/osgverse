@@ -206,11 +206,13 @@ private:
                 avcodec_parameters_to_context(audioCodec, audioCodecPar);
                 if (avcodec_open2(audioCodec, codec, NULL) == 0)
                 {
-                    audioConvert = swr_alloc_set_opts(
-                        NULL, AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, osgVerse::AudioPlayer::defaultSampleRate(),
-                        audioCodec->ch_layout.nb_channels > 1 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO,
-                        audioCodec->sample_fmt, audioCodec->sample_rate, 0, NULL);
-                    if (swr_init(audioConvert) < 0)
+                    AVChannelLayout in_ch_layout, out_ch_layout;
+                    av_channel_layout_default(&in_ch_layout, audioCodec->ch_layout.nb_channels > 1 ? 2 : 1);
+                    av_channel_layout_default(&out_ch_layout, 2);  // 2 channels = stereo
+                    int ret = swr_alloc_set_opts2(
+                        &audioConvert, &out_ch_layout, AV_SAMPLE_FMT_FLT, osgVerse::AudioPlayer::defaultSampleRate(),
+                        &in_ch_layout, audioCodec->sample_fmt, audioCodec->sample_rate, 0, NULL);
+                    if (ret < 0 || swr_init(audioConvert) < 0)
                     {
                         std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " " << "swr_init() failed";
                         swr_free(&audioConvert); audioConvert = NULL;
@@ -298,12 +300,12 @@ public:
         if (avcodec_receive_frame(audioCodec, audioFrame) == 0)
         {
             samples = swr_get_out_samples(audioConvert, audioFrame->nb_samples);
-            interleaved_buffer.resize(samples * audioCodec->channels);
+            interleaved_buffer.resize(samples * audioCodec->ch_layout.nb_channels);
 
             uint8_t* out_data[1] = { (uint8_t*)interleaved_buffer.data() };
             swr_convert(audioConvert, out_data, samples,
                         (const uint8_t**)audioFrame->data, audioFrame->nb_samples);
-            return audioCodec->channels;
+            return audioCodec->ch_layout.nb_channels;
         }
         return 0;
     }
