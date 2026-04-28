@@ -2,11 +2,11 @@ apply plugin: 'com.android.application'
 def ABI_FILTER = rootProject.ext.ABI_FILTER
 
 android {
-    compileSdkVersion = gradle.sdkVersion
+    compileSdk = gradle.sdkVersion
     defaultConfig {
         applicationId = 'com.osgverse.demoapp'
-        minSdkVersion gradle.minSdkVersion
-        targetSdkVersion gradle.targetSdkVersion
+        minSdk gradle.minSdkVersion
+        targetSdk gradle.targetSdkVersion
         ndk { abiFilters ABI_FILTER }
 
         externalNativeBuild {

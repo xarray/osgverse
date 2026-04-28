@@ -4,13 +4,13 @@ def ARM_HOST = System.getProperty("os.arch") in ["aarch64", "armv7l", "arm64"]
 
 android {
     namespace "org.libsdl"
-    compileSdkVersion = gradle.sdkVersion
+    compileSdk = gradle.sdkVersion
     buildFeatures {
         buildConfig true
     }
     defaultConfig {
-        minSdkVersion gradle.minSdkVersion
-        targetSdkVersion gradle.targetSdkVersion
+        minSdk gradle.minSdkVersion
+        targetSdk gradle.targetSdkVersion
         ndk { abiFilters ABI_FILTER }
 
         externalNativeBuild {

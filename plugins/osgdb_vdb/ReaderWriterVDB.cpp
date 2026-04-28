@@ -435,7 +435,7 @@ protected:
     template<typename T> struct ValueRange
     {
         ValueRange() : _min(std::numeric_limits<T>::max()), _max(std::numeric_limits<T>::min()) {}
-        ValueRange(T min_v, T max_v) : m_min(min_v), m_max(max_v) {}
+        ValueRange(T min_v, T max_v) : _min(min_v), _max(max_v) {}
         void addValue(T value) { _min = std::min(_min, value); _max = std::max(_max, value); }
         T _min, _max;
     };
@@ -457,7 +457,7 @@ protected:
         tbb::parallel_for(domain,
             [&sampler, &worldBox, &res, &comp, &stride, &ranges, &dataArray](const openvdb::CoordBBox& bbox)
         {
-            tbb::enumerable_thread_specific<ValueRange<T>>::reference this_range = ranges.local();
+            typename tbb::enumerable_thread_specific<ValueRange<T>>::reference this_range = ranges.local();
             for (int z = bbox.min().z(); z <= bbox.max().z(); ++z)
                 for (int y = bbox.min().y(); y <= bbox.max().y(); ++y)
                     for (int x = bbox.min().x(); x <= bbox.max().x(); ++x)
@@ -506,6 +506,7 @@ protected:
             openvdb::CoordBBox bbox; itr.getBoundingBox(bbox);
             // TODO
         }
+        return NULL;
     }
 
     template<typename GridType>

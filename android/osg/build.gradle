@@ -4,13 +4,13 @@ def GLES_PROFILE = rootProject.ext.GLES_PROFILE
 
 android {
     namespace "org.osg"
-    compileSdkVersion = gradle.sdkVersion
+    compileSdk = gradle.sdkVersion
     buildFeatures {
         buildConfig true
     }
     defaultConfig {
-        minSdkVersion gradle.minSdkVersion
-        targetSdkVersion gradle.targetSdkVersion
+        minSdk gradle.minSdkVersion
+        targetSdk gradle.targetSdkVersion
         ndk { abiFilters ABI_FILTER }
 
         externalNativeBuild {

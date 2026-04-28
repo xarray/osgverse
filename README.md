@@ -222,10 +222,10 @@ Our project is already tested on graphics cards listed as below:
   - OpenSceneGraph: from environment variable $OSG_ROOT.
   - SDL, Draco, Bullet, etc.: from CMake variable ${VERSE_3RDPARTY_PATH}, which is `<osgverse_folder>`/../Dependencies by default.
     - Actually path to find includes and libraries will be automatically set to '${VERSE_3RDPARTY_PATH}/`<platform>`'.
-    - For x86/x64 build: `<platform>` is 'x86' or 'x64'.
+    - For x86/x64 build: `<platform>` is 'x86_64', 'x64', or 'x86'.
     - For Android build: `<platform>` is 'android'.
     - For MacOSX/IOS build: `<platform>` is 'apple' or 'ios'.
-    - For WebAssembly (WASM) build: `<platform>` is 'wasm'.
+    - For WebAssembly (WASM) build: `<platform>` is 'wasm' or 'wasm64'.
     - For Windows UWP build: `<platform>` is 'uwp'.
     - For ARM64 build: `<platform>` is 'aarch64'.
 2. Build Draco:
@@ -247,12 +247,8 @@ Our project is already tested on graphics cards listed as below:
                                     libswscale-dev libswresample-dev libx264-dev
     - OpenSSL: (Linux) $ apt-get install libcrypto++-dev libssl-dev
     - libFAAC: (Linux) $ apt-get install libfaac-dev
-    - libSCTP: (Linux) $ apt-get install libsctp-dev
-    - libSRTP:
-      - (Linux) $ apt-get install libscrtp2-dev
-      - Or build from source:
-        - Clone from https://github.com/cisco/libsrtp.git
-        - $ cmake -DENABLE_OPENSSL=ON `<srtp_folder>` & make install
+    - libSCTP: (Linux) $ apt-get install libusrsctp-dev
+    - libSRTP: (Linux) $ apt-get install libsrtp2-dev
   - Clone recursively from https://github.com/ZLMediaKit/ZLMediaKit.git
   - $ cmake -DENABLE_API=ON -DENABLE_CXX_API=ON -DENABLE_FFMPEG=ON -DENABLE_OPENSSL=ON -DENABLE_SCTP=ON
             -DENABLE_SERVER=ON -DENABLE_WEBRTC=ON -DENABLE_X264=ON
@@ -264,8 +260,6 @@ Our project is already tested on graphics cards listed as below:
   - $ cmake -DINSTALL_LIBS=ON -DUSE_DOUBLE_PRECISION=ON
             -DCMAKE_INSTALL_PREFIX=`<your_path>`/Dependencies/`<arch>` `<bullet_folder>`
   - $ make install
-5. Build netCDF:
-  - TBD...
 5. TBD...
 
 #### Build osgverse from Source (with shell script)
