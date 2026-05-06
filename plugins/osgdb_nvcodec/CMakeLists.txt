@@ -39,7 +39,11 @@ IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
             TARGET_LINK_LIBRARIES(${LIB_NAME} nvcuvid)
         ENDIF()
         IF(NV_ENCODER_FOUND)
-            TARGET_LINK_LIBRARIES(${LIB_NAME} nvencodeapi)
+            IF(WIN32)
+                TARGET_LINK_LIBRARIES(${LIB_NAME} nvencodeapi)
+            ELSE()
+                TARGET_LINK_LIBRARIES(${LIB_NAME} nvidia-encode)
+            ENDIF()
         ENDIF()
 
         INSTALL(TARGETS ${LIB_NAME} EXPORT ${LIB_NAME}

@@ -35,7 +35,7 @@ CudaAlgorithm::TextureResource::TextureResource(osg::Texture* tex, int contextID
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
         glBufferData(GL_PIXEL_UNPACK_BUFFER, dataSize, nullptr, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-        muGraphicsGLRegisterBuffer(&resource, pbo, mudaGraphicsMapFlagsNone);
+        muGraphicsGLRegisterBuffer(&resource, pbo, musaGraphicsMapFlagsNone);
 
         osg::Texture::TextureObject* texObj = texture->getTextureObject(contextID);
         if (texObj && copyFromTexture)

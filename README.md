@@ -362,7 +362,7 @@ Our project is already tested on graphics cards listed as below:
       - $ source `<emsdk_folder>`/emsdk_env.sh
       - $ pnpm install
       - $ pnpm run build
-      - Copy bin/include/lib from gdal3.js\build\native\usr to `<osgverse_folder>`/../Dependencies/wasm
+      - Copy bin/include/lib/share from gdal3.js\build\native\usr to `<osgverse_folder>`/../Dependencies/wasm
   - Under Windows with Ninja:
     - Run commands below in terminal:
       - $ `<emsdk_folder>`/emsdk_env.bat
