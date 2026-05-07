@@ -33,6 +33,7 @@
 | Eigen            | Embedded |           | -                  | MPL2         | https://gitlab.com/libeigen/eigen |
 | exprtk           | Embedded |           | Modeling           | MIT          | https://github.com/ArashPartow/exprtk |
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr/iir1 |
+| GaussForge       | Embedded | 0.5.5     | verse_3dgs         | Apache2      | https://github.com/3dgscloud/GaussForge |
 | ghc_filesystem   | Embedded |           | -                  | MIT          | https://github.com/gulrak/filesystem |
 | glfw             | Embedded | 3.4       | ReaderWriter, WASM | ZLib         | https://github.com/glfw/glfw |
 | imgui            | Embedded | 1.92.5    | UI, App            | MIT          | https://github.com/ocornut/imgui |

@@ -1,11 +1,12 @@
 SET(LIB_NAME osgVerseModeling)
 SET(LIBRARY_INCLUDE_FILES
     MeshDeformer.h MeshTopology.h GeometryMerger.h GeometryMapper.h TextureMapping.h
-    FFDModeler.h DynamicGeometry.h GaussianGeometry.h Math.h Octree.h Utilities.h)
+    FFDModeler.h AnnotationMaker.h DynamicGeometry.h GaussianGeometry.h
+    Math.h Octree.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    MeshDeformer.cpp MeshTopology.cpp FFDModeler.cpp Math.cpp TextureMapping.cpp
-    GeometryMerger.cpp GeometryMapper.cpp DynamicGeometry.cpp
-    GaussianGeometry.cpp Utilities.cpp UtilitiesEx.cpp
+    MeshDeformer.cpp MeshTopology.cpp FFDModeler.cpp AnnotationMaker.cpp TextureMapping.cpp
+    GeometryMerger.cpp GeometryMapper.cpp DynamicGeometry.cpp GaussianGeometry.cpp
+    Math.cpp Utilities.cpp UtilitiesEx.cpp
 )
 
 ADD_DEFINITIONS(-DUSINGZ -DGLEW_STATIC -DGLEW_NO_GLU -DIMGUI_IMPL_OPENGL_LOADER_GLEW)

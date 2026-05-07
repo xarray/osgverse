@@ -415,6 +415,13 @@ SET(RASTERIZER_SOURCE_FILES
 SET(SPZ_SOURCE_FILES
     spz/load-spz.cc spz/load-spz.h spz/splat-c-types.cc spz/splat-c-types.h
     spz/splat-types.cc spz/splat-types.h
+    GaussForge/model_info.cpp GaussForge/validate.cpp GaussForge/registry.cpp
+    GaussForge/ply_reader.cpp GaussForge/ply_writer.cpp GaussForge/ply_auto.cpp
+    GaussForge/ply_compressed_reader.cpp GaussForge/ply_compressed_writer.cpp
+    GaussForge/ksplat_reader.cpp GaussForge/splat_reader.cpp GaussForge/spz_reader.cpp
+    GaussForge/ksplat_writer.cpp GaussForge/splat_writer.cpp GaussForge/spz_writer.cpp
+    GaussForge/gf/io/reader.h GaussForge/gf/io/writer.h GaussForge/gf/io/registry.h
+    GaussForge/gf/core/model_info.h GaussForge/gf/core/validate.h
 )
 
 SET(DISCREGRID_SOURCE_FILES
@@ -648,8 +655,8 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 INCLUDE_DIRECTORIES(libhv libhv/all libhv/mbedtls imgui stb ozz leveldb ktx ktx/basisu/zstd ktx/dfdutils
-                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector nanobind smplxpp
-                    Discregrid "${CMAKE_BINARY_DIR}/3rdparty/leveldb" ${THIRDPARTY_INCLUDE_DIRS})
+                    metis/gklib quadriflow recastnavigation/Detour rlottie rlottie/vector nanobind smplxpp spz
+                    Discregrid GaussForge "${CMAKE_BINARY_DIR}/3rdparty/leveldb" ${THIRDPARTY_INCLUDE_DIRS})
 NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} ${THIRDPARTY_LIBRARIES})
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)

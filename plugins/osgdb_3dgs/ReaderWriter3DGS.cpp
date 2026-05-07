@@ -9,6 +9,11 @@
 #include <osgUtil/Tessellator>
 #include "modeling/GaussianGeometry.h"
 #include "modeling/Utilities.h"
+
+#include "gf/core/gauss_ir.h"
+#include "gf/io/registry.h"
+#include "gf/io/reader.h"
+#include "gf/io/writer.h"
 #include "spz/load-spz.h"
 
 // Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/

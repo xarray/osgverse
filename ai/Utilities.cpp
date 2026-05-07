@@ -12,6 +12,7 @@
 #endif
 
 #include "Utilities.h"
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 using namespace osgVerse;
