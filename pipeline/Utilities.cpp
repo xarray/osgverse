@@ -283,9 +283,9 @@ namespace osgVerse
         regObject->addFileExtensionAlias("terrain", "verse_terrain");
         regObject->addFileExtensionAlias("tms", "verse_tms");
         regObject->addFileExtensionAlias("webp", "verse_webp");
-#if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
         regObject->addFileExtensionAlias("jpg", "verse_image");
         regObject->addFileExtensionAlias("jpeg", "verse_image");
+#if defined(VERSE_WASM) || defined(VERSE_ANDROID) || defined(VERSE_IOS)
         regObject->addFileExtensionAlias("png", "verse_image");
         regObject->addFileExtensionAlias("psd", "verse_image");
         regObject->addFileExtensionAlias("hdr", "verse_image");
