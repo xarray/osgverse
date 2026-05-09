@@ -116,6 +116,19 @@ public:
                 if (node.valid()) return node.get();
             }
 
+#if true
+            gf::IGaussReader* reader = _registry.ReaderForExt(ext);
+            if (!reader) return ReadResult::FILE_NOT_HANDLED;
+
+            std::string buffer((std::istreambuf_iterator<char>(fin)),
+                                std::istreambuf_iterator<char>());
+            if (buffer.empty()) return ReadResult::ERROR_IN_READING_FILE;
+
+            gf::ReadOptions read_opt;
+            gf::Expected<gf::GaussianCloudIR> ir = reader->Read(
+                (const uint8_t*)buffer.data(), buffer.size(), read_opt);
+            if (ir.ok()) geode->addDrawable(fromGF(ir.value(), method));
+#else
             spz::GaussianCloud cloud;
             if (ext == "ply")
             {
@@ -145,6 +158,7 @@ public:
                     if (geom) geode->addDrawable(geom);
                 }
             }
+#endif
         }
 
         if (geode->getNumDrawables() > 0) return geode.get();
@@ -156,36 +170,35 @@ public:
         std::string ext; std::string fileName = getRealFileName(path, ext);
         if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
 
-        if (ext == "ply")
-        {
-            if (spz::saveSplatToPly(sceneToSpz(node), spz::PackOptions(), fileName)) return WriteResult::FILE_SAVED;
-            else WriteResult::ERROR_IN_WRITING_FILE;
-        }
-        else
-        {
-            std::ofstream out(fileName, std::ios::out | std::ios::binary);
-            if (!out) return WriteResult::FILE_NOT_HANDLED;
+        std::ofstream out(fileName, std::ios::out | std::ios::binary);
+        if (!out) return WriteResult::FILE_NOT_HANDLED;
 
-            osg::ref_ptr<Options> localOptions = NULL;
-            if (options) localOptions = options->cloneOptions();
-            else localOptions = new osgDB::Options();
+        osg::ref_ptr<Options> localOptions = NULL;
+        if (options) localOptions = options->cloneOptions();
+        else localOptions = new osgDB::Options();
 
-            localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
-            localOptions->setPluginStringData("extension", ext);
-            return writeNode(node, out, localOptions.get());
-        }
+        localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
+        localOptions->setPluginStringData("extension", ext);
+        return writeNode(node, out, localOptions.get());
         return WriteResult::FILE_NOT_HANDLED;
     }
 
     virtual WriteResult writeNode(const osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
     {
-        std::string ext = ""; bool success = false;
+        std::string ext = "splat"; bool success = false;
         if (options) { ext = options->getPluginStringData("extension"); }
-
-        std::vector<unsigned char> resultData;
+        
+        std::vector<unsigned char> resultData; 
+#if true
+        gf::IGaussWriter* writer = _registry.WriterForExt(ext);
+        if (!writer) return WriteResult::FILE_NOT_HANDLED;
+        
+        gf::GaussianCloudIR ir = sceneToGF(node); gf::WriteOptions write_opt;
+        gf::Expected<std::vector<unsigned char>> data = writer->Write(ir, write_opt);
+        if (data.ok()) { data.value().swap(resultData); success = true; }
+#else
         if (ext == "spz") success = saveSpz(sceneToSpz(node), spz::PackOptions(), &resultData);
-        // TODO: more extensions to support
-
+#endif
         if (!resultData.empty()) fout.write((char*)resultData.data(), resultData.size());
         return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
@@ -205,6 +218,152 @@ protected:
         return fileName;
     }
 
+#if true
+    osgVerse::GaussianGeometry* fromGF(gf::GaussianCloudIR& c, osgVerse::GaussianGeometry::RenderMethod m) const
+    {
+        osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
+        for (size_t i = 0; i < c.positions.size(); i += 3)
+            pos->push_back(osg::Vec3(c.positions[i], c.positions[i + 1], c.positions[i + 2]));
+        for (size_t i = 0; i < c.scales.size(); i += 3)
+        {
+            // scale is stored in logarithmic scale in GaussForge
+            scale->push_back(osg::Vec3(expf(c.scales[i]), expf(c.scales[i + 1]), expf(c.scales[i + 2])));
+        }
+
+        osg::ref_ptr<osg::Vec4Array> rot = new osg::Vec4Array;
+        for (size_t i = 0; i < c.rotations.size(); i += 4)
+            rot->push_back(osg::Vec4(c.rotations[i + 1], c.rotations[i + 2], c.rotations[i + 3], c.rotations[i]));
+
+        osg::ref_ptr<osg::FloatArray> alpha = new osg::FloatArray;
+        for (size_t i = 0; i < c.alphas.size(); i++) { float op = c.alphas[i]; alpha->push_back(1.0f / (1.0f + expf(-op))); }
+
+        osg::ref_ptr<osg::Vec4Array> rD0 = new osg::Vec4Array, gD0 = new osg::Vec4Array, bD0 = new osg::Vec4Array;
+        osg::ref_ptr<osg::Vec4Array> rD1 = new osg::Vec4Array, gD1 = new osg::Vec4Array, bD1 = new osg::Vec4Array;
+        osg::ref_ptr<osg::Vec4Array> rD2 = new osg::Vec4Array, gD2 = new osg::Vec4Array, bD2 = new osg::Vec4Array;
+        osg::ref_ptr<osg::Vec4Array> rD3 = new osg::Vec4Array, gD3 = new osg::Vec4Array, bD3 = new osg::Vec4Array;
+        size_t numShCoff = c.sh.size() / c.numPoints, shDegree = 0, shIndex = 0;
+        for (size_t i = 0; i < c.colors.size(); i += 3, shIndex += numShCoff)
+        {
+            rD0->push_back(osg::Vec4(c.colors[i + 0], 0.0f, 0.0f, 0.0f));
+            gD0->push_back(osg::Vec4(c.colors[i + 1], 0.0f, 0.0f, 0.0f));
+            bD0->push_back(osg::Vec4(c.colors[i + 2], 0.0f, 0.0f, 0.0f));
+            if (numShCoff >= 9)  // Degree 1
+            {
+                rD0->back().set(rD0->back()[0], c.sh[shIndex + 0], c.sh[shIndex + 3], c.sh[shIndex + 6]);
+                gD0->back().set(gD0->back()[0], c.sh[shIndex + 1], c.sh[shIndex + 4], c.sh[shIndex + 7]);
+                bD0->back().set(bD0->back()[0], c.sh[shIndex + 2], c.sh[shIndex + 5], c.sh[shIndex + 8]);
+                shDegree = 1;
+            }
+
+            if (numShCoff >= 24)  // Degree 2
+            {
+                rD1->push_back(osg::Vec4(c.sh[shIndex + 9], c.sh[shIndex + 12], c.sh[shIndex + 15], c.sh[shIndex + 18]));
+                gD1->push_back(osg::Vec4(c.sh[shIndex + 10], c.sh[shIndex + 13], c.sh[shIndex + 16], c.sh[shIndex + 19]));
+                bD1->push_back(osg::Vec4(c.sh[shIndex + 11], c.sh[shIndex + 14], c.sh[shIndex + 17], c.sh[shIndex + 20]));
+                rD2->push_back(osg::Vec4(c.sh[shIndex + 21], 0.0f, 0.0f, 0.0f));
+                gD2->push_back(osg::Vec4(c.sh[shIndex + 22], 0.0f, 0.0f, 0.0f));
+                bD2->push_back(osg::Vec4(c.sh[shIndex + 23], 0.0f, 0.0f, 0.0f));
+                shDegree = 2;
+            }
+
+            if (numShCoff >= 45)  // Degree 3
+            {
+                rD2->back().set(rD2->back()[0], c.sh[shIndex + 24], c.sh[shIndex + 27], c.sh[shIndex + 30]);
+                gD2->back().set(gD2->back()[0], c.sh[shIndex + 25], c.sh[shIndex + 28], c.sh[shIndex + 31]);
+                bD2->back().set(bD2->back()[0], c.sh[shIndex + 26], c.sh[shIndex + 29], c.sh[shIndex + 32]);
+                rD3->push_back(osg::Vec4(c.sh[shIndex + 33], c.sh[shIndex + 36], c.sh[shIndex + 39], c.sh[shIndex + 42]));
+                gD3->push_back(osg::Vec4(c.sh[shIndex + 34], c.sh[shIndex + 37], c.sh[shIndex + 40], c.sh[shIndex + 43]));
+                bD3->push_back(osg::Vec4(c.sh[shIndex + 35], c.sh[shIndex + 38], c.sh[shIndex + 41], c.sh[shIndex + 44]));
+                shDegree = 3;
+            }
+        }
+
+        osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(m);
+        geom->setShDegrees(shDegree); geom->setPosition(pos.get());
+        geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
+        geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
+        if (numShCoff >= 24)
+        {
+            geom->setShRed(1, rD1.get()); geom->setShGreen(1, gD1.get()); geom->setShBlue(1, bD1.get());
+            geom->setShRed(2, rD2.get()); geom->setShGreen(2, gD2.get()); geom->setShBlue(2, bD2.get());
+            if (numShCoff >= 45)
+                { geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get()); }
+        }
+        geom->finalize(); return geom.release();
+    }
+
+    gf::GaussianCloudIR sceneToGF(const osg::Node& node) const
+    {
+        gf::GaussianCloudIR cloud; osgVerse::FindGeometryVisitor fgv(true);
+        osg::Node& nonconst = const_cast<osg::Node&>(node); nonconst.accept(fgv);
+
+        const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
+        for (size_t i = 0; i < geomList.size(); ++i)
+        {
+            osgVerse::GaussianGeometry* geom =
+                dynamic_cast<osgVerse::GaussianGeometry*>(geomList[i].first);
+            if (!geom) continue;  // FIXME: apply matrix?
+
+            int numSplats = geom->getNumSplats(); if (!numSplats) continue;
+            float *pos3 = (float*)geom->getPosition3(), *pos4 = (float*)geom->getPosition4();
+            if (pos4)
+            {
+                size_t curr = cloud.positions.size(); cloud.positions.resize(curr + numSplats * 3);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                { for (int k = 0; k < 3; ++k) cloud.positions[curr + i * 3 + k] = *(pos4 + i * 4 + k); }
+            }
+            else if (pos3)
+                cloud.positions.insert(cloud.positions.end(), pos3, pos3 + numSplats * 3);
+
+            osg::ref_ptr<osg::Vec3Array> scale = geom->getScale();
+            if (scale.valid() && scale->size() == numSplats)
+            {
+                float* ptr = (float*)scale->getDataPointer();
+                size_t curr = cloud.scales.size(); cloud.scales.resize(curr + numSplats * 3);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                { for (int k = 0; k < 3; ++k) cloud.scales[curr + i * 3 + k] = logf(*(ptr + i * 3 + k)); }
+            }
+
+            osg::ref_ptr<osg::Vec4Array> rot = geom->getRotation();
+            if (rot.valid() && rot->size() == numSplats)
+            {
+                float* ptr = (float*)rot->getDataPointer();
+                cloud.rotations.insert(cloud.rotations.end(), ptr, ptr + numSplats * 4);
+            }
+
+            osg::ref_ptr<osg::FloatArray> alpha = geom->getAlpha();
+            if (alpha.valid() && alpha->size() == numSplats)
+            {
+                float* ptr = (float*)alpha->getDataPointer();
+                size_t curr = cloud.alphas.size(); cloud.alphas.resize(curr + numSplats);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                    cloud.alphas[curr + i] = logf(ptr[i] / (1.0f - ptr[i]));
+            }
+
+            osg::ref_ptr<osg::Vec4Array> r = geom->getShRed(0);
+            osg::ref_ptr<osg::Vec4Array> g = geom->getShGreen(0);
+            osg::ref_ptr<osg::Vec4Array> b = geom->getShBlue(0);
+            if (r.valid() && g.valid() && b.valid())
+            {
+                size_t curr = cloud.colors.size(); cloud.colors.resize(curr + numSplats * 3);
+#pragma omp parallel for
+                for (int i = 0; i < numSplats; ++i)
+                {
+                    cloud.colors[curr + i * 3 + 0] = (*r)[i].x();
+                    cloud.colors[curr + i * 3 + 1] = (*g)[i].x();
+                    cloud.colors[curr + i * 3 + 2] = (*b)[i].x();
+                }
+            }
+            // FIXME: more sh-coeffs?
+        }
+
+        size_t numSh = cloud.sh.size() / cloud.positions.size();
+        cloud.numPoints = cloud.positions.size() / 3; return cloud;
+    }
+#else
     osgVerse::GaussianGeometry* fromSplat(const std::string& buffer, osgVerse::GaussianGeometry::RenderMethod m) const
     {
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
@@ -558,6 +717,8 @@ protected:
         cloud.shDegree = (numSh == 15) ? 3 : (numSh == 8 ? 2 : (numSh == 3 ? 1 : 0));
         return cloud;
     }
+#endif
+    gf::IORegistry _registry;
 };
 
 // Now register with Registry to instantiate the above reader/writer.

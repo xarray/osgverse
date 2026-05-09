@@ -16,6 +16,7 @@
 #include <sstream>
 
 #include <modeling/Math.h>
+#include <modeling/AnnotationMaker.h>
 #include <modeling/GaussianGeometry.h>
 #include <pipeline/Pipeline.h>
 #include <pipeline/ResourceManager.h>
@@ -38,6 +39,18 @@ USE_VERSE_PLUGINS()
 #endif
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
+
+void createAnnotationScene(osg::Group* root, osgVerse::AnnotationMaker* maker)
+{
+    osg::Geode* geode = maker->getOrCreateGeode();
+    if (geode)
+    {
+        geode->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
+        geode->getOrCreateStateSet()->setTextureAttribute(0, osgVerse::createDefaultTexture());
+        geode->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
+        root->addChild(geode);
+    }
+}
 
 class QwertyManipulator : public osgGA::FirstPersonManipulator
 {
@@ -296,6 +309,8 @@ int main(int argc, char** argv)
             argc, argv, osgVerse::defaultInitParameters(osgVerse::NoParameters));  // disable default sorter for test...
         osgVerse::updateOsgBinaryWrappers();
 
+        std::string annotation; arguments.read("--annotation", annotation);
+        std::string route; arguments.read("--route", route);
         std::string hint; arguments.read("--render-mode", hint);
         bool testColor = arguments.read("--test-color");
         osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + hint);
@@ -317,6 +332,13 @@ int main(int argc, char** argv)
 
         GaussianStateVisitor gsv(sorter.get(), hint, testColor); gs->accept(gsv);
         viewer.getCamera()->setPreDrawCallback(new osgVerse::GaussianSortCallback(sorter.get()));
+        
+        if (!annotation.empty())
+        {   // Load annotation json file
+            std::ifstream fin(annotation.c_str());
+            osg::ref_ptr<osgVerse::AnnotationMaker> maker = new osgVerse::AnnotationMaker;
+            if (maker->load(fin, true)) createAnnotationScene(root.get(), maker);
+        }
     }
 
     int screenNo = 0; arguments.read("--screen", screenNo);

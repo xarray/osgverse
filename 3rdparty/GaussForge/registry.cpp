@@ -31,8 +31,8 @@ IORegistry::IORegistry() {
   RegisterWriter({"splat"}, gf::MakeSplatWriter());
   RegisterReader({"ksplat"}, gf::MakeKsplatReader());
   RegisterWriter({"ksplat"}, gf::MakeKsplatWriter());
-  RegisterReader({"sog"}, gf::MakeSogReader());
-  RegisterWriter({"sog"}, gf::MakeSogWriter());
+  ////RegisterReader({"sog"}, gf::MakeSogReader());
+  ////RegisterWriter({"sog"}, gf::MakeSogWriter());
 }
 
 

@@ -24,7 +24,7 @@ namespace
 }
 
 AnnotationMaker::AnnotationMaker()
-: _currentID(-1) {}
+: _currentID(-1) { getOrCreateGeode(); }
 
 osg::Geode* AnnotationMaker::getOrCreateGeode()
 {
@@ -49,46 +49,44 @@ void AnnotationMaker::dirtyGeode(bool onlyCurrent)
         _geode->removeDrawables(0, _geode->getNumDrawables());
         _geode->addDrawable(boxes0.get()); _geode->addDrawable(boxes1.get());
     }
-    else
+    
+    osg::DrawElementsUInt* de0 = NULL; osg::DrawElementsUByte* de1 = NULL;
+    boxes0 = static_cast<osg::Geometry*>(_geode->getDrawable(0));
+    boxes1 = static_cast<osg::Geometry*>(_geode->getDrawable(1));
+    if (!boxes0 || !boxes1 || boxes0->getNumPrimitiveSets() == 0 || boxes1->getNumPrimitiveSets() == 0)
+    { _geode->removeDrawables(0, _geode->getNumDrawables()); dirtyGeode(); return; }
+
+    // Update all annotations
+    if (!onlyCurrent)
     {
-        osg::DrawElementsUInt* de0 = NULL; osg::DrawElementsUByte* de1 = NULL;
-        boxes0 = static_cast<osg::Geometry*>(_geode->getDrawable(0));
-        boxes1 = static_cast<osg::Geometry*>(_geode->getDrawable(1));
-        if (!boxes0 || !boxes1 || boxes0->getNumPrimitiveSets() == 0 || boxes1->getNumPrimitiveSets() == 0)
-        { _geode->removeDrawables(0, _geode->getNumDrawables()); dirtyGeode(); return; }
-
-        // Update all annotations
-        if (!onlyCurrent)
+        std::vector<osg::Vec3> positions((_annotations.size() - (_currentID < 0 ? 0 : 1)) * 8);
+        std::vector<unsigned int> indices0(positions.size() * 3); int ptr = 0;
+        for (std::map<int, AnnotationData>::iterator it = _annotations.begin();
+            it != _annotations.end(); ++it, ++ptr)
         {
-            std::vector<osg::Vec3> positions((_annotations.size() - (_currentID < 0 ? 0 : 1)) * 8);
-            std::vector<unsigned int> indices0(positions.size() * 3); int ptr = 0;
-            for (std::map<int, AnnotationData>::iterator it = _annotations.begin();
-                it != _annotations.end(); ++it, ++ptr)
-            {
-                AnnotationData& aData = it->second; int startV = ptr * 8, startI = ptr * 24;
-                for (int i = 0; i < 8; ++i) positions[startV + i] = aData.box[i];
-                applyBoundingBoxIndices(indices0, startV, startI);
-            }
-
-            osg::Vec3Array* va0 = static_cast<osg::Vec3Array*>(boxes0->getVertexArray());
-            de0 = static_cast<osg::DrawElementsUInt*>(boxes0->getPrimitiveSet(0));
-            va0->assign(positions.begin(), positions.end()); de0->assign(indices0.begin(), indices0.end());
-            va0->dirty(); de0->dirty(); boxes0->dirtyBound();
+            AnnotationData& aData = it->second; int startV = ptr * 8, startI = ptr * 24;
+            for (int i = 0; i < 8; ++i) positions[startV + i] = aData.box[i];
+            applyBoundingBoxIndices(indices0, startV, startI);
         }
 
-        // Update current editing annotation
-        osg::Vec3Array* va1 = static_cast<osg::Vec3Array*>(boxes1->getVertexArray());
-        de1 = static_cast<osg::DrawElementsUByte*>(boxes1->getPrimitiveSet(0));
-        if (_currentID >= 0)
-        {
-            AnnotationData aData; getAnnotation(_currentID, aData);
-            va1->resize(8); for (int i = 0; i < 8; ++i) (*va1)[i] = aData.box[i];
-            de1->resize(24); applyBoundingBoxIndices(*de1, 0, 0);
-        }
-        else
-            de1->clear();
-        va1->dirty(); de1->dirty(); boxes1->dirtyBound();
+        osg::Vec3Array* va0 = static_cast<osg::Vec3Array*>(boxes0->getVertexArray());
+        de0 = static_cast<osg::DrawElementsUInt*>(boxes0->getPrimitiveSet(0));
+        va0->assign(positions.begin(), positions.end()); de0->assign(indices0.begin(), indices0.end());
+        va0->dirty(); de0->dirty(); boxes0->dirtyBound();
     }
+
+    // Update current editing annotation
+    osg::Vec3Array* va1 = static_cast<osg::Vec3Array*>(boxes1->getVertexArray());
+    de1 = static_cast<osg::DrawElementsUByte*>(boxes1->getPrimitiveSet(0));
+    if (_currentID >= 0)
+    {
+        AnnotationData aData; getAnnotation(_currentID, aData);
+        va1->resize(8); for (int i = 0; i < 8; ++i) (*va1)[i] = aData.box[i];
+        de1->resize(24); applyBoundingBoxIndices(*de1, 0, 0);
+    }
+    else
+        de1->clear();
+    va1->dirty(); de1->dirty(); boxes1->dirtyBound();
 }
 
 bool AnnotationMaker::load(std::istream& in, bool eraseCurrent)
@@ -98,35 +96,51 @@ bool AnnotationMaker::load(std::istream& in, bool eraseCurrent)
     if (err.empty() && document.is<picojson::array>())
     {
         if (eraseCurrent) { _annotations.clear(); _currentID = -1; }
-        picojson::array& boxList = document.get<picojson::array>();
-
-        for (size_t i = 0; i < boxList.size(); ++i)
+        try
         {
-            picojson::value& box = boxList[i];
-            int id = box.contains("ins_id") ? (int)box.get("ins_id").get<double>() : (_annotations.size() + 1);
-            std::string name = box.contains("label") ? box.get("label").get<std::string>() : "";
-            picojson::value& bbox = box.get("bounding_box");
-
-            AnnotationData aData; aData.name = name;
-            if (bbox.is<picojson::array>())
+            picojson::array& boxList = document.get<picojson::array>();
+            for (size_t i = 0; i < boxList.size(); ++i)
             {
-                picojson::array& ptList = bbox.get<picojson::array>();
-                for (size_t j = 0; j < ptList.size(); ++j)
+                picojson::value& box = boxList[i];
+                std::string idTag = box.contains("ins_id") ? "ins_id" : "id";
+                std::string nTag = box.contains("label") ? "label" : "name";
+
+                std::string name = box.contains(nTag) ? box.get(nTag).get<std::string>() : "";
+                int id = _annotations.size() + 1;
+                if (box.contains(idTag))
                 {
-                    picojson::value& pt = ptList[j]; if (j > 7) break;
-                    aData.box[j] = osg::Vec3d(pt.contains("x") ? pt.get("x").get<double>() : 0.0,
-                                              pt.contains("y") ? pt.get("y").get<double>() : 0.0,
-                                              pt.contains("z") ? pt.get("z").get<double>() : 0.0);
+                    picojson::value& idValue = box.get(idTag);
+                    if (idValue.is<std::string>()) id = atoi(idValue.get<std::string>().c_str());
+                    else if (idValue.is<double>()) id = (int)idValue.get<double>();
                 }
-                _annotations[id] = aData;
+                
+                AnnotationData aData; aData.name = name;
+                if (box.contains("bounding_box"))
+                {
+                    picojson::value& bbox = box.get("bounding_box");
+                    if (bbox.is<picojson::array>())
+                    {
+                        picojson::array& ptList = bbox.get<picojson::array>();
+                        for (size_t j = 0; j < ptList.size(); ++j)
+                        {
+                            picojson::value& pt = ptList[j]; if (j > 7) break;
+                            aData.box[j] = osg::Vec3d(pt.contains("x") ? pt.get("x").get<double>() : 0.0,
+                                                    pt.contains("y") ? pt.get("y").get<double>() : 0.0,
+                                                    pt.contains("z") ? pt.get("z").get<double>() : 0.0);
+                        }
+                        _annotations[id] = aData;
+                    }
+                }
+                else
+                {}  // TODO: room_box?
             }
+            dirtyGeode(); return true;
         }
-        dirtyGeode(); return true;
+        catch (const std::exception& e)
+            { OSG_NOTICE << "[AnnotationMaker] Failed to parse annotations: " << e.what() << "\n"; }
     }
     else
-    {
-        OSG_NOTICE << "[AnnotationMaker] Failed to load annotations from json\n";
-    }
+        { OSG_NOTICE << "[AnnotationMaker] Failed to load annotations from json\n"; }
     return false;
 }
 

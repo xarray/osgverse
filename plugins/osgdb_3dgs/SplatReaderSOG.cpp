@@ -63,125 +63,129 @@ namespace
             std::string err = picojson::parse(document, ss);
             if (!err.empty()) { OSG_WARN << "[ReaderWriter3DGS] Failed to parse PlayCanvas' SOG data: " << err << std::endl; return false; }
         }
+        
+        try
+        {   // Read information from meta.json
+            picojson::value versionObj = document.get("version");
+            picojson::value countObj = document.get("count");
+            picojson::value meansObj = document.get("means");
+            picojson::value scalesObj = document.get("scales");
+            picojson::value quatsObj = document.get("quats");
+            picojson::value sh0Obj = document.get("sh0");
+            picojson::value shNObj = document.get("shN");
+            sogData.version = versionObj.is<double>() ? versionObj.get<double>() : 1;
+            sogData.count = countObj.is<double>() ? countObj.get<double>() : 0;
+            sogData.hasCodebook = (sogData.version >= 2);
 
-        // Read information from meta.json
-        picojson::value versionObj = document.get("version");
-        picojson::value countObj = document.get("count");
-        picojson::value meansObj = document.get("means");
-        picojson::value scalesObj = document.get("scales");
-        picojson::value quatsObj = document.get("quats");
-        picojson::value sh0Obj = document.get("sh0");
-        picojson::value shNObj = document.get("shN");
-        sogData.version = versionObj.is<double>() ? versionObj.get<double>() : 1;
-        sogData.count = countObj.is<double>() ? countObj.get<double>() : 0;
-        sogData.hasCodebook = (sogData.version >= 2);
-
-        if (meansObj.is<picojson::object>())
-        {
-            if (!sogData.hasCodebook)
-            {   // V1
-                picojson::array shape = shNObj.get("shape").get<picojson::array>();
-                if (shape.size() > 0) sogData.count = shape[0].get<double>();
-            }
-
-            picojson::array mins = meansObj.get("mins").get<picojson::array>();
-            picojson::array maxs = meansObj.get("maxs").get<picojson::array>();
-            if (mins.size() > 2 && maxs.size() > 2)
+            if (meansObj.is<picojson::object>())
             {
-                for (size_t i = 0; i < 3; ++i)
-                { sogData.meansMin[i] = mins[i].get<double>(); sogData.meansMax[i] = maxs[i].get<double>(); }
-            }
+                if (!sogData.hasCodebook)
+                {   // V1
+                    picojson::array shape = shNObj.get("shape").get<picojson::array>();
+                    if (shape.size() > 0) sogData.count = shape[0].get<double>();
+                }
 
-            picojson::array files = meansObj.get("files").get<picojson::array>();
-            for (size_t i = 0; i < files.size(); ++i)
-                sogData.images["means_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
-        }
-
-        if (quatsObj.is<picojson::object>())
-        {
-            picojson::array files = quatsObj.get("files").get<picojson::array>();
-            for (size_t i = 0; i < files.size(); ++i)
-                sogData.images["quats_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
-        }
-
-        if (scalesObj.is<picojson::object>())
-        {
-            if (sogData.hasCodebook)
-            {   // V2
-                picojson::array codebook = scalesObj.get("codebook").get<picojson::array>();
-                for (size_t i = 0; i < codebook.size(); ++i) sogData.scaleCode.push_back(codebook[i].get<double>());
-            }
-            else
-            {   // V1
-                picojson::array mins = scalesObj.get("mins").get<picojson::array>();
-                picojson::array maxs = scalesObj.get("maxs").get<picojson::array>();
+                picojson::array mins = meansObj.get("mins").get<picojson::array>();
+                picojson::array maxs = meansObj.get("maxs").get<picojson::array>();
                 if (mins.size() > 2 && maxs.size() > 2)
                 {
                     for (size_t i = 0; i < 3; ++i)
-                    { sogData.scalesMin[i] = mins[i].get<double>(); sogData.scalesMax[i] = maxs[i].get<double>(); }
+                    { sogData.meansMin[i] = mins[i].get<double>(); sogData.meansMax[i] = maxs[i].get<double>(); }
                 }
+
+                picojson::array files = meansObj.get("files").get<picojson::array>();
+                for (size_t i = 0; i < files.size(); ++i)
+                    sogData.images["means_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
             }
 
-            picojson::array files = scalesObj.get("files").get<picojson::array>();
-            for (size_t i = 0; i < files.size(); ++i)
-                sogData.images["scales_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
-        }
-
-        if (sh0Obj.is<picojson::object>())
-        {
-            if (sogData.hasCodebook)
-            {   // V2
-                picojson::array codebook = sh0Obj.get("codebook").get<picojson::array>();
-                for (size_t i = 0; i < codebook.size(); ++i) sogData.sh0Code.push_back(codebook[i].get<double>());
+            if (quatsObj.is<picojson::object>())
+            {
+                picojson::array files = quatsObj.get("files").get<picojson::array>();
+                for (size_t i = 0; i < files.size(); ++i)
+                    sogData.images["quats_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
             }
-            else
-            {   // V1
-                picojson::array mins = sh0Obj.get("mins").get<picojson::array>();
-                picojson::array maxs = sh0Obj.get("maxs").get<picojson::array>();
-                if (mins.size() > 3 && maxs.size() > 3)
-                {
-                    for (size_t i = 0; i < 4; ++i)
-                    { sogData.sh0Min[i] = mins[i].get<double>(); sogData.sh0Max[i] = maxs[i].get<double>(); }
+
+            if (scalesObj.is<picojson::object>())
+            {
+                if (sogData.hasCodebook)
+                {   // V2
+                    picojson::array codebook = scalesObj.get("codebook").get<picojson::array>();
+                    for (size_t i = 0; i < codebook.size(); ++i) sogData.scaleCode.push_back(codebook[i].get<double>());
                 }
-            }
-
-            picojson::array files = sh0Obj.get("files").get<picojson::array>();
-            for (size_t i = 0; i < files.size(); ++i)
-                sogData.images["sh0_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
-        }
-
-        if (shNObj.is<picojson::object>())
-        {
-            if (sogData.hasCodebook)
-            {   // V2
-                picojson::array codebook = shNObj.get("codebook").get<picojson::array>();
-                for (size_t i = 0; i < codebook.size(); ++i) sogData.shNCode.push_back(codebook[i].get<double>());
-                sogData.numDegrees = (size_t)shNObj.get("bands").get<double>();
-                sogData.numEntries = (size_t)shNObj.get("count").get<double>();
-            }
-            else
-            {   // V1
-                picojson::value minsVal = shNObj.get("mins"), maxsVal = shNObj.get("maxs");
-                if (minsVal.is<double>()) sogData.shNMin = minsVal.get<double>();
-                if (maxsVal.is<double>()) sogData.shNMax = maxsVal.get<double>();
-
-                picojson::array shape = shNObj.get("shape").get<picojson::array>();
-                if (shape.size() > 1)
-                {
-                    switch ((size_t)shape[1].get<double>())
+                else
+                {   // V1
+                    picojson::array mins = scalesObj.get("mins").get<picojson::array>();
+                    picojson::array maxs = scalesObj.get("maxs").get<picojson::array>();
+                    if (mins.size() > 2 && maxs.size() > 2)
                     {
-                    case 9: sogData.numDegrees = 1; break;
-                    case 24: sogData.numDegrees = 2; break;
-                    case 45: sogData.numDegrees = 3; break;
+                        for (size_t i = 0; i < 3; ++i)
+                        { sogData.scalesMin[i] = mins[i].get<double>(); sogData.scalesMax[i] = maxs[i].get<double>(); }
                     }
                 }
+
+                picojson::array files = scalesObj.get("files").get<picojson::array>();
+                for (size_t i = 0; i < files.size(); ++i)
+                    sogData.images["scales_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
             }
 
-            picojson::array files = shNObj.get("files").get<picojson::array>();
-            for (size_t i = 0; i < files.size(); ++i)
-                sogData.images["shN_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+            if (sh0Obj.is<picojson::object>())
+            {
+                if (sogData.hasCodebook)
+                {   // V2
+                    picojson::array codebook = sh0Obj.get("codebook").get<picojson::array>();
+                    for (size_t i = 0; i < codebook.size(); ++i) sogData.sh0Code.push_back(codebook[i].get<double>());
+                }
+                else
+                {   // V1
+                    picojson::array mins = sh0Obj.get("mins").get<picojson::array>();
+                    picojson::array maxs = sh0Obj.get("maxs").get<picojson::array>();
+                    if (mins.size() > 3 && maxs.size() > 3)
+                    {
+                        for (size_t i = 0; i < 4; ++i)
+                        { sogData.sh0Min[i] = mins[i].get<double>(); sogData.sh0Max[i] = maxs[i].get<double>(); }
+                    }
+                }
+
+                picojson::array files = sh0Obj.get("files").get<picojson::array>();
+                for (size_t i = 0; i < files.size(); ++i)
+                    sogData.images["sh0_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+            }
+
+            if (shNObj.is<picojson::object>())
+            {
+                if (sogData.hasCodebook)
+                {   // V2
+                    picojson::array codebook = shNObj.get("codebook").get<picojson::array>();
+                    for (size_t i = 0; i < codebook.size(); ++i) sogData.shNCode.push_back(codebook[i].get<double>());
+                    sogData.numDegrees = (size_t)shNObj.get("bands").get<double>();
+                    sogData.numEntries = (size_t)shNObj.get("count").get<double>();
+                }
+                else
+                {   // V1
+                    picojson::value minsVal = shNObj.get("mins"), maxsVal = shNObj.get("maxs");
+                    if (minsVal.is<double>()) sogData.shNMin = minsVal.get<double>();
+                    if (maxsVal.is<double>()) sogData.shNMax = maxsVal.get<double>();
+
+                    picojson::array shape = shNObj.get("shape").get<picojson::array>();
+                    if (shape.size() > 1)
+                    {
+                        switch ((size_t)shape[1].get<double>())
+                        {
+                        case 9: sogData.numDegrees = 1; break;
+                        case 24: sogData.numDegrees = 2; break;
+                        case 45: sogData.numDegrees = 3; break;
+                        }
+                    }
+                }
+
+                picojson::array files = shNObj.get("files").get<picojson::array>();
+                for (size_t i = 0; i < files.size(); ++i)
+                    sogData.images["shN_" + std::to_string(i)] = readDataImage(path, files[i].get<std::string>(), zip);
+            }
+            return true;
         }
-        return true;
+        catch (std::exception& e)
+        { OSG_WARN << "[ReaderWriter3DGS] Invalid SOG meta file: " << e.what() << std::endl; return false; }
     }
 
     static void createSogPositions(osg::Vec3Array& va, osg::Image* means_l, osg::Image* means_u,
