@@ -43,12 +43,15 @@ USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
 void createAnnotationScene(osg::Group* root, osgVerse::AnnotationMaker* maker)
 {
     osg::Geode* geode = maker->getOrCreateGeode();
-    if (geode)
+    osg::Geode* geode2 = maker->getOrCreateTextGeode();
+    if (geode && geode2)
     {
-        geode->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
-        geode->getOrCreateStateSet()->setTextureAttribute(0, osgVerse::createDefaultTexture());
-        geode->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
-        root->addChild(geode);
+        osg::Group* labelRoot = new osg::Group;
+        labelRoot->addChild(geode); labelRoot->addChild(geode2);
+        labelRoot->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
+        labelRoot->getOrCreateStateSet()->setTextureAttribute(0, osgVerse::createDefaultTexture());
+        labelRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
+        root->addChild(labelRoot);
     }
 }
 
@@ -284,6 +287,7 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->addFileExtensionAlias("lcc", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("sog", "verse_3dgs");
 
+    osgVerse::HeadUpDisplayCanvas hudCanvas;
     osg::ArgumentParser arguments(&argc, argv);
     std::string savedFile; arguments.read("--save", savedFile);
     if (!arguments.read("--custom"))
@@ -320,7 +324,8 @@ int main(int argc, char** argv)
         if (!gs) { std::cout << "No 3DGS file loaded" << std::endl; return 1; }
 
         root->getOrCreateStateSet()->getOrCreateUniform("GaussianRenderingMode", osg::Uniform::FLOAT)->set(0.0f);
-        root->addChild(gs.get()); viewer.setSceneData(root.get());
+        root->addChild(gs.get()); root->addChild(hudCanvas.create(1920, 1080));
+        viewer.setSceneData(root.get());
 
         osgVerse::QuickEventHandler* handler = new osgVerse::QuickEventHandler;
         handler->addKeyUpCallback('1', [&](int key) { root->getStateSet()->getUniform("GaussianRenderingMode")->set(1.0f); });
@@ -338,6 +343,8 @@ int main(int argc, char** argv)
             std::ifstream fin(annotation.c_str());
             osg::ref_ptr<osgVerse::AnnotationMaker> maker = new osgVerse::AnnotationMaker;
             if (maker->load(fin, true)) createAnnotationScene(root.get(), maker);
+
+            //hudCanvas.createText("main", L"Annotations", 32, 200, 40);  // TODO: interactive labelling?
         }
     }
 

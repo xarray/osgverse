@@ -325,7 +325,7 @@ namespace osgVerse
         osg::Camera* create(int width, int height);
     };
 
-    /** Quick event handler for testing purpose */
+    /** Quick event handler for convenience */
     class QuickEventHandler : public osgGA::GUIEventHandler
     {
     public:
@@ -354,7 +354,7 @@ namespace osgVerse
         HandleCallback _handleCallback;
     };
 
-    /** Quick thread processor for testing purpose */
+    /** Quick thread processor for convenience */
     class QuickThread : public OpenThreads::Thread
     {
     public:

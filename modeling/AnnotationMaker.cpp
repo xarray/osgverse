@@ -1,3 +1,5 @@
+#include <osgText/Font>
+#include <osgText/Text>
 #include "AnnotationMaker.h"
 #include "Utilities.h"
 #include <picojson.h>
@@ -24,16 +26,26 @@ namespace
 }
 
 AnnotationMaker::AnnotationMaker()
-: _currentID(-1) { getOrCreateGeode(); }
+: _currentID(-1) { getOrCreateGeode(); getOrCreateTextGeode(); }
 
 osg::Geode* AnnotationMaker::getOrCreateGeode()
 {
     if (!_geode)
     {
-        _geode = new osg::Geode; dirtyGeode();
-        _geode->setName("AnnotationRoot");
+        _geode = new osg::Geode;
+        _geode->setName("AnnotationBoxes");
     }
     return _geode.get();
+}
+
+osg::Geode* AnnotationMaker::getOrCreateTextGeode()
+{
+    if (!_textGeode)
+    {
+        _textGeode = new osg::Geode;
+        _textGeode->setName("AnnotationLabels");
+    }
+    return _textGeode.get();
 }
 
 void AnnotationMaker::dirtyGeode(bool onlyCurrent)
@@ -56,6 +68,24 @@ void AnnotationMaker::dirtyGeode(bool onlyCurrent)
     if (!boxes0 || !boxes1 || boxes0->getNumPrimitiveSets() == 0 || boxes1->getNumPrimitiveSets() == 0)
     { _geode->removeDrawables(0, _geode->getNumDrawables()); dirtyGeode(); return; }
 
+    // Dirty label texts
+    if (_textGeode->getNumDrawables() != _annotations.size())
+    {
+        osg::ref_ptr<osgText::Font> font = osgText::readRefFontFile("fonts/arial.ttf");  // FIXME
+        _textGeode->removeDrawables(0, _textGeode->getNumDrawables());
+        for (size_t i = 0; i < _annotations.size(); ++i)
+        {
+            osgText::Text* text = new osgText::Text;
+            text->setFont(font.get());
+            text->setDataVariance(osg::Object::DYNAMIC);
+            text->setCharacterSize(0.1f);
+            text->setAlignment(osgText::Text::CENTER_BOTTOM_BASE_LINE);
+            text->setAxisAlignment(osgText::Text::SCREEN);
+            text->setCharacterSizeMode(osgText::Text::OBJECT_COORDS);
+            _textGeode->addDrawable(text);
+        }
+    }
+
     // Update all annotations
     if (!onlyCurrent)
     {
@@ -64,9 +94,17 @@ void AnnotationMaker::dirtyGeode(bool onlyCurrent)
         for (std::map<int, AnnotationData>::iterator it = _annotations.begin();
             it != _annotations.end(); ++it, ++ptr)
         {
-            AnnotationData& aData = it->second; int startV = ptr * 8, startI = ptr * 24;
-            for (int i = 0; i < 8; ++i) positions[startV + i] = aData.box[i];
+            if (_currentID >= 0 && _currentID == it->first) { --ptr; continue; }
+            AnnotationData& aData = it->second; osg::BoundingBox aabb;
+
+            int startV = ptr * 8, startI = ptr * 24; osg::Vec3 textPos;
+            for (int i = 0; i < 8; ++i) { positions[startV + i] = aData.box[i]; aabb.expandBy(aData.box[i]); }
             applyBoundingBoxIndices(indices0, startV, startI);
+            textPos = aabb.center(); textPos.z() = aabb.zMax();
+
+            osgText::Text* text = static_cast<osgText::Text*>(_textGeode->getDrawable(ptr));
+            text->setColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+            text->setPosition(textPos); text->setText(aData.name);
         }
 
         osg::Vec3Array* va0 = static_cast<osg::Vec3Array*>(boxes0->getVertexArray());

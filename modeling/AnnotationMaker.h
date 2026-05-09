@@ -22,6 +22,7 @@ class AnnotationMaker : public osg::Referenced
 public:
     AnnotationMaker();
     osg::Geode* getOrCreateGeode();
+    osg::Geode* getOrCreateTextGeode();
     void dirtyGeode(bool onlyCurrent = false);
 
     bool load(std::istream& in, bool eraseCurrent);
@@ -41,7 +42,7 @@ public:
 
 protected:
     std::map<int, AnnotationData> _annotations;
-    osg::ref_ptr<osg::Geode> _geode;
+    osg::ref_ptr<osg::Geode> _geode, _textGeode;
     int _currentID;
 };
 
