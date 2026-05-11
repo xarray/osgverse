@@ -52,8 +52,19 @@ public:
 
         std::ofstream out(fileName, std::ios::out | std::ios::binary);
         if (ext == "rseq") return writeRaw(out, image, options);
-        // TODO
-        return WriteResult::NOT_IMPLEMENTED;
+
+        // Write with stbi_write_* functions
+        int r = 0, w = image.s(), h = image.t(), comp = osg::Image::computeNumComponents(image.getPixelFormat());
+        if (image.getDataType() == GL_UNSIGNED_BYTE)
+        {
+            if (ext == "png")
+                r = stbi_write_png(fileName.c_str(), w, h, comp, image.data(), image.getRowStepInBytes());
+            else if (ext == "jpg")
+                r = stbi_write_jpg(fileName.c_str(), w, h, comp, image.data(), 80);
+            return (r != 0) ? WriteResult::FILE_SAVED : WriteResult::NOT_IMPLEMENTED;
+        }
+        else
+            return WriteResult::NOT_IMPLEMENTED;
     }
 
     virtual ReadResult readImage(std::istream& fin, const Options* options) const

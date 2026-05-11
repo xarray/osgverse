@@ -180,7 +180,6 @@ public:
         localOptions->setPluginStringData("prefix", osgDB::getFilePath(path));
         localOptions->setPluginStringData("extension", ext);
         return writeNode(node, out, localOptions.get());
-        return WriteResult::FILE_NOT_HANDLED;
     }
 
     virtual WriteResult writeNode(const osg::Node& node, std::ostream& fout, const osgDB::Options* options) const

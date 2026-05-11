@@ -160,16 +160,26 @@ namespace osgVerse
     class ScreenSnapshotCallback : public CameraDrawCallback
     {
     public:
-        ScreenSnapshotCallback(bool c = true) : _capturing(c) { _image = new osg::Image; }
+        ScreenSnapshotCallback(bool c = true, int fps = 25);
         virtual void operator()(const osg::Camera& camera) const;
 
         void setCapturing(bool c) { _capturing = c; }
         bool getCapturing() const { return _capturing; }
+
+        void setCaptureFrequency(int fps) { _interval = (fps > 0) ? (1000 / fps) : 0.0; }
+        int getCaptureFrequency() const { return (int)(_interval > 0.0 ? (1000.0 / _interval) : 0); }
+
+        void setFilePrefix(const std::string& f) { _filePrefix = f; }
+        const std::string& getFilePrefix() const { return _filePrefix; }
+
         osg::Image* getImage() { return _image.get(); }
+        const osg::Image* getImage() const { return _image.get(); }
 
     protected:
         osg::ref_ptr<osg::Image> _image;
-        bool _capturing;
+        std::string _filePrefix;
+        mutable osg::Timer_t _lastTime; mutable int _count;
+        double _interval; bool _capturing;
     };
 
     /** The tangent/binormal computing visitor */

@@ -40,26 +40,16 @@ USE_VERSE_PLUGINS()
 USE_GRAPICSWINDOW_IMPLEMENTATION(SDL)
 USE_GRAPICSWINDOW_IMPLEMENTATION(GLFW)
 
-void createAnnotationScene(osg::Group* root, osgVerse::AnnotationMaker* maker)
-{
-    osg::Geode* geode = maker->getOrCreateGeode();
-    osg::Geode* geode2 = maker->getOrCreateTextGeode();
-    if (geode && geode2)
-    {
-        osg::Group* labelRoot = new osg::Group;
-        labelRoot->addChild(geode); labelRoot->addChild(geode2);
-        labelRoot->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
-        labelRoot->getOrCreateStateSet()->setTextureAttribute(0, osgVerse::createDefaultTexture());
-        labelRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
-        root->addChild(labelRoot);
-    }
-}
-
 class QwertyManipulator : public osgGA::FirstPersonManipulator
 {
 public:
-    QwertyManipulator(const osg::Vec3d& e) : osgGA::FirstPersonManipulator(), _presetEye(e)
-    { setAllowThrow(false); setVerticalAxisFixed(true); setWheelMovement(0.05f, true); }
+    QwertyManipulator(const osg::Vec3d& e)
+    :   osgGA::FirstPersonManipulator(), _presetEye(e), _animKeyTime(0.0), _animPlayTime(-1.0)
+    {
+        setAllowThrow(false); setVerticalAxisFixed(true); setWheelMovement(0.05f, true);
+        _outputCallback = new osgVerse::ScreenSnapshotCallback(false, 25);
+        _path = new osg::AnimationPath; _path->setLoopMode(osg::AnimationPath::NO_LOOPING);
+    }
 
     virtual void home(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
     { osgGA::FirstPersonManipulator::home(ea, us); setTransformation(_presetEye, _homeCenter, _homeUp); }
@@ -69,7 +59,30 @@ protected:
     { osgVerse::KeyboardCacher::instance()->advance(ea); return false; }
 
     virtual bool handleKeyUp(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
-    { osgVerse::KeyboardCacher::instance()->advance(ea); return false; }
+    {
+        if (ea.getKey() == 'r')  // record a keyframe
+        {
+            osg::View* view = dynamic_cast<osg::View*>(&us);
+            osg::Matrix worldMatrix = osg::Matrix::inverse(view->getCamera()->getViewMatrix());
+            osg::Vec3d pos = worldMatrix.getTrans(); osg::Quat rot = worldMatrix.getRotate();
+            _path->insert(_animKeyTime, osg::AnimationPath::ControlPoint(pos, rot));
+            _animKeyTime += 1.0f;
+        }
+        else if (ea.getKey() == 't')  // save current path
+            { std::ofstream out("animation_path.txt"); _path->write(out); }
+        else if (ea.getKey() == 'o')  // clear current path
+            { _path->clear(); _animKeyTime = 0.0; }
+        else if (ea.getKey() == 'p')  // load and play current path
+        {
+            std::ifstream in("animation_path.txt"); _path->clear(); _path->read(in);
+            _animKeyTime = 0.0; _animPlayTime = ea.getTime();
+
+            osg::View* view = dynamic_cast<osg::View*>(&us);
+            _outputCallback->setFilePrefix("output"); _outputCallback->setCapturing(true);
+            view->getCamera()->setFinalDrawCallback(_outputCallback.get());
+        }
+        osgVerse::KeyboardCacher::instance()->advance(ea); return false;
+    }
 
     virtual bool handleFrame(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
     {
@@ -80,10 +93,25 @@ protected:
         if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Down)) moveForward(-m);
         if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Left)) moveRight(-m);
         if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Right)) moveRight(m);
+
+        if (_animPlayTime > 0.0)
+        {
+            double t = ea.getTime() - _animPlayTime, tEnd = _path->getLastTime();
+            osg::Matrix matrix; if (_path->getMatrix(t, matrix)) setByMatrix(matrix);
+
+            if (tEnd < t)
+            {
+                osg::View* view = dynamic_cast<osg::View*>(&us);
+                view->getCamera()->setFinalDrawCallback(NULL);
+                _outputCallback->setCapturing(false); _animPlayTime = -1.0;
+            }
+        }
         return false;
     }
 
-    osg::Vec3d _presetEye;
+    osg::ref_ptr<osgVerse::ScreenSnapshotCallback> _outputCallback;
+    osg::ref_ptr<osg::AnimationPath> _path; osg::Vec3d _presetEye;
+    double _animKeyTime, _animPlayTime;
 };
 
 class GaussianStateVisitor : public osg::NodeVisitor
@@ -265,6 +293,21 @@ struct CudaRadixSorter : public osgVerse::GaussianSorter::UserCallback
         return false;
     }
 };
+
+void createAnnotationScene(osg::Group* root, osgVerse::AnnotationMaker* maker)
+{
+    osg::Geode* geode = maker->getOrCreateGeode();
+    osg::Geode* geode2 = maker->getOrCreateTextGeode();
+    if (geode && geode2)
+    {
+        osg::Group* labelRoot = new osg::Group;
+        labelRoot->addChild(geode); labelRoot->addChild(geode2);
+        labelRoot->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
+        labelRoot->getOrCreateStateSet()->setTextureAttribute(0, osgVerse::createDefaultTexture());
+        labelRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
+        root->addChild(labelRoot);
+    }
+}
 
 int main(int argc, char** argv)
 {
