@@ -58,7 +58,7 @@ CudaAlgorithm::TextureResource::~TextureResource()
 CUdeviceptr CudaAlgorithm::TextureResource::map(size_t& size, int contextID, bool copyFromTexture)
 {
     osg::Texture::TextureObject* texObj = texture->getTextureObject(contextID);
-    if (resource == 0) return NULL;
+    if (resource == 0) return 0;
     if (copyFromTexture && texObj)
     {
         glBindTexture(GL_TEXTURE_2D, texObj->id());
@@ -68,7 +68,7 @@ CUdeviceptr CudaAlgorithm::TextureResource::map(size_t& size, int contextID, boo
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    CUdeviceptr devicePtr = NULL;
+    CUdeviceptr devicePtr = 0;
     muGraphicsMapResources(1, &resource, 0);
     muGraphicsResourceGetMappedPointer(&devicePtr, &size, resource);
     return devicePtr;

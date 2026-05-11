@@ -163,7 +163,7 @@ namespace osgVerse
         ScreenSnapshotCallback(bool c = true, int fps = 25);
         virtual void operator()(const osg::Camera& camera) const;
 
-        void setCapturing(bool c) { _capturing = c; }
+        void setCapturing(bool c) { _capturing = c; if (!c) _count = 0; }
         bool getCapturing() const { return _capturing; }
 
         void setCaptureFrequency(int fps) { _interval = (fps > 0) ? (1000 / fps) : 0.0; }

@@ -62,7 +62,7 @@ CudaAlgorithm::TextureResource::~TextureResource()
 CUdeviceptr CudaAlgorithm::TextureResource::map(size_t& size, int contextID, bool copyFromTexture)
 {
     osg::Texture::TextureObject* texObj = texture->getTextureObject(contextID);
-    if (resource == 0) return NULL;
+    if (resource == 0) return 0;
     if (copyFromTexture && texObj)
     {
 #if !defined(VERSE_EMBEDDED_GLES2) && !defined(VERSE_EMBEDDED_GLES3)
@@ -76,7 +76,7 @@ CUdeviceptr CudaAlgorithm::TextureResource::map(size_t& size, int contextID, boo
 #endif
     }
 
-    CUdeviceptr devicePtr = NULL;
+    CUdeviceptr devicePtr = 0;
     cuGraphicsMapResources(1, &resource, 0);
     cuGraphicsResourceGetMappedPointer(&devicePtr, &size, resource);
     return devicePtr;

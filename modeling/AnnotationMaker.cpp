@@ -184,8 +184,29 @@ bool AnnotationMaker::load(std::istream& in, bool eraseCurrent)
 
 bool AnnotationMaker::save(std::ostream& out) const
 {
-    // TODO
-    return false;
+    picojson::array boxList;
+    for (std::map<int, AnnotationData>::const_iterator itr = _annotations.begin();
+         itr != _annotations.end(); ++itr)
+    {
+        picojson::object box; AnnotationData aData = itr->second;
+        box["ins_id"] = picojson::value((double)itr->first);
+        box["label"] = picojson::value(aData.name);
+
+        picojson::array ptList;
+        for (int i = 0; i < 8; ++i)
+        {
+            picojson::object pt; const osg::Vec3d& v = aData.box[i];
+            pt["x"] = picojson::value(v[0]);
+            pt["y"] = picojson::value(v[1]);
+            pt["z"] = picojson::value(v[2]);
+            ptList.push_back(picojson::value(pt));
+        }
+        box["bounding_box"] = picojson::value(ptList);
+        boxList.push_back(picojson::value(box));
+    }
+
+    std::string data = picojson::value(boxList).serialize(true);
+    out.write(data.data(), data.size()); return true;
 }
 
 int AnnotationMaker::addAnnotation(const std::string& name)

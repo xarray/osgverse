@@ -55,29 +55,47 @@ public:
     { osgGA::FirstPersonManipulator::home(ea, us); setTransformation(_presetEye, _homeCenter, _homeUp); }
 
 protected:
+    virtual bool handleMouseDrag(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+    {
+        if (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL) return false;
+        else return osgGA::FirstPersonManipulator::handleMouseDrag(ea, us);
+    }
+
     virtual bool handleKeyDown(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
     { osgVerse::KeyboardCacher::instance()->advance(ea); return false; }
 
     virtual bool handleKeyUp(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
     {
-        if (ea.getKey() == 'r')  // record a keyframe
+        osg::View* view = dynamic_cast<osg::View*>(&us);
+        if (ea.getKey() == osgGA::GUIEventAdapter::KEY_Page_Down ||  // Look from top-view
+            ea.getKey() == osgGA::GUIEventAdapter::KEY_Page_Up)      // Look from front-view
         {
-            osg::View* view = dynamic_cast<osg::View*>(&us);
+            osg::Vec3d eye, center, up, forward, side; float D = 1.0f;
+            view->getCamera()->getViewMatrixAsLookAt(eye, center, up, D);
+            forward = center - eye; forward.normalize(); side = forward ^ up;
+            
+            if (ea.getKey() == osgGA::GUIEventAdapter::KEY_Page_Up)
+                { eye = center + osg::Z_AXIS * D; up = -osg::Z_AXIS ^ side; }
+            else
+                { forward = side ^ osg::Z_AXIS; eye = center - forward * D; up = osg::Z_AXIS; }
+            setByInverseMatrix(osg::Matrix::lookAt(eye, center, up));
+        }
+
+        else if (ea.getKey() == 'r')  // record an animation keyframe
+        {
             osg::Matrix worldMatrix = osg::Matrix::inverse(view->getCamera()->getViewMatrix());
             osg::Vec3d pos = worldMatrix.getTrans(); osg::Quat rot = worldMatrix.getRotate();
             _path->insert(_animKeyTime, osg::AnimationPath::ControlPoint(pos, rot));
             _animKeyTime += 1.0f;
         }
-        else if (ea.getKey() == 't')  // save current path
+        else if (ea.getKey() == 't')  // save current animation path
             { std::ofstream out("animation_path.txt"); _path->write(out); }
-        else if (ea.getKey() == 'o')  // clear current path
+        else if (ea.getKey() == 'o')  // clear current animation path
             { _path->clear(); _animKeyTime = 0.0; }
-        else if (ea.getKey() == 'p')  // load and play current path
+        else if (ea.getKey() == 'p')  // load and play current animation path
         {
             std::ifstream in("animation_path.txt"); _path->clear(); _path->read(in);
             _animKeyTime = 0.0; _animPlayTime = ea.getTime();
-
-            osg::View* view = dynamic_cast<osg::View*>(&us);
             _outputCallback->setFilePrefix("output"); _outputCallback->setCapturing(true);
             view->getCamera()->setFinalDrawCallback(_outputCallback.get());
         }
@@ -94,8 +112,13 @@ protected:
         if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Left)) moveRight(-m);
         if (kb->isKeyDown(osgGA::GUIEventAdapter::KEY_Right)) moveRight(m);
 
+        if (kb->isKeyDown('h')) _eye.x() -= m; else if (kb->isKeyDown('k')) _eye.x() += m;
+        if (kb->isKeyDown('j')) _eye.y() -= m; else if (kb->isKeyDown('u')) _eye.y() += m;
+        if (kb->isKeyDown('y')) _rotation *= osg::Quat(-0.01, osg::Z_AXIS);
+        else if (kb->isKeyDown('i')) _rotation *= osg::Quat(0.01, osg::Z_AXIS);
+
         if (_animPlayTime > 0.0)
-        {
+        {   // Animation on path
             double t = ea.getTime() - _animPlayTime, tEnd = _path->getLastTime();
             osg::Matrix matrix; if (_path->getMatrix(t, matrix)) setByMatrix(matrix);
 
@@ -294,6 +317,17 @@ struct CudaRadixSorter : public osgVerse::GaussianSorter::UserCallback
     }
 };
 
+void interactiveEditAnnotations(osgVerse::AnnotationMaker* maker,
+                                const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+{
+    osg::View* view = dynamic_cast<osg::View*>(&us);
+    if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG &&
+        (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_CTRL))
+    {
+        std::cout << "DRAG " << ea.getX() << ", " << ea.getY() << "\n";
+    }
+}
+
 void createAnnotationScene(osg::Group* root, osgVerse::AnnotationMaker* maker)
 {
     osg::Geode* geode = maker->getOrCreateGeode();
@@ -357,7 +391,6 @@ int main(int argc, char** argv)
         osgVerse::updateOsgBinaryWrappers();
 
         std::string annotation; arguments.read("--annotation", annotation);
-        std::string route; arguments.read("--route", route);
         std::string hint; arguments.read("--render-mode", hint);
         bool testColor = arguments.read("--test-color");
         osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + hint);
@@ -387,7 +420,10 @@ int main(int argc, char** argv)
             osg::ref_ptr<osgVerse::AnnotationMaker> maker = new osgVerse::AnnotationMaker;
             if (maker->load(fin, true)) createAnnotationScene(root.get(), maker);
 
-            //hudCanvas.createText("main", L"Annotations", 32, 200, 40);  // TODO: interactive labelling?
+            handler->setHandleCallback([maker](const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
+                { interactiveEditAnnotations(maker.get(), ea, aa); return false; }
+            );
+            //hudCanvas.createText("main", L"Annotations", 32, 200, 40);
         }
     }
 

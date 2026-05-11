@@ -225,6 +225,7 @@ void GraphicsWindowSDL::initialize()
         winX = _traits->x; winY = _traits->y;
         winW = _traits->width; winH = _traits->height;
 
+        const char* winName = _traits->windowName.empty() ? NULL : _traits->windowName.c_str();
         if (_traits->screenNum > 0)
         {
             int displayCount = SDL_GetNumVideoDisplays();
@@ -232,13 +233,12 @@ void GraphicsWindowSDL::initialize()
             {
                 int num = _traits->screenNum + 1;
                 _sdlWindow = SDL_CreateWindow(
-                    _traits->windowName.c_str(),
-                    SDL_WINDOWPOS_CENTERED_DISPLAY(num), SDL_WINDOWPOS_CENTERED_DISPLAY(num),
+                    winName, SDL_WINDOWPOS_CENTERED_DISPLAY(num), SDL_WINDOWPOS_CENTERED_DISPLAY(num),
                     winW, winH, flags);
             }
         }
         else
-            _sdlWindow = SDL_CreateWindow(_traits->windowName.c_str(), winX, winY, winW, winH, flags);
+            _sdlWindow = SDL_CreateWindow(winName, winX, winY, winW, winH, flags);
 
 #if defined(VERSE_GLES_DESKTOP)
         // Config EGL by ourselves so that to set different backends of Google Angle!
