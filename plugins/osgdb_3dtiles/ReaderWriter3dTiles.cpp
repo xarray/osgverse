@@ -58,6 +58,7 @@ public:
         supportsExtension("xml", "coordinate file of ContextCapture (metadata.xml)");
         supportsExtension("json", "Decription file of 3dtiles");
         supportsExtension("children", "Internal use of 3dtiles' <children> tag");
+        supportsOption("UsePixelsOnScreen", "Use pixels-on-screen to switch between LOD children. Default: 0");
     }
 
     virtual const char* className() const
@@ -379,10 +380,22 @@ protected:
             else
                 OSG_WARN << "[ReaderWriter3dtiles] Missing <boundingVolume>?" << std::endl;
 
-            plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
-            if (additive) plod->setRange(0, 0.0f, FLT_MAX);
-            else plod->setRange(0, (float)range, FLT_MAX);
-            plod->setRange(1, 0.0f, (float)range);
+            std::string usePixels = options ? options->getPluginStringData("UsePixelsOnScreen") : "";
+            if (atoi(usePixels.c_str()) > 0)
+            {
+                double switchPixels = osg::clampBetween((bound.radius() * 1873.0) / range, 5.0, 2000.0);
+                plod->setRangeMode(osg::LOD::PIXEL_SIZE_ON_SCREEN);
+                if (additive) plod->setRange(0, 0.0f, FLT_MAX);
+                else plod->setRange(0, 0.0f, (float)switchPixels);
+                plod->setRange(1, (float)switchPixels, FLT_MAX);
+            }
+            else
+            {
+                plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
+                if (additive) plod->setRange(0, 0.0f, FLT_MAX);
+                else plod->setRange(0, (float)range, FLT_MAX);
+                plod->setRange(1, 0.0f, (float)range);
+            }
             return plod;
         }
         else

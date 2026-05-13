@@ -2,15 +2,15 @@ SET(LIB_NAME osgVersePipeline)
 SET(LIBRARY_INCLUDE_FILES
     Pipeline.h DeferredCallback.h UserInputModule.h ShadowModule.h LightModule.h
     LightDrawable.h HistoryBufferCallback.h SkyBox.h NodeSelector.h ResourceManager.h
-    SymbolManager.h Drawer2D.h IncrementalCompiler.h IntersectionManager.h
-    Rasterizer.h ShaderLibrary.h RenderCallbackXR.h Utilities.h Global.h Allocator.h
+    SymbolManager.h Drawer2D.h IncrementalCompiler.h IntersectionManager.h Rasterizer.h
+    ShaderLibrary.h RenderCallbackXR.h NISUpscaler.h Utilities.h Global.h Allocator.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp PipelineLoader.cpp DeferredCallback.cpp UserInputModule.cpp
     ShadowModule.cpp LightModule.cpp LightDrawable.cpp HistoryBufferCallback.cpp ResourceManager.cpp
     SkyBox.cpp NodeSelector.cpp SymbolManager.cpp Drawer2D.cpp IncrementalCompiler.cpp
     IntersectionManager.cpp Rasterizer.cpp ShaderLibrary.cpp RenderCallbackXR.cpp
-    Utilities.cpp UtilitiesEx.cpp
+    NISUpscaler.cpp Utilities.cpp UtilitiesEx.cpp
 )
 
 IF(MSVC AND NOT VERSE_USE_EXTERNAL_GLES)

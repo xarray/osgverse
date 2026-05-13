@@ -64,6 +64,7 @@
 | nanoflann        | Embedded |           | -                  | BSD          | https://github.com/jlblancoc/nanoflann |
 | nanoid           | Embedded |           | -                  | MIT          | https://github.com/mcmikecreations/nanoid_cpp |
 | NormalGenerator  | Embedded |           | Pipeline           | -            | |
+| NV.ImageScaling  | Embedded | 20260513  | Pipeline           | MIT          | https://github.com/NVIDIAGameWorks/NVIDIAImageScaling |
 | OpenFBX          | Embedded |           | verse_fbx          | MIT          | https://github.com/nem0/OpenFBX |
 | otl              | Embedded | 4.0       | verse_odbc         | BSD          | http://otl.sourceforge.net |
 | ozz-animation    | Embedded | 0.16.0    | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
