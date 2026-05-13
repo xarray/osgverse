@@ -162,6 +162,7 @@ namespace osgVerse
     public:
         ScreenSnapshotCallback(bool c = true, int fps = 25);
         virtual void operator()(const osg::Camera& camera) const;
+        void flush(const std::string& prefix);
 
         void setCapturing(bool c) { _capturing = c; if (!c) _count = 0; }
         bool getCapturing() const { return _capturing; }
@@ -176,6 +177,7 @@ namespace osgVerse
         const osg::Image* getImage() const { return _image.get(); }
 
     protected:
+        std::map<std::string, osg::ref_ptr<osg::Image>> _outputList;
         osg::ref_ptr<osg::Image> _image;
         std::string _filePrefix;
         mutable osg::Timer_t _lastTime; mutable int _count;

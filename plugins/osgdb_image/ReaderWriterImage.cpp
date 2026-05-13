@@ -60,7 +60,7 @@ public:
             if (ext == "png")
                 r = stbi_write_png(fileName.c_str(), w, h, comp, image.data(), image.getRowStepInBytes());
             else if (ext == "jpg")
-                r = stbi_write_jpg(fileName.c_str(), w, h, comp, image.data(), 80);
+                r = stbi_write_jpg(fileName.c_str(), w, h, comp, image.data(), 90);
             return (r != 0) ? WriteResult::FILE_SAVED : WriteResult::NOT_IMPLEMENTED;
         }
         else

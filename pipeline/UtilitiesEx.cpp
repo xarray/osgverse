@@ -38,6 +38,14 @@ using namespace osgVerse;
 ScreenSnapshotCallback::ScreenSnapshotCallback(bool c, int fps)
 : _lastTime(0), _count(0), _capturing(c) { _image = new osg::Image; setCaptureFrequency(fps); }
 
+void ScreenSnapshotCallback::flush(const std::string& prefix)
+{
+    for (std::map<std::string, osg::ref_ptr<osg::Image>>::iterator it = _outputList.begin();
+         it != _outputList.end(); ++it)
+    { osgDB::writeImageFile(*(it->second), prefix + it->first); }
+    _outputList.clear();
+}
+
 void ScreenSnapshotCallback::operator()(const osg::Camera & camera) const
 {
     int width = 800, height = 600; if (!_capturing) return;
@@ -57,8 +65,10 @@ void ScreenSnapshotCallback::operator()(const osg::Camera & camera) const
         _image->readPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE);
         if (!_filePrefix.empty())
         {
+            ScreenSnapshotCallback* nonconst = const_cast<ScreenSnapshotCallback*>(this);
             std::stringstream oss; oss << "_" << std::setw(4) << std::setfill('0') << _count;
-            osgDB::writeImageFile(*_image, _filePrefix + oss.str() + ".jpg");
+            nonconst->_outputList[_filePrefix + oss.str() + ".png"] =
+                static_cast<osg::Image*>(_image->clone(osg::CopyOp::DEEP_COPY_ALL));  // FIXME: write out in thread
         }
         _lastTime = t0; _count++;
     }
