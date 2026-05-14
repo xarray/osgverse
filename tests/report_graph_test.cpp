@@ -167,13 +167,14 @@ public:
 
         osgVerse::BoundingVolumeVisitor bvv; bvv.apply(geom);
         osgVerse::BoundingVolumeVisitor bvv1; bvv1.setWeldingVertices(true); bvv1.apply(geom);
-        std::string nonManiType = "", attrTypes;
-        switch (bvv1.isManifold())
+        std::string nonManiType = "", attrTypes; unsigned int manifoldProblemID = 0;
+        switch (bvv1.isManifold(manifoldProblemID))
         {
         case osgVerse::MeshCollector::IS_MANIFOLD: nonManiType = "Manifold"; break;
-        case osgVerse::MeshCollector::NONMANIFOLD_EDGE: nonManiType = "Non-Manifold Edges"; break;
-        case osgVerse::MeshCollector::UNCLOSED_MESH: nonManiType = "Unclosed Mesh"; break;
+        case osgVerse::MeshCollector::NONMANIFOLD_VERTEX: nonManiType = "Non-Manifold Vertex"; break;
+        case osgVerse::MeshCollector::UNCLOSED_MESH_BOUNDARY: nonManiType = "Unclosed Mesh"; break;
         case osgVerse::MeshCollector::SELF_INTERSECTION: nonManiType = "Self-Intersected Mesh"; break;
+        case osgVerse::MeshCollector::FLIPPED_FACE_ORIENTATION: nonManiType = "Negative Face orientation"; break;
         case osgVerse::MeshCollector::NEGATIVE_VOLUME: nonManiType = "Negative Mesh"; break;
         default: break;
         }

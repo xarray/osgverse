@@ -17,7 +17,7 @@
 #include <iostream>
 #include <sstream>
 
-#define TEST_MAPPING_TO_VHACD 1
+#define TEST_MAPPING_TO_VHACD 0
 #define TEST_MODELING_FUNCTIONS 1
 
 #ifndef _DEBUG
@@ -32,11 +32,12 @@ int main(int argc, char** argv)
     if (!scene) { OSG_WARN << "Failed to load " << (argc < 2) ? "" : argv[1]; return 1; }
 
     osgVerse::MeshTopologyVisitor mtv;
-    mtv.setWeldingVertices(true);
-    scene->accept(mtv);
+    mtv.setWeldingVertices(true); scene->accept(mtv);
 
     osg::ref_ptr<osgVerse::MeshTopology> topology = mtv.generate();
     //topology->simplify(0.8f);
+    unsigned int problemID = 0; int result = mtv.isManifold(problemID);
+    std::cout << "Input is manifold? " << result << "; Problem = " << problemID << "\n";
 
     std::vector<std::vector<uint32_t>> entities = topology->getEntityFaces();
 #if 0
@@ -52,24 +53,24 @@ int main(int argc, char** argv)
 #endif
 
 #if !TEST_MAPPING_TO_VHACD
+    static osg::Vec4 colors[] = {
+        osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f), osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
+        osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f), osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f),
+        osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f), osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f),
+        osg::Vec4(1.0f, 0.0f, 1.0f, 1.0f), osg::Vec4(0.2f, 0.2f, 0.2f, 1.0f)
+    };
+
+    char* fragCode = {
+        "uniform vec4 color;\n"
+        "void main() {\n"
+        "    gl_FragColor = gl_Color * color;\n"
+        "}\n"
+    };
+    osg::ref_ptr<osg::Program> program = new osg::Program;
+    program->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
+
     osg::ref_ptr<osg::MatrixTransform> topoMT = new osg::MatrixTransform;
-    {
-        static osg::Vec4 colors[] = {
-            osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f), osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f), osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f),
-            osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f), osg::Vec4(0.0f, 1.0f, 1.0f, 1.0f),
-            osg::Vec4(1.0f, 0.0f, 1.0f, 1.0f), osg::Vec4(0.2f, 0.2f, 0.2f, 1.0f)
-        };
-
-        char* fragCode = {
-            "uniform vec4 color;\n"
-            "void main() {\n"
-            "    gl_FragColor = gl_Color * color;\n"
-            "}\n"
-        };
-        osg::ref_ptr<osg::Program> program = new osg::Program;
-        program->addShader(new osg::Shader(osg::Shader::FRAGMENT, fragCode));
-
+    {   // Test topology entities
         osg::ref_ptr<osg::Geode> topoGeode = topology->outputByEntity();
         for (size_t i = 0; i < topoGeode->getNumDrawables(); ++i)
         {
@@ -85,17 +86,28 @@ int main(int argc, char** argv)
         topoMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 20.0f));
     }
 
-    // Test DynamicGeometry
-    osg::ref_ptr<osgVerse::DynamicPolyline> lines = new osgVerse::DynamicPolyline(true);
-    lines->addPoint(osg::Vec3(-5.0f, -5.0f, 0.0f));
-    lines->addPoint(osg::Vec3(5.0f, -5.0f, 0.0f));
-    lines->addPoint(osg::Vec3(5.0f, 5.0f, 0.0f));
-    lines->addPoint(osg::Vec3(-5.0f, 5.0f, 0.0f));
+    osg::ref_ptr<osg::MatrixTransform> sdfMT = new osg::MatrixTransform;
+    {   // Test SDF generation
+        osgVerse::SDFGridCreator sgc; osgVerse::SDFGridCreator::SDF sdfData;
+        sgc.setWeldingVertices(true); scene->accept(sgc);
+
+        osg::ref_ptr<osg::Geode> sdfGeode = new osg::Geode;
+        if (sgc.generate(sdfData, 50, 50, 50))
+        {
+            std::vector<osg::Vec3> samples = sgc.sampleVolume(sdfData, 0.1f);
+            osg::Geometry* sdfGeom = osgVerse::createGeometry(
+                new osg::Vec3Array(samples.begin(), samples.end()), NULL, osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f),
+                new osg::DrawArrays(GL_POINTS, 0, samples.size()));
+            
+            sdfGeode->addDrawable(sdfGeom);
+            sdfGeode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+            sdfMT->addChild(sdfGeode.get());
+        }
+        sdfMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, -20.0f));
+    }
 #endif
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    //root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-
 #if TEST_MAPPING_TO_VHACD
     osgVerse::BoundingVolumeVisitor bvv; scene->accept(bvv);
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
@@ -115,13 +127,14 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     geode->getOrCreateStateSet()->setAttributeAndModes(
         new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE));
-    geode->addDrawable(lines.get());
+    geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     root->addChild(geode.get());
 
     // Test VHACD
     osgVerse::BoundingVolumeVisitor bvv; scene->accept(bvv);
     geode->addDrawable(bvv.computeVHACD());
     root->addChild(topoMT.get());
+    root->addChild(sdfMT.get());
 #endif
 
 #if TEST_MODELING_FUNCTIONS
@@ -175,6 +188,13 @@ int main(int argc, char** argv)
         geode1->addDrawable(geomE.get());
         geode1->addDrawable(geomLo.get());
         //osgDB::writeNodeFile(*geode1, "test_mesh.osg");
+
+#if false  // FIXME: even a well-generated mesh is not manifold?
+        osgVerse::MeshCollector mc; unsigned int problemID = 0;
+        mc.setWeldingVertices(true); geomL->accept(mc); int result = mc.isManifold(problemID);
+        std::cout << "INPUT: " << mc.getVertices().size() << "V; " << (mc.getTriangles().size() / 3) << "P\n";
+        std::cout << "Manifold: " << result << "; Problem = " << problemID << "\n";
+#endif
 
         osg::ref_ptr<osg::MatrixTransform> mt1 = new osg::MatrixTransform;
         mt1->setMatrix(osg::Matrix::translate(20.0f, 0.0f, 0.0f));
