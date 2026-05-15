@@ -10,7 +10,8 @@
 //   - Uniform buffer matches std140 layout of GLSL uniform block
 
 #include "NISUpscaler.h"
-#include <osg/State>
+#include <osg/Version>
+#include <osg/FrameBufferObject>
 #include <osg/GLExtensions>
 #include <osg/Shader>
 #include <osg/DeleteHandler>
@@ -298,10 +299,15 @@ void main()
         replace("%NIS_BLOCK_HEIGHT%", bh);
         replace("%NIS_THREAD_GROUP_SIZE%", tgs);
 
+#if OSG_VERSION_GREATER_THAN(3, 1, 5)
         osg::ref_ptr<osg::Shader> cs = new osg::Shader(osg::Shader::COMPUTE, src);
         cs->setName(std::string("NIS_") + getModeName());
         _program = new osg::Program; _program->setName(getModeName());
         _program->addShader(cs.get()); return true;
+#else
+        OSG_WARN << "[NISUpscaler] Compute shader not available" << std::endl;
+        return false;
+#endif
     }
 
     void NISUpscaler::updateUniformBuffer()
@@ -314,11 +320,11 @@ void main()
     {
         unsigned int ctxID = state->getContextID();
         if (!_initialized || !_program.valid()) return;
-
+#if OSG_VERSION_GREATER_THAN(3, 5, 0)
         osg::GLExtensions* ext = state->get<osg::GLExtensions>();
         if (!ext || !ext->glDispatchCompute)
         {
-            OSG_WARN << "[NIS] glDispatchCompute not available (needs GL 4.3+)" << std::endl;
+            OSG_WARN << "[NISUpscaler] glDispatchCompute not available (needs GL 4.3+)" << std::endl;
             return;
         }
 
@@ -387,6 +393,9 @@ void main()
 
         // FIXME: Restore default program (let OSG manage state)?
         // state->apply(static_cast<osg::Program*>(NULL));
+#else
+        OSG_WARN << "[NISUpscaler] glDispatchCompute not available (needs OSG 3.5+)" << std::endl;
+#endif
     }
 
     void NISUpscaler::applyShader(osg::StateSet* ss) const

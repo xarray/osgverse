@@ -7,6 +7,7 @@
 #include <osg/ShapeDrawable>
 #include <osg/Geometry>
 #include <osg/Camera>
+#include <array>
 
 namespace osgVerse
 {
