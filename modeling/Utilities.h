@@ -96,10 +96,10 @@ namespace osgVerse
         
         enum NonManifoldType
         {
-            IS_MANIFOLD = 0, NONMANIFOLD_EDGE = 1, UNCLOSED_MESH = 2,
-            SELF_INTERSECTION = 3, NEGATIVE_VOLUME = 4, UNDEFINED
+            IS_MANIFOLD = 0, NONMANIFOLD_VERTEX = 1, UNCLOSED_MESH_BOUNDARY = 2,
+            SELF_INTERSECTION = 3, FLIPPED_FACE_ORIENTATION = 4, NEGATIVE_VOLUME = 5, UNDEFINED
         };
-        NonManifoldType isManifold() const;
+        NonManifoldType isManifold(unsigned int& problemID) const;
 
     protected:
         std::map<osg::Vec3, unsigned int, Vec3MapComparer> _vertexMap;

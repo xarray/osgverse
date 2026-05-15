@@ -11,6 +11,11 @@
 #include <osgDB/WriteFile>
 #include <iostream>
 
+#ifdef VERSE_WITH_CINOLIB
+#   include <cinolib/meshes/trimesh.h>
+#   include <cinolib/find_intersections.h>
+#   include "3rdparty/InteractiveMeshBool/booleans.h"
+#endif
 #include "3rdparty/tinyspline/tinyspline.h"
 #include "MeshTopology.h"
 #include "Utilities.h"
@@ -18,6 +23,73 @@ using namespace osgVerse;
 
 const unsigned int MIN_NUM_ROWS = 3;
 const unsigned int MIN_NUM_SEGMENTS = 5;
+
+namespace
+{
+#ifdef VERSE_WITH_CINOLIB
+    bool check_local_orientation(const cinolib::Trimesh<>& m, unsigned int& problemID)
+    {
+        std::vector<unsigned int> visited(m.num_polys(), false);
+        for (unsigned int pid = 0; pid < m.num_polys(); ++pid)
+        {
+            if (visited[pid]) continue; visited[pid] = true;
+            std::queue<unsigned int> q; q.push(pid);
+
+            while (!q.empty())
+            {
+                unsigned int pid = q.front(); q.pop();
+                for (unsigned int nbr : m.adj_p2p(pid))
+                {
+                    unsigned int eid = m.edge_shared(pid, nbr); problemID = eid;
+                    if (m.edge_is_CCW(eid, pid) == m.edge_is_CCW(eid, nbr)) return false;
+                    if (!visited[nbr]) { visited[nbr] = true; q.push(nbr); }
+                }
+            }
+        }
+        return true;
+    }
+
+    bool check_global_orientation(const cinolib::Trimesh<>& m)
+    {
+        double vol = 0.; cinolib::vec3d O = m.bbox().min - cinolib::vec3d(1, 0, 0);
+        for (unsigned int pid = 0; pid < m.num_polys(); ++pid)
+        {   // sum signed volumes
+            vol += cinolib::tet_volume(
+                m.poly_vert(pid, 0), m.poly_vert(pid, 1), m.poly_vert(pid, 2), O);
+        }
+        return (vol < 0.);  // if faces are CCW volume is negative
+    }
+#endif
+}
+
+MeshCollector::NonManifoldType MeshCollector::isManifold(unsigned int& problemID) const
+{
+    if (!_vertices.empty() && !_indices.empty())
+    {
+#ifdef VERSE_WITH_CINOLIB
+        std::vector<double> coords(_vertices.size() * 3);
+#pragma omp parallel for
+        for (int i = 0; i < (int)_vertices.size(); ++i)
+        {
+            int idx = i * 3; const osg::Vec3& v = _vertices[i];
+            coords[idx] = v[0]; coords[idx + 1] = v[1]; coords[idx + 2] = v[2];
+        }
+        cinolib::Trimesh<> mesh(coords, _indices);
+
+        for (size_t vid = 0; vid < mesh.num_verts(); ++vid)
+        { if (!mesh.vert_is_manifold(vid)) {problemID = vid; return NONMANIFOLD_VERTEX;} }
+        for (size_t eid = 0; eid < mesh.num_edges(); ++eid)
+        { if (mesh.edge_is_boundary(eid)) {problemID = eid; return UNCLOSED_MESH_BOUNDARY;} }
+
+        std::set<cinolib::ipair> intersections; cinolib::find_intersections(mesh, intersections);
+        if (!intersections.empty()) { problemID = intersections.size(); return SELF_INTERSECTION; }
+
+        if (!check_local_orientation(mesh, problemID)) return FLIPPED_FACE_ORIENTATION;
+        if (!check_global_orientation(mesh)) return NEGATIVE_VOLUME;
+#endif
+    }
+    return NonManifoldType::UNDEFINED;
+}
 
 ShapeGeometryVisitor::ShapeGeometryVisitor(osg::Geometry* geometry, const osg::TessellationHints* hints)
     : _geometry(geometry), _hints(hints)

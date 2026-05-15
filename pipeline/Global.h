@@ -165,7 +165,7 @@ namespace osgVerse
                 if (!cb) cam->setFinalDrawCallback(this); break;
             }
 
-            CameraDrawCallback* dcb = static_cast<CameraDrawCallback*>(cb);
+            CameraDrawCallback* dcb = dynamic_cast<CameraDrawCallback*>(cb);
             if (dcb && dcb != this) dcb->setSubCallback(this);
         }
 

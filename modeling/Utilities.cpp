@@ -192,12 +192,6 @@ MeshCollector::MeshCollector()
 :   NodeVisitorEx(), _weldVertices(false), _globalVertices(false),
     _loadedFineLevels(false), _onlyVertexAndIndices(false) {}
 
-MeshCollector::NonManifoldType MeshCollector::isManifold() const
-{
-    // TODO
-    return NonManifoldType::UNDEFINED;
-}
-
 std::vector<osg::ref_ptr<osg::Geometry>> MeshCollector::output(bool mergeAllStateSets)
 {
     std::vector<osg::ref_ptr<osg::Geometry>> geomList;
@@ -1174,7 +1168,7 @@ namespace osgVerse
 
         return createGeometry(va.get(), NULL, NULL, de.get());
 #else
-        OSG_NOTICE << "createManifold: no libIGL support" << std::endl;
+        OSG_NOTICE << "[osgVerse] createManifold(): no libIGL support" << std::endl;
         return NULL;
 #endif
     }
