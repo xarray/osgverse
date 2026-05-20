@@ -103,7 +103,7 @@ public:
             else
                 text = static_cast<osgText::Text*>(_textGeode->getDrawable(0));
 
-            std::wstring t = osgDB::convertUTF8toUTF16("HIT: " + result.drawable->getName());
+            std::wstring t = osgVerse::StringAuxiliary::convertUTF8toUTF16("HIT: " + result.drawable->getName());
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
             if (result.drawable->getUserDataContainer())
                 t += getUserString(result.drawable->getUserDataContainer());
@@ -126,8 +126,8 @@ public:
         {
             osg::StringValueObject* svo =
                 dynamic_cast<osg::StringValueObject*>(udc->getUserObject("Index"));
-            text += osgDB::convertUTF8toUTF16("; DATA: " + udc->getName());
-            if (svo) text += osgDB::convertUTF8toUTF16(", " + svo->getValue());
+            text += osgVerse::StringAuxiliary::convertUTF8toUTF16("; DATA: " + udc->getName());
+            if (svo) text += osgVerse::StringAuxiliary::convertUTF8toUTF16(", " + svo->getValue());
         }
         return text;
     }

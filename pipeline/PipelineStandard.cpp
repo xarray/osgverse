@@ -971,7 +971,7 @@ namespace osgVerse
                 else
                     text = static_cast<osgText::Text*>(_textGeode->getDrawable(0));
 
-                std::wstring t = osgDB::convertUTF8toUTF16(getNodePathID(*selectedObj, view->getSceneData()));
+                std::wstring t = osgVerse::StringAuxiliary::convertUTF8toUTF16(getNodePathID(*selectedObj, view->getSceneData()));
                 text->setText((t.length() > 80) ? (L"..." + t.substr(t.length() - 80)).c_str() : t.c_str());
             }
             return false;

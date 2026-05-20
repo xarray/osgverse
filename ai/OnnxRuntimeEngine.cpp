@@ -37,7 +37,7 @@ namespace
 #ifdef _WIN32
             _session = Ort::Session(_env, modelPath.c_str(), session_options);
 #else
-            std::string modelPath2 = osgDB::convertUTF16toUTF8(modelPath);
+            std::string modelPath2 = osgVerse::StringAuxiliary::convertUTF16toUTF8(modelPath);
             _session = Ort::Session(_env, modelPath2.c_str(), session_options);
 #endif
             initializeModelInformation();

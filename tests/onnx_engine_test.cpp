@@ -149,7 +149,7 @@ int main(int argc, char** argv)
     bool customModel = arguments.read("--model", modelName);
 
     osg::ref_ptr<osgVerse::OnnxInferencer> inferencer =
-        new osgVerse::OnnxInferencer(osgDB::convertUTF8toUTF16(modelName), osgVerse::OnnxInferencer::CUDA);
+        new osgVerse::OnnxInferencer(osgVerse::StringAuxiliary::convertUTF8toUTF16(modelName), osgVerse::OnnxInferencer::CUDA);
     std::cout << modelName << ": " << inferencer->getModelDescription();
 
     std::string inputName = inferencer->getModelLayerNames(true).front();

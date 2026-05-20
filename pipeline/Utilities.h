@@ -515,6 +515,18 @@ namespace osgVerse
 
         /** Trim leading and trailing spaces of a string */
         static std::string trim(const std::string& str);
+
+        /** Cross-platform version of osgDB::convertUTF16toUTF8() */
+        static std::string convertUTF16toUTF8(const wchar_t* source, unsigned sourceLength);
+
+        /** Cross-platform version of osgDB::convertUTF8toUTF16() */
+        static std::wstring convertUTF8toUTF16(const char* source, unsigned sourceLength);
+
+        /** Cross-platform version of osgDB::convertUTF8toUTF16() */
+        static std::string convertUTF16toUTF8(const std::wstring& s){return convertUTF16toUTF8(s.c_str(), s.length());}
+
+        /** Cross-platform version of osgDB::convertUTF8toUTF16() */
+        static std::wstring convertUTF8toUTF16(const std::string& s){return convertUTF8toUTF16(s.c_str(), s.length());}
     };
 
     /** Get hash value of any binary data for comparing and sharing scene objects */

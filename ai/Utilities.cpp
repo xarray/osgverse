@@ -6,6 +6,7 @@
 #if defined(VERSE_WITH_BYTETRACK)
 #   include "3rdparty/ByteTrack/BYTETracker.h"
 #endif
+#include "pipeline/Utilities.h"
 
 #if defined(VERSE_WITH_ONNXRUNTIME)
 #   include "OnnxRuntimeEngine.h"
@@ -102,7 +103,7 @@ DepthEstimator::DepthEstimator(const std::string& modelFile) : _inputDataType(0)
 {
 #if defined(VERSE_WITH_ONNXRUNTIME)
     osg::ref_ptr<OnnxInferencer> inferencer =
-        new OnnxInferencer(osgDB::convertUTF8toUTF16(modelFile), OnnxInferencer::CUDA);
+        new OnnxInferencer(osgVerse::StringAuxiliary::convertUTF8toUTF16(modelFile), OnnxInferencer::CUDA);
     _inferencer = inferencer;
 
     _inputLayerName = inferencer->getModelLayerNames(true).front();

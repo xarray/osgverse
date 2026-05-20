@@ -563,7 +563,7 @@ osg::Image* SymbolManager::createLabel(int w, int h, const std::string& text,
     float size = yStep * 0.6f;
     for (size_t i = 0; i < lines.size(); ++i)
     {
-        std::wstring t = osgDB::convertUTF8toUTF16(lines[i]);
+        std::wstring t = osgVerse::StringAuxiliary::convertUTF8toUTF16(lines[i]);
         _drawer->drawText(osg::Vec2(20.0f, yStep * (i + 1)), size, t, "",
                           Drawer2D::StyleData(color, true));
     }
@@ -591,7 +591,7 @@ osg::Image* SymbolManager::createGrid(int w, int h, int grid, const std::vector<
         float x = stepW * tx + 30.0f, y = stepH * ty + (stepH + textSize) * 0.5f;
         for (size_t i = 0; i < lines.size(); ++i)
         {
-            std::wstring t = osgDB::convertUTF8toUTF16(lines[i]);
+            std::wstring t = osgVerse::StringAuxiliary::convertUTF8toUTF16(lines[i]);
             _drawer->drawText(osg::Vec2(x, y + i * stepH), textSize, t, "",
                               Drawer2D::StyleData(texts[j]->textColor, true));
         }

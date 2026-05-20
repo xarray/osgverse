@@ -318,11 +318,11 @@ struct SessionXR : public osg::Referenced
 #   if defined(XR_USE_PLATFORM_ANDROID)
         // TODO
         XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding{ XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR };
-        OSG_WARN << "[RenderCallbackXR] createSession() not implemented\n"; return false;
+        OSG_WARN << "[RenderCallbackXR] createSession() for Android not implemented\n"; return false;
 #   else
         // TODO
         XrGraphicsBindingEGLMNDX graphicsBinding{ XR_TYPE_GRAPHICS_BINDING_EGL_MNDX };
-        OSG_WARN << "[RenderCallbackXR] createSession() not implemented\n"; return false;
+        OSG_WARN << "[RenderCallbackXR] createSession() for EGLMNDX not implemented\n"; return false;
 #   endif
 
         XrGraphicsRequirementsOpenGLESKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR };
@@ -335,9 +335,11 @@ struct SessionXR : public osg::Referenced
         XrGraphicsBindingOpenGLWin32KHR graphicsBinding
         { XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR, NULL, gw->getHDC(), gw->getWGLContext() };
 #   else
-        // TODO
-        XrGraphicsBindingOpenGLXlibKHR graphicsBinding{ XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR };
-        OSG_WARN << "[RenderCallbackXR] createSession() not implemented\n"; return false;
+        osgViewer::GraphicsWindowX11* gw = dynamic_cast<osgViewer::GraphicsWindowX11*>(gc);
+        if (!gw) { OSG_NOTICE << "[RenderCallbackXR] No valid graphics window found\n"; return false; }
+
+        XrGraphicsBindingOpenGLXlibKHR graphicsBinding
+        { XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR, NULL, gw->getDisplay(), 0, NULL, gw->getWindow(), gw->getContext() };
 #   endif
 
         XrGraphicsRequirementsOpenGLKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
@@ -526,7 +528,9 @@ bool RenderCallbackXR::begin(osg::Matrixf& viewL, osg::Matrixf& viewR,
                 const XrView& right = xr->views.back();
                 viewL = xr->poseToView(left.pose); viewR = xr->poseToView(right.pose);
                 projL = xr->fovToProjection(left.fov, znear, zfar);
-                projR = xr->fovToProjection(right.fov, znear, zfar); return true;
+                projR = xr->fovToProjection(right.fov, znear, zfar);
+                //projL(0, 0) *= 2.0; projR(0, 0) *= 2.0;
+                return true;
             }
         }
         //else if (_beganFrame)
@@ -602,6 +606,7 @@ void RenderCallbackXR::operator()(osg::RenderInfo& renderInfo) const
             {
                 endInfo.displayTime = xr->frameLastTime;
                 endInfo.layerCount = 0; endInfo.layers = nullptr;
+                loader->xrEndFrame(xr->session, &endInfo);
             }
             else
             {
@@ -649,10 +654,11 @@ void RenderCallbackXR::operator()(osg::RenderInfo& renderInfo) const
                 osg::Timer_t delta = osg::Timer::instance()->tick() - _beginFrameTick;
 
                 // End frame and present all layers
-                endInfo.displayTime = xr->frameLastTime + delta;
+                endInfo.displayTime = xr->frameLastTime;// + delta;
                 endInfo.layerCount = 1; endInfo.layers = layers;
+                loader->xrEndFrame(xr->session, &endInfo);
             }
-            loader->xrEndFrame(xr->session, &endInfo); _beganFrame = false;
+            _beganFrame = false;
         }
         //else if (!_beganFrame)
         //    { OSG_NOTICE << "[RenderCallbackXR] Current frame not ready, should call begin() first\n"; }

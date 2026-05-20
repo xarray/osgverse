@@ -7,6 +7,7 @@
 #include <osgDB/ConvertUTF>
 #include <osgDB/Registry>
 #include <osgDB/Archive>
+#include "pipeline/Utilities.h"
 #include "readerwriter/Utilities.h"
 
 #ifdef USE_ODBC_API
@@ -117,7 +118,7 @@ struct DatabaseConnector
         if (withOdbc)
         {
             otl_connect* connect = (otl_connect*)base;
-            std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
+            std::wstring keyW = osgVerse::StringAuxiliary::convertUTF8toUTF16(keyName);
             try
             {
                 otl_long_unicode_string f0(keyW.data(), otl_short_int_max, (int)keyW.size());
@@ -147,7 +148,7 @@ struct DatabaseConnector
         if (withOdbc)
         {
             otl_connect* connect = (otl_connect*)base;
-            std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
+            std::wstring keyW = osgVerse::StringAuxiliary::convertUTF8toUTF16(keyName);
             try
             {
                 otl_long_unicode_string f0(keyW.data(), otl_short_int_max, (int)keyW.size());
@@ -204,7 +205,7 @@ struct DatabaseConnector
         if (withOdbc)
         {
             otl_connect* connect = (otl_connect*)base;
-            std::wstring keyW = osgDB::convertUTF8toUTF16(keyName);
+            std::wstring keyW = osgVerse::StringAuxiliary::convertUTF8toUTF16(keyName);
             try
             {
                 if (bufferSize >= connect->get_max_long_size()) connect->set_max_long_size(bufferSize + 1);

@@ -79,8 +79,8 @@ USE_SERIALIZER_INTERFACE(StateSet)
 
 #define A2U(s) osgDB::convertStringFromCurrentCodePageToUTF8(s)
 #define U2A(s) osgDB::convertStringFromUTF8toCurrentCodePage(s)
-#define W2U(s) osgDB::convertUTF16toUTF8(s)
-#define U2W(s) osgDB::convertUTF8toUTF16(s)
+#define W2U(s) osgVerse::StringAuxiliary::convertUTF16toUTF8(s)
+#define U2W(s) osgVerse::StringAuxiliary::convertUTF8toUTF16(s)
 #define TR0(s) osgVerse::ImGuiComponentBase::TR(s)
 
 class EditorContentHandler : public osgVerse::ImGuiContentHandler

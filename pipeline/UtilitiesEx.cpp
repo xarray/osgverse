@@ -16,6 +16,7 @@
 #include <osgViewer/GraphicsWindow>
 #include <osgViewer/Viewer>
 #include <chrono>
+#include <locale>
 #include <codecvt>
 #include <iostream>
 #include <iomanip>
@@ -188,6 +189,26 @@ std::string StringAuxiliary::trim(const std::string& str)
     std::string::size_type last = str.find_last_not_of("  \t\r\n");
     if ((first == str.npos) || (last == str.npos)) return std::string("");
     return str.substr(first, last - first + 1);
+}
+
+std::string StringAuxiliary::convertUTF16toUTF8(const wchar_t* source, unsigned sourceLength)
+{
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    return osgDB::convertUTF16toUTF8(source, sourceLength);
+#else
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.to_bytes(std::wstring(source, sourceLength));
+#endif
+}
+
+std::wstring StringAuxiliary::convertUTF8toUTF16(const char* source, unsigned sourceLength)
+{
+#if defined(_WIN32) && !defined(__CYGWIN__)
+    return osgDB::convertUTF8toUTF16(source, sourceLength);
+#else
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.from_bytes(std::string(source, sourceLength));
+#endif
 }
 
 /************** EarthAtmosphereOcean **************/
