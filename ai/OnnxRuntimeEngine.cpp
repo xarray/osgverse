@@ -18,11 +18,13 @@ namespace
         OnnxWrapper(const std::wstring& modelPath, OnnxInferencer::DeviceType type, int deviceID)
             : _env(ORT_LOGGING_LEVEL_WARNING, "OnnxInferencer"), _session(nullptr)
         {
-            Ort::SessionOptions session_options; Ort::Status status;
+            Ort::SessionOptions session_options;
             session_options.SetIntraOpNumThreads(1);
             session_options.SetInterOpNumThreads(1);
             session_options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
             session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+            Ort::Status status(nullptr);
 #ifdef VERSE_USE_CUDA
             if (type == OnnxInferencer::CUDA)
                 status = Ort::Status(OrtSessionOptionsAppendExecutionProvider_CUDA(session_options, deviceID));
@@ -34,13 +36,18 @@ namespace
 
             if (!status.IsOK())
                 { OSG_NOTICE << "[OnnxInferencer] Failed to load provider: " << status.GetErrorMessage() << "\n"; }
+            try
+            {
 #ifdef _WIN32
-            _session = Ort::Session(_env, modelPath.c_str(), session_options);
+                _session = Ort::Session(_env, modelPath.c_str(), session_options);
 #else
-            std::string modelPath2 = osgVerse::StringAuxiliary::convertUTF16toUTF8(modelPath);
-            _session = Ort::Session(_env, modelPath2.c_str(), session_options);
+                std::string modelPath2 = osgVerse::StringAuxiliary::convertUTF16toUTF8(modelPath);
+                _session = Ort::Session(_env, modelPath2.c_str(), session_options);
 #endif
-            initializeModelInformation();
+                initializeModelInformation();
+            }
+            catch (const Ort::Exception& e) { OSG_NOTICE << "[OnnxInferencer] ONNX error: " << e.what() << std::endl; }
+            catch (const std::exception& e) { OSG_NOTICE << "[OnnxInferencer] error: " << e.what() << std::endl; }
         }
 
         std::string getTensorInformation(const std::string& name, bool asInput) const
@@ -318,6 +325,7 @@ namespace
 OnnxInferencer::OnnxInferencer(const std::wstring& modelPath, DeviceType type, int deviceID)
     : _handle(NULL)
 {
+    OSG_NOTICE << "[OnnxInferencer] Compiled with ORT_API_VERSION: " << ORT_API_VERSION << std::endl;    
     try { _handle = new OnnxWrapper(modelPath, type, deviceID); }
     catch (std::exception& e) { OSG_WARN << "[OnnxInferencer] Failed to load model: " << e.what() << "\n"; }
 }

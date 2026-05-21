@@ -150,9 +150,11 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osgVerse::OnnxInferencer> inferencer =
         new osgVerse::OnnxInferencer(osgVerse::StringAuxiliary::convertUTF8toUTF16(modelName), osgVerse::OnnxInferencer::CUDA);
+    std::vector<std::string> inNames = inferencer->getModelLayerNames(true);
     std::cout << modelName << ": " << inferencer->getModelDescription();
+    if (inNames.empty()) { std::cout << "Error: empty inputs?\n"; return 1; }
 
-    std::string inputName = inferencer->getModelLayerNames(true).front();
+    std::string inputName = inNames.front();
     if (arguments.read("--mobilenet"))
     {
         // https://github.com/onnx/models/tree/main/validated/vision/classification/mobilenet

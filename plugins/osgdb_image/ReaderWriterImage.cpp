@@ -41,7 +41,15 @@ public:
         std::string ext; std::string fileName = getRealFileName(path, ext);
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
         if (!in) return ReadResult::FILE_NOT_HANDLED;
-        return (ext == "rseq") ? readRaw(in, options) : readImage(in, options);
+        if (ext == "rseq") return readRaw(in, options);
+
+        osg::ref_ptr<Options> lOptions = options ?
+            static_cast<Options*>(options->clone(osg::CopyOp::SHALLOW_COPY)) : new Options;
+        lOptions->getDatabasePathList().push_front(osgDB::getFilePath(fileName));
+        lOptions->setPluginStringData("STREAM_FILENAME", osgDB::getSimpleFileName(fileName));
+        
+        ReadResult rr = readImage(in, lOptions.get());
+        lOptions->getDatabasePathList().pop_front(); return rr;
     }
 
     virtual WriteResult writeImage(const osg::Image& image, const std::string& path,

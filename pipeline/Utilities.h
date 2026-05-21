@@ -597,6 +597,7 @@ namespace osgVerse
     USE_OSGPLUGIN(verse_mvt) \
     USE_OSGPLUGIN(verse_web) \
     USE_OSGPLUGIN(verse_image) \
+    USE_OSGPLUGIN(verse_mesh) \
     USE_OSGPLUGIN(verse_leveldb) \
     USE_OSGPLUGIN(verse_mbtiles) \
     USE_OSGPLUGIN(verse_tiles) \
