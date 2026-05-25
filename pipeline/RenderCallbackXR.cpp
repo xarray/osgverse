@@ -116,6 +116,14 @@ struct LoaderXR : public osg::Referenced
 #else
     PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR = nullptr;
 #endif
+    PFN_xrCreateAction xrCreateAction = nullptr;
+    PFN_xrCreateActionSet xrCreateActionSet = nullptr;
+    PFN_xrDestroyAction xrDestroyAction = nullptr;
+    PFN_xrDestroyActionSet xrDestroyActionSet = nullptr;
+    PFN_xrCreateActionSpace xrCreateActionSpace = nullptr;
+    PFN_xrAttachSessionActionSets xrAttachSessionActionSets = nullptr;
+    PFN_xrSuggestInteractionProfileBindings xrSuggestInteractionProfileBindings = nullptr;
+    PFN_xrStringToPath xrStringToPath = nullptr;
 
     bool load()
     {
@@ -175,6 +183,14 @@ struct LoaderXR : public osg::Referenced
 #else
         REGISTER_XR_FUNCTION(PFN_xrGetOpenGLGraphicsRequirementsKHR, xrGetOpenGLGraphicsRequirementsKHR);
 #endif
+        REGISTER_XR_FUNCTION(PFN_xrCreateAction, xrCreateAction);
+        REGISTER_XR_FUNCTION(PFN_xrCreateActionSet, xrCreateActionSet);
+        REGISTER_XR_FUNCTION(PFN_xrDestroyAction, xrDestroyAction);
+        REGISTER_XR_FUNCTION(PFN_xrDestroyActionSet, xrDestroyActionSet);
+        REGISTER_XR_FUNCTION(PFN_xrCreateActionSpace, xrCreateActionSpace);
+        REGISTER_XR_FUNCTION(PFN_xrAttachSessionActionSets, xrAttachSessionActionSets);
+        REGISTER_XR_FUNCTION(PFN_xrSuggestInteractionProfileBindings, xrSuggestInteractionProfileBindings);
+        REGISTER_XR_FUNCTION(PFN_xrStringToPath, xrStringToPath);
     }
 };
 
@@ -188,6 +204,70 @@ struct SessionXR : public osg::Referenced
     XrViewConfigurationType viewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
     XrTime frameLastTime;
     int recommendedWidth = 0, recommendedHeight = 0;
+
+    struct ActionSet
+    {
+        XrPath leftHandPath = XR_NULL_PATH;
+        XrPath rightHandPath = XR_NULL_PATH;
+        XrSpace leftAimSpace = XR_NULL_HANDLE;
+        XrSpace rightAimSpace = XR_NULL_HANDLE;
+        XrSpace leftGripSpace = XR_NULL_HANDLE;
+        XrSpace rightGripSpace = XR_NULL_HANDLE;
+        XrActionSet handle = XR_NULL_HANDLE;
+        std::vector<XrActionSuggestedBinding> bindings;
+        std::map<std::string, XrAction> actions;
+
+        void createAction(LoaderXR& loader, XrInstance instance, const char* name, const char* localizedName, 
+                          XrActionType type, const std::vector<std::string>& paths)
+        {
+            XrActionCreateInfo actionInfo{ XR_TYPE_ACTION_CREATE_INFO };
+            strcpy(actionInfo.actionName, name);
+            strcpy(actionInfo.localizedActionName, localizedName);
+            actionInfo.countSubactionPaths = paths.size();
+            actionInfo.actionType = type;
+            
+            std::vector<XrPath> xrPaths;
+            std::vector<XrActionSuggestedBinding> subBindings;
+            for (unsigned int i = 0; i < paths.size(); ++i)
+            {
+                XrPath path; const std::string& p = paths[i]; if (p.empty()) continue;
+                loader.xrStringToPath(instance, p.c_str(), &path); xrPaths.push_back(path);
+                subBindings.push_back({ nullptr, path });
+            }
+            actionInfo.subactionPaths = xrPaths.data();
+            
+            XrAction action = XR_NULL_HANDLE; loader.xrCreateAction(handle, &actionInfo, &action);
+            if (action != XR_NULL_HANDLE) actions[name] = action;
+            else { OSG_NOTICE << "[RenderCallbackXR] Bad action creation: " << name; return; }
+            
+            for (unsigned int i = 0; i < subBindings.size(); ++i) subBindings[i].action = action;
+            bindings.insert(bindings.end(), subBindings.begin(), subBindings.end());
+        }
+
+        void createPoseAction(LoaderXR& loader, XrSession session, const char* name, const char* localizedName)
+        {
+            bool isAimPose = (strcmp(name, "aim") == 0);
+            XrActionSpaceCreateInfo actionSpaceInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
+            actionSpaceInfo.poseInActionSpace = {{0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}};
+            actionSpaceInfo.action = actions[name];
+            
+            actionSpaceInfo.subactionPath = leftHandPath;
+            loader.xrCreateActionSpace(session, &actionSpaceInfo, isAimPose ? &leftAimSpace : &leftGripSpace);
+            actionSpaceInfo.subactionPath = rightHandPath;
+            loader.xrCreateActionSpace(session, &actionSpaceInfo, isAimPose ? &rightAimSpace : &rightGripSpace);
+        }
+
+        void suggestInteractionProfile(LoaderXR& loader, XrInstance instance, const char* profile)
+        {
+            XrPath profilePath; loader.xrStringToPath(instance, profile, &profilePath);
+            XrInteractionProfileSuggestedBinding suggestedBinding{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
+            suggestedBinding.interactionProfile = profilePath;
+            suggestedBinding.suggestedBindings = bindings.data();
+            suggestedBinding.countSuggestedBindings = bindings.size();
+            loader.xrSuggestInteractionProfileBindings(instance, &suggestedBinding);
+        }
+    };
+    ActionSet actionSet;
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
     std::vector<XrSwapchainImageOpenGLESKHR> swapchainImages;
@@ -413,8 +493,67 @@ struct SessionXR : public osg::Referenced
         views.resize(viewCount, {XR_TYPE_VIEW, nullptr}); return true;
     }
 
+    bool createActionSet(LoaderXR& loader)
+    {
+        XrActionSetCreateInfo actionSetInfo{ XR_TYPE_ACTION_SET_CREATE_INFO };
+        strcpy(actionSetInfo.actionSetName, "gameplay");
+        strcpy(actionSetInfo.localizedActionSetName, "Gameplay");
+        actionSetInfo.priority = 0;
+        
+        XrResult result = loader.xrCreateActionSet(instance, &actionSetInfo, &actionSet.handle);
+        if (XR_FAILED(result)) return false;
+        
+        // see https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#semantic-paths-interaction-profiles
+        std::string pathL = "/user/hand/left", pathR = "/user/hand/right";
+        loader.xrStringToPath(instance, pathL.c_str(), &actionSet.leftHandPath);
+        loader.xrStringToPath(instance, pathR.c_str(), &actionSet.rightHandPath);
+        actionSet.createAction(
+                loader, instance, "trigger", "Trigger", XR_ACTION_TYPE_FLOAT_INPUT, 
+                {pathL + "/input/trigger/value", pathR + "/input/trigger/value"});
+        actionSet.createAction(
+                loader, instance, "grip", "Grip", XR_ACTION_TYPE_FLOAT_INPUT,
+                {pathL + "/input/grip/value", pathR + "/input/grip/value"});
+        actionSet.createAction(
+                loader, instance, "thumbstick", "Thumbstick", XR_ACTION_TYPE_VECTOR2F_INPUT,
+                {pathL + "/input/thumbstick", pathR + "/input/thumbstick"});
+        actionSet.createAction(
+                loader, instance, "primary", "Primary Button", XR_ACTION_TYPE_BOOLEAN_INPUT,
+                {pathL + "/input/x/click", pathR + "/input/a/click"});
+        actionSet.createAction(
+                loader, instance, "secondary", "Secondary Button", XR_ACTION_TYPE_BOOLEAN_INPUT,
+                {pathL + "/input/y/click", pathR + "/input/b/click"});
+        actionSet.createAction(
+                loader, instance, "menu", "Menu", XR_ACTION_TYPE_BOOLEAN_INPUT,
+                {pathL + "/input/menu/click", ""});  // only left?
+        actionSet.createAction(
+                loader, instance, "aim", "Aim Pose", XR_ACTION_TYPE_POSE_INPUT,
+                {pathL + "/input/aim/pose", pathR + "/input/aim/pose"});
+        actionSet.createAction(
+                loader, instance, "grip", "Grip Pose", XR_ACTION_TYPE_POSE_INPUT,
+                {pathL + "/input/grip/pose", pathR + "/input/grip/pose"});
+        actionSet.createPoseAction(loader, session, "aim", "Aim Pose");
+        actionSet.createPoseAction(loader, session, "grip", "Grip Pose");
+        actionSet.suggestInteractionProfile(
+                loader, instance, "/interaction_profiles/bytedance/pico4_controller");  // FIXME
+        
+        XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
+        attachInfo.countActionSets = 1; attachInfo.actionSets = &actionSet.handle;
+
+        XrResult resullt = loader.xrAttachSessionActionSets(session, &attachInfo);
+        if (XR_FAILED(result))
+        {
+            OSG_NOTICE << "[RenderCallbackXR] Failed to create action set: " << result << std::endl;
+            return false;
+        }
+        return true;
+    }
+
     void destroy(const LoaderXR& loader) const
     {
+        for (std::map<std::string, XrAction>::const_iterator it = actionSet.actions.begin();
+             it != actionSet.actions.end(); ++it) loader.xrDestroyAction(it->second);
+        if (actionSet.handle != XR_NULL_HANDLE) loader.xrDestroyActionSet(actionSet.handle);
+
         if (swapchain != XR_NULL_HANDLE) loader.xrDestroySwapchain(swapchain);
         if (referenceSpace != XR_NULL_HANDLE) loader.xrDestroySpace(referenceSpace);
         if (session != XR_NULL_HANDLE) loader.xrDestroySession(session);

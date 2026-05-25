@@ -5,6 +5,7 @@
 #include <osg/Texture2D>
 #include <osg/Geometry>
 #include <osg/Geode>
+#include <osg/MatrixTransform>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
@@ -20,8 +21,9 @@ public:
     ReaderWriterMesh()
     {
         supportsExtension("verse_mesh", "osgVerse pseudo-loader");
-        supportsExtension("obj", "OBJ format");
-        supportsExtension("stl", "STL format");
+        supportsExtension("obj", "Wavefront OBJ format");
+        supportsExtension("stl", "STereoLithography STL format");
+        supportsExtension("off", "OFF format");
     }
 
     virtual const char* className() const
@@ -55,12 +57,9 @@ public:
             ext = osgDB::getLowerCaseFileExtension(filename);
         }
 
-        if (ext == "stl")
-        {
-            // TODO
-        }
-        else
-            return readSceneOBJ(fin, dir, options);
+        if (ext == "stl") return readSceneSTL(fin, dir, options);
+        if (ext == "off") return readSceneOFF(fin, dir, options);
+        else return readSceneOBJ(fin, dir, options);
     }
 
 protected:
@@ -76,6 +75,129 @@ protected:
             ext = osgDB::getFileExtension(fileName);
         }
         return fileName;
+    }
+
+    osg::Node* readSceneOFF(std::istream& fin, const std::string& dir, const Options* options) const
+    {
+        std::string line;
+        while (std::getline(fin, line))
+        {
+            line = trim(line); if (line.empty() || line[0] == '#') continue;
+            break;  // find OFF header line
+        }
+
+        if (line.substr(0, 3) != "OFF")
+        {
+            OSG_NOTICE << "[ReaderWriterMesh] Not a valid OFF file" << std::endl;
+            return NULL;
+        }
+
+        size_t numVertices = 0, numFaces = 0, numEdges = 0, vcount = 0, fcount = 0;
+        while (std::getline(fin, line))
+        {
+            line = trim(line); if (line.empty() || line[0] == '#') continue;
+            std::istringstream iss(line); iss >> numVertices >> numFaces >> numEdges; break;
+        }
+
+        osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+        vertices->reserve(numVertices);
+        while (vcount < numVertices && std::getline(fin, line))
+        {
+            float x = 0.0f, y = 0.0f, z = 0.0f; line = trim(line);
+            if (line.empty() || line[0] == '#') continue;
+
+            std::istringstream iss(line);
+            if (iss >> x >> y >> z) { vertices->push_back(osg::Vec3(x, y, z)); ++vcount; }
+        }
+
+        osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(GL_TRIANGLES);
+        indices->reserve(numFaces * 3);
+        while (fcount < numFaces && std::getline(fin, line))
+        {
+            line = trim(line); if (line.empty() || line[0] == '#') continue;
+            std::istringstream iss(line); int n = 0, idx = 0; iss >> n;
+
+            std::vector<unsigned int> faceIndices; faceIndices.reserve(n);
+            for (int i = 0; i < n; ++i) { iss >> idx; faceIndices.push_back(idx); }
+
+            if (n >= 3)
+            {
+                for (int i = 1; i < n - 1; ++i)
+                {
+                    indices->push_back(faceIndices[0]);
+                    indices->push_back(faceIndices[i]);
+                    indices->push_back(faceIndices[i + 1]);
+                }
+            }
+            ++fcount;
+        }
+
+        osg::ref_ptr<osg::Geometry> geom = osgVerse::createGeometry(
+            vertices.get(), NULL, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f), indices.get());
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        geode->addDrawable(geom.get()); return geode.release();
+    }
+
+    osg::Node* readSceneSTL(std::istream& fin, const std::string& dir, const Options* options) const
+    {
+        char header[6] = {0}; fin.read(header, 5);
+        osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+        osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
+
+        if (std::strncmp(header, "solid", 5) == 0)
+        {   // ASCII
+            std::string line, keyword;
+            osg::Vec3 currentNormal(0.0f, 0.0f, 1.0f);
+            while (std::getline(fin, line))
+            {
+                line = trim(line); if (line.empty()) continue;
+                std::istringstream iss(line); iss >> keyword;
+
+                float nx = 0.0f, ny = 0.0f, nz = 0.0f;
+                if (keyword == "facet")
+                {
+                    std::string normalStr; iss >> normalStr >> nx >> ny >> nz;
+                    if (normalStr == "normal") currentNormal.set(nx, ny, nz);
+                }
+                else if (keyword == "vertex")
+                {
+                    iss >> nx >> ny >> nz;
+                    va->push_back(osg::Vec3(nx, ny, nz));
+                    na->push_back(currentNormal);
+                }
+                // Ignored "outer loop", "endloop", "endfacet", "solid", "endsolid"
+            }
+        }
+        else
+        {   // BINARY
+            uint32_t numTriangles; fin.seekg(80, std::ios::beg);
+            fin.read((char*)(&numTriangles), sizeof(numTriangles));
+            for (uint32_t i = 0; i < numTriangles; ++i)
+            {
+                float nx = 0.0f, ny = 0.0f, nz = 0.0f;
+                fin.read(reinterpret_cast<char*>(&nx), sizeof(float));
+                fin.read(reinterpret_cast<char*>(&ny), sizeof(float));
+                fin.read(reinterpret_cast<char*>(&nz), sizeof(float));
+                osg::Vec3 normal(nx, ny, nz);
+
+                for (int j = 0; j < 3; ++j)
+                {
+                    fin.read(reinterpret_cast<char*>(&nx), sizeof(float));
+                    fin.read(reinterpret_cast<char*>(&ny), sizeof(float));
+                    fin.read(reinterpret_cast<char*>(&nz), sizeof(float));
+                    va->push_back(osg::Vec3(nx, ny, nz)); na->push_back(normal);
+                }
+                uint16_t attributeByteCount = 0;
+                fin.read((char*)(&attributeByteCount), sizeof(uint16_t));
+            }
+        }
+
+        if (va->empty()) { OSG_NOTICE << "[ReaderWriterMesh] No data in STL file" << std::endl; return NULL; }
+        osg::ref_ptr<osg::Geometry> geom = osgVerse::createGeometry(
+            va.get(), na.get(), osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f), new osg::DrawArrays(GL_TRIANGLES, 0, va->size()));
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+        geode->addDrawable(geom.get()); return geode.release();
+        return NULL;
     }
 
     osg::Node* readSceneOBJ(std::istream& fin, const std::string& dir, const Options* options) const
@@ -97,7 +219,7 @@ protected:
         for (size_t i = 0; i < materials.size(); ++i)
             matCache[static_cast<int>(i)] = createMaterialOBJ(materials[i], dir);
 
-        osg::ref_ptr<osg::Group> root = new osg::Group;
+        osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
         for (int i = 0, matID = 0; i < (int)shapes.size(); ++i)
         {
             osg::ref_ptr<osg::Geometry> geom = createShapeOBJ(attrib, shapes[i], matID);
@@ -111,6 +233,7 @@ protected:
 
         for (std::unordered_map<int, osg::ref_ptr<osg::Geode>>::iterator it = matGeodes.begin();
              it != matGeodes.end(); ++it) root->addChild(it->second.get());
+        root->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS));
         return root.release();
     }
 
@@ -202,6 +325,15 @@ protected:
         else
             OSG_NOTICE << "[ReaderWriterMesh] failed to load texture: " << texPath << std::endl;
         return NULL;
+    }
+
+    static std::string trim(const std::string& str)
+    {
+        if (!str.size()) return str;
+        std::string::size_type first = str.find_first_not_of(" \t");
+        std::string::size_type last = str.find_last_not_of("  \t\r\n");
+        if ((first == str.npos) || (last == str.npos)) return std::string("");
+        return str.substr(first, last - first + 1);
     }
 };
 
