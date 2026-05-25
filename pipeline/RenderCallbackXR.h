@@ -22,6 +22,20 @@ namespace osgVerse
                            osg::Matrixf& projL, osg::Matrixf& projR, double znear, double zfar);
         virtual bool handleEvents(osgGA::EventQueue* ev);
 
+        struct HandInputState
+        {
+            osg::Matrix aimPose, gripPose;
+            osg::Vec2 thumbStick;  // [-1.0, 1.0]
+            float triggerValue;  // [0.0, 1.0]
+            bool primaryButton, secondaryButton;  // primary: A/X, secondary: B/Y
+            bool menuButton, aimTracked, aimActive, gripTracked, gripActive;
+
+            HandInputState()
+            : triggerValue(0.0f), primaryButton(false), secondaryButton(false),
+              menuButton(false), aimTracked(false), aimActive(false), gripTracked(false), gripActive(false) {}
+        };
+        virtual bool handleInputs(HandInputState& left, HandInputState& right);
+
         virtual void operator()(osg::RenderInfo& renderInfo) const;
         virtual void releaseGLObjects(osg::State* state = 0) const;
 

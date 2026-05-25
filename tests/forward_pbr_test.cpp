@@ -61,6 +61,13 @@ public:
                     else cam->setViewMatrix(vMatrix);
                     cam->setProjectionMatrix(pMatrix);
                 }
+
+                osgVerse::RenderCallbackXR::HandInputState handL, handR;
+                if (_xr->handleInputs(handL, handR))
+                {
+                    std::cout << handL.triggerValue << ": " << handL.aimPose << "\t";
+                    std::cout << handR.triggerValue << ": " << handR.aimPose << "\n";
+                }
             }
         }
         return false;
