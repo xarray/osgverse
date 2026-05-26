@@ -65,8 +65,8 @@ public:
                 osgVerse::RenderCallbackXR::HandInputState handL, handR;
                 if (_xr->handleInputs(handL, handR))
                 {
-                    std::cout << handL.triggerValue << ": " << handL.aimPose << "\t";
-                    std::cout << handR.triggerValue << ": " << handR.aimPose << "\n";
+                    std::cout << "L" << handL.buttons["menu"] << ": " << handL.aimPose.getTrans() << "; ";
+                    std::cout << "R" << handR.buttons["menu"] << ": " << handR.aimPose.getTrans() << "\n";
                 }
             }
         }
@@ -196,7 +196,25 @@ int main(int argc, char** argv)
     if (arguments.read("--openxr"))
     {
         // Optional, VR mode
+#if false
+        // Example code to set-up PICO4 interaction profiles
+        osgVerse::RenderCallbackXR* xr = new osgVerse::RenderCallbackXR({ "XR_BD_controller_interaction", "XR_BD_ultra_controller_interaction" });
+
+        // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#_bytedance_pico_4_controller_profile
+        #define IN_ACTION osgVerse::RenderCallbackXR::InputActionDefinition
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::BOOLEAN, "primary", "Button X/A", "/input/x/touch", "/input/a/touch"));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::BOOLEAN, "secondary", "Button Y/B", "/input/y/touch", "/input/b/touch"));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::BOOLEAN, "menu", "Menu Button", "/input/menu/click", ""));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::FLOAT, "trigger", "Trigger", "/input/trigger/value", "/input/trigger/value"));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::FLOAT, "squeeze", "Squeeze", "/input/squeeze/value", "/input/squeeze/value"));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::FLOAT, "thumbstick_x", "Thumbstick X", "/input/thumbstick/x", "/input/thumbstick/x"));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::FLOAT, "thumbstick_y", "Thumbstick Y", "/input/thumbstick/y", "/input/thumbstick/y"));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::POSE, "aim_pose", "Aim Pose", "/input/aim/pose", "/input/aim/pose"));
+        xr->addInputActionDefinition(IN_ACTION(IN_ACTION::POSE, "grip_pose", "Grip Pose", "/input/grip/pose", "/input/grip/pose"));
+        xr->addSuggestedInteractionProfile("/interaction_profiles/bytedance/pico4_controller");
+#else
         osgVerse::RenderCallbackXR* xr = new osgVerse::RenderCallbackXR;
+#endif
         xr->setup(viewer.getCamera(), 2);  // post-draw callback to endFrame() and submit frame buffer to VR
         viewer.addEventHandler(new UpdateHandlerXR(sceneRoot->getStateSet(), xr));  // frame event to beginFrame()
 

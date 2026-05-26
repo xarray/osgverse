@@ -124,11 +124,13 @@ struct LoaderXR : public osg::Referenced
     PFN_xrAttachSessionActionSets xrAttachSessionActionSets = nullptr;
     PFN_xrSuggestInteractionProfileBindings xrSuggestInteractionProfileBindings = nullptr;
     PFN_xrStringToPath xrStringToPath = nullptr;
+    PFN_xrPathToString xrPathToString = nullptr;
     PFN_xrGetActionStateFloat xrGetActionStateFloat = nullptr;
     PFN_xrGetActionStateBoolean xrGetActionStateBoolean = nullptr;
     PFN_xrGetActionStateVector2f xrGetActionStateVector2f = nullptr;
     PFN_xrLocateSpace xrLocateSpace = nullptr;
     PFN_xrSyncActions xrSyncActions = nullptr;
+    PFN_xrGetCurrentInteractionProfile xrGetCurrentInteractionProfile = nullptr;
 
     bool load()
     {
@@ -196,11 +198,13 @@ struct LoaderXR : public osg::Referenced
         REGISTER_XR_FUNCTION(PFN_xrAttachSessionActionSets, xrAttachSessionActionSets);
         REGISTER_XR_FUNCTION(PFN_xrSuggestInteractionProfileBindings, xrSuggestInteractionProfileBindings);
         REGISTER_XR_FUNCTION(PFN_xrStringToPath, xrStringToPath);
+        REGISTER_XR_FUNCTION(PFN_xrPathToString, xrPathToString);
         REGISTER_XR_FUNCTION(PFN_xrGetActionStateFloat, xrGetActionStateFloat);
         REGISTER_XR_FUNCTION(PFN_xrGetActionStateBoolean, xrGetActionStateBoolean);
         REGISTER_XR_FUNCTION(PFN_xrGetActionStateVector2f, xrGetActionStateVector2f);
         REGISTER_XR_FUNCTION(PFN_xrLocateSpace, xrLocateSpace);
         REGISTER_XR_FUNCTION(PFN_xrSyncActions, xrSyncActions);
+        REGISTER_XR_FUNCTION(PFN_xrGetCurrentInteractionProfile, xrGetCurrentInteractionProfile);
     }
 };
 
@@ -257,9 +261,9 @@ struct SessionXR : public osg::Referenced
             bindings.insert(bindings.end(), subBindings.begin(), subBindings.end());
         }
 
-        void createPoseAction(LoaderXR& loader, XrSession session, const char* name, const char* localizedName)
+        void createPoseAction(LoaderXR& loader, XrSession session, const char* name,
+                              const char* localizedName, bool isAimPose)
         {
-            bool isAimPose = (strcmp(name, "aim") == 0);
             XrActionSpaceCreateInfo actionSpaceInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
             actionSpaceInfo.poseInActionSpace = {{0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}};
             actionSpaceInfo.action = actions[name];
@@ -381,17 +385,16 @@ struct SessionXR : public osg::Referenced
             tanf(fov.angleDown) * nearZ, tanf(fov.angleUp) * nearZ, nearZ, farZ);
     }
 
-    bool createInstance(LoaderXR& loader)
+    bool createInstance(LoaderXR& loader, const std::vector<const char*>& ext)
     {
-        const char* extensions[] =
-        {
+        std::vector<const char*> extensions;
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-            XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
+        extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
 #else
-            XR_KHR_OPENGL_ENABLE_EXTENSION_NAME,
+        extensions.push_back(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
 #endif
-            XR_EXT_HAND_TRACKING_EXTENSION_NAME,
-        };
+        extensions.push_back(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+        if (!ext.empty()) extensions.insert(extensions.end(), ext.begin(), ext.end());
 
         XrApplicationInfo appInfo{};
         strcpy(appInfo.applicationName, "osgVerseXR");
@@ -402,8 +405,8 @@ struct SessionXR : public osg::Referenced
 
         XrInstanceCreateInfo createInfo{ XR_TYPE_INSTANCE_CREATE_INFO };
         createInfo.applicationInfo = appInfo;
-        createInfo.enabledExtensionCount = sizeof(extensions) / sizeof(extensions[0]);
-        createInfo.enabledExtensionNames = extensions;
+        createInfo.enabledExtensionCount = extensions.size();
+        createInfo.enabledExtensionNames = extensions.data();
 
         XrResult result = loader.xrCreateInstance(&createInfo, &instance);
         if (XR_FAILED(result))
@@ -560,7 +563,8 @@ struct SessionXR : public osg::Referenced
         views.resize(viewCount, {XR_TYPE_VIEW, nullptr}); return true;
     }
 
-    bool createActionSet(LoaderXR& loader)
+    bool createActionSet(LoaderXR& loader, const std::vector<RenderCallbackXR::InputActionDefinition>& actionsDef,
+                         const std::vector<std::string>& profiles)
     {
         XrActionSetCreateInfo actionSetInfo{ XR_TYPE_ACTION_SET_CREATE_INFO };
         strcpy(actionSetInfo.actionSetName, "gameplay");
@@ -574,36 +578,26 @@ struct SessionXR : public osg::Referenced
         std::string pathL = "/user/hand/left", pathR = "/user/hand/right";
         loader.xrStringToPath(instance, pathL.c_str(), &actionSet.leftHandPath);
         loader.xrStringToPath(instance, pathR.c_str(), &actionSet.rightHandPath);
-        actionSet.createAction(
-                loader, instance, "trigger", "Trigger Button", XR_ACTION_TYPE_FLOAT_INPUT, 
-                {pathL + "/input/trigger/value", pathR + "/input/trigger/value"});
-        actionSet.createAction(
-                loader, instance, "thumbstick", "Thumbstick Button", XR_ACTION_TYPE_VECTOR2F_INPUT,
-                {pathL + "/input/thumbstick", pathR + "/input/thumbstick"});
-        actionSet.createAction(
-                loader, instance, "primary", "Primary Button", XR_ACTION_TYPE_BOOLEAN_INPUT,
-                {pathL + "/input/x/click", pathR + "/input/a/click"});
-        actionSet.createAction(
-                loader, instance, "secondary", "Secondary Button", XR_ACTION_TYPE_BOOLEAN_INPUT,
-                {pathL + "/input/y/click", pathR + "/input/b/click"});
-        actionSet.createAction(
-                loader, instance, "menu", "Menu Button", XR_ACTION_TYPE_BOOLEAN_INPUT,
-                {pathL + "/input/menu/click", ""});
-        actionSet.createAction(
-                loader, instance, "aim_pose", "Aim Pose", XR_ACTION_TYPE_POSE_INPUT,
-                {pathL + "/input/aim/pose", pathR + "/input/aim/pose"});
-        actionSet.createAction(
-                loader, instance, "grip_pose", "Grip Pose", XR_ACTION_TYPE_POSE_INPUT,
-                {pathL + "/input/grip/pose", pathR + "/input/grip/pose"});
-        actionSet.createPoseAction(loader, session, "aim", "Aim Pose");
-        actionSet.createPoseAction(loader, session, "grip", "Grip Pose");
-        actionSet.suggestInteractionProfile(
-                loader, instance, "/interaction_profiles/oculus/touch_controller");  // FIXME
-        
+        for (size_t i = 0; i < actionsDef.size(); ++i)
+        {
+            const RenderCallbackXR::InputActionDefinition& def = actionsDef[i]; std::vector<std::string> paths;
+            if (!def.pathLeft.empty()) paths.push_back(pathL + def.pathLeft);
+            if (!def.pathRight.empty()) paths.push_back(pathR + def.pathRight);
+            actionSet.createAction(
+                loader, instance, def.name.c_str(), def.description.c_str(), (XrActionType)def.type, paths);
+            
+            if (def.type == RenderCallbackXR::InputActionDefinition::POSE)
+            {
+                bool isAim = (def.name.find("aim") != std::string::npos);  // FIXME
+                actionSet.createPoseAction(loader, session, def.name.c_str(), def.description.c_str(), isAim);
+            }
+        }
+        for (size_t i = 0; i < profiles.size(); ++i)
+            actionSet.suggestInteractionProfile(loader, instance, profiles[i].c_str());
+
         XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
         attachInfo.countActionSets = 1; attachInfo.actionSets = &actionSet.handle;
-
-        XrResult resullt = loader.xrAttachSessionActionSets(session, &attachInfo);
+        result = loader.xrAttachSessionActionSets(session, &attachInfo);
         if (XR_FAILED(result))
         {
             OSG_NOTICE << "[RenderCallbackXR] Failed to create action set: " << result << std::endl;
@@ -666,14 +660,14 @@ struct SessionXR : public osg::Referenced
     }
 };
 
-RenderCallbackXR::RenderCallbackXR()
+RenderCallbackXR::RenderCallbackXR(const ExtensionList& ext)
 :   _beginFrameTick(0), _spaceType(LOCAL), _sessionReady(false), _shouldRender(false), _beganFrame(false)
 {
     osg::ref_ptr<LoaderXR> loader = new LoaderXR;
     if (loader->load()) _xrLoader = loader; else return;
 
     osg::ref_ptr<SessionXR> xr = new SessionXR;
-    if (xr->createInstance(*loader))
+    if (xr->createInstance(*loader, ext))
     {
         loader->loadInstanceFunctions(xr->instance);
         if (xr->createViewSystem(*loader)) _xrSession = xr;
@@ -763,12 +757,28 @@ bool RenderCallbackXR::handleEvents(osgGA::EventQueue* ev)
                             XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
                             beginInfo.primaryViewConfigurationType = xr->viewConfigType;
                             loader->xrBeginSession(xr->session, &beginInfo);
-                            if (xr->actionSet.handle == XR_NULL_HANDLE) xr->createActionSet(*loader);
+                            if (xr->actionSet.handle == XR_NULL_HANDLE)
+                            {
+                                if (_inputActions.empty())
+                                {
+                                    _inputActions.push_back(InputActionDefinition(
+                                        InputActionDefinition::BOOLEAN, "menu", "Menu Button", "/input/menu/click", "/input/menu/click"));
+                                    _inputActions.push_back(InputActionDefinition(
+                                        InputActionDefinition::POSE, "aim_pose", "Aim Pose", "/input/aim/pose", "/input/aim/pose"));
+                                    _inputActions.push_back(InputActionDefinition(
+                                        InputActionDefinition::POSE, "grip_pose", "Grip Pose", "/input/grip/pose", "/input/grip/pose"));
+                                }
+                                if (_suggestedProfiles.empty())
+                                    _suggestedProfiles.push_back("/interaction_profiles/khr/simple_controller");
+                                xr->createActionSet(*loader, _inputActions, _suggestedProfiles);
+                            }
                         }
                         _sessionReady = true; break;
                     case XR_SESSION_STATE_SYNCHRONIZED: break;
-                    case XR_SESSION_STATE_VISIBLE: case XR_SESSION_STATE_FOCUSED:
+                    case XR_SESSION_STATE_VISIBLE:
                         break;  // HMD already focused and frameState.shouldRender = true
+                    case XR_SESSION_STATE_FOCUSED:
+                        break;  // device focused
                     case XR_SESSION_STATE_STOPPING:
                         loader->xrEndSession(xr->session); _sessionReady = false; break;
                     }
@@ -800,25 +810,43 @@ bool RenderCallbackXR::handleInputs(HandInputState& left, HandInputState& right)
             return false;
         }
 
-        xr->actionSet.getActionStateFloat(*loader, xr->session, "trigger",
-                                          xr->actionSet.leftHandPath, left.triggerValue);
-        xr->actionSet.getActionStateVector(*loader, xr->session, "thumbstick",
-                                           xr->actionSet.leftHandPath, left.thumbStick);
-        xr->actionSet.getActionStateBool(*loader, xr->session, "primary",
-                                         xr->actionSet.leftHandPath, left.primaryButton);
-        xr->actionSet.getActionStateBool(*loader, xr->session, "secondary",
-                                         xr->actionSet.leftHandPath, left.secondaryButton);
-        xr->actionSet.getActionStateBool(*loader, xr->session, "menu",
-                                         xr->actionSet.leftHandPath, left.menuButton);
-        xr->actionSet.getActionStateFloat(*loader, xr->session, "trigger",
-                                          xr->actionSet.rightHandPath, right.triggerValue);
-        xr->actionSet.getActionStateVector(*loader, xr->session, "thumbstick",
-                                           xr->actionSet.rightHandPath, right.thumbStick);
-        xr->actionSet.getActionStateBool(*loader, xr->session, "primary",
-                                         xr->actionSet.rightHandPath, right.primaryButton);
-        xr->actionSet.getActionStateBool(*loader, xr->session, "secondary",
-                                         xr->actionSet.rightHandPath, right.secondaryButton);
-        
+#if false
+        XrInteractionProfileState state{ XR_TYPE_INTERACTION_PROFILE_STATE };
+        loader->xrGetCurrentInteractionProfile(xr->session, xr->actionSet.leftHandPath, &state);
+        if (state.interactionProfile != XR_NULL_PATH)
+        {
+            char pathStr[XR_MAX_PATH_LENGTH]; uint32_t len = 0;
+            loader->xrPathToString(xr->instance, state.interactionProfile, XR_MAX_PATH_LENGTH, &len, pathStr);
+            OSG_NOTICE << "[RenderCallbackXR] Active profile: " << pathStr << std::endl;
+        }
+#endif
+        for (size_t i = 0; i < _inputActions.size(); ++i)
+        {
+            const InputActionDefinition& def = _inputActions[i];
+            switch (def.type)
+            {
+            case InputActionDefinition::BOOLEAN:
+                if (!def.pathLeft.empty()) xr->actionSet.getActionStateBool(
+                    *loader, xr->session, def.name.c_str(), xr->actionSet.leftHandPath, left.buttons[def.name]);
+                if (!def.pathRight.empty()) xr->actionSet.getActionStateBool(
+                    *loader, xr->session, def.name.c_str(), xr->actionSet.rightHandPath, right.buttons[def.name]);
+                break;
+            case InputActionDefinition::FLOAT:
+                if (!def.pathLeft.empty()) xr->actionSet.getActionStateFloat(
+                    *loader, xr->session, def.name.c_str(), xr->actionSet.leftHandPath, left.sliders[def.name]);
+                if (!def.pathRight.empty()) xr->actionSet.getActionStateFloat(
+                    *loader, xr->session, def.name.c_str(), xr->actionSet.rightHandPath, right.sliders[def.name]);
+                break;
+            case InputActionDefinition::VECTOR2F:
+                if (!def.pathLeft.empty()) xr->actionSet.getActionStateVector(
+                    *loader, xr->session, def.name.c_str(), xr->actionSet.leftHandPath, left.sticks[def.name]);
+                if (!def.pathRight.empty()) xr->actionSet.getActionStateVector(
+                    *loader, xr->session, def.name.c_str(), xr->actionSet.rightHandPath, right.sticks[def.name]);
+                break;
+            default: break;  // always check for aim/grip poses
+            }
+        }
+
         osg::Vec3 pos; osg::Quat rot;
         left.aimActive = xr->actionSet.locateHandSpace(
             *loader, xr->actionSet.leftAimSpace, xr->referenceSpace, xr->frameLastTime, pos, rot, left.aimTracked);

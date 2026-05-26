@@ -17,22 +17,39 @@ namespace osgVerse
     class RenderCallbackXR : public CameraDrawCallback
     {
     public:
-        RenderCallbackXR();
+        typedef std::vector<const char*> ExtensionList;
+        RenderCallbackXR(const ExtensionList& ext = ExtensionList());
         virtual bool begin(osg::Matrixf& viewL, osg::Matrixf& viewR,
                            osg::Matrixf& projL, osg::Matrixf& projR, double znear, double zfar);
         virtual bool handleEvents(osgGA::EventQueue* ev);
 
+        // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#semantic-paths-interaction-profiles
+        struct InputActionDefinition
+        {
+            enum Type { BOOLEAN = 1, FLOAT = 2, VECTOR2F = 3, POSE = 4 } type;
+            const std::string name, description, pathLeft, pathRight;
+
+            InputActionDefinition(Type t, const std::string& n, const std::string& desc,
+                                  const std::string& pL, const std::string& pR)
+            : type(t), name(n), description(desc), pathLeft(pL), pathRight(pR) {}
+        };
+        void addInputActionDefinition(const InputActionDefinition& d) { _inputActions.push_back(d); }
+        void addSuggestedInteractionProfile(const std::string& d) { _suggestedProfiles.push_back(d); }
+        void clearInputActionDefinitions() { _inputActions.clear(); }
+        void clearSuggestedInteractionProfiles() { _suggestedProfiles.clear(); }
+        const std::vector<InputActionDefinition>& getInputActionDefinitions()const { return _inputActions; }
+        const std::vector<std::string>& getSuggestedInteractionProfiles() const { return _suggestedProfiles; }
+
         struct HandInputState
         {
+            std::map<std::string, osg::Vec2> sticks;
+            std::map<std::string, float> sliders;
+            std::map<std::string, bool> buttons;
             osg::Matrix aimPose, gripPose;
-            osg::Vec2 thumbStick;  // [-1.0, 1.0]
-            float triggerValue;  // [0.0, 1.0]
-            bool primaryButton, secondaryButton;  // primary: A/X, secondary: B/Y
-            bool menuButton, aimTracked, aimActive, gripTracked, gripActive;
+            bool aimTracked, aimActive, gripTracked, gripActive;
 
             HandInputState()
-            : triggerValue(0.0f), primaryButton(false), secondaryButton(false),
-              menuButton(false), aimTracked(false), aimActive(false), gripTracked(false), gripActive(false) {}
+            : aimTracked(false), aimActive(false), gripTracked(false), gripActive(false) {}
         };
         virtual bool handleInputs(HandInputState& left, HandInputState& right);
 
@@ -57,6 +74,8 @@ namespace osgVerse
     protected:
         virtual ~RenderCallbackXR();
 
+        std::vector<InputActionDefinition> _inputActions;
+        std::vector<std::string> _suggestedProfiles;
         osg::ref_ptr<osg::Referenced> _xrLoader;
         osg::ref_ptr<osg::Referenced> _xrSession;
         osg::Quat _spaceOrientation;
