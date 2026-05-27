@@ -299,6 +299,7 @@ protected:
                                  osg::Vec4(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], mat.dissolve));
         }
 
+        // FIXME: handle PBR settings and O-R-M texture combination
         if (!mat.diffuse_texname.empty())
             ss->setTextureAttributeAndModes(0, createTexture2D(mat.diffuse_texname, dir));
         if (!mat.bump_texname.empty())

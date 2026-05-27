@@ -65,7 +65,6 @@
 | nanoid           | Embedded |           | -                  | MIT          | https://github.com/mcmikecreations/nanoid_cpp |
 | NormalGenerator  | Embedded |           | Pipeline           | -            | |
 | NV.ImageScaling  | Embedded | 20260513  | Pipeline           | MIT          | https://github.com/NVIDIAGameWorks/NVIDIAImageScaling |
-| OpenFBX          | Embedded |           | verse_fbx          | MIT          | https://github.com/nem0/OpenFBX |
 | otl              | Embedded | 4.0       | verse_odbc         | BSD          | http://otl.sourceforge.net |
 | ozz-animation    | Embedded | 0.16.0    | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
 | parallel_hashmap | Embedded | 20260330  | -                  | Apache2      | https://github.com/greg7mdp/parallel-hashmap |
@@ -96,11 +95,12 @@
 | timeout          | Embedded |           | -                  | -            | https://25thandclement.com/~william/projects/timeout.c.html |
 | tiny_gltf        | Embedded |           | verse_gltf         | MIT          | https://github.com/syoyo/tinygltf |
 | tiny_gltf_loader | Embedded |           | verse_gltf         | MIT          | https://github.com/syoyo/tinygltfloader |
-| tiny_obj_loader  | Embedded |           | -                  | MIT          | https://github.com/tinyobjloader/tinyobjloader |
+| tiny_obj_loader  | Embedded | 20260527  | verse_mesh         | MIT          | https://github.com/tinyobjloader/tinyobjloader |
 | tinyexr          | Embedded |           | -                  | BSD          | https://github.com/syoyo/tinyexr |
 | tinyfiledialogs  | Embedded | 3.18.2    | UI                 | Zlib         | https://sourceforge.net/projects/tinyfiledialogs |
 | tinyspline       | Embedded |           | Modeling           | MIT          | https://github.com/msteinbeck/tinyspline |
 | tweeny           | Embedded |           | Animation          | MIT          | https://github.com/mobius3/tweeny |
+| ufbx             | Embedded | 0.22.0    | verse_fbx          | MIT /Public  | https://github.com/ufbx/ufbx |
 | VHACD            | Embedded | 4.1       | Modeling           | BSD3         | https://github.com/kmammou/v-hacd |
 | vtzero           | Embedded | 1.1.0     | verse_mvt          | BSD2         |_https://github.com/mapbox/vtzero |
 | xatlas           | Embedded |           | -                  | MIT          | https://github.com/jpcy/xatlas |

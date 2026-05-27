@@ -536,7 +536,7 @@ SET(LIBRARY_FILES
 	tiny_obj_loader.h tiny_gltf.h picojson.h nanoflann.hpp exprtk.hpp mio.hpp any.hpp VHACD.h RTree.h
     backward.hpp strtk.hpp ghc/filesystem.hpp rapidxml/rapidxml.hpp rapidjson/rapidjson.h parallel_radix_sort.h
     nanoid/nanoid.cpp nanoid/nanoid.h nanoid/crypto_random.cpp nanoid/crypto_random.h heatmap.c heatmap.h
-    sqlite3.c sqlite3.h ofbx.cpp ofbx.h libdeflate.c libdeflate.h tinyexr.h dkm_parallel.hpp lsqcpp.hpp
+    sqlite3.c sqlite3.h ufbx.c ufbx.h libdeflate.c libdeflate.h tinyexr.h dkm_parallel.hpp lsqcpp.hpp
     mikktspace.c mikktspace.h laplacian_deformation.cpp laplacian_deformation.hpp lightmapper.h miniaudio.h
 	xatlas.cpp xatlas.h mapbox/variant.hpp mapbox/geometry.hpp mapbox/polylabel.hpp mapbox/geojson.cpp
     GL/glew.c GL/glew.h xxYUV/rgb2yuv.cpp xxYUV/yuv2rgb.cpp xxYUV/cpu.cpp timeout.c timeout.h pmtiles.hpp

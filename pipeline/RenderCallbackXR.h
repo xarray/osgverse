@@ -71,6 +71,11 @@ namespace osgVerse
         void setPosition(const osg::Vec3& p) { _spacePosition = p; }
         const osg::Vec3& getPosition() const { return _spacePosition; }
 
+        int getSwapchainImageWidth() const { return _swapchainWidth; }
+        int getSwapchainImageHeight() const { return _swapchainHeight; }
+        bool isSessionReady() const { return _sessionReady; }  // check this after handleEvents()
+        bool isRenderable() const { return _shouldRender; }    // check this after begin()
+
     protected:
         virtual ~RenderCallbackXR();
 
@@ -82,6 +87,7 @@ namespace osgVerse
         osg::Vec3 _spacePosition;
         osg::Timer_t _beginFrameTick;
         ReferenceSpaceType _spaceType;
+        int _swapchainWidth, _swapchainHeight;
         bool _sessionReady, _shouldRender;
         mutable bool _beganFrame;
     };

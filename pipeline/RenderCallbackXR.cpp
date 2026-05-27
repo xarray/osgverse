@@ -57,12 +57,15 @@ using namespace osgVerse;
 
 #ifdef XR_DISABLED
 
-RenderCallbackXR::RenderCallbackXR() : _beganFrame(false) {}
+RenderCallbackXR::RenderCallbackXR(const ExtensionList& ext) : _beganFrame(false) {}
 RenderCallbackXR::~RenderCallbackXR() {}
 bool RenderCallbackXR::begin(osg::Matrixf& viewL, osg::Matrixf& viewR, osg::Matrixf& projL, osg::Matrixf& projR,
                              double znear, double zfar) { return false; }
 
 bool RenderCallbackXR::handleEvents(osgGA::EventQueue* ev)
+{ OSG_NOTICE << "[RenderCallbackXR] Current platform is unsupported" << std::endl; return false; }
+
+bool RenderCallbackXR::handleInputs(HandInputState& left, HandInputState& right)
 { OSG_NOTICE << "[RenderCallbackXR] Current platform is unsupported" << std::endl; return false; }
 
 void RenderCallbackXR::operator()(osg::RenderInfo& renderInfo) const
@@ -530,8 +533,20 @@ struct SessionXR : public osg::Referenced
 
     bool createSwapchain(LoaderXR& loader)
     {
+        uint32_t formatCount = 0, imageCount = 0;
+        loader.xrEnumerateSwapchainFormats(session, 0, &formatCount, nullptr);
+        std::vector<int64_t> supportedFormats(formatCount);
+        loader.xrEnumerateSwapchainFormats(session, formatCount, &formatCount, supportedFormats.data());
+
+        int64_t chosenFormat = supportedFormats[0];
+        for (int64_t f : supportedFormats)
+        {
+            if (f == GL_RGBA8) chosenFormat = f;  // secondary chosen
+            if (f == GL_SRGB8_ALPHA8) { chosenFormat = f; break; }  // first chosen
+        }
+
         XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
-        swapchainCreateInfo.format = GL_RGBA8;  // GL_SRGB8_ALPHA8
+        swapchainCreateInfo.format = chosenFormat;
         swapchainCreateInfo.width = recommendedWidth * 2;  // our input should be a single-pass left+right image!
         swapchainCreateInfo.height = recommendedHeight;
         swapchainCreateInfo.mipCount = 1; swapchainCreateInfo.faceCount = 1;
@@ -545,7 +560,6 @@ struct SessionXR : public osg::Referenced
             return false;
         }
 
-        uint32_t imageCount = 0;
         loader.xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr);
         swapchainImages.resize(imageCount);
         for (auto& img : swapchainImages)
@@ -559,7 +573,8 @@ struct SessionXR : public osg::Referenced
 
         loader.xrEnumerateSwapchainImages(
             swapchain, imageCount, &imageCount, (XrSwapchainImageBaseHeader*)swapchainImages.data());
-        OSG_NOTICE << "[RenderCallbackXR] Created swapchain with " << imageCount << " images" << std::endl;
+        OSG_NOTICE << "[RenderCallbackXR] Created swapchain with " << imageCount << " images; Texture format: "
+                   << std::hex << chosenFormat << std::dec << std::endl;
         views.resize(viewCount, {XR_TYPE_VIEW, nullptr}); return true;
     }
 
@@ -661,7 +676,8 @@ struct SessionXR : public osg::Referenced
 };
 
 RenderCallbackXR::RenderCallbackXR(const ExtensionList& ext)
-:   _beginFrameTick(0), _spaceType(LOCAL), _sessionReady(false), _shouldRender(false), _beganFrame(false)
+:   _beginFrameTick(0), _spaceType(LOCAL), _swapchainWidth(0), _swapchainHeight(0),
+    _sessionReady(false), _shouldRender(false), _beganFrame(false)
 {
     osg::ref_ptr<LoaderXR> loader = new LoaderXR;
     if (loader->load()) _xrLoader = loader; else return;
@@ -672,6 +688,9 @@ RenderCallbackXR::RenderCallbackXR(const ExtensionList& ext)
         loader->loadInstanceFunctions(xr->instance);
         if (xr->createViewSystem(*loader)) _xrSession = xr;
         else xr->destroy(*loader);
+
+        _swapchainWidth = xr->recommendedWidth * 2;
+        _swapchainHeight = xr->recommendedHeight;
     }
 }
 

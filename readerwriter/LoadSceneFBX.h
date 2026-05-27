@@ -9,7 +9,7 @@
 #include <iostream>
 
 #include <animation/PlayerAnimation.h>
-#include "3rdparty/ofbx.h"
+#include "3rdparty/ufbx.h"
 #include "Export.h"
 
 namespace osgVerse
@@ -20,44 +20,46 @@ namespace osgVerse
         LoaderFBX(std::istream& in, const std::string& d, bool usingPBR = true);
 
         osg::MatrixTransform* getRoot() { return _root.get(); }
-        ofbx::IScene* getFbxScene() { return _scene; }
+        ufbx_scene* getFbxScene() { return _scene; }
 
     protected:
-        struct MeshSkinningData
-        {
-            typedef std::pair<ofbx::Object*, osg::Matrix> ParentAndBindPose;
-            std::map<ofbx::Object*, ParentAndBindPose> boneLinks;
-            std::map<ofbx::Object*, osg::Matrix> boneInvBindPoses;
-            std::map<ofbx::Object*, std::vector<int>> boneIndices;
-            std::map<ofbx::Object*, std::vector<double>> boneWeights;
-            std::map<int, std::pair<osg::Geometry*, int>> globalIndexMap;
-        };
-
-        struct SkinningData
-        {
-            osg::ref_ptr<PlayerAnimation> player;
-            osg::ref_ptr<osg::Node> meshRoot, boneRoot;
-            std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> jointData;
-            std::vector<osg::Geometry*> meshList;
-            std::vector<osg::Transform*> joints;
-        };
-
         virtual ~LoaderFBX() {}
-        osg::Geode* createGeometry(const ofbx::Mesh& mesh, const ofbx::GeometryData& gData);
-        void createMaterial(const ofbx::Material* mtlData, osg::StateSet* ss);
+        void createNode(osg::Group* parent, osg::MatrixTransform* node, ufbx_node* srcNode);
+        osg::Node* createMesh(const osg::Matrix& matrix, ufbx_mesh* srcMesh);
+        osg::StateSet* createMaterial(ufbx_material* mtl);
+        osg::Texture* applyMaterialData(ufbx_material_map* color, ufbx_material_map* factor);
 
-        void createAnimation(std::vector<SkinningData>& skinningList,
-                             const ofbx::AnimationLayer* layer, const ofbx::AnimationCurveNode* curveNode);
-        void mergeMeshBones(std::vector<SkinningData>& skinningList);
-        void createPlayers(std::vector<SkinningData>& skinningList);
+        inline osg::Vec2 toVec2(const ufbx_vec2& v) const { return osg::Vec2(v.x, v.y); }
+        inline osg::Vec3 toVec3(const ufbx_vec3& v) const { return osg::Vec3(v.x, v.y, v.z); }
+        inline osg::Vec4 toVec4(const ufbx_vec4& v) const { return osg::Vec4(v.x, v.y, v.z, v.w); }
+        inline osg::Quat toQuat(const ufbx_quat& v) const { return osg::Vec4(v.x, v.y, v.z, v.w); }
+        inline osg::Matrix toMatrix(const ufbx_matrix& m) const
+        {
+            return osg::Matrix(m.m00, m.m10, m.m20, 0.0,
+                               m.m01, m.m11, m.m21, 0.0,
+                               m.m02, m.m12, m.m22, 0.0,
+                               m.m03, m.m13, m.m23, 1.0);
+        }
 
-        std::map<osg::Geode*, MeshSkinningData> _meshBoneMap;
+        inline osg::Vec4 toColorValue(ufbx_material_map& map) const
+        {
+            switch (map.value_components)
+            {
+            case 4: return toVec4(map.value_vec4);
+            case 3: return osg::Vec4(toVec3(map.value_vec3), 1.0f);
+            case 1: return osg::Vec4(map.value_real, map.value_real, map.value_real, 1.0f);
+            }
+            return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+        
+        std::map<unsigned int, osg::ref_ptr<osg::Image>> _images;
+        std::map<ufbx_material*, osg::ref_ptr<osg::StateSet>> _materials;
         std::map<osg::Transform*, PlayerAnimation::AnimationData> _animations;
         std::map<osg::Transform*, std::pair<int, osg::Vec3d>> _animationStates;
-        std::map<const ofbx::Material*, std::vector<osg::Geometry*>> _geometriesByMtl;
-        std::map<const ofbx::Texture*, osg::ref_ptr<osg::Texture2D>> _textureMap;
+        std::vector<std::pair<int, osg::Matrix>> _boneIndexAndMatrices;
+
         osg::ref_ptr<osg::MatrixTransform> _root;
-        ofbx::IScene* _scene;
+        ufbx_scene* _scene;
         std::string _workingDir;
         bool _usingMaterialPBR;
     };

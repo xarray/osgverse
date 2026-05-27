@@ -9,6 +9,7 @@
 #include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <random>
 #include <chrono>

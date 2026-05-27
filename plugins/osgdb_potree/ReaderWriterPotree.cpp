@@ -24,7 +24,7 @@ public:
     };
 
 public:
-    HNode::HNode()
+    HNode()
     {
         _name = "";
         _numPoints = 0;
@@ -34,12 +34,10 @@ public:
         _type = TYPE::LEAF;
         _children.resize(8);
         for (int i = 0; i < 8; i++)
-        {
             _children[i] = NULL;
-        }
     }
 
-    std::string   _name = "";
+    std::string _name = "";
     int      _numPoints = 0;
     uint8_t  _childMask = 0;
     uint64_t _byteOffset = 0;
@@ -48,6 +46,9 @@ public:
     std::vector<osg::ref_ptr<HNode> > _children;
 };
 
+// Run command below to test:
+//   git clone https://gitee.com/osg_opensource/osg-potree.git ~/your_path/osg-potree
+//   ./osgVerse_Viewer ~/your_path/osg-potree/assets/PointExtractor.verse_potree
 class PotreeContainer : public osg::Object
 {
 public:
@@ -88,15 +89,46 @@ class ReaderWriterPotree : public osgDB::ReaderWriter
 public:
     ReaderWriterPotree()
     {
-        supportsExtension("potree", "potree reader");
+        supportsExtension("verse_potree", "Pseudo file extension, used to select Potree point cloud");
         supportsExtension("pchildren", "Internal use of potree <children> tag");
     }
 
     virtual const char* className() const
     {
-        return "Potree Reader";
+        return "[osgVerse] Potree Reader";
     }
 
+    virtual ReadResult readNode(const std::string& location, const Options* options) const
+    {
+        std::string ext = osgDB::getFileExtension(location);
+        if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
+
+        std::string filePathDir = osgDB::getNameLessExtension(location);
+        if (ext == "pchildren" && options && options->getUserDataContainer())
+        {
+            osg::ref_ptr<const PotreeContainer> parentHNodeContainer = dynamic_cast<const PotreeContainer*>
+                (options->getUserDataContainer()->getUserObject("ParentTile"));
+            if (parentHNodeContainer)
+            {
+                return createTileChildren(parentHNodeContainer->node(), parentHNodeContainer->attributes(),
+                                          osgDB::getNameLessExtension(filePathDir), options);
+            }
+        }
+        else
+        {
+            std::string hierarchyPath = osgDB::concatPaths(filePathDir, "hierarchy.bin");
+            osg::ref_ptr<HNode> hNode;
+            if (ParseHierarchy(hierarchyPath, 0, hNode))
+            {
+                osg::ref_ptr<Attributes> attributes = NULL;
+                ParseMetadata(osgDB::concatPaths(filePathDir, "metadata.json"), attributes);
+                return createTile(hNode, attributes, filePathDir, options);
+            }
+        }
+        return NULL;
+    }
+
+protected:
     void ParseToHNode(const std::vector<char>& data, osg::ref_ptr<HNode> node) const
     {
         node->_type = HNode::TYPE(data[0]);
@@ -111,9 +143,10 @@ public:
         std::fstream fin(hierarchyPath, std::ios::binary | std::ios::in);
         if (!fin)
         {
-            OSG_WARN << "cannot open file:" << hierarchyPath << std::endl;
+            OSG_WARN << "[ReaderWriterPotree] Cannot open file:" << hierarchyPath << std::endl;
             return false;
         }
+
         fin.seekg(offset, std::ios::beg);
         hNode = new HNode;
         std::vector<char> data(22, 0);
@@ -151,7 +184,7 @@ public:
         std::ifstream file(path);
         if (!file.is_open())
         {
-            OSG_WARN << "canot open file:" << path << std::endl;
+            OSG_WARN << "[ReaderWriterPotree] Canot open file:" << path << std::endl;
             return false;
         }
 
@@ -161,7 +194,7 @@ public:
 
         if (!err.empty())
         {
-            OSG_WARN << "JSON parse error: " << err << std::endl;
+            OSG_WARN << "[ReaderWriterPotree] JSON parse error: " << err << std::endl;
             return false;
         }
 
@@ -264,35 +297,8 @@ public:
         return true;
     }
 
-    virtual ReadResult readNode(const std::string& location, const Options* options) const
-    {
-        std::string ext = osgDB::getFileExtension(location);
-        if (!acceptsExtension(ext))
-            return ReadResult::FILE_NOT_HANDLED;
-        std::string filePathDir = osgDB::getNameLessExtension(location);
-        if (ext == "pchildren" && options && options->getUserDataContainer())
-        {
-            osg::ref_ptr<const PotreeContainer> parentHNodeContainer = dynamic_cast<const PotreeContainer*> (options->getUserDataContainer()->getUserObject("ParentTile"));
-            if (parentHNodeContainer)
-            {
-                return createTileChildren(parentHNodeContainer->node(), parentHNodeContainer->attributes(), osgDB::getNameLessExtension(filePathDir), options);
-            }
-        }
-        else
-        {
-            std::string hierarchyPath = osgDB::concatPaths(filePathDir, "hierarchy.bin");
-            osg::ref_ptr<HNode> hNode;
-            if (ParseHierarchy(hierarchyPath, 0, hNode))
-            {
-                osg::ref_ptr<Attributes> attributes = NULL;
-                ParseMetadata(osgDB::concatPaths(filePathDir, "metadata.json"), attributes);
-                return createTile(hNode, attributes, filePathDir, options);
-            }
-        }
-        return NULL;
-    }
-
-    osg::Node* createTileChildren(osg::ref_ptr<HNode> parentHNode, osg::ref_ptr<Attributes> attributes, const std::string& filePathDir, const Options* options) const
+    osg::Node* createTileChildren(osg::ref_ptr<HNode> parentHNode, osg::ref_ptr<Attributes> attributes,
+                                  const std::string& filePathDir, const Options* options) const
     {
         if (!parentHNode)
         {
@@ -370,7 +376,8 @@ public:
         return mt.release();
     }
 
-    osg::Node* createTile(osg::ref_ptr<HNode> hNode, osg::ref_ptr<Attributes> attributes, const std::string& filePathDir, const Options* options) const
+    osg::Node* createTile(osg::ref_ptr<HNode> hNode, osg::ref_ptr<Attributes> attributes,
+                          const std::string& filePathDir, const Options* options) const
     {
         if (!hNode)
         {
@@ -391,9 +398,10 @@ public:
             std::fstream fin(binPath, std::ios::binary | std::ios::in);
             if (!fin)
             {
-                OSG_WARN << "cannot open file:" << binPath << std::endl;
+                OSG_WARN << "[ReaderWriterPotree] Cannot open file:" << binPath << std::endl;
                 return NULL;
             }
+
             fin.seekg(hNode->_byteOffset, std::ios::beg);
             std::vector<char> data(hNode->_byteSize, 0);
             fin.read(data.data(), hNode->_byteSize);
@@ -439,19 +447,8 @@ public:
                 return pointcloudNode.release();
             }
         }
-
         return NULL;
     }
-
-    virtual WriteResult writeNode(const osg::Node& node, const std::string& location, const Options* options) const
-    {
-        std::string ext = osgDB::getFileExtension(location);
-        if (!acceptsExtension(ext))
-            return WriteResult::FILE_NOT_HANDLED;
-        OSG_WARN << "not implemented" << std::endl;
-        return WriteResult::FILE_SAVED;
-    }
-
 };
 
-REGISTER_OSGPLUGIN(potree, ReaderWriterPotree)
+REGISTER_OSGPLUGIN(verse_potree, ReaderWriterPotree)
