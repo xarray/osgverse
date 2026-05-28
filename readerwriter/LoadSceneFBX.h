@@ -17,7 +17,7 @@ namespace osgVerse
     class LoaderFBX : public osg::Referenced
     {
     public:
-        LoaderFBX(std::istream& in, const std::string& d, bool usingPBR = true);
+        LoaderFBX(std::istream& in, const std::string& d, int usingPBR = 1);
 
         osg::MatrixTransform* getRoot() { return _root.get(); }
         ufbx_scene* getFbxScene() { return _scene; }
@@ -61,7 +61,7 @@ namespace osgVerse
         osg::ref_ptr<osg::MatrixTransform> _root;
         ufbx_scene* _scene;
         std::string _workingDir;
-        bool _usingMaterialPBR;
+        int _usingMaterialPBR;
     };
 
     OSGVERSE_RW_EXPORT osg::ref_ptr<osg::Group> loadFbx(const std::string& file, int usingPBR);

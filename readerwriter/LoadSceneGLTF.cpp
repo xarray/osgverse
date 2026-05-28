@@ -838,12 +838,14 @@ namespace osgVerse
                     copyBufferData(&(*coef)[0], &bufferData[offset], copySize, stride, size);
                     applySH(gsData, total / 4, total % 4, coef.get(), size, compSize);
                 }
-                else if (attrib->first.compare("KHR_gaussian_splatting:ROTATION") == 0 && compSize == 4 && compNum == 4)
+                else if ((attrib->first.compare("KHR_gaussian_splatting:ROTATION") == 0 ||
+                          attrib->first.compare("_ROTATION") == 0) && compSize == 4 && compNum == 4)
                 {
                     gsData.quat = new osg::Vec4Array(size);
                     copyBufferData(&(*gsData.quat)[0], &bufferData[offset], copySize, stride, size);
                 }
-                else if (attrib->first.compare("KHR_gaussian_splatting:SCALE") == 0 && compSize == 4 && compNum == 3)
+                else if ((attrib->first.compare("KHR_gaussian_splatting:SCALE") == 0 ||
+                          attrib->first.compare("_SCALE") == 0) && compSize == 4 && compNum == 3)
                 {
                     gsData.scale = new osg::Vec3Array(size);
                     copyBufferData(&(*gsData.scale)[0], &bufferData[offset], copySize, stride, size);

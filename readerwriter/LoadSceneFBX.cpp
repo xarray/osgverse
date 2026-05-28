@@ -34,7 +34,7 @@ static osg::Image* createDefaultImageForColor(const osg::Vec4& color)
 
 namespace osgVerse
 {
-    LoaderFBX::LoaderFBX(std::istream& in, const std::string& d, bool pbr)
+    LoaderFBX::LoaderFBX(std::istream& in, const std::string& d, int pbr)
         : _scene(NULL), _workingDir(d + "/"), _usingMaterialPBR(pbr)
     {
         std::istreambuf_iterator<char> eos;
@@ -319,14 +319,14 @@ namespace osgVerse
             std::string fileName(color->texture->relative_filename.data, color->texture->relative_filename.length);
             if (_images.find(color->texture->file_index) != _images.end()) image = _images[color->texture->file_index];
 
-            // Read from internal media data
-            if (!image && color->texture->content.size > 0)
-            {
-                std::string ext = osgDB::getFileExtension(fileName);
-                osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
-                if (!rw) rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_image");
-                if (!rw) { OSG_WARN << "[LoaderFBX] No image reading plugin found for: " << fileName << "\n"; return NULL; }
+            // Get readerwriter first
+            std::string simpleFile = osgDB::getSimpleFileName(fileName), ext = osgDB::getFileExtension(fileName);
+            osgDB::ReaderWriter* rw = osgDB::Registry::instance()->getReaderWriterForExtension(ext);
+            if (!rw) rw = osgDB::Registry::instance()->getReaderWriterForExtension("verse_image");
+            if (!rw) { OSG_WARN << "[LoaderFBX] No image reading plugin found for: " << fileName << "\n"; return NULL; }
 
+            if (!image && color->texture->content.size > 0)
+            {   // Read from internal media data
                 const char* ptr = (const char*)color->texture->content.data;
                 std::vector<char> data(ptr, ptr + color->texture->content.size);
                 std::stringstream stream(std::ios::in | std::ios::out | std::ios::binary);
@@ -336,16 +336,21 @@ namespace osgVerse
             
             if (!image)
             {   // Read from external file
-                image = osgDB::readImageFile(std::string(color->texture->filename.data, color->texture->filename.length));
-                if (!image) image = osgDB::readImageFile(fileName);
+                image = rw->readImage(std::string(color->texture->filename.data, color->texture->filename.length)).takeImage();
+                if (!image) image = rw->readImage(fileName).takeImage();
+                if (!image) image = rw->readImage(_workingDir + "/" + simpleFile).takeImage();
             }
             wrapU = color->texture->wrap_u; wrapV = color->texture->wrap_v;
             if (image.valid()) _images[color->texture->file_index] = image;
         }
 
         // TODO: handle factor in a more detailed way?
-        if (!image && factor) image = createDefaultImageForColor(toColorValue(*factor));
-        if (!image) return NULL;  // no texture applied
+        if (!image)
+        {
+            osg::Vec4 col = color->has_value ? toColorValue(*color) : osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+            osg::Vec4 fac = factor ? toColorValue(*factor) : osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+            image = createDefaultImageForColor(osg::Vec4(col[0] * fac[0], col[1] * fac[1], col[2] * fac[2], col[3] * fac[3]));
+        }
 
         osg::ref_ptr<osg::Texture2D> tex2D = new osg::Texture2D;
         tex2D->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR_MIPMAP_LINEAR);
