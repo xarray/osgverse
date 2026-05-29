@@ -516,6 +516,9 @@ namespace osgVerse
         /** Trim leading and trailing spaces of a string */
         static std::string trim(const std::string& str);
 
+        /** Convert input file path to native format (with native path separators) */
+        static std::string convertNativePath(const std::string& inputPath);
+
         /** Cross-platform version of osgDB::convertUTF16toUTF8() */
         static std::string convertUTF16toUTF8(const wchar_t* source, unsigned sourceLength);
 

@@ -17,8 +17,6 @@
 #include "animation/BlendShapeAnimation.h"
 #include "LoadSceneFBX.h"
 
-#define MAX_BONES 64
-#define MAX_BLEND_SHAPES 64
 #define DISABLE_SKINNING_DATA 0
 
 static osg::Image* createDefaultImageForColor(const osg::Vec4& color)
@@ -57,27 +55,142 @@ namespace osgVerse
         }
         if (!_scene)
             { OSG_WARN << "[LoaderFBX] Unable to parse FBX scene\n"; return; }
+#if false
+        OSG_NOTICE << "\n============ AnimLayers:  " << _scene->anim_layers.count << "\n";
+        OSG_NOTICE << "============ Characters:  " << _scene->characters.count << "\n";
+        OSG_NOTICE << "============ Bones:       " << _scene->bones.count << "\n";
+        OSG_NOTICE << "============ BlendShapes: " << _scene->blend_shapes.count << "\n";
+        OSG_NOTICE << "============ TexFiles:    " << _scene->texture_files.count << "\n";
+        OSG_NOTICE << "============ Cameras:     " << _scene->cameras.count << "\n";
+        OSG_NOTICE << "============ Lights:      " << _scene->lights.count << "\n";
+#endif
 
         _root = new osg::MatrixTransform;
+        createNode(NULL, _root.get(), _scene->root_node);
 #if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         _root->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 #endif
-        createNode(NULL, _root.get(), _scene->root_node);
+
+        // Handle skeletons
+        for (std::map<osg::Geometry*, std::vector<JointWeights>>::iterator it = _skinningDataList.begin();
+             it != _skinningDataList.end(); ++it)
+        {
+            // TODO: <bone_id, weight> to <node, weight>
+        }
+
+        // Handle animations
+        for (size_t i = 0; i < _scene->anim_stacks.count; ++i)
+        {
+            ufbx_anim_stack* st = _scene->anim_stacks[i]; std::string name(st->name.data, st->name.length);
+            for (size_t j = 0; j < st->layers.count; ++j) createAnimation(st->layers[j], name, st->time_begin, st->time_end);
+        }
+    }
+
+    LoaderFBX::~LoaderFBX()
+    {
+        if (_scene != NULL) ufbx_free_scene(_scene);
     }
 
     void LoaderFBX::createNode(osg::Group* parent, osg::MatrixTransform* node, ufbx_node* srcNode)
     {
-        ufbx_mesh* srcMesh = srcNode->mesh;
-        if (srcMesh) node->addChild(createMesh(toMatrix(srcNode->geometry_to_node), srcMesh));
-        node->setMatrix(toMatrix(srcNode->node_to_parent));
-        node->setName(std::string(srcNode->name.data, srcNode->name.length));
-        
-        for (size_t i = 0; i < srcNode->children.count; ++i)
+        if (_nodes.find(srcNode->typed_id) == _nodes.end())
         {
-            osg::ref_ptr<osg::MatrixTransform> child = new osg::MatrixTransform;
-            createNode(node, child.get(), srcNode->children[i]);
+            if (srcNode->mesh)
+                node->addChild(createMesh(toMatrix(srcNode->geometry_to_node), srcNode->mesh));
+            node->setMatrix(toMatrix(srcNode->node_to_parent));
+            node->setName(std::string(srcNode->name.data, srcNode->name.length));
+            if (srcNode->bone) _boneToNodeMap[srcNode->bone->typed_id] = node;
+            _nodes[srcNode->typed_id] = node;
+            
+            for (size_t i = 0; i < srcNode->children.count; ++i)
+            {
+                osg::ref_ptr<osg::MatrixTransform> child = new osg::MatrixTransform;
+                createNode(node, child.get(), srcNode->children[i]);
+            }
         }
-        if (parent && node->getNumChildren() > 0) parent->addChild(node);
+        else
+            node = _nodes[srcNode->typed_id].get();
+        if (parent) parent->addChild(node);
+    }
+
+    void LoaderFBX::createAnimation(ufbx_anim_layer* layer, const std::string& group, double t0, double t1)
+    {
+        typedef std::pair<std::vector<ufbx_anim_prop>, std::pair<int, bool>> AnimationChannel;
+        std::map<osg::MatrixTransform*, AnimationChannel> nodeAnimChannels;
+        for (size_t i = 0; i < layer->anim_props.count; ++i)
+        {
+            const ufbx_anim_prop& prop = layer->anim_props[i];
+            switch (prop.element->type)
+            {
+            case UFBX_ELEMENT_NODE:
+                if (_nodes.find(prop.element->typed_id) != _nodes.end())
+                {
+                    ufbx_node* srcNode = _scene->nodes[prop.element->typed_id];
+                    osg::MatrixTransform* mt = _nodes[prop.element->typed_id].get();
+                    AnimationChannel& ch = nodeAnimChannels[mt]; int order = (int)srcNode->rotation_order;
+                    ch.first.push_back(prop); ch.second = std::pair<int, bool>(order, srcNode->bone != NULL);
+                }
+                break;
+            default:
+                OSG_NOTICE << "[LoaderFBX] Animation target " << prop.element->type << " not implemeneted\n"; break;
+            }
+        }
+
+        // Handle per-node animation data
+        std::string layerName(layer->name.data, layer->name.length);
+        for (std::map<osg::MatrixTransform*, AnimationChannel>::iterator it = nodeAnimChannels.begin();
+             it != nodeAnimChannels.end(); ++it)
+        {
+            PlayerAnimation::AnimationData animData; std::vector<ufbx_anim_prop>& props = it->second.first;
+            osg::MatrixTransform* mt = it->first; std::pair<int, bool>& orderAndBone = it->second.second;
+            for (size_t i = 0; i < props.size(); ++i) createAnimation(animData, layer, props[i], orderAndBone.first);
+
+            if (orderAndBone.second)  // MT is bone node
+            {}  // TODO
+            else
+            {   // non-skeleton animations
+                TweenAnimation* tween = dynamic_cast<TweenAnimation*>(mt->getUpdateCallback());
+                if (!tween) { tween = new TweenAnimation; mt->addUpdateCallback(tween); }
+                tween->addAnimation(layerName, animData.toAnimationPath());
+            }
+        }
+    }
+
+    void LoaderFBX::createAnimation(PlayerAnimation::AnimationData& anim,
+                                    ufbx_anim_layer* layer, const ufbx_anim_prop& prop, int order)
+    {
+        ufbx_anim_value* animValues = prop.anim_value; std::map<double, osg::Vec3> kfMap;
+        osg::Vec3 def = toVec3(animValues->default_value);
+        for (int i = 0; i < 3; ++i)
+        {
+            ufbx_anim_curve* animCurve = animValues->curves[i]; if (!animCurve) continue;
+            for (size_t k = 0; k < animCurve->keyframes.count; ++k)
+            {
+                double t = animCurve->keyframes[k].time;
+                if (kfMap.find(t) == kfMap.end()) kfMap[t] = def;
+                kfMap[t][i] = animCurve->keyframes[k].value;  // FIXME: not considering handles?
+            }
+        }
+
+        std::string propName(prop.prop_name.data, prop.prop_name.length);
+        std::vector<std::pair<float, osg::Vec3>> keyframes; if (kfMap.empty()) return;
+        for (std::map<double, osg::Vec3>::iterator it = kfMap.begin(); it != kfMap.end(); ++it)
+             keyframes.push_back(std::pair<float, osg::Vec3>((float)it->first, it->second));
+        
+        ufbx_rotation_order rotOrder = (ufbx_rotation_order)order;
+        if (propName.find(UFBX_Lcl_Translation) != std::string::npos) anim._positionFrames = keyframes;
+        else if (propName.find(UFBX_Lcl_Scaling) != std::string::npos) anim._scaleFrames = keyframes;
+        else if (propName.find(UFBX_Lcl_Rotation) != std::string::npos)
+        {
+            anim._rotationFrames.resize(keyframes.size());
+            for (size_t i = 0; i < keyframes.size(); ++i)
+            {
+                std::pair<float, osg::Vec3>& kf = keyframes[i]; osg::Vec3& v = kf.second;
+                ufbx_quat q = ufbx_euler_to_quat({v[0], v[1], v[2]}, rotOrder);
+                anim._rotationFrames[i] = std::pair<float, osg::Vec4>(kf.first, toQuat(q).asVec4());
+            }
+        }
+        else OSG_NOTICE << "[LoaderFBX] Unknown animation prop-name: " << propName << "\n";
     }
 
     osg::Node* LoaderFBX::createMesh(const osg::Matrix& matrix, ufbx_mesh* srcMesh)
@@ -95,7 +208,7 @@ namespace osgVerse
             osg::Vec3 position, normal, tangent;
             osg::Vec2 uv; osg::Vec4 color; unsigned int index;
         };
-        struct SkinVertex { uint8_t bone_index[4]; uint8_t bone_weight[4]; };
+        struct SkinVertex { uint8_t bone_index[4]; float bone_weight[4]; };
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         geode->setName(std::string(srcMesh->name.data, srcMesh->name.length));
@@ -123,12 +236,9 @@ namespace osgVerse
             for (size_t ci = 0; ci < skin->clusters.count; ci++)
             {
                 ufbx_skin_cluster* cluster = skin->clusters.data[ci];
-                if (num_bones < MAX_BONES)
-                {
-                    _boneIndexAndMatrices.push_back(
-                        std::pair<int, osg::Matrix>(cluster->bone_node->typed_id, toMatrix(cluster->geometry_to_bone)));
-                    num_bones++;
-                }
+                _boneIndexAndMatrices.push_back(
+                    std::pair<int, osg::Matrix>(cluster->bone_node->typed_id, toMatrix(cluster->geometry_to_bone)));
+                num_bones++;
             }
 
             // Pre-calculate the skinned vertex bones/weights for each vertex
@@ -143,7 +253,7 @@ namespace osgVerse
                 {
                     if (num_weights >= 4) break;
                     ufbx_skin_weight weight = skin->weights.data[vertex_weights.weight_begin + wi];
-                    if (weight.cluster_index >= MAX_BONES) continue;
+                    //if (weight.cluster_index >= MAX_BONES) continue;
 
                     total_weight += (float)weight.weight;
                     clusters[num_weights] = (uint8_t)weight.cluster_index;
@@ -153,36 +263,33 @@ namespace osgVerse
                 // Normalize and quantize the weights to 8 bits
                 if (total_weight > 0.0f)
                 {
-                    SkinVertex& skin_vert = mesh_skin_vertices[vi]; uint32_t quantized_sum = 0;
+                    SkinVertex& skin_vert = mesh_skin_vertices[vi]; float sum = 0.0f;
                     for (size_t i = 0; i < 4; i++)
                     {
-                        uint8_t quantized_weight = (uint8_t)((float)weights[i] / total_weight * 255.0f);
-                        quantized_sum += quantized_weight;
-                        skin_vert.bone_weight[i] = quantized_weight;
+                        float weight = (float)weights[i] / total_weight; sum += weight;
+                        skin_vert.bone_weight[i] = weight;
                         skin_vert.bone_index[i] = clusters[i];
                     }
-                    skin_vert.bone_weight[0] += 255 - quantized_sum;
+                    skin_vert.bone_weight[0] += 1.0 - sum;
                 }
             }
         }
 
         // Fetch blend channels from all attached blend deformers
-        ufbx_blend_channel *blend_channels[MAX_BLEND_SHAPES];
+        std::vector<ufbx_blend_channel*> blend_channels;
         for (size_t di = 0; di < srcMesh->blend_deformers.count; di++)
         {
-            ufbx_blend_deformer *deformer = srcMesh->blend_deformers.data[di];
+            ufbx_blend_deformer* deformer = srcMesh->blend_deformers.data[di];
             for (size_t ci = 0; ci < deformer->channels.count; ci++)
             {
-                ufbx_blend_channel *chan = deformer->channels.data[ci];
+                ufbx_blend_channel* chan = deformer->channels.data[ci];
                 if (chan->keyframes.count == 0) continue;
-                if (num_blend_shapes < MAX_BLEND_SHAPES)
-                {
-                    blend_channels[num_blend_shapes] = chan;
-                    num_blend_shapes++;  // TODO
-                }
+                blend_channels.push_back(chan); num_blend_shapes++;
             }
 
-            if (num_blend_shapes > 0) {}  // TODO
+            // TODO: https://github.com/ufbx/ufbx/blob/main/examples/viewer/viewer.c
+            if (deformer->channels.count > 0)
+            { OSG_NOTICE << "[LoaderFBX] Blendshapes of " << deformer->name.data << " not handled\n"; }
         }
 
         // Split the mesh into parts by material
@@ -238,6 +345,7 @@ namespace osgVerse
                 std::string desc(error.description.data, error.description.length);
                 OSG_NOTICE << "[LoaderFBX] Error " << error.type << ": " << desc << "\n";
             }
+            indices.resize(num_indices);
 
             // Handle material
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
@@ -270,6 +378,17 @@ namespace osgVerse
                 geom->addPrimitiveSet(new osg::DrawElementsUShort(GL_TRIANGLES, indices.begin(), indices.end()));
             else
                 geom->addPrimitiveSet(new osg::DrawElementsUInt(GL_TRIANGLES, indices.begin(), indices.end()));
+
+            if (skin)
+            {
+                std::vector<JointWeights>& weightList = _skinningDataList[geom.get()];
+                weightList.resize(num_vertices);
+                for (size_t i = 0; i < num_vertices; ++i)
+                {
+                    const SkinVertex& skv = skin_vertices[i]; JointWeights jw(4);
+                    for (int k = 0; k < 4; ++k) { jw[k].first = skv.bone_index[k]; jw[k].second = skv.bone_weight[k]; }
+                }
+            }
             geode->addDrawable(geom.get());
         }  // for (size_t pi = 0; pi < srcMesh->material_parts.count; pi++)
         return geode.release();
@@ -316,7 +435,8 @@ namespace osgVerse
         ufbx_wrap_mode wrapU = UFBX_WRAP_REPEAT, wrapV = UFBX_WRAP_REPEAT;
         if (color->texture)
         {
-            std::string fileName(color->texture->relative_filename.data, color->texture->relative_filename.length);
+            std::string fileName = StringAuxiliary::convertNativePath(
+                std::string(color->texture->relative_filename.data, color->texture->relative_filename.length));
             if (_images.find(color->texture->file_index) != _images.end()) image = _images[color->texture->file_index];
 
             // Get readerwriter first
@@ -334,11 +454,15 @@ namespace osgVerse
                 image = rw->readImage(stream).takeImage();
             }
             
+            if (!color->texture->has_file) return NULL;
             if (!image)
             {   // Read from external file
-                image = rw->readImage(std::string(color->texture->filename.data, color->texture->filename.length)).takeImage();
-                if (!image) image = rw->readImage(fileName).takeImage();
-                if (!image) image = rw->readImage(_workingDir + "/" + simpleFile).takeImage();
+                std::string fullName = StringAuxiliary::convertNativePath(
+                    std::string(color->texture->absolute_filename.data, color->texture->absolute_filename.length));
+                image = rw->readImage(fullName).takeImage();
+                if (!image) image = rw->readImage(_workingDir + fileName).takeImage();
+                if (!image) image = rw->readImage(_workingDir + simpleFile).takeImage();
+                if (!image) OSG_NOTICE << "[LoaderFBX] Failed to load texture image: " << fileName << "\n";
             }
             wrapU = color->texture->wrap_u; wrapV = color->texture->wrap_v;
             if (image.valid()) _images[color->texture->file_index] = image;

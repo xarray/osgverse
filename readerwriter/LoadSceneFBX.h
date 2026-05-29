@@ -23,8 +23,12 @@ namespace osgVerse
         ufbx_scene* getFbxScene() { return _scene; }
 
     protected:
-        virtual ~LoaderFBX() {}
+        virtual ~LoaderFBX();
         void createNode(osg::Group* parent, osg::MatrixTransform* node, ufbx_node* srcNode);
+        void createAnimation(ufbx_anim_layer* layer, const std::string& group, double t0, double t1);
+        void createAnimation(PlayerAnimation::AnimationData& anim, ufbx_anim_layer* layer,
+                             const ufbx_anim_prop& prop, int order);
+
         osg::Node* createMesh(const osg::Matrix& matrix, ufbx_mesh* srcMesh);
         osg::StateSet* createMaterial(ufbx_material* mtl);
         osg::Texture* applyMaterialData(ufbx_material_map* color, ufbx_material_map* factor);
@@ -51,7 +55,12 @@ namespace osgVerse
             }
             return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
         }
+
+        typedef std::vector<std::pair<unsigned int, float>> JointWeights;
+        std::map<osg::Geometry*, std::vector<JointWeights>> _skinningDataList;
         
+        std::map<unsigned int, osg::observer_ptr<osg::MatrixTransform>> _boneToNodeMap;
+        std::map<unsigned int, osg::ref_ptr<osg::MatrixTransform>> _nodes;
         std::map<unsigned int, osg::ref_ptr<osg::Image>> _images;
         std::map<ufbx_material*, osg::ref_ptr<osg::StateSet>> _materials;
         std::map<osg::Transform*, PlayerAnimation::AnimationData> _animations;

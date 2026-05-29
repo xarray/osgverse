@@ -191,6 +191,15 @@ std::string StringAuxiliary::trim(const std::string& str)
     return str.substr(first, last - first + 1);
 }
 
+std::string StringAuxiliary::convertNativePath(const std::string& inputPath)
+{
+    std::string result = inputPath; if (inputPath.empty()) return inputPath;
+    const char nativeSep = osgDB::getNativePathSeparator();
+    for (size_t i = 0; i < result.length(); ++i)
+    { if (result[i] == '/' || result[i] == '\\') {result[i] = nativeSep;} }
+    return result;
+}
+
 std::string StringAuxiliary::convertUTF16toUTF8(const wchar_t* source, unsigned sourceLength)
 {
 #if defined(_WIN32) && !defined(__CYGWIN__)
