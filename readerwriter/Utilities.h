@@ -232,7 +232,13 @@ namespace osgVerse
         enum HttpMethod { HTTP_DELETE = 0, HTTP_GET = 1, HTTP_HEAD = 2, HTTP_POST = 3, HTTP_PUT = 4 };
         typedef std::map<std::string, std::string> HttpRequestParams;
         typedef std::map<std::string, std::string> HttpRequestHeaders;
-        typedef std::pair<int, std::string> HttpResponseData;
+
+        struct HttpResponseData
+        {
+            int code; std::string body; HttpRequestHeaders headers;
+            HttpResponseData(int c = 0, const std::string& b = "") : code(c), body(b) {}
+            HttpResponseData(int c, const std::string& b, const HttpRequestHeaders& h) : code(c), body(b) { headers = h; }
+        };
         typedef std::function<void (const std::string& /*url*/, const HttpRequestParams& /*paramsOrBody*/,
                                     const HttpRequestHeaders&, HttpResponseData&)> HttpCallback;
 
@@ -258,6 +264,10 @@ namespace osgVerse
                                              const std::map<std::string, HttpCallback>& postEntries,
                                              int port, const std::string& rootDir, bool allowCORS, bool withWebsockets,
                                              SocketCallback readCB, SocketCallback joinCB);
+
+        /** Default GET entry (*) for HTTP server which read and display common web files */
+        static void defaultGetEntry(osg::Referenced* server, const std::string& path, const HttpRequestParams& params,
+                                    const HttpRequestHeaders& req, HttpResponseData& response);
 
         /** Set a TCP/UDP/WS socket to listen to messages */
         static osg::Referenced* socketListener(const std::string& host, int port, SocketMethod method,
@@ -433,8 +443,8 @@ namespace osgVerse
     inline std::vector<unsigned char> loadFileData(const std::string& url)
     { std::string mimeType, encodingType; return loadFileData(url, mimeType, encodingType); }
 
-    /** Get mimetype and extension map data */
-    OSGVERSE_RW_EXPORT std::map<std::string, std::string> createMimeTypeMapper();
+    /** Get [mimetype, extension] map data, or reversed [extension, mimetype] */
+    OSGVERSE_RW_EXPORT std::map<std::string, std::string> createMimeTypeMapper(bool reversed = false);
 
     /** Get OpenGL enum name and corresponding group/value pairs */
     OSGVERSE_RW_EXPORT std::map<std::string, std::pair<std::string, GLenum>> createGLEnumMapper();

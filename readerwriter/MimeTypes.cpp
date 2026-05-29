@@ -7,8 +7,15 @@ using namespace osgVerse;
 // Copied from osgDB/MimeTypes.cpp
 const char* osgv_builtinMimeTypeExtMappings[] =
 {
+    "text/plain","txt",
+    "text/html","htm",
+    "text/html","html",
+    "text/css","css",
     "application/dxf","dxf",
     "application/gnutar","tgz",
+    "application/javascript","mjs",
+    "application/javascript","js",
+    "application/json","json",
     "application/pdf","pdf",
     "application/plain","text",
     "application/postscript","ps",
@@ -17,12 +24,12 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "application/x-compressed","zip",
     "application/x-gzip","gz",
     "application/x-inventor","iv",
-    "application/x-javascript","js",
-    "application/xml","xml",
     "application/x-tar","tar",
     "application/x-vrml","wrl",
     "application/x-world","wrl",
     "application/x-zip-compressed","zip",
+    "application/xml","xml",
+    "application/wasm","wasm",
     "application/zip","zip",
     "drawing/x-dwf(old)","dwf",
     "image/bmp","bmp",
@@ -40,6 +47,7 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "image/pict","pic",
     "image/pjpeg","jpg",
     "image/png","png",
+    "image/svg+xml","svg",
     "image/tiff","tif",
     "image/webp","webp",
     "image/vasa","mcf",
@@ -51,6 +59,7 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "image/vnd.wap.wbmp","wbmp",
     "image/vnd.xiff","xif",
     "image/xbm","xbm",
+    "image/xpm","xpm",
     "image/x-cmu-raster","ras",
     "image/x-dwg","dxf",
     "image/x-icon","ico",
@@ -59,7 +68,6 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "image/x-niff","nif",
     "image/x-pcx","pcx",
     "image/x-pict","pct",
-    "image/xpm","xpm",
     "image/x-portable-anymap","pnm",
     "image/x-portable-bitmap","pbm",
     "image/x-portable-graymap","pgm",
@@ -120,19 +128,27 @@ const char* osgv_builtinMimeTypeExtMappings[] =
     "x-world/x-svr","svr",
     "x-world/x-vrml","wrl",
     "x-world/x-vrt","vrt",
+    "font/otf","otf",
+    "font/otf","ttf",
+    "font/woff","woff",
+    "font/woff2","woff2",
     "" // end of list
 };
 
 namespace osgVerse
 {
-    std::map<std::string, std::string> createMimeTypeMapper()
+    std::map<std::string, std::string> createMimeTypeMapper(bool reversed)
     {
-        static std::map<std::string, std::string> mimeTypes;
-        for (int i = 0; ; i += 2)
+        static std::map<std::string, std::string> mimeTypes1, mimeTypes2;
+        if ((!reversed && mimeTypes1.empty()) || (reversed && mimeTypes2.empty()))
         {
-            std::string t = osgv_builtinMimeTypeExtMappings[i]; if (t.length() == 0) break;
-            mimeTypes[t] = osgv_builtinMimeTypeExtMappings[i + 1];
+            for (int i = 0; ; i += 2)
+            {
+                std::string t = osgv_builtinMimeTypeExtMappings[i]; if (t.length() == 0) break;
+                if (!reversed) mimeTypes1[t] = osgv_builtinMimeTypeExtMappings[i + 1];
+                else mimeTypes2[osgv_builtinMimeTypeExtMappings[i + 1]] = t;
+            }
         }
-        return mimeTypes;
+        return reversed ? mimeTypes2 : mimeTypes1;
     }
 }

@@ -579,7 +579,7 @@ WebAuxiliary::HttpResponseData WebAuxiliary::httpRequest(const std::string& url,
     hv::HttpClient client; HttpResponse res;
     int ret = client.send(req.get(), &res);
     if (ret != 0) return HttpResponseData(-1, "[WebAuxiliary] HTTP request failed");
-    else return HttpResponseData(res.status_code, res.body);
+    else return HttpResponseData(res.status_code, res.body, {res.headers.begin(), res.headers.end()});
 }
 
 osg::Referenced* WebAuxiliary::httpRequestAsync(HttpCallback cb, const std::string& url, HttpMethod method,
@@ -604,7 +604,7 @@ osg::Referenced* WebAuxiliary::httpRequestAsync(HttpCallback cb, const std::stri
             HttpRequestHeaders resHeaders;
             for (http_headers::iterator it = res->headers.begin(); it != res->headers.end(); ++it)
                 resHeaders[it->first] = it->second;
-            HttpResponseData data(res->status_code, res->body);
+            HttpResponseData data(res->status_code, res->body, { res->headers.begin(), res->headers.end() });
             cb(url, HttpRequestParams(), resHeaders, data);
         }
     });
@@ -623,6 +623,18 @@ osg::Referenced* WebAuxiliary::httpServerEx(const std::map<std::string, HttpCall
 {
     osg::ref_ptr<HttpServerInstance> instance = new HttpServerInstance(withWebsockets);
     instance->router.Static("/", rootDir.c_str());
+    if (getEntries.empty())
+    {
+        instance->router.GET("*", [instance](HttpRequest* req, HttpResponse* res)
+        {
+            HttpResponseData resData; HttpRequestHeaders headers;
+            headers.insert(req->headers.begin(), req->headers.end());
+            defaultGetEntry(instance.get(), req->path, req->query_params, headers, resData);
+            for (auto& kv : resData.headers) res->SetHeader(kv.first.c_str(), kv.second);
+            res->SetBody(resData.body); return resData.code;
+        });
+    }
+
     for (std::map<std::string, WebAuxiliary::HttpCallback>::const_iterator it = getEntries.begin();
          it != getEntries.end(); ++it)
     {
@@ -631,7 +643,9 @@ osg::Referenced* WebAuxiliary::httpServerEx(const std::map<std::string, HttpCall
         {
             HttpResponseData resData; HttpRequestHeaders headers;
             headers.insert(req->headers.begin(), req->headers.end());
-            cb(req->url, req->query_params, headers, resData); return res->String(resData.second);
+            cb(req->path, req->query_params, headers, resData);
+            for (auto& kv : resData.headers) res->SetHeader(kv.first.c_str(), kv.second);
+            res->SetBody(resData.body); return resData.code;
         });
     }
 
@@ -644,7 +658,8 @@ osg::Referenced* WebAuxiliary::httpServerEx(const std::map<std::string, HttpCall
             HttpResponseData resData; HttpRequestParams bodyData; HttpRequestHeaders headers;
             bodyData.insert(req->query_params.begin(), req->query_params.end()); bodyData[""] = req->body;
             headers.insert(req->headers.begin(), req->headers.end());
-            cb(req->url, bodyData, headers, resData); return res->String(resData.second);
+            cb(req->path, bodyData, headers, resData); res->SetBody(resData.body);
+            for (auto& kv : resData.headers) res->SetHeader(kv.first.c_str(), kv.second); return resData.code;
         });
     }
 
@@ -680,6 +695,30 @@ osg::Referenced* WebAuxiliary::httpServerEx(const std::map<std::string, HttpCall
         instance->server.port = port; instance->server.start();
     }
     return instance.release();
+}
+
+void WebAuxiliary::defaultGetEntry(osg::Referenced* server, const std::string& path, const HttpRequestParams& params,
+                                   const HttpRequestHeaders& req, HttpResponseData& response)
+{
+    HttpServerInstance* srv = dynamic_cast<HttpServerInstance*>(server);
+    std::string filePath = srv ? srv->router.GetStaticFilepath(path.c_str()) : path;
+
+    std::vector<unsigned char> data = loadFileData(filePath);
+    if (data.empty())
+        { response.code = 404; response.body = "<h1>404 Not Found: " + filePath + "</h1>"; }
+    else
+    {
+        std::map<std::string, std::string> mimeTypes = createMimeTypeMapper(true);
+        std::string ext = osgDB::getFileExtension(filePath), fileNoExt;
+        if (ext == "gz" || ext == "br" || ext == "zstd" || ext == "deflate")
+        {
+            fileNoExt = osgDB::getNameLessExtension(filePath); if (ext == "gz") ext = "gzip";
+            response.headers["Content-Encoding"] = ext; ext = osgDB::getFileExtension(fileNoExt);
+        }
+        response.headers["Content-Type"] =
+            (mimeTypes.find(ext) != mimeTypes.end()) ? mimeTypes[ext] : "application/octet-stream";
+        response.code = 200; response.body.assign(data.begin(), data.end());
+    }
 }
 
 osg::Referenced* WebAuxiliary::socketListener(const std::string& host, int port, SocketMethod method,
