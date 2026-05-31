@@ -209,7 +209,7 @@ namespace osgVerse
 
             GLuint fboId = state->getGraphicsContext() ? state->getGraphicsContext()->getDefaultFboId() : 0;
             typedef std::map<osg::Camera*, osg::observer_ptr<osg::FrameBufferObject>> CamFboMap;
-#if OSG_VERSION_GREATER_THAN(3, 2, 0)
+#if OSG_VERSION_GREATER_THAN(3, 2, 0) && !defined(VERSE_ENABLE_MTT)  // FIXME: not work on MTT?
             if (glBlitNamedFramebufferFunc != NULL)
             {
                 // Try to blit specified depth buffer in pipeline FBOs to the following forward pass
