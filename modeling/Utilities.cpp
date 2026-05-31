@@ -257,6 +257,7 @@ std::vector<osg::ref_ptr<osg::Geometry>> MeshCollector::output(bool mergeAllStat
     else
     {
         // TODO
+        OSG_WARN << "[MeshCollector] Geometry output with separated statesets not implemented\n";
     }
     return geomList;
 }

@@ -9,6 +9,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "3rdparty/tiny_obj_loader.h"
@@ -24,6 +25,9 @@ public:
         supportsExtension("obj", "Wavefront OBJ format");
         supportsExtension("stl", "STereoLithography STL format");
         supportsExtension("off", "OFF format");
+        supportsOption("WriteImageHint=<hint>", "Export option: Hint of writing image for OBJ format: "
+                       "<WriteToDisk> writes the image file to the same folder of MTL; "
+                       "<OnlyFileName> writes only the filename to MTL.");
     }
 
     virtual const char* className() const
@@ -60,6 +64,44 @@ public:
         if (ext == "stl") return readSceneSTL(fin, dir, options);
         if (ext == "off") return readSceneOFF(fin, dir, options);
         else return readSceneOBJ(fin, dir, options);
+    }
+
+    virtual WriteResult writeNode(const osg::Node& node, const std::string& path, const osgDB::Options* options) const
+    {
+        std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (fileName.empty()) return WriteResult::FILE_NOT_HANDLED;
+
+        std::ofstream out(fileName, std::ios::out | std::ios::binary);
+        if (!out) return WriteResult::FILE_NOT_HANDLED;
+
+        osg::ref_ptr<Options> localOptions = NULL;
+        if (options) localOptions = options->cloneOptions();
+        else localOptions = new osgDB::Options();
+
+        localOptions->setPluginStringData("simple_name", osgDB::getStrippedName(fileName));
+        localOptions->setPluginStringData("prefix", osgDB::getFilePath(fileName));
+        localOptions->setPluginStringData("extension", ext);
+        return writeNode(node, out, localOptions.get());
+    }
+
+    virtual WriteResult writeNode(const osg::Node& node, std::ostream& fout, const osgDB::Options* options) const
+    {
+        std::string file = "output", dir, ext; bool success = false;
+        if (options)
+        {
+            file = options->getPluginStringData("simple_name");
+            ext = options->getPluginStringData("extension");
+            dir = options->getPluginStringData("Directory");
+            if (dir.empty()) dir = options->getPluginStringData("prefix");
+        }
+
+        if (dir.empty() && options && !options->getDatabasePathList().empty())
+            dir = options->getDatabasePathList().front();
+        if (dir.empty()) dir = ".";
+
+        if (ext != "obj") { return WriteResult::NOT_IMPLEMENTED; }
+        else success = writeSceneOBJ(node, fout, dir, file + ".mtl", options);
+        return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
 
 protected:
@@ -200,6 +242,107 @@ protected:
         return NULL;
     }
 
+    bool writeSceneOBJ(const osg::Node& node, std::ostream& fout, const std::string& dir,
+                       const std::string& mtlFile, const Options* options) const
+    {
+        osgVerse::MeshCollector mc; mc.setWeldingVertices(true); mc.setUseGlobalVertices(true);
+        osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+        mt->setMatrix(osg::Matrix::rotate(-osg::PI_2, osg::X_AXIS));  // change to OBJ coordinates
+        mt->addChild(const_cast<osg::Node*>(&node)); mt->accept(mc);
+        if (mc.getVertices().empty() || mc.getTriangles().empty()) return false;
+
+        std::vector<osg::ref_ptr<osg::Geometry>> outputs = mc.output(true);
+        if (outputs.empty()) return false;
+
+        osg::Geometry* geom = outputs.front().get(); std::vector<unsigned int> indices;
+        const osg::Vec3Array* va = dynamic_cast<const osg::Vec3Array*>(geom->getVertexArray());
+        const osg::Vec3Array* na = dynamic_cast<const osg::Vec3Array*>(geom->getNormalArray());
+        const osg::Vec2Array* ta = dynamic_cast<const osg::Vec2Array*>(geom->getTexCoordArray(0));
+        bool hasN = na && na->size() == va->size(), hasUV = ta && ta->size() == va->size();
+
+        osg::DrawElementsUInt* de = dynamic_cast<osg::DrawElementsUInt*>(geom->getPrimitiveSet(0));
+        if (!de)
+        {
+            osg::DrawElementsUShort* de2 = dynamic_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0));
+            if (de2) indices.assign(de2->begin(), de2->end()); else return false;
+        }
+        else indices.assign(de->begin(), de->end());
+
+        std::string mtlName = "default";
+        if (!node.getName().empty()) mtlName = node.getName() + "_mtl";
+        fout << "# osgVerse OBJ Mesh Writer\n";
+        if (geom->getStateSet()) fout << "mtllib " << mtlFile << "\n";
+        fout << "usemtl " << mtlName << "\n\n";
+
+        for (size_t i = 0; i < va->size(); ++i)
+            fout << "v " << (*va)[i].x() << ' ' << (*va)[i].y() << ' ' << (*va)[i].z() << '\n';
+        if (hasUV) for (size_t i = 0; i < ta->size(); ++i)
+            fout << "vt " << (*ta)[i].x() << ' ' << (*ta)[i].y() << '\n';
+        if (hasN) for (size_t i = 0; i < na->size(); ++i)
+            fout << "vn " << (*na)[i].x() << ' ' << (*na)[i].y() << ' ' << (*na)[i].z() << '\n';
+        
+        fout << '\n';
+        for (size_t i = 0; i < indices.size(); i += 3)
+        {
+            unsigned int i0 = indices[i] + 1, i1 = indices[i + 1] + 1, i2 = indices[i + 2] + 1;
+            if (hasUV && hasN)
+                fout << "f " << i0 << '/' << i0 << '/' << i0 << ' '
+                     << i1 << '/' << i1 << '/' << i1 << ' ' << i2 << '/' << i2 << '/' << i2 << '\n';
+            else if (hasUV)
+                fout << "f " << i0 << '/' << i0 << ' ' << i1 << '/' << i1 << ' ' << i2 << '/' << i2 << '\n';
+            else if (hasN)
+                fout << "f " << i0 << "//" << i0 << ' ' << i1 << "//" << i1 << ' ' << i2 << "//" << i2 << '\n';
+            else
+                fout << "f " << i0 << ' ' << i1 << ' ' << i2 << '\n';
+        }
+        if (geom->getStateSet())
+            writeMaterialOBJ(*(geom->getStateSet()), dir, mtlFile, mtlName, options);
+        return true;
+    }
+
+    void writeMaterialOBJ(osg::StateSet& ss, const std::string& dir, const std::string& mtlFile,
+                          const std::string& mtlName, const Options* options) const
+    {
+        std::string imageHint = (options) ? options->getPluginStringData("WriteImageHint") : "";
+        std::ofstream fout(dir + "/" + mtlFile); if (!fout) return;
+
+        osg::Material* mat = dynamic_cast<osg::Material*>(ss.getAttribute(osg::StateAttribute::MATERIAL));
+        fout << "# osgVerse OBJ Material Writer\n";
+        fout << "newmtl " << mtlName << "\n";
+        if (mat)
+        {
+            osg::Vec4 diffuse = mat->getDiffuse(osg::Material::FRONT), ambient = mat->getAmbient(osg::Material::FRONT);
+            osg::Vec4 specular = mat->getSpecular(osg::Material::FRONT), emission = mat->getEmission(osg::Material::FRONT);
+            fout << "Kd " << diffuse.r()  << ' ' << diffuse.g()  << ' ' << diffuse.b()  << "\n";
+            fout << "Ka " << ambient.r()  << ' ' << ambient.g()  << ' ' << ambient.b()  << "\n";
+            fout << "Ks " << specular.r() << ' ' << specular.g() << ' ' << specular.b() << "\n";
+            fout << "Ns " << mat->getShininess(osg::Material::FRONT) << "\n" << "d "  << diffuse.a() << "\n";
+            fout << "illum " << (emission.a() > 0.5f ? emission.r() : 1.0) << "\n";
+        }
+
+        for (unsigned unit = 0; unit < 8; ++unit)
+        {
+            const osg::Texture2D* tex = dynamic_cast<const osg::Texture2D*>(
+                ss.getTextureAttribute(unit, osg::StateAttribute::TEXTURE));
+            if (!tex || !tex->getImage()) continue;
+
+            std::string fn = osgDB::getSimpleFileName(tex->getImage()->getFileName());
+            std::string D = dir.empty() ? "" : (dir + "/"); if (fn.empty()) continue;
+            if (imageHint == "WriteToDisk") osgDB::writeImageFile(*(tex->getImage()), D + fn);
+
+            switch (unit)
+            {
+                case 0: fout << "map_Kd " << fn << "\n"; break;  // base color
+                case 1: fout << "map_Bump " << fn << "\n"; break;  // normal
+                case 2: fout << "map_Ks " << fn << "\n"; break;  // specular
+                case 3: fout << "map_ORM " << fn << "\n"; break;  // ORM
+                case 4: fout << "map_Ka " << fn << "\n"; break;  // ambient
+                case 5: fout << "map_Ke " << fn << "\n"; break;  // emissive
+                default: break;
+            }
+        }
+    }
+
     osg::Node* readSceneOBJ(std::istream& fin, const std::string& dir, const Options* options) const
     {
         tinyobj::attrib_t attrib;
@@ -315,7 +458,7 @@ protected:
 
     osg::Texture* createTexture2D(const std::string& file, const std::string& dir) const
     {
-        std::string texPath = dir + "/" + file;
+        std::string texPath = dir.empty() ? file : (dir + "/" + file);
         osg::ref_ptr<osg::Image> image = osgDB::readImageFile(texPath);
         if (image.valid())
         {
