@@ -210,6 +210,7 @@ namespace ozz
                 if (!va || (va && va->empty())) return;
 
                 size_t vCount = va->size(), wCount = jData._weightList.size();
+                if (vCount > SIZE_MAX / (sizeof(float) * 4)) return;  // guard: integer overflow in memcpy sizes
                 if (vCount != wCount)
                 {
                     OSG_WARN << "[PlayerAnimation] Imported joint-weight list size mismatched: "
@@ -512,7 +513,8 @@ namespace ozz
                 for (int i = 0; i < pCount; ++i) anim.translations_values_[i] = positions[i].key;
                 for (int i = 0; i < rCount; ++i) anim.rotations_values_[i] = rotations[i].key;
                 for (int i = 0; i < sCount; ++i) anim.scales_values_[i] = scales[i].key;
-                if (tCount > 0) memcpy(anim.timepoints_.data(), &timePoints[0], tCount * sizeof(float));
+                if (tCount > 0 && (size_t)tCount <= SIZE_MAX / sizeof(float))
+                    memcpy(anim.timepoints_.data(), &timePoints[0], (size_t)tCount * sizeof(float));
 
                 compressData(timePoints, positions, ozz::make_span(anim.translations_values_),
                              numSoaTracks, anim.translations_ctrl_);
