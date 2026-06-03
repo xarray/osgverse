@@ -56,8 +56,13 @@ namespace osgVerse
             return osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
-        typedef std::vector<std::pair<unsigned int, float>> JointWeights;
-        std::map<osg::Geometry*, std::vector<JointWeights>> _skinningDataList;
+        struct SkinningData
+        {
+            typedef std::vector<std::pair<unsigned int, float>> JointWeights;
+            std::map<osg::Geometry*, std::vector<JointWeights>> skinningDataList;
+            std::vector<std::pair<int, osg::Matrix>> boneIndexAndMatrices;
+        };
+        std::map<osg::Geode*, SkinningData> _skinningDataMap;
         
         std::map<unsigned int, osg::observer_ptr<osg::MatrixTransform>> _boneToNodeMap;
         std::map<unsigned int, osg::ref_ptr<osg::MatrixTransform>> _nodes;
@@ -65,7 +70,6 @@ namespace osgVerse
         std::map<ufbx_material*, osg::ref_ptr<osg::StateSet>> _materials;
         std::map<osg::Transform*, PlayerAnimation::AnimationData> _animations;
         std::map<osg::Transform*, std::pair<int, osg::Vec3d>> _animationStates;
-        std::vector<std::pair<int, osg::Matrix>> _boneIndexAndMatrices;
 
         osg::ref_ptr<osg::MatrixTransform> _root;
         ufbx_scene* _scene;

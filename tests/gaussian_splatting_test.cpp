@@ -19,6 +19,7 @@
 #include <modeling/AnnotationMaker.h>
 #include <modeling/GaussianGeometry.h>
 #include <pipeline/Pipeline.h>
+#include <pipeline/MultiEffectNode.h>
 #include <pipeline/ResourceManager.h>
 #include <pipeline/Utilities.h>
 #include <ui/Utilities.h>

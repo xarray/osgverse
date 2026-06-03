@@ -1384,7 +1384,7 @@ namespace osgVerse
         BlendShapeAnimation* bsa = dynamic_cast<BlendShapeAnimation*>(geom->getUpdateCallback());
         if (!bsa)
         {
-            bsa = new BlendShapeAnimation; bsa->setName(geom->getName() + "BsCallback");
+            bsa = new BlendShapeAnimation; bsa->setName(geom->getName() + "_BsCallback");
             geom->setUpdateCallback(bsa);
         }
 

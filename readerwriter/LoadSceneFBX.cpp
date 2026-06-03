@@ -72,10 +72,33 @@ namespace osgVerse
 #endif
 
         // Handle skeletons
-        for (std::map<osg::Geometry*, std::vector<JointWeights>>::iterator it = _skinningDataList.begin();
-             it != _skinningDataList.end(); ++it)
+        for (std::map<osg::Geode*, SkinningData>::iterator it = _skinningDataMap.begin();
+             it != _skinningDataMap.end(); ++it)
         {
-            // TODO: <bone_id, weight> to <node, weight>
+            SkinningData& sd = it->second;
+            std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> jointDataMap;
+            
+            for (std::map<osg::Geometry*, std::vector<SkinningData::JointWeights>>::iterator
+                 it2 = sd.skinningDataList.begin(); it2 != sd.skinningDataList.end(); ++it2)
+            {
+                PlayerAnimation::GeometryJointData& jointData = jointDataMap[it2->first];
+                jointData._stateset = it2->first->getStateSet();
+
+                std::vector<SkinningData::JointWeights>& jWeights = it2->second;
+                jointData._weightList.resize(jWeights.size());
+                for (size_t i = 0; i < jWeights.size(); ++i)
+                {
+                    SkinningData::JointWeights& jw0 = jWeights[i];
+                    PlayerAnimation::GeometryJointData::JointWeights jw1 = jointData._weightList[i];
+                    for (size_t j = 0; j < jw0.size(); ++j)
+                    {
+                        unsigned int boneId = jw0[j].first; float w = jw0[j].second;
+                        if (_boneToNodeMap.find(boneId) != _boneToNodeMap.end())
+                            jw1.push_back(std::pair<osg::Transform*, float>(_boneToNodeMap[boneId].get(), w));
+                    }
+                }
+            }
+            OSG_NOTICE << "Skeleton " << it->first->getName() << ": not implemented\n";
         }
 
         // Handle animations
@@ -131,8 +154,14 @@ namespace osgVerse
                     ch.first.push_back(prop); ch.second = std::pair<int, bool>(order, srcNode->bone != NULL);
                 }
                 break;
+            case UFBX_ELEMENT_MESH:
+                OSG_NOTICE << "[LoaderFBX] Animation on 'mesh' not implemented: " << prop.prop_name.data << "\n"; break;  // TODO
+            case UFBX_ELEMENT_CAMERA:
+                OSG_NOTICE << "[LoaderFBX] Animation on 'camera' not implemented: " << prop.prop_name.data << "\n"; break;  // TODO
+            case UFBX_ELEMENT_BLEND_CHANNEL:
+                OSG_NOTICE << "[LoaderFBX] Animation on 'blend-shape' not implemented: " << prop.prop_name.data << "\n"; break;  // TODO
             default:
-                OSG_NOTICE << "[LoaderFBX] Animation target " << prop.element->type << " not implemeneted\n"; break;
+                OSG_NOTICE << "[LoaderFBX] Animation on " << prop.element->type << " not implemented: " << prop.prop_name.data << "\n"; break;
             }
         }
 
@@ -146,7 +175,9 @@ namespace osgVerse
             for (size_t i = 0; i < props.size(); ++i) createAnimation(animData, layer, props[i], orderAndBone.first);
 
             if (orderAndBone.second)  // MT is bone node
-            {}  // TODO
+            {
+                OSG_NOTICE << "Bone animation " << layerName << " on " << mt->getName() << ": not implemented\n";  // TODO
+            }
             else
             {   // non-skeleton animations
                 TweenAnimation* tween = dynamic_cast<TweenAnimation*>(mt->getUpdateCallback());
@@ -208,7 +239,7 @@ namespace osgVerse
             osg::Vec3 position, normal, tangent;
             osg::Vec2 uv; osg::Vec4 color; unsigned int index;
         };
-        struct SkinVertex { uint8_t bone_index[4]; float bone_weight[4]; };
+        struct SkinVertex { uint32_t bone_index[4]; float bone_weight[4]; };
 
         osg::ref_ptr<osg::Geode> geode = new osg::Geode;
         geode->setName(std::string(srcMesh->name.data, srcMesh->name.length));
@@ -232,11 +263,12 @@ namespace osgVerse
         ufbx_skin_deformer* skin = NULL;
         if (srcMesh->skin_deformers.count > 0)
         {
+            SkinningData& sd = _skinningDataMap[geode.get()];
             skin = srcMesh->skin_deformers.data[0];
             for (size_t ci = 0; ci < skin->clusters.count; ci++)
             {
                 ufbx_skin_cluster* cluster = skin->clusters.data[ci];
-                _boneIndexAndMatrices.push_back(
+                sd.boneIndexAndMatrices.push_back(
                     std::pair<int, osg::Matrix>(cluster->bone_node->typed_id, toMatrix(cluster->geometry_to_bone)));
                 num_bones++;
             }
@@ -244,7 +276,7 @@ namespace osgVerse
             // Pre-calculate the skinned vertex bones/weights for each vertex
             for (size_t vi = 0; vi < srcMesh->num_vertices; vi++)
             {
-                size_t num_weights = 0; uint8_t clusters[4] = { 0 };
+                size_t num_weights = 0; uint32_t clusters[4] = { 0 };
                 float total_weight = 0.0f, weights[4] = { 0.0f };
 
                 // Pick the first N weights to use and get a reasonable approximation of the skinning
@@ -255,8 +287,9 @@ namespace osgVerse
                     ufbx_skin_weight weight = skin->weights.data[vertex_weights.weight_begin + wi];
                     //if (weight.cluster_index >= MAX_BONES) continue;
 
+                    ufbx_skin_cluster* cluster = skin->clusters.data[weight.cluster_index];
                     total_weight += (float)weight.weight;
-                    clusters[num_weights] = (uint8_t)weight.cluster_index;
+                    clusters[num_weights] = (uint32_t)cluster->bone_node->typed_id;
                     weights[num_weights] = (float)weight.weight; num_weights++;
                 }
 
@@ -275,25 +308,9 @@ namespace osgVerse
             }
         }
 
-        // Fetch blend channels from all attached blend deformers
-        std::vector<ufbx_blend_channel*> blend_channels;
-        for (size_t di = 0; di < srcMesh->blend_deformers.count; di++)
-        {
-            ufbx_blend_deformer* deformer = srcMesh->blend_deformers.data[di];
-            for (size_t ci = 0; ci < deformer->channels.count; ci++)
-            {
-                ufbx_blend_channel* chan = deformer->channels.data[ci];
-                if (chan->keyframes.count == 0) continue;
-                blend_channels.push_back(chan); num_blend_shapes++;
-            }
-
-            // TODO: https://github.com/ufbx/ufbx/blob/main/examples/viewer/viewer.c
-            if (deformer->channels.count > 0)
-            { OSG_NOTICE << "[LoaderFBX] Blendshapes of " << deformer->name.data << " not handled\n"; }
-        }
-
         // Split the mesh into parts by material
         ufbx_vec4 default_v4 = {0}; ufbx_vec3 default_v3 = {0}; ufbx_vec2 default_v2 = {0};
+        std::map<osg::Geometry*, std::vector<unsigned int>> srcMeshIndexMap;
         for (size_t pi = 0; pi < srcMesh->material_parts.count; pi++)
         {
             ufbx_mesh_part* mesh_part = &(srcMesh->material_parts.data[pi]);
@@ -360,11 +377,12 @@ namespace osgVerse
             osg::Vec3Array* ta = withTangents ? new osg::Vec3Array(num_vertices) : NULL;
             osg::Vec4Array* ca = withColors ? new osg::Vec4Array(num_vertices) : NULL;
             osg::Vec2Array* uv = withUVs ? new osg::Vec2Array(num_vertices) : NULL;
+            std::vector<unsigned int>& idx = srcMeshIndexMap[geom.get()]; idx.resize(num_vertices);
             for (size_t i = 0; i < num_vertices; ++i)
             {
                 const MeshVertex& mv = vertices[i]; (*va)[i] = mv.position * matrix;
                 if (withNormals) (*na)[i] = mv.normal; if (withTangents) (*ta)[i] = mv.tangent;
-                if (withColors) (*ca)[i] = mv.color; if (withUVs) (*uv)[i] = mv.uv;
+                if (withColors) (*ca)[i] = mv.color; if (withUVs) (*uv)[i] = mv.uv; idx[i] = mv.index;
             }
             
             geom->setName(geode->getName() + "_" + std::to_string(pi));
@@ -381,16 +399,76 @@ namespace osgVerse
 
             if (skin)
             {
-                std::vector<JointWeights>& weightList = _skinningDataList[geom.get()];
+                SkinningData& sd = _skinningDataMap[geode.get()];
+                std::vector<SkinningData::JointWeights>& weightList = sd.skinningDataList[geom.get()];
                 weightList.resize(num_vertices);
                 for (size_t i = 0; i < num_vertices; ++i)
                 {
-                    const SkinVertex& skv = skin_vertices[i]; JointWeights jw(4);
+                    const SkinVertex& skv = skin_vertices[i];
+                    SkinningData::JointWeights& jw = weightList[i]; jw.resize(4);
                     for (int k = 0; k < 4; ++k) { jw[k].first = skv.bone_index[k]; jw[k].second = skv.bone_weight[k]; }
                 }
             }
             geode->addDrawable(geom.get());
         }  // for (size_t pi = 0; pi < srcMesh->material_parts.count; pi++)
+
+
+        // Fetch blend channels from all attached blend deformers
+        for (size_t di = 0; di < srcMesh->blend_deformers.count; di++)
+        {
+            ufbx_blend_deformer* deformer = srcMesh->blend_deformers.data[di];
+            if (deformer->channels.count > 0)
+            {   // Set blendshape callback for every geometries
+                std::string bsName(deformer->name.data, deformer->name.length);
+                for (size_t i = 0; i < geode->getNumDrawables(); ++i)
+                {
+                    osg::Geometry* geom = static_cast<osg::Geometry*>(geode->getDrawable(i));
+                    BlendShapeAnimation* bsa = dynamic_cast<BlendShapeAnimation*>(geom->getUpdateCallback());
+                    if (!bsa)
+                    {
+                        bsa = new BlendShapeAnimation; bsa->setName(bsName + "_BsCallback");
+                        geom->setUpdateCallback(bsa);
+                    }
+                }
+            }
+
+            for (size_t ci = 0; ci < deformer->channels.count; ci++)
+            {   // Get offsets from blend channels and apply them to the callback
+                ufbx_blend_channel* chan = deformer->channels.data[ci];
+                if (chan->keyframes.count == 0) continue; num_blend_shapes++;
+
+                ufbx_blend_shape* shape = chan->keyframes.data[chan->keyframes.count - 1].shape;
+                std::map<unsigned int, osg::Vec3> deltaP, deltaN;
+                for (size_t i = 0; i < shape->offset_vertices.count; ++i)
+                {
+                    unsigned int srcIdx = shape->offset_vertices.data[i];
+                    if (shape->position_offsets.count > 0) deltaP[srcIdx] = toVec3(shape->position_offsets.data[i]);
+                    if (shape->normal_offsets.count > 0) deltaN[srcIdx] = toVec3(shape->normal_offsets.data[i]);
+                }
+                
+                std::string chName(chan->name.data, chan->name.length);
+                for (size_t i = 0; i < geode->getNumDrawables(); ++i)
+                {
+                    osg::Geometry* geom = static_cast<osg::Geometry*>(geode->getDrawable(i));
+                    std::vector<unsigned int>& idx = srcMeshIndexMap[geom]; if (idx.empty()) continue;
+
+                    BlendShapeAnimation::BlendShapeData* bsd = new BlendShapeAnimation::BlendShapeData;
+                    {
+                        if (!deltaP.empty()) bsd->vertices = new osg::Vec3Array(idx.size());
+                        if (!deltaN.empty()) bsd->normals = new osg::Vec3Array(idx.size());
+                        for (size_t j = 0; j < idx.size(); ++j)
+                        {
+                            unsigned int srcID = idx[j];
+                            if (deltaP.find(srcID) != deltaP.end()) (*bsd->vertices)[j] = deltaP[srcID];
+                            if (deltaN.find(srcID) != deltaN.end()) (*bsd->normals)[j] = deltaN[srcID];
+                        }
+                    }
+
+                    BlendShapeAnimation* bsa = dynamic_cast<BlendShapeAnimation*>(geom->getUpdateCallback());
+                    bsd->weight = chan->weight; bsa->addBlendShapeData(bsd); bsa->registerBlendShape(chName, bsd);
+                }
+            }
+        }
         return geode.release();
     }
 

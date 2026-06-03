@@ -210,11 +210,10 @@ namespace ozz
                 if (!va || (va && va->empty())) return;
 
                 size_t vCount = va->size(), wCount = jData._weightList.size();
-                if (vCount > SIZE_MAX / (sizeof(float) * 4)) return;  // guard: integer overflow in memcpy sizes
-                if (vCount != wCount)
+                if (vCount > SIZE_MAX / (sizeof(float) * 4) || vCount != wCount)
                 {
                     OSG_WARN << "[PlayerAnimation] Imported joint-weight list size mismatched: "
-                             << wCount << " != (vertex count) " << vCount << std::endl;
+                             << wCount << "; vertex count: " << vCount << std::endl;
                     return;
                 }
 

@@ -1,14 +1,14 @@
 SET(LIB_NAME osgVersePipeline)
 SET(LIBRARY_INCLUDE_FILES
-    Pipeline.h DeferredCallback.h UserInputModule.h ShadowModule.h LightModule.h
-    LightDrawable.h HistoryBufferCallback.h SkyBox.h NodeSelector.h ResourceManager.h
+    Pipeline.h DeferredCallback.h UserInputModule.h ShadowModule.h LightModule.h HistoryBufferCallback.h
+    ResourceManager.h LightDrawable.h SkyBox.h NodeSelector.h MultiEffectNode.h
     SymbolManager.h Drawer2D.h IncrementalCompiler.h IntersectionManager.h Rasterizer.h
     ShaderLibrary.h RenderCallbackXR.h NISUpscaler.h Utilities.h Global.h Allocator.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     Pipeline.cpp PipelineStandard.cpp PipelineLoader.cpp DeferredCallback.cpp UserInputModule.cpp
     ShadowModule.cpp LightModule.cpp LightDrawable.cpp HistoryBufferCallback.cpp ResourceManager.cpp
-    SkyBox.cpp NodeSelector.cpp SymbolManager.cpp Drawer2D.cpp IncrementalCompiler.cpp
+    SkyBox.cpp NodeSelector.cpp MultiEffectNode.cpp SymbolManager.cpp Drawer2D.cpp IncrementalCompiler.cpp
     IntersectionManager.cpp Rasterizer.cpp ShaderLibrary.cpp RenderCallbackXR.cpp
     NISUpscaler.cpp Utilities.cpp UtilitiesEx.cpp
 )
