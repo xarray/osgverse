@@ -37,6 +37,7 @@ public:
     virtual void apply(osg::Camera& camera)
     {
         osg::Matrix matrix;
+        osg::Matrix negP = osg::Matrix::translate(-_pivotPoint), posP = osg::Matrix::translate(_pivotPoint);
         if (_useInverseMatrix) _cp.getInverse(matrix); else _cp.getMatrix(matrix);
 
         osg::View* view = camera.getView();
@@ -44,12 +45,9 @@ public:
         {
             osgViewer::View* view1 = dynamic_cast<osgViewer::View*>(view);
             if (view1 && view1->getCameraManipulator())
-            {
-                view1->getCameraManipulator()->setByInverseMatrix(
-                    osg::Matrix::translate(-_pivotPoint) * matrix); return;
-            }
+            { view1->getCameraManipulator()->setByInverseMatrix(negP * matrix * posP); return; }
         }
-        camera.setViewMatrix(osg::Matrix::translate(-_pivotPoint) * matrix);
+        camera.setViewMatrix(negP * matrix * posP);
     }
 
     virtual void apply(osg::CameraView& cv)
@@ -71,10 +69,8 @@ public:
 
     virtual void apply(osg::MatrixTransform& mt)
     {
-        osg::Matrix matrix;
-        if (_useInverseMatrix) _cp.getInverse(matrix);
-        else _cp.getMatrix(matrix);
-        mt.setMatrix(osg::Matrix::translate(-_pivotPoint) * matrix);
+        osg::Matrix matrix; if (_useInverseMatrix) _cp.getInverse(matrix); else _cp.getMatrix(matrix);
+        mt.setMatrix(osg::Matrix::translate(-_pivotPoint) * matrix * osg::Matrix::translate(_pivotPoint));
     }
 
     virtual void apply(osg::PositionAttitudeTransform& pat)
@@ -82,7 +78,7 @@ public:
         if (_useInverseMatrix)
         {
             osg::Matrix matrix; _cp.getInverse(matrix);
-            pat.setPosition(matrix.getTrans());
+            pat.setPosition(matrix.getTrans() + _pivotPoint);
             pat.setAttitude(_cp.getRotation().inverse());
             pat.setScale(osg::Vec3(
                 1.0f / _cp.getScale().x(), 1.0f / _cp.getScale().y(), 1.0f / _cp.getScale().z()));
@@ -90,7 +86,7 @@ public:
         }
         else
         {
-            pat.setPosition(_cp.getPosition());
+            pat.setPosition(_cp.getPosition() + _pivotPoint);
             pat.setAttitude(_cp.getRotation());
             pat.setScale(_cp.getScale());
             pat.setPivotPoint(_pivotPoint);

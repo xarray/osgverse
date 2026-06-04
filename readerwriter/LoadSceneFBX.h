@@ -36,7 +36,7 @@ namespace osgVerse
         inline osg::Vec2 toVec2(const ufbx_vec2& v) const { return osg::Vec2(v.x, v.y); }
         inline osg::Vec3 toVec3(const ufbx_vec3& v) const { return osg::Vec3(v.x, v.y, v.z); }
         inline osg::Vec4 toVec4(const ufbx_vec4& v) const { return osg::Vec4(v.x, v.y, v.z, v.w); }
-        inline osg::Quat toQuat(const ufbx_quat& v) const { return osg::Vec4(v.x, v.y, v.z, v.w); }
+        inline osg::Quat toQuat(const ufbx_quat& v) const { return osg::Quat(v.x, v.y, v.z, v.w); }
         inline osg::Matrix toMatrix(const ufbx_matrix& m) const
         {
             return osg::Matrix(m.m00, m.m10, m.m20, 0.0,
@@ -68,6 +68,7 @@ namespace osgVerse
         std::map<unsigned int, osg::ref_ptr<osg::MatrixTransform>> _nodes;
         std::map<unsigned int, osg::ref_ptr<osg::Image>> _images;
         std::map<ufbx_material*, osg::ref_ptr<osg::StateSet>> _materials;
+        std::map<ufbx_material*, osg::ref_ptr<osg::Texture>> _ormTextureMap;
         std::map<osg::Transform*, PlayerAnimation::AnimationData> _animations;
         std::map<osg::Transform*, std::pair<int, osg::Vec3d>> _animationStates;
 

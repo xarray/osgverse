@@ -11,8 +11,11 @@
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osgUtil/SmoothingVisitor>
+#include <iostream>
+#include <sstream>
 
 #include "pipeline/Utilities.h"
+#include "readerwriter/Utilities.h"
 #include "animation/TweenAnimation.h"
 #include "animation/BlendShapeAnimation.h"
 #include "LoadSceneFBX.h"
@@ -43,6 +46,7 @@ namespace osgVerse
         opts.load_external_files = true;
         opts.ignore_missing_external_files = true;
         opts.generate_missing_normals = true;
+        opts.pivot_handling = UFBX_PIVOT_HANDLING_RETAIN;
         opts.target_axes.right = UFBX_COORDINATE_AXIS_POSITIVE_X;
         opts.target_axes.up = UFBX_COORDINATE_AXIS_POSITIVE_Z;
         opts.target_axes.front = UFBX_COORDINATE_AXIS_NEGATIVE_Y;
@@ -140,6 +144,7 @@ namespace osgVerse
     {
         typedef std::pair<std::vector<ufbx_anim_prop>, std::pair<int, bool>> AnimationChannel;
         std::map<osg::MatrixTransform*, AnimationChannel> nodeAnimChannels;
+        std::map<osg::MatrixTransform*, osg::Vec3> nodePivots;
         for (size_t i = 0; i < layer->anim_props.count; ++i)
         {
             const ufbx_anim_prop& prop = layer->anim_props[i];
@@ -148,8 +153,15 @@ namespace osgVerse
             case UFBX_ELEMENT_NODE:
                 if (_nodes.find(prop.element->typed_id) != _nodes.end())
                 {
-                    ufbx_node* srcNode = _scene->nodes[prop.element->typed_id];
-                    osg::MatrixTransform* mt = _nodes[prop.element->typed_id].get();
+                    ufbx_node* srcNode = _scene->nodes[prop.element->typed_id]; osg::Vec3 pivot;
+                    for (size_t p = 0; p < srcNode->props.props.count; ++p)
+                    {
+                        ufbx_prop& prop = srcNode->props.props[p];
+                        std::string pName(prop.name.data, prop.name.length);
+                        if (pName == UFBX_RotationPivot) pivot = toVec3(prop.value_vec3);
+                    }
+
+                    osg::MatrixTransform* mt = _nodes[prop.element->typed_id].get(); nodePivots[mt] = pivot;
                     AnimationChannel& ch = nodeAnimChannels[mt]; int order = (int)srcNode->rotation_order;
                     ch.first.push_back(prop); ch.second = std::pair<int, bool>(order, srcNode->bone != NULL);
                 }
@@ -174,6 +186,7 @@ namespace osgVerse
             osg::MatrixTransform* mt = it->first; std::pair<int, bool>& orderAndBone = it->second.second;
             for (size_t i = 0; i < props.size(); ++i) createAnimation(animData, layer, props[i], orderAndBone.first);
 
+            osg::Vec3 pivot = nodePivots[mt];
             if (orderAndBone.second)  // MT is bone node
             {
                 OSG_NOTICE << "Bone animation " << layerName << " on " << mt->getName() << ": not implemented\n";  // TODO
@@ -182,7 +195,7 @@ namespace osgVerse
             {   // non-skeleton animations
                 TweenAnimation* tween = dynamic_cast<TweenAnimation*>(mt->getUpdateCallback());
                 if (!tween) { tween = new TweenAnimation; mt->addUpdateCallback(tween); }
-                tween->addAnimation(layerName, animData.toAnimationPath());
+                tween->setPivotPoint(pivot); tween->addAnimation(layerName, animData.toAnimationPath());
             }
         }
     }
@@ -191,6 +204,7 @@ namespace osgVerse
                                     ufbx_anim_layer* layer, const ufbx_anim_prop& prop, int order)
     {
         ufbx_anim_value* animValues = prop.anim_value; std::map<double, osg::Vec3> kfMap;
+        std::string propName(prop.prop_name.data, prop.prop_name.length);
         osg::Vec3 def = toVec3(animValues->default_value);
         for (int i = 0; i < 3; ++i)
         {
@@ -199,18 +213,17 @@ namespace osgVerse
             {
                 double t = animCurve->keyframes[k].time;
                 if (kfMap.find(t) == kfMap.end()) kfMap[t] = def;
-                kfMap[t][i] = animCurve->keyframes[k].value;  // FIXME: not considering handles?
+                kfMap[t][i] = animCurve->keyframes[k].value;
             }
         }
 
-        std::string propName(prop.prop_name.data, prop.prop_name.length);
         std::vector<std::pair<float, osg::Vec3>> keyframes; if (kfMap.empty()) return;
         for (std::map<double, osg::Vec3>::iterator it = kfMap.begin(); it != kfMap.end(); ++it)
-             keyframes.push_back(std::pair<float, osg::Vec3>((float)it->first, it->second));
+            keyframes.push_back(std::pair<float, osg::Vec3>((float)it->first, it->second));
         
         ufbx_rotation_order rotOrder = (ufbx_rotation_order)order;
-        if (propName.find(UFBX_Lcl_Translation) != std::string::npos) anim._positionFrames = keyframes;
-        else if (propName.find(UFBX_Lcl_Scaling) != std::string::npos) anim._scaleFrames = keyframes;
+        if (propName.find(UFBX_Lcl_Translation) != std::string::npos) anim._positionFrames.swap(keyframes);
+        else if (propName.find(UFBX_Lcl_Scaling) != std::string::npos) anim._scaleFrames.swap(keyframes);
         else if (propName.find(UFBX_Lcl_Rotation) != std::string::npos)
         {
             anim._rotationFrames.resize(keyframes.size());
@@ -478,20 +491,79 @@ namespace osgVerse
         {
             osg::ref_ptr<osg::StateSet> ss = new osg::StateSet;
             ss->setName(std::string(mtl->name.data, mtl->name.length));
+#if false
+            std::stringstream sstream;
+#define CHECK_TEX_STATE(val) if (mtl-> val .texture) sstream << " " << #val
+            CHECK_TEX_STATE(pbr.base_color); CHECK_TEX_STATE(pbr.base_factor); CHECK_TEX_STATE(pbr.roughness); CHECK_TEX_STATE(pbr.metalness);
+			CHECK_TEX_STATE(pbr.diffuse_roughness); CHECK_TEX_STATE(pbr.specular_factor); CHECK_TEX_STATE(pbr.specular_color);
+			CHECK_TEX_STATE(pbr.specular_ior); CHECK_TEX_STATE(pbr.specular_anisotropy); CHECK_TEX_STATE(pbr.specular_rotation);
+			CHECK_TEX_STATE(pbr.transmission_factor); CHECK_TEX_STATE(pbr.transmission_color); CHECK_TEX_STATE(pbr.transmission_depth);
+			CHECK_TEX_STATE(pbr.transmission_scatter); CHECK_TEX_STATE(pbr.transmission_scatter_anisotropy);
+			CHECK_TEX_STATE(pbr.transmission_dispersion); CHECK_TEX_STATE(pbr.transmission_roughness); CHECK_TEX_STATE(pbr.transmission_extra_roughness);
+			CHECK_TEX_STATE(pbr.transmission_priority); CHECK_TEX_STATE(pbr.transmission_enable_in_aov); CHECK_TEX_STATE(pbr.subsurface_factor);
+			CHECK_TEX_STATE(pbr.subsurface_color); CHECK_TEX_STATE(pbr.subsurface_radius); CHECK_TEX_STATE(pbr.subsurface_scale);
+			CHECK_TEX_STATE(pbr.subsurface_anisotropy); CHECK_TEX_STATE(pbr.subsurface_tint_color); CHECK_TEX_STATE(pbr.subsurface_type);
+			CHECK_TEX_STATE(pbr.sheen_factor); CHECK_TEX_STATE(pbr.sheen_color); CHECK_TEX_STATE(pbr.sheen_roughness);
+			CHECK_TEX_STATE(pbr.coat_factor); CHECK_TEX_STATE(pbr.coat_color); CHECK_TEX_STATE(pbr.coat_roughness); CHECK_TEX_STATE(pbr.coat_ior);
+			CHECK_TEX_STATE(pbr.coat_anisotropy); CHECK_TEX_STATE(pbr.coat_rotation); CHECK_TEX_STATE(pbr.coat_normal);
+			CHECK_TEX_STATE(pbr.coat_affect_base_color); CHECK_TEX_STATE(pbr.coat_affect_base_roughness); CHECK_TEX_STATE(pbr.thin_film_factor);
+			CHECK_TEX_STATE(pbr.thin_film_thickness); CHECK_TEX_STATE(pbr.thin_film_ior); CHECK_TEX_STATE(pbr.emission_factor);
+			CHECK_TEX_STATE(pbr.emission_color); CHECK_TEX_STATE(pbr.opacity); CHECK_TEX_STATE(pbr.indirect_diffuse);
+            CHECK_TEX_STATE(pbr.indirect_specular); CHECK_TEX_STATE(pbr.normal_map); CHECK_TEX_STATE(pbr.tangent_map);
+			CHECK_TEX_STATE(pbr.displacement_map); CHECK_TEX_STATE(pbr.matte_factor); CHECK_TEX_STATE(pbr.matte_color);
+			CHECK_TEX_STATE(pbr.ambient_occlusion); CHECK_TEX_STATE(pbr.glossiness); CHECK_TEX_STATE(pbr.coat_glossiness);
+			CHECK_TEX_STATE(pbr.transmission_glossiness); CHECK_TEX_STATE(fbx.diffuse_factor); CHECK_TEX_STATE(fbx.diffuse_color);
+			CHECK_TEX_STATE(fbx.specular_factor); CHECK_TEX_STATE(fbx.specular_color); CHECK_TEX_STATE(fbx.specular_exponent);
+			CHECK_TEX_STATE(fbx.reflection_factor); CHECK_TEX_STATE(fbx.reflection_color); CHECK_TEX_STATE(fbx.transparency_factor);
+            CHECK_TEX_STATE(fbx.transparency_color); CHECK_TEX_STATE(fbx.emission_factor); CHECK_TEX_STATE(fbx.emission_color);
+			CHECK_TEX_STATE(fbx.ambient_factor); CHECK_TEX_STATE(fbx.ambient_color); CHECK_TEX_STATE(fbx.normal_map); CHECK_TEX_STATE(fbx.bump);
+			CHECK_TEX_STATE(fbx.bump_factor); CHECK_TEX_STATE(fbx.displacement_factor); CHECK_TEX_STATE(fbx.displacement);
+			CHECK_TEX_STATE(fbx.vector_displacement_factor); CHECK_TEX_STATE(fbx.vector_displacement);
+            OSG_NOTICE << "[LoaderFBX] " << ss->getName() << " has textures:" << sstream.str() << "\n";
+#endif
             //if (mtl->features.pbr.enabled)
             {
                 osg::ref_ptr<osg::Texture> tD = applyMaterialData(&(mtl->pbr.base_color), &(mtl->pbr.base_factor));
                 osg::ref_ptr<osg::Texture> tN = applyMaterialData(&(mtl->pbr.normal_map), NULL);
                 osg::ref_ptr<osg::Texture> tS = applyMaterialData(&(mtl->pbr.specular_color), &(mtl->pbr.specular_factor));
                 osg::ref_ptr<osg::Texture> tE = applyMaterialData(&(mtl->pbr.emission_color), &(mtl->pbr.emission_factor));
+                osg::ref_ptr<osg::Texture> tORM;
+
                 if (_usingMaterialPBR > 1 || (tN.valid() && _usingMaterialPBR > 0))
-                {   // PBR materials
-                    // TODO: read and combine O-R-M
+                {   // PBR materials: read and combine O-R-M
+                    if (_ormTextureMap.find(mtl) == _ormTextureMap.end())
+                    {
+                        osg::ref_ptr<osg::Texture> tO = applyMaterialData(&(mtl->pbr.ambient_occlusion), NULL);
+                        osg::ref_ptr<osg::Texture> tR = applyMaterialData(&(mtl->pbr.roughness), NULL);
+                        osg::ref_ptr<osg::Texture> tM = applyMaterialData(&(mtl->pbr.metalness), NULL);
+                        bool compressed = tO.valid() ? tO->getImage(0)->isCompressed() : false;
+                        if (tR.valid())
+                        {
+                            compressed = tR->getImage(0)->isCompressed(); tORM = tR;
+                            if (tM.valid()) tORM = constructOcclusionRoughnessMetallic(tORM, tM.get(), -1, -1, 0);
+                            if (tO.valid()) tORM = constructOcclusionRoughnessMetallic(tORM, tO.get(), 0, -1, -1);
+                        }
+                        else if (tM.valid())
+                        {
+                            compressed = tM->getImage(0)->isCompressed(); tORM = tM;
+                            if (tO.valid()) tORM = constructOcclusionRoughnessMetallic(tORM, tO.get(), 0, -1, -1);
+                        }
+                        else if (tO.valid()) tORM = tO;
+                        
+                        if (compressed)
+                        {
+                            if (tORM->getNumImages() > 0) tORM->setImage(0, compressImage(*tORM->getImage(0)));
+                            tORM->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+                        }
+                        if (tORM.valid()) _ormTextureMap[mtl] = tORM;
+                    }
+                    else tORM = _ormTextureMap[mtl];
                 }
 
                 if (tD.valid()) ss->setTextureAttributeAndModes(0, tD.get());
                 if (tN.valid()) ss->setTextureAttributeAndModes(1, tN.get());
-                if (tS.valid()) ss->setTextureAttributeAndModes(4, tS.get());
+                if (tS.valid()) ss->setTextureAttributeAndModes(2, tS.get());
+                if (tORM.valid()) ss->setTextureAttributeAndModes(3, tORM.get());
                 if (tE.valid()) ss->setTextureAttributeAndModes(5, tE.get());
             }
 
@@ -513,7 +585,7 @@ namespace osgVerse
         ufbx_wrap_mode wrapU = UFBX_WRAP_REPEAT, wrapV = UFBX_WRAP_REPEAT;
         if (color->texture)
         {
-            std::string fileName = StringAuxiliary::convertNativePath(
+            std::string realName, fileName = StringAuxiliary::convertNativePath(
                 std::string(color->texture->relative_filename.data, color->texture->relative_filename.length));
             if (_images.find(color->texture->file_index) != _images.end()) image = _images[color->texture->file_index];
 
@@ -529,7 +601,7 @@ namespace osgVerse
                 std::vector<char> data(ptr, ptr + color->texture->content.size);
                 std::stringstream stream(std::ios::in | std::ios::out | std::ios::binary);
                 stream.write((char*)data.data(), data.size());
-                image = rw->readImage(stream).takeImage();
+                image = rw->readImage(stream).takeImage(); realName = "embedded media";
             }
             
             if (!color->texture->has_file) return NULL;
@@ -538,12 +610,18 @@ namespace osgVerse
                 std::string fullName = StringAuxiliary::convertNativePath(
                     std::string(color->texture->absolute_filename.data, color->texture->absolute_filename.length));
                 image = rw->readImage(fullName).takeImage();
-                if (!image) image = rw->readImage(_workingDir + fileName).takeImage();
-                if (!image) image = rw->readImage(_workingDir + simpleFile).takeImage();
+                if (!image) image = rw->readImage(_workingDir + fileName).takeImage(); else realName = fullName;
+                if (!image) image = rw->readImage(_workingDir + simpleFile).takeImage(); else realName = _workingDir + fileName;
                 if (!image) OSG_NOTICE << "[LoaderFBX] Failed to load texture image: " << fileName << "\n";
+                else realName = _workingDir + simpleFile;
             }
+
             wrapU = color->texture->wrap_u; wrapV = color->texture->wrap_v;
-            if (image.valid()) _images[color->texture->file_index] = image;
+            if (image.valid())
+            {
+                _images[color->texture->file_index] = image;
+                OSG_INFO << "[LoaderFBX] Loaded image from " << realName << std::endl;
+            }
         }
 
         // TODO: handle factor in a more detailed way?
