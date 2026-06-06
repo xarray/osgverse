@@ -58,7 +58,7 @@ if !QuietMode!==0 (
 )
 
 if "!BuildMode!"=="0" (
-    set BuildResultChecker=build\sdk_def\lib\osgViewer.lib
+    set BuildResultChecker=build\sdk\lib\osgViewer.lib
     set CMakeResultChecker=build\osg_def\CMakeCache.txt
     goto precheck
 )
@@ -255,6 +255,8 @@ if not !SkipOsgBuild!=="1" (
     )
     %SedEXE% -i.bak "s/if defined(__ANDROID__)/if defined(__EMSCRIPTEN__) || defined(__ANDROID__)/g" "%OpenSceneGraphRoot%\src\osgDB\FileUtils.cpp"
     %SedEXE% -i.bak "s/TARGET_EXTERNAL_LIBRARIES ${FREETYPE_LIBRARIES}/TARGET_EXTERNAL_LIBRARIES ${PNG_LIBRARY} ${FREETYPE_LIBRARIES}/g" "%OpenSceneGraphRoot%\src\osgPlugins\freetype\CMakeLists.txt"
+    %SedEXE% -i.bak "s/SET(TARGET_LIBRARIES_VARS TIFF_LIBRARY)/SET(TARGET_LIBRARIES_VARS TIFF_LIBRARY JPEG_LIBRARY)/g" "%OpenSceneGraphRoot%\src\osgPlugins\tiff\CMakeLists.txt"
+    %SedEXE% -i.bak "s/_FPOSOFF/(long long)/g" "%OpenSceneGraphRoot%\src\osgPlugins\osga\OSGA_Archive.cpp"
     %SedEXE% -i.bak "s/ADD_PLUGIN_DIRECTORY(cfg)/#ADD_PLUGIN_DIRECTORY(#cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
     %SedEXE% -i.bak "s/ADD_PLUGIN_DIRECTORY(obj)/#ADD_PLUGIN_DIRECTORY(#obj)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
     %SedEXE% -i.bak "s/ADD_PLUGIN_DIRECTORY(ffmpeg)/#ADD_PLUGIN_DIRECTORY(#ffmpeg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
