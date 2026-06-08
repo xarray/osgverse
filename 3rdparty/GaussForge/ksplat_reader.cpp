@@ -376,11 +376,11 @@ public:
             y = ReadFloat32LE(&splatData[splatByteOffset + 4]);
             z = ReadFloat32LE(&splatData[splatByteOffset + 8]);
           } else {
-            const int16_t xQuant =
-                static_cast<int16_t>(ReadUint16LE(&splatData[splatByteOffset]));
-            const int16_t yQuant = static_cast<int16_t>(
+            const uint16_t xQuant = static_cast<uint16_t>(
+                ReadUint16LE(&splatData[splatByteOffset]));
+            const uint16_t yQuant = static_cast<uint16_t>(
                 ReadUint16LE(&splatData[splatByteOffset + 2]));
-            const int16_t zQuant = static_cast<int16_t>(
+            const uint16_t zQuant = static_cast<uint16_t>(
                 ReadUint16LE(&splatData[splatByteOffset + 4]));
             x = (static_cast<float>(xQuant) -
                  static_cast<float>(quantizationRange)) *

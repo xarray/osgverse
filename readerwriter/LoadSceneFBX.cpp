@@ -537,6 +537,7 @@ namespace osgVerse
                         osg::ref_ptr<osg::Texture> tR = applyMaterialData(&(mtl->pbr.roughness), NULL);
                         osg::ref_ptr<osg::Texture> tM = applyMaterialData(&(mtl->pbr.metalness), NULL);
                         bool compressed = tO.valid() ? tO->getImage(0)->isCompressed() : false;
+
                         if (tR.valid())
                         {
                             compressed = tR->getImage(0)->isCompressed(); tORM = tR;
@@ -550,12 +551,15 @@ namespace osgVerse
                         }
                         else if (tO.valid()) tORM = tO;
                         
-                        if (compressed)
+                        if (tORM.valid())
                         {
-                            if (tORM->getNumImages() > 0) tORM->setImage(0, compressImage(*tORM->getImage(0)));
-                            tORM->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+                            if (compressed)
+                            {
+                                if (tORM->getNumImages() > 0) tORM->setImage(0, compressImage(*tORM->getImage(0)));
+                                tORM->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+                            }
+                            _ormTextureMap[mtl] = tORM;
                         }
-                        if (tORM.valid()) _ormTextureMap[mtl] = tORM;
                     }
                     else tORM = _ormTextureMap[mtl];
                 }
@@ -567,12 +571,16 @@ namespace osgVerse
                 if (tE.valid()) ss->setTextureAttributeAndModes(5, tE.get());
             }
 
-            if (mtl->features.opacity.enabled) ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
-            else ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+            if (_usingMaterialPBR <= 0)
+            {
+                //if (mtl->features.opacity.enabled) ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+                //else ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+            }
             if (mtl->features.double_sided.enabled) ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
             else ss->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
 #if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
-            if (mtl->features.unlit.enabled) ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+            if (_usingMaterialPBR <= 0)
+            { if (mtl->features.unlit.enabled) ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF); }
 #endif
             _materials[mtl] = ss;
         }
@@ -623,6 +631,7 @@ namespace osgVerse
                 OSG_INFO << "[LoaderFBX] Loaded image from " << realName << std::endl;
             }
         }
+        else return NULL;
 
         // TODO: handle factor in a more detailed way?
         if (!image)

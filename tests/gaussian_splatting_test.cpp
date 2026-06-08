@@ -348,7 +348,7 @@ int main(int argc, char** argv)
 {
     osgViewer::Viewer viewer;
     viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-    viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+    viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);  // FIXME: necessary?
     viewer.getCamera()->setProjectionMatrixAsPerspective(30.0, 16.0 / 9.0, 0.1, 10000.0);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
@@ -430,6 +430,16 @@ int main(int argc, char** argv)
 
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);
+    if (arguments.read("--show-collision"))
+    {
+        osgVerse::QuickObjectVisitor qov; qov.setNodeMaskOverride(0xffffffff);  // to visit nodes with mask=0
+        qov.setNodeFinder([](osg::Object& node)
+            {
+                bool isCollider = false; node.getUserValue("Collision", isCollider);
+                if (isCollider) static_cast<osg::Node&>(node).setNodeMask(0xffffffff); return false;
+            });
+        root->accept(qov);  // find collision node and display it, only work for LCC scene
+    }
 
     double firstX = 0.0, firstY = 0.0, firstZ = 0.0;
     if (arguments.read("--first", firstX, firstY, firstZ))

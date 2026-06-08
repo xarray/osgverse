@@ -7,6 +7,7 @@
 #include <osg/ShapeDrawable>
 #include <osg/Geometry>
 #include <osg/Camera>
+#include <functional>
 #include <array>
 
 namespace osgVerse
@@ -229,6 +230,31 @@ namespace osgVerse
         unsigned int    _start_index;
         osg::Matrixd    _matrix;
         osg::Matrixd    _inverse;
+    };
+
+    /** Quick node/drawable visitor based on NodeVisitor */
+    class QuickObjectVisitor : public NodeVisitorEx
+    {
+    public:
+        typedef std::function<bool (osg::Object&)> FindObjectCallback;
+        void setNodeFinder(FindObjectCallback cb) { _finderCallbacks["node"] = cb; }
+        void setTransformFinder(FindObjectCallback cb) { _finderCallbacks["transform"] = cb; }
+        void setLodFinder(FindObjectCallback cb) { _finderCallbacks["lod"] = cb; }
+        void setGeodeFinder(FindObjectCallback cb) { _finderCallbacks["geode"] = cb; }
+        void setGeometryFinder(FindObjectCallback cb) { _finderCallbacks["geom"] = cb; }
+        void setStateSetFinder(FindObjectCallback cb) { _finderCallbacks["stateset"] = cb; }
+        void setTextureFinder(FindObjectCallback cb) { _finderCallbacks["texture"] = cb; }
+
+        virtual void apply(osg::Node& node);
+        virtual void apply(osg::Transform& node);
+        virtual void apply(osg::LOD& node);
+        virtual void apply(osg::Geode& node);
+        virtual void apply(osg::Geometry& geometry);
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss);
+        virtual void apply(osg::Node* n, osg::Drawable* d, osg::Texture* ss, int u);
+
+    protected:
+        std::map<std::string, FindObjectCallback> _finderCallbacks;
     };
 
     /** Geometry finder for GeometryMerger use */

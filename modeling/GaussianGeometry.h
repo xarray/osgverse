@@ -65,7 +65,7 @@ public:
 #endif
 
     static osg::Program* createProgram(osg::Shader* vs, osg::Shader* gs, osg::Shader* fs, RenderMethod m = INSTANCING);
-    static osg::NodeCallback* createUniformCallback();
+    static osg::NodeCallback* createUniformCallback();  // for non-pipeline rendering uses
 
     void setColorParameters(const std::vector<osg::Vec4>& param);
     osg::Vec4* getColorParameters(bool dirty);

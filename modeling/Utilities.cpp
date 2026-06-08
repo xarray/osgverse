@@ -609,6 +609,31 @@ void HostTextureReserver::set(bool toKeepHostTextures)
     }
 }
 
+/// QuickObjectVisitor ///
+#define RUN_QUICK_CB(name, param) \
+    if (_finderCallbacks.find(name) != _finderCallbacks.end()) { if (_finderCallbacks[name](param)) return; }
+
+void QuickObjectVisitor::apply(osg::Node& node)
+{ RUN_QUICK_CB("node", node); NodeVisitorEx::apply(node); }
+
+void QuickObjectVisitor::apply(osg::Transform& node)
+{ RUN_QUICK_CB("transform", node); RUN_QUICK_CB("node", node); NodeVisitorEx::apply(node); }
+
+void QuickObjectVisitor::apply(osg::LOD& node)
+{ RUN_QUICK_CB("lod", node); RUN_QUICK_CB("node", node); NodeVisitorEx::apply(node); }
+
+void QuickObjectVisitor::apply(osg::Geode& node)
+{ RUN_QUICK_CB("geode", node); RUN_QUICK_CB("node", node); NodeVisitorEx::apply(node); }
+
+void QuickObjectVisitor::apply(osg::Geometry& geometry)
+{ RUN_QUICK_CB("geom", geometry); NodeVisitorEx::apply(geometry); }
+
+void QuickObjectVisitor::apply(osg::Node* n, osg::Drawable* d, osg::StateSet& ss)
+{ RUN_QUICK_CB("stateset", ss); NodeVisitorEx::apply(n, d, ss); }
+
+void QuickObjectVisitor::apply(osg::Node* n, osg::Drawable* d, osg::Texture* ss, int u)
+{ RUN_QUICK_CB("texture", *ss); NodeVisitorEx::apply(n, d, ss, u); }
+
 /// FindGeometryVisitor ///
 void FindGeometryVisitor::apply(osg::Transform& node)
 {

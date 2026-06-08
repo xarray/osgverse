@@ -137,7 +137,7 @@ int main(int argc, char** argv)
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
 
-    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);
+    osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments); bool customScene = scene.valid();
     if (!scene) scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza/Sponza.gltf.125,125,125.scale");
     if (!scene) { OSG_WARN << "Failed to load scene model"; return 1; }
 
@@ -147,10 +147,6 @@ int main(int argc, char** argv)
     osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile("lz.osg.15,15,1.scale.0,0,-300.trans");
-    /*osg::ref_ptr<osg::MatrixTransform> otherSceneRoot = new osg::MatrixTransform;
-    otherSceneRoot->addChild(scene.get());
-    otherSceneRoot->setMatrix(osg::Matrix::rotate(osg::PI_2, osg::X_AXIS) *
-                              osg::Matrix::translate(0.0f, 3000.0f, 0.0f));*/
     if (otherSceneRoot.valid())
     {
         otherSceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("DiffuseMap", 0));
@@ -169,7 +165,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
-    root->addChild(otherSceneRoot.get());
+    if (!customScene) root->addChild(otherSceneRoot.get());
     
     // Create the pipeline and the viewer
     osg::ref_ptr<osgVerse::Pipeline> pipeline = new osgVerse::Pipeline;

@@ -41,6 +41,7 @@ namespace osgVerse
             // Draw on existing buffers, no clear masks... This requires single-threaded only!!
             int flags = Pipeline::NO_DEFAULT_TEXTURES | _coverageSamples;
             Pipeline::Stage* stage = _pipeline->addInputStage(getName(), cullMask, flags, vs, fs, buffers);
+            stage->camera->getOrCreateStateSet()->removeMode(GL_BLEND);  // don't force disabling BLEND
 
             CustomData* customData = new CustomData(true);
             if (bypass != NULL) customData->bypassCamera = bypass->camera.get();

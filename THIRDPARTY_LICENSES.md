@@ -6,6 +6,7 @@
 | cinolib          | Depended | > 1.0     | Modeling           | MIT          | https://github.com/mlivesu/cinolib |
 | Effekseer        | Depended | > 1.70e   | Animation          | MIT          | https://github.com/effekseer/Effekseer |
 | FFmpeg           | Depended | > 6.0     | verse_ffmpeg       | LGPL         | https://github.com/FFmpeg/FFmpeg |
+| GGML             | Depended | > 0.13    | AI                 | MIT          | https://github.com/ggml-org/ggml |
 | libDraco         | Depended | > 1.5     | ReaderWriter       | Apache2      | https://github.com/google/draco |
 | libCEF           | Depended | > 127.3   | Animation          | BSD          | https://github.com/chromiumembedded/cef |
 | libIGL           | Depended | > 2.5     | Modeling           | MPL2         | https://github.com/libigl/libigl |
@@ -33,7 +34,7 @@
 | Eigen            | Embedded |           | -                  | MPL2         | https://gitlab.com/libeigen/eigen |
 | exprtk           | Embedded |           | Modeling           | MIT          | https://github.com/ArashPartow/exprtk |
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr/iir1 |
-| GaussForge       | Embedded | 0.5.5     | verse_3dgs         | Apache2      | https://github.com/3dgscloud/GaussForge |
+| GaussForge       | Embedded | 0.6.0     | verse_3dgs         | Apache2      | https://github.com/3dgscloud/GaussForge |
 | ghc_filesystem   | Embedded |           | -                  | MIT          | https://github.com/gulrak/filesystem |
 | glfw             | Embedded | 3.4       | ReaderWriter, WASM | ZLib         | https://github.com/glfw/glfw |
 | imgui            | Embedded | 1.92.5    | UI, App            | MIT          | https://github.com/ocornut/imgui |
@@ -114,6 +115,7 @@
 | cinolib          | Headers only. Download from https://github.com/mlivesu/cinolib |
 | Effekseer        | Manually Compile from source |
 | FFmpeg           | (Linux) apt-get install libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev libswscale-dev |
+| GGML             | Manually Compile from source and enable CUDA/MUSA |
 | libDraco         | (Linux) apt-get install libdraco-dev |
 | libCEF           | Download from https://cef-builds.spotifycdn.com/index.html |
 | libIGL           | Headers only. Download from https://github.com/libigl/libigl/releases |

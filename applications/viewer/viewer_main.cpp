@@ -18,6 +18,7 @@
 #include <pipeline/ShadowModule.h>
 #include <pipeline/Utilities.h>
 #include <readerwriter/Utilities.h>
+#include <modeling/GaussianGeometry.h>
 #include <animation/TweenAnimation.h>
 #include <wrappers/Export.h>
 #include <iostream>
@@ -162,12 +163,12 @@ int main(int argc, char** argv)
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::updateOsgBinaryWrappers();
 
-    std::string optString, optAll; bool defScene = false;
+    std::string optString, optAll; bool defScene = false, customRender = false;
     std::string otherSceneFile("lz.osg.15,15,1.scale.0,0,-300.trans"); arguments.read("--custom", otherSceneFile);
+    customRender = arguments.read("--custom") || arguments.read("--3dgs");
     while (arguments.read("-O", optString)) optAll += optString + " ";
 
     osg::ref_ptr<osgDB::Options> options = optAll.empty() ? NULL : new osgDB::Options(optAll);
-
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments, options.get());
     if (!scene) { scene = osgDB::readNodeFile(BASE_DIR + "/models/Sponza.osgb", options.get()); defScene = true; }
     if (!scene) { OSG_WARN << "Failed to load scene model" << std::endl; return 1; }
@@ -201,7 +202,8 @@ int main(int argc, char** argv)
     // The scene graph
     osg::ref_ptr<osg::MatrixTransform> sceneRoot = new osg::MatrixTransform;
     sceneRoot->setName("PbrSceneRoot"); sceneRoot->addChild(scene.get());
-    osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
+    if (customRender) osgVerse::Pipeline::setPipelineMask(*sceneRoot, CUSTOM_INPUT_MASK);
+    else osgVerse::Pipeline::setPipelineMask(*sceneRoot, DEFERRED_SCENE_MASK | SHADOW_CASTER_MASK);
 
     osg::ref_ptr<osg::Node> otherSceneRoot = osgDB::readNodeFile(otherSceneFile);
     if (otherSceneRoot.valid())
@@ -239,7 +241,7 @@ int main(int argc, char** argv)
     // Post-HUD display
     osg::ref_ptr<osg::Camera> postCamera = osgVerse::SkyBox::createSkyCamera();
     osgVerse::Pipeline::setPipelineMask(*postCamera, FORWARD_SCENE_MASK);
-    root->addChild(postCamera.get());
+    if (!customRender) root->addChild(postCamera.get());  // FIXME custom render like 3dgs doesn't create depths at present..
 
     osg::ref_ptr<osgVerse::SkyBox> skybox = new osgVerse::SkyBox(pipeline.get());
     {

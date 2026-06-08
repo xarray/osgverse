@@ -1115,9 +1115,11 @@ namespace osgVerse
         }
 
         // Setup other material attributes
-        if (material.alphaMode.compare("BLEND") == 0) ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-        else ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
-
+        if (_usingMaterialPBR <= 0)
+        {
+            if (material.alphaMode.compare("BLEND") == 0) ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+            else ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+        }
         if (material.doubleSided) ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
         else ss->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
 
