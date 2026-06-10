@@ -906,9 +906,15 @@ namespace
     {
         bool initializeProgram(const std::string& hint)
         {
-            osg::Shader* vert = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "gaussian_splatting.vert.glsl");
-            osg::Shader* geom = osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "gaussian_splatting.geom.glsl");
-            osg::Shader* frag = osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "gaussian_splatting.frag.glsl");
+            osg::Shader* vert = _resources.find("gaussian_vert") != _resources.end() ?
+                static_cast<osg::Shader*>(_resources["gaussian_vert"].get()) :
+                osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "gaussian_splatting.vert.glsl");
+            osg::Shader* geom = _resources.find("gaussian_geom") != _resources.end() ?
+                static_cast<osg::Shader*>(_resources["gaussian_geom"].get()) :
+                osgDB::readShaderFile(osg::Shader::GEOMETRY, SHADER_DIR + "gaussian_splatting.geom.glsl");
+            osg::Shader* frag = _resources.find("gaussian_frag") != _resources.end() ?
+                static_cast<osg::Shader*>(_resources["gaussian_frag"].get()) :
+                osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "gaussian_splatting.frag.glsl");
             if (!vert || !geom || !frag)
             {
                 OSG_WARN << "[GaussianStateVisitor] Missing shaders for gaussian splatting." << std::endl;
@@ -954,11 +960,22 @@ namespace
 
         virtual void registerGaussianObjects(osg::Node& node)
         {
+            if (!_program)
+            {
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
+                initializeProgram("TEX2D");
+#else
+                initializeProgram("");
+#endif
+            }
+
             osgVerse::GaussianSorter* gs = static_cast<osgVerse::GaussianSorter*>(sorterBase.get());
             GaussianGeomVisitor ggv(gs, _program.get()); node.accept(ggv);
             node.getOrCreateStateSet()->addUniform(_renderMode.get());
         }
 
+        GlobalGaussianSorter(const InitResourceMap& r) : _resources(r) {}
+        InitResourceMap _resources;
         osg::ref_ptr<osg::Program> _program;
         osg::ref_ptr<osg::Uniform> _renderMode;
     };
@@ -966,23 +983,19 @@ namespace
 
 namespace osgVerse
 {
-    InitParameters defaultInitParameters(int flags)
+    InitParameters defaultInitParameters(int flags, const InitResourceMap& resMap)
     {
         InitParameters param;
         param.nodeOptimizer = new GlobalNodeOptimizer(flags);
 
         if (flags & GaussianSorting)
         {
-            GlobalGaussianSorter* sorter = new GlobalGaussianSorter;
-#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
-            sorter->initializeProgram("TEX2D");
-#else
-            sorter->initializeProgram("");
-#endif
+            GlobalGaussianSorter* sorter = new GlobalGaussianSorter(resMap);
+            param.gaussianSorter = sorter;
+
             // created with no processing threads to avoid deadlock at exit
             // create new threads until new gaussians come
             sorter->sorterBase = new osgVerse::GaussianSorter(0);
-            param.gaussianSorter = sorter;
         }
 
         if (flags & DontVertifySSL)

@@ -431,10 +431,13 @@ namespace osgVerse
 #endif
     };
     enum ReadingKtxFlag { ReadKtx_ToRGBA, ReadKtx_NoDXT };
+
+    typedef std::map<std::string, osg::ref_ptr<osg::Object>> InitResourceMap;
     struct InitParameters;
 
     /** Create default initializing parameters */
-    OSGVERSE_RW_EXPORT InitParameters defaultInitParameters(int flags = DefaultParameters);
+    OSGVERSE_RW_EXPORT InitParameters defaultInitParameters(
+        int flags = DefaultParameters, const InitResourceMap& resMap = InitResourceMap());
 
     /** Load content from local file or network protocol */
     OSGVERSE_RW_EXPORT std::vector<unsigned char> loadFileData(

@@ -55,14 +55,6 @@ layout(std140, binding = 4) restrict readonly buffer ShcoefBuffer { ShcoefData s
 VERSE_VS_IN uint osg_UserIndex;
 VERSE_VS_OUT vec4 color, invCovariance;
 VERSE_VS_OUT vec2 center2D;
-
-mat2 inverseMat2(mat2 m)
-{
-    float det = m[0][0] * m[1][1] - m[0][1] * m[1][0]; mat2 inv;
-    inv[0][0] = m[1][1] / det; inv[0][1] = -m[0][1] / det;
-    inv[1][0] = -m[1][0] / det; inv[1][1] = m[0][0] / det;
-    return inv;
-}
 #else
 VERSE_VS_IN vec4 osg_Covariance0, osg_Covariance1;// , osg_Covariance2;
 VERSE_VS_IN vec4 osg_R_SH0, osg_G_SH0, osg_B_SH0;
@@ -181,6 +173,48 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor)
     return vec3(0.5, 0.5, 0.5) + vec3(re, gr, bl);
 }
 
+#if defined(USE_INSTANCING)
+mat2 inverseMat2(mat2 m)
+{
+    float det = m[0][0] * m[1][1] - m[0][1] * m[1][0]; mat2 inv;
+    inv[0][0] = m[1][1] / det; inv[0][1] = -m[0][1] / det;
+    inv[1][0] = -m[1][0] / det; inv[1][1] = m[0][0] / det;
+    return inv;
+}
+
+vec4 computeExtens2D(in mat2 cov2D, out vec4 cov2Dinv4)
+{
+    mat2 cov2Dinv = inverseMat2(cov2D);
+    cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);
+
+    // compute 2d extents for the splat, using covariance matrix ellipse (https://cookierobotics.com/007/)
+    float k = 3.5, a = cov2D[0][0], b = cov2D[0][1], c = cov2D[1][1];
+    float apco2 = (a + c) / 2.0, amco2 = (a - c) / 2.0;
+    float term = sqrt(amco2 * amco2 + b * b);
+    float maj = apco2 + term, min = apco2 - term;
+
+    float theta = (b == 0.0) ? ((a >= c) ? 0.0 : radians(90.0)) : atan(maj - a, b);
+    float r1 = k * sqrt(maj), r2 = k * sqrt(min);
+    vec2 majAxis = vec2(r1 * cos(theta), r1 * sin(theta));
+    vec2 minAxis = vec2(r2 * cos(theta + radians(90.0)), r2 * sin(theta + radians(90.0)));
+    return vec4(majAxis, minAxis);
+}
+#endif
+
+mat3 computeJacobian(in mat4 projMat, in vec4 eyeVertex, in float invW, in float invH)
+{
+    // J is the jacobian of the projection and viewport transformations.
+    // this is an affine approximation of the real projection.
+    float FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x, eyeZsq = eyeVertex.z * eyeVertex.z;
+    float SX = projMat[0][0], SY = projMat[1][1], WZ = projMat[3][2];
+    float jsx = -(SX * invW) / (2.0 * eyeVertex.z);
+    float jsy = -(SY * invH) / (2.0 * eyeVertex.z);
+    float jtx = (SX * eyeVertex.x * invW) / (2.0 * eyeZsq);
+    float jty = (SY * eyeVertex.y * invH) / (2.0 * eyeZsq);
+    float jtz = (FAR_NEAR * WZ) / (2.0 * eyeZsq);
+    return mat3(vec3(jsx, 0.0, 0.0), vec3(0.0, jsy, 0.0), vec3(jtx, jty, jtz));
+}
+
 void main()
 {
     int index = 0; vec2 paramUV = vec2(0.0);
@@ -204,36 +238,30 @@ void main()
     vec4 cov0 = coreCov0[index], cov1 = coreCov1[index], cov2 = coreCov2[index];
 #  endif
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(posAlpha.xyz, 1.0);
-    float alpha = posAlpha.w, FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x;
+    float alpha = posAlpha.w;
 #else
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(osg_Vertex.xyz, 1.0);
-    float alpha = osg_Covariance0.w, FAR_NEAR = NearFarPlanes.y - NearFarPlanes.x;
+    float alpha = osg_Covariance0.w;
 #endif
-    float WIDTH = 1.0 / InvScreenResolution.x, HEIGHT = 1.0 / InvScreenResolution.y;
 
-    // J is the jacobian of the projection and viewport transformations.
-    // this is an affine approximation of the real projection.
-    float SX = VERSE_MATRIX_P[0][0], SY = VERSE_MATRIX_P[1][1];
-    float WZ = VERSE_MATRIX_P[3][2], eyeZsq = eyeVertex.z * eyeVertex.z;
-    float jsx = -(SX * WIDTH) / (2.0 * eyeVertex.z);
-    float jsy = -(SY * HEIGHT) / (2.0 * eyeVertex.z);
-    float jtx = (SX * eyeVertex.x * WIDTH) / (2.0 * eyeZsq);
-    float jty = (SY * eyeVertex.y * HEIGHT) / (2.0 * eyeZsq);
-    float jtz = (FAR_NEAR * WZ) / (2.0 * eyeZsq);
-    mat3 J = mat3(vec3(jsx, 0.0, 0.0), vec3(0.0, jsy, 0.0), vec3(jtx, jty, jtz));
-
+    mat3 V = mat3(0.0001, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0001);
+    if (GaussianRenderingMode < 0.5)
+    {
+#if defined(USE_INSTANCING)
+        //V = mat3(cov0.xyz, cov1.xyz, cov2.xyz);
+        V = computeCovariance(cov0.xyz, vec4(cov1.xyz, cov2.x));
+#else
+        //V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
+        V = computeCovariance(osg_Covariance0.xyz, osg_Covariance1);
+#endif
+    }
+    
     // combine the affine transforms of W (viewMat) and J (approx of viewportMat * projMat)
     // using the fact that the new transformed covariance matrix V_Prime = JW * V * (JW)^T
-#if defined(USE_INSTANCING)
-    //mat3 V = mat3(cov0.xyz, cov1.xyz, cov2.xyz);
-    mat3 V = computeCovariance(cov0.xyz, vec4(cov1.xyz, cov2.x));
-#else
-    //mat3 V = mat3(osg_Covariance0.xyz, osg_Covariance1.xyz, osg_Covariance2.xyz);
-    mat3 V = computeCovariance(osg_Covariance0.xyz, osg_Covariance1);
-#endif
-    if (GaussianRenderingMode > 0.5) V = mat3(0.0001, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0001);
-
+    float WIDTH = 1.0 / InvScreenResolution.x, HEIGHT = 1.0 / InvScreenResolution.y;
+    mat3 J = computeJacobian(VERSE_MATRIX_P, eyeVertex, WIDTH, HEIGHT);
     mat3 W = mat3(VERSE_MATRIX_MV); mat3 JW = J * W; mat3 V_prime = JW * V * transpose(JW);
+
     mat2 cov2D = mat2(V_prime);  // 'project' the 3D covariance matrix onto xy plane
     float X0 = 0.0, Y0 = 0.0;  // viewport X & Y... FIXME: always 0?
     vec4 proj = VERSE_MATRIX_P * eyeVertex;
@@ -263,24 +291,12 @@ void main()
     vec3 ndcP = proj.xyz / proj.w;
     if (!(ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0))
     {
-        mat2 cov2Dinv = inverseMat2(cov2D);
-        vec4 cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);
-
-        // compute 2d extents for the splat, using covariance matrix ellipse (https://cookierobotics.com/007/)
-        float k = 3.5, a = cov2D[0][0], b = cov2D[0][1], c = cov2D[1][1];
-        float apco2 = (a + c) / 2.0, amco2 = (a - c) / 2.0;
-        float term = sqrt(amco2 * amco2 + b * b);
-        float maj = apco2 + term, min = apco2 - term;
-
-        float theta = (b == 0.0) ? ((a >= c) ? 0.0 : radians(90.0)) : atan(maj - a, b);
-        float r1 = k * sqrt(maj), r2 = k * sqrt(min);
-        vec2 majAxis = vec2(r1 * cos(theta), r1 * sin(theta));
-        vec2 minAxis = vec2(r2 * cos(theta + radians(90.0)), r2 * sin(theta + radians(90.0)));
+        vec4 axes = computeExtens2D(cov2D, invCovariance);
+        vec2 majAxis = axes.xy, minAxis = axes.zw;
 
         vec2 offset = majAxis * osg_Vertex.x + minAxis * osg_Vertex.y;
         offset.x *= (2.0 * InvScreenResolution.x) * proj.w;
-        offset.y *= (2.0 * InvScreenResolution.y) * proj.w;
-        invCovariance = cov2Dinv4; proj.xy += offset;
+        offset.y *= (2.0 * InvScreenResolution.y) * proj.w; proj.xy += offset;
     }
 #else
     vec3 baseColor = vec3(osg_R_SH0.x, osg_G_SH0.x, osg_B_SH0.x);

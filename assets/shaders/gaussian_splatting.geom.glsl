@@ -12,16 +12,10 @@ mat2 inverseMat2(mat2 m)
     return inv;
 }
 
-void main()
+vec4 computeExtens2D(in mat2 cov2D, out vec4 cov2Dinv4)
 {
-    // we pass the inverse of the 2d covariance matrix to the pixel shader, to avoid doing a matrix inverse per pixel.
-    mat2 cov2D = mat2(covariance_gs[0].xy, covariance_gs[0].zw);
     mat2 cov2Dinv = inverseMat2(cov2D);
-    vec4 cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);
-
-    // discard splats that end up outside of a guard band
-    vec4 proj = VERSE_GS_POS(0); vec3 ndcP = proj.xyz / proj.w;
-    if (ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0) return;
+    cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);
 
     // compute 2d extents for the splat, using covariance matrix ellipse (https://cookierobotics.com/007/)
     float k = 3.5, a = cov2D[0][0], b = cov2D[0][1], c = cov2D[1][1];
@@ -33,6 +27,17 @@ void main()
     float r1 = k * sqrt(maj), r2 = k * sqrt(min);
     vec2 majAxis = vec2(r1 * cos(theta), r1 * sin(theta));
     vec2 minAxis = vec2(r2 * cos(theta + radians(90.0)), r2 * sin(theta + radians(90.0)));
+    return vec4(majAxis, minAxis);
+}
+
+void main()
+{
+    // discard splats that end up outside of a guard band
+    vec4 cov2Dinv4, proj = VERSE_GS_POS(0); vec3 ndcP = proj.xyz / proj.w;
+    if (ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0) return;
+
+    vec4 axes = computeExtens2D(mat2(covariance_gs[0].xy, covariance_gs[0].zw), cov2Dinv4);
+    vec2 majAxis = axes.xy, minAxis = axes.zw;
 
     vec2 offsets[4];
     offsets[0] = majAxis + minAxis; offsets[1] = -majAxis + minAxis;

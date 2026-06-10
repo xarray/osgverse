@@ -990,7 +990,7 @@ void GaussianSorter::cull(osg::State* state, GaussianGeometry* geom, const osg::
         {
             osg::DrawElementsUShort* de = (geom->getNumPrimitiveSets() > 0)
                 ? static_cast<osg::DrawElementsUShort*>(geom->getPrimitiveSet(0)) : NULL;
-            if (numCulled > 0) { de->setNumInstances(numSplats - numCulled); de->dirty(); }
+            //if (numCulled > 0) { de->setNumInstances(numSplats - numCulled); de->dirty(); }
             shouldDirty = true;
         }
         indexBuffer->dirty();
