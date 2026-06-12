@@ -306,9 +306,12 @@ osg::NodeCallback* GaussianGeometry::createUniformCallback()
 bool GaussianGeometry::finalize()
 {
     osg::StateSet* ss = getOrCreateStateSet();
+    std::pair<int, int> res = calculateTextureDim(_numSplats);
+    OSG_INFO << "[GaussianGeometry] Create " << getName() << " with " << _numSplats << " splats ("
+             << res.first << " x " << res.second << ")\n";
+
     if (_method != GEOMETRY_SHADER)
     {
-        std::pair<int, int> res = calculateTextureDim(_numSplats);
         if (_method == INSTANCING_TEX2D)
             ss->addUniform(new osg::Uniform("TextureSize", osg::Vec2(res.first, res.second)));
 
@@ -319,7 +322,7 @@ bool GaussianGeometry::finalize()
         {
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
             osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
-            _coreBuffer->resize(blockSize * 4, 0.0f); _coreBuffer->setBufferObject(ssbo);
+            _coreBuffer->resize(blockSize * 4 / sizeof(float), 0.0f); _coreBuffer->setBufferObject(ssbo);
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(0, _coreBuffer.get(), 0, blockSize));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(1, _coreBuffer.get(), blockSize, blockSize * 2));
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(2, _coreBuffer.get(), blockSize * 2, blockSize * 3));

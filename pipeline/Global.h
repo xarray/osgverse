@@ -330,7 +330,6 @@ namespace osgVerse
     struct InitParameters
     {
         // Used for optimizing read node (remove fixed function modes, etc.)
-        // TODO: implementation in readerwriter?
         struct NodeOptimizerBase : public osg::Referenced
         {
             virtual void removeFixedFunctionData(osg::Node& node) = 0;
@@ -339,11 +338,12 @@ namespace osgVerse
         };
 
         // Used for sorting read gaussian splatting objects
-        // TODO: implementation in readerwriter?
         struct GaussianSorterBase : public osg::Referenced
         {
             virtual void registerGaussianObjects(osg::Node& node) = 0;
             osg::ref_ptr<osg::Referenced> sorterBase;
+            osg::ref_ptr<osg::Program> program;
+            osg::ref_ptr<osg::Uniform> renderMode;
         };
 
         osg::ref_ptr<NodeOptimizerBase> nodeOptimizer;

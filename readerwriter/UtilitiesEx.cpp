@@ -954,13 +954,13 @@ namespace
             osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
             osgVerse::Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
 
-            _program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
-            _renderMode = new osg::Uniform("GaussianRenderingMode", 0.0f); return true;
+            program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
+            renderMode = new osg::Uniform("GaussianRenderingMode", 0.0f); return true;
         }
 
         virtual void registerGaussianObjects(osg::Node& node)
         {
-            if (!_program)
+            if (!program)
             {
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
                 initializeProgram("TEX2D");
@@ -970,14 +970,12 @@ namespace
             }
 
             osgVerse::GaussianSorter* gs = static_cast<osgVerse::GaussianSorter*>(sorterBase.get());
-            GaussianGeomVisitor ggv(gs, _program.get()); node.accept(ggv);
-            node.getOrCreateStateSet()->addUniform(_renderMode.get());
+            GaussianGeomVisitor ggv(gs, program.get()); node.accept(ggv);
+            node.getOrCreateStateSet()->addUniform(renderMode.get());
         }
 
         GlobalGaussianSorter(const InitResourceMap& r) : _resources(r) {}
         InitResourceMap _resources;
-        osg::ref_ptr<osg::Program> _program;
-        osg::ref_ptr<osg::Uniform> _renderMode;
     };
 }
 

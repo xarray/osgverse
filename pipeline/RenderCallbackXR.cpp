@@ -571,10 +571,18 @@ struct SessionXR : public osg::Referenced
 #endif
         }
 
-        loader.xrEnumerateSwapchainImages(
+        result = loader.xrEnumerateSwapchainImages(
             swapchain, imageCount, &imageCount, (XrSwapchainImageBaseHeader*)swapchainImages.data());
-        OSG_NOTICE << "[RenderCallbackXR] Created swapchain with " << imageCount << " images; Texture format: "
-                   << std::hex << chosenFormat << std::dec << std::endl;
+        if (XR_FAILED(result))
+        {
+            OSG_NOTICE << "[RenderCallbackXR] Failed to enumerate swapchain images: "
+                       << result << std::endl; return false;
+        }
+        else
+        {
+            OSG_NOTICE << "[RenderCallbackXR] Created swapchain with " << imageCount << " images; "
+                       << "Texture format: " << std::hex << chosenFormat << std::dec << std::endl;
+        }
         views.resize(viewCount, {XR_TYPE_VIEW, nullptr}); return true;
     }
 
