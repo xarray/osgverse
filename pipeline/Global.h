@@ -348,7 +348,8 @@ namespace osgVerse
 
         osg::ref_ptr<NodeOptimizerBase> nodeOptimizer;
         osg::ref_ptr<GaussianSorterBase> gaussianSorter;
-        InitParameters() {}
+        std::string verseBaseDir;
+        InitParameters(const std::string& d = "") : verseBaseDir(d) {}
     };
 
     /** Global file callback, used by globalInitialize() internally */

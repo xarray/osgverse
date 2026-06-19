@@ -226,6 +226,7 @@ namespace osgVerse
     {
         setlocale(LC_ALL, ".UTF8");
         //osg::setNotifyLevel(osg::NOTICE);
+        if (!params.verseBaseDir.empty()) BASE_DIR = params.verseBaseDir;
 
         // Handle InitParameters in file callback
         osgDB::Registry::instance()->setReadFileCallback(new GlobalReadFileCallback(params));

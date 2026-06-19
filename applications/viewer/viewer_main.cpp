@@ -164,7 +164,7 @@ int main(int argc, char** argv)
     osgVerse::updateOsgBinaryWrappers();
 
     std::string optString, optAll; bool defScene = false, customRender = false;
-    std::string otherSceneFile("lz.osg.15,15,1.scale.0,0,-300.trans"); arguments.read("--custom", otherSceneFile);
+    std::string otherSceneFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     customRender = arguments.read("--custom") || arguments.read("--3dgs");
     while (arguments.read("-O", optString)) optAll += optString + " ";
 
