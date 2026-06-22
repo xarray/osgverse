@@ -20,10 +20,10 @@ namespace osgVerse
      - (Method = INSTANCING, for GL 4.3 or later)
      - Original shape vertices (vec3): getVertexArray()
      - Position.xyz + Alpha: SSBO-0 (4 floats)
-     - Scale.xyz + Color.r: SSBO-1 (4 floats)
-     - Quat.xyz + Color.g: SSBO-2 (4 floats)
-     - Quat.w + ReservedX2 + Color.b: SSBO-3 (4 floats)
-     - Spherical harmonics coefficients: SSBO-4 (optional, 15 * 4 floats, alpha ignored)
+     - Scale.xyz + Color.r: SSBO-1 (4 halfs)
+     - Quat.xyz + Color.g: SSBO-2 (4 halfs)
+     - Quat.w + ReservedX2 + Color.b: SSBO-3 (4 halfs)
+     - Spherical harmonics coefficients: SSBO-4 (optional, 15 * 4 halfs, alpha ignored)
      - Indices (uint): getVertexAttribArray(7)
      - [Color customizing] Tex-0 (4 floats)
 
@@ -35,6 +35,7 @@ namespace osgVerse
      - Scale.xyz + Color.r: Tex-1 (4 floats)
      - Quat.xyz + Color.g: Tex-2 (4 floats)
      - Quat.w + ReservedX2 + Color.b: Tex-3 (4 floats)
+     - NO spherical harmonics coefficients!
      - Indices: getVertexAttribArray(7)
      - [Color customizing] Tex-4 (4 floats)
 
@@ -93,7 +94,8 @@ public:
     osg::ref_ptr<osg::Vec4Array> getShBlue(int index);
 
     osg::FloatArray* getCoreDataBuffer() { return _coreBuffer.get(); }
-    osg::FloatArray* getShcoefBuffer() { return _shcoefBuffer.get(); }
+    osg::UShortArray* getCoreAttributeBuffer() { return _coreAttrBuffer.get(); }
+    osg::UShortArray* getShcoefBuffer() { return _shcoefBuffer.get(); }
 
 protected:
     virtual ~GaussianGeometry() {}
@@ -102,7 +104,8 @@ protected:
 
     std::map<std::string, std::vector<osg::Vec4>> _preDataMap;
     std::map<std::string, std::vector<osg::Vec3>> _preDataMap2;
-    osg::ref_ptr<osg::FloatArray> _coreBuffer, _shcoefBuffer;
+    osg::ref_ptr<osg::FloatArray> _coreBuffer;
+    osg::ref_ptr<osg::UShortArray> _coreAttrBuffer, _shcoefBuffer;
     osg::ref_ptr<osg::Texture> _coreTex[4];
     RenderMethod _method;
     int _degrees, _numSplats;

@@ -41,15 +41,22 @@ uniform vec2 TextureSize;
 #  else
 struct ShcoefData
 {
-    vec4 rgb0; vec4 rgb1; vec4 rgb2; vec4 rgb3; vec4 rgb4;
-    vec4 rgb5; vec4 rgb6; vec4 rgb7; vec4 rgb8; vec4 rgb9;
-    vec4 rgb10; vec4 rgb11; vec4 rgb12; vec4 rgb13; vec4 rgb14;
+    uvec2 rgb0; uvec2 rgb1; uvec2 rgb2; uvec2 rgb3; uvec2 rgb4;
+    uvec2 rgb5; uvec2 rgb6; uvec2 rgb7; uvec2 rgb8; uvec2 rgb9;
+    uvec2 rgb10; uvec2 rgb11; uvec2 rgb12; uvec2 rgb13; uvec2 rgb14;
 };
-layout(std140, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
-layout(std140, binding = 1) restrict readonly buffer CoreCov0Buffer { vec4 coreCov0[]; };
-layout(std140, binding = 2) restrict readonly buffer CoreCov1Buffer { vec4 coreCov1[]; };
-layout(std140, binding = 3) restrict readonly buffer CoreCov2Buffer { vec4 coreCov2[]; };
-layout(std140, binding = 4) restrict readonly buffer ShcoefBuffer { ShcoefData shcoef[]; };
+layout(std430, binding = 0) restrict readonly buffer CorePosBuffer { vec4 corePos[]; };
+layout(std430, binding = 1) restrict readonly buffer CoreCov0Buffer { uvec2 coreCov0[]; };
+layout(std430, binding = 2) restrict readonly buffer CoreCov1Buffer { uvec2 coreCov1[]; };
+layout(std430, binding = 3) restrict readonly buffer CoreCov2Buffer { uvec2 coreCov2[]; };
+layout(std430, binding = 4) restrict readonly buffer ShcoefBuffer { ShcoefData shcoef[]; };
+
+vec4 unpackHalf4(uvec2 v)
+{
+    vec2 lo = unpackHalf2x16(v.x);  // x, y
+    vec2 hi = unpackHalf2x16(v.y);  // z, w
+    return vec4(lo.x, lo.y, hi.x, hi.y);
+}
 #  endif
 
 VERSE_VS_IN uint osg_UserIndex;
@@ -137,9 +144,12 @@ vec3 computeRadianceFromSH(in vec3 v, in vec3 baseColor)
 
 #  if defined(USE_INSTANCING)
     ShcoefData shData = shcoef[uint(osg_UserIndex)];
-    vec4 sh_rgb0 = shData.rgb0, sh_rgb1 = shData.rgb1, sh_rgb2 = shData.rgb2, sh_rgb3 = shData.rgb3, sh_rgb4 = shData.rgb4;
-    vec4 sh_rgb5 = shData.rgb5, sh_rgb6 = shData.rgb6, sh_rgb7 = shData.rgb7, sh_rgb8 = shData.rgb8, sh_rgb9 = shData.rgb9;
-    vec4 sh_rgb10 = shData.rgb10, sh_rgb11 = shData.rgb11, sh_rgb12 = shData.rgb12, sh_rgb13 = shData.rgb13, sh_rgb14 = shData.rgb14;
+    vec4 sh_rgb0 = unpackHalf4(shData.rgb0), sh_rgb1 = unpackHalf4(shData.rgb1),
+         sh_rgb2 = unpackHalf4(shData.rgb2), sh_rgb3 = unpackHalf4(shData.rgb3), sh_rgb4 = unpackHalf4(shData.rgb4);
+    vec4 sh_rgb5 = unpackHalf4(shData.rgb5), sh_rgb6 = unpackHalf4(shData.rgb6),
+         sh_rgb7 = unpackHalf4(shData.rgb7), sh_rgb8 = unpackHalf4(shData.rgb8), sh_rgb9 = unpackHalf4(shData.rgb9);
+    vec4 sh_rgb10 = unpackHalf4(shData.rgb10), sh_rgb11 = unpackHalf4(shData.rgb11),
+         sh_rgb12 = unpackHalf4(shData.rgb12), sh_rgb13 = unpackHalf4(shData.rgb13), sh_rgb14 = unpackHalf4(shData.rgb14);
 
     float re = (b[0] * baseColor.x + b[1] * sh_rgb0.x + b[2] * sh_rgb1.x + b[3] * sh_rgb2.x +
                 b[4] * sh_rgb3.x + b[5] * sh_rgb4.x + b[6] * sh_rgb5.x + b[7] * sh_rgb6.x +
@@ -235,7 +245,8 @@ void main()
 #  else
     index = int(osg_UserIndex);
     vec4 posAlpha = corePos[index];
-    vec4 cov0 = coreCov0[index], cov1 = coreCov1[index], cov2 = coreCov2[index];
+    vec4 cov0 = unpackHalf4(coreCov0[index]), cov1 = unpackHalf4(coreCov1[index]),
+         cov2 = unpackHalf4(coreCov2[index]);
 #  endif
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(posAlpha.xyz, 1.0);
     float alpha = posAlpha.w;

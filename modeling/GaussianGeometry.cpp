@@ -153,13 +153,14 @@ GaussianGeometry::GaussianGeometry(RenderMethod m)
     if (_method == INSTANCING)
     {
         _coreBuffer = new osg::FloatArray;
-        _shcoefBuffer = new osg::FloatArray;
+        _coreAttrBuffer = new osg::UShortArray;
+        _shcoefBuffer = new osg::UShortArray;
     }
 }
 
 GaussianGeometry::GaussianGeometry(const GaussianGeometry& copy, const osg::CopyOp& copyop)
 :   osg::Geometry(copy, copyop), _preDataMap(copy._preDataMap), _preDataMap2(copy._preDataMap2),
-    _coreBuffer(copy._coreBuffer), _shcoefBuffer(copy._shcoefBuffer),
+    _coreBuffer(copy._coreBuffer), _coreAttrBuffer(copy._coreAttrBuffer), _shcoefBuffer(copy._shcoefBuffer),
     _method(copy._method), _degrees(copy._degrees), _numSplats(copy._numSplats)
 { for (int i = 0; i < 4; ++i) _coreTex[i] = copy._coreTex[i]; }
 
@@ -322,11 +323,19 @@ bool GaussianGeometry::finalize()
         {
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
             osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
-            _coreBuffer->resize(blockSize * 4 / sizeof(float), 0.0f); _coreBuffer->setBufferObject(ssbo);
+            _coreBuffer->resize(blockSize / sizeof(float), 0.0f); _coreBuffer->setBufferObject(ssbo);
             ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(0, _coreBuffer.get(), 0, blockSize));
-            ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(1, _coreBuffer.get(), blockSize, blockSize * 2));
-            ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(2, _coreBuffer.get(), blockSize * 2, blockSize * 3));
-            ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(3, _coreBuffer.get(), blockSize * 3, blockSize * 4));
+
+            if (_coreAttrBuffer.valid())
+            {
+                blockSize = _numSplats * sizeof(short) * 4;  // half4
+                blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
+                ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
+                _coreAttrBuffer->resize(blockSize * 3 / sizeof(short), 0); _coreAttrBuffer->setBufferObject(ssbo);
+                ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(1, _coreAttrBuffer.get(), 0, blockSize));
+                ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(2, _coreAttrBuffer.get(), blockSize, blockSize * 2));
+                ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(3, _coreAttrBuffer.get(), blockSize * 2, blockSize * 3));
+            }
 #endif
         }
         else if (!_coreTex[0])
@@ -345,11 +354,17 @@ bool GaussianGeometry::finalize()
         }
 
         size_t total = 0; char* ptr = _coreBuffer.valid() ? (char*)_coreBuffer->getDataPointer() : NULL;
+        char* ptr2 = _coreAttrBuffer.valid() ? (char*)_coreAttrBuffer->getDataPointer() : NULL;
         for (int i = 0; i < 4; ++i)
         {
             std::vector<osg::Vec4>& src = _preDataMap["Layer" + std::to_string(i)];
-            if (_coreBuffer.valid())
-                { memcpy(ptr + total, src.data(), src.size() * sizeof(osg::Vec4)); total += blockSize; }
+            if (i == 0 && _coreBuffer.valid())
+                { memcpy(ptr + total, src.data(), src.size() * sizeof(osg::Vec4)); }
+            else if (_coreAttrBuffer.valid())
+            {
+                std::vector<unsigned short> halfSrc; HalfFloat::convert<osg::Vec4>(src.data(), src.size(), halfSrc);
+                memcpy(ptr2 + total, halfSrc.data(), halfSrc.size() * sizeof(short)); total += blockSize;
+            }
             else
                 TextureLookUpTable::setFloat4(_coreTex[i].get(), i, &src);
         }
@@ -360,12 +375,13 @@ bool GaussianGeometry::finalize()
         bool noSH = (_method == INSTANCING_TEXTURE || _method == INSTANCING_TEX2D);
         if (_degrees > 0 && shDataSize > 10 && noSH)
         {
-            size_t blockSize = _numSplats * sizeof(osg::Vec4) * 15;  // rgb4 * 15
+            size_t blockSize = _numSplats * sizeof(short) * 60;  // rgb4 * 15
+            blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
             if (_shcoefBuffer.valid())
             {
 #if OSG_VERSION_GREATER_THAN(3, 3, 3)
                 osg::ShaderStorageBufferObject* ssbo = new osg::ShaderStorageBufferObject; ssbo->setUsage(GL_STATIC_DRAW);
-                _shcoefBuffer->resize(_numSplats * 60, 0.0f); _shcoefBuffer->setBufferObject(ssbo);
+                _shcoefBuffer->resize(blockSize / sizeof(short), 0); _shcoefBuffer->setBufferObject(ssbo);
                 ss->setAttributeAndModes(new osg::ShaderStorageBufferBinding(4, _shcoefBuffer.get(), 0, blockSize));
 #endif
             }
@@ -376,8 +392,12 @@ bool GaussianGeometry::finalize()
                 std::vector<osg::Vec3>& src = _preDataMap2["Layer" + std::to_string(i + 1)];
                 if (_shcoefBuffer.valid())
                 {
+                    unsigned short* ptrU = (unsigned short*)ptr;
                     for (size_t j = 0; j < src.size(); ++j)
-                        *((osg::Vec4*)ptr + (j * 15 + i)) = osg::Vec4(src[j], 0.0f);
+                    {
+                        size_t idx = (j * 15 + i) * 4; osg::Vec4 vec(src[j], 0.0f);
+                        for (int k = 0; k < 3; ++k) { HalfFloat h(vec[k]); *(ptrU + idx + k) = h.x; }
+                    }
                 }
             }
         }
@@ -546,7 +566,8 @@ osg::Vec4* GaussianGeometry::getPosition4()
 
 osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getScale()
 {
-    osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array(_numSplats); osg::Vec4* ptr = NULL;
+    osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array(_numSplats);
+    std::vector<osg::Vec4> tempV; osg::Vec4* ptr = NULL;
     if (_method != GEOMETRY_SHADER)
     {
         if (!_preDataMap.empty())
@@ -554,11 +575,10 @@ osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getScale()
             std::vector<osg::Vec4>& dst = _preDataMap["Layer1"];
             if (!dst.empty()) ptr = dst.data();
         }
-        else if (_coreBuffer.valid())
+        else if (_coreAttrBuffer.valid())
         {
-            size_t blockSize = _numSplats * sizeof(osg::Vec4);
-            blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
-            ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize);
+            unsigned short* raw = (unsigned short*)((char*)_coreAttrBuffer->getDataPointer());
+            if (HalfFloat::convert<osg::Vec4>(raw, 4, _numSplats, tempV)) ptr = tempV.data();
         }
         else if (_coreTex[1].valid())
             ptr = TextureLookUpTable::getFloat4(_coreTex[1].get(), 0);
@@ -576,6 +596,7 @@ osg::ref_ptr<osg::Vec3Array> GaussianGeometry::getScale()
 osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getRotation()
 {
     osg::ref_ptr<osg::Vec4Array> v = new osg::Vec4Array(_numSplats);
+    std::vector<osg::Vec4> tempV0, tempV1;
     osg::Vec4 *ptr0 = NULL, *ptr1 = NULL;  // ptr0 = (x, y, z), ptr1 = (w)
     if (_method != GEOMETRY_SHADER)
     {
@@ -585,12 +606,14 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getRotation()
             std::vector<osg::Vec4>& dst1 = _preDataMap["Layer3"];
             if (!dst0.empty()) ptr0 = dst0.data(); if (!dst1.empty()) ptr1 = dst1.data();
         }
-        else if (_coreBuffer.valid())
+        else if (_coreAttrBuffer.valid())
         {
-            size_t blockSize = _numSplats * sizeof(osg::Vec4);
+            size_t blockSize = _numSplats * sizeof(short) * 4;
             blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
-            ptr0 = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 2);
-            ptr1 = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 3);
+            unsigned short* raw0 = (unsigned short*)((char*)_coreAttrBuffer->getDataPointer() + blockSize);
+            unsigned short* raw1 = (unsigned short*)((char*)_coreAttrBuffer->getDataPointer() + blockSize * 2);
+            if (HalfFloat::convert<osg::Vec4>(raw0, 4, _numSplats, tempV0)) ptr0 = tempV0.data();
+            if (HalfFloat::convert<osg::Vec4>(raw1, 4, _numSplats, tempV1)) ptr1 = tempV1.data();
         }
         else if (_coreTex[2].valid() && _coreTex[3].valid())
         {
@@ -658,7 +681,7 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShRed(int index)
 {
     if (_method != GEOMETRY_SHADER)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;
+        osg::ref_ptr<osg::Vec4Array> ra; std::vector<osg::Vec4> tempV;
         if (!_preDataMap.empty())
             { GET_SHCOEF_DATA(ra, 1, 0, index); }
         else
@@ -666,18 +689,21 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShRed(int index)
             ra = new osg::Vec4Array(_numSplats); osg::Vec4* ptr = NULL;
             if (index == 0)
             {
-                size_t blockSize = _numSplats * sizeof(osg::Vec4);
-                blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
-                if (_coreBuffer.valid()) ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize);
-                else if (_coreTex[1].valid()) ptr = TextureLookUpTable::getFloat4(_coreTex[1].get(), 0);
-                if (!ptr) return NULL;
+                if (_coreAttrBuffer.valid())
+                {
+                    unsigned short* raw = (unsigned short*)((char*)_coreAttrBuffer->getDataPointer());
+                    if (HalfFloat::convert<osg::Vec4>(raw, 4, _numSplats, tempV)) ptr = tempV.data();
+                }
+                else if (_coreTex[1].valid())
+                    ptr = TextureLookUpTable::getFloat4(_coreTex[1].get(), 0); if (!ptr) return NULL;
 #pragma omp parallel for
                 for (int i = 0; i < _numSplats; ++i) (*ra)[i] = osg::Vec4(ptr[i].w(), 0.0f, 0.0f, 0.0f);
             }
 
             if (_shcoefBuffer.valid() && _shcoefBuffer->size() > 0)
             {
-                ptr = (osg::Vec4*)_shcoefBuffer->getDataPointer(); if (!ptr) return ra;
+                unsigned short* raw = (unsigned short*)((char*)_shcoefBuffer->getDataPointer());
+                if (HalfFloat::convert<osg::Vec4>(raw, 4, _numSplats, tempV)) ptr = tempV.data(); else return ra;
 #pragma omp parallel for
                 for (int i = 0; i < _numSplats; ++i)
                 {
@@ -696,7 +722,7 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShGreen(int index)
 {
     if (_method != GEOMETRY_SHADER)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;
+        osg::ref_ptr<osg::Vec4Array> ra; std::vector<osg::Vec4> tempV;
         if (!_preDataMap.empty())
             { GET_SHCOEF_DATA(ra, 2, 1, index); }
         else
@@ -704,18 +730,23 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShGreen(int index)
             ra = new osg::Vec4Array(_numSplats); osg::Vec4* ptr = NULL;
             if (index == 0)
             {
-                size_t blockSize = _numSplats * sizeof(osg::Vec4);
+                size_t blockSize = _numSplats * sizeof(short) * 4;
                 blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
-                if (_coreBuffer.valid()) ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 2);
-                else if (_coreTex[2].valid()) ptr = TextureLookUpTable::getFloat4(_coreTex[2].get(), 0);
-                if (!ptr) return NULL;
+                if (_coreAttrBuffer.valid())
+                {
+                    unsigned short* raw = (unsigned short*)((char*)_coreAttrBuffer->getDataPointer() + blockSize);
+                    if (HalfFloat::convert<osg::Vec4>(raw, 4, _numSplats, tempV)) ptr = tempV.data();
+                }
+                else if (_coreTex[2].valid())
+                    ptr = TextureLookUpTable::getFloat4(_coreTex[2].get(), 0); if (!ptr) return NULL;
 #pragma omp parallel for
                 for (int i = 0; i < _numSplats; ++i) (*ra)[i] = osg::Vec4(ptr[i].w(), 0.0f, 0.0f, 0.0f);
             }
 
             if (_shcoefBuffer.valid() && _shcoefBuffer->size() > 0)
             {
-                ptr = (osg::Vec4*)_shcoefBuffer->getDataPointer(); if (!ptr) return ra;
+                unsigned short* raw = (unsigned short*)((char*)_shcoefBuffer->getDataPointer());
+                if (HalfFloat::convert<osg::Vec4>(raw, 4, _numSplats, tempV)) ptr = tempV.data(); else return ra;
 #pragma omp parallel for
                 for (int i = 0; i < _numSplats; ++i)
                 {
@@ -734,7 +765,7 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShBlue(int index)
 {
     if (_method != GEOMETRY_SHADER)
     {
-        osg::ref_ptr<osg::Vec4Array> ra;
+        osg::ref_ptr<osg::Vec4Array> ra; std::vector<osg::Vec4> tempV;
         if (!_preDataMap.empty())
             { GET_SHCOEF_DATA(ra, 3, 2, index); }
         else
@@ -742,18 +773,23 @@ osg::ref_ptr<osg::Vec4Array> GaussianGeometry::getShBlue(int index)
             ra = new osg::Vec4Array(_numSplats); osg::Vec4* ptr = NULL;
             if (index == 0)
             {
-                size_t blockSize = _numSplats * sizeof(osg::Vec4);
+                size_t blockSize = _numSplats * sizeof(short) * 4;
                 blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
-                if (_coreBuffer.valid()) ptr = (osg::Vec4*)((char*)_coreBuffer->getDataPointer() + blockSize * 3);
-                else if (_coreTex[3].valid()) ptr = TextureLookUpTable::getFloat4(_coreTex[3].get(), 0);
-                if (!ptr) return NULL;
+                if (_coreAttrBuffer.valid())
+                {
+                    unsigned short* raw = (unsigned short*)((char*)_coreAttrBuffer->getDataPointer() + blockSize * 2);
+                    if (HalfFloat::convert<osg::Vec4>(raw, 4, _numSplats, tempV)) ptr = tempV.data();
+                }
+                else if (_coreTex[3].valid())
+                    ptr = TextureLookUpTable::getFloat4(_coreTex[3].get(), 0); if (!ptr) return NULL;
 #pragma omp parallel for
                 for (int i = 0; i < _numSplats; ++i) (*ra)[i] = osg::Vec4(ptr[i].w(), 0.0f, 0.0f, 0.0f);
             }
 
             if (_shcoefBuffer.valid() && _shcoefBuffer->size() > 0)
             {
-                ptr = (osg::Vec4*)_shcoefBuffer->getDataPointer(); if (!ptr) return ra;
+                unsigned short* raw = (unsigned short*)((char*)_shcoefBuffer->getDataPointer());
+                if (HalfFloat::convert<osg::Vec4>(raw, 4, _numSplats, tempV)) ptr = tempV.data(); else return ra;
 #pragma omp parallel for
                 for (int i = 0; i < _numSplats; ++i)
                 {

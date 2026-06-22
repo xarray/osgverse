@@ -214,6 +214,32 @@ namespace osgVerse
             }
             x |= static_cast<unsigned short>(sign >> 16);
         }
+
+        template <typename T>
+        static bool convert(T* raw, size_t numElements, std::vector<unsigned short>& result, int comp = 4)
+        {
+            result.resize(numElements * comp); int kmax = osg::minimum(comp, (int)T::num_components);
+#pragma omp parallel for
+            for (size_t n = 0; n < numElements; ++n)
+            {
+                size_t idx = n * comp; T& v = raw[n];
+                for (int k = 0; k < kmax; ++k) { HalfFloat h(v[k]); result[idx + k] = h.x; }
+            }
+            return !result.empty();
+        }
+
+        template <typename T>
+        static bool convert(unsigned short* raw, int comp, size_t numElements, std::vector<T>& result)
+        {
+            result.resize(numElements); int kmax = osg::minimum(comp, (int)T::num_components);
+#pragma omp parallel for
+            for (size_t n = 0; n < numElements; ++n)
+            {
+                size_t idx = n * comp; T& v = result[n];
+                for (int k = 0; k < kmax; ++k) { HalfFloat h(raw[idx + k]); v[k] = h.get(); }
+            }
+            return !result.empty();
+        }
     };
 
     /** A set of transformation functions between coordinate systems
