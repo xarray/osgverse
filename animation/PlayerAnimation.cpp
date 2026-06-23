@@ -13,6 +13,7 @@
 
 using namespace osgVerse;
 using namespace ozz::animation::internal;
+#define SK_ERROR(msg) { OSG_WARN << "[PlayerAnimation] " << msg << std::endl; }
 
 static osg::Texture2D* createTexture(const std::string& fileName)
 {
@@ -100,8 +101,12 @@ namespace ozz
                                 std::find(_nodeList.begin(), _nodeList.end(), parent);
                             if (itr != _nodeList.end())
                                 skeleton.joint_parents_[i] = std::distance(_nodeList.begin(), itr);
+                            else
+                                SK_ERROR("Parent node (" << parent->getName() << ") of " << t->getName() << " not in NodeList")
                         }
                     }
+                    else
+                        SK_ERROR("No parent found for " << t->getName() << ", ID = " << i)
 
                     matrices[soaIndex].makeIdentity();
                     t->computeLocalToWorldMatrix(matrices[soaIndex], NULL);

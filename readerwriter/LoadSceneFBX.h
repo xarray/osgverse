@@ -11,6 +11,7 @@
 #include <animation/PlayerAnimation.h>
 #include "3rdparty/ufbx.h"
 #include "Export.h"
+struct ufbx_skin_deformer;
 
 namespace osgVerse
 {
@@ -61,6 +62,7 @@ namespace osgVerse
             typedef std::vector<std::pair<unsigned int, float>> JointWeights;
             std::map<osg::Geometry*, std::vector<JointWeights>> skinningDataList;
             std::vector<std::pair<int, osg::Matrix>> boneIndexAndMatrices;
+            ufbx_skin_deformer* deformer;
         };
         std::map<osg::Geode*, SkinningData> _skinningDataMap;
         

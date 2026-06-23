@@ -79,30 +79,92 @@ namespace osgVerse
         for (std::map<osg::Geode*, SkinningData>::iterator it = _skinningDataMap.begin();
              it != _skinningDataMap.end(); ++it)
         {
-            SkinningData& sd = it->second;
+            SkinningData& sd = it->second; ufbx_skin_deformer* skin = sd.deformer;
             std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> jointDataMap;
             
+            std::vector<osg::Transform*> nodeList; std::vector<osg::Geometry*> meshList;
+            for (size_t k = 0; k < _scene->bones.count; ++k)
+            {
+                unsigned int boneId = _scene->bones[k]->typed_id;
+                if (_boneToNodeMap.find(boneId) != _boneToNodeMap.end())
+                    nodeList.push_back(_boneToNodeMap[boneId].get());
+            }
+
             for (std::map<osg::Geometry*, std::vector<SkinningData::JointWeights>>::iterator
                  it2 = sd.skinningDataList.begin(); it2 != sd.skinningDataList.end(); ++it2)
             {
                 PlayerAnimation::GeometryJointData& jointData = jointDataMap[it2->first];
-                jointData._stateset = it2->first->getStateSet();
+                std::map<osg::Transform*, osg::Matrixf>& invPoses = jointData._invBindPoseMap;
+                jointData._stateset = it2->first->getStateSet(); meshList.push_back(it2->first);
 
                 std::vector<SkinningData::JointWeights>& jWeights = it2->second;
                 jointData._weightList.resize(jWeights.size());
                 for (size_t i = 0; i < jWeights.size(); ++i)
                 {
                     SkinningData::JointWeights& jw0 = jWeights[i];
-                    PlayerAnimation::GeometryJointData::JointWeights jw1 = jointData._weightList[i];
+                    PlayerAnimation::GeometryJointData::JointWeights& jw1 = jointData._weightList[i];
                     for (size_t j = 0; j < jw0.size(); ++j)
                     {
-                        unsigned int boneId = jw0[j].first; float w = jw0[j].second;
-                        if (_boneToNodeMap.find(boneId) != _boneToNodeMap.end())
-                            jw1.push_back(std::pair<osg::Transform*, float>(_boneToNodeMap[boneId].get(), w));
+                        unsigned int clusterId = jw0[j].first; float w = jw0[j].second;
+                        ufbx_skin_cluster* cluster = skin->clusters.data[clusterId];
+                        ufbx_node* boneNode = cluster ? cluster->bone_node : NULL;
+                        if (!boneNode || (boneNode && !boneNode->bone))
+                        {
+                            OSG_NOTICE << "[LoaderFBX] Failed to get bone from cluster ID " << clusterId << " of "
+                                       << "skeletal character " << it->first->getName() << "\n"; continue;
+                        }
+
+                        unsigned int boneId = boneNode->bone->typed_id;
+                        if (_boneToNodeMap.find(boneId) == _boneToNodeMap.end())
+                        {
+                            ufbx_bone* bone = _scene->bones[boneId]; std::string bName(bone->name.data, bone->name.length);
+                            OSG_NOTICE << "[LoaderFBX] Failed to match bone " << bName << " (ID " << boneId << ") to any node\n";
+                        }
+                        else
+                        {
+                            osg::Transform* t = _boneToNodeMap[boneId].get(); invPoses[t] = toMatrix(cluster->geometry_to_bone);
+                            jw1.push_back(std::pair<osg::Transform*, float>(t, w));
+                        }
                     }
+                }  // for (size_t i = 0; i < jWeights.size(); ++i)
+            }
+            
+            if (!nodeList.empty() && !meshList.empty())
+            {
+#if !DISABLE_SKINNING_DATA
+                osg::ref_ptr<PlayerAnimation> player = new PlayerAnimation;
+                player->setName(it->first->getName()); player->setModelRoot(_root.get());
+                player->initialize(nodeList, meshList, jointDataMap);
+
+                osg::ref_ptr<osg::Geode> meshRoot = new osg::Geode;
+                meshRoot->setName("CharacterGeode_" + it->first->getName());
+                meshRoot->addUpdateCallback(player.get()); _root->addChild(meshRoot.get());
+#endif
+            }
+
+#if false
+            std::cout << "Skeletal character " << it->first->getName() << ":\n";
+            for (std::map<osg::Geometry*, PlayerAnimation::GeometryJointData>::iterator it2 = jointDataMap.begin();
+                 it2 != jointDataMap.end(); ++it2)
+            {
+                PlayerAnimation::GeometryJointData& gjd = it2->second;
+                std::cout << "  Mesh: " << it2->first->getName() << ": V = " << gjd._weightList.size() << "\n";
+                for (size_t i = 0; i < gjd._weightList.size(); ++i)
+                {
+                    std::vector<std::pair<osg::Transform*, float>>& weights = gjd._weightList[i];
+                    std::stringstream ss; float total = 0.0f; bool invalid = false;
+                    for (size_t j = 0; j < weights.size(); ++j)
+                    {
+                        std::pair<osg::Transform*, float>& w = weights[j]; total += w.second; if (!w.first) invalid = true;
+                        ss << (w.first ? w.first->getName() : "NULL") << "/" << w.second << "; ";
+                    }
+                    ss << "TOTAL = " << total << "; NUM = " << weights.size(); if (total < 0.99f) invalid = true;
+
+                    if (invalid) std::cout << " (?)" << i << ": " << ss.str() << " (INVALID BONE WEIGHTS)\n";
+                    else if (i < 10) std::cout << "    " << i << ": " << ss.str() << (i == 9 ? "\n    ...\n" : "\n");
                 }
             }
-            OSG_NOTICE << "Skeleton " << it->first->getName() << ": not implemented\n";
+#endif
         }
 
         // Handle animations
@@ -277,7 +339,7 @@ namespace osgVerse
         if (srcMesh->skin_deformers.count > 0)
         {
             SkinningData& sd = _skinningDataMap[geode.get()];
-            skin = srcMesh->skin_deformers.data[0];
+            skin = srcMesh->skin_deformers.data[0]; sd.deformer = skin;
             for (size_t ci = 0; ci < skin->clusters.count; ci++)
             {
                 ufbx_skin_cluster* cluster = skin->clusters.data[ci];
@@ -302,7 +364,7 @@ namespace osgVerse
 
                     ufbx_skin_cluster* cluster = skin->clusters.data[weight.cluster_index];
                     total_weight += (float)weight.weight;
-                    clusters[num_weights] = (uint32_t)cluster->bone_node->typed_id;
+                    clusters[num_weights] = (uint32_t)weight.cluster_index;
                     weights[num_weights] = (float)weight.weight; num_weights++;
                 }
 

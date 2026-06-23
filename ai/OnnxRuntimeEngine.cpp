@@ -1,9 +1,8 @@
+#include <onnxruntime_cxx_api.h>
 #include "OnnxRuntimeEngine.h"
 #include "pipeline/Utilities.h"
-
 #include <osg/io_utils>
 #include <osgDB/ConvertUTF>
-#include <onnxruntime_cxx_api.h>
 #include <algorithm>
 #include <iomanip>
 #include <iostream>

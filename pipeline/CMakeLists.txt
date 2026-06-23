@@ -29,6 +29,8 @@ ELSEIF(VERSE_USE_EXTERNAL_GLES3)
 ENDIF()
 
 IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
+    # Under Ubuntu with CUDA 12.8-13.0, see below to solve the math_functions.h exceptions:
+    # https://forums.developer.nvidia.com/t/error-exception-specification-is-incompatible-for-cospi-sinpi-cospif-sinpif-with-glibc-2-41/323591/3
     SET(LIBRARY_FILES ${LIBRARY_FILES} ExternalTexture2D.cpp ExternalTexture2D.h
         CudaUtils/BitDepth.cu CudaUtils/ColorSpace.cu CudaUtils/ColorSpace.h
         CudaUtils/Letterbox.cu CudaUtils/CudaUtilities.cu)
