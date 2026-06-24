@@ -26,7 +26,8 @@ namespace osgVerse
     protected:
         virtual ~LoaderFBX();
         void createNode(osg::Group* parent, osg::MatrixTransform* node, ufbx_node* srcNode);
-        void createAnimation(ufbx_anim_layer* layer, const std::string& group, double t0, double t1);
+        void createAnimation(ufbx_anim_layer* layer, const std::string& group, double t0, double t1,
+                             std::map<osg::Transform*, PlayerAnimation::AnimationData>& boneAnimMap);
         void createAnimation(PlayerAnimation::AnimationData& anim, ufbx_anim_layer* layer,
                              const ufbx_anim_prop& prop, int order);
 

@@ -630,7 +630,11 @@ namespace osgVerse
     {
         SkinningData* sd = (skinIndex < 0) ? NULL : &_skinningDataList[skinIndex];
 #if !DISABLE_SKINNING_DATA
-        if (sd != NULL) geode->setNodeMask(0);  // FIXME: ugly to hide original meshes
+        if (sd != NULL)
+        {
+            geode->setNodeMask(0);  // FIXME: ugly to hide original meshes
+            geode->setUserValue("OriginalPlayerMesh", true);
+        }
 #endif
 
         for (size_t i = 0; i < mesh.primitives.size(); ++i)

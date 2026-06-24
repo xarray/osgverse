@@ -1,5 +1,6 @@
 #include <osg/io_utils>
 #include <osg/Point>
+#include <osg/PolygonMode>
 #include <osg/MatrixTransform>
 #include <osg/Geometry>
 #include <osgDB/ReadFile>
@@ -12,6 +13,7 @@
 #include <animation/PlayerAnimation.h>
 #include <animation/BlendShapeAnimation.h>
 #include <readerwriter/Utilities.h>
+#include <modeling/Utilities.h>
 #include <iostream>
 #include <sstream>
 
@@ -46,8 +48,11 @@ osgVerse::PlayerAnimation* findAnimationManager(osg::Node* node)
 int main(int argc, char** argv)
 {
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
-    int jointToOutput = -1; arguments.read("--joint-skinning", jointToOutput);
-    bool withSkinning = !arguments.read("--disable-skinning");
+    bool noSkinning = arguments.read("--no-skinning"), noAnimation = arguments.read("--no-animation");
+    bool showOriginal = arguments.read("--show-original");
+    int jointToOutput = -1, rootBoneId = 0;
+    arguments.read("--joint-skinning", jointToOutput);
+    arguments.read("--root-bone", rootBoneId);
 
     osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
@@ -76,6 +81,23 @@ int main(int argc, char** argv)
 #endif
     playerRoot->addChild(skeleton.get());
 
+    if (showOriginal)
+    {
+        osgVerse::QuickObjectVisitor qov; qov.setNodeMaskOverride(0xffffffff);  // to visit nodes with mask=0
+        qov.setNodeFinder([](osg::Object& node)
+            {
+                bool isOriginal = false; node.getUserValue("OriginalPlayerMesh", isOriginal);
+                if (isOriginal)
+                {
+                    static_cast<osg::Node&>(node).setNodeMask(0xffffffff);
+                    static_cast<osg::Node&>(node).getOrCreateStateSet()->setAttributeAndModes(
+                        new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE));
+                }
+                return false;
+            });
+        root->accept(qov);  // find original player node and display it, for comparing with ozz one
+    }
+
     if (animManager.valid())
     {
         std::vector<osgVerse::PlayerAnimation::ThisAndParent> joints = animManager->getSkeletonIndices();
@@ -97,12 +119,12 @@ int main(int argc, char** argv)
             OSG_NOTICE << "... Total: " << bs->getNumBlendShapes() << std::endl;
         }
 
-        // For blendshape test
-        animManager->setBlendShape("jawOpen", 1.0f);
+        // For blendshape test  // TODO
+        //animManager->setBlendShape("jawOpen", 1.0f);
 
         // To play/pause animation, or show only rest pose
-        //animManager->setPlaying(false, true);
-        animManager->setDrawingSkinning(withSkinning);
+        animManager->setPlaying(!noAnimation, noAnimation);
+        animManager->setDrawingSkinning(!noSkinning);
     }
 
     osgViewer::Viewer viewer;
@@ -157,7 +179,7 @@ int main(int argc, char** argv)
     while (!viewer.done())
     {
         if (animManager.valid())
-            animManager->applyTransforms(*skeleton, true, true, axis.get());
+            animManager->applyTransforms(*skeleton, true, true, axis.get(), rootBoneId);
         viewer.frame();
     }
     //osgDB::writeNodeFile(*player, "test_skeleton.osg");

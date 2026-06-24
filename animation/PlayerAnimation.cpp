@@ -222,9 +222,24 @@ namespace ozz
                     return;
                 }
 
+                // Get and apply transformation matrix of current geometry
+                osg::Matrix worldMatrix;
+                //if (geom.getNumParents() > 0)
+                //    worldMatrix = geom.getParent(0)->getWorldMatrices()[0];  // FIXME: consider scene graph of result mesh?
+
                 // Apply to mesh part
                 OzzMesh::Part meshPart; meshPart.positions.resize(vCount * 3);
-                memcpy(&meshPart.positions[0], &(*va)[0], vCount * sizeof(float) * 3);
+                if (!worldMatrix.isIdentity())
+                {
+                    for (size_t c = 0; c < vCount; ++c)
+                    {
+                        size_t idx = c * 3; osg::Vec3 v = (*va)[c] * worldMatrix;
+                        for (int k = 0; k < 3; ++k) meshPart.positions[idx + k] = v[k];
+                    }
+                }
+                else
+                    memcpy(&meshPart.positions[0], &(*va)[0], vCount * sizeof(float) * 3);
+
                 if (ta && ta->size() == vCount)
                 {
                     meshPart.tangents.resize(vCount * 4);

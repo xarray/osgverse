@@ -50,6 +50,7 @@ namespace osgVerse
         opts.target_axes.right = UFBX_COORDINATE_AXIS_POSITIVE_X;
         opts.target_axes.up = UFBX_COORDINATE_AXIS_POSITIVE_Z;
         opts.target_axes.front = UFBX_COORDINATE_AXIS_NEGATIVE_Y;
+        //opts.space_conversion = UFBX_SPACE_CONVERSION_ADJUST_TRANSFORMS;
         opts.target_unit_meters = 1.0f;
         _scene = ufbx_load_memory((void*)&data[0], data.size(), &opts, &error);
         if (error.type != UFBX_ERROR_NONE)
@@ -75,21 +76,18 @@ namespace osgVerse
         _root->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 #endif
 
-        // Handle skeletons
+        // Handle character skeletons
+        osg::Matrix invRootMatrix = osg::Matrix::inverse(_root->getMatrix());
+        std::map<osg::Transform*, osg::observer_ptr<PlayerAnimation>> boneToAnimationMap;
+        std::map<PlayerAnimation*, std::vector<osg::Transform*>> animatorBoneListMap;
         for (std::map<osg::Geode*, SkinningData>::iterator it = _skinningDataMap.begin();
              it != _skinningDataMap.end(); ++it)
         {
             SkinningData& sd = it->second; ufbx_skin_deformer* skin = sd.deformer;
             std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> jointDataMap;
             
-            std::vector<osg::Transform*> nodeList; std::vector<osg::Geometry*> meshList;
-            for (size_t k = 0; k < _scene->bones.count; ++k)
-            {
-                unsigned int boneId = _scene->bones[k]->typed_id;
-                if (_boneToNodeMap.find(boneId) != _boneToNodeMap.end())
-                    nodeList.push_back(_boneToNodeMap[boneId].get());
-            }
-
+            // Traverse all meshes of current player
+            std::set<osg::Transform*> nodeUsed; std::vector<osg::Geometry*> meshList;
             for (std::map<osg::Geometry*, std::vector<SkinningData::JointWeights>>::iterator
                  it2 = sd.skinningDataList.begin(); it2 != sd.skinningDataList.end(); ++it2)
             {
@@ -97,6 +95,7 @@ namespace osgVerse
                 std::map<osg::Transform*, osg::Matrixf>& invPoses = jointData._invBindPoseMap;
                 jointData._stateset = it2->first->getStateSet(); meshList.push_back(it2->first);
 
+                // Compute skinning weights
                 std::vector<SkinningData::JointWeights>& jWeights = it2->second;
                 jointData._weightList.resize(jWeights.size());
                 for (size_t i = 0; i < jWeights.size(); ++i)
@@ -108,13 +107,13 @@ namespace osgVerse
                         unsigned int clusterId = jw0[j].first; float w = jw0[j].second;
                         ufbx_skin_cluster* cluster = skin->clusters.data[clusterId];
                         ufbx_node* boneNode = cluster ? cluster->bone_node : NULL;
-                        if (!boneNode || (boneNode && !boneNode->bone))
+                        if (!boneNode)
                         {
                             OSG_NOTICE << "[LoaderFBX] Failed to get bone from cluster ID " << clusterId << " of "
                                        << "skeletal character " << it->first->getName() << "\n"; continue;
                         }
 
-                        unsigned int boneId = boneNode->bone->typed_id;
+                        unsigned int boneId = boneNode->typed_id;
                         if (_boneToNodeMap.find(boneId) == _boneToNodeMap.end())
                         {
                             ufbx_bone* bone = _scene->bones[boneId]; std::string bName(bone->name.data, bone->name.length);
@@ -122,23 +121,44 @@ namespace osgVerse
                         }
                         else
                         {
-                            osg::Transform* t = _boneToNodeMap[boneId].get(); invPoses[t] = toMatrix(cluster->geometry_to_bone);
+                            osg::Transform* t = _boneToNodeMap[boneId].get(); nodeUsed.insert(t);
                             jw1.push_back(std::pair<osg::Transform*, float>(t, w));
+                            invPoses[t] = osg::Matrix::inverse(toMatrix(cluster->bind_to_world));
                         }
                     }
                 }  // for (size_t i = 0; i < jWeights.size(); ++i)
             }
+
+            // Find all bone transforms of current player
+            std::vector<osg::Transform*> nodeList;
+            for (size_t k = 0; k < _scene->nodes.count; ++k)
+            {
+                unsigned int boneId = _scene->nodes[k]->typed_id;
+                if (_boneToNodeMap.find(boneId) == _boneToNodeMap.end()) continue;
+
+                osg::Transform* t = _boneToNodeMap[boneId].get();
+                if (nodeUsed.find(t) != nodeUsed.end()) nodeList.push_back(t);
+            }
             
+            // Create animation callback of current player
             if (!nodeList.empty() && !meshList.empty())
             {
 #if !DISABLE_SKINNING_DATA
                 osg::ref_ptr<PlayerAnimation> player = new PlayerAnimation;
                 player->setName(it->first->getName()); player->setModelRoot(_root.get());
                 player->initialize(nodeList, meshList, jointDataMap);
+                for (size_t k = 0; k < nodeList.size(); ++k) boneToAnimationMap[nodeList[k]] = player.get();
+                animatorBoneListMap[player.get()] = nodeList;
 
                 osg::ref_ptr<osg::Geode> meshRoot = new osg::Geode;
                 meshRoot->setName("CharacterGeode_" + it->first->getName());
-                meshRoot->addUpdateCallback(player.get()); _root->addChild(meshRoot.get());
+                meshRoot->addUpdateCallback(player.get());
+
+                osg::ref_ptr<osg::MatrixTransform> meshRootMT = new osg::MatrixTransform;
+                meshRootMT->setMatrix(invRootMatrix);  // will not be affected by root
+                meshRootMT->addChild(meshRoot.get()); _root->addChild(meshRootMT.get());
+                it->first->setNodeMask(0);  // FIXME: ugly to hide original meshes
+                it->first->setUserValue("OriginalPlayerMesh", true);
 #endif
             }
 
@@ -171,7 +191,29 @@ namespace osgVerse
         for (size_t i = 0; i < _scene->anim_stacks.count; ++i)
         {
             ufbx_anim_stack* st = _scene->anim_stacks[i]; std::string name(st->name.data, st->name.length);
-            for (size_t j = 0; j < st->layers.count; ++j) createAnimation(st->layers[j], name, st->time_begin, st->time_end);
+            std::map<osg::Transform*, PlayerAnimation::AnimationData> boneAnimMap;
+            for (size_t j = 0; j < st->layers.count; ++j)
+            {
+                if (j > 0) { OSG_NOTICE << "[LoaderFBX] Unsupported animation layer "<< j << " of " << name << "\n"; }  // TODO
+                else createAnimation(st->layers[j], name, st->time_begin, st->time_end, boneAnimMap);
+            }
+
+            if (!boneToAnimationMap.empty()&& !boneAnimMap.empty())
+            {
+                osg::observer_ptr<PlayerAnimation> player;
+                if (boneToAnimationMap.size() > 1)
+                {
+                    std::map<osg::Transform*, PlayerAnimation::AnimationData>::iterator it = boneAnimMap.begin();
+                    for (; it != boneAnimMap.end(); ++it)
+                    { if (boneToAnimationMap.find(it->first) != boneToAnimationMap.end()) player = boneToAnimationMap[it->first]; }
+                }
+                else
+                    player = boneToAnimationMap.begin()->second.get();
+                
+                // Add animation to player
+                if (player.valid() && animatorBoneListMap.find(player.get()) != animatorBoneListMap.end())
+                    player->loadAnimation(name, animatorBoneListMap[player.get()], boneAnimMap);
+            }
         }
     }
 
@@ -188,7 +230,7 @@ namespace osgVerse
                 node->addChild(createMesh(toMatrix(srcNode->geometry_to_node), srcNode->mesh));
             node->setMatrix(toMatrix(srcNode->node_to_parent));
             node->setName(std::string(srcNode->name.data, srcNode->name.length));
-            if (srcNode->bone) _boneToNodeMap[srcNode->bone->typed_id] = node;
+            _boneToNodeMap[srcNode->typed_id] = node;
             _nodes[srcNode->typed_id] = node;
             
             for (size_t i = 0; i < srcNode->children.count; ++i)
@@ -202,7 +244,8 @@ namespace osgVerse
         if (parent) parent->addChild(node);
     }
 
-    void LoaderFBX::createAnimation(ufbx_anim_layer* layer, const std::string& group, double t0, double t1)
+    void LoaderFBX::createAnimation(ufbx_anim_layer* layer, const std::string& group, double t0, double t1,
+                                    std::map<osg::Transform*, PlayerAnimation::AnimationData>& boneAnimMap)
     {
         typedef std::pair<std::vector<ufbx_anim_prop>, std::pair<int, bool>> AnimationChannel;
         std::map<osg::MatrixTransform*, AnimationChannel> nodeAnimChannels;
@@ -249,16 +292,14 @@ namespace osgVerse
             for (size_t i = 0; i < props.size(); ++i) createAnimation(animData, layer, props[i], orderAndBone.first);
 
             osg::Vec3 pivot = nodePivots[mt];
-            if (orderAndBone.second)  // MT is bone node
-            {
-                OSG_NOTICE << "Bone animation " << layerName << " on " << mt->getName() << ": not implemented\n";  // TODO
-            }
-            else
+            if (!orderAndBone.second)
             {   // non-skeleton animations
                 TweenAnimation* tween = dynamic_cast<TweenAnimation*>(mt->getUpdateCallback());
                 if (!tween) { tween = new TweenAnimation; mt->addUpdateCallback(tween); }
                 tween->setPivotPoint(pivot); tween->addAnimation(layerName, animData.toAnimationPath());
             }
+            else
+                boneAnimMap[mt] = animData;
         }
     }
 

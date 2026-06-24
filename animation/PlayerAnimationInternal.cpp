@@ -8,18 +8,21 @@
 #include <osg/PositionAttitudeTransform>
 #include <osg/ShapeDrawable>
 #include <osgUtil/SmoothingVisitor>
+#include <algorithm>
+#include <unordered_set>
+#include <queue>
 using namespace osgVerse;
 
 bool OzzAnimation::loadSkeleton(const char* filename, ozz::animation::Skeleton* skeleton)
 {
     ozz::io::File file(filename, "rb");
     if (!file.opened())
-        ozz::log::Err() << "[PlayerAnimation] Failed to open skeleton file " << filename << std::endl;
+        OSG_WARN << "[PlayerAnimation] Failed to open skeleton file " << filename << std::endl;
     else
     {
         ozz::io::IArchive archive(&file);
         if (!archive.TestTag<ozz::animation::Skeleton>())
-            ozz::log::Err() << "[PlayerAnimation] Failed to load skeleton instance from file "
+            OSG_WARN << "[PlayerAnimation] Failed to load skeleton instance from file "
                             << filename << std::endl;
         else { archive >> *skeleton; return true; }
     }
@@ -30,12 +33,12 @@ bool OzzAnimation::loadAnimation(const char* filename, ozz::animation::Animation
 {
     ozz::io::File file(filename, "rb");
     if (!file.opened())
-        ozz::log::Err() << "[PlayerAnimation] Failed to open animation file " << filename << std::endl;
+        OSG_WARN << "[PlayerAnimation] Failed to open animation file " << filename << std::endl;
     else
     {
         ozz::io::IArchive archive(&file);
         if (!archive.TestTag<ozz::animation::Animation>())
-            ozz::log::Err() << "[PlayerAnimation] Failed to load animation instance from file "
+            OSG_WARN << "[PlayerAnimation] Failed to load animation instance from file "
                             << filename << std::endl;
         else { archive >> *anim; return true; }
     }
@@ -47,7 +50,7 @@ bool OzzAnimation::loadMesh(const char* filename, ozz::vector<ozz::sample::Mesh>
     ozz::io::File file(filename, "rb");
     if (!file.opened())
     {
-        ozz::log::Err() << "[PlayerAnimation] Failed to open mesh file " << filename << std::endl;
+        OSG_WARN << "[PlayerAnimation] Failed to open mesh file " << filename << std::endl;
         return false;
     }
     else
@@ -226,7 +229,7 @@ bool OzzAnimation::applySkinningMesh(osg::Geometry& geom, const OzzMesh& mesh)
                 memcpy(&((*na)[vIndex]), &(outNormals[0]), count * sizeof(float) * 3);
         }
         else
-            ozz::log::Err() << "[PlayerAnimation] Failed with skinning job" << std::endl;
+            OSG_WARN << "[PlayerAnimation] Failed with skinning job" << std::endl;
 
         // Update non-skinning attributes
         if (dirtyVA > 0)
@@ -493,7 +496,7 @@ static bool applyTransform(osg::Transform& node, const ozz::math::Float4x4& m, c
 }
 
 bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createIfMissing,
-                                      bool createWithShape, osg::Node* customNode)
+                                      bool createWithShape, osg::Node* customNode, int rootBoneID)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
@@ -517,48 +520,113 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createI
         if (!mList.empty()) rootMatrixInv = osg::Matrix::inverse(mList[0]);
     }
 
-    // Apply transform and shape to skeleton root
-    std::vector<osg::Group*> createdNodes; createdNodes.push_back(&skeletonRoot); 
-    applyTransform(skeletonRoot, matrices[0], rootMatrixInv); // root is transformed first
-    if (skeletonRoot.getNumChildren() == 0 && createWithShape && shapeNode.valid())
-    { skeletonRoot.addChild(shapeNode.get()); skeletonRoot.setName(joints[0]); }
+    // Check root bone ID
+    std::unordered_set<int16_t> validNodes; std::queue<int16_t> bfsQueue;
+    if (rootBoneID >= 0 && rootBoneID < static_cast<int16_t>(parents.size()))
+    {
+        if (parents[rootBoneID] != -1)
+        {
+            OSG_NOTICE << "[PlayerAnimation] root ID " << rootBoneID 
+                       << " has parent " << parents[rootBoneID] << ", expected -1" << std::endl;
+            return false;
+        }
+        bfsQueue.push(rootBoneID); validNodes.insert(rootBoneID);
+    }
+    else
+        { OSG_NOTICE << "[PlayerAnimation] Invalid root ID: " << rootBoneID << std::endl; return false; }
     
-    // Apply transform and shape to other sub-joints
-    skeletonRoot.computeWorldToLocalMatrix(skeletonW2L, NULL);
+    // BFS traversal
+    while (!bfsQueue.empty())
+    {
+        int16_t current = bfsQueue.front(); bfsQueue.pop();
+        for (size_t i = 0; i < parents.size(); ++i)
+        {
+            if (parents[i] == current && validNodes.find(i) == validNodes.end())
+            { validNodes.insert(static_cast<int16_t>(i)); bfsQueue.push(static_cast<int16_t>(i)); }
+        }
+    }
+    
+    // Find nodes not belonging to current skeleton (starting from rootBoneID)
+    std::vector<int16_t> excludedNodes;
     for (size_t i = 0; i < parents.size(); ++i)
     {
-        std::string jointName = joints[i];
-        int16_t idx = parents[i]; bool found = false;
-        if (idx < 0) continue;  // ID 0 is skeleton root, ignore it
-        else if (createdNodes.size() <= idx) continue;  // FIXME: will this happen?
+        if (validNodes.find(static_cast<int16_t>(i)) == validNodes.end())
+        { excludedNodes.push_back(static_cast<int16_t>(i)); }
+    }
+    
+    // Record joint info data
+    struct JointInfo { size_t originalIndex; int16_t parentId; int depth; std::string name; };
+    std::vector<JointInfo> jointInfos;
+    jointInfos.reserve(validNodes.size());
+    for (int16_t idx : validNodes)
+    {
+        JointInfo info; info.originalIndex = idx; info.depth = 0;
+        info.parentId = parents[idx]; info.name = joints[idx];
+        
+        // Compute depth
+        int16_t p = parents[idx];
+        while (p >= 0 && validNodes.find(p) != validNodes.end())
+        {
+            info.depth++; p = parents[p];
+            if (info.depth > static_cast<int>(validNodes.size()))
+            {
+                OSG_NOTICE << "[PlayerAnimation] Cyclic reference at " << joints[idx] << std::endl;
+                info.depth = -1; break;
+            }
+        }
+        jointInfos.push_back(info);
+    }
+    
+    // Sort by depth
+    std::sort(jointInfos.begin(), jointInfos.end(), [](const JointInfo& a, const JointInfo& b)
+    { if (a.depth < 0) return false; if (b.depth < 0) return true; return a.depth < b.depth; });
 
-        osg::Group* parent = createdNodes[idx];
+    // Apply transform and shape to other sub-joints
+    std::vector<osg::Group*> createdNodes(parents.size(), nullptr);
+    for (const auto& info : jointInfos)
+    {
+        if (info.depth != 0) continue;
+        size_t i = info.originalIndex;
+        applyTransform(skeletonRoot, matrices[i], rootMatrixInv);
+        if (skeletonRoot.getNumChildren() == 0 && createWithShape && shapeNode)
+        { skeletonRoot.addChild(shapeNode); skeletonRoot.setName(joints[i]); }
+        createdNodes[i] = &skeletonRoot;
+    }
+    
+    skeletonRoot.computeWorldToLocalMatrix(skeletonW2L, nullptr);
+    for (const auto& info : jointInfos)
+    {
+        if (info.depth <= 0) continue; const std::string& jointName = info.name;
+        size_t i = info.originalIndex; int16_t parentIdx = info.parentId;
+        if (parentIdx < 0 || parentIdx >= static_cast<int16_t>(createdNodes.size()) || !createdNodes[parentIdx])
+        {
+            OSG_NOTICE << "[PlayerAnimation] Parent " << parentIdx << " of " << jointName 
+                       << " not ready" << std::endl; continue;
+        }
+        
+        osg::Group* parent = createdNodes[parentIdx]; bool found = false;
         for (size_t j = 0; j < parent->getNumChildren(); ++j)
         {
             osg::Group* child = parent->getChild(j)->asGroup();
             if (child && child->getName() == jointName)
-            { createdNodes.push_back(child); found = true; break; }
+            { createdNodes[i] = child; found = true; break; }
         }
-
+        
         osg::MatrixList parentMatrices = parent->getWorldMatrices(&skeletonRoot);
-        if (found)  // current joint is found from its parent node's children, re-transform only
+        if (found)
         {
-            osg::Transform* childT = createdNodes.back()->asTransform();
+            osg::Transform* childT = createdNodes[i]->asTransform();
             applyTransform(*childT, matrices[i], parentMatrices[0] * skeletonW2L);
         }
-        else if (createIfMissing)  // current joint not added to parent, create shape and add it
+        else if (createIfMissing)
         {
             osg::MatrixTransform* newT = new osg::MatrixTransform;
-            if (shapeNode.valid()) newT->addChild(shapeNode.get());
-            newT->setName(jointName); parent->addChild(newT); createdNodes.push_back(newT);
+            if (shapeNode) newT->addChild(shapeNode); newT->setName(jointName);
+            parent->addChild(newT); createdNodes[i] = newT;
             applyTransform(*newT, matrices[i], parentMatrices[0] * skeletonW2L);
         }
         else
-        {
-            OSG_NOTICE << "[PlayerAnimation] Joint node not found: " << jointName
-                       << ", while applying transforms to scene graph" << std::endl;
-            return false;
-        }
+            { OSG_NOTICE << "[PlayerAnimation] Joint not found: " << jointName << std::endl; return false; }
     }
     return true;
 }
@@ -611,7 +679,7 @@ void PlayerAnimation::operator()(osg::Node* node, osg::NodeVisitor* nv)
 {
     osg::Geode* geode = node->asGeode();
     if (nv->getFrameStamp()) update(*nv->getFrameStamp(), !_animated);
-    if (geode) applyMeshes(*geode, true);
+    if (geode) applyMeshes(*geode, _drawSkinning);
     else OSG_WARN << "[PlayerAnimation] Callback should set to a geode" << std::endl;
     traverse(node, nv);
 }
