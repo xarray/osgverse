@@ -455,14 +455,16 @@ osg::Node* TileOptimizer::processTopTileFiles(const std::string& outTileFileName
             }
 
             FindGeometryVisitor fgv(true); fineNode->accept(fgv);
-            std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
-            geomList.insert(geomList.end(), geomList.begin(), geomList.end());
+            const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& fgvGeoms = fgv.getGeometries();
+            for (size_t i = 0; i < fgvGeoms.size(); ++i)
+                geomList.push_back(std::make_pair(osg::ref_ptr<osg::Geometry>(fgvGeoms[i].first), fgvGeoms[i].second));
         }
         else if (roughNode.valid())
         {
             FindGeometryVisitor fgv(true); roughNode->accept(fgv);
-            std::vector<std::pair<osg::Geometry*, osg::Matrix>>& geomList = fgv.getGeometries();
-            geomList.insert(geomList.end(), geomList.begin(), geomList.end());
+            const std::vector<std::pair<osg::Geometry*, osg::Matrix>>& fgvGeoms = fgv.getGeometries();
+            for (size_t i = 0; i < fgvGeoms.size(); ++i)
+                geomList.push_back(std::make_pair(osg::ref_ptr<osg::Geometry>(fgvGeoms[i].first), fgvGeoms[i].second));
         }
 
         fileName = "../" + fileName;
