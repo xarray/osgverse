@@ -220,7 +220,7 @@ namespace osgVerse
         {
             result.resize(numElements * comp); int kmax = osg::minimum(comp, (int)T::num_components);
 #pragma omp parallel for
-            for (size_t n = 0; n < numElements; ++n)
+            for (int n = 0; n < (int)numElements; ++n)
             {
                 size_t idx = n * comp; T& v = raw[n];
                 for (int k = 0; k < kmax; ++k) { HalfFloat h(v[k]); result[idx + k] = h.x; }
@@ -233,7 +233,7 @@ namespace osgVerse
         {
             result.resize(numElements); int kmax = osg::minimum(comp, (int)T::num_components);
 #pragma omp parallel for
-            for (size_t n = 0; n < numElements; ++n)
+            for (int n = 0; n < (int)numElements; ++n)
             {
                 size_t idx = n * comp; T& v = result[n];
                 for (int k = 0; k < kmax; ++k) { HalfFloat h(raw[idx + k]); v[k] = h.get(); }

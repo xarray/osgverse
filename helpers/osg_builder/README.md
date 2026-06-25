@@ -7,7 +7,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * OPENGL_PROFILE: GL3 or GLCORE
 * You will have to find glcorearb.h from Khronos website. And then set the GLCORE_ROOT environment variable.
 * Command-line example: (Windows)
-  * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLCORE "%osg_root_path%"</em>
+  * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLCORE -DGLCORE_INCLUDE_DIR=%glcore_path% "%osg_root_path%"</em>
   * <em>cmake --build .</em>
 
 #### OSG for GLES2/GLES3 (Desktop / GoogleAngle)
@@ -31,7 +31,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
     * <em>cd out/Release; ninja -j4 -k1 -C out/Release</em>
     * Don't forget to copy vulkan-1.dll as well as libEGL.dll and libGLESv2.dll to executable folder.
 * Command-line example: (Windows only)
-  * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib "%osg_root_path%"</em>
+  * <em>cmake -G"Visual Studio 16 2019" -A x64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
   * <em>cmake --build .</em>
   * osgVerse must be built with -DVERSE_BUILD_WITH_ANGLE=ON
 
@@ -53,7 +53,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
         (Satrting from line 240 in `<osg_root_path>`/CMakeLists.txt) Will have to modify or remove them manually to
         make Googla Angle (GLES) work. Make these modifications automatically later?</cm>
 * Command-line example:
-  * <em>cmake -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_HEADER2="#include `<GLES3/gl3.h>`" -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
+  * <em>cmake -DCMAKE_INSTALL_PREFIX=%sdk_path% -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DOPENGL_PROFILE=GLES3 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_HEADER2="#include `<GLES3/gl3.h>`" -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_WINDOWING_SYSTEM="None" "%osg_root_path%"</em>
   * <em>cmake --build .</em>
   * osgVerse must be built with -DVERSE_BUILD_WITH_ANGLE=ON
 
@@ -87,7 +87,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
       `<Line 249>` return OSGDB_FILENAME_TO_STRING(rootdir);
     * `<Line 861>` retval = OSGDB_WINDOWS_FUNCT(GetSystemWindowsDirectory)(windowsDir, (UINT)size);
 * Command-line example: (Windows only)
-  * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES2 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_USE_UTF8_FILENAME=ON -DOSG_WINDOWING_SYSTEM="None" -D_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE=0 "%osg_root_path%"</em>
+  * <em>cmake -G"Visual Studio 17 2022" -A x64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0" -DCMAKE_INSTALL_PREFIX=%sdk_path% -DOPENGL_PROFILE=GLES2 -DEGL_INCLUDE_DIR=%angle_path%/include -DOPENGL_INCLUDE_DIR=%angle_path%/include -DEGL_LIBRARY=%angle_path%/lib/libEGL.lib -DOPENGL_gl_LIBRARY=%angle_path%/lib/libGLESv2.lib -DOSG_USE_UTF8_FILENAME=ON -DOSG_WINDOWING_SYSTEM="None" -D_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE=0 "%osg_root_path%"</em>
   * Run <em>Solution File</em> and build
   * osgVerse must be built with -DVERSE_BUILD_WITH_ANGLE=ON
 
@@ -95,7 +95,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
 * Install OSG:
   * <em>pacman -S mingw-w64-ucrt-x86_64-OpenSceneGraph</em>
 * Command-line example:
-  * <em>cmake -G"MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release "%osg_root_path%"</em>
+  * <em>cmake -G"MSYS Makefiles" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release "%osg_root_path%"</em>
   * <em>make</em>
 
 #### OSG for Android (Cross-compiling)
@@ -110,7 +110,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
   * DYNAMIC_OPENTHREADS: OFF
   * OPENGL_PROFILE: GLES2/GLES3
 * Command-line example: (Windows only)
-  * <em>cmake -G"MinGW Makefiles" -DCMAKE_TOOLCHAIN_FILE="%ndk_path%/build/cmake/android.toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -DANDROID_ABI="armeabi-v7a with NEON" -DCMAKE_MAKE_PROGRAM="%ndk_path%/prebuilt/windows-x86_64/bin/make.exe" -DANDROID_PLATFORM=21 -DDYNAMIC_OPENSCENEGRAPH=OFF -DDYNAMIC_OPENTHREADS=OFF -DOPENGL_PROFILE=GLES2 "%osg_root_path%"</em>
+  * <em>cmake -G"MinGW Makefiles" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_TOOLCHAIN_FILE="%ndk_path%/build/cmake/android.toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -DANDROID_ABI="armeabi-v7a with NEON" -DCMAKE_MAKE_PROGRAM="%ndk_path%/prebuilt/windows-x86_64/bin/make.exe" -DANDROID_PLATFORM=21 -DDYNAMIC_OPENSCENEGRAPH=OFF -DDYNAMIC_OPENTHREADS=OFF -DOPENGL_PROFILE=GLES2 "%osg_root_path%"</em>
   * <em>cmake --build .</em>
 
 #### OSG for WASM (Emscripten)
@@ -135,7 +135,7 @@ For OSG 3.6.5, third-party includes (like Google Angle GL/GLES subfolders) shoul
     * <em>./emsdk install latest</em>
     * <em>./emsdk activate latest</em>
     * <em>source ./emsdk_env.sh</em>
-  * <em>cmake -DCMAKE_TOOLCHAIN_FILE=%emsdk_path%/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake %osg_root_path%/examples/osgemscripten</em>
+  * <em>cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_TOOLCHAIN_FILE=%emsdk_path%/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake %osg_root_path%/examples/osgemscripten</em>
   * <em>make</em>  '''This is the deprecated way to compile OSG to WASM, see osgVerse for a better one!
 * Run it in web browsers
   * Copy osgemscripten.html/js/wasm/data to folder
