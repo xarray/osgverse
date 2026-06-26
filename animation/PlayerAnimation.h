@@ -15,7 +15,10 @@ namespace osgVerse
     {
     public:
         typedef float (*SetJointWeightFunc)(int, int, void*);
+        typedef void (*ValidateSkinningFunc)(osg::Vec3*, osg::Vec3*, int, int);
+
         PlayerAnimation();
+        void setSkinningValidator(ValidateSkinningFunc func);
         virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
         void setPlaying(bool b, bool rp = false) { _animated = b; _restPose = rp; }

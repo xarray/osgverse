@@ -305,10 +305,15 @@ void main()
         vec4 axes = computeExtens2D(cov2D, invCovariance);
         vec2 majAxis = axes.xy, minAxis = axes.zw;
 
+        float projArea = length(majAxis) * length(minAxis);
+        if (projArea < 10.0) { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
+
         vec2 offset = majAxis * osg_Vertex.x + minAxis * osg_Vertex.y;
         offset.x *= (2.0 * InvScreenResolution.x) * proj.w;
         offset.y *= (2.0 * InvScreenResolution.y) * proj.w; proj.xy += offset;
     }
+    else
+        { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
 #else
     vec3 baseColor = vec3(osg_R_SH0.x, osg_G_SH0.x, osg_B_SH0.x);
     color_gs = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);

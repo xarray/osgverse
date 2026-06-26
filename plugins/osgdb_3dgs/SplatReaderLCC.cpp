@@ -349,6 +349,14 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string&
         lod->setRange(0, ranges[0].first, FLT_MAX);
         lod->setRange(ranges.size() - 1, 0.0f, ranges[ranges.size() - 1].second);
         root->addChild(lod.get());
+#if false
+        std::cout << "SplatLOD " << lod->getName() << ":\n";
+        for (size_t l = 0; l < ranges.size(); ++l)
+        {
+            std::cout << "   Lv" << l << ": Num = " << chunk.numSplats[l] << "; Range = "
+                      << ranges[l].first << ", " << ranges[l].second << "\n";
+        }
+#endif
     }
     ro_mmap.unmap();
     if (deg > 0) ro_mmap2.unmap();

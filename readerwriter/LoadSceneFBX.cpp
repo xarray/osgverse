@@ -137,7 +137,7 @@ namespace osgVerse
                 if (_boneToNodeMap.find(boneId) == _boneToNodeMap.end()) continue;
 
                 osg::Transform* t = _boneToNodeMap[boneId].get();
-                if (nodeUsed.find(t) != nodeUsed.end()) nodeList.push_back(t);
+                /*if (nodeUsed.find(t) != nodeUsed.end())*/ nodeList.push_back(t);
             }
             
             // Create animation callback of current player

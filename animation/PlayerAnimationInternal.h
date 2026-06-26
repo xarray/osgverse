@@ -37,7 +37,9 @@ typedef ozz::sample::Mesh OzzMesh;
 class OzzAnimation : public osg::Referenced
 {
 public:
-    OzzAnimation() : _allocatedBuffer(NULL) {}
+    typedef void (*ValidateSkinningFunc)(osg::Vec3*, osg::Vec3*, int, int);
+    OzzAnimation() : _validator(NULL), _allocatedBuffer(NULL) {}
+
     bool loadSkeleton(const char* filename, ozz::animation::Skeleton* skeleton);
     bool loadAnimation(const char* filename, ozz::animation::Animation* anim);
     bool loadMesh(const char* filename, ozz::vector<ozz::sample::Mesh>* meshes);
@@ -66,5 +68,6 @@ public:
     ozz::vector<ozz::math::Float4x4> _models;
     ozz::vector<ozz::math::Float4x4> _skinning_matrices;
     ozz::vector<OzzMesh> _meshes;
+    ValidateSkinningFunc _validator;
     void* _allocatedBuffer;
 };

@@ -1001,6 +1001,12 @@ PlayerAnimation::~PlayerAnimation()
         ozz::memory::default_allocator()->Deallocate(ozz->_allocatedBuffer);
 }
 
+void PlayerAnimation::setSkinningValidator(ValidateSkinningFunc func)
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz) ozz->_validator = func;
+}
+
 bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
                                  const std::map<osg::Geometry*, GeometryJointData>& jointDataMap)
 {

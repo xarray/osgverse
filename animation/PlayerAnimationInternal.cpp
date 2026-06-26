@@ -224,7 +224,14 @@ bool OzzAnimation::applySkinningMesh(osg::Geometry& geom, const OzzMesh& mesh)
         // Get skinning result
         if (skinningJob.Run())
         {
-            memcpy(&((*va)[vIndex]), &(outPositions[0]), count * sizeof(float) * 3);
+            if (_validator != NULL)
+            {
+                std::vector<osg::Vec3> outV(count);
+                memcpy(outV.data(), &(outPositions[0]), count * sizeof(float) * 3);
+                (*_validator)(outV.data(), (osg::Vec3*)va->getDataPointer(), vIndex, count);
+            }
+            else
+                memcpy(&((*va)[vIndex]), &(outPositions[0]), count * sizeof(float) * 3);
             if (hasNormals)
                 memcpy(&((*na)[vIndex]), &(outNormals[0]), count * sizeof(float) * 3);
         }
@@ -433,6 +440,36 @@ bool PlayerAnimation::updateTwoBoneIK(const osg::Vec3& target, int start, int mi
     return ltmJob.Run();
 }
 
+namespace
+{
+    static osg::Matrix convertMatrix(const ozz::math::Float4x4& m)
+    {
+        return osg::Matrix(
+            ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
+            ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
+            ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
+            ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
+    }
+
+    static bool applyTransform(osg::Transform& node, const ozz::math::Float4x4& m, const osg::Matrix& parentM, bool absolute = false)
+    {
+        osg::Matrix matrix = convertMatrix(m);
+        matrix = absolute ? osg::Matrix::inverse(parentM) : (matrix * osg::Matrix::inverse(parentM));
+        if (!osg::equivalent(matrix(3, 3), 1.0)) return false;
+
+        osg::MatrixTransform* mt = node.asMatrixTransform();
+        if (mt) { mt->setMatrix(matrix); return true; }
+
+        osg::PositionAttitudeTransform* pat = node.asPositionAttitudeTransform();
+        if (pat)
+        {
+            osg::Vec3 pos, scale; osg::Quat rot, so; matrix.decompose(pos, rot, scale, so);
+            pat->setPosition(pos); pat->setScale(scale); pat->setAttitude(rot); return true;
+        }
+        return false;
+    }
+}
+
 bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
@@ -471,28 +508,6 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
     if (_drawSkeleton)
         updateSkeletonMesh(*(meshDataRoot.getDrawable(numMeshes - 1)->asGeometry()));
     return true;
-}
-
-static bool applyTransform(osg::Transform& node, const ozz::math::Float4x4& m, const osg::Matrix& parentM)
-{
-    osg::Matrix matrix(
-        ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
-        ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
-        ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
-        ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
-    matrix = matrix * osg::Matrix::inverse(parentM);
-    if (!osg::equivalent(matrix(3, 3), 1.0)) return false;
-
-    osg::MatrixTransform* mt = node.asMatrixTransform();
-    if (mt) { mt->setMatrix(matrix); return true; }
-
-    osg::PositionAttitudeTransform* pat = node.asPositionAttitudeTransform();
-    if (pat)
-    {
-        osg::Vec3 pos, scale; osg::Quat rot, so; matrix.decompose(pos, rot, scale, so);
-        pat->setPosition(pos); pat->setScale(scale); pat->setAttitude(rot); return true;
-    }
-    return false;
 }
 
 bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createIfMissing,
@@ -587,7 +602,7 @@ bool PlayerAnimation::applyTransforms(osg::Transform& skeletonRoot, bool createI
     {
         if (info.depth != 0) continue;
         size_t i = info.originalIndex;
-        applyTransform(skeletonRoot, matrices[i], rootMatrixInv);
+        applyTransform(skeletonRoot, matrices[i], rootMatrixInv, true);
         if (skeletonRoot.getNumChildren() == 0 && createWithShape && shapeNode)
         { skeletonRoot.addChild(shapeNode); skeletonRoot.setName(joints[i]); }
         createdNodes[i] = &skeletonRoot;
@@ -663,13 +678,8 @@ void PlayerAnimation::updateSkeletonMesh(osg::Geometry& geom)
     for (size_t i = 0; i < parents.size(); ++i)
     {
         int16_t pID = parents[i]; if (pID < 0) pID = 0;  // make an invalid line
-        const ozz::math::Float4x4& m = matrices[i];
-        osg::Matrix matrix(
-            ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
-            ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
-            ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
-            ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
-        (*ca)[i] = (i == 0) ? osg::Vec4ub(255, 0, 0, 255) : osg::Vec4ub(255, 255, 255, 255);
+        osg::Matrix matrix = convertMatrix(matrices[i]);
+        (*ca)[i] = (i == 0 || pID == 0) ? osg::Vec4ub(255, 0, 0, 255) : osg::Vec4ub(255, 255, 255, 255);
         (*va)[i] = matrix.getTrans(); (*de)[i * 2] = i; (*de)[i * 2 + 1] = pID;
     }
     va->dirty();
