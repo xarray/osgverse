@@ -184,6 +184,7 @@ bool OzzAnimation::applySkinningMesh(osg::Geometry& geom, const OzzMesh& mesh)
     {
         const OzzMesh::Part& part = mesh.parts[i];
         int count = part.vertex_count(), influencesCount = part.influences_count();
+#if true
         ozz::vector<float> outPositions; outPositions.resize(part.positions.size());
         ozz::vector<float> outNormals; outNormals.resize(part.normals.size());
         ozz::vector<float> outTangents; outTangents.resize(part.tangents.size());
@@ -246,6 +247,11 @@ bool OzzAnimation::applySkinningMesh(osg::Geometry& geom, const OzzMesh& mesh)
             if (part.colors.size() != count * 4) hasColors = false;
             else memcpy(&((*ca)[vIndex]), &(part.colors[0]), count * sizeof(uint8_t) * 4);
         }
+#else
+        std::vector<osg::Vec3> outV = OzzAnimation::skinVertices(part, skinningMat);
+        memcpy(&((*va)[vIndex]), outV.data(), count * sizeof(osg::Vec3));
+        hasNormals = false; hasColors = false; hasUVs = false;
+#endif
         vIndex += count;
     }
 
@@ -442,18 +448,9 @@ bool PlayerAnimation::updateTwoBoneIK(const osg::Vec3& target, int start, int mi
 
 namespace
 {
-    static osg::Matrix convertMatrix(const ozz::math::Float4x4& m)
-    {
-        return osg::Matrix(
-            ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
-            ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
-            ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
-            ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
-    }
-
     static bool applyTransform(osg::Transform& node, const ozz::math::Float4x4& m, const osg::Matrix& parentM, bool absolute = false)
     {
-        osg::Matrix matrix = convertMatrix(m);
+        osg::Matrix matrix = OzzAnimation::convertMatrix(m);
         matrix = absolute ? osg::Matrix::inverse(parentM) : (matrix * osg::Matrix::inverse(parentM));
         if (!osg::equivalent(matrix(3, 3), 1.0)) return false;
 
@@ -480,8 +477,9 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
         for (size_t i = 0; i < numMeshes; ++i)
         {
             osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-            geom->setUseDisplayList(false);
-            geom->setUseVertexBufferObjects(true);
+            geom->setUseDisplayList(false); geom->setUseVertexBufferObjects(true);
+            if (i < ozz->_meshNames.size()) geom->setName(ozz->_meshNames[i]);
+
             if (i < _blendshapes.size()) geom->setUpdateCallback(_blendshapes[i].get());
             if (i < _meshStateSetList.size()) geom->setStateSet(_meshStateSetList[i].get());
             else if (_drawSkeleton && i == numMeshes - 1)
@@ -499,9 +497,9 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
         // Compute each mesh's poses from world space data
         for (size_t j = 0; j < mesh.joint_remaps.size(); ++j)
         {
-            ozz->_skinning_matrices[j] =
-                ozz->_models[mesh.joint_remaps[j]] * mesh.inverse_bind_poses[j];
-            ozz::math::SimdFloat4 c0 = ozz->_skinning_matrices[j].cols[0];
+            uint16_t jointID = mesh.joint_remaps[j];  // get real joint ID from current mesh remaps
+            ozz->_skinning_matrices[jointID] = ozz->_models[jointID] * mesh.inverse_bind_poses[j];
+            //ozz::math::SimdFloat4 c0 = ozz->_skinning_matrices[jointID].cols[0];
         }
         if (!ozz->applySkinningMesh(*geom, mesh)) return false;
     }
@@ -678,7 +676,7 @@ void PlayerAnimation::updateSkeletonMesh(osg::Geometry& geom)
     for (size_t i = 0; i < parents.size(); ++i)
     {
         int16_t pID = parents[i]; if (pID < 0) pID = 0;  // make an invalid line
-        osg::Matrix matrix = convertMatrix(matrices[i]);
+        osg::Matrix matrix = OzzAnimation::convertMatrix(matrices[i]);
         (*ca)[i] = (i == 0 || pID == 0) ? osg::Vec4ub(255, 0, 0, 255) : osg::Vec4ub(255, 255, 255, 255);
         (*va)[i] = matrix.getTrans(); (*de)[i * 2] = i; (*de)[i * 2 + 1] = pID;
     }

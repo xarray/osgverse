@@ -169,7 +169,7 @@ namespace ozz
                 : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _jointMap(jd)
             { for (size_t i = 0; i < nodes.size(); ++i) _nodeMap[nodes[i]] = i; }
 
-            ozz::vector<OzzMesh>& getMeshes() { return _meshes; }
+            ozz::vector<OzzMesh>& getMeshes(ozz::vector<std::string>& n) { n = _meshNames; return _meshes; }
             std::vector<osg::ref_ptr<osgVerse::BlendShapeAnimation>>& getBS() { return _blendshapes; }
             std::vector<osg::ref_ptr<osg::StateSet>>& getStateSets() { return _stateSetList; }
 
@@ -218,8 +218,7 @@ namespace ozz
                 if (vCount > SIZE_MAX / (sizeof(float) * 4) || vCount != wCount)
                 {
                     OSG_WARN << "[PlayerAnimation] Imported joint-weight list size mismatched: "
-                             << wCount << "; vertex count: " << vCount << std::endl;
-                    return;
+                             << wCount << "; vertex count: " << vCount << std::endl; return;
                 }
 
                 // Get and apply transformation matrix of current geometry
@@ -356,7 +355,7 @@ namespace ozz
                     pose.cols[3] = ozz::math::simd_float4::Load(m(3, 0), m(3, 1), m(3, 2), m(3, 3));
                     mesh.inverse_bind_poses.push_back(pose);
                 }
-                _meshes.push_back(mesh);
+                _meshes.push_back(mesh); _meshNames.push_back(std::string(geom.getName()));
                 _stateSetList.push_back(jData._stateset);
             }
 
@@ -364,7 +363,7 @@ namespace ozz
             std::map<osg::Geometry*, PlayerAnimation::GeometryJointData> _jointMap;
             std::map<osg::Transform*, uint16_t> _nodeMap;
             std::vector<osg::ref_ptr<osg::StateSet>> _stateSetList;
-            ozz::vector<OzzMesh> _meshes;
+            ozz::vector<OzzMesh> _meshes; ozz::vector<std::string> _meshNames;
             std::vector<osg::ref_ptr<osgVerse::BlendShapeAnimation>> _blendshapes;
         };
 
@@ -805,139 +804,140 @@ namespace ozz
     }
 }
 
-static void printPlayerData(OzzAnimation* ozz)
+namespace
 {
-    ozz::span<const char* const> names = ozz->_skeleton.joint_names();
-    ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
-    ozz::span<const ozz::math::SoaTransform> restPoses = ozz->_skeleton.joint_rest_poses();
-    for (size_t i = 0; i < names.size(); ++i)
+    static std::string printPlayerData(OzzAnimation* ozz, bool withJointWeights = false)
     {
-        int16_t pid = parents[i], soaID = i % 4;
-        const ozz::math::SoaTransform soaT = restPoses[i / 4];
-        std::cout << "B" << i << ": " << names[i] << ", Parent = "
-                  << (pid >= 0 ? names[pid] : "(null)") << std::endl;
-
-        osg::Vec3 pos, scale; osg::Quat rot;
-        switch (soaID)
+        ozz::span<const char* const> names = ozz->_skeleton.joint_names();
+        ozz::span<const int16_t> parents = ozz->_skeleton.joint_parents();
+        ozz::span<const ozz::math::SoaTransform> restPoses = ozz->_skeleton.joint_rest_poses();
+        std::stringstream out; out << "Total bones: " << names.size() << std::endl;
+        for (size_t i = 0; i < names.size(); ++i)
         {
-        case 0:
-            scale[0] = ozz::math::GetX(soaT.scale.x); scale[1] = ozz::math::GetX(soaT.scale.y);
-            scale[2] = ozz::math::GetX(soaT.scale.z);
-            rot[0] = ozz::math::GetX(soaT.rotation.x); rot[1] = ozz::math::GetX(soaT.rotation.y);
-            rot[2] = ozz::math::GetX(soaT.rotation.z); rot[3] = ozz::math::GetX(soaT.rotation.w);
-            pos[0] = ozz::math::GetX(soaT.translation.x); pos[1] = ozz::math::GetX(soaT.translation.y);
-            pos[2] = ozz::math::GetX(soaT.translation.z); break;
-        case 1:
-            scale[0] = ozz::math::GetY(soaT.scale.x); scale[1] = ozz::math::GetY(soaT.scale.y);
-            scale[2] = ozz::math::GetY(soaT.scale.z);
-            rot[0] = ozz::math::GetY(soaT.rotation.x); rot[1] = ozz::math::GetY(soaT.rotation.y);
-            rot[2] = ozz::math::GetY(soaT.rotation.z); rot[3] = ozz::math::GetY(soaT.rotation.w);
-            pos[0] = ozz::math::GetY(soaT.translation.x); pos[1] = ozz::math::GetY(soaT.translation.y);
-            pos[2] = ozz::math::GetY(soaT.translation.z); break;
-        case 2:
-            scale[0] = ozz::math::GetZ(soaT.scale.x); scale[1] = ozz::math::GetZ(soaT.scale.y);
-            scale[2] = ozz::math::GetZ(soaT.scale.z);
-            rot[0] = ozz::math::GetZ(soaT.rotation.x); rot[1] = ozz::math::GetZ(soaT.rotation.y);
-            rot[2] = ozz::math::GetZ(soaT.rotation.z); rot[3] = ozz::math::GetZ(soaT.rotation.w);
-            pos[0] = ozz::math::GetZ(soaT.translation.x); pos[1] = ozz::math::GetZ(soaT.translation.y);
-            pos[2] = ozz::math::GetZ(soaT.translation.z); break;
-        case 3:
-            scale[0] = ozz::math::GetW(soaT.scale.x); scale[1] = ozz::math::GetW(soaT.scale.y);
-            scale[2] = ozz::math::GetW(soaT.scale.z);
-            rot[0] = ozz::math::GetW(soaT.rotation.x); rot[1] = ozz::math::GetW(soaT.rotation.y);
-            rot[2] = ozz::math::GetW(soaT.rotation.z); rot[3] = ozz::math::GetW(soaT.rotation.w);
-            pos[0] = ozz::math::GetW(soaT.translation.x); pos[1] = ozz::math::GetW(soaT.translation.y);
-            pos[2] = ozz::math::GetW(soaT.translation.z); break;
-        }
-        std::cout.setf(std::ios_base::fixed);
-        std::cout << std::setprecision(2) << "  Position = " << pos << ", Scale = " << scale
-                  << ", Rotation = " << computeHPRFromQuat(rot) << std::endl;
-    }
-    std::cout << std::endl;
+            int16_t pid = parents[i], soaID = i % 4; const ozz::math::SoaTransform soaT = restPoses[i / 4];
+            out << "B" << i << ": " << names[i] << ", Parent = " << (pid >= 0 ? names[pid] : "(null)") << std::endl;
 
-#if false
-    for (size_t i = 0; i < ozz->_meshes.size(); ++i)
-    {
-        OzzMesh& mesh = ozz->_meshes[i];
-        std::cout << "Mesh-" << i << ": Parts = " << mesh.parts.size() << std::endl;
-        for (size_t j = 0; j < mesh.parts.size(); ++j)
-        {
-            OzzMesh::Part& part = mesh.parts[j];
-            int numVertices = part.vertex_count(), numInfluences = part.influences_count();
-            ozz::vector<uint16_t> jointIds = part.joint_indices;
-            ozz::vector<float> jointWeights = part.joint_weights;
-            std::cout << "  Part-" << j << ": Vertices = " << numVertices << ", Influences = "
-                      << numInfluences << ", JointIDs = " << jointIds.size()
-                      << ", Weights = " << jointWeights.size() << std::endl;
-
-            for (size_t n = 0; n < numVertices; ++n)
+            osg::Vec3 pos, scale; osg::Quat rot;
+            switch (soaID)
             {
-                size_t n0 = n * 4, n1 = n * 3;
-                std::cout << "    Vec-" << n << ": ";
-
-                float w = jointWeights[n1] + jointWeights[n1 + 1] + jointWeights[n1 + 2];
-                for (int k = 0; k < 4; ++k)
-                {
-                    float weight = jointWeights[n1 + k];
-                    if (k == 3) weight = 1.0f - w; if (weight == 0.0f) continue;
-                    std::cout << "B" << jointIds[n0 + k] << " / " << jointWeights[n1 + k];
-                }
-                std::cout << std::endl;
+            case 0:
+                scale[0] = ozz::math::GetX(soaT.scale.x); scale[1] = ozz::math::GetX(soaT.scale.y);
+                scale[2] = ozz::math::GetX(soaT.scale.z);
+                rot[0] = ozz::math::GetX(soaT.rotation.x); rot[1] = ozz::math::GetX(soaT.rotation.y);
+                rot[2] = ozz::math::GetX(soaT.rotation.z); rot[3] = ozz::math::GetX(soaT.rotation.w);
+                pos[0] = ozz::math::GetX(soaT.translation.x); pos[1] = ozz::math::GetX(soaT.translation.y);
+                pos[2] = ozz::math::GetX(soaT.translation.z); break;
+            case 1:
+                scale[0] = ozz::math::GetY(soaT.scale.x); scale[1] = ozz::math::GetY(soaT.scale.y);
+                scale[2] = ozz::math::GetY(soaT.scale.z);
+                rot[0] = ozz::math::GetY(soaT.rotation.x); rot[1] = ozz::math::GetY(soaT.rotation.y);
+                rot[2] = ozz::math::GetY(soaT.rotation.z); rot[3] = ozz::math::GetY(soaT.rotation.w);
+                pos[0] = ozz::math::GetY(soaT.translation.x); pos[1] = ozz::math::GetY(soaT.translation.y);
+                pos[2] = ozz::math::GetY(soaT.translation.z); break;
+            case 2:
+                scale[0] = ozz::math::GetZ(soaT.scale.x); scale[1] = ozz::math::GetZ(soaT.scale.y);
+                scale[2] = ozz::math::GetZ(soaT.scale.z);
+                rot[0] = ozz::math::GetZ(soaT.rotation.x); rot[1] = ozz::math::GetZ(soaT.rotation.y);
+                rot[2] = ozz::math::GetZ(soaT.rotation.z); rot[3] = ozz::math::GetZ(soaT.rotation.w);
+                pos[0] = ozz::math::GetZ(soaT.translation.x); pos[1] = ozz::math::GetZ(soaT.translation.y);
+                pos[2] = ozz::math::GetZ(soaT.translation.z); break;
+            case 3:
+                scale[0] = ozz::math::GetW(soaT.scale.x); scale[1] = ozz::math::GetW(soaT.scale.y);
+                scale[2] = ozz::math::GetW(soaT.scale.z);
+                rot[0] = ozz::math::GetW(soaT.rotation.x); rot[1] = ozz::math::GetW(soaT.rotation.y);
+                rot[2] = ozz::math::GetW(soaT.rotation.z); rot[3] = ozz::math::GetW(soaT.rotation.w);
+                pos[0] = ozz::math::GetW(soaT.translation.x); pos[1] = ozz::math::GetW(soaT.translation.y);
+                pos[2] = ozz::math::GetW(soaT.translation.z); break;
             }
+            out.setf(std::ios_base::fixed);
+            out << std::setprecision(2) << "  Position = " << pos << ", Scale = " << scale
+                << ", Rotation = " << computeHPRFromQuat(rot) << std::endl;
+        }
+        
+        out << std::endl;
+        for (size_t i = 0; i < ozz->_meshes.size(); ++i)
+        {
+            OzzMesh& mesh = ozz->_meshes[i];
+            out << "Mesh-" << i << ": Parts = " << mesh.parts.size() << "; Bones: " << mesh.num_joints()
+                << "; RemappedBones: " << mesh.joint_remaps.size() << std::endl;
+            for (size_t j = 0; j < mesh.parts.size(); ++j)
+            {
+                OzzMesh::Part& part = mesh.parts[j];
+                int numVertices = part.vertex_count(), numInfluences = part.influences_count();
+                ozz::vector<uint16_t> jointIds = part.joint_indices;
+                ozz::vector<float> jointWeights = part.joint_weights;
+                out << "  Part-" << j << ": Vertices = " << numVertices << ", Influences = "
+                    << numInfluences << ", JointIDs = " << jointIds.size()
+                    << ", Weights = " << jointWeights.size() << std::endl;
+
+                if (!withJointWeights) continue;
+                for (size_t n = 0; n < numVertices; ++n)
+                {
+                    size_t n0 = n * 4, n1 = n * 3; out << "    Vec-" << n << ": ";
+                    float w = jointWeights[n1] + jointWeights[n1 + 1] + jointWeights[n1 + 2];
+                    for (int k = 0; k < 4; ++k)
+                    {
+                        float weight = jointWeights[n1 + k];
+                        if (k == 3) weight = 1.0f - w; if (weight == 0.0f) continue;
+                        out << "B" << jointIds[n0 + k] << "/" << jointWeights[n1 + k] << "; ";
+                    }
+                    out << std::endl;
+                }
+            }
+            out << std::endl;
+        }
+        return out.str();
+    }
+
+    static float keyRatio(const ozz::span<const float>& timepoints,
+                        const ozz::span<const ozz::byte>& ratios, size_t at)
+    {
+        if (timepoints.size() <= std::numeric_limits<uint8_t>::max())
+            return timepoints[ozz::reinterpret_span<const uint8_t>(ratios)[at]];
+        else
+            return timepoints[ozz::reinterpret_span<const uint16_t>(ratios)[at]];
+    }
+
+    static void printAnimationData(OzzAnimation* ozz, const std::string& key)
+    {
+        ozz::span<const char* const> names = ozz->_skeleton.joint_names();
+        OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
+        ozz::animation::Animation& animation = sampler.animation;
+
+        ozz::span<const float> timeList = sampler.animation.timepoints();
+        ozz::span<const Float3Key> posList = sampler.animation.translations_values();
+        ozz::span<const QuaternionKey> rotList = sampler.animation.rotations_values();
+        ozz::span<const Float3Key> scaleList = sampler.animation.scales_values();
+        std::cout << "Anim " << key << ": Duration = " << sampler.animation.duration()
+                  << ", Frames = " << timeList.size() << ", T/R/S = " << posList.size()
+                  << "/" << rotList.size() << "/" << scaleList.size() << std::endl;
+
+        const ozz::span<const ozz::byte>& ratiosT = sampler.animation.translations_ctrl().ratios;
+        std::cout << "  Translation Ratios (" << ratiosT.size() << "): " << keyRatio(timeList, ratiosT, 0)
+                  << " --> " << keyRatio(timeList, ratiosT, ratiosT.size() - 1) << ", IFrame Entries = "
+                  << sampler.animation.translations_ctrl().iframe_entries.size() << ", Desc = "
+                  << sampler.animation.translations_ctrl().iframe_desc.size() << std::endl;
+        const ozz::span<const ozz::byte>& ratiosR = sampler.animation.rotations_ctrl().ratios;
+        std::cout << "  Rotation Ratios (" << ratiosR.size() << "): " << keyRatio(timeList, ratiosR, 0)
+                  << " --> " << keyRatio(timeList, ratiosR, ratiosR.size() - 1) << ", IFrame Entries = "
+                  << sampler.animation.rotations_ctrl().iframe_entries.size()  << ", Desc = "
+                  << sampler.animation.rotations_ctrl().iframe_desc.size() << std::endl;
+        const ozz::span<const ozz::byte>& ratiosS = sampler.animation.scales_ctrl().ratios;
+        std::cout << "  Scale Ratios (" << ratiosS.size() << "): " << keyRatio(timeList, ratiosS, 0)
+                  << " --> " << keyRatio(timeList, ratiosS, ratiosS.size() - 1) << ", IFrame Entries = "
+                  << sampler.animation.scales_ctrl().iframe_entries.size()  << ", Desc = "
+                  << sampler.animation.scales_ctrl().iframe_desc.size() << std::endl;
+
+        for (size_t i = 0; i < names.size(); ++i)
+        {
+            int tFrames = ozz::animation::CountTranslationKeyframes(sampler.animation, i);
+            int rFrames = ozz::animation::CountRotationKeyframes(sampler.animation, i);
+            int sFrames = ozz::animation::CountScaleKeyframes(sampler.animation, i);
+            std::cout << "  T-" << i << " (" << names[i] << "): TranslationKey = " << tFrames
+                      << ", RotationKey = " << rFrames << ", ScaleKey = " << sFrames << std::endl;
         }
         std::cout << std::endl;
     }
-#endif
-}
-
-static float keyRatio(const ozz::span<const float>& timepoints,
-                      const ozz::span<const ozz::byte>& ratios, size_t at)
-{
-    if (timepoints.size() <= std::numeric_limits<uint8_t>::max())
-        return timepoints[ozz::reinterpret_span<const uint8_t>(ratios)[at]];
-    else
-        return timepoints[ozz::reinterpret_span<const uint16_t>(ratios)[at]];
-}
-
-static void printAnimationData(OzzAnimation* ozz, const std::string& key)
-{
-    ozz::span<const char* const> names = ozz->_skeleton.joint_names();
-    OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
-    ozz::animation::Animation& animation = sampler.animation;
-
-    ozz::span<const float> timeList = sampler.animation.timepoints();
-    ozz::span<const Float3Key> posList = sampler.animation.translations_values();
-    ozz::span<const QuaternionKey> rotList = sampler.animation.rotations_values();
-    ozz::span<const Float3Key> scaleList = sampler.animation.scales_values();
-    std::cout << "Anim " << key << ": Duration = " << sampler.animation.duration()
-              << ", Frames = " << timeList.size() << ", T/R/S = " << posList.size()
-              << "/" << rotList.size() << "/" << scaleList.size() << std::endl;
-
-    const ozz::span<const ozz::byte>& ratiosT = sampler.animation.translations_ctrl().ratios;
-    std::cout << "  Translation Ratios (" << ratiosT.size() << "): " << keyRatio(timeList, ratiosT, 0)
-              << " --> " << keyRatio(timeList, ratiosT, ratiosT.size() - 1) << ", IFrame Entries = "
-              << sampler.animation.translations_ctrl().iframe_entries.size() << ", Desc = "
-              << sampler.animation.translations_ctrl().iframe_desc.size() << std::endl;
-    const ozz::span<const ozz::byte>& ratiosR = sampler.animation.rotations_ctrl().ratios;
-    std::cout << "  Rotation Ratios (" << ratiosR.size() << "): " << keyRatio(timeList, ratiosR, 0)
-              << " --> " << keyRatio(timeList, ratiosR, ratiosR.size() - 1) << ", IFrame Entries = "
-              << sampler.animation.rotations_ctrl().iframe_entries.size()  << ", Desc = "
-              << sampler.animation.rotations_ctrl().iframe_desc.size() << std::endl;
-    const ozz::span<const ozz::byte>& ratiosS = sampler.animation.scales_ctrl().ratios;
-    std::cout << "  Scale Ratios (" << ratiosS.size() << "): " << keyRatio(timeList, ratiosS, 0)
-              << " --> " << keyRatio(timeList, ratiosS, ratiosS.size() - 1) << ", IFrame Entries = "
-              << sampler.animation.scales_ctrl().iframe_entries.size()  << ", Desc = "
-              << sampler.animation.scales_ctrl().iframe_desc.size() << std::endl;
-
-    for (size_t i = 0; i < names.size(); ++i)
-    {
-        int tFrames = ozz::animation::CountTranslationKeyframes(sampler.animation, i);
-        int rFrames = ozz::animation::CountRotationKeyframes(sampler.animation, i);
-        int sFrames = ozz::animation::CountScaleKeyframes(sampler.animation, i);
-        std::cout << "  T-" << i << " (" << names[i] << "): TranslationKey = " << tFrames
-                  << ", RotationKey = " << rFrames << ", ScaleKey = " << sFrames << std::endl;
-    }
-    std::cout << std::endl;
 }
 
 osg::AnimationPath* PlayerAnimation::AnimationData::toAnimationPath() const
@@ -1019,11 +1019,8 @@ bool PlayerAnimation::initialize(osg::Node& skeletonRoot, osg::Node& meshRoot,
 
     // Load mesh data from 'meshRoot' and 'jointDataMap'
     ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
-    meshRoot.accept(cmv); ozz->_meshes = cmv.getMeshes();
+    meshRoot.accept(cmv); ozz->_meshes = cmv.getMeshes(ozz->_meshNames);
     _meshStateSetList = cmv.getStateSets(); _blendshapes = cmv.getBS();
-#if 0
-    printPlayerData(ozz);
-#endif
     return initializeInternal();
 }
 
@@ -1036,13 +1033,10 @@ bool PlayerAnimation::initialize(const std::vector<osg::Transform*>& nodes,
     csv.initialize(nodes); csv.build(ozz->_skeleton);
     _skeletonRoot = csv.getSkeletonNodes().front();
 
-    ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
-    cmv.initialize(meshList); ozz->_meshes = cmv.getMeshes();
-    _meshStateSetList = cmv.getStateSets(); _blendshapes = cmv.getBS();
-#if 0
     // TODO: girl.fbx have multiple players? It will call initialize() multiple times!
-    printPlayerData(ozz);
-#endif
+    ozz::animation::CreateMeshVisitor cmv(csv.getSkeletonNodes(), jointDataMap);
+    cmv.initialize(meshList); ozz->_meshes = cmv.getMeshes(ozz->_meshNames);
+    _meshStateSetList = cmv.getStateSets(); _blendshapes = cmv.getBS();
     return initializeInternal();
 }
 
@@ -1051,10 +1045,13 @@ bool PlayerAnimation::initialize(const std::string& skeleton, const std::string&
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     if (!ozz->loadSkeleton(skeleton.c_str(), &(ozz->_skeleton))) return false;
     if (!ozz->loadMesh(mesh.c_str(), &(ozz->_meshes))) return false;
-#if 0
-    printPlayerData(ozz);
-#endif
     return initializeInternal();
+}
+
+std::string PlayerAnimation::report(bool withJointWeights) const
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    return printPlayerData(ozz, withJointWeights);
 }
 
 bool PlayerAnimation::loadAnimation(const std::string& key, const std::string& animation)
@@ -1309,10 +1306,11 @@ bool PlayerAnimation::initializeInternal()
     ozz->_models.resize(ozz->_skeleton.num_joints());
     ozz->_blended_locals.resize(ozz->_skeleton.num_soa_joints());
 
-    size_t num_skinning_matrices = 0, num_joints = ozz->_skeleton.num_joints();
+    size_t num_joints = ozz->_skeleton.num_joints(); size_t num_skinning_matrices = num_joints;
     for (const OzzMesh& mesh : ozz->_meshes)
         num_skinning_matrices = ozz::math::Max(num_skinning_matrices, mesh.joint_remaps.size());
-    ozz->_skinning_matrices.resize(num_skinning_matrices);
+
+    ozz->_skinning_matrices.resize(num_skinning_matrices, ozz::math::Float4x4::identity());
     for (const OzzMesh& mesh : ozz->_meshes)
     {
         if (num_joints < mesh.highest_joint_index())

@@ -68,6 +68,45 @@ public:
     ozz::vector<ozz::math::Float4x4> _models;
     ozz::vector<ozz::math::Float4x4> _skinning_matrices;
     ozz::vector<OzzMesh> _meshes;
+    ozz::vector<std::string> _meshNames;
     ValidateSkinningFunc _validator;
     void* _allocatedBuffer;
+
+    static osg::Matrix convertMatrix(const ozz::math::Float4x4& m)
+    {
+        return osg::Matrix(
+            ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
+            ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
+            ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
+            ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
+    }
+
+    static std::vector<osg::Vec3> skinVertices(const OzzMesh::Part& part, const ozz::span<ozz::math::Float4x4> skinningMat)
+    {
+        const float* in_positions = part.positions.data();
+        const float* joint_weights = part.joint_weights.data();
+        const uint16_t* joint_indices = part.joint_indices.data();
+        int vertex_count = part.vertex_count(), influencesCount = part.influences_count(),
+            numMatrices = (int)skinningMat.size();
+        std::vector<osg::Matrix> matrices(numMatrices);
+        for (size_t i = 0; i < numMatrices; ++i) matrices[i] = convertMatrix(skinningMat[i]); 
+
+        std::vector<osg::Vec3> out_positions(vertex_count);
+        for (int v = 0; v < vertex_count; ++v)
+        {
+            uint16_t j0 = joint_indices[v * 4 + 0], j1 = joint_indices[v * 4 + 1],
+                     j2 = joint_indices[v * 4 + 2], j3 = joint_indices[v * 4 + 3];
+            if (numMatrices <= j0 || numMatrices <= j1 || numMatrices <= j2 || numMatrices <= j3)
+            {
+                std::cout << "[OzzAnimation] Invalid joint-group: " << j0 << ", " << j1 << ", " << j2 << ", " << j3
+                          << " (NumMatrices = " << numMatrices << ")\n"; continue;
+            }
+            
+            float w0 = joint_weights[v * 3 + 0], w1 = joint_weights[v * 3 + 1], w2 = joint_weights[v * 3 + 2];
+            osg::Vec3 pos(in_positions[v * 3 + 0], in_positions[v * 3 + 1], in_positions[v * 3 + 2]);
+            out_positions[v] = matrices[j0] * pos * w0 + matrices[j1] * pos * w1 +
+                               matrices[j2] * pos * w2 + matrices[j3] * pos * (1.0f - (w0 + w1 + w2));
+        }
+        return out_positions;
+    }
 };

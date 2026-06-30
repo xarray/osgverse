@@ -58,6 +58,7 @@ namespace osgVerse
         bool initialize(const std::vector<osg::Transform*>& nodes,
                         const std::vector<osg::Geometry*>& meshList,
                         const std::map<osg::Geometry*, GeometryJointData>& jointDataMap);
+        std::string report(bool withJointWeights) const;
 
         void setModelRoot(osg::Node* node) { _modelRoot = node; }
         osg::Node* getModelRoot() const { return _modelRoot.get(); }

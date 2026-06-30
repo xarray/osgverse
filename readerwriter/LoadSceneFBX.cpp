@@ -147,6 +147,7 @@ namespace osgVerse
                 osg::ref_ptr<PlayerAnimation> player = new PlayerAnimation;
                 player->setName(it->first->getName()); player->setModelRoot(_root.get());
                 player->initialize(nodeList, meshList, jointDataMap);
+                //std::ofstream out("fbx_character_report.txt"); out << player->report(false); out.close();
                 for (size_t k = 0; k < nodeList.size(); ++k) boneToAnimationMap[nodeList[k]] = player.get();
                 animatorBoneListMap[player.get()] = nodeList;
 
