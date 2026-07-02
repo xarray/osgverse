@@ -70,7 +70,7 @@ namespace osgVerse
         OSG_NOTICE << "============ Lights:      " << _scene->lights.count << "\n";
 #endif
 
-        _root = new osg::MatrixTransform;
+        _root = new osg::MatrixTransform; _root->setName("FbxRoot");
         createNode(NULL, _root.get(), _scene->root_node);
 #if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         _root->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);

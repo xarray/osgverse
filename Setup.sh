@@ -234,7 +234,7 @@ if [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe -DCMAKE_TOOLCHAIN_FILE="$EmsdkToolchain" -DUSE_WASM_OPTIONS=$UseWasmOption $CurrentDir/helpers/toolchain_builder
         fi
-        cmake --build . || exit 1
+        cmake --build . -j8 || exit 1
     fi
 
 elif [ "$BuildMode" = '5' ]; then
@@ -254,7 +254,7 @@ else
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $CurrentDir/helpers/toolchain_builder
         fi
-        cmake --build . || exit 1
+        cmake --build . -j8 || exit 1
     fi
 
 fi
@@ -335,7 +335,7 @@ if [ "$BuildMode" = '1' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
         fi
-        cmake --build . --target install --config Release || exit 1
+        cmake --build . -j8 --target install --config Release || exit 1
     fi
 
 elif [ "$BuildMode" = '2' ]; then
@@ -360,7 +360,7 @@ elif [ "$BuildMode" = '2' ]; then
                 $CMakeExe $ThirdDepOptions $ExtraOptions -DOPENGL_PROFILE=GLES2 $OpenSceneGraphRoot
             fi
         fi
-        cmake --build . --target install --config Release || exit 1
+        cmake --build . -j8 --target install --config Release || exit 1
     fi
 
 elif [ "$BuildMode" = '3' ]; then
@@ -382,7 +382,7 @@ elif [ "$BuildMode" = '3' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/wasm
         fi
-        cmake --build . --target install --config Release || exit 1
+        cmake --build . -j8 --target install --config Release || exit 1
     fi
 
 elif [ "$BuildMode" = '4' ]; then
@@ -404,7 +404,7 @@ elif [ "$BuildMode" = '4' ]; then
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $CurrentDir/helpers/osg_builder/wasm2
         fi
-        cmake --build . --target install --config Release || exit 1
+        cmake --build . -j8 --target install --config Release || exit 1
     fi
 
 elif [ "$BuildMode" = '5' ]; then
@@ -427,7 +427,7 @@ else
         if [ "$SkipCMakeConfig" = 0 ]; then
             $CMakeExe $ThirdDepOptions $ExtraOptions $OpenSceneGraphRoot
         fi
-        cmake --build . --target install --config Release || exit 1
+        cmake --build . -j8 --target install --config Release || exit 1
     fi
 
 fi
@@ -473,7 +473,7 @@ if [ "$BuildMode" = '3' ]; then
     OsgRootLocation="$CurrentDir/build/sdk_wasm"
     cd $CurrentDir/build/verse_wasm
     $CMakeExe -DUSE_WASM_OPTIONS=$UseWasmOption -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
-    cmake --build . --target install --config Release || exit 1
+    cmake --build . -j8 --target install --config Release || exit 1
 
 elif [ "$BuildMode" = '4' ]; then
 
@@ -485,7 +485,7 @@ elif [ "$BuildMode" = '4' ]; then
     OsgRootLocation="$CurrentDir/build/sdk_wasm2"
     cd $CurrentDir/build/verse_wasm2
     $CMakeExe -DUSE_WASM_OPTIONS=$UseWasmOption -DUSE_WASM_OSGEARTH=$WithOsgEarth -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $CurrentDir
-    cmake --build . --target install --config Release || exit 1
+    cmake --build . -j8 --target install --config Release || exit 1
 
 elif [ "$BuildMode" = '5' ]; then
 
@@ -520,7 +520,7 @@ else
         cd $CurrentDir/build/verse_def
     fi
     $CMakeExe -DOSG_ROOT="$OsgRootLocation" $ThirdDepOptions $ExtraOptions $ExtraOptions2 $CurrentDir
-    cmake --build . --target install --config Release || exit 1
+    cmake --build . -j8 --target install --config Release || exit 1
 
 fi
 

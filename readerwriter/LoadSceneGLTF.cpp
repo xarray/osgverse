@@ -408,7 +408,7 @@ namespace osgVerse
         else
             loaded = loader.LoadASCIIFromString(&_modelDef, &err, &warn, &data[0], data.size(), d);
 
-        _root = new osg::MatrixTransform;
+        _root = new osg::MatrixTransform; _root->setName("GltfRoot");
         if (!_modelDef.extensionsRequired.empty() || !_modelDef.extensionsUsed.empty())
         {
             OSG_INFO << "[LoaderGLTF] Found GLTF extensions: \n";
@@ -519,7 +519,7 @@ namespace osgVerse
 
         if (!_modelDef.extras_json_string.empty()) _root->addDescription(_modelDef.extras_json_string);
         if (yUp) _root->setMatrix(osg::Matrix::rotate(osg::Y_AXIS, osg::Z_AXIS));
-        if (rtcRoot.valid()) { rtcRoot->addChild(_root.get()); _root = rtcRoot; }
+        if (rtcRoot.valid()) { rtcRoot->setName("RtcRoot"); rtcRoot->addChild(_root.get()); _root = rtcRoot; }
 
         // Configure animations
         for (size_t i = 0; i < _modelDef.animations.size(); ++i)
@@ -1233,7 +1233,6 @@ namespace osgVerse
             {
                 PlayerAnimation::GeometryJointData& jData = sd.jointData[sd.meshList[j]];
                 jData._invBindPoseMap[bones[i]] = matrix;
-                //std::cout << bones[i]->getName().c_str() << matrix;
             }
         }
     }

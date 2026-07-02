@@ -105,8 +105,8 @@ namespace ozz
                                 SK_ERROR("Parent node (" << parent->getName() << ") of " << t->getName() << " not in NodeList")
                         }
                     }
-                    else
-                        SK_ERROR("No parent found for " << t->getName() << ", ID = " << i)
+                    //else
+                    //    SK_ERROR("No parent found for " << t->getName() << ", ID = " << i)
 
                     matrices[soaIndex].makeIdentity();
                     t->computeLocalToWorldMatrix(matrices[soaIndex], NULL);
@@ -223,9 +223,9 @@ namespace ozz
 
                 // Get and apply transformation matrix of current geometry
                 osg::Matrix worldMatrix;
-                //if (geom.getNumParents() > 0)
-                //    worldMatrix = geom.getParent(0)->getWorldMatrices()[0];  // FIXME: consider scene graph of result mesh?
-
+                if (geom.getNumParents() > 0)
+                    worldMatrix = geom.getParent(0)->getWorldMatrices()[0];  // FIXME: wrong with CesiumMan.glb?
+                
                 // Apply to mesh part
                 OzzMesh::Part meshPart; meshPart.positions.resize(vCount * 3);
                 if (!worldMatrix.isIdentity())
@@ -1316,8 +1316,7 @@ bool PlayerAnimation::initializeInternal()
         if (num_joints < mesh.highest_joint_index())
         {
             ozz::log::Err() << "The provided mesh doesn't match skeleton "
-                << "(joint count mismatch)" << std::endl;
-            return false;
+                            << "(joint count mismatch)" << std::endl; return false;
         }
     }
     return true;

@@ -198,7 +198,7 @@ if !BuildModeWasm!==0 (
     if not !SkipOsgBuild!=="1" (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% "%CurrentDir%\helpers\toolchain_builder"
-        cmake --build . --config !BuildTypeString!
+        cmake --build . -j8 --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -206,7 +206,7 @@ if !BuildModeWasm!==1 (
     if not !SkipOsgBuild!=="1" (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% -DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" -DUSE_WASM_OPTIONS=!UseWasmOption! "%CurrentDir%\helpers\toolchain_builder"
-        cmake --build .
+        cmake --build . -j8
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -287,7 +287,7 @@ if "!BuildMode!"=="0" (
     if not !SkipOsgBuild!=="1" (
         cd %CurrentDir%\build\osg_def
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
-        cmake --build . --target install --config !BuildTypeString!
+        cmake --build . -j8 --target install --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -302,7 +302,7 @@ if "!BuildMode!"=="1" (
         cd %CurrentDir%\build\osg_core
         echo "cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%"
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
-        cmake --build . --target install --config !BuildTypeString!
+        cmake --build . -j8 --target install --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -320,7 +320,7 @@ if "!BuildMode!"=="2" (
         ) else (
             cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES3 %OpenSceneGraphRoot%
         )
-        cmake --build . --target install --config !BuildTypeString!
+        cmake --build . -j8 --target install --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -336,7 +336,7 @@ if "!BuildMode!"=="3" (
     if not !SkipOsgBuild!=="1" (
         cd %CurrentDir%\build\osg_wasm
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm
-        cmake --build . --target install --config Release
+        cmake --build . -j8 --target install --config Release
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -352,7 +352,7 @@ if "!BuildMode!"=="4" (
     if not !SkipOsgBuild!=="1" (
         cd %CurrentDir%\build\osg_wasm2
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm2
-        cmake --build . --target install --config Release
+        cmake --build . -j8 --target install --config Release
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -370,7 +370,7 @@ if "!BuildMode!"=="4" (
             -DOSGEARTH_BUILD_DIR=%CurrentDir%\build\osgearth_wasm2\osgearth
         cd %CurrentDir%\build\osgearth_wasm2
         cmake %BasicCmakeOptions% !ExtraOptions! !ExtraOptions2! %CurrentDir%\helpers\osg_builder\wasm2_oe
-        cmake --build . --target install --config Release
+        cmake --build . -j8 --target install --config Release
         set WithOsgEarth=1
     ) else (
         echo osgEarth-WASM not found. Please download it and unzip in ..\osgearth-wasm if you wish.
@@ -385,7 +385,7 @@ if "!BuildMode!"=="0" (
     if not exist %CurrentDir%\build\verse_def\ mkdir %CurrentDir%\build\verse_def
     cd %CurrentDir%\build\verse_def
     cmake !ThirdDepOptions! !ExtraOptions! -DOSG_ROOT="%CurrentDir%\build\sdk" %CurrentDir%
-    cmake --build . --target install --config !BuildTypeString!
+    cmake --build . -j8 --target install --config !BuildTypeString!
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="1" (
@@ -394,7 +394,7 @@ if "!BuildMode!"=="1" (
     cd %CurrentDir%\build\verse_core
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl
     cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_core" %CurrentDir%
-    cmake --build . --target install --config !BuildTypeString!
+    cmake --build . -j8 --target install --config !BuildTypeString!
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="2" (
@@ -404,7 +404,7 @@ if "!BuildMode!"=="2" (
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
                       -DOSG_EGL_LIBRARY=%EGL_LibPath% -DOSG_GLES_LIBRARY=%GLES_LibPath%
     cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_es" %CurrentDir%
-    cmake --build . --target install --config !BuildTypeString!
+    cmake --build . -j8 --target install --config !BuildTypeString!
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="3" (
@@ -413,7 +413,7 @@ if "!BuildMode!"=="3" (
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm
     cd %CurrentDir%\build\verse_wasm
     cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=!UseWasmOption! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
-    cmake --build . --target install --config Release
+    cmake --build . -j8 --target install --config Release
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="4" (
@@ -422,7 +422,7 @@ if "!BuildMode!"=="4" (
     set OsgRootLocation=%CurrentDir%\build\sdk_wasm2
     cd %CurrentDir%\build\verse_wasm2
     cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=!UseWasmOption! -DUSE_WASM_OSGEARTH=!WithOsgEarth! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
-    cmake --build . --target install --config Release
+    cmake --build . -j8 --target install --config Release
     if not !errorlevel! == 0 (goto exit)
 )
 goto exit

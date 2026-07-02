@@ -338,15 +338,19 @@ namespace osgVerse
         zMaxTotal = osg::maximum(osg::absolute(entireShadowBB.zMin()),
                                  osg::absolute(entireShadowBB.zMax()));
 
-        static double splitSchemeBias = 0.66;
-        double far0 = entireShadowBB.xMax(), near0 = entireShadowBB.xMin();
+        // CSM split: logarithmic partitioning in view-space depth
+        std::vector<double> splitDepths(numCameras + 1); splitDepths[0] = zn;
+        for (size_t i = 1; i <= numCameras; ++i)
+        {   // Pure logarithmic split: Ci = n * (f / n)^(i / numsplits)
+            double fi = (double)i / numCameras; splitDepths[i] = zn * pow(zf / zn, fi);
+        }
+
+        // Compute light-space bounding box for each split frustum
         for (size_t i = 0; i < numCameras; ++i)
         {
-            // exponential: Ci = (f - n) * (i / numsplits) ^ (bias + 1) + n;
-            double IDM0 = (double)(i) / numCameras, IDM1 = (double)(i + 1) / numCameras;
-            shadowBBs[i] = entireShadowBB;
-            shadowBBs[i]._min.x() = (far0 - near0) * (pow(IDM0, splitSchemeBias + 1.0)) + near0;
-            shadowBBs[i]._max.x() = (far0 - near0) * (pow(IDM1, splitSchemeBias + 1.0)) + near0;
+            Frustum frustum; frustum.create(viewMat, proj, splitDepths[i], splitDepths[i + 1]);
+            Frustum::AABB aabb = frustum.createShadowBound(_referencePoints, _lightMatrix);
+            shadowBBs[i] = osg::BoundingBoxd(aabb.first, aabb.second);
         }
 #endif
 
@@ -356,10 +360,21 @@ namespace osgVerse
             const osg::Vec3 center = shadowBB.center();
             double radius = osg::maximum(shadowBB.xMax() - shadowBB.xMin(),
                                          shadowBB.yMax() - shadowBB.yMin()) * 0.5;
+
+#if false
             double xMin = center[0] - radius, xMax = center[0] + radius;
             double yMin = center[1] - radius, yMax = center[1] + radius;
             //xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
             //yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
+#else       // Texel snap
+            double texelSize = (2.0 * radius) / _shadowMaps[i]->getTextureWidth();
+            
+            // Snap the center to texel grid and recompute keeping the radius
+            double snappedCenterX = floor(center.x() / texelSize) * texelSize;
+            double snappedCenterY = floor(center.y() / texelSize) * texelSize;
+            double xMin = snappedCenterX - radius, xMax = snappedCenterX + radius;
+            double yMin = snappedCenterY - radius, yMax = snappedCenterY + radius;
+#endif
             //std::cout << i << ": X = (" << xMin << ", " << xMax << "), Y = ("
             //          << yMin << ", " << yMax << "); Z = " << zMaxTotal << "\n";
 
