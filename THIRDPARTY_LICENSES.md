@@ -116,16 +116,16 @@
 | Effekseer        | Manually Compile from source |
 | FFmpeg           | (Linux) apt-get install libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev libswscale-dev |
 | GGML             | Manually Compile from source and enable CUDA/MUSA |
-| libDraco         | (Linux) apt-get install libdraco-dev |
+| libDraco         | (Win) vcpkg install draco (Linux) apt-get install libdraco-dev |
 | libCEF           | Download from https://cef-builds.spotifycdn.com/index.html |
 | libIGL           | Headers only. Download from https://github.com/libigl/libigl/releases |
 | libosmium        | (Linux) apt-get install libosmium2-dev |
-| libwebp          | (Linux) apt-get install libwebp-dev |
+| libwebp          | (Win) vcpkg install libwebp (Linux) apt-get install libwebp-dev |
 | mimalloc         | (Linux) apt-get install libmimalloc-dev |
 | netCDF-C         | (Linux) apt-get install libnetcdf-dev |
 | NVIDIA Video SDK | Download from https://developer.nvidia.com/video-codec-sdk |
 | ODBC             | (Linux) apt-get install unixodbc-dev |
-| OpenVDB          | (Linux) apt-get install libopenvdb-dev libboost-dev |
+| OpenVDB          | (Win) vcpkg install openvdb (Linux) apt-get install libopenvdb-dev libboost-dev |
 | osgEarth         | Manually Compile from source |
 | Python           | (Linux) apt-get install libpython3.10-dev |
 | Qt               | Download from https://download.qt.io/official_releases/ |

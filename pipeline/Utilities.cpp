@@ -39,6 +39,14 @@
 #include "Utilities.h"
 using namespace osgVerse;
 
+#if defined(_WIN32) || defined(WIN32)
+extern "C"
+{
+    _declspec(dllexport) unsigned long NvOptimusEnablement = 1;
+    _declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif
+
 #define APPLY_PROGRAM(ss, vsCode, fsCode) { \
     osg::Shader* vs = new osg::Shader(osg::Shader::VERTEX, vsCode); \
     osg::Shader* fs = new osg::Shader(osg::Shader::FRAGMENT, fsCode); \

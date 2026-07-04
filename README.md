@@ -246,10 +246,10 @@ Our project is already tested on graphics cards listed as below:
                             and https://github.com/ShiftMediaProject/x264/releases
       - (Linux)   $ apt-get install libavdevice-dev libavformat-dev libavutil-dev libavcodec-dev
                                     libswscale-dev libswresample-dev libx264-dev
-    - OpenSSL: (Linux) $ apt-get install libcrypto++-dev libssl-dev
+    - OpenSSL: (Win) vcpkg install openssl (Linux) $ apt-get install libcrypto++-dev libssl-dev
     - libFAAC: (Linux) $ apt-get install libfaac-dev
-    - libSCTP: (Linux) $ apt-get install libusrsctp-dev
-    - libSRTP: (Linux) $ apt-get install libsrtp2-dev
+    - libSCTP: (Win) vcpkg install usrsctp (Linux) $ apt-get install libusrsctp-dev
+    - libSRTP: (Win) vcpkg install libssrtp (Linux) $ apt-get install libsrtp2-dev
   - Clone recursively from https://github.com/ZLMediaKit/ZLMediaKit.git
   - $ cmake -DENABLE_API=ON -DENABLE_CXX_API=ON -DENABLE_FFMPEG=ON -DENABLE_OPENSSL=ON -DENABLE_SCTP=ON
             -DENABLE_SERVER=ON -DENABLE_WEBRTC=ON -DENABLE_X264=ON
