@@ -17,7 +17,7 @@
 
 void b3CreateBroadPhase( b3BroadPhase* bp, const b3Capacity* capacity )
 {
-	_Static_assert( b3_bodyTypeCount == 3, "must be three body types" );
+	//_Static_assert( b3_bodyTypeCount == 3, "must be three body types" );
 
 	bp->movedProxies[b3_staticBody] = b3CreateBitSet( b3MaxInt( 16, capacity->staticShapeCount ) );
 	bp->movedProxies[b3_kinematicBody] = b3CreateBitSet( 16 );

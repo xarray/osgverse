@@ -62,7 +62,7 @@
 		//#pragma message("B3_SIMD_NEON")
 	#elif defined( B3_CPU_WASM )
 		#define B3_CPU_WASM
-		#define B3_SIMD_SSE2
+		#define B3_SIMD_NONE  // FIXME
 		#define B3_SIMD_WIDTH 4
 		//#pragma message("B3_SIMD_SSE2")
 	#else

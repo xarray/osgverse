@@ -102,15 +102,11 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Polygon2D polygon2d_test.cpp)  # 2D polygon processing example  // FIXME: with simple hint UI
     NEW_EXAMPLE(osgVerse_Test_Symbols symbols_test.cpp)  # Massive symbol/label example  // FIXME: show on earth, with picking and UI
     NEW_EXAMPLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)  # Tween animation path example  // FIXME: with simple UI
-
+    NEW_EXAMPLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)  # Basic rigid physics example  // FIXME: with simple hint UI
+	# TODO: physics_softbody_test, physics_walk_test...
     IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
         NEW_EXAMPLE(osgVerse_Test_Video video_test.cpp)  # Hardware video encoding example
     ENDIF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
-
-    IF(BULLET_FOUND)
-        NEW_EXAMPLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)  # Basic rigid physics example  // FIXME: with simple hint UI
-	    # TODO: physics_drawbridge_test, physics_softbody_test, player_walk_test
-    ENDIF(BULLET_FOUND)
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
         NEW_EXAMPLE(osgVerse_Test_Scripting scripting_test.cpp)  # Script usage example  // FIXME: with simple hint UI

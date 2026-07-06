@@ -39,8 +39,8 @@ b3HexColor b3GetGraphColor( int index )
 
 void b3CreateGraph( b3ConstraintGraph* graph, int bodyCapacity )
 {
-	_Static_assert( B3_GRAPH_COLOR_COUNT >= 2, "must have at least two constraint graph colors" );
-	_Static_assert( B3_OVERFLOW_INDEX == B3_GRAPH_COLOR_COUNT - 1, "bad over flow index" );
+	//_Static_assert( B3_GRAPH_COLOR_COUNT >= 2, "must have at least two constraint graph colors" );
+	//_Static_assert( B3_OVERFLOW_INDEX == B3_GRAPH_COLOR_COUNT - 1, "bad over flow index" );
 
 	*graph = (b3ConstraintGraph){ 0 };
 

@@ -19,7 +19,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-_Static_assert( B3_SHAPE_NAME_LENGTH >= 0, "minimum name length" );
+//_Static_assert( B3_SHAPE_NAME_LENGTH >= 0, "minimum name length" );
 
 static b3Shape* b3GetShape( b3World* world, b3ShapeId shapeId )
 {

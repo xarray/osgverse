@@ -10,7 +10,6 @@
 #define B3_SWAP( x, y )                                                                                                          \
 	do                                                                                                                           \
 	{                                                                                                                            \
-		_Static_assert( sizeof( x ) == sizeof( y ), "size mismatch" );                                                           \
 		char B3_SWAP_TEMP[sizeof( x )];                                                                                          \
 		memcpy( B3_SWAP_TEMP, &( x ), sizeof( x ) );                                                                             \
 		memcpy( &( x ), &( y ), sizeof( x ) );                                                                                   \

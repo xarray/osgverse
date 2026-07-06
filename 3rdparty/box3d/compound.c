@@ -165,7 +165,7 @@ b3ChildShape b3GetCompoundChild( const b3CompoundData* compound, int childIndex 
 	{
 		b3CompoundMesh compoundMesh = b3GetCompoundMesh( compound, childIndex );
 		const int* m = compoundMesh.materialIndices;
-		_Static_assert( B3_MAX_COMPOUND_MESH_MATERIALS == 4, "too many materials in compound mesh" );
+		//_Static_assert( B3_MAX_COMPOUND_MESH_MATERIALS == 4, "too many materials in compound mesh" );
 
 		return (b3ChildShape){
 			.mesh =

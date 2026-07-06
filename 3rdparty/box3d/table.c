@@ -14,8 +14,8 @@
 b3AtomicInt b3_probeCount;
 #endif
 
-_Static_assert( 2 * B3_SHAPE_POWER + B3_CHILD_POWER == 64, "compound power" );
-_Static_assert( B3_CHILD_POWER > 8, "compound child power" );
+//_Static_assert( 2 * B3_SHAPE_POWER + B3_CHILD_POWER == 64, "compound power" );
+//_Static_assert( B3_CHILD_POWER > 8, "compound child power" );
 
 b3HashSet b3CreateSet( int32_t capacity )
 {

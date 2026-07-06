@@ -84,15 +84,15 @@ namespace b3Helpers
         PhysicsCore()
         {
             b3WorldDef worldDef = b3DefaultWorldDef();
-            worldDef.gravity = (b3Vec3){ 0.0f, 0.0f, -9.8f };
+            worldDef.gravity = b3Vec3{ 0.0f, 0.0f, -9.8f };
             _worldId = b3CreateWorld(&worldDef);
         }
 
         static void fromMatrix(const osg::Matrix& m, b3Vec3& pos, b3Quat& rot)
         {
             osg::Vec4 q = m.getRotate().asVec4(); osg::Vec3 p = m.getTrans();
-            pos = (b3Vec3){ p.x(), p.y(), p.z() };
-            rot = (b3Quat){ (float)q.x(), q.y(), q.z(), q.w() };
+            pos = b3Vec3{ p.x(), p.y(), p.z() };
+            rot = b3Quat{ (float)q.x(), q.y(), q.z(), q.w() };
         }
 
         static osg::Matrix toMatrix(const b3Vec3& pos, const b3Quat& rot)
@@ -187,23 +187,22 @@ RigidBodyBase* PhysicsEngine::addRigidBody(const std::string& name, CollisionSha
     b3Helpers::PhysicsCore::fromMatrix(matrix, pos, rot);
     if (_shapes.find(name) != _shapes.end()) removeBody(name);  // remove existing shape
 
-    b3ShapeId* shapeId = csb ? csb->get<b3ShapeId>() : NULL;
-    if (!shapeId) return NULL;
+    b3Helpers::CollisionShape* shape = static_cast<b3Helpers::CollisionShape*>(csb);
+    if (!shape || (shape && !shape->shapeData)) return NULL;
 
-    // TODO: shape?
     b3BodyDef bodyDef = b3DefaultBodyDef();
-    bodyDef.position = pos; bodyDef.rotation = rot;
-    if (kinematic) { bodyDef.type = b3_kinematicBody; bodyDef.isAwake = true; }
-    else if (isDynamic) bodyDef.type = b3_dynamicBody;
-    else bodyDef.type = b3_staticBody;
+    bodyDef.position = b3ToPos(pos); bodyDef.rotation = rot;
+    bodyDef.type = kinematic ? b3_kinematicBody : (mass > 0.0f ? b3_dynamicBody : b3_staticBody);
 
-    // Note: In Box3D, shapes are created with body and definition. We need to re-create or attach.
-    // Since Box3D shapes are tied to bodies at creation, we handle this differently.
-    // The shape was already created but not attached - we need to use the shape definition approach.
-    // Actually, in Box3D, shapes are created via b3CreateHullShape etc. which takes bodyId.
-    // So our createPhysics* functions need to be revised, or we create a new shape here.
     b3BodyId bodyId = b3CreateBody(PHY_WORLD(), &bodyDef);
-    
+    if (B3_IS_NULL(bodyId)) return NULL;
+
+    // FIXME
+    shape->shapeDef.density = (mass > 0.0f) ? (mass * 1.0f) : 0.0f;
+
+    b3ShapeId shapeId = shape->shapeData->createOnBody(PHY_WORLD(), bodyId, shape->shapeDef);
+    if (B3_IS_NULL(shapeId)) { b3DestroyBody(bodyId); return NULL; }
+
     b3Helpers::RigidBody* container = new b3Helpers::RigidBody(bodyId);
     _shapes[name] = csb; _bodies[name] = container;
     return container;
@@ -243,7 +242,7 @@ void PhysicsEngine::setTransform(const std::string& name, const osg::Matrix& mat
         b3Vec3 pos; b3Quat rot;
         b3Helpers::PhysicsCore::fromMatrix(matrix, pos, rot);
         b3BodyId* body = itr->second->get<b3BodyId>();
-        b3Body_SetTransform(*body, pos, rot);
+        b3Body_SetTransform(*body, b3ToPos(pos), rot);
     }
 }
 
@@ -253,7 +252,7 @@ osg::Matrix PhysicsEngine::getTransform(const std::string& name, bool& valid)
     if (itr != _bodies.end())
     {
         b3BodyId* body = itr->second->get<b3BodyId>(); valid = true;
-        b3Vec3 pos = b3Body_GetPosition(*body);
+        b3Vec3 pos = b3ToVec3(b3Body_GetPosition(*body));
         b3Quat rot = b3Body_GetRotation(*body);
         return b3Helpers::PhysicsCore::toMatrix(pos, rot);
     }
@@ -266,7 +265,7 @@ void PhysicsEngine::setVelocity(const std::string& name, const osg::Vec3& v, boo
     if (itr != _bodies.end())
     {
         b3BodyId* body = itr->second->get<b3BodyId>();
-        b3Vec3 vel = (b3Vec3){ v[0], v[1], v[2] };
+        b3Vec3 vel = b3Vec3{ v[0], v[1], v[2] };
         if (linearOrAngular) b3Body_SetLinearVelocity(*body, vel);
         else b3Body_SetAngularVelocity(*body, vel);
     }
@@ -338,7 +337,7 @@ ConstraintBase* PhysicsEngine::getConstraint(const std::string& name)
 }
 
 void PhysicsEngine::setGravity(const osg::Vec3& gravity)
-{ b3World_SetGravity(PHY_WORLD(), (b3Vec3){ gravity[0], gravity[1], gravity[2] }); }
+{ b3World_SetGravity(PHY_WORLD(), b3Vec3{ gravity[0], gravity[1], gravity[2] }); }
 
 osg::Vec3 PhysicsEngine::getGravity() const
 { b3Vec3 g = b3World_GetGravity(PHY_WORLD()); return osg::Vec3(g.x, g.y, g.z); }
@@ -346,26 +345,26 @@ osg::Vec3 PhysicsEngine::getGravity() const
 bool PhysicsEngine::raycast(const osg::Vec3& s, const osg::Vec3& e,
                             RaycastHit& result, bool getNameFromBody)
 {
-    b3Vec3 origin = (b3Vec3){ s.x(), s.y(), s.z() };
-    b3Vec3 translation = (b3Vec3){ e.x() - s.x(), e.y() - s.y(), e.z() - s.z() };
+    b3Vec3 origin = b3Vec3{ s.x(), s.y(), s.z() };
+    b3Vec3 translation = b3Vec3{ e.x() - s.x(), e.y() - s.y(), e.z() - s.z() };
     b3QueryFilter filter = b3DefaultQueryFilter();
     std::vector<RaycastHit> hits;
 
     b3Helpers::RaycastCallbackData data = { this, &hits, getNameFromBody, true };
-    b3World_CastRay(PHY_WORLD(), origin, translation, filter, b3Helpers::raycastCallback, &data);
+    b3World_CastRay(PHY_WORLD(), b3ToPos(origin), translation, filter, b3Helpers::raycastCallback, &data);
     if (!hits.empty()) { result = hits[0]; return true; } else return false;
 }
 
 std::vector<PhysicsEngine::RaycastHit> PhysicsEngine::raycastAll(const osg::Vec3& s, const osg::Vec3& e,
                                                                  bool getNameFromBody)
 {
-    b3Vec3 origin = (b3Vec3){ s.x(), s.y(), s.z() };
-    b3Vec3 translation = (b3Vec3){ e.x() - s.x(), e.y() - s.y(), e.z() - s.z() };
+    b3Vec3 origin = b3Vec3{ s.x(), s.y(), s.z() };
+    b3Vec3 translation = b3Vec3{ e.x() - s.x(), e.y() - s.y(), e.z() - s.z() };
     b3QueryFilter filter = b3DefaultQueryFilter();
     std::vector<RaycastHit> hitList;
 
     b3Helpers::RaycastCallbackData data = { this, &hitList, getNameFromBody, false };
-    b3World_CastRay(PHY_WORLD(), origin, translation, filter, b3Helpers::raycastCallback, &data);
+    b3World_CastRay(PHY_WORLD(), b3ToPos(origin), translation, filter, b3Helpers::raycastCallback, &data);
     return hitList;
 }
 
@@ -375,12 +374,14 @@ void PhysicsEngine::advance(float timeStep, int maxSubSteps)
 CollisionShapeBase* PhysicsEngine::createPhysicsPoint()
 { 
     b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
-    cs->shapeData.reset(new b3Helpers::BoxData(osg::Vec3(0.001f, 0.001f, 0.001f)));
-    cs->shapeDef.density = 0.0f; return cs;
+    cs->shapeData.reset(new b3Helpers::BoxData(osg::Vec3(0.001f, 0.001f, 0.001f))); return cs;
 }
 
 CollisionShapeBase* PhysicsEngine::createPhysicsBox(const osg::Vec3& halfSize)
-{ return NULL; /* TODO */ }
+{
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::BoxData(halfSize)); return cs;
+}
 
 CollisionShapeBase* PhysicsEngine::createPhysicsCylinder(const osg::Vec3& halfSize)
 { return NULL; /* TODO */ }
@@ -423,6 +424,35 @@ ConstraintBase* PhysicsEngine::createConstraintP2P(RigidBodyBase* bodyA, const o
                                                    RigidBodyBase* bodyB, const osg::Vec3& pB,
                                                    const ConstraintSetting* setting)
 {
-    // TODO
-    return NULL;
+    if (!bodyA || !bodyB) return NULL;
+    b3BodyId* bA = bodyA->get<b3BodyId>();
+    b3BodyId* bB = bodyB->get<b3BodyId>();
+    if (B3_IS_NULL((*bA)) || B3_IS_NULL((*bB))) return NULL;
+
+    // Box3D uses spherical joint for point-to-point constraint
+    b3SphericalJointDef jointDef = b3DefaultSphericalJointDef();
+    jointDef.base.bodyIdA = *bA; jointDef.base.bodyIdB = *bB;
+
+    if (setting && setting->useWorldPivots)
+    {
+        // TODO
+        /*b3Vec3 worldAnchorA = b3Vec3{pA[0], pA[1], pA[2]};
+        b3Vec3 worldAnchorB = b3Vec3{ pB[0], pB[1], pB[2] };
+        jointDef.base.localFrameA;
+        jointDef.base.localFrameB;*/
+    }
+    else
+    {
+        // TODO
+    }
+
+    // Box3D spherical joint doesn't have tau/damping/impulseClamp directly
+    // These are solver parameters set on the world or body level
+    if (setting)
+    {
+        // Apply settings if Box3D supports them through other mechanisms
+        // TODO
+    }
+    b3JointId joint = b3CreateSphericalJoint(PHY_WORLD(), &jointDef);
+    return new b3Helpers::Constraint(joint);
 }

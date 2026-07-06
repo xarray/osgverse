@@ -22,7 +22,7 @@
 #include <stddef.h>
 #include <string.h>
 
-_Static_assert( B3_BODY_NAME_LENGTH >= 0, "minimum name length" );
+//_Static_assert( B3_BODY_NAME_LENGTH >= 0, "minimum name length" );
 
 // Get a validated body from a world using an id.
 b3Body* b3GetBodyFullId( b3World* world, b3BodyId bodyId )

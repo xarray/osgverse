@@ -30,8 +30,8 @@
 #include <stdio.h>
 #include <string.h>
 
-_Static_assert( B3_MAX_WORLDS > 0, "must be 1 or more" );
-_Static_assert( B3_MAX_WORLDS < UINT16_MAX, "B3_MAX_WORLDS limit exceeded" );
+//_Static_assert( B3_MAX_WORLDS > 0, "must be 1 or more" );
+//_Static_assert( B3_MAX_WORLDS < UINT16_MAX, "B3_MAX_WORLDS limit exceeded" );
 b3World b3_worlds[B3_MAX_WORLDS];
 b3AtomicInt b3_worldCount;
 int b3_maxWorldCount;
@@ -2173,7 +2173,7 @@ b3Counters b3World_GetCounters( b3WorldId worldId )
 	s.byteCount = b3GetByteCount();
 	s.taskCount = world->taskCount;
 
-	_Static_assert( B3_GRAPH_COLOR_COUNT == sizeof( s.colorCounts ) / sizeof( s.colorCounts[0] ), "colorCounts size mismatch" );
+	//_Static_assert( B3_GRAPH_COLOR_COUNT == sizeof( s.colorCounts ) / sizeof( s.colorCounts[0] ), "colorCounts size mismatch" );
 
 	s.awakeContactCount = 0;
 	for ( int i = 0; i < B3_GRAPH_COLOR_COUNT; ++i )

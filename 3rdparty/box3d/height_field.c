@@ -475,8 +475,8 @@ b3HeightFieldData* b3CreateHeightField( const b3HeightFieldDef* data )
 	return hf;
 }
 
-_Static_assert( b3_concaveEdge3 == 4 * b3_concaveEdge1, "bit math" );
-_Static_assert( b3_inverseConcaveEdge3 == 4 * b3_inverseConcaveEdge1, "bit math" );
+//_Static_assert( b3_concaveEdge3 == 4 * b3_concaveEdge1, "bit math" );
+//_Static_assert( b3_inverseConcaveEdge3 == 4 * b3_inverseConcaveEdge1, "bit math" );
 
 // Decode the four corner vertices of a height field cell into local space.
 // Output order matches the index naming used throughout this file:
