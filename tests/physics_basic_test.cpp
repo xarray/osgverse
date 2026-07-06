@@ -8,6 +8,8 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <animation/PhysicsEngine.h>
 #include <animation/Utilities.h>
+#include <readerwriter/Utilities.h>
+#include <pipeline/Global.h>
 #include <iostream>
 #include <sstream>
 
@@ -23,7 +25,7 @@ public:
     : _physics(pe), _scene(s), _pickingDistance(0.0f), _sphereCount(0)
     {
         // Create a point/empty kinematic body for dragging use
-        _physics->addRigidBody("dragger", osgVerse::createPhysicsPoint(), 0.0f, osg::Matrix(), true);
+        _physics->addRigidBody("dragger", _physics->createPhysicsPoint(), 0.0f, osg::Matrix(), true);
     }
 
     virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
@@ -77,14 +79,14 @@ public:
                 bool isKinematic = false;
                 if (_physics->isDynamicBody(result.name, isKinematic))
                 {
-                    osgVerse::ConstraintSetting setting;
+                    osgVerse::PhysicsEngine::ConstraintSetting setting;
                     setting.useWorldPivots = true;
                     setting.impulseClamp = 30.0f;
                     setting.tau = 0.001f;  // very weak constraint for picking
 
                     // Create p2p constraint between the empty kinematic body and the picked one
                     _physics->setTransform("dragger", osg::Matrix::translate(result.position));
-                    _physics->addConstraint("dragP2P", osgVerse::createConstraintP2P(
+                    _physics->addConstraint("dragP2P", _physics->createConstraintP2P(
                             _physics->getRigidBody("dragger"), result.position,
                             result.rigidBody, result.position, &setting));
                     _pickingDistance = (result.position - start).length();
@@ -123,7 +125,7 @@ public:
         // Add the sphere to scene and physics world
         std::string name = "sphere" + std::to_string(++_sphereCount);
         _physics->addRigidBody(
-            name, osgVerse::createPhysicsSphere(sphereRadius), sphereMass, sphereMT->getMatrix());
+            name, _physics->createPhysicsSphere(sphereRadius), sphereMass, sphereMT->getMatrix());
         _physics->setVelocity(name, forward * speed, true);
         
         sphereMT->setUpdateCallback(new osgVerse::PhysicsUpdateCallback(_physics.get(), name));
@@ -142,6 +144,7 @@ int main(int argc, char** argv)
 {
     const float groundSize = 40.0f, groundThickness = 0.1f;
     const float boxHalfSize = 0.49f, boxMass = 2.0f;
+    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
 
     // Create a ground geometry
     osg::ref_ptr<osg::MatrixTransform> groundMT = new osg::MatrixTransform;
@@ -189,18 +192,23 @@ int main(int argc, char** argv)
     root->addChild(groundMT.get()); root->addChild(cessnaMT.get());
     for (int i = 0; i < 50; ++i) root->addChild(boxMT[i].get());
 
+    osg::ref_ptr<osgVerse::PhysicsEngine> physics;
+    if (arguments.read("--bullet"))
+        physics = dynamic_cast<osgVerse::PhysicsEngine*>(osgDB::readObjectFile("0.verse_bullet"));
+    if (!physics) physics = new osgVerse::PhysicsEngine;
+    OSG_NOTICE << "Using physics engine: " << physics->getName() << "\n";
+
     // Create the physics world and add the rigid body of every scene object
-    osg::ref_ptr<osgVerse::PhysicsEngine> physics = new osgVerse::PhysicsEngine;
-    physics->addRigidBody("ground", osgVerse::createPhysicsBox(
+    physics->addRigidBody("ground", physics->createPhysicsBox(
         osg::Vec3(groundSize * 0.5f, groundSize * 0.5f, groundThickness * 0.5f)), 0.0f);
     if (cessnaModel.valid())
     {
-        physics->addRigidBody("cessna", osgVerse::createPhysicsHull(
+        physics->addRigidBody("cessna", physics->createPhysicsHull(
             cessnaMT->getChild(0)), 15.0f, cessnaMT->getMatrix());
     }
 
     for (int i = 0; i < 50; ++i)
-        physics->addRigidBody("box" + std::to_string(i), osgVerse::createPhysicsBox(
+        physics->addRigidBody("box" + std::to_string(i), physics->createPhysicsBox(
             osg::Vec3(boxHalfSize, boxHalfSize, boxHalfSize)), boxMass, boxMT[i]->getMatrix());
 
     // Setup callbacks for scene object to update its pose

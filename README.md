@@ -412,10 +412,12 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_INSTALL_PDB_FILES     | Boolean | ON            | Enable to install PDB files along with executables and dynamic libraries |
 | VERSE_BUILD_EXPORTERS       | Boolean | OFF           | Enable build of exporters of other software (e.g., 3dsmax) |
 | VERSE_BUILD_3RDPARTIES      | Boolean | ON            | Enable build of common libraries like FreeType, Jpeg and PNG |
-| VERSE_BUILD_WITH_QT         | Boolean | OFF           | Enable build of Qt based applications and tests |
+| VERSE_BUILD_WITH_QT         | Boolean | ON            | Enable build of Qt based applications and tests |
+| VERSE_BUILD_WITH_CUDA       | Boolean | ON            | Enable build of NVIDIA CUDA based libraries and tests |
+| VERSE_BUILD_WITH_MUSA       | Boolean | ON            | Enable build of MooreThreads MUSA based libraries and tests |
+| VERSE_BUILD_WITH_ANGLE      | Boolean | OFF           | Enable to support Vulkan interface if use Google Angle as GLES interface  |
 | VERSE_BUILD_DEPRECATED_TESTS| Boolean | OFF           | Enable build of deprecated tests |
-| VERSE_NO_SIMD_FEATURES      | Boolean | OFF           | Enable to ignore all SIMD features (when struggling with compile errors) |
-| VERSE_SUPPORT_CPP17         | Boolean | OFF           | Enable build of libraries using C++ 17 standard |
+| VERSE_SUPPORT_CPP17         | Boolean | ON            | Enable build of libraries using C++ 17 standard |
 | VERSE_STATIC_BUILD          | Boolean | OFF           | Enable static build of osgVerse |
 | VERSE_USE_OSG_STATIC        | Boolean | OFF           | Use static build of OpenSceneGraph (will force osgVerse to be static) |
 | VERSE_USE_DWARF             | Boolean | OFF           | Enable detailed debug-info and symbols. 'libdw-dev' must be installed |
@@ -423,6 +425,7 @@ Our project is already tested on graphics cards listed as below:
 | VERSE_USE_MIMALLOC          | Boolean | ON            | If mimalloc is found, this option is used for improving memory allocation |
 | VERSE_USE_MTT_DRIVER        | Boolean | OFF           | Enable to use MooreThreads MTT drivers correctly |
 | VERSE_USE_FORCED_MULTIPLE   | Boolean | OFF           | Enable to solve LNK2005 problem when compiling OSG 3.2 and lower under MSVC |
+| VERSE_NO_SIMD_FEATURES      | Boolean | OFF           | Enable to ignore all SIMD features (when struggling with compile errors) |
 | VERSE_WASM_USE_PTHREAD      | Boolean | ON            | Enable Pthread for WASM, which requires COOP / COEP on server-side, for WASM build only |
 | VERSE_WASM_OPTIMIZE_SIZE    | Boolean | OFF           | Enable -O3 for WASM, which is slow but with small generated size |
 | VERSE_FIND_LEGACY_OPENGL    | Boolean | OFF           | Enable to use legacy mode to search OpenGL libraries, for some Linux systems like Kylin |

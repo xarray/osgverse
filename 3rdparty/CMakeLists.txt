@@ -471,6 +471,27 @@ SET(MLT_SOURCE_FILES
     mlt/geometry_vector.hpp mlt/layer.hpp mlt/polyfill.hpp mlt/projection.hpp mlt/properties.hpp
 )
 
+SET(BOX3D_SOURCE_FILES
+	box3d/aabb.c box3d/aabb.h box3d/algorithm.h box3d/arena_allocator.c box3d/arena_allocator.h
+	box3d/bitset.c box3d/bitset.h box3d/block_allocator.c box3d/block_allocator.h
+	box3d/body.c box3d/body.h box3d/broad_phase.c box3d/broad_phase.h box3d/capsule.c
+	box3d/compound.c box3d/compound.h box3d/constraint_graph.c box3d/constraint_graph.h
+	box3d/contact.c box3d/contact.h box3d/contact_solver.c box3d/contact_solver.h box3d/container.h
+	box3d/convex_manifold.c box3d/core.c box3d/core.h box3d/ctz.h box3d/distance.c box3d/distance_joint.c
+	box3d/dynamic_tree.c box3d/height_field.c box3d/hull.c box3d/id_pool.c box3d/id_pool.h
+	box3d/island.c box3d/island.h box3d/joint.c box3d/joint.h box3d/manifold.c box3d/manifold.h
+	box3d/math_functions.c box3d/math_internal.h box3d/mesh.c box3d/mesh_contact.c box3d/motor_joint.c
+	box3d/mover.c box3d/parallel_for.c box3d/parallel_for.h box3d/parallel_joint.c
+	box3d/physics_world.c box3d/physics_world.h box3d/platform.h box3d/prismatic_joint.c box3d/qsort.h
+	box3d/recording.c box3d/recording.h box3d/recording_ops.inl box3d/recording_replay.c box3d/recording_replay.h
+	box3d/world_snapshot.c box3d/world_snapshot.h box3d/revolute_joint.c box3d/scheduler.c box3d/scheduler.h
+	box3d/sensor.c box3d/sensor.h box3d/shape.c box3d/shape.h box3d/simd.c box3d/simd.h box3d/solver.c box3d/solver.h
+	box3d/solver_set.c box3d/solver_set.h box3d/sphere.c box3d/spherical_joint.c box3d/table.c box3d/table.h
+	box3d/timer.c box3d/triangle_manifold.c box3d/types.c box3d/verstable.h box3d/weld_joint.c box3d/wheel_joint.c
+    box3d/base.h box3d/box3d.h box3d/collision.h box3d/config.h box3d/constants.h
+    box3d/id.h box3d/math_functions.h box3d/types.h
+)
+
 SET(QUADRIFLOW_SOURCE_FILES
     quadriflow/manifold/types.h quadriflow/manifold/GridIndex.h
     quadriflow/manifold/Intersection.h quadriflow/manifold/Intersection.cc
@@ -502,6 +523,7 @@ SET(POINTCLOUDSEG_SOURCE_FILES
 SOURCE_GROUP("ApproxMVBB Files" FILES ${APPROXMVBB_SOURCE_FILES})
 SOURCE_GROUP("Blend2D Files" FILES ${BLEND2D_SOURCE_FILES})
 SOURCE_GROUP("ByteTrack Files" FILES ${BYTETRACK_SOURCE_FILES})
+SOURCE_GROUP("Box3D Files" FILES ${BOX3D_SOURCE_FILES})
 SOURCE_GROUP("DiscreGrid Files" FILES ${DISCREGRID_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
@@ -547,7 +569,7 @@ SET(LIBRARY_FILES
     ${LEVELDB_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${MARL_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES}
     ${METIS_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES}
     ${POINTCLOUDSEG_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES} ${SHAPELIB_SOURCE_FILES} ${SMPLXPP_SOURCE_FILES}
-    ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${TWEENY_SOURCE_FILES}
+    ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${TWEENY_SOURCE_FILES} ${BOX3D_SOURCE_FILES}
 )
 
 IF(VERSE_SUPPORT_CPP17)
@@ -591,6 +613,7 @@ ADD_DEFINITIONS(-DApproxMVBB_BUILD_LIBRARY                                # Appr
                 -DBASISD_SUPPORT_KTX2_ZSTD=0 -DBASISD_SUPPORT_KTX2=1 -DBASISU_SUPPORT_OPENCL=0          # libKTX: BasisU
                 -DUSINGZ                                                  # clipper2
                 -DIDXTYPEWIDTH=32 -DREALTYPEWIDTH=32                      # METIS
+                -DBOX3D_DOUBLE_PRECISION                                  # Box3D
                 -DHAVE_UNORDERED_MAP=1 -D_USE_MATH_DEFINES)
 IF(MSVC_VERSION LESS 1910)
     ADD_DEFINITIONS(-DWITHOUT_HTTP_CONTENT)  # libhv: disable use of json.hpp in VS2015
@@ -634,7 +657,7 @@ IF(NOT USE_WASM_OPTIONS)
     ELSEIF("sse2" IN_LIST VERSE_SIMD_FEATURES)
         ADD_DEFINITIONS(-DBL_BUILD_OPT_SSE2)
     ELSE()
-        ADD_DEFINITIONS(-DBL_BUILD_NO_SIMD)
+        ADD_DEFINITIONS(-DBL_BUILD_NO_SIMD -DBOX3D_DISABLE_SIMD)
     ENDIF()
 ENDIF(NOT USE_WASM_OPTIONS)
 

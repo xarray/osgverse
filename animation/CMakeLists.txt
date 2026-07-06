@@ -3,15 +3,8 @@ SET(LIBRARY_INCLUDE_FILES
     PlayerAnimation.h TweenAnimation.h BlendShapeAnimation.h
     PhysicsEngine.h ParticleEngine.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp
+    PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp PhysicsEngine.cpp
     TweenAnimation.cpp BlendShapeAnimation.cpp ParticleEngineU3D.cpp Utilities.cpp)
-
-IF(BULLET_FOUND)
-    INCLUDE_DIRECTORIES(${BULLET_INCLUDE_DIR})
-    INCLUDE("${BULLET_LIB_DIR}/cmake/bullet/BulletConfig.cmake" OPTIONAL)
-    ADD_DEFINITIONS(-DVERSE_WITH_BULLET ${BULLET_DEFINITIONS})
-	SET(LIBRARY_FILES ${LIBRARY_FILES} PhysicsEngine.cpp)
-ENDIF(BULLET_FOUND)
 
 FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effekseer.lib" "")
 IF(NOT VERSE_SUPPORT_CPP17)
@@ -25,11 +18,6 @@ NEW_LIBRARY(${LIB_NAME} STATIC)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseModeling osgVersePipeline)
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgViewer)
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-IF(BULLET_FOUND)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug BulletDynamics${VERSE_DEBUG_POSTFIX} optimized BulletDynamics)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug BulletCollision${VERSE_DEBUG_POSTFIX} optimized BulletCollision)
-    TARGET_LINK_LIBRARIES(${LIB_NAME} debug LinearMath${VERSE_DEBUG_POSTFIX} optimized LinearMath)
-ENDIF(BULLET_FOUND)
 
 IF(EFFEKSEER_FOUND)
     TARGET_LINK_LIBRARIES(${LIB_NAME} debug Effekseer${VERSE_DEBUG_POSTFIX} optimized Effekseer)

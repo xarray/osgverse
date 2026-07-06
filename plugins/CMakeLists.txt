@@ -5,6 +5,7 @@ ENDIF(UNIX)
 
 ADD_SUBDIRECTORY(osgdb_3dgs)
 ADD_SUBDIRECTORY(osgdb_3dtiles)
+ADD_SUBDIRECTORY(osgdb_bullet)
 ADD_SUBDIRECTORY(osgdb_ept)
 ADD_SUBDIRECTORY(osgdb_fbx)
 ADD_SUBDIRECTORY(osgdb_gltf)
