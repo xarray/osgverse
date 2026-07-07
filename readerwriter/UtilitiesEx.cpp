@@ -915,15 +915,16 @@ namespace
             osg::Shader* frag = _resources.find("gaussian_frag") != _resources.end() ?
                 static_cast<osg::Shader*>(_resources["gaussian_frag"].get()) :
                 osgDB::readShaderFile(osg::Shader::FRAGMENT, SHADER_DIR + "gaussian_splatting.frag.glsl");
-            if (!vert || !geom || !frag)
+            if (!vert || !frag)
             {
                 OSG_WARN << "[GaussianStateVisitor] Missing shaders for gaussian splatting." << std::endl;
                 return false;
             }
 
             osgVerse::ResourceManager* res = osgVerse::ResourceManager::instance();
-            vert->setName("Gaussian_VS"); geom->setName("Gaussian_GS"); frag->setName("Gaussian_FS");
-            res->shareShader(vert, true); res->shareShader(geom, true); res->shareShader(frag, true);
+            vert->setName("Gaussian_VS"); res->shareShader(vert, true);
+            frag->setName("Gaussian_FS"); res->shareShader(frag, true);
+            if (geom) { geom->setName("Gaussian_GS"); res->shareShader(geom, true); }
 
             osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
             if (hint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
@@ -951,9 +952,9 @@ namespace
             int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
             glslVer = osg::maximum(glslVer, minGlslVer);
             osgVerse::Pipeline::createShaderDefinitions(vert, cxtVer, glslVer);
-            osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
             osgVerse::Pipeline::createShaderDefinitions(frag, cxtVer, glslVer);
-
+            if (geom) osgVerse::Pipeline::createShaderDefinitions(geom, cxtVer, glslVer, gsDefinitions);
+            
             program = osgVerse::GaussianGeometry::createProgram(vert, (hint == "GS") ? geom : NULL, frag, method);
             renderMode = new osg::Uniform("GaussianRenderingMode", 0.0f); return true;
         }

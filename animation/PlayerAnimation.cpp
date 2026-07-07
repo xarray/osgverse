@@ -224,7 +224,7 @@ namespace ozz
                 // Get and apply transformation matrix of current geometry
                 osg::Matrix worldMatrix;
                 if (geom.getNumParents() > 0)
-                    worldMatrix = geom.getParent(0)->getWorldMatrices()[0];  // FIXME: wrong with CesiumMan.glb?
+                    worldMatrix = geom.getParent(0)->getWorldMatrices()[0];
                 
                 // Apply to mesh part
                 OzzMesh::Part meshPart; meshPart.positions.resize(vCount * 3);

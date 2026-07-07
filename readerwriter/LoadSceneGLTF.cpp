@@ -467,7 +467,7 @@ namespace osgVerse
         std::map<size_t, std::vector<osg::Transform*>> boneListMap;
         for (size_t i = 0; i < _skinningDataList.size(); ++i)
         {
-            SkinningData& sd = _skinningDataList[i];
+            SkinningData& sd = _skinningDataList[i]; osg::Matrix parentInvMatrix;
             std::vector<osg::Transform*>& boneList = boneListMap[i];
             for (size_t b = 0; b < sd.joints.size(); ++b)
             {
@@ -480,10 +480,15 @@ namespace osgVerse
                     { OSG_WARN << "[LoaderGLTF] Invalid empty bone: " << sd.joints[b] << std::endl; }
             }
 
-            createInvBindMatrices(sd, boneList, _modelDef.accessors[sd.invBindPoseAccessor]);
+            osg::Node* skeletonRoot = _nodeCreationMap[sd.skeletonBaseIndex];
+            if (skeletonRoot && skeletonRoot->getNumParents() > 0)
+            {
+                osg::MatrixList matrices = skeletonRoot->getParent(0)->getWorldMatrices();
+                if (!matrices.empty()) parentInvMatrix = osg::Matrix::inverse(matrices.front());
+            }
+            createInvBindMatrices(sd, boneList, _modelDef.accessors[sd.invBindPoseAccessor], parentInvMatrix);
             if (!sd.meshList.empty()) sd.player->initialize(boneList, sd.meshList, sd.jointData);
 
-            osg::Node* skeletonRoot = _nodeCreationMap[sd.skeletonBaseIndex];
             sd.skeletonRoot = skeletonRoot ? skeletonRoot->asGroup() : NULL;
 #if !DISABLE_SKINNING_DATA
             sd.meshRoot = new osg::Geode; sd.meshRoot->setName("CharacterGeode");
@@ -1211,7 +1216,7 @@ namespace osgVerse
     }
 
     void LoaderGLTF::createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,
-                                           tinygltf::Accessor& accessor)
+                                           tinygltf::Accessor& accessor, const osg::Matrix& invParent)
     {
         const tinygltf::BufferView& attrView = _modelDef.bufferViews[accessor.bufferView];
         if (attrView.buffer < 0) return;
@@ -1232,7 +1237,7 @@ namespace osgVerse
             for (size_t j = 0; j < sd.meshList.size(); ++j)
             {
                 PlayerAnimation::GeometryJointData& jData = sd.jointData[sd.meshList[j]];
-                jData._invBindPoseMap[bones[i]] = matrix;
+                jData._invBindPoseMap[bones[i]] = invParent * matrix;
             }
         }
     }

@@ -49,6 +49,12 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 * osgVerse_Test_Earth: Earth rendering with DEM/DOM tiles, atmosphere and ocean supports
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/earth_rendering.jpg)
 
+#### User Gallery
+* Digital-twin city rendering by Pizza Team (Smart Yunzhou)
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/syz_city.jpg)
+* Vibe coding earth by Frank Lee (Mthreads Academy)
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/vibe_earth.jpg)
+
 #### Dependencies
 1. Please use CMake 3.0 or higher version. (https://cmake.org/download/)
 2. Please use a C++ compiler supporting C++ 14 at least.
