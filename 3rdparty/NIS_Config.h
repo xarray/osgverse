@@ -101,12 +101,12 @@ struct NISOptimizer
     bool isUpscaling;
     NISGPUArchitecture gpuArch;
 
-    constexpr NISOptimizer(bool isUpscaling = true, NISGPUArchitecture gpuArch = NISGPUArchitecture::NVIDIA_Generic)
+    NISOptimizer(bool isUpscaling = true, NISGPUArchitecture gpuArch = NISGPUArchitecture::NVIDIA_Generic)
         : isUpscaling(isUpscaling)
         , gpuArch(gpuArch)
     {}
 
-    constexpr uint32_t GetOptimalBlockWidth()
+    uint32_t GetOptimalBlockWidth() const
     {
         switch (gpuArch) {
         case NISGPUArchitecture::NVIDIA_Generic:
@@ -121,7 +121,7 @@ struct NISOptimizer
         return 32;
     }
 
-    constexpr uint32_t GetOptimalBlockHeight()
+    uint32_t GetOptimalBlockHeight() const
     {
         switch (gpuArch) {
         case NISGPUArchitecture::NVIDIA_Generic:
@@ -136,7 +136,7 @@ struct NISOptimizer
         return isUpscaling ? 24 : 32;
     }
 
-    constexpr uint32_t GetOptimalThreadGroupSize()
+    uint32_t GetOptimalThreadGroupSize() const
     {
         switch (gpuArch) {
         case NISGPUArchitecture::NVIDIA_Generic:

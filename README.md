@@ -5,34 +5,35 @@
 osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | Operating System | Compiler                     | Supported          | Notes |
 |------------------|------------------------------|--------------------|-------|
-| Windows 10-11    | Visual Studio 2017-2022      | :heavy_check_mark: |       |
-| Windows 10       | Visual Studio 2015           | :heavy_check_mark: | Requires VS2015 Update-3 |
-| Windows 10       | MSYS2 (GCC 10.2)             | :heavy_check_mark: |       |
-| Windows 10       | Intel Compiler 2023          | :heavy_check_mark: | cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icx -GNinja .. |
-| Windows 10 UWP   | Visual Studio 2017-2022      | :heavy_check_mark: | Need to compile an example app |
-| Ubuntu 18.04     | GCC 7.5 (or later)           | :heavy_check_mark: |       |
+| Windows 10-11    | Visual Studio 2017-2026      | :heavy_check_mark: |       |
+| Windows 7-11     | Visual Studio 2015           | :heavy_check_mark: | Requires VS2015 SP3 |
+| Windows 10-11    | MSYS2 (GCC 10.2)             | :heavy_check_mark: |       |
+| Windows 10-11    | Intel Compiler 2023          | :heavy_check_mark: | cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icx -GNinja .. |
+| Windows 10 UWP   | Visual Studio 2017-2022      | :heavy_check_mark: | (TODO) Need to compile an example app |
+| Ubuntu 18-26     | GCC 7.5 (or later)           | :heavy_check_mark: |       |
 | Debian 11.7.0    | GCC 10.2 (or later)          | :heavy_check_mark: |       |
-| Kylin v10        | GCC 8.3 (or later)           | :heavy_check_mark: | Set VERSE_FIND_LEGACY_OPENGL to ON |
+| Kylin v10-11     | GCC 8.3 (or later)           | :heavy_check_mark: | If GL not found, set VERSE_FIND_LEGACY_OPENGL to ON |
 | NeoKylin v7      | GCC 8.5 (built manually)     | :heavy_check_mark: | Must disable VERSE_USE_GLIBCXX11_ABI |
 | UOS v20          | GCC 8.3 (or later)           | :heavy_check_mark: |       |
-| Mac OS X         | 14.4 or later                | :heavy_check_mark: |       |
-| Android          | Android SDK 32 & NDK 27c     | :heavy_check_mark: | Need to compile an example app |
+| Mac OS X >14.4   | XCode                        | :heavy_check_mark: | Use Googla Angle to switch to Metal |
+| Android          | Android SDK 32 & NDK 27d     | :heavy_check_mark: | (TODO) Need to compile an example app |
+| Harmony          |                              | :soon:             |       |
 | IOS              |                              | :soon:             |       |
 | WebAssmebly      | Emscripten 3.1.64 (or later) | :heavy_check_mark: | Supports GLES2 (WebGL1) and GLES3 (WebGL2) |
 
 #### Main Features (ongoing to v1.0)
 - [x] Supports from OSG 3.1.1 to the latest version, and GLSL 1.2 to 4.6, so to work with most hardware in the world.
 - [x] Supports PBR-based rendering and deferred pipeline, with real-time shadowing and deferred lighting.
-- [x] Supports physics simuation based on Bullet3/PhysX library, and character animation based on OZZ library.
+- [x] Supports physics simuation based on Box3D/Bullet3 library, and character animation based on OZZ library.
 - [x] Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
 - [x] Provides database plugins (leveldb, mbtiles, odbc), for reading models and tiles from database rather than local folders.
 - [x] Provides media streaming plugin, which supports playing RTSP and streaming through WebRTC / Websockets.
 - [ ] (PARTLY) Provides video decoding plugins based on GPU (with NVCUVID or LibVA), without CPU copying overload.
-- [x] Provides scripting functionalities to support Python / JsonRPC scripting using OSGB serialization.
+- [x] Provides scripting functionalities to support Python/JsonRPC scripting using OSGB serialization.
 - [x] Supports GL3 Core profile, GLES2 and GLES3. Google Angle is also supported for bridging low-level APIs like Vulkan and DirectX.
 - [x] Supports 3D Gaussian Splatting rendering and related formats: PLY, SPZ, SPLAT, PlayCanvas SOG and XGrids LCC.
 - [x] Supports dependency-free earth scene construction and high quality terrain/atmosphere/ocean rendering. (without osgEarth)
-- [ ] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android and IOS.
+- [ ] (PARTLY) Supports major desktop and mobile operating systems, including Windows, Linux, Mac OSX, Android, Harmony and IOS.
 - [x] Supports major embedded devices with GPU supports, including ARM and RISC-V.
 - [x] Supports Emscripten / WASM compilation and works with WebGL 1/2 based browsers.
 - [ ] Provides an initial visual scene editing tool, comparing with the famous Unity Editor.
@@ -89,7 +90,7 @@ To use osgVerse libraries and applications, OpenGL version must be higher than 2
 Our project is already tested on graphics cards listed as below:
 | Graphics Card             | OpenGL Version | Supported          | VerseViewer | Notes |
 |---------------------------|----------------|--------------------|-------------|-------|
-| NVIDIA RTX 30** Series    | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | |
+| NVIDIA RTX Series         | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | |
 | NVIDIA 10** Series        | 4.6 / GLSL 4.6 | :heavy_check_mark: | 60fps       | |
 | NVIDIA 1070 (Nouveau)     | 4.3 / GLSL 4.3 | :zap:              | 60fps       | Display has broken problems with Nouveau driver |
 | NVIDIA GT720              | 4.6 / GLSL 4.6 | :heavy_check_mark: | < 12fps     | |
