@@ -61,7 +61,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
     - With MooreThreads devices and VERSE_USE_MTT_DRIVER=ON, CUDA can be replaced with MUSA without extra operations.
 5. Optional external dependencies:
   - 5.1 osgEarth 2.10.1 or later, for earth related applications and examples. (https://github.com/gwaldron/osgearth)
-  - 5.2 Bullet 3.17 or later, for physics support in osgVerseAnimation module and related examples. (https://github.com/bulletphysics/bullet3). Remember to enable INSTALL_LIBS (for correct installation) and USE_MSVC_RUNTIME_LIBRARY_DLL (for /MD flag) while compiling Bullet.
+  - 5.2 Bullet 3.17 or later, for optional physics plugin. (https://github.com/bulletphysics/bullet3). Remember to enable INSTALL_LIBS (for correct installation) and USE_MSVC_RUNTIME_LIBRARY_DLL (for /MD flag) while compiling Bullet.
   - 5.3 Entwine 2.0 or later, for EPT point cloud octree constructing. (https://github.com/connormanning/entwine)
   - 5.4 Qt 5.5 or later, for Qt related applications and examples. (https://www.qt.io/licensing/open-source-lgpl-obligations)
   - 5.5 ZLMediaKit (git version), for media streaming plugin. (https://github.com/ZLMediaKit/ZLMediaKit) Remember to uncheck the ENABLE_MSVC_MT option while compiling. To encode to H264 frame and pull to media server, you may also check ENABLE_X264 and add x264 (http://www.videolan.org/developers/x264.html) to ZLMediaKit.
@@ -118,11 +118,11 @@ Our project is already tested on graphics cards listed as below:
 ##### Module dependency chain
 |     Name     |               Depended Module             | Optional External Dependency |
 |--------------|-------------------------------------------|------------------------------|
-| Modeling     | Dependency                                | libIGL                       |
+| Modeling     | Dependency                                | libIGL, cinolib              |
 | Pipeline     | Dependency, Modeling                      | CUDA                         |
 | Script       | Dependency, Pipeline                      |                              |
 | AI           | Dependency, Modeling                      |                              |
-| Animation    | Dependency, Pipeline, Modeling            | Bullet, Effekseer            |
+| Animation    | Dependency, Pipeline, Modeling            | Effekseer            |
 | UI           | Dependency, Modeling, Script              | libCEF                       |
 | ReaderWriter | Dependency, Animation, Modeling, Pipeline | libDraco, SDL                |
 | Wrappers     | ALL                                       |                              |
@@ -156,7 +156,7 @@ Our project is already tested on graphics cards listed as below:
 15. osgVerse_Test_Polygon2D: an eample of 2D polygon operations. (TBD: labeling, spline usage, loading MVT)
 16. osgVerse_Test_Mesh_Process: an example of 3D mesh operations. (TBD: labeling, topology, NURBS, common shapes)
 17. osgVerse_Test_Navigation: an example of navmesh based navigation. (TBD: simple UI)
-18. osgVerse_Test_Physics_Basic: a physics world example supporting rigid bodies & kinematics, requiring Bullet3.
+18. osgVerse_Test_Physics_Basic: a physics world example supporting rigid bodies & kinematics, can switch between default Box3D and Bullet3.
 19. osgVerse_Test_Particle_U3D: a Unity-like particle system example. (TBD: better fire/explosion example)
 20. osgVerse_Test_Particle_Effekseer: another particle system example with Effekseer. (TBD: Effekseer scripting)
 21. osgVerse_Test_Scripting: an example for scripting implementation based on OSGB serialization format.

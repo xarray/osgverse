@@ -2,7 +2,7 @@
 | Library          | Mode     | Version   | Used by modules    | License      | Website |
 |------------------|----------|-----------|--------------------|--------------|---------|
 | OpenSceneGraph   | Depended | > 3.1.1   | All                | LGPL (+)     | https://github.com/openscenegraph/OpenSceneGraph |
-| Bullet           | Depended | > 3.17    | Animation          | Zlib (+)     | https://github.com/bulletphysics/bullet3 |
+| Bullet           | Depended | > 3.17    | verse_bullet       | Zlib (+)     | https://github.com/bulletphysics/bullet3 |
 | cinolib          | Depended | > 1.0     | Modeling           | MIT          | https://github.com/mlivesu/cinolib |
 | Effekseer        | Depended | > 1.70e   | Animation          | MIT          | https://github.com/effekseer/Effekseer |
 | FFmpeg           | Depended | > 6.0     | verse_ffmpeg       | LGPL         | https://github.com/FFmpeg/FFmpeg |

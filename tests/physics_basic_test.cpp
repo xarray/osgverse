@@ -90,8 +90,7 @@ public:
                             _physics->getRigidBody("dragger"), result.position,
                             result.rigidBody, result.position, &setting));
                     _pickingDistance = (result.position - start).length();
-                    _pickedRigidName = result.name;
-                    return true;
+                    _pickedRigidName = result.name; return true;
                 }
             }
             return false;

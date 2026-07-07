@@ -12,7 +12,7 @@ namespace osgVerse
         template<typename T> T* get() { return (T*)internal; }
         template<typename T> const T* get() const { return (const T*)internal; }
         bool equals(PhysicsItemBase* item) const { return internal == item->internal; }
-        void* internal;
+        virtual ~PhysicsItemBase() {} void* internal;
     };
     struct CollisionShapeBase : public PhysicsItemBase {};
     struct RigidBodyBase : public PhysicsItemBase {};
