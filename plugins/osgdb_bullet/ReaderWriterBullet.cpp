@@ -100,6 +100,7 @@ public:
     virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize);
     virtual CollisionShapeBase* createPhysicsCylinder(const osg::Vec3& halfSize);
     virtual CollisionShapeBase* createPhysicsCone(float radius, float height);
+    virtual CollisionShapeBase* createPhysicsCapsule(float radius, float height);
     virtual CollisionShapeBase* createPhysicsSphere(float radius);
     virtual CollisionShapeBase* createPhysicsHull(osg::Node* node, bool optimized = true);
     virtual CollisionShapeBase* createPhysicsTriangleMesh(osg::Node* node, bool compressed = true);
@@ -149,7 +150,7 @@ RigidBodyBase* BulletPhysicsEngine::addRigidBody(const std::string& name, Collis
     transform.setOrigin(btVector3(p.x(), p.y(), p.z()));
     transform.setRotation(btQuaternion(q.x(), q.y(), q.z(), q.w()));
     btCollisionShape* shape = csb ? csb->get<btCollisionShape>() : NULL;
-    if (!shape) return NULL;
+    if (!shape) { OSG_NOTICE << "[PhysicsEngine] Failed to get input shape\n"; return NULL; }
 
     btVector3 localInertia(0, 0, 0);
     if (isDynamic) shape->calculateLocalInertia(mass, localInertia);
@@ -381,6 +382,9 @@ CollisionShapeBase* BulletPhysicsEngine::createPhysicsCylinder(const osg::Vec3& 
 
 CollisionShapeBase* BulletPhysicsEngine::createPhysicsCone(float radius, float height)
 { return new btHelpers::CollisionShape(new btConeShape(radius, height)); }
+
+CollisionShapeBase* BulletPhysicsEngine::createPhysicsCapsule(float radius, float height)
+{ return new btHelpers::CollisionShape(new btCapsuleShape(radius, height)); }
 
 CollisionShapeBase* BulletPhysicsEngine::createPhysicsSphere(float radius)
 { return new btHelpers::CollisionShape(new btSphereShape(radius)); }

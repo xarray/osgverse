@@ -75,6 +75,7 @@ namespace osgVerse
         virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize);
         virtual CollisionShapeBase* createPhysicsCylinder(const osg::Vec3& halfSize);
         virtual CollisionShapeBase* createPhysicsCone(float radius, float height);
+        virtual CollisionShapeBase* createPhysicsCapsule(float radius, float height);
         virtual CollisionShapeBase* createPhysicsSphere(float radius);
         virtual CollisionShapeBase* createPhysicsHull(osg::Node* node, bool optimized = true);
         virtual CollisionShapeBase* createPhysicsTriangleMesh(osg::Node* node, bool compressed = true);
@@ -82,8 +83,7 @@ namespace osgVerse
 
         struct ConstraintSetting
         {
-            ConstraintSetting() : tau(0.3f), damping(1.0f),
-                                impulseClamp(0.0f), useWorldPivots(false) {}
+            ConstraintSetting() : tau(0.3f), damping(1.0f), impulseClamp(0.0f), useWorldPivots(false) {}
             float tau, damping, impulseClamp; bool useWorldPivots;
         };
         virtual ConstraintBase* createConstraintP2P(RigidBodyBase* bodyA, const osg::Vec3& pivotA,

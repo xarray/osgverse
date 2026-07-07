@@ -16,58 +16,79 @@ namespace b3Helpers
 {
     struct ShapeData
     {
-        virtual ~ShapeData() {}
+        float volume = 1.0f; virtual ~ShapeData() {}
         virtual b3ShapeId createOnBody(b3WorldId world, b3BodyId body, const b3ShapeDef& def) = 0;
     };
 
     struct BoxData : public ShapeData
     {
-        b3BoxHull hull;
-        BoxData(const osg::Vec3& hs) { hull = b3MakeBoxHull(hs.x(), hs.y(), hs.z()); }
+        b3BoxHull hull; BoxData(const osg::Vec3& hs)
+        { hull = b3MakeBoxHull(hs.x(), hs.y(), hs.z()); volume = 8.0f * hs.x() * hs.y() * hs.z(); }
         virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
         { return b3CreateHullShape(body, &def, &hull.base); }
     };
 
-    /*struct HullData : public ShapeData
+    struct CylinderData : public ShapeData
     {
-        std::vector<b3Vec3> vertices;
-        HullData(const std::vector<osg::Vec3>& verts)
-        {
-            vertices.reserve(verts.size());
-            for (const auto& v : verts) vertices.push_back((b3Vec3){v.x(), v.y(), v.z()});
-        }
+        b3HullData* hull; virtual ~CylinderData() { b3DestroyHull(hull); }
+        CylinderData(const osg::Vec3& hry, int n)
+        { hull = b3CreateCylinder(hry.x(), hry.y(), hry.z(), n); volume = osg::PI * hry.y() * hry.y() * hry.x(); }
         virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
-        {
-            b3HullData hull;
-            hull.vertexCount = vertices.size();
-            hull.vertices = vertices.data();  // FIXME: b3ComputeHull?
-            return b3CreateHullShape(body, &def, &hull);
-        }
+        { return hull ? b3CreateHullShape(body, &def, hull) : b3_nullShapeId; }
     };
 
-    struct MeshData : public ShapeData
+    struct ConeData : public ShapeData
     {
-        std::vector<b3Vec3> vertices;
-        std::vector<b3MeshTriangle> triangles;
-        MeshData(const std::vector<osg::Vec3>& verts, const std::vector<unsigned int>& tris)
+        b3HullData* hull; virtual ~ConeData() { b3DestroyHull(hull); }
+        ConeData(const osg::Vec3& hrr, int n)
+        { hull = b3CreateCone(hrr.x(), hrr.y(), hrr.z(), n); volume = osg::PI * hrr.y() * hrr.y() * hrr.x() / 3.0f; }
+        virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
+        { return hull ? b3CreateHullShape(body, &def, hull) : b3_nullShapeId; }
+    };
+
+    struct CapsuleData : public ShapeData
+    {
+        b3Capsule sh; CapsuleData(const osg::Vec3& c0, const osg::Vec3& c1, float r)
         {
-            vertices.reserve(verts.size());
-            for (const auto& v : verts) vertices.push_back((b3Vec3){v.x(), v.y(), v.z()});
-            int nTri = tris.size() / 3;
-            triangles.reserve(nTri);
-            for (int i = 0; i < nTri; ++i)
-                triangles.push_back((b3MeshTriangle){tris[i*3], tris[i*3+1], tris[i*3+2]});
+            sh = b3Capsule { {c0.x(), c0.y(), c0.z()}, {c1.x(), c1.y(), c1.z()}, r };
+            float h = abs(c1.z() - c0.z()); float cyVol = osg::PI * r * r * h;
+            volume = (4.0f / 3.0f) * osg::PI * r * r * r + cyVol;
         }
         virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
-        {
-            b3MeshData mesh;
-            mesh.vertexCount = vertices.size();
-            mesh.vertices = vertices.data();
-            mesh.triangleCount = triangles.size();
-            mesh.triangles = triangles.data();
-            return b3CreateMeshShape(body, &def, &mesh);
-        }
-    };*/
+        { return b3CreateCapsuleShape(body, &def, &sh); }
+    };
+
+    struct SphereData : public ShapeData
+    {
+        b3Sphere sh; SphereData(const osg::Vec3& c, float r)
+        { sh = b3Sphere { {c.x(), c.y(), c.z()}, r }; float h = r * 0.57735f; volume = 8.0f * h * h * h;  }
+        virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
+        { return b3CreateSphereShape(body, &def, &sh); }
+    };
+
+    struct HullData : public ShapeData
+    {
+        b3HullData* hull; virtual ~HullData() { b3DestroyHull(hull); }
+        HullData(const b3Vec3* pt, int count) { hull = b3CreateHull(pt, count, count); }
+        virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
+        { return hull ? b3CreateHullShape(body, &def, hull) : b3_nullShapeId; }
+    };
+
+    struct TriangleData : public ShapeData
+    {
+        b3MeshData* mesh; std::vector<int> idx; virtual ~TriangleData() { b3DestroyMesh(mesh); }
+        TriangleData(const b3MeshDef& def) { idx.resize(64); mesh = b3CreateMesh(&def, idx.data(), idx.size()); }
+        virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
+        { return mesh ? b3CreateMeshShape(body, &def, mesh, {1.0f, 1.0f, 1.0f}) : b3_nullShapeId; }
+    };
+
+    struct HeightData : public ShapeData
+    {
+        b3HeightFieldData* hf; virtual ~HeightData() { b3DestroyHeightField(hf); }
+        HeightData(const b3HeightFieldDef& def) { hf = b3CreateHeightField(&def); }
+        virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
+        { return hf ? b3CreateHeightFieldShape(body, &def, hf) : b3_nullShapeId; }
+    };
 
     struct CollisionShape : public osgVerse::CollisionShapeBase
     {
@@ -187,21 +208,18 @@ RigidBodyBase* PhysicsEngine::addRigidBody(const std::string& name, CollisionSha
     b3Helpers::PhysicsCore::fromMatrix(matrix, pos, rot);
     if (_shapes.find(name) != _shapes.end()) removeBody(name);  // remove existing shape
 
-    b3Helpers::CollisionShape* shape = static_cast<b3Helpers::CollisionShape*>(csb);
-    if (!shape || (shape && !shape->shapeData)) return NULL;
+    b3Helpers::CollisionShape* cs = static_cast<b3Helpers::CollisionShape*>(csb);
+    if (!cs || (cs && !cs->shapeData)) { OSG_NOTICE << "[PhysicsEngine] Failed to get input shape\n"; return NULL; }
+    cs->shapeDef.density = (mass > 0.0f) ? (mass / cs->shapeData->volume) : 0.0f;
 
     b3BodyDef bodyDef = b3DefaultBodyDef();
     bodyDef.position = b3ToPos(pos); bodyDef.rotation = rot;
     bodyDef.type = kinematic ? b3_kinematicBody : (mass > 0.0f ? b3_dynamicBody : b3_staticBody);
 
     b3BodyId bodyId = b3CreateBody(PHY_WORLD(), &bodyDef);
-    if (B3_IS_NULL(bodyId)) return NULL;
-
-    // FIXME
-    shape->shapeDef.density = (mass > 0.0f) ? (mass * 1.0f) : 0.0f;
-
-    b3ShapeId shapeId = shape->shapeData->createOnBody(PHY_WORLD(), bodyId, shape->shapeDef);
-    if (B3_IS_NULL(shapeId)) { b3DestroyBody(bodyId); return NULL; }
+    if (B3_IS_NULL(bodyId)) { OSG_NOTICE << "[PhysicsEngine] Failed to create body\n"; return NULL; }
+    b3ShapeId shapeId = cs->shapeData->createOnBody(PHY_WORLD(), bodyId, cs->shapeDef);
+    if (B3_IS_NULL(shapeId)) { b3DestroyBody(bodyId); OSG_NOTICE << "[PhysicsEngine] Failed to create shape\n"; return NULL; }
 
     b3Helpers::RigidBody* container = new b3Helpers::RigidBody(bodyId);
     _shapes[name] = csb; _bodies[name] = container;
@@ -384,22 +402,43 @@ CollisionShapeBase* PhysicsEngine::createPhysicsBox(const osg::Vec3& halfSize)
 }
 
 CollisionShapeBase* PhysicsEngine::createPhysicsCylinder(const osg::Vec3& halfSize)
-{ return NULL; /* TODO */ }
+{
+    float h = 2.0f * halfSize.z(), r = osg::minimum(halfSize.x(), halfSize.y());
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::CylinderData(osg::Vec3(h, r, 0.0f), 16)); return cs;
+}
 
 CollisionShapeBase* PhysicsEngine::createPhysicsCone(float radius, float height)
-{ return NULL; /* TODO */ }
+{
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::ConeData(osg::Vec3(height, radius, 0.0f), 16)); return cs;
+}
+
+CollisionShapeBase* PhysicsEngine::createPhysicsCapsule(float radius, float height)
+{
+    osg::Vec3 c0(0.0f, 0.0f, 0.0f), c1(0.0f, 0.0f, height);
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::CapsuleData(c0, c1, radius)); return cs;
+}
 
 CollisionShapeBase* PhysicsEngine::createPhysicsSphere(float radius)
-{ return NULL; /* TODO */ }
+{
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::SphereData(osg::Vec3(), radius)); return cs;
+}
 
 CollisionShapeBase* PhysicsEngine::createPhysicsHull(osg::Node* node, bool optimized)
 {
     osgVerse::MeshCollector bvv; if (node != NULL) node->accept(bvv);
     const std::vector<osg::Vec3>& vertices = bvv.getVertices();
+    const osg::BoundingBoxd& bb = bvv.getBoundingBox(); osg::Vec3 l = bb._max - bb._min;
     if (vertices.empty()) return NULL;
 
-    // TODO
-    return NULL;
+    std::vector<b3Vec3> points(vertices.size());
+    memcpy(points.data(), vertices.data(), sizeof(b3Vec3) * vertices.size());
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::HullData(points.data(), points.size()));
+    cs->shapeData->volume = (l[0] * l[1] * l[2]); return cs;
 }
 
 CollisionShapeBase* PhysicsEngine::createPhysicsTriangleMesh(osg::Node* node, bool compressed)
@@ -407,17 +446,47 @@ CollisionShapeBase* PhysicsEngine::createPhysicsTriangleMesh(osg::Node* node, bo
     osgVerse::MeshCollector bvv; if (node != NULL) node->accept(bvv);
     const std::vector<osg::Vec3>& vertices = bvv.getVertices();
     const std::vector<unsigned int>& triangles = bvv.getTriangles();
+    const osg::BoundingBoxd& bb = bvv.getBoundingBox(); osg::Vec3 l = bb._max - bb._min;
     if (vertices.empty() || triangles.empty()) return NULL;
 
-    // TODO
-    return NULL;
+    std::vector<b3Vec3> points(vertices.size());
+    memcpy(points.data(), vertices.data(), sizeof(b3Vec3) * vertices.size());
+    std::vector<int32_t> indices(triangles.size());
+    memcpy(indices.data(), triangles.data(), sizeof(int32_t) * triangles.size());
+
+    b3MeshDef def = {};
+    def.vertices = points.data(); def.vertexCount = (int)points.size();
+    def.indices = indices.data(); def.triangleCount = (int)indices.size() / 3;
+    def.materialIndices = NULL; def.useMedianSplit = false;
+    def.identifyEdges = true; def.weldVertices = true;
+    def.weldTolerance = 0.001f * 1.5f;  // weldToleranceMillimeters
+
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::TriangleData(def));
+    cs->shapeData->volume = (l[0] * l[1] * l[2]); return cs;
 }
 
 CollisionShapeBase* PhysicsEngine::createPhysicsHeightField(osg::HeightField* hf, bool filpQuad)
 {
     const osg::HeightField::HeightList& heights = hf->getHeightList();
-    // TODO
-    return NULL;
+    float minHeight = FLT_MAX, maxHeight = -FLT_MAX;
+    for (size_t i = 0; i < heights.size(); ++i)
+    {
+        float h = heights[i];
+        if (h < minHeight) minHeight = h;
+        if (h > maxHeight) maxHeight = h;
+    }  // TODO: check if correct
+
+    b3HeightFieldDef def; def.heights = (float*)heights.data();
+    def.countX = hf->getNumColumns(); def.countZ = hf->getNumRows();
+    def.scale = b3Vec3{1.0f, 1.0f, 1.0f};
+    def.globalMinimumHeight = minHeight;
+    def.globalMaximumHeight = maxHeight;
+
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData.reset(new b3Helpers::HeightData(def));
+    cs->shapeData->volume = (hf->getXInterval() * hf->getNumColumns()) * (hf->getYInterval() * hf->getNumRows())
+                          * (maxHeight - minHeight); return cs;
 }
 
 ConstraintBase* PhysicsEngine::createConstraintP2P(RigidBodyBase* bodyA, const osg::Vec3& pA,
@@ -429,22 +498,28 @@ ConstraintBase* PhysicsEngine::createConstraintP2P(RigidBodyBase* bodyA, const o
     b3BodyId* bB = bodyB->get<b3BodyId>();
     if (B3_IS_NULL((*bA)) || B3_IS_NULL((*bB))) return NULL;
 
+    b3Vec3 anchorA = b3Vec3{ pA[0], pA[1], pA[2] };
+    b3Vec3 anchorB = b3Vec3{ pB[0], pB[1], pB[2] };
+    b3Transform localFrameA, localFrameB;
+    localFrameA.q = b3Quat{ 0, 0, 0, 1 };
+    localFrameB.q = b3Quat{ 0, 0, 0, 1 };
+
     // Box3D uses spherical joint for point-to-point constraint
     b3SphericalJointDef jointDef = b3DefaultSphericalJointDef();
     jointDef.base.bodyIdA = *bA; jointDef.base.bodyIdB = *bB;
 
     if (setting && setting->useWorldPivots)
     {
-        // TODO
-        /*b3Vec3 worldAnchorA = b3Vec3{pA[0], pA[1], pA[2]};
-        b3Vec3 worldAnchorB = b3Vec3{ pB[0], pB[1], pB[2] };
-        jointDef.base.localFrameA;
-        jointDef.base.localFrameB;*/
+        b3Pos posA = b3Body_GetPosition(*bA), posB = b3Body_GetPosition(*bB);
+        b3Quat rotA = b3Body_GetRotation(*bA), rotB = b3Body_GetRotation(*bB);
+        b3Quat invRotA = b3Quat{ -rotA.v.x, -rotA.v.y, -rotA.v.z, rotA.s };
+        b3Quat invRotB = b3Quat{ -rotB.v.x, -rotB.v.y, -rotB.v.z, rotB.s };
+        localFrameA.p = b3Vec3{ anchorA.x - (float)posA.x, anchorA.y - (float)posA.y, anchorA.z - (float)posA.z };
+        localFrameB.p = b3Vec3{ anchorB.x - (float)posB.x, anchorB.y - (float)posB.y, anchorB.z - (float)posB.z };
     }
     else
-    {
-        // TODO
-    }
+        { localFrameA.p = anchorA; localFrameB.p = anchorB; }
+    jointDef.base.localFrameA = localFrameA; jointDef.base.localFrameB = localFrameB;
 
     // Box3D spherical joint doesn't have tau/damping/impulseClamp directly
     // These are solver parameters set on the world or body level

@@ -229,6 +229,7 @@ static int ListenFD(int sockfd) {
 static int ConnectFDTimeout(int connfd, int ms) {
     int err;
     socklen_t optlen = sizeof(err);
+#if false
     struct timeval tv = { ms / 1000, (ms % 1000) * 1000 };
     fd_set writefds;
     FD_ZERO(&writefds);
@@ -238,6 +239,16 @@ static int ConnectFDTimeout(int connfd, int ms) {
         perror("select");
         goto error;
     }
+#else
+    struct pollfd pfd;
+    pfd.fd = connfd;
+    pfd.events = POLLOUT;
+    int ret = poll(&pfd, 1, ms);
+    if (ret < 0) {
+        perror("poll");
+        goto error;
+    }
+#endif
     if (ret == 0) {
         errno = ETIMEDOUT;
         goto error;

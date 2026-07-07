@@ -209,6 +209,7 @@
     #include <netinet/in.h>
     #include <netinet/tcp.h>
     #include <netinet/udp.h>
+    #include <poll.h>
     #include <netdb.h>  // for gethostbyname
 
     #define hv_sleep(s)     sleep(s)
