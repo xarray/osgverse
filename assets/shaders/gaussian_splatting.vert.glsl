@@ -192,13 +192,13 @@ mat2 inverseMat2(mat2 m)
     return inv;
 }
 
-vec4 computeExtens2D(in mat2 cov2D, out vec4 cov2Dinv4)
+vec4 computeExtens2D(in float k, in mat2 cov2D, out vec4 cov2Dinv4)
 {
     mat2 cov2Dinv = inverseMat2(cov2D);
     cov2Dinv4 = vec4(cov2Dinv[0], cov2Dinv[1]);
 
     // compute 2d extents for the splat, using covariance matrix ellipse (https://cookierobotics.com/007/)
-    float k = 3.5, a = cov2D[0][0], b = cov2D[0][1], c = cov2D[1][1];
+    float a = cov2D[0][0], b = cov2D[0][1], c = cov2D[1][1];
     float apco2 = (a + c) / 2.0, amco2 = (a - c) / 2.0;
     float term = sqrt(amco2 * amco2 + b * b);
     float maj = apco2 + term, min = apco2 - term;
@@ -249,9 +249,11 @@ void main()
          cov2 = unpackHalf4(coreCov2[index]);
 #  endif
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(posAlpha.xyz, 1.0);
+    vec3 baseColor = vec3(cov0.w, cov1.w, cov2.w);
     float alpha = posAlpha.w;
 #else
     vec4 eyeVertex = VERSE_MATRIX_MV * vec4(osg_Vertex.xyz, 1.0);
+    vec3 baseColor = vec3(osg_R_SH0.x, osg_G_SH0.x, osg_B_SH0.x);
     float alpha = osg_Covariance0.w;
 #endif
 
@@ -295,18 +297,23 @@ void main()
     vec3 eyeDirection = normalize(eyeVertex.xyz / eyeVertex.w);
     //vec3 direction = transpose(mat3(osg_ViewMatrixInverse)) * eyeDirection;
 #if defined(USE_INSTANCING)
-    vec3 baseColor = vec3(cov0.w, cov1.w, cov2.w);
-    color = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);
-    customizeColor(color, index, paramUV);
-
     vec3 ndcP = proj.xyz / proj.w;
-    if (!(ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0))
+    if (!(ndcP.z < -1.0 || ndcP.z > 1.0 || ndcP.x < -1.0 ||
+          ndcP.x > 1.0 || ndcP.y < -1.0 || ndcP.y > 1.0))
+    //if (!(ndcP.z < 0.25 || ndcP.x > 2.0 || ndcP.x < -2.0 || ndcP.y > 2.0 || ndcP.y < -2.0))
     {
-        vec4 axes = computeExtens2D(cov2D, invCovariance);
+        float peakOpacity = alpha, minVisibleAlpha = 1.0 / 255.0;
+        float maxDist2 = -2.0 * log(minVisibleAlpha / peakOpacity);
+        if (maxDist2 < 0.0) { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
+
+        float k = min(sqrt(maxDist2), 3.0);  // use dynamic quad-size
+        vec4 axes = computeExtens2D(k, cov2D, invCovariance);
         vec2 majAxis = axes.xy, minAxis = axes.zw;
 
         float projArea = length(majAxis) * length(minAxis);
-        if (projArea < 10.0) { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
+        //if (projArea < 10.0) { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
+        if (projArea < 10.0 || (projArea < 40.0 && alpha < 0.5))
+        { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
 
         vec2 offset = majAxis * osg_Vertex.x + minAxis * osg_Vertex.y;
         offset.x *= (2.0 * InvScreenResolution.x) * proj.w;
@@ -314,8 +321,10 @@ void main()
     }
     else
         { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
+    
+    color = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);
+    customizeColor(color, index, paramUV);
 #else
-    vec3 baseColor = vec3(osg_R_SH0.x, osg_G_SH0.x, osg_B_SH0.x);
     color_gs = vec4(computeRadianceFromSH(eyeDirection, baseColor), alpha);
     customizeColor(color_gs, int(0), vec2(0.0));
 #endif

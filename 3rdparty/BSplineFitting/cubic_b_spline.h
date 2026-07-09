@@ -97,7 +97,7 @@ public:
 	//////////////////////////////////////////////////////////////////////////
 	// check if two point is on same side. para is foot print of p1
 	//////////////////////////////////////////////////////////////////////////
-	bool checkSameSide( Vector2d p1,  Vector2d p2, Vector2d neip);
+	bool checkSameSide( const Vector2d& p1,  const Vector2d& p2, const Vector2d& neip);
 
 
 
@@ -116,7 +116,7 @@ public:
 	//************************************
 	// Method:    local2GlobalIdx
 	// Returns:   int
-	// Function:  ÓÉlocalIdx±ä»»globalIdx
+	// Function:  ï¿½ï¿½localIdxï¿½ä»»globalIdx
 	// Time:      2015/07/10
 	// Author:    Qian
 	//************************************
@@ -140,18 +140,18 @@ private:
 	//winding number test for a point in a polygon
 	// softSurfer (www.softsurfer.com)
 	//////////////////////////////////////////////////////////////////////////
-	bool checkInside( Vector2d p);
+	bool checkInside( const Vector2d& p);
 
 	//////////////////////////////////////////////////////////////////////////
 	// tests if a point is Left|On|Right of an infinite line.
 	//////////////////////////////////////////////////////////////////////////
-	int isLeft( Vector2d p0, Vector2d p1, Vector2d p2);
+	int isLeft( const Vector2d& p0, const Vector2d& p1, const Vector2d& p2);
 
 
 private:
-	double interal_;                //²ÉÑùµãµÄ¼ä¸ô
-	std::vector<Vector2d> controls_;    //ÇúÏßµÄ¿ØÖÆµã
-	std::vector<Vector2d> positions_;   //ÇúÏßÉÏµÄ²ÉÑùµã
+	double interal_;                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½
+	std::vector<Vector2d> controls_;    //ï¿½ï¿½ï¿½ßµÄ¿ï¿½ï¿½Æµï¿½
+	std::vector<Vector2d> positions_;   //ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÄ²ï¿½ï¿½ï¿½ï¿½ï¿½
 
 };
 

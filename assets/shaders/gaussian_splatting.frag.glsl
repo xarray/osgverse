@@ -6,11 +6,11 @@ void main()
 {
     vec2 d = gl_FragCoord.xy - center2D;  // FIXME: use texture for gaussian evaluation
     mat2 cov2Dinv = mat2(invCovariance.xy, invCovariance.zw);
-    //float g = exp(-0.5 * dot(d, cov2Dinv * d));
-    float dist2 = dot(d, cov2Dinv * d);
-    float g = 1.0 / (1.0 + 0.5 * dist2 + 0.125 * dist2 * dist2);
+    float g = exp(-0.5 * dot(d, cov2Dinv * d));
+    //float dist2 = dot(d, cov2Dinv * d);
+    //float g = 1.0 / (1.0 + 0.5 * dist2 + 0.125 * dist2 * dist2);
 
-    float alpha = color.a * g; if (alpha <= (1.0 / 255.0)) discard;
-    fragData = vec4(color.rgb * alpha, alpha);  // FIXME: tonemapping..
+    float alpha = color.a * g; if (alpha <= 0.01/*(1.0 / 255.0)*/) discard;
+    alpha = min(alpha, 0.99); fragData = vec4(color.rgb * alpha, alpha);
     VERSE_FS_FINAL(fragData);
 }

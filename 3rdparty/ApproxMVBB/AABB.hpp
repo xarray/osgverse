@@ -208,7 +208,7 @@ namespace ApproxMVBB
             m_maxPoint.array() += d;
         }
 
-        inline void expand(VectorStat<Dim> d)
+        inline void expand(const VectorStat<Dim>& d)
         {
             ApproxMVBB_ASSERTMSG((d.array() >= 0).all(), "d<0") m_minPoint -= d;
             m_maxPoint += d;
@@ -262,7 +262,7 @@ namespace ApproxMVBB
 
         /** Adjust box that all axes have at least a minimal extent  minExtent for
      * each axis*/
-        void expandToMinExtentAbsolute(ArrayStat<Dim> minExtent)
+        void expandToMinExtentAbsolute(const ArrayStat<Dim>& minExtent)
         {
             Array3 e  = extent();
             Vector3 c = center();

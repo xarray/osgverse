@@ -181,7 +181,7 @@ namespace ApproxMVBB
     */
     template<typename Derived>
     OOBB optimizeMVBB(const MatrixBase<Derived>& points,
-                      OOBB oobb,
+                      OOBB& oobb,
                       unsigned int nLoops     = 10,
                       PREC volumeAcceptFactor = 1e-6,
                       PREC minBoxExtent       = 1e-12)
@@ -283,7 +283,7 @@ namespace ApproxMVBB
     */
     template<typename Derived>
     OOBB approximateMVBBGridSearch(const MatrixBase<Derived>& points,
-                                   OOBB oobb,
+                                   OOBB& oobb,
                                    PREC epsilon,
                                    const unsigned int gridSize = 5,
                                    const unsigned int optLoops = 6,

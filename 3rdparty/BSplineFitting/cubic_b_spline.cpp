@@ -266,7 +266,7 @@ VectorXd ClosedCubicBSplineCurve::getCoffe( const Parameter& para) const
 
 
 //temporary solution 
-bool ClosedCubicBSplineCurve::checkSameSide(Vector2d p1, Vector2d p2 , Vector2d neip)
+bool ClosedCubicBSplineCurve::checkSameSide(const Vector2d& p1, const Vector2d& p2 , const Vector2d& neip)
 {
 	Vector2d v1 = p2 - neip;
 	Vector2d v2 = p1 - neip;
@@ -282,7 +282,7 @@ bool ClosedCubicBSplineCurve::checkSameSide(Vector2d p1, Vector2d p2 , Vector2d 
 
 
 
-bool ClosedCubicBSplineCurve::checkInside(Vector2d p)
+bool ClosedCubicBSplineCurve::checkInside(const Vector2d& p)
 {
 	int strip = 0.02/interal_;
 	int    wn = 0;    // the winding number counter
@@ -310,7 +310,7 @@ bool ClosedCubicBSplineCurve::checkInside(Vector2d p)
 
 }
 
-int ClosedCubicBSplineCurve::isLeft( Vector2d p0, Vector2d p1, Vector2d p2)
+int ClosedCubicBSplineCurve::isLeft( const Vector2d& p0, const Vector2d& p1, const Vector2d& p2)
 {
 	return ( (p1.x() - p0.x()) * (p2.y() - p0.y())
 		- (p2.x() - p0.x()) * (p1.y() - p0.y()) );

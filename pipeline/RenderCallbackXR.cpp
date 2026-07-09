@@ -251,7 +251,8 @@ struct SessionXR : public osg::Referenced
                     { loader.xrStringToPath(instance, "/user/hand/left", &path0); xrPaths.push_back(path0); }
                 else if (p.find("right") != std::string::npos)
                     { loader.xrStringToPath(instance, "/user/hand/right", &path0); xrPaths.push_back(path0); }
-                loader.xrStringToPath(instance, p.c_str(), &path1); subBindings.push_back({ nullptr, path1 });
+                loader.xrStringToPath(instance, p.c_str(), &path1);
+                subBindings.push_back({ (XrAction)nullptr, path1 });
             }
             actionInfo.subactionPaths = xrPaths.data();
             actionInfo.countSubactionPaths = xrPaths.size();
