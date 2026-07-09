@@ -72,7 +72,12 @@ static inline uint32_t b3CTZ64( uint64_t block )
 
 static inline int b3PopCount64( uint64_t block )
 {
+#  if BL_TARGET_ARCH_BITS >= 64
 	return (int)__popcnt64( block );
+#  else
+    return __popcnt((unsigned int)(block & 0xFFFFFFFF)) + 
+           __popcnt((unsigned int)(block >> 32));
+#  endif
 }
 
 #else
