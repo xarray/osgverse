@@ -107,14 +107,15 @@ namespace osgVerse
 
         /* Animation set/get functions */
         std::vector<std::string> getAnimationNames() const;
+        float getAnimationWeight(const std::string& key) const;
         float getAnimationStartTime(const std::string& key);
         float getTimeRatio(const std::string& key) const;
         float getDuration(const std::string& key) const;
-
+        
         float getPlaybackSpeed(const std::string& key) const;
         void setPlaybackSpeed(const std::string& key, float s);
 
-        void select(const std::string& key, float weight, bool looping);
+        void select(const std::string& key, float weight, bool looping, bool clearOthers = true);
         void selectPartial(const std::string& key, float weight, bool looping,
                            SetJointWeightFunc func, void* userData);
         void seek(const std::string& key, float timeRatio);

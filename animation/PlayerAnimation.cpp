@@ -1193,13 +1193,35 @@ std::vector<std::string> PlayerAnimation::getAnimationNames() const
 float PlayerAnimation::getAnimationStartTime(const std::string& key)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for getAnimationStartTime(): "
+                 << key << std::endl; return 0.0f;
+    }
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     return sampler.startTime;
+}
+
+float PlayerAnimation::getAnimationWeight(const std::string& key) const
+{
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for getAnimationWeight(): "
+                 << key << std::endl; return 0.0f;
+    }
+    OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
+    return sampler.weight;
 }
 
 float PlayerAnimation::getTimeRatio(const std::string& key) const
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for getTimeRatio(): "
+                 << key << std::endl; return 0.0f;
+    }
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     return osg::clampBetween(sampler.timeRatio, 0.0f, 1.0f);
 }
@@ -1207,6 +1229,11 @@ float PlayerAnimation::getTimeRatio(const std::string& key) const
 float PlayerAnimation::getDuration(const std::string& key) const
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for getDuration(): "
+                 << key << std::endl; return 0.0f;
+    }
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     return sampler.animation.duration();
 }
@@ -1214,6 +1241,11 @@ float PlayerAnimation::getDuration(const std::string& key) const
 float PlayerAnimation::getPlaybackSpeed(const std::string& key) const
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for getPlaybackSpeed(): "
+                 << key << std::endl; return 0.0f;
+    }
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     return sampler.playbackSpeed;
 }
@@ -1221,13 +1253,30 @@ float PlayerAnimation::getPlaybackSpeed(const std::string& key) const
 void PlayerAnimation::setPlaybackSpeed(const std::string& key, float s)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for setPlaybackSpeed(): "
+                 << key << std::endl; return;
+    }
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     sampler.playbackSpeed = s;
 }
 
-void PlayerAnimation::select(const std::string& key, float weight, bool looping)
+void PlayerAnimation::select(const std::string& key, float weight, bool looping, bool clearOthers)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for select(): "
+                 << key << std::endl; return;
+    }
+    else if (clearOthers)
+    {
+        std::map<std::string, OzzAnimation::AnimationSampler>::iterator itr;
+        for (itr = ozz->_animations.begin(); itr != ozz->_animations.end(); ++itr)
+            itr->second.weight = 0.0f;
+    }
+
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     sampler.weight = weight; sampler.looping = looping;
     sampler.jointWeights.clear();  // clear specific joint weights
@@ -1237,6 +1286,12 @@ void PlayerAnimation::selectPartial(const std::string& key, float weight, bool l
                                     PlayerAnimation::SetJointWeightFunc func, void* userData)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for selectPartial(): "
+                 << key << std::endl; return;
+    }
+
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     sampler.weight = weight; sampler.looping = looping;
     sampler.jointWeights.resize(sampler.locals.size());
@@ -1261,6 +1316,12 @@ void PlayerAnimation::selectPartial(const std::string& key, float weight, bool l
 void PlayerAnimation::seek(const std::string& key, float timeRatio)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (ozz->_animations.find(key) == ozz->_animations.end())
+    {
+        OSG_WARN << "[PlayerAnimation] Invalid animation name for seek(): "
+                 << key << std::endl; return;
+    }
+
     OzzAnimation::AnimationSampler& sampler = ozz->_animations[key];
     sampler.timeRatio = osg::clampBetween(timeRatio, 0.0f, 1.0f);
     sampler.resetTimeRatio = true;

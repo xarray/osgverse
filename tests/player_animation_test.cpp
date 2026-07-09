@@ -10,6 +10,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <pipeline/Global.h>
+#include <pipeline/Utilities.h>
 #include <animation/PlayerAnimation.h>
 #include <animation/BlendShapeAnimation.h>
 #include <readerwriter/Utilities.h>
@@ -55,8 +56,13 @@ int main(int argc, char** argv)
     
     osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
+    std::string animToPlay; arguments.read("--animation", animToPlay);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    root->getOrCreateStateSet()->setAttribute(osgVerse::createDefaultProgram("baseTexture"));
+    root->getOrCreateStateSet()->addUniform(new osg::Uniform("baseTexture", (int)0));
+#endif
     root->addChild(playerRoot.get());
     root->addChild(osgDB::readNodeFile("axes.osgt"));
 
@@ -100,9 +106,11 @@ int main(int argc, char** argv)
          it != animManagers.end(); ++it)
     {
         osgVerse::PlayerAnimation* animManager = it->first;
-        OSG_NOTICE << "Character " << animManager->getName() << ":" << std::endl;
+        OSG_NOTICE << "*** Character " << animManager->getName() << " ***" << std::endl;
 
+        // Joints
         std::vector<osgVerse::PlayerAnimation::ThisAndParent> joints = animManager->getSkeletonIndices();
+        OSG_NOTICE << "  Joints " << joints.size() << ":" << std::endl;
         for (size_t i = 0; i < joints.size(); ++i)
         {
             osgVerse::PlayerAnimation::ThisAndParent p = joints[i];
@@ -110,19 +118,36 @@ int main(int argc, char** argv)
                        << ", parent ID = " << p.second << std::endl;
         }
 
+        // Blendshapes
+        OSG_NOTICE << "  Blendshapes " << animManager->getNumBlendShapeCallbacks() << ":" << std::endl;
         for (size_t i = 0; i < animManager->getNumBlendShapeCallbacks(); ++i)
         {
             osgVerse::BlendShapeAnimation* bs = animManager->getBlendShapeCallback(i);
             if (!bs) continue;  // It is common to have an empty BS callback... Check it by yourself
 
-            OSG_NOTICE << "    BlendshapeCB " << bs->getName() << ": ";
+            OSG_NOTICE << "    " << bs->getName() << ": ";
             for (size_t j = 0; j < bs->getNumBlendShapes(); ++j)
                 OSG_NOTICE << bs->getBlendShapeData(j)->name << ", ";
             OSG_NOTICE << "... Total: " << bs->getNumBlendShapes() << std::endl;
         }
+        //animManager->setBlendShape("jawOpen", 1.0f);  // For blendshape test  // TODO
 
-        // For blendshape test  // TODO
-        //animManager->setBlendShape("jawOpen", 1.0f);
+        // Animations
+        std::vector<std::string> animations = animManager->getAnimationNames();
+        if (animToPlay.empty() && !animations.empty()) animToPlay = animations[0];
+
+        OSG_NOTICE << "  Animations " << animations.size() << ":" << std::endl;
+        for (size_t i = 0; i < animations.size(); ++i)
+        {
+            const std::string& animName = animations[i];
+            if (animName.find(animToPlay) != std::string::npos)
+            {
+                animManager->select(animName, 1.0f, true);
+                OSG_NOTICE << "  * " << animName << ": T = " << animManager->getDuration(animName) << std::endl;
+            }
+            else
+                OSG_NOTICE << "    " << animName << ": T = " << animManager->getDuration(animName) << std::endl;
+        }
 
         // To play/pause animation, or show only rest pose
         animManager->setPlaying(!noAnimation, noAnimation);
@@ -203,7 +228,7 @@ int main(int argc, char** argv)
         }
     }
 
-    float axisScale = player->getBound().radius() * 0.05f;
+    float axisScale = player.valid() ? player->getBound().radius() * 0.05f : 1.0f;
     osg::ref_ptr<osg::MatrixTransform> axis = new osg::MatrixTransform;
     axis->setMatrix(osg::Matrix::scale(axisScale, axisScale, axisScale));
     axis->addChild(osgDB::readNodeFile("axes.osgt"));

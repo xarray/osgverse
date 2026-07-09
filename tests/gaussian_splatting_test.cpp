@@ -347,8 +347,8 @@ void createAnnotationScene(osg::Group* root, osgVerse::AnnotationMaker* maker)
 int main(int argc, char** argv)
 {
     osgViewer::Viewer viewer;
-    viewer.getCamera()->setClearColor(osg::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
-    viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);  // FIXME: necessary?
+    viewer.getCamera()->setClearColor(osg::Vec4(0.1f, 0.1f, 0.15f, 0.0f));
+    //viewer.getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);  // not necessary
     viewer.getCamera()->setProjectionMatrixAsPerspective(30.0, 16.0 / 9.0, 0.1, 10000.0);
     viewer.addEventHandler(new osgViewer::StatsHandler);
     viewer.addEventHandler(new osgViewer::WindowSizeHandler);
@@ -356,8 +356,6 @@ int main(int argc, char** argv)
     viewer.setRealizeOperation(new osgVerse::RealizeOperation);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->getOrCreateStateSet()->setMode(GL_DEPTH_CLAMP, osg::StateAttribute::ON);
-
     osgDB::Registry::instance()->addFileExtensionAlias("ply", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("spz", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("splat", "verse_3dgs");
