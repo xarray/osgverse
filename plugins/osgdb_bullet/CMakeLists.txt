@@ -3,6 +3,7 @@ SET(LIBRARY_FILES
     ReaderWriterBullet.cpp
 )
 
+FIND_DEPENDENCE(BULLET "btBulletDynamicsCommon.h" "libBulletDynamics.so;libBulletDynamics.a;BulletDynamics.lib" "bullet")
 IF(BULLET_FOUND)
     
     INCLUDE_DIRECTORIES(${BULLET_INCLUDE_DIR})
