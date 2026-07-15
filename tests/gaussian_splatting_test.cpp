@@ -361,6 +361,7 @@ int main(int argc, char** argv)
     osgDB::Registry::instance()->addFileExtensionAlias("splat", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("ksplat", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("lcc", "verse_3dgs");
+    osgDB::Registry::instance()->addFileExtensionAlias("lcc2", "verse_3dgs");
     osgDB::Registry::instance()->addFileExtensionAlias("sog", "verse_3dgs");
 
     osgVerse::HeadUpDisplayCanvas hudCanvas;

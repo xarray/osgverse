@@ -2,6 +2,7 @@ SET(LIB_NAME osgdb_verse_3dgs)
 SET(LIBRARY_FILES
     ReaderWriter3DGS.cpp
     SplatReaderLCC.cpp
+    SplatReaderLCC2.cpp
     SplatReaderSOG.cpp
 )
 

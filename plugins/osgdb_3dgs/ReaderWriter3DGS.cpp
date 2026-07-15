@@ -19,6 +19,8 @@
 // Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/
 osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path,
                                             osgVerse::GaussianGeometry::RenderMethod method);
+osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path,
+                                             osgVerse::GaussianGeometry::RenderMethod method);
 osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
                                          osgVerse::GaussianGeometry::RenderMethod method);
 
@@ -57,7 +59,8 @@ public:
         supportsExtension("splat", "Gaussian splat data file");
         supportsExtension("ksplat", "Mark Kellogg's splat file");
         supportsExtension("spz", "Niantic Labs' splat file");
-        supportsExtension("lcc", "XGrids' splat file");
+        supportsExtension("lcc", "XGrids' gaussian splatting file");
+        supportsExtension("lcc2", "XGrids' gaussian splatting file, version 2");
         supportsExtension("json", "PlayCanvas SOG's meta.json file");
         supportsExtension("sog", "PlayCanvas SOG's ZIP file");
         supportsOption("RenderMethod=<hint>", "Rendering method of 3D gaussian data:\n"
@@ -105,7 +108,12 @@ public:
             std::string prefix = options->getPluginStringData("prefix");
             std::string ext = options->getPluginStringData("extension");
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            if (ext == "lcc")
+            if (ext == "lcc2")
+            {
+                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids2(fin, prefix, method);
+                if (node.valid()) return node.get();
+            }
+            else if (ext == "lcc")
             {
                 osg::ref_ptr<osg::Node> node = loadSplatFromXGrids(fin, prefix, method);
                 if (node.valid()) return node.get();
