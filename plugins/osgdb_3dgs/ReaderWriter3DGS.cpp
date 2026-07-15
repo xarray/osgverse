@@ -19,10 +19,10 @@
 // Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/
 osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path,
                                             osgVerse::GaussianGeometry::RenderMethod method);
-osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path,
+osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path, bool loadMeshes,
                                              osgVerse::GaussianGeometry::RenderMethod method);
 osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
-                                         osgVerse::GaussianGeometry::RenderMethod method);
+                                         int vOffset, int vCount, osgVerse::GaussianGeometry::RenderMethod method);
 
 namespace
 {
@@ -68,6 +68,9 @@ public:
                        "<TBO> render with draw-instanced and TBO;\n"
                        "<TEX2D> render with draw-instanced and 2D textures (very low FPS);\n"
                        "<GS> render with geometry shader.");
+        supportsOption("LoadVertexOffset", "Vertex offset while loading ply/splat/sog/spz formats. Default: 0");
+        supportsOption("LoadVertexCount", "Vertex count while loading ply/splat/sog/spz formats. Default: 0 for all");
+        supportsOption("LoadMeshes", "Load meshes and BVH data for lcc2 format or not. Default: 0");
     }
 
     virtual const char* className() const
@@ -97,20 +100,27 @@ public:
         if (options)
         {
             std::string renderHint = options->getPluginStringData("RenderMethod");
+            std::string vOffsetHint = options->getPluginStringData("LoadVertexOffset");
+            std::string vCountHint = options->getPluginStringData("LoadVertexCount");
+            std::string loadMeshes = options->getPluginStringData("LoadMeshes");
+            int vOffset = atoi(vOffsetHint.c_str()), vCount = atoi(vCountHint.c_str());
+
             osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
             method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
 #endif
             if (renderHint == "TBO") method = osgVerse::GaussianGeometry::INSTANCING_TEXTURE;
-            if (renderHint == "TEX2D") method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
+            else if (renderHint == "TEX2D") method = osgVerse::GaussianGeometry::INSTANCING_TEX2D;
             else if (renderHint == "GS") method = osgVerse::GaussianGeometry::GEOMETRY_SHADER;
+            else method = (osgVerse::GaussianGeometry::RenderMethod)atoi(renderHint.c_str());
 
             std::string prefix = options->getPluginStringData("prefix");
             std::string ext = options->getPluginStringData("extension");
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == "lcc2")
             {
-                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids2(fin, prefix, method);
+                int loaded = loadMeshes.empty() ? 0 : atoi(loadMeshes.c_str());
+                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids2(fin, prefix, loaded > 0, method);
                 if (node.valid()) return node.get();
             }
             else if (ext == "lcc")
@@ -120,7 +130,7 @@ public:
             }
             else if (ext == "json" || ext == "sog")
             {
-                osg::ref_ptr<osg::Node> node = loadSplatFromSOG(fin, prefix, ext, method);
+                osg::ref_ptr<osg::Node> node = loadSplatFromSOG(fin, prefix, ext, vOffset, vCount, method);
                 if (node.valid()) return node.get();
             }
 
@@ -135,7 +145,7 @@ public:
             gf::ReadOptions read_opt;
             gf::Expected<gf::GaussianCloudIR> ir = reader->Read(
                 (const uint8_t*)buffer.data(), buffer.size(), read_opt);
-            if (ir.ok()) geode->addDrawable(fromGF(ir.value(), method));
+            if (ir.ok()) geode->addDrawable(fromGF(ir.value(), vOffset, vCount, method));
 #else
             spz::GaussianCloud cloud;
             if (ext == "ply")
@@ -226,7 +236,8 @@ protected:
     }
 
 #if true
-    osgVerse::GaussianGeometry* fromGF(gf::GaussianCloudIR& c, osgVerse::GaussianGeometry::RenderMethod m) const
+    osgVerse::GaussianGeometry* fromGF(gf::GaussianCloudIR& c, int vOffset, int vCount,
+                                       osgVerse::GaussianGeometry::RenderMethod m) const
     {
         osg::ref_ptr<osg::Vec3Array> pos = new osg::Vec3Array, scale = new osg::Vec3Array;
         for (size_t i = 0; i < c.positions.size(); i += 3)
@@ -296,7 +307,7 @@ protected:
             if (numShCoff >= 45)
                 { geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get()); }
         }
-        geom->finalize(); return geom.release();
+        geom->finalize(vOffset, vCount); return geom.release();
     }
 
     gf::GaussianCloudIR sceneToGF(const osg::Node& node) const

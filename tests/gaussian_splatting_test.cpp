@@ -392,8 +392,12 @@ int main(int argc, char** argv)
 
         std::string annotation; arguments.read("--annotation", annotation);
         std::string hint; arguments.read("--render-mode", hint);
+        std::string vOffset; arguments.read("--vertex-offset", vOffset);
+        std::string vCount; arguments.read("--vertex-count", vCount);
         bool testColor = arguments.read("--test-color");
-        osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + hint);
+
+        osg::ref_ptr<osgDB::Options> options = new osgDB::Options(
+            "RenderMethod=" + hint + " LoadVertexOffset=" + vOffset + " LoadVertexCount=" + vCount);
 
         osg::ref_ptr<osg::Node> gs = osgDB::readNodeFiles(arguments, options.get());
         if (!gs) gs = osgDB::readNodeFile(BASE_DIR + "/models/3dgs_parrot.splat", options.get());

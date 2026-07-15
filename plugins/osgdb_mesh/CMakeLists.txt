@@ -1,6 +1,7 @@
 SET(LIB_NAME osgdb_verse_mesh)
 SET(LIBRARY_FILES
     ReaderWriterMesh.cpp
+    FormatPLY.cpp
 )
 
 SET_PROPERTY(GLOBAL APPEND PROPERTY VERSE_PLUGIN_LIBRARIES "${LIB_NAME}")

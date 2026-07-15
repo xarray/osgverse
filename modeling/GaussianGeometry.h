@@ -71,7 +71,7 @@ public:
     void setColorParameters(const std::vector<osg::Vec4>& param);
     osg::Vec4* getColorParameters(bool dirty);
 
-    bool finalize();  // only run this after setting all attributes
+    bool finalize(int vOffset = 0, int vCount =  0);  // only run this after setting all attributes
     RenderMethod getRenderMethod() const { return _method; }
     int getNumSplats() const { return _numSplats; }
 

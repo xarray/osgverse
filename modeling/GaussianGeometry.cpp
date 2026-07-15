@@ -304,12 +304,27 @@ osg::BoundingBox GaussianGeometry::computeBound() const
 osg::NodeCallback* GaussianGeometry::createUniformCallback()
 { return new GaussianUniformCallback; }
 
-bool GaussianGeometry::finalize()
+bool GaussianGeometry::finalize(int vOffset, int vCount)
 {
     osg::StateSet* ss = getOrCreateStateSet();
+    if (_method != GEOMETRY_SHADER)
+    {
+        if (vCount > 0 && vCount < _numSplats) _numSplats = vCount;
+        if (vOffset > 0)
+        {
+            if (_numSplats <= vOffset + vCount) vOffset = _numSplats - vCount;
+            for (auto itr = _preDataMap.begin(); itr != _preDataMap.end(); ++itr)
+            { std::vector<osg::Vec4>& d = itr->second; d.erase(d.begin(), d.begin() + vOffset); }
+            for (auto itr = _preDataMap2.begin(); itr != _preDataMap2.end(); ++itr)
+            { std::vector<osg::Vec3>& d = itr->second; d.erase(d.begin(), d.begin() + vOffset); }
+        }
+    }
+    else
+        {}  // FIXME: geometry shader case for vOffset & vCount?
+
     std::pair<int, int> res = calculateTextureDim(_numSplats);
-    OSG_INFO << "[GaussianGeometry] Create " << getName() << " with " << _numSplats << " splats ("
-             << res.first << " x " << res.second << ")\n";
+    OSG_NOTICE << "[GaussianGeometry] Create " << getName() << " with " << _numSplats << " splats ("
+               << res.first << " x " << res.second << ")\n";
 
     if (_method != GEOMETRY_SHADER)
     {

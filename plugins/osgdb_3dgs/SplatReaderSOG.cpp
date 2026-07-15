@@ -356,7 +356,7 @@ namespace
 }
 
 osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
-                                         osgVerse::GaussianGeometry::RenderMethod rm)
+                                         int vOffset, int vCount, osgVerse::GaussianGeometry::RenderMethod rm)
 {
     SogData sogData; picojson::value document;
     if (ext == "json")
@@ -390,7 +390,7 @@ osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& pa
     osg::ref_ptr<osgVerse::GaussianGeometry> geom = new osgVerse::GaussianGeometry(rm);
     geom->setShDegrees(sogData.numDegrees); geom->setPosition(pos.get());
     geom->setScaleAndRotation(scale.get(), rot.get(), alpha.get());
-    geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get()); geom->finalize();
+    geom->setShRed(0, rD0.get()); geom->setShGreen(0, gD0.get()); geom->setShBlue(0, bD0.get());
 
     if (sogData.numDegrees == 3)  // FIXME: consider degree 1 and 2?
     {
@@ -404,6 +404,7 @@ osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& pa
         geom->setShRed(2, rD2.get()); geom->setShGreen(2, gD2.get()); geom->setShBlue(2, bD2.get());
         geom->setShRed(3, rD3.get()); geom->setShGreen(3, gD3.get()); geom->setShBlue(3, bD3.get());
     }
+    geom->finalize(vOffset, vCount);
 #else
     osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
     geom->setVertexArray(pos.get());

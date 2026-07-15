@@ -16,6 +16,9 @@
 #include "modeling/Utilities.h"
 #include <unordered_map>
 
+extern osg::Node* readMeshScenePLY(std::istream& fin, const std::string& dir, const osgDB::Options* options);
+extern bool writeMeshScenePLY(const osg::Node& node, std::ostream& fout, const osgDB::Options* options);
+
 class ReaderWriterMesh : public osgDB::ReaderWriter
 {
 public:
@@ -23,6 +26,7 @@ public:
     {
         supportsExtension("verse_mesh", "osgVerse pseudo-loader");
         supportsExtension("obj", "Wavefront OBJ format");
+        supportsExtension("ply", "Stanford Polygon Format");
         supportsExtension("stl", "STereoLithography STL format");
         supportsExtension("off", "OFF format");
         supportsOption("WriteImageHint=<hint>", "Export option: Hint of writing image for OBJ format: "
@@ -61,8 +65,9 @@ public:
             ext = osgDB::getLowerCaseFileExtension(filename);
         }
 
-        if (ext == "stl") return readSceneSTL(fin, dir, options);
-        if (ext == "off") return readSceneOFF(fin, dir, options);
+        if (ext == "ply") return readMeshScenePLY(fin, dir, options);
+        else if (ext == "stl") return readSceneSTL(fin, dir, options);
+        else if (ext == "off") return readSceneOFF(fin, dir, options);
         else return readSceneOBJ(fin, dir, options);
     }
 
@@ -99,7 +104,8 @@ public:
             dir = options->getDatabasePathList().front();
         if (dir.empty()) dir = ".";
 
-        if (ext != "obj") { return WriteResult::NOT_IMPLEMENTED; }
+        if (ext == "ply") success = writeMeshScenePLY(node, fout, options);
+        else if (ext != "obj") { return WriteResult::NOT_IMPLEMENTED; }
         else success = writeSceneOBJ(node, fout, dir, file + ".mtl", options);
         return success ? WriteResult::FILE_SAVED : WriteResult::ERROR_IN_WRITING_FILE;
     }
