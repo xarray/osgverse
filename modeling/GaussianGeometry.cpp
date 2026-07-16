@@ -309,22 +309,24 @@ bool GaussianGeometry::finalize(int vOffset, int vCount)
     osg::StateSet* ss = getOrCreateStateSet();
     if (_method != GEOMETRY_SHADER)
     {
-        if (vCount > 0 && vCount < _numSplats) _numSplats = vCount;
         if (vOffset > 0)
         {
+            if (vCount < 0) vCount = 0; else if (_numSplats < vCount) vCount = _numSplats;
             if (_numSplats <= vOffset + vCount) vOffset = _numSplats - vCount;
+            
             for (auto itr = _preDataMap.begin(); itr != _preDataMap.end(); ++itr)
             { std::vector<osg::Vec4>& d = itr->second; d.erase(d.begin(), d.begin() + vOffset); }
             for (auto itr = _preDataMap2.begin(); itr != _preDataMap2.end(); ++itr)
             { std::vector<osg::Vec3>& d = itr->second; d.erase(d.begin(), d.begin() + vOffset); }
         }
+        if (vCount > 0 && vCount < _numSplats) _numSplats = vCount;
     }
     else
         {}  // FIXME: geometry shader case for vOffset & vCount?
 
     std::pair<int, int> res = calculateTextureDim(_numSplats);
-    OSG_NOTICE << "[GaussianGeometry] Create " << getName() << " with " << _numSplats << " splats ("
-               << res.first << " x " << res.second << ")\n";
+    OSG_INFO << "[GaussianGeometry] Create " << getName() << " with " << _numSplats << " splats ("
+             << res.first << " x " << res.second << ")\n";
 
     if (_method != GEOMETRY_SHADER)
     {
@@ -374,10 +376,10 @@ bool GaussianGeometry::finalize(int vOffset, int vCount)
         {
             std::vector<osg::Vec4>& src = _preDataMap["Layer" + std::to_string(i)];
             if (i == 0 && _coreBuffer.valid())
-                { memcpy(ptr + total, src.data(), src.size() * sizeof(osg::Vec4)); }
+                { memcpy(ptr + total, src.data(), _numSplats * sizeof(osg::Vec4)); }
             else if (_coreAttrBuffer.valid())
             {
-                std::vector<unsigned short> halfSrc; HalfFloat::convert<osg::Vec4>(src.data(), src.size(), halfSrc);
+                std::vector<unsigned short> halfSrc; HalfFloat::convert<osg::Vec4>(src.data(), _numSplats, halfSrc);
                 memcpy(ptr2 + total, halfSrc.data(), halfSrc.size() * sizeof(short)); total += blockSize;
             }
             else

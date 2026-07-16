@@ -194,6 +194,8 @@ public:
     virtual void apply(osg::Geode& node)
     {
         bool hasGaussian = false;
+        if (node.getCullCallback() == _callback) { traverse(node); return; }
+
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
         {
             osgVerse::GaussianGeometry* gs = dynamic_cast<osgVerse::GaussianGeometry*>(node.getDrawable(i));
@@ -418,6 +420,15 @@ int main(int argc, char** argv)
         GaussianStateVisitor gsv(sorter.get(), hint, testColor); gs->accept(gsv);
         viewer.getCamera()->setPreDrawCallback(new osgVerse::GaussianSortCallback(sorter.get()));
         
+        // for paging gaussian data, we should refresh newly loaded tiles to the sorter
+        handler->setHandleCallback([&](const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter&) -> bool
+        {
+            static GaussianStateVisitor s_visitor = gsv;
+            if (ea.getEventType() == osgGA::GUIEventAdapter::FRAME)
+            { s_visitor.reset(); root->accept(s_visitor); }
+            return false;
+        });
+
         if (!annotation.empty())
         {   // Load annotation json file
             std::ifstream fin(annotation.c_str());

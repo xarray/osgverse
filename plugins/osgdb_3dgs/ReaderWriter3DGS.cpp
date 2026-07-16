@@ -21,6 +21,7 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string&
                                             osgVerse::GaussianGeometry::RenderMethod method);
 osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path, bool loadMeshes,
                                              osgVerse::GaussianGeometry::RenderMethod method);
+osg::ref_ptr<osg::Node> loadSubSplatFromXGrids2(const std::string& in, const osgDB::Options* opt);
 osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
                                          int vOffset, int vCount, osgVerse::GaussianGeometry::RenderMethod method);
 
@@ -61,6 +62,7 @@ public:
         supportsExtension("spz", "Niantic Labs' splat file");
         supportsExtension("lcc", "XGrids' gaussian splatting file");
         supportsExtension("lcc2", "XGrids' gaussian splatting file, version 2");
+        supportsExtension("lcc2_node", "Helper extension to load LCC2 sub-graph");
         supportsExtension("json", "PlayCanvas SOG's meta.json file");
         supportsExtension("sog", "PlayCanvas SOG's ZIP file");
         supportsOption("RenderMethod=<hint>", "Rendering method of 3D gaussian data:\n"
@@ -81,6 +83,8 @@ public:
     virtual ReadResult readNode(const std::string& path, const Options* options) const
     {
         std::string ext; std::string fileName = getRealFileName(path, ext);
+        if (ext == "lcc2_node") return loadSubSplatFromXGrids2(fileName, options);
+
         std::ifstream in(fileName, std::ios::in | std::ios::binary);
         if (!in) return ReadResult::FILE_NOT_FOUND;
 

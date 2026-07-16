@@ -287,8 +287,8 @@ namespace
                     MeshNodeInfo info;
                     info.nodeId = getString(childObj, "id");
                     info.meshFileIndex = (int)getDouble(meshObj, "name", -1.0);
-                    info.vertexCount = (uint32_t)getDouble(meshObj, "vertex");
-                    info.faceCount = (uint32_t)getDouble(meshObj, "face");
+                    info.vertexCount = (int)getDouble(meshObj, "vertex");
+                    info.faceCount = (int)getDouble(meshObj, "face");
                     info.bbox = parseBoundingBox(childObj);
 
                     // Optional paired BVH
@@ -379,8 +379,8 @@ namespace
     struct Lcc2NodeDataMesh
     {
         int name = -1;            // index into meshFiles array; -1 = absent
-        uint32_t vertexCount = 0;
-        uint32_t faceCount = 0;
+        int vertexCount = 0;
+        int faceCount = 0;
         bool valid() const { return name >= 0; }
     };
 
@@ -421,18 +421,46 @@ namespace
                 children[i].print(out, indent + 2);
         }
 
-        // Helpers
-        bool isLeaf() const { return children.empty(); }
-        int depth() const;   // computed from id (e.g. "0_7_0_0" -> depth=4)
+        // Depth = number of underscore-separated segments in id, e.g. "0"=0, "0_7"=1, "0_7_0_0"=3
+        int depth() const
+        {
+            int d = 0; if (id.empty()) return 0;
+            for (size_t i = 0; i < id.size(); ++i) if (id[i] == '_') ++d; return d;
+        }
         int lodLevel(int totalLevels) const { return totalLevels - depth(); }
-    };
+        bool isLeaf() const { return children.empty(); }
 
-    // Depth = number of underscore-separated segments in id, e.g. "0"=0, "0_7"=1, "0_7_0_0"=3
-    inline int Lcc2TreeNode::depth() const
-    {
-        int d = 0; if (id.empty()) return 0;
-        for (size_t i = 0; i < id.size(); ++i) if (id[i] == '_') ++d; return d;
-    }
+        // Save sub graph data
+        void serialize(std::ostream& fout) const
+        {
+            int count = (int)id.length(); fout.write((char*)&count, sizeof(int)); fout.write((char*)id.data(), count);
+            fout.write((char*)&(bbox._min), sizeof(osg::Vec3d));
+            fout.write((char*)&(bbox._max), sizeof(osg::Vec3d)); fout.write((char*)&childNum, sizeof(int));
+            fout.write((char*)&(d3dgs.name), sizeof(int));
+            fout.write((char*)&(d3dgs.start), sizeof(int)); fout.write((char*)&(d3dgs.count), sizeof(int));
+            fout.write((char*)&(mesh.name), sizeof(int));
+            fout.write((char*)&(mesh.vertexCount), sizeof(int)); fout.write((char*)&(mesh.faceCount), sizeof(int));
+            fout.write((char*)&(bvh.name), sizeof(int));
+            for (size_t i = 0; i < childNum; ++i) children[i].serialize(fout);
+        }
+
+        // Restore sub graph data
+        void deserialize(std::istream& fin)
+        {
+            int count = 0; fin.read((char*)&count, sizeof(int));
+            id.resize(count); fin.read((char*)id.data(), count);
+            fin.read((char*)&(bbox._min), sizeof(osg::Vec3d));
+            fin.read((char*)&(bbox._max), sizeof(osg::Vec3d));
+            fin.read((char*)&childNum, sizeof(int));
+            fin.read((char*)&(d3dgs.name), sizeof(int));
+            fin.read((char*)&(d3dgs.start), sizeof(int)); fin.read((char*)&(d3dgs.count), sizeof(int));
+            fin.read((char*)&(mesh.name), sizeof(int));
+            fin.read((char*)&(mesh.vertexCount), sizeof(int)); fin.read((char*)&(mesh.faceCount), sizeof(int));
+            fin.read((char*)&(bvh.name), sizeof(int));
+            hasData = d3dgs.valid() || mesh.valid() | bvh.valid(); children.resize(childNum);
+            for (size_t i = 0; i < childNum; ++i) children[i].deserialize(fin);
+        }
+    };
 
     struct Lcc2Tree
     {
@@ -443,8 +471,7 @@ namespace
         int totalLevels = 0;                        // total LOD level count
         int totalSplats = 0;                        // total splat count
         std::string splatType = ".sog";             // ".sog" or ".spz"
-        std::string name;                           // scene name
-        std::string description;
+        std::string name, description;              // scene name
         osg::BoundingBoxd worldBox;                 // scene bounding box (from meta.boundingBox)
         osg::Vec3d offset, shift, scale;            // scene transform params
         int epsg = 0;
@@ -469,8 +496,59 @@ namespace
 
         // Get the env splat file index from root.data.env (convenience)
         int envFileIndex() const { return root.env.valid() ? root.env.name : -1; }
+
+        // Save splat/mesh/bvh file data
+        void serialize(std::ostream& fout) const
+        {
+            int count = totalLevels; fout.write((char*)&count, sizeof(int));
+            size_t numFiles = splatFiles.size(); fout.write((char*)&numFiles, sizeof(size_t));
+            numFiles = meshFiles.size(); fout.write((char*)&numFiles, sizeof(size_t));
+            numFiles = bvhFiles.size(); fout.write((char*)&numFiles, sizeof(size_t));
+
+            for (size_t i = 0; i < splatFiles.size(); ++i)
+            {
+                const std::string& s = splatFiles[i]; count = (int)s.length();
+                fout.write((char*)&count, sizeof(int)); fout.write(s.data(), count);
+            }
+            for (size_t i = 0; i < meshFiles.size(); ++i)
+            {
+                const std::string& s = meshFiles[i]; count = (int)s.length();
+                fout.write((char*)&count, sizeof(int)); fout.write(s.data(), count);
+            }
+            for (size_t i = 0; i < bvhFiles.size(); ++i)
+            {
+                const std::string& s = bvhFiles[i]; count = (int)s.length();
+                fout.write((char*)&count, sizeof(int)); fout.write(s.data(), count);
+            }
+        }
+
+        // Restore splat/mesh/bvh file data
+        void deserialize(std::istream& fin)
+        {
+            size_t numFiles = 0; int count = 0;
+            fin.read((char*)&totalLevels, sizeof(int));
+            fin.read((char*)&numFiles, sizeof(size_t)); splatFiles.resize(numFiles);
+            fin.read((char*)&numFiles, sizeof(size_t)); meshFiles.resize(numFiles);
+            fin.read((char*)&numFiles, sizeof(size_t)); bvhFiles.resize(numFiles);
+            for (size_t i = 0; i < splatFiles.size(); ++i)
+            {
+                std::string& s = splatFiles[i]; fin.read((char*)&count, sizeof(int));
+                s.resize(count); if (count > 0) fin.read((char*)s.data(), count);
+            }
+            for (size_t i = 0; i < meshFiles.size(); ++i)
+            {
+                std::string& s = meshFiles[i]; fin.read((char*)&count, sizeof(int));
+                s.resize(count); if (count > 0) fin.read((char*)s.data(), count);
+            }
+            for (size_t i = 0; i < bvhFiles.size(); ++i)
+            {
+                std::string& s = bvhFiles[i]; fin.read((char*)&count, sizeof(int));
+                s.resize(count); if (count > 0) fin.read((char*)s.data(), count);
+            }
+        }
     };
 
+    // Parse a new Lcc2TreeNode recursely
     static Lcc2TreeNode parseLcc2TreeNode(const picojson::value& nodeValue)
     {
         Lcc2TreeNode node;
@@ -579,16 +657,107 @@ namespace
         }
         return tree;
     }
+
+    static std::string getGaussianFileName(const Lcc2Tree& lcc2Tree, const Lcc2NodeData3dgs& d3dgs,
+                                           const std::string& path)
+    {
+        if (lcc2Tree.splatFiles.size() <= d3dgs.name) return "";
+        std::string filePath = lcc2Tree.splatFiles[d3dgs.name];
+
+        if (!osgDB::fileExists(filePath))
+        {
+            if (!path.empty())
+            {
+                filePath = path + "/" + filePath;
+                if (osgDB::fileExists(filePath)) return filePath;
+            }
+            
+            std::string baseName = osgDB::getSimpleFileName(filePath);
+            if (baseName != filePath)
+            {
+                std::string altPath = path.empty() ? baseName : (path + "/" + baseName);
+                if (osgDB::fileExists(altPath)) filePath = altPath;
+            }
+        }
+        return filePath;
+    }
 }  // namespace
 
-// =============================================================================
-// Main entry: load LCC2 scene (splats + optional mesh/BVH + optional env)
-// =============================================================================
+// Traverse recursely to constrcut the scene graph
+static void traverseLcc2TreeNode(Lcc2TreeNode& lcc2Node, const Lcc2Tree& lcc2Tree,
+                                 osg::Group& parent, const std::string& path, const std::string& optString)
+{
+    if (lcc2Node.d3dgs.valid())
+    {
+        std::string filePath = getGaussianFileName(lcc2Tree, lcc2Node.d3dgs, path);
+        std::string opt = optString + " LoadVertexOffset=" + std::to_string(lcc2Node.d3dgs.start)
+                        + " LoadVertexCount=" + std::to_string(lcc2Node.d3dgs.count);
+        osg::ref_ptr<osg::Node> chunkNode = osgDB::readNodeFile(filePath + ".verse_3dgs", new osgDB::Options(opt));
+        if (chunkNode.valid()) { chunkNode->setName(filePath); }
+        else { OSG_WARN << "[ReaderWriter3DGS] Failed to load LCC2 chunk: " << filePath << std::endl; }
+    
+        if (!lcc2Node.isLeaf())
+        {   //  create PLOD
+            osg::ref_ptr<osg::PagedLOD> plod = new osg::PagedLOD;
+            plod->setName(lcc2Node.id); parent.addChild(plod.get());
+            plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
+            plod->setCenterMode(osg::LOD::UNION_OF_BOUNDING_SPHERE_AND_USER_DEFINED);
+            plod->setCenter(lcc2Node.bbox.center()); plod->setRadius(lcc2Node.bbox.radius());
+
+            float lodFactor = 1.5f, exponent = osg::maximum(lcc2Tree.totalLevels - lcc2Node.depth(), 0);
+            float baseDist = plod->getRadius() * std::pow(lodFactor, exponent);
+            plod->addChild(chunkNode.valid() ? chunkNode.get() : new osg::Node, baseDist, FLT_MAX);
+            plod->setFileName(1, lcc2Node.id + ".lcc2_node.verse_3dgs");
+            plod->setRange(1, 0.0f, baseDist); plod->setDatabasePath(path);
+
+            std::ostringstream nOut(std::ios::out | std::ios::binary); lcc2Node.serialize(nOut);
+            std::ostringstream tOut(std::ios::out | std::ios::binary); lcc2Tree.serialize(tOut);
+            osg::ref_ptr<osgDB::Options> infoOpt = new osgDB::Options(optString);
+            infoOpt->setPluginStringData("Lcc2NodeData", nOut.str());
+            infoOpt->setPluginStringData("Lcc2TreeData", tOut.str());
+            plod->setDatabaseOptions(infoOpt.get());
+        }
+        else  // leaf node, directly add data
+            parent.addChild(chunkNode.get());
+    }
+    else
+    {   // create normal group
+        osg::ref_ptr<osg::Group> group = new osg::Group;
+        group->setName(lcc2Node.id); parent.addChild(group.get());
+        for (size_t i = 0; i < lcc2Node.children.size(); ++i)
+            traverseLcc2TreeNode(lcc2Node.children[i], lcc2Tree, *group, path, optString);
+    }
+
+    // TODO: mesh & bvh files
+}
+
+osg::ref_ptr<osg::Node> loadSubSplatFromXGrids2(const std::string& file, const osgDB::Options* opt)
+{
+    if (!opt) { OSG_WARN << "[ReaderWriter3DGS] Invalid LCC2 subgraph: " << file << std::endl; return NULL; }
+    std::string nodeData = opt->getPluginStringData("Lcc2NodeData");
+    std::string treeData = opt->getPluginStringData("Lcc2TreeData");
+    if (nodeData.empty() || treeData.empty())
+    { OSG_WARN << "[ReaderWriter3DGS] Invalid LCC2 subgraph: " << file << std::endl; return NULL; }
+
+    std::stringstream nIn(std::ios::in | std::ios::out | std::ios::binary);
+    std::stringstream tIn(std::ios::in | std::ios::out | std::ios::binary);
+    Lcc2TreeNode lcc2Node; nIn.write(nodeData.data(), nodeData.size()); lcc2Node.deserialize(nIn);
+    Lcc2Tree lcc2Tree; tIn.write(treeData.data(), treeData.size()); lcc2Tree.deserialize(tIn);
+    std::string path = osgDB::getFilePath(file);
+
+    osg::ref_ptr<osg::Group> group = new osg::Group;
+    for (size_t i = 0; i < lcc2Node.childNum; ++i)  // save children directly
+        traverseLcc2TreeNode(lcc2Node.children[i], lcc2Tree, *group, path, opt->getOptionString());
+    group->setName(lcc2Node.id); return group;
+}
+
 osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path, bool loadMeshes,
                                              osgVerse::GaussianGeometry::RenderMethod method)
 {
     // 1. Read and parse meta.lcc2 JSON (with trailing-comma tolerance)
-    std::string metaText((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    std::string metaText((std::istreambuf_iterator<char>(in)),
+                         std::istreambuf_iterator<char>());
+    
     picojson::value document;
     std::string err = picojson::parse(document, metaText);
     if (!err.empty())
@@ -607,8 +776,10 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string
         OSG_WARN << "[ReaderWriter3DGS] Invalid LCC2 meta: root is not an object" << std::endl;
         return NULL;
     }
+
     picojson::object metaObj = document.get<picojson::object>();
-    osg::ref_ptr<osgDB::Options> options = new osgDB::Options("RenderMethod=" + std::to_string((int)method));
+    std::string optString = "RenderMethod=" + std::to_string((int)method);
+    if (loadMeshes) optString += " LoadMeshes=1";
 
     // 2. Old protocol compatibility branch
     bool isOldProtocol = (metaObj.find("total_splats") != metaObj.end() &&
@@ -654,10 +825,18 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string
         OSG_WARN << "[ReaderWriter3DGS] Invalid LCC2 scene graph" << std::endl;
         return NULL;
     }
-    else
-        tree.root.print(std::cout, 0);
+    //else
+    //    tree.root.print(std::cout, 0);
 
-#if true
+    // 3. Traverse Lcc2TreeNode and construct PagedLOD based scene graph
+    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
+    root->setName(getString(metaObj, "name", "LCC2"));
+    traverseLcc2TreeNode(tree.root, tree, *root, path, optString);
+
+    std::string description = getString(metaObj, "description");
+    if (!description.empty()) root->addDescription(description);
+
+#if false
     // 3. Extract normalized fields
     int totalLevels = (int)getDouble(metaObj, "totalLevels", 0);
     int totalSplats = (int)getDouble(metaObj, "totalSplats", 0);
@@ -689,6 +868,7 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string
     picojson::array meshFiles = getArray(rootObj, "meshFiles");
     picojson::array bvhFiles = getArray(rootObj, "bvhFiles");
     osg::BoundingBoxd worldBox = parseBoundingBox(metaObj);
+    osg::ref_ptr<osgDB::Options> options = new osgDB::Options(optString);
     
     int envFileIndex = -1;
     auto dataIt = rootObj.find("data");
@@ -790,11 +970,6 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string
     }
 
     // 7. Build scene graph root + LOD
-    osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
-    root->setName(getString(metaObj, "name", "LCC2"));
-    std::string description = getString(metaObj, "description");
-    if (!description.empty()) root->addDescription(description);
-
     osg::BoundingBox totalBB;
     for (auto it = nodesByOutputLod.begin(); it != nodesByOutputLod.end(); ++it)
         for (size_t j = 0; j < it->second.size(); ++j)

@@ -312,7 +312,7 @@ void main()
 
         float projArea = length(majAxis) * length(minAxis);
         //if (projArea < 10.0) { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
-        if (projArea < 10.0 || (projArea < 40.0 && alpha < 0.5))
+        if (projArea < 1.0 || (projArea < 4.0 && alpha < 0.5))
         { gl_Position = vec4(0.0, 0.0, -10.0, 1.0); return; }
 
         vec2 offset = majAxis * osg_Vertex.x + minAxis * osg_Vertex.y;
