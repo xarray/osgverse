@@ -133,15 +133,15 @@ namespace
         { osg::Image* im = getLayer(t, d, false, true); return im ? (osg::Vec4us*)im->data() : NULL; }
 #endif
 
-        template<typename T> static void setFloat3(T* t, int d, const std::vector<osg::Vec3>* ptr)
-        { if (!ptr->empty()) setLayerData(getLayer(t, d, true, false), &(*ptr)[0], sizeof(osg::Vec3), ptr->size()); }
-        template<typename T> static void setFloat4(T* t, int d, const std::vector<osg::Vec4>* ptr)
-        { if (!ptr->empty()) setLayerData(getLayer(t, d, false, false), &(*ptr)[0], sizeof(osg::Vec4), ptr->size()); }
+        template<typename T> static void setFloat3(T* t, int d, const std::vector<osg::Vec3>* ptr, size_t s)
+        { if (!ptr->empty()) setLayerData(getLayer(t, d, true, false), &(*ptr)[0], sizeof(osg::Vec3), s); }
+        template<typename T> static void setFloat4(T* t, int d, const std::vector<osg::Vec4>* ptr, size_t s)
+        { if (!ptr->empty()) setLayerData(getLayer(t, d, false, false), &(*ptr)[0], sizeof(osg::Vec4), s); }
 #if OSG_VERSION_GREATER_THAN(3, 1, 9)
-        template<typename T> static void setHalf3(T* t, int d, const std::vector<osg::Vec3us>* ptr)
-        { if (!ptr->empty()) setLayerData(getLayer(t, d, true, true), &(*ptr)[0], sizeof(osg::Vec3us), ptr->size()); }
-        template<typename T> static void setHalf4(T* t, int d, const std::vector<osg::Vec4us>* ptr)
-        { if (!ptr->empty()) setLayerData(getLayer(t, d, false, true), &(*ptr)[0], sizeof(osg::Vec4us), ptr->size()); }
+        template<typename T> static void setHalf3(T* t, int d, const std::vector<osg::Vec3us>* ptr, size_t s)
+        { if (!ptr->empty()) setLayerData(getLayer(t, d, true, true), &(*ptr)[0], sizeof(osg::Vec3us), s); }
+        template<typename T> static void setHalf4(T* t, int d, const std::vector<osg::Vec4us>* ptr, size_t s)
+        { if (!ptr->empty()) setLayerData(getLayer(t, d, false, true), &(*ptr)[0], sizeof(osg::Vec4us), s); }
 #endif
     };
 }
@@ -244,7 +244,7 @@ void GaussianGeometry::setColorParameters(const std::vector<osg::Vec4>& src)
 #if OSG_VERSION_GREATER_THAN(3, 3, 6)
         ss->setDefine("CUSTOMIZED_TEX");
 #endif
-        TextureLookUpTable::setFloat4(paramTex.get(), 0, &src);
+        TextureLookUpTable::setFloat4(paramTex.get(), 0, &src, src.size());
     }
     else
     {
@@ -309,6 +309,7 @@ bool GaussianGeometry::finalize(int vOffset, int vCount)
     osg::StateSet* ss = getOrCreateStateSet();
     if (_method != GEOMETRY_SHADER)
     {
+        int off = vOffset, cnt = vCount;
         if (vOffset > 0)
         {
             if (vCount < 0) vCount = 0; else if (_numSplats < vCount) vCount = _numSplats;
@@ -322,7 +323,11 @@ bool GaussianGeometry::finalize(int vOffset, int vCount)
         if (vCount > 0 && vCount < _numSplats) _numSplats = vCount;
     }
     else
-        {}  // FIXME: geometry shader case for vOffset & vCount?
+    {
+        // FIXME: geometry shader case for vOffset & vCount?
+        OSG_WARN << "[GaussianGeometry] Geometry-shader mode doesn't support setting vertex offset & count, "
+                 << "which means it will render abnormally at present with LCC2 format" << std::endl;
+    }
 
     std::pair<int, int> res = calculateTextureDim(_numSplats);
     OSG_INFO << "[GaussianGeometry] Create " << getName() << " with " << _numSplats << " splats ("
@@ -383,7 +388,7 @@ bool GaussianGeometry::finalize(int vOffset, int vCount)
                 memcpy(ptr2 + total, halfSrc.data(), halfSrc.size() * sizeof(short)); total += blockSize;
             }
             else
-                TextureLookUpTable::setFloat4(_coreTex[i].get(), i, &src);
+                TextureLookUpTable::setFloat4(_coreTex[i].get(), i, &src, _numSplats);
         }
         _preDataMap.clear();  // clear host prepared data
 
@@ -410,7 +415,7 @@ bool GaussianGeometry::finalize(int vOffset, int vCount)
                 if (_shcoefBuffer.valid())
                 {
                     unsigned short* ptrU = (unsigned short*)ptr;
-                    for (size_t j = 0; j < src.size(); ++j)
+                    for (size_t j = 0; j < _numSplats; ++j)
                     {
                         size_t idx = (j * 15 + i) * 4; osg::Vec4 vec(src[j], 0.0f);
                         for (int k = 0; k < 3; ++k) { HalfFloat h(vec[k]); *(ptrU + idx + k) = h.x; }

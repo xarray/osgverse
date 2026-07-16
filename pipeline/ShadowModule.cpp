@@ -512,7 +512,9 @@ namespace osgVerse
             geom->setColorArray(ca); geom->setColorBinding(osg::Geometry::BIND_OVERALL);
             geom->addPrimitiveSet(de); geom->addPrimitiveSet(de2);
             geom->setComputeBoundingBoxCallback(new DisableBoundingBoxCallback);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
             geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
             _shadowFrustum->addDrawable(geom);
         }
 

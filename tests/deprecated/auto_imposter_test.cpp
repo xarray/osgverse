@@ -71,7 +71,9 @@ public:
             // Align RTT cameras to XOZ and YOZ planes
             // A new geode with deep-copied resource is used with rttViewer separately
             osg::ref_ptr<osg::Geode> geodeNew = new osg::Geode(*geode, osg::CopyOp::DEEP_COPY_ALL);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
             geodeNew->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
 
             osgVerse::alignCameraToBox(camera0.get(), bb, w, h, osg::TextureCubeMap::POSITIVE_X);
             osgVerse::alignCameraToBox(camera1.get(), bb, w, h, osg::TextureCubeMap::POSITIVE_Y);
@@ -97,7 +99,9 @@ public:
                 ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
                 ss->setMode(GL_BLEND, osg::StateAttribute::ON);
             }
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
             rough->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
 
             // Create a LOD node and replace current geode
             osg::ref_ptr<osg::LOD> lod = new osg::LOD;

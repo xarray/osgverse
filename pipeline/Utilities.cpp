@@ -712,11 +712,11 @@ namespace osgVerse
         quad->addDrawable(geom);
 
         int values = osg::StateAttribute::OFF | osg::StateAttribute::PROTECTED;
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         quad->getOrCreateStateSet()->setAttribute(
             new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::FILL), values);
-#endif
         quad->getOrCreateStateSet()->setMode(GL_LIGHTING, values);
+#endif
         return quad.release();
     }
 
@@ -829,7 +829,9 @@ namespace osgVerse
         camera->setProjectionMatrix(osg::Matrix::ortho(0.0, w, 0.0, h, -1.0, 1.0));
         camera->setViewMatrix(osg::Matrix::identity());
         camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         camera->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
         return camera.release();
     }
 
@@ -844,7 +846,9 @@ namespace osgVerse
         if (gc) camera->setGraphicsContext(gc);
         camera->setViewport(0, 0, w, h);
         camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         camera->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
 
         if (screenSpaced)
         {

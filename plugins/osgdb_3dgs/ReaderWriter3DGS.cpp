@@ -19,7 +19,7 @@
 // Ref: https://github.com/playcanvas/splat-transform/blob/main/src/readers/
 osg::ref_ptr<osg::Node> loadSplatFromXGrids(std::istream& in, const std::string& path,
                                             osgVerse::GaussianGeometry::RenderMethod method);
-osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path, bool loadMeshes,
+osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path,
                                              osgVerse::GaussianGeometry::RenderMethod method);
 osg::ref_ptr<osg::Node> loadSubSplatFromXGrids2(const std::string& in, const osgDB::Options* opt);
 osg::ref_ptr<osg::Node> loadSplatFromSOG(std::istream& in, const std::string& path, const std::string& ext,
@@ -72,7 +72,6 @@ public:
                        "<GS> render with geometry shader.");
         supportsOption("LoadVertexOffset", "Vertex offset while loading ply/splat/sog/spz formats. Default: 0");
         supportsOption("LoadVertexCount", "Vertex count while loading ply/splat/sog/spz formats. Default: 0 for all");
-        supportsOption("LoadMeshes", "Load meshes and BVH data for lcc2 format or not. Default: 0");
     }
 
     virtual const char* className() const
@@ -106,7 +105,6 @@ public:
             std::string renderHint = options->getPluginStringData("RenderMethod");
             std::string vOffsetHint = options->getPluginStringData("LoadVertexOffset");
             std::string vCountHint = options->getPluginStringData("LoadVertexCount");
-            std::string loadMeshes = options->getPluginStringData("LoadMeshes");
             int vOffset = atoi(vOffsetHint.c_str()), vCount = atoi(vCountHint.c_str());
 
             osgVerse::GaussianGeometry::RenderMethod method = osgVerse::GaussianGeometry::INSTANCING;
@@ -123,8 +121,7 @@ public:
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == "lcc2")
             {
-                int loaded = loadMeshes.empty() ? 0 : atoi(loadMeshes.c_str());
-                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids2(fin, prefix, loaded > 0, method);
+                osg::ref_ptr<osg::Node> node = loadSplatFromXGrids2(fin, prefix, method);
                 if (node.valid()) return node.get();
             }
             else if (ext == "lcc")

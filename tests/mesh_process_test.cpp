@@ -100,7 +100,9 @@ int main(int argc, char** argv)
                 new osg::DrawArrays(GL_POINTS, 0, samples.size()));
             
             sdfGeode->addDrawable(sdfGeom);
+#  if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
             sdfGeode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#  endif
             sdfMT->addChild(sdfGeode.get());
         }
         sdfMT->setMatrix(osg::Matrix::translate(0.0f, 0.0f, -20.0f));
@@ -125,9 +127,11 @@ int main(int argc, char** argv)
     root->addChild(sceneMT.get());
 #else
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+#  if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
     geode->getOrCreateStateSet()->setAttributeAndModes(
         new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE));
     geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#  endif
     root->addChild(geode.get());
 
     // Test VHACD

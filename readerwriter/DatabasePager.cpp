@@ -43,6 +43,24 @@ public:
     }
 };
 
+void DatabasePager::createBoundingBox(osg::Node* node)
+{
+    if (!node) return;
+    osgVerse::MeshCollector mc; node->accept(mc);
+    
+    osg::ref_ptr<osg::Geometry> bb = osgVerse::createBoundingBoxGeometry(mc.getBoundingBox(), true);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
+    bb->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
+    if (node->asGroup())
+    {
+        osg::ref_ptr<osg::Geode> g = new osg::Geode; g->addDrawable(bb.get());
+        node->asGroup()->addChild(g.get());
+    }
+    else if (node->asGeode())
+        node->asGeode()->addDrawable(bb.get());
+}
+
 void DatabasePager::addLoadedDataToSceneGraph_Verse(const osg::FrameStamp& frameStamp)
 {
     double timeStamp = frameStamp.getReferenceTime();
@@ -67,6 +85,7 @@ void DatabasePager::addLoadedDataToSceneGraph_Verse(const osg::FrameStamp& frame
         {
             if (osgDB::Registry::instance()->getSharedStateManager())
                 osgDB::Registry::instance()->getSharedStateManager()->share(databaseRequest->_loadedModel.get());
+            if (_drawExtraBBox) createBoundingBox(databaseRequest->_loadedModel.get());
 
             if (_compressingImages)
             {

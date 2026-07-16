@@ -260,7 +260,9 @@ int main(int argc, char** argv)
     else  // octree mode
     {
         osg::ref_ptr<osg::Geode> octRoot = new osg::Geode;
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         octRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
         octRoot->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
         octRoot->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
         root->addChild(octRoot.get());

@@ -438,7 +438,9 @@ namespace osgVerse
         geometry->setUseDisplayList(false); geometry->setUseVertexBufferObjects(true);
 
         if (texIn) geometry->getOrCreateStateSet()->setTextureAttributeAndModes(unit, texIn);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         geometry->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
         projection = osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0);
         modelView = osg::Matrix::identity();
     }

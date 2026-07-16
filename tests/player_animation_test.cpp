@@ -217,8 +217,10 @@ int main(int argc, char** argv)
                 geom->setVertexArray(va.get());
                 geom->setColorArray(ca.get()); geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
                 geom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, va->size()));
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
                 geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
                 geom->getOrCreateStateSet()->setAttributeAndModes(new osg::Point(5.0f));
+#endif
 
                 osg::ref_ptr<osg::Geode> jointGeode = new osg::Geode;
                 jointGeode->addDrawable(geom.get());

@@ -482,8 +482,10 @@ bool PlayerAnimation::applyMeshes(osg::Geode& meshDataRoot, bool withSkinning)
 
             if (i < _blendshapes.size()) geom->setUpdateCallback(_blendshapes[i].get());
             if (i < _meshStateSetList.size()) geom->setStateSet(_meshStateSetList[i].get());
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
             else if (_drawSkeleton && i == numMeshes - 1)
                 geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
             meshDataRoot.addDrawable(geom.get());
         }
     }

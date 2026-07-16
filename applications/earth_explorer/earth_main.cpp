@@ -244,7 +244,9 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> earthRoot = new osg::MatrixTransform;
     std::vector<osg::Camera*> cameras = configureEarthRendering(
         viewer, earthRoot.get(), earth.get(), earthRenderingUtils, mainFolder, EARTH_INTERSECTION_MASK, w, h);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
     earthRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
 
     osg::Camera* sceneCamera = cameras[0];
     //osg::Camera* atmosphereCamera = cameras[1];

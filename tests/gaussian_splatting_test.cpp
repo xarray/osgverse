@@ -23,6 +23,7 @@
 #include <pipeline/ResourceManager.h>
 #include <pipeline/Utilities.h>
 #include <ui/Utilities.h>
+#include <readerwriter/DatabasePager.h>
 #include <VerseCommon.h>
 
 #ifndef GL_DEPTH_CLAMP
@@ -442,12 +443,19 @@ int main(int argc, char** argv)
         }
     }
 
+    if (arguments.read("--show-bbox"))
+    {
+        osgVerse::DatabasePager* pager = new osgVerse::DatabasePager;
+        pager->setDrawBoundingBox(true);
+        viewer.setDatabasePager(pager);
+    }
+
     int screenNo = 0; arguments.read("--screen", screenNo);
     viewer.setUpViewOnSingleScreen(screenNo);
     if (arguments.read("--show-collision"))
     {
         osgVerse::QuickObjectVisitor qov; qov.setNodeMaskOverride(0xffffffff);  // to visit nodes with mask=0
-        qov.setNodeFinder([](osg::Object& node)
+        qov.setNodeFinder([](osg::Object& node) -> bool
             {
                 bool isCollider = false; node.getUserValue("Collision", isCollider);
                 if (isCollider) static_cast<osg::Node&>(node).setNodeMask(0xffffffff); return false;

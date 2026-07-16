@@ -14,8 +14,14 @@ namespace osgVerse
     {
     public:
         DatabasePager(bool compressImages = false)
-        :   osgDB::DatabasePager(), _compressingImages(compressImages)
+        :   osgDB::DatabasePager(), _compressingImages(compressImages), _drawExtraBBox(false)
         { setDrawablePolicy(osgDB::DatabasePager::USE_VERTEX_BUFFER_OBJECTS); }
+
+        void setCompressingImages(bool b) { _compressingImages = true; }
+        bool getCompressingImages() const { return _compressingImages; }
+
+        void setDrawBoundingBox(bool b) { _drawExtraBBox = true; }
+        bool getDrawBoundingBox() const { return _drawExtraBBox; }
 
         struct DataMergeCallback : public osg::Referenced
         {
@@ -50,11 +56,12 @@ namespace osgVerse
 
     protected:
         virtual ~DatabasePager() {}
+        void createBoundingBox(osg::Node* node);
 
         typedef std::map<osg::ref_ptr<osg::Group>, std::vector<osg::ref_ptr<osg::Node>>> LoadedNodeMap;
         LoadedNodeMap _loadedNodes;
         osg::ref_ptr<DataMergeCallback> _mergeCallback;
-        bool _compressingImages;
+        bool _compressingImages, _drawExtraBBox;;
     };
 
 }

@@ -142,7 +142,9 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
     geode->addDrawable(background.get()); geode->addDrawable(foreground.get());
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
     geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
 
     // Load onnx model
     std::string modelName = BASE_DIR + "/misc/mnist-12.onnx";

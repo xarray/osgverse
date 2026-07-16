@@ -217,7 +217,9 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(grid);
     root->addChild(layerTransform);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
     root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
 
     osgViewer::Viewer viewer;
     viewer.getCamera()->setProjectionMatrixAsPerspective(30.0, 1.0, 0.01, 10000.0);

@@ -126,8 +126,10 @@ NodeSelector::NodeSelector()
 {
     _hudRoot = new osg::Group;
     _auxiliaryRoot = new osg::Group;
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
     _auxiliaryRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     _auxiliaryRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::LineWidth(2.0f));
+#endif
     //_auxiliaryRoot->getOrCreateStateSet()->setAttributeAndModes(new osg::Depth(osg::Depth::ALWAYS));
     rebuildSelectorGeometry();
     rebuildBoundGeometry();

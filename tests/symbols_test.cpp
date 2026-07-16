@@ -224,7 +224,9 @@ int main(int argc, char** argv)
             geom->setUseVertexBufferObjects(true);
             geom->setVertexArray(va);
             geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, va->size()));
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
             geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
 
             osg::Vec4Array* ca = new osg::Vec4Array;
             ca->push_back(osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f));

@@ -42,7 +42,8 @@ public:
             { return (node->getName() == "RecastAgent"); });
             select(agent ? agent->asGroup() : NULL);
         }
-        else if (ea.getEventType() == osgGA::GUIEventAdapter::DOUBLECLICK)
+        else if (ea.getEventType() == osgGA::GUIEventAdapter::DOUBLECLICK ||
+                 (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE && (ea.getModKeyMask() & osgGA::GUIEventAdapter::MODKEY_ALT)))
         {
             osgVerse::IntersectionResult result = osgVerse::findNearestIntersection(
                 view->getCamera(), ea.getXnormalized(), ea.getYnormalized());
@@ -71,6 +72,8 @@ public:
                 player->addChild(_agentNode.get()); player->setName("RecastAgent");
                 osgVerse::Pipeline::setPipelineMask(*player, DEFERRED_SCENE_MASK & (~SHADOW_CASTER_MASK));
                 select(player.get()); _root->addChild(player.get());
+                std::cout << "Create agent " << _selectedAgent.get() << " at "
+                          << result.nodePath.back()->getName() << std::endl;
 
                 osg::ref_ptr<osgVerse::RecastManager::Agent> agent =
                     new osgVerse::RecastManager::Agent(player.get(), result.getWorldIntersectPoint());
@@ -137,7 +140,9 @@ int main(int argc, char** argv)
     //debugNode->setMatrix(osg::Matrix::translate(0.0f, 0.0f, 1.0f));
     debugNode->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     debugNode->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
     debugNode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
     debugNode->getOrCreateStateSet()->setMode(GL_DEPTH, osg::StateAttribute::OFF);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;

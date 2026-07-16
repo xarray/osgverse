@@ -254,58 +254,6 @@ namespace
         return node;
     }
 
-#if true
-    // Mesh + BVH info collected from octree nodes
-    struct MeshNodeInfo
-    {
-        std::string nodeId;           // octree node id, e.g. "0_3_0_0"
-        int meshFileIndex = -1;       // index into root.meshFiles
-        int bvhFileIndex = -1;        // index into root.bvhFiles
-        uint32_t vertexCount = 0;
-        uint32_t faceCount = 0;
-        osg::BoundingBoxd bbox;       // node bounding box
-    };
-
-    // Recursively collect octree nodes that carry mesh data
-    static void collectMeshNodes(const picojson::value& node, std::vector<MeshNodeInfo>& result)
-    {
-        picojson::array children = getOctreeChildren(node);
-        for (size_t i = 0; i < children.size(); ++i)
-        {
-            const picojson::value& child = children[i];
-            if (!child.is<picojson::object>()) continue;
-            const picojson::object& childObj = child.get<picojson::object>();
-
-            auto dataIt = childObj.find("data");
-            if (dataIt != childObj.end() && dataIt->second.is<picojson::object>())
-            {
-                const picojson::object& dataObj = dataIt->second.get<picojson::object>();
-                auto meshIt = dataObj.find("mesh");
-                if (meshIt != dataObj.end() && meshIt->second.is<picojson::object>())
-                {
-                    const picojson::object& meshObj = meshIt->second.get<picojson::object>();
-                    MeshNodeInfo info;
-                    info.nodeId = getString(childObj, "id");
-                    info.meshFileIndex = (int)getDouble(meshObj, "name", -1.0);
-                    info.vertexCount = (int)getDouble(meshObj, "vertex");
-                    info.faceCount = (int)getDouble(meshObj, "face");
-                    info.bbox = parseBoundingBox(childObj);
-
-                    // Optional paired BVH
-                    auto bvhIt = dataObj.find("bvh");
-                    if (bvhIt != dataObj.end() && bvhIt->second.is<picojson::object>())
-                    {
-                        const picojson::object& bvhObj = bvhIt->second.get<picojson::object>();
-                        info.bvhFileIndex = (int)getDouble(bvhObj, "name", -1.0);
-                    }
-                    result.push_back(info);
-                }
-            }
-            collectMeshNodes(child, result);
-        }
-    }
-#endif
-
     // Load raw .btree file into memory; return empty vector on failure
     static std::vector<uint8_t> loadBtreeRaw(const std::string& btreePath)
     {
@@ -658,11 +606,11 @@ namespace
         return tree;
     }
 
-    static std::string getGaussianFileName(const Lcc2Tree& lcc2Tree, const Lcc2NodeData3dgs& d3dgs,
-                                           const std::string& path)
+    static std::string getGaussianFileName(const std::vector<std::string>& fileList,
+                                           int name, const std::string& path)
     {
-        if (lcc2Tree.splatFiles.size() <= d3dgs.name) return "";
-        std::string filePath = lcc2Tree.splatFiles[d3dgs.name];
+        if (fileList.size() <= name) return "";
+        std::string filePath = fileList[name];
 
         if (!osgDB::fileExists(filePath))
         {
@@ -689,7 +637,7 @@ static void traverseLcc2TreeNode(Lcc2TreeNode& lcc2Node, const Lcc2Tree& lcc2Tre
 {
     if (lcc2Node.d3dgs.valid())
     {
-        std::string filePath = getGaussianFileName(lcc2Tree, lcc2Node.d3dgs, path);
+        std::string filePath = getGaussianFileName(lcc2Tree.splatFiles, lcc2Node.d3dgs.name, path);
         std::string opt = optString + " LoadVertexOffset=" + std::to_string(lcc2Node.d3dgs.start)
                         + " LoadVertexCount=" + std::to_string(lcc2Node.d3dgs.count);
         osg::ref_ptr<osg::Node> chunkNode = osgDB::readNodeFile(filePath + ".verse_3dgs", new osgDB::Options(opt));
@@ -728,7 +676,41 @@ static void traverseLcc2TreeNode(Lcc2TreeNode& lcc2Node, const Lcc2Tree& lcc2Tre
             traverseLcc2TreeNode(lcc2Node.children[i], lcc2Tree, *group, path, optString);
     }
 
-    // TODO: mesh & bvh files
+    // Load mesh & bvh files
+    if (lcc2Node.mesh.valid())
+    {
+        osg::ref_ptr<osg::Group> meshGroup = new osg::Group;
+        meshGroup->setName(lcc2Node.id + "_mesh");
+        meshGroup->setNodeMask(0);  // not renderable, collision / raycast use only
+        meshGroup->setUserValue("Collision", true);
+
+        std::string filePath = getGaussianFileName(lcc2Tree.meshFiles, lcc2Node.mesh.name, path);
+        osg::ref_ptr<osg::Node> meshNode = osgDB::readNodeFile(filePath + ".verse_mesh");
+        if (!meshNode)
+        {
+            OSG_WARN << "[ReaderWriter3DGS] Failed to load mesh PLY: " << filePath << std::endl;
+            return;  // no need to check BVH data
+        }
+        meshGroup->setUserValue("LCC2_Mesh_Vertices ", lcc2Node.mesh.vertexCount);
+        meshGroup->setUserValue("LCC2_Mesh_Faces ", lcc2Node.mesh.faceCount);
+        meshGroup->addChild(meshNode.get());
+
+        // Load paired BVH btree if available
+        if (lcc2Node.bvh.valid())
+        {
+            filePath = getGaussianFileName(lcc2Tree.bvhFiles, lcc2Node.bvh.name, path);
+            std::vector<uint8_t> btreeData = loadBtreeRaw(filePath);
+            if (!btreeData.empty())
+            {
+                osg::ref_ptr<BvhUserData> bvhObj = new BvhUserData;
+                bvhObj->setRawData(btreeData); meshNode->setUserData(bvhObj.get());
+                meshGroup->setUserValue("LCC2_BVH_Nodes", (int)bvhObj->getNodeCount());
+            }
+            else
+                { OSG_NOTICE << "[ReaderWriter3DGS] Failed to load BVH btree: " << filePath << std::endl; }
+        }
+        parent.addChild(meshGroup.get());
+    }
 }
 
 osg::ref_ptr<osg::Node> loadSubSplatFromXGrids2(const std::string& file, const osgDB::Options* opt)
@@ -751,7 +733,7 @@ osg::ref_ptr<osg::Node> loadSubSplatFromXGrids2(const std::string& file, const o
     group->setName(lcc2Node.id); return group;
 }
 
-osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path, bool loadMeshes,
+osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string& path,
                                              osgVerse::GaussianGeometry::RenderMethod method)
 {
     // 1. Read and parse meta.lcc2 JSON (with trailing-comma tolerance)
@@ -776,10 +758,8 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string
         OSG_WARN << "[ReaderWriter3DGS] Invalid LCC2 meta: root is not an object" << std::endl;
         return NULL;
     }
-
     picojson::object metaObj = document.get<picojson::object>();
     std::string optString = "RenderMethod=" + std::to_string((int)method);
-    if (loadMeshes) optString += " LoadMeshes=1";
 
     // 2. Old protocol compatibility branch
     bool isOldProtocol = (metaObj.find("total_splats") != metaObj.end() &&
@@ -819,6 +799,7 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string
         }
     }
 
+    // 3. Traverse Lcc2TreeNode and construct PagedLOD based scene graph
     Lcc2Tree tree; tree = parseLcc2Tree(metaObj);
     if (tree.splatFiles.empty() || tree.root.id.empty())
     {
@@ -828,310 +809,11 @@ osg::ref_ptr<osg::Node> loadSplatFromXGrids2(std::istream& in, const std::string
     //else
     //    tree.root.print(std::cout, 0);
 
-    // 3. Traverse Lcc2TreeNode and construct PagedLOD based scene graph
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->setName(getString(metaObj, "name", "LCC2"));
     traverseLcc2TreeNode(tree.root, tree, *root, path, optString);
 
     std::string description = getString(metaObj, "description");
     if (!description.empty()) root->addDescription(description);
-
-#if false
-    // 3. Extract normalized fields
-    int totalLevels = (int)getDouble(metaObj, "totalLevels", 0);
-    int totalSplats = (int)getDouble(metaObj, "totalSplats", 0);
-    if (totalLevels <= 0)
-    {
-        OSG_WARN << "[ReaderWriter3DGS] Invalid LCC2 meta: totalLevels = " << totalLevels << std::endl;
-        return NULL;
-    }
-
-    std::string splatType = getString(metaObj, "splatType", ".sog");
-    if (splatType.empty()) splatType = ".sog";
-
-    auto rootIt = metaObj.find("root");
-    if (rootIt == metaObj.end() || !rootIt->second.is<picojson::object>())
-    {
-        OSG_WARN << "[ReaderWriter3DGS] Invalid XGrids' LCC2 meta: missing root" << std::endl;
-        return NULL;
-    }
-
-    picojson::object rootObj = rootIt->second.get<picojson::object>();
-    picojson::array splatFiles = getArray(rootObj, "splatFiles");
-    if (splatFiles.empty())
-    {
-        OSG_WARN << "[ReaderWriter3DGS] Invalid LCC2 meta: root.splatFiles is empty" << std::endl;
-        return NULL;
-    }
-
-    // Also read meshFiles / bvhFiles (may be empty, that's fine)
-    picojson::array meshFiles = getArray(rootObj, "meshFiles");
-    picojson::array bvhFiles = getArray(rootObj, "bvhFiles");
-    osg::BoundingBoxd worldBox = parseBoundingBox(metaObj);
-    osg::ref_ptr<osgDB::Options> options = new osgDB::Options(optString);
-    
-    int envFileIndex = -1;
-    auto dataIt = rootObj.find("data");
-    if (dataIt != rootObj.end() && dataIt->second.is<picojson::object>())
-    {
-        const picojson::object& dataObj = dataIt->second.get<picojson::object>();
-        auto envIt = dataObj.find("env");
-        if (envIt != dataObj.end() && envIt->second.is<picojson::object>())
-        {
-            const picojson::object& envObj = envIt->second.get<picojson::object>();
-            auto envNameIt = envObj.find("name");
-            if (envNameIt != envObj.end() && envNameIt->second.is<double>())
-                envFileIndex = (int)envNameIt->second.get<double>();
-        }
-    }
-
-    // 4. Resolve LOD selection
-    std::vector<int> lodSelect;
-    std::vector<int> inputLods = resolveLodSelection(lodSelect, totalLevels);
-    if (inputLods.empty())
-    {
-        OSG_WARN << "[ReaderWriter3DGS] No valid LODs selected for LCC2: " << path << std::endl;
-        return NULL;
-    }
-
-    // 5. Collect chunk files by LOD level
-    std::map<int, std::vector<std::pair<int, int>>> chunksByLevel;
-    collectChunksByLevel(rootIt->second, 1, totalLevels, envFileIndex, chunksByLevel);
-
-    struct ChunkTask { int outputLod; int fileIndex; int count; std::string filePath; };
-    std::vector<ChunkTask> tasks;
-    for (size_t oi = 0; oi < inputLods.size(); ++oi)
-    {
-        int inputLod = inputLods[oi];
-        auto it = chunksByLevel.find(inputLod);
-        if (it == chunksByLevel.end()) continue;
-
-        std::map<int, int> fileToCount;
-        for (size_t j = 0; j < it->second.size(); ++j)
-        {
-            int fidx = it->second[j].first, cnt = it->second[j].second;
-            auto fit = fileToCount.find(fidx);
-            if (fit == fileToCount.end()) fileToCount[fidx] = cnt;
-            else if (fit->second >= 0 && cnt >= 0) fit->second += cnt;
-            else fit->second = -1;
-        }
-
-        for (auto fit = fileToCount.begin(); fit != fileToCount.end(); ++fit)
-        {
-            int fidx = fit->first;
-            if (fidx < 0 || fidx >= (int)splatFiles.size() || !splatFiles[fidx].is<std::string>())
-            {
-                OSG_WARN << "[ReaderWriter3DGS] Invalid chunk file index " << fidx
-                         << " (splatFiles has " << splatFiles.size() << " entries)" << std::endl;
-                continue;
-            }
-            std::string fileName = splatFiles[fidx].get<std::string>();
-            std::string fullPath = path.empty() ? fileName : (path + "/" + fileName);
-            tasks.push_back({ (int)oi, fidx, fit->second, fullPath });
-        }
-    }
-
-    if (tasks.empty())
-    {
-        OSG_WARN << "[ReaderWriter3DGS] No chunks found for selected LODs in LCC2: " << path << std::endl;
-        return NULL;
-    }
-
-    // 6. Decode splat chunks
-    std::map<int, std::vector<osg::ref_ptr<osg::Node>>> nodesByOutputLod;
-    for (size_t i = 0; i < tasks.size(); ++i)
-    {
-        const ChunkTask& task = tasks[i];
-        std::string filePath = task.filePath;
-        if (!osgDB::fileExists(filePath))
-        {
-            std::string baseName = osgDB::getSimpleFileName(filePath);
-            if (baseName != filePath)
-            {
-                std::string altPath = path.empty() ? baseName : (path + "/" + baseName);
-                if (osgDB::fileExists(altPath)) filePath = altPath;
-            }
-        }
-
-        osg::ref_ptr<osg::Node> chunkNode = osgDB::readNodeFile(filePath + ".verse_3dgs", options.get());
-        if (!chunkNode)
-        {
-            OSG_WARN << "[ReaderWriter3DGS] Failed to load LCC2 chunk: " << filePath << std::endl;
-            continue;
-        }
-        chunkNode->setName(filePath);
-        nodesByOutputLod[task.outputLod].push_back(chunkNode);
-    }
-
-    if (nodesByOutputLod.empty())
-    {
-        OSG_WARN << "[ReaderWriter3DGS] All chunks failed to decode for LCC2: " << path << std::endl;
-        return NULL;
-    }
-
-    // 7. Build scene graph root + LOD
-    osg::BoundingBox totalBB;
-    for (auto it = nodesByOutputLod.begin(); it != nodesByOutputLod.end(); ++it)
-        for (size_t j = 0; j < it->second.size(); ++j)
-            if (it->second[j].valid()) totalBB.expandBy(it->second[j]->getBound());
-    if (!totalBB.valid() && worldBox.valid()) { totalBB._min = worldBox._min; totalBB._max = worldBox._max; }
-
-    float sceneRadius = totalBB.valid() ? totalBB.radius() : 100.0f;
-    if (nodesByOutputLod.size() == 1)
-    {
-        auto it = nodesByOutputLod.begin();
-        osg::ref_ptr<osg::Group> lodGroup = new osg::Group;
-        lodGroup->setName("LOD_" + std::to_string(it->first));
-        for (size_t j = 0; j < it->second.size(); ++j) lodGroup->addChild(it->second[j].get());
-        root->addChild(lodGroup.get());
-    }
-    else
-    {
-        osg::ref_ptr<osg::LOD> lodSwitcher = new osg::LOD;
-        lodSwitcher->setName("LODSwitcher");
-        lodSwitcher->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
-        lodSwitcher->setCenterMode(osg::LOD::USER_DEFINED_CENTER);
-        if (totalBB.valid()) { lodSwitcher->setCenter(totalBB.center()); lodSwitcher->setRadius(sceneRadius); }
-
-        int maxOutputLod = (int)nodesByOutputLod.size() - 1;
-        float baseDist = sceneRadius * 0.3f;
-
-        for (auto it = nodesByOutputLod.begin(); it != nodesByOutputLod.end(); ++it)
-        {
-            int outputLod = it->first;
-            osg::ref_ptr<osg::Group> lodGroup = new osg::Group;
-            lodGroup->setName("LOD_" + std::to_string(outputLod));
-            for (size_t j = 0; j < it->second.size(); ++j) lodGroup->addChild(it->second[j].get());
-
-            float exponent = (float)(maxOutputLod - outputLod), lodFactor = 1.5f;
-            float minDist = (outputLod == maxOutputLod) ? 0.0f : baseDist * std::pow(lodFactor, exponent);
-            float maxDist = (outputLod == 0) ? FLT_MAX : baseDist * std::pow(lodFactor, exponent + 1.0f);
-
-            std::cout << lodSwitcher->getName() << " / " << outputLod << ": " << minDist << ", " << maxDist << "\n";
-            for (size_t j = 0; j < it->second.size(); ++j) std::cout << "   " << it->second[j]->getName() << "\n";
-
-            lodSwitcher->addChild(lodGroup.get(), minDist, maxDist);
-        }
-        root->addChild(lodSwitcher.get());
-    }
-
-    // 8. Optional mesh + BVH loading
-    // Collect mesh nodes from octree, then load each PLY + paired .btree
-    if (loadMeshes)
-    {
-        std::vector<MeshNodeInfo> meshNodes; collectMeshNodes(rootIt->second, meshNodes);
-        if (!meshNodes.empty() && !meshFiles.empty())
-        {
-            osg::ref_ptr<osg::Group> meshGroup = new osg::Group;
-            meshGroup->setName("Meshes");
-            meshGroup->setNodeMask(0);  // not renderable, collision / raycast use only
-            meshGroup->setUserValue("Collision", true);
-
-            for (size_t i = 0; i < meshNodes.size(); ++i)
-            {
-                const MeshNodeInfo& info = meshNodes[i];
-                if (info.meshFileIndex < 0 || info.meshFileIndex >= (int)meshFiles.size() ||
-                    !meshFiles[info.meshFileIndex].is<std::string>())
-                {
-                    OSG_WARN << "[ReaderWriter3DGS] Invalid mesh file index " << info.meshFileIndex
-                            << " for node " << info.nodeId << std::endl;
-                    continue;
-                }
-
-                std::string meshFileName = meshFiles[info.meshFileIndex].get<std::string>();
-                std::string meshPath = path.empty() ? meshFileName : (path + "/" + meshFileName);
-                if (!osgDB::fileExists(meshPath))
-                {
-                    std::string baseName = osgDB::getSimpleFileName(meshPath);
-                    if (baseName != meshPath)
-                    {
-                        std::string altPath = path.empty() ? baseName : (path + "/" + baseName);
-                        if (osgDB::fileExists(altPath)) meshPath = altPath;
-                    }
-                }
-
-                osg::ref_ptr<osg::Node> meshNode = osgDB::readNodeFile(meshPath + ".verse_mesh");
-                if (!meshNode)
-                {
-                    OSG_WARN << "[ReaderWriter3DGS] Failed to load mesh PLY: " << meshPath << std::endl;
-                    continue;
-                }
-                meshNode->setName(info.nodeId + "_mesh");
-                meshNode->addDescription("LCC2_Mesh_Vertices " + std::to_string(info.vertexCount));
-                meshNode->addDescription("LCC2_Mesh_Faces " + std::to_string(info.faceCount));
-
-                // Load paired BVH btree if available
-                if (info.bvhFileIndex >= 0 && info.bvhFileIndex < (int)bvhFiles.size() &&
-                    bvhFiles[info.bvhFileIndex].is<std::string>())
-                {
-                    std::string bvhFileName = bvhFiles[info.bvhFileIndex].get<std::string>();
-                    std::string bvhPath = path.empty() ? bvhFileName : (path + "/" + bvhFileName);
-                    if (!osgDB::fileExists(bvhPath))
-                    {
-                        std::string baseName = osgDB::getSimpleFileName(bvhPath);
-                        if (baseName != bvhPath)
-                        {
-                            std::string altPath = path.empty() ? baseName : (path + "/" + baseName);
-                            if (osgDB::fileExists(altPath)) bvhPath = altPath;
-                        }
-                    }
-
-                    std::vector<uint8_t> btreeData = loadBtreeRaw(bvhPath);
-                    if (!btreeData.empty())
-                    {
-                        osg::ref_ptr<BvhUserData> bvhObj = new BvhUserData;
-                        bvhObj->setRawData(btreeData);
-                        meshNode->setUserData(bvhObj.get());
-                        meshNode->setUserValue("LCC2_BVH", true);
-                        meshNode->setUserValue("LCC2_BVH_Nodes", (int)bvhObj->getNodeCount());
-                    }
-                    else
-                        { OSG_NOTICE << "[ReaderWriter3DGS] Failed to load BVH btree: " << bvhPath << std::endl; }
-                }
-
-                // If the node has a bounding box, also set it as the node's initial bound
-                if (info.bbox.valid())
-                {
-                    osg::BoundingBoxf bb(osg::Vec3f(info.bbox.xMin(), info.bbox.yMin(), info.bbox.zMin()),
-                                        osg::Vec3f(info.bbox.xMax(), info.bbox.yMax(), info.bbox.zMax()));
-                    meshNode->setInitialBound(bb);
-                }
-                meshGroup->addChild(meshNode.get());
-            }
-            if (meshGroup->getNumChildren() > 0) root->addChild(meshGroup.get());
-        }
-    }
-    
-    // 9. Optional environment chunk (lod = -1)  // FIXME: disabled because of confusing sorting
-    /*if (envFileIndex >= 0 && envFileIndex < (int)splatFiles.size() &&
-          splatFiles[envFileIndex].is<std::string>())
-    {
-        std::string envFileName = splatFiles[envFileIndex].get<std::string>();
-        std::string envPath = path.empty() ? envFileName : (path + "/" + envFileName);
-        if (!osgDB::fileExists(envPath))
-        {
-            std::string baseName = osgDB::getSimpleFileName(envPath);
-            if (baseName != envPath)
-            {
-                std::string altPath = path.empty() ? baseName : (path + "/" + baseName);
-                if (osgDB::fileExists(altPath)) envPath = altPath;
-            }
-        }
-        if (osgDB::fileExists(envPath))
-        {
-            osg::ref_ptr<osg::Node> envNode = osgDB::readNodeFile(envPath + ".verse_3dgs");
-            if (envNode.valid())
-            {
-                envNode->setName("Environment");
-                envNode->setUserValue("LCC2_Environment", true);
-                root->addChild(envNode.get());
-            }
-            else
-            {
-                OSG_NOTICE << "[ReaderWriter3DGS] Failed to load LCC2 environment chunk: " << envPath << std::endl;
-            }
-        }
-    }*/
-#endif
     return root;
 }

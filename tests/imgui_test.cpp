@@ -278,7 +278,9 @@ int main(int argc, char** argv)
             osg::Vec3(), osg::X_AXIS * 16.0f, osg::Z_AXIS * 9.0f);
         quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, guiTex);
         quad->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+#if !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
         quad->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+#endif
         viewer.addEventHandler(imgui->getHandler());
         viewer.addEventHandler(new InteractiveHandler(imgui.get(), quad));
 
