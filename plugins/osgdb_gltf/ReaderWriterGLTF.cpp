@@ -200,8 +200,10 @@ protected:
         picojson::value featureTable; std::string err = picojson::parse(featureTable, json);
         if (err.empty())
         {
-            int byteOffset = 0, numPoints = featureTable.contains("POINTS_LENGTH")
+            size_t featureTableBinaryOffset = 28 + featureTableJsonByteLength;
+            int numPoints = featureTable.contains("POINTS_LENGTH")
                                           ? (int)featureTable.get("POINTS_LENGTH").get<double>() : 0;
+            size_t byteOffset = featureTableBinaryOffset;
             osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array(numPoints);
             osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array(numPoints);
             osg::ref_ptr<osg::Vec4ubArray> ca = new osg::Vec4ubArray(numPoints);
@@ -209,7 +211,7 @@ protected:
 
             if (featureTable.contains("POSITION"))
             {
-                byteOffset = (int)featureTable.get("POSITION").get("byteOffset").get<double>();
+                byteOffset = featureTableBinaryOffset + (int)featureTable.get("POSITION").get("byteOffset").get<double>();
                 for (int i = 0; i < numPoints; ++i) (*va)[i].set(
                     *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 0]),
                     *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 4]),
@@ -223,7 +225,7 @@ protected:
                 if (of.size() == 3) offset.set(of[0].get<double>(), of[1].get<double>(), of[2].get<double>());
                 if (sc.size() == 3) scale.set(sc[0].get<double>(), sc[1].get<double>(), sc[2].get<double>());
 
-                byteOffset = (int)featureTable.get("POSITION_QUANTIZED").get("byteOffset").get<double>();
+                byteOffset = featureTableBinaryOffset + (int)featureTable.get("POSITION_QUANTIZED").get("byteOffset").get<double>();
                 for (int i = 0; i < numPoints; ++i)
                 {
                     unsigned short x = *reinterpret_cast<unsigned short*>(&data[byteOffset + i * 6 + 0]);
@@ -236,14 +238,14 @@ protected:
 
             if (featureTable.contains("RGB"))
             {
-                byteOffset = (int)featureTable.get("RGB").get("byteOffset").get<double>();
+                byteOffset = featureTableBinaryOffset + (int)featureTable.get("RGB").get("byteOffset").get<double>();
                 for (int i = 0; i < numPoints; ++i) (*ca)[i].set(
                     (unsigned char)data[byteOffset + i * 3 + 0], (unsigned char)data[byteOffset + i * 3 + 1],
                     (unsigned char)data[byteOffset + i * 3 + 2], 255);
             }
             else if (featureTable.contains("RGBA"))
             {
-                byteOffset = (int)featureTable.get("RGBA").get("byteOffset").get<double>();
+                byteOffset = featureTableBinaryOffset + (int)featureTable.get("RGBA").get("byteOffset").get<double>();
                 for (int i = 0; i < numPoints; ++i) (*ca)[i].set(
                     (unsigned char)data[byteOffset + i * 4 + 0], (unsigned char)data[byteOffset + i * 4 + 1],
                     (unsigned char)data[byteOffset + i * 4 + 2], (unsigned char)data[byteOffset + i * 4 + 3]);
@@ -251,7 +253,7 @@ protected:
 
             if (featureTable.contains("NORMAL"))
             {
-                byteOffset = (int)featureTable.get("NORMAL").get("byteOffset").get<double>();
+                byteOffset = featureTableBinaryOffset + (int)featureTable.get("NORMAL").get("byteOffset").get<double>();
                 for (int i = 0; i < numPoints; ++i) (*na)[i].set(
                     *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 0]),
                     *reinterpret_cast<float*>(&data[byteOffset + i * 12 + 4]),
