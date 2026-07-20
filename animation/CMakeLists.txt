@@ -6,7 +6,6 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp PhysicsEngine.cpp
     TweenAnimation.cpp BlendShapeAnimation.cpp ParticleEngineU3D.cpp Utilities.cpp)
 
-FIND_DEPENDENCE(EFFEKSEER "Effekseer.h" "libEffekseer.so;libEffekseer.a;Effekseer.lib" "")
 IF(NOT VERSE_SUPPORT_CPP17)
     MESSAGE("[osgVerse] C++ 17 standard is disabled at present. Effekseer will be ignored.")
 ELSEIF(EFFEKSEER_FOUND)

@@ -450,6 +450,15 @@ SET(SHAPELIB_SOURCE_FILES
     shapelib/shapefil_private.h shapelib/shapelib.def
 )
 
+SET(HDBSCAN_SOURCE_FILES
+    hdbscan/Distance/IDistanceCalculator.cpp hdbscan/Distance/EuclideanDistance.cpp
+    hdbscan/Distance/ManhattanDistance.cpp hdbscan/Utils/bitSet.cpp hdbscan/Hdbscan/hdbscan.cpp
+    hdbscan/HdbscanStar/hdbscanAlgorithm.cpp hdbscan/HdbscanStar/hdbscanConstraint.cpp
+    hdbscan/HdbscanStar/cluster.cpp hdbscan/HdbscanStar/outlierScore.cpp hdbscan/HdbscanStar/undirectedGraph.cpp
+    hdbscan/Runner/hdbscanParameters.cpp hdbscan/Runner/hdbscanResult.cpp hdbscan/Runner/hdbscanRunner.cpp
+    hdbscan/Hdbscan/hdbscan.hpp hdbscan/HdbscanStar/hdbscanAlgorithm.hpp
+)
+
 SET(SMPLXPP_SOURCE_FILES
     smplxpp/body.cpp smplxpp/model.cpp smplxpp/sequence.cpp smplxpp/util.cpp
     smplxpp/cnpy.cpp smplxpp/smplx/defs.hpp smplxpp/smplx/smplx.hpp
@@ -526,6 +535,7 @@ SOURCE_GROUP("ByteTrack Files" FILES ${BYTETRACK_SOURCE_FILES})
 SOURCE_GROUP("Box3D Files" FILES ${BOX3D_SOURCE_FILES})
 SOURCE_GROUP("DiscreGrid Files" FILES ${DISCREGRID_SOURCE_FILES})
 SOURCE_GROUP("FIR & IIR Files" FILES ${FILTER_SOURCE_FILES})
+SOURCE_GROUP("HDBScan Files" FILES ${HDBSCAN_SOURCE_FILES})
 SOURCE_GROUP("ImGUI Files" FILES ${IMGUI_SOURCE_FILES})
 SOURCE_GROUP("InteractiveMeshBoolean Files" FILES ${INTERACTIVEMESHBOOL_SOURCE_FILES})
 SOURCE_GROUP("KTX Files" FILES ${KTX_SOURCE_FILES})
@@ -565,11 +575,12 @@ SET(LIBRARY_FILES
     BSplineFitting/cubic_b_spline.cpp BSplineFitting/open_cubic_b_spline.cpp BSplineFitting/spline_curve_fitting.cpp
     clipper2/clipper.engine.cpp clipper2/clipper.offset.cpp clipper2/clipper.rectclip.cpp pybind11/pybind11.h
     parallel_hashmap/phmap.h bc7_rdo/rgbcx.h bc7_rdo/rgbcx.cpp ${APPROXMVBB_SOURCE_FILES} ${BLEND2D_SOURCE_FILES}
-    ${DISCREGRID_SOURCE_FILES} ${FILTER_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${KTX_SOURCE_FILES} ${LASZIP_SOURCE_FILES}
-    ${LEVELDB_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${MARL_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES}
-    ${METIS_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES}
-    ${POINTCLOUDSEG_SOURCE_FILES} ${RECAST_SOURCE_FILES} ${RLOTTIE_SOURCE_FILES} ${SHAPELIB_SOURCE_FILES} ${SMPLXPP_SOURCE_FILES}
-    ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES} ${TWEENY_SOURCE_FILES} ${BOX3D_SOURCE_FILES}
+    ${BOX3D_SOURCE_FILES} ${DISCREGRID_SOURCE_FILES} ${FILTER_SOURCE_FILES} ${HDBSCAN_SOURCE_FILES} ${IMGUI_SOURCE_FILES}
+    ${KTX_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${LEVELDB_SOURCE_FILES} ${LIBHV_SOURCE_FILES} ${MARL_SOURCE_FILES}
+    ${MBEDTLS_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${METIS_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
+    ${OZZ_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES} ${POINTCLOUDSEG_SOURCE_FILES} ${RECAST_SOURCE_FILES}
+    ${RLOTTIE_SOURCE_FILES} ${SHAPELIB_SOURCE_FILES} ${SMPLXPP_SOURCE_FILES} ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
+    ${TWEENY_SOURCE_FILES}
 )
 
 IF(VERSE_SUPPORT_CPP17)

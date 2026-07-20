@@ -38,6 +38,7 @@
 | GaussForge       | Embedded | 0.6.0     | verse_3dgs         | Apache2      | https://github.com/3dgscloud/GaussForge |
 | ghc_filesystem   | Embedded |           | -                  | MIT          | https://github.com/gulrak/filesystem |
 | glfw             | Embedded | 3.4       | ReaderWriter, WASM | ZLib         | https://github.com/glfw/glfw |
+| HDBSCAN-CPP      | Embedded | 20260720  | Modeling           | MIT          | https://github.com/rohanmohapatra/hdbscan-cpp |
 | imgui            | Embedded | 1.92.5    | UI, App            | MIT          | https://github.com/ocornut/imgui |
 | imgui-knobs      | Embedded | 20251211  | UI                 | MIT          | https://github.com/altschuler/imgui-knobs |
 | ImGuizmo         | Embedded | 20251211  | UI                 | MIT          | https://github.com/CedricGuillemet/ImGuizmo |
