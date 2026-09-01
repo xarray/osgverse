@@ -45,6 +45,22 @@ namespace osgVerse
             SkinningData() : skeletonBaseIndex(-1), invBindPoseAccessor(-1) {}
         };
 
+        struct VrmCharacterData
+        {
+            struct BlendshapeMaterial { std::vector<float> matValues; std::string matName, matProperty; };
+            struct BlendshapeBind { unsigned int mesh, index; float weight; };
+            struct BlendshapeSubdata
+            { unsigned int preset; std::vector<BlendshapeMaterial> mats; std::vector<BlendshapeBind> binds; };
+            std::map<std::string, BlendshapeSubdata> blendshapeMap;
+
+            struct HumanoidSubdata
+            {
+                osg::Vec3 minV, maxV;
+                unsigned int preset, node;
+            };
+            std::map<std::string, HumanoidSubdata> humanoidMap;
+        };
+
         virtual ~LoaderGLTF() {}
         osg::Node* createNode(int id, tinygltf::Node& node);
         osg::Texture* createTexture(const std::string& name, tinygltf::Texture& tex);
@@ -80,6 +96,7 @@ namespace osgVerse
         std::vector<DeferredMeshData> _deferredMeshList;
         std::vector<SkinningData> _skinningDataList;
         osg::ref_ptr<osg::MatrixTransform> _root;
+        VrmCharacterData _vrmCharacterData;
         tinygltf::Model _modelDef;
         std::string _workingDir;
         int _usingMaterialPBR; bool _3dtilesFormat;

@@ -464,20 +464,46 @@ namespace osgVerse
                     try
                     {
                         std::string jsonString = convertJson(_modelDef.extensions["VRM"]).serialize();
-                        nlohmann::json json = nlohmann::json::parse("{\"VRM\":" + jsonString + "}");
+                        nlohmann::json json = nlohmann::json::parse(jsonString);
                         try
                         {
-                            VRMC_VRM_1_0::Vrm vrm; VRMC_VRM_1_0::from_json(json, vrm);
-                            // TODO
+                            VRMC_VRM_1_0::Vrm vrm; VRMC_VRM_1_0::from_json(json, vrm);  // TODO
+                            OSG_WARN << "[LoaderGLTF] VRM 1.0: to be implemented" << std::endl;
                         }
                         catch (...)
                         {
                             VRMC_VRM_0_0::Vrm vrm; VRMC_VRM_0_0::from_json(json, vrm);
-                            // TODO
+                            for (size_t i = 0; i < vrm.humanoid.humanBones.size(); ++i)
+                            {
+                                VRMC_VRM_0_0::HumanoidBone& hb = vrm.humanoid.humanBones[i];
+                                VrmCharacterData::HumanoidSubdata d { osg::Vec3(hb.min.x, hb.min.y, hb.min.z),
+                                                                      osg::Vec3(hb.max.x, hb.max.y, hb.max.z),
+                                                                      (unsigned int)hb.bone, hb.node };
+                                nlohmann::json name; VRMC_VRM_0_0::to_json(name, hb.bone);
+                                _vrmCharacterData.humanoidMap[name.get<std::string>()] = d;
+                            }
+
+                            for (size_t i = 0; i < vrm.blendShapeMaster.blendShapeGroups.size(); ++i)
+                            {
+                                VRMC_VRM_0_0::BlendshapeGroup& bsg = vrm.blendShapeMaster.blendShapeGroups[i];
+                                VrmCharacterData::BlendshapeSubdata d { (unsigned int)bsg.presetName };
+                                for (size_t j = 0; j < bsg.materialValues.size(); ++j)
+                                {
+                                    VRMC_VRM_0_0::BlendshapeMaterialbind& mb = bsg.materialValues[j];
+                                    d.mats.push_back({ mb.targetValue, mb.materialName, mb.propertyName });
+                                }
+                                for (size_t j = 0; j < bsg.binds.size(); ++j)
+                                {
+                                    VRMC_VRM_0_0::BlendshapeBind& bb = bsg.binds[j];
+                                    d.binds.push_back({ bb.mesh, bb.index, bb.weight });
+                                }
+                                nlohmann::json name; VRMC_VRM_0_0::to_json(name, bsg.presetName);
+                                _vrmCharacterData.blendshapeMap[name.get<std::string>()] = d;
+                            }
                         }
                     }
                     catch(const std::exception& e)
-                        { OSG_WARN << "[LoaderGLTF] " << e.what() << '\n'; }
+                        { OSG_WARN << "[LoaderGLTF] VRM loading failed: " << e.what() << '\n'; }
                 }
             }
         }
