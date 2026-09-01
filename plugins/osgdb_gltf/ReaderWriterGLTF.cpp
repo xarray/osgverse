@@ -23,6 +23,7 @@ public:
         supportsExtension("i3dm", "Cesium instanced 3D model");
         supportsExtension("cmpt", "Cesium cmposite tiles");
         supportsExtension("pnts", "Cesium point-cloud tiles");
+        supportsExtension("vrm", "VRM Characters in VR and VTubers");
         supportsOption("Directory", "Setting the working directory");
         supportsOption("Mode", "Set to 'ascii/binary' to read specific GLTF data");
         supportsOption("DisabledPBR", "Use PBR materials or not");
@@ -58,7 +59,7 @@ public:
             std::ifstream fin(fileName, std::ios::in | std::ios::binary);
             group = readCesiumFormatPnts(fin, osgDB::getFilePath(fileName));
         }
-        else if (ext == "glb" || ext == "b3dm" || ext == "i3dm")
+        else if (ext == "glb" || ext == "b3dm" || ext == "i3dm" || ext == "vrm")
             group = osgVerse::loadGltf(fileName, true, (noPBR == 1) ? 0 : (forcedPBR == 0 ? 1 : 2), yUp == 0).get();
         else
             group = osgVerse::loadGltf(fileName, false, (noPBR == 1) ? 0 : (forcedPBR == 0 ? 1 : 2), yUp == 0).get();

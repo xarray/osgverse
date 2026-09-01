@@ -293,6 +293,7 @@ namespace osgVerse
         regObject->addFileExtensionAlias("vdb", "verse_vdb");
         regObject->addFileExtensionAlias("gltf", "verse_gltf");
         regObject->addFileExtensionAlias("glb", "verse_gltf");
+        regObject->addFileExtensionAlias("vrm", "verse_gltf");
         //regObject->addFileExtensionAlias("tiff", "verse_tiff");
         regObject->addFileExtensionAlias("json", "verse_tiles");
         regObject->addFileExtensionAlias("s3c", "verse_tiles");

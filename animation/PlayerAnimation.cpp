@@ -101,8 +101,8 @@ namespace ozz
                                 std::find(_nodeList.begin(), _nodeList.end(), parent);
                             if (itr != _nodeList.end())
                                 skeleton.joint_parents_[i] = std::distance(_nodeList.begin(), itr);
-                            else
-                                SK_ERROR("Parent node (" << parent->getName() << ") of " << t->getName() << " not in NodeList")
+                            //else
+                            //    SK_ERROR("Parent node (" << parent->getName() << ") of " << t->getName() << " not in NodeList")
                         }
                     }
                     //else

@@ -16,10 +16,6 @@
 #include "pipeline/Utilities.h"
 #include "MaterialGraph.h"
 #include "LoadTextureKTX.h"
-#include <libhv/all/client/requests.h>
-#include <picojson.h>
-#include <regex>
-#define DISABLE_SKINNING_DATA 0
 
 #define TINYGLTF_IMPLEMENTATION
 #ifdef VERSE_USE_DRACO
@@ -29,6 +25,15 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "LoadSceneGLTF.h"
 #include "Utilities.h"
+#include <regex>
+
+#include <picojson.h>
+#include <libhv/all/client/requests.h>
+#define USE_VRMC_VRM_0_0
+#define USE_VRMC_VRM_1_0
+#include <VRM.h>
+
+#define DISABLE_SKINNING_DATA 0
 
 namespace osgVerse
 {
@@ -46,8 +51,37 @@ namespace osgVerse
         "KHR_materials_specular",
         "KHR_materials_unlit",
         "KHR_gaussian_splatting",
-        "KHR_gaussian_splatting_compression_spz_2"
+        "KHR_gaussian_splatting_compression_spz_2",
+        "VRM"
     };
+
+    picojson::value convertJson(const tinygltf::Value& v)
+    {
+        switch (v.Type())
+        {
+            case tinygltf::NULL_TYPE:   return picojson::value();
+            case tinygltf::BOOL_TYPE:   return picojson::value(v.Get<bool>());
+            case tinygltf::INT_TYPE:    return picojson::value(static_cast<double>(v.Get<int>()));
+            case tinygltf::REAL_TYPE:   return picojson::value(v.Get<double>());
+            case tinygltf::STRING_TYPE: return picojson::value(v.Get<std::string>());
+            case tinygltf::ARRAY_TYPE:
+                {
+                    picojson::array arr;
+                    for (size_t i = 0; i < v.Size(); ++i)
+                        arr.push_back(convertJson(v.Get(int(i))));
+                    return picojson::value(arr);
+                }
+            case tinygltf::OBJECT_TYPE:
+                {
+                    picojson::object obj;
+                    for (const auto& key : v.Keys())
+                        obj[key] = convertJson(v.Get(key));
+                    return picojson::value(obj);
+                }
+            default:
+                return picojson::value();
+        }
+    }
 
     extern bool LoadBinaryV1(std::vector<char>& data, const std::string& baseDir);
 }
@@ -424,6 +458,26 @@ namespace osgVerse
 #else
                     _root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 #endif
+                }
+                else if (ex == "VRM")
+                {
+                    try
+                    {
+                        std::string jsonString = convertJson(_modelDef.extensions["VRM"]).serialize();
+                        nlohmann::json json = nlohmann::json::parse("{\"VRM\":" + jsonString + "}");
+                        try
+                        {
+                            VRMC_VRM_1_0::Vrm vrm; VRMC_VRM_1_0::from_json(json, vrm);
+                            // TODO
+                        }
+                        catch (...)
+                        {
+                            VRMC_VRM_0_0::Vrm vrm; VRMC_VRM_0_0::from_json(json, vrm);
+                            // TODO
+                        }
+                    }
+                    catch(const std::exception& e)
+                        { OSG_WARN << "[LoaderGLTF] " << e.what() << '\n'; }
                 }
             }
         }
