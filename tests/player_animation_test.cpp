@@ -57,6 +57,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::MatrixTransform> skeleton = new osg::MatrixTransform;
     osg::ref_ptr<osg::MatrixTransform> playerRoot = new osg::MatrixTransform;
     std::string animToPlay; arguments.read("--animation", animToPlay);
+    std::string bsToPlay; arguments.read("--blendshape", bsToPlay);
 
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
@@ -130,7 +131,8 @@ int main(int argc, char** argv)
                 OSG_NOTICE << bs->getBlendShapeData(j)->name << ", ";
             OSG_NOTICE << "... Total: " << bs->getNumBlendShapes() << std::endl;
         }
-        //animManager->setBlendShape("jawOpen", 1.0f);  // For blendshape test  // TODO
+        if (!bsToPlay.empty())
+            animManager->setBlendShape(bsToPlay, 1.0f);  // For blendshape test
 
         // Animations
         std::vector<std::string> animations = animManager->getAnimationNames();

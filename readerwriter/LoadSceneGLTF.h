@@ -28,10 +28,10 @@ namespace osgVerse
         struct DeferredMeshData
         {
             osg::ref_ptr<osg::Geode> meshRoot;
-            tinygltf::Mesh mesh; int skinIndex;
-            DeferredMeshData() : skinIndex(-1) {}
-            DeferredMeshData(osg::Geode* g, tinygltf::Mesh& m, int i)
-                : meshRoot(g), mesh(m), skinIndex(i) {}
+            tinygltf::Mesh mesh; int meshIndex, skinIndex;
+            DeferredMeshData() : meshIndex(-1), skinIndex(-1) {}
+            DeferredMeshData(osg::Geode* g, tinygltf::Mesh& m, int i0, int i1)
+                : meshRoot(g), mesh(m), meshIndex(i0), skinIndex(i1) {}
         };
 
         struct SkinningData
@@ -47,11 +47,15 @@ namespace osgVerse
 
         struct VrmCharacterData
         {
-            struct BlendshapeMaterial { std::vector<float> matValues; std::string matName, matProperty; };
-            struct BlendshapeBind { unsigned int mesh, index; float weight; };
+            typedef std::pair<unsigned int, unsigned int> BlendshapeIndex;
+            typedef std::pair<std::string, std::string> MaterialIndex;
+            struct BlendshapeMaterial { std::vector<float> matValues; MaterialIndex property; };
+            struct BlendshapeBind { BlendshapeIndex index; float weight; };
             struct BlendshapeSubdata
             { unsigned int preset; std::vector<BlendshapeMaterial> mats; std::vector<BlendshapeBind> binds; };
             std::map<std::string, BlendshapeSubdata> blendshapeMap;
+            std::map<BlendshapeIndex, std::string> blendshapeIndices;
+            std::map<MaterialIndex, std::string> blendshapeMatIndices;
 
             struct HumanoidSubdata
             {
@@ -59,6 +63,7 @@ namespace osgVerse
                 unsigned int preset, node;
             };
             std::map<std::string, HumanoidSubdata> humanoidMap;
+            std::map<unsigned int, std::string> humanoidIndices;
         };
 
         virtual ~LoaderGLTF() {}
@@ -66,7 +71,7 @@ namespace osgVerse
         osg::Texture* createTexture(const std::string& name, tinygltf::Texture& tex);
         osg::ref_ptr<osg::Geometry> createFromExtGaussianSplattingSPZ2(const std::string& name, int bufferViewID);
 
-        bool createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex);
+        bool createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int meshIndex, int skinIndex);
         void createMaterial(osg::StateSet* ss, tinygltf::Material mat);
         void createInvBindMatrices(SkinningData& sd, const std::vector<osg::Transform*>& bones,
                                    tinygltf::Accessor& accessor, const osg::Matrix& invParent);
