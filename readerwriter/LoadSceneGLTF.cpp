@@ -16,10 +16,6 @@
 #include "pipeline/Utilities.h"
 #include "MaterialGraph.h"
 #include "LoadTextureKTX.h"
-#include <libhv/all/client/requests.h>
-#include <picojson.h>
-#include <regex>
-#define DISABLE_SKINNING_DATA 0
 
 #define TINYGLTF_IMPLEMENTATION
 #ifdef VERSE_USE_DRACO
@@ -29,6 +25,15 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "LoadSceneGLTF.h"
 #include "Utilities.h"
+#include <regex>
+
+#include <picojson.h>
+#include <libhv/all/client/requests.h>
+#define USE_VRMC_VRM_0_0
+#define USE_VRMC_VRM_1_0
+#include <VRM.h>
+
+#define DISABLE_SKINNING_DATA 0
 
 namespace osgVerse
 {
@@ -46,8 +51,37 @@ namespace osgVerse
         "KHR_materials_specular",
         "KHR_materials_unlit",
         "KHR_gaussian_splatting",
-        "KHR_gaussian_splatting_compression_spz_2"
+        "KHR_gaussian_splatting_compression_spz_2",
+        "VRM"
     };
+
+    picojson::value convertJson(const tinygltf::Value& v)
+    {
+        switch (v.Type())
+        {
+            case tinygltf::NULL_TYPE:   return picojson::value();
+            case tinygltf::BOOL_TYPE:   return picojson::value(v.Get<bool>());
+            case tinygltf::INT_TYPE:    return picojson::value(static_cast<double>(v.Get<int>()));
+            case tinygltf::REAL_TYPE:   return picojson::value(v.Get<double>());
+            case tinygltf::STRING_TYPE: return picojson::value(v.Get<std::string>());
+            case tinygltf::ARRAY_TYPE:
+                {
+                    picojson::array arr;
+                    for (size_t i = 0; i < v.Size(); ++i)
+                        arr.push_back(convertJson(v.Get(int(i))));
+                    return picojson::value(arr);
+                }
+            case tinygltf::OBJECT_TYPE:
+                {
+                    picojson::object obj;
+                    for (const auto& key : v.Keys())
+                        obj[key] = convertJson(v.Get(key));
+                    return picojson::value(obj);
+                }
+            default:
+                return picojson::value();
+        }
+    }
 
     extern bool LoadBinaryV1(std::vector<char>& data, const std::string& baseDir);
 }
@@ -425,6 +459,61 @@ namespace osgVerse
                     _root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 #endif
                 }
+                else if (ex == "VRM")
+                {
+                    try
+                    {
+                        std::string jsonString = convertJson(_modelDef.extensions["VRM"]).serialize();
+                        nlohmann::json json = nlohmann::json::parse(jsonString);
+                        try
+                        {
+                            VRMC_VRM_1_0::Vrm vrm; VRMC_VRM_1_0::from_json(json, vrm);  // TODO
+                            OSG_WARN << "[LoaderGLTF] VRM 1.0: to be implemented" << std::endl;
+                        }
+                        catch (...)
+                        {
+                            VRMC_VRM_0_0::Vrm vrm; VRMC_VRM_0_0::from_json(json, vrm);
+                            for (size_t i = 0; i < vrm.humanoid.humanBones.size(); ++i)
+                            {
+                                VRMC_VRM_0_0::HumanoidBone& hb = vrm.humanoid.humanBones[i];
+                                nlohmann::json name; VRMC_VRM_0_0::to_json(name, hb.bone);
+                                std::string boneName = name.get<std::string>();
+
+                                VrmCharacterData::HumanoidSubdata d { osg::Vec3(hb.min.x, hb.min.y, hb.min.z),
+                                                                      osg::Vec3(hb.max.x, hb.max.y, hb.max.z),
+                                                                      (unsigned int)hb.bone, hb.node };
+                                _vrmCharacterData.humanoidMap[boneName] = d;
+                                _vrmCharacterData.humanoidIndices[hb.node] = boneName;
+                            }
+
+                            for (size_t i = 0; i < vrm.blendShapeMaster.blendShapeGroups.size(); ++i)
+                            {
+                                VRMC_VRM_0_0::BlendshapeGroup& bsg = vrm.blendShapeMaster.blendShapeGroups[i];
+                                VrmCharacterData::BlendshapeSubdata d { (unsigned int)bsg.presetName };
+                                nlohmann::json name; VRMC_VRM_0_0::to_json(name, bsg.presetName);
+                                std::string bsName = name.get<std::string>();
+
+                                for (size_t j = 0; j < bsg.materialValues.size(); ++j)
+                                {
+                                    VRMC_VRM_0_0::BlendshapeMaterialbind& mb = bsg.materialValues[j];
+                                    VrmCharacterData::MaterialIndex idx(mb.materialName, mb.propertyName);
+                                    d.mats.push_back({ mb.targetValue, idx });
+                                    _vrmCharacterData.blendshapeMatIndices[idx] = bsName;
+                                }
+                                for (size_t j = 0; j < bsg.binds.size(); ++j)
+                                {
+                                    VRMC_VRM_0_0::BlendshapeBind& bb = bsg.binds[j];
+                                    VrmCharacterData::BlendshapeIndex idx(bb.mesh, bb.index);
+                                    d.binds.push_back({ idx, bb.weight * 0.01f /* 100 -> 1 */ });
+                                    _vrmCharacterData.blendshapeIndices[idx] = bsName;
+                                }
+                                _vrmCharacterData.blendshapeMap[bsName] = d;
+                            }
+                        }
+                    }
+                    catch(const std::exception& e)
+                        { OSG_WARN << "[LoaderGLTF] VRM loading failed: " << e.what() << '\n'; }
+                }
             }
         }
         if (!err.empty()) OSG_WARN << "[LoaderGLTF] Errors found: " << err << std::endl;
@@ -460,7 +549,7 @@ namespace osgVerse
         for (size_t i = 0; i < _deferredMeshList.size(); ++i)
         {
             DeferredMeshData& mData = _deferredMeshList[i];
-            createMesh(mData.meshRoot.get(), mData.mesh, mData.skinIndex);
+            createMesh(mData.meshRoot.get(), mData.mesh, mData.meshIndex, mData.skinIndex);
         }
 
         // Configure skinning data and player objects
@@ -598,7 +687,7 @@ namespace osgVerse
             geode->setName(node.name + "_Geode");
             if (!node.extras_json_string.empty()) geode->addDescription(node.extras_json_string);
             _deferredMeshList.push_back(
-                DeferredMeshData(geode.get(), _modelDef.meshes[node.mesh], node.skin));
+                DeferredMeshData(geode.get(), _modelDef.meshes[node.mesh], node.mesh, node.skin));
         }
         /*if (emptyTRS && emptyM && node.children.empty())
         {
@@ -631,7 +720,7 @@ namespace osgVerse
         group->setMatrix(matrix); return group.release();
     }
 
-    bool LoaderGLTF::createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int skinIndex)
+    bool LoaderGLTF::createMesh(osg::Geode* geode, tinygltf::Mesh& mesh, int meshIndex, int skinIndex)
     {
         SkinningData* sd = (skinIndex < 0) ? NULL : &_skinningDataList[skinIndex];
 #if !DISABLE_SKINNING_DATA
@@ -994,9 +1083,25 @@ namespace osgVerse
                 createBlendshapeData(geom.get(), primitive.targets[j]);
         }  // for (size_t i = 0; i < mesh.primitives.size(); ++i)
 
-        bool withNames = mesh.extras.Has("targetNames");
-        if (!mesh.weights.empty()) applyBlendshapeWeights(geode, mesh.weights,
-            withNames ? mesh.extras.Get("targetNames") : tinygltf::Value());
+        std::vector<double> weights = mesh.weights; tinygltf::Value nameValue;
+        if (mesh.extras.Has("targetNames")) nameValue = mesh.extras.Get("targetNames");
+        if (weights.empty())
+        {
+            tinygltf::Value::Array names;
+            for (std::map<VrmCharacterData::BlendshapeIndex, std::string>::iterator
+                 it = _vrmCharacterData.blendshapeIndices.begin(); it != _vrmCharacterData.blendshapeIndices.end(); ++it)
+            {
+                unsigned int id = it->first.second; if (it->first.first != meshIndex) continue;
+                if (weights.size() <= id) { weights.resize(id + 1, 0.0); names.resize(id + 1, tinygltf::Value("")); }
+
+                VrmCharacterData::BlendshapeSubdata& sd = _vrmCharacterData.blendshapeMap[it->second];
+                for (size_t i = 0; i < sd.binds.size(); ++i)
+                { if (sd.binds[i].index.second == id) weights[id] = 0.0f; }
+                names[id] = tinygltf::Value(it->second);
+            }
+            nameValue = tinygltf::Value(names);
+        }
+        applyBlendshapeWeights(geode, weights, nameValue);
         return true;
     }
 
