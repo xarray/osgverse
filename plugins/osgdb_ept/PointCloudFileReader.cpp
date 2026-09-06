@@ -64,7 +64,7 @@ osg::Node* readNodeFromLaz(const std::string& file, const ReadEptSettings& setti
     }
 
     laszip_BOOL isCompressed = 0;
-    if (laszip_open_reader(laszipReader, file.c_str(), &isCompressed))
+    if (laszip_open_reader(laszipReader, osgDB::convertStringFromCurrentCodePageToUTF8(file).c_str(), &isCompressed))
     {
         char* msg = NULL; laszip_get_error(laszipReader, &msg);
         OSG_NOTICE << "Can't open reader for " << file << ": " << msg << std::endl;
