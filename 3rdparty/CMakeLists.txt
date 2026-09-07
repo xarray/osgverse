@@ -542,6 +542,14 @@ SET(FREESPLATTER_SOURCE_FILES
     freesplatter/free_splatter.cpp freesplatter/free_splatter.h
 )
 
+SET(SKINTOKENS_SOURCE_FILES
+    skintokens/backend.cpp skintokens/binding.cpp skintokens/c_api.cpp
+    skintokens/gguf.cpp skintokens/glb.cpp skintokens/mesh_encoder.cpp
+    skintokens/model.cpp skintokens/qwen.cpp skintokens/retarget.cpp
+    skintokens/skinning.cpp skintokens/skin_vae.cpp skintokens/tokenizer.cpp
+    skintokens/weights.cpp skintokens/skintokens.h skintokens/skintokens.hpp
+)
+
 SET(TRELLIS2_SOURCE_FILES
     trellis2/trellis2.cpp trellis2/trellis2.h trellis2/trellis2_capi.cpp trellis2/trellis2_capi.h
     trellis2/mesh_export.cpp trellis2/mesh_export.h trellis2/print_remesh.cpp trellis2/print_remesh.h
@@ -577,6 +585,7 @@ SOURCE_GROUP("Rasterizer Files" FILES ${RASTERIZER_SOURCE_FILES})
 SOURCE_GROUP("RecastNavigation Files" FILES ${RECAST_SOURCE_FILES})
 SOURCE_GROUP("RLottie Files" FILES ${RLOTTIE_SOURCE_FILES})
 SOURCE_GROUP("Shapelib Files" FILES ${SHAPELIB_SOURCE_FILES})
+SOURCE_GROUP("SkinTokens Files" FILES ${SKINTOKENS_SOURCE_FILES})
 SOURCE_GROUP("SMPLX++ Files" FILES ${SMPLXPP_SOURCE_FILES})
 SOURCE_GROUP("TinySpline Files" FILES ${TINYSPLINE_SOURCE_FILES})
 SOURCE_GROUP("Trellis2 Files" FILES ${TRELLIS2_SOURCE_FILES})
@@ -621,7 +630,7 @@ IF(GGML_FOUND AND VERSE_SUPPORT_CPP17)
     IF("avx512" IN_LIST VERSE_SIMD_FEATURES)
         SET(DEPTHANYTHING3_SOURCE_FILES ${DEPTHANYTHING3_SOURCE_FILES} winograd.cpp)
     ENDIF()
-    SET(LIBRARY_FILES ${LIBRARY_FILES} ${DEPTHANYTHING3_SOURCE_FILES}
+    SET(LIBRARY_FILES ${LIBRARY_FILES} ${DEPTHANYTHING3_SOURCE_FILES} ${SKINTOKENS_SOURCE_FILES}
                       ${FREESPLATTER_SOURCE_FILES} ${TRELLIS2_SOURCE_FILES})
     INCLUDE_DIRECTORIES(${GGML_INCLUDE_DIR})
 ENDIF()

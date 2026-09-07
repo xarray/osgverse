@@ -34,6 +34,7 @@
 | DepthAnything3++ | Embedded | 20260811  | AI (GGML)          | MIT          | https://github.com/localai-org/depth-anything.cpp |
 | Discregrid       | Embedded |           | Modeling           | MIT          | https://github.com/InteractiveComputerGraphics/Discregrid |
 | Eigen            | Embedded |           | -                  | MPL2         | https://gitlab.com/libeigen/eigen |
+| expected         | Embedded | 1.3.1     | -                  | CC0          | https://github.com/TartanLlama/expected |
 | exprtk           | Embedded |           | Modeling           | MIT          | https://github.com/ArashPartow/exprtk |
 | Fir & Iir        | Embedded |           | Animation          | MIT          | https://github.com/berndporr/iir1 |
 | FlatBuffers      | Embedded | 24.12.13  | verse_fgb          | Apache2      | https://github.com/google/flatbuffers |
