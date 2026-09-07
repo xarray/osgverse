@@ -16,6 +16,11 @@
 #include <osgViewer/View>
 #include <algorithm>
 #include <vector>
+#ifdef _WIN32
+#   include <direct.h>
+#else
+#   include <unistd.h>
+#endif
 
 #ifndef GL_BGRA_EXT
 #define GL_BGRA_EXT 0x80E1
@@ -27,6 +32,16 @@ namespace osgVerse
     // Forward declarations
     class WebApp;
     class WebClient;
+
+    std::string getCurrentDir()
+    {
+        char buf[4096];
+    #ifdef _WIN32
+        return _getcwd(buf, sizeof(buf)) ? std::string(buf) : std::string();
+    #else
+        return getcwd(buf, sizeof(buf)) ? std::string(buf) : std::string();
+    #endif
+    }
 
     // ========================================================================
     // JavaScript V8 Handler (executed in renderer process)
@@ -94,8 +109,12 @@ namespace osgVerse
         virtual void OnBeforeCommandLineProcessing(const CefString& process_type,
                                                    CefRefPtr<CefCommandLine> command_line) override
         {   // Essential for off-screen rendering to get CPU-accessible pixel buffer
+            command_line->AppendSwitch("no-sandbox");
+            command_line->AppendSwitch("disable-gpu-sandbox");
             command_line->AppendSwitch("disable-gpu");
             command_line->AppendSwitch("disable-gpu-compositing");
+            command_line->AppendSwitch("disable-software-rasterizer");
+            command_line->AppendSwitch("in-process-gpu");
             command_line->AppendSwitch("enable-begin-frame-scheduling");
             command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
         }
@@ -257,7 +276,7 @@ bool CefWebManager::initialize(osg::ArgumentParser& arguments, const std::string
     settings.windowless_rendering_enabled = true;
     settings.multi_threaded_message_loop = false;  // Manual message loop via CefDoMessageLoopWork
     if (!cachePath.empty())
-        CefString(&settings.cache_path) = cachePath;
+        CefString(&settings.cache_path) = getCurrentDir() + "/" + cachePath;
 
 #ifdef _WIN32
     CefMainArgs main_args(GetModuleHandle(NULL));
@@ -295,10 +314,7 @@ CefWebView* CefWebManager::createView(int width, int height, const std::string& 
 
     // Create placeholder texture
     view->_impl->texture = new osg::Texture2D;
-    view->_impl->texture->setTextureSize(width, height);
-    view->_impl->texture->setInternalFormat(GL_RGBA);
-    view->_impl->texture->setSourceFormat(GL_BGRA_EXT);
-    view->_impl->texture->setSourceType(GL_UNSIGNED_BYTE);
+    view->_impl->texture->setResizeNonPowerOfTwoHint(false);
     view->_impl->texture->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
     view->_impl->texture->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
     view->_impl->texture->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::CLAMP_TO_EDGE);
@@ -458,7 +474,7 @@ void CefWebView::sendCharEvent(int charCode)
 
 void CefWebView::updateTexture()
 {
-    // Process pending JS messages on main thread
+    // Process pending JS messages...
     if (!_impl) return;
     std::vector<CefWebViewImpl::JSMessage> messages;
     {
@@ -477,25 +493,27 @@ void CefWebView::updateTexture()
     OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_impl->mutex);
     if (!_impl->dirty) return;
 
-    // CEF OSR outputs 32-bit BGRA premultiplied alpha
-    osg::ref_ptr<osg::Image> image;
     if (!_impl->texture)
     {
-        image = new osg::Image;
         _impl->texture = new osg::Texture2D;
+        _impl->texture->setResizeNonPowerOfTwoHint(false);
         _impl->texture->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
         _impl->texture->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
         _impl->texture->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::CLAMP_TO_EDGE);
         _impl->texture->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::CLAMP_TO_EDGE);
-        _impl->texture->setImage(image.get());
     }
-    else
-        image = _impl->texture->getImage();
+    
+    osg::ref_ptr<osg::Image> image = _impl->texture->getImage();
+    if (!image || (image.valid() && (image->s() != _impl->width || image->t() != _impl->height)))
+    {
+        image = new osg::Image; _impl->texture->setImage(image.get());
+        image->allocateImage(_impl->width, _impl->height, 1, GL_BGRA_EXT, GL_UNSIGNED_BYTE);
+        image->setInternalTextureFormat(GL_RGBA8);
+    }
 
-    image->setImage(_impl->width, _impl->height, 1, GL_RGBA,
-                    GL_BGRA_EXT, GL_UNSIGNED_BYTE,
-                    _impl->pixelBuffer.data(), osg::Image::NO_DELETE);
-    image->dirty(); _impl->dirty = false;
+    if (!_impl->pixelBuffer.empty())
+        memcpy(image->data(), _impl->pixelBuffer.data(), _impl->pixelBuffer.size());
+    image->dirty(); _impl->dirty = false; 
 }
 
 // ========================================================================
@@ -506,6 +524,35 @@ CefWebEventHandler::CefWebEventHandler(CefWebView* view)
 
 void CefWebEventHandler::setViewportSize(int w, int h)
 { _width = w; _height = h; }
+
+void CefWebEventHandler::handleMouseClick(int x, int y, int button, int action)
+{
+    bool down = (action == osgGA::GUIEventAdapter::PUSH) ||
+                (action == osgGA::GUIEventAdapter::DOUBLECLICK);
+    int cefButton = (button == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON) ? 2 :
+                    (button == osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON) ? 1 : 0;
+    int clicks = (action == osgGA::GUIEventAdapter::DOUBLECLICK) ? 2 : 1;
+    _view->sendMouseClick(x, y, cefButton, down, clicks);
+    _lastX = x; _lastY = y;
+}
+
+void CefWebEventHandler::handleMouseMove(int x, int y, int button)
+{
+    bool leftDown = (button & osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) != 0;
+    _view->sendMouseMove(x, y, leftDown);
+    _lastX = x; _lastY = y;
+}
+
+void CefWebEventHandler::handleWheel(float dx, float dy)
+{ _view->sendMouseWheel(_lastX, _lastY, dx, dy); }
+
+void CefWebEventHandler::handleKey(int key, int modkey, int action)
+{
+    bool down = (action == osgGA::GUIEventAdapter::KEYDOWN);
+    int cefKey = mapOSGKeyToCEF(key); if (cefKey <= 0) return;
+    int modifiers = mapOSGModifiersToCEF(modkey);
+    _view->sendKeyEvent(cefKey, down, modifiers);
+}
 
 bool CefWebEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
 {
@@ -524,22 +571,9 @@ bool CefWebEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActi
     {
     case osgGA::GUIEventAdapter::PUSH: case osgGA::GUIEventAdapter::RELEASE:
     case osgGA::GUIEventAdapter::DOUBLECLICK:
-        {
-            bool down = (ea.getEventType() == osgGA::GUIEventAdapter::PUSH) ||
-                        (ea.getEventType() == osgGA::GUIEventAdapter::DOUBLECLICK);
-            int cefButton = (ea.getButton() == osgGA::GUIEventAdapter::RIGHT_MOUSE_BUTTON) ? 2 :
-                            (ea.getButton() == osgGA::GUIEventAdapter::MIDDLE_MOUSE_BUTTON) ? 1 : 0;
-            int clicks = (ea.getEventType() == osgGA::GUIEventAdapter::DOUBLECLICK) ? 2 : 1;
-            _view->sendMouseClick(x, y, cefButton, down, clicks);
-            _lastX = x; _lastY = y;
-        }
+        handleMouseClick(x, y, ea.getButton(), ea.getEventType()); break;
     case osgGA::GUIEventAdapter::MOVE: case osgGA::GUIEventAdapter::DRAG:
-        {
-            bool leftDown = (ea.getButtonMask() & osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON) != 0;
-            _view->sendMouseMove(x, y, leftDown);
-            _lastX = x; _lastY = y;
-            return true;
-        }
+        handleMouseClick(x, y, ea.getButtonMask(), ea.getEventType()); break;
     case osgGA::GUIEventAdapter::SCROLL:
         {
             float dy = 0.0f, dx = 0.0f;
@@ -547,16 +581,10 @@ bool CefWebEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActi
             else if (ea.getScrollingMotion() == osgGA::GUIEventAdapter::SCROLL_DOWN) dy = -100.0f;
             else if (ea.getScrollingMotion() == osgGA::GUIEventAdapter::SCROLL_LEFT) dx = -100.0f;
             else if (ea.getScrollingMotion() == osgGA::GUIEventAdapter::SCROLL_RIGHT) dx = 100.0f;
-            _view->sendMouseWheel(_lastX, _lastY, dx, dy);
+            handleWheel(dx, dy); break;
         }
-    case osgGA::GUIEventAdapter::KEYDOWN:
-    case osgGA::GUIEventAdapter::KEYUP:
-    {
-        bool down = (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN);
-        int cefKey = mapOSGKeyToCEF(ea.getKey());
-        int modifiers = mapOSGModifiersToCEF(ea.getModKeyMask());
-        _view->sendKeyEvent(cefKey, down, modifiers);
-    }
+    case osgGA::GUIEventAdapter::KEYDOWN: case osgGA::GUIEventAdapter::KEYUP:
+        handleKey(ea.getKey(), ea.getModKeyMask(), ea.getEventType()); break;
     default: break;
     }
     return false;

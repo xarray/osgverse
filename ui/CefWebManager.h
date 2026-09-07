@@ -110,6 +110,13 @@ namespace osgVerse
     public:
         CefWebEventHandler(CefWebView* view);
         void setViewportSize(int w, int h);
+
+        void handleMouseClick(int x, int y, int button, int action);
+        void handleMouseMove(int x, int y, int button);
+        void handleWheel(float dx, float dy);
+        void handleKey(int key, int modkey, int action);
+
+        // Not recommended. Should better use handle*() functions after intersection test
         virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
 
     protected:

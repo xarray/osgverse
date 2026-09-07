@@ -26,8 +26,8 @@ MACRO(NEW_SIMPLE_EXECUTABLE EXECUTABLE_NAME IS_CUDA SOURCE_FILE)
 
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
     TARGET_INCLUDE_DIRECTORIES(${EXE_NAME} PUBLIC ${EXTERNAL_INCLUDES})
-    TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseAI osgVerseDependency osgVerseReaderWriter osgVerseAnimation osgVersePipeline
-                          osgVerseWrappers osgVerseModeling osgVerseScript osgVerseUI ${EXTERNAL_LIBRARIES})
+    TARGET_LINK_LIBRARIES(${EXE_NAME} osgVerseAI osgVerseUI osgVerseReaderWriter osgVerseAnimation osgVersePipeline
+                          osgVerseWrappers osgVerseModeling osgVerseScript osgVerseDependency ${EXTERNAL_LIBRARIES})
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgViewer)
     IF(NOT VERSE_STATIC_BUILD)
         IF(MSVC AND VERSE_INSTALL_PDB_FILES)
@@ -90,6 +90,10 @@ IF(VERSE_SUPPORT_CPP17)
     IF(ONNXRUNTIME_FOUND)
         NEW_EXAMPLE(osgVerse_Test_Onnx onnx_engine_test.cpp)  # ONNX-based AI model load and inference example
     ENDIF(ONNXRUNTIME_FOUND)
+
+    IF(LIBCEF_FOUND)
+        NEW_EXAMPLE(osgVerse_Test_HTML5 html5_cef_test.cpp)  # HTML5 page loading and rendering example based on libCEF
+    ENDIF(LIBCEF_FOUND)
 ENDIF()
 
 IF(NOT VERSE_USE_EXTERNAL_GLES)
