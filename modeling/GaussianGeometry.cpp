@@ -396,8 +396,12 @@ bool GaussianGeometry::finalize(int vOffset, int vCount)
 
         // Apply shcoef attributes
         size_t shDataSize = _preDataMap2.size();
+        // The SH SSBO (binding 4) is only allocated for the INSTANCING method (see the
+        // constructor); the texture methods carry no SH at all. Upload whenever the reader
+        // supplied any band (3 layers = degree 1, 7 = degree 2, 15 = degree 3): the buffer is
+        // zero-filled, so absent higher bands read as 0 against the shader fixed 15-entry layout.
         bool noSH = (_method == INSTANCING_TEXTURE || _method == INSTANCING_TEX2D);
-        if (_degrees > 0 && shDataSize > 10 && noSH)
+        if (_degrees > 0 && shDataSize >= 3 && !noSH && _shcoefBuffer.valid())
         {
             size_t blockSize = _numSplats * sizeof(short) * 60;  // rgb4 * 15
             blockSize = ((blockSize + SSBO_ALIGNMENT - 1) / SSBO_ALIGNMENT) * SSBO_ALIGNMENT;
