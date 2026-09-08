@@ -12,6 +12,10 @@ namespace osgVerse
 {
 
     class CefWebView;
+
+    /** libCEF DLL wrapper library should be compiled from its prebuilt package (with /MD under MSVC).
+        After that, put all files in cefsimple (except cefsimple itself) to osgVerse executable folder
+     */
     class CefWebManager : public osg::Referenced
     {
     public:

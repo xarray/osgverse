@@ -50,12 +50,12 @@ namespace
             {
                 if (newNumTriangles < 65535)
                 {
-                    osg::DrawElementsUShort* de0 = static_cast<osg::DrawElementsUShort*>(geom.getPrimitiveSet(i));
+                    osg::DrawElementsUShort* de0 = dynamic_cast<osg::DrawElementsUShort*>(geom.getPrimitiveSet(i));
                     if (de0 && de0->getMode() == GL_TRIANGLES)
                     { de0->insert(de0->end(), f.triangles.begin(), f.triangles.end()); applied = true; break; }
                 }
 
-                osg::DrawElementsUInt* de = static_cast<osg::DrawElementsUInt*>(geom.getPrimitiveSet(i));
+                osg::DrawElementsUInt* de = dynamic_cast<osg::DrawElementsUInt*>(geom.getPrimitiveSet(i));
                 if (de && de->getMode() == GL_TRIANGLES)
                 { de->insert(de->end(), f.triangles.begin(), f.triangles.end()); applied = true; break; }
             }
@@ -187,7 +187,9 @@ namespace osgVerse
             }
 
             osg::ref_ptr<osg::PrimitiveSet> p = new osg::DrawArrays(f.getType(), 0, va->size() - vStart);
-            findAndAddPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet); break;
+            if (f.getType() < GL_TRIANGLES) geom->addPrimitiveSet(p);
+            else findAndAddPrimitiveSet(*geom, *p, vStart, asNewPrimitiveSet);
+            break;
         }
     }
 }

@@ -41,6 +41,13 @@ struct grid_cell_hash {
     }
 };
 
+static const float link_distance = 1.0e-5F;
+grid_cell close_cell(precise_vec3 value) {
+    return grid_cell{ static_cast<std::int64_t>(std::floor(value.x / link_distance)),
+                      static_cast<std::int64_t>(std::floor(value.y / link_distance)),
+                      static_cast<std::int64_t>(std::floor(value.z / link_distance)) };
+};
+
 struct dvec3 { double x, y, z; };
 
 // Minimal k=1 port of SciPy 1.15.3 cKDTree's default balanced/compact tree.
@@ -439,7 +446,6 @@ surface_result surface_weights(
     // they are within 1e-5. This reconnects coincident vertices introduced at
     // GLB seams; omitting it splits an otherwise continuous character into
     // components and produces apparently random remote influences.
-    constexpr float link_distance = 1.0e-5F;
     std::vector<dvec3> vertex_points;
     vertex_points.reserve(vertices.size());
     for (const auto value : vertices) vertex_points.push_back({value.x, value.y, value.z});
@@ -449,11 +455,7 @@ surface_result surface_weights(
         const auto value=vertices[index];
         return precise_vec3{value.x,value.y,value.z};
     };
-    const auto close_cell = [](precise_vec3 value) {
-        return grid_cell{static_cast<std::int64_t>(std::floor(value.x / link_distance)),
-                         static_cast<std::int64_t>(std::floor(value.y / link_distance)),
-                         static_cast<std::int64_t>(std::floor(value.z / link_distance))};
-    };
+    
     std::unordered_map<grid_cell, std::vector<std::uint32_t>, grid_cell_hash> close_buckets;
     close_buckets.reserve(vertices.size());
     for (std::size_t vertex = 0; vertex < vertices.size(); ++vertex)

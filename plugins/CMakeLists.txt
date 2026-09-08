@@ -23,6 +23,7 @@ ADD_SUBDIRECTORY(osgdb_mbtiles)
 ADD_SUBDIRECTORY(osgdb_mvt)
 ADD_SUBDIRECTORY(osgdb_mlt)
 ADD_SUBDIRECTORY(osgdb_osm)
+ADD_SUBDIRECTORY(osgdb_s57)
 ADD_SUBDIRECTORY(osgdb_shp)
 
 # images

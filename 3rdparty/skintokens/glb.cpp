@@ -2,12 +2,13 @@
 // independently written parser. This version additionally reads Kimodo node
 // animation channels and keeps the API deliberately bounded.
 #include "internal.hpp"
+#include <libhv/all/json.hpp>
+//#include <nlohmann/json.hpp>
 
-#include <nlohmann/json.hpp>
-
+#include <optional.hpp>
 #include <algorithm>
 #include <array>
-#include <bit>
+//#include <bit>
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -432,7 +433,7 @@ struct glb_builder {
 
     template<class T>
     std::size_t accessor_for(nonstd::span<const T> values, std::uint32_t component,
-                             std::string_view type, std::optional<std::uint32_t> target = std::nullopt,
+                             std::string_view type, nonstd::optional<std::uint32_t> target = std::nullopt,
                              json extra = {}) {
         align4(binary);
         const std::size_t offset = binary.size();

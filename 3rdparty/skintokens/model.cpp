@@ -1,6 +1,9 @@
 #include "internal.hpp"
 #include "binding.hpp"
 #include <optional.hpp>
+#ifdef _WIN32
+#   include <__msvc_int128.hpp>
+#endif
 
 #include <algorithm>
 #include <cstdlib>
@@ -422,6 +425,8 @@ public:
 private:
 #if defined(__SIZEOF_INT128__)
     __extension__ using uint128 = unsigned __int128;
+#elif defined(_WIN32) || defined(WIN32)
+    using uint128 = std::_Unsigned128;
 #else
 #error "The NumPy-compatible PCG64 inference sampler requires 128-bit integer support"
 #endif
