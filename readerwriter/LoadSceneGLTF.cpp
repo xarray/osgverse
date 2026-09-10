@@ -857,10 +857,28 @@ namespace osgVerse
                         osg::Vec4ubArray* ca4ub = new osg::Vec4ubArray(size); ca = ca4ub;
                         copyBufferData(&(*ca4ub)[0], &bufferData[offset], copySize, stride, size);
                     }
+                    else if (compSize == 2)
+                    {
+                        static const float invUS = 1.0f / (float)std::numeric_limits<unsigned short>::max();
+                        osg::ref_ptr<osg::Vec4usArray> ca4us = new osg::Vec4usArray(size);
+                        copyBufferData(&(*ca4us)[0], &bufferData[offset], copySize, stride, size);
+
+                        osg::Vec4Array* ca4f = new osg::Vec4Array(size); ca = ca4f;
+                        for (size_t cc = 0; cc < size; ++cc)
+                        {
+                            const osg::Vec4us& v = (*ca4us)[cc];
+                            (*ca4f)[cc] = osg::Vec4(v[0], v[1], v[2], v[3]) * invUS;
+                        }
+                    }
                     else if (compSize == 4)
                     {
                         osg::Vec4Array* ca4f = new osg::Vec4Array(size); ca = ca4f;
                         copyBufferData(&(*ca4f)[0], &bufferData[offset], copySize, stride, size);
+                    }
+                    else
+                    {
+                        OSG_WARN << "[LoaderGLTF] Unsupported component size " << compSize
+                                 << " of " << attrib->first << std::endl;
                     }
 
                     if (ca.valid())

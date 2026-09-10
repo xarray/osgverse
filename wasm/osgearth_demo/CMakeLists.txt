@@ -10,7 +10,7 @@ IF(USE_WASM_OSGEARTH)
     INCLUDE_DIRECTORIES(${THIRDPARTY_ROOT}/include)
     LINK_DIRECTORIES(${THIRDPARTY_ROOT}/lib)
     SET(EXTERNAL_LIBRARIES ${EXTERNAL_LIBRARIES}
-        expat proj iconv tiff tiffxx geotiff sharpyuv spatialite sqlite3 webp gdal geos geos_c
+        expat proj iconv jpeg Lerc tiff tiffxx geotiff sharpyuv spatialite sqlite3 webp gdal geos geos_c
         osgEarth osgEarthUtil osgEarthSymbology osgdb_osgearth_engine_mp osgdb_earth
         osgdb_osgearth_xyz osgdb_osgearth_tms osgdb_tiff)
 
