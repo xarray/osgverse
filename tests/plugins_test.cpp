@@ -12,7 +12,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
-#include <filesystem>
+#include <ghc/filesystem.hpp>
 #include <fstream>
 #include <cstdlib>
 
@@ -32,7 +32,7 @@ namespace backward { backward::SignalHandling sh; }
 #   include <unistd.h>
 #endif
 
-namespace fs = std::filesystem;
+namespace fs = ghc::filesystem;
 static bool g_colorEnabled = false;
 #define COLOR_RED_BEGIN  if (g_colorEnabled) std::cout << "\033[31;1m"
 #define COLOR_RED_END    if (g_colorEnabled) std::cout << "\033[0m"

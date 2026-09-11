@@ -18,12 +18,16 @@ ADD_SUBDIRECTORY(osgdb_potree)
 ADD_SUBDIRECTORY(osgdb_vdb)
 
 # vectors
-ADD_SUBDIRECTORY(osgdb_geojson)
+IF(MSVC AND MSVC_VERSION LESS 1909)
+    # Disable geojson & s57 plugins in VS2015
+ELSE()
+    ADD_SUBDIRECTORY(osgdb_geojson)
+    ADD_SUBDIRECTORY(osgdb_s57)
+ENDIF()
 ADD_SUBDIRECTORY(osgdb_mbtiles)
 ADD_SUBDIRECTORY(osgdb_mvt)
 ADD_SUBDIRECTORY(osgdb_mlt)
 ADD_SUBDIRECTORY(osgdb_osm)
-ADD_SUBDIRECTORY(osgdb_s57)
 ADD_SUBDIRECTORY(osgdb_shp)
 
 # images

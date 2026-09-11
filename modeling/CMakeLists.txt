@@ -1,13 +1,19 @@
 SET(LIB_NAME osgVerseModeling)
 SET(LIBRARY_INCLUDE_FILES
     MeshDeformer.h MeshTopology.h GeometryMerger.h GeometryMapper.h TextureMapping.h
-    FFDModeler.h AnnotationMaker.h AnnotationCluster.h DynamicGeometry.h GaussianGeometry.h
+    FFDModeler.h AnnotationMaker.h DynamicGeometry.h GaussianGeometry.h
     Math.h Octree.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    MeshDeformer.cpp MeshTopology.cpp FFDModeler.cpp AnnotationMaker.cpp AnnotationCluster.cpp
-    TextureMapping.cpp GeometryMerger.cpp GeometryMapper.cpp DynamicGeometry.cpp GaussianGeometry.cpp
+    MeshDeformer.cpp MeshTopology.cpp FFDModeler.cpp AnnotationMaker.cpp DynamicGeometry.cpp
+    TextureMapping.cpp GeometryMerger.cpp GeometryMapper.cpp GaussianGeometry.cpp
     Math.cpp Utilities.cpp UtilitiesEx.cpp
 )
+IF(MSVC AND MSVC_VERSION LESS 1909)
+    # Disable supercluster in VS2015
+ELSE()
+	SET(LIBRARY_INCLUDE_FILES ${LIBRARY_INCLUDE_FILES} AnnotationCluster.h)
+	SET(LIBRARY_FILES ${LIBRARY_FILES} AnnotationCluster.cpp AnnotationCluster.h)
+ENDIF()
 
 ADD_DEFINITIONS(-DUSINGZ -DGLEW_STATIC -DGLEW_NO_GLU -DIMGUI_IMPL_OPENGL_LOADER_GLEW)
 IF(VERSE_USE_EXTERNAL_GLES2)

@@ -76,11 +76,16 @@ NEW_EXAMPLE(osgVerse_Test_3DGS gaussian_splatting_test.cpp)  # 3D gaussian splat
 NEW_EXAMPLE(osgVerse_Test_Earth earth_test.cpp)  # Lightweight earth, atmosphere and ocean creation example
 NEW_EXAMPLE(osgVerse_Test_Forward_Pbr forward_pbr_test.cpp)  # Forward PBR rendering pass example
 NEW_EXAMPLE(osgVerse_Test_Pipeline pipeline_test.cpp)  # Basic pipeline usage and platform-testing example
-NEW_EXAMPLE(osgVerse_Test_Plugins plugins_test.cpp)  # Auto-check dependencies and printing out example
 NEW_EXAMPLE(osgVerse_Test_Report_Graph report_graph_test.cpp)  # Scene graph structure printer example
 NEW_EXAMPLE(osgVerse_Test_Shader_Library shader_library_test.cpp)  # Shader library loading and platform-testing example
 NEW_EXAMPLE(osgVerse_Test_Shadow shadow_test.cpp)  # Shadow algorithm and efficiency testing example
 NEW_EXAMPLE(osgVerse_Test_Video video_test.cpp)  # Hardware video decoding/encoding example (NV Codec or libVA)
+
+IF(MSVC AND MSVC_VERSION LESS 1909)
+	# Disable some modern examples and tests in VS2015
+ELSE()
+	NEW_EXAMPLE(osgVerse_Test_Plugins plugins_test.cpp)  # Auto-check dependencies and printing out example
+ENDIF()
 
 IF(VERSE_SUPPORT_CPP17)
     IF(GGML_FOUND)
@@ -111,12 +116,17 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Pbr_Prerequisite pbr_prerequisite.cpp)  # PBR necessary textures creator example
     NEW_EXAMPLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)  # Basic rigid physics example  // FIXME: with simple hint UI # TODO: physics_walk_test...
     NEW_EXAMPLE(osgVerse_Test_Player_Animation player_animation_test.cpp)  # Player animation example  // FIXME: with simple UI
-    NEW_EXAMPLE(osgVerse_Test_POI_Cluster poi_cluster_test.cpp)  # POI features reading and clustering example  // FIXME: with simple UI
     NEW_EXAMPLE(osgVerse_Test_Point_Cloud point_cloud_test.cpp)  # Point cloud with simple picking example  // FIXME: add eye-doming, UI
     NEW_EXAMPLE(osgVerse_Test_Polygon2D polygon2d_test.cpp)  # 2D polygon processing example  // FIXME: with simple hint UI
     NEW_EXAMPLE(osgVerse_Test_Symbols symbols_test.cpp)  # Massive symbol/label example  // FIXME: show on earth, with picking and UI
     NEW_EXAMPLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)  # Tween animation path example  // FIXME: with simple UI
     NEW_EXAMPLE(osgVerse_Test_Vision_Device vision_device_test.cpp)  # Vision device (webcam, RGBD...) example  // FIXME: with simple UI
+
+	IF(MSVC AND MSVC_VERSION LESS 1909)
+	    # Disable some modern examples and tests in VS2015
+	ELSE()
+	    NEW_EXAMPLE(osgVerse_Test_POI_Cluster poi_cluster_test.cpp)  # POI features reading and clustering example  // FIXME: with simple UI
+	ENDIF()
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
         NEW_EXAMPLE(osgVerse_Test_Scripting scripting_test.cpp)  # Script usage example  // FIXME: with simple hint UI

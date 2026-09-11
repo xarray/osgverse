@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 chcp 65001
 
-set BuildMode=""
+set BuildMode=-1
 set BuildGles2=0
 set BuildModeWasm=0
 set QuietMode=0
@@ -11,13 +11,13 @@ set CurrentDir=%cd%
 set OpenSceneGraphRoot=%CurrentDir%\..\OpenSceneGraph
 
 set OptionalDir=%1
-if "!OptionalDir!"=="DEFAULT" (set BuildMode="0" & set QuietMode=1)
-if "!OptionalDir!"=="CORE" (set BuildMode="1" & set QuietMode=1)
-if "!OptionalDir!"=="GLES2" (set BuildMode="2" & set BuildGles2=1 & set QuietMode=1)
-if "!OptionalDir!"=="GLES3" (set BuildMode="2" & set BuildGles2=0 & set QuietMode=1)
-if "!OptionalDir!"=="WEBGL1" (set BuildMode="3" & set QuietMode=1)
-if "!OptionalDir!"=="WEBGL2" (set BuildMode="4" & set QuietMode=1)
-if "!OptionalDir!"=="ANDROID" (set BuildMode="5" & set QuietMode=1)
+if "!OptionalDir!"=="DEFAULT" (set BuildMode=0& set QuietMode=1)
+if "!OptionalDir!"=="CORE" (set BuildMode=1& set QuietMode=1)
+if "!OptionalDir!"=="GLES2" (set BuildMode=2& set BuildGles2=1& set QuietMode=1)
+if "!OptionalDir!"=="GLES3" (set BuildMode=2& set BuildGles2=0& set QuietMode=1)
+if "!OptionalDir!"=="WEBGL1" (set BuildMode=3& set QuietMode=1)
+if "!OptionalDir!"=="WEBGL2" (set BuildMode=4& set QuietMode=1)
+if "!OptionalDir!"=="ANDROID" (set BuildMode=5& set QuietMode=1)
 if not "!BuildMode!"=="" set OptionalDir=%2
 
 if not "!OptionalDir!"=="" (
@@ -42,21 +42,21 @@ if not exist %OpenSceneGraphRoot%\ (
     )
 )
 
-if !QuietMode!==0 (
-    echo How do you like to compile OSG and osgVerse?
-    echo -----------------------------------
-    echo Please Select:
-    echo 0. Desktop / OpenGL Compatible Mode
-    echo 1. Desktop / OpenGL Core Mode
-    echo 2. Desktop / OpenGL ES
-    echo 3. WASM / WebGL 1.0
-    echo 4. WASM / WebGL 2.0 (optional with osgEarth)
-    echo 5. Android / OpenGLES 3
-    echo q. Quit
-    echo -----------------------------------
-    set /p BuildMode="Enter selection [0-5] > "
-)
+if "!QuietMode!"=="1" (goto postsel)
+echo How do you like to compile OSG and osgVerse?
+echo -----------------------------------
+echo Please Select:
+echo 0. Desktop / OpenGL Compatible Mode
+echo 1. Desktop / OpenGL Core Mode
+echo 2. Desktop / OpenGL ES
+echo 3. WASM / WebGL 1.0
+echo 4. WASM / WebGL 2.0 (optional with osgEarth)
+echo 5. Android / OpenGLES 3
+echo q. Quit
+echo -----------------------------------
+set /p BuildMode="Enter selection [0-5] > "
 
+:postsel
 if "!BuildMode!"=="0" (
     set BuildResultChecker=build\sdk\lib\osgViewer.lib
     set CMakeResultChecker=build\osg_def\CMakeCache.txt

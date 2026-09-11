@@ -125,7 +125,6 @@ SET(IMGUI_SOURCE_FILES
     imgui/GraphEditor.cpp imgui/GraphEditor.h imgui/ImCurveEdit.cpp imgui/ImCurveEdit.h
     imgui/ImGradient.cpp imgui/ImGradient.h imgui/ImSequencer.cpp imgui/ImSequencer.h
     imgui/ImGuizmo.cpp imgui/ImGuizmo.h imgui/ImZoomSlider.h imgui/imspinner.h
-    imgui/imgui_md.cpp imgui/imgui_md.h imgui/md4c.c imgui/md4c.h
 
 	imgui/node-editor/imgui_bezier_math.h imgui/node-editor/imgui_extra_math.h
 	imgui/node-editor/crude_json.cpp imgui/node-editor/crude_json.h
@@ -139,10 +138,17 @@ SET(IMGUI_SOURCE_FILES
 	imgui/imgui_impl_opengl3.cpp imgui/imgui_impl_opengl3.h
 )
 IF(VERSE_USE_EXTERNAL_GLES2 OR VERSE_USE_EXTERNAL_GLES3)
-    #
+    # Do nothing
 ELSE()
     SET(IMGUI_SOURCE_FILES ${IMGUI_SOURCE_FILES}
 		imgui/imgui_impl_opengl2.cpp imgui/imgui_impl_opengl2.h)
+ENDIF()
+IF(MSVC AND MSVC_VERSION LESS 1909)
+    # Disable md4c in VS2015
+	ADD_DEFINITIONS(-DVERSE_NO_IMGUI_MD)
+ELSE()
+    SET(IMGUI_SOURCE_FILES ${IMGUI_SOURCE_FILES}
+	    imgui/imgui_md.cpp imgui/imgui_md.h imgui/md4c.c imgui/md4c.h)
 ENDIF()
 
 SET(PINYIN_SOURCE_FILES

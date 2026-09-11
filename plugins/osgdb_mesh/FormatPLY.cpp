@@ -39,6 +39,7 @@ namespace
         {
             std::string name; size_t count = 0;
             std::vector<Property> properties;
+			Element(const std::string& n = "", size_t c = 0) : name(n), count(c) {}
         };
 
         struct Vertex
@@ -79,7 +80,7 @@ namespace
                 else if (keyword == "element")
                 {
                     std::string name; size_t count = 0; iss >> name >> count;
-                    elements.push_back({name, count, {}});
+                    elements.push_back(Element(name, count));
                     currentElement = &elements.back(); propIndexMap[name] = {};
                 }
                 else if (keyword == "property")
