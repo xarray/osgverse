@@ -17,7 +17,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 | UOS v20          | GCC 8.3 (or later)           | :heavy_check_mark: |       |
 | Mac OS X >14.4   | XCode                        | :heavy_check_mark: | Use Googla Angle to switch to Metal |
 | Android          | Android SDK 32 & NDK 27d     | :heavy_check_mark: | (TODO) Need to compile an example app |
-| Harmony          |                              | :soon:             |       |
+| OpenHarmony      | HarmonyCmd-26.0 (or later)   | :heavy_check_mark: | (TODO) Need to compile an example app |
 | IOS              |                              | :soon:             |       |
 | WebAssmebly      | Emscripten 3.1.64 (or later) | :heavy_check_mark: | Supports GLES2 (WebGL1) and GLES3 (WebGL2) |
 
@@ -371,6 +371,11 @@ Our project is already tested on graphics cards listed as below:
   - Download OpenJDK 17 from: https://jdk.java.net/archive/
     - Unzip and set the JAVA_HOME variable to `<jdk_folder>`
   - Download command-line tools from: https://developer.huawei.com/consumer/cn/download/
+  - Under Windows, run commands below in terminal:
+    - $ set HARMONY_CMD=`<harmony_cmd_folder>`
+    - $ cd `<osgverse_folder>`
+    - $ ./Setup.bat
+    - Select "6. Harmony / GLES3" and start building.
   - TBD...
 5. IOS
   - TBD...

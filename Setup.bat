@@ -2,9 +2,12 @@
 setlocal enabledelayedexpansion
 chcp 65001
 
+:: BuildSystemMode: 0 = MSVC, 1 = WASM, 2 = Harmony
+:: BuildMode: 0 = compat, 1 = core, 2 = gles, 3 = webgl1, 4 = webgl2, 5 = android, 6 = harmony
+set BuildSystemMode=0
 set BuildMode=-1
 set BuildGles2=0
-set BuildModeWasm=0
+
 set QuietMode=0
 set SourceCodePatched=0
 set CurrentDir=%cd%
@@ -52,9 +55,10 @@ echo 2. Desktop / OpenGL ES
 echo 3. WASM / WebGL 1.0
 echo 4. WASM / WebGL 2.0 (optional with osgEarth)
 echo 5. Android / OpenGLES 3
+echo 6. Harmony / OpenGLES 3
 echo q. Quit
 echo -----------------------------------
-set /p BuildMode="Enter selection [0-5] > "
+set /p BuildMode="Enter selection [0-6] > "
 
 :postsel
 if "!BuildMode!"=="0" (
@@ -84,41 +88,46 @@ if "!BuildMode!"=="2" (
 if "!BuildMode!"=="3" (
     set BuildResultChecker=build\sdk_wasm\lib\libosgViewer.a
     set CMakeResultChecker=build\osg_wasm\CMakeCache.txt
-    set BuildModeWasm=1
+    set BuildSystemMode=1
     goto precheck
 )
 if "!BuildMode!"=="4" (
     set BuildResultChecker=build\sdk_wasm2\lib\libosgViewer.a
     set CMakeResultChecker=build\osg_wasm2\CMakeCache.txt
-    set BuildModeWasm=1
+    set BuildSystemMode=1
     goto precheck
 )
 if "!BuildMode!"=="5" (
     goto precheck_android
 )
+if "!BuildMode!"=="6" (
+    set BuildResultChecker=build\sdk_harmony\lib\libosgViewer.so
+    set CMakeResultChecker=build\osg_harmony\CMakeCache.txt
+    set BuildSystemMode=2
+    goto precheck
+)
 if "!BuildMode!"=="q" (
     goto exit
 )
 echo Invalid option selected.
-pause
 goto exit
 
 :: Check if CMake is already configured, or OSG is already built
 :precheck
-set SkipOsgBuild="0"
+set SkipOsgBuild=0
 set UseWasmOption=1
 if exist %CurrentDir%\%BuildResultChecker% (
-    set SkipOsgBuild="1"
-    if !QuietMode!==0 (
+    set SkipOsgBuild=1
+    if "!QuietMode!"=="0" (
         set /p RebuildFlag="Would you like to use current OSG built (default: yes)? (y/n) > "
-        if /i "!RebuildFlag!"=="n" set SkipOsgBuild="0"
+        if /i "!RebuildFlag!"=="n" set SkipOsgBuild=0
     )
 )
 
 set BasicCmakeOptions=""
 set BuildTypeString=Release
 ver > nul
-if !BuildModeWasm!==0 (
+if "!BuildSystemMode!"=="0" (
     where msbuild -version >nul 2>&1
     if not %errorlevel%==0 (
         echo %errorlevel% MsBuild not found. Please start from Developer Command Prompt of Visual Studio.
@@ -147,7 +156,7 @@ if !BuildModeWasm!==0 (
     )
 
     :: Desktop build
-    if !QuietMode!==0 (
+    if "!QuietMode!"=="0" (
         set /p DebugLibFlag="Would you like to build Debug libraries (default: Release)? (y/n) > "
         if /i "!DebugLibFlag!"=="y" set BuildTypeString=Debug
     )
@@ -157,13 +166,13 @@ if !BuildModeWasm!==0 (
     echo Using CMake generator: %CMAKE_GENERATOR%
     if "!BuildMode!"=="2" (
         :: OpenGL ES
-        if not !SkipOsgBuild!=="1" (
+        if not "!SkipOsgBuild!"=="1" (
             set /p Gles2Flag="Would you like to compile GLES2 version (default: GLES3)? (y/n) > "
             if /i "!Gles2Flag!"=="y" set BuildGles2=1
         )
     )
 )
-if !BuildModeWasm!==1 (
+if "!BuildSystemMode!"=="1" (
     where ninja --version >nul 2>&1
     if not %errorlevel%==0 (
         echo Ninja not found. Please make sure it can be found in PATH variable.
@@ -180,13 +189,34 @@ if !BuildModeWasm!==1 (
         goto exit
     )
 
-    if !QuietMode!==0 (
+    if "!QuietMode!"=="0" (
         set /p Wasm64Flag="Would you like to use WASM 64bit (experimental, default: no)? (y/n) > "
         if /i "!Wasm64Flag!"=="y" set UseWasmOption=2
     )
-    set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
     set EmsdkToolchain="%EMSDK%\upstream\emscripten\cmake\Modules\Platform\Emscripten.cmake"
     set ThirdPartyBuildDir=%CurrentDir%\build\3rdparty_wasm
+    set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release
+)
+if "!BuildSystemMode!"=="2" (
+    if not defined HARMONY_CMD (
+        echo HARMONY_CMD variable not found. Please download HarmonyCmd-26.x.x.zip and extract it to specified folder.
+        goto exit
+    )
+    if not exist %HARMONY_CMD%\ (
+        echo HarmonyCmd folder not found. Please extract HarmonyCmd to folder and set variable HARMONY_CMD.
+        goto exit
+    )
+
+    :: Default architecture is arm64-v8a (aarch64). Alternatives: armeabi-v7a (arm-linux-ohos), x86_64 (x86_64-linux-ohos)
+    set HarmonyToolchain="%HARMONY_CMD%\sdk\default\openharmony\native\build\cmake\ohos.toolchain.cmake"
+    set "PATH=%HARMONY_CMD%\sdk\default\openharmony\native\build-tools\cmake\bin;%PATH%"
+    set ThirdPartyBuildDir=%CurrentDir%\build\3rdparty_harmony
+    set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release -DOHOS_ARCH=arm64-v8a
+
+    set HarmonyLibDir="%HARMONY_CMD%/sdk/default/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos"
+    set "HarmonyLibDir=!HarmonyLibDir:\=/!"
+    set GLES_LibPath="!HarmonyLibDir!/libGLESv3.so"
+    set EGL_LibPath="!HarmonyLibDir!/libEGL.so"
 )
 
 :: Compile 3rdparties
@@ -194,48 +224,51 @@ echo *** Building 3rdparty libraries...
 if not exist %ThirdPartyBuildDir%\ mkdir %ThirdPartyBuildDir%
 set ExtraOptions=""
 set ExtraOptions2=""
-if !BuildModeWasm!==0 (
-    if not !SkipOsgBuild!=="1" (
+if "!BuildSystemMode!"=="0" (
+    if not "!SkipOsgBuild!"=="1" (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% "%CurrentDir%\helpers\toolchain_builder"
         cmake --build . -j8 --config !BuildTypeString!
         if not !errorlevel! == 0 (goto exit)
     )
 )
-if !BuildModeWasm!==1 (
-    if not !SkipOsgBuild!=="1" (
+if "!BuildSystemMode!"=="1" (
+    if not "!SkipOsgBuild!"=="1" (
         cd %ThirdPartyBuildDir%
         cmake %BasicCmakeOptions% -DCMAKE_TOOLCHAIN_FILE="%EmsdkToolchain%" -DUSE_WASM_OPTIONS=!UseWasmOption! "%CurrentDir%\helpers\toolchain_builder"
         cmake --build . -j8
         if not !errorlevel! == 0 (goto exit)
     )
 )
+if "!BuildSystemMode!"=="2" (
+    if not "!SkipOsgBuild!"=="1" (
+        cd %ThirdPartyBuildDir%
+        cmake %BasicCmakeOptions% -DCMAKE_TOOLCHAIN_FILE="%HarmonyToolchain%" "%CurrentDir%\helpers\toolchain_builder"
+        cmake --build . -j8
+        if not !errorlevel! == 0 (goto exit)
+    )
+)
 
 set ThirdDepOptions=%BasicCmakeOptions% -DVERSE_BUILD_3RDPARTIES=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-if !BuildModeWasm!==0 (
-    set ThirdDepOptions=!ThirdDepOptions! ^
-        -DFREETYPE_INCLUDE_DIR_freetype2=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
-        -DFREETYPE_INCLUDE_DIR_ft2build=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+set ThirdDepIncludes=-DFREETYPE_INCLUDE_DIR_freetype2=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+                     -DFREETYPE_INCLUDE_DIR_ft2build=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+                     -DJPEG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\jpeg ^
+                     -DPNG_PNG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\png ^
+                     -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib
+if "!BuildSystemMode!"=="0" (
+    set ThirdDepOptions=!ThirdDepOptions! !ThirdDepIncludes! ^
         -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\!BuildTypeString!\freetype.lib ^
-        -DJPEG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\jpeg ^
         -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\!BuildTypeString!\jpeg.lib ^
-        -DPNG_PNG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\png ^
         -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\!BuildTypeString!\png.lib ^
-        -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
         -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\!BuildTypeString!\zlib.lib ^
         -DTIFF_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\tiff;%ThirdPartyBuildDir%\tiff ^
         -DTIFF_LIBRARY_RELEASE=%ThirdPartyBuildDir%\tiff\!BuildTypeString!\tiff.lib
 )
-if !BuildModeWasm!==1 (
-    set ThirdDepOptions=!ThirdDepOptions! ^
-        -DFREETYPE_INCLUDE_DIR_freetype2=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
-        -DFREETYPE_INCLUDE_DIR_ft2build=%CurrentDir%\helpers\toolchain_builder\freetype\include ^
+if "!BuildSystemMode!"=="1" (
+    set ThirdDepOptions=!ThirdDepOptions! !ThirdDepIncludes! ^
         -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\libfreetype.a ^
-        -DJPEG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\jpeg ^
         -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\libjpeg.a ^
-        -DPNG_PNG_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\png ^
         -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\libpng.a ^
-        -DZLIB_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\zlib ^
         -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\libzlib.a
     if exist "%CurrentDir%\..\Dependencies\wasm\lib\libtiff.a" (
         set ThirdDepOptions=!ThirdDepOptions! ^
@@ -243,10 +276,20 @@ if !BuildModeWasm!==1 (
             -DTIFF_LIBRARY_RELEASE=%CurrentDir%\..\Dependencies\wasm\lib\libtiff.a
     )
 )
+if "!BuildSystemMode!"=="2" (
+    set ThirdDepOptions=!ThirdDepOptions! !ThirdDepIncludes! ^
+        -DFREETYPE_LIBRARY_RELEASE=%ThirdPartyBuildDir%\freetype\libfreetype.a ^
+        -DJPEG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\jpeg\libjpeg.a ^
+        -DPNG_LIBRARY_RELEASE=%ThirdPartyBuildDir%\png\libpng.a ^
+        -DZLIB_LIBRARY_RELEASE=%ThirdPartyBuildDir%\zlib\libzlib.a ^
+        -DTIFF_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\tiff;%ThirdPartyBuildDir%\tiff ^
+        -DTIFF_LIBRARY_RELEASE=%ThirdPartyBuildDir%\tiff\libtiff.a
+    )
+)
 
 :: Fix some OpenSceneGraph compile errors
 set SedEXE=%CurrentDir%\wasm\sed.exe
-if not !SkipOsgBuild!=="1" (
+if not "!SkipOsgBuild!"=="1" (
     echo *** Automatically patching source code...
     set SourceCodePatched=1
 
@@ -276,6 +319,13 @@ if not !SkipOsgBuild!=="1" (
     %SedEXE% -i.bak "s#ifndef GL_EXT_texture_compression_s3tc#if defined(GL_EXT_texture_compression_s3tc)==0 || defined(GL_EXT_texture_compression_s3tc_srgb)==0#g" "%OpenSceneGraphRoot%\include/osg/Texture"
     %SedEXE% -i.bak "s#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
     %SedEXE% -i.bak "s#case(GL_HALF_FLOAT):#case GL_HALF_FLOAT: case 0x8D61:#g" "%OpenSceneGraphRoot%\src\osg\Image.cpp"
+
+    :: Fix OpenHarmony compilation errors
+    if "!BuildMode!"=="6" (
+        %SedEXE% -i.bak "s/ADD_DEFINITIONS(-DHAVE_PTHREAD_TESTCANCEL)/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_TESTCANCEL)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
+        %SedEXE% -i.bak "s/ADD_DEFINITIONS(-DHAVE_PTHREAD_CANCEL)/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_CANCEL)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
+        %SedEXE% -i.bak "s/ADD_DEFINITIONS(-DHAVE_PTHREAD_SETCANCELSTATE)/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_SETCANCELSTATE)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
+    )
 )
 
 :: Compile OpenSceneGraph
@@ -284,7 +334,7 @@ if "!BuildMode!"=="0" (
     :: OpenGL Compatible Profile
     if not exist %CurrentDir%\build\osg_def\ mkdir %CurrentDir%\build\osg_def
     set ExtraOptions=-DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk
-    if not !SkipOsgBuild!=="1" (
+    if not "!SkipOsgBuild!"=="1" (
         cd %CurrentDir%\build\osg_def
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
         cmake --build . -j8 --target install --config !BuildTypeString!
@@ -298,7 +348,7 @@ if "!BuildMode!"=="1" (
         -DGLCORE_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_core
-    if not !SkipOsgBuild!=="1" (
+    if not "!SkipOsgBuild!"=="1" (
         cd %CurrentDir%\build\osg_core
         echo "cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%"
         cmake !ThirdDepOptions! !ExtraOptions! %OpenSceneGraphRoot%
@@ -313,9 +363,9 @@ if "!BuildMode!"=="2" (
         -DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
         -DEGL_LIBRARY=%EGL_LibPath% -DOPENGL_gl_LIBRARY=%GLES_LibPath% ^
         -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_es
-    if not !SkipOsgBuild!=="1" (
+    if not "!SkipOsgBuild!"=="1" (
         cd %CurrentDir%\build\osg_es
-        if !BuildGles2!==1 (
+        if "!BuildGles2!"=="1" (
             cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES2 %OpenSceneGraphRoot%
         ) else (
             cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES3 %OpenSceneGraphRoot%
@@ -333,7 +383,7 @@ if "!BuildMode!"=="3" (
         -DUSE_WASM_OPTIONS=!UseWasmOption! ^
         -DOSG_SOURCE_DIR=%OpenSceneGraphRoot% ^
         -DOSG_BUILD_DIR=%CurrentDir%\build\osg_wasm\osg
-    if not !SkipOsgBuild!=="1" (
+    if not "!SkipOsgBuild!"=="1" (
         cd %CurrentDir%\build\osg_wasm
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm
         cmake --build . -j8 --target install --config Release
@@ -349,10 +399,25 @@ if "!BuildMode!"=="4" (
         -DUSE_WASM_OPTIONS=!UseWasmOption! ^
         -DOSG_SOURCE_DIR=%OpenSceneGraphRoot% ^
         -DOSG_BUILD_DIR=%CurrentDir%\build\osg_wasm2\osg
-    if not !SkipOsgBuild!=="1" (
+    if not "!SkipOsgBuild!"=="1" (
         cd %CurrentDir%\build\osg_wasm2
         cmake !ThirdDepOptions! !ExtraOptions! %CurrentDir%\helpers\osg_builder\wasm2
         cmake --build . -j8 --target install --config Release
+        if not !errorlevel! == 0 (goto exit)
+    )
+)
+if "!BuildMode!"=="6" (
+    :: Harmony: OpenGLES 3
+    if not exist %CurrentDir%\build\osg_harmony\ mkdir %CurrentDir%\build\osg_harmony
+    set ExtraOptions=-DCMAKE_TOOLCHAIN_FILE="%HarmonyToolchain%" -DOSG_WINDOWING_SYSTEM=None ^
+        -DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl;%CurrentDir%\helpers\osg_builder\ohos ^
+        -DEGL_LIBRARY=%EGL_LibPath% -DOPENGL_gl_LIBRARY=%GLES_LibPath% ^
+        -DCMAKE_INSTALL_PREFIX=%CurrentDir%\build\sdk_harmony ^
+        -D_OPENTHREADS_ATOMIC_USE_GCC_BUILTINS_EXITCODE="0"
+    if not "!SkipOsgBuild!"=="1" (
+        cd %CurrentDir%\build\osg_harmony
+        cmake !ThirdDepOptions! !ExtraOptions! -DOPENGL_PROFILE=GLES3 %OpenSceneGraphRoot%
+        cmake --build . -j8 --target install
         if not !errorlevel! == 0 (goto exit)
     )
 )
@@ -381,7 +446,7 @@ if "!BuildMode!"=="4" (
 echo *** Building osgVerse...
 set OsgRootLocation=""
 if "!BuildMode!"=="0" (
-    :: OpenGL Compatible Profile
+    :: Desktop: OpenGL Compatible Profile
     if not exist %CurrentDir%\build\verse_def\ mkdir %CurrentDir%\build\verse_def
     cd %CurrentDir%\build\verse_def
     cmake !ThirdDepOptions! !ExtraOptions! -DOSG_ROOT="%CurrentDir%\build\sdk" %CurrentDir%
@@ -389,7 +454,7 @@ if "!BuildMode!"=="0" (
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="1" (
-    :: OpenGL Core Profile
+    :: Desktop: OpenGL Core Profile
     if not exist %CurrentDir%\build\verse_core\ mkdir %CurrentDir%\build\verse_core
     cd %CurrentDir%\build\verse_core
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl
@@ -398,7 +463,7 @@ if "!BuildMode!"=="1" (
     if not !errorlevel! == 0 (goto exit)
 )
 if "!BuildMode!"=="2" (
-    :: OpenGL ES
+    :: Desktop: OpenGL ES
     if not exist %CurrentDir%\build\verse_es\ mkdir %CurrentDir%\build\verse_es
     cd %CurrentDir%\build\verse_es
     set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
@@ -423,6 +488,16 @@ if "!BuildMode!"=="4" (
     cd %CurrentDir%\build\verse_wasm2
     cmake !ThirdDepOptions! !ExtraOptions! -DUSE_WASM_OPTIONS=!UseWasmOption! -DUSE_WASM_OSGEARTH=!WithOsgEarth! -DOSG_ROOT="!OsgRootLocation!" %CurrentDir%
     cmake --build . -j8 --target install --config Release
+    if not !errorlevel! == 0 (goto exit)
+)
+if "!BuildMode!"=="6" (
+    :: Harmony toolchain: OpenGL ES
+    if not exist %CurrentDir%\build\verse_harmony\ mkdir %CurrentDir%\build\verse_harmony
+    cd %CurrentDir%\build\verse_harmony
+    set ExtraOptions2=-DOPENGL_INCLUDE_DIR=%CurrentDir%\helpers\toolchain_builder\opengl ^
+                      -DOSG_EGL_LIBRARY=%EGL_LibPath% -DOSG_GLES_LIBRARY=%GLES_LibPath% -DVERSE_ENABLE_GLFW=OFF
+    cmake !ThirdDepOptions! !ExtraOptions! !ExtraOptions2! -DOSG_ROOT="%CurrentDir%\build\sdk_harmony" %CurrentDir%
+    cmake --build . -j8 --target install
     if not !errorlevel! == 0 (goto exit)
 )
 goto exit
@@ -467,7 +542,7 @@ if not exist %GradleLocalPropFile% (
     )
 )
 
-if !QuietMode!==0 (
+if "!QuietMode!"=="0" (
     set /p AndroidCheckingFlag="Would you like to set a specific SDK version (default: no)? (y/n) > "
     if /i "!AndroidCheckingFlag!"=="y" (
         set /p BuildToolsVersion="Please set build-tools version (e.g. 32.0.0) > "
@@ -503,7 +578,7 @@ if not %errorlevel%==0 (
 cd %CurrentDir%
 
 :: Reset some OpenSceneGraph source code
-if !SourceCodePatched!==1 (
+if "!SourceCodePatched!"=="1" (
     echo *** Automatically unpatching source code...
     %SedEXE% -i.bak "s/TARGET_EXTERNAL_LIBRARIES ${PNG_LIBRARY} ${FREETYPE_LIBRARIES}/TARGET_EXTERNAL_LIBRARIES ${FREETYPE_LIBRARIES}/g" "%OpenSceneGraphRoot%\src\osgPlugins\freetype\CMakeLists.txt"
     %SedEXE% -i.bak "s/ADD_PLUGIN_DIRECTORY(#cfg)/#ADD_PLUGIN_DIRECTORY(cfg)/g" "%OpenSceneGraphRoot%\src\osgPlugins\CMakeLists.txt"
@@ -514,6 +589,12 @@ if !SourceCodePatched!==1 (
     %SedEXE% -i.bak "s#NULL;\/\/dlopen\/\/(#dlopen(#g" "%OpenSceneGraphRoot%\src\osgDB\DynamicLibrary.cpp"
     %SedEXE% -i.bak "s#;\/\/glTexParameterf(target, \/\/GL_TEXTURE_LOD_BIAS, _lodbias)#glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias)#g" "%OpenSceneGraphRoot%\src\osg\Texture.cpp"
     %SedEXE% -i.bak "s#isTexture2DArraySupported = isTexture3DSupported;\/\/validContext#isTexture2DArraySupported = validContext#g" "%OpenSceneGraphRoot%\src\osg\GLExtensions.cpp"
+
+    if "!BuildMode!"=="6" (
+        %SedEXE% -i.bak "s/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_TESTCANCEL)/ADD_DEFINITIONS(-DHAVE_PTHREAD_TESTCANCEL)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
+        %SedEXE% -i.bak "s/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_CANCEL)/ADD_DEFINITIONS(-DHAVE_PTHREAD_CANCEL)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
+        %SedEXE% -i.bak "s/#ADD_DEFINITIONS(#-DHAVE_PTHREAD_SETCANCELSTATE)/ADD_DEFINITIONS(-DHAVE_PTHREAD_SETCANCELSTATE)/g" "%OpenSceneGraphRoot%\src\OpenThreads\pthreads\CMakeLists.txt"
+    )
 )
 echo Quited.
 endlocal

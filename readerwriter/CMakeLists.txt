@@ -1,16 +1,23 @@
 SET(LIB_NAME osgVerseReaderWriter)
 SET(LIBRARY_INCLUDE_FILES
     Utilities.h OsgbTileOptimizer.h DracoProcessor.h FileCache.h DatabasePager.h
-    TileCallback.h EarthManipulator.h GraphicsWindowGLFW.h VisionDevice.h
-    MaterialGraph.h NamedObjectFinder.h FeatureDefinition.h Export.h
+    TileCallback.h EarthManipulator.h VisionDevice.h MaterialGraph.h
+    NamedObjectFinder.h FeatureDefinition.h Export.h
 )
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     LoadSceneFBX.cpp LoadSceneFBX.h LoadSceneGLTF.cpp LoadSceneGLTFv1.cpp LoadSceneGLTF.h
     LoadTextureKTX.cpp LoadTextureKTX.h SaveSceneGLTF.cpp SaveSceneGLTF.h MimeTypes.cpp GLEnums.cpp
     DracoProcessor.cpp FileCache.cpp DatabasePager.cpp OsgbTileOptimizer.cpp FeatureDefinition.cpp
-    TileCallback.cpp EarthManipulator.cpp GraphicsWindowGLFW.cpp VisionDevice.cpp
-    MaterialGraph.cpp Utilities.cpp UtilitiesEx.cpp
+    TileCallback.cpp EarthManipulator.cpp VisionDevice.cpp MaterialGraph.cpp
+    Utilities.cpp UtilitiesEx.cpp
 )
+
+IF(VERSE_USE_OHOS)
+    # TODO: what to use?
+ELSE(VERSE_USE_OHOS)
+    SET(LIBRARY_INCLUDE_FILES ${LIBRARY_INCLUDE_FILES} GraphicsWindowGLFW.h)
+    SET(LIBRARY_FILES ${LIBRARY_FILES} GraphicsWindowGLFW.cpp GraphicsWindowGLFW.h)
+ENDIF(VERSE_USE_OHOS)
 
 IF(WIN32 AND NOT VERSE_USE_EXTERNAL_GLES)
     SET(LIBRARY_WIN32_INCLUDE_FILES GraphicsWindowWin32NV.h)
@@ -61,13 +68,16 @@ ELSE()
 ENDIF()
 
 TARGET_COMPILE_OPTIONS(${LIB_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
-TARGET_LINK_LIBRARIES(${LIB_NAME} glfw)
 TARGET_LINK_LIBRARIES(${LIB_NAME} osgVerseDependency osgVerseAnimation osgVerseModeling osgVersePipeline)
 LINK_OSG_LIBRARY(${LIB_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgViewer)
 IF(APPLE)
     TARGET_LINK_LIBRARIES(${LIB_NAME} "-framework QuartzCore")
     TARGET_LINK_LIBRARIES(${LIB_NAME} objc)
 ENDIF(APPLE)
+
+IF(NOT VERSE_USE_OHOS)
+    TARGET_LINK_LIBRARIES(${LIB_NAME} glfw)
+ENDIF(NOT VERSE_USE_OHOS)
 
 IF(SDL3_FOUND)
     TARGET_LINK_LIBRARIES(${LIB_NAME} SDL3)
