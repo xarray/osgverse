@@ -1,8 +1,9 @@
-// Kernel launcher interface: implemented by fusion_kernel.cu (compiled by nvcc,
-// or by g++ in host-emulation mode). The orchestration layer
-// (cuda_integrator.cpp) does not include any CUDA header directly and only
-// interacts through this interface, so the two backends can be swapped
-// seamlessly.
+// Kernel launcher interface: implemented by fusion_kernel.cu (compiled by nvcc)
+// for CUDA, and by fusion_kernel.mu (compiled by mcc) for MooreThreads MUSA;
+// either one can also be compiled by g++ in host-emulation mode. The
+// orchestration layer (cuda_integrator.cpp) does not include any GPU runtime
+// header directly and only interacts through this interface, so the backends can
+// be swapped seamlessly.
 
 #ifndef CHISEL_CUDA_KERNEL_LAUNCHER_H_
 #define CHISEL_CUDA_KERNEL_LAUNCHER_H_
@@ -37,7 +38,7 @@ namespace chisel_cuda
                           float maxWeight,
                           int* updatedFlags);
 
-    // "cuda" or "host-emulation"
+    // "cuda" / "musa", or "host-emulation"
     const char* KernelBackend();
 
 } // namespace chisel_cuda

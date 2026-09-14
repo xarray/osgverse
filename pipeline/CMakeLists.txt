@@ -47,6 +47,8 @@ IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
     TARGET_LINK_LIBRARIES(${LIB_NAME} ${CUDA_CUDA_LIBRARY})
 ELSEIF(MUSA_FOUND AND VERSE_BUILD_WITH_MUSA)
     SET(LIBRARY_FILES ${LIBRARY_FILES}
+        chisel_gpu/cuda_integrator.cpp chisel_gpu/cuda_integrator.h
+        chisel_gpu/fusion_kernel.mu chisel_gpu/kernel_launcher.h
         MusaUtils/BitDepth.mu MusaUtils/ColorSpace.mu MusaUtils/ColorSpace.h
         MusaUtils/Letterbox.mu MusaUtils/CudaUtilities.mu)
     ADD_DEFINITIONS(-DVERSE_WITH_CUDA=1)

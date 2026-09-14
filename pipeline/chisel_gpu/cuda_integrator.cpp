@@ -2,12 +2,12 @@
 //   1) Reuse OpenChisel's frustum culling and chunk allocation on the CPU side;
 //   2) Pack the voxel data of affected chunks (after devirtualization
 //      DistVoxel == 8 bytes, copied as a whole with memcpy);
-//   3) Call the kernel launcher (CUDA or host emulation) to perform fusion;
+//   3) Call the kernel launcher (CUDA / MUSA, or host emulation) to perform fusion;
 //   4) Only copy back updated chunks and clean up newly created "empty" chunks
 //      (aligned with Chisel's behavior).
 //
-// This file includes no CUDA header; all device interaction goes through the
-// kernel_launcher interface.
+// This file is shared by the CUDA and MUSA builds and includes no GPU runtime
+// header; all device interaction goes through the kernel_launcher interface.
 
 #include "cuda_integrator.h"
 #include "kernel_launcher.h"

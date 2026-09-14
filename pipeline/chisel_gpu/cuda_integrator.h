@@ -1,4 +1,7 @@
-// CUDA-accelerated TSDF integrator for depth images.
+// CUDA / MooreThreads MUSA accelerated TSDF integrator for depth images.
+//
+// The GPU backend is provided by fusion_kernel.cu (CUDA) or fusion_kernel.mu
+// (MUSA); this header and cuda_integrator.cpp are shared by both builds.
 //
 // Architecture: OpenChisel's Chunk/ChunkManager (spatial-hash chunk structure)
 // stays unchanged. On every frame, the voxel data of chunks inside the frustum
@@ -63,7 +66,7 @@ namespace chisel_cuda
                                     const chisel::PinholeCamera& camera,
                                     chisel::ChunkIDList* updatedChunks);
 
-            // Current device type (cuda / host-emulation), useful for logging and tests.
+            // Current device type (cuda / musa / host-emulation), for logging and tests.
             static const char* BackendName();
 
         private:
