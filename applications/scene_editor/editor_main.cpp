@@ -130,7 +130,7 @@ EditorContentHandler::EditorContentHandler()
 
     _navigation = new osgVerse::Window(TR0("Navigation") + "##editor");
     _navigation->pos = osg::Vec2(0.2f, 0.02f);
-    _navigation->size = osg::Vec2(0.55f, 0.1f);
+    _navigation->size = osg::Vec2(0.38f, 0.115f);  // kept attached to the properties panel
     _navigation->alpha = 0.0f; _navigation->withBorder = false;
     _navigation->flags = ImGuiWindowFlags_NoDecoration;
     _navigation->userData = this;
@@ -152,6 +152,14 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     {
         _hierarchyData->show(mgr, this);
         _hierarchy->showEnd();
+    }
+
+    // Keep the navigation bar attached to the left side of the properties panel
+    osg::Vec4 propRect = _properties->getCurrentRectangle();
+    if (propRect[2] > 0.0f && propRect[3] > 0.0f)
+    {
+        _navigation->pos = osg::Vec2(propRect[0] - _navigation->size[0] - 0.005f, propRect[1]);
+        _navigation->sizeApplied = false;  // apply the new position at each frame
     }
 
     done = _navigation->show(mgr, this);
@@ -285,6 +293,7 @@ int main(int argc, char** argv)
     imgui->setChineseSimplifiedFont(MISC_DIR + "LXGWFasmartGothic.otf");
     imgui->initialize(editorCore.get());
     imgui->addToView(&viewer, postCamera.get());
+    imgui->setGuiTexture("Navigation", BASE_DIR + "/textures/navigation.png");
 
     // Start with test scene
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFiles(arguments);

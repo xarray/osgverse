@@ -14,7 +14,7 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     serializers/array_serializer.cpp serializers/primitive_set_serializer.cpp
     serializers/uniform_serializer.cpp serializers/program_serializer.cpp
     compontents/SpiderEditor.cpp compontents/Timeline.cpp
-    compontents/VirtualKeyboard.cpp
+    compontents/VirtualKeyboard.cpp compontents/NavigationCube.cpp
 )
 
 IF(LIBCEF_FOUND)

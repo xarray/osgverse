@@ -394,6 +394,25 @@ namespace osgVerse
             flags(0), expanded(true), seqInterface(NULL), callback(ActionCallback()) {}
     };
 
+    /** A navigation cube (or compass) showing the world orientation of the current view.
+        The used texture is described in assets/textures/navigation.png: its left half
+        contains the cube faces and its right half a compass dial and a needle. */
+    struct NavigationCube : public ImGuiComponentBase
+    {
+        enum DisplayMode { CubeMode = 0, CompassMode };
+
+        std::string name, tooltip, imageName;  // imageName = GUI texture name
+        osg::Vec2 size;
+        osg::Matrix viewMatrix;  // camera view matrix: world -> view
+        float dialAngle;         // in radians, rotates the compass dial (needle stays fixed)
+        int displayMode; bool orthographic;
+
+        virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
+        NavigationCube()
+            : name("##NavigationCube"), imageName("Navigation"), size(96.0f, 96.0f),
+              dialAngle(0.0f), displayMode(CubeMode), orthographic(false) {}
+    };
+
     struct VirtualKeyboard : public ImGuiComponentBase
     {
         struct KeyData

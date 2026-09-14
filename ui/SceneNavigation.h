@@ -18,18 +18,24 @@ namespace osgVerse
         typedef std::function<void(SceneNavigation*, osg::Transform*)> TransformCallback;
         void setTransformAction(TransformCallback cb) { _transformCallback = cb; }
 
+        /** Get the navigation cube/compass widget, to change its texture or display mode */
+        NavigationCube* getNavigationCube() { return _navigationCube.get(); }
+
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
 
     protected:
+        void updateSnapItems();
+
         osg::observer_ptr<osg::Camera> _camera;
         osg::observer_ptr<osg::Node> _selection;
         osg::observer_ptr<osg::Transform> _transform;
         osg::ref_ptr<osgVerse::Button> _transformOp[4];
-        osg::ref_ptr<osgVerse::ComboBox> _transformCoord, _manipulator;
-        osg::ref_ptr<osgVerse::ImageButton> _navigationImage;
+        osg::ref_ptr<osgVerse::ComboBox> _transformCoord, _manipulator, _snap;
+        osg::ref_ptr<osgVerse::NavigationCube> _navigationCube;
 
         TransformCallback _transformCallback;
-        std::string _postfix;
+        std::vector<float> _snapValues; float _snapValue[3];
+        std::string _postfix; int _snapOperation;
         unsigned int _operation, _gizmoMode;
     };
 }
