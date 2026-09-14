@@ -174,6 +174,11 @@ void EditorContentHandler::runInternal(osgVerse::ImGuiManager* mgr)
     }
 
     _mainMenu->show(mgr, this);
+
+    bool confirmed = false;
+    osgVerse::ImGuiComponentBase::showConfirmDialog(confirmed);
+    osgVerse::ImGuiComponentBase::showFloatingWindows(mgr, this);
+
     ImGui::PopFont();
     _uiFrameNumber++;
 }

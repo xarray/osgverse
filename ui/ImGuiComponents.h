@@ -15,6 +15,8 @@
 
 namespace osgVerse
 {
+    struct Window;
+
     /// Variable 'name' is required as unique, may add '##' to hide the display
     /** Components:
         - Window
@@ -78,6 +80,11 @@ namespace osgVerse
             ConfirmDialogCallback cb, const std::string& name, const std::string& title, bool modal,
             const std::string& btn0 = "OK", const std::string& btn1 = "");
         static bool showConfirmDialog(bool& result);
+
+        /** Register a non-modal floating window, which will be shown at each frame
+            until it is closed by the user (isOpen == false) */
+        static void registerFloatingWindow(Window* w);
+        static void showFloatingWindows(ImGuiManager* mgr, ImGuiContentHandler* content);
         static struct ConfirmDialogData
         {
             std::string name, title, btn0, btn1; bool modal, init;
@@ -90,6 +97,7 @@ namespace osgVerse
         std::string name; float alpha;
         osg::Vec2 pos, pivot, size; osg::Vec4 rectRT;  // [0, 1]
         bool withBorder, isOpen, collapsed, useMenuBar, sizeApplied;
+        bool absolutePosSize;  // if true, pos & size are pixel values instead of [0, 1] ratios
         ImGuiWindowFlags flags;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
@@ -98,7 +106,7 @@ namespace osgVerse
         osg::Vec4 getCurrentRectangle() const { return rectRT; }
         Window(const std::string& n)
         :   name(n), alpha(1.0f), withBorder(true), isOpen(true), collapsed(false),
-            useMenuBar(false), sizeApplied(false), flags(0) {}
+            useMenuBar(false), sizeApplied(false), absolutePosSize(false), flags(0) {}
     };
 
     struct Label : public ImGuiComponentBase
@@ -116,13 +124,13 @@ namespace osgVerse
     struct Button : public ImGuiComponentBase
     {
         std::string name, tooltip;
-        osg::Vec2 size; bool repeatable, styled, isSmall;
+        osg::Vec2 size; bool repeatable, styled, isSmall, readonly;
         ImColor styleNormal, styleHovered, styleActive;
         ActionCallback callback;
         
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         Button(const std::string& n) : name(n), repeatable(false), styled(false),
-                                       isSmall(false), callback(ActionCallback()) {}
+                                       isSmall(false), readonly(false), callback(ActionCallback()) {}
     };
 
     struct ImageButton : public ImGuiComponentBase
@@ -148,7 +156,7 @@ namespace osgVerse
     struct ComboBox : public ImGuiComponentBase
     {
         std::vector<std::string> items;
-        std::string name, tooltip; int index, width;
+        std::string name, tooltip; int index, width; bool readonly;
         ActionCallback callback;
 
         void set(const std::string& s, bool addMissing)
@@ -158,7 +166,8 @@ namespace osgVerse
         }
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        ComboBox(const std::string& n) : name(n), index(0), width(200), callback(ActionCallback()) {}
+        ComboBox(const std::string& n)
+        : name(n), index(0), width(200), readonly(false), callback(ActionCallback()) {}
     };
 
     struct RadioButtonGroup : public ImGuiComponentBase
@@ -175,11 +184,11 @@ namespace osgVerse
     struct InputField : public ImGuiComponentBase
     {
         std::string name, value, tooltip, placeholder;
-        ImGuiInputTextFlags flags; int width; osg::Vec2 size;
+        ImGuiInputTextFlags flags; int width; osg::Vec2 size; bool readonly;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
-        InputField(const std::string& n) : name(n), flags(0), width(200),
+        InputField(const std::string& n) : name(n), flags(0), width(200), readonly(false),
                                            callback(ActionCallback()) {}
     };
 
@@ -188,13 +197,13 @@ namespace osgVerse
         enum Type { IntValue, UIntValue, FloatValue, DoubleValue } type;
         std::string name, format, tooltip; int width;
         double value, minValue, maxValue, step;
-        ImGuiInputTextFlags flags;
+        ImGuiInputTextFlags flags; bool readonly;
         ActionCallback callback;
 
         virtual bool show(ImGuiManager* mgr, ImGuiContentHandler* content);
         InputValueField(const std::string& n)
-        :   type(DoubleValue), name(n), width(200), value(0),
-            minValue(0), maxValue(0), step(1), flags(0), callback(ActionCallback()) {}
+        :   type(DoubleValue), name(n), width(200), value(0), minValue(0), maxValue(0),
+            step(1), flags(0), readonly(false), callback(ActionCallback()) {}
     };
 
     struct InputVectorField : public InputValueField

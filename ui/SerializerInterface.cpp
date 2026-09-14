@@ -6,7 +6,8 @@ static int g_headerFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_B
                          | ImGuiTreeNodeFlags_OpenOnDoubleClick;
 
 SerializerBaseItem::SerializerBaseItem(osg::Object* obj, bool composited)
-:   _object(obj), _indent(10.0f), _selected(false), _dirty(true), _hidden(false), _readonly(false)
+:   _object(obj), _indent(10.0f), _selected(false), _dirty(true), _hidden(false),
+    _readonly(false), _structureChanged(false)
 { _postfix = "##" + nanoid::generate(8); _composited = composited; }
 
 bool SerializerBaseItem::showInternal(ImGuiManager* mgr, ImGuiContentHandler* content,

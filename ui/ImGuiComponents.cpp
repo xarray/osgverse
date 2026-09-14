@@ -122,6 +122,31 @@ bool ImGuiComponentBase::showConfirmDialog(bool& result)
 ImGuiComponentBase::FileDialogData ImGuiComponentBase::s_fileDialogRunner;
 ImGuiComponentBase::ConfirmDialogData ImGuiComponentBase::s_confirmDialogRunner;
 
+static std::vector<osg::ref_ptr<Window>>& getFloatingWindows()
+{
+    static std::vector<osg::ref_ptr<Window>> s_windows;
+    return s_windows;
+}
+
+void ImGuiComponentBase::registerFloatingWindow(Window* w)
+{
+    if (w == NULL) return;
+    std::vector<osg::ref_ptr<Window>>& list = getFloatingWindows();
+    for (size_t i = 0; i < list.size(); ++i) { if (list[i].get() == w) return; }
+    list.push_back(w);
+}
+
+void ImGuiComponentBase::showFloatingWindows(ImGuiManager* mgr, ImGuiContentHandler* content)
+{
+    std::vector<osg::ref_ptr<Window>>& list = getFloatingWindows();
+    for (size_t i = 0; i < list.size();)
+    {
+        Window* w = list[i].get();
+        if (w == NULL || !w->isOpen) { list.erase(list.begin() + i); continue; }
+        w->show(mgr, content); ++i;
+    }
+}
+
 void Window::resize(const osg::Vec2& p, const osg::Vec2& s)
 { pos = p; size = s; sizeApplied = false; }
 
@@ -131,11 +156,19 @@ bool Window::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     if (!isOpen) return false;
     if (!sizeApplied)
     {
-        ImGui::SetNextWindowPos(
-            ImVec2(vp->WorkPos[0] + pos[0] * vp->WorkSize[0],
-                vp->WorkPos[1] + pos[1] * vp->WorkSize[1]), 0, ImVec2(pivot[0], pivot[1]));
+        if (absolutePosSize)
+            ImGui::SetNextWindowPos(ImVec2(pos[0], pos[1]), 0);
+        else
+            ImGui::SetNextWindowPos(
+                ImVec2(vp->WorkPos[0] + pos[0] * vp->WorkSize[0],
+                    vp->WorkPos[1] + pos[1] * vp->WorkSize[1]), 0, ImVec2(pivot[0], pivot[1]));
         if (size.length2() > 0.0f)
-            ImGui::SetNextWindowSize(ImVec2(size[0] * vp->WorkSize[0], size[1] * vp->WorkSize[1]));
+        {
+            if (absolutePosSize)
+                ImGui::SetNextWindowSize(ImVec2(size[0], size[1]));
+            else
+                ImGui::SetNextWindowSize(ImVec2(size[0] * vp->WorkSize[0], size[1] * vp->WorkSize[1]));
+        }
         sizeApplied = true;
     }
 
@@ -187,6 +220,7 @@ bool Button::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = false;
     if (repeatable) ImGui::PushButtonRepeat(true);
+    if (readonly) ImGui::BeginDisabled();
     if (styled)
     {
         ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)styleNormal);
@@ -199,6 +233,7 @@ bool Button::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     else
         done = isSmall ? ImGui::SmallButton(name.c_str())
                        : ImGui::Button(name.c_str(), ImVec2(size[0], size[1]));
+    if (readonly) ImGui::EndDisabled();
     
     if (repeatable) ImGui::PopButtonRepeat();
     if (!tooltip.empty()) showTooltip(tooltip);
@@ -236,10 +271,12 @@ bool ComboBox::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     
     bool done = false;
     if (width > 0) ImGui::PushItemWidth((float)width);
+    if (readonly) ImGui::BeginDisabled();
     if (itemValues.empty())
         done = ImGui::Combo(name.c_str(), &index, (const char**)NULL, 0);
     else
         done = ImGui::Combo(name.c_str(), &index, &itemValues[0], (int)items.size());
+    if (readonly) ImGui::EndDisabled();
     if (width > 0) ImGui::PopItemWidth();
 
     if (!tooltip.empty()) showTooltip(tooltip);
@@ -267,12 +304,14 @@ bool InputField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
     bool done = false; size_t length = value.size() + 10;
     if (length > 128) length = 128; value.resize(length);
     if (width > 0) ImGui::PushItemWidth((float)width);
+    if (readonly) ImGui::BeginDisabled();
     if (placeholder.empty())
         done = ImGui::InputTextEx(name.c_str(), NULL, &value[0], length,
                                   ImVec2(size[0], size[1]), flags, NULL, NULL);
     else
         done = ImGui::InputTextEx(name.c_str(), placeholder.c_str(), &value[0], length,
                                   ImVec2(size[0], size[1]), flags, NULL, NULL);
+    if (readonly) ImGui::EndDisabled();
     if (width > 0) ImGui::PopItemWidth();
 
     if (!tooltip.empty()) showTooltip(tooltip);
@@ -294,6 +333,7 @@ bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = false;
     if (width > 0) ImGui::PushItemWidth((float)width);
+    if (readonly) ImGui::BeginDisabled();
     switch (type)
     {
     case IntValue:
@@ -328,6 +368,7 @@ bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
         if (minValue < maxValue) value = osg::clampBetween(value, minValue, maxValue);
         break;
     }
+    if (readonly) ImGui::EndDisabled();
 
     if (width > 0) ImGui::PopItemWidth();
     if (!tooltip.empty()) showTooltip(tooltip);
@@ -338,12 +379,14 @@ bool InputValueField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 bool InputVectorField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
 {
     bool done = false;
+    if (readonly) ImGui::BeginDisabled();
     if (asColor)
     {
         float valueF[4] = { (float)vecValue[0], (float)vecValue[1],
                             (float)vecValue[2], (float)vecValue[3] };
         done = ImGui::ColorEdit4(name.c_str(), valueF, (ImGuiColorEditFlags)flags);
         vecValue.set((double)valueF[0], (double)valueF[1], (double)valueF[2], (double)valueF[3]);
+        if (readonly) ImGui::EndDisabled();
 
         if (!tooltip.empty()) showTooltip(tooltip);
         if (done && callback) callback(mgr, content, this);
@@ -386,6 +429,7 @@ bool InputVectorField::show(ImGuiManager* mgr, ImGuiContentHandler* content)
                                    (step > 0 ? &step : NULL), NULL, format.c_str(), flags);
         break;
     }
+    if (readonly) ImGui::EndDisabled();
 
     if (minValue < maxValue) for (int n = 0; n < 4; ++n)
         vecValue[n] = osg::clampBetween(vecValue[n], minValue, maxValue);

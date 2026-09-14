@@ -28,10 +28,14 @@ namespace osgVerse
         void doneEditing() { _edited = true; }
         void setReadOnly(bool r) { _readonly = r; }
 
+        /** Notify the owner that sub-items have been added or removed, so as to rebuild them */
+        void structureChanged() { _structureChanged = true; }
+
         bool isDirty() const { return _dirty; }
         bool isHidden() const { return _hidden; }
         bool isReadOnly() const { return _readonly; }
         bool checkEdited() { bool b = _edited; _edited = false; return b; }
+        bool checkStructureChanged() { bool b = _structureChanged; _structureChanged = false; return b; }
 
     protected:
         virtual bool showInternal(ImGuiManager* mgr, ImGuiContentHandler* content, const std::string& title);
@@ -41,7 +45,7 @@ namespace osgVerse
         osg::observer_ptr<osg::Object> _object;
         std::string _postfix; float _indent;
         bool _composited, _selected, _dirty;
-        bool _hidden, _edited, _readonly;
+        bool _hidden, _edited, _readonly, _structureChanged;
     };
 
     class SerializerInterface : public SerializerBaseItem

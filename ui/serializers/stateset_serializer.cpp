@@ -2,7 +2,7 @@
 #include <osg/Texture1D>
 #include <osg/Texture2D>
 #include <osg/Texture3D>
-#include "../SerializerInterface.h"
+#include "serializer_utils.h"
 using namespace osgVerse;
 
 class AttributeSerializerInterface : public SerializerBaseItem
@@ -81,13 +81,14 @@ class StateSetSerializerInterface : public ObjectSerializerInterface
 public:
     StateSetSerializerInterface(osg::Object* obj, LibraryEntry* entry,
                                 const LibraryEntry::Property& prop)
-    :   ObjectSerializerInterface(obj, entry, prop)
+    :   ObjectSerializerInterface(obj, entry, prop), _needsRebuild(false)
     { for (int i = 0; i < 3; ++i) _separator[i] = 0; }
 
     virtual bool showProperty(ImGuiManager* mgr, ImGuiContentHandler* content)
     {
-        if (isDirty())
+        if (isDirty() || _needsRebuild)
         {
+            _needsRebuild = false;
             osg::Object* newValue = NULL;
             _entry->getProperty(_object.get(), _property.name, newValue);
             _valueObject = newValue; _serializerUIs.clear();
@@ -129,14 +130,17 @@ public:
                 for (osg::StateSet::UniformList::iterator itr = uniforms.begin();
                      itr != uniforms.end(); ++itr)
                 {
-                    // TODO
+                    osg::UniformBase* uniform = itr->second.first.get();
+                    if (uniform == NULL) continue;
+                    _serializerUIs.push_back(createUniformSerializerItem(uniform, ss, itr->second.second));
                 }
+                _separator[2] = _serializerUIs.size() - _separator[0] - _separator[1];
             }
             for (size_t i = 0; i < _serializerUIs.size(); ++i)
                 _serializerUIs[i]->addIndent(2.0f);
         }
 
-        bool done = false;
+        bool done = false, rebuild = false;
         static std::string separatedNames[3] = {"Attributes", "Texture Attributes", "Uniforms"};
         for (size_t i = 0; i < _serializerUIs.size(); ++i)
         {
@@ -150,7 +154,9 @@ public:
                 }
             }
             done |= _serializerUIs[i]->show(mgr, content);
+            if (_serializerUIs[i]->checkStructureChanged()) rebuild = true;
         }
+        if (rebuild) _needsRebuild = true;  // done in the next frame
         return done;
     }
 
@@ -184,6 +190,7 @@ protected:
     }
 
     size_t _separator[3];
+    bool _needsRebuild;
 };
 
 REGISTER_SERIALIZER_INTERFACE2(StateSet, NULL, StateSetSerializerInterface)
