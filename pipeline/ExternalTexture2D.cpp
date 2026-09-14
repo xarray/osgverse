@@ -96,31 +96,31 @@ struct texture_storage_metadata_t
 
 int create_socket(const char *path)
 {
-	int sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	strcpy(addr.sun_path, path);
-	unlink(path);
+    int sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strcpy(addr.sun_path, path);
+    unlink(path);
 
-	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) exit(-1);
-	return sock;
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) exit(-1);
+    return sock;
 }
 
 void read_fd(int sock, int *fd, void *data, size_t data_len)
 {
-	struct msghdr msg = {0};
-	struct iovec io = {.iov_base = data, .iov_len = data_len};
-	msg.msg_iov = &io;
-	msg.msg_iovlen = 1;
+    struct msghdr msg = {0};
+    struct iovec io = {.iov_base = data, .iov_len = data_len};
+    msg.msg_iov = &io;
+    msg.msg_iovlen = 1;
 
-	char c_buffer[256];
-	msg.msg_control = c_buffer;
-	msg.msg_controllen = sizeof(c_buffer);
-	if (recvmsg(sock, &msg, 0) < 0) exit(-1);
+    char c_buffer[256];
+    msg.msg_control = c_buffer;
+    msg.msg_controllen = sizeof(c_buffer);
+    if (recvmsg(sock, &msg, 0) < 0) exit(-1);
 
-	struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-	memmove(fd, CMSG_DATA(cmsg), sizeof(fd));
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    memmove(fd, CMSG_DATA(cmsg), sizeof(fd));
 }
 
 static void createTestImageFromSocket(GpuResourceReaderBase::EglResourceHandle* H)

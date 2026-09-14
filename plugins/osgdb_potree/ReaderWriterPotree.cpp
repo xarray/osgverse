@@ -276,7 +276,7 @@ protected:
             else
                 a.offset = osg::Vec3d(offsetdata[0], offsetdata[0], offsetdata[0]);
 
-            // 特殊处理 histogram (只有 classification 有)
+            // Special handling of histogram (only present for classification)
             const picojson::object& attr_obj = attr.get<picojson::object>();
             if (attr_obj.find("histogram") != attr_obj.end())
             {

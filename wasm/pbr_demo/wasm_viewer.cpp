@@ -179,7 +179,7 @@ int main(int argc, char** argv)
     osg::ref_ptr<osg::Group> root = new osg::Group;
     root->addChild(sceneRoot.get());
 
-    // 设置全局场景根节点
+    // Set the global scene root node
     osg::ref_ptr<osg::Group> highLightRoot = new osg::Group;
     root->addChild(highLightRoot.get());
     osgVerse::Pipeline::setPipelineMask(*highLightRoot, CUSTOM_INPUT_MASK);
@@ -230,7 +230,7 @@ int main(int argc, char** argv)
 #endif
     viewer->addEventHandler(new osgViewer::StatsHandler);
     viewer->addEventHandler(new osgGA::StateSetManipulator(viewer->getCamera()->getOrCreateStateSet()));
-    viewer->addEventHandler(new MouseClickHandler); // 添加鼠标点击事件处理器
+    viewer->addEventHandler(new MouseClickHandler); // Add mouse click event handler
     viewer->setCameraManipulator(new osgGA::TrackballManipulator);
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer->setSceneData(root.get());

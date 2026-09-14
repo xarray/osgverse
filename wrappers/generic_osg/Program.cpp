@@ -42,22 +42,22 @@ static bool readShaders(InputStream& is, InputUserData& ud)
 // feedBackVaryings
 static bool readFeedBackVaryingsName(InputStream& is, InputUserData& ud)
 {
-	unsigned int size = is.readSize(); is >> is.BEGIN_BRACKET;
-	for ( unsigned int i=0; i<size; ++i )
-	{
-		std::string str; is>> str;
+    unsigned int size = is.readSize(); is >> is.BEGIN_BRACKET;
+    for ( unsigned int i=0; i<size; ++i )
+    {
+        std::string str; is>> str;
         ud.add("addTransformFeedBackVarying", str);
-	}
-	is >> is.END_BRACKET;
-	return true;
+    }
+    is >> is.END_BRACKET;
+    return true;
 }
 
 // feedBack mode
 static bool readFeedBackMode(InputStream& is, InputUserData& ud)
 {
-	unsigned int size = 0; is>>size;
+    unsigned int size = 0; is>>size;
     ud.add("setTransformFeedBackMode", size);
-	return true;
+    return true;
 }
 
 // _numGroupsX/Y/Z

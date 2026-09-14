@@ -2,7 +2,7 @@ SET(LIB_NAME osgVerseUI)
 SET(LIBRARY_INCLUDE_FILES Utilities.h ImGui.h ImGuiComponents.h
     SerializerInterface.h SceneHierarchy.h SceneNavigation.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-	Utilities.cpp ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Internal.h ImGui.Styles.h
+    Utilities.cpp ImGui.cpp ImGui3D.cpp ImGuiComponents.cpp ImGui.Internal.h ImGui.Styles.h
     SerializerInterface.cpp SceneHierarchy.cpp SceneNavigation.cpp
     serializers/object_serializer.cpp serializers/image_serializer.cpp
     serializers/bool_serializer.cpp serializers/string_serializer.cpp
@@ -11,8 +11,8 @@ SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
     serializers/quat_serializer.cpp serializers/bound_serializer.cpp
     serializers/list_serializer.cpp serializers/empty_serializer.cpp
     serializers/stateset_serializer.cpp
-	compontents/SpiderEditor.cpp compontents/Timeline.cpp
-	compontents/VirtualKeyboard.cpp
+    compontents/SpiderEditor.cpp compontents/Timeline.cpp
+    compontents/VirtualKeyboard.cpp
 )
 
 IF(LIBCEF_FOUND)

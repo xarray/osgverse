@@ -73,7 +73,7 @@ int SceneExportOSG::DoExport( const MCHAR* name, ExpInterface* ei, Interface* gi
         // TODO
     }
     //bool res = checkSafeNetDog(2);
-	//if(!res) return IMPEXP_FAIL;
+    //if(!res) return IMPEXP_FAIL;
 
     MaxEnumerator enumerator(ei, gi, options);
     enumerator.setExportSelected( options&SCENE_EXPORT_SELECTED );

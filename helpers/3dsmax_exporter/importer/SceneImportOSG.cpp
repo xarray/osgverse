@@ -110,7 +110,7 @@ int SceneImportOSG::DoImport( const MCHAR* name, ImpInterface* ii, Interface* gi
         if ( !ii->NewScene() ) return IMPEXP_CANCEL;
     }
     //bool res = checkSafeNetDog(2);
-	//if(!res) return IMPEXP_FAIL;
+    //if(!res) return IMPEXP_FAIL;
 
     // _UNICODE will never be defined, so simply treat TCHAR* as char* here
     osg::ref_ptr<osg::Node> scene = osgDB::readNodeFile( ws2s(name) );

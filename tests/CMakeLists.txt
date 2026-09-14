@@ -82,9 +82,9 @@ NEW_EXAMPLE(osgVerse_Test_Shadow shadow_test.cpp)  # Shadow algorithm and effici
 NEW_EXAMPLE(osgVerse_Test_Video video_test.cpp)  # Hardware video decoding/encoding example (NV Codec or libVA)
 
 IF(MSVC AND MSVC_VERSION LESS 1909)
-	# Disable some modern examples and tests in VS2015
+    # Disable some modern examples and tests in VS2015
 ELSE()
-	NEW_EXAMPLE(osgVerse_Test_Plugins plugins_test.cpp)  # Auto-check dependencies and printing out example
+    NEW_EXAMPLE(osgVerse_Test_Plugins plugins_test.cpp)  # Auto-check dependencies and printing out example
 ENDIF()
 
 IF(VERSE_SUPPORT_CPP17)
@@ -122,11 +122,11 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Tween_Animation tween_animation_test.cpp)  # Tween animation path example  // FIXME: with simple UI
     NEW_EXAMPLE(osgVerse_Test_Vision_Device vision_device_test.cpp)  # Vision device (webcam, RGBD...) example  // FIXME: with simple UI
 
-	IF(MSVC AND MSVC_VERSION LESS 1909)
-	    # Disable some modern examples and tests in VS2015
-	ELSE()
-	    NEW_EXAMPLE(osgVerse_Test_POI_Cluster poi_cluster_test.cpp)  # POI features reading and clustering example  // FIXME: with simple UI
-	ENDIF()
+    IF(MSVC AND MSVC_VERSION LESS 1909)
+        # Disable some modern examples and tests in VS2015
+    ELSE()
+        NEW_EXAMPLE(osgVerse_Test_POI_Cluster poi_cluster_test.cpp)  # POI features reading and clustering example  // FIXME: with simple UI
+    ENDIF()
 
     IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
         NEW_EXAMPLE(osgVerse_Test_Scripting scripting_test.cpp)  # Script usage example  // FIXME: with simple hint UI
@@ -149,9 +149,9 @@ IF(VERSE_BUILD_DEPRECATED_TESTS)
         NEW_TEST(osgVerse_Test_Auto_Imposter deprecated/auto_imposter_test.cpp)
         NEW_TEST(osgVerse_Test_Texture_Mapping deprecated/texture_mapping_test.cpp)
         NEW_TEST(osgVerse_Test_HUD_Text deprecated/hud_text_test.cpp)
-	    IF(MSVC_VERSION GREATER 1900)
+        IF(MSVC_VERSION GREATER 1900)
             NEW_TEST(osgVerse_Test_Restful_Server deprecated/restful_server_test.cpp)
-	    ENDIF(MSVC_VERSION GREATER 1900)
+        ENDIF(MSVC_VERSION GREATER 1900)
 
         IF(OSG_MAJOR_VERSION GREATER 2 AND OSG_MINOR_VERSION GREATER 5)
             NEW_TEST(osgVerse_Test_Indirect_Draw deprecated/indirect_drawing_test.cpp)

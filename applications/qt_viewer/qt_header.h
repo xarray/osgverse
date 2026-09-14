@@ -68,7 +68,7 @@ public:
     osg::Group* initializeScene(int argc, char** argv, osg::Group* sharedScene = NULL);
 
 protected:
-	virtual void paintGL();
+    virtual void paintGL();
     virtual void resizeGL(int width, int height);
     virtual void closeEvent(QCloseEvent *event);
 

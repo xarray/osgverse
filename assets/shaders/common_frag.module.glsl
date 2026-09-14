@@ -24,7 +24,7 @@ vec3 VERSE_approximateFaceNormal(vec3 eyePos)
 vec4 VERSE_tiling(vec2 uv, vec2 number)
 {
     // result.xy is a vec2 with the new coordinates.
-	// result.zw is a vec2 with the tiles i, j indices
+    // result.zw is a vec2 with the tiles i, j indices
     return vec4(fract(uv * number), floor(uv * number));
 }
 
@@ -40,14 +40,14 @@ vec3 VERSE_convertRGB2HSV(vec3 rgb)
 vec3 VERSE_convertHSV2RGB(vec3 hsv)
 {
     vec3 rgb = clamp(abs(mod(hsv.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-	return hsv.z * mix(vec3(1.0), rgb, hsv.y);
+    return hsv.z * mix(vec3(1.0), rgb, hsv.y);
 }
 
 vec3 VERSE_convertHSV2RGB_Smooth(vec3 hsv)
 {
     vec3 rgb = clamp(abs(mod(hsv.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-	rgb = rgb * rgb * (3.0 - 2.0 * rgb); // cubic smoothing
-	return hsv.z * mix(vec3(1.0), rgb, hsv.y);
+    rgb = rgb * rgb * (3.0 - 2.0 * rgb); // cubic smoothing
+    return hsv.z * mix(vec3(1.0), rgb, hsv.y);
 }
 
 vec3 VERSE_lerpHSV(vec3 hsv1, vec3 hsv2, float rate)

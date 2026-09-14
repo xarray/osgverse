@@ -75,6 +75,7 @@
 | nanoid           | Embedded |           | -                  | MIT          | https://github.com/mcmikecreations/nanoid_cpp |
 | NormalGenerator  | Embedded |           | Pipeline           | -            | |
 | NV.ImageScaling  | Embedded | 20260513  | Pipeline           | MIT          | https://github.com/NVIDIAGameWorks/NVIDIAImageScaling |
+| OpenChisel       | Embedded | 20260914  | Pipeline           | MIT          | https://github.com/personalrobotics/OpenChisel |
 | otl              | Embedded | 4.0       | verse_odbc         | BSD          | http://otl.sourceforge.net |
 | ozz-animation    | Embedded | 0.16.0    | Animation          | MIT          | https://github.com/guillaumeblanc/ozz-animation |
 | parallel_hashmap | Embedded | 20260330  | -                  | Apache2      | https://github.com/greg7mdp/parallel-hashmap |

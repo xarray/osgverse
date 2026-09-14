@@ -173,7 +173,7 @@ void NvEncoder::CreateDefaultEncoderParams(NV_ENC_INITIALIZE_PARAMS* pIntializeP
     }
     else if (pIntializeParams->encodeGUID == NV_ENC_CODEC_AV1_GUID)
     {
-		pIntializeParams->encodeConfig->encodeCodecConfig.av1Config.inputBitDepth = (m_eBufferFormat == NV_ENC_BUFFER_FORMAT_YUV420_10BIT) ? NV_ENC_BIT_DEPTH_10 : NV_ENC_BIT_DEPTH_8;
+        pIntializeParams->encodeConfig->encodeCodecConfig.av1Config.inputBitDepth = (m_eBufferFormat == NV_ENC_BUFFER_FORMAT_YUV420_10BIT) ? NV_ENC_BIT_DEPTH_10 : NV_ENC_BIT_DEPTH_8;
         pIntializeParams->encodeConfig->encodeCodecConfig.av1Config.chromaFormatIDC = 1;
         pIntializeParams->encodeConfig->encodeCodecConfig.av1Config.idrPeriod = pIntializeParams->encodeConfig->gopLength;
         if (m_bOutputInVideoMemory)

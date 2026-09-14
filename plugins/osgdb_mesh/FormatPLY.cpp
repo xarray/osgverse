@@ -39,7 +39,7 @@ namespace
         {
             std::string name; size_t count = 0;
             std::vector<Property> properties;
-			Element(const std::string& n = "", size_t c = 0) : name(n), count(c) {}
+            Element(const std::string& n = "", size_t c = 0) : name(n), count(c) {}
         };
 
         struct Vertex

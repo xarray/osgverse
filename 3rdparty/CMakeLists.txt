@@ -508,6 +508,15 @@ SET(BOX3D_SOURCE_FILES
     box3d/id.h box3d/math_functions.h box3d/types.h
 )
 
+SET(OPENCHISEL_SOURCE_FILES
+    open_chisel/camera/Intrinsics.cpp open_chisel/camera/PinholeCamera.cpp open_chisel/geometry/AABB.cpp
+    open_chisel/geometry/Frustum.cpp open_chisel/geometry/Plane.cpp open_chisel/geometry/Raycast.cpp
+    open_chisel/io/PLY.cpp open_chisel/marching_cubes/MarchingCubes.cpp open_chisel/mesh/Mesh.cpp
+    open_chisel/pointcloud/PointCloud.cpp open_chisel/Chunk.cpp open_chisel/ChunkManager.cpp
+    open_chisel/ColorVoxel.cpp open_chisel/DistVoxel.cpp open_chisel/ProjectionIntegrator.cpp
+    open_chisel/Chisel.cpp open_chisel/Chisel.h
+)
+
 SET(QUADRIFLOW_SOURCE_FILES
     quadriflow/manifold/types.h quadriflow/manifold/GridIndex.h
     quadriflow/manifold/Intersection.h quadriflow/manifold/Intersection.cc
@@ -583,6 +592,7 @@ SOURCE_GROUP("MeshOptimizer Files" FILES ${MESHOPTIMIZER_SOURCE_FILES})
 SOURCE_GROUP("MapLibre Tile Files" FILES ${MLT_SOURCE_FILES})
 SOURCE_GROUP("Niantic SPZ Files" FILES ${SPZ_SOURCE_FILES})
 SOURCE_GROUP("NormalMap Files" FILES ${NORMALMAP_SOURCE_FILES})
+SOURCE_GROUP("OpenChisel Files" FILES ${OPENCHISEL_SOURCE_FILES})
 SOURCE_GROUP("OzzAnimation Files" FILES ${OZZ_SOURCE_FILES})
 SOURCE_GROUP("PinYin-IME Files" FILES ${PINYIN_SOURCE_FILES})
 SOURCE_GROUP("PMP Files" FILES ${PMP_MCUT_SOURCE_FILES})
@@ -612,8 +622,8 @@ SET(LIBRARY_FILES
     parallel_hashmap/phmap.h bc7_rdo/rgbcx.h bc7_rdo/rgbcx.cpp flatgeobuf/packedrtree.cpp VRM.h
     ${APPROXMVBB_SOURCE_FILES} ${BLEND2D_SOURCE_FILES} ${BOX3D_SOURCE_FILES} ${DISCREGRID_SOURCE_FILES} ${FILTER_SOURCE_FILES}
     ${HDBSCAN_SOURCE_FILES} ${IMGUI_SOURCE_FILES} ${KTX_SOURCE_FILES} ${LASZIP_SOURCE_FILES} ${LEVELDB_SOURCE_FILES}
-    ${LIBHV_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${METIS_SOURCE_FILES}
-    ${NORMALMAP_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
+    ${LIBHV_SOURCE_FILES} ${MBEDTLS_SOURCE_FILES} ${MESHOPTIMIZER_SOURCE_FILES} ${METIS_SOURCE_FILES} ${NORMALMAP_SOURCE_FILES}
+    ${OPENCHISEL_SOURCE_FILES} ${OZZ_SOURCE_FILES} ${PINYIN_SOURCE_FILES} ${PMP_MCUT_SOURCE_FILES} ${RECAST_SOURCE_FILES}
     ${RLOTTIE_SOURCE_FILES} ${SHAPELIB_SOURCE_FILES} ${SMPLXPP_SOURCE_FILES} ${SPZ_SOURCE_FILES} ${TINYSPLINE_SOURCE_FILES}
     ${TWEENY_SOURCE_FILES}
 )

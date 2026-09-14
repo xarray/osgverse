@@ -31,12 +31,12 @@ int main(int argc, char** argv)
 
     // Create the viewer
     osgViewer::Viewer* viewer = new osgViewer::Viewer;
-	viewer->getEventQueue()->getCurrentEventState()->setMouseYOrientation(osgGA::GUIEventAdapter::Y_INCREASING_UPWARDS);
+    viewer->getEventQueue()->getCurrentEventState()->setMouseYOrientation(osgGA::GUIEventAdapter::Y_INCREASING_UPWARDS);
     viewer->getCamera()->setLODScale(viewer->getCamera()->getLODScale() * 1.5f);
-	viewer->getDatabasePager()->setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
-	viewer->getDatabasePager()->setUnrefImageDataAfterApplyPolicy(true, true);
+    viewer->getDatabasePager()->setIncrementalCompileOperation(new osgUtil::IncrementalCompileOperation);
+    viewer->getDatabasePager()->setUnrefImageDataAfterApplyPolicy(true, true);
     viewer->addEventHandler(new osgViewer::StatsHandler);
-	viewer->setCameraManipulator(new osgEarth::Util::EarthManipulator);
+    viewer->setCameraManipulator(new osgEarth::Util::EarthManipulator);
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     viewer->setSceneData(root.get());
 

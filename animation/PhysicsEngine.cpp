@@ -163,7 +163,7 @@ namespace b3Helpers
     }
 
     static float raycastCallback(b3ShapeId shapeId, b3Pos point, b3Vec3 normal, float fraction,
-							     uint64_t materialId, int triangleIndex, int childIndex, void* context)
+                                 uint64_t materialId, int triangleIndex, int childIndex, void* context)
     {
         RaycastCallbackData* data = (RaycastCallbackData*)context;
         osgVerse::PhysicsEngine::RaycastHit result;

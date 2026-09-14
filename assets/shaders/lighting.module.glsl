@@ -18,8 +18,8 @@ float VERSE_beckmannDistribution(float x, float roughness)
 
 float VERSE_signedDistanceSquare(vec2 point, float width)
 {
-	vec2 d = abs(point) - width;
-	return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+    vec2 d = abs(point) - width;
+    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
 }
 
 /* Computes diffuse intensity in Lambertian lighting model
@@ -161,11 +161,11 @@ float VERSE_wardSpecular(vec3 lightDirection, vec3 viewDirection, vec3 surfaceNo
 */
 float VERSE_vignetteEffect(vec2 uv, vec2 size, float roundness, float smoothness)
 {
-	uv -= 0.5;  // Center UVs
-	float minWidth = min(size.x, size.y);  // Shift UVs based on the larger of width/height
-	uv.x = sign(uv.x) * clamp(abs(uv.x) - abs(minWidth - size.x), 0.0, 1.0);
-	uv.y = sign(uv.y) * clamp(abs(uv.y) - abs(minWidth - size.y), 0.0, 1.0);
-	float boxSize = minWidth * (1.0 - roundness);
-	float dist = VERSE_signedDistanceSquare(uv, boxSize) - (minWidth * roundness);
-	return 1.0 - smoothstep(0.0, smoothness, dist);
+    uv -= 0.5;  // Center UVs
+    float minWidth = min(size.x, size.y);  // Shift UVs based on the larger of width/height
+    uv.x = sign(uv.x) * clamp(abs(uv.x) - abs(minWidth - size.x), 0.0, 1.0);
+    uv.y = sign(uv.y) * clamp(abs(uv.y) - abs(minWidth - size.y), 0.0, 1.0);
+    float boxSize = minWidth * (1.0 - roundness);
+    float dist = VERSE_signedDistanceSquare(uv, boxSize) - (minWidth * roundness);
+    return 1.0 - smoothstep(0.0, smoothness, dist);
 }

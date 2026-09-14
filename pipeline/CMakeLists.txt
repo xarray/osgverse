@@ -38,6 +38,8 @@ IF(CUDA_FOUND AND VERSE_BUILD_WITH_CUDA)
     # Under Ubuntu with CUDA 12.8-13.0, see below to solve the math_functions.h exceptions:
     # https://forums.developer.nvidia.com/t/error-exception-specification-is-incompatible-for-cospi-sinpi-cospif-sinpif-with-glibc-2-41/323591/3
     SET(LIBRARY_FILES ${LIBRARY_FILES}
+        chisel_gpu/cuda_integrator.cpp chisel_gpu/cuda_integrator.h
+        chisel_gpu/fusion_kernel.cu chisel_gpu/kernel_launcher.h
         CudaUtils/BitDepth.cu CudaUtils/ColorSpace.cu CudaUtils/ColorSpace.h
         CudaUtils/Letterbox.cu CudaUtils/CudaUtilities.cu)
     ADD_DEFINITIONS(-DCCCL_IGNORE_MSVC_TRADITIONAL_PREPROCESSOR_WARNING -DVERSE_WITH_CUDA=1)

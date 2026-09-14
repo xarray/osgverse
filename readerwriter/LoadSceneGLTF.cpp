@@ -533,7 +533,7 @@ namespace osgVerse
         }
 
         // Read and construct scene graph
-		if (_modelDef.defaultScene < 0) _modelDef.defaultScene = 0;
+        if (_modelDef.defaultScene < 0) _modelDef.defaultScene = 0;
         if (_modelDef.scenes.size() <= _modelDef.defaultScene) return;
 
         const tinygltf::Scene& defScene = _modelDef.scenes[_modelDef.defaultScene];
@@ -1123,7 +1123,7 @@ namespace osgVerse
         return true;
     }
 
-	static osg::Texture2D* createDefaultTextureForColor(const osg::Vec4& color)
+    static osg::Texture2D* createDefaultTextureForColor(const osg::Vec4& color)
     {
         osg::ref_ptr<osg::Image> image = new osg::Image;
         image->allocateImage(1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE);

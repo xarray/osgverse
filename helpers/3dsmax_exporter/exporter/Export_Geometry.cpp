@@ -12,32 +12,32 @@
 static osg::Vec3 createVertexNormal( Mesh* mesh, int fi, int vi )
 {
     Face& face = mesh->faces[fi];
-	RVertex* rv = mesh->getRVertPtr( face.getVert(vi) );
-	DWORD smGroup = face.smGroup;
-	
-	//Check for explicit normals
-	MeshNormalSpec* meshNormal = mesh->GetSpecifiedNormals();
-	if ( meshNormal && meshNormal->GetNumFaces() )
-	{
-	    int normID = meshNormal->Face(fi).GetNormalID(vi);
-		if ( meshNormal->GetNormalExplicit(normID) )
-		    return convertPoint(meshNormal->Normal(normID));
-	}
-	
-	// // Get the normal from face or smoothing group
-	Point3 normal = mesh->getFaceNormal(fi);;
-	if ( rv->rFlags&SPECIFIED_NORMAL || (rv->rFlags&NORCT_MASK)==0x1 )
-	    normal = rv->rn.getNormal();
-	else if ( (rv->rFlags&NORCT_MASK) && smGroup )
-	{
-	    int numNormals = rv->rFlags & NORCT_MASK;
-	    for ( int i=0; i<numNormals; ++i )
-	    {
-	        if ( rv->ern[i].getSmGroup()&smGroup )
-	            normal = rv->ern[i].getNormal();
-	    }
-	}
-	return convertPoint(normal);
+    RVertex* rv = mesh->getRVertPtr( face.getVert(vi) );
+    DWORD smGroup = face.smGroup;
+    
+    //Check for explicit normals
+    MeshNormalSpec* meshNormal = mesh->GetSpecifiedNormals();
+    if ( meshNormal && meshNormal->GetNumFaces() )
+    {
+        int normID = meshNormal->Face(fi).GetNormalID(vi);
+        if ( meshNormal->GetNormalExplicit(normID) )
+            return convertPoint(meshNormal->Normal(normID));
+    }
+    
+    // // Get the normal from face or smoothing group
+    Point3 normal = mesh->getFaceNormal(fi);;
+    if ( rv->rFlags&SPECIFIED_NORMAL || (rv->rFlags&NORCT_MASK)==0x1 )
+        normal = rv->rn.getNormal();
+    else if ( (rv->rFlags&NORCT_MASK) && smGroup )
+    {
+        int numNormals = rv->rFlags & NORCT_MASK;
+        for ( int i=0; i<numNormals; ++i )
+        {
+            if ( rv->ern[i].getSmGroup()&smGroup )
+                normal = rv->ern[i].getNormal();
+        }
+    }
+    return convertPoint(normal);
 }
 
 void ExportImplementor::createMultiMeshes( osg::Geode* geode, Mesh* mesh, Mtl* mtl, Mtl* originMtl,
