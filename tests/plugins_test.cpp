@@ -130,7 +130,6 @@ std::vector<std::string> getDirectDependencies(const std::string& libPath)
 static std::vector<fs::path> g_searchPaths;
 static std::unordered_map<std::string, fs::path> g_foundCache;   // name -> path
 static std::unordered_set<std::string> g_missingCache;
-static bool g_checkArchTriplet = true;
 #if defined(__x86_64__)
     #define DEP_ARCH_TRIPLET "x86_64-linux-gnu"
 #elif defined(__aarch64__)
@@ -141,7 +140,6 @@ static bool g_checkArchTriplet = true;
     #define DEP_ARCH_TRIPLET "i386-linux-gnu"
 #else
     #define DEP_ARCH_TRIPLET ""
-    g_checkArchTriplet = false;
 #endif
 
 void initSearchPaths(const std::string& startDir)
@@ -186,7 +184,7 @@ void initSearchPaths(const std::string& startDir)
     g_searchPaths.push_back(fs::path("/usr/lib"));
     g_searchPaths.push_back(fs::path("/usr/local/lib64"));
     g_searchPaths.push_back(fs::path("/usr/local/lib"));
-    if (g_checkArchTriplet)
+    if (!std::string(DEP_ARCH_TRIPLET).empty())
     {
         g_searchPaths.push_back(fs::path("/lib/" DEP_ARCH_TRIPLET));
         g_searchPaths.push_back(fs::path("/usr/lib/" DEP_ARCH_TRIPLET));

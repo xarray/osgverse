@@ -50,4 +50,5 @@ namespace chisel
     typedef std::vector<Transform, Eigen::aligned_allocator<Transform> > TransformList;
     typedef std::vector<Quaternion, Eigen::aligned_allocator<Quaternion> > QuaternionList;
 }
+
 #endif // GEOMETRY_H_ 

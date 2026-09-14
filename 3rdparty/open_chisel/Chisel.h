@@ -55,8 +55,6 @@ namespace chisel
                                                               const Transform& extrinsic,
                                                               const PinholeCamera& camera)
             {
-                    // 本 fork：移除每帧 printf
-
                     DataType minimum, maximum, mean;
                     depthImage->GetStats(minimum, maximum, mean);
 
@@ -110,7 +108,7 @@ namespace chisel
                         mutex.unlock();
                     }
                     //);
-                    // 本 fork：移除每帧 printf
+
                     GarbageCollect(garbageChunks);
                     //chunkManager.PrintMemoryStatistics();
             }

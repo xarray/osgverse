@@ -20,12 +20,10 @@
 // SOFTWARE.
 
 #include <open_chisel/Chisel.h>
-
 #include <open_chisel/io/PLY.h>
-
 #include <open_chisel/geometry/Raycast.h>
-
 #include <iostream>
+
 namespace chisel
 {
 
@@ -59,13 +57,11 @@ namespace chisel
 
     void Chisel::GarbageCollect(const ChunkIDList& chunks)
     {
-        // 本 fork：移除每帧调试输出
        for (const ChunkID& chunkID : chunks)
        {
            chunkManager.RemoveChunk(chunkID);
            meshesToUpdate.erase(chunkID);
        }
-        // 本 fork：移除每帧调试输出
     }
 
     bool Chisel::SaveAllMeshesToPLY(const std::string& filename)

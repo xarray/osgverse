@@ -22,7 +22,7 @@
 #include <iostream>
 #include <sstream>
 
-#include <microprofile.h>
+//#include <microprofile.h>
 #ifndef _DEBUG
 #include <backward.hpp>  // for better debug info
 namespace backward { backward::SignalHandling sh; }
@@ -187,7 +187,7 @@ int main(int argc, char** argv)
 
         if (light0.valid()) light0->setDirection(osg::Vec3(lightX, 0.1f, -1.0f));
         else if (shadow.valid()) shadow->setLightState(osg::Vec3(0.0f, 0.0f, 1.0f), osg::Vec3(lightX, 0.1f, -1.0f));
-        viewer->frame(); MicroProfileFlip(NULL);  // see localhost:1338
+        viewer->frame(); //MicroProfileFlip(NULL);  // see profile at: localhost:1338
     }
     return 0;
 }

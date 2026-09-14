@@ -20,6 +20,7 @@ ADD_SUBDIRECTORY(osgdb_vdb)
 # vectors
 IF(MSVC AND MSVC_VERSION LESS 1909)
     # Disable geojson & s57 plugins in VS2015
+    MESSAGE("[osgVerse] Some plugins will be ignored under MSVC 2015.")
 ELSE()
     ADD_SUBDIRECTORY(osgdb_geojson)
     ADD_SUBDIRECTORY(osgdb_kml)

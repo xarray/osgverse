@@ -20,7 +20,6 @@
 // SOFTWARE.
 
 #include <open_chisel/io/PLY.h>
-
 #include <iostream>
 #include <fstream>
 
@@ -82,7 +81,6 @@ namespace chisel
 
             stream << std::endl;
         }
-
-        return true; // 本 fork：修复缺失的返回值（原版 UB，会触发 std::bad_cast）
+        return true; // fix std::bad_cast
     }
 }
