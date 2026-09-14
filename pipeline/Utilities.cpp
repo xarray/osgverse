@@ -311,6 +311,8 @@ namespace osgVerse
         regObject->addFileExtensionAlias("shp", "verse_shp");
         regObject->addFileExtensionAlias("geojson", "verse_geojson");
         regObject->addFileExtensionAlias("fgb", "verse_geojson");
+        regObject->addFileExtensionAlias("kml", "verse_kml");
+        regObject->addFileExtensionAlias("kmz", "verse_kml");
         regObject->addFileExtensionAlias("webp", "verse_webp");
         regObject->addFileExtensionAlias("ktx", "verse_ktx");
         regObject->addFileExtensionAlias("rseq", "verse_image");

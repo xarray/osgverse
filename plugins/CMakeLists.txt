@@ -22,6 +22,7 @@ IF(MSVC AND MSVC_VERSION LESS 1909)
     # Disable geojson & s57 plugins in VS2015
 ELSE()
     ADD_SUBDIRECTORY(osgdb_geojson)
+    ADD_SUBDIRECTORY(osgdb_kml)
     ADD_SUBDIRECTORY(osgdb_s57)
 ENDIF()
 ADD_SUBDIRECTORY(osgdb_mbtiles)
