@@ -52,7 +52,7 @@ int main(int argc, char** argv)
 
     osg::ref_ptr<osg::Texture2D> hdrMap = osgVerse::createTexture2D(skyBox, osg::Texture::MIRROR);
     osg::Shader* vs = osgDB::readShaderFile(osg::Shader::VERTEX, SHADER_DIR + "std_common_quad.vert.glsl");
-    osg::Camera *cam0 = NULL, *cam1 = NULL, *cam2 = NULL;
+    osg::Camera *cam0 = NULL, *cam2 = NULL;
 
     int cxtVer = 0, glslVer = 0; osgVerse::guessOpenGLVersions(cxtVer, glslVer);
     osgVerse::Pipeline::createShaderDefinitions(vs, cxtVer, glslVer);
@@ -73,23 +73,30 @@ int main(int argc, char** argv)
             prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
     }
 
-    // Prefilter
-    osg::ref_ptr<osg::Image> img1 = new osg::Image;
+    // Prefilter: one image per mip level, mip i <=> roughness i/4
+    // (matching MAX_REFLECTION_LOD in std_pbr_lighting.frag.glsl)
+    const int numPrefilterMips = 5;
+    osg::ref_ptr<osg::Image> img1mips[5];
+    osg::Camera* cam1mips[5] = { NULL };
+    for (int i = 0; i < numPrefilterMips; ++i)
     {
+        int mw = 512 >> i, mh = 256 >> i;
         osg::Shader* fs = osgDB::readShaderFile(
             osg::Shader::FRAGMENT, SHADER_DIR + "std_environment_prefiltering.frag.glsl");
         osgVerse::Pipeline::createShaderDefinitions(fs, cxtVer, glslVer);
-        img1->allocateImage(w, h, 1, GL_RGB, GL_UNSIGNED_BYTE);
-        img1->setInternalTextureFormat(GL_RGB8);
+        img1mips[i] = new osg::Image;
+        img1mips[i]->allocateImage(mw, mh, 1, GL_RGB, GL_HALF_FLOAT);
+        img1mips[i]->setInternalTextureFormat(GL_RGB16F_ARB);
 
         osg::ref_ptr<osg::Program> prog = new osg::Program;
         prog->addShader(vs); prog->addShader(fs);
-        cam1 = createRTTCameraForImage(osg::Camera::COLOR_BUFFER0, img1.get(), true);
-        cam1->getOrCreateStateSet()->setAttributeAndModes(
+        cam1mips[i] = createRTTCameraForImage(osg::Camera::COLOR_BUFFER0, img1mips[i].get(), true);
+        cam1mips[i]->getOrCreateStateSet()->setAttributeAndModes(
             prog.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-        cam1->getOrCreateStateSet()->setTextureAttributeAndModes(0, hdrMap.get());
-        cam1->getOrCreateStateSet()->addUniform(new osg::Uniform("EnvironmentMap", (int)0));
-        cam1->getOrCreateStateSet()->addUniform(new osg::Uniform("GlobalRoughness", 4.0f));
+        cam1mips[i]->getOrCreateStateSet()->setTextureAttributeAndModes(0, hdrMap.get());
+        cam1mips[i]->getOrCreateStateSet()->addUniform(new osg::Uniform("EnvironmentMap", (int)0));
+        cam1mips[i]->getOrCreateStateSet()->addUniform(new osg::Uniform(
+            "GlobalRoughness", (float)i / (float)(numPrefilterMips - 1)));
     }
 
     // IrrConvolution
@@ -113,7 +120,7 @@ int main(int argc, char** argv)
     // Scene graph
     osg::ref_ptr<osg::MatrixTransform> root = new osg::MatrixTransform;
     root->addChild(cam0);
-    root->addChild(cam1);
+    for (int i = 0; i < numPrefilterMips; ++i) root->addChild(cam1mips[i]);
     root->addChild(cam2);
 
     osgViewer::Viewer viewer;
@@ -127,7 +134,7 @@ int main(int argc, char** argv)
     std::string outFile = osgDB::getNameLessExtension(skyFile);
 #if 0
     osg::ref_ptr<osg::Texture2D> tex0 = osgVerse::createTexture2D(img0.get(), osg::Texture::MIRROR);
-    osg::ref_ptr<osg::Texture2D> tex1 = osgVerse::createTexture2D(img1.get(), osg::Texture::MIRROR);
+    osg::ref_ptr<osg::Texture2D> tex1 = osgVerse::createTexture2D(img1mips[0].get(), osg::Texture::MIRROR);
     osg::ref_ptr<osg::Texture2D> tex2 = osgVerse::createTexture2D(img2.get(), osg::Texture::MIRROR);
 
     osg::ref_ptr<osg::StateSet> savedSS = new osg::StateSet;
@@ -137,8 +144,14 @@ int main(int argc, char** argv)
     osgDB::writeObjectFile(*savedSS, outFile + ".ibl.osgb");
     std::cout << "PBR textures output to " << outFile + ".ibl.osgb" << "\n";
 #else
+    // IBL data layout in the sequence: index 0 = BRDF LUT, index 1 = prefiltered environment map
+    // of roughness 0, index 2 = irradiance convolution, and then the rest of the prefiltered
+    // roughness levels (each one half the size of the previous). The renderer will pack them into a
+    // single mipmap chain, so that different roughness values get different specular reflections.
+    // https://github.com/xarray/osgverse/issues/7
     osg::ref_ptr<osg::ImageSequence> seq = new osg::ImageSequence;
-    seq->addImage(img0); seq->addImage(img1); seq->addImage(img2);
+    seq->addImage(img0); seq->addImage(img1mips[0]); seq->addImage(img2);
+    for (int i = 1; i < numPrefilterMips; ++i) seq->addImage(img1mips[i]);
     if (osgDB::writeImageFile(*seq, outFile + ".ibl.rseq.verse_image"))
         std::cout << "PBR textures output to " << outFile + ".ibl.rseq" << "\n";
 #endif

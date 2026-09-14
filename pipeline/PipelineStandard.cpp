@@ -496,6 +496,76 @@ namespace osgVerse
         return p ? p->getVersionData() : NULL;
     }
 
+    // The offline IBL data (.ibl.rseq) stores the BRDF LUT at index 0, the prefiltered environment
+    // map at index 1 and the irradiance convolution at index 2. A prefiltered map has to be built
+    // for different roughness values, so osgVerse_Test_Pbr_Prerequisite bakes one image per
+    // roughness level and appends them after the above three, each one being half the size of the
+    // previous one. Here we pack all these levels into a single image carrying a precomputed
+    // mipmap chain, which lets std_pbr_lighting.frag.glsl select the wanted roughness by
+    // textureLod(). Otherwise every roughness would sample the same blurry level and all specular
+    // reflections would look identical. See https://github.com/xarray/osgverse/issues/7
+    static osg::Image* createPrefilteredImage(osg::ImageSequence* seq)
+    {
+        const unsigned int baseIndex = 1;  // index 1 = prefiltered map of roughness 0
+        osg::Image* base = seq->getImage(baseIndex); if (!base) return NULL;
+
+        std::vector<osg::Image*> levels; levels.push_back(base);
+#if OSG_VERSION_GREATER_THAN(3, 2, 0)
+        unsigned int numImages = seq->getNumImageData();
+#else
+        unsigned int numImages = seq->getNumImages();
+#endif
+        for (unsigned int i = baseIndex + 2; i < numImages; ++i)
+        {
+            osg::Image* img = seq->getImage(i); osg::Image* last = levels.back();
+            if (!img || img->getPixelFormat() != base->getPixelFormat() ||
+                img->getDataType() != base->getDataType())
+            {
+                OSG_WARN << "[StandardPipeline] Unmatched prefiltered data at index " << i
+                         << ", the remaining roughness levels are ignored." << std::endl; break;
+            }
+
+            if (img->s() != (last->s() >> 1) || img->t() != (last->t() >> 1))
+            {
+                OSG_WARN << "[StandardPipeline] Unexpected size " << img->s() << "x" << img->t()
+                         << " of prefiltered roughness level " << levels.size() << std::endl; break;
+            }
+            levels.push_back(img);
+        }
+
+        if (levels.size() < 2)
+        {
+            OSG_NOTICE << "[StandardPipeline] Prefiltered environment map has only " << levels.size()
+                       << " roughness level, no mipmap chain for specular-IBL " << seq->getFileName()
+                       << std::endl; return base;
+        }
+        else
+        {
+            OSG_INFO << "[StandardPipeline] Prefiltered environment map has " << levels.size()
+                     << " roughness levels for generating mipmap chain." << std::endl;
+        }
+
+        unsigned int totalSize = 0; osg::Image::MipmapDataType offsets;
+        for (size_t i = 0; i < levels.size(); ++i)
+        {
+            if (i > 0) offsets.push_back(totalSize);
+            totalSize += levels[i]->getTotalSizeInBytes();
+        }
+
+        unsigned char* data = new unsigned char[totalSize]; unsigned int pos = 0;
+        for (size_t i = 0; i < levels.size(); ++i)
+        {
+            unsigned int size = levels[i]->getTotalSizeInBytes();
+            memcpy(data + pos, levels[i]->data(), size); pos += size;
+        }
+
+        osg::ref_ptr<osg::Image> newImage = new osg::Image;
+        newImage->setImage(base->s(), base->t(), 1, base->getInternalTextureFormat(),
+                           base->getPixelFormat(), base->getDataType(), data,
+                           osg::Image::USE_NEW_DELETE);
+        newImage->setMipmapLevels(offsets); return newImage.release();
+    }
+
     bool setupStandardPipeline(osgVerse::Pipeline* p, osgViewer::View* view,
                                const StandardPipelineParameters& spp)
     {
@@ -661,7 +731,12 @@ namespace osgVerse
                     spp.shaders.quadVS, spp.shaders.envPrefilterFS, 1,
                     "PrefilterBuffer", osgVerse::Pipeline::RGB_INT8);
             prefiltering->applyTexture(spp.skyboxMap.get(), "EnvironmentMap", 0);
-            prefiltering->applyUniform(new osg::Uniform("GlobalRoughness", 4.0f));
+
+            // Only one roughness level can be generated here, so the specular IBL will not vary
+            // with roughness. Use osgVerse_Test_Pbr_Prerequisite to bake a full roughness chain
+            // (.ibl.rseq) instead, which is then loaded and used as a mipmap chain above.
+            // See https://github.com/xarray/osgverse/issues/7
+            prefiltering->applyUniform(new osg::Uniform("GlobalRoughness", 0.0f));
 
             convolution = p->addDeferredStage("IrrConvolution", 1.0f, true,
                     spp.shaders.quadVS, spp.shaders.irrConvolutionFS, 1,
@@ -698,9 +773,10 @@ namespace osgVerse
 #if defined(VERSE_EMBEDDED_GLES2)
                 spp.skyboxIBL->getImage(1)->setInternalTextureFormat(GL_RGB);
 #endif
-                prefilteringTex = createTexture2D(spp.skyboxIBL->getImage(1), osg::Texture::MIRROR);
-                prefilteringTex->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-                prefilteringTex->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+                // Build the roughness based mipmap chain. createTexture2D() uses
+                // LINEAR_MIPMAP_LINEAR as the minification filter, which is required by
+                // textureLod() in std_pbr_lighting.frag.glsl to pick the wanted roughness level
+                prefilteringTex = createTexture2D(createPrefilteredImage(spp.skyboxIBL.get()), osg::Texture::MIRROR);
             }
 
             if (imgCount > 2)
