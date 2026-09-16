@@ -64,6 +64,18 @@ namespace osgVerse
         osg::Uniform* getLightMatrices() { return _lightMatrices.get(); }
         const osg::Uniform* getLightMatrices() const { return _lightMatrices.get(); }
 
+        /** Set the relative size of the blending band between two cascades (0.0 ~ 1.0).
+            Cascades are selected by view distance in shaders, and this band is used to
+            smoothly fade from one cascade to the next one */
+        void setCascadeBlendRatio(float r) { _cascadeBlendRatio = r; }
+        float getCascadeBlendRatio() const { return _cascadeBlendRatio; }
+
+        /** Uniforms used by shaders to select cascades:
+            - CascadeInfo: (number of active cascades, blending ratio)
+            - CascadeFarDepths: far view distance of each cascade */
+        osg::Uniform* getCascadeInfo() { return _cascadeInfo.get(); }
+        osg::Uniform* getCascadeDepths() { return _cascadeDepths.get(); }
+
         osg::Geode* getFrustumGeode() { return _shadowFrustum.get(); }
         const osg::Geode* getFrustumGeode() const { return _shadowFrustum.get(); }
 
@@ -83,12 +95,15 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> _shadowMaps[MAX_SHADOWS];
         osg::ref_ptr<osg::Uniform> _lightMatrices;  // matrixf[]
         osg::ref_ptr<osg::Uniform> _invTextureSize;  // vec2
+        osg::ref_ptr<osg::Uniform> _cascadeInfo;  // vec2: (num, blendRatio)
+        osg::ref_ptr<osg::Uniform> _cascadeDepths;  // vec4: far distance of each cascade
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix, _lightInputMatrix;
         std::vector<osg::Vec3d> _referencePoints;
         Technique _technique;
         double _shadowMaxDistance; int _shadowNumber;
+        float _cascadeBlendRatio;
         bool _retainLightPos, _dirtyReference;
     };
 

@@ -111,7 +111,7 @@ namespace osgVerse
 {
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
     :   _pipeline(pipeline), _technique(PossionPCF), _shadowMaxDistance(-1.0), _shadowNumber(0),
-        _retainLightPos(false), _dirtyReference(false)
+        _cascadeBlendRatio(0.1f), _retainLightPos(false), _dirtyReference(false)
     {
         for (int i = 0; i < MAX_SHADOWS; ++i) _shadowMaps[i] = new osg::Texture2D;
         _cullFace = new osg::CullFace(osg::CullFace::FRONT);
@@ -120,6 +120,8 @@ namespace osgVerse
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
         _lightMatrices = new osg::Uniform(
             osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", MAX_SHADOWS);
+        _cascadeInfo = new osg::Uniform("CascadeInfo", osg::Vec2(0.0f, _cascadeBlendRatio));
+        _cascadeDepths = new osg::Uniform("CascadeFarDepths", osg::Vec4());
         if (pipeline) pipeline->addModule(name, this);
     }
 
@@ -284,6 +286,8 @@ namespace osgVerse
         }
         stage->applyUniform(getLightMatrices());
         stage->applyUniform(_invTextureSize.get());
+        stage->applyUniform(_cascadeInfo.get());
+        stage->applyUniform(_cascadeDepths.get());
         return unit;
     }
 
@@ -313,37 +317,37 @@ namespace osgVerse
         }
 
         // Split the main frustum
-        double step = 0.0, zMaxTotal = 0.0;
         size_t numCameras = _shadowCameras.size();
         std::vector<osg::BoundingBoxd> shadowBBs(numCameras);
-#if false
-        static const float ratios[] = { 0.0f, 0.15f, 0.35f, 0.55f, 1.0f };
-        step = shadowDistance / ratios[numCameras];
-        for (size_t i = 0; i < numCameras; ++i)
-        {
-            double zMin = zn + step * ratios[i], zMax = zn + step * ratios[i + 1];
-            Frustum frustum; frustum.create(viewMat, proj, zMin, zMax);
 
-            // Get light-space bounding box of the splitted frustum
-            Frustum::AABB aabb = frustum.createShadowBound(_referencePoints, _lightMatrix);
-            osg::BoundingBoxd shadowBB(aabb.first, aabb.second);
-            double zNew = osg::maximum(osg::absolute(shadowBB.zMin()), osg::absolute(shadowBB.zMax()));
-            shadowBBs[i] = shadowBB; if (zMaxTotal < zNew) zMaxTotal = zNew;
-        }
-#else
-        // Get light-space bounding box of the entire frustum
-        Frustum frustum; frustum.create(viewMat, proj, zn, zf);
-        Frustum::AABB aabb = frustum.createShadowBound(_referencePoints, _lightMatrix);
-        osg::BoundingBoxd entireShadowBB(aabb.first, aabb.second);
-        zMaxTotal = osg::maximum(osg::absolute(entireShadowBB.zMin()),
-                                 osg::absolute(entireShadowBB.zMax()));
+        // The ortho near plane only needs to start where the nearest possible shadow caster is,
+        // instead of at the light position (0.0). Shadow maps are stored in half-float
+        // textures, so a tighter depth range directly means better depth precision and less
+        // shadow acne. Reference points bound the whole scene, so no caster gets clipped here
+        double zNearTotal = 0.0; osg::BoundingBoxd refBB;
+        for (size_t i = 0; i < _referencePoints.size(); ++i)
+            refBB.expandBy(_referencePoints[i] * _lightMatrix);
+        if (!_referencePoints.empty()) zNearTotal = osg::maximum(0.0, -refBB.zMax());
 
-        // CSM split: logarithmic partitioning in view-space depth
+        // CSM split: practical split scheme, mixing logarithmic and uniform partitioning:
+        // a pure logarithmic split gives too little resolution to distant cascades
+        const double splitLambda = 0.5;
         std::vector<double> splitDepths(numCameras + 1); splitDepths[0] = zn;
         for (size_t i = 1; i <= numCameras; ++i)
-        {   // Pure logarithmic split: Ci = n * (f / n)^(i / numsplits)
-            double fi = (double)i / numCameras; splitDepths[i] = zn * pow(zf / zn, fi);
+        {
+            double fi = (double)i / numCameras;
+            double logValue = zn * pow(zf / zn, fi), uniValue = zn + (zf - zn) * fi;
+            splitDepths[i] = logValue * splitLambda + uniValue * (1.0 - splitLambda);
         }
+        splitDepths[numCameras] = zf;
+
+        // Tell shaders the view distance of each cascade, so they can select one cascade
+        // per pixel instead of multiplying the results of all overlapping cascades
+        double cascadeDepths[4] = { 0.0, 0.0, 0.0, 0.0 };
+        for (size_t i = 0; i < numCameras && i < 4; ++i) cascadeDepths[i] = splitDepths[i + 1];
+        _cascadeDepths->set(osg::Vec4((float)cascadeDepths[0], (float)cascadeDepths[1],
+                                      (float)cascadeDepths[2], (float)cascadeDepths[3]));
+        _cascadeInfo->set(osg::Vec2((float)numCameras, _cascadeBlendRatio));
 
         // Compute light-space bounding box for each split frustum
         for (size_t i = 0; i < numCameras; ++i)
@@ -352,7 +356,6 @@ namespace osgVerse
             Frustum::AABB aabb = frustum.createShadowBound(_referencePoints, _lightMatrix);
             shadowBBs[i] = osg::BoundingBoxd(aabb.first, aabb.second);
         }
-#endif
 
         for (size_t i = 0; i < numCameras; ++i)
         {
@@ -367,6 +370,12 @@ namespace osgVerse
             //xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
             //yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
 #else       // Texel snap
+            // The world size of one texel has to be stable between frames: a radius that
+            // changes every frame keeps re-scaling the sampling grid, which makes the texel
+            // snapping below useless and leaves shadow edges shimmering while the camera
+            // moves. Quantizing the radius to a power of 2 keeps the texel size constant for
+            // a whole octave, in exchange for up to 2x larger extents of this cascade
+            if (radius > 0.0) radius = pow(2.0, ceil(log2(radius)));
             double texelSize = (2.0 * radius) / _shadowMaps[i]->getTextureWidth();
             
             // Snap the center to texel grid and recompute keeping the radius
@@ -380,8 +389,11 @@ namespace osgVerse
 
             // Apply the shadow camera & uniform
             osg::Camera* shadowCam = _shadowCameras[i].get();
+            // A caster farther than the farthest receiver of this cascade can not cast any
+            // shadow on it, so the far plane can be limited to this cascade's own bound
+            double zFar = osg::maximum(-shadowBB.zMin(), zNearTotal + 0.001);
             shadowCam->setViewMatrix(_lightMatrix);
-            shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax, 0.0, zMaxTotal);
+            shadowCam->setProjectionMatrixAsOrtho(xMin, xMax, yMin, yMax, zNearTotal, zFar);
             if (_technique == EyeSpaceDepthSM)
             {
                 osg::Matrix proj = shadowCam->getProjectionMatrix(), projKeepZ;

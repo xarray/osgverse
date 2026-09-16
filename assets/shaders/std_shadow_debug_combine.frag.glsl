@@ -8,6 +8,8 @@ uniform sampler2D RandomTexture;
 uniform mat4 ShadowSpaceMatrices[VERSE_MAX_SHADOWS];
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvShadowMapSize;
+uniform vec2 CascadeInfo;  // (number of cascades, ratio of the blending band)
+uniform vec4 CascadeFarDepths;  // far view distance of each cascade
 VERSE_FS_IN vec4 texCoord0;
 
 #ifdef VERSE_GLES3
@@ -55,9 +57,21 @@ void main()
     shadowColors[0] = vec3(1, 0, 0); shadowColors[1] = vec3(0, 1, 0);
     shadowColors[2] = vec3(0, 0, 1); shadowColors[3] = vec3(1, 1, 0);
 #endif
+    // Select the cascade by view distance, the same way as the pipeline shadow shader does.
+    // Cascaded blending is not applied here, so that the debug data of one cascade is not
+    // mixed with another one
+    float viewDepth = -(eyeVertex.z / eyeVertex.w);
+    int numCascades = int(CascadeInfo.x), cascadeID = -1;
+    for (int i = 0; i < VERSE_MAX_SHADOWS; ++i)
+    {
+        if (i >= numCascades) break;
+        if (viewDepth < CascadeFarDepths[i]) { cascadeID = i; break; }
+    }
+
     float shadow = 1.0; vec3 debugValue = vec3(0.0, 0.0, 0.0);
     for (int i = 0; i < VERSE_MAX_SHADOWS; ++i)
     {
+        if (i != cascadeID) continue;
         vec4 lightProjVec = ShadowSpaceMatrices[i] * eyeVertex;
         vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
         if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0)))) continue;
@@ -71,7 +85,7 @@ void main()
 
         if (length(debugValue) == 0.0) debugValue = vec3(
             (shadowValue.x - shadowValue.y) * 10.0, (abs(shadowValue.x - shadowValue.y) < 0.01) ? 1.0 : 0.0, 0.0);
-        shadow *= shadowValue.z;
+        shadow = shadowValue.z;
 #ifdef VERSE_SHADOW_DEBUGCOLOR
         if (shadowValue.z < 0.5) debugShadowColor = shadowColors[i];
 #endif
