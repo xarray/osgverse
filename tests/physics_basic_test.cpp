@@ -86,9 +86,10 @@ public:
 
                     // Create p2p constraint between the empty kinematic body and the picked one
                     _physics->setTransform("dragger", osg::Matrix::translate(result.position));
-                    _physics->addConstraint("dragP2P", _physics->createConstraintP2P(
-                            _physics->getRigidBody("dragger"), result.position,
-                            result.rigidBody, result.position, &setting));
+                    _physics->addConstraint("dragP2P", _physics->createConstraint(
+                            _physics->getRigidBody("dragger"), osg::Matrix::translate(result.position),
+                            result.rigidBody, osg::Matrix::translate(result.position),
+                            osgVerse::PhysicsEngine::CONSTRAINT_P2P, &setting));
                     _pickingDistance = (result.position - start).length();
                     _pickedRigidName = result.name; return true;
                 }

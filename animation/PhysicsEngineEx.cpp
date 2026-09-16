@@ -56,11 +56,12 @@ bool PhysicsCharacter::create(const osg::Vec3& position)
     _massCenter = position;
 
     // Feet box (lower half): dynamic friction for braking and sliding on the ground
+    PhysicsEngine::ShapeSetting shapeSetting; shapeSetting.friction = 0.0f;
     float halfHeight = totalHeight * 0.5f, feetHeight = totalHeight * 0.5f;
     float halfX = bodyRadius * 0.5f, halfY = bodyRadius * 0.5f, halfZ = feetHeight * 0.5f;
     osg::Vec3 feetOffset(0.0f, 0.0f, -halfHeight + halfZ);
     _feetShape = _engine->createPhysicsBox(osg::Vec3(halfX, halfY, halfZ), feetOffset);
-    if (_engine->addShapeToBody(_body.get(), _feetShape.get(), characterMass * 0.4f, 0.0f) == NULL)
+    if (_engine->addShapeToBody(_body.get(), _feetShape.get(), characterMass * 0.4f, &shapeSetting) == NULL)
         OSG_WARN << "[PhysicsCharacter] Failed to create feet box shape\n";
 
     // Body capsule (upper half): zero friction so we can slide along walls
@@ -71,7 +72,7 @@ bool PhysicsCharacter::create(const osg::Vec3& position)
     {
         _bodyShape = _engine->createPhysicsCapsule(
             radius, osg::Vec3(0.0f, 0.0f, bottom), osg::Vec3(0.0f, 0.0f, top));
-        if (_engine->addShapeToBody(_body.get(), _bodyShape.get(), characterMass * 0.6f, 0.0f) == NULL)
+        if (_engine->addShapeToBody(_body.get(), _bodyShape.get(), characterMass * 0.6f, &shapeSetting) == NULL)
             OSG_WARN << "[PhysicsCharacter] Failed to create body capsule shape\n";
     }
 
@@ -354,25 +355,21 @@ bool PhysicsCharacter::tryStep(float maxStepHeight)
     }
     if (!trForward.hit) return false;  // no obstacle ahead, no step needed
 
-    // Phase 2 - UP: trace straight up from the hit position. The tracing box is moved a little
-    // backward, otherwise it will start inside the obstacle the character is just facing.
-    osg::Vec3 hitPos = trForward.endPosition - moveDir * (bodyRadius * 0.1f);
-    osg::Vec3 upFrom = hitPos, upTo(hitPos.x(), hitPos.y(), hitPos.z() + maxStepHeight);
-    TraceResult trUp = traceBody(upFrom, upTo, radiusScale, 1.0f);
-    if (trUp.startedSolid) return false;
-
-    osg::Vec3 topPos = trUp.hit ? trUp.endPosition : upTo;
-    if (topPos.z() - upFrom.z() < 0.005f) return false;  // too tight to step up
-
-    // Phase 3 - ACROSS: from the top position, trace in the move direction
+    // Phase 2 - LIFT: the tracing box is lifted by the maximum step height and then moved forward
+    // by at most one frame of walking. Limiting the crossing distance keeps the speed on stairs
+    // and slopes the same as the walking speed on flat ground, and the character never gains
+    // extra distance from a step.
     float acrossDist = forwardDist * (1.0f - trForward.fraction) + bodyRadius * 0.5f;
-    osg::Vec3 acrossFrom = topPos, acrossTo = topPos + moveDir * acrossDist;
-    TraceResult trAcross = traceBody(acrossFrom, acrossTo, radiusScale, 1.0f);
+    acrossDist = osg::minimum(acrossDist, hSpeed * (1.0f / 60.0f));
+    osg::Vec3 liftedFrom = traceFeet + osg::Vec3(0.0f, 0.0f, maxStepHeight);
+    osg::Vec3 liftedTo = liftedFrom + moveDir * acrossDist;
+    TraceResult trAcross = traceBody(liftedFrom, liftedTo, radiusScale, 1.0f);
     if (trAcross.startedSolid) return false;
-    osg::Vec3 acrossPos = trAcross.hit ? trAcross.endPosition : acrossTo;
+    osg::Vec3 acrossPos = trAcross.hit ? trAcross.endPosition : liftedTo;
 
-    // Phase 4 - DOWN: from the across position, trace straight down to find a standable surface
-    osg::Vec3 downFrom = acrossPos, downTo(acrossPos.x(), acrossPos.y(), acrossPos.z() - maxStepHeight);
+    // Phase 3 - DOWN: from the across position, trace straight down to find a standable surface
+    osg::Vec3 downFrom = acrossPos;
+    osg::Vec3 downTo = acrossPos - osg::Vec3(0.0f, 0.0f, maxStepHeight + 0.05f);
     TraceResult trDown = traceBody(downFrom, downTo, radiusScale, 1.0f);
     if (!trDown.hit || !isStandableSurface(trDown.normal)) return false;
 

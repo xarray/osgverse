@@ -130,6 +130,17 @@ namespace b3Helpers
         b3ShapeId shapeId;  // valid after the shape is created on a body
     };
 
+    static void applyShapeSetting(b3ShapeDef& def, const osgVerse::PhysicsEngine::ShapeSetting* setting)
+    {
+        if (!setting) return;
+        def.baseMaterial.friction = setting->friction;
+        def.baseMaterial.restitution = setting->restitution;
+        def.baseMaterial.rollingResistance = setting->rollingResistance;
+        // Box3D only skips collisions between shapes which share the same negative group index
+        def.filter.groupIndex = (setting->collisionGroup == 0) ?
+            0 : -(setting->collisionGroup > 0 ? setting->collisionGroup : -setting->collisionGroup);
+    }
+
     struct RigidBody : public osgVerse::RigidBodyBase { RigidBody(b3BodyId b) : _b(b) { internal = &_b; } b3BodyId _b; };
     struct Constraint : public osgVerse::ConstraintBase { Constraint(b3JointId j) : _j(j) { internal = &_j; } b3JointId _j; };
 
@@ -156,6 +167,17 @@ namespace b3Helpers
             osg::Vec3 p(pos.x, pos.y, pos.z);
             return osg::Matrix(osg::Matrix::rotate(q) * osg::Matrix::translate(p));
         }
+
+        static b3Transform toTransform(const osg::Matrix& m)
+        {
+            b3Vec3 pos; b3Quat rot;
+            PhysicsCore::fromMatrix(m, pos, rot);
+            b3Transform xf; xf.p = pos; xf.q = rot; return xf;
+        }
+
+        /** Convert a world space frame to the local space of a body with the given transform */
+        static void toLocal(const b3Vec3& bodyPos, const b3Quat& bodyRot, osg::Matrix& frame)
+        { frame = frame * osg::Matrix::inverse(toMatrix(bodyPos, bodyRot)); }
 
         b3WorldId _worldId;
 
@@ -265,7 +287,8 @@ PhysicsEngine::~PhysicsEngine()
 }
 
 RigidBodyBase* PhysicsEngine::addRigidBody(const std::string& name, CollisionShapeBase* csb, float mass,
-                                           const osg::Matrix& matrix, bool kinematic)
+                                           const osg::Matrix& matrix, bool kinematic,
+                                           const ShapeSetting* setting)
 {
     bool isDynamic = (mass > 0.0f); b3Vec3 pos; b3Quat rot;
     b3Helpers::PhysicsCore::fromMatrix(matrix, pos, rot);
@@ -274,6 +297,7 @@ RigidBodyBase* PhysicsEngine::addRigidBody(const std::string& name, CollisionSha
     b3Helpers::CollisionShape* cs = static_cast<b3Helpers::CollisionShape*>(csb);
     if (!cs || (cs && !cs->shapeData)) { OSG_NOTICE << "[PhysicsEngine] Failed to get input shape\n"; return NULL; }
     cs->shapeDef.density = (mass > 0.0f) ? (mass / cs->shapeData->volume) : 0.0f;
+    b3Helpers::applyShapeSetting(cs->shapeDef, setting);
 
     b3BodyDef bodyDef = b3DefaultBodyDef();
     bodyDef.position = b3ToPos(pos); bodyDef.rotation = rot;
@@ -366,16 +390,27 @@ osg::Vec3 PhysicsEngine::getVelocity(const std::string& name, bool linearOrAngul
 }
 
 void PhysicsEngine::applyImpulse(const std::string& name, const osg::Vec3& point,
-                                 const osg::Vec3& impulse, bool wake)
+                                 const osg::Vec3& impulse, bool wake, bool linearOrAngular)
 {
     std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
     if (itr != _bodies.end())
     {
         b3BodyId* body = itr->second->get<b3BodyId>();
         b3Vec3 v = b3Vec3{ impulse[0], impulse[1], impulse[2] };
-        b3Pos p = b3Pos({ point[0], point[1], point[2] });
-        b3Body_ApplyLinearImpulse(*body, v, p, wake);
+        if (linearOrAngular)
+        {
+            b3Pos p = b3Pos({ point[0], point[1], point[2] });
+            b3Body_ApplyLinearImpulse(*body, v, p, wake);
+        }
+        else
+            b3Body_ApplyAngularImpulse(*body, v, wake);
     }
+}
+
+void PhysicsEngine::setBullet(const std::string& name, bool flag)
+{
+    std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
+    if (itr != _bodies.end()) b3Body_SetBullet(*itr->second->get<b3BodyId>(), flag);
 }
 
 float PhysicsEngine::getInverseMass(const std::string& name)
@@ -440,7 +475,7 @@ RigidBodyBase* PhysicsEngine::createBody(const std::string& name, const BodySett
 }
 
 CollisionShapeBase* PhysicsEngine::addShapeToBody(RigidBodyBase* body, CollisionShapeBase* csb,
-                                                  float mass, float friction)
+                                                  float mass, const ShapeSetting* setting)
 {
     if (!body || !csb) return NULL;
     b3Helpers::CollisionShape* cs = static_cast<b3Helpers::CollisionShape*>(csb);
@@ -449,7 +484,7 @@ CollisionShapeBase* PhysicsEngine::addShapeToBody(RigidBodyBase* body, Collision
     { OSG_NOTICE << "[PhysicsEngine] Failed to add shape to body\n"; return NULL; }
 
     cs->shapeDef.density = (mass > 0.0f) ? (mass / cs->shapeData->volume) : 0.0f;
-    cs->shapeDef.baseMaterial.friction = friction;
+    b3Helpers::applyShapeSetting(cs->shapeDef, setting);
     cs->shapeId = cs->shapeData->createOnBody(PHY_WORLD(), *bodyId, cs->shapeDef);
     if (B3_IS_NULL(cs->shapeId))
     { OSG_NOTICE << "[PhysicsEngine] Failed to create shape on body\n"; return NULL; }
@@ -741,45 +776,176 @@ CollisionShapeBase* PhysicsEngine::createPhysicsHeightField(osg::HeightField* hf
                           * (maxHeight - minHeight); return cs;
 }
 
-ConstraintBase* PhysicsEngine::createConstraintP2P(RigidBodyBase* bodyA, const osg::Vec3& pA,
-                                                   RigidBodyBase* bodyB, const osg::Vec3& pB,
-                                                   const ConstraintSetting* setting)
+ConstraintBase* PhysicsEngine::createConstraint(RigidBodyBase* bodyA, const osg::Matrix& frameA,
+                                                RigidBodyBase* bodyB, const osg::Matrix& frameB,
+                                                ConstraintType type, const ConstraintSetting* setting)
 {
     if (!bodyA || !bodyB) return NULL;
     b3BodyId* bA = bodyA->get<b3BodyId>();
     b3BodyId* bB = bodyB->get<b3BodyId>();
     if (B3_IS_NULL((*bA)) || B3_IS_NULL((*bB))) return NULL;
 
-    b3Vec3 anchorA = b3Vec3{ pA[0], pA[1], pA[2] };
-    b3Vec3 anchorB = b3Vec3{ pB[0], pB[1], pB[2] };
-    b3Transform localFrameA, localFrameB;
-    localFrameA.q = b3Quat{ 0, 0, 0, 1 };
-    localFrameB.q = b3Quat{ 0, 0, 0, 1 };
+    ConstraintSetting cs; if (setting) cs = *setting;
 
-    // Box3D uses spherical joint for point-to-point constraint
-    b3SphericalJointDef jointDef = b3DefaultSphericalJointDef();
-    jointDef.base.bodyIdA = *bA; jointDef.base.bodyIdB = *bB;
-
-    if (setting && setting->useWorldPivots)
+    // World frames should be converted to local ones of the two bodies first
+    osg::Matrix fA = frameA, fB = frameB;
+    if (cs.useWorldPivots)
     {
-        b3Pos posA = b3Body_GetPosition(*bA), posB = b3Body_GetPosition(*bB);
-        b3Quat rotA = b3Body_GetRotation(*bA), rotB = b3Body_GetRotation(*bB);
-        b3Quat invRotA = b3Quat{ -rotA.v.x, -rotA.v.y, -rotA.v.z, rotA.s };
-        b3Quat invRotB = b3Quat{ -rotB.v.x, -rotB.v.y, -rotB.v.z, rotB.s };
-        localFrameA.p = b3Vec3{ anchorA.x - (float)posA.x, anchorA.y - (float)posA.y, anchorA.z - (float)posA.z };
-        localFrameB.p = b3Vec3{ anchorB.x - (float)posB.x, anchorB.y - (float)posB.y, anchorB.z - (float)posB.z };
+        b3Helpers::PhysicsCore::toLocal(b3ToVec3(b3Body_GetPosition(*bA)), b3Body_GetRotation(*bA), fA);
+        b3Helpers::PhysicsCore::toLocal(b3ToVec3(b3Body_GetPosition(*bB)), b3Body_GetRotation(*bB), fB);
     }
-    else
-        { localFrameA.p = anchorA; localFrameB.p = anchorB; }
-    jointDef.base.localFrameA = localFrameA; jointDef.base.localFrameB = localFrameB;
+    b3Transform tA = b3Helpers::PhysicsCore::toTransform(fA);
+    b3Transform tB = b3Helpers::PhysicsCore::toTransform(fB);
+    b3JointId joint = b3_nullJointId;
 
-    // Box3D spherical joint doesn't have tau/damping/impulseClamp directly
-    // These are solver parameters set on the world or body level
-    if (setting)
+    // Box3D joints are created with all parameters in the definition, while tau/damping/impulseClamp
+    // of P2P constraints are Bullet-only parameters and simply ignored here
+    switch (type)
     {
-        // Apply settings if Box3D supports them through other mechanisms
-        // TODO
+    case CONSTRAINT_HINGE:
+        {
+            b3RevoluteJointDef def = b3DefaultRevoluteJointDef();
+            def.base.bodyIdA = *bA; def.base.bodyIdB = *bB;
+            def.base.localFrameA = tA; def.base.localFrameB = tB;
+            def.base.collideConnected = cs.collideConnected;
+            def.enableLimit = cs.enableLimit;
+            def.lowerAngle = cs.lowerLimit; def.upperAngle = cs.upperLimit;
+            def.enableSpring = cs.enableSpring;
+            def.hertz = cs.hertz; def.dampingRatio = cs.dampingRatio;
+            def.enableMotor = cs.enableMotor; def.maxMotorTorque = cs.maxMotorTorque;
+            def.motorSpeed = cs.motorSpeed;
+            joint = b3CreateRevoluteJoint(PHY_WORLD(), &def);
+        }
+        break;
+    case CONSTRAINT_CONE_TWIST:
+        {
+            b3SphericalJointDef def = b3DefaultSphericalJointDef();
+            def.base.bodyIdA = *bA; def.base.bodyIdB = *bB;
+            def.base.localFrameA = tA; def.base.localFrameB = tB;
+            def.base.collideConnected = cs.collideConnected;
+            def.enableConeLimit = cs.enableLimit; def.coneAngle = cs.coneLimit;
+            def.enableTwistLimit = cs.enableLimit;
+            def.lowerTwistAngle = cs.lowerLimit; def.upperTwistAngle = cs.upperLimit;
+            def.enableSpring = cs.enableSpring;
+            def.hertz = cs.hertz; def.dampingRatio = cs.dampingRatio;
+            def.enableMotor = cs.enableMotor; def.maxMotorTorque = cs.maxMotorTorque;
+            def.motorVelocity = b3Vec3{ 0.0f, 0.0f, cs.motorSpeed };
+            joint = b3CreateSphericalJoint(PHY_WORLD(), &def);
+        }
+        break;
+    case CONSTRAINT_PARALLEL:
+        {
+            b3ParallelJointDef def = b3DefaultParallelJointDef();
+            def.base.bodyIdA = *bA; def.base.bodyIdB = *bB;
+            def.base.localFrameA = tA; def.base.localFrameB = tB;
+            def.base.collideConnected = cs.collideConnected;
+            def.hertz = cs.hertz; def.dampingRatio = cs.dampingRatio;
+            if (cs.maxSpringForce > 0.0f) def.maxTorque = cs.maxSpringForce;
+            joint = b3CreateParallelJoint(PHY_WORLD(), &def);
+        }
+        break;
+    case CONSTRAINT_MOTOR:
+        {
+            b3MotorJointDef def = b3DefaultMotorJointDef();
+            def.base.bodyIdA = *bA; def.base.bodyIdB = *bB;
+            def.base.localFrameA = tA; def.base.localFrameB = tB;
+            def.base.collideConnected = cs.collideConnected;
+            def.linearHertz = cs.hertz; def.angularHertz = cs.hertz;
+            def.linearDampingRatio = cs.dampingRatio; def.angularDampingRatio = cs.dampingRatio;
+            if (cs.maxSpringForce > 0.0f)
+            { def.maxSpringForce = cs.maxSpringForce; def.maxSpringTorque = cs.maxSpringForce; }
+            joint = b3CreateMotorJoint(PHY_WORLD(), &def);
+        }
+        break;
+    case CONSTRAINT_FILTER:
+        {
+            b3FilterJointDef def = b3DefaultFilterJointDef();
+            def.base.bodyIdA = *bA; def.base.bodyIdB = *bB;
+            joint = b3CreateFilterJoint(PHY_WORLD(), &def);
+        }
+        break;
+    default:  // CONSTRAINT_P2P: spherical joint, with optional limits, spring and motor
+        {
+            b3SphericalJointDef def = b3DefaultSphericalJointDef();
+            def.base.bodyIdA = *bA; def.base.bodyIdB = *bB;
+            def.base.localFrameA = tA; def.base.localFrameB = tB;
+            def.base.collideConnected = cs.collideConnected;
+            def.enableSpring = cs.enableSpring;
+            def.hertz = cs.hertz; def.dampingRatio = cs.dampingRatio;
+            def.enableMotor = cs.enableMotor; def.maxMotorTorque = cs.maxMotorTorque;
+            def.motorVelocity = b3Vec3{ 0.0f, 0.0f, cs.motorSpeed };
+            joint = b3CreateSphericalJoint(PHY_WORLD(), &def);
+        }
+        break;
     }
-    b3JointId joint = b3CreateSphericalJoint(PHY_WORLD(), &jointDef);
+
+    if (B3_IS_NULL(joint))
+    { OSG_NOTICE << "[PhysicsEngine] Failed to create constraint\n"; return NULL; }
     return new b3Helpers::Constraint(joint);
+}
+
+void PhysicsEngine::setConstraintSetting(const std::string& name, const ConstraintSetting& cs)
+{
+    std::map<std::string, ConstraintAndState>::iterator itr = _constraints.find(name);
+    if (itr == _constraints.end()) return;
+    b3JointId* joint = itr->second.first->get<b3JointId>();
+    b3Joint_SetCollideConnected(*joint, cs.collideConnected);
+
+    switch (b3Joint_GetType(*joint))
+    {
+    case b3_revoluteJoint:
+        b3RevoluteJoint_EnableLimit(*joint, cs.enableLimit);
+        if (cs.enableLimit) b3RevoluteJoint_SetLimits(*joint, cs.lowerLimit, cs.upperLimit);
+        b3RevoluteJoint_EnableSpring(*joint, cs.enableSpring);
+        if (cs.enableSpring)
+        {
+            b3RevoluteJoint_SetSpringHertz(*joint, cs.hertz);
+            b3RevoluteJoint_SetSpringDampingRatio(*joint, cs.dampingRatio);
+        }
+        b3RevoluteJoint_EnableMotor(*joint, cs.enableMotor);
+        if (cs.enableMotor)
+        {
+            b3RevoluteJoint_SetMaxMotorTorque(*joint, cs.maxMotorTorque);
+            b3RevoluteJoint_SetMotorSpeed(*joint, cs.motorSpeed);
+        }
+        break;
+    case b3_sphericalJoint:
+        b3SphericalJoint_EnableConeLimit(*joint, cs.enableLimit);
+        b3SphericalJoint_EnableTwistLimit(*joint, cs.enableLimit);
+        if (cs.enableLimit)
+        {
+            b3SphericalJoint_SetConeLimit(*joint, cs.coneLimit);
+            b3SphericalJoint_SetTwistLimits(*joint, cs.lowerLimit, cs.upperLimit);
+        }
+        b3SphericalJoint_EnableSpring(*joint, cs.enableSpring);
+        if (cs.enableSpring)
+        {
+            b3SphericalJoint_SetSpringHertz(*joint, cs.hertz);
+            b3SphericalJoint_SetSpringDampingRatio(*joint, cs.dampingRatio);
+        }
+        b3SphericalJoint_EnableMotor(*joint, cs.enableMotor);
+        if (cs.enableMotor)
+        {
+            b3SphericalJoint_SetMaxMotorTorque(*joint, cs.maxMotorTorque);
+            b3SphericalJoint_SetMotorVelocity(*joint, b3Vec3{ 0.0f, 0.0f, cs.motorSpeed });
+        }
+        break;
+    case b3_parallelJoint:
+        b3ParallelJoint_SetSpringHertz(*joint, cs.hertz);
+        b3ParallelJoint_SetSpringDampingRatio(*joint, cs.dampingRatio);  // no maxTorque setter here
+        break;
+    case b3_motorJoint:
+        b3MotorJoint_SetLinearHertz(*joint, cs.hertz);
+        b3MotorJoint_SetAngularHertz(*joint, cs.hertz);
+        b3MotorJoint_SetLinearDampingRatio(*joint, cs.dampingRatio);
+        b3MotorJoint_SetAngularDampingRatio(*joint, cs.dampingRatio);
+        if (cs.maxSpringForce > 0.0f)
+        {
+            b3MotorJoint_SetMaxSpringForce(*joint, cs.maxSpringForce);
+            b3MotorJoint_SetMaxSpringTorque(*joint, cs.maxSpringForce);
+        }
+        break;
+    default: break;  // filter joints have no parameter to update
+    }
+    b3Joint_WakeBodies(*joint);
 }

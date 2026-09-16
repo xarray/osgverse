@@ -15,6 +15,7 @@
 //#include <BulletCollision/NarrowPhaseCollision/btRaycastCallback.h>
 #include <modeling/Utilities.h>
 #include <animation/PhysicsEngine.h>
+#include <set>
 using namespace osgVerse;
 
 namespace btHelpers
@@ -30,17 +31,100 @@ namespace btHelpers
         btCompoundShape* compound;   // wrapper for offset shapes (only used by getBodyShape())
     };
 
-    struct TypedConstraint : public osgVerse::ConstraintBase { TypedConstraint(btTypedConstraint* b) {internal = b;} };
+    struct TypedConstraint : public osgVerse::ConstraintBase
+    {
+        TypedConstraint(btTypedConstraint* b, osgVerse::PhysicsEngine::ConstraintType t
+                        = osgVerse::PhysicsEngine::CONSTRAINT_P2P) : type(t) { internal = b; }
+        btTypedConstraint* getConstraint() { return (btTypedConstraint*)internal; }
+        osgVerse::PhysicsEngine::ConstraintType type;  // the Box3D joint type it emulates
+    };
 
     struct RigidBody : public osgVerse::RigidBodyBase
     {
-        RigidBody(btRigidBody* b) : compound(NULL), totalMass(0.0f) { internal = b; }
+        RigidBody(btRigidBody* b)
+        : compound(NULL), totalMass(0.0f), collisionGroup(0), gravityScale(1.0f) { internal = b; }
 
         btRigidBody* getBody() { return (btRigidBody*)internal; }
         btCompoundShape* compound;  // owned, for bodies which may have multiple shapes
         std::vector<btCollisionShape*> ownedShapes;  // shapes attached by addShapeToBody()
-        float totalMass;
+        float totalMass; int collisionGroup; float gravityScale;
     };
+
+    // Bullet doesn't provide all features of Box3D joints and springs, warn once for each of them
+    static void warnUnsupported(const std::string& feature)
+    {
+        static std::set<std::string> s_known;
+        if (s_known.find(feature) != s_known.end()) return;
+        s_known.insert(feature);
+        OSG_WARN << "[PhysicsEngine] Bullet doesn't support " << feature << ", which will be ignored"
+                 << std::endl;
+    }
+
+    // Motor limits of Bullet are impulses, so torques are converted with an assumed time step
+    static const float motorTimeStep = 1.0f / 60.0f;
+
+    /** Bullet uses a spring stiffness (N/m or Nm/rad) instead of a frequency, so it is derived
+        from the requested frequency and the mass / inertia of the driven body */
+    static btScalar springStiffness(btRigidBody* body, int axis, float hertz)
+    {
+        btScalar omega = SIMD_2_PI * btMax(hertz, 0.1f);
+        if (axis < 3) return btMax(1.0f, body->getMass() * omega * omega);
+
+        btVector3 inv = body->getInvInertiaDiagLocal();
+        btScalar inertia = 1.0f / btMax(0.01f, btMax(inv.x(), btMax(inv.y(), inv.z())));
+        return btMax(1.0f, inertia * omega * omega);
+    }
+
+    /** Bullet's damping is reversed compared with the damping ratio of Box3D: 1 means no damping */
+    static btScalar springDamping(float dampingRatio)
+    { return btMax(btScalar(0.0f), btMin(btScalar(1.0f), btScalar(1.0f - dampingRatio))); }
+
+    /** Bullet has no joints without any effect: a 6DOF constraint with all axes free generates no
+        force, but it still makes Bullet disable the collisions between the two linked bodies */
+    static btGeneric6DofConstraint* createEmptyConstraint(btRigidBody* a, btRigidBody* b,
+                                                          const btTransform& tA, const btTransform& tB)
+    {
+        btGeneric6DofConstraint* empty = new btGeneric6DofConstraint(*a, *b, tA, tB, false);
+        empty->setLinearLowerLimit(btVector3(1.0f, 1.0f, 1.0f));
+        empty->setLinearUpperLimit(btVector3(-1.0f, -1.0f, -1.0f));
+        empty->setAngularLowerLimit(btVector3(1.0f, 1.0f, 1.0f));
+        empty->setAngularUpperLimit(btVector3(-1.0f, -1.0f, -1.0f));
+        return empty;
+    }
+    
+    static btTransform toBtTransform(const osg::Matrix& m)
+    {
+        osg::Quat q = m.getRotate(); osg::Vec3 p = m.getTrans();
+        btTransform t; t.setRotation(btQuaternion(q.x(), q.y(), q.z(), q.w()));
+        t.setOrigin(btVector3(p[0], p[1], p[2])); return t;
+    }
+
+    // Bullet stores material properties on bodies rather than shapes, so they are applied once
+    static void applyShapeSetting(btRigidBody* body, const osgVerse::PhysicsEngine::ShapeSetting* setting)
+    {
+        if (!setting) return;
+        body->setFriction(setting->friction);
+        body->setRestitution(setting->restitution);
+        body->setRollingFriction(setting->rollingResistance);
+        if (setting->restitution > 0.0f)
+            warnUnsupported("the Box3D way of mixing restitution, both bodies need a restitution in Bullet");
+    }
+
+    // Bullet filtering uses group and mask bits: bodies in the same group won't collide with each
+    // other, which emulates the negative collision group of Box3D shapes
+    static void applyCollisionGroup(btDiscreteDynamicsWorld* world, RigidBody* container, int group)
+    {
+        if (group == 0 || container->collisionGroup == group) return;
+        if (container->collisionGroup != 0)
+        { warnUnsupported("multiple collision groups on one body"); return; }
+
+        int groupBits = 1 << (1 + (group > 0 ? group : -group) % 30), maskBits = ~groupBits;
+        btRigidBody* body = container->getBody();
+        world->removeRigidBody(body);
+        world->addRigidBody(body, groupBits, maskBits);
+        body->setGravity(world->getGravity() * container->gravityScale);  // reset by addRigidBody()
+        container->collisionGroup = group;
+    }
 
     // Get the shape used to create a rigid body, which may be a compound wrapper of an offset shape
     static btCollisionShape* getBodyShape(CollisionShape* cs)
@@ -125,7 +209,8 @@ public:
 
     // Rigid-body functions
     virtual RigidBodyBase* addRigidBody(const std::string& name, CollisionShapeBase* s, float mass = 0.0f,
-                                        const osg::Matrix& m = osg::Matrix(), bool kinematic = false);
+                                        const osg::Matrix& m = osg::Matrix(), bool kinematic = false,
+                                        const ShapeSetting* setting = NULL);
     virtual void removeBody(const std::string& name);
     virtual bool isDynamicBody(const std::string& name, bool& isKinematic);
 
@@ -143,10 +228,15 @@ public:
     virtual void addConstraint(const std::string& name, ConstraintBase* constraint,
                                 bool noCollisionsBetweenLinked = true);
     virtual void removeConstraint(const std::string& name);
+    virtual ConstraintBase* createConstraint(RigidBodyBase* bodyA, const osg::Matrix& frameA,
+                                             RigidBodyBase* bodyB, const osg::Matrix& frameB,
+                                             ConstraintType type = CONSTRAINT_P2P,
+                                             const ConstraintSetting* setting = NULL);
+    virtual void setConstraintSetting(const std::string& name, const ConstraintSetting& setting);
 
     // Applying force functions
     virtual void applyImpulse(const std::string& name, const osg::Vec3& point,
-                                const osg::Vec3& impulse, bool wake = true);
+                                const osg::Vec3& impulse, bool wake = true, bool linearOrAngular = true);
     
     // get*() functions
     virtual float getInverseMass(const std::string& name);
@@ -157,10 +247,11 @@ public:
     virtual RigidBodyBase* createBody(const std::string& name, const BodySetting& setting,
                                       const osg::Matrix& matrix = osg::Matrix());
     virtual CollisionShapeBase* addShapeToBody(RigidBodyBase* body, CollisionShapeBase* shape,
-                                               float mass, float friction = 0.6f);
+                                               float mass, const ShapeSetting* setting = NULL);
     virtual void setShapeFriction(CollisionShapeBase* shape, float friction);
     virtual void setGravityScale(const std::string& name, float scale);
     virtual void setLinearDamping(const std::string& name, float damping);
+    virtual void setBullet(const std::string& name, bool flag);
     virtual void setMassCenter(const std::string& name, const osg::Vec3& center);
 
     // Collision and raycast functions
@@ -183,9 +274,6 @@ public:
     virtual CollisionShapeBase* createPhysicsHeightField(osg::HeightField* hf, bool filpQuad = false);
     virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize, const osg::Vec3& offset);
     virtual CollisionShapeBase* createPhysicsCapsule(float radius, const osg::Vec3& c0, const osg::Vec3& c1);
-    virtual ConstraintBase* createConstraintP2P(RigidBodyBase* bodyA, const osg::Vec3& pivotA,
-                                                RigidBodyBase* bodyB, const osg::Vec3& pivotB,
-                                                const ConstraintSetting* setting = NULL);
     
     virtual void advance(float timeStep, int maxSubSteps = 1);
 
@@ -240,7 +328,6 @@ RigidBodyBase* BulletPhysicsEngine::createBody(const std::string& name, const Bo
     btRigidBody* body = new btRigidBody(rbInfo);
     body->setCollisionFlags(body->getCollisionFlags() & (~btCollisionObject::CF_STATIC_OBJECT));
     body->setDamping(setting.linearDamping, setting.angularDamping);
-    body->setGravity(PHY_WORLD()->getGravity() * setting.gravityScale);
     body->setAngularFactor(btVector3(
         setting.lockAngularX ? 0.0f : 1.0f, setting.lockAngularY ? 0.0f : 1.0f,
         setting.lockAngularZ ? 0.0f : 1.0f));
@@ -252,19 +339,24 @@ RigidBodyBase* BulletPhysicsEngine::createBody(const std::string& name, const Bo
     if (!setting.allowSleep) body->setActivationState(DISABLE_DEACTIVATION);
 
     btHelpers::RigidBody* container = new btHelpers::RigidBody(body);
-    container->compound = compound; _bodies[name] = container;
-    PHY_WORLD()->addRigidBody(body); return container;
+    container->compound = compound; container->gravityScale = setting.gravityScale;
+    _bodies[name] = container;
+    PHY_WORLD()->addRigidBody(body);
+
+    // The world sets the gravity of a body when it is added, so the scale must be applied after
+    body->setGravity(PHY_WORLD()->getGravity() * setting.gravityScale);
+    return container;
 }
 
 CollisionShapeBase* BulletPhysicsEngine::addShapeToBody(RigidBodyBase* body, CollisionShapeBase* csb,
-                                                        float mass, float friction)
+                                                        float mass, const ShapeSetting* setting)
 {
     btHelpers::RigidBody* container = static_cast<btHelpers::RigidBody*>(body);
     btHelpers::CollisionShape* cs = static_cast<btHelpers::CollisionShape*>(csb);
     if (!container || !cs || !container->compound)
     { OSG_NOTICE << "[PhysicsEngine] Failed to add shape to body\n"; return NULL; }
 
-    // Bullet has no per-shape friction, so it is set on the body as an approximation
+    // Bullet has no per-shape material and filtering, so they are set on the body as an approximation
     btRigidBody* btBody = container->getBody();
     btTransform local; local.setIdentity();
     local.setOrigin(btVector3(cs->offset[0], cs->offset[1], cs->offset[2]));
@@ -277,7 +369,11 @@ CollisionShapeBase* BulletPhysicsEngine::addShapeToBody(RigidBodyBase* body, Col
         container->compound->calculateLocalInertia(container->totalMass, inertia);
     btBody->setMassProps(container->totalMass, inertia);
     btBody->updateInertiaTensor();
-    btBody->setFriction(friction);
+
+    // Bullet forgets the body gravity when the mass changes, so it is applied again here
+    btBody->setGravity(PHY_WORLD()->getGravity() * container->gravityScale);
+    btHelpers::applyShapeSetting(btBody, setting);
+    btHelpers::applyCollisionGroup(PHY_WORLD(), container, setting ? setting->collisionGroup : 0);
     PHY_WORLD()->updateAabbs(); return cs;
 }
 
@@ -291,8 +387,11 @@ void BulletPhysicsEngine::setGravityScale(const std::string& name, float scale)
 {
     std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
     if (itr != _bodies.end())
-        static_cast<btHelpers::RigidBody*>(itr->second.get())->getBody()->setGravity(
-            PHY_WORLD()->getGravity() * scale);
+    {
+        btHelpers::RigidBody* container = static_cast<btHelpers::RigidBody*>(itr->second.get());
+        container->gravityScale = scale;
+        container->getBody()->setGravity(PHY_WORLD()->getGravity() * scale);
+    }
 }
 
 void BulletPhysicsEngine::setLinearDamping(const std::string& name, float damping)
@@ -305,13 +404,37 @@ void BulletPhysicsEngine::setLinearDamping(const std::string& name, float dampin
     }
 }
 
+void BulletPhysicsEngine::setBullet(const std::string& name, bool flag)
+{
+    std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
+    if (itr == _bodies.end()) return;
+    btRigidBody* body = static_cast<btHelpers::RigidBody*>(itr->second.get())->getBody();
+    if (flag)
+    {
+        // Bullet uses continuous collision detection instead of "bullet" bodies. The swept sphere
+        // radius is estimated from the body bounds, and may need tuning for very thin bodies
+        btVector3 minBound, maxBound;
+        body->getCollisionShape()->getAabb(body->getWorldTransform(), minBound, maxBound);
+        btVector3 extent = (maxBound - minBound) * 0.5f;
+        body->setCcdMotionThreshold(0.01f);
+        body->setCcdSweptSphereRadius(0.25f * btMin(extent.x(), btMin(extent.y(), extent.z())));
+    }
+    else
+    {
+        body->setCcdMotionThreshold(0.0f);
+        body->setCcdSweptSphereRadius(0.0f);
+    }
+}
+
 void BulletPhysicsEngine::setMassCenter(const std::string& name, const osg::Vec3& center)
 {
-    // FIXME: Bullet doesn't support overriding the local center of mass directly, ignored here
+    // Bullet always uses the shape based center of mass and provides no way to offset it
+    if (center.length2() > 0.0f) btHelpers::warnUnsupported("local mass center offsets");
 }
 
 RigidBodyBase* BulletPhysicsEngine::addRigidBody(const std::string& name, CollisionShapeBase* csb, float mass,
-                                                 const osg::Matrix& matrix, bool kinematic)
+                                                 const osg::Matrix& matrix, bool kinematic,
+                                                 const ShapeSetting* setting)
 {
     bool isDynamic = (mass > 0.0f);
     osg::Quat q = matrix.getRotate();
@@ -341,7 +464,10 @@ RigidBodyBase* BulletPhysicsEngine::addRigidBody(const std::string& name, Collis
 
     btHelpers::RigidBody* container = new btHelpers::RigidBody(body);
     _shapes[name] = csb; _bodies[name] = container;
-    PHY_WORLD()->addRigidBody(body); return container;
+    PHY_WORLD()->addRigidBody(body);
+    btHelpers::applyShapeSetting(body, setting);
+    btHelpers::applyCollisionGroup(PHY_WORLD(), container, setting ? setting->collisionGroup : 0);
+    return container;
 }
 
 void BulletPhysicsEngine::removeBody(const std::string& name)
@@ -423,6 +549,7 @@ void BulletPhysicsEngine::setVelocity(const std::string& name, const osg::Vec3& 
         btRigidBody* body = itr->second->get<btRigidBody>();
         if (linearOrAngular) body->setLinearVelocity(btVector3(v[0], v[1], v[2]));
         else body->setAngularVelocity(btVector3(v[0], v[1], v[2]));
+        if (!body->isActive()) body->activate();  // setting a velocity wakes a sleeping body
     }
 }
 
@@ -486,7 +613,7 @@ osg::Vec3 BulletPhysicsEngine::getGravity() const
 { const btVector3& v = PHY_WORLD()->getGravity(); return osg::Vec3(v.x(), v.y(), v.z()); }
 
 void BulletPhysicsEngine::applyImpulse(const std::string& name, const osg::Vec3& point,
-                                       const osg::Vec3& impulse, bool wake)
+                                       const osg::Vec3& impulse, bool wake, bool linearOrAngular)
 {
     std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
     if (itr != _bodies.end())
@@ -495,9 +622,14 @@ void BulletPhysicsEngine::applyImpulse(const std::string& name, const osg::Vec3&
         if (body->isStaticOrKinematicObject()) return;
 
         btVector3 btImpulse(impulse[0], impulse[1], impulse[2]);
-        btVector3 btPoint(point[0], point[1], point[2]);
-        btVector3 relPos = btPoint - body->getCenterOfMassPosition();
-        body->applyImpulse(btImpulse, relPos);
+        if (linearOrAngular)
+        {
+            btVector3 btPoint(point[0], point[1], point[2]);
+            btVector3 relPos = btPoint - body->getCenterOfMassPosition();
+            body->applyImpulse(btImpulse, relPos);
+        }
+        else
+            body->applyTorqueImpulse(btImpulse);  // Bullet names angular impulse as torque impulse
         if (wake && !body->isActive()) body->activate();
     }
 }
@@ -746,28 +878,177 @@ CollisionShapeBase* BulletPhysicsEngine::createPhysicsHeightField(osg::HeightFie
     shape->setUseDiamondSubdivision(true); return new btHelpers::CollisionShape(shape);
 }
 
-ConstraintBase* BulletPhysicsEngine::createConstraintP2P(RigidBodyBase* bodyA, const osg::Vec3& pA,
-                                                         RigidBodyBase* bodyB, const osg::Vec3& pB,
-                                                         const ConstraintSetting* setting)
+ConstraintBase* BulletPhysicsEngine::createConstraint(RigidBodyBase* bodyA, const osg::Matrix& frameA,
+                                                      RigidBodyBase* bodyB, const osg::Matrix& frameB,
+                                                      ConstraintType type, const ConstraintSetting* setting)
 {
-    btVector3 pivotA(pA[0], pA[1], pA[2]), pivotB(pB[0], pB[1], pB[2]);
     if (!bodyA || !bodyB) return NULL;
-
     btRigidBody *btA = bodyA->get<btRigidBody>(), *btB = bodyB->get<btRigidBody>();
-    if (setting && setting->useWorldPivots)
-    {
-        pivotA = btA->getCenterOfMassTransform().inverse() * pivotA;
-        pivotB = btB->getCenterOfMassTransform().inverse() * pivotB;
-    }
+    if (!btA || !btB) return NULL;
 
-    btPoint2PointConstraint* p2p = new btPoint2PointConstraint(*btA, *btB, pivotA, pivotB);
-    if (setting)
+    ConstraintSetting cs; if (setting) cs = *setting;
+    btTransform tA = btHelpers::toBtTransform(frameA), tB = btHelpers::toBtTransform(frameB);
+    if (cs.useWorldPivots)
     {
-        p2p->m_setting.m_tau = setting->tau;
-        p2p->m_setting.m_damping = setting->damping;
-        p2p->m_setting.m_impulseClamp = setting->impulseClamp;
+        // Constraint frames are related to the centers of mass of the two bodies
+        tA = btA->getCenterOfMassTransform().inverse() * tA;
+        tB = btB->getCenterOfMassTransform().inverse() * tB;
     }
-    return new btHelpers::TypedConstraint(p2p);
+    btTypedConstraint* constraint = NULL;
+
+    switch (type)
+    {
+    case CONSTRAINT_HINGE:
+        {
+            btHingeConstraint* hinge = new btHingeConstraint(*btA, *btB, tA, tB, false);
+            // Bullet measures the hinge angle in the opposite direction of Box3D, so the limits are
+            // mirrored and the motor speed is negated to keep both backends behaving the same
+            if (cs.enableLimit) hinge->setLimit(-cs.upperLimit, -cs.lowerLimit);
+            if (cs.enableSpring) btHelpers::warnUnsupported("springs of hinge (revolute) constraints");
+            if (cs.enableMotor)
+                hinge->enableAngularMotor(true, -cs.motorSpeed, cs.maxMotorTorque * btHelpers::motorTimeStep);
+            constraint = hinge;
+        }
+        break;
+    case CONSTRAINT_CONE_TWIST:
+        {
+            btConeTwistConstraint* cone = new btConeTwistConstraint(*btA, *btB, tA, tB);
+            if (cs.enableLimit)
+            {
+                if (btFabs(cs.lowerLimit + cs.upperLimit) > 0.001f)
+                    btHelpers::warnUnsupported("asymmetric twist limits, symmetric ones are used");
+                float twistSpan = btMax(btFabs(cs.lowerLimit), btFabs(cs.upperLimit));
+                cone->setLimit(cs.coneLimit, cs.coneLimit, twistSpan);
+            }
+            if (cs.enableSpring) btHelpers::warnUnsupported("springs of cone-twist constraints");
+            if (cs.enableMotor) btHelpers::warnUnsupported("motors of cone-twist constraints");
+            constraint = cone;
+        }
+        break;
+    case CONSTRAINT_PARALLEL:
+        {
+            // Bullet has no joint to align body frames, so a 6DOF spring constraint with free axes
+            // and spring driven rotations is used as an approximation. A parallel joint only aligns
+            // the z axes, so its twist (the 3rd rotation) stays free.
+            btGeneric6DofSpringConstraint* spring = new btGeneric6DofSpringConstraint(*btA, *btB, tA, tB, false);
+            for (int i = 0; i < 6; ++i)
+            {
+                spring->setLimit(i, 1.0f, -1.0f);  // all translations and rotations are free
+                if (i == 3 || i == 4)
+                {
+                    spring->enableSpring(i, true);
+                    spring->setStiffness(i, btHelpers::springStiffness(btB, i, cs.hertz));
+                    spring->setDamping(i, btHelpers::springDamping(cs.dampingRatio));
+                }
+            }
+            // The parallel joint always drives the z axes of the two joint frames to be aligned
+            spring->setEquilibriumPoint(3, 0.0f); spring->setEquilibriumPoint(4, 0.0f);
+            if (cs.maxSpringForce > 0.0f)
+                btHelpers::warnUnsupported("maximum spring force / torque limits of joints");
+            constraint = spring;
+        }
+        break;
+    case CONSTRAINT_MOTOR:
+        {
+            // Bullet has no motor joint to drive a body to the pose of a kinematic anchor, and an
+            // approximation with a 6DOF spring makes the driven body jitter all the time, so the
+            // joint is not emulated at all: an empty constraint only keeps the linked bodies from
+            // colliding with each other, which is what a Box3D motor joint does as well
+            btHelpers::warnUnsupported("motor joints, an empty constraint is used instead");
+            constraint = btHelpers::createEmptyConstraint(btA, btB, tA, tB);
+        }
+        break;
+    case CONSTRAINT_FILTER:
+        {
+            // Bullet has no filter joint: an empty constraint is created, which only disables the
+            // collisions between the two linked bodies just like a real filter joint does
+            btHelpers::warnUnsupported("filter joints, an empty constraint is used instead");
+            constraint = btHelpers::createEmptyConstraint(btA, btB, tA, tB);
+        }
+        break;
+    default:  // CONSTRAINT_P2P
+        {
+            btPoint2PointConstraint* p2p = new btPoint2PointConstraint(
+                *btA, *btB, tA.getOrigin(), tB.getOrigin());
+            p2p->m_setting.m_tau = cs.tau;
+            p2p->m_setting.m_damping = cs.damping;
+            p2p->m_setting.m_impulseClamp = cs.impulseClamp;
+            if (cs.enableLimit || cs.enableSpring || cs.enableMotor)
+                btHelpers::warnUnsupported("limits, springs and motors of point-to-point constraints");
+            constraint = p2p;
+        }
+        break;
+    }
+    if (!constraint) return NULL;
+    return new btHelpers::TypedConstraint(constraint, type);
+}
+
+void BulletPhysicsEngine::setConstraintSetting(const std::string& name, const ConstraintSetting& cs)
+{
+    std::map<std::string, ConstraintAndState>::iterator itr = _constraints.find(name);
+    if (itr == _constraints.end()) return;
+    btTypedConstraint* constraint = itr->second.first->get<btTypedConstraint>();
+    if (!constraint) return;
+
+    switch (constraint->getConstraintType())
+    {
+    case HINGE_CONSTRAINT_TYPE:
+        {
+            btHingeConstraint* hinge = static_cast<btHingeConstraint*>(constraint);
+            if (cs.enableLimit) hinge->setLimit(-cs.upperLimit, -cs.lowerLimit);
+            else hinge->setLimit(1.0f, -1.0f);  // higher lower-limit means no limit
+            if (cs.enableSpring) btHelpers::warnUnsupported("springs of hinge (revolute) constraints");
+            hinge->enableAngularMotor(cs.enableMotor, -cs.motorSpeed,
+                                      cs.maxMotorTorque * btHelpers::motorTimeStep);
+        }
+        break;
+    case CONETWIST_CONSTRAINT_TYPE:
+        {
+            btConeTwistConstraint* cone = static_cast<btConeTwistConstraint*>(constraint);
+            if (cs.enableLimit)
+            {
+                float twistSpan = btMax(btFabs(cs.lowerLimit), btFabs(cs.upperLimit));
+                cone->setLimit(cs.coneLimit, cs.coneLimit, twistSpan);
+            }
+            else
+                cone->setLimit(SIMD_PI, SIMD_PI, SIMD_PI);  // spans are clamped, so this is free enough
+            if (cs.enableSpring) btHelpers::warnUnsupported("springs of cone-twist constraints");
+            if (cs.enableMotor) btHelpers::warnUnsupported("motors of cone-twist constraints");
+        }
+        break;
+    case D6_SPRING_CONSTRAINT_TYPE:
+        {
+            // The parallel joint is the only one using this spring constraint: it always drives the
+            // z axes of the two joint frames to be aligned, while its twist stays free
+            btGeneric6DofSpringConstraint* spring = static_cast<btGeneric6DofSpringConstraint*>(constraint);
+            for (int i = 0; i < 6; ++i)
+            {
+                bool enabled = (i == 3 || i == 4);  // the parallel joint always uses these springs
+                spring->enableSpring(i, enabled);
+                if (enabled)
+                {
+                    spring->setStiffness(i, btHelpers::springStiffness(&spring->getRigidBodyB(), i, cs.hertz));
+                    spring->setDamping(i, btHelpers::springDamping(cs.dampingRatio));
+                }
+            }
+            spring->setEquilibriumPoint(3, 0.0f);
+            spring->setEquilibriumPoint(4, 0.0f);
+            if (cs.maxSpringForce > 0.0f)
+                btHelpers::warnUnsupported("maximum spring force / torque limits of joints");
+        }
+        break;
+    default:
+        {
+            btHelpers::TypedConstraint* container = static_cast<btHelpers::TypedConstraint*>(itr->second.first.get());
+            // A filter joint and a motor joint have no parameter in Bullet
+            if (container->type == CONSTRAINT_FILTER || container->type == CONSTRAINT_MOTOR) break;
+            if (cs.enableLimit || cs.enableSpring || cs.enableMotor)
+                btHelpers::warnUnsupported("limits, springs and motors of point-to-point constraints");
+        }
+        break;
+    }
+    if (cs.collideConnected)
+        btHelpers::warnUnsupported("changing collision states of linked bodies, use addConstraint() instead");
 }
 
 /// ReaderWriterBullet ///
