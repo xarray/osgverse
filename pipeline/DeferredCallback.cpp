@@ -135,8 +135,11 @@ namespace osgVerse
             if (_subCallback.valid()) _subCallback.get()->run(renderInfo); return;
         }
 
+        // The runners may be bound to another camera than the depth blit (setRunnerCamera()),
+        // so that deferred stages can run before the pipeline stages using their results
+        bool runRunners = isForRunnerCamera(renderInfo.getCurrentCamera());
         DeferredRenderCallback* cb = const_cast<DeferredRenderCallback*>(this);
-        for (size_t i = 0; i < _runners.size(); ++i)
+        for (size_t i = 0; runRunners && i < _runners.size(); ++i)
         {
             RttRunner* r = _runners[i].get();
             if (r->attachments.empty() || !r->active) continue;
@@ -201,7 +204,7 @@ namespace osgVerse
         // And 'invalid op on multisampled framebuffer' for WebGL2
         // And 'Depth/stencil buffer format combination not allowed for blit' for GLES3
 #else
-        if (!_depthBlitList.empty())
+        if (isForBlitCamera(renderInfo.getCurrentCamera()) && !_depthBlitList.empty())
         {
             int sWidth = 1920, tWidth = 1920, sHeight = 1080, tHeight = 1080;
             osg::Viewport* viewport = forwardCam->getViewport();
@@ -252,7 +255,7 @@ namespace osgVerse
                 ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, fboId);
             }
         }
-        else if (_inPipeline)
+        else if (isForBlitCamera(renderInfo.getCurrentCamera()) && _inPipeline)
         {
             OSG_NOTICE << "[DeferredRenderCallback] No previous depth buffer is going to blit with "
                        << "current camera. Should not happen in deferred rendering mode" << std::endl;

@@ -2,7 +2,8 @@
 
 uniform sampler2D BrdfLutBuffer, PrefilterBuffer, IrradianceBuffer;
 uniform sampler2D NormalBuffer, DepthBuffer, DiffuseMetallicBuffer, SpecularRoughnessBuffer;
-uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+att1, r2: dir+att0, r3: spotProp)
+uniform sampler2D SsaoBlurredBuffer;  // screen-space AO combined with material AO
+uniform sampler2D LightParameterMap;  // (r0: col+type, r1: pos+range, r2: dir+spotCutoff)
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v
 uniform vec2 InvScreenResolution, LightNumber;  // (num, max_num)
 VERSE_FS_IN vec4 texCoord0;
@@ -110,14 +111,19 @@ void main()
         vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;
         vec2 envBRDF = VERSE_TEX2D(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
         vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
-        ambient = kD * diffuse + envSpecular;
+
+        // Occlusion of the ambient/indirect lighting: material AO (stored in NormalBuffer.a)
+        // multiplied by the screen-space AO. Note it is applied to indirect light only, which
+        // is the physically correct place; direct light is handled by the shadowing stage.
+        float occlusion = ao * VERSE_TEX2D(SsaoBlurredBuffer, uv0).r;
+        ambient = kD * diffuse * occlusion + envSpecular;
     }
 
 #ifdef VERSE_GLES3
-    fragData0/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
+    fragData0/*ColorBuffer*/ = vec4(radianceOut, 1.0);
     fragData1/*IblAmbientBuffer*/ = vec4(ambient, 1.0);
 #else
-    gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut * pow(ao, 2.2), 1.0);
+    gl_FragData[0]/*ColorBuffer*/ = vec4(radianceOut, 1.0);
     gl_FragData[1]/*IblAmbientBuffer*/ = vec4(ambient, 1.0);
 #endif
 }

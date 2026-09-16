@@ -1152,6 +1152,24 @@ namespace osgVerse
 #endif
         }
 
+        // Deferred stages (runners) should not wait until the forward pass: execute them at
+        // the pre-draw moment of the first regular stage after them. Otherwise the stages
+        // using their results (e.g. tone-mapping reading bloom/luminance buffers) would always
+        // read textures generated in the previous frame
+        osg::Camera* runnerCamera = NULL;
+        int lastDeferredIndex = -1;
+        for (unsigned int i = 0; i < _stages.size(); ++i)
+        { if (_stages[i]->deferred) lastDeferredIndex = (int)i; }
+
+        if (lastDeferredIndex >= 0)
+        {
+            for (unsigned int i = lastDeferredIndex + 1; i < _stages.size(); ++i)
+            {
+                if (_stages[i]->camera.valid())
+                { runnerCamera = _stages[i]->camera.get(); break; }
+            }
+        }
+
         // The forward pass is kept for fixed-pipeline compatibility only
         osg::ref_ptr<osg::Camera> forwardCam = (mainCam != NULL)
                                              ? new osg::Camera(*mainCam) : new osg::Camera;
@@ -1165,7 +1183,17 @@ namespace osgVerse
         if (_deferredCallback.valid())
         {
             _deferredCallback->setup(forwardCam.get(), PRE_DRAW);
+            _deferredCallback->setBlitCamera(forwardCam.get());
             forwardCam->getOrCreateStateSet()->addUniform(_deferredCallback->getNearFarUniform());
+
+            // Run all deferred stages before the stage consuming their outputs, and fall back
+            // to the forward pass if the pipeline has no stage after them at all
+            if (lastDeferredIndex >= 0)
+            {
+                if (runnerCamera == NULL) runnerCamera = forwardCam.get();
+                _deferredCallback->setRunnerCamera(runnerCamera);
+                if (runnerCamera != forwardCam.get()) _deferredCallback->setup(runnerCamera, PRE_DRAW);
+            }
         }
         forwardCam->getOrCreateStateSet()->addUniform(_invScreenResolution.get());
         forwardCam->setViewport(0, 0, _stageSize.x(), _stageSize.y());
@@ -1272,7 +1300,10 @@ namespace osgVerse
 
         if ((flags & USE_COVERAGE_SAMPLES) != 0)
         {
-            int samples = (flags & 0x000F); int colorSamples = osg::minimum(samples / 2, 4);
+            // 16 samples is stored in a separated bit (see Pipeline::InputFlag), others use
+            // the low 4 bits to directly record the wanted sample number
+            int samples = ((flags & COVERAGE_SAMPLES_16X) != 0) ? 16 : (flags & 0x000F);
+            int colorSamples = osg::minimum(samples / 2, 4);
             osg::Camera::BufferAttachmentMap& attachments = s->camera->getBufferAttachmentMap();
             for (osg::Camera::BufferAttachmentMap::iterator it = attachments.begin(); it != attachments.end(); ++it)
             {

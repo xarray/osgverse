@@ -108,6 +108,10 @@ void main()
     
     // Get jitter vector for the current full-res pixel
     float AO = computeCoarseAO(uv0, radiusPixels, getJitter(), eyePosition, eyeNormal);
-    fragData = vec4(pow(AO, AOPowExponent));
+
+    // Put AO in .x and the raw (window-space) depth in .y, so the following bilateral blur
+    // can avoid bleeding AO across depth discontinuities
+    float depth01 = VERSE_TEX2D(DepthBuffer, uv0).r;
+    fragData = vec4(pow(AO, AOPowExponent), depth01, 0.0, 1.0);
     VERSE_FS_FINAL(fragData);
 }

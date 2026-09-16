@@ -27,11 +27,11 @@ namespace osgVerse
         LightDrawable* getMainLight() { return _mainLight.get(); }
         const std::string& getShadowModuleName() const { return _shadowModuleName; }
 
-        /** Get light parameter table data:
-            - row0: light color & power (vec3), type (float)
-            - row1: eye-space position (vec3), attenuationMax
-            - row2: eye-space rotation (vec3), attenuationMin
-            - row3: spotExponent, spotCutoff
+        /** Get light parameter table data, 1024x4 RGBA32F with one column per light:
+            - row0: light color & power (vec3), light type (float)
+            - row1: eye-space position (vec3), attenuation range (float)
+            - row2: eye-space direction (vec3), spot cutoff as cosine (float)
+            - row3: reserved for future use and always zero
         */
         osg::Texture2D* getParameterTable() { return _parameterTex.get(); }
         const osg::Texture2D* getParameterTable() const { return _parameterTex.get(); }

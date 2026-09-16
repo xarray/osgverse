@@ -2,6 +2,7 @@
 #include <osgDB/ReadFile>
 #include <osgUtil/UpdateVisitor>
 #include <iostream>
+#include <cmath>
 #include "LightModule.h"
 #include "ShadowModule.h"
 #include "Utilities.h"
@@ -12,12 +13,14 @@ namespace osgVerse
         : _pipeline(pipeline), _maxLightsInPass(maxLightsInPass)
     {
         _parameterImage = new osg::Image;
-        _parameterImage->allocateImage(1024, 4, 1, GL_RGB, GL_FLOAT);
+        _parameterImage->allocateImage(1024, 4, 1, GL_RGBA, GL_FLOAT);
 #if defined(VERSE_EMBEDDED_GLES2)
-        _parameterImage->setInternalTextureFormat(GL_RGB);
+        _parameterImage->setInternalTextureFormat(GL_RGBA);
 #else
-        _parameterImage->setInternalTextureFormat(GL_RGB32F_ARB);
+        _parameterImage->setInternalTextureFormat(GL_RGBA32F_ARB);
 #endif
+        // Row 3 is reserved for future use, so keep it clean from the very beginning
+        memset(_parameterImage->data(), 0, _parameterImage->getTotalSizeInBytes());
 
         _parameterTex = new osg::Texture2D;
         _parameterTex->setImage(_parameterImage.get());
@@ -68,8 +71,13 @@ namespace osgVerse
         size_t numData = LightGlobalManager::instance()->getSortedResult(resultLights);
         if (numData > 1024) numData = 1024;
 
-        // Save all lights to a parameter texture to use in deferred shader
-        osg::Vec3f* paramPtr = (osg::Vec3f*)_parameterImage->data();
+        // Save all lights to a parameter texture to use in deferred shader.
+        // The layout must match getLightAttributes() in std_pbr_lighting.frag.glsl and
+        // std_forward_render.frag.glsl:
+        //   row0: light color (vec3) + type (float)
+        //   row1: eye-space position (vec3) + attenuation range (float)
+        //   row2: eye-space direction (vec3) + spot cutoff as cosine (float)
+        osg::Vec4f* paramPtr = (osg::Vec4f*)_parameterImage->data();
         for (size_t i = 0; i < numData; ++i)
         {
             LightGlobalManager::LightData& ld = resultLights[i];
@@ -81,11 +89,15 @@ namespace osgVerse
                               ld.light->getDirection() * dirLength) * ld.matrix;
             osg::Vec3 dir = pos1 - pos0; dir.normalize();
 
-            *(paramPtr + 1024 * 0 + i)/*light color*/ = osg::Vec3(color[0], color[1], color[2]);
-            *(paramPtr + 1024 * 1 + i)/*eye-space position, att*/ = osg::Vec3(pos0[0], pos0[1], pos0[2]);
-            *(paramPtr + 1024 * 2 + i)/*eye-space rotation, spot*/ = osg::Vec3(dir[0], dir[1], dir[2]);
-            *(paramPtr + 1024 * 3 + i)/*type, range, spot-cutoff*/ =
-                osg::Vec3((float)t, ld.light->getRange(), ld.light->getSpotCutoff());
+            // The shader compares the spot cutoff with dot(spot_dir, light_dir), so a cosine
+            // is expected here; LightDrawable::getSpotCutoff() stores the half-angle in radians
+            float spotCosine = cosf(ld.light->getSpotCutoff());
+            *(paramPtr + 1024 * 0 + i)/*light color, type*/ =
+                osg::Vec4f(color[0], color[1], color[2], (float)t);
+            *(paramPtr + 1024 * 1 + i)/*eye-space position, range*/ =
+                osg::Vec4f(pos0[0], pos0[1], pos0[2], ld.light->getRange());
+            *(paramPtr + 1024 * 2 + i)/*eye-space direction, spot cutoff*/ =
+                osg::Vec4f(dir[0], dir[1], dir[2], spotCosine);
         }
         _lightNumber->set(osg::Vec2((float)numData, (float)_maxLightsInPass));
         _parameterImage->dirty();

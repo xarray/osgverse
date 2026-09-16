@@ -1,5 +1,6 @@
 uniform sampler2D BrightnessBuffer1, BrightnessBuffer2;
 uniform sampler2D BrightnessBuffer3, BrightnessBuffer4;
+uniform vec4 BloomWeights;
 uniform vec2 InvScreenResolution;
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
@@ -26,11 +27,15 @@ void main()
     vec4 color2 = blur5(BrightnessBuffer2, uv0);
     vec4 color3 = blur5(BrightnessBuffer3, uv0);
     vec4 color4 = blur5(BrightnessBuffer4, uv0);
-    //fragData = vec4(color1.rgb + color2.rgb + color3.rgb + color4.rgb, 1.0);
 
-    vec3 color = mix(color1.rgb, color2.rgb, color2.a);
-    color = mix(color.rgb, color3.rgb, color3.a);
-    color = mix(color.rgb, color4.rgb, color4.a);
+    // Combine all resolution levels with explicit weights. The brightness buffers are RGB
+    // textures without alpha, so the old 'mix(color, next, next.a)' way would always take
+    // the coarsest level and lose the multi-scale structure. Weights are normalized here,
+    // so BloomWeights can be tweaked freely without changing the overall bloom strength.
+    vec4 weights = BloomWeights / max(BloomWeights.x + BloomWeights.y +
+                                      BloomWeights.z + BloomWeights.w, 0.00001);
+    vec3 color = color1.rgb * weights.x + color2.rgb * weights.y
+               + color3.rgb * weights.z + color4.rgb * weights.w;
     fragData = vec4(color, 1.0);
     VERSE_FS_FINAL(fragData);
 }

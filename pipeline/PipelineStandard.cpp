@@ -790,6 +790,57 @@ namespace osgVerse
             }
         }
 
+        // SSAO stages: AO -> BlurH -> BlurV. They have to be created before the lighting stage,
+        // so that the lighting stage can apply the screen-space AO to its ambient/indirect (IBL)
+        // term: only G-Buffer outputs are needed here, so this order change is safe
+        osgVerse::Pipeline::Stage* lastAoStage = NULL;
+        if (spp.enableAO)
+        {
+            osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao", 1.0f,
+                spp.shaders.quadVS, spp.shaders.ssaoFS, 1,
+#if defined(VERSE_EMBEDDED_GLES2)
+                // Note: RGBA/RGB_INT8 is required (instead of R_INT8) because the blur passes
+                // read the window depth from .y; R_INT8 may fall back to LUMINANCE8 on legacy
+                // desktop GL / GLES2 drivers, in which case .y would repeat AO instead of depth
+                "SsaoBuffer", osgVerse::Pipeline::RGB_INT8);
+#else
+                "SsaoBuffer", osgVerse::Pipeline::RGBA_INT8);
+#endif
+            ssao->applyBuffer(*gbuffer, "NormalBuffer", 0);
+            ssao->applyBuffer(*gbuffer, "DepthBuffer", 1);
+            ssao->applyTexture(generatePoissonDiscDistribution(4, 4), "RandomTexture", 2);
+            ssao->applyUniform(new osg::Uniform("AORadius", 12.0f));
+            ssao->applyUniform(new osg::Uniform("AOBias", 0.1f));
+            // Note: std_ssao.frag.glsl remaps the result as pow(AO, exponent). A large exponent
+            // (12.0 was used before) makes AO a nearly binary mask, and its steep transition
+            // band amplifies the sampling noise of the interleaved AO kernel into visible
+            // speckles, so keep this value moderate
+            ssao->applyUniform(new osg::Uniform("AOPowExponent", 2.0f));
+
+            osgVerse::Pipeline::Stage* ssaoBlur1 = p->addWorkStage("SsaoBlur1", 1.0f,
+                spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
+#if defined(VERSE_EMBEDDED_GLES2)
+                "SsaoBlurredBuffer0", osgVerse::Pipeline::RGB_INT8);
+#else
+                "SsaoBlurredBuffer0", osgVerse::Pipeline::RGBA_INT8);
+#endif
+            ssaoBlur1->applyBuffer(*ssao, "SsaoBuffer", 0);
+            ssaoBlur1->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(1.0f, 0.0f)));
+            ssaoBlur1->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
+
+            osgVerse::Pipeline::Stage* ssaoBlur2 = p->addWorkStage("SsaoBlur2", 1.0f,
+                spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
+#if defined(VERSE_EMBEDDED_GLES2)
+                "SsaoBlurredBuffer", osgVerse::Pipeline::RGB_INT8);
+#else
+                "SsaoBlurredBuffer", osgVerse::Pipeline::RGBA_INT8);
+#endif
+            ssaoBlur2->applyBuffer(*ssaoBlur1, "SsaoBlurredBuffer0", "SsaoBuffer", 0);
+            ssaoBlur2->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(0.0f, 1.0f)));
+            ssaoBlur2->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
+            lastAoStage = ssaoBlur2;
+        }
+
         // Deferred lighting stage
         osgVerse::Pipeline::Stage* lighting = p->addWorkStage("Lighting", 1.0f,
             spp.shaders.quadVS, spp.shaders.pbrLightingFS, 2,
@@ -826,49 +877,11 @@ namespace osgVerse
         }
         lightModule->applyTextureAndUniforms(lighting, "LightParameterMap", 8);
 
-        osgVerse::Pipeline::Stage* lastAoStage = NULL;
-        if (spp.enableAO)
-        {
-            // SSAO stages: AO -> BlurH -> BlurV
-            osgVerse::Pipeline::Stage* ssao = p->addWorkStage("Ssao", 1.0f,
-                spp.shaders.quadVS, spp.shaders.ssaoFS, 1,
-#if defined(VERSE_EMBEDDED_GLES2)
-                "SsaoBuffer", osgVerse::Pipeline::RGB_INT8);
-#else
-                "SsaoBuffer", osgVerse::Pipeline::R_INT8);
-#endif
-            ssao->applyBuffer(*gbuffer, "NormalBuffer", 0);
-            ssao->applyBuffer(*gbuffer, "DepthBuffer", 1);
-            ssao->applyTexture(generatePoissonDiscDistribution(4, 4), "RandomTexture", 2);
-            ssao->applyUniform(new osg::Uniform("AORadius", 12.0f));
-            ssao->applyUniform(new osg::Uniform("AOBias", 0.1f));
-            ssao->applyUniform(new osg::Uniform("AOPowExponent", 12.0f));
+        // Screen-space AO is used to occlude the ambient/indirect (IBL) term; unit 4 is free here
+        if (lastAoStage != NULL) lighting->applyBuffer(*lastAoStage, "SsaoBlurredBuffer", 4);
+        else lighting->applyTexture(createDefaultTexture(), "SsaoBlurredBuffer", 4);
 
-            osgVerse::Pipeline::Stage* ssaoBlur1 = p->addWorkStage("SsaoBlur1", 1.0f,
-                spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
-#if defined(VERSE_EMBEDDED_GLES2)
-                "SsaoBlurredBuffer0", osgVerse::Pipeline::RGB_INT8);
-#else
-                "SsaoBlurredBuffer0", osgVerse::Pipeline::R_INT8);
-#endif
-            ssaoBlur1->applyBuffer(*ssao, "SsaoBuffer", 0);
-            ssaoBlur1->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(1.0f, 0.0f)));
-            ssaoBlur1->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
-
-            osgVerse::Pipeline::Stage* ssaoBlur2 = p->addWorkStage("SsaoBlur2", 1.0f,
-                spp.shaders.quadVS, spp.shaders.ssaoBlurFS, 1,
-#if defined(VERSE_EMBEDDED_GLES2)
-                "SsaoBlurredBuffer", osgVerse::Pipeline::RGB_INT8);
-#else
-                "SsaoBlurredBuffer", osgVerse::Pipeline::R_INT8);
-#endif
-            ssaoBlur2->applyBuffer(*ssaoBlur1, "SsaoBlurredBuffer0", "SsaoBuffer", 0);
-            ssaoBlur2->applyUniform(new osg::Uniform("BlurDirection", osg::Vec2(0.0f, 1.0f)));
-            ssaoBlur2->applyUniform(new osg::Uniform("BlurSharpness", 40.0f));
-            lastAoStage = ssaoBlur2;
-        }
-
-        // Shadow & AO combining stage
+        // Shadow combining stage
         osgVerse::Pipeline::Stage* shadowing = NULL;
         if (spp.debugShadowCombination)
         {
@@ -884,8 +897,6 @@ namespace osgVerse
                 "CombinedBuffer", osgVerse::Pipeline::RGB_INT8);
         }
         shadowing->applyBuffer(*lighting, "ColorBuffer", 0);
-        if (lastAoStage != NULL) shadowing->applyBuffer(*lastAoStage, "SsaoBlurredBuffer", 1);
-        else shadowing->applyTexture(createDefaultTexture(), "SsaoBlurredBuffer", 1);
         shadowing->applyBuffer(*gbuffer, "NormalBuffer", 2);
         shadowing->applyBuffer(*gbuffer, "DepthBuffer", 3);
         shadowing->applyTexture(generatePoissonDiscDistribution(16, 2), "RandomTexture", 4);
@@ -911,6 +922,7 @@ namespace osgVerse
             //brighting->applyBuffer("ColorBuffer", 0, p);
             brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
             brighting->applyUniform(new osg::Uniform("BrightnessThreshold", 0.7f));
+            brighting->applyUniform(new osg::Uniform("BrightnessKnee", 0.5f));
 
             std::vector<osgVerse::Pipeline::Stage*> downsamples;
             osg::Vec2s stageSize = p->getStageSize();
@@ -941,6 +953,9 @@ namespace osgVerse
                 std::string id = std::to_string(i);
                 brightCombining->applyBuffer(*downsamples[i], "BrightnessBuffer" + id, i - 1);
             }
+            // Contribution of each downsampled level to the final bloom (normalized in shader)
+            brightCombining->applyUniform(new osg::Uniform(
+                "BloomWeights", osg::Vec4(0.4f, 0.3f, 0.2f, 0.1f)));
 
             osgVerse::Pipeline::Stage* blooming = p->addDeferredStage("Blooming", 1.0f, false,
                 spp.shaders.quadVS, spp.shaders.bloomFS, 1,

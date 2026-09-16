@@ -2,7 +2,7 @@
 #pragma import_defines(VERSE_SHADOW_VSM, VERSE_SHADOW_ESM, VERSE_SHADOW_EVSM, VERSE_SHADOW_DEBUGCOLOR)
 #include "shadowing.module.glsl"
 
-uniform sampler2D ColorBuffer, SsaoBlurredBuffer, NormalBuffer, DepthBuffer;
+uniform sampler2D ColorBuffer, NormalBuffer, DepthBuffer;
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler2D RandomTexture;
 uniform mat4 ShadowSpaceMatrices[VERSE_MAX_SHADOWS];
@@ -43,7 +43,6 @@ void main()
     vec4 colorData = VERSE_TEX2D(ColorBuffer, uv0);
     vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
     float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
-    float ao = VERSE_TEX2D(SsaoBlurredBuffer, uv0).r;
     
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
@@ -79,9 +78,9 @@ void main()
     }
     
 #ifdef VERSE_SHADOW_DEBUGCOLOR
-    colorData.rgb *= debugShadowColor * ao;
+    colorData.rgb *= debugShadowColor;
 #else
-    colorData.rgb *= shadow * ao;
+    colorData.rgb *= shadow;
 #endif
 
 #ifdef VERSE_GLES3

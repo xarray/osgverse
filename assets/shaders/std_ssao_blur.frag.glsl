@@ -4,7 +4,9 @@ uniform float BlurSharpness;
 
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
-const float KERNEL_RADIUS = 3.0;
+// The AO kernel is interleaved (a 4x4 random pattern per screen pixel), so this bilateral
+// blur is the only place that removes its noise; a slightly wider kernel helps here
+const float KERNEL_RADIUS = 4.0;
 
 float blurFunction(vec2 uv, float r, float center_c, float center_d, inout float w_total)
 {
@@ -37,6 +39,7 @@ void main()
         vec2 uv = uv0 - BlurDirection * InvScreenResolution * r;
         c_total += blurFunction(uv, r, center_c, center_d, w_total);  
     }
-    fragData = vec4(c_total / w_total);
+    // Keep the depth in .y so that the next blur pass can still weight its samples by depth
+    fragData = vec4(c_total / w_total, center_d, 0.0, 1.0);
     VERSE_FS_FINAL(fragData);
 }

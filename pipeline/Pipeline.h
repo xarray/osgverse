@@ -131,10 +131,10 @@ namespace osgVerse
         {
             NO_DEFAULT_TEXTURES  = 0x0010,
             USE_COVERAGE_SAMPLES = 0x0020,
-            COVERAGE_SAMPLES_2X  = 0x0021,
+            COVERAGE_SAMPLES_2X  = 0x0022,  // low 4 bits hold the wanted sample number
             COVERAGE_SAMPLES_4X  = 0x0024,
             COVERAGE_SAMPLES_8X  = 0x0028,
-            COVERAGE_SAMPLES_16X = 0x002F
+            COVERAGE_SAMPLES_16X = 0x0060   // 16 can't be stored in the low 4 bits, use 0x0040
         };
         
         struct Stage : public osg::Referenced
