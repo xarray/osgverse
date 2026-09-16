@@ -119,7 +119,8 @@ IF(NOT VERSE_USE_EXTERNAL_GLES)
     NEW_EXAMPLE(osgVerse_Test_Pbr_Prerequisite pbr_prerequisite.cpp)  # PBR necessary textures creator example
     NEW_EXAMPLE(osgVerse_Test_Physics_Basic physics_basic_test.cpp)  # Basic rigid physics example  // FIXME: with simple hint UI
     NEW_EXAMPLE(osgVerse_Test_Physics_Character physics_character_test.cpp)  # Physics character walking example  // FIXME: with simple hint UI
-    NEW_EXAMPLE(osgVerse_Test_Physics_Joint physics_joint_test.cpp)  # Physics joint/constraint types example  // FIXME: with ragdoll and UI
+    NEW_EXAMPLE(osgVerse_Test_Physics_Joint physics_joint_test.cpp)  # Physics joint/constraint types example  // FIXME: with simple hint UI
+    NEW_EXAMPLE(osgVerse_Test_Physics_Human physics_human_test.cpp)  # Physics human (ragdoll) example  // FIXME: with simple hint UI
     NEW_EXAMPLE(osgVerse_Test_Player_Animation player_animation_test.cpp)  # Player animation example  // FIXME: with simple UI
     NEW_EXAMPLE(osgVerse_Test_Point_Cloud point_cloud_test.cpp)  # Point cloud with simple picking example  // FIXME: add eye-doming, UI
     NEW_EXAMPLE(osgVerse_Test_Polygon2D polygon2d_test.cpp)  # 2D polygon processing example  // FIXME: with simple hint UI

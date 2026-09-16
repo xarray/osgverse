@@ -63,6 +63,14 @@ namespace btHelpers
     // Motor limits of Bullet are impulses, so torques are converted with an assumed time step
     static const float motorTimeStep = 1.0f / 60.0f;
 
+    /** Bullet has no springs on hinges and spherical joints, so they are driven to their target
+        pose by a motor: this returns the torque limit of the motor as an impulse */
+    static btScalar motorImpulse(const osgVerse::PhysicsEngine::ConstraintSetting& cs)
+    {
+        float torque = (cs.maxMotorTorque > 0.0f) ? cs.maxMotorTorque : cs.maxSpringForce;
+        return torque * motorTimeStep;
+    }
+
     /** Bullet uses a spring stiffness (N/m or Nm/rad) instead of a frequency, so it is derived
         from the requested frequency and the mass / inertia of the driven body */
     static btScalar springStiffness(btRigidBody* body, int axis, float hertz)
@@ -98,6 +106,11 @@ namespace btHelpers
         btTransform t; t.setRotation(btQuaternion(q.x(), q.y(), q.z(), q.w()));
         t.setOrigin(btVector3(p[0], p[1], p[2])); return t;
     }
+
+    /** Box3D's target rotation of a spherical joint is the rotation of joint frame B related to
+        joint frame A, while Bullet wants the opposite one (frame A related to frame B) */
+    static btQuaternion toBtQuaternion(const osg::Quat& q)
+    { return btQuaternion(q.x(), q.y(), q.z(), q.w()).inverse(); }
 
     // Bullet stores material properties on bodies rather than shapes, so they are applied once
     static void applyShapeSetting(btRigidBody* body, const osgVerse::PhysicsEngine::ShapeSetting* setting)
@@ -233,6 +246,8 @@ public:
                                              ConstraintType type = CONSTRAINT_P2P,
                                              const ConstraintSetting* setting = NULL);
     virtual void setConstraintSetting(const std::string& name, const ConstraintSetting& setting);
+    virtual float getConstraintAngle(const std::string& name);
+    virtual float getConstraintTwistAngle(const std::string& name);
 
     // Applying force functions
     virtual void applyImpulse(const std::string& name, const osg::Vec3& point,
@@ -904,8 +919,20 @@ ConstraintBase* BulletPhysicsEngine::createConstraint(RigidBodyBase* bodyA, cons
             // Bullet measures the hinge angle in the opposite direction of Box3D, so the limits are
             // mirrored and the motor speed is negated to keep both backends behaving the same
             if (cs.enableLimit) hinge->setLimit(-cs.upperLimit, -cs.lowerLimit);
-            if (cs.enableSpring) btHelpers::warnUnsupported("springs of hinge (revolute) constraints");
-            if (cs.enableMotor)
+            if (cs.enableSpring)
+            {
+                // Bullet has no hinge spring: the joint is driven to its target angle by the motor,
+                // which is set as a velocity and therefore has to be updated in every step
+                btScalar impulse = btHelpers::motorImpulse(cs);
+                if (impulse > 0.0f)
+                {
+                    hinge->enableAngularMotor(true, 0.0f, impulse);
+                    hinge->setMotorTarget(-cs.targetAngle, btHelpers::motorTimeStep);
+                }
+                else btHelpers::warnUnsupported("driving joints without a torque limit");
+                btHelpers::warnUnsupported("spring stiffness of hinge joints, a motor is used instead");
+            }
+            else if (cs.enableMotor)
                 hinge->enableAngularMotor(true, -cs.motorSpeed, cs.maxMotorTorque * btHelpers::motorTimeStep);
             constraint = hinge;
         }
@@ -920,7 +947,20 @@ ConstraintBase* BulletPhysicsEngine::createConstraint(RigidBodyBase* bodyA, cons
                 float twistSpan = btMax(btFabs(cs.lowerLimit), btFabs(cs.upperLimit));
                 cone->setLimit(cs.coneLimit, cs.coneLimit, twistSpan);
             }
-            if (cs.enableSpring) btHelpers::warnUnsupported("springs of cone-twist constraints");
+            if (cs.enableSpring)
+            {
+                /* Bullet has no spring on cone-twist joints and the motor of its cone-twist
+                   constraint can only drive the twist of the joint, so the spring is approximated
+                   by the motor: the rotation of the joint is driven by the impulse of the target */
+                btScalar impulse = btHelpers::motorImpulse(cs);
+                if (impulse > 0.0f)
+                {
+                    cone->enableMotor(true); cone->setMaxMotorImpulse(impulse);
+                    cone->setMotorTargetInConstraintSpace(btHelpers::toBtQuaternion(cs.targetRotation));
+                }
+                else btHelpers::warnUnsupported("driving joints without a torque limit");
+                btHelpers::warnUnsupported("spring stiffness of cone-twist joints, a motor is used instead");
+            }
             if (cs.enableMotor) btHelpers::warnUnsupported("motors of cone-twist constraints");
             constraint = cone;
         }
@@ -997,9 +1037,20 @@ void BulletPhysicsEngine::setConstraintSetting(const std::string& name, const Co
             btHingeConstraint* hinge = static_cast<btHingeConstraint*>(constraint);
             if (cs.enableLimit) hinge->setLimit(-cs.upperLimit, -cs.lowerLimit);
             else hinge->setLimit(1.0f, -1.0f);  // higher lower-limit means no limit
-            if (cs.enableSpring) btHelpers::warnUnsupported("springs of hinge (revolute) constraints");
-            hinge->enableAngularMotor(cs.enableMotor, -cs.motorSpeed,
-                                      cs.maxMotorTorque * btHelpers::motorTimeStep);
+            if (cs.enableSpring)
+            {
+                // Drives the hinge to the target angle, see the note in createConstraint()
+                btScalar impulse = btHelpers::motorImpulse(cs);
+                if (impulse > 0.0f)
+                {
+                    hinge->enableAngularMotor(true, 0.0f, impulse);
+                    hinge->setMotorTarget(-cs.targetAngle, btHelpers::motorTimeStep);
+                }
+                else btHelpers::warnUnsupported("driving joints without a torque limit");
+            }
+            else
+                hinge->enableAngularMotor(cs.enableMotor, -cs.motorSpeed,
+                                          cs.maxMotorTorque * btHelpers::motorTimeStep);
         }
         break;
     case CONETWIST_CONSTRAINT_TYPE:
@@ -1012,7 +1063,23 @@ void BulletPhysicsEngine::setConstraintSetting(const std::string& name, const Co
             }
             else
                 cone->setLimit(SIMD_PI, SIMD_PI, SIMD_PI);  // spans are clamped, so this is free enough
-            if (cs.enableSpring) btHelpers::warnUnsupported("springs of cone-twist constraints");
+            if (cs.enableSpring)
+            {
+                /* The motor of a cone-twist constraint can only drive its twist, so a joint which
+                   has to be driven is created as a 6DOF spring constraint instead (see the note in
+                   createConstraint()); this only happens for joints which already exist */
+                btScalar impulse = btHelpers::motorImpulse(cs);
+                if (impulse > 0.0f)
+                {
+                    cone->enableMotor(true); cone->setMaxMotorImpulse(impulse);
+                    cone->setMotorTargetInConstraintSpace(btHelpers::toBtQuaternion(cs.targetRotation));
+                }
+                else btHelpers::warnUnsupported("driving joints without a torque limit");
+                btHelpers::warnUnsupported("springs of existing cone-twist joints, only their twist "
+                                           "is driven by a motor");
+            }
+            else
+                cone->enableMotor(false);
             if (cs.enableMotor) btHelpers::warnUnsupported("motors of cone-twist constraints");
         }
         break;
@@ -1049,6 +1116,59 @@ void BulletPhysicsEngine::setConstraintSetting(const std::string& name, const Co
     }
     if (cs.collideConnected)
         btHelpers::warnUnsupported("changing collision states of linked bodies, use addConstraint() instead");
+}
+
+float BulletPhysicsEngine::getConstraintAngle(const std::string& name)
+{
+    std::map<std::string, ConstraintAndState>::iterator itr = _constraints.find(name);
+    if (itr == _constraints.end()) return 0.0f;
+    btTypedConstraint* constraint = itr->second.first->get<btTypedConstraint>();
+    if (!constraint) return 0.0f;
+
+    switch (constraint->getConstraintType())
+    {
+    case HINGE_CONSTRAINT_TYPE:
+        {
+            // Bullet measures the hinge angle in the opposite direction of Box3D
+            btHingeConstraint* hinge = static_cast<btHingeConstraint*>(constraint);
+            return -(float)hinge->getHingeAngle();
+        }
+    case CONETWIST_CONSTRAINT_TYPE:
+        {
+            // Box3D's cone angle is the angle between the z axes of the two joint frames
+            btConeTwistConstraint* cone = static_cast<btConeTwistConstraint*>(constraint);
+            btVector3 axisA = (cone->getRigidBodyA().getCenterOfMassTransform()
+                               * cone->getFrameOffsetA()).getBasis().getColumn(2);
+            btVector3 axisB = (cone->getRigidBodyB().getCenterOfMassTransform()
+                               * cone->getFrameOffsetB()).getBasis().getColumn(2);
+            btScalar dot = btMin(btMax(axisA.dot(axisB), btScalar(-1.0f)), btScalar(1.0f));
+            return (float)btAcos(dot);
+        }
+    default: return 0.0f;  // other constraints have no angle
+    }
+}
+
+float BulletPhysicsEngine::getConstraintTwistAngle(const std::string& name)
+{
+    std::map<std::string, ConstraintAndState>::iterator itr = _constraints.find(name);
+    if (itr == _constraints.end()) return 0.0f;
+    btTypedConstraint* constraint = itr->second.first->get<btTypedConstraint>();
+    if (!constraint) return 0.0f;
+    if (constraint->getConstraintType() != CONETWIST_CONSTRAINT_TYPE) return 0.0f;
+
+    // Bullet only updates its own twist angle while solving, so it is computed the Box3D way:
+    // the twist is the rotation about the z axis of joint frame B related to joint frame A
+    btConeTwistConstraint* cone = static_cast<btConeTwistConstraint*>(constraint);
+    btQuaternion quatA = cone->getRigidBodyA().getCenterOfMassTransform().getRotation()
+                       * cone->getFrameOffsetA().getRotation();
+    btQuaternion quatB = cone->getRigidBodyB().getCenterOfMassTransform().getRotation()
+                       * cone->getFrameOffsetB().getRotation();
+    btQuaternion relQ = quatA.inverse() * quatB;
+
+    // Account for polarity to keep the twist angle in the range of [-pi, pi]
+    float twist = (relQ.getW() < 0.0f) ? btAtan2(-relQ.getZ(), -relQ.getW())
+                                       : btAtan2(relQ.getZ(), relQ.getW());
+    return 2.0f * twist;
 }
 
 /// ReaderWriterBullet ///

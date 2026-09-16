@@ -141,6 +141,9 @@ namespace b3Helpers
             0 : -(setting->collisionGroup > 0 ? setting->collisionGroup : -setting->collisionGroup);
     }
 
+    static b3Quat toB3Quat(const osg::Quat& q)
+    { return b3Quat{ (float)q.x(), (float)q.y(), (float)q.z(), (float)q.w() }; }
+
     struct RigidBody : public osgVerse::RigidBodyBase { RigidBody(b3BodyId b) : _b(b) { internal = &_b; } b3BodyId _b; };
     struct Constraint : public osgVerse::ConstraintBase { Constraint(b3JointId j) : _j(j) { internal = &_j; } b3JointId _j; };
 
@@ -812,6 +815,7 @@ ConstraintBase* PhysicsEngine::createConstraint(RigidBodyBase* bodyA, const osg:
             def.lowerAngle = cs.lowerLimit; def.upperAngle = cs.upperLimit;
             def.enableSpring = cs.enableSpring;
             def.hertz = cs.hertz; def.dampingRatio = cs.dampingRatio;
+            def.targetAngle = cs.targetAngle;
             def.enableMotor = cs.enableMotor; def.maxMotorTorque = cs.maxMotorTorque;
             def.motorSpeed = cs.motorSpeed;
             joint = b3CreateRevoluteJoint(PHY_WORLD(), &def);
@@ -828,6 +832,7 @@ ConstraintBase* PhysicsEngine::createConstraint(RigidBodyBase* bodyA, const osg:
             def.lowerTwistAngle = cs.lowerLimit; def.upperTwistAngle = cs.upperLimit;
             def.enableSpring = cs.enableSpring;
             def.hertz = cs.hertz; def.dampingRatio = cs.dampingRatio;
+            def.targetRotation = b3Helpers::toB3Quat(cs.targetRotation);
             def.enableMotor = cs.enableMotor; def.maxMotorTorque = cs.maxMotorTorque;
             def.motorVelocity = b3Vec3{ 0.0f, 0.0f, cs.motorSpeed };
             joint = b3CreateSphericalJoint(PHY_WORLD(), &def);
@@ -872,6 +877,7 @@ ConstraintBase* PhysicsEngine::createConstraint(RigidBodyBase* bodyA, const osg:
             def.base.collideConnected = cs.collideConnected;
             def.enableSpring = cs.enableSpring;
             def.hertz = cs.hertz; def.dampingRatio = cs.dampingRatio;
+            def.targetRotation = b3Helpers::toB3Quat(cs.targetRotation);
             def.enableMotor = cs.enableMotor; def.maxMotorTorque = cs.maxMotorTorque;
             def.motorVelocity = b3Vec3{ 0.0f, 0.0f, cs.motorSpeed };
             joint = b3CreateSphericalJoint(PHY_WORLD(), &def);
@@ -901,6 +907,7 @@ void PhysicsEngine::setConstraintSetting(const std::string& name, const Constrai
         {
             b3RevoluteJoint_SetSpringHertz(*joint, cs.hertz);
             b3RevoluteJoint_SetSpringDampingRatio(*joint, cs.dampingRatio);
+            b3RevoluteJoint_SetTargetAngle(*joint, cs.targetAngle);
         }
         b3RevoluteJoint_EnableMotor(*joint, cs.enableMotor);
         if (cs.enableMotor)
@@ -922,6 +929,7 @@ void PhysicsEngine::setConstraintSetting(const std::string& name, const Constrai
         {
             b3SphericalJoint_SetSpringHertz(*joint, cs.hertz);
             b3SphericalJoint_SetSpringDampingRatio(*joint, cs.dampingRatio);
+            b3SphericalJoint_SetTargetRotation(*joint, b3Helpers::toB3Quat(cs.targetRotation));
         }
         b3SphericalJoint_EnableMotor(*joint, cs.enableMotor);
         if (cs.enableMotor)
@@ -948,4 +956,29 @@ void PhysicsEngine::setConstraintSetting(const std::string& name, const Constrai
     default: break;  // filter joints have no parameter to update
     }
     b3Joint_WakeBodies(*joint);
+}
+
+float PhysicsEngine::getConstraintAngle(const std::string& name)
+{
+    std::map<std::string, ConstraintAndState>::iterator itr = _constraints.find(name);
+    if (itr == _constraints.end()) return 0.0f;
+    b3JointId* joint = itr->second.first->get<b3JointId>();
+
+    switch (b3Joint_GetType(*joint))
+    {
+    case b3_revoluteJoint: return b3RevoluteJoint_GetAngle(*joint);
+    case b3_sphericalJoint: return b3SphericalJoint_GetConeAngle(*joint);
+    default: return 0.0f;  // parallel / motor / filter joints have no angle
+    }
+}
+
+float PhysicsEngine::getConstraintTwistAngle(const std::string& name)
+{
+    std::map<std::string, ConstraintAndState>::iterator itr = _constraints.find(name);
+    if (itr == _constraints.end()) return 0.0f;
+    b3JointId* joint = itr->second.first->get<b3JointId>();
+
+    if (b3Joint_GetType(*joint) == b3_sphericalJoint)
+        return b3SphericalJoint_GetTwistAngle(*joint);
+    return 0.0f;
 }

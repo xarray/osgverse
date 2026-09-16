@@ -279,6 +279,9 @@ void OzzAnimation::multiplySoATransformQuaternion(
 bool PlayerAnimation::update(const osg::FrameStamp& fs, bool paused)
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    // An external system (such as a physics ragdoll) provides the model space matrices in this mode
+    if (_externalDriven) return true;
+
     ozz::vector<ozz::animation::BlendingJob::Layer> layers;
     if (_restPose)
     {

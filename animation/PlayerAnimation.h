@@ -105,6 +105,17 @@ namespace osgVerse
         osg::Matrix getModelSpaceJointMatrix(int joint) const;
         osg::BoundingBox computeSkeletonBounds() const;
 
+        /** Get the model space matrices of the skeleton's rest (bind) pose, one for each joint. They
+            can be used to build a physics ragdoll matching the animated character, see
+            PhysicsHuman::create(). */
+        std::vector<osg::Matrix> getSkeletonRestPoseMatrices() const;
+
+        /** Let an external system (usually a physics ragdoll) drive the skeleton: while enabled,
+            update() no longer computes model space joint matrices from animations, and they are
+            expected to be set by setModelSpaceJointMatrix() before each frame instead. */
+        void setSkeletonDrivenExternally(bool b) { _externalDriven = b; }
+        bool getSkeletonDrivenExternally() const { return _externalDriven; }
+
         /* Animation set/get functions */
         std::vector<std::string> getAnimationNames() const;
         float getAnimationWeight(const std::string& key) const;
@@ -140,7 +151,7 @@ namespace osgVerse
         osg::observer_ptr<osg::Node> _modelRoot, _skeletonRoot;
         osg::ref_ptr<osg::Referenced> _internal;
         float _blendingThreshold;
-        bool _animated, _drawSkeleton, _drawSkinning, _restPose;
+        bool _animated, _drawSkeleton, _drawSkinning, _restPose, _externalDriven;
     };
 
 }

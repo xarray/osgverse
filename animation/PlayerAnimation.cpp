@@ -989,7 +989,7 @@ void PlayerAnimation::AnimationData::fromAnimationPath(const osg::AnimationPath*
 
 PlayerAnimation::PlayerAnimation()
 {
-    _internal = new OzzAnimation; _animated = true;
+    _internal = new OzzAnimation; _animated = true; _externalDriven = false;
     _drawSkeleton = true; _drawSkinning = true; _restPose = false;
     _blendingThreshold = ozz::animation::BlendingJob().threshold;
 }
@@ -1126,25 +1126,49 @@ int PlayerAnimation::getSkeletonJointIndex(const std::string& joint) const
 
 void PlayerAnimation::setModelSpaceJointMatrix(int joint, const osg::Matrix& matrix)
 {
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (joint < 0 || joint >= (int)ozz->_models.size()) return;
+
     ozz::math::Float4x4 m;
     for (int i = 0; i < 4; ++i)
     {
         m.cols[i] = ozz::math::simd_float4::Load(
             matrix(i, 0), matrix(i, 1), matrix(i, 2), matrix(i, 3));
     }
-    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
     ozz->_models[joint] = m;
 }
 
 osg::Matrix PlayerAnimation::getModelSpaceJointMatrix(int joint) const
 {
     OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    if (joint < 0 || joint >= (int)ozz->_models.size()) return osg::Matrix();
     const ozz::math::Float4x4& m = ozz->_models[joint];
     return osg::Matrix(
         ozz::math::GetX(m.cols[0]), ozz::math::GetY(m.cols[0]), ozz::math::GetZ(m.cols[0]), ozz::math::GetW(m.cols[0]),
         ozz::math::GetX(m.cols[1]), ozz::math::GetY(m.cols[1]), ozz::math::GetZ(m.cols[1]), ozz::math::GetW(m.cols[1]),
         ozz::math::GetX(m.cols[2]), ozz::math::GetY(m.cols[2]), ozz::math::GetZ(m.cols[2]), ozz::math::GetW(m.cols[2]),
         ozz::math::GetX(m.cols[3]), ozz::math::GetY(m.cols[3]), ozz::math::GetZ(m.cols[3]), ozz::math::GetW(m.cols[3]));
+}
+
+std::vector<osg::Matrix> PlayerAnimation::getSkeletonRestPoseMatrices() const
+{
+    std::vector<osg::Matrix> result;
+    OzzAnimation* ozz = static_cast<OzzAnimation*>(_internal.get());
+    const int numJoints = ozz->_skeleton.num_joints();
+    if (numJoints <= 0) return result;
+
+    // Convert the local space rest poses to model space, just like computeSkeletonBounds() does
+    ozz::vector<ozz::math::Float4x4> models(numJoints);
+    ozz::animation::LocalToModelJob job;
+    job.input = ozz->_skeleton.joint_rest_poses();
+    job.output = ozz::make_span(models);
+    job.skeleton = &(ozz->_skeleton);
+    if (!job.Run()) return result;
+
+    result.reserve(numJoints);
+    for (int i = 0; i < numJoints; ++i)
+        result.push_back(OzzAnimation::convertMatrix(models[i]));
+    return result;
 }
 
 osg::BoundingBox PlayerAnimation::computeSkeletonBounds() const
