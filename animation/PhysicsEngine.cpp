@@ -18,14 +18,36 @@ namespace b3Helpers
     {
         float volume = 1.0f; virtual ~ShapeData() {}
         virtual b3ShapeId createOnBody(b3WorldId world, b3BodyId body, const b3ShapeDef& def) = 0;
+
+        // Get a convex point-cloud proxy for shape casting (sweep). Return false if unsupported
+        virtual bool getProxy(std::vector<b3Vec3>& points, float& radius) const { return false; }
     };
 
     struct BoxData : public ShapeData
     {
-        b3BoxHull hull; BoxData(const osg::Vec3& hs)
-        { hull = b3MakeBoxHull(hs.x(), hs.y(), hs.z()); volume = 8.0f * hs.x() * hs.y() * hs.z(); }
+        b3BoxHull hull; osg::Vec3 halfSize, offset;
+        BoxData(const osg::Vec3& hs, const osg::Vec3& off = osg::Vec3()) : halfSize(hs), offset(off)
+        {
+            b3Transform xf; xf.p = b3Vec3{off.x(), off.y(), off.z()};
+            xf.q = b3Quat{0.0f, 0.0f, 0.0f, 1.0f};
+            hull = b3MakeTransformedBoxHull(hs.x(), hs.y(), hs.z(), xf);
+            volume = 8.0f * hs.x() * hs.y() * hs.z();
+        }
         virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
         { return b3CreateHullShape(body, &def, &hull.base); }
+
+        virtual bool getProxy(std::vector<b3Vec3>& points, float& radius) const
+        {
+            points.resize(8);
+            for (int i = 0; i < 8; ++i)
+            {
+                float sx = (i & 1) ? halfSize.x() : -halfSize.x();
+                float sy = (i & 2) ? halfSize.y() : -halfSize.y();
+                float sz = (i & 4) ? halfSize.z() : -halfSize.z();
+                points[i] = b3Vec3{ sx + offset.x(), sy + offset.y(), sz + offset.z() };
+            }
+            radius = 0.0f; return true;
+        }
     };
 
     struct CylinderData : public ShapeData
@@ -51,11 +73,17 @@ namespace b3Helpers
         b3Capsule sh; CapsuleData(const osg::Vec3& c0, const osg::Vec3& c1, float r)
         {
             sh = b3Capsule { {c0.x(), c0.y(), c0.z()}, {c1.x(), c1.y(), c1.z()}, r };
-            float h = abs(c1.z() - c0.z()); float cyVol = osg::PI * r * r * h;
+            float h = (c1 - c0).length(); float cyVol = osg::PI * r * r * h;
             volume = (4.0f / 3.0f) * osg::PI * r * r * r + cyVol;
         }
         virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
         { return b3CreateCapsuleShape(body, &def, &sh); }
+
+        virtual bool getProxy(std::vector<b3Vec3>& points, float& radius) const
+        {
+            points.resize(2); points[0] = sh.center1; points[1] = sh.center2;
+            radius = sh.radius; return true;
+        }
     };
 
     struct SphereData : public ShapeData
@@ -64,6 +92,11 @@ namespace b3Helpers
         { sh = b3Sphere { {c.x(), c.y(), c.z()}, r }; float h = r * 0.57735f; volume = 8.0f * h * h * h;  }
         virtual b3ShapeId createOnBody(b3WorldId, b3BodyId body, const b3ShapeDef& def)
         { return b3CreateSphereShape(body, &def, &sh); }
+
+        virtual bool getProxy(std::vector<b3Vec3>& points, float& radius) const
+        {
+            points.resize(1); points[0] = sh.center; radius = sh.radius; return true;
+        }
     };
 
     struct HullData : public ShapeData
@@ -92,8 +125,9 @@ namespace b3Helpers
 
     struct CollisionShape : public osgVerse::CollisionShapeBase
     {
-        CollisionShape() { shapeDef = b3DefaultShapeDef(); }
+        CollisionShape() : shapeId(b3_nullShapeId) { shapeDef = b3DefaultShapeDef(); }
         b3ShapeDef shapeDef; osg::ref_ptr<ShapeData> shapeData;
+        b3ShapeId shapeId;  // valid after the shape is created on a body
     };
 
     struct RigidBody : public osgVerse::RigidBodyBase { RigidBody(b3BodyId b) : _b(b) { internal = &_b; } b3BodyId _b; };
@@ -136,7 +170,18 @@ namespace b3Helpers
         bool getNameFromBody;
     };
 
-    static void raycastSetResult(osgVerse::PhysicsEngine::RaycastHit& result,
+    static void findBodyName(osgVerse::PhysicsEngine* engine, b3BodyId bodyId, std::string& name)
+    {
+        const std::map<std::string, osg::ref_ptr<RigidBodyBase>>& bodies = engine->getBodies();
+        for (std::map<std::string, osg::ref_ptr<RigidBodyBase>>::const_iterator
+             itr = bodies.begin(); itr != bodies.end(); ++itr)
+        {
+            b3BodyId* body = itr->second->get<b3BodyId>();
+            if (B3_ID_EQUALS((*body), bodyId)) { name = itr->first; break; }
+        }
+    }
+
+    static void setBodyFromShape(osgVerse::PhysicsEngine::RaycastHit& result,
                                  osgVerse::PhysicsEngine* engine, bool getNameFromBody,
                                  b3ShapeId shapeId, b3Pos point, b3Vec3 normal)
     {
@@ -149,16 +194,7 @@ namespace b3Helpers
         if (B3_IS_NON_NULL(bodyId))
         {
             result.rigidBody = new b3Helpers::RigidBody(bodyId);
-            if (getNameFromBody)
-            {
-                const std::map<std::string, osg::ref_ptr<RigidBodyBase>>& bodies = engine->getBodies();
-                for (std::map<std::string, osg::ref_ptr<RigidBodyBase>>::const_iterator
-                    itr = bodies.begin(); itr != bodies.end(); ++itr)
-                {
-                    b3BodyId* body = itr->second->get<b3BodyId>();
-                    if (B3_ID_EQUALS((*body), bodyId)) { result.name = itr->first; break; }
-                }
-            }
+            if (getNameFromBody) b3Helpers::findBodyName(engine, bodyId, result.name);
         }
     }
 
@@ -167,8 +203,39 @@ namespace b3Helpers
     {
         RaycastCallbackData* data = (RaycastCallbackData*)context;
         osgVerse::PhysicsEngine::RaycastHit result;
-        raycastSetResult(result, data->engine, data->getNameFromBody, shapeId, point, normal);
+        setBodyFromShape(result, data->engine, data->getNameFromBody, shapeId, point, normal);
         data->hits->push_back(result); return 1.0f; // Continue ray
+    }
+
+    struct ShapeCastContext
+    {
+        osgVerse::PhysicsEngine* engine;
+        b3BodyId ignoredBody; bool hasIgnoredBody;
+        bool startedSolid, hit;
+        float closestFraction; b3Vec3 closestNormal; b3Pos closestPoint; b3ShapeId closestShape;
+
+        ShapeCastContext(osgVerse::PhysicsEngine* e, b3BodyId ignored)
+        :   engine(e), ignoredBody(ignored), hasIgnoredBody(B3_IS_NON_NULL(ignored)), startedSolid(false),
+            hit(false), closestFraction(1.0f), closestShape(b3_nullShapeId)
+        { closestNormal = b3Vec3_zero; closestPoint = b3Pos_zero; }
+    };
+
+    static float shapeCastCallback(b3ShapeId shapeId, b3Pos point, b3Vec3 normal, float fraction,
+                                   uint64_t materialId, int triangleIndex, int childIndex, void* context)
+    {
+        ShapeCastContext* data = (ShapeCastContext*)context;
+        if (data->hasIgnoredBody && B3_ID_EQUALS(b3Shape_GetBody(shapeId), data->ignoredBody))
+            return -1.0f;  // skip the shapes of the ignored body (usually character itself)
+
+        if (fraction == 0.0f)
+        { data->startedSolid = true; return -1.0f; }  // already inside something
+
+        if (fraction < data->closestFraction)
+        {
+            data->closestFraction = fraction; data->closestNormal = normal;
+            data->closestPoint = point; data->closestShape = shapeId; data->hit = true;
+        }
+        return data->closestFraction;
     }
 }
 #define PHY_WORLD() (((b3Helpers::PhysicsCore*)_core.get())->_worldId)
@@ -228,7 +295,7 @@ void PhysicsEngine::removeBody(const std::string& name)
     if (itr != _bodies.end())
     {
         b3BodyId* body = itr->second->get<b3BodyId>(); b3DestroyBody(*body);
-        delete itr->second; _bodies.erase(itr);
+        _bodies.erase(itr);  // the body handle will be deleted by itself if no other reference exists
     }
 
     std::map<std::string, osg::ref_ptr<CollisionShapeBase>>::iterator itr2 = _shapes.find(name);
@@ -346,6 +413,81 @@ osg::Vec3 PhysicsEngine::getCenterOfMass(const std::string& name)
     return osg::Vec3();
 }
 
+RigidBodyBase* PhysicsEngine::createBody(const std::string& name, const BodySetting& setting,
+                                         const osg::Matrix& matrix)
+{
+    b3Vec3 pos; b3Quat rot;
+    b3Helpers::PhysicsCore::fromMatrix(matrix, pos, rot);
+    if (_bodies.find(name) != _bodies.end()) removeBody(name);  // remove existing body
+
+    b3BodyDef bodyDef = b3DefaultBodyDef();
+    bodyDef.position = b3ToPos(pos); bodyDef.rotation = rot;
+    bodyDef.type = setting.kinematic ? b3_kinematicBody : b3_dynamicBody;
+    bodyDef.gravityScale = setting.gravityScale;
+    bodyDef.linearDamping = setting.linearDamping; bodyDef.angularDamping = setting.angularDamping;
+    bodyDef.enableSleep = setting.allowSleep;
+    bodyDef.enableContactRecycling = setting.enableContactRecycling;
+    bodyDef.motionLocks.angularX = setting.lockAngularX;
+    bodyDef.motionLocks.angularY = setting.lockAngularY;
+    bodyDef.motionLocks.angularZ = setting.lockAngularZ;
+    bodyDef.name = name.c_str();
+
+    b3BodyId bodyId = b3CreateBody(PHY_WORLD(), &bodyDef);
+    if (B3_IS_NULL(bodyId)) { OSG_NOTICE << "[PhysicsEngine] Failed to create body\n"; return NULL; }
+
+    b3Helpers::RigidBody* container = new b3Helpers::RigidBody(bodyId);
+    _bodies[name] = container; return container;
+}
+
+CollisionShapeBase* PhysicsEngine::addShapeToBody(RigidBodyBase* body, CollisionShapeBase* csb,
+                                                  float mass, float friction)
+{
+    if (!body || !csb) return NULL;
+    b3Helpers::CollisionShape* cs = static_cast<b3Helpers::CollisionShape*>(csb);
+    b3BodyId* bodyId = body->get<b3BodyId>();
+    if (!cs->shapeData || B3_IS_NULL((*bodyId)))
+    { OSG_NOTICE << "[PhysicsEngine] Failed to add shape to body\n"; return NULL; }
+
+    cs->shapeDef.density = (mass > 0.0f) ? (mass / cs->shapeData->volume) : 0.0f;
+    cs->shapeDef.baseMaterial.friction = friction;
+    cs->shapeId = cs->shapeData->createOnBody(PHY_WORLD(), *bodyId, cs->shapeDef);
+    if (B3_IS_NULL(cs->shapeId))
+    { OSG_NOTICE << "[PhysicsEngine] Failed to create shape on body\n"; return NULL; }
+    return cs;
+}
+
+void PhysicsEngine::setShapeFriction(CollisionShapeBase* shape, float friction)
+{
+    b3Helpers::CollisionShape* cs = static_cast<b3Helpers::CollisionShape*>(shape);
+    if (cs && B3_IS_NON_NULL(cs->shapeId)) b3Shape_SetFriction(cs->shapeId, friction);
+}
+
+void PhysicsEngine::setGravityScale(const std::string& name, float scale)
+{
+    std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
+    if (itr != _bodies.end())
+        b3Body_SetGravityScale(*itr->second->get<b3BodyId>(), scale);
+}
+
+void PhysicsEngine::setLinearDamping(const std::string& name, float damping)
+{
+    std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
+    if (itr != _bodies.end())
+        b3Body_SetLinearDamping(*itr->second->get<b3BodyId>(), damping);
+}
+
+void PhysicsEngine::setMassCenter(const std::string& name, const osg::Vec3& center)
+{
+    std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
+    if (itr != _bodies.end())
+    {
+        b3BodyId* body = itr->second->get<b3BodyId>();
+        b3MassData massData = b3Body_GetMassData(*body);
+        massData.center = b3Vec3{ center[0], center[1], center[2] };
+        b3Body_SetMassData(*body, massData);
+    }
+}
+
 void PhysicsEngine::addConstraint(const std::string& name, ConstraintBase* cBase,
                                   bool noCollisionsBetweenLinked)
 {
@@ -415,7 +557,7 @@ bool PhysicsEngine::raycast(const osg::Vec3& s, const osg::Vec3& e,
 
     b3RayResult r = b3World_CastRayClosest(PHY_WORLD(), b3ToPos(origin), translation, filter);
     if (r.hit)
-        b3Helpers::raycastSetResult(result, this, getNameFromBody, r.shapeId, r.point, r.normal);
+        b3Helpers::setBodyFromShape(result, this, getNameFromBody, r.shapeId, r.point, r.normal);
     return r.hit;
 }
 
@@ -434,6 +576,45 @@ std::vector<PhysicsEngine::RaycastHit> PhysicsEngine::raycastAll(const osg::Vec3
     return hitList;
 }
 
+PhysicsEngine::SweepResult PhysicsEngine::sweep(const osg::Vec3& s, const osg::Vec3& t, CollisionShapeBase* csb,
+                                                const QueryFilter& f, RigidBodyBase* ignoredBody)
+{
+    SweepResult result;
+    b3Helpers::CollisionShape* cs = static_cast<b3Helpers::CollisionShape*>(csb);
+    std::vector<b3Vec3> points; float radius = 0.0f;
+    if (!cs || !cs->shapeData || !cs->shapeData->getProxy(points, radius))
+    { OSG_NOTICE << "[PhysicsEngine] Unsupported shape for sweeping\n"; return result; }
+
+    b3ShapeProxy proxy; proxy.points = points.data();
+    proxy.count = (int)points.size(); proxy.radius = radius;
+    b3Vec3 translation = b3Vec3{ t.x(), t.y(), t.z() };
+
+    b3QueryFilter filter = b3DefaultQueryFilter();
+    filter.categoryBits = f.categoryBits; filter.maskBits = f.maskBits;
+    if (!f.name.empty()) filter.name = f.name.c_str();
+
+    b3BodyId ignoredId = b3_nullBodyId;
+    if (ignoredBody) ignoredId = *ignoredBody->get<b3BodyId>();
+    b3Helpers::ShapeCastContext context(this, ignoredId);
+    b3World_CastShape(PHY_WORLD(), b3ToPos(b3Vec3{ s.x(), s.y(), s.z() }), &proxy, translation,
+                      filter, b3Helpers::shapeCastCallback, &context);
+
+    result.startedSolid = context.startedSolid; result.hit = context.hit;
+    if (context.hit)
+    {
+        b3BodyId bodyId = b3Shape_GetBody(context.closestShape);
+        result.fraction = context.closestFraction;
+        result.point = osg::Vec3(context.closestPoint.x, context.closestPoint.y, context.closestPoint.z);
+        result.normal = osg::Vec3(context.closestNormal.x, context.closestNormal.y, context.closestNormal.z);
+        if (B3_IS_NON_NULL(bodyId))
+        {
+            result.rigidBody = new b3Helpers::RigidBody(bodyId);
+            b3Helpers::findBodyName(this, bodyId, result.name);
+        }
+    }
+    return result;
+}
+
 void PhysicsEngine::advance(float timeStep, int maxSubSteps)
 { b3World_Step(PHY_WORLD(), timeStep, maxSubSteps); }
 
@@ -447,6 +628,12 @@ CollisionShapeBase* PhysicsEngine::createPhysicsBox(const osg::Vec3& halfSize)
 {
     b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
     cs->shapeData = new b3Helpers::BoxData(halfSize); return cs;
+}
+
+CollisionShapeBase* PhysicsEngine::createPhysicsBox(const osg::Vec3& halfSize, const osg::Vec3& offset)
+{
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData = new b3Helpers::BoxData(halfSize, offset); return cs;
 }
 
 CollisionShapeBase* PhysicsEngine::createPhysicsCylinder(const osg::Vec3& halfSize)
@@ -465,6 +652,12 @@ CollisionShapeBase* PhysicsEngine::createPhysicsCone(float radius, float height)
 CollisionShapeBase* PhysicsEngine::createPhysicsCapsule(float radius, float height)
 {
     osg::Vec3 c0(0.0f, 0.0f, -0.5f * height), c1(0.0f, 0.0f, 0.5f * height);
+    b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
+    cs->shapeData = new b3Helpers::CapsuleData(c0, c1, radius); return cs;
+}
+
+CollisionShapeBase* PhysicsEngine::createPhysicsCapsule(float radius, const osg::Vec3& c0, const osg::Vec3& c1)
+{
     b3Helpers::CollisionShape* cs = new b3Helpers::CollisionShape;
     cs->shapeData = new b3Helpers::CapsuleData(c0, c1, radius); return cs;
 }

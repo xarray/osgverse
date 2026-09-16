@@ -3,8 +3,9 @@ SET(LIBRARY_INCLUDE_FILES
     PlayerAnimation.h TweenAnimation.h BlendShapeAnimation.h
     PhysicsEngine.h ParticleEngine.h Utilities.h)
 SET(LIBRARY_FILES ${LIBRARY_INCLUDE_FILES}
-    PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp PhysicsEngine.cpp
-    TweenAnimation.cpp BlendShapeAnimation.cpp ParticleEngineU3D.cpp Utilities.cpp)
+    PlayerAnimation.cpp PlayerAnimationInternal.h PlayerAnimationInternal.cpp
+    PhysicsEngine.cpp PhysicsEngineEx.cpp TweenAnimation.cpp BlendShapeAnimation.cpp
+    ParticleEngineU3D.cpp Utilities.cpp)
 
 IF(NOT VERSE_SUPPORT_CPP17)
     MESSAGE("[osgVerse] C++ 17 standard is disabled at present. Effekseer will be ignored.")

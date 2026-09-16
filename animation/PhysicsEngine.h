@@ -3,6 +3,8 @@
 
 #include <osg/Version>
 #include <osg/MatrixTransform>
+#include <osg/observer_ptr>
+#include <osg/Shape>
 #include <map>
 
 namespace osgVerse
@@ -57,6 +59,39 @@ namespace osgVerse
         virtual osg::Matrix getInverseInertia(const std::string& name);
         virtual osg::Vec3 getCenterOfMass(const std::string& name);
 
+        /** Body settings for creating compound bodies (see createBody() and addShapeToBody()) */
+        struct BodySetting
+        {
+            BodySetting()
+            :   kinematic(false), allowSleep(true), enableContactRecycling(true),
+                lockAngularX(false), lockAngularY(false), lockAngularZ(false),
+                gravityScale(1.0f), linearDamping(0.0f), angularDamping(0.0f) {}
+            bool kinematic, allowSleep, enableContactRecycling;
+            bool lockAngularX, lockAngularY, lockAngularZ;
+            float gravityScale, linearDamping, angularDamping;
+        };
+
+        /** Create an empty dynamic body (unless kinematic is set) without any shape.
+            Shapes can be attached later by addShapeToBody(), which makes it possible to
+            build compound bodies like a character controller (feet box + body capsule). */
+        virtual RigidBodyBase* createBody(const std::string& name, const BodySetting& setting,
+                                          const osg::Matrix& matrix = osg::Matrix());
+
+        /** Attach an exist shape to a body created by createBody(). The shape (which may contain
+            local offset geometry, see createPhysicsBox() / createPhysicsCapsule()) will be owned
+            by the body. The mass is the mass contributed by this shape, and is converted to
+            density internally. */
+        virtual CollisionShapeBase* addShapeToBody(RigidBodyBase* body, CollisionShapeBase* shape,
+                                                   float mass, float friction = 0.6f);
+
+        virtual void setShapeFriction(CollisionShapeBase* shape, float friction);
+        virtual void setGravityScale(const std::string& name, float scale);
+        virtual void setLinearDamping(const std::string& name, float damping);
+
+        /** Override the local center of mass of a body. Used by character controllers to lower
+            the mass center for better stability. Not supported by all engines. */
+        virtual void setMassCenter(const std::string& name, const osg::Vec3& center);
+
         CollisionShapeBase* getShape(const std::string& name);
         RigidBodyBase* getRigidBody(const std::string& name);
         ConstraintBase* getConstraint(const std::string& name);
@@ -80,13 +115,6 @@ namespace osgVerse
             ContactPlane() : penetration(0.0f) {}
         };
 
-        struct SweepResult
-        {
-            osg::ref_ptr<RigidBodyBase> rigidBody;
-            osg::Vec3 point, normal; float fraction; bool hit;
-            SweepResult() : fraction(1.0f), hit(false) {}
-        };
-
         struct RaycastHit
         {
             osg::ref_ptr<RigidBodyBase> rigidBody;
@@ -94,11 +122,24 @@ namespace osgVerse
             RaycastHit() : rigidBody(NULL) {}
         };
 
+        struct SweepResult
+        {
+            osg::ref_ptr<RigidBodyBase> rigidBody;
+            osg::Vec3 point, normal; float fraction; bool hit, startedSolid;
+            std::string name;
+            SweepResult() : fraction(1.0f), hit(false), startedSolid(false) {}
+        };
+
         // TODO
         //virtual std::vector<ContactPlane> collide(const osg::Vec3& position, CollisionShapeBase* shape,
         //                                          const QueryFilter& filter = QueryFilter());
-        //virtual SweepResult sweep(const osg::Vec3& start, const osg::Vec3& translation, CollisionShapeBase* shape,
-        //                          const QueryFilter& filter = QueryFilter());
+        /** Cast a shape (sweep) through the world and return the closest hit. Only convex shapes
+            created by createPhysicsBox()/createPhysicsSphere()/createPhysicsCapsule() are guaranteed
+            to work here. `ignoredBody` is used to skip the shapes of a given body (usually the
+            character's own body). */
+        virtual SweepResult sweep(const osg::Vec3& start, const osg::Vec3& translation,
+                                  CollisionShapeBase* shape, const QueryFilter& filter = QueryFilter(),
+                                  RigidBodyBase* ignoredBody = NULL);
         virtual bool raycast(const osg::Vec3& start, const osg::Vec3& end,
                              RaycastHit& result, const QueryFilter& filter = QueryFilter(), bool getNameFromBody = true);
         virtual std::vector<RaycastHit> raycastAll(const osg::Vec3& start, const osg::Vec3& end,
@@ -114,6 +155,13 @@ namespace osgVerse
         virtual CollisionShapeBase* createPhysicsHull(osg::Node* node, bool optimized = true);
         virtual CollisionShapeBase* createPhysicsTriangleMesh(osg::Node* node, bool compressed = true);
         virtual CollisionShapeBase* createPhysicsHeightField(osg::HeightField* hf, bool filpQuad = false);
+
+        /** Create a box shape with geometry moved away from its own origin. It is useful for
+            building compound bodies like a character controller. */
+        virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize, const osg::Vec3& offset);
+
+        /** Create a capsule shape defined by its two hemisphere centers (in local space) */
+        virtual CollisionShapeBase* createPhysicsCapsule(float radius, const osg::Vec3& c0, const osg::Vec3& c1);
 
         struct ConstraintSetting
         {
@@ -137,6 +185,94 @@ namespace osgVerse
         std::map<std::string, osg::ref_ptr<CollisionShapeBase>> _shapes;
         std::map<std::string, osg::ref_ptr<RigidBodyBase>> _bodies;
         osg::ref_ptr<PhysicsCoreBase> _core;
+    };
+
+    /** Rigid-body based character controller, supporting walking, jumping and stepping up.
+        The character is built as a compound body (a feet box with dynamic friction and a
+        low-friction body capsule) and all its movement is done by shape casts (sweeps) plus
+        velocity manipulation, so it works with any PhysicsEngine backend which implements
+        the required shape/sweep interfaces. Typical usage:
+            char* = new PhysicsCharacter(engine, "character");
+            character->create(startPosition);
+            // for every frame:
+            character->setWishVelocity(forward * throttle);  // horizontal direction, length <= 1
+            character->jump();                               // if jump key pressed
+            character->step(timeStep);   engine->advance(timeStep);   character->lateStep();
+    */
+    class PhysicsCharacter : public osg::Referenced
+    {
+    public:
+        PhysicsCharacter(PhysicsEngine* engine, const std::string& name);
+
+        // Character parameters (in meters per second, meters and degrees), tune before create()
+        float walkSpeed, runSpeed, jumpSpeed;
+        float maxSlopeAngle, characterGravity, characterMass, jumpCooldownTime;
+        float stepUpHeight, stepDownHeight, skin;
+        float brakePower, surfaceFriction, airFriction;
+        float bodyRadius, totalHeight;
+
+        bool create(const osg::Vec3& position);
+        void destroy();
+        bool valid() const { return _body.valid(); }
+
+        /** Set the horizontal wish velocity direction (world space, length usually <= 1.0).
+            It will be scaled by walkSpeed or runSpeed in step() automatically. */
+        void setWishVelocity(const osg::Vec3& v);
+        void setSprinting(bool b) { _sprintRequest = b; }
+        void jump();
+
+        void step(float timeStep);  // call this before PhysicsEngine::advance()
+        void lateStep();            // call this after PhysicsEngine::advance()
+
+        bool isOnGround() const { return _onGround; }
+        bool isSprinting() const { return _sprint; }
+        const osg::Vec3& getGroundNormal() const { return _groundNormal; }
+        const osg::Vec3& getWishVelocity() const { return _wishVelocity; }
+        osg::Vec3 getPosition() const;
+        osg::Vec3 getFeetPosition() const;
+        osg::Vec3 getVelocity() const;
+        osg::Vec3 getMassCenter() const { return _massCenter; }
+        const std::string& getName() const { return _name; }
+        RigidBodyBase* getBody() { return _body.get(); }
+        const RigidBodyBase* getBody() const { return _body.get(); }
+        PhysicsEngine* getEngine() { return _engine.get(); }
+
+    protected:
+        virtual ~PhysicsCharacter();
+
+        struct TraceResult
+        {
+            osg::Vec3 endPosition, hitPoint, normal;
+            float fraction; bool hit, startedSolid;
+            TraceResult() : fraction(1.0f), hit(false), startedSolid(false) {}
+        };
+
+        // s&box unit conversion (1 unit = 1 inch = 0.0254m, 40 units per meter)
+        static const float SRC;
+
+        TraceResult traceBody(const osg::Vec3& from, const osg::Vec3& to,
+                              float radiusScale, float heightScale);
+        CollisionShapeBase* getTraceShape(float radiusScale, float heightScale);
+        bool isStandableSurface(const osg::Vec3& normal) const;
+        void updateGround(bool onGround, const osg::Vec3& normal);
+        static osg::Vec3 addClamped(const osg::Vec3& current, const osg::Vec3& add, float maxAddLength);
+
+        void updateMassCenter(float wishSpeed);
+        void updateBody(const osg::Vec3& wishVelocity);
+        void addVelocity(const osg::Vec3& wishVelocity);
+        bool tryStep(float maxStepHeight);
+        void restoreStep();
+        void reground(float stepSize);
+        void categorizeGround();
+
+        osg::observer_ptr<PhysicsEngine> _engine;
+        std::string _name;
+        osg::ref_ptr<RigidBodyBase> _body;
+        osg::ref_ptr<CollisionShapeBase> _feetShape, _bodyShape;
+        std::map<int, osg::ref_ptr<CollisionShapeBase>> _traceShapes;
+
+        osg::Vec3 _wishInput, _wishVelocity, _groundNormal, _massCenter, _stepPosition;
+        float _jumpCooldown; bool _onGround, _sprintRequest, _sprint, _didStep;
     };
 }
 

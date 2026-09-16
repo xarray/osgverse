@@ -19,9 +19,50 @@ using namespace osgVerse;
 
 namespace btHelpers
 {
-    struct CollisionShape : public osgVerse::CollisionShapeBase { CollisionShape(btCollisionShape* b) {internal = b;} };
-    struct RigidBody : public osgVerse::RigidBodyBase { RigidBody(btRigidBody* b) {internal = b;} };
+    struct CollisionShape : public osgVerse::CollisionShapeBase
+    {
+        CollisionShape(btCollisionShape* b, const osg::Vec3& off = osg::Vec3())
+        :   offset(off), owner(NULL), compound(NULL) { internal = b; }
+
+        btCollisionShape* getShape() { return (btCollisionShape*)internal; }
+        osg::Vec3 offset;            // local offset of the shape geometry
+        btCollisionObject* owner;    // the body this shape is attached to
+        btCompoundShape* compound;   // wrapper for offset shapes (only used by getBodyShape())
+    };
+
     struct TypedConstraint : public osgVerse::ConstraintBase { TypedConstraint(btTypedConstraint* b) {internal = b;} };
+
+    struct RigidBody : public osgVerse::RigidBodyBase
+    {
+        RigidBody(btRigidBody* b) : compound(NULL), totalMass(0.0f) { internal = b; }
+
+        btRigidBody* getBody() { return (btRigidBody*)internal; }
+        btCompoundShape* compound;  // owned, for bodies which may have multiple shapes
+        std::vector<btCollisionShape*> ownedShapes;  // shapes attached by addShapeToBody()
+        float totalMass;
+    };
+
+    // Get the shape used to create a rigid body, which may be a compound wrapper of an offset shape
+    static btCollisionShape* getBodyShape(CollisionShape* cs)
+    {
+        if (cs->offset.length2() <= 0.0f) return cs->getShape();
+        if (!cs->compound)
+        {
+            cs->compound = new btCompoundShape;
+            btTransform local; local.setIdentity();
+            local.setOrigin(btVector3(cs->offset[0], cs->offset[1], cs->offset[2]));
+            cs->compound->addChildShape(local, cs->getShape());
+        }
+        return cs->compound;
+    }
+
+    static void destroyShape(CollisionShape* cs)
+    {
+        if (!cs) return;
+        if (cs->compound) delete cs->compound;  // children shapes are not owned by the compound
+        if (cs->internal) delete cs->getShape();
+        cs->compound = NULL; cs->internal = NULL;
+    }
 
     class PhysicsCore : public PhysicsCoreBase
     {
@@ -56,6 +97,20 @@ namespace btHelpers
             delete _collisionDispatcher;
             delete _collisionCfg;
         }
+    };
+
+    struct SweepResultCallback : public btCollisionWorld::ClosestConvexResultCallback
+    {
+        SweepResultCallback(const btVector3& from, const btVector3& to, const btCollisionObject* ignored)
+        :   btCollisionWorld::ClosestConvexResultCallback(from, to), ignoredBody(ignored) {}
+
+        virtual bool needsCollision(btBroadphaseProxy* proxy) const
+        {
+            if (proxy->m_clientObject == (void*)ignoredBody) return false;  // skip the ignored body
+            return ClosestConvexResultCallback::needsCollision(proxy);
+        }
+
+        const btCollisionObject* ignoredBody;
     };
 }
 
@@ -98,11 +153,23 @@ public:
     virtual osg::Matrix getInverseInertia(const std::string& name);
     virtual osg::Vec3 getCenterOfMass(const std::string& name);
 
+    // Extended rigid-body functions
+    virtual RigidBodyBase* createBody(const std::string& name, const BodySetting& setting,
+                                      const osg::Matrix& matrix = osg::Matrix());
+    virtual CollisionShapeBase* addShapeToBody(RigidBodyBase* body, CollisionShapeBase* shape,
+                                               float mass, float friction = 0.6f);
+    virtual void setShapeFriction(CollisionShapeBase* shape, float friction);
+    virtual void setGravityScale(const std::string& name, float scale);
+    virtual void setLinearDamping(const std::string& name, float damping);
+    virtual void setMassCenter(const std::string& name, const osg::Vec3& center);
+
     // Collision and raycast functions
     virtual bool raycast(const osg::Vec3& start, const osg::Vec3& end,
                          RaycastHit& result, const QueryFilter& filter = QueryFilter(), bool getNameFromBody = true);
     virtual std::vector<RaycastHit> raycastAll(const osg::Vec3& start, const osg::Vec3& end,
                                                const QueryFilter& filter = QueryFilter(), bool getNameFromBody = true);
+    virtual SweepResult sweep(const osg::Vec3& start, const osg::Vec3& translation, CollisionShapeBase* shape,
+                              const QueryFilter& filter = QueryFilter(), RigidBodyBase* ignoredBody = NULL);
 
     /* Physics creation functions */
     virtual CollisionShapeBase* createPhysicsPoint();  // for kinematic use only
@@ -114,6 +181,8 @@ public:
     virtual CollisionShapeBase* createPhysicsHull(osg::Node* node, bool optimized = true);
     virtual CollisionShapeBase* createPhysicsTriangleMesh(osg::Node* node, bool compressed = true);
     virtual CollisionShapeBase* createPhysicsHeightField(osg::HeightField* hf, bool filpQuad = false);
+    virtual CollisionShapeBase* createPhysicsBox(const osg::Vec3& halfSize, const osg::Vec3& offset);
+    virtual CollisionShapeBase* createPhysicsCapsule(float radius, const osg::Vec3& c0, const osg::Vec3& c1);
     virtual ConstraintBase* createConstraintP2P(RigidBodyBase* bodyA, const osg::Vec3& pivotA,
                                                 RigidBodyBase* bodyB, const osg::Vec3& pivotB,
                                                 const ConstraintSetting* setting = NULL);
@@ -138,13 +207,107 @@ BulletPhysicsEngine::~BulletPhysicsEngine()
     for (std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.begin();
          itr != _bodies.end(); ++itr)
     {
-        btRigidBody* body = itr->second->get<btRigidBody>();
+        btHelpers::RigidBody* container = static_cast<btHelpers::RigidBody*>(itr->second.get());
+        btRigidBody* body = container->getBody();
+        if (container->compound) { delete container->compound; container->compound = NULL; }
+        for (size_t i = 0; i < container->ownedShapes.size(); ++i) delete container->ownedShapes[i];
+        container->ownedShapes.clear();
         if (body->getMotionState()) delete body->getMotionState();
         PHY_WORLD()->removeCollisionObject(body); delete body;
     }
     for (std::map<std::string, osg::ref_ptr<CollisionShapeBase>>::iterator itr = _shapes.begin();
-         itr != _shapes.end(); ++itr) { delete itr->second->get<btCollisionShape>(); }
+         itr != _shapes.end(); ++itr) { btHelpers::destroyShape((btHelpers::CollisionShape*)itr->second.get()); }
     _constraints.clear(); _shapes.clear(); _bodies.clear(); _core = NULL;
+}
+
+RigidBodyBase* BulletPhysicsEngine::createBody(const std::string& name, const BodySetting& setting,
+                                               const osg::Matrix& matrix)
+{
+    osg::Quat q = matrix.getRotate();
+    osg::Vec3 p = matrix.getTrans();
+    if (_bodies.find(name) != _bodies.end()) removeBody(name);  // remove existing body
+
+    btTransform transform; transform.setIdentity();
+    transform.setOrigin(btVector3(p.x(), p.y(), p.z()));
+    transform.setRotation(btQuaternion(q.x(), q.y(), q.z(), q.w()));
+    btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+
+    // The body starts with an empty compound shape. A temporary mass is used here so that it is
+    // not treated as a static body when being added to the world; the actual mass is set later
+    // when shapes are attached by addShapeToBody().
+    btCompoundShape* compound = new btCompoundShape;
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(1.0f, motionState, compound, btVector3(0, 0, 0));
+    btRigidBody* body = new btRigidBody(rbInfo);
+    body->setCollisionFlags(body->getCollisionFlags() & (~btCollisionObject::CF_STATIC_OBJECT));
+    body->setDamping(setting.linearDamping, setting.angularDamping);
+    body->setGravity(PHY_WORLD()->getGravity() * setting.gravityScale);
+    body->setAngularFactor(btVector3(
+        setting.lockAngularX ? 0.0f : 1.0f, setting.lockAngularY ? 0.0f : 1.0f,
+        setting.lockAngularZ ? 0.0f : 1.0f));
+    if (setting.kinematic)
+    {
+        body->setCollisionFlags(body->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+        body->setActivationState(DISABLE_DEACTIVATION);
+    }
+    if (!setting.allowSleep) body->setActivationState(DISABLE_DEACTIVATION);
+
+    btHelpers::RigidBody* container = new btHelpers::RigidBody(body);
+    container->compound = compound; _bodies[name] = container;
+    PHY_WORLD()->addRigidBody(body); return container;
+}
+
+CollisionShapeBase* BulletPhysicsEngine::addShapeToBody(RigidBodyBase* body, CollisionShapeBase* csb,
+                                                        float mass, float friction)
+{
+    btHelpers::RigidBody* container = static_cast<btHelpers::RigidBody*>(body);
+    btHelpers::CollisionShape* cs = static_cast<btHelpers::CollisionShape*>(csb);
+    if (!container || !cs || !container->compound)
+    { OSG_NOTICE << "[PhysicsEngine] Failed to add shape to body\n"; return NULL; }
+
+    // Bullet has no per-shape friction, so it is set on the body as an approximation
+    btRigidBody* btBody = container->getBody();
+    btTransform local; local.setIdentity();
+    local.setOrigin(btVector3(cs->offset[0], cs->offset[1], cs->offset[2]));
+    container->compound->addChildShape(local, cs->getShape());
+    container->ownedShapes.push_back(cs->getShape());
+    container->totalMass += mass; cs->owner = btBody;
+
+    btVector3 inertia(0.0f, 0.0f, 0.0f);
+    if (container->totalMass > 0.0f)
+        container->compound->calculateLocalInertia(container->totalMass, inertia);
+    btBody->setMassProps(container->totalMass, inertia);
+    btBody->updateInertiaTensor();
+    btBody->setFriction(friction);
+    PHY_WORLD()->updateAabbs(); return cs;
+}
+
+void BulletPhysicsEngine::setShapeFriction(CollisionShapeBase* shape, float friction)
+{
+    btHelpers::CollisionShape* cs = static_cast<btHelpers::CollisionShape*>(shape);
+    if (cs && cs->owner) cs->owner->setFriction(friction);
+}
+
+void BulletPhysicsEngine::setGravityScale(const std::string& name, float scale)
+{
+    std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
+    if (itr != _bodies.end())
+        static_cast<btHelpers::RigidBody*>(itr->second.get())->getBody()->setGravity(
+            PHY_WORLD()->getGravity() * scale);
+}
+
+void BulletPhysicsEngine::setLinearDamping(const std::string& name, float damping)
+{
+    std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
+    if (itr != _bodies.end())
+    {
+        btRigidBody* body = static_cast<btHelpers::RigidBody*>(itr->second.get())->getBody();
+        body->setDamping(damping, body->getAngularDamping());
+    }
+}
+
+void BulletPhysicsEngine::setMassCenter(const std::string& name, const osg::Vec3& center)
+{
+    // FIXME: Bullet doesn't support overriding the local center of mass directly, ignored here
 }
 
 RigidBodyBase* BulletPhysicsEngine::addRigidBody(const std::string& name, CollisionShapeBase* csb, float mass,
@@ -158,7 +321,8 @@ RigidBodyBase* BulletPhysicsEngine::addRigidBody(const std::string& name, Collis
     btTransform transform; transform.setIdentity();
     transform.setOrigin(btVector3(p.x(), p.y(), p.z()));
     transform.setRotation(btQuaternion(q.x(), q.y(), q.z(), q.w()));
-    btCollisionShape* shape = csb ? csb->get<btCollisionShape>() : NULL;
+    btHelpers::CollisionShape* cs = static_cast<btHelpers::CollisionShape*>(csb);
+    btCollisionShape* shape = cs ? btHelpers::getBodyShape(cs) : NULL;
     if (!shape) { OSG_NOTICE << "[PhysicsEngine] Failed to get input shape\n"; return NULL; }
 
     btVector3 localInertia(0, 0, 0);
@@ -185,14 +349,19 @@ void BulletPhysicsEngine::removeBody(const std::string& name)
     std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator itr = _bodies.find(name);
     if (itr != _bodies.end())
     {
-        btRigidBody* body = itr->second->get<btRigidBody>();
+        btHelpers::RigidBody* container = static_cast<btHelpers::RigidBody*>(itr->second.get());
+        btRigidBody* body = container->getBody();
+        if (container->compound) { delete container->compound; container->compound = NULL; }
+        for (size_t i = 0; i < container->ownedShapes.size(); ++i) delete container->ownedShapes[i];
+        container->ownedShapes.clear();
         if (body->getMotionState()) delete body->getMotionState();
         PHY_WORLD()->removeCollisionObject(body);
-        delete itr->second; _bodies.erase(itr);
+        _bodies.erase(itr);  // handle deleted by itself if no other reference exists
     }
 
     std::map<std::string, osg::ref_ptr<CollisionShapeBase>>::iterator itr2 = _shapes.find(name);
-    if (itr2 != _shapes.end()) { delete itr2->second->get<btCollisionShape>(); _shapes.erase(itr2); }
+    if (itr2 != _shapes.end())
+    { btHelpers::destroyShape((btHelpers::CollisionShape*)itr2->second.get()); _shapes.erase(itr2); }
 }
 
 bool BulletPhysicsEngine::isDynamicBody(const std::string& name, bool& isKinematic)
@@ -232,11 +401,10 @@ osg::Matrix BulletPhysicsEngine::getTransform(const std::string& name, bool& val
     if (itr != _bodies.end())
     {
         btTransform transform; valid = true;
+        // NOTE: the motion state is interpolated and may lag behind one physics step, so the
+        // world transform of the body is used here instead to report the accurate pose
         btRigidBody* body = itr->second->get<btRigidBody>();
-        if (body->getMotionState())
-            body->getMotionState()->getWorldTransform(transform);
-        else
-            transform = body->getWorldTransform();
+        transform = body->getWorldTransform();
 
         const btVector3& p = transform.getOrigin();
         btQuaternion q = transform.getRotation();
@@ -436,11 +604,61 @@ std::vector<BulletPhysicsEngine::RaycastHit> BulletPhysicsEngine::raycastAll(
 void BulletPhysicsEngine::advance(float timeStep, int maxSubSteps)
 { PHY_WORLD()->stepSimulation(timeStep, maxSubSteps); }
 
+BulletPhysicsEngine::SweepResult BulletPhysicsEngine::sweep(const osg::Vec3& s, const osg::Vec3& t,
+                                                            CollisionShapeBase* csb, const QueryFilter& f,
+                                                            RigidBodyBase* ignoredBody)
+{
+    SweepResult result;
+    btHelpers::CollisionShape* cs = static_cast<btHelpers::CollisionShape*>(csb);
+    btConvexShape* shape = cs ? dynamic_cast<btConvexShape*>(cs->getShape()) : NULL;
+    if (!shape)
+    { OSG_NOTICE << "[PhysicsEngine] Unsupported shape for sweeping\n"; return result; }
+
+    // Shape geometry may be offset from the shape origin, so shift the trace instead
+    btVector3 offset(cs->offset[0], cs->offset[1], cs->offset[2]);
+    btVector3 from(s.x(), s.y(), s.z()), to(s.x() + t.x(), s.y() + t.y(), s.z() + t.z());
+    btTransform fromTrans, toTrans; fromTrans.setIdentity(); toTrans.setIdentity();
+    fromTrans.setOrigin(from + offset); toTrans.setOrigin(to + offset);
+
+    btCollisionObject* ignored = ignoredBody ? ignoredBody->get<btRigidBody>() : NULL;
+    btHelpers::SweepResultCallback callback(from + offset, to + offset, ignored);
+    callback.m_collisionFilterGroup = f.categoryBits;
+    callback.m_collisionFilterMask = f.maskBits;
+    PHY_WORLD()->convexSweepTest(shape, fromTrans, toTrans, callback);
+
+    if (callback.hasHit())
+    {
+        result.hit = true; result.fraction = callback.m_closestHitFraction;
+        result.point = osg::Vec3(callback.m_hitPointWorld.x(), callback.m_hitPointWorld.y(),
+                                 callback.m_hitPointWorld.z()) - cs->offset;
+        result.normal = osg::Vec3(callback.m_hitNormalWorld.x(), callback.m_hitNormalWorld.y(),
+                                  callback.m_hitNormalWorld.z());
+        result.startedSolid = (callback.m_closestHitFraction <= 0.0f);
+
+        const btRigidBody* hitBody = callback.m_hitCollisionObject ?
+            btRigidBody::upcast(callback.m_hitCollisionObject) : NULL;
+        if (hitBody)
+        {
+            result.rigidBody = new btHelpers::RigidBody(const_cast<btRigidBody*>(hitBody));
+            for (std::map<std::string, osg::ref_ptr<RigidBodyBase>>::iterator
+                 itr = _bodies.begin(); itr != _bodies.end(); ++itr)
+            { if (itr->second->equals(result.rigidBody)) { result.name = itr->first; break; } }
+        }
+    }
+    return result;
+}
+
 CollisionShapeBase* BulletPhysicsEngine::createPhysicsPoint()
 { return new btHelpers::CollisionShape(new btEmptyShape()); }
 
 CollisionShapeBase* BulletPhysicsEngine::createPhysicsBox(const osg::Vec3& halfSize)
 { return new btHelpers::CollisionShape(new btBoxShape(btVector3(halfSize[0], halfSize[1], halfSize[2]))); }
+
+CollisionShapeBase* BulletPhysicsEngine::createPhysicsBox(const osg::Vec3& halfSize, const osg::Vec3& offset)
+{
+    return new btHelpers::CollisionShape(
+        new btBoxShape(btVector3(halfSize[0], halfSize[1], halfSize[2])), offset);
+}
 
 CollisionShapeBase* BulletPhysicsEngine::createPhysicsCylinder(const osg::Vec3& halfSize)
 { return new btHelpers::CollisionShape(new btCylinderShape(btVector3(halfSize[0], halfSize[1], halfSize[2]))); }
@@ -450,6 +668,15 @@ CollisionShapeBase* BulletPhysicsEngine::createPhysicsCone(float radius, float h
 
 CollisionShapeBase* BulletPhysicsEngine::createPhysicsCapsule(float radius, float height)
 { return new btHelpers::CollisionShape(new btCapsuleShape(radius, height)); }
+
+CollisionShapeBase* BulletPhysicsEngine::createPhysicsCapsule(float radius, const osg::Vec3& c0, const osg::Vec3& c1)
+{
+    osg::Vec3 axis = c1 - c0, center = (c0 + c1) * 0.5f;
+    if (fabsf(axis.x()) > 1e-4f || fabsf(axis.y()) > 1e-4f)
+        OSG_NOTICE << "[PhysicsEngine] Bullet only supports Z-aligned capsules, "
+                   << "the given capsule will be treated as a vertical one\n";
+    return new btHelpers::CollisionShape(new btCapsuleShapeZ(radius, axis.length()), center);
+}
 
 CollisionShapeBase* BulletPhysicsEngine::createPhysicsSphere(float radius)
 { return new btHelpers::CollisionShape(new btSphereShape(radius)); }
