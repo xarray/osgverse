@@ -90,6 +90,16 @@ namespace
                                             0.0f, 0.0f, center * ratio, 1.0f));
                 }
             }
+            // Apply the sub-pixel jitter of temporal anti-aliasing: the offset is added to the
+            // NDC position, which makes it independent of the depth value (see getJitterOffset)
+            if ((_jitter || (_stage.valid() && _stage->jitterProjection)) && _callback.valid())
+            {
+                osg::Vec2 jitter = _callback->getJitterOffset();
+                proj.postMult(osg::Matrix(1.0f, 0.0f, 0.0f, 0.0f,
+                                          0.0f, 1.0f, 0.0f, 0.0f,
+                                          0.0f, 0.0f, 1.0f, 0.0f,
+                                          2.0f * jitter.x(), 2.0f * jitter.y(), 0.0f, 1.0f));
+            }
             znear = nearFar[0]; zfar = nearFar[1];
             return true;
         }
@@ -100,10 +110,12 @@ namespace
         virtual bool clampProjectionMatrixImplementation(osg::Matrixd& p, double& znear, double& zfar) const
         { return _clampProjectionMatrix(p, znear, zfar); }
 
-        MyClampProjectionCallback(osgVerse::Pipeline::Stage* s, osgVerse::DeferredRenderCallback* cb)
-            : _stage(s), _callback(cb) {}
+        MyClampProjectionCallback(osgVerse::Pipeline::Stage* s, osgVerse::DeferredRenderCallback* cb,
+                                  bool jitter = false)
+            : _stage(s), _callback(cb), _jitter(jitter) {}
         osg::observer_ptr<osgVerse::Pipeline::Stage> _stage;
         osg::observer_ptr<osgVerse::DeferredRenderCallback> _callback;
+        bool _jitter;  // jitter even without a stage, e.g. the forward pass
     };
 }
 
@@ -1122,8 +1134,9 @@ namespace osgVerse
         }
 
         // Set-up projection matrix clamper
-        osg::ref_ptr<MyClampProjectionCallback> customClamper =
-            new MyClampProjectionCallback(NULL, _deferredCallback.get());
+        osg::ref_ptr<MyClampProjectionCallback> customClamper = new MyClampProjectionCallback(
+            NULL, _deferredCallback.get(),
+            _deferredCallback.valid() && _deferredCallback->isJitterEnabled());
         if (_deferredCallback.valid())
         {
             if (mainCam)

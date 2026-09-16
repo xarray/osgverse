@@ -35,6 +35,18 @@ namespace osgVerse
         bool isForBlitCamera(osg::Camera* cam) const
         { return !_blitCamera.valid() || _blitCamera == cam; }
 
+        /** Temporal anti-aliasing support: enable a sub-pixel projection jitter, which is
+            applied to stages marked with Stage::jitterProjection, and remember the
+            view-projection matrix of the previous frame so that passes (e.g. TAA resolve)
+            are able to reproject the history data */
+        void setJitterEnabled(bool b) { _jitterEnabled = b; }
+        bool isJitterEnabled() const { return _jitterEnabled; }
+        const osg::Vec2& getJitterOffset() const { return _jitterOffset; }  // in UV units
+        osg::Matrixf getPreviousViewProj(osg::Camera* cam) const;
+
+        /** Find the FBO of a camera, which was registered by the pipeline (may return NULL) */
+        osg::FrameBufferObject* getFboOfCamera(osg::Camera* cam) const;
+
         void setClearMask(GLenum m) { _clearMask = m; }
         void setClearColor(const osg::Vec4& c) { _clearColor = c; }
         void setClearAccum(const osg::Vec4& c) { _clearAccum = c; }
@@ -118,6 +130,9 @@ namespace osgVerse
         double _clearDepth, _clearStencil;
         unsigned int _cullFrameNumber, _forwardMask;
         osg::observer_ptr<osg::Camera> _runnerCamera, _blitCamera;
+        std::map<osg::Camera*, osg::Matrixf> _previousViewProj;
+        osg::Vec2 _jitterOffset;
+        int _jitterIndex; bool _jitterEnabled;
         bool _inPipeline, _drawBufferApplyMask, _readBufferApplyMask;
         mutable bool _firstFrame;
     };

@@ -5,6 +5,7 @@
 #include "UserInputModule.h"
 #include "ShadowModule.h"
 #include "LightModule.h"
+#include "HistoryBufferCallback.h"
 #include "IntersectionManager.h"
 #include "NodeSelector.h"
 #include "Utilities.h"
@@ -257,6 +258,30 @@ protected:
     osg::ref_ptr<osgVerse::GLVersionData> _data;
 };
 
+/** Update the view-projection matrix of the previous frame before the TAA stage draws, so
+    that the shader is able to reproject its history data correctly */
+class TaaMatrixCallback : public osg::Camera::DrawCallback
+{
+public:
+    TaaMatrixCallback(osgVerse::Pipeline* p, osgVerse::Pipeline::Stage* s, osg::Camera* srcCam)
+        : _pipeline(p), _stage(s), _sourceCamera(srcCam) {}
+
+    virtual void operator()(osg::RenderInfo& renderInfo) const
+    {
+        osgVerse::DeferredRenderCallback* cb =
+            _pipeline.valid() ? _pipeline->getDeferredCallback() : NULL;
+        if (cb == NULL || !_stage.valid() || !_sourceCamera.valid()) return;
+
+        osg::Uniform* u = _stage->getOrCreateStateSet()->getUniform("PreviousViewProj");
+        if (u != NULL) u->set(cb->getPreviousViewProj(_sourceCamera.get()));
+    }
+
+protected:
+    osg::observer_ptr<osgVerse::Pipeline> _pipeline;
+    osg::observer_ptr<osgVerse::Pipeline::Stage> _stage;
+    osg::observer_ptr<osg::Camera> _sourceCamera;
+};
+
 #if defined(VERSE_WINDOWS)
 #include <windows.h>
 void obtainScreenResolution(unsigned int& w, unsigned int& h)
@@ -358,7 +383,8 @@ namespace osgVerse
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
-        enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
+        enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
+        enableTAA(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -370,7 +396,8 @@ namespace osgVerse
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
-        enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true)
+        enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
+        enableTAA(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -400,6 +427,7 @@ namespace osgVerse
             READ_SHADER(shaders.bloomFS, FRAG, dir + "std_brightness_bloom.frag.glsl");
             READ_SHADER(shaders.tonemappingFS, FRAG, dir + "std_tonemapping.frag.glsl");
             READ_SHADER(shaders.antiAliasingFS, FRAG, dir + "std_antialiasing.frag.glsl");
+            READ_SHADER(shaders.taaFS, FRAG, dir + "std_taa.frag.glsl");
             READ_SHADER(shaders.brdfLutFS, FRAG, dir + "std_brdf_lut.frag.glsl");
             READ_SHADER(shaders.envPrefilterFS, FRAG, dir + "std_environment_prefiltering.frag.glsl");
             READ_SHADER(shaders.irrConvolutionFS, FRAG, dir + "std_irradiance_convolution.frag.glsl");
@@ -620,6 +648,17 @@ namespace osgVerse
             supportDrawBuffersMRT &= data->drawBuffersSupported;
         }
 
+        // Temporal anti-aliasing replaces the FXAA stage and requires the G-Buffer to be
+        // rendered with a jittered projection. It is skipped on low-performance devices, so
+        // that low-end platforms simply keep FXAA without any user interaction
+        bool useTAA = spp.enableTAA && spp.enablePostEffects && spp.shaders.taaFS.valid();
+        if (useTAA && data != NULL && data->score() < 40)
+        {
+            useTAA = false;
+            OSG_NOTICE << "[StandardPipeline] Temporal anti-aliasing is switched off because of "
+                       << "the low performance score of this device" << std::endl;
+        }
+
         // GBuffer should always be first because it also computes the scene near/far planes
         // for following stages to use
         int msaa = spp.coverageSamples;
@@ -665,6 +704,11 @@ namespace osgVerse
 
         if (gbuffer && spp.enableDepthPartition)  // GBuffer is always depth-partition front
             gbuffer->depthPartition.set(1.0, spp.depthPartitionNearValue);
+        if (gbuffer && useTAA)
+        {   // Temporal anti-aliasing: render the scene with a sub-pixel projection jitter
+            gbuffer->jitterProjection = true;
+            if (p->getDeferredCallback()) p->getDeferredCallback()->setJitterEnabled(true);
+        }
         if (gbuffer && spp.shaders.gbufferGS.valid() && spp.enableVR)
             p->updateStageForStereoVR(gbuffer, spp.shaders.gbufferGS, true);
 
@@ -978,11 +1022,29 @@ namespace osgVerse
             tonemapping->applyBuffer(*lighting, "IblAmbientBuffer", 4);
             tonemapping->applyUniform(new osg::Uniform("LuminanceFactor", osg::Vec2(1.0f, 10.0f)));
 
-            // Anti-aliasing
+            // Anti-aliasing: temporal anti-aliasing (TAA) is used when enabled, while FXAA is
+            // kept as the fallback for devices or configurations which can not run TAA
+            osg::ref_ptr<osg::Shader> aaShader =
+                useTAA ? spp.shaders.taaFS.get() : spp.shaders.antiAliasingFS.get();
             osgVerse::Pipeline::Stage* antiAliasing = p->addWorkStage("AntiAliasing", 1.0f,
-                spp.shaders.quadVS, spp.shaders.antiAliasingFS, 1,
+                spp.shaders.quadVS, aaShader.get(), 1,
                 "AntiAliasedBuffer", osgVerse::Pipeline::RGB_INT8);
             antiAliasing->applyBuffer(*tonemapping, "ToneMappedBuffer", "ColorBuffer", 0);
+            if (useTAA)
+            {
+                antiAliasing->applyBuffer(*gbuffer, "DepthBuffer", 1);
+                antiAliasing->applyUniform(new osg::Uniform("HistoryWeight", 0.9f));
+                antiAliasing->applyUniform(new osg::Uniform("PreviousViewProj", osg::Matrixf()));
+
+                // The history buffer records the result of this stage and is bound back as an
+                // input of the next frame, see HistoryBufferCallback for more details
+                osg::ref_ptr<osgVerse::HistoryBufferCallback> history =
+                    new osgVerse::HistoryBufferCallback;
+                history->setup(antiAliasing, "AntiAliasedBuffer", p->getDeferredCallback());
+                history->applyStageTexture("HistoryBuffer", 2);
+                antiAliasing->camera->setPreDrawCallback(
+                    new TaaMatrixCallback(p, antiAliasing, gbuffer->camera.get()));
+            }
             lastPostStage = antiAliasing;
         }
 
@@ -1149,6 +1211,20 @@ namespace osgVerse
         if (light && _lightGeode->getNumDrawables() > 0)
             light->setMainLight(static_cast<LightDrawable*>(_lightGeode->getDrawable(0)), "Shadow");
         _root->addChild(_lightGeode.get());
+
+        // Note: the sky box is drawn by a separate camera after the deferred stages, so it is
+        // not part of the input of TAA. Its pixels would then be composited on top of the
+        // resolved color without any temporal accumulation, while the objects in front of it
+        // are still accumulated: the silhouette against the sky would keep flickering with
+        // the projection jitter (especially against a bright sky). It is therefore skipped
+        // when TAA is enabled, until a procedural sky rendered inside the pipeline is ready
+        if (withSky && _pipeline->getDeferredCallback() &&
+            _pipeline->getDeferredCallback()->isJitterEnabled())
+        {
+            withSky = false;
+            OSG_NOTICE << "[StandardPipeline] Sky box is skipped because TAA is enabled."
+                       << std::endl;
+        }
 
         if (withSky)
         {

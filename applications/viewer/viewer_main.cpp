@@ -301,7 +301,25 @@ int main(int argc, char** argv)
     if (arguments.read("--no-ssao")) params.enableAO = false;
     if (arguments.read("--no-posteffects")) params.enablePostEffects = false;
     if (arguments.read("--no-shadows")) params.shadowNumber = 0;
+
+    // Temporal anti-aliasing is opt-in: it is disabled by default and also skipped
+    // automatically on low-performance devices (see setupStandardPipeline). Without it the
+    // pipeline falls back to FXAA
+    if (arguments.read("--taa")) params.enableTAA = true;
+    if (arguments.read("--no-taa")) params.enableTAA = false;
     setupStandardPipeline(pipeline.get(), &viewer, params);
+
+    // The sky box is drawn by its own camera after the deferred stages, so it is not part of
+    // the input of TAA: its pixels would be composited on top of the resolved color without
+    // any temporal accumulation, while the objects in front of it are still accumulated, and
+    // the silhouette against the sky would keep flickering with the projection jitter. It is
+    // therefore removed when TAA is really enabled (low-performance devices may have refused
+    // it in setupStandardPipeline, in which case FXAA and the sky box are both kept)
+    if (pipeline->getDeferredCallback() && pipeline->getDeferredCallback()->isJitterEnabled())
+    {
+        OSG_NOTICE << "[Viewer] Sky box is skipped because TAA is enabled." << std::endl;
+        root->removeChild(postCamera.get());
+    }
 #else
     std::ifstream ppConfig(SHADER_DIR "/standard_pipeline.json");
     pipeline->load(ppConfig, &viewer);

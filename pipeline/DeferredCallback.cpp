@@ -19,12 +19,21 @@ namespace
                                                           GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
                                                           GLbitfield mask, GLenum filter);
     BlitNamedFramebufferProc glBlitNamedFramebufferFunc = NULL;
+
+    // Halton sequence (base 2 & 3) for the temporal jitter of the projection matrix
+    double haltonSequence(int index, int base)
+    {
+        double result = 0.0, f = 1.0 / (double)base, i = (double)index;
+        while (i > 0.0) { result += f * fmod(i, (double)base); i = floor(i / base); f /= base; }
+        return result;
+    }
 }
 
 namespace osgVerse
 {
     DeferredRenderCallback::DeferredRenderCallback(bool inPipeline)
-    :   _drawBuffer(GL_NONE), _readBuffer(GL_NONE), _cullFrameNumber(0), _forwardMask(0xffffffff), _inPipeline(inPipeline),
+    :   _drawBuffer(GL_NONE), _readBuffer(GL_NONE), _cullFrameNumber(0), _forwardMask(0xffffffff),
+        _jitterIndex(0), _jitterEnabled(false), _inPipeline(inPipeline),
         _drawBufferApplyMask(false), _readBufferApplyMask(false), _firstFrame(true)
     {
         _nearFarUniform = new osg::Uniform("NearFarPlanes", osg::Vec2());
@@ -33,6 +42,19 @@ namespace osgVerse
         _clearColor.set(0.0f, 0.0f, 0.0f, 0.0f);
         _clearAccum.set(0.0f, 0.0f, 0.0f, 0.0f);
         _clearDepth = 1.0; _clearStencil = 0.0;
+    }
+
+    osg::Matrixf DeferredRenderCallback::getPreviousViewProj(osg::Camera* cam) const
+    {
+        std::map<osg::Camera*, osg::Matrixf>::const_iterator itr = _previousViewProj.find(cam);
+        return (itr != _previousViewProj.end()) ? itr->second : osg::Matrixf();
+    }
+
+    osg::FrameBufferObject* DeferredRenderCallback::getFboOfCamera(osg::Camera* cam) const
+    {
+        for (FboQueryMap::const_iterator itr = _fboQueryMap.begin(); itr != _fboQueryMap.end(); ++itr)
+        { if (itr->second == cam) return itr->first; }
+        return NULL;
     }
 
     void DeferredRenderCallback::requireDepthBlit(osg::Camera* cam, bool addToList)
@@ -56,6 +78,12 @@ namespace osgVerse
             std::string uName = std::get<0>(itr->second);
             if (itr->first == cam)
             {
+                // Remember the view-projection matrix used by the previous frame, so passes
+                // like TAA resolve are able to reproject their history data correctly
+                const std::vector<osg::Matrixf>& oldMatrices = std::get<1>(itr->second);
+                if (oldMatrices.size() > 2)
+                    _previousViewProj[cam] = oldMatrices[0] * oldMatrices[2];
+
                 std::vector<osg::Matrixf> matrices;
                 matrices.push_back(sv->getViewMatrix());
                 matrices.push_back(osg::Matrix::inverse(matrices.back()));
@@ -77,6 +105,19 @@ namespace osgVerse
         unsigned int frameNo = sv->getFrameStamp()->getFrameNumber();
         if (frameNo <= _cullFrameNumber) return _calculatedNearFar;
         else _cullFrameNumber = frameNo;
+
+        // Advance the sub-pixel jitter of the projection matrix for temporal anti-aliasing.
+        // A Halton (2, 3) sequence is used as it distributes the samples well; the offset is
+        // stored in UV units, so both shaders and the projection clamper can use it directly
+        if (_jitterEnabled)
+        {
+            const osg::Viewport* vp = sv->getViewport();
+            double w = (vp != NULL) ? vp->width() : 1920.0;
+            double h = (vp != NULL) ? vp->height() : 1080.0;
+            _jitterIndex = (_jitterIndex + 1) % 8; int index = _jitterIndex + 1;
+            _jitterOffset.set((float)((haltonSequence(index, 2) - 0.5) / w),
+                              (float)((haltonSequence(index, 3) - 0.5) / h));
+        }
 
         // Update global near/far using entire scene, ignoring callback/cull-mask/pipeline-mask
         osg::ref_ptr<osg::CullSettings::ClampProjectionMatrixCallback> clamper =

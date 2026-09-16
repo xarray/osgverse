@@ -13,7 +13,8 @@ namespace osgVerse
         HistoryBufferCallback(unsigned int size = 1);
         virtual void operator()(osg::RenderInfo& renderInfo) const;
 
-        void setup(Pipeline::Stage* stage, const std::string& buffer);
+        void setup(Pipeline::Stage* stage, const std::string& buffer,
+                   DeferredRenderCallback* callback = NULL);
         std::vector<osg::ref_ptr<osg::Texture>>& getTextures() { return _historyTextures; }
 
         void setHistorySize(unsigned int size) { _historyTextures.resize(size); }
@@ -30,6 +31,7 @@ namespace osgVerse
         std::vector<osg::ref_ptr<osg::Texture>> _historyTextures;
         std::map<unsigned int, std::pair<std::string, unsigned int>> _applyTextureMap;
         osg::observer_ptr<Pipeline::Stage> _stage;
+        osg::observer_ptr<DeferredRenderCallback> _deferredCallback;
         std::string _bufferName;
         mutable unsigned int _lastHistoryIndex;
     };

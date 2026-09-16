@@ -146,7 +146,7 @@ namespace osgVerse
             osg::ref_ptr<osg::Camera> camera; std::string name;
             osg::Matrix projectionOffset, viewOffset;
             osg::Vec2d depthPartition;  // x: 0=none, 1=front, 2=back; y: global near
-            bool inputStage, deferred, overridedPrograms;
+            bool inputStage, deferred, overridedPrograms, jitterProjection;
 
             void applyBuffer(Stage& s, const std::string& buffer, int unit,
                              osg::Texture::WrapMode wp = (osg::Texture::WrapMode)0);
@@ -174,11 +174,13 @@ namespace osgVerse
             osg::Texture* getBufferTexture(const std::string& name)
             { return (outputs.find(name) != outputs.end()) ? outputs[name].get() : NULL; }
 
-            Stage() : name("Undefined"), inputStage(false), deferred(false), overridedPrograms(false) {}
+            Stage() : name("Undefined"), inputStage(false), deferred(false), overridedPrograms(false),
+                      jitterProjection(false) {}
             Stage(const Stage& s)
                 : outputs(s.outputs), uniforms(s.uniforms), runner(s.runner),
                   camera(s.camera), name(s.name), depthPartition(s.depthPartition),
-                  inputStage(s.inputStage), deferred(s.deferred), overridedPrograms(s.overridedPrograms) {}
+                  inputStage(s.inputStage), deferred(s.deferred), overridedPrograms(s.overridedPrograms),
+                  jitterProjection(s.jitterProjection) {}
         };
 
         Pipeline(int glContextVer = 100, int glslVer = 120);
@@ -366,7 +368,7 @@ namespace osgVerse
             osg::ref_ptr<osg::Shader> gbufferFS, shadowCastFS, ssaoFS, ssaoBlurFS;
             osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, shadowDebugCombineFS;
             osg::ref_ptr<osg::Shader> downsampleFS, brightnessFS, brightnessCombineFS, bloomFS;
-            osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, displayFS, quadFS;
+            osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, taaFS, displayFS, quadFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
             osg::ref_ptr<osg::Shader> forwardVS, forwardFS, quadVS;
         };
@@ -382,6 +384,9 @@ namespace osgVerse
         double depthPartitionNearValue;
         bool withEmbeddedViewer, debugShadowModule, debugShadowCombination, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR, enable3DGS;
+        /** Temporal anti-aliasing. It needs the jittered projection & history buffer of the
+            G-Buffer, and is switched off automatically on low-performance devices */
+        bool enableTAA;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);
