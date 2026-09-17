@@ -64,7 +64,7 @@
 | llama.cpp        | Embedded |           | AI                 | -            | https://github.com/ggerganov/llama.cpp |
 | maplibre-tile    | Embedded | 20260210  | verse_mlt          | Apache2/MIT  | https://github.com/maplibre/maplibre-tile-spec |
 | marl             | Embedded |           | -                  | Apache2      | https://github.com/google/marl |
-| MeshOptimizer    | Embedded | 0.26      | Modeling           | MIT          | https://github.com/zeux/meshoptimizer |
+| MeshOptimizer    | Embedded | 1.2       | Modeling           | MIT          | https://github.com/zeux/meshoptimizer |
 | METIS            | Embedded | 5.2.1     | Modeling           | Apache2      | https://github.com/KarypisLab/METIS |
 | mikktspace       | Embedded |           | Pipeline           | Public       | https://github.com/mmikk/MikkTSpace |
 | miniaudio        | Embedded | 0.11.23   | ReaderWriter       | Public       | https://github.com/mackron/miniaudio |

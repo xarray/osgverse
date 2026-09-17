@@ -440,15 +440,14 @@ SET(DISCREGRID_SOURCE_FILES
 )
 
 SET(MESHOPTIMIZER_SOURCE_FILES
-    meshoptimizer/meshoptimizer.h
-    meshoptimizer/allocator.cpp meshoptimizer/clusterizer.cpp
-    meshoptimizer/indexcodec.cpp meshoptimizer/indexgenerator.cpp
-    meshoptimizer/overdrawanalyzer.cpp meshoptimizer/overdrawoptimizer.cpp
-    meshoptimizer/quantization.cpp meshoptimizer/simplifier.cpp
-    meshoptimizer/spatialorder.cpp meshoptimizer/stripifier.cpp
-    meshoptimizer/vcacheanalyzer.cpp meshoptimizer/vcacheoptimizer.cpp
-    meshoptimizer/vertexcodec.cpp meshoptimizer/vertexfilter.cpp
-    meshoptimizer/vfetchanalyzer.cpp meshoptimizer/vfetchoptimizer.cpp
+    meshoptimizer/meshoptimizer.h meshoptimizer/allocator.cpp meshoptimizer/clusterizer.cpp
+    meshoptimizer/indexanalyzer.cpp meshoptimizer/indexcodec.cpp meshoptimizer/indexgenerator.cpp
+    meshoptimizer/meshletcodec.cpp meshoptimizer/meshletutils.cpp meshoptimizer/opacitymap.cpp
+    meshoptimizer/overdrawoptimizer.cpp meshoptimizer/partition.cpp meshoptimizer/quantization.cpp
+    meshoptimizer/rasterizer.cpp meshoptimizer/remesher.cpp meshoptimizer/simplifier.cpp
+    meshoptimizer/spatialorder.cpp meshoptimizer/stripifier.cpp meshoptimizer/tangentspace.cpp
+    meshoptimizer/vcacheoptimizer.cpp meshoptimizer/vertexcodec.cpp meshoptimizer/vertexfilter.cpp
+    meshoptimizer/vfetchoptimizer.cpp
 )
 
 SET(SHAPELIB_SOURCE_FILES
