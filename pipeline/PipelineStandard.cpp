@@ -13,6 +13,7 @@
 
 #include <osg/GLExtensions>
 #include <osg/DisplaySettings>
+#include <osg/BlendFunc>
 #include <osgDB/ReadFile>
 #include <osgDB/FileNameUtils>
 #include <osgDB/ConvertUTF>
@@ -384,7 +385,7 @@ namespace osgVerse
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
-        enableTAA(false)
+        enableTAA(false), useDeferredSky(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -397,7 +398,7 @@ namespace osgVerse
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
-        enableTAA(false)
+        enableTAA(false), useDeferredSky(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -428,6 +429,7 @@ namespace osgVerse
             READ_SHADER(shaders.tonemappingFS, FRAG, dir + "std_tonemapping.frag.glsl");
             READ_SHADER(shaders.antiAliasingFS, FRAG, dir + "std_antialiasing.frag.glsl");
             READ_SHADER(shaders.taaFS, FRAG, dir + "std_taa.frag.glsl");
+            READ_SHADER(shaders.skyboxFS, FRAG, dir + "skybox.frag.glsl");
             READ_SHADER(shaders.brdfLutFS, FRAG, dir + "std_brdf_lut.frag.glsl");
             READ_SHADER(shaders.envPrefilterFS, FRAG, dir + "std_environment_prefiltering.frag.glsl");
             READ_SHADER(shaders.irrConvolutionFS, FRAG, dir + "std_irradiance_convolution.frag.glsl");
@@ -1012,6 +1014,53 @@ namespace osgVerse
 
             // Eye-adaption & Tonemapping stage
             std::string lastDs = std::to_string(downsamples.size() - 1);
+            // Sky of the deferred pipeline: a full-screen stage which draws the sky into the
+            // HDR color buffer (CombinedBuffer) already owned by the shadowing stage, by alpha
+            // blending the pixels which have no geometry. Reusing that buffer avoids an extra
+            // full-screen render target, which is allowed as the pipeline renders its stages
+            // in a single thread. Note the stage never samples the buffer it writes to: only
+            // the G-Buffer depth and the sky texture are read, see skybox.frag.glsl
+            // FIXME: an alternative implementation, needed if multi-threaded rendering is
+            // ever supported, is to render the sky into a dedicated buffer and to make the
+            // following stages read it instead of the one of the shadowing stage
+            if (useTAA && spp.useDeferredSky && gbuffer && shadowing && spp.skyboxMap.valid() &&
+                spp.shaders.skyboxFS.valid())
+            {
+                // Switch the shader to its deferred variant: the source is copied (instead of
+                // modified in place) so that the forward sky box path stays untouched. The
+                // defines are always added here as the shader is written with the
+                // VERSE_DEFERRED_SKY / VERSE_CUBEMAP_SKYBOX branches: checking the source for
+                // the macro name would always find it, as it appears in the #ifdef itself
+                std::string src = spp.shaders.skyboxFS->getShaderSource(), defines;
+                defines += "#define VERSE_DEFERRED_SKY 1\n";
+                defines += (spp.skyboxMap->getTextureTarget() == GL_TEXTURE_CUBE_MAP) ?
+                           "#define VERSE_CUBEMAP_SKYBOX 1\n" :
+                           "#define VERSE_CUBEMAP_SKYBOX 0\n";
+                osg::ref_ptr<osg::Shader> skyFS = new osg::Shader(
+                    osg::Shader::FRAGMENT, defines + src);
+
+                osgVerse::Pipeline::Stage* sky = p->addWorkStage("DeferredSky", 1.0f,
+                    spp.shaders.quadVS, skyFS.get(), 1,
+                    "SkyBuffer", osgVerse::Pipeline::RGB_INT8);
+                sky->applyBuffer(*gbuffer, "DepthBuffer", 0);
+                sky->applyTexture(spp.skyboxMap.get(), "SkyTexture", 1);
+
+                // The output of a work stage is attached to its camera when it is created (see
+                // Pipeline::addWorkStage), so the shared HDR buffer has to be attached here as
+                // well: recording it in outputs[] is not enough, as that map is only a lookup
+                // table of the buffers. Clearing must also be disabled, otherwise the lighting
+                // result already stored in the buffer would be wiped out
+                osg::Texture* combinedBuffer = shadowing->getBufferTexture("CombinedBuffer");
+                sky->camera->attach(osg::Camera::COLOR_BUFFER0, combinedBuffer);
+                sky->camera->setClearMask(0);
+                sky->outputs["SkyBuffer"] = combinedBuffer;
+
+                osg::StateSet* ss = sky->getOrCreateStateSet();
+                ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
+                                         osg::StateAttribute::ON);
+                ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+            }
+
             osgVerse::Pipeline::Stage* tonemapping = p->addWorkStage("ToneMapping", 1.0f,
                 spp.shaders.quadVS, spp.shaders.tonemappingFS, 1,
                 "ToneMappedBuffer", osgVerse::Pipeline::RGB_INT8);  // RGB_FLOAT16

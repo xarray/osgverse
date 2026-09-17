@@ -23,6 +23,16 @@ vec2 sphericalUV(vec3 v)
     uv *= invAtan; uv += 0.5; return uv;
 }
 
+// Equirectangular sky maps (and therefore the IBL data computed from them: the irradiance
+// convolution and the prefiltered environment, both for the offline baked .ibl.rseq files and
+// for the runtime generated buffers) are stored with their poles along the X axis, and the
+// environment is always sampled after a -90 degree rotation about X, which is also what the
+// sky box does when drawing the sky (see skybox.frag.glsl): rotate(-PI/2, X) maps (x, y, z)
+// to (x, z, -y). The directions used to look up those IBL buffers have to be rotated in the
+// same way, otherwise the ambient contribution would come from a part of the sky 90 degrees
+// away from the one being displayed
+vec3 skyMapDirection(vec3 v) { return vec3(v.x, v.z, -v.y); }
+
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
     float val = 1.0 - cosTheta;
@@ -104,11 +114,12 @@ void main()
     {
         vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);
         vec3 kD = (1.0 - kS) * (1.0 - metallic);
-        vec3 irradiance = VERSE_TEX2D(IrradianceBuffer, sphericalUV(eyeNormal)).rgb;
+        vec3 irradiance = VERSE_TEX2D(IrradianceBuffer, sphericalUV(skyMapDirection(eyeNormal))).rgb;
         vec3 diffuse = irradiance * albedo;
 
         const float MAX_REFLECTION_LOD = 4.0;
-        vec3 prefilteredColor = textureLod(PrefilterBuffer, sphericalUV(R), roughness * MAX_REFLECTION_LOD).rgb;
+        vec3 prefilteredColor = textureLod(
+            PrefilterBuffer, sphericalUV(skyMapDirection(R)), roughness * MAX_REFLECTION_LOD).rgb;
         vec2 envBRDF = VERSE_TEX2D(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
         vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
 

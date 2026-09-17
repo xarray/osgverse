@@ -369,6 +369,7 @@ namespace osgVerse
             osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, shadowDebugCombineFS;
             osg::ref_ptr<osg::Shader> downsampleFS, brightnessFS, brightnessCombineFS, bloomFS;
             osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, taaFS, displayFS, quadFS;
+            osg::ref_ptr<osg::Shader> skyboxFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
             osg::ref_ptr<osg::Shader> forwardVS, forwardFS, quadVS;
         };
@@ -387,6 +388,10 @@ namespace osgVerse
         /** Temporal anti-aliasing. It needs the jittered projection & history buffer of the
             G-Buffer, and is switched off automatically on low-performance devices */
         bool enableTAA;
+        /** Draw the sky as a full-screen stage inside the deferred pipeline (using skyboxMap
+            and skyboxFS), so that it takes part in bloom, tone mapping and TAA instead of
+            being painted by a sky box camera after the deferred stages */
+        bool useDeferredSky;
 
         StandardPipelineParameters();
         StandardPipelineParameters(const std::string& shaderDir, const std::string& skyboxFile);

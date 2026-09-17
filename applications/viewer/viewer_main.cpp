@@ -305,7 +305,7 @@ int main(int argc, char** argv)
     // Temporal anti-aliasing is opt-in: it is disabled by default and also skipped
     // automatically on low-performance devices (see setupStandardPipeline). Without it the
     // pipeline falls back to FXAA
-    if (arguments.read("--taa")) params.enableTAA = true;
+    if (arguments.read("--taa")) { params.enableTAA = true; params.useDeferredSky = true; }
     if (arguments.read("--no-taa")) params.enableTAA = false;
     setupStandardPipeline(pipeline.get(), &viewer, params);
 
@@ -317,8 +317,8 @@ int main(int argc, char** argv)
     // it in setupStandardPipeline, in which case FXAA and the sky box are both kept)
     if (pipeline->getDeferredCallback() && pipeline->getDeferredCallback()->isJitterEnabled())
     {
-        OSG_NOTICE << "[Viewer] Sky box is skipped because TAA is enabled." << std::endl;
-        root->removeChild(postCamera.get());
+        OSG_NOTICE << "[Viewer] Sky box is rendered in deferred pass when TAA is enabled." << std::endl;
+        postCamera->removeChild(skybox.get());
     }
 #else
     std::ifstream ppConfig(SHADER_DIR "/standard_pipeline.json");
