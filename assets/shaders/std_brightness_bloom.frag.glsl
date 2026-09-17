@@ -43,8 +43,11 @@ void main()
     vec2 uv0 = texCoord0.xy;
     vec4 color = VERSE_TEX2D(BrightnessCombinedBuffer, uv0);
 
+    // Film grain proportional to the bloom brightness. The bloom buffer is linear HDR now, so
+    // its luminance has to be clamped: otherwise a highlight of e.g. 50.0 would add 15.0 worth
+    // of noise instead of a subtle grain (values <= 1.0 keep the previous behaviour)
     float f = fbm(vec2(uv0 * noiseSeed));
-    color.rgb += vec3(noiseStrength * luminance(color.rgb) * abs(f));
+    color.rgb += vec3(noiseStrength * min(luminance(color.rgb), 1.0) * abs(f));
     fragData = vec4(color.rgb * BloomFactor, 1.0);
     VERSE_FS_FINAL(fragData);
 }

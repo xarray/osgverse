@@ -1,8 +1,14 @@
-uniform sampler2D ColorBuffer, LuminanceBuffer;
-uniform sampler2D BloomBuffer, EmissionBuffer, IblAmbientBuffer;
-uniform vec2 LuminanceFactor;
+uniform sampler2D ColorBuffer;
+uniform sampler2D BloomBuffer, IblAmbientBuffer;
+// Exposure of this frame, computed by the eye adaptation stage of the pipeline. It is a 1x1
+// buffer holding the exposure encoded in log2 space, which keeps the bloom chain out of the
+// exposure completely: BrightnessThreshold is free to be tuned for the bloom alone
+uniform sampler2D ExposureBuffer;
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
+
+// Range of the encoding of the exposure, to keep in sync with std_exposure_adaptation.frag.glsl
+const float ENCODE_MIN = -10.0, ENCODE_MAX = 6.0;
 
 vec3 ReinhardToneMapping(vec3 color, float adapted_lum)
 {
@@ -40,13 +46,14 @@ void main()
 {
     vec2 uv0 = texCoord0.xy;
     vec4 color = VERSE_TEX2D(ColorBuffer, uv0), colorBloom = VERSE_TEX2D(BloomBuffer, uv0);
-    vec4 emission = VERSE_TEX2D(EmissionBuffer, uv0), iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);
-    float lumAvg = VERSE_TEX2D(LuminanceBuffer, vec2(0.5, 0.5)).r;
+    vec4 iblColor = VERSE_TEX2D(IblAmbientBuffer, uv0);
 
+    // The emissive term is not read here anymore: it is added to CombinedBuffer by the shadow
+    // combining stage, so that it also takes part in the bloom extraction of this frame
     color.rgb = color.rgb + iblColor.rgb + colorBloom.rgb;
-    color.rgb += mix(vec3(0.0), emission.rgb, emission.a);
-    if (true)
-        color.rgb = ACESToneMapping(color.rgb, LuminanceFactor.x + lumAvg * LuminanceFactor.y);
+    float exposure = exp2(mix(ENCODE_MIN, ENCODE_MAX, VERSE_TEX2D(
+        ExposureBuffer, vec2(0.5, 0.5)).r));
+    color.rgb = ACESToneMapping(color.rgb, exposure);
     fragData = vec4(color.rgb, 1.0);
     VERSE_FS_FINAL(fragData);
 }

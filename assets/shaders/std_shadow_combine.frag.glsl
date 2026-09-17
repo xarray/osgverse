@@ -3,6 +3,7 @@
 #include "shadowing.module.glsl"
 
 uniform sampler2D ColorBuffer, NormalBuffer, DepthBuffer;
+uniform sampler2D EmissionBuffer;  // added here so that it also feeds the bloom extraction
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler2D RandomTexture;
 uniform mat4 ShadowSpaceMatrices[VERSE_MAX_SHADOWS];
@@ -105,6 +106,13 @@ void main()
     // Shadows only affect the direct lighting result; ambient occlusion of the indirect
     // (IBL) term has already been applied by the lighting stage
     colorData.rgb *= shadow;
+
+    // Emissive material is self-lit and must not be shadowed, so it is added after the shadow
+    // has been applied. Doing it here (instead of in the tone mapping stage) also makes emissive
+    // objects part of CombinedBuffer, which is what the bloom extraction and the auto-exposure
+    // read, so that they actually glow
+    vec4 emission = VERSE_TEX2D(EmissionBuffer, uv0);
+    colorData.rgb += emission.rgb * emission.a;
     fragData = colorData;
     VERSE_FS_FINAL(fragData);
 }

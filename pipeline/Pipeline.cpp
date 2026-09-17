@@ -1109,6 +1109,9 @@ namespace osgVerse
 #endif
     }
 
+    void Pipeline::setExposureController(ExposureController* c)
+    { _exposureController = c; }
+
     void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int defForwardMask)
     {
         osg::Matrix projOffset, viewOffset;

@@ -3,6 +3,7 @@
 #include "shadowing.module.glsl"
 
 uniform sampler2D ColorBuffer, NormalBuffer, DepthBuffer;
+uniform sampler2D EmissionBuffer;  // added here so that it also feeds the bloom extraction
 uniform sampler2D ShadowMap0, ShadowMap1, ShadowMap2, ShadowMap3;
 uniform sampler2D RandomTexture;
 uniform mat4 ShadowSpaceMatrices[VERSE_MAX_SHADOWS];
@@ -96,6 +97,11 @@ void main()
 #else
     colorData.rgb *= shadow;
 #endif
+
+    // Emissive material is added after the shadow (it is self-lit), the same way the release
+    // shadow combining shader does it, so that both variants look identical
+    vec4 emission = VERSE_TEX2D(EmissionBuffer, uv0);
+    colorData.rgb += emission.rgb * emission.a;
 
 #ifdef VERSE_GLES3
     fragData/*ColorBuffer*/ = colorData;

@@ -59,10 +59,31 @@ int getLightAttributes(in float id, out vec3 color, out vec3 pos, out vec3 dir,
 void main()
 {
     vec2 uv0 = texCoord0.xy;
+    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
+
+    // Background pixels (nothing was rendered into the G-Buffer, so the depth keeps its maximum
+    // value) must not be shaded at all: rebuilding their eye-space position divides by a zero or
+    // infinite w, which turns the view direction, and with it the whole light contribution, into
+    // NaN. As the HDR buffers of this pipeline are floating point, such a NaN is no longer hidden
+    // by an 8-bit conversion: the bloom blurs it around (black edges along the silhouettes) and
+    // the auto-exposure reads it as the frame luminance, which blacks out every pixel of the
+    // deferred image. The background is painted later by the deferred sky or by the sky box
+    // camera, so 0 is written here
+    if (depthValue >= 1.0)
+    {
+#ifdef VERSE_GLES3
+        fragData0/*ColorBuffer*/ = vec4(0.0, 0.0, 0.0, 1.0);
+        fragData1/*IblAmbientBuffer*/ = vec4(0.0, 0.0, 0.0, 1.0);
+#else
+        gl_FragData[0]/*ColorBuffer*/ = vec4(0.0, 0.0, 0.0, 1.0);
+        gl_FragData[1]/*IblAmbientBuffer*/ = vec4(0.0, 0.0, 0.0, 1.0);
+#endif
+        return;
+    }
+
     vec4 diffuseMetallic = VERSE_TEX2D(DiffuseMetallicBuffer, uv0);
     vec4 specularRoughness = VERSE_TEX2D(SpecularRoughnessBuffer, uv0);
     vec4 normalAlpha = VERSE_TEX2D(NormalBuffer, uv0);
-    float depthValue = VERSE_TEX2D(DepthBuffer, uv0).r * 2.0 - 1.0;
 
     // Rebuild world vertex attributes
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
@@ -108,27 +129,23 @@ void main()
         }
     }
 
-    // Treat ambient light as IBL
-    vec3 ambient = vec3(0.025) * albedo;
-    if (depthValue < 1.0)
-    {
-        vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);
-        vec3 kD = (1.0 - kS) * (1.0 - metallic);
-        vec3 irradiance = VERSE_TEX2D(IrradianceBuffer, sphericalUV(skyMapDirection(eyeNormal))).rgb;
-        vec3 diffuse = irradiance * albedo;
+    // Treat ambient light as IBL (only shaded pixels reach this point, see the check above)
+    vec3 kS = fresnelSchlickRoughness(nDotV, F0, roughness);
+    vec3 kD = (1.0 - kS) * (1.0 - metallic);
+    vec3 irradiance = VERSE_TEX2D(IrradianceBuffer, sphericalUV(skyMapDirection(eyeNormal))).rgb;
+    vec3 diffuse = irradiance * albedo;
 
-        const float MAX_REFLECTION_LOD = 4.0;
-        vec3 prefilteredColor = textureLod(
-            PrefilterBuffer, sphericalUV(skyMapDirection(R)), roughness * MAX_REFLECTION_LOD).rgb;
-        vec2 envBRDF = VERSE_TEX2D(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
-        vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 prefilteredColor = textureLod(
+        PrefilterBuffer, sphericalUV(skyMapDirection(R)), roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 envBRDF = VERSE_TEX2D(BrdfLutBuffer, vec2(nDotV, roughness)).rg;
+    vec3 envSpecular = prefilteredColor * (kS * envBRDF.x + envBRDF.y);
 
-        // Occlusion of the ambient/indirect lighting: material AO (stored in NormalBuffer.a)
-        // multiplied by the screen-space AO. Note it is applied to indirect light only, which
-        // is the physically correct place; direct light is handled by the shadowing stage.
-        float occlusion = ao * VERSE_TEX2D(SsaoBlurredBuffer, uv0).r;
-        ambient = kD * diffuse * occlusion + envSpecular;
-    }
+    // Occlusion of the ambient/indirect lighting: material AO (stored in NormalBuffer.a)
+    // multiplied by the screen-space AO. Note it is applied to indirect light only, which
+    // is the physically correct place; direct light is handled by the shadowing stage.
+    float occlusion = ao * VERSE_TEX2D(SsaoBlurredBuffer, uv0).r;
+    vec3 ambient = kD * diffuse * occlusion + envSpecular;
 
 #ifdef VERSE_GLES3
     fragData0/*ColorBuffer*/ = vec4(radianceOut, 1.0);

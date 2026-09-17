@@ -4,6 +4,7 @@
 #include <osg/Vec2s>
 #include <osg/ImageSequence>
 #include <osg/Depth>
+#include <osg/FrameBufferObject>
 #include <osg/Program>
 #include <osg/Texture2D>
 #include <osg/Group>
@@ -50,6 +51,7 @@ namespace osgVerse
     class UserInputModule;
     class ScriptableProgram;
     class RenderCallbackXR;
+    class ExposureController;
 
     /** OpenGL version data for graphics hardware adpation.
         OpenGL Version: GLSL Version
@@ -298,6 +300,12 @@ namespace osgVerse
         int getGlslTargetVersion() const { return _glslTargetVersion; }
         int getGlCurrentVersion() const { return _glVersion; }
 
+        /** Eye adaptation controller of the standard pipeline (NULL if the pipeline was created
+            without post effects, or without using setupStandardPipeline()) */
+        void setExposureController(ExposureController* c);
+        ExposureController* getExposureController() { return _exposureController.get(); }
+        const ExposureController* getExposureController() const { return _exposureController.get(); }
+
         /** Check if a camera is created by this pipeline (stage or forward) */
         bool isValidCamera(osg::Camera* cam) const
         { return getStage(cam) != NULL || (_forwardCamera == cam); }
@@ -327,9 +335,67 @@ namespace osgVerse
         osg::ref_ptr<osg::Depth> _deferredDepth;
         osg::ref_ptr<osg::Uniform> _invScreenResolution;
         osg::ref_ptr<GLVersionData> _glVersionData;
+        osg::ref_ptr<ExposureController> _exposureController;
         osg::observer_ptr<osg::Camera> _forwardCamera;
         osg::Vec2s _stageSize;
         int _glContextVersion, _glVersion, _glslTargetVersion;
+    };
+
+    /** Eye adaptation (auto exposure) controller of the standard pipeline. The adaptation itself
+        runs on the GPU: a pair of 1x1 stages (see the "EyeAdaptation0/1" stages which
+        setupStandardPipeline creates, and std_exposure_adaptation.frag.glsl) ping-pong the state
+        of the adaptation, one of them reading the state which the other one wrote during the
+        previous frame. This controller only drives them from the CPU side, once per frame: it
+        uploads the frame delta time and the tuning values, swaps which stage of the pair is
+        active, and points the tone mapping stage to the exposure of the frame. Nothing is ever
+        read back from the GPU, so there is neither a synchronization point nor a stall here.
+
+        Everything is tunable at runtime: target middle gray (key value), manual compensation in
+        stops (EV), the adaptation speeds used when the exposure has to increase or decrease, and
+        the exposure limits. Note it is declared after Pipeline because it names Pipeline::Stage */
+    class ExposureController : public osg::Camera::DrawCallback
+    {
+    public:
+        /** - stage0, stage1: the two 1x1 stages which hold the adaptation state. Their output
+                              buffers hold the exposure encoded in log2 space, see the shader
+            - tonemapping: the stage which has to sample the exposure of the current frame */
+        ExposureController(Pipeline::Stage* stage0, Pipeline::Stage* stage1,
+                           Pipeline::Stage* tonemapping);
+
+        /** Target middle gray of the adapted image: exposure = keyValue / averageLuminance */
+        void setKeyValue(float k) { _keyValue = k; }
+        float getKeyValue() const { return _keyValue; }
+
+        /** Manual exposure compensation, in stops (EV), can be changed at any time */
+        void setCompensation(float stops) { _compensation = stops; }
+        float getCompensation() const { return _compensation; }
+
+        /** Speeds, in 1/second, of the exponential approach used when the exposure has to
+            increase (the image is too dark) or to decrease (the image is too bright) */
+        void setAdaptationSpeeds(float increase, float decrease)
+        { _speedIncrease = increase; _speedDecrease = decrease; }
+
+        /** Limits of the exposure, to avoid extreme values on unusual frames */
+        void setExposureLimits(float mn, float mx) { _minExposure = mn; _maxExposure = mx; }
+        float getMinExposure() const { return _minExposure; }
+        float getMaxExposure() const { return _maxExposure; }
+
+        /** The 1x1 buffer which holds the exposure adapted by the last frame, encoded over the
+            log2 range documented in std_exposure_adaptation.frag.glsl. Sample it (in a HUD or a
+            debug pass for instance) to display the exposure: as the whole adaptation runs on the
+            GPU, there is no CPU side value to read here */
+        osg::Texture* getExposureBuffer() const;
+
+        virtual void operator()(osg::RenderInfo& renderInfo) const;
+
+    protected:
+        /** The two stages of the ping-pong pair, and the stage which samples their result */
+        osg::observer_ptr<Pipeline::Stage> _stages[2];
+        osg::observer_ptr<Pipeline::Stage> _tonemapping;
+        float _keyValue, _compensation, _speedIncrease, _speedDecrease;
+        float _minExposure, _maxExposure;
+        mutable double _lastTime; mutable unsigned int _frames;
+        mutable int _active;
     };
 
     /** Standard pipeline parameters */
@@ -367,7 +433,8 @@ namespace osgVerse
             osg::ref_ptr<osg::Shader> gbufferVS, gbufferGS, shadowCastVS, shadowCastGS;
             osg::ref_ptr<osg::Shader> gbufferFS, shadowCastFS, ssaoFS, ssaoBlurFS;
             osg::ref_ptr<osg::Shader> pbrLightingFS, shadowCombineFS, shadowDebugCombineFS;
-            osg::ref_ptr<osg::Shader> downsampleFS, brightnessFS, brightnessCombineFS, bloomFS;
+            osg::ref_ptr<osg::Shader> downsampleFS, luminanceFS, brightnessFS, brightnessCombineFS, bloomFS;
+            osg::ref_ptr<osg::Shader> exposureAdaptationFS;
             osg::ref_ptr<osg::Shader> tonemappingFS, antiAliasingFS, taaFS, displayFS, quadFS;
             osg::ref_ptr<osg::Shader> skyboxFS;
             osg::ref_ptr<osg::Shader> brdfLutFS, envPrefilterFS, irrConvolutionFS;
