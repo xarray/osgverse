@@ -122,7 +122,7 @@ protected:
 
 int main(int argc, char** argv)
 {
-    const float groundSize = 20.0f, groundThickness = 0.1f, timeStep = 0.02f;
+    const float groundSize = 10.0f, groundThickness = 0.1f, timeStep = 0.02f;
     osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
 
     // Create a ground geometry

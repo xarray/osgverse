@@ -28,7 +28,7 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 - [x] Supports complex model simplication, optimizing and tiling, and saving to OSGB format for better efficiency.
 - [x] Provides database plugins (leveldb, mbtiles, odbc), for reading models and tiles from database rather than local folders.
 - [x] Provides media streaming plugin, which supports playing RTSP and streaming through WebRTC / Websockets.
-- [ ] (PARTLY) Provides video decoding plugins based on GPU (with NVCUVID or LibVA), without CPU copying overload.
+- [x] Provides video decoding plugins based on GPU (with NVCUVID or LibVA), without CPU copying overload.
 - [x] Provides scripting functionalities to support Python/JsonRPC scripting using OSGB serialization.
 - [x] Supports GL3 Core profile, GLES2 and GLES3. Google Angle is also supported for bridging low-level APIs like Vulkan and DirectX.
 - [x] Supports 3D Gaussian Splatting rendering and related formats: PLY, SPZ, SPLAT, PlayCanvas SOG and XGrids LCC.
@@ -49,6 +49,10 @@ osgVerse, a complete 3D engine solution based on OpenSceneGraph.
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/3dgs_rendering.jpg)
 * osgVerse_Test_Earth: Earth rendering with DEM/DOM tiles, atmosphere and ocean supports
 ![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/earth_rendering.jpg)
+* osgVerse_Test_Physics_Human: Human skeleton with physics and ragdoll supports
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/ragdoll_physics.jpg)
+* osgVerse_Test_Nanite: NANITE clustering and dynamic ‌scheduling demonstration
+![Image](https://gitee.com/xarray/osgverse/raw/master/assets/misc/nanite_algorithm.jpg)
 
 #### User Gallery
 * Digital-twin city rendering by Pizza Team (Smart Yunzhou)
