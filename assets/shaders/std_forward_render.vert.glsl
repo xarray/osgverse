@@ -9,12 +9,25 @@ VERSE_VS_OUT vec3 eyeNormal, eyeTangent, eyeBinormal;
 #endif
 uniform mat4 osg_ViewMatrixInverse;
 
+// A model is not required to provide a tangent: its attribute then reads back as zero, and
+// normalize() would turn it into NaN, which spreads into the lighting and blackens the whole
+// object. Such a zero is kept as zero by the inversesqrt() guard below, and the fragment shader
+// detects it (see std_forward_render.frag.glsl) to give up normal mapping instead of using a
+// broken TBN matrix
+void createEyeTangentFrame(in vec3 objectNormal, in vec4 objectTangent,
+                           out vec3 eyeTangent, out vec3 eyeBinormal)
+{
+    vec3 t = VERSE_MATRIX_N * objectTangent.xyz;
+    vec3 b = VERSE_MATRIX_N * (cross(objectNormal, objectTangent.xyz) * objectTangent.w);
+    eyeTangent = t * inversesqrt(max(dot(t, t), 1e-12));
+    eyeBinormal = b * inversesqrt(max(dot(b, b), 1e-12));
+}
+
 void main()
 {
 #ifdef VERSE_VRMODE
     eyeNormal_gs = normalize(VERSE_MATRIX_N * osg_Normal);
-    eyeTangent_gs = normalize(VERSE_MATRIX_N * osg_Tangent.xyz);
-    eyeBinormal_gs = normalize(VERSE_MATRIX_N * (cross(osg_Normal, osg_Tangent.xyz) * osg_Tangent.w));
+    createEyeTangentFrame(osg_Normal, osg_Tangent, eyeTangent_gs, eyeBinormal_gs);
     eyeVertex_gs = osg_ViewMatrixInverse * VERSE_MATRIX_MV * osg_Vertex;
 
     texCoord0_gs = osg_MultiTexCoord0;
@@ -23,8 +36,7 @@ void main()
     gl_Position = eyeVertex_gs;
 #else
     eyeNormal = normalize(VERSE_MATRIX_N * osg_Normal);
-    eyeTangent = normalize(VERSE_MATRIX_N * osg_Tangent.xyz);
-    eyeBinormal = normalize(VERSE_MATRIX_N * (cross(osg_Normal, osg_Tangent.xyz) * osg_Tangent.w));
+    createEyeTangentFrame(osg_Normal, osg_Tangent, eyeTangent, eyeBinormal);
     eyeVertex = VERSE_MATRIX_MV * osg_Vertex;
 
     texCoord0 = osg_MultiTexCoord0;

@@ -51,9 +51,12 @@ void main()
     vec3 specular = VERSE_TEX2D(SpecularMap, uv0).rgb;
     vec3 metalRough = VERSE_TEX2D(ShininessMap, uv0).rgb;
 
-    // Compute eye-space normal
+    // Compute eye-space normal. Normal mapping needs the tangent frame built by the vertex
+    // shader: a model without tangents gets zeros there, in which case the normal map is given up
+    // and the geometry normal is used directly
     vec3 eyeNormal2 = eyeNormal;
-    if (normalValue.a > 0.1)
+    if (normalValue.a > 0.1 &&
+        dot(eyeTangent, eyeTangent) > 1e-4 && dot(eyeBinormal, eyeBinormal) > 1e-4)
     {
         vec3 tsNormal = normalize(2.0 * normalValue.rgb - vec3(1.0));
         eyeNormal2 = normalize(mat3(eyeTangent, eyeBinormal, eyeNormal) * tsNormal);

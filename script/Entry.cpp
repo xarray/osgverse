@@ -44,6 +44,9 @@ osgDB::BaseSerializer::Type LibraryEntry::guessVectorDataType(const std::string&
 
 LibraryEntry::LibraryEntry(const std::string& libName)
 {
+    // No need to find library because I am osgVerse myself
+    if (libName == "osgVerse") { refresh(libName); return; }
+
     osgDB::Registry* registry = osgDB::Registry::instance();
     std::string nodeKitLib = registry->createLibraryNameForNodeKit(libName);
     std::string pluginLib = registry->createLibraryNameForExtension(

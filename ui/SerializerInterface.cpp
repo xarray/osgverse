@@ -96,6 +96,12 @@ LibraryEntry* SerializerFactory::createInterfaces(osg::Object* obj, LibraryEntry
     SerializerFactory* factory = SerializerFactory::instance();
     
     std::vector<LibraryEntry::Property> props = entry->getPropertyNames(clsName);
+    if (props.empty())
+    {
+        OSG_WARN << "[SerializerFactory] No property found for " << clsName 
+                 << ", from library entry " << libName << std::endl;
+    }
+
     std::set<std::string> registeredProps;  // to avoid duplicated props
     for (size_t i = 0; i < props.size(); ++i)
     {
