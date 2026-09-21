@@ -18,6 +18,12 @@ vec3 invSphericalUV(vec2 v)
     return vec3(cosT * cos(uv.x), sin(uv.y), cosT * sin(uv.x));
 }
 
+// Same bound as in std_environment_prefiltering.frag.glsl, which documents it: the radiance of
+// the environment is clamped before being accumulated, otherwise hundreds of samples taken from
+// the sun of a bright HDR panorama overflow the accumulator and write an infinite value in the
+// cached irradiance image
+const float MAX_ENVIRONMENT_RADIANCE = 10000.0;
+
 void main()
 {
     vec3 N = normalize(invSphericalUV(texCoord0.xy));
@@ -33,7 +39,8 @@ void main()
             float sinT = sin(theta), cosT = cos(theta);
             vec3 tangentVec = vec3(sinT * cos(phi), sinT * sin(phi), cosT);
             vec3 sampleVec = tangentVec.x * right + tangentVec.y * up + tangentVec.z * N;
-            irradiance += VERSE_TEX2D(EnvironmentMap, sphericalUV(sampleVec)).rgb * cosT * sinT;
+            irradiance += min(VERSE_TEX2D(EnvironmentMap, sphericalUV(sampleVec)).rgb,
+                              vec3(MAX_ENVIRONMENT_RADIANCE)) * cosT * sinT;
             nrSamples += 1.0;
         }
     }

@@ -455,6 +455,10 @@ namespace osgVerse
         /** Temporal anti-aliasing. It needs the jittered projection & history buffer of the
             G-Buffer, and is switched off automatically on low-performance devices */
         bool enableTAA;
+        /** Bloom and eye adaptation (auto exposure). Both are switched off together: the tone
+            mapping then reads a black bloom and a fixed neutral exposure, so the rest of the
+            rendering and of the post effects is left untouched */
+        bool enableBloom;
         /** Draw the sky as a full-screen stage inside the deferred pipeline (using skyboxMap
             and skyboxFS), so that it takes part in bloom, tone mapping and TAA instead of
             being painted by a sky box camera after the deferred stages */

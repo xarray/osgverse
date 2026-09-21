@@ -87,7 +87,11 @@ vec2 IntegrateBRDF(float NdotV, float roughness)
         if (NdotL > 0.0)
         {
             float G = GeometrySmith(N, V, L, roughness);
-            float G_Vis = (G * VdotH) / (NdotH * NdotV);
+            // The denominator vanishes on the first column of the LUT (NdotV is the x coordinate
+            // of the texel, so it is 0 there) and for a grazing half vector (NdotH = 0): dividing
+            // by it writes a NaN in the LUT, which every surface would then multiply into its
+            // ambient term. Flooring the denominator is the usual way of handling that corner
+            float G_Vis = (G * VdotH) / max(NdotH * NdotV, 0.0001);
             float Fc = pow(1.0 - VdotH, 5.0);
             A += (1.0 - Fc) * G_Vis;
             B += Fc * G_Vis;

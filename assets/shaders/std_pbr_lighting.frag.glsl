@@ -16,6 +16,14 @@ layout(location = 1) VERSE_FS_OUT vec4 fragData1;
 const vec2 invAtan = vec2(0.1591, 0.3183);
 const int maxLights = 1024;
 
+// Bound of the indirect contribution: the IBL textures are baked offline (see
+// std_environment_prefiltering.frag.glsl, which documents what an unbounded environment radiance
+// does to the whole chain) and a value which is not a number can still reach this shader from a
+// broken texture or a degenerate tangent frame. The ambient term is the last place where it can
+// be stopped before it reaches the tone mapping, where a NaN would blacken the pixel and be
+// spread over a large patch by the bloom
+const float MAX_AMBIENT_RADIANCE = 1000.0;
+
 /// PBR functions
 vec2 sphericalUV(vec3 v)
 {
@@ -146,6 +154,13 @@ void main()
     // is the physically correct place; direct light is handled by the shadowing stage.
     float occlusion = ao * VERSE_TEX2D(SsaoBlurredBuffer, uv0).r;
     vec3 ambient = kD * diffuse * occlusion + envSpecular;
+
+    // Dropping the NaN of a broken IBL texture here (instead of letting it reach the tone mapping)
+    // is what keeps such a pixel from becoming a black patch: the luminance of the ambient is used
+    // as the test, as a NaN in any of its components propagates to it
+    float ambientLum = dot(ambient, vec3(0.2126, 0.7152, 0.0722));
+    if (ambientLum != ambientLum) ambient = vec3(0.0);
+    else ambient = min(ambient, vec3(MAX_AMBIENT_RADIANCE));
 
 #ifdef VERSE_GLES3
     fragData0/*ColorBuffer*/ = vec4(radianceOut, 1.0);

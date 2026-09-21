@@ -170,6 +170,10 @@ int main(int argc, char** argv)
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::updateOsgBinaryWrappers();
 
+    osg::Vec3 lightDir(0.02f, 0.1f, -1.0f), lightColor(1.5f, 1.5f, 1.2f);
+    arguments.read("--light-dir", lightDir.x(), lightDir.y(), lightDir.z());
+    arguments.read("--light-color", lightColor.x(), lightColor.y(), lightColor.z());
+
     std::string optString, optAll; bool defScene = false, customRender = false;
     std::string otherSceneFile("lz.osg.15,15,1.scale.0,0,-300.trans");
     customRender = arguments.read("--custom") || arguments.read("--3dgs");
@@ -229,8 +233,8 @@ int main(int argc, char** argv)
 
     // Main light
     osg::ref_ptr<osgVerse::LightDrawable> light0 = new osgVerse::LightDrawable;
-    light0->setColor(osg::Vec3(1.5f, 1.5f, 1.2f));
-    light0->setDirection(osg::Vec3(0.02f, 0.1f, -1.0f));
+    light0->setColor(lightColor);
+    light0->setDirection(lightDir);
     light0->setDirectional(true);
 
     osg::ref_ptr<osg::Geode> lightGeode = new osg::Geode;
@@ -305,6 +309,7 @@ int main(int argc, char** argv)
     
     if (arguments.read("--no-ssao")) params.enableAO = false;
     if (arguments.read("--no-posteffects")) params.enablePostEffects = false;
+    if (arguments.read("--no-bloom")) params.enableBloom = false;
     if (arguments.read("--no-shadows")) params.shadowNumber = 0;
 
     // Temporal anti-aliasing is opt-in: it is disabled by default and also skipped

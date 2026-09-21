@@ -28,6 +28,17 @@ float distributionGGX(vec3 N, vec3 H, float roughness)
     return nom / (M_PI * denom * denom);
 }
 
+// The radiance coming from the environment map is bounded before it is accumulated. An HDR
+// panorama may contain pixels close to the maximum exponent of its encoding (the sun disc is
+// often much brighter than 1e4, and a saturated RGBE pixel decodes to about 1e38): summing
+// hundreds of such samples overflows the 32 bit float of the accumulator, and an infinite
+// result is written to the cached IBL image, where every surface reflecting that direction
+// turns black. Bounding the source keeps the sun contribution (which is what the specular
+// reflection is made of) while making the value of the whole chain finite. The offline baked
+// .ibl.rseq files have to be generated again for the fix to show (see
+// osgVerse_Test_Pbr_Prerequisite), as the ones already written still hold the old values
+const float MAX_ENVIRONMENT_RADIANCE = 10000.0;
+
 // http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
 // efficient VanDerCorpus calculation
 float radicalInverse_VdC(uint bits) 
@@ -75,10 +86,15 @@ void main()
         float nDotL = max(dot(N, L), 0.0);
         if (nDotL > 0.0)
         {
-            prefilteredColor += VERSE_TEX2D(EnvironmentMap, sphericalUV(L)).rgb * nDotL;
+            prefilteredColor += min(VERSE_TEX2D(EnvironmentMap, sphericalUV(L)).rgb,
+                                    vec3(MAX_ENVIRONMENT_RADIANCE)) * nDotL;
             totalWeight += nDotL;
         }
     }
-    fragData = vec4(prefilteredColor / totalWeight, 1.0);
+
+    // A direction whose samples all point away from the surface would leave the weight at zero,
+    // and dividing by it would write a NaN in the IBL image (see the comment of
+    // MAX_ENVIRONMENT_RADIANCE above for what such a value does to the rendering)
+    fragData = vec4(totalWeight > 0.0 ? prefilteredColor / totalWeight : vec3(0.0), 1.0);
     VERSE_FS_FINAL(fragData);
 }

@@ -12,6 +12,7 @@
 #include <osgDB/WriteFile>
 
 #define TINYOBJLOADER_IMPLEMENTATION
+#define TINYOBJLOADER_STREAM_READER_MAX_BYTES (size_t(2048) * size_t(1024) * size_t(1024))
 #include "3rdparty/tiny_obj_loader.h"
 #include "modeling/Utilities.h"
 #include <unordered_map>

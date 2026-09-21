@@ -496,7 +496,7 @@ namespace osgVerse
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
-        enableTAA(false), useDeferredSky(false)
+        enableTAA(false), enableBloom(true), useDeferredSky(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -509,7 +509,7 @@ namespace osgVerse
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
-        enableTAA(false), useDeferredSky(false)
+        enableTAA(false), enableBloom(true), useDeferredSky(false)
     {
         obtainScreenResolution(originWidth, originHeight);
         if (!originWidth) originWidth = 1920; if (!originHeight) originHeight = 1080;
@@ -714,6 +714,24 @@ namespace osgVerse
     {
         if (view) return setupStandardPipelineEx(p, view, view->getCamera(), spp);
         else { OSG_WARN << "[StandardPipeline] No view provided." << std::endl; return false; }
+    }
+
+    // A single texel texture standing in for a stage which is not part of the pipeline: the tone
+    // mapping always samples its bloom and its exposure, whatever the settings are (see
+    // StandardPipelineParameters::enableBloom), so something has to be bound to those samplers
+    static osg::Texture* createSingleTexelTexture(float r, float g, float b, float a = 1.0f)
+    {
+        osg::ref_ptr<osg::Image> img = new osg::Image;
+        img->allocateImage(1, 1, 1, GL_RGBA, GL_FLOAT);
+        float* data = reinterpret_cast<float*>(img->data());
+        data[0] = r; data[1] = g; data[2] = b; data[3] = a;
+
+        osg::ref_ptr<osg::Texture2D> tex = new osg::Texture2D(img.get());
+        tex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
+        tex->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
+        tex->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::CLAMP_TO_EDGE);
+        tex->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::CLAMP_TO_EDGE);
+        return tex.release();
     }
 
     bool setupStandardPipelineEx(Pipeline* p, osgViewer::View* view, osg::Camera* mainCam,
@@ -1100,78 +1118,91 @@ namespace osgVerse
             // The whole chain has to stay in the HDR domain of the shadowing stage, otherwise
             // the extracted highlights (and every downsampled level built from them) would be
             // clamped back to 1.0. Embedded builds keep INT8 as before
+            // Bloom and eye adaptation are switched off together by spp.enableBloom: they are the
+            // expensive half of the post effects and a scene may need neither of them. The tone
+            // mapping always samples their results, so a black bloom and a neutral exposure are
+            // bound in their place below instead
+            osgVerse::Pipeline::Stage* blooming = NULL;
+            osgVerse::Pipeline::Stage* eyeAdaptation0 = NULL, *eyeAdaptation1 = NULL;
+            if (spp.enableBloom)
+            {
 #if defined(VERSE_EMBEDDED)
-            const osgVerse::Pipeline::BufferType bloomBuffer = osgVerse::Pipeline::RGB_INT8;
+                const osgVerse::Pipeline::BufferType bloomBuffer = osgVerse::Pipeline::RGB_INT8;
 #else
-            const osgVerse::Pipeline::BufferType bloomBuffer = osgVerse::Pipeline::RGBA_FLOAT16;
+                const osgVerse::Pipeline::BufferType bloomBuffer = osgVerse::Pipeline::RGBA_FLOAT16;
 #endif
-            osgVerse::Pipeline::Stage* brighting = p->addDeferredStage("Brighting", 1.0f, false,
-                spp.shaders.quadVS, spp.shaders.brightnessFS, 1,
-                "BrightnessBuffer0", bloomBuffer);
-            //brighting->applyBuffer("ColorBuffer", 0, p);
-            brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
-            // As the buffers are floating point, highlights above 1.0 are no longer truncated and
-            // are kept with their real intensity by the extraction. The threshold is a purely
-            // artistic value now: since the eye adaptation is driven by its own chain (see
-            // below), it neither changes the exposure nor depends on it. Note it is expressed in
-            // scene units and not in exposure ones, so it has to be tuned for the lighting of the
-            // scene (the sky or an emissive surface easily reaches 1.0 while a diffuse surface lit
-            // by a 1.5 light stays around 0.1-0.2)
-            brighting->applyUniform(new osg::Uniform("BrightnessThreshold", 0.7f));
-            brighting->applyUniform(new osg::Uniform("BrightnessKnee", 0.5f));
+                osgVerse::Pipeline::Stage* brighting = p->addDeferredStage("Brighting", 1.0f, false,
+                    spp.shaders.quadVS, spp.shaders.brightnessFS, 1,
+                    "BrightnessBuffer0", bloomBuffer);
+                //brighting->applyBuffer("ColorBuffer", 0, p);
+                brighting->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
+                // As the buffers are floating point, highlights above 1.0 are no longer truncated
+                // and are kept with their real intensity by the extraction. The threshold is a
+                // purely artistic value now: since the eye adaptation is driven by its own chain
+                // (see below), it neither changes the exposure nor depends on it. Note it is
+                // expressed in scene units and not in exposure ones, so it has to be tuned for the
+                // lighting of the scene (the sky or an emissive surface easily reaches 1.0 while a
+                // diffuse surface lit by a 1.5 light stays around 0.1-0.2)
+                brighting->applyUniform(new osg::Uniform("BrightnessThreshold", 0.7f));
+                brighting->applyUniform(new osg::Uniform("BrightnessKnee", 0.5f));
 
-            std::vector<osgVerse::Pipeline::Stage*> downsamples;
-            osg::Vec2s stageSize = p->getStageSize();
-            int downsampleIndex = 1; float downsampleValue = 1080.0f;
-            downsamples.push_back(brighting);
-            for (; downsampleValue > 2.0f; ++downsampleIndex)
-            {
-                float sizeScale = 1.0f / float(1 << downsampleIndex);
-                downsampleValue = osg::maximum((int)stageSize[1], 1080) * sizeScale;
-                osg::Vec2 invRes(1.0f / osg::maximum((int)stageSize[0], 1920) * sizeScale,
-                                 1.0f / downsampleValue);
+                std::vector<osgVerse::Pipeline::Stage*> downsamples;
+                osg::Vec2s stageSize = p->getStageSize();
+                int downsampleIndex = 1; float downsampleValue = 1080.0f;
+                downsamples.push_back(brighting);
+                for (; downsampleValue > 2.0f; ++downsampleIndex)
+                {
+                    float sizeScale = 1.0f / float(1 << downsampleIndex);
+                    downsampleValue = osg::maximum((int)stageSize[1], 1080) * sizeScale;
+                    osg::Vec2 invRes(1.0f / osg::maximum((int)stageSize[0], 1920) * sizeScale,
+                                     1.0f / downsampleValue);
 
-                std::string id = std::to_string(downsampleIndex), lastId = std::to_string(downsampleIndex - 1);
-                osgVerse::Pipeline::Stage* brightDownsampling = p->addDeferredStage(
-                    "Downsampling" + id, sizeScale, false, spp.shaders.quadVS, spp.shaders.downsampleFS, 1,
-                    ("BrightnessBuffer" + id).c_str(), bloomBuffer);
-                brightDownsampling->applyBuffer(
-                    *downsamples.back(), "BrightnessBuffer" + lastId, "ColorBuffer", 0);
-                brightDownsampling->applyUniform(new osg::Uniform("InvBufferResolution", invRes));
-                downsamples.push_back(brightDownsampling);
+                    std::string id = std::to_string(downsampleIndex);
+                    std::string lastId = std::to_string(downsampleIndex - 1);
+                    osgVerse::Pipeline::Stage* brightDownsampling = p->addDeferredStage(
+                        "Downsampling" + id, sizeScale, false, spp.shaders.quadVS,
+                        spp.shaders.downsampleFS, 1, ("BrightnessBuffer" + id).c_str(), bloomBuffer);
+                    brightDownsampling->applyBuffer(
+                        *downsamples.back(), "BrightnessBuffer" + lastId, "ColorBuffer", 0);
+                    brightDownsampling->applyUniform(new osg::Uniform("InvBufferResolution", invRes));
+                    downsamples.push_back(brightDownsampling);
+                }
+
+                osgVerse::Pipeline::Stage* brightCombining = p->addDeferredStage(
+                    "BrightCombining", 1.0f, false, spp.shaders.quadVS,
+                    spp.shaders.brightnessCombineFS, 1, "BrightnessCombinedBuffer", bloomBuffer);
+                // Each of the 4 levels has its own resolution (1/2 .. 1/16 of the screen), so the
+                // blur of the combining shader has to use the texel size of the level it filters.
+                // The pipeline only injects the full resolution as InvScreenResolution, which would
+                // be far smaller than one texel of the coarse levels and would turn the multi-level
+                // bloom into a single-resolution blur of the finest level
+                osg::ref_ptr<osg::Uniform> levelSizes =
+                    new osg::Uniform(osg::Uniform::FLOAT_VEC2, "InvLevelSizes", 4);
+                for (size_t i = 1; i <= 4; ++i)
+                {
+                    std::string id = std::to_string(i);
+                    brightCombining->applyBuffer(*downsamples[i], "BrightnessBuffer" + id, (int)i - 1);
+
+                    osg::Texture* tex = downsamples[i]->getBufferTexture("BrightnessBuffer" + id);
+                    int tw = tex ? tex->getTextureWidth() : 0;
+                    int th = tex ? tex->getTextureHeight() : 0;
+                    levelSizes->setElement((unsigned int)i - 1,
+                        osg::Vec2(1.0f / osg::maximum(tw, 1), 1.0f / osg::maximum(th, 1)));
+                }
+                brightCombining->applyUniform(levelSizes.get());
+                // Contribution of each downsampled level to the final bloom. The shader normalizes
+                // these values, so only their ratio matters and scaling them all has no effect
+                brightCombining->applyUniform(new osg::Uniform(
+                    "BloomWeights", osg::Vec4(0.4f, 0.3f, 0.2f, 0.1f)));
+
+                blooming = p->addDeferredStage("Blooming", 1.0f, false,
+                    spp.shaders.quadVS, spp.shaders.bloomFS, 1,
+                    "BloomBuffer", bloomBuffer);
+                blooming->applyBuffer(*brightCombining, "BrightnessCombinedBuffer", 0);
+                blooming->applyUniform(new osg::Uniform("BloomFactor", 1.0f));
             }
 
-            osgVerse::Pipeline::Stage* brightCombining = p->addDeferredStage("BrightCombining", 1.0f, false,
-                spp.shaders.quadVS, spp.shaders.brightnessCombineFS, 1,
-                "BrightnessCombinedBuffer", bloomBuffer);
-            // Each of the 4 levels has its own resolution (1/2 .. 1/16 of the screen), so the
-            // blur of the combining shader has to use the texel size of the level it filters.
-            // The pipeline only injects the full resolution as InvScreenResolution, which would
-            // be far smaller than one texel of the coarse levels and would turn the multi-level
-            // bloom into a single-resolution blur of the finest level
-            osg::ref_ptr<osg::Uniform> levelSizes =
-                new osg::Uniform(osg::Uniform::FLOAT_VEC2, "InvLevelSizes", 4);
-            for (size_t i = 1; i <= 4; ++i)
-            {
-                std::string id = std::to_string(i);
-                brightCombining->applyBuffer(*downsamples[i], "BrightnessBuffer" + id, (int)i - 1);
 
-                osg::Texture* tex = downsamples[i]->getBufferTexture("BrightnessBuffer" + id);
-                int tw = tex ? tex->getTextureWidth() : 0, th = tex ? tex->getTextureHeight() : 0;
-                levelSizes->setElement((unsigned int)i - 1,
-                    osg::Vec2(1.0f / osg::maximum(tw, 1), 1.0f / osg::maximum(th, 1)));
-            }
-            brightCombining->applyUniform(levelSizes.get());
-            // Contribution of each downsampled level to the final bloom. The shader normalizes
-            // these values, so only their ratio matters and scaling them all has no effect
-            brightCombining->applyUniform(new osg::Uniform(
-                "BloomWeights", osg::Vec4(0.4f, 0.3f, 0.2f, 0.1f)));
-
-            osgVerse::Pipeline::Stage* blooming = p->addDeferredStage("Blooming", 1.0f, false,
-                spp.shaders.quadVS, spp.shaders.bloomFS, 1,
-                "BloomBuffer", bloomBuffer);
-            blooming->applyBuffer(*brightCombining, "BrightnessCombinedBuffer", 0);
-            blooming->applyUniform(new osg::Uniform("BloomFactor", 1.0f));
 
             // Lensflare stages
             // TODO
@@ -1231,99 +1262,124 @@ namespace osgVerse
             // depends on it. The chain is half float on the desktop builds while the embedded ones
             // have to keep 8 bit buffers, which is enough as the scene color they meter is stored
             // in 8 bit buffers itself and therefore never exceeds 1 (see the extraction shader)
-#if defined(VERSE_EMBEDDED)
-            const osgVerse::Pipeline::BufferType luminanceBuffer = osgVerse::Pipeline::RGB_INT8;
-#else
-            const osgVerse::Pipeline::BufferType luminanceBuffer = osgVerse::Pipeline::RG_FLOAT16;
-#endif
-            osg::Texture* exposureSource = NULL;
-            osg::Vec2s lumSize = p->getStageSize();
-            osgVerse::Pipeline::Stage* luminanceStage = p->addDeferredStage("LogLuminance", 1.0f, false,
-                spp.shaders.quadVS, spp.shaders.luminanceFS, 1,
-                "LogLuminanceBuffer0", luminanceBuffer);
-            luminanceStage->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
-            luminanceStage->applyBuffer(*lighting, "IblAmbientBuffer", "AmbientBuffer", 2);
-            luminanceStage->applyBuffer(*gbuffer, "DepthBuffer", 1);
-            // The background of CombinedBuffer only holds valid content when the sky is drawn
-            // inside the pipeline: in that case it must take part in the average (it is what the
-            // eye adapts to when looking at the horizon). Otherwise it is nothing but the cleared
-            // color and is excluded, so that the result does not depend on how much of the screen
-            // the geometry covers
-            luminanceStage->applyUniform(new osg::Uniform("IncludeBackground",
-                                                          deferredSkyUsed ? 1.0f : 0.0f));
-
-            int lumIndex = 1; float lumValue = 1080.0f;
-            for (; lumValue > 2.0f; ++lumIndex)
+            if (spp.enableBloom)
             {
-                float sizeScale = 1.0f / float(1 << lumIndex);
-                lumValue = osg::maximum((int)lumSize[1], 1080) * sizeScale;
-                osg::Vec2 invRes(1.0f / osg::maximum((int)lumSize[0], 1920) * sizeScale, 1.0f / lumValue);
-
-                std::string id = std::to_string(lumIndex), lastId = std::to_string(lumIndex - 1);
-                osgVerse::Pipeline::Stage* lumDownsampling = p->addDeferredStage(
-                    "LuminanceDownsampling" + id, sizeScale, false, spp.shaders.quadVS,
-                    spp.shaders.downsampleFS, 1, ("LogLuminanceBuffer" + id).c_str(), luminanceBuffer);
-                lumDownsampling->applyBuffer(
-                    *luminanceStage, "LogLuminanceBuffer" + lastId, "ColorBuffer", 0);
-                lumDownsampling->applyUniform(new osg::Uniform("InvBufferResolution", invRes));
-                luminanceStage = lumDownsampling;
-            }
-            exposureSource = luminanceStage->getBufferTexture(
-                "LogLuminanceBuffer" + std::to_string(lumIndex - 1));
-
-            // Eye adaptation stages: they are a pair of 1x1 buffers which ping-pong the state of
-            // the adaptation (the exposure, in log2). Only one of the two is drawn per frame and
-            // it reads the buffer of the other one, which holds the state of the previous frame:
-            // a single pass being unable to read and write the same buffer, this is what keeps
-            // the whole adaptation on the GPU, with no copy and no readback of it. The shader
-            // averages the metering buffer above, so the adaptation only depends on it
 #if defined(VERSE_EMBEDDED)
-            const osgVerse::Pipeline::BufferType exposureBuffer = osgVerse::Pipeline::RGB_INT8;
+                const osgVerse::Pipeline::BufferType luminanceBuffer = osgVerse::Pipeline::RGB_INT8;
 #else
-            const osgVerse::Pipeline::BufferType exposureBuffer = osgVerse::Pipeline::RGB_FLOAT16;
+                const osgVerse::Pipeline::BufferType luminanceBuffer = osgVerse::Pipeline::RG_FLOAT16;
 #endif
-            // A size scale of zero gives the smallest buffer the pipeline can create, which is the
-            // single texel the adaptation needs whatever the size of the window
-            osgVerse::Pipeline::Stage* eyeAdaptation0 = p->addDeferredStage("EyeAdaptation0", 0.0f,
-                false, spp.shaders.quadVS, spp.shaders.exposureAdaptationFS, 1,
-                "ExposureBuffer0", exposureBuffer);
-            osgVerse::Pipeline::Stage* eyeAdaptation1 = p->addDeferredStage("EyeAdaptation1", 0.0f,
-                false, spp.shaders.quadVS, spp.shaders.exposureAdaptationFS, 1,
-                "ExposureBuffer1", exposureBuffer);
-            eyeAdaptation0->applyBuffer(*eyeAdaptation1, "ExposureBuffer1", "HistoryBuffer", 0);
-            eyeAdaptation1->applyBuffer(*eyeAdaptation0, "ExposureBuffer0", "HistoryBuffer", 0);
+                osg::Texture* exposureSource = NULL;
+                osg::Vec2s lumSize = p->getStageSize();
+                osgVerse::Pipeline::Stage* luminanceStage = p->addDeferredStage(
+                    "LogLuminance", 1.0f, false, spp.shaders.quadVS, spp.shaders.luminanceFS, 1,
+                    "LogLuminanceBuffer0", luminanceBuffer);
+                luminanceStage->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
+                luminanceStage->applyBuffer(*lighting, "IblAmbientBuffer", "AmbientBuffer", 2);
+                luminanceStage->applyBuffer(*gbuffer, "DepthBuffer", 1);
+                // The background of CombinedBuffer only holds valid content when the sky is drawn
+                // inside the pipeline: in that case it must take part in the average (it is what
+                // the eye adapts to when looking at the horizon). Otherwise it is nothing but the
+                // cleared color and is excluded, so that the result does not depend on how much of
+                // the screen the geometry covers
+                luminanceStage->applyUniform(new osg::Uniform("IncludeBackground",
+                                                              deferredSkyUsed ? 1.0f : 0.0f));
 
-            osg::Vec2 meteringSize((float)exposureSource->getTextureWidth(),
-                                   (float)exposureSource->getTextureHeight());
-            osgVerse::Pipeline::Stage* eyeAdaptations[2] = { eyeAdaptation0, eyeAdaptation1 };
-            for (int i = 0; i < 2; ++i)
-            {
-                eyeAdaptations[i]->applyTexture(exposureSource, "LuminanceBuffer", 1);
-                // The metering buffer is a fixed part of the setup, so its size is uploaded once
-                // here; everything which can be tuned at runtime is set by the controller on the
-                // stage which is drawn (see ExposureController)
-                eyeAdaptations[i]->applyUniform(new osg::Uniform("MeteringSize", meteringSize));
+                int lumIndex = 1; float lumValue = 1080.0f;
+                for (; lumValue > 2.0f; ++lumIndex)
+                {
+                    float sizeScale = 1.0f / float(1 << lumIndex);
+                    lumValue = osg::maximum((int)lumSize[1], 1080) * sizeScale;
+                    osg::Vec2 invRes(1.0f / osg::maximum((int)lumSize[0], 1920) * sizeScale,
+                                     1.0f / lumValue);
+
+                    std::string id = std::to_string(lumIndex);
+                    std::string lastId = std::to_string(lumIndex - 1);
+                    osgVerse::Pipeline::Stage* lumDownsampling = p->addDeferredStage(
+                        "LuminanceDownsampling" + id, sizeScale, false, spp.shaders.quadVS,
+                        spp.shaders.downsampleFS, 1, ("LogLuminanceBuffer" + id).c_str(),
+                        luminanceBuffer);
+                    lumDownsampling->applyBuffer(
+                        *luminanceStage, "LogLuminanceBuffer" + lastId, "ColorBuffer", 0);
+                    lumDownsampling->applyUniform(new osg::Uniform("InvBufferResolution", invRes));
+                    luminanceStage = lumDownsampling;
+                }
+                exposureSource = luminanceStage->getBufferTexture(
+                    "LogLuminanceBuffer" + std::to_string(lumIndex - 1));
+
+                // Eye adaptation stages: they are a pair of 1x1 buffers which ping-pong the state
+                // of the adaptation (the exposure, in log2). Only one of the two is drawn per frame
+                // and it reads the buffer of the other one, which holds the state of the previous
+                // frame: a single pass being unable to read and write the same buffer, this is what
+                // keeps the whole adaptation on the GPU, with no copy and no readback of it. The
+                // shader averages the metering buffer above, so the adaptation only depends on it
+#if defined(VERSE_EMBEDDED)
+                const osgVerse::Pipeline::BufferType exposureBuffer = osgVerse::Pipeline::RGB_INT8;
+#else
+                const osgVerse::Pipeline::BufferType exposureBuffer = osgVerse::Pipeline::RGB_FLOAT16;
+#endif
+                // A size scale of zero gives the smallest buffer the pipeline can create, which is
+                // the single texel the adaptation needs whatever the size of the window
+                eyeAdaptation0 = p->addDeferredStage("EyeAdaptation0", 0.0f, false,
+                    spp.shaders.quadVS, spp.shaders.exposureAdaptationFS, 1,
+                    "ExposureBuffer0", exposureBuffer);
+                eyeAdaptation1 = p->addDeferredStage("EyeAdaptation1", 0.0f, false,
+                    spp.shaders.quadVS, spp.shaders.exposureAdaptationFS, 1,
+                    "ExposureBuffer1", exposureBuffer);
+                eyeAdaptation0->applyBuffer(*eyeAdaptation1, "ExposureBuffer1", "HistoryBuffer", 0);
+                eyeAdaptation1->applyBuffer(*eyeAdaptation0, "ExposureBuffer0", "HistoryBuffer", 0);
+
+                osg::Vec2 meteringSize((float)exposureSource->getTextureWidth(),
+                                       (float)exposureSource->getTextureHeight());
+                osgVerse::Pipeline::Stage* eyeAdaptations[2] = { eyeAdaptation0, eyeAdaptation1 };
+                for (int i = 0; i < 2; ++i)
+                {
+                    eyeAdaptations[i]->applyTexture(exposureSource, "LuminanceBuffer", 1);
+                    // The metering buffer is a fixed part of the setup, so its size is uploaded
+                    // once here; everything which can be tuned at runtime is set by the controller
+                    // on the stage which is drawn (see ExposureController)
+                    eyeAdaptations[i]->applyUniform(new osg::Uniform("MeteringSize", meteringSize));
+                }
             }
 
             osgVerse::Pipeline::Stage* tonemapping = p->addWorkStage("ToneMapping", 1.0f,
                 spp.shaders.quadVS, spp.shaders.tonemappingFS, 1,
                 "ToneMappedBuffer", osgVerse::Pipeline::RGB_INT8);  // RGB_FLOAT16
             tonemapping->applyBuffer(*shadowing, "CombinedBuffer", "ColorBuffer", 0);
-            tonemapping->applyBuffer(*blooming, "BloomBuffer", 2);
             tonemapping->applyBuffer(*lighting, "IblAmbientBuffer", 4);  // emission is in CombinedBuffer now
+            if (blooming)
+                tonemapping->applyBuffer(*blooming, "BloomBuffer", 2);
+            else
+            {   // Nothing has to be added to the color without the bloom chain, and a black texel
+                // has exactly that effect: the tone mapping shader needs no switch of its own
+                osg::ref_ptr<osg::Texture> black = createSingleTexelTexture(0.0f, 0.0f, 0.0f);
+                tonemapping->applyTexture(black.get(), "BloomBuffer", 2);
+            }
+
             // The exposure is not a uniform any more but the 1x1 buffer of the eye adaptation
             // above: the controller points this sampler to the buffer written by the frame
-            tonemapping->applyBuffer(*eyeAdaptation0, "ExposureBuffer0", "ExposureBuffer", 3);
+            if (eyeAdaptation0)
+                tonemapping->applyBuffer(*eyeAdaptation0, "ExposureBuffer0", "ExposureBuffer", 3);
+            else
+            {   // Without the eye adaptation the scene is displayed as it is: 0.625 is the encoding
+                // of an exposure of 1 over the log2 range of that buffer (see ENCODE_MIN/ENCODE_MAX
+                // in std_exposure_adaptation.frag.glsl and in std_tonemapping.frag.glsl)
+                osg::ref_ptr<osg::Texture> neutral = createSingleTexelTexture(0.625f, 0.0f, 0.0f);
+                tonemapping->applyTexture(neutral.get(), "ExposureBuffer", 3);
+            }
 
             // The controller runs before the first stage of the frame: it swaps the two stages of
             // the eye adaptation pair, points the tone mapping stage above to the one which is
             // written during the frame, and uploads the frame time and the tuning values. Note
             // that the G-Buffer camera has no other pre-draw callback, and that its post-draw one
             // (used by the 3DGS sorter) is left untouched
-            osg::ref_ptr<ExposureController> exposure =
-                new ExposureController(eyeAdaptation0, eyeAdaptation1, tonemapping);
-            gbuffer->camera->setPreDrawCallback(exposure.get());
-            p->setExposureController(exposure.get());
+            if (eyeAdaptation0 && eyeAdaptation1)
+            {
+                osg::ref_ptr<ExposureController> exposure =
+                    new ExposureController(eyeAdaptation0, eyeAdaptation1, tonemapping);
+                gbuffer->camera->setPreDrawCallback(exposure.get());
+                p->setExposureController(exposure.get());
+            }
 
             // Anti-aliasing: temporal anti-aliasing (TAA) is used when enabled, while FXAA is
             // kept as the fallback for devices or configurations which can not run TAA
