@@ -15,6 +15,7 @@
 #include <osgDB/WriteFile>
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
+#include <osgUtil/Optimizer>
 #include <sstream>
 #include <iomanip>
 #include <cctype>
@@ -882,12 +883,13 @@ namespace
 
     struct GlobalNodeOptimizer : public InitParameters::NodeOptimizerBase
     {
-        bool toRemoveFixedFunc, toCreateTangent, toMergeGeode;
+        bool toRemoveFixedFunc, toCreateTangent, toMergeGeode, toOptimize;
         GlobalNodeOptimizer(int flags)
         {
             toRemoveFixedFunc = (flags & FixedFunctionRemoval) != 0;
             toCreateTangent = (flags & TangentCreation) != 0;
             toMergeGeode = (flags & GeodeMerging) != 0;
+            toOptimize = (flags & ClassicOptimizing) != 0;
         }
 
         virtual void removeFixedFunctionData(osg::Node& node)
@@ -904,8 +906,8 @@ namespace
 
         virtual void mergeMultipleGeometries(osg::Node& node)
         {
-            if (!toMergeGeode) return;
-            MergeGeomVisitor mgv; node.accept(mgv);
+            if (toOptimize) { osgUtil::Optimizer opt; opt.optimize(&node); }
+            if (toMergeGeode) { MergeGeomVisitor mgv; node.accept(mgv); }
         }
     };
 

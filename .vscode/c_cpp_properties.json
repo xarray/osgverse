@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "compileCommands": "${workspaceFolder}/build/verse_def/compile_commands.json",
+            "includePath": [
+                "${workspaceFolder}/build/sdk/include",
+                "${workspaceFolder}",
+                "${workspaceFolder}/../OpenSceneGraph/include"
+            ],
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
+            "name": "Windows",
+            "includePath": [
+                "${workspaceFolder}/build/sdk/include",
+                "${workspaceFolder}",
+                "${workspaceFolder}/3rdparty",
+                "${workspaceFolder}/../Dependencies/x86_64/msvc18/include",
+                "${workspaceFolder}/../OpenSceneGraph/include",
+                "${workspaceFolder}/../OpenSceneGraph/src"
+            ],
+            "defines": [ "VERSE_WINDOWS", "GLEW_STATIC", "GLEW_NO_GLU" ],
+            "compilerPath": "cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64"
+        }
+    ],
+    "version": 4
+}

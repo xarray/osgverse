@@ -182,7 +182,12 @@ namespace osgVerse
         double _interval; bool _capturing;
     };
 
-    /** The tangent/binormal computing visitor */
+    /** The tangent/binormal computing visitor.
+        It only collects visitable geometries during the traversal, and generates the tangent
+        arrays for them in parallel when flush() is called (which also happens in the destructor,
+        so "TangentSpaceVisitor tsv; scene->accept(tsv);" keeps working as before).
+        Non-indexed geometries ("triangle soup", which is common for CAD/BIM exports) are handled
+        with a much faster O(N) per-face algorithm; other geometries still use MikkTSpace. */
     class TangentSpaceVisitor : public osg::NodeVisitor
     {
     public:
@@ -191,9 +196,17 @@ namespace osgVerse
         virtual void apply(osg::Geode& node);
         virtual void apply(osg::Geometry& geometry);
 
+        /** Generate tangent arrays for all collected geometries in parallel;
+            calling it more than once is safe as it does nothing after the first time */
+        void flush();
+
+        /** Set the number of worker threads; <= 0 means using all hardware threads */
+        void setNumThreads(int num) { _numThreads = num; }
+        int getNumThreads() const { return _numThreads; }
+
     protected:
-        SMikkTSpaceContext* _mikkiTSpace;
-        float _angularThreshold;
+        std::vector<osg::ref_ptr<osg::Geometry>> _geometries;
+        float _angularThreshold; int _numThreads;
     };
 
     /** The normal-map & specular-map generator */

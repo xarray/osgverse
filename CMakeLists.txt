@@ -13,6 +13,12 @@ SET_PROPERTY(GLOBAL PROPERTY VERSE_PLUGIN_LIBRARIES "")
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 INCLUDE(VerseMacros)
 
+# Let IDE tooling (VSCode C/C++, clangd, ...) reuse the exact include paths, defines and forced
+# includes of this build tree instead of duplicating them in editor-specific settings files.
+# The file is written to "<build dir>/compile_commands.json"; it is only implemented by the
+# Makefile and Ninja generators and silently ignored by the others (e.g. Visual Studio).
+SET(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 IF(POLICY CMP0146)
     CMAKE_POLICY(SET CMP0146 OLD)
 ENDIF()

@@ -425,6 +425,7 @@ namespace osgVerse
     {
         NoParameters = 0, FixedFunctionRemoval = 0x1, TangentCreation = 0x2,
         GeodeMerging = 0x4, GaussianSorting = 0x8, DontVertifySSL = 0x10,
+        ClassicOptimizing = 0x20,
 #if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
         DefaultParameters = FixedFunctionRemoval | TangentCreation | GaussianSorting
 #else

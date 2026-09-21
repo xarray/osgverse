@@ -212,36 +212,37 @@ protected:
 
     osg::Node* createFromFolder(const std::string& prefix) const
     {
-        osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode;
+        osg::ref_ptr<osg::Group> group = new osg::Group;
         osgDB::DirectoryContents tiles = osgDB::getDirectoryContents(prefix);
         for (size_t i = 0; i < tiles.size(); ++i)
         {
             const std::string& tName = tiles[i];
+            if (tName.empty() || tName[0] == '.') continue;
+
             std::string ext = osgDB::getFileExtension(tName);
-            std::string file = prefix + "/" + tName + "/" + tName + ".osgb";
-            if (tName.empty() || !ext.empty()) continue;
-            if (tName[0] == '.') continue;
-            tileProxy->setFileName(i, file);
-        }
-
-        if (tileProxy->getNumFileNames() == 0)
-        {
-            osg::ref_ptr<osg::Group> group = new osg::Group;
-            for (size_t i = 0; i < tiles.size(); ++i)
+            if (ext.empty())
             {
-                const std::string& tName = tiles[i];
-                if (tName[0] == '.') continue;
-
-                osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(prefix + "/" + tName);
-                if (node.valid())
+                std::string file = prefix + "/" + tName + "/" + tName + ".osgb";
+                osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode;
+                tileProxy->setFileName(0, file); group->addChild(tileProxy.get());
+            }
+            else
+            {
+                if (group->getNumChildren() > 0 &&
+                    osgDB::Registry::instance()->getReaderWriterForExtension(ext))
                 {
-                    OSG_NOTICE << "[ReaderWriter3dtiles] Loaded " << tName << std::endl;
-                    group->addChild(node.get());
+                    osg::ref_ptr<osg::ProxyNode> tileProxy = new osg::ProxyNode;
+                    tileProxy->setFileName(0, prefix + "/" + tName);
+                    group->addChild(tileProxy.get());
+                }
+                else
+                {
+                    osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(prefix + "/" + tName);
+                    if (node.valid()) group->addChild(node.get());
                 }
             }
-            return group.release();
         }
-        return tileProxy.release();
+        return group.release();
     }
     
     osg::Node* createTileChildren(picojson::array& children, const std::string& name,

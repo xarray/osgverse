@@ -21,6 +21,11 @@
 #include <iostream>
 #include <array>
 #include <random>
+#include <thread>
+
+#if defined(_OPENMP)
+#   include <omp.h>
+#endif
 
 #include <backward.hpp>
 #include <tinycolormap.hpp>
@@ -352,49 +357,126 @@ namespace osgVerse
     }
 }
 
-typedef std::array<unsigned int, 3> Vec3ui;
 static std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 static std::default_random_engine generator;
 
-/// MikkTSpace visitor utilities
+/// MikkTSpace & tangent-space generation utilities
 struct MikkTSpaceHelper
 {
-    std::vector<Vec3ui> _faceList;
-    osg::Vec4Array *tangents;
-    osg::Geometry* _geometry;
+    std::vector<unsigned int> _faceList;   // 3 vertex indices for each collected triangle
+    osg::ref_ptr<osg::Vec4Array> _tangents;
+    const osg::Vec3 *_positions, *_normals;
+    const osg::Vec2* _texcoords;
+    unsigned int _numVertices;
+    bool _hasSharedVertices;
 
-    bool initialize(SMikkTSpaceContext* sc, osg::Geometry* g)
+    MikkTSpaceHelper()
+    :   _positions(NULL), _normals(NULL), _texcoords(NULL),
+        _numVertices(0), _hasSharedVertices(false) {}
+
+    void operator()(unsigned int i0, unsigned int i1, unsigned int i2)
+    { _faceList.push_back(i0); _faceList.push_back(i1); _faceList.push_back(i2); }
+
+    /** Cache geometry data so that MikkTSpace callbacks don't have to look into the geometry
+        millions of times, and find out if any vertex is shared by more than one triangle */
+    bool initialize(osg::Geometry* g)
     {
-        sc->m_pInterface->m_getNumFaces = MikkTSpaceHelper::mikk_getNumFaces;
-        sc->m_pInterface->m_getNumVerticesOfFace = MikkTSpaceHelper::mikk_getNumVerticesOfFace;
-        sc->m_pInterface->m_getPosition = MikkTSpaceHelper::mikk_getPosition;
-        sc->m_pInterface->m_getNormal = MikkTSpaceHelper::mikk_getNormal;
-        sc->m_pInterface->m_getTexCoord = MikkTSpaceHelper::mikk_getTexCoord;
-        sc->m_pInterface->m_setTSpaceBasic = MikkTSpaceHelper::mikk_setTSpaceBasic;
-        sc->m_pInterface->m_setTSpace = NULL; sc->m_pUserData = this; _geometry = g;
+        osg::Vec3Array* va = static_cast<osg::Vec3Array*>(g->getVertexArray());
+        osg::Vec3Array* na = static_cast<osg::Vec3Array*>(g->getNormalArray());
+        osg::Vec2Array* ta = static_cast<osg::Vec2Array*>(g->getTexCoordArray(0));
+        if (va == NULL || na == NULL || ta == NULL || _faceList.empty()) return false;
 
-        osg::Vec3Array* va = vArray(); osg::Vec3Array* na = nArray();
-        osg::Vec2Array* ta = tArray();
-        if (!va || !na || !ta) return false;
-        if (va->size() != na->size() || va->size() != ta->size()) return false;
+        _numVertices = va->size();
+        if (_numVertices == 0 || _numVertices != na->size() || _numVertices != ta->size())
+            return false;
 
-        tangents = new osg::Vec4Array(va->size());
-        g->setVertexAttribArray(6, tangents); g->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
+        std::vector<bool> used(_numVertices, false);
+        for (size_t i = 0; i < _faceList.size(); ++i)
+        {
+            const unsigned int index = _faceList[i];
+            if (index >= _numVertices) return false;
+            if (used[index]) { _hasSharedVertices = true; break; }
+            used[index] = true;
+        }
+
+        _positions = &va->front(); _normals = &na->front(); _texcoords = &ta->front();
+        _tangents = new osg::Vec4Array(_numVertices);
         return true;
     }
 
-    osg::Vec3Array* vArray() { return static_cast<osg::Vec3Array*>(_geometry->getVertexArray()); }
-    osg::Vec3Array* nArray() { return static_cast<osg::Vec3Array*>(_geometry->getNormalArray()); }
-    osg::Vec2Array* tArray() { return static_cast<osg::Vec2Array*>(_geometry->getTexCoordArray(0)); }
+    /** Standard MikkTSpace algorithm, used when some vertices are shared by several triangles */
+    bool generateMikktSpace(float angularThreshold)
+    {
+        SMikkTSpaceContext context; SMikkTSpaceInterface interfaceDesc;
+        memset(&context, 0, sizeof(context)); memset(&interfaceDesc, 0, sizeof(interfaceDesc));
+        interfaceDesc.m_getNumFaces = MikkTSpaceHelper::mikk_getNumFaces;
+        interfaceDesc.m_getNumVerticesOfFace = MikkTSpaceHelper::mikk_getNumVerticesOfFace;
+        interfaceDesc.m_getPosition = MikkTSpaceHelper::mikk_getPosition;
+        interfaceDesc.m_getNormal = MikkTSpaceHelper::mikk_getNormal;
+        interfaceDesc.m_getTexCoord = MikkTSpaceHelper::mikk_getTexCoord;
+        interfaceDesc.m_setTSpaceBasic = MikkTSpaceHelper::mikk_setTSpaceBasic;
+        interfaceDesc.m_setTSpace = NULL;
 
-    void operator()(unsigned int i0, unsigned int i1, unsigned int i2)
-    { _faceList.push_back(Vec3ui{i0, i1, i2}); }
+        context.m_pInterface = &interfaceDesc; context.m_pUserData = this;
+        return genTangSpace(&context, angularThreshold) ? true : false;
+    }
+
+    /** Fast path for non-indexed geometries ("triangle soup", which is very common for CAD/BIM
+        exports): every vertex belongs to exactly one triangle, so the per-face tangent space is
+        by definition the per-vertex one. This skips all welding/grouping work of MikkTSpace and
+        only costs O(N) simple math. It is also safe to run over faces in parallel as different
+        faces necessarily write different vertices. */
+    void generateFastTangents()
+    {
+        const size_t numFaces = _faceList.size() / 3;
+        const unsigned int* faces = &_faceList[0];
+        const osg::Vec3* positions = _positions;
+        const osg::Vec3* normals = _normals;
+        const osg::Vec2* texcoords = _texcoords;
+        osg::Vec4* tangents = &(*_tangents)[0];
+
+#pragma omp parallel for schedule(static)
+        for (long f = 0; f < (long)numFaces; ++f)
+        {
+            const unsigned int i0 = faces[f * 3], i1 = faces[f * 3 + 1], i2 = faces[f * 3 + 2];
+            const osg::Vec2 duv1 = texcoords[i1] - texcoords[i0];
+            const osg::Vec2 duv2 = texcoords[i2] - texcoords[i0];
+            const float det = duv1[0] * duv2[1] - duv1[1] * duv2[0];
+
+            osg::Vec3 tangent(0.0f, 0.0f, 0.0f);
+            if (fabsf(det) > 1e-20f)
+            {
+                // first order derivatives, same as eq.18 in mikktspace.c; flipping for negative
+                // UV orientation is what MikkTSpace does with its fS variable as well
+                tangent = (positions[i1] - positions[i0]) * duv2[1] -
+                          (positions[i2] - positions[i0]) * duv1[1];
+                if (det < 0.0f) tangent = -tangent;
+            }
+
+            const float handedness = (det > 0.0f) ? 1.0f : -1.0f;
+            for (int c = 0; c < 3; ++c)
+            {
+                const unsigned int index = faces[f * 3 + c];
+                const osg::Vec3& n = normals[index];
+                osg::Vec3 t = tangent - n * (n * tangent);
+                float len = t.length();
+                if (len > 1e-12f) t /= len;
+                else   // degenerated triangle / UV: build an arbitrary tangent from the normal
+                {
+                    osg::Vec3 axis = (fabsf(n[2]) < 0.9f) ? osg::Z_AXIS : osg::X_AXIS;
+                    t = axis ^ n; len = t.length();
+                    if (len > 1e-12f) t /= len; else t.set(1.0f, 0.0f, 0.0f);
+                }
+                tangents[index].set(t[0], t[1], t[2], handedness);
+            }
+        }
+    }
 
     static MikkTSpaceHelper* me(const SMikkTSpaceContext* pContext)
     { return static_cast<MikkTSpaceHelper*>(pContext->m_pUserData); }
 
     static int mikk_getNumFaces(const SMikkTSpaceContext* pContext)
-    { return (int)me(pContext)->_faceList.size(); }
+    { return (int)(me(pContext)->_faceList.size() / 3); }
 
     static int mikk_getNumVerticesOfFace(const SMikkTSpaceContext* pContext, const int iFace)
     { return 3; }
@@ -402,34 +484,33 @@ struct MikkTSpaceHelper
     static void mikk_getPosition(const SMikkTSpaceContext* pContext, float fvPosOut[],
                                  const int iFace, const int iVert)
     {
-        osg::Vec3Array* vArray = me(pContext)->vArray();
-        const osg::Vec3& v = vArray->at(me(pContext)->_faceList[iFace][iVert]);
+        const MikkTSpaceHelper* self = me(pContext);
+        const osg::Vec3& v = self->_positions[self->_faceList[iFace * 3 + iVert]];
         for (int i = 0; i < 3; ++i) fvPosOut[i] = v[i];
     }
 
     static void mikk_getNormal(const SMikkTSpaceContext* pContext, float fvNormOut[],
                                const int iFace, const int iVert)
     {
-        osg::Vec3Array* nArray = me(pContext)->nArray();
-        const osg::Vec3& v = nArray->at(me(pContext)->_faceList[iFace][iVert]);
+        const MikkTSpaceHelper* self = me(pContext);
+        const osg::Vec3& v = self->_normals[self->_faceList[iFace * 3 + iVert]];
         for (int i = 0; i < 3; ++i) fvNormOut[i] = v[i];
     }
 
     static void mikk_getTexCoord(const SMikkTSpaceContext* pContext, float fvTexcOut[],
                                  const int iFace, const int iVert)
     {
-        osg::Vec2Array* tArray = me(pContext)->tArray();
-        const osg::Vec2& v = tArray->at(me(pContext)->_faceList[iFace][iVert]);
+        const MikkTSpaceHelper* self = me(pContext);
+        const osg::Vec2& v = self->_texcoords[self->_faceList[iFace * 3 + iVert]];
         for (int i = 0; i < 2; ++i) fvTexcOut[i] = v[i];
     }
 
     static void mikk_setTSpaceBasic(const SMikkTSpaceContext* pContext, const float fvTangent[],
                                     const float fSign, const int iFace, const int iVert)
     {
-        MikkTSpaceHelper* self = me(pContext); unsigned int vIndex = self->_faceList[iFace][iVert];
-        osg::Vec4 T(fvTangent[0], fvTangent[1], fvTangent[2], fSign);
-        //osg::Vec3 N = self->nArray()->at(vIndex); osg::Vec3 B = (N ^ T) * fSign;
-        (*self->tangents)[vIndex] = T; //(*self->binormals)[vIndex] = B;
+        MikkTSpaceHelper* self = me(pContext);
+        unsigned int vIndex = self->_faceList[iFace * 3 + iVert];
+        (*self->_tangents)[vIndex] = osg::Vec4(fvTangent[0], fvTangent[1], fvTangent[2], fSign);
     }
 };
 
@@ -1073,20 +1154,65 @@ namespace osgVerse
     }
 
     TangentSpaceVisitor::TangentSpaceVisitor(const float threshold)
-    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), _angularThreshold(threshold)
-    {
-        _mikkiTSpace = new SMikkTSpaceContext;
-        _mikkiTSpace->m_pInterface = new SMikkTSpaceInterface;
-        _mikkiTSpace->m_pUserData = NULL;
-    }
+    :   osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _angularThreshold(threshold), _numThreads(0)
+    {}
 
     TangentSpaceVisitor::~TangentSpaceVisitor()
     {
-        if (_mikkiTSpace != NULL)
+        flush();
+    }
+
+    void TangentSpaceVisitor::flush()
+    {
+        if (_geometries.empty()) return;
+
+        int numThreads = _numThreads;
+        if (numThreads <= 0)
         {
-            if (_mikkiTSpace->m_pInterface) delete _mikkiTSpace->m_pInterface;
-            delete _mikkiTSpace; _mikkiTSpace = NULL;
+            numThreads = (int)std::thread::hardware_concurrency();
+            if (numThreads <= 0) numThreads = 1;
         }
+
+        const size_t numGeometries = _geometries.size();
+        std::vector<osg::Geometry*> geomList(numGeometries);
+        std::vector<osg::ref_ptr<osg::Vec4Array>> tangentList(numGeometries);
+        for (size_t i = 0; i < numGeometries; ++i) geomList[i] = _geometries[i].get();
+
+#if defined(_OPENMP)
+        omp_set_num_threads(numThreads);
+#endif
+
+        // Geometries are independent from each other, so they can be processed simultaneously
+#pragma omp parallel for schedule(dynamic) if(numThreads > 1 && numGeometries > 1)
+        for (long i = 0; i < (long)numGeometries; ++i)
+        {
+            osg::Geometry* geom = geomList[i];
+            osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
+            geom->accept(functor);
+            if (!functor.initialize(geom)) continue;
+
+            if (functor._hasSharedVertices)
+            {
+                if (functor.generateMikktSpace(_angularThreshold))
+                    tangentList[i] = functor._tangents;
+            }
+            else
+            {
+                functor.generateFastTangents();
+                tangentList[i] = functor._tangents;
+            }
+        }
+
+        // Adding the arrays to geometries must be done on a single thread, as dirtyBound()
+        // may be propagated to shared parents and is not thread-safe
+        for (size_t i = 0; i < numGeometries; ++i)
+        {
+            if (!tangentList[i].valid()) continue;
+            _geometries[i]->setVertexAttribArray(6, tangentList[i].get());
+            _geometries[i]->setVertexAttribBinding(6, osg::Geometry::BIND_PER_VERTEX);
+        }
+        _geometries.clear();
     }
 
     void TangentSpaceVisitor::apply(osg::Geode& node)
@@ -1118,10 +1244,7 @@ namespace osgVerse
             geom.getVertexAttribBinding(6) == osg::Geometry::BIND_PER_VERTEX) return;
 #endif
 
-        osg::TriangleIndexFunctor<MikkTSpaceHelper> functor;
-        geom.accept(functor);
-        if (functor.initialize(_mikkiTSpace, &geom))
-            genTangSpace(_mikkiTSpace, _angularThreshold);
+        _geometries.push_back(&geom);
 #if OSG_VERSION_GREATER_THAN(3, 4, 1)
         traverse(geom);
 #endif

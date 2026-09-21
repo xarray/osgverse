@@ -161,7 +161,12 @@ void addStagesToHUD(osgVerse::Pipeline* pipeline, osg::Camera* camera)
 
 int main(int argc, char** argv)
 {
-    osg::ArgumentParser arguments = osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters());
+    osg::ArgumentParser arguments(&argc, argv);
+    int initFlags = osgVerse::TangentCreation | osgVerse::GaussianSorting;
+    if (arguments.read("--no-tangent")) initFlags &= ~osgVerse::TangentCreation;
+    if (arguments.read("--optimize")) initFlags |= osgVerse::ClassicOptimizing;
+
+    osgVerse::globalInitialize(argc, argv, osgVerse::defaultInitParameters(initFlags));
     osg::setNotifyHandler(new osgVerse::ConsoleHandler);
     osgVerse::updateOsgBinaryWrappers();
 
