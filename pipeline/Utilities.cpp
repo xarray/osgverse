@@ -44,12 +44,14 @@
 #include "Utilities.h"
 using namespace osgVerse;
 
-#if defined(_WIN32) || defined(WIN32)
+#ifdef VERSE_ENABLE_OPTIMUS_NVGPU
+#  if defined(_WIN32) || defined(WIN32)
 extern "C"
 {
     _declspec(dllexport) unsigned long NvOptimusEnablement = 1;
     _declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
+#  endif
 #endif
 
 #define APPLY_PROGRAM(ss, vsCode, fsCode) { \

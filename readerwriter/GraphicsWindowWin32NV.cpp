@@ -171,6 +171,30 @@ namespace
         WindowHandles _activeWindows;
         bool _windowClassesRegistered;
     };
+
+    static bool areWindowDimensionsChanged(HWND hwnd, int screenOriginX, int screenOriginY,
+                                           int& windowX, int& windowY, int& windowWidth, int& windowHeight)
+    {
+        POINT origin; origin.x = 0; origin.y = 0;
+        ::ClientToScreen(hwnd, &origin);
+
+        int new_windowX = origin.x - screenOriginX;
+        int new_windowY = origin.y - screenOriginY;
+        RECT clientRect; ::GetClientRect(hwnd, &clientRect);
+
+        int new_windowWidth = (clientRect.right == 0) ? 1 : clientRect.right;
+        int new_windowHeight = (clientRect.bottom == 0) ? 1 : clientRect.bottom;
+        if ((new_windowX != windowX) || (new_windowY != windowY) ||
+            (new_windowWidth != windowWidth) || (new_windowHeight != windowHeight))
+        {
+            windowX = new_windowX; windowY = new_windowY;
+            windowWidth = new_windowWidth;
+            windowHeight = new_windowHeight;
+            return true;
+        }
+        else
+            return false;
+    }
 }
 
 std::string Win32WindowingSystemNV::osgGraphicsWindowWithCursorClass;
@@ -240,10 +264,59 @@ GraphicsWindowWin32NV::GraphicsWindowWin32NV(osg::GraphicsContext::Traits* trait
     wglCreateAffinityDCNV = (PFNWGLCREATEAFFINITYDCNV)wglGetProcAddress("wglCreateAffinityDCNV");
     wglEnumGpusFromAffinityDCNV = (PFNWGLENUMGPUSFROMAFFINITYDCNV)wglGetProcAddress("wglEnumGpusFromAffinityDCNV");
     wglDeleteDCNV = (PFNWGLDELETEDCNV)wglGetProcAddress("wglDeleteDCNV");
+
+    if (_initialized)
+    {
+        // Ugly way to close created window by GraphicsWindowWin32 first...
+        osgViewer::GraphicsWindowWin32::destroyWindow();
+        osgViewer::GraphicsWindowWin32::close();
+        _initialized = false;
+    }
+
+    init();
+    if (valid())
+    {
+        setState(new osg::State);
+        getState()->setGraphicsContext(this);
+        if (_traits.valid() && _traits->sharedContext.valid())
+        {
+            getState()->setContextID(_traits->sharedContext->getState()->getContextID());
+            incrementContextIDUsageCount(getState()->getContextID());
+        }
+        else
+            getState()->setContextID(osg::GraphicsContext::createNewContextID());
+    }
 }
 
 GraphicsWindowWin32NV::~GraphicsWindowWin32NV()
 {}
+
+void GraphicsWindowWin32NV::init()
+{
+    if (_initialized) return;
+
+    WindowData* windowData = _traits.valid() ? dynamic_cast<WindowData*>(_traits->inheritedWindowData.get()) : 0;
+    HWND windowHandle = windowData ? windowData->_hwnd : 0;
+    _ownsWindow = windowHandle == 0;
+    _closeWindow = false; _destroyWindow = false; _destroying = false;
+    _initialized = _ownsWindow ? createWindow() : setWindow(windowHandle);
+    _valid = _initialized;
+
+    int windowX = 0, windowY = 0, windowWidth = 0, windowHeight = 0;
+    if (_traits.valid())
+    {
+        windowX = _traits->x; windowY = _traits->y;
+        windowWidth = _traits->width;
+        windowHeight = _traits->height;
+    }
+
+    if (areWindowDimensionsChanged(_hwnd, _screenOriginX, _screenOriginY,
+                                   windowX, windowY, windowWidth, windowHeight))
+    { resized(windowX, windowY, windowWidth, windowHeight); }
+
+    // make sure the event queue has the correct window rectangle size and input range
+    getEventQueue()->syncWindowRectangleWithGraphicsContext();
+}
 
 bool GraphicsWindowWin32NV::createWindow()
 {
@@ -294,10 +367,17 @@ bool GraphicsWindowWin32NV::createWindow()
             _hdc = wglCreateAffinityDCNV(gpuMask);
             _dcCreatedForSpecGPU = true;
         }
+        OSG_NOTICE << "[GraphicsWindowWin32NV] Get " << gpuHandles.size() << " GPU handles. ";
+        if (!_dcCreatedForSpecGPU) OSG_NOTICE << "Ignored and create default HDC anyway." << std::endl;
+        else OSG_NOTICE << "Selected GPU-" << selectedGPU << " manually for HDC creation." << std::endl;
+    }
+    else
+    {
+        if (wglCreateAffinityDCNV == NULL) OSG_NOTICE << "wglCreateAffinityDCNV() not exist. ";
+        OSG_NOTICE << "Unable to select GPU manually." << std::endl;
     }
 
-    if (_hdc == 0)
-        _hdc = ::GetDC(_hwnd);
+    if (_hdc == 0) _hdc = ::GetDC(_hwnd);
     if (_hdc == 0)
     {
         OSG_WARN << "[GraphicsWindowWin32NV] Unable to get window device context: "

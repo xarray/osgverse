@@ -26,6 +26,7 @@ namespace osgVerse
         virtual const char* libraryName() const { return "osgVerse"; }
         virtual const char* className() const { return "GraphicsWindowWin32NV"; }
 
+        virtual void init();
         virtual bool createWindow();
         virtual void destroyWindow(bool deleteNativeWindow = true);
 

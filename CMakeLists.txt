@@ -310,6 +310,7 @@ SET(VERSE_BUILD_WITH_ANGLE OFF CACHE BOOL "Enable to support Vulkan interface if
 SET(VERSE_BUILD_DEPRECATED_TESTS OFF CACHE BOOL "Enable build of deprecated tests")
 SET(VERSE_STATIC_BUILD OFF CACHE BOOL "Enable static build of osgVerse libraries")
 SET(VERSE_USE_OSG_STATIC OFF CACHE BOOL "Use static build of OpenSceneGraph (will force osgVerse to be static)")
+SET(VERSE_USE_NVGPU_ON_OPTIMUS ON CACHE BOOL "Use high-performance GPU on Nvidia Optimus systems")
 SET(VERSE_USE_MTT_DRIVER OFF CACHE BOOL "Use MooreThreads MTT drivers (OpenGL implementation may be slightly different)")
 SET(VERSE_SUPPORT_CPP17 ON CACHE BOOL "Enable build of libraries using C++ 17 standard (otherwise use C++ 14)")
 
