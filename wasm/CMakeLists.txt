@@ -66,6 +66,50 @@ ELSE()
     ENDIF(VERSE_WASM_OPTIMIZE_SIZE)
 ENDIF()
 
+# Compress the generated WASM outputs (xxx.html / .js / .wasm / .data), so that a web server can
+# serve them with "Content-Encoding" and browsers will decompress them automatically, without any
+# change in HTML or the loader script (see wasm/run_webserver.py for the server-side part).
+# The original files are always kept, which helps local debugging and other web servers.
+SET(VERSE_WASM_OUTPUT_FORMAT "gz" CACHE STRING
+    "Compression format of WASM outputs: gz (default) / brotli / empty to disable it")
+STRING(TOLOWER "${VERSE_WASM_OUTPUT_FORMAT}" VERSE_WASM_OUTPUT_FORMAT_LC)
+
+SET(WASM_OUTPUT_COMPRESSOR "")
+SET(WASM_OUTPUT_COMPRESS_ARGS "")
+IF(VERSE_WASM_OUTPUT_FORMAT_LC STREQUAL "gz")
+    FIND_PROGRAM(GZIP_EXECUTABLE NAMES gzip)
+    SET(WASM_OUTPUT_COMPRESSOR "${GZIP_EXECUTABLE}")
+    SET(WASM_OUTPUT_COMPRESS_ARGS -9 -k -f)
+    SET(WASM_OUTPUT_TOOL_NAME "gzip")
+ELSEIF(VERSE_WASM_OUTPUT_FORMAT_LC STREQUAL "brotli")
+    FIND_PROGRAM(BROTLI_EXECUTABLE NAMES brotli)
+    SET(WASM_OUTPUT_COMPRESSOR "${BROTLI_EXECUTABLE}")
+    SET(WASM_OUTPUT_COMPRESS_ARGS -q 11 -k -f)
+    SET(WASM_OUTPUT_TOOL_NAME "brotli")
+ELSEIF(VERSE_WASM_OUTPUT_FORMAT_LC STREQUAL "")
+    MESSAGE(STATUS "[osgVerse] WASM outputs will not be compressed")
+ELSE()
+    MESSAGE(STATUS "[osgVerse] Unknown VERSE_WASM_OUTPUT_FORMAT '${VERSE_WASM_OUTPUT_FORMAT}', no compression will be applied")
+ENDIF()
+
+IF(WASM_OUTPUT_TOOL_NAME AND NOT WASM_OUTPUT_COMPRESSOR)
+    MESSAGE(STATUS "[osgVerse] Compressor ${WASM_OUTPUT_TOOL_NAME} is not found, WASM outputs will not be compressed")
+ENDIF()
+
+# Post-process the built WASM outputs, which should be called after NEW_EXECUTABLE() of your target
+FUNCTION(WASM_POST_OUTPUT TARGET)
+    IF(NOT WASM_OUTPUT_COMPRESSOR)
+        RETURN()
+    ENDIF()
+    SET(OUTPUT_PREFIX "$<TARGET_FILE_DIR:${TARGET}>/$<TARGET_FILE_BASE_NAME:${TARGET}>")
+    ADD_CUSTOM_COMMAND(TARGET ${TARGET} POST_BUILD
+        COMMAND ${WASM_OUTPUT_COMPRESSOR} ${WASM_OUTPUT_COMPRESS_ARGS}
+                "${OUTPUT_PREFIX}.html" "${OUTPUT_PREFIX}.js"
+                "${OUTPUT_PREFIX}.wasm" "${OUTPUT_PREFIX}.data"
+        COMMENT "[osgVerse] Compressing outputs of ${TARGET} in ${VERSE_WASM_OUTPUT_FORMAT} format"
+        VERBATIM)
+ENDFUNCTION()
+
 ADD_SUBDIRECTORY(pbr_demo)
 ADD_SUBDIRECTORY(script_demo)
 #ADD_SUBDIRECTORY(earth_demo)

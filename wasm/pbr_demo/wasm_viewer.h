@@ -54,7 +54,7 @@ public:
     {
         _logger = new NotifyLogger;
         osg::setNotifyHandler(_logger.get());
-        osg::setNotifyLevel(osg::INFO);
+        osg::setNotifyLevel(osg::WARN);  // only warnings and errors are shown in console
     }
 
     ~Application()

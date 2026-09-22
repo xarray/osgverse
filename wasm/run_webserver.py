@@ -11,6 +11,9 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import ssl, os, sys, mimetypes
 
 class RequestHandler(SimpleHTTPRequestHandler):
+    # Pre-compressed variants of each file, in the order of preference
+    COMPRESSED_VARIANTS = (('.br', 'br'), ('.gz', 'gzip'))
+
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
@@ -21,34 +24,59 @@ class RequestHandler(SimpleHTTPRequestHandler):
         path = self.path.split('?')[0]
         path = path.split('#')[0]
         file_path = self.translate_path(path)
-        if os.path.exists(file_path):
-            if file_path.endswith('.gz'):
-                self.serve_gzip_file(file_path)
-            else:
-                super().do_GET()
+        encoding = self.get_encoding_for_suffix(file_path)
+        if encoding and os.path.exists(file_path):
+            # The client is explicitly requesting a pre-compressed file (xxx.wasm.gz / .br)
+            self.serve_compressed_file(file_path, encoding)
         else:
-            gz_path = file_path + '.gz'
-            if os.path.exists(gz_path):
-                self.serve_gzip_file(gz_path)
+            variant = None if encoding else self.find_compressed_variant(file_path)
+            if variant:
+                self.serve_compressed_file(variant[0], variant[1])
+            elif os.path.exists(file_path):
+                super().do_GET()
             else:
                 self.send_error(404, f"File not found: {path}")
 
-    def serve_gzip_file(self, gz_path):
+    def get_encoding_for_suffix(self, file_path):
+        for suffix, encoding in self.COMPRESSED_VARIANTS:
+            if file_path.endswith(suffix):
+                return encoding
+        return None
+
+    def accepts_encoding(self, encoding):
+        return encoding in self.headers.get('Accept-Encoding', '').lower()
+
+    def find_compressed_variant(self, file_path):
+        """Find a pre-compressed variant accepted by the client. It should be newer than the
+           original file, so that stale compressed copies are never sent to the browser"""
+        for suffix, encoding in self.COMPRESSED_VARIANTS:
+            if not self.accepts_encoding(encoding):
+                continue
+            variant_path = file_path + suffix
+            if not os.path.exists(variant_path):
+                continue
+            if os.path.exists(file_path) and \
+                os.path.getmtime(variant_path) < os.path.getmtime(file_path):
+                continue
+            return variant_path, encoding
+        return None
+
+    def serve_compressed_file(self, compressed_path, encoding):
         try:
-            with open(gz_path, 'rb') as f:
-                gz_content = f.read()
-                file_size = len(gz_content)
-            original_filename = os.path.basename(gz_path)[:-3]  # remove .gz
+            with open(compressed_path, 'rb') as f:
+                content = f.read()
+            original_filename = os.path.basename(os.path.splitext(compressed_path)[0])
             mime_type = self.get_mime_type(original_filename)
 
             self.send_response(200)
             self.send_header("Content-Type", mime_type)
-            self.send_header("Content-Length", str(file_size))
-            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Content-Encoding", encoding)
+            self.send_header("Vary", "Accept-Encoding")
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(gz_content)
+            self.wfile.write(content)
 
         except Exception as e:
             self.send_error(500, f"Server error: {str(e)}")

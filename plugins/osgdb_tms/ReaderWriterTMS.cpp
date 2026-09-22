@@ -51,6 +51,23 @@
            //int newY = pow(2, z + 1) - y, newZ = z + 1;  // if "OriginBottomLeft=0"
            return osgVerse::TileCallback::createPath(prefix, x, newY, newZ); }
 */
+// The Web / WebP plugins are used to resolve remote tile paths, and should be requested
+// only after all plugins have been registered. Requesting them in the constructor is
+// unsafe: the constructor may be called during the static initialization stage, when the
+// target plugins are not ready yet, and the failed dynamic library loading will break
+// the whole program (e.g. an AddressSanitizer abort under WebAssembly)
+namespace
+{
+struct WebPluginPreloader
+{
+    WebPluginPreloader()
+    {
+        osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
+        osgDB::Registry::instance()->getReaderWriterForExtension("verse_webp");
+    }
+};
+}
+
 class ReaderWriterTMS : public osgDB::ReaderWriter
 {
 public:
@@ -74,8 +91,6 @@ public:
         supportsOption("MaximumLevel", "Set maximum level (Z) to load: default 0 (infinite)");
         supportsOption("TileSkirtRatio", "Create skirts for every tile: default 0.02");
         supportsOption("TileElevationScale", "Set elevation scale for every tile: default 1.0");
-        osgDB::Registry::instance()->getReaderWriterForExtension("verse_web");
-        osgDB::Registry::instance()->getReaderWriterForExtension("verse_webp");
     }
 
     virtual const char* className() const
@@ -89,6 +104,8 @@ public:
         std::string ext = osgDB::getLowerCaseFileExtension(path);
         if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
+        // Make sure Web / WebP plugins are ready before resolving remote tile paths
+        static WebPluginPreloader s_webPlugins;
         bool usePseudo = (ext == "verse_tms"), useWM = true;
         if (usePseudo)
         {

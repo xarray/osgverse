@@ -1,7 +1,15 @@
 #include "internal.hpp"
 #include "binding.hpp"
 #include <optional.hpp>
-#ifdef _WIN32
+
+#if defined(_MSC_VER)
+    #if _MSC_VER >= 1931 && __has_include(<__msvc_int128.hpp>)
+        #include <__msvc_int128.hpp>
+    #elif __has_include("__msvc_int128.hpp")
+        #include "__msvc_int128.hpp"
+    #endif
+#endif
+#if defined(MSVC) && MSV
 #   include <__msvc_int128.hpp>
 #endif
 

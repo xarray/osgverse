@@ -31,6 +31,7 @@ IF(USE_WASM_OSGEARTH)
                           osgVersePipeline osgVerseScript osgVerseWrappers)
     LINK_OSG_LIBRARY(${EXE_NAME} OpenThreads osg osgDB osgUtil osgGA osgText osgSim osgTerrain osgShadow osgViewer)
     TARGET_COMPILE_OPTIONS(${EXE_NAME} PUBLIC -D_SCL_SECURE_NO_WARNINGS)
+    WASM_POST_OUTPUT(${EXE_NAME})
 
 ELSE(USE_WASM_OSGEARTH)
 
