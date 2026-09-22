@@ -14,36 +14,42 @@ uniform vec4 CascadeFarDepths;  // far view distance of each cascade
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
 
-#define GET_SHADOW(map, uv, z) getShadowValue(map, uv, z)
+#define GET_SHADOW(map, uv, z, bias) getShadowValue(map, uv, z, bias)
 #ifdef VERSE_SHADOW_POSSION_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize, bias)
 #endif
 #ifdef VERSE_SHADOW_BAND_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize, bias)
 #endif
 #ifdef VERSE_SHADOW_VSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_VSM(map, uv, z, 0.0008)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_VSM(map, uv, z, 0.0008)
 #endif
 #ifdef VERSE_SHADOW_ESM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_ESM(map, uv, z, 0.33, 15.0)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_ESM(map, uv, z, 0.33, 15.0)
 #endif
 #ifdef VERSE_SHADOW_EVSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008)
 #endif
 
-float getCascadeShadowValue(in sampler2D shadowMap, in vec4 lightProjVec)
+float getCascadeShadowValue(in sampler2D shadowMap, in mat4 shadowMatrix, in vec4 eyeVertex,
+                            in vec3 eyeNormal, in vec3 eyeLightDir, in int cascade)
 {
+    // The lookup position is first offset along the receiver normal, so both the UV and the
+    // depth below are read from the same (slightly shifted) surface point
+    vec4 lightProjVec = shadowMatrix *
+        getShadowLookupVertex(eyeVertex, eyeNormal, getShadowTexelSize(cascade));
     vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
     if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0))))
         return 1.0;  // outside of this cascade: treated as unshadowed
 
     float depth = lightProjVec.z / lightProjVec.w;  // real depth in light space
-    return GET_SHADOW(shadowMap, lightProjUV.xy, depth).z;
+    float bias = getShadowDepthBias(eyeNormal, eyeLightDir, getShadowBiasScale(cascade));
+    return GET_SHADOW(shadowMap, lightProjUV.xy, depth, bias).z;
 }
 
 void main()
@@ -57,7 +63,7 @@ void main()
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
     vec4 eyeVertex = GBufferMatrices[3] * vecInProj;
     vec3 eyeNormal = normalAlpha.rgb;
-    
+    vec3 eyeLightDir = getEyeSpaceLightDirection(GBufferMatrices[0]);
     // Select the cascade covering this pixel by its view distance. Shadow maps of different
     // cascades have different resolutions, so multiplying all overlapping cascades (as it was
     // done before) would always degrade the result to the coarsest one
@@ -85,21 +91,28 @@ void main()
 
         if (cascadeID == 0)
         {
-            shadowThis = getCascadeShadowValue(ShadowMap0, ShadowSpaceMatrices[0] * eyeVertex);
-            if (needNext) shadowNext = getCascadeShadowValue(ShadowMap1, ShadowSpaceMatrices[1] * eyeVertex);
+            shadowThis = getCascadeShadowValue(
+                ShadowMap0, ShadowSpaceMatrices[0], eyeVertex, eyeNormal, eyeLightDir, 0);
+            if (needNext) shadowNext = getCascadeShadowValue(
+                ShadowMap1, ShadowSpaceMatrices[1], eyeVertex, eyeNormal, eyeLightDir, 1);
         }
         else if (cascadeID == 1)
         {
-            shadowThis = getCascadeShadowValue(ShadowMap1, ShadowSpaceMatrices[1] * eyeVertex);
-            if (needNext) shadowNext = getCascadeShadowValue(ShadowMap2, ShadowSpaceMatrices[2] * eyeVertex);
+            shadowThis = getCascadeShadowValue(
+                ShadowMap1, ShadowSpaceMatrices[1], eyeVertex, eyeNormal, eyeLightDir, 1);
+            if (needNext) shadowNext = getCascadeShadowValue(
+                ShadowMap2, ShadowSpaceMatrices[2], eyeVertex, eyeNormal, eyeLightDir, 2);
         }
         else if (cascadeID == 2)
         {
-            shadowThis = getCascadeShadowValue(ShadowMap2, ShadowSpaceMatrices[2] * eyeVertex);
-            if (needNext) shadowNext = getCascadeShadowValue(ShadowMap3, ShadowSpaceMatrices[3] * eyeVertex);
+            shadowThis = getCascadeShadowValue(
+                ShadowMap2, ShadowSpaceMatrices[2], eyeVertex, eyeNormal, eyeLightDir, 2);
+            if (needNext) shadowNext = getCascadeShadowValue(
+                ShadowMap3, ShadowSpaceMatrices[3], eyeVertex, eyeNormal, eyeLightDir, 3);
         }
         else
-            shadowThis = getCascadeShadowValue(ShadowMap3, ShadowSpaceMatrices[3] * eyeVertex);
+            shadowThis = getCascadeShadowValue(
+                ShadowMap3, ShadowSpaceMatrices[3], eyeVertex, eyeNormal, eyeLightDir, 3);
         shadow = mix(shadowThis, shadowNext, blend);
     }
 

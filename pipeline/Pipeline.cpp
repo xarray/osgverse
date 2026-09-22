@@ -1112,6 +1112,9 @@ namespace osgVerse
     void Pipeline::setExposureController(ExposureController* c)
     { _exposureController = c; }
 
+    void Pipeline::resetTAAHistory()
+    { if (_deferredCallback.valid()) _deferredCallback->setHistoryResetRequest(); }
+
     void Pipeline::applyStagesToView(osgViewer::View* view, osg::Camera* mainCam, unsigned int defForwardMask)
     {
         osg::Matrix projOffset, viewOffset;

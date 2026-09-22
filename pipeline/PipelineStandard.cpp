@@ -14,6 +14,7 @@
 #include <osg/GLExtensions>
 #include <osg/DisplaySettings>
 #include <osg/BlendFunc>
+#include <osg/FrameStamp>
 #include <osg/Timer>
 #include <cmath>
 #include <osgDB/ReadFile>
@@ -261,13 +262,23 @@ protected:
     osg::ref_ptr<osgVerse::GLVersionData> _data;
 };
 
-/** Update the view-projection matrix of the previous frame before the TAA stage draws, so
-    that the shader is able to reproject its history data correctly */
+/** Beyond this screen-space displacement (in pixels) of the reprojected history, the motion could
+    not come from any continuous camera movement: it is a camera cut (teleport, manipulator jump,
+    scene switching) and the recorded history has to be dropped. Note that moving objects don't
+    need to be detected here, as their reprojection is computed as if they were static */
+static const double MAX_HISTORY_DISPLACEMENT_PIXELS = 128.0;
+
+/** Update the uniforms of the TAA resolve pass before its stage draws: the view-projection matrix
+    of the previous frame, so that the shader is able to reproject its history data correctly, and
+    whether the recorded history is still usable. The latter is the "camera cut" detection: the
+    history is dropped when frames were skipped (paused, loading...) or when the application asked
+    for it (switching the scene, see Pipeline::resetTAAHistory) */
 class TaaMatrixCallback : public osg::Camera::DrawCallback
 {
 public:
     TaaMatrixCallback(osgVerse::Pipeline* p, osgVerse::Pipeline::Stage* s, osg::Camera* srcCam)
-        : _pipeline(p), _stage(s), _sourceCamera(srcCam) {}
+        : _pipeline(p), _stage(s), _sourceCamera(srcCam),
+          _firstFrame(true), _lastFrameNumber(~0u) {}
 
     virtual void operator()(osg::RenderInfo& renderInfo) const
     {
@@ -275,14 +286,46 @@ public:
             _pipeline.valid() ? _pipeline->getDeferredCallback() : NULL;
         if (cb == NULL || !_stage.valid() || !_sourceCamera.valid()) return;
 
-        osg::Uniform* u = _stage->getOrCreateStateSet()->getUniform("PreviousViewProj");
+        osg::StateSet* ss = _stage->getOrCreateStateSet();
+        osg::Uniform* u = ss->getUniform("PreviousViewProj");
         if (u != NULL) u->set(cb->getPreviousViewProj(_sourceCamera.get()));
+
+        // The camera-cut threshold is converted from pixels to UV here, so that the shader doesn't
+        // have to rely on InvScreenResolution being in sync with the buffer it is resolving
+        osg::Viewport* vp = (renderInfo.getCurrentCamera() != NULL)
+                          ? renderInfo.getCurrentCamera()->getViewport() : NULL;
+        osg::Uniform* um = ss->getUniform("MaxHistoryDisplacement");
+        if (um != NULL && vp != NULL && vp->width() > 0.0 && vp->height() > 0.0)
+            um->set(osg::Vec2((float)(MAX_HISTORY_DISPLACEMENT_PIXELS / vp->width()),
+                              (float)(MAX_HISTORY_DISPLACEMENT_PIXELS / vp->height())));
+
+        // The first frame has no history buffer at all, and skipped frames (paused, loading,
+        // scene rebuilding...) leave a history describing an older state of the scene
+        bool reset = _firstFrame; _firstFrame = false;
+        const osg::FrameStamp* fs = (renderInfo.getState() != NULL)
+                                  ? renderInfo.getState()->getFrameStamp() : NULL;
+        if (fs != NULL)
+        {
+            // Note that the same frame number is seen again when a stage is drawn more than once
+            // per frame (stereo / multiple views): only real jumps have to drop the history
+            unsigned int frameNumber = fs->getFrameNumber();
+            if (_lastFrameNumber != ~0u && frameNumber != _lastFrameNumber &&
+                frameNumber != _lastFrameNumber + 1)
+                reset = true;
+            _lastFrameNumber = frameNumber;
+        }
+        if (cb->getAndClearHistoryResetRequest()) reset = true;
+
+        osg::Uniform* ur = ss->getUniform("ResetHistory");
+        if (ur != NULL) ur->set(reset ? 1.0f : 0.0f);
     }
 
 protected:
     osg::observer_ptr<osgVerse::Pipeline> _pipeline;
     osg::observer_ptr<osgVerse::Pipeline::Stage> _stage;
     osg::observer_ptr<osg::Camera> _sourceCamera;
+    mutable bool _firstFrame;
+    mutable unsigned int _lastFrameNumber;
 };
 
 #if defined(VERSE_WINDOWS)
@@ -492,7 +535,9 @@ namespace osgVerse
     StandardPipelineParameters::StandardPipelineParameters()
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
-        shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
+        shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
+        shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
+        shadowMaxDistance(-1.0), depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
@@ -505,7 +550,9 @@ namespace osgVerse
     StandardPipelineParameters::StandardPipelineParameters(const std::string& dir, const std::string& sky)
     :   deferredMask(DEFERRED_SCENE_MASK), forwardMask(FORWARD_SCENE_MASK),
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
-        shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0), depthPartitionNearValue(0.1),
+        shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
+        shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
+        shadowMaxDistance(-1.0), depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
@@ -858,6 +905,8 @@ namespace osgVerse
         osg::ref_ptr<osgVerse::ShadowModule> shadowModule =
             new osgVerse::ShadowModule("Shadow", p, spp.debugShadowModule);
         shadowModule->setTechnique((osgVerse::ShadowModule::Technique)spp.shadowTechnique);
+        shadowModule->setShadowBias(spp.shadowConstantBias, spp.shadowSlopeScale,
+                                    spp.shadowNormalOffsetScale);
         std::vector<Pipeline::Stage*> shadowStages = shadowModule->createStages(
             spp.shadowResolution, spp.shadowNumber,
             spp.shaders.shadowCastVS, spp.shaders.shadowCastFS, spp.shadowCastMask);
@@ -875,6 +924,7 @@ namespace osgVerse
 
         // Light module only needs to be added to main camera
         osg::ref_ptr<osgVerse::LightModule> lightModule = new osgVerse::LightModule("Light", p);
+        lightModule->setShadowMaxDistance(spp.shadowMaxDistance);
         mainCam->addUpdateCallback(lightModule.get());
 
         // Update 3DGS sorter
@@ -1394,6 +1444,14 @@ namespace osgVerse
                 antiAliasing->applyBuffer(*gbuffer, "DepthBuffer", 1);
                 antiAliasing->applyUniform(new osg::Uniform("HistoryWeight", 0.9f));
                 antiAliasing->applyUniform(new osg::Uniform("PreviousViewProj", osg::Matrixf()));
+
+                // Both are updated by TaaMatrixCallback before every draw: the displacement above
+                // which the history is considered invalid (in UV, filled with the real threshold),
+                // and whether the history has to be dropped for this frame. The initial value of
+                // ResetHistory is the safe one: without the callback nothing could be trusted
+                antiAliasing->applyUniform(new osg::Uniform("MaxHistoryDisplacement",
+                                                            osg::Vec2(0.25f, 0.25f)));
+                antiAliasing->applyUniform(new osg::Uniform("ResetHistory", 1.0f));
 
                 // The history buffer records the result of this stage and is bound back as an
                 // input of the next frame, see HistoryBufferCallback for more details

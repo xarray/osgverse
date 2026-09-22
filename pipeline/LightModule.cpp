@@ -10,7 +10,7 @@
 namespace osgVerse
 {
     LightModule::LightModule(const std::string& name, Pipeline* pipeline, int maxLightsInPass)
-        : _pipeline(pipeline), _maxLightsInPass(maxLightsInPass)
+        : _pipeline(pipeline), _maxLightsInPass(maxLightsInPass), _shadowMaxDistance(-1.0)
     {
         _parameterImage = new osg::Image;
         _parameterImage->allocateImage(1024, 4, 1, GL_RGBA, GL_FLOAT);
@@ -56,7 +56,7 @@ namespace osgVerse
                 osg::Vec3d pos0 = _mainLight->getPosition() * worldM;
                 osg::Vec3d pos1 = (_mainLight->getPosition() +
                                    _mainLight->getDirection() * dirLength) * worldM;
-                shadow->setLightState(pos0, pos1 - pos0);
+                shadow->setLightState(pos0, pos1 - pos0, _shadowMaxDistance);
             }
         }
 

@@ -285,6 +285,15 @@ namespace osgVerse
         osgVerse::DeferredRenderCallback* getDeferredCallback() { return _deferredCallback.get(); }
         const osgVerse::DeferredRenderCallback* getDeferredCallback() const { return _deferredCallback.get(); }
 
+        /** Invalidate the history of the temporal anti-aliasing pass for one frame, so that it
+            is resolved from the current frame only. The application should call it whenever the
+            content of the scene changes while the camera stays still, as the pipeline can not
+            detect such a case by itself: switching to another scene, loading or removing a
+            model, resetting the view... Camera cuts (manipulator jumps), skipped frames, window
+            resizing and the very first frame are detected automatically. It does nothing if
+            temporal anti-aliasing is not enabled */
+        void resetTAAHistory();
+
         osg::GraphicsContext* getContext() { return _stageContext.get(); }
         const osg::GraphicsContext* getContext() const { return _stageContext.get(); }
 
@@ -449,6 +458,21 @@ namespace osgVerse
         osg::ref_ptr<osg::Texture2D> skyboxMap;
         unsigned int originWidth, originHeight, deferredMask, forwardMask;
         unsigned int shadowCastMask, shadowNumber, shadowResolution, shadowTechnique, coverageSamples;
+        /** Receiver-side bias of the shadow lookup, forwarded to ShadowModule::setShadowBias().
+            All three values are multiples of one shadow-map texel, so they stay valid when
+            shadowResolution, shadowNumber or the scene size change:
+            - shadowConstantBias: bias applied everywhere, in shadow-map texels
+            - shadowSlopeScale: extra bias per unit of depth slope (grazing surfaces)
+            - shadowNormalOffsetScale: offset of the lookup position along the receiver normal
+            All three default to 0 (the plain hard comparison). Enable them only when one shadow
+            texel is small in world space, otherwise the bias removes valid shadows */
+        float shadowConstantBias, shadowSlopeScale, shadowNormalOffsetScale;
+        /** Limit the shadow distance in world units in front of the camera, forwarded to
+            LightModule::setShadowMaxDistance(). Casters and receivers farther than it are left
+            unshadowed, which is what a scene with a camera far plane far wider than the
+            interesting area needs (a city on a globe, for instance). A negative value lets the
+            shadow module derive the range from the scene bounds instead */
+        double shadowMaxDistance;
         double depthPartitionNearValue;
         bool withEmbeddedViewer, debugShadowModule, debugShadowCombination, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR, enable3DGS;

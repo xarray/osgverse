@@ -24,6 +24,15 @@ namespace osgVerse
         void setMainLight(LightDrawable* ld, const std::string& shadowModule)
         { _mainLight = ld; _shadowModuleName = shadowModule; }
 
+        /** Limit the shadow distance, in world units in front of the camera: casters and
+            receivers farther than this are left unshadowed. A scene whose camera far plane is
+            far wider than the interesting area (a globe viewer, for instance) needs it,
+            otherwise the cascades are spread over empty space and lose all their resolution.
+            0 or a negative value leaves the range to the shadow module, which derives it from
+            the scene bounds instead */
+        void setShadowMaxDistance(double d) { _shadowMaxDistance = d; }
+        double getShadowMaxDistance() const { return _shadowMaxDistance; }
+
         LightDrawable* getMainLight() { return _mainLight.get(); }
         const std::string& getShadowModuleName() const { return _shadowModuleName; }
 
@@ -49,6 +58,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Uniform> _lightNumber;  // vec2
         std::string _shadowModuleName;
         int _maxLightsInPass;
+        double _shadowMaxDistance;
     };
 
     class LightGlobalManager : public osg::Referenced

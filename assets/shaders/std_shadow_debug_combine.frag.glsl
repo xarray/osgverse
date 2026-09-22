@@ -18,26 +18,26 @@ layout(location = 0) VERSE_FS_OUT vec4 fragData;
 layout(location = 1) VERSE_FS_OUT vec4 dbgDepth;
 #endif
 
-#define GET_SHADOW(map, uv, z) getShadowValue(map, uv, z)
+#define GET_SHADOW(map, uv, z, bias) getShadowValue(map, uv, z, bias)
 #ifdef VERSE_SHADOW_POSSION_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_PossionPCF(map, RandomTexture, uv, z, InvShadowMapSize, bias)
 #endif
 #ifdef VERSE_SHADOW_BAND_PCF
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_BandPCF(map, uv, z, InvShadowMapSize, bias)
 #endif
 #ifdef VERSE_SHADOW_VSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_VSM(map, uv, z, 0.0008)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_VSM(map, uv, z, 0.0008)
 #endif
 #ifdef VERSE_SHADOW_ESM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_ESM(map, uv, z, 0.33, 15.0)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_ESM(map, uv, z, 0.33, 15.0)
 #endif
 #ifdef VERSE_SHADOW_EVSM
 #   undef GET_SHADOW
-#   define GET_SHADOW(map, uv, z) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008)
+#   define GET_SHADOW(map, uv, z, bias) getShadowValue_EVSM(map, uv, z, 0.33, 15.0, 0.0008)
 #endif
 
 void main()
@@ -51,6 +51,7 @@ void main()
     vec4 vecInProj = vec4(uv0.x * 2.0 - 1.0, uv0.y * 2.0 - 1.0, depthValue, 1.0);
     vec4 eyeVertex = GBufferMatrices[3] * vecInProj;
     vec3 eyeNormal = normalAlpha.rgb;
+    vec3 eyeLightDir = getEyeSpaceLightDirection(GBufferMatrices[0]);
     
     // Compute shadow and combine with color
 #ifdef VERSE_SHADOW_DEBUGCOLOR
@@ -73,16 +74,18 @@ void main()
     for (int i = 0; i < VERSE_MAX_SHADOWS; ++i)
     {
         if (i != cascadeID) continue;
-        vec4 lightProjVec = ShadowSpaceMatrices[i] * eyeVertex;
+        vec4 lightProjVec = ShadowSpaceMatrices[i] * getShadowLookupVertex(
+            eyeVertex, eyeNormal, getShadowTexelSize(i));
         vec2 lightProjUV = (lightProjVec.xy / lightProjVec.w) * 0.5 + vec2(0.5);
         if (any(lessThan(lightProjUV, vec2(0.0))) || any(greaterThan(lightProjUV, vec2(1.0)))) continue;
         
         float depth = lightProjVec.z / lightProjVec.w;  // real depth in light space
+        float bias = getShadowDepthBias(eyeNormal, eyeLightDir, getShadowBiasScale(i));
         vec3 shadowValue = vec3(1.0);
-        if (i == 0) shadowValue = GET_SHADOW(ShadowMap0, lightProjUV.xy, depth);
-        else if (i == 1) shadowValue = GET_SHADOW(ShadowMap1, lightProjUV.xy, depth);
-        else if (i == 2) shadowValue = GET_SHADOW(ShadowMap2, lightProjUV.xy, depth);
-        else if (i == 3) shadowValue = GET_SHADOW(ShadowMap3, lightProjUV.xy, depth);
+        if (i == 0) shadowValue = GET_SHADOW(ShadowMap0, lightProjUV.xy, depth, bias);
+        else if (i == 1) shadowValue = GET_SHADOW(ShadowMap1, lightProjUV.xy, depth, bias);
+        else if (i == 2) shadowValue = GET_SHADOW(ShadowMap2, lightProjUV.xy, depth, bias);
+        else if (i == 3) shadowValue = GET_SHADOW(ShadowMap3, lightProjUV.xy, depth, bias);
 
         if (length(debugValue) == 0.0) debugValue = vec3(
             (shadowValue.x - shadowValue.y) * 10.0, (abs(shadowValue.x - shadowValue.y) < 0.01) ? 1.0 : 0.0, 0.0);

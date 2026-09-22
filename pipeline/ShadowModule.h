@@ -58,6 +58,31 @@ namespace osgVerse
         double getShadowMaxDistance() const { return _shadowMaxDistance; }
         int getShadowNumber() const { return _shadowNumber; }
 
+        /** Set the receiver-side bias of the shadow lookup. Values are multiples of one
+            shadow-map texel, so they stay meaningful when the cascade resolution or the cascade
+            depth range changes. A bias given in normalized depth would instead scale with the
+            cascade depth range and erase the small shadows of the far cascades:
+            - constantBias: bias applied everywhere, enough to cover the depth quantization of
+              the shadow map storage
+            - slopeScale: extra bias per unit of depth slope, which is what fails first on
+              grazing surfaces
+            - normalOffsetScale: offset of the lookup position along the receiver normal
+            See getShadowDepthBias() in shadowing.module.glsl for the exact formulation.
+
+            All three default to 0, which keeps the plain hard comparison the shadow module has
+            always used. This is deliberate: the bias removes as much shadow as it adds, since
+            one texel is a world-space length and it is the current cascade range which decides
+            how long that is. Measure the texel size first (a bias of 1 means 1 texel, so the
+            shadow of anything thinner than it will disappear), and only enable the bias once
+            the cascades actually cover the viewed area - limiting the shadow distance with
+            setLightState() is usually what makes a texel small enough to be negligible */
+        void setShadowBias(float constantBias, float slopeScale, float normalOffsetScale);
+
+        /** Set the polygon offset applied while rendering shadow casters (default 1.0, 1.5).
+            It is deliberately small: the receiver-side bias and normal offset handle the
+            acne, so a large caster-side offset would only add peter-panning */
+        void setCasterPolygonOffset(float factor, float units);
+
         osg::Texture2D* getTexture(int i) { return _shadowMaps[i].get(); }
         const osg::Texture2D* getTexture(int i) const { return _shadowMaps[i].get(); }
 
@@ -97,14 +122,21 @@ namespace osgVerse
         osg::ref_ptr<osg::Uniform> _invTextureSize;  // vec2
         osg::ref_ptr<osg::Uniform> _cascadeInfo;  // vec2: (num, blendRatio)
         osg::ref_ptr<osg::Uniform> _cascadeDepths;  // vec4: far distance of each cascade
+        osg::ref_ptr<osg::Uniform> _biasParams;  // vec4: (constNDC, slope, normalOffset, -)
+        osg::ref_ptr<osg::Uniform> _biasScales;  // vec4: depth delta of one texel, per cascade
+        osg::ref_ptr<osg::Uniform> _texelSizes;  // vec4: world size of one texel, per cascade
+        osg::ref_ptr<osg::Uniform> _mainLightDir;  // vec3: world-space dir to the main light
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix, _lightInputMatrix;
+        osg::Vec3 _lightDirectionWorld;  // unit, world space, from a surface to the light
         std::vector<osg::Vec3d> _referencePoints;
         Technique _technique;
         double _shadowMaxDistance; int _shadowNumber;
         float _cascadeBlendRatio;
+        float _biasConstant, _biasSlopeScale, _biasNormalOffset;
         bool _retainLightPos, _dirtyReference;
+        bool _infoPrinted;
     };
 
     class ShadowDrawCallback : public CameraDrawCallback

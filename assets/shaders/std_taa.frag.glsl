@@ -9,10 +9,16 @@
 // - Motion of moving objects is not known (there is no velocity buffer yet), so such pixels
 //   are protected by clamping the history into the neighborhood of the current frame. Static
 //   geometry is reprojected exactly, and it is also why ghosting only appears on movers.
+// - The history is dropped completely (see "historyWeight") when it can not be trusted at all,
+//   which is the "camera cut" case: the reprojection leaves the screen, or it jumps further than
+//   a continuous camera motion could (teleport, manipulator jump), or frames were skipped, or
+//   the application requested it (scene switching, see Pipeline::resetTAAHistory)
 uniform sampler2D ColorBuffer, DepthBuffer, HistoryBuffer;
 uniform mat4 GBufferMatrices[4];  // w2v, v2w, v2p, p2v of the current frame
 uniform mat4 PreviousViewProj;  // world-to-clip matrix used by the previous frame
 uniform float HistoryWeight;  // 0.0: only the current frame, 1.0: only the history data
+uniform vec2 MaxHistoryDisplacement;  // in UV, per axis: beyond it the history is a camera cut
+uniform float ResetHistory;  // >0.5: the history is invalid (explicit reset or skipped frames)
 uniform vec2 InvScreenResolution;
 VERSE_FS_IN vec4 texCoord0;
 VERSE_FS_OUT vec4 fragData;
@@ -48,10 +54,18 @@ void main()
         prevUV = (prevClip.xy / prevClip.w) * 0.5 + vec2(0.5);
     }
 
-    // Pixels outside of the screen have no history data at all: keep the current color
+    // The history is only blended in when it can still be trusted:
+    // - pixels outside of the screen have no history data at all;
+    // - a reprojection far away from the current pixel means the history belongs to another part
+    //   of the screen, or to another scene: no continuous camera motion could have moved it that
+    //   far in a single frame (camera cut). Moving objects are not detected by this test, as
+    //   their reprojection is computed as if they were static (a velocity buffer is needed);
+    // - ResetHistory is raised by the application (scene switching), by skipped frames (paused,
+    //   loading) and on the very first frame, where no history buffer exists yet
     float historyWeight = HistoryWeight;
-    if (any(lessThan(prevUV, vec2(0.0))) || any(greaterThan(prevUV, vec2(1.0))))
-        historyWeight = 0.0;
+    bool outsideScreen = any(lessThan(prevUV, vec2(0.0))) || any(greaterThan(prevUV, vec2(1.0)));
+    bool cameraCut = any(greaterThan(abs(prevUV - uv0), MaxHistoryDisplacement));
+    if (outsideScreen || cameraCut || ResetHistory > 0.5) historyWeight = 0.0;
 
     // Clamp the history into the neighborhood of the current frame, which rejects most of the
     // ghosting introduced by moving objects (details above) and by wrong depth reprojection

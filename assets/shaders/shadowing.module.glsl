@@ -1,6 +1,32 @@
 const vec4 bitEnc = vec4(1., 255., 65025., 16581375.);
 const vec4 bitDec = 1. / bitEnc;
 
+// Receiver-side bias of the shadow lookup, configured by ShadowModule::setShadowBias().
+// All three values are multiples of one shadow-map texel, so the bias follows the world size
+// of a texel and does not have to be retuned when the cascade resolution or depth range
+// changes (a bias expressed in normalized depth would grow with the depth range of a cascade,
+// which is what erases the small shadows of the far cascades):
+//   .x  constant part
+//   .y  slope scale, multiplied by the depth slope of the receiver
+//   .z  normal offset, applied to the lookup position along the receiver normal
+uniform vec4 ShadowBiasParams;
+
+// Depth delta of one shadow-map texel of each cascade, in the same space as CompareDepth()
+uniform vec4 ShadowBiasScales;
+
+// World size of one shadow-map texel of each cascade, used by the normal offset
+uniform vec4 ShadowTexelSizes;
+
+// World-space direction from a surface to the main light, taken from the LightDrawable as it
+// is. The shaders convert it to eye space with the same G-Buffer matrix they use for every
+// other transform, so the CPU and the GPU can not disagree about the matrix convention
+uniform vec3 MainLightDirection;
+
+vec3 getEyeSpaceLightDirection(in mat4 worldToView)
+{
+    return normalize((worldToView * vec4(MainLightDirection, 0.0)).xyz);
+}
+
 vec4 EncodeFloatRGBA(float v)
 {
     vec4 enc = fract(bitEnc * v);
@@ -65,19 +91,63 @@ float GetDepthFromShadowMap(in sampler2D shadowMap, in vec2 lightProjUV)
 #endif
 }
 
-float CompareDepth(float depth0, float depth1)
+float CompareDepth(float depth0, float depth1, float bias)
 {
 #ifdef VERSE_SHADOW_EYESPACE
-    return (depth1 < depth0) ? 0.0 : 1.0;
+    return (depth1 < (depth0 - bias)) ? 0.0 : 1.0;
 #else
-    return (depth1 > depth0) ? 0.0 : 1.0;
+    return (depth1 > (depth0 + bias)) ? 0.0 : 1.0;
 #endif
 }
 
-vec3 getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth)
+// Slope-scaled depth bias of the receiver, in the depth space compared by CompareDepth().
+// A single constant has to be large enough for the worst grazing angle, which is exactly what
+// makes the shadow detach from its caster (peter-panning); scaling the extra part by the depth
+// slope keeps the bias small on surfaces facing the light. The two parts are added instead of
+// taking their maximum, so that the bias stays continuous over a curved surface and does not
+// leave a seam in the shadow boundary where the two would cross
+float getShadowDepthBias(in vec3 eyeNormal, in vec3 lightDir, in float texelDepthDelta)
+{
+    float cosT = clamp(dot(eyeNormal, lightDir), 0.0, 1.0);
+    // The slope is capped: a surface almost parallel to the light receives almost no direct
+    // light, so letting the bias grow without limit there only removes valid shadows
+    float tanT = min(sqrt(max(1.0 - cosT * cosT, 0.0)) / max(cosT, 1e-3), 2.0);
+    return (ShadowBiasParams.x + ShadowBiasParams.y * tanT) * texelDepthDelta;
+}
+
+// Per-cascade accessors. The components are picked with a chain of constant index reads
+// instead of a dynamic array index, which GLES2 does not allow on uniforms
+float getShadowBiasScale(in int cascade)
+{
+    if (cascade == 0) return ShadowBiasScales.x;
+    else if (cascade == 1) return ShadowBiasScales.y;
+    else if (cascade == 2) return ShadowBiasScales.z;
+    return ShadowBiasScales.w;
+}
+
+float getShadowTexelSize(in int cascade)
+{
+    if (cascade == 0) return ShadowTexelSizes.x;
+    else if (cascade == 1) return ShadowTexelSizes.y;
+    else if (cascade == 2) return ShadowTexelSizes.z;
+    return ShadowTexelSizes.w;
+}
+
+// Move the lookup position along the receiver normal before projecting it into light space.
+// The view matrix is a rigid transform, so an offset applied in eye space keeps the length of
+// the wanted world-space one. This removes the acne without adding peter-panning, because it
+// changes where the shadow map is read instead of how deep the receiver is assumed to be
+vec4 getShadowLookupVertex(in vec4 eyeVertex, in vec3 eyeNormal, in float worldTexelSize)
+{
+    vec4 v = eyeVertex;
+    v.xyz += eyeNormal * (ShadowBiasParams.z * worldTexelSize);
+    return v;
+}
+
+vec3 getShadowValue(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float bias)
 {
     float depth0 = GetDepthFromShadowMap(shadowMap, lightProjUV);
-    return vec3(depth0, depth, CompareDepth(depth0, depth));
+    return vec3(depth0, depth, CompareDepth(depth0, depth, bias));
 }
 
 vec3 getShadowValue_VSM(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in float epsilonVSM)
@@ -116,50 +186,40 @@ vec3 getShadowValue_EVSM(in sampler2D shadowMap, in vec2 lightProjUV, in float d
 }
 
 vec3 getShadowValue_PossionPCF(in sampler2D shadowMap, in sampler2D randomMap, in vec2 lightProjUV,
-                               in float depth, in vec2 invMapSize)
+                               in float depth, in vec2 invMapSize, in float bias)
 {
-    vec2 shadowUVbiased = lightProjUV, fractCoord = 1.0 - fract(lightProjUV);
-#ifdef GL_OES_standard_derivatives
-    shadowUVbiased.x += dFdx(lightProjUV.xy).x * invMapSize.x;
-    shadowUVbiased.y += dFdy(lightProjUV.xy).y * invMapSize.y;
-#endif
-
     float shadowed = 0.0, inv = 1.0 / 16.0, radius = length(invMapSize) * 2.0;
     for (int i = 0; i < 16; i++)
     {
         vec2 dir = VERSE_TEX2D(randomMap, vec2(float(i) * inv, 0.25)).xy * 2.0 - vec2(1.0);
-        shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + dir * vec2(radius)), depth);
+        shadowed += CompareDepth(
+            GetDepthFromShadowMap(shadowMap, lightProjUV + dir * vec2(radius)), depth, bias);
     }
     return vec3(0.0, depth, shadowed * inv);
 }
 
-vec3 getShadowValue_BandPCF(in sampler2D shadowMap, in vec2 lightProjUV, in float depth, in vec2 invMapSize)
+vec3 getShadowValue_BandPCF(in sampler2D shadowMap, in vec2 lightProjUV, in float depth,
+                            in vec2 invMapSize, in float bias)
 {
-    // Copied from osgjs/sources/osgShadow/shaders/bandPCF.glsl
-    vec2 shadowUVbiased = lightProjUV, fractCoord = 1.0 - fract(lightProjUV);
-#ifdef GL_OES_standard_derivatives
-    shadowUVbiased.x += dFdx(lightProjUV.xy).x * invMapSize.x;
-    shadowUVbiased.y += dFdy(lightProjUV.xy).y * invMapSize.y;
-#endif
-
+    vec2 shadowUVbiased = lightProjUV;
     float dx0 = -invMapSize.x, dy0 = -invMapSize.y, dx1 = invMapSize.x, dy1 = invMapSize.y;
     float dx2 = -2.0 * invMapSize.x, dy2 = -2.0 * invMapSize.y;
     float dx3 = 2.0 * invMapSize.x, dy3 = 2.0 * invMapSize.y, shadowed = 0.0;
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy2)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy2)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy2)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy2)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy0)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy0)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy0)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy0)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy1)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy1)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy1)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy1)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy3)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy3)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy3)), depth);
-    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy3)), depth);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy2)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy2)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy2)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy2)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy0)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy0)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy0)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy0)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy1)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy1)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy1)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy1)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx2, dy3)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx0, dy3)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx1, dy3)), depth, bias);
+    shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy3)), depth, bias);
     return vec3(0.0, depth, shadowed / 16.0);
 }

@@ -33,7 +33,7 @@ namespace osgVerse
 {
     DeferredRenderCallback::DeferredRenderCallback(bool inPipeline)
     :   _drawBuffer(GL_NONE), _readBuffer(GL_NONE), _cullFrameNumber(0), _forwardMask(0xffffffff),
-        _jitterIndex(0), _jitterEnabled(false), _inPipeline(inPipeline),
+        _jitterIndex(0), _jitterEnabled(false), _historyResetRequest(false), _inPipeline(inPipeline),
         _drawBufferApplyMask(false), _readBufferApplyMask(false), _firstFrame(true)
     {
         _nearFarUniform = new osg::Uniform("NearFarPlanes", osg::Vec2());

@@ -44,6 +44,15 @@ namespace osgVerse
         const osg::Vec2& getJitterOffset() const { return _jitterOffset; }  // in UV units
         osg::Matrixf getPreviousViewProj(osg::Camera* cam) const;
 
+        /** Ask the temporal anti-aliasing resolve pass to drop its history on the next frame:
+            the recorded data does not describe the current scene anymore. The pipeline can only
+            detect "camera cut" cases by itself, so applications have to raise this request
+            whenever they change the scene content while the camera stays still (see
+            Pipeline::resetTAAHistory) */
+        void setHistoryResetRequest(bool b = true) { _historyResetRequest = b; }
+        bool getAndClearHistoryResetRequest()
+        { bool b = _historyResetRequest; _historyResetRequest = false; return b; }
+
         /** Find the FBO of a camera, which was registered by the pipeline (may return NULL) */
         osg::FrameBufferObject* getFboOfCamera(osg::Camera* cam) const;
 
@@ -133,6 +142,7 @@ namespace osgVerse
         std::map<osg::Camera*, osg::Matrixf> _previousViewProj;
         osg::Vec2 _jitterOffset;
         int _jitterIndex; bool _jitterEnabled;
+        bool _historyResetRequest;
         bool _inPipeline, _drawBufferApplyMask, _readBufferApplyMask;
         mutable bool _firstFrame;
     };

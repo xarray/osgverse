@@ -4,6 +4,7 @@
 #include <osgDB/ReadFile>
 #include <osgUtil/SmoothingVisitor>
 #include <iostream>
+#include <sstream>
 #include "../modeling/Utilities.h"
 #include "Utilities.h"
 #include "ShaderLibrary.h"
@@ -111,10 +112,15 @@ namespace osgVerse
 {
     ShadowModule::ShadowModule(const std::string& name, Pipeline* pipeline, bool withDebugGeom)
     :   _pipeline(pipeline), _technique(PossionPCF), _shadowMaxDistance(-1.0), _shadowNumber(0),
-        _cascadeBlendRatio(0.1f), _retainLightPos(false), _dirtyReference(false)
+        _cascadeBlendRatio(0.1f), _biasConstant(0.0f), _biasSlopeScale(0.0f),
+        _biasNormalOffset(0.0f), _retainLightPos(false), _dirtyReference(false), _infoPrinted(false)
     {
         for (int i = 0; i < MAX_SHADOWS; ++i) _shadowMaps[i] = new osg::Texture2D;
         _cullFace = new osg::CullFace(osg::CullFace::FRONT);
+        // Note: polygon offset units are multiples of the smallest resolvable depth value, so
+        // with the 24-bit depth attachment of the shadow camera the slope factor is the part
+        // which really shifts the caster depth. The values are the original ones; use
+        // setCasterPolygonOffset() to tune them if the receiver-side bias below is enabled
         _polygonOffset = new osg::PolygonOffset(1.1f, 4.0f);
 
         _shadowFrustum = withDebugGeom ? new osg::Geode : NULL;
@@ -122,6 +128,12 @@ namespace osgVerse
             osg::Uniform::FLOAT_MAT4, "ShadowSpaceMatrices", MAX_SHADOWS);
         _cascadeInfo = new osg::Uniform("CascadeInfo", osg::Vec2(0.0f, _cascadeBlendRatio));
         _cascadeDepths = new osg::Uniform("CascadeFarDepths", osg::Vec4());
+        _biasParams = new osg::Uniform("ShadowBiasParams", osg::Vec4(
+            _biasConstant, _biasSlopeScale, _biasNormalOffset, 0.0f));
+        _biasScales = new osg::Uniform("ShadowBiasScales", osg::Vec4());
+        _texelSizes = new osg::Uniform("ShadowTexelSizes", osg::Vec4());
+        _mainLightDir = new osg::Uniform("MainLightDirection", osg::Vec3(0.0f, 0.0f, 1.0f));
+        _lightDirectionWorld.set(0.0f, 0.0f, 1.0f);
         if (pipeline) pipeline->addModule(name, this);
     }
 
@@ -174,6 +186,20 @@ namespace osgVerse
             OSG_NOTICE << "[ShadowModule] No camera found for setSmallPixelsToCull()" << std::endl;
     }
 
+    void ShadowModule::setShadowBias(float constantBias, float slopeScale, float normalOffsetScale)
+    {
+        _biasConstant = constantBias; _biasSlopeScale = slopeScale;
+        _biasNormalOffset = normalOffsetScale;
+        if (_biasParams.valid())
+            _biasParams->set(osg::Vec4(_biasConstant, _biasSlopeScale, _biasNormalOffset, 0.0f));
+    }
+
+    void ShadowModule::setCasterPolygonOffset(float factor, float units)
+    {
+        if (!_polygonOffset.valid()) return;
+        _polygonOffset->setFactor(factor); _polygonOffset->setUnits(units);
+    }
+
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0,
                                      double maxDistance, bool retainLightPos)
     {
@@ -188,8 +214,19 @@ namespace osgVerse
         if (m.compare(_lightInputMatrix) != 0)
         {
             _lightInputMatrix = m; _lightMatrix = m; _dirtyReference = true;
-            _shadowMaxDistance = maxDistance; _retainLightPos = retainLightPos;
+            _retainLightPos = retainLightPos;
         }
+
+        // The shadow range is kept outside of the check above: it describes the wanted range and
+        // not the light transform, so a value set after the first frame still has to take effect
+        // even when the light itself never moves
+        _shadowMaxDistance = maxDistance;
+
+        // The receiver-side bias needs the direction *towards* the light (the input one is the
+        // travel direction of the light), in world space. It is kept as it is and converted to
+        // eye space inside the shader, using the same G-Buffer matrix convention as the rest of
+        // the pipeline, so no CPU-side matrix or quaternion conversion can get it wrong
+        _lightDirectionWorld = -dir;
     }
 
     void ShadowModule::createCasterGeometries(osg::Node* scene, unsigned int casterMask, float boundRatio,
@@ -288,6 +325,10 @@ namespace osgVerse
         stage->applyUniform(_invTextureSize.get());
         stage->applyUniform(_cascadeInfo.get());
         stage->applyUniform(_cascadeDepths.get());
+        stage->applyUniform(_biasParams.get());
+        stage->applyUniform(_biasScales.get());
+        stage->applyUniform(_texelSizes.get());
+        stage->applyUniform(_mainLightDir.get());
         return unit;
     }
 
@@ -302,6 +343,28 @@ namespace osgVerse
         double fov, ratio, zn, zf; proj.getPerspective(fov, ratio, zn, zf);
         if (_shadowMaxDistance > 0.0 && (zn + _shadowMaxDistance) < zf) zf = zn + _shadowMaxDistance;
 
+        // The camera near/far are usually much wider than the scene, and every unit of empty
+        // space inside the cascade range is shadow resolution thrown away: with a camera near
+        // plane far in front of the scene, the first cascades cover nothing at all, while the
+        // scene may even stick out beyond the far plane, where no cascade is selected and no
+        // shadow can be found. The reference points bound the scene already, and their
+        // view-space depth is the range the cascades should really partition. It is only applied
+        // when it leaves a valid range, so a scene whose bounds do not overlap the camera range
+        // (a terrain seen from very far, for instance) simply keeps the camera range
+        if (_shadowMaxDistance <= 0.0 && !_referencePoints.empty())
+        {
+            double sceneNear = 1e30, sceneFar = 0.0;
+            for (size_t i = 0; i < _referencePoints.size(); ++i)
+            {
+                double viewDepth = -(_referencePoints[i] * viewMat).z();
+                sceneNear = osg::minimum(sceneNear, viewDepth);
+                sceneFar = osg::maximum(sceneFar, viewDepth);
+            }
+
+            double nearScene = osg::maximum(zn, sceneNear), farScene = osg::minimum(zf, sceneFar);
+            if (farScene > (nearScene + 0.01)) { zn = nearScene; zf = farScene; }
+        }
+
         double shadowDistance = zf - zn;
         if (shadowDistance <= 0.01) return;  // state not prepared? we have to quit then
         if (_dirtyReference && !_retainLightPos)
@@ -315,6 +378,10 @@ namespace osgVerse
             center = bs.center(); eye = center - dir * shadowDistance;
             _lightMatrix = osg::Matrix::lookAt(eye, center, up); _dirtyReference = false;
         }
+
+        // World-space direction to the main light, used by the receiver-side slope bias. The
+        // shader converts it to eye space itself (see getEyeSpaceLightDirection())
+        _mainLightDir->set(_lightDirectionWorld);
 
         // Split the main frustum
         size_t numCameras = _shadowCameras.size();
@@ -357,16 +424,25 @@ namespace osgVerse
             shadowBBs[i] = osg::BoundingBoxd(aabb.first, aabb.second);
         }
 
+        // Receiver-side bias data of each cascade, gathered here and uploaded once after the
+        // loop: the bias has to live in the same depth space as the values compared by
+        // CompareDepth(), and that space is per cascade (each one has its own far plane) and
+        // per technique (eye-space storage keeps a world-space distance instead of NDC depth)
+        float biasScales[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        float texelSizes[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
         for (size_t i = 0; i < numCameras; ++i)
         {
             const osg::BoundingBoxd& shadowBB = shadowBBs[i];
             const osg::Vec3 center = shadowBB.center();
             double radius = osg::maximum(shadowBB.xMax() - shadowBB.xMin(),
                                          shadowBB.yMax() - shadowBB.yMin()) * 0.5;
+            double cascadeTexelSize = 0.0;  // world size of one texel of this cascade
 
 #if false
             double xMin = center[0] - radius, xMax = center[0] + radius;
             double yMin = center[1] - radius, yMax = center[1] + radius;
+            cascadeTexelSize = (2.0 * radius) / _shadowMaps[i]->getTextureWidth();
             //xMin = shadowBB.xMin(), xMax = shadowBB.xMax();
             //yMin = shadowBB.yMin(), yMax = shadowBB.yMax();
 #else       // Texel snap
@@ -377,6 +453,7 @@ namespace osgVerse
             // a whole octave, in exchange for up to 2x larger extents of this cascade
             if (radius > 0.0) radius = pow(2.0, ceil(log2(radius)));
             double texelSize = (2.0 * radius) / _shadowMaps[i]->getTextureWidth();
+            cascadeTexelSize = texelSize;
             
             // Snap the center to texel grid and recompute keeping the radius
             double snappedCenterX = floor(center.x() / texelSize) * texelSize;
@@ -413,8 +490,36 @@ namespace osgVerse
                 sData->viewMatrix = viewMat; sData->projMatrix = proj;
                 sData->_viewport = cam->getViewport(); sData->bound = shadowBB;
             }
+
+            // How much the light-space depth of one shadow-map texel changes, expressed in the
+            // depth space used by CompareDepth(): this is the unit in which the slope-scaled
+            // bias and the normal offset are configured, so they keep working when the cascade
+            // resolution or the cascade depth range changes
+            if (i < 4)
+            {
+                double depthRange = osg::maximum(zFar - zNearTotal, 1e-6);
+                biasScales[i] = (float)((_technique == EyeSpaceDepthSM) ?
+                    cascadeTexelSize : (2.0 * cascadeTexelSize / depthRange));
+                texelSizes[i] = (float)cascadeTexelSize;
+            }
         }
+        _biasScales->set(osg::Vec4(biasScales[0], biasScales[1], biasScales[2], biasScales[3]));
+        _texelSizes->set(osg::Vec4(texelSizes[0], texelSizes[1], texelSizes[2], texelSizes[3]));
         _lightMatrices->dirty();
+
+        // One texel of a shadow map is a length in world space, and it is what decides both how
+        // sharp the shadows can be and how much a receiver-side bias (see setShadowBias()) costs.
+        // Reporting it once keeps that trade-off visible instead of hidden behind the two
+        // constants involved
+        if (!_infoPrinted)
+        {
+            _infoPrinted = true;
+            std::stringstream ss; ss << "[ShadowModule] View range [" << zn << ", " << zf << "]:";
+            for (size_t i = 0; i < numCameras; ++i)
+                ss << " #" << i << " [" << splitDepths[i] << ", " << splitDepths[i + 1]
+                   << "] = " << texelSizes[i] << " units/texel;";
+            OSG_NOTICE << ss.str() << std::endl;
+        }
     }
 
     void ShadowModule::operator()(osg::Node* node, osg::NodeVisitor* nv)
