@@ -120,6 +120,14 @@ void main()
     // (IBL) term has already been applied by the lighting stage
     colorData.rgb *= shadow;
 
+    // Contact shadows recover what the shadow map can not resolve at a contact point (the
+    // shadow of an object on the ground starts a few texels away from it), so they belong to the
+    // direct light as well. They are combined with the same factor the shadow map produced
+    vec3 eyePos = eyeVertex.xyz / eyeVertex.w;
+    float contactShadow = getContactShadowValue(
+        DepthBuffer, GBufferMatrices[2], GBufferMatrices[3], eyePos, eyeNormal, eyeLightDir);
+    colorData.rgb *= contactShadow;
+
     // Emissive material is self-lit and must not be shadowed, so it is added after the shadow
     // has been applied. Doing it here (instead of in the tone mapping stage) also makes emissive
     // objects part of CombinedBuffer, which is what the bloom extraction and the auto-exposure

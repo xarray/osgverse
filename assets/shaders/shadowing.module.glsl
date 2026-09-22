@@ -223,3 +223,69 @@ vec3 getShadowValue_BandPCF(in sampler2D shadowMap, in vec2 lightProjUV, in floa
     shadowed += CompareDepth(GetDepthFromShadowMap(shadowMap, shadowUVbiased + vec2(dx3, dy3)), depth, bias);
     return vec3(0.0, depth, shadowed / 16.0);
 }
+
+// Screen-space contact shadows. A shadow map can not resolve the gap at a contact point: one of
+// its texels is a length in world space, so the darkening which should appear where an object
+// touches the ground is simply missing from it, whatever the receiver-side bias does. A short ray
+// marched towards the light recovers that occlusion, and since it is tested against the depth
+// buffer its precision follows the screen resolution instead of the shadow map.
+// The matrices are passed in instead of being taken from the shader which includes this module,
+// so that the module keeps working in any pass that has them under another name
+//   .x  ray length in world units (<= 0 disables the effect)
+//   .y  thickness: how far behind the depth buffer a sample may be and still be an occlusion
+//   .z  bias: offset of the ray start along the surface normal, and the depth difference a sample
+//       needs before it is considered an occluder
+//   .w  strength of the recovered occlusion
+uniform vec4 ContactShadowParams;
+
+float getContactShadowValue(in sampler2D depthBuffer, in mat4 viewToProj, in mat4 projToView,
+                            in vec3 eyePos, in vec3 eyeNormal, in vec3 eyeLightDir)
+{
+    if (ContactShadowParams.x <= 0.0 || ContactShadowParams.w <= 0.0) return 1.0;
+
+    // A surface facing away from the light is not lit at all, so there is no contact shadow to
+    // recover for it. A nearly grazing light is excluded as well: the ray would then run along
+    // the surface, where every step hits the surface itself
+    if (dot(eyeNormal, eyeLightDir) <= 0.01) return 1.0;
+
+    const int CONTACT_SHADOW_STEPS = 12;
+    float rayLength = ContactShadowParams.x;
+    float stepLength = rayLength / float(CONTACT_SHADOW_STEPS);
+    // The ray starts a little above the surface, otherwise the first samples are blocked by the
+    // surface they leave from
+    vec3 rayStart = eyePos + eyeNormal * ContactShadowParams.z;
+
+    // Dither the step positions per pixel: the fixed number of steps would otherwise show as
+    // bands, while dithered noise is what the following anti-aliasing stage can average away
+    float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    float occlusion = 0.0;
+    for (int i = 0; i < CONTACT_SHADOW_STEPS; ++i)
+    {
+        float t = (float(i) + dither) * stepLength;
+        vec3 samplePos = rayStart + eyeLightDir * t;
+        vec4 clip = viewToProj * vec4(samplePos, 1.0);
+        if (clip.w <= 0.0) break;  // marched behind the camera: no more useful samples
+
+        vec2 sampleUV = (clip.xy / clip.w) * 0.5 + vec2(0.5);
+        if (any(lessThan(sampleUV, vec2(0.0))) || any(greaterThan(sampleUV, vec2(1.0))))
+            break;  // left the screen: the rest of the ray is not visible either
+
+        float sceneDepth = VERSE_TEX2D(depthBuffer, sampleUV).r;
+        if (sceneDepth >= 1.0) continue;  // background: nothing which could block the ray
+
+        vec4 sceneProj = projToView *
+            vec4(sampleUV * 2.0 - vec2(1.0), sceneDepth * 2.0 - 1.0, 1.0);
+        // Both values are distances in front of the camera, so a positive difference means the
+        // sample is behind the geometry of that pixel, i.e. the ray is blocked there
+        float sceneViewZ = -(sceneProj.z / sceneProj.w), sampleViewZ = -samplePos.z;
+        float difference = sampleViewZ - sceneViewZ;
+        if (difference > ContactShadowParams.z && difference < ContactShadowParams.y)
+            occlusion = max(occlusion, 1.0 - t / rayLength);  // a nearby hit occludes more
+    }
+
+    if (occlusion <= 0.0) return 1.0;
+    // Fade the whole effect out as the light direction approaches the view direction: the ray
+    // then spans almost no screen space and comparing its samples is meaningless
+    float viewFade = 1.0 - smoothstep(0.9, 0.99, abs(dot(eyeLightDir, normalize(-eyePos))));
+    return 1.0 - clamp(occlusion * ContactShadowParams.w * viewFade, 0.0, 1.0);
+}

@@ -78,10 +78,21 @@ namespace osgVerse
             setLightState() is usually what makes a texel small enough to be negligible */
         void setShadowBias(float constantBias, float slopeScale, float normalOffsetScale);
 
-        /** Set the polygon offset applied while rendering shadow casters (default 1.0, 1.5).
+        /** Set the polygon offset applied while rendering shadow casters (default 1.1, 4.0).
             It is deliberately small: the receiver-side bias and normal offset handle the
             acne, so a large caster-side offset would only add peter-panning */
         void setCasterPolygonOffset(float factor, float units);
+
+        /** Enable screen-space contact shadows: a short ray marched towards the light, tested
+            against the depth buffer, which recovers the occlusion a shadow map can not resolve
+            where an object touches a surface (one of its texels is a length in world space, so
+            the shadow always starts a few texels away from the contact point). rayLength is in
+            world units and has to be sized to the details the shadow map misses - a few times
+            the "units/texel" reported at startup is a good starting point. It is 0 by default,
+            which keeps the effect off: the useful length is a property of the scene scale and
+            not of the shadow map, so it can not be derived here. See
+            getContactShadowValue() in shadowing.module.glsl */
+        void setContactShadow(float rayLength, float strength = 1.0f);
 
         osg::Texture2D* getTexture(int i) { return _shadowMaps[i].get(); }
         const osg::Texture2D* getTexture(int i) const { return _shadowMaps[i].get(); }
@@ -126,6 +137,7 @@ namespace osgVerse
         osg::ref_ptr<osg::Uniform> _biasScales;  // vec4: depth delta of one texel, per cascade
         osg::ref_ptr<osg::Uniform> _texelSizes;  // vec4: world size of one texel, per cascade
         osg::ref_ptr<osg::Uniform> _mainLightDir;  // vec3: world-space dir to the main light
+        osg::ref_ptr<osg::Uniform> _contactShadow;  // vec4: (length, thickness, bias, strength)
         std::vector<osg::observer_ptr<osg::Camera>> _shadowCameras;
 
         osg::Matrix _lightMatrix, _lightInputMatrix;

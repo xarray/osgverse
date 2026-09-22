@@ -537,7 +537,8 @@ namespace osgVerse
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(0), shadowResolution(4096),
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
         shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
-        shadowMaxDistance(-1.0), depthPartitionNearValue(0.1),
+        shadowMaxDistance(-1.0), contactShadowLength(0.0f), contactShadowStrength(1.0f),
+        depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
@@ -552,7 +553,8 @@ namespace osgVerse
         shadowCastMask(SHADOW_CASTER_MASK), shadowNumber(3), shadowResolution(4096),
         shadowTechnique(ShadowModule::PossionPCF), coverageSamples(0),
         shadowConstantBias(0.0f), shadowSlopeScale(0.0f), shadowNormalOffsetScale(0.0f),
-        shadowMaxDistance(-1.0), depthPartitionNearValue(0.1),
+        shadowMaxDistance(-1.0), contactShadowLength(0.0f), contactShadowStrength(1.0f),
+        depthPartitionNearValue(0.1),
         withEmbeddedViewer(false), debugShadowModule(false), debugShadowCombination(false),
         enableVSync(true), enableMRT(true), enableAO(true), enablePostEffects(true),
         enableUserInput(false), enableDepthPartition(false), enableVR(false), enable3DGS(true),
@@ -907,6 +909,8 @@ namespace osgVerse
         shadowModule->setTechnique((osgVerse::ShadowModule::Technique)spp.shadowTechnique);
         shadowModule->setShadowBias(spp.shadowConstantBias, spp.shadowSlopeScale,
                                     spp.shadowNormalOffsetScale);
+        shadowModule->setContactShadow(spp.contactShadowLength, spp.contactShadowStrength);
+        
         std::vector<Pipeline::Stage*> shadowStages = shadowModule->createStages(
             spp.shadowResolution, spp.shadowNumber,
             spp.shaders.shadowCastVS, spp.shaders.shadowCastFS, spp.shadowCastMask);

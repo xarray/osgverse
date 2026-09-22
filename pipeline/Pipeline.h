@@ -473,6 +473,10 @@ namespace osgVerse
             interesting area needs (a city on a globe, for instance). A negative value lets the
             shadow module derive the range from the scene bounds instead */
         double shadowMaxDistance;
+        /** Screen-space contact shadows, forwarded to ShadowModule::setContactShadow().
+            contactShadowLength is in world units and 0 (the default) leaves the effect off: it
+            has to be sized to the details the shadow map misses, which depends on the scene */
+        float contactShadowLength, contactShadowStrength;
         double depthPartitionNearValue;
         bool withEmbeddedViewer, debugShadowModule, debugShadowCombination, enableVSync, enableMRT;
         bool enableAO, enablePostEffects, enableUserInput, enableDepthPartition, enableVR, enable3DGS;

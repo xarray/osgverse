@@ -133,6 +133,7 @@ namespace osgVerse
         _biasScales = new osg::Uniform("ShadowBiasScales", osg::Vec4());
         _texelSizes = new osg::Uniform("ShadowTexelSizes", osg::Vec4());
         _mainLightDir = new osg::Uniform("MainLightDirection", osg::Vec3(0.0f, 0.0f, 1.0f));
+        _contactShadow = new osg::Uniform("ContactShadowParams", osg::Vec4());
         _lightDirectionWorld.set(0.0f, 0.0f, 1.0f);
         if (pipeline) pipeline->addModule(name, this);
     }
@@ -198,6 +199,17 @@ namespace osgVerse
     {
         if (!_polygonOffset.valid()) return;
         _polygonOffset->setFactor(factor); _polygonOffset->setUnits(units);
+    }
+
+    void ShadowModule::setContactShadow(float rayLength, float strength)
+    {
+        // The thickness and the bias are derived from the ray length so that one value is enough
+        // to size the effect: the thickness only has to accept the occluders the ray is expected
+        // to find (a quarter of the ray), while the bias has to be small enough not to let the
+        // ray start above the details it looks for
+        if (!_contactShadow.valid()) return;
+        _contactShadow->set(osg::Vec4(
+            rayLength, rayLength * 0.25f, rayLength * 0.05f, strength));
     }
 
     void ShadowModule::setLightState(const osg::Vec3& pos, const osg::Vec3& dir0,
@@ -329,6 +341,7 @@ namespace osgVerse
         stage->applyUniform(_biasScales.get());
         stage->applyUniform(_texelSizes.get());
         stage->applyUniform(_mainLightDir.get());
+        stage->applyUniform(_contactShadow.get());
         return unit;
     }
 
