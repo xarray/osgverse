@@ -14,6 +14,12 @@ SkipOsgBuild=0
 # Android related variables
 GradleLocalPropFile=$CurrentDir/android/local.properties
 GradleSettingsFile=$CurrentDir/android/settings.gradle
+AndroidBuildType="Debug"    # Debug or Release: Gradle task and build result paths used by mode 5
+AndroidAbi="arm64-v8a"      # should match ABI_FILTER in android/build.gradle
+AndroidDebugPostfix=""      # OSG appends 'd' to library names in Debug builds
+if [ "$AndroidBuildType" = "Debug" ]; then
+    AndroidDebugPostfix="d"
+fi
 
 MingwSystem=$(echo $CurrentSystem | grep "MINGW")
 WslKernel=$(echo $CurrentKernel | grep "Microsoft")
@@ -107,7 +113,7 @@ case "$BuildMode" in
         CMakeResultChecker=build/osg_wasm2/CMakeCache.txt
         ;;
     5)  echo "Android GLES 3."
-        BuildResultChecker=build/osg_android/lib/libosgViewer.a
+        BuildResultChecker=build/osg_android/${AndroidBuildType}/${AndroidAbi}/lib/libosgViewer${AndroidDebugPostfix}.a
         CMakeResultChecker=build/osg_android/CMakeCache.txt
         ;;
     q)  exit 0
@@ -544,7 +550,7 @@ elif [ "$BuildMode" = '5' ]; then
 
     # Android toolchain
     cd $CurrentDir/android
-    ./gradlew assembleDebug || exit 1
+    ./gradlew assemble${AndroidBuildType} || exit 1
 
 else
 

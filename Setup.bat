@@ -8,6 +8,10 @@ set BuildSystemMode=0
 set BuildMode=-1
 set BuildGles2=0
 
+:: Android build type (mode 5): Debug or Release, used for the Gradle task and build result paths
+set AndroidBuildType=Debug
+set AndroidAbi=arm64-v8a      # should match ABI_FILTER in android/build.gradle
+
 set QuietMode=0
 set SourceCodePatched=0
 set CurrentDir=%cd%
@@ -211,7 +215,7 @@ if "!BuildSystemMode!"=="2" (
     set HarmonyToolchain="%HARMONY_CMD%\sdk\default\openharmony\native\build\cmake\ohos.toolchain.cmake"
     set "PATH=%HARMONY_CMD%\sdk\default\openharmony\native\build-tools\cmake\bin;%PATH%"
     set ThirdPartyBuildDir=%CurrentDir%\build\3rdparty_harmony
-    set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release -DOHOS_ARCH=arm64-v8a
+    set BasicCmakeOptions=-GNinja -DCMAKE_BUILD_TYPE=Release -DOHOS_ARCH=%AndroidAbi%
 
     set HarmonyLibDir="%HARMONY_CMD%/sdk/default/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos"
     set "HarmonyLibDir=!HarmonyLibDir:\=/!"
@@ -511,13 +515,22 @@ set GradleSettingsFile=%CurrentDir%\android\settings.gradle
 
 where gradle -v >nul 2>&1
 if not %errorlevel%==0 (
-    echo Gradle failed. Please make sure it can be found in PATH variable and JDK 1.7 set in JAVA_HOME variable.
+    echo Gradle failed. Please make sure it can be found in PATH variable and JAVA_HOME points to JDK 11 or 17.
     goto exit
 )
 
 if not exist %Sdl2Root%\ (
     echo SDL2 source folder not found. Please download and unzip it in ..\SDL2.
     goto exit
+)
+
+:: Migrate the deprecated ndk.dir entry to ndk.path (read by gradle.ext.ndkPath)
+if exist "%GradleLocalPropFile%" (
+    findstr /b /c:"ndk.dir=" "%GradleLocalPropFile%" >nul 2>&1
+    if !errorlevel!==0 (
+        %SedEXE% -i.bak "s/^ndk\.dir=/ndk.path=/" "%GradleLocalPropFile%"
+        echo Replaced deprecated ndk.dir with ndk.path in local.properties...
+    )
 )
 
 if not exist %GradleLocalPropFile% (
@@ -530,7 +543,7 @@ if not exist %GradleLocalPropFile% (
             @echo off
             (
                 echo sdk.dir=!AndroidPathSDK!
-                echo ndk.dir=!AndroidPathNDK!
+                echo ndk.path=!AndroidPathNDK!
             ) > "%GradleLocalPropFile%"
         ) else (
             echo Environment variable ANDROID_NDK not set. Unable to create local.properties.
@@ -568,7 +581,7 @@ if "!QuietMode!"=="0" (
 )
 
 cd %CurrentDir%\android
-gradle assembleDebug
+gradle assemble%AndroidBuildType%
 
 :exit
 if not %errorlevel%==0 (

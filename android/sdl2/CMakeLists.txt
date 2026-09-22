@@ -6,6 +6,9 @@ SET(CMAKE_CXX_EXTENSIONS OFF)
 
 GET_FILENAME_COMPONENT(SDL2_SOURCE_DIR ../../../SDL2 ABSOLUTE)
 GET_FILENAME_COMPONENT(SDL2_BUILD_DIR ../../build/sdl2_android ABSOLUTE)
+# Debug and Release must not share one CMake build tree, otherwise they keep
+# overwriting each other's object files and every build recompiles everything
+SET(SDL2_VARIANT_DIR "${SDL2_BUILD_DIR}/build/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}")
 
 SET(SDL2_DISABLE_INSTALL ON CACHE BOOL "Disable installation of SDL2")
 SET(SDL2_DISABLE_UNINSTALL ON CACHE BOOL "Disable uninstallation of SDL2")
@@ -21,4 +24,4 @@ OPTION(ARM_HOST "Check if running on ARM host" OFF)
 IF(ARM_HOST)
     ADD_DEFINITIONS(-DSDL_DISABLE_ARM_NEON_H)  # disable NEON at present
 ENDIF(ARM_HOST)
-ADD_SUBDIRECTORY(${SDL2_SOURCE_DIR} ${SDL2_BUILD_DIR})
+ADD_SUBDIRECTORY(${SDL2_SOURCE_DIR} ${SDL2_VARIANT_DIR})
