@@ -1,8 +1,27 @@
 apply plugin: 'com.android.application'
 def ABI_FILTER = rootProject.ext.ABI_FILTER
 
+// Release signing is optional: set the following keys in local.properties (paths may be
+// absolute or relative to this module) or provide them as environment variables.
+// The keystore only has to be created once, for example:
+//   keytool -genkeypair -v -keystore osgverse-release.jks -alias osgverse \
+//           -keyalg RSA -keysize 2048 -validity 10000
+//   (then add release.storeFile/release.storePassword/release.keyAlias/release.keyPassword)
+// Without them, release builds produce an unsigned APK instead of failing.
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def releaseStoreFile = localProperties.getProperty('release.storeFile') ?: System.getenv('RELEASE_STORE_FILE')
+def releaseStorePassword = localProperties.getProperty('release.storePassword') ?: System.getenv('RELEASE_STORE_PASSWORD')
+def releaseKeyAlias = localProperties.getProperty('release.keyAlias') ?: System.getenv('RELEASE_KEY_ALIAS')
+def releaseKeyPassword = localProperties.getProperty('release.keyPassword') ?: System.getenv('RELEASE_KEY_PASSWORD')
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
 android {
     compileSdk = gradle.sdkVersion
+    if (gradle.ndkPath) ndkPath = gradle.ndkPath
     defaultConfig {
         applicationId = 'com.osgverse.demoapp'
         minSdk gradle.minSdkVersion
@@ -16,16 +35,18 @@ android {
             }
         }
     }
-    signingConfigs {
-        release {
-            storeFile file("keystore-path")
-            storePassword "keystore-pass"
-            keyAlias "alias"
-            keyPassword "alias-password"
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
 
-            // Optional, specify signing versions used
-            v1SigningEnabled true
-            v2SigningEnabled true
+                // Optional, specify signing versions used
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
         }
     }
     buildTypes {
@@ -44,13 +65,12 @@ android {
             }
             minifyEnabled = false
             proguardFiles.add(file('proguard-rules.txt'))
-            signingConfig signingConfigs.release
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     sourceSets {
-        main {
-            jniLibs.srcDirs += '../../build/sdl2_android/lib'
-        }
         debug {
             jniLibs.srcDirs += '../../build/sdl2_android/lib/Debug'
         }
@@ -61,14 +81,6 @@ android {
     externalNativeBuild {
         cmake {
             path "../main/CMakeLists.txt"
-        }
-    }
-}
-
-gradle.buildFinished {
-    fileTree(".cxx").visit { details ->
-        if (details.directory && details.file.listFiles()?.length == 0) {
-            details.file.deleteDir()
         }
     }
 }

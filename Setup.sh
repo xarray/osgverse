@@ -131,16 +131,69 @@ elif [ "$BuildMode" = '3' ] || [ "$BuildMode" = '4' ]; then
         exit 1
     fi
 elif [ "$BuildMode" = '5' ]; then
-    # Android toolchain
-    CheckJavaExe=$(command -v java)
-    if [ "$CheckJavaExe" = "" ]; then
-        echo "Java version checking failed. Please make sure JDK 1.7 is installed."
+    # Android toolchain: Gradle 8.5 with AGP 7.4.2 only accepts JDK 11 or 17,
+    # so automatically pick a usable one instead of relying on the default java
+    AndroidJavaHome=""
+    JavaFoundVersions=""
+    JavaCandidateList="$JAVA_HOME/bin/java"
+    for JavaRootDir in /usr/lib/jvm /usr/java /opt/java /opt/jdk \
+                        "$HOME/.sdkman/candidates/java" "$HOME/.jdks" \
+                        /Library/Java/JavaVirtualMachines; do
+        if [ -d "$JavaRootDir" ]; then
+            for JavaSubDir in "$JavaRootDir"/*; do
+                for JavaHomeDir in "$JavaSubDir" "$JavaSubDir/Contents/Home"; do
+                    if [ -x "$JavaHomeDir/bin/java" ]; then
+                        JavaCandidateList="$JavaCandidateList $JavaHomeDir/bin/java"
+                    fi
+                done
+            done
+        fi
+    done
+    JavaCandidateList="$JavaCandidateList $(command -v java)"
+
+    for JavaCandidate in $JavaCandidateList; do
+        if [ ! -x "$JavaCandidate" ]; then
+            continue
+        fi
+
+        JavaVersionInfo=$("$JavaCandidate" -version 2>&1 | head -n 1)
+        JavaMajorVersion=$(echo "$JavaVersionInfo" | sed -n 's/.*version "\([0-9][0-9]*\)[.\"].*/\1/p')
+        if [ "$JavaMajorVersion" = "1" ]; then
+            JavaMajorVersion=$(echo "$JavaVersionInfo" | sed -n 's/.*version "1\.\([0-9][0-9]*\).*/\1/p')
+        fi
+        JavaFoundVersions="$JavaFoundVersions $JavaMajorVersion"
+
+        if [ "$JavaMajorVersion" = "17" ]; then
+            AndroidJavaHome=$(cd "$(dirname "$JavaCandidate")/.." && pwd)
+            break
+        elif [ "$JavaMajorVersion" = "11" ] && [ "$AndroidJavaHome" = "" ]; then
+            # JDK 11 works as well, but keep looking for a preferred JDK 17
+            AndroidJavaHome=$(cd "$(dirname "$JavaCandidate")/.." && pwd)
+        fi
+    done
+
+    if [ "$AndroidJavaHome" = "" ]; then
+        echo "No usable JDK found for the Android build. Gradle 8.5 with AGP 7.4.2"
+        echo "requires JDK 11 or 17, but only found these versions: $JavaFoundVersions"
+        echo "Please install JDK 17 and try again."
         exit 1
     fi
+
+    JAVA_HOME=$AndroidJavaHome
+    export JAVA_HOME
+    PATH="$JAVA_HOME/bin:$PATH"
+    export PATH
+    echo "Android toolchain will use JDK: $JAVA_HOME"
 
     if [ ! -d "../SDL2" ]; then
         echo "SDL2 source folder not found. Please download and unzip it in ../SDL2."
         exit 1
+    fi
+
+    # Migrate the deprecated ndk.dir entry to ndk.path (read by gradle.ext.ndkPath)
+    if [ -f "$GradleLocalPropFile" ] && grep -q '^ndk\.dir=' "$GradleLocalPropFile"; then
+        sed -i 's/^ndk\.dir=/ndk.path=/' "$GradleLocalPropFile"
+        echo "Replaced deprecated ndk.dir with ndk.path in local.properties..."
     fi
 
     if [ ! -f "$GradleLocalPropFile" ]; then
@@ -156,7 +209,7 @@ elif [ "$BuildMode" = '5' ]; then
 
         cat > $GradleLocalPropFile <<EOF
 sdk.dir=$ANDROID_SDK
-ndk.dir=$ANDROID_NDK
+ndk.path=$ANDROID_NDK
 EOF
 
         if [ "$QuietMode" = 0 ]; then

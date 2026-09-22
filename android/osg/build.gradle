@@ -5,6 +5,7 @@ def GLES_PROFILE = rootProject.ext.GLES_PROFILE
 android {
     namespace "org.osg"
     compileSdk = gradle.sdkVersion
+    if (gradle.ndkPath) ndkPath = gradle.ndkPath
     buildFeatures {
         buildConfig true
     }
@@ -48,14 +49,6 @@ android {
     externalNativeBuild {
         cmake {
             path "./CMakeLists.txt"
-        }
-    }
-}
-
-gradle.buildFinished {
-    fileTree(".cxx").visit { details ->
-        if (details.directory && details.file.listFiles()?.length == 0) {
-            details.file.deleteDir()
         }
     }
 }

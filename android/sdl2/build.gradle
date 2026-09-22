@@ -5,6 +5,7 @@ def ARM_HOST = System.getProperty("os.arch") in ["aarch64", "armv7l", "arm64"]
 android {
     namespace "org.libsdl"
     compileSdk = gradle.sdkVersion
+    if (gradle.ndkPath) ndkPath = gradle.ndkPath
     buildFeatures {
         buildConfig true
     }
@@ -50,14 +51,6 @@ android {
     externalNativeBuild {
         cmake {
             path "./CMakeLists.txt"
-        }
-    }
-}
-
-gradle.buildFinished {
-    fileTree(".cxx").visit { details ->
-        if (details.directory && details.file.listFiles()?.length == 0) {
-            details.file.deleteDir()
         }
     }
 }

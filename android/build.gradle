@@ -13,19 +13,31 @@ allprojects {
         google()
         mavenCentral()
     }
-    afterEvaluate { project ->
-        tasks.matching { it.name.contains("assemble") }.configureEach { task ->
-            notCompatibleWithConfigurationCache("Task uses custom logic")
-            outputs.upToDateWhen { 
-                !project.hasProperty("forceRebuild") 
+
+    // Values are read outside of the task actions, otherwise the configuration cache
+    // cannot serialize them (the closures would capture the Project instance)
+    def forceRebuild = project.hasProperty("forceRebuild")
+    def cxxDirectory = new File(projectDir, ".cxx")
+    tasks.matching { it.name.contains("assemble") }.configureEach { task ->
+        task.outputs.upToDateWhen { !forceRebuild }
+
+        // Remove empty folders left by externalNativeBuild (previously done in
+        // gradle.buildFinished, which is incompatible with the configuration cache)
+        task.doLast {
+            if (cxxDirectory.directory) {
+                def emptyDirectories = []
+                cxxDirectory.eachDirRecurse { dir ->
+                    if (dir.listFiles()?.length == 0) emptyDirectories << dir
+                }
+                emptyDirectories.reverseEach { dir -> dir.delete() }
             }
         }
-        
-        tasks.matching { 
-            it.name in ["mergeDebugNativeLibs", "stripDebugDebugSymbols", "packageDebug"] 
-        }.configureEach { task ->
-            task.outputs.cacheIf { true }
-        }
+    }
+
+    tasks.matching {
+        it.name in ["mergeDebugNativeLibs", "stripDebugDebugSymbols", "packageDebug"]
+    }.configureEach { task ->
+        task.outputs.cacheIf { true }
     }
 }
 

@@ -3,6 +3,17 @@ gradle.ext.sdkVersion = 33
 gradle.ext.minSdkVersion = 21
 gradle.ext.targetSdkVersion = 33
 gradle.ext.libDistributionRoot = '../build'
+
+// Locate the NDK without the deprecated ndk.dir property: modules use gradle.ext.ndkPath
+def ndkPathFromProperties = null
+def localPropertiesFileForNdk = file('local.properties')
+if (localPropertiesFileForNdk.exists()) {
+    def localPropertiesForNdk = new Properties()
+    localPropertiesFileForNdk.withInputStream { localPropertiesForNdk.load(it) }
+    ndkPathFromProperties = localPropertiesForNdk.getProperty('ndk.path')
+}
+gradle.ext.ndkPath = ndkPathFromProperties ?: System.getenv('ANDROID_NDK')
+
 include ':thirdparty'
 include ':sdl2'
 include ':osg'
