@@ -111,7 +111,31 @@ android {
 }
 
 preBuild.dependsOn ":sdl2:build", ":osgverse:build"
-//preBuild.dependsOn ":sdl2:build"
+
+// The libraries of osgVerse are linked into the bridge library with "-l" flags, so the native
+// build system does not know them as dependencies: it considers the bridge library up to date
+// after they have changed and the APK would silently keep an old version of osgVerse. The
+// bridge library is therefore removed before the native build, which forces the link step to
+// run with the current libraries. The libraries have to be complete at that moment too, or the
+// linker could read half written files, so the native build waits for the module building them
+def BridgeLibraryDirs = [file("$buildDir/intermediates/cmake"), file("$buildDir/intermediates/cxx")]
+tasks.matching { it.name.startsWith('buildCMake') && it.name.contains('[') }
+        .configureEach { nativeBuildTask ->
+    // The build task of one ABI, which is the one invoking the build system of the bridge
+    // library (the tasks without an ABI in their name only group those)
+    def abiName = nativeBuildTask.name.substring(nativeBuildTask.name.indexOf('[') + 1,
+                                                nativeBuildTask.name.length() - 1)
+    nativeBuildTask.dependsOn ':osgverse:build'
+    nativeBuildTask.doFirst {
+        BridgeLibraryDirs.each { dir ->
+            if (!dir.exists()) return
+            dir.eachFileRecurse { file ->
+                if (file.name == 'libosgVerseAndroid.so' && file.parentFile.name == abiName)
+                    file.delete()
+            }
+        }
+    }
+}
 
 // The assets have to be staged before they are merged into the APK
 tasks.matching { it.name.startsWith('merge') && it.name.endsWith('Assets') }.configureEach {
